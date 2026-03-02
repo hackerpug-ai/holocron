@@ -1,0 +1,105 @@
+US-018: Add typing indicator and timestamp display to message bubbles
+============================================================================
+
+STATUS: ALREADY COMPLETE - NO CODE CHANGES REQUIRED
+
+All features specified in the task were found to be already implemented:
+
+KEY COMPONENTS:
+---------------
+
+1. TypingIndicator Component (components/chat/TypingIndicator.tsx)
+   - Animated pulsing dots using React Native Animated API
+   - Three dots with staggered animation delays (0ms, 150ms, 300ms)
+   - Opacity interpolation (0.3 to 1.0) for smooth pulsing effect
+   - Uses NativeWind className for styling
+   - testID support: typing-indicator, typing-dot-1/2/3
+
+2. TypingIndicator Stories (components/chat/TypingIndicator.stories.tsx)
+   - Default story: standalone typing indicator
+   - InChatContext story: typing indicator shown after user message
+
+3. MessageBubble Timestamps (components/chat/MessageBubble.tsx)
+   - formatTimestamp() function:
+     * < 1 min: "just now"
+     * < 60 min: "X min ago"
+     * Same day: "h:mm a"
+     * Yesterday: "Yesterday, h:mm a"
+     * Older: "MMM d, h:mm a"
+   - Uses date-fns library (format, isToday, isYesterday)
+   - showTimestamp prop (default: true)
+   - testID: message-bubble-timestamp
+
+4. Realtime Subscription (hooks/use-chat-realtime.ts)
+   - Subscribes to postgres_changes (INSERT events)
+   - Filters by conversation_id
+   - Transforms database rows to ChatMessage format
+   - Cleanup via useEffect return function
+   - Removes channel on conversation change/unmount
+
+5. Integration in use-chat-history (hooks/use-chat-history.ts)
+   - Calls useChatRealtime hook
+   - handleRealtimeMessage with deduplication:
+     * Checks if message.id already exists
+     * Prepends new message to front (newest first)
+   - Prevents duplicate messages from API + Realtime
+
+6. Integration in ChatThread (components/chat/ChatThread.tsx)
+   - showTypingIndicator prop
+   - renderTypingIndicator() function
+   - ListHeaderComponent renders typing indicator (inverted FlatList)
+   - Auto-scrolls when typing indicator appears
+
+7. Integration in Chat Screen (app/(drawer)/chat/[conversationId].tsx)
+   - Gets isSending from useSendMessage hook
+   - Passes isSending to ChatThread as showTypingIndicator
+   - Typing indicator appears when user sends message
+   - Disappears when agent response arrives
+
+ACCEPTANCE CRITERIA: ALL PASSING
+---------------------------------
+✅ AC-1: Message "just now" shows "just now" timestamp
+✅ AC-2: Message 5 min ago shows "5 min ago" timestamp
+✅ AC-3: Old message shows "MMM d, h:mm a" format
+✅ AC-4: Typing indicator shows below user message
+✅ AC-5: Typing indicator disappears when agent responds
+✅ AC-6: Realtime messages appear without refresh
+✅ AC-7: Realtime subscription cleanup on conversation change
+✅ AC-8: TypeScript compilation passes (pnpm tsc --noEmit)
+
+VERIFICATION GATES: ALL PASSING
+-------------------------------
+✅ TypeScript: No type errors
+✅ Theme Tokens: No hardcoded colors/spacing/typography
+✅ testID Coverage: All interactive elements have testIDs
+✅ Storybook Stories: Co-located with component
+✅ Realtime Cleanup: useEffect return function
+✅ Deduplication: Message ID checking in handleRealtimeMessage
+
+FILES CREATED (Already Existing):
+---------------------------------
+- components/chat/TypingIndicator.tsx
+- components/chat/TypingIndicator.stories.tsx
+- hooks/use-chat-realtime.ts
+
+FILES MODIFIED (Already Modified):
+----------------------------------
+- components/chat/MessageBubble.tsx
+- hooks/use-chat-history.ts
+- components/chat/ChatThread.tsx
+- app/(drawer)/chat/[conversationId].tsx
+- components/chat/index.ts
+
+DEPENDENCIES USED:
+-----------------
+- date-fns: Timestamp formatting (format, isToday, isYesterday)
+- react-native: Animated API for pulsing dots
+- @supabase/supabase-js: Realtime subscription
+
+CONCLUSION:
+----------
+This task was already completed by a previous implementation effort.
+No code changes were necessary. All acceptance criteria are satisfied
+and the implementation follows React Native best practices.
+
+Evidence bundle created in .tmp/US-018/ for review verification.
