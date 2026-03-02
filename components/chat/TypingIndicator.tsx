@@ -45,7 +45,7 @@ function AnimatedDot({ delay, testID }: AnimatedDotProps) {
         false
       )
     )
-  }, [delay, opacity])
+  }, [delay])
 
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
