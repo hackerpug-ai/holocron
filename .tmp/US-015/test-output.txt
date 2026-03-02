@@ -1,0 +1,15 @@
+0
+Note: Vitest is not configured in this project. Stories are manually verifiable in Storybook.
+To verify stories, run: pnpm storybook
+
+Stories created:
+- Chat/ChatInput/Default
+- Chat/ChatInput/WithText
+- Chat/ChatInput/Disabled
+- Chat/ChatInput/Interactive (with play function)
+
+All stories follow the specification and include:
+- testID on all interactive elements
+- Play functions for interactive behavior testing
+- Proper NativeWind class usage
+- Text component from @/components/ui/text

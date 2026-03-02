@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { useConversations } from '@/hooks/useConversations'
 import { useChatHistory } from '@/hooks/use-chat-history'
 import { useSendMessage } from '@/hooks/use-send-message'
@@ -42,23 +42,15 @@ export default function ChatScreen() {
     prependMessages
   )
 
-  // Local state for input
-  const [inputValue, setInputValue] = useState('')
-
   // Handle send
-  const handleSend = async () => {
-    if (!inputValue.trim() || !conversationId) return
-
-    const messageToSend = inputValue.trim()
-
-    // AC-5: Clear input immediately (optimistic UX)
-    setInputValue('')
+  const handleSend = async (content: string) => {
+    if (!content.trim() || !conversationId) return
 
     // Dismiss keyboard
     Keyboard.dismiss()
 
     // Send message
-    await sendMessage(messageToSend)
+    await sendMessage(content)
   }
 
   // Set the active conversation when the route loads
@@ -141,8 +133,6 @@ export default function ChatScreen() {
         testID="chat-thread"
       />
       <ChatInput
-        value={inputValue}
-        onChangeText={setInputValue}
         onSend={handleSend}
         disabled={isSending}
         testID="chat-input"

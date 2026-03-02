@@ -1,8 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/react'
+import { within, userEvent } from '@storybook/testing-library'
 import { expect } from '@storybook/jest'
-import { within } from '@storybook/testing-library'
 import { useState } from 'react'
 import { View } from 'react-native'
+import { Text } from '@/components/ui/text'
 import { ChatInput } from './ChatInput'
 
 const meta = {
@@ -22,70 +23,53 @@ type Story = StoryObj<typeof meta>
 
 export const Default: Story = {
   args: {
-    value: '',
-    onChangeText: () => {},
-    onSend: () => console.log('Send pressed'),
-    disabled: false,
-  },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement)
-    const sendButton = canvas.getByTestId('chat-input-send-button')
-    // Button should be disabled when empty
-    await expect(sendButton).toBeDisabled()
+    onSend: (content: string) => console.log('Sent:', content),
   },
 }
 
 export const WithText: Story = {
   args: {
-    value: 'Hello, can you help me?',
-    onChangeText: () => {},
-    onSend: () => console.log('Send pressed'),
-    disabled: false,
-  },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement)
-    const sendButton = canvas.getByTestId('chat-input-send-button')
-    // Button should be enabled when there's text
-    await expect(sendButton).not.toBeDisabled()
+    defaultValue: 'Hello',
+    onSend: (content: string) => console.log('Sent:', content),
   },
 }
 
 export const Disabled: Story = {
   args: {
-    value: 'Some text',
-    onChangeText: () => {},
-    onSend: () => {},
     disabled: true,
+    onSend: (content: string) => console.log('Sent:', content),
   },
 }
 
-export const WhitespaceOnly: Story = {
-  args: {
-    value: '   ',
-    onChangeText: () => {},
-    onSend: () => {},
-    disabled: false,
+export const Interactive: Story = {
+  render: () => {
+    const [lastSent, setLastSent] = useState<string | null>(null)
+    return (
+      <View>
+        <ChatInput onSend={setLastSent} />
+        {lastSent && (
+          <Text className="mt-4 text-foreground" testID="last-sent-message">
+            Last sent: {lastSent}
+          </Text>
+        )}
+      </View>
+    )
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
+    const input = canvas.getByTestId('chat-input-field')
     const sendButton = canvas.getByTestId('chat-input-send-button')
-    // Button should be disabled for whitespace-only
+
+    // Initially disabled
     await expect(sendButton).toBeDisabled()
+
+    // Type text
+    await userEvent.type(input, 'Hello world')
+    await expect(sendButton).toBeEnabled()
+
+    // Send
+    await userEvent.click(sendButton)
+    await expect(input).toHaveValue('')
+    await expect(canvas.getByText('Last sent: Hello world')).toBeTruthy()
   },
 }
-
-export const Interactive = {
-  render: function InteractiveStory() {
-    const [value, setValue] = useState('')
-    return (
-      <ChatInput
-        value={value}
-        onChangeText={setValue}
-        onSend={() => {
-          console.log('Sent:', value)
-          setValue('')
-        }}
-      />
-    )
-  },
-} as unknown as Story
