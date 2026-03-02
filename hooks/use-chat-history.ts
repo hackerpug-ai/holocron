@@ -123,8 +123,8 @@ export function useChatHistory(
         if (isInitialLoad) {
           setMessages(transformedMessages)
         } else {
-          // Append older messages
-          setMessages((prev) => [...prev, ...transformedMessages])
+          // Append older messages (need to reverse since API returns newest-first)
+          setMessages((prev) => [...prev, ...transformedMessages.reverse()])
         }
 
         setHasMore(data.has_more)
