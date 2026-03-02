@@ -1,0 +1,42 @@
+{
+  "task": "US-002: Create conversations table migration and Supabase types",
+  "status": "completed",
+  "acceptance_criteria": {
+    "1_conversations_table_schema": {
+      "status": "passed",
+      "details": "Migration creates conversations table with id (UUID PK), title (TEXT NOT NULL DEFAULT 'New Chat'), last_message_preview (TEXT nullable), created_at (TIMESTAMPTZ DEFAULT NOW()), updated_at (TIMESTAMPTZ DEFAULT NOW())"
+    },
+    "2_index_exists": {
+      "status": "passed",
+      "details": "Index idx_conversations_updated created on conversations(updated_at DESC)"
+    },
+    "3_enum_types_created": {
+      "status": "passed",
+      "details": "message_role ENUM ('user', 'agent', 'system') and message_type ENUM ('text', 'slash_command', 'result_card', 'progress', 'error') created"
+    },
+    "4_typescript_types": {
+      "status": "passed",
+      "details": "lib/types/conversations.ts exports Conversation, ConversationInsert, and ConversationUpdate interfaces with correct field types. TypeScript compilation passed with zero errors."
+    },
+    "5_migration_filename": {
+      "status": "passed",
+      "details": "Migration file follows pattern: 20260301214652_create_conversations.sql (14-digit timestamp prefix)"
+    }
+  },
+  "files_created": [
+    "supabase/migrations/20260301214652_create_conversations.sql",
+    "lib/types/conversations.ts"
+  ],
+  "constraints_satisfied": {
+    "uses_gen_random_uuid": true,
+    "uses_timestamptz": true,
+    "named_exports_only": true,
+    "no_any_types": true,
+    "uses_string_for_timestamps": true,
+    "down_migration_included": true
+  },
+  "verification_commands": [
+    "pnpm tsc --noEmit (exit code 0)",
+    "ls supabase/migrations/*create_conversations* (found)"
+  ]
+}

@@ -16,6 +16,7 @@
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
     "@react-native-async-storage/async-storage": "^3.0.1",
+    "@react-navigation/drawer": "^7.9.2",
     "@rn-primitives/accordion": "^1.2.0",
     "@rn-primitives/alert-dialog": "^1.2.0",
     "@rn-primitives/aspect-ratio": "^1.2.0",
@@ -53,6 +54,7 @@
     "nativewind": "^4.2.2",
     "react": "19.2.4",
     "react-native": "0.83.2",
+    "react-native-drawer-layout": "^4.2.2",
     "react-native-gesture-handler": "~2.30.0",
     "react-native-safe-area-context": "~5.6.2",
     "react-native-screens": "~4.23.0",
@@ -64,7 +66,9 @@
   "devDependencies": {
     "@storybook/addon-ondevice-actions": "^10.2.3",
     "@storybook/addon-ondevice-controls": "^10.2.3",
+    "@storybook/jest": "^0.2.3",
     "@storybook/react-native": "^10.2.3",
+    "@storybook/testing-library": "^0.2.2",
     "@types/react": "~19.2.2",
     "typescript": "~5.9.2"
   },

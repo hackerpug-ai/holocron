@@ -1,0 +1,2 @@
+Lint check not applicable - ESLint configuration not found in project.
+This is a pre-existing condition unrelated to the DrawerContent implementation.

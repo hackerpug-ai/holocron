@@ -1,0 +1,70 @@
+{
+  "version": "5",
+  "redirects": {
+    "https://esm.sh/@supabase/supabase-js@2": "https://esm.sh/@supabase/supabase-js@2.98.0"
+  },
+  "remote": {
+    "https://esm.sh/@supabase/supabase-js@2.98.0": "7c91584aa8d7c3b272be04122a907e00a7028a20d0eaf5e40b2eb1eed10f06b3"
+  },
+  "workspace": {
+    "packageJson": {
+      "dependencies": [
+        "npm:@expo/vector-icons@^15.0.2",
+        "npm:@react-native-async-storage/async-storage@^3.0.1",
+        "npm:@react-navigation/drawer@^7.9.2",
+        "npm:@rn-primitives/accordion@^1.2.0",
+        "npm:@rn-primitives/alert-dialog@^1.2.0",
+        "npm:@rn-primitives/aspect-ratio@^1.2.0",
+        "npm:@rn-primitives/avatar@^1.2.0",
+        "npm:@rn-primitives/checkbox@^1.2.0",
+        "npm:@rn-primitives/collapsible@^1.2.0",
+        "npm:@rn-primitives/context-menu@^1.2.0",
+        "npm:@rn-primitives/dialog@^1.2.0",
+        "npm:@rn-primitives/dropdown-menu@^1.2.0",
+        "npm:@rn-primitives/hover-card@^1.2.0",
+        "npm:@rn-primitives/label@^1.2.0",
+        "npm:@rn-primitives/menubar@^1.2.0",
+        "npm:@rn-primitives/popover@^1.2.0",
+        "npm:@rn-primitives/portal@^1.3.0",
+        "npm:@rn-primitives/progress@^1.2.0",
+        "npm:@rn-primitives/radio-group@^1.2.0",
+        "npm:@rn-primitives/select@^1.2.0",
+        "npm:@rn-primitives/separator@^1.2.0",
+        "npm:@rn-primitives/slot@^1.2.0",
+        "npm:@rn-primitives/switch@^1.2.0",
+        "npm:@rn-primitives/tabs@^1.2.0",
+        "npm:@rn-primitives/toggle-group@^1.2.0",
+        "npm:@rn-primitives/toggle@^1.2.0",
+        "npm:@rn-primitives/tooltip@^1.2.0",
+        "npm:@storybook/addon-ondevice-actions@^10.2.3",
+        "npm:@storybook/addon-ondevice-controls@^10.2.3",
+        "npm:@storybook/jest@~0.2.3",
+        "npm:@storybook/react-native@^10.2.3",
+        "npm:@storybook/testing-library@~0.2.2",
+        "npm:@supabase/supabase-js@^2.98.0",
+        "npm:@types/react@~19.2.2",
+        "npm:class-variance-authority@~0.7.1",
+        "npm:clsx@^2.1.1",
+        "npm:expo-constants@~55.0.7",
+        "npm:expo-linking@~55.0.7",
+        "npm:expo-router@~55.0.3",
+        "npm:expo-sqlite@~55.0.10",
+        "npm:expo-status-bar@~55.0.4",
+        "npm:expo@~55.0.4",
+        "npm:lucide-react-native@0.575",
+        "npm:nativewind@^4.2.2",
+        "npm:react-native-drawer-layout@^4.2.2",
+        "npm:react-native-gesture-handler@2.30",
+        "npm:react-native-safe-area-context@~5.6.2",
+        "npm:react-native-screens@4.23",
+        "npm:react-native-svg@^15.15.3",
+        "npm:react-native-vector-icons@^10.3.0",
+        "npm:react-native@0.83.2",
+        "npm:react@19.2.4",
+        "npm:tailwind-merge@^3.5.0",
+        "npm:tailwindcss@3",
+        "npm:typescript@~5.9.2"
+      ]
+    }
+  }
+}

@@ -3,7 +3,7 @@ import { DrawerHeader, type NavSection } from '@/components/DrawerHeader'
 import { Text } from '@/components/ui/text'
 import { cn } from '@/lib/utils'
 import { BookOpen, MessageSquare, Settings } from 'lucide-react-native'
-import { FlatList, View, type ViewProps } from 'react-native'
+import { FlatList, Pressable, View, type ViewProps } from 'react-native'
 
 export interface Conversation {
   id: string
@@ -33,6 +33,12 @@ interface DrawerContentProps extends Omit<ViewProps, 'children'> {
   onConversationPress?: (conversation: Conversation) => void
   /** Callback when a conversation is long-pressed */
   onConversationLongPress?: (conversation: Conversation) => void
+  /** Loading state for conversation fetch */
+  isLoading?: boolean
+  /** Error state for conversation fetch */
+  error?: Error | null
+  /** Callback to retry fetching conversations */
+  onRetry?: () => void
 }
 
 /**
@@ -51,6 +57,9 @@ export function DrawerContent({
   onNewChatPress,
   onConversationPress,
   onConversationLongPress,
+  isLoading = false,
+  error = null,
+  onRetry,
   className,
   ...props
 }: DrawerContentProps) {
@@ -70,6 +79,38 @@ export function DrawerContent({
       onLongPress={() => onConversationLongPress?.(item)}
     />
   )
+
+  const renderListEmptyComponent = () => {
+    if (isLoading) {
+      return (
+        <View className="items-center py-8" testID="drawer-content-loading">
+          <Text className="text-muted-foreground text-sm">Loading conversations...</Text>
+        </View>
+      )
+    }
+
+    if (error) {
+      return (
+        <Pressable
+          onPress={onRetry}
+          className="items-center py-8 active:bg-muted"
+          testID="drawer-content-error"
+        >
+          <Text className="text-destructive text-sm">Failed to load conversations</Text>
+          <Text className="text-muted-foreground mt-1 text-xs">Tap to retry</Text>
+        </Pressable>
+      )
+    }
+
+    return (
+      <View className="items-center py-8" testID="drawer-content-empty">
+        <Text className="text-muted-foreground text-sm">No conversations yet</Text>
+        <Text className="text-muted-foreground mt-1 text-xs">
+          Tap the compose icon to start
+        </Text>
+      </View>
+    )
+  }
 
   return (
     <View
@@ -98,14 +139,7 @@ export function DrawerContent({
           renderItem={renderConversation}
           keyExtractor={(item) => item.id}
           contentContainerStyle={{ gap: 2 }}
-          ListEmptyComponent={
-            <View className="items-center py-8">
-              <Text className="text-muted-foreground text-sm">No conversations yet</Text>
-              <Text className="text-muted-foreground mt-1 text-xs">
-                Tap the compose icon to start
-              </Text>
-            </View>
-          }
+          ListEmptyComponent={renderListEmptyComponent}
         />
       </View>
     </View>
