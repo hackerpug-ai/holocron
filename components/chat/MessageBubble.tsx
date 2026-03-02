@@ -56,7 +56,7 @@ export function MessageBubble({
           'rounded-lg p-3',
           isUser && 'bg-primary max-w-[75%]',
           isSystem && 'bg-muted max-w-[80%]',
-          !isUser && !isSystem && 'bg-card max-w-[75%]'
+          !isUser && !isSystem && 'bg-muted max-w-[75%]'
         )}
       >
         <Text
