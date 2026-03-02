@@ -1,4 +1,5 @@
-import { supabaseAdmin } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
+import type { Conversation } from '@/lib/types/conversations'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -21,19 +22,16 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
  * );
  */
 
-export interface Conversation {
-  id: string
-  title: string
-  lastMessage?: string
-  lastMessageAt?: Date
-  createdAt: Date
-  updatedAt: Date
-}
+// Re-export Conversation type for consumers
+export type { Conversation }
 
 export interface UseConversationsReturn {
   conversations: Conversation[]
   activeConversationId: string | null
   isLoading: boolean
+  isCreating: boolean
+  isRenaming: boolean
+  isDeleting: boolean
   error: Error | null
   createConversation: () => Promise<string>
   switchConversation: (id: string) => void
@@ -59,7 +57,7 @@ const conversationsKeys = {
 
 // Fetcher function for React Query
 async function fetchConversations(): Promise<Conversation[]> {
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await supabase
     .from('conversations')
     .select(`
       id,
@@ -122,7 +120,7 @@ export function useConversations(): UseConversationsReturn {
   // Mutation for creating a conversation
   const createMutation = useMutation({
     mutationFn: async (): Promise<string> => {
-      const { data, error } = await supabaseAdmin
+      const { data, error } = await supabase
         .from('conversations')
         .insert({ title: 'New Chat' })
         .select()
@@ -139,8 +137,47 @@ export function useConversations(): UseConversationsReturn {
       const newConversation = data as { id: string; title: string; created_at: string; updated_at: string }
       return newConversation.id
     },
-    onSuccess: () => {
-      // Invalidate and refetch conversations list
+    onMutate: async () => {
+      // Cancel ongoing queries
+      await queryClient.cancelQueries({ queryKey: conversationsKeys.lists() })
+
+      // Snapshot previous value
+      const previousConversations = queryClient.getQueryData<Conversation[]>(
+        conversationsKeys.list()
+      )
+
+      // Create a temporary optimistic conversation with a placeholder ID
+      const optimisticConversation: Conversation = {
+        id: `temp-${Date.now()}`,
+        title: 'New Chat',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }
+
+      // Optimistically add the new conversation at the top
+      queryClient.setQueryData<Conversation[]>(conversationsKeys.list(), (old = []) => [
+        optimisticConversation,
+        ...old,
+      ])
+
+      return { previousConversations, optimisticId: optimisticConversation.id }
+    },
+    onError: (_err, _vars, context) => {
+      // Rollback to previous value on error
+      if (context?.previousConversations) {
+        queryClient.setQueryData(conversationsKeys.list(), context.previousConversations)
+      }
+    },
+    onSuccess: (newId, _vars, context) => {
+      // Replace the optimistic conversation with the real one
+      if (context?.optimisticId) {
+        queryClient.setQueryData<Conversation[]>(conversationsKeys.list(), (old = []) =>
+          old.map((c) =>
+            c.id === context.optimisticId ? { ...c, id: newId } : c
+          )
+        )
+      }
+      // Invalidate to ensure we have the correct server state
       queryClient.invalidateQueries({ queryKey: conversationsKeys.lists() })
     },
   })
@@ -153,7 +190,7 @@ export function useConversations(): UseConversationsReturn {
         throw new Error('Title cannot be empty')
       }
 
-      const { error } = await supabaseAdmin
+      const { error } = await supabase
         .from('conversations')
         .update({ title: trimmed, updated_at: new Date().toISOString() })
         .eq('id', id)
@@ -162,7 +199,34 @@ export function useConversations(): UseConversationsReturn {
         throw new Error(`Failed to rename conversation: ${error.message}`)
       }
     },
+    onMutate: async ({ id, newTitle }) => {
+      const trimmed = newTitle.trim()
+
+      // Cancel ongoing queries
+      await queryClient.cancelQueries({ queryKey: conversationsKeys.lists() })
+
+      // Snapshot previous value
+      const previousConversations = queryClient.getQueryData<Conversation[]>(
+        conversationsKeys.list()
+      )
+
+      // Optimistically update the conversation title
+      queryClient.setQueryData<Conversation[]>(conversationsKeys.list(), (old = []) =>
+        old.map((c) =>
+          c.id === id ? { ...c, title: trimmed, updatedAt: new Date() } : c
+        )
+      )
+
+      return { previousConversations }
+    },
+    onError: (_err, _vars, context) => {
+      // Rollback to previous value on error
+      if (context?.previousConversations) {
+        queryClient.setQueryData(conversationsKeys.list(), context.previousConversations)
+      }
+    },
     onSuccess: () => {
+      // Invalidate to ensure we have the correct server state
       queryClient.invalidateQueries({ queryKey: conversationsKeys.lists() })
     },
   })
@@ -170,7 +234,7 @@ export function useConversations(): UseConversationsReturn {
   // Mutation for deleting a conversation
   const deleteMutation = useMutation({
     mutationFn: async (id: string): Promise<void> => {
-      const { error } = await supabaseAdmin.from('conversations').delete().eq('id', id)
+      const { error } = await supabase.from('conversations').delete().eq('id', id)
 
       if (error) {
         throw new Error(`Failed to delete conversation: ${error.message}`)
@@ -246,6 +310,9 @@ export function useConversations(): UseConversationsReturn {
     conversations,
     activeConversationId,
     isLoading,
+    isCreating: createMutation.isPending,
+    isRenaming: renameMutation.isPending,
+    isDeleting: deleteMutation.isPending,
     error: error ?? null,
     createConversation,
     switchConversation,
