@@ -2,17 +2,21 @@
 
 | Group | Prefix | Description |
 |-------|--------|-------------|
-| Knowledge Base | KB | Browse, search, and read holocron articles |
-| Research | RS | Initiate and monitor basic research requests |
-| Deep Research | DR | Multi-iteration deep research with progress tracking |
-| Article Management | AM | Create, edit, and organize research artifacts |
+| Navigation | NV | Drawer menu, conversation list, articles link, new chat creation |
+| Chat Interface | CI | Core chat UX: message thread, input bar, slash command system, card rendering |
+| Knowledge Base | KB | Search and browse holocron articles via chat commands, result cards, and articles view |
+| Research | RS | Basic research via `/research` slash command with progress streaming |
+| Deep Research | DR | Multi-iteration deep research via `/deep-research` with iteration tracking |
+| Article Management | AM | View, edit, delete, and recategorize articles from card actions |
 
 ## Use Case Summary
 
 | Group | Count |
 |-------|-------|
-| Knowledge Base (KB) | 4 |
+| Navigation (NV) | 6 |
+| Chat Interface (CI) | 4 |
+| Knowledge Base (KB) | 5 |
 | Research (RS) | 4 |
 | Deep Research (DR) | 4 |
 | Article Management (AM) | 4 |
-| **Total** | **16** |
+| **Total** | **27** |

@@ -25,14 +25,14 @@ tools:
 prd_path: ".spec/prd/"
 
 # Process state
-phase: atoms
+phase: integrate
 gates:
   discover: passed
   target: passed
   equip: passed
   scaffold: passed
   atoms: passed
-  compose: pending
+  compose: passed
   integrate: pending
 
 # Phase 5: ATOMS
@@ -77,3 +77,88 @@ atoms:
     story: components/EmptyState.stories.tsx
     status: verified
     controls: true
+  # Chat Interface atoms
+  - name: ChatBubble
+    file: components/ChatBubble.tsx
+    story: components/ChatBubble.stories.tsx
+    status: verified
+    controls: true
+  - name: ChatInput
+    file: components/ChatInput.tsx
+    story: components/ChatInput.stories.tsx
+    status: verified
+    controls: true
+  - name: TypingIndicator
+    file: components/TypingIndicator.tsx
+    story: components/TypingIndicator.stories.tsx
+    status: verified
+    controls: true
+  - name: SlashCommandMenu
+    file: components/SlashCommandMenu.tsx
+    story: components/SlashCommandMenu.stories.tsx
+    status: verified
+    controls: true
+  - name: CommandBadge
+    file: components/CommandBadge.tsx
+    story: components/CommandBadge.stories.tsx
+    status: verified
+    controls: true
+  - name: ResultCard
+    file: components/ResultCard.tsx
+    story: components/ResultCard.stories.tsx
+    status: verified
+    controls: true
+  - name: ResearchProgress
+    file: components/ResearchProgress.tsx
+    story: components/ResearchProgress.stories.tsx
+    status: verified
+    controls: true
+  # Navigation atoms
+  - name: ConversationRow
+    file: components/ConversationRow.tsx
+    story: components/ConversationRow.stories.tsx
+    status: verified
+    controls: true
+  - name: DrawerHeader
+    file: components/DrawerHeader.tsx
+    story: components/DrawerHeader.stories.tsx
+    status: verified
+    controls: true
+
+# Phase 6: COMPOSE
+screens:
+  - name: HomeScreen
+    file: screens/HomeScreen.tsx
+    story: screens/HomeScreen.stories.tsx
+    status: verified
+    atoms: [StatCard, ArticleCard, SectionHeader, EmptyState]
+  - name: ExploreScreen
+    file: screens/ExploreScreen.tsx
+    story: screens/ExploreScreen.stories.tsx
+    status: verified
+    atoms: [SearchInput, CategoryBadge, ArticleCard, SectionHeader, EmptyState]
+  - name: ArticleScreen
+    file: screens/ArticleScreen.tsx
+    story: screens/ArticleScreen.stories.tsx
+    status: verified
+    atoms: [CategoryBadge, SectionHeader]
+  - name: ResearchScreen
+    file: screens/ResearchScreen.tsx
+    story: screens/ResearchScreen.stories.tsx
+    status: verified
+    atoms: [SearchInput, ProgressIndicator, CategoryBadge, SectionHeader, EmptyState]
+  - name: ResearchResultScreen
+    file: screens/ResearchResultScreen.tsx
+    story: screens/ResearchResultScreen.stories.tsx
+    status: verified
+    atoms: [ArticleCard, SectionHeader, IterationCard, CategoryBadge]
+  - name: ChatScreen
+    file: screens/ChatScreen.tsx
+    story: screens/ChatScreen.stories.tsx
+    status: verified
+    atoms: [ChatBubble, ChatInput, TypingIndicator, SlashCommandMenu, CommandBadge, ResultCard, ResearchProgress]
+  - name: DrawerContent
+    file: screens/DrawerContent.tsx
+    story: screens/DrawerContent.stories.tsx
+    status: verified
+    atoms: [DrawerHeader, ConversationRow]

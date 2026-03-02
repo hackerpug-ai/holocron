@@ -1,0 +1,113 @@
+import { ConversationRow } from '@/components/ConversationRow'
+import { DrawerHeader, type NavSection } from '@/components/DrawerHeader'
+import { Text } from '@/components/ui/text'
+import { cn } from '@/lib/utils'
+import { BookOpen, MessageSquare, Settings } from 'lucide-react-native'
+import { FlatList, View, type ViewProps } from 'react-native'
+
+export interface Conversation {
+  id: string
+  title: string
+  lastMessage?: string
+  lastMessageAt?: Date
+}
+
+interface DrawerContentProps extends Omit<ViewProps, 'children'> {
+  /** List of conversations */
+  conversations?: Conversation[]
+  /** ID of the currently active conversation */
+  activeConversationId?: string
+  /** Current search query */
+  searchQuery?: string
+  /** Callback when search query changes */
+  onSearchChange?: (query: string) => void
+  /** Callback when Holocron (main chat) section is pressed */
+  onHolocronPress?: () => void
+  /** Callback when Articles link is pressed */
+  onArticlesPress?: () => void
+  /** Callback when Settings is pressed */
+  onSettingsPress?: () => void
+  /** Callback when New Chat is pressed */
+  onNewChatPress?: () => void
+  /** Callback when a conversation is selected */
+  onConversationPress?: (conversation: Conversation) => void
+  /** Callback when a conversation is long-pressed */
+  onConversationLongPress?: (conversation: Conversation) => void
+}
+
+/**
+ * DrawerContent is the navigation drawer screen.
+ * Composes DrawerHeader and ConversationRow atoms.
+ * Shows search, app sections, and conversation list.
+ */
+export function DrawerContent({
+  conversations = [],
+  activeConversationId,
+  searchQuery = '',
+  onSearchChange,
+  onHolocronPress,
+  onArticlesPress,
+  onSettingsPress,
+  onNewChatPress,
+  onConversationPress,
+  onConversationLongPress,
+  className,
+  ...props
+}: DrawerContentProps) {
+  const sections: NavSection[] = [
+    { id: 'holocron', label: 'Holocron', icon: <MessageSquare size={20} className="text-foreground" />, onPress: onHolocronPress },
+    { id: 'articles', label: 'Articles', icon: <BookOpen size={20} className="text-foreground" />, onPress: onArticlesPress },
+    { id: 'settings', label: 'Settings', icon: <Settings size={20} className="text-foreground" />, onPress: onSettingsPress },
+  ]
+
+  const renderConversation = ({ item }: { item: Conversation }) => (
+    <ConversationRow
+      title={item.title}
+      lastMessage={item.lastMessage}
+      lastMessageAt={item.lastMessageAt}
+      isActive={item.id === activeConversationId}
+      onPress={() => onConversationPress?.(item)}
+      onLongPress={() => onConversationLongPress?.(item)}
+    />
+  )
+
+  return (
+    <View
+      className={cn('bg-background flex-1', className)}
+      testID="drawer-content"
+      {...props}
+    >
+      {/* Header with Search + Compose + Sections */}
+      <DrawerHeader
+        searchQuery={searchQuery}
+        onSearchChange={onSearchChange}
+        onNewChatPress={onNewChatPress}
+        sections={sections}
+      />
+
+      {/* Divider */}
+      <View className="bg-border mx-3 h-px" />
+
+      {/* Conversation List */}
+      <View className="flex-1 px-2 pt-3">
+        <Text className="text-muted-foreground mb-2 px-3 text-xs font-medium uppercase tracking-wide">
+          Conversations
+        </Text>
+        <FlatList
+          data={conversations}
+          renderItem={renderConversation}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={{ gap: 2 }}
+          ListEmptyComponent={
+            <View className="items-center py-8">
+              <Text className="text-muted-foreground text-sm">No conversations yet</Text>
+              <Text className="text-muted-foreground mt-1 text-xs">
+                Tap the compose icon to start
+              </Text>
+            </View>
+          }
+        />
+      </View>
+    </View>
+  )
+}

@@ -43,6 +43,12 @@ export function CategoryBadge({
   ...props
 }: CategoryBadgeProps) {
   const config = categoryConfig[category]
+
+  // Return null for invalid categories
+  if (!config) {
+    return null
+  }
+
   const displayLabel = label ?? config.label
 
   return (
