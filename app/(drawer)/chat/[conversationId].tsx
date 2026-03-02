@@ -34,7 +34,7 @@ export default function ChatScreen() {
   // Loading state
   if (isLoading) {
     return (
-      <View style={styles.centerContainer} testID="chat-loading-screen">
+      <View style={styles.centerContainer} className="bg-background" testID="chat-loading-screen">
         <ActivityIndicator size="large" testID="loading-spinner" />
         <Text className="text-muted-foreground mt-4 text-sm">Loading conversation...</Text>
       </View>
@@ -44,7 +44,7 @@ export default function ChatScreen() {
   // Error state
   if (error) {
     return (
-      <View style={styles.centerContainer} testID="chat-error-screen">
+      <View style={styles.centerContainer} className="bg-background" testID="chat-error-screen">
         <Text className="text-destructive text-center text-lg">Failed to load conversation</Text>
         <Text className="text-muted-foreground text-center text-sm mt-2">{error.message}</Text>
         <Button onPress={refetch} testID="retry-button" className="mt-4">
@@ -57,7 +57,7 @@ export default function ChatScreen() {
   // Conversation not found state
   if (!conversationExists && conversationId) {
     return (
-      <View style={styles.centerContainer} testID="chat-not-found-screen">
+      <View style={styles.centerContainer} className="bg-background" testID="chat-not-found-screen">
         <Text className="text-destructive text-center text-lg">Conversation not found</Text>
         <Text className="text-muted-foreground text-center text-sm mt-2">
           The conversation you're looking for doesn't exist or has been deleted.
@@ -72,9 +72,9 @@ export default function ChatScreen() {
   // Placeholder for the actual chat interface
   // This will be implemented in a future task to display messages
   return (
-    <View style={styles.container} testID="chat-screen">
-      <View style={styles.header}>
-        <Text variant="h1" style={styles.title}>
+    <View style={styles.container} className="bg-background" testID="chat-screen">
+      <View className="p-4 border-b border-border">
+        <Text variant="h1" className="text-xl font-semibold">
           Chat: {conversationId}
         </Text>
       </View>
@@ -93,23 +93,12 @@ export default function ChatScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
   },
   centerContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
-    backgroundColor: '#FFFFFF',
-  },
-  header: {
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '600',
   },
   content: {
     flex: 1,
