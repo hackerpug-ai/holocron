@@ -2,7 +2,7 @@ import { View } from 'react-native'
 import { Text } from '@/components/ui/text'
 import { cn } from '@/lib/utils'
 import type { MessageRole } from '@/lib/types/conversations'
-import { formatDistanceToNow, format, isToday, isYesterday } from 'date-fns'
+import { formatTimestamp } from '@/lib/formatTimestamp'
 
 export interface MessageBubbleProps {
   role: MessageRole
@@ -10,25 +10,6 @@ export interface MessageBubbleProps {
   createdAt?: Date
   showTimestamp?: boolean
   testID?: string
-}
-
-/**
- * Format timestamp for display
- * - "just now" for < 1 minute
- * - "X min ago" for < 1 hour
- * - "h:mm a" for today
- * - "Yesterday, h:mm a" for yesterday
- * - "MMM d, h:mm a" for older
- */
-function formatTimestamp(date: Date): string {
-  const now = new Date()
-  const diffMinutes = Math.floor((now.getTime() - date.getTime()) / 60000)
-
-  if (diffMinutes < 1) return 'just now'
-  if (diffMinutes < 60) return `${diffMinutes} min ago`
-  if (isToday(date)) return format(date, 'h:mm a')
-  if (isYesterday(date)) return `Yesterday, ${format(date, 'h:mm a')}`
-  return format(date, 'MMM d, h:mm a')
 }
 
 export function MessageBubble({
