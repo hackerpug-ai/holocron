@@ -1,8 +1,8 @@
 # Task Index: Holocron Mobile Research Interface
 
 > PRD Version: 3.1.0
-> Generated: 2026-03-01
-> Total Epics: 7 (2 planned, 5 pending)
+> Generated: 2026-03-02
+> Total Epics: 7 (3 planned, 4 pending)
 
 ## Epics
 
@@ -10,7 +10,7 @@
 |------|--------|-------|-----------|-----------|
 | [Epic 1: Foundation & Drawer Navigation](epic-1-foundation-drawer-navigation/EPIC.md) | Planned | 9 | 92 | `epic-1-foundation-drawer-navigation/` |
 | [Epic 2: Chat Thread & Messaging](epic-2-chat-thread-messaging/EPIC.md) | Planned | 9 | 91 | `epic-2-chat-thread-messaging/` |
-| Epic 3: Slash Commands & Command Panel | Not Started | 7 | -- | -- |
+| [Epic 3: Slash Commands & Command Panel](epic-3-slash-commands-command-panel/EPIC.md) | Planned | 7 | 90 | `epic-3-slash-commands-command-panel/` |
 | Epic 4: Knowledge Base & Result Cards | Not Started | 10 | -- | -- |
 | Epic 5: Basic Research | Not Started | 8 | -- | -- |
 | Epic 6: Deep Research | Not Started | 9 | -- | -- |
@@ -43,6 +43,18 @@
 | US-016 | [US-016.md](epic-2-chat-thread-messaging/US-016.md) | Wire ChatThread to chat-history API with pagination | feature:integration | P2 |
 | US-017 | [US-017.md](epic-2-chat-thread-messaging/US-017.md) | Wire ChatInput to chat-send API with optimistic updates | feature:integration | P2 |
 | US-018 | [US-018.md](epic-2-chat-thread-messaging/US-018.md) | Add typing indicator and timestamp display to message bubbles | feature:design | P2 |
+
+## Epic 3 Task Files
+
+| ID | File | Title | Type | Priority |
+|----|------|-------|------|----------|
+| US-019 | [US-019.md](epic-3-slash-commands-command-panel/US-019.md) | Build slash command parser in chat-send Edge Function | feature | P1 |
+| US-020 | [US-020.md](epic-3-slash-commands-command-panel/US-020.md) | Design CommandPanel component - story + variants | feature:design | P1 |
+| US-021 | [US-021.md](epic-3-slash-commands-command-panel/US-021.md) | Design SlashCommandMessage component - monospace + badge | feature:design | P1 |
+| US-022 | [US-022.md](epic-3-slash-commands-command-panel/US-022.md) | Wire "/" button and keyboard trigger to CommandPanel | feature:integration | P2 |
+| US-023 | [US-023.md](epic-3-slash-commands-command-panel/US-023.md) | Implement real-time command filtering and panel dismiss | feature:integration | P2 |
+| US-024 | [US-024.md](epic-3-slash-commands-command-panel/US-024.md) | Implement command insertion with syntax hint | feature:integration | P2 |
+| US-025 | [US-025.md](epic-3-slash-commands-command-panel/US-025.md) | Build /help command handler returning descriptions | feature | P2 |
 
 ## References
 

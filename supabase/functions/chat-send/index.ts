@@ -11,6 +11,11 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
+import {
+  parseSlashCommand,
+  isKnownCommand,
+  generateHelpResponse,
+} from './slash-commands.ts'
 
 // ============================================================
 // Types
@@ -70,7 +75,26 @@ function jsonResponse<T>(body: T, status = 200): Response {
 // ============================================================
 
 function generateAgentResponse(userContent: string): string {
-  // Basic stub response for MVP - will be replaced with real AI in future epics
+  // Parse for slash commands
+  const parsed = parseSlashCommand(userContent)
+
+  if (parsed.isCommand) {
+    // Handle /help command
+    if (parsed.command === 'help') {
+      return generateHelpResponse()
+    }
+
+    // Check if command is known
+    if (parsed.command && isKnownCommand(parsed.command)) {
+      // Command is recognized but execution is deferred to future epics
+      return `Command /${parsed.command} recognized. Full command execution will be available soon!`
+    }
+
+    // Unknown command - treat as regular text with helpful message
+    return `Unknown command: /${parsed.command}. Type /help to see available commands.`
+  }
+
+  // Regular text message handling
   if (userContent.toLowerCase().includes('hello')) {
     return "Hello! I'm your research assistant. How can I help you today?"
   }
@@ -133,6 +157,10 @@ Deno.serve(async (req: Request) => {
       return jsonResponse<ErrorResponse>({ error: 'Conversation not found' }, 404)
     }
 
+    // Parse message to detect slash commands
+    const parsed = parseSlashCommand(body.content)
+    const messageType = parsed.isCommand ? 'slash_command' : (body.message_type || 'text')
+
     // Insert user message
     const { data: userMessage, error: userError } = await supabase
       .from('chat_messages')
@@ -140,7 +168,7 @@ Deno.serve(async (req: Request) => {
         conversation_id: body.conversation_id,
         role: 'user' as MessageRole,
         content: body.content,
-        message_type: body.message_type || 'text',
+        message_type: messageType,
       })
       .select()
       .single()
