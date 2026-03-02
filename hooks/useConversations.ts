@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 /**
  * Supabase conversations table schema:
@@ -38,7 +39,7 @@ export interface UseConversationsReturn {
   switchConversation: (id: string) => void
   renameConversation: (id: string, newTitle: string) => Promise<void>
   deleteConversation: (id: string) => Promise<string | null>
-  refetch: () => Promise<void>
+  refetch: () => void
 }
 
 interface SupabaseConversation {
@@ -49,81 +50,86 @@ interface SupabaseConversation {
   messages?: Array<{ role: string; content: string; created_at: string }>
 }
 
-export function useConversations(): UseConversationsReturn {
-  const [conversations, setConversations] = useState<Conversation[]>([])
-  const [activeConversationId, setActiveConversationId] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<Error | null>(null)
+// Query key factory for conversations
+const conversationsKeys = {
+  all: ['conversations'] as const,
+  lists: () => [...conversationsKeys.all, 'list'] as const,
+  list: () => [...conversationsKeys.lists()] as const,
+}
 
-  const fetchConversations = async () => {
-    setIsLoading(true)
-    setError(null)
+// Fetcher function for React Query
+async function fetchConversations(): Promise<Conversation[]> {
+  const { data, error } = await supabaseAdmin
+    .from('conversations')
+    .select(`
+      id,
+      title,
+      created_at,
+      updated_at,
+      messages(role, content, created_at)
+    `)
+    .order('updated_at', { ascending: false })
 
-    try {
-      // Fetch conversations with last message preview using a subquery
-      const { data, error: fetchError } = await supabaseAdmin
-        .from('conversations')
-        .select(`
-          id,
-          title,
-          created_at,
-          updated_at,
-          messages(role, content, created_at)
-        `)
-        .order('updated_at', { ascending: false })
-
-      if (fetchError) {
-        throw new Error(`Failed to fetch conversations: ${fetchError.message}`)
-      }
-
-      if (!data) {
-        setConversations([])
-        return
-      }
-
-      // Transform the data to get the last message for each conversation
-      const transformedConversations: Conversation[] = (data as SupabaseConversation[]).map((conv) => {
-        const messages = conv.messages
-        const lastMessage = messages && messages.length > 0 ? messages[messages.length - 1] : undefined
-
-        return {
-          id: conv.id,
-          title: conv.title,
-          lastMessage: lastMessage?.content,
-          lastMessageAt: lastMessage ? new Date(lastMessage.created_at) : undefined,
-          createdAt: new Date(conv.created_at),
-          updatedAt: new Date(conv.updated_at),
-        }
-      })
-
-      // Sort by most recent activity (last_message_at or updated_at)
-      const sortedConversations = transformedConversations.sort((a, b) => {
-        const aTime = a.lastMessageAt?.getTime() ?? a.updatedAt.getTime()
-        const bTime = b.lastMessageAt?.getTime() ?? b.updatedAt.getTime()
-        return bTime - aTime
-      })
-
-      setConversations(sortedConversations)
-    } catch (err) {
-      const errorObj = err instanceof Error ? err : new Error('Unknown error occurred')
-      setError(errorObj)
-      setConversations([])
-    } finally {
-      setIsLoading(false)
-    }
+  if (error) {
+    throw new Error(`Failed to fetch conversations: ${error.message}`)
   }
 
-  const createConversation = async (): Promise<string> => {
-    try {
-      // Insert new conversation with default title
-      const { data, error: insertError } = await supabaseAdmin
+  if (!data) {
+    return []
+  }
+
+  // Transform the data to get the last message for each conversation
+  const transformedConversations: Conversation[] = (data as SupabaseConversation[]).map(
+    (conv) => {
+      const messages = conv.messages
+      const lastMessage = messages && messages.length > 0 ? messages[messages.length - 1] : undefined
+
+      return {
+        id: conv.id,
+        title: conv.title,
+        lastMessage: lastMessage?.content,
+        lastMessageAt: lastMessage ? new Date(lastMessage.created_at) : undefined,
+        createdAt: new Date(conv.created_at),
+        updatedAt: new Date(conv.updated_at),
+      }
+    }
+  )
+
+  // Sort by most recent activity (last_message_at or updated_at)
+  return transformedConversations.sort((a, b) => {
+    const aTime = a.lastMessageAt?.getTime() ?? a.updatedAt.getTime()
+    const bTime = b.lastMessageAt?.getTime() ?? b.updatedAt.getTime()
+    return bTime - aTime
+  })
+}
+
+export function useConversations(): UseConversationsReturn {
+  const queryClient = useQueryClient()
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null)
+
+  // Query for fetching conversations
+  const {
+    data: conversations = [],
+    isLoading,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey: conversationsKeys.list(),
+    queryFn: fetchConversations,
+    staleTime: 0, // Always refetch on mount/window focus
+  })
+
+  // Mutation for creating a conversation
+  const createMutation = useMutation({
+    mutationFn: async (): Promise<string> => {
+      const { data, error } = await supabaseAdmin
         .from('conversations')
         .insert({ title: 'New Chat' })
         .select()
         .single()
 
-      if (insertError) {
-        throw new Error(`Failed to create conversation: ${insertError.message}`)
+      if (error) {
+        throw new Error(`Failed to create conversation: ${error.message}`)
       }
 
       if (!data) {
@@ -131,16 +137,76 @@ export function useConversations(): UseConversationsReturn {
       }
 
       const newConversation = data as { id: string; title: string; created_at: string; updated_at: string }
-
-      // Refetch the list to include the new conversation
-      await fetchConversations()
-
       return newConversation.id
-    } catch (err) {
-      const errorObj = err instanceof Error ? err : new Error('Unknown error occurred')
-      setError(errorObj)
-      throw errorObj
-    }
+    },
+    onSuccess: () => {
+      // Invalidate and refetch conversations list
+      queryClient.invalidateQueries({ queryKey: conversationsKeys.lists() })
+    },
+  })
+
+  // Mutation for renaming a conversation
+  const renameMutation = useMutation({
+    mutationFn: async ({ id, newTitle }: { id: string; newTitle: string }): Promise<void> => {
+      const trimmed = newTitle.trim()
+      if (!trimmed) {
+        throw new Error('Title cannot be empty')
+      }
+
+      const { error } = await supabaseAdmin
+        .from('conversations')
+        .update({ title: trimmed, updated_at: new Date().toISOString() })
+        .eq('id', id)
+
+      if (error) {
+        throw new Error(`Failed to rename conversation: ${error.message}`)
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: conversationsKeys.lists() })
+    },
+  })
+
+  // Mutation for deleting a conversation
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string): Promise<void> => {
+      const { error } = await supabaseAdmin.from('conversations').delete().eq('id', id)
+
+      if (error) {
+        throw new Error(`Failed to delete conversation: ${error.message}`)
+      }
+    },
+    onMutate: async (id) => {
+      // Cancel ongoing queries
+      await queryClient.cancelQueries({ queryKey: conversationsKeys.lists() })
+
+      // Snapshot previous value
+      const previousConversations = queryClient.getQueryData<Conversation[]>(
+        conversationsKeys.list()
+      )
+
+      // Optimistically update to the new value
+      queryClient.setQueryData<Conversation[]>(conversationsKeys.list(), (old = []) =>
+        old.filter((c) => c.id !== id)
+      )
+
+      // Return context with previous value and conversations
+      return { previousConversations, oldConversations: previousConversations ?? [] }
+    },
+    onError: (err, id, context) => {
+      // Rollback to previous value on error
+      if (context?.previousConversations) {
+        queryClient.setQueryData(conversationsKeys.list(), context.previousConversations)
+      }
+    },
+    onSuccess: () => {
+      // Refetch to ensure server state
+      queryClient.invalidateQueries({ queryKey: conversationsKeys.lists() })
+    },
+  })
+
+  const createConversation = async (): Promise<string> => {
+    return createMutation.mutateAsync()
   }
 
   const switchConversation = (id: string) => {
@@ -148,41 +214,19 @@ export function useConversations(): UseConversationsReturn {
   }
 
   const renameConversation = async (id: string, newTitle: string): Promise<void> => {
-    const trimmed = newTitle.trim()
-    if (!trimmed) {
-      throw new Error('Title cannot be empty')
-    }
-
-    const { error } = await supabaseAdmin
-      .from('conversations')
-      .update({ title: trimmed, updated_at: new Date().toISOString() })
-      .eq('id', id)
-
-    if (error) {
-      throw new Error(`Failed to rename conversation: ${error.message}`)
-    }
-
-    await fetchConversations()
+    await renameMutation.mutateAsync({ id, newTitle })
   }
 
   const deleteConversation = async (id: string): Promise<string | null> => {
     const isDeletingActive = id === activeConversationId
 
-    const { error } = await supabaseAdmin
-      .from('conversations')
-      .delete()
-      .eq('id', id)
-
-    if (error) {
-      throw new Error(`Failed to delete conversation: ${error.message}`)
-    }
-
-    // Get remaining conversations before refetch
-    const remaining = conversations.filter(c => c.id !== id)
+    // Get remaining conversations before deletion
+    const remaining = conversations.filter((c) => c.id !== id)
 
     if (isDeletingActive) {
       if (remaining.length === 0) {
         // Create new conversation if last one deleted
+        await deleteMutation.mutateAsync(id)
         const newId = await createConversation()
         setActiveConversationId(newId)
         return newId
@@ -190,27 +234,23 @@ export function useConversations(): UseConversationsReturn {
       // Switch to most recent remaining conversation
       const next = remaining[0]
       setActiveConversationId(next.id)
-      await fetchConversations()
+      await deleteMutation.mutateAsync(id)
       return next.id
     }
 
-    await fetchConversations()
+    await deleteMutation.mutateAsync(id)
     return null
   }
-
-  useEffect(() => {
-    fetchConversations()
-  }, [])
 
   return {
     conversations,
     activeConversationId,
     isLoading,
-    error,
+    error: error ?? null,
     createConversation,
     switchConversation,
     renameConversation,
     deleteConversation,
-    refetch: fetchConversations,
+    refetch: () => refetch(),
   }
 }

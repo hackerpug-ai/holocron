@@ -2,6 +2,17 @@ import '../global.css'
 
 import { Stack } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+
+// Create a client for React Query
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      staleTime: 0,
+    },
+  },
+})
 
 // When STORYBOOK_ENABLED=true, render Storybook directly
 const STORYBOOK_ENABLED = process.env.EXPO_PUBLIC_STORYBOOK_ENABLED === 'true'
@@ -14,13 +25,13 @@ export default function RootLayout() {
   }
 
   return (
-    <>
+    <QueryClientProvider client={queryClient}>
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(drawer)" />
         <Stack.Screen name="storybook" />
         <Stack.Screen name="+not-found" />
       </Stack>
       <StatusBar style="auto" />
-    </>
+    </QueryClientProvider>
   )
 }

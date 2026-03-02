@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router'
-import { MaterialCommunityIcons } from '@expo/vector-icons'
+import { Icon, MaterialCommunityIcon } from '@/components/ui/icon'
 
 export default function TabLayout() {
   return (
@@ -14,7 +14,7 @@ export default function TabLayout() {
         options={{
           title: 'Home',
           tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="home" color={color} size={size} />
+            <Icon as={MaterialCommunityIcon} name="home" color={color} size={size} />
           ),
         }}
       />
@@ -23,7 +23,7 @@ export default function TabLayout() {
         options={{
           title: 'Explore',
           tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="compass" color={color} size={size} />
+            <Icon as={MaterialCommunityIcon} name="compass" color={color} size={size} />
           ),
         }}
       />

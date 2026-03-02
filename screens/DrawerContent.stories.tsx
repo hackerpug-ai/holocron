@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react'
 import { View } from 'react-native'
-import { DrawerContent, type Conversation } from './DrawerContent'
+import { DrawerContent } from './DrawerContent'
+import type { Conversation } from '@/hooks/useConversations'
 
 const meta: Meta<typeof DrawerContent> = {
   title: 'Screens/DrawerContent',
@@ -66,24 +67,32 @@ export const WithConversations: Story = {
         title: 'Machine Learning Basics',
         lastMessage: 'I found 12 articles matching your query.',
         lastMessageAt: new Date(Date.now() - 1000 * 60 * 2),
+        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24),
+        updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 2),
       },
       {
         id: '2',
         title: 'Research on Transformers',
         lastMessage: 'Here are the top 3 articles about transformer architectures...',
         lastMessageAt: new Date(Date.now() - 1000 * 60 * 30),
+        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 48),
+        updatedAt: new Date(Date.now() - 1000 * 60 * 30),
       },
       {
         id: '3',
         title: 'API Design Patterns',
         lastMessage: 'Here are the best practices for REST API design...',
         lastMessageAt: new Date(Date.now() - 1000 * 60 * 60 * 2),
+        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 72),
+        updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 2),
       },
       {
         id: '4',
         title: 'New Chat',
         lastMessage: undefined,
         lastMessageAt: undefined,
+        createdAt: new Date(),
+        updatedAt: new Date(),
       },
     ] as Conversation[],
     activeConversationId: '1',
@@ -98,42 +107,56 @@ export const ManyConversations: Story = {
         title: 'Machine Learning Basics',
         lastMessage: 'I found 12 articles matching your query.',
         lastMessageAt: new Date(Date.now() - 1000 * 60 * 2),
+        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24),
+        updatedAt: new Date(Date.now() - 1000 * 60 * 2),
       },
       {
         id: '2',
         title: 'Research on Transformers',
         lastMessage: 'Here are the top 3 articles...',
         lastMessageAt: new Date(Date.now() - 1000 * 60 * 30),
+        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 48),
+        updatedAt: new Date(Date.now() - 1000 * 60 * 30),
       },
       {
         id: '3',
         title: 'API Design Patterns',
         lastMessage: 'REST API best practices...',
         lastMessageAt: new Date(Date.now() - 1000 * 60 * 60 * 2),
+        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 72),
+        updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 2),
       },
       {
         id: '4',
         title: 'Quantum Computing',
         lastMessage: 'Research complete with 24 sources...',
         lastMessageAt: new Date(Date.now() - 1000 * 60 * 60 * 24),
+        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 96),
+        updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 24),
       },
       {
         id: '5',
         title: 'Neural Network Architectures',
         lastMessage: 'CNN vs RNN comparison...',
         lastMessageAt: new Date(Date.now() - 1000 * 60 * 60 * 48),
+        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 120),
+        updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 48),
       },
       {
         id: '6',
         title: 'Database Optimization',
         lastMessage: 'Index strategies for large tables...',
         lastMessageAt: new Date(Date.now() - 1000 * 60 * 60 * 72),
+        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 144),
+        updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 72),
       },
       {
         id: '7',
         title: 'React Native Performance',
         lastMessage: 'Optimization techniques for mobile...',
         lastMessageAt: new Date(Date.now() - 1000 * 60 * 60 * 96),
+        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 168),
+        updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 96),
       },
     ] as Conversation[],
     activeConversationId: '2',
@@ -150,20 +173,26 @@ export const FullHeight: Story = {
             title: 'Machine Learning Basics',
             lastMessage: 'I found 12 articles matching your query.',
             lastMessageAt: new Date(Date.now() - 1000 * 60 * 2),
+            createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24),
+            updatedAt: new Date(Date.now() - 1000 * 60 * 2),
           },
           {
             id: '2',
             title: 'Research on Transformers',
             lastMessage: 'Here are the top 3 articles about transformer architectures...',
             lastMessageAt: new Date(Date.now() - 1000 * 60 * 30),
+            createdAt: new Date(Date.now() - 1000 * 60 * 60 * 48),
+            updatedAt: new Date(Date.now() - 1000 * 60 * 30),
           },
           {
             id: '3',
             title: 'API Design Patterns',
             lastMessage: 'Here are the best practices for REST API design...',
             lastMessageAt: new Date(Date.now() - 1000 * 60 * 60 * 2),
+            createdAt: new Date(Date.now() - 1000 * 60 * 60 * 72),
+            updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 2),
           },
-        ]}
+        ] as Conversation[]}
         activeConversationId="1"
       />
     </View>

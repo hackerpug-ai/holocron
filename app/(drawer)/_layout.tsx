@@ -1,6 +1,6 @@
 import { Drawer } from 'expo-router/drawer'
-import { DrawerContent, type Conversation } from '@/screens/DrawerContent'
-import { useConversations } from '@/hooks/useConversations'
+import { DrawerContent } from '@/screens/DrawerContent'
+import { useConversations, type Conversation } from '@/hooks/useConversations'
 import { useRouter } from 'expo-router'
 import { useDrawerStatus } from '@react-navigation/drawer'
 import { useEffect, useRef, useState } from 'react'
@@ -44,8 +44,8 @@ function CustomDrawerContent() {
     try {
       const newId = await createConversation()
       switchConversation(newId)
-      // Navigate to the new conversation (will be created as a route later)
-      router.push(`/`)
+      // Navigate to the new conversation's chat route
+      router.push(`/chat/${newId}`)
     } catch (err) {
       // Error is already set in the hook state
       console.error('Failed to create conversation:', err)
@@ -54,8 +54,8 @@ function CustomDrawerContent() {
 
   const handleConversationPress = (conversation: Conversation) => {
     switchConversation(conversation.id)
-    // Navigate to the conversation (will be created as a route later)
-    router.push(`/`)
+    // Navigate to the conversation's chat route
+    router.push(`/chat/${conversation.id}`)
   }
 
   const handleConversationLongPress = (conversation: Conversation) => {
@@ -80,7 +80,7 @@ function CustomDrawerContent() {
       setIsActionMenuOpen(false)
       // Navigate to the next conversation if the active one was deleted
       if (navigateToId) {
-        router.push(`/`)
+        router.push(`/chat/${navigateToId}`)
       }
     } catch (err) {
       console.error('Failed to delete conversation:', err)
@@ -88,7 +88,14 @@ function CustomDrawerContent() {
   }
 
   const handleHolocronPress = () => {
-    router.push('/')
+    // Navigate to the active conversation or the most recent one
+    const targetId = activeConversationId ?? conversations[0]?.id
+    if (targetId) {
+      router.push(`/chat/${targetId}`)
+    } else {
+      // If no conversations exist, navigate to home
+      router.push('/')
+    }
   }
 
   const handleArticlesPress = () => {
@@ -175,13 +182,13 @@ export default function DrawerLayout() {
         // Navigate to most recent conversation (already sorted by updated_at)
         const mostRecent = conversations[0]
         switchConversation(mostRecent.id)
-        router.replace(`/`)
+        router.replace(`/chat/${mostRecent.id}`)
       } else {
         // No conversations exist -- create a new "New Chat" conversation
         try {
           const newId = await createConversation()
           switchConversation(newId)
-          router.replace(`/`)
+          router.replace(`/chat/${newId}`)
         } catch (err) {
           console.error('Failed to create initial conversation:', err)
           // Error will be in the hook's error state
@@ -213,6 +220,10 @@ export default function DrawerLayout() {
       }}
       drawerContent={CustomDrawerContent}
     >
+      <Drawer.Screen
+        name="chat/[conversationId]"
+        options={{ headerShown: false, title: 'Chat' }}
+      />
       <Drawer.Screen
         name="(tabs)"
         options={{ headerShown: false, title: 'Holocron' }}

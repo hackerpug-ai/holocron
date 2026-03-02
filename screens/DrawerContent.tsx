@@ -5,13 +5,10 @@ import { Text } from '@/components/ui/text'
 import { cn } from '@/lib/utils'
 import { BookOpen, MessageSquare, Settings } from 'lucide-react-native'
 import { FlatList, Pressable, View, type ViewProps } from 'react-native'
+import type { Conversation } from '@/hooks/useConversations'
 
-export interface Conversation {
-  id: string
-  title: string
-  lastMessage?: string
-  lastMessageAt?: Date
-}
+// Re-export Conversation type for convenience
+export type { Conversation }
 
 interface DrawerContentProps extends Omit<ViewProps, 'children'> {
   /** List of conversations */

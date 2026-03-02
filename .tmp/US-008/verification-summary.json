@@ -1,0 +1,65 @@
+{
+  "task_id": "US-008",
+  "title": "Implement App-Open-to-Most-Recent-Conversation Logic",
+  "base_sha": "efe819763b1fac83b45870ac3081af9705fd4b25",
+  "status": "completed",
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "description": "User has 5 conversations, the most recent updated 2 minutes ago - App launches - Loading indicator shows briefly, then app navigates to the most recently updated conversation's chat screen",
+      "implemented": true,
+      "notes": "Uses hasInitialized ref to prevent duplicate execution, shows InitialLoadingScreen during initial fetch"
+    },
+    {
+      "id": "AC-2",
+      "description": "User has no conversations (first launch or all deleted) - App launches - Loading indicator shows, a new 'New Chat' conversation is created in Supabase, app navigates to it",
+      "implemented": true,
+      "notes": "If conversations.length === 0, calls createConversation() and navigates to new conversation"
+    },
+    {
+      "id": "AC-3",
+      "description": "App is loading conversations from Supabase - Initial fetch is in progress - A loading indicator (spinner or skeleton) is displayed, no blank screen or flash of content",
+      "implemented": true,
+      "notes": "InitialLoadingScreen component with ActivityIndicator and loading message"
+    },
+    {
+      "id": "AC-4",
+      "description": "Supabase fetch fails on app launch - Network error or invalid credentials - Error state is displayed with a 'Retry' button, user can tap to retry the initial fetch",
+      "implemented": true,
+      "notes": "InitialErrorScreen component with error message and retry button that calls refetch()"
+    },
+    {
+      "id": "AC-5",
+      "description": "App launches and navigates to most recent - User opens the drawer - The conversation that was auto-navigated to is highlighted as active in the drawer list",
+      "implemented": true,
+      "notes": "switchConversation() is called to set activeConversationId in the hook"
+    },
+    {
+      "id": "AC-6",
+      "description": "App re-renders or hot-reloads - React re-render fires - Initial navigation logic does NOT run again (idempotent), no duplicate conversations created",
+      "implemented": true,
+      "notes": "hasInitialized.current ref prevents duplicate execution on re-renders and React 18 Strict Mode"
+    }
+  ],
+  "files_modified": [
+    "app/(drawer)/_layout.tsx"
+  ],
+  "key_implementations": {
+    "initialization_logic": "useEffect with hasInitialized ref to run once on app launch",
+    "navigation": "Uses router.replace() to prevent back-stack issues (not router.navigate)",
+    "loading_state": "InitialLoadingScreen with ActivityIndicator while determining initial conversation",
+    "error_state": "InitialErrorScreen with retry button calling refetch()",
+    "most_recent_selection": "Selects conversations[0] which is already sorted by updated_at",
+    "conversation_creation": "Calls createConversation() when conversations array is empty"
+  },
+  "theme_tokens_used": {
+    "colors": ["bg-background", "text-muted-foreground", "text-destructive"],
+    "typography": ["text-sm", "text-lg"]
+  },
+  "quality_checks": {
+    "typescript": "PASS",
+    "lint": "SKIPPED (ESLint not installed - pre-existing issue)",
+    "build": "NOT_VERIFIED (requires Expo build)"
+  },
+  "summary": "Implemented app-open-to-most-recent-conversation logic in the drawer layout. On app launch, the app now shows a loading screen, then either navigates to the most recent conversation (by updated_at) or creates a new 'New Chat' conversation if none exist. Uses router.replace() to avoid back-stack issues and hasInitialized ref to prevent duplicate execution."
+}
