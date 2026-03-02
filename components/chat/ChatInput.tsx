@@ -1,6 +1,7 @@
 import { cn } from '@/lib/utils'
 import { Send } from 'lucide-react-native'
-import { Pressable, TextInput, View } from 'react-native'
+import { Pressable, TextInput, View, useColorScheme } from 'react-native'
+import { colors } from '@/lib/theme'
 
 export interface ChatInputProps {
   value: string
@@ -23,6 +24,8 @@ export function ChatInput({
   placeholder = 'Type a message...',
   testID = 'chat-input',
 }: ChatInputProps) {
+  const colorScheme = useColorScheme()
+  const themeColors = colorScheme === 'dark' ? colors.dark : colors.light
   const isEmpty = value.trim().length === 0
   const canSend = !disabled && !isEmpty
 

@@ -49,7 +49,7 @@ export function ChatThread({
   )
 
   const renderEmptyState = () => (
-    <View className="flex-1 items-center justify-center p-6">
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, transform: [{ scaleY: -1 }] }}>
       <Text variant="large" className="text-muted-foreground text-center">
         No messages yet
       </Text>
@@ -94,7 +94,7 @@ export function ChatThread({
         ListHeaderComponent={renderTypingIndicator}
         ListFooterComponent={renderLoadingIndicator}
         contentContainerStyle={
-          messages.length === 0 ? { flexGrow: 1 } : undefined
+          messages.length === 0 ? { flex: 1, justifyContent: 'center' } : undefined
         }
       />
     </View>

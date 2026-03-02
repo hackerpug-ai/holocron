@@ -13,8 +13,13 @@ export default function HomeScreen() {
 
       {__DEV__ && (
         <Link href="/storybook" asChild>
-          <Pressable style={[styles.storybookLink, { backgroundColor: themeColors.primary }]} testID="storybook-link">
-            <Text style={[styles.storybookText, { color: themeColors.primaryForeground }]}>Open Storybook</Text>
+          <Pressable
+            style={StyleSheet.flatten([styles.storybookLink, { backgroundColor: themeColors.primary }])}
+            testID="storybook-link"
+          >
+            <Text style={StyleSheet.flatten([styles.storybookText, { color: themeColors.primaryForeground }])}>
+              Open Storybook
+            </Text>
           </Pressable>
         </Link>
       )}
