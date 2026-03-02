@@ -36,6 +36,8 @@ export interface UseConversationsReturn {
   error: Error | null
   createConversation: () => Promise<string>
   switchConversation: (id: string) => void
+  renameConversation: (id: string, newTitle: string) => Promise<void>
+  deleteConversation: (id: string) => Promise<string | null>
   refetch: () => Promise<void>
 }
 
@@ -145,6 +147,57 @@ export function useConversations(): UseConversationsReturn {
     setActiveConversationId(id)
   }
 
+  const renameConversation = async (id: string, newTitle: string): Promise<void> => {
+    const trimmed = newTitle.trim()
+    if (!trimmed) {
+      throw new Error('Title cannot be empty')
+    }
+
+    const { error } = await supabaseAdmin
+      .from('conversations')
+      .update({ title: trimmed, updated_at: new Date().toISOString() })
+      .eq('id', id)
+
+    if (error) {
+      throw new Error(`Failed to rename conversation: ${error.message}`)
+    }
+
+    await fetchConversations()
+  }
+
+  const deleteConversation = async (id: string): Promise<string | null> => {
+    const isDeletingActive = id === activeConversationId
+
+    const { error } = await supabaseAdmin
+      .from('conversations')
+      .delete()
+      .eq('id', id)
+
+    if (error) {
+      throw new Error(`Failed to delete conversation: ${error.message}`)
+    }
+
+    // Get remaining conversations before refetch
+    const remaining = conversations.filter(c => c.id !== id)
+
+    if (isDeletingActive) {
+      if (remaining.length === 0) {
+        // Create new conversation if last one deleted
+        const newId = await createConversation()
+        setActiveConversationId(newId)
+        return newId
+      }
+      // Switch to most recent remaining conversation
+      const next = remaining[0]
+      setActiveConversationId(next.id)
+      await fetchConversations()
+      return next.id
+    }
+
+    await fetchConversations()
+    return null
+  }
+
   useEffect(() => {
     fetchConversations()
   }, [])
@@ -156,6 +209,8 @@ export function useConversations(): UseConversationsReturn {
     error,
     createConversation,
     switchConversation,
+    renameConversation,
+    deleteConversation,
     refetch: fetchConversations,
   }
 }

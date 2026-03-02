@@ -1,4 +1,5 @@
 import { ConversationRow } from '@/components/ConversationRow'
+import { ConversationActionMenu } from '@/components/ConversationActionMenu'
 import { DrawerHeader, type NavSection } from '@/components/DrawerHeader'
 import { Text } from '@/components/ui/text'
 import { cn } from '@/lib/utils'
@@ -39,6 +40,16 @@ interface DrawerContentProps extends Omit<ViewProps, 'children'> {
   error?: Error | null
   /** Callback to retry fetching conversations */
   onRetry?: () => void
+  /** Whether the action menu is open */
+  actionMenuOpen?: boolean
+  /** Title of the conversation for the action menu */
+  actionMenuConversationTitle?: string
+  /** Callback when action menu open state changes */
+  onActionMenuOpenChange?: (open: boolean) => void
+  /** Callback when rename is confirmed */
+  onRename?: (newTitle: string) => void
+  /** Callback when delete is confirmed */
+  onDelete?: () => void
 }
 
 /**
@@ -60,6 +71,11 @@ export function DrawerContent({
   isLoading = false,
   error = null,
   onRetry,
+  actionMenuOpen = false,
+  actionMenuConversationTitle = '',
+  onActionMenuOpenChange,
+  onRename,
+  onDelete,
   className,
   ...props
 }: DrawerContentProps) {
@@ -142,6 +158,15 @@ export function DrawerContent({
           ListEmptyComponent={renderListEmptyComponent}
         />
       </View>
+
+      {/* Conversation Action Menu */}
+      <ConversationActionMenu
+        open={actionMenuOpen}
+        onOpenChange={onActionMenuOpenChange ?? (() => {})}
+        conversationTitle={actionMenuConversationTitle}
+        onRename={onRename}
+        onDelete={onDelete}
+      />
     </View>
   )
 }
