@@ -88,6 +88,14 @@ Deno.test('isKnownCommand: returns false for empty string', () => {
 // Test: generateHelpResponse
 // ============================================================
 
+Deno.test('generateHelpResponse: includes header "Available commands:"', () => {
+  const helpText = generateHelpResponse()
+
+  if (!helpText.startsWith('Available commands:')) {
+    throw new Error('Expected help text to start with "Available commands:"')
+  }
+})
+
 Deno.test('generateHelpResponse: includes all supported commands', () => {
   const helpText = generateHelpResponse()
 

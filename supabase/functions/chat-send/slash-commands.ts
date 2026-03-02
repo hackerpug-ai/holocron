@@ -86,14 +86,16 @@ export function isKnownCommand(command: string): boolean {
 /**
  * Generate formatted help text listing all supported commands
  *
- * @returns Multi-line string with all commands and their descriptions
+ * @returns Multi-line string with header and all commands with their descriptions
  *
  * @example
  * generateHelpResponse()
- * // => "/search <query> - Search the knowledge base\n/research <question> - Start a research workflow\n..."
+ * // => "Available commands:\n\n/search <query> - Search the knowledge base\n/research <question> - Start a research workflow\n..."
  */
 export function generateHelpResponse(): string {
-  return SUPPORTED_COMMANDS.map(
+  const header = 'Available commands:\n\n'
+  const commands = SUPPORTED_COMMANDS.map(
     (cmd) => `/${cmd.name}${cmd.syntax ? ' ' + cmd.syntax : ''} - ${cmd.description}`
   ).join('\n')
+  return header + commands
 }
