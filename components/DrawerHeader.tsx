@@ -56,7 +56,7 @@ export function DrawerHeader({
             value={searchQuery}
             onChangeText={onSearchChange}
             placeholder="Search"
-            placeholderTextColor="#71717a"
+            placeholderTextColor="hsl(215, 20%, 55%)"
             className="text-foreground flex-1 text-base"
             testID="drawer-search-input"
           />
