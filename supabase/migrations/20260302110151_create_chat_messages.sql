@@ -18,7 +18,7 @@ CREATE TABLE chat_messages (
   conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
   role message_role NOT NULL,
   content TEXT NOT NULL,
-  message_type message_type NOT NULL,
+  message_type message_type NOT NULL DEFAULT 'text',
   card_data JSONB,
   session_id UUID,
   document_id INTEGER,
