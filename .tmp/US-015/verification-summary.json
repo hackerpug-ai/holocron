@@ -1,0 +1,22 @@
+{
+  "task_id": "US-015",
+  "typecheck": "PASSED",
+  "files_created": [
+    "components/chat/ChatInput.tsx",
+    "components/chat/ChatInput.stories.tsx",
+    "components/chat/index.ts"
+  ],
+  "stories_created": [
+    "Default",
+    "WithText",
+    "Disabled",
+    "WhitespaceOnly",
+    "Interactive"
+  ],
+  "testIDs_added": [
+    "chat-input-field",
+    "chat-input-send-button"
+  ],
+  "theme_tokens_used": true,
+  "hardcoded_values": false
+}

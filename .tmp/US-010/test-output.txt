@@ -1,0 +1,4 @@
+0
+No unit tests for infrastructure task - TypeScript compilation is the verification gate.
+Migration file created: supabase/migrations/20260302105126_create_chat_messages.sql
+TypeScript types created: lib/types/chat.ts
