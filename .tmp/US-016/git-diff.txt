@@ -1,0 +1,276 @@
+diff --git a/app/(drawer)/chat/[conversationId].tsx b/app/(drawer)/chat/[conversationId].tsx
+index 3e8846b..fd72c47 100644
+--- a/app/(drawer)/chat/[conversationId].tsx
++++ b/app/(drawer)/chat/[conversationId].tsx
+@@ -1,9 +1,11 @@
+ import { useLocalSearchParams, useRouter } from 'expo-router'
+ import { useEffect } from 'react'
+ import { useConversations } from '@/hooks/useConversations'
++import { useChatHistory } from '@/hooks/use-chat-history'
+ import { View, ActivityIndicator, StyleSheet } from 'react-native'
+ import { Text } from '@/components/ui/text'
+ import { Button } from '@/components/ui/button'
++import { ChatThread } from '@/components/chat/ChatThread'
+ 
+ /**
+  * Chat screen for a specific conversation.
+@@ -21,6 +23,16 @@ export default function ChatScreen() {
+   const router = useRouter()
+   const { switchConversation, conversations, isLoading, error, refetch } = useConversations()
+ 
++  // Fetch chat history for this conversation
++  const {
++    messages,
++    isLoading: isLoadingMessages,
++    isLoadingMore,
++    error: messagesError,
++    loadMore,
++    hasMore,
++  } = useChatHistory(conversationId ?? null)
++
+   // Set the active conversation when the route loads
+   useEffect(() => {
+     if (conversationId) {
+@@ -69,23 +81,36 @@ export default function ChatScreen() {
+     )
+   }
+ 
+-  // Placeholder for the actual chat interface
+-  // This will be implemented in a future task to display messages
+-  return (
+-    <View style={styles.container} className="bg-background" testID="chat-screen">
+-      <View className="p-4 border-b border-border">
+-        <Text variant="h1" className="text-xl font-semibold">
+-          Chat: {conversationId}
+-        </Text>
++  // Messages loading state (shows while fetching initial messages)
++  if (isLoadingMessages) {
++    return (
++      <View style={styles.centerContainer} className="bg-background p-6" testID="chat-messages-loading">
++        <ActivityIndicator size="large" testID="messages-loading-spinner" />
++        <Text className="text-muted-foreground mt-4 text-sm">Loading messages...</Text>
+       </View>
+-      <View style={styles.content} className="p-6">
+-        <Text className="text-muted-foreground text-center">
+-          Chat interface will be implemented here.
+-        </Text>
+-        <Text className="text-muted-foreground text-center text-sm mt-2">
+-          Conversation ID: {conversationId}
+-        </Text>
++    )
++  }
++
++  // Messages error state
++  if (messagesError) {
++    return (
++      <View style={styles.centerContainer} className="bg-background p-6" testID="chat-messages-error">
++        <Text className="text-destructive text-center text-lg">Failed to load messages</Text>
++        <Text className="text-muted-foreground text-center text-sm mt-2">{messagesError.message}</Text>
+       </View>
++    )
++  }
++
++  // Chat interface with messages
++  return (
++    <View style={styles.container} className="bg-background" testID="chat-screen">
++      <ChatThread
++        messages={messages}
++        onLoadMore={loadMore}
++        isLoadingMore={isLoadingMore}
++        hasMore={hasMore}
++        testID="chat-thread"
++      />
+     </View>
+   )
+ }
+diff --git a/hooks/use-chat-history.ts b/hooks/use-chat-history.ts
+new file mode 100644
+index 0000000..80965c8
+--- /dev/null
++++ b/hooks/use-chat-history.ts
+@@ -0,0 +1,185 @@
++/**
++ * Custom hook for fetching chat history with pagination
++ *
++ * Integrates with the chat-history Edge Function (US-012)
++ * Provides data for ChatThread component (US-015)
++ *
++ * @see US-016 - Wire ChatThread to chat-history API with pagination
++ */
++
++import { useState, useEffect, useCallback, useRef } from 'react'
++import { supabase } from '@/lib/supabase'
++import type { ChatMessage } from '@/components/chat/ChatThread'
++import type { MessageRole } from '@/lib/types/conversations'
++
++interface ChatHistoryResponse {
++  messages: Array<{
++    id: string
++    conversation_id: string
++    role: MessageRole
++    content: string
++    message_type: string
++    card_data?: Record<string, unknown> | null
++    session_id?: string | null
++    document_id?: number | null
++    created_at: string
++  }>
++  has_more: boolean
++  next_cursor: string | null
++}
++
++interface UseChatHistoryReturn {
++  messages: ChatMessage[]
++  isLoading: boolean
++  isLoadingMore: boolean
++  error: Error | null
++  loadMore: () => void
++  hasMore: boolean
++  refetch: () => void
++}
++
++/**
++ * Fetch chat history for a conversation with cursor-based pagination
++ *
++ * @param conversationId - UUID of the conversation
++ * @param limit - Number of messages per page (default: 20, max: 100)
++ */
++export function useChatHistory(
++  conversationId: string | null,
++  limit = 20
++): UseChatHistoryReturn {
++  const [messages, setMessages] = useState<ChatMessage[]>([])
++  const [isLoading, setIsLoading] = useState(false)
++  const [isLoadingMore, setIsLoadingMore] = useState(false)
++  const [error, setError] = useState<Error | null>(null)
++  const [hasMore, setHasMore] = useState(false)
++  const [nextCursor, setNextCursor] = useState<string | null>(null)
++
++  // Track if initial load has been attempted
++  const hasLoadedRef = useRef(false)
++
++  // Fetch function (initial or paginated)
++  const fetchMessages = useCallback(
++    async (cursor: string | null = null) => {
++      if (!conversationId) return
++
++      const isInitialLoad = cursor === null
++      if (isInitialLoad) {
++        setIsLoading(true)
++      } else {
++        setIsLoadingMore(true)
++      }
++      setError(null)
++
++      try {
++        // Build query params
++        const params = new URLSearchParams({
++          conversation_id: conversationId,
++          limit: limit.toString(),
++        })
++
++        if (cursor) {
++          params.append('before', cursor)
++        }
++
++        // Use fetch directly for GET requests with query params
++        // supabase.functions.invoke doesn't support GET with query params properly
++        const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL
++        const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY
++
++        if (!supabaseUrl || !anonKey) {
++          throw new Error('Missing Supabase configuration')
++        }
++
++        const response = await fetch(
++          `${supabaseUrl}/functions/v1/chat-history?${params.toString()}`,
++          {
++            method: 'GET',
++            headers: {
++              'Content-Type': 'application/json',
++              'Authorization': `Bearer ${anonKey}`,
++              'apikey': anonKey,
++            },
++          }
++        )
++
++        if (!response.ok) {
++          const errorText = await response.text()
++          throw new Error(`API error: ${response.status} - ${errorText}`)
++        }
++
++        const data: ChatHistoryResponse = await response.json()
++
++        // Transform API messages to ChatMessage format
++        const transformedMessages: ChatMessage[] = data.messages.map((msg) => ({
++          id: msg.id,
++          role: msg.role,
++          content: msg.content,
++          createdAt: new Date(msg.created_at),
++        }))
++
++        if (isInitialLoad) {
++          setMessages(transformedMessages)
++        } else {
++          // Append older messages
++          setMessages((prev) => [...prev, ...transformedMessages])
++        }
++
++        setHasMore(data.has_more)
++        setNextCursor(data.next_cursor)
++      } catch (err) {
++        const error = err instanceof Error ? err : new Error('Unknown error')
++        setError(error)
++        console.error('useChatHistory error:', error)
++      } finally {
++        setIsLoading(false)
++        setIsLoadingMore(false)
++      }
++    },
++    [conversationId, limit]
++  )
++
++  // Initial load when conversationId changes
++  useEffect(() => {
++    if (conversationId && !hasLoadedRef.current) {
++      hasLoadedRef.current = true
++      setMessages([])
++      setHasMore(false)
++      setNextCursor(null)
++      fetchMessages(null)
++    }
++
++    // Reset when conversationId changes
++    return () => {
++      if (conversationId) {
++        hasLoadedRef.current = false
++      }
++    }
++  }, [conversationId, fetchMessages])
++
++  // Load more messages (pagination)
++  const loadMore = useCallback(() => {
++    if (!isLoadingMore && !isLoading && hasMore && nextCursor) {
++      fetchMessages(nextCursor)
++    }
++  }, [isLoadingMore, isLoading, hasMore, nextCursor, fetchMessages])
++
++  // Refetch from beginning
++  const refetch = useCallback(() => {
++    hasLoadedRef.current = false
++    setMessages([])
++    setHasMore(false)
++    setNextCursor(null)
++    fetchMessages(null)
++  }, [fetchMessages])
++
++  return {
++    messages,
++    isLoading,
++    isLoadingMore,
++    error,
++    loadMore,
++    hasMore,
++    refetch,
++  }
++}

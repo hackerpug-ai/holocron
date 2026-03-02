@@ -1,11 +1,13 @@
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useConversations } from '@/hooks/useConversations'
 import { useChatHistory } from '@/hooks/use-chat-history'
-import { View, ActivityIndicator, StyleSheet } from 'react-native'
+import { useSendMessage } from '@/hooks/use-send-message'
+import { View, ActivityIndicator, StyleSheet, Keyboard } from 'react-native'
 import { Text } from '@/components/ui/text'
 import { Button } from '@/components/ui/button'
 import { ChatThread } from '@/components/chat/ChatThread'
+import { ChatInput } from '@/components/chat/ChatInput'
 
 /**
  * Chat screen for a specific conversation.
@@ -31,7 +33,33 @@ export default function ChatScreen() {
     error: messagesError,
     loadMore,
     hasMore,
+    prependMessages,
   } = useChatHistory(conversationId ?? null)
+
+  // Send message hook with optimistic updates
+  const { sendMessage, isSending, error: sendError } = useSendMessage(
+    conversationId ?? '',
+    prependMessages
+  )
+
+  // Local state for input
+  const [inputValue, setInputValue] = useState('')
+
+  // Handle send
+  const handleSend = async () => {
+    if (!inputValue.trim() || !conversationId) return
+
+    const messageToSend = inputValue.trim()
+
+    // AC-5: Clear input immediately (optimistic UX)
+    setInputValue('')
+
+    // Dismiss keyboard
+    Keyboard.dismiss()
+
+    // Send message
+    await sendMessage(messageToSend)
+  }
 
   // Set the active conversation when the route loads
   useEffect(() => {
@@ -110,6 +138,13 @@ export default function ChatScreen() {
         isLoadingMore={isLoadingMore}
         hasMore={hasMore}
         testID="chat-thread"
+      />
+      <ChatInput
+        value={inputValue}
+        onChangeText={setInputValue}
+        onSend={handleSend}
+        disabled={isSending}
+        testID="chat-input"
       />
     </View>
   )

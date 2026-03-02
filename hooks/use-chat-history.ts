@@ -36,6 +36,7 @@ interface UseChatHistoryReturn {
   loadMore: () => void
   hasMore: boolean
   refetch: () => void
+  prependMessages: (newMessages: ChatMessage[]) => void
 }
 
 /**
@@ -173,6 +174,11 @@ export function useChatHistory(
     fetchMessages(null)
   }, [fetchMessages])
 
+  // Prepend messages (for optimistic updates and new messages)
+  const prependMessages = useCallback((newMessages: ChatMessage[]) => {
+    setMessages((prev) => [...newMessages, ...prev])
+  }, [])
+
   return {
     messages,
     isLoading,
@@ -181,5 +187,6 @@ export function useChatHistory(
     loadMore,
     hasMore,
     refetch,
+    prependMessages,
   }
 }

@@ -1,0 +1,28 @@
+{
+  "task_id": "US-014",
+  "title": "Design ChatThread component with auto-scroll and infinite scroll pagination",
+  "base_sha": "0c5123bf3a20fd7b409d5ab58b4743f7007a7f72",
+  "commit_sha": "f7b1b5b08dafdcbb6cab03688bd3eabe09660fa0",
+  "status": "completed",
+  "files_created": [
+    "components/chat/ChatThread.tsx",
+    "components/chat/ChatThread.stories.tsx"
+  ],
+  "files_modified": [
+    "components/chat/index.ts"
+  ],
+  "verifications": {
+    "typecheck": "PASSED",
+    "lint": "SKIPPED (eslint not installed)",
+    "stories_created": "YES (7 stories)"
+  },
+  "notes": [
+    "Created temporary MessageBubble stub since US-013 is not yet complete",
+    "Uses NativeWind/Tailwind theme tokens (bg-primary, text-foreground, etc.)",
+    "Implements inverted FlatList for newest-at-bottom display",
+    "Auto-scroll to bottom on new messages via useEffect + scrollToEnd",
+    "Infinite scroll via onEndReached callback",
+    "Loading indicator shown at top when isLoadingMore=true",
+    "Empty state component for zero messages"
+  ]
+}
