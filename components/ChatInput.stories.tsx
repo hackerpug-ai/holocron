@@ -22,6 +22,10 @@ const meta: Meta<typeof ChatInput> = {
       action: 'slashCommand',
       description: 'Callback when slash command is detected',
     },
+    onSlashButtonPress: {
+      action: 'slashButtonPressed',
+      description: 'Callback when slash button is tapped',
+    },
     disabled: {
       control: { type: 'boolean' },
       description: 'Whether input is disabled',
@@ -71,6 +75,35 @@ export const WithSlashCommandHandler: Story = {
       description: {
         story:
           'Type "/" to trigger the slash command callback. The command icon on the left hints at this functionality.',
+      },
+    },
+  },
+}
+
+export const WithSlashButton: Story = {
+  args: {
+    onSlashButtonPress: () => console.log('Slash button pressed'),
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Shows the "/" button on the left side of the input. Tapping opens the slash command menu as an alternative to typing "/".',
+      },
+    },
+  },
+}
+
+export const FullFeatured: Story = {
+  args: {
+    onSlashCommand: (cmd) => console.log('Slash command detected:', cmd),
+    onSlashButtonPress: () => console.log('Slash button pressed'),
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Full-featured input with both slash typing detection and slash button. This is the typical configuration for the main chat screen.',
       },
     },
   },

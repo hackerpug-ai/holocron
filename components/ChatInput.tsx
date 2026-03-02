@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils'
-import { ArrowUp } from 'lucide-react-native'
+import { ArrowUp, Slash } from 'lucide-react-native'
 import { useEffect, useRef, useState } from 'react'
 import {
   Animated,
@@ -15,6 +15,8 @@ interface ChatInputProps extends Omit<ViewProps, 'children'> {
   onSend: (message: string) => void
   /** Callback when slash command is detected */
   onSlashCommand?: (command: string) => void
+  /** Callback when slash button is tapped (alternative to typing /) */
+  onSlashButtonPress?: () => void
   /** Whether input is disabled */
   disabled?: boolean
   /** Placeholder text */
@@ -28,6 +30,7 @@ interface ChatInputProps extends Omit<ViewProps, 'children'> {
 export function ChatInput({
   onSend,
   onSlashCommand,
+  onSlashButtonPress,
   disabled = false,
   placeholder = 'Ask anything...',
   className,
@@ -95,54 +98,69 @@ export function ChatInput({
       testID="chat-input"
       {...props}
     >
-      <View
-        className={cn(
-          'bg-muted/50 flex-row items-end gap-2 rounded-2xl px-3 py-2',
-          isFocused && 'bg-muted/70',
-          disabled && 'opacity-50'
-        )}
-      >
-        {/* Text input - multiline textarea */}
-        <TextInput
-          ref={inputRef}
-          value={value}
-          onChangeText={handleChangeText}
-          placeholder={placeholder}
-          placeholderTextColor="hsl(215, 20%, 55%)"
-          editable={!disabled}
-          multiline
-          maxLength={4000}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
-          blurOnSubmit={false}
-          className="text-foreground flex-1 text-[15px]"
-          style={{ minHeight: 20, maxHeight: 100 }}
-          testID="chat-input-field"
-        />
-
-        {/* Send button */}
-        <Animated.View
-          style={{
-            transform: [{ scale: sendScale }],
-            opacity: sendOpacity,
-          }}
-        >
+      <View className="flex-row items-end gap-2">
+        {/* Slash command button */}
+        {onSlashButtonPress && (
           <Pressable
-            onPress={handleSend}
-            disabled={!canSend}
-            className={cn(
-              'h-7 w-7 items-center justify-center rounded-full',
-              canSend ? 'bg-primary' : 'bg-transparent'
-            )}
-            testID="chat-input-send"
+            onPress={onSlashButtonPress}
+            disabled={disabled}
+            className="bg-muted/50 active:bg-muted h-10 w-10 items-center justify-center rounded-xl"
+            testID="chat-input-slash-button"
           >
-            <ArrowUp
-              size={16}
-              className={canSend ? 'text-primary-foreground' : 'text-muted-foreground'}
-              strokeWidth={2.5}
-            />
+            <Slash size={18} className="text-muted-foreground" strokeWidth={2} />
           </Pressable>
-        </Animated.View>
+        )}
+
+        {/* Input container */}
+        <View
+          className={cn(
+            'bg-muted/50 flex-1 flex-row items-end gap-2 rounded-2xl px-3 py-2',
+            isFocused && 'bg-muted/70',
+            disabled && 'opacity-50'
+          )}
+        >
+          {/* Text input - multiline textarea */}
+          <TextInput
+            ref={inputRef}
+            value={value}
+            onChangeText={handleChangeText}
+            placeholder={placeholder}
+            placeholderTextColor="hsl(215, 20%, 55%)"
+            editable={!disabled}
+            multiline
+            maxLength={4000}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
+            blurOnSubmit={false}
+            className="text-foreground flex-1 text-[15px]"
+            style={{ minHeight: 20, maxHeight: 100 }}
+            testID="chat-input-field"
+          />
+
+          {/* Send button */}
+          <Animated.View
+            style={{
+              transform: [{ scale: sendScale }],
+              opacity: sendOpacity,
+            }}
+          >
+            <Pressable
+              onPress={handleSend}
+              disabled={!canSend}
+              className={cn(
+                'h-7 w-7 items-center justify-center rounded-full',
+                canSend ? 'bg-primary' : 'bg-transparent'
+              )}
+              testID="chat-input-send"
+            >
+              <ArrowUp
+                size={16}
+                className={canSend ? 'text-primary-foreground' : 'text-muted-foreground'}
+                strokeWidth={2.5}
+              />
+            </Pressable>
+          </Animated.View>
+        </View>
       </View>
     </View>
   )

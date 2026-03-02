@@ -30,7 +30,7 @@
 
 **Acceptance Criteria:**
 - ☐ User can type `/` in the chat input to trigger a command panel that appears directly above the input bar
-- ☐ User can tap the "/" action button to the left of the input to open the command panel
+- ☑ User can tap the "/" action button to the left of the input to open the command panel
 - ☐ System displays the command panel as a typeahead list showing all supported commands: `/search`, `/research`, `/deep-research`, `/browse`, `/stats`, `/resume`, `/help`
 - ☐ System filters the command list in real-time as the user types characters after `/` (e.g., typing `/re` shows only `/research` and `/resume`)
 - ☐ System dismisses the command panel when no commands match the typed characters
