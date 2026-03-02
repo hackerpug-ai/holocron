@@ -66,7 +66,7 @@ export function ChatInput({
         >
           <Send
             size={20}
-            className={cn(canSend ? 'text-primary-foreground' : 'text-muted-foreground')}
+            color={canSend ? themeColors.primaryForeground : themeColors.mutedForeground}
             strokeWidth={2}
           />
         </Pressable>
