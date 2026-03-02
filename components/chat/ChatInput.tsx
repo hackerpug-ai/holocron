@@ -1,7 +1,8 @@
-import { View, TextInput, Pressable } from 'react-native'
+import { View, TextInput, Pressable, useColorScheme } from 'react-native'
 import { cn } from '@/lib/utils'
 import { useState, useEffect } from 'react'
 import { Send } from 'lucide-react-native'
+import { colors } from '@/lib/theme'
 
 export interface ChatInputProps {
   /** Callback when user sends a message - receives trimmed content */
@@ -29,6 +30,9 @@ export function ChatInput({
   onChangeText,
   testID = 'chat-input',
 }: ChatInputProps) {
+  const colorScheme = useColorScheme()
+  const themeColors = colorScheme === 'dark' ? colors.dark : colors.light
+
   // Support both controlled and uncontrolled modes
   const isControlled = controlledValue !== undefined && onChangeText !== undefined
   const [internalValue, setInternalValue] = useState(defaultValue)
@@ -72,7 +76,7 @@ export function ChatInput({
         testID="chat-input-field"
         className="flex-1 bg-muted rounded-full px-4 py-2 text-foreground"
         placeholder={placeholder}
-        placeholderTextColor="hsl(var(--muted-foreground))"
+        placeholderTextColor={themeColors.mutedForeground}
         value={value}
         onChangeText={setValue}
         onSubmitEditing={handleSend}
@@ -91,7 +95,7 @@ export function ChatInput({
       >
         <Send
           size={20}
-          color={canSend ? 'hsl(var(--primary-foreground))' : 'hsl(var(--muted-foreground))'}
+          color={canSend ? themeColors.primaryForeground : themeColors.mutedForeground}
         />
       </Pressable>
     </View>
