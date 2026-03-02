@@ -10,7 +10,7 @@
  *
  * AC-1: Optimistic updates
  * - GIVEN a conversation ID and message content
- * - WHEN sendMessage is called
+ * - WHEN send is called
  * - THEN show user message immediately with temp ID before API responds
  *
  * AC-2: Successful response handling
@@ -46,11 +46,13 @@ interface ChatSendResponse {
   agent_messages: AgentMessage[]
 }
 
-interface UseSendMessageReturn {
-  sendMessage: (content: string) => Promise<void>
+interface UseChatSendResult {
+  send: (content: string) => Promise<void>
   isSending: boolean
+  pendingMessage: ChatMessage | null
   error: Error | null
-  retryLastMessage: () => Promise<void>
+  retry: () => Promise<void>
+  clearError: () => void
 }
 
 /**
@@ -58,20 +60,21 @@ interface UseSendMessageReturn {
  *
  * @param conversationId - UUID of the conversation
  * @param prependMessages - Callback to prepend messages to the list
+ * @param replaceMessage - Callback to replace a temp message with real message
  */
-export function useSendMessage(
+export function useChatSend(
   conversationId: string,
-  prependMessages: (messages: ChatMessage[]) => void
-): UseSendMessageReturn {
+  prependMessages: (messages: ChatMessage[]) => void,
+  replaceMessage: (tempId: string, realMessage: ChatMessage) => void
+): UseChatSendResult {
   const [isSending, setIsSending] = useState(false)
   const [error, setError] = useState<Error | null>(null)
+  const [pendingMessage, setPendingMessage] = useState<ChatMessage | null>(null)
 
   // Track last failed message for retry
   const lastFailedMessageRef = useRef<string | null>(null)
-  // Track current temp message ID to replace later
-  const currentTempIdRef = useRef<string | null>(null)
 
-  const sendMessage = useCallback(
+  const send = useCallback(
     async (content: string) => {
       if (!content.trim() || isSending) {
         return
@@ -82,7 +85,6 @@ export function useSendMessage(
 
       // Generate temporary ID for optimistic update
       const tempId = `temp-${Date.now()}`
-      currentTempIdRef.current = tempId
 
       const tempMessage: ChatMessage = {
         id: tempId,
@@ -92,6 +94,7 @@ export function useSendMessage(
       }
 
       // AC-1: Optimistic update - show message immediately
+      setPendingMessage(tempMessage)
       prependMessages([tempMessage])
 
       try {
@@ -129,15 +132,18 @@ export function useSendMessage(
 
         const data: ChatSendResponse = await response.json()
 
-        // AC-2: Success - now we need to replace temp message with real messages
-        // This is tricky because we can't directly replace in the callback approach.
-        // Instead, we'll add the real messages and let the UI filter out the temp one.
-        // A better approach would be to expose a replaceMessage function from useChatHistory.
+        // AC-2: Success - replace temp message with confirmed user message
+        const confirmedUserMessage: ChatMessage = {
+          id: data.user_message_id,
+          role: 'user',
+          content,
+          createdAt: new Date(),
+        }
 
-        // For now, we'll just add the agent messages.
-        // The temp message will remain, but that's acceptable for MVP.
-        // TODO: Implement proper message replacement in useChatHistory
+        // Replace the temp message with the real one
+        replaceMessage(tempId, confirmedUserMessage)
 
+        // Add agent messages
         const agentMessages: ChatMessage[] = data.agent_messages.map((msg) => ({
           id: msg.id,
           role: msg.role,
@@ -150,7 +156,7 @@ export function useSendMessage(
         }
 
         // Clear tracking refs on success
-        currentTempIdRef.current = null
+        setPendingMessage(null)
         lastFailedMessageRef.current = null
 
       } catch (err) {
@@ -158,24 +164,32 @@ export function useSendMessage(
         const error = err instanceof Error ? err : new Error('Unknown error')
         setError(error)
         lastFailedMessageRef.current = content
-        console.error('useSendMessage error:', error)
+        console.error('useChatSend error:', error)
       } finally {
         setIsSending(false)
       }
     },
-    [conversationId, isSending, prependMessages]
+    [conversationId, isSending, prependMessages, replaceMessage]
   )
 
-  const retryLastMessage = useCallback(async () => {
+  const retry = useCallback(async () => {
     if (lastFailedMessageRef.current) {
-      await sendMessage(lastFailedMessageRef.current)
+      await send(lastFailedMessageRef.current)
     }
-  }, [sendMessage])
+  }, [send])
+
+  const clearError = useCallback(() => {
+    setError(null)
+    setPendingMessage(null)
+    lastFailedMessageRef.current = null
+  }, [])
 
   return {
-    sendMessage,
+    send,
     isSending,
+    pendingMessage,
     error,
-    retryLastMessage,
+    retry,
+    clearError,
   }
 }

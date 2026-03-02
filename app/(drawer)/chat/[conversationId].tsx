@@ -2,8 +2,8 @@ import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useEffect } from 'react'
 import { useConversations } from '@/hooks/useConversations'
 import { useChatHistory } from '@/hooks/use-chat-history'
-import { useSendMessage } from '@/hooks/use-send-message'
-import { View, ActivityIndicator, StyleSheet, Keyboard } from 'react-native'
+import { useChatSend } from '@/hooks/useChatSend'
+import { View, ActivityIndicator, StyleSheet, Keyboard, Pressable } from 'react-native'
 import { Text } from '@/components/ui/text'
 import { Button } from '@/components/ui/button'
 import { ChatThread } from '@/components/chat/ChatThread'
@@ -34,12 +34,14 @@ export default function ChatScreen() {
     loadMore,
     hasMore,
     prependMessages,
+    replaceMessage,
   } = useChatHistory(conversationId ?? null)
 
   // Send message hook with optimistic updates
-  const { sendMessage, isSending, error: sendError } = useSendMessage(
+  const { send, isSending, error: sendError } = useChatSend(
     conversationId ?? '',
-    prependMessages
+    prependMessages,
+    replaceMessage
   )
 
   // Handle send
@@ -50,7 +52,7 @@ export default function ChatScreen() {
     Keyboard.dismiss()
 
     // Send message
-    await sendMessage(content)
+    await send(content)
   }
 
   // Set the active conversation when the route loads
