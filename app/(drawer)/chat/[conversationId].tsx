@@ -1,9 +1,11 @@
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useEffect } from 'react'
 import { useConversations } from '@/hooks/useConversations'
+import { useChatHistory } from '@/hooks/use-chat-history'
 import { View, ActivityIndicator, StyleSheet } from 'react-native'
 import { Text } from '@/components/ui/text'
 import { Button } from '@/components/ui/button'
+import { ChatThread } from '@/components/chat/ChatThread'
 
 /**
  * Chat screen for a specific conversation.
@@ -20,6 +22,16 @@ export default function ChatScreen() {
   const { conversationId } = useLocalSearchParams<{ conversationId: string }>()
   const router = useRouter()
   const { switchConversation, conversations, isLoading, error, refetch } = useConversations()
+
+  // Fetch chat history for this conversation
+  const {
+    messages,
+    isLoading: isLoadingMessages,
+    isLoadingMore,
+    error: messagesError,
+    loadMore,
+    hasMore,
+  } = useChatHistory(conversationId ?? null)
 
   // Set the active conversation when the route loads
   useEffect(() => {
@@ -69,23 +81,36 @@ export default function ChatScreen() {
     )
   }
 
-  // Placeholder for the actual chat interface
-  // This will be implemented in a future task to display messages
+  // Messages loading state (shows while fetching initial messages)
+  if (isLoadingMessages) {
+    return (
+      <View style={styles.centerContainer} className="bg-background p-6" testID="chat-messages-loading">
+        <ActivityIndicator size="large" testID="messages-loading-spinner" />
+        <Text className="text-muted-foreground mt-4 text-sm">Loading messages...</Text>
+      </View>
+    )
+  }
+
+  // Messages error state
+  if (messagesError) {
+    return (
+      <View style={styles.centerContainer} className="bg-background p-6" testID="chat-messages-error">
+        <Text className="text-destructive text-center text-lg">Failed to load messages</Text>
+        <Text className="text-muted-foreground text-center text-sm mt-2">{messagesError.message}</Text>
+      </View>
+    )
+  }
+
+  // Chat interface with messages
   return (
     <View style={styles.container} className="bg-background" testID="chat-screen">
-      <View className="p-4 border-b border-border">
-        <Text variant="h1" className="text-xl font-semibold">
-          Chat: {conversationId}
-        </Text>
-      </View>
-      <View style={styles.content} className="p-6">
-        <Text className="text-muted-foreground text-center">
-          Chat interface will be implemented here.
-        </Text>
-        <Text className="text-muted-foreground text-center text-sm mt-2">
-          Conversation ID: {conversationId}
-        </Text>
-      </View>
+      <ChatThread
+        messages={messages}
+        onLoadMore={loadMore}
+        isLoadingMore={isLoadingMore}
+        hasMore={hasMore}
+        testID="chat-thread"
+      />
     </View>
   )
 }
