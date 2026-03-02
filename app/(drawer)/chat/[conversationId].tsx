@@ -34,7 +34,7 @@ export default function ChatScreen() {
   // Loading state
   if (isLoading) {
     return (
-      <View style={styles.centerContainer} className="bg-background" testID="chat-loading-screen">
+      <View style={styles.centerContainer} className="bg-background p-6" testID="chat-loading-screen">
         <ActivityIndicator size="large" testID="loading-spinner" />
         <Text className="text-muted-foreground mt-4 text-sm">Loading conversation...</Text>
       </View>
@@ -44,7 +44,7 @@ export default function ChatScreen() {
   // Error state
   if (error) {
     return (
-      <View style={styles.centerContainer} className="bg-background" testID="chat-error-screen">
+      <View style={styles.centerContainer} className="bg-background p-6" testID="chat-error-screen">
         <Text className="text-destructive text-center text-lg">Failed to load conversation</Text>
         <Text className="text-muted-foreground text-center text-sm mt-2">{error.message}</Text>
         <Button onPress={refetch} testID="retry-button" className="mt-4">
@@ -57,7 +57,7 @@ export default function ChatScreen() {
   // Conversation not found state
   if (!conversationExists && conversationId) {
     return (
-      <View style={styles.centerContainer} className="bg-background" testID="chat-not-found-screen">
+      <View style={styles.centerContainer} className="bg-background p-6" testID="chat-not-found-screen">
         <Text className="text-destructive text-center text-lg">Conversation not found</Text>
         <Text className="text-muted-foreground text-center text-sm mt-2">
           The conversation you're looking for doesn't exist or has been deleted.
@@ -78,7 +78,7 @@ export default function ChatScreen() {
           Chat: {conversationId}
         </Text>
       </View>
-      <View style={styles.content}>
+      <View style={styles.content} className="p-6">
         <Text className="text-muted-foreground text-center">
           Chat interface will be implemented here.
         </Text>
@@ -98,12 +98,10 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 24,
   },
   content: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 24,
   },
 })

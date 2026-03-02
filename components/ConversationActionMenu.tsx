@@ -42,6 +42,10 @@ export interface ConversationActionMenuProps {
   onRename?: (newTitle: string) => void;
   /** Callback when user confirms delete */
   onDelete?: () => void;
+  /** Whether a rename operation is in progress */
+  isRenaming?: boolean;
+  /** Whether a delete operation is in progress */
+  isDeleting?: boolean;
 }
 
 /**
@@ -68,6 +72,8 @@ export function ConversationActionMenu({
   conversationTitle,
   onRename,
   onDelete,
+  isRenaming = false,
+  isDeleting = false,
 }: ConversationActionMenuProps) {
   // Internal state for which view is currently shown
   const [view, setView] = React.useState<ViewState>('menu');
@@ -114,7 +120,7 @@ export function ConversationActionMenu({
   };
 
   // Check if save button should be disabled
-  const isSaveDisabled = renameValue.trim().length === 0;
+  const isSaveDisabled = renameValue.trim().length === 0 || isRenaming;
 
   return (
     <>
@@ -142,6 +148,8 @@ export function ConversationActionMenu({
               placeholder="Conversation title"
               autoFocus
               onSubmitEditing={isSaveDisabled ? undefined : handleSaveRename}
+              accessibilityLabel="Conversation title"
+              accessibilityHint="Enter a new name for this conversation"
             />
             {isSaveDisabled && (
               <Text className="text-destructive text-sm">Title cannot be empty</Text>
@@ -154,6 +162,8 @@ export function ConversationActionMenu({
                 testID="rename-cancel-button"
                 variant="outline"
                 onPress={handleCancel}
+                accessibilityRole="button"
+                accessibilityLabel="Cancel rename"
               >
                 <Text>Cancel</Text>
               </Button>
@@ -162,8 +172,11 @@ export function ConversationActionMenu({
               testID="rename-save-button"
               onPress={handleSaveRename}
               disabled={isSaveDisabled}
+              accessibilityRole="button"
+              accessibilityLabel={isRenaming ? 'Saving conversation name' : 'Save conversation name'}
+              accessibilityState={{ disabled: isSaveDisabled }}
             >
-              <Text>Save</Text>
+              <Text>{isRenaming ? 'Saving...' : 'Save'}</Text>
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -180,15 +193,24 @@ export function ConversationActionMenu({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel testID="delete-cancel-button" onPress={handleCancel}>
+            <AlertDialogCancel
+              testID="delete-cancel-button"
+              onPress={handleCancel}
+              accessibilityRole="button"
+              accessibilityLabel="Cancel delete"
+            >
               <Text>Cancel</Text>
             </AlertDialogCancel>
             <AlertDialogAction
               testID="delete-confirm-button"
               onPress={handleConfirmDelete}
               className="bg-destructive"
+              disabled={isDeleting}
+              accessibilityRole="button"
+              accessibilityLabel={isDeleting ? 'Deleting conversation' : 'Confirm delete conversation'}
+              accessibilityState={{ disabled: isDeleting }}
             >
-              <Text className="text-white">Delete</Text>
+              <Text className="text-white">{isDeleting ? 'Deleting...' : 'Delete'}</Text>
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -213,6 +235,8 @@ function MenuOverlay({
     <View
       testID="action-menu-overlay"
       className="bg-background border-border absolute right-0 top-0 z-50 w-56 overflow-hidden rounded-md border shadow-lg"
+      accessibilityRole="menu"
+      accessibilityLabel="Conversation actions"
     >
       <View className="p-1">
         {/* Rename Option */}
@@ -221,6 +245,8 @@ function MenuOverlay({
           onPress={onRename}
           variant="ghost"
           className="justify-start gap-3 px-3 py-3"
+          accessibilityRole="menuitem"
+          accessibilityLabel="Rename conversation"
         >
           <Icon as={Pencil} className="text-foreground size-4" />
           <Text className="text-foreground text-sm">Rename</Text>
@@ -232,6 +258,8 @@ function MenuOverlay({
           onPress={onDelete}
           variant="ghost"
           className="justify-start gap-3 px-3 py-3"
+          accessibilityRole="menuitem"
+          accessibilityLabel="Delete conversation"
         >
           <Icon as={Trash2} className="text-destructive size-4" />
           <Text className="text-destructive text-sm">Delete</Text>

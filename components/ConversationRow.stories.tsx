@@ -1,4 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react'
+import { expect } from '@storybook/jest'
+import { within, userEvent } from '@storybook/testing-library'
 import { View } from 'react-native'
 import { ConversationRow } from './ConversationRow'
 
@@ -50,7 +52,16 @@ const meta: Meta<typeof ConversationRow> = {
 export default meta
 type Story = StoryObj<typeof ConversationRow>
 
-export const Default: Story = {}
+export const Default: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    // Verify the conversation row exists and displays correct content
+    const row = canvas.getByTestId('conversation-row')
+    await expect(row).toBeTruthy()
+    await expect(canvas.getByText('Research on Transformers')).toBeTruthy()
+    await expect(canvas.getByText(/Here are the top 3 articles/)).toBeTruthy()
+  },
+}
 
 export const Active: Story = {
   args: {
@@ -58,6 +69,12 @@ export const Active: Story = {
     lastMessage: 'I found 12 articles matching your query.',
     lastMessageAt: new Date(Date.now() - 1000 * 60 * 2), // 2 minutes ago
     isActive: true,
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    // Verify active conversation row has the title
+    await expect(canvas.getByText('Machine Learning Basics')).toBeTruthy()
+    await expect(canvas.getByText(/I found 12 articles/)).toBeTruthy()
   },
 }
 
@@ -75,7 +92,14 @@ export const NoLastMessage: Story = {
     lastMessage: undefined,
     lastMessageAt: undefined,
   },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    // Verify conversation row renders without last message
+    await expect(canvas.getByText('New Chat')).toBeTruthy()
+    await expect(canvas.getByTestId('conversation-row')).toBeTruthy()
+  },
 }
+
 
 export const OldConversation: Story = {
   args: {

@@ -1,7 +1,11 @@
 import { Link } from 'expo-router'
-import { StyleSheet, View, Text, Pressable } from 'react-native'
+import { StyleSheet, View, Text, Pressable, useColorScheme } from 'react-native'
+import { colors } from '@/lib/theme'
 
 export default function HomeScreen() {
+  const colorScheme = useColorScheme()
+  const themeColors = colorScheme === 'dark' ? colors.dark : colors.light
+
   return (
     <View style={styles.container}>
       <Text style={styles.headline}>Welcome to Holocron</Text>
@@ -9,8 +13,8 @@ export default function HomeScreen() {
 
       {__DEV__ && (
         <Link href="/storybook" asChild>
-          <Pressable style={styles.storybookLink} testID="storybook-link">
-            <Text style={styles.storybookText}>Open Storybook</Text>
+          <Pressable style={[styles.storybookLink, { backgroundColor: themeColors.primary }]} testID="storybook-link">
+            <Text style={[styles.storybookText, { color: themeColors.primaryForeground }]}>Open Storybook</Text>
           </Pressable>
         </Link>
       )}
@@ -38,11 +42,9 @@ const styles = StyleSheet.create({
     marginTop: 32,
     paddingVertical: 12,
     paddingHorizontal: 24,
-    backgroundColor: '#6750A4',
     borderRadius: 8,
   },
   storybookText: {
-    color: '#fff',
     fontWeight: '600',
   },
 })

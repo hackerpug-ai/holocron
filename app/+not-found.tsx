@@ -1,7 +1,11 @@
 import { Link, Stack } from 'expo-router'
-import { StyleSheet, View, Text, Pressable } from 'react-native'
+import { StyleSheet, View, Text, Pressable, useColorScheme } from 'react-native'
+import { colors } from '@/lib/theme'
 
 export default function NotFoundScreen() {
+  const colorScheme = useColorScheme()
+  const themeColors = colorScheme === 'dark' ? colors.dark : colors.light
+
   return (
     <>
       <Stack.Screen options={{ title: 'Oops!' }} />
@@ -11,8 +15,8 @@ export default function NotFoundScreen() {
           This screen doesn't exist.
         </Text>
         <Link href="/" asChild>
-          <Pressable style={styles.button}>
-            <Text style={styles.buttonText}>Go to home screen</Text>
+          <Pressable style={[styles.button, { backgroundColor: themeColors.primary }]}>
+            <Text style={[styles.buttonText, { color: themeColors.primaryForeground }]}>Go to home screen</Text>
           </Pressable>
         </Link>
       </View>
@@ -41,11 +45,9 @@ const styles = StyleSheet.create({
     marginTop: 16,
     paddingVertical: 12,
     paddingHorizontal: 24,
-    backgroundColor: '#6200ee',
     borderRadius: 8,
   },
   buttonText: {
-    color: '#fff',
     fontSize: 14,
     fontWeight: '600',
   },

@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react'
 import { View } from 'react-native'
 import { DrawerContent } from './DrawerContent'
-import type { Conversation } from '@/hooks/useConversations'
+import type { Conversation } from '@/lib/types/conversations'
 
 const meta: Meta<typeof DrawerContent> = {
   title: 'Screens/DrawerContent',

@@ -59,6 +59,8 @@ export function DrawerHeader({
             placeholderTextColor="hsl(215, 20%, 55%)"
             className="text-foreground flex-1 text-base"
             testID="drawer-search-input"
+            accessibilityLabel="Search conversations"
+            accessibilityRole="search"
           />
         </View>
 
@@ -67,19 +69,24 @@ export function DrawerHeader({
           onPress={onNewChatPress}
           className="bg-muted/50 h-11 w-11 items-center justify-center rounded-xl active:bg-muted"
           testID="drawer-new-chat-button"
+          accessibilityRole="button"
+          accessibilityLabel="Create new chat"
+          accessibilityHint="Double tap to start a new conversation"
         >
           <PenSquare size={20} className="text-foreground" />
         </Pressable>
       </View>
 
       {/* App Sections */}
-      <View className="gap-0.5">
+      <View className="gap-0.5" accessibilityRole="menu">
         {sections.map((section) => (
           <Pressable
             key={section.id}
             onPress={section.onPress}
             className="flex-row items-center gap-3 rounded-lg px-3 py-2.5 active:bg-muted"
             testID={`drawer-section-${section.id}`}
+            accessibilityRole="menuitem"
+            accessibilityLabel={`Navigate to ${section.label}`}
           >
             <View className="text-foreground">{section.icon}</View>
             <Text className="text-foreground text-base">{section.label}</Text>

@@ -47,6 +47,10 @@ export function ConversationRow({
         className
       )}
       testID="conversation-row"
+      accessibilityRole="button"
+      accessibilityLabel={`Conversation: ${title}${lastMessage ? `. Last message: ${lastMessage}` : ''}${formattedTime ? `. ${formattedTime}` : ''}${isActive ? '. Currently selected' : ''}`}
+      accessibilityHint="Double tap to open conversation. Long press for options."
+      accessibilityState={{ selected: isActive }}
       {...props}
     >
       <View

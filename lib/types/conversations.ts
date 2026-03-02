@@ -7,13 +7,26 @@
  * @see US-002 - Create conversations table migration and Supabase types
  */
 
-/** Row type for the conversations table (SELECT result) */
-export interface Conversation {
+/** Raw row type from Supabase conversations table (snake_case, string dates) */
+export interface ConversationRow {
   id: string
   title: string
   last_message_preview: string | null
   created_at: string
   updated_at: string
+}
+
+/**
+ * App-level Conversation type used throughout the UI
+ * Transformed from ConversationRow with camelCase and Date objects
+ */
+export interface Conversation {
+  id: string
+  title: string
+  lastMessage?: string
+  lastMessageAt?: Date
+  createdAt: Date
+  updatedAt: Date
 }
 
 /** Insert type - fields with defaults are optional */

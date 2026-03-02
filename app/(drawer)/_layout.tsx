@@ -25,6 +25,9 @@ function CustomDrawerContent() {
     conversations,
     activeConversationId,
     isLoading,
+    isCreating,
+    isRenaming,
+    isDeleting,
     error,
     createConversation,
     switchConversation,
@@ -111,6 +114,9 @@ function CustomDrawerContent() {
       conversations={conversations}
       activeConversationId={activeConversationId ?? undefined}
       isLoading={isLoading}
+      isCreating={isCreating}
+      isRenaming={isRenaming}
+      isDeleting={isDeleting}
       error={error}
       onNewChatPress={handleNewChatPress}
       onConversationPress={handleConversationPress}
@@ -167,33 +173,43 @@ export default function DrawerLayout() {
   } = useConversations()
 
   // Prevent duplicate initialization on re-renders (React 18 Strict Mode)
+  // Two refs: isInitializing prevents concurrent runs, hasInitialized tracks completion
   const hasInitialized = useRef(false)
+  const isInitializing = useRef(false)
 
   useEffect(() => {
-    // Skip if already loading or initialized
-    if (isLoading || hasInitialized.current) {
+    // Skip if already loading, initialized, or currently initializing
+    if (isLoading || hasInitialized.current || isInitializing.current) {
       return
     }
 
     const initializeConversation = async () => {
-      hasInitialized.current = true
+      // Mark as initializing to prevent concurrent runs
+      isInitializing.current = true
 
-      if (conversations.length > 0) {
-        // Navigate to most recent conversation (already sorted by updated_at)
-        const mostRecent = conversations[0]
-        switchConversation(mostRecent.id)
-        router.replace(`/chat/${mostRecent.id}`)
-      } else {
-        // No conversations exist -- create a new "New Chat" conversation
-        try {
+      try {
+        if (conversations.length > 0) {
+          // Navigate to most recent conversation (already sorted by updated_at)
+          const mostRecent = conversations[0]
+          switchConversation(mostRecent.id)
+          router.replace(`/chat/${mostRecent.id}`)
+          // Mark as complete only after navigation succeeds
+          hasInitialized.current = true
+        } else {
+          // No conversations exist -- create a new "New Chat" conversation
           const newId = await createConversation()
           switchConversation(newId)
           router.replace(`/chat/${newId}`)
-        } catch (err) {
-          console.error('Failed to create initial conversation:', err)
-          // Error will be in the hook's error state
-          hasInitialized.current = false // Allow retry
+          // Mark as complete only after async operations succeed
+          hasInitialized.current = true
         }
+      } catch (err) {
+        console.error('Failed to create initial conversation:', err)
+        // Error will be in the hook's error state
+        // Don't set hasInitialized so retry is possible
+      } finally {
+        // Always clear the initializing flag
+        isInitializing.current = false
       }
     }
 

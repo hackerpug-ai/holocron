@@ -4,8 +4,9 @@ import { DrawerHeader, type NavSection } from '@/components/DrawerHeader'
 import { Text } from '@/components/ui/text'
 import { cn } from '@/lib/utils'
 import { BookOpen, MessageSquare, Settings } from 'lucide-react-native'
+import { useMemo } from 'react'
 import { FlatList, Pressable, View, type ViewProps } from 'react-native'
-import type { Conversation } from '@/hooks/useConversations'
+import type { Conversation } from '@/lib/types/conversations'
 
 // Re-export Conversation type for convenience
 export type { Conversation }
@@ -47,6 +48,12 @@ interface DrawerContentProps extends Omit<ViewProps, 'children'> {
   onRename?: (newTitle: string) => void
   /** Callback when delete is confirmed */
   onDelete?: () => void
+  /** Whether a rename operation is in progress */
+  isRenaming?: boolean
+  /** Whether a delete operation is in progress */
+  isDeleting?: boolean
+  /** Whether a create operation is in progress */
+  isCreating?: boolean
 }
 
 /**
@@ -73,6 +80,9 @@ export function DrawerContent({
   onActionMenuOpenChange,
   onRename,
   onDelete,
+  isRenaming = false,
+  isDeleting = false,
+  isCreating = false,
   className,
   ...props
 }: DrawerContentProps) {
@@ -81,6 +91,21 @@ export function DrawerContent({
     { id: 'articles', label: 'Articles', icon: <BookOpen size={20} className="text-foreground" />, onPress: onArticlesPress },
     { id: 'settings', label: 'Settings', icon: <Settings size={20} className="text-foreground" />, onPress: onSettingsPress },
   ]
+
+  // Filter conversations based on search query (case-insensitive)
+  const filteredConversations = useMemo(() => {
+    const trimmedQuery = searchQuery.trim().toLowerCase()
+    if (!trimmedQuery) {
+      return conversations
+    }
+    return conversations.filter((c) =>
+      c.title.toLowerCase().includes(trimmedQuery)
+    )
+  }, [conversations, searchQuery])
+
+  // Track if we're showing filtered (no results) vs empty (no conversations)
+  const isSearchActive = searchQuery.trim().length > 0
+  const hasNoSearchResults = isSearchActive && filteredConversations.length === 0 && conversations.length > 0
 
   const renderConversation = ({ item }: { item: Conversation }) => (
     <ConversationRow
@@ -108,10 +133,25 @@ export function DrawerContent({
           onPress={onRetry}
           className="items-center py-8 active:bg-muted"
           testID="drawer-content-error"
+          accessibilityRole="button"
+          accessibilityLabel="Failed to load conversations. Tap to retry"
+          accessibilityHint="Double tap to retry loading conversations"
         >
           <Text className="text-destructive text-sm">Failed to load conversations</Text>
           <Text className="text-muted-foreground mt-1 text-xs">Tap to retry</Text>
         </Pressable>
+      )
+    }
+
+    // Show "no results" when searching with no matches
+    if (hasNoSearchResults) {
+      return (
+        <View className="items-center py-8" testID="drawer-content-no-results">
+          <Text className="text-muted-foreground text-sm">No conversations found</Text>
+          <Text className="text-muted-foreground mt-1 text-xs">
+            Try a different search term
+          </Text>
+        </View>
       )
     }
 
@@ -148,7 +188,7 @@ export function DrawerContent({
           Conversations
         </Text>
         <FlatList
-          data={conversations}
+          data={filteredConversations}
           renderItem={renderConversation}
           keyExtractor={(item) => item.id}
           contentContainerStyle={{ gap: 2 }}
@@ -163,6 +203,8 @@ export function DrawerContent({
         conversationTitle={actionMenuConversationTitle}
         onRename={onRename}
         onDelete={onDelete}
+        isRenaming={isRenaming}
+        isDeleting={isDeleting}
       />
     </View>
   )

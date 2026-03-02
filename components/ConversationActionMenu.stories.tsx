@@ -1,4 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react';
+import { expect } from '@storybook/jest';
+import { within, userEvent } from '@storybook/testing-library';
 import { View, Pressable, Text as RNText } from 'react-native';
 import * as React from 'react';
 import { ConversationActionMenu } from './ConversationActionMenu';
@@ -57,7 +59,18 @@ type Story = StoryObj<typeof ConversationActionMenu>;
 /**
  * Default story showing the action menu with Rename and Delete options
  */
-export const Default: Story = {};
+export const Default: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    // Verify the action menu overlay exists with rename and delete buttons
+    await expect(canvas.getByTestId('action-menu-overlay')).toBeTruthy()
+    await expect(canvas.getByTestId('action-menu-rename-button')).toBeTruthy()
+    await expect(canvas.getByTestId('action-menu-delete-button')).toBeTruthy()
+    // Verify button labels
+    await expect(canvas.getByText('Rename')).toBeTruthy()
+    await expect(canvas.getByText('Delete')).toBeTruthy()
+  },
+};
 
 /**
  * RenameFlow - Story that demonstrates the rename flow
@@ -71,6 +84,18 @@ export const RenameFlow: Story = {
           'The rename dialog opens when "Rename" is tapped. Shows a text input pre-filled with the current conversation title. The Save button is disabled when the input is empty.',
       },
     },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    // Click the rename button to open the rename dialog
+    const renameButton = canvas.getByTestId('action-menu-rename-button')
+    await userEvent.click(renameButton)
+
+    // Verify the rename dialog appears with expected elements
+    await expect(canvas.getByTestId('rename-dialog')).toBeTruthy()
+    await expect(canvas.getByTestId('rename-input')).toBeTruthy()
+    await expect(canvas.getByTestId('rename-cancel-button')).toBeTruthy()
+    await expect(canvas.getByTestId('rename-save-button')).toBeTruthy()
   },
 };
 
@@ -86,6 +111,18 @@ export const DeleteConfirmation: Story = {
           'The delete confirmation alert opens when "Delete" is tapped. Shows a destructive warning that the action cannot be undone.',
       },
     },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    // Click the delete button to open the delete confirmation dialog
+    const deleteButton = canvas.getByTestId('action-menu-delete-button')
+    await userEvent.click(deleteButton)
+
+    // Verify the delete alert dialog appears with expected elements
+    await expect(canvas.getByTestId('delete-alert-dialog')).toBeTruthy()
+    await expect(canvas.getByTestId('delete-description')).toBeTruthy()
+    await expect(canvas.getByTestId('delete-cancel-button')).toBeTruthy()
+    await expect(canvas.getByTestId('delete-confirm-button')).toBeTruthy()
   },
 };
 

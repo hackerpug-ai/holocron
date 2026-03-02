@@ -1,4 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react'
+import { expect } from '@storybook/jest'
+import { within, userEvent } from '@storybook/testing-library'
 import { BookOpen, MessageSquare, Settings, Sparkles } from 'lucide-react-native'
 import { useState } from 'react'
 import { View } from 'react-native'
@@ -33,11 +35,29 @@ const meta: Meta<typeof DrawerHeader> = {
 export default meta
 type Story = StoryObj<typeof DrawerHeader>
 
-export const Default: Story = {}
+export const Default: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    // Verify header elements exist
+    await expect(canvas.getByTestId('drawer-header')).toBeTruthy()
+    await expect(canvas.getByTestId('drawer-search-input')).toBeTruthy()
+    await expect(canvas.getByTestId('drawer-new-chat-button')).toBeTruthy()
+    // Verify default sections exist
+    await expect(canvas.getByTestId('drawer-section-holocron')).toBeTruthy()
+    await expect(canvas.getByTestId('drawer-section-articles')).toBeTruthy()
+    await expect(canvas.getByTestId('drawer-section-settings')).toBeTruthy()
+  },
+}
 
 export const WithSearchQuery: Story = {
   args: {
     searchQuery: 'machine learning',
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    // Verify search input exists (value is set via args)
+    const searchInput = canvas.getByTestId('drawer-search-input')
+    await expect(searchInput).toBeTruthy()
   },
 }
 
@@ -50,7 +70,18 @@ export const CustomSections: Story = {
       { id: 'settings', label: 'Settings', icon: <Settings size={20} className="text-foreground" /> },
     ],
   },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    // Verify custom sections exist
+    await expect(canvas.getByTestId('drawer-section-holocron')).toBeTruthy()
+    await expect(canvas.getByTestId('drawer-section-articles')).toBeTruthy()
+    await expect(canvas.getByTestId('drawer-section-agents')).toBeTruthy()
+    await expect(canvas.getByTestId('drawer-section-settings')).toBeTruthy()
+    // Verify section labels
+    await expect(canvas.getByText('AI Agents')).toBeTruthy()
+  },
 }
+
 
 export const Interactive: Story = {
   render: function InteractiveStory() {
