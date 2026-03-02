@@ -1,0 +1,79 @@
+version: "3.0"
+created: "2026-03-01"
+
+# Phase 1: DISCOVER
+goal: "Mobile research app for holocron knowledge base with remote research workflows"
+vibe: "elegant, minimal"
+references:
+  - url: "https://reactnativereusables.com/"
+    notes: "shadcn/ui port for React Native - use existing styling patterns"
+
+# Phase 2: TARGET
+platforms:
+  - mobile-ios
+  - mobile-android
+
+# Phase 3: EQUIP
+tools:
+  framework: expo
+  style: nativewind
+  components: rn-reusables
+  components_docs: "https://reactnativereusables.com/"
+  sandbox: storybook
+
+# PRD reference
+prd_path: ".spec/prd/"
+
+# Process state
+phase: atoms
+gates:
+  discover: passed
+  target: passed
+  equip: passed
+  scaffold: passed
+  atoms: passed
+  compose: pending
+  integrate: pending
+
+# Phase 5: ATOMS
+atoms:
+  - name: ArticleCard
+    file: components/ArticleCard.tsx
+    story: components/ArticleCard.stories.tsx
+    status: verified
+    controls: true
+  - name: CategoryBadge
+    file: components/CategoryBadge.tsx
+    story: components/CategoryBadge.stories.tsx
+    status: verified
+    controls: true
+  - name: SearchInput
+    file: components/SearchInput.tsx
+    story: components/SearchInput.stories.tsx
+    status: verified
+    controls: true
+  - name: StatCard
+    file: components/StatCard.tsx
+    story: components/StatCard.stories.tsx
+    status: verified
+    controls: true
+  - name: ProgressIndicator
+    file: components/ProgressIndicator.tsx
+    story: components/ProgressIndicator.stories.tsx
+    status: verified
+    controls: true
+  - name: IterationCard
+    file: components/IterationCard.tsx
+    story: components/IterationCard.stories.tsx
+    status: verified
+    controls: true
+  - name: SectionHeader
+    file: components/SectionHeader.tsx
+    story: components/SectionHeader.stories.tsx
+    status: verified
+    controls: true
+  - name: EmptyState
+    file: components/EmptyState.tsx
+    story: components/EmptyState.stories.tsx
+    status: verified
+    controls: true
