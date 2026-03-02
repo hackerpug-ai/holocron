@@ -36,7 +36,7 @@ cssInterop(LucideIconImpl, {
 
 // Expo Icon Implementation with className support
 function ExpoIconImpl({ as: IconComponent, className, style, ...props }: ExpoIconProps) {
-  return <IconComponent style={style} {...props} />;
+  return <IconComponent className={className} style={style} {...props} />;
 }
 
 cssInterop(ExpoIconImpl, {
