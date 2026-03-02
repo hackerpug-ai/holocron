@@ -38,7 +38,7 @@ export default function ChatScreen() {
   } = useChatHistory(conversationId ?? null)
 
   // Send message hook with optimistic updates
-  const { send, isSending, error: sendError } = useChatSend(
+  const { send, isSending, error: sendError, retry } = useChatSend(
     conversationId ?? '',
     prependMessages,
     replaceMessage
@@ -134,6 +134,14 @@ export default function ChatScreen() {
         showTypingIndicator={isSending}
         testID="chat-thread"
       />
+      {sendError && (
+        <View className="bg-destructive/10 px-4 py-2 flex-row items-center justify-between" testID="error-banner">
+          <Text className="text-destructive">Failed to send message</Text>
+          <Pressable onPress={retry} testID="error-retry-button">
+            <Text className="text-primary">Retry</Text>
+          </Pressable>
+        </View>
+      )}
       <ChatInput
         onSend={handleSend}
         disabled={isSending}

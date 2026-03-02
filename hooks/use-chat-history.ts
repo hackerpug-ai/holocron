@@ -38,6 +38,7 @@ interface UseChatHistoryReturn {
   hasMore: boolean
   refetch: () => void
   prependMessages: (newMessages: ChatMessage[]) => void
+  replaceMessage: (tempId: string, realMessage: ChatMessage) => void
 }
 
 /**
@@ -180,6 +181,13 @@ export function useChatHistory(
     setMessages((prev) => [...newMessages, ...prev])
   }, [])
 
+  // Replace message (for replacing temp IDs with real IDs after API success)
+  const replaceMessage = useCallback((tempId: string, realMessage: ChatMessage) => {
+    setMessages((prev) => prev.map((msg) =>
+      msg.id === tempId ? realMessage : msg
+    ))
+  }, [])
+
   // Handle new messages from Realtime (with deduplication)
   const handleRealtimeMessage = useCallback((newMessage: ChatMessage) => {
     setMessages((prev) => {
@@ -207,5 +215,6 @@ export function useChatHistory(
     hasMore,
     refetch,
     prependMessages,
+    replaceMessage,
   }
 }
