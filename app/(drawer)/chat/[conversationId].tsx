@@ -137,6 +137,7 @@ export default function ChatScreen() {
         onLoadMore={loadMore}
         isLoadingMore={isLoadingMore}
         hasMore={hasMore}
+        showTypingIndicator={isSending}
         testID="chat-thread"
       />
       <ChatInput

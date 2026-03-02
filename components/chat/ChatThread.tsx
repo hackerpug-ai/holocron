@@ -1,8 +1,9 @@
 import { View, FlatList, ActivityIndicator } from 'react-native'
 import { Text } from '@/components/ui/text'
-import { cn } from '@/lib/utils'
 import { useRef, useEffect } from 'react'
 import type { MessageRole } from '@/lib/types/conversations'
+import { MessageBubble } from './MessageBubble'
+import { TypingIndicator } from './TypingIndicator'
 
 export interface ChatMessage {
   id: string
@@ -16,45 +17,8 @@ export interface ChatThreadProps {
   onLoadMore: () => void
   isLoadingMore: boolean
   hasMore: boolean
+  showTypingIndicator?: boolean
   testID?: string
-}
-
-// Temporary MessageBubble stub until US-013 is complete
-// This will be replaced with the real MessageBubble component
-function MessageBubbleStub({ role, content }: { role: MessageRole; content: string }) {
-  const isUser = role === 'user'
-  const isSystem = role === 'system'
-
-  return (
-    <View
-      className={cn(
-        'my-1 px-4',
-        isUser && 'items-end',
-        isSystem && 'items-center',
-        !isUser && !isSystem && 'items-start'
-      )}
-    >
-      <View
-        className={cn(
-          'rounded-lg p-3',
-          isUser && 'bg-primary max-w-[75%]',
-          isSystem && 'bg-muted max-w-[80%]',
-          !isUser && !isSystem && 'bg-card max-w-[75%]'
-        )}
-      >
-        <Text
-          variant={isSystem ? 'small' : 'default'}
-          className={cn(
-            isUser && 'text-primary-foreground',
-            isSystem && 'text-muted-foreground',
-            !isUser && !isSystem && 'text-foreground'
-          )}
-        >
-          {content}
-        </Text>
-      </View>
-    </View>
-  )
 }
 
 export function ChatThread({
@@ -62,19 +26,26 @@ export function ChatThread({
   onLoadMore,
   isLoadingMore,
   hasMore,
+  showTypingIndicator = false,
   testID = 'chat-thread',
 }: ChatThreadProps) {
   const flatListRef = useRef<FlatList>(null)
 
-  // Auto-scroll to bottom when new messages are added
+  // Auto-scroll to bottom when new messages are added or typing indicator appears
   useEffect(() => {
-    if (messages.length > 0) {
+    if (messages.length > 0 || showTypingIndicator) {
       flatListRef.current?.scrollToEnd({ animated: true })
     }
-  }, [messages.length])
+  }, [messages.length, showTypingIndicator])
 
   const renderMessage = ({ item }: { item: ChatMessage }) => (
-    <MessageBubbleStub role={item.role} content={item.content} />
+    <MessageBubble
+      role={item.role}
+      content={item.content}
+      createdAt={item.createdAt}
+      showTimestamp={true}
+      testID={`message-${item.id}`}
+    />
   )
 
   const renderEmptyState = () => (
@@ -98,6 +69,11 @@ export function ChatThread({
     )
   }
 
+  const renderTypingIndicator = () => {
+    if (!showTypingIndicator) return null
+    return <TypingIndicator />
+  }
+
   const handleEndReached = () => {
     if (hasMore && !isLoadingMore) {
       onLoadMore()
@@ -115,6 +91,7 @@ export function ChatThread({
         onEndReached={handleEndReached}
         onEndReachedThreshold={0.5}
         ListEmptyComponent={renderEmptyState}
+        ListHeaderComponent={renderTypingIndicator}
         ListFooterComponent={renderLoadingIndicator}
         contentContainerStyle={
           messages.length === 0 ? { flexGrow: 1 } : undefined

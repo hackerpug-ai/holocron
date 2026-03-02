@@ -11,6 +11,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { ChatMessage } from '@/components/chat/ChatThread'
 import type { MessageRole } from '@/lib/types/conversations'
+import { useChatRealtime } from './use-chat-realtime'
 
 interface ChatHistoryResponse {
   messages: Array<{
@@ -178,6 +179,24 @@ export function useChatHistory(
   const prependMessages = useCallback((newMessages: ChatMessage[]) => {
     setMessages((prev) => [...newMessages, ...prev])
   }, [])
+
+  // Handle new messages from Realtime (with deduplication)
+  const handleRealtimeMessage = useCallback((newMessage: ChatMessage) => {
+    setMessages((prev) => {
+      // Deduplicate: check if message already exists
+      const exists = prev.some((msg) => msg.id === newMessage.id)
+      if (exists) return prev
+
+      // Add new message to the front (newest first)
+      return [newMessage, ...prev]
+    })
+  }, [])
+
+  // Subscribe to Realtime updates
+  useChatRealtime({
+    conversationId,
+    onNewMessage: handleRealtimeMessage,
+  })
 
   return {
     messages,
