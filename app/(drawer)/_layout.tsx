@@ -3,7 +3,10 @@ import { DrawerContent, type Conversation } from '@/screens/DrawerContent'
 import { useConversations } from '@/hooks/useConversations'
 import { useRouter } from 'expo-router'
 import { useDrawerStatus } from '@react-navigation/drawer'
-import { useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { ActivityIndicator, View, Pressable } from 'react-native'
+import { Text } from '@/components/ui/text'
+import { Button } from '@/components/ui/button'
 
 /**
  * Custom drawer content that wires the useConversations hook
@@ -12,6 +15,12 @@ import { useEffect } from 'react'
 function CustomDrawerContent() {
   const router = useRouter()
   const isDrawerOpen = useDrawerStatus() === 'open'
+  const [isActionMenuOpen, setIsActionMenuOpen] = useState(false)
+  const [actionMenuConversation, setActionMenuConversation] = useState<{
+    id: string
+    title: string
+  } | null>(null)
+
   const {
     conversations,
     activeConversationId,
@@ -19,6 +28,8 @@ function CustomDrawerContent() {
     error,
     createConversation,
     switchConversation,
+    renameConversation,
+    deleteConversation,
     refetch,
   } = useConversations()
 
@@ -47,6 +58,35 @@ function CustomDrawerContent() {
     router.push(`/`)
   }
 
+  const handleConversationLongPress = (conversation: Conversation) => {
+    setActionMenuConversation({ id: conversation.id, title: conversation.title })
+    setIsActionMenuOpen(true)
+  }
+
+  const handleRename = async (newTitle: string) => {
+    if (!actionMenuConversation) return
+    try {
+      await renameConversation(actionMenuConversation.id, newTitle)
+      setIsActionMenuOpen(false)
+    } catch (err) {
+      console.error('Failed to rename conversation:', err)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!actionMenuConversation) return
+    try {
+      const navigateToId = await deleteConversation(actionMenuConversation.id)
+      setIsActionMenuOpen(false)
+      // Navigate to the next conversation if the active one was deleted
+      if (navigateToId) {
+        router.push(`/`)
+      }
+    } catch (err) {
+      console.error('Failed to delete conversation:', err)
+    }
+  }
+
   const handleHolocronPress = () => {
     router.push('/')
   }
@@ -67,15 +107,103 @@ function CustomDrawerContent() {
       error={error}
       onNewChatPress={handleNewChatPress}
       onConversationPress={handleConversationPress}
+      onConversationLongPress={handleConversationLongPress}
       onHolocronPress={handleHolocronPress}
       onArticlesPress={handleArticlesPress}
       onSettingsPress={handleSettingsPress}
       onRetry={refetch}
+      actionMenuOpen={isActionMenuOpen}
+      actionMenuConversationTitle={actionMenuConversation?.title ?? ''}
+      onActionMenuOpenChange={setIsActionMenuOpen}
+      onRename={handleRename}
+      onDelete={handleDelete}
     />
   )
 }
 
+/**
+ * Loading screen shown while determining the initial conversation on app launch.
+ */
+function InitialLoadingScreen() {
+  return (
+    <View className="bg-background flex-1 items-center justify-center" testID="initial-loading-screen">
+      <ActivityIndicator size="large" testID="loading-spinner" />
+      <Text className="text-muted-foreground mt-4 text-sm">Loading conversations...</Text>
+    </View>
+  )
+}
+
+/**
+ * Error screen shown when initial conversation fetch fails.
+ */
+function InitialErrorScreen({ error, onRetry }: { error: Error | null; onRetry: () => void }) {
+  return (
+    <View className="bg-background flex-1 items-center justify-center gap-4 p-6" testID="initial-error-screen">
+      <Text className="text-destructive text-center text-lg">Failed to load conversations</Text>
+      <Text className="text-muted-foreground text-center text-sm">{error?.message}</Text>
+      <Button onPress={onRetry} testID="retry-button">
+        <Text>Retry</Text>
+      </Button>
+    </View>
+  )
+}
+
 export default function DrawerLayout() {
+  const router = useRouter()
+  const {
+    conversations,
+    isLoading,
+    error,
+    createConversation,
+    switchConversation,
+    refetch,
+  } = useConversations()
+
+  // Prevent duplicate initialization on re-renders (React 18 Strict Mode)
+  const hasInitialized = useRef(false)
+
+  useEffect(() => {
+    // Skip if already loading or initialized
+    if (isLoading || hasInitialized.current) {
+      return
+    }
+
+    const initializeConversation = async () => {
+      hasInitialized.current = true
+
+      if (conversations.length > 0) {
+        // Navigate to most recent conversation (already sorted by updated_at)
+        const mostRecent = conversations[0]
+        switchConversation(mostRecent.id)
+        router.replace(`/`)
+      } else {
+        // No conversations exist -- create a new "New Chat" conversation
+        try {
+          const newId = await createConversation()
+          switchConversation(newId)
+          router.replace(`/`)
+        } catch (err) {
+          console.error('Failed to create initial conversation:', err)
+          // Error will be in the hook's error state
+          hasInitialized.current = false // Allow retry
+        }
+      }
+    }
+
+    initializeConversation()
+  }, [isLoading, conversations, createConversation, switchConversation, router])
+
+  // Show loading screen while determining initial conversation
+  if (isLoading && !hasInitialized.current) {
+    return <InitialLoadingScreen />
+  }
+
+  // Show error screen if initial fetch failed
+  if (error && !hasInitialized.current) {
+    return <InitialErrorScreen error={error} onRetry={refetch} />
+  }
+
+  // Normal drawer layout after initialization
   return (
     <Drawer
       screenOptions={{
