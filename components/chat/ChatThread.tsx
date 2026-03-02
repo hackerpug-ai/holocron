@@ -49,7 +49,10 @@ export function ChatThread({
   )
 
   const renderEmptyState = () => (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, transform: [{ scaleY: -1 }] }}>
+    <View
+      className="flex-1 items-center justify-center p-6"
+      style={{ transform: [{ scaleY: -1 }] }}
+    >
       <Text variant="large" className="text-muted-foreground text-center">
         No messages yet
       </Text>
