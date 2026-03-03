@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 import { BookOpen, MessageSquare, Settings } from 'lucide-react-native'
 import { useMemo } from 'react'
 import { FlatList, Pressable, View, type ViewProps } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import type { Conversation } from '@/lib/types/conversations'
 
 // Re-export Conversation type for convenience
@@ -83,6 +84,8 @@ export function DrawerContent({
   className,
   ...props
 }: DrawerContentProps) {
+  const insets = useSafeAreaInsets()
+
   const sections: NavSection[] = [
     { id: 'holocron', label: 'Holocron', icon: <MessageSquare size={20} className="text-foreground" />, onPress: onHolocronPress },
     { id: 'articles', label: 'Articles', icon: <BookOpen size={20} className="text-foreground" />, onPress: onArticlesPress },
@@ -174,6 +177,7 @@ export function DrawerContent({
         onSearchChange={onSearchChange}
         onNewChatPress={onNewChatPress}
         sections={sections}
+        style={{ paddingTop: insets.top + 12 }}
       />
 
       {/* Divider */}
@@ -188,7 +192,7 @@ export function DrawerContent({
           data={filteredConversations}
           renderItem={renderConversation}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={{ gap: 2 }}
+          contentContainerStyle={{ gap: 2, paddingBottom: insets.bottom }}
           ListEmptyComponent={renderListEmptyComponent}
         />
       </View>

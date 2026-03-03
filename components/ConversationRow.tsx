@@ -1,6 +1,5 @@
 import { Text } from '@/components/ui/text'
 import { cn } from '@/lib/utils'
-import { MessageCircle } from 'lucide-react-native'
 import { Pressable, View, type ViewProps } from 'react-native'
 
 interface ConversationRowProps extends Omit<ViewProps, 'children'> {
@@ -53,17 +52,6 @@ export function ConversationRow({
       accessibilityState={{ selected: isActive }}
       {...props}
     >
-      <View
-        className={cn(
-          'h-10 w-10 items-center justify-center rounded-full',
-          isActive ? 'bg-primary' : 'bg-muted'
-        )}
-      >
-        <MessageCircle
-          size={20}
-          className={isActive ? 'text-primary-foreground' : 'text-muted-foreground'}
-        />
-      </View>
       <View className="flex-1">
         <View className="flex-row items-center justify-between">
           <Text

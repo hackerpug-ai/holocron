@@ -21,6 +21,8 @@ export interface ChatThreadProps {
   isLoadingMore: boolean
   hasMore: boolean
   showTypingIndicator?: boolean
+  /** Initial loading state - shows subtle inline loader */
+  isLoading?: boolean
   /** Safe area top inset to apply as padding */
   safeAreaTop?: number
   testID?: string
@@ -32,6 +34,7 @@ export function ChatThread({
   isLoadingMore,
   hasMore,
   showTypingIndicator = false,
+  isLoading = false,
   safeAreaTop = 0,
   testID = 'chat-thread',
 }: ChatThreadProps) {
@@ -64,19 +67,35 @@ export function ChatThread({
     />
   )
 
-  const renderEmptyState = () => (
-    <View
-      className="flex-1 items-center justify-center p-6"
-      style={{ transform: [{ scaleY: -1 }] }}
-    >
-      <Text variant="large" className="text-muted-foreground text-center">
-        No messages yet
-      </Text>
-      <Text variant="muted" className="text-center mt-2">
-        Start a conversation to see messages here
-      </Text>
-    </View>
-  )
+  const renderEmptyState = () => {
+    // While loading, show nothing (seamless UI) - or a very subtle indicator
+    if (isLoading) {
+      return (
+        <View
+          className="flex-1 items-center justify-center p-6"
+          style={{ transform: [{ scaleY: -1 }] }}
+          testID="chat-loading-inline"
+        >
+          <ActivityIndicator size="small" className="text-muted-foreground opacity-50" />
+        </View>
+      )
+    }
+
+    // Truly empty - show helpful message
+    return (
+      <View
+        className="flex-1 items-center justify-center p-6"
+        style={{ transform: [{ scaleY: -1 }] }}
+      >
+        <Text variant="large" className="text-muted-foreground text-center">
+          No messages yet
+        </Text>
+        <Text variant="muted" className="text-center mt-2">
+          Start a conversation to see messages here
+        </Text>
+      </View>
+    )
+  }
 
   const renderLoadingIndicator = () => {
     if (!isLoadingMore || !hasMore) return null

@@ -227,7 +227,7 @@ export default function DrawerLayout() {
 
   // Normal drawer layout after initialization
   return (
-    <SafeAreaView style={{ flex: 1 }} edges={['bottom', 'left', 'right']} className="bg-background">
+    <SafeAreaView style={{ flex: 1 }} edges={['left', 'right']} className="bg-background">
       <Drawer
         screenOptions={{
           headerShown: false,
