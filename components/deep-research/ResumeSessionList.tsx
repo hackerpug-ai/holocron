@@ -24,7 +24,7 @@ interface ResumeSessionListProps extends ViewProps {
   /** Array of incomplete sessions to display */
   sessions: ResumeSession[]
   /** Callback when a session is selected */
-  onSelect: (sessionId: string) => void
+  onSelect: (_sessionId: string) => void
   /** Optional title for the list */
   title?: string
   /** Optional empty state message */

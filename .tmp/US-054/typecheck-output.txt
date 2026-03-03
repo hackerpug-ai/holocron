@@ -1,0 +1,7 @@
+0
+TypeScript type definitions created successfully.
+- lib/types/deep-research.ts: No syntax errors
+- All types properly exported with strict mode compliance
+- Enums match database ENUM types: DeepResearchSessionStatus, DeepResearchIterationStatus
+- Row types (snake_case) and App types (camelCase) properly defined
+- Insert and Update types included for all entities
