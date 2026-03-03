@@ -155,7 +155,7 @@ export async function generateStatsResponse(
   try {
     // Query total count
     const { count: totalCount, error: countError } = await supabase
-      .from('articles')
+      .from('documents')
       .select('*', { count: 'exact', head: true })
 
     if (countError) {
@@ -165,7 +165,7 @@ export async function generateStatsResponse(
 
     // Query category breakdown
     const { data: categories, error: categoriesError } = await supabase
-      .from('articles')
+      .from('documents')
       .select('category')
 
     if (categoriesError) {
@@ -186,7 +186,7 @@ export async function generateStatsResponse(
 
     // Query 5 most recent documents
     const { data: recentDocs, error: recentError } = await supabase
-      .from('articles')
+      .from('documents')
       .select('id, title, created_at')
       .order('created_at', { ascending: false })
       .limit(5)
