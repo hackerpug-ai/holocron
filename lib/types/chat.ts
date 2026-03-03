@@ -63,6 +63,26 @@ export interface CategoryNotFoundCardData {
   valid_categories: string[]
 }
 
+// Deep research confirmation card - confirms session creation
+export interface DeepResearchConfirmationCardData {
+  card_type: 'deep_research_confirmation'
+  session_id: string
+  topic: string
+  max_iterations: number
+}
+
+// Resume session list card - displays incomplete research sessions
+export interface ResumeSessionListCardData {
+  card_type: 'resume_session_list'
+  sessions: Array<{
+    session_id: string
+    topic: string
+    current_iteration: number
+    max_iterations: number
+    status: string
+  }>
+}
+
 // Discriminated union of all card data types
 // Also supports arrays of article cards for multiple search results
 export type CardData =
@@ -71,6 +91,8 @@ export type CardData =
   | CategoryListCardData
   | NoResultsCardData
   | CategoryNotFoundCardData
+  | DeepResearchConfirmationCardData
+  | ResumeSessionListCardData
   | ArticleCardData[]
 
 export interface ChatMessage {

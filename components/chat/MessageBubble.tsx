@@ -4,6 +4,8 @@ import { cn } from '@/lib/utils'
 import type { MessageRole, MessageType } from '@/lib/types/conversations'
 import { formatTimestamp } from '@/lib/formatTimestamp'
 import { ResultCard, type ResultCardData, type CardType } from '@/components/ui/result-card'
+import { DeepResearchConfirmationCard } from '@/components/deep-research/DeepResearchConfirmationCard'
+import { ResumeSessionList } from '@/components/deep-research/ResumeSessionList'
 
 export interface MessageBubbleProps {
   role: MessageRole
@@ -14,6 +16,7 @@ export interface MessageBubbleProps {
   showTimestamp?: boolean
   testID?: string
   onCardPress?: (documentId: number) => void
+  onSessionSelect?: (sessionId: string) => void
   loadingCardId?: number | null
   cardError?: string | null
 }
@@ -27,6 +30,7 @@ export function MessageBubble({
   showTimestamp = true,
   testID = 'message-bubble',
   onCardPress,
+  onSessionSelect,
   loadingCardId,
   cardError,
 }: MessageBubbleProps) {
@@ -40,7 +44,7 @@ export function MessageBubble({
         className={cn('my-1 px-4', 'items-start')}
         testID={testID}
       >
-        {renderResultCard(card_data, testID, onCardPress, loadingCardId, cardError)}
+        {renderResultCard(card_data, testID, onCardPress, onSessionSelect, loadingCardId, cardError)}
         {showTimestamp && createdAt && (
           <Text
             variant="small"
@@ -109,6 +113,7 @@ function renderResultCard(
   card_data: Record<string, unknown>,
   testID: string,
   onCardPress?: (documentId: number) => void,
+  onSessionSelect?: (sessionId: string) => void,
   loadingCardId?: number | null,
   cardError?: string | null
 ) {
@@ -138,13 +143,56 @@ function renderResultCard(
   }
 
   // Single card - cast through unknown to satisfy TypeScript discriminated union
-  const cardType = card_data.card_type as CardType
+  const cardType = card_data.card_type as CardType | 'deep_research_confirmation' | 'resume_session_list'
+
+  // Handle deep research confirmation card - render specialized component
+  if (cardType === 'deep_research_confirmation') {
+    return (
+      <DeepResearchConfirmationCard
+        sessionId={(card_data.session_id as string) ?? ''}
+        topic={(card_data.topic as string) ?? ''}
+        maxIterations={(card_data.max_iterations as number) ?? 5}
+        testID={`${testID}-card`}
+      />
+    )
+  }
+
+  // Handle resume session list card - transform and render specialized component
+  if (cardType === 'resume_session_list' && onSessionSelect) {
+    const sessions = (card_data.sessions as Array<{
+      session_id: string
+      topic: string
+      current_iteration: number
+      max_iterations: number
+      status: string
+    }>) ?? []
+
+    // Transform backend data to match ResumeSessionList component expectations
+    // Backend uses snake_case, component uses camelCase
+    const transformedSessions = sessions.map((session) => ({
+      id: session.session_id,
+      topic: session.topic,
+      currentIteration: session.current_iteration,
+      targetIterations: session.max_iterations,
+      coverageScore: 3, // Default score - backend doesn't provide this yet
+      dateStarted: new Date().toISOString(), // Backend doesn't provide created_at in card
+    }))
+
+    return (
+      <ResumeSessionList
+        sessions={transformedSessions}
+        onSelect={onSessionSelect}
+        testID={`${testID}-card`}
+      />
+    )
+  }
+
   const documentId = card_data.document_id as number | undefined
   const isLoading = loadingCardId !== null && documentId === loadingCardId
 
   return (
     <ResultCard
-      cardType={cardType}
+      cardType={cardType as CardType}
       data={card_data as unknown as ResultCardData}
       onPress={() => handleCardPress(card_data, onCardPress)}
       testID={`${testID}-card`}
