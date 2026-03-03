@@ -1,13 +1,12 @@
 import { ChatBubble, type ChatRole } from '@/components/ChatBubble'
-import { ChatInput } from '@/components/ChatInput'
+import { ChatInput, type SlashCommand } from '@/components/ChatInput'
 import { type CategoryType } from '@/components/CategoryBadge'
 import { CommandBadge } from '@/components/CommandBadge'
 import { ResearchProgress, type ResearchStatus } from '@/components/ResearchProgress'
 import { ResultCard, type ResultType } from '@/components/ResultCard'
-import { SlashCommandMenu, type SlashCommand } from '@/components/SlashCommandMenu'
 import { TypingIndicator } from '@/components/TypingIndicator'
 import { cn } from '@/lib/utils'
-import { useState, useRef } from 'react'
+import { useRef } from 'react'
 import { FlatList, KeyboardAvoidingView, Platform, View, type ViewProps } from 'react-native'
 
 export interface ChatMessage {
@@ -50,7 +49,7 @@ interface ChatScreenProps extends Omit<ViewProps, 'children'> {
   inputDisabled?: boolean
   /** Callback when user sends a message */
   onSendMessage?: (message: string) => void
-  /** Callback when user selects a slash command */
+  /** Callback when user selects a slash command from the menu */
   onSelectCommand?: (command: SlashCommand) => void
   /** Callback when a result card is pressed */
   onResultPress?: (resultId: string) => void
@@ -70,34 +69,13 @@ export function ChatScreen({
   onSendMessage,
   onSelectCommand,
   onResultPress,
-  onMenuPress,
   className,
   ...props
 }: ChatScreenProps) {
-  const [showCommandMenu, setShowCommandMenu] = useState(false)
-  const [commandFilter, setCommandFilter] = useState('')
   const flatListRef = useRef<FlatList>(null)
 
   const handleSend = (message: string) => {
     onSendMessage?.(message)
-    setShowCommandMenu(false)
-    setCommandFilter('')
-  }
-
-  const handleSlashCommand = (text: string) => {
-    if (text.startsWith('/')) {
-      setShowCommandMenu(true)
-      setCommandFilter(text.slice(1))
-    } else {
-      setShowCommandMenu(false)
-      setCommandFilter('')
-    }
-  }
-
-  const handleSelectCommand = (command: SlashCommand) => {
-    setShowCommandMenu(false)
-    setCommandFilter('')
-    onSelectCommand?.(command)
   }
 
   const renderMessage = ({ item, index }: { item: ChatMessage; index: number }) => {
@@ -188,21 +166,10 @@ export function ChatScreen({
         }
       />
 
-      {/* Slash Command Menu */}
-      {showCommandMenu && (
-        <View className="bg-card/95 border-border/60 absolute bottom-28 left-4 right-4 overflow-hidden rounded-2xl border shadow-lg">
-          <SlashCommandMenu
-            visible={showCommandMenu}
-            filter={commandFilter}
-            onSelect={handleSelectCommand}
-          />
-        </View>
-      )}
-
-      {/* Input Bar - no border, floating design */}
+      {/* Input Bar - ChatInput handles command selection internally */}
       <ChatInput
         onSend={handleSend}
-        onSlashCommand={handleSlashCommand}
+        onSelectCommand={onSelectCommand}
         disabled={inputDisabled}
         placeholder="Ask anything..."
       />

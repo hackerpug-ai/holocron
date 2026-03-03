@@ -1,10 +1,23 @@
-import { View, TextInput, Pressable, useColorScheme } from 'react-native'
+import { View, TextInput, Pressable, useColorScheme, StyleSheet } from 'react-native'
 import { Text } from '@/components/ui/text'
 import { cn } from '@/lib/utils'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { Send } from 'lucide-react-native'
 import { colors } from '@/lib/theme'
-import { CommandPanel, type SlashCommand } from './CommandPanel'
+import {
+  useMentions,
+  type TriggersConfig,
+  type SuggestionsProvidedProps,
+} from 'react-native-controlled-mentions'
+
+export interface SlashCommand {
+  /** Command name without the leading slash */
+  name: string
+  /** Brief description of what the command does */
+  description: string
+  /** Syntax hint (e.g., "<query>") */
+  syntax?: string
+}
 
 export interface ChatInputProps {
   /** Callback when user sends a message - receives trimmed content */
@@ -21,6 +34,82 @@ export interface ChatInputProps {
   onChangeText?: (text: string) => void
   /** testID for the root element */
   testID?: string
+  /** Available commands */
+  commands?: SlashCommand[]
+}
+
+const DEFAULT_COMMANDS: SlashCommand[] = [
+  { name: 'search', description: 'Search the knowledge base', syntax: '<query>' },
+  { name: 'research', description: 'Start a research workflow', syntax: '<question>' },
+  { name: 'deep-research', description: 'Multi-iteration deep research', syntax: '<question>' },
+  { name: 'browse', description: 'Browse recent articles' },
+  { name: 'stats', description: 'View knowledge base statistics' },
+  { name: 'resume', description: 'Resume a previous research session', syntax: '<id>' },
+  { name: 'help', description: 'Show all available commands' },
+]
+
+/**
+ * Command suggestions component for the mentions input
+ */
+function CommandSuggestions({
+  keyword,
+  onSelect,
+  commands,
+}: SuggestionsProvidedProps & { commands: SlashCommand[] }) {
+  // Don't show if no keyword (triggers shows when user types "/")
+  if (keyword === undefined) return null
+
+  // Filter commands based on keyword
+  const filterText = keyword.toLowerCase()
+  const filteredCommands = commands.filter(
+    (cmd) =>
+      cmd.name.toLowerCase().includes(filterText) ||
+      cmd.description.toLowerCase().includes(filterText)
+  )
+
+  if (filteredCommands.length === 0) return null
+
+  // Check for exact match - highlight it
+  const exactMatch = commands.find((cmd) => cmd.name.toLowerCase() === filterText)
+
+  return (
+    <View
+      testID="command-suggestions"
+      className="bg-popover border-border absolute bottom-full left-0 right-0 mb-2 max-h-64 rounded-lg border shadow-lg"
+    >
+      <View className="p-2">
+        {filteredCommands.map((command) => {
+          const isExactMatch = exactMatch?.name === command.name
+
+          return (
+            <Pressable
+              key={command.name}
+              onPress={() => onSelect({ id: command.name, name: command.name })}
+              className={cn(
+                'rounded-md px-3 py-2',
+                isExactMatch ? 'bg-accent' : 'active:bg-accent'
+              )}
+              testID={`slash-command-${command.name}`}
+            >
+              <View className="flex-row items-center gap-2">
+                <Text className="text-primary font-mono text-sm font-semibold">
+                  /{command.name}
+                </Text>
+                {command.syntax && (
+                  <Text className="text-muted-foreground font-mono text-xs">
+                    {command.syntax}
+                  </Text>
+                )}
+              </View>
+              <Text className="text-muted-foreground mt-0.5 text-sm">
+                {command.description}
+              </Text>
+            </Pressable>
+          )
+        })}
+      </View>
+    </View>
+  )
 }
 
 export function ChatInput({
@@ -31,6 +120,7 @@ export function ChatInput({
   value: controlledValue,
   onChangeText,
   testID = 'chat-input',
+  commands = DEFAULT_COMMANDS,
 }: ChatInputProps) {
   const colorScheme = useColorScheme()
   const themeColors = colorScheme === 'dark' ? colors.dark : colors.light
@@ -39,49 +129,60 @@ export function ChatInput({
   const isControlled = controlledValue !== undefined && onChangeText !== undefined
   const [internalValue, setInternalValue] = useState(defaultValue)
 
-  // Syntax hint state for US-024
-  const [syntaxHint, setSyntaxHint] = useState<string | null>(null)
-  const commandBaseRef = useRef<string>('')
-
-  // Sync internal value when controlled value changes
-  useEffect(() => {
-    if (isControlled) {
-      setInternalValue(controlledValue)
-    }
-  }, [controlledValue, isControlled])
-
   const value = isControlled ? controlledValue : internalValue
   const setValue = isControlled ? onChangeText : setInternalValue
+
+  // Triggers config for slash commands - memoized to prevent re-renders
+  const triggersConfig: TriggersConfig<'command'> = useMemo(
+    () => ({
+      command: {
+        trigger: '/',
+        textStyle: {
+          fontWeight: 'bold' as const,
+          color: themeColors.primary,
+        },
+        // Keep the trigger character in the text
+        isInsertSpaceAfterMention: true,
+      },
+    }),
+    [themeColors.primary]
+  )
+
+  const { textInputProps, triggers } = useMentions({
+    value,
+    onChange: setValue,
+    triggersConfig,
+  })
 
   const trimmedValue = value.trim()
   const canSend = trimmedValue.length > 0 && !disabled
 
-  // Command panel visibility - derived from whether input starts with '/'
-  const showCommandPanel = value.startsWith('/')
+  // Check if suggestions should be visible
+  const showCommandPanel = triggers.command.keyword !== undefined
 
-  // Extract filter for command panel (the full text starting with '/')
-  const commandFilter = value.startsWith('/') ? value : ''
-
-  // Clear syntax hint when user types beyond the command base
+  // Auto-select command when user types the full command name
   useEffect(() => {
-    if (syntaxHint && commandBaseRef.current) {
-      // If user has typed beyond the command base, clear the hint
-      if (value.length > commandBaseRef.current.length) {
-        setSyntaxHint(null)
-        commandBaseRef.current = ''
-      }
-      // If user backspaced into the command, clear the hint
-      if (!value.startsWith(commandBaseRef.current.slice(0, -1))) {
-        setSyntaxHint(null)
-        commandBaseRef.current = ''
-      }
-    }
-  }, [value, syntaxHint])
+    const keyword = triggers.command.keyword
+    if (keyword === undefined) return
 
-  // Handle text change - panel visibility is derived from value
-  const handleTextChange = (text: string) => {
-    setValue(text)
-  }
+    // Check for exact match (case-insensitive)
+    const exactMatch = commands.find(
+      (cmd) => cmd.name.toLowerCase() === keyword.toLowerCase()
+    )
+
+    if (exactMatch) {
+      // Auto-select the command - same as clicking it
+      triggers.command.onSelect({ id: exactMatch.name, name: exactMatch.name })
+    }
+  }, [triggers.command.keyword, commands, triggers.command])
+
+  // Handle command selection from suggestions
+  const handleCommandSelect = useCallback(
+    (suggestion: { id: string; name: string }) => {
+      triggers.command.onSelect(suggestion)
+    },
+    [triggers.command]
+  )
 
   // Handle '/' button press - insert '/' if not already present
   const handleSlashButtonPress = () => {
@@ -90,36 +191,8 @@ export function ChatInput({
     }
   }
 
-  // Handle command selection - US-024: insert command with syntax hint
-  const handleCommandSelect = (command: SlashCommand) => {
-    const commandText = `/${command.name} `
-    setValue(commandText)
-    commandBaseRef.current = commandText
-
-    // Set syntax hint if command has one
-    if (command.syntax) {
-      setSyntaxHint(command.syntax)
-    } else {
-      setSyntaxHint(null)
-    }
-  }
-
-  // Handle panel dismiss
-  const handlePanelDismiss = () => {
-    // Clear the '/' prefix to hide panel
-    if (value.startsWith('/')) {
-      setValue('')
-    }
-    setSyntaxHint(null)
-    commandBaseRef.current = ''
-  }
-
   const handleSend = () => {
     if (canSend && onSend) {
-      // Clear syntax hint on send
-      setSyntaxHint(null)
-      commandBaseRef.current = ''
-
       // Check if onSend expects an argument (new API) or not (old API)
       if (onSend.length > 0) {
         // New API: pass trimmed content
@@ -135,18 +208,22 @@ export function ChatInput({
     }
   }
 
+  // Derive placeholder visibility - hide when there's content
+  const showPlaceholder = value.length === 0
+
   return (
     <View testID={testID} className="relative">
-      {/* Command Panel - positioned above input */}
-      <CommandPanel
-        visible={showCommandPanel}
-        filter={commandFilter}
-        onSelect={handleCommandSelect}
-        onDismiss={handlePanelDismiss}
-      />
+      {/* Command Suggestions Panel - positioned above input */}
+      {showCommandPanel && (
+        <CommandSuggestions
+          keyword={triggers.command.keyword}
+          onSelect={handleCommandSelect}
+          commands={commands}
+        />
+      )}
 
       {/* Input Row */}
-      <View className="flex-row items-center gap-2 border-t border-border bg-background px-4 py-2">
+      <View className="flex-row items-end gap-2 border-t border-border bg-background px-4 py-2">
         {/* Slash Button */}
         <Pressable
           testID="chat-input-slash-button"
@@ -167,38 +244,31 @@ export function ChatInput({
           </Text>
         </Pressable>
 
-        {/* Text Input Container with Syntax Hint */}
+        {/* Text Input Container */}
         <View className="relative flex-1">
-          <TextInput
-            testID="chat-input-field"
-            className="w-full rounded-full bg-muted px-4 py-2 text-foreground"
-            placeholder={placeholder}
-            placeholderTextColor={themeColors.mutedForeground}
-            value={value}
-            onChangeText={handleTextChange}
-            onSubmitEditing={handleSend}
-            editable={!disabled}
-            returnKeyType="send"
-            blurOnSubmit={false}
-          />
-          {/* Syntax Hint Overlay - US-024 */}
-          {syntaxHint && (
-            <View
-              testID="chat-input-syntax-hint-container"
-              pointerEvents="none"
-              className="absolute inset-0 flex-row items-center px-4"
-            >
-              {/* Invisible text to match input value width */}
-              <Text className="font-sans text-base text-transparent">{value}</Text>
-              {/* Visible syntax hint in muted color */}
-              <Text
-                testID="chat-input-syntax-hint"
-                className="font-mono text-sm text-muted-foreground"
-              >
-                {syntaxHint}
-              </Text>
-            </View>
-          )}
+          <View
+            className="min-h-[40px] max-h-32 rounded-2xl bg-muted overflow-hidden"
+            testID="chat-input-container"
+          >
+            {/* Placeholder - shown when input is empty */}
+            {showPlaceholder && (
+              <View pointerEvents="none" style={styles.placeholderContainer}>
+                <Text className="text-muted-foreground" style={styles.placeholder}>
+                  {placeholder}
+                </Text>
+              </View>
+            )}
+
+            {/* Multiline TextInput with mentions support */}
+            <TextInput
+              {...textInputProps}
+              testID="chat-input-field"
+              style={[styles.textInput, { color: themeColors.foreground }]}
+              multiline
+              editable={!disabled}
+              scrollEnabled
+            />
+          </View>
         </View>
 
         {/* Send Button */}
@@ -220,3 +290,26 @@ export function ChatInput({
     </View>
   )
 }
+
+const styles = StyleSheet.create({
+  textInput: {
+    fontSize: 16,
+    lineHeight: 22,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    minHeight: 40,
+    maxHeight: 128,
+  },
+  placeholderContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+  },
+  placeholder: {
+    fontSize: 16,
+  },
+})

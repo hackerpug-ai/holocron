@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react'
 import { View } from 'react-native'
-import { ChatInput } from './ChatInput'
+import { ChatInput, type SlashCommand } from './ChatInput'
 
 const meta: Meta<typeof ChatInput> = {
   title: 'Components/ChatInput',
@@ -9,7 +9,7 @@ const meta: Meta<typeof ChatInput> = {
     docs: {
       description: {
         component:
-          'An elegant floating pill input with animated send button. Features multiline support, command hint icon, and smooth spring animations on send.',
+          'An elegant floating pill input with animated send button. Features multiline support, integrated slash command suggestions with bold formatting, and smooth spring animations on send.',
       },
     },
   },
@@ -18,9 +18,9 @@ const meta: Meta<typeof ChatInput> = {
       action: 'sent',
       description: 'Callback when message is submitted',
     },
-    onSlashCommand: {
-      action: 'slashCommand',
-      description: 'Callback when slash command is detected',
+    onSelectCommand: {
+      action: 'commandSelected',
+      description: 'Callback when a slash command is selected from the menu',
     },
     onSlashButtonPress: {
       action: 'slashButtonPressed',
@@ -66,15 +66,15 @@ export const Disabled: Story = {
   },
 }
 
-export const WithSlashCommandHandler: Story = {
+export const WithCommandHandler: Story = {
   args: {
-    onSlashCommand: (cmd) => console.log('Slash command detected:', cmd),
+    onSelectCommand: (cmd: SlashCommand) => console.log('Command selected:', cmd),
   },
   parameters: {
     docs: {
       description: {
         story:
-          'Type "/" to trigger the slash command callback. The command icon on the left hints at this functionality.',
+          'Type "/" to see the command suggestions. Commands are displayed with bold formatting when selected. The onSelectCommand callback fires when a command is chosen from the menu.',
       },
     },
   },
@@ -88,7 +88,7 @@ export const WithSlashButton: Story = {
     docs: {
       description: {
         story:
-          'Shows the "/" button on the left side of the input. Tapping opens the slash command menu as an alternative to typing "/".',
+          'Shows the "/" button on the left side of the input. Tapping inserts "/" and opens the command suggestions as an alternative to typing.',
       },
     },
   },
@@ -96,14 +96,14 @@ export const WithSlashButton: Story = {
 
 export const FullFeatured: Story = {
   args: {
-    onSlashCommand: (cmd) => console.log('Slash command detected:', cmd),
+    onSelectCommand: (cmd: SlashCommand) => console.log('Command selected:', cmd),
     onSlashButtonPress: () => console.log('Slash button pressed'),
   },
   parameters: {
     docs: {
       description: {
         story:
-          'Full-featured input with both slash typing detection and slash button. This is the typical configuration for the main chat screen.',
+          'Full-featured input with command selection callback and slash button. Selected commands appear bold in the input. This is the typical configuration for the main chat screen.',
       },
     },
   },
