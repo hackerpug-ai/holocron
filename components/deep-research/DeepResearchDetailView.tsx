@@ -64,6 +64,8 @@ export interface DeepResearchDetailViewProps {
   session: DeepResearchSession
   /** Callback when back button is pressed */
   onBack?: () => void
+  /** Callback when a citation URL is pressed */
+  onCitationPress?: (url: string) => void
   /** Optional test ID */
   testID?: string
   /** Optional class name */
@@ -112,8 +114,16 @@ function ScoreProgression({ iterations }: { iterations: ResearchIteration[] }) {
 /**
  * CitationRow displays a single citation with optional link
  */
-function CitationRow({ citation, testID }: { citation: Citation; testID?: string }) {
-  return (
+function CitationRow({
+  citation,
+  testID,
+  onPress,
+}: {
+  citation: Citation
+  testID?: string
+  onPress?: (url: string) => void
+}) {
+  const content = (
     <View
       testID={testID}
       className="flex-row gap-3 border-b border-border py-3"
@@ -128,13 +138,28 @@ function CitationRow({ citation, testID }: { citation: Citation; testID?: string
           {citation.title}
         </Text>
         {citation.url && (
-          <Text className="text-xs text-muted-foreground mt-0.5">
+          <Text className="text-xs text-primary mt-0.5">
             {citation.url}
           </Text>
         )}
       </View>
     </View>
   )
+
+  // Make pressable if URL exists and onPress is provided
+  if (citation.url && onPress) {
+    return (
+      <Pressable
+        onPress={() => onPress(citation.url!)}
+        className="active:opacity-80"
+        testID={`${testID}-pressable`}
+      >
+        {content}
+      </Pressable>
+    )
+  }
+
+  return content
 }
 
 /**
@@ -150,6 +175,7 @@ function CitationRow({ citation, testID }: { citation: Citation; testID?: string
 export function DeepResearchDetailView({
   session,
   onBack,
+  onCitationPress,
   testID = 'deep-research-detail-view',
   className,
 }: DeepResearchDetailViewProps) {
@@ -254,6 +280,7 @@ export function DeepResearchDetailView({
                   <CitationRow
                     key={citation.id}
                     citation={citation}
+                    onPress={onCitationPress}
                     testID={`citation-${citation.id}`}
                   />
                 ))}

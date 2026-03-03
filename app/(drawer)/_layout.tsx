@@ -238,6 +238,10 @@ export default function DrawerLayout() {
           name="(tabs)"
           options={{ headerShown: false, title: 'Holocron' }}
         />
+        <Drawer.Screen
+          name="research/[sessionId]"
+          options={{ headerShown: false, title: 'Research Details' }}
+        />
       </Drawer>
     </SafeAreaView>
   )
