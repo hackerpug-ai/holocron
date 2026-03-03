@@ -1,0 +1,8 @@
+Exit code: 0
+TypeScript compilation successful - no errors found
+
+Full output:
+> holocron@1.0.0 typecheck /Users/justinrich/Projects/holocron
+> tsc --noEmit
+
+(No errors - clean compilation)
