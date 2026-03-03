@@ -15,6 +15,10 @@ import {
   parseSlashCommand,
   isKnownCommand,
   generateHelpResponse,
+  generateStatsResponse,
+  VALID_CATEGORIES,
+  type DocumentCategory,
+  type StatsCardData,
 } from './slash-commands.ts'
 
 // ============================================================
@@ -30,12 +34,36 @@ interface ChatSendRequest {
   message_type: 'text' | 'slash_command'
 }
 
+// Card data types for result_card messages
+interface CategoryListCard {
+  card_type: 'category_list'
+  categories: Array<{
+    name: string
+    count: number
+  }>
+}
+
+interface BrowseArticleCard {
+  card_type: 'article'
+  title: string
+  date: string
+  research_type?: string
+  document_id: number
+}
+
+interface CategoryNotFoundCard {
+  card_type: 'category_not_found'
+  valid_categories: string[]
+}
+
+type CardData = CategoryListCard | BrowseArticleCard | CategoryNotFoundCard | BrowseArticleCard[] | StatsCardData
+
 interface AgentMessage {
   id: string
   role: 'agent'
   content: string
   message_type: 'text' | 'result_card' | 'progress' | 'error'
-  card_data?: unknown
+  card_data?: CardData
 }
 
 interface ChatMessage {
@@ -71,37 +99,165 @@ function jsonResponse<T>(body: T, status = 200): Response {
 }
 
 // ============================================================
-// Agent Response Generator (Stub for MVP)
+// Agent Response Generator (with Database Access)
 // ============================================================
 
-function generateAgentResponse(userContent: string): string {
+interface AgentResponse {
+  content: string
+  message_type: 'text' | 'result_card' | 'error'
+  card_data?: CardData
+}
+
+async function generateAgentResponse(
+  userContent: string,
+  supabase: ReturnType<typeof createClient>
+): Promise<AgentResponse> {
   // Parse for slash commands
   const parsed = parseSlashCommand(userContent)
 
   if (parsed.isCommand) {
     // Handle /help command
     if (parsed.command === 'help') {
-      return generateHelpResponse()
+      return {
+        content: generateHelpResponse(),
+        message_type: 'text',
+      }
+    }
+
+    // Handle /stats command
+    if (parsed.command === 'stats') {
+      // Get external holocron database credentials
+      const holocronUrl = Deno.env.get('HOLOCRON_URL')
+      const holocronKey = Deno.env.get('HOLOCRON_SERVICE_ROLE_KEY')
+
+      if (!holocronUrl || !holocronKey) {
+        console.error('Holocron database credentials not configured')
+        return {
+          content: 'Sorry, the knowledge base is not configured. Please contact support.',
+          message_type: 'error',
+        }
+      }
+
+      // Create client for external holocron database
+      const holocronClient = createClient(holocronUrl, holocronKey)
+
+      // Generate stats response
+      const statsResponse = await generateStatsResponse(holocronClient)
+
+      return {
+        content: statsResponse.content,
+        message_type: statsResponse.message_type as 'text' | 'result_card' | 'error',
+        card_data: statsResponse.card_data,
+      }
+    }
+
+    // Handle /browse command
+    if (parsed.command === 'browse') {
+      const categoryArg = parsed.args?.toLowerCase().trim()
+
+      // No category arg - list all categories with counts
+      if (!categoryArg) {
+        const { data: documents } = await supabase
+          .from('documents')
+          .select('category')
+          .not('category', 'is', null)
+
+        const categoryCounts: Record<string, number> = {}
+        documents?.forEach((doc) => {
+          if (doc.category) {
+            categoryCounts[doc.category] = (categoryCounts[doc.category] || 0) + 1
+          }
+        })
+
+        const categories = Object.entries(categoryCounts)
+          .map(([name, count]) => ({ name, count }))
+          .sort((a, b) => b.count - a.count)
+
+        return {
+          content: 'Browse articles by category',
+          message_type: 'result_card',
+          card_data: {
+            card_type: 'category_list',
+            categories,
+          } as CategoryListCard,
+        }
+      }
+
+      // Validate category
+      if (!VALID_CATEGORIES.includes(categoryArg as DocumentCategory)) {
+        return {
+          content: `Category "${categoryArg}" not found. Valid categories: ${VALID_CATEGORIES.join(', ')}`,
+          message_type: 'result_card',
+          card_data: {
+            card_type: 'category_not_found',
+            valid_categories: [...VALID_CATEGORIES],
+          } as CategoryNotFoundCard,
+        }
+      }
+
+      // Filter by category
+      const { data: articles } = await supabase
+        .from('documents')
+        .select('id, title, date, research_type')
+        .eq('category', categoryArg)
+        .order('created_at', { ascending: false })
+        .limit(10)
+
+      if (!articles || articles.length === 0) {
+        return {
+          content: `No articles found in category "${categoryArg}"`,
+          message_type: 'text',
+        }
+      }
+
+      const articleCards: BrowseArticleCard[] = articles.map((doc) => ({
+        card_type: 'article',
+        title: doc.title,
+        date: doc.date || '',
+        research_type: doc.research_type,
+        document_id: doc.id,
+      }))
+
+      return {
+        content: `Found ${articles.length} article${articles.length === 1 ? '' : 's'} in ${categoryArg}`,
+        message_type: 'result_card',
+        card_data: articleCards,
+      }
     }
 
     // Check if command is known
     if (parsed.command && isKnownCommand(parsed.command)) {
       // Command is recognized but execution is deferred to future epics
-      return `Command /${parsed.command} recognized. Full command execution will be available soon!`
+      return {
+        content: `Command /${parsed.command} recognized. Full command execution will be available soon!`,
+        message_type: 'text',
+      }
     }
 
     // Unknown command - treat as regular text with helpful message
-    return `Unknown command: /${parsed.command}. Type /help to see available commands.`
+    return {
+      content: `Unknown command: /${parsed.command}. Type /help to see available commands.`,
+      message_type: 'text',
+    }
   }
 
   // Regular text message handling
   if (userContent.toLowerCase().includes('hello')) {
-    return "Hello! I'm your research assistant. How can I help you today?"
+    return {
+      content: "Hello! I'm your research assistant. How can I help you today?",
+      message_type: 'text',
+    }
   }
   if (userContent.toLowerCase().includes('help')) {
-    return "I can help you search your knowledge base, conduct research, and manage articles. Try asking me a question!"
+    return {
+      content: 'I can help you search your knowledge base, conduct research, and manage articles. Try asking me a question!',
+      message_type: 'text',
+    }
   }
-  return `I received your message. Full AI responses will be available soon!`
+  return {
+    content: 'I received your message. Full AI responses will be available soon!',
+    message_type: 'text',
+  }
 }
 
 // ============================================================
@@ -200,16 +356,17 @@ Deno.serve(async (req: Request) => {
       // Don't fail the request if metadata update fails
     }
 
-    // Generate basic agent response (stub for MVP)
-    const agentContent = generateAgentResponse(body.content)
+    // Generate agent response
+    const agentResponse = await generateAgentResponse(body.content, supabase)
 
     const { data: agentMessage, error: agentError } = await supabase
       .from('chat_messages')
       .insert({
         conversation_id: body.conversation_id,
         role: 'agent' as MessageRole,
-        content: agentContent,
-        message_type: 'text' as MessageType,
+        content: agentResponse.content,
+        message_type: agentResponse.message_type as MessageType,
+        card_data: agentResponse.card_data || null,
       })
       .select()
       .single()
