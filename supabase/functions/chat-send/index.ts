@@ -51,12 +51,28 @@ interface BrowseArticleCard {
   document_id: number
 }
 
+interface SearchArticleCard {
+  card_type: 'article'
+  title: string
+  category: string
+  snippet: string
+  document_id: number
+  metadata?: {
+    relevance_score?: number
+  }
+}
+
+interface NoResultsCard {
+  card_type: 'no_results'
+  message: string
+}
+
 interface CategoryNotFoundCard {
   card_type: 'category_not_found'
   valid_categories: string[]
 }
 
-type CardData = CategoryListCard | BrowseArticleCard | CategoryNotFoundCard | BrowseArticleCard[] | StatsCardData
+type CardData = CategoryListCard | BrowseArticleCard | SearchArticleCard | CategoryNotFoundCard | BrowseArticleCard[] | SearchArticleCard[] | NoResultsCard | StatsCardData
 
 interface AgentMessage {
   id: string
@@ -99,6 +115,66 @@ function jsonResponse<T>(body: T, status = 200): Response {
 }
 
 // ============================================================
+// Search Command Handler
+// ============================================================
+
+async function handleSearchCommand(
+  query: string,
+  supabase: ReturnType<typeof createClient>
+): Promise<AgentResponse> {
+  console.log('handleSearchCommand called with query:', query)
+
+  // Call hybrid_search RPC function
+  const { data: searchResults, error: searchError } = await supabase.rpc('hybrid_search', {
+    query_text: query,
+    match_threshold: 0.5,
+    result_count: 10,
+  })
+
+  if (searchError) {
+    console.error('Search error:', searchError)
+    return {
+      content: `Sorry, I encountered an error while searching: ${searchError.message}`,
+      message_type: 'error',
+      card_data: {
+        card_type: 'no_results',
+        message: `Search error: ${searchError.message}`,
+      } as NoResultsCard,
+    }
+  }
+
+  // No results found
+  if (!searchResults || searchResults.length === 0) {
+    return {
+      content: `No results found`,
+      message_type: 'result_card',
+      card_data: {
+        card_type: 'no_results',
+        message: `No articles found matching "${query}"`,
+      } as NoResultsCard,
+    }
+  }
+
+  // Results found - build card data
+  const articleCards: SearchArticleCard[] = searchResults.map((doc: any) => ({
+    card_type: 'article',
+    title: doc.title,
+    category: doc.category,
+    snippet: doc.content ? doc.content.substring(0, 150) + (doc.content.length > 150 ? '...' : '') : '',
+    document_id: doc.id,
+    metadata: {
+      relevance_score: doc.similarity || doc.rank,
+    },
+  }))
+
+  return {
+    content: `Found ${searchResults.length} article${searchResults.length === 1 ? '' : 's'} matching "${query}"`,
+    message_type: 'result_card',
+    card_data: articleCards,
+  }
+}
+
+// ============================================================
 // Agent Response Generator (with Database Access)
 // ============================================================
 
@@ -122,6 +198,20 @@ async function generateAgentResponse(
         content: generateHelpResponse(),
         message_type: 'text',
       }
+    }
+
+    // Handle /search command
+    if (parsed.command === 'search') {
+      const query = parsed.args || ''
+
+      if (!query) {
+        return {
+          content: 'Please provide a search query. Usage: /search <query>',
+          message_type: 'text',
+        }
+      }
+
+      return await handleSearchCommand(query, supabase)
     }
 
     // Handle /stats command
@@ -239,6 +329,18 @@ async function generateAgentResponse(
       content: `Unknown command: /${parsed.command}. Type /help to see available commands.`,
       message_type: 'text',
     }
+  }
+
+  // Natural language questions that look like searches
+  // (Question mark, "what is", "how do", etc.)
+  const searchPatterns = [
+    /^(what|how|who|where|when|why|which|can you|tell me|explain)/i,
+    /\?$/,
+  ]
+  const looksLikeSearch = searchPatterns.some((pattern) => pattern.test(userContent.trim()))
+
+  if (looksLikeSearch) {
+    return await handleSearchCommand(userContent, supabase)
   }
 
   // Regular text message handling
