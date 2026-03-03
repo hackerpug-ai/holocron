@@ -91,6 +91,7 @@ export const SUPPORTED_COMMANDS: SlashCommand[] = [
   { name: 'browse', description: 'Browse articles by category', syntax: '[category]' },
   { name: 'stats', description: 'View knowledge base statistics' },
   { name: 'resume', description: 'Resume a previous research session', syntax: '<id>' },
+  { name: 'cancel', description: 'Cancel active deep research session' },
   { name: 'help', description: 'Show all available commands' },
 ]
 
@@ -417,3 +418,18 @@ export type {
   ResumeCommandOptions,
   ResumeResponse,
 } from './resume-handler.ts'
+
+// ============================================================
+// Cancel Command Handler
+// ============================================================
+
+// Re-export cancel handler types and function for convenience
+export {
+  getActiveSession,
+  cancelSession,
+  handleCancelCommand,
+} from './cancel-handler.ts'
+export type {
+  CancelSession,
+  CancelResponse,
+} from './cancel-handler.ts'

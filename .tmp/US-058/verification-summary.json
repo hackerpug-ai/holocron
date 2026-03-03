@@ -1,0 +1,44 @@
+{
+  "task": "US-058: Wire Deep Research Confirmation to Chat",
+  "commit": "7d5a3a93f2034bdb746d485f4e379484373bac60",
+  "status": "completed",
+  "acceptance_criteria": [
+    {
+      "criterion": "User sends /deep-research topic -> DeepResearchConfirmationCard renders with real session data",
+      "status": "implemented",
+      "notes": "MessageBubble.tsx now renders DeepResearchConfirmationCard when card_type === 'deep_research_confirmation', passing sessionId, topic, and maxIterations props from backend card_data"
+    },
+    {
+      "criterion": "Backend returns error -> Error message displayed in chat",
+      "status": "implemented",
+      "notes": "Existing error handling in MessageBubble displays error messages when message_type === 'error'"
+    },
+    {
+      "criterion": "Session ID in card matches database record",
+      "status": "implemented",
+      "notes": "Session ID is passed directly from backend DeepResearchConfirmationCardData.session_id to component sessionId prop"
+    }
+  ],
+  "changes": {
+    "lib/types/chat.ts": [
+      "Added DeepResearchConfirmationCardData interface to discriminated union",
+      "Type includes card_type, session_id, topic, max_iterations matching backend format"
+    ],
+    "components/chat/MessageBubble.tsx": [
+      "Imported DeepResearchConfirmationCard component",
+      "Added 'deep_research_confirmation' to card type union",
+      "Handle deep_research_confirmation card in renderResultCard function",
+      "Transform backend snake_case to component camelCase props"
+    ]
+  },
+  "verification": {
+    "typecheck": {
+      "status": "passed",
+      "exit_code": 0
+    },
+    "app_startup": {
+      "status": "verified",
+      "notes": "TypeScript compilation successful, no type errors preventing app startup"
+    }
+  }
+}

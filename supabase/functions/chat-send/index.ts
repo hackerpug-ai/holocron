@@ -17,6 +17,8 @@ import {
   generateHelpResponse,
   generateStatsResponse,
   handleDeepResearchCommand,
+  handleResumeCommand,
+  handleCancelCommand,
   VALID_CATEGORIES,
   type DocumentCategory,
   type StatsCardData,
@@ -238,6 +240,16 @@ async function generateAgentResponse(
         content: deepResearchResponse.content,
         message_type: deepResearchResponse.message_type as 'text' | 'result_card' | 'error',
         card_data: deepResearchResponse.card_data,
+      }
+    }
+
+    // Handle /cancel command
+    if (parsed.command === 'cancel') {
+      const cancelResponse = await handleCancelCommand(parsed.args || '', supabase, conversationId)
+
+      return {
+        content: cancelResponse.content,
+        message_type: cancelResponse.message_type as 'text' | 'error' | 'success',
       }
     }
 
