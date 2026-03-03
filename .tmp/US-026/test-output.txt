@@ -1,0 +1,3 @@
+0
+No test framework configured - Edge Function tests require Deno test setup
+TypeScript type check passed successfully.
