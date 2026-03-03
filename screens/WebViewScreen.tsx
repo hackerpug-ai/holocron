@@ -1,7 +1,6 @@
-import { ScreenHeader } from '@/components/ui/screen-header'
 import { Text } from '@/components/ui/text'
 import { useTheme } from '@/hooks/use-theme'
-import { ChevronLeft, ChevronRight, RefreshCw, X } from 'lucide-react-native'
+import { ChevronLeft, ChevronRight, Lock, RefreshCw, X } from 'lucide-react-native'
 import { useRef, useState } from 'react'
 import {
   ActivityIndicator,
@@ -10,9 +9,9 @@ import {
   View,
   type ViewProps,
 } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import WebView, {
   type WebViewNavigation,
-  type WebViewMessageEvent,
 } from 'react-native-webview'
 
 interface WebViewScreenProps extends Omit<ViewProps, 'children'> {
@@ -27,14 +26,30 @@ interface WebViewScreenProps extends Omit<ViewProps, 'children'> {
 }
 
 /**
+ * Extract hostname from URL for display
+ */
+function getDisplayUrl(url: string): { host: string; isSecure: boolean } {
+  try {
+    const parsed = new URL(url)
+    return {
+      host: parsed.hostname.replace(/^www\./, ''),
+      isSecure: parsed.protocol === 'https:',
+    }
+  } catch {
+    return { host: url, isSecure: false }
+  }
+}
+
+/**
  * WebViewScreen provides a full-screen web browser with navigation controls.
  *
  * Features:
- * - Back/Forward navigation buttons
- * - Refresh button
+ * - Compact single-row toolbar (Safari-style)
+ * - Back/Forward navigation buttons (show only when available)
+ * - Refresh button with loading state
  * - Close button to exit
- * - Loading indicator
- * - Dynamic page title display
+ * - Secure URL indicator
+ * - Swipe navigation gestures (iOS)
  * - Theme-aware styling
  *
  * @example
@@ -48,12 +63,13 @@ interface WebViewScreenProps extends Omit<ViewProps, 'children'> {
 export function WebViewScreen({
   url,
   onClose,
-  title: customTitle,
+  title: _title, // Kept for API compatibility, URL bar shows hostname instead
   testID = 'webview-screen',
   style,
   ...props
 }: WebViewScreenProps) {
   const theme = useTheme()
+  const insets = useSafeAreaInsets()
   const webViewRef = useRef<WebView>(null)
 
   // State
@@ -61,162 +77,125 @@ export function WebViewScreen({
   const [canGoForward, setCanGoForward] = useState(false)
   const [loading, setLoading] = useState(true)
   const [currentUrl, setCurrentUrl] = useState(url)
-  const [pageTitle, setPageTitle] = useState(customTitle || 'Loading...')
+
+  // Derived state
+  const { host, isSecure } = getDisplayUrl(currentUrl)
 
   // Navigation handlers
-  const handleGoBack = () => {
-    webViewRef.current?.goBack()
-  }
-
-  const handleGoForward = () => {
-    webViewRef.current?.goForward()
-  }
-
-  const handleRefresh = () => {
-    webViewRef.current?.reload()
-  }
+  const handleGoBack = () => webViewRef.current?.goBack()
+  const handleGoForward = () => webViewRef.current?.goForward()
+  const handleRefresh = () => webViewRef.current?.reload()
 
   // WebView event handlers
   const handleNavigationStateChange = (navState: WebViewNavigation) => {
     setCanGoBack(navState.canGoBack)
     setCanGoForward(navState.canGoForward)
     setCurrentUrl(navState.url)
-    setPageTitle(navState.title || customTitle || navState.url)
   }
 
-  const handleLoadStart = () => {
-    setLoading(true)
-  }
-
-  const handleLoadEnd = () => {
-    setLoading(false)
-  }
-
-  // Create dynamic styles using theme tokens
-  const dynamicStyles = StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: theme.colors.background,
-    },
-    controlBar: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-around',
-      paddingHorizontal: theme.spacing.md,
-      paddingVertical: theme.spacing.sm,
-      backgroundColor: theme.colors.background,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.colors.border,
-    },
-    controlButton: {
-      padding: theme.spacing.md,
-      borderRadius: theme.radius.lg,
-    },
-    webViewContainer: {
-      flex: 1,
-      backgroundColor: theme.colors.background,
-    },
-    loadingOverlay: {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: theme.colors.background,
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1,
-    },
-  })
+  const handleLoadStart = () => setLoading(true)
+  const handleLoadEnd = () => setLoading(false)
 
   return (
-    <View style={[dynamicStyles.container, style]} testID={testID} {...props}>
-      {/* Header */}
-      <ScreenHeader
-        title={pageTitle}
-        showBack={false}
-        leftContent={
-          <Pressable
-            onPress={onClose}
-            style={dynamicStyles.controlButton}
-            testID={`${testID}-close-button`}
-            accessibilityRole="button"
-            accessibilityLabel="Close browser"
-          >
-            <X size={24} className="text-foreground" />
-          </Pressable>
-        }
-        safeAreaTop
-      />
-
-      {/* URL Display */}
+    <View
+      style={[styles.container, { backgroundColor: theme.colors.background }, style]}
+      testID={testID}
+      {...props}
+    >
+      {/* Compact Toolbar */}
       <View
-        style={{
-          paddingHorizontal: theme.spacing.lg,
-          paddingVertical: theme.spacing.sm,
-          backgroundColor: theme.colors.muted,
-          borderBottomWidth: 1,
-          borderBottomColor: theme.colors.border,
-        }}
+        style={[
+          styles.toolbar,
+          {
+            paddingTop: insets.top + theme.spacing.xs,
+            backgroundColor: theme.colors.background,
+            borderBottomColor: theme.colors.border,
+          },
+        ]}
       >
-        <Text
-          variant="small"
-          className="text-muted-foreground"
-          numberOfLines={1}
-          testID={`${testID}-url-display`}
-        >
-          {currentUrl}
-        </Text>
-      </View>
-
-      {/* Navigation Controls */}
-      <View style={dynamicStyles.controlBar}>
-        {/* Back Button */}
+        {/* Close Button */}
         <Pressable
-          onPress={handleGoBack}
-          disabled={!canGoBack}
-          style={dynamicStyles.controlButton}
-          testID={`${testID}-back-button`}
+          onPress={onClose}
+          style={[styles.iconButton, { marginRight: theme.spacing.xs }]}
+          testID={`${testID}-close-button`}
           accessibilityRole="button"
-          accessibilityLabel="Go back"
+          accessibilityLabel="Close browser"
         >
-          <ChevronLeft
-            size={24}
-            className={canGoBack ? 'text-foreground' : 'text-muted-foreground'}
-          />
+          <X size={20} className="text-foreground" />
         </Pressable>
 
-        {/* Forward Button */}
-        <Pressable
-          onPress={handleGoForward}
-          disabled={!canGoForward}
-          style={dynamicStyles.controlButton}
-          testID={`${testID}-forward-button`}
-          accessibilityRole="button"
-          accessibilityLabel="Go forward"
+        {/* URL Bar */}
+        <View
+          style={[
+            styles.urlBar,
+            {
+              backgroundColor: theme.colors.muted,
+              borderRadius: theme.radius.md,
+            },
+          ]}
         >
-          <ChevronRight
-            size={24}
-            className={
-              canGoForward ? 'text-foreground' : 'text-muted-foreground'
-            }
-          />
-        </Pressable>
+          {isSecure && (
+            <Lock size={12} className="text-muted-foreground" style={styles.lockIcon} />
+          )}
+          <Text
+            variant="small"
+            className="text-foreground"
+            numberOfLines={1}
+            style={styles.urlText}
+            testID={`${testID}-url-display`}
+          >
+            {host}
+          </Text>
+        </View>
 
-        {/* Refresh Button */}
-        <Pressable
-          onPress={handleRefresh}
-          style={dynamicStyles.controlButton}
-          testID={`${testID}-refresh-button`}
-          accessibilityRole="button"
-          accessibilityLabel="Refresh page"
-        >
-          <RefreshCw size={24} className="text-foreground" />
-        </Pressable>
+        {/* Nav Controls */}
+        <View style={styles.navControls}>
+          {/* Back - only show if can go back */}
+          {canGoBack && (
+            <Pressable
+              onPress={handleGoBack}
+              style={styles.iconButton}
+              testID={`${testID}-back-button`}
+              accessibilityRole="button"
+              accessibilityLabel="Go back"
+            >
+              <ChevronLeft size={20} className="text-foreground" />
+            </Pressable>
+          )}
+
+          {/* Forward - only show if can go forward */}
+          {canGoForward && (
+            <Pressable
+              onPress={handleGoForward}
+              style={styles.iconButton}
+              testID={`${testID}-forward-button`}
+              accessibilityRole="button"
+              accessibilityLabel="Go forward"
+            >
+              <ChevronRight size={20} className="text-foreground" />
+            </Pressable>
+          )}
+
+          {/* Refresh / Loading */}
+          <Pressable
+            onPress={handleRefresh}
+            style={styles.iconButton}
+            disabled={loading}
+            testID={`${testID}-refresh-button`}
+            accessibilityRole="button"
+            accessibilityLabel={loading ? 'Loading' : 'Refresh page'}
+          >
+            {loading ? (
+              <ActivityIndicator size="small" color={theme.colors.primary} />
+            ) : (
+              <RefreshCw size={18} className="text-muted-foreground" />
+            )}
+          </Pressable>
+        </View>
       </View>
 
       {/* WebView */}
-      <View style={dynamicStyles.webViewContainer}>
+      <View style={styles.webViewContainer}>
         <WebView
           ref={webViewRef}
           source={{ uri: url }}
@@ -228,33 +207,57 @@ export function WebViewScreen({
           // Security settings
           javaScriptEnabled={true}
           domStorageEnabled={true}
-          startInLoadingState={true}
+          startInLoadingState={false}
           // Handle errors gracefully
           onError={(syntheticEvent) => {
             const { nativeEvent } = syntheticEvent
             console.error('[WebViewScreen] Error loading URL:', nativeEvent)
           }}
-          // iOS specific
+          // iOS specific - enables swipe back/forward gestures
           allowsBackForwardNavigationGestures={true}
         />
-
-        {/* Loading Overlay */}
-        {loading && (
-          <View style={dynamicStyles.loadingOverlay} testID={`${testID}-loading`}>
-            <ActivityIndicator
-              size="large"
-              color={theme.colors.primary}
-              testID={`${testID}-loading-indicator`}
-            />
-            <Text
-              variant="small"
-              className="text-muted-foreground mt-4"
-            >
-              Loading...
-            </Text>
-          </View>
-        )}
       </View>
     </View>
   )
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  toolbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingBottom: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  iconButton: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+  },
+  urlBar: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 32,
+    paddingHorizontal: 10,
+    marginHorizontal: 4,
+  },
+  lockIcon: {
+    marginRight: 4,
+  },
+  urlText: {
+    flex: 1,
+  },
+  navControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  webViewContainer: {
+    flex: 1,
+  },
+})

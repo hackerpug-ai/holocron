@@ -21,6 +21,8 @@ export interface ChatThreadProps {
   isLoadingMore: boolean
   hasMore: boolean
   showTypingIndicator?: boolean
+  /** Safe area top inset to apply as padding */
+  safeAreaTop?: number
   testID?: string
 }
 
@@ -30,6 +32,7 @@ export function ChatThread({
   isLoadingMore,
   hasMore,
   showTypingIndicator = false,
+  safeAreaTop = 0,
   testID = 'chat-thread',
 }: ChatThreadProps) {
   const flatListRef = useRef<FlatList>(null)
@@ -110,7 +113,9 @@ export function ChatThread({
         ListHeaderComponent={renderTypingIndicator}
         ListFooterComponent={renderLoadingIndicator}
         contentContainerStyle={
-          messages.length === 0 ? { flex: 1, justifyContent: 'center' } : undefined
+          messages.length === 0
+            ? { flex: 1, justifyContent: 'center', paddingBottom: safeAreaTop }
+            : { paddingBottom: safeAreaTop }
         }
       />
     </View>

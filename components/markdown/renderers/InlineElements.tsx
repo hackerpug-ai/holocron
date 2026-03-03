@@ -119,7 +119,7 @@ export const InlineCodeRenderer = React.memo(
           styles.inlineCode,
           {
             backgroundColor: colors.codeInlineBg,
-            color: colors.inverse,
+            color: colors.codeInline,
             paddingHorizontal: spacing.sm,
             paddingVertical: 3,
             borderRadius: radius.sm,

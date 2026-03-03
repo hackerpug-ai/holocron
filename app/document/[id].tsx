@@ -4,7 +4,7 @@ import { ActivityIndicator, ScrollView, View, StyleSheet, Pressable } from 'reac
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { ArrowLeft } from 'lucide-react-native'
 import { MarkdownView } from '@/components/markdown/MarkdownView'
-import * as Linking from 'expo-linking'
+import { useWebView } from '@/hooks/useWebView'
 import { Text } from '@/components/ui/text'
 import { Button } from '@/components/ui/button'
 import { CategoryBadge } from '@/components/CategoryBadge'
@@ -33,6 +33,7 @@ export default function DocumentRoute() {
   const { id } = useLocalSearchParams<{ id: string }>()
   const router = useRouter()
   const theme = useTheme()
+  const { openUrl } = useWebView()
 
   const [document, setDocument] = useState<DocumentData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -89,15 +90,13 @@ export default function DocumentRoute() {
     [document?.content]
   )
 
-  // Handle link press with URL validation
+  // Handle link press with URL validation - opens in in-app WebView
   const handleLinkPress = (url: string): boolean => {
     if (!isValidUrl(url)) {
       console.warn('[DocumentRoute] Blocked unsafe URL:', url)
       return false
     }
-    Linking.openURL(url).catch((err) => {
-      console.error('[DocumentRoute] Failed to open URL:', err)
-    })
+    openUrl(url)
     return true
   }
 

@@ -4,6 +4,7 @@ import { useConversations } from '@/hooks/useConversations'
 import { useChatHistory } from '@/hooks/use-chat-history'
 import { useChatSend } from '@/hooks/useChatSend'
 import { View, ActivityIndicator, StyleSheet, Keyboard, Pressable } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Text } from '@/components/ui/text'
 import { Button } from '@/components/ui/button'
 import { ChatThread } from '@/components/chat/ChatThread'
@@ -23,6 +24,7 @@ import { ChatInput } from '@/components/chat/ChatInput'
 export default function ChatScreen() {
   const { conversationId } = useLocalSearchParams<{ conversationId: string }>()
   const router = useRouter()
+  const insets = useSafeAreaInsets()
   const { switchConversation, conversations, isLoading, error, refetch } = useConversations()
 
   // Fetch chat history for this conversation
@@ -132,6 +134,7 @@ export default function ChatScreen() {
         isLoadingMore={isLoadingMore}
         hasMore={hasMore}
         showTypingIndicator={isSending}
+        safeAreaTop={insets.top}
         testID="chat-thread"
       />
       {sendError && (

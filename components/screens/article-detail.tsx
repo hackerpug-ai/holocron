@@ -24,8 +24,8 @@ import Animated, {
 } from "react-native-reanimated";
 import { useRef, useEffect, useMemo } from "react";
 import { useTheme } from "@/hooks/use-theme";
+import { useWebView } from "@/hooks/useWebView";
 import { sanitizeMarkdown, isValidUrl } from "@/lib/sanitizeMarkdown";
-import * as Linking from "expo-linking";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 const SWIPE_THRESHOLD = SCREEN_HEIGHT * 0.25;
@@ -87,6 +87,7 @@ export function ArticleDetail({
   ...props
 }: ArticleDetailProps) {
   const theme = useTheme();
+  const { openUrl } = useWebView();
   const translateY = useSharedValue(0);
   const contextY = useSharedValue(0);
   const isActive = useSharedValue(false);
@@ -98,7 +99,7 @@ export function ArticleDetail({
     [article.content],
   );
 
-  // Handle link press with URL validation
+  // Handle link press with URL validation - opens in in-app WebView
   const handleLinkPress = (url: string): boolean => {
     // Validate URL before opening
     if (!isValidUrl(url)) {
@@ -106,10 +107,8 @@ export function ArticleDetail({
       return false; // Block unsafe URLs
     }
 
-    // Open safe URLs using expo-linking
-    Linking.openURL(url).catch((err) => {
-      console.error("[ArticleDetail] Failed to open URL:", err);
-    });
+    // Open safe URLs in in-app WebView
+    openUrl(url);
     return true;
   };
 
