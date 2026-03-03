@@ -1,4 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react'
+import { within, userEvent, waitFor } from '@storybook/testing-library'
+import { expect } from '@storybook/jest'
 import { View } from 'react-native'
 import { ArticleDetail, type MockArticle } from './article-detail'
 import { type CategoryType } from '@/components/CategoryBadge'
@@ -464,6 +466,7 @@ export const CloseButton: Story = {
     article: mockArticle,
     visible: true,
     onClose: () => console.log('Close pressed'),
+    testID: 'article-detail',
   },
   decorators: [
     (Story) => (
@@ -472,6 +475,24 @@ export const CloseButton: Story = {
       </View>
     ),
   ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+
+    // Verify close button exists
+    const closeButton = canvas.getByTestId('article-detail-close')
+    await expect(closeButton).toBeTruthy()
+
+    // Verify drag indicator exists
+    const dragIndicator = canvas.getByTestId('article-detail-drag-indicator')
+    await expect(dragIndicator).toBeTruthy()
+
+    // Verify backdrop exists
+    const backdrop = canvas.getByTestId('article-detail-backdrop')
+    await expect(backdrop).toBeTruthy()
+
+    // Verify title is displayed
+    await expect(canvas.getByText('Understanding Large Language Models')).toBeTruthy()
+  },
 }
 
 // Interactive story with play function for swipe-to-dismiss
@@ -480,6 +501,7 @@ export const SwipeToDismiss: Story = {
     article: mockArticle,
     visible: true,
     onClose: () => console.log('Swipe to dismiss triggered'),
+    testID: 'article-detail',
   },
   decorators: [
     (Story) => (
@@ -488,4 +510,152 @@ export const SwipeToDismiss: Story = {
       </View>
     ),
   ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+
+    // Verify the overlay is rendered
+    const overlay = canvas.getByTestId('article-detail')
+    await expect(overlay).toBeTruthy()
+
+    // Verify scroll view exists
+    const scrollView = canvas.getByTestId('article-detail-scroll-view')
+    await expect(scrollView).toBeTruthy()
+
+    // Verify backdrop is pressable for dismissal
+    const backdrop = canvas.getByTestId('article-detail-backdrop')
+    await expect(backdrop).toBeTruthy()
+  },
+}
+
+// Content verification stories with play functions
+export const ContentVerification: Story = {
+  args: {
+    article: mockArticle,
+    visible: true,
+    onClose: () => console.log('Close pressed'),
+    testID: 'article-detail',
+  },
+  decorators: [
+    (Story) => (
+      <View style={{ flex: 1, backgroundColor: '#f5f5f5' }}>
+        <Story />
+      </View>
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+
+    // Verify article title
+    await expect(canvas.getByText('Understanding Large Language Models')).toBeTruthy()
+
+    // Verify category badge is present (shows "Deep Research" type)
+    await expect(canvas.getByText('Deep Research')).toBeTruthy()
+
+    // Verify date is displayed (should contain "February" from the mock date)
+    await expect(canvas.getByText(/February/)).toBeTruthy()
+
+    // Verify content has markdown rendered
+    await expect(canvas.getByText(/Large Language Models \(LLMs\)/)).toBeTruthy()
+
+    // Verify heading is rendered
+    await expect(canvas.getByText(/transformer architecture/)).toBeTruthy()
+  },
+}
+
+export const LongContentScroll: Story = {
+  args: {
+    article: longContentArticle,
+    visible: true,
+    onClose: () => console.log('Close pressed'),
+    testID: 'article-detail',
+    initialScrollPosition: 100,
+  },
+  decorators: [
+    (Story) => (
+      <View style={{ flex: 1, backgroundColor: '#f5f5f5' }}>
+        <Story />
+      </View>
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+
+    // Verify long content article title
+    await expect(
+      canvas.getByText('The Complete Guide to React Native Performance Optimization')
+    ).toBeTruthy()
+
+    // Verify section heading
+    await expect(canvas.getByText('List Optimization')).toBeTruthy()
+
+    // Verify code block heading
+    await expect(canvas.getByText('Virtualized Lists')).toBeTruthy()
+
+    // Verify scroll view exists for scrolling
+    const scrollView = canvas.getByTestId('article-detail-scroll-view')
+    await expect(scrollView).toBeTruthy()
+  },
+}
+
+export const CodeBlocksVerification: Story = {
+  args: {
+    article: codeBlockArticle,
+    visible: true,
+    onClose: () => console.log('Close pressed'),
+    testID: 'article-detail',
+  },
+  decorators: [
+    (Story) => (
+      <View style={{ flex: 1, backgroundColor: '#f5f5f5' }}>
+        <Story />
+      </View>
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+
+    // Verify TypeScript article title
+    await expect(canvas.getByText('TypeScript Best Practices for React Native')).toBeTruthy()
+
+    // Verify heading about Interface vs Type
+    await expect(canvas.getByText('Interface vs Type')).toBeTruthy()
+
+    // Verify code snippets are present (checking for code-related text)
+    await expect(canvas.getByText('interface User')).toBeTruthy()
+    await expect(canvas.getByText('type Status')).toBeTruthy()
+
+    // Verify section about Component Props
+    await expect(canvas.getByText('Component Props')).toBeTruthy()
+  },
+}
+
+export const MarkdownElementsVerification: Story = {
+  args: {
+    article: mockArticle,
+    visible: true,
+    onClose: () => console.log('Close pressed'),
+    testID: 'article-detail',
+  },
+  decorators: [
+    (Story) => (
+      <View style={{ flex: 1, backgroundColor: '#f5f5f5' }}>
+        <Story />
+      </View>
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+
+    // Verify bold text is rendered (heading with **)
+    await expect(canvas.getByText(/Pre-training/)).toBeTruthy()
+
+    // Verify numbered list items
+    await expect(canvas.getByText('Fine-tuning')).toBeTruthy()
+
+    // Verify bullet points exist
+    await expect(canvas.getByText(/Reducing hallucinations/)).toBeTruthy()
+
+    // Verify markdown list structure (looking for challenges section)
+    await expect(canvas.getByText('Key challenges in LLM development include:')).toBeTruthy()
+  },
 }

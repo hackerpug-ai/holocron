@@ -37,9 +37,9 @@ export interface RecentDocument {
 
 export interface StatsCardData {
   card_type: 'stats'
-  total_documents: number
+  total_count: number
   category_breakdown: CategoryBreakdown[]
-  recent_documents: RecentDocument[]
+  recent_count?: number
 }
 
 // ============================================================
@@ -204,9 +204,9 @@ export async function generateStatsResponse(
 
     const cardData: StatsCardData = {
       card_type: 'stats',
-      total_documents: totalCount || 0,
+      total_count: totalCount || 0,
       category_breakdown: categoryBreakdown,
-      recent_documents: recentDocuments,
+      recent_count: recentDocuments.length,
     }
 
     return {

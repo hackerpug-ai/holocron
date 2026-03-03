@@ -2,11 +2,6 @@
 
 // Simple script to apply migration using Supabase REST API
 import { readFileSync } from 'fs'
-import { fileURLToPath } from 'url'
-import { dirname } from 'path'
-
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = dirname(__filename)
 
 async function applyMigration() {
   const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL

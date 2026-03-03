@@ -7,7 +7,7 @@ interface SearchInputProps extends Omit<ViewProps, 'children'> {
   /** Current search value */
   value: string
   /** Callback when value changes */
-  onChangeText: (text: string) => void
+  onChangeText: (_text: string) => void
   /** Placeholder text */
   placeholder?: string
   /** Callback when search is submitted */

@@ -29,7 +29,7 @@ interface SlashCommandMenuProps extends Omit<ViewProps, 'children'> {
   /** Filter string to narrow down commands */
   filter?: string
   /** Callback when a command is selected */
-  onSelect: (command: SlashCommand) => void
+  onSelect: (_command: SlashCommand) => void
 }
 
 /**

@@ -1,6 +1,7 @@
 import { View, FlatList, ActivityIndicator } from 'react-native'
 import { Text } from '@/components/ui/text'
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useCallback } from 'react'
+import { useRouter } from 'expo-router'
 import type { MessageRole, MessageType } from '@/lib/types/conversations'
 import { MessageBubble } from './MessageBubble'
 import { TypingIndicator } from './TypingIndicator'
@@ -32,13 +33,20 @@ export function ChatThread({
   testID = 'chat-thread',
 }: ChatThreadProps) {
   const flatListRef = useRef<FlatList>(null)
+  const router = useRouter()
 
   // Auto-scroll to bottom when new messages are added or typing indicator appears
+  // Note: FlatList is inverted, so offset 0 is the visual bottom (newest messages)
   useEffect(() => {
     if (messages.length > 0 || showTypingIndicator) {
-      flatListRef.current?.scrollToEnd({ animated: true })
+      flatListRef.current?.scrollToOffset({ offset: 0, animated: true })
     }
   }, [messages.length, showTypingIndicator])
+
+  // Handle card press - navigate to document screen
+  const handleCardPress = useCallback((documentId: number) => {
+    router.push(`/document/${documentId}`)
+  }, [router])
 
   const renderMessage = ({ item }: { item: ChatMessage }) => (
     <MessageBubble
@@ -49,6 +57,7 @@ export function ChatThread({
       createdAt={item.createdAt}
       showTimestamp={true}
       testID={`message-${item.id}`}
+      onCardPress={handleCardPress}
     />
   )
 

@@ -38,9 +38,9 @@ interface ResearchScreenProps extends Omit<ViewProps, 'children'> {
   /** Whether to show the input in loading state */
   loading?: boolean
   /** Callback when research is initiated */
-  onStartResearch?: (query: string, type: ResearchType) => void
+  onStartResearch?: (_query: string, _type: ResearchType) => void
   /** Callback when a recent query is pressed */
-  onRecentQueryPress?: (query: RecentQuery) => void
+  onRecentQueryPress?: (_query: RecentQuery) => void
   /** Callback when active research is cancelled */
   onCancelResearch?: () => void
   /** Callback when active research completes and user wants to view results */

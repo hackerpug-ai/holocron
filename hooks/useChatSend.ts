@@ -48,7 +48,7 @@ interface ChatSendResponse {
 }
 
 interface UseChatSendResult {
-  send: (content: string) => Promise<void>
+  send: (_content: string) => Promise<void>
   isSending: boolean
   pendingMessage: ChatMessage | null
   error: Error | null
@@ -65,8 +65,8 @@ interface UseChatSendResult {
  */
 export function useChatSend(
   conversationId: string,
-  prependMessages: (messages: ChatMessage[]) => void,
-  replaceMessage: (tempId: string, realMessage: ChatMessage) => void
+  prependMessages: (_messages: ChatMessage[]) => void,
+  replaceMessage: (_tempId: string, _realMessage: ChatMessage) => void
 ): UseChatSendResult {
   const [isSending, setIsSending] = useState(false)
   const [error, setError] = useState<Error | null>(null)

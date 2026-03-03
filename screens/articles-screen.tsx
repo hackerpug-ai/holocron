@@ -26,11 +26,11 @@ interface ArticlesScreenProps extends Omit<ViewProps, 'children'> {
   /** Whether data is loading */
   loading?: boolean
   /** Callback when search query changes */
-  onSearch?: (query: string) => void
+  onSearch?: (_query: string) => void
   /** Callback when an article is pressed */
-  onArticlePress?: (article: Article) => void
+  onArticlePress?: (_article: Article) => void
   /** Callback when a category filter is selected */
-  onCategoryChange?: (category?: CategoryType) => void
+  onCategoryChange?: (_category?: CategoryType) => void
 }
 
 const defaultCategories: CategoryType[] = [

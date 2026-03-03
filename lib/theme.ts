@@ -4,52 +4,80 @@
  * Vibe: elegant, minimal
  *
  * These tokens are derived from the CSS variables in global.css
- * and can be used for programmatic access to theme values.
+ * and converted to hex format for React Native compatibility.
  */
 
-// Color tokens - HSL values from global.css
+// Color tokens - Hex values (converted from HSL in global.css)
 export const colors = {
   light: {
-    background: 'hsl(0 0% 100%)',
-    foreground: 'hsl(222.2 84% 4.9%)',
-    card: 'hsl(0 0% 100%)',
-    cardForeground: 'hsl(222.2 84% 4.9%)',
-    popover: 'hsl(0 0% 100%)',
-    popoverForeground: 'hsl(222.2 84% 4.9%)',
-    primary: 'hsl(222.2 47.4% 11.2%)',
-    primaryForeground: 'hsl(210 40% 98%)',
-    secondary: 'hsl(210 40% 96.1%)',
-    secondaryForeground: 'hsl(222.2 47.4% 11.2%)',
-    muted: 'hsl(210 40% 96.1%)',
-    mutedForeground: 'hsl(215.4 16.3% 46.9%)',
-    accent: 'hsl(210 40% 96.1%)',
-    accentForeground: 'hsl(222.2 47.4% 11.2%)',
-    destructive: 'hsl(0 84.2% 60.2%)',
-    destructiveForeground: 'hsl(210 40% 98%)',
-    border: 'hsl(214.3 31.8% 91.4%)',
-    input: 'hsl(214.3 31.8% 91.4%)',
-    ring: 'hsl(222.2 84% 4.9%)',
+    background: '#FFFFFF',
+    foreground: '#020817',
+    inverse: '#F8FAFC', // Opposite of foreground for code blocks
+    card: '#FFFFFF',
+    cardForeground: '#020817',
+    popover: '#FFFFFF',
+    popoverForeground: '#020817',
+    primary: '#0F172A',
+    primaryForeground: '#F8FAFC',
+    secondary: '#F1F5F9',
+    secondaryForeground: '#0F172A',
+    muted: '#F1F5F9',
+    mutedForeground: '#64748B',
+    accent: '#F1F5F9',
+    accentForeground: '#0F172A',
+    destructive: '#EF4444',
+    destructiveForeground: '#F8FAFC',
+    border: '#E2E8F0',
+    input: '#E2E8F0',
+    ring: '#020817',
+    // ArticleDetail specific colors
+    indicator: '#D9D9D9',
+    closeBtn: '#F1F5F9',
+    // Markdown link colors
+    link: '#3B82F6',
+    // Markdown code block colors
+    codeInline: '#020817',
+    codeInlineBg: '#F5F5F5',
+    codeBlockBg: '#1E293B',
+    codeBlockForeground: '#F8FAFC', // Light text for dark code blocks
+    blockquote: '#64748B',
+    tableHeader: '#0D0D0D',
+    tableBody: '#535353',
   },
   dark: {
-    background: 'hsl(222.2 84% 4.9%)',
-    foreground: 'hsl(210 40% 98%)',
-    card: 'hsl(222.2 84% 4.9%)',
-    cardForeground: 'hsl(210 40% 98%)',
-    popover: 'hsl(222.2 84% 4.9%)',
-    popoverForeground: 'hsl(210 40% 98%)',
-    primary: 'hsl(210 40% 98%)',
-    primaryForeground: 'hsl(222.2 47.4% 11.2%)',
-    secondary: 'hsl(217.2 32.6% 17.5%)',
-    secondaryForeground: 'hsl(210 40% 98%)',
-    muted: 'hsl(217.2 32.6% 17.5%)',
-    mutedForeground: 'hsl(215 20.2% 65.1%)',
-    accent: 'hsl(217.2 32.6% 17.5%)',
-    accentForeground: 'hsl(210 40% 98%)',
-    destructive: 'hsl(0 62.8% 30.6%)',
-    destructiveForeground: 'hsl(210 40% 98%)',
-    border: 'hsl(217.2 32.6% 17.5%)',
-    input: 'hsl(217.2 32.6% 17.5%)',
-    ring: 'hsl(212.7 26.8% 83.9%)',
+    background: '#020817',
+    foreground: '#F8FAFC',
+    inverse: '#020817', // Opposite of foreground for code blocks
+    card: '#020817',
+    cardForeground: '#F8FAFC',
+    popover: '#020817',
+    popoverForeground: '#F8FAFC',
+    primary: '#F8FAFC',
+    primaryForeground: '#0F172A',
+    secondary: '#1E293B',
+    secondaryForeground: '#F8FAFC',
+    muted: '#1E293B',
+    mutedForeground: '#94A3B8',
+    accent: '#1E293B',
+    accentForeground: '#F8FAFC',
+    destructive: '#7F1D1D',
+    destructiveForeground: '#F8FAFC',
+    border: '#1E293B',
+    input: '#1E293B',
+    ring: '#CBD5E1',
+    // ArticleDetail specific colors
+    indicator: '#334155',
+    closeBtn: '#27364B',
+    // Markdown link colors
+    link: '#7DD3FC',
+    // Markdown code block colors
+    codeInline: '#F8FAFC',
+    codeInlineBg: '#1E293B',
+    codeBlockBg: '#1E1E1E',
+    codeBlockForeground: '#F8FAFC', // Light text for dark code blocks
+    blockquote: '#94A3B8',
+    tableHeader: '#F8FAFC',
+    tableBody: '#CBD5E1',
   },
 }
 

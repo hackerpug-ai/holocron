@@ -6,6 +6,7 @@ import { Send } from 'lucide-react-native'
 import { colors } from '@/lib/theme'
 import {
   useMentions,
+  replaceTriggerValues,
   type TriggersConfig,
   type SuggestionsProvidedProps,
 } from 'react-native-controlled-mentions'
@@ -21,7 +22,11 @@ export interface SlashCommand {
 
 export interface ChatInputProps {
   /** Callback when user sends a message - receives trimmed content */
-  onSend?: ((content: string) => void) | (() => void)
+  onSend?: ((_content: string) => void) | (() => void)
+  /** Callback when slash command is selected from the menu */
+  onSelectCommand?: (_command: SlashCommand) => void
+  /** Callback when slash button is tapped (alternative to typing /) */
+  onSlashButtonPress?: () => void
   /** Placeholder text for input */
   placeholder?: string
   /** Whether the input is disabled */
@@ -31,7 +36,7 @@ export interface ChatInputProps {
   /** Controlled value prop (for backward compatibility) */
   value?: string
   /** Controlled onChange prop (for backward compatibility) */
-  onChangeText?: (text: string) => void
+  onChangeText?: (_text: string) => void
   /** testID for the root element */
   testID?: string
   /** Available commands */
@@ -114,6 +119,8 @@ function CommandSuggestions({
 
 export function ChatInput({
   onSend,
+  onSelectCommand,
+  onSlashButtonPress,
   placeholder = 'Type a message...',
   disabled = false,
   defaultValue = '',
@@ -173,8 +180,12 @@ export function ChatInput({
     if (exactMatch) {
       // Auto-select the command - same as clicking it
       triggers.command.onSelect({ id: exactMatch.name, name: exactMatch.name })
+      // Notify parent if callback provided
+      if (onSelectCommand) {
+        onSelectCommand(exactMatch)
+      }
     }
-  }, [triggers.command.keyword, commands, triggers.command])
+  }, [triggers.command.keyword, commands, triggers.command, onSelectCommand])
 
   // Handle command selection from suggestions
   const handleCommandSelect = useCallback(
@@ -189,14 +200,19 @@ export function ChatInput({
     if (!value.startsWith('/')) {
       setValue('/')
     }
+    onSlashButtonPress?.()
   }
 
   const handleSend = () => {
     if (canSend && onSend) {
+      // Convert mention-formatted text back to plain text
+      // e.g., "{/}[search](search) query" → "/search query"
+      const plainText = replaceTriggerValues(trimmedValue, (mention) => `${mention.trigger}${mention.name}`)
+
       // Check if onSend expects an argument (new API) or not (old API)
       if (onSend.length > 0) {
         // New API: pass trimmed content
-        ;(onSend as (content: string) => void)(trimmedValue)
+        ;(onSend as (_content: string) => void)(plainText)
         // Clear input only in uncontrolled mode
         if (!isControlled) {
           setValue('')

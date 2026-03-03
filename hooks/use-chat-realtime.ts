@@ -26,7 +26,7 @@ interface ChatMessageRow {
 
 interface UseChatRealtimeOptions {
   conversationId: string | null
-  onNewMessage: (message: ChatMessage) => void
+  onNewMessage: (_message: ChatMessage) => void
 }
 
 /**

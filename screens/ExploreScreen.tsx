@@ -26,11 +26,11 @@ interface ExploreScreenProps extends Omit<ViewProps, 'children'> {
   /** Whether data is loading */
   loading?: boolean
   /** Callback when search is submitted */
-  onSearch?: (query: string) => void
+  onSearch?: (_query: string) => void
   /** Callback when an article is pressed */
-  onArticlePress?: (article: Article) => void
+  onArticlePress?: (_article: Article) => void
   /** Callback when a category filter is selected */
-  onCategorySelect?: (category: CategoryType | null) => void
+  onCategorySelect?: (_category: CategoryType | null) => void
 }
 
 const defaultCategories: CategoryType[] = [

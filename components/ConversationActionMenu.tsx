@@ -1,5 +1,4 @@
 import { Icon } from '@/components/ui/icon';
-import type { Text as TextType } from '@/components/ui/text';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,10 +20,9 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
-import { cn } from '@/lib/utils';
 import { Pencil, Trash2 } from 'lucide-react-native';
 import * as React from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 
 type ViewState = 'menu' | 'rename' | 'delete';
 
@@ -35,11 +33,11 @@ export interface ConversationActionMenuProps {
   /** Whether the menu is open */
   open: boolean;
   /** Callback when open state changes */
-  onOpenChange: (open: boolean) => void;
+  onOpenChange: (_open: boolean) => void;
   /** Current conversation title (pre-fills rename input) */
   conversationTitle: string;
   /** Callback when user confirms rename */
-  onRename?: (newTitle: string) => void;
+  onRename?: (_newTitle: string) => void;
   /** Callback when user confirms delete */
   onDelete?: () => void;
   /** Whether a rename operation is in progress */
@@ -127,7 +125,6 @@ export function ConversationActionMenu({
       {/* Action Menu - shown via DropdownMenu-like popover */}
       {open && view === 'menu' && (
         <MenuOverlay
-          onClose={handleCancel}
           onRename={handleRenameSelect}
           onDelete={handleDeleteSelect}
         />
@@ -223,11 +220,9 @@ export function ConversationActionMenu({
  * MenuOverlay - A simple overlay menu with action buttons
  */
 function MenuOverlay({
-  onClose,
   onRename,
   onDelete,
 }: {
-  onClose: () => void;
   onRename: () => void;
   onDelete: () => void;
 }) {

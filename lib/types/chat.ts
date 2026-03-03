@@ -9,17 +9,69 @@
 export type MessageRole = 'user' | 'agent' | 'system'
 export type MessageType = 'text' | 'slash_command' | 'result_card' | 'progress' | 'error'
 
-export interface CardData {
-  card_type: 'article' | 'research_result' | 'stats' | 'session' | 'category_list'
+// ============================================================
+// Card Data Types (Discriminated Union)
+// ============================================================
+// These types must match the backend Edge Function card data
+// @see supabase/functions/chat-send/index.ts
+// @see supabase/functions/chat-send/slash-commands.ts
+
+// Article card - displayed in search/browse results
+export interface ArticleCardData {
+  card_type: 'article'
   title: string
-  snippet?: string
   category?: string
-  confidence_score?: number
-  source_count?: number
-  document_id?: number
-  session_id?: string
-  metadata?: Record<string, unknown>
+  snippet?: string
+  date?: string
+  research_type?: string
+  document_id: number
+  metadata?: {
+    relevance_score?: number
+  }
 }
+
+// Stats card - knowledge base statistics
+export interface StatsCardData {
+  card_type: 'stats'
+  total_count: number
+  category_breakdown?: Array<{
+    category: string
+    count: number
+  }>
+  recent_count?: number
+}
+
+// Category list card - lists categories with counts
+export interface CategoryListCardData {
+  card_type: 'category_list'
+  categories: Array<{
+    name: string
+    count: number
+  }>
+}
+
+// No results card - empty search results
+export interface NoResultsCardData {
+  card_type: 'no_results'
+  message?: string
+}
+
+// Category not found card - error with valid categories
+export interface CategoryNotFoundCardData {
+  card_type: 'category_not_found'
+  category?: string
+  valid_categories: string[]
+}
+
+// Discriminated union of all card data types
+// Also supports arrays of article cards for multiple search results
+export type CardData =
+  | ArticleCardData
+  | StatsCardData
+  | CategoryListCardData
+  | NoResultsCardData
+  | CategoryNotFoundCardData
+  | ArticleCardData[]
 
 export interface ChatMessage {
   id: string

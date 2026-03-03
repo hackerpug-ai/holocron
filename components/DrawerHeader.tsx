@@ -15,7 +15,7 @@ interface DrawerHeaderProps extends Omit<ViewProps, 'children'> {
   /** Current search query */
   searchQuery?: string
   /** Callback when search query changes */
-  onSearchChange?: (query: string) => void
+  onSearchChange?: (_query: string) => void
   /** Callback when New Chat button is pressed */
   onNewChatPress?: () => void
   /** Navigation sections to display before conversations */

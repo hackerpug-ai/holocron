@@ -46,7 +46,7 @@ interface ResearchResultScreenProps extends Omit<ViewProps, 'children'> {
   /** Callback when share button is pressed */
   onSharePress?: () => void
   /** Callback when a related article is pressed */
-  onRelatedArticlePress?: (article: RelatedArticle) => void
+  onRelatedArticlePress?: (_article: RelatedArticle) => void
   /** Callback when start new research is pressed */
   onNewResearchPress?: () => void
 }

@@ -13,6 +13,9 @@ export interface MessageBubbleProps {
   createdAt?: Date
   showTimestamp?: boolean
   testID?: string
+  onCardPress?: (documentId: number) => void
+  loadingCardId?: number | null
+  cardError?: string | null
 }
 
 export function MessageBubble({
@@ -23,6 +26,9 @@ export function MessageBubble({
   createdAt,
   showTimestamp = true,
   testID = 'message-bubble',
+  onCardPress,
+  loadingCardId,
+  cardError,
 }: MessageBubbleProps) {
   const isUser = role === 'user'
   const isSystem = role === 'system'
@@ -34,7 +40,7 @@ export function MessageBubble({
         className={cn('my-1 px-4', 'items-start')}
         testID={testID}
       >
-        {renderResultCard(card_data, testID)}
+        {renderResultCard(card_data, testID, onCardPress, loadingCardId, cardError)}
         {showTimestamp && createdAt && (
           <Text
             variant="small"
@@ -99,41 +105,66 @@ export function MessageBubble({
  * Transform backend card_data to ResultCard props and render
  * Handles both single cards and arrays of cards (for search results)
  */
-function renderResultCard(card_data: Record<string, unknown>, testID: string) {
+function renderResultCard(
+  card_data: Record<string, unknown>,
+  testID: string,
+  onCardPress?: (documentId: number) => void,
+  loadingCardId?: number | null,
+  cardError?: string | null
+) {
   // Check if card_data is an array (multiple search results)
   if (Array.isArray(card_data)) {
     return (
       <View className="gap-2">
-        {card_data.map((card, index) => (
-          <ResultCard
-            key={index}
-            cardType={card.card_type as CardType}
-            data={card as ResultCardData}
-            onPress={handleCardPress}
-            testID={`${testID}-card-${index}`}
-          />
-        ))}
+        {card_data.map((card, index) => {
+          const cardType = (card.card_type as CardType) || 'article'
+          const documentId = card.document_id as number | undefined
+          const isLoading = loadingCardId !== null && documentId === loadingCardId
+
+          return (
+            <ResultCard
+              key={index}
+              cardType={cardType}
+              data={card as unknown as ResultCardData}
+              onPress={() => handleCardPress(card, onCardPress)}
+              testID={`${testID}-card-${index}`}
+              loading={isLoading}
+              error={isLoading ? undefined : (cardError ?? undefined)}
+            />
+          )
+        })}
       </View>
     )
   }
 
-  // Single card
+  // Single card - cast through unknown to satisfy TypeScript discriminated union
   const cardType = card_data.card_type as CardType
+  const documentId = card_data.document_id as number | undefined
+  const isLoading = loadingCardId !== null && documentId === loadingCardId
+
   return (
     <ResultCard
       cardType={cardType}
-      data={card_data as ResultCardData}
-      onPress={handleCardPress}
+      data={card_data as unknown as ResultCardData}
+      onPress={() => handleCardPress(card_data, onCardPress)}
       testID={`${testID}-card`}
+      loading={isLoading}
+      error={isLoading ? undefined : (cardError ?? undefined)}
     />
   )
 }
 
 /**
- * Handle card press - placeholder for US-031 (ArticleDetail navigation)
- * TODO: Wire to ArticleDetail overlay in US-031
+ * Handle card press - triggers navigation to ArticleDetail overlay
+ * Extracts document_id from card_data and calls onCardPress callback
  */
-function handleCardPress(documentId?: string) {
-  console.log('Card pressed, documentId:', documentId)
-  // Navigation to ArticleDetail will be implemented in US-031
+function handleCardPress(
+  card_data: Record<string, unknown>,
+  onCardPress?: (documentId: number) => void
+) {
+  // Extract document_id from card_data (number type)
+  const documentId = card_data.document_id as number | undefined
+  if (documentId !== undefined && onCardPress) {
+    onCardPress(documentId)
+  }
 }

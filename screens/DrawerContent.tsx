@@ -19,7 +19,7 @@ interface DrawerContentProps extends Omit<ViewProps, 'children'> {
   /** Current search query */
   searchQuery?: string
   /** Callback when search query changes */
-  onSearchChange?: (query: string) => void
+  onSearchChange?: (_query: string) => void
   /** Callback when Holocron (main chat) section is pressed */
   onHolocronPress?: () => void
   /** Callback when Articles link is pressed */
@@ -29,9 +29,9 @@ interface DrawerContentProps extends Omit<ViewProps, 'children'> {
   /** Callback when New Chat is pressed */
   onNewChatPress?: () => void
   /** Callback when a conversation is selected */
-  onConversationPress?: (conversation: Conversation) => void
+  onConversationPress?: (_conversation: Conversation) => void
   /** Callback when a conversation is long-pressed */
-  onConversationLongPress?: (conversation: Conversation) => void
+  onConversationLongPress?: (_conversation: Conversation) => void
   /** Loading state for conversation fetch */
   isLoading?: boolean
   /** Error state for conversation fetch */
@@ -43,17 +43,15 @@ interface DrawerContentProps extends Omit<ViewProps, 'children'> {
   /** Title of the conversation for the action menu */
   actionMenuConversationTitle?: string
   /** Callback when action menu open state changes */
-  onActionMenuOpenChange?: (open: boolean) => void
+  onActionMenuOpenChange?: (_open: boolean) => void
   /** Callback when rename is confirmed */
-  onRename?: (newTitle: string) => void
+  onRename?: (_newTitle: string) => void
   /** Callback when delete is confirmed */
   onDelete?: () => void
   /** Whether a rename operation is in progress */
   isRenaming?: boolean
   /** Whether a delete operation is in progress */
   isDeleting?: boolean
-  /** Whether a create operation is in progress */
-  isCreating?: boolean
 }
 
 /**
@@ -82,7 +80,6 @@ export function DrawerContent({
   onDelete,
   isRenaming = false,
   isDeleting = false,
-  isCreating = false,
   className,
   ...props
 }: DrawerContentProps) {

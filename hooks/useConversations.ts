@@ -34,9 +34,9 @@ export interface UseConversationsReturn {
   isDeleting: boolean
   error: Error | null
   createConversation: () => Promise<string>
-  switchConversation: (id: string) => void
-  renameConversation: (id: string, newTitle: string) => Promise<void>
-  deleteConversation: (id: string) => Promise<string | null>
+  switchConversation: (_id: string) => void
+  renameConversation: (_id: string, _newTitle: string) => Promise<void>
+  deleteConversation: (_id: string) => Promise<string | null>
   refetch: () => void
 }
 
@@ -257,7 +257,7 @@ export function useConversations(): UseConversationsReturn {
       // Return context with previous value and conversations
       return { previousConversations, oldConversations: previousConversations ?? [] }
     },
-    onError: (err, id, context) => {
+    onError: (_err, _id, context) => {
       // Rollback to previous value on error
       if (context?.previousConversations) {
         queryClient.setQueryData(conversationsKeys.list(), context.previousConversations)

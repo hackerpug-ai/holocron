@@ -216,23 +216,9 @@ async function generateAgentResponse(
 
     // Handle /stats command
     if (parsed.command === 'stats') {
-      // Get external holocron database credentials
-      const holocronUrl = Deno.env.get('HOLOCRON_URL')
-      const holocronKey = Deno.env.get('HOLOCRON_SERVICE_ROLE_KEY')
-
-      if (!holocronUrl || !holocronKey) {
-        console.error('Holocron database credentials not configured')
-        return {
-          content: 'Sorry, the knowledge base is not configured. Please contact support.',
-          message_type: 'error',
-        }
-      }
-
-      // Create client for external holocron database
-      const holocronClient = createClient(holocronUrl, holocronKey)
-
-      // Generate stats response
-      const statsResponse = await generateStatsResponse(holocronClient)
+      // Generate stats response using the same supabase client
+      // (documents table is in the same database as chat_messages)
+      const statsResponse = await generateStatsResponse(supabase)
 
       return {
         content: statsResponse.content,

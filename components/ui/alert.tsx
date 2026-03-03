@@ -14,7 +14,7 @@ function Alert({
   ...props
 }: ViewProps &
   React.RefAttributes<View> & {
-    icon: LucideIcon;
+    icon?: LucideIcon | null;
     variant?: 'default' | 'destructive';
     iconClassName?: string;
   }) {
@@ -29,15 +29,18 @@ function Alert({
         role="alert"
         className={cn(
           'bg-card border-border relative w-full rounded-lg border px-4 pb-2 pt-3.5',
+          !icon && 'pl-4',
           className
         )}
         {...props}>
-        <View className="absolute left-3.5 top-3">
-          <Icon
-            as={icon}
-            className={cn('size-4', variant === 'destructive' && 'text-destructive', iconClassName)}
-          />
-        </View>
+        {icon && (
+          <View className="absolute left-3.5 top-3">
+            <Icon
+              as={icon}
+              className={cn('size-4', variant === 'destructive' && 'text-destructive', iconClassName)}
+            />
+          </View>
+        )}
         {children}
       </View>
     </TextClassContext.Provider>

@@ -4,7 +4,7 @@ import { useConversations, type Conversation } from '@/hooks/useConversations'
 import { useRouter } from 'expo-router'
 import { useDrawerStatus } from '@react-navigation/drawer'
 import { useEffect, useRef, useState } from 'react'
-import { ActivityIndicator, View, Pressable } from 'react-native'
+import { ActivityIndicator, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Text } from '@/components/ui/text'
 import { Button } from '@/components/ui/button'
@@ -26,7 +26,6 @@ function CustomDrawerContent() {
     conversations,
     activeConversationId,
     isLoading,
-    isCreating,
     isRenaming,
     isDeleting,
     error,
@@ -115,7 +114,6 @@ function CustomDrawerContent() {
       conversations={conversations}
       activeConversationId={activeConversationId ?? undefined}
       isLoading={isLoading}
-      isCreating={isCreating}
       isRenaming={isRenaming}
       isDeleting={isDeleting}
       error={error}

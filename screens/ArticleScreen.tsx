@@ -33,7 +33,7 @@ interface ArticleScreenProps extends Omit<ViewProps, 'children'> {
   /** Callback when source link is pressed */
   onSourcePress?: () => void
   /** Callback when a tag is pressed */
-  onTagPress?: (tag: string) => void
+  onTagPress?: (_tag: string) => void
 }
 
 /**

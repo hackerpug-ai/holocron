@@ -1,23 +1,6 @@
--- Hybrid Search RPC Function
--- Combines full-text search and vector similarity for comprehensive document search
+-- Hybrid Search RPC Function (Memory-Efficient Version)
+-- Computes tsvector on-the-fly instead of storing as generated column
 -- @see US-026 - Build /search command handler with hybrid_search
-
--- Ensure documents table exists
-CREATE TABLE IF NOT EXISTS documents (
-  id SERIAL PRIMARY KEY,
-  title TEXT NOT NULL,
-  content TEXT NOT NULL,
-  category TEXT NOT NULL,
-  file_path TEXT,
-  file_type TEXT DEFAULT 'md',
-  status TEXT DEFAULT 'complete',
-  date TEXT,
-  time TEXT,
-  research_type TEXT,
-  iterations INTEGER,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  embedding VECTOR(1536)
-);
 
 -- Create document_category enum if not exists
 DO $$ BEGIN
@@ -30,30 +13,10 @@ EXCEPTION
   WHEN duplicate_object THEN null;
 END $$;
 
--- Add category column with proper type if it doesn't exist
-DO $$ BEGIN
-  ALTER TABLE documents ALTER COLUMN category TYPE document_category USING category::document_category;
-EXCEPTION
-  WHEN others THEN null;
-END $$;
-
--- Create full-text search vector column if not exists
-DO $$ BEGIN
-  ALTER TABLE documents ADD COLUMN IF NOT EXISTS tsv tsvector GENERATED ALWAYS AS (
-    setweight(to_tsvector('english', coalesce(title, '')), 'A') ||
-    setweight(to_tsvector('english', coalesce(content, '')), 'B')
-  ) STORED;
-EXCEPTION
-  WHEN others THEN null;
-END $$;
-
--- Create GIN index for full-text search if not exists
-CREATE INDEX IF NOT EXISTS idx_documents_tsv ON documents USING GIN(tsv);
-
 -- Create HNSW index for vector similarity if not exists
 CREATE INDEX IF NOT EXISTS idx_documents_embedding ON documents USING hnsw(embedding vector_cosine_ops);
 
--- Hybrid search function
+-- Hybrid search function (computes tsvector on-the-fly)
 CREATE OR REPLACE FUNCTION hybrid_search(
   query_text TEXT DEFAULT NULL,
   query_embedding VECTOR(1536) DEFAULT NULL,
@@ -73,14 +36,16 @@ LANGUAGE plpgsql
 AS $$
 DECLARE
   embedding_vector VECTOR(1536);
+  search_query tsquery;
 BEGIN
-  -- If embedding not provided, generate from query_text (fallback to simple expansion)
-  -- Note: In production, you'd want to call an embedding generation service
-  IF query_embedding IS NOT NULL THEN
-    embedding_vector := query_embedding;
+  -- Use provided embedding or NULL
+  embedding_vector := query_embedding;
+
+  -- Build search query for full-text search
+  IF query_text IS NOT NULL AND query_text != '' THEN
+    search_query := plainto_tsquery('english', query_text);
   ELSE
-    -- Fallback: Use NULL embedding, results will rely on FTS only
-    embedding_vector := NULL;
+    search_query := NULL;
   END IF;
 
   RETURN QUERY
@@ -91,25 +56,45 @@ BEGIN
     d.content,
     -- Vector similarity score (0-1)
     CASE
-      WHEN embedding_vector IS NOT NULL THEN 1 - (d.embedding <=> embedding_vector)
-      ELSE 0
+      WHEN embedding_vector IS NOT NULL AND d.embedding IS NOT NULL THEN
+        1 - (d.embedding <=> embedding_vector)
+      ELSE 0::FLOAT
     END AS similarity,
     -- Combined rank: FTS rank weighted with similarity
     CASE
-      WHEN embedding_vector IS NOT NULL THEN
-        (COALESCE(ts_rank(d.tsv, plainto_tsquery('english', query_text)), 0) * 0.5) +
+      WHEN embedding_vector IS NOT NULL AND d.embedding IS NOT NULL THEN
+        (COALESCE(ts_rank(
+          setweight(to_tsvector('english', coalesce(d.title, '')), 'A') ||
+          setweight(to_tsvector('english', coalesce(d.content, '')), 'B'),
+          search_query
+        ), 0) * 0.5) +
         ((1 - (d.embedding <=> embedding_vector)) * 0.5)
-      ELSE
-        COALESCE(ts_rank(d.tsv, plainto_tsquery('english', query_text)), 0)
+      WHEN search_query IS NOT NULL THEN
+        COALESCE(ts_rank(
+          setweight(to_tsvector('english', coalesce(d.title, '')), 'A') ||
+          setweight(to_tsvector('english', coalesce(d.content, '')), 'B'),
+          search_query
+        ), 0)::FLOAT
+      ELSE 0::FLOAT
     END AS rank
   FROM documents d
   WHERE
     -- Filter by category if provided
-    (filter_category IS NULL OR d.category = filter_category)
-    -- Full-text search match
-    AND (query_text IS NULL OR d.tsv @@ plainto_tsquery('english', query_text))
+    (filter_category IS NULL OR d.category::TEXT = filter_category::TEXT)
+    -- Full-text search match (if query provided)
+    AND (
+      search_query IS NULL
+      OR (
+        setweight(to_tsvector('english', coalesce(d.title, '')), 'A') ||
+        setweight(to_tsvector('english', coalesce(d.content, '')), 'B')
+      ) @@ search_query
+    )
     -- Similarity threshold (if embedding provided)
-    AND (embedding_vector IS NULL OR (1 - (d.embedding <=> embedding_vector)) >= match_threshold)
+    AND (
+      embedding_vector IS NULL
+      OR d.embedding IS NULL
+      OR (1 - (d.embedding <=> embedding_vector)) >= match_threshold
+    )
   ORDER BY rank DESC
   LIMIT result_count;
 END;
@@ -130,18 +115,29 @@ RETURNS TABLE (
 )
 LANGUAGE plpgsql
 AS $$
+DECLARE
+  search_query tsquery;
 BEGIN
+  search_query := plainto_tsquery('english', query_text);
+
   RETURN QUERY
   SELECT
     d.id,
     d.title,
     d.category::TEXT,
     d.content,
-    ts_rank(d.tsv, plainto_tsquery('english', query_text)) AS rank
+    ts_rank(
+      setweight(to_tsvector('english', coalesce(d.title, '')), 'A') ||
+      setweight(to_tsvector('english', coalesce(d.content, '')), 'B'),
+      search_query
+    )::FLOAT AS rank
   FROM documents d
   WHERE
-    (filter_category IS NULL OR d.category = filter_category)
-    AND d.tsv @@ plainto_tsquery('english', query_text)
+    (filter_category IS NULL OR d.category::TEXT = filter_category::TEXT)
+    AND (
+      setweight(to_tsvector('english', coalesce(d.title, '')), 'A') ||
+      setweight(to_tsvector('english', coalesce(d.content, '')), 'B')
+    ) @@ search_query
   ORDER BY rank DESC
   LIMIT match_count;
 END;
@@ -169,10 +165,10 @@ BEGIN
     d.title,
     d.category::TEXT,
     d.content,
-    1 - (d.embedding <=> query_embedding) AS similarity
+    (1 - (d.embedding <=> query_embedding))::FLOAT AS similarity
   FROM documents d
   WHERE
-    (filter_category IS NULL OR d.category = filter_category)
+    (filter_category IS NULL OR d.category::TEXT = filter_category::TEXT)
     AND d.embedding IS NOT NULL
   ORDER BY d.embedding <=> query_embedding
   LIMIT match_count;

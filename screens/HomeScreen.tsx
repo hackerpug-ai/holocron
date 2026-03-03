@@ -31,7 +31,7 @@ interface HomeScreenProps extends Omit<ViewProps, 'children'> {
   /** Whether data is loading */
   loading?: boolean
   /** Callback when an article is pressed */
-  onArticlePress?: (article: Article) => void
+  onArticlePress?: (_article: Article) => void
   /** Callback when "View All" is pressed */
   onViewAllPress?: () => void
   /** Callback when start research is pressed */

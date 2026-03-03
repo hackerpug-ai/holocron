@@ -1,5 +1,5 @@
 import { ChatBubble, type ChatRole } from '@/components/ChatBubble'
-import { ChatInput, type SlashCommand } from '@/components/ChatInput'
+import { ChatInput, type SlashCommand } from '@/components/chat/ChatInput'
 import { type CategoryType } from '@/components/CategoryBadge'
 import { CommandBadge } from '@/components/CommandBadge'
 import { ResearchProgress, type ResearchStatus } from '@/components/ResearchProgress'
@@ -48,11 +48,11 @@ interface ChatScreenProps extends Omit<ViewProps, 'children'> {
   /** Whether input should be disabled */
   inputDisabled?: boolean
   /** Callback when user sends a message */
-  onSendMessage?: (message: string) => void
+  onSendMessage?: (_message: string) => void
   /** Callback when user selects a slash command from the menu */
-  onSelectCommand?: (command: SlashCommand) => void
+  onSelectCommand?: (_command: SlashCommand) => void
   /** Callback when a result card is pressed */
-  onResultPress?: (resultId: string) => void
+  onResultPress?: (_resultId: string) => void
   /** Callback when menu button is pressed */
   onMenuPress?: () => void
 }

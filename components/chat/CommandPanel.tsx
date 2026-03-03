@@ -7,7 +7,7 @@ export interface CommandPanelProps {
   /** Filter string to narrow down commands (text after /) */
   filter?: string
   /** Callback when a command is selected */
-  onSelect: (command: SlashCommand) => void
+  onSelect: (_command: SlashCommand) => void
   /** Callback when user taps outside to dismiss */
   onDismiss?: () => void
 }

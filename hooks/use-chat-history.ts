@@ -8,7 +8,6 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { supabase } from '@/lib/supabase'
 import type { ChatMessage } from '@/components/chat/ChatThread'
 import type { MessageRole, MessageType } from '@/lib/types/conversations'
 import { useChatRealtime } from './use-chat-realtime'
@@ -37,8 +36,8 @@ interface UseChatHistoryReturn {
   loadMore: () => void
   hasMore: boolean
   refetch: () => void
-  prependMessages: (newMessages: ChatMessage[]) => void
-  replaceMessage: (tempId: string, realMessage: ChatMessage) => void
+  prependMessages: (_newMessages: ChatMessage[]) => void
+  replaceMessage: (_tempId: string, _realMessage: ChatMessage) => void
 }
 
 /**
