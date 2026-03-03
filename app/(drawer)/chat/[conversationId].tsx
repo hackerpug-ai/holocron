@@ -45,22 +45,33 @@ export default function ChatScreen() {
     replaceMessage,
   } = useChatHistory(conversationId ?? null)
 
+  // Determine if this is a new (lazy) conversation
+  const isNewConversation = conversationId === 'new'
+
   // Send message hook with optimistic updates
+  // For new conversations, pass createConversation callback for lazy creation
   const { send, isSending, error: sendError, retry } = useChatSend(
     conversationId ?? '',
     prependMessages,
-    replaceMessage
+    replaceMessage,
+    isNewConversation ? createConversation : undefined
   )
 
   // Handle send
   const handleSend = async (content: string) => {
-    if (!content.trim() || !conversationId) return
+    if (!content.trim()) return
 
     // Dismiss keyboard
     Keyboard.dismiss()
 
-    // Send message
-    await send(content)
+    // Send message (may create conversation lazily)
+    const newConversationId = await send(content)
+
+    // If a new conversation was created, navigate to it
+    if (newConversationId) {
+      switchConversation(newConversationId)
+      router.replace(`/chat/${newConversationId}`)
+    }
   }
 
   // Open the drawer menu
@@ -68,29 +79,23 @@ export default function ChatScreen() {
     navigation.dispatch(DrawerActions.openDrawer())
   }
 
-  // Create a new chat
-  const handleNewChat = async () => {
-    try {
-      const newId = await createConversation()
-      switchConversation(newId)
-      router.push(`/chat/${newId}`)
-    } catch (err) {
-      console.error('Failed to create conversation:', err)
-    }
+  // Create a new chat (lazy - navigates to /chat/new)
+  const handleNewChat = () => {
+    router.push('/chat/new')
   }
 
-  // Set the active conversation when the route loads
+  // Set the active conversation when the route loads (skip for 'new')
   useEffect(() => {
-    if (conversationId) {
+    if (conversationId && !isNewConversation) {
       switchConversation(conversationId)
     }
-  }, [conversationId, switchConversation])
+  }, [conversationId, switchConversation, isNewConversation])
 
-  // Validate that the conversation exists
-  const conversationExists = conversations.some((c) => c.id === conversationId)
+  // Validate that the conversation exists (skip for 'new' conversations)
+  const conversationExists = isNewConversation || conversations.some((c) => c.id === conversationId)
 
-  // Loading state
-  if (isLoading) {
+  // Loading state (but not for new conversations - they don't need to load)
+  if (isLoading && !isNewConversation) {
     return (
       <View style={styles.centerContainer} className="bg-background p-6" testID="chat-loading-screen">
         <ActivityIndicator size="large" testID="loading-spinner" />

@@ -43,16 +43,10 @@ function CustomDrawerContent() {
     }
   }, [isDrawerOpen, refetch])
 
-  const handleNewChatPress = async () => {
-    try {
-      const newId = await createConversation()
-      switchConversation(newId)
-      // Navigate to the new conversation's chat route
-      router.push(`/chat/${newId}`)
-    } catch (err) {
-      // Error is already set in the hook state
-      console.error('Failed to create conversation:', err)
-    }
+  const handleNewChatPress = () => {
+    // Navigate to /chat/new for lazy conversation creation
+    // Conversation will be created when first message is sent
+    router.push('/chat/new')
   }
 
   const handleConversationPress = (conversation: Conversation) => {

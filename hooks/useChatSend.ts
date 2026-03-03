@@ -24,7 +24,7 @@
  * - THEN mark message as failed and preserve content for retry
  */
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import type { ChatMessage } from '@/components/chat/ChatThread'
 import type { MessageType } from '@/lib/types/conversations'
 
@@ -48,7 +48,7 @@ interface ChatSendResponse {
 }
 
 interface UseChatSendResult {
-  send: (_content: string) => Promise<void>
+  send: (_content: string) => Promise<string | null>
   isSending: boolean
   pendingMessage: ChatMessage | null
   error: Error | null
@@ -59,14 +59,16 @@ interface UseChatSendResult {
 /**
  * Send messages with optimistic updates
  *
- * @param conversationId - UUID of the conversation
+ * @param conversationId - UUID of the conversation (or 'new' for lazy creation)
  * @param prependMessages - Callback to prepend messages to the list
  * @param replaceMessage - Callback to replace a temp message with real message
+ * @param onCreateConversation - Optional callback to create conversation on first message (for lazy creation)
  */
 export function useChatSend(
   conversationId: string,
   prependMessages: (_messages: ChatMessage[]) => void,
-  replaceMessage: (_tempId: string, _realMessage: ChatMessage) => void
+  replaceMessage: (_tempId: string, _realMessage: ChatMessage) => void,
+  onCreateConversation?: () => Promise<string>
 ): UseChatSendResult {
   const [isSending, setIsSending] = useState(false)
   const [error, setError] = useState<Error | null>(null)
@@ -75,14 +77,25 @@ export function useChatSend(
   // Track last failed message for retry
   const lastFailedMessageRef = useRef<string | null>(null)
 
+  // Track the actual conversation ID (may be created lazily)
+  const actualConversationIdRef = useRef<string>(conversationId)
+
+  // Update ref when conversationId prop changes
+  useEffect(() => {
+    actualConversationIdRef.current = conversationId
+  }, [conversationId])
+
   const send = useCallback(
-    async (content: string) => {
+    async (content: string): Promise<string | null> => {
       if (!content.trim() || isSending) {
-        return
+        return null
       }
 
       setIsSending(true)
       setError(null)
+
+      // Track if we created a new conversation
+      let newConversationId: string | null = null
 
       // Generate temporary ID for optimistic update
       const tempId = `temp-${Date.now()}`
@@ -99,6 +112,18 @@ export function useChatSend(
       prependMessages([tempMessage])
 
       try {
+        // Lazy conversation creation: create on first message
+        let targetConversationId = actualConversationIdRef.current
+        if (targetConversationId === 'new' && onCreateConversation) {
+          newConversationId = await onCreateConversation()
+          targetConversationId = newConversationId
+          actualConversationIdRef.current = newConversationId
+        }
+
+        if (!targetConversationId || targetConversationId === 'new') {
+          throw new Error('No valid conversation ID')
+        }
+
         // Build API request
         const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL
         const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY
@@ -108,7 +133,7 @@ export function useChatSend(
         }
 
         const requestBody: ChatSendRequest = {
-          conversation_id: conversationId,
+          conversation_id: targetConversationId,
           content,
           message_type: 'text',
         }
@@ -162,17 +187,21 @@ export function useChatSend(
         setPendingMessage(null)
         lastFailedMessageRef.current = null
 
+        // Return new conversation ID if one was created
+        return newConversationId
+
       } catch (err) {
         // AC-3: Mark message as failed (keep for retry)
         const error = err instanceof Error ? err : new Error('Unknown error')
         setError(error)
         lastFailedMessageRef.current = content
         console.error('useChatSend error:', error)
+        return null
       } finally {
         setIsSending(false)
       }
     },
-    [conversationId, isSending, prependMessages, replaceMessage]
+    [conversationId, isSending, prependMessages, replaceMessage, onCreateConversation]
   )
 
   const retry = useCallback(async () => {
