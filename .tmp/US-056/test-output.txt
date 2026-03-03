@@ -1,0 +1,6 @@
+0
+Tests will be run in Supabase Edge Function environment (Deno)
+Unit tests created: resume-handler.test.ts
+Test coverage:
+- parseResumeCommand: 10 test cases covering all input variations
+- ResumeCommandOptions type validation: 3 test cases
