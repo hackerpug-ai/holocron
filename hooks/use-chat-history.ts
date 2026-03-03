@@ -10,7 +10,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { ChatMessage } from '@/components/chat/ChatThread'
-import type { MessageRole } from '@/lib/types/conversations'
+import type { MessageRole, MessageType } from '@/lib/types/conversations'
 import { useChatRealtime } from './use-chat-realtime'
 
 interface ChatHistoryResponse {
@@ -19,7 +19,7 @@ interface ChatHistoryResponse {
     conversation_id: string
     role: MessageRole
     content: string
-    message_type: string
+    message_type: MessageType
     card_data?: Record<string, unknown> | null
     session_id?: string | null
     document_id?: number | null
@@ -118,6 +118,8 @@ export function useChatHistory(
           id: msg.id,
           role: msg.role,
           content: msg.content,
+          message_type: msg.message_type,
+          card_data: msg.card_data,
           createdAt: new Date(msg.created_at),
         }))
 

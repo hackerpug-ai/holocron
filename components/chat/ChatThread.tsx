@@ -1,7 +1,7 @@
 import { View, FlatList, ActivityIndicator } from 'react-native'
 import { Text } from '@/components/ui/text'
 import { useRef, useEffect } from 'react'
-import type { MessageRole } from '@/lib/types/conversations'
+import type { MessageRole, MessageType } from '@/lib/types/conversations'
 import { MessageBubble } from './MessageBubble'
 import { TypingIndicator } from './TypingIndicator'
 
@@ -9,6 +9,8 @@ export interface ChatMessage {
   id: string
   role: MessageRole
   content: string
+  message_type?: MessageType
+  card_data?: Record<string, unknown> | null
   createdAt: Date
 }
 
@@ -42,6 +44,8 @@ export function ChatThread({
     <MessageBubble
       role={item.role}
       content={item.content}
+      message_type={item.message_type}
+      card_data={item.card_data}
       createdAt={item.createdAt}
       showTimestamp={true}
       testID={`message-${item.id}`}

@@ -26,6 +26,7 @@
 
 import { useState, useCallback, useRef } from 'react'
 import type { ChatMessage } from '@/components/chat/ChatThread'
+import type { MessageType } from '@/lib/types/conversations'
 
 interface ChatSendRequest {
   conversation_id: string
@@ -37,7 +38,7 @@ interface AgentMessage {
   id: string
   role: 'agent'
   content: string
-  message_type: 'text' | 'result_card' | 'progress' | 'error'
+  message_type: MessageType
   card_data?: unknown
 }
 
@@ -148,6 +149,8 @@ export function useChatSend(
           id: msg.id,
           role: msg.role,
           content: msg.content,
+          message_type: msg.message_type,
+          card_data: msg.card_data as Record<string, unknown> | undefined,
           createdAt: new Date(),
         }))
 
