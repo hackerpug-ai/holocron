@@ -26,6 +26,8 @@ export interface ChatThreadProps {
   /** Safe area top inset to apply as padding */
   safeAreaTop?: number
   testID?: string
+  /** Callback when a session is selected from resume list */
+  onSessionSelect?: (sessionId: string) => void
 }
 
 export function ChatThread({
@@ -37,6 +39,7 @@ export function ChatThread({
   isLoading = false,
   safeAreaTop = 0,
   testID = 'chat-thread',
+  onSessionSelect,
 }: ChatThreadProps) {
   const flatListRef = useRef<FlatList>(null)
   const router = useRouter()
@@ -64,6 +67,7 @@ export function ChatThread({
       showTimestamp={true}
       testID={`message-${item.id}`}
       onCardPress={handleCardPress}
+      onSessionSelect={onSessionSelect}
     />
   )
 

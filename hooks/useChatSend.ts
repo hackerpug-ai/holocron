@@ -49,6 +49,7 @@ interface ChatSendResponse {
 
 interface UseChatSendResult {
   send: (_content: string) => Promise<string | null>
+  sendResumeCommand: (_sessionId: string) => Promise<string | null>
   isSending: boolean
   pendingMessage: ChatMessage | null
   error: Error | null
@@ -210,6 +211,20 @@ export function useChatSend(
     }
   }, [send])
 
+  /**
+   * Send a resume command for a specific session
+   * Sends `/resume {sessionId}` to the chat backend
+   *
+   * @param sessionId - The session ID to resume
+   * @returns Promise that resolves to new conversation ID if created, null otherwise
+   */
+  const sendResumeCommand = useCallback(
+    async (sessionId: string): Promise<string | null> => {
+      return send(`/resume ${sessionId}`)
+    },
+    [send]
+  )
+
   const clearError = useCallback(() => {
     setError(null)
     setPendingMessage(null)
@@ -218,6 +233,7 @@ export function useChatSend(
 
   return {
     send,
+    sendResumeCommand,
     isSending,
     pendingMessage,
     error,

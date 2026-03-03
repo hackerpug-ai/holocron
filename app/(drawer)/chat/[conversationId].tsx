@@ -50,7 +50,7 @@ export default function ChatScreen() {
 
   // Send message hook with optimistic updates
   // For new conversations, pass createConversation callback for lazy creation
-  const { send, isSending, error: sendError, retry } = useChatSend(
+  const { send, sendResumeCommand, isSending, error: sendError, retry } = useChatSend(
     conversationId ?? '',
     prependMessages,
     replaceMessage,
@@ -72,6 +72,12 @@ export default function ChatScreen() {
       switchConversation(newConversationId)
       router.replace(`/chat/${newConversationId}`)
     }
+  }
+
+  // Handle session selection from resume list
+  const handleSessionSelect = async (sessionId: string) => {
+    // Send resume command with the selected session ID
+    await sendResumeCommand(sessionId)
   }
 
   // Open the drawer menu
@@ -166,6 +172,7 @@ export default function ChatScreen() {
         isLoading={isLoadingMessages}
         safeAreaTop={contentTopPadding}
         testID="chat-thread"
+        onSessionSelect={handleSessionSelect}
       />
       {/* Bottom area with safe area padding */}
       <View style={{ paddingBottom: insets.bottom }}>

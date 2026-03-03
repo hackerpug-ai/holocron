@@ -83,6 +83,16 @@ export interface ResumeSessionListCardData {
   }>
 }
 
+// Final result card - displayed when deep research completes
+export interface FinalResultCardData {
+  card_type: 'final_result'
+  session_id: string
+  topic: string
+  total_iterations: number
+  final_coverage_score: number
+  findings_summary: string
+}
+
 // Discriminated union of all card data types
 // Also supports arrays of article cards for multiple search results
 export type CardData =
@@ -93,6 +103,7 @@ export type CardData =
   | CategoryNotFoundCardData
   | DeepResearchConfirmationCardData
   | ResumeSessionListCardData
+  | FinalResultCardData
   | ArticleCardData[]
 
 export interface ChatMessage {
