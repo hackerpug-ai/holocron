@@ -8,6 +8,7 @@ import {
   parseSlashCommand,
   isKnownCommand,
   generateHelpResponse,
+  parseDeepResearchCommand,
   SUPPORTED_COMMANDS,
 } from './slash-commands.ts'
 
@@ -147,4 +148,83 @@ Deno.test('SUPPORTED_COMMANDS: includes required commands', () => {
       throw new Error(`Expected SUPPORTED_COMMANDS to include ${required}`)
     }
   }
+})
+
+// ============================================================
+// Test: parseDeepResearchCommand
+// ============================================================
+
+Deno.test('parseDeepResearchCommand: extracts topic with default max_iterations', () => {
+  const result = parseDeepResearchCommand('quantum computing')
+  if (!result.success) throw new Error('Expected success to be true')
+  if (result.topic !== 'quantum computing') throw new Error(`Expected topic to be 'quantum computing', got ${result.topic}`)
+  if (result.maxIterations !== 5) throw new Error(`Expected maxIterations to be 5, got ${result.maxIterations}`)
+})
+
+Deno.test('parseDeepResearchCommand: parses --max flag with topic', () => {
+  const result = parseDeepResearchCommand('--max 3 topic')
+  if (!result.success) throw new Error('Expected success to be true')
+  if (result.topic !== 'topic') throw new Error(`Expected topic to be 'topic', got ${result.topic}`)
+  if (result.maxIterations !== 3) throw new Error(`Expected maxIterations to be 3, got ${result.maxIterations}`)
+})
+
+Deno.test('parseDeepResearchCommand: parses --max flag with multi-word topic', () => {
+  const result = parseDeepResearchCommand('--max 7 artificial intelligence in healthcare')
+  if (!result.success) throw new Error('Expected success to be true')
+  if (result.topic !== 'artificial intelligence in healthcare') {
+    throw new Error(`Expected topic to be 'artificial intelligence in healthcare', got ${result.topic}`)
+  }
+  if (result.maxIterations !== 7) throw new Error(`Expected maxIterations to be 7, got ${result.maxIterations}`)
+})
+
+Deno.test('parseDeepResearchCommand: returns error for empty args', () => {
+  const result = parseDeepResearchCommand('')
+  if (result.success) throw new Error('Expected success to be false for empty args')
+  if (!result.error.includes('Please provide a topic')) {
+    throw new Error(`Expected error message about topic, got ${result.error}`)
+  }
+})
+
+Deno.test('parseDeepResearchCommand: returns error for undefined args', () => {
+  const result = parseDeepResearchCommand(undefined)
+  if (result.success) throw new Error('Expected success to be false for undefined args')
+  if (!result.error.includes('Please provide a topic')) {
+    throw new Error(`Expected error message about topic, got ${result.error}`)
+  }
+})
+
+Deno.test('parseDeepResearchCommand: returns error when only --max flag provided', () => {
+  const result = parseDeepResearchCommand('--max 5')
+  if (result.success) throw new Error('Expected success to be false when only flag provided')
+  if (!result.error.includes('Please provide a topic')) {
+    throw new Error(`Expected error message about topic, got ${result.error}`)
+  }
+})
+
+Deno.test('parseDeepResearchCommand: validates max_iterations minimum', () => {
+  const result = parseDeepResearchCommand('--max 0 topic')
+  if (result.success) throw new Error('Expected success to be false for max=0')
+  if (!result.error.includes('Max iterations must be between 1 and 10')) {
+    throw new Error(`Expected error about valid range, got ${result.error}`)
+  }
+})
+
+Deno.test('parseDeepResearchCommand: validates max_iterations maximum', () => {
+  const result = parseDeepResearchCommand('--max 11 topic')
+  if (result.success) throw new Error('Expected success to be false for max=11')
+  if (!result.error.includes('Max iterations must be between 1 and 10')) {
+    throw new Error(`Expected error about valid range, got ${result.error}`)
+  }
+})
+
+Deno.test('parseDeepResearchCommand: handles topic with leading/trailing spaces', () => {
+  const result = parseDeepResearchCommand('  quantum computing  ')
+  if (!result.success) throw new Error('Expected success to be true')
+  if (result.topic !== 'quantum computing') throw new Error(`Expected trimmed topic, got ${result.topic}`)
+})
+
+Deno.test('parseDeepResearchCommand: handles case-insensitive --max flag', () => {
+  const result = parseDeepResearchCommand('--MAX 4 topic')
+  if (!result.success) throw new Error('Expected success to be true')
+  if (result.maxIterations !== 4) throw new Error(`Expected maxIterations to be 4, got ${result.maxIterations}`)
 })

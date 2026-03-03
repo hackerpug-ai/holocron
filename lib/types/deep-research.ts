@@ -149,3 +149,36 @@ export interface DeepResearchProgress {
   coverageScore: number | null
   status: DeepResearchSessionStatus
 }
+
+// ============================================================
+// Card Data Types for Chat Messages
+// ============================================================
+
+/** Card data for deep research confirmation message */
+export interface DeepResearchConfirmationCard {
+  card_type: 'deep_research_confirmation'
+  session_id: string
+  topic: string
+  max_iterations: number
+}
+
+/** Card data for iteration progress message */
+export interface IterationCard {
+  card_type: 'iteration'
+  session_id: string
+  iteration_number: number
+  coverage_score: number | null
+  feedback: string | null
+  findings: string | null
+  estimated_remaining: number
+}
+
+/** Card data for final research result message */
+export interface FinalResultCard {
+  card_type: 'final_result'
+  session_id: string
+  topic: string
+  total_iterations: number
+  final_coverage_score: number
+  findings_summary: string
+}

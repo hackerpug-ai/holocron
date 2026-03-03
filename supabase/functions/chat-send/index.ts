@@ -16,9 +16,11 @@ import {
   isKnownCommand,
   generateHelpResponse,
   generateStatsResponse,
+  handleDeepResearchCommand,
   VALID_CATEGORIES,
   type DocumentCategory,
   type StatsCardData,
+  type DeepResearchConfirmationCardData,
 } from './slash-commands.ts'
 
 // ============================================================
@@ -72,7 +74,7 @@ interface CategoryNotFoundCard {
   valid_categories: string[]
 }
 
-type CardData = CategoryListCard | BrowseArticleCard | SearchArticleCard | CategoryNotFoundCard | BrowseArticleCard[] | SearchArticleCard[] | NoResultsCard | StatsCardData
+type CardData = CategoryListCard | BrowseArticleCard | SearchArticleCard | CategoryNotFoundCard | BrowseArticleCard[] | SearchArticleCard[] | NoResultsCard | StatsCardData | DeepResearchConfirmationCardData
 
 interface AgentMessage {
   id: string
@@ -186,7 +188,8 @@ interface AgentResponse {
 
 async function generateAgentResponse(
   userContent: string,
-  supabase: ReturnType<typeof createClient>
+  supabase: ReturnType<typeof createClient>,
+  conversationId: string
 ): Promise<AgentResponse> {
   // Parse for slash commands
   const parsed = parseSlashCommand(userContent)
@@ -224,6 +227,17 @@ async function generateAgentResponse(
         content: statsResponse.content,
         message_type: statsResponse.message_type as 'text' | 'result_card' | 'error',
         card_data: statsResponse.card_data,
+      }
+    }
+
+    // Handle /deep-research command
+    if (parsed.command === 'deep-research') {
+      const deepResearchResponse = await handleDeepResearchCommand(parsed.args, supabase, conversationId)
+
+      return {
+        content: deepResearchResponse.content,
+        message_type: deepResearchResponse.message_type as 'text' | 'result_card' | 'error',
+        card_data: deepResearchResponse.card_data,
       }
     }
 
@@ -445,7 +459,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // Generate agent response
-    const agentResponse = await generateAgentResponse(body.content, supabase)
+    const agentResponse = await generateAgentResponse(body.content, supabase, body.conversation_id)
 
     const { data: agentMessage, error: agentError } = await supabase
       .from('chat_messages')

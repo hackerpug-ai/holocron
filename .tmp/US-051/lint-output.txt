@@ -1,0 +1,4 @@
+0
+compdef:153: _comps: assignment to invalid subscript range
+npx:unset:2: no such hash table element: npx
+Exit code: 

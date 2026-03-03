@@ -42,6 +42,28 @@ export interface StatsCardData {
   recent_count?: number
 }
 
+export interface DeepResearchConfirmationCardData {
+  card_type: 'deep_research_confirmation'
+  session_id: string
+  topic: string
+  max_iterations: number
+}
+
+export interface ResumeSession {
+  id: string
+  topic: string
+  status: string
+  created_at: string
+  updated_at: string
+  max_iterations: number
+  current_iteration?: number
+}
+
+export interface ResumeSessionListCardData {
+  card_type: 'resume_session_list'
+  sessions: ResumeSession[]
+}
+
 // ============================================================
 // Supported Commands (Single Source of Truth)
 // ============================================================
@@ -222,3 +244,176 @@ export async function generateStatsResponse(
     }
   }
 }
+
+// ============================================================
+// Deep Research Command Types
+// ============================================================
+
+export interface DeepResearchCommandArgs {
+  topic: string
+  maxIterations: number
+}
+
+export interface DeepResearchParseError {
+  success: false
+  error: string
+}
+
+export interface DeepResearchParseSuccess {
+  success: true
+  topic: string
+  maxIterations: number
+}
+
+export type DeepResearchParseResult = DeepResearchParseSuccess | DeepResearchParseError
+
+// ============================================================
+// Deep Research Command Parser
+// ============================================================
+
+/**
+ * Parse /deep-research command arguments
+ *
+ * Extracts topic and optional flags:
+ * - --max N: Set max iterations (default: 5)
+ *
+ * @param args - The arguments string after the command
+ * @returns DeepResearchParseResult with parsed values or error
+ *
+ * @example
+ * parseDeepResearchCommand('quantum computing')
+ * // => { success: true, topic: 'quantum computing', maxIterations: 5 }
+ *
+ * @example
+ * parseDeepResearchCommand('--max 3 topic')
+ * // => { success: true, topic: 'topic', maxIterations: 3 }
+ *
+ * @example
+ * parseDeepResearchCommand('')
+ * // => { success: false, error: 'Please provide a topic' }
+ */
+export function parseDeepResearchCommand(args: string | undefined): DeepResearchParseResult {
+  if (!args || args.trim() === '') {
+    return { success: false, error: 'Please provide a topic' }
+  }
+
+  let maxIterations = 5 // Default value
+  let topic = args.trim()
+
+  // Parse --max flag
+  const maxFlagMatch = topic.match(/--max\s+(\d+)/i)
+  if (maxFlagMatch) {
+    const parsedMax = parseInt(maxFlagMatch[1], 10)
+    if (isNaN(parsedMax) || parsedMax < 1 || parsedMax > 10) {
+      return { success: false, error: 'Max iterations must be between 1 and 10' }
+    }
+    maxIterations = parsedMax
+
+    // Remove the --max flag from the topic
+    topic = topic.replace(/--max\s+\d+\s*/i, '').trim()
+  }
+
+  // After removing flags, topic must not be empty
+  if (topic === '') {
+    return { success: false, error: 'Please provide a topic' }
+  }
+
+  return { success: true, topic, maxIterations }
+}
+
+/**
+ * Handle /deep-research command
+ *
+ * Creates a deep research session in the database and returns a confirmation card.
+ *
+ * @param args - The arguments string after the command
+ * @param supabase - Supabase client instance
+ * @param conversationId - The conversation ID to associate with the session
+ * @returns Agent response with confirmation card or error message
+ *
+ * @example
+ * const response = await handleDeepResearchCommand('quantum computing', supabase, 'conv-123')
+ * // => { content: '...', message_type: 'result_card', card_data: { card_type: 'deep_research_confirmation', ... } }
+ */
+export async function handleDeepResearchCommand(
+  args: string | undefined,
+  supabase: any,
+  conversationId: string
+): Promise<{
+  content: string
+  message_type: 'text' | 'result_card' | 'error'
+  card_data?: DeepResearchConfirmationCardData
+}> {
+  // Parse the command
+  const parseResult = parseDeepResearchCommand(args)
+
+  if (!parseResult.success) {
+    return {
+      content: parseResult.error,
+      message_type: 'error',
+    }
+  }
+
+  const { topic, maxIterations } = parseResult
+
+  try {
+    // Generate a unique session ID
+    const sessionId = crypto.randomUUID()
+
+    // Create the session in the database
+    const { data: session, error: sessionError } = await supabase
+      .from('deep_research_sessions')
+      .insert({
+        id: sessionId,
+        conversation_id: conversationId,
+        topic: topic,
+        max_iterations: maxIterations,
+        status: 'pending',
+      })
+      .select()
+      .single()
+
+    if (sessionError) {
+      console.error('Error creating deep research session:', sessionError)
+      throw sessionError
+    }
+
+    const cardData: DeepResearchConfirmationCardData = {
+      card_type: 'deep_research_confirmation',
+      session_id: sessionId,
+      topic: topic,
+      max_iterations: maxIterations,
+    }
+
+    return {
+      content: `Deep research session created for "${topic}"`,
+      message_type: 'result_card',
+      card_data: cardData,
+    }
+  } catch (error) {
+    console.error('Error handling deep research command:', error)
+    return {
+      content: 'Sorry, I couldn\'t create the deep research session. Please try again later.',
+      message_type: 'error',
+    }
+  }
+}
+
+// ============================================================
+// Resume Command Handler
+// ============================================================
+
+// Re-export resume handler types and function for convenience
+export {
+  parseResumeCommand,
+  getIncompleteSessions,
+  getSessionById,
+  restartSession,
+  handleResumeCommand,
+} from './resume-handler.ts'
+export type {
+  ResumeSession,
+  ResumeSessionListCardData,
+  ResumeCommandOptions,
+  ResumeResponse,
+} from './resume-handler.ts'
