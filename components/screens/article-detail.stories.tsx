@@ -472,15 +472,6 @@ export const CloseButton: Story = {
       </View>
     ),
   ],
-  play: async ({ canvasElement }) => {
-    // This is a placeholder - actual Storybook play testing for React Native
-    // requires setup with @storybook/testing-library
-    // The play function would test:
-    // 1. Find the close button by testID
-    // 2. Simulate press event
-    // 3. Verify onClose callback is called
-    console.log('Close button interaction test - manual verification required')
-  },
 }
 
 // Interactive story with play function for swipe-to-dismiss
@@ -497,13 +488,4 @@ export const SwipeToDismiss: Story = {
       </View>
     ),
   ],
-  play: async () => {
-    // This is a placeholder - actual swipe gesture testing in Storybook
-    // requires additional setup with react-native-gesture-handler
-    // The play function would test:
-    // 1. Simulate pan gesture downward
-    // 2. Verify translateY changes
-    // 3. Verify onClose callback is called after threshold
-    console.log('Swipe to dismiss interaction test - manual verification required')
-  },
 }

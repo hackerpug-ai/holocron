@@ -28,6 +28,67 @@ const { height: SCREEN_HEIGHT } = Dimensions.get('window')
 const SWIPE_THRESHOLD = -SCREEN_HEIGHT * 0.25
 
 /**
+ * Helper function to get dynamic styles based on current color scheme
+ * Uses colors that match the theme from global.css
+ */
+const getDynamicStyles = (isDark: boolean) => {
+  // Container background: white in light mode, dark background in dark mode
+  const containerBg = isDark ? 'hsl(222.2, 84%, 4.9%)' : 'hsl(0, 0%, 100%)'
+  // Border color for header separator
+  const borderColor = isDark ? 'hsl(217.2, 32.6%, 17.5%)' : 'hsl(214.3, 31.8%, 91.4%)'
+  // Drag indicator and close button background
+  const indicatorBg = isDark ? 'hsl(215, 20%, 25%)' : 'hsl(0, 0%, 85%)'
+  const closeBtnBg = isDark ? 'hsl(215, 20%, 20%)' : 'hsl(214.3, 31.8%, 95%)'
+
+  return StyleSheet.create({
+    backdrop: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    },
+    container: {
+      height: SCREEN_HEIGHT,
+      backgroundColor: containerBg,
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      overflow: 'hidden',
+    },
+    header: {
+      paddingHorizontal: 16,
+      paddingTop: 12,
+      paddingBottom: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: borderColor,
+    },
+    dragIndicator: {
+      width: 36,
+      height: 4,
+      backgroundColor: indicatorBg,
+      borderRadius: 2,
+      alignSelf: 'center',
+      marginBottom: 16,
+    },
+    closeButton: {
+      position: 'absolute',
+      top: 12,
+      right: 12,
+    },
+    closeButtonInner: {
+      padding: 8,
+      borderRadius: 20,
+      backgroundColor: closeBtnBg,
+    },
+    scrollContent: {
+      flex: 1,
+    },
+    scrollContentContainer: {
+      paddingHorizontal: 16,
+      paddingTop: 16,
+      paddingBottom: 32,
+    },
+  })
+}
+
+/**
  * Helper function to get markdown colors based on current color scheme
  * Uses HSL values from global.css theme
  */
@@ -212,6 +273,9 @@ export function ArticleDetail({
         minute: '2-digit',
       })
 
+  // Get dynamic styles based on current color scheme
+  const dynamicStyles = getDynamicStyles(isDark)
+
   return (
     <View
       className={cn('absolute bottom-0 left-0 right-0 z-50', className)}
@@ -219,7 +283,7 @@ export function ArticleDetail({
       {...props}
     >
       {/* Backdrop */}
-      <Animated.View style={[styles.backdrop, animatedBackdropStyle]}>
+      <Animated.View style={[dynamicStyles.backdrop, animatedBackdropStyle]}>
         <Pressable
           onPress={handleClose}
           testID={`${testID}-backdrop`}
@@ -229,22 +293,22 @@ export function ArticleDetail({
 
       {/* Overlay Content */}
       <GestureDetector gesture={gesture}>
-        <Animated.View style={[styles.container, animatedStyle]}>
+        <Animated.View style={[dynamicStyles.container, animatedStyle]}>
           {/* Header with drag indicator and close button */}
-          <View style={styles.header}>
+          <View style={dynamicStyles.header}>
             {/* Drag Indicator */}
             <View
-              style={styles.dragIndicator}
+              style={dynamicStyles.dragIndicator}
               testID={`${testID}-drag-indicator`}
             />
 
             {/* Close Button */}
             <Pressable
               onPress={handleClose}
-              style={styles.closeButton}
+              style={dynamicStyles.closeButton}
               testID={`${testID}-close`}
             >
-              <View style={styles.closeButtonInner}>
+              <View style={dynamicStyles.closeButtonInner}>
                 <X size={20} className="text-foreground" strokeWidth={2.5} />
               </View>
             </Pressable>
@@ -252,8 +316,8 @@ export function ArticleDetail({
 
           {/* Scrollable Content */}
           <ScrollView
-            style={styles.scrollContent}
-            contentContainerStyle={styles.scrollContentContainer}
+            style={dynamicStyles.scrollContent}
+            contentContainerStyle={dynamicStyles.scrollContentContainer}
             testID={`${testID}-scroll-view`}
             showsVerticalScrollIndicator={true}
           >
@@ -478,50 +542,3 @@ const getMarkdownStyles = (isDark: boolean) => {
     },
   })
 }
-
-const styles = StyleSheet.create({
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  container: {
-    height: SCREEN_HEIGHT,
-    backgroundColor: 'white',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    overflow: 'hidden',
-  },
-  header: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0, 0, 0, 0.05)',
-  },
-  dragIndicator: {
-    width: 36,
-    height: 4,
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-    borderRadius: 2,
-    alignSelf: 'center',
-    marginBottom: 16,
-  },
-  closeButton: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-  },
-  closeButtonInner: {
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
-  },
-  scrollContent: {
-    flex: 1,
-  },
-  scrollContentContainer: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 32,
-  },
-})
