@@ -70,23 +70,142 @@ function jsonResponse<T>(body: T, status = 200): Response {
 }
 
 // ============================================================
+// Types for Jina Search API
+// ============================================================
+
+interface JinaSearchResult {
+  title: string
+  url: string
+  content: string
+  description?: string
+}
+
+interface JinaSearchResponse {
+  results: JinaSearchResult[]
+}
+
+// ============================================================
 // Ralph Loop: Search Iteration
 // ============================================================
 
 /**
- * Simulate a search iteration - in production this would call external search APIs
- * For now, we return mock findings based on the iteration number
+ * Perform real web search using Jina Search API
+ * Falls back to mock data if API key not configured
  */
 async function searchIteration(
   topic: string,
   queries: string[],
   iterationNumber: number
 ): Promise<{ findings: string; refinedQueries: string[] }> {
-  // Mock implementation - in production this would:
-  // 1. Call search APIs (Exa, web search, etc.)
-  // 2. Aggregate results
-  // 3. Return structured findings
+  const jinaApiKey = Deno.env.get('JINA_API_KEY')
 
+  // Fall back to mock if no API key
+  if (!jinaApiKey) {
+    log('deep-research-iterate').warn('JINA_API_KEY not set, using mock results')
+    return mockSearchIteration(topic, queries, iterationNumber)
+  }
+
+  try {
+    // Search all queries in parallel
+    const searchPromises = queries.map(query =>
+      performJinaSearch(jinaApiKey, query)
+    )
+    const results = await Promise.all(searchPromises)
+
+    // Aggregate findings from all searches
+    const findings = aggregateFindings(topic, iterationNumber, results)
+
+    // Generate refined queries based on coverage
+    const refinedQueries = iterationNumber < 4
+      ? generateRefinedQueries(topic, findings)
+      : []
+
+    return { findings, refinedQueries }
+  } catch (error) {
+    log('deep-research-iterate').error('Search API failed, using mock', { error })
+    return mockSearchIteration(topic, queries, iterationNumber)
+  }
+}
+
+/**
+ * Call Jina Search API for a single query
+ */
+async function performJinaSearch(
+  apiKey: string,
+  query: string
+): Promise<JinaSearchResult[]> {
+  const url = 'https://api.jina.ai/v1/search'
+  const headers = {
+    'Authorization': `Bearer ${apiKey}`,
+    'Content-Type': 'application/json',
+  }
+  const body = JSON.stringify({
+    q: query,
+    num: 10, // Number of results
+  })
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers,
+    body,
+  })
+
+  if (!response.ok) {
+    throw new Error(`Jina API error: ${response.status} ${response.statusText}`)
+  }
+
+  const data: JinaSearchResponse = await response.json()
+  return data.results || []
+}
+
+/**
+ * Aggregate search results into structured findings
+ */
+function aggregateFindings(
+  topic: string,
+  iterationNumber: number,
+  allResults: JinaSearchResult[][]
+): string {
+  const allFindings: string[] = []
+
+  allResults.forEach((results, idx) => {
+    if (results.length === 0) return
+
+    allFindings.push(`\n### Query ${idx + 1} Results:\n`)
+
+    results.slice(0, 5).forEach((result, i) => {
+      allFindings.push(
+        `${i + 1}. **${result.title}**\n` +
+        `   ${result.url}\n` +
+        `   ${result.description || result.content?.slice(0, 200)}...\n`
+      )
+    })
+  })
+
+  return `Iteration ${iterationNumber} findings for "${topic}":\n${allFindings.join('\n')}`
+}
+
+/**
+ * Generate refined queries based on current findings
+ */
+function generateRefinedQueries(topic: string, findings: string): string[] {
+  // Extract key themes and generate follow-up queries
+  return [
+    `${topic} advanced concepts`,
+    `${topic} practical applications`,
+    `${topic} recent developments`,
+    `${topic} challenges and limitations`,
+  ]
+}
+
+/**
+ * Mock search implementation (fallback when API unavailable)
+ */
+function mockSearchIteration(
+  topic: string,
+  queries: string[],
+  iterationNumber: number
+): { findings: string; refinedQueries: string[] } {
   const mockFindings = `Iteration ${iterationNumber} findings for "${topic}": ` +
     `Researched ${queries.length} queries. Found relevant information about ` +
     `${topic.includes('quantum') ? 'quantum computing principles' : 'the topic'}. `

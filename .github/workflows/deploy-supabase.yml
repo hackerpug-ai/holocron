@@ -52,6 +52,8 @@ jobs:
           echo "- chat-history" >> $GITHUB_STEP_SUMMARY
           echo "- chat-send" >> $GITHUB_STEP_SUMMARY
           echo "- deep-research-iterate" >> $GITHUB_STEP_SUMMARY
+          echo "- deep-research-start" >> $GITHUB_STEP_SUMMARY
           echo "- embeddings-etl" >> $GITHUB_STEP_SUMMARY
+          echo "- task-timeout-worker" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Function URL:** ${{ steps.deploy.outputs.function_url }}" >> $GITHUB_STEP_SUMMARY

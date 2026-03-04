@@ -6,11 +6,11 @@ Chat-centric mobile research app with slash commands, result cards, and conversa
 
 | Field | Value |
 |-------|-------|
-| Version | 3.1.0 |
+| Version | 4.0.0 |
 | Appetite | 2 weeks |
 | Scope Level | core |
 | Created | 2026-02-28 |
-| Last Updated | 2026-03-01 |
+| Last Updated | 2026-03-04 |
 
 ## Document Index
 
@@ -34,10 +34,10 @@ Chat-centric mobile research app with slash commands, result cards, and conversa
 | Metric | Value |
 |--------|-------|
 | Functional Groups | 6 |
-| Use Cases | 25 |
-| System Components | 7 |
-| Data Entities | 6 |
-| API Endpoints | 19 |
+| Use Cases | 27 |
+| System Components | 9 |
+| Data Entities | 9 |
+| API Endpoints | 25 |
 | External Dependencies | 5 |
 
 ## Version History
@@ -48,8 +48,9 @@ Chat-centric mobile research app with slash commands, result cards, and conversa
 | 2.0.0 | 2026-03-01 | Chat-centric UX paradigm: main chat view, slash commands, result cards, new CI functional group | Scope change |
 | 3.0.0 | 2026-03-01 | Drawer navigation, multi-conversation support, articles browse view, new NV functional group (4 UCs), UC-KB-05, conversations table, 4 conversation API endpoints | Scope change |
 | 3.1.0 | 2026-03-01 | UC-CI-02: Command typeahead panel above input, "/" action button trigger, real-time filtering, dismiss on no match | UC criteria update |
+| **4.0.0** | **2026-03-04** | **Server-side agent architecture for long-running tasks. Multi-agent collaboration patterns (Orchestrator-Worker, Parallel Swarm, Team Orchestrator). Tools/prompts per agent type. Shared module: long-running-task. New tables: long_running_tasks, deep_research_sessions, deep_research_iterations. New APIs: task-start, task-status, task-cancel.** | **Scope change** |
 
-> :warning: FEATURE_SPEC changed in v3.1.0. Re-run `/kb-project-plan --delta-replan`
+> :warning: FEATURE_SPEC changed in v4.0.0. Re-run `/kb-project-plan --delta-replan`
 
 ## Next Steps
 

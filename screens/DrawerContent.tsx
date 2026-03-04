@@ -53,6 +53,8 @@ interface DrawerContentProps extends Omit<ViewProps, 'children'> {
   isRenaming?: boolean
   /** Whether a delete operation is in progress */
   isDeleting?: boolean
+  /** Whether there are active long-running tasks */
+  hasActiveTasks?: boolean
 }
 
 /**
@@ -81,6 +83,7 @@ export function DrawerContent({
   onDelete,
   isRenaming = false,
   isDeleting = false,
+  hasActiveTasks = false,
   className,
   ...props
 }: DrawerContentProps) {
@@ -177,6 +180,7 @@ export function DrawerContent({
         onSearchChange={onSearchChange}
         onNewChatPress={onNewChatPress}
         sections={sections}
+        hasActiveTasks={hasActiveTasks}
         style={{ paddingTop: insets.top + 12 }}
       />
 

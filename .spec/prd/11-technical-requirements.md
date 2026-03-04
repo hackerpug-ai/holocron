@@ -1,5 +1,247 @@
 # Technical Requirements: Holocron Mobile Research Interface
 
+[UPDATED 2026-03-04]: Added Long-Running Task Infrastructure and Multi-Agent Architecture for server-side agent orchestration
+
+---
+
+## Long-Running Task Infrastructure
+
+### Overview
+
+All slash commands that require extended processing are engineered as **server-side agents** running in long-running tasks. This infrastructure replicates local research skills in Supabase Edge Functions, enabling multi-agent collaboration patterns.
+
+### Architecture Pattern: TaskExecutor Interface
+
+```typescript
+// Core interface for all long-running task executors
+interface TaskExecutor<TConfig = unknown, TResult = unknown> {
+  execute(config: TConfig, updateStatus?: StatusUpdateFn): Promise<TResult>
+}
+
+// Status update callback for progress reporting
+interface StatusUpdateFn {
+  (progress: TaskProgress): Promise<void> | void
+}
+
+// Progress tracking
+interface TaskProgress {
+  current_step: number | null
+  total_steps: number | null
+  progress_message: string | null
+}
+```
+
+### Task Types
+
+| Task Type | Description | Executor Pattern | Skills Replicated |
+|-----------|-------------|------------------|-------------------|
+| `deep-research` | Multi-iteration Ralph Loop research | IterativeExecutor | `/deep-research` |
+| `research` | Single-pass basic research | SinglePassExecutor | `/research` |
+| `assimilate` | Repository analysis | ParallelSwarmExecutor | `/assimilate` |
+| `shop` | Product comparison | ParallelSwarmExecutor | `/shop` |
+| `research-loop` | Multi-topic Ralph Loop | ParallelExecutor | `/research-loop` |
+| `deep-research-teamwork` | Full research team | TeamOrchestratorExecutor | `/deep-research-teamwork` |
+
+### Task Lifecycle
+
+```
+pending → queued → loading → running → completed/error/cancelled
+```
+
+### Concurrency Control
+
+- **One active task per type per conversation** (enforced by `can_start_task` RPC)
+- **Maximum 3 concurrent tasks globally** (configurable via `MAX_CONCURRENT_TASKS`)
+- **Timeout handling**: 5-minute default per task, extended via cron worker
+
+---
+
+## Multi-Agent Collaboration Patterns
+
+### Pattern 1: Orchestrator-Worker (for Deep Research)
+
+```
+┌─────────────────┐
+│   Orchestrator  │ ← Receives topic, plans iterations
+│   (Manager)     │
+└────────┬────────┘
+         │
+    ┌────┴────┬──────────┬──────────┐
+    ▼         ▼          ▼          ▼
+┌───────┐ ┌───────┐ ┌───────┐ ┌───────┐
+│Worker │ │Worker │ │Worker │ │Worker │
+│  1    │ │  2    │ │  3    │ │  4    │
+└───────┘ └───────┘ └───────┘ └───────┘
+    │         │          │          │
+    └────────┴──────────┴──────────┘
+                   │
+                   ▼
+            ┌──────────┐
+            │ Reviewer │ ← Assesses coverage, identifies gaps
+            └──────────┘
+```
+
+**Tools per agent:**
+- **Orchestrator**: `searchIteration()`, `reviewFindings()`, `saveIteration()`, `streamIterationCard()`
+- **Worker**: `performJinaSearch()`, `aggregateFindings()`, `generateRefinedQueries()`
+- **Reviewer**: `reviewFindings()`, coverage scoring (1-5), gap identification
+
+### Pattern 2: Parallel Swarm (for Assimilate/Shop)
+
+```
+┌─────────────────┐
+│    Manager      │ ← Decomposes query into sub-queries
+└────────┬────────┘
+         │
+    ┌────┴────┬──────────┬──────────┐
+    ▼         ▼          ▼          ▼
+┌───────┐ ┌───────┐ ┌───────┐ ┌───────┐
+│Cheap  │ │Cheap  │ │Cheap  │ │Cheap  │
+│Worker │ │Worker │ │Worker │ │Worker │
+│  1    │ │  2    │ │  3    │ │  4    │
+└───┬───┘ └───┬───┘ └───┬───┘ └───┬───┘
+    │         │          │          │
+    └────────┴──────────┴──────────┘
+                   │
+                   ▼
+            ┌──────────┐
+            │Synthesizer│ ← Aggregates, deduplicates, summarizes
+            └──────────┘
+```
+
+**Tools per agent:**
+- **Manager**: Query decomposition, task assignment, result aggregation
+- **Cheap Worker**: Single-pass search, content extraction, initial filtering
+- **Synthesizer**: Deduplication, summarization, confidence scoring
+
+### Pattern 3: Team Orchestrator (for Research Teamwork)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     Team Orchestrator                        │
+│  (Manages agent lifecycle, tool access, collaboration)      │
+└─────────────────────────────┬───────────────────────────────┘
+                              │
+    ┌─────────┬───────────┬───┴───┬───────────┬─────────────┐
+    ▼         ▼           ▼       ▼           ▼             ▼
+┌───────┐ ┌───────┐ ┌────────┐ ┌──────┐ ┌─────────┐ ┌──────────┐
+│Research│ │Research│ │Domain │ │Devil's│ │Synthesizer│ │Librarian │
+│Planner │ │Workers │ │ Expert│ │Advocate│ │          │ │          │
+└───────┘ └───────┘ └────────┘ └──────┘ └─────────┘ └──────────┘
+```
+
+**Tools per agent:**
+- **Research Planner**: `expandQuery()`, `parallelSearchWeb()`, task decomposition
+- **Research Workers**: `searchWeb()`, `readUrl()`, `extractPdf()`, `parallelReadUrl()`
+- **Domain Expert**: Domain-specific interpretation, practitioner insights
+- **Devil's Advocate**: `researchDevilsAdvocate()` skill, challenge findings
+- **Synthesizer**: `researchSynthesizer()`, contradiction resolution, holocron formatting
+- **Librarian**: `librarian` skill, metadata validation, deduplication
+
+---
+
+## Agent Tools & Prompts
+
+### Core Tools (Available to All Agents)
+
+| Tool | Description | Implementation |
+|------|-------------|----------------|
+| `searchWeb()` | Web search via Jina/Exa | `mcp__jina__search_web` |
+| `readUrl()` | Fetch and extract content | `mcp__jina__read_url` |
+| `parallelReadUrl()` | Batch URL reading | `mcp__jina__parallel_read_url` |
+| `extractPdf()` | Extract figures/tables from PDFs | `mcp__jina__extract_pdf` |
+| `searchArxiv()` | Academic paper search | `mcp__jina__search_arxiv` |
+| `searchSsrn()` | Social science papers | `mcp__jina__search_ssrn` |
+| `deduplicateStrings()` | Semantic deduplication | `mcp__jina__deduplicate_strings` |
+| `sortByRelevance()` | Rerank by relevance | `mcp__jina__sort_by_relevance` |
+
+### LLM Integration
+
+| Provider | Purpose | API Key Env Var |
+|----------|---------|-----------------|
+| **Zai API** | Primary agent reasoning | `ZAI_API_KEY` |
+| **Anthropic Claude** | Complex reasoning tasks | `ANTHROPIC_API_KEY` |
+| **OpenAI** | Embeddings | `OPENAI_API_KEY` |
+
+### AgentClient Wrapper
+
+```typescript
+class AgentClient {
+  // Simple text completion
+  async chat(prompt: string, system?: string): Promise<ChatResponse>
+
+  // Structured JSON response with schema validation
+  async chatStructured<T>(prompt: string, schema: JSONSchema, system?: string): Promise<StructuredChatResponse<T>>
+
+  // Streaming response
+  async chatStream(prompt: string, system?: string): Promise<AsyncGenerator<ChatChunk>>
+}
+```
+
+### System Prompts by Agent Type
+
+#### Research Worker
+```
+You are a research worker. Your task is to:
+1. Search for information on the assigned sub-topic
+2. Extract key facts, findings, and claims
+3. Cite all sources with URLs
+4. Return structured findings in JSON format
+
+Focus on accuracy and completeness. Flag any uncertainty.
+```
+
+#### Reviewer Agent
+```
+You are a research reviewer. Your task is to:
+1. Assess coverage completeness (1-5 scale)
+2. Identify gaps in the current findings
+3. Generate refined queries to fill gaps
+4. Provide feedback for the next iteration
+
+Be critical and thorough. A score of 4+ indicates comprehensive coverage.
+```
+
+#### Synthesizer Agent
+```
+You are a research synthesizer. Your task is to:
+1. Aggregate findings from all workers
+2. Resolve contradictions between sources
+3. Deduplicate redundant information
+4. Produce a coherent summary with citations
+
+Format output for holocron storage with proper metadata.
+```
+
+---
+
+## Shared Module: long-running-task
+
+### File Structure
+
+```
+supabase/functions/_shared/long-running-task/
+├── index.ts          # Public exports
+├── types.ts          # TaskType, TaskStatus, TaskRecord, TaskExecutor
+├── task-manager.ts   # Concurrency control, lifecycle management
+└── agent-client.ts   # Zai LLM API wrapper
+```
+
+### Key Functions
+
+| Function | Description |
+|----------|-------------|
+| `checkConcurrencyLimit()` | Check if task can start |
+| `startTask()` | Create task with concurrency check |
+| `updateTaskStatus()` | Update progress in database |
+| `completeTask()` | Mark task completed with result |
+| `failTask()` | Mark task failed with error |
+| `cancelTask()` | Cancel running task |
+| `executeTaskInBackground()` | Full lifecycle execution wrapper |
+| `getActiveTasks()` | Query active tasks for conversation |
+
+---
+
 ## System Components
 
 | Component | Type | Description |
@@ -155,6 +397,123 @@ CREATE TABLE citations (
 
 CREATE INDEX idx_citations_session ON citations(session_id);
 CREATE INDEX idx_citations_document ON citations(document_id);
+```
+
+#### long_running_tasks (NEW - Server-Side Agent Infrastructure)
+
+[UPDATED 2026-03-04]: Unified task tracking for all long-running background operations
+
+```sql
+-- Task type enum - all supported long-running operations
+CREATE TYPE task_type AS ENUM (
+  'deep-research',      -- Multi-iteration Ralph Loop research
+  'assimilate',         -- Repository analysis (parallel swarm)
+  'shop',               -- Product comparison (parallel swarm)
+  'research',           -- Basic single-pass research
+  'research-loop',      -- Multi-topic Ralph Loop
+  'deep-research-teamwork' -- Full research team orchestration
+);
+
+-- Task status enum - lifecycle states
+CREATE TYPE task_status AS ENUM (
+  'pending',     -- Task created, waiting to start
+  'queued',      -- Task queued in background processor
+  'loading',     -- Task loading initial data/resources
+  'running',     -- Task actively processing
+  'completed',   -- Task finished successfully
+  'error',       -- Task failed with error
+  'cancelled'    -- Task cancelled by user
+);
+
+CREATE TABLE long_running_tasks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  conversation_id UUID REFERENCES conversations(id) ON DELETE CASCADE,
+
+  -- Task identification
+  task_type task_type NOT NULL,
+  status task_status NOT NULL DEFAULT 'pending',
+
+  -- Task configuration (extensible per task type)
+  config JSONB,
+
+  -- Task progress tracking
+  current_step INTEGER,
+  total_steps INTEGER,
+  progress_message TEXT,
+
+  -- Task results (when complete)
+  result JSONB,
+
+  -- Error tracking
+  error_message TEXT,
+  error_details JSONB,
+
+  -- Task lifecycle timestamps
+  started_at TIMESTAMPTZ,
+  completed_at TIMESTAMPTZ,
+
+  -- Metadata
+  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+-- Indexes for task management
+CREATE INDEX idx_long_running_tasks_user_status
+  ON long_running_tasks(conversation_id, status)
+  WHERE status IN ('pending', 'queued', 'loading', 'running');
+
+CREATE INDEX idx_long_running_tasks_type_status
+  ON long_running_tasks(task_type, status)
+  WHERE status IN ('pending', 'queued', 'loading', 'running');
+
+CREATE INDEX idx_long_running_tasks_conversation
+  ON long_running_tasks(conversation_id);
+
+CREATE INDEX idx_long_running_tasks_created_at
+  ON long_running_tasks(created_at DESC);
+
+-- Partial index for stuck task detection
+CREATE INDEX idx_long_running_tasks_stuck
+  ON long_running_tasks(updated_at)
+  WHERE status = 'running';
+```
+
+#### deep_research_sessions (NEW - Deep Research Specific)
+
+```sql
+CREATE TABLE deep_research_sessions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+  task_id UUID REFERENCES long_running_tasks(id) ON DELETE SET NULL,
+  topic TEXT NOT NULL,
+  max_iterations INTEGER DEFAULT 5,
+  status TEXT DEFAULT 'pending',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  completed_at TIMESTAMPTZ
+);
+
+CREATE INDEX idx_deep_research_sessions_conversation ON deep_research_sessions(conversation_id);
+CREATE INDEX idx_deep_research_sessions_task ON deep_research_sessions(task_id);
+```
+
+#### deep_research_iterations (NEW - Iteration Tracking)
+
+```sql
+CREATE TABLE deep_research_iterations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id UUID NOT NULL REFERENCES deep_research_sessions(id) ON DELETE CASCADE,
+  iteration_number INTEGER NOT NULL,
+  coverage_score DECIMAL(3,1),  -- 1.0-5.0 scale
+  feedback TEXT,
+  findings TEXT,
+  refined_queries JSONB,
+  status TEXT DEFAULT 'completed',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(session_id, iteration_number)
+);
+
+CREATE INDEX idx_deep_research_iterations_session ON deep_research_iterations(session_id);
 ```
 
 ---

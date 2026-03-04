@@ -1,6 +1,7 @@
 import { Drawer } from 'expo-router/drawer'
 import { DrawerContent } from '@/screens/DrawerContent'
 import { useConversations, type Conversation } from '@/hooks/useConversations'
+import { useLongRunningTasks } from '@/hooks/useLongRunningTasks'
 import { useRouter } from 'expo-router'
 import { useDrawerStatus } from '@react-navigation/drawer'
 import { useEffect, useRef, useState } from 'react'
@@ -36,6 +37,9 @@ function CustomDrawerContent() {
     deleteConversation,
     refetch,
   } = useConversations()
+
+  // Monitor active long-running tasks across all conversations
+  const { hasActiveTasks } = useLongRunningTasks()
 
   // Refetch conversations when drawer opens
   useEffect(() => {
@@ -124,6 +128,7 @@ function CustomDrawerContent() {
       onActionMenuOpenChange={setIsActionMenuOpen}
       onRename={handleRename}
       onDelete={handleDelete}
+      hasActiveTasks={hasActiveTasks}
     />
   )
 }

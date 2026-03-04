@@ -1,5 +1,7 @@
 # Scope
 
+[UPDATED 2026-03-04]: Added server-side agent architecture for long-running tasks with multi-agent collaboration patterns
+
 ## In Scope
 
 - **Drawer navigation** (pushover menu) with conversation list and articles link
@@ -21,6 +23,29 @@
 - Slash command help via `/help`
 - Service key authentication (dev mode, local use only)
 - App opens to most recent conversation (chat-first experience)
+
+### Server-Side Agent Architecture (Long-Running Tasks)
+
+**All slash commands must be engineered as server-side agents running in long-running tasks.**
+
+- **Long-Running Task Framework**: Unified task management system with concurrency control, progress tracking, and lifecycle management
+- **Task Types**: `research`, `deep-research`, `assimilate`, `shop`, `research-loop`, `deep-research-teamwork`
+- **Task Lifecycle**: pending → queued → loading → running → completed/error/cancelled
+- **Concurrency Control**: One active task per type per conversation (enforced via database RPC)
+- **Progress Streaming**: Real-time updates via Supabase Realtime subscriptions
+- **Timeout Handling**: Cron-based task timeout worker for stuck task detection and recovery
+
+### Multi-Agent Collaboration Patterns
+
+- **Orchestrator-Worker Pattern**: Lead agent coordinates specialist workers for complex research tasks
+- **Parallel Execution**: Independent subtasks dispatched to multiple workers simultaneously
+- **Iterative Refinement (Ralph Loop)**: iterate → review → refine → repeat until coverage threshold met
+- **Agent Communication**: Workers report findings to orchestrator via shared task state (database records)
+- **Agent Types**:
+  - `research-worker`: Cheap, focused single-pass searches
+  - `research-analyst`: Evaluates source credibility, identifies patterns, detects contradictions
+  - `research-synthesizer`: Produces publication-quality reports from vetted findings
+  - `research-director`: Orchestrates full research team with planning, delegation, and synthesis
 
 ## Out of Scope
 

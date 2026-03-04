@@ -1,4 +1,5 @@
 import { Text } from '@/components/ui/text'
+import { NavTaskLoader } from '@/components/nav/NavTaskLoader'
 import { cn } from '@/lib/utils'
 import { BookOpen, MessageSquare, PenSquare, Search, Settings } from 'lucide-react-native'
 import { Pressable, TextInput, View, type ViewProps } from 'react-native'
@@ -20,6 +21,8 @@ interface DrawerHeaderProps extends Omit<ViewProps, 'children'> {
   onNewChatPress?: () => void
   /** Navigation sections to display before conversations */
   sections?: NavSection[]
+  /** Whether there are active long-running tasks */
+  hasActiveTasks?: boolean
 }
 
 const defaultSections: NavSection[] = [
@@ -38,6 +41,7 @@ export function DrawerHeader({
   onSearchChange,
   onNewChatPress,
   sections = defaultSections,
+  hasActiveTasks = false,
   className,
   ...props
 }: DrawerHeaderProps) {
@@ -62,6 +66,8 @@ export function DrawerHeader({
             accessibilityLabel="Search conversations"
             accessibilityRole="search"
           />
+          {/* Task Loader Indicator */}
+          <NavTaskLoader hasActiveTasks={hasActiveTasks} />
         </View>
 
         {/* Compose/New Chat Circle Button */}
