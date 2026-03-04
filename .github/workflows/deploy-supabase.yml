@@ -1,0 +1,113 @@
+name: Deploy Supabase Edge Functions
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'supabase/**'
+      - '.github/workflows/deploy-supabase.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'supabase/**'
+  workflow_dispatch:
+
+env:
+  SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+  PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+
+jobs:
+  typecheck:
+    name: Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Type check functions
+        run: |
+          deno check supabase/functions/conversations/index.ts
+          deno check supabase/functions/chat-history/index.ts
+          deno check supabase/functions/chat-send/index.ts
+          deno check supabase/functions/deep-research-iterate/index.ts
+          deno check supabase/functions/embeddings-etl/index.ts
+
+  test:
+    name: Test Functions
+    runs-on: ubuntu-latest
+    needs: typecheck
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Run tests
+        run: |
+          deno test --allow-env supabase/functions/chat-send/slash-commands.test.ts
+          deno test --allow-env supabase/functions/chat-send/resume-handler.test.ts
+          deno test --allow-env supabase/functions/deep-research-iterate/index.test.ts
+
+  lint:
+    name: Lint Functions
+    runs-on: ubuntu-latest
+    needs: typecheck
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Lint check
+        run: deno lint supabase/functions/
+
+  deploy:
+    name: Deploy to Supabase
+    runs-on: ubuntu-latest
+    needs: [test, lint]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment:
+      name: production
+      url: ${{ steps.deploy.outputs.function_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Link to project
+        run: supabase link --project-ref $PROJECT_ID
+
+      - name: Deploy functions
+        id: deploy
+        run: |
+          supabase functions deploy --project-ref $PROJECT_ID
+          echo "function_url=https://$PROJECT_ID.functions.supabase.co" >> $GITHUB_OUTPUT
+
+      - name: Summary
+        run: |
+          echo "### Deployed Functions :rocket:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- conversations" >> $GITHUB_STEP_SUMMARY
+          echo "- chat-history" >> $GITHUB_STEP_SUMMARY
+          echo "- chat-send" >> $GITHUB_STEP_SUMMARY
+          echo "- deep-research-iterate" >> $GITHUB_STEP_SUMMARY
+          echo "- embeddings-etl" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Function URL:** ${{ steps.deploy.outputs.function_url }}" >> $GITHUB_STEP_SUMMARY
