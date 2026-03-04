@@ -351,7 +351,7 @@ export async function handleResumeCommand(
     }
 
     // Resume session from checkpoint
-    const progressText = session.current_iteration > 0
+    const progressText = (session.current_iteration ?? 0) > 0
       ? ` from iteration ${session.current_iteration}`
       : ''
 

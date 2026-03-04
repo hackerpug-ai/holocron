@@ -10,7 +10,7 @@
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { log } from '../_shared/logging/index.ts'
+import { log } from '../_shared/logging/logger-server.ts'
 import { corsHeaders } from '../_shared/cors.ts'
 import {
   parseSlashCommand,
@@ -125,12 +125,13 @@ function jsonResponse<T>(body: T, status = 200): Response {
 
 async function handleSearchCommand(
   query: string,
-  supabase: ReturnType<typeof createClient>
+  supabase: any
 ): Promise<AgentResponse> {
   const logger = log('chat-send-search')
   logger.info('handleSearchCommand called', { query })
 
   // Call hybrid_search RPC function
+  // @ts-ignore - Supabase RPC type inference doesn't work well with Deno
   const { data: searchResults, error: searchError } = await supabase.rpc('hybrid_search', {
     query_text: query,
     match_threshold: 0.5,
@@ -192,7 +193,7 @@ interface AgentResponse {
 
 async function generateAgentResponse(
   userContent: string,
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   conversationId: string
 ): Promise<AgentResponse> {
   // Parse for slash commands
@@ -251,7 +252,7 @@ async function generateAgentResponse(
 
       return {
         content: cancelResponse.content,
-        message_type: cancelResponse.message_type as 'text' | 'error' | 'success',
+        message_type: cancelResponse.message_type as 'text' | 'result_card' | 'error',
       }
     }
 
@@ -267,7 +268,7 @@ async function generateAgentResponse(
           .not('category', 'is', null)
 
         const categoryCounts: Record<string, number> = {}
-        documents?.forEach((doc) => {
+        ;(documents || []).forEach((doc: any) => {
           if (doc.category) {
             categoryCounts[doc.category] = (categoryCounts[doc.category] || 0) + 1
           }
@@ -314,7 +315,7 @@ async function generateAgentResponse(
         }
       }
 
-      const articleCards: BrowseArticleCard[] = articles.map((doc) => ({
+      const articleCards: BrowseArticleCard[] = articles.map((doc: any) => ({
         card_type: 'article',
         title: doc.title,
         date: doc.date || '',
@@ -401,14 +402,15 @@ Deno.serve(async (req: Request) => {
 
   const supabase = createClient(supabaseUrl, supabaseServiceRoleKey)
 
+  // Parse request body
+  let body: ChatSendRequest
   try {
-    // Parse request body
-    let body: ChatSendRequest
-    try {
-      body = await req.json()
-    } catch {
-      return jsonResponse<ErrorResponse>({ error: 'Invalid JSON body' }, 400)
-    }
+    body = await req.json()
+  } catch {
+    return jsonResponse<ErrorResponse>({ error: 'Invalid JSON body' }, 400)
+  }
+
+  try {
 
     // Validate required fields
     if (!body.conversation_id) {
@@ -470,7 +472,8 @@ Deno.serve(async (req: Request) => {
       .eq('id', body.conversation_id)
 
     if (updateError) {
-      log('chat-send').warn('Failed to update conversation metadata', updateError, {
+      log('chat-send').warn('Failed to update conversation metadata', {
+        error: updateError,
         conversationId: body.conversation_id,
       })
       // Don't fail the request if metadata update fails
@@ -511,7 +514,7 @@ Deno.serve(async (req: Request) => {
         role: 'agent',
         content: typedAgentMessage.content,
         message_type: typedAgentMessage.message_type as 'text' | 'result_card' | 'progress' | 'error',
-        card_data: typedAgentMessage.card_data || undefined,
+        card_data: (typedAgentMessage.card_data as CardData) || undefined,
       }],
     })
 

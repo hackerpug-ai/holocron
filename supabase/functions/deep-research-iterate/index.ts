@@ -160,7 +160,8 @@ async function saveIteration(
   refinedQueries: string[] | null
 ): Promise<{ iterationId: string | null; error: string | null }> {
   try {
-    const { data, error } = await supabase
+    // @ts-ignore - Supabase type inference issue
+    const { data, error } = await (supabase as any)
       .from('deep_research_iterations')
       .insert({
         session_id: sessionId,
@@ -175,14 +176,15 @@ async function saveIteration(
       .single()
 
     if (error) {
-      log('deep-research-iterate').error('Failed to save iteration', error, { sessionId })
+      log('deep-research-iterate').error('Failed to save iteration', { error, sessionId })
       return { iterationId: null, error: error.message }
     }
 
+    // @ts-ignore - Supabase type inference issue
     return { iterationId: data?.id || null, error: null }
-  } catch (error) {
-    log('deep-research-iterate').error('Exception saving iteration', error, { sessionId })
-    return { iterationId: null, error: String(error) }
+  } catch (err) {
+    log('deep-research-iterate').error('Exception saving iteration', { error: err, sessionId })
+    return { iterationId: null, error: String(err) }
   }
 }
 
@@ -218,7 +220,8 @@ async function streamIterationCard(
       estimated_remaining: estimatedRemaining,
     }
 
-    const { data, error } = await supabase
+    // @ts-ignore - Supabase type inference issue
+    const { data, error } = await (supabase as any)
       .from('chat_messages')
       .insert({
         conversation_id: conversationId,
@@ -232,14 +235,15 @@ async function streamIterationCard(
       .single()
 
     if (error) {
-      log('deep-research-iterate').error('Failed to stream iteration card', error, { conversationId, sessionId })
+      log('deep-research-iterate').error('Failed to stream iteration card', { error, conversationId, sessionId })
       return { messageId: null, error: error.message }
     }
 
+    // @ts-ignore - Supabase type inference issue
     return { messageId: data?.id || null, error: null }
-  } catch (error) {
-    log('deep-research-iterate').error('Exception streaming iteration card', error, { conversationId, sessionId })
-    return { messageId: null, error: String(error) }
+  } catch (err) {
+    log('deep-research-iterate').error('Exception streaming iteration card', { error: err, conversationId, sessionId })
+    return { messageId: null, error: String(err) }
   }
 }
 
@@ -269,7 +273,8 @@ async function postFinalResultCard(
       findings_summary: findingsSummary,
     }
 
-    const { data, error } = await supabase
+    // @ts-ignore - Supabase type inference issue
+    const { data, error } = await (supabase as any)
       .from('chat_messages')
       .insert({
         conversation_id: conversationId,
@@ -283,14 +288,15 @@ async function postFinalResultCard(
       .single()
 
     if (error) {
-      log('deep-research-iterate').error('Failed to post final result card', error, { conversationId, sessionId })
+      log('deep-research-iterate').error('Failed to post final result card', { error, conversationId, sessionId })
       return { messageId: null, error: error.message }
     }
 
+    // @ts-ignore - Supabase type inference issue
     return { messageId: data?.id || null, error: null }
-  } catch (error) {
-    log('deep-research-iterate').error('Exception posting final result card', error, { conversationId, sessionId })
-    return { messageId: null, error: String(error) }
+  } catch (err) {
+    log('deep-research-iterate').error('Exception posting final result card', { error: err, conversationId, sessionId })
+    return { messageId: null, error: String(err) }
   }
 }
 
@@ -307,20 +313,21 @@ async function completeSession(
   status: 'completed' | 'cancelled'
 ): Promise<{ error: string | null }> {
   try {
-    const { error } = await supabase
+    // @ts-ignore - Supabase type inference issue
+    const { error } = await (supabase as any)
       .from('deep_research_sessions')
       .update({ status })
       .eq('id', sessionId)
 
     if (error) {
-      log('deep-research-iterate').error('Failed to complete session', error, { sessionId, status })
+      log('deep-research-iterate').error('Failed to complete session', { error, sessionId, status })
       return { error: error.message }
     }
 
     return { error: null }
-  } catch (error) {
-    log('deep-research-iterate').error('Exception completing session', error, { sessionId, status })
-    return { error: String(error) }
+  } catch (err) {
+    log('deep-research-iterate').error('Exception completing session', { error: err, sessionId, status })
+    return { error: String(err) }
   }
 }
 
@@ -336,20 +343,22 @@ async function isSessionCancelled(
   sessionId: string
 ): Promise<boolean> {
   try {
-    const { data, error } = await supabase
+    // @ts-ignore - Supabase type inference issue
+    const { data, error } = await (supabase as any)
       .from('deep_research_sessions')
       .select('status')
       .eq('id', sessionId)
       .single()
 
     if (error || !data) {
-      log('deep-research-iterate').error('Failed to check session status', error, { sessionId })
+      log('deep-research-iterate').error('Failed to check session status', { error, sessionId })
       return false // Assume not cancelled on error
     }
 
+    // @ts-ignore - Supabase type inference issue
     return data.status === 'cancelled'
-  } catch (error) {
-    log('deep-research-iterate').error('Exception checking session status', error, { sessionId })
+  } catch (err) {
+    log('deep-research-iterate').error('Exception checking session status', { error: err, sessionId })
     return false
   }
 }
@@ -366,7 +375,8 @@ async function getNextIterationNumber(
   sessionId: string
 ): Promise<{ iterationNumber: number | null; error: string | null }> {
   try {
-    const { data, error } = await supabase
+    // @ts-ignore - Supabase type inference issue
+    const { data, error } = await (supabase as any)
       .from('deep_research_iterations')
       .select('iteration_number')
       .eq('session_id', sessionId)
@@ -379,15 +389,16 @@ async function getNextIterationNumber(
       if (error.code === 'PGRST116') {
         return { iterationNumber: 1, error: null }
       }
-      log('deep-research-iterate').error('Failed to get next iteration number', error, { sessionId })
+      log('deep-research-iterate').error('Failed to get next iteration number', { error, sessionId })
       return { iterationNumber: null, error: error.message }
     }
 
+    // @ts-ignore - Supabase type inference issue
     const nextIteration = (data?.iteration_number || 0) + 1
     return { iterationNumber: nextIteration, error: null }
-  } catch (error) {
-    log('deep-research-iterate').error('Exception getting next iteration number', error, { sessionId })
-    return { iterationNumber: null, error: String(error) }
+  } catch (err) {
+    log('deep-research-iterate').error('Exception getting next iteration number', { error: err, sessionId })
+    return { iterationNumber: null, error: String(err) }
   }
 }
 
@@ -456,7 +467,7 @@ async function runSingleIteration(
     )
 
     if (streamError) {
-      log('deep-research-iterate').warn('Failed to stream iteration card (continuing anyway)', streamError, { sessionId, iterationNumber })
+      log('deep-research-iterate').warn('Failed to stream iteration card (continuing anyway)', { error: streamError, sessionId, iterationNumber })
     }
 
     return {
@@ -470,9 +481,9 @@ async function runSingleIteration(
       },
       error: null,
     }
-  } catch (error) {
-    log('deep-research-iterate').error('Exception in runSingleIteration', error, { sessionId, iterationNumber })
-    return { result: null, error: String(error) }
+  } catch (err) {
+    log('deep-research-iterate').error('Exception in runSingleIteration', { error: err, sessionId })
+    return { result: null, error: String(err) }
   }
 }
 
@@ -523,7 +534,7 @@ async function runFullRalphLoop(
     )
 
     if (error || !result) {
-      logger.error('Iteration failed', error, { sessionId, iteration, error })
+      logger.error('Iteration failed', { error, sessionId, iteration })
       // Continue to next iteration on error (graceful degradation)
       continue
     }
@@ -584,13 +595,20 @@ Deno.serve(async (req: Request) => {
 
   const supabase = createClient(supabaseUrl, supabaseServiceRoleKey)
 
+  // Parse request body outside try block for catch block access
+  let body: IterateRequest | undefined
+
   try {
     // Parse request body
-    let body: IterateRequest
     try {
       body = await req.json()
     } catch {
       return jsonResponse<ErrorResponse>({ error: 'Invalid JSON body' }, 400)
+    }
+
+    // Validate body was parsed
+    if (!body) {
+      return jsonResponse<ErrorResponse>({ error: 'Invalid request body' }, 400)
     }
 
     // Validate required fields
@@ -602,7 +620,8 @@ Deno.serve(async (req: Request) => {
     }
 
     // Fetch session details
-    const { data: session, error: sessionError } = await supabase
+    // @ts-ignore - Supabase type inference issue
+    const { data: session, error: sessionError } = await (supabase as any)
       .from('deep_research_sessions')
       .select('id, topic, max_iterations, status')
       .eq('id', body.session_id)
@@ -621,13 +640,14 @@ Deno.serve(async (req: Request) => {
     }
 
     // Update session status to running
-    const { error: updateError } = await supabase
+    // @ts-ignore - Supabase type inference issue
+    const { error: updateError } = await (supabase as any)
       .from('deep_research_sessions')
       .update({ status: 'running' as const })
       .eq('id', body.session_id)
 
     if (updateError) {
-      log('deep-research-iterate').warn('Failed to update session status', updateError, { sessionId: body.session_id })
+      log('deep-research-iterate').warn('Failed to update session status', { error: updateError, sessionId: body.session_id })
       // Continue anyway
     }
 
@@ -635,7 +655,7 @@ Deno.serve(async (req: Request) => {
     if (body.run_full_loop) {
       // Run full Ralph Loop
       const result = await runFullRalphLoop(
-        supabase,
+        supabase as any,
         body.session_id,
         body.conversation_id,
         session.topic,
@@ -655,7 +675,7 @@ Deno.serve(async (req: Request) => {
     } else {
       // Run single iteration
       const { result, error } = await runSingleIteration(
-        supabase,
+        supabase as any,
         body.session_id,
         body.conversation_id,
         session.topic,
@@ -669,8 +689,8 @@ Deno.serve(async (req: Request) => {
       return jsonResponse<IterateResponse>(result)
     }
 
-  } catch (error) {
-    log('deep-research-iterate').error('Request failed', error, { sessionId: body?.session_id })
+  } catch (err) {
+    log('deep-research-iterate').error('Request failed', { error: err, sessionId: body?.session_id })
     return jsonResponse<ErrorResponse>({ error: 'Internal server error' }, 500)
   }
 })

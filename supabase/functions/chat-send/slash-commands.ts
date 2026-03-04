@@ -404,7 +404,7 @@ export async function handleDeepResearchCommand(
 // Resume Command Handler
 // ============================================================
 
-// Re-export resume handler types and function for convenience
+// Re-export resume handler function for convenience
 export {
   parseResumeCommand,
   getIncompleteSessions,
@@ -412,12 +412,7 @@ export {
   restartSession,
   handleResumeCommand,
 } from './resume-handler.ts'
-export type {
-  ResumeSession,
-  ResumeSessionListCardData,
-  ResumeCommandOptions,
-  ResumeResponse,
-} from './resume-handler.ts'
+// Note: ResumeSession, ResumeSessionListCardData types are already defined above
 
 // ============================================================
 // Cancel Command Handler
