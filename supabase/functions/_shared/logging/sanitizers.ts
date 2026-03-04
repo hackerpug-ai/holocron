@@ -1,4 +1,4 @@
-import type { SanitizationPattern } from './types';
+import type { SanitizationPattern } from './types.ts';
 
 /**
  * Patterns for detecting and redacting sensitive information

@@ -1,5 +1,5 @@
-import type { LogEntry, LogLevel, LoggerConfig } from './types';
-import { LOG_LEVEL_VALUES } from './types';
+import type { LogEntry, LogLevel, LoggerConfig } from './types.ts';
+import { LOG_LEVEL_VALUES } from './types.ts';
 import { sanitizeObject, sanitizeError } from './sanitizers.ts';
 import { LogWriter } from './LogWriter.ts';
 import { getPlatformString } from './config.ts';

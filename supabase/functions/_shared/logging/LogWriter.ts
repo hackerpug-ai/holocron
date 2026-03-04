@@ -1,4 +1,4 @@
-import type { LogEntry, LoggerConfig } from './types';
+import type { LogEntry, LoggerConfig } from './types.ts';
 import { performLogRotation } from './LogRotation.ts';
 
 /**

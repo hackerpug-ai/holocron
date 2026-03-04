@@ -14,7 +14,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
-import { log } from '../_shared/logging'
+import { log } from '../_shared/logging/index.ts'
 
 // ============================================================
 // Types

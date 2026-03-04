@@ -1,4 +1,4 @@
-import type { LoggerConfig } from './types';
+import type { LoggerConfig } from './types.ts';
 
 /**
  * Perform log rotation when file exceeds max size

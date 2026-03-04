@@ -1,4 +1,4 @@
-import type { LoggerConfig, LogLevel } from './types';
+import type { LoggerConfig, LogLevel } from './types.ts';
 
 /**
  * Default logger configuration for server-side
