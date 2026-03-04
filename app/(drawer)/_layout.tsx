@@ -8,6 +8,7 @@ import { ActivityIndicator, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Text } from '@/components/ui/text'
 import { Button } from '@/components/ui/button'
+import { log } from '@/lib/logger-client'
 
 /**
  * Custom drawer content that wires the useConversations hook
@@ -66,7 +67,7 @@ function CustomDrawerContent() {
       await renameConversation(actionMenuConversation.id, newTitle)
       setIsActionMenuOpen(false)
     } catch (err) {
-      console.error('Failed to rename conversation:', err)
+      log('DrawerLayout').error('Failed to rename conversation', err, { id: actionMenuConversation.id, newTitle })
     }
   }
 
@@ -80,7 +81,7 @@ function CustomDrawerContent() {
         router.push(`/chat/${navigateToId}`)
       }
     } catch (err) {
-      console.error('Failed to delete conversation:', err)
+      log('DrawerLayout').error('Failed to delete conversation', err, { id: actionMenuConversation.id })
     }
   }
 
@@ -197,7 +198,7 @@ export default function DrawerLayout() {
           hasInitialized.current = true
         }
       } catch (err) {
-        console.error('Failed to create initial conversation:', err)
+        log('DrawerLayout').error('Failed to create initial conversation', err)
         // Error will be in the hook's error state
         // Don't set hasInitialized so retry is possible
       } finally {

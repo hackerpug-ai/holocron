@@ -25,6 +25,7 @@
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react'
+import { log } from '@/lib/logger-client'
 import type { ChatMessage } from '@/components/chat/ChatThread'
 import type { MessageType } from '@/lib/types/conversations'
 
@@ -139,6 +140,10 @@ export function useChatSend(
           message_type: 'text',
         }
 
+        // Create abort controller for timeout (30 seconds)
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 30000)
+
         const response = await fetch(
           `${supabaseUrl}/functions/v1/chat-send`,
           {
@@ -149,8 +154,11 @@ export function useChatSend(
               'apikey': anonKey,
             },
             body: JSON.stringify(requestBody),
+            signal: controller.signal,
           }
         )
+
+        clearTimeout(timeoutId)
 
         if (!response.ok) {
           const errorText = await response.text()
@@ -193,10 +201,21 @@ export function useChatSend(
 
       } catch (err) {
         // AC-3: Mark message as failed (keep for retry)
-        const error = err instanceof Error ? err : new Error('Unknown error')
+        let error = err instanceof Error ? err : new Error('Unknown error')
+
+        // Provide better error message for timeout/abort
+        if (error.name === 'AbortError') {
+          error = new Error('Request timed out. Please try again.')
+        }
+
         setError(error)
         lastFailedMessageRef.current = content
-        console.error('useChatSend error:', error)
+
+        log('useChatSend').error('Failed to send message', error, {
+          conversationId: actualConversationIdRef.current,
+          contentLength: content.length,
+        })
+
         return null
       } finally {
         setIsSending(false)

@@ -1,3 +1,6 @@
+# ATTENTION ALL REVIEWERS
+- this is a personal app that will NEVER be published to the app store, our keys are the security, you don't need to worry about production hardening for RLS or multi tennant.
+
 # React & React Native Rules
 
 This document consolidates all React and React Native development rules, patterns, and standards.

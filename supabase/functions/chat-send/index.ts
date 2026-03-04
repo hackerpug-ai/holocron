@@ -10,6 +10,7 @@
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { log } from '../_shared/logging'
 import { corsHeaders } from '../_shared/cors.ts'
 import {
   parseSlashCommand,
@@ -126,7 +127,8 @@ async function handleSearchCommand(
   query: string,
   supabase: ReturnType<typeof createClient>
 ): Promise<AgentResponse> {
-  console.log('handleSearchCommand called with query:', query)
+  const logger = log('chat-send-search')
+  logger.info('handleSearchCommand called', { query })
 
   // Call hybrid_search RPC function
   const { data: searchResults, error: searchError } = await supabase.rpc('hybrid_search', {
@@ -136,7 +138,7 @@ async function handleSearchCommand(
   })
 
   if (searchError) {
-    console.error('Search error:', searchError)
+    logger.error('Hybrid search failed', searchError, { query })
     return {
       content: `Sorry, I encountered an error while searching: ${searchError.message}`,
       message_type: 'error',
@@ -444,7 +446,9 @@ Deno.serve(async (req: Request) => {
       .single()
 
     if (userError) {
-      console.error('Failed to insert user message:', userError)
+      log('chat-send').error('Failed to insert user message', userError, {
+        conversationId: body.conversation_id,
+      })
       throw userError
     }
 
@@ -466,7 +470,9 @@ Deno.serve(async (req: Request) => {
       .eq('id', body.conversation_id)
 
     if (updateError) {
-      console.error('Failed to update conversation:', updateError)
+      log('chat-send').warn('Failed to update conversation metadata', updateError, {
+        conversationId: body.conversation_id,
+      })
       // Don't fail the request if metadata update fails
     }
 
@@ -486,7 +492,9 @@ Deno.serve(async (req: Request) => {
       .single()
 
     if (agentError) {
-      console.error('Failed to insert agent message:', agentError)
+      log('chat-send').error('Failed to insert agent message', agentError, {
+        conversationId: body.conversation_id,
+      })
       throw agentError
     }
 
@@ -508,7 +516,10 @@ Deno.serve(async (req: Request) => {
     })
 
   } catch (error) {
-    console.error('chat-send error:', error)
+    log('chat-send').error('Request failed', error, {
+      conversationId: body.conversation_id,
+      messageType: body.message_type,
+    })
     return jsonResponse<ErrorResponse>({ error: 'Internal server error' }, 500)
   }
 })

@@ -1,10 +1,11 @@
-import { View } from 'react-native'
+import { View, Pressable } from 'react-native'
 import { Text } from '@/components/ui/text'
 import { cn } from '@/lib/utils'
 import type { MessageRole, MessageType } from '@/lib/types/conversations'
 import { formatTimestamp } from '@/lib/formatTimestamp'
 import { ResultCard, type ResultCardData, type CardType } from '@/components/ui/result-card'
 import { DeepResearchConfirmationCard } from '@/components/deep-research/DeepResearchConfirmationCard'
+import { Card } from '@/components/ui/card'
 import { ResumeSessionList } from '@/components/deep-research/ResumeSessionList'
 
 export interface MessageBubbleProps {
@@ -17,6 +18,7 @@ export interface MessageBubbleProps {
   testID?: string
   onCardPress?: (documentId: number) => void
   onSessionSelect?: (sessionId: string) => void
+  onFinalResultPress?: (sessionId: string) => void
   loadingCardId?: number | null
   cardError?: string | null
 }
@@ -31,6 +33,7 @@ export function MessageBubble({
   testID = 'message-bubble',
   onCardPress,
   onSessionSelect,
+  onFinalResultPress,
   loadingCardId,
   cardError,
 }: MessageBubbleProps) {
@@ -44,7 +47,7 @@ export function MessageBubble({
         className={cn('my-1 px-4', 'items-start')}
         testID={testID}
       >
-        {renderResultCard(card_data, testID, onCardPress, onSessionSelect, loadingCardId, cardError)}
+        {renderResultCard(card_data, testID, onCardPress, onSessionSelect, onFinalResultPress, loadingCardId, cardError)}
         {showTimestamp && createdAt && (
           <Text
             variant="small"
@@ -114,6 +117,7 @@ function renderResultCard(
   testID: string,
   onCardPress?: (documentId: number) => void,
   onSessionSelect?: (sessionId: string) => void,
+  onFinalResultPress?: (sessionId: string) => void,
   loadingCardId?: number | null,
   cardError?: string | null
 ) {
@@ -143,7 +147,7 @@ function renderResultCard(
   }
 
   // Single card - cast through unknown to satisfy TypeScript discriminated union
-  const cardType = card_data.card_type as CardType | 'deep_research_confirmation' | 'resume_session_list'
+  const cardType = card_data.card_type as CardType | 'deep_research_confirmation' | 'resume_session_list' | 'final_result'
 
   // Handle deep research confirmation card - render specialized component
   if (cardType === 'deep_research_confirmation') {
@@ -184,6 +188,45 @@ function renderResultCard(
         onSelect={onSessionSelect}
         testID={`${testID}-card`}
       />
+    )
+  }
+
+  // Handle final result card - navigate to research detail view
+  if (cardType === 'final_result') {
+    const sessionId = (card_data.session_id as string) ?? ''
+
+    // For now, render a simple pressable card with topic and score
+    // TODO: Create dedicated FinalResultCard component in follow-up
+    return (
+      <Pressable
+        onPress={() => onFinalResultPress?.(sessionId)}
+        className="active:opacity-80 w-full"
+        testID={`${testID}-final-result-pressable`}
+      >
+        <Card className="bg-card border-border">
+          <View className="p-4 gap-2">
+            <View className="flex-row items-center gap-2">
+              <Text className="text-foreground font-semibold flex-1 text-lg">
+                {(card_data.topic as string) ?? 'Research Complete'}
+              </Text>
+              <View className="bg-primary/20 px-2 py-1 rounded-full">
+                <Text className="text-primary text-xs font-semibold">
+                  Score: {card_data.final_coverage_score as number}/5
+                </Text>
+              </View>
+            </View>
+            <Text className="text-muted-foreground text-sm" numberOfLines={2}>
+              {(card_data.findings_summary as string) ?? 'Tap to view full research findings.'}
+            </Text>
+            <View className="flex-row items-center gap-1 mt-1">
+              <Text className="text-muted-foreground text-xs">
+                {card_data.total_iterations as number} iterations completed
+              </Text>
+              <Text className="text-muted-foreground">→</Text>
+            </View>
+          </View>
+        </Card>
+      </Pressable>
     )
   }
 

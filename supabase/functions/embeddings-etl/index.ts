@@ -13,6 +13,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
+import { log } from '../_shared/logging/index.ts'
 
 // ============================================================
 // Configuration
@@ -118,7 +119,7 @@ async function generateEmbeddingWithRetry(
       if (attempt === retries - 1) throw error
       // Exponential backoff: 1s, 2s, 4s
       const delay = Math.pow(2, attempt) * 1000
-      console.log(`Retry ${attempt + 1}/${retries} after ${delay}ms delay`)
+      log('embeddings-etl').warn(`Retry ${attempt + 1}/${retries} after ${delay}ms delay`, { error: (error as Error).message })
       await new Promise(resolve => setTimeout(resolve, delay))
     }
   }
@@ -137,7 +138,7 @@ async function processDocument(
   supabase: ReturnType<typeof createClient>
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    console.log(`Processing document ${doc.id}: ${doc.title}`)
+    log('embeddings-etl').info(`Processing document ${doc.id}: ${doc.title}`)
 
     // Combine title and content for better semantic search
     const text = `${doc.title}\n\n${doc.content}`
@@ -232,7 +233,7 @@ Deno.serve(async (req: Request) => {
     const dryRun = body.dry_run ?? false
     const batchSize = body.batch_size ?? BATCH_SIZE
 
-    console.log(`Starting embeddings ETL (dry_run=${dryRun}, batch_size=${batchSize})`)
+    log('embeddings-etl').info(`Starting embeddings ETL (dry_run=${dryRun}, batch_size=${batchSize})`)
 
     // Fetch documents without embeddings
     const { data: documents, error: fetchError } = await supabase
@@ -243,7 +244,7 @@ Deno.serve(async (req: Request) => {
       .limit(batchSize)
 
     if (fetchError) {
-      console.error('Failed to fetch documents:', fetchError)
+      log('embeddings-etl').error('Failed to fetch documents', fetchError, {})
       throw fetchError
     }
 
@@ -261,7 +262,7 @@ Deno.serve(async (req: Request) => {
       })
     }
 
-    console.log(`Found ${documents.length} documents without embeddings`)
+    log('embeddings-etl').info(`Found ${documents.length} documents without embeddings`)
 
     if (dryRun) {
       return jsonResponse<ETLResponse>({
@@ -294,7 +295,7 @@ Deno.serve(async (req: Request) => {
     })
 
   } catch (error) {
-    console.error('embeddings-etl error:', error)
+    log('embeddings-etl').error('embeddings-etl error', error)
     return jsonResponse<ErrorResponse>({
       error: `Internal server error: ${(error as Error).message}`
     }, 500)

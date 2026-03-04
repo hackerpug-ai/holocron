@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { log } from '@/lib/logger-client'
 import { supabase } from '@/lib/supabase'
 import type {
   DeepResearchSessionRow,
@@ -120,7 +121,10 @@ export function useDeepResearchSession(
         iterations,
       })
     } catch (err) {
-      console.error('Error fetching deep research session:', err)
+      log('useDeepResearchSession').error('Failed to fetch deep research session', err, {
+        sessionId,
+      })
+
       setError(err instanceof Error ? err : new Error('Failed to fetch session'))
       setSession(null)
     } finally {

@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import type { Conversation } from '@/lib/types/conversations'
+import { log } from '@/lib/logger-client'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -69,6 +70,7 @@ async function fetchConversations(): Promise<Conversation[]> {
     .order('updated_at', { ascending: false })
 
   if (error) {
+    log('useConversations').error('Failed to fetch conversations', error, {})
     throw new Error(`Failed to fetch conversations: ${error.message}`)
   }
 
@@ -127,6 +129,7 @@ export function useConversations(): UseConversationsReturn {
         .single()
 
       if (error) {
+        log('useConversations').error('Failed to create conversation', error, {})
         throw new Error(`Failed to create conversation: ${error.message}`)
       }
 
@@ -196,6 +199,7 @@ export function useConversations(): UseConversationsReturn {
         .eq('id', id)
 
       if (error) {
+        log('useConversations').error('Failed to rename conversation', error, { id, newTitle })
         throw new Error(`Failed to rename conversation: ${error.message}`)
       }
     },
@@ -237,6 +241,7 @@ export function useConversations(): UseConversationsReturn {
       const { error } = await supabase.from('conversations').delete().eq('id', id)
 
       if (error) {
+        log('useConversations').error('Failed to delete conversation', error, { id })
         throw new Error(`Failed to delete conversation: ${error.message}`)
       }
     },

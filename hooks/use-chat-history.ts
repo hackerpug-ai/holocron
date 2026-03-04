@@ -8,6 +8,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { log } from '@/lib/logger-client'
 import type { ChatMessage } from '@/components/chat/ChatThread'
 import type { MessageRole, MessageType } from '@/lib/types/conversations'
 import { useChatRealtime } from './use-chat-realtime'
@@ -134,7 +135,10 @@ export function useChatHistory(
       } catch (err) {
         const error = err instanceof Error ? err : new Error('Unknown error')
         setError(error)
-        console.error('useChatHistory error:', error)
+
+        log('useChatHistory').error('Failed to fetch chat history', error, {
+          conversationId,
+        })
       } finally {
         setIsLoading(false)
         setIsLoadingMore(false)

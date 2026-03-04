@@ -14,6 +14,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
+import { log } from '../_shared/logging'
 
 // ============================================================
 // Types
@@ -174,13 +175,13 @@ async function saveIteration(
       .single()
 
     if (error) {
-      console.error('Failed to save iteration:', error)
+      log('deep-research-iterate').error('Failed to save iteration', error, { sessionId })
       return { iterationId: null, error: error.message }
     }
 
     return { iterationId: data?.id || null, error: null }
   } catch (error) {
-    console.error('Exception saving iteration:', error)
+    log('deep-research-iterate').error('Exception saving iteration', error, { sessionId })
     return { iterationId: null, error: String(error) }
   }
 }
@@ -231,13 +232,13 @@ async function streamIterationCard(
       .single()
 
     if (error) {
-      console.error('Failed to stream iteration card:', error)
+      log('deep-research-iterate').error('Failed to stream iteration card', error, { conversationId, sessionId })
       return { messageId: null, error: error.message }
     }
 
     return { messageId: data?.id || null, error: null }
   } catch (error) {
-    console.error('Exception streaming iteration card:', error)
+    log('deep-research-iterate').error('Exception streaming iteration card', error, { conversationId, sessionId })
     return { messageId: null, error: String(error) }
   }
 }
@@ -282,13 +283,13 @@ async function postFinalResultCard(
       .single()
 
     if (error) {
-      console.error('Failed to post final result card:', error)
+      log('deep-research-iterate').error('Failed to post final result card', error, { conversationId, sessionId })
       return { messageId: null, error: error.message }
     }
 
     return { messageId: data?.id || null, error: null }
   } catch (error) {
-    console.error('Exception posting final result card:', error)
+    log('deep-research-iterate').error('Exception posting final result card', error, { conversationId, sessionId })
     return { messageId: null, error: String(error) }
   }
 }
@@ -312,13 +313,13 @@ async function completeSession(
       .eq('id', sessionId)
 
     if (error) {
-      console.error('Failed to complete session:', error)
+      log('deep-research-iterate').error('Failed to complete session', error, { sessionId, status })
       return { error: error.message }
     }
 
     return { error: null }
   } catch (error) {
-    console.error('Exception completing session:', error)
+    log('deep-research-iterate').error('Exception completing session', error, { sessionId, status })
     return { error: String(error) }
   }
 }
@@ -342,13 +343,13 @@ async function isSessionCancelled(
       .single()
 
     if (error || !data) {
-      console.error('Failed to check session status:', error)
+      log('deep-research-iterate').error('Failed to check session status', error, { sessionId })
       return false // Assume not cancelled on error
     }
 
     return data.status === 'cancelled'
   } catch (error) {
-    console.error('Exception checking session status:', error)
+    log('deep-research-iterate').error('Exception checking session status', error, { sessionId })
     return false
   }
 }
@@ -378,14 +379,14 @@ async function getNextIterationNumber(
       if (error.code === 'PGRST116') {
         return { iterationNumber: 1, error: null }
       }
-      console.error('Failed to get next iteration number:', error)
+      log('deep-research-iterate').error('Failed to get next iteration number', error, { sessionId })
       return { iterationNumber: null, error: error.message }
     }
 
     const nextIteration = (data?.iteration_number || 0) + 1
     return { iterationNumber: nextIteration, error: null }
   } catch (error) {
-    console.error('Exception getting next iteration number:', error)
+    log('deep-research-iterate').error('Exception getting next iteration number', error, { sessionId })
     return { iterationNumber: null, error: String(error) }
   }
 }
@@ -455,7 +456,7 @@ async function runSingleIteration(
     )
 
     if (streamError) {
-      console.error('Failed to stream iteration card (continuing anyway):', streamError)
+      log('deep-research-iterate').warn('Failed to stream iteration card (continuing anyway)', streamError, { sessionId, iterationNumber })
     }
 
     return {
@@ -470,7 +471,7 @@ async function runSingleIteration(
       error: null,
     }
   } catch (error) {
-    console.error('Exception in runSingleIteration:', error)
+    log('deep-research-iterate').error('Exception in runSingleIteration', error, { sessionId, iterationNumber })
     return { result: null, error: String(error) }
   }
 }
@@ -494,7 +495,8 @@ async function runFullRalphLoop(
   let iteration = 0
   let allFindings: string[] = []
 
-  console.log(`Starting Ralph Loop for session ${sessionId}: topic="${topic}", max_iterations=${maxIterations}`)
+  const logger = log('deep-research-iterate')
+  logger.info('Starting Ralph Loop', { sessionId, topic, maxIterations })
 
   // Ralph Loop: iterate until coverage >= 4 or max iterations or cancelled
   while (
@@ -504,7 +506,7 @@ async function runFullRalphLoop(
     // Check for cancellation before each iteration
     const cancelled = await isSessionCancelled(supabase, sessionId)
     if (cancelled) {
-      console.log(`Session ${sessionId} cancelled by user after ${iteration} iterations`)
+      logger.info('Session cancelled by user', { sessionId, iteration })
       await completeSession(supabase, sessionId, 'cancelled')
       return { totalIterations: iteration, finalCoverageScore: coverageScore, error: null }
     }
@@ -521,14 +523,14 @@ async function runFullRalphLoop(
     )
 
     if (error || !result) {
-      console.error(`Iteration ${iteration} failed:`, error)
+      logger.error('Iteration failed', error, { sessionId, iteration, error })
       // Continue to next iteration on error (graceful degradation)
       continue
     }
 
     // Update coverage score for loop condition
     coverageScore = result.coverage_score
-    console.log(`Iteration ${iteration}/${maxIterations} complete: coverage=${coverageScore}`)
+    logger.info('Iteration complete', { sessionId, iteration, maxIterations, coverageScore })
 
     // Collect findings for final summary
     if (result.feedback) {
@@ -552,7 +554,7 @@ async function runFullRalphLoop(
     findingsSummary
   )
 
-  console.log(`Ralph Loop complete: ${iteration} iterations, final coverage=${finalScore}`)
+  logger.info('Ralph Loop complete', { sessionId, totalIterations: iteration, finalCoverageScore: finalScore })
 
   return { totalIterations: iteration, finalCoverageScore: finalScore, error: null }
 }
@@ -625,7 +627,7 @@ Deno.serve(async (req: Request) => {
       .eq('id', body.session_id)
 
     if (updateError) {
-      console.error('Failed to update session status:', updateError)
+      log('deep-research-iterate').warn('Failed to update session status', updateError, { sessionId: body.session_id })
       // Continue anyway
     }
 
@@ -668,7 +670,7 @@ Deno.serve(async (req: Request) => {
     }
 
   } catch (error) {
-    console.error('deep-research-iterate error:', error)
+    log('deep-research-iterate').error('Request failed', error, { sessionId: body?.session_id })
     return jsonResponse<ErrorResponse>({ error: 'Internal server error' }, 500)
   }
 })

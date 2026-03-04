@@ -80,6 +80,11 @@ export default function ChatScreen() {
     await sendResumeCommand(sessionId)
   }
 
+  // Handle final result card press - navigate to research detail view
+  const handleFinalResultPress = (sessionId: string) => {
+    router.push(`/research/${sessionId}`)
+  }
+
   // Open the drawer menu
   const handleOpenMenu = () => {
     navigation.dispatch(DrawerActions.openDrawer())
@@ -173,6 +178,7 @@ export default function ChatScreen() {
         safeAreaTop={contentTopPadding}
         testID="chat-thread"
         onSessionSelect={handleSessionSelect}
+        onFinalResultPress={handleFinalResultPress}
       />
       {/* Bottom area with safe area padding */}
       <View style={{ paddingBottom: insets.bottom }}>

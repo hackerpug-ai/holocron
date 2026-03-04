@@ -28,6 +28,8 @@ export interface ChatThreadProps {
   testID?: string
   /** Callback when a session is selected from resume list */
   onSessionSelect?: (sessionId: string) => void
+  /** Callback when a final result card is pressed - navigate to research detail */
+  onFinalResultPress?: (sessionId: string) => void
 }
 
 export function ChatThread({
@@ -40,6 +42,7 @@ export function ChatThread({
   safeAreaTop = 0,
   testID = 'chat-thread',
   onSessionSelect,
+  onFinalResultPress,
 }: ChatThreadProps) {
   const flatListRef = useRef<FlatList>(null)
   const router = useRouter()
@@ -68,6 +71,7 @@ export function ChatThread({
       testID={`message-${item.id}`}
       onCardPress={handleCardPress}
       onSessionSelect={onSessionSelect}
+      onFinalResultPress={onFinalResultPress}
     />
   )
 

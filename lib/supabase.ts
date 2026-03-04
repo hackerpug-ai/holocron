@@ -1,5 +1,6 @@
 import "expo-sqlite/localStorage/install";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { log } from "@/lib/logger-client";
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
@@ -97,7 +98,10 @@ export async function searchHybrid(
 
   const { data, error } = await supabaseAdmin.rpc("hybrid_search", params);
 
-  if (error) throw error;
+  if (error) {
+    log('supabase').error('Hybrid search failed', error, { query, limit, category });
+    throw error;
+  }
   return (data as SearchResult[]) || [];
 }
 
@@ -121,7 +125,10 @@ export async function searchFTS(
 
   const { data, error } = await supabaseAdmin.rpc("search_fts", params);
 
-  if (error) throw error;
+  if (error) {
+    log('supabase').error('FTS search failed', error, { query, limit, category });
+    throw error;
+  }
   return (data as SearchResult[]) || [];
 }
 
@@ -147,7 +154,10 @@ export async function searchVector(
 
   const { data, error } = await supabaseAdmin.rpc("search_vector", params);
 
-  if (error) throw error;
+  if (error) {
+    log('supabase').error('Vector search failed', error, { query, limit, category });
+    throw error;
+  }
   return (data as SearchResult[]) || [];
 }
 
@@ -165,7 +175,10 @@ export async function getDocument(id: number): Promise<Document | null> {
     .eq("id", id)
     .single();
 
-  if (error) throw error;
+  if (error) {
+    log('supabase').error('Get document failed', error, { id });
+    throw error;
+  }
   return data as Document;
 }
 
@@ -191,7 +204,10 @@ export async function listDocuments(options: {
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
 
-  if (error) throw error;
+  if (error) {
+    log('supabase').error('List documents failed', error, { category, limit, offset });
+    throw error;
+  }
   return (data as Document[]) || [];
 }
 
@@ -232,7 +248,10 @@ export async function createDocument(doc: {
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) {
+    log('supabase').error('Create document failed', error, { title: doc.title, category: doc.category });
+    throw error;
+  }
   return result as Document;
 }
 
@@ -263,7 +282,10 @@ export async function updateDocument(
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) {
+    log('supabase').error('Update document failed', error, { id, updates: Object.keys(updates) });
+    throw error;
+  }
   return data as Document;
 }
 
@@ -273,7 +295,10 @@ export async function updateDocument(
 export async function deleteDocument(id: number): Promise<void> {
   const { error } = await supabaseAdmin.from("documents").delete().eq("id", id);
 
-  if (error) throw error;
+  if (error) {
+    log('supabase').error('Delete document failed', error, { id });
+    throw error;
+  }
 }
 
 // ---------------------------------------------------------
@@ -344,6 +369,7 @@ async function generateEmbedding(text: string): Promise<number[]> {
   });
 
   if (!response.ok) {
+    log('supabase').error('OpenAI API error', { status: response.status, textLength: text.length });
     throw new Error(`OpenAI API error: ${response.status}`);
   }
 

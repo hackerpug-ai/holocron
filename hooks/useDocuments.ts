@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { listDocuments, searchFTS, type Document, type DocumentCategory } from '@/lib/supabase'
 import type { CategoryType } from '@/components/CategoryBadge'
+import { log } from '@/lib/logger-client'
 
 /**
  * Maps Supabase document categories to UI display categories
@@ -113,7 +114,7 @@ export function useDocuments({
       const transformedArticles = documents.map(transformDocumentToArticle)
       setArticles(transformedArticles)
     } catch (err) {
-      console.error('Error fetching documents:', err)
+      log('useDocuments').error('Error fetching documents', err, { category, searchQuery })
       setError(err instanceof Error ? err : new Error('Failed to fetch documents'))
       setArticles([])
     } finally {
