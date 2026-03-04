@@ -156,9 +156,3 @@ export class LogWriter {
     return this.currentFilePath;
   }
 }
-
-// Declare using for Deno resources (TypeScript 5.2+)
-declare using {
-  // This is for Deno's resource management
-  var file: Deno.FsFile;
-}
