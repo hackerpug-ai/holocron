@@ -8,6 +8,8 @@
  * @see PRD SS05 UC-CI-02 - Use Slash Commands
  */
 
+import { handleDeepResearchStart } from '../deep-research.ts'
+
 // ============================================================
 // Types
 // ============================================================
