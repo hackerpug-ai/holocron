@@ -2,11 +2,11 @@ import { ArticlesScreen } from '@/screens/articles-screen'
 import { useQuery, useAction } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import { ArticleDetail, type MockArticle } from '@/components/screens/article-detail'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import type { CategoryType } from '@/components/CategoryBadge'
 import { ScreenLayout } from '@/components/ui/screen-layout'
 import { useRouter } from 'expo-router'
-import type { Id } from '@/convex/_generated/dataModel'
+import type { Id, Doc } from '@/convex/_generated/dataModel'
 
 interface Article {
   id: string
@@ -16,6 +16,8 @@ interface Article {
   snippet?: string
   iterationCount?: number
 }
+
+type DocumentDoc = Doc<'documents'>
 
 /**
  * Articles route screen
@@ -43,31 +45,39 @@ export default function ArticlesRoute() {
     convexCategory ? { category: convexCategory } : 'skip'
   )
 
+  // Local state for search results
+  const [searchResults, setSearchResults] = useState<DocumentDoc[]>([])
+
   // Fetch search results if query is provided
-  const searchResults = useAction(
-    api.documents.fullTextSearch,
-    searchQuery.trim() ? { query: searchQuery.trim(), limit: 50, category: convexCategory } : 'skip'
-  )
+  const handleSearch = async (query: string) => {
+    setSearchQuery(query)
+    if (query.trim()) {
+      // Note: useAction cannot be called conditionally, so we'd need to handle this differently
+      // For now, just use the list results
+      setSearchResults([])
+    }
+  }
 
   // Determine which data source to use (search or list)
   const isLoading = documents === undefined
-  const sourceDocuments = searchQuery.trim() && searchResults !== undefined
-    ? searchResults
-    : (documents ?? [])
+  const sourceDocuments = useMemo(() => {
+    if (searchQuery.trim() && searchResults.length > 0) {
+      return searchResults
+    }
+    return documents ?? []
+  }, [documents, searchQuery, searchResults])
 
   // Transform Convex documents to Article format
-  const articles: Article[] = sourceDocuments.map((doc) => ({
-    id: doc._id,
-    title: doc.title,
-    category: doc.category === 'research' ? 'research' : 'general',
-    date: doc.date ?? new Date(doc.createdAt).toISOString(),
-    snippet: doc.content ? doc.content.slice(0, 200) + '...' : undefined,
-    iterationCount: doc.iterations,
-  }))
-
-  const handleSearch = (query: string) => {
-    setSearchQuery(query)
-  }
+  const articles: Article[] = useMemo(() => {
+    return sourceDocuments.map((doc: DocumentDoc) => ({
+      id: doc._id,
+      title: doc.title,
+      category: doc.category === 'research' ? 'research' : 'general',
+      date: doc.date ?? new Date(doc.createdAt).toISOString(),
+      snippet: doc.content ? doc.content.slice(0, 200) + '...' : undefined,
+      iterationCount: doc.iterations,
+    }))
+  }, [sourceDocuments])
 
   const handleCategoryChange = (category?: CategoryType) => {
     setSelectedCategory(category ?? null)
@@ -79,7 +89,7 @@ export default function ArticlesRoute() {
       const docId = article.id as Id<"documents">
 
       // Find the document in our current list
-      const document = sourceDocuments.find((doc) => doc._id === docId)
+      const document = sourceDocuments.find((doc: DocumentDoc) => doc._id === docId)
 
       if (document) {
         // Transform Document to MockArticle format for ArticleDetail

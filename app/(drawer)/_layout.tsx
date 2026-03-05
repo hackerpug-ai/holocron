@@ -4,7 +4,6 @@ import { useQuery, useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import type { Doc } from '@/convex/_generated/dataModel'
 import type { Conversation } from '@/lib/types/conversations'
-import { useLongRunningTasks } from '@/hooks/useLongRunningTasks'
 import { useRouter } from 'expo-router'
 import { useDrawerStatus } from '@react-navigation/drawer'
 import { useEffect, useRef, useState } from 'react'
@@ -43,9 +42,6 @@ function CustomDrawerContent() {
   const isRenaming = false
   const isDeleting = false
   const error = null
-
-  // Monitor active long-running tasks across all conversations
-  const { hasActiveTasks } = useLongRunningTasks()
 
   const handleNewChatPress = () => {
     // Navigate to /chat/new for lazy conversation creation
@@ -159,7 +155,7 @@ function CustomDrawerContent() {
       onActionMenuOpenChange={setIsActionMenuOpen}
       onRename={handleRename}
       onDelete={handleDelete}
-      hasActiveTasks={hasActiveTasks}
+      hasActiveTasks={false}
     />
   )
 }

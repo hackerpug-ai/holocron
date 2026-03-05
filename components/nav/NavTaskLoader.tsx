@@ -10,12 +10,9 @@ interface NavTaskLoaderProps extends ActivityIndicatorProps {
  * NavTaskLoader displays a small ActivityIndicator in navigation
  * to show when background tasks are running.
  *
- * Shows/hides based on active task count from useLongRunningTasks hook.
- *
  * @example
  * ```tsx
- * const { hasActiveTasks } = useLongRunningTasks()
- * <NavTaskLoader hasActiveTasks={hasActiveTasks} />
+ * <NavTaskLoader hasActiveTasks={false} />
  * ```
  */
 export function NavTaskLoader({ hasActiveTasks, ...props }: NavTaskLoaderProps) {

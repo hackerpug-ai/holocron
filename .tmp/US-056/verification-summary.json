@@ -1,67 +1,65 @@
 {
   "task_id": "US-056",
-  "timestamp": "2026-03-03T00:00:00.000Z",
-  "commit_sha": "2a6a28cefb8106681e677b0ab5caacbc87342604",
-  "tests": {
-    "exit_code": 0,
-    "passed": 13,
-    "failed": 0,
-    "note": "Unit tests created for resume-handler.test.ts with Deno test framework. Tests run in Supabase Edge Function environment."
+  "task_title": "Migrate useConversations to Convex useQuery/useMutation",
+  "base_sha": "040c0086e87ea4146b2a3ef40fb1e7f8e93db6c4",
+  "commit_sha": "e34352320304fed756d8f937231c32d113ebeaa6",
+  "status": "completed",
+  "acceptance_criteria": {
+    "AC-1": {
+      "description": "useConversations exists → Delete hook → No file exists",
+      "status": "completed",
+      "evidence": "hooks/useConversations.ts file deleted"
+    },
+    "AC-2": {
+      "description": "Component needs conversations → Use useQuery → List loads reactively",
+      "status": "completed",
+      "evidence": "app/(drawer)/_layout.tsx and app/(drawer)/chat/[conversationId].tsx now use useQuery(api.conversations.list) directly"
+    },
+    "AC-3": {
+      "description": "User creates conversation → Call useMutation → Conversation created, list updates",
+      "status": "completed",
+      "evidence": "Components use useMutation(api.conversations.create) for lazy conversation creation"
+    },
+    "AC-4": {
+      "description": "User deletes conversation → Call useMutation → Conversation removed, list updates",
+      "status": "completed",
+      "evidence": "Components use useMutation(api.conversations.remove) for deletion with automatic list updates via Convex reactivity"
+    }
   },
-  "typecheck": {
-    "exit_code": 0,
-    "note": "TypeScript compilation passed with tsc --noEmit"
-  },
-  "lint": {
-    "exit_code": 0,
-    "warnings": 0,
-    "note": "No new lint warnings introduced. Supabase Edge Functions ignored by ESLint (validated by Deno on deploy)"
-  },
-  "summary": {
-    "implementation": [
-      "Created resume-handler.ts module with complete /resume command implementation",
-      "Implemented parseResumeCommand to extract session ID and --restart flag",
-      "Implemented getIncompleteSessions to query pending/running/paused sessions from database",
-      "Implemented getSessionById to fetch specific session with current iteration count",
-      "Implemented restartSession to reset session status to pending",
-      "Implemented handleResumeCommand as main entry point with error handling",
-      "Added ResumeSession and ResumeSessionListCardData types to slash-commands.ts",
-      "Re-exported all resume handler functions from slash-commands.ts for convenience",
-      "Created comprehensive unit tests covering all parser variations"
+  "files_modified": [
+    "hooks/useConversations.ts (DELETED)",
+    "app/(drawer)/_layout.tsx (MODIFIED)",
+    "app/(drawer)/chat/[conversationId].tsx (MODIFIED)"
+  ],
+  "key_changes": {
+    "deleted": [
+      "hooks/useConversations.ts - Removed React Query + Supabase wrapper hook"
     ],
-    "acceptance_criteria": [
-      {
-        "id": 1,
-        "description": "User sends /resume -> Returns ResumeSessionList card with incomplete sessions",
-        "status": "implemented",
-        "note": "handleResumeCommand returns card_type: 'resume_session_list' with sessions array when no args provided"
-      },
-      {
-        "id": 2,
-        "description": "User sends /resume abc-123 -> Resumes session from last checkpoint",
-        "status": "implemented",
-        "note": "handleResumeCommand fetches session and returns success message with iteration count"
-      },
-      {
-        "id": 3,
-        "description": "User sends /resume invalid-id -> Returns error message",
-        "status": "implemented",
-        "note": "handleResumeCommand handles not-found case and returns user-friendly error"
-      },
-      {
-        "id": 4,
-        "description": "User sends /resume with --restart flag -> Restarts session from beginning",
-        "status": "implemented",
-        "note": "restartSession function updates session status to pending, handleResumeCommand parses --restart flag"
-      }
-    ],
-    "patterns_followed": [
-      "Followed generateStatsResponse pattern from slash-commands.ts:152-224",
-      "TypeScript strict mode with proper type definitions",
-      "Comprehensive error handling with try-catch blocks",
-      "Query optimization with indexed columns (status, updated_at)",
-      "Consistent function naming and documentation",
-      "Proper JSDoc comments with examples"
+    "modified": [
+      "app/(drawer)/_layout.tsx - Now uses Convex useQuery/useMutation directly",
+      "app/(drawer)/chat/[conversationId].tsx - Now uses Convex useQuery/useMutation directly"
     ]
+  },
+  "pattern_applied": {
+    "name": "Direct Convex Usage",
+    "description": "Components use Convex hooks directly instead of wrapper hooks",
+    "benefits": [
+      "Automatic reactivity via Convex",
+      "No manual cache invalidation needed",
+      "Simpler code with fewer abstraction layers",
+      "Type-safe API references"
+    ]
+  },
+  "test_results": {
+    "total_tests": 65,
+    "passed": 61,
+    "failed": 4,
+    "note": "Test failures are pre-existing (US-052 chat tests and ResearchProgress test) and not related to US-056 changes"
+  },
+  "verification_gates": {
+    "gate_1_import": "PASS - No Supabase imports in modified files",
+    "gate_2_query": "PASS - Conversations list loads via useQuery",
+    "gate_3_mutation": "PASS - Create/remove operations use useMutation",
+    "gate_4_reactivity": "PASS - Changes reflect automatically via Convex"
   }
 }

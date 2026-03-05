@@ -1,6 +1,120 @@
-0
-Tests will be run in Supabase Edge Function environment (Deno)
-Unit tests created: resume-handler.test.ts
-Test coverage:
-- parseResumeCommand: 10 test cases covering all input variations
-- ResumeCommandOptions type validation: 3 test cases
+
+> holocron@1.0.0 test /Users/justinrich/Projects/holocron
+> vitest run
+
+
+[1m[46m RUN [49m[22m [36mv4.0.18 [39m[90m/Users/justinrich/Projects/holocron[39m
+
+ [31m❯[39m tests/components/ResearchProgress.test.tsx [2m([22m[2m0 test[22m[2m)[22m
+ [31m❯[39m tests/convex/US-052-chat.test.ts [2m([22m[2m4 tests[22m[2m | [22m[31m4 failed[39m[2m)[22m[32m 31[2mms[22m[39m
+[31m       [31m×[31m should persist user message and return AI response[39m
+[31m       [31m×[31m should return messages ordered by createdAt[39m
+[31m       [31m×[31m should route slash commands to appropriate handler[39m
+[31m       [31m×[31m should persist error as agent message on failure[39m
+ [32m✓[39m tests/convex/US-060-research-progress.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 26[2mms[22m[39m
+ [32m✓[39m tests/convex/US-054-tasks.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 44[2mms[22m[39m
+ [32m✓[39m tests/convex/US-055-deep-research.test.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 57[2mms[22m[39m
+ [32m✓[39m tests/integration/agents.test.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 58[2mms[22m[39m
+[90mstdout[2m | tests/integration/validate-migration.test.ts[2m > [22m[2mMigration Validation - AC-1: Row Counts
+[22m[39m
+╔════════════════════════════════════════════════════════════╗
+║     MIGRATION DATA INTEGRITY VALIDATION                   ║
+╚════════════════════════════════════════════════════════════╝
+
+[90mstderr[2m | tests/integration/validate-migration.test.ts[2m > [22m[2mMigration Validation - AC-1: Row Counts
+[22m[39m
+✗ Missing required environment variables:
+  - VITE_CONVEX_HTTP_URL
+  - VITE_SUPABASE_URL
+  - VITE_SUPABASE_ANON_KEY
+
+[90mstdout[2m | tests/integration/validate-migration.test.ts[2m > [22m[2mMigration Validation - AC-2: FK Relationships
+[22m[39m
+╔════════════════════════════════════════════════════════════╗
+║     MIGRATION DATA INTEGRITY VALIDATION                   ║
+╚════════════════════════════════════════════════════════════╝
+
+[90mstderr[2m | tests/integration/validate-migration.test.ts[2m > [22m[2mMigration Validation - AC-2: FK Relationships
+[22m[39m
+✗ Missing required environment variables:
+  - VITE_CONVEX_HTTP_URL
+  - VITE_SUPABASE_URL
+  - VITE_SUPABASE_ANON_KEY
+
+[90mstdout[2m | tests/integration/validate-migration.test.ts[2m > [22m[2mMigration Validation - AC-3: Embedding Dimensions
+[22m[39m
+╔════════════════════════════════════════════════════════════╗
+║     MIGRATION DATA INTEGRITY VALIDATION                   ║
+╚════════════════════════════════════════════════════════════╝
+
+[90mstderr[2m | tests/integration/validate-migration.test.ts[2m > [22m[2mMigration Validation - AC-3: Embedding Dimensions
+[22m[39m
+✗ Missing required environment variables:
+  - VITE_CONVEX_HTTP_URL
+  - VITE_SUPABASE_URL
+  - VITE_SUPABASE_ANON_KEY
+
+[90mstdout[2m | tests/integration/validate-migration.test.ts[2m > [22m[2mMigration Validation - AC-4: Integrity Report[2m > [22m[2mshould generate comprehensive validation report
+[22m[39m
+╔════════════════════════════════════════════════════════════╗
+║     MIGRATION DATA INTEGRITY VALIDATION                   ║
+╚════════════════════════════════════════════════════════════╝
+
+[90mstderr[2m | tests/integration/validate-migration.test.ts[2m > [22m[2mMigration Validation - AC-4: Integrity Report[2m > [22m[2mshould generate comprehensive validation report
+[22m[39m
+✗ Missing required environment variables:
+  - VITE_CONVEX_HTTP_URL
+  - VITE_SUPABASE_URL
+  - VITE_SUPABASE_ANON_KEY
+
+[90mstdout[2m | tests/integration/validate-migration.test.ts[2m > [22m[2mMigration Validation - AC-4: Integrity Report[2m > [22m[2mshould report 100% pass rate when all checks pass
+[22m[39m
+╔════════════════════════════════════════════════════════════╗
+║     MIGRATION DATA INTEGRITY VALIDATION                   ║
+╚════════════════════════════════════════════════════════════╝
+
+[90mstderr[2m | tests/integration/validate-migration.test.ts[2m > [22m[2mMigration Validation - AC-4: Integrity Report[2m > [22m[2mshould report 100% pass rate when all checks pass
+[22m[39m
+✗ Missing required environment variables:
+  - VITE_CONVEX_HTTP_URL
+  - VITE_SUPABASE_URL
+  - VITE_SUPABASE_ANON_KEY
+
+ [32m✓[39m tests/integration/validate-migration.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 79[2mms[22m[39m
+ [32m✓[39m tests/integration/conversations.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 76[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Suites 5 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m tests/components/ResearchProgress.test.tsx[2m [ tests/components/ResearchProgress.test.tsx ][22m
+[31m[1mError[22m: Cannot find package '@testing-library/react-native' imported from '/Users/justinrich/Projects/holocron/tests/components/ResearchProgress.test.tsx'[39m
+[36m [2m❯[22m tests/components/ResearchProgress.test.tsx:[2m1:1[22m[39m
+    [90m  1| [39m[35mimport[39m { render[33m,[39m screen } [35mfrom[39m [32m'@testing-library/react-native'[39m
+    [90m   | [39m[31m^[39m
+    [90m  2| [39m[35mimport[39m { describe[33m,[39m it[33m,[39m expect } [35mfrom[39m [32m'vitest'[39m
+    [90m  3| [39mimport { ResearchProgressWithConvex } from '@/components/ResearchProgr…
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/convex/US-052-chat.test.ts[2m > [22mUS-052: Chat Operations[2m > [22mAC-1: Send text message
+[41m[1m FAIL [22m[49m tests/convex/US-052-chat.test.ts[2m > [22mUS-052: Chat Operations[2m > [22mAC-2: List message history
+[41m[1m FAIL [22m[49m tests/convex/US-052-chat.test.ts[2m > [22mUS-052: Chat Operations[2m > [22mAC-3: Slash command routing
+[41m[1m FAIL [22m[49m tests/convex/US-052-chat.test.ts[2m > [22mUS-052: Chat Operations[2m > [22mAC-4: AI error handling
+[31m[1mPrettyFormatPluginError[22m: Cannot convert object to primitive value[39m
+[90m [2m❯[22m testName node_modules/@vitest/pretty-format/dist/index.js:[2m188:48[22m[39m
+[90m [2m❯[22m Object.test$4 [as test] node_modules/@vitest/pretty-format/dist/index.js:[2m190:77[22m[39m
+[90m [2m❯[22m findPlugin node_modules/@vitest/pretty-format/dist/index.js:[2m885:15[22m[39m
+[90m [2m❯[22m format node_modules/@vitest/pretty-format/dist/index.js:[2m1000:19[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯[22m[39m
+
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 4 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+
+[2m Test Files [22m [1m[31m2 failed[39m[22m[2m | [22m[1m[32m6 passed[39m[22m[90m (8)[39m
+[2m      Tests [22m [1m[31m4 failed[39m[22m[2m | [22m[1m[32m61 passed[39m[22m[90m (65)[39m
+[2m   Start at [22m 14:43:19
+[2m   Duration [22m 349ms[2m (transform 545ms, setup 0ms, import 441ms, tests 370ms, environment 1ms)[22m
+
+ ELIFECYCLE  Test failed. See above for more details.
+Exit code: 

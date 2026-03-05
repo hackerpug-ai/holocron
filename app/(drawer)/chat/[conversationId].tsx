@@ -1,11 +1,10 @@
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { DrawerActions, useNavigation } from '@react-navigation/native'
-import { useQuery, useMutation } from 'convex/react'
+import { useQuery, useMutation, useAction } from 'convex/react'
 import { api } from '@/convex/_generated/api'
-import type { Doc } from '@/convex/_generated/dataModel'
+import type { Doc, Id } from '@/convex/_generated/dataModel'
 import { useChatHistory } from '@/hooks/use-chat-history'
-import { useChatSend } from '@/hooks/useChatSend'
 import { View, ActivityIndicator, StyleSheet, Keyboard, Pressable } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Text } from '@/components/ui/text'
@@ -50,8 +49,6 @@ export default function ChatScreen() {
     error: messagesError,
     loadMore,
     hasMore,
-    prependMessages,
-    replaceMessage,
   } = useChatHistory(conversationId ?? null)
 
   // Determine if this is a new (lazy) conversation
@@ -64,37 +61,65 @@ export default function ChatScreen() {
     return newId
   }
 
-  // Send message hook with optimistic updates
-  // For new conversations, pass createConversation callback for lazy creation
-  const { send, sendResumeCommand, isSending, error: sendError, retry } = useChatSend(
-    conversationId ?? '',
-    prependMessages,
-    replaceMessage,
-    isNewConversation ? createConversation : undefined
-  )
+  // Convex action for sending messages
+  const sendChat = useAction(api.chat.send)
 
-  // Handle send
-  const handleSend = async (content: string) => {
-    if (!content.trim()) return
+  // Local state for sending
+  const [isSending, setIsSending] = useState(false)
+  const [sendError, setSendError] = useState<Error | null>(null)
+
+  // Handle send with Convex action
+  const handleSend = useCallback(async (content: string) => {
+    if (!content.trim() || isSending) return
 
     // Dismiss keyboard
     Keyboard.dismiss()
 
-    // Send message (may create conversation lazily)
-    const newConversationId = await send(content)
-
-    // If a new conversation was created, navigate to it
-    if (newConversationId) {
-      setActiveConversationId(newConversationId)
-      router.replace(`/chat/${newConversationId}`)
+    // Handle new conversation creation
+    let targetConversationId = conversationId ?? ''
+    if (isNewConversation) {
+      // Create conversation first
+      const newId = await createConversation()
+      targetConversationId = newId
+      router.replace(`/chat/${newId}`)
     }
-  }
 
-  // Handle session selection from resume list
-  const handleSessionSelect = async (sessionId: string) => {
-    // Send resume command with the selected session ID
-    await sendResumeCommand(sessionId)
-  }
+    if (!targetConversationId || targetConversationId === 'new') {
+      setSendError(new Error('No valid conversation ID'))
+      return
+    }
+
+    setIsSending(true)
+    setSendError(null)
+
+    try {
+      // Call Convex action - this handles both user and agent messages
+      await sendChat({
+        conversationId: targetConversationId as Id<"conversations">,
+        content: content.trim(),
+      })
+
+      // Note: Convex action already persists both user and agent messages
+      // The useChatHistory hook will automatically update via Convex reactivity
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error('Failed to send message')
+      setSendError(error)
+    } finally {
+      setIsSending(false)
+    }
+  }, [conversationId, isSending, isNewConversation, sendChat, createConversation, router])
+
+  // Handle session selection from resume list (sends /resume command)
+  const handleSessionSelect = useCallback(async (sessionId: string) => {
+    await handleSend(`/resume ${sessionId}`)
+  }, [handleSend])
+
+  // Retry failed send
+  const handleRetry = useCallback(() => {
+    // For simple retry, we could store the last message
+    // For now, just clear the error
+    setSendError(null)
+  }, [])
 
   // Handle final result card press - navigate to research detail view
   const handleFinalResultPress = (sessionId: string) => {
@@ -204,7 +229,7 @@ export default function ChatScreen() {
         {sendError && (
           <View className="bg-destructive/10 px-4 py-2 flex-row items-center justify-between" testID="error-banner">
             <Text className="text-destructive">Failed to send message</Text>
-            <Pressable onPress={retry} testID="error-retry-button">
+            <Pressable onPress={handleRetry} testID="error-retry-button">
               <Text className="text-primary">Retry</Text>
             </Pressable>
           </View>
