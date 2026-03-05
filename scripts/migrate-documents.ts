@@ -14,7 +14,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { ConvexHttpClient } from "convex/browser";
-import config from "../convex/config.json" assert { type: "json" };
+import api from "../convex/_generated/api";
 
 // Configuration
 const BATCH_SIZE = 50;
@@ -48,7 +48,7 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey, {
 });
 
 const convex = new ConvexHttpClient(convexUrl, {
-  headers: { Authorization: `Bearer ${convexToken}` },
+  auth: convexToken,
 });
 
 interface SupabaseDocument {
@@ -195,12 +195,12 @@ async function migrate() {
   // Step 4: Clear existing documents in Convex (optional, for clean migration)
   console.log("Step 4: Checking existing Convex documents...");
   try {
-    const existingCount = await convex.query("documents:count", {});
+    const existingCount = await convex.query(api.documents.count, {});
     console.log(`  Found ${existingCount} existing documents in Convex`);
 
     if (existingCount > 0) {
       console.log("  Clearing existing documents for clean migration...");
-      await convex.mutation("documents:clearAll", {});
+      await convex.mutation(api.documents.clearAll, {});
       console.log("  ✓ Cleared existing documents");
     }
   } catch (error) {
@@ -223,7 +223,7 @@ async function migrate() {
       try {
         const embedding = parseEmbedding(doc.embedding);
 
-        await convex.mutation("documents:insertFromMigration", {
+        await convex.mutation(api.documents.insertFromMigration, {
           title: doc.title,
           content: doc.content,
           category: doc.category,
@@ -260,7 +260,7 @@ async function migrate() {
   // Step 6: Verify migration
   console.log("Step 6: Verifying migration...");
   try {
-    const convexCount = await convex.query("documents:count", {});
+    const convexCount = await convex.query(api.documents.count, {});
     console.log(`  Convex document count: ${convexCount}`);
 
     if (convexCount === supabaseCount) {
@@ -270,7 +270,7 @@ async function migrate() {
     }
 
     // Validate embedding dimensions in Convex
-    const sample = await convex.query("documents:getSampleWithEmbedding", {});
+    const sample = await convex.query(api.documents.getSampleWithEmbedding, {});
     if (sample) {
       console.log(`  ✓ Sample embedding dimensions: ${sample.embeddingDimension}`);
       if (sample.embeddingDimension === EXPECTED_EMBEDDING_DIMENSIONS) {
@@ -283,7 +283,7 @@ async function migrate() {
     }
 
     // Show category breakdown
-    const categoryCounts = await convex.query("documents:countByCategory", {});
+    const categoryCounts = await convex.query(api.documents.countByCategory, {});
     console.log("\n  Documents by category:");
     for (const [category, count] of Object.entries(categoryCounts).sort(
       (a, b) => b[1] - a[1]

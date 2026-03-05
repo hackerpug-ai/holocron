@@ -1,4 +1,4 @@
-import { query } from "../_generated/server";
+import { query, action } from "../_generated/server";
 import { v } from "convex/values";
 
 /**
@@ -87,5 +87,58 @@ export const countByCategory = query({
     }
 
     return counts;
+  },
+});
+
+/**
+ * AC-1: Vector search using Convex vectorIndex
+ * Performs semantic similarity search using document embeddings
+ */
+export const vectorSearch = query({
+  args: {
+    embedding: v.array(v.float64()),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, { embedding, limit = 10 }) => {
+    // Use Convex's vector search with the by_embedding index
+    const results = await ctx.db
+      .query("documents")
+      .withSearchIndex("by_embedding", (q) =>
+        q("vector", embedding, { limit })
+      )
+      .take(limit);
+
+    return results.map((doc) => ({
+      _id: doc._id,
+      title: doc.title,
+      content: doc.content,
+      category: doc.category,
+    }));
+  },
+});
+
+/**
+ * AC-2: Full-text search using Convex searchIndex
+ * Performs keyword-based search using the by_category search index
+ */
+export const fullTextSearch = query({
+  args: {
+    query: v.string(),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, { query, limit = 10 }) => {
+    // Use Convex's full-text search with the by_category index
+    const results = await ctx.db
+      .query("documents")
+      .withSearchIndex("by_category", (q) =>
+        q.search("category", query).take(limit)
+      );
+
+    return results.map((doc) => ({
+      _id: doc._id,
+      title: doc.title,
+      content: doc.content,
+      category: doc.category,
+    }));
   },
 });

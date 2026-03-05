@@ -8,8 +8,16 @@
  * @module
  */
 
+import type * as chatMessages_mutations from "../chatMessages/mutations.js";
+import type * as chatMessages_queries from "../chatMessages/queries.js";
+import type * as conversations_mutations from "../conversations/mutations.js";
+import type * as conversations_queries from "../conversations/queries.js";
+import type * as documents_index from "../documents/index.js";
 import type * as documents_mutations from "../documents/mutations.js";
 import type * as documents_queries from "../documents/queries.js";
+import type * as documents_search from "../documents/search.js";
+import type * as tasks_mutations from "../tasks/mutations.js";
+import type * as tasks_queries from "../tasks/queries.js";
 
 import type {
   ApiFromModules,
@@ -18,8 +26,16 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  "chatMessages/mutations": typeof chatMessages_mutations;
+  "chatMessages/queries": typeof chatMessages_queries;
+  "conversations/mutations": typeof conversations_mutations;
+  "conversations/queries": typeof conversations_queries;
+  "documents/index": typeof documents_index;
   "documents/mutations": typeof documents_mutations;
   "documents/queries": typeof documents_queries;
+  "documents/search": typeof documents_search;
+  "tasks/mutations": typeof tasks_mutations;
+  "tasks/queries": typeof tasks_queries;
 }>;
 
 /**
