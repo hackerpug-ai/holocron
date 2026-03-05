@@ -134,10 +134,13 @@ export function useChatSend(
           throw new Error('Missing Supabase configuration')
         }
 
-        const requestBody: ChatSendRequest = {
-          conversation_id: targetConversationId,
-          content,
-          message_type: 'text',
+        const requestBody = {
+          action: 'chat:send',
+          payload: {
+            conversation_id: targetConversationId,
+            content,
+            message_type: 'text',
+          },
         }
 
         // Create abort controller for timeout (30 seconds)
@@ -145,7 +148,7 @@ export function useChatSend(
         const timeoutId = setTimeout(() => controller.abort(), 30000)
 
         const response = await fetch(
-          `${supabaseUrl}/functions/v1/chat-send`,
+          `${supabaseUrl}/functions/v1/chat-router`,
           {
             method: 'POST',
             headers: {

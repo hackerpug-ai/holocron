@@ -1,42 +1,49 @@
 /**
- * Deep Research Iterate Edge Function
+ * Deep Research Handlers
  *
- * Implements Ralph Loop pattern for multi-iteration research with streaming progress.
- * - POST: Runs a single iteration or starts the full iteration loop for a session
- * - OPTIONS: CORS preflight
+ * Consolidated handlers for deep research operations.
+ * Adapted from deep-research-start and deep-research-iterate Edge Functions.
  *
- * Ralph Loop: iterate → review → refine → repeat until coverage >= 4 or max iterations
+ * Implements Ralph Loop pattern: iterate → review → refine → repeat
  *
  * @see US-057 - Deep Research Iteration Streaming
  * @see brain/skills/ralph-loop/SKILL.md - Ralph Loop pattern
  * @see PRD 08-uc-deep-research.md - UC-DR-02
  */
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { corsHeaders } from '../_shared/cors.ts'
-import { log } from '../_shared/logging/index.ts'
+import { log } from '../../_shared/logging/logger-server.ts'
+import { corsHeaders } from '../../_shared/cors.ts'
 
 // ============================================================
 // Types
 // ============================================================
 
-interface IterateRequest {
+export interface StartRequest {
+  topic: string
+  max_iterations?: number
+  conversation_id: string
+}
+
+export interface StartResponse {
+  session_id: string
+  task_id: string
+  status: string
+  message: string
+}
+
+export interface IterateRequest {
   session_id: string
   conversation_id: string
   run_full_loop?: boolean
 }
 
-interface IterateResponse {
+export interface IterateResponse {
   iteration_id: string
   iteration_number: number
   coverage_score: number | null
   feedback: string | null
   status: string
   message_id?: string
-}
-
-interface ErrorResponse {
-  error: string
 }
 
 interface IterationCardData {
@@ -58,6 +65,10 @@ interface FinalResultCardData {
   findings_summary: string
 }
 
+interface ErrorResponse {
+  error: string
+}
+
 // ============================================================
 // Response Helper
 // ============================================================
@@ -70,7 +81,7 @@ function jsonResponse<T>(body: T, status = 200): Response {
 }
 
 // ============================================================
-// Types for Jina Search API
+// Jina Search Types & Functions
 // ============================================================
 
 interface JinaSearchResult {
@@ -82,49 +93,6 @@ interface JinaSearchResult {
 
 interface JinaSearchResponse {
   results: JinaSearchResult[]
-}
-
-// ============================================================
-// Ralph Loop: Search Iteration
-// ============================================================
-
-/**
- * Perform real web search using Jina Search API
- * Falls back to mock data if API key not configured
- */
-async function searchIteration(
-  topic: string,
-  queries: string[],
-  iterationNumber: number
-): Promise<{ findings: string; refinedQueries: string[] }> {
-  const jinaApiKey = Deno.env.get('JINA_API_KEY')
-
-  // Fall back to mock if no API key
-  if (!jinaApiKey) {
-    log('deep-research-iterate').warn('JINA_API_KEY not set, using mock results')
-    return mockSearchIteration(topic, queries, iterationNumber)
-  }
-
-  try {
-    // Search all queries in parallel
-    const searchPromises = queries.map(query =>
-      performJinaSearch(jinaApiKey, query)
-    )
-    const results = await Promise.all(searchPromises)
-
-    // Aggregate findings from all searches
-    const findings = aggregateFindings(topic, iterationNumber, results)
-
-    // Generate refined queries based on coverage
-    const refinedQueries = iterationNumber < 4
-      ? generateRefinedQueries(topic, findings)
-      : []
-
-    return { findings, refinedQueries }
-  } catch (error) {
-    log('deep-research-iterate').error('Search API failed, using mock', { error })
-    return mockSearchIteration(topic, queries, iterationNumber)
-  }
 }
 
 /**
@@ -141,7 +109,7 @@ async function performJinaSearch(
   }
   const body = JSON.stringify({
     q: query,
-    num: 10, // Number of results
+    num: 10,
   })
 
   const response = await fetch(url, {
@@ -189,7 +157,6 @@ function aggregateFindings(
  * Generate refined queries based on current findings
  */
 function generateRefinedQueries(topic: string, findings: string): string[] {
-  // Extract key themes and generate follow-up queries
   return [
     `${topic} advanced concepts`,
     `${topic} practical applications`,
@@ -224,6 +191,45 @@ function mockSearchIteration(
   }
 }
 
+/**
+ * Perform real web search using Jina Search API
+ * Falls back to mock data if API key not configured
+ */
+async function searchIteration(
+  topic: string,
+  queries: string[],
+  iterationNumber: number
+): Promise<{ findings: string; refinedQueries: string[] }> {
+  const jinaApiKey = Deno.env.get('JINA_API_KEY')
+
+  // Fall back to mock if no API key
+  if (!jinaApiKey) {
+    log('deep-research-iterate').warn('JINA_API_KEY not set, using mock results')
+    return mockSearchIteration(topic, queries, iterationNumber)
+  }
+
+  try {
+    // Search all queries in parallel
+    const searchPromises = queries.map(query =>
+      performJinaSearch(jinaApiKey, query)
+    )
+    const results = await Promise.all(searchPromises)
+
+    // Aggregate findings from all searches
+    const findings = aggregateFindings(topic, iterationNumber, results)
+
+    // Generate refined queries based on coverage
+    const refinedQueries = iterationNumber < 4
+      ? generateRefinedQueries(topic, findings)
+      : []
+
+    return { findings, refinedQueries }
+  } catch (error) {
+    log('deep-research-iterate').error('Search API failed, using mock', { error })
+    return mockSearchIteration(topic, queries, iterationNumber)
+  }
+}
+
 // ============================================================
 // Ralph Loop: Review Findings
 // ============================================================
@@ -237,9 +243,8 @@ async function reviewFindings(
   iterationNumber: number
 ): Promise<{ coverageScore: number; feedback: string; refinedQueries: string[] }> {
   // Mock implementation - simulate coverage improving over iterations
-  // Coverage starts low and improves until reaching 4+
   const baseCoverage = Math.min(1 + iterationNumber * 0.8, 5)
-  const coverageScore = Math.round(baseCoverage * 10) / 10 // Round to 1 decimal
+  const coverageScore = Math.round(baseCoverage * 10) / 10
 
   const feedback = coverageScore >= 4
     ? 'Coverage complete. All key aspects of the topic have been thoroughly researched.'
@@ -263,14 +268,136 @@ async function reviewFindings(
 }
 
 // ============================================================
-// Ralph Loop: Save Iteration
+// Database Operations
 // ============================================================
 
 /**
- * Save iteration results to database with proper error handling
+ * Create a new deep research session in the database
+ */
+async function createResearchSession(
+  supabase: any,
+  conversationId: string,
+  topic: string,
+  maxIterations: number
+): Promise<{ data: { id: string } | null; error: { message: string } | null }> {
+  try {
+    // @ts-ignore - Supabase type inference issue
+    const { data, error } = await supabase
+      .from('research_sessions')
+      .insert({
+        conversation_id: conversationId,
+        query: topic,
+        input_type: 'topic_research',
+        max_iterations: maxIterations,
+        status: 'pending',
+        current_iteration: 0,
+        plan_json: {},
+        findings_json: [],
+      })
+      .select('id')
+      .single()
+
+    if (error) {
+      log('deep-research-start').error('Failed to create research session', { error })
+      return { data: null, error: { message: error.message } }
+    }
+
+    return { data, error: null }
+  } catch (err) {
+    log('deep-research-start').error('Exception creating research session', { error: err })
+    return { data: null, error: { message: String(err) } }
+  }
+}
+
+/**
+ * Update task status in long_running_tasks table
+ */
+async function updateTaskStatus(
+  supabase: any,
+  taskId: string,
+  status: 'loading' | 'running',
+  currentStep: number,
+  totalSteps: number,
+  progressMessage: string
+): Promise<void> {
+  try {
+    // @ts-ignore - Supabase type inference issue
+    const { error } = await supabase
+      .from('long_running_tasks')
+      .update({
+        status,
+        current_step: currentStep,
+        total_steps: totalSteps,
+        progress_message: progressMessage,
+        started_at: status === 'running' ? new Date().toISOString() : undefined,
+      })
+      .eq('id', taskId)
+
+    if (error) {
+      log('deep-research-start').warn('Failed to update task status', { error, taskId })
+    }
+  } catch (err) {
+    log('deep-research-start').warn('Exception updating task status', { error: err, taskId })
+  }
+}
+
+/**
+ * Update task config in long_running_tasks table
+ */
+async function updateTaskConfig(
+  supabase: any,
+  taskId: string,
+  config: Record<string, unknown>
+): Promise<void> {
+  try {
+    // @ts-ignore - Supabase type inference issue
+    const { error } = await supabase
+      .from('long_running_tasks')
+      .update({ config })
+      .eq('id', taskId)
+
+    if (error) {
+      log('deep-research-start').warn('Failed to update task config', { error, taskId })
+    }
+  } catch (err) {
+    log('deep-research-start').warn('Exception updating task config', { error: err, taskId })
+  }
+}
+
+/**
+ * Mark task as failed with error details
+ */
+async function failTask(
+  supabase: any,
+  taskId: string,
+  errorMessage: string,
+  errorDetails: { message?: string } | null
+): Promise<void> {
+  try {
+    // @ts-ignore - Supabase type inference issue
+    const { error } = await supabase
+      .from('long_running_tasks')
+      .update({
+        status: 'error',
+        error_message: errorMessage,
+        error_details: errorDetails,
+        completed_at: new Date().toISOString(),
+      })
+      .eq('id', taskId)
+
+    if (error) {
+      log('deep-research-start').error('Failed to mark task as failed', { error, taskId })
+    }
+  } catch (err) {
+    log('deep-research-start').error('Exception marking task as failed', { error: err, taskId })
+  }
+}
+
+/**
+ * Save iteration results to database
  */
 async function saveIteration(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   sessionId: string,
   iterationNumber: number,
   coverageScore: number | null,
@@ -280,7 +407,7 @@ async function saveIteration(
 ): Promise<{ iterationId: string | null; error: string | null }> {
   try {
     // @ts-ignore - Supabase type inference issue
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from('research_iterations')
       .insert({
         session_id: sessionId,
@@ -299,7 +426,6 @@ async function saveIteration(
       return { iterationId: null, error: error.message }
     }
 
-    // @ts-ignore - Supabase type inference issue
     return { iterationId: data?.id || null, error: null }
   } catch (err) {
     log('deep-research-iterate').error('Exception saving iteration', { error: err, sessionId })
@@ -307,15 +433,11 @@ async function saveIteration(
   }
 }
 
-// ============================================================
-// Ralph Loop: Stream Iteration Card
-// ============================================================
-
 /**
  * Post an iteration card message to the chat
  */
 async function streamIterationCard(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   conversationId: string,
   sessionId: string,
   iterationNumber: number,
@@ -340,7 +462,7 @@ async function streamIterationCard(
     }
 
     // @ts-ignore - Supabase type inference issue
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from('chat_messages')
       .insert({
         conversation_id: conversationId,
@@ -358,7 +480,6 @@ async function streamIterationCard(
       return { messageId: null, error: error.message }
     }
 
-    // @ts-ignore - Supabase type inference issue
     return { messageId: data?.id || null, error: null }
   } catch (err) {
     log('deep-research-iterate').error('Exception streaming iteration card', { error: err, conversationId, sessionId })
@@ -366,15 +487,11 @@ async function streamIterationCard(
   }
 }
 
-// ============================================================
-// Ralph Loop: Post Final Result Card
-// ============================================================
-
 /**
  * Post the final result card when research completes
  */
 async function postFinalResultCard(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   conversationId: string,
   sessionId: string,
   topic: string,
@@ -393,7 +510,7 @@ async function postFinalResultCard(
     }
 
     // @ts-ignore - Supabase type inference issue
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from('chat_messages')
       .insert({
         conversation_id: conversationId,
@@ -411,7 +528,6 @@ async function postFinalResultCard(
       return { messageId: null, error: error.message }
     }
 
-    // @ts-ignore - Supabase type inference issue
     return { messageId: data?.id || null, error: null }
   } catch (err) {
     log('deep-research-iterate').error('Exception posting final result card', { error: err, conversationId, sessionId })
@@ -419,21 +535,17 @@ async function postFinalResultCard(
   }
 }
 
-// ============================================================
-// Ralph Loop: Complete Session
-// ============================================================
-
 /**
  * Mark session as completed or cancelled
  */
 async function completeSession(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   sessionId: string,
   status: 'completed' | 'cancelled'
 ): Promise<{ error: string | null }> {
   try {
     // @ts-ignore - Supabase type inference issue
-    const { error } = await (supabase as any)
+    const { error } = await supabase
       .from('research_sessions')
       .update({ status })
       .eq('id', sessionId)
@@ -450,20 +562,16 @@ async function completeSession(
   }
 }
 
-// ============================================================
-// Ralph Loop: Check if Session is Cancelled
-// ============================================================
-
 /**
  * Check if the session has been cancelled by user
  */
 async function isSessionCancelled(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   sessionId: string
 ): Promise<boolean> {
   try {
     // @ts-ignore - Supabase type inference issue
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from('research_sessions')
       .select('status')
       .eq('id', sessionId)
@@ -471,10 +579,9 @@ async function isSessionCancelled(
 
     if (error || !data) {
       log('deep-research-iterate').error('Failed to check session status', { error, sessionId })
-      return false // Assume not cancelled on error
+      return false
     }
 
-    // @ts-ignore - Supabase type inference issue
     return data.status === 'cancelled'
   } catch (err) {
     log('deep-research-iterate').error('Exception checking session status', { error: err, sessionId })
@@ -482,20 +589,16 @@ async function isSessionCancelled(
   }
 }
 
-// ============================================================
-// Ralph Loop: Get Next Iteration Number
-// ============================================================
-
 /**
  * Get the next iteration number for a session
  */
 async function getNextIterationNumber(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   sessionId: string
 ): Promise<{ iterationNumber: number | null; error: string | null }> {
   try {
     // @ts-ignore - Supabase type inference issue
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from('research_iterations')
       .select('iteration_number')
       .eq('session_id', sessionId)
@@ -512,7 +615,6 @@ async function getNextIterationNumber(
       return { iterationNumber: null, error: error.message }
     }
 
-    // @ts-ignore - Supabase type inference issue
     const nextIteration = (data?.iteration_number || 0) + 1
     return { iterationNumber: nextIteration, error: null }
   } catch (err) {
@@ -522,15 +624,14 @@ async function getNextIterationNumber(
 }
 
 // ============================================================
-// Ralph Loop: Run Single Iteration
+// Ralph Loop: Single Iteration
 // ============================================================
 
 /**
  * Run a single research iteration following Ralph Loop pattern
- * Returns the iteration results or error
  */
 async function runSingleIteration(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   sessionId: string,
   conversationId: string,
   topic: string,
@@ -549,7 +650,7 @@ async function runSingleIteration(
       return { result: null, error: 'Max iterations reached' }
     }
 
-    // Start with initial queries or refined queries from previous iteration
+    // Start with initial queries
     const initialQueries = [topic, `${topic} overview`, `${topic} introduction`]
 
     // Ralph Loop Step 1: Search
@@ -558,7 +659,7 @@ async function runSingleIteration(
     // Ralph Loop Step 2: Review
     const reviewResults = await reviewFindings(searchResults.findings, iterationNumber)
 
-    // Ralph Loop Step 3: Save iteration to database BEFORE streaming
+    // Ralph Loop Step 3: Save iteration to database
     const { iterationId, error: saveError } = await saveIteration(
       supabase,
       sessionId,
@@ -586,7 +687,7 @@ async function runSingleIteration(
     )
 
     if (streamError) {
-      log('deep-research-iterate').warn('Failed to stream iteration card (continuing anyway)', { error: streamError, sessionId, iterationNumber })
+      log('deep-research-iterate').warn('Failed to stream iteration card', { error: streamError, sessionId, iterationNumber })
     }
 
     return {
@@ -607,15 +708,14 @@ async function runSingleIteration(
 }
 
 // ============================================================
-// Ralph Loop: Run Full Loop
+// Ralph Loop: Full Loop
 // ============================================================
 
 /**
  * Run the full Ralph Loop until coverage >= 4, max iterations, or cancelled
- * This is the main iteration loop for deep research sessions
  */
 async function runFullRalphLoop(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   sessionId: string,
   conversationId: string,
   topic: string,
@@ -690,46 +790,197 @@ async function runFullRalphLoop(
 }
 
 // ============================================================
-// Main Handler
+// Handler: Start Deep Research
 // ============================================================
 
-Deno.serve(async (req: Request) => {
-  // Handle CORS preflight
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers: corsHeaders })
-  }
-
-  // Only accept POST
-  if (req.method !== 'POST') {
-    return jsonResponse<ErrorResponse>({ error: 'Method not allowed' }, 405)
-  }
-
-  // Get environment variables
-  const supabaseUrl = Deno.env.get('SUPABASE_URL')
-  const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-
-  if (!supabaseUrl || !supabaseServiceRoleKey) {
-    return jsonResponse<ErrorResponse>({ error: 'Server configuration error' }, 500)
-  }
-
-  const supabase = createClient(supabaseUrl, supabaseServiceRoleKey)
-
-  // Parse request body outside try block for catch block access
-  let body: IterateRequest | undefined
+export async function handleDeepResearchStart(
+  payload: unknown,
+  supabase: any
+): Promise<Response> {
+  const logger = log('deep-research-start-handler')
+  const body = payload as StartRequest
 
   try {
-    // Parse request body
-    try {
-      body = await req.json()
-    } catch {
-      return jsonResponse<ErrorResponse>({ error: 'Invalid JSON body' }, 400)
+    // Validate required fields
+    if (!body.topic) {
+      return jsonResponse<ErrorResponse>({ error: 'topic is required' }, 400)
+    }
+    if (!body.conversation_id) {
+      return jsonResponse<ErrorResponse>({ error: 'conversation_id is required' }, 400)
     }
 
-    // Validate body was parsed
-    if (!body) {
-      return jsonResponse<ErrorResponse>({ error: 'Invalid request body' }, 400)
+    // Validate max_iterations
+    const maxIterations = body.max_iterations ?? 5
+    if (maxIterations < 1 || maxIterations > 20) {
+      return jsonResponse<ErrorResponse>(
+        { error: 'max_iterations must be between 1 and 20' },
+        400
+      )
     }
 
+    // Check conversation exists
+    // @ts-ignore - Supabase type inference issue
+    const { data: conversation, error: convError } = await supabase
+      .from('conversations')
+      .select('id')
+      .eq('id', body.conversation_id)
+      .single()
+
+    if (convError || !conversation) {
+      return jsonResponse<ErrorResponse>({ error: 'Conversation not found' }, 404)
+    }
+
+    // Check if we can start a new task (concurrency control)
+    // @ts-ignore - Supabase RPC type inference
+    const { data: canStart, error: checkError } = await supabase.rpc('can_start_task', {
+      p_conversation_id: body.conversation_id,
+      p_task_type: 'deep-research',
+    })
+
+    if (checkError) {
+      logger.error('Failed to check can_start_task', { error: checkError })
+      return jsonResponse<ErrorResponse>({ error: 'Failed to check task availability' }, 500)
+    }
+
+    if (!canStart) {
+      logger.info('Concurrency limit reached', { conversation_id: body.conversation_id })
+      return jsonResponse<ErrorResponse>(
+        {
+          error: 'Another deep-research task is already running for this conversation. Please wait for it to complete or cancel it first.',
+        },
+        429
+      )
+    }
+
+    // Create long-running task
+    const config = {
+      topic: body.topic,
+      max_iterations: maxIterations,
+    }
+    // @ts-ignore - Supabase RPC type inference
+    const { data: taskId, error: createError } = await supabase.rpc('create_long_running_task', {
+      p_conversation_id: body.conversation_id,
+      p_task_type: 'deep-research',
+      p_config: config,
+    })
+
+    if (createError || !taskId) {
+      logger.error('Failed to create long-running task', { error: createError })
+      return jsonResponse<ErrorResponse>({ error: 'Failed to create task' }, 500)
+    }
+
+    logger.info('Task created', { taskId, conversation_id: body.conversation_id })
+
+    // Update task status to loading
+    await updateTaskStatus(supabase, taskId, 'loading', 0, maxIterations, 'Initializing research session...')
+
+    // Create deep research session
+    const { data: session, error: sessionError } = await createResearchSession(
+      supabase,
+      body.conversation_id,
+      body.topic,
+      maxIterations
+    )
+
+    if (sessionError || !session) {
+      await failTask(supabase, taskId, 'Failed to create research session', sessionError)
+      return jsonResponse<ErrorResponse>({ error: 'Failed to create research session' }, 500)
+    }
+
+    const sessionId = session.id
+
+    // Update task with session_id in config
+    await updateTaskConfig(supabase, taskId, { ...config, session_id: sessionId })
+
+    // Update task status to running
+    await updateTaskStatus(supabase, taskId, 'running', 1, maxIterations, 'Research session created')
+
+    // Start the iteration loop directly (no HTTP fetch)
+    // Instead of calling deep-research-iterate via HTTP, we call the function directly
+    await triggerIterationLoop(supabase, sessionId, body.conversation_id, body.topic, maxIterations, taskId)
+
+    // Return immediately (research runs in background)
+    return jsonResponse<StartResponse>({
+      session_id: sessionId,
+      task_id: taskId,
+      status: 'running',
+      message: `Deep research session started for topic: "${body.topic}"`,
+    })
+  } catch (error) {
+    logger.error('Request failed', { error, topic: body.topic })
+    return jsonResponse<ErrorResponse>({ error: 'Internal server error' }, 500)
+  }
+}
+
+/**
+ * Trigger the iteration loop directly (replaces HTTP fetch to deep-research-iterate)
+ */
+async function triggerIterationLoop(
+  supabase: any,
+  sessionId: string,
+  conversationId: string,
+  topic: string,
+  maxIterations: number,
+  taskId: string
+): Promise<void> {
+  const logger = log('deep-research-start-handler')
+
+  try {
+    // Update session status to running
+    // @ts-ignore - Supabase type inference issue
+    const { error: updateError } = await supabase
+      .from('research_sessions')
+      .update({ status: 'running' })
+      .eq('id', sessionId)
+
+    if (updateError) {
+      logger.warn('Failed to update session status to running', { error: updateError, sessionId })
+    }
+
+    // Run the full Ralph Loop
+    const result = await runFullRalphLoop(
+      supabase,
+      sessionId,
+      conversationId,
+      topic,
+      maxIterations
+    )
+
+    if (result.error) {
+      logger.error('Ralph Loop failed', { error: result.error, sessionId })
+      await failTask(supabase, taskId, 'Ralph Loop failed', { message: result.error })
+      return
+    }
+
+    // Complete the task
+    // @ts-ignore - Supabase RPC type inference
+    await supabase.rpc('complete_task', {
+      p_task_id: taskId,
+      p_result: {
+        totalIterations: result.totalIterations,
+        finalCoverageScore: result.finalCoverageScore,
+      },
+    })
+
+    logger.info('Task completed successfully', { taskId, sessionId })
+  } catch (err) {
+    logger.error('Exception in triggerIterationLoop', { error: err, sessionId, taskId })
+    await failTask(supabase, taskId, 'Iteration loop failed', { message: String(err) })
+  }
+}
+
+// ============================================================
+// Handler: Iterate Deep Research
+// ============================================================
+
+export async function handleDeepResearchIterate(
+  payload: unknown,
+  supabase: any
+): Promise<Response> {
+  const logger = log('deep-research-iterate-handler')
+  const body = payload as IterateRequest
+
+  try {
     // Validate required fields
     if (!body.session_id) {
       return jsonResponse<ErrorResponse>({ error: 'session_id is required' }, 400)
@@ -740,7 +991,7 @@ Deno.serve(async (req: Request) => {
 
     // Fetch session details
     // @ts-ignore - Supabase type inference issue
-    const { data: session, error: sessionError } = await (supabase as any)
+    const { data: session, error: sessionError } = await supabase
       .from('research_sessions')
       .select('id, query, max_iterations, status')
       .eq('id', body.session_id)
@@ -766,21 +1017,20 @@ Deno.serve(async (req: Request) => {
 
     // Update session status to running
     // @ts-ignore - Supabase type inference issue
-    const { error: updateError } = await (supabase as any)
+    const { error: updateError } = await supabase
       .from('research_sessions')
       .update({ status: 'running' as const })
       .eq('id', body.session_id)
 
     if (updateError) {
-      log('deep-research-iterate').warn('Failed to update session status', { error: updateError, sessionId: body.session_id })
-      // Continue anyway
+      logger.warn('Failed to update session status', { error: updateError, sessionId: body.session_id })
     }
 
     // Run single iteration or full loop based on request
     if (body.run_full_loop) {
       // Run full Ralph Loop
       const result = await runFullRalphLoop(
-        supabase as any,
+        supabase,
         body.session_id,
         body.conversation_id,
         topic,
@@ -800,7 +1050,7 @@ Deno.serve(async (req: Request) => {
     } else {
       // Run single iteration
       const { result, error } = await runSingleIteration(
-        supabase as any,
+        supabase,
         body.session_id,
         body.conversation_id,
         topic,
@@ -813,9 +1063,8 @@ Deno.serve(async (req: Request) => {
 
       return jsonResponse<IterateResponse>(result)
     }
-
   } catch (err) {
-    log('deep-research-iterate').error('Request failed', { error: err, sessionId: body?.session_id })
+    logger.error('Request failed', { error: err, sessionId: body.session_id })
     return jsonResponse<ErrorResponse>({ error: 'Internal server error' }, 500)
   }
-})
+}

@@ -1,17 +1,14 @@
 /**
- * Chat Send Edge Function
+ * Chat Send Handler
  *
  * Handles sending user messages and generating agent responses.
- * - POST: Accepts user message, persists it, generates agent response, returns both
- * - OPTIONS: CORS preflight
+ * Internal handler function (not an Edge Function endpoint).
  *
- * @see US-011 - Build chat-send Edge Function with basic agent response routing
- * @see PRD SS11 - API Design > POST /chat-send
+ * Adapted from supabase/functions/chat-send/index.ts
  */
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { log } from '../_shared/logging/logger-server.ts'
-import { corsHeaders } from '../_shared/cors.ts'
+import { log } from '../../_shared/logging/logger-server.ts'
+import { corsHeaders } from '../../_shared/cors.ts'
 import {
   parseSlashCommand,
   isKnownCommand,
@@ -24,7 +21,7 @@ import {
   type DocumentCategory,
   type StatsCardData,
   type DeepResearchConfirmationCardData,
-} from './slash-commands.ts'
+} from './commands/slash-commands.ts'
 
 // ============================================================
 // Types
@@ -33,7 +30,7 @@ import {
 type MessageRole = 'user' | 'agent' | 'system'
 type MessageType = 'text' | 'slash_command' | 'result_card' | 'progress' | 'error'
 
-interface ChatSendRequest {
+export interface ChatSendRequest {
   conversation_id: string
   content: string
   message_type: 'text' | 'slash_command'
@@ -77,7 +74,16 @@ interface CategoryNotFoundCard {
   valid_categories: string[]
 }
 
-type CardData = CategoryListCard | BrowseArticleCard | SearchArticleCard | CategoryNotFoundCard | BrowseArticleCard[] | SearchArticleCard[] | NoResultsCard | StatsCardData | DeepResearchConfirmationCardData
+type CardData =
+  | CategoryListCard
+  | BrowseArticleCard
+  | SearchArticleCard
+  | CategoryNotFoundCard
+  | BrowseArticleCard[]
+  | SearchArticleCard[]
+  | NoResultsCard
+  | StatsCardData
+  | DeepResearchConfirmationCardData
 
 interface AgentMessage {
   id: string
@@ -99,13 +105,9 @@ interface ChatMessage {
   created_at: string
 }
 
-interface ChatSendResponse {
+export interface ChatSendResponse {
   user_message_id: string
   agent_messages: AgentMessage[]
-}
-
-interface ErrorResponse {
-  error: string
 }
 
 // ============================================================
@@ -123,10 +125,7 @@ function jsonResponse<T>(body: T, status = 200): Response {
 // Search Command Handler
 // ============================================================
 
-async function handleSearchCommand(
-  query: string,
-  supabase: any
-): Promise<AgentResponse> {
+async function handleSearchCommand(query: string, supabase: any): Promise<AgentResponse> {
   const logger = log('chat-send-search')
   logger.info('handleSearchCommand called', { query })
 
@@ -167,7 +166,9 @@ async function handleSearchCommand(
     card_type: 'article',
     title: doc.title,
     category: doc.category,
-    snippet: doc.content ? doc.content.substring(0, 150) + (doc.content.length > 150 ? '...' : '') : '',
+    snippet: doc.content
+      ? doc.content.substring(0, 150) + (doc.content.length > 150 ? '...' : '')
+      : '',
     document_id: doc.id,
     metadata: {
       relevance_score: doc.similarity || doc.rank,
@@ -237,7 +238,11 @@ async function generateAgentResponse(
 
     // Handle /deep-research command
     if (parsed.command === 'deep-research') {
-      const deepResearchResponse = await handleDeepResearchCommand(parsed.args, supabase, conversationId)
+      const deepResearchResponse = await handleDeepResearchCommand(
+        parsed.args,
+        supabase,
+        conversationId
+      )
 
       return {
         content: deepResearchResponse.content,
@@ -367,7 +372,8 @@ async function generateAgentResponse(
   }
   if (userContent.toLowerCase().includes('help')) {
     return {
-      content: 'I can help you search your knowledge base, conduct research, and manage articles. Try asking me a question!',
+      content:
+        'I can help you search your knowledge base, conduct research, and manage articles. Try asking me a question!',
       message_type: 'text',
     }
   }
@@ -378,46 +384,22 @@ async function generateAgentResponse(
 }
 
 // ============================================================
-// Main Handler
+// Main Handler Function
 // ============================================================
 
-Deno.serve(async (req: Request) => {
-  // Handle CORS preflight
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers: corsHeaders })
-  }
+export async function handleChatSend(payload: unknown, supabase: any): Promise<Response> {
+  const logger = log('chat-send-handler')
 
-  // Only accept POST
-  if (req.method !== 'POST') {
-    return jsonResponse<ErrorResponse>({ error: 'Method not allowed' }, 405)
-  }
-
-  // Get environment variables
-  const supabaseUrl = Deno.env.get('SUPABASE_URL')
-  const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-
-  if (!supabaseUrl || !supabaseServiceRoleKey) {
-    return jsonResponse<ErrorResponse>({ error: 'Server configuration error' }, 500)
-  }
-
-  const supabase = createClient(supabaseUrl, supabaseServiceRoleKey)
-
-  // Parse request body
-  let body: ChatSendRequest
-  try {
-    body = await req.json()
-  } catch {
-    return jsonResponse<ErrorResponse>({ error: 'Invalid JSON body' }, 400)
-  }
+  // Validate and parse payload
+  const body = payload as ChatSendRequest
 
   try {
-
     // Validate required fields
     if (!body.conversation_id) {
-      return jsonResponse<ErrorResponse>({ error: 'conversation_id is required' }, 400)
+      return jsonResponse({ error: 'conversation_id is required' }, 400)
     }
     if (!body.content || body.content.trim() === '') {
-      return jsonResponse<ErrorResponse>({ error: 'Message content cannot be empty' }, 400)
+      return jsonResponse({ error: 'Message content cannot be empty' }, 400)
     }
 
     // Check conversation exists
@@ -428,12 +410,12 @@ Deno.serve(async (req: Request) => {
       .single()
 
     if (convError || !conversation) {
-      return jsonResponse<ErrorResponse>({ error: 'Conversation not found' }, 404)
+      return jsonResponse({ error: 'Conversation not found' }, 404)
     }
 
     // Parse message to detect slash commands
     const parsed = parseSlashCommand(body.content)
-    const messageType = parsed.isCommand ? 'slash_command' : (body.message_type || 'text')
+    const messageType = parsed.isCommand ? 'slash_command' : body.message_type || 'text'
 
     // Insert user message
     const { data: userMessage, error: userError } = await supabase
@@ -448,20 +430,19 @@ Deno.serve(async (req: Request) => {
       .single()
 
     if (userError) {
-      log('chat-send').error('Failed to insert user message', userError, {
+      logger.error('Failed to insert user message', userError, {
         conversationId: body.conversation_id,
       })
       throw userError
     }
 
     if (!userMessage) {
-      return jsonResponse<ErrorResponse>({ error: 'Failed to create user message' }, 500)
+      return jsonResponse({ error: 'Failed to create user message' }, 500)
     }
 
     // Update conversation metadata
-    const preview = body.content.length > 100
-      ? body.content.slice(0, 97) + '...'
-      : body.content
+    const preview =
+      body.content.length > 100 ? body.content.slice(0, 97) + '...' : body.content
 
     const { error: updateError } = await supabase
       .from('conversations')
@@ -472,7 +453,7 @@ Deno.serve(async (req: Request) => {
       .eq('id', body.conversation_id)
 
     if (updateError) {
-      log('chat-send').warn('Failed to update conversation metadata', {
+      logger.warn('Failed to update conversation metadata', {
         error: updateError,
         conversationId: body.conversation_id,
       })
@@ -480,7 +461,11 @@ Deno.serve(async (req: Request) => {
     }
 
     // Generate agent response
-    const agentResponse = await generateAgentResponse(body.content, supabase, body.conversation_id)
+    const agentResponse = await generateAgentResponse(
+      body.content,
+      supabase,
+      body.conversation_id
+    )
 
     const { data: agentMessage, error: agentError } = await supabase
       .from('chat_messages')
@@ -495,34 +480,39 @@ Deno.serve(async (req: Request) => {
       .single()
 
     if (agentError) {
-      log('chat-send').error('Failed to insert agent message', agentError, {
+      logger.error('Failed to insert agent message', agentError, {
         conversationId: body.conversation_id,
       })
       throw agentError
     }
 
     if (!agentMessage) {
-      return jsonResponse<ErrorResponse>({ error: 'Failed to create agent message' }, 500)
+      return jsonResponse({ error: 'Failed to create agent message' }, 500)
     }
 
     const typedAgentMessage = agentMessage as ChatMessage
 
     return jsonResponse<ChatSendResponse>({
       user_message_id: userMessage.id,
-      agent_messages: [{
-        id: typedAgentMessage.id,
-        role: 'agent',
-        content: typedAgentMessage.content,
-        message_type: typedAgentMessage.message_type as 'text' | 'result_card' | 'progress' | 'error',
-        card_data: (typedAgentMessage.card_data as CardData) || undefined,
-      }],
+      agent_messages: [
+        {
+          id: typedAgentMessage.id,
+          role: 'agent',
+          content: typedAgentMessage.content,
+          message_type: typedAgentMessage.message_type as
+            | 'text'
+            | 'result_card'
+            | 'progress'
+            | 'error',
+          card_data: (typedAgentMessage.card_data as CardData) || undefined,
+        },
+      ],
     })
-
   } catch (error) {
-    log('chat-send').error('Request failed', error, {
+    logger.error('Request failed', error, {
       conversationId: body.conversation_id,
       messageType: body.message_type,
     })
-    return jsonResponse<ErrorResponse>({ error: 'Internal server error' }, 500)
+    return jsonResponse({ error: 'Internal server error' }, 500)
   }
-})
+}
