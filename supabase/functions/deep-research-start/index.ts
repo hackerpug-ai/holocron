@@ -177,21 +177,61 @@ class DeepResearchExecutor implements TaskExecutor<StartRequest, StartResponse> 
   ): Promise<void> {
     const logger = log('deep-research-executor')
 
-    // In production, this would call the deep-research-iterate Edge Function
-    // For now, we'll update the session status to running and rely on
-    // the client to call deep-research-iterate
+    // Update session status to running
     try {
       // @ts-ignore - Supabase type inference issue
-      const { error } = await (this.supabase as any)
+      const { error: updateError } = await (this.supabase as any)
         .from('deep_research_sessions')
         .update({ status: 'running' })
         .eq('id', sessionId)
 
-      if (error) {
-        logger.warn('Failed to update session status to running', { error, sessionId })
+      if (updateError) {
+        logger.warn('Failed to update session status to running', { error: updateError, sessionId })
       }
     } catch (err) {
       logger.warn('Exception updating session status', { error: err, sessionId })
+    }
+
+    // Call deep-research-iterate function to start the research
+    try {
+      const functionUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/deep-research-iterate`
+      const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+
+      if (!functionUrl || !supabaseKey) {
+        logger.error('Missing environment variables for function call', {
+          hasUrl: !!functionUrl,
+          hasKey: !!supabaseKey,
+        })
+        return
+      }
+
+      logger.info('Calling deep-research-iterate function', { sessionId, conversationId })
+
+      const response = await fetch(functionUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseKey}`,
+        },
+        body: JSON.stringify({
+          session_id: sessionId,
+          conversation_id: conversationId,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        logger.warn('deep-research-iterate returned non-OK status', {
+          status: response.status,
+          error: errorText,
+          sessionId,
+        })
+      } else {
+        logger.info('deep-research-iterate called successfully', { sessionId })
+      }
+    } catch (err) {
+      logger.warn('Failed to call deep-research-iterate', { error: err, sessionId })
+      // Don't fail the task - the iterate function will be called by the client or by retry logic
     }
   }
 
