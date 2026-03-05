@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as chat_send from "../chat/send.js";
 import type * as chatMessages_index from "../chatMessages/index.js";
 import type * as chatMessages_mutations from "../chatMessages/mutations.js";
 import type * as chatMessages_queries from "../chatMessages/queries.js";
@@ -21,7 +22,10 @@ import type * as documents_index from "../documents/index.js";
 import type * as documents_mutations from "../documents/mutations.js";
 import type * as documents_queries from "../documents/queries.js";
 import type * as documents_search from "../documents/search.js";
+import type * as research_actions from "../research/actions.js";
 import type * as research_agents from "../research/agents.js";
+import type * as research_index from "../research/index.js";
+import type * as research_mutations from "../research/mutations.js";
 import type * as research_tools from "../research/tools.js";
 import type * as research_workflow from "../research/workflow.js";
 import type * as researchIterations_queries from "../researchIterations/queries.js";
@@ -29,6 +33,7 @@ import type * as researchSessions_queries from "../researchSessions/queries.js";
 import type * as tasks_index from "../tasks/index.js";
 import type * as tasks_mutations from "../tasks/mutations.js";
 import type * as tasks_queries from "../tasks/queries.js";
+import type * as tasks_workflow from "../tasks/workflow.js";
 
 import type {
   ApiFromModules,
@@ -37,6 +42,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  "chat/send": typeof chat_send;
   "chatMessages/index": typeof chatMessages_index;
   "chatMessages/mutations": typeof chatMessages_mutations;
   "chatMessages/queries": typeof chatMessages_queries;
@@ -50,7 +56,10 @@ declare const fullApi: ApiFromModules<{
   "documents/mutations": typeof documents_mutations;
   "documents/queries": typeof documents_queries;
   "documents/search": typeof documents_search;
+  "research/actions": typeof research_actions;
   "research/agents": typeof research_agents;
+  "research/index": typeof research_index;
+  "research/mutations": typeof research_mutations;
   "research/tools": typeof research_tools;
   "research/workflow": typeof research_workflow;
   "researchIterations/queries": typeof researchIterations_queries;
@@ -58,6 +67,7 @@ declare const fullApi: ApiFromModules<{
   "tasks/index": typeof tasks_index;
   "tasks/mutations": typeof tasks_mutations;
   "tasks/queries": typeof tasks_queries;
+  "tasks/workflow": typeof tasks_workflow;
 }>;
 
 /**
