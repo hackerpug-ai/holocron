@@ -360,36 +360,25 @@ export async function handleDeepResearchCommand(
   const { topic, maxIterations } = parseResult
 
   try {
-    // Invoke the deep-research-start Edge Function
-    // It will create the research_session AND the long_running_task
-    const functionUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/deep-research-start`
-    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-
-    if (!functionUrl || !supabaseKey) {
-      console.error('Missing environment variables for deep-research-start')
-      throw new Error('Missing environment configuration')
-    }
-
-    const response = await fetch(functionUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${supabaseKey}`,
-      },
-      body: JSON.stringify({
+    // Call the local deep-research-start handler directly
+    // This avoids making an HTTP request to a non-existent Edge Function
+    const response = await handleDeepResearchStart(
+      {
         topic,
         max_iterations: maxIterations,
         conversation_id: conversationId,
-      }),
-    })
+      },
+      supabase
+    )
+
+    // Parse the response
+    const result = await response.json()
 
     if (!response.ok) {
-      const errorText = await response.text()
-      console.error('deep-research-start returned error:', errorText)
-      throw new Error(`Failed to start deep research: ${errorText}`)
+      console.error('deep-research-start returned error:', result)
+      throw new Error(`Failed to start deep research: ${result.error || 'Unknown error'}`)
     }
 
-    const result = await response.json()
     console.log('deep-research-start response:', result)
 
     const cardData: DeepResearchConfirmationCardData = {
