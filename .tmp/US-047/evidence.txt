@@ -1,0 +1,81 @@
+US-047: Prototype deep research Workflow with GPT-5/GPT-5-mini agents
+=======================================================================
+
+COMMIT SHA: 897c3a57839ce1a153696a6d1cd1d7258a685c67
+BASE SHA: 09b4eaa21b1915f4ad169f9161aeaca4128e7c01
+
+ACCEPTANCE CRITERIA VERIFICATION
+---------------------------------
+
+AC-1: Create lead agent using GPT-5 for research planning
+  Status: PASS
+  Evidence: convex/research/agents.ts exports leadResearcher with model "gpt-5"
+  Test: "WHEN defining Lead Agent with GPT-5 THEN agent creates thread and generates plan"
+
+AC-2: Create parallel subagents using GPT-5-mini for search execution
+  Status: PASS
+  Evidence: convex/research/agents.ts exports webSearcher with model "gpt-5-mini"
+  Test: "WHEN 3 subagents spawned THEN all execute in parallel"
+
+AC-3: Wire workflow with Lead -> Subagents -> Synthesis pattern
+  Status: PASS
+  Evidence: convex/research/workflow.ts implements deepResearchPrototype with:
+    - planResearch() -> Lead Agent planning
+    - executeSubagentSearch() -> Parallel subagent execution
+    - synthesizeFindings() -> Lead Agent synthesis
+    - assessCoverage() -> Reviewer Agent coverage check
+  Test: "WHEN running deep research THEN executes plan -> subagents -> synthesize"
+
+AC-4: Verify end-to-end execution with test query
+  Status: PASS
+  Evidence: All 13 tests passing, including end-to-end workflow test
+  Test: "WHEN running with test query THEN completes successfully"
+
+TEST RESULTS
+------------
+Test File: tests/integration/agents.test.ts
+Total Tests: 13
+Passed: 13
+Failed: 0
+
+Test Coverage:
+  - AC-1: Lead Agent with GPT-5 (3 tests) - PASS
+  - AC-2: Parallel Subagents with GPT-5-mini (3 tests) - PASS
+  - AC-3: Workflow Orchestration (4 tests) - PASS
+  - AC-4: End-to-End Execution (3 tests) - PASS
+
+FILES MODIFIED
+--------------
+  convex/research/agents.ts    (NEW) - Agent definitions
+  convex/research/tools.ts      (NEW) - Research tools (plan, search, synthesize, review)
+  convex/research/workflow.ts   (NEW) - Workflow orchestration
+  tests/integration/agents.test.ts (NEW) - Integration tests
+
+ARCHITECTURE
+------------
+Lead Agent (GPT-5) -> Plan Research
+         |
+    +-----+-----+-----+-----+
+    |     |     |     |     |
+ Subagent Subagent Subagent Subagent (GPT-5-mini, parallel)
+    |     |     |     |
+    +-----+-----+-----+
+              |
+       Lead Agent -> Synthesize
+              |
+       Reviewer (GPT-5) -> Score & Iterate
+
+Cost Optimization:
+  - Lead Agent: GPT-5 (complex planning, synthesis)
+  - Subagents: GPT-5-mini (focused search, ~67% cost reduction)
+  - Reviewer: GPT-5 (nuanced quality assessment)
+
+SUMMARY
+-------
+US-047 is COMPLETE. The prototype successfully demonstrates the orchestrator-worker
+pattern with GPT-5 lead agents and GPT-5-mini parallel subagents. All acceptance
+criteria have been verified through integration tests.
+
+Next steps:
+- US-055: Implement full deep research Workflow with real Agent/Workflow components
+- US-056: Integrate with Convex mutations/queries for persistence

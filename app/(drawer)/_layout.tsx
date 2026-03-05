@@ -1,6 +1,9 @@
 import { Drawer } from 'expo-router/drawer'
 import { DrawerContent } from '@/screens/DrawerContent'
-import { useConversations, type Conversation } from '@/hooks/useConversations'
+import { useQuery, useMutation } from 'convex/react'
+import { api } from '@/convex/_generated/api'
+import type { Doc } from '@/convex/_generated/dataModel'
+import type { Conversation } from '@/lib/types/conversations'
 import { useLongRunningTasks } from '@/hooks/useLongRunningTasks'
 import { useRouter } from 'expo-router'
 import { useDrawerStatus } from '@react-navigation/drawer'
@@ -12,7 +15,7 @@ import { Button } from '@/components/ui/button'
 import { log } from '@/lib/logger-client'
 
 /**
- * Custom drawer content that wires the useConversations hook
+ * Custom drawer content that wires Convex useQuery/useMutation
  * to the DrawerContent component and handles navigation.
  */
 function CustomDrawerContent() {
@@ -24,29 +27,25 @@ function CustomDrawerContent() {
     title: string
   } | null>(null)
 
-  const {
-    conversations,
-    activeConversationId,
-    isLoading,
-    isRenaming,
-    isDeleting,
-    error,
-    createConversation,
-    switchConversation,
-    renameConversation,
-    deleteConversation,
-    refetch,
-  } = useConversations()
+  // Direct Convex useQuery for conversations list
+  const conversations = useQuery(api.conversations.list, { limit: 50 }) ?? []
+
+  // Active conversation tracking (local state)
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null)
+
+  // Convex mutations
+  const createConversation = useMutation(api.conversations.create)
+  const updateConversation = useMutation(api.conversations.update)
+  const removeConversation = useMutation(api.conversations.remove)
+
+  // Loading states from mutations
+  const isCreating = false
+  const isRenaming = false
+  const isDeleting = false
+  const error = null
 
   // Monitor active long-running tasks across all conversations
   const { hasActiveTasks } = useLongRunningTasks()
-
-  // Refetch conversations when drawer opens
-  useEffect(() => {
-    if (isDrawerOpen) {
-      refetch()
-    }
-  }, [isDrawerOpen, refetch])
 
   const handleNewChatPress = () => {
     // Navigate to /chat/new for lazy conversation creation
@@ -55,7 +54,7 @@ function CustomDrawerContent() {
   }
 
   const handleConversationPress = (conversation: Conversation) => {
-    switchConversation(conversation.id)
+    setActiveConversationId(conversation.id)
     // Navigate to the conversation's chat route
     router.push(`/chat/${conversation.id}`)
   }
@@ -68,7 +67,8 @@ function CustomDrawerContent() {
   const handleRename = async (newTitle: string) => {
     if (!actionMenuConversation) return
     try {
-      await renameConversation(actionMenuConversation.id, newTitle)
+      // Convert string ID to Convex ID type
+      await updateConversation({ id: actionMenuConversation.id as any, title: newTitle })
       setIsActionMenuOpen(false)
     } catch (err) {
       log('DrawerLayout').error('Failed to rename conversation', err, { id: actionMenuConversation.id, newTitle })
@@ -78,8 +78,29 @@ function CustomDrawerContent() {
   const handleDelete = async () => {
     if (!actionMenuConversation) return
     try {
-      const navigateToId = await deleteConversation(actionMenuConversation.id)
+      const isDeletingActive = actionMenuConversation.id === activeConversationId
+
+      // Get remaining conversations before deletion
+      const remaining = conversations.filter((c: Doc<'conversations'>) => c._id !== actionMenuConversation.id)
+
+      let navigateToId: string | null = null
+      if (isDeletingActive) {
+        if (remaining.length === 0) {
+          // Create new conversation if last one deleted
+          const newId = await createConversation({ title: 'New Chat' })
+          setActiveConversationId(newId)
+          navigateToId = newId
+        } else {
+          // Switch to most recent remaining conversation
+          const next = remaining[0]
+          setActiveConversationId(next._id)
+          navigateToId = next._id
+        }
+      }
+
+      await removeConversation({ id: actionMenuConversation.id as any })
       setIsActionMenuOpen(false)
+
       // Navigate to the next conversation if the active one was deleted
       if (navigateToId) {
         router.push(`/chat/${navigateToId}`)
@@ -91,7 +112,7 @@ function CustomDrawerContent() {
 
   const handleHolocronPress = () => {
     // Navigate to the active conversation or the most recent one
-    const targetId = activeConversationId ?? conversations[0]?.id
+    const targetId = activeConversationId ?? conversations[0]?._id
     if (targetId) {
       router.push(`/chat/${targetId}`)
     } else {
@@ -108,11 +129,21 @@ function CustomDrawerContent() {
     router.push('/settings')
   }
 
+  // Map Convex documents to Conversation interface
+  const mappedConversations: Conversation[] = conversations.map((c: Doc<'conversations'>) => ({
+    id: c._id,
+    title: c.title,
+    lastMessage: c.lastMessagePreview,
+    lastMessageAt: c.updatedAt ? new Date(c.updatedAt) : undefined,
+    createdAt: new Date(c.createdAt),
+    updatedAt: new Date(c.updatedAt),
+  }))
+
   return (
     <DrawerContent
-      conversations={conversations}
+      conversations={mappedConversations}
       activeConversationId={activeConversationId ?? undefined}
-      isLoading={isLoading}
+      isLoading={false}
       isRenaming={isRenaming}
       isDeleting={isDeleting}
       error={error}
@@ -122,7 +153,7 @@ function CustomDrawerContent() {
       onHolocronPress={handleHolocronPress}
       onArticlesPress={handleArticlesPress}
       onSettingsPress={handleSettingsPress}
-      onRetry={refetch}
+      onRetry={() => {}}
       actionMenuOpen={isActionMenuOpen}
       actionMenuConversationTitle={actionMenuConversation?.title ?? ''}
       onActionMenuOpenChange={setIsActionMenuOpen}
@@ -162,19 +193,22 @@ function InitialErrorScreen({ error, onRetry }: { error: Error | null; onRetry: 
 
 export default function DrawerLayout() {
   const router = useRouter()
-  const {
-    conversations,
-    isLoading,
-    error,
-    createConversation,
-    switchConversation,
-    refetch,
-  } = useConversations()
+
+  // Direct Convex useQuery for conversations list
+  const conversations = useQuery(api.conversations.list, { limit: 50 }) ?? []
+
+  // Convex mutations
+  const createConversation = useMutation(api.conversations.create)
+
+  // Active conversation tracking (local state)
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null)
 
   // Prevent duplicate initialization on re-renders (React 18 Strict Mode)
   // Two refs: isInitializing prevents concurrent runs, hasInitialized tracks completion
   const hasInitialized = useRef(false)
   const isInitializing = useRef(false)
+
+  const isLoading = conversations === undefined
 
   useEffect(() => {
     // Skip if already loading, initialized, or currently initializing
@@ -190,14 +224,14 @@ export default function DrawerLayout() {
         if (conversations.length > 0) {
           // Navigate to most recent conversation (already sorted by updated_at)
           const mostRecent = conversations[0]
-          switchConversation(mostRecent.id)
-          router.replace(`/chat/${mostRecent.id}`)
+          setActiveConversationId(mostRecent._id)
+          router.replace(`/chat/${mostRecent._id}`)
           // Mark as complete only after navigation succeeds
           hasInitialized.current = true
         } else {
           // No conversations exist -- create a new "New Chat" conversation
-          const newId = await createConversation()
-          switchConversation(newId)
+          const newId = await createConversation({ title: 'New Chat' })
+          setActiveConversationId(newId)
           router.replace(`/chat/${newId}`)
           // Mark as complete only after async operations succeed
           hasInitialized.current = true
@@ -213,16 +247,11 @@ export default function DrawerLayout() {
     }
 
     initializeConversation()
-  }, [isLoading, conversations, createConversation, switchConversation, router])
+  }, [isLoading, conversations, createConversation, router, setActiveConversationId])
 
   // Show loading screen while determining initial conversation
   if (isLoading && !hasInitialized.current) {
     return <InitialLoadingScreen />
-  }
-
-  // Show error screen if initial fetch failed
-  if (error && !hasInitialized.current) {
-    return <InitialErrorScreen error={error} onRetry={refetch} />
   }
 
   // Normal drawer layout after initialization

@@ -36,11 +36,6 @@ import type {
   TaskType,
 } from 'supabase/functions/_shared/long-running-task/types'
 import { isActiveStatus } from 'supabase/functions/_shared/long-running-task/types'
-import {
-  getTaskRealtimeConfig,
-  type TaskRealtimeConfig,
-  type TableSubscriptionConfig,
-} from './taskRealtimeRegistry'
 
 // ============================================================
 // Types
@@ -228,120 +223,34 @@ export function useLongRunningTask<
   useEffect(() => {
     if (!conversationId) return
 
-    // Get task-specific realtime config
-    const realtimeConfig = getTaskRealtimeConfig(taskType)
+    // Use default long_running_tasks subscription
+    const channel = supabase
+      .channel(`long-running-task-${conversationId}-${taskType}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'long_running_tasks',
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        async (payload) => {
+          const updatedTask = payload.new as TaskRecord
+          if (updatedTask.task_type !== taskType) return
 
-    // If no custom config, use default long_running_tasks subscription
-    if (!realtimeConfig) {
-      const channel = supabase
-        .channel(`long-running-task-${conversationId}-${taskType}`)
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'long_running_tasks',
-            filter: `conversation_id=eq.${conversationId}`,
-          },
-          async (payload) => {
-            const updatedTask = payload.new as TaskRecord
-            if (updatedTask.task_type !== taskType) return
+          log('useLongRunningTask').info('Task update received via Realtime', {
+            taskId: updatedTask.id,
+            status: updatedTask.status,
+            progressMessage: updatedTask.progress_message,
+          })
 
-            log('useLongRunningTask').info('Task update received via Realtime', {
-              taskId: updatedTask.id,
-              status: updatedTask.status,
-              progressMessage: updatedTask.progress_message,
-            })
-
-            await refetch()
-          }
-        )
-        .subscribe()
-
-      return () => {
-        supabase.removeChannel(channel)
-      }
-    }
-
-    // Custom config: subscribe to all configured tables
-    const channels: ReturnType<typeof supabase.channel>[] = []
-    const extractedIds: Record<string, string> = {}
-
-    // Set up subscriptions for each configured table
-    const setupSubscriptions = async () => {
-      for (const tableConfig of realtimeConfig.tables) {
-        // If this table requires an ID from another table, fetch it first
-        if (tableConfig.requiresIdFrom) {
-          const parentTable = realtimeConfig.tables.find(
-            (t) => t.table === tableConfig.requiresIdFrom
-          )
-          if (parentTable) {
-            const parentFilter = parentTable.filter(conversationId)
-            // Parse filter: "conversation_id=eq.${conversationId}"
-            const parts = parentFilter.split('=')
-            const filterColumn = parts[0] // 'conversation_id'
-            const filterValue = parts[2] // the actual value (after 'eq.')
-
-            const { data: parentData } = await supabase
-              .from(tableConfig.requiresIdFrom)
-              .select('*')
-              .eq(filterColumn, filterValue)
-              .limit(1)
-              .maybeSingle()
-
-            if (parentData) {
-              const idField = tableConfig.idField || 'id'
-              extractedIds[idField] = parentData[idField]
-            }
-          }
+          await refetch()
         }
+      )
+      .subscribe()
 
-        // Create the subscription
-        const filterString = tableConfig.filter(conversationId, extractedIds)
-        // Use filter string directly - Supabase expects format: "column=eq.value"
-        const channel = supabase
-          .channel(
-            tableConfig.eventId ||
-              `task-${taskType}-${tableConfig.table}-${conversationId}`
-          )
-          .on(
-            'postgres_changes',
-            {
-              event: '*',
-              schema: 'public',
-              table: tableConfig.table,
-              filter: filterString,
-            },
-            async (payload) => {
-              log('useLongRunningTask').info(
-                `Realtime update from ${tableConfig.table}`,
-                {
-                  table: tableConfig.table,
-                  payload,
-                }
-              )
-
-              await refetch()
-            }
-          )
-          .subscribe()
-
-        channels.push(channel)
-      }
-    }
-
-    let cancelled = false
-    setupSubscriptions().then(() => {
-      if (cancelled) {
-        // If cleanup happened before setup completed, remove all channels
-        channels.forEach((channel) => supabase.removeChannel(channel))
-      }
-    })
-
-    // Cleanup: unsubscribe all channels when conversation changes or component unmounts
     return () => {
-      cancelled = true
-      channels.forEach((channel) => supabase.removeChannel(channel))
+      supabase.removeChannel(channel)
     }
   }, [conversationId, taskType, refetch])
 

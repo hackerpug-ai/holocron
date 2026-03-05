@@ -1,7 +1,9 @@
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { DrawerActions, useNavigation } from '@react-navigation/native'
-import { useConversations } from '@/hooks/useConversations'
+import { useQuery, useMutation } from 'convex/react'
+import { api } from '@/convex/_generated/api'
+import type { Doc } from '@/convex/_generated/dataModel'
 import { useChatHistory } from '@/hooks/use-chat-history'
 import { useChatSend } from '@/hooks/useChatSend'
 import { View, ActivityIndicator, StyleSheet, Keyboard, Pressable } from 'react-native'
@@ -21,9 +23,8 @@ import { spacing } from '@/lib/theme'
  * Route: /chat/[conversationId]
  *
  * The conversationId from the URL is used to:
- * 1. Set the active conversation in the useConversations hook
- * 2. Display the chat messages for that conversation
- * 3. Enable deep-linking to specific conversations
+ * 1. Display the chat messages for that conversation
+ * 2. Enable deep-linking to specific conversations
  */
 
 export default function ChatScreen() {
@@ -31,7 +32,15 @@ export default function ChatScreen() {
   const router = useRouter()
   const navigation = useNavigation()
   const insets = useSafeAreaInsets()
-  const { switchConversation, createConversation, conversations, isLoading, error, refetch } = useConversations()
+
+  // Direct Convex useQuery for conversations list
+  const conversations = useQuery(api.conversations.list, { limit: 50 }) ?? []
+
+  // Active conversation tracking (local state)
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null)
+
+  // Convex mutation for creating conversations
+  const createConversationMutation = useMutation(api.conversations.create)
 
   // Fetch chat history for this conversation
   const {
@@ -47,6 +56,13 @@ export default function ChatScreen() {
 
   // Determine if this is a new (lazy) conversation
   const isNewConversation = conversationId === 'new'
+
+  // Create conversation callback for lazy creation
+  const createConversation = async (): Promise<string> => {
+    const newId = await createConversationMutation({ title: 'New Chat' })
+    setActiveConversationId(newId)
+    return newId
+  }
 
   // Send message hook with optimistic updates
   // For new conversations, pass createConversation callback for lazy creation
@@ -69,7 +85,7 @@ export default function ChatScreen() {
 
     // If a new conversation was created, navigate to it
     if (newConversationId) {
-      switchConversation(newConversationId)
+      setActiveConversationId(newConversationId)
       router.replace(`/chat/${newConversationId}`)
     }
   }
@@ -98,12 +114,15 @@ export default function ChatScreen() {
   // Set the active conversation when the route loads (skip for 'new')
   useEffect(() => {
     if (conversationId && !isNewConversation) {
-      switchConversation(conversationId)
+      setActiveConversationId(conversationId)
     }
-  }, [conversationId, switchConversation, isNewConversation])
+  }, [conversationId, isNewConversation])
+
+  // Loading state based on conversations query
+  const isLoading = conversations === undefined
 
   // Validate that the conversation exists (skip for 'new' conversations)
-  const conversationExists = isNewConversation || conversations.some((c) => c.id === conversationId)
+  const conversationExists = isNewConversation || conversations.some((c: Doc<'conversations'>) => c._id === conversationId)
 
   // Loading state (but not for new conversations - they don't need to load)
   if (isLoading && !isNewConversation) {
@@ -115,14 +134,14 @@ export default function ChatScreen() {
     )
   }
 
-  // Error state
-  if (error) {
+  // Error state from chat messages
+  if (messagesError) {
     return (
       <View style={styles.centerContainer} className="bg-background p-6" testID="chat-error-screen">
         <Text className="text-destructive text-center text-lg">Failed to load conversation</Text>
-        <Text className="text-muted-foreground text-center text-sm mt-2">{error.message}</Text>
-        <Button onPress={refetch} testID="retry-button" className="mt-4">
-          <Text>Retry</Text>
+        <Text className="text-muted-foreground text-center text-sm mt-2">{messagesError.message}</Text>
+        <Button onPress={() => router.push('/')} testID="go-home-button" className="mt-4">
+          <Text>Go to Home</Text>
         </Button>
       </View>
     )

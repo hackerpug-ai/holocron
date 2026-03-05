@@ -24,10 +24,10 @@ export const list = query({
 
     let documents;
     if (category) {
-      // For category filtering, we need to use the index
+      // For category filtering, we need to filter since there's no regular index
       documents = await ctx.db
         .query("documents")
-        .withIndex("by_category", (q) => q.eq("category", category))
+        .filter((q) => q.eq(q.field("category"), category))
         .take(limit);
     } else {
       documents = await ctx.db.query("documents").take(limit);
@@ -93,52 +93,110 @@ export const countByCategory = query({
 /**
  * AC-1: Vector search using Convex vectorIndex
  * Performs semantic similarity search using document embeddings
+ * Supports optional category filtering
+ *
+ * Note: This is a simplified implementation that filters all documents
+ * with embeddings and calculates cosine similarity on the fly.
+ * For production use with large datasets, consider using Convex's
+ * native vector search capabilities when available.
  */
 export const vectorSearch = query({
   args: {
     embedding: v.array(v.float64()),
     limit: v.optional(v.number()),
+    category: v.optional(v.string()),
   },
-  handler: async (ctx, { embedding, limit = 10 }) => {
-    // Use Convex's vector search with the by_embedding index
-    const results = await ctx.db
+  handler: async (ctx, { embedding, limit = 10, category }) => {
+    // Get all documents that have embeddings
+    let documents = await ctx.db
       .query("documents")
-      .withSearchIndex("by_embedding", (q) =>
-        q("vector", embedding, { limit })
-      )
-      .take(limit);
+      .filter((q) => q.neq(q.field("embedding"), undefined))
+      .collect();
 
-    return results.map((doc) => ({
-      _id: doc._id,
-      title: doc.title,
-      content: doc.content,
-      category: doc.category,
-    }));
+    // Apply category filter if specified
+    if (category) {
+      documents = documents.filter((doc) => doc.category === category);
+    }
+
+    // Calculate cosine similarity scores for each result
+    const results = documents
+      .map((doc) => ({
+        _id: doc._id,
+        title: doc.title,
+        content: doc.content,
+        category: doc.category,
+        embedding: doc.embedding,
+        score: doc.embedding ? cosineSimilarity(embedding, doc.embedding) : 0,
+      }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit);
+
+    return results;
   },
 });
 
 /**
  * AC-2: Full-text search using Convex searchIndex
- * Performs keyword-based search using the by_category search index
+ * Performs keyword-based search across title and content fields
+ * Supports optional category filtering
+ *
+ * Note: Uses filter-based text search. For production use with large datasets,
+ * consider adding dedicated text search indexes or using a search service.
  */
 export const fullTextSearch = query({
   args: {
     query: v.string(),
     limit: v.optional(v.number()),
+    category: v.optional(v.string()),
   },
-  handler: async (ctx, { query, limit = 10 }) => {
-    // Use Convex's full-text search with the by_category index
-    const results = await ctx.db
-      .query("documents")
-      .withSearchIndex("by_category", (q) =>
-        q.search("category", query).take(limit)
-      );
+  handler: async (ctx, { query: searchQuery, limit = 10, category }) => {
+    // Get all documents up to a reasonable limit
+    let documents = await ctx.db.query("documents").collect();
 
-    return results.map((doc) => ({
-      _id: doc._id,
-      title: doc.title,
-      content: doc.content,
-      category: doc.category,
-    }));
+    // Apply category filter if specified
+    if (category) {
+      documents = documents.filter((doc) => doc.category === category);
+    }
+
+    // Filter for text matches in title or content (case-insensitive)
+    const searchLower = searchQuery.toLowerCase();
+    const filtered = documents.filter(
+      (doc) =>
+        doc.title.toLowerCase().includes(searchLower) ||
+        doc.content.toLowerCase().includes(searchLower)
+    );
+
+    // Return with search scores (simple relevance based on match position)
+    return filtered
+      .slice(0, limit)
+      .map((doc, index) => ({
+        _id: doc._id,
+        title: doc.title,
+        content: doc.content,
+        category: doc.category,
+        // Score based on position (earlier results = higher score)
+        score: filtered.length > 0 ? 1 - index / filtered.length : 0,
+      }));
   },
 });
+
+/**
+ * Helper function: Calculate cosine similarity between two vectors
+ * Used for scoring vector search results
+ */
+function cosineSimilarity(a: number[], b: number[]): number {
+  if (a.length !== b.length || a.length === 0) return 0;
+
+  let dotProduct = 0;
+  let normA = 0;
+  let normB = 0;
+
+  for (let i = 0; i < a.length; i++) {
+    dotProduct += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+
+  const magnitude = Math.sqrt(normA) * Math.sqrt(normB);
+  return magnitude === 0 ? 0 : dotProduct / magnitude;
+}

@@ -11,7 +11,6 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { log } from '@/lib/logger-client'
 import type { ChatMessage } from '@/components/chat/ChatThread'
 import type { MessageRole, MessageType } from '@/lib/types/conversations'
-import { useChatRealtime } from './use-chat-realtime'
 
 interface ChatHistoryResponse {
   messages: Array<{
@@ -192,24 +191,6 @@ export function useChatHistory(
       msg.id === tempId ? realMessage : msg
     ))
   }, [])
-
-  // Handle new messages from Realtime (with deduplication)
-  const handleRealtimeMessage = useCallback((newMessage: ChatMessage) => {
-    setMessages((prev) => {
-      // Deduplicate: check if message already exists
-      const exists = prev.some((msg) => msg.id === newMessage.id)
-      if (exists) return prev
-
-      // Add new message to the front (newest first)
-      return [newMessage, ...prev]
-    })
-  }, [])
-
-  // Subscribe to Realtime updates
-  useChatRealtime({
-    conversationId,
-    onNewMessage: handleRealtimeMessage,
-  })
 
   return {
     messages,

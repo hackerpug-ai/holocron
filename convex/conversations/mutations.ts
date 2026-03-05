@@ -6,13 +6,63 @@ import { v } from "convex/values";
  */
 export const create = mutation({
   args: {
-    title: v.string(),
+    title: v.optional(v.string()),
     lastMessagePreview: v.optional(v.string()),
-    createdAt: v.number(),
-    updatedAt: v.number(),
   },
-  handler: async (ctx, args) => {
-    return await ctx.db.insert("conversations", args);
+  handler: async (ctx, { title = "New Chat", lastMessagePreview }) => {
+    const now = Date.now();
+    return await ctx.db.insert("conversations", {
+      title,
+      lastMessagePreview,
+      createdAt: now,
+      updatedAt: now,
+    });
+  },
+});
+
+/**
+ * Update a conversation's title
+ */
+export const update = mutation({
+  args: {
+    id: v.id("conversations"),
+    title: v.string(),
+  },
+  handler: async (ctx, { id, title }) => {
+    const existing = await ctx.db.get(id);
+    if (!existing) {
+      throw new Error(`Conversation ${id} not found`);
+    }
+
+    await ctx.db.patch(id, {
+      title,
+      updatedAt: Date.now(),
+    });
+
+    return await ctx.db.get(id);
+  },
+});
+
+/**
+ * Remove a conversation (cascades to chat messages)
+ */
+export const remove = mutation({
+  args: {
+    id: v.id("conversations"),
+  },
+  handler: async (ctx, { id }) => {
+    // Cascade delete all chat messages
+    const messages = await ctx.db
+      .query("chatMessages")
+      .withIndex("by_conversation", (q) => q.eq("conversationId", id))
+      .collect();
+
+    for (const msg of messages) {
+      await ctx.db.delete(msg._id);
+    }
+
+    await ctx.db.delete(id);
+    return { success: true };
   },
 });
 
@@ -28,6 +78,29 @@ export const insertFromMigration = mutation({
   },
   handler: async (ctx, args) => {
     return await ctx.db.insert("conversations", args);
+  },
+});
+
+/**
+ * Update conversation updatedAt timestamp (used when messages are added)
+ */
+export const touch = mutation({
+  args: {
+    id: v.id("conversations"),
+    lastMessagePreview: v.optional(v.string()),
+  },
+  handler: async (ctx, { id, lastMessagePreview }) => {
+    const existing = await ctx.db.get(id);
+    if (!existing) {
+      throw new Error(`Conversation ${id} not found`);
+    }
+
+    await ctx.db.patch(id, {
+      updatedAt: Date.now(),
+      ...(lastMessagePreview !== undefined && { lastMessagePreview }),
+    });
+
+    return await ctx.db.get(id);
   },
 });
 

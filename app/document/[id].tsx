@@ -8,13 +8,14 @@ import { useWebView } from '@/hooks/useWebView'
 import { Text } from '@/components/ui/text'
 import { Button } from '@/components/ui/button'
 import { CategoryBadge } from '@/components/CategoryBadge'
-import { getDocument, type DocumentCategory } from '@/lib/supabase'
-import { mapDocumentCategoryToCategoryType } from '@/hooks/useDocuments'
+import { useQuery } from 'convex/react'
+import { api } from '@/convex/_generated/api'
+import { mapDocumentCategoryToCategoryType } from '@/lib/category-mapping'
 import { useTheme } from '@/hooks/use-theme'
 import { sanitizeMarkdown, isValidUrl } from '@/lib/sanitizeMarkdown'
 
 interface DocumentData {
-  id: number
+  id: string
   title: string
   content: string
   category: string
@@ -35,54 +36,20 @@ export default function DocumentRoute() {
   const theme = useTheme()
   const { openUrl } = useWebView()
 
-  const [document, setDocument] = useState<DocumentData | null>(null)
+  // Fetch document from Convex by ID
+  const document = useQuery(api.documents.get, id as any)
+
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    async function fetchDocument() {
-      if (!id) {
-        setError('No document ID provided')
-        setLoading(false)
-        return
-      }
-
-      try {
-        setLoading(true)
-        setError(null)
-
-        const docId = parseInt(id, 10)
-        if (isNaN(docId)) {
-          setError('Invalid document ID')
-          setLoading(false)
-          return
-        }
-
-        const doc = await getDocument(docId)
-
-        if (doc) {
-          setDocument({
-            id: doc.id,
-            title: doc.title,
-            content: doc.content || '',
-            category: doc.category || 'general',
-            date: doc.created_at || doc.date || new Date().toISOString(),
-            time: doc.time,
-            research_type: doc.research_type,
-          })
-        } else {
-          setError('Document not found')
-        }
-      } catch (err) {
-        console.error('Failed to fetch document:', err)
-        setError('Failed to load document')
-      } finally {
-        setLoading(false)
+    if (document !== undefined) {
+      setLoading(false)
+      if (document === null) {
+        setError('Document not found')
       }
     }
-
-    fetchDocument()
-  }, [id])
+  }, [document])
 
   // Sanitize markdown content
   const sanitizedContent = useMemo(
@@ -153,7 +120,7 @@ export default function DocumentRoute() {
   // Format date/time
   const formatDateTime = () => {
     if (!document) return { date: '', time: '' }
-    const dateObj = new Date(document.date)
+    const dateObj = new Date(document.date || document.createdAt)
     const formattedDate = dateObj.toLocaleDateString('en-US', {
       weekday: 'long',
       month: 'long',
@@ -172,7 +139,7 @@ export default function DocumentRoute() {
     return { date: formattedDate, time: formattedTime }
   }
 
-  if (loading) {
+  if (loading || document === undefined) {
     return (
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         <View style={styles.header}>
@@ -238,14 +205,14 @@ export default function DocumentRoute() {
         {/* Metadata Row */}
         <View style={styles.metadataRow}>
           <CategoryBadge
-            category={mapDocumentCategoryToCategoryType(document.category as DocumentCategory)}
+            category={mapDocumentCategoryToCategoryType(document.category)}
           />
           <Text className="text-muted-foreground text-sm">
             {date} at {time}
           </Text>
-          {document.research_type && (
+          {document.researchType && (
             <View style={styles.researchTypeBadge}>
-              <Text className="text-foreground text-xs">{document.research_type}</Text>
+              <Text className="text-foreground text-xs">{document.researchType}</Text>
             </View>
           )}
         </View>

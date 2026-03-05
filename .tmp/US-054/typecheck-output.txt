@@ -1,7 +1,47 @@
-0
-TypeScript type definitions created successfully.
-- lib/types/deep-research.ts: No syntax errors
-- All types properly exported with strict mode compliance
-- Enums match database ENUM types: DeepResearchSessionStatus, DeepResearchIterationStatus
-- Row types (snake_case) and App types (camelCase) properly defined
-- Insert and Update types included for all entities
+
+> holocron@1.0.0 typecheck /Users/justinrich/Projects/holocron
+> tsc --noEmit
+
+convex/chat/send.ts(93,14): error TS7022: 'send' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+convex/chat/send.ts(99,3): error TS7023: 'handler' implicitly has return type 'any' because it does not have a return type annotation and is referenced directly or indirectly in one of its return expressions.
+convex/chat/send.ts(107,11): error TS7022: 'userMessageId' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+convex/chat/send.ts(172,11): error TS7022: 'agentMessageId' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+convex/research/actions.ts(28,14): error TS7022: 'startDeepResearch' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+convex/research/actions.ts(34,3): error TS7023: 'handler' implicitly has return type 'any' because it does not have a return type annotation and is referenced directly or indirectly in one of its return expressions.
+convex/research/actions.ts(36,11): error TS7022: 'sessionId' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+scripts/benchmark-search.ts(118,43): error TS2339: Property 'documents' does not exist on type 'typeof import("/Users/justinrich/Projects/holocron/convex/_generated/api")'.
+scripts/migrate-all.ts(122,56): error TS2339: Property 'conversations' does not exist on type 'typeof import("/Users/justinrich/Projects/holocron/convex/_generated/api")'.
+scripts/migrate-all.ts(124,39): error TS2339: Property 'conversations' does not exist on type 'typeof import("/Users/justinrich/Projects/holocron/convex/_generated/api")'.
+scripts/migrate-all.ts(133,56): error TS2339: Property 'conversations' does not exist on type 'typeof import("/Users/justinrich/Projects/holocron/convex/_generated/api")'.
+scripts/migrate-all.ts(147,52): error TS2339: Property 'conversations' does not exist on type 'typeof import("/Users/justinrich/Projects/holocron/convex/_generated/api")'.
+scripts/migrate-all.ts(189,56): error TS2339: Property 'documents' does not exist on type 'typeof import("/Users/justinrich/Projects/holocron/convex/_generated/api")'.
+scripts/migrate-all.ts(191,39): error TS2339: Property 'documents' does not exist on type 'typeof import("/Users/justinrich/Projects/holocron/convex/_generated/api")'.
+scripts/migrate-all.ts(209,56): error TS2339: Property 'documents' does not exist on type 'typeof import("/Users/justinrich/Projects/holocron/convex/_generated/api")'.
+scripts/migrate-all.ts(231,52): error TS2339: Property 'documents' does not exist on type 'typeof import("/Users/justinrich/Projects/holocron/convex/_generated/api")'.
+scripts/migrate-all.ts(273,56): error TS2339: Property 'tasks' does not exist on type 'typeof import("/Users/justinrich/Projects/holocron/convex/_generated/api")'.
+scripts/migrate-all.ts(275,39): error TS2339: Property 'tasks' does not exist on type 'typeof import("/Users/justinrich/Projects/holocron/convex/_generated/api")'.
+scripts/migrate-all.ts(288,56): error TS2339: Property 'tasks' does not exist on type 'typeof import("/Users/justinrich/Projects/holocron/convex/_generated/api")'.
+scripts/migrate-all.ts(312,52): error TS2339: Property 'tasks' does not exist on type 'typeof import("/Users/justinrich/Projects/holocron/convex/_generated/api")'.
+scripts/migrate-all.ts(354,56): error TS2339: Property 'chatMessages' does not exist on type 'typeof import("/Users/justinrich/Projects/holocron/convex/_generated/api")'.
+scripts/migrate-all.ts(356,39): error TS2339: Property 'chatMessages' does not exist on type 'typeof import("/Users/justinrich/Projects/holocron/convex/_generated/api")'.
+scripts/migrate-all.ts(371,39): error TS2339: Property 'chatMessages' does not exist on type 'typeof import("/Users/justinrich/Projects/holocron/convex/_generated/api")'.
+scripts/migrate-all.ts(388,52): error TS2339: Property 'chatMessages' does not exist on type 'typeof import("/Users/justinrich/Projects/holocron/convex/_generated/api")'.
+scripts/migrate-documents.ts(198,50): error TS2339: Property 'documents' does not exist on type 'typeof import("/Users/justinrich/Projects/holocron/convex/_generated/api")'.
+scripts/migrate-documents.ts(203,33): error TS2339: Property 'documents' does not exist on type 'typeof import("/Users/justinrich/Projects/holocron/convex/_generated/api")'.
+scripts/migrate-documents.ts(226,35): error TS2339: Property 'documents' does not exist on type 'typeof import("/Users/justinrich/Projects/holocron/convex/_generated/api")'.
+scripts/migrate-documents.ts(263,48): error TS2339: Property 'documents' does not exist on type 'typeof import("/Users/justinrich/Projects/holocron/convex/_generated/api")'.
+scripts/migrate-documents.ts(273,43): error TS2339: Property 'documents' does not exist on type 'typeof import("/Users/justinrich/Projects/holocron/convex/_generated/api")'.
+scripts/migrate-documents.ts(286,51): error TS2339: Property 'documents' does not exist on type 'typeof import("/Users/justinrich/Projects/holocron/convex/_generated/api")'.
+scripts/migrate-documents.ts(289,17): error TS2571: Object is of type 'unknown'.
+scripts/migrate-documents.ts(289,24): error TS2571: Object is of type 'unknown'.
+scripts/validate-migration.ts(155,26): error TS7006: Parameter 'c' implicitly has an 'any' type.
+scripts/validate-migration.ts(159,8): error TS7006: Parameter 'm' implicitly has an 'any' type.
+scripts/validate-migration.ts(196,21): error TS7006: Parameter 's' implicitly has an 'any' type.
+scripts/validate-migration.ts(200,8): error TS7006: Parameter 'i' implicitly has an 'any' type.
+scripts/validate-migration.ts(237,21): error TS7006: Parameter 's' implicitly has an 'any' type.
+scripts/validate-migration.ts(241,8): error TS7006: Parameter 'i' implicitly has an 'any' type.
+scripts/validate-migration.ts(278,26): error TS7006: Parameter 'c' implicitly has an 'any' type.
+scripts/validate-migration.ts(282,8): error TS7006: Parameter 's' implicitly has an 'any' type.
+scripts/validate-migration.ts(328,8): error TS7006: Parameter 'doc' implicitly has an 'any' type.
+scripts/validate-migration.ts(346,8): error TS7006: Parameter 'doc' implicitly has an 'any' type.
+ ELIFECYCLE  Command failed with exit code 2.

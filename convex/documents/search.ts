@@ -8,6 +8,7 @@
 
 import { action } from "../_generated/server";
 import { v } from "convex/values";
+import { api } from "../_generated/api";
 
 /**
  * "use node" directive - runs in Node.js environment (not V8 isolate)
@@ -20,38 +21,51 @@ export const hybridSearch = action({
     query: v.string(),
     embedding: v.array(v.float64()),
     limit: v.optional(v.number()),
+    category: v.optional(v.string()),
   },
-  handler: async (ctx, { query, embedding, limit = 10 }) => {
-    // Import the API types dynamically
-    const api = await import("../_generated/api");
+  handler: async (ctx, { query, embedding, limit = 10, category }) => {
+    // Run both searches in parallel with category filter
+    const searchLimit = Math.max(limit * 2, 50); // Get more candidates for better merging
 
-    // Run both searches in parallel
     const [vectorResults, ftsResults] = await Promise.all([
-      ctx.runQuery(api.default.documents.vectorSearch, { embedding, limit }),
-      ctx.runQuery(api.default.documents.fullTextSearch, { query, limit }),
+      ctx.runQuery(api.documents.vectorSearch, {
+        embedding,
+        limit: searchLimit,
+        category,
+      }),
+      ctx.runQuery(api.documents.fullTextSearch, {
+        query,
+        limit: searchLimit,
+        category,
+      }),
     ]);
 
     // Create a map to track scores and avoid duplicates
     const resultScore = new Map<string, number>();
     const resultMap = new Map<string, any>();
 
-    // Score vector results (higher weight for semantic similarity)
-    for (let i = 0; i < vectorResults.length; i++) {
-      const doc = vectorResults[i];
+    // Score vector results (higher weight for semantic similarity - 0.7)
+    // Normalize scores to 0-1 range based on the actual similarity scores
+    const maxVectorScore = vectorResults.length > 0 ? vectorResults[0].score : 1;
+
+    for (const doc of vectorResults) {
       const id = doc._id.toString();
-      // Vector search results are ranked by similarity, give them higher weight
-      const score = (vectorResults.length - i) * 2;
-      resultScore.set(id, (resultScore.get(id) || 0) + score);
+      // Normalize the score and apply vector weight (0.7)
+      const normalizedScore = maxVectorScore > 0 ? doc.score / maxVectorScore : 0;
+      const weightedScore = normalizedScore * 0.7;
+      resultScore.set(id, (resultScore.get(id) || 0) + weightedScore);
       resultMap.set(id, doc);
     }
 
-    // Score FTS results (lower weight but still valuable)
-    for (let i = 0; i < ftsResults.length; i++) {
-      const doc = ftsResults[i];
+    // Score FTS results (lower weight but still valuable - 0.3)
+    for (const doc of ftsResults) {
       const id = doc._id.toString();
-      const score = ftsResults.length - i;
-      resultScore.set(id, (resultScore.get(id) || 0) + score);
-      resultMap.set(id, doc);
+      // Apply FTS weight (0.3)
+      const weightedScore = (doc.score || 0) * 0.3;
+      resultScore.set(id, (resultScore.get(id) || 0) + weightedScore);
+      if (!resultMap.has(id)) {
+        resultMap.set(id, doc);
+      }
     }
 
     // Sort by combined score and return top results
