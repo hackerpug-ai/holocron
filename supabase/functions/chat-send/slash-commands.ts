@@ -358,43 +358,54 @@ export async function handleDeepResearchCommand(
   const { topic, maxIterations } = parseResult
 
   try {
-    // Generate a unique session ID
-    const sessionId = crypto.randomUUID()
+    // Invoke the deep-research-start Edge Function
+    // It will create the research_session AND the long_running_task
+    const functionUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/deep-research-start`
+    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
 
-    // Create the session in the database
-    const { data: session, error: sessionError } = await supabase
-      .from('deep_research_sessions')
-      .insert({
-        id: sessionId,
-        conversation_id: conversationId,
-        topic: topic,
-        max_iterations: maxIterations,
-        status: 'pending',
-      })
-      .select()
-      .single()
-
-    if (sessionError) {
-      console.error('Error creating deep research session:', sessionError)
-      throw sessionError
+    if (!functionUrl || !supabaseKey) {
+      console.error('Missing environment variables for deep-research-start')
+      throw new Error('Missing environment configuration')
     }
+
+    const response = await fetch(functionUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseKey}`,
+      },
+      body: JSON.stringify({
+        topic,
+        max_iterations: maxIterations,
+        conversation_id: conversationId,
+      }),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('deep-research-start returned error:', errorText)
+      throw new Error(`Failed to start deep research: ${errorText}`)
+    }
+
+    const result = await response.json()
+    console.log('deep-research-start response:', result)
 
     const cardData: DeepResearchConfirmationCardData = {
       card_type: 'deep_research_confirmation',
-      session_id: sessionId,
+      session_id: result.session_id,
       topic: topic,
       max_iterations: maxIterations,
     }
 
     return {
-      content: `Deep research session created for "${topic}"`,
+      content: `Deep research started for "${topic}"`,
       message_type: 'result_card',
       card_data: cardData,
     }
   } catch (error) {
     console.error('Error handling deep research command:', error)
     return {
-      content: 'Sorry, I couldn\'t create the deep research session. Please try again later.',
+      content: 'Sorry, I couldn\'t start the deep research session. Please try again later.',
       message_type: 'error',
     }
   }

@@ -145,12 +145,16 @@ class DeepResearchExecutor implements TaskExecutor<StartRequest, StartResponse> 
     try {
       // @ts-ignore - Supabase type inference issue
       const { data, error } = await (this.supabase as any)
-        .from('deep_research_sessions')
+        .from('research_sessions')
         .insert({
           conversation_id: conversationId,
-          topic,
+          query: topic,
+          input_type: 'topic_research',
           max_iterations: maxIterations,
           status: 'pending',
+          current_iteration: 0,
+          plan_json: {},
+          findings_json: [],
         })
         .select('id')
         .single()
@@ -181,7 +185,7 @@ class DeepResearchExecutor implements TaskExecutor<StartRequest, StartResponse> 
     try {
       // @ts-ignore - Supabase type inference issue
       const { error: updateError } = await (this.supabase as any)
-        .from('deep_research_sessions')
+        .from('research_sessions')
         .update({ status: 'running' })
         .eq('id', sessionId)
 

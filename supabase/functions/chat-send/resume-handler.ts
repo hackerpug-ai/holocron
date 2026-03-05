@@ -16,7 +16,7 @@
 
 export interface ResumeSession {
   id: string
-  topic: string
+  query: string
   status: string
   created_at: string
   updated_at: string
@@ -93,8 +93,8 @@ export async function getIncompleteSessions(
 ): Promise<ResumeSession[]> {
   try {
     let query = supabase
-      .from('deep_research_sessions')
-      .select('id, topic, status, created_at, updated_at, max_iterations')
+      .from('research_sessions')
+      .select('id, query, status, created_at, updated_at, max_iterations')
       .in('status', ['pending', 'running', 'paused'])
       .order('updated_at', { ascending: false })
       .limit(10)
@@ -125,7 +125,7 @@ export async function getIncompleteSessions(
           console.error('Error fetching iteration count:', iterError)
           return {
             id: session.id,
-            topic: session.topic,
+            query: session.query,
             status: session.status,
             created_at: session.created_at,
             updated_at: session.updated_at,
@@ -140,7 +140,7 @@ export async function getIncompleteSessions(
 
         return {
           id: session.id,
-          topic: session.topic,
+          query: session.query,
           status: session.status,
           created_at: session.created_at,
           updated_at: session.updated_at,
@@ -170,8 +170,8 @@ export async function getSessionById(
 ): Promise<ResumeSession | null> {
   try {
     const { data: session, error } = await supabase
-      .from('deep_research_sessions')
-      .select('id, topic, status, created_at, updated_at, max_iterations')
+      .from('research_sessions')
+      .select('id, query, status, created_at, updated_at, max_iterations')
       .eq('id', sessionId)
       .single()
 
@@ -202,7 +202,7 @@ export async function getSessionById(
 
     return {
       id: session.id,
-      topic: session.topic,
+      query: session.query,
       status: session.status,
       created_at: session.created_at,
       updated_at: session.updated_at,
@@ -233,7 +233,7 @@ export async function restartSession(
   try {
     // Update session status to pending
     const { error } = await supabase
-      .from('deep_research_sessions')
+      .from('research_sessions')
       .update({ status: 'pending' })
       .eq('id', sessionId)
 
@@ -329,7 +329,7 @@ export async function handleResumeCommand(
     if (session.status === 'completed') {
       const action = restart ? 'restart' : 'resume'
       return {
-        content: `Cannot ${action} a completed session. Use --restart flag to start a new session with the same topic.`,
+        content: `Cannot ${action} a completed session. Use --restart flag to start a new session with the same query.`,
         message_type: 'error',
       }
     }
@@ -339,7 +339,7 @@ export async function handleResumeCommand(
       const success = await restartSession(supabase, sessionId)
       if (success) {
         return {
-          content: `Restarting session "${session.topic}" from the beginning.`,
+          content: `Restarting session "${session.query}" from the beginning.`,
           message_type: 'success',
         }
       } else {
@@ -356,7 +356,7 @@ export async function handleResumeCommand(
       : ''
 
     return {
-      content: `Resuming session "${session.topic}"${progressText}.`,
+      content: `Resuming session "${session.query}"${progressText}.`,
       message_type: 'success',
     }
   } catch (error) {

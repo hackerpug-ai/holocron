@@ -16,7 +16,7 @@
 
 export interface CancelSession {
   id: string
-  topic: string
+  query: string
   status: string
   created_at: string
   updated_at: string
@@ -49,8 +49,8 @@ export async function getActiveSession(
 ): Promise<CancelSession | null> {
   try {
     const { data: session, error } = await supabase
-      .from('deep_research_sessions')
-      .select('id, topic, status, created_at, updated_at, max_iterations')
+      .from('research_sessions')
+      .select('id, query, status, created_at, updated_at, max_iterations')
       .eq('conversation_id', conversationId)
       .eq('status', 'running')
       .order('updated_at', { ascending: false })
@@ -84,7 +84,7 @@ export async function getActiveSession(
 
     return {
       id: session.id,
-      topic: session.topic,
+      query: session.query,
       status: session.status,
       created_at: session.created_at,
       updated_at: session.updated_at,
@@ -113,7 +113,7 @@ export async function cancelSession(
 ): Promise<boolean> {
   try {
     const { error } = await supabase
-      .from('deep_research_sessions')
+      .from('research_sessions')
       .update({ status: 'cancelled' })
       .eq('id', sessionId)
 
@@ -192,7 +192,7 @@ export async function handleCancelCommand(
     }
 
     return {
-      content: `Research will stop after current iteration completes. Session "${session.topic}" marked as cancelled.`,
+      content: `Research will stop after current iteration completes. Session "${session.query}" marked as cancelled.`,
       message_type: 'success',
     }
   } catch (error) {

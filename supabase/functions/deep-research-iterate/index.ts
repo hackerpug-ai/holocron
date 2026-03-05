@@ -281,7 +281,7 @@ async function saveIteration(
   try {
     // @ts-ignore - Supabase type inference issue
     const { data, error } = await (supabase as any)
-      .from('deep_research_iterations')
+      .from('research_iterations')
       .insert({
         session_id: sessionId,
         iteration_number: iterationNumber,
@@ -434,7 +434,7 @@ async function completeSession(
   try {
     // @ts-ignore - Supabase type inference issue
     const { error } = await (supabase as any)
-      .from('deep_research_sessions')
+      .from('research_sessions')
       .update({ status })
       .eq('id', sessionId)
 
@@ -464,7 +464,7 @@ async function isSessionCancelled(
   try {
     // @ts-ignore - Supabase type inference issue
     const { data, error } = await (supabase as any)
-      .from('deep_research_sessions')
+      .from('research_sessions')
       .select('status')
       .eq('id', sessionId)
       .single()
@@ -496,7 +496,7 @@ async function getNextIterationNumber(
   try {
     // @ts-ignore - Supabase type inference issue
     const { data, error } = await (supabase as any)
-      .from('deep_research_iterations')
+      .from('research_iterations')
       .select('iteration_number')
       .eq('session_id', sessionId)
       .order('iteration_number', { ascending: false })
@@ -741,13 +741,19 @@ Deno.serve(async (req: Request) => {
     // Fetch session details
     // @ts-ignore - Supabase type inference issue
     const { data: session, error: sessionError } = await (supabase as any)
-      .from('deep_research_sessions')
-      .select('id, topic, max_iterations, status')
+      .from('research_sessions')
+      .select('id, query, max_iterations, status')
       .eq('id', body.session_id)
       .single()
 
     if (sessionError || !session) {
       return jsonResponse<ErrorResponse>({ error: 'Session not found' }, 404)
+    }
+
+    // Handle both 'topic' (new schema) and 'query' (production schema) columns
+    const topic = session.topic || session.query
+    if (!topic) {
+      return jsonResponse<ErrorResponse>({ error: 'Session has no topic/query' }, 400)
     }
 
     // Check if session is already completed or cancelled
@@ -761,7 +767,7 @@ Deno.serve(async (req: Request) => {
     // Update session status to running
     // @ts-ignore - Supabase type inference issue
     const { error: updateError } = await (supabase as any)
-      .from('deep_research_sessions')
+      .from('research_sessions')
       .update({ status: 'running' as const })
       .eq('id', body.session_id)
 
@@ -777,7 +783,7 @@ Deno.serve(async (req: Request) => {
         supabase as any,
         body.session_id,
         body.conversation_id,
-        session.topic,
+        topic,
         session.max_iterations
       )
 
@@ -797,7 +803,7 @@ Deno.serve(async (req: Request) => {
         supabase as any,
         body.session_id,
         body.conversation_id,
-        session.topic,
+        topic,
         session.max_iterations
       )
 
