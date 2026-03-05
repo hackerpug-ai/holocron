@@ -10,7 +10,7 @@
  * ```tsx
  * const { startTask, task, isLoading, isRunning, error } = useLongRunningTask({
  *   taskType: 'deep-research',
- *   functionName: 'deep-research-start',
+ *   action: 'task:deep-research-start',
  *   conversationId,
  *   onSuccess: (result) => console.log('Research complete:', result),
  *   onError: (error) => console.error('Research failed:', error),
@@ -50,8 +50,8 @@ export interface UseLongRunningTaskOptions<
 > {
   /** Task type identifier (must match database task_type enum) */
   taskType: TaskType
-  /** Name of the Supabase Edge Function to call (without 'functions/v1/' prefix) */
-  functionName: string
+  /** Action to send to chat-router (e.g., 'task:deep-research-start') */
+  action: string
   /** Conversation ID for task scoping */
   conversationId: string | null
   /** Optional callback when task completes successfully */
@@ -143,7 +143,7 @@ export function useLongRunningTask<
 ): UseLongRunningTaskReturn<TConfig, TResult> {
   const {
     taskType,
-    functionName,
+    action,
     conversationId,
     onSuccess,
     onError,
@@ -204,7 +204,7 @@ export function useLongRunningTask<
         log('useLongRunningTask').info('Starting task', {
           taskType,
           conversationId,
-          functionName,
+          action,
         })
 
         const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL
@@ -214,14 +214,17 @@ export function useLongRunningTask<
           throw new Error('Missing Supabase configuration')
         }
 
-        // Prepare request body with conversation_id
+        // Prepare request body with action routing and conversation_id
         const requestBody = {
-          ...config,
-          conversation_id: conversationId,
+          action,
+          payload: {
+            ...config,
+            conversation_id: conversationId,
+          },
         }
 
-        // Call the Edge Function
-        const response = await fetch(`${supabaseUrl}/functions/v1/${functionName}`, {
+        // Call the unified chat-router
+        const response = await fetch(`${supabaseUrl}/functions/v1/chat-router`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -273,7 +276,7 @@ export function useLongRunningTask<
         setIsStarting(false)
       }
     },
-    [conversationId, taskType, functionName, queryClient, onError, resetStartError]
+    [conversationId, taskType, action, queryClient, onError, resetStartError]
   )
 
   // Handle task completion and callbacks
