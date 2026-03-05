@@ -9,8 +9,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { ConvexHttpClient } from "convex/browser";
-import { readFileSync } from "fs";
-import { join } from "path";
+import { api } from "../convex/_generated/api";
 
 // Types
 type ValidationStatus = "PASS" | "FAIL";
@@ -42,9 +41,17 @@ const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || "";
 
 const results: ValidationResult[] = [];
 
-// Initialize clients
-const convex = new ConvexHttpClient(CONVEX_URL);
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Initialize clients (lazy initialization)
+let convex: ConvexHttpClient | null = null;
+let supabase: ReturnType<typeof createClient> | null = null;
+
+function getClients() {
+  if (!convex || !supabase) {
+    convex = new ConvexHttpClient(CONVEX_URL);
+    supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  }
+  return { convex, supabase };
+}
 
 // Table mapping: Supabase table name -> Convex table name
 const TABLE_MAPPING = [
@@ -65,10 +72,25 @@ const TABLE_MAPPING = [
 async function validateRowCounts(): Promise<void> {
   console.log("\n=== AC-1: Validating Row Counts ===");
 
+  const { convex: cvx, supabase: sup } = getClients();
+
+  // Query mapping from Convex module name to count query
+  const countQueries = {
+    conversations: api.conversations.count,
+    chatMessages: api.chatMessages.count,
+    documents: api.documents.count,
+    researchSessions: api.researchSessions.count,
+    researchIterations: api.researchIterations.count,
+    deepResearchSessions: api.deepResearchSessions.count,
+    deepResearchIterations: api.deepResearchIterations.count,
+    citations: api.citations.count,
+    tasks: api.tasks.count,
+  };
+
   for (const { supabase: sTable, convex: cTable } of TABLE_MAPPING) {
     try {
       // Get Supabase count
-      const { count: sCount, error: sError } = await supabase
+      const { count: sCount, error: sError } = await sup!
         .from(sTable)
         .select("*", { count: "exact", head: true });
 
@@ -84,10 +106,9 @@ async function validateRowCounts(): Promise<void> {
         continue;
       }
 
-      // Get Convex count - fetch all documents and count
-      // Using a generic query approach
-      const cData = await convex.query(`db.${cTable}:list`);
-      const cCount = Array.isArray(cData) ? cData.length : 0;
+      // Get Convex count using the count query
+      const countQuery = countQueries[cTable as keyof typeof countQueries];
+      const cCount = countQuery ? await cvx!.query(countQuery, {}) : 0;
 
       const status: ValidationStatus = sCount === cCount ? "PASS" : "FAIL";
 
@@ -124,15 +145,17 @@ async function validateRowCounts(): Promise<void> {
 async function validateForeignKeys(): Promise<void> {
   console.log("\n=== AC-2: Validating FK Relationships ===");
 
+  const { convex: cvx } = getClients();
+
   // Check 1: chatMessages -> conversations
   try {
-    const messages = await convex.query("db.chatMessages:list");
-    const conversations = await convex.query("db.conversations:list");
+    const messages = await cvx!.query(api.chatMessages.list);
+    const conversations = await cvx!.query(api.conversations.list);
     const conversationIds = new Set(
-      conversations.map((c: { _id: string }) => c._id)
+      conversations.map((c) => c._id)
     );
 
-    const orphanedMessages = (messages as Array<{ conversationId: string }>).filter(
+    const orphanedMessages = messages.filter(
       (m) => !conversationIds.has(m.conversationId)
     );
 
@@ -167,13 +190,13 @@ async function validateForeignKeys(): Promise<void> {
 
   // Check 2: researchIterations -> researchSessions
   try {
-    const iterations = await convex.query("db.researchIterations:list");
-    const sessions = await convex.query("db.researchSessions:list");
+    const iterations = await cvx!.query(api.researchIterations.list);
+    const sessions = await cvx!.query(api.researchSessions.list);
     const sessionIds = new Set(
-      sessions.map((s: { _id: string }) => s._id)
+      sessions.map((s) => s._id)
     );
 
-    const orphanedIterations = (iterations as Array<{ sessionId: string }>).filter(
+    const orphanedIterations = iterations.filter(
       (i) => !sessionIds.has(i.sessionId)
     );
 
@@ -208,13 +231,13 @@ async function validateForeignKeys(): Promise<void> {
 
   // Check 3: deepResearchIterations -> deepResearchSessions
   try {
-    const iterations = await convex.query("db.deepResearchIterations:list");
-    const sessions = await convex.query("db.deepResearchSessions:list");
+    const iterations = await cvx!.query(api.deepResearchIterations.list);
+    const sessions = await cvx!.query(api.deepResearchSessions.list);
     const sessionIds = new Set(
-      sessions.map((s: { _id: string }) => s._id)
+      sessions.map((s) => s._id)
     );
 
-    const orphanedIterations = (iterations as Array<{ sessionId: string }>).filter(
+    const orphanedIterations = iterations.filter(
       (i) => !sessionIds.has(i.sessionId)
     );
 
@@ -249,13 +272,13 @@ async function validateForeignKeys(): Promise<void> {
 
   // Check 4: deepResearchSessions -> conversations
   try {
-    const deepSessions = await convex.query("db.deepResearchSessions:list");
-    const conversations = await convex.query("db.conversations:list");
+    const deepSessions = await cvx!.query(api.deepResearchSessions.list);
+    const conversations = await cvx!.query(api.conversations.list);
     const conversationIds = new Set(
-      conversations.map((c: { _id: string }) => c._id)
+      conversations.map((c) => c._id)
     );
 
-    const orphanedDeepSessions = (deepSessions as Array<{ conversationId: string }>).filter(
+    const orphanedDeepSessions = deepSessions.filter(
       (s) => !conversationIds.has(s.conversationId)
     );
 
@@ -295,13 +318,14 @@ async function validateForeignKeys(): Promise<void> {
 async function validateEmbeddingDimensions(): Promise<void> {
   console.log("\n=== AC-3: Validating Embedding Dimensions ===");
 
+  const { convex: cvx } = getClients();
+
   try {
-    const documents = await convex.query("db.documents:list");
-    const docsArray = Array.isArray(documents) ? documents : [];
+    const documents = await cvx!.query(api.documents.list, {});
 
     // Filter documents with embeddings
-    const docsWithEmbeddings = docsArray.filter(
-      (doc: { embedding?: number[] }) => doc.embedding && doc.embedding.length > 0
+    const docsWithEmbeddings = documents.filter(
+      (doc) => doc.embedding && doc.embedding.length > 0
     );
 
     if (docsWithEmbeddings.length === 0) {
@@ -319,12 +343,12 @@ async function validateEmbeddingDimensions(): Promise<void> {
 
     // Check for invalid dimensions
     const invalidDocs = docsWithEmbeddings.filter(
-      (doc: { embedding: number[] }) => doc.embedding.length !== 1536
+      (doc) => doc.embedding!.length !== 1536
     );
 
     // Sample first doc with embedding
-    const sampleDoc = docsWithEmbeddings[0] as { embedding: number[]; _id: string; title: string };
-    const sampleDimension = sampleDoc.embedding.length;
+    const sampleDoc = docsWithEmbeddings[0];
+    const sampleDimension = sampleDoc.embedding!.length;
 
     results.push({
       table: "documents",

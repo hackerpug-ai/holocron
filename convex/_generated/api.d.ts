@@ -8,14 +8,22 @@
  * @module
  */
 
+import type * as chatMessages_index from "../chatMessages/index.js";
 import type * as chatMessages_mutations from "../chatMessages/mutations.js";
 import type * as chatMessages_queries from "../chatMessages/queries.js";
+import type * as citations_queries from "../citations/queries.js";
+import type * as conversations_index from "../conversations/index.js";
 import type * as conversations_mutations from "../conversations/mutations.js";
 import type * as conversations_queries from "../conversations/queries.js";
+import type * as deepResearchIterations_queries from "../deepResearchIterations/queries.js";
+import type * as deepResearchSessions_queries from "../deepResearchSessions/queries.js";
 import type * as documents_index from "../documents/index.js";
 import type * as documents_mutations from "../documents/mutations.js";
 import type * as documents_queries from "../documents/queries.js";
 import type * as documents_search from "../documents/search.js";
+import type * as researchIterations_queries from "../researchIterations/queries.js";
+import type * as researchSessions_queries from "../researchSessions/queries.js";
+import type * as tasks_index from "../tasks/index.js";
 import type * as tasks_mutations from "../tasks/mutations.js";
 import type * as tasks_queries from "../tasks/queries.js";
 
@@ -26,14 +34,22 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  "chatMessages/index": typeof chatMessages_index;
   "chatMessages/mutations": typeof chatMessages_mutations;
   "chatMessages/queries": typeof chatMessages_queries;
+  "citations/queries": typeof citations_queries;
+  "conversations/index": typeof conversations_index;
   "conversations/mutations": typeof conversations_mutations;
   "conversations/queries": typeof conversations_queries;
+  "deepResearchIterations/queries": typeof deepResearchIterations_queries;
+  "deepResearchSessions/queries": typeof deepResearchSessions_queries;
   "documents/index": typeof documents_index;
   "documents/mutations": typeof documents_mutations;
   "documents/queries": typeof documents_queries;
   "documents/search": typeof documents_search;
+  "researchIterations/queries": typeof researchIterations_queries;
+  "researchSessions/queries": typeof researchSessions_queries;
+  "tasks/index": typeof tasks_index;
   "tasks/mutations": typeof tasks_mutations;
   "tasks/queries": typeof tasks_queries;
 }>;
