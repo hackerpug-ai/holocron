@@ -1,0 +1,79 @@
+
+> holocron@1.0.0 test /Users/justinrich/Projects/holocron
+> vitest run "tests/integration/validate-migration.test.ts"
+
+
+[1m[46m RUN [49m[22m [36mv4.0.18 [39m[90m/Users/justinrich/Projects/holocron[39m
+
+[90mstdout[2m | tests/integration/validate-migration.test.ts[2m > [22m[2mMigration Validation - AC-1: Row Counts
+[22m[39m
+╔════════════════════════════════════════════════════════════╗
+║     MIGRATION DATA INTEGRITY VALIDATION                   ║
+╚════════════════════════════════════════════════════════════╝
+
+[90mstderr[2m | tests/integration/validate-migration.test.ts[2m > [22m[2mMigration Validation - AC-1: Row Counts
+[22m[39m
+✗ Missing required environment variables:
+  - VITE_CONVEX_HTTP_URL
+  - VITE_SUPABASE_URL
+  - VITE_SUPABASE_ANON_KEY
+
+[90mstdout[2m | tests/integration/validate-migration.test.ts[2m > [22m[2mMigration Validation - AC-2: FK Relationships
+[22m[39m
+╔════════════════════════════════════════════════════════════╗
+║     MIGRATION DATA INTEGRITY VALIDATION                   ║
+╚════════════════════════════════════════════════════════════╝
+
+[90mstderr[2m | tests/integration/validate-migration.test.ts[2m > [22m[2mMigration Validation - AC-2: FK Relationships
+[22m[39m
+✗ Missing required environment variables:
+  - VITE_CONVEX_HTTP_URL
+  - VITE_SUPABASE_URL
+  - VITE_SUPABASE_ANON_KEY
+
+[90mstdout[2m | tests/integration/validate-migration.test.ts[2m > [22m[2mMigration Validation - AC-3: Embedding Dimensions
+[22m[39m
+╔════════════════════════════════════════════════════════════╗
+║     MIGRATION DATA INTEGRITY VALIDATION                   ║
+╚════════════════════════════════════════════════════════════╝
+
+[90mstderr[2m | tests/integration/validate-migration.test.ts[2m > [22m[2mMigration Validation - AC-3: Embedding Dimensions
+[22m[39m
+✗ Missing required environment variables:
+  - VITE_CONVEX_HTTP_URL
+  - VITE_SUPABASE_URL
+  - VITE_SUPABASE_ANON_KEY
+
+[90mstdout[2m | tests/integration/validate-migration.test.ts[2m > [22m[2mMigration Validation - AC-4: Integrity Report[2m > [22m[2mshould generate comprehensive validation report
+[22m[39m
+╔════════════════════════════════════════════════════════════╗
+║     MIGRATION DATA INTEGRITY VALIDATION                   ║
+╚════════════════════════════════════════════════════════════╝
+
+[90mstderr[2m | tests/integration/validate-migration.test.ts[2m > [22m[2mMigration Validation - AC-4: Integrity Report[2m > [22m[2mshould generate comprehensive validation report
+[22m[39m
+✗ Missing required environment variables:
+  - VITE_CONVEX_HTTP_URL
+  - VITE_SUPABASE_URL
+  - VITE_SUPABASE_ANON_KEY
+
+[90mstdout[2m | tests/integration/validate-migration.test.ts[2m > [22m[2mMigration Validation - AC-4: Integrity Report[2m > [22m[2mshould report 100% pass rate when all checks pass
+[22m[39m
+╔════════════════════════════════════════════════════════════╗
+║     MIGRATION DATA INTEGRITY VALIDATION                   ║
+╚════════════════════════════════════════════════════════════╝
+
+[90mstderr[2m | tests/integration/validate-migration.test.ts[2m > [22m[2mMigration Validation - AC-4: Integrity Report[2m > [22m[2mshould report 100% pass rate when all checks pass
+[22m[39m
+✗ Missing required environment variables:
+  - VITE_CONVEX_HTTP_URL
+  - VITE_SUPABASE_URL
+  - VITE_SUPABASE_ANON_KEY
+
+ [32m✓[39m tests/integration/validate-migration.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 58[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m9 passed[39m[22m[90m (9)[39m
+[2m   Start at [22m 14:23:35
+[2m   Duration [22m 186ms[2m (transform 44ms, setup 0ms, import 35ms, tests 58ms, environment 0ms)[22m
+
