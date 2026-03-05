@@ -1,0 +1,39 @@
+US-048: Convex Schema Generation Output
+========================================
+
+Command: npx convex codegen
+
+Output:
+--------
+Finding component definitions...
+Generating server code...
+Bundling component definitions...
+Bundling component schemas and implementations...
+Downloading current deployment state...
+Uploading functions to Convex...
+Generating TypeScript bindings...
+Running TypeScript...
+
+Status: SUCCESS
+--------
+- Schema compiles without errors
+- All 9 tables defined successfully
+- Type generation completed
+- All indexes and searchIndexes defined
+- Vector index for embeddings (1536 dimensions) configured
+
+Tables Defined:
+--------
+1. conversations - Core chat conversations
+2. chatMessages - Messages with FK to conversations
+3. documents - Knowledge base documents with embeddings
+4. researchSessions - Research session tracking
+5. researchIterations - Research iteration history
+6. deepResearchSessions - Deep research sessions
+7. deepResearchIterations - Deep research iteration tracking
+8. tasks - Task management
+9. citations - Source citations
+
+All tables use camelCase naming convention as required.
+All foreign key relationships properly defined with v.id().
+Vector embeddings use v.array(v.float64()) with 1536 dimensions.

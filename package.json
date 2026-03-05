@@ -15,6 +15,9 @@
     "storybook:android": "STORYBOOK_ENABLED=true EXPO_PUBLIC_STORYBOOK_ENABLED=true expo start --android --clear"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^3.0.41",
+    "@convex-dev/agent": "^0.3.2",
+    "@convex-dev/workflow": "^0.3.5",
     "@expo/vector-icons": "^15.0.2",
     "@react-native-async-storage/async-storage": "^3.0.1",
     "@react-navigation/drawer": "^7.9.2",
@@ -49,6 +52,7 @@
     "@types/unist": "^3.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "convex": "^1.32.0",
     "date-fns": "^4.1.0",
     "expo": "~55.0.4",
     "expo-constants": "~55.0.7",

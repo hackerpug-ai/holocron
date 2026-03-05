@@ -6,11 +6,11 @@ Chat-centric mobile research app with slash commands, result cards, and conversa
 
 | Field | Value |
 |-------|-------|
-| Version | 4.0.0 |
-| Appetite | 2 weeks |
+| Version | 5.0.0 |
+| Appetite | 2 weeks + 6-8 weeks migration |
 | Scope Level | core |
 | Created | 2026-02-28 |
-| Last Updated | 2026-03-04 |
+| Last Updated | 2026-03-05 |
 
 ## Document Index
 
@@ -28,13 +28,14 @@ Chat-centric mobile research app with slash commands, result cards, and conversa
 | [09-uc-article-management.md](./09-uc-article-management.md) | UC-AM-01 through UC-AM-04 | FEATURE_SPEC |
 | [10-team-contributions.md](./10-team-contributions.md) | Phase contributions (personas, architecture, UI) | - |
 | [11-technical-requirements.md](./11-technical-requirements.md) | System components, data schema, API design, architecture | CONSTITUTION |
+| [12-uc-backend-migration.md](./12-uc-backend-migration.md) | UC-BM-01 through UC-BM-06 (Supabase → Convex migration) | FEATURE_SPEC |
 
 ## Quick Stats
 
 | Metric | Value |
 |--------|-------|
-| Functional Groups | 6 |
-| Use Cases | 27 |
+| Functional Groups | 7 |
+| Use Cases | 33 |
 | System Components | 9 |
 | Data Entities | 9 |
 | API Endpoints | 25 |
@@ -48,9 +49,10 @@ Chat-centric mobile research app with slash commands, result cards, and conversa
 | 2.0.0 | 2026-03-01 | Chat-centric UX paradigm: main chat view, slash commands, result cards, new CI functional group | Scope change |
 | 3.0.0 | 2026-03-01 | Drawer navigation, multi-conversation support, articles browse view, new NV functional group (4 UCs), UC-KB-05, conversations table, 4 conversation API endpoints | Scope change |
 | 3.1.0 | 2026-03-01 | UC-CI-02: Command typeahead panel above input, "/" action button trigger, real-time filtering, dismiss on no match | UC criteria update |
-| **4.0.0** | **2026-03-04** | **Server-side agent architecture for long-running tasks. Multi-agent collaboration patterns (Orchestrator-Worker, Parallel Swarm, Team Orchestrator). Tools/prompts per agent type. Shared module: long-running-task. New tables: long_running_tasks, deep_research_sessions, deep_research_iterations. New APIs: task-start, task-status, task-cancel.** | **Scope change** |
+| 4.0.0 | 2026-03-04 | Server-side agent architecture for long-running tasks. Multi-agent collaboration patterns (Orchestrator-Worker, Parallel Swarm, Team Orchestrator). Tools/prompts per agent type. Shared module: long-running-task. New tables: long_running_tasks, deep_research_sessions, deep_research_iterations. New APIs: task-start, task-status, task-cancel. | Scope change |
+| **5.0.0** | **2026-03-05** | **Backend Migration: Supabase to Convex. New functional group BM (Backend Migration) with 6 use cases (UC-BM-01 through UC-BM-06). Covers POC validation, data layer migration, API migration, client hook migration, CLI skill migration, and cleanup. 6-8 week timeline. 30%+ code reduction target.** | **Scope change** |
 
-> :warning: FEATURE_SPEC changed in v4.0.0. Re-run `/kb-project-plan --delta-replan`
+> :warning: FEATURE_SPEC changed in v5.0.0. Re-run `/kb-project-plan --delta-replan`
 
 ## Next Steps
 

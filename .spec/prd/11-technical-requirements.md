@@ -1,142 +1,320 @@
 # Technical Requirements: Holocron Mobile Research Interface
 
-[UPDATED 2026-03-04]: Added Long-Running Task Infrastructure and Multi-Agent Architecture for server-side agent orchestration
+[UPDATED 2026-03-05]: Migrated to **Convex Agent + Workflow** architecture for multi-agent research. Uses orchestrator-worker pattern with GPT-5-mini for cost-effective parallel subagents.
 
 ---
 
-## Long-Running Task Infrastructure
+## Multi-Agent Research Architecture (Convex Native)
 
 ### Overview
 
-All slash commands that require extended processing are engineered as **server-side agents** running in long-running tasks. This infrastructure replicates local research skills in Supabase Edge Functions, enabling multi-agent collaboration patterns.
+All slash commands that require extended processing are engineered as **Convex Workflows** with **Convex Agent component** for orchestration. This architecture implements Anthropic's proven orchestrator-worker pattern directly within Convex's 10-minute action limit.
 
-### Architecture Pattern: TaskExecutor Interface
+**Key Insight (from Anthropic Research)**: Token usage explains 80% of performance variance in research quality. Multi-agent systems work by effectively scaling token usage across parallel context windows—exactly what Convex Workflows enable.
+
+### Architecture Pattern: Convex Agent + Workflow
 
 ```typescript
-// Core interface for all long-running task executors
-interface TaskExecutor<TConfig = unknown, TResult = unknown> {
-  execute(config: TConfig, updateStatus?: StatusUpdateFn): Promise<TResult>
-}
+// convex/research/agents.ts
+import { Agent, createTool } from "@convex-dev/agent";
+import { WorkflowManager } from "@convex-dev/workflow";
+import { openai } from "@ai-sdk/openai";
 
-// Status update callback for progress reporting
-interface StatusUpdateFn {
-  (progress: TaskProgress): Promise<void> | void
-}
+// Lead agent - orchestrates research strategy (more capable model)
+const leadResearcher = new Agent(components.agent, {
+  name: "Lead Researcher",
+  chat: openai.chat("gpt-5"),  // Lead uses GPT-5 for complex planning
+  textEmbedding: openai.embedding("text-embedding-3-small"),
+  instructions: `You are a research coordinator. Analyze queries,
+    decompose into 3-5 subtasks, delegate to subagents, and synthesize findings.
+    Scale effort to query complexity:
+    - Simple fact-finding: 1 subagent, 3-5 tool calls
+    - Comparisons: 2-3 subagents, 10-15 calls each
+    - Complex research: 3-5 subagents with divided responsibilities`,
+  tools: { planResearch, synthesizeFindings, assessCoverage },
+});
 
-// Progress tracking
-interface TaskProgress {
-  current_step: number | null
-  total_steps: number | null
-  progress_message: string | null
-}
+// Subagent - parallel workers (cost-effective model)
+const webSearcher = new Agent(components.agent, {
+  name: "Web Searcher",
+  chat: openai.chat("gpt-5-mini"),  // Subagents use GPT-5-mini (fast, cheap)
+  instructions: `You are a focused research worker. Search for specific
+    information on your assigned sub-topic. Cite all sources with URLs.
+    Start with short, broad queries (2-4 words), then narrow based on findings.`,
+  tools: { searchWeb, readUrl, evaluateSource },
+});
+
+// Workflow orchestrates the multi-agent collaboration
+const workflow = new WorkflowManager(components.workflow);
 ```
+
+### Model Assignment Strategy
+
+| Agent Role | Model | Rationale |
+|------------|-------|-----------|
+| **Lead Researcher** | `gpt-5` | Complex planning, synthesis, quality judgment |
+| **Web Searcher** (subagent) | `gpt-5-mini` | Fast, cheap parallel exploration |
+| **Academic Searcher** (subagent) | `gpt-5-mini` | Fast, cheap parallel exploration |
+| **Citation Agent** | `gpt-5-mini` | Structured validation task |
+| **Reviewer Agent** | `gpt-5` | Quality assessment needs stronger reasoning |
+
+**Cost Optimization**: Using GPT-5-mini for 3-5 parallel subagents reduces token costs by ~60% vs using GPT-5 for all agents, while maintaining research quality (subagents do retrieval, not reasoning).
 
 ### Task Types
 
-| Task Type | Description | Executor Pattern | Skills Replicated |
-|-----------|-------------|------------------|-------------------|
-| `deep-research` | Multi-iteration Ralph Loop research | IterativeExecutor | `/deep-research` |
-| `research` | Single-pass basic research | SinglePassExecutor | `/research` |
-| `assimilate` | Repository analysis | ParallelSwarmExecutor | `/assimilate` |
-| `shop` | Product comparison | ParallelSwarmExecutor | `/shop` |
-| `research-loop` | Multi-topic Ralph Loop | ParallelExecutor | `/research-loop` |
-| `deep-research-teamwork` | Full research team | TeamOrchestratorExecutor | `/deep-research-teamwork` |
+| Task Type | Description | Convex Pattern | Skills Replicated |
+|-----------|-------------|----------------|-------------------|
+| `deep-research` | Multi-iteration research | Workflow + parallel subagents | `/deep-research` |
+| `research` | Single-pass research | Single Action with tools | `/research` |
+| `assimilate` | Repository analysis | Workflow + parallel swarm | `/assimilate` |
+| `shop` | Product comparison | Workflow + parallel swarm | `/shop` |
+| `research-loop` | Multi-topic research | Workflow + sequential iterations | `/research-loop` |
 
-### Task Lifecycle
+### Task Lifecycle (Convex Native)
+
+With Convex, task status is stored directly in the entity (e.g., `researchSessions` table). No separate task tracking table needed—clients watch the entity via `useQuery`.
 
 ```
-pending → queued → loading → running → completed/error/cancelled
+created → planning → searching → synthesizing → completed/error/cancelled
 ```
 
-### Concurrency Control
+### Concurrency Control (Convex Native)
 
-- **One active task per type per conversation** (enforced by `can_start_task` RPC)
-- **Maximum 3 concurrent tasks globally** (configurable via `MAX_CONCURRENT_TASKS`)
-- **Timeout handling**: 5-minute default per task, extended via cron worker
+- **Workflow component** handles durable execution with automatic retries
+- **Sequential workflow steps** for dependent operations
+- **Parallel workflow steps** for independent subagent work
+- **10-minute action limit** respected—subagents limited to 3-5 tool roundtrips each
 
 ---
 
-## Multi-Agent Collaboration Patterns
+## Multi-Agent Collaboration Patterns (Convex Agent + Workflow)
 
 ### Pattern 1: Orchestrator-Worker (for Deep Research)
 
+**Implementation**: Convex Workflow with parallel Agent steps
+
 ```
-┌─────────────────┐
-│   Orchestrator  │ ← Receives topic, plans iterations
-│   (Manager)     │
-└────────┬────────┘
-         │
-    ┌────┴────┬──────────┬──────────┐
-    ▼         ▼          ▼          ▼
-┌───────┐ ┌───────┐ ┌───────┐ ┌───────┐
-│Worker │ │Worker │ │Worker │ │Worker │
-│  1    │ │  2    │ │  3    │ │  4    │
-└───────┘ └───────┘ └───────┘ └───────┘
-    │         │          │          │
-    └────────┴──────────┴──────────┘
-                   │
-                   ▼
-            ┌──────────┐
-            │ Reviewer │ ← Assesses coverage, identifies gaps
-            └──────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                   CONVEX WORKFLOW: deepResearch                  │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ┌────────────────────────────────────────────────────────────┐ │
+│  │ Step 1: PLAN (Lead Researcher - GPT-5)                     │ │
+│  │ - Analyze query complexity                                  │ │
+│  │ - Decompose into 3-5 subtasks                              │ │
+│  │ - Store plan in thread memory                              │ │
+│  └───────────────────────┬────────────────────────────────────┘ │
+│                          │                                       │
+│         ┌────────────────┼────────────────┐                     │
+│         ▼                ▼                ▼                     │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐             │
+│  │ Step 2a:    │  │ Step 2b:    │  │ Step 2c:    │  (PARALLEL) │
+│  │ Subagent 1  │  │ Subagent 2  │  │ Subagent 3  │             │
+│  │ GPT-5-mini  │  │ GPT-5-mini  │  │ GPT-5-mini  │             │
+│  │ (Web Search)│  │ (Academic)  │  │ (Domain)    │             │
+│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘             │
+│         │                │                │                     │
+│         └────────────────┼────────────────┘                     │
+│                          │ findings                              │
+│                          ▼                                       │
+│  ┌────────────────────────────────────────────────────────────┐ │
+│  │ Step 3: SYNTHESIZE (Lead Researcher - GPT-5)               │ │
+│  │ - Aggregate findings from all subagents                    │ │
+│  │ - Resolve contradictions                                   │ │
+│  │ - Generate report with citations                           │ │
+│  └───────────────────────┬────────────────────────────────────┘ │
+│                          │                                       │
+│                          ▼                                       │
+│  ┌────────────────────────────────────────────────────────────┐ │
+│  │ Step 4: REVIEW (Reviewer Agent - GPT-5)                    │ │
+│  │ - Assess coverage score (1-5)                              │ │
+│  │ - Identify gaps                                            │ │
+│  │ - Decision: iterate or complete                            │ │
+│  └────────────────────────────────────────────────────────────┘ │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Convex Implementation:**
+
+```typescript
+// convex/research/deepResearch.ts
+export const deepResearch = workflow.define({
+  args: { query: v.string(), userId: v.string(), maxIterations: v.number() },
+  handler: async (step, { query, userId, maxIterations }) => {
+    // Step 1: Lead agent plans research (GPT-5)
+    const plan = await step.run("plan", async () => {
+      const { thread } = await leadResearcher.createThread(ctx, { userId });
+      return thread.generateObject({
+        prompt: `Plan comprehensive research for: ${query}`,
+        schema: ResearchPlanSchema,
+      });
+    });
+
+    // Step 2: Spawn parallel subagents (GPT-5-mini for cost efficiency)
+    const findings = await Promise.all(
+      plan.subtasks.map((task, i) =>
+        step.run(`subagent-${i}`, async () => {
+          const { thread } = await webSearcher.createThread(ctx, { userId });
+          return thread.generateText({
+            prompt: task.objective,
+            tools: { searchWeb, readUrl, searchArxiv },
+            maxToolRoundtrips: 5,  // Stay within 10-min action limit
+          });
+        })
+      )
+    );
+
+    // Step 3: Synthesize findings (GPT-5)
+    const report = await step.run("synthesize", async () => {
+      return leadResearcher.generateText({
+        prompt: `Synthesize these findings with citations:\n${findings.join("\n---\n")}`,
+      });
+    });
+
+    // Step 4: Review coverage
+    const review = await step.run("review", async () => {
+      return reviewerAgent.generateObject({
+        prompt: `Assess coverage (1-5) and identify gaps:\n${report}`,
+        schema: ReviewSchema,
+      });
+    });
+
+    // Iterate if coverage < 4 and iterations remain
+    if (review.score < 4 && step.iteration < maxIterations) {
+      return step.continue({ refinedQueries: review.gaps });
+    }
+
+    return { report, review, iterations: step.iteration };
+  },
+});
 ```
 
 **Tools per agent:**
-- **Orchestrator**: `searchIteration()`, `reviewFindings()`, `saveIteration()`, `streamIterationCard()`
-- **Worker**: `performJinaSearch()`, `aggregateFindings()`, `generateRefinedQueries()`
-- **Reviewer**: `reviewFindings()`, coverage scoring (1-5), gap identification
+- **Lead Researcher (GPT-5)**: `planResearch`, `synthesizeFindings`, thread memory access
+- **Subagent Workers (GPT-5-mini)**: `searchWeb`, `readUrl`, `searchArxiv`, `evaluateSource`
+- **Reviewer (GPT-5)**: Coverage scoring (1-5), gap identification, iteration decision
 
 ### Pattern 2: Parallel Swarm (for Assimilate/Shop)
 
+**Implementation**: Convex Workflow with parallel swarm workers (all GPT-5-mini)
+
 ```
-┌─────────────────┐
-│    Manager      │ ← Decomposes query into sub-queries
-└────────┬────────┘
-         │
-    ┌────┴────┬──────────┬──────────┐
-    ▼         ▼          ▼          ▼
-┌───────┐ ┌───────┐ ┌───────┐ ┌───────┐
-│Cheap  │ │Cheap  │ │Cheap  │ │Cheap  │
-│Worker │ │Worker │ │Worker │ │Worker │
-│  1    │ │  2    │ │  3    │ │  4    │
-└───┬───┘ └───┬───┘ └───┬───┘ └───┬───┘
-    │         │          │          │
-    └────────┴──────────┴──────────┘
-                   │
-                   ▼
-            ┌──────────┐
-            │Synthesizer│ ← Aggregates, deduplicates, summarizes
-            └──────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│              CONVEX WORKFLOW: parallelSwarm                      │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ┌────────────────────────────────────────────────────────────┐ │
+│  │ Step 1: DECOMPOSE (Manager - GPT-5)                        │ │
+│  │ - Analyze query                                            │ │
+│  │ - Generate 3-5 parallel sub-queries                        │ │
+│  └───────────────────────┬────────────────────────────────────┘ │
+│                          │                                       │
+│     ┌────────────────────┼────────────────────┐                 │
+│     ▼                    ▼                    ▼                 │
+│ ┌─────────┐         ┌─────────┐         ┌─────────┐             │
+│ │ Step 2a │         │ Step 2b │         │ Step 2c │  (PARALLEL) │
+│ │ Worker  │         │ Worker  │         │ Worker  │             │
+│ │GPT-5-mini│        │GPT-5-mini│        │GPT-5-mini│            │
+│ └────┬────┘         └────┬────┘         └────┬────┘             │
+│      │                   │                   │                   │
+│      └───────────────────┼───────────────────┘                  │
+│                          ▼                                       │
+│  ┌────────────────────────────────────────────────────────────┐ │
+│  │ Step 3: AGGREGATE (Synthesizer - GPT-5)                    │ │
+│  │ - Deduplicate findings                                     │ │
+│  │ - Merge and summarize                                      │ │
+│  └────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Convex Implementation:**
+
+```typescript
+// convex/swarm/parallelSwarm.ts
+export const parallelSwarm = workflow.define({
+  args: { query: v.string(), swarmType: v.string() },
+  handler: async (step, { query, swarmType }) => {
+    // Step 1: Manager decomposes (GPT-5)
+    const subQueries = await step.run("decompose", async () => {
+      return managerAgent.generateObject({
+        prompt: `Decompose into 3-5 parallel search queries: ${query}`,
+        schema: SubQuerySchema,
+      });
+    });
+
+    // Step 2: Parallel workers (GPT-5-mini for cost)
+    const findings = await Promise.all(
+      subQueries.map((sq, i) =>
+        step.run(`worker-${i}`, async () => {
+          return workerAgent.generateText({
+            prompt: sq.objective,
+            tools: { searchWeb, readUrl },
+            maxToolRoundtrips: 3,  // Fast, focused
+          });
+        })
+      )
+    );
+
+    // Step 3: Synthesize (GPT-5)
+    return step.run("synthesize", async () => {
+      return synthesizerAgent.generateText({
+        prompt: `Deduplicate and summarize:\n${findings.join("\n---\n")}`,
+      });
+    });
+  },
+});
 ```
 
 **Tools per agent:**
-- **Manager**: Query decomposition, task assignment, result aggregation
-- **Cheap Worker**: Single-pass search, content extraction, initial filtering
-- **Synthesizer**: Deduplication, summarization, confidence scoring
+- **Manager (GPT-5)**: Query decomposition, task assignment
+- **Worker (GPT-5-mini)**: `searchWeb`, `readUrl`, initial filtering
+- **Synthesizer (GPT-5)**: Deduplication, summarization, confidence scoring
 
 ### Pattern 3: Team Orchestrator (for Research Teamwork)
 
+**Implementation**: Convex Workflow with specialized role agents
+
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                     Team Orchestrator                        │
-│  (Manages agent lifecycle, tool access, collaboration)      │
-└─────────────────────────────┬───────────────────────────────┘
-                              │
-    ┌─────────┬───────────┬───┴───┬───────────┬─────────────┐
-    ▼         ▼           ▼       ▼           ▼             ▼
-┌───────┐ ┌───────┐ ┌────────┐ ┌──────┐ ┌─────────┐ ┌──────────┐
-│Research│ │Research│ │Domain │ │Devil's│ │Synthesizer│ │Librarian │
-│Planner │ │Workers │ │ Expert│ │Advocate│ │          │ │          │
-└───────┘ └───────┘ └────────┘ └──────┘ └─────────┘ └──────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│            CONVEX WORKFLOW: researchTeam                         │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ┌────────────────────────────────────────────────────────────┐ │
+│  │ Step 1: PLAN (Research Planner - GPT-5)                    │ │
+│  └───────────────────────┬────────────────────────────────────┘ │
+│                          │                                       │
+│     ┌────────────────────┼────────────────────┐                 │
+│     ▼                    ▼                    ▼                 │
+│ ┌─────────┐         ┌─────────┐         ┌─────────┐             │
+│ │ Searcher│         │ Academic│         │ Domain  │  (PARALLEL) │
+│ │GPT-5-mini│        │GPT-5-mini│        │GPT-5-mini│            │
+│ └────┬────┘         └────┬────┘         └────┬────┘             │
+│      │                   │                   │                   │
+│      └───────────────────┼───────────────────┘                  │
+│                          ▼                                       │
+│  ┌────────────────────────────────────────────────────────────┐ │
+│  │ Step 3: CHALLENGE (Devil's Advocate - GPT-5)               │ │
+│  │ - Identify weaknesses, gaps, contradictions                │ │
+│  └───────────────────────┬────────────────────────────────────┘ │
+│                          ▼                                       │
+│  ┌────────────────────────────────────────────────────────────┐ │
+│  │ Step 4: SYNTHESIZE (Synthesizer - GPT-5)                   │ │
+│  │ - Resolve contradictions, format for holocron              │ │
+│  └────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-**Tools per agent:**
-- **Research Planner**: `expandQuery()`, `parallelSearchWeb()`, task decomposition
-- **Research Workers**: `searchWeb()`, `readUrl()`, `extractPdf()`, `parallelReadUrl()`
-- **Domain Expert**: Domain-specific interpretation, practitioner insights
-- **Devil's Advocate**: `researchDevilsAdvocate()` skill, challenge findings
-- **Synthesizer**: `researchSynthesizer()`, contradiction resolution, holocron formatting
-- **Librarian**: `librarian` skill, metadata validation, deduplication
+**Agent Roles & Models:**
+
+| Role | Model | Tools |
+|------|-------|-------|
+| **Research Planner** | GPT-5 | `expandQuery`, `parallelSearchWeb`, task decomposition |
+| **Web Searcher** | GPT-5-mini | `searchWeb`, `readUrl`, `parallelReadUrl` |
+| **Academic Searcher** | GPT-5-mini | `searchArxiv`, `searchSsrn`, `extractPdf` |
+| **Domain Expert** | GPT-5-mini | Domain-specific interpretation |
+| **Devil's Advocate** | GPT-5 | Gap analysis, contradiction detection |
+| **Synthesizer** | GPT-5 | Report generation, holocron formatting |
 
 ---
 
@@ -155,27 +333,51 @@ pending → queued → loading → running → completed/error/cancelled
 | `deduplicateStrings()` | Semantic deduplication | `mcp__jina__deduplicate_strings` |
 | `sortByRelevance()` | Rerank by relevance | `mcp__jina__sort_by_relevance` |
 
-### LLM Integration
+### LLM Integration (via AI SDK)
 
-| Provider | Purpose | API Key Env Var |
-|----------|---------|-----------------|
-| **Zai API** | Primary agent reasoning | `ZAI_API_KEY` |
-| **Anthropic Claude** | Complex reasoning tasks | `ANTHROPIC_API_KEY` |
-| **OpenAI** | Embeddings | `OPENAI_API_KEY` |
+| Provider | Model | Purpose | API Key Env Var |
+|----------|-------|---------|-----------------|
+| **OpenAI** | `gpt-5` | Lead agents (planning, synthesis, review) | `OPENAI_API_KEY` |
+| **OpenAI** | `gpt-5-mini` | Subagents (fast, parallel exploration) | `OPENAI_API_KEY` |
+| **OpenAI** | `text-embedding-3-small` | Vector embeddings for RAG | `OPENAI_API_KEY` |
 
-### AgentClient Wrapper
+**Why AI SDK + OpenAI for Convex Agent:**
+- AI SDK is the standard for Convex Agent component
+- GPT-5-mini provides excellent cost/performance ratio for parallel workers
+- Single provider simplifies API key management
+
+### Convex Agent Patterns
+
+With Convex Agent component, LLM interactions are handled directly via agent instances:
 
 ```typescript
-class AgentClient {
-  // Simple text completion
-  async chat(prompt: string, system?: string): Promise<ChatResponse>
+// Text generation (simple completion)
+const response = await agent.generateText({
+  prompt: "Your prompt here",
+  tools: { searchWeb, readUrl },
+  maxToolRoundtrips: 5,
+});
 
-  // Structured JSON response with schema validation
-  async chatStructured<T>(prompt: string, schema: JSONSchema, system?: string): Promise<StructuredChatResponse<T>>
+// Structured output with schema validation
+const plan = await agent.generateObject({
+  prompt: "Plan the research for: topic",
+  schema: ResearchPlanSchema,  // Zod schema
+});
 
-  // Streaming response
-  async chatStream(prompt: string, system?: string): Promise<AsyncGenerator<ChatChunk>>
+// Streaming (via thread for conversation context)
+const { thread } = await agent.createThread(ctx, { userId });
+const stream = await thread.streamText({
+  prompt: "Generate a detailed analysis",
+});
+for await (const chunk of stream) {
+  // Process chunks in real-time
 }
+```
+
+**Key Differences from Old Pattern:**
+- No wrapper class needed—Convex Agent handles tool calling, memory, and context
+- Schema validation via Zod (AI SDK standard)
+- Thread-based conversations with automatic persistence
 ```
 
 ### System Prompts by Agent Type
@@ -215,30 +417,47 @@ Format output for holocron storage with proper metadata.
 
 ---
 
-## Shared Module: long-running-task
+## Convex Function Structure
 
-### File Structure
+### File Organization
 
 ```
-supabase/functions/_shared/long-running-task/
-├── index.ts          # Public exports
-├── types.ts          # TaskType, TaskStatus, TaskRecord, TaskExecutor
-├── task-manager.ts   # Concurrency control, lifecycle management
-└── agent-client.ts   # Zai LLM API wrapper
+convex/
+├── _generated/          # Auto-generated types and API
+├── components.config.ts # Agent & Workflow component config
+├── schema.ts            # Convex schema definitions
+├── research/
+│   ├── agents.ts        # Agent definitions (Lead, Workers, Reviewer)
+│   ├── deepResearch.ts  # Deep research workflow
+│   ├── basicResearch.ts # Single-pass research action
+│   └── tools.ts         # Shared tools (searchWeb, readUrl, etc.)
+├── swarm/
+│   ├── parallelSwarm.ts # Swarm workflow for assimilate/shop
+│   └── workers.ts       # Worker agent definitions
+├── conversations/
+│   ├── queries.ts       # list, get queries
+│   └── mutations.ts     # create, update, remove mutations
+├── chatMessages/
+│   ├── queries.ts       # listByConversation query
+│   └── mutations.ts     # send mutation
+├── documents/
+│   ├── queries.ts       # hybridSearch, vectorSearch, fullTextSearch
+│   └── mutations.ts     # create, update, remove
+└── http.ts              # HTTP routes for CLI skill
 ```
 
-### Key Functions
+### Key Convex Patterns
 
-| Function | Description |
-|----------|-------------|
-| `checkConcurrencyLimit()` | Check if task can start |
-| `startTask()` | Create task with concurrency check |
-| `updateTaskStatus()` | Update progress in database |
-| `completeTask()` | Mark task completed with result |
-| `failTask()` | Mark task failed with error |
-| `cancelTask()` | Cancel running task |
-| `executeTaskInBackground()` | Full lifecycle execution wrapper |
-| `getActiveTasks()` | Query active tasks for conversation |
+| Pattern | Description |
+|---------|-------------|
+| `useQuery(api.*.get)` | Reactive query - auto-updates on entity changes |
+| `useMutation(api.*.create)` | Optimistic mutation with automatic retry |
+| `workflow.define()` | Durable workflow with parallel steps |
+| `agent.generateText()` | LLM completion with tool calling |
+| `agent.generateObject()` | Structured output with Zod schema |
+| `thread.createThread()` | Persistent conversation context |
+
+**Key Insight**: No task manager needed—Convex Workflow handles durable execution, retries, and state. Clients watch entities directly via `useQuery`.
 
 ---
 
@@ -247,12 +466,13 @@ supabase/functions/_shared/long-running-task/
 | Component | Type | Description |
 |-----------|------|-------------|
 | Mobile Client | React Native (Expo) | Chat-centric UI with message thread, slash commands, result cards |
-| Chat API | Supabase Edge Function | Message routing, slash command parsing, agent orchestration |
-| Supabase Edge Functions | Deno TypeScript | Server-side research orchestration |
-| PostgreSQL Database | Supabase Postgres | Document storage, chat history, session state, embeddings |
-| Agent Runtime | Claude SDK or LangChain | LLM orchestration for research workflows and chat responses |
-| External Search APIs | REST | Exa, Jina, OpenAI APIs for research |
-| Realtime Updates | Supabase Realtime | Progress streaming and chat message delivery |
+| Convex Backend | Convex Functions | Queries, Mutations, Actions, Workflows for all API operations |
+| Convex Database | Convex Tables | Document storage, chat history, session state, vector embeddings |
+| Agent Runtime | Convex Agent + AI SDK | Multi-agent orchestration with GPT-5/GPT-5-mini |
+| Workflow Engine | Convex Workflow | Durable execution for deep research, parallel swarms |
+| External Search APIs | REST (via Actions) | Exa, Jina APIs for web/academic search |
+| Realtime Updates | Convex `useQuery` | **Automatic** - no manual subscriptions needed |
+| CLI Skill | ConvexHttpClient | Node.js HTTP client for holocron skill commands |
 
 ---
 
@@ -676,7 +896,7 @@ interface ResearchStatusResponse {
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│                      HOLOCRON CHAT-CENTRIC ARCHITECTURE                      │
+│               HOLOCRON CHAT-CENTRIC ARCHITECTURE (CONVEX)                    │
 ├──────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │  ┌───────────────────────────┐                                               │
@@ -694,9 +914,9 @@ interface ResearchStatusResponse {
 │  │  ┌─────────────────────┐  │                                               │
 │  │  │  Chat Thread View   │  │  Main view (per conversation)                 │
 │  │  │  ┌───────────────┐  │  │                                               │
-│  │  │  │ Message Bubbles│  │  │  User messages, agent responses               │
-│  │  │  │ Result Cards   │  │  │  Tappable cards for articles/research         │
-│  │  │  │ Progress Msgs  │  │  │  Real-time research updates                   │
+│  │  │  │ useQuery()    │──┼──┼──► Auto-updates on entity changes             │
+│  │  │  │ useMutation() │  │  │                                               │
+│  │  │  │ Result Cards  │  │  │  Tappable cards for articles/research         │
 │  │  │  └───────────────┘  │  │                                               │
 │  │  │  ┌───────────────┐  │  │                                               │
 │  │  │  │ Input Bar +   │  │  │  /search, /research, /deep-research            │
@@ -712,63 +932,59 @@ interface ResearchStatusResponse {
 │  │  │  (overlay/modal)    │  │  Edit, delete, recategorize actions            │
 │  │  └─────────────────────┘  │                                               │
 │  └────────────┬──────────────┘                                               │
-│               │ HTTPS + Service Key                                          │
+│               │ WebSocket (Convex Client)                                    │
 │               ▼                                                              │
 │  ┌──────────────────────────────────────────────────────────────────────┐    │
-│  │                    SUPABASE PLATFORM                                  │    │
+│  │                       CONVEX PLATFORM                                 │    │
 │  │                                                                       │    │
 │  │  ┌────────────────────────────────────────────────────────────┐      │    │
-│  │  │                EDGE FUNCTIONS (Deno)                        │      │    │
+│  │  │              CONVEX FUNCTIONS (TypeScript)                  │      │    │
 │  │  │                                                             │      │    │
 │  │  │  ┌──────────────┐  ┌──────────────┐  ┌────────────────┐   │      │    │
-│  │  │  │ chat-send    │  │ research-    │  │ deep-research- │   │      │    │
-│  │  │  │ (router +    │  │ start        │  │ start          │   │      │    │
-│  │  │  │  slash cmd   │  │              │  │                │   │      │    │
-│  │  │  │  parser)     │  │              │  │                │   │      │    │
-│  │  │  └──────┬───────┘  └──────┬───────┘  └───────┬────────┘   │      │    │
-│  │  │         │                 │                   │            │      │    │
-│  │  │         ▼                 ▼                   ▼            │      │    │
+│  │  │  │ Queries      │  │ Mutations    │  │ Actions        │   │      │    │
+│  │  │  │ (reactive)   │  │ (writes)     │  │ (side effects) │   │      │    │
+│  │  │  └──────────────┘  └──────────────┘  └────────────────┘   │      │    │
+│  │  │                                                             │      │    │
 │  │  │  ┌──────────────────────────────────────────────────┐     │      │    │
-│  │  │  │              AGENT RUNTIME                       │     │      │    │
-│  │  │  │         (Claude SDK or LangChain)                │     │      │    │
-│  │  │  │                                                  │     │      │    │
-│  │  │  │  ┌──────────┐  ┌──────────┐  ┌──────────────┐   │     │      │    │
-│  │  │  │  │ Chat     │  │ Research │  │ Deep Research│   │     │      │    │
-│  │  │  │  │ Agent    │  │ Workflow │  │ Ralph Loop   │   │     │      │    │
-│  │  │  │  │ (NL +   │  │          │  │              │   │     │      │    │
-│  │  │  │  │  cmds)   │  │          │  │              │   │     │      │    │
-│  │  │  │  └────┬─────┘  └────┬─────┘  └──────┬──────┘   │     │      │    │
-│  │  │  │       │             │                │          │     │      │    │
-│  │  │  └───────┼─────────────┼────────────────┼──────────┘     │      │    │
-│  │  │          │             │                │                │      │    │
-│  │  └──────────┼─────────────┼────────────────┼────────────────┘      │    │
-│  │             │             │                │                        │    │
-│  │             ▼             ▼                ▼                        │    │
-│  │  ┌────────────────────────────────────────────────────────────┐    │    │
-│  │  │                   POSTGRESQL DATABASE                       │    │    │
-│  │  │                                                             │    │    │
-│  │  │  ┌──────────────┐  ┌───────────────┐  ┌──────────────┐    │    │    │
-│  │  │  │conversations │  │ research_     │  │ documents    │    │    │    │
-│  │  │  │  ↓           │  │ sessions +    │  │ (+ vectors)  │    │    │    │
-│  │  │  │chat_messages │  │ iterations    │  │              │    │    │    │
-│  │  │  └──────────────┘  └───────────────┘  └──────────────┘    │    │    │
-│  │  │                                                             │    │    │
-│  │  │  ┌──────────────────────────────────────────────────────┐  │    │    │
-│  │  │  │ RPC Functions: hybrid_search, search_fts,            │  │    │    │
-│  │  │  │                search_vector, generate_embedding     │  │    │    │
-│  │  │  └──────────────────────────────────────────────────────┘  │    │    │
-│  │  │                                                             │    │    │
-│  │  └─────────────────────────────────────────────────────────────┘    │    │
-│  │                                                                     │    │
-│  │  ┌────────────────────────────────────────────────────────────┐    │    │
-│  │  │                   SUPABASE REALTIME                         │    │    │
-│  │  │                                                             │    │    │
-│  │  │  chat_messages inserts → Mobile Client (new agent messages) │    │    │
-│  │  │  research_sessions changes → Mobile Client (progress)       │    │    │
-│  │  │                                                             │    │    │
-│  │  └─────────────────────────────────────────────────────────────┘    │    │
-│  │                                                                     │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
+│  │  │  │           CONVEX AGENT + WORKFLOW                 │     │      │    │
+│  │  │  │                                                   │     │      │    │
+│  │  │  │  ┌────────────┐  ┌─────────────┐  ┌───────────┐  │     │      │    │
+│  │  │  │  │ Lead Agent │  │ Subagents   │  │ Reviewer  │  │     │      │    │
+│  │  │  │  │ (GPT-5)    │  │ (GPT-5-mini)│  │ (GPT-5)   │  │     │      │    │
+│  │  │  │  │ Planning   │  │ Parallel    │  │ Quality   │  │     │      │    │
+│  │  │  │  │ Synthesis  │  │ Search      │  │ Scoring   │  │     │      │    │
+│  │  │  │  └─────┬──────┘  └──────┬──────┘  └─────┬─────┘  │     │      │    │
+│  │  │  │        │                │               │         │     │      │    │
+│  │  │  │        └────────────────┴───────────────┘         │     │      │    │
+│  │  │  │                Workflow Orchestration              │     │      │    │
+│  │  │  └───────────────────────────────────────────────────┘     │      │    │
+│  │  │                                                             │      │    │
+│  │  └─────────────────────────────────────────────────────────────┘      │    │
+│  │                                                                       │    │
+│  │  ┌────────────────────────────────────────────────────────────┐      │    │
+│  │  │                   CONVEX DATABASE                           │      │    │
+│  │  │                                                             │      │    │
+│  │  │  ┌──────────────┐  ┌───────────────┐  ┌──────────────┐    │      │    │
+│  │  │  │conversations │  │ research      │  │ documents    │    │      │    │
+│  │  │  │  ↓           │  │ Sessions +    │  │ (+ vectors)  │    │      │    │
+│  │  │  │chatMessages  │  │ iterations    │  │              │    │      │    │
+│  │  │  └──────────────┘  └───────────────┘  └──────────────┘    │      │    │
+│  │  │                                                             │      │    │
+│  │  │  Queries: hybridSearch, vectorSearch, fullTextSearch        │      │    │
+│  │  │  (Built-in vector search + FTS via Convex)                  │      │    │
+│  │  │                                                             │      │    │
+│  │  └─────────────────────────────────────────────────────────────┘      │    │
+│  │                                                                       │    │
+│  │  ┌────────────────────────────────────────────────────────────┐      │    │
+│  │  │                   AUTOMATIC REACTIVITY                      │      │    │
+│  │  │                                                             │      │    │
+│  │  │  useQuery() → Auto-subscribes, auto-updates on changes      │      │    │
+│  │  │  No manual subscription management needed                   │      │    │
+│  │  │  No useLongRunningTask hook needed (DELETE IT)              │      │    │
+│  │  │                                                             │      │    │
+│  │  └─────────────────────────────────────────────────────────────┘      │    │
+│  │                                                                       │    │
+│  └───────────────────────────────────────────────────────────────────────┘    │
 │                                                                              │
 │  ┌──────────────────────────────────────────────────────────────────────┐   │
 │  │                    EXTERNAL APIs                                      │   │
@@ -777,9 +993,7 @@ interface ResearchStatusResponse {
 │  │                                                                       │   │
 │  │  {Jina API} ───────►  Academic search, URL reading, deduplication    │   │
 │  │                                                                       │   │
-│  │  {OpenAI}   ───────►  Embeddings (text-embedding-3-small)            │   │
-│  │                                                                       │   │
-│  │  {Anthropic}───────►  Claude API for agent reasoning                 │   │
+│  │  {OpenAI}   ───────►  GPT-5, GPT-5-mini, Embeddings                  │   │
 │  │                                                                       │   │
 │  └──────────────────────────────────────────────────────────────────────┘   │
 │                                                                              │
@@ -796,20 +1010,30 @@ interface ResearchStatusResponse {
 |------------|---------|---------------|
 | Exa API | Web search, company research, code context | https://docs.exa.ai/ |
 | Jina API | Academic search (arXiv, SSRN), URL reading, deduplication | https://jina.ai/reader |
-| OpenAI API | Embedding generation (text-embedding-3-small) | https://platform.openai.com/docs/api-reference/embeddings |
 
-### Agent Framework (Choose One)
+### Agent & LLM Framework
 
-| Dependency | Purpose | Documentation |
-|------------|---------|---------------|
-| Claude Agent SDK | LLM orchestration, tool calling, agentic workflows | https://platform.claude.com/docs/en/agent-sdk/overview |
-| LangChain.js | Alternative: Multi-step chains, state management | https://js.langchain.com/docs/ |
+| Dependency | Version | Purpose | Documentation |
+|------------|---------|---------|---------------|
+| `@convex-dev/agent` | ^0.2.x | Convex Agent component - threads, tools, RAG | https://www.convex.dev/components/agent |
+| `@convex-dev/workflow` | ^0.2.x | Durable workflow orchestration | https://www.convex.dev/components/workflow |
+| `@ai-sdk/openai` | ^1.x | OpenAI provider for AI SDK | https://sdk.vercel.ai/providers/ai-sdk-providers/openai |
+| `ai` | ^4.x | Vercel AI SDK (core) | https://sdk.vercel.ai/docs |
+
+### LLM Models
+
+| Model | Provider | Purpose | Env Variable |
+|-------|----------|---------|--------------|
+| `gpt-5` | OpenAI | Lead agents (planning, synthesis, review) | `OPENAI_API_KEY` |
+| `gpt-5-mini` | OpenAI | Subagents (fast, parallel exploration) | `OPENAI_API_KEY` |
+| `text-embedding-3-small` | OpenAI | Vector embeddings for RAG | `OPENAI_API_KEY` |
 
 ### Infrastructure
 
-| Dependency | Purpose | Documentation |
-|------------|---------|---------------|
-| Supabase | Database, Edge Functions, Realtime | https://supabase.com/docs |
+| Dependency | Version | Purpose | Documentation |
+|------------|---------|---------|---------------|
+| `convex` | ^1.16.x | Backend platform (database, functions, realtime) | https://docs.convex.dev |
+| `@convex-dev/react` | ^1.16.x | React hooks for Convex | https://docs.convex.dev/client/react |
 
 ---
 
@@ -874,74 +1098,71 @@ colors: {
 
 ---
 
-## Agent Framework Comparison
+## Agent Framework Decision: Convex Agent + AI SDK
 
-### Claude Agent SDK
+### Why Convex Agent Component
 
-**Pros:**
-- Native Anthropic integration
-- Official, maintained SDK
-- Simpler tool calling pattern
-- Built-in conversation management
-- TypeScript support
+**Selected Stack:**
+- **Convex Agent** (`@convex-dev/agent`) - Native Convex integration
+- **Convex Workflow** (`@convex-dev/workflow`) - Durable orchestration
+- **AI SDK** (`ai` + `@ai-sdk/openai`) - Model provider abstraction
 
-**Cons:**
-- Newer, less community examples
-- Claude-only (no multi-model)
-- Limited state management primitives
+**Key Advantages:**
 
-### LangChain/LangGraph
+| Feature | Convex Agent | Alternative (LangChain) |
+|---------|--------------|------------------------|
+| **Reactivity** | Built-in via Convex `useQuery` | Manual subscription |
+| **Persistence** | Automatic (threads, memory) | External DB required |
+| **Workflow** | Native Convex Workflow integration | LangGraph (separate) |
+| **Type Safety** | Full TypeScript + Zod schemas | Runtime validation |
+| **Bundle Size** | Lightweight | Heavy (300KB+) |
+| **Learning Curve** | Convex-native patterns | New abstraction layer |
 
-**Pros:**
-- Mature ecosystem (2+ years)
-- Multi-model support
-- Rich state management (LangGraph)
-- Extensive tool integrations
-- Large community
+### Why GPT-5-mini for Subagents
 
-**Cons:**
-- More complex setup
-- Abstraction overhead
-- Heavier bundle size
+**Model Strategy:**
+- **GPT-5** for lead agents: Complex planning, synthesis, quality judgment
+- **GPT-5-mini** for subagents: Fast, cheap parallel exploration
 
-### Recommendation
+**Cost Analysis (per deep research session):**
 
-**Start with Claude Agent SDK** for these reasons:
-1. Simpler architecture matches our use case
-2. Native Claude integration (we're already using Claude)
-3. Less code to maintain
-4. Edge Function bundle size constraints favor lighter SDK
-5. Chat paradigm maps naturally to Claude's conversation model
+| Strategy | Lead Agent | Subagents (5x) | Total Cost |
+|----------|------------|----------------|------------|
+| All GPT-5 | $0.15 | $0.75 | ~$0.90 |
+| Hybrid (GPT-5 + GPT-5-mini) | $0.15 | $0.15 | ~$0.30 |
+| **Savings** | - | - | **~67%** |
 
-**Fall back to LangChain if:**
-- Complex state management needed beyond Ralph Loop
-- Multi-model orchestration required
-- Need for advanced memory/persistence patterns
+**Quality Tradeoff:** Minimal—subagents do retrieval/exploration (where GPT-5-mini excels), not complex reasoning (where GPT-5 shines).
 
 ---
 
 ## Security Considerations
 
 ### Authentication
-- Service role key for all requests (dev mode only)
-- Key stored in environment variables
+- Convex uses project-scoped API keys
+- Dev mode: Public Convex URL (no auth required for personal app)
 - NOT suitable for production/public release
 
 ### API Key Management
 ```
-EXPO_PUBLIC_SUPABASE_URL
-EXPO_PUBLIC_SUPABASE_SERVICE_ROLE_KEY
-EXA_API_KEY (Edge Function secret)
-JINA_API_KEY (Edge Function secret)
-OPENAI_API_KEY (Edge Function secret)
-ANTHROPIC_API_KEY (Edge Function secret)
+# Convex Project
+CONVEX_DEPLOYMENT       # Auto-generated Convex project URL
+
+# LLM Provider (Convex environment variables)
+OPENAI_API_KEY          # GPT-5, GPT-5-mini, embeddings
+
+# Search APIs (Convex environment variables)
+EXA_API_KEY             # Web search, code search
+JINA_API_KEY            # Academic search, URL reading
 ```
 
+**Note**: API keys are stored as Convex environment variables, not exposed to client.
+
 ### Data Privacy
-- All data stored in user's Supabase instance
+- All data stored in Convex database (user's project)
 - External APIs receive only query text, not full documents
 - Embeddings generated via OpenAI (text sent to OpenAI)
-- Chat history stored in user's database only
+- Chat history stored in Convex only
 - No analytics or telemetry
 
 ---
@@ -966,15 +1187,25 @@ ANTHROPIC_API_KEY (Edge Function secret)
 ### Client-Side
 - Network errors: Show retry option in chat as agent message
 - Session not found: Show "research expired" message in chat
-- Research failed: Display error_text from session as error card
+- Research failed: Display error from session as error card
 - Save failed: Show retry option ("type 'retry save' to try again")
+- Convex handles optimistic updates + automatic retry for mutations
 
-### Server-Side (Edge Functions)
-- API rate limits: Exponential backoff (3 attempts)
-- External API failures: Mark session as failed with error, post error to chat
-- Timeout: 5 min max per Edge Function invocation
-- State recovery: Resume from last checkpoint (deep research)
-- Slash command parse error: Agent responds with help message
+### Server-Side (Convex Functions)
+- **API rate limits**: Exponential backoff (3 attempts) via Convex Workflow
+- **External API failures**: Mark session as failed, post error to chat
+- **Timeout**: 10 min max per Action; Workflow steps auto-resume
+- **State recovery**: Convex Workflow handles checkpoint/resume automatically
+- **Slash command parse error**: Agent responds with help message
+
+**Convex Workflow Durability:**
+```typescript
+// Workflow automatically retries failed steps
+const findings = await step.run("search", async () => {
+  // If this fails, Convex Workflow retries from checkpoint
+  return webSearcher.generateText({ prompt: query });
+});
+```
 
 ---
 
@@ -1015,3 +1246,39 @@ ANTHROPIC_API_KEY (Edge Function secret)
 ### Phase 5: Article Management (AM use cases)
 1. Add edit/delete/recategorize actions to article detail view
 2. Post confirmation messages to chat after actions
+
+### Phase 6: Backend Migration (BM use cases) - Supabase → Convex
+
+**Timeline**: 6-8 weeks (can run in parallel with Phases 0-5 or after)
+
+1. **Phase 6.0 - POC Validation** (Week 1)
+   - Initialize Convex project
+   - Migrate documents table with embeddings
+   - Run A/B benchmark for search quality
+   - GO/NO-GO decision
+
+2. **Phase 6.1 - Data Layer** (Week 2-3)
+   - Define Convex schema for all 9 tables
+   - Build migration scripts
+   - Validate data integrity
+
+3. **Phase 6.2 - API Migration** (Week 3-5)
+   - Port Edge Functions to Convex Actions/Mutations
+   - Port RPC functions to Convex Queries
+   - Implement task management in Convex
+
+4. **Phase 6.3 - Client Migration** (Week 5-6)
+   - Replace Supabase hooks with Convex hooks
+   - Delete `use-chat-realtime.ts` (no longer needed)
+   - Delete `taskRealtimeRegistry.ts` (no longer needed)
+
+5. **Phase 6.4 - CLI Skill Migration** (Week 5-6)
+   - Migrate holocron skill to Convex HTTP client
+   - Test all skill commands
+
+6. **Phase 6.5 - Cleanup** (Week 7-8)
+   - Remove `@supabase/supabase-js` dependency
+   - Delete Supabase client files
+   - Update documentation
+
+**See**: [12-uc-backend-migration.md](./12-uc-backend-migration.md) for detailed use cases

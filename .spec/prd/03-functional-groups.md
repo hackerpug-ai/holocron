@@ -1,6 +1,6 @@
 # Functional Groups
 
-[UPDATED 2026-03-04]: Added Long-Running Task Infrastructure and Multi-Agent Architecture patterns
+[UPDATED 2026-03-05]: Added Backend Migration (BM) functional group for Supabase → Convex migration
 
 | Group | Prefix | Description |
 |-------|--------|-------------|
@@ -10,6 +10,7 @@
 | Research | RS | Basic research via `/research` slash command with progress streaming (long-running task) |
 | Deep Research | DR | Multi-iteration deep research via `/deep-research` with iteration tracking (long-running task, orchestrator-worker pattern) |
 | Article Management | AM | View, edit, delete, and recategorize articles from card actions |
+| Backend Migration | BM | Migrate data layer, API, and client hooks from Supabase to Convex (Epic 6) |
 
 ## Multi-Agent Task Patterns
 
@@ -32,4 +33,5 @@
 | Research (RS) | 4 |
 | Deep Research (DR) | 4 |
 | Article Management (AM) | 4 |
-| **Total** | **27** |
+| Backend Migration (BM) | 6 |
+| **Total** | **33** |
