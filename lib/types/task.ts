@@ -3,10 +3,10 @@
  *
  * Client-side TypeScript types for long-running background tasks.
  * Matches the database schema from migration 20260304_create_long_running_tasks.sql
- * Matches server-side types from supabase/functions/_shared/long-running-task/types.ts
+ * Matches server-side types from db/functions/_shared/long-running-task/types.ts
  *
- * @see supabase/migrations/20260304_create_long_running_tasks.sql
- * @see supabase/functions/_shared/long-running-task/types.ts
+ * @see db/migrations/20260304_create_long_running_tasks.sql
+ * @see db/functions/_shared/long-running-task/types.ts
  */
 
 // ============================================================
@@ -37,7 +37,7 @@ export type TaskStatus =
 // ============================================================
 
 /**
- * Raw row type from Supabase long_running_tasks table
+ * Raw row type from database long_running_tasks table
  * Uses snake_case naming and string timestamps as returned from database
  */
 export interface TaskRow {

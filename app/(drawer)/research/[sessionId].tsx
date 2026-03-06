@@ -15,7 +15,7 @@ import {
 import type { DeepResearchSessionWithIterations } from '@/lib/types/deep-research'
 
 /**
- * Transform Supabase session data to DeepResearchDetailView format
+ * Transform session data to DeepResearchDetailView format
  */
 function transformSessionToViewFormat(
   session: DeepResearchSessionWithIterations

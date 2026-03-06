@@ -1,7 +1,7 @@
 /**
  * Custom hook for fetching chat history using Convex
  *
- * Replaces Supabase Edge Function approach with direct Convex useQuery.
+ * Uses direct Convex useQuery for optimal performance.
  * Real-time updates are automatic via Convex reactivity - no subscriptions needed.
  *
  * Migration: US-060 - Direct entity watching pattern

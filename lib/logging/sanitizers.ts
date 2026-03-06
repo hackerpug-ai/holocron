@@ -4,16 +4,16 @@ import type { SanitizationPattern } from './types';
  * Patterns for detecting and redacting sensitive information
  */
 const SANITIZATION_PATTERNS: SanitizationPattern[] = [
-  // Supabase keys
+  // Legacy JWT tokens
   {
-    name: 'Supabase Anon Key',
+    name: 'Legacy Anon Key',
     pattern: /eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+/g,
-    replacement: 'SUPABASE_ANON_KEY_REDACTED',
+    replacement: 'LEGACY_ANON_KEY_REDACTED',
   },
   {
-    name: 'Supabase Service Role Key',
+    name: 'Legacy Service Role Key',
     pattern: /"service_role":\s*"[^"]{30,}"/g,
-    replacement: '"service_role": "SUPABASE_SERVICE_ROLE_KEY_REDACTED"',
+    replacement: '"service_role": "LEGACY_SERVICE_ROLE_KEY_REDACTED"',
   },
   // OpenAI API keys
   {

@@ -31,7 +31,11 @@ export const startDeepResearch = action({
     query: v.string(),
     maxIterations: v.optional(v.number()),
   },
-  handler: async (ctx, { conversationId, query, maxIterations = 5 }) => {
+  handler: async (ctx, { conversationId, query, maxIterations = 5 }): Promise<{
+    sessionId: any;
+    status: string;
+    message: string;
+  }> => {
     // Step 1: Create session record
     const sessionId = await ctx.runMutation(
       api.research.createDeepResearchSession,
@@ -80,7 +84,14 @@ export const runResearchIteration = mutation({
   handler: async (
     ctx,
     { sessionId, query, iteration, maxIterations, previousFindings = [] }
-  ) => {
+  ): Promise<{
+    sessionId: any;
+    iteration: number;
+    coverageScore: number;
+    shouldContinue: boolean;
+    synthesis: string;
+    finalReport?: string;
+  }> => {
     // Step 1: AC-1 - Lead Agent plans research (GPT-5)
     const plan = await planResearch(query);
 

@@ -17,6 +17,7 @@ import type * as citations_queries from "../citations/queries.js";
 import type * as conversations_index from "../conversations/index.js";
 import type * as conversations_mutations from "../conversations/mutations.js";
 import type * as conversations_queries from "../conversations/queries.js";
+import type * as crons from "../crons.js";
 import type * as deepResearchIterations_mutations from "../deepResearchIterations/mutations.js";
 import type * as deepResearchIterations_queries from "../deepResearchIterations/queries.js";
 import type * as deepResearchSessions_mutations from "../deepResearchSessions/mutations.js";
@@ -35,10 +36,13 @@ import type * as researchIterations_mutations from "../researchIterations/mutati
 import type * as researchIterations_queries from "../researchIterations/queries.js";
 import type * as researchSessions_mutations from "../researchSessions/mutations.js";
 import type * as researchSessions_queries from "../researchSessions/queries.js";
+import type * as subscriptions from "../subscriptions.js";
+import type * as taskCrons from "../taskCrons.js";
 import type * as tasks_index from "../tasks/index.js";
 import type * as tasks_mutations from "../tasks/mutations.js";
 import type * as tasks_queries from "../tasks/queries.js";
 import type * as tasks_workflow from "../tasks/workflow.js";
+import type * as whatsNew from "../whatsNew.js";
 
 import type {
   ApiFromModules,
@@ -56,6 +60,7 @@ declare const fullApi: ApiFromModules<{
   "conversations/index": typeof conversations_index;
   "conversations/mutations": typeof conversations_mutations;
   "conversations/queries": typeof conversations_queries;
+  crons: typeof crons;
   "deepResearchIterations/mutations": typeof deepResearchIterations_mutations;
   "deepResearchIterations/queries": typeof deepResearchIterations_queries;
   "deepResearchSessions/mutations": typeof deepResearchSessions_mutations;
@@ -74,10 +79,13 @@ declare const fullApi: ApiFromModules<{
   "researchIterations/queries": typeof researchIterations_queries;
   "researchSessions/mutations": typeof researchSessions_mutations;
   "researchSessions/queries": typeof researchSessions_queries;
+  subscriptions: typeof subscriptions;
+  taskCrons: typeof taskCrons;
   "tasks/index": typeof tasks_index;
   "tasks/mutations": typeof tasks_mutations;
   "tasks/queries": typeof tasks_queries;
   "tasks/workflow": typeof tasks_workflow;
+  whatsNew: typeof whatsNew;
 }>;
 
 /**

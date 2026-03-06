@@ -341,7 +341,10 @@ export const send = action({
     content: v.string(),
     messageType: v.optional(v.union(v.literal("text"), v.literal("slash_command"))),
   },
-  handler: async (ctx, { conversationId, content, messageType = "text" }) => {
+  handler: async (ctx, { conversationId, content, messageType = "text" }): Promise<{
+    userMessageId: any;
+    agentMessageId: any;
+  }> => {
     const now = Date.now();
 
     // 1. Parse for slash commands (AC-3)
@@ -349,7 +352,7 @@ export const send = action({
     const actualMessageType = parsed.isCommand ? "slash_command" : messageType;
 
     // 2. Persist user message (AC-1)
-    const userMessageId = await ctx.runMutation(api.chatMessages.create, {
+    const userMessageId: any = await ctx.runMutation(api.chatMessages.create, {
       conversationId,
       role: "user",
       content,
@@ -434,7 +437,7 @@ export const send = action({
     }
 
     // 5. Persist agent response
-    const agentMessageId = await ctx.runMutation(api.chatMessages.create, {
+    const agentMessageId: any = await ctx.runMutation(api.chatMessages.create, {
       conversationId,
       role: "agent",
       content: agentResponse.content,
@@ -446,7 +449,6 @@ export const send = action({
     return {
       userMessageId,
       agentMessageId,
-      agentResponse: agentResponse.content,
     };
   },
 });

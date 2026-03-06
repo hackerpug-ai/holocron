@@ -138,4 +138,81 @@ export default defineSchema({
   })
     .index("by_session", ["sessionId"])
     .index("by_document", ["documentId"]),
+
+  // Subscription system
+  subscriptionSources: defineTable({
+    sourceType: v.union(
+      v.literal("youtube"),
+      v.literal("newsletter"),
+      v.literal("changelog"),
+      v.literal("reddit"),
+      v.literal("ebay"),
+      v.literal("whats-new")
+    ),
+    identifier: v.string(), // @handle, r/subreddit, search query, etc.
+    name: v.string(),
+    url: v.optional(v.string()),
+    feedUrl: v.optional(v.string()),
+    fetchMethod: v.string(), // rss, api, web_search
+    configJson: v.optional(v.any()),
+    autoResearch: v.boolean(),
+    lastChecked: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_type", ["sourceType"])
+    .index("by_identifier", ["identifier"])
+    .index("by_auto_research", ["autoResearch"]),
+
+  subscriptionContent: defineTable({
+    sourceId: v.id("subscriptionSources"),
+    contentId: v.string(), // video ID, post ID, item ID, etc.
+    title: v.string(),
+    url: v.optional(v.string()),
+    metadataJson: v.optional(v.any()),
+    passedFilter: v.boolean(),
+    filterReason: v.optional(v.string()),
+    researchStatus: v.union(
+      v.literal("pending"),
+      v.literal("queued"),
+      v.literal("researched"),
+      v.literal("skipped")
+    ),
+    discoveredAt: v.number(),
+    researchedAt: v.optional(v.number()),
+  })
+    .index("by_source", ["sourceId", "discoveredAt"])
+    .index("by_source_content", ["sourceId", "contentId"])
+    .index("by_status", ["researchStatus"])
+    .index("by_content_id", ["contentId"]),
+
+  subscriptionFilters: defineTable({
+    sourceId: v.optional(v.id("subscriptionSources")), // null = type-level rule
+    sourceType: v.optional(v.string()), // for type-level rules
+    ruleName: v.string(),
+    ruleType: v.string(), // keyword_whitelist, keyword_blacklist, min_score, etc.
+    ruleValue: v.any(),
+    weight: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_source", ["sourceId"])
+    .index("by_type", ["sourceType"]),
+
+  // Whats-new reports
+  whatsNewReports: defineTable({
+    periodStart: v.number(), // Unix timestamp
+    periodEnd: v.number(), // Unix timestamp
+    days: v.number(),
+    focus: v.string(), // all | tools | releases | trends | people
+    discoveryOnly: v.boolean(),
+    findingsCount: v.number(),
+    discoveryCount: v.number(),
+    releaseCount: v.number(),
+    trendCount: v.number(),
+    reportPath: v.string(), // Path to saved markdown report
+    summaryJson: v.optional(v.any()), // Structured summary data
+    createdAt: v.number(),
+  })
+    .index("by_created", ["createdAt"])
+    .index("by_period", ["periodStart", "periodEnd"]),
 });

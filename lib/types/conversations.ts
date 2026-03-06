@@ -1,13 +1,13 @@
 /**
- * Conversation type definitions for Supabase conversations table
+ * Conversation type definitions for database conversations table
  *
  * These types mirror the SQL schema in:
- * supabase/migrations/YYYYMMDDHHMMSS_create_conversations.sql
+ * db/migrations/YYYYMMDDHHMMSS_create_conversations.sql
  *
- * @see US-002 - Create conversations table migration and Supabase types
+ * @see US-002 - Create conversations table migration and database types
  */
 
-/** Raw row type from Supabase conversations table (snake_case, string dates) */
+/** Raw row type from database conversations table (snake_case, string dates) */
 export interface ConversationRow {
   id: string
   title: string

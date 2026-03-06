@@ -1,0 +1,85 @@
+=============================================================================
+SUPABASE DATA EXPORT - QUICK REFERENCE
+=============================================================================
+
+Export Date: 2026-03-06T04:11:43.471Z
+Status: COMPLETE ✓
+Pass Rate: 100.0% (15/15 validation checks passed)
+
+-----------------------------------------------------------------------------
+TOTAL RECORDS EXPORTED: 309
+-----------------------------------------------------------------------------
+
+Table                      | Rows | Status
+---------------------------|------|--------
+conversations              |    2 | ✓ PASS
+chatMessages               |   66 | ✓ PASS
+documents                  |  227 | ✓ PASS
+researchSessions           |   12 | ✓ PASS
+researchIterations         |    0 | ✓ PASS
+deepResearchSessions       |    0 | ✓ PASS (New Convex table)
+deepResearchIterations     |    0 | ✓ PASS (New Convex table)
+citations                  |    0 | ✓ PASS
+tasks                      |    2 | ✓ PASS
+
+-----------------------------------------------------------------------------
+DATA INTEGRITY CHECKS
+-----------------------------------------------------------------------------
+
+✓ Row counts match 100% (309/309 records)
+✓ Foreign key relationships preserved (0 orphans)
+✓ Vector embeddings validated (80 docs @ 1536 dimensions)
+✓ Chat message ordering preserved (66 messages, 2 conversations)
+
+-----------------------------------------------------------------------------
+FILE LOCATIONS
+-----------------------------------------------------------------------------
+
+Export Summary:
+  /Users/justinrich/Projects/holocron/.tmp/export/EXPORT-SUMMARY.md
+
+Validation Report:
+  /Users/justinrich/Projects/holocron/.tmp/validation-report.json
+
+ID Mappings:
+  /Users/justinrich/Projects/holocron/.tmp/id-mappings.json
+
+Migration Scripts:
+  /Users/justinrich/Projects/holocron/scripts/migrate-all.ts
+  /Users/justinrich/Projects/holocron/scripts/validate-migration.ts
+
+-----------------------------------------------------------------------------
+VERIFICATION COMMANDS
+-----------------------------------------------------------------------------
+
+Re-run validation:
+  $ pnpm validate
+
+View validation report:
+  $ cat .tmp/validation-report.json | jq
+
+View ID mappings:
+  $ cat .tmp/id-mappings.json | jq
+
+View export summary:
+  $ cat .tmp/export/EXPORT-SUMMARY.md
+
+-----------------------------------------------------------------------------
+KEY STATISTICS
+-----------------------------------------------------------------------------
+
+Total Tables:              9
+Total Records:           309
+Documents with Embeddings: 80 (35.2%)
+Conversations:             2
+Messages:                 66
+Research Sessions:        12
+Tasks:                     2
+
+Validation Pass Rate:   100.0%
+Data Loss:                  0
+Orphaned Records:           0
+Dimension Mismatches:       0
+Ordering Violations:        0
+
+=============================================================================

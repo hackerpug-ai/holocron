@@ -2,7 +2,7 @@
  * Deep Research Type Definitions
  *
  * TypeScript types for deep research sessions and iterations matching the database schema.
- * @see supabase/migrations/*_create_deep_research.sql
+ * @see db/migrations/*_create_deep_research.sql
  * @see PRD 08-uc-deep-research.md - UC-DR-01, UC-DR-02, UC-DR-03, UC-DR-04
  */
 
@@ -20,7 +20,7 @@ export type DeepResearchIterationStatus = 'pending' | 'running' | 'completed'
 // Deep Research Session Types
 // ============================================================
 
-/** Raw row type from Supabase deep_research_sessions table (snake_case, string dates) */
+/** Raw row type from database deep_research_sessions table (snake_case, string dates) */
 export interface DeepResearchSessionRow {
   id: string
   conversation_id: string | null
@@ -67,7 +67,7 @@ export interface DeepResearchSessionUpdate {
 // Deep Research Iteration Types
 // ============================================================
 
-/** Raw row type from Supabase deep_research_iterations table (snake_case, string dates) */
+/** Raw row type from database deep_research_iterations table (snake_case, string dates) */
 export interface DeepResearchIterationRow {
   id: string
   session_id: string

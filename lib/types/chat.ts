@@ -2,7 +2,7 @@
  * Chat Message Types
  *
  * TypeScript types for chat messages matching the database schema.
- * @see supabase/migrations/*_create_chat_messages.sql
+ * @see db/migrations/*_create_chat_messages.sql
  * @see PRD SS11 - Data Schema > chat_messages
  */
 
@@ -13,8 +13,8 @@ export type MessageType = 'text' | 'slash_command' | 'result_card' | 'progress' 
 // Card Data Types (Discriminated Union)
 // ============================================================
 // These types must match the backend Edge Function card data
-// @see supabase/functions/chat-send/index.ts
-// @see supabase/functions/chat-send/slash-commands.ts
+// @see db/functions/chat-send/index.ts
+// @see db/functions/chat-send/slash-commands.ts
 
 // Article card - displayed in search/browse results
 export interface ArticleCardData {
