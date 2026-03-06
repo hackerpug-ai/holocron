@@ -58,6 +58,7 @@
     "clsx": "^2.1.1",
     "convex": "^1.32.0",
     "date-fns": "^4.1.0",
+    "exa-js": "^2.7.0",
     "expo": "~55.0.4",
     "expo-constants": "~55.0.7",
     "expo-linking": "~55.0.7",
