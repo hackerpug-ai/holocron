@@ -538,6 +538,30 @@ export const send = action({
       createdAt: Date.now(),
     });
 
+    // 6. Auto-generate chat title after first exchange
+    // Check if we should generate a title (2+ messages, no custom title yet)
+    const messageCount = await ctx.runQuery(api.chatMessages.queries.listByConversation, {
+      conversationId,
+      limit: 100, // Get all messages to count accurately
+    }).then((msgs: any[]) => msgs.length);
+
+    if (messageCount >= 2) {
+      const currentConversation = await ctx.runQuery(api.conversations.queries.get, {
+        id: conversationId,
+      });
+      const shouldGenerateTitle =
+        !currentConversation?.title ||
+        currentConversation.title === "New Chat";
+
+      if (shouldGenerateTitle) {
+        // Fire-and-forget: trigger title generation async
+        // This doesn't block the chat response
+        ctx.scheduler.runAfter(0, api.chat.index.generateChatTitle, {
+          conversationId,
+        });
+      }
+    }
+
     return {
       userMessageId,
       agentMessageId,
