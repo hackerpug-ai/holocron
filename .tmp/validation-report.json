@@ -1,0 +1,118 @@
+{
+  "timestamp": "2026-03-06T04:11:43.471Z",
+  "summary": {
+    "total": 15,
+    "passed": 15,
+    "failed": 0,
+    "passRate": "100.0%"
+  },
+  "results": [
+    {
+      "table": "conversations",
+      "check": "row_count",
+      "status": "PASS",
+      "expected": 2,
+      "actual": 2
+    },
+    {
+      "table": "chatMessages",
+      "check": "row_count",
+      "status": "PASS",
+      "expected": 66,
+      "actual": 66
+    },
+    {
+      "table": "documents",
+      "check": "row_count",
+      "status": "PASS",
+      "expected": 227,
+      "actual": 227
+    },
+    {
+      "table": "researchSessions",
+      "check": "row_count",
+      "status": "PASS",
+      "expected": 12,
+      "actual": 12
+    },
+    {
+      "table": "researchIterations",
+      "check": "row_count",
+      "status": "PASS",
+      "expected": 0,
+      "actual": 0
+    },
+    {
+      "table": "deepResearchSessions",
+      "check": "row_count",
+      "status": "PASS",
+      "expected": 0,
+      "actual": 0,
+      "details": "New Convex-only table (not in Supabase)"
+    },
+    {
+      "table": "deepResearchIterations",
+      "check": "row_count",
+      "status": "PASS",
+      "expected": 0,
+      "actual": 0,
+      "details": "New Convex-only table (not in Supabase)"
+    },
+    {
+      "table": "citations",
+      "check": "row_count",
+      "status": "PASS",
+      "expected": 0,
+      "actual": 0
+    },
+    {
+      "table": "tasks",
+      "check": "row_count",
+      "status": "PASS",
+      "expected": 2,
+      "actual": 2
+    },
+    {
+      "table": "chatMessages",
+      "check": "fk_conversations",
+      "status": "PASS",
+      "expected": 0,
+      "actual": 0
+    },
+    {
+      "table": "researchIterations",
+      "check": "fk_researchSessions",
+      "status": "PASS",
+      "expected": 0,
+      "actual": 0
+    },
+    {
+      "table": "deepResearchIterations",
+      "check": "fk_deepResearchSessions",
+      "status": "PASS",
+      "expected": 0,
+      "actual": 0
+    },
+    {
+      "table": "deepResearchSessions",
+      "check": "fk_conversations",
+      "status": "PASS",
+      "expected": 0,
+      "actual": 0
+    },
+    {
+      "table": "documents",
+      "check": "embedding_dimensions",
+      "status": "PASS",
+      "expected": 1536,
+      "actual": 1536
+    },
+    {
+      "table": "chatMessages",
+      "check": "ordering",
+      "status": "PASS",
+      "expected": "ascending",
+      "actual": "ascending"
+    }
+  ]
+}

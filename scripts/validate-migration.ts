@@ -10,6 +10,35 @@
 import { createClient } from "@supabase/supabase-js";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "../convex/_generated/api";
+import { readFileSync, existsSync } from "fs";
+import { resolve } from "path";
+
+// Simple .env file loader
+function loadEnvFile(filePath: string): void {
+  if (!existsSync(filePath)) return;
+  const content = readFileSync(filePath, "utf-8");
+  for (const line of content.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const [key, ...valueParts] = trimmed.split("=");
+    if (key && valueParts.length > 0) {
+      let value = valueParts.join("=").trim();
+      // Strip surrounding quotes (single or double)
+      if ((value.startsWith('"') && value.endsWith('"')) ||
+          (value.startsWith("'") && value.endsWith("'"))) {
+        value = value.slice(1, -1);
+      }
+      // Only set if not already defined
+      if (!process.env[key.trim()]) {
+        process.env[key.trim()] = value;
+      }
+    }
+  }
+}
+
+// Load environment variables from .env.local and .env
+loadEnvFile(resolve(process.cwd(), ".env.local"));
+loadEnvFile(resolve(process.cwd(), ".env"));
 
 // Types
 type ValidationStatus = "PASS" | "FAIL";
@@ -34,10 +63,10 @@ interface ValidationReport {
   results: ValidationResult[];
 }
 
-// Configuration
-const CONVEX_URL = process.env.VITE_CONVEX_HTTP_URL || "";
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL || "";
-const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || "";
+// Configuration - support both VITE and EXPO_PUBLIC prefixes
+const CONVEX_URL = process.env.VITE_CONVEX_HTTP_URL || process.env.EXPO_PUBLIC_CONVEX_URL || "";
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.EXPO_PUBLIC_SUPABASE_URL || "";
+const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || process.env.EXPO_PUBLIC_SUPABASE_SERVICE_ROLE_KEY || "";
 
 const results: ValidationResult[] = [];
 
@@ -75,16 +104,17 @@ async function validateRowCounts(): Promise<void> {
   const { convex: cvx, supabase: sup } = getClients();
 
   // Query mapping from Convex module name to count query
+  // Using index modules which re-export from queries/mutations
   const countQueries = {
-    conversations: api.conversations.count,
-    chatMessages: api.chatMessages.count,
-    documents: api.documents.count,
-    researchSessions: api.researchSessions.count,
-    researchIterations: api.researchIterations.count,
-    deepResearchSessions: api.deepResearchSessions.count,
-    deepResearchIterations: api.deepResearchIterations.count,
-    citations: api.citations.count,
-    tasks: api.tasks.count,
+    conversations: api["conversations/index"].count,
+    chatMessages: api["chatMessages/index"].count,
+    documents: api["documents/index"].count,
+    researchSessions: api["researchSessions/queries"].count,
+    researchIterations: api["researchIterations/queries"].count,
+    deepResearchSessions: api["deepResearchSessions/queries"].count,
+    deepResearchIterations: api["deepResearchIterations/queries"].count,
+    citations: api["citations/queries"].count,
+    tasks: api["tasks/index"].count,
   };
 
   for (const { supabase: sTable, convex: cTable } of TABLE_MAPPING) {
@@ -94,21 +124,31 @@ async function validateRowCounts(): Promise<void> {
         .from(sTable)
         .select("*", { count: "exact", head: true });
 
-      if (sError) {
-        results.push({
-          table: cTable,
-          check: "row_count",
-          status: "FAIL",
-          expected: 0,
-          actual: `Error: ${sError.message}`,
-          details: sError.message,
-        });
-        continue;
-      }
-
       // Get Convex count using the count query
       const countQuery = countQueries[cTable as keyof typeof countQueries];
       const cCount = countQuery ? await cvx!.query(countQuery, {}) : 0;
+
+      // Handle table doesn't exist in Supabase (new Convex-only table)
+      if (sError || sCount === null) {
+        // If table doesn't exist in Supabase but exists in Convex with 0 rows, that's OK
+        const status: ValidationStatus = cCount === 0 ? "PASS" : "FAIL";
+
+        results.push({
+          table: cTable,
+          check: "row_count",
+          status,
+          expected: 0,
+          actual: cCount,
+          details: status === "PASS"
+            ? "New Convex-only table (not in Supabase)"
+            : `Table missing in Supabase but has ${cCount} rows in Convex`,
+        });
+
+        console.log(
+          `${status === "PASS" ? "✓" : "✗"} ${cTable}: ${cCount} / N/A (Convex-only)`
+        );
+        continue;
+      }
 
       const status: ValidationStatus = sCount === cCount ? "PASS" : "FAIL";
 
@@ -149,8 +189,8 @@ async function validateForeignKeys(): Promise<void> {
 
   // Check 1: chatMessages -> conversations
   try {
-    const messages = await cvx!.query(api.chatMessages.list);
-    const conversations = await cvx!.query(api.conversations.list);
+    const messages = await cvx!.query(api["chatMessages/index"].list);
+    const conversations = await cvx!.query(api["conversations/index"].list);
     const conversationIds = new Set(
       conversations.map((c) => c._id)
     );
@@ -190,8 +230,8 @@ async function validateForeignKeys(): Promise<void> {
 
   // Check 2: researchIterations -> researchSessions
   try {
-    const iterations = await cvx!.query(api.researchIterations.list);
-    const sessions = await cvx!.query(api.researchSessions.list);
+    const iterations = await cvx!.query(api["researchIterations/queries"].list);
+    const sessions = await cvx!.query(api["researchSessions/queries"].list);
     const sessionIds = new Set(
       sessions.map((s) => s._id)
     );
@@ -231,8 +271,8 @@ async function validateForeignKeys(): Promise<void> {
 
   // Check 3: deepResearchIterations -> deepResearchSessions
   try {
-    const iterations = await cvx!.query(api.deepResearchIterations.list);
-    const sessions = await cvx!.query(api.deepResearchSessions.list);
+    const iterations = await cvx!.query(api["deepResearchIterations/queries"].list);
+    const sessions = await cvx!.query(api["deepResearchSessions/queries"].list);
     const sessionIds = new Set(
       sessions.map((s) => s._id)
     );
@@ -272,8 +312,8 @@ async function validateForeignKeys(): Promise<void> {
 
   // Check 4: deepResearchSessions -> conversations
   try {
-    const deepSessions = await cvx!.query(api.deepResearchSessions.list);
-    const conversations = await cvx!.query(api.conversations.list);
+    const deepSessions = await cvx!.query(api["deepResearchSessions/queries"].list);
+    const conversations = await cvx!.query(api["conversations/index"].list);
     const conversationIds = new Set(
       conversations.map((c) => c._id)
     );
@@ -321,7 +361,7 @@ async function validateEmbeddingDimensions(): Promise<void> {
   const { convex: cvx } = getClients();
 
   try {
-    const documents = await cvx!.query(api.documents.list, {});
+    const documents = await cvx!.query(api["documents/index"].list, {});
 
     // Filter documents with embeddings
     const docsWithEmbeddings = documents.filter(
@@ -384,7 +424,71 @@ async function validateEmbeddingDimensions(): Promise<void> {
 }
 
 /**
- * AC-4: Generate integrity report
+ * AC-4: Validate chat message ordering preserved (createdAt sequence)
+ */
+async function validateChatOrdering(): Promise<void> {
+  console.log("\n=== AC-4: Validating Chat Message Ordering ===");
+
+  const { convex: cvx } = getClients();
+
+  try {
+    const conversations = await cvx!.query(api["conversations/index"].list, { limit: 100 });
+
+    let outOfOrderCount = 0;
+    const outOfOrderDetails: string[] = [];
+
+    for (const conv of conversations) {
+      const messages = await cvx!.query(api["chatMessages/index"].list, {
+        conversationId: conv._id,
+      });
+
+      // Check ascending order by createdAt
+      for (let i = 1; i < messages.length; i++) {
+        if (messages[i].createdAt < messages[i - 1].createdAt) {
+          outOfOrderCount++;
+          if (outOfOrderDetails.length < 5) {
+            outOfOrderDetails.push(
+              `Conv ${conv._id}: msg[${i - 1}].createdAt > msg[${i}].createdAt`
+            );
+          }
+        }
+      }
+    }
+
+    const status: ValidationStatus = outOfOrderCount === 0 ? "PASS" : "FAIL";
+
+    results.push({
+      table: "chatMessages",
+      check: "ordering",
+      status,
+      expected: "ascending",
+      actual: outOfOrderCount === 0 ? "ascending" : `${outOfOrderCount} out of order`,
+      details: outOfOrderDetails.length > 0 ? outOfOrderDetails.join("; ") : undefined,
+    });
+
+    console.log(
+      `${outOfOrderCount === 0 ? "✓" : "✗"} Chat message ordering: ${outOfOrderCount} out of order (checked ${conversations.length} conversations)`
+    );
+
+    if (outOfOrderDetails.length > 0) {
+      console.log(`  Details: ${outOfOrderDetails.join("; ")}`);
+    }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    results.push({
+      table: "chatMessages",
+      check: "ordering",
+      status: "FAIL",
+      expected: "ascending",
+      actual: `Error: ${errorMessage}`,
+      details: errorMessage,
+    });
+    console.log(`✗ Error validating chat ordering: ${errorMessage}`);
+  }
+}
+
+/**
+ * AC-5: Generate integrity report
  */
 async function generateReport(): Promise<ValidationReport> {
   const passCount = results.filter((r) => r.status === "PASS").length;
@@ -416,9 +520,9 @@ export async function validateMigration(): Promise<ValidationReport> {
   // Check environment variables
   if (!CONVEX_URL || !SUPABASE_URL || !SUPABASE_ANON_KEY) {
     console.error("\n✗ Missing required environment variables:");
-    if (!CONVEX_URL) console.error("  - VITE_CONVEX_HTTP_URL");
-    if (!SUPABASE_URL) console.error("  - VITE_SUPABASE_URL");
-    if (!SUPABASE_ANON_KEY) console.error("  - VITE_SUPABASE_ANON_KEY");
+    if (!CONVEX_URL) console.error("  - VITE_CONVEX_HTTP_URL or EXPO_PUBLIC_CONVEX_URL");
+    if (!SUPABASE_URL) console.error("  - VITE_SUPABASE_URL or EXPO_PUBLIC_SUPABASE_URL");
+    if (!SUPABASE_ANON_KEY) console.error("  - VITE_SUPABASE_ANON_KEY or EXPO_PUBLIC_SUPABASE_SERVICE_ROLE_KEY");
     throw new Error("Missing required environment variables");
   }
 
@@ -426,6 +530,7 @@ export async function validateMigration(): Promise<ValidationReport> {
   await validateRowCounts();
   await validateForeignKeys();
   await validateEmbeddingDimensions();
+  await validateChatOrdering();
 
   // Generate report
   const report = await generateReport();

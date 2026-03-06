@@ -1,79 +1,56 @@
 
-> holocron@1.0.0 test /Users/justinrich/Projects/holocron
-> vitest run "tests/integration/validate-migration.test.ts"
+> holocron@1.0.0 validate /Users/justinrich/Projects/holocron
+> npx tsx scripts/validate-migration.ts
 
+npm warn Unknown env config "_formulist-registry". This will stop working in the next major version of npm.
+npm warn Unknown env config "global-bin-dir". This will stop working in the next major version of npm.
+npm warn Unknown env config "node-linker". This will stop working in the next major version of npm.
+npm warn Unknown project config "node-linker". This will stop working in the next major version of npm.
 
-[1m[46m RUN [49m[22m [36mv4.0.18 [39m[90m/Users/justinrich/Projects/holocron[39m
-
-[90mstdout[2m | tests/integration/validate-migration.test.ts[2m > [22m[2mMigration Validation - AC-1: Row Counts
-[22m[39m
 ╔════════════════════════════════════════════════════════════╗
 ║     MIGRATION DATA INTEGRITY VALIDATION                   ║
 ╚════════════════════════════════════════════════════════════╝
 
-[90mstderr[2m | tests/integration/validate-migration.test.ts[2m > [22m[2mMigration Validation - AC-1: Row Counts
-[22m[39m
-✗ Missing required environment variables:
-  - VITE_CONVEX_HTTP_URL
-  - VITE_SUPABASE_URL
-  - VITE_SUPABASE_ANON_KEY
+=== AC-1: Validating Row Counts ===
+✓ conversations: 2 / 2
+✓ chatMessages: 66 / 66
+✓ documents: 227 / 227
+✓ researchSessions: 12 / 12
+✓ researchIterations: 0 / 0
+✗ deepResearchSessions: 0 / null
+✗ deepResearchIterations: 0 / null
+✓ citations: 0 / 0
+✓ tasks: 2 / 2
 
-[90mstdout[2m | tests/integration/validate-migration.test.ts[2m > [22m[2mMigration Validation - AC-2: FK Relationships
-[22m[39m
-╔════════════════════════════════════════════════════════════╗
-║     MIGRATION DATA INTEGRITY VALIDATION                   ║
-╚════════════════════════════════════════════════════════════╝
+=== AC-2: Validating FK Relationships ===
+✓ chatMessages → conversations: 0 orphans
+✓ researchIterations → researchSessions: 0 orphans
+✓ deepResearchIterations → deepResearchSessions: 0 orphans
+✓ deepResearchSessions → conversations: 0 orphans
 
-[90mstderr[2m | tests/integration/validate-migration.test.ts[2m > [22m[2mMigration Validation - AC-2: FK Relationships
-[22m[39m
-✗ Missing required environment variables:
-  - VITE_CONVEX_HTTP_URL
-  - VITE_SUPABASE_URL
-  - VITE_SUPABASE_ANON_KEY
+=== AC-3: Validating Embedding Dimensions ===
+✓ Embedding dimensions: 1536 (80 docs checked)
 
-[90mstdout[2m | tests/integration/validate-migration.test.ts[2m > [22m[2mMigration Validation - AC-3: Embedding Dimensions
-[22m[39m
-╔════════════════════════════════════════════════════════════╗
-║     MIGRATION DATA INTEGRITY VALIDATION                   ║
-╚════════════════════════════════════════════════════════════╝
+=== AC-4: Validating Chat Message Ordering ===
+✓ Chat message ordering: 0 out of order (checked 2 conversations)
 
-[90mstderr[2m | tests/integration/validate-migration.test.ts[2m > [22m[2mMigration Validation - AC-3: Embedding Dimensions
-[22m[39m
-✗ Missing required environment variables:
-  - VITE_CONVEX_HTTP_URL
-  - VITE_SUPABASE_URL
-  - VITE_SUPABASE_ANON_KEY
+✓ Report saved to .tmp/validation-report.json
 
-[90mstdout[2m | tests/integration/validate-migration.test.ts[2m > [22m[2mMigration Validation - AC-4: Integrity Report[2m > [22m[2mshould generate comprehensive validation report
-[22m[39m
-╔════════════════════════════════════════════════════════════╗
-║     MIGRATION DATA INTEGRITY VALIDATION                   ║
-╚════════════════════════════════════════════════════════════╝
+=== VALIDATION SUMMARY ===
+Total checks: 15
+Passed: 13
+Failed: 2
+Pass rate: 86.7%
 
-[90mstderr[2m | tests/integration/validate-migration.test.ts[2m > [22m[2mMigration Validation - AC-4: Integrity Report[2m > [22m[2mshould generate comprehensive validation report
-[22m[39m
-✗ Missing required environment variables:
-  - VITE_CONVEX_HTTP_URL
-  - VITE_SUPABASE_URL
-  - VITE_SUPABASE_ANON_KEY
+=== FAILED CHECKS ===
+✗ deepResearchSessions.row_count
+  Expected: 0
+  Actual: 0
+  Details: Supabase: null, Convex: 0
+✗ deepResearchIterations.row_count
+  Expected: 0
+  Actual: 0
+  Details: Supabase: null, Convex: 0
 
-[90mstdout[2m | tests/integration/validate-migration.test.ts[2m > [22m[2mMigration Validation - AC-4: Integrity Report[2m > [22m[2mshould report 100% pass rate when all checks pass
-[22m[39m
-╔════════════════════════════════════════════════════════════╗
-║     MIGRATION DATA INTEGRITY VALIDATION                   ║
-╚════════════════════════════════════════════════════════════╝
-
-[90mstderr[2m | tests/integration/validate-migration.test.ts[2m > [22m[2mMigration Validation - AC-4: Integrity Report[2m > [22m[2mshould report 100% pass rate when all checks pass
-[22m[39m
-✗ Missing required environment variables:
-  - VITE_CONVEX_HTTP_URL
-  - VITE_SUPABASE_URL
-  - VITE_SUPABASE_ANON_KEY
-
- [32m✓[39m tests/integration/validate-migration.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 58[2mms[22m[39m
-
-[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
-[2m      Tests [22m [1m[32m9 passed[39m[22m[90m (9)[39m
-[2m   Start at [22m 14:23:35
-[2m   Duration [22m 186ms[2m (transform 44ms, setup 0ms, import 35ms, tests 58ms, environment 0ms)[22m
-
+============================================================
+ ELIFECYCLE  Command failed with exit code 1.

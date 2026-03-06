@@ -33,7 +33,7 @@ export const create = mutation({
 export const insertFromMigration = mutation({
   args: {
     title: v.string(),
-    content: v.string(),
+    content: v.optional(v.string()),
     category: v.string(),
     filePath: v.optional(v.string()),
     fileType: v.optional(v.string()),
@@ -46,7 +46,10 @@ export const insertFromMigration = mutation({
     embedding: v.optional(v.array(v.float64())),
   },
   handler: async (ctx, args) => {
-    return await ctx.db.insert("documents", args);
+    return await ctx.db.insert("documents", {
+      ...args,
+      content: args.content ?? "",
+    });
   },
 });
 

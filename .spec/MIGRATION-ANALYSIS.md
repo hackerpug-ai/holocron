@@ -180,18 +180,10 @@ embedding: v.array(v.float64())  // 1536-dimensional array
 ```
 
 #### Migration Strategy
-
-**Option A: Direct Export/Import**
-1. Export documents table with embeddings as JSON
-2. Import via Convex migration script
-3. Validate embedding dimensions match
-
-**Option B: Regeneration (Fallback)**
 1. Migrate document content only
 2. Regenerate embeddings via OpenAI API
 3. Cost: ~$0.0001 per document × N documents
 
-**Recommendation**: Option A (direct export) with Option B as fallback if corruption detected.
 
 ### Data Validation Checklist
 
