@@ -330,6 +330,92 @@ async function generateAIResponse(
 }
 
 /**
+ * Generate chat title using GPT-5-fast
+ * Task #784: Auto-generate short descriptive chat titles
+ */
+export const generateChatTitle = action({
+  args: {
+    conversationId: v.id("conversations"),
+  },
+  handler: async (ctx, { conversationId }): Promise<
+    | { skipped: true; reason: string }
+    | { success: false; error: string }
+    | { success: true; title: string }
+  > => {
+    // 1. Fetch conversation to check current title
+    const conversation = await ctx.runQuery(api.conversations.queries.get, {
+      id: conversationId,
+    });
+
+    // Skip if already has custom title (not "New Chat" or empty)
+    if (conversation?.title && conversation.title !== "New Chat") {
+      return { skipped: true, reason: "already_has_title" };
+    }
+
+    // 2. Fetch first 3-5 messages
+    const messages = await ctx.runQuery(api.chatMessages.queries.listByConversation, {
+      conversationId,
+      limit: 5,
+    });
+
+    // Skip if not enough messages (need at least 2: user + agent)
+    if (messages.length < 2) {
+      return { skipped: true, reason: "insufficient_messages" };
+    }
+
+    // 3. Build context for GPT-4o-mini
+    const context: string = messages
+      .slice(0, 5)
+      .reverse() // Reverse because listByConversation returns newest first
+      .map((m: any) => `${m.role}: ${m.content}`)
+      .join("\n\n");
+
+    // 4. Call GPT-4o-mini to generate title
+    const response: Response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content: "Generate a short, descriptive title (3-5 words, max 50 chars) for this chat conversation. Return ONLY the title, no quotes or explanations.",
+          },
+          {
+            role: "user",
+            content: `Conversation:\n\n${context}`,
+          },
+        ],
+        temperature: 0.7,
+        max_tokens: 20,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error("OpenAI API error:", await response.text());
+      return { success: false, error: "api_error" };
+    }
+
+    const data: any = await response.json();
+    const title: string = data.choices[0]?.message?.content?.trim() || "Untitled Chat";
+
+    // 5. Truncate if too long (max 50 chars)
+    const truncatedTitle: string = title.length > 50 ? title.slice(0, 47) + "..." : title;
+
+    // 6. Update conversation title
+    await ctx.runMutation(api.conversations.mutations.update, {
+      id: conversationId,
+      title: truncatedTitle,
+    });
+
+    return { success: true, title: truncatedTitle };
+  },
+});
+
+/**
  * Send a chat message
  * AC-1: Persist user message and return AI response
  * AC-3: Route slash commands
