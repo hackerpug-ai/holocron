@@ -420,18 +420,28 @@ export const generateChatTitle = action({
  * AC-1: Persist user message and return AI response
  * AC-3: Route slash commands
  * AC-4: Handle AI errors
+ * US-786: Support lazy conversation creation
  */
 export const send = action({
   args: {
-    conversationId: v.id("conversations"),
+    conversationId: v.optional(v.id("conversations")),
     content: v.string(),
     messageType: v.optional(v.union(v.literal("text"), v.literal("slash_command"))),
   },
   handler: async (ctx, { conversationId, content, messageType = "text" }): Promise<{
     userMessageId: any;
     agentMessageId: any;
+    conversationId: any;
   }> => {
     const now = Date.now();
+
+    // US-786 AC-1: If no conversationId provided, create conversation first
+    let finalConversationId = conversationId;
+    if (!finalConversationId) {
+      finalConversationId = await ctx.runMutation(api.conversations.mutations.create, {
+        title: "New Chat",
+      });
+    }
 
     // 1. Parse for slash commands (AC-3)
     const parsed = parseSlashCommand(content);
@@ -439,7 +449,7 @@ export const send = action({
 
     // 2. Persist user message (AC-1)
     const userMessageId: any = await ctx.runMutation(api.chatMessages.mutations.create, {
-      conversationId,
+      conversationId: finalConversationId,
       role: "user",
       content,
       messageType: actualMessageType,
@@ -449,7 +459,7 @@ export const send = action({
     // 3. Update conversation metadata
     const preview = content.length > 100 ? content.slice(0, 97) + "..." : content;
     await ctx.runMutation(api.conversations.mutations.touch, {
-      id: conversationId,
+      id: finalConversationId,
       lastMessagePreview: preview,
     });
 
@@ -487,7 +497,7 @@ export const send = action({
         } else {
           // Trigger async research workflow (fire-and-forget pattern)
           ctx.scheduler.runAfter(0, api.research.actions.startDeepResearch, {
-            conversationId,
+            conversationId: finalConversationId,
             topic,
             maxIterations: 5,
           });
@@ -530,7 +540,7 @@ export const send = action({
 
     // 5. Persist agent response
     const agentMessageId: any = await ctx.runMutation(api.chatMessages.mutations.create, {
-      conversationId,
+      conversationId: finalConversationId,
       role: "agent",
       content: agentResponse.content,
       messageType: agentResponse.messageType,
@@ -541,13 +551,13 @@ export const send = action({
     // 6. Auto-generate chat title after first exchange
     // Check if we should generate a title (2+ messages, no custom title yet)
     const messageCount = await ctx.runQuery(api.chatMessages.queries.listByConversation, {
-      conversationId,
+      conversationId: finalConversationId,
       limit: 100, // Get all messages to count accurately
     }).then((msgs: any[]) => msgs.length);
 
     if (messageCount >= 2) {
       const currentConversation = await ctx.runQuery(api.conversations.queries.get, {
-        id: conversationId,
+        id: finalConversationId,
       });
       const shouldGenerateTitle =
         !currentConversation?.title ||
@@ -557,7 +567,7 @@ export const send = action({
         // Fire-and-forget: trigger title generation async
         // This doesn't block the chat response
         ctx.scheduler.runAfter(0, api.chat.index.generateChatTitle, {
-          conversationId,
+          conversationId: finalConversationId,
         });
       }
     }
@@ -565,6 +575,7 @@ export const send = action({
     return {
       userMessageId,
       agentMessageId,
+      conversationId: finalConversationId,
     };
   },
 });
