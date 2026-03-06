@@ -30,6 +30,38 @@ export const create = mutation({
 });
 
 /**
+ * Update a chat message
+ */
+export const update = mutation({
+  args: {
+    id: v.id("chatMessages"),
+    content: v.optional(v.string()),
+    messageType: v.optional(
+      v.union(
+        v.literal("text"),
+        v.literal("slash_command"),
+        v.literal("result_card"),
+        v.literal("progress"),
+        v.literal("error")
+      )
+    ),
+    cardData: v.optional(v.any()),
+    sessionId: v.optional(v.id("researchSessions")),
+    documentId: v.optional(v.id("documents")),
+  },
+  handler: async (ctx, { id, ...updates }) => {
+    const existing = await ctx.db.get(id);
+    if (!existing) {
+      throw new Error(`ChatMessage ${id} not found`);
+    }
+
+    await ctx.db.patch(id, updates);
+
+    return await ctx.db.get(id);
+  },
+});
+
+/**
  * Insert a chat message from migration
  */
 export const insertFromMigration = mutation({

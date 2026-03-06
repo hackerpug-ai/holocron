@@ -2,6 +2,53 @@ import { mutation } from "../_generated/server";
 import { v } from "convex/values";
 
 /**
+ * Create a new research iteration
+ */
+export const create = mutation({
+  args: {
+    sessionId: v.id("researchSessions"),
+    iterationNumber: v.number(),
+    findingsSummary: v.optional(v.string()),
+    sources: v.optional(v.any()),
+    reviewScore: v.optional(v.number()),
+    reviewFeedback: v.optional(v.string()),
+    reviewGaps: v.optional(v.any()),
+    refinedQueries: v.optional(v.any()),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db.insert("researchIterations", {
+      ...args,
+      createdAt: Date.now(),
+    });
+  },
+});
+
+/**
+ * Update a research iteration
+ */
+export const update = mutation({
+  args: {
+    id: v.id("researchIterations"),
+    findingsSummary: v.optional(v.string()),
+    sources: v.optional(v.any()),
+    reviewScore: v.optional(v.number()),
+    reviewFeedback: v.optional(v.string()),
+    reviewGaps: v.optional(v.any()),
+    refinedQueries: v.optional(v.any()),
+  },
+  handler: async (ctx, { id, ...updates }) => {
+    const existing = await ctx.db.get(id);
+    if (!existing) {
+      throw new Error(`ResearchIteration ${id} not found`);
+    }
+
+    await ctx.db.patch(id, updates);
+
+    return await ctx.db.get(id);
+  },
+});
+
+/**
  * Insert a research iteration from migration
  */
 export const insertFromMigration = mutation({

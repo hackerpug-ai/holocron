@@ -28,6 +28,36 @@ export const create = mutation({
 });
 
 /**
+ * Update a document
+ */
+export const update = mutation({
+  args: {
+    id: v.id("documents"),
+    title: v.optional(v.string()),
+    content: v.optional(v.string()),
+    category: v.optional(v.string()),
+    filePath: v.optional(v.string()),
+    fileType: v.optional(v.string()),
+    status: v.optional(v.string()),
+    date: v.optional(v.string()),
+    time: v.optional(v.string()),
+    researchType: v.optional(v.string()),
+    iterations: v.optional(v.number()),
+    embedding: v.optional(v.array(v.float64())),
+  },
+  handler: async (ctx, { id, ...updates }) => {
+    const existing = await ctx.db.get(id);
+    if (!existing) {
+      throw new Error(`Document ${id} not found`);
+    }
+
+    await ctx.db.patch(id, updates);
+
+    return await ctx.db.get(id);
+  },
+});
+
+/**
  * Insert a document with embedding (used by migration script)
  */
 export const insertFromMigration = mutation({
