@@ -32,17 +32,23 @@ export default function ChatScreen() {
   const navigation = useNavigation()
   const insets = useSafeAreaInsets()
 
+  // Determine if this is a new (lazy) conversation
+  const isNewConversation = conversationId === 'new'
+
   // Direct Convex useQuery for conversations list
   const conversations = useQuery(api.conversations.index.list, { limit: 50 }) ?? []
+
+  // Query to check if conversation exists (only for real IDs, not "new")
+  const conversation = useQuery(
+    !isNewConversation && conversationId ? api.conversations.queries.get : undefined,
+    !isNewConversation && conversationId ? { id: conversationId as Id<"conversations"> } : undefined
+  )
 
   // Active conversation tracking (local state)
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null)
 
   // Convex mutation for creating conversations
   const createConversationMutation = useMutation(api.conversations.mutations.create)
-
-  // Determine if this is a new (lazy) conversation
-  const isNewConversation = conversationId === 'new'
 
   // Create conversation callback for lazy creation
   const createConversation = async (): Promise<string> => {
@@ -140,6 +146,20 @@ export default function ChatScreen() {
       setActiveConversationId(conversationId)
     }
   }, [conversationId, isNewConversation])
+
+  // Redirect to /chat/new if conversation doesn't exist
+  useEffect(() => {
+    // If we tried to load a real conversation but it doesn't exist, redirect
+    if (
+      !isNewConversation &&
+      conversationId &&
+      conversation === null &&
+      conversations !== undefined
+    ) {
+      console.log('Conversation not found, redirecting to new')
+      router.replace('/chat/new')
+    }
+  }, [conversationId, conversation, isNewConversation, conversations, router])
 
   // Loading state based on conversations query
   const isLoading = conversations === undefined
