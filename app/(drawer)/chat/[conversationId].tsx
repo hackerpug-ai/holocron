@@ -60,10 +60,10 @@ export default function ChatScreen() {
   // Fetch chat history - pass null for new conversations to skip query
   const chatHistoryId = isNewConversation ? null : (conversationId ?? null)
   const {
-    messages,
-    isLoading: isLoadingMessages,
-    error: messagesError,
-  } = useChatHistory(chatHistoryId)
+    messages = [],
+    isLoading: isLoadingMessages = false,
+    error: messagesError = null,
+  } = useChatHistory(chatHistoryId) ?? { messages: [], isLoading: false, error: null }
 
   // Convex action for sending messages
   const sendChat = useAction(api.chat.index.send)
