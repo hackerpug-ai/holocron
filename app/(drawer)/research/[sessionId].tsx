@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { ArrowLeft } from 'lucide-react-native'
 import { Text } from '@/components/ui/text'
 import { Button } from '@/components/ui/button'
-import { useDeepResearchSession } from '@/hooks/useDeepResearchSession'
+import { useDeepResearchSession } from '@/hooks/useResearchSession'
 import { useTheme } from '@/hooks/use-theme'
 import {
   DeepResearchDetailView,
@@ -66,10 +66,7 @@ export default function ResearchDetailScreen() {
   const { sessionId } = useLocalSearchParams<{ sessionId: string }>()
   const router = useRouter()
   const theme = useTheme()
-  const { session, loading, error, refetch } = useDeepResearchSession(
-    sessionId ?? null,
-    { enabled: !!sessionId }
-  )
+  const { session, isLoading, error } = useDeepResearchSession(sessionId ?? null)
 
   const [viewData, setViewData] = useState<DeepResearchDetailViewProps | null>(null)
 
@@ -92,7 +89,7 @@ export default function ResearchDetailScreen() {
     router.push(`/webview/${encodedUrl}`)
   }
 
-  if (loading) {
+  if (isLoading) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }} edges={['top']}>
         {/* Header */}
@@ -150,7 +147,7 @@ export default function ResearchDetailScreen() {
         {/* Error state */}
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: theme.spacing.xl }}>
           <Text className="text-destructive text-center text-lg mb-4">
-            {error?.message || 'Research session not found'}
+            Research session not found
           </Text>
           <Button onPress={handleBack}>
             <Text>Go Back</Text>

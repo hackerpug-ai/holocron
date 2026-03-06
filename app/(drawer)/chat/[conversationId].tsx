@@ -45,10 +45,7 @@ export default function ChatScreen() {
   const {
     messages,
     isLoading: isLoadingMessages,
-    isLoadingMore,
     error: messagesError,
-    loadMore,
-    hasMore,
   } = useChatHistory(conversationId ?? null)
 
   // Determine if this is a new (lazy) conversation
@@ -214,9 +211,6 @@ export default function ChatScreen() {
       />
       <ChatThread
         messages={messages}
-        onLoadMore={loadMore}
-        isLoadingMore={isLoadingMore}
-        hasMore={hasMore}
         showTypingIndicator={isSending}
         isLoading={isLoadingMessages}
         safeAreaTop={contentTopPadding}

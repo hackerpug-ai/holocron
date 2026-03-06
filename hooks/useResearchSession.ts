@@ -42,12 +42,24 @@ export function useResearchSession(sessionId: string | null) {
 /**
  * Hook for fetching a deep research session with its iterations from Convex.
  *
- * Similar to useResearchSession but for deep research sessions.
+ * This hook uses Convex's reactive useQuery which automatically
+ * pushes updates to the client when the session changes in the database.
  *
  * @param sessionId - The ID of the deep research session to fetch
  * @returns The session data or undefined while loading, plus error state
+ *
+ * @example
+ * ```tsx
+ * const { session, isLoading, error } = useDeepResearchSession(sessionId)
+ *
+ * if (isLoading) return <LoadingSpinner />
+ * if (error) return <ErrorState message={error.message} />
+ * if (!session) return <NotFound />
+ *
+ * return <DeepResearchDetailView session={session} />
+ * ```
  */
-export function useDeepResearchSessionConvex(sessionId: string | null) {
+export function useDeepResearchSession(sessionId: string | null) {
   const session = useQuery(
     api.deepResearchSessions.get,
     sessionId ? { id: sessionId as any } : 'skip'

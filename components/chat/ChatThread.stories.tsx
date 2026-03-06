@@ -50,54 +50,38 @@ const manyMessages: ChatMessage[] = Array.from({ length: 50 }, (_, i) => {
 export const Default: Story = {
   args: {
     messages: mockMessages,
-    onLoadMore: () => console.log('Load more requested'),
-    isLoadingMore: false,
-    hasMore: true,
   },
 }
 
 export const EmptyState: Story = {
   args: {
     messages: [],
-    onLoadMore: () => console.log('Load more requested'),
-    isLoadingMore: false,
-    hasMore: false,
   },
 }
 
-export const LoadingMore: Story = {
+export const LoadingState: Story = {
   args: {
-    messages: mockMessages,
-    onLoadMore: () => console.log('Load more requested'),
-    isLoadingMore: true,
-    hasMore: true,
+    messages: [],
+    isLoading: true,
   },
 }
 
 export const WithManyMessages: Story = {
   args: {
     messages: manyMessages,
-    onLoadMore: () => console.log('Load more requested'),
-    isLoadingMore: false,
-    hasMore: true,
   },
 }
 
-export const NoMoreToLoad: Story = {
+export const WithTypingIndicator: Story = {
   args: {
     messages: mockMessages,
-    onLoadMore: () => console.log('Load more requested'),
-    isLoadingMore: false,
-    hasMore: false,
+    showTypingIndicator: true,
   },
 }
 
 export const SingleMessage: Story = {
   args: {
     messages: [generateMessage(1, 'user', 'Hello!')],
-    onLoadMore: () => console.log('Load more requested'),
-    isLoadingMore: false,
-    hasMore: false,
   },
 }
 
@@ -116,8 +100,5 @@ export const LongMessageContent: Story = {
         'System message with moderate length content that should wrap nicely'
       ),
     ],
-    onLoadMore: () => console.log('Load more requested'),
-    isLoadingMore: false,
-    hasMore: false,
   },
 }

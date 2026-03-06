@@ -17,9 +17,6 @@ export interface ChatMessage {
 
 export interface ChatThreadProps {
   messages: ChatMessage[]
-  onLoadMore: () => void
-  isLoadingMore: boolean
-  hasMore: boolean
   showTypingIndicator?: boolean
   /** Initial loading state - shows subtle inline loader */
   isLoading?: boolean
@@ -34,9 +31,6 @@ export interface ChatThreadProps {
 
 export function ChatThread({
   messages,
-  onLoadMore,
-  isLoadingMore,
-  hasMore,
   showTypingIndicator = false,
   isLoading = false,
   safeAreaTop = 0,
@@ -105,25 +99,9 @@ export function ChatThread({
     )
   }
 
-  const renderLoadingIndicator = () => {
-    if (!isLoadingMore || !hasMore) return null
-
-    return (
-      <View className="items-center justify-center p-3">
-        <ActivityIndicator size="small" className="text-primary" />
-      </View>
-    )
-  }
-
   const renderTypingIndicator = () => {
     if (!showTypingIndicator) return null
     return <TypingIndicator />
-  }
-
-  const handleEndReached = () => {
-    if (hasMore && !isLoadingMore) {
-      onLoadMore()
-    }
   }
 
   return (
@@ -134,11 +112,8 @@ export function ChatThread({
         renderItem={renderMessage}
         keyExtractor={(item) => item.id}
         inverted={true}
-        onEndReached={handleEndReached}
-        onEndReachedThreshold={0.5}
         ListEmptyComponent={renderEmptyState}
         ListHeaderComponent={renderTypingIndicator}
-        ListFooterComponent={renderLoadingIndicator}
         contentContainerStyle={
           messages.length === 0
             ? { flex: 1, justifyContent: 'center', paddingBottom: safeAreaTop }
