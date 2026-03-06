@@ -33,13 +33,13 @@ export default function ChatScreen() {
   const insets = useSafeAreaInsets()
 
   // Direct Convex useQuery for conversations list
-  const conversations = useQuery(api.conversations.list, { limit: 50 }) ?? []
+  const conversations = useQuery(api.conversations.index.list, { limit: 50 }) ?? []
 
   // Active conversation tracking (local state)
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null)
 
   // Convex mutation for creating conversations
-  const createConversationMutation = useMutation(api.conversations.create)
+  const createConversationMutation = useMutation(api.conversations.mutations.create)
 
   // Fetch chat history for this conversation
   const {
@@ -59,7 +59,7 @@ export default function ChatScreen() {
   }
 
   // Convex action for sending messages
-  const sendChat = useAction(api.chat.send)
+  const sendChat = useAction(api.chat.index.send)
 
   // Local state for sending
   const [isSending, setIsSending] = useState(false)

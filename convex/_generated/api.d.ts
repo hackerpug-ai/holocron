@@ -8,7 +8,7 @@
  * @module
  */
 
-import type * as chat_send from "../chat/send.js";
+import type * as chat_index from "../chat/index.js";
 import type * as chatMessages_index from "../chatMessages/index.js";
 import type * as chatMessages_mutations from "../chatMessages/mutations.js";
 import type * as chatMessages_queries from "../chatMessages/queries.js";
@@ -51,7 +51,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
-  "chat/send": typeof chat_send;
+  "chat/index": typeof chat_index;
   "chatMessages/index": typeof chatMessages_index;
   "chatMessages/mutations": typeof chatMessages_mutations;
   "chatMessages/queries": typeof chatMessages_queries;

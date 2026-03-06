@@ -30,8 +30,8 @@ export const listByConversation = query({
       .order("desc")
       .take(limit);
 
-    // Return in ascending order (oldest first) for chat display
-    return messages.reverse();
+    // Return in descending order (newest first) for inverted FlatList
+    return messages;
   },
 });
 

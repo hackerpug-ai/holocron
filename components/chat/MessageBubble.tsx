@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils'
 import type { MessageRole, MessageType } from '@/lib/types/conversations'
 import { formatTimestamp } from '@/lib/formatTimestamp'
 import { ResultCard, type ResultCardData, type CardType } from '@/components/ui/result-card'
+import { DeepResearchLoadingCard } from '@/components/deep-research/DeepResearchLoadingCard'
 import { DeepResearchConfirmationCard } from '@/components/deep-research/DeepResearchConfirmationCard'
 import { Card } from '@/components/ui/card'
 import { ResumeSessionList } from '@/components/deep-research/ResumeSessionList'
@@ -128,7 +129,7 @@ function renderResultCard(
         {card_data.map((card, index) => {
           const cardType = (card.card_type as CardType) || 'article'
           const documentId = card.document_id as number | undefined
-          const isLoading = loadingCardId !== null && documentId === loadingCardId
+          const isLoading = loadingCardId != null && documentId === loadingCardId
 
           return (
             <ResultCard
@@ -147,7 +148,18 @@ function renderResultCard(
   }
 
   // Single card - cast through unknown to satisfy TypeScript discriminated union
-  const cardType = card_data.card_type as CardType | 'deep_research_confirmation' | 'resume_session_list' | 'final_result'
+  const cardType = card_data.card_type as CardType | 'deep_research_loading' | 'deep_research_confirmation' | 'resume_session_list' | 'final_result'
+
+  // Handle deep research loading card - render specialized component
+  if (cardType === 'deep_research_loading') {
+    return (
+      <DeepResearchLoadingCard
+        query={(card_data.query as string) ?? ''}
+        message={(card_data.message as string | undefined)}
+        testID={`${testID}-card`}
+      />
+    )
+  }
 
   // Handle deep research confirmation card - render specialized component
   if (cardType === 'deep_research_confirmation') {
@@ -231,7 +243,7 @@ function renderResultCard(
   }
 
   const documentId = card_data.document_id as number | undefined
-  const isLoading = loadingCardId !== null && documentId === loadingCardId
+  const isLoading = loadingCardId != null && documentId === loadingCardId
 
   return (
     <ResultCard

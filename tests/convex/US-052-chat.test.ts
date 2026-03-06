@@ -24,7 +24,7 @@ describe('US-052: Chat Operations', () => {
         // @ts-ignore - Function doesn't exist yet
         const { api } = await import('../../convex/_generated/api');
         // The function should exist and return the expected structure
-        return api.chat.send;
+        return api.chat.index.send;
       }).rejects.toThrow();
     });
   });
@@ -60,7 +60,7 @@ describe('US-052: Chat Operations', () => {
       expect(async () => {
         // @ts-ignore - Function doesn't exist yet
         const { api } = await import('../../convex/_generated/api');
-        return api.chat.send;
+        return api.chat.index.send;
       }).rejects.toThrow();
     });
   });
@@ -76,7 +76,7 @@ describe('US-052: Chat Operations', () => {
       expect(async () => {
         // @ts-ignore - Function doesn't exist yet
         const { api } = await import('../../convex/_generated/api');
-        return api.chat.send;
+        return api.chat.index.send;
       }).rejects.toThrow();
     });
   });

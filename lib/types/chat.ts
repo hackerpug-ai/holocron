@@ -63,6 +63,13 @@ export interface CategoryNotFoundCardData {
   valid_categories: string[]
 }
 
+// Deep research loading card - displayed while research initializes
+export interface DeepResearchLoadingCardData {
+  card_type: 'deep_research_loading'
+  query: string
+  message?: string
+}
+
 // Deep research confirmation card - confirms session creation
 export interface DeepResearchConfirmationCardData {
   card_type: 'deep_research_confirmation'
@@ -101,6 +108,7 @@ export type CardData =
   | CategoryListCardData
   | NoResultsCardData
   | CategoryNotFoundCardData
+  | DeepResearchLoadingCardData
   | DeepResearchConfirmationCardData
   | ResumeSessionListCardData
   | FinalResultCardData

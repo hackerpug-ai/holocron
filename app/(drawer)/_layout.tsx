@@ -27,15 +27,15 @@ function CustomDrawerContent() {
   } | null>(null)
 
   // Direct Convex useQuery for conversations list
-  const conversations = useQuery(api.conversations.list, { limit: 50 }) ?? []
+  const conversations = useQuery(api.conversations.index.list, { limit: 50 }) ?? []
 
   // Active conversation tracking (local state)
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null)
 
   // Convex mutations
-  const createConversation = useMutation(api.conversations.create)
-  const updateConversation = useMutation(api.conversations.update)
-  const removeConversation = useMutation(api.conversations.remove)
+  const createConversation = useMutation(api.conversations.mutations.create)
+  const updateConversation = useMutation(api.conversations.mutations.update)
+  const removeConversation = useMutation(api.conversations.mutations.remove)
 
   // Loading states from mutations
   const isCreating = false
@@ -191,10 +191,10 @@ export default function DrawerLayout() {
   const router = useRouter()
 
   // Direct Convex useQuery for conversations list
-  const conversations = useQuery(api.conversations.list, { limit: 50 }) ?? []
+  const conversations = useQuery(api.conversations.index.list, { limit: 50 }) ?? []
 
   // Convex mutations
-  const createConversation = useMutation(api.conversations.create)
+  const createConversation = useMutation(api.conversations.mutations.create)
 
   // Active conversation tracking (local state)
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null)
