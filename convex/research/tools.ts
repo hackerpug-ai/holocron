@@ -200,7 +200,7 @@ export const exaSearchTool = tool({
       .default("any")
       .describe("Filter results by content category"),
   }),
-  execute: async ({ query, numResults, category }) => {
+  execute: async ({ query, numResults, category }: { query: string; numResults: number; category: string }) => {
     try {
       const apiKey = process.env.EXA_API_KEY;
       if (!apiKey) {
@@ -266,7 +266,7 @@ export const jinaSearchTool = tool({
       .default(10)
       .describe("Number of results to return (1-10)"),
   }),
-  execute: async ({ query, numResults }) => {
+  execute: async ({ query, numResults }: { query: string; numResults: number }) => {
     try {
       const apiKey = process.env.JINA_API_KEY;
       if (!apiKey) {
@@ -337,7 +337,7 @@ export const jinaReaderTool = tool({
   parameters: z.object({
     url: z.string().url().describe("The URL to extract content from"),
   }),
-  execute: async ({ url }) => {
+  execute: async ({ url }: { url: string }) => {
     try {
       const apiKey = process.env.JINA_API_KEY;
       if (!apiKey) {
