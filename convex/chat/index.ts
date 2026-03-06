@@ -399,9 +399,15 @@ export const send = action({
             messageType: "text",
           };
         } else {
-          // TODO: Implement deep research workflow integration
+          // Trigger async research workflow (fire-and-forget pattern)
+          ctx.scheduler.runAfter(0, api.research.actions.startDeepResearch, {
+            conversationId,
+            topic,
+            maxIterations: 5,
+          });
+
           agentResponse = {
-            content: `Deep research for "${topic}" will be available soon! This will trigger a multi-iteration research workflow.`,
+            content: `Started deep research: "${topic}"`,
             messageType: "text",
           };
         }
