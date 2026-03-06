@@ -50,14 +50,26 @@ export function useChatHistory(
   )
 
   // Transform Convex Doc to ChatMessage format
-  const messages: ChatMessage[] = (messagesData ?? []).map((msg: any) => ({
-    id: msg._id,
-    role: msg.role,
-    content: msg.content,
-    message_type: msg.messageType,
-    card_data: msg.cardData,
-    createdAt: new Date(msg.createdAt),
-  }))
+  const messages: ChatMessage[] = (messagesData ?? []).map((msg: any) => {
+    const transformed = {
+      id: msg._id,
+      role: msg.role,
+      content: msg.content,
+      message_type: msg.messageType,
+      card_data: msg.cardData,
+      createdAt: new Date(msg.createdAt),
+    }
+
+    // Debug log for result_card messages
+    if (msg.messageType === 'result_card') {
+      console.log('[useChatHistory] Transforming result_card:', {
+        original: { messageType: msg.messageType, cardData: msg.cardData },
+        transformed: { message_type: transformed.message_type, card_data: transformed.card_data }
+      })
+    }
+
+    return transformed
+  })
 
   return {
     messages,

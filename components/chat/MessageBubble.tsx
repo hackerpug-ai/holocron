@@ -43,6 +43,7 @@ export function MessageBubble({
 
   // Handle result_card messages - render ResultCard instead of text
   if (message_type === 'result_card' && card_data && !isUser) {
+    console.log('[MessageBubble] Rendering result_card:', { message_type, card_data, role })
     return (
       <View
         className={cn('my-1 px-4', 'items-start')}
