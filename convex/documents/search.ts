@@ -44,24 +44,24 @@ export const hybridSearch = action({
     const resultScore = new Map<string, number>();
     const resultMap = new Map<string, any>();
 
-    // Score vector results (higher weight for semantic similarity - 0.7)
+    // Score vector results (equal weight for semantic similarity - 0.5)
     // Normalize scores to 0-1 range based on the actual similarity scores
     const maxVectorScore = vectorResults.length > 0 ? vectorResults[0].score : 1;
 
     for (const doc of vectorResults) {
       const id = doc._id.toString();
-      // Normalize the score and apply vector weight (0.7)
+      // Normalize the score and apply vector weight (0.5)
       const normalizedScore = maxVectorScore > 0 ? doc.score / maxVectorScore : 0;
-      const weightedScore = normalizedScore * 0.7;
+      const weightedScore = normalizedScore * 0.5;
       resultScore.set(id, (resultScore.get(id) || 0) + weightedScore);
       resultMap.set(id, doc);
     }
 
-    // Score FTS results (lower weight but still valuable - 0.3)
+    // Score FTS results (equal weight for keyword matching - 0.5)
     for (const doc of ftsResults) {
       const id = doc._id.toString();
-      // Apply FTS weight (0.3)
-      const weightedScore = (doc.score || 0) * 0.3;
+      // Apply FTS weight (0.5)
+      const weightedScore = (doc.score || 0) * 0.5;
       resultScore.set(id, (resultScore.get(id) || 0) + weightedScore);
       if (!resultMap.has(id)) {
         resultMap.set(id, doc);
