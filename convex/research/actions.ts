@@ -27,45 +27,70 @@ import { createLeadAgent, createReviewerAgent } from "./agents";
 /**
  * Start Deep Research
  *
- * AC-1: Deep research started → Lead Agent plans → Plan has 3-5 subtasks
+ * Task #780: Main entry point action that triggers the deep research workflow
  *
- * This is the entry point for deep research. It creates a session and starts
- * the workflow with Lead Agent (GPT-5) planning.
+ * This action:
+ * 1. Creates a deep research session
+ * 2. Posts a loading card to chat
+ * 3. Runs the Ralph Loop (iterative research)
+ * 4. Posts a final card with results
+ * 5. Returns the session ID and status
  */
 export const startDeepResearch = action({
   args: {
     conversationId: v.id("conversations"),
-    query: v.string(),
+    topic: v.string(),
     maxIterations: v.optional(v.number()),
   },
-  handler: async (ctx, { conversationId, query, maxIterations = 5 }): Promise<{
+  handler: async (ctx, { conversationId, topic, maxIterations = 5 }): Promise<{
     sessionId: any;
     status: string;
-    message: string;
   }> => {
-    // Step 1: Create session record
+    // Step 1: Create session
     const sessionId = await ctx.runMutation(
-      api.research.createDeepResearchSession,
+      api.research.mutations.createDeepResearchSession,
       {
         conversationId,
-        topic: query,
+        topic,
         maxIterations,
       }
     );
 
-    // Step 2: Start research workflow (begin with iteration 1)
-    await ctx.runMutation(api.research.runResearchIteration, {
-      sessionId,
-      query,
-      iteration: 1,
-      maxIterations,
-      previousFindings: [],
+    // Step 2: Post loading card
+    await ctx.runMutation(api.chatMessages.mutations.create, {
+      conversationId,
+      role: "agent" as const,
+      content: `Starting deep research: ${topic}`,
+      messageType: "result_card" as const,
+      cardData: {
+        card_type: "deep_research_loading",
+        session_id: sessionId,
+        query: topic,
+      },
     });
 
+    // Step 3: Run Ralph Loop
+    const result = await runRalphLoop(ctx, sessionId, conversationId, topic, maxIterations);
+
+    // Step 4: Post final card
+    await ctx.runMutation(api.chatMessages.mutations.create, {
+      conversationId,
+      role: "agent" as const,
+      content: `Deep research complete: ${topic}`,
+      messageType: "result_card" as const,
+      cardData: {
+        card_type: "deep_research_final",
+        session_id: sessionId,
+        topic,
+        total_iterations: result.totalIterations,
+        final_coverage_score: result.finalCoverageScore,
+      },
+    });
+
+    // Step 5: Return result
     return {
       sessionId,
-      status: "started",
-      message: "Deep research initiated",
+      status: "completed",
     };
   },
 });
