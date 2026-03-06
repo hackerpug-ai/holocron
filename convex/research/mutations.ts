@@ -85,6 +85,26 @@ export const createDeepResearchIteration = mutation({
 });
 
 /**
+ * Update deep research session status
+ *
+ * Used during iteration to update session status without completing
+ */
+export const updateDeepResearchSession = mutation({
+  args: {
+    sessionId: v.id("deepResearchSessions"),
+    status: v.string(),
+  },
+  handler: async (ctx, { sessionId, status }) => {
+    const now = Date.now();
+
+    await ctx.db.patch(sessionId, {
+      status,
+      updatedAt: now,
+    });
+  },
+});
+
+/**
  * Mark deep research session as completed
  *
  * AC-5: Score >= 4 or max iterations reached → Complete session

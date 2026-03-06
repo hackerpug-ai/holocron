@@ -105,7 +105,7 @@ export const startDeepResearch = action({
  * 4. Review coverage with Reviewer Agent (GPT-5) - AC-4
  * 5. Decide whether to iterate or complete - AC-5
  */
-export const runResearchIteration = mutation({
+export const runResearchIteration = action({
   args: {
     sessionId: v.id("deepResearchSessions"),
     query: v.string(),
@@ -141,7 +141,7 @@ export const runResearchIteration = mutation({
     const review = await assessCoverage(synthesis);
 
     // Store iteration record
-    await ctx.db.insert("deepResearchIterations", {
+    await ctx.runMutation(api.research.mutations.createDeepResearchIteration, {
       sessionId,
       iterationNumber: iteration,
       coverageScore: review.score,
@@ -149,7 +149,6 @@ export const runResearchIteration = mutation({
       findings: synthesis,
       refinedQueries: review.gaps,
       status: "completed",
-      createdAt: Date.now(),
     });
 
     // Step 5: AC-5 - Decide iteration
@@ -160,9 +159,9 @@ export const runResearchIteration = mutation({
       // Continue with next iteration
       // Note: In production, this would schedule the next iteration
       // For now, we update the session status
-      await ctx.db.patch(sessionId, {
+      await ctx.runMutation(api.research.mutations.updateDeepResearchSession, {
+        sessionId,
         status: "iterating",
-        updatedAt: Date.now(),
       });
 
       // The next iteration would be triggered by the caller or a scheduler
@@ -175,10 +174,9 @@ export const runResearchIteration = mutation({
       };
     } else {
       // Complete the research
-      await ctx.db.patch(sessionId, {
+      await ctx.runMutation(api.research.mutations.completeDeepResearchSession, {
+        sessionId,
         status: "completed",
-        completedAt: Date.now(),
-        updatedAt: Date.now(),
       });
 
       return {

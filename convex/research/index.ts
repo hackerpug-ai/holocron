@@ -5,17 +5,15 @@
  */
 
 // Actions
-export { startDeepResearch } from "./actions";
+export { startDeepResearch, runResearchIteration } from "./actions";
 
 // Mutations
 export {
   createDeepResearchSession,
   createDeepResearchIteration,
+  updateDeepResearchSession,
   completeDeepResearchSession,
 } from "./mutations";
-
-// Mutations from actions file
-export { runResearchIteration } from "./actions";
 
 // Tools (for prototype testing)
 export {
