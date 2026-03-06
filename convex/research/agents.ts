@@ -1,54 +1,83 @@
 /**
- * Research Agents for Deep Research Workflow (US-047)
+ * Research Agents for Deep Research Workflow
  *
- * Implements the orchestrator-worker pattern:
- * - Lead Researcher (GPT-5): Planning, synthesis, review
- * - Web Searcher (GPT-5-mini): Parallel search execution
+ * Factory functions for creating research agents:
+ * - createLeadAgent: Research coordinator using GPT-4 Turbo
+ * - createReviewerAgent: Quality reviewer using GPT-4 Turbo
  */
 
-// import { components } from "../_generated/components";
-// import { Agent } from "@convex-dev/agent";
-// Note: Production implementation will use @convex-dev/agent
-// This prototype uses simple TypeScript objects for testing
-
-/**
- * Lead Researcher Agent - Uses GPT-5 for planning and synthesis
- *
- * Role: Research coordinator that decomposes queries, delegates to subagents,
- * and synthesizes findings into comprehensive reports.
- */
-export const leadResearcher: {
-  name: string;
-  model: string;
-} = {
-  name: "Lead Researcher",
-  model: "gpt-5", // Uses GPT-5 for complex planning and synthesis
-};
+import { Agent } from "@convex-dev/agent";
+import { components } from "../_generated/api";
+import { openai } from "@ai-sdk/openai";
+import type { GenericActionCtx } from "convex/server";
+import type { LanguageModel } from "ai";
 
 /**
- * Web Searcher Agent - Uses GPT-5-mini for cost-effective search
+ * Create Lead Research Agent
  *
- * Role: Focused research worker that executes specific search tasks.
- * Uses cheaper GPT-5-mini model to reduce costs by ~67%.
+ * The lead agent orchestrates the research process:
+ * 1. Plans research with 3-5 queries
+ * 2. Executes searches (or delegates to subagents)
+ * 3. Synthesizes findings into comprehensive reports
+ *
+ * @param ctx - Convex action context
+ * @returns Configured Agent instance for research coordination
  */
-export const webSearcher: {
-  name: string;
-  model: string;
-} = {
-  name: "Web Searcher",
-  model: "gpt-5-mini", // Uses GPT-5-mini for cost-effective parallel execution
-};
+export function createLeadAgent(ctx: GenericActionCtx<any>) {
+  return new Agent(components.agent, {
+    name: "Lead Research Agent",
+    languageModel: openai.chat("gpt-4-turbo") as LanguageModel,
+    instructions: `You are a Lead Research Agent coordinating deep research.
+
+Your responsibilities:
+1. Plan research with 3-5 focused search queries that cover different aspects of the topic
+2. Execute searches systematically to gather comprehensive information
+3. Synthesize findings into well-organized, citation-rich reports
+
+Guidelines:
+- Use [Title](URL) format for all citations
+- Organize information by theme or category
+- Identify gaps in coverage and suggest follow-up queries
+- Write 500-1000 words per iteration
+- Be thorough but concise
+- Focus on authoritative sources`,
+  });
+}
 
 /**
- * Reviewer Agent - Uses GPT-5 for quality assessment
+ * Create Reviewer Agent
  *
- * Role: Assesses research coverage, identifies gaps, and decides
- * whether to iterate or complete the research.
+ * The reviewer agent assesses research quality and coverage:
+ * - Scores research comprehensiveness (1-5 scale)
+ * - Identifies gaps in coverage
+ * - Provides actionable feedback
+ * - Decides whether to continue iterating
+ *
+ * @param ctx - Convex action context
+ * @returns Configured Agent instance for quality review
  */
-export const reviewerAgent: {
-  name: string;
-  model: string;
-} = {
-  name: "Reviewer",
-  model: "gpt-5", // Uses GPT-5 for nuanced quality assessment
-};
+export function createReviewerAgent(ctx: GenericActionCtx<any>) {
+  return new Agent(components.agent, {
+    name: "Research Quality Reviewer",
+    languageModel: openai.chat("gpt-4-turbo") as LanguageModel,
+    instructions: `You are a Research Quality Reviewer.
+
+Your task:
+Score research coverage on a 1-5 scale:
+1 = minimal (single source, major gaps)
+2 = basic (few sources, obvious gaps)
+3 = adequate (multiple sources, some gaps)
+4 = comprehensive (thorough coverage, minor gaps)
+5 = complete (exhaustive, no significant gaps)
+
+Output format (JSON):
+{
+  "coverageScore": number,
+  "gaps": string[],
+  "feedback": string,
+  "shouldContinue": boolean
+}
+
+Note: Be strict - only score 4+ when truly comprehensive with authoritative sources and multiple perspectives.`,
+  });
+}

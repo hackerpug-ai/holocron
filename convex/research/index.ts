@@ -28,5 +28,5 @@ export {
 // Types
 export type { ResearchPlan, SubagentResult } from "./tools";
 
-// Agents (for reference)
-export { leadResearcher, webSearcher, reviewerAgent } from "./agents";
+// Agent factory functions
+export { createLeadAgent, createReviewerAgent } from "./agents";
