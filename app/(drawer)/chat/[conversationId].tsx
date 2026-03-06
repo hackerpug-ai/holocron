@@ -41,13 +41,6 @@ export default function ChatScreen() {
   // Convex mutation for creating conversations
   const createConversationMutation = useMutation(api.conversations.mutations.create)
 
-  // Fetch chat history for this conversation
-  const {
-    messages,
-    isLoading: isLoadingMessages,
-    error: messagesError,
-  } = useChatHistory(conversationId ?? null)
-
   // Determine if this is a new (lazy) conversation
   const isNewConversation = conversationId === 'new'
 
@@ -57,6 +50,14 @@ export default function ChatScreen() {
     setActiveConversationId(newId)
     return newId
   }
+
+  // Fetch chat history - pass null for new conversations to skip query
+  const chatHistoryId = isNewConversation ? null : (conversationId ?? null)
+  const {
+    messages,
+    isLoading: isLoadingMessages,
+    error: messagesError,
+  } = useChatHistory(chatHistoryId)
 
   // Convex action for sending messages
   const sendChat = useAction(api.chat.index.send)
