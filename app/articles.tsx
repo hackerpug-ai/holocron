@@ -41,7 +41,7 @@ export default function ArticlesRoute() {
 
   // Fetch documents using Convex query
   const documents = useQuery(
-    api.documents.list,
+    api.documents.queries.list,
     convexCategory ? { category: convexCategory } : 'skip'
   )
 

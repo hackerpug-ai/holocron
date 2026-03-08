@@ -28,7 +28,7 @@ export function useResearchSession(sessionId: string | null) {
   // Direct query - Convex auto-updates when entity changes!
   // This is the key pattern from US-060 - no manual subscriptions needed
   const session = useQuery(
-    api.researchSessions.get,
+    api.researchSessions.queries.get,
     sessionId ? { id: sessionId as any } : 'skip'
   )
 
@@ -61,8 +61,8 @@ export function useResearchSession(sessionId: string | null) {
  */
 export function useDeepResearchSession(sessionId: string | null) {
   const session = useQuery(
-    api.deepResearchSessions.get,
-    sessionId ? { id: sessionId as any } : 'skip'
+    api.research.queries.getDeepResearchSession,
+    sessionId ? { sessionId: sessionId as any } : 'skip'
   )
 
   return {

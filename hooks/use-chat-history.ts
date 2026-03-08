@@ -73,7 +73,7 @@ export function useChatHistory(
 
   return {
     messages,
-    isLoading: messagesData === undefined,
+    isLoading: conversationId !== null && messagesData === undefined,
     error: null, // Convex queries don't throw - they return undefined
   }
 }

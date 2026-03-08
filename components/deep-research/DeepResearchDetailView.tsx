@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils'
 import { ArrowLeft, BookOpen, CheckCircle2 } from 'lucide-react-native'
 import * as React from 'react'
 import { ScrollView, View, Pressable } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { IterationCard } from '../IterationCard'
 import { MarkdownView } from '../markdown/MarkdownView'
 
@@ -196,13 +197,12 @@ export function DeepResearchDetailView({
   }
 
   return (
-    <View testID={testID} className={cn('flex-1 bg-background', className)}>
+    <SafeAreaView testID={testID} className={cn('flex-1 bg-background', className)} edges={['top', 'left', 'right']}>
       {/* Header with back button */}
       <View className="border-border border-b bg-card px-4 py-3">
         <Pressable onPress={onBack} className="flex-row items-center gap-3">
           <ArrowLeft size={20} className="text-foreground" />
           <View className="flex-1">
-            <Text className="text-sm text-muted-foreground">Back to Results</Text>
             <Text className="text-foreground font-semibold" variant="h3" numberOfLines={1}>
               {session.query}
             </Text>
@@ -306,6 +306,6 @@ export function DeepResearchDetailView({
           </Card>
         )}
       </ScrollView>
-    </View>
+    </SafeAreaView>
   )
 }

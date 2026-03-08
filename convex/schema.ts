@@ -84,8 +84,23 @@ export default defineSchema({
     conversationId: v.id("conversations"),
     taskId: v.optional(v.id("tasks")),
     topic: v.string(),
+    researchType: v.optional(v.string()), // "deep" | "simple"
     maxIterations: v.optional(v.number()),
     status: v.string(),
+    currentIteration: v.optional(v.number()),
+    refinedTopic: v.optional(v.string()),
+    currentCoverageScore: v.optional(v.number()),
+    // Confidence tracking
+    finalConfidenceSummary: v.optional(v.object({
+      highConfidenceCount: v.number(),
+      mediumConfidenceCount: v.number(),
+      lowConfidenceCount: v.number(),
+      averageConfidenceScore: v.number(),
+      claimsWithMultipleSources: v.number(),
+      totalClaims: v.number(),
+    })),
+    outputConfidenceFilter: v.optional(v.string()), // HIGH_ONLY | HIGH_MEDIUM | ALL
+    errorReason: v.optional(v.string()), // timeout | unknown - populated when status is "error"
     createdAt: v.number(),
     updatedAt: v.number(),
     completedAt: v.optional(v.number()),
@@ -101,8 +116,53 @@ export default defineSchema({
     findings: v.optional(v.string()),
     refinedQueries: v.optional(v.any()),
     status: v.string(),
+    // Confidence stats for this iteration
+    confidenceStats: v.optional(v.object({
+      highConfidenceCount: v.number(),
+      mediumConfidenceCount: v.number(),
+      lowConfidenceCount: v.number(),
+      averageConfidenceScore: v.number(),
+      claimsWithMultipleSources: v.number(),
+      totalClaims: v.number(),
+    })),
+    embedding: v.optional(v.array(v.float64())), // 1536 dimensions
     createdAt: v.number(),
-  }).index("by_session", ["sessionId"]),
+  })
+    .index("by_session", ["sessionId"])
+    .vectorIndex("by_embedding", {
+      vectorField: "embedding",
+      dimensions: 1536,
+    }),
+
+  // Research findings with per-claim confidence tracking
+  researchFindings: defineTable({
+    sessionId: v.id("deepResearchSessions"),
+    iterationId: v.id("deepResearchIterations"),
+    claimText: v.string(),
+    claimCategory: v.optional(v.string()),
+    // 5-factor confidence scores (0-100)
+    sourceCredibilityScore: v.number(),
+    evidenceQualityScore: v.number(),
+    corroborationScore: v.number(),
+    recencyScore: v.number(),
+    expertConsensusScore: v.number(),
+    // Calculated confidence
+    confidenceScore: v.number(),
+    confidenceLevel: v.string(), // HIGH | MEDIUM | LOW
+    citationIds: v.array(v.id("citations")),
+    confidenceFactors: v.optional(v.any()), // Full factor details for transparency
+    caveats: v.optional(v.array(v.string())), // MEDIUM confidence caveats
+    warnings: v.optional(v.array(v.string())), // LOW confidence warnings
+    embedding: v.optional(v.array(v.float64())), // 1536 dimensions
+    createdAt: v.number(),
+  })
+    .index("by_session", ["sessionId"])
+    .index("by_iteration", ["iterationId"])
+    .index("by_confidence", ["confidenceLevel"])
+    .vectorIndex("by_embedding", {
+      vectorField: "embedding",
+      dimensions: 1536,
+    }),
 
   // Task management
   tasks: defineTable({
@@ -125,19 +185,27 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_created", ["createdAt"]),
 
-  // Citations
+  // Citations with extended credibility metadata
   citations: defineTable({
     sessionId: v.optional(v.id("researchSessions")),
     documentId: v.optional(v.id("documents")),
+    deepResearchSessionId: v.optional(v.id("deepResearchSessions")),
     sourceUrl: v.string(),
     sourceTitle: v.optional(v.string()),
     sourceDomain: v.optional(v.string()),
     claimText: v.string(),
     claimMarker: v.optional(v.string()),
+    // Credibility metadata for confidence scoring
+    sourceType: v.optional(v.string()), // official_documentation | expert_blog | academic_paper | forum | news | social_media | unknown
+    credibilityScore: v.optional(v.number()), // 0-100
+    evidenceType: v.optional(v.string()), // primary | secondary | tertiary | anecdotal
+    publishedDate: v.optional(v.string()), // ISO date string
+    authorCredentials: v.optional(v.string()), // Description of author expertise
     retrievedAt: v.number(),
   })
     .index("by_session", ["sessionId"])
-    .index("by_document", ["documentId"]),
+    .index("by_document", ["documentId"])
+    .index("by_deep_research_session", ["deepResearchSessionId"]),
 
   // Subscription system
   subscriptionSources: defineTable({
@@ -215,4 +283,26 @@ export default defineSchema({
   })
     .index("by_created", ["createdAt"])
     .index("by_period", ["periodStart", "periodEnd"]),
+
+  // Assimilation metadata for Borg-themed repository analysis
+  assimilationMetadata: defineTable({
+    documentId: v.id("documents"),
+    repositoryUrl: v.string(),
+    repositoryName: v.string(),
+    primaryLanguage: v.optional(v.string()),
+    stars: v.optional(v.number()),
+    sophisticationRating: v.number(), // 1-5 scale
+    trackRatings: v.object({
+      architecture: v.number(), // 1-5 scale
+      patterns: v.number(), // 1-5 scale
+      documentation: v.number(), // 1-5 scale
+      dependencies: v.number(), // 1-5 scale
+      testing: v.number(), // 1-5 scale
+    }),
+    createdAt: v.number(),
+  })
+    .index("by_document", ["documentId"])
+    .index("by_repository", ["repositoryName"])
+    .index("by_language", ["primaryLanguage"])
+    .index("by_rating", ["sophisticationRating"]),
 });

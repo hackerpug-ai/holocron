@@ -33,7 +33,6 @@ function CustomDrawerContent() {
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null)
 
   // Convex mutations
-  const createConversation = useMutation(api.conversations.mutations.create)
   const updateConversation = useMutation(api.conversations.mutations.update)
   const removeConversation = useMutation(api.conversations.mutations.remove)
 
@@ -60,6 +59,11 @@ function CustomDrawerContent() {
     setIsActionMenuOpen(true)
   }
 
+  const handleConversationDelete = (conversation: Conversation) => {
+    setActionMenuConversation({ id: conversation.id, title: conversation.title })
+    setIsActionMenuOpen(true)
+  }
+
   const handleRename = async (newTitle: string) => {
     if (!actionMenuConversation) return
     try {
@@ -82,10 +86,9 @@ function CustomDrawerContent() {
       let navigateToId: string | null = null
       if (isDeletingActive) {
         if (remaining.length === 0) {
-          // Create new conversation if last one deleted
-          const newId = await createConversation({ title: 'New Chat' })
-          setActiveConversationId(newId)
-          navigateToId = newId
+          // Navigate to /chat/new for lazy conversation creation
+          setActiveConversationId(null)
+          navigateToId = 'new'
         } else {
           // Switch to most recent remaining conversation
           const next = remaining[0]
@@ -146,6 +149,7 @@ function CustomDrawerContent() {
       onNewChatPress={handleNewChatPress}
       onConversationPress={handleConversationPress}
       onConversationLongPress={handleConversationLongPress}
+      onConversationDelete={handleConversationDelete}
       onHolocronPress={handleHolocronPress}
       onArticlesPress={handleArticlesPress}
       onSettingsPress={handleSettingsPress}
@@ -193,9 +197,6 @@ export default function DrawerLayout() {
   // Direct Convex useQuery for conversations list
   const conversations = useQuery(api.conversations.index.list, { limit: 50 }) ?? []
 
-  // Convex mutations
-  const createConversation = useMutation(api.conversations.mutations.create)
-
   // Active conversation tracking (local state)
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null)
 
@@ -207,48 +208,26 @@ export default function DrawerLayout() {
   const isLoading = conversations === undefined
 
   useEffect(() => {
-    // Skip if already loading, initialized, or currently initializing
-    if (isLoading || hasInitialized.current || isInitializing.current) {
-      return
+    // On first mount, navigate to /chat/new immediately (optimistic empty state)
+    if (!hasInitialized.current && !isInitializing.current) {
+      isInitializing.current = true
+      router.replace('/chat/new')
+      hasInitialized.current = true
+      isInitializing.current = false
     }
 
-    const initializeConversation = async () => {
-      // Mark as initializing to prevent concurrent runs
-      isInitializing.current = true
-
-      try {
-        if (conversations.length > 0) {
-          // Navigate to most recent conversation (already sorted by updated_at)
-          const mostRecent = conversations[0]
-          setActiveConversationId(mostRecent._id)
-          router.replace(`/chat/${mostRecent._id}`)
-          // Mark as complete only after navigation succeeds
-          hasInitialized.current = true
-        } else {
-          // No conversations exist -- create a new "New Chat" conversation
-          const newId = await createConversation({ title: 'New Chat' })
-          setActiveConversationId(newId)
-          router.replace(`/chat/${newId}`)
-          // Mark as complete only after async operations succeed
-          hasInitialized.current = true
-        }
-      } catch (err) {
-        log('DrawerLayout').error('Failed to create initial conversation', err)
-        // Error will be in the hook's error state
-        // Don't set hasInitialized so retry is possible
-      } finally {
-        // Always clear the initializing flag
-        isInitializing.current = false
+    // After conversations load, navigate to most recent if any exist
+    if (!isLoading && conversations.length > 0 && hasInitialized.current) {
+      const mostRecent = conversations[0]
+      // Only navigate if we're currently at /chat/new
+      if (activeConversationId === null) {
+        setActiveConversationId(mostRecent._id)
+        router.replace(`/chat/${mostRecent._id}`)
       }
     }
+  }, [isLoading, conversations, router, activeConversationId])
 
-    initializeConversation()
-  }, [isLoading, conversations, createConversation, router, setActiveConversationId])
-
-  // Show loading screen while determining initial conversation
-  if (isLoading && !hasInitialized.current) {
-    return <InitialLoadingScreen />
-  }
+  // No loading screen - show UI immediately
 
   // Normal drawer layout after initialization
   return (

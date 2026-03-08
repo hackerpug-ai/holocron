@@ -1,5 +1,6 @@
 import { Text } from '@/components/ui/text'
 import { cn } from '@/lib/utils'
+import { Trash2 } from 'lucide-react-native'
 import { Pressable, View, type ViewProps } from 'react-native'
 
 interface ConversationRowProps extends Omit<ViewProps, 'children'> {
@@ -15,6 +16,8 @@ interface ConversationRowProps extends Omit<ViewProps, 'children'> {
   onPress?: () => void
   /** Callback when row is long-pressed (for management actions) */
   onLongPress?: () => void
+  /** Callback when delete button is pressed */
+  onDeletePress?: () => void
 }
 
 /**
@@ -29,6 +32,7 @@ export function ConversationRow({
   isActive = false,
   onPress,
   onLongPress,
+  onDeletePress,
   className,
   ...props
 }: ConversationRowProps) {
@@ -37,46 +41,69 @@ export function ConversationRow({
     : undefined
 
   return (
-    <Pressable
-      onPress={onPress}
-      onLongPress={onLongPress}
+    <View
       className={cn(
         'flex-row items-center gap-3 rounded-lg px-3 py-3',
-        isActive ? 'bg-accent' : 'active:bg-muted',
+        isActive ? 'bg-accent' : '',
         className
       )}
       testID="conversation-row"
-      accessibilityRole="button"
-      accessibilityLabel={`Conversation: ${title}${lastMessage ? `. Last message: ${lastMessage}` : ''}${formattedTime ? `. ${formattedTime}` : ''}${isActive ? '. Currently selected' : ''}`}
-      accessibilityHint="Double tap to open conversation. Long press for options."
-      accessibilityState={{ selected: isActive }}
       {...props}
     >
-      <View className="flex-1">
-        <View className="flex-row items-center justify-between">
-          <Text
-            className={cn(
-              'text-base',
-              isActive ? 'font-semibold text-foreground' : 'font-medium text-foreground'
+      {/* Main content area - tappable to open conversation */}
+      <Pressable
+        onPress={onPress}
+        onLongPress={onLongPress}
+        className={cn(
+          'flex-1',
+          !isActive && 'active:bg-muted'
+        )}
+        accessibilityRole="button"
+        accessibilityLabel={`Conversation: ${title}${lastMessage ? `. Last message: ${lastMessage}` : ''}${formattedTime ? `. ${formattedTime}` : ''}${isActive ? '. Currently selected' : ''}`}
+        accessibilityHint="Double tap to open conversation. Long press for options."
+        accessibilityState={{ selected: isActive }}
+      >
+        <View className="flex-1">
+          <View className="flex-row items-center justify-between">
+            <Text
+              className={cn(
+                'text-base',
+                isActive ? 'font-semibold text-foreground' : 'font-medium text-foreground'
+              )}
+              numberOfLines={1}
+            >
+              {title}
+            </Text>
+            {formattedTime && (
+              <Text className="text-muted-foreground text-xs">{formattedTime}</Text>
             )}
-            numberOfLines={1}
-          >
-            {title}
-          </Text>
-          {formattedTime && (
-            <Text className="text-muted-foreground text-xs">{formattedTime}</Text>
+          </View>
+          {lastMessage && (
+            <Text
+              className="text-muted-foreground mt-0.5 text-sm"
+              numberOfLines={1}
+            >
+              {lastMessage}
+            </Text>
           )}
         </View>
-        {lastMessage && (
-          <Text
-            className="text-muted-foreground mt-0.5 text-sm"
-            numberOfLines={1}
-          >
-            {lastMessage}
-          </Text>
-        )}
-      </View>
-    </Pressable>
+      </Pressable>
+
+      {/* Delete button - right-aligned */}
+      {onDeletePress && (
+        <Pressable
+          onPress={onDeletePress}
+          className="rounded p-2 active:bg-muted"
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          testID="conversation-row-delete-button"
+          accessibilityRole="button"
+          accessibilityLabel="Delete conversation"
+          accessibilityHint="Double tap to delete this conversation"
+        >
+          <Trash2 size={18} className="text-muted-foreground" />
+        </Pressable>
+      )}
+    </View>
   )
 }
 

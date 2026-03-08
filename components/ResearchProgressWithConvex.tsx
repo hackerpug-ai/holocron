@@ -49,7 +49,7 @@ export function ResearchProgressWithConvex({
   className,
 }: ResearchProgressWithConvexProps) {
   // Direct query - Convex auto-updates when entity changes!
-  const session = useQuery(api.researchSessions.get, { id: sessionId as any })
+  const session = useQuery(api.researchSessions.queries.get, { id: sessionId as any })
 
   // Handle loading state (query is loading)
   if (session === undefined) {

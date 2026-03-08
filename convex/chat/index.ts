@@ -77,6 +77,15 @@ interface StatsCard {
   }>;
 }
 
+interface SimpleResearchResultCard {
+  card_type: "simple_research_result";
+  session_id: string;
+  topic: string;
+  summary: string;
+  confidence: "HIGH" | "MEDIUM" | "LOW";
+  duration_ms: number;
+}
+
 type CardData =
   | CategoryListCard
   | BrowseArticleCard
@@ -85,12 +94,19 @@ type CardData =
   | SearchArticleCard[]
   | NoResultsCard
   | CategoryNotFoundCard
-  | StatsCard;
+  | StatsCard
+  | SimpleResearchResultCard;
 
 /**
  * Valid document categories
  */
-const VALID_CATEGORIES = ["code", "design", "business", "llm-prompt", "other"] as const;
+const VALID_CATEGORIES = [
+  "code",
+  "design",
+  "business",
+  "llm-prompt",
+  "other",
+] as const;
 type DocumentCategory = (typeof VALID_CATEGORIES)[number];
 
 /**
@@ -121,12 +137,18 @@ interface AgentResponse {
  * Handle /search command
  * Uses full-text search (hybrid search requires embeddings, deferred to later)
  */
-async function handleSearchCommand(query: string, ctx: any): Promise<AgentResponse> {
+async function handleSearchCommand(
+  query: string,
+  ctx: any,
+): Promise<AgentResponse> {
   try {
-    const searchResults = await ctx.runQuery(api.documents.queries.fullTextSearch, {
-      query,
-      limit: 10,
-    });
+    const searchResults = await ctx.runQuery(
+      api.documents.queries.fullTextSearch,
+      {
+        query,
+        limit: 10,
+      },
+    );
 
     // No results found
     if (!searchResults || searchResults.length === 0) {
@@ -146,7 +168,8 @@ async function handleSearchCommand(query: string, ctx: any): Promise<AgentRespon
       title: doc.title,
       category: doc.category,
       snippet: doc.content
-        ? doc.content.substring(0, 150) + (doc.content.length > 150 ? "..." : "")
+        ? doc.content.substring(0, 150) +
+          (doc.content.length > 150 ? "..." : "")
         : "",
       documentId: doc._id,
       metadata: {
@@ -171,11 +194,17 @@ async function handleSearchCommand(query: string, ctx: any): Promise<AgentRespon
  * Handle /browse command
  * Browse documents by category
  */
-async function handleBrowseCommand(categoryArg: string | undefined, ctx: any): Promise<AgentResponse> {
+async function handleBrowseCommand(
+  categoryArg: string | undefined,
+  ctx: any,
+): Promise<AgentResponse> {
   try {
     // No category arg - list all categories with counts
     if (!categoryArg) {
-      const categoryCounts = await ctx.runQuery(api.documents.queries.countByCategory, {});
+      const categoryCounts = await ctx.runQuery(
+        api.documents.queries.countByCategory,
+        {},
+      );
 
       const categories = Object.entries(categoryCounts)
         .map(([name, count]) => ({ name, count: count as number }))
@@ -245,9 +274,15 @@ async function handleBrowseCommand(categoryArg: string | undefined, ctx: any): P
  */
 async function handleStatsCommand(ctx: any): Promise<AgentResponse> {
   try {
-    const categoryCounts = await ctx.runQuery(api.documents.queries.countByCategory, {});
+    const categoryCounts = await ctx.runQuery(
+      api.documents.queries.countByCategory,
+      {},
+    );
 
-    const totalCount = Object.values(categoryCounts).reduce((sum: number, count: any) => sum + (count as number), 0);
+    const totalCount = Object.values(categoryCounts).reduce(
+      (sum: number, count: any) => sum + (count as number),
+      0,
+    );
 
     const categoryBreakdown = Object.entries(categoryCounts)
       .map(([category, count]) => ({ category, count: count as number }))
@@ -282,7 +317,7 @@ ${categoryBreakdown.map(({ category, count }) => `  ${category}: ${count}`).join
  */
 async function generateAIResponse(
   content: string,
-  ctx: any
+  ctx: any,
 ): Promise<AgentResponse> {
   try {
     // Detect natural language searches (questions, what/how/why queries)
@@ -290,7 +325,9 @@ async function generateAIResponse(
       /^(what|how|who|where|when|why|which|can you|tell me|explain)/i,
       /\?$/,
     ];
-    const looksLikeSearch = searchPatterns.some((pattern) => pattern.test(content.trim()));
+    const looksLikeSearch = searchPatterns.some((pattern) =>
+      pattern.test(content.trim()),
+    );
 
     if (looksLikeSearch) {
       return await handleSearchCommand(content, ctx);
@@ -302,7 +339,8 @@ async function generateAIResponse(
 
     if (lowerContent.includes("hello") || lowerContent.includes("hi")) {
       return {
-        content: "Hello! I'm your research assistant. How can I help you today?",
+        content:
+          "Hello! I'm your research assistant. How can I help you today?",
         messageType: "text",
       };
     }
@@ -317,7 +355,8 @@ async function generateAIResponse(
 
     // Default response
     return {
-      content: "I received your message. Full AI responses will be available soon!",
+      content:
+        "I received your message. Full AI responses will be available soon!",
       messageType: "text",
     };
   } catch (error) {
@@ -337,7 +376,10 @@ export const generateChatTitle = action({
   args: {
     conversationId: v.id("conversations"),
   },
-  handler: async (ctx, { conversationId }): Promise<
+  handler: async (
+    ctx,
+    { conversationId },
+  ): Promise<
     | { skipped: true; reason: string }
     | { success: false; error: string }
     | { success: true; title: string }
@@ -353,10 +395,13 @@ export const generateChatTitle = action({
     }
 
     // 2. Fetch first 3-5 messages
-    const messages = await ctx.runQuery(api.chatMessages.queries.listByConversation, {
-      conversationId,
-      limit: 5,
-    });
+    const messages = await ctx.runQuery(
+      api.chatMessages.queries.listByConversation,
+      {
+        conversationId,
+        limit: 5,
+      },
+    );
 
     // Skip if not enough messages (need at least 2: user + agent)
     if (messages.length < 2) {
@@ -370,29 +415,32 @@ export const generateChatTitle = action({
       .map((m: any) => `${m.role}: ${m.content}`)
       .join("\n\n");
 
-    // 4. Call GPT-4o-mini to generate title
-    const response: Response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
-        "Content-Type": "application/json",
+    // 4. Call gpt-5-nano to generate title
+    const response: Response = await fetch(
+      "https://api.openai.com/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "gpt-5-nano",
+          messages: [
+            {
+              role: "system",
+              content:
+                "Generate a short, descriptive title (3-5 words, max 50 chars) for this chat conversation. Return ONLY the title, no quotes or explanations.",
+            },
+            {
+              role: "user",
+              content: `Conversation:\n\n${context}`,
+            },
+          ],
+          max_completion_tokens: 20,
+        }),
       },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content: "Generate a short, descriptive title (3-5 words, max 50 chars) for this chat conversation. Return ONLY the title, no quotes or explanations.",
-          },
-          {
-            role: "user",
-            content: `Conversation:\n\n${context}`,
-          },
-        ],
-        temperature: 0.7,
-        max_tokens: 20,
-      }),
-    });
+    );
 
     if (!response.ok) {
       console.error("OpenAI API error:", await response.text());
@@ -400,10 +448,12 @@ export const generateChatTitle = action({
     }
 
     const data: any = await response.json();
-    const title: string = data.choices[0]?.message?.content?.trim() || "Untitled Chat";
+    const title: string =
+      data.choices[0]?.message?.content?.trim() || "Untitled Chat";
 
     // 5. Truncate if too long (max 50 chars)
-    const truncatedTitle: string = title.length > 50 ? title.slice(0, 47) + "..." : title;
+    const truncatedTitle: string =
+      title.length > 50 ? title.slice(0, 47) + "..." : title;
 
     // 6. Update conversation title
     await ctx.runMutation(api.conversations.mutations.update, {
@@ -426,9 +476,14 @@ export const send = action({
   args: {
     conversationId: v.optional(v.id("conversations")),
     content: v.string(),
-    messageType: v.optional(v.union(v.literal("text"), v.literal("slash_command"))),
+    messageType: v.optional(
+      v.union(v.literal("text"), v.literal("slash_command")),
+    ),
   },
-  handler: async (ctx, { conversationId, content, messageType = "text" }): Promise<{
+  handler: async (
+    ctx,
+    { conversationId, content, messageType = "text" },
+  ): Promise<{
     userMessageId: any;
     agentMessageId: any;
     conversationId: any;
@@ -438,9 +493,12 @@ export const send = action({
     // US-786 AC-1: If no conversationId provided, create conversation first
     let finalConversationId = conversationId;
     if (!finalConversationId) {
-      finalConversationId = await ctx.runMutation(api.conversations.mutations.create, {
-        title: "New Chat",
-      });
+      finalConversationId = await ctx.runMutation(
+        api.conversations.mutations.create,
+        {
+          title: "New Chat",
+        },
+      );
     }
 
     // 1. Parse for slash commands (AC-3)
@@ -448,16 +506,20 @@ export const send = action({
     const actualMessageType = parsed.isCommand ? "slash_command" : messageType;
 
     // 2. Persist user message (AC-1)
-    const userMessageId: any = await ctx.runMutation(api.chatMessages.mutations.create, {
-      conversationId: finalConversationId,
-      role: "user",
-      content,
-      messageType: actualMessageType,
-      createdAt: now,
-    });
+    const userMessageId: any = await ctx.runMutation(
+      api.chatMessages.mutations.create,
+      {
+        conversationId: finalConversationId,
+        role: "user",
+        content,
+        messageType: actualMessageType,
+        createdAt: now,
+      },
+    );
 
     // 3. Update conversation metadata
-    const preview = content.length > 100 ? content.slice(0, 97) + "..." : content;
+    const preview =
+      content.length > 100 ? content.slice(0, 97) + "..." : content;
     await ctx.runMutation(api.conversations.mutations.touch, {
       id: finalConversationId,
       lastMessagePreview: preview,
@@ -507,6 +569,36 @@ export const send = action({
             messageType: "text",
           };
         }
+      } else if (parsed.command === "research") {
+        const topic = parsed.args || "";
+        if (!topic) {
+          agentResponse = {
+            content: "Please provide a topic. Usage: /research <topic>",
+            messageType: "text",
+          };
+        } else {
+          // Call simple research action directly (synchronous, completes quickly)
+          const researchResult: any = await ctx.runAction(
+            api.research.actions.startSimpleResearch,
+            {
+              conversationId: finalConversationId,
+              topic,
+            }
+          );
+
+          agentResponse = {
+            content: researchResult.summary,
+            messageType: "result_card",
+            cardData: {
+              card_type: "simple_research_result",
+              session_id: researchResult.sessionId,
+              topic,
+              summary: researchResult.summary,
+              confidence: researchResult.confidence,
+              duration_ms: researchResult.durationMs,
+            },
+          };
+        }
       } else if (parsed.command === "resume") {
         const sessionId = parsed.args || "";
         if (!sessionId) {
@@ -539,29 +631,36 @@ export const send = action({
     }
 
     // 5. Persist agent response
-    const agentMessageId: any = await ctx.runMutation(api.chatMessages.mutations.create, {
-      conversationId: finalConversationId,
-      role: "agent",
-      content: agentResponse.content,
-      messageType: agentResponse.messageType,
-      cardData: agentResponse.cardData || undefined,
-      createdAt: Date.now(),
-    });
+    const agentMessageId: any = await ctx.runMutation(
+      api.chatMessages.mutations.create,
+      {
+        conversationId: finalConversationId,
+        role: "agent",
+        content: agentResponse.content,
+        messageType: agentResponse.messageType,
+        cardData: agentResponse.cardData || undefined,
+        createdAt: Date.now(),
+      },
+    );
 
     // 6. Auto-generate chat title after first exchange
     // Check if we should generate a title (2+ messages, no custom title yet)
-    const messageCount = await ctx.runQuery(api.chatMessages.queries.listByConversation, {
-      conversationId: finalConversationId,
-      limit: 100, // Get all messages to count accurately
-    }).then((msgs: any[]) => msgs.length);
+    const messageCount = await ctx
+      .runQuery(api.chatMessages.queries.listByConversation, {
+        conversationId: finalConversationId,
+        limit: 100, // Get all messages to count accurately
+      })
+      .then((msgs: any[]) => msgs.length);
 
     if (messageCount >= 2) {
-      const currentConversation = await ctx.runQuery(api.conversations.queries.get, {
-        id: finalConversationId,
-      });
+      const currentConversation = await ctx.runQuery(
+        api.conversations.queries.get,
+        {
+          id: finalConversationId,
+        },
+      );
       const shouldGenerateTitle =
-        !currentConversation?.title ||
-        currentConversation.title === "New Chat";
+        !currentConversation?.title || currentConversation.title === "New Chat";
 
       if (shouldGenerateTitle) {
         // Fire-and-forget: trigger title generation async

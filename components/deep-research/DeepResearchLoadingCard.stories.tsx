@@ -80,19 +80,184 @@ export const BusinessQuery: Story = {
 }
 
 /**
- * All variants - showcase different query lengths and messages
+ * Stage: Initializing - First stage of research setup
  */
-export const AllVariants: Story = {
+export const StageInitializing: Story = {
+  args: {
+    query: 'what tools exist to migrate dropbox to google drive',
+    stage: 'initializing',
+  },
+}
+
+/**
+ * Stage: Planning - Search strategy is being planned
+ */
+export const StagePlanning: Story = {
+  args: {
+    query: 'best practices for React Native performance',
+    stage: 'planning',
+  },
+}
+
+/**
+ * Stage: Searching - Actively searching knowledge sources
+ */
+export const StageSearching: Story = {
+  args: {
+    query: 'market analysis for sustainable energy solutions',
+    stage: 'searching',
+  },
+}
+
+/**
+ * Stage: Analyzing - Analyzing search results
+ */
+export const StageAnalyzing: Story = {
+  args: {
+    query: 'how to implement oauth 2.0 with pkce flow',
+    stage: 'analyzing',
+  },
+}
+
+/**
+ * Stage: Synthesizing - Final stage, creating synthesis
+ */
+export const StageSynthesizing: Story = {
+  args: {
+    query: 'quantum computing applications in cryptography',
+    stage: 'synthesizing',
+  },
+}
+
+/**
+ * With Steps - Progressive step list with animated appearance
+ */
+export const WithSteps: Story = {
+  args: {
+    query: 'best practices for React Native performance optimization',
+    stage: 'searching',
+    steps: [
+      {
+        id: '1',
+        label: 'Analyzing query and identifying key topics',
+        status: 'completed',
+      },
+      {
+        id: '2',
+        label: 'Searching academic papers and documentation',
+        status: 'in-progress',
+        detail: 'Found 127 sources, processing...',
+      },
+      {
+        id: '3',
+        label: 'Extracting relevant insights',
+        status: 'pending',
+      },
+      {
+        id: '4',
+        label: 'Synthesizing findings into report',
+        status: 'pending',
+      },
+    ],
+  },
+}
+
+/**
+ * Steps with Details - Shows optional detail messages
+ */
+export const StepsWithDetails: Story = {
+  args: {
+    query: 'machine learning frameworks comparison',
+    stage: 'analyzing',
+    steps: [
+      {
+        id: '1',
+        label: 'Query breakdown',
+        status: 'completed',
+        detail: 'Identified 5 key comparison criteria',
+      },
+      {
+        id: '2',
+        label: 'Source discovery',
+        status: 'completed',
+        detail: '89 papers, 156 documentation pages',
+      },
+      {
+        id: '3',
+        label: 'Content analysis',
+        status: 'in-progress',
+        detail: 'Processing TensorFlow, PyTorch, and JAX comparisons',
+      },
+      {
+        id: '4',
+        label: 'Report generation',
+        status: 'pending',
+      },
+    ],
+  },
+}
+
+/**
+ * All Steps Completed - Final state before synthesis
+ */
+export const AllStepsCompleted: Story = {
+  args: {
+    query: 'sustainable energy solutions for emerging markets',
+    stage: 'synthesizing',
+    steps: [
+      {
+        id: '1',
+        label: 'Query analysis',
+        status: 'completed',
+      },
+      {
+        id: '2',
+        label: 'Source gathering',
+        status: 'completed',
+      },
+      {
+        id: '3',
+        label: 'Content extraction',
+        status: 'completed',
+      },
+      {
+        id: '4',
+        label: 'Synthesis',
+        status: 'in-progress',
+        detail: 'Generating final report...',
+      },
+    ],
+  },
+}
+
+/**
+ * All variants - showcase all different stages
+ */
+export const AllStages: Story = {
+  args: {
+    query: 'Example query',
+  },
   render: () => (
     <View className="gap-4">
-      <DeepResearchLoadingCard query="short query" />
       <DeepResearchLoadingCard
-        query="what tools exist to migrate dropbox to google drive"
-        message="Preparing research..."
+        query="migrate dropbox to google drive"
+        stage="initializing"
       />
       <DeepResearchLoadingCard
-        query="comprehensive analysis of machine learning frameworks for natural language processing tasks including transformer architectures"
-        message="Analyzing complex query..."
+        query="React Native performance"
+        stage="planning"
+      />
+      <DeepResearchLoadingCard
+        query="sustainable energy markets"
+        stage="searching"
+      />
+      <DeepResearchLoadingCard
+        query="oauth 2.0 pkce flow"
+        stage="analyzing"
+      />
+      <DeepResearchLoadingCard
+        query="quantum cryptography"
+        stage="synthesizing"
       />
     </View>
   ),

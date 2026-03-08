@@ -28,12 +28,12 @@ export const hybridSearch = action({
     const searchLimit = Math.max(limit * 2, 50); // Get more candidates for better merging
 
     const [vectorResults, ftsResults] = await Promise.all([
-      ctx.runQuery(api.documents.vectorSearch, {
+      ctx.runQuery(api.documents.queries.vectorSearch, {
         embedding,
         limit: searchLimit,
         category,
       }),
-      ctx.runQuery(api.documents.fullTextSearch, {
+      ctx.runQuery(api.documents.queries.fullTextSearch, {
         query,
         limit: searchLimit,
         category,

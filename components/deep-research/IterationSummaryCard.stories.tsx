@@ -62,8 +62,8 @@ const sampleIteration: DeepResearchIteration = {
   findings:
     'The research uncovered significant advances in transformer architectures, with attention mechanisms becoming more efficient through sparse attention patterns. Modern implementations show 40% improvement in inference speed while maintaining accuracy. Key developments include: Flash Attention 2.0, grouped query attention, and multi-query attention patterns that reduce memory bandwidth requirements.',
   status: 'completed',
-  createdAt: new Date('2026-03-05T10:00:00Z'),
-  updatedAt: new Date('2026-03-05T10:15:00Z'),
+  createdAt: new Date('2026-03-05T10:00:00Z').getTime(),
+  updatedAt: new Date('2026-03-05T10:15:00Z').getTime(),
 }
 
 const longFindings = `The research uncovered significant advances in transformer architectures, with attention mechanisms becoming more efficient through sparse attention patterns. Modern implementations show 40% improvement in inference speed while maintaining accuracy.

@@ -8,9 +8,6 @@ dependencies:
   '@ai-sdk/openai':
     specifier: ^3.0.41
     version: 3.0.41(zod@3.25.76)
-  '@convex-dev/agent':
-    specifier: ^0.3.2
-    version: 0.3.2(@ai-sdk/provider-utils@3.0.22)(ai@5.0.147)(convex-helpers@0.1.114)(convex@1.32.0)(react@19.2.4)
   '@convex-dev/workflow':
     specifier: ^0.3.5
     version: 0.3.5(@convex-dev/workpool@0.4.1)(convex-helpers@0.1.114)(convex@1.32.0)
@@ -107,6 +104,9 @@ dependencies:
   '@types/unist':
     specifier: ^3.0.3
     version: 3.0.3
+  ai:
+    specifier: ^6.0.116
+    version: 6.0.116(zod@3.25.76)
   class-variance-authority:
     specifier: ^0.7.1
     version: 0.7.1
@@ -278,14 +278,14 @@ packages:
     resolution: {integrity: sha512-Elp+iwUx5rN5+Y8xLt5/GRoG20WGoDCQ/1Fb+1LiGtvwbDavuSk0jhD/eZdckHAuzcDzccnkv+rEjyWfRx18gg==}
     dev: true
 
-  /@ai-sdk/gateway@2.0.53(zod@3.25.76):
-    resolution: {integrity: sha512-eIIdMP3hYuN9BIi0vueZUD6a1HSzkNuMFbwc/ksxQrwzK7hMvhSmgC3N2itOCT7IjvXVaoCaD1kGlww7ldQolg==}
+  /@ai-sdk/gateway@3.0.66(zod@3.25.76):
+    resolution: {integrity: sha512-SIQ0YY0iMuv+07HLsZ+bB990zUJ6S4ujORAh+Jv1V2KGNn73qQKnGO0JBk+w+Res8YqOFSycwDoWcFlQrVxS4A==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
     dependencies:
-      '@ai-sdk/provider': 2.0.1
-      '@ai-sdk/provider-utils': 3.0.22(zod@3.25.76)
+      '@ai-sdk/provider': 3.0.8
+      '@ai-sdk/provider-utils': 4.0.19(zod@3.25.76)
       '@vercel/oidc': 3.1.0
       zod: 3.25.76
     dev: false
@@ -301,18 +301,6 @@ packages:
       zod: 3.25.76
     dev: false
 
-  /@ai-sdk/provider-utils@3.0.22(zod@3.25.76):
-    resolution: {integrity: sha512-fFT1KfUUKktfAFm5mClJhS1oux9tP2qgzmEZVl5UdwltQ1LO/s8hd7znVrgKzivwv1s1FIPza0s9OpJaNB/vHw==}
-    engines: {node: '>=18'}
-    peerDependencies:
-      zod: ^3.25.76 || ^4.1.8
-    dependencies:
-      '@ai-sdk/provider': 2.0.1
-      '@standard-schema/spec': 1.1.0
-      eventsource-parser: 3.0.6
-      zod: 3.25.76
-    dev: false
-
   /@ai-sdk/provider-utils@4.0.19(zod@3.25.76):
     resolution: {integrity: sha512-3eG55CrSWCu2SXlqq2QCsFjo3+E7+Gmg7i/oRVoSZzIodTuDSfLb3MRje67xE9RFea73Zao7Lm4mADIfUETKGg==}
     engines: {node: '>=18'}
@@ -323,13 +311,6 @@ packages:
       '@standard-schema/spec': 1.1.0
       eventsource-parser: 3.0.6
       zod: 3.25.76
-    dev: false
-
-  /@ai-sdk/provider@2.0.1:
-    resolution: {integrity: sha512-KCUwswvsC5VsW2PWFqF8eJgSCu5Ysj7m1TxiHTVA6g7k360bk0RNQENT8KTMAYEs+8fWPD3Uu4dEmzGHc+jGng==}
-    engines: {node: '>=18'}
-    dependencies:
-      json-schema: 0.4.0
     dev: false
 
   /@ai-sdk/provider@3.0.8:
@@ -1318,27 +1299,6 @@ packages:
     dependencies:
       '@babel/helper-string-parser': 7.27.1
       '@babel/helper-validator-identifier': 7.28.5
-
-  /@convex-dev/agent@0.3.2(@ai-sdk/provider-utils@3.0.22)(ai@5.0.147)(convex-helpers@0.1.114)(convex@1.32.0)(react@19.2.4):
-    resolution: {integrity: sha512-TMFReXejAIUE22OOn8PYvoOseAqwVOPm4WZU554GFk0lJ9kcNCGRJP/T1NTZfSBXrSaSUjETMFv2vEfXbG+4Qg==}
-    peerDependencies:
-      '@ai-sdk/provider-utils': ^3.0.7
-      ai: ^5.0.29
-      convex: ^1.24.8
-      convex-helpers: ^0.1.103
-      react: ^18.3.1 || ^19.0.0
-    peerDependenciesMeta:
-      react:
-        optional: true
-    dependencies:
-      '@ai-sdk/provider-utils': 3.0.22(zod@3.25.76)
-      ai: 5.0.147(zod@3.25.76)
-      convex: 1.32.0(react@19.2.4)
-      convex-helpers: 0.1.114(convex@1.32.0)(react@19.2.4)(typescript@5.9.3)(zod@3.25.76)
-      react: 19.2.4
-    optionalDependencies:
-      '@ungap/structured-clone': 1.3.0
-    dev: false
 
   /@convex-dev/workflow@0.3.5(@convex-dev/workpool@0.4.1)(convex-helpers@0.1.114)(convex@1.32.0):
     resolution: {integrity: sha512-pJGi4VRqwfvpbYzewEFU6O7lhohBu+c1blhkcyqvKlJyFJs3bSVvJDr+e9UNCZb2/X2KYx5p0Qdf+xURNaqlpQ==}
@@ -5313,15 +5273,15 @@ packages:
     resolution: {integrity: sha512-MnA+YT8fwfJPgBx3m60MNqakm30XOkyIoH1y6huTQvC0PwZG7ki8NacLBcrPbNoo8vEZy7Jpuk7+jMO+CUovTQ==}
     engines: {node: '>= 14'}
 
-  /ai@5.0.147(zod@3.25.76):
-    resolution: {integrity: sha512-44Ng+Wej8OXinFgx+48+wUHxnVqLNc5W7f6Cbuq9j2X9DopCfWioDeYRUcdRTeMJhk6sE4zXpxAuDD+KfyzX5A==}
+  /ai@6.0.116(zod@3.25.76):
+    resolution: {integrity: sha512-7yM+cTmyRLeNIXwt4Vj+mrrJgVQ9RMIW5WO0ydoLoYkewIvsMcvUmqS4j2RJTUXaF1HphwmSKUMQ/HypNRGOmA==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
     dependencies:
-      '@ai-sdk/gateway': 2.0.53(zod@3.25.76)
-      '@ai-sdk/provider': 2.0.1
-      '@ai-sdk/provider-utils': 3.0.22(zod@3.25.76)
+      '@ai-sdk/gateway': 3.0.66(zod@3.25.76)
+      '@ai-sdk/provider': 3.0.8
+      '@ai-sdk/provider-utils': 4.0.19(zod@3.25.76)
       '@opentelemetry/api': 1.9.0
       zod: 3.25.76
     dev: false

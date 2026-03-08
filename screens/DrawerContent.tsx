@@ -33,6 +33,8 @@ interface DrawerContentProps extends Omit<ViewProps, 'children'> {
   onConversationPress?: (_conversation: Conversation) => void
   /** Callback when a conversation is long-pressed */
   onConversationLongPress?: (_conversation: Conversation) => void
+  /** Callback when a conversation delete button is pressed */
+  onConversationDelete?: (_conversation: Conversation) => void
   /** Loading state for conversation fetch */
   isLoading?: boolean
   /** Error state for conversation fetch */
@@ -73,6 +75,7 @@ export function DrawerContent({
   onNewChatPress,
   onConversationPress,
   onConversationLongPress,
+  onConversationDelete,
   isLoading = false,
   error = null,
   onRetry,
@@ -118,6 +121,7 @@ export function DrawerContent({
       isActive={item.id === activeConversationId}
       onPress={() => onConversationPress?.(item)}
       onLongPress={() => onConversationLongPress?.(item)}
+      onDeletePress={() => onConversationDelete?.(item)}
     />
   )
 

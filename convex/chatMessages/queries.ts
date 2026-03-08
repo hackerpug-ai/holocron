@@ -65,3 +65,34 @@ export const get = query({
     return message ?? null;
   },
 });
+
+/**
+ * Find deep research loading card by session ID
+ *
+ * Returns the "deep_research_loading" card for a given session
+ * so it can be updated with progress steps instead of creating new cards.
+ */
+export const findLoadingCardBySession = query({
+  args: {
+    conversationId: v.id("conversations"),
+    sessionId: v.string(),
+  },
+  handler: async (ctx, { conversationId, sessionId }) => {
+    const messages = await ctx.db
+      .query("chatMessages")
+      .withIndex("by_conversation", (q) => q.eq("conversationId", conversationId))
+      .filter((q) => q.eq(q.field("messageType"), "result_card"))
+      .collect();
+
+    // Find the message with matching session_id and card_type
+    const loadingCard = messages.find((msg) => {
+      const cardData = msg.cardData as Record<string, unknown> | undefined;
+      return (
+        cardData?.card_type === "deep_research_loading" &&
+        cardData?.session_id === sessionId
+      );
+    });
+
+    return loadingCard ?? null;
+  },
+});

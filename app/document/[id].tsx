@@ -37,7 +37,7 @@ export default function DocumentRoute() {
   const { openUrl } = useWebView()
 
   // Fetch document from Convex by ID
-  const document = useQuery(api.documents.get, id as any)
+  const document = useQuery(api.documents.index.get, id as any)
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)

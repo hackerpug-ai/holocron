@@ -51,124 +51,55 @@ export type SubagentResult = {
 /**
  * Plan research - Decomposes query into subtasks
  *
- * This is a prototype implementation for testing.
- * In production, this would use the Lead Agent with GPT-5.
+ * @deprecated This stub is no longer used. The Ralph Loop (runRalphLoop) uses
+ * real LLM calls via Vercel AI SDK generateText() with search tools.
  */
-export async function planResearch(query: string): Promise<ResearchPlan> {
-  // Prototype implementation - generates a basic plan
-  // Production implementation would call Lead Agent with GPT-5
-
-  const keywords = extractKeywords(query);
-  const subtasks = generateSubtasks(query, keywords);
-
-  return {
-    query,
-    subtasks,
-    maxIterations: 3,
-  };
+export async function planResearch(_query: string): Promise<ResearchPlan> {
+  throw new Error(
+    "STUB_FUNCTION_REMOVED: planResearch is deprecated. Use runRalphLoop which uses real LLM calls with search tools."
+  );
 }
 
 /**
  * Execute subagent search - Performs focused search
  *
- * This is a prototype implementation for testing.
- * In production, this would use the Web Searcher with GPT-5-mini.
+ * @deprecated This stub is no longer used. The Ralph Loop (runRalphLoop) uses
+ * real LLM calls via Vercel AI SDK generateText() with exaSearchTool/jinaSearchTool.
  */
 export async function executeSubagentSearch(
-  objective: string
+  _objective: string,
 ): Promise<SubagentResult> {
-  // Prototype implementation - simulates search results
-  // Production implementation would call Web Searcher with GPT-5-mini
-
-  return {
-    objective,
-    findings: `Simulated research findings for: ${objective}`,
-    sources: [
-      {
-        url: "https://example.com/source1",
-        title: "Example Source 1",
-        domain: "example.com",
-      },
-    ],
-  };
+  throw new Error(
+    "STUB_FUNCTION_REMOVED: executeSubagentSearch is deprecated. Use runRalphLoop which uses real search tools (exaSearchTool, jinaSearchTool)."
+  );
 }
 
 /**
  * Synthesize findings - Combines results into coherent report
  *
- * This is a prototype implementation for testing.
- * In production, this would use the Lead Agent with GPT-5.
+ * @deprecated This stub is no longer used. The Ralph Loop (runRalphLoop) uses
+ * real LLM calls via Vercel AI SDK generateText() for synthesis.
  */
 export async function synthesizeFindings(
-  findings: SubagentResult[]
+  _findings: SubagentResult[],
 ): Promise<string> {
-  // Prototype implementation - combines findings
-  // Production implementation would call Lead Agent with GPT-5
-
-  const combined = findings
-    .map((f) => `## ${f.objective}\n\n${f.findings}`)
-    .join("\n\n");
-
-  return `# Research Synthesis\n\n${combined}`;
+  throw new Error(
+    "STUB_FUNCTION_REMOVED: synthesizeFindings is deprecated. Use runRalphLoop which uses real LLM synthesis."
+  );
 }
 
 /**
  * Review coverage - Assesses completeness and identifies gaps
  *
- * This is a prototype implementation for testing.
- * In production, this would use the Reviewer Agent with GPT-5.
+ * @deprecated This stub is no longer used. The Ralph Loop (runRalphLoop) uses
+ * real LLM calls via Vercel AI SDK generateText() for coverage review.
  */
 export async function assessCoverage(
-  synthesis: string
+  _synthesis: string,
 ): Promise<{ score: number; gaps: string[]; feedback: string }> {
-  // Prototype implementation - returns default score
-  // Production implementation would call Reviewer Agent with GPT-5
-
-  return {
-    score: 4,
-    gaps: [],
-    feedback: "Research coverage appears complete for prototype testing.",
-  };
-}
-
-/**
- * Helper: Extract keywords from query
- */
-function extractKeywords(query: string): string[] {
-  // Simple keyword extraction for prototype
-  const words = query.toLowerCase().split(/\s+/);
-  const stopWords = new Set([
-    "the",
-    "a",
-    "an",
-    "is",
-    "are",
-    "was",
-    "were",
-    "what",
-    "how",
-    "why",
-    "when",
-    "where",
-    "who",
-    "which",
-  ]);
-
-  return words.filter((w) => w.length > 3 && !stopWords.has(w));
-}
-
-/**
- * Helper: Generate subtasks from keywords
- */
-function generateSubtasks(query: string, keywords: string[]): ResearchPlan["subtasks"] {
-  // Generate 2-4 subtasks based on keywords
-  const numSubtasks = Math.min(Math.max(2, keywords.length), 4);
-
-  return Array.from({ length: numSubtasks }, (_, i) => ({
-    id: `subtask-${i + 1}`,
-    objective: `Research aspect ${i + 1} of: ${query}`,
-    searchTerms: keywords.slice(0, 3),
-  }));
+  throw new Error(
+    "STUB_FUNCTION_REMOVED: assessCoverage is deprecated. Use runRalphLoop which uses real LLM coverage review."
+  );
 }
 
 /**
@@ -186,24 +117,18 @@ export const exaSearchTool = tool({
     "Search for technical content, academic papers, and research using Exa. " +
     "Use this when you need high-quality technical or research content. " +
     "Returns results with full content, scores, and metadata.",
-  parameters: z.object({
+  inputSchema: z.object({
     query: z.string().describe("The search query"),
-    numResults: z
-      .number()
-      .int()
-      .min(1)
-      .max(10)
-      .default(5)
-      .describe("Number of results to return (1-10)"),
-    category: z
-      .enum(["company", "research paper", "news", "github", "tweet", "any"])
-      .default("any")
-      .describe("Filter results by content category"),
   }),
-  execute: async ({ query, numResults, category }: { query: string; numResults: number; category: string }) => {
+  execute: async ({ query }: { query: string }) => {
+    console.log(`[exaSearchTool] Entry - query: "${query}"`);
+    // Use default values since we removed optional parameters to fix schema conversion
+    const numResults = 5;
+    const category = "any";
     try {
       const apiKey = process.env.EXA_API_KEY;
       if (!apiKey) {
+        console.error(`[exaSearchTool] EXA_API_KEY not configured`);
         return {
           query,
           results: [],
@@ -212,13 +137,22 @@ export const exaSearchTool = tool({
         };
       }
 
+      console.log(
+        `[exaSearchTool] Calling Exa API - numResults: ${numResults}, useAutoprompt: true`,
+      );
       const exa = new Exa(apiKey);
 
+      const startTime = Date.now();
       const searchResults = await exa.searchAndContents(query, {
         numResults,
         useAutoprompt: true,
         category: category === "any" ? undefined : category,
       });
+      const duration = Date.now() - startTime;
+
+      console.log(
+        `[exaSearchTool] Exa API returned in ${duration}ms - results: ${searchResults.results.length}`,
+      );
 
       const results = searchResults.results.map((result: any) => ({
         title: result.title || "",
@@ -229,12 +163,16 @@ export const exaSearchTool = tool({
         author: result.author || null,
       }));
 
+      console.log(
+        `[exaSearchTool] Exit - Success with ${results.length} results`,
+      );
       return {
         query,
         results,
         source: "exa",
       };
     } catch (error) {
+      console.error(`[exaSearchTool] Error:`, error);
       return {
         query,
         results: [],
@@ -256,20 +194,17 @@ export const jinaSearchTool = tool({
     "Search the web for general information using Jina. " +
     "Use this for broad web queries and diverse information sources. " +
     "Returns results with titles, URLs, content snippets, and domains.",
-  parameters: z.object({
+  inputSchema: z.object({
     query: z.string().describe("The search query"),
-    numResults: z
-      .number()
-      .int()
-      .min(1)
-      .max(10)
-      .default(10)
-      .describe("Number of results to return (1-10)"),
   }),
-  execute: async ({ query, numResults }: { query: string; numResults: number }) => {
+  execute: async ({ query }: { query: string }) => {
+    console.log(`[jinaSearchTool] Entry - query: "${query}"`);
+    // Use default value since we removed optional parameter to fix schema conversion
+    const numResults = 10;
     try {
       const apiKey = process.env.JINA_API_KEY;
       if (!apiKey) {
+        console.error(`[jinaSearchTool] JINA_API_KEY not configured`);
         return {
           query,
           results: [],
@@ -278,19 +213,29 @@ export const jinaSearchTool = tool({
         };
       }
 
-      const response = await fetch("https://api.jina.ai/v1/search", {
-        method: "POST",
+      console.log(
+        `[jinaSearchTool] Calling Jina Search API - query: "${query}"`,
+      );
+      const startTime = Date.now();
+      // Jina Search uses s.jina.ai with query parameter
+      const encodedQuery = encodeURIComponent(query);
+      const response = await fetch(`https://s.jina.ai/?q=${encodedQuery}`, {
+        method: "GET",
         headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`,
+          Authorization: `Bearer ${apiKey}`,
+          Accept: "application/json",
         },
-        body: JSON.stringify({
-          query,
-          num_results: numResults,
-        }),
       });
+      const duration = Date.now() - startTime;
+
+      console.log(
+        `[jinaSearchTool] Jina API responded in ${duration}ms - status: ${response.status}`,
+      );
 
       if (!response.ok) {
+        console.error(
+          `[jinaSearchTool] HTTP error: ${response.status} ${response.statusText}`,
+        );
         return {
           query,
           results: [],
@@ -299,25 +244,131 @@ export const jinaSearchTool = tool({
         };
       }
 
+      // Jina Search returns JSON with data array
       const data = await response.json();
-      const results = (data.results || []).map((result: any) => ({
+      console.log(
+        `[jinaSearchTool] Received response - has data: ${!!data.data}`,
+      );
+
+      // Parse search results from Jina's response format
+      const results = (data.data || []).map((result: any) => ({
         title: result.title || "",
-        url: result.url || "",
-        content: (result.content || "").slice(0, 500),
-        domain: result.domain || "",
+        url: result.url || result.link || "",
+        content: (result.description || result.content || "").slice(0, 500),
+        domain: result.domain || new URL(result.url || result.link || "").hostname,
       }));
 
+      console.log(
+        `[jinaSearchTool] Exit - Success with ${results.length} results`,
+      );
       return {
         query,
         results,
         source: "jina",
       };
     } catch (error) {
+      console.error(`[jinaSearchTool] Error:`, error);
       return {
         query,
         results: [],
         error: error instanceof Error ? error.message : String(error),
         source: "jina",
+      };
+    }
+  },
+});
+
+/**
+ * jinaSiteSearchTool - Site-specific search using Jina
+ *
+ * Uses Jina's Search API with X-Site header to search within a specific domain.
+ * Best for: focused research on documentation sites, company websites, specific domains.
+ */
+export const jinaSiteSearchTool = tool({
+  description:
+    "Search within a specific website using Jina. " +
+    "Use this when you need to find information on a particular domain or documentation site. " +
+    "Returns results filtered to the specified site with titles, URLs, and content snippets.",
+  inputSchema: z.object({
+    query: z.string().describe("The search query"),
+    site: z.string().url().describe("The website to search within (e.g., https://jina.ai)"),
+  }),
+  execute: async ({ query, site }: { query: string; site: string }) => {
+    console.log(`[jinaSiteSearchTool] Entry - query: "${query}", site: "${site}"`);
+    try {
+      const apiKey = process.env.JINA_API_KEY;
+      if (!apiKey) {
+        console.error(`[jinaSiteSearchTool] JINA_API_KEY not configured`);
+        return {
+          query,
+          site,
+          results: [],
+          error: "JINA_API_KEY not configured",
+          source: "jina-site",
+        };
+      }
+
+      console.log(
+        `[jinaSiteSearchTool] Calling Jina Site Search API - query: "${query}", site: "${site}"`,
+      );
+      const startTime = Date.now();
+      const encodedQuery = encodeURIComponent(query);
+      const response = await fetch(`https://s.jina.ai/?q=${encodedQuery}`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          Accept: "application/json",
+          "X-Site": site,
+        },
+      });
+      const duration = Date.now() - startTime;
+
+      console.log(
+        `[jinaSiteSearchTool] Jina Site Search API responded in ${duration}ms - status: ${response.status}`,
+      );
+
+      if (!response.ok) {
+        console.error(
+          `[jinaSiteSearchTool] HTTP error: ${response.status} ${response.statusText}`,
+        );
+        return {
+          query,
+          site,
+          results: [],
+          error: `HTTP ${response.status}: ${response.statusText}`,
+          source: "jina-site",
+        };
+      }
+
+      const data = await response.json();
+      console.log(
+        `[jinaSiteSearchTool] Received response - has data: ${!!data.data}`,
+      );
+
+      const results = (data.data || []).map((result: any) => ({
+        title: result.title || "",
+        url: result.url || result.link || "",
+        content: (result.description || result.content || "").slice(0, 500),
+        domain: result.domain || new URL(result.url || result.link || "").hostname,
+      }));
+
+      console.log(
+        `[jinaSiteSearchTool] Exit - Success with ${results.length} results from ${site}`,
+      );
+      return {
+        query,
+        site,
+        results,
+        source: "jina-site",
+      };
+    } catch (error) {
+      console.error(`[jinaSiteSearchTool] Error:`, error);
+      return {
+        query,
+        site,
+        results: [],
+        error: error instanceof Error ? error.message : String(error),
+        source: "jina-site",
       };
     }
   },
@@ -334,13 +385,15 @@ export const jinaReaderTool = tool({
     "Extract full content from a URL in markdown format using Jina Reader. " +
     "Use this when you need to read and analyze the full content of a specific webpage. " +
     "Returns clean markdown text without ads or navigation.",
-  parameters: z.object({
+  inputSchema: z.object({
     url: z.string().url().describe("The URL to extract content from"),
   }),
   execute: async ({ url }: { url: string }) => {
+    console.log(`[jinaReaderTool] Entry - url: "${url}"`);
     try {
       const apiKey = process.env.JINA_API_KEY;
       if (!apiKey) {
+        console.error(`[jinaReaderTool] JINA_API_KEY not configured`);
         return {
           url,
           content: "",
@@ -349,15 +402,25 @@ export const jinaReaderTool = tool({
         };
       }
 
+      console.log(`[jinaReaderTool] Calling Jina Reader API`);
+      const startTime = Date.now();
       const response = await fetch(`https://r.jina.ai/${url}`, {
         method: "GET",
         headers: {
-          "Authorization": `Bearer ${apiKey}`,
+          Authorization: `Bearer ${apiKey}`,
           "X-Return-Format": "markdown",
         },
       });
+      const duration = Date.now() - startTime;
+
+      console.log(
+        `[jinaReaderTool] Jina Reader API responded in ${duration}ms - status: ${response.status}`,
+      );
 
       if (!response.ok) {
+        console.error(
+          `[jinaReaderTool] HTTP error: ${response.status} ${response.statusText}`,
+        );
         return {
           url,
           content: "",
@@ -367,13 +430,18 @@ export const jinaReaderTool = tool({
       }
 
       const content = await response.text();
+      const truncatedContent = content.slice(0, 5000);
 
+      console.log(
+        `[jinaReaderTool] Exit - Success with ${content.length} chars (truncated to ${truncatedContent.length})`,
+      );
       return {
         url,
-        content: content.slice(0, 5000),
+        content: truncatedContent,
         source: "jina-reader",
       };
     } catch (error) {
+      console.error(`[jinaReaderTool] Error:`, error);
       return {
         url,
         content: "",

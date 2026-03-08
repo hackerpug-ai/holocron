@@ -177,7 +177,7 @@ async function fetchNewsletter(
   const newItems: any[] = [];
 
   for (const entry of items.slice(0, 5)) {
-    const contentId = entry.url.split('/').filter(Boolean).pop() || entry.link;
+    const contentId = entry.link.split('/').filter(Boolean).pop() || entry.link;
 
     const existing = await ctx.runQuery(
       internal.subscriptions.getContentBySourceAndId,
@@ -394,7 +394,12 @@ export const updateSourceLastChecked = internalMutation({
 
 export const checkAllSubscriptions = internalAction({
   args: {},
-  handler: async (ctx) => {
+  handler: async (ctx): Promise<{
+    sourcesChecked: number;
+    totalFetched: number;
+    totalQueued: number;
+    errors: Array<{ source: string; error: string }>;
+  }> => {
     const sources = await ctx.runQuery(internal.subscriptions.getActiveSources);
 
     const results = {
@@ -407,12 +412,29 @@ export const checkAllSubscriptions = internalAction({
     for (const source of sources) {
       try {
         // Get filters for this source
-        const filters = await ctx.runQuery(internal.subscriptions.getFiltersForSource, {
+        const dbFilters = await ctx.runQuery(internal.subscriptions.getFiltersForSource, {
           sourceId: source._id,
           sourceType: source.sourceType,
         });
 
-        let items: any[] = [];
+        // Map database filters to RelevancyRule format
+        const filters = dbFilters.map((f) => ({
+          ruleName: f.ruleName,
+          ruleType: f.ruleType,
+          ruleValue: f.ruleValue,
+          weight: f.weight,
+          sourceId: f.sourceId?.toString() ?? null,
+        }));
+
+        let items: Array<{
+          sourceId: any;
+          contentId: string;
+          title: string;
+          url: string;
+          relevancyScore: number;
+          relevancyReason: string;
+          passedFilter: boolean;
+        }> = [];
 
         switch (source.sourceType) {
           case 'youtube':

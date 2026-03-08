@@ -40,22 +40,12 @@ export default function ChatScreen() {
 
   // Query to check if conversation exists (only for real IDs, not "new")
   const conversation = useQuery(
-    !isNewConversation && conversationId ? api.conversations.queries.get : undefined,
-    !isNewConversation && conversationId ? { id: conversationId as Id<"conversations"> } : undefined
+    api.conversations.queries.get,
+    !isNewConversation && conversationId ? { id: conversationId as Id<"conversations"> } : "skip"
   )
 
   // Active conversation tracking (local state)
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null)
-
-  // Convex mutation for creating conversations
-  const createConversationMutation = useMutation(api.conversations.mutations.create)
-
-  // Create conversation callback for lazy creation
-  const createConversation = async (): Promise<string> => {
-    const newId = await createConversationMutation({ title: 'New Chat' })
-    setActiveConversationId(newId)
-    return newId
-  }
 
   // Fetch chat history - pass null for new conversations to skip query
   const chatHistoryId = isNewConversation ? null : (conversationId ?? null)
@@ -79,39 +69,27 @@ export default function ChatScreen() {
     // Dismiss keyboard
     Keyboard.dismiss()
 
-    // Handle new conversation creation
-    let targetConversationId = conversationId ?? ''
-    if (isNewConversation) {
-      // Create conversation first
-      const newId = await createConversation()
-      targetConversationId = newId
-      router.replace(`/chat/${newId}`)
-    }
-
-    if (!targetConversationId || targetConversationId === 'new') {
-      setSendError(new Error('No valid conversation ID'))
-      return
-    }
-
     setIsSending(true)
     setSendError(null)
 
     try {
-      // Call Convex action - this handles both user and agent messages
-      await sendChat({
-        conversationId: targetConversationId as Id<"conversations">,
+      // Call Convex action - let it create conversation if needed
+      const result = await sendChat({
+        conversationId: isNewConversation ? undefined : (conversationId as Id<"conversations">),
         content: content.trim(),
       })
 
-      // Note: Convex action already persists both user and agent messages
-      // The useChatHistory hook will automatically update via Convex reactivity
+      // If this was a new conversation, redirect to the created conversation
+      if (isNewConversation && result?.conversationId) {
+        router.replace(`/chat/${result.conversationId}`)
+      }
     } catch (err) {
       const error = err instanceof Error ? err : new Error('Failed to send message')
       setSendError(error)
     } finally {
       setIsSending(false)
     }
-  }, [conversationId, isSending, isNewConversation, sendChat, createConversation, router])
+  }, [conversationId, isSending, isNewConversation, sendChat, router])
 
   // Handle session selection from resume list (sends /resume command)
   const handleSessionSelect = useCallback(async (sessionId: string) => {

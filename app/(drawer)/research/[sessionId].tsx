@@ -21,7 +21,8 @@ function transformSessionToViewFormat(
   session: DeepResearchSessionWithIterations
 ): DeepResearchDetailViewProps {
   // Transform iterations to the view format
-  const iterations: ResearchIteration[] = session.iterations.map((iter) => ({
+  // Defensive: handle case where iterations might be undefined at runtime
+  const iterations: ResearchIteration[] = (session.iterations ?? []).map((iter) => ({
     iterationNumber: iter.iterationNumber,
     coverageScore: iter.coverageScore ?? 0,
     feedback: iter.feedback ?? undefined,
@@ -39,13 +40,13 @@ function transformSessionToViewFormat(
     session: {
       id: session.id,
       query: session.topic,
-      report: session.iterations
+      report: (session.iterations ?? [])
         .filter((i) => i.findings)
         .map((i) => `## Iteration ${i.iterationNumber}\n\n${i.findings}`)
         .join('\n\n---\n\n') || 'Research in progress...',
       iterations,
       citations,
-      completedAt: session.status === 'completed' ? session.updatedAt : undefined,
+      completedAt: session.status === 'completed' ? new Date(session.updatedAt) : undefined,
       savedToHolocron: false, // TODO: Determine from document storage
     },
   }

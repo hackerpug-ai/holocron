@@ -33,7 +33,8 @@ export interface DeepResearchSessionRow {
 
 /**
  * App-level Deep Research Session type used throughout the UI
- * Transformed from DeepResearchSessionRow with camelCase and Date objects
+ * Transformed from DeepResearchSessionRow with camelCase
+ * Note: timestamps are numbers (ms since epoch) for Convex compatibility
  */
 export interface DeepResearchSession {
   id: string
@@ -41,8 +42,8 @@ export interface DeepResearchSession {
   topic: string
   maxIterations: number
   status: DeepResearchSessionStatus
-  createdAt: Date
-  updatedAt: Date
+  createdAt: number
+  updatedAt: number
 }
 
 /** Insert type - fields with defaults are optional */
@@ -83,7 +84,8 @@ export interface DeepResearchIterationRow {
 
 /**
  * App-level Deep Research Iteration type used throughout the UI
- * Transformed from DeepResearchIterationRow with camelCase and Date objects
+ * Transformed from DeepResearchIterationRow with camelCase
+ * Note: timestamps are numbers (ms since epoch) for Convex compatibility
  */
 export interface DeepResearchIteration {
   id: string
@@ -94,8 +96,8 @@ export interface DeepResearchIteration {
   refinedQueries: string[] | null // Properly typed as string array
   findings: string | null
   status: DeepResearchIterationStatus
-  createdAt: Date
-  updatedAt: Date
+  createdAt: number
+  updatedAt: number
 }
 
 /** Insert type - fields with defaults are optional */
@@ -137,7 +139,7 @@ export interface DeepResearchSessionSummary {
   status: DeepResearchSessionStatus
   lastIterationCompleted: number | null
   coverageScore: number | null
-  createdAt: Date
+  createdAt: number
 }
 
 /** Progress tracking for active sessions */
@@ -181,4 +183,14 @@ export interface FinalResultCard {
   total_iterations: number
   final_coverage_score: number
   findings_summary: string
+}
+
+/** Card data for simple research result message */
+export interface SimpleResearchResultCard {
+  card_type: 'simple_research_result'
+  session_id: string
+  topic: string
+  summary: string
+  confidence: 'HIGH' | 'MEDIUM' | 'LOW'
+  duration_ms: number
 }
