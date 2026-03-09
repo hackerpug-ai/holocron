@@ -259,7 +259,7 @@ export async function executeParallelFanOut(
     `[executeParallelFanOut] Synthesis complete - confidence: ${synthesis.confidence}, gaps: ${synthesis.gaps.length}`
   );
 
-  // Step 7: Optional follow-up for gaps (mini Ralph Loop iteration)
+  // Step 7: Optional follow-up for gaps (mini iterative research iteration)
   if (enableFollowUp && synthesis.gaps.length > 0 && synthesis.confidence !== "HIGH") {
     console.log(
       `[executeParallelFanOut] Running follow-up for ${synthesis.gaps.length} gaps`

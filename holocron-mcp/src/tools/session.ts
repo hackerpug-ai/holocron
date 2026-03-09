@@ -18,13 +18,14 @@ export async function getResearchSession(
   input: GetResearchSessionInput
 ): Promise<ResearchSession | null> {
   return await client.query<ResearchSession | null>(
-    'research/queries:getResearchSession' as any,
+    'research/queries:getDeepResearchSession' as any,
     { sessionId: input.sessionId }
   )
 }
 
 /**
  * Search across research sessions and findings
+ * Uses fullTextSearchIterations to find matching research iterations
  */
 export interface SearchResearchInput {
   query: string
@@ -46,13 +47,33 @@ export async function searchResearch(
   client: HolocronConvexClient,
   input: SearchResearchInput
 ): Promise<SearchResearchOutput> {
-  const result = await client.query<SearchResearchOutput>(
-    'research/queries:searchResearchSessions' as any,
+  // Search for iterations matching the query
+  const iterations = await client.query<any[]>(
+    'research/queries:fullTextSearchIterations' as any,
     {
       query: input.query,
       limit: input.limit ?? 10,
     }
   )
 
-  return result
+  // Get unique sessions from the iterations
+  const sessionMap = new Map<string, any>()
+  for (const iter of iterations) {
+    if (!sessionMap.has(iter.sessionId)) {
+      sessionMap.set(iter.sessionId, iter)
+    }
+  }
+
+  const sessions = Array.from(sessionMap.values()).map((iter, index) => ({
+    sessionId: iter.sessionId,
+    topic: iter.findings?.slice(0, 100) || 'Research session',
+    relevanceScore: iter.score || (1 - index / sessionMap.size),
+    status: 'completed',
+    createdAt: iter.createdAt || Date.now(),
+  }))
+
+  return {
+    sessions,
+    totalResults: sessions.length,
+  }
 }

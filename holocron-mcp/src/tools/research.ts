@@ -47,7 +47,7 @@ export async function researchTopic(
 
   // Set up subscription for progress updates
   const unsubscribe = client.subscribe<ResearchSession>(
-    'research/queries:getResearchSession' as any,
+    'research/queries:getDeepResearchSession' as any,
     { sessionId },
     (session) => {
       if (session) {
@@ -73,7 +73,7 @@ export async function researchTopic(
 
   while (Date.now() - startTime < maxWaitMs) {
     session = await client.query<ResearchSession>(
-      'research/queries:getResearchSession' as any,
+      'research/queries:getDeepResearchSession' as any,
       { sessionId }
     )
 

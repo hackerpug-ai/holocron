@@ -13,8 +13,7 @@ export const ResearchTopicSchema = z.object({
 
 // Simple research input
 export const SimpleResearchSchema = z.object({
-  query: z.string().min(1),
-  limit: z.number().int().positive().optional(),
+  topic: z.string().min(1),
 })
 
 // Document storage input
@@ -35,6 +34,12 @@ export const UpdateDocumentSchema = z.object({
 // Search input
 export const SearchSchema = z.object({
   query: z.string().min(1),
+  limit: z.number().int().positive().optional(),
+})
+
+// Vector search input (requires pre-computed embedding)
+export const SearchVectorSchema = z.object({
+  embedding: z.array(z.number()),
   limit: z.number().int().positive().optional(),
 })
 

@@ -42,6 +42,7 @@ import type * as research_queries from "../research/queries.js";
 import type * as research_rateLimiter from "../research/rateLimiter.js";
 import type * as research_scheduled from "../research/scheduled.js";
 import type * as research_search from "../research/search.js";
+import type * as research_termination from "../research/termination.js";
 import type * as research_tools from "../research/tools.js";
 import type * as researchIterations_mutations from "../researchIterations/mutations.js";
 import type * as researchIterations_queries from "../researchIterations/queries.js";
@@ -96,6 +97,7 @@ declare const fullApi: ApiFromModules<{
   "research/rateLimiter": typeof research_rateLimiter;
   "research/scheduled": typeof research_scheduled;
   "research/search": typeof research_search;
+  "research/termination": typeof research_termination;
   "research/tools": typeof research_tools;
   "researchIterations/mutations": typeof researchIterations_mutations;
   "researchIterations/queries": typeof researchIterations_queries;

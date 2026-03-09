@@ -47,6 +47,12 @@ import {
   generateIterationEmbedding,
   generateFindingEmbedding,
 } from "./embeddings";
+import {
+  shouldContinueResearch,
+  DEFAULT_CRITERIA,
+  type TerminationCriteria,
+  type LoopMetrics,
+} from "./termination";
 
 /**
  * Start Deep Research
@@ -56,7 +62,7 @@ import {
  * This action:
  * 1. Creates a deep research session
  * 2. Posts a loading card to chat
- * 3. Runs the Ralph Loop (iterative research)
+ * 3. Runs iterative research (deep research loop)
  * 4. Posts a final card with results
  * 5. Returns the session ID and status
  */
@@ -141,17 +147,17 @@ export const startDeepResearch = action({
 });
 
 /**
- * Run Ralph Loop - Core orchestration for deep research
+ * Run Iterative Research - Core orchestration for deep research
  *
  * Task #779: Implements the iterative research workflow:
- * 1. Initialize agents (lead, reviewer)
- * 2. Loop until coverage >= 4 or max iterations:
- *    a. SEARCH: Lead agent generates queries and executes tools
- *    b. SYNTHESIZE: Lead agent writes coherent report
- *    c. REVIEW: Reviewer agent scores coverage
- *    d. SAVE: Create iteration record
+ * 1. Initialize research session
+ * 2. Loop until termination criteria met:
+ *    a. SEARCH: Execute parallel searches with retry
+ *    b. SYNTHESIZE: Generate structured findings with confidence scores
+ *    c. REVIEW: Assess coverage and identify gaps
+ *    d. SAVE: Create iteration record with embeddings
  *    e. POST CARD: Insert iteration card to chat
- *    f. REFINE: Update topic for next iteration
+ *    f. REFINE: Update topic to address gaps
  * 3. Complete session
  *
  * @param ctx - Convex action context
@@ -159,17 +165,22 @@ export const startDeepResearch = action({
  * @param conversationId - Conversation ID for posting cards
  * @param topic - Research topic
  * @param maxIterations - Maximum iterations (default: 5)
+ * @param criteria - Termination criteria (quality, cost, time)
  * @returns Summary of iterations and final coverage score
  */
-export async function runRalphLoop(
+export async function runIterativeResearch(
   ctx: any,
   sessionId: Id<"deepResearchSessions">,
   conversationId: Id<"conversations">,
   topic: string,
   maxIterations: number = 5,
+  criteria: TerminationCriteria = DEFAULT_CRITERIA,
 ): Promise<{ totalIterations: number; finalCoverageScore: number; finalConfidenceStats?: ConfidenceStats }> {
   console.log(
-    `[runRalphLoop] Entry - sessionId: ${sessionId}, topic: "${topic}", maxIterations: ${maxIterations}`,
+    `[runIterativeResearch] Entry - sessionId: ${sessionId}, topic: "${topic}", maxIterations: ${maxIterations}`,
+  );
+  console.log(
+    `[runIterativeResearch] Termination criteria - coverage: ${criteria.minCoverage}, confidence: ${criteria.minConfidence}%, maxCost: ${criteria.maxCostUsd ? `$${criteria.maxCostUsd}` : 'unlimited'}, maxDuration: ${criteria.maxDurationMs ? `${Math.round(criteria.maxDurationMs / 60000)}m` : 'unlimited'}`,
   );
 
   // Timeout configuration: 10 minutes (Convex hard limit is 600s anyway)
@@ -190,6 +201,7 @@ export async function runRalphLoop(
     let coverageScore = 0;
     let currentTopic = topic;
     let averageConfidence = 0;
+    let totalCostUsd = 0; // Track cumulative cost
     let cumulativeConfidenceStats: ConfidenceStats = {
       highConfidenceCount: 0,
       mediumConfidenceCount: 0,
@@ -200,31 +212,50 @@ export async function runRalphLoop(
     };
 
     console.log(
-      `[runRalphLoop] Initialized - iteration: ${iteration}, coverageScore: ${coverageScore}`,
+      `[runIterativeResearch] Initialized - iteration: ${iteration}, coverageScore: ${coverageScore}`,
     );
 
-    // Step 2: Main loop - iterate until coverage >= 4 AND confidence >= 70 or max iterations
-    while (iteration < maxIterations && (coverageScore < 4 || averageConfidence < 70)) {
+    // Step 2: Main loop - iterate until termination criteria met
+    while (true) {
+      // Check termination criteria
+      const loopMetrics: LoopMetrics = {
+        iteration,
+        coverage: coverageScore,
+        confidence: averageConfidence,
+        costUsd: totalCostUsd,
+        durationMs: Date.now() - actionStartTime,
+      };
+
+      const decision = shouldContinueResearch(loopMetrics, criteria);
+
+      if (!decision.continue) {
+        console.log(`[runIterativeResearch] Terminating: ${decision.reason}`);
+        break;
+      }
+
+      console.log(
+        `[runIterativeResearch] Continue decision: ${decision.reason}`,
+      );
       iteration++;
 
       // Check timeout at start of each iteration
       checkTimeout();
 
       console.log(
-        `\n[runRalphLoop] ========== ITERATION ${iteration}/${maxIterations} START ==========`,
+        `\n[runIterativeResearch] ========== ITERATION ${iteration}/${maxIterations} START ==========`,
       );
-      console.log(`[runRalphLoop] Current topic: "${currentTopic}"`);
-      console.log(`[runRalphLoop] Previous coverage score: ${coverageScore}, avgConfidence: ${averageConfidence}`);
+      console.log(`[runIterativeResearch] Current topic: "${currentTopic}"`);
+      console.log(`[runIterativeResearch] Previous coverage score: ${coverageScore}, avgConfidence: ${averageConfidence}`);
 
       // Build context from database
-      console.log(`[runRalphLoop] Building research context from database`);
+      console.log(`[runIterativeResearch] Building research context from database`);
       const context = await buildResearchContext(ctx, sessionId);
       console.log(
-        `[runRalphLoop] Context built - previousIterations: ${context.previousIterations.length}`,
+        `[runIterativeResearch] Context built - previousIterations: ${context.previousIterations.length}`,
       );
 
       // Step 2a: SEARCH - Execute parallel searches with retry
-      console.log(`[runRalphLoop] Step 2a: SEARCH - Executing parallel search`);
+      console.log(`[runIterativeResearch] Step 2a: SEARCH - Executing parallel search`);
 
       // Extract gaps from previous iteration's review (if any)
       const previousGaps = context.previousIterations.length > 0
@@ -232,7 +263,7 @@ export async function runRalphLoop(
         : [];
 
       console.log(
-        `[runRalphLoop] Step 2a: Previous gaps: ${previousGaps.length}`,
+        `[runIterativeResearch] Step 2a: Previous gaps: ${previousGaps.length}`,
       );
 
       const searchStartTime = Date.now();
@@ -245,30 +276,30 @@ export async function runRalphLoop(
       const searchDuration = Date.now() - searchStartTime;
 
       console.log(
-        `[runRalphLoop] Step 2a: Parallel search completed in ${parallelSearchResult.durationMs}ms (total: ${searchDuration}ms)`,
+        `[runIterativeResearch] Step 2a: Parallel search completed in ${parallelSearchResult.durationMs}ms (total: ${searchDuration}ms)`,
       );
       console.log(
-        `[runRalphLoop] Step 2a: Search findings length: ${parallelSearchResult.findings.length} chars`,
+        `[runIterativeResearch] Step 2a: Search findings length: ${parallelSearchResult.findings.length} chars`,
       );
       console.log(
-        `[runRalphLoop] Step 2a: Tool calls made: ${parallelSearchResult.toolCallCount}`,
+        `[runIterativeResearch] Step 2a: Tool calls made: ${parallelSearchResult.toolCallCount}`,
       );
       console.log(
-        `[runRalphLoop] Step 2a: Structured results: ${parallelSearchResult.structuredResults.length}`,
+        `[runIterativeResearch] Step 2a: Structured results: ${parallelSearchResult.structuredResults.length}`,
       );
 
       const searchFindings = parallelSearchResult.findings;
 
       // Step 2b: SYNTHESIZE - Write coherent report with structured confidence output
       console.log(
-        `[runRalphLoop] Step 2b: SYNTHESIZE - Building synthesis prompt`,
+        `[runIterativeResearch] Step 2b: SYNTHESIZE - Building synthesis prompt`,
       );
       const synthesisPrompt = buildSynthesisPrompt(context, searchFindings);
       console.log(
-        `[runRalphLoop] Step 2b: Synthesis prompt length: ${synthesisPrompt.length} chars`,
+        `[runIterativeResearch] Step 2b: Synthesis prompt length: ${synthesisPrompt.length} chars`,
       );
 
-      console.log(`[runRalphLoop] Step 2b: Calling LLM (gpt-5) for synthesis`);
+      console.log(`[runIterativeResearch] Step 2b: Calling LLM (gpt-5) for synthesis`);
       const synthesisStartTime = Date.now();
       const synthesisResult = await generateText({
         model: openai("gpt-5"),
@@ -276,16 +307,16 @@ export async function runRalphLoop(
       });
       const synthesisDuration = Date.now() - synthesisStartTime;
       console.log(
-        `[runRalphLoop] Step 2b: Synthesis completed in ${synthesisDuration}ms`,
+        `[runIterativeResearch] Step 2b: Synthesis completed in ${synthesisDuration}ms`,
       );
       console.log(
-        `[runRalphLoop] Step 2b: Synthesis length: ${synthesisResult.text.length} chars`,
+        `[runIterativeResearch] Step 2b: Synthesis length: ${synthesisResult.text.length} chars`,
       );
 
       const synthesisRaw = synthesisResult.text;
 
       // Step 2b.1: Parse structured synthesis and create findings/citations
-      console.log(`[runRalphLoop] Step 2b.1: Parsing structured synthesis`);
+      console.log(`[runIterativeResearch] Step 2b.1: Parsing structured synthesis`);
       let structuredFindings: StructuredFinding[] = [];
       let narrativeSummary = synthesisRaw;
 
@@ -293,25 +324,25 @@ export async function runRalphLoop(
         const parsed = JSON.parse(synthesisRaw);
         structuredFindings = parsed.findings || [];
         narrativeSummary = parsed.narrativeSummary || synthesisRaw;
-        console.log(`[runRalphLoop] Step 2b.1: Parsed ${structuredFindings.length} structured findings`);
+        console.log(`[runIterativeResearch] Step 2b.1: Parsed ${structuredFindings.length} structured findings`);
       } catch (parseError) {
-        console.warn(`[runRalphLoop] Step 2b.1: Failed to parse structured synthesis, using narrative only`);
+        console.warn(`[runIterativeResearch] Step 2b.1: Failed to parse structured synthesis, using narrative only`);
         // Fallback: use raw text as narrative, no structured findings
       }
 
       // Step 2b.1.5: Generate embedding for iteration findings
-      console.log(`[runRalphLoop] Step 2b.1.5: Generating embedding for iteration findings`);
+      console.log(`[runIterativeResearch] Step 2b.1.5: Generating embedding for iteration findings`);
       let iterationEmbedding: number[] | undefined;
       try {
         iterationEmbedding = await generateIterationEmbedding(narrativeSummary);
-        console.log(`[runRalphLoop] Step 2b.1.5: Generated embedding: ${iterationEmbedding.length} dimensions`);
+        console.log(`[runIterativeResearch] Step 2b.1.5: Generated embedding: ${iterationEmbedding.length} dimensions`);
       } catch (error) {
-        console.error(`[runRalphLoop] Step 2b.1.5: Failed to generate iteration embedding:`, error);
+        console.error(`[runIterativeResearch] Step 2b.1.5: Failed to generate iteration embedding:`, error);
         // Continue without embedding - it's optional
       }
 
       // Step 2b.2: Create iteration record first to get iterationId
-      console.log(`[runRalphLoop] Step 2b.2: Creating iteration record`);
+      console.log(`[runIterativeResearch] Step 2b.2: Creating iteration record`);
       const iterationId = await ctx.runMutation(
         api.research.mutations.createDeepResearchIteration,
         {
@@ -327,7 +358,7 @@ export async function runRalphLoop(
       );
 
       // Step 2b.3: Process structured findings - create citations and findings
-      console.log(`[runRalphLoop] Step 2b.3: Processing ${structuredFindings.length} findings with confidence`);
+      console.log(`[runIterativeResearch] Step 2b.3: Processing ${structuredFindings.length} findings with confidence`);
       const iterationFindingsForStats: Array<{
         confidenceLevel: string;
         confidenceScore: number;
@@ -367,7 +398,7 @@ export async function runRalphLoop(
         try {
           findingEmbedding = await generateFindingEmbedding(finding.claimText);
         } catch (error) {
-          console.error(`[runRalphLoop] Failed to generate finding embedding:`, error);
+          console.error(`[runIterativeResearch] Failed to generate finding embedding:`, error);
           // Continue without embedding - it's optional
         }
 
@@ -403,7 +434,7 @@ export async function runRalphLoop(
 
       // Step 2b.4: Calculate and store iteration confidence stats
       const iterationStats = aggregateConfidenceStats(iterationFindingsForStats);
-      console.log(`[runRalphLoop] Step 2b.4: Iteration stats - high: ${iterationStats.highConfidenceCount}, medium: ${iterationStats.mediumConfidenceCount}, low: ${iterationStats.lowConfidenceCount}, avg: ${iterationStats.averageConfidenceScore}`);
+      console.log(`[runIterativeResearch] Step 2b.4: Iteration stats - high: ${iterationStats.highConfidenceCount}, medium: ${iterationStats.mediumConfidenceCount}, low: ${iterationStats.lowConfidenceCount}, avg: ${iterationStats.averageConfidenceScore}`);
 
       if (iterationFindingsForStats.length > 0) {
         await ctx.runMutation(
@@ -432,14 +463,14 @@ export async function runRalphLoop(
       averageConfidence = cumulativeConfidenceStats.averageConfidenceScore;
 
       // Step 2c: REVIEW - Score coverage (now includes confidence assessment)
-      console.log(`[runRalphLoop] Step 2c: REVIEW - Building review prompt`);
+      console.log(`[runIterativeResearch] Step 2c: REVIEW - Building review prompt`);
       const reviewPrompt = buildReviewPrompt(context, narrativeSummary);
       console.log(
-        `[runRalphLoop] Step 2c: Review prompt length: ${reviewPrompt.length} chars`,
+        `[runIterativeResearch] Step 2c: Review prompt length: ${reviewPrompt.length} chars`,
       );
 
       console.log(
-        `[runRalphLoop] Step 2c: Calling LLM (gpt-5) for coverage review`,
+        `[runIterativeResearch] Step 2c: Calling LLM (gpt-5) for coverage review`,
       );
       const reviewStartTime = Date.now();
       const reviewResult = await generateText({
@@ -448,10 +479,10 @@ export async function runRalphLoop(
       });
       const reviewDuration = Date.now() - reviewStartTime;
       console.log(
-        `[runRalphLoop] Step 2c: Review completed in ${reviewDuration}ms`,
+        `[runIterativeResearch] Step 2c: Review completed in ${reviewDuration}ms`,
       );
       console.log(
-        `[runRalphLoop] Step 2c: Review response length: ${reviewResult.text.length} chars`,
+        `[runIterativeResearch] Step 2c: Review response length: ${reviewResult.text.length} chars`,
       );
 
       // Parse review response (with fallback)
@@ -469,25 +500,25 @@ export async function runRalphLoop(
         };
       };
 
-      console.log(`[runRalphLoop] Step 2c: Parsing review JSON`);
+      console.log(`[runIterativeResearch] Step 2c: Parsing review JSON`);
       try {
         review = JSON.parse(reviewResult.text);
         console.log(
-          `[runRalphLoop] Step 2c: Review parsed successfully - score: ${review.coverageScore}, gaps: ${review.gaps.length}, shouldContinue: ${review.shouldContinue}`,
+          `[runIterativeResearch] Step 2c: Review parsed successfully - score: ${review.coverageScore}, gaps: ${review.gaps.length}, shouldContinue: ${review.shouldContinue}`,
         );
         if (review.confidenceAssessment) {
           console.log(
-            `[runRalphLoop] Step 2c: Confidence assessment - level: ${review.confidenceAssessment.overallConfidenceLevel}, multiSource: ${review.confidenceAssessment.multiSourceCoverage}%`,
+            `[runIterativeResearch] Step 2c: Confidence assessment - level: ${review.confidenceAssessment.overallConfidenceLevel}, multiSource: ${review.confidenceAssessment.multiSourceCoverage}%`,
           );
         }
       } catch (error) {
         // Fallback if JSON parsing fails
         console.error(
-          `[runRalphLoop] Step 2c: Failed to parse review JSON:`,
+          `[runIterativeResearch] Step 2c: Failed to parse review JSON:`,
           error,
         );
         console.error(
-          `[runRalphLoop] Step 2c: Raw review text:`,
+          `[runIterativeResearch] Step 2c: Raw review text:`,
           reviewResult.text,
         );
         review = {
@@ -497,24 +528,24 @@ export async function runRalphLoop(
           shouldContinue: true,
         };
         console.log(
-          `[runRalphLoop] Step 2c: Using fallback review - score: ${review.coverageScore}`,
+          `[runIterativeResearch] Step 2c: Using fallback review - score: ${review.coverageScore}`,
         );
       }
 
       coverageScore = review.coverageScore;
       console.log(
-        `[runRalphLoop] Step 2c: Updated coverage score to ${coverageScore}`,
+        `[runIterativeResearch] Step 2c: Updated coverage score to ${coverageScore}`,
       );
 
       // Step 2d: UPDATE iteration with review results
-      console.log(`[runRalphLoop] Step 2d: Updating iteration with review results`);
+      console.log(`[runIterativeResearch] Step 2d: Updating iteration with review results`);
       // Note: We already created the iteration, now we need to update it with review results
       // Using a patch via the existing mutation pattern
 
       // Step 2e: POST CARD - Insert iteration card to chat with confidence info
       const estimatedRemaining = Math.max(0, maxIterations - iteration);
       console.log(
-        `[runRalphLoop] Step 2e: POST CARD - Posting iteration card (estimated remaining: ${estimatedRemaining})`,
+        `[runIterativeResearch] Step 2e: POST CARD - Posting iteration card (estimated remaining: ${estimatedRemaining})`,
       );
       await ctx.runMutation(api.chatMessages.mutations.create, {
         conversationId,
@@ -536,11 +567,11 @@ export async function runRalphLoop(
           },
         },
       });
-      console.log(`[runRalphLoop] Step 2e: Iteration card posted`);
+      console.log(`[runIterativeResearch] Step 2e: Iteration card posted`);
 
       // Step 2f: REFINE - Update topic for next iteration (include low confidence areas)
       console.log(
-        `[runRalphLoop] Step 2f: REFINE - Checking if topic refinement needed`,
+        `[runIterativeResearch] Step 2f: REFINE - Checking if topic refinement needed`,
       );
 
       // New condition: continue if coverage < 4 OR average confidence < 70
@@ -562,38 +593,38 @@ export async function runRalphLoop(
         if (refinementReasons.length > 0) {
           currentTopic = `${topic} - Focus on: ${refinementReasons.join(", ")}`;
           console.log(
-            `[runRalphLoop] Step 2f: Topic refined to focus on: "${refinementReasons.join(", ")}"`,
+            `[runIterativeResearch] Step 2f: Topic refined to focus on: "${refinementReasons.join(", ")}"`,
           );
         }
       } else {
         console.log(
-          `[runRalphLoop] Step 2f: No refinement needed (coverage: ${coverageScore}, confidence: ${averageConfidence})`,
+          `[runIterativeResearch] Step 2f: No refinement needed (coverage: ${coverageScore}, confidence: ${averageConfidence})`,
         );
       }
 
       console.log(
-        `[runRalphLoop] ========== ITERATION ${iteration}/${maxIterations} END ==========\n`,
+        `[runIterativeResearch] ========== ITERATION ${iteration}/${maxIterations} END ==========\n`,
       );
       console.log(
-        `[runRalphLoop] Loop condition check - iteration: ${iteration} < maxIterations: ${maxIterations} = ${iteration < maxIterations}, coverageScore: ${coverageScore} < 4 = ${coverageScore < 4}, avgConfidence: ${averageConfidence} < 70 = ${averageConfidence < 70}`,
+        `[runIterativeResearch] Loop condition check - iteration: ${iteration} < maxIterations: ${maxIterations} = ${iteration < maxIterations}, coverageScore: ${coverageScore} < 4 = ${coverageScore < 4}, avgConfidence: ${averageConfidence} < 70 = ${averageConfidence < 70}`,
       );
     }
 
     console.log(
-      `[runRalphLoop] Loop finished - Total iterations: ${iteration}, Final coverage: ${coverageScore}, Final confidence: ${averageConfidence}`,
+      `[runIterativeResearch] Loop finished - Total iterations: ${iteration}, Final coverage: ${coverageScore}, Final confidence: ${averageConfidence}`,
     );
 
     // Step 3: Complete session with final confidence summary
-    console.log(`[runRalphLoop] Step 3: Completing session in database with confidence summary`);
+    console.log(`[runIterativeResearch] Step 3: Completing session in database with confidence summary`);
     await ctx.runMutation(api.research.mutations.completeDeepResearchSession, {
       sessionId,
       status: "completed",
       finalConfidenceSummary: cumulativeConfidenceStats,
     });
-    console.log(`[runRalphLoop] Step 3: Session marked as completed`);
+    console.log(`[runIterativeResearch] Step 3: Session marked as completed`);
 
     // Return summary
-    console.log(`[runRalphLoop] Exit - Success`);
+    console.log(`[runIterativeResearch] Exit - Success`);
     return {
       totalIterations: iteration,
       finalCoverageScore: coverageScore,
@@ -602,15 +633,15 @@ export async function runRalphLoop(
   } catch (error) {
     // Error handling: mark session as error and rethrow
     const isTimeout = error instanceof Error && error.message.includes("RESEARCH_TIMEOUT");
-    console.error(`[runRalphLoop] ${isTimeout ? "TIMEOUT" : "ERROR"} caught:`, error);
-    console.log(`[runRalphLoop] Marking session as error in database`);
+    console.error(`[runIterativeResearch] ${isTimeout ? "TIMEOUT" : "ERROR"} caught:`, error);
+    console.log(`[runIterativeResearch] Marking session as error in database`);
 
     await ctx.runMutation(api.research.mutations.completeDeepResearchSession, {
       sessionId,
       status: "error",
       errorReason: isTimeout ? "timeout" : "unknown",
     });
-    console.log(`[runRalphLoop] Session marked as error (reason: ${isTimeout ? "timeout" : "unknown"})`);
+    console.log(`[runIterativeResearch] Session marked as error (reason: ${isTimeout ? "timeout" : "unknown"})`);
 
     throw error;
   }
@@ -918,7 +949,7 @@ Return a JSON object:
  *
  * Intelligent research router that selects the optimal strategy:
  * - Parallel Fan-Out: Fast path for simple queries (~15-25s)
- * - Ralph Loop: Deep path for complex research (~45-90s)
+ * - Iterative Research: Deep path for complex research (~45-90s)
  *
  * This action replaces startDeepResearch as the recommended entry point.
  *
@@ -954,7 +985,7 @@ export const startSmartResearch = action({
       const result = await executeParallelFanOut(ctx, conversationId, topic, true);
       return result;
     } else {
-      // Run full Ralph Loop for complex queries
+      // Run full iterative research for complex queries
       // Step 0: Create conversation
       const effectiveConversationId =
         conversationId ??
@@ -986,10 +1017,10 @@ export const startSmartResearch = action({
         },
       });
 
-      // Step 3: Run Ralph Loop
-      const result = await runRalphLoop(ctx, sessionId, effectiveConversationId, topic, 5);
+      // Step 3: Run Iterative Research
+      const result = await runIterativeResearch(ctx, sessionId, effectiveConversationId, topic, 5);
 
-      console.log(`[startSmartResearch] Ralph Loop completed - ${result.totalIterations} iterations`);
+      console.log(`[startSmartResearch] Iterative research completed - ${result.totalIterations} iterations`);
 
       return {
         sessionId,

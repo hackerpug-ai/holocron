@@ -25,16 +25,30 @@ export async function storeDocument(
   client: HolocronConvexClient,
   input: StoreDocumentInput
 ): Promise<StoreDocumentOutput> {
-  const result = await client.mutation<StoreDocumentOutput>(
-    'documents/mutations:storeDocument' as any,
+  // Map metadata to Convex document schema
+  const metadata = input.metadata ?? {}
+  const category = (metadata.category as string) ?? 'general'
+  const date = (metadata.date as string) ?? new Date().toISOString().split('T')[0]
+  const researchType = (metadata.researchType as string)
+  const status = (metadata.status as string)
+
+  const result = await client.mutation<{ id: string }>(
+    'documents/mutations:create',
     {
       title: input.title,
       content: input.content,
-      metadata: input.metadata ?? {},
+      category,
+      date,
+      ...(researchType && { researchType }),
+      ...(status && { status }),
     }
   )
 
-  return result
+  return {
+    documentId: result.id,
+    title: input.title,
+    embeddingStatus: 'pending',
+  }
 }
 
 /**
@@ -57,15 +71,29 @@ export async function updateDocument(
   client: HolocronConvexClient,
   input: UpdateDocumentInput
 ): Promise<UpdateDocumentOutput> {
-  const result = await client.mutation<UpdateDocumentOutput>(
-    'documents/mutations:updateDocument' as any,
+  // Map metadata to Convex document schema
+  const metadata = input.metadata ?? {}
+  const category = (metadata.category as string)
+  const date = (metadata.date as string)
+  const researchType = (metadata.researchType as string)
+  const status = (metadata.status as string)
+
+  const result = await client.mutation<{ id: string }>(
+    'documents/index.js:update',
     {
-      documentId: input.documentId,
-      title: input.title,
-      content: input.content,
-      metadata: input.metadata,
+      id: input.documentId,
+      ...(input.title && { title: input.title }),
+      ...(input.content && { content: input.content }),
+      ...(category && { category }),
+      ...(date && { date }),
+      ...(researchType && { researchType }),
+      ...(status && { status }),
     }
   )
 
-  return result
+  return {
+    documentId: result.id,
+    updated: true,
+    embeddingStatus: 'pending',
+  }
 }

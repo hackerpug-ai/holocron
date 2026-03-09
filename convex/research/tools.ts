@@ -51,54 +51,54 @@ export type SubagentResult = {
 /**
  * Plan research - Decomposes query into subtasks
  *
- * @deprecated This stub is no longer used. The Ralph Loop (runRalphLoop) uses
+ * @deprecated This stub is no longer used. The Iterative Research (runIterativeResearch) uses
  * real LLM calls via Vercel AI SDK generateText() with search tools.
  */
 export async function planResearch(_query: string): Promise<ResearchPlan> {
   throw new Error(
-    "STUB_FUNCTION_REMOVED: planResearch is deprecated. Use runRalphLoop which uses real LLM calls with search tools."
+    "STUB_FUNCTION_REMOVED: planResearch is deprecated. Use runIterativeResearch which uses real LLM calls with search tools."
   );
 }
 
 /**
  * Execute subagent search - Performs focused search
  *
- * @deprecated This stub is no longer used. The Ralph Loop (runRalphLoop) uses
+ * @deprecated This stub is no longer used. The Iterative Research (runIterativeResearch) uses
  * real LLM calls via Vercel AI SDK generateText() with exaSearchTool/jinaSearchTool.
  */
 export async function executeSubagentSearch(
   _objective: string,
 ): Promise<SubagentResult> {
   throw new Error(
-    "STUB_FUNCTION_REMOVED: executeSubagentSearch is deprecated. Use runRalphLoop which uses real search tools (exaSearchTool, jinaSearchTool)."
+    "STUB_FUNCTION_REMOVED: executeSubagentSearch is deprecated. Use runIterativeResearch which uses real search tools (exaSearchTool, jinaSearchTool)."
   );
 }
 
 /**
  * Synthesize findings - Combines results into coherent report
  *
- * @deprecated This stub is no longer used. The Ralph Loop (runRalphLoop) uses
+ * @deprecated This stub is no longer used. The Iterative Research (runIterativeResearch) uses
  * real LLM calls via Vercel AI SDK generateText() for synthesis.
  */
 export async function synthesizeFindings(
   _findings: SubagentResult[],
 ): Promise<string> {
   throw new Error(
-    "STUB_FUNCTION_REMOVED: synthesizeFindings is deprecated. Use runRalphLoop which uses real LLM synthesis."
+    "STUB_FUNCTION_REMOVED: synthesizeFindings is deprecated. Use runIterativeResearch which uses real LLM synthesis."
   );
 }
 
 /**
  * Review coverage - Assesses completeness and identifies gaps
  *
- * @deprecated This stub is no longer used. The Ralph Loop (runRalphLoop) uses
+ * @deprecated This stub is no longer used. The Iterative Research (runIterativeResearch) uses
  * real LLM calls via Vercel AI SDK generateText() for coverage review.
  */
 export async function assessCoverage(
   _synthesis: string,
 ): Promise<{ score: number; gaps: string[]; feedback: string }> {
   throw new Error(
-    "STUB_FUNCTION_REMOVED: assessCoverage is deprecated. Use runRalphLoop which uses real LLM coverage review."
+    "STUB_FUNCTION_REMOVED: assessCoverage is deprecated. Use runIterativeResearch which uses real LLM coverage review."
   );
 }
 

@@ -23,22 +23,34 @@ export async function searchFts(
   client: HolocronConvexClient,
   input: SearchFtsInput
 ): Promise<SearchFtsOutput> {
-  const result = await client.query<SearchFtsOutput>(
-    'documents/search:searchFts' as any,
+  const rawResults = await client.query<any[]>(
+    'documents/queries:fullTextSearch' as any,
     {
       query: input.query,
       limit: input.limit ?? 20,
     }
   )
 
-  return result
+  // Transform the raw results to match expected output format
+  return {
+    results: rawResults.map(r => ({
+      id: r._id,
+      title: r.title,
+      content: r.content,
+      category: r.category,
+      score: r.score,
+    })),
+    totalResults: rawResults.length,
+  }
 }
 
 /**
  * Vector semantic search using embeddings
+ * Note: This requires an embedding vector, not a query string.
+ * Use hybridSearch for text-based semantic search.
  */
 export interface SearchVectorInput {
-  query: string
+  embedding: number[]
   limit?: number
 }
 
@@ -51,13 +63,23 @@ export async function searchVector(
   client: HolocronConvexClient,
   input: SearchVectorInput
 ): Promise<SearchVectorOutput> {
-  const result = await client.query<SearchVectorOutput>(
-    'documents/search:searchVector' as any,
+  const rawResults = await client.query<any[]>(
+    'documents/queries:vectorSearch' as any,
     {
-      query: input.query,
+      embedding: input.embedding,
       limit: input.limit ?? 20,
     }
   )
 
-  return result
+  // Transform the raw results to match expected output format
+  return {
+    results: rawResults.map(r => ({
+      id: r._id,
+      title: r.title,
+      content: r.content,
+      category: r.category,
+      score: r.score,
+    })),
+    totalResults: rawResults.length,
+  }
 }

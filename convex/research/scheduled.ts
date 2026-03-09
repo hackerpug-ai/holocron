@@ -78,7 +78,7 @@ export const processDeepResearchIteration = internalAction({
       console.log(`[processIteration] SEARCH phase starting`);
       const searchPrompt = buildSearchPrompt(currentTopic, context.previousIterations);
       const searchResult = await generateText({
-        model: openai("gpt-5-mini"),
+        model: openai("gpt-4o-mini"),  // Fast, cheap, good at tool calls
         prompt: searchPrompt,
         tools: {
           exaSearch: exaSearchTool,
@@ -87,14 +87,20 @@ export const processDeepResearchIteration = internalAction({
           jinaReader: jinaReaderTool,
         },
       });
-      const searchFindings = searchResult.text;
-      console.log(`[processIteration] SEARCH complete - ${searchFindings.length} chars`);
+
+      // Extract tool results - these contain the actual search data
+      const toolResults = searchResult.toolResults || [];
+      const searchFindings = toolResults.length > 0
+        ? JSON.stringify(toolResults, null, 2)
+        : searchResult.text || "No search results found";
+
+      console.log(`[processIteration] SEARCH complete - ${searchFindings.length} chars, ${toolResults.length} tool calls`);
 
       // SYNTHESIZE Phase
       console.log(`[processIteration] SYNTHESIZE phase starting`);
       const synthesisPrompt = buildSynthesisPrompt(context, searchFindings);
       const synthesisResult = await generateText({
-        model: openai("gpt-5"),
+        model: openai("gpt-4o"),  // Fast, reliable, cheaper than gpt-4-turbo
         prompt: synthesisPrompt,
       });
       const synthesis = synthesisResult.text;
@@ -104,7 +110,7 @@ export const processDeepResearchIteration = internalAction({
       console.log(`[processIteration] REVIEW phase starting`);
       const reviewPrompt = buildReviewPrompt(context, synthesis);
       const reviewResult = await generateText({
-        model: openai("gpt-5"),
+        model: openai("gpt-4o"),  // Fast, reliable, cheaper than gpt-4-turbo
         prompt: reviewPrompt,
       });
 

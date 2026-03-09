@@ -7,7 +7,7 @@
  *
  * - `startSmartResearch` - NEW DEFAULT: Intelligent router that selects optimal strategy
  * - `runParallelFanOut` - Fast-path for simple queries (~15-25s)
- * - `runRalphLoop` - Deep research for complex topics (~45-90s)
+ * - `runIterativeResearch` - Deep research for complex topics (~45-90s)
  *
  * ## Deprecated
  *
@@ -41,8 +41,8 @@ export {
 // INTERNAL / ADVANCED USE
 // =============================================================================
 
-/** @internal Full Ralph Loop implementation (use startSmartResearch instead) */
-export { runRalphLoop, hybridSearchIterations } from "./actions";
+/** @internal Full iterative research implementation (use startSmartResearch instead) */
+export { runIterativeResearch, hybridSearchIterations } from "./actions";
 
 /**
  * @deprecated Use startSmartResearch instead.
@@ -79,7 +79,7 @@ export {
 } from "./scheduled";
 
 // =============================================================================
-// SEARCH TOOLS (Used by runRalphLoop)
+// SEARCH TOOLS (Used by runIterativeResearch)
 // =============================================================================
 
 export {
