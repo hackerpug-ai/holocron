@@ -24,6 +24,15 @@ export { startSmartResearch, analyzeResearchStrategy, type ResearchStrategy } fr
 /** Fast-path parallel fan-out strategy */
 export { runParallelFanOut, executeParallelFanOut, decomposeIntoDomains, type ParallelFanOutResult } from "./parallel";
 
+/** Parallel iteration strategy for deep research */
+export {
+  runParallelIteration,
+  executeParallelIteration,
+  generateQueryVariants,
+  type ParallelIterationResult,
+  type QueryVariant,
+} from "./parallel_iteration";
+
 // =============================================================================
 // PARALLEL SEARCH UTILITIES
 // =============================================================================
