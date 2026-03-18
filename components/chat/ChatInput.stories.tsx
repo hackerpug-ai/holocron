@@ -69,7 +69,7 @@ export const WithFilteredCommandPanel: Story = {
   parameters: {
     docs: {
       description: {
-        story: 'Panel filters to show only matching commands (/research, /resume).',
+        story: 'Panel filters to show only matching commands (/research).',
       },
     },
   },
@@ -143,7 +143,7 @@ export const FilteringInteractive: Story = {
     let commandPanel = canvas.getByTestId('command-panel')
     await expect(commandPanel).toBeInTheDocument()
 
-    // Type 's' - should filter to search, stats, resume
+    // Type 's' - should filter to search, stats
     await userEvent.type(input, 's')
 
     // Verify search command is still visible

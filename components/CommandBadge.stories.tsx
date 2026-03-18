@@ -68,7 +68,6 @@ export const AllCommands: Story = {
       <CommandBadge command="/deep-research" args="<question>" />
       <CommandBadge command="/browse" />
       <CommandBadge command="/stats" />
-      <CommandBadge command="/resume" args="<id>" />
       <CommandBadge command="/help" />
     </View>
   ),

@@ -4,8 +4,9 @@
  * Creates and updates deep research sessions and iterations
  */
 
-import { mutation } from "../_generated/server";
+import { mutation, internalMutation } from "../_generated/server";
 import { v } from "convex/values";
+import { internal } from "../_generated/api";
 
 /**
  * Create a new deep research session
@@ -52,6 +53,7 @@ export const createDeepResearchIteration = mutation({
     findings: v.optional(v.string()),
     refinedQueries: v.optional(v.any()),
     status: v.string(),
+    summary: v.optional(v.string()),
     embedding: v.optional(v.array(v.float64())),
   },
   handler: async (
@@ -64,6 +66,7 @@ export const createDeepResearchIteration = mutation({
       findings,
       refinedQueries,
       status,
+      summary,
       embedding,
     }
   ) => {
@@ -78,6 +81,7 @@ export const createDeepResearchIteration = mutation({
       findings,
       refinedQueries,
       status,
+      summary,
       embedding,
       createdAt: now,
     });
@@ -186,6 +190,20 @@ export const completeDeepResearchSession = mutation({
     await ctx.db.patch(sessionId, updates);
 
     console.log(`[completeDeepResearchSession] Session completed at ${new Date(now).toISOString()}`);
+
+    // Trigger document creation for successfully completed sessions
+    // Skip if document already exists (e.g., simple research creates document inline)
+    if (status === "completed" && !errorReason) {
+      const session = await ctx.db.get(sessionId);
+      if (!session?.documentId) {
+        console.log(`[completeDeepResearchSession] Scheduling document creation for session ${sessionId}`);
+        await ctx.scheduler.runAfter(0, internal.research.documents.createResearchDocument, {
+          sessionId,
+        });
+      } else {
+        console.log(`[completeDeepResearchSession] Document already exists: ${session.documentId}, skipping creation`);
+      }
+    }
   },
 });
 
@@ -321,5 +339,22 @@ export const updateIterationConfidenceStats = mutation({
     });
 
     console.log(`[updateIterationConfidenceStats] Iteration stats updated`);
+  },
+});
+
+/**
+ * Link document to deep research session (internal)
+ *
+ * Called by createResearchDocument action after document is created
+ */
+export const updateDeepResearchSessionDocumentId = internalMutation({
+  args: {
+    sessionId: v.id("deepResearchSessions"),
+    documentId: v.id("documents"),
+  },
+  handler: async (ctx, { sessionId, documentId }) => {
+    console.log(`[updateDeepResearchSessionDocumentId] Linking document ${documentId} to session ${sessionId}`);
+    await ctx.db.patch(sessionId, { documentId });
+    console.log(`[updateDeepResearchSessionDocumentId] Document linked successfully`);
   },
 });

@@ -28,6 +28,7 @@ import {
   executeParallelSearchWithRetry,
   type ParallelSearchResult,
 } from "./search";
+import { stripMarkdownCodeBlock } from "../lib/json";
 import type { Id } from "../_generated/dataModel";
 import type { ActionCtx } from "../_generated/server";
 
@@ -95,7 +96,7 @@ Be specific and targeted. Each query should uncover different information.`;
     });
 
     console.log(`[generateQueryVariants] Parsing LLM response`);
-    const variants = JSON.parse(result.text) as QueryVariant[];
+    const variants = JSON.parse(stripMarkdownCodeBlock(result.text)) as QueryVariant[];
 
     if (!Array.isArray(variants) || variants.length < 2 || variants.length > 3) {
       throw new Error(`Invalid variant count: ${variants.length}`);
@@ -295,7 +296,7 @@ export async function executeParallelIteration(
   };
 
   try {
-    synthesis = JSON.parse(synthesisResult.text);
+    synthesis = JSON.parse(stripMarkdownCodeBlock(synthesisResult.text));
   } catch {
     synthesis = {
       summary: synthesisResult.text,
@@ -341,32 +342,16 @@ export async function executeParallelIteration(
     status: "completed",
   });
 
-  // Step 9: Complete session
+  // Step 9: Complete session (triggers document creation and result card posting)
   await ctx.runMutation(api.research.mutations.completeDeepResearchSession, {
     sessionId,
     status: "completed",
   });
 
-  // Step 10: Post result card
   const totalTime = Date.now() - startTime;
-  await ctx.runMutation(api.chatMessages.mutations.create, {
-    conversationId: effectiveConversationId,
-    role: "agent" as const,
-    content: synthesis.summary,
-    messageType: "result_card" as const,
-    cardData: {
-      card_type: "deep_research_result",
-      session_id: sessionId,
-      coverage_score: synthesis.confidence === "HIGH" ? 4 : synthesis.confidence === "MEDIUM" ? 3 : 2,
-      iterations_completed: 1,
-      key_findings: synthesis.keyFindings,
-      gaps: synthesis.gaps,
-      duration_ms: totalTime,
-    },
-  });
 
   console.log(
-    `[executeParallelIteration] Exit - completed in ${totalTime}ms`
+    `[executeParallelIteration] Exit - completed in ${totalTime}ms (document creation and result card posting scheduled)`
   );
 
   return {

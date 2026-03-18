@@ -1,4 +1,4 @@
-import { View, TextInput, Pressable, useColorScheme, StyleSheet } from 'react-native'
+import { View, TextInput, Pressable, useColorScheme, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native'
 import { Text } from '@/components/ui/text'
 import { cn } from '@/lib/utils'
 import { useState, useMemo, useCallback, useEffect } from 'react'
@@ -45,11 +45,19 @@ export interface ChatInputProps {
 
 const DEFAULT_COMMANDS: SlashCommand[] = [
   { name: 'search', description: 'Search the knowledge base', syntax: '<query>' },
+  { name: 'shop', description: 'Search for product deals', syntax: '<product>' },
   { name: 'research', description: 'Start a research workflow', syntax: '<question>' },
   { name: 'deep-research', description: 'Multi-iteration deep research', syntax: '<question>' },
   { name: 'browse', description: 'Browse recent articles' },
   { name: 'stats', description: 'View knowledge base statistics' },
   { name: 'resume', description: 'Resume a previous research session', syntax: '<id>' },
+  { name: 'subscribe', description: 'Add a subscription source', syntax: '<type> <id> [name]' },
+  { name: 'unsubscribe', description: 'Remove a subscription', syntax: '<id>' },
+  { name: 'subscriptions', description: 'List your subscriptions', syntax: '[type]' },
+  { name: 'check-subs', description: 'Check subscriptions for new content' },
+  { name: 'whats-new', description: 'Get AI news briefing', syntax: '[days]' },
+  { name: 'toolbelt', description: 'Search or add tools', syntax: '<query or url>' },
+  { name: 'save', description: 'Save document to knowledge base', syntax: '<title> [category]' },
   { name: 'help', description: 'Show all available commands' },
 ]
 
@@ -228,7 +236,12 @@ export function ChatInput({
   const showPlaceholder = value.length === 0
 
   return (
-    <View testID={testID} className="relative">
+    <KeyboardAvoidingView
+      testID={testID}
+      className="relative"
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+    >
       {/* Command Suggestions Panel - positioned above input */}
       {showCommandPanel && (
         <CommandSuggestions
@@ -303,7 +316,7 @@ export function ChatInput({
           />
         </Pressable>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   )
 }
 

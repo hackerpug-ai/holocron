@@ -130,6 +130,16 @@ export interface DeepResearchIterationUpdate {
 /** Session with its iterations (for detail views) */
 export interface DeepResearchSessionWithIterations extends DeepResearchSession {
   iterations: DeepResearchIteration[]
+  /** Synthesized report from the documents table (LLM-generated) */
+  report?: string
+  /** Document ID linking to the holocron document */
+  documentId?: string | null
+  /** Citations extracted from research findings */
+  citations?: Array<{
+    id: number
+    title: string
+    url?: string
+  }>
 }
 
 /** Summary card data for displaying session in list */

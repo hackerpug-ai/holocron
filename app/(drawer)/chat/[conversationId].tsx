@@ -91,11 +91,6 @@ export default function ChatScreen() {
     }
   }, [conversationId, isSending, isNewConversation, sendChat, router])
 
-  // Handle session selection from resume list (sends /resume command)
-  const handleSessionSelect = useCallback(async (sessionId: string) => {
-    await handleSend(`/resume ${sessionId}`)
-  }, [handleSend])
-
   // Retry failed send
   const handleRetry = useCallback(() => {
     // For simple retry, we could store the last message
@@ -214,7 +209,6 @@ export default function ChatScreen() {
         isLoading={isLoadingMessages}
         safeAreaTop={contentTopPadding}
         testID="chat-thread"
-        onSessionSelect={handleSessionSelect}
         onFinalResultPress={handleFinalResultPress}
       />
       {/* Bottom area with safe area padding */}

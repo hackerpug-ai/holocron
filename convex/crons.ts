@@ -46,7 +46,53 @@ crons.interval(
 crons.interval(
   "subscription-monitor",
   { hours: 1 }, // Run every hour
-  internal.subscriptions.checkAllSubscriptions
+  internal.subscriptions.internal.checkAllSubscriptions
+);
+
+/**
+ * Subscription Auto-Research Worker
+ *
+ * Processes queued subscription content by reading articles/videos
+ * and storing them as holocron documents.
+ * - Runs every 2 hours
+ * - Processes up to 5 items per run to avoid timeouts
+ * - Uses Jina Reader to extract content
+ */
+crons.interval(
+  "subscription-auto-research",
+  { hours: 2 },
+  internal.subscriptions.internal.processQueuedContent
+);
+
+/**
+ * Document Embedding Backfill
+ *
+ * Backfills embeddings for documents that were created without them.
+ * - Runs every 1 hour
+ * - Processes up to 50 documents per run
+ * - Uses the updateWithEmbedding action to generate embeddings
+ *
+ * This ensures all documents have embeddings for semantic search.
+ */
+crons.interval(
+  "document-embedding-backfill",
+  { hours: 1 }, // Run every hour
+  internal.documents.scheduled.backfillOrphanedEmbeddings
+);
+
+/**
+ * What's New Daily Report Generator
+ *
+ * Automatically generates a daily AI software engineering news briefing.
+ * - Runs daily at 6 AM PST (13:00 UTC)
+ * - Fetches from Reddit, HN, GitHub, Dev.to, Lobsters
+ * - Synthesizes into markdown report with embeddings
+ * - Stores as document for MCP/app retrieval
+ */
+crons.daily(
+  "whats-new-daily",
+  { hourUTC: 13, minuteUTC: 0 }, // 6 AM PST
+  internal.whatsNew.actions.generateDailyReport
 );
 
 export default crons;

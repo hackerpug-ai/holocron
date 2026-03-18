@@ -84,12 +84,20 @@ class ApiRateLimiter {
       refillRate: 1.5,    // Refill 1.5 tokens per second (90 per minute)
       refillInterval: 1000, // 1 second
     }));
+
+    // Jina Reader - for full URL content reading
+    // More conservative: 5 concurrent, 30/min (0.5 per second)
+    this.buckets.set('jina-reader', new TokenBucket({
+      maxTokens: 5,       // Allow 5 concurrent requests
+      refillRate: 0.5,    // Refill 0.5 tokens per second (30 per minute)
+      refillInterval: 1000, // 1 second
+    }));
   }
 
   /**
    * Wait for rate limit before making request to endpoint
    */
-  async waitForEndpoint(endpoint: 'exa' | 'jina'): Promise<void> {
+  async waitForEndpoint(endpoint: 'exa' | 'jina' | 'jina-reader'): Promise<void> {
     const bucket = this.buckets.get(endpoint);
     if (!bucket) {
       console.warn(`[ApiRateLimiter] Unknown endpoint: ${endpoint}`);
@@ -119,7 +127,7 @@ export function getApiRateLimiter(): ApiRateLimiter {
  * });
  */
 export async function withRateLimit<T>(
-  endpoint: 'exa' | 'jina',
+  endpoint: 'exa' | 'jina' | 'jina-reader',
   fn: () => Promise<T>
 ): Promise<T> {
   const limiter = getApiRateLimiter();

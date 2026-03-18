@@ -1,7 +1,7 @@
 import { Text } from '@/components/ui/text'
+import { SwipeableRow } from '@/components/ui/SwipeableRow'
 import { cn } from '@/lib/utils'
-import { Trash2 } from 'lucide-react-native'
-import { Pressable, View, type ViewProps } from 'react-native'
+import { Pressable, View, type ViewProps, useWindowDimensions } from 'react-native'
 
 interface ConversationRowProps extends Omit<ViewProps, 'children'> {
   /** Conversation title */
@@ -16,14 +16,19 @@ interface ConversationRowProps extends Omit<ViewProps, 'children'> {
   onPress?: () => void
   /** Callback when row is long-pressed (for management actions) */
   onLongPress?: () => void
-  /** Callback when delete button is pressed */
-  onDeletePress?: () => void
+  /** Callback when delete is triggered (swipe past threshold) */
+  onDelete?: () => void
 }
 
 /**
  * ConversationRow displays a single conversation in the drawer list.
  * Shows title, last message preview, and timestamp.
  * Active conversation is highlighted.
+ *
+ * Swipe-to-delete:
+ * - Swipe left to reveal delete zone
+ * - Continue swiping past 35% threshold triggers delete
+ * - Release before threshold snaps back
  */
 export function ConversationRow({
   title,
@@ -32,19 +37,20 @@ export function ConversationRow({
   isActive = false,
   onPress,
   onLongPress,
-  onDeletePress,
+  onDelete,
   className,
   ...props
 }: ConversationRowProps) {
+  const { width: screenWidth } = useWindowDimensions()
   const formattedTime = lastMessageAt
     ? formatRelativeTime(lastMessageAt)
     : undefined
 
-  return (
+  const content = (
     <View
       className={cn(
         'flex-row items-center gap-3 rounded-lg px-3 py-3',
-        isActive ? 'bg-accent' : '',
+        isActive ? 'bg-accent' : 'bg-background',
         className
       )}
       testID="conversation-row"
@@ -60,7 +66,7 @@ export function ConversationRow({
         )}
         accessibilityRole="button"
         accessibilityLabel={`Conversation: ${title}${lastMessage ? `. Last message: ${lastMessage}` : ''}${formattedTime ? `. ${formattedTime}` : ''}${isActive ? '. Currently selected' : ''}`}
-        accessibilityHint="Double tap to open conversation. Long press for options."
+        accessibilityHint="Double tap to open conversation. Long press for options. Swipe left to delete."
         accessibilityState={{ selected: isActive }}
       >
         <View className="flex-1">
@@ -88,22 +94,22 @@ export function ConversationRow({
           )}
         </View>
       </Pressable>
-
-      {/* Delete button - right-aligned */}
-      {onDeletePress && (
-        <Pressable
-          onPress={onDeletePress}
-          className="rounded p-2 active:bg-muted"
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          testID="conversation-row-delete-button"
-          accessibilityRole="button"
-          accessibilityLabel="Delete conversation"
-          accessibilityHint="Double tap to delete this conversation"
-        >
-          <Trash2 size={18} className="text-muted-foreground" />
-        </Pressable>
-      )}
     </View>
+  )
+
+  // If no onDelete callback, just return the content without swipe wrapper
+  if (!onDelete) {
+    return content
+  }
+
+  return (
+    <SwipeableRow
+      onDelete={onDelete}
+      screenWidth={screenWidth}
+      testID="conversation-row-swipeable"
+    >
+      {content}
+    </SwipeableRow>
   )
 }
 

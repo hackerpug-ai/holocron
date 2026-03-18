@@ -2,7 +2,7 @@ import { Text } from '@/components/ui/text'
 import { useTheme } from '@/hooks/use-theme'
 import type { Heading, List, ListItem, Paragraph, ThematicBreak } from 'mdast'
 import * as React from 'react'
-import { Platform, ScrollView, StyleSheet, View } from 'react-native'
+import { StyleSheet, View } from 'react-native'
 
 /**
  * BlockElements renderer handles all block-level markdown elements
@@ -129,6 +129,8 @@ export const ListItemRenderer = React.memo(
 
     const bulletText = parentOrdered ? `${index + 1}.` : '•'
 
+    // Use flexbox layout for proper alignment of bullet and content
+    // This handles both plain text and links (which use Text with onPress)
     return (
       <View
         testID={testID}
@@ -136,15 +138,13 @@ export const ListItemRenderer = React.memo(
       >
         <Text
           variant="p"
-          style={{
-            color: colors.foreground,
-            flex: 1,
-            lineHeight: 24,
-          }}
+          style={[styles.bullet, { color: colors.foreground }]}
         >
-          <Text style={{ marginRight: spacing.sm }}>{bulletText}</Text>
-          {children}
+          {bulletText}
         </Text>
+        <View style={styles.listItemContent}>
+          {children}
+        </View>
       </View>
     )
   }
@@ -202,7 +202,15 @@ const useStyles = () => {
       paddingLeft: spacing.lg,
     },
     listItem: {
-      // Container for list item
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+    },
+    bullet: {
+      marginRight: spacing.sm,
+      lineHeight: 24,
+    },
+    listItemContent: {
+      flex: 1,
     },
     hr: {
       height: 1,

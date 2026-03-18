@@ -35,6 +35,10 @@ export default function RootLayout() {
         <QueryClientProvider client={queryClient}>
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="(drawer)" />
+            <Stack.Screen name="articles" />
+            <Stack.Screen name="toolbelt" />
+            <Stack.Screen name="document/[id]" />
+            <Stack.Screen name="webview/[url]" />
             <Stack.Screen name="storybook" />
             <Stack.Screen name="+not-found" />
           </Stack>

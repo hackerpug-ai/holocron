@@ -1,6 +1,6 @@
-import { z } from "zod";
-import { resolve, join } from "node:path";
 import { existsSync } from "node:fs";
+import { join, resolve } from "node:path";
+import { z } from "zod";
 
 const EnvSchema = z.object({
   CONVEX_URL: z.string().url(),
@@ -36,7 +36,7 @@ export function loadEnv(): Env {
     console.error(`Looking for .env in: ${projectRoot}`);
     console.error(`Checked .env.local at: ${envLocalPath}`);
     console.error(
-      `Available CONVEX vars: CONVEX_URL=${process.env.CONVEX_URL}, EXPO_PUBLIC_CONVEX_URL=${process.env.EXPO_PUBLIC_CONVEX_URL}`,
+      `Available CONVEX vars: CONVEX_URL=${process.env.CONVEX_URL}, EXPO_PUBLIC_CONVEX_URL=${process.env.EXPO_PUBLIC_CONVEX_URL}`
     );
     process.exit(1);
   }

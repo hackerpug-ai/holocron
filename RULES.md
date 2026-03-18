@@ -2,6 +2,21 @@
 
 This document outlines the rules and standards for the holocron project.
 
+## Committing and Hooks (MANDATORY)
+
+Before ending your task/session you MUST commit your work.
+
+Rules:
+1. Run the commit process.
+2. All commit hooks will run automatically.
+3. If ANY hook fails, you MUST fix the issues and attempt the commit again.
+4. Repeat until the commit succeeds with all hooks passing.
+
+Important:
+- You are NOT allowed to end your task while hooks are failing.
+- A task is only considered complete once the commit succeeds.
+- If the commit does not succeed, the task is considered FAILED.
+
 ---
 
 ## Logging Requirements

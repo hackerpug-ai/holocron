@@ -19,6 +19,12 @@ module.exports = {
     ios: {
       supportsTablet: true,
       bundleIdentifier: 'com.holocron.app',
+      infoPlist: {
+        ITSAppUsesNonExemptEncryption: false,
+      },
+      simulator: {
+        device: 'iPhone 15 Pro',
+      },
     },
     android: {
       adaptiveIcon: {
@@ -33,6 +39,18 @@ module.exports = {
       favicon: './assets/favicon.png',
       bundler: 'metro',
     },
-    plugins: ['expo-router'],
+    plugins: [
+      'expo-router',
+      'expo-sqlite',
+      'expo-font',
+      '@react-native-community/datetimepicker',
+    ],
+    extra: {
+      router: {},
+      eas: {
+        projectId: 'a580bd53-e7a9-4968-96c8-f6cf207a4abe',
+      },
+    },
+    owner: 'hackerpug',
   },
 }

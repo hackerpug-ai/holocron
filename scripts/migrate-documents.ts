@@ -2,7 +2,7 @@
  * Migration Script: Supabase documents → Convex
  *
  * This script migrates all documents from Supabase to Convex,
- * preserving vector embeddings (1536 dimensions).
+ * preserving vector embeddings (1024 dimensions).
  *
  * Usage: npx tsx scripts/migrate-documents.ts
  *
@@ -18,7 +18,7 @@ import api from "../convex/_generated/api";
 
 // Configuration
 const BATCH_SIZE = 50;
-const EXPECTED_EMBEDDING_DIMENSIONS = 1536;
+const EXPECTED_EMBEDDING_DIMENSIONS = 1024;
 
 // Environment validation
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
@@ -274,7 +274,7 @@ async function migrate() {
     if (sample) {
       console.log(`  ✓ Sample embedding dimensions: ${sample.embeddingDimension}`);
       if (sample.embeddingDimension === EXPECTED_EMBEDDING_DIMENSIONS) {
-        console.log(`  ✓ Embedding dimensions validated (1536)`);
+        console.log(`  ✓ Embedding dimensions validated (1024)`);
       } else {
         console.log(`  ⚠️  Unexpected dimensions: ${sample.embeddingDimension}`);
       }

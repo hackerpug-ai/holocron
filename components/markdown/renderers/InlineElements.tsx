@@ -2,7 +2,7 @@ import { Text } from '@/components/ui/text'
 import { useTheme } from '@/hooks/use-theme'
 import type { InlineCode, Link, Strong, Emphasis, Text as MdastText } from 'mdast'
 import * as React from 'react'
-import { Platform, Pressable, StyleSheet, Text as RNText } from 'react-native'
+import { Platform, StyleSheet, Text as RNText } from 'react-native'
 
 /**
  * InlineElements renderer handles inline markdown elements
@@ -31,18 +31,18 @@ export const LinkRenderer = React.memo(
       }
     }
 
+    // Use Text with onPress for inline rendering (can be nested in other Text)
     return (
-      <Pressable
+      <Text
         onPress={handlePress}
         testID={testID}
         accessible={true}
         accessibilityRole="link"
         accessibilityLabel={`Link to ${url}`}
+        style={{ color: colors.link, textDecorationLine: 'underline' }}
       >
-        <Text style={{ color: colors.link, textDecorationLine: 'underline' }}>
-          {children}
-        </Text>
-      </Pressable>
+        {children}
+      </Text>
     )
   }
 )

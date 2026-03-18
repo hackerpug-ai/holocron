@@ -17,7 +17,6 @@ const DEFAULT_COMMANDS: SlashCommand[] = [
   { name: 'deep-research', description: 'Multi-iteration deep research', syntax: '<question>' },
   { name: 'browse', description: 'Browse recent articles' },
   { name: 'stats', description: 'View knowledge base statistics' },
-  { name: 'resume', description: 'Resume a previous research session', syntax: '<id>' },
   { name: 'help', description: 'Show all available commands' },
 ]
 

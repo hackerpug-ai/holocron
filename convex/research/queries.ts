@@ -88,9 +88,30 @@ export const getDeepResearchSession = query({
 
     const citations = Array.from(citationMap.values());
 
-    // For simple research (single iteration), use the iteration findings as the report
-    // For multi-iteration research, we'd need to synthesize across iterations
-    const report = iterationsRaw[0]?.findings ?? "No findings available.";
+    // Get synthesized report from the linked document (if available)
+    // The document contains the LLM-synthesized report, not just raw iteration findings
+    // IMPORTANT: Never fall back to raw iteration concatenation - synthesis must always happen
+    let report: string | null = null;
+    if (session.documentId) {
+      const document = await ctx.db.get(session.documentId);
+      if (document?.content) {
+        report = document.content;
+      }
+    }
+
+    // If no synthesized document exists yet, indicate synthesis is pending
+    // Do NOT fall back to raw iteration findings - synthesis is mandatory
+    if (!report) {
+      if (session.status === "completed") {
+        // Session complete but document not ready yet - synthesis is in progress
+        report = "Synthesizing research report...";
+      } else if (iterationsRaw.length > 0) {
+        // Research still in progress
+        report = "Research in progress...";
+      } else {
+        report = "Starting research...";
+      }
+    }
 
     // Transform session to app-level type with iterations, report, and citations
     // Convert Convex IDs to strings, keep timestamps as numbers (Convex doesn't support Date objects)
@@ -104,6 +125,7 @@ export const getDeepResearchSession = query({
       createdAt: session.createdAt,
       updatedAt: session.updatedAt,
       completedAt: session.completedAt ?? null,
+      documentId: session.documentId?.toString() ?? null,
       iterations,
       report, // Synthesized markdown report from findings
       citations, // Unique citations from all findings

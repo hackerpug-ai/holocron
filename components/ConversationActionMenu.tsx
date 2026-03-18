@@ -22,7 +22,7 @@ import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { Pencil, Trash2 } from 'lucide-react-native';
 import * as React from 'react';
-import { View } from 'react-native';
+import { KeyboardAvoidingView, Platform, View } from 'react-native';
 
 type ViewState = 'menu' | 'rename' | 'delete';
 
@@ -133,49 +133,54 @@ export function ConversationActionMenu({
       {/* Rename Dialog */}
       <Dialog open={open && view === 'rename'} onOpenChange={onOpenChange}>
         <DialogContent testID="rename-dialog">
-          <DialogHeader>
-            <DialogTitle>Rename conversation</DialogTitle>
-          </DialogHeader>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+          >
+            <DialogHeader>
+              <DialogTitle>Rename conversation</DialogTitle>
+            </DialogHeader>
 
-          <View className="gap-4 py-4">
-            <Input
-              testID="rename-input"
-              value={renameValue}
-              onChangeText={setRenameValue}
-              placeholder="Conversation title"
-              autoFocus
-              onSubmitEditing={isSaveDisabled ? undefined : handleSaveRename}
-              accessibilityLabel="Conversation title"
-              accessibilityHint="Enter a new name for this conversation"
-            />
-            {isSaveDisabled && (
-              <Text className="text-destructive text-sm">Title cannot be empty</Text>
-            )}
-          </View>
+            <View className="gap-4 py-4">
+              <Input
+                testID="rename-input"
+                value={renameValue}
+                onChangeText={setRenameValue}
+                placeholder="Conversation title"
+                autoFocus
+                onSubmitEditing={isSaveDisabled ? undefined : handleSaveRename}
+                accessibilityLabel="Conversation title"
+                accessibilityHint="Enter a new name for this conversation"
+              />
+              {isSaveDisabled && (
+                <Text className="text-destructive text-sm">Title cannot be empty</Text>
+              )}
+            </View>
 
-          <DialogFooter>
-            <DialogClose asChild>
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button
+                  testID="rename-cancel-button"
+                  variant="outline"
+                  onPress={handleCancel}
+                  accessibilityRole="button"
+                  accessibilityLabel="Cancel rename"
+                >
+                  <Text>Cancel</Text>
+                </Button>
+              </DialogClose>
               <Button
-                testID="rename-cancel-button"
-                variant="outline"
-                onPress={handleCancel}
+                testID="rename-save-button"
+                onPress={handleSaveRename}
+                disabled={isSaveDisabled}
                 accessibilityRole="button"
-                accessibilityLabel="Cancel rename"
+                accessibilityLabel={isRenaming ? 'Saving conversation name' : 'Save conversation name'}
+                accessibilityState={{ disabled: isSaveDisabled }}
               >
-                <Text>Cancel</Text>
+                <Text>{isRenaming ? 'Saving...' : 'Save'}</Text>
               </Button>
-            </DialogClose>
-            <Button
-              testID="rename-save-button"
-              onPress={handleSaveRename}
-              disabled={isSaveDisabled}
-              accessibilityRole="button"
-              accessibilityLabel={isRenaming ? 'Saving conversation name' : 'Save conversation name'}
-              accessibilityState={{ disabled: isSaveDisabled }}
-            >
-              <Text>{isRenaming ? 'Saving...' : 'Save'}</Text>
-            </Button>
-          </DialogFooter>
+            </DialogFooter>
+          </KeyboardAvoidingView>
         </DialogContent>
       </Dialog>
 

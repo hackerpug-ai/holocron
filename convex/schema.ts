@@ -5,6 +5,7 @@ export default defineSchema({
   // Core tables
   conversations: defineTable({
     title: v.string(),
+    titleSetByUser: v.optional(v.boolean()), // true if user manually set title, prevents auto-generation
     lastMessagePreview: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -38,13 +39,14 @@ export default defineSchema({
     time: v.optional(v.string()),
     researchType: v.optional(v.string()),
     iterations: v.optional(v.number()),
-    embedding: v.optional(v.array(v.float64())), // 1536 dimensions
+    embedding: v.optional(v.array(v.float64())), // 1024 dimensions (Z.ai embedding-2/embedding-3)
     createdAt: v.number(),
   })
+    .index("by_creationTime", ["createdAt"])
     .searchIndex("by_category", { searchField: "category" })
     .vectorIndex("by_embedding", {
       vectorField: "embedding",
-      dimensions: 1536,
+      dimensions: 1024,
     }),
 
   // Research tables
@@ -101,6 +103,7 @@ export default defineSchema({
     })),
     outputConfidenceFilter: v.optional(v.string()), // HIGH_ONLY | HIGH_MEDIUM | ALL
     errorReason: v.optional(v.string()), // timeout | unknown - populated when status is "error"
+    documentId: v.optional(v.id("documents")), // Link to generated document
     createdAt: v.number(),
     updatedAt: v.number(),
     completedAt: v.optional(v.number()),
@@ -116,6 +119,8 @@ export default defineSchema({
     findings: v.optional(v.string()),
     refinedQueries: v.optional(v.any()),
     status: v.string(),
+    // Short human-readable summary of what was found (3-6 words)
+    summary: v.optional(v.string()),
     // Confidence stats for this iteration
     confidenceStats: v.optional(v.object({
       highConfidenceCount: v.number(),
@@ -125,13 +130,13 @@ export default defineSchema({
       claimsWithMultipleSources: v.number(),
       totalClaims: v.number(),
     })),
-    embedding: v.optional(v.array(v.float64())), // 1536 dimensions
+    embedding: v.optional(v.array(v.float64())), // 1024 dimensions (Z.ai embedding-2/embedding-3)
     createdAt: v.number(),
   })
     .index("by_session", ["sessionId"])
     .vectorIndex("by_embedding", {
       vectorField: "embedding",
-      dimensions: 1536,
+      dimensions: 1024,
     }),
 
   // Research findings with per-claim confidence tracking
@@ -153,7 +158,7 @@ export default defineSchema({
     confidenceFactors: v.optional(v.any()), // Full factor details for transparency
     caveats: v.optional(v.array(v.string())), // MEDIUM confidence caveats
     warnings: v.optional(v.array(v.string())), // LOW confidence warnings
-    embedding: v.optional(v.array(v.float64())), // 1536 dimensions
+    embedding: v.optional(v.array(v.float64())), // 1024 dimensions (Z.ai embedding-2/embedding-3)
     createdAt: v.number(),
   })
     .index("by_session", ["sessionId"])
@@ -161,7 +166,7 @@ export default defineSchema({
     .index("by_confidence", ["confidenceLevel"])
     .vectorIndex("by_embedding", {
       vectorField: "embedding",
-      dimensions: 1536,
+      dimensions: 1024,
     }),
 
   // Task management
@@ -215,7 +220,8 @@ export default defineSchema({
       v.literal("changelog"),
       v.literal("reddit"),
       v.literal("ebay"),
-      v.literal("whats-new")
+      v.literal("whats-new"),
+      v.literal("creator")
     ),
     identifier: v.string(), // @handle, r/subreddit, search query, etc.
     name: v.string(),
@@ -248,6 +254,7 @@ export default defineSchema({
     ),
     discoveredAt: v.number(),
     researchedAt: v.optional(v.number()),
+    documentId: v.optional(v.id("documents")), // Link to created document
   })
     .index("by_source", ["sourceId", "discoveredAt"])
     .index("by_source_content", ["sourceId", "contentId"])
@@ -279,10 +286,112 @@ export default defineSchema({
     trendCount: v.number(),
     reportPath: v.string(), // Path to saved markdown report
     summaryJson: v.optional(v.any()), // Structured summary data
+    documentId: v.optional(v.id("documents")), // Link to full report document
     createdAt: v.number(),
   })
     .index("by_created", ["createdAt"])
     .index("by_period", ["periodStart", "periodEnd"]),
+
+  // Toolbelt tools - Developer tools knowledge base
+  toolbeltTools: defineTable({
+    // Core fields
+    title: v.string(),
+    description: v.optional(v.string()),
+    content: v.optional(v.string()),
+
+    // Category and status
+    category: v.union(
+      v.literal("libraries"),
+      v.literal("cli"),
+      v.literal("framework"),
+      v.literal("service"),
+      v.literal("database"),
+      v.literal("tool")
+    ),
+    status: v.union(
+      v.literal("complete"),
+      v.literal("draft"),
+      v.literal("archived")
+    ),
+
+    // Source metadata
+    sourceUrl: v.optional(v.string()),
+    sourceType: v.union(
+      v.literal("github"),
+      v.literal("npm"),
+      v.literal("pypi"),
+      v.literal("website"),
+      v.literal("cargo"),
+      v.literal("go"),
+      v.literal("other")
+    ),
+
+    // Toolbelt-specific metadata
+    tags: v.optional(v.array(v.string())),
+    useCases: v.optional(v.array(v.string())),
+    keywords: v.optional(v.array(v.string())),
+    language: v.optional(v.string()),
+
+    // Timestamps (matching toolbelt frontmatter)
+    date: v.optional(v.string()),  // YYYY-MM-DD
+    time: v.optional(v.string()),  // HH:MM
+
+    // Vector embedding
+    embedding: v.optional(v.array(v.float64())),
+
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_creationTime", ["createdAt"])
+    .index("by_category", ["category"])
+    .index("by_sourceType", ["sourceType"])
+    .vectorIndex("by_embedding", {
+      vectorField: "embedding",
+      dimensions: 1024,
+    }),
+
+  // Shop sessions - Product search sessions
+  shopSessions: defineTable({
+    conversationId: v.optional(v.id("conversations")),
+    query: v.string(),
+    condition: v.optional(v.string()), // "new" | "used" | "any"
+    priceMin: v.optional(v.number()),
+    priceMax: v.optional(v.number()),
+    retailers: v.optional(v.array(v.string())),
+    status: v.string(), // "pending" | "searching" | "completed" | "failed"
+    totalListings: v.optional(v.number()),
+    bestDealId: v.optional(v.id("shopListings")),
+    errorReason: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    completedAt: v.optional(v.number()),
+  })
+    .index("by_conversation", ["conversationId"])
+    .index("by_status", ["status"])
+    .index("by_created", ["createdAt"]),
+
+  // Shop listings - Individual product listings
+  shopListings: defineTable({
+    sessionId: v.id("shopSessions"),
+    title: v.string(),
+    price: v.number(), // In cents
+    originalPrice: v.optional(v.number()),
+    currency: v.string(),
+    condition: v.string(),
+    retailer: v.string(),
+    seller: v.optional(v.string()),
+    sellerRating: v.optional(v.number()),
+    url: v.string(),
+    imageUrl: v.optional(v.string()),
+    inStock: v.optional(v.boolean()),
+    productHash: v.string(), // For deduplication
+    isDuplicate: v.boolean(),
+    dealScore: v.optional(v.number()), // 0-100 computed score
+    createdAt: v.number(),
+  })
+    .index("by_session", ["sessionId"])
+    .index("by_session_deal_score", ["sessionId", "dealScore"])
+    .index("by_product_hash", ["productHash"]),
 
   // Assimilation metadata for Borg-themed repository analysis
   assimilationMetadata: defineTable({

@@ -48,40 +48,22 @@ function CustomDrawerContent() {
     router.push('/chat/new')
   }
 
-  const handleConversationPress = (conversation: Conversation) => {
-    setActiveConversationId(conversation.id)
-    // Navigate to the conversation's chat route
-    router.push(`/chat/${conversation.id}`)
-  }
-
   const handleConversationLongPress = (conversation: Conversation) => {
     setActionMenuConversation({ id: conversation.id, title: conversation.title })
     setIsActionMenuOpen(true)
   }
 
   const handleConversationDelete = (conversation: Conversation) => {
-    setActionMenuConversation({ id: conversation.id, title: conversation.title })
-    setIsActionMenuOpen(true)
+    // Swipe-to-delete: execute delete immediately
+    executeDelete(conversation.id)
   }
 
-  const handleRename = async (newTitle: string) => {
-    if (!actionMenuConversation) return
+  const executeDelete = async (conversationId: string) => {
     try {
-      // Convert string ID to Convex ID type
-      await updateConversation({ id: actionMenuConversation.id as any, title: newTitle })
-      setIsActionMenuOpen(false)
-    } catch (err) {
-      log('DrawerLayout').error('Failed to rename conversation', err, { id: actionMenuConversation.id, newTitle })
-    }
-  }
-
-  const handleDelete = async () => {
-    if (!actionMenuConversation) return
-    try {
-      const isDeletingActive = actionMenuConversation.id === activeConversationId
+      const isDeletingActive = conversationId === activeConversationId
 
       // Get remaining conversations before deletion
-      const remaining = conversations.filter((c: Doc<'conversations'>) => c._id !== actionMenuConversation.id)
+      const remaining = conversations.filter((c: Doc<'conversations'>) => c._id !== conversationId)
 
       let navigateToId: string | null = null
       if (isDeletingActive) {
@@ -97,31 +79,47 @@ function CustomDrawerContent() {
         }
       }
 
-      await removeConversation({ id: actionMenuConversation.id as any })
-      setIsActionMenuOpen(false)
+      await removeConversation({ id: conversationId as any })
 
       // Navigate to the next conversation if the active one was deleted
       if (navigateToId) {
         router.push(`/chat/${navigateToId}`)
       }
     } catch (err) {
-      log('DrawerLayout').error('Failed to delete conversation', err, { id: actionMenuConversation.id })
+      log('DrawerLayout').error('Failed to delete conversation', err, { id: conversationId })
     }
   }
 
-  const handleHolocronPress = () => {
-    // Navigate to the active conversation or the most recent one
-    const targetId = activeConversationId ?? conversations[0]?._id
-    if (targetId) {
-      router.push(`/chat/${targetId}`)
-    } else {
-      // If no conversations exist, navigate to home
-      router.push('/')
+  const handleRename = async (newTitle: string) => {
+    if (!actionMenuConversation) return
+    try {
+      // Convert string ID to Convex ID type
+      await updateConversation({ id: actionMenuConversation.id as any, title: newTitle })
+      setIsActionMenuOpen(false)
+    } catch (err) {
+      log('DrawerLayout').error('Failed to rename conversation', err, { id: actionMenuConversation.id, newTitle })
     }
+  }
+
+  const handleDelete = async () => {
+    if (!actionMenuConversation) return
+    // For action menu deletes, use the same execution logic
+    await executeDelete(actionMenuConversation.id)
+    setIsActionMenuOpen(false)
+  }
+
+  // Navigate to conversation
+  const handleConversationPress = (conversation: Conversation) => {
+    setActiveConversationId(conversation.id)
+    router.push(`/chat/${conversation.id}`)
   }
 
   const handleArticlesPress = () => {
     router.push('/articles')
+  }
+
+  const handleToolbeltPress = () => {
+    router.push('/toolbelt')
   }
 
   const handleSettingsPress = () => {
@@ -150,8 +148,8 @@ function CustomDrawerContent() {
       onConversationPress={handleConversationPress}
       onConversationLongPress={handleConversationLongPress}
       onConversationDelete={handleConversationDelete}
-      onHolocronPress={handleHolocronPress}
       onArticlesPress={handleArticlesPress}
+      onToolbeltPress={handleToolbeltPress}
       onSettingsPress={handleSettingsPress}
       onRetry={() => {}}
       actionMenuOpen={isActionMenuOpen}
@@ -245,12 +243,12 @@ export default function DrawerLayout() {
           options={{ headerShown: false, title: 'Chat' }}
         />
         <Drawer.Screen
-          name="(tabs)"
-          options={{ headerShown: false, title: 'Holocron' }}
-        />
-        <Drawer.Screen
           name="research/[sessionId]"
           options={{ headerShown: false, title: 'Research Details' }}
+        />
+        <Drawer.Screen
+          name="articles"
+          options={{ headerShown: false, title: 'Articles' }}
         />
       </Drawer>
     </SafeAreaView>

@@ -11,10 +11,10 @@
 
 import { action, mutation } from "../_generated/server";
 import { v } from "convex/values";
-import { api } from "../_generated/api";
+import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { generateText, tool } from "ai";
-import { openai } from "@ai-sdk/openai";
+import { zaiPro, zaiFlash } from "../lib/ai/zai_provider";
 import { z } from "zod";
 import Exa from "exa-js";
 import {
@@ -23,16 +23,21 @@ import {
   jinaSiteSearchTool,
   jinaReaderTool,
 } from "./tools";
+import { stripMarkdownCodeBlock } from "../lib/json";
 import {
   executeParallelSearchWithRetry,
+  executeParallelUrlRead,
   type ParallelSearchResult,
+  type UrlReadResult,
 } from "./search";
 import {
   buildResearchContext,
   buildSearchPrompt,
   buildSynthesisPrompt,
   buildReviewPrompt,
+  buildSinglePassSynthesisPrompt,
   type StructuredFinding,
+  type UrlContent,
 } from "./prompts";
 import {
   calculateConfidenceScore,
@@ -299,10 +304,10 @@ export async function runIterativeResearch(
         `[runIterativeResearch] Step 2b: Synthesis prompt length: ${synthesisPrompt.length} chars`,
       );
 
-      console.log(`[runIterativeResearch] Step 2b: Calling LLM (gpt-5) for synthesis`);
+      console.log(`[runIterativeResearch] Step 2b: Calling LLM (glm-4.7) for synthesis`);
       const synthesisStartTime = Date.now();
       const synthesisResult = await generateText({
-        model: openai("gpt-5"),
+        model: zaiPro(),
         prompt: synthesisPrompt,
       });
       const synthesisDuration = Date.now() - synthesisStartTime;
@@ -470,11 +475,11 @@ export async function runIterativeResearch(
       );
 
       console.log(
-        `[runIterativeResearch] Step 2c: Calling LLM (gpt-5) for coverage review`,
+        `[runIterativeResearch] Step 2c: Calling LLM (glm-4.7) for coverage review`,
       );
       const reviewStartTime = Date.now();
       const reviewResult = await generateText({
-        model: openai("gpt-5"),
+        model: zaiPro(),
         prompt: reviewPrompt,
       });
       const reviewDuration = Date.now() - reviewStartTime;
@@ -502,7 +507,7 @@ export async function runIterativeResearch(
 
       console.log(`[runIterativeResearch] Step 2c: Parsing review JSON`);
       try {
-        review = JSON.parse(reviewResult.text);
+        review = JSON.parse(stripMarkdownCodeBlock(reviewResult.text));
         console.log(
           `[runIterativeResearch] Step 2c: Review parsed successfully - score: ${review.coverageScore}, gaps: ${review.gaps.length}, shouldContinue: ${review.shouldContinue}`,
         );
@@ -711,14 +716,15 @@ export const hybridSearchIterations = action({
 /**
  * Research Strategy Type
  */
-export type ResearchStrategy = "ralph_loop" | "parallel_fan_out";
+export type ResearchStrategy = "ralph_loop" | "parallel_fan_out" | "parallel_iteration" | "single_pass";
 
 /**
  * Analyze Research Strategy
  *
  * Determines the optimal research strategy based on query characteristics:
  * - parallel_fan_out: Simple questions, comparisons, short queries
- * - ralph_loop: Complex topics, deep research requests, long queries
+ * - single_pass: Deep research requests - fast parallel approach with full URL reading
+ * - ralph_loop: Complex multi-iteration research with quality gates (legacy)
  *
  * @param topic - Research topic to analyze
  * @returns Recommended research strategy
@@ -742,17 +748,17 @@ export function analyzeResearchStrategy(topic: string): ResearchStrategy {
     return "parallel_fan_out";
   }
 
-  // Deep research explicit request (favor ralph loop)
+  // Deep research explicit request - use single_pass for speed
   const isDeepRequest = words.includes("deep") || words.includes("comprehensive") || words.includes("thorough") || words.includes("detailed");
   if (isDeepRequest) {
-    console.log(`[analyzeResearchStrategy] Deep research request detected -> ralph_loop`);
-    return "ralph_loop";
+    console.log(`[analyzeResearchStrategy] Deep research request detected -> single_pass`);
+    return "single_pass";
   }
 
-  // Long queries suggest complexity (favor ralph loop)
+  // Long queries suggest complexity - use single_pass
   if (wordCount > 15) {
-    console.log(`[analyzeResearchStrategy] Long query (${wordCount} words) -> ralph_loop`);
-    return "ralph_loop";
+    console.log(`[analyzeResearchStrategy] Long query (${wordCount} words) -> single_pass`);
+    return "single_pass";
   }
 
   // Default to fast path for most queries
@@ -849,7 +855,7 @@ export const startSimpleResearch = action({
 
     console.log(`[startSimpleResearch] All domain searches complete - ${totalResults} results`);
 
-    // Step 6: Single-pass synthesis
+    // Step 6: Single-pass synthesis - output pure markdown article
     console.log(`[startSimpleResearch] Running synthesis`);
 
     // Build synthesis prompt
@@ -859,48 +865,101 @@ export const startSimpleResearch = action({
       )
       .join("\n");
 
-    const synthesisPrompt = `Synthesize the following parallel research results into a comprehensive response.
+    // Count total sources for confidence estimation
+    const sourceCount = totalResults;
 
-Topic: ${topic}
+    const synthesisPrompt = `Synthesize the following research results into a well-formatted markdown article.
 
-Research Results:
+**Topic:** ${topic}
+
+**Research Results:**
 ${resultsSection}
 
-Provide a well-structured summary that:
-1. Identifies key findings across all domains
-2. Notes any contradictions or gaps
-3. Provides actionable insights
-4. Includes source citations in [Title](URL) format
+Write a complete markdown article with this exact structure:
 
-Return a JSON object:
-{
-  "summary": "A comprehensive 300-500 word summary",
-  "confidence": "HIGH" | "MEDIUM" | "LOW"
-}`;
+# ${topic}
+
+## Summary
+Write 2-3 sentences that directly answer the research question. This should be a clear, actionable takeaway.
+
+## Key Findings
+
+Present 3-7 key findings, each as a subsection:
+
+### Finding Title
+1-2 paragraphs explaining the finding with inline citations like [Source Title](URL).
+
+### Another Finding
+Continue with additional findings...
+
+## Sources
+List all sources used:
+- [Source Title](URL) - Brief description of what it contributed
+- [Source Title](URL) - Brief description
+
+## Confidence Assessment
+State whether confidence is HIGH, MEDIUM, or LOW based on:
+- HIGH: Multiple corroborating authoritative sources
+- MEDIUM: Limited sources or some gaps
+- LOW: Conflicting information or unreliable sources
+
+**IMPORTANT:**
+- Output ONLY the markdown article - no JSON, no code blocks, no wrapper
+- Start directly with the # heading
+- Use inline [Title](URL) citations throughout
+- Be specific and actionable`;
 
     const synthesisResult = await generateText({
-      model: openai("gpt-5"),
+      model: zaiPro(),
       prompt: synthesisPrompt,
     });
 
-    // Parse synthesis result
-    let synthesis: {
-      summary: string;
-      confidence: string;
-    };
+    // The LLM outputs pure markdown - use it directly
+    const report = synthesisResult.text.trim();
 
-    try {
-      synthesis = JSON.parse(synthesisResult.text);
-    } catch {
-      synthesis = {
-        summary: synthesisResult.text,
-        confidence: "MEDIUM",
-      };
+    // Extract summary from the Summary section
+    const summaryMatch = report.match(/## Summary\s*\n+([\s\S]*?)(?=\n##|\n#|$)/);
+    const summary = summaryMatch
+      ? summaryMatch[1].trim().substring(0, 250)
+      : report.substring(0, 250);
+
+    // Extract confidence from the Confidence Assessment section
+    let confidence: "HIGH" | "MEDIUM" | "LOW" = "MEDIUM";
+    const confidenceMatch = report.match(/confidence is (HIGH|MEDIUM|LOW)/i);
+    if (confidenceMatch) {
+      confidence = confidenceMatch[1].toUpperCase() as "HIGH" | "MEDIUM" | "LOW";
+    } else if (sourceCount >= 8) {
+      confidence = "HIGH";
+    } else if (sourceCount >= 4) {
+      confidence = "MEDIUM";
+    } else {
+      confidence = "LOW";
     }
+
+    const synthesis = { report, summary, confidence };
 
     console.log(`[startSimpleResearch] Synthesis complete - confidence: ${synthesis.confidence}`);
 
-    // Step 7: Complete session (store findings in session, no iteration record)
+    // Step 7: Create document with full report content BEFORE completing session
+    console.log(`[startSimpleResearch] Creating document with full report`);
+    const docResult = await ctx.runAction(api.documents.storage.createWithEmbedding, {
+      title: `Research: ${topic}`,
+      content: synthesis.report,
+      category: "research",
+      researchType: "simple",
+    });
+
+    console.log(`[startSimpleResearch] Document created: ${docResult.documentId}`);
+
+    // Link document to session
+    await ctx.runMutation(internal.research.mutations.updateDeepResearchSessionDocumentId, {
+      sessionId,
+      documentId: docResult.documentId as Id<"documents">,
+    });
+
+    console.log(`[startSimpleResearch] Document linked to session`);
+
+    // Step 8: Complete session (document already exists, will skip createResearchDocument)
     await ctx.runMutation(api.research.mutations.completeDeepResearchSession, {
       sessionId,
       status: "completed",
@@ -914,22 +973,10 @@ Return a JSON object:
       currentCoverageScore: synthesis.confidence === "HIGH" ? 4 : synthesis.confidence === "MEDIUM" ? 3 : 2,
     });
 
-    // Step 8: Post result card
+    // NOTE: Do NOT create a result card message here.
+    // The caller (chat/index.ts sendMessage) will persist the result card.
+    // Creating it here causes duplicate messages.
     const totalTime = Date.now() - startTime;
-    await ctx.runMutation(api.chatMessages.mutations.create, {
-      conversationId: effectiveConversationId,
-      role: "agent" as const,
-      content: synthesis.summary,
-      messageType: "result_card" as const,
-      cardData: {
-        card_type: "simple_research_result",
-        session_id: sessionId,
-        topic,
-        summary: synthesis.summary,
-        confidence: synthesis.confidence,
-        duration_ms: totalTime,
-      },
-    });
 
     console.log(`[startSimpleResearch] Exit - completed in ${totalTime}ms`);
 
@@ -941,6 +988,231 @@ Return a JSON object:
       confidence: synthesis.confidence,
       durationMs: totalTime,
     };
+  },
+});
+
+/**
+ * Single-Pass Research Result Type
+ */
+export interface SinglePassResearchResult {
+  sessionId: Id<"deepResearchSessions">;
+  conversationId: Id<"conversations">;
+  status: string;
+  strategy: "single_pass";
+  summary: string;
+  confidence: string;
+  sourcesRead: number;
+  durationMs: number;
+}
+
+/**
+ * Execute Single-Pass Research Strategy (Internal Helper)
+ *
+ * Fast single-pass research that:
+ * 1. Generates 3 query variants
+ * 2. Executes parallel searches (Exa + Jina)
+ * 3. Deduplicates URLs, reads top 8 in parallel
+ * 4. Single synthesis with full content
+ * 5. Creates iteration record and completes session
+ *
+ * Target: 20-35 seconds with full URL content reading.
+ *
+ * @param ctx - Convex action context
+ * @param conversationId - Optional conversation to post results to
+ * @param topic - Research topic
+ */
+export async function executeSinglePassResearch(
+  ctx: any,
+  conversationId: Id<"conversations"> | undefined,
+  topic: string
+): Promise<SinglePassResearchResult> {
+  const startTime = Date.now();
+  console.log(`[executeSinglePassResearch] Entry - topic: "${topic}"`);
+
+  // Step 1: Create conversation if needed
+  const effectiveConversationId =
+    conversationId ??
+    (await ctx.runMutation(api.conversations.mutations.create, {
+      title: `Deep Research: ${topic}`,
+    }));
+
+  // Step 2: Create session with researchType: "single_pass"
+  const sessionId = await ctx.runMutation(
+    api.research.mutations.createDeepResearchSession,
+    {
+      conversationId: effectiveConversationId,
+      topic,
+      maxIterations: 1,
+      researchType: "single_pass",
+    }
+  );
+
+  console.log(
+    `[executeSinglePassResearch] Session created - ID: ${sessionId}, type: single_pass`
+  );
+
+  // Step 3: Post loading card (simple spinner)
+  await ctx.runMutation(api.chatMessages.mutations.create, {
+    conversationId: effectiveConversationId,
+    role: "agent" as const,
+    content: `Researching: ${topic}`,
+    messageType: "result_card" as const,
+    cardData: {
+      card_type: "deep_research_loading",
+      status: "in_progress",
+      session_id: sessionId,
+      topic,
+    },
+  });
+
+  // Step 4: Generate 3 query variants
+  console.log(`[executeSinglePassResearch] Generating query variants`);
+  const { generateQueryVariants } = await import("./parallel_iteration");
+  const variants = await generateQueryVariants(topic);
+  console.log(
+    `[executeSinglePassResearch] Generated ${variants.length} query variants`
+  );
+
+  // Step 5: Execute all variants in parallel (8 searches: 4 queries x 2 engines)
+  console.log(`[executeSinglePassResearch] Executing parallel searches`);
+  const searchPromises = variants.map((variant) =>
+    executeParallelSearchWithRetry(
+      variant.query,
+      {},
+      [],
+      { maxRetries: 2, timeoutMs: 12000, deduplicateResults: true }
+    )
+  );
+
+  const searchResults = await Promise.all(searchPromises);
+  const allResults = searchResults.flatMap((r) => r.structuredResults);
+  const totalSearchResults = allResults.length;
+
+  console.log(
+    `[executeSinglePassResearch] Search complete - ${totalSearchResults} results`
+  );
+
+  // Step 6: Deduplicate URLs and select top 8 for reading
+  const uniqueUrls = new Map<string, { url: string; title: string }>();
+  for (const result of allResults) {
+    const normalizedUrl = result.url.toLowerCase().replace(/\/$/, "");
+    if (!uniqueUrls.has(normalizedUrl) && result.url) {
+      uniqueUrls.set(normalizedUrl, {
+        url: result.url,
+        title: result.title || "Untitled",
+      });
+    }
+  }
+
+  const urlsToRead = Array.from(uniqueUrls.values())
+    .slice(0, 8)
+    .map((u) => u.url);
+
+  console.log(
+    `[executeSinglePassResearch] Reading ${urlsToRead.length} URLs in parallel`
+  );
+
+  // Step 7: Read top URLs in parallel
+  const urlReadResults = await executeParallelUrlRead(urlsToRead, {
+    maxConcurrent: 5,
+    timeoutMs: 15000,
+    maxContentLength: 10000,
+  });
+
+  const successfulReads = urlReadResults.filter((r) => r.success);
+  console.log(
+    `[executeSinglePassResearch] Read ${successfulReads.length}/${urlsToRead.length} URLs successfully`
+  );
+
+  // Step 8: Build URL content for synthesis
+  const urlContents: UrlContent[] = urlReadResults
+    .filter((r) => r.success && r.content.length > 100)
+    .map((r) => ({
+      url: r.url,
+      title: r.title,
+      content: r.content,
+    }));
+
+  // Build search snippets as fallback
+  const searchSnippets = searchResults
+    .map((r) => r.findings)
+    .join("\n\n---\n\n");
+
+  // Step 9: Single synthesis with full content
+  console.log(`[executeSinglePassResearch] Running synthesis with zaiPro`);
+  const synthesisPrompt = buildSinglePassSynthesisPrompt(
+    topic,
+    urlContents,
+    searchSnippets
+  );
+
+  const synthesisResult = await generateText({
+    model: zaiPro(),
+    prompt: synthesisPrompt,
+  });
+
+  // The report is returned directly as markdown
+  const report = synthesisResult.text;
+
+  // Determine confidence from report content
+  let confidence = "MEDIUM";
+  if (report.toLowerCase().includes("confidence: high") || report.toLowerCase().includes("**high**")) {
+    confidence = "HIGH";
+  } else if (report.toLowerCase().includes("confidence: low") || report.toLowerCase().includes("**low**")) {
+    confidence = "LOW";
+  }
+
+  console.log(
+    `[executeSinglePassResearch] Synthesis complete - confidence: ${confidence}`
+  );
+
+  // Step 10: Create iteration record
+  await ctx.runMutation(api.research.mutations.createDeepResearchIteration, {
+    sessionId,
+    iterationNumber: 1,
+    coverageScore: confidence === "HIGH" ? 4 : confidence === "MEDIUM" ? 3 : 2,
+    feedback: `Single-pass research completed with ${successfulReads.length} full sources read`,
+    findings: report,
+    refinedQueries: [],
+    status: "completed",
+  });
+
+  // Step 11: Complete session (triggers document creation)
+  await ctx.runMutation(api.research.mutations.completeDeepResearchSession, {
+    sessionId,
+    status: "completed",
+  });
+
+  const totalTime = Date.now() - startTime;
+
+  console.log(
+    `[executeSinglePassResearch] Exit - completed in ${totalTime}ms`
+  );
+
+  return {
+    sessionId,
+    conversationId: effectiveConversationId,
+    status: "completed",
+    strategy: "single_pass",
+    summary: report.substring(0, 500) + "...",
+    confidence,
+    sourcesRead: successfulReads.length,
+    durationMs: totalTime,
+  };
+}
+
+/**
+ * Run Single-Pass Research Action
+ *
+ * Exposed action for single-pass research strategy.
+ */
+export const runSinglePassResearch = action({
+  args: {
+    conversationId: v.optional(v.id("conversations")),
+    topic: v.string(),
+  },
+  handler: async (ctx, { conversationId, topic }): Promise<SinglePassResearchResult> => {
+    return executeSinglePassResearch(ctx, conversationId, topic);
   },
 });
 
@@ -984,6 +1256,23 @@ export const startSmartResearch = action({
       const { executeParallelFanOut } = await import("./parallel");
       const result = await executeParallelFanOut(ctx, conversationId, topic, true);
       return result;
+    } else if (strategy === "parallel_iteration") {
+      // Import and run parallel iteration for deep research
+      const { executeParallelIteration } = await import("./parallel_iteration");
+      const result = await executeParallelIteration(ctx, conversationId, topic);
+      return result;
+    } else if (strategy === "single_pass") {
+      // Fast single-pass research with full URL reading
+      const result = await executeSinglePassResearch(ctx, conversationId, topic);
+      return {
+        sessionId: result.sessionId,
+        conversationId: result.conversationId,
+        status: result.status,
+        strategy: result.strategy,
+        summary: result.summary,
+        confidence: result.confidence,
+        durationMs: result.durationMs,
+      };
     } else {
       // Run full iterative research for complex queries
       // Step 0: Create conversation

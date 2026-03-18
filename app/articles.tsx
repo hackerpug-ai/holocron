@@ -1,12 +1,15 @@
 import { ArticlesScreen } from '@/screens/articles-screen'
 import { useQuery, useAction } from 'convex/react'
 import { api } from '@/convex/_generated/api'
-import { ArticleDetail, type MockArticle } from '@/components/screens/article-detail'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import type { CategoryType } from '@/components/CategoryBadge'
 import { ScreenLayout } from '@/components/ui/screen-layout'
 import { useRouter } from 'expo-router'
-import type { Id, Doc } from '@/convex/_generated/dataModel'
+import type { Doc } from '@/convex/_generated/dataModel'
+import {
+  mapDocumentCategoryToCategoryType,
+  mapCategoryTypeToDocumentCategory,
+} from '@/lib/category-mapping'
 
 interface Article {
   id: string
@@ -20,6 +23,38 @@ interface Article {
 type DocumentDoc = Doc<'documents'>
 
 /**
+ * Custom debounce hook that properly cancels on unmount
+ */
+function useDebounce<T extends (...args: any[]) => any>(fn: T, delay: number): T {
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const fnRef = useRef(fn)
+
+  // Keep fn ref up to date
+  useEffect(() => {
+    fnRef.current = fn
+  }, [fn])
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current)
+      }
+    }
+  }, [])
+
+  return useCallback(
+    ((...args: Parameters<T>) => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current)
+      }
+      timeoutRef.current = setTimeout(() => fnRef.current(...args), delay)
+    }) as T,
+    [delay]
+  )
+}
+
+/**
  * Articles route screen
  * Displays all documents from the Convex knowledge base with filtering and search.
  * Accessed from the drawer navigation.
@@ -28,87 +63,156 @@ export default function ArticlesRoute() {
   const router = useRouter()
   const [selectedCategory, setSelectedCategory] = useState<CategoryType | null>(null)
   const [searchQuery, setSearchQuery] = useState<string>('')
-  const [articleDetailVisible, setArticleDetailVisible] = useState(false)
-  const [selectedArticle, setSelectedArticle] = useState<MockArticle | null>(null)
+  const [searchResults, setSearchResults] = useState<Article[] | null>(null)
+  const [isSearching, setIsSearching] = useState(false)
 
-  // Map category type to Convex category string
-  const convexCategory = selectedCategory === 'research' ||
-    selectedCategory === 'deep-research' ||
-    selectedCategory === 'factual' ||
-    selectedCategory === 'academic'
-    ? 'research'
-    : undefined
+  // Map category type to Convex category string using centralized mapping
+  const convexCategory = mapCategoryTypeToDocumentCategory(selectedCategory)
 
-  // Fetch documents using Convex query
-  const documents = useQuery(
-    api.documents.queries.list,
-    convexCategory ? { category: convexCategory } : 'skip'
+  // Stable query args to ensure Convex detects changes properly
+  const listQueryArgs = useMemo(
+    () => (convexCategory ? { category: convexCategory } : {}),
+    [convexCategory]
   )
 
-  // Local state for search results
-  const [searchResults, setSearchResults] = useState<DocumentDoc[]>([])
+  // Fetch documents using Convex query with stable args
+  const documents = useQuery(api.documents.queries.list, listQueryArgs)
 
-  // Fetch search results if query is provided
-  const handleSearch = async (query: string) => {
-    setSearchQuery(query)
-    if (query.trim()) {
-      // Note: useAction cannot be called conditionally, so we'd need to handle this differently
-      // For now, just use the list results
-      setSearchResults([])
+  // Fetch total count for accurate display
+  const totalCount = useQuery(api.documents.queries.countWithFilter, listQueryArgs)
+
+  // Fetch category counts to sort categories with articles first
+  const categoryCounts = useQuery(api.documents.queries.countByCategory, {})
+
+  // Filter to only populated categories, sorted by count descending
+  const availableCategories = useMemo(() => {
+    if (!categoryCounts) return []
+
+    // Get all category keys from categoryCounts and filter to non-empty
+    return (Object.keys(categoryCounts) as CategoryType[])
+      .filter((cat) => (categoryCounts[cat] ?? 0) > 0)
+      .sort((a, b) => (categoryCounts[b] ?? 0) - (categoryCounts[a] ?? 0))
+  }, [categoryCounts])
+
+  // Calculate total article count across all categories
+  const totalArticleCount = useMemo(() => {
+    if (!categoryCounts) return 0
+    return Object.values(categoryCounts as Record<string, number>).reduce(
+      (sum, count) => sum + (count ?? 0),
+      0
+    )
+  }, [categoryCounts])
+
+  // Hybrid search action
+  const hybridSearch = useAction(api.documents.search.hybridSearch)
+
+  // Search handler
+  const performSearch = useCallback(
+    async (query: string) => {
+      if (!query.trim()) {
+        setSearchResults(null)
+        return
+      }
+
+      setIsSearching(true)
+      try {
+        const results = await hybridSearch({
+          query,
+          limit: 50,
+          category: convexCategory,
+        })
+
+        // Transform results to Article format
+        const articles: Article[] = results.map((doc: { _id: string; title: string; category: string; createdAt?: number; content?: string; iterations?: number }) => ({
+          id: doc._id,
+          title: doc.title,
+          category: mapDocumentCategoryToCategoryType(doc.category),
+          date: doc.createdAt ? new Date(doc.createdAt).toISOString() : new Date().toISOString(),
+          snippet: doc.content?.slice(0, 200) + '...',
+          iterationCount: doc.iterations,
+        }))
+
+        setSearchResults(articles)
+      } catch (error) {
+        console.error('Search failed:', error)
+        setSearchResults(null)
+      } finally {
+        setIsSearching(false)
+      }
+    },
+    [hybridSearch, convexCategory]
+  )
+
+  // Debounced search (300ms)
+  const debouncedSearch = useDebounce(performSearch, 300)
+
+  // Trigger search when query changes
+  useEffect(() => {
+    debouncedSearch(searchQuery)
+  }, [searchQuery, debouncedSearch])
+
+  // Also search when category changes (if there's an active search)
+  useEffect(() => {
+    if (searchQuery.trim()) {
+      performSearch(searchQuery)
     }
-  }
+  }, [convexCategory, performSearch, searchQuery])
 
-  // Determine which data source to use (search or list)
+  // Determine which data source to use
   const isLoading = documents === undefined
+  const isLoadingCategories = categoryCounts === undefined
   const sourceDocuments = useMemo(() => {
-    if (searchQuery.trim() && searchResults.length > 0) {
-      return searchResults
-    }
     return documents ?? []
-  }, [documents, searchQuery, searchResults])
+  }, [documents])
 
-  // Transform Convex documents to Article format
+  // Transform Convex documents to Article format (for non-search display)
   const articles: Article[] = useMemo(() => {
-    return sourceDocuments.map((doc: DocumentDoc) => ({
-      id: doc._id,
-      title: doc.title,
-      category: doc.category === 'research' ? 'research' : 'general',
-      date: doc.date ?? new Date(doc.createdAt).toISOString(),
-      snippet: doc.content ? doc.content.slice(0, 200) + '...' : undefined,
-      iterationCount: doc.iterations,
-    }))
+    return sourceDocuments.map((doc: DocumentDoc) => {
+      const category = mapDocumentCategoryToCategoryType(doc.category)
+
+      // Safely convert createdAt timestamp to ISO string
+      let dateString = doc.date
+      if (!dateString && doc.createdAt) {
+        try {
+          const date = new Date(doc.createdAt)
+          if (!isNaN(date.getTime())) {
+            dateString = date.toISOString()
+          } else {
+            dateString = new Date().toISOString()
+          }
+        } catch {
+          dateString = new Date().toISOString()
+        }
+      }
+
+      // Convex documents always have _id - it's automatically generated
+      const id = doc._id
+
+      return {
+        id,
+        title: doc.title,
+        category,
+        date: dateString ?? new Date().toISOString(),
+        snippet: doc.content ? doc.content.slice(0, 200) + '...' : undefined,
+        iterationCount: doc.iterations,
+      }
+    })
   }, [sourceDocuments])
+
+  // Use search results when there's an active search, otherwise use all articles
+  const displayArticles = searchQuery.trim() && searchResults ? searchResults : articles
 
   const handleCategoryChange = (category?: CategoryType) => {
     setSelectedCategory(category ?? null)
   }
 
-  const handleArticlePress = async (article: Article) => {
-    try {
-      // article.id is already a Convex ID string
-      const docId = article.id as Id<"documents">
+  const handleSearch = (query: string) => {
+    setSearchQuery(query)
+  }
 
-      // Find the document in our current list
-      const document = sourceDocuments.find((doc: DocumentDoc) => doc._id === docId)
-
-      if (document) {
-        // Transform Document to MockArticle format for ArticleDetail
-        const mockArticle: MockArticle = {
-          id: document._id, // Convex ID is a string, MockArticle accepts string | number
-          title: document.title,
-          content: document.content || '',
-          category: article.category, // Already a CategoryType from Article
-          date: document.date || new Date(document.createdAt).toISOString(),
-          time: document.time,
-          research_type: document.researchType,
-        }
-
-        setSelectedArticle(mockArticle)
-        setArticleDetailVisible(true)
-      }
-    } catch (error) {
-      console.error('Failed to fetch article:', error)
-    }
+  const handleArticlePress = (article: Article) => {
+    // Navigate to the article detail route
+    router.push(`/articles/${article.id}`)
   }
 
   return (
@@ -122,23 +226,19 @@ export default function ArticlesRoute() {
       testID="articles-route-layout"
     >
       <ArticlesScreen
-        articles={articles}
+        articles={displayArticles}
+        totalCount={searchQuery.trim() ? searchResults?.length : totalCount}
+        categories={availableCategories}
+        categoryCounts={categoryCounts}
+        totalArticleCount={totalArticleCount}
         selectedCategory={selectedCategory}
-        loading={isLoading}
+        loading={isLoading || isSearching}
+        isLoadingCategories={isLoadingCategories}
         onSearch={handleSearch}
         onCategoryChange={handleCategoryChange}
         onArticlePress={handleArticlePress}
         testID="articles-route"
       />
-      {/* ArticleDetail overlay */}
-      {selectedArticle && (
-        <ArticleDetail
-          article={selectedArticle}
-          visible={articleDetailVisible}
-          onClose={() => setArticleDetailVisible(false)}
-          testID="articles-route-article-detail"
-        />
-      )}
     </ScreenLayout>
   )
 }

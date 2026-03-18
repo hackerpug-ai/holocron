@@ -45,39 +45,41 @@ export const colors = {
     tableBody: '#535353',
   },
   dark: {
-    background: '#020817',
-    foreground: '#F8FAFC',
-    inverse: '#020817', // Opposite of foreground for code blocks
-    card: '#020817',
-    cardForeground: '#F8FAFC',
-    popover: '#020817',
-    popoverForeground: '#F8FAFC',
-    primary: '#F8FAFC',
-    primaryForeground: '#0F172A',
-    secondary: '#1E293B',
-    secondaryForeground: '#F8FAFC',
-    muted: '#1E293B',
-    mutedForeground: '#94A3B8',
-    accent: '#1E293B',
-    accentForeground: '#F8FAFC',
-    destructive: '#7F1D1D',
-    destructiveForeground: '#F8FAFC',
-    border: '#1E293B',
-    input: '#1E293B',
-    ring: '#CBD5E1',
+    // "Crystalline Archive" theme - Holocron knowledge repository aesthetic
+    // Deep blue-black backgrounds with amber/gold accents and teal links
+    background: '#0A0E14', // Deep navy-black base canvas
+    foreground: '#E8E4DE', // Warm cream text (easier on eyes)
+    inverse: '#0A0E14', // Opposite of foreground for code blocks
+    card: '#111820', // Elevated navy surface
+    cardForeground: '#E8E4DE',
+    popover: '#151C26', // Modal/dropdown surface
+    popoverForeground: '#E8E4DE',
+    primary: '#F5A623', // Amber/gold glow - key actions
+    primaryForeground: '#0A0E14', // Dark text on primary
+    secondary: '#1A2332', // Secondary navy surface
+    secondaryForeground: '#C9D1DD', // Light text on secondary
+    muted: '#1E2A3B', // Subtle/disabled areas
+    mutedForeground: '#8B9AAF', // Muted text
+    accent: '#1A3A4A', // Accent surface (teal-tinted)
+    accentForeground: '#4FD1C5', // Teal accent text
+    destructive: '#EF4444', // Error/danger
+    destructiveForeground: '#FFFFFF',
+    border: '#1E2A3B', // Default borders
+    input: '#151C26', // Input backgrounds
+    ring: '#F5A623', // Focus rings (amber glow)
     // ArticleDetail specific colors
-    indicator: '#334155',
-    closeBtn: '#27364B',
+    indicator: '#2D3A4D', // Scroll indicators
+    closeBtn: '#1A2332', // Close button backgrounds
     // Markdown link colors
-    link: '#7DD3FC',
+    link: '#4FD1C5', // Teal cyan links
     // Markdown code block colors
-    codeInline: '#F8FAFC',
-    codeInlineBg: '#1E293B',
-    codeBlockBg: '#1E1E1E',
-    codeBlockForeground: '#F8FAFC', // Light text for dark code blocks
-    blockquote: '#94A3B8',
-    tableHeader: '#F8FAFC',
-    tableBody: '#CBD5E1',
+    codeInline: '#E8E4DE',
+    codeInlineBg: '#1E2A3B',
+    codeBlockBg: '#0D1117', // Rich dark code blocks
+    codeBlockForeground: '#E6EDF3', // Code text
+    blockquote: '#8B9AAF',
+    tableHeader: '#E8E4DE',
+    tableBody: '#C9D1DD',
   },
 }
 

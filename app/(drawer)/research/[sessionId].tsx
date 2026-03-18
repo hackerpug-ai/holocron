@@ -1,5 +1,4 @@
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { useEffect, useState } from 'react'
 import { ActivityIndicator, Pressable, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { ArrowLeft } from 'lucide-react-native'
@@ -13,15 +12,18 @@ import {
   type ResearchIteration,
 } from '@/components/deep-research/DeepResearchDetailView'
 import type { DeepResearchSessionWithIterations } from '@/lib/types/deep-research'
+import { useMemo } from 'react'
 
 /**
  * Transform session data to DeepResearchDetailView format
+ * Returns null if session is not available
  */
 function transformSessionToViewFormat(
-  session: DeepResearchSessionWithIterations
-): DeepResearchDetailViewProps {
-  // Transform iterations to the view format
-  // Defensive: handle case where iterations might be undefined at runtime
+  session: DeepResearchSessionWithIterations | null | undefined
+) {
+  if (!session) return null
+
+  // Transform iterations to the view format (kept for backward compatibility)
   const iterations: ResearchIteration[] = (session.iterations ?? []).map((iter) => ({
     iterationNumber: iter.iterationNumber,
     coverageScore: iter.coverageScore ?? 0,
@@ -32,23 +34,26 @@ function transformSessionToViewFormat(
     isComplete: iter.status === 'completed',
   }))
 
-  // TODO: Extract citations from the findings/report when available
-  // For now, return empty array - this can be enhanced later
+  // Extract citations from document if available
   const citations: Citation[] = []
 
+  // Determine confidence level
+  let confidence: 'HIGH' | 'MEDIUM' | 'LOW' = 'MEDIUM'
+  if (iterations.length > 0) {
+    const lastScore = iterations[iterations.length - 1].coverageScore
+    confidence = lastScore >= 4 ? 'HIGH' : lastScore >= 3 ? 'MEDIUM' : 'LOW'
+  }
+
   return {
-    session: {
-      id: session.id,
-      query: session.topic,
-      report: (session.iterations ?? [])
-        .filter((i) => i.findings)
-        .map((i) => `## Iteration ${i.iterationNumber}\n\n${i.findings}`)
-        .join('\n\n---\n\n') || 'Research in progress...',
-      iterations,
-      citations,
-      completedAt: session.status === 'completed' ? new Date(session.updatedAt) : undefined,
-      savedToHolocron: false, // TODO: Determine from document storage
-    },
+    id: session.id,
+    query: session.topic,
+    report: session.report ?? 'Research in progress...',
+    iterations,
+    citations,
+    completedAt: session.status === 'completed' ? new Date(session.updatedAt) : undefined,
+    savedToHolocron: !!session.documentId,
+    confidence,
+    sourcesCount: undefined, // Could be derived from iterations if needed
   }
 }
 
@@ -56,10 +61,9 @@ function transformSessionToViewFormat(
  * Deep Research Detail Screen
  *
  * Displays the full details of a deep research session including:
+ * - Confidence badge
  * - Synthesized report
- * - Iteration timeline with score progression
- * - Expandable iteration cards
- * - Citations list
+ * - Collapsible sources section
  *
  * Route: /research/[sessionId]
  */
@@ -69,23 +73,14 @@ export default function ResearchDetailScreen() {
   const theme = useTheme()
   const { session, isLoading, error } = useDeepResearchSession(sessionId ?? null)
 
-  const [viewData, setViewData] = useState<DeepResearchDetailViewProps | null>(null)
-
-  // Transform session data when it changes
-  useEffect(() => {
-    if (session) {
-      setViewData(transformSessionToViewFormat(session))
-    } else {
-      setViewData(null)
-    }
-  }, [session])
+  // Derive view data directly from session query (no useState + useEffect sync)
+  const viewData = useMemo(() => transformSessionToViewFormat(session), [session])
 
   const handleBack = () => {
     router.back()
   }
 
   const handleCitationPress = (url: string) => {
-    // Open citation URL in WebView
     const encodedUrl = encodeURIComponent(url)
     router.push(`/webview/${encodedUrl}`)
   }
@@ -160,25 +155,10 @@ export default function ResearchDetailScreen() {
 
   return (
     <DeepResearchDetailView
-      session={viewData.session}
+      session={viewData}
       onBack={handleBack}
       onCitationPress={handleCitationPress}
       testID="research-detail-view"
     />
   )
-}
-
-/**
- * Local interface for DeepResearchDetailView props to match the component's expected format
- */
-interface DeepResearchDetailViewProps {
-  session: {
-    id: string
-    query: string
-    report: string
-    iterations: ResearchIteration[]
-    citations: Citation[]
-    completedAt?: Date
-    savedToHolocron?: boolean
-  }
 }

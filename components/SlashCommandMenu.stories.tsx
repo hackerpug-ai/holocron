@@ -60,7 +60,7 @@ export const FilteredByResearch: Story = {
   parameters: {
     docs: {
       description: {
-        story: 'Partial match filters to "research" and "resume" commands.',
+        story: 'Partial match filters to "research" command.',
       },
     },
   },

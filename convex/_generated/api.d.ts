@@ -28,15 +28,28 @@ import type * as deepResearchSessions_queries from "../deepResearchSessions/quer
 import type * as documents_index from "../documents/index.js";
 import type * as documents_mutations from "../documents/mutations.js";
 import type * as documents_queries from "../documents/queries.js";
+import type * as documents_scheduled from "../documents/scheduled.js";
 import type * as documents_search from "../documents/search.js";
+import type * as documents_storage from "../documents/storage.js";
+import type * as lib_ai_embeddings_provider from "../lib/ai/embeddings_provider.js";
+import type * as lib_ai_zai_provider from "../lib/ai/zai_provider.js";
+import type * as lib_categories from "../lib/categories.js";
+import type * as lib_json from "../lib/json.js";
+import type * as migrations_backfill_chat_titles from "../migrations/backfill_chat_titles.js";
+import type * as migrations_backfill_missing_embeddings from "../migrations/backfill_missing_embeddings.js";
+import type * as migrations_backfill_research_documents from "../migrations/backfill_research_documents.js";
+import type * as migrations_reembed_documents_1024 from "../migrations/reembed_documents_1024.js";
 import type * as migrations_refactor_deep_research_messages from "../migrations/refactor_deep_research_messages.js";
 import type * as research_actions from "../research/actions.js";
 import type * as research_confidence from "../research/confidence.js";
+import type * as research_documentQueries from "../research/documentQueries.js";
+import type * as research_documents from "../research/documents.js";
 import type * as research_embeddings from "../research/embeddings.js";
 import type * as research_index from "../research/index.js";
 import type * as research_mutations from "../research/mutations.js";
 import type * as research_output from "../research/output.js";
 import type * as research_parallel from "../research/parallel.js";
+import type * as research_parallel_iteration from "../research/parallel_iteration.js";
 import type * as research_prompts from "../research/prompts.js";
 import type * as research_queries from "../research/queries.js";
 import type * as research_rateLimiter from "../research/rateLimiter.js";
@@ -48,13 +61,31 @@ import type * as researchIterations_mutations from "../researchIterations/mutati
 import type * as researchIterations_queries from "../researchIterations/queries.js";
 import type * as researchSessions_mutations from "../researchSessions/mutations.js";
 import type * as researchSessions_queries from "../researchSessions/queries.js";
-import type * as subscriptions from "../subscriptions.js";
+import type * as shop_index from "../shop/index.js";
+import type * as shop_mutations from "../shop/mutations.js";
+import type * as shop_queries from "../shop/queries.js";
+import type * as shop_search from "../shop/search.js";
+import type * as subscriptions_actions from "../subscriptions/actions.js";
+import type * as subscriptions_index from "../subscriptions/index.js";
+import type * as subscriptions_internal from "../subscriptions/internal.js";
+import type * as subscriptions_mutations from "../subscriptions/mutations.js";
+import type * as subscriptions_queries from "../subscriptions/queries.js";
 import type * as taskCrons from "../taskCrons.js";
 import type * as tasks_index from "../tasks/index.js";
 import type * as tasks_mutations from "../tasks/mutations.js";
 import type * as tasks_queries from "../tasks/queries.js";
 import type * as tasks_workflow from "../tasks/workflow.js";
+import type * as toolbelt_index from "../toolbelt/index.js";
+import type * as toolbelt_mutations from "../toolbelt/mutations.js";
+import type * as toolbelt_queries from "../toolbelt/queries.js";
+import type * as toolbelt_search from "../toolbelt/search.js";
+import type * as toolbelt_storage from "../toolbelt/storage.js";
 import type * as whatsNew from "../whatsNew.js";
+import type * as whatsNew_actions from "../whatsNew/actions.js";
+import type * as whatsNew_index from "../whatsNew/index.js";
+import type * as whatsNew_internal from "../whatsNew/internal.js";
+import type * as whatsNew_mutations from "../whatsNew/mutations.js";
+import type * as whatsNew_queries from "../whatsNew/queries.js";
 
 import type {
   ApiFromModules,
@@ -83,15 +114,28 @@ declare const fullApi: ApiFromModules<{
   "documents/index": typeof documents_index;
   "documents/mutations": typeof documents_mutations;
   "documents/queries": typeof documents_queries;
+  "documents/scheduled": typeof documents_scheduled;
   "documents/search": typeof documents_search;
+  "documents/storage": typeof documents_storage;
+  "lib/ai/embeddings_provider": typeof lib_ai_embeddings_provider;
+  "lib/ai/zai_provider": typeof lib_ai_zai_provider;
+  "lib/categories": typeof lib_categories;
+  "lib/json": typeof lib_json;
+  "migrations/backfill_chat_titles": typeof migrations_backfill_chat_titles;
+  "migrations/backfill_missing_embeddings": typeof migrations_backfill_missing_embeddings;
+  "migrations/backfill_research_documents": typeof migrations_backfill_research_documents;
+  "migrations/reembed_documents_1024": typeof migrations_reembed_documents_1024;
   "migrations/refactor_deep_research_messages": typeof migrations_refactor_deep_research_messages;
   "research/actions": typeof research_actions;
   "research/confidence": typeof research_confidence;
+  "research/documentQueries": typeof research_documentQueries;
+  "research/documents": typeof research_documents;
   "research/embeddings": typeof research_embeddings;
   "research/index": typeof research_index;
   "research/mutations": typeof research_mutations;
   "research/output": typeof research_output;
   "research/parallel": typeof research_parallel;
+  "research/parallel_iteration": typeof research_parallel_iteration;
   "research/prompts": typeof research_prompts;
   "research/queries": typeof research_queries;
   "research/rateLimiter": typeof research_rateLimiter;
@@ -103,13 +147,31 @@ declare const fullApi: ApiFromModules<{
   "researchIterations/queries": typeof researchIterations_queries;
   "researchSessions/mutations": typeof researchSessions_mutations;
   "researchSessions/queries": typeof researchSessions_queries;
-  subscriptions: typeof subscriptions;
+  "shop/index": typeof shop_index;
+  "shop/mutations": typeof shop_mutations;
+  "shop/queries": typeof shop_queries;
+  "shop/search": typeof shop_search;
+  "subscriptions/actions": typeof subscriptions_actions;
+  "subscriptions/index": typeof subscriptions_index;
+  "subscriptions/internal": typeof subscriptions_internal;
+  "subscriptions/mutations": typeof subscriptions_mutations;
+  "subscriptions/queries": typeof subscriptions_queries;
   taskCrons: typeof taskCrons;
   "tasks/index": typeof tasks_index;
   "tasks/mutations": typeof tasks_mutations;
   "tasks/queries": typeof tasks_queries;
   "tasks/workflow": typeof tasks_workflow;
+  "toolbelt/index": typeof toolbelt_index;
+  "toolbelt/mutations": typeof toolbelt_mutations;
+  "toolbelt/queries": typeof toolbelt_queries;
+  "toolbelt/search": typeof toolbelt_search;
+  "toolbelt/storage": typeof toolbelt_storage;
   whatsNew: typeof whatsNew;
+  "whatsNew/actions": typeof whatsNew_actions;
+  "whatsNew/index": typeof whatsNew_index;
+  "whatsNew/internal": typeof whatsNew_internal;
+  "whatsNew/mutations": typeof whatsNew_mutations;
+  "whatsNew/queries": typeof whatsNew_queries;
 }>;
 
 /**
@@ -384,7 +446,7 @@ export declare const components: {
       cleanup: FunctionReference<
         "mutation",
         "internal",
-        { workflowId: string },
+        { force?: boolean; workflowId: string },
         boolean
       >;
       complete: FunctionReference<
@@ -590,6 +652,12 @@ export declare const components: {
           pageStatus?: "SplitRecommended" | "SplitRequired" | null;
           splitCursor?: string | null;
         }
+      >;
+      restart: FunctionReference<
+        "mutation",
+        "internal",
+        { from?: number | string; startAsync?: boolean; workflowId: string },
+        null
       >;
     };
   };

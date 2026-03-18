@@ -80,160 +80,68 @@ export const BusinessQuery: Story = {
 }
 
 /**
- * Stage: Initializing - First stage of research setup
+ * Completed state with HIGH confidence
  */
-export const StageInitializing: Story = {
-  args: {
-    query: 'what tools exist to migrate dropbox to google drive',
-    stage: 'initializing',
-  },
-}
-
-/**
- * Stage: Planning - Search strategy is being planned
- */
-export const StagePlanning: Story = {
+export const CompletedHighConfidence: Story = {
   args: {
     query: 'best practices for React Native performance',
-    stage: 'planning',
+    isComplete: true,
+    confidence: 'HIGH',
+    onPress: () => console.log('Navigate to results'),
   },
 }
 
 /**
- * Stage: Searching - Actively searching knowledge sources
+ * Completed state with MEDIUM confidence
  */
-export const StageSearching: Story = {
+export const CompletedMediumConfidence: Story = {
   args: {
     query: 'market analysis for sustainable energy solutions',
-    stage: 'searching',
+    isComplete: true,
+    confidence: 'MEDIUM',
+    onPress: () => console.log('Navigate to results'),
   },
 }
 
 /**
- * Stage: Analyzing - Analyzing search results
+ * Completed state with LOW confidence
  */
-export const StageAnalyzing: Story = {
+export const CompletedLowConfidence: Story = {
   args: {
-    query: 'how to implement oauth 2.0 with pkce flow',
-    stage: 'analyzing',
+    query: 'obscure historical event analysis',
+    isComplete: true,
+    confidence: 'LOW',
+    onPress: () => console.log('Navigate to results'),
   },
 }
 
 /**
- * Stage: Synthesizing - Final stage, creating synthesis
+ * Quick research loading state (violet theme)
  */
-export const StageSynthesizing: Story = {
+export const QuickResearchLoading: Story = {
   args: {
-    query: 'quantum computing applications in cryptography',
-    stage: 'synthesizing',
+    query: 'what tools exist to migrate dropbox to google drive',
+    researchType: 'quick',
   },
 }
 
 /**
- * With Steps - Progressive step list with animated appearance
+ * Quick research completed state
  */
-export const WithSteps: Story = {
+export const QuickResearchComplete: Story = {
   args: {
-    query: 'best practices for React Native performance optimization',
-    stage: 'searching',
-    steps: [
-      {
-        id: '1',
-        label: 'Analyzing query and identifying key topics',
-        status: 'completed',
-      },
-      {
-        id: '2',
-        label: 'Searching academic papers and documentation',
-        status: 'in-progress',
-        detail: 'Found 127 sources, processing...',
-      },
-      {
-        id: '3',
-        label: 'Extracting relevant insights',
-        status: 'pending',
-      },
-      {
-        id: '4',
-        label: 'Synthesizing findings into report',
-        status: 'pending',
-      },
-    ],
+    query: 'React Native performance optimization',
+    researchType: 'quick',
+    isComplete: true,
+    confidence: 'HIGH',
+    onPress: () => console.log('Navigate to results'),
   },
 }
 
 /**
- * Steps with Details - Shows optional detail messages
+ * All states - showcase loading and completed states
  */
-export const StepsWithDetails: Story = {
-  args: {
-    query: 'machine learning frameworks comparison',
-    stage: 'analyzing',
-    steps: [
-      {
-        id: '1',
-        label: 'Query breakdown',
-        status: 'completed',
-        detail: 'Identified 5 key comparison criteria',
-      },
-      {
-        id: '2',
-        label: 'Source discovery',
-        status: 'completed',
-        detail: '89 papers, 156 documentation pages',
-      },
-      {
-        id: '3',
-        label: 'Content analysis',
-        status: 'in-progress',
-        detail: 'Processing TensorFlow, PyTorch, and JAX comparisons',
-      },
-      {
-        id: '4',
-        label: 'Report generation',
-        status: 'pending',
-      },
-    ],
-  },
-}
-
-/**
- * All Steps Completed - Final state before synthesis
- */
-export const AllStepsCompleted: Story = {
-  args: {
-    query: 'sustainable energy solutions for emerging markets',
-    stage: 'synthesizing',
-    steps: [
-      {
-        id: '1',
-        label: 'Query analysis',
-        status: 'completed',
-      },
-      {
-        id: '2',
-        label: 'Source gathering',
-        status: 'completed',
-      },
-      {
-        id: '3',
-        label: 'Content extraction',
-        status: 'completed',
-      },
-      {
-        id: '4',
-        label: 'Synthesis',
-        status: 'in-progress',
-        detail: 'Generating final report...',
-      },
-    ],
-  },
-}
-
-/**
- * All variants - showcase all different stages
- */
-export const AllStages: Story = {
+export const AllStates: Story = {
   args: {
     query: 'Example query',
   },
@@ -241,23 +149,67 @@ export const AllStages: Story = {
     <View className="gap-4">
       <DeepResearchLoadingCard
         query="migrate dropbox to google drive"
-        stage="initializing"
+        message="Researching..."
       />
       <DeepResearchLoadingCard
         query="React Native performance"
-        stage="planning"
+        message="Searching sources..."
       />
       <DeepResearchLoadingCard
         query="sustainable energy markets"
-        stage="searching"
+        isComplete={true}
+        confidence="HIGH"
+        onPress={() => console.log('Navigate')}
       />
       <DeepResearchLoadingCard
         query="oauth 2.0 pkce flow"
-        stage="analyzing"
+        isComplete={true}
+        confidence="MEDIUM"
+        onPress={() => console.log('Navigate')}
       />
       <DeepResearchLoadingCard
         query="quantum cryptography"
-        stage="synthesizing"
+        isComplete={true}
+        confidence="LOW"
+        onPress={() => console.log('Navigate')}
+      />
+    </View>
+  ),
+}
+
+/**
+ * All types - side-by-side comparison of quick vs deep research
+ */
+export const AllTypes: Story = {
+  args: {
+    query: 'Example query',
+  },
+  render: () => (
+    <View className="gap-4">
+      {/* Quick research states */}
+      <DeepResearchLoadingCard
+        query="quick query - loading"
+        researchType="quick"
+      />
+      <DeepResearchLoadingCard
+        query="quick query - complete"
+        researchType="quick"
+        isComplete={true}
+        confidence="HIGH"
+        onPress={() => console.log('Navigate')}
+      />
+
+      {/* Deep research states */}
+      <DeepResearchLoadingCard
+        query="deep query - loading"
+        researchType="deep"
+      />
+      <DeepResearchLoadingCard
+        query="deep query - complete"
+        researchType="deep"
+        isComplete={true}
+        confidence="MEDIUM"
+        onPress={() => console.log('Navigate')}
       />
     </View>
   ),

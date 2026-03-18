@@ -7,12 +7,311 @@
  * - Retry with exponential backoff
  * - URL-based deduplication
  * - Score-based result sorting
+ * - Full URL content reading via Jina Reader
  */
 
 "use node";
 
 import Exa from "exa-js";
 import { withRateLimit } from "./rateLimiter.js";
+
+/**
+ * Result from reading a single URL
+ */
+export interface UrlReadResult {
+  url: string;
+  title?: string;
+  content: string;  // Up to 10k chars
+  success: boolean;
+  error?: string;
+}
+
+/**
+ * Link extracted from a page
+ */
+export interface ExtractedLink {
+  text: string;
+  url: string;
+}
+
+/**
+ * Result from reading a URL with links extraction
+ */
+export interface UrlReadWithLinksResult extends UrlReadResult {
+  links: ExtractedLink[];
+}
+
+/**
+ * Options for parallel URL reading
+ */
+export interface ParallelUrlReadOptions {
+  maxConcurrent?: number;
+  timeoutMs?: number;
+  maxContentLength?: number;
+}
+
+/**
+ * Read a single URL using Jina Reader API
+ *
+ * @param url - URL to read
+ * @param timeoutMs - Timeout in milliseconds
+ * @param maxContentLength - Maximum content length to return
+ * @returns UrlReadResult with content or error
+ */
+export async function readUrlWithJina(
+  url: string,
+  timeoutMs: number = 15000,
+  maxContentLength: number = 10000
+): Promise<UrlReadResult> {
+  const apiKey = process.env.JINA_API_KEY;
+  if (!apiKey) {
+    return {
+      url,
+      content: "",
+      success: false,
+      error: "JINA_API_KEY not configured",
+    };
+  }
+
+  try {
+    // Use Jina Reader API: r.jina.ai/{url}
+    const readerUrl = `https://r.jina.ai/${encodeURIComponent(url)}`;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    const response = await withRateLimit("jina-reader", async () => {
+      return await fetch(readerUrl, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          Accept: "text/plain",
+          "X-Return-Format": "text",
+        },
+        signal: controller.signal,
+      });
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      return {
+        url,
+        content: "",
+        success: false,
+        error: `HTTP ${response.status}: ${response.statusText}`,
+      };
+    }
+
+    const fullContent = await response.text();
+
+    // Extract title from first line if it looks like a title
+    let title: string | undefined;
+    const lines = fullContent.split("\n");
+    if (lines.length > 0 && lines[0].startsWith("# ")) {
+      title = lines[0].substring(2).trim();
+    } else if (lines.length > 0 && lines[0].startsWith("Title: ")) {
+      title = lines[0].substring(7).trim();
+    }
+
+    // Truncate content to maxContentLength
+    const content = fullContent.slice(0, maxContentLength);
+
+    return {
+      url,
+      title,
+      content,
+      success: true,
+    };
+  } catch (error) {
+    const errorMessage =
+      error instanceof Error ? error.message : String(error);
+    const isTimeout =
+      errorMessage.includes("abort") || errorMessage.includes("timeout");
+
+    return {
+      url,
+      content: "",
+      success: false,
+      error: isTimeout ? "Timeout reading URL" : errorMessage,
+    };
+  }
+}
+
+/**
+ * Read a URL with Jina Reader API and extract all links
+ *
+ * Uses JSON format to get structured link data from the page.
+ *
+ * @param url - URL to read
+ * @param timeoutMs - Timeout in milliseconds
+ * @param maxContentLength - Maximum content length to return
+ * @returns UrlReadWithLinksResult with content and extracted links
+ */
+export async function readUrlWithJinaAndLinks(
+  url: string,
+  timeoutMs: number = 15000,
+  maxContentLength: number = 10000
+): Promise<UrlReadWithLinksResult> {
+  const apiKey = process.env.JINA_API_KEY;
+  if (!apiKey) {
+    return {
+      url,
+      content: "",
+      links: [],
+      success: false,
+      error: "JINA_API_KEY not configured",
+    };
+  }
+
+  try {
+    // Use Jina Reader API with JSON format to get links
+    const readerUrl = `https://r.jina.ai/${encodeURIComponent(url)}`;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    const response = await withRateLimit("jina-reader", async () => {
+      return await fetch(readerUrl, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          Accept: "application/json",
+          "X-With-Links-Summary": "true",
+        },
+        signal: controller.signal,
+      });
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      return {
+        url,
+        content: "",
+        links: [],
+        success: false,
+        error: `HTTP ${response.status}: ${response.statusText}`,
+      };
+    }
+
+    const data = await response.json();
+
+    // Extract content
+    const fullContent = data.data?.content || data.content || "";
+    const content = fullContent.slice(0, maxContentLength);
+
+    // Extract title
+    const title = data.data?.title || data.title || undefined;
+
+    // Extract links from the response
+    // Jina Reader returns links as { anchorText: url, ... } object map
+    const linksData = data.data?.links || data.links;
+
+    // Handle different link formats
+    let rawLinks: any[] = [];
+    if (Array.isArray(linksData)) {
+      // Links as array of objects: [{ text, url }, ...]
+      rawLinks = linksData;
+    } else if (linksData && typeof linksData === "object") {
+      // Links as object map: { anchorText: url, ... }
+      // Convert to array format
+      rawLinks = Object.entries(linksData).map(([text, url]) => ({ text, url }));
+    }
+
+    const links: ExtractedLink[] = rawLinks.map((link: any) => ({
+      text: link.text || link.anchorText || link.title || "",
+      url: link.url || link.href || "",
+    })).filter((link: ExtractedLink) => link.url);
+
+    return {
+      url,
+      title,
+      content,
+      links,
+      success: true,
+    };
+  } catch (error) {
+    const errorMessage =
+      error instanceof Error ? error.message : String(error);
+    const isTimeout =
+      errorMessage.includes("abort") || errorMessage.includes("timeout");
+
+    return {
+      url,
+      content: "",
+      links: [],
+      success: false,
+      error: isTimeout ? "Timeout reading URL" : errorMessage,
+    };
+  }
+}
+
+/**
+ * Execute parallel URL reading with rate limiting
+ *
+ * Reads multiple URLs in parallel using Jina Reader API.
+ * Rate limited to 5 concurrent requests.
+ *
+ * @param urls - Array of URLs to read
+ * @param options - Options for parallel reading
+ * @returns Array of UrlReadResult
+ */
+export async function executeParallelUrlRead(
+  urls: string[],
+  options: ParallelUrlReadOptions = {}
+): Promise<UrlReadResult[]> {
+  const {
+    maxConcurrent = 5,
+    timeoutMs = 15000,
+    maxContentLength = 10000,
+  } = options;
+
+  console.log(
+    `[executeParallelUrlRead] Entry - ${urls.length} URLs, maxConcurrent: ${maxConcurrent}, timeoutMs: ${timeoutMs}`
+  );
+
+  if (urls.length === 0) {
+    return [];
+  }
+
+  // Process in batches to respect rate limits
+  const results: UrlReadResult[] = [];
+  const batches: string[][] = [];
+
+  for (let i = 0; i < urls.length; i += maxConcurrent) {
+    batches.push(urls.slice(i, i + maxConcurrent));
+  }
+
+  console.log(
+    `[executeParallelUrlRead] Processing ${batches.length} batches`
+  );
+
+  for (let i = 0; i < batches.length; i++) {
+    const batch = batches[i];
+    console.log(
+      `[executeParallelUrlRead] Processing batch ${i + 1}/${batches.length} (${batch.length} URLs)`
+    );
+
+    const batchResults = await Promise.all(
+      batch.map((url) => readUrlWithJina(url, timeoutMs, maxContentLength))
+    );
+
+    results.push(...batchResults);
+
+    // Small delay between batches to be nice to the API
+    if (i < batches.length - 1) {
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+  }
+
+  const successCount = results.filter((r) => r.success).length;
+  console.log(
+    `[executeParallelUrlRead] Exit - ${successCount}/${urls.length} successful`
+  );
+
+  return results;
+}
 
 /**
  * Structured search result with metadata

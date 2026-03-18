@@ -1,23 +1,43 @@
+/**
+ * Category mapping utilities for the app layer.
+ * Re-exports shared category constants from convex/lib/categories.ts
+ */
+import {
+  DOCUMENT_CATEGORIES,
+  type DocumentCategory,
+  isValidCategory,
+  mapToCategory,
+} from '@/convex/lib/categories'
 import type { CategoryType } from '@/components/CategoryBadge'
 
+// Re-export for backward compatibility
+export const VALID_CATEGORIES: CategoryType[] = [...DOCUMENT_CATEGORIES]
+
 /**
- * Maps Convex document categories to UI display categories
- * All document categories map to 'general' except 'research' which maps to 'research'
+ * Maps any document category string to a valid CategoryType.
+ * Returns the category if valid, otherwise defaults to 'general'.
  */
 export function mapDocumentCategoryToCategoryType(docCategory: string): CategoryType {
-  return docCategory === 'research' ? 'research' : 'general'
+  return mapToCategory(docCategory) as CategoryType
 }
 
 /**
- * Maps UI category type back to Convex document category
- * Only 'research' (and research-related types) map directly to 'research'
- * All others return undefined (no filter applied)
+ * Maps CategoryType to document category string (pass-through for valid categories).
+ * Returns undefined for undefined input (no filter).
  */
-export function mapCategoryTypeToDocumentCategory(categoryType: CategoryType | undefined): string | undefined {
-  // Research-related categories map to 'research' in Convex
-  if (categoryType === 'research' || categoryType === 'deep-research' || categoryType === 'factual' || categoryType === 'academic') {
-    return 'research'
-  }
-  // All other categories return undefined (no filter)
-  return undefined
+export function mapCategoryTypeToDocumentCategory(
+  categoryType: CategoryType | undefined | null
+): string | undefined {
+  if (!categoryType) return undefined
+  return categoryType // CategoryType values ARE the document categories
 }
+
+/**
+ * Type guard to check if a string is a valid CategoryType
+ */
+export function isValidCategoryType(value: string): value is CategoryType {
+  return isValidCategory(value)
+}
+
+// Re-export types and utilities from shared module
+export { DOCUMENT_CATEGORIES, type DocumentCategory, isValidCategory, mapToCategory }

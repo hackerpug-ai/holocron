@@ -15,8 +15,8 @@ export default function NotFoundScreen() {
           This screen doesn't exist.
         </Text>
         <Link href="/" asChild>
-          <Pressable style={[styles.button, { backgroundColor: themeColors.primary }]}>
-            <Text style={[styles.buttonText, { color: themeColors.primaryForeground }]}>Go to home screen</Text>
+          <Pressable style={StyleSheet.flatten([styles.button, { backgroundColor: themeColors.primary }])}>
+            <Text style={StyleSheet.flatten([styles.buttonText, { color: themeColors.primaryForeground }])}>Go to home screen</Text>
           </Pressable>
         </Link>
       </View>

@@ -22,13 +22,15 @@ export const create = mutation({
 
 /**
  * Update a conversation's title
+ * @param titleSetByUser - If true, marks the title as user-set (prevents auto-generation)
  */
 export const update = mutation({
   args: {
     id: v.id("conversations"),
     title: v.string(),
+    titleSetByUser: v.optional(v.boolean()),
   },
-  handler: async (ctx, { id, title }) => {
+  handler: async (ctx, { id, title, titleSetByUser }) => {
     const existing = await ctx.db.get(id);
     if (!existing) {
       throw new Error(`Conversation ${id} not found`);
@@ -37,6 +39,8 @@ export const update = mutation({
     await ctx.db.patch(id, {
       title,
       updatedAt: Date.now(),
+      // Only set titleSetByUser if explicitly passed (user is editing)
+      ...(titleSetByUser !== undefined && { titleSetByUser }),
     });
 
     return await ctx.db.get(id);

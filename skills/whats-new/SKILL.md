@@ -1,26 +1,32 @@
 ---
 name: whats-new
-description: "On-demand AI software engineering news briefing. Parallel swarm workers scan Reddit, Twitter/X, changelogs, and web for tool releases, trends, and discoveries. Queries Convex subscription data first, then expands beyond known sources."
-allowed-tools: WebSearch, Task, Read, Write, Glob, Grep, Bash, AskUserQuestion, mcp__jina__search_web, mcp__jina__read_url, mcp__jina__expand_query, mcp__jina__deduplicate_strings, mcp__plugin_exa-mcp-server_exa__web_search_exa, mcp__plugin_exa-mcp-server_exa__company_research_exa, mcp__holocron__hybrid_search, mcp__holocron__get_document
+description: "On-demand AI software engineering news briefing. Returns cached daily report (auto-generated at 6AM PST) or runs fresh parallel swarm when --force flag used. Scans Reddit, HN, GitHub, Dev.to, Lobsters for tool releases, trends, and discoveries."
+allowed-tools: WebSearch, Task, Read, Write, Glob, Grep, Bash, AskUserQuestion, mcp__jina__search_web, mcp__jina__read_url, mcp__jina__expand_query, mcp__jina__deduplicate_strings, mcp__plugin_exa-mcp-server_exa__web_search_exa, mcp__plugin_exa-mcp-server_exa__company_research_exa, mcp__holocron__hybrid_search, mcp__holocron__get_document, mcp__holocron__getWhatsNewReportTool, mcp__holocron__listWhatsNewReportsTool
 ---
 
 # /whats-new
 
-Surface what's new in AI software engineering -- tool releases, product launches, emerging trends, and noteworthy voices. Queries existing Convex `/subscribe` data first, then dispatches parallel workers to scan Reddit, Hacker News, Bluesky, GitHub, Dev.to, Lobsters, Twitter/X, changelogs, and the broader web. Uses `scripts/fetch_trends.py` for direct API access and web search workers for broader signal. Dedicated discovery track finds tools and trends you're NOT already tracking.
+Surface what's new in AI software engineering -- tool releases, product launches, emerging trends, and noteworthy voices.
+
+**Default behavior**: Returns cached daily report (auto-generated at 6AM PST via Convex cron). This is instant and free.
+
+**With --force**: Dispatches parallel workers to scan Reddit, Hacker News, GitHub, Dev.to, Lobsters for fresh data. Uses `scripts/fetch_trends.py` for direct API access.
 
 ## QUICK REFERENCE
 
 ```
 SYNTAX:
-  /whats-new                          # Last 7 days, all tracks
-  /whats-new --days 3                 # Custom lookback
+  /whats-new                          # Return cached daily report (instant)
+  /whats-new --force                  # Force fresh scan (expensive)
+  /whats-new --days 3                 # Custom lookback (requires --force)
   /whats-new --focus tools            # Filter: tools | releases | trends | people
   /whats-new --discovery-only         # Skip known sources, find NEW things only
-  /whats-new --skip-confirm           # Execute without plan approval
+  /whats-new --list                   # List recent report history
 
-FLOW:    Convex Subscriptions → Holocron check → 6 parallel workers → Dedup → Synthesize → Report → Save to Convex
-TRACKS:  Reddit Pulse | HN + Bluesky Signal | Releases & Launches | Discovery (DevTo/Lobsters/GitHub)
-OUTPUT:  Prioritized briefing + Convex save
+FLOW:    Check cached report → If today's exists, return it → Else run parallel workers
+AUTO:    Daily cron at 6AM PST generates fresh report automatically
+TRACKS:  Reddit Pulse | HN Signal | Releases & Launches | Discovery (DevTo/Lobsters/GitHub)
+OUTPUT:  Prioritized briefing with TL;DR, releases, discoveries, trends
 ```
 
 ## WHEN TO USE
@@ -48,7 +54,9 @@ OUTPUT:  Prioritized briefing + Convex save
 ```
 [1] PARSE INPUT & DETERMINE SCOPE
     • EXTRACT flags:
-      --days N          Lookback window (default: 7, min: 1, max: 90)
+      --force           Force fresh scan (skip cached report)
+      --list            List recent report history
+      --days N          Lookback window (default: 7, min: 1, max: 90) - requires --force
       --focus <area>    Filter: "tools" | "releases" | "trends" | "people" | "all" (default)
       --discovery-only  Skip known sources, only search for NEW things
       --skip-confirm    Execute immediately without plan approval
@@ -56,14 +64,30 @@ OUTPUT:  Prioritized briefing + Convex save
     • COMPUTE: date_range = "{N} days ago" to "now"
     • COMPUTE: current_year, current_month from system date
 
-[2] CHECK EXISTING KNOWLEDGE (Convex)
-    • mcp__holocron__hybrid_search("AI software engineering news tools releases")
-    • CONVEX: Check for recent whats-new reports via whatsNew.getRecentReports
-      Uses the holocron MCP tool or direct Convex query to check
-      for reports from the last 3 days.
-    • IF recent whats-new Convex report exists (< 3 days old):
-      ├─ SHOW: "Recent briefing found from {date}"
-      └─ ASK: "Run fresh scan anyway?" (unless --skip-confirm)
+[2] CHECK CACHED REPORT (MCP Tool - Primary Path)
+    **This is the default behavior - instant and free**
+
+    • IF --list flag:
+      ├─ CALL: mcp__holocron__listWhatsNewReportsTool({ limit: 10 })
+      ├─ DISPLAY: Table of recent reports with dates, finding counts
+      └─ STOP (unless user asks for specific report)
+
+    • CALL: mcp__holocron__getWhatsNewReportTool({})
+      Returns: { content, generatedAt, isFromToday, stats, report }
+
+    • IF report exists AND NOT --force:
+      ├─ IF isFromToday OR report < 24 hours old:
+      │   ├─ DISPLAY: Full cached report content
+      │   ├─ SHOW: "Report from {generatedAt} | {findingsCount} findings"
+      │   └─ STOP (cached report delivered)
+      ├─ ELSE (report exists but older):
+      │   ├─ SHOW: "Latest report from {date} ({N} days ago)"
+      │   ├─ DISPLAY: Summary from report.summaryJson (TL;DR, top discoveries)
+      │   └─ ASK: "Run fresh scan? (use --force to skip this prompt)"
+      └─ IF user says "yes" → continue to [3]
+
+    • IF --force OR no cached report:
+      └─ CONTINUE to step [3] for fresh generation
 
 [3] QUERY SUBSCRIPTION DATA (Known Ecosystem via Convex)
     Skip if --discovery-only
@@ -432,24 +456,26 @@ See step [9] above for full report template. Key sections:
 ## EXAMPLES
 
 ```bash
-# Weekly briefing (default)
+# Get today's cached briefing (instant, default)
 /whats-new
 
-# Quick 3-day scan
-/whats-new --days 3
+# List recent report history
+/whats-new --list
+
+# Force fresh scan (expensive, runs parallel workers)
+/whats-new --force
+
+# Fresh scan with custom lookback
+/whats-new --force --days 3
 
 # What new tools exist that I don't know about?
-/whats-new --discovery-only
-
-# Monthly roundup
-/whats-new --days 30
+/whats-new --force --discovery-only
 
 # Just releases and changelogs
-/whats-new --focus releases
-
-# Tools focus, no confirmation prompt
-/whats-new --focus tools --skip-confirm
+/whats-new --force --focus releases
 
 # What are people talking about?
-/whats-new --focus trends
+/whats-new --force --focus trends
 ```
+
+**Note**: Reports are auto-generated daily at 6AM PST via Convex cron. Most users should just run `/whats-new` to get the cached report instantly.

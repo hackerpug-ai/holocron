@@ -6,3 +6,4 @@
 export * from "./queries";
 export * from "./mutations";
 export * from "./search";
+export * from "./storage";

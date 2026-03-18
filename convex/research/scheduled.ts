@@ -9,7 +9,7 @@
 
 import { internalAction } from "../_generated/server";
 import { v } from "convex/values";
-import { api } from "../_generated/api";
+import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { generateText } from "ai";
 import { openai } from "@ai-sdk/openai";
@@ -25,6 +25,63 @@ import {
   buildSynthesisPrompt,
   buildReviewPrompt,
 } from "./prompts";
+import { stripMarkdownCodeBlock } from "../lib/json";
+
+/**
+ * Generate a concise 3-6 word summary from research feedback and findings
+ *
+ * Extracts the key insight from the reviewer feedback to create a human-readable
+ * label for the iteration step in the loading card.
+ */
+function generateIterationSummary(
+  feedback: string,
+  findings: string,
+  coverageScore: number
+): string {
+  // Try to extract key phrases from feedback
+  // Common patterns: "Good coverage of X", "Found X, missing Y", "X well documented"
+
+  // Extract first sentence if feedback is long
+  const firstSentence = feedback.split(/[.!]/)[0] || feedback;
+
+  // Try to extract meaningful phrases
+  const patterns = [
+    /(?:found|discovered|covered|documented)\s+(.+?)(?:\s+(?:but|however|missing|needs)|$)/i,
+    /(?:good|strong|excellent)\s+(?:coverage|understanding)\s+(?:of\s+)?(.+?)(?:\s|$)/i,
+    /(.+?)\s+(?:is well documented|are covered)/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = firstSentence.match(pattern);
+    if (match && match[1]) {
+      const extracted = match[1].trim();
+      // Limit to 6 words
+      const words = extracted.split(/\s+/).slice(0, 6);
+      if (words.length >= 2) {
+        return words.join(" ");
+      }
+    }
+  }
+
+  // Fallback: Extract key nouns/verbs from first 50 chars of findings
+  const findingsPreview = findings.slice(0, 100);
+  const keyPhrases = findingsPreview.match(/\b(?:found|discovered|revealed|shows|identifies|provides)\s+(.+?)(?:\n|$)/i);
+  if (keyPhrases && keyPhrases[1]) {
+    const words = keyPhrases[1].trim().split(/\s+/).slice(0, 5);
+    if (words.length >= 2) {
+      return `Found: ${words.join(" ")}`;
+    }
+  }
+
+  // Final fallback: Score-based summary
+  if (coverageScore >= 4) {
+    return "Strong coverage achieved";
+  } else if (coverageScore >= 3) {
+    return "Good progress made";
+  } else {
+    return "Exploring topic";
+  }
+}
 
 /**
  * Process Deep Research Iteration
@@ -47,9 +104,12 @@ export const processDeepResearchIteration = internalAction({
 
     try {
       // Load session directly from database (actions need all fields)
-      const session = await ctx.runQuery(api.research.queries.getDeepResearchSession, {
-        sessionId,
-      });
+      const session = await ctx.runQuery(
+        api.research.queries.getDeepResearchSession,
+        {
+          sessionId,
+        },
+      );
 
       if (!session) {
         console.error(`[processIteration] Session not found: ${sessionId}`);
@@ -57,7 +117,9 @@ export const processDeepResearchIteration = internalAction({
       }
 
       if (session.status === "completed" || session.status === "cancelled") {
-        console.log(`[processIteration] Session already ${session.status}, skipping`);
+        console.log(
+          `[processIteration] Session already ${session.status}, skipping`,
+        );
         return;
       }
 
@@ -68,7 +130,7 @@ export const processDeepResearchIteration = internalAction({
       const previousCoverageScore = 0;
 
       console.log(
-        `[processIteration] Iteration ${currentIteration}/${maxIterations}, topic: "${currentTopic}"`
+        `[processIteration] Iteration ${currentIteration}/${maxIterations}, topic: "${currentTopic}"`,
       );
 
       // Build context from database
@@ -76,9 +138,12 @@ export const processDeepResearchIteration = internalAction({
 
       // SEARCH Phase
       console.log(`[processIteration] SEARCH phase starting`);
-      const searchPrompt = buildSearchPrompt(currentTopic, context.previousIterations);
+      const searchPrompt = buildSearchPrompt(
+        currentTopic,
+        context.previousIterations,
+      );
       const searchResult = await generateText({
-        model: openai("gpt-4o-mini"),  // Fast, cheap, good at tool calls
+        model: openai("gpt-4o-mini"), // Fast, cheap, good at tool calls
         prompt: searchPrompt,
         tools: {
           exaSearch: exaSearchTool,
@@ -90,27 +155,32 @@ export const processDeepResearchIteration = internalAction({
 
       // Extract tool results - these contain the actual search data
       const toolResults = searchResult.toolResults || [];
-      const searchFindings = toolResults.length > 0
-        ? JSON.stringify(toolResults, null, 2)
-        : searchResult.text || "No search results found";
+      const searchFindings =
+        toolResults.length > 0
+          ? JSON.stringify(toolResults, null, 2)
+          : searchResult.text || "No search results found";
 
-      console.log(`[processIteration] SEARCH complete - ${searchFindings.length} chars, ${toolResults.length} tool calls`);
+      console.log(
+        `[processIteration] SEARCH complete - ${searchFindings.length} chars, ${toolResults.length} tool calls`,
+      );
 
       // SYNTHESIZE Phase
       console.log(`[processIteration] SYNTHESIZE phase starting`);
       const synthesisPrompt = buildSynthesisPrompt(context, searchFindings);
       const synthesisResult = await generateText({
-        model: openai("gpt-4o"),  // Fast, reliable, cheaper than gpt-4-turbo
+        model: openai("gpt-4o"), // Fast, reliable, cheaper than gpt-4-turbo
         prompt: synthesisPrompt,
       });
       const synthesis = synthesisResult.text;
-      console.log(`[processIteration] SYNTHESIZE complete - ${synthesis.length} chars`);
+      console.log(
+        `[processIteration] SYNTHESIZE complete - ${synthesis.length} chars`,
+      );
 
       // REVIEW Phase
       console.log(`[processIteration] REVIEW phase starting`);
       const reviewPrompt = buildReviewPrompt(context, synthesis);
       const reviewResult = await generateText({
-        model: openai("gpt-4o"),  // Fast, reliable, cheaper than gpt-4-turbo
+        model: openai("gpt-4o"), // Fast, reliable, cheaper than gpt-4-turbo
         prompt: reviewPrompt,
       });
 
@@ -123,7 +193,8 @@ export const processDeepResearchIteration = internalAction({
       };
 
       try {
-        review = JSON.parse(reviewResult.text);
+        const cleanedJson = stripMarkdownCodeBlock(reviewResult.text);
+        review = JSON.parse(cleanedJson);
       } catch (error) {
         console.error(`[processIteration] Failed to parse review JSON:`, error);
         review = {
@@ -135,41 +206,58 @@ export const processDeepResearchIteration = internalAction({
       }
 
       console.log(
-        `[processIteration] REVIEW complete - score: ${review.coverageScore}, gaps: ${review.gaps.length}`
+        `[processIteration] REVIEW complete - score: ${review.coverageScore}, gaps: ${review.gaps.length}`,
       );
 
+      // Generate a concise summary from the feedback (3-6 words)
+      const summary = generateIterationSummary(review.feedback, synthesis, review.coverageScore);
+
       // Save iteration
-      await ctx.runMutation(api.research.mutations.createDeepResearchIteration, {
-        sessionId,
-        iterationNumber: currentIteration,
-        coverageScore: review.coverageScore,
-        feedback: review.feedback,
-        findings: synthesis,
-        refinedQueries: review.gaps,
-        status: "completed",
-      });
+      await ctx.runMutation(
+        api.research.mutations.createDeepResearchIteration,
+        {
+          sessionId,
+          iterationNumber: currentIteration,
+          coverageScore: review.coverageScore,
+          feedback: review.feedback,
+          findings: synthesis,
+          refinedQueries: review.gaps,
+          status: "completed",
+          summary,
+        },
+      );
 
       // Update loading card with steps instead of creating new card
-      const loadingCard = await ctx.runQuery(api.chatMessages.queries.findLoadingCardBySession, {
-        conversationId: session.conversationId as Id<"conversations">,
-        sessionId: sessionId.toString(),
-      });
+      const loadingCard = await ctx.runQuery(
+        api.chatMessages.queries.findLoadingCardBySession,
+        {
+          conversationId: session.conversationId as Id<"conversations">,
+          sessionId: sessionId.toString(),
+        },
+      );
 
       if (loadingCard) {
         // Get all iterations to build steps array
-        const iterations = await ctx.runQuery(api.research.queries.listDeepResearchIterations, {
-          sessionId,
-        });
+        const iterations = await ctx.runQuery(
+          api.research.queries.listDeepResearchIterations,
+          {
+            sessionId,
+          },
+        );
 
         // Build steps array from iterations
         const steps = iterations.map((iter, index) => {
           const isCurrentIteration = iter.iterationNumber === currentIteration;
           const isCompleted = iter.status === "completed";
-          const status = isCompleted ? "completed" : isCurrentIteration ? "in-progress" : "pending";
+          const status = isCompleted
+            ? "completed"
+            : isCurrentIteration
+              ? "in-progress"
+              : "pending";
 
           return {
             id: `iteration-${iter.iterationNumber}`,
-            label: `Iteration ${iter.iterationNumber} - Coverage: ${iter.coverageScore || 0}/5`,
+            label: iter.summary || `Exploring... (score: ${iter.coverageScore || 0}/5)`,
             status,
             detail: iter.feedback || undefined,
           };
@@ -203,35 +291,43 @@ export const processDeepResearchIteration = internalAction({
       });
 
       // Decide: schedule next OR complete
-      const shouldContinue = review.coverageScore < 4 && currentIteration < maxIterations;
+      const shouldContinue =
+        review.coverageScore < 4 && currentIteration < maxIterations;
 
       if (shouldContinue) {
         console.log(`[processIteration] Scheduling next iteration`);
         // Schedule next iteration to run after a short delay (1 second)
-        await ctx.scheduler.runAfter(1000, api.research.scheduled.processDeepResearchIteration, {
-          sessionId,
-        });
+        await ctx.scheduler.runAfter(
+          1000,
+          internal.research.scheduled.processDeepResearchIteration,
+          {
+            sessionId,
+          },
+        );
       } else {
-        console.log(`[processIteration] Research complete - finalizing session`);
-        // Complete session
-        await ctx.runMutation(api.research.mutations.completeDeepResearchSession, {
-          sessionId,
-          status: "completed",
-        });
+        console.log(
+          `[processIteration] Research complete - finalizing session`,
+        );
 
-        // Update loading card to show completion with all steps
-        const loadingCard = await ctx.runQuery(api.chatMessages.queries.findLoadingCardBySession, {
-          conversationId: session.conversationId as Id<"conversations">,
-          sessionId: sessionId.toString(),
-        });
+        // Update loading card to show synthesis step before completion
+        const loadingCard = await ctx.runQuery(
+          api.chatMessages.queries.findLoadingCardBySession,
+          {
+            conversationId: session.conversationId as Id<"conversations">,
+            sessionId: sessionId.toString(),
+          },
+        );
 
         if (loadingCard) {
-          // Get all iterations to build final steps array
-          const iterations = await ctx.runQuery(api.research.queries.listDeepResearchIterations, {
-            sessionId,
-          });
+          // Get all iterations to build steps array
+          const iterations = await ctx.runQuery(
+            api.research.queries.listDeepResearchIterations,
+            {
+              sessionId,
+            },
+          );
 
-          // Build final steps array - all completed
+          // Build steps array with synthesis step
           const steps = iterations.map((iter) => ({
             id: `iteration-${iter.iterationNumber}`,
             label: `Iteration ${iter.iterationNumber} - Coverage: ${iter.coverageScore || 0}/5`,
@@ -239,29 +335,49 @@ export const processDeepResearchIteration = internalAction({
             detail: iter.feedback || undefined,
           }));
 
-          // Update the loading card to show completion
+          // Add synthesis step as in-progress
+          steps.push({
+            id: "synthesis",
+            label: "Synthesizing final report...",
+            status: "in-progress" as const,
+          });
+
+          // Update the loading card to show synthesis in progress
           await ctx.runMutation(api.chatMessages.mutations.update, {
             id: loadingCard._id,
             cardData: {
-              status: "completed",
+              card_type: "deep_research_loading",
+              status: "in_progress",
               session_id: sessionId,
               topic: session.topic,
-              total_iterations: currentIteration,
-              final_coverage_score: review.coverageScore,
               steps,
             },
           });
         }
+
+        // Complete session (this triggers document creation)
+        await ctx.runMutation(
+          api.research.mutations.completeDeepResearchSession,
+          {
+            sessionId,
+            status: "completed",
+          },
+        );
       }
 
-      console.log(`[processIteration] Complete - next: ${shouldContinue ? "scheduled" : "done"}`);
+      console.log(
+        `[processIteration] Complete - next: ${shouldContinue ? "scheduled" : "done"}`,
+      );
     } catch (error) {
       console.error(`[processIteration] ERROR:`, error);
       // Mark session as error
-      await ctx.runMutation(api.research.mutations.completeDeepResearchSession, {
-        sessionId,
-        status: "error",
-      });
+      await ctx.runMutation(
+        api.research.mutations.completeDeepResearchSession,
+        {
+          sessionId,
+          status: "error",
+        },
+      );
       throw error;
     }
   },

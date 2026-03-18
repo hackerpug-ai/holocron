@@ -1,0 +1,33 @@
+{
+  "expo": {
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "a580bd53-e7a9-4968-96c8-f6cf207a4abe"
+      }
+    },
+    "owner": "hackerpug",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/a580bd53-e7a9-4968-96c8-f6cf207a4abe"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "package": "com.holocron.app"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.holocron.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    }
+  }
+}

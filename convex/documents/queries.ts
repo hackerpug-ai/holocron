@@ -13,6 +13,7 @@ export const get = query({
 
 /**
  * List all documents with optional filtering
+ * Returns documents ordered by creation time (newest first)
  */
 export const list = query({
   args: {
@@ -22,18 +23,20 @@ export const list = query({
   handler: async (ctx, args) => {
     const { category, limit = 100 } = args;
 
-    let documents;
+    // Use withIndex to order by creation time descending
+    let query = ctx.db
+      .query("documents")
+      .withIndex("by_creationTime");
+
+    // Apply category filter if specified
     if (category) {
-      // For category filtering, we need to filter since there's no regular index
-      documents = await ctx.db
-        .query("documents")
-        .filter((q) => q.eq(q.field("category"), category))
-        .take(limit);
-    } else {
-      documents = await ctx.db.query("documents").take(limit);
+      query = query.filter((q) => q.eq(q.field("category"), category));
     }
 
-    return documents;
+    // Use take() to limit results
+    const results = await query.take(limit);
+
+    return results;
   },
 });
 
@@ -44,6 +47,23 @@ export const count = query({
   args: {},
   handler: async (ctx) => {
     const documents = await ctx.db.query("documents").collect();
+    return documents.length;
+  },
+});
+
+/**
+ * Get document count with optional category filter
+ * Used for displaying total counts in the articles screen
+ */
+export const countWithFilter = query({
+  args: {
+    category: v.optional(v.string()),
+  },
+  handler: async (ctx, { category }) => {
+    let documents = await ctx.db.query("documents").collect();
+    if (category) {
+      documents = documents.filter((doc) => doc.category === category);
+    }
     return documents.length;
   },
 });
@@ -177,6 +197,40 @@ export const fullTextSearch = query({
         // Score based on position (earlier results = higher score)
         score: filtered.length > 0 ? 1 - index / filtered.length : 0,
       }));
+  },
+});
+
+/**
+ * Find documents that don't have embeddings
+ * Used for backfill and monitoring
+ */
+export const findDocumentsWithoutEmbeddings = query({
+  args: {
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, { limit = 100 }) => {
+    const documents = await ctx.db
+      .query("documents")
+      .filter((q) => q.eq(q.field("embedding"), undefined))
+      .take(limit);
+
+    return documents.map(doc => ({
+      _id: doc._id,
+      title: doc.title,
+      category: doc.category,
+      createdAt: doc.createdAt,
+    }));
+  },
+});
+
+/**
+ * Count documents without embeddings
+ */
+export const countDocumentsWithoutEmbeddings = query({
+  args: {},
+  handler: async (ctx) => {
+    const all = await ctx.db.query("documents").collect();
+    return all.filter(doc => !doc.embedding).length;
   },
 });
 

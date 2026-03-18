@@ -23,8 +23,6 @@ export interface ChatThreadProps {
   /** Safe area top inset to apply as padding */
   safeAreaTop?: number
   testID?: string
-  /** Callback when a session is selected from resume list */
-  onSessionSelect?: (sessionId: string) => void
   /** Callback when a final result card is pressed - navigate to research detail */
   onFinalResultPress?: (sessionId: string) => void
 }
@@ -35,19 +33,32 @@ export function ChatThread({
   isLoading = false,
   safeAreaTop = 0,
   testID = 'chat-thread',
-  onSessionSelect,
   onFinalResultPress,
 }: ChatThreadProps) {
+  // Check if the most recent message has an active research loading card
+  // If so, suppress the typing indicator to avoid showing double loaders
+  const hasActiveResearchCard = messages.length > 0 && (() => {
+    const lastMessage = messages[0] // FlatList is inverted, so [0] is newest
+    if (lastMessage?.message_type === 'result_card' && lastMessage?.card_data) {
+      const cardType = lastMessage.card_data.card_type
+      const status = lastMessage.card_data.status
+      // Active research card is one that's loading (not completed)
+      return cardType === 'deep_research_loading' && status !== 'completed'
+    }
+    return false
+  })()
+
+  const effectiveShowTypingIndicator = showTypingIndicator && !hasActiveResearchCard
   const flatListRef = useRef<FlatList>(null)
   const router = useRouter()
 
   // Auto-scroll to bottom when new messages are added or typing indicator appears
   // Note: FlatList is inverted, so offset 0 is the visual bottom (newest messages)
   useEffect(() => {
-    if (messages.length > 0 || showTypingIndicator) {
+    if (messages.length > 0 || effectiveShowTypingIndicator) {
       flatListRef.current?.scrollToOffset({ offset: 0, animated: true })
     }
-  }, [messages.length, showTypingIndicator])
+  }, [messages.length, effectiveShowTypingIndicator])
 
   // Handle card press - navigate to document screen
   const handleCardPress = useCallback((documentId: number) => {
@@ -64,7 +75,6 @@ export function ChatThread({
       showTimestamp={true}
       testID={`message-${item.id}`}
       onCardPress={handleCardPress}
-      onSessionSelect={onSessionSelect}
       onFinalResultPress={onFinalResultPress}
     />
   )
@@ -100,7 +110,7 @@ export function ChatThread({
   }
 
   const renderTypingIndicator = () => {
-    if (!showTypingIndicator) return null
+    if (!effectiveShowTypingIndicator) return null
     return <TypingIndicator />
   }
 

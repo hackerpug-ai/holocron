@@ -3,12 +3,14 @@
  * Combines semantic search with keyword matching for optimal results
  *
  * This is an action (not a query) because it needs to combine results
- * from multiple queries and perform client-side scoring/reranking.
+ * from multiple queries, perform client-side scoring/reranking, and generate embeddings.
  */
 
 import { action } from "../_generated/server";
 import { v } from "convex/values";
 import { api } from "../_generated/api";
+import { embed } from "ai";
+import { cohereEmbedding } from "../lib/ai/embeddings_provider";
 
 /**
  * "use node" directive - runs in Node.js environment (not V8 isolate)
@@ -19,11 +21,19 @@ import { api } from "../_generated/api";
 export const hybridSearch = action({
   args: {
     query: v.string(),
-    embedding: v.array(v.float64()),
+    embedding: v.optional(v.array(v.float64())), // Optional - will be generated if not provided
     limit: v.optional(v.number()),
     category: v.optional(v.string()),
   },
   handler: async (ctx, { query, embedding, limit = 10, category }) => {
+    // Generate embedding for query if not provided
+    if (!embedding) {
+      const { embedding: generatedEmbedding } = await embed({
+        model: cohereEmbedding,
+        value: query,
+      });
+      embedding = generatedEmbedding;
+    }
     // Run both searches in parallel with category filter
     const searchLimit = Math.max(limit * 2, 50); // Get more candidates for better merging
 

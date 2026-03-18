@@ -4,6 +4,9 @@ import { action } from "../_generated/server";
 import { v } from "convex/values";
 import { api } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
+import { generateText } from "ai";
+import { zaiFlash } from "../lib/ai/zai_provider";
+import { DOCUMENT_CATEGORIES, isValidCategory } from "../lib/categories";
 
 /**
  * Slash command parser
@@ -86,6 +89,120 @@ interface SimpleResearchResultCard {
   duration_ms: number;
 }
 
+interface ShopListingCard {
+  card_type: "shop_listing";
+  listing_id: string;
+  title: string;
+  price: number;
+  original_price?: number;
+  currency: string;
+  condition: string;
+  retailer: string;
+  seller?: string;
+  seller_rating?: number;
+  url: string;
+  image_url?: string;
+  in_stock: boolean;
+  deal_score?: number;
+}
+
+interface ShopResultsCard {
+  card_type: "shop_results";
+  session_id: string;
+  query: string;
+  total_listings: number;
+  best_deal_id?: string;
+  listings: ShopListingCard[];
+  status: "searching" | "completed" | "failed";
+  duration_ms?: number;
+}
+
+interface ShopLoadingCard {
+  card_type: "shop_loading";
+  session_id: string;
+  query: string;
+  message?: string;
+}
+
+interface SubscriptionAddedCard {
+  card_type: "subscription_added";
+  subscription_id: string;
+  source_type: string;
+  identifier: string;
+  name: string;
+  url?: string;
+}
+
+interface SubscriptionListCard {
+  card_type: "subscription_list";
+  subscriptions: Array<{
+    id: string;
+    source_type: string;
+    identifier: string;
+    name: string;
+    auto_research: boolean;
+    created_at: number;
+  }>;
+  filter_type?: string;
+}
+
+interface WhatsNewReportCard {
+  card_type: "whats_new_report";
+  report_id: string;
+  period_start: number;
+  period_end: number;
+  days: number;
+  findings_count: number;
+  discovery_count: number;
+  release_count: number;
+  trend_count: number;
+  content?: string;
+  is_from_today: boolean;
+}
+
+interface WhatsNewLoadingCard {
+  card_type: "whats_new_loading";
+  message?: string;
+}
+
+interface ToolSearchResultsCard {
+  card_type: "tool_search_results";
+  query: string;
+  results: Array<{
+    id: string;
+    title: string;
+    description?: string;
+    category: string;
+    source_type: string;
+    language?: string;
+    tags?: string[];
+    score: number;
+  }>;
+}
+
+interface ToolAddingCard {
+  card_type: "tool_adding";
+  url: string;
+  message?: string;
+}
+
+interface ToolAddedCard {
+  card_type: "tool_added";
+  tool_id: string;
+  title: string;
+  description?: string;
+  category: string;
+  source_type: string;
+  url: string;
+}
+
+interface DocumentSavedCard {
+  card_type: "document_saved";
+  document_id: string;
+  title: string;
+  category?: string;
+}
+
 type CardData =
   | CategoryListCard
   | BrowseArticleCard
@@ -95,19 +212,19 @@ type CardData =
   | NoResultsCard
   | CategoryNotFoundCard
   | StatsCard
-  | SimpleResearchResultCard;
+  | SimpleResearchResultCard
+  | ShopResultsCard
+  | ShopLoadingCard
+  | ShopListingCard[]
+  | SubscriptionAddedCard
+  | SubscriptionListCard
+  | WhatsNewReportCard
+  | WhatsNewLoadingCard
+  | ToolSearchResultsCard
+  | ToolAddingCard
+  | ToolAddedCard
+  | DocumentSavedCard;
 
-/**
- * Valid document categories
- */
-const VALID_CATEGORIES = [
-  "code",
-  "design",
-  "business",
-  "llm-prompt",
-  "other",
-] as const;
-type DocumentCategory = (typeof VALID_CATEGORIES)[number];
 
 /**
  * Generate help response for /help command
@@ -115,13 +232,30 @@ type DocumentCategory = (typeof VALID_CATEGORIES)[number];
 function generateHelpResponse(): string {
   return `Available commands:
 
-/help - Show this help message
+**Search & Browse**
 /search <query> - Search the knowledge base
 /browse [category] - Browse articles by category
 /stats - View knowledge base statistics
-/deep-research <topic> - Start multi-iteration deep research
-/resume <session-id> - Resume a previous research session
-/cancel - Cancel active deep research session`;
+
+**Research**
+/research <topic> - Quick research on a topic
+/deep-research <topic> - Multi-iteration deep research
+/cancel - Cancel active deep research session
+
+**Shopping**
+/shop <product> - Search for product deals across retailers
+
+**Subscriptions**
+/subscribe <type> <id> [name] - Add a subscription source
+  Types: youtube, newsletter, changelog, reddit, ebay, whats-new, creator
+/unsubscribe <id> - Remove a subscription
+/subscriptions [type] - List your subscriptions
+/check-subs - Check subscriptions for new content
+
+**Tools & Content**
+/whats-new [days] - Get AI news briefing (default: 7 days)
+/toolbelt <query or url> - Search tools or add from URL
+/save <title> [category] - Save document to knowledge base`;
 }
 
 /**
@@ -222,13 +356,13 @@ async function handleBrowseCommand(
 
     // Validate category
     const normalizedCategory = categoryArg.toLowerCase().trim();
-    if (!VALID_CATEGORIES.includes(normalizedCategory as DocumentCategory)) {
+    if (!isValidCategory(normalizedCategory)) {
       return {
-        content: `Category "${categoryArg}" not found. Valid categories: ${VALID_CATEGORIES.join(", ")}`,
+        content: `Category "${categoryArg}" not found. Valid categories: ${DOCUMENT_CATEGORIES.join(", ")}`,
         messageType: "result_card",
         cardData: {
           card_type: "category_not_found",
-          valid_categories: [...VALID_CATEGORIES],
+          valid_categories: [...DOCUMENT_CATEGORIES],
         } as CategoryNotFoundCard,
       };
     }
@@ -369,7 +503,7 @@ async function generateAIResponse(
 }
 
 /**
- * Generate chat title using GPT-5-fast
+ * Generate chat title using Z.ai GLM-4.5-Flash
  * Task #784: Auto-generate short descriptive chat titles
  */
 export const generateChatTitle = action({
@@ -384,14 +518,14 @@ export const generateChatTitle = action({
     | { success: false; error: string }
     | { success: true; title: string }
   > => {
-    // 1. Fetch conversation to check current title
+    // 1. Fetch conversation to check if user has set title
     const conversation = await ctx.runQuery(api.conversations.queries.get, {
       id: conversationId,
     });
 
-    // Skip if already has custom title (not "New Chat" or empty)
-    if (conversation?.title && conversation.title !== "New Chat") {
-      return { skipped: true, reason: "already_has_title" };
+    // Skip if user has manually set the title
+    if (conversation?.titleSetByUser) {
+      return { skipped: true, reason: "user_set_title" };
     }
 
     // 2. Fetch first 3-5 messages
@@ -408,60 +542,39 @@ export const generateChatTitle = action({
       return { skipped: true, reason: "insufficient_messages" };
     }
 
-    // 3. Build context for GPT-4o-mini
+    // 3. Build context for title generation
     const context: string = messages
       .slice(0, 5)
       .reverse() // Reverse because listByConversation returns newest first
       .map((m: any) => `${m.role}: ${m.content}`)
       .join("\n\n");
 
-    // 4. Call gpt-5-nano to generate title
-    const response: Response = await fetch(
-      "https://api.openai.com/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "gpt-5-nano",
-          messages: [
-            {
-              role: "system",
-              content:
-                "Generate a short, descriptive title (3-5 words, max 50 chars) for this chat conversation. Return ONLY the title, no quotes or explanations.",
-            },
-            {
-              role: "user",
-              content: `Conversation:\n\n${context}`,
-            },
-          ],
-          max_completion_tokens: 20,
-        }),
-      },
-    );
+    try {
+      // 4. Call Z.ai GLM-4.5 Flash using AI SDK
+      const result = await generateText({
+        model: zaiFlash(),
+        system:
+          "Generate a short, descriptive title (3-5 words, max 50 chars) for this chat conversation. Return ONLY the title, no quotes or explanations.",
+        prompt: `Conversation:\n\n${context}`,
+      });
 
-    if (!response.ok) {
-      console.error("OpenAI API error:", await response.text());
-      return { success: false, error: "api_error" };
+      const title: string = result.text?.trim() || "Untitled Chat";
+
+      // 5. Truncate if too long (max 50 chars)
+      const truncatedTitle: string =
+        title.length > 50 ? title.slice(0, 47) + "..." : title;
+
+      // 6. Update conversation title (not user-set, so titleSetByUser stays false/undefined)
+      await ctx.runMutation(api.conversations.mutations.update, {
+        id: conversationId,
+        title: truncatedTitle,
+      });
+
+      return { success: true, title: truncatedTitle };
+    } catch (error) {
+      console.error("Title generation error:", error);
+      return { success: false, error: error instanceof Error ? error.message : "api_error" };
     }
-
-    const data: any = await response.json();
-    const title: string =
-      data.choices[0]?.message?.content?.trim() || "Untitled Chat";
-
-    // 5. Truncate if too long (max 50 chars)
-    const truncatedTitle: string =
-      title.length > 50 ? title.slice(0, 47) + "..." : title;
-
-    // 6. Update conversation title
-    await ctx.runMutation(api.conversations.mutations.update, {
-      id: conversationId,
-      title: truncatedTitle,
-    });
-
-    return { success: true, title: truncatedTitle };
   },
 });
 
@@ -549,6 +662,73 @@ export const send = action({
         agentResponse = await handleBrowseCommand(parsed.args, ctx);
       } else if (parsed.command === "stats") {
         agentResponse = await handleStatsCommand(ctx);
+      } else if (parsed.command === "shop") {
+        const query = parsed.args || "";
+        if (!query) {
+          agentResponse = {
+            content: "Please provide a product to search for. Usage: /shop <product>",
+            messageType: "text",
+          };
+        } else {
+          // Call shop search action directly
+          const shopResult: any = await ctx.runAction(
+            api.shop.index.startShopSearch,
+            {
+              conversationId: finalConversationId,
+              query,
+            }
+          );
+
+          // Fetch listings if we got results
+          if (shopResult.totalListings > 0) {
+            const listingsData = await ctx.runQuery(
+              api.shop.queries.getShopListings,
+              {
+                sessionId: shopResult.sessionId,
+                limit: 10,
+                excludeDuplicates: true,
+                sortBy: "dealScore",
+              }
+            );
+
+            const listings: ShopListingCard[] = (listingsData || []).map((l: any) => ({
+              card_type: "shop_listing",
+              listing_id: l._id,
+              title: l.title,
+              price: l.price,
+              original_price: l.originalPrice,
+              currency: l.currency || "USD",
+              condition: l.condition,
+              retailer: l.retailer,
+              seller: l.seller,
+              seller_rating: l.sellerRating,
+              url: l.url,
+              image_url: l.imageUrl,
+              in_stock: l.inStock ?? true,
+              deal_score: l.dealScore,
+            }));
+
+            agentResponse = {
+              content: `Found ${shopResult.totalListings} product${shopResult.totalListings === 1 ? "" : "s"} for "${query}"`,
+              messageType: "result_card",
+              cardData: {
+                card_type: "shop_results",
+                session_id: shopResult.sessionId,
+                query,
+                total_listings: shopResult.totalListings,
+                best_deal_id: shopResult.bestDealId,
+                listings,
+                status: shopResult.status,
+                duration_ms: shopResult.durationMs,
+              } as ShopResultsCard,
+            };
+          } else {
+            agentResponse = {
+              content: `No products found for "${query}". Try a different search term.`,
+              messageType: "text",
+            };
+          }
+        }
       } else if (parsed.command === "deep-research") {
         const topic = parsed.args || "";
         if (!topic) {
@@ -599,19 +779,293 @@ export const send = action({
             },
           };
         }
-      } else if (parsed.command === "resume") {
-        const sessionId = parsed.args || "";
-        if (!sessionId) {
+      } else if (parsed.command === "subscribe") {
+        // /subscribe <type> <identifier> [name]
+        const parts = (parsed.args || "").split(" ");
+        const sourceType = parts[0] as "youtube" | "newsletter" | "changelog" | "reddit" | "ebay" | "whats-new" | "creator";
+        const identifier = parts[1];
+        const name = parts.slice(2).join(" ") || identifier;
+
+        const validTypes = ["youtube", "newsletter", "changelog", "reddit", "ebay", "whats-new", "creator"];
+        if (!sourceType || !identifier) {
           agentResponse = {
-            content: "Please provide a session ID. Usage: /resume <session-id>",
+            content: "Usage: /subscribe <type> <identifier> [name]\nTypes: youtube, newsletter, changelog, reddit, ebay, whats-new, creator",
+            messageType: "text",
+          };
+        } else if (!validTypes.includes(sourceType)) {
+          agentResponse = {
+            content: `Invalid subscription type: ${sourceType}\nValid types: ${validTypes.join(", ")}`,
             messageType: "text",
           };
         } else {
-          // TODO: Implement resume logic
+          try {
+            const result: any = await ctx.runMutation(
+              api.subscriptions.mutations.add,
+              {
+                sourceType,
+                identifier,
+                name,
+              }
+            );
+            agentResponse = {
+              content: `Subscribed to ${name}`,
+              messageType: "result_card",
+              cardData: {
+                card_type: "subscription_added",
+                subscription_id: result._id,
+                source_type: sourceType,
+                identifier,
+                name,
+                url: result.url,
+              } as SubscriptionAddedCard,
+            };
+          } catch (error) {
+            agentResponse = {
+              content: `Failed to add subscription: ${error instanceof Error ? error.message : "Unknown error"}`,
+              messageType: "error",
+            };
+          }
+        }
+      } else if (parsed.command === "unsubscribe") {
+        // /unsubscribe <id>
+        const subscriptionId = parsed.args;
+        if (!subscriptionId) {
           agentResponse = {
-            content: `Resume functionality for session "${sessionId}" will be available soon!`,
+            content: "Usage: /unsubscribe <subscription_id>",
             messageType: "text",
           };
+        } else {
+          try {
+            await ctx.runMutation(api.subscriptions.mutations.remove, {
+              subscriptionId: subscriptionId as any,
+            });
+            agentResponse = {
+              content: `Unsubscribed successfully`,
+              messageType: "text",
+            };
+          } catch (error) {
+            agentResponse = {
+              content: `Failed to unsubscribe: ${error instanceof Error ? error.message : "Unknown error"}`,
+              messageType: "error",
+            };
+          }
+        }
+      } else if (parsed.command === "subscriptions") {
+        // /subscriptions [type]
+        const filterType = parsed.args as "youtube" | "newsletter" | "changelog" | "reddit" | "ebay" | "whats-new" | undefined;
+        try {
+          const subscriptions: any[] = await ctx.runQuery(
+            api.subscriptions.queries.list,
+            { sourceType: filterType || undefined }
+          );
+
+          if (subscriptions.length === 0) {
+            agentResponse = {
+              content: filterType
+                ? `No ${filterType} subscriptions found`
+                : "No subscriptions found. Use /subscribe to add one.",
+              messageType: "text",
+            };
+          } else {
+            agentResponse = {
+              content: `Found ${subscriptions.length} subscription${subscriptions.length === 1 ? "" : "s"}`,
+              messageType: "result_card",
+              cardData: {
+                card_type: "subscription_list",
+                subscriptions: subscriptions.map((s: any) => ({
+                  id: s._id,
+                  source_type: s.sourceType,
+                  identifier: s.identifier,
+                  name: s.name,
+                  auto_research: s.autoResearch,
+                  created_at: s.createdAt,
+                })),
+                filter_type: filterType,
+              } as SubscriptionListCard,
+            };
+          }
+        } catch (error) {
+          agentResponse = {
+            content: `Failed to list subscriptions: ${error instanceof Error ? error.message : "Unknown error"}`,
+            messageType: "error",
+          };
+        }
+      } else if (parsed.command === "check-subs") {
+        // /check-subs - trigger subscription check (fire-and-forget)
+        try {
+          ctx.scheduler.runAfter(0, api.subscriptions.actions.check, {});
+          agentResponse = {
+            content: "Checking subscriptions for new content...",
+            messageType: "text",
+          };
+        } catch (error) {
+          agentResponse = {
+            content: `Failed to trigger subscription check: ${error instanceof Error ? error.message : "Unknown error"}`,
+            messageType: "error",
+          };
+        }
+      } else if (parsed.command === "whats-new") {
+        // /whats-new [days]
+        const days = parsed.args ? parseInt(parsed.args, 10) : 7;
+        try {
+          const reportData: any = await ctx.runQuery(
+            api.whatsNew.queries.getLatestReport,
+            {}
+          );
+
+          if (!reportData || !reportData.report) {
+            // No report exists, trigger generation
+            ctx.scheduler.runAfter(0, api.whatsNew.actions.generate, { days });
+            agentResponse = {
+              content: "Generating AI news briefing...",
+              messageType: "result_card",
+              cardData: {
+                card_type: "whats_new_loading",
+                message: `Generating ${days}-day briefing...`,
+              } as WhatsNewLoadingCard,
+            };
+          } else {
+            const report = reportData.report;
+            agentResponse = {
+              content: `What's New in AI (${report.days} days)`,
+              messageType: "result_card",
+              cardData: {
+                card_type: "whats_new_report",
+                report_id: report._id,
+                period_start: report.periodStart,
+                period_end: report.periodEnd,
+                days: report.days,
+                findings_count: report.findingsCount,
+                discovery_count: report.discoveryCount,
+                release_count: report.releaseCount,
+                trend_count: report.trendCount,
+                content: reportData.content,
+                is_from_today: reportData.isFromToday,
+              } as WhatsNewReportCard,
+            };
+          }
+        } catch (error) {
+          agentResponse = {
+            content: `Failed to get news briefing: ${error instanceof Error ? error.message : "Unknown error"}`,
+            messageType: "error",
+          };
+        }
+      } else if (parsed.command === "toolbelt") {
+        // /toolbelt <query or url> - Smart routing
+        const input = parsed.args || "";
+        if (!input) {
+          agentResponse = {
+            content: "Usage: /toolbelt <query or url>\n\nExamples:\n- /toolbelt database migrations (search)\n- /toolbelt https://orm.drizzle.team (add tool)",
+            messageType: "text",
+          };
+        } else {
+          // Simple URL detection (starts with http:// or https://)
+          const isUrl = /^https?:\/\//.test(input);
+
+          if (isUrl) {
+            // Fire-and-forget: add tool from URL
+            // For now, return a loading state (tool storage action would be implemented separately)
+            agentResponse = {
+              content: `Adding tool from ${input}...`,
+              messageType: "result_card",
+              cardData: {
+                card_type: "tool_adding",
+                url: input,
+                message: "Fetching metadata...",
+              } as ToolAddingCard,
+            };
+            // TODO: ctx.scheduler.runAfter(0, api.toolbelt.actions.addFromUrl, { url: input });
+          } else {
+            // Search toolbelt
+            try {
+              const results: any[] = await ctx.runQuery(
+                api.toolbelt.queries.fullTextSearch,
+                { query: input, limit: 5 }
+              );
+
+              if (results.length === 0) {
+                agentResponse = {
+                  content: `No tools found for "${input}"`,
+                  messageType: "text",
+                };
+              } else {
+                agentResponse = {
+                  content: `Found ${results.length} tool${results.length === 1 ? "" : "s"} matching "${input}"`,
+                  messageType: "result_card",
+                  cardData: {
+                    card_type: "tool_search_results",
+                    query: input,
+                    results: results.map((t: any) => ({
+                      id: t._id,
+                      title: t.title,
+                      description: t.description,
+                      category: t.category,
+                      source_type: t.sourceType,
+                      language: t.language,
+                      tags: t.tags,
+                      score: t.score || 0,
+                    })),
+                  } as ToolSearchResultsCard,
+                };
+              }
+            } catch (error) {
+              agentResponse = {
+                content: `Failed to search toolbelt: ${error instanceof Error ? error.message : "Unknown error"}`,
+                messageType: "error",
+              };
+            }
+          }
+        }
+      } else if (parsed.command === "save") {
+        // /save <title> [category]
+        const parts = (parsed.args || "").split(" ");
+        const title = parts[0];
+        const category = parts[1];
+
+        if (!title) {
+          agentResponse = {
+            content: "Usage: /save <title> [category]\n\nSaves the conversation context as a document to the knowledge base.",
+            messageType: "text",
+          };
+        } else {
+          try {
+            // Create a summary of the conversation for the document content
+            const messages = await ctx.runQuery(
+              api.chatMessages.queries.listByConversation,
+              { conversationId: finalConversationId, limit: 20 }
+            );
+
+            const conversationSummary = messages
+              .reverse()
+              .map((m: any) => `${m.role}: ${m.content}`)
+              .join("\n\n");
+
+            const result: any = await ctx.runAction(
+              api.documents.storage.createWithEmbedding,
+              {
+                title,
+                content: conversationSummary,
+                category: category || "notes",
+                status: "complete",
+              }
+            );
+
+            agentResponse = {
+              content: `Saved "${title}" to knowledge base`,
+              messageType: "result_card",
+              cardData: {
+                card_type: "document_saved",
+                document_id: result.documentId,
+                title,
+                category: category || "notes",
+              } as DocumentSavedCard,
+            };
+          } catch (error) {
+            agentResponse = {
+              content: `Failed to save document: ${error instanceof Error ? error.message : "Unknown error"}`,
+              messageType: "error",
+            };
+          }
         }
       } else if (parsed.command === "cancel") {
         // TODO: Implement cancel logic

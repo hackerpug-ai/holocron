@@ -62,7 +62,7 @@ export const Default: Story = {
 }
 
 /**
- * Partial match filters to show only /research and /resume commands.
+ * Partial match filters to show only /research command.
  */
 export const Filtered: Story = {
   args: {
@@ -72,7 +72,7 @@ export const Filtered: Story = {
   parameters: {
     docs: {
       description: {
-        story: 'Shows /research and /resume commands that match the "/re" filter.',
+        story: 'Shows /research command that matches the "/re" filter.',
       },
     },
   },

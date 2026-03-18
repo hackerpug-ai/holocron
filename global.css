@@ -27,24 +27,26 @@
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    /* "Crystalline Archive" theme - Holocron knowledge repository aesthetic */
+    /* Deep blue-black backgrounds with amber/gold accents and teal links */
+    --background: 220 35% 6%; /* #0A0E14 - Deep navy-black */
+    --foreground: 38 20% 89%; /* #E8E4DE - Warm cream */
+    --card: 215 30% 10%; /* #111820 - Elevated navy */
+    --card-foreground: 38 20% 89%;
+    --popover: 215 28% 12%; /* #151C26 - Modal surface */
+    --popover-foreground: 38 20% 89%;
+    --primary: 38 90% 55%; /* #F5A623 - Amber/gold glow */
+    --primary-foreground: 220 35% 6%;
+    --secondary: 215 30% 15%; /* #1A2332 - Secondary navy */
+    --secondary-foreground: 215 15% 82%; /* #C9D1DD */
+    --muted: 215 32% 17%; /* #1E2A3B - Subtle areas */
+    --muted-foreground: 218 17% 61%; /* #8B9AAF */
+    --accent: 197 47% 20%; /* #1A3A4A - Teal-tinted surface */
+    --accent-foreground: 174 58% 56%; /* #4FD1C5 - Teal text */
+    --destructive: 0 84% 60%; /* #EF4444 */
+    --destructive-foreground: 0 0% 100%;
+    --border: 215 32% 17%; /* #1E2A3B */
+    --input: 215 28% 12%; /* #151C26 */
+    --ring: 38 90% 55%; /* #F5A623 - Amber focus rings */
   }
 }

@@ -1,15 +1,10 @@
 import { Badge, type BadgeProps } from '@/components/ui/badge'
 import { Text } from '@/components/ui/text'
 import { cn } from '@/lib/utils'
+import type { DocumentCategory } from '@/convex/lib/categories'
 
-export type CategoryType =
-  | 'research'
-  | 'deep-research'
-  | 'factual'
-  | 'academic'
-  | 'entity'
-  | 'url'
-  | 'general'
+// Re-export for backward compatibility
+export type CategoryType = DocumentCategory
 
 interface CategoryBadgeProps extends Omit<BadgeProps, 'variant'> {
   /** The category type to display */
@@ -22,12 +17,14 @@ interface CategoryBadgeProps extends Omit<BadgeProps, 'variant'> {
 
 const categoryConfig: Record<CategoryType, { label: string; variant: BadgeProps['variant'] }> = {
   research: { label: 'Research', variant: 'default' },
-  'deep-research': { label: 'Deep Research', variant: 'secondary' },
-  factual: { label: 'Factual', variant: 'outline' },
-  academic: { label: 'Academic', variant: 'secondary' },
-  entity: { label: 'Entity', variant: 'outline' },
-  url: { label: 'URL', variant: 'outline' },
   general: { label: 'General', variant: 'outline' },
+  patterns: { label: 'Patterns', variant: 'secondary' },
+  business: { label: 'Business', variant: 'secondary' },
+  'technical-analysis': { label: 'Technical', variant: 'outline' },
+  platforms: { label: 'Platforms', variant: 'outline' },
+  libraries: { label: 'Libraries', variant: 'outline' },
+  'claude-code-configuration': { label: 'Claude Config', variant: 'outline' },
+  toolbelt: { label: 'Toolbelt', variant: 'default' },
 }
 
 /**

@@ -3,7 +3,7 @@ import { ConversationActionMenu } from '@/components/ConversationActionMenu'
 import { DrawerHeader, type NavSection } from '@/components/DrawerHeader'
 import { Text } from '@/components/ui/text'
 import { cn } from '@/lib/utils'
-import { BookOpen, MessageSquare, Settings } from 'lucide-react-native'
+import { BookOpen, Settings, Wrench } from 'lucide-react-native'
 import { useMemo } from 'react'
 import { FlatList, Pressable, View, type ViewProps } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -21,10 +21,10 @@ interface DrawerContentProps extends Omit<ViewProps, 'children'> {
   searchQuery?: string
   /** Callback when search query changes */
   onSearchChange?: (_query: string) => void
-  /** Callback when Holocron (main chat) section is pressed */
-  onHolocronPress?: () => void
   /** Callback when Articles link is pressed */
   onArticlesPress?: () => void
+  /** Callback when Toolbelt link is pressed */
+  onToolbeltPress?: () => void
   /** Callback when Settings is pressed */
   onSettingsPress?: () => void
   /** Callback when New Chat is pressed */
@@ -33,7 +33,7 @@ interface DrawerContentProps extends Omit<ViewProps, 'children'> {
   onConversationPress?: (_conversation: Conversation) => void
   /** Callback when a conversation is long-pressed */
   onConversationLongPress?: (_conversation: Conversation) => void
-  /** Callback when a conversation delete button is pressed */
+  /** Callback when a conversation delete is triggered (swipe-to-delete) */
   onConversationDelete?: (_conversation: Conversation) => void
   /** Loading state for conversation fetch */
   isLoading?: boolean
@@ -49,7 +49,7 @@ interface DrawerContentProps extends Omit<ViewProps, 'children'> {
   onActionMenuOpenChange?: (_open: boolean) => void
   /** Callback when rename is confirmed */
   onRename?: (_newTitle: string) => void
-  /** Callback when delete is confirmed */
+  /** Callback when delete is confirmed from action menu */
   onDelete?: () => void
   /** Whether a rename operation is in progress */
   isRenaming?: boolean
@@ -69,8 +69,8 @@ export function DrawerContent({
   activeConversationId,
   searchQuery = '',
   onSearchChange,
-  onHolocronPress,
   onArticlesPress,
+  onToolbeltPress,
   onSettingsPress,
   onNewChatPress,
   onConversationPress,
@@ -93,8 +93,8 @@ export function DrawerContent({
   const insets = useSafeAreaInsets()
 
   const sections: NavSection[] = [
-    { id: 'holocron', label: 'Holocron', icon: <MessageSquare size={20} className="text-foreground" />, onPress: onHolocronPress },
     { id: 'articles', label: 'Articles', icon: <BookOpen size={20} className="text-foreground" />, onPress: onArticlesPress },
+    { id: 'toolbelt', label: 'Toolbelt', icon: <Wrench size={20} className="text-foreground" />, onPress: onToolbeltPress },
     { id: 'settings', label: 'Settings', icon: <Settings size={20} className="text-foreground" />, onPress: onSettingsPress },
   ]
 
@@ -121,7 +121,7 @@ export function DrawerContent({
       isActive={item.id === activeConversationId}
       onPress={() => onConversationPress?.(item)}
       onLongPress={() => onConversationLongPress?.(item)}
-      onDeletePress={() => onConversationDelete?.(item)}
+      onDelete={onConversationDelete ? () => onConversationDelete(item) : undefined}
     />
   )
 

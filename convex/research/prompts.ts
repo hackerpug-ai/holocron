@@ -9,6 +9,7 @@
 
 import type { Id } from "../_generated/dataModel";
 import type { GenericActionCtx } from "convex/server";
+import type { UrlReadResult } from "./search";
 
 /**
  * Research context structure
@@ -300,5 +301,276 @@ Be strict - only score 4+ when truly comprehensive with authoritative sources an
 Flag any claims that rely on single sources or have credibility concerns.`;
 
   console.log(`[buildReviewPrompt] Exit - prompt length: ${prompt.length} chars`);
+  return prompt;
+}
+
+/**
+ * Build final synthesis prompt for document creation
+ *
+ * Synthesizes all iteration findings into a cohesive markdown report
+ * matching the local skill format with YAML frontmatter.
+ */
+export function buildFinalSynthesisPrompt(
+  topic: string,
+  iterations: Array<{
+    iterationNumber: number;
+    findings: string;
+    coverageScore?: number;
+    summary?: string;
+  }>
+): string {
+  console.log(`[buildFinalSynthesisPrompt] Entry - topic: "${topic}", iterations: ${iterations.length}`);
+
+  const iterationContent = iterations
+    .filter(it => it.findings)
+    .map(it => `### Iteration ${it.iterationNumber}${it.summary ? `: ${it.summary}` : ''}
+Coverage Score: ${it.coverageScore ?? 'N/A'}/5
+
+${it.findings}`)
+    .join('\n\n---\n\n');
+
+  // Calculate overall confidence from coverage scores
+  const avgCoverage = iterations.reduce((sum, it) => sum + (it.coverageScore ?? 0), 0) / iterations.length;
+  const overallConfidence = avgCoverage >= 4 ? "HIGH" : avgCoverage >= 3 ? "MEDIUM" : "LOW";
+  const totalSources = iterations.length; // Approximate source count
+
+  // Generate tags from topic
+  const topicWords = topic.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+  const tags = topicWords.slice(0, 5).join(", ");
+
+  const prompt = `Synthesize the following research iterations into a comprehensive, well-structured markdown report.
+
+**Research Topic:** ${topic}
+
+**Research Iterations:**
+${iterationContent}
+
+**Your Task:**
+Create a cohesive research report in markdown format with YAML frontmatter and the following structure:
+
+---
+title: "${topic} - Research Report"
+date: "${new Date().toISOString().split('T')[0]}"
+time: "${new Date().toTimeString().slice(0, 5)}"
+category: "research"
+tags: [${tags}]
+status: "complete"
+research_type: "deep_research"
+iterations: ${iterations.length}
+sources_consulted: ${totalSources}
+confidence: "${overallConfidence}"
+method: "deep-research"
+---
+
+# ${topic}
+
+## Executive Summary
+Write 3-5 sentences that directly answer the research question based on all findings. Include:
+- The main conclusion or answer
+- Key supporting points
+- Any important caveats or limitations
+
+## Key Findings
+
+Organize findings into logical themes (create 3-6 theme headings). For each finding under a theme:
+- **{Finding statement}** (Confidence: {HIGH/MEDIUM/LOW}, {n} sources)
+  - 1-2 sentence explanation with context
+  - Sources: [{Title}]({URL}), [{Title}]({URL})
+
+Extract confidence levels and source counts from the iteration data. Group related findings under meaningful theme headings.
+
+## Confidence Summary
+
+| Finding | Confidence | Sources |
+|---------|------------|---------|
+| {finding summary} | {HIGH/MEDIUM/LOW} | {count} |
+
+Create a table summarizing 5-10 key findings with their confidence levels and source counts.
+
+## Sources
+
+### Authoritative Sources
+List official documentation, peer-reviewed papers, and primary sources:
+[1] {Title} - {URL}
+[2] {Title} - {URL}
+
+### Expert Sources
+List expert blog posts, conference talks, and industry analysis:
+[1] {Title} - {URL}
+[2] {Title} - {URL}
+
+### Community Sources
+List forums, Q&A sites, and community discussions (if relevant):
+[1] {Title} - {URL}
+
+## Gaps & Open Questions
+Identify:
+- Unanswered questions from the research
+- Conflicting information that needs resolution
+- Suggested follow-up research topics
+
+## Methodology
+
+This report uses a 5-factor confidence scoring algorithm:
+
+1. **Source Credibility** (25%): Quality and authority of information sources
+2. **Evidence Quality** (25%): Directness of evidence (primary vs. anecdotal)
+3. **Corroboration** (25%): Number of independent sources confirming claims
+4. **Recency** (15%): How current the information is
+5. **Expert Consensus** (10%): Agreement among domain experts
+
+**Confidence Levels:**
+- 🟢 **HIGH** (80-100): 3+ authoritative sources, strong corroboration
+- 🟡 **MEDIUM** (50-79): Some support but room for verification
+- 🔴 **LOW** (0-49): Limited support, exercise caution
+
+**Guidelines:**
+- Write in clear, professional prose - NOT bullet point dumps
+- Connect findings across iterations into a coherent narrative
+- Preserve ALL citations in [Title](URL) format from source material
+- Be honest about confidence levels - include caveats for MEDIUM, warnings for LOW
+- Extract actual confidence scores from the synthesis data when available
+- Group findings by theme with clear headings
+- Target 800-1500 words for the full report`;
+
+  console.log(`[buildFinalSynthesisPrompt] Exit - prompt length: ${prompt.length} chars`);
+  return prompt;
+}
+
+/**
+ * URL Content for single-pass synthesis
+ */
+export interface UrlContent {
+  url: string;
+  title?: string;
+  content: string;
+}
+
+/**
+ * Build single-pass synthesis prompt for deep research
+ *
+ * This is a simplified synthesis that:
+ * - Takes full URL content (not 500-char snippets)
+ * - Produces a clean markdown report
+ * - Uses simplified confidence scoring (3+ sources = HIGH, 2 = MEDIUM, 1 = LOW)
+ *
+ * @param topic - Research topic
+ * @param urlContents - Full content from read URLs
+ * @param searchSnippets - Fallback snippets from search results
+ * @returns Synthesis prompt for zaiPro
+ */
+export function buildSinglePassSynthesisPrompt(
+  topic: string,
+  urlContents: UrlContent[],
+  searchSnippets: string
+): string {
+  console.log(
+    `[buildSinglePassSynthesisPrompt] Entry - topic: "${topic}", urlContents: ${urlContents.length}, snippetsLength: ${searchSnippets.length}`
+  );
+
+  // Build URL content sections
+  const urlContentSections = urlContents
+    .filter((u) => u.content.length > 100) // Only include substantial content
+    .map(
+      (u, i) => `
+### Source ${i + 1}: ${u.title || "Untitled"}
+URL: ${u.url}
+
+${u.content}
+`
+    )
+    .join("\n---\n");
+
+  const hasFullContent = urlContents.filter((u) => u.content.length > 100).length > 0;
+
+  // Generate current date for frontmatter
+  const now = new Date();
+  const dateStr = now.toISOString().split("T")[0];
+  const timeStr = now.toTimeString().slice(0, 5);
+
+  // Generate tags from topic
+  const topicWords = topic
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((w) => w.length > 3);
+  const tags = topicWords.slice(0, 5).join(", ");
+
+  const prompt = `You are a research synthesis expert. Synthesize the following research materials into a comprehensive markdown report.
+
+**Research Topic:** ${topic}
+
+${hasFullContent ? `## Full Source Content
+${urlContentSections}` : ""}
+
+## Search Result Snippets
+${searchSnippets}
+
+**Your Task:**
+Create a comprehensive research report in markdown format with YAML frontmatter.
+
+**IMPORTANT FORMAT REQUIREMENTS:**
+Return ONLY the markdown report. Do NOT wrap in code blocks. Start directly with the YAML frontmatter.
+
+---
+title: "${topic}"
+date: "${dateStr}"
+time: "${timeStr}"
+category: "research"
+tags: [${tags}]
+status: "complete"
+research_type: "single_pass"
+sources_consulted: ${urlContents.length}
+confidence: "PENDING"
+method: "single-pass-deep-research"
+---
+
+# ${topic}
+
+## Executive Summary
+Write 3-5 sentences that directly answer the research question. Include:
+- The main conclusion or answer
+- Key supporting points (1-2)
+- Any important caveats
+
+## Key Findings
+
+Organize findings into 3-6 logical themes. For each finding:
+
+### Theme Name
+
+**Finding statement** (Confidence: HIGH/MEDIUM/LOW)
+
+1-2 sentence explanation with context.
+
+Sources: [Source Title](URL), [Source Title](URL)
+
+## Sources
+
+List all sources used in the research:
+1. [Title](URL) - Brief description of what it contributed
+2. [Title](URL) - Brief description
+
+## Confidence Assessment
+
+Summarize overall confidence:
+- **Overall Confidence:** HIGH / MEDIUM / LOW
+- **Well-supported areas:** List findings with 3+ sources
+- **Areas needing more research:** List findings with only 1-2 sources
+
+**CONFIDENCE SCORING:**
+- **HIGH**: 3+ independent sources corroborate the finding
+- **MEDIUM**: 2 sources, or 1 authoritative source
+- **LOW**: Single non-authoritative source or speculation
+
+**Guidelines:**
+- Write in clear, professional prose
+- Preserve ALL citations in [Title](URL) format
+- Be honest about confidence levels
+- Target 600-1200 words for the full report
+- Do NOT use code blocks around the output`;
+
+  console.log(
+    `[buildSinglePassSynthesisPrompt] Exit - prompt length: ${prompt.length} chars`
+  );
   return prompt;
 }

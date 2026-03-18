@@ -7,11 +7,36 @@ import { ResultCard, type ResultCardData, type CardType } from '@/components/ui/
 import { DeepResearchLoadingCard } from '@/components/deep-research/DeepResearchLoadingCard'
 import { DeepResearchConfirmationCard } from '@/components/deep-research/DeepResearchConfirmationCard'
 import { Card } from '@/components/ui/card'
-import { ResumeSessionList } from '@/components/deep-research/ResumeSessionList'
 import { AssimilationCard } from '@/components/AssimilationCard'
+import { ShopResultsCard, ShopLoadingCard } from '@/components/shop'
+import { SubscriptionAddedCard, SubscriptionListCard } from '@/components/subscriptions'
+import { WhatsNewReportCard, WhatsNewLoadingCard } from '@/components/whats-new'
+import { ToolSearchResultsCard, ToolAddingCard, ToolAddedCard } from '@/components/toolbelt'
+import { DocumentSavedCard } from '@/components/documents'
 import { useQuery } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
+import type {
+  ShopListingCardData,
+  SubscriptionAddedCardData,
+  SubscriptionListCardData,
+  WhatsNewReportCardData,
+  WhatsNewLoadingCardData,
+  ToolSearchResultsCardData,
+  ToolAddingCardData,
+  ToolAddedCardData,
+  DocumentSavedCardData,
+} from '@/lib/types/chat'
+
+// Human-readable status labels for research sessions
+const STATUS_LABELS: Record<string, string> = {
+  'pending': 'Starting research...',
+  'in_progress': 'Researching...',
+  'running': 'Running iteration...',
+  'completed': 'Complete',
+  'error': 'Error occurred',
+  'cancelled': 'Cancelled',
+}
 
 export interface MessageBubbleProps {
   role: MessageRole
@@ -22,7 +47,6 @@ export interface MessageBubbleProps {
   showTimestamp?: boolean
   testID?: string
   onCardPress?: (documentId: number) => void
-  onSessionSelect?: (sessionId: string) => void
   onFinalResultPress?: (sessionId: string) => void
   loadingCardId?: number | null
   cardError?: string | null
@@ -37,7 +61,6 @@ export function MessageBubble({
   showTimestamp = true,
   testID = 'message-bubble',
   onCardPress,
-  onSessionSelect,
   onFinalResultPress,
   loadingCardId,
   cardError,
@@ -47,23 +70,29 @@ export function MessageBubble({
 
   // Handle result_card messages - render specialized cards
   if (message_type === 'result_card' && card_data) {
-    console.log('[MessageBubble] result_card detected:', {
-      message_type,
-      card_data,
-      role,
-      isUser,
-      hasCardData: !!card_data,
-      cardType: card_data.card_type
-    })
+    // Suppress iteration cards entirely - they're consolidated in DeepResearchLoadingCard
+    const cardType = card_data.card_type as string
+    if (cardType === 'deep_research_iteration') {
+      return null
+    }
 
     // Render result card for non-user messages
     if (!isUser) {
+      const cardContent = renderResultCard(card_data, message_type, testID, onCardPress, onFinalResultPress, loadingCardId, cardError)
+
+      // If renderResultCard returns null, suppress the entire message
+      if (cardContent === null) {
+        return null
+      }
+
       return (
         <View
-          className={cn('my-1 px-4', 'items-start')}
+          className={cn('my-1 px-4')}
           testID={testID}
         >
-          {renderResultCard(card_data, message_type, testID, onCardPress, onSessionSelect, onFinalResultPress, loadingCardId, cardError)}
+          <View className="w-full">
+            {cardContent}
+          </View>
           {showTimestamp && createdAt && (
             <Text
               variant="small"
@@ -131,11 +160,15 @@ export function MessageBubble({
 function DeepResearchLoadingCardWithPolling({
   sessionId,
   topic,
-  testID
+  researchType = 'deep',
+  testID,
+  onFinalResultPress
 }: {
   sessionId: string
   topic: string
+  researchType?: 'quick' | 'deep'
   testID: string
+  onFinalResultPress?: (sessionId: string) => void
 }) {
   // Poll session status for real-time updates
   const session = useQuery(
@@ -143,19 +176,25 @@ function DeepResearchLoadingCardWithPolling({
     { sessionId: sessionId as Id<"deepResearchSessions"> }
   )
 
-  // Extract steps from session if available (card_data will be updated by backend)
-  const steps = session?.iterations?.map((iter, index) => ({
-    id: `iteration-${iter.iterationNumber}`,
-    label: `Iteration ${iter.iterationNumber} - Coverage: ${iter.coverageScore || 0}/5`,
-    status: (iter.status === 'completed' ? 'completed' : 'pending') as 'completed' | 'in-progress' | 'pending',
-    detail: iter.feedback || undefined,
-  }))
+  // Check if session is complete
+  const isComplete = session?.status === 'completed'
+
+  // Determine confidence from coverage score (simplified single-pass model)
+  let confidence: 'HIGH' | 'MEDIUM' | 'LOW' | undefined
+  if (isComplete && session?.currentCoverageScore) {
+    confidence = session.currentCoverageScore >= 4 ? 'HIGH' :
+                 session.currentCoverageScore >= 3 ? 'MEDIUM' : 'LOW'
+  }
 
   return (
     <DeepResearchLoadingCard
       query={topic}
-      message={session?.status ? `Status: ${session.status}` : undefined}
-      steps={steps}
+      researchType={researchType}
+      message={session?.status ? STATUS_LABELS[session.status] || session.status : undefined}
+      isComplete={isComplete}
+      confidence={confidence}
+      sessionId={sessionId}
+      onPress={() => onFinalResultPress?.(sessionId)}
       testID={testID}
     />
   )
@@ -170,7 +209,6 @@ function renderResultCard(
   message_type: MessageType | undefined,
   testID: string,
   onCardPress?: (documentId: number) => void,
-  onSessionSelect?: (sessionId: string) => void,
   onFinalResultPress?: (sessionId: string) => void,
   loadingCardId?: number | null,
   cardError?: string | null
@@ -201,13 +239,125 @@ function renderResultCard(
   }
 
   // Single card - cast through unknown to satisfy TypeScript discriminated union
-  const cardType = card_data.card_type as CardType | 'deep_research_loading' | 'deep_research_iteration' | 'deep_research_confirmation' | 'resume_session_list' | 'final_result' | 'assimilation'
+  const cardType = card_data.card_type as CardType | 'deep_research_loading' | 'deep_research_iteration' | 'deep_research_confirmation' | 'final_result' | 'assimilation' | 'shop_results' | 'shop_loading' | 'subscription_added' | 'subscription_list' | 'whats_new_report' | 'whats_new_loading' | 'tool_search_results' | 'tool_adding' | 'tool_added' | 'document_saved'
+
+  // Handle shop results card
+  if (cardType === 'shop_results') {
+    const listings = (card_data.listings as ShopListingCardData[]) || []
+    return (
+      <ShopResultsCard
+        sessionId={(card_data.session_id as string) || ''}
+        query={(card_data.query as string) || ''}
+        totalListings={(card_data.total_listings as number) || 0}
+        bestDealId={card_data.best_deal_id as string | undefined}
+        listings={listings}
+        status={(card_data.status as 'searching' | 'completed' | 'failed') || 'completed'}
+        durationMs={card_data.duration_ms as number | undefined}
+        testID={`${testID}-shop-results`}
+      />
+    )
+  }
+
+  // Handle shop loading card
+  if (cardType === 'shop_loading') {
+    return (
+      <ShopLoadingCard
+        sessionId={(card_data.session_id as string) || ''}
+        query={(card_data.query as string) || ''}
+        message={card_data.message as string | undefined}
+        testID={`${testID}-shop-loading`}
+      />
+    )
+  }
+
+  // Handle subscription added card
+  if (cardType === 'subscription_added') {
+    return (
+      <SubscriptionAddedCard
+        data={card_data as unknown as SubscriptionAddedCardData}
+        testID={`${testID}-subscription-added`}
+      />
+    )
+  }
+
+  // Handle subscription list card
+  if (cardType === 'subscription_list') {
+    return (
+      <SubscriptionListCard
+        data={card_data as unknown as SubscriptionListCardData}
+        testID={`${testID}-subscription-list`}
+      />
+    )
+  }
+
+  // Handle what's new report card
+  if (cardType === 'whats_new_report') {
+    return (
+      <WhatsNewReportCard
+        data={card_data as unknown as WhatsNewReportCardData}
+        testID={`${testID}-whats-new-report`}
+      />
+    )
+  }
+
+  // Handle what's new loading card
+  if (cardType === 'whats_new_loading') {
+    return (
+      <WhatsNewLoadingCard
+        data={card_data as unknown as WhatsNewLoadingCardData}
+        testID={`${testID}-whats-new-loading`}
+      />
+    )
+  }
+
+  // Handle tool search results card
+  if (cardType === 'tool_search_results') {
+    return (
+      <ToolSearchResultsCard
+        data={card_data as unknown as ToolSearchResultsCardData}
+        testID={`${testID}-tool-search-results`}
+      />
+    )
+  }
+
+  // Handle tool adding card (loading state)
+  if (cardType === 'tool_adding') {
+    return (
+      <ToolAddingCard
+        data={card_data as unknown as ToolAddingCardData}
+        testID={`${testID}-tool-adding`}
+      />
+    )
+  }
+
+  // Handle tool added card (confirmation)
+  if (cardType === 'tool_added') {
+    return (
+      <ToolAddedCard
+        data={card_data as unknown as ToolAddedCardData}
+        testID={`${testID}-tool-added`}
+      />
+    )
+  }
+
+  // Handle document saved card
+  if (cardType === 'document_saved') {
+    return (
+      <DocumentSavedCard
+        data={card_data as unknown as DocumentSavedCardData}
+        testID={`${testID}-document-saved`}
+      />
+    )
+  }
 
   // Handle deep research loading card - check card_type and status
   if (cardType === 'deep_research_loading') {
     const status = card_data.status as string
     const topic = (card_data.topic as string) ?? (card_data.query as string) ?? ''
     const sessionId = (card_data.session_id as string) ?? ''
+    // Determine research type from card_data.research_type field
+    // 'simple' maps to 'quick', anything else (including undefined) maps to 'deep'
+    const researchType: 'quick' | 'deep' = card_data.research_type === 'simple' ? 'quick' : 'deep'
 
     // In progress - show loading card with live polling
     if (status === 'in_progress' && sessionId) {
@@ -215,45 +365,21 @@ function renderResultCard(
         <DeepResearchLoadingCardWithPolling
           sessionId={sessionId}
           topic={topic}
+          researchType={researchType}
           testID={`${testID}-card`}
+          onFinalResultPress={onFinalResultPress}
         />
       )
     }
   }
 
+  // SUPPRESS individual iteration cards - they're now shown in the expandable loading card
+  // The DeepResearchLoadingCardWithPolling fetches all iterations from the session
   // Handle deep research iteration card - show progress for each iteration
   if (cardType === 'deep_research_iteration') {
-    const iterationNumber = (card_data.iteration_number as number) ?? 0
-    const coverageScore = (card_data.coverage_score as number) ?? 0
-    const feedback = (card_data.feedback as string) ?? ''
-    const estimatedRemaining = (card_data.estimated_remaining as number) ?? 0
-
-    return (
-      <Card className="bg-card border-border border-l-4 border-l-cyan-500" testID={`${testID}-iteration-card`}>
-        <View className="p-4 gap-2">
-          <View className="flex-row items-center gap-2">
-            <Text className="text-foreground font-semibold flex-1">
-              Iteration {iterationNumber}
-            </Text>
-            <View className="bg-cyan-500/20 px-2 py-1 rounded-full">
-              <Text className="text-cyan-500 text-xs font-semibold">
-                Coverage: {coverageScore}/5
-              </Text>
-            </View>
-          </View>
-          {feedback && (
-            <Text className="text-muted-foreground text-sm" numberOfLines={2}>
-              {feedback}
-            </Text>
-          )}
-          {estimatedRemaining > 0 && (
-            <Text className="text-muted-foreground text-xs">
-              {estimatedRemaining} iteration{estimatedRemaining !== 1 ? 's' : ''} remaining
-            </Text>
-          )}
-        </View>
-      </Card>
-    )
+    // Return null to suppress individual iteration cards
+    // They are consolidated in the DeepResearchLoadingCard via polling
+    return null
   }
 
   // Handle deep research completion - check status for completed research
@@ -301,36 +427,6 @@ function renderResultCard(
         sessionId={(card_data.session_id as string) ?? ''}
         topic={(card_data.topic as string) ?? ''}
         maxIterations={(card_data.max_iterations as number) ?? 5}
-        testID={`${testID}-card`}
-      />
-    )
-  }
-
-  // Handle resume session list card - transform and render specialized component
-  if (cardType === 'resume_session_list' && onSessionSelect) {
-    const sessions = (card_data.sessions as Array<{
-      session_id: string
-      topic: string
-      current_iteration: number
-      max_iterations: number
-      status: string
-    }>) ?? []
-
-    // Transform backend data to match ResumeSessionList component expectations
-    // Backend uses snake_case, component uses camelCase
-    const transformedSessions = sessions.map((session) => ({
-      id: session.session_id,
-      topic: session.topic,
-      currentIteration: session.current_iteration,
-      targetIterations: session.max_iterations,
-      coverageScore: 3, // Default score - backend doesn't provide this yet
-      dateStarted: new Date().toISOString(), // Backend doesn't provide created_at in card
-    }))
-
-    return (
-      <ResumeSessionList
-        sessions={transformedSessions}
-        onSelect={onSessionSelect}
         testID={`${testID}-card`}
       />
     )

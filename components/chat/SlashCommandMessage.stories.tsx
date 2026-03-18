@@ -89,7 +89,6 @@ export const AllCommands: Story = {
       <SlashCommandMessage command="/deep-research" args="climate change solutions" />
       <SlashCommandMessage command="/browse" />
       <SlashCommandMessage command="/stats" />
-      <SlashCommandMessage command="/resume" args="session-123" />
       <SlashCommandMessage command="/help" />
     </View>
   ),

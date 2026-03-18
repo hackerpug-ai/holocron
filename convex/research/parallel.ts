@@ -16,12 +16,13 @@ import { action } from "../_generated/server";
 import { v } from "convex/values";
 import { api } from "../_generated/api";
 import { generateText } from "ai";
-import { openai } from "@ai-sdk/openai";
+import { zaiFlash } from "../lib/ai/zai_provider";
 import {
   executeParallelSearchWithRetry,
   type ParallelSearchResult,
 } from "./search";
 import { buildSynthesisPrompt, type ResearchContext } from "./prompts";
+import { stripMarkdownCodeBlock } from "../lib/json";
 import type { Id } from "../_generated/dataModel";
 import type { ActionCtx } from "../_generated/server";
 
@@ -232,7 +233,7 @@ export async function executeParallelFanOut(
   );
 
   const synthesisResult = await generateText({
-    model: openai("gpt-5"),
+    model: zaiFlash(),
     prompt: synthesisPrompt,
   });
 
@@ -245,7 +246,7 @@ export async function executeParallelFanOut(
   };
 
   try {
-    synthesis = JSON.parse(synthesisResult.text);
+    synthesis = JSON.parse(stripMarkdownCodeBlock(synthesisResult.text));
   } catch {
     synthesis = {
       summary: synthesisResult.text,
@@ -280,6 +281,10 @@ export async function executeParallelFanOut(
   }
 
   // Step 8: Create iteration record
+  const summary = synthesis.keyFindings.length > 0
+    ? synthesis.keyFindings[0].slice(0, 50) // Use first key finding as summary
+    : `Fan-out search across ${domains.length} domains`;
+
   await ctx.runMutation(api.research.mutations.createDeepResearchIteration, {
     sessionId,
     iterationNumber: 1,
@@ -288,34 +293,19 @@ export async function executeParallelFanOut(
     findings: synthesis.summary,
     refinedQueries: synthesis.gaps,
     status: "completed",
+    summary,
   });
 
-  // Step 9: Complete session
+  // Step 9: Complete session (triggers document creation and result card posting)
   await ctx.runMutation(api.research.mutations.completeDeepResearchSession, {
     sessionId,
     status: "completed",
   });
 
-  // Step 10: Post result card
   const totalTime = Date.now() - startTime;
-  await ctx.runMutation(api.chatMessages.mutations.create, {
-    conversationId: effectiveConversationId,
-    role: "agent" as const,
-    content: synthesis.summary,
-    messageType: "result_card" as const,
-    cardData: {
-      card_type: "deep_research_result",
-      session_id: sessionId,
-      coverage_score: synthesis.confidence === "HIGH" ? 4 : synthesis.confidence === "MEDIUM" ? 3 : 2,
-      iterations_completed: 1,
-      key_findings: synthesis.keyFindings,
-      gaps: synthesis.gaps,
-      duration_ms: totalTime,
-    },
-  });
 
   console.log(
-    `[executeParallelFanOut] Exit - completed in ${totalTime}ms`
+    `[executeParallelFanOut] Exit - completed in ${totalTime}ms (document creation and result card posting scheduled)`
   );
 
   return {
