@@ -48,6 +48,7 @@ export interface MessageBubbleProps {
   testID?: string
   onCardPress?: (documentId: number) => void
   onFinalResultPress?: (sessionId: string) => void
+  onWhatsNewReportPress?: (reportId: string) => void
   loadingCardId?: number | null
   cardError?: string | null
 }
@@ -62,6 +63,7 @@ export function MessageBubble({
   testID = 'message-bubble',
   onCardPress,
   onFinalResultPress,
+  onWhatsNewReportPress,
   loadingCardId,
   cardError,
 }: MessageBubbleProps) {
@@ -78,7 +80,7 @@ export function MessageBubble({
 
     // Render result card for non-user messages
     if (!isUser) {
-      const cardContent = renderResultCard(card_data, message_type, testID, onCardPress, onFinalResultPress, loadingCardId, cardError)
+      const cardContent = renderResultCard(card_data, message_type, testID, onCardPress, onFinalResultPress, onWhatsNewReportPress, loadingCardId, cardError)
 
       // If renderResultCard returns null, suppress the entire message
       if (cardContent === null) {
@@ -210,6 +212,7 @@ function renderResultCard(
   testID: string,
   onCardPress?: (documentId: number) => void,
   onFinalResultPress?: (sessionId: string) => void,
+  onWhatsNewReportPress?: (reportId: string) => void,
   loadingCardId?: number | null,
   cardError?: string | null
 ) {
@@ -292,11 +295,18 @@ function renderResultCard(
 
   // Handle what's new report card
   if (cardType === 'whats_new_report') {
+    const reportData = card_data as unknown as WhatsNewReportCardData
     return (
-      <WhatsNewReportCard
-        data={card_data as unknown as WhatsNewReportCardData}
-        testID={`${testID}-whats-new-report`}
-      />
+      <Pressable
+        onPress={() => onWhatsNewReportPress?.(reportData.report_id)}
+        className="active:opacity-80 w-full"
+        testID={`${testID}-whats-new-report-pressable`}
+      >
+        <WhatsNewReportCard
+          data={reportData}
+          testID={`${testID}-whats-new-report`}
+        />
+      </Pressable>
     )
   }
 

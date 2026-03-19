@@ -7,6 +7,7 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
+      "node": "22.13.1",
       "env": {
         "APP_ENV": "development"
       },
@@ -14,6 +15,7 @@
     },
     "preview": {
       "distribution": "store",
+      "node": "22.13.1",
       "channel": "preview",
       "env": {
         "APP_ENV": "preview"
@@ -21,6 +23,7 @@
     },
     "production": {
       "autoIncrement": true,
+      "node": "22.13.1",
       "channel": "production",
       "env": {
         "APP_ENV": "production"

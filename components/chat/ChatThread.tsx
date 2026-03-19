@@ -25,6 +25,8 @@ export interface ChatThreadProps {
   testID?: string
   /** Callback when a final result card is pressed - navigate to research detail */
   onFinalResultPress?: (sessionId: string) => void
+  /** Callback when a What's New report card is pressed - navigate to report detail */
+  onWhatsNewReportPress?: (reportId: string) => void
 }
 
 export function ChatThread({
@@ -34,6 +36,7 @@ export function ChatThread({
   safeAreaTop = 0,
   testID = 'chat-thread',
   onFinalResultPress,
+  onWhatsNewReportPress,
 }: ChatThreadProps) {
   // Check if the most recent message has an active research loading card
   // If so, suppress the typing indicator to avoid showing double loaders
@@ -76,6 +79,7 @@ export function ChatThread({
       testID={`message-${item.id}`}
       onCardPress={handleCardPress}
       onFinalResultPress={onFinalResultPress}
+      onWhatsNewReportPress={onWhatsNewReportPress}
     />
   )
 

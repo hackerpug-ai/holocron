@@ -118,6 +118,48 @@ export const getReportByDate = query({
 });
 
 /**
+ * Get a report by its ID
+ *
+ * Returns the full report with document content.
+ */
+export const getReportById = query({
+  args: { reportId: v.id("whatsNewReports") },
+  handler: async (ctx, { reportId }) => {
+    const report = await ctx.db.get(reportId);
+
+    if (!report) {
+      return null;
+    }
+
+    // Fetch the linked document if available
+    let documentContent: string | null = null;
+    if (report.documentId) {
+      const document = await ctx.db.get(report.documentId);
+      documentContent = document?.content ?? null;
+    }
+
+    return {
+      report: {
+        _id: report._id,
+        periodStart: report.periodStart,
+        periodEnd: report.periodEnd,
+        days: report.days,
+        focus: report.focus,
+        findingsCount: report.findingsCount,
+        discoveryCount: report.discoveryCount,
+        releaseCount: report.releaseCount,
+        trendCount: report.trendCount,
+        summaryJson: report.summaryJson,
+        documentId: report.documentId,
+        createdAt: report.createdAt,
+      },
+      content: documentContent,
+      generatedAt: report.createdAt,
+    };
+  },
+});
+
+/**
  * List recent reports with pagination
  */
 export const listReports = query({
