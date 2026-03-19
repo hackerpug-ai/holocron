@@ -6,8 +6,14 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { ConvexProvider, ConvexReactClient } from 'convex/react'
 
+// Validate required env vars at startup
+const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL
+if (!convexUrl) {
+  console.error('EXPO_PUBLIC_CONVEX_URL is not set. Check your .env file or EAS build config.')
+}
+
 // Create a client for Convex
-const convex = new ConvexReactClient(process.env.EXPO_PUBLIC_CONVEX_URL!)
+const convex = new ConvexReactClient(convexUrl ?? 'https://placeholder.convex.cloud')
 
 // Create a client for React Query
 const queryClient = new QueryClient({

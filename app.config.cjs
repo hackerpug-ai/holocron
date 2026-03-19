@@ -1,5 +1,8 @@
 /**
  * Expo app configuration
+ *
+ * NOTE: This file takes precedence over app.json. All Expo config should be here.
+ * app.json is only used for EAS metadata that can't be in JS config.
  */
 module.exports = {
   expo: {
@@ -52,5 +55,12 @@ module.exports = {
       },
     },
     owner: 'hackerpug',
+    // EAS Updates configuration (merged from app.json)
+    runtimeVersion: {
+      policy: 'appVersion',
+    },
+    updates: {
+      url: 'https://u.expo.dev/a580bd53-e7a9-4968-96c8-f6cf207a4abe',
+    },
   },
 }
