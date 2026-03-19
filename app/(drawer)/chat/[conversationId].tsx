@@ -103,6 +103,11 @@ export default function ChatScreen() {
     router.push(`/research/${sessionId}`)
   }
 
+  // Handle What's New report card press - navigate to report detail view
+  const handleWhatsNewReportPress = (reportId: string) => {
+    router.push(`/whats-new/${reportId}`)
+  }
+
   // Open the drawer menu
   const handleOpenMenu = () => {
     navigation.dispatch(DrawerActions.openDrawer())
@@ -210,6 +215,7 @@ export default function ChatScreen() {
         safeAreaTop={contentTopPadding}
         testID="chat-thread"
         onFinalResultPress={handleFinalResultPress}
+        onWhatsNewReportPress={handleWhatsNewReportPress}
       />
       {/* Bottom area with safe area padding */}
       <View style={{ paddingBottom: insets.bottom }}>
