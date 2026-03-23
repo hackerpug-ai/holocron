@@ -5,6 +5,10 @@ import { StatusBar } from 'expo-status-bar'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { ConvexProvider, ConvexReactClient } from 'convex/react'
+import { useEffect } from 'react'
+import { View, useColorScheme as useRNColorScheme } from 'react-native'
+import { useColorScheme } from '@/lib/useColorScheme'
+import { cn } from '@/lib/utils'
 
 // Validate required env vars at startup
 const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL
@@ -28,6 +32,24 @@ const queryClient = new QueryClient({
 // When STORYBOOK_ENABLED=true, render Storybook directly
 const STORYBOOK_ENABLED = process.env.EXPO_PUBLIC_STORYBOOK_ENABLED === 'true'
 
+/** Syncs the device color scheme to NativeWind so .dark CSS variables activate */
+function ThemeSync({ children }: { children: React.ReactNode }) {
+  const systemColorScheme = useRNColorScheme()
+  const { colorScheme, setColorScheme } = useColorScheme()
+
+  useEffect(() => {
+    const scheme = systemColorScheme === 'dark' ? 'dark' : 'light'
+    setColorScheme(scheme)
+  }, [systemColorScheme, setColorScheme])
+
+  return (
+    <View className={cn(colorScheme === 'dark' ? 'dark' : '', 'flex-1')} style={{ flex: 1 }}>
+      {children}
+      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+    </View>
+  )
+}
+
 export default function RootLayout() {
   // Render Storybook UI directly, bypassing Expo Router
   if (STORYBOOK_ENABLED) {
@@ -39,16 +61,17 @@ export default function RootLayout() {
     <ConvexProvider client={convex}>
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="(drawer)" />
-            <Stack.Screen name="articles" />
-            <Stack.Screen name="toolbelt" />
-            <Stack.Screen name="document/[id]" />
-            <Stack.Screen name="webview/[url]" />
-            <Stack.Screen name="storybook" />
-            <Stack.Screen name="+not-found" />
-          </Stack>
-          <StatusBar style="auto" />
+          <ThemeSync>
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="(drawer)" />
+              <Stack.Screen name="articles" />
+              <Stack.Screen name="toolbelt" />
+              <Stack.Screen name="document/[id]" />
+              <Stack.Screen name="webview/[url]" />
+              <Stack.Screen name="storybook" />
+              <Stack.Screen name="+not-found" />
+            </Stack>
+          </ThemeSync>
         </QueryClientProvider>
       </SafeAreaProvider>
     </ConvexProvider>

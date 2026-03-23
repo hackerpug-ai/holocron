@@ -5,7 +5,7 @@ import { useQuery, useMutation, useAction } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import type { Doc, Id } from '@/convex/_generated/dataModel'
 import { useChatHistory } from '@/hooks/use-chat-history'
-import { View, ActivityIndicator, StyleSheet, Keyboard, Pressable } from 'react-native'
+import { View, ActivityIndicator, StyleSheet, Keyboard, Pressable, KeyboardAvoidingView, Platform } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Text } from '@/components/ui/text'
 import { Button } from '@/components/ui/button'
@@ -190,7 +190,12 @@ export default function ChatScreen() {
   const contentTopPadding = spacing.lg
 
   return (
-    <View style={styles.container} className="bg-background" testID="chat-screen">
+    <KeyboardAvoidingView
+      style={styles.container}
+      className="bg-background"
+      testID="chat-screen"
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
       {/* Sticky header with safe area */}
       <ScreenHeader
         showMenu
@@ -233,7 +238,7 @@ export default function ChatScreen() {
           testID="chat-input"
         />
       </View>
-    </View>
+    </KeyboardAvoidingView>
   )
 }
 

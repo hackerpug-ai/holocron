@@ -2,11 +2,11 @@
  * ToolSearchResultsCard - Display toolbelt search results
  */
 
-import { View, useColorScheme, Pressable, Linking } from 'react-native'
+import { View, Pressable, Linking } from 'react-native'
 import { Text } from '@/components/ui/text'
 import { Card } from '@/components/ui/card'
 import { Wrench, Search, ExternalLink, Tag, Code } from 'lucide-react-native'
-import { colors } from '@/lib/theme'
+import { useTheme } from '@/hooks/use-theme'
 import type { ToolSearchResultsCardData } from '@/lib/types/chat'
 
 export interface ToolSearchResultsCardProps {
@@ -40,9 +40,7 @@ export function ToolSearchResultsCard({
   data,
   testID = 'tool-search-results-card',
 }: ToolSearchResultsCardProps) {
-  const colorScheme = useColorScheme()
-  const isDark = colorScheme === 'dark'
-  const themeColors = isDark ? colors.dark : colors.light
+  const { colors: themeColors } = useTheme()
 
   const { query, results } = data
 

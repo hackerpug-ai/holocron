@@ -2,11 +2,11 @@
  * DocumentSavedCard - Confirmation after /save command
  */
 
-import { View, useColorScheme } from 'react-native'
+import { View } from 'react-native'
 import { Text } from '@/components/ui/text'
 import { Card } from '@/components/ui/card'
 import { FileText, Check, Tag } from 'lucide-react-native'
-import { colors } from '@/lib/theme'
+import { useTheme } from '@/hooks/use-theme'
 import type { DocumentSavedCardData } from '@/lib/types/chat'
 
 export interface DocumentSavedCardProps {
@@ -18,9 +18,7 @@ export function DocumentSavedCard({
   data,
   testID = 'document-saved-card',
 }: DocumentSavedCardProps) {
-  const colorScheme = useColorScheme()
-  const isDark = colorScheme === 'dark'
-  const themeColors = isDark ? colors.dark : colors.light
+  const { colors: themeColors } = useTheme()
 
   return (
     <Card testID={testID} className="border-border bg-card overflow-hidden">

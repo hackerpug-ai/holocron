@@ -2,11 +2,11 @@
  * WhatsNewReportCard - AI news briefing display
  */
 
-import { View, useColorScheme } from 'react-native'
+import { View } from 'react-native'
 import { Text } from '@/components/ui/text'
 import { Card } from '@/components/ui/card'
 import { Newspaper, Sparkles, TrendingUp, Package, MessageSquare, Calendar } from 'lucide-react-native'
-import { colors } from '@/lib/theme'
+import { useTheme } from '@/hooks/use-theme'
 import type { WhatsNewReportCardData } from '@/lib/types/chat'
 
 export interface WhatsNewReportCardProps {
@@ -31,9 +31,7 @@ export function WhatsNewReportCard({
   testID = 'whats-new-report-card',
   onPress,
 }: WhatsNewReportCardProps) {
-  const colorScheme = useColorScheme()
-  const isDark = colorScheme === 'dark'
-  const themeColors = isDark ? colors.dark : colors.light
+  const { colors: themeColors } = useTheme()
 
   const {
     days,

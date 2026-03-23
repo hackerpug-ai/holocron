@@ -13,6 +13,18 @@
       },
       "channel": "development"
     },
+    "development-simulator": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "ios": {
+        "simulator": true
+      },
+      "node": "22.13.1",
+      "env": {
+        "APP_ENV": "development"
+      },
+      "channel": "development"
+    },
     "preview": {
       "distribution": "store",
       "node": "22.13.1",

@@ -23,8 +23,8 @@ import {
   CheckCircle2,
   XCircle,
 } from 'lucide-react-native'
-import { colors, spacing, radius } from '@/lib/theme'
-import { useColorScheme } from 'react-native'
+import { spacing, radius } from '@/lib/theme'
+import { useTheme } from '@/hooks/use-theme'
 import Animated, {
   useAnimatedStyle,
   withSpring,
@@ -128,9 +128,7 @@ export function ShopListingCard({
   testID = 'shop-listing-card',
   onPress,
 }: ShopListingCardProps) {
-  const colorScheme = useColorScheme()
-  const isDark = colorScheme === 'dark'
-  const themeColors = isDark ? colors.dark : colors.light
+  const { colors: themeColors, isDark } = useTheme()
 
   // Animation for press feedback
   const scale = useSharedValue(1)

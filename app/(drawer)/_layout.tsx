@@ -7,6 +7,7 @@ import type { Doc } from '@/convex/_generated/dataModel'
 import type { Conversation } from '@/lib/types/conversations'
 import { useRouter } from 'expo-router'
 import { useEffect, useRef, useState } from 'react'
+import { useTheme } from '@/hooks/use-theme'
 import { ActivityIndicator, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Text } from '@/components/ui/text'
@@ -191,6 +192,7 @@ function InitialErrorScreen({ error, onRetry }: { error: Error | null; onRetry: 
 
 export default function DrawerLayout() {
   const router = useRouter()
+  const { colors: themeColors } = useTheme()
 
   // Direct Convex useQuery for conversations list
   const conversations = useQuery(api.conversations.index.list, { limit: 50 }) ?? []
@@ -234,7 +236,7 @@ export default function DrawerLayout() {
         screenOptions={{
           headerShown: false,
           drawerType: 'slide',
-          drawerStyle: { width: '80%' },
+          drawerStyle: { width: '80%', backgroundColor: themeColors.background },
         }}
         drawerContent={CustomDrawerContent}
       >

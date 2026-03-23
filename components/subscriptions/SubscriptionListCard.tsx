@@ -2,11 +2,11 @@
  * SubscriptionListCard - List view for subscriptions
  */
 
-import { View, useColorScheme, Pressable } from 'react-native'
+import { View, Pressable } from 'react-native'
 import { Text } from '@/components/ui/text'
 import { Card } from '@/components/ui/card'
 import { Bell, Rss, Calendar, Trash2 } from 'lucide-react-native'
-import { colors } from '@/lib/theme'
+import { useTheme } from '@/hooks/use-theme'
 import type { SubscriptionListCardData } from '@/lib/types/chat'
 
 export interface SubscriptionListCardProps {
@@ -60,9 +60,7 @@ export function SubscriptionListCard({
   testID = 'subscription-list-card',
   onDeletePress,
 }: SubscriptionListCardProps) {
-  const colorScheme = useColorScheme()
-  const isDark = colorScheme === 'dark'
-  const themeColors = isDark ? colors.dark : colors.light
+  const { colors: themeColors } = useTheme()
 
   const { subscriptions, filter_type } = data
 

@@ -2,11 +2,11 @@
  * ToolAddingCard - Loading state while adding tool from URL
  */
 
-import { View, useColorScheme, ActivityIndicator } from 'react-native'
+import { View, ActivityIndicator } from 'react-native'
 import { Text } from '@/components/ui/text'
 import { Card } from '@/components/ui/card'
 import { Wrench, Link } from 'lucide-react-native'
-import { colors } from '@/lib/theme'
+import { useTheme } from '@/hooks/use-theme'
 import type { ToolAddingCardData } from '@/lib/types/chat'
 
 export interface ToolAddingCardProps {
@@ -18,9 +18,7 @@ export function ToolAddingCard({
   data,
   testID = 'tool-adding-card',
 }: ToolAddingCardProps) {
-  const colorScheme = useColorScheme()
-  const isDark = colorScheme === 'dark'
-  const themeColors = isDark ? colors.dark : colors.light
+  const { colors: themeColors } = useTheme()
 
   return (
     <Card testID={testID} className="border-border bg-card overflow-hidden">

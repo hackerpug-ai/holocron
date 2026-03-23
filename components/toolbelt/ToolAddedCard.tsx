@@ -2,11 +2,11 @@
  * ToolAddedCard - Confirmation after adding tool from URL
  */
 
-import { View, useColorScheme, Pressable, Linking } from 'react-native'
+import { View, Pressable, Linking } from 'react-native'
 import { Text } from '@/components/ui/text'
 import { Card } from '@/components/ui/card'
 import { Wrench, Check, ExternalLink, Tag } from 'lucide-react-native'
-import { colors } from '@/lib/theme'
+import { useTheme } from '@/hooks/use-theme'
 import type { ToolAddedCardData } from '@/lib/types/chat'
 
 export interface ToolAddedCardProps {
@@ -40,9 +40,7 @@ export function ToolAddedCard({
   data,
   testID = 'tool-added-card',
 }: ToolAddedCardProps) {
-  const colorScheme = useColorScheme()
-  const isDark = colorScheme === 'dark'
-  const themeColors = isDark ? colors.dark : colors.light
+  const { colors: themeColors } = useTheme()
 
   const handleOpenUrl = () => {
     Linking.openURL(data.url)

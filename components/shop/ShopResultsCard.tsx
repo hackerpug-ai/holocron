@@ -8,7 +8,7 @@
  * - Expandable/collapsible listing grid
  */
 
-import { View, useColorScheme } from 'react-native'
+import { View } from 'react-native'
 import { Text } from '@/components/ui/text'
 import { Card } from '@/components/ui/card'
 import { ShopListingCard } from './ShopListingCard'
@@ -20,7 +20,7 @@ import {
   Package,
   TrendingUp,
 } from 'lucide-react-native'
-import { colors } from '@/lib/theme'
+import { useTheme } from '@/hooks/use-theme'
 import type { ShopListingCardData, ShopResultsCardData } from '@/lib/types/chat'
 
 export interface ShopResultsCardProps {
@@ -66,9 +66,7 @@ export function ShopResultsCard({
   testID = 'shop-results-card',
   onListingPress,
 }: ShopResultsCardProps) {
-  const colorScheme = useColorScheme()
-  const isDark = colorScheme === 'dark'
-  const themeColors = isDark ? colors.dark : colors.light
+  const { colors: themeColors } = useTheme()
 
   const bestDeal = getBestDeal(listings, bestDealId)
 

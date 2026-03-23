@@ -7,11 +7,11 @@
  * - Progress message updates
  */
 
-import { View, useColorScheme, StyleSheet } from 'react-native'
+import { View, StyleSheet } from 'react-native'
 import { Text } from '@/components/ui/text'
 import { Card } from '@/components/ui/card'
 import { ShoppingCart, Search, Loader2 } from 'lucide-react-native'
-import { colors } from '@/lib/theme'
+import { useTheme } from '@/hooks/use-theme'
 import Animated, {
   useAnimatedStyle,
   withRepeat,
@@ -39,9 +39,7 @@ export function ShopLoadingCard({
   message = 'Searching for deals...',
   testID = 'shop-loading-card',
 }: ShopLoadingCardProps) {
-  const colorScheme = useColorScheme()
-  const isDark = colorScheme === 'dark'
-  const themeColors = isDark ? colors.dark : colors.light
+  const { colors: themeColors } = useTheme()
 
   // Animated values
   const rotation = useSharedValue(0)
@@ -166,7 +164,7 @@ function RetailerPill({
 }: {
   name: string
   delay: number
-  themeColors: typeof colors.dark
+  themeColors: { secondary: string; [key: string]: string }
 }) {
   const opacity = useSharedValue(0.4)
 

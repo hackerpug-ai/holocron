@@ -2,11 +2,11 @@
  * SubscriptionAddedCard - Confirmation after adding a subscription
  */
 
-import { View, useColorScheme } from 'react-native'
+import { View } from 'react-native'
 import { Text } from '@/components/ui/text'
 import { Card } from '@/components/ui/card'
 import { Bell, Check, Rss } from 'lucide-react-native'
-import { colors } from '@/lib/theme'
+import { useTheme } from '@/hooks/use-theme'
 import type { SubscriptionAddedCardData } from '@/lib/types/chat'
 
 export interface SubscriptionAddedCardProps {
@@ -42,9 +42,7 @@ export function SubscriptionAddedCard({
   data,
   testID = 'subscription-added-card',
 }: SubscriptionAddedCardProps) {
-  const colorScheme = useColorScheme()
-  const isDark = colorScheme === 'dark'
-  const themeColors = isDark ? colors.dark : colors.light
+  const { colors: themeColors } = useTheme()
 
   return (
     <Card testID={testID} className="border-border bg-card overflow-hidden">

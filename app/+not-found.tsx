@@ -1,10 +1,9 @@
 import { Link, Stack } from 'expo-router'
-import { StyleSheet, View, Text, Pressable, useColorScheme } from 'react-native'
-import { colors } from '@/lib/theme'
+import { StyleSheet, View, Text, Pressable } from 'react-native'
+import { useTheme } from '@/hooks/use-theme'
 
 export default function NotFoundScreen() {
-  const colorScheme = useColorScheme()
-  const themeColors = colorScheme === 'dark' ? colors.dark : colors.light
+  const { colors: themeColors } = useTheme()
 
   return (
     <>

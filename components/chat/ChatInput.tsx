@@ -1,9 +1,9 @@
-import { View, TextInput, Pressable, useColorScheme, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native'
+import { View, TextInput, Pressable, StyleSheet } from 'react-native'
 import { Text } from '@/components/ui/text'
 import { cn } from '@/lib/utils'
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import { Send } from 'lucide-react-native'
-import { colors } from '@/lib/theme'
+import { useTheme } from '@/hooks/use-theme'
 import {
   useMentions,
   replaceTriggerValues,
@@ -137,8 +137,7 @@ export function ChatInput({
   testID = 'chat-input',
   commands = DEFAULT_COMMANDS,
 }: ChatInputProps) {
-  const colorScheme = useColorScheme()
-  const themeColors = colorScheme === 'dark' ? colors.dark : colors.light
+  const { colors: themeColors } = useTheme()
 
   // Support both controlled and uncontrolled modes
   const isControlled = controlledValue !== undefined && onChangeText !== undefined
@@ -236,12 +235,7 @@ export function ChatInput({
   const showPlaceholder = value.length === 0
 
   return (
-    <KeyboardAvoidingView
-      testID={testID}
-      className="relative"
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-    >
+    <View testID={testID} className="relative">
       {/* Command Suggestions Panel - positioned above input */}
       {showCommandPanel && (
         <CommandSuggestions
@@ -316,7 +310,7 @@ export function ChatInput({
           />
         </Pressable>
       </View>
-    </KeyboardAvoidingView>
+    </View>
   )
 }
 

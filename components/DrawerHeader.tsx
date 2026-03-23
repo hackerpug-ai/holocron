@@ -1,6 +1,7 @@
 import { Text } from '@/components/ui/text'
 import { NavTaskLoader } from '@/components/nav/NavTaskLoader'
 import { cn } from '@/lib/utils'
+import { useTheme } from '@/hooks/use-theme'
 import { BookOpen, PenSquare, Search, Settings } from 'lucide-react-native'
 import { KeyboardAvoidingView, Platform, Pressable, TextInput, View, type ViewProps } from 'react-native'
 
@@ -44,6 +45,7 @@ export function DrawerHeader({
   className,
   ...props
 }: DrawerHeaderProps) {
+  const { colors: themeColors } = useTheme()
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -63,7 +65,7 @@ export function DrawerHeader({
               value={searchQuery}
               onChangeText={onSearchChange}
               placeholder="Search"
-              placeholderTextColor="hsl(215, 20%, 55%)"
+              placeholderTextColor={themeColors.mutedForeground}
               className="text-foreground flex-1 text-base"
               testID="drawer-search-input"
               accessibilityLabel="Search conversations"

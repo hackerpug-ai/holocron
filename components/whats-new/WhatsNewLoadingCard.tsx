@@ -2,11 +2,11 @@
  * WhatsNewLoadingCard - Loading state while generating briefing
  */
 
-import { View, useColorScheme, ActivityIndicator } from 'react-native'
+import { View, ActivityIndicator } from 'react-native'
 import { Text } from '@/components/ui/text'
 import { Card } from '@/components/ui/card'
 import { Newspaper } from 'lucide-react-native'
-import { colors } from '@/lib/theme'
+import { useTheme } from '@/hooks/use-theme'
 import type { WhatsNewLoadingCardData } from '@/lib/types/chat'
 
 export interface WhatsNewLoadingCardProps {
@@ -18,9 +18,7 @@ export function WhatsNewLoadingCard({
   data,
   testID = 'whats-new-loading-card',
 }: WhatsNewLoadingCardProps) {
-  const colorScheme = useColorScheme()
-  const isDark = colorScheme === 'dark'
-  const themeColors = isDark ? colors.dark : colors.light
+  const { colors: themeColors } = useTheme()
 
   return (
     <Card testID={testID} className="border-border bg-card overflow-hidden">
