@@ -124,7 +124,7 @@ export function ArticlesScreen({
       {...props}
     >
       {/* Header Section with Search and Categories */}
-      <View className="border-b border-border px-4 pb-4 pt-4">
+      <View className="px-4 pb-4 pt-4">
         {/* Search Input - always editable to allow query refinement */}
         <SearchInput
           value={searchValue}
