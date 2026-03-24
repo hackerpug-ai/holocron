@@ -446,6 +446,77 @@ export default defineSchema({
     .index("by_language", ["primaryLanguage"])
     .index("by_rating", ["sophisticationRating"]),
 
+  assimilationSessions: defineTable({
+    conversationId: v.optional(v.id("conversations")),
+    repositoryUrl: v.string(),
+    repositoryName: v.string(),
+    profile: v.string(),
+    status: v.string(),
+    currentIteration: v.number(),
+    maxIterations: v.number(),
+    planContent: v.optional(v.string()),
+    planSummary: v.optional(v.string()),
+    planFeedback: v.optional(v.string()),
+    autoApprove: v.optional(v.boolean()),
+    accumulatedNotes: v.optional(v.string()),
+    coveragePlan: v.optional(v.any()),
+    nextDimension: v.optional(v.string()),
+    failureConstraints: v.optional(v.array(v.string())),
+    dimensionScores: v.optional(v.object({
+      architecture: v.number(),
+      patterns: v.number(),
+      documentation: v.number(),
+      dependencies: v.number(),
+      testing: v.number(),
+    })),
+    terminationCriteria: v.object({
+      maxIterations: v.number(),
+      minOverallCoverage: v.number(),
+      maxCostUsd: v.number(),
+      maxDurationMs: v.number(),
+      noveltyThreshold: v.number(),
+    }),
+    steeringNote: v.optional(v.string()),
+    estimatedCostUsd: v.optional(v.number()),
+    startedAt: v.optional(v.number()),
+    documentId: v.optional(v.id("documents")),
+    metadataId: v.optional(v.id("assimilationMetadata")),
+    errorReason: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    completedAt: v.optional(v.number()),
+  })
+    .index("by_status", ["status"])
+    .index("by_repositoryUrl", ["repositoryUrl"])
+    .index("by_repositoryUrl_and_status", ["repositoryUrl", "status"])
+    .index("by_conversation", ["conversationId"])
+    .index("by_created", ["createdAt"]),
+
+  assimilationIterations: defineTable({
+    sessionId: v.id("assimilationSessions"),
+    iterationNumber: v.number(),
+    dimension: v.string(),
+    iterationType: v.string(),
+    findings: v.optional(v.string()),
+    notesContribution: v.optional(v.string()),
+    summary: v.optional(v.string()),
+    dimensionCoverageScore: v.optional(v.number()),
+    gapsIdentified: v.optional(v.array(v.string())),
+    noveltyScore: v.optional(v.number()),
+    nextAction: v.optional(v.object({
+      shouldContinue: v.boolean(),
+      nextDimension: v.optional(v.string()),
+      reason: v.string(),
+      trigger: v.optional(v.string()),
+    })),
+    status: v.string(),
+    durationMs: v.optional(v.number()),
+    estimatedCostUsd: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_session", ["sessionId"])
+    .index("by_session_and_dimension", ["sessionId", "dimension"]),
+
   audioSegments: defineTable({
     documentId: v.id("documents"),
     paragraphIndex: v.number(),
