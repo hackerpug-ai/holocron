@@ -9,6 +9,7 @@ import { useEffect } from 'react'
 import { View, useColorScheme as useRNColorScheme } from 'react-native'
 import { useColorScheme } from '@/lib/useColorScheme'
 import { cn } from '@/lib/utils'
+import { NotificationToastProvider } from '@/components/notifications'
 
 // Validate required env vars at startup
 const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL
@@ -62,15 +63,17 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
           <ThemeSync>
-            <Stack screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="(drawer)" />
-              <Stack.Screen name="articles" />
-              {/* toolbelt is now inside (drawer) group */}
-              <Stack.Screen name="document/[id]" />
-              <Stack.Screen name="webview/[url]" />
-              <Stack.Screen name="storybook" />
-              <Stack.Screen name="+not-found" />
-            </Stack>
+            <NotificationToastProvider>
+              <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="(drawer)" />
+                <Stack.Screen name="articles" />
+                {/* toolbelt is now inside (drawer) group */}
+                <Stack.Screen name="document/[id]" />
+                <Stack.Screen name="webview/[url]" />
+                <Stack.Screen name="storybook" />
+                <Stack.Screen name="+not-found" />
+              </Stack>
+            </NotificationToastProvider>
           </ThemeSync>
         </QueryClientProvider>
       </SafeAreaProvider>
