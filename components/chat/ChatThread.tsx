@@ -125,8 +125,6 @@ export function ChatThread({
         onWhatsNewReportPress={onWhatsNewReportPress}
         onDocumentContextNavigate={onDocumentContextNavigate}
         isStreaming={item.id === streamingMessageId}
-        onDeleteMessage={onDeleteMessage}
-        messageId={item.id}
       />
     </Pressable>
   )

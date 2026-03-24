@@ -107,18 +107,21 @@ export const WithConversationList: Story = {
   render: () => {
     const conversations = [
       {
+        id: '1',
         title: 'Machine Learning Basics',
         lastMessage: 'I found 12 articles matching your query.',
         lastMessageAt: new Date(Date.now() - 1000 * 60 * 2),
         isActive: true,
       },
       {
+        id: '2',
         title: 'Research on Transformers',
         lastMessage: 'Here are the top 3 articles about transformer architectures...',
         lastMessageAt: new Date(Date.now() - 1000 * 60 * 30),
         isActive: false,
       },
       {
+        id: '3',
         title: 'API Design Patterns',
         lastMessage: 'Here are the best practices for REST API design...',
         lastMessageAt: new Date(Date.now() - 1000 * 60 * 60 * 2),

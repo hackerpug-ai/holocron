@@ -4,13 +4,15 @@ import { DrawerHeader, type NavSection } from '@/components/DrawerHeader'
 import { Text } from '@/components/ui/text'
 import { cn } from '@/lib/utils'
 import { BookOpen, Settings, Wrench } from '@/components/ui/icons'
-import { useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { FlatList, Pressable, View, type ViewProps } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import type { Conversation } from '@/lib/types/conversations'
 
 // Re-export Conversation type for convenience
 export type { Conversation }
+
+const DISMISS_DELAY = 4000 // auto-dismiss delete button after 4s
 
 interface DrawerContentProps extends Omit<ViewProps, 'children'> {
   /** List of conversations */
@@ -31,9 +33,7 @@ interface DrawerContentProps extends Omit<ViewProps, 'children'> {
   onNewChatPress?: () => void
   /** Callback when a conversation is selected */
   onConversationPress?: (_conversation: Conversation) => void
-  /** Callback when a conversation is long-pressed */
-  onConversationLongPress?: (_conversation: Conversation) => void
-  /** Callback when a conversation delete is triggered (swipe-to-delete) */
+  /** Callback when a conversation delete is triggered */
   onConversationDelete?: (_conversation: Conversation) => void
   /** Loading state for conversation fetch */
   isLoading?: boolean
@@ -63,6 +63,9 @@ interface DrawerContentProps extends Omit<ViewProps, 'children'> {
  * DrawerContent is the navigation drawer screen.
  * Composes DrawerHeader and ConversationRow atoms.
  * Shows search, app sections, and conversation list.
+ *
+ * Manages "one delete at a time" state - only one conversation row
+ * can show its inline delete button at a time.
  */
 export function DrawerContent({
   conversations = [],
@@ -74,7 +77,6 @@ export function DrawerContent({
   onSettingsPress,
   onNewChatPress,
   onConversationPress,
-  onConversationLongPress,
   onConversationDelete,
   isLoading = false,
   error = null,
@@ -91,6 +93,39 @@ export function DrawerContent({
   ...props
 }: DrawerContentProps) {
   const insets = useSafeAreaInsets()
+
+  // Track which conversation row is showing its delete button (only one at a time)
+  const [deleteVisibleId, setDeleteVisibleId] = useState<string | null>(null)
+  const dismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const clearDismissTimer = useCallback(() => {
+    if (dismissTimer.current) {
+      clearTimeout(dismissTimer.current)
+      dismissTimer.current = null
+    }
+  }, [])
+
+  // Auto-dismiss after delay
+  useEffect(() => {
+    if (deleteVisibleId) {
+      clearDismissTimer()
+      dismissTimer.current = setTimeout(() => {
+        setDeleteVisibleId(null)
+      }, DISMISS_DELAY)
+    }
+    return clearDismissTimer
+  }, [deleteVisibleId, clearDismissTimer])
+
+  const handleRowLongPress = useCallback((conversationId: string) => {
+    // If the same row is long-pressed again, dismiss it
+    // Otherwise, show the new one (auto-hides previous)
+    setDeleteVisibleId((prev) => (prev === conversationId ? null : conversationId))
+  }, [])
+
+  const handleDismissDelete = useCallback(() => {
+    clearDismissTimer()
+    setDeleteVisibleId(null)
+  }, [clearDismissTimer])
 
   const sections: NavSection[] = [
     { id: 'articles', label: 'Articles', icon: <BookOpen size={20} className="text-foreground" />, onPress: onArticlesPress },
@@ -115,13 +150,22 @@ export function DrawerContent({
 
   const renderConversation = ({ item }: { item: Conversation }) => (
     <ConversationRow
+      id={item.id}
       title={item.title}
       lastMessage={item.lastMessage}
       lastMessageAt={item.lastMessageAt}
       isActive={item.id === activeConversationId}
-      onPress={() => onConversationPress?.(item)}
-      onLongPress={() => onConversationLongPress?.(item)}
-      onDelete={onConversationDelete ? () => onConversationDelete(item) : undefined}
+      isDeleteVisible={deleteVisibleId === item.id}
+      onPress={() => {
+        handleDismissDelete()
+        onConversationPress?.(item)
+      }}
+      onLongPress={() => handleRowLongPress(item.id)}
+      onDelete={onConversationDelete ? () => {
+        handleDismissDelete()
+        onConversationDelete(item)
+      } : undefined}
+      onDismissDelete={handleDismissDelete}
     />
   )
 

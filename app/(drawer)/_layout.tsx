@@ -49,13 +49,8 @@ function CustomDrawerContent() {
     router.push('/chat/new')
   }
 
-  const handleConversationLongPress = (conversation: Conversation) => {
-    setActionMenuConversation({ id: conversation.id, title: conversation.title })
-    setIsActionMenuOpen(true)
-  }
-
   const handleConversationDelete = (conversation: Conversation) => {
-    // Swipe-to-delete: execute delete immediately
+    // Long-press inline delete: execute delete immediately
     executeDelete(conversation.id)
   }
 
@@ -147,7 +142,6 @@ function CustomDrawerContent() {
       error={error}
       onNewChatPress={handleNewChatPress}
       onConversationPress={handleConversationPress}
-      onConversationLongPress={handleConversationLongPress}
       onConversationDelete={handleConversationDelete}
       onArticlesPress={handleArticlesPress}
       onToolbeltPress={handleToolbeltPress}

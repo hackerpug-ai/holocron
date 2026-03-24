@@ -39,9 +39,9 @@ const meta: Meta<typeof DrawerContent> = {
       action: 'conversation-press',
       description: 'Callback when a conversation is selected',
     },
-    onConversationLongPress: {
-      action: 'conversation-long-press',
-      description: 'Callback when a conversation is long-pressed',
+    onConversationDelete: {
+      action: 'conversation-delete',
+      description: 'Callback when a conversation delete is triggered',
     },
   },
   args: {
