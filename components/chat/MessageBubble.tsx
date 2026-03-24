@@ -62,6 +62,10 @@ export interface MessageBubbleProps {
   onDocumentContextNavigate?: (documentId: string, blockIndex?: number) => void
   loadingCardId?: number | null
   cardError?: string | null
+  /** Callback to delete this message from the chat */
+  onDeleteMessage?: (messageId: string) => void
+  /** ID of this message, used with onDeleteMessage */
+  messageId?: string
 }
 
 export function MessageBubble({
@@ -80,6 +84,8 @@ export function MessageBubble({
   onDocumentContextNavigate,
   loadingCardId,
   cardError,
+  onDeleteMessage,
+  messageId,
 }: MessageBubbleProps) {
   const isUser = role === 'user'
   const isSystem = role === 'system'
@@ -119,7 +125,7 @@ export function MessageBubble({
 
     // Render result card for non-user messages
     if (!isUser) {
-      const cardContent = renderResultCard(card_data, message_type, testID, onCardPress, onFinalResultPress, onWhatsNewReportPress, loadingCardId, cardError, onDocumentContextNavigate, router)
+      const cardContent = renderResultCard(card_data, message_type, testID, onCardPress, onFinalResultPress, onWhatsNewReportPress, loadingCardId, cardError, onDocumentContextNavigate, router, onDeleteMessage, messageId)
 
       // If renderResultCard returns null, suppress the entire message
       if (cardContent === null) {
@@ -303,6 +309,8 @@ function renderResultCard(
   cardError?: string | null,
   onDocumentContextNavigate?: (documentId: string, blockIndex?: number) => void,
   router?: ReturnType<typeof useRouter>,
+  onDeleteMessage?: (messageId: string) => void,
+  messageId?: string,
 ) {
   // Check if card_data is an array (multiple search results)
   if (Array.isArray(card_data)) {
@@ -465,6 +473,7 @@ function renderResultCard(
           <DocumentContextCard
             data={contextData}
             onNavigateToDocument={onDocumentContextNavigate}
+            onDeleteFromChat={messageId ? () => onDeleteMessage?.(messageId) : undefined}
             testID={`${testID}-document-context`}
           />
         </Pressable>
@@ -475,6 +484,7 @@ function renderResultCard(
       <DocumentContextCard
         data={contextData}
         onNavigateToDocument={onDocumentContextNavigate}
+        onDeleteFromChat={messageId ? () => onDeleteMessage?.(messageId) : undefined}
         testID={`${testID}-document-context`}
       />
     )

@@ -1,11 +1,12 @@
-import { View, FlatList, ActivityIndicator, useWindowDimensions } from 'react-native'
+import { View, FlatList, ActivityIndicator, Pressable, useWindowDimensions } from 'react-native'
 import { Text } from '@/components/ui/text'
-import { useRef, useEffect, useCallback } from 'react'
+import { useRef, useEffect, useCallback, useState } from 'react'
 import { useRouter } from 'expo-router'
 import type { MessageRole, MessageType } from '@/lib/types/conversations'
 import { MessageBubble } from './MessageBubble'
 import { TypingIndicator } from './TypingIndicator'
-import { SwipeableRow } from '@/components/ui/SwipeableRow'
+import { MessageActionsSheet } from './MessageActionsSheet'
+import * as Haptics from 'expo-haptics'
 
 export interface ChatMessage {
   id: string
@@ -29,7 +30,7 @@ export interface ChatThreadProps {
   onFinalResultPress?: (sessionId: string) => void
   /** Callback when a What's New report card is pressed - navigate to report detail */
   onWhatsNewReportPress?: (reportId: string) => void
-  /** Callback when a message is deleted via swipe */
+  /** Callback when a message is deleted */
   onDeleteMessage?: (messageId: string) => void
   /** ID of the message currently being streamed - shows cursor, suppresses typing indicator */
   streamingMessageId?: string | null
@@ -50,6 +51,11 @@ export function ChatThread({
   onDocumentContextNavigate,
 }: ChatThreadProps) {
   const { width: screenWidth } = useWindowDimensions()
+
+  // Bottom sheet state for message actions
+  const [actionSheetVisible, setActionSheetVisible] = useState(false)
+  const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null)
+
   // Check if the most recent message has an active research loading card
   // If so, suppress the typing indicator to avoid showing double loaders
   const hasActiveResearchCard = messages.length > 0 && (() => {
@@ -80,11 +86,30 @@ export function ChatThread({
     router.push(`/document/${documentId}`)
   }, [router])
 
+  const handleMessageLongPress = useCallback((messageId: string) => {
+    if (!onDeleteMessage) return
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+    setSelectedMessageId(messageId)
+    setActionSheetVisible(true)
+  }, [onDeleteMessage])
+
+  const handleDeleteFromSheet = useCallback(() => {
+    if (selectedMessageId && onDeleteMessage) {
+      onDeleteMessage(selectedMessageId)
+    }
+    setSelectedMessageId(null)
+  }, [selectedMessageId, onDeleteMessage])
+
+  const handleSheetClose = useCallback(() => {
+    setActionSheetVisible(false)
+    setSelectedMessageId(null)
+  }, [])
+
   const renderMessage = ({ item }: { item: ChatMessage }) => (
-    <SwipeableRow
-      onDelete={() => onDeleteMessage?.(item.id)}
+    <Pressable
+      onLongPress={() => handleMessageLongPress(item.id)}
+      delayLongPress={400}
       disabled={!onDeleteMessage}
-      screenWidth={screenWidth}
     >
       <MessageBubble
         role={item.role}
@@ -100,8 +125,10 @@ export function ChatThread({
         onWhatsNewReportPress={onWhatsNewReportPress}
         onDocumentContextNavigate={onDocumentContextNavigate}
         isStreaming={item.id === streamingMessageId}
+        onDeleteMessage={onDeleteMessage}
+        messageId={item.id}
       />
-    </SwipeableRow>
+    </Pressable>
   )
 
   const renderEmptyState = () => {
@@ -154,6 +181,13 @@ export function ChatThread({
             ? { flex: 1, justifyContent: 'center', paddingBottom: safeAreaTop }
             : { paddingBottom: safeAreaTop }
         }
+      />
+
+      {/* Message actions bottom sheet */}
+      <MessageActionsSheet
+        visible={actionSheetVisible}
+        onClose={handleSheetClose}
+        onDeletePress={handleDeleteFromSheet}
       />
     </View>
   )
