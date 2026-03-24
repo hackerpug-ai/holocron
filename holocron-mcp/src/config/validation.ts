@@ -227,3 +227,29 @@ export const ListWhatsNewReportsSchema = z.object({
 
 export type GetWhatsNewInput = z.infer<typeof GetWhatsNewSchema>;
 export type ListWhatsNewReportsInput = z.infer<typeof ListWhatsNewReportsSchema>;
+
+// Assimilation schemas
+export const StartAssimilationSchema = z.object({
+  repositoryUrl: z.string().min(1).describe("GitHub repository URL (https://github.com/{owner}/{repo})"),
+  profile: z.enum(["fast", "standard", "thorough"]).optional().describe("Analysis depth profile"),
+  autoApprove: z.boolean().optional().describe("Automatically approve plan without human review"),
+});
+
+export const AssimilationSessionIdSchema = z.object({
+  sessionId: z.string().min(1).describe("Assimilation session ID"),
+});
+
+export const RejectAssimilationPlanSchema = z.object({
+  sessionId: z.string().min(1).describe("Assimilation session ID"),
+  feedback: z.string().optional().describe("Optional feedback to trigger re-planning"),
+});
+
+export const SteerAssimilationSchema = z.object({
+  sessionId: z.string().min(1).describe("Assimilation session ID"),
+  note: z.string().min(1).describe("Steering note to inject for the next iteration"),
+});
+
+export type StartAssimilationInput = z.infer<typeof StartAssimilationSchema>;
+export type AssimilationSessionIdInput = z.infer<typeof AssimilationSessionIdSchema>;
+export type RejectAssimilationPlanInput = z.infer<typeof RejectAssimilationPlanSchema>;
+export type SteerAssimilationInput = z.infer<typeof SteerAssimilationSchema>;

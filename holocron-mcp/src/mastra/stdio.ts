@@ -41,6 +41,7 @@ import { z } from "zod";
 // Validation schemas
 import {
   AddSubscriptionSchema,
+  AssimilationSessionIdSchema,
   CheckSubscriptionsSchema,
   DocumentIdSchema,
   GetSubscriptionContentSchema,
@@ -52,6 +53,7 @@ import {
   ListSubscriptionsSchema,
   ListToolsSchema,
   ListWhatsNewReportsSchema,
+  RejectAssimilationPlanSchema,
   RemoveSubscriptionSchema,
   RemoveToolSchema,
   ResearchTopicSchema,
@@ -63,6 +65,8 @@ import {
   ShopProductsSchema,
   SimpleResearchSchema,
   ShareDocumentSchema,
+  StartAssimilationSchema,
+  SteerAssimilationSchema,
   StoreDocumentSchema,
   StoreToolSchema,
   UpdateDocumentSchema,
@@ -101,6 +105,14 @@ import {
   getWhatsNewReport,
   listWhatsNewReports,
 } from "../tools/whats-new.ts";
+import {
+  startAssimilation,
+  approveAssimilationPlan,
+  rejectAssimilationPlan,
+  getAssimilationStatus,
+  cancelAssimilation,
+  steerAssimilation,
+} from "../tools/assimilation.ts";
 
 /**
  * Create Mastra MCP tools from existing implementations
@@ -539,6 +551,100 @@ const listWhatsNewReportsTool = createTool({
   },
 });
 
+// Assimilation tools
+const startAssimilationTool = createTool({
+  id: "start_assimilation",
+  description:
+    "Start a new assimilation session to analyze a GitHub repository. Creates a planning phase, then waits for approval before running the full analysis loop.",
+  inputSchema: StartAssimilationSchema,
+  execute: async (input) => {
+    try {
+      return await startAssimilation(holocronClient, input);
+    } catch (error) {
+      console.error(formatError(error));
+      throw error;
+    }
+  },
+});
+
+const approveAssimilationPlanTool = createTool({
+  id: "approve_assimilation_plan",
+  description:
+    "Approve the generated assimilation plan and start the full analysis loop. Session must be in pending_approval status.",
+  inputSchema: AssimilationSessionIdSchema,
+  execute: async (input) => {
+    try {
+      await approveAssimilationPlan(holocronClient, input);
+      return { approved: true, sessionId: input.sessionId };
+    } catch (error) {
+      console.error(formatError(error));
+      throw error;
+    }
+  },
+});
+
+const rejectAssimilationPlanTool = createTool({
+  id: "reject_assimilation_plan",
+  description:
+    "Reject the assimilation plan. Provide feedback to trigger a re-plan, or omit feedback to cancel the session entirely.",
+  inputSchema: RejectAssimilationPlanSchema,
+  execute: async (input) => {
+    try {
+      await rejectAssimilationPlan(holocronClient, input);
+      return { rejected: true, sessionId: input.sessionId, replanning: !!input.feedback };
+    } catch (error) {
+      console.error(formatError(error));
+      throw error;
+    }
+  },
+});
+
+const getAssimilationStatusTool = createTool({
+  id: "get_assimilation_status",
+  description:
+    "Get the current status and progress of an assimilation session. Use this to poll for completion or check the plan before approving.",
+  inputSchema: AssimilationSessionIdSchema,
+  execute: async (input) => {
+    try {
+      return await getAssimilationStatus(holocronClient, input);
+    } catch (error) {
+      console.error(formatError(error));
+      throw error;
+    }
+  },
+});
+
+const cancelAssimilationTool = createTool({
+  id: "cancel_assimilation",
+  description: "Cancel an active assimilation session. Cannot cancel sessions that are already completed, failed, cancelled, or rejected.",
+  inputSchema: AssimilationSessionIdSchema,
+  execute: async (input) => {
+    try {
+      await cancelAssimilation(holocronClient, input);
+      return { cancelled: true, sessionId: input.sessionId };
+    } catch (error) {
+      console.error(formatError(error));
+      throw error;
+    }
+  },
+});
+
+const steerAssimilationTool = createTool({
+  id: "steer_assimilation",
+  description:
+    "Inject a human steering note into an in-progress assimilation session. The note will be picked up by the next iteration to guide analysis direction.",
+  inputSchema: SteerAssimilationSchema,
+  execute: async (input) => {
+    try {
+      await steerAssimilation(holocronClient, input);
+      return { steered: true, sessionId: input.sessionId };
+    } catch (error) {
+      console.error(formatError(error));
+      throw error;
+    }
+  },
+});
+
 /**
  * Initialize Mastra MCP server
  */
@@ -577,6 +683,12 @@ const server = new MCPServer({
     getShopListingsTool,
     getWhatsNewReportTool,
     listWhatsNewReportsTool,
+    startAssimilationTool,
+    approveAssimilationPlanTool,
+    rejectAssimilationPlanTool,
+    getAssimilationStatusTool,
+    cancelAssimilationTool,
+    steerAssimilationTool,
   },
 });
 
@@ -613,7 +725,7 @@ process.on("unhandledRejection", (reason, promise) => {
  * Start MCP server on stdio
  */
 log("[Holocron MCP] Starting server...");
-log(`[Holocron MCP] Tools registered: 29`);
+log(`[Holocron MCP] Tools registered: 35`);
 log(`[Holocron MCP] Convex URL: ${process.env.CONVEX_URL || process.env.HOLOCRON_URL}`);
 
 try {
