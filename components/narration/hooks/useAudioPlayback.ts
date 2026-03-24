@@ -114,10 +114,17 @@ export function useAudioPlayback(
 
     const segment = segments.find(s => s.paragraphIndex === activeParagraphIndex)
 
-    // Segment not yet generated or URL not available — don't load anything but
-    // don't bail out silently. Show a loading state; the reactive Convex
-    // subscription will re-trigger this effect when the segment completes.
+    // Segment not yet generated or URL not available — stop any currently
+    // playing audio so the old segment doesn't keep playing while the
+    // highlight has moved. The reactive Convex subscription will re-trigger
+    // this effect when the segment completes.
     if (!segment?.audioUrl) {
+      // Stop and release the old player so stale audio doesn't continue
+      if (loadedIndexRef.current !== activeParagraphIndex && playerRef.current) {
+        releasePlayer(playerRef.current)
+        playerRef.current = null
+        loadedIndexRef.current = -1
+      }
       setIsLoading(true)
       return
     }

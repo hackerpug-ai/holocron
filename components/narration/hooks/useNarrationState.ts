@@ -71,6 +71,12 @@ function narrationReducer(state: NarrationState, action: NarrationAction): Narra
     }
 
     case 'ALL_READY':
+      // Don't interrupt active playback — only transition to 'ready' from
+      // generating/partially_ready states. If the user is already playing
+      // or paused, keep that status so audio isn't disrupted.
+      if (state.status === 'playing' || state.status === 'paused') {
+        return { ...state, generatedCount: state.totalParagraphs }
+      }
       return { ...state, status: 'ready' }
 
     case 'PLAY':
