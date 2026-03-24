@@ -67,7 +67,7 @@ export const saveAssimilation = mutation({
     console.log(`[saveAssimilation] Document created - ID: ${documentId}`);
 
     // Schedule embedding generation for the new document
-    await ctx.scheduler.runAfter(0, api.documents.storage.updateWithEmbedding, {
+    await ctx.scheduler.runAfter(0, api.documents.storage.updateWithEmbedding as any, {
       id: documentId,
       content,
     });

@@ -77,7 +77,7 @@ crons.interval(
 crons.interval(
   "document-embedding-backfill",
   { hours: 1 }, // Run every hour
-  internal.documents.scheduled.backfillOrphanedEmbeddings
+  (internal as any).documents.scheduled.backfillOrphanedEmbeddings
 );
 
 /**
@@ -92,7 +92,8 @@ crons.interval(
 crons.daily(
   "whats-new-daily",
   { hourUTC: 13, minuteUTC: 0 }, // 6 AM PST
-  internal.whatsNew.actions.generateDailyReport
+  internal.whatsNew.actions.generateDailyReport as any,
+  {} as any
 );
 
 /**

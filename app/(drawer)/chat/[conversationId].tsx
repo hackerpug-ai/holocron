@@ -45,7 +45,7 @@ export default function ChatScreen() {
   )
 
   // Active conversation tracking (local state)
-  const [activeConversationId, setActiveConversationId] = useState<string | null>(null)
+  const [_activeConversationId, setActiveConversationId] = useState<string | null>(null)
 
   // Fetch chat history - pass null for new conversations to skip query
   const chatHistoryId = isNewConversation ? null : (conversationId ?? null)

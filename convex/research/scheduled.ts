@@ -328,7 +328,7 @@ export const processDeepResearchIteration = internalAction({
           );
 
           // Build steps array with synthesis step
-          const steps = iterations.map((iter: any) => ({
+          const steps: Array<{ id: string; label: string; status: string; detail?: string }> = iterations.map((iter: any) => ({
             id: `iteration-${iter.iterationNumber}`,
             label: `Iteration ${iter.iterationNumber} - Coverage: ${iter.coverageScore || 0}/5`,
             status: "completed" as const,
@@ -339,7 +339,7 @@ export const processDeepResearchIteration = internalAction({
           steps.push({
             id: "synthesis",
             label: "Synthesizing final report...",
-            status: "in-progress" as const,
+            status: "in-progress",
           });
 
           // Update the loading card to show synthesis in progress

@@ -55,6 +55,10 @@ import type * as migrations_backfill_missing_embeddings from "../migrations/back
 import type * as migrations_backfill_research_documents from "../migrations/backfill_research_documents.js";
 import type * as migrations_reembed_documents_1024 from "../migrations/reembed_documents_1024.js";
 import type * as migrations_refactor_deep_research_messages from "../migrations/refactor_deep_research_messages.js";
+import type * as notifications_index from "../notifications/index.js";
+import type * as notifications_internal from "../notifications/internal.js";
+import type * as notifications_mutations from "../notifications/mutations.js";
+import type * as notifications_queries from "../notifications/queries.js";
 import type * as research_actions from "../research/actions.js";
 import type * as research_confidence from "../research/confidence.js";
 import type * as research_documentQueries from "../research/documentQueries.js";
@@ -159,6 +163,10 @@ declare const fullApi: ApiFromModules<{
   "migrations/backfill_research_documents": typeof migrations_backfill_research_documents;
   "migrations/reembed_documents_1024": typeof migrations_reembed_documents_1024;
   "migrations/refactor_deep_research_messages": typeof migrations_refactor_deep_research_messages;
+  "notifications/index": typeof notifications_index;
+  "notifications/internal": typeof notifications_internal;
+  "notifications/mutations": typeof notifications_mutations;
+  "notifications/queries": typeof notifications_queries;
   "research/actions": typeof research_actions;
   "research/confidence": typeof research_confidence;
   "research/documentQueries": typeof research_documentQueries;

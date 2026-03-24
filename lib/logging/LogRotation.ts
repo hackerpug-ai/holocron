@@ -10,7 +10,7 @@ export async function performLogRotation(
 ): Promise<void> {
   try {
     // Read current file content
-    const content = await FileSystem.readAsStringAsync(currentFilePath);
+    await FileSystem.readAsStringAsync(currentFilePath);
 
     // Move current file to rotated version
     const timestamp = Date.now();
@@ -19,7 +19,7 @@ export async function performLogRotation(
 
     // Clean up old log files
     await cleanupOldLogs(currentFilePath, config);
-  } catch (error) {
+  } catch {
     // Silently fail to avoid infinite error loops
   }
 }
@@ -60,7 +60,7 @@ export async function cleanupOldLogs(
         // Ignore delete errors
       }
     }
-  } catch (error) {
+  } catch {
     // Silently fail to avoid infinite error loops
   }
 }

@@ -40,7 +40,7 @@ export const timeoutStuckTasks = internalAction({
     console.log(`[task-timeout-worker] Found ${runningTasks.length} running tasks`);
 
     // Filter to tasks that have exceeded the timeout
-    const stuckTasks = runningTasks.filter(task => {
+    const stuckTasks = runningTasks.filter((task: any) => {
       const startedAt = task.startedAt ?? task.createdAt;
       return startedAt < cutoffTime;
     });

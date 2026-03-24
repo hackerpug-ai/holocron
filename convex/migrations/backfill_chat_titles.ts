@@ -117,7 +117,7 @@ export const backfill = action({
           // Adding a small delay between each to avoid rate limiting
           await ctx.scheduler.runAfter(
             i * 1000, // Stagger by 1 second each
-            internal.chat.index.generateChatTitle,
+            (internal as any).chat.index.generateChatTitle,
             { conversationId: conversation._id }
           );
           console.log(

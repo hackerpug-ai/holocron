@@ -14,8 +14,8 @@ describe('US-054: Task Management', () => {
     it('should create task with pending status', async () => {
       // Given: No running task exists
       // When: Starting a new task
-      const taskType = 'research';
-      const config = { query: 'test query' };
+      const _taskType = 'research';
+      const _config = { query: 'test query' };
 
       // Then: Task is created with pending status
       const { api } = await import('../../convex/_generated/api');
@@ -68,7 +68,7 @@ describe('US-054: Task Management', () => {
     it('should update task progress fields', async () => {
       // Given: A running task exists
       // When: Updating progress
-      const progressUpdate = {
+      const _progressUpdate = {
         currentStep: 1,
         totalSteps: 5,
         progressMessage: 'Processing...',

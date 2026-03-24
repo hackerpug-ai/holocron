@@ -331,19 +331,19 @@ export const vectorSearchIterations = query({
     sessionId: v.optional(v.id("deepResearchSessions")),
   },
   handler: async (ctx, { embedding, limit = 10, sessionId }) => {
-    let results = await ctx.db
-      .query("deepResearchIterations")
-      .withIndex("by_embedding", (q) =>
+    let results = await (ctx.db
+      .query("deepResearchIterations") as any)
+      .withIndex("by_embedding", (q: any) =>
         q.similar("embedding", embedding, limit * 2)
       )
       .collect();
 
     if (sessionId) {
-      results = results.filter(r => r.sessionId === sessionId);
+      results = results.filter((r: any) => r.sessionId === sessionId);
     }
 
     return results
-      .map((iteration) => ({
+      .map((iteration: any) => ({
         _id: iteration._id,
         sessionId: iteration.sessionId,
         findings: iteration.findings,
@@ -351,7 +351,7 @@ export const vectorSearchIterations = query({
           ? cosineSimilarity(embedding, iteration.embedding)
           : 0,
       }))
-      .sort((a, b) => b.score - a.score)
+      .sort((a: any, b: any) => b.score - a.score)
       .slice(0, limit);
   },
 });

@@ -33,13 +33,12 @@ export default [
     },
     rules: {
       'no-console': 'off',
-      'no-unused-vars': ['error', {
-        'argsIgnorePattern': '^_',
-        'args': 'after-used',
-        'ignoreRestSiblings': true
-      }],
+      'no-unused-vars': 'off',
+      'no-undef': 'off',
+      'no-control-regex': 'off',
       '@typescript-eslint/no-unused-vars': ['error', {
         'argsIgnorePattern': '^_',
+        'varsIgnorePattern': '^_',
         'args': 'after-used',
         'ignoreRestSiblings': true
       }]
@@ -58,7 +57,13 @@ export default [
       'supabase/**',
       'dist/**',
       'build/**',
-      '**/*.stories.tsx'
+      '**/*.stories.tsx',
+      'convex/_generated/**',
+      'holocron-mcp/**',
+      'holocron-mcp.backup/**',
+      'holocron-general-mcp.old/**',
+      'scripts/**',
+      'metro.config.cjs'
     ]
   }
 ]

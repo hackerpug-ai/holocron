@@ -12,7 +12,7 @@ import * as Linking from 'expo-linking'
  * Inside (drawer) group so the navigation drawer remains accessible
  */
 export default function ToolbeltRoute() {
-  const router = useRouter()
+  const _router = useRouter()
 
   // Fetch tools from Convex
   const toolsData = useQuery(api.toolbelt.queries.list, { limit: 100 })

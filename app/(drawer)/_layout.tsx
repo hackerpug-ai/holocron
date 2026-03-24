@@ -20,9 +20,9 @@ import { log } from '@/lib/logger-client'
  */
 function CustomDrawerContent() {
   const router = useRouter()
-  const isDrawerOpen = useDrawerStatus() === 'open'
+  const _isDrawerOpen = useDrawerStatus() === 'open'
   const [isActionMenuOpen, setIsActionMenuOpen] = useState(false)
-  const [actionMenuConversation, setActionMenuConversation] = useState<{
+  const [actionMenuConversation, _setActionMenuConversation] = useState<{
     id: string
     title: string
   } | null>(null)
@@ -38,7 +38,7 @@ function CustomDrawerContent() {
   const removeConversation = useMutation(api.conversations.mutations.remove)
 
   // Loading states from mutations
-  const isCreating = false
+  const _isCreating = false
   const isRenaming = false
   const isDeleting = false
   const error = null
@@ -160,7 +160,7 @@ function CustomDrawerContent() {
 /**
  * Loading screen shown while determining the initial conversation on app launch.
  */
-function InitialLoadingScreen() {
+function _InitialLoadingScreen() {
   return (
     <View className="bg-background flex-1 items-center justify-center" testID="initial-loading-screen">
       <ActivityIndicator size="large" testID="loading-spinner" />
@@ -172,7 +172,7 @@ function InitialLoadingScreen() {
 /**
  * Error screen shown when initial conversation fetch fails.
  */
-function InitialErrorScreen({ error, onRetry }: { error: Error | null; onRetry: () => void }) {
+function _InitialErrorScreen({ error, onRetry }: { error: Error | null; onRetry: () => void }) {
   return (
     <View className="bg-background flex-1 items-center justify-center gap-4 p-6" testID="initial-error-screen">
       <Text className="text-destructive text-center text-lg">Failed to load conversations</Text>

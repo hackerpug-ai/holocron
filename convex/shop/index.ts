@@ -270,8 +270,8 @@ export const getShopSessionWithListings = action({
     limit: v.optional(v.number()),
     excludeDuplicates: v.optional(v.boolean()),
   },
-  handler: async (ctx, args) => {
-    const session = await ctx.runQuery(api.shop.queries.getShopSessionByStringId, {
+  handler: async (ctx, args): Promise<{ session: any; listings: any } | null> => {
+    const session: any = await ctx.runQuery(api.shop.queries.getShopSessionByStringId, {
       sessionId: args.sessionId,
     });
 
@@ -279,7 +279,7 @@ export const getShopSessionWithListings = action({
       return null;
     }
 
-    const listings = await ctx.runQuery(api.shop.queries.getShopListingsByStringId, {
+    const listings: any = await ctx.runQuery(api.shop.queries.getShopListingsByStringId, {
       sessionId: args.sessionId,
       limit: args.limit,
       excludeDuplicates: args.excludeDuplicates ?? true,

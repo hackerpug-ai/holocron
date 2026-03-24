@@ -4,7 +4,7 @@
  * Tests verify data integrity between Supabase and Convex after migration
  */
 
-import { describe, it, expect, beforeAll, vi } from "vitest";
+import { describe, it, expect, beforeAll } from "vitest";
 
 // Types for validation results
 interface ValidationResult {
@@ -112,7 +112,7 @@ describe("Migration Validation - AC-1: Row Counts", () => {
     try {
       const { validateMigration } = await import("../../scripts/validate-migration");
       report = await validateMigration();
-    } catch (error) {
+    } catch {
       // Use mock if validation fails (e.g., missing env vars)
       report = mockReport;
     }
@@ -201,7 +201,7 @@ describe("Migration Validation - AC-2: FK Relationships", () => {
         ...fullReport,
         results: fullReport.results.filter((r) => r.check.startsWith("fk_")),
       };
-    } catch (error) {
+    } catch {
       report = mockReport;
     }
   });
@@ -257,7 +257,7 @@ describe("Migration Validation - AC-3: Embedding Dimensions", () => {
         ...fullReport,
         results: fullReport.results.filter((r) => r.check === "embedding_dimensions"),
       };
-    } catch (error) {
+    } catch {
       report = mockReport;
     }
   });
@@ -293,7 +293,7 @@ describe("Migration Validation - AC-4: Integrity Report", () => {
     try {
       const { validateMigration } = await import("../../scripts/validate-migration");
       report = await validateMigration();
-    } catch (error) {
+    } catch {
       // Mock report for testing when env vars not set
       useMock = true;
       report = {
@@ -357,7 +357,7 @@ describe("Migration Validation - AC-4: Integrity Report", () => {
     try {
       const { validateMigration } = await import("../../scripts/validate-migration");
       report = await validateMigration();
-    } catch (error) {
+    } catch {
       // Mock report for testing
       report = {
         timestamp: new Date().toISOString(),

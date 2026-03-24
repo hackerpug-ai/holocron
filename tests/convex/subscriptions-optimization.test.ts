@@ -7,7 +7,7 @@
  * - Error isolation for individual source failures
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { api } from '../../convex/_generated/api';
 
 describe('Subscription Checking Optimization', () => {

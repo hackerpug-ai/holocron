@@ -5,6 +5,8 @@
  * - exaSearchTool (exa-js SDK for technical content)
  * - jinaSearchTool (direct API for broad web search)
  * - jinaReaderTool (deep content extraction from URLs)
+ *
+ * AI SDK tool() returns { description, inputSchema, execute }, not { parameters }.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -12,31 +14,26 @@ import { describe, it, expect } from 'vitest';
 describe('US-777: Search Tools Implementation', () => {
   /**
    * AC-1: exaSearchTool - Using exa-js SDK for technical content search
-   * GIVEN: A search query
-   * WHEN: exaSearchTool is called with query and parameters
-   * THEN: It returns results with title, url, content (500 char), score, publishedDate, author
    */
   describe('AC-1: exaSearchTool', () => {
     it('should be exported from convex/research/tools', async () => {
-      // This test will fail until we implement the tools
       const tools = await import('../../convex/research/tools');
       expect(tools.exaSearchTool).toBeDefined();
       expect(typeof tools.exaSearchTool).toBe('object');
     });
 
-    it('should have correct schema with query, numResults, and category parameters', async () => {
+    it('should have correct schema with description, inputSchema, and execute', async () => {
       const tools = await import('../../convex/research/tools');
 
-      // The tool should be an object with description and parameters
+      // AI SDK tool() returns { description, inputSchema, execute }
       expect(tools.exaSearchTool).toHaveProperty('description');
-      expect(tools.exaSearchTool).toHaveProperty('parameters');
+      expect(tools.exaSearchTool).toHaveProperty('inputSchema');
     });
 
     it('should execute search and return formatted results', async () => {
       const tools = await import('../../convex/research/tools');
 
       // Verify the tool has execute function
-      // AI SDK tools use "execute" instead of "handler"
       expect(tools.exaSearchTool).toHaveProperty('execute');
       expect(typeof tools.exaSearchTool.execute).toBe('function');
     });
@@ -44,9 +41,6 @@ describe('US-777: Search Tools Implementation', () => {
 
   /**
    * AC-2: jinaSearchTool - Direct API for broad web search
-   * GIVEN: A search query
-   * WHEN: jinaSearchTool is called with query and numResults
-   * THEN: It returns results with title, url, content (500 char), domain
    */
   describe('AC-2: jinaSearchTool', () => {
     it('should be exported from convex/research/tools', async () => {
@@ -55,11 +49,11 @@ describe('US-777: Search Tools Implementation', () => {
       expect(typeof tools.jinaSearchTool).toBe('object');
     });
 
-    it('should have correct schema with query and numResults parameters', async () => {
+    it('should have correct schema with description, inputSchema, and execute', async () => {
       const tools = await import('../../convex/research/tools');
 
       expect(tools.jinaSearchTool).toHaveProperty('description');
-      expect(tools.jinaSearchTool).toHaveProperty('parameters');
+      expect(tools.jinaSearchTool).toHaveProperty('inputSchema');
       expect(tools.jinaSearchTool).toHaveProperty('execute');
     });
 
@@ -74,9 +68,6 @@ describe('US-777: Search Tools Implementation', () => {
 
   /**
    * AC-3: jinaReaderTool - Deep content extraction from URLs
-   * GIVEN: A URL
-   * WHEN: jinaReaderTool is called with a valid URL
-   * THEN: It returns content (5000 char) from the URL
    */
   describe('AC-3: jinaReaderTool', () => {
     it('should be exported from convex/research/tools', async () => {
@@ -85,11 +76,11 @@ describe('US-777: Search Tools Implementation', () => {
       expect(typeof tools.jinaReaderTool).toBe('object');
     });
 
-    it('should have correct schema with url parameter', async () => {
+    it('should have correct schema with description, inputSchema, and execute', async () => {
       const tools = await import('../../convex/research/tools');
 
       expect(tools.jinaReaderTool).toHaveProperty('description');
-      expect(tools.jinaReaderTool).toHaveProperty('parameters');
+      expect(tools.jinaReaderTool).toHaveProperty('inputSchema');
       expect(tools.jinaReaderTool).toHaveProperty('execute');
     });
 
@@ -104,9 +95,6 @@ describe('US-777: Search Tools Implementation', () => {
 
   /**
    * AC-4: All tools handle errors gracefully
-   * GIVEN: Any tool encounters an error
-   * WHEN: The API call fails
-   * THEN: Return empty results/content with error field, no throwing
    */
   describe('AC-4: Error Handling', () => {
     it('should not throw errors for any tool', async () => {

@@ -53,7 +53,7 @@ export class LogWriter {
         await FileSystem.makeDirectoryAsync(dirPath, { intermediates: true });
       }
     } catch (error) {
-      // eslint-disable-next-line no-console
+       
       console.error('Failed to create log directory:', error);
     }
   }
@@ -79,7 +79,7 @@ export class LogWriter {
           await performLogRotation(this.currentFilePath, this.config);
         }
       }
-    } catch (error) {
+    } catch {
       // Ignore rotation errors
     }
   }
@@ -126,7 +126,7 @@ export class LogWriter {
 
       // Check rotation after batch write
       await this.checkRotationNeeded();
-    } catch (error) {
+    } catch {
       // Silently fail to avoid infinite error loops
     } finally {
       this.queue.flushing = false;

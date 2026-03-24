@@ -223,7 +223,6 @@ export function useAudioPlayback(
     return () => {
       cancelled = true
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [narration.state.status, narration.state.activeParagraphIndex, segments])
 
   // ─── Apply speed changes to the currently loaded player ───────────────────

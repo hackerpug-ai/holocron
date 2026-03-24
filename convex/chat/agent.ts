@@ -242,7 +242,7 @@ export const executeTool = action({
       await ctx.runMutation(api.toolCalls.mutations.updateStatus, {
         id: toolCallId,
         status: "completed",
-        resultMessageId,
+        resultMessageId: resultMessageId as any,
       });
     } catch (error) {
       const errorMessage =

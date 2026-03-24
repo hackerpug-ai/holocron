@@ -27,7 +27,7 @@ interface BackfillResult {
 export const backfillOrphanedEmbeddings = action({
   args: {},
   handler: async (ctx): Promise<BackfillResult> => {
-    const count = await ctx.runQuery(internal.documents.queries.countDocumentsWithoutEmbeddings, {});
+    const count = await ctx.runQuery((internal as any).documents.queries.countDocumentsWithoutEmbeddings, {});
 
     if (count === 0) {
       return { success: true, processed: 0, failed: 0, total: 0, message: "No orphaned embeddings" };
@@ -35,7 +35,7 @@ export const backfillOrphanedEmbeddings = action({
 
     // Process up to 50 per run to avoid timeouts
     const result = await ctx.runAction(
-      internal.migrations.backfill_missing_embeddings.backfill,
+      (internal as any).migrations.backfill_missing_embeddings.backfill,
       {}
     ) as BackfillResult;
 

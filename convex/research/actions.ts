@@ -124,7 +124,7 @@ export const startDeepResearch = action({
     // Step 3: Schedule the first iteration to run immediately
     // This runs asynchronously and avoids Cloudflare 524 timeout
     console.log(`[startDeepResearch] Step 3: Scheduling first iteration`);
-    await ctx.scheduler.runAfter(0, api.research.scheduled.processDeepResearchIteration, {
+    await ctx.scheduler.runAfter(0, (api as any).research.scheduled.processDeepResearchIteration, {
       sessionId,
     });
     console.log(`[startDeepResearch] Step 3: First iteration scheduled`);

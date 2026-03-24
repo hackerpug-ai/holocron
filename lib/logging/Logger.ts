@@ -1,4 +1,3 @@
-import * as FileSystem from 'expo-file-system';
 import type { LogEntry, LogLevel, LoggerConfig } from './types';
 import { LOG_LEVEL_VALUES } from './types';
 import { sanitizeObject, sanitizeError } from './sanitizers';
@@ -93,7 +92,7 @@ export class Logger {
 
       const contextStr = entry.context ? ` ${JSON.stringify(entry.context)}` : '';
       const durationStr = entry.duration ? ` (${entry.duration}ms)` : '';
-      // eslint-disable-next-line no-console
+       
       console[consoleMethod](`[${emoji} ${entry.category}]${entry.message}${durationStr}${contextStr}`);
     }
 

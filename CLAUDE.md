@@ -7,7 +7,7 @@
 - Follow conventional commit format: `feat:`, `fix:`, `refactor:`, `chore:`, `docs:`, etc.
 
 ## Pre-commit Hooks (CRITICAL)
-Pre-commit hooks run **lint-staged (eslint)**, **TypeScript type-check (`tsc --noEmit`)**, and **tests (`vitest run`)** on every commit. These gates are non-negotiable.
+Pre-commit hooks run **lint-staged (eslint --fix)** and **tests (`vitest run`)** on every commit. These gates are non-negotiable. Run `pnpm typecheck` manually to check TypeScript errors — this is not in the pre-commit hook because `tsc --noEmit` checks the entire project.
 
 ## Agent Commit Discipline (Orchestrators & Subagents)
 

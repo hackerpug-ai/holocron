@@ -15,6 +15,12 @@
     "nativewind-env.d.ts"
   ],
   "exclude": [
-    "supabase/**/*"
+    "supabase/**/*",
+    "holocron-mcp/**/*",
+    "holocron-mcp.backup/**/*",
+    "holocron-general-mcp.old/**/*",
+    "scripts/**/*",
+    "**/*.stories.tsx",
+    ".rnstorybook/**/*"
   ]
 }

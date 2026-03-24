@@ -1,7 +1,7 @@
 import { defaultConfig } from './logging/config';
 import { Logger } from './logging/Logger';
 import { LogWriter } from './logging/LogWriter';
-import type { LogLevel, LoggerConfig } from './logging/types';
+import type { LoggerConfig } from './logging/types';
 
 /**
  * Generate a unique session ID
