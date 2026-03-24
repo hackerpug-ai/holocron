@@ -15,6 +15,9 @@ import { WhatsNewReportCard, WhatsNewLoadingCard } from '@/components/whats-new'
 import { ToolSearchResultsCard, ToolAddingCard, ToolAddedCard } from '@/components/toolbelt'
 import { DocumentSavedCard, DocumentContextCard } from '@/components/documents'
 import { ToolApprovalCardWithConvex } from '@/components/agent/ToolApprovalCard'
+import { AssimilationPlanCardWithConvex } from '@/components/assimilate/AssimilationPlanCard'
+import { AssimilationProgressCard } from '@/components/assimilate/AssimilationProgressCard'
+import { useRouter } from 'expo-router'
 import { StreamingCursor } from '@/components/chat/StreamingCursor'
 import { useQuery } from 'convex/react'
 import { api } from '@/convex/_generated/api'
@@ -80,6 +83,7 @@ export function MessageBubble({
 }: MessageBubbleProps) {
   const isUser = role === 'user'
   const isSystem = role === 'system'
+  const router = useRouter()
 
   // Handle tool_approval messages - render live tool approval card
   if (message_type === 'tool_approval' && toolCallId) {
@@ -115,7 +119,7 @@ export function MessageBubble({
 
     // Render result card for non-user messages
     if (!isUser) {
-      const cardContent = renderResultCard(card_data, message_type, testID, onCardPress, onFinalResultPress, onWhatsNewReportPress, loadingCardId, cardError, onDocumentContextNavigate)
+      const cardContent = renderResultCard(card_data, message_type, testID, onCardPress, onFinalResultPress, onWhatsNewReportPress, loadingCardId, cardError, onDocumentContextNavigate, router)
 
       // If renderResultCard returns null, suppress the entire message
       if (cardContent === null) {
@@ -290,6 +294,7 @@ function renderResultCard(
   loadingCardId?: number | null,
   cardError?: string | null,
   onDocumentContextNavigate?: (documentId: string, blockIndex?: number) => void,
+  router?: ReturnType<typeof useRouter>,
 ) {
   // Check if card_data is an array (multiple search results)
   if (Array.isArray(card_data)) {
@@ -317,7 +322,7 @@ function renderResultCard(
   }
 
   // Single card - cast through unknown to satisfy TypeScript discriminated union
-  const cardType = card_data.card_type as CardType | 'deep_research_loading' | 'deep_research_iteration' | 'deep_research_confirmation' | 'final_result' | 'assimilation' | 'shop_results' | 'shop_loading' | 'subscription_added' | 'subscription_list' | 'whats_new_report' | 'whats_new_loading' | 'tool_search_results' | 'tool_adding' | 'tool_added' | 'document_saved' | 'document_context'
+  const cardType = card_data.card_type as CardType | 'deep_research_loading' | 'deep_research_iteration' | 'deep_research_confirmation' | 'final_result' | 'assimilation' | 'assimilation_plan' | 'assimilation_progress' | 'shop_results' | 'shop_loading' | 'subscription_added' | 'subscription_list' | 'whats_new_report' | 'whats_new_loading' | 'tool_search_results' | 'tool_adding' | 'tool_added' | 'document_saved' | 'document_context'
 
   // Handle shop results card
   if (cardType === 'shop_results') {
@@ -585,6 +590,43 @@ function renderResultCard(
           </View>
         </Card>
       </Pressable>
+    )
+  }
+
+  // Handle assimilation plan card - display plan overview with Convex live data
+  if (cardType === 'assimilation_plan') {
+    return (
+      <AssimilationPlanCardWithConvex
+        sessionId={card_data.session_id as string}
+        repositoryName={card_data.repository_name as string}
+        repositoryUrl={card_data.repository_url as string}
+        profile={card_data.profile as string}
+        planSummary={card_data.plan_summary as string}
+        status={card_data.status as 'pending_approval' | 'approved' | 'rejected' | 'in_progress' | 'completed'}
+        dimensionScores={card_data.dimension_scores as Record<string, number>}
+        currentIteration={card_data.current_iteration as number}
+        maxIterations={card_data.max_iterations as number}
+        onViewPlan={() => router?.push(`/assimilate/${card_data.session_id as string}`)}
+      />
+    )
+  }
+
+  // Handle assimilation progress card - display live iteration progress
+  if (cardType === 'assimilation_progress') {
+    return (
+      <AssimilationProgressCard
+        sessionId={card_data.session_id as string}
+        repositoryName={card_data.repository_name as string}
+        profile={card_data.profile as string}
+        status={card_data.status as 'in_progress' | 'synthesizing' | 'completed' | 'failed'}
+        currentIteration={card_data.current_iteration as number}
+        maxIterations={card_data.max_iterations as number}
+        dimensionScores={card_data.dimension_scores as Record<string, number>}
+        currentDimension={card_data.current_dimension as string}
+        estimatedCostUsd={card_data.estimated_cost_usd as number}
+        documentId={card_data.document_id as string}
+        onPress={card_data.document_id ? () => router?.push(`/document/${card_data.document_id as string}`) : undefined}
+      />
     )
   }
 
