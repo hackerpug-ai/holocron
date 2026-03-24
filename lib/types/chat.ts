@@ -223,6 +223,8 @@ export interface DocumentContextCardData {
   scope: 'full' | 'excerpt'
   /** The excerpt text when scope is 'excerpt' */
   excerpt?: string
+  /** Root MDAST child index of the excerpt block - used for scroll-to-highlight */
+  blockIndex?: number
 }
 
 // Discriminated union of all card data types

@@ -132,6 +132,14 @@ export default function ChatScreen() {
     router.push(`/whats-new/${reportId}`)
   }
 
+  // Handle document context card navigation - navigate to document with optional highlight
+  const handleDocumentContextNavigate = (documentId: string, blockIndex?: number) => {
+    const params = blockIndex !== undefined
+      ? `/document/${documentId}?highlightBlock=${blockIndex}`
+      : `/document/${documentId}`
+    router.push(params)
+  }
+
   // Open the drawer menu
   const handleOpenMenu = () => {
     navigation.dispatch(DrawerActions.openDrawer())
@@ -245,6 +253,7 @@ export default function ChatScreen() {
         testID="chat-thread"
         onFinalResultPress={handleFinalResultPress}
         onWhatsNewReportPress={handleWhatsNewReportPress}
+        onDocumentContextNavigate={handleDocumentContextNavigate}
         onDeleteMessage={(messageId) => softDelete({ id: messageId as Id<'chatMessages'> })}
         streamingMessageId={streamingMessageId}
       />

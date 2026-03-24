@@ -33,6 +33,8 @@ export interface ChatThreadProps {
   onDeleteMessage?: (messageId: string) => void
   /** ID of the message currently being streamed - shows cursor, suppresses typing indicator */
   streamingMessageId?: string | null
+  /** Navigate to a document with optional highlight at a specific block */
+  onDocumentContextNavigate?: (documentId: string, blockIndex?: number) => void
 }
 
 export function ChatThread({
@@ -45,6 +47,7 @@ export function ChatThread({
   onWhatsNewReportPress,
   onDeleteMessage,
   streamingMessageId = null,
+  onDocumentContextNavigate,
 }: ChatThreadProps) {
   const { width: screenWidth } = useWindowDimensions()
   // Check if the most recent message has an active research loading card
@@ -95,6 +98,7 @@ export function ChatThread({
         onCardPress={handleCardPress}
         onFinalResultPress={onFinalResultPress}
         onWhatsNewReportPress={onWhatsNewReportPress}
+        onDocumentContextNavigate={onDocumentContextNavigate}
         isStreaming={item.id === streamingMessageId}
       />
     </SwipeableRow>

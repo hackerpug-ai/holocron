@@ -55,6 +55,8 @@ export interface MessageBubbleProps {
   onCardPress?: (documentId: number) => void
   onFinalResultPress?: (sessionId: string) => void
   onWhatsNewReportPress?: (reportId: string) => void
+  /** Navigate to a document with optional highlight at a specific block */
+  onDocumentContextNavigate?: (documentId: string, blockIndex?: number) => void
   loadingCardId?: number | null
   cardError?: string | null
 }
@@ -72,6 +74,7 @@ export function MessageBubble({
   onCardPress,
   onFinalResultPress,
   onWhatsNewReportPress,
+  onDocumentContextNavigate,
   loadingCardId,
   cardError,
 }: MessageBubbleProps) {
@@ -112,7 +115,7 @@ export function MessageBubble({
 
     // Render result card for non-user messages
     if (!isUser) {
-      const cardContent = renderResultCard(card_data, message_type, testID, onCardPress, onFinalResultPress, onWhatsNewReportPress, loadingCardId, cardError)
+      const cardContent = renderResultCard(card_data, message_type, testID, onCardPress, onFinalResultPress, onWhatsNewReportPress, loadingCardId, cardError, onDocumentContextNavigate)
 
       // If renderResultCard returns null, suppress the entire message
       if (cardContent === null) {
@@ -285,7 +288,8 @@ function renderResultCard(
   onFinalResultPress?: (sessionId: string) => void,
   onWhatsNewReportPress?: (reportId: string) => void,
   loadingCardId?: number | null,
-  cardError?: string | null
+  cardError?: string | null,
+  onDocumentContextNavigate?: (documentId: string, blockIndex?: number) => void,
 ) {
   // Check if card_data is an array (multiple search results)
   if (Array.isArray(card_data)) {
@@ -434,17 +438,32 @@ function renderResultCard(
   // Handle document context card (added from document viewer)
   if (cardType === 'document_context') {
     const contextData = card_data as unknown as DocumentContextCardData
+    const isExcerpt = contextData.scope === 'excerpt'
+
+    // For full doc: wrap in Pressable to navigate directly
+    // For excerpts: the card manages its own reader sheet internally
+    if (!isExcerpt) {
+      return (
+        <Pressable
+          onPress={() => onDocumentContextNavigate?.(contextData.document_id)}
+          className="active:opacity-80 w-full"
+          testID={`${testID}-document-context-pressable`}
+        >
+          <DocumentContextCard
+            data={contextData}
+            onNavigateToDocument={onDocumentContextNavigate}
+            testID={`${testID}-document-context`}
+          />
+        </Pressable>
+      )
+    }
+
     return (
-      <Pressable
-        onPress={() => handleCardPress({ document_id: contextData.document_id }, onCardPress)}
-        className="active:opacity-80 w-full"
-        testID={`${testID}-document-context-pressable`}
-      >
-        <DocumentContextCard
-          data={contextData}
-          testID={`${testID}-document-context`}
-        />
-      </Pressable>
+      <DocumentContextCard
+        data={contextData}
+        onNavigateToDocument={onDocumentContextNavigate}
+        testID={`${testID}-document-context`}
+      />
     )
   }
 

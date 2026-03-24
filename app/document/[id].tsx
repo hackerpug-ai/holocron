@@ -33,7 +33,15 @@ import { NarrationControlBar, NARRATION_BAR_HEIGHT } from '@/components/narratio
 import { DocumentActionsSheet } from '@/components/documents/DocumentActionsSheet'
 import { TextSelectionSheet } from '@/components/documents/TextSelectionSheet'
 import { ChatPickerSheet } from '@/components/chat/ChatPickerSheet'
-import Animated from 'react-native-reanimated'
+import Animated, {
+  type SharedValue,
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withDelay,
+  withSequence,
+  Easing as REasing,
+} from 'react-native-reanimated'
 import * as Haptics from 'expo-haptics'
 import * as Clipboard from 'expo-clipboard'
 import { parseMarkdown } from '@/components/markdown/parsers'
@@ -57,7 +65,7 @@ const CONVEX_SITE_URL =
  */
 export default function DocumentRoute() {
   const router = useRouter()
-  const params = useLocalSearchParams<{ id: string }>()
+  const params = useLocalSearchParams<{ id: string; highlightBlock?: string }>()
   const publish = useMutation(api.documents.mutations.publishDocument)
   const unpublish = useMutation(api.documents.mutations.unpublishDocument)
   const createConversation = useMutation(api.conversations.mutations.create)
@@ -70,7 +78,7 @@ export default function DocumentRoute() {
   /** Stores the text and root index for the currently selected block */
   const selectedBlockRef = useRef<{ text: string; rootIndex: number } | null>(null)
   /** Whether the chat picker was opened for a full doc or an excerpt */
-  const chatContextRef = useRef<{ scope: 'full' | 'excerpt'; excerpt?: string }>({ scope: 'full' })
+  const chatContextRef = useRef<{ scope: 'full' | 'excerpt'; excerpt?: string; blockIndex?: number }>({ scope: 'full' })
 
   const handleBack = () => {
     if (router.canGoBack()) {
@@ -100,6 +108,15 @@ export default function DocumentRoute() {
   const headingOffsets = useRef<Map<string, number>>(new Map())
   const generatingRef = useRef(false)
   const [copiedToast, setCopiedToast] = useState(false)
+
+  // Highlight-on-navigate: block index from query params
+  const highlightBlockIndex = params.highlightBlock !== undefined
+    ? parseInt(params.highlightBlock, 10)
+    : null
+  const [highlightedBlock, setHighlightedBlock] = useState<number | null>(highlightBlockIndex)
+  const highlightOpacity = useSharedValue(highlightBlockIndex !== null ? 1 : 0)
+  /** Track block offsets for highlight scroll (separate from narration offsets) */
+  const blockOffsets = useRef<Map<number, number>>(new Map())
 
   // Parse MDAST for narration index mapping and copy support
   const parsedAst = useMemo<Root | null>(
@@ -174,7 +191,31 @@ export default function DocumentRoute() {
   useEffect(() => {
     paragraphOffsets.current.clear()
     headingOffsets.current.clear()
+    blockOffsets.current.clear()
   }, [sanitizedContent])
+
+  // Scroll to highlighted block after layout and fade highlight
+  useEffect(() => {
+    if (highlightedBlock === null) return
+    // Give blocks time to measure layout
+    const scrollTimer = setTimeout(() => {
+      const offset = blockOffsets.current.get(highlightedBlock)
+      if (offset !== undefined) {
+        scrollViewRef.current?.scrollTo({ y: Math.max(0, offset - 100), animated: true })
+      }
+    }, 400)
+    // Start highlight flash: hold bright for 1.5s, then fade out over 1s
+    highlightOpacity.value = withSequence(
+      withTiming(1, { duration: 200 }),
+      withDelay(1500, withTiming(0, { duration: 1000, easing: REasing.out(REasing.cubic) }))
+    )
+    // Clear highlight state after animation completes
+    const clearTimer = setTimeout(() => setHighlightedBlock(null), 3000)
+    return () => {
+      clearTimeout(scrollTimer)
+      clearTimeout(clearTimer)
+    }
+  }, [highlightedBlock])
 
   const generateAction = useAction(api.audio.actions.generateForDocument)
   const regenerateAction = useAction(api.audio.actions.regenerateForDocument)
@@ -314,7 +355,11 @@ export default function DocumentRoute() {
   // Open chat picker for an excerpt (from long-press)
   const handleAddExcerptToChat = useCallback(() => {
     if (!selectedBlockRef.current) return
-    chatContextRef.current = { scope: 'excerpt', excerpt: selectedBlockRef.current.text }
+    chatContextRef.current = {
+      scope: 'excerpt',
+      excerpt: selectedBlockRef.current.text,
+      blockIndex: selectedBlockRef.current.rootIndex,
+    }
     setChatPickerVisible(true)
   }, [])
 
@@ -327,7 +372,7 @@ export default function DocumentRoute() {
   // Handle conversation selection from ChatPickerSheet
   const handleChatSelected = useCallback(async (conversationId: string) => {
     if (!document || !id) return
-    const { scope, excerpt } = chatContextRef.current
+    const { scope, excerpt, blockIndex } = chatContextRef.current
     const category = mapDocumentCategoryToCategoryType(document.category)
 
     try {
@@ -359,6 +404,7 @@ export default function DocumentRoute() {
           category,
           scope,
           ...(scope === 'excerpt' && excerpt ? { excerpt } : {}),
+          ...(scope === 'excerpt' && blockIndex !== undefined ? { blockIndex } : {}),
         },
         documentId: id as Id<'documents'>,
       })
@@ -419,19 +465,35 @@ export default function DocumentRoute() {
       }
 
       // Normal mode: long-press for actions sheet, track heading positions for internal links
-      return (
+      const isHighlighted = highlightedBlock === rootIndex
+
+      const block = (
         <Pressable
           testID={`doc-block-${rootIndex}`}
           onLongPress={() => handleLongPressBlock(rootIndex)}
-          onLayout={headingSlug ? (e) => {
-            headingOffsets.current.set(headingSlug, e.nativeEvent.layout.y)
-          } : undefined}
+          onLayout={(e) => {
+            blockOffsets.current.set(rootIndex, e.nativeEvent.layout.y)
+            if (headingSlug) {
+              headingOffsets.current.set(headingSlug, e.nativeEvent.layout.y)
+            }
+          }}
         >
           {child}
         </Pressable>
       )
+
+      // Wrap with animated highlight if this is the targeted block
+      if (isHighlighted) {
+        return (
+          <HighlightWrap opacity={highlightOpacity} color={themeColors.primary}>
+            {block}
+          </HighlightWrap>
+        )
+      }
+
+      return block
     }
-  }, [isNarrationMode, narrationMap, narration.state.activeParagraphIndex, themeColors.primary, handleLongPressBlock, getHeadingSlug])
+  }, [isNarrationMode, narrationMap, narration.state.activeParagraphIndex, themeColors.primary, handleLongPressBlock, getHeadingSlug, highlightedBlock, highlightOpacity])
 
   // Auto-scroll to active paragraph
   useEffect(() => {
@@ -661,5 +723,33 @@ export default function DocumentRoute() {
         </View>
       )}
     </ScreenLayout>
+  )
+}
+
+/**
+ * Animated highlight wrapper for scroll-to-highlight feature.
+ * Renders a colored border-left and subtle background that fades out.
+ */
+function HighlightWrap({
+  children,
+  opacity,
+  color,
+}: {
+  children: React.ReactNode
+  opacity: SharedValue<number>
+  color: string
+}) {
+  const animatedStyle = useAnimatedStyle(() => ({
+    backgroundColor: `${color}${Math.round(opacity.value * 20).toString(16).padStart(2, '0')}`,
+    borderLeftWidth: 3,
+    borderLeftColor: color,
+    paddingLeft: 8,
+    borderRadius: 4,
+  }))
+
+  return (
+    <Animated.View style={animatedStyle}>
+      {children}
+    </Animated.View>
   )
 }
