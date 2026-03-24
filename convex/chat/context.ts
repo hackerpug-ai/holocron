@@ -1,10 +1,31 @@
 import { GenericDatabaseReader } from "convex/server";
 import { DataModel, Id } from "../_generated/dataModel";
 
-type LlmMessage = {
-  role: "user" | "assistant" | "system";
-  content: string;
+/**
+ * Vercel AI SDK message types for proper tool call representation.
+ *
+ * Plain text messages use `content: string`.
+ * Tool-calling assistant messages use `content: ToolCallPart[]`.
+ * Tool result messages use `role: "tool"` with `ToolResultPart[]`.
+ */
+type ToolCallPart = {
+  type: "tool-call";
+  toolCallId: string;
+  toolName: string;
+  args: Record<string, unknown>;
 };
+
+type ToolResultPart = {
+  type: "tool-result";
+  toolCallId: string;
+  toolName: string;
+  result: string;
+};
+
+type LlmMessage =
+  | { role: "user" | "system"; content: string }
+  | { role: "assistant"; content: string | ToolCallPart[] }
+  | { role: "tool"; content: ToolResultPart[] };
 
 const CHARS_PER_TOKEN = 4;
 const MAX_MESSAGES_TO_FETCH = 200;
@@ -75,26 +96,105 @@ export async function buildConversationContext(
     }
   }
 
-  // Map chat messages to LLM format
-  const llmMessages: LlmMessage[] = orderedMessages
-    .map((message) => {
-      // Skip tool_approval messages — they are UI-only and confuse the LLM
-      if (message.messageType === "tool_approval") {
-        return null;
-      }
+  // Fetch all toolCalls for this conversation to reconstruct tool interactions
+  const allToolCalls = await db
+    .query("toolCalls")
+    .withIndex("by_conversation", (q) =>
+      q.eq("conversationId", conversationId)
+    )
+    .collect();
 
-      if (message.role === "user") {
-        return { role: "user", content: message.content };
-      }
+  // Index tool calls by their messageId (the tool_approval message) and resultMessageId
+  const toolCallByApprovalMessageId = new Map<string, typeof allToolCalls[number]>();
+  const resultMessageIds = new Set<string>();
+  for (const tc of allToolCalls) {
+    toolCallByApprovalMessageId.set(tc.messageId, tc);
+    if (tc.resultMessageId) {
+      resultMessageIds.add(tc.resultMessageId);
+    }
+  }
 
-      if (message.role === "system") {
-        return { role: "system", content: message.content };
-      }
+  // Map chat messages to LLM format with proper tool call representation
+  const llmMessages: LlmMessage[] = [];
 
-      // role === "agent" — all messageTypes map to "assistant"
-      return { role: "assistant", content: message.content };
-    })
-    .filter((m): m is LlmMessage => m !== null);
+  for (const message of orderedMessages) {
+    // tool_approval messages → convert to assistant tool-call + tool result (if completed)
+    if (message.messageType === "tool_approval") {
+      const tc = toolCallByApprovalMessageId.get(message._id);
+      if (!tc) continue;
+
+      // Emit the assistant message with tool-call part
+      const toolCallId = tc._id;
+      llmMessages.push({
+        role: "assistant",
+        content: [
+          {
+            type: "tool-call",
+            toolCallId,
+            toolName: tc.toolName,
+            args: tc.toolArgs ?? {},
+          },
+        ],
+      });
+
+      // Emit the tool result if completed or failed
+      if (tc.status === "completed" && tc.resultMessageId) {
+        const resultMsg = orderedMessages.find((m) => m._id === tc.resultMessageId);
+        const resultContent = resultMsg?.content ?? "Tool completed successfully.";
+        llmMessages.push({
+          role: "tool",
+          content: [
+            {
+              type: "tool-result",
+              toolCallId,
+              toolName: tc.toolName,
+              result: resultContent,
+            },
+          ],
+        });
+      } else if (tc.status === "rejected") {
+        llmMessages.push({
+          role: "tool",
+          content: [
+            {
+              type: "tool-result",
+              toolCallId,
+              toolName: tc.toolName,
+              result: "The user rejected this tool call. Respond to them directly instead.",
+            },
+          ],
+        });
+      } else if (tc.status === "failed") {
+        llmMessages.push({
+          role: "tool",
+          content: [
+            {
+              type: "tool-result",
+              toolCallId,
+              toolName: tc.toolName,
+              result: `Tool execution failed: ${tc.error ?? "Unknown error"}`,
+            },
+          ],
+        });
+      }
+      // If still pending, just skip — shouldn't be in history during continuation
+      continue;
+    }
+
+    // Skip result_card messages that are already represented as tool results above
+    if (resultMessageIds.has(message._id)) {
+      continue;
+    }
+
+    if (message.role === "user") {
+      llmMessages.push({ role: "user", content: message.content });
+    } else if (message.role === "system") {
+      llmMessages.push({ role: "system", content: message.content });
+    } else {
+      // role === "agent" — text, error, progress messages
+      llmMessages.push({ role: "assistant", content: message.content });
+    }
+  }
 
   // Prepend document context as a system message if any documents were found
   if (documentContextParts.length > 0) {
