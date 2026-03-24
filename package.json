@@ -21,7 +21,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "deploy": "pnpm exec eas build --platform all --profile production",
-    "deploy:ios": "pnpm exec eas build --platform ios --profile production",
+    "deploy:ios": "pnpm exec eas build --platform ios --profile production --auto-submit",
     "deploy:android": "pnpm exec eas build --platform android --profile production",
     "validate": "npx tsx scripts/validate-migration.ts",
     "storybook": "STORYBOOK_ENABLED=true EXPO_PUBLIC_STORYBOOK_ENABLED=true expo start --dev-client --clear",
