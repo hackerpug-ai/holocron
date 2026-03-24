@@ -117,7 +117,9 @@ export default function DocumentRoute() {
     isNarrationMode && documentId ? { documentId } : 'skip'
   )
 
-  const { isLoading: isSegmentLoading } = useAudioPlayback(segments, narration)
+  const { isLoading: isSegmentLoading } = useAudioPlayback(segments, narration, {
+    title: document?.title ?? 'Narration',
+  })
 
   useEffect(() => {
     if (!isNarrationMode || segments.length === 0) return

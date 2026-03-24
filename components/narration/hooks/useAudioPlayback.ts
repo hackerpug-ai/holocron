@@ -1,5 +1,5 @@
 import { createAudioPlayer, setAudioModeAsync } from 'expo-audio'
-import type { AudioPlayer, AudioEvents } from 'expo-audio'
+import type { AudioPlayer } from 'expo-audio'
 import type { AudioStatus } from 'expo-audio'
 import { useEffect, useRef, useState } from 'react'
 import { UseNarrationStateReturn } from './useNarrationState'
@@ -12,6 +12,11 @@ export interface AudioSegment {
   status: string
   audioUrl: string | null
   durationMs?: number
+}
+
+export interface AudioPlaybackMetadata {
+  title?: string
+  artist?: string
 }
 
 export interface UseAudioPlaybackReturn {
@@ -37,16 +42,17 @@ function releasePlayer(player: AudioPlayer | null): void {
  * machine. It owns the expo-audio AudioPlayer lifecycle: loading, playback,
  * rate changes, auto-advance on segment completion, and cleanup.
  *
- * Stale closure safety: narration callbacks and state values that are read
- * inside async callbacks or status listeners are accessed via refs so
- * the listeners always see the latest values without being re-registered.
+ * Supports background playback, lock screen controls, and CarPlay via
+ * expo-audio's setActiveForLockScreen API.
  *
  * @param segments - Convex audio segment records for the current article
  * @param narration - The UseNarrationStateReturn from useNarrationState
+ * @param metadata - Optional metadata for lock screen / CarPlay display
  */
 export function useAudioPlayback(
   segments: AudioSegment[],
-  narration: UseNarrationStateReturn
+  narration: UseNarrationStateReturn,
+  metadata?: AudioPlaybackMetadata
 ): UseAudioPlaybackReturn {
   // ─── Stable refs for values read inside async/callback contexts ──────────
 
@@ -72,9 +78,20 @@ export function useAudioPlayback(
   useEffect(() => {
     setAudioModeAsync({
       playsInSilentMode: true,
+      shouldPlayInBackground: true,
+      interruptionMode: 'doNotMix',
     })
 
     return () => {
+      // Clear lock screen controls on cleanup
+      const player = playerRef.current
+      if (player) {
+        try {
+          player.clearLockScreenControls()
+        } catch {
+          // Safe to ignore
+        }
+      }
       releasePlayer(playerRef.current)
       playerRef.current = null
       loadedIndexRef.current = -1
@@ -144,6 +161,14 @@ export function useAudioPlayback(
         playerRef.current = player
         loadedIndexRef.current = activeParagraphIndex
 
+        // Enable lock screen controls with metadata for background playback
+        // and CarPlay. iOS auto-surfaces these in Control Center and CarPlay.
+        const sectionLabel = `Section ${activeParagraphIndex + 1}`
+        player.setActiveForLockScreen(true, {
+          title: metadata?.title ?? 'Narration',
+          artist: sectionLabel,
+        })
+
         // Register playback status listener. Uses narrationRef so it always
         // sees the latest handlers and state without re-registering.
         player.addListener('playbackStatusUpdate', (playbackStatus: AudioStatus) => {
@@ -199,11 +224,19 @@ export function useAudioPlayback(
     player.setPlaybackRate(narration.state.playbackSpeed)
   }, [narration.state.playbackSpeed])
 
-  // ─── Release player on EXIT_MODE (idle) and REGENERATE (generating) ───────
+  // ─── Release player and clear lock screen on EXIT_MODE / REGENERATE ───────
 
   useEffect(() => {
     const { status } = narration.state
     if (status === 'idle' || status === 'generating') {
+      const player = playerRef.current
+      if (player) {
+        try {
+          player.clearLockScreenControls()
+        } catch {
+          // Safe to ignore
+        }
+      }
       releasePlayer(playerRef.current)
       playerRef.current = null
       loadedIndexRef.current = -1

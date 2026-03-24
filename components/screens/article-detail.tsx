@@ -148,7 +148,9 @@ export function ArticleDetail({
       isNarrationMode && convexDocId ? { documentId: convexDocId } : "skip",
     ) ?? [];
 
-  useAudioPlayback(segments, narration);
+  useAudioPlayback(segments, narration, {
+    title: article.title,
+  });
 
   useEffect(() => {
     if (!isNarrationMode || segments.length === 0) return;
