@@ -2,7 +2,7 @@ import { CategoryBadge, type CategoryType } from '@/components/CategoryBadge'
 import { SectionHeader } from '@/components/SectionHeader'
 import { Text } from '@/components/ui/text'
 import { cn } from '@/lib/utils'
-import { Calendar, Clock, ExternalLink, Share2 } from 'lucide-react-native'
+import { Calendar, Clock, ExternalLink, Share2 } from '@/components/ui/icons'
 import { Pressable, ScrollView, View, type ViewProps } from 'react-native'
 
 interface ArticleMetadata {

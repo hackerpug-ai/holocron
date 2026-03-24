@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Text } from '@/components/ui/text'
 import { cn } from '@/lib/utils'
-import { ArrowLeft, BookOpen, CheckCircle2, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react-native'
+import { ArrowLeft, BookOpen, CheckCircle2, ChevronDown, ChevronUp, ExternalLink } from '@/components/ui/icons'
 import * as React from 'react'
 import { ScrollView, View, Pressable } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -83,18 +83,18 @@ export interface DeepResearchDetailViewProps {
 function ConfidenceBadge({ level }: { level: 'HIGH' | 'MEDIUM' | 'LOW' }) {
   const config = {
     HIGH: {
-      bg: 'bg-emerald-100 dark:bg-emerald-900/30',
-      text: 'text-emerald-700 dark:text-emerald-400',
+      bg: 'bg-success/10 dark:bg-success/15',
+      text: 'text-success',
       label: 'High Confidence',
     },
     MEDIUM: {
-      bg: 'bg-amber-100 dark:bg-amber-900/30',
-      text: 'text-amber-700 dark:text-amber-400',
+      bg: 'bg-warning/10 dark:bg-warning/15',
+      text: 'text-warning',
       label: 'Medium Confidence',
     },
     LOW: {
-      bg: 'bg-red-100 dark:bg-red-900/30',
-      text: 'text-red-700 dark:text-red-400',
+      bg: 'bg-destructive/10 dark:bg-destructive/15',
+      text: 'text-destructive',
       label: 'Low Confidence',
     },
   }
@@ -319,14 +319,14 @@ export function DeepResearchDetailView({
 
         {/* Holocron Save Confirmation */}
         {session.savedToHolocron && (
-          <Card className="bg-emerald-50 border-emerald-200 dark:bg-emerald-950 dark:border-emerald-800">
+          <Card className="bg-success/10 border-success/30 dark:bg-success/15 dark:border-success/20">
             <CardContent className="flex-row items-center gap-3 py-4">
-              <CheckCircle2 size={20} className="text-emerald-600 dark:text-emerald-400" />
+              <CheckCircle2 size={20} className="text-success" />
               <View className="flex-1">
-                <Text className="text-emerald-900 dark:text-emerald-100 font-semibold">
+                <Text className="text-success font-semibold">
                   Saved to Holocron
                 </Text>
-                <Text className="text-emerald-700 dark:text-emerald-300 text-sm">
+                <Text className="text-success text-sm">
                   This research report has been added to your knowledge base
                 </Text>
               </View>

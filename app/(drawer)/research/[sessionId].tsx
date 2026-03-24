@@ -1,7 +1,7 @@
-import { useLocalSearchParams, useRouter } from 'expo-router'
+import { Redirect, useLocalSearchParams, useRouter } from 'expo-router'
 import { ActivityIndicator, Pressable, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { ArrowLeft } from 'lucide-react-native'
+import { ArrowLeft } from '@/components/ui/icons'
 import { Text } from '@/components/ui/text'
 import { Button } from '@/components/ui/button'
 import { useDeepResearchSession } from '@/hooks/useResearchSession'
@@ -73,11 +73,21 @@ export default function ResearchDetailScreen() {
   const theme = useTheme()
   const { session, isLoading, error } = useDeepResearchSession(sessionId ?? null)
 
+  // If the research session has a saved document, redirect to the canonical document view
+  // which has sharing, better rendering, and consistent UX
+  if (session?.documentId) {
+    return <Redirect href={`/document/${session.documentId}`} />
+  }
+
   // Derive view data directly from session query (no useState + useEffect sync)
   const viewData = useMemo(() => transformSessionToViewFormat(session), [session])
 
   const handleBack = () => {
-    router.back()
+    if (router.canGoBack()) {
+      router.back()
+    } else {
+      router.navigate('/chat/new')
+    }
   }
 
   const handleCitationPress = (url: string) => {

@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react'
 import { expect } from '@storybook/jest'
 import { within, userEvent } from '@storybook/testing-library'
-import { BookOpen, MessageSquare, Settings, Sparkles } from 'lucide-react-native'
+import { BookOpen, MessageSquare, Settings, Sparkles } from '@/components/ui/icons'
 import { useState } from 'react'
 import { View } from 'react-native'
 import { ConversationRow } from './ConversationRow'

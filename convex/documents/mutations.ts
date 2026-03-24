@@ -84,6 +84,36 @@ export const insertFromMigration = mutation({
 });
 
 /**
+ * Publish a document as a public web page with a shareable URL
+ */
+export const publishDocument = mutation({
+  args: { id: v.id("documents") },
+  handler: async (ctx, { id }) => {
+    const doc = await ctx.db.get(id);
+    if (!doc) throw new Error(`Document ${id} not found`);
+
+    const shareToken = doc.shareToken ?? crypto.randomUUID();
+    await ctx.db.patch(id, { isPublic: true, shareToken });
+
+    return { shareToken };
+  },
+});
+
+/**
+ * Unpublish a document, removing public access
+ */
+export const unpublishDocument = mutation({
+  args: { id: v.id("documents") },
+  handler: async (ctx, { id }) => {
+    const doc = await ctx.db.get(id);
+    if (!doc) throw new Error(`Document ${id} not found`);
+
+    await ctx.db.patch(id, { isPublic: false });
+    return { shareToken: doc.shareToken };
+  },
+});
+
+/**
  * Clear all documents (for testing only - use with caution)
  */
 export const clearAll = mutation({

@@ -2,7 +2,7 @@ import { View, TextInput, Pressable, StyleSheet } from 'react-native'
 import { Text } from '@/components/ui/text'
 import { cn } from '@/lib/utils'
 import { useState, useMemo, useCallback, useEffect } from 'react'
-import { Send } from 'lucide-react-native'
+import { Send, WandSparkles } from '@/components/ui/icons'
 import { useTheme } from '@/hooks/use-theme'
 import {
   useMentions,
@@ -171,8 +171,19 @@ export function ChatInput({
   const trimmedValue = value.trim()
   const canSend = trimmedValue.length > 0 && !disabled
 
-  // Check if suggestions should be visible
-  const showCommandPanel = triggers.command.keyword !== undefined
+  // Track whether the wand button forced the command panel open
+  const [forceShowCommands, setForceShowCommands] = useState(false)
+
+  // Show command panel when mentions trigger detects "/" OR when wand button toggled it
+  const mentionsActive = triggers.command.keyword !== undefined
+  const showCommandPanel = mentionsActive || forceShowCommands
+
+  // Dismiss forced panel when user starts typing
+  useEffect(() => {
+    if (forceShowCommands && value.length > 0) {
+      setForceShowCommands(false)
+    }
+  }, [value, forceShowCommands])
 
   // Auto-select command when user types the full command name
   useEffect(() => {
@@ -197,15 +208,20 @@ export function ChatInput({
   // Handle command selection from suggestions
   const handleCommandSelect = useCallback(
     (suggestion: { id: string; name: string }) => {
+      setForceShowCommands(false)
       triggers.command.onSelect(suggestion)
     },
     [triggers.command]
   )
 
-  // Handle '/' button press - insert '/' if not already present
+  // Handle wand button press - toggle command menu without injecting "/"
   const handleSlashButtonPress = () => {
-    if (!value.startsWith('/')) {
-      setValue('/')
+    if (showCommandPanel) {
+      // Already showing - dismiss it
+      setForceShowCommands(false)
+    } else {
+      // Show command menu without modifying the input text
+      setForceShowCommands(true)
     }
     onSlashButtonPress?.()
   }
@@ -239,7 +255,7 @@ export function ChatInput({
       {/* Command Suggestions Panel - positioned above input */}
       {showCommandPanel && (
         <CommandSuggestions
-          keyword={triggers.command.keyword}
+          keyword={triggers.command.keyword ?? ''}
           onSelect={handleCommandSelect}
           commands={commands}
         />
@@ -257,14 +273,10 @@ export function ChatInput({
             showCommandPanel ? 'bg-primary' : 'bg-muted'
           )}
         >
-          <Text
-            className={cn(
-              'font-mono text-lg',
-              showCommandPanel ? 'text-primary-foreground' : 'text-foreground'
-            )}
-          >
-            /
-          </Text>
+          <WandSparkles
+            size={20}
+            color={showCommandPanel ? themeColors.primaryForeground : themeColors.foreground}
+          />
         </Pressable>
 
         {/* Text Input Container */}

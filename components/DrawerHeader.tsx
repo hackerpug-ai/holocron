@@ -2,7 +2,7 @@ import { Text } from '@/components/ui/text'
 import { NavTaskLoader } from '@/components/nav/NavTaskLoader'
 import { cn } from '@/lib/utils'
 import { useTheme } from '@/hooks/use-theme'
-import { BookOpen, PenSquare, Search, Settings } from 'lucide-react-native'
+import { BookOpen, PenSquare, Search, Settings } from '@/components/ui/icons'
 import { KeyboardAvoidingView, Platform, Pressable, TextInput, View, type ViewProps } from 'react-native'
 
 /** Navigation section item */
@@ -27,8 +27,8 @@ interface DrawerHeaderProps extends Omit<ViewProps, 'children'> {
 }
 
 const defaultSections: NavSection[] = [
-  { id: 'articles', label: 'Articles', icon: <BookOpen size={20} /> },
-  { id: 'settings', label: 'Settings', icon: <Settings size={20} /> },
+  { id: 'articles', label: 'Articles', icon: <BookOpen size={20} className="text-foreground" /> },
+  { id: 'settings', label: 'Settings', icon: <Settings size={20} className="text-foreground" /> },
 ]
 
 /**

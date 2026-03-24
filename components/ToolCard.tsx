@@ -1,7 +1,7 @@
 import { CategoryBadge } from '@/components/CategoryBadge'
 import { Text } from '@/components/ui/text'
 import { cn } from '@/lib/utils'
-import { ExternalLink, Wrench } from 'lucide-react-native'
+import { ExternalLink, Wrench } from '@/components/ui/icons'
 import { Pressable, View, type ViewProps } from 'react-native'
 
 export type ToolStatus = 'complete' | 'draft' | 'archived'
@@ -36,9 +36,9 @@ export interface ToolCardProps extends Omit<ViewProps, 'children'> {
 }
 
 const statusColors: Record<ToolStatus, string> = {
-  complete: 'bg-green-500',
-  draft: 'bg-yellow-500',
-  archived: 'bg-gray-400',
+  complete: 'bg-success',
+  draft: 'bg-warning',
+  archived: 'bg-muted-foreground',
 }
 
 const sourceTypeIcons: Record<SourceType, string> = {
@@ -130,8 +130,8 @@ export function ToolCard({
 
         {/* Language badge */}
         {language && (
-          <View className="rounded bg-blue-500/20 px-1.5 py-0.5">
-            <Text className="text-xs text-blue-600">{language}</Text>
+          <View className="rounded bg-info/20 px-1.5 py-0.5">
+            <Text className="text-xs text-info">{language}</Text>
           </View>
         )}
       </View>

@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils'
-import { Trash2 } from 'lucide-react-native'
+import { Trash2 } from '@/components/ui/icons'
 import * as Haptics from 'expo-haptics'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, {
@@ -14,6 +14,15 @@ import Animated, {
 import { StyleSheet, View, type ViewProps } from 'react-native'
 import { Text } from '@/components/ui/text'
 import { useCallback } from 'react'
+import { useTheme } from '@/hooks/use-theme'
+
+// Convert hex color to "r, g, b" string for use in rgba() inside animated worklets
+function hexToRgb(hex: string): string {
+  const r = parseInt(hex.slice(1, 3), 16)
+  const g = parseInt(hex.slice(3, 5), 16)
+  const b = parseInt(hex.slice(5, 7), 16)
+  return `${r}, ${g}, ${b}`
+}
 
 // Physics constants per plan
 const SWIPE_THRESHOLD_PERCENT = 0.35 // 35% to commit
@@ -57,6 +66,9 @@ export function SwipeableRow({
   className,
   ...props
 }: SwipeableRowProps) {
+  const { colors: themeColors } = useTheme()
+  const destructiveRgb = hexToRgb(themeColors.destructive)
+
   // Animation values
   const translateX = useSharedValue(0)
   const height = useSharedValue(-1) // -1 means "use auto"
@@ -115,7 +127,7 @@ export function SwipeableRow({
 
     return {
       opacity,
-      backgroundColor: `rgba(239, 68, 68, ${opacity})`, // destructive color
+      backgroundColor: `rgba(${destructiveRgb}, ${opacity})`,
     }
   })
 

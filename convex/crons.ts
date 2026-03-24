@@ -95,4 +95,18 @@ crons.daily(
   internal.whatsNew.actions.generateDailyReport
 );
 
+/**
+ * Audio Stuck Segment Cleanup
+ *
+ * Detects and marks stuck audio segments and jobs as failed.
+ * - Runs every 5 minutes
+ * - Segments stuck in "generating" for > 3 minutes are marked failed
+ * - Jobs stuck in "running" for > 10 minutes are marked failed
+ */
+crons.interval(
+  "audio-stuck-segment-cleanup",
+  { minutes: 5 },
+  internal.audio.scheduled.timeoutStuckSegments
+);
+
 export default crons;

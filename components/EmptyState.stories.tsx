@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react'
-import { AlertCircle, FolderOpen } from 'lucide-react-native'
+import { AlertCircle, FolderOpen } from '@/components/ui/icons'
 import { View } from 'react-native'
 import { EmptyState } from './EmptyState'
 

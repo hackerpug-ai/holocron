@@ -21,7 +21,17 @@ const meta: Meta<typeof ArticleCard> = {
     },
     category: {
       control: { type: 'select' },
-      options: ['research', 'deep-research', 'factual', 'academic', 'entity', 'url', 'general'],
+      options: [
+        'research',
+        'general',
+        'patterns',
+        'business',
+        'technical-analysis',
+        'platforms',
+        'libraries',
+        'claude-code-configuration',
+        'toolbelt',
+      ],
       description: 'Article category',
     },
     date: {
@@ -60,10 +70,10 @@ type Story = StoryObj<typeof ArticleCard>
 
 export const Default: Story = {}
 
-export const DeepResearch: Story = {
+export const TechnicalAnalysis: Story = {
   args: {
     title: 'Comprehensive Analysis of Climate Change Policies',
-    category: 'deep-research',
+    category: 'technical-analysis',
     iterationCount: 5,
     snippet:
       'A multi-iteration deep research study examining global climate policies, their effectiveness, and recommendations for future action.',
@@ -73,7 +83,7 @@ export const DeepResearch: Story = {
 export const Compact: Story = {
   args: {
     title: 'Quick Notes on React Performance',
-    category: 'factual',
+    category: 'patterns',
     compact: true,
   },
 }
@@ -81,7 +91,7 @@ export const Compact: Story = {
 export const Pressable: Story = {
   args: {
     title: 'Interactive Article Card',
-    category: 'academic',
+    category: 'libraries',
     snippet: 'This card responds to press events.',
     onPress: () => console.log('Card pressed'),
   },
@@ -90,7 +100,7 @@ export const Pressable: Story = {
 export const NoSnippet: Story = {
   args: {
     title: 'Article Without Snippet',
-    category: 'entity',
+    category: 'platforms',
     snippet: undefined,
   },
 }
@@ -106,14 +116,14 @@ export const ArticleList: Story = {
       },
       {
         title: 'API Design Best Practices',
-        category: 'deep-research' as CategoryType,
+        category: 'technical-analysis' as CategoryType,
         date: new Date(2026, 1, 25),
         snippet: 'Comprehensive guide to designing robust APIs.',
         iterationCount: 3,
       },
       {
         title: 'TypeScript 5.0 Features',
-        category: 'factual' as CategoryType,
+        category: 'patterns' as CategoryType,
         date: new Date(2026, 1, 20),
         snippet: 'Overview of new features in TypeScript 5.0.',
       },
@@ -132,9 +142,9 @@ export const ArticleList: Story = {
 export const CompactList: Story = {
   render: () => {
     const articles = [
-      { title: 'Quick Note 1', category: 'factual' as CategoryType, date: new Date() },
+      { title: 'Quick Note 1', category: 'general' as CategoryType, date: new Date() },
       { title: 'Quick Note 2', category: 'research' as CategoryType, date: new Date() },
-      { title: 'Quick Note 3', category: 'entity' as CategoryType, date: new Date() },
+      { title: 'Quick Note 3', category: 'business' as CategoryType, date: new Date() },
     ]
 
     return (

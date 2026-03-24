@@ -5,7 +5,7 @@
 import { View, ActivityIndicator } from 'react-native'
 import { Text } from '@/components/ui/text'
 import { Card } from '@/components/ui/card'
-import { Wrench, Link } from 'lucide-react-native'
+import { Wrench, Link } from '@/components/ui/icons'
 import { useTheme } from '@/hooks/use-theme'
 import type { ToolAddingCardData } from '@/lib/types/chat'
 

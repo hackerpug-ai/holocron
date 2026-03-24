@@ -87,6 +87,22 @@ export const insertFromMigration = mutation({
 });
 
 /**
+ * Soft delete a chat message by marking it deleted: true
+ */
+export const softDelete = mutation({
+  args: {
+    id: v.id("chatMessages"),
+  },
+  handler: async (ctx, { id }) => {
+    const existing = await ctx.db.get(id);
+    if (!existing) {
+      throw new Error(`ChatMessage ${id} not found`);
+    }
+    await ctx.db.patch(id, { deleted: true });
+  },
+});
+
+/**
  * Clear all chat messages (for testing only - use with caution)
  */
 export const clearAll = mutation({

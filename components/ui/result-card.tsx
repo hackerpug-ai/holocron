@@ -9,7 +9,7 @@ import {
   Search,
   XCircle,
   Loader2,
-} from 'lucide-react-native'
+} from '@/components/ui/icons'
 import { Pressable, View, ActivityIndicator, type ViewProps } from 'react-native'
 import { CategoryBadge, type CategoryType } from '../CategoryBadge'
 import type {
@@ -188,10 +188,10 @@ export function ResultCard({
               className={cn(
                 'text-xs font-semibold',
                 relevanceScore >= 80
-                  ? 'text-green-600 dark:text-green-400'
+                  ? 'text-success'
                   : relevanceScore >= 60
-                  ? 'text-yellow-600 dark:text-yellow-400'
-                  : 'text-red-600 dark:text-red-400'
+                  ? 'text-warning'
+                  : 'text-destructive'
               )}
             >
               {relevanceScore}%

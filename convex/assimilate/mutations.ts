@@ -6,6 +6,7 @@
 
 import { mutation } from "../_generated/server";
 import { v } from "convex/values";
+import { api } from "../_generated/api";
 
 /**
  * Save assimilation results
@@ -63,6 +64,12 @@ export const saveAssimilation = mutation({
       createdAt: now,
     });
     console.log(`[saveAssimilation] Document created - ID: ${documentId}`);
+
+    // Schedule embedding generation for the new document
+    await ctx.scheduler.runAfter(0, api.documents.storage.updateWithEmbedding, {
+      id: documentId,
+      content,
+    });
 
     // Step 2: Insert metadata entry
     console.log(`[saveAssimilation] Creating metadata entry`);

@@ -5,7 +5,7 @@
 import { View, Pressable, Linking } from 'react-native'
 import { Text } from '@/components/ui/text'
 import { Card } from '@/components/ui/card'
-import { Wrench, Search, ExternalLink, Tag, Code } from 'lucide-react-native'
+import { Wrench, Search, ExternalLink, Tag, Code } from '@/components/ui/icons'
 import { useTheme } from '@/hooks/use-theme'
 import type { ToolSearchResultsCardData } from '@/lib/types/chat'
 
@@ -88,8 +88,8 @@ export function ToolSearchResultsCard({
                 {tool.title}
               </Text>
               {/* Relevance score */}
-              <View className="rounded-full bg-emerald-500/20 px-2 py-0.5">
-                <Text className="text-xs font-medium text-emerald-500">
+              <View className="rounded-full bg-success/20 px-2 py-0.5">
+                <Text className="text-xs font-medium text-success">
                   {Math.round(tool.score * 100)}%
                 </Text>
               </View>

@@ -252,6 +252,10 @@ export default function DrawerLayout() {
           name="articles"
           options={{ headerShown: false, title: 'Articles' }}
         />
+        <Drawer.Screen
+          name="toolbelt"
+          options={{ headerShown: false, title: 'Toolbelt' }}
+        />
       </Drawer>
     </SafeAreaView>
   )

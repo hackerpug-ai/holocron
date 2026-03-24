@@ -1,7 +1,7 @@
 import { Card, CardContent } from '@/components/ui/card'
 import { Text } from '@/components/ui/text'
 import { cn } from '@/lib/utils'
-import { type LucideIcon } from 'lucide-react-native'
+import { type LucideIcon } from '@/components/ui/icons'
 import { View, type ViewProps } from 'react-native'
 
 interface StatCardProps extends Omit<ViewProps, 'children'> {
@@ -73,8 +73,8 @@ export function StatCard({
               <Text
                 className={cn(
                   'text-sm font-medium',
-                  trend > 0 && 'text-green-600',
-                  trend < 0 && 'text-red-600',
+                  trend > 0 && 'text-success',
+                  trend < 0 && 'text-destructive',
                   trend === 0 && 'text-muted-foreground'
                 )}
               >

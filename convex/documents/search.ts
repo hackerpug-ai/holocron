@@ -34,14 +34,15 @@ export const hybridSearch = action({
       });
       embedding = generatedEmbedding;
     }
-    // Run both searches in parallel with category filter
-    const searchLimit = Math.max(limit * 2, 50); // Get more candidates for better merging
 
-    const [vectorResults, ftsResults] = await Promise.all([
-      ctx.runQuery(api.documents.queries.vectorSearch, {
-        embedding,
+    const searchLimit = Math.max(limit * 2, 50);
+
+    // Use native Convex vector search (action-level API) + FTS in parallel
+    const [nativeVectorResults, ftsResults] = await Promise.all([
+      ctx.vectorSearch("documents", "by_embedding", {
+        vector: embedding,
         limit: searchLimit,
-        category,
+        ...(category ? { filter: (q: any) => q.eq("category", category) } : {}),
       }),
       ctx.runQuery(api.documents.queries.fullTextSearch, {
         query,
@@ -50,28 +51,47 @@ export const hybridSearch = action({
       }),
     ]);
 
+    // Fetch full documents for vector results (native search only returns _id + _score)
+    const vectorDocs = await Promise.all(
+      nativeVectorResults.map(async (result: { _id: any; _score: number }) => {
+        const doc = await ctx.runQuery(api.documents.queries.get, {
+          id: result._id,
+        });
+        return doc ? { ...doc, score: result._score } : null;
+      })
+    );
+    const vectorResults = vectorDocs.filter(Boolean) as Array<{
+      _id: any;
+      title: string;
+      content: string;
+      category: string;
+      score: number;
+    }>;
+
     // Create a map to track scores and avoid duplicates
     const resultScore = new Map<string, number>();
     const resultMap = new Map<string, any>();
 
-    // Score vector results (equal weight for semantic similarity - 0.5)
-    // Normalize scores to 0-1 range based on the actual similarity scores
+    // Vector weight higher (0.7) so semantic matches rank above keyword-only hits
+    // This ensures "RL" finds "reinforcement learning" articles via embeddings
+    const VECTOR_WEIGHT = 0.7;
+    const FTS_WEIGHT = 0.3;
+
+    // Score vector results - normalize to 0-1 range
     const maxVectorScore = vectorResults.length > 0 ? vectorResults[0].score : 1;
 
     for (const doc of vectorResults) {
       const id = doc._id.toString();
-      // Normalize the score and apply vector weight (0.5)
       const normalizedScore = maxVectorScore > 0 ? doc.score / maxVectorScore : 0;
-      const weightedScore = normalizedScore * 0.5;
+      const weightedScore = normalizedScore * VECTOR_WEIGHT;
       resultScore.set(id, (resultScore.get(id) || 0) + weightedScore);
       resultMap.set(id, doc);
     }
 
-    // Score FTS results (equal weight for keyword matching - 0.5)
+    // Score FTS results
     for (const doc of ftsResults) {
       const id = doc._id.toString();
-      // Apply FTS weight (0.5)
-      const weightedScore = (doc.score || 0) * 0.5;
+      const weightedScore = (doc.score || 0) * FTS_WEIGHT;
       resultScore.set(id, (resultScore.get(id) || 0) + weightedScore);
       if (!resultMap.has(id)) {
         resultMap.set(id, doc);

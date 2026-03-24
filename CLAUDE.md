@@ -585,7 +585,7 @@ Before committing component code:
 
 - [ ] **Text component is from Paper** (React Native only): `import { Text } from 'react-native-paper'`
 - [ ] **Text uses Paper variants**: `variant="titleLarge"`, `variant="bodyMedium"`, etc.
-- [ ] No hardcoded hex colors (`#6750A4`, `#FFFFFF`, etc.)
+- [ ] **NEVER hardcode colors** — no hex (`#6750A4`), no `rgba()`, no color strings in inline styles or Animated.View styles. Use `className` with Tailwind tokens (`text-primary`, `bg-muted`, `border-border`) or `useTheme()` colors (`themeColors.primary`) for dynamic/animated styles. This includes highlight colors, active states, borders, and backgrounds.
 - [ ] No hardcoded spacing values (`16`, `24`, `padding: 8`, etc.)
 - [ ] No hardcoded typography (`fontSize: 16`, `fontWeight: '500'`, etc.)
 - [ ] All colors use `semantic.color.*`

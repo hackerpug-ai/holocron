@@ -6,7 +6,7 @@ import { SectionHeader } from '@/components/SectionHeader'
 import { Button } from '@/components/ui/button'
 import { Text } from '@/components/ui/text'
 import { cn } from '@/lib/utils'
-import { Lightbulb, Play, Sparkles } from 'lucide-react-native'
+import { Lightbulb, Play, Sparkles } from '@/components/ui/icons'
 import { useState } from 'react'
 import { Pressable, ScrollView, View, type ViewProps } from 'react-native'
 

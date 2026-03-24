@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Text } from '@/components/ui/text'
 import { cn } from '@/lib/utils'
 import { useTheme } from '@/hooks/use-theme'
-import { AlertCircle, CheckCircle2, ChevronDown, ChevronRight, Zap } from 'lucide-react-native'
+import { AlertCircle, CheckCircle2, ChevronDown, ChevronRight, Zap } from '@/components/ui/icons'
 import { useState } from 'react'
 import { Pressable, View, type ViewProps } from 'react-native'
 import type { DeepResearchIteration } from '@/lib/types/deep-research'
@@ -26,19 +26,19 @@ function WorkerIndicator({ workerId, status, task }: WorkerIndicatorProps) {
       icon: null,
     },
     active: {
-      bg: 'bg-blue-100 dark:bg-blue-900/30',
-      text: 'text-blue-700 dark:text-blue-300',
-      icon: <Zap size={10} className="text-blue-600 dark:text-blue-400" />,
+      bg: 'bg-info/10 dark:bg-info/20',
+      text: 'text-info',
+      icon: <Zap size={10} className="text-info" />,
     },
     complete: {
-      bg: 'bg-green-100 dark:bg-green-900/30',
-      text: 'text-green-700 dark:text-green-300',
-      icon: <CheckCircle2 size={10} className="text-green-600 dark:text-green-400" />,
+      bg: 'bg-success/10 dark:bg-success/20',
+      text: 'text-success',
+      icon: <CheckCircle2 size={10} className="text-success" />,
     },
     error: {
-      bg: 'bg-red-100 dark:bg-red-900/30',
-      text: 'text-red-700 dark:text-red-300',
-      icon: <AlertCircle size={10} className="text-red-600 dark:text-red-400" />,
+      bg: 'bg-destructive/10 dark:bg-destructive/20',
+      text: 'text-destructive',
+      icon: <AlertCircle size={10} className="text-destructive" />,
     },
   }
 
@@ -89,10 +89,10 @@ function CoverageVisualization({ score, label = 'Coverage' }: CoverageVisualizat
 
   // Color coding based on coverage score
   const getScoreColor = (score: number) => {
-    if (score >= 80) return 'bg-green-500 dark:bg-green-600'
-    if (score >= 60) return 'bg-yellow-500 dark:bg-yellow-600'
-    if (score >= 40) return 'bg-orange-500 dark:bg-orange-600'
-    return 'bg-red-500 dark:bg-red-600'
+    if (score >= 80) return 'bg-success'
+    if (score >= 60) return 'bg-warning'
+    if (score >= 40) return 'bg-warning'
+    return 'bg-destructive'
   }
 
   return (
@@ -137,10 +137,10 @@ function AgentCoordinationStatus({
 
   const phaseColors = {
     idle: 'text-muted-foreground',
-    distributing: 'text-blue-600 dark:text-blue-400',
-    working: 'text-blue-600 dark:text-blue-400',
-    aggregating: 'text-yellow-600 dark:text-yellow-400',
-    complete: 'text-green-600 dark:text-green-400',
+    distributing: 'text-info',
+    working: 'text-info',
+    aggregating: 'text-warning',
+    complete: 'text-success',
   }
 
   return (
@@ -148,10 +148,10 @@ function AgentCoordinationStatus({
       <View
         className={cn(
           'h-2 w-2 rounded-full',
-          phase === 'working' && 'animate-pulse bg-blue-500',
-          phase === 'distributing' && 'animate-pulse bg-blue-400',
-          phase === 'aggregating' && 'animate-pulse bg-yellow-500',
-          phase === 'complete' && 'bg-green-500',
+          phase === 'working' && 'animate-pulse bg-info',
+          phase === 'distributing' && 'animate-pulse bg-info',
+          phase === 'aggregating' && 'animate-pulse bg-warning',
+          phase === 'complete' && 'bg-success',
           phase === 'idle' && 'bg-muted'
         )}
       />
@@ -233,7 +233,7 @@ export function IterationSummaryCard({
           <View className="flex-row items-center justify-between">
             <View className="flex-row items-center gap-3">
               {isComplete ? (
-                <CheckCircle2 size={20} className="text-green-600 dark:text-green-400" />
+                <CheckCircle2 size={20} className="text-success" />
               ) : isActive ? (
                 <View
                   className="h-5 w-5 animate-pulse rounded-full"

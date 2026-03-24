@@ -1,10 +1,11 @@
-import { View, FlatList, ActivityIndicator } from 'react-native'
+import { View, FlatList, ActivityIndicator, useWindowDimensions } from 'react-native'
 import { Text } from '@/components/ui/text'
 import { useRef, useEffect, useCallback } from 'react'
 import { useRouter } from 'expo-router'
 import type { MessageRole, MessageType } from '@/lib/types/conversations'
 import { MessageBubble } from './MessageBubble'
 import { TypingIndicator } from './TypingIndicator'
+import { SwipeableRow } from '@/components/ui/SwipeableRow'
 
 export interface ChatMessage {
   id: string
@@ -12,6 +13,7 @@ export interface ChatMessage {
   content: string
   message_type?: MessageType
   card_data?: Record<string, unknown> | null
+  toolCallId?: string | null
   createdAt: Date
 }
 
@@ -27,6 +29,10 @@ export interface ChatThreadProps {
   onFinalResultPress?: (sessionId: string) => void
   /** Callback when a What's New report card is pressed - navigate to report detail */
   onWhatsNewReportPress?: (reportId: string) => void
+  /** Callback when a message is deleted via swipe */
+  onDeleteMessage?: (messageId: string) => void
+  /** ID of the message currently being streamed - shows cursor, suppresses typing indicator */
+  streamingMessageId?: string | null
 }
 
 export function ChatThread({
@@ -37,7 +43,10 @@ export function ChatThread({
   testID = 'chat-thread',
   onFinalResultPress,
   onWhatsNewReportPress,
+  onDeleteMessage,
+  streamingMessageId = null,
 }: ChatThreadProps) {
+  const { width: screenWidth } = useWindowDimensions()
   // Check if the most recent message has an active research loading card
   // If so, suppress the typing indicator to avoid showing double loaders
   const hasActiveResearchCard = messages.length > 0 && (() => {
@@ -51,7 +60,7 @@ export function ChatThread({
     return false
   })()
 
-  const effectiveShowTypingIndicator = showTypingIndicator && !hasActiveResearchCard
+  const effectiveShowTypingIndicator = showTypingIndicator && !hasActiveResearchCard && !streamingMessageId
   const flatListRef = useRef<FlatList>(null)
   const router = useRouter()
 
@@ -69,18 +78,26 @@ export function ChatThread({
   }, [router])
 
   const renderMessage = ({ item }: { item: ChatMessage }) => (
-    <MessageBubble
-      role={item.role}
-      content={item.content}
-      message_type={item.message_type}
-      card_data={item.card_data}
-      createdAt={item.createdAt}
-      showTimestamp={true}
-      testID={`message-${item.id}`}
-      onCardPress={handleCardPress}
-      onFinalResultPress={onFinalResultPress}
-      onWhatsNewReportPress={onWhatsNewReportPress}
-    />
+    <SwipeableRow
+      onDelete={() => onDeleteMessage?.(item.id)}
+      disabled={!onDeleteMessage}
+      screenWidth={screenWidth}
+    >
+      <MessageBubble
+        role={item.role}
+        content={item.content}
+        message_type={item.message_type}
+        card_data={item.card_data}
+        toolCallId={item.toolCallId}
+        createdAt={item.createdAt}
+        showTimestamp={true}
+        testID={`message-${item.id}`}
+        onCardPress={handleCardPress}
+        onFinalResultPress={onFinalResultPress}
+        onWhatsNewReportPress={onWhatsNewReportPress}
+        isStreaming={item.id === streamingMessageId}
+      />
+    </SwipeableRow>
   )
 
   const renderEmptyState = () => {

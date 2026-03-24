@@ -19,7 +19,7 @@ import {
   Trophy,
   Package,
   TrendingUp,
-} from 'lucide-react-native'
+} from '@/components/ui/icons'
 import { useTheme } from '@/hooks/use-theme'
 import type { ShopListingCardData, ShopResultsCardData } from '@/lib/types/chat'
 
@@ -137,8 +137,8 @@ export function ShopResultsCard({
             {/* Total Savings */}
             {totalSavings > 0 && (
               <View className="flex-row items-center gap-1.5">
-                <Trophy size={14} color="#10B981" />
-                <Text className="text-sm font-semibold text-emerald-400">
+                <Trophy size={14} color={themeColors.success} />
+                <Text className="text-sm font-semibold" style={{ color: themeColors.success }}>
                   ${(totalSavings / 100).toFixed(0)}
                 </Text>
                 <Text className="text-muted-foreground text-sm">in savings</Text>
@@ -149,15 +149,14 @@ export function ShopResultsCard({
           {/* Best Deal Highlight */}
           {bestDeal && bestDeal.deal_score && bestDeal.deal_score >= 70 && (
             <View
-              className="mt-3 rounded-lg p-3"
-              style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)' }}
+              className="mt-3 rounded-lg p-3 bg-success/10"
             >
               <View className="flex-row items-center gap-2">
-                <View className="rounded-full bg-emerald-500/20 p-1.5">
-                  <Trophy size={14} color="#10B981" />
+                <View className="rounded-full bg-success/20 p-1.5">
+                  <Trophy size={14} color={themeColors.success} />
                 </View>
                 <View className="flex-1">
-                  <Text className="text-xs font-semibold uppercase tracking-wider text-emerald-400">
+                  <Text className="text-xs font-semibold uppercase tracking-wider text-success">
                     Best Deal Found
                   </Text>
                   <Text className="text-foreground text-sm font-medium" numberOfLines={1}>
@@ -165,7 +164,7 @@ export function ShopResultsCard({
                   </Text>
                 </View>
                 <View className="items-end">
-                  <Text className="text-lg font-bold text-emerald-400">
+                  <Text className="text-lg font-bold text-success">
                     ${(bestDeal.price / 100).toFixed(2)}
                   </Text>
                   {bestDeal.original_price && bestDeal.original_price > bestDeal.price && (

@@ -28,6 +28,7 @@ cssInterop(LucideIconImpl, {
   className: {
     target: 'style',
     nativeStyleToProp: {
+      color: 'color',
       height: 'size',
       width: 'size',
     },
@@ -43,6 +44,7 @@ cssInterop(ExpoIconImpl, {
   className: {
     target: 'style',
     nativeStyleToProp: {
+      color: 'color',
       height: 'size',
       width: 'size',
     },
@@ -52,28 +54,25 @@ cssInterop(ExpoIconImpl, {
 /**
  * A unified wrapper component for both Lucide icons and Expo vector icons with Nativewind `className` support.
  *
- * This component allows you to render any Lucide or Expo vector icon while applying utility classes
- * using `nativewind`. For Expo vector icons, it wraps them to ensure web compatibility.
+ * **Prefer importing icons directly from `@/components/ui/icons` instead.**
+ * This component is useful when you need the `as` pattern (e.g. for dynamic icon selection).
  *
  * @component
  * @example
  * ```tsx
- * // Lucide icon
- * import { ArrowRight } from 'lucide-react-native';
+ * // Prefer: direct import from icons barrel (has cssInterop built in)
+ * import { ArrowRight } from '@/components/ui/icons';
+ * <ArrowRight size={16} className="text-primary" />
+ *
+ * // Alternative: Icon wrapper for dynamic icon selection
  * import { Icon } from '@/components/ui/icon';
+ * import { ArrowRight } from '@/components/ui/icons';
+ * <Icon as={ArrowRight} className="text-primary" size={16} />
  *
- * <Icon as={ArrowRight} className="text-red-500" size={16} />
- *
- * // Expo vector icon
+ * // Expo vector icon (requires Icon wrapper)
  * import { Icon, MaterialCommunityIcon } from '@/components/ui/icon';
- *
- * <Icon as={MaterialCommunityIcon} name="home" size={24} color="#6750A4" />
+ * <Icon as={MaterialCommunityIcon} name="home" size={24} className="text-primary" />
  * ```
- *
- * @param {LucideIcon | typeof MaterialCommunityIcon} as - The icon component to render.
- * @param {string} className - Utility classes to style the icon using Nativewind.
- * @param {number} size - Icon size (defaults to 14 for Lucide, varies for Expo).
- * @param {...LucideProps | IconProps} ...props - Additional icon props passed to the "as" icon.
  */
 function Icon({ as: IconComponent, className, size = 14, ...props }: UnifiedIconProps) {
   // Check if it's a Lucide icon (has displayName indicating lucide-react-native)

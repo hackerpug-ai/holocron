@@ -1,6 +1,6 @@
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
-import { Search, X } from 'lucide-react-native'
+import { Search, X } from '@/components/ui/icons'
 import { useRef, useEffect, useCallback } from 'react'
 import { Pressable, View, type ViewProps, type TextInput, InteractionManager, KeyboardAvoidingView, Platform } from 'react-native'
 

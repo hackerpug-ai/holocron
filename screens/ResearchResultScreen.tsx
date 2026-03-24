@@ -5,7 +5,7 @@ import { SectionHeader } from '@/components/SectionHeader'
 import { Button } from '@/components/ui/button'
 import { Text } from '@/components/ui/text'
 import { cn } from '@/lib/utils'
-import { BookmarkPlus, Calendar, Clock, Share2 } from 'lucide-react-native'
+import { BookmarkPlus, Calendar, Clock, Share2 } from '@/components/ui/icons'
 import { Pressable, ScrollView, View, type ViewProps } from 'react-native'
 
 interface Iteration {
@@ -112,8 +112,8 @@ export function ResearchResultScreen({
               </Text>
             )}
             {finalScore !== undefined && (
-              <View className="rounded-full bg-green-100 px-2 py-0.5">
-                <Text className="text-xs font-semibold text-green-700">
+              <View className="rounded-full bg-success/10 px-2 py-0.5">
+                <Text className="text-xs font-semibold text-success">
                   Score: {finalScore}/5
                 </Text>
               </View>

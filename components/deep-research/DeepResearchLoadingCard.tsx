@@ -1,7 +1,7 @@
 import { Card, CardContent } from '@/components/ui/card'
 import { Text } from '@/components/ui/text'
 import { cn } from '@/lib/utils'
-import { Loader2 } from 'lucide-react-native'
+import { Loader2 } from '@/components/ui/icons'
 import type { ViewProps } from 'react-native'
 import { View, Animated, Easing, Pressable } from 'react-native'
 import { useEffect, useRef } from 'react'
@@ -114,14 +114,14 @@ export function DeepResearchLoadingCard({
 
   // Confidence badge colors
   const getConfidenceStyle = () => {
-    if (!confidence) return { bg: 'bg-green-500/20', text: 'text-green-500' }
+    if (!confidence) return { bg: 'bg-success/20', text: 'text-success' }
     switch (confidence) {
       case 'HIGH':
-        return { bg: 'bg-emerald-500/20', text: 'text-emerald-500' }
+        return { bg: 'bg-success/20', text: 'text-success' }
       case 'MEDIUM':
-        return { bg: 'bg-amber-500/20', text: 'text-amber-500' }
+        return { bg: 'bg-warning/20', text: 'text-warning' }
       case 'LOW':
-        return { bg: 'bg-red-500/20', text: 'text-red-500' }
+        return { bg: 'bg-destructive/20', text: 'text-destructive' }
     }
   }
 
@@ -141,7 +141,7 @@ export function DeepResearchLoadingCard({
         <Card
           className={cn(
             'border bg-gradient-to-r from-background to-muted/10 w-full overflow-hidden',
-            isComplete ? 'border-green-500/40' : colors.border,
+            isComplete ? 'border-success/40' : colors.border,
             className
           )}
           testID="deep-research-loading-card"
@@ -165,7 +165,7 @@ export function DeepResearchLoadingCard({
                   <Loader2 size={16} className={colors.text} />
                 </Animated.View>
               ) : (
-                <View className="w-4 h-4 rounded-full bg-green-500 items-center justify-center">
+                <View className="w-4 h-4 rounded-full bg-success items-center justify-center">
                   <Text className="text-background text-xs font-bold">✓</Text>
                 </View>
               )}
@@ -174,7 +174,7 @@ export function DeepResearchLoadingCard({
               <Text
                 className={cn(
                   'text-sm font-medium flex-1',
-                  isComplete ? 'text-green-500' : colors.text
+                  isComplete ? 'text-success' : colors.text
                 )}
                 numberOfLines={1}
                 ellipsizeMode="tail"

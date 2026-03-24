@@ -1,7 +1,7 @@
 import { Progress } from '@/components/ui/progress'
 import { Text } from '@/components/ui/text'
 import { cn } from '@/lib/utils'
-import { Clock, Globe, Loader2 } from 'lucide-react-native'
+import { Clock, Globe, Loader2 } from '@/components/ui/icons'
 import { View, type ViewProps } from 'react-native'
 
 type ResearchPhase = 'searching' | 'analyzing' | 'synthesizing' | 'complete'

@@ -212,7 +212,7 @@ export default function ArticlesRoute() {
 
   const handleArticlePress = (article: Article) => {
     // Navigate to the article detail route
-    router.push(`/articles/${article.id}`)
+    router.push(`/document/${article.id}`)
   }
 
   return (
@@ -220,7 +220,7 @@ export default function ArticlesRoute() {
       header={{
         title: 'Articles',
         showBack: true,
-        onBack: () => router.back(),
+        onBack: () => router.canGoBack() ? router.back() : router.navigate('/chat/new'),
       }}
       edges="bottom"
       testID="articles-route-layout"

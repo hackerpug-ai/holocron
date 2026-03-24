@@ -62,6 +62,7 @@ import {
   SetSubscriptionFilterSchema,
   ShopProductsSchema,
   SimpleResearchSchema,
+  ShareDocumentSchema,
   StoreDocumentSchema,
   StoreToolSchema,
   UpdateDocumentSchema,
@@ -73,7 +74,7 @@ import { researchTopic, simpleResearch } from "../tools/research.ts";
 import { getDocument, listDocuments } from "../tools/retrieval.ts";
 import { searchFts, searchVector } from "../tools/search.ts";
 import { getResearchSession, searchResearch } from "../tools/session.ts";
-import { storeDocument, updateDocument } from "../tools/storage.ts";
+import { shareDocument, storeDocument, updateDocument } from "../tools/storage.ts";
 import {
   addSubscription,
   checkSubscriptions,
@@ -211,6 +212,20 @@ const updateDocumentTool = createTool({
   execute: async (input) => {
     try {
       return await updateDocument(holocronClient, input);
+    } catch (error) {
+      console.error(formatError(error));
+      throw error;
+    }
+  },
+});
+
+const shareDocumentTool = createTool({
+  id: "share_document",
+  description: "Publish or unpublish a document for public sharing via URL. Set isPublic=true to publish and get a shareable link, isPublic=false to retract.",
+  inputSchema: ShareDocumentSchema,
+  execute: async (input) => {
+    try {
+      return await shareDocument(holocronClient, input);
     } catch (error) {
       console.error(formatError(error));
       throw error;
@@ -540,6 +555,7 @@ const server = new MCPServer({
     searchVectorTool,
     storeDocumentTool,
     updateDocumentTool,
+    shareDocumentTool,
     getDocumentTool,
     listDocumentsTool,
     hybridSearchTool,

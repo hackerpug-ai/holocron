@@ -90,10 +90,13 @@ export const updateWithEmbedding = action({
       throw new Error(`Document ${id} not found`);
     }
 
-    // Only regenerate embedding if content changed
+    // Regenerate embedding if content changed or embedding is missing
     let embedding = existing.embedding;
-    if (updates.content && updates.content !== existing.content) {
-      embedding = await generateDocumentEmbedding(updates.content);
+    const contentChanged = updates.content && updates.content !== existing.content;
+    const embeddingMissing = !existing.embedding;
+    if (contentChanged || embeddingMissing) {
+      const contentToEmbed = updates.content || existing.content;
+      embedding = await generateDocumentEmbedding(contentToEmbed);
     }
 
     // Update the document
@@ -106,7 +109,7 @@ export const updateWithEmbedding = action({
     return {
       documentId: id,
       updated: true,
-      embeddingRegenerated: updates.content !== undefined && updates.content !== existing.content,
+      embeddingRegenerated: contentChanged || embeddingMissing,
       embeddingDimensions: embedding?.length,
       embeddingStatus: "completed" as const,
     };

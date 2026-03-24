@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react'
-import { BookOpen, FileText, Search, TrendingUp } from 'lucide-react-native'
+import { BookOpen, FileText, Search, TrendingUp } from '@/components/ui/icons'
 import { View } from 'react-native'
 import { StatCard } from './StatCard'
 

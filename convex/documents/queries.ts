@@ -111,14 +111,9 @@ export const countByCategory = query({
 });
 
 /**
- * AC-1: Vector search using Convex vectorIndex
+ * AC-1: Vector search using cosine similarity
  * Performs semantic similarity search using document embeddings
  * Supports optional category filtering
- *
- * Note: This is a simplified implementation that filters all documents
- * with embeddings and calculates cosine similarity on the fly.
- * For production use with large datasets, consider using Convex's
- * native vector search capabilities when available.
  */
 export const vectorSearch = query({
   args: {
@@ -145,7 +140,6 @@ export const vectorSearch = query({
         title: doc.title,
         content: doc.content,
         category: doc.category,
-        embedding: doc.embedding,
         score: doc.embedding ? cosineSimilarity(embedding, doc.embedding) : 0,
       }))
       .sort((a, b) => b.score - a.score)
@@ -231,6 +225,31 @@ export const countDocumentsWithoutEmbeddings = query({
   handler: async (ctx) => {
     const all = await ctx.db.query("documents").collect();
     return all.filter(doc => !doc.embedding).length;
+  },
+});
+
+/**
+ * Get a publicly shared document by its share token
+ * Returns null if not found or not public
+ */
+export const getByShareToken = query({
+  args: { shareToken: v.string() },
+  handler: async (ctx, { shareToken }) => {
+    const doc = await ctx.db
+      .query("documents")
+      .withIndex("by_shareToken", (q) => q.eq("shareToken", shareToken))
+      .first();
+
+    if (!doc || doc.isPublic !== true) return null;
+
+    return {
+      title: doc.title,
+      content: doc.content,
+      category: doc.category,
+      date: doc.date,
+      createdAt: doc.createdAt,
+      researchType: doc.researchType,
+    };
   },
 });
 

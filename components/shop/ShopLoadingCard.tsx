@@ -10,7 +10,7 @@
 import { View, StyleSheet } from 'react-native'
 import { Text } from '@/components/ui/text'
 import { Card } from '@/components/ui/card'
-import { ShoppingCart, Search, Loader2 } from 'lucide-react-native'
+import { ShoppingCart, Search, Loader2 } from '@/components/ui/icons'
 import { useTheme } from '@/hooks/use-theme'
 import Animated, {
   useAnimatedStyle,

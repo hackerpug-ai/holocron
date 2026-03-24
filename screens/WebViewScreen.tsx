@@ -1,6 +1,6 @@
 import { Text } from '@/components/ui/text'
 import { useTheme } from '@/hooks/use-theme'
-import { ChevronLeft, ChevronRight, Lock, RefreshCw, X } from 'lucide-react-native'
+import { ChevronLeft, ChevronRight, Lock, RefreshCw, X } from '@/components/ui/icons'
 import { useRef, useState } from 'react'
 import {
   ActivityIndicator,

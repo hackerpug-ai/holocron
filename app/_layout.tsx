@@ -65,7 +65,7 @@ export default function RootLayout() {
             <Stack screenOptions={{ headerShown: false }}>
               <Stack.Screen name="(drawer)" />
               <Stack.Screen name="articles" />
-              <Stack.Screen name="toolbelt" />
+              {/* toolbelt is now inside (drawer) group */}
               <Stack.Screen name="document/[id]" />
               <Stack.Screen name="webview/[url]" />
               <Stack.Screen name="storybook" />

@@ -7,6 +7,8 @@ export default defineSchema({
     title: v.string(),
     titleSetByUser: v.optional(v.boolean()), // true if user manually set title, prevents auto-generation
     lastMessagePreview: v.optional(v.string()),
+    agentBusy: v.optional(v.boolean()),
+    agentBusySince: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_updated", ["updatedAt"]),
@@ -20,11 +22,14 @@ export default defineSchema({
       v.literal("slash_command"),
       v.literal("result_card"),
       v.literal("progress"),
-      v.literal("error")
+      v.literal("error"),
+      v.literal("tool_approval")
     ),
     cardData: v.optional(v.any()),
     sessionId: v.optional(v.id("researchSessions")),
     documentId: v.optional(v.id("documents")),
+    deleted: v.optional(v.boolean()),
+    toolCallId: v.optional(v.string()),
     createdAt: v.number(),
   }).index("by_conversation", ["conversationId", "createdAt"]),
 
@@ -41,8 +46,11 @@ export default defineSchema({
     iterations: v.optional(v.number()),
     embedding: v.optional(v.array(v.float64())), // 1024 dimensions (Z.ai embedding-2/embedding-3)
     createdAt: v.number(),
+    isPublic: v.optional(v.boolean()),
+    shareToken: v.optional(v.string()),
   })
     .index("by_creationTime", ["createdAt"])
+    .index("by_shareToken", ["shareToken"])
     .searchIndex("by_category", { searchField: "category" })
     .vectorIndex("by_embedding", {
       vectorField: "embedding",
@@ -393,6 +401,29 @@ export default defineSchema({
     .index("by_session_deal_score", ["sessionId", "dealScore"])
     .index("by_product_hash", ["productHash"]),
 
+  // Tool call approvals for human-in-the-loop tool execution
+  toolCalls: defineTable({
+    conversationId: v.id("conversations"),
+    messageId: v.id("chatMessages"),
+    toolName: v.string(),
+    toolDisplayName: v.string(),
+    toolArgs: v.any(),
+    reasoning: v.optional(v.string()),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("approved"),
+      v.literal("rejected"),
+      v.literal("completed"),
+      v.literal("failed")
+    ),
+    resultMessageId: v.optional(v.id("chatMessages")),
+    error: v.optional(v.string()),
+    createdAt: v.number(),
+    resolvedAt: v.optional(v.number()),
+  })
+    .index("by_conversation", ["conversationId"])
+    .index("by_status", ["status"]),
+
   // Assimilation metadata for Borg-themed repository analysis
   assimilationMetadata: defineTable({
     documentId: v.id("documents"),
@@ -414,4 +445,40 @@ export default defineSchema({
     .index("by_repository", ["repositoryName"])
     .index("by_language", ["primaryLanguage"])
     .index("by_rating", ["sophisticationRating"]),
+
+  audioSegments: defineTable({
+    documentId: v.id("documents"),
+    paragraphIndex: v.number(),
+    paragraphHash: v.string(),
+    storageId: v.optional(v.id("_storage")),
+    status: v.union(v.literal("pending"), v.literal("generating"), v.literal("completed"), v.literal("failed")),
+    errorMessage: v.optional(v.string()),
+    voiceId: v.string(),
+    durationMs: v.optional(v.number()),
+    jobId: v.optional(v.id("audioJobs")),
+    retryCount: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_document", ["documentId", "paragraphIndex"])
+    .index("by_document_and_status", ["documentId", "status"]),
+
+  audioJobs: defineTable({
+    documentId: v.id("documents"),
+    voiceId: v.string(),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("running"),
+      v.literal("completed"),
+      v.literal("failed")
+    ),
+    totalSegments: v.number(),
+    completedSegments: v.number(),
+    failedSegments: v.number(),
+    errorMessage: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_document", ["documentId"])
+    .index("by_status", ["status"]),
 });

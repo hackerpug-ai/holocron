@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
-import { Pencil, Trash2 } from 'lucide-react-native';
+import { Pencil, Trash2 } from '@/components/ui/icons';
 import * as React from 'react';
 import { KeyboardAvoidingView, Platform, View } from 'react-native';
 

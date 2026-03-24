@@ -1,14 +1,15 @@
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Text } from "@/components/ui/text";
 import { cn } from "@/lib/utils";
-import { Calendar, Clock, ChevronRight } from "lucide-react-native";
-import { Pressable, View, StyleSheet, type ViewProps } from "react-native";
+import { Calendar, Clock, ChevronRight } from "@/components/ui/icons";
+import { Pressable, View, type ViewProps } from "react-native";
 import { CategoryBadge, type CategoryType } from "./CategoryBadge";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
 } from "react-native-reanimated";
+import { useTheme } from "@/hooks/use-theme";
 
 interface ArticleCardProps extends Omit<ViewProps, "children"> {
   /** Article title */
@@ -44,6 +45,7 @@ export function ArticleCard({
   className,
   ...props
 }: ArticleCardProps) {
+  const { colors } = useTheme();
   const pressed = useSharedValue(0);
 
   const dateObj = typeof date === "string" ? new Date(date) : date;
@@ -72,11 +74,19 @@ export function ArticleCard({
     pressed.value = withSpring(0, { damping: 20, stiffness: 300 });
   };
 
+  const cardStyle = {
+    shadowColor: colors.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  };
+
   const content = (
     <Card
       className={cn(compact && "py-4", className)}
       testID="article-card"
-      style={styles.card}
+      style={cardStyle}
       {...props}
     >
       <CardHeader className={cn(compact && "pb-2")}>
@@ -143,12 +153,3 @@ export function ArticleCard({
   return content;
 }
 
-const styles = StyleSheet.create({
-  card: {
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-});

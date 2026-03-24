@@ -208,6 +208,14 @@ export type ShopProductsInput = z.infer<typeof ShopProductsSchema>;
 export type GetShopSessionInput = z.infer<typeof GetShopSessionSchema>;
 export type GetShopListingsInput = z.infer<typeof GetShopListingsSchema>;
 
+// Document sharing schema
+export const ShareDocumentSchema = z.object({
+  documentId: z.string().min(1),
+  isPublic: z.boolean(),
+});
+
+export type ShareDocumentInput = z.infer<typeof ShareDocumentSchema>;
+
 // What's New schemas
 export const GetWhatsNewSchema = z.object({
   forceRefresh: z.boolean().optional().describe("Force generate a new report (expensive)"),

@@ -9,6 +9,7 @@ import * as Linking from 'expo-linking'
 /**
  * Toolbelt route - displays searchable, filterable list of tools
  * Connected to Convex toolbeltTools table
+ * Inside (drawer) group so the navigation drawer remains accessible
  */
 export default function ToolbeltRoute() {
   const router = useRouter()
@@ -38,8 +39,6 @@ export default function ToolbeltRoute() {
   }))
 
   const handleToolPress = (tool: typeof tools[0]) => {
-    // For now, open external URL if available
-    // Future: Navigate to tool detail screen
     if (tool.sourceUrl) {
       Linking.openURL(tool.sourceUrl).catch((err) => {
         log('ToolbeltRoute').error('Failed to open URL', err, { url: tool.sourceUrl })

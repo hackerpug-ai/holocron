@@ -109,3 +109,56 @@ export async function updateDocument(
     embeddingStatus: result.embeddingStatus,
   };
 }
+
+/**
+ * Publish or unpublish a document for public sharing via URL
+ */
+export interface ShareDocumentInput {
+  documentId: string;
+  isPublic: boolean;
+}
+
+export interface ShareDocumentOutput {
+  documentId: string;
+  isPublic: boolean;
+  shareToken?: string;
+  shareUrl?: string;
+}
+
+export async function shareDocument(
+  client: HolocronConvexClient,
+  input: ShareDocumentInput
+): Promise<ShareDocumentOutput> {
+  if (input.isPublic) {
+    const result = await client.mutation<{
+      shareToken: string;
+      // biome-ignore lint/suspicious/noExplicitAny: Dynamic Convex function reference
+    }>("documents/mutations:publishDocument" as any, {
+      // biome-ignore lint/suspicious/noExplicitAny: Convex ID type
+      id: input.documentId as any,
+    });
+
+    const siteUrl = process.env.CONVEX_SITE_URL || process.env.HOLOCRON_SITE_URL || "";
+    const shareUrl = siteUrl ? `${siteUrl}/article/${result.shareToken}` : undefined;
+
+    return {
+      documentId: input.documentId,
+      isPublic: true,
+      shareToken: result.shareToken,
+      shareUrl,
+    };
+  }
+
+  await client.mutation<{
+    shareToken?: string;
+    // biome-ignore lint/suspicious/noExplicitAny: Dynamic Convex function reference
+  }>("documents/mutations:unpublishDocument" as any, {
+    // biome-ignore lint/suspicious/noExplicitAny: Convex ID type
+    id: input.documentId as any,
+  });
+
+  return {
+    documentId: input.documentId,
+    isPublic: false,
+  };
+}

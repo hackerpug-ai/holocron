@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Text } from '@/components/ui/text'
 import { cn } from '@/lib/utils'
-import { ChevronRight, GitFork, Star, Zap } from 'lucide-react-native'
+import { ChevronRight, GitFork, Star, Zap } from '@/components/ui/icons'
 import { Pressable, View, type ViewProps } from 'react-native'
 import type { Id } from '@/convex/_generated/dataModel'
 
@@ -37,10 +37,10 @@ interface AssimilationCardProps extends Omit<ViewProps, 'children'> {
  * Get color class for sophistication rating
  */
 function getRatingColor(rating: number): string {
-  if (rating >= 5) return 'text-green-600 dark:text-green-400'
-  if (rating >= 4) return 'text-blue-600 dark:text-blue-400'
-  if (rating >= 3) return 'text-yellow-600 dark:text-yellow-400'
-  return 'text-red-600 dark:text-red-400'
+  if (rating >= 5) return 'text-success'
+  if (rating >= 4) return 'text-info'
+  if (rating >= 3) return 'text-warning'
+  return 'text-destructive'
 }
 
 /**
@@ -116,7 +116,7 @@ export function AssimilationCard({
 
         {stars !== undefined && stars > 0 && (
           <View className="flex-row items-center gap-1">
-            <Star size={12} className="text-yellow-500" />
+            <Star size={12} className="text-star-rating" />
             <Text className="text-foreground text-xs font-semibold">{stars.toLocaleString()}</Text>
           </View>
         )}

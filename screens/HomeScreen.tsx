@@ -4,7 +4,7 @@ import { EmptyState } from '@/components/EmptyState'
 import { SectionHeader } from '@/components/SectionHeader'
 import { StatCard } from '@/components/StatCard'
 import { cn } from '@/lib/utils'
-import { BookOpen, FileText, Lightbulb, Search } from 'lucide-react-native'
+import { BookOpen, FileText, Lightbulb, Search } from '@/components/ui/icons'
 import { ScrollView, View, type ViewProps } from 'react-native'
 
 interface Article {

@@ -3,7 +3,7 @@ import { Progress } from '@/components/ui/progress'
 import { Text } from '@/components/ui/text'
 import { useTheme } from '@/hooks/use-theme'
 import { cn } from '@/lib/utils'
-import { TrendingUp, DollarSign, Zap } from 'lucide-react-native'
+import { TrendingUp, DollarSign, Zap } from '@/components/ui/icons'
 import { View, StyleSheet } from 'react-native'
 import type { DeepResearchIteration } from '@/lib/types/deep-research'
 
@@ -35,17 +35,17 @@ export interface IterationTimelineProps {
 /**
  * Get color for coverage score
  */
-function getScoreColor(score: number | null, isDark: boolean): string {
-  if (score === null) return isDark ? '#64748B' : '#94A3B8'
+function getScoreColor(score: number | null, themeColors: { score1: string; score2: string; score3: string; score4: string; score5: string; scoreNeutral: string }): string {
+  if (score === null) return themeColors.scoreNeutral
 
-  const colors = {
-    1: isDark ? '#DC2626' : '#EF4444',
-    2: isDark ? '#EA580C' : '#F97316',
-    3: isDark ? '#EAB308' : '#FACC15',
-    4: isDark ? '#16A34A' : '#22C55E',
-    5: isDark ? '#059669' : '#10B981',
+  const map: Record<number, string> = {
+    1: themeColors.score1,
+    2: themeColors.score2,
+    3: themeColors.score3,
+    4: themeColors.score4,
+    5: themeColors.score5,
   }
-  return colors[score as keyof typeof colors] || (isDark ? '#64748B' : '#94A3B8')
+  return map[score] || themeColors.scoreNeutral
 }
 
 /**
@@ -74,7 +74,7 @@ function formatCost(cents: number): string {
 /**
  * ScoreProgressionBar displays a horizontal bar chart of score progression
  */
-function ScoreProgressionBar({ iterations, isDark }: { iterations: IterationTimelineData[], isDark: boolean }) {
+function ScoreProgressionBar({ iterations }: { iterations: IterationTimelineData[] }) {
   const theme = useTheme()
   const maxScore = 5
 
@@ -103,7 +103,7 @@ function ScoreProgressionBar({ iterations, isDark }: { iterations: IterationTime
         {iterations.map((iteration, index) => {
           const score = iteration.coverageScore ?? 0
           const heightPercent = (score / maxScore) * 100
-          const color = getScoreColor(score, isDark)
+          const color = getScoreColor(score, theme.colors)
           const isActive = iteration.status === 'running'
           const isPending = iteration.status === 'pending'
 
@@ -142,7 +142,7 @@ function ScoreProgressionBar({ iterations, isDark }: { iterations: IterationTime
             <View
               style={[
                 styles.legendDot,
-                { backgroundColor: getScoreColor(score, isDark) }
+                { backgroundColor: getScoreColor(score, theme.colors) }
               ]}
             />
             <Text style={[styles.legendText, { color: theme.colors.mutedForeground }]}>
@@ -299,7 +299,6 @@ export function IterationTimeline({
         {/* Score Progression */}
         <ScoreProgressionBar
           iterations={sortedIterations}
-          isDark={theme.isDark}
         />
 
         {/* Cost Comparison (only show if cost data exists) */}

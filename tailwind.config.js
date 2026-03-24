@@ -43,6 +43,29 @@ module.exports = {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
         },
+        success: {
+          DEFAULT: 'hsl(var(--success))',
+          foreground: 'hsl(var(--success-foreground))',
+        },
+        warning: {
+          DEFAULT: 'hsl(var(--warning))',
+          foreground: 'hsl(var(--warning-foreground))',
+        },
+        info: {
+          DEFAULT: 'hsl(var(--info))',
+          foreground: 'hsl(var(--info-foreground))',
+        },
+        'star-rating': 'hsl(var(--star-rating))',
+        shadow: 'hsl(var(--shadow))',
+        overlay: 'hsl(var(--overlay))',
+        score: {
+          1: 'hsl(var(--score-1))',
+          2: 'hsl(var(--score-2))',
+          3: 'hsl(var(--score-3))',
+          4: 'hsl(var(--score-4))',
+          5: 'hsl(var(--score-5))',
+          neutral: 'hsl(var(--score-neutral))',
+        },
       },
       borderRadius: {
         lg: 'var(--radius)',

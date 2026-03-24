@@ -5,7 +5,7 @@
 import { View, ActivityIndicator } from 'react-native'
 import { Text } from '@/components/ui/text'
 import { Card } from '@/components/ui/card'
-import { Newspaper } from 'lucide-react-native'
+import { Newspaper } from '@/components/ui/icons'
 import { useTheme } from '@/hooks/use-theme'
 import type { WhatsNewLoadingCardData } from '@/lib/types/chat'
 

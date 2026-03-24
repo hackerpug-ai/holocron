@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { DrawerActions, useNavigation } from '@react-navigation/native'
 import { useQuery, useMutation, useAction } from 'convex/react'
 import { api } from '@/convex/_generated/api'
@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button'
 import { ScreenHeader } from '@/components/ui/screen-header'
 import { ChatThread } from '@/components/chat/ChatThread'
 import { ChatInput } from '@/components/chat/ChatInput'
-import { SquarePen } from 'lucide-react-native'
+import { SquarePen } from '@/components/ui/icons'
 import { spacing } from '@/lib/theme'
 
 /**
@@ -55,12 +55,27 @@ export default function ChatScreen() {
     error: messagesError = null,
   } = useChatHistory(chatHistoryId) ?? { messages: [], isLoading: false, error: null }
 
+  // Soft delete mutation for messages
+  const softDelete = useMutation(api.chatMessages.mutations.softDelete)
+
+  // Cancel agent mutation
+  const cancelAgent = useMutation(api.chat.agentMutations.cancelAgent)
+
   // Convex action for sending messages
   const sendChat = useAction(api.chat.index.send)
+
+  // Derive streaming message ID: when agent is busy, treat the last agent message as streaming
+  const agentBusy = conversation?.agentBusy ?? false
+  const streamingMessageId = agentBusy
+    ? (messages.find((m) => m.role === 'agent')?.id ?? null)
+    : null
 
   // Local state for sending
   const [isSending, setIsSending] = useState(false)
   const [sendError, setSendError] = useState<Error | null>(null)
+
+  // Store the last sent message for retry
+  const lastMessageRef = useRef<string | null>(null)
 
   // Handle send with Convex action
   const handleSend = useCallback(async (content: string) => {
@@ -69,6 +84,7 @@ export default function ChatScreen() {
     // Dismiss keyboard
     Keyboard.dismiss()
 
+    lastMessageRef.current = content.trim()
     setIsSending(true)
     setSendError(null)
 
@@ -91,12 +107,20 @@ export default function ChatScreen() {
     }
   }, [conversationId, isSending, isNewConversation, sendChat, router])
 
+  // Cancel in-progress agent run
+  const handleCancelAgent = useCallback(() => {
+    if (conversationId) {
+      cancelAgent({ conversationId: conversationId as Id<'conversations'> })
+    }
+  }, [conversationId, cancelAgent])
+
   // Retry failed send
   const handleRetry = useCallback(() => {
-    // For simple retry, we could store the last message
-    // For now, just clear the error
     setSendError(null)
-  }, [])
+    if (lastMessageRef.current) {
+      handleSend(lastMessageRef.current)
+    }
+  }, [handleSend])
 
   // Handle final result card press - navigate to research detail view
   const handleFinalResultPress = (sessionId: string) => {
@@ -215,12 +239,14 @@ export default function ChatScreen() {
       />
       <ChatThread
         messages={messages}
-        showTypingIndicator={isSending}
+        showTypingIndicator={isSending || agentBusy}
         isLoading={isLoadingMessages}
         safeAreaTop={contentTopPadding}
         testID="chat-thread"
         onFinalResultPress={handleFinalResultPress}
         onWhatsNewReportPress={handleWhatsNewReportPress}
+        onDeleteMessage={(messageId) => softDelete({ id: messageId as Id<'chatMessages'> })}
+        streamingMessageId={streamingMessageId}
       />
       {/* Bottom area with safe area padding */}
       <View style={{ paddingBottom: insets.bottom }}>
@@ -232,9 +258,22 @@ export default function ChatScreen() {
             </Pressable>
           </View>
         )}
+        {agentBusy && (
+          <View className="items-center py-1" testID="stop-generating-container">
+            <Pressable
+              onPress={handleCancelAgent}
+              className="flex-row items-center gap-1 px-3 py-1.5 rounded-full border border-border active:bg-muted"
+              testID="stop-generating-button"
+              accessibilityRole="button"
+              accessibilityLabel="Stop generating"
+            >
+              <Text className="text-sm text-muted-foreground">Stop generating</Text>
+            </Pressable>
+          </View>
+        )}
         <ChatInput
           onSend={handleSend}
-          disabled={isSending}
+          disabled={isSending || agentBusy}
           testID="chat-input"
         />
       </View>

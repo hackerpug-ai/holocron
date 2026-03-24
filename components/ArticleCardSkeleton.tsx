@@ -1,7 +1,8 @@
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ChevronRight } from "lucide-react-native";
-import { View, StyleSheet } from "react-native";
+import { ChevronRight } from "@/components/ui/icons";
+import { View } from "react-native";
+import { useTheme } from "@/hooks/use-theme";
 
 interface ArticleCardSkeletonProps {
   /** Staggered animation delay in ms for visual interest (currently unused, for future animation support) */
@@ -13,8 +14,17 @@ interface ArticleCardSkeletonProps {
  * Used to show loading state while fetching articles.
  */
 export function ArticleCardSkeleton({ delay: _delay = 0 }: ArticleCardSkeletonProps) {
+  const { colors } = useTheme();
+  const cardStyle = {
+    shadowColor: colors.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  };
+
   return (
-    <Card style={styles.card} testID="article-card-skeleton">
+    <Card style={cardStyle} testID="article-card-skeleton">
       <CardHeader>
         {/* Category badge + chevron row */}
         <View className="mb-2 flex-row items-center justify-between">
@@ -40,12 +50,3 @@ export function ArticleCardSkeleton({ delay: _delay = 0 }: ArticleCardSkeletonPr
   );
 }
 
-const styles = StyleSheet.create({
-  card: {
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-});

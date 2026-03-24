@@ -1,7 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { ActivityIndicator, Pressable, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { ArrowLeft } from 'lucide-react-native'
+import { ArrowLeft } from '@/components/ui/icons'
 import { Text } from '@/components/ui/text'
 import { Button } from '@/components/ui/button'
 import { useQuery } from 'convex/react'
@@ -86,7 +86,11 @@ export default function WhatsNewDetailScreen() {
   const session = useMemo(() => transformReportToSession(reportData), [reportData])
 
   const handleBack = () => {
-    router.back()
+    if (router.canGoBack()) {
+      router.back()
+    } else {
+      router.navigate('/chat/new')
+    }
   }
 
   const handleCitationPress = (url: string) => {

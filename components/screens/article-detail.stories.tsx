@@ -392,7 +392,7 @@ export const Default: Story = {
   },
   decorators: [
     (Story) => (
-      <View style={{ flex: 1, backgroundColor: '#f5f5f5' }}>
+      <View className="flex-1 bg-muted">
         <Story />
       </View>
     ),
@@ -407,7 +407,7 @@ export const LongContent: Story = {
   },
   decorators: [
     (Story) => (
-      <View style={{ flex: 1, backgroundColor: '#f5f5f5' }}>
+      <View className="flex-1 bg-muted">
         <Story />
       </View>
     ),
@@ -422,7 +422,7 @@ export const WithCodeBlocks: Story = {
   },
   decorators: [
     (Story) => (
-      <View style={{ flex: 1, backgroundColor: '#f5f5f5' }}>
+      <View className="flex-1 bg-muted">
         <Story />
       </View>
     ),
@@ -448,7 +448,7 @@ export const AllCategories: Story = {
       ]
 
       return (
-        <View style={{ flex: 1, backgroundColor: '#f5f5f5', padding: 20 }}>
+        <View className="flex-1 bg-muted" style={{ padding: 20 }}>
           {categories.map((category) => (
             <View key={category} style={{ marginBottom: 20 }}>
               <Story args={{ article: { ...mockArticle, category } }} />
@@ -470,7 +470,7 @@ export const CloseButton: Story = {
   },
   decorators: [
     (Story) => (
-      <View style={{ flex: 1, backgroundColor: '#f5f5f5' }}>
+      <View className="flex-1 bg-muted">
         <Story />
       </View>
     ),
@@ -505,7 +505,7 @@ export const SwipeToDismiss: Story = {
   },
   decorators: [
     (Story) => (
-      <View style={{ flex: 1, backgroundColor: '#f5f5f5' }}>
+      <View className="flex-1 bg-muted">
         <Story />
       </View>
     ),
@@ -537,7 +537,7 @@ export const ContentVerification: Story = {
   },
   decorators: [
     (Story) => (
-      <View style={{ flex: 1, backgroundColor: '#f5f5f5' }}>
+      <View className="flex-1 bg-muted">
         <Story />
       </View>
     ),
@@ -572,7 +572,7 @@ export const LongContentScroll: Story = {
   },
   decorators: [
     (Story) => (
-      <View style={{ flex: 1, backgroundColor: '#f5f5f5' }}>
+      <View className="flex-1 bg-muted">
         <Story />
       </View>
     ),
@@ -606,7 +606,7 @@ export const CodeBlocksVerification: Story = {
   },
   decorators: [
     (Story) => (
-      <View style={{ flex: 1, backgroundColor: '#f5f5f5' }}>
+      <View className="flex-1 bg-muted">
         <Story />
       </View>
     ),
@@ -638,7 +638,7 @@ export const MarkdownElementsVerification: Story = {
   },
   decorators: [
     (Story) => (
-      <View style={{ flex: 1, backgroundColor: '#f5f5f5' }}>
+      <View className="flex-1 bg-muted">
         <Story />
       </View>
     ),

@@ -33,6 +33,25 @@ export const colors = {
     // ArticleDetail specific colors
     indicator: '#D9D9D9',
     closeBtn: '#F1F5F9',
+    // Intent/status colors (for icons and indicators)
+    success: '#10B981',
+    warning: '#F59E0B',
+    // danger = destructive in CSS/Tailwind
+    danger: '#EF4444',
+    info: '#8B5CF6',
+    starRating: '#F59E0B',
+    successForeground: '#FFFFFF',
+    warningForeground: '#000000',
+    infoForeground: '#FFFFFF',
+    shadow: '#000000',
+    overlay: '#000000',
+    // Score scale (coverage ratings 1-5)
+    score1: '#EF4444',
+    score2: '#F97316',
+    score3: '#FACC15',
+    score4: '#22C55E',
+    score5: '#10B981',
+    scoreNeutral: '#94A3B8',
     // Markdown link colors
     link: '#3B82F6',
     // Markdown code block colors
@@ -70,6 +89,25 @@ export const colors = {
     // ArticleDetail specific colors
     indicator: '#2D3A4D', // Scroll indicators
     closeBtn: '#1A2332', // Close button backgrounds
+    // Intent/status colors (for icons and indicators)
+    success: '#34D399', // Emerald-300 (brighter for dark bg)
+    warning: '#FBBF24', // Amber-300
+    // danger = destructive in CSS/Tailwind
+    danger: '#F87171', // Red-400
+    info: '#A78BFA', // Violet-400
+    starRating: '#FBBF24', // Amber-300
+    successForeground: '#0A0E14',
+    warningForeground: '#0A0E14',
+    infoForeground: '#0A0E14',
+    shadow: '#000000',
+    overlay: '#000000',
+    // Score scale (coverage ratings 1-5)
+    score1: '#DC2626',
+    score2: '#EA580C',
+    score3: '#EAB308',
+    score4: '#16A34A',
+    score5: '#059669',
+    scoreNeutral: '#64748B',
     // Markdown link colors
     link: '#4FD1C5', // Teal cyan links
     // Markdown code block colors

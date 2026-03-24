@@ -1,6 +1,6 @@
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { cn } from '@/lib/utils'
-import { AlertTriangle } from 'lucide-react-native'
+import { AlertTriangle } from '@/components/ui/icons'
 import type { ViewProps } from 'react-native'
 
 export interface ConcurrencyLimitAlertProps extends ViewProps {

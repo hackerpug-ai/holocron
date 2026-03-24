@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Text } from '@/components/ui/text'
 import { cn } from '@/lib/utils'
-import { AlertCircle, CheckCircle2, ChevronDown, ChevronRight } from 'lucide-react-native'
+import { AlertCircle, CheckCircle2, ChevronDown, ChevronRight } from '@/components/ui/icons'
 import { useState } from 'react'
 import { Pressable, View, type ViewProps } from 'react-native'
 
@@ -26,11 +26,11 @@ interface IterationCardProps extends Omit<ViewProps, 'children'> {
 
 function ScoreBadge({ score }: { score: number }) {
   const colorClass = {
-    1: 'bg-red-100 text-red-700',
-    2: 'bg-orange-100 text-orange-700',
-    3: 'bg-yellow-100 text-yellow-700',
-    4: 'bg-green-100 text-green-700',
-    5: 'bg-emerald-100 text-emerald-700',
+    1: 'bg-destructive/10 text-destructive',
+    2: 'bg-warning/10 text-warning',
+    3: 'bg-warning/10 text-warning',
+    4: 'bg-success/10 text-success',
+    5: 'bg-success/10 text-success',
   }[score] ?? 'bg-muted text-muted-foreground'
 
   return (
@@ -81,7 +81,7 @@ export function IterationCard({
         <CardHeader className="flex-row items-center justify-between">
           <View className="flex-row items-center gap-3">
             {isComplete ? (
-              <CheckCircle2 size={18} className="text-green-600" />
+              <CheckCircle2 size={18} className="text-success" />
             ) : isActive ? (
               <View className="h-4 w-4 animate-pulse rounded-full bg-primary" />
             ) : (

@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button'
 import { Text } from '@/components/ui/text'
 import { cn } from '@/lib/utils'
-import { FileQuestion, Inbox, Search, type LucideIcon } from 'lucide-react-native'
+import { FileQuestion, Inbox, Search, type LucideIcon } from '@/components/ui/icons'
 import { View, type ViewProps } from 'react-native'
 
 type EmptyStateType = 'no-results' | 'no-data' | 'error' | 'custom'

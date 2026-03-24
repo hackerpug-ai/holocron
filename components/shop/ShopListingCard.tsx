@@ -22,7 +22,7 @@ import {
   Zap,
   CheckCircle2,
   XCircle,
-} from 'lucide-react-native'
+} from '@/components/ui/icons'
 import { spacing, radius } from '@/lib/theme'
 import { useTheme } from '@/hooks/use-theme'
 import Animated, {
@@ -64,12 +64,12 @@ const RETAILER_COLORS: Record<string, { bg: string; text: string; darkBg: string
 
 // Condition styling
 const CONDITION_STYLES: Record<string, { label: string; className: string }> = {
-  new: { label: 'NEW', className: 'bg-emerald-500/20 text-emerald-400' },
-  like_new: { label: 'LIKE NEW', className: 'bg-teal-500/20 text-teal-400' },
-  refurbished: { label: 'REFURB', className: 'bg-blue-500/20 text-blue-400' },
-  open_box: { label: 'OPEN BOX', className: 'bg-amber-500/20 text-amber-400' },
-  used: { label: 'USED', className: 'bg-gray-500/20 text-gray-400' },
-  default: { label: 'UNKNOWN', className: 'bg-gray-500/20 text-gray-400' },
+  new: { label: 'NEW', className: 'bg-success/20 text-success' },
+  like_new: { label: 'LIKE NEW', className: 'bg-success/20 text-success' },
+  refurbished: { label: 'REFURB', className: 'bg-info/20 text-info' },
+  open_box: { label: 'OPEN BOX', className: 'bg-warning/20 text-warning' },
+  used: { label: 'USED', className: 'bg-muted-foreground/20 text-muted-foreground' },
+  default: { label: 'UNKNOWN', className: 'bg-muted-foreground/20 text-muted-foreground' },
 }
 
 /**
@@ -93,23 +93,6 @@ function calculateDiscount(price: number, originalPrice: number): number {
   return Math.round(((originalPrice - price) / originalPrice) * 100)
 }
 
-/**
- * Get deal score color and icon based on score
- */
-function getDealScoreStyle(score: number | undefined): {
-  color: string
-  bgColor: string
-  icon: 'flame' | 'zap' | 'tag'
-  label: string
-} {
-  if (!score || score < 50) {
-    return { color: '#6B7280', bgColor: 'rgba(107, 114, 128, 0.2)', icon: 'tag', label: 'Standard' }
-  }
-  if (score < 75) {
-    return { color: '#F59E0B', bgColor: 'rgba(245, 158, 11, 0.2)', icon: 'zap', label: 'Good Deal' }
-  }
-  return { color: '#10B981', bgColor: 'rgba(16, 185, 129, 0.2)', icon: 'flame', label: 'Hot Deal' }
-}
 
 export function ShopListingCard({
   listingId,
@@ -129,6 +112,17 @@ export function ShopListingCard({
   onPress,
 }: ShopListingCardProps) {
   const { colors: themeColors, isDark } = useTheme()
+
+  // Build theme-aware deal score styles
+  const getDealScoreStyleThemed = (score: number | undefined) => {
+    if (!score || score < 50) {
+      return { color: themeColors.mutedForeground, bgColor: `${themeColors.mutedForeground}33`, icon: 'tag' as const, label: 'Standard' }
+    }
+    if (score < 75) {
+      return { color: themeColors.warning, bgColor: `${themeColors.warning}33`, icon: 'zap' as const, label: 'Good Deal' }
+    }
+    return { color: themeColors.success, bgColor: `${themeColors.success}33`, icon: 'flame' as const, label: 'Hot Deal' }
+  }
 
   // Animation for press feedback
   const scale = useSharedValue(1)
@@ -165,8 +159,8 @@ export function ShopListingCard({
   // Calculate discount
   const discount = originalPrice ? calculateDiscount(price, originalPrice) : 0
 
-  // Get deal score styling
-  const dealStyle = getDealScoreStyle(dealScore)
+  // Get deal score styling (theme-aware)
+  const dealStyle = getDealScoreStyleThemed(dealScore)
   const DealIcon = dealStyle.icon === 'flame' ? Flame : dealStyle.icon === 'zap' ? Zap : Tag
 
   return (
@@ -253,9 +247,9 @@ export function ShopListingCard({
                       >
                         {formatPrice(originalPrice, currency)}
                       </Text>
-                      <View className="flex-row items-center rounded bg-red-500/20 px-1.5 py-0.5">
-                        <TrendingDown size={10} color="#EF4444" />
-                        <Text className="ml-0.5 text-xs font-bold text-red-400">
+                      <View className="flex-row items-center rounded bg-destructive/20 px-1.5 py-0.5">
+                        <TrendingDown size={10} color={themeColors.danger} />
+                        <Text className="ml-0.5 text-xs font-bold text-destructive">
                           {discount}%
                         </Text>
                       </View>
@@ -268,8 +262,7 @@ export function ShopListingCard({
 
           {/* Bottom Row: Retailer, Deal Score, Stock Status */}
           <View
-            className="flex-row items-center justify-between border-t border-border px-3 py-2"
-            style={{ backgroundColor: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)' }}
+            className="flex-row items-center justify-between border-t border-border px-3 py-2 bg-foreground/[0.02]"
           >
             {/* Left: Retailer Badge + Seller */}
             <View className="flex-row items-center gap-2">
@@ -291,8 +284,8 @@ export function ShopListingCard({
                   </Text>
                   {sellerRating && sellerRating > 0 && (
                     <View className="flex-row items-center gap-0.5">
-                      <Star size={10} color="#F59E0B" fill="#F59E0B" />
-                      <Text className="text-amber-400 text-xs font-medium">
+                      <Star size={10} color={themeColors.starRating} fill={themeColors.starRating} />
+                      <Text className="text-star-rating text-xs font-medium">
                         {sellerRating.toFixed(1)}
                       </Text>
                     </View>
@@ -322,13 +315,13 @@ export function ShopListingCard({
               {/* Stock Status */}
               {inStock ? (
                 <View className="flex-row items-center gap-0.5">
-                  <CheckCircle2 size={12} color="#10B981" />
-                  <Text className="text-xs font-medium text-emerald-400">In Stock</Text>
+                  <CheckCircle2 size={12} color={themeColors.success} />
+                  <Text className="text-xs font-medium text-success">In Stock</Text>
                 </View>
               ) : (
                 <View className="flex-row items-center gap-0.5">
-                  <XCircle size={12} color="#EF4444" />
-                  <Text className="text-xs font-medium text-red-400">Out of Stock</Text>
+                  <XCircle size={12} color={themeColors.danger} />
+                  <Text className="text-xs font-medium text-destructive">Out of Stock</Text>
                 </View>
               )}
 

@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils'
-import { ChevronLeft, Menu } from 'lucide-react-native'
+import { ChevronLeft, Menu } from '@/components/ui/icons'
 import type { ReactNode } from 'react'
 import { Pressable, View, type ViewProps } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -111,7 +111,7 @@ export function ScreenHeader({
 
         {/* Center - title */}
         {title && (
-          <View className="absolute inset-x-0 items-center justify-center pointer-events-none">
+          <View className="absolute inset-x-0 items-center justify-center pointer-events-none px-16">
             <Text
               variant="large"
               className="font-semibold text-foreground"

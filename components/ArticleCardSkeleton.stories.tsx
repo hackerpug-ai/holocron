@@ -7,7 +7,7 @@ const meta = {
   component: ArticleCardSkeleton,
   decorators: [
     (Story) => (
-      <View style={{ padding: 16, backgroundColor: "#f5f5f5" }}>
+      <View className="bg-muted" style={{ padding: 16 }}>
         <Story />
       </View>
     ),

@@ -5,7 +5,7 @@
 import { View, Pressable, Linking } from 'react-native'
 import { Text } from '@/components/ui/text'
 import { Card } from '@/components/ui/card'
-import { Wrench, Check, ExternalLink, Tag } from 'lucide-react-native'
+import { Wrench, Check, ExternalLink, Tag } from '@/components/ui/icons'
 import { useTheme } from '@/hooks/use-theme'
 import type { ToolAddedCardData } from '@/lib/types/chat'
 
@@ -49,13 +49,13 @@ export function ToolAddedCard({
   return (
     <Card testID={testID} className="border-border bg-card overflow-hidden">
       {/* Success accent bar */}
-      <View className="h-1 bg-emerald-500" />
+      <View className="h-1 bg-success" />
 
       <View className="p-4">
         {/* Header with success indicator */}
         <View className="mb-3 flex-row items-center gap-2">
-          <View className="rounded-full bg-emerald-500/20 p-1">
-            <Check size={16} color="#10B981" />
+          <View className="rounded-full bg-success/20 p-1">
+            <Check size={16} color={themeColors.success} />
           </View>
           <Text className="text-foreground flex-1 text-lg font-bold">
             Tool Added

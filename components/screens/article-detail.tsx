@@ -1,8 +1,9 @@
 import { CategoryBadge, type CategoryType } from "@/components/CategoryBadge";
 import { MarkdownView } from "@/components/markdown/MarkdownView";
+import { type CustomRenderers } from "@/components/markdown/renderers/NodeRenderer";
 import { Text } from "@/components/ui/text";
 import { cn } from "@/lib/utils";
-import { X } from "lucide-react-native";
+import { X } from "@/components/ui/icons";
 import {
   Dimensions,
   Pressable,
@@ -26,6 +27,19 @@ import { useRef, useEffect, useMemo } from "react";
 import { useTheme } from "@/hooks/use-theme";
 import { useWebView } from "@/hooks/useWebView";
 import { sanitizeMarkdown, isValidUrl } from "@/lib/sanitizeMarkdown";
+import { extractParagraphCount } from "@/lib/extractParagraphCount";
+import { useNarrationState } from "@/components/narration/hooks/useNarrationState";
+import { useAudioPlayback } from "@/components/narration/hooks/useAudioPlayback";
+import {
+  NarrationControlBar,
+  NARRATION_BAR_HEIGHT,
+} from "@/components/narration/NarrationControlBar";
+import { NarrationToggleButton } from "@/components/narration/NarrationToggleButton";
+import * as Haptics from "expo-haptics";
+import { useQuery, useAction } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { type Id } from "@/convex/_generated/dataModel";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 const SWIPE_THRESHOLD = SCREEN_HEIGHT * 0.25;
@@ -36,6 +50,8 @@ const SWIPE_THRESHOLD = SCREEN_HEIGHT * 0.25;
  */
 export interface MockArticle {
   id: string | number;
+  /** Convex document ID for narration support */
+  documentId?: string;
   title: string;
   category: CategoryType;
   date: string;
@@ -87,6 +103,7 @@ export function ArticleDetail({
   ...props
 }: ArticleDetailProps) {
   const theme = useTheme();
+  const { colors } = theme;
   const { openUrl } = useWebView();
   const translateY = useSharedValue(0);
   const contextY = useSharedValue(0);
@@ -98,6 +115,44 @@ export function ArticleDetail({
     () => sanitizeMarkdown(article.content),
     [article.content],
   );
+
+  const insets = useSafeAreaInsets();
+  const paragraphOffsets = useRef<Map<number, number>>(new Map());
+  const paragraphCounter = useRef(0);
+
+  // Count paragraphs for narration
+  const paragraphCount = useMemo(
+    () => extractParagraphCount(sanitizedContent),
+    [sanitizedContent],
+  );
+
+  const narration = useNarrationState(paragraphCount);
+  const { isNarrationMode } = narration;
+
+  // Subscribe to audio segments only when in narration mode
+  const convexDocId = article.documentId as Id<"documents"> | undefined;
+  const segments =
+    useQuery(
+      api.audio.queries.getSegments,
+      isNarrationMode && convexDocId ? { documentId: convexDocId } : "skip",
+    ) ?? [];
+
+  useAudioPlayback(segments, narration);
+
+  useEffect(() => {
+    if (!isNarrationMode || segments.length === 0) return;
+    const completedCount = segments.filter((s: { status: string }) => s.status === 'completed').length;
+    const totalDuration = segments.reduce((sum: number, s: { durationMs?: number | null }) => sum + (s.durationMs ?? 0), 0);
+    narration.onParagraphReady(completedCount, totalDuration / 1000);
+    if (completedCount === segments.length && segments.length > 0) {
+      narration.onAllReady();
+    }
+  }, [segments, isNarrationMode]);
+
+  useEffect(() => { paragraphOffsets.current.clear(); }, [sanitizedContent]);
+
+  const generateAction = useAction(api.audio.actions.generateForDocument);
+  const regenerateAction = useAction(api.audio.actions.regenerateForDocument);
 
   // Handle link press with URL validation - opens in in-app WebView
   const handleLinkPress = (url: string): boolean => {
@@ -125,6 +180,20 @@ export function ArticleDetail({
       return () => clearTimeout(timeoutId);
     }
   }, [visible, initialScrollPosition]);
+
+  // Auto-scroll to active paragraph during narration
+  useEffect(() => {
+    if (!isNarrationMode || narration.state.activeParagraphIndex < 0) return;
+    const offset = paragraphOffsets.current.get(
+      narration.state.activeParagraphIndex,
+    );
+    if (offset !== undefined) {
+      scrollViewRef.current?.scrollTo({
+        y: Math.max(0, offset - 120),
+        animated: true,
+      });
+    }
+  }, [isNarrationMode, narration.state.activeParagraphIndex]);
 
   // Handle scroll position changes
   const handleScroll = (event: {
@@ -160,8 +229,30 @@ export function ArticleDetail({
       }
     });
 
+  // Handle narration mode toggle
+  const handleToggleNarration = async () => {
+    if (isNarrationMode) {
+      paragraphOffsets.current.clear();
+      narration.exitNarrationMode();
+      return;
+    }
+    narration.enterNarrationMode();
+    if (convexDocId) {
+      try {
+        const status = await generateAction({ documentId: convexDocId });
+        if (status.segmentCount > 0) {
+          narration.onAllReady();
+        }
+      } catch (err) {
+        console.error('[Narration] Generation failed:', err);
+        narration.exitNarrationMode();
+      }
+    }
+  };
+
   // Handle close button press
   const handleClose = () => {
+    if (isNarrationMode) narration.exitNarrationMode();
     translateY.value = withTiming(-SCREEN_HEIGHT, {}, () => {
       runOnJS(onClose)();
     });
@@ -195,6 +286,95 @@ export function ArticleDetail({
     };
   });
 
+  // Custom paragraph renderer for narration mode
+  const narrationRenderers: CustomRenderers | undefined = useMemo(() => {
+    if (!isNarrationMode) return undefined;
+
+    return {
+      paragraph: ({ children, testID }) => {
+        const index = paragraphCounter.current;
+        paragraphCounter.current += 1;
+        const isActive = narration.state.activeParagraphIndex === index;
+        const capturedIndex = index;
+
+        return (
+          <Pressable
+            key={`narration-p-${capturedIndex}`}
+            testID={`${testID}-narration-p-${capturedIndex}`}
+            onPress={() => {
+              narration.skipToParagraph(capturedIndex);
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }}
+            onLayout={(e) => {
+              paragraphOffsets.current.set(
+                capturedIndex,
+                e.nativeEvent.layout.y,
+              );
+            }}
+          >
+            <Animated.View
+              style={[
+                {
+                  backgroundColor: isActive
+                    ? "rgba(245,166,35,0.08)"
+                    : "transparent",
+                  borderLeftWidth: isActive ? 2 : 0,
+                  borderLeftColor: isActive ? "#6366f1" : "transparent",
+                  paddingLeft: isActive ? 8 : 0,
+                  marginBottom: 12,
+                },
+              ]}
+            >
+              {children}
+            </Animated.View>
+          </Pressable>
+        );
+      },
+      heading: ({ children, testID }) => {
+        const index = paragraphCounter.current;
+        paragraphCounter.current += 1;
+        const isActive = narration.state.activeParagraphIndex === index;
+        const capturedIndex = index;
+
+        return (
+          <Pressable
+            key={`narration-h-${capturedIndex}`}
+            testID={`${testID}-narration-h-${capturedIndex}`}
+            onPress={() => {
+              narration.skipToParagraph(capturedIndex);
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }}
+            onLayout={(e) => {
+              paragraphOffsets.current.set(
+                capturedIndex,
+                e.nativeEvent.layout.y,
+              );
+            }}
+          >
+            <Animated.View
+              style={[
+                {
+                  backgroundColor: isActive
+                    ? "rgba(245,166,35,0.08)"
+                    : "transparent",
+                  borderLeftWidth: isActive ? 2 : 0,
+                  borderLeftColor: isActive ? "#6366f1" : "transparent",
+                  paddingLeft: isActive ? 8 : 0,
+                  marginBottom: 12,
+                },
+              ]}
+            >
+              {children}
+            </Animated.View>
+          </Pressable>
+        );
+      },
+    };
+  }, [isNarrationMode, narration.state.activeParagraphIndex]);
+
+  // Reset paragraph counter before each render
+  paragraphCounter.current = 0;
+
   // Don't render if not visible
   if (!visible) return null;
 
@@ -219,7 +399,8 @@ export function ArticleDetail({
   const dynamicStyles = StyleSheet.create({
     backdrop: {
       ...StyleSheet.absoluteFillObject,
-      backgroundColor: "rgba(0, 0, 0, 0.5)",
+      backgroundColor: colors.overlay,
+      opacity: 0.5,
     },
     container: {
       height: SCREEN_HEIGHT,
@@ -289,6 +470,23 @@ export function ArticleDetail({
               testID={`${testID}-drag-indicator`}
             />
 
+            {/* Narration Toggle - positioned on the left side of the header */}
+            {article.documentId && (
+              <View
+                style={{
+                  position: "absolute",
+                  top: theme.spacing.md,
+                  left: theme.spacing.md,
+                }}
+              >
+                <NarrationToggleButton
+                  isActive={isNarrationMode}
+                  onPress={handleToggleNarration}
+                  testID={`${testID}-narration-toggle`}
+                />
+              </View>
+            )}
+
             {/* Close Button */}
             <Pressable
               onPress={handleClose}
@@ -305,7 +503,12 @@ export function ArticleDetail({
           <ScrollView
             ref={scrollViewRef}
             style={dynamicStyles.scrollContent}
-            contentContainerStyle={dynamicStyles.scrollContentContainer}
+            contentContainerStyle={{
+              ...dynamicStyles.scrollContentContainer,
+              paddingBottom: isNarrationMode
+                ? NARRATION_BAR_HEIGHT + insets.bottom + 24
+                : theme.spacing["2xl"],
+            }}
             testID={`${testID}-scroll-view`}
             showsVerticalScrollIndicator={true}
             onScroll={handleScroll}
@@ -347,8 +550,15 @@ export function ArticleDetail({
               onLinkPress={handleLinkPress}
               contentOnly={true}
               testID={`${testID}-markdown`}
+              renderers={narrationRenderers}
             />
           </ScrollView>
+
+          <NarrationControlBar
+            narration={narration}
+            isVisible={isNarrationMode}
+            onRegenerate={() => { if (convexDocId) regenerateAction({ documentId: convexDocId }) }}
+          />
         </Animated.View>
       </GestureDetector>
     </View>

@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Text } from '@/components/ui/text'
 import { cn } from '@/lib/utils'
-import { Loader2, Sparkles } from 'lucide-react-native'
+import { Loader2, Sparkles } from '@/components/ui/icons'
 import { useEffect, useRef } from 'react'
 import { Animated, Easing, View, type ViewProps } from 'react-native'
 import { Progress } from './ui/progress'

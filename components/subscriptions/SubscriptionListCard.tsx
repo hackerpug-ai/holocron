@@ -5,7 +5,7 @@
 import { View, Pressable } from 'react-native'
 import { Text } from '@/components/ui/text'
 import { Card } from '@/components/ui/card'
-import { Bell, Rss, Calendar, Trash2 } from 'lucide-react-native'
+import { Bell, Rss, Calendar, Trash2 } from '@/components/ui/icons'
 import { useTheme } from '@/hooks/use-theme'
 import type { SubscriptionListCardData } from '@/lib/types/chat'
 
@@ -118,8 +118,8 @@ export function SubscriptionListCard({
 
             {/* Auto-research badge */}
             {sub.auto_research && (
-              <View className="mr-2 rounded-full bg-emerald-500/20 px-2 py-1">
-                <Text className="text-xs font-medium text-emerald-500">
+              <View className="mr-2 rounded-full bg-success/20 px-2 py-1">
+                <Text className="text-xs font-medium text-success">
                   Auto
                 </Text>
               </View>

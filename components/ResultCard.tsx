@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Text } from '@/components/ui/text'
 import { cn } from '@/lib/utils'
-import { ChevronRight, FileText, Search, Sparkles } from 'lucide-react-native'
+import { ChevronRight, FileText, Search, Sparkles } from '@/components/ui/icons'
 import { Pressable, View, type ViewProps } from 'react-native'
 import { CategoryBadge, type CategoryType } from './CategoryBadge'
 
@@ -81,10 +81,10 @@ export function ResultCard({
                 className={cn(
                   'text-xs font-semibold',
                   confidence >= 80
-                    ? 'text-green-600 dark:text-green-400'
+                    ? 'text-success'
                     : confidence >= 60
-                    ? 'text-yellow-600 dark:text-yellow-400'
-                    : 'text-red-600 dark:text-red-400'
+                    ? 'text-warning'
+                    : 'text-destructive'
                 )}
               >
                 {confidence}%

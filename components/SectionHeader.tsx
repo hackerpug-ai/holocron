@@ -1,6 +1,6 @@
 import { Text } from '@/components/ui/text'
 import { cn } from '@/lib/utils'
-import { ChevronRight } from 'lucide-react-native'
+import { ChevronRight } from '@/components/ui/icons'
 import { Pressable, View, type ViewProps } from 'react-native'
 
 interface SectionHeaderProps extends ViewProps {

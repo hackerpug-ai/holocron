@@ -2,7 +2,7 @@
 
 import { action } from "../_generated/server";
 import { v } from "convex/values";
-import { api } from "../_generated/api";
+import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { generateText } from "ai";
 import { zaiFlash } from "../lib/ai/zai_provider";
@@ -47,7 +47,7 @@ interface BrowseArticleCard {
   title: string;
   date?: string;
   researchType?: string;
-  documentId: string;
+  document_id: string;
 }
 
 interface SearchArticleCard {
@@ -55,7 +55,7 @@ interface SearchArticleCard {
   title: string;
   category: string;
   snippet: string;
-  documentId: string;
+  document_id: string;
   metadata?: {
     relevance_score?: number;
   };
@@ -269,18 +269,18 @@ interface AgentResponse {
 
 /**
  * Handle /search command
- * Uses full-text search (hybrid search requires embeddings, deferred to later)
+ * Uses hybrid search (vector + keyword) for best results
  */
 async function handleSearchCommand(
   query: string,
   ctx: any,
 ): Promise<AgentResponse> {
   try {
-    const searchResults = await ctx.runQuery(
-      api.documents.queries.fullTextSearch,
+    const searchResults = await ctx.runAction(
+      api.documents.search.hybridSearch,
       {
         query,
-        limit: 10,
+        limit: 3,
       },
     );
 
@@ -305,7 +305,7 @@ async function handleSearchCommand(
         ? doc.content.substring(0, 150) +
           (doc.content.length > 150 ? "..." : "")
         : "",
-      documentId: doc._id,
+      document_id: doc._id,
       metadata: {
         relevance_score: doc.score,
       },
@@ -386,7 +386,7 @@ async function handleBrowseCommand(
       title: doc.title,
       date: doc.date || undefined,
       researchType: doc.researchType || undefined,
-      documentId: doc._id,
+      document_id: doc._id,
     }));
 
     return {
@@ -444,78 +444,29 @@ ${categoryBreakdown.map(({ category, count }) => `  ${category}: ${count}`).join
   }
 }
 
-/**
- * Generate AI response for natural language messages
- * AC-1: AI responds to user messages
- * AC-4: Handle AI failures gracefully
- */
-async function generateAIResponse(
-  content: string,
-  ctx: any,
-): Promise<AgentResponse> {
-  try {
-    // Detect natural language searches (questions, what/how/why queries)
-    const searchPatterns = [
-      /^(what|how|who|where|when|why|which|can you|tell me|explain)/i,
-      /\?$/,
-    ];
-    const looksLikeSearch = searchPatterns.some((pattern) =>
-      pattern.test(content.trim()),
-    );
-
-    if (looksLikeSearch) {
-      return await handleSearchCommand(content, ctx);
-    }
-
-    // Simple pattern matching for demo purposes
-    // In production, this would call an actual AI service
-    const lowerContent = content.toLowerCase();
-
-    if (lowerContent.includes("hello") || lowerContent.includes("hi")) {
-      return {
-        content:
-          "Hello! I'm your research assistant. How can I help you today?",
-        messageType: "text",
-      };
-    }
-
-    if (lowerContent.includes("help")) {
-      return {
-        content:
-          "I can help you search your knowledge base, conduct research, and manage articles. Try asking me a question or use /help to see available commands.",
-        messageType: "text",
-      };
-    }
-
-    // Default response
-    return {
-      content:
-        "I received your message. Full AI responses will be available soon!",
-      messageType: "text",
-    };
-  } catch (error) {
-    // AC-4: Return error message on AI failure
-    return {
-      content: `Sorry, I encountered an error generating a response: ${error instanceof Error ? error.message : "Unknown error"}`,
-      messageType: "error",
-    };
-  }
-}
+// generateAIResponse removed: natural language messages are now dispatched to
+// internal.chat.agent.run via ctx.scheduler.runAfter in the send action.
 
 /**
  * Generate chat title using Z.ai GLM-4.5-Flash
  * Task #784: Auto-generate short descriptive chat titles
  */
+// Max retries for scheduled retry (exponential backoff: 5s, 30s, 2min)
+const TITLE_RETRY_DELAYS_MS = [5_000, 30_000, 120_000];
+const TITLE_MAX_ATTEMPTS = 3; // inline retries per invocation
+const TITLE_INLINE_RETRY_DELAY_MS = 1_000;
+
 export const generateChatTitle = action({
   args: {
     conversationId: v.id("conversations"),
+    attempt: v.optional(v.number()), // scheduled retry attempt (0-indexed)
   },
   handler: async (
     ctx,
-    { conversationId },
+    { conversationId, attempt = 0 },
   ): Promise<
     | { skipped: true; reason: string }
-    | { success: false; error: string }
+    | { success: false; error: string; willRetry: boolean }
     | { success: true; title: string }
   > => {
     // 1. Fetch conversation to check if user has set title
@@ -526,6 +477,16 @@ export const generateChatTitle = action({
     // Skip if user has manually set the title
     if (conversation?.titleSetByUser) {
       return { skipped: true, reason: "user_set_title" };
+    }
+
+    // Skip if title was already generated (another retry may have succeeded)
+    const currentTitle = conversation?.title;
+    if (
+      currentTitle &&
+      currentTitle !== "New Chat" &&
+      currentTitle !== "Untitled Chat"
+    ) {
+      return { skipped: true, reason: "already_titled" };
     }
 
     // 2. Fetch first 3-5 messages
@@ -549,32 +510,88 @@ export const generateChatTitle = action({
       .map((m: any) => `${m.role}: ${m.content}`)
       .join("\n\n");
 
-    try {
-      // 4. Call Z.ai GLM-4.5 Flash using AI SDK
-      const result = await generateText({
-        model: zaiFlash(),
-        system:
-          "Generate a short, descriptive title (3-5 words, max 50 chars) for this chat conversation. Return ONLY the title, no quotes or explanations.",
-        prompt: `Conversation:\n\n${context}`,
-      });
+    // Helper: truncate title to max 50 chars
+    const truncate = (t: string) =>
+      t.length > 50 ? t.slice(0, 47) + "..." : t;
 
-      const title: string = result.text?.trim() || "Untitled Chat";
+    // Helper: derive a fallback title from the first user message
+    const fallbackTitle = (): string => {
+      const firstUserMsg = messages
+        .slice()
+        .reverse()
+        .find((m: any) => m.role === "user");
+      if (!firstUserMsg) return "Untitled Chat";
+      const content = (firstUserMsg as any).content as string;
+      // Strip leading slash commands for cleaner titles
+      const cleaned = content.replace(/^\/\S+\s*/, "").trim();
+      if (!cleaned) return "Untitled Chat";
+      if (cleaned.length <= 50) return cleaned;
+      const cut = cleaned.slice(0, 47);
+      const lastSpace = cut.lastIndexOf(" ");
+      return (lastSpace > 20 ? cut.slice(0, lastSpace) : cut) + "...";
+    };
 
-      // 5. Truncate if too long (max 50 chars)
-      const truncatedTitle: string =
-        title.length > 50 ? title.slice(0, 47) + "..." : title;
+    // 4. Try AI title generation with inline retries
+    let lastError: unknown = null;
+    for (let i = 0; i < TITLE_MAX_ATTEMPTS; i++) {
+      try {
+        const result = await generateText({
+          model: zaiFlash(),
+          system:
+            "Generate a short, descriptive title (3-5 words, max 50 chars) for this chat conversation. Return ONLY the title, no quotes or explanations.",
+          prompt: `Conversation:\n\n${context}`,
+        });
 
-      // 6. Update conversation title (not user-set, so titleSetByUser stays false/undefined)
-      await ctx.runMutation(api.conversations.mutations.update, {
-        id: conversationId,
-        title: truncatedTitle,
-      });
+        const title: string = result.text?.trim() || "";
+        if (title) {
+          const truncatedTitle = truncate(title);
+          await ctx.runMutation(api.conversations.mutations.update, {
+            id: conversationId,
+            title: truncatedTitle,
+          });
+          return { success: true, title: truncatedTitle };
+        }
 
-      return { success: true, title: truncatedTitle };
-    } catch (error) {
-      console.error("Title generation error:", error);
-      return { success: false, error: error instanceof Error ? error.message : "api_error" };
+        // Empty response — count as failure, retry
+        lastError = new Error("AI returned empty title");
+      } catch (error) {
+        lastError = error;
+      }
+
+      // Wait before inline retry (skip wait on last attempt)
+      if (i < TITLE_MAX_ATTEMPTS - 1) {
+        await new Promise((r) => setTimeout(r, TITLE_INLINE_RETRY_DELAY_MS));
+      }
     }
+
+    // 5. All inline retries exhausted — schedule a delayed retry if attempts remain
+    const errorMsg =
+      lastError instanceof Error ? lastError.message : "api_error";
+    console.error(
+      `Title generation failed (attempt ${attempt + 1}/${TITLE_RETRY_DELAYS_MS.length + 1}):`,
+      errorMsg,
+    );
+
+    if (attempt < TITLE_RETRY_DELAYS_MS.length) {
+      const delay = TITLE_RETRY_DELAYS_MS[attempt];
+      console.log(
+        `Scheduling title retry ${attempt + 1} in ${delay / 1000}s for ${conversationId}`,
+      );
+      ctx.scheduler.runAfter(delay, api.chat.index.generateChatTitle, {
+        conversationId,
+        attempt: attempt + 1,
+      });
+      return { success: false, error: errorMsg, willRetry: true };
+    }
+
+    // 6. All retries exhausted — use fallback title from first user message
+    const title = truncate(fallbackTitle());
+    console.log(`All retries exhausted, using fallback title: "${title}"`);
+    await ctx.runMutation(api.conversations.mutations.update, {
+      id: conversationId,
+      title,
+    });
+    return { success: true, title };
   },
 });
 
@@ -906,7 +923,8 @@ export const send = action({
         }
       } else if (parsed.command === "whats-new") {
         // /whats-new [days]
-        const days = parsed.args ? parseInt(parsed.args, 10) : 7;
+        const rawDays = parsed.args ? parseInt(parsed.args, 10) : 7
+        const days = Number.isNaN(rawDays) ? 7 : Math.max(1, Math.min(30, rawDays));
         try {
           const reportData: any = await ctx.runQuery(
             api.whatsNew.queries.getLatestReport,
@@ -1080,11 +1098,43 @@ export const send = action({
         };
       }
     } else {
-      // Natural language chat - call AI (AC-1, AC-4)
-      agentResponse = await generateAIResponse(content, ctx);
+      // Natural language chat - dispatch to agent.run (agent persists its own response)
+      await ctx.scheduler.runAfter(0, internal.chat.agent.run, {
+        conversationId: finalConversationId,
+      });
+
+      // 6. Auto-generate chat title after first exchange (natural language path)
+      const messageCount = await ctx
+        .runQuery(api.chatMessages.queries.listByConversation, {
+          conversationId: finalConversationId,
+          limit: 100,
+        })
+        .then((msgs: any[]) => msgs.length);
+
+      if (messageCount >= 1) {
+        const currentConversation = await ctx.runQuery(
+          api.conversations.queries.get,
+          { id: finalConversationId },
+        );
+        const title = currentConversation?.title;
+        const shouldGenerateTitle =
+          !title || title === "New Chat" || title === "Untitled Chat";
+
+        if (shouldGenerateTitle) {
+          ctx.scheduler.runAfter(0, api.chat.index.generateChatTitle, {
+            conversationId: finalConversationId,
+          });
+        }
+      }
+
+      return {
+        userMessageId,
+        agentMessageId: null,
+        conversationId: finalConversationId,
+      };
     }
 
-    // 5. Persist agent response
+    // 5. Persist agent response (slash command path only)
     const agentMessageId: any = await ctx.runMutation(
       api.chatMessages.mutations.create,
       {
@@ -1113,8 +1163,9 @@ export const send = action({
           id: finalConversationId,
         },
       );
+      const title = currentConversation?.title;
       const shouldGenerateTitle =
-        !currentConversation?.title || currentConversation.title === "New Chat";
+        !title || title === "New Chat" || title === "Untitled Chat";
 
       if (shouldGenerateTitle) {
         // Fire-and-forget: trigger title generation async

@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { internalAction, internalQuery, internalMutation } from "../_generated/server";
-import { internal } from "../_generated/api";
+import { api, internal } from "../_generated/api";
 import { readUrlWithJina, readUrlWithJinaAndLinks } from "../research/search.js";
 
 // ============================================================================
@@ -1203,9 +1203,9 @@ export const processQueuedContent = internalAction({
         };
         const category = categoryMap[source?.sourceType || ""] || "article";
 
-        // Create document with content
-        const documentId = await ctx.runMutation(
-          internal.subscriptions.internal.createDocumentFromContent,
+        // Create document with content and embedding
+        const result = await ctx.runAction(
+          api.documents.storage.createWithEmbedding,
           {
             title: item.title,
             content: content.content,
@@ -1216,6 +1216,7 @@ export const processQueuedContent = internalAction({
             filePath: item.url, // Store source URL as filePath
           }
         );
+        const documentId = result.documentId;
 
         // Update content status with document link
         await ctx.runMutation(

@@ -2,7 +2,7 @@ import { ToolCard, type ToolCategory, type SourceType, type ToolStatus } from '@
 import { Text } from '@/components/ui/text'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
-import { Search, Filter, Wrench } from 'lucide-react-native'
+import { Search, Filter, Wrench } from '@/components/ui/icons'
 import { useMemo, useState, type ComponentProps } from 'react'
 import {
   ActivityIndicator,

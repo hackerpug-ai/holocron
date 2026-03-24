@@ -28,6 +28,7 @@ export const listByConversation = query({
         q.eq("conversationId", conversationId)
       )
       .order("desc")
+      .filter((q) => q.neq(q.field("deleted"), true))
       .take(limit);
 
     // Return in descending order (newest first) for inverted FlatList

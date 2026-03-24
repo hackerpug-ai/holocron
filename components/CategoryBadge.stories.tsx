@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react'
 import { View } from 'react-native'
 import { CategoryBadge, type CategoryType } from './CategoryBadge'
+import { DOCUMENT_CATEGORIES } from '@/convex/lib/categories'
 
 const meta: Meta<typeof CategoryBadge> = {
   title: 'Components/CategoryBadge',
@@ -16,7 +17,7 @@ const meta: Meta<typeof CategoryBadge> = {
   argTypes: {
     category: {
       control: { type: 'select' },
-      options: ['research', 'deep-research', 'factual', 'academic', 'entity', 'url', 'general'],
+      options: [...DOCUMENT_CATEGORIES],
       description: 'The category type to display',
     },
     label: {
@@ -40,12 +41,12 @@ type Story = StoryObj<typeof CategoryBadge>
 
 export const Default: Story = {}
 
-export const DeepResearch: Story = {
-  args: { category: 'deep-research' },
+export const Business: Story = {
+  args: { category: 'business' },
 }
 
-export const Academic: Story = {
-  args: { category: 'academic' },
+export const TechnicalAnalysis: Story = {
+  args: { category: 'technical-analysis' },
 }
 
 export const Small: Story = {
@@ -58,18 +59,9 @@ export const CustomLabel: Story = {
 
 export const AllCategories: Story = {
   render: () => {
-    const categories: CategoryType[] = [
-      'research',
-      'deep-research',
-      'factual',
-      'academic',
-      'entity',
-      'url',
-      'general',
-    ]
     return (
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-        {categories.map((category) => (
+        {DOCUMENT_CATEGORIES.map((category) => (
           <CategoryBadge key={category} category={category} />
         ))}
       </View>

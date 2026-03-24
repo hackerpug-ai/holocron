@@ -5,7 +5,7 @@
 import { View } from 'react-native'
 import { Text } from '@/components/ui/text'
 import { Card } from '@/components/ui/card'
-import { Newspaper, Sparkles, TrendingUp, Package, MessageSquare, Calendar } from 'lucide-react-native'
+import { Newspaper, Sparkles, TrendingUp, Package, MessageSquare, Calendar } from '@/components/ui/icons'
 import { useTheme } from '@/hooks/use-theme'
 import type { WhatsNewReportCardData } from '@/lib/types/chat'
 
@@ -61,8 +61,8 @@ export function WhatsNewReportCard({
             What's New in AI
           </Text>
           {is_from_today && (
-            <View className="rounded-full bg-emerald-500/20 px-2 py-1">
-              <Text className="text-xs font-medium text-emerald-500">
+            <View className="rounded-full bg-success/20 px-2 py-1">
+              <Text className="text-xs font-medium text-success">
                 Today
               </Text>
             </View>
@@ -91,7 +91,7 @@ export function WhatsNewReportCard({
           {/* Discoveries */}
           {discovery_count > 0 && (
             <View className="flex-row items-center gap-1.5 rounded-lg bg-muted px-2.5 py-1.5">
-              <Sparkles size={14} color="#F59E0B" />
+              <Sparkles size={14} color={themeColors.warning} />
               <Text className="text-foreground text-sm font-semibold">
                 {discovery_count}
               </Text>
@@ -102,7 +102,7 @@ export function WhatsNewReportCard({
           {/* Releases */}
           {release_count > 0 && (
             <View className="flex-row items-center gap-1.5 rounded-lg bg-muted px-2.5 py-1.5">
-              <Package size={14} color="#10B981" />
+              <Package size={14} color={themeColors.success} />
               <Text className="text-foreground text-sm font-semibold">
                 {release_count}
               </Text>
@@ -113,7 +113,7 @@ export function WhatsNewReportCard({
           {/* Trends */}
           {trend_count > 0 && (
             <View className="flex-row items-center gap-1.5 rounded-lg bg-muted px-2.5 py-1.5">
-              <TrendingUp size={14} color="#8B5CF6" />
+              <TrendingUp size={14} color={themeColors.info} />
               <Text className="text-foreground text-sm font-semibold">
                 {trend_count}
               </Text>

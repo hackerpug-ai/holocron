@@ -13,6 +13,8 @@ import { SubscriptionAddedCard, SubscriptionListCard } from '@/components/subscr
 import { WhatsNewReportCard, WhatsNewLoadingCard } from '@/components/whats-new'
 import { ToolSearchResultsCard, ToolAddingCard, ToolAddedCard } from '@/components/toolbelt'
 import { DocumentSavedCard } from '@/components/documents'
+import { ToolApprovalCardWithConvex } from '@/components/agent/ToolApprovalCard'
+import { StreamingCursor } from '@/components/chat/StreamingCursor'
 import { useQuery } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
@@ -43,6 +45,8 @@ export interface MessageBubbleProps {
   content: string
   message_type?: MessageType
   card_data?: Record<string, unknown> | null
+  toolCallId?: string | null
+  isStreaming?: boolean
   createdAt?: Date
   showTimestamp?: boolean
   testID?: string
@@ -58,6 +62,8 @@ export function MessageBubble({
   content,
   message_type,
   card_data,
+  toolCallId,
+  isStreaming = false,
   createdAt,
   showTimestamp = true,
   testID = 'message-bubble',
@@ -69,6 +75,30 @@ export function MessageBubble({
 }: MessageBubbleProps) {
   const isUser = role === 'user'
   const isSystem = role === 'system'
+
+  // Handle tool_approval messages - render live tool approval card
+  if (message_type === 'tool_approval' && toolCallId) {
+    return (
+      <View
+        className={cn('my-1 px-4')}
+        testID={testID}
+      >
+        <ToolApprovalBubble
+          toolCallId={toolCallId as Id<'toolCalls'>}
+          cardData={card_data ?? undefined}
+        />
+        {showTimestamp && createdAt && (
+          <Text
+            variant="small"
+            className="text-muted-foreground mt-0.5 text-xs self-start"
+            testID={`${testID}-timestamp`}
+          >
+            {formatTimestamp(createdAt)}
+          </Text>
+        )}
+      </View>
+    )
+  }
 
   // Handle result_card messages - render specialized cards
   if (message_type === 'result_card' && card_data) {
@@ -127,16 +157,19 @@ export function MessageBubble({
           !isUser && !isSystem && 'bg-muted max-w-[75%]'
         )}
       >
-        <Text
-          variant={isSystem ? 'small' : 'default'}
-          className={cn(
-            isUser && 'text-primary-foreground',
-            isSystem && 'text-muted-foreground',
-            !isUser && !isSystem && 'text-foreground'
-          )}
-        >
-          {content}
-        </Text>
+        <View className={cn('flex-row flex-wrap items-end', isStreaming && !isUser && !isSystem && 'gap-0.5')}>
+          <Text
+            variant={isSystem ? 'small' : 'default'}
+            className={cn(
+              isUser && 'text-primary-foreground',
+              isSystem && 'text-muted-foreground',
+              !isUser && !isSystem && 'text-foreground'
+            )}
+          >
+            {content}
+          </Text>
+          {isStreaming && !isUser && !isSystem && <StreamingCursor />}
+        </View>
       </View>
       {showTimestamp && createdAt && (
         <Text
@@ -153,6 +186,33 @@ export function MessageBubble({
         </Text>
       )}
     </View>
+  )
+}
+
+/**
+ * Wrapper that queries live toolCall status and renders ToolApprovalCardWithConvex.
+ * Reads from Convex so status updates (approved/executing/completed) are reactive.
+ */
+function ToolApprovalBubble({
+  toolCallId,
+  cardData,
+}: {
+  toolCallId: Id<'toolCalls'>
+  cardData?: Record<string, unknown>
+}) {
+  const toolCall = useQuery(api.toolCalls.queries.get, { id: toolCallId })
+
+  if (!toolCall) return null
+
+  return (
+    <ToolApprovalCardWithConvex
+      approvalId={toolCallId}
+      toolName={toolCall.toolName}
+      toolDisplayName={toolCall.toolDisplayName}
+      parameters={(toolCall.toolArgs as Record<string, unknown>) ?? {}}
+      reasoning={cardData?.reasoning as string | undefined}
+      status={toolCall.status as 'pending' | 'approved' | 'rejected' | 'executing' | 'completed'}
+    />
   )
 }
 

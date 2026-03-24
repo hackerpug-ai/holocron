@@ -17,7 +17,8 @@ import {
   Folder,
   RefreshCw,
   type LucideIcon,
-} from 'lucide-react-native'
+} from '@/components/ui/icons'
+import { useTheme } from '@/hooks/use-theme'
 
 const projectIcons: { Icon: LucideIcon; name: string; label: string }[] = [
   { Icon: Home, name: 'Home', label: 'Home' },
@@ -38,18 +39,20 @@ const projectIcons: { Icon: LucideIcon; name: string; label: string }[] = [
 ]
 
 function IconGallery() {
+  const { colors: themeColors } = useTheme()
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Icon Gallery</Text>
-      <Text style={styles.description}>
+      <Text style={[styles.title, { color: themeColors.foreground }]}>Icon Gallery</Text>
+      <Text style={[styles.description, { color: themeColors.mutedForeground }]}>
         Icons from lucide-react-native, curated for the holocron research app.
       </Text>
       <View style={styles.grid}>
         {projectIcons.map(({ Icon, name, label }) => (
-          <View key={name} style={styles.iconCard}>
-            <Icon size={24} color="hsl(222.2, 47.4%, 11.2%)" />
-            <Text style={styles.label}>{label}</Text>
-            <Text style={styles.name}>{name}</Text>
+          <View key={name} style={[styles.iconCard, { backgroundColor: themeColors.muted }]}>
+            <Icon size={24} color={themeColors.foreground} />
+            <Text style={[styles.label, { color: themeColors.foreground }]}>{label}</Text>
+            <Text style={[styles.name, { color: themeColors.mutedForeground }]}>{name}</Text>
           </View>
         ))}
       </View>
@@ -65,11 +68,9 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '600',
     marginBottom: 24,
-    color: 'hsl(222.2, 84%, 4.9%)',
   },
   description: {
     fontSize: 14,
-    color: 'hsl(215.4, 16.3%, 46.9%)',
     marginBottom: 24,
   },
   grid: {
@@ -82,17 +83,14 @@ const styles = StyleSheet.create({
     width: 80,
     padding: 12,
     borderRadius: 8,
-    backgroundColor: 'hsl(210, 40%, 96.1%)',
   },
   label: {
     fontSize: 11,
-    color: 'hsl(222.2, 84%, 4.9%)',
     marginTop: 8,
     fontWeight: '500',
   },
   name: {
     fontSize: 9,
-    color: 'hsl(215.4, 16.3%, 46.9%)',
     marginTop: 2,
   },
 })

@@ -1,6 +1,6 @@
 import { Text } from '@/components/ui/text'
 import { cn } from '@/lib/utils'
-import { Bot } from 'lucide-react-native'
+import { Bot } from '@/components/ui/icons'
 import { useEffect, useRef } from 'react'
 import { Animated, Easing, View, type ViewProps } from 'react-native'
 

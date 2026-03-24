@@ -24,6 +24,24 @@
     --input: 214.3 31.8% 91.4%;
     --ring: 222.2 84% 4.9%;
     --radius: 0.5rem;
+    /* Intent/status colors */
+    --success: 160 84% 39%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 0%;
+    --info: 258 90% 66%;
+    --info-foreground: 0 0% 100%;
+    --star-rating: 38 92% 50%;
+    /* Utility colors */
+    --shadow: 0 0% 0%;
+    --overlay: 0 0% 0%;
+    /* Score scale (coverage ratings 1-5) */
+    --score-1: 0 84% 60%;
+    --score-2: 25 95% 53%;
+    --score-3: 48 96% 53%;
+    --score-4: 142 71% 45%;
+    --score-5: 160 84% 39%;
+    --score-neutral: 215 16% 47%;
   }
 
   .dark {
@@ -48,5 +66,23 @@
     --border: 215 32% 17%; /* #1E2A3B */
     --input: 215 28% 12%; /* #151C26 */
     --ring: 38 90% 55%; /* #F5A623 - Amber focus rings */
+    /* Intent/status colors */
+    --success: 160 84% 58%; /* #34D399 */
+    --success-foreground: 220 35% 6%;
+    --warning: 46 97% 56%; /* #FBBF24 */
+    --warning-foreground: 220 35% 6%;
+    --info: 258 89% 76%; /* #A78BFA */
+    --info-foreground: 220 35% 6%;
+    --star-rating: 46 97% 56%;
+    /* Utility colors */
+    --shadow: 0 0% 0%;
+    --overlay: 0 0% 0%;
+    /* Score scale (coverage ratings 1-5) */
+    --score-1: 0 72% 51%;
+    --score-2: 21 90% 48%;
+    --score-3: 48 96% 53%;
+    --score-4: 142 71% 45%;
+    --score-5: 160 84% 39%;
+    --score-neutral: 215 25% 47%;
   }
 }

@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Text } from '@/components/ui/text'
 import { cn } from '@/lib/utils'
-import { AlertTriangle, Clock, Hash, Sparkles } from 'lucide-react-native'
+import { AlertTriangle, Clock, Hash, Sparkles } from '@/components/ui/icons'
 import type { ViewProps } from 'react-native'
 import { View } from 'react-native'
 
@@ -108,11 +108,11 @@ export function DeepResearchConfirmationCard({
         </View>
 
         {/* Warning */}
-        <View className="bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-800 rounded-md border px-3 py-2">
+        <View className="bg-warning/10 dark:bg-warning/15 border-warning/30 dark:border-warning/20 rounded-md border px-3 py-2">
           <View className="flex-row gap-2">
-            <AlertTriangle size={16} className="text-orange-600 dark:text-orange-400 mt-0.5" />
+            <AlertTriangle size={16} className="text-warning mt-0.5" />
             <View className="flex-1">
-              <Text className="text-orange-600 dark:text-orange-400 mb-1 text-xs font-semibold uppercase tracking-wide">
+              <Text className="text-warning mb-1 text-xs font-semibold uppercase tracking-wide">
                 Processing Time Notice
               </Text>
               <Text className="text-foreground text-sm">{warningMessage}</Text>
