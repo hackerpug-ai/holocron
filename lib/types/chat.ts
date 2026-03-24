@@ -213,6 +213,35 @@ export interface DocumentSavedCardData {
   category?: string
 }
 
+// Assimilation plan card - approval gate for repository analysis
+export interface AssimilationPlanCardData {
+  card_type: 'assimilation_plan'
+  session_id: string
+  repository_name: string
+  repository_url: string
+  profile: string                    // fast | standard | thorough
+  plan_summary: string               // "5 dimensions, 7 iterations, ~$2.00"
+  status: 'pending_approval' | 'approved' | 'rejected' | 'in_progress' | 'completed'
+  dimension_scores?: Record<string, number>  // live progress when in_progress
+  current_iteration?: number
+  max_iterations?: number
+}
+
+// Assimilation progress card - iteration progress display
+export interface AssimilationProgressCardData {
+  card_type: 'assimilation_progress'
+  session_id: string
+  repository_name: string
+  profile: string
+  status: 'in_progress' | 'synthesizing' | 'completed' | 'failed'
+  current_iteration: number
+  max_iterations: number
+  dimension_scores: Record<string, number>
+  current_dimension?: string
+  estimated_cost_usd?: number
+  document_id?: string              // set when completed
+}
+
 // Document context card - document reference added to chat from document viewer
 export interface DocumentContextCardData {
   card_type: 'document_context'
@@ -250,6 +279,8 @@ export type CardData =
   | ToolAddedCardData
   | DocumentSavedCardData
   | DocumentContextCardData
+  | AssimilationPlanCardData
+  | AssimilationProgressCardData
   | ArticleCardData[]
   | ShopListingCardData[]
 

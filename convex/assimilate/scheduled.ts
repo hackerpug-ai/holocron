@@ -565,8 +565,8 @@ export const synthesizeAndSave = internalAction({
 
       // Collect all findings strings from analysis iterations (skip planning)
       const allFindings = iterations
-        .filter((iter) => iter.iterationType !== "plan" && iter.findings)
-        .map((iter) => iter.findings as string);
+        .filter((iter: { iterationType: string; findings?: string }) => iter.iterationType !== "plan" && iter.findings)
+        .map((iter: { findings?: string }) => iter.findings as string);
 
       console.log(
         `[synthesizeAndSave] Synthesizing ${allFindings.length} iteration findings`

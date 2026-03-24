@@ -10,7 +10,11 @@
 
 import type * as assimilate_index from "../assimilate/index.js";
 import type * as assimilate_mutations from "../assimilate/mutations.js";
+import type * as assimilate_prompts from "../assimilate/prompts.js";
 import type * as assimilate_queries from "../assimilate/queries.js";
+import type * as assimilate_scheduled from "../assimilate/scheduled.js";
+import type * as assimilate_termination from "../assimilate/termination.js";
+import type * as assimilate_validators from "../assimilate/validators.js";
 import type * as audio_actions from "../audio/actions.js";
 import type * as audio_mutations from "../audio/mutations.js";
 import type * as audio_queries from "../audio/queries.js";
@@ -109,7 +113,11 @@ import type {
 declare const fullApi: ApiFromModules<{
   "assimilate/index": typeof assimilate_index;
   "assimilate/mutations": typeof assimilate_mutations;
+  "assimilate/prompts": typeof assimilate_prompts;
   "assimilate/queries": typeof assimilate_queries;
+  "assimilate/scheduled": typeof assimilate_scheduled;
+  "assimilate/termination": typeof assimilate_termination;
+  "assimilate/validators": typeof assimilate_validators;
   "audio/actions": typeof audio_actions;
   "audio/mutations": typeof audio_mutations;
   "audio/queries": typeof audio_queries;

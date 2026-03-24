@@ -109,4 +109,15 @@ crons.interval(
   internal.audio.scheduled.timeoutStuckSegments
 );
 
+/**
+ * Assimilation Timeout Worker
+ *
+ * Detects and marks stuck assimilation sessions as timed out.
+ * - Runs every 15 minutes
+ * - Only affects sessions stuck in an in-progress state
+ */
+crons.interval("assimilation-timeout", { minutes: 15 },
+  internal.assimilate.scheduled.timeoutStuckSessions
+);
+
 export default crons;
