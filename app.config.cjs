@@ -46,6 +46,7 @@ module.exports = {
       'expo-router',
       'expo-sqlite',
       'expo-font',
+      'expo-notifications',
       '@react-native-community/datetimepicker',
       [
         'expo-audio',

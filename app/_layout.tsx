@@ -10,6 +10,7 @@ import { View, useColorScheme as useRNColorScheme } from 'react-native'
 import { useColorScheme } from '@/lib/useColorScheme'
 import { cn } from '@/lib/utils'
 import { NotificationToastProvider } from '@/components/notifications'
+import { usePushNotifications } from '@/hooks/use-push-notifications'
 
 // Validate required env vars at startup
 const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL
@@ -52,6 +53,8 @@ function ThemeSync({ children }: { children: React.ReactNode }) {
 }
 
 export default function RootLayout() {
+  usePushNotifications()
+
   // Render Storybook UI directly, bypassing Expo Router
   if (STORYBOOK_ENABLED) {
     const StorybookUI = require('../.rnstorybook').default
