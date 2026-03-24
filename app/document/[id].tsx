@@ -434,6 +434,7 @@ export default function DocumentRoute() {
           title: document.title,
           category,
           scope,
+          ...(scope === 'full' ? { snippet: document.content.replace(/^---[\s\S]*?---\n*/, '').replace(/[#*_`>\[\]]/g, '').trim().slice(0, 120) } : {}),
           ...(scope === 'excerpt' && excerpt ? { excerpt } : {}),
           ...(scope === 'excerpt' && blockIndex !== undefined ? { blockIndex } : {}),
         },
