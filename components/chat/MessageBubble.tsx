@@ -266,13 +266,16 @@ function DeepResearchLoadingCardWithPolling({
   // Check if session is complete, cancelled, or errored
   const isComplete = session?.status === 'completed'
   const isCancelled = session?.status === 'cancelled'
-  const isError = session?.status === 'error' || session?.status === 'failed' || session?.status === 'timeout'
+  const statusStr = session?.status as string | undefined
+  const isError = statusStr === 'error' || statusStr === 'failed' || statusStr === 'timeout'
 
-  // Determine confidence from coverage score (simplified single-pass model)
+  // Determine confidence from coverage score (derived from last iteration)
   let confidence: 'HIGH' | 'MEDIUM' | 'LOW' | undefined
-  if (isComplete && session?.currentCoverageScore) {
-    confidence = session.currentCoverageScore >= 4 ? 'HIGH' :
-                 session.currentCoverageScore >= 3 ? 'MEDIUM' : 'LOW'
+  const lastIteration = session?.iterations?.[session.iterations.length - 1]
+  const lastCoverageScore = lastIteration?.coverageScore
+  if (isComplete && lastCoverageScore) {
+    confidence = lastCoverageScore >= 4 ? 'HIGH' :
+                 lastCoverageScore >= 3 ? 'MEDIUM' : 'LOW'
   }
 
   const handleCancel = () => {

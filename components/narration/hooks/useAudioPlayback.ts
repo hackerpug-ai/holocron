@@ -7,11 +7,12 @@ import { UseNarrationStateReturn } from './useNarrationState'
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface AudioSegment {
-  _id: string
+  _id: string | { toString(): string }
   paragraphIndex: number
   status: string
   audioUrl: string | null
-  durationMs?: number
+  durationMs?: number | null
+  jobId?: unknown
 }
 
 export interface AudioPlaybackMetadata {
