@@ -76,10 +76,10 @@ const quick_research = tool({
  */
 const deep_research = tool({
   description:
-    "Launch a comprehensive, multi-iteration deep research session on a topic. " +
-    "Use this when the user needs thorough, in-depth research with multiple search passes, " +
-    "synthesis, and a detailed report. Takes longer but produces high-quality results. " +
-    "Best for complex topics requiring broad coverage and multiple perspectives.",
+    "Launch a comprehensive deep research session on a topic using smart strategy routing. " +
+    "Automatically selects the optimal research strategy (fast parallel fan-out or deep iterative) " +
+    "based on query complexity. Use this when the user needs thorough, in-depth research with " +
+    "synthesis and a detailed report. Best for complex topics requiring broad coverage and multiple perspectives.",
   inputSchema: z.object({
     topic: z
       .string()

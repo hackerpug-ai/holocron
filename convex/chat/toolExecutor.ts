@@ -242,17 +242,15 @@ async function executeDeepResearch(
   conversationId: Id<"conversations">,
 ): Promise<AgentResponse> {
   const topic: string = args.topic ?? "";
-  const maxIterations: number = args.maxIterations ?? 3;
 
   if (!topic) {
     return { content: "Please provide a research topic.", messageType: "text" };
   }
 
-  // Fire-and-forget async workflow, same pattern as /deep-research slash command
-  ctx.scheduler.runAfter(0, api.research.actions.startDeepResearch, {
+  // Fire-and-forget async workflow using smart routing (replaces startDeepResearch)
+  ctx.scheduler.runAfter(0, api.research.actions.startSmartResearch, {
     conversationId,
     topic,
-    maxIterations,
   });
 
   return {
