@@ -4,7 +4,7 @@
  * Queries for retrieving assimilation metadata and documents
  */
 
-import { query } from "../_generated/server";
+import { internalQuery, query } from "../_generated/server";
 import { v } from "convex/values";
 
 /**
@@ -122,5 +122,131 @@ export const getAssimilationByDocumentId = query({
       metadata,
       document,
     };
+  },
+});
+
+// ── Session queries (public) ─────────────────────────────────────────────────
+
+/**
+ * Get full assimilation session with iterations
+ * Used by clients to view plan content and progress
+ */
+export const getAssimilationSession = query({
+  args: {
+    sessionId: v.id("assimilationSessions"),
+  },
+  handler: async (ctx, { sessionId }) => {
+    const session = await ctx.db.get(sessionId);
+    if (!session) return null;
+
+    const iterations = await ctx.db
+      .query("assimilationIterations")
+      .withIndex("by_session", (q) => q.eq("sessionId", sessionId))
+      .collect();
+
+    return {
+      ...session,
+      iterations: iterations.sort((a, b) => a.iterationNumber - b.iterationNumber),
+    };
+  },
+});
+
+/**
+ * Lightweight session status for progress polling
+ * Returns only tracking fields, not full findings
+ */
+export const getAssimilationSessionStatus = query({
+  args: {
+    sessionId: v.id("assimilationSessions"),
+  },
+  handler: async (ctx, { sessionId }) => {
+    const session = await ctx.db.get(sessionId);
+    if (!session) return null;
+
+    return {
+      _id: session._id,
+      status: session.status,
+      profile: session.profile,
+      repositoryName: session.repositoryName,
+      repositoryUrl: session.repositoryUrl,
+      currentIteration: session.currentIteration,
+      maxIterations: session.maxIterations,
+      dimensionScores: session.dimensionScores,
+      estimatedCostUsd: session.estimatedCostUsd,
+      planSummary: session.planSummary,
+      planContent: session.status === 'pending_approval' ? session.planContent : undefined,
+      documentId: session.documentId,
+      metadataId: session.metadataId,
+      errorReason: session.errorReason,
+      createdAt: session.createdAt,
+      completedAt: session.completedAt,
+    };
+  },
+});
+
+// ── Internal queries ─────────────────────────────────────────────────────────
+
+/**
+ * Internal: Get active session for a repository URL
+ * Used for duplicate prevention guard
+ */
+export const getActiveSessionForRepo = internalQuery({
+  args: {
+    repositoryUrl: v.string(),
+  },
+  handler: async (ctx, { repositoryUrl }) => {
+    const activeStatuses = ['pending_approval', 'planning', 'approved', 'in_progress', 'synthesizing'];
+
+    // Query by repository URL, then filter for active status
+    const sessions = await ctx.db
+      .query("assimilationSessions")
+      .withIndex("by_repositoryUrl", (q) => q.eq("repositoryUrl", repositoryUrl))
+      .collect();
+
+    return sessions.find((s) => activeStatuses.includes(s.status)) ?? null;
+  },
+});
+
+/**
+ * Internal: Get session for scheduled actions
+ */
+export const getSessionInternal = internalQuery({
+  args: {
+    sessionId: v.id("assimilationSessions"),
+  },
+  handler: async (ctx, { sessionId }) => {
+    return await ctx.db.get(sessionId);
+  },
+});
+
+/**
+ * Internal: List all sessions with a given status (for timeout housekeeping)
+ */
+export const getActiveSessionsByStatus = internalQuery({
+  args: {
+    status: v.string(),
+  },
+  handler: async (ctx, { status }) => {
+    return await ctx.db
+      .query("assimilationSessions")
+      .withIndex("by_status", (q) => q.eq("status", status))
+      .collect();
+  },
+});
+
+/**
+ * Internal: List iterations for a session
+ */
+export const listIterations = internalQuery({
+  args: {
+    sessionId: v.id("assimilationSessions"),
+  },
+  handler: async (ctx, { sessionId }) => {
+    const iterations = await ctx.db
+      .query("assimilationIterations")
+      .withIndex("by_session", (q) => q.eq("sessionId", sessionId))
+      .collect();
+
+    return iterations.sort((a, b) => a.iterationNumber - b.iterationNumber);
   },
 });
