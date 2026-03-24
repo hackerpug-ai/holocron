@@ -13,7 +13,7 @@ import { ShopResultsCard, ShopLoadingCard } from '@/components/shop'
 import { SubscriptionAddedCard, SubscriptionListCard } from '@/components/subscriptions'
 import { WhatsNewReportCard, WhatsNewLoadingCard } from '@/components/whats-new'
 import { ToolSearchResultsCard, ToolAddingCard, ToolAddedCard } from '@/components/toolbelt'
-import { DocumentSavedCard } from '@/components/documents'
+import { DocumentSavedCard, DocumentContextCard } from '@/components/documents'
 import { ToolApprovalCardWithConvex } from '@/components/agent/ToolApprovalCard'
 import { StreamingCursor } from '@/components/chat/StreamingCursor'
 import { useQuery } from 'convex/react'
@@ -29,6 +29,7 @@ import type {
   ToolAddingCardData,
   ToolAddedCardData,
   DocumentSavedCardData,
+  DocumentContextCardData,
 } from '@/lib/types/chat'
 
 // Human-readable status labels for research sessions
@@ -312,7 +313,7 @@ function renderResultCard(
   }
 
   // Single card - cast through unknown to satisfy TypeScript discriminated union
-  const cardType = card_data.card_type as CardType | 'deep_research_loading' | 'deep_research_iteration' | 'deep_research_confirmation' | 'final_result' | 'assimilation' | 'shop_results' | 'shop_loading' | 'subscription_added' | 'subscription_list' | 'whats_new_report' | 'whats_new_loading' | 'tool_search_results' | 'tool_adding' | 'tool_added' | 'document_saved'
+  const cardType = card_data.card_type as CardType | 'deep_research_loading' | 'deep_research_iteration' | 'deep_research_confirmation' | 'final_result' | 'assimilation' | 'shop_results' | 'shop_loading' | 'subscription_added' | 'subscription_list' | 'whats_new_report' | 'whats_new_loading' | 'tool_search_results' | 'tool_adding' | 'tool_added' | 'document_saved' | 'document_context'
 
   // Handle shop results card
   if (cardType === 'shop_results') {
@@ -427,6 +428,23 @@ function renderResultCard(
         data={card_data as unknown as DocumentSavedCardData}
         testID={`${testID}-document-saved`}
       />
+    )
+  }
+
+  // Handle document context card (added from document viewer)
+  if (cardType === 'document_context') {
+    const contextData = card_data as unknown as DocumentContextCardData
+    return (
+      <Pressable
+        onPress={() => handleCardPress({ document_id: contextData.document_id }, onCardPress)}
+        className="active:opacity-80 w-full"
+        testID={`${testID}-document-context-pressable`}
+      >
+        <DocumentContextCard
+          data={contextData}
+          testID={`${testID}-document-context`}
+        />
+      </Pressable>
     )
   }
 

@@ -1,3 +1,8 @@
+/**
+ * TextSelectionSheet - Bottom sheet shown on long-press of a document block.
+ * Offers: Copy to Clipboard and Add to Chat.
+ */
+
 import { Modal, Pressable, View } from 'react-native'
 import Animated, {
   useAnimatedStyle,
@@ -10,17 +15,26 @@ import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-g
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useEffect } from 'react'
 import { Text } from '@/components/ui/text'
-import { Globe, Megaphone, MessageSquarePlus, Share2 } from '@/components/ui/icons'
+import { MessageSquarePlus } from '@/components/ui/icons'
 import * as Haptics from 'expo-haptics'
 
-export interface DocumentActionsSheetProps {
+// Import Copy icon - need to add it
+import { Copy } from 'lucide-react-native'
+import { cssInterop } from 'nativewind'
+cssInterop(Copy, {
+  className: {
+    target: 'style',
+    nativeStyleToProp: { color: 'color', height: 'size', width: 'size' },
+  },
+})
+
+export interface TextSelectionSheetProps {
   visible: boolean
   onClose: () => void
-  onListenPress: () => void
-  onSharePress: () => void
-  onAddToChatPress: () => void
-  isNarrationActive: boolean
-  isPublic?: boolean
+  onCopy: () => void
+  onAddToChat: () => void
+  /** Preview of the selected text */
+  previewText?: string
   testID?: string
 }
 
@@ -34,20 +48,14 @@ const TIMING_OUT_CONFIG = {
   easing: Easing.in(Easing.cubic),
 }
 
-/**
- * Bottom sheet with document actions: Listen (narration) and Share.
- * Slides up smoothly from bottom with backdrop overlay.
- */
-export function DocumentActionsSheet({
+export function TextSelectionSheet({
   visible,
   onClose,
-  onListenPress,
-  onSharePress,
-  onAddToChatPress,
-  isNarrationActive,
-  isPublic = false,
-  testID = 'document-actions-sheet',
-}: DocumentActionsSheetProps) {
+  onCopy,
+  onAddToChat,
+  previewText,
+  testID = 'text-selection-sheet',
+}: TextSelectionSheetProps) {
   const insets = useSafeAreaInsets()
   const translateY = useSharedValue(300)
   const backdropOpacity = useSharedValue(0)
@@ -130,21 +138,30 @@ export function DocumentActionsSheet({
               <View className="h-1 w-10 rounded-full bg-muted-foreground/30" />
             </View>
 
-            {/* Listen action */}
+            {/* Preview of selected text */}
+            {previewText && (
+              <View className="mb-4 rounded-lg bg-muted p-3">
+                <Text className="text-muted-foreground text-sm" numberOfLines={3}>
+                  {previewText}
+                </Text>
+              </View>
+            )}
+
+            {/* Copy action */}
             <Pressable
-              testID={`${testID}-listen`}
-              onPress={() => handleAction(onListenPress)}
+              testID={`${testID}-copy`}
+              onPress={() => handleAction(onCopy)}
               className="flex-row items-center gap-4 rounded-xl px-4 py-3.5 active:bg-muted"
             >
-              <View className={isNarrationActive ? 'rounded-full bg-primary/15 p-2' : 'rounded-full bg-muted p-2'}>
-                <Megaphone size={20} className={isNarrationActive ? 'text-primary' : 'text-foreground'} />
+              <View className="rounded-full bg-muted p-2">
+                <Copy size={20} className="text-foreground" />
               </View>
               <View className="flex-1">
                 <Text className="text-foreground text-base font-medium">
-                  {isNarrationActive ? 'Stop Listening' : 'Listen'}
+                  Copy
                 </Text>
                 <Text className="text-muted-foreground text-sm">
-                  {isNarrationActive ? 'Exit audio narration mode' : 'Have this document read aloud'}
+                  Copy text to clipboard
                 </Text>
               </View>
             </Pressable>
@@ -152,7 +169,7 @@ export function DocumentActionsSheet({
             {/* Add to Chat action */}
             <Pressable
               testID={`${testID}-add-to-chat`}
-              onPress={() => handleAction(onAddToChatPress)}
+              onPress={() => handleAction(onAddToChat)}
               className="flex-row items-center gap-4 rounded-xl px-4 py-3.5 active:bg-muted"
             >
               <View className="rounded-full bg-primary/15 p-2">
@@ -163,30 +180,7 @@ export function DocumentActionsSheet({
                   Add to Chat
                 </Text>
                 <Text className="text-muted-foreground text-sm">
-                  Discuss this document in a conversation
-                </Text>
-              </View>
-            </Pressable>
-
-            {/* Share action */}
-            <Pressable
-              testID={`${testID}-share`}
-              onPress={() => handleAction(onSharePress)}
-              className="flex-row items-center gap-4 rounded-xl px-4 py-3.5 active:bg-muted"
-            >
-              <View className={isPublic ? 'rounded-full bg-primary/15 p-2' : 'rounded-full bg-muted p-2'}>
-                {isPublic ? (
-                  <Globe size={20} className="text-primary" />
-                ) : (
-                  <Share2 size={20} className="text-foreground" />
-                )}
-              </View>
-              <View className="flex-1">
-                <Text className="text-foreground text-base font-medium">
-                  {isPublic ? 'Shared' : 'Share'}
-                </Text>
-                <Text className="text-muted-foreground text-sm">
-                  {isPublic ? 'Manage or copy share link' : 'Publish and share this document'}
+                  Ask questions about this text
                 </Text>
               </View>
             </Pressable>

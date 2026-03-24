@@ -31,6 +31,8 @@ import { useNarrationState } from '@/components/narration/hooks/useNarrationStat
 import { useAudioPlayback } from '@/components/narration/hooks/useAudioPlayback'
 import { NarrationControlBar, NARRATION_BAR_HEIGHT } from '@/components/narration/NarrationControlBar'
 import { DocumentActionsSheet } from '@/components/documents/DocumentActionsSheet'
+import { TextSelectionSheet } from '@/components/documents/TextSelectionSheet'
+import { ChatPickerSheet } from '@/components/chat/ChatPickerSheet'
 import Animated from 'react-native-reanimated'
 import * as Haptics from 'expo-haptics'
 import * as Clipboard from 'expo-clipboard'
@@ -58,9 +60,17 @@ export default function DocumentRoute() {
   const params = useLocalSearchParams<{ id: string }>()
   const publish = useMutation(api.documents.mutations.publishDocument)
   const unpublish = useMutation(api.documents.mutations.unpublishDocument)
+  const createConversation = useMutation(api.conversations.mutations.create)
+  const createMessage = useMutation(api.chatMessages.mutations.create)
   const [isSharing, setIsSharing] = useState(false)
   const [actionsSheetVisible, setActionsSheetVisible] = useState(false)
   const [webViewUrl, setWebViewUrl] = useState<string | null>(null)
+  const [chatPickerVisible, setChatPickerVisible] = useState(false)
+  const [textSelectionVisible, setTextSelectionVisible] = useState(false)
+  /** Stores the text and root index for the currently selected block */
+  const selectedBlockRef = useRef<{ text: string; rootIndex: number } | null>(null)
+  /** Whether the chat picker was opened for a full doc or an excerpt */
+  const chatContextRef = useRef<{ scope: 'full' | 'excerpt'; excerpt?: string }>({ scope: 'full' })
 
   const handleBack = () => {
     if (router.canGoBack()) {
@@ -280,18 +290,86 @@ export default function DocumentRoute() {
     }
   }
 
-  // Copy section text to clipboard
-  const handleCopySection = useCallback(async (rootChildIndex: number) => {
+  // Extract text from a block and show the text selection sheet
+  const handleLongPressBlock = useCallback((rootChildIndex: number) => {
     if (!parsedAst) return
     const node = parsedAst.children[rootChildIndex]
     if (!node) return
     const text = extractTextFromNode(node)
     if (!text.trim()) return
-    await Clipboard.setStringAsync(text)
+    selectedBlockRef.current = { text, rootIndex: rootChildIndex }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+    setTextSelectionVisible(true)
+  }, [parsedAst])
+
+  // Copy the currently selected block text to clipboard
+  const handleCopySelected = useCallback(async () => {
+    if (!selectedBlockRef.current) return
+    await Clipboard.setStringAsync(selectedBlockRef.current.text)
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
     setCopiedToast(true)
     setTimeout(() => setCopiedToast(false), 1500)
-  }, [parsedAst])
+  }, [])
+
+  // Open chat picker for an excerpt (from long-press)
+  const handleAddExcerptToChat = useCallback(() => {
+    if (!selectedBlockRef.current) return
+    chatContextRef.current = { scope: 'excerpt', excerpt: selectedBlockRef.current.text }
+    setChatPickerVisible(true)
+  }, [])
+
+  // Open chat picker for the full document (from actions sheet)
+  const handleAddFullDocToChat = useCallback(() => {
+    chatContextRef.current = { scope: 'full' }
+    setChatPickerVisible(true)
+  }, [])
+
+  // Handle conversation selection from ChatPickerSheet
+  const handleChatSelected = useCallback(async (conversationId: string) => {
+    if (!document || !id) return
+    const { scope, excerpt } = chatContextRef.current
+    const category = mapDocumentCategoryToCategoryType(document.category)
+
+    try {
+      let targetConversationId: Id<'conversations'>
+
+      if (conversationId === 'new') {
+        targetConversationId = await createConversation({
+          title: document.title,
+          lastMessagePreview: scope === 'excerpt' ? excerpt?.slice(0, 100) : `Added: ${document.title}`,
+        })
+      } else {
+        targetConversationId = conversationId as Id<'conversations'>
+      }
+
+      // Create user message with document context card
+      const content = scope === 'excerpt'
+        ? `I'd like to discuss this excerpt from "${document.title}":\n\n${excerpt}`
+        : `I'd like to discuss this document: ${document.title}`
+
+      await createMessage({
+        conversationId: targetConversationId,
+        role: 'user',
+        content,
+        messageType: 'text',
+        cardData: {
+          card_type: 'document_context',
+          document_id: id,
+          title: document.title,
+          category,
+          scope,
+          ...(scope === 'excerpt' && excerpt ? { excerpt } : {}),
+        },
+        documentId: id as Id<'documents'>,
+      })
+
+      // Navigate to the chat
+      router.push(`/chat/${targetConversationId}`)
+    } catch (err) {
+      console.warn('[DocumentRoute] Add to chat error:', err)
+      Alert.alert('Error', 'Failed to add document to chat. Please try again.')
+    }
+  }, [document, id, createConversation, createMessage, router])
 
   // Get heading slug for a root-level heading node
   const getHeadingSlug = useCallback((rootIndex: number): string | null => {
@@ -308,7 +386,7 @@ export default function DocumentRoute() {
       const narrationIndex = narrationMap.get(rootIndex)
       const headingSlug = nodeType === 'heading' ? getHeadingSlug(rootIndex) : null
 
-      // In narration mode: wrap with highlight + tap-to-skip + long-press-to-copy
+      // In narration mode: wrap with highlight + tap-to-skip + long-press for actions
       if (isNarrationMode && narrationIndex !== undefined) {
         const isActive = narration.state.activeParagraphIndex === narrationIndex
         return (
@@ -318,7 +396,7 @@ export default function DocumentRoute() {
               narration.skipToParagraph(narrationIndex)
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
             }}
-            onLongPress={() => handleCopySection(rootIndex)}
+            onLongPress={() => handleLongPressBlock(rootIndex)}
             onLayout={(e) => {
               paragraphOffsets.current.set(narrationIndex, e.nativeEvent.layout.y)
               if (headingSlug) {
@@ -340,11 +418,11 @@ export default function DocumentRoute() {
         )
       }
 
-      // Normal mode: long-press to copy, track heading positions for internal links
+      // Normal mode: long-press for actions sheet, track heading positions for internal links
       return (
         <Pressable
           testID={`doc-block-${rootIndex}`}
-          onLongPress={() => handleCopySection(rootIndex)}
+          onLongPress={() => handleLongPressBlock(rootIndex)}
           onLayout={headingSlug ? (e) => {
             headingOffsets.current.set(headingSlug, e.nativeEvent.layout.y)
           } : undefined}
@@ -353,7 +431,7 @@ export default function DocumentRoute() {
         </Pressable>
       )
     }
-  }, [isNarrationMode, narrationMap, narration.state.activeParagraphIndex, themeColors.primary, handleCopySection, getHeadingSlug])
+  }, [isNarrationMode, narrationMap, narration.state.activeParagraphIndex, themeColors.primary, handleLongPressBlock, getHeadingSlug])
 
   // Auto-scroll to active paragraph
   useEffect(() => {
@@ -539,6 +617,7 @@ export default function DocumentRoute() {
         onClose={() => setActionsSheetVisible(false)}
         onListenPress={handleToggleNarration}
         onSharePress={handleShare}
+        onAddToChatPress={handleAddFullDocToChat}
         isNarrationActive={isNarrationMode}
         isPublic={document.isPublic}
       />
@@ -547,6 +626,20 @@ export default function DocumentRoute() {
         visible={webViewUrl !== null}
         url={webViewUrl ?? ''}
         onClose={() => setWebViewUrl(null)}
+      />
+
+      <TextSelectionSheet
+        visible={textSelectionVisible}
+        onClose={() => setTextSelectionVisible(false)}
+        onCopy={handleCopySelected}
+        onAddToChat={handleAddExcerptToChat}
+        previewText={selectedBlockRef.current?.text}
+      />
+
+      <ChatPickerSheet
+        visible={chatPickerVisible}
+        onClose={() => setChatPickerVisible(false)}
+        onSelect={handleChatSelected}
       />
 
       {copiedToast && (

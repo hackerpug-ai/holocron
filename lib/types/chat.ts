@@ -213,6 +213,18 @@ export interface DocumentSavedCardData {
   category?: string
 }
 
+// Document context card - document reference added to chat from document viewer
+export interface DocumentContextCardData {
+  card_type: 'document_context'
+  document_id: string
+  title: string
+  category?: string
+  /** 'full' = entire document, 'excerpt' = selected text block */
+  scope: 'full' | 'excerpt'
+  /** The excerpt text when scope is 'excerpt' */
+  excerpt?: string
+}
+
 // Discriminated union of all card data types
 // Also supports arrays of article cards for multiple search results
 export type CardData =
@@ -235,6 +247,7 @@ export type CardData =
   | ToolAddingCardData
   | ToolAddedCardData
   | DocumentSavedCardData
+  | DocumentContextCardData
   | ArticleCardData[]
   | ShopListingCardData[]
 
