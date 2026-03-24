@@ -6,7 +6,6 @@ import type { MessageRole, MessageType } from '@/lib/types/conversations'
 import { formatTimestamp } from '@/lib/formatTimestamp'
 import { ResultCard, type ResultCardData, type CardType } from '@/components/ui/result-card'
 import { DeepResearchLoadingCard } from '@/components/deep-research/DeepResearchLoadingCard'
-import { DeepResearchConfirmationCard } from '@/components/deep-research/DeepResearchConfirmationCard'
 import { Card } from '@/components/ui/card'
 import { AssimilationCard } from '@/components/AssimilationCard'
 import { ShopResultsCard, ShopLoadingCard } from '@/components/shop'
@@ -560,14 +559,14 @@ function renderResultCard(
     )
   }
 
-  // Handle deep research confirmation card - render specialized component
+  // Handle deep research confirmation card - render same loading card as agent-initiated research
   if (cardType === 'deep_research_confirmation') {
     return (
-      <DeepResearchConfirmationCard
+      <DeepResearchLoadingCardWithPolling
         sessionId={(card_data.session_id as string) ?? ''}
         topic={(card_data.topic as string) ?? ''}
-        maxIterations={(card_data.max_iterations as number) ?? 5}
         testID={`${testID}-card`}
+        onFinalResultPress={onFinalResultPress}
       />
     )
   }
