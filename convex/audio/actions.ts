@@ -266,14 +266,6 @@ export const regenerateForDocument = action({
   handler: async (ctx, args) => {
     const voiceId = args.voiceId ?? DEFAULT_VOICE_ID;
 
-    const recent = await ctx.runQuery(api.audio.queries.getMostRecentCreation, {
-      documentId: args.documentId,
-    });
-    const COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
-    if (recent && (Date.now() - recent.createdAt) < COOLDOWN_MS) {
-      throw new Error("Audio was recently generated. Please wait before regenerating.");
-    }
-
     // Delete all existing segments and jobs from DB (storage deleted inside mutation)
     await ctx.runMutation(internal.audio.mutations.deleteAllForDocument, {
       documentId: args.documentId,
