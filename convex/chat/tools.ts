@@ -233,6 +233,29 @@ const toolbelt_search = tool({
 });
 
 /**
+ * assimilate - Deep analysis of a GitHub repository across 5 dimensions
+ */
+const assimilate = tool({
+  description:
+    "Analyze a GitHub repository deeply across 5 dimensions: architecture, patterns, " +
+    "documentation, dependencies, and testing. Creates a coverage plan for approval " +
+    "before starting analysis. Use this when the user wants to deeply understand a " +
+    "GitHub repository's structure, patterns, and quality.",
+  inputSchema: z.object({
+    repositoryUrl: z
+      .string()
+      .describe("GitHub repository URL (e.g., https://github.com/vercel/ai)"),
+    profile: z
+      .enum(["fast", "standard", "thorough"])
+      .optional()
+      .default("standard")
+      .describe(
+        "Analysis depth: fast (~4 iterations), standard (~7), thorough (~12)",
+      ),
+  }),
+});
+
+/**
  * save_document - Save content to the knowledge base
  */
 const save_document = tool({
@@ -254,7 +277,7 @@ const save_document = tool({
 });
 
 /**
- * agentTools - All 13 chat agent tools
+ * agentTools - All 14 chat agent tools
  */
 export const agentTools = {
   search_knowledge_base,
@@ -270,4 +293,5 @@ export const agentTools = {
   whats_new,
   toolbelt_search,
   save_document,
+  assimilate,
 };

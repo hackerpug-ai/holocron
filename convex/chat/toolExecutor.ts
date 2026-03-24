@@ -663,6 +663,66 @@ async function executeSaveDocument(
 }
 
 // ---------------------------------------------------------------------------
+// assimilate
+// ---------------------------------------------------------------------------
+
+async function executeAssimilate(
+  ctx: ActionCtx,
+  args: Record<string, any>,
+  conversationId: Id<"conversations">,
+): Promise<AgentResponse> {
+  const repositoryUrl: string = args.repositoryUrl ?? "";
+  const profile: string = args.profile ?? "standard";
+
+  if (!repositoryUrl) {
+    return {
+      content: "Please provide a GitHub repository URL.",
+      messageType: "text",
+    };
+  }
+
+  try {
+    const result: any = await ctx.runMutation(
+      api.assimilate.mutations.startAssimilation,
+      { repositoryUrl, profile, conversationId },
+    );
+
+    if (result.existing) {
+      return {
+        content: `Assimilation already in progress for this repository (status: ${result.status})`,
+        messageType: "result_card",
+        cardData: {
+          card_type: "assimilation_started",
+          session_id: result.sessionId,
+          repository_url: repositoryUrl,
+          profile,
+          status: result.status,
+          existing: true,
+        },
+      };
+    }
+
+    return {
+      content: `Started assimilation of ${repositoryUrl} — generating coverage plan...`,
+      messageType: "result_card",
+      cardData: {
+        card_type: "assimilation_started",
+        session_id: result.sessionId,
+        repository_url: repositoryUrl,
+        profile,
+        status: result.status,
+        existing: false,
+      },
+    };
+  } catch (error) {
+    return {
+      content: `Assimilation failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+      messageType: "error",
+    };
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Main dispatcher
 // ---------------------------------------------------------------------------
 
@@ -717,6 +777,9 @@ export async function executeAgentTool(
 
     case "save_document":
       return executeSaveDocument(ctx, toolArgs);
+
+    case "assimilate":
+      return executeAssimilate(ctx, toolArgs, conversationId);
 
     default:
       return {
