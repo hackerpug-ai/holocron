@@ -86,12 +86,16 @@ function narrationReducer(state: NarrationState, action: NarrationAction): Narra
     case 'TICK':
       return { ...state, currentTimeSeconds: action.currentTimeSeconds }
 
-    case 'SKIP_TO':
+    case 'SKIP_TO': {
+      const canPlay = state.status === 'playing' || state.status === 'paused' ||
+        state.status === 'ready' || state.status === 'partially_ready'
       return {
         ...state,
+        status: canPlay ? 'playing' : state.status,
         activeParagraphIndex: action.paragraphIndex,
         currentTimeSeconds: 0,
       }
+    }
 
     case 'SET_SPEED':
       return { ...state, playbackSpeed: action.speed }
