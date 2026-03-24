@@ -15,7 +15,7 @@ import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-g
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useEffect } from 'react'
 import { Text } from '@/components/ui/text'
-import { MessageSquarePlus } from '@/components/ui/icons'
+import { MessageSquarePlus, Megaphone } from '@/components/ui/icons'
 import * as Haptics from 'expo-haptics'
 
 // Import Copy icon - need to add it
@@ -33,6 +33,7 @@ export interface TextSelectionSheetProps {
   onClose: () => void
   onCopy: () => void
   onAddToChat: () => void
+  onListen?: () => void
   /** Preview of the selected text */
   previewText?: string
   testID?: string
@@ -53,6 +54,7 @@ export function TextSelectionSheet({
   onClose,
   onCopy,
   onAddToChat,
+  onListen,
   previewText,
   testID = 'text-selection-sheet',
 }: TextSelectionSheetProps) {
@@ -165,6 +167,27 @@ export function TextSelectionSheet({
                 </Text>
               </View>
             </Pressable>
+
+            {/* Listen action */}
+            {onListen && (
+              <Pressable
+                testID={`${testID}-listen`}
+                onPress={() => handleAction(onListen)}
+                className="flex-row items-center gap-4 rounded-xl px-4 py-3.5 active:bg-muted"
+              >
+                <View className="rounded-full bg-primary/15 p-2">
+                  <Megaphone size={20} className="text-primary" />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-foreground text-base font-medium">
+                    Listen
+                  </Text>
+                  <Text className="text-muted-foreground text-sm">
+                    Read this section aloud
+                  </Text>
+                </View>
+              </Pressable>
+            )}
 
             {/* Add to Chat action */}
             <Pressable

@@ -352,6 +352,37 @@ export default function DocumentRoute() {
     setTimeout(() => setCopiedToast(false), 1500)
   }, [])
 
+  // Start narration from the selected block (from long-press)
+  const handleListenFromBlock = useCallback(async () => {
+    if (!selectedBlockRef.current) return
+    const narrationIndex = narrationMap.get(selectedBlockRef.current.rootIndex)
+    if (narrationIndex === undefined) return
+
+    if (!isNarrationMode) {
+      // Enter narration mode and skip to the selected paragraph
+      if (generatingRef.current) return
+      generatingRef.current = true
+      narration.enterNarrationMode()
+      if (documentId) {
+        try {
+          await generateAction({ documentId })
+          narration.skipToParagraph(narrationIndex)
+        } catch (err) {
+          console.error('[Narration] Generation failed:', err)
+          Alert.alert('Narration Error', 'Failed to generate audio. Please try again.')
+          narration.exitNarrationMode()
+        } finally {
+          generatingRef.current = false
+        }
+      } else {
+        generatingRef.current = false
+      }
+    } else {
+      // Already in narration mode — just skip to the paragraph
+      narration.skipToParagraph(narrationIndex)
+    }
+  }, [narrationMap, isNarrationMode, narration, documentId, generateAction])
+
   // Open chat picker for an excerpt (from long-press)
   const handleAddExcerptToChat = useCallback(() => {
     if (!selectedBlockRef.current) return
@@ -466,6 +497,7 @@ export default function DocumentRoute() {
 
       // Normal mode: long-press for actions sheet, track heading positions for internal links
       const isHighlighted = highlightedBlock === rootIndex
+      const isSelected = textSelectionVisible && selectedBlockRef.current?.rootIndex === rootIndex
 
       const block = (
         <Pressable
@@ -478,7 +510,16 @@ export default function DocumentRoute() {
             }
           }}
         >
-          {child}
+          <Animated.View
+            style={{
+              backgroundColor: isSelected ? `${themeColors.primary}14` : 'transparent',
+              borderLeftWidth: isSelected ? 2 : 0,
+              borderLeftColor: isSelected ? themeColors.primary : 'transparent',
+              paddingLeft: isSelected ? 8 : 0,
+            }}
+          >
+            {child}
+          </Animated.View>
         </Pressable>
       )
 
@@ -493,7 +534,7 @@ export default function DocumentRoute() {
 
       return block
     }
-  }, [isNarrationMode, narrationMap, narration.state.activeParagraphIndex, themeColors.primary, handleLongPressBlock, getHeadingSlug, highlightedBlock, highlightOpacity])
+  }, [isNarrationMode, narrationMap, narration.state.activeParagraphIndex, themeColors.primary, handleLongPressBlock, getHeadingSlug, highlightedBlock, highlightOpacity, textSelectionVisible])
 
   // Auto-scroll to active paragraph
   useEffect(() => {
@@ -695,6 +736,7 @@ export default function DocumentRoute() {
         onClose={() => setTextSelectionVisible(false)}
         onCopy={handleCopySelected}
         onAddToChat={handleAddExcerptToChat}
+        onListen={handleListenFromBlock}
         previewText={selectedBlockRef.current?.text}
       />
 
