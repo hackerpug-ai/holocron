@@ -143,6 +143,7 @@ export function useAudioPlayback(
 
     // New segment requested: release previous, then create the new player
     let cancelled = false
+    const targetIndex = activeParagraphIndex
 
     function loadAndPlay() {
       setIsLoading(true)
@@ -188,6 +189,9 @@ export function useAudioPlayback(
 
           // Auto-advance when a segment finishes playing
           if (playbackStatus.didJustFinish) {
+            // Guard: only auto-advance if still on the segment this listener was created for
+            if (narrationRef.current.state.activeParagraphIndex !== targetIndex) return
+
             const { activeParagraphIndex: currentIndex, totalParagraphs } =
               narrationRef.current.state
 
