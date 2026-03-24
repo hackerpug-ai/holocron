@@ -608,7 +608,7 @@ export const generate = action({
     days: v.optional(v.number()),
     force: v.optional(v.boolean()),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<any> => {
     return await ctx.runAction(internal.whatsNew.actions.generateDailyReport, {
       days: args.days,
       force: args.force,

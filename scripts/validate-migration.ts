@@ -192,11 +192,11 @@ async function validateForeignKeys(): Promise<void> {
     const messages = await cvx!.query(api["chatMessages/index"].list);
     const conversations = await cvx!.query(api["conversations/index"].list);
     const conversationIds = new Set(
-      conversations.map((c) => c._id)
+      conversations.map((c: any) => c._id)
     );
 
     const orphanedMessages = messages.filter(
-      (m) => !conversationIds.has(m.conversationId)
+      (m: any) => !conversationIds.has(m.conversationId)
     );
 
     results.push({
@@ -233,11 +233,11 @@ async function validateForeignKeys(): Promise<void> {
     const iterations = await cvx!.query(api["researchIterations/queries"].list);
     const sessions = await cvx!.query(api["researchSessions/queries"].list);
     const sessionIds = new Set(
-      sessions.map((s) => s._id)
+      sessions.map((s: any) => s._id)
     );
 
     const orphanedIterations = iterations.filter(
-      (i) => !sessionIds.has(i.sessionId)
+      (i: any) => !sessionIds.has(i.sessionId)
     );
 
     results.push({
@@ -274,11 +274,11 @@ async function validateForeignKeys(): Promise<void> {
     const iterations = await cvx!.query(api["deepResearchIterations/queries"].list);
     const sessions = await cvx!.query(api["deepResearchSessions/queries"].list);
     const sessionIds = new Set(
-      sessions.map((s) => s._id)
+      sessions.map((s: any) => s._id)
     );
 
     const orphanedIterations = iterations.filter(
-      (i) => !sessionIds.has(i.sessionId)
+      (i: any) => !sessionIds.has(i.sessionId)
     );
 
     results.push({
@@ -315,11 +315,11 @@ async function validateForeignKeys(): Promise<void> {
     const deepSessions = await cvx!.query(api["deepResearchSessions/queries"].list);
     const conversations = await cvx!.query(api["conversations/index"].list);
     const conversationIds = new Set(
-      conversations.map((c) => c._id)
+      conversations.map((c: any) => c._id)
     );
 
     const orphanedDeepSessions = deepSessions.filter(
-      (s) => !conversationIds.has(s.conversationId)
+      (s: any) => !conversationIds.has(s.conversationId)
     );
 
     results.push({
@@ -365,7 +365,7 @@ async function validateEmbeddingDimensions(): Promise<void> {
 
     // Filter documents with embeddings
     const docsWithEmbeddings = documents.filter(
-      (doc) => doc.embedding && doc.embedding.length > 0
+      (doc: any) => doc.embedding && doc.embedding.length > 0
     );
 
     if (docsWithEmbeddings.length === 0) {
@@ -383,7 +383,7 @@ async function validateEmbeddingDimensions(): Promise<void> {
 
     // Check for invalid dimensions
     const invalidDocs = docsWithEmbeddings.filter(
-      (doc) => doc.embedding!.length !== 1536
+      (doc: any) => doc.embedding!.length !== 1536
     );
 
     // Sample first doc with embedding

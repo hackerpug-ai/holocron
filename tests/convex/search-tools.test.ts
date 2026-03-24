@@ -7,7 +7,7 @@
  * - jinaReaderTool (deep content extraction from URLs)
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 describe('US-777: Search Tools Implementation', () => {
   /**
@@ -118,9 +118,9 @@ describe('US-777: Search Tools Implementation', () => {
       expect(tools.jinaReaderTool.execute).toBeDefined();
 
       // Execute functions should be async functions
-      expect(tools.exaSearchTool.execute.constructor.name).toBe('AsyncFunction');
-      expect(tools.jinaSearchTool.execute.constructor.name).toBe('AsyncFunction');
-      expect(tools.jinaReaderTool.execute.constructor.name).toBe('AsyncFunction');
+      expect(tools.exaSearchTool.execute!.constructor.name).toBe('AsyncFunction');
+      expect(tools.jinaSearchTool.execute!.constructor.name).toBe('AsyncFunction');
+      expect(tools.jinaReaderTool.execute!.constructor.name).toBe('AsyncFunction');
     });
   });
 });

@@ -17,6 +17,11 @@ interface CategoryBadgeProps extends Omit<BadgeProps, 'variant'> {
 
 const categoryConfig: Record<CategoryType, { label: string; variant: BadgeProps['variant'] }> = {
   research: { label: 'Research', variant: 'default' },
+  'deep-research': { label: 'Deep Research', variant: 'default' },
+  factual: { label: 'Factual', variant: 'secondary' },
+  academic: { label: 'Academic', variant: 'secondary' },
+  entity: { label: 'Entity', variant: 'outline' },
+  url: { label: 'URL', variant: 'outline' },
   general: { label: 'General', variant: 'outline' },
   patterns: { label: 'Patterns', variant: 'secondary' },
   business: { label: 'Business', variant: 'secondary' },

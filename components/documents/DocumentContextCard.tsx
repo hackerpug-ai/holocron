@@ -66,11 +66,11 @@ export function DocumentContextCard({
           </View>
         </View>
 
-        {/* Snippet preview (2 lines max) */}
-        {data.snippet ? (
+        {/* Excerpt preview (2 lines max) */}
+        {data.excerpt ? (
           <View className="px-6 pt-1">
             <Text className="text-muted-foreground text-sm" numberOfLines={2}>
-              {data.snippet}
+              {data.excerpt}
             </Text>
           </View>
         ) : null}

@@ -14,6 +14,11 @@
  */
 export const DOCUMENT_CATEGORIES = [
   'research',
+  'deep-research',
+  'factual',
+  'academic',
+  'entity',
+  'url',
   'general',
   'patterns',
   'business',
@@ -44,6 +49,11 @@ export const CATEGORY_METADATA: Record<
   { label: string; color: 'blue' | 'green' | 'purple' | 'orange' | 'pink' | 'yellow' | 'cyan' | 'red' | 'gray' }
 > = {
   research: { label: 'Research', color: 'blue' },
+  'deep-research': { label: 'Deep Research', color: 'purple' },
+  factual: { label: 'Factual', color: 'green' },
+  academic: { label: 'Academic', color: 'cyan' },
+  entity: { label: 'Entity', color: 'orange' },
+  url: { label: 'URL', color: 'pink' },
   general: { label: 'General', color: 'gray' },
   patterns: { label: 'Patterns', color: 'purple' },
   business: { label: 'Business', color: 'green' },

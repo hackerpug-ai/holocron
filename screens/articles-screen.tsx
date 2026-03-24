@@ -14,6 +14,11 @@ import { ScrollView, View, type ViewProps } from "react-native";
 /** Category display labels */
 const categoryLabels: Record<CategoryType, string> = {
   research: "Research",
+  "deep-research": "Deep Research",
+  factual: "Factual",
+  academic: "Academic",
+  entity: "Entity",
+  url: "URL",
   general: "General",
   patterns: "Patterns",
   business: "Business",

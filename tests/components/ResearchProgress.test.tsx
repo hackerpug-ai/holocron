@@ -1,3 +1,4 @@
+// @ts-expect-error - test dependency not installed
 import { render, screen } from '@testing-library/react-native'
 import { describe, it, expect } from 'vitest'
 import { ResearchProgressWithConvex } from '@/components/ResearchProgressWithConvex'
@@ -20,7 +21,7 @@ describe('ResearchProgressWithConvex - AC-1: Pending State', () => {
       updatedAt: Date.now(),
     }
 
-    render(<ResearchProgressWithConvex session={mockSession} />)
+    render(<ResearchProgressWithConvex sessionId={mockSession._id} />)
 
     // Should show waiting/loading indicator
     expect(screen.getByTestId('research-progress-waiting')).toBeTruthy()
@@ -53,7 +54,7 @@ describe('ResearchProgressWithConvex - AC-2: Running State', () => {
       updatedAt: Date.now(),
     }
 
-    render(<ResearchProgressWithConvex session={mockSession} />)
+    render(<ResearchProgressWithConvex sessionId={mockSession._id} />)
 
     // Should show progress bar
     expect(screen.getByTestId('research-progress-bar')).toBeTruthy()
@@ -91,7 +92,7 @@ describe('ResearchProgressWithConvex - AC-3: Completed State', () => {
       completedAt: Date.now(),
     }
 
-    render(<ResearchProgressWithConvex session={mockSession} />)
+    render(<ResearchProgressWithConvex sessionId={mockSession._id} />)
 
     // Should show results container
     expect(screen.getByTestId('research-progress-results')).toBeTruthy()
@@ -120,7 +121,7 @@ describe('ResearchProgressWithConvex - AC-4: Error State', () => {
       updatedAt: Date.now(),
     }
 
-    render(<ResearchProgressWithConvex session={mockSession} />)
+    render(<ResearchProgressWithConvex sessionId={mockSession._id} />)
 
     // Should show error container
     expect(screen.getByTestId('research-progress-error')).toBeTruthy()

@@ -20,15 +20,15 @@ export const check = action({
       )
     ),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<any> => {
     // Call the internal checkAllSubscriptions action
-    const results = await ctx.runAction(internal.subscriptions.internal.checkAllSubscriptions);
+    const results: any = await ctx.runAction(internal.subscriptions.internal.checkAllSubscriptions);
 
     // Filter by source type if specified
     if (args.sourceType) {
       // Get sources of the specified type
-      const sources = await ctx.runQuery(internal.subscriptions.internal.getActiveSources);
-      const filteredSources = sources.filter((s: typeof sources[number]) => s.sourceType === args.sourceType);
+      const sources: any = await ctx.runQuery(internal.subscriptions.internal.getActiveSources);
+      const filteredSources: any = sources.filter((s: any) => s.sourceType === args.sourceType);
 
       // For now, return results with a note about filtering
       // A more sophisticated implementation would track results per source
