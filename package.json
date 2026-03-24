@@ -28,7 +28,8 @@
     "storybook": "STORYBOOK_ENABLED=true EXPO_PUBLIC_STORYBOOK_ENABLED=true expo start --dev-client --clear",
     "storybook:ios": "STORYBOOK_ENABLED=true EXPO_PUBLIC_STORYBOOK_ENABLED=true expo start --dev-client --ios --clear",
     "storybook:android": "STORYBOOK_ENABLED=true EXPO_PUBLIC_STORYBOOK_ENABLED=true expo start --dev-client --android --clear",
-    "benchmark-search": "npx tsx scripts/benchmark-search.ts"
+    "benchmark-search": "npx tsx scripts/benchmark-search.ts",
+    "prepare": "husky"
   },
   "dependencies": {
     "@ai-sdk/cohere": "^3.0.25",
@@ -136,9 +137,16 @@
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-native": "^5.0.0",
     "globals": "^17.4.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
     "storybook": "^10.2.19",
     "typescript": "~5.9.2",
     "vitest": "^4.0.18"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx}": [
+      "eslint --fix"
+    ]
   },
   "private": true
 }

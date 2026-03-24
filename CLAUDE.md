@@ -6,6 +6,21 @@
 - Write a descriptive commit message that explains **what** changed and **why**, not just "save" or "wip".
 - Follow conventional commit format: `feat:`, `fix:`, `refactor:`, `chore:`, `docs:`, etc.
 
+## Pre-commit Hooks (CRITICAL)
+Pre-commit hooks run **lint-staged (eslint)**, **TypeScript type-check (`tsc --noEmit`)**, and **tests (`vitest run`)** on every commit. These gates are non-negotiable.
+
+## Agent Commit Discipline (Orchestrators & Subagents)
+
+**Every agent MUST leave the codebase in a committable state.** This is the highest priority after correctness.
+
+- **Commit early and often.** Each meaningful unit of work (feature, fix, refactor) gets its own commit. Do not batch unrelated changes.
+- **Fix what you break.** If your changes introduce lint errors, type errors, or test failures — fix them before committing. The pre-commit hooks will reject broken code.
+- **Clean up existing issues when encountered.** If you touch a file that has pre-existing lint or type errors, fix them. Leave every file better than you found it.
+- **Orchestrators: scope cleanup work for subagents.** If fixing lint/type/test issues would be a distraction from the main task, spawn a dedicated subagent to handle the cleanup. Do not let broken state block commits.
+- **Never skip hooks.** Do not use `--no-verify`. If hooks fail, the code needs fixing — that IS the work.
+- **If a commit fails, diagnose and fix.** Read the error output. Fix the lint error, type error, or failing test. Then commit again. This may require touching files outside your immediate scope — that's expected and encouraged.
+- **Proactive hygiene.** When you see dead imports, unused variables, or obvious type issues in files you're working in, clean them up. Small improvements compound.
+
 # React & React Native Rules
 
 This document consolidates all React and React Native development rules, patterns, and standards.

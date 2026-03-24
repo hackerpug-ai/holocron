@@ -1,4 +1,3 @@
-#!/usr/bin/env sh
-if [ -n "$(git diff --cached --name-only | grep '^holocron-mcp/')" ]; then
-  cd holocron-mcp && bunx lint-staged
-fi
+pnpm exec lint-staged
+pnpm tsc --noEmit
+pnpm test
