@@ -44,11 +44,11 @@ import {
   AssimilationSessionIdSchema,
   CheckSubscriptionsSchema,
   DocumentIdSchema,
+  GetShopListingsSchema,
+  GetShopSessionSchema,
   GetSubscriptionContentSchema,
   GetSubscriptionFiltersSchema,
   GetToolSchema,
-  GetShopSessionSchema,
-  GetShopListingsSchema,
   GetWhatsNewSchema,
   ListSubscriptionsSchema,
   ListToolsSchema,
@@ -56,15 +56,13 @@ import {
   RejectAssimilationPlanSchema,
   RemoveSubscriptionSchema,
   RemoveToolSchema,
-  ResearchTopicSchema,
   SearchSchema,
   SearchToolsSchema,
   SearchVectorSchema,
   SessionIdSchema,
   SetSubscriptionFilterSchema,
-  ShopProductsSchema,
-  SimpleResearchSchema,
   ShareDocumentSchema,
+  ShopProductsSchema,
   StartAssimilationSchema,
   SteerAssimilationSchema,
   StoreDocumentSchema,
@@ -72,12 +70,20 @@ import {
   UpdateDocumentSchema,
   UpdateToolSchema,
 } from "../config/validation.ts";
+import {
+  approveAssimilationPlan,
+  cancelAssimilation,
+  getAssimilationStatus,
+  rejectAssimilationPlan,
+  startAssimilation,
+  steerAssimilation,
+} from "../tools/assimilation.ts";
 import { hybridSearch } from "../tools/hybrid-search.ts";
 // Tool implementations
-import { researchTopic, simpleResearch } from "../tools/research.ts";
 import { getDocument, listDocuments } from "../tools/retrieval.ts";
 import { searchFts, searchVector } from "../tools/search.ts";
 import { getResearchSession, searchResearch } from "../tools/session.ts";
+import { getShopListings, getShopSession, shopProducts } from "../tools/shop.ts";
 import { shareDocument, storeDocument, updateDocument } from "../tools/storage.ts";
 import {
   addSubscription,
@@ -89,63 +95,18 @@ import {
   setSubscriptionFilter,
 } from "../tools/subscriptions.ts";
 import {
-  storeTool,
-  searchTools,
   getTool,
   listTools,
-  updateTool,
   removeTool,
+  searchTools,
+  storeTool,
+  updateTool,
 } from "../tools/toolbelt.ts";
-import {
-  shopProducts,
-  getShopSession,
-  getShopListings,
-} from "../tools/shop.ts";
-import {
-  getWhatsNewReport,
-  listWhatsNewReports,
-} from "../tools/whats-new.ts";
-import {
-  startAssimilation,
-  approveAssimilationPlan,
-  rejectAssimilationPlan,
-  getAssimilationStatus,
-  cancelAssimilation,
-  steerAssimilation,
-} from "../tools/assimilation.ts";
+import { getWhatsNewReport, listWhatsNewReports } from "../tools/whats-new.ts";
 
 /**
  * Create Mastra MCP tools from existing implementations
  */
-
-const researchTopicTool = createTool({
-  id: "research_topic",
-  description:
-    "Start deep research on a topic with iterative refinement and streaming progress updates",
-  inputSchema: ResearchTopicSchema,
-  execute: async (input) => {
-    try {
-      return await researchTopic(holocronClient, input);
-    } catch (error) {
-      console.error(formatError(error));
-      throw error;
-    }
-  },
-});
-
-const simpleResearchTool = createTool({
-  id: "simple_research",
-  description: "Quick single-iteration research without streaming",
-  inputSchema: SimpleResearchSchema,
-  execute: async (input) => {
-    try {
-      return await simpleResearch(holocronClient, input);
-    } catch (error) {
-      console.error(formatError(error));
-      throw error;
-    }
-  },
-});
 
 const getResearchSessionTool = createTool({
   id: "get_research_session",
@@ -233,7 +194,8 @@ const updateDocumentTool = createTool({
 
 const shareDocumentTool = createTool({
   id: "share_document",
-  description: "Publish or unpublish a document for public sharing via URL. Set isPublic=true to publish and get a shareable link, isPublic=false to retract.",
+  description:
+    "Publish or unpublish a document for public sharing via URL. Set isPublic=true to publish and get a shareable link, isPublic=false to retract.",
   inputSchema: ShareDocumentSchema,
   execute: async (input) => {
     try {
@@ -616,7 +578,8 @@ const getAssimilationStatusTool = createTool({
 
 const cancelAssimilationTool = createTool({
   id: "cancel_assimilation",
-  description: "Cancel an active assimilation session. Cannot cancel sessions that are already completed, failed, cancelled, or rejected.",
+  description:
+    "Cancel an active assimilation session. Cannot cancel sessions that are already completed, failed, cancelled, or rejected.",
   inputSchema: AssimilationSessionIdSchema,
   execute: async (input) => {
     try {
@@ -653,8 +616,6 @@ const server = new MCPServer({
   version: "1.0.0",
   description: "Unified Holocron MCP server with Bun + Mastra + Convex streaming",
   tools: {
-    researchTopicTool,
-    simpleResearchTool,
     getResearchSessionTool,
     searchResearchTool,
     searchFtsTool,

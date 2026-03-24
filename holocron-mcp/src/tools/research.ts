@@ -4,12 +4,15 @@
  */
 
 import type { HolocronConvexClient } from "../convex/client.ts";
-import type { ResearchSession, Document } from "../convex/types.ts";
+import type { Document, ResearchSession } from "../convex/types.ts";
 import { formatFinalResults } from "../streaming/formatter.ts";
 import { streamProgress, subscriptionManager } from "../streaming/subscription-manager.ts";
 
 /**
  * Deep research with streaming progress updates
+ *
+ * @deprecated Delegates to Convex backend and may timeout. Use local research
+ * with Jina/Exa tools and `mcp__holocron__storeDocument` for storage instead.
  */
 export interface ResearchTopicInput {
   topic: string;
@@ -31,6 +34,10 @@ export interface ResearchTopicOutput {
   };
 }
 
+/**
+ * @deprecated Delegates to Convex backend and may timeout. Use local research
+ * with Jina/Exa tools and `mcp__holocron__storeDocument` for storage instead.
+ */
 export async function researchTopic(
   client: HolocronConvexClient,
   input: ResearchTopicInput
@@ -70,7 +77,7 @@ export async function researchTopic(
 
   // Poll for completion
   let session: ResearchSession | null = null;
-  const maxWaitMs = 600000; // 10 minutes
+  const maxWaitMs = 60000; // 60 seconds (safety valve — prefer local research tools)
   const pollIntervalMs = 2000;
   const startTime = Date.now();
 
