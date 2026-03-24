@@ -172,6 +172,9 @@ export default function AssimilationPlanRoute() {
     )
   }
 
+  // TypeScript narrowing: after loading/null/invalid guards above, session is defined
+  if (!session) return null
+
   const isPendingApproval = session.status === 'pending_approval'
   const bottomBarHeight = isPendingApproval ? (showRejectInput ? 180 : 100) : 0
 

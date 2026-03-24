@@ -1,9 +1,10 @@
 #!/usr/bin/env sh
 
-# Lint staged files (eslint --fix on changed .ts/.tsx/.js/.jsx files)
+# 1. Lint staged files (eslint --fix on changed .ts/.tsx/.js/.jsx files)
 pnpm exec lint-staged
 
-# Tests — only if source or test files are staged
-if git diff --cached --name-only | grep -qE '\.(ts|tsx|js|jsx)$'; then
-  pnpm test
-fi
+# 2. TypeScript type-check (full project — catches cross-file breakage)
+pnpm tsc --noEmit
+
+# 3. Tests
+pnpm test

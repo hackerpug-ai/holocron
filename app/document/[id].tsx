@@ -160,7 +160,15 @@ export default function DocumentRoute() {
     isNarrationMode && documentId ? { documentId } : 'skip'
   )
 
-  const { isLoading: isSegmentLoading } = useAudioPlayback(segments, narration, {
+  const audioSegments: import('@/components/narration/hooks/useAudioPlayback').AudioSegment[] = segments.map(s => ({
+    _id: s._id,
+    paragraphIndex: s.paragraphIndex,
+    status: s.status,
+    audioUrl: s.audioUrl,
+    durationMs: s.durationMs ?? undefined,
+  }))
+
+  const { isLoading: isSegmentLoading } = useAudioPlayback(audioSegments, narration, {
     title: document?.title ?? 'Narration',
   })
 
@@ -628,6 +636,9 @@ export default function DocumentRoute() {
       </ScreenLayout>
     )
   }
+
+  // TypeScript narrowing: after loading/null/invalid guards above, document is defined
+  if (!document) return null
 
   const category = mapDocumentCategoryToCategoryType(document.category)
 

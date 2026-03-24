@@ -6,20 +6,26 @@
 - Write a descriptive commit message that explains **what** changed and **why**, not just "save" or "wip".
 - Follow conventional commit format: `feat:`, `fix:`, `refactor:`, `chore:`, `docs:`, etc.
 
-## Pre-commit Hooks (CRITICAL)
-Pre-commit hooks run **lint-staged (eslint --fix)** and **tests (`vitest run`)** on every commit. These gates are non-negotiable. Run `pnpm typecheck` manually to check TypeScript errors — this is not in the pre-commit hook because `tsc --noEmit` checks the entire project.
+## Pre-commit Hooks (CRITICAL — ALL THREE MUST PASS)
+Pre-commit hooks run three gates on every commit:
+1. **`lint-staged`** — `eslint --fix` on staged `.ts/.tsx/.js/.jsx` files
+2. **`tsc --noEmit`** — Full project TypeScript type-check
+3. **`vitest run`** — Full test suite
+
+If ANY gate fails, the commit is rejected. This is by design. **Do not work around it.**
 
 ## Agent Commit Discipline (Orchestrators & Subagents)
 
-**Every agent MUST leave the codebase in a committable state.** This is the highest priority after correctness.
+**Completing work without committing is a FAILURE, not a success.** A Claude Code `SubagentStop` hook enforces this — agents with uncommitted changes will be told to fix and commit before they can finish.
 
-- **Commit early and often.** Each meaningful unit of work (feature, fix, refactor) gets its own commit. Do not batch unrelated changes.
-- **Fix what you break.** If your changes introduce lint errors, type errors, or test failures — fix them before committing. The pre-commit hooks will reject broken code.
-- **Clean up existing issues when encountered.** If you touch a file that has pre-existing lint or type errors, fix them. Leave every file better than you found it.
-- **Orchestrators: scope cleanup work for subagents.** If fixing lint/type/test issues would be a distraction from the main task, spawn a dedicated subagent to handle the cleanup. Do not let broken state block commits.
-- **Never skip hooks.** Do not use `--no-verify`. If hooks fail, the code needs fixing — that IS the work.
-- **If a commit fails, diagnose and fix.** Read the error output. Fix the lint error, type error, or failing test. Then commit again. This may require touching files outside your immediate scope — that's expected and encouraged.
-- **Proactive hygiene.** When you see dead imports, unused variables, or obvious type issues in files you're working in, clean them up. Small improvements compound.
+### The Contract
+1. **You MUST commit your work.** Reporting "done" with uncommitted changes is not acceptable. The SubagentStop hook will catch this and send you back to fix it.
+2. **Fix what the hooks catch.** If `tsc`, `eslint`, or `vitest` fail on commit, that is YOUR work to fix — not a reason to stop. Read the errors, fix them, commit again.
+3. **Never skip hooks.** Do not use `--no-verify`. Ever. For any reason.
+4. **Scope is flexible.** If fixing a hook failure requires touching files outside your immediate task, do it. If it's a large cleanup, spawn a subagent for it. Either way, get to a green commit.
+5. **Commit early and often.** Each meaningful unit of work gets its own commit. Don't batch unrelated changes.
+6. **Clean up what you touch.** If you edit a file with pre-existing lint/type errors, fix them. Leave every file better than you found it.
+7. **Orchestrators: plan for commit success.** When scoping work for subagents, include "pass all hooks and commit" as an explicit requirement, not an afterthought.
 
 # React & React Native Rules
 
