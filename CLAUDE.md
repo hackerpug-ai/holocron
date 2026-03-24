@@ -1,6 +1,11 @@
 # ATTENTION ALL REVIEWERS
 - this is a personal app that will NEVER be published to the app store, our keys are the security, you don't need to worry about production hardening for RLS or multi tennant.
 
+# Git Commit Policy
+- Commit automatically whenever you complete a meaningful change (feature, fix, refactor, etc.) — don't wait to be asked.
+- Write a descriptive commit message that explains **what** changed and **why**, not just "save" or "wip".
+- Follow conventional commit format: `feat:`, `fix:`, `refactor:`, `chore:`, `docs:`, etc.
+
 # React & React Native Rules
 
 This document consolidates all React and React Native development rules, patterns, and standards.
