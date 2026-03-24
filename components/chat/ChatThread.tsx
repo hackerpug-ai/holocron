@@ -50,7 +50,7 @@ export function ChatThread({
   streamingMessageId = null,
   onDocumentContextNavigate,
 }: ChatThreadProps) {
-  const { width: screenWidth } = useWindowDimensions()
+  const { width: _screenWidth } = useWindowDimensions()
 
   // Bottom sheet state for message actions
   const [actionSheetVisible, setActionSheetVisible] = useState(false)

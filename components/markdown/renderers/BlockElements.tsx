@@ -123,7 +123,7 @@ interface ListItemProps {
 }
 
 export const ListItemRenderer = React.memo(
-  ({ node, index, parentOrdered, children, testID }: ListItemProps) => {
+  ({ node: _node, index, parentOrdered, children, testID }: ListItemProps) => {
     const { spacing, colors } = useTheme()
     const styles = useStyles()
 

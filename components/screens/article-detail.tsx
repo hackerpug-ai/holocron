@@ -352,7 +352,7 @@ export function ArticleDetail({
 
   // Wrap each root-level MDAST child with narration highlight and/or copy support
   const wrapRootChild = useMemo(() => {
-    return (child: React.ReactNode, rootIndex: number, nodeType: string) => {
+    return (child: React.ReactNode, rootIndex: number, _nodeType: string) => {
       const narrationIndex = narrationMap.get(rootIndex);
 
       // In narration mode: wrap with highlight + tap-to-skip + long-press-to-copy

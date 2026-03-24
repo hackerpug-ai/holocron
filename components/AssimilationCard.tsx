@@ -69,7 +69,6 @@ export function AssimilationCard({
 }: AssimilationCardProps) {
   const {
     repositoryName,
-    repositoryUrl,
     primaryLanguage,
     stars,
     sophisticationRating,

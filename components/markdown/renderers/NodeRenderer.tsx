@@ -1,5 +1,4 @@
-import type { Content, Root, Parent } from 'mdast'
-import type { CalloutNode } from '../parsers/callout-plugin'
+import type { Content } from 'mdast'
 import {
   Blockquote,
   Code,
@@ -326,10 +325,6 @@ function getNodeKey(node: Content, index: number): string {
 /**
  * Check if a node is a table header row
  */
-function isHeaderRow(node: any): boolean {
-  return node.type === 'tableRow' && Array.isArray(node.children) && node.children.length > 0
-}
-
 /**
  * Process table to mark header rows
  */

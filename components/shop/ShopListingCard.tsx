@@ -23,14 +23,11 @@ import {
   CheckCircle2,
   XCircle,
 } from '@/components/ui/icons'
-import { spacing, radius } from '@/lib/theme'
 import { useTheme } from '@/hooks/use-theme'
 import Animated, {
   useAnimatedStyle,
   withSpring,
   useSharedValue,
-  withSequence,
-  withTiming,
 } from 'react-native-reanimated'
 
 export interface ShopListingCardProps {
@@ -95,7 +92,7 @@ function calculateDiscount(price: number, originalPrice: number): number {
 
 
 export function ShopListingCard({
-  listingId,
+  listingId: _listingId,
   title,
   price,
   originalPrice,

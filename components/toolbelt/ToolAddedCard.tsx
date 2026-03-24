@@ -5,7 +5,7 @@
 import { View, Pressable, Linking } from 'react-native'
 import { Text } from '@/components/ui/text'
 import { Card } from '@/components/ui/card'
-import { Wrench, Check, ExternalLink, Tag } from '@/components/ui/icons'
+import { Check, ExternalLink, Tag } from '@/components/ui/icons'
 import { useTheme } from '@/hooks/use-theme'
 import type { ToolAddedCardData } from '@/lib/types/chat'
 

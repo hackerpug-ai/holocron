@@ -12,7 +12,6 @@ import { View } from 'react-native'
 import { Text } from '@/components/ui/text'
 import { Card } from '@/components/ui/card'
 import { ShopListingCard } from './ShopListingCard'
-import { cn } from '@/lib/utils'
 import {
   ShoppingCart,
   Clock,
@@ -21,7 +20,7 @@ import {
   TrendingUp,
 } from '@/components/ui/icons'
 import { useTheme } from '@/hooks/use-theme'
-import type { ShopListingCardData, ShopResultsCardData } from '@/lib/types/chat'
+import type { ShopListingCardData } from '@/lib/types/chat'
 
 export interface ShopResultsCardProps {
   sessionId: string
@@ -56,7 +55,7 @@ function getBestDeal(listings: ShopListingCardData[], bestDealId?: string): Shop
 }
 
 export function ShopResultsCard({
-  sessionId,
+  sessionId: _sessionId,
   query,
   totalListings,
   bestDealId,

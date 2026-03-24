@@ -7,7 +7,6 @@ import Animated, {
   withTiming,
   withSpring,
   withSequence,
-  runOnJS,
 } from 'react-native-reanimated'
 import { StyleSheet, View, Pressable, type ViewProps } from 'react-native'
 import { Text } from '@/components/ui/text'

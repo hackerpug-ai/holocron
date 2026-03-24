@@ -18,7 +18,7 @@ interface CodeBlockProps {
 }
 
 export const CodeBlockRenderer = React.memo(({ node, testID }: CodeBlockProps) => {
-  const { spacing, radius, colors, isDark } = useTheme()
+  const { spacing, radius, colors } = useTheme()
   const styles = useStyles()
 
   // Get language from node meta (e.g., ```typescript)

@@ -10,7 +10,7 @@
 import { View, StyleSheet } from 'react-native'
 import { Text } from '@/components/ui/text'
 import { Card } from '@/components/ui/card'
-import { ShoppingCart, Search, Loader2 } from '@/components/ui/icons'
+import { Search, Loader2 } from '@/components/ui/icons'
 import { useTheme } from '@/hooks/use-theme'
 import Animated, {
   useAnimatedStyle,
@@ -34,7 +34,7 @@ export interface ShopLoadingCardProps {
 const RETAILERS = ['Amazon', 'eBay', 'Walmart', 'Target', 'Best Buy', 'Newegg']
 
 export function ShopLoadingCard({
-  sessionId,
+  sessionId: _sessionId,
   query,
   message = 'Searching for deals...',
   testID = 'shop-loading-card',

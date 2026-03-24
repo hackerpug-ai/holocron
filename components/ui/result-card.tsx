@@ -8,7 +8,6 @@ import {
   Folder,
   Search,
   XCircle,
-  Loader2,
 } from '@/components/ui/icons'
 import { Pressable, View, ActivityIndicator, type ViewProps } from 'react-native'
 import { CategoryBadge, type CategoryType } from '../CategoryBadge'

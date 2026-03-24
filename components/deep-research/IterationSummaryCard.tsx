@@ -16,8 +16,8 @@ interface WorkerIndicatorProps {
   task?: string
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function WorkerIndicator({ workerId, status, task }: WorkerIndicatorProps) {
-  const { colors } = useTheme()
 
   const statusConfig = {
     idle: {
@@ -84,7 +84,6 @@ interface CoverageVisualizationProps {
 }
 
 function CoverageVisualization({ score, label = 'Coverage' }: CoverageVisualizationProps) {
-  const { colors } = useTheme()
   const displayScore = score ?? 0
 
   // Color coding based on coverage score

@@ -2,7 +2,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { Text } from '@/components/ui/text'
 import { useTheme } from '@/hooks/use-theme'
-import { cn } from '@/lib/utils'
 import { TrendingUp, DollarSign, Zap } from '@/components/ui/icons'
 import { View, StyleSheet } from 'react-native'
 import type { DeepResearchIteration } from '@/lib/types/deep-research'
@@ -100,7 +99,7 @@ function ScoreProgressionBar({ iterations }: { iterations: IterationTimelineData
       </View>
 
       <View style={styles.barContainer}>
-        {iterations.map((iteration, index) => {
+        {iterations.map((iteration, _index) => {
           const score = iteration.coverageScore ?? 0
           const heightPercent = (score / maxScore) * 100
           const color = getScoreColor(score, theme.colors)

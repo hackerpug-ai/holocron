@@ -1,6 +1,5 @@
 import { useMarkdownParser } from './hooks/useMarkdownParser'
 import { useMarkdownRenderer, type MarkdownRendererConfig } from './hooks/useMarkdownRenderer'
-import type { CustomRenderers } from './renderers/NodeRenderer'
 import type { ParserOptions } from './parsers'
 import * as React from 'react'
 import { ScrollView, View } from 'react-native'
@@ -49,7 +48,7 @@ export const MarkdownView = React.memo(
     contentOnly = false,
     wrapRootChild,
   }: MarkdownViewProps) => {
-    const { ast, nodeCount } = useMarkdownParser(content, parserOptions)
+    const { ast } = useMarkdownParser(content, parserOptions)
     const { render } = useMarkdownRenderer({ onLinkPress, renderers, testIDPrefix: testID, wrapRootChild })
 
     if (!ast) {

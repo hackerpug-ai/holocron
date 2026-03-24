@@ -115,8 +115,8 @@ interface TableRowProps {
 }
 
 export const TableRowRenderer = React.memo(
-  ({ node, children, isHeader, testID }: TableRowProps) => {
-    const { colors, spacing } = useTheme()
+  ({ node: _node, children, isHeader, testID }: TableRowProps) => {
+    const { colors } = useTheme()
     const styles = useStyles()
 
     return (
@@ -147,7 +147,7 @@ interface TableCellProps {
 }
 
 export const TableCellRenderer = React.memo(
-  ({ node, children, isHeader, testID, columnIndex = 0 }: TableCellProps) => {
+  ({ node: _node, children, isHeader, testID, columnIndex = 0 }: TableCellProps) => {
     const { colors, spacing } = useTheme()
     const styles = useStyles()
     const context = React.useContext(TableContext)

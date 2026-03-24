@@ -29,7 +29,7 @@ function formatDate(timestamp: number): string {
 export function WhatsNewReportCard({
   data,
   testID = 'whats-new-report-card',
-  onPress,
+  onPress: _onPress,
 }: WhatsNewReportCardProps) {
   const { colors: themeColors } = useTheme()
 

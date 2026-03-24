@@ -2,10 +2,10 @@
  * ToolSearchResultsCard - Display toolbelt search results
  */
 
-import { View, Pressable, Linking } from 'react-native'
+import { View } from 'react-native'
 import { Text } from '@/components/ui/text'
 import { Card } from '@/components/ui/card'
-import { Wrench, Search, ExternalLink, Tag, Code } from '@/components/ui/icons'
+import { Wrench, Search, Tag, Code } from '@/components/ui/icons'
 import { useTheme } from '@/hooks/use-theme'
 import type { ToolSearchResultsCardData } from '@/lib/types/chat'
 

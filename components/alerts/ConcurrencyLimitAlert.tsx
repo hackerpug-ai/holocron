@@ -27,7 +27,7 @@ export interface ConcurrencyLimitAlertProps extends ViewProps {
  */
 export function ConcurrencyLimitAlert({
   activeTaskCount = 3,
-  maxConcurrentTasks = 3,
+  maxConcurrentTasks: _maxConcurrentTasks = 3,
   className,
   ...props
 }: ConcurrencyLimitAlertProps) {
