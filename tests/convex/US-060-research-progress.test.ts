@@ -28,8 +28,8 @@ describe('US-060: Research Progress Tracking', () => {
       }
 
       // If it exists, verify the get query signature
-      if (api.researchSessions.get) {
-        expect(api.researchSessions.get).toBeDefined();
+      if (api.researchSessions.queries.get) {
+        expect(api.researchSessions.queries.get).toBeDefined();
       } else {
         // Query doesn't exist yet - RED phase confirmed
         expect(true).toBe(true);
@@ -41,8 +41,8 @@ describe('US-060: Research Progress Tracking', () => {
       // For now, just verify the query will exist
       const { api } = await import('../../convex/_generated/api');
 
-      if (api.researchSessions?.get) {
-        expect(api.researchSessions.get).toBeDefined();
+      if (api.researchSessions?.queries.get) {
+        expect(api.researchSessions.queries.get).toBeDefined();
       } else {
         // RED phase - query doesn't exist
         expect(true).toBe(true);
@@ -60,8 +60,8 @@ describe('US-060: Research Progress Tracking', () => {
     it('should return session with currentIteration and maxIterations when running', async () => {
       const { api } = await import('../../convex/_generated/api');
 
-      if (api.researchSessions?.get) {
-        expect(api.researchSessions.get).toBeDefined();
+      if (api.researchSessions?.queries.get) {
+        expect(api.researchSessions.queries.get).toBeDefined();
       } else {
         // RED phase - query doesn't exist
         expect(true).toBe(true);
@@ -79,8 +79,8 @@ describe('US-060: Research Progress Tracking', () => {
     it('should return session with findings when completed', async () => {
       const { api } = await import('../../convex/_generated/api');
 
-      if (api.researchSessions?.get) {
-        expect(api.researchSessions.get).toBeDefined();
+      if (api.researchSessions?.queries.get) {
+        expect(api.researchSessions.queries.get).toBeDefined();
       } else {
         // RED phase - query doesn't exist
         expect(true).toBe(true);
@@ -98,8 +98,8 @@ describe('US-060: Research Progress Tracking', () => {
     it('should return session with errorText when failed', async () => {
       const { api } = await import('../../convex/_generated/api');
 
-      if (api.researchSessions?.get) {
-        expect(api.researchSessions.get).toBeDefined();
+      if (api.researchSessions?.queries.get) {
+        expect(api.researchSessions.queries.get).toBeDefined();
       } else {
         // RED phase - query doesn't exist
         expect(true).toBe(true);

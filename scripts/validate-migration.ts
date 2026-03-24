@@ -106,15 +106,15 @@ async function validateRowCounts(): Promise<void> {
   // Query mapping from Convex module name to count query
   // Using index modules which re-export from queries/mutations
   const countQueries = {
-    conversations: api["conversations/index"].count,
-    chatMessages: api["chatMessages/index"].count,
-    documents: api["documents/index"].count,
-    researchSessions: api["researchSessions/queries"].count,
-    researchIterations: api["researchIterations/queries"].count,
-    deepResearchSessions: api["deepResearchSessions/queries"].count,
-    deepResearchIterations: api["deepResearchIterations/queries"].count,
-    citations: api["citations/queries"].count,
-    tasks: api["tasks/index"].count,
+    conversations: api.conversations.index.count,
+    chatMessages: api.chatMessages.index.count,
+    documents: api.documents.index.count,
+    researchSessions: api.researchSessions.queries.count,
+    researchIterations: api.researchIterations.queries.count,
+    deepResearchSessions: api.deepResearchSessions.queries.count,
+    deepResearchIterations: api.deepResearchIterations.queries.count,
+    citations: api.citations.queries.count,
+    tasks: api.tasks.index.count,
   };
 
   for (const { supabase: sTable, convex: cTable } of TABLE_MAPPING) {
@@ -189,8 +189,8 @@ async function validateForeignKeys(): Promise<void> {
 
   // Check 1: chatMessages -> conversations
   try {
-    const messages = await cvx!.query(api["chatMessages/index"].list);
-    const conversations = await cvx!.query(api["conversations/index"].list);
+    const messages = await cvx!.query(api.chatMessages.index.list, {});
+    const conversations = await cvx!.query(api.conversations.index.list, {});
     const conversationIds = new Set(
       conversations.map((c: any) => c._id)
     );
@@ -230,8 +230,8 @@ async function validateForeignKeys(): Promise<void> {
 
   // Check 2: researchIterations -> researchSessions
   try {
-    const iterations = await cvx!.query(api["researchIterations/queries"].list);
-    const sessions = await cvx!.query(api["researchSessions/queries"].list);
+    const iterations = await cvx!.query(api.researchIterations.queries.list);
+    const sessions = await cvx!.query(api.researchSessions.queries.list);
     const sessionIds = new Set(
       sessions.map((s: any) => s._id)
     );
@@ -271,8 +271,8 @@ async function validateForeignKeys(): Promise<void> {
 
   // Check 3: deepResearchIterations -> deepResearchSessions
   try {
-    const iterations = await cvx!.query(api["deepResearchIterations/queries"].list);
-    const sessions = await cvx!.query(api["deepResearchSessions/queries"].list);
+    const iterations = await cvx!.query(api.deepResearchIterations.queries.list);
+    const sessions = await cvx!.query(api.deepResearchSessions.queries.list);
     const sessionIds = new Set(
       sessions.map((s: any) => s._id)
     );
@@ -312,8 +312,8 @@ async function validateForeignKeys(): Promise<void> {
 
   // Check 4: deepResearchSessions -> conversations
   try {
-    const deepSessions = await cvx!.query(api["deepResearchSessions/queries"].list);
-    const conversations = await cvx!.query(api["conversations/index"].list);
+    const deepSessions = await cvx!.query(api.deepResearchSessions.queries.list);
+    const conversations = await cvx!.query(api.conversations.index.list, {});
     const conversationIds = new Set(
       conversations.map((c: any) => c._id)
     );
@@ -361,7 +361,7 @@ async function validateEmbeddingDimensions(): Promise<void> {
   const { convex: cvx } = getClients();
 
   try {
-    const documents = await cvx!.query(api["documents/index"].list, {});
+    const documents = await cvx!.query(api.documents.index.list, {});
 
     // Filter documents with embeddings
     const docsWithEmbeddings = documents.filter(
@@ -432,13 +432,13 @@ async function validateChatOrdering(): Promise<void> {
   const { convex: cvx } = getClients();
 
   try {
-    const conversations = await cvx!.query(api["conversations/index"].list, { limit: 100 });
+    const conversations = await cvx!.query(api.conversations.index.list, { limit: 100 });
 
     let outOfOrderCount = 0;
     const outOfOrderDetails: string[] = [];
 
     for (const conv of conversations) {
-      const messages = await cvx!.query(api["chatMessages/index"].list, {
+      const messages = await cvx!.query(api.chatMessages.index.list, {
         conversationId: conv._id,
       });
 

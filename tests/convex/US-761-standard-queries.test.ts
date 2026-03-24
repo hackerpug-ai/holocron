@@ -17,7 +17,7 @@ describe('US-761: Standard Queries', () => {
       const { api } = await import('../../convex/_generated/api');
 
       // Then: get query should be defined
-      expect(api.researchIterations.get).toBeDefined();
+      expect(api.researchIterations.queries.get).toBeDefined();
     });
   });
 
@@ -31,7 +31,7 @@ describe('US-761: Standard Queries', () => {
       const { api } = await import('../../convex/_generated/api');
 
       // Then: get query should be defined
-      expect(api.deepResearchIterations.get).toBeDefined();
+      expect(api.deepResearchIterations.queries.get).toBeDefined();
     });
   });
 
@@ -45,7 +45,7 @@ describe('US-761: Standard Queries', () => {
       const { api } = await import('../../convex/_generated/api');
 
       // Then: get query should be defined
-      expect(api.citations.get).toBeDefined();
+      expect(api.citations.queries.get).toBeDefined();
     });
   });
 
@@ -55,20 +55,20 @@ describe('US-761: Standard Queries', () => {
   describe('Existing queries preserved', () => {
     it('should preserve researchIterations count and list', async () => {
       const { api } = await import('../../convex/_generated/api');
-      expect(api.researchIterations.count).toBeDefined();
-      expect(api.researchIterations.list).toBeDefined();
+      expect(api.researchIterations.queries.count).toBeDefined();
+      expect(api.researchIterations.queries.list).toBeDefined();
     });
 
     it('should preserve deepResearchIterations count and list', async () => {
       const { api } = await import('../../convex/_generated/api');
-      expect(api.deepResearchIterations.count).toBeDefined();
-      expect(api.deepResearchIterations.list).toBeDefined();
+      expect(api.deepResearchIterations.queries.count).toBeDefined();
+      expect(api.deepResearchIterations.queries.list).toBeDefined();
     });
 
     it('should preserve citations count and list', async () => {
       const { api } = await import('../../convex/_generated/api');
-      expect(api.citations.count).toBeDefined();
-      expect(api.citations.list).toBeDefined();
+      expect(api.citations.queries.count).toBeDefined();
+      expect(api.citations.queries.list).toBeDefined();
     });
   });
 });

@@ -56,7 +56,7 @@ describe('Task-142: documents.getSection', () => {
 
       expect(queries.getSection).toBeDefined();
       // api is a Proxy (anyApi) so any path resolves - verify the path is accessible
-      expect(api["documents/queries"]).toBeDefined();
+      expect(api.documents.queries).toBeDefined();
     });
   });
 
