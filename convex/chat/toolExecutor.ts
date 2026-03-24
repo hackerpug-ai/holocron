@@ -510,7 +510,7 @@ async function executeWhatsNew(
   ctx: ActionCtx,
   args: Record<string, any>,
 ): Promise<AgentResponse> {
-  const days: number = args.days ?? 7;
+  const days: number = args.days ?? 1;
 
   try {
     const reportData: any = await ctx.runQuery(

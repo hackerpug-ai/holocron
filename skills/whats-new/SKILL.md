@@ -31,7 +31,7 @@ OUTPUT:  Prioritized briefing with TL;DR, releases, discoveries, trends
 
 ## WHEN TO USE
 
-- Weekly or ad-hoc "what did I miss?" briefing
+- Daily or ad-hoc "what did I miss?" briefing
 - Before starting a new project (what tools exist now?)
 - Tracking competitive landscape shifts
 - Finding new tools/communities to subscribe to
@@ -56,7 +56,7 @@ OUTPUT:  Prioritized briefing with TL;DR, releases, discoveries, trends
     • EXTRACT flags:
       --force           Force fresh scan (skip cached report)
       --list            List recent report history
-      --days N          Lookback window (default: 7, min: 1, max: 90) - requires --force
+      --days N          Lookback window (default: 1, min: 1, max: 90) - requires --force
       --focus <area>    Filter: "tools" | "releases" | "trends" | "people" | "all" (default)
       --discovery-only  Skip known sources, only search for NEW things
       --skip-confirm    Execute immediately without plan approval

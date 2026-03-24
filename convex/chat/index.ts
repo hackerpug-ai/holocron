@@ -253,7 +253,7 @@ function generateHelpResponse(): string {
 /check-subs - Check subscriptions for new content
 
 **Tools & Content**
-/whats-new [days] - Get AI news briefing (default: 7 days)
+/whats-new [days] - Get AI news briefing (default: 1 day)
 /toolbelt <query or url> - Search tools or add from URL
 /save <title> [category] - Save document to knowledge base`;
 }
@@ -923,8 +923,8 @@ export const send = action({
         }
       } else if (parsed.command === "whats-new") {
         // /whats-new [days]
-        const rawDays = parsed.args ? parseInt(parsed.args, 10) : 7
-        const days = Number.isNaN(rawDays) ? 7 : Math.max(1, Math.min(30, rawDays));
+        const rawDays = parsed.args ? parseInt(parsed.args, 10) : 1
+        const days = Number.isNaN(rawDays) ? 1 : Math.max(1, Math.min(30, rawDays));
         try {
           const reportData: any = await ctx.runQuery(
             api.whatsNew.queries.getLatestReport,

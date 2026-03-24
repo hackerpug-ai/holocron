@@ -464,7 +464,7 @@ export const generateDailyReport = internalAction({
     findingsCount: number;
     isNew: boolean;
   }> => {
-    const days = args.days ?? 7;
+    const days = args.days ?? 1;
     const force = args.force ?? false;
 
     console.log(

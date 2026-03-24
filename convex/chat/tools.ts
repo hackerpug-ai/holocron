@@ -204,8 +204,8 @@ const whats_new = tool({
     days: z
       .number()
       .optional()
-      .default(7)
-      .describe("Number of days to look back for news (default 7)"),
+      .default(1)
+      .describe("Number of days to look back for news (default 1)"),
     focus: z
       .enum(["all", "tools", "releases", "trends"])
       .optional()
