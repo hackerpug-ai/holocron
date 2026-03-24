@@ -68,7 +68,7 @@ function articleHtml(doc: ArticleDoc): string {
   <meta property="og:type" content="article" />
   <style>
     *, *::before, *::after { box-sizing: border-box; }
-    html { font-size: 16px; }
+    html { font-size: 16px; scroll-behavior: smooth; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       line-height: 1.7;
@@ -118,6 +118,7 @@ function articleHtml(doc: ArticleDoc): string {
     p { margin: 0 0 1.1rem; }
     a { color: #0066cc; text-decoration: underline; }
     a:hover { color: #004499; }
+    h2[id], h3[id], h4[id], h5[id], h6[id] { scroll-margin-top: 24px; }
     strong { font-weight: 700; }
     em { font-style: italic; }
     code {
@@ -307,7 +308,9 @@ function markdownToHtml(md: string): string {
     const headingMatch = block.match(/^(#{1,6})\s+(.+)$/);
     if (headingMatch) {
       const level = headingMatch[1].length;
-      return `<h${level}>${inlineMarkdown(headingMatch[2].trim())}</h${level}>`;
+      const headingText = headingMatch[2].trim();
+      const slug = slugifyText(headingText);
+      return `<h${level} id="${slug}">${inlineMarkdown(headingText)}</h${level}>`;
     }
 
     // Horizontal rule
@@ -376,8 +379,12 @@ function inlineMarkdown(text: string): string {
   text = text.replace(/\*(.+?)\*/g, "<em>$1</em>");
   text = text.replace(/_(.+?)_/g, "<em>$1</em>");
 
-  // Links
+  // Links (support both external URLs and internal #anchor links)
   text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_m, label, href) => {
+    if (href.startsWith("#")) {
+      const slug = slugifyText(href.slice(1));
+      return `<a href="#${slug}">${escapeHtml(label)}</a>`;
+    }
     const safeHref = href.startsWith("http") ? escapeHtml(href) : "#";
     return `<a href="${safeHref}" rel="noopener noreferrer">${escapeHtml(label)}</a>`;
   });
@@ -386,6 +393,23 @@ function inlineMarkdown(text: string): string {
   text = text.replace(/\x01IC(\d+)\x01/g, (_m, idx) => inlineCodes[parseInt(idx, 10)]);
 
   return text;
+}
+
+function slugifyText(text: string): string {
+  // Strip inline markdown formatting before slugifying
+  const plain = text
+    .replace(/\*\*\*(.+?)\*\*\*/g, "$1")
+    .replace(/\*\*(.+?)\*\*/g, "$1")
+    .replace(/__(.+?)__/g, "$1")
+    .replace(/\*(.+?)\*/g, "$1")
+    .replace(/_(.+?)_/g, "$1")
+    .replace(/`([^`]+)`/g, "$1");
+  return plain
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
 function escapeHtml(str: string): string {

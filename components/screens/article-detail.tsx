@@ -1,6 +1,5 @@
 import { CategoryBadge, type CategoryType } from "@/components/CategoryBadge";
 import { MarkdownView } from "@/components/markdown/MarkdownView";
-import { type CustomRenderers } from "@/components/markdown/renderers/NodeRenderer";
 import { Text } from "@/components/ui/text";
 import { cn } from "@/lib/utils";
 import { X } from "@/components/ui/icons";
@@ -23,11 +22,10 @@ import Animated, {
   withSpring,
   withTiming,
 } from "react-native-reanimated";
-import { useRef, useEffect, useMemo } from "react";
+import React, { useCallback, useRef, useEffect, useMemo, useState } from "react";
 import { useTheme } from "@/hooks/use-theme";
 import { useWebView } from "@/hooks/useWebView";
 import { sanitizeMarkdown, isValidUrl } from "@/lib/sanitizeMarkdown";
-import { extractParagraphCount } from "@/lib/extractParagraphCount";
 import { useNarrationState } from "@/components/narration/hooks/useNarrationState";
 import { useAudioPlayback } from "@/components/narration/hooks/useAudioPlayback";
 import {
@@ -36,10 +34,14 @@ import {
 } from "@/components/narration/NarrationControlBar";
 import { NarrationToggleButton } from "@/components/narration/NarrationToggleButton";
 import * as Haptics from "expo-haptics";
+import * as Clipboard from "expo-clipboard";
 import { useQuery, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { type Id } from "@/convex/_generated/dataModel";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { parseMarkdown } from "@/components/markdown/parsers";
+import { computeNarrationMap, extractTextFromNode } from "@/lib/mdast-utils";
+import type { Root } from "mdast";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 const SWIPE_THRESHOLD = SCREEN_HEIGHT * 0.25;
@@ -118,13 +120,22 @@ export function ArticleDetail({
 
   const insets = useSafeAreaInsets();
   const paragraphOffsets = useRef<Map<number, number>>(new Map());
-  const paragraphCounter = useRef(0);
+  const [copiedToast, setCopiedToast] = useState(false);
 
-  // Count paragraphs for narration
-  const paragraphCount = useMemo(
-    () => extractParagraphCount(sanitizedContent),
+  // Parse MDAST for narration index mapping and copy support
+  const parsedAst = useMemo<Root | null>(
+    () => sanitizedContent ? parseMarkdown(sanitizedContent) : null,
     [sanitizedContent],
   );
+
+  // Compute narration segment map (root child index → narration index)
+  const narrationMap = useMemo(
+    () => parsedAst ? computeNarrationMap(parsedAst) : new Map<number, number>(),
+    [parsedAst],
+  );
+
+  // Count paragraphs for narration (from MDAST map, matches backend)
+  const paragraphCount = narrationMap.size;
 
   const narration = useNarrationState(paragraphCount);
   const { isNarrationMode } = narration;
@@ -286,94 +297,64 @@ export function ArticleDetail({
     };
   });
 
-  // Custom paragraph renderer for narration mode
-  const narrationRenderers: CustomRenderers | undefined = useMemo(() => {
-    if (!isNarrationMode) return undefined;
+  // Copy section text to clipboard
+  const handleCopySection = useCallback(async (rootChildIndex: number) => {
+    if (!parsedAst) return;
+    const node = parsedAst.children[rootChildIndex];
+    if (!node) return;
+    const text = extractTextFromNode(node);
+    if (!text.trim()) return;
+    await Clipboard.setStringAsync(text);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setCopiedToast(true);
+    setTimeout(() => setCopiedToast(false), 1500);
+  }, [parsedAst]);
 
-    return {
-      paragraph: ({ children, testID }) => {
-        const index = paragraphCounter.current;
-        paragraphCounter.current += 1;
-        const isActive = narration.state.activeParagraphIndex === index;
-        const capturedIndex = index;
+  // Wrap each root-level MDAST child with narration highlight and/or copy support
+  const wrapRootChild = useMemo(() => {
+    return (child: React.ReactNode, rootIndex: number, nodeType: string) => {
+      const narrationIndex = narrationMap.get(rootIndex);
 
+      // In narration mode: wrap with highlight + tap-to-skip + long-press-to-copy
+      if (isNarrationMode && narrationIndex !== undefined) {
+        const isActive = narration.state.activeParagraphIndex === narrationIndex;
         return (
           <Pressable
-            key={`narration-p-${capturedIndex}`}
-            testID={`${testID}-narration-p-${capturedIndex}`}
+            testID={`narration-block-${narrationIndex}`}
             onPress={() => {
-              narration.skipToParagraph(capturedIndex);
+              narration.skipToParagraph(narrationIndex);
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             }}
+            onLongPress={() => handleCopySection(rootIndex)}
             onLayout={(e) => {
-              paragraphOffsets.current.set(
-                capturedIndex,
-                e.nativeEvent.layout.y,
-              );
+              paragraphOffsets.current.set(narrationIndex, e.nativeEvent.layout.y);
             }}
           >
             <Animated.View
-              style={[
-                {
-                  backgroundColor: isActive
-                    ? "rgba(245,166,35,0.08)"
-                    : "transparent",
-                  borderLeftWidth: isActive ? 2 : 0,
-                  borderLeftColor: isActive ? "#6366f1" : "transparent",
-                  paddingLeft: isActive ? 8 : 0,
-                  marginBottom: 12,
-                },
-              ]}
+              style={{
+                backgroundColor: isActive ? `${colors.primary}14` : "transparent",
+                borderLeftWidth: isActive ? 2 : 0,
+                borderLeftColor: isActive ? colors.primary : "transparent",
+                paddingLeft: isActive ? 8 : 0,
+              }}
             >
-              {children}
+              {child}
             </Animated.View>
           </Pressable>
         );
-      },
-      heading: ({ children, testID }) => {
-        const index = paragraphCounter.current;
-        paragraphCounter.current += 1;
-        const isActive = narration.state.activeParagraphIndex === index;
-        const capturedIndex = index;
+      }
 
-        return (
-          <Pressable
-            key={`narration-h-${capturedIndex}`}
-            testID={`${testID}-narration-h-${capturedIndex}`}
-            onPress={() => {
-              narration.skipToParagraph(capturedIndex);
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            }}
-            onLayout={(e) => {
-              paragraphOffsets.current.set(
-                capturedIndex,
-                e.nativeEvent.layout.y,
-              );
-            }}
-          >
-            <Animated.View
-              style={[
-                {
-                  backgroundColor: isActive
-                    ? "rgba(245,166,35,0.08)"
-                    : "transparent",
-                  borderLeftWidth: isActive ? 2 : 0,
-                  borderLeftColor: isActive ? "#6366f1" : "transparent",
-                  paddingLeft: isActive ? 8 : 0,
-                  marginBottom: 12,
-                },
-              ]}
-            >
-              {children}
-            </Animated.View>
-          </Pressable>
-        );
-      },
+      // Normal mode: long-press to copy
+      return (
+        <Pressable
+          testID={`doc-block-${rootIndex}`}
+          onLongPress={() => handleCopySection(rootIndex)}
+        >
+          {child}
+        </Pressable>
+      );
     };
-  }, [isNarrationMode, narration.state.activeParagraphIndex]);
-
-  // Reset paragraph counter before each render
-  paragraphCounter.current = 0;
+  }, [isNarrationMode, narrationMap, narration.state.activeParagraphIndex, colors.primary, handleCopySection]);
 
   // Don't render if not visible
   if (!visible) return null;
@@ -550,7 +531,7 @@ export function ArticleDetail({
               onLinkPress={handleLinkPress}
               contentOnly={true}
               testID={`${testID}-markdown`}
-              renderers={narrationRenderers}
+              wrapRootChild={wrapRootChild}
             />
           </ScrollView>
 
@@ -559,6 +540,25 @@ export function ArticleDetail({
             isVisible={isNarrationMode}
             onRegenerate={() => { if (convexDocId) regenerateAction({ documentId: convexDocId }) }}
           />
+
+          {copiedToast && (
+            <View
+              style={{
+                position: "absolute",
+                bottom: isNarrationMode ? NARRATION_BAR_HEIGHT + insets.bottom + 16 : insets.bottom + 16,
+                alignSelf: "center",
+                backgroundColor: colors.foreground,
+                paddingHorizontal: 16,
+                paddingVertical: 8,
+                borderRadius: 20,
+              }}
+              pointerEvents="none"
+            >
+              <Text style={{ color: colors.background, fontSize: 14, fontWeight: "600" }}>
+                Copied to clipboard
+              </Text>
+            </View>
+          )}
         </Animated.View>
       </GestureDetector>
     </View>

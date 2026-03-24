@@ -21,9 +21,9 @@ import { CategoryBadge } from '@/components/CategoryBadge'
 import { MarkdownView } from '@/components/markdown/MarkdownView'
 import { WebViewSheet } from '@/components/webview/WebViewSheet'
 import { sanitizeMarkdown, isValidUrl } from '@/lib/sanitizeMarkdown'
-import { extractParagraphCount } from '@/lib/extractParagraphCount'
+import { slugify, extractTextFromMdast } from '@/lib/slugify'
 import { mapDocumentCategoryToCategoryType } from '@/lib/category-mapping'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTheme } from '@/hooks/use-theme'
 import { Calendar, Clock, EllipsisVertical, Globe } from '@/components/ui/icons'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -33,7 +33,10 @@ import { NarrationControlBar, NARRATION_BAR_HEIGHT } from '@/components/narratio
 import { DocumentActionsSheet } from '@/components/documents/DocumentActionsSheet'
 import Animated from 'react-native-reanimated'
 import * as Haptics from 'expo-haptics'
-import type { CustomRenderers } from '@/components/markdown/renderers/NodeRenderer'
+import * as Clipboard from 'expo-clipboard'
+import { parseMarkdown } from '@/components/markdown/parsers'
+import { computeNarrationMap, extractTextFromNode } from '@/lib/mdast-utils'
+import type { Root } from 'mdast'
 
 const CONVEX_SITE_URL =
   process.env.EXPO_PUBLIC_CONVEX_SITE_URL ??
@@ -79,14 +82,25 @@ export default function DocumentRoute() {
   const { colors: themeColors } = useTheme()
   const scrollViewRef = useRef<ScrollViewType>(null)
   const paragraphOffsets = useRef<Map<number, number>>(new Map())
-  const paragraphCounter = useRef(0)
+  const headingOffsets = useRef<Map<string, number>>(new Map())
   const generatingRef = useRef(false)
+  const [copiedToast, setCopiedToast] = useState(false)
 
-  // Count paragraphs for narration
-  const paragraphCount = useMemo(
-    () => extractParagraphCount(sanitizedContent),
+  // Parse MDAST for narration index mapping and copy support
+  const parsedAst = useMemo<Root | null>(
+    () => sanitizedContent ? parseMarkdown(sanitizedContent) : null,
     [sanitizedContent]
   )
+
+  // Compute narration segment map (root child index → narration index)
+  // Skips code blocks since the backend strips them
+  const narrationMap = useMemo(
+    () => parsedAst ? computeNarrationMap(parsedAst) : new Map<number, number>(),
+    [parsedAst]
+  )
+
+  // Count paragraphs for narration (from the MDAST map, which matches backend counting)
+  const paragraphCount = narrationMap.size
 
   const narration = useNarrationState(paragraphCount)
   const { isNarrationMode } = narration
@@ -115,7 +129,10 @@ export default function DocumentRoute() {
     }
   }, [segments, isNarrationMode, audioJob])
 
-  useEffect(() => { paragraphOffsets.current.clear() }, [sanitizedContent])
+  useEffect(() => {
+    paragraphOffsets.current.clear()
+    headingOffsets.current.clear()
+  }, [sanitizedContent])
 
   const generateAction = useAction(api.audio.actions.generateForDocument)
   const regenerateAction = useAction(api.audio.actions.regenerateForDocument)
@@ -127,6 +144,15 @@ export default function DocumentRoute() {
   }
 
   const handleLinkPress = (url: string): boolean => {
+    // Handle internal anchor links
+    if (url.startsWith('#')) {
+      const targetSlug = slugify(decodeURIComponent(url.slice(1)))
+      const offset = headingOffsets.current.get(targetSlug)
+      if (offset !== undefined) {
+        scrollViewRef.current?.scrollTo({ y: Math.max(0, offset - 80), animated: true })
+      }
+      return true
+    }
     if (!isValidUrl(url)) {
       console.warn('[DocumentRoute] Blocked unsafe URL:', url)
       return false
@@ -214,88 +240,80 @@ export default function DocumentRoute() {
     }
   }
 
-  // Build custom renderers only when narration mode is active
-  const narrationRenderers: CustomRenderers | undefined = useMemo(() => {
-    if (!isNarrationMode) return undefined
+  // Copy section text to clipboard
+  const handleCopySection = useCallback(async (rootChildIndex: number) => {
+    if (!parsedAst) return
+    const node = parsedAst.children[rootChildIndex]
+    if (!node) return
+    const text = extractTextFromNode(node)
+    if (!text.trim()) return
+    await Clipboard.setStringAsync(text)
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+    setCopiedToast(true)
+    setTimeout(() => setCopiedToast(false), 1500)
+  }, [parsedAst])
 
-    return {
-      paragraph: ({ children, testID }) => {
-        const index = paragraphCounter.current
-        paragraphCounter.current += 1
-        const isActive = narration.state.activeParagraphIndex === index
-        const capturedIndex = index
+  // Get heading slug for a root-level heading node
+  const getHeadingSlug = useCallback((rootIndex: number): string | null => {
+    if (!parsedAst) return null
+    const node = parsedAst.children[rootIndex]
+    if (!node || node.type !== 'heading') return null
+    const headingText = extractTextFromMdast(node)
+    return slugify(headingText)
+  }, [parsedAst])
 
+  // Wrap each root-level MDAST child with narration highlight and/or copy support
+  const wrapRootChild = useMemo(() => {
+    return (child: React.ReactNode, rootIndex: number, nodeType: string) => {
+      const narrationIndex = narrationMap.get(rootIndex)
+      const headingSlug = nodeType === 'heading' ? getHeadingSlug(rootIndex) : null
+
+      // In narration mode: wrap with highlight + tap-to-skip + long-press-to-copy
+      if (isNarrationMode && narrationIndex !== undefined) {
+        const isActive = narration.state.activeParagraphIndex === narrationIndex
         return (
           <Pressable
-            key={`narration-p-${capturedIndex}`}
-            testID={`${testID}-narration-p-${capturedIndex}`}
+            testID={`narration-block-${narrationIndex}`}
             onPress={() => {
-              narration.skipToParagraph(capturedIndex)
+              narration.skipToParagraph(narrationIndex)
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
             }}
+            onLongPress={() => handleCopySection(rootIndex)}
             onLayout={(e) => {
-              paragraphOffsets.current.set(capturedIndex, e.nativeEvent.layout.y)
+              paragraphOffsets.current.set(narrationIndex, e.nativeEvent.layout.y)
+              if (headingSlug) {
+                headingOffsets.current.set(headingSlug, e.nativeEvent.layout.y)
+              }
             }}
           >
             <Animated.View
-              style={[
-                {
-                  backgroundColor: isActive ? `${themeColors.primary}14` : 'transparent',
-                  borderLeftWidth: isActive ? 2 : 0,
-                  borderLeftColor: isActive ? themeColors.primary : 'transparent',
-                  paddingLeft: isActive ? 8 : 0,
-                  marginBottom: 12,
-                },
-              ]}
+              style={{
+                backgroundColor: isActive ? `${themeColors.primary}14` : 'transparent',
+                borderLeftWidth: isActive ? 2 : 0,
+                borderLeftColor: isActive ? themeColors.primary : 'transparent',
+                paddingLeft: isActive ? 8 : 0,
+              }}
             >
-              <Text className="text-foreground text-base leading-7">
-                {children}
-              </Text>
+              {child}
             </Animated.View>
           </Pressable>
         )
-      },
-      heading: ({ children, testID }) => {
-        const index = paragraphCounter.current
-        paragraphCounter.current += 1
-        const isActive = narration.state.activeParagraphIndex === index
-        const capturedIndex = index
+      }
 
-        return (
-          <Pressable
-            key={`narration-h-${capturedIndex}`}
-            testID={`${testID}-narration-h-${capturedIndex}`}
-            onPress={() => {
-              narration.skipToParagraph(capturedIndex)
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-            }}
-            onLayout={(e) => {
-              paragraphOffsets.current.set(capturedIndex, e.nativeEvent.layout.y)
-            }}
-          >
-            <Animated.View
-              style={[
-                {
-                  backgroundColor: isActive ? `${themeColors.primary}14` : 'transparent',
-                  borderLeftWidth: isActive ? 2 : 0,
-                  borderLeftColor: isActive ? themeColors.primary : 'transparent',
-                  paddingLeft: isActive ? 8 : 0,
-                  marginBottom: 12,
-                },
-              ]}
-            >
-              <Text className="text-foreground text-xl font-semibold">
-                {children}
-              </Text>
-            </Animated.View>
-          </Pressable>
-        )
-      },
+      // Normal mode: long-press to copy, track heading positions for internal links
+      return (
+        <Pressable
+          testID={`doc-block-${rootIndex}`}
+          onLongPress={() => handleCopySection(rootIndex)}
+          onLayout={headingSlug ? (e) => {
+            headingOffsets.current.set(headingSlug, e.nativeEvent.layout.y)
+          } : undefined}
+        >
+          {child}
+        </Pressable>
+      )
     }
-  }, [isNarrationMode, narration.state.activeParagraphIndex, themeColors.primary])
-
-  // Reset paragraph counter before each render
-  paragraphCounter.current = 0
+  }, [isNarrationMode, narrationMap, narration.state.activeParagraphIndex, themeColors.primary, handleCopySection, getHeadingSlug])
 
   // Auto-scroll to active paragraph
   useEffect(() => {
@@ -304,7 +322,7 @@ export default function DocumentRoute() {
     if (offset !== undefined) {
       scrollViewRef.current?.scrollTo({ y: Math.max(0, offset - 120), animated: true })
     }
-  }, [isNarrationMode, narration.state.activeParagraphIndex, themeColors.primary])
+  }, [isNarrationMode, narration.state.activeParagraphIndex])
 
   // Format date/time
   const dateObj = document?.createdAt
@@ -453,7 +471,7 @@ export default function DocumentRoute() {
             onLinkPress={handleLinkPress}
             contentOnly={true}
             testID="document-markdown"
-            renderers={narrationRenderers}
+            wrapRootChild={wrapRootChild}
           />
         </ScrollView>
         {isNarrationMode && (
@@ -490,6 +508,25 @@ export default function DocumentRoute() {
         url={webViewUrl ?? ''}
         onClose={() => setWebViewUrl(null)}
       />
+
+      {copiedToast && (
+        <View
+          style={{
+            position: 'absolute',
+            bottom: isNarrationMode ? NARRATION_BAR_HEIGHT + insets.bottom + 16 : insets.bottom + 16,
+            alignSelf: 'center',
+            backgroundColor: themeColors.foreground,
+            paddingHorizontal: 16,
+            paddingVertical: 8,
+            borderRadius: 20,
+          }}
+          pointerEvents="none"
+        >
+          <Text style={{ color: themeColors.background, fontSize: 14, fontWeight: '600' }}>
+            Copied to clipboard
+          </Text>
+        </View>
+      )}
     </ScreenLayout>
   )
 }

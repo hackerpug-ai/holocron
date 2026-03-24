@@ -33,6 +33,8 @@ export interface MarkdownViewProps extends MarkdownRendererConfig {
   className?: string
   /** When true, renders content without ScrollView (for nested ScrollView scenarios) */
   contentOnly?: boolean
+  /** Wrap each root-level child element (used for narration highlighting, copy, etc.) */
+  wrapRootChild?: (child: React.ReactNode, index: number, nodeType: string) => React.ReactNode
 }
 
 export const MarkdownView = React.memo(
@@ -45,9 +47,10 @@ export const MarkdownView = React.memo(
     testID = 'markdown-view',
     className,
     contentOnly = false,
+    wrapRootChild,
   }: MarkdownViewProps) => {
     const { ast, nodeCount } = useMarkdownParser(content, parserOptions)
-    const { render } = useMarkdownRenderer({ onLinkPress, renderers, testIDPrefix: testID })
+    const { render } = useMarkdownRenderer({ onLinkPress, renderers, testIDPrefix: testID, wrapRootChild })
 
     if (!ast) {
       return null

@@ -14,6 +14,8 @@ export interface MarkdownRendererConfig {
   onLinkPress?: (url: string) => void
   /** Test ID prefix for all rendered elements */
   testIDPrefix?: string
+  /** Wrap each root-level child element (used for narration highlighting, copy, etc.) */
+  wrapRootChild?: (child: React.ReactNode, index: number, nodeType: string) => React.ReactNode
 }
 
 /**
@@ -45,7 +47,7 @@ export interface UseMarkdownRendererResult {
 export function useMarkdownRenderer(
   config: MarkdownRendererConfig = {}
 ): UseMarkdownRendererResult {
-  const { renderers, onLinkPress, testIDPrefix } = config
+  const { renderers, onLinkPress, testIDPrefix, wrapRootChild } = config
 
   const render = useMemo(() => {
     return (ast: Root) => {
@@ -53,23 +55,26 @@ export function useMarkdownRenderer(
         return null
       }
 
-      // NodeRenderer is now imported directly
-
       return (
         <React.Fragment>
-          {ast.children.map((child, index) => (
-            <NodeRenderer
-              key={`root-${index}`}
-              node={child}
-              renderers={renderers}
-              onLinkPress={onLinkPress}
-              testID={testIDPrefix ? `${testIDPrefix}-${index}` : undefined}
-            />
-          ))}
+          {ast.children.map((child, index) => {
+            const element = (
+              <NodeRenderer
+                key={`root-${index}`}
+                node={child}
+                renderers={renderers}
+                onLinkPress={onLinkPress}
+                testID={testIDPrefix ? `${testIDPrefix}-${index}` : undefined}
+              />
+            )
+            return wrapRootChild
+              ? <React.Fragment key={`root-${index}`}>{wrapRootChild(element, index, child.type)}</React.Fragment>
+              : element
+          })}
         </React.Fragment>
       )
     }
-  }, [renderers, onLinkPress, testIDPrefix])
+  }, [renderers, onLinkPress, testIDPrefix, wrapRootChild])
 
   return {
     render,
