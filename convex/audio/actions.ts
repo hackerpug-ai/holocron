@@ -46,10 +46,10 @@ export const extractParagraphs = (
     const trimmed = block.trim();
     if (!trimmed) continue;
 
-    // Heading lines become their own segment prefixed with "Section: "
+    // Heading lines become their own segment (for natural pacing)
     if (/^#{1,6}\s+/.test(trimmed)) {
       const headingText = trimmed.replace(/^#{1,6}\s+/, "");
-      const segmentText = `Section: ${headingText}`;
+      const segmentText = headingText;
       const hash = createHash("sha256").update(segmentText).digest("hex");
       segments.push({ index, hash, text: segmentText });
       index += 1;
