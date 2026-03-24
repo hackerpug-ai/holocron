@@ -184,6 +184,36 @@ CONFIDENCE LEVELS:
 }
 
 /**
+ * Update the deep research loading card with a new steps list.
+ *
+ * Small helper to avoid repeating the query+update pattern.
+ */
+async function updateIterationLoadingCard(
+  ctx: ActionCtx,
+  conversationId: Id<"conversations">,
+  sessionId: Id<"deepResearchSessions">,
+  topic: string,
+  steps: Array<{ id: string; label: string; status: string; detail?: string }>
+): Promise<void> {
+  const loadingCard = await ctx.runQuery(
+    api.chatMessages.queries.findLoadingCardBySession,
+    { conversationId, sessionId: sessionId.toString() },
+  );
+  if (!loadingCard) return;
+
+  await ctx.runMutation(api.chatMessages.mutations.update, {
+    id: loadingCard._id,
+    cardData: {
+      card_type: "deep_research_loading",
+      status: "in_progress",
+      session_id: sessionId,
+      topic,
+      steps,
+    },
+  });
+}
+
+/**
  * Execute Parallel Iteration Strategy (Internal Helper)
  *
  * Core implementation that can be called directly from other actions.
@@ -243,10 +273,34 @@ export async function executeParallelIteration(
 
   // Step 4: Generate query variants
   console.log(`[executeParallelIteration] Generating query variants`);
+
+  // Show "analyzing" step while generating variants
+  await updateIterationLoadingCard(ctx, effectiveConversationId, sessionId, topic, [
+    {
+      id: "analyze",
+      label: "Analyzing query complexity... Generating search variants",
+      status: "in-progress",
+    },
+  ]);
+
   const variants = await generateQueryVariants(topic);
   console.log(
     `[executeParallelIteration] Generated ${variants.length} query variants`
   );
+
+  // Show "searching" step now that we know how many variants we have
+  await updateIterationLoadingCard(ctx, effectiveConversationId, sessionId, topic, [
+    {
+      id: "analyze",
+      label: `Analyzing query complexity... Selected parallel iteration strategy (${variants.length} variants)`,
+      status: "completed",
+    },
+    {
+      id: "search",
+      label: `Searching ${variants.length} query variants in parallel...`,
+      status: "in-progress",
+    },
+  ]);
 
   // Step 5: Execute all variants in parallel
   console.log(`[executeParallelIteration] Executing parallel variant searches`);
@@ -270,6 +324,25 @@ export async function executeParallelIteration(
   console.log(
     `[executeParallelIteration] All variant searches complete - ${totalResults} results in ${totalDuration}ms`
   );
+
+  // Step 5b: Update card — search done, synthesis starting
+  await updateIterationLoadingCard(ctx, effectiveConversationId, sessionId, topic, [
+    {
+      id: "analyze",
+      label: `Analyzed query — parallel iteration across ${variants.length} variants`,
+      status: "completed",
+    },
+    {
+      id: "search",
+      label: `Searched ${totalResults} sources across ${variants.length} variants`,
+      status: "completed",
+    },
+    {
+      id: "synthesize",
+      label: `Synthesizing findings from ${totalResults} sources...`,
+      status: "in-progress",
+    },
+  ]);
 
   // Step 6: Synthesize with zaiPro for quality
   console.log(`[executeParallelIteration] Running synthesis with zaiPro`);
@@ -309,11 +382,39 @@ export async function executeParallelIteration(
     `[executeParallelIteration] Synthesis complete - confidence: ${synthesis.confidence}, gaps: ${synthesis.gaps.length}`
   );
 
+  // Build post-synthesis completed steps
+  const postSynthesisSteps = [
+    {
+      id: "analyze",
+      label: `Analyzed query — parallel iteration across ${variants.length} variants`,
+      status: "completed" as const,
+    },
+    {
+      id: "search",
+      label: `Searched ${totalResults} sources across ${variants.length} variants`,
+      status: "completed" as const,
+    },
+    {
+      id: "synthesize",
+      label: `Synthesized findings — confidence: ${synthesis.confidence}`,
+      status: "completed" as const,
+    },
+  ];
+
   // Step 7: Optional follow-up for gaps
   if (enableFollowUp && synthesis.gaps.length > 0 && synthesis.confidence !== "HIGH") {
     console.log(
       `[executeParallelIteration] Running follow-up for ${synthesis.gaps.length} gaps`
     );
+
+    await updateIterationLoadingCard(ctx, effectiveConversationId, sessionId, topic, [
+      ...postSynthesisSteps,
+      {
+        id: "followup",
+        label: `Filling ${synthesis.gaps.length} coverage gap${synthesis.gaps.length === 1 ? "" : "s"}...`,
+        status: "in-progress",
+      },
+    ]);
 
     // Use top 2 gaps for follow-up
     const followUpResult = await executeParallelSearchWithRetry(
@@ -328,7 +429,23 @@ export async function executeParallelIteration(
     console.log(
       `[executeParallelIteration] Follow-up complete - ${followUpResult.structuredResults.length} additional results`
     );
+
+    postSynthesisSteps.push({
+      id: "followup",
+      label: `Filled ${synthesis.gaps.length} gap${synthesis.gaps.length === 1 ? "" : "s"} with ${followUpResult.structuredResults.length} additional sources`,
+      status: "completed" as const,
+    });
   }
+
+  // Show "saving" step before persisting results
+  await updateIterationLoadingCard(ctx, effectiveConversationId, sessionId, topic, [
+    ...postSynthesisSteps,
+    {
+      id: "save",
+      label: "Saving to knowledge base...",
+      status: "in-progress",
+    },
+  ]);
 
   // Step 8: Create iteration record
   await ctx.runMutation(api.research.mutations.createDeepResearchIteration, {

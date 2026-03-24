@@ -10,7 +10,6 @@
 import { internalAction } from "../_generated/server";
 import { v } from "convex/values";
 import { api, internal } from "../_generated/api";
-import type { Id } from "../_generated/dataModel";
 import { generateText } from "ai";
 import { openai } from "@ai-sdk/openai";
 import {
@@ -84,6 +83,37 @@ function generateIterationSummary(
 }
 
 /**
+ * Update the deep research loading card with a new set of steps.
+ *
+ * Helper used throughout processDeepResearchIteration to give granular
+ * in-progress feedback without repeating the query+update boilerplate.
+ */
+async function updateLoadingCardSteps(
+  ctx: any,
+  conversationId: string,
+  sessionId: string,
+  topic: string,
+  steps: Array<{ id: string; label: string; status: string; detail?: string }>
+): Promise<void> {
+  const loadingCard = await ctx.runQuery(
+    api.chatMessages.queries.findLoadingCardBySession,
+    { conversationId, sessionId },
+  );
+  if (!loadingCard) return;
+
+  await ctx.runMutation(api.chatMessages.mutations.update, {
+    id: loadingCard._id,
+    cardData: {
+      card_type: "deep_research_loading",
+      status: "in_progress",
+      session_id: sessionId,
+      topic,
+      steps,
+    },
+  });
+}
+
+/**
  * Process Deep Research Iteration
  *
  * Scheduled function that:
@@ -136,8 +166,29 @@ export const processDeepResearchIteration = internalAction({
       // Build context from database
       const context = await buildResearchContext(ctx, sessionId);
 
-      // SEARCH Phase
+      // Build steps prefix from already-completed iterations
+      const completedIterationSteps = context.previousIterations.map((iter: any, idx: number) => ({
+        id: `iteration-${idx + 1}`,
+        label: iter.summary || `Iteration ${idx + 1} complete`,
+        status: "completed" as const,
+      }));
+
+      // SEARCH Phase — update loading card to show search in-progress
       console.log(`[processIteration] SEARCH phase starting`);
+      await updateLoadingCardSteps(
+        ctx,
+        session.conversationId as string,
+        sessionId.toString(),
+        session.topic,
+        [
+          ...completedIterationSteps,
+          {
+            id: `search-${currentIteration}`,
+            label: `Iteration ${currentIteration}: Searching sources in parallel...`,
+            status: "in-progress",
+          },
+        ],
+      );
       const searchPrompt = buildSearchPrompt(
         currentTopic,
         context.previousIterations,
@@ -164,8 +215,27 @@ export const processDeepResearchIteration = internalAction({
         `[processIteration] SEARCH complete - ${searchFindings.length} chars, ${toolResults.length} tool calls`,
       );
 
-      // SYNTHESIZE Phase
+      // SYNTHESIZE Phase — update loading card before synthesis begins
       console.log(`[processIteration] SYNTHESIZE phase starting`);
+      await updateLoadingCardSteps(
+        ctx,
+        session.conversationId as string,
+        sessionId.toString(),
+        session.topic,
+        [
+          ...completedIterationSteps,
+          {
+            id: `search-${currentIteration}`,
+            label: `Iteration ${currentIteration}: Searched ${toolResults.length} sources`,
+            status: "completed",
+          },
+          {
+            id: `synthesize-${currentIteration}`,
+            label: `Iteration ${currentIteration}: Synthesizing findings...`,
+            status: "in-progress",
+          },
+        ],
+      );
       const synthesisPrompt = buildSynthesisPrompt(context, searchFindings);
       const synthesisResult = await generateText({
         model: openai("gpt-4o"), // Fast, reliable, cheaper than gpt-4-turbo
@@ -176,8 +246,32 @@ export const processDeepResearchIteration = internalAction({
         `[processIteration] SYNTHESIZE complete - ${synthesis.length} chars`,
       );
 
-      // REVIEW Phase
+      // REVIEW Phase — update loading card before review begins
       console.log(`[processIteration] REVIEW phase starting`);
+      await updateLoadingCardSteps(
+        ctx,
+        session.conversationId as string,
+        sessionId.toString(),
+        session.topic,
+        [
+          ...completedIterationSteps,
+          {
+            id: `search-${currentIteration}`,
+            label: `Iteration ${currentIteration}: Searched ${toolResults.length} sources`,
+            status: "completed",
+          },
+          {
+            id: `synthesize-${currentIteration}`,
+            label: `Iteration ${currentIteration}: Synthesized findings`,
+            status: "completed",
+          },
+          {
+            id: `review-${currentIteration}`,
+            label: `Iteration ${currentIteration}: Reviewing coverage...`,
+            status: "in-progress",
+          },
+        ],
+      );
       const reviewPrompt = buildReviewPrompt(context, synthesis);
       const reviewResult = await generateText({
         model: openai("gpt-4o"), // Fast, reliable, cheaper than gpt-4-turbo
@@ -212,6 +306,37 @@ export const processDeepResearchIteration = internalAction({
       // Generate a concise summary from the feedback (3-6 words)
       const summary = generateIterationSummary(review.feedback, synthesis, review.coverageScore);
 
+      // Show "Saving..." step before persisting iteration
+      await updateLoadingCardSteps(
+        ctx,
+        session.conversationId as string,
+        sessionId.toString(),
+        session.topic,
+        [
+          ...completedIterationSteps,
+          {
+            id: `search-${currentIteration}`,
+            label: `Iteration ${currentIteration}: Searched ${toolResults.length} sources`,
+            status: "completed",
+          },
+          {
+            id: `synthesize-${currentIteration}`,
+            label: `Iteration ${currentIteration}: Synthesized findings`,
+            status: "completed",
+          },
+          {
+            id: `review-${currentIteration}`,
+            label: `Iteration ${currentIteration}: Coverage score ${review.coverageScore}/5`,
+            status: "completed",
+          },
+          {
+            id: `save-${currentIteration}`,
+            label: `Saving iteration ${currentIteration} to knowledge base...`,
+            status: "in-progress",
+          },
+        ],
+      );
+
       // Save iteration
       await ctx.runMutation(
         api.research.mutations.createDeepResearchIteration,
@@ -227,54 +352,22 @@ export const processDeepResearchIteration = internalAction({
         },
       );
 
-      // Update loading card with steps instead of creating new card
-      const loadingCard = await ctx.runQuery(
-        api.chatMessages.queries.findLoadingCardBySession,
-        {
-          conversationId: session.conversationId as Id<"conversations">,
-          sessionId: sessionId.toString(),
-        },
-      );
-
-      if (loadingCard) {
-        // Get all iterations to build steps array
-        const iterations = await ctx.runQuery(
-          api.research.queries.listDeepResearchIterations,
+      // Mark iteration save as complete
+      await updateLoadingCardSteps(
+        ctx,
+        session.conversationId as string,
+        sessionId.toString(),
+        session.topic,
+        [
+          ...completedIterationSteps,
           {
-            sessionId,
+            id: `iteration-${currentIteration}`,
+            label: summary || `Iteration ${currentIteration} — Coverage ${review.coverageScore}/5`,
+            status: "completed",
+            detail: review.feedback || undefined,
           },
-        );
-
-        // Build steps array from iterations
-        const steps = iterations.map((iter: any, _index: number) => {
-          const isCurrentIteration = iter.iterationNumber === currentIteration;
-          const isCompleted = iter.status === "completed";
-          const status = isCompleted
-            ? "completed"
-            : isCurrentIteration
-              ? "in-progress"
-              : "pending";
-
-          return {
-            id: `iteration-${iter.iterationNumber}`,
-            label: iter.summary || `Exploring... (score: ${iter.coverageScore || 0}/5)`,
-            status,
-            detail: iter.feedback || undefined,
-          };
-        });
-
-        // Update the loading card with steps
-        await ctx.runMutation(api.chatMessages.mutations.update, {
-          id: loadingCard._id,
-          cardData: {
-            card_type: "deep_research_loading",
-            status: "in_progress",
-            session_id: sessionId,
-            topic: session.topic,
-            steps,
-          },
-        });
-      }
+        ],
+      );
 
       // Update session with progress
       const refinedTopic =
@@ -309,51 +402,33 @@ export const processDeepResearchIteration = internalAction({
           `[processIteration] Research complete - finalizing session`,
         );
 
-        // Update loading card to show synthesis step before completion
-        const loadingCard = await ctx.runQuery(
-          api.chatMessages.queries.findLoadingCardBySession,
-          {
-            conversationId: session.conversationId as Id<"conversations">,
-            sessionId: sessionId.toString(),
-          },
+        // Fetch all saved iterations to build the completed steps list
+        const allIterations = await ctx.runQuery(
+          api.research.queries.listDeepResearchIterations,
+          { sessionId },
         );
+        const allIterationSteps = allIterations.map((iter: any) => ({
+          id: `iteration-${iter.iterationNumber}`,
+          label: iter.summary || `Iteration ${iter.iterationNumber} — Coverage ${iter.coverageScore || 0}/5`,
+          status: "completed" as const,
+          detail: iter.feedback || undefined,
+        }));
 
-        if (loadingCard) {
-          // Get all iterations to build steps array
-          const iterations = await ctx.runQuery(
-            api.research.queries.listDeepResearchIterations,
+        // Show "Saving to knowledge base..." before document creation
+        await updateLoadingCardSteps(
+          ctx,
+          session.conversationId as string,
+          sessionId.toString(),
+          session.topic,
+          [
+            ...allIterationSteps,
             {
-              sessionId,
+              id: "save-final",
+              label: "Saving to knowledge base...",
+              status: "in-progress",
             },
-          );
-
-          // Build steps array with synthesis step
-          const steps: Array<{ id: string; label: string; status: string; detail?: string }> = iterations.map((iter: any) => ({
-            id: `iteration-${iter.iterationNumber}`,
-            label: `Iteration ${iter.iterationNumber} - Coverage: ${iter.coverageScore || 0}/5`,
-            status: "completed" as const,
-            detail: iter.feedback || undefined,
-          }));
-
-          // Add synthesis step as in-progress
-          steps.push({
-            id: "synthesis",
-            label: "Synthesizing final report...",
-            status: "in-progress",
-          });
-
-          // Update the loading card to show synthesis in progress
-          await ctx.runMutation(api.chatMessages.mutations.update, {
-            id: loadingCard._id,
-            cardData: {
-              card_type: "deep_research_loading",
-              status: "in_progress",
-              session_id: sessionId,
-              topic: session.topic,
-              steps,
-            },
-          });
-        }
+          ],
+        );
 
         // Complete session (this triggers document creation)
         await ctx.runMutation(

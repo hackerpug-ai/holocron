@@ -142,6 +142,36 @@ Return a JSON object:
 }
 
 /**
+ * Update the deep research loading card with a new steps list.
+ *
+ * Small helper to avoid repeating the query+update pattern in executeParallelFanOut.
+ */
+async function updateFanOutLoadingCard(
+  ctx: ActionCtx,
+  conversationId: Id<"conversations">,
+  sessionId: Id<"deepResearchSessions">,
+  topic: string,
+  steps: Array<{ id: string; label: string; status: string; detail?: string }>
+): Promise<void> {
+  const loadingCard = await ctx.runQuery(
+    api.chatMessages.queries.findLoadingCardBySession,
+    { conversationId, sessionId: sessionId.toString() },
+  );
+  if (!loadingCard) return;
+
+  await ctx.runMutation(api.chatMessages.mutations.update, {
+    id: loadingCard._id,
+    cardData: {
+      card_type: "deep_research_loading",
+      status: "in_progress",
+      session_id: sessionId,
+      topic,
+      steps,
+    },
+  });
+}
+
+/**
  * Execute Parallel Fan-Out Strategy (Internal Helper)
  *
  * Core implementation that can be called directly from other actions.
@@ -200,6 +230,20 @@ export async function executeParallelFanOut(
     `[executeParallelFanOut] Decomposed into ${domains.length} domains`
   );
 
+  // Step 4b: Show "analyzing query" step now that we know the domain count
+  await updateFanOutLoadingCard(ctx, effectiveConversationId, sessionId, topic, [
+    {
+      id: "analyze",
+      label: `Analyzing query... Selected parallel fan-out strategy (${domains.length} domains)`,
+      status: "completed",
+    },
+    {
+      id: "search",
+      label: `Searching ${domains.length} domains in parallel...`,
+      status: "in-progress",
+    },
+  ]);
+
   // Step 5: Execute all domains in parallel
   console.log(`[executeParallelFanOut] Executing parallel domain searches`);
   const domainSearches = domains.map(async (domain) => {
@@ -222,6 +266,25 @@ export async function executeParallelFanOut(
   console.log(
     `[executeParallelFanOut] All domain searches complete - ${totalResults} results in ${totalDuration}ms`
   );
+
+  // Step 5b: Update card — search done, synthesis starting
+  await updateFanOutLoadingCard(ctx, effectiveConversationId, sessionId, topic, [
+    {
+      id: "analyze",
+      label: `Analyzed query — parallel fan-out across ${domains.length} domains`,
+      status: "completed",
+    },
+    {
+      id: "search",
+      label: `Searched ${totalResults} sources across ${domains.length} domains`,
+      status: "completed",
+    },
+    {
+      id: "synthesize",
+      label: "Synthesizing findings from all domains...",
+      status: "in-progress",
+    },
+  ]);
 
   // Step 6: Single-pass synthesis
   console.log(`[executeParallelFanOut] Running synthesis`);
@@ -258,11 +321,39 @@ export async function executeParallelFanOut(
     `[executeParallelFanOut] Synthesis complete - confidence: ${synthesis.confidence}, gaps: ${synthesis.gaps.length}`
   );
 
+  // Step 6b: Update card — synthesis done, optionally show follow-up or save
+  const postSynthesisSteps = [
+    {
+      id: "analyze",
+      label: `Analyzed query — parallel fan-out across ${domains.length} domains`,
+      status: "completed" as const,
+    },
+    {
+      id: "search",
+      label: `Searched ${totalResults} sources across ${domains.length} domains`,
+      status: "completed" as const,
+    },
+    {
+      id: "synthesize",
+      label: `Synthesized findings — confidence: ${synthesis.confidence}`,
+      status: "completed" as const,
+    },
+  ];
+
   // Step 7: Optional follow-up for gaps (mini iterative research iteration)
   if (enableFollowUp && synthesis.gaps.length > 0 && synthesis.confidence !== "HIGH") {
     console.log(
       `[executeParallelFanOut] Running follow-up for ${synthesis.gaps.length} gaps`
     );
+
+    await updateFanOutLoadingCard(ctx, effectiveConversationId, sessionId, topic, [
+      ...postSynthesisSteps,
+      {
+        id: "followup",
+        label: `Filling ${synthesis.gaps.length} coverage gap${synthesis.gaps.length === 1 ? "" : "s"}...`,
+        status: "in-progress",
+      },
+    ]);
 
     const followUpResult = await executeParallelSearchWithRetry(
       topic,
@@ -276,7 +367,23 @@ export async function executeParallelFanOut(
     console.log(
       `[executeParallelFanOut] Follow-up complete - ${followUpResult.structuredResults.length} additional results`
     );
+
+    postSynthesisSteps.push({
+      id: "followup",
+      label: `Filled ${synthesis.gaps.length} gap${synthesis.gaps.length === 1 ? "" : "s"} with ${followUpResult.structuredResults.length} additional sources`,
+      status: "completed" as const,
+    });
   }
+
+  // Show "saving" step before persisting results
+  await updateFanOutLoadingCard(ctx, effectiveConversationId, sessionId, topic, [
+    ...postSynthesisSteps,
+    {
+      id: "save",
+      label: "Saving to knowledge base...",
+      status: "in-progress",
+    },
+  ]);
 
   // Step 8: Create iteration record
   const summary = synthesis.keyFindings.length > 0
