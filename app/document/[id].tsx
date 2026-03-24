@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useAction } from 'convex/react'
-import { useLocalSearchParams, useRouter } from 'expo-router'
+import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router'
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
 import { ScreenLayout } from '@/components/ui/screen-layout'
@@ -136,6 +136,17 @@ export default function DocumentRoute() {
 
   const narration = useNarrationState(paragraphCount)
   const { isNarrationMode } = narration
+
+  // Stop narration when navigating away from the document
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        if (narration.isNarrationMode) {
+          narration.exitNarrationMode()
+        }
+      }
+    }, [narration.isNarrationMode])
+  )
 
   // Subscribe to audio segments only when in narration mode
   const documentId = isValidId ? (id as Id<'documents'>) : undefined
