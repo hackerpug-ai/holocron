@@ -36,6 +36,11 @@ import * as Haptics from 'expo-haptics'
 import * as Clipboard from 'expo-clipboard'
 import { parseMarkdown } from '@/components/markdown/parsers'
 import { computeNarrationMap, extractTextFromNode } from '@/lib/mdast-utils'
+import {
+  saveNarrationProgress,
+  loadNarrationProgress,
+  clearNarrationProgress,
+} from '@/components/narration/hooks/useNarrationProgress'
 import type { Root } from 'mdast'
 
 const CONVEX_SITE_URL =
@@ -130,6 +135,31 @@ export default function DocumentRoute() {
       narration.onAllReady()
     }
   }, [segments, isNarrationMode, audioJob])
+
+  // ─── Narration progress persistence ──────────────────────────────────────
+
+  // Save progress when paragraph changes during playback
+  useEffect(() => {
+    if (!documentId || !isNarrationMode) return
+    const { activeParagraphIndex, playbackSpeed, status } = narration.state
+    if (activeParagraphIndex < 0) return
+    if (status === 'playing' || status === 'paused') {
+      saveNarrationProgress(documentId, {
+        activeParagraphIndex,
+        playbackSpeed,
+        lastUpdated: Date.now(),
+      })
+    }
+  }, [documentId, isNarrationMode, narration.state.activeParagraphIndex, narration.state.status])
+
+  // Clear progress when narration finishes (paused on last segment)
+  useEffect(() => {
+    if (!documentId || !isNarrationMode) return
+    const { activeParagraphIndex, totalParagraphs, status } = narration.state
+    if (status === 'paused' && activeParagraphIndex >= totalParagraphs - 1 && totalParagraphs > 0) {
+      clearNarrationProgress(documentId)
+    }
+  }, [documentId, isNarrationMode, narration.state.status, narration.state.activeParagraphIndex, narration.state.totalParagraphs])
 
   useEffect(() => {
     paragraphOffsets.current.clear()
@@ -230,6 +260,14 @@ export default function DocumentRoute() {
     if (documentId) {
       try {
         await generateAction({ documentId })
+        // Restore saved progress if available
+        const saved = await loadNarrationProgress(documentId)
+        if (saved && saved.activeParagraphIndex > 0 && saved.activeParagraphIndex < paragraphCount) {
+          narration.skipToParagraph(saved.activeParagraphIndex)
+          if (saved.playbackSpeed && saved.playbackSpeed !== 1) {
+            narration.setSpeed(saved.playbackSpeed)
+          }
+        }
       } catch (err) {
         console.error('[Narration] Generation failed:', err)
         Alert.alert('Narration Error', 'Failed to generate audio. Please try again.')
