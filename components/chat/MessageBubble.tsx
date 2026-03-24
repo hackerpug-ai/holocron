@@ -1,5 +1,6 @@
-import { View, Pressable } from 'react-native'
+import { View, Pressable, Linking } from 'react-native'
 import { Text } from '@/components/ui/text'
+import { MarkdownText } from '@/components/markdown'
 import { cn } from '@/lib/utils'
 import type { MessageRole, MessageType } from '@/lib/types/conversations'
 import { formatTimestamp } from '@/lib/formatTimestamp'
@@ -157,19 +158,28 @@ export function MessageBubble({
           !isUser && !isSystem && 'bg-muted max-w-[75%]'
         )}
       >
-        <View className={cn('flex-row flex-wrap items-end', isStreaming && !isUser && !isSystem && 'gap-0.5')}>
-          <Text
-            variant={isSystem ? 'small' : 'default'}
-            className={cn(
-              isUser && 'text-primary-foreground',
-              isSystem && 'text-muted-foreground',
-              !isUser && !isSystem && 'text-foreground'
-            )}
-          >
-            {content}
-          </Text>
-          {isStreaming && !isUser && !isSystem && <StreamingCursor />}
-        </View>
+        {!isUser && !isSystem ? (
+          <View>
+            <MarkdownText
+              content={content}
+              onLinkPress={(url) => Linking.openURL(url)}
+              testID={`${testID}-markdown`}
+            />
+            {isStreaming && <StreamingCursor />}
+          </View>
+        ) : (
+          <View className={cn('flex-row flex-wrap items-end')}>
+            <Text
+              variant={isSystem ? 'small' : 'default'}
+              className={cn(
+                isUser && 'text-primary-foreground',
+                isSystem && 'text-muted-foreground',
+              )}
+            >
+              {content}
+            </Text>
+          </View>
+        )}
       </View>
       {showTimestamp && createdAt && (
         <Text
