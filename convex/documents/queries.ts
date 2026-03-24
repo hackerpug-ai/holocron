@@ -254,6 +254,57 @@ export const getByShareToken = query({
 });
 
 /**
+ * Get a section of a document by ID with optional block-level retrieval
+ * Returns the full document when blockIndex is omitted.
+ * When blockIndex is provided, returns that block plus one block of surrounding context.
+ */
+export const getSection = query({
+  args: {
+    id: v.id("documents"),
+    blockIndex: v.optional(v.number()),
+  },
+  handler: async (ctx, { id, blockIndex }) => {
+    const doc = await ctx.db.get(id);
+    if (!doc) return null;
+
+    if (blockIndex === undefined) {
+      return {
+        _id: doc._id,
+        title: doc.title,
+        category: doc.category,
+        content: doc.content,
+      };
+    }
+
+    // Split by double newline (rough paragraph/block boundary)
+    const blocks = doc.content.split(/\n\n+/);
+    if (blockIndex < 0 || blockIndex >= blocks.length) {
+      return {
+        _id: doc._id,
+        title: doc.title,
+        category: doc.category,
+        content: doc.content,
+        blockNotFound: true,
+      };
+    }
+
+    // Return the block and surrounding context (1 block before, 1 after)
+    const start = Math.max(0, blockIndex - 1);
+    const end = Math.min(blocks.length, blockIndex + 2);
+    const sectionContent = blocks.slice(start, end).join('\n\n');
+
+    return {
+      _id: doc._id,
+      title: doc.title,
+      category: doc.category,
+      content: sectionContent,
+      blockIndex,
+      totalBlocks: blocks.length,
+    };
+  },
+});
+
+/**
  * Helper function: Calculate cosine similarity between two vectors
  * Used for scoring vector search results
  */
