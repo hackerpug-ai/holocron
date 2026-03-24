@@ -115,6 +115,15 @@ async function callLlmAndHandleResponse(
       content: text,
       messageType: "text",
     });
+  } else {
+    // Fallback: LLM returned neither text nor tool calls
+    console.warn("LLM returned empty response (no text, no tool calls)");
+    await ctx.runMutation(api.chatMessages.mutations.create, {
+      conversationId,
+      role: "agent",
+      content: "I'm not sure how to respond to that. Could you rephrase your question?",
+      messageType: "text",
+    });
   }
 }
 
