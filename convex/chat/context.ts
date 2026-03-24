@@ -6,6 +6,17 @@ type LlmMessage = {
   content: string;
 };
 
+type DocumentContextCardData = {
+  card_type: "document_context";
+  document_id: string;
+  title: string;
+  category?: string;
+  scope: "full" | "excerpt";
+  excerpt?: string;
+  blockIndex?: number;
+  snippet?: string;
+};
+
 const CHARS_PER_TOKEN = 4;
 const MAX_MESSAGES_TO_FETCH = 200;
 const MIN_RECENT_MESSAGES = 10;
@@ -52,26 +63,52 @@ export async function buildConversationContext(
   // Reverse to get oldest-first order for the LLM
   const orderedMessages = includedMessages.reverse();
 
-  // Collect unique documentIds from all fetched messages (up to MAX_DOCUMENT_CONTEXT_COUNT)
-  const documentIdSet = new Set<Id<"documents">>();
+  // Collect document context info from messages, tracking cardData for section-aware injection.
+  // Maps documentId → the first cardData encountered (or null for legacy messages).
+  const documentContextMap = new Map<
+    Id<"documents">,
+    DocumentContextCardData | null
+  >();
+
   for (const message of orderedMessages) {
-    if (message.documentId && documentIdSet.size < MAX_DOCUMENT_CONTEXT_COUNT) {
-      documentIdSet.add(message.documentId);
+    if (!message.documentId) continue;
+    if (documentContextMap.size >= MAX_DOCUMENT_CONTEXT_COUNT) break;
+    if (documentContextMap.has(message.documentId)) continue;
+
+    const cardData = message.cardData as DocumentContextCardData | undefined;
+    if (cardData && cardData.card_type === "document_context") {
+      documentContextMap.set(message.documentId, cardData);
+    } else {
+      // Legacy message: no cardData or different card type → full injection
+      documentContextMap.set(message.documentId, null);
     }
   }
 
   // Fetch referenced documents and build system context
   const documentContextParts: string[] = [];
-  for (const documentId of documentIdSet) {
-    const document = await db.get(documentId);
-    if (document) {
-      const truncatedContent =
-        document.content.length > MAX_DOCUMENT_CONTEXT_CHARS
-          ? document.content.slice(0, MAX_DOCUMENT_CONTEXT_CHARS) + "..."
-          : document.content;
+  for (const [documentId, cardData] of documentContextMap) {
+    if (cardData && cardData.scope === "excerpt") {
+      // Excerpt scope: the excerpt text is already in the message content.
+      // Emit a light header so the agent knows the source document.
+      const blockRef =
+        cardData.blockIndex !== undefined
+          ? ` from block ${cardData.blockIndex}`
+          : "";
       documentContextParts.push(
-        `--- Document: ${document.title} ---\n${truncatedContent}`
+        `--- Document: ${cardData.title} (excerpt${blockRef}) ---\n[Full document available via ID: ${documentId}]`
       );
+    } else {
+      // Full scope or legacy: fetch and inject truncated content with document ID reference.
+      const document = await db.get(documentId);
+      if (document) {
+        const truncatedContent =
+          document.content.length > MAX_DOCUMENT_CONTEXT_CHARS
+            ? document.content.slice(0, MAX_DOCUMENT_CONTEXT_CHARS) + "..."
+            : document.content;
+        documentContextParts.push(
+          `--- Document: ${document.title} (ID: ${documentId}) ---\n${truncatedContent}`
+        );
+      }
     }
   }
 
