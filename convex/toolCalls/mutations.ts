@@ -33,7 +33,8 @@ export const updateStatus = mutation({
       v.literal("approved"),
       v.literal("rejected"),
       v.literal("completed"),
-      v.literal("failed")
+      v.literal("failed"),
+      v.literal("timed_out")
     ),
     resultMessageId: v.optional(v.id("chatMessages")),
     error: v.optional(v.string()),

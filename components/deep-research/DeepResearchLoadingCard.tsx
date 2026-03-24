@@ -1,7 +1,7 @@
 import { Card, CardContent } from '@/components/ui/card'
 import { Text } from '@/components/ui/text'
 import { cn } from '@/lib/utils'
-import { Loader2 } from '@/components/ui/icons'
+import { Loader2, XCircle } from '@/components/ui/icons'
 import type { ViewProps } from 'react-native'
 import { View, Animated, Easing, Pressable } from 'react-native'
 import { useEffect, useRef } from 'react'
@@ -21,10 +21,14 @@ export interface DeepResearchLoadingCardProps extends Omit<ViewProps, 'children'
   sessionId?: string
   /** Whether this is the final completed state */
   isComplete?: boolean
+  /** Whether this session was cancelled */
+  isCancelled?: boolean
   /** Confidence level when complete */
   confidence?: 'HIGH' | 'MEDIUM' | 'LOW'
   /** Callback when card is pressed (to navigate to detail) */
   onPress?: () => void
+  /** Callback when cancel is pressed */
+  onCancel?: () => void
 }
 
 /**
@@ -60,12 +64,15 @@ export function DeepResearchLoadingCard({
   message,
   className,
   isComplete = false,
+  isCancelled = false,
   confidence,
   onPress,
+  onCancel,
   ...props
 }: DeepResearchLoadingCardProps) {
   const colors = typeColors[researchType]
-  const displayMessage = message ?? colors.defaultMessage
+  const isInProgress = !isComplete && !isCancelled
+  const displayMessage = isCancelled ? 'Cancelled' : (message ?? colors.defaultMessage)
   // Animated values
   const pulseAnim = useRef(new Animated.Value(0)).current
   const rotateAnim = useRef(new Animated.Value(0)).current
@@ -89,8 +96,8 @@ export function DeepResearchLoadingCard({
       ])
     ).start()
 
-    // Rotation for spinner (only when not complete)
-    if (!isComplete) {
+    // Rotation for spinner (only when in progress)
+    if (isInProgress) {
       Animated.loop(
         Animated.timing(rotateAnim, {
           toValue: 1,
@@ -100,7 +107,7 @@ export function DeepResearchLoadingCard({
         })
       ).start()
     }
-  }, [pulseAnim, rotateAnim, isComplete])
+  }, [pulseAnim, rotateAnim, isInProgress])
 
   const borderOpacity = pulseAnim.interpolate({
     inputRange: [0, 1],
@@ -159,8 +166,10 @@ export function DeepResearchLoadingCard({
 
             {/* Main row */}
             <View className="flex-row items-center gap-3">
-              {/* Spinner or completion check */}
-              {!isComplete ? (
+              {/* Spinner, completion check, or cancelled icon */}
+              {isCancelled ? (
+                <XCircle size={16} className="text-muted-foreground" />
+              ) : !isComplete ? (
                 <Animated.View style={{ transform: [{ rotate: rotation }] }}>
                   <Loader2 size={16} className={colors.text} />
                 </Animated.View>
@@ -174,12 +183,13 @@ export function DeepResearchLoadingCard({
               <Text
                 className={cn(
                   'text-sm font-medium flex-1',
+                  isCancelled ? 'text-muted-foreground' :
                   isComplete ? 'text-success' : colors.text
                 )}
                 numberOfLines={1}
                 ellipsizeMode="tail"
               >
-                {isComplete ? 'Research Complete' : displayMessage}
+                {isCancelled ? 'Cancelled' : isComplete ? 'Research Complete' : displayMessage}
               </Text>
 
               {/* Confidence badge (when complete) */}
@@ -211,6 +221,19 @@ export function DeepResearchLoadingCard({
                   Tap to view full research →
                 </Text>
               </View>
+            )}
+
+            {/* Cancel button (only while in progress) */}
+            {isInProgress && onCancel && (
+              <Pressable
+                testID="deep-research-cancel-button"
+                className="mt-2 ml-7 self-start active:opacity-70"
+                onPress={onCancel}
+              >
+                <Text className="text-destructive text-xs font-medium">
+                  Cancel
+                </Text>
+              </Pressable>
             )}
           </CardContent>
         </Card>

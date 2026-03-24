@@ -68,6 +68,7 @@ export {
   createDeepResearchIteration,
   updateDeepResearchSession,
   completeDeepResearchSession,
+  cancelResearchSession,
 } from "./mutations";
 
 // =============================================================================

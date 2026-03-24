@@ -92,6 +92,7 @@ import type * as tasks_queries from "../tasks/queries.js";
 import type * as tasks_workflow from "../tasks/workflow.js";
 import type * as toolCalls_mutations from "../toolCalls/mutations.js";
 import type * as toolCalls_queries from "../toolCalls/queries.js";
+import type * as toolCalls_scheduled from "../toolCalls/scheduled.js";
 import type * as toolbelt_index from "../toolbelt/index.js";
 import type * as toolbelt_mutations from "../toolbelt/mutations.js";
 import type * as toolbelt_queries from "../toolbelt/queries.js";
@@ -195,6 +196,7 @@ declare const fullApi: ApiFromModules<{
   "tasks/workflow": typeof tasks_workflow;
   "toolCalls/mutations": typeof toolCalls_mutations;
   "toolCalls/queries": typeof toolCalls_queries;
+  "toolCalls/scheduled": typeof toolCalls_scheduled;
   "toolbelt/index": typeof toolbelt_index;
   "toolbelt/mutations": typeof toolbelt_mutations;
   "toolbelt/queries": typeof toolbelt_queries;

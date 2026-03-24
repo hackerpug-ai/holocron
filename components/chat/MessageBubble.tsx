@@ -19,7 +19,7 @@ import { AssimilationPlanCardWithConvex } from '@/components/assimilate/Assimila
 import { AssimilationProgressCard } from '@/components/assimilate/AssimilationProgressCard'
 import { useRouter } from 'expo-router'
 import { StreamingCursor } from '@/components/chat/StreamingCursor'
-import { useQuery } from 'convex/react'
+import { useQuery, useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
 import type {
@@ -229,7 +229,7 @@ function ToolApprovalBubble({
       toolDisplayName={toolCall.toolDisplayName}
       parameters={(toolCall.toolArgs as Record<string, unknown>) ?? {}}
       reasoning={cardData?.reasoning as string | undefined}
-      status={toolCall.status as 'pending' | 'approved' | 'rejected' | 'executing' | 'completed'}
+      status={toolCall.status as 'pending' | 'approved' | 'rejected' | 'executing' | 'completed' | 'timed_out'}
     />
   )
 }
@@ -255,9 +255,11 @@ function DeepResearchLoadingCardWithPolling({
     api.research.queries.getDeepResearchSession,
     { sessionId: sessionId as Id<"deepResearchSessions"> }
   )
+  const cancelSession = useMutation(api.research.mutations.cancelResearchSession)
 
-  // Check if session is complete
+  // Check if session is complete or cancelled
   const isComplete = session?.status === 'completed'
+  const isCancelled = session?.status === 'cancelled'
 
   // Determine confidence from coverage score (simplified single-pass model)
   let confidence: 'HIGH' | 'MEDIUM' | 'LOW' | undefined
@@ -266,15 +268,21 @@ function DeepResearchLoadingCardWithPolling({
                  session.currentCoverageScore >= 3 ? 'MEDIUM' : 'LOW'
   }
 
+  const handleCancel = () => {
+    cancelSession({ sessionId: sessionId as Id<"deepResearchSessions"> })
+  }
+
   return (
     <DeepResearchLoadingCard
       query={topic}
       researchType={researchType}
       message={session?.status ? STATUS_LABELS[session.status] || session.status : undefined}
       isComplete={isComplete}
+      isCancelled={isCancelled}
       confidence={confidence}
       sessionId={sessionId}
       onPress={() => onFinalResultPress?.(sessionId)}
+      onCancel={handleCancel}
       testID={testID}
     />
   )

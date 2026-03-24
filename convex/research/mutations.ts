@@ -347,6 +347,36 @@ export const updateIterationConfidenceStats = mutation({
  *
  * Called by createResearchDocument action after document is created
  */
+/**
+ * Cancel a running research session.
+ * Sets status to "cancelled" so the next scheduled iteration will exit early.
+ */
+export const cancelResearchSession = mutation({
+  args: {
+    sessionId: v.id("deepResearchSessions"),
+  },
+  handler: async (ctx, { sessionId }) => {
+    const session = await ctx.db.get(sessionId);
+    if (!session) throw new Error(`Session ${sessionId} not found`);
+
+    // Only cancel if still in progress
+    const cancelableStatuses = ["pending", "in_progress", "running"];
+    if (!cancelableStatuses.includes(session.status)) {
+      return { alreadyDone: true, status: session.status };
+    }
+
+    const now = Date.now();
+    await ctx.db.patch(sessionId, {
+      status: "cancelled",
+      completedAt: now,
+      updatedAt: now,
+      errorReason: "Cancelled by user",
+    });
+
+    return { alreadyDone: false, status: "cancelled" };
+  },
+});
+
 export const updateDeepResearchSessionDocumentId = internalMutation({
   args: {
     sessionId: v.id("deepResearchSessions"),

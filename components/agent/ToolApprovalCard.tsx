@@ -7,6 +7,7 @@ import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Text } from '@/components/ui/text'
 import { cn } from '@/lib/utils'
 import {
+  AlertTriangle,
   Check,
   CheckCircle2,
   ChevronDown,
@@ -26,7 +27,7 @@ export interface ToolApprovalCardProps {
   description?: string
   parameters: Record<string, unknown>
   reasoning?: string
-  status: 'pending' | 'approved' | 'rejected' | 'executing' | 'completed'
+  status: 'pending' | 'approved' | 'rejected' | 'executing' | 'completed' | 'timed_out'
   resultCardData?: unknown
   onApprove?: () => void
   onReject?: () => void
@@ -57,6 +58,10 @@ const STATUS_BADGE: Record<
   rejected: {
     label: 'Declined',
     className: 'bg-destructive/15 text-destructive',
+  },
+  timed_out: {
+    label: 'Timed Out',
+    className: 'bg-warning/15 text-warning',
   },
 }
 
@@ -111,6 +116,7 @@ export function ToolApprovalCard({
   const isExecuting = status === 'approved' || status === 'executing'
   const isCompleted = status === 'completed'
   const isRejected = status === 'rejected'
+  const isTimedOut = status === 'timed_out'
 
   const paramEntries = Object.entries(parameters)
 
@@ -201,6 +207,16 @@ export function ToolApprovalCard({
           <View className="flex-row items-center gap-2 py-1">
             <XCircle size={16} className="text-muted-foreground" />
             <Text className="text-muted-foreground text-sm">Declined</Text>
+          </View>
+        ) : null}
+
+        {/* ── Timed out state ── */}
+        {isTimedOut ? (
+          <View className="flex-row items-center gap-2 py-1">
+            <AlertTriangle size={16} className="text-warning" />
+            <Text className="text-warning text-sm font-medium">
+              Timed out — try sending your request again
+            </Text>
           </View>
         ) : null}
       </CardContent>

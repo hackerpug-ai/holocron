@@ -110,6 +110,21 @@ crons.interval(
 );
 
 /**
+ * Tool Call Timeout Worker
+ *
+ * Detects and marks stuck tool calls as timed out.
+ * - Runs every 2 minutes
+ * - Affects toolCalls stuck in "approved" status for > 5 minutes
+ * - Resets agentBusy on the conversation so the user isn't blocked
+ * - Posts an error message so the user knows what happened
+ */
+crons.interval(
+  "toolcall-timeout",
+  { minutes: 2 },
+  internal.toolCalls.scheduled.timeoutStuckToolCalls
+);
+
+/**
  * Assimilation Timeout Worker
  *
  * Detects and marks stuck assimilation sessions as timed out.
