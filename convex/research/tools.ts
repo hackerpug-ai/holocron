@@ -123,7 +123,6 @@ export const exaSearchTool = tool({
   execute: async ({ query }: { query: string }) => {
     console.log(`[exaSearchTool] Entry - query: "${query}"`);
     // Use default values since we removed optional parameters to fix schema conversion
-    const numResults = 5;
     const category = "any";
     try {
       const apiKey = process.env.EXA_API_KEY;
@@ -137,6 +136,7 @@ export const exaSearchTool = tool({
         };
       }
 
+      const numResults = 5;
       console.log(
         `[exaSearchTool] Calling Exa API - numResults: ${numResults}, useAutoprompt: true`,
       );
@@ -199,8 +199,6 @@ export const jinaSearchTool = tool({
   }),
   execute: async ({ query }: { query: string }) => {
     console.log(`[jinaSearchTool] Entry - query: "${query}"`);
-    // Use default value since we removed optional parameter to fix schema conversion
-    const numResults = 10;
     try {
       const apiKey = process.env.JINA_API_KEY;
       if (!apiKey) {

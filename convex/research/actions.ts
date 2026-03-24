@@ -9,30 +9,19 @@
 
 "use node";
 
-import { action, mutation } from "../_generated/server";
+import { action } from "../_generated/server";
 import { v } from "convex/values";
 import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
-import { generateText, tool } from "ai";
-import { zaiPro, zaiFlash } from "../lib/ai/zai_provider";
-import { z } from "zod";
-import Exa from "exa-js";
-import {
-  exaSearchTool,
-  jinaSearchTool,
-  jinaSiteSearchTool,
-  jinaReaderTool,
-} from "./tools";
+import { generateText } from "ai";
+import { zaiPro } from "../lib/ai/zai_provider";
 import { stripMarkdownCodeBlock } from "../lib/json";
 import {
   executeParallelSearchWithRetry,
   executeParallelUrlRead,
-  type ParallelSearchResult,
-  type UrlReadResult,
 } from "./search";
 import {
   buildResearchContext,
-  buildSearchPrompt,
   buildSynthesisPrompt,
   buildReviewPrompt,
   buildSinglePassSynthesisPrompt,
@@ -330,7 +319,7 @@ export async function runIterativeResearch(
         structuredFindings = parsed.findings || [];
         narrativeSummary = parsed.narrativeSummary || synthesisRaw;
         console.log(`[runIterativeResearch] Step 2b.1: Parsed ${structuredFindings.length} structured findings`);
-      } catch (parseError) {
+      } catch {
         console.warn(`[runIterativeResearch] Step 2b.1: Failed to parse structured synthesis, using narrative only`);
         // Fallback: use raw text as narrative, no structured findings
       }
@@ -924,7 +913,7 @@ State whether confidence is HIGH, MEDIUM, or LOW based on:
       : report.substring(0, 250);
 
     // Extract confidence from the Confidence Assessment section
-    let confidence: "HIGH" | "MEDIUM" | "LOW" = "MEDIUM";
+    let confidence: "HIGH" | "MEDIUM" | "LOW";
     const confidenceMatch = report.match(/confidence is (HIGH|MEDIUM|LOW)/i);
     if (confidenceMatch) {
       confidence = confidenceMatch[1].toUpperCase() as "HIGH" | "MEDIUM" | "LOW";

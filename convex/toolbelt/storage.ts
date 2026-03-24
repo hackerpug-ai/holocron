@@ -84,7 +84,7 @@ export const createWithEmbedding = action({
   },
   handler: async (ctx, args) => {
     // Generate embedding for the tool content
-    const embedding = await generateToolEmbedding(
+    const embedding: number[] = await generateToolEmbedding(
       args.title,
       args.description,
       args.content,
@@ -93,16 +93,17 @@ export const createWithEmbedding = action({
     );
 
     // Create the tool with the embedding
-    const toolId = await ctx.runMutation(api.toolbelt.mutations.create, {
+    const toolId: string = await ctx.runMutation(api.toolbelt.mutations.create, {
       ...args,
       embedding,
     });
 
-    return {
+    const result: { toolId: string; embeddingDimensions: number; embeddingStatus: "completed" } = {
       toolId,
       embeddingDimensions: embedding.length,
       embeddingStatus: "completed" as const,
     };
+    return result;
   },
 });
 
@@ -149,22 +150,22 @@ export const updateWithEmbedding = action({
     const { id, ...updates } = args;
 
     // Get the existing tool to check if content changed
-    const existing = await ctx.runQuery(api.toolbelt.queries.get, { id });
+    const existing: Record<string, any> | null = await ctx.runQuery(api.toolbelt.queries.get, { id });
     if (!existing) {
       throw new Error(`Tool ${id} not found`);
     }
 
     // Determine if we need to regenerate the embedding
-    const titleChanged = updates.title !== undefined && updates.title !== existing.title;
-    const descChanged = updates.description !== undefined && updates.description !== existing.description;
-    const contentChanged = updates.content !== undefined && updates.content !== existing.content;
-    const tagsChanged = updates.tags !== undefined && JSON.stringify(updates.tags) !== JSON.stringify(existing.tags);
-    const useCasesChanged = updates.useCases !== undefined && JSON.stringify(updates.useCases) !== JSON.stringify(existing.useCases);
+    const titleChanged: boolean = updates.title !== undefined && updates.title !== existing.title;
+    const descChanged: boolean = updates.description !== undefined && updates.description !== existing.description;
+    const contentChanged: boolean = updates.content !== undefined && updates.content !== existing.content;
+    const tagsChanged: boolean = updates.tags !== undefined && JSON.stringify(updates.tags) !== JSON.stringify(existing.tags);
+    const useCasesChanged: boolean = updates.useCases !== undefined && JSON.stringify(updates.useCases) !== JSON.stringify(existing.useCases);
 
-    const needsReembedding = titleChanged || descChanged || contentChanged || tagsChanged || useCasesChanged;
+    const needsReembedding: boolean = titleChanged || descChanged || contentChanged || tagsChanged || useCasesChanged;
 
     // Only regenerate embedding if relevant content changed
-    let embedding = existing.embedding;
+    let embedding: number[] = existing.embedding;
     if (needsReembedding) {
       embedding = await generateToolEmbedding(
         updates.title ?? existing.title,
@@ -176,18 +177,19 @@ export const updateWithEmbedding = action({
     }
 
     // Update the tool
-    const updated = await ctx.runMutation(api.toolbelt.mutations.update, {
+    await ctx.runMutation(api.toolbelt.mutations.update, {
       id,
       ...updates,
       embedding,
     });
 
-    return {
+    const updateResult: { toolId: string; updated: boolean; embeddingRegenerated: boolean; embeddingDimensions: number | undefined; embeddingStatus: "completed" } = {
       toolId: id,
       updated: true,
       embeddingRegenerated: needsReembedding,
       embeddingDimensions: embedding?.length,
       embeddingStatus: "completed" as const,
     };
+    return updateResult;
   },
 });

@@ -8,19 +8,18 @@
  */
 
 import { action } from "../_generated/server";
-import { v } from "convex/values";
 import { api } from "../_generated/api";
 import { embed } from "ai";
 import { cohereEmbedding } from "../lib/ai/embeddings_provider";
 
 export const reembedAllDocuments = action({
   args: {},
-  handler: async (ctx) => {
+  handler: async (ctx): Promise<{ total: number; success: number; errors: number; errorDetails: string[] }> => {
     // Fetch all documents with embeddings
-    const documents = await ctx.runQuery(api.documents.queries.list, {});
+    const documents: any[] = await ctx.runQuery(api.documents.queries.list, {});
 
     // Filter to only documents with embeddings
-    const documentsWithEmbeddings = documents.filter((doc) => doc.embedding !== undefined);
+    const documentsWithEmbeddings: any[] = documents.filter((doc: any) => doc.embedding !== undefined);
 
     console.log(`Found ${documentsWithEmbeddings.length} documents with embeddings to re-embed`);
 

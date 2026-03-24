@@ -5,7 +5,7 @@
  */
 
 import { v } from "convex/values";
-import { query, internalQuery } from "../_generated/server";
+import { query } from "../_generated/server";
 
 /**
  * Get the latest What's New report

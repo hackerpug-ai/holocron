@@ -127,7 +127,7 @@ export const processDeepResearchIteration = internalAction({
       const currentIteration = (session.iterations.length || 0) + 1;
       const maxIterations = session.maxIterations ?? 5;
       const currentTopic = session.topic;
-      const previousCoverageScore = 0;
+      const _previousCoverageScore = 0;
 
       console.log(
         `[processIteration] Iteration ${currentIteration}/${maxIterations}, topic: "${currentTopic}"`,
@@ -246,7 +246,7 @@ export const processDeepResearchIteration = internalAction({
         );
 
         // Build steps array from iterations
-        const steps = iterations.map((iter, index) => {
+        const steps = iterations.map((iter: any, _index: number) => {
           const isCurrentIteration = iter.iterationNumber === currentIteration;
           const isCompleted = iter.status === "completed";
           const status = isCompleted
@@ -328,7 +328,7 @@ export const processDeepResearchIteration = internalAction({
           );
 
           // Build steps array with synthesis step
-          const steps = iterations.map((iter) => ({
+          const steps = iterations.map((iter: any) => ({
             id: `iteration-${iter.iterationNumber}`,
             label: `Iteration ${iter.iterationNumber} - Coverage: ${iter.coverageScore || 0}/5`,
             status: "completed" as const,

@@ -45,7 +45,7 @@ export const getRecentSubscriptionContent = query({
       .collect();
 
     // Filter by date and passed filter
-    const filteredContent = allContent.filter(c => c.discoveredAt > cutoff && c.passedFilter);
+    const _filteredContent = allContent.filter(c => c.discoveredAt > cutoff && c.passedFilter);
 
     // Fetch sources to get type info
     const contentWithSource = await Promise.all(

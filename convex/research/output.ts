@@ -9,7 +9,6 @@
  */
 
 import type { ConfidenceStats } from "./confidence";
-import type { Id } from "../_generated/dataModel";
 
 /**
  * Finding structure for output formatting

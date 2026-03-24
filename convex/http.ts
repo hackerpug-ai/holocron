@@ -291,11 +291,14 @@ function markdownToHtml(md: string): string {
   });
 
   // Block-level processing: split into blocks by blank lines
+  const NUL = "\x00";
+  const codePlaceholderTest = new RegExp(`^${NUL}CODE\\d+${NUL}$`);
+  const codePlaceholderCapture = new RegExp(`${NUL}CODE(\\d+)${NUL}`);
   const blocks = text.split(/\n{2,}/);
   const processed = blocks.map((block) => {
     // Restore code blocks
-    if (/^\x00CODE\d+\x00$/.test(block.trim())) {
-      const idx = parseInt(block.trim().replace(/\x00CODE(\d+)\x00/, "$1"), 10);
+    if (codePlaceholderTest.test(block.trim())) {
+      const idx = parseInt(block.trim().replace(codePlaceholderCapture, "$1"), 10);
       return codeBlocks[idx];
     }
 
@@ -356,7 +359,8 @@ function markdownToHtml(md: string): string {
   let result = processed.filter(Boolean).join("\n");
 
   // Restore any remaining code block placeholders (e.g. inline in paragraphs)
-  result = result.replace(/\x00CODE(\d+)\x00/g, (_m, idx) => codeBlocks[parseInt(idx, 10)]);
+  const codePlaceholderGlobal = new RegExp(`${NUL}CODE(\\d+)${NUL}`, "g");
+  result = result.replace(codePlaceholderGlobal, (_m, idx) => codeBlocks[parseInt(idx, 10)]);
 
   return result;
 }
@@ -390,7 +394,9 @@ function inlineMarkdown(text: string): string {
   });
 
   // Restore inline codes
-  text = text.replace(/\x01IC(\d+)\x01/g, (_m, idx) => inlineCodes[parseInt(idx, 10)]);
+  const SOH = "\x01";
+  const icPlaceholderGlobal = new RegExp(`${SOH}IC(\\d+)${SOH}`, "g");
+  text = text.replace(icPlaceholderGlobal, (_m, idx) => inlineCodes[parseInt(idx, 10)]);
 
   return text;
 }

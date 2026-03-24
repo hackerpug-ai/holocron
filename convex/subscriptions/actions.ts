@@ -28,7 +28,7 @@ export const check = action({
     if (args.sourceType) {
       // Get sources of the specified type
       const sources = await ctx.runQuery(internal.subscriptions.internal.getActiveSources);
-      const filteredSources = sources.filter((s) => s.sourceType === args.sourceType);
+      const filteredSources = sources.filter((s: typeof sources[number]) => s.sourceType === args.sourceType);
 
       // For now, return results with a note about filtering
       // A more sophisticated implementation would track results per source

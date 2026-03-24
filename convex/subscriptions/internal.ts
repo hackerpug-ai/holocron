@@ -146,7 +146,7 @@ async function fetchYouTube(
   const newItems: any[] = [];
 
   for (const entry of items.slice(0, 10)) {
-    const videoId = entry.link.split('v=')[1]?.split('&')[0] || entry.link.split('/').pop();
+    const videoId = entry.link.split('v=')[1]?.split('&')[0] || entry.link.split('/').pop() || '';
 
     // Check if already exists (in-memory, O(1))
     if (existingIds.has(videoId)) continue;
@@ -203,7 +203,7 @@ async function fetchNewsletter(
 /**
  * Extract markdown links from content: [text](url)
  */
-function extractMarkdownLinks(markdown: string): Array<{ title: string; url: string }> {
+function _extractMarkdownLinks(markdown: string): Array<{ title: string; url: string }> {
   const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
   const links: Array<{ title: string; url: string }> = [];
   let match;
@@ -538,14 +538,9 @@ async function fetchYouTubeCreatorRSS(handle: string): Promise<Array<{
       platform: 'youtube',
     }));
   } catch {
-    // If that fails, try with @handle format
-    try {
-      // YouTube doesn't have a direct RSS for @handles, so we need to resolve the channel ID
-      // For now, return empty - users should provide channel URLs in feedUrl field
-      return [];
-    } catch {
-      return [];
-    }
+    // YouTube doesn't support @handle RSS directly
+    // Users should provide channel URLs in feedUrl field
+    return [];
   }
 }
 
@@ -581,20 +576,22 @@ async function fetchGitHubEvents(username: string): Promise<Array<{
       let link = '';
 
       switch (event.type) {
-        case 'PushEvent':
+        case 'PushEvent': {
           const commits = event.payload?.commits || [];
           if (commits.length > 0) {
             title = `Pushed ${commits.length} commit(s) to ${event.repo?.name}`;
             link = `https://github.com/${event.repo?.name}/commits`;
           }
           break;
-        case 'ReleaseEvent':
+        }
+        case 'ReleaseEvent': {
           const release = event.payload?.release;
           if (release) {
             title = `Released ${release.tag_name} of ${event.repo?.name}`;
             link = release.html_url;
           }
           break;
+        }
         case 'CreateEvent':
           if (event.payload?.ref_type === 'repository') {
             title = `Created repository ${event.repo?.name}`;
@@ -608,20 +605,22 @@ async function fetchGitHubEvents(username: string): Promise<Array<{
           title = `Made ${event.repo?.name} public`;
           link = `https://github.com/${event.repo?.name}`;
           break;
-        case 'IssuesEvent':
+        case 'IssuesEvent': {
           const issue = event.payload?.issue;
           if (issue && event.payload?.action === 'opened') {
             title = `Opened issue: ${issue.title}`;
             link = issue.html_url;
           }
           break;
-        case 'PullRequestEvent':
+        }
+        case 'PullRequestEvent': {
           const pr = event.payload?.pull_request;
           if (pr && event.payload?.action === 'opened') {
             title = `Opened PR: ${pr.title}`;
             link = pr.html_url;
           }
           break;
+        }
       }
 
       if (title && link) {
@@ -695,7 +694,7 @@ async function fetchCreator(
       title: item.title,
       published: item.published,
     };
-    const { score, reason } = calculateRelevancyScore(content, filter);
+    const { score, reason: _reason } = calculateRelevancyScore(content, filter);
 
     // For trusted creators, lower the threshold
     if (score < 0.2) continue;
@@ -917,7 +916,7 @@ async function processSingleSource(
   });
 
   // Map database filters to RelevancyRule format
-  const filters = dbFilters.map((f) => ({
+  const filters = dbFilters.map((f: typeof dbFilters[number]) => ({
     ruleName: f.ruleName,
     ruleType: f.ruleType,
     ruleValue: f.ruleValue,
@@ -1012,7 +1011,7 @@ export const checkAllSubscriptions = internalAction({
 
     // Batch fetch all existing content for duplicate checking (1 query instead of N queries)
     const existingContentMap = await ctx.runQuery(
-      internal.subscriptions.queries.batchGetExistingContent,
+      api.subscriptions.queries.batchGetExistingContent,
       {}
     );
 
@@ -1020,12 +1019,12 @@ export const checkAllSubscriptions = internalAction({
     const sources = await ctx.runQuery(internal.subscriptions.internal.getActiveSources);
 
     // Process all sources in parallel with error isolation
-    const processingPromises = sources.map(async (source) => {
+    const processingPromises = sources.map(async (source: typeof sources[number]) => {
       try {
         // Special handling for newsletter sources (RSS vs blog scraping)
         if (source.sourceType === 'newsletter') {
           const sourceIdStr = source._id.toString();
-          const existingIds = new Set(existingContentMap[sourceIdStr] || []);
+          const existingIds = new Set<string>((existingContentMap as Record<string, string[]>)[sourceIdStr] || []);
 
           // Get filters
           const dbFilters = await ctx.runQuery(internal.subscriptions.internal.getFiltersForSource, {
@@ -1033,7 +1032,9 @@ export const checkAllSubscriptions = internalAction({
             sourceType: source.sourceType,
           });
 
-          const filters = dbFilters.map((f) => ({
+          const filters: RelevancyRule[] = dbFilters.map((f: typeof dbFilters[number]) => ({
+            _id: f._id.toString(),
+            sourceType: null,
             ruleName: f.ruleName,
             ruleType: f.ruleType,
             ruleValue: f.ruleValue,
@@ -1108,11 +1109,11 @@ export const checkAllSubscriptions = internalAction({
     const results = await Promise.all(processingPromises);
 
     // Aggregate results
-    const totalFetched = results.reduce((sum, r) => sum + r.itemsFetched, 0);
-    const totalQueued = results.reduce((sum, r) => sum + r.itemsQueued, 0);
+    const totalFetched = results.reduce((sum: number, r: typeof results[number]) => sum + r.itemsFetched, 0);
+    const totalQueued = results.reduce((sum: number, r: typeof results[number]) => sum + r.itemsQueued, 0);
     const errors = results
-      .filter(r => !r.success)
-      .map(r => ({ source: r.identifier, error: r.error || 'Unknown error' }));
+      .filter((r: typeof results[number]) => !r.success)
+      .map((r: typeof results[number]) => ({ source: r.identifier, error: r.error || 'Unknown error' }));
 
     const durationMs = Date.now() - startTime;
 

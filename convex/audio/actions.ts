@@ -162,7 +162,6 @@ export const generateSegment = internalAction({
 // Internal shared generation logic
 // ============================================================================
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function runGeneration(
   ctx: { runQuery: any; runMutation: any; scheduler: { runAfter: any } },
   documentId: string,

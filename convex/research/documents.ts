@@ -15,7 +15,7 @@ import {
   type FormattedFinding,
   type ConfidenceFilter,
 } from "./output";
-import type { Id, Doc } from "../_generated/dataModel";
+import type { Id } from "../_generated/dataModel";
 import type {
   FindingWithCitations,
   IterationWithStats,
@@ -30,7 +30,7 @@ import { buildFinalSynthesisPrompt } from "./prompts";
  */
 export const createResearchDocument = internalAction({
   args: { sessionId: v.id("deepResearchSessions") },
-  handler: async (ctx, { sessionId }) => {
+  handler: async (ctx, { sessionId }): Promise<{ status: string; error?: string; reason?: string; documentId?: string }> => {
     console.log(`[createResearchDocument] Starting document creation for session: ${sessionId}`);
 
     // 1. Get session
@@ -198,7 +198,7 @@ export const createResearchDocument = internalAction({
     }
 
     // 6. Create document with embedding
-    const result = await ctx.runAction(api.documents.storage.createWithEmbedding, {
+    const result: { documentId: string; embeddingDimensions: number; embeddingStatus: string } = await ctx.runAction(api.documents.storage.createWithEmbedding, {
       title: session.topic,
       content,
       category: "research",

@@ -9,7 +9,6 @@
 
 import type { Id } from "../_generated/dataModel";
 import type { GenericActionCtx } from "convex/server";
-import type { UrlReadResult } from "./search";
 
 /**
  * Research context structure
@@ -60,7 +59,7 @@ export async function buildResearchContext(
 
   const context = {
     topic: session.topic,
-    previousIterations: iterations.map(it => ({
+    previousIterations: iterations.map((it: any) => ({
       iteration: it.iterationNumber,
       findings: it.findings ?? "",
       coverageScore: it.coverageScore ?? 0,

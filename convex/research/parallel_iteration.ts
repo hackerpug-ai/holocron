@@ -26,7 +26,6 @@ import { generateText } from "ai";
 import { zaiFlash, zaiPro } from "../lib/ai/zai_provider";
 import {
   executeParallelSearchWithRetry,
-  type ParallelSearchResult,
 } from "./search";
 import { stripMarkdownCodeBlock } from "../lib/json";
 import type { Id } from "../_generated/dataModel";

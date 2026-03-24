@@ -46,12 +46,12 @@ export const createWithEmbedding = action({
     researchType: v.optional(v.string()),
     iterations: v.optional(v.number()),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<{ documentId: any; embeddingDimensions: number; embeddingStatus: "completed" }> => {
     // Generate embedding for the document content
     const embedding = await generateDocumentEmbedding(args.content);
 
     // Create the document with the embedding
-    const documentId = await ctx.runMutation(api.documents.mutations.create, {
+    const documentId: any = await ctx.runMutation(api.documents.mutations.create, {
       ...args,
       embedding,
     });
@@ -81,11 +81,11 @@ export const updateWithEmbedding = action({
     researchType: v.optional(v.string()),
     iterations: v.optional(v.number()),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<{ documentId: any; updated: boolean; embeddingRegenerated: boolean; embeddingDimensions: number | undefined; embeddingStatus: "completed" }> => {
     const { id, ...updates } = args;
 
     // Get the existing document to check if content changed
-    const existing = await ctx.runQuery(api.documents.queries.get, { id });
+    const existing: any = await ctx.runQuery(api.documents.queries.get, { id });
     if (!existing) {
       throw new Error(`Document ${id} not found`);
     }
@@ -100,7 +100,7 @@ export const updateWithEmbedding = action({
     }
 
     // Update the document
-    const updated = await ctx.runMutation(api.documents.mutations.update, {
+    await ctx.runMutation(api.documents.mutations.update, {
       id,
       ...updates,
       embedding,
