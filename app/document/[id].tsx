@@ -19,7 +19,7 @@ import { Text } from '@/components/ui/text'
 import { Button } from '@/components/ui/button'
 import { CategoryBadge } from '@/components/CategoryBadge'
 import { MarkdownView } from '@/components/markdown/MarkdownView'
-import { useWebView } from '@/hooks/useWebView'
+import { WebViewSheet } from '@/components/webview/WebViewSheet'
 import { sanitizeMarkdown, isValidUrl } from '@/lib/sanitizeMarkdown'
 import { extractParagraphCount } from '@/lib/extractParagraphCount'
 import { mapDocumentCategoryToCategoryType } from '@/lib/category-mapping'
@@ -48,11 +48,11 @@ const CONVEX_SITE_URL =
 export default function DocumentRoute() {
   const router = useRouter()
   const params = useLocalSearchParams<{ id: string }>()
-  const { openUrl } = useWebView()
   const publish = useMutation(api.documents.mutations.publishDocument)
   const unpublish = useMutation(api.documents.mutations.unpublishDocument)
   const [isSharing, setIsSharing] = useState(false)
   const [actionsSheetVisible, setActionsSheetVisible] = useState(false)
+  const [webViewUrl, setWebViewUrl] = useState<string | null>(null)
 
   const handleBack = () => {
     if (router.canGoBack()) {
@@ -131,7 +131,7 @@ export default function DocumentRoute() {
       console.warn('[DocumentRoute] Blocked unsafe URL:', url)
       return false
     }
-    openUrl(url)
+    setWebViewUrl(url)
     return true
   }
 
@@ -483,6 +483,12 @@ export default function DocumentRoute() {
         onSharePress={handleShare}
         isNarrationActive={isNarrationMode}
         isPublic={document.isPublic}
+      />
+
+      <WebViewSheet
+        visible={webViewUrl !== null}
+        url={webViewUrl ?? ''}
+        onClose={() => setWebViewUrl(null)}
       />
     </ScreenLayout>
   )
