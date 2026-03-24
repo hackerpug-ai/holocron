@@ -553,4 +553,21 @@ export default defineSchema({
   })
     .index("by_document", ["documentId"])
     .index("by_status", ["status"]),
+
+  // Notifications
+  notifications: defineTable({
+    type: v.union(
+      v.literal("research_complete"),
+      v.literal("research_failed"),
+      v.literal("system")
+    ),
+    title: v.string(),
+    body: v.string(),
+    route: v.string(),
+    referenceId: v.optional(v.string()),
+    read: v.boolean(),
+    createdAt: v.number(),
+  })
+    .index("by_unread", ["read", "createdAt"])
+    .index("by_created", ["createdAt"]),
 });
