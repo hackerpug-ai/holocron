@@ -17,6 +17,7 @@ import {
 import * as React from 'react'
 import { View } from 'react-native'
 import {
+  BlockquoteRenderer,
   HeadingRenderer,
   ParagraphRenderer,
   ListRenderer,
@@ -177,6 +178,12 @@ export const NodeRenderer = React.memo(
           ) : (
             renderTable(node as Table, children, testID)
           )
+        case 'blockquote':
+          return (
+            <BlockquoteRenderer node={node as Blockquote} testID={testID}>
+              {children}
+            </BlockquoteRenderer>
+          )
         case 'callout':
           return renderers.callout ? (
             renderers.callout({ node, children, testID })
@@ -228,6 +235,12 @@ export const NodeRenderer = React.memo(
         return renderTableRow(node, children, testID)
       case 'tableCell':
         return renderTableCell(node, children, testID, index)
+      case 'blockquote':
+        return (
+          <BlockquoteRenderer node={node as Blockquote} testID={testID}>
+            {children}
+          </BlockquoteRenderer>
+        )
       case 'callout':
         return <CalloutRenderer node={node as any} testID={testID} />
       default:

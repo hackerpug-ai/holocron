@@ -1,6 +1,6 @@
 import { Text } from '@/components/ui/text'
 import { useTheme } from '@/hooks/use-theme'
-import type { Heading, List, ListItem, Paragraph, ThematicBreak } from 'mdast'
+import type { Blockquote, Heading, List, ListItem, Paragraph, ThematicBreak } from 'mdast'
 import * as React from 'react'
 import { StyleSheet, View } from 'react-native'
 
@@ -150,6 +150,38 @@ export const ListItemRenderer = React.memo(
   }
 )
 ListItemRenderer.displayName = 'ListItemRenderer'
+
+// ============================================================================
+// BLOCKQUOTE
+// ============================================================================
+
+interface BlockquoteProps {
+  node: Blockquote
+  children: React.ReactNode
+  testID?: string
+}
+
+export const BlockquoteRenderer = React.memo(
+  ({ children, testID }: BlockquoteProps) => {
+    const { spacing, colors } = useTheme()
+
+    return (
+      <View
+        testID={testID}
+        style={{
+          borderLeftWidth: 3,
+          borderLeftColor: colors.border,
+          paddingLeft: spacing.md,
+          marginBottom: spacing.lg,
+          opacity: 0.85,
+        }}
+      >
+        {children}
+      </View>
+    )
+  }
+)
+BlockquoteRenderer.displayName = 'BlockquoteRenderer'
 
 // ============================================================================
 // THEMATIC BREAK (Horizontal Rule)
