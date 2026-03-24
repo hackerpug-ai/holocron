@@ -191,10 +191,21 @@ export const completeDeepResearchSession = mutation({
 
     console.log(`[completeDeepResearchSession] Session completed at ${new Date(now).toISOString()}`);
 
-    // Trigger document creation for successfully completed sessions
-    // Skip if document already exists (e.g., simple research creates document inline)
+    // Create notification for completion or error
     if (status === "completed" && !errorReason) {
       const session = await ctx.db.get(sessionId);
+      await ctx.db.insert("notifications", {
+        type: "research_complete",
+        title: "Research Complete",
+        body: session?.topic ? `Deep research on "${session.topic}" has finished.` : "Your deep research session has finished.",
+        route: session?.documentId ? `/document/${session.documentId}` : `/research/${sessionId}`,
+        referenceId: sessionId,
+        read: false,
+        createdAt: now,
+      });
+
+      // Trigger document creation for successfully completed sessions
+      // Skip if document already exists (e.g., simple research creates document inline)
       if (!session?.documentId) {
         console.log(`[completeDeepResearchSession] Scheduling document creation for session ${sessionId}`);
         await ctx.scheduler.runAfter(0, internal.research.documents.createResearchDocument, {
@@ -203,6 +214,16 @@ export const completeDeepResearchSession = mutation({
       } else {
         console.log(`[completeDeepResearchSession] Document already exists: ${session.documentId}, skipping creation`);
       }
+    } else if (errorReason) {
+      await ctx.db.insert("notifications", {
+        type: "research_failed",
+        title: "Research Failed",
+        body: errorReason,
+        route: `/research/${sessionId}`,
+        referenceId: sessionId,
+        read: false,
+        createdAt: now,
+      });
     }
   },
 });

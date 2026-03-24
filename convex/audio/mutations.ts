@@ -213,6 +213,19 @@ export const completeSegment = internalMutation({
           status: newStatus,
           updatedAt: Date.now(),
         });
+
+        // Notify when all segments are done and job completed successfully
+        if (allResolved && newStatus === "completed") {
+          await ctx.db.insert("notifications", {
+            type: "audio_complete",
+            title: "Audio Ready",
+            body: "Audio generation for your document has finished.",
+            route: `/document/${job.documentId}`,
+            referenceId: job.documentId,
+            read: false,
+            createdAt: Date.now(),
+          });
+        }
       }
     }
   },

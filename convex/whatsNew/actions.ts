@@ -580,6 +580,15 @@ export const generateDailyReport = internalAction({
       `[generateDailyReport] Complete! reportId=${reportId}, documentId=${documentResult.documentId}`
     );
 
+    // Notify that a new What's New report is available
+    await ctx.runMutation(internal.notifications.internal.create, {
+      type: "whats_new",
+      title: "What's New Report Ready",
+      body: `Your daily AI digest is ready with ${uniqueFindings.length} findings.`,
+      route: `/whats-new/${reportId}`,
+      referenceId: reportId,
+    });
+
     return {
       reportId,
       documentId: documentResult.documentId,

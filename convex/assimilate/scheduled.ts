@@ -647,6 +647,15 @@ export const synthesizeAndSave = internalAction({
         metadataId: result.metadataId,
       });
 
+      // Notify that assimilation has finished
+      await ctx.runMutation(internal.notifications.internal.create, {
+        type: "assimilate_complete",
+        title: "Assimilation Complete",
+        body: session.repositoryName ? `Assimilation of "${session.repositoryName}" has finished.` : "Your assimilation session has finished.",
+        route: `/document/${result.documentId}`,
+        referenceId: result.documentId,
+      });
+
       console.log(`[synthesizeAndSave] Session completed successfully`);
     } catch (error) {
       console.error(`[synthesizeAndSave] ERROR:`, error);

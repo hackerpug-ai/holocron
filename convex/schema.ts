@@ -559,6 +559,10 @@ export default defineSchema({
     type: v.union(
       v.literal("research_complete"),
       v.literal("research_failed"),
+      v.literal("audio_complete"),
+      v.literal("whats_new"),
+      v.literal("subscription_update"),
+      v.literal("assimilate_complete"),
       v.literal("system")
     ),
     title: v.string(),

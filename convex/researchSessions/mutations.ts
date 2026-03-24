@@ -54,6 +54,20 @@ export const update = mutation({
       updatedAt: Date.now(),
     });
 
+    // Notify on completion
+    if (updates.status === "completed") {
+      const updated = await ctx.db.get(id);
+      await ctx.db.insert("notifications", {
+        type: "research_complete",
+        title: "Research Complete",
+        body: updated?.query ? `Research on "${updated.query}" has finished.` : "Your research session has finished.",
+        route: updated?.documentId ? `/document/${updated.documentId}` : `/research/${id}`,
+        referenceId: id,
+        read: false,
+        createdAt: Date.now(),
+      });
+    }
+
     return await ctx.db.get(id);
   },
 });

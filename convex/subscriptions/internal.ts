@@ -1228,6 +1228,15 @@ export const processQueuedContent = internalAction({
           }
         );
 
+        // Notify that subscription content has been researched and saved as a document
+        await ctx.runMutation(internal.notifications.internal.create, {
+          type: "subscription_update",
+          title: "Subscription Content Ready",
+          body: item.title ? `"${item.title}" has been saved to your library.` : "New subscription content has been saved to your library.",
+          route: `/document/${documentId}`,
+          referenceId: documentId,
+        });
+
         results.succeeded++;
       } catch (error) {
         results.errors.push({
