@@ -6,7 +6,7 @@
 
 import { mutation, internalMutation } from "../_generated/server";
 import { v } from "convex/values";
-import { internal } from "../_generated/api";
+import { api, internal } from "../_generated/api";
 
 /**
  * Create a new deep research session
@@ -374,6 +374,43 @@ export const cancelResearchSession = mutation({
     });
 
     return { alreadyDone: false, status: "cancelled" };
+  },
+});
+
+/**
+ * Retry a failed or timed-out research session.
+ * Resets status to "pending" and re-triggers the research action.
+ */
+export const retryResearchSession = mutation({
+  args: {
+    sessionId: v.id("deepResearchSessions"),
+  },
+  handler: async (ctx, { sessionId }) => {
+    const session = await ctx.db.get(sessionId);
+    if (!session) throw new Error(`Session ${sessionId} not found`);
+
+    const retryableStatuses = ["error", "failed", "timeout"];
+    if (!retryableStatuses.includes(session.status)) {
+      return { alreadyDone: true, status: session.status };
+    }
+
+    const now = Date.now();
+    await ctx.db.patch(sessionId, {
+      status: "pending",
+      updatedAt: now,
+      completedAt: undefined,
+      errorReason: undefined,
+      currentIteration: undefined,
+      currentCoverageScore: undefined,
+    });
+
+    // Re-trigger research action
+    await ctx.scheduler.runAfter(0, api.research.actions.startSmartResearch, {
+      conversationId: session.conversationId,
+      topic: session.topic,
+    });
+
+    return { alreadyDone: false, status: "pending" };
   },
 });
 

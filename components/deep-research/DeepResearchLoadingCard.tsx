@@ -1,7 +1,7 @@
 import { Card, CardContent } from '@/components/ui/card'
 import { Text } from '@/components/ui/text'
 import { cn } from '@/lib/utils'
-import { Loader2, XCircle } from '@/components/ui/icons'
+import { Loader2, XCircle, AlertCircle, RefreshCw } from '@/components/ui/icons'
 import type { ViewProps } from 'react-native'
 import { View, Animated, Easing, Pressable } from 'react-native'
 import { useEffect, useRef } from 'react'
@@ -23,12 +23,16 @@ export interface DeepResearchLoadingCardProps extends Omit<ViewProps, 'children'
   isComplete?: boolean
   /** Whether this session was cancelled */
   isCancelled?: boolean
+  /** Whether this session errored or timed out */
+  isError?: boolean
   /** Confidence level when complete */
   confidence?: 'HIGH' | 'MEDIUM' | 'LOW'
   /** Callback when card is pressed (to navigate to detail) */
   onPress?: () => void
   /** Callback when cancel is pressed */
   onCancel?: () => void
+  /** Callback when retry is pressed (shown when isError is true) */
+  onRetry?: () => void
 }
 
 /**
@@ -65,14 +69,16 @@ export function DeepResearchLoadingCard({
   className,
   isComplete = false,
   isCancelled = false,
+  isError = false,
   confidence,
   onPress,
   onCancel,
+  onRetry,
   ...props
 }: DeepResearchLoadingCardProps) {
   const colors = typeColors[researchType]
-  const isInProgress = !isComplete && !isCancelled
-  const displayMessage = isCancelled ? 'Cancelled' : (message ?? colors.defaultMessage)
+  const isInProgress = !isComplete && !isCancelled && !isError
+  const displayMessage = isCancelled ? 'Cancelled' : isError ? 'Research failed' : (message ?? colors.defaultMessage)
   // Animated values
   const pulseAnim = useRef(new Animated.Value(0)).current
   const rotateAnim = useRef(new Animated.Value(0)).current
@@ -166,9 +172,11 @@ export function DeepResearchLoadingCard({
 
             {/* Main row */}
             <View className="flex-row items-center gap-3">
-              {/* Spinner, completion check, or cancelled icon */}
+              {/* Spinner, completion check, cancelled, or error icon */}
               {isCancelled ? (
                 <XCircle size={16} className="text-muted-foreground" />
+              ) : isError ? (
+                <AlertCircle size={16} className="text-destructive" />
               ) : !isComplete ? (
                 <Animated.View style={{ transform: [{ rotate: rotation }] }}>
                   <Loader2 size={16} className={colors.text} />
@@ -184,12 +192,13 @@ export function DeepResearchLoadingCard({
                 className={cn(
                   'text-sm font-medium flex-1',
                   isCancelled ? 'text-muted-foreground' :
+                  isError ? 'text-destructive' :
                   isComplete ? 'text-success' : colors.text
                 )}
                 numberOfLines={1}
                 ellipsizeMode="tail"
               >
-                {isCancelled ? 'Cancelled' : isComplete ? 'Research Complete' : displayMessage}
+                {isCancelled ? 'Cancelled' : isError ? 'Research Failed' : isComplete ? 'Research Complete' : displayMessage}
               </Text>
 
               {/* Confidence badge (when complete) */}
@@ -232,6 +241,20 @@ export function DeepResearchLoadingCard({
               >
                 <Text className="text-destructive text-xs font-medium">
                   Cancel
+                </Text>
+              </Pressable>
+            )}
+
+            {/* Retry button (only when errored) */}
+            {isError && onRetry && (
+              <Pressable
+                testID="deep-research-retry-button"
+                className="mt-2 ml-7 self-start active:opacity-70 flex-row items-center gap-1"
+                onPress={onRetry}
+              >
+                <RefreshCw size={12} className="text-primary" />
+                <Text className="text-primary text-xs font-medium">
+                  Retry
                 </Text>
               </Pressable>
             )}

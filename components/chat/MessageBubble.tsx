@@ -261,10 +261,12 @@ function DeepResearchLoadingCardWithPolling({
     { sessionId: sessionId as Id<"deepResearchSessions"> }
   )
   const cancelSession = useMutation(api.research.mutations.cancelResearchSession)
+  const retrySession = useMutation(api.research.mutations.retryResearchSession)
 
-  // Check if session is complete or cancelled
+  // Check if session is complete, cancelled, or errored
   const isComplete = session?.status === 'completed'
   const isCancelled = session?.status === 'cancelled'
+  const isError = session?.status === 'error' || session?.status === 'failed' || session?.status === 'timeout'
 
   // Determine confidence from coverage score (simplified single-pass model)
   let confidence: 'HIGH' | 'MEDIUM' | 'LOW' | undefined
@@ -277,6 +279,10 @@ function DeepResearchLoadingCardWithPolling({
     cancelSession({ sessionId: sessionId as Id<"deepResearchSessions"> })
   }
 
+  const handleRetry = () => {
+    retrySession({ sessionId: sessionId as Id<"deepResearchSessions"> })
+  }
+
   return (
     <DeepResearchLoadingCard
       query={topic}
@@ -284,10 +290,12 @@ function DeepResearchLoadingCardWithPolling({
       message={session?.status ? STATUS_LABELS[session.status] || session.status : undefined}
       isComplete={isComplete}
       isCancelled={isCancelled}
+      isError={isError}
       confidence={confidence}
       sessionId={sessionId}
       onPress={() => onFinalResultPress?.(sessionId)}
       onCancel={handleCancel}
+      onRetry={handleRetry}
       testID={testID}
     />
   )
