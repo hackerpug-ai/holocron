@@ -14,6 +14,8 @@ import { cssInterop } from 'nativewind'
 import {
   AlertCircle,
   AlertTriangle,
+  Ban,
+  Circle,
   ArrowLeft,
   ArrowRight,
   BarChart3,
@@ -99,6 +101,8 @@ export type { LucideIcon, LucideProps } from 'lucide-react-native'
 const icons = [
   AlertCircle,
   AlertTriangle,
+  Ban,
+  Circle,
   ArrowLeft,
   ArrowRight,
   BarChart3,
@@ -191,6 +195,8 @@ for (const icon of icons) {
 export {
   AlertCircle,
   AlertTriangle,
+  Ban,
+  Circle,
   ArrowLeft,
   ArrowRight,
   BarChart3,
