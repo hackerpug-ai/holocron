@@ -307,6 +307,7 @@ export function DeepResearchDetailView({
               variant="full"
               contentOnly
               className="text-foreground"
+              onLinkPress={onCitationPress}
             />
           </CardContent>
         </Card>

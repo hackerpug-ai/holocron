@@ -11,8 +11,9 @@ import {
   DeepResearchDetailView,
   type DeepResearchSession,
 } from '@/components/deep-research/DeepResearchDetailView'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import type { Id } from '@/convex/_generated/dataModel'
+import { WebViewSheet } from '@/components/webview/WebViewSheet'
 
 /**
  * Format date period for title
@@ -93,9 +94,10 @@ export default function WhatsNewDetailScreen() {
     }
   }
 
+  const [webViewUrl, setWebViewUrl] = useState<string | null>(null)
+
   const handleCitationPress = (url: string) => {
-    const encodedUrl = encodeURIComponent(url)
-    router.push(`/webview/${encodedUrl}`)
+    setWebViewUrl(url)
   }
 
   if (isLoading) {
@@ -163,11 +165,19 @@ export default function WhatsNewDetailScreen() {
   }
 
   return (
-    <DeepResearchDetailView
-      session={session}
-      onBack={handleBack}
-      onCitationPress={handleCitationPress}
-      testID="whats-new-detail-view"
-    />
+    <>
+      <DeepResearchDetailView
+        session={session}
+        onBack={handleBack}
+        onCitationPress={handleCitationPress}
+        testID="whats-new-detail-view"
+      />
+      <WebViewSheet
+        visible={!!webViewUrl}
+        url={webViewUrl ?? ''}
+        onClose={() => setWebViewUrl(null)}
+        testID="whats-new-webview-sheet"
+      />
+    </>
   )
 }
