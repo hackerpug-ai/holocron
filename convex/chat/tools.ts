@@ -277,7 +277,34 @@ const save_document = tool({
 });
 
 /**
- * agentTools - All 14 chat agent tools
+ * create_plan - Create a multi-step execution plan
+ */
+const create_plan = tool({
+  description:
+    "Create a multi-step execution plan when a task requires 2 or more sequential tool calls. " +
+    "Each step specifies a tool to call and its arguments. Steps execute sequentially — " +
+    "read-only steps auto-execute, while data-modifying steps pause for user approval. " +
+    "Use this instead of individual tool calls when the user's request naturally involves multiple steps.",
+  inputSchema: z.object({
+    title: z.string().describe("Brief title describing the plan (e.g., 'Research and save findings')"),
+    steps: z.array(
+      z.object({
+        toolName: z.string().describe("Name of the tool to call (must match an existing tool name)"),
+        toolArgs: z.record(z.any()).describe("Arguments to pass to the tool"),
+        description: z.string().describe("Brief human-readable description of what this step does"),
+        requiresApproval: z.boolean().describe(
+          "Whether this step needs user approval. " +
+          "TRUE for: deep_research, save_document, subscribe, unsubscribe, assimilate, shop_search, whats_new. " +
+          "FALSE for: search_knowledge_base, browse_category, knowledge_base_stats, quick_research, " +
+          "list_subscriptions, check_subscriptions, toolbelt_search."
+        ),
+      })
+    ).min(2).describe("The ordered list of steps to execute"),
+  }),
+});
+
+/**
+ * agentTools - All 15 chat agent tools
  */
 export const agentTools = {
   search_knowledge_base,
@@ -294,4 +321,5 @@ export const agentTools = {
   toolbelt_search,
   save_document,
   assimilate,
+  create_plan,
 };

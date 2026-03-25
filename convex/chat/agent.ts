@@ -66,6 +66,43 @@ async function callLlmAndHandleResponse(
 
   // Handle tool calls — create approval messages
   if (result.toolCalls && result.toolCalls.length > 0) {
+    // Check if the LLM wants to create a plan
+    const planCall = result.toolCalls.find(
+      (tc: any) => tc.toolName === "create_plan"
+    );
+
+    if (planCall) {
+      const input = planCall.input as {
+        title: string;
+        steps: Array<{
+          toolName: string;
+          toolArgs: Record<string, unknown>;
+          description: string;
+          requiresApproval: boolean;
+        }>;
+      };
+
+      // Create the plan (mutation creates chatMessage + plan + steps)
+      const { planId } = await ctx.runMutation(
+        internal.agentPlans.mutations.createPlan,
+        {
+          conversationId,
+          title: input.title,
+          steps: input.steps,
+        }
+      );
+
+      // Schedule execution of the first step
+      await ctx.scheduler.runAfter(
+        0,
+        internal.agentPlans.actions.executePlanStep,
+        { planId }
+      );
+
+      return;
+    }
+
+    // Existing tool_approval flow for individual tools
     for (const toolCall of result.toolCalls) {
       const toolDisplayName = formatToolDisplayName(toolCall.toolName);
       const content = `I'd like to use the **${toolDisplayName}** tool to help with your request.`;

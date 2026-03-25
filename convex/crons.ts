@@ -136,4 +136,20 @@ crons.interval("assimilation-timeout", { minutes: 15 },
   internal.assimilate.scheduled.timeoutStuckSessions
 );
 
+/**
+ * Agent Plan Timeout Worker
+ *
+ * Detects and marks stuck agent plans as failed.
+ * - Runs every 5 minutes
+ * - Affects plans stuck in "executing" or "awaiting_approval" for > 30 minutes
+ * - Marks all active steps as failed
+ * - Resets agentBusy on the conversation so the user isn't blocked
+ * - Posts an error message so the user knows what happened
+ */
+crons.interval(
+  "agent-plan-timeout",
+  { minutes: 5 },
+  internal.agentPlans.scheduled.timeoutStuckPlans
+);
+
 export default crons;
