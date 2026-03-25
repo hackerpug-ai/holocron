@@ -4,6 +4,7 @@ import { Stack } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
+import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { ConvexProvider, ConvexReactClient } from 'convex/react'
 import { useEffect } from 'react'
 import { View, useColorScheme as useRNColorScheme } from 'react-native'
@@ -62,24 +63,26 @@ export default function RootLayout() {
   }
 
   return (
-    <ConvexProvider client={convex}>
-      <SafeAreaProvider>
-        <QueryClientProvider client={queryClient}>
-          <ThemeSync>
-            <NotificationToastProvider>
-              <Stack screenOptions={{ headerShown: false }}>
-                <Stack.Screen name="(drawer)" />
-                <Stack.Screen name="articles" />
-                {/* toolbelt is now inside (drawer) group */}
-                <Stack.Screen name="document/[id]" />
-                <Stack.Screen name="webview/[url]" />
-                <Stack.Screen name="storybook" />
-                <Stack.Screen name="+not-found" />
-              </Stack>
-            </NotificationToastProvider>
-          </ThemeSync>
-        </QueryClientProvider>
-      </SafeAreaProvider>
-    </ConvexProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ConvexProvider client={convex}>
+        <SafeAreaProvider>
+          <QueryClientProvider client={queryClient}>
+            <ThemeSync>
+              <NotificationToastProvider>
+                <Stack screenOptions={{ headerShown: false }}>
+                  <Stack.Screen name="(drawer)" />
+                  <Stack.Screen name="articles" />
+                  {/* toolbelt is now inside (drawer) group */}
+                  <Stack.Screen name="document/[id]" />
+                  <Stack.Screen name="webview/[url]" />
+                  <Stack.Screen name="storybook" />
+                  <Stack.Screen name="+not-found" />
+                </Stack>
+              </NotificationToastProvider>
+            </ThemeSync>
+          </QueryClientProvider>
+        </SafeAreaProvider>
+      </ConvexProvider>
+    </GestureHandlerRootView>
   )
 }
