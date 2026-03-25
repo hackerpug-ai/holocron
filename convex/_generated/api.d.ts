@@ -12,6 +12,7 @@ import type * as agentPlans_actions from "../agentPlans/actions.js";
 import type * as agentPlans_mutations from "../agentPlans/mutations.js";
 import type * as agentPlans_queries from "../agentPlans/queries.js";
 import type * as agentPlans_scheduled from "../agentPlans/scheduled.js";
+import type * as agentPlans_toolConfig from "../agentPlans/toolConfig.js";
 import type * as assimilate_index from "../assimilate/index.js";
 import type * as assimilate_mutations from "../assimilate/mutations.js";
 import type * as assimilate_prompts from "../assimilate/prompts.js";
@@ -54,6 +55,7 @@ import type * as lib_ai_embeddings_provider from "../lib/ai/embeddings_provider.
 import type * as lib_ai_zai_provider from "../lib/ai/zai_provider.js";
 import type * as lib_categories from "../lib/categories.js";
 import type * as lib_json from "../lib/json.js";
+import type * as lib_strings from "../lib/strings.js";
 import type * as migrations_backfill_chat_titles from "../migrations/backfill_chat_titles.js";
 import type * as migrations_backfill_missing_embeddings from "../migrations/backfill_missing_embeddings.js";
 import type * as migrations_backfill_research_documents from "../migrations/backfill_research_documents.js";
@@ -124,6 +126,7 @@ declare const fullApi: ApiFromModules<{
   "agentPlans/mutations": typeof agentPlans_mutations;
   "agentPlans/queries": typeof agentPlans_queries;
   "agentPlans/scheduled": typeof agentPlans_scheduled;
+  "agentPlans/toolConfig": typeof agentPlans_toolConfig;
   "assimilate/index": typeof assimilate_index;
   "assimilate/mutations": typeof assimilate_mutations;
   "assimilate/prompts": typeof assimilate_prompts;
@@ -166,6 +169,7 @@ declare const fullApi: ApiFromModules<{
   "lib/ai/zai_provider": typeof lib_ai_zai_provider;
   "lib/categories": typeof lib_categories;
   "lib/json": typeof lib_json;
+  "lib/strings": typeof lib_strings;
   "migrations/backfill_chat_titles": typeof migrations_backfill_chat_titles;
   "migrations/backfill_missing_embeddings": typeof migrations_backfill_missing_embeddings;
   "migrations/backfill_research_documents": typeof migrations_backfill_research_documents;

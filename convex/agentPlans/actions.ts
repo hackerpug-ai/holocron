@@ -41,7 +41,14 @@ export const executePlanStep = internalAction({
     });
     const step = steps.find((s: any) => s.stepIndex === plan.currentStepIndex);
 
-    // 4. No step found — plan is done
+    // 4. Defense-in-depth guard: bail out early if step is already running or completed.
+    // This prevents duplicate execution when two concurrent action calls race on the
+    // same step (e.g. double-approval schedules resumeAfterApproval twice).
+    if (step && (step.status === "running" || step.status === "completed")) {
+      return;
+    }
+
+    // 5. No step found — plan is done
     if (!step) {
       await ctx.runMutation(internal.agentPlans.mutations.updatePlanStatus, {
         planId,
@@ -56,7 +63,7 @@ export const executePlanStep = internalAction({
       return;
     }
 
-    // 5. Handle approval gate
+    // 6. Handle approval gate
     if (step.requiresApproval && step.status === "pending") {
       await ctx.runMutation(internal.agentPlans.mutations.updateStepStatus, {
         planId,
@@ -70,7 +77,7 @@ export const executePlanStep = internalAction({
       return;
     }
 
-    // 6. Execute the step (pending without approval, or already approved)
+    // 7. Execute the step (pending without approval, or already approved)
     if (step.status === "pending" || step.status === "approved") {
       // Mark step and plan as running
       await ctx.runMutation(internal.agentPlans.mutations.updateStepStatus, {

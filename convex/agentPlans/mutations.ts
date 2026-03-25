@@ -2,6 +2,7 @@ import { mutation, internalMutation } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { v } from "convex/values";
 import { toTitleCase } from "../lib/strings";
+import { TOOLS_REQUIRING_APPROVAL, VALID_TOOL_NAMES } from "./toolConfig";
 
 /**
  * Create an agent plan with all its steps.
@@ -23,6 +24,25 @@ export const createPlan = internalMutation({
   handler: async (ctx, { conversationId, title, steps }) => {
     const now = Date.now();
 
+    // Validate each step's toolName against the server-side allowlist.
+    // Reject unknown tool names immediately with a clear error — do not let
+    // them silently succeed via the default case in the tool executor.
+    for (const step of steps) {
+      if (!VALID_TOOL_NAMES.has(step.toolName)) {
+        throw new Error(
+          `Unknown tool name: "${step.toolName}". ` +
+          `Valid tools are: ${[...VALID_TOOL_NAMES].sort().join(", ")}`
+        );
+      }
+    }
+
+    // Override each step's requiresApproval using the server-side constant map.
+    // The LLM value is discarded — this prevents prompt-injection bypasses.
+    const secureSteps = steps.map((step) => ({
+      ...step,
+      requiresApproval: TOOLS_REQUIRING_APPROVAL.has(step.toolName),
+    }));
+
     // Insert the plan record first so we have a planId for cardData on the message.
     // Use a placeholder messageId that we back-patch after creating the message.
     // We use a two-step approach: insert plan → insert message with cardData → patch plan.
@@ -40,7 +60,7 @@ export const createPlan = internalMutation({
       title,
       status: "created",
       currentStepIndex: 0,
-      totalSteps: steps.length,
+      totalSteps: secureSteps.length,
       createdAt: now,
       updatedAt: now,
     });
@@ -58,9 +78,9 @@ export const createPlan = internalMutation({
     // Step 3: Back-patch the plan record with the real messageId
     await ctx.db.patch(planId, { messageId });
 
-    // Insert all step records
-    for (let i = 0; i < steps.length; i++) {
-      const step = steps[i];
+    // Insert all step records using secureSteps (requiresApproval already overridden)
+    for (let i = 0; i < secureSteps.length; i++) {
+      const step = secureSteps[i];
       await ctx.db.insert("agentPlanSteps", {
         planId,
         stepIndex: i,
@@ -189,6 +209,16 @@ export const approveStep = mutation({
       throw new Error(
         `agentPlanStep not found for planId=${planId} stepIndex=${stepIndex}`
       );
+    }
+
+    // Concurrency guard: only allow approval when step is in an approvable state.
+    // If step.status is already "approved", "running", or "completed", a concurrent
+    // call already processed this step — return early to prevent double-execution.
+    if (
+      step.status !== "awaiting_approval" &&
+      step.status !== "pending"
+    ) {
+      return;
     }
 
     await ctx.db.patch(step._id, { status: "approved" });
