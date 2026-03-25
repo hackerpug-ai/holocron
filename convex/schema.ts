@@ -628,4 +628,95 @@ export default defineSchema({
   })
     .index("by_unread", ["read", "createdAt"])
     .index("by_created", ["createdAt"]),
+
+  // Creator profiles for multi-platform subscription management
+  creatorProfiles: defineTable({
+    // Canonical identity
+    name: v.string(), // Display name: "Anders Hejlsberg"
+    handle: v.string(), // Primary handle: "ahejlsberg" (normalized, lowercase)
+    canonicalType: v.union(v.literal("person"), v.literal("organization")),
+    // Platform presence (validated via APIs)
+    platforms: v.object({
+      youtube: v.optional(
+        v.object({
+          handle: v.string(), // @channel without @
+          channelId: v.optional(v.string()), // UCxxxxx (from API)
+          verified: v.boolean(), // API-validated
+          subscriberCount: v.optional(v.number()),
+        })
+      ),
+      twitter: v.optional(
+        v.object({
+          handle: v.string(), // @user without @
+          userId: v.optional(v.string()), // Numeric ID (from API)
+          verified: v.boolean(),
+          followerCount: v.optional(v.number()),
+        })
+      ),
+      bluesky: v.optional(
+        v.object({
+          handle: v.string(), // @user.bsky.social or custom
+          did: v.optional(v.string()), // Decentralized ID (from API)
+          verified: v.boolean(),
+          followerCount: v.optional(v.number()),
+        })
+      ),
+      github: v.optional(
+        v.object({
+          handle: v.string(), // username
+          userId: v.optional(v.number()), // Numeric ID (from API)
+          verified: v.boolean(),
+          followerCount: v.optional(v.number()),
+        })
+      ),
+      website: v.optional(
+        v.object({
+          url: v.string(),
+          validated: v.boolean(), // HTTP 200 check
+        })
+      ),
+    }),
+    // Metadata
+    bio: v.optional(v.string()),
+    avatarUrl: v.optional(v.string()),
+    lastVerifiedAt: v.number(), // Last API check
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_handle", ["handle"])
+    .index("by_name", ["name"])
+    .searchIndex("by_name_search", { searchField: "name" }),
+
+  // Subscription links for shareable subscription URIs
+  subscriptionLinks: defineTable({
+    token: v.string(), // Short unique token (8 chars, base62)
+    creatorProfileId: v.optional(v.id("creatorProfiles")), // Link to profile OR
+    // Direct subscription data (if no profile)
+    subscriptions: v.optional(
+      v.array(
+        v.object({
+          sourceType: v.union(
+            v.literal("youtube"),
+            v.literal("newsletter"),
+            v.literal("changelog"),
+            v.literal("reddit"),
+            v.literal("ebay"),
+            v.literal("whats-new"),
+            v.literal("creator")
+          ),
+          identifier: v.string(),
+          name: v.string(),
+          url: v.optional(v.string()),
+          feedUrl: v.optional(v.string()),
+          configJson: v.optional(v.any()),
+        })
+      )
+    ),
+    createdBy: v.string(), // User who created the link
+    expiresAt: v.optional(v.number()), // Optional expiry
+    clickCount: v.number(), // Track usage
+    createdAt: v.number(),
+  })
+    .index("by_token", ["token"])
+    .index("by_profile", ["creatorProfileId"]),
 });

@@ -1,4 +1,4 @@
-import { View, TextInput, Pressable, StyleSheet } from 'react-native'
+import { View, TextInput, Pressable, ScrollView, StyleSheet } from 'react-native'
 import { Text } from '@/components/ui/text'
 import { cn } from '@/lib/utils'
 import { useState, useMemo, useCallback, useEffect } from 'react'
@@ -90,7 +90,7 @@ function CommandSuggestions({
       testID="command-suggestions"
       className="bg-popover border-border absolute bottom-full left-0 right-0 mb-2 max-h-64 rounded-lg border shadow-lg"
     >
-      <View className="p-2">
+      <ScrollView className="p-2" keyboardShouldPersistTaps="handled">
         {filteredCommands.map((command) => {
           const isExactMatch = exactMatch?.name === command.name
 
@@ -120,7 +120,7 @@ function CommandSuggestions({
             </Pressable>
           )
         })}
-      </View>
+      </ScrollView>
     </View>
   )
 }

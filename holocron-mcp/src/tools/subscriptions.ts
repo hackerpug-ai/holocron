@@ -365,3 +365,189 @@ export async function addCreatorSubscription(
     configJson: { platforms },
   });
 }
+
+// ============================================================================
+// Batch Subscribe & Link Tools (Easy Subscribe Feature)
+// ============================================================================
+
+export interface BatchSubscribeInput {
+  creatorProfileId: string;
+  platforms: Array<"youtube" | "twitter" | "bluesky" | "github" | "website">;
+  autoResearch?: boolean;
+}
+
+export interface BatchSubscribeOutput {
+  created: Array<{
+    subscriptionId: string;
+    platform: string;
+    identifier: string;
+  }>;
+  failed: Array<{
+    platform: string;
+    error: string;
+  }>;
+}
+
+/**
+ * Batch subscribe to multiple platforms for a creator
+ * Creates subscriptions transactionally with detailed error handling
+ */
+export async function batchSubscribe(
+  client: HolocronConvexClient,
+  input: BatchSubscribeInput
+): Promise<BatchSubscribeOutput> {
+  const result = await client.mutation<{
+    created: Array<{ subscriptionId: string; platform: string; identifier: string }>;
+    failed: Array<{ platform: string; error: string }>;
+    // biome-ignore lint/suspicious/noExplicitAny: Dynamic Convex function reference
+  }>("subscriptions/mutations:batchSubscribe" as any, {
+    // biome-ignore lint/suspicious/noExplicitAny: Convex ID type
+    creatorProfileId: input.creatorProfileId as any,
+    platforms: input.platforms,
+    ...(input.autoResearch !== undefined && { autoResearch: input.autoResearch }),
+  });
+
+  return result;
+}
+
+export interface GenerateSubscriptionLinkInput {
+  creatorProfileId?: string;
+  subscriptions?: Array<{
+    sourceType:
+      | "youtube"
+      | "newsletter"
+      | "changelog"
+      | "reddit"
+      | "ebay"
+      | "whats-new"
+      | "creator";
+    identifier: string;
+    name: string;
+    url?: string;
+    feedUrl?: string;
+    configJson?: unknown;
+  }>;
+  expiresIn?: number; // seconds
+}
+
+export interface GenerateSubscriptionLinkOutput {
+  linkId: string;
+  token: string;
+  url: string;
+  expiresAt?: number;
+}
+
+/**
+ * Generate a shareable subscription link
+ * Creates a short token for easy subscription sharing
+ */
+export async function generateSubscriptionLink(
+  client: HolocronConvexClient,
+  input: GenerateSubscriptionLinkInput
+): Promise<GenerateSubscriptionLinkOutput> {
+  const result = await client.mutation<{
+    linkId: string;
+    token: string;
+    url: string;
+    expiresAt?: number;
+    // biome-ignore lint/suspicious/noExplicitAny: Dynamic Convex function reference
+  }>("subscriptions/links:generateLink" as any, {
+    // biome-ignore lint/suspicious/noExplicitAny: Convex ID type
+    ...(input.creatorProfileId && { creatorProfileId: input.creatorProfileId as any }),
+    ...(input.subscriptions && { subscriptions: input.subscriptions }),
+    ...(input.expiresIn !== undefined && { expiresIn: input.expiresIn }),
+  });
+
+  return result;
+}
+
+export interface ResolveSubscriptionLinkInput {
+  token: string;
+}
+
+export interface ResolveSubscriptionLinkOutput {
+  subscriptions: Array<{
+    sourceType: string;
+    identifier: string;
+    name: string;
+    url?: string;
+    feedUrl?: string;
+  }>;
+  creatorProfile?: {
+    name: string;
+    handle: string;
+  };
+  expiresAt?: number;
+}
+
+/**
+ * Resolve a subscription link token
+ * Returns the subscription data for the token
+ */
+export async function resolveSubscriptionLink(
+  client: HolocronConvexClient,
+  input: ResolveSubscriptionLinkInput
+): Promise<ResolveSubscriptionLinkOutput> {
+  const result = await client.query<{
+    subscriptions: Array<{
+      sourceType: string;
+      identifier: string;
+      name: string;
+      url?: string;
+      feedUrl?: string;
+    }>;
+    creatorProfile?: {
+      name: string;
+      handle: string;
+    };
+    expiresAt?: number;
+    // biome-ignore lint/suspicious/noExplicitAny: Dynamic Convex function reference
+  }>("subscriptions/links:resolveLink" as any, {
+    token: input.token,
+  });
+
+  return result;
+}
+
+export interface SubscribeFromLinkInput {
+  token: string;
+  autoResearch?: boolean;
+}
+
+export interface SubscribeFromLinkOutput {
+  created: Array<{
+    subscriptionId: string;
+    sourceType: string;
+    identifier: string;
+  }>;
+  failed: Array<{
+    sourceType: string;
+    identifier: string;
+    error: string;
+  }>;
+  creatorProfile?: {
+    name: string;
+    handle: string;
+  };
+}
+
+/**
+ * Subscribe from a link token
+ * Creates subscriptions from the link data
+ */
+export async function subscribeFromLink(
+  client: HolocronConvexClient,
+  input: SubscribeFromLinkInput
+): Promise<SubscribeFromLinkOutput> {
+  const result = await client.mutation<{
+    created: Array<{ subscriptionId: string; sourceType: string; identifier: string }>;
+    failed: Array<{ sourceType: string; identifier: string; error: string }>;
+    creatorProfile?: { name: string; handle: string };
+    // biome-ignore lint/suspicious/noExplicitAny: Dynamic Convex function reference
+  }>("subscriptions/links:subscribeFromLink" as any, {
+    token: input.token,
+    ...(input.autoResearch !== undefined && { autoResearch: input.autoResearch }),
+  });
+
+  return result;
+}

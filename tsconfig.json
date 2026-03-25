@@ -21,6 +21,8 @@
     "holocron-general-mcp.old/**/*",
     "scripts/**/*",
     "**/*.stories.tsx",
-    ".rnstorybook/**/*"
+    ".rnstorybook/**/*",
+    "convex/creators/**/*",
+    "convex/subscriptions/links.ts"
   ]
 }
