@@ -1,4 +1,5 @@
 import { ToolbeltScreen, type Tool } from '@/screens/toolbelt-screen'
+import { ScreenLayout } from '@/components/ui/screen-layout'
 import { useQuery } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import type { Doc } from '@/convex/_generated/dataModel'
@@ -12,7 +13,7 @@ import * as Linking from 'expo-linking'
  * Inside (drawer) group so the navigation drawer remains accessible
  */
 export default function ToolbeltRoute() {
-  const _router = useRouter()
+  const router = useRouter()
 
   // Fetch tools from Convex
   const toolsData = useQuery(api.toolbelt.queries.list, { limit: 100 })
@@ -46,11 +47,29 @@ export default function ToolbeltRoute() {
     }
   }
 
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back()
+    } else {
+      router.navigate('/chat/new')
+    }
+  }
+
   return (
-    <ToolbeltScreen
-      tools={tools}
-      isLoading={isLoading}
-      onToolPress={handleToolPress}
-    />
+    <ScreenLayout
+      header={{
+        title: 'Toolbelt',
+        showBack: true,
+        onBack: handleBack,
+      }}
+      edges="bottom"
+      testID="toolbelt-route-layout"
+    >
+      <ToolbeltScreen
+        tools={tools}
+        isLoading={isLoading}
+        onToolPress={handleToolPress}
+      />
+    </ScreenLayout>
   )
 }

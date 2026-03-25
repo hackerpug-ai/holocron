@@ -1,7 +1,15 @@
-import { CategoryBadge } from '@/components/CategoryBadge'
 import { Text } from '@/components/ui/text'
 import { cn } from '@/lib/utils'
-import { ExternalLink, Wrench } from '@/components/ui/icons'
+import {
+  Code,
+  Database,
+  ExternalLink,
+  Globe,
+  Package,
+  Terminal,
+  Wrench,
+} from '@/components/ui/icons'
+import type { LucideIcon } from '@/components/ui/icons'
 import { Pressable, View, type ViewProps } from 'react-native'
 
 export type ToolStatus = 'complete' | 'draft' | 'archived'
@@ -9,39 +17,30 @@ export type ToolCategory = 'libraries' | 'cli' | 'framework' | 'service' | 'data
 export type SourceType = 'github' | 'npm' | 'pypi' | 'website' | 'cargo' | 'go' | 'other'
 
 export interface ToolCardProps extends Omit<ViewProps, 'children'> {
-  /** Tool ID */
   id: string
-  /** Tool title */
   title: string
-  /** Optional description */
   description?: string
-  /** Content snippet */
   content?: string
-  /** Category for badge display */
   category: ToolCategory
-  /** Source type */
   sourceType: SourceType
-  /** Source URL */
   sourceUrl?: string
-  /** Tool status */
   status?: ToolStatus
-  /** Programming language */
   language?: string
-  /** Tags */
   tags?: string[]
-  /** Callback when card is pressed */
   onPress?: () => void
-  /** Show compact variant */
   compact?: boolean
 }
 
-const statusColors: Record<ToolStatus, string> = {
-  complete: 'bg-success',
-  draft: 'bg-warning',
-  archived: 'bg-muted-foreground',
+const categoryMeta: Record<ToolCategory, { label: string; icon: LucideIcon; accent: string }> = {
+  libraries: { label: 'Library', icon: Package, accent: 'text-blue-400' },
+  cli: { label: 'CLI', icon: Terminal, accent: 'text-green-400' },
+  framework: { label: 'Framework', icon: Code, accent: 'text-purple-400' },
+  service: { label: 'Service', icon: Globe, accent: 'text-amber-400' },
+  database: { label: 'Database', icon: Database, accent: 'text-rose-400' },
+  tool: { label: 'Tool', icon: Wrench, accent: 'text-cyan-400' },
 }
 
-const sourceTypeIcons: Record<SourceType, string> = {
+const sourceLabels: Record<SourceType, string> = {
   github: 'GitHub',
   npm: 'npm',
   pypi: 'PyPI',
@@ -51,9 +50,15 @@ const sourceTypeIcons: Record<SourceType, string> = {
   other: 'Other',
 }
 
+const statusIndicator: Record<ToolStatus, { color: string; label: string }> = {
+  complete: { color: 'bg-emerald-500', label: 'Complete' },
+  draft: { color: 'bg-amber-500', label: 'Draft' },
+  archived: { color: 'bg-muted-foreground', label: 'Archived' },
+}
+
 /**
- * ToolCard displays toolbelt tool information with category badge,
- * status indicator, and metadata.
+ * ToolCard - distinctive card for toolbelt items with category-colored
+ * icon accent and clear source/language metadata.
  */
 export function ToolCard({
   id,
@@ -71,81 +76,80 @@ export function ToolCard({
   className,
   ...props
 }: ToolCardProps) {
-  const hasExternalLink = !!sourceUrl
+  const meta = categoryMeta[category]
+  const CategoryIcon = meta.icon
+  const statusMeta = statusIndicator[status]
 
   return (
     <Pressable
       onPress={onPress}
       className={cn(
-        'bg-card border-border rounded-lg border p-4 active:bg-muted/50',
-        compact && 'p-3',
+        'rounded-xl border border-border bg-card active:bg-muted/60',
+        compact ? 'p-3' : 'p-4',
         className
       )}
       testID={`tool-card-${id}`}
       accessibilityRole="button"
-      accessibilityLabel={`${title}. ${category} tool. Status: ${status}`}
+      accessibilityLabel={`${title}. ${meta.label}. Status: ${statusMeta.label}`}
       {...props}
     >
-      {/* Header: Title + Status + External Link */}
-      <View className="flex-row items-start justify-between gap-2">
-        <View className="flex-1 flex-row items-center gap-2">
-          <Wrench size={16} className="text-primary shrink-0" />
-          <Text
-            className={cn('flex-1 font-semibold text-foreground', compact ? 'text-sm' : 'text-base')}
-            numberOfLines={1}
-          >
-            {title}
-          </Text>
+      {/* Top row: Category icon + Title + Status/Link */}
+      <View className="flex-row items-start gap-3">
+        {/* Category icon with colored background */}
+        <View className="mt-0.5 h-9 w-9 items-center justify-center rounded-lg bg-muted">
+          <CategoryIcon size={18} className={meta.accent} />
         </View>
-        <View className="flex-row items-center gap-2">
-          {/* Status indicator */}
-          <View
-            className={cn('h-2 w-2 rounded-full', statusColors[status])}
-            testID={`tool-status-${status}`}
-          />
-          {/* External link indicator */}
-          {hasExternalLink && (
-            <ExternalLink size={14} className="text-muted-foreground" />
-          )}
+
+        {/* Title + source line */}
+        <View className="flex-1">
+          <View className="flex-row items-center gap-2">
+            <Text
+              className={cn('flex-1 font-semibold text-foreground', compact ? 'text-sm' : 'text-base')}
+              numberOfLines={1}
+            >
+              {title}
+            </Text>
+            {/* Status dot */}
+            <View className={cn('h-2 w-2 rounded-full', statusMeta.color)} />
+            {sourceUrl && (
+              <ExternalLink size={13} className="text-muted-foreground" />
+            )}
+          </View>
+
+          {/* Source + language inline */}
+          <View className="mt-0.5 flex-row items-center gap-1.5">
+            <Text className="text-xs text-muted-foreground">
+              {sourceLabels[sourceType]}
+            </Text>
+            {language && (
+              <>
+                <Text className="text-xs text-muted-foreground/40">{'/'}</Text>
+                <Text className="text-xs text-primary">{language}</Text>
+              </>
+            )}
+          </View>
         </View>
       </View>
 
-      {/* Description or content snippet */}
+      {/* Description */}
       {(description || content) && !compact && (
-        <Text className="text-muted-foreground mt-2 text-sm" numberOfLines={2}>
-          {description || content?.slice(0, 150) + (content && content.length > 150 ? '...' : '')}
+        <Text className="mt-2.5 pl-12 text-sm leading-5 text-muted-foreground" numberOfLines={2}>
+          {description || (content ? content.slice(0, 150) + (content.length > 150 ? '...' : '') : '')}
         </Text>
       )}
 
-      {/* Footer: Category + Source Type + Language */}
-      <View className="mt-3 flex-row flex-wrap items-center gap-2">
-        <CategoryBadge category="toolbelt" size="sm" />
-
-        {/* Source type */}
-        <View className="bg-muted rounded px-1.5 py-0.5">
-          <Text className="text-muted-foreground text-xs">
-            {sourceTypeIcons[sourceType]}
-          </Text>
-        </View>
-
-        {/* Language badge */}
-        {language && (
-          <View className="rounded bg-info/20 px-1.5 py-0.5">
-            <Text className="text-xs text-info">{language}</Text>
-          </View>
-        )}
-      </View>
-
-      {/* Tags (non-compact only) */}
+      {/* Tags */}
       {tags && tags.length > 0 && !compact && (
-        <View className="mt-2 flex-row flex-wrap gap-1">
-          {tags.slice(0, 4).map((tag, index) => (
-            <View key={index} className="bg-muted/50 rounded px-1.5 py-0.5">
-              <Text className="text-muted-foreground text-xs">{tag}</Text>
+        <View className="mt-2.5 flex-row flex-wrap gap-1.5 pl-12">
+          {tags.slice(0, 5).map((tag, index) => (
+            <View key={index} className="rounded-md bg-muted px-2 py-0.5">
+              <Text className="text-[11px] text-muted-foreground">{tag}</Text>
             </View>
           ))}
-          {tags.length > 4 && (
-            <Text className="text-muted-foreground text-xs">+{tags.length - 4}</Text>
+          {tags.length > 5 && (
+            <View className="rounded-md bg-muted/50 px-2 py-0.5">
+              <Text className="text-[11px] text-muted-foreground">+{tags.length - 5}</Text>
+            </View>
           )}
         </View>
       )}
