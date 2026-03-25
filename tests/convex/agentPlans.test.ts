@@ -171,4 +171,117 @@ describe('Agent Plans API', () => {
       expect(clearsViaSetAgentBusy || clearsViaPatch).toBe(true);
     });
   });
+
+  /**
+   * AC-9: advanceStep is a no-op when plan status is "cancelled" or "failed"
+   *
+   * GIVEN a plan whose status is "cancelled" or "failed"
+   * WHEN advanceStep is called (e.g. because a running step just completed)
+   * THEN advanceStep must return early without patching plan status or currentStepIndex
+   *
+   * Verified structurally: the mutations source must contain a guard that checks
+   * for "cancelled" and "failed" statuses before any db.patch call in advanceStep.
+   */
+  describe('AC-9: advanceStep guards against cancelled/failed status', () => {
+    it('should return early in advanceStep when plan is cancelled or failed', async () => {
+      const path = await import('path');
+      const fs = await import('fs');
+      const mutationsPath = path.resolve(
+        __dirname,
+        '../../convex/agentPlans/mutations.ts',
+      );
+      const src = fs.readFileSync(mutationsPath, 'utf8');
+
+      // The advanceStep handler must contain a guard that checks for cancelled/failed
+      // before patching. We verify by looking for the early-return guard pattern.
+      expect(src).toContain('"cancelled"');
+      expect(src).toContain('"failed"');
+
+      // Locate advanceStep handler and confirm the guard precedes any db.patch call
+      const advanceStepIdx = src.indexOf('export const advanceStep');
+      expect(advanceStepIdx).toBeGreaterThan(-1);
+
+      const handlerBody = src.slice(advanceStepIdx);
+      const guardIdx = handlerBody.search(/"cancelled"|"failed"/);
+      const firstPatchIdx = handlerBody.indexOf('db.patch');
+      // Guard must appear before the first db.patch in the advanceStep body
+      expect(guardIdx).toBeGreaterThan(-1);
+      expect(guardIdx).toBeLessThan(firstPatchIdx);
+    });
+  });
+
+  /**
+   * AC-11: rejectStep validates stepIndex matches currentStepIndex
+   *
+   * GIVEN a plan in awaiting_approval state
+   * WHEN rejectStep is called with a stepIndex that does not match currentStepIndex
+   * THEN it must throw with a message containing "Step index mismatch", "expected", and "got"
+   *
+   * This is the same guard approveStep already has, ensuring consistency between paths.
+   */
+  describe('AC-11: rejectStep validates stepIndex matches currentStepIndex', () => {
+    it('should throw with a descriptive mismatch error when stepIndex !== currentStepIndex', async () => {
+      const path = await import('path');
+      const fs = await import('fs');
+      const mutationsPath = path.resolve(
+        __dirname,
+        '../../convex/agentPlans/mutations.ts',
+      );
+      const src = fs.readFileSync(mutationsPath, 'utf8');
+
+      // Find the rejectStep handler body (slice from its declaration)
+      const rejectStepIdx = src.indexOf('export const rejectStep');
+      expect(rejectStepIdx).toBeGreaterThan(-1);
+      const rejectStepBody = src.slice(rejectStepIdx);
+
+      // Must contain a guard comparing stepIndex to plan.currentStepIndex
+      const hasIndexCheck =
+        rejectStepBody.includes('currentStepIndex !== stepIndex') ||
+        rejectStepBody.includes('stepIndex !== plan.currentStepIndex') ||
+        rejectStepBody.includes('plan.currentStepIndex !== stepIndex');
+      expect(hasIndexCheck).toBe(true);
+
+      // Error message must contain all three required tokens
+      expect(rejectStepBody).toContain('Step index mismatch');
+      expect(rejectStepBody).toContain('expected');
+      expect(rejectStepBody).toContain('got');
+    });
+  });
+
+  /**
+   * AC-10: cancelPlan clears agentBusy on the conversation
+   *
+   * GIVEN a plan that may be mid-execution (agentBusy=true on the conversation)
+   * WHEN cancelPlan is called
+   * THEN the conversation's agentBusy must be cleared so the input is not locked
+   *
+   * Verified structurally: the cancelPlan handler must patch the conversation
+   * with agentBusy: false (same pattern used in rejectStep).
+   */
+  describe('AC-10: cancelPlan clears agentBusy on the conversation', () => {
+    it('should clear agentBusy in cancelPlan handler', async () => {
+      const path = await import('path');
+      const fs = await import('fs');
+      const mutationsPath = path.resolve(
+        __dirname,
+        '../../convex/agentPlans/mutations.ts',
+      );
+      const src = fs.readFileSync(mutationsPath, 'utf8');
+
+      // cancelPlan must clear agentBusy on the conversation
+      const cancelPlanIdx = src.indexOf('export const cancelPlan');
+      expect(cancelPlanIdx).toBeGreaterThan(-1);
+
+      const cancelPlanBody = src.slice(cancelPlanIdx);
+      // Find the next export (end boundary of cancelPlan)
+      const nextExportIdx = cancelPlanBody.indexOf('\nexport const', 1);
+      const cancelPlanHandler =
+        nextExportIdx > -1
+          ? cancelPlanBody.slice(0, nextExportIdx)
+          : cancelPlanBody;
+
+      // The handler must contain agentBusy: false
+      expect(cancelPlanHandler).toContain('agentBusy: false');
+    });
+  });
 });

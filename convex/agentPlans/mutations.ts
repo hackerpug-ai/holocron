@@ -251,6 +251,11 @@ export const rejectStep = mutation({
         `Plan ${planId} is not awaiting approval (status: ${plan.status})`
       );
     }
+    if (plan.currentStepIndex !== stepIndex) {
+      throw new Error(
+        `Step index mismatch: expected ${plan.currentStepIndex}, got ${stepIndex}`
+      );
+    }
 
     const step = await ctx.db
       .query("agentPlanSteps")
@@ -315,9 +320,17 @@ export const cancelPlan = mutation({
       throw new Error(`agentPlan ${planId} not found`);
     }
 
+    const now = Date.now();
     await ctx.db.patch(planId, {
       status: "cancelled",
-      updatedAt: Date.now(),
+      updatedAt: now,
+    });
+
+    // Clear agentBusy on the conversation so the input is not locked.
+    // This handles the case where a step was mid-run when the plan was cancelled.
+    await ctx.db.patch(plan.conversationId, {
+      agentBusy: false,
+      agentBusySince: undefined,
     });
 
     // Skip all steps that haven't finished yet
@@ -346,6 +359,12 @@ export const advanceStep = internalMutation({
     const plan = await ctx.db.get(planId);
     if (!plan) {
       throw new Error(`agentPlan ${planId} not found`);
+    }
+
+    // Guard: if the plan was cancelled or failed while a step was running,
+    // do not overwrite that terminal status with "completed" or "executing".
+    if (plan.status === "cancelled" || plan.status === "failed") {
+      return null;
     }
 
     const nextStepIndex = plan.currentStepIndex + 1;
