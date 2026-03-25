@@ -1,4 +1,5 @@
 import { mutation, internalMutation } from "../_generated/server";
+import { internal } from "../_generated/api";
 import { v } from "convex/values";
 
 /**
@@ -186,6 +187,13 @@ export const approveStep = mutation({
     }
 
     await ctx.db.patch(step._id, { status: "approved" });
+
+    // Resume plan execution now that the step is approved
+    await ctx.scheduler.runAfter(
+      0,
+      internal.agentPlans.actions.resumeAfterApproval,
+      { planId },
+    );
   },
 });
 

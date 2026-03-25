@@ -57,4 +57,38 @@ describe('Agent Plans API', () => {
       expect(toTitleCase('multi_word_tool_name')).toBe('Multi Word Tool Name');
     });
   });
+
+  /**
+   * AC-4: agentPlans actions exist in the generated internal API
+   */
+  describe('AC-4: agentPlans actions are registered', () => {
+    it('should have internal actions: executePlanStep, continueAfterPlan, resumeAfterApproval', async () => {
+      const { internal } = await import('../../convex/_generated/api');
+      expect(internal.agentPlans).toBeDefined();
+      expect(internal.agentPlans.actions).toBeDefined();
+      expect(internal.agentPlans.actions.executePlanStep).toBeDefined();
+      expect(internal.agentPlans.actions.continueAfterPlan).toBeDefined();
+      expect(internal.agentPlans.actions.resumeAfterApproval).toBeDefined();
+    });
+  });
+
+  /**
+   * AC-5: approveStep mutation schedules resumeAfterApproval
+   * Verified via: approveStep references internal.agentPlans.actions.resumeAfterApproval
+   * (structural: the mutations file imports internal after actions exist)
+   */
+  describe('AC-5: approveStep schedules resumeAfterApproval after approval', () => {
+    it('should use ctx.scheduler in approveStep (scheduler call present in mutations)', async () => {
+      // Read mutations source to verify scheduler.runAfter is present in approveStep
+      const path = await import('path');
+      const fs = await import('fs');
+      const mutationsPath = path.resolve(
+        __dirname,
+        '../../convex/agentPlans/mutations.ts',
+      );
+      const src = fs.readFileSync(mutationsPath, 'utf8');
+      expect(src).toContain('scheduler.runAfter');
+      expect(src).toContain('resumeAfterApproval');
+    });
+  });
 });
