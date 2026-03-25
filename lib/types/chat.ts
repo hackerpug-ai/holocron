@@ -242,6 +242,14 @@ export interface AssimilationProgressCardData {
   document_id?: string              // set when completed
 }
 
+// Agent plan card - displayed when an agent plan is created
+export interface AgentPlanCardData {
+  card_type: 'agent_plan'
+  plan_id: string
+  title: string
+  total_steps: number
+}
+
 // Document context card - document reference added to chat from document viewer
 export interface DocumentContextCardData {
   card_type: 'document_context'
@@ -281,6 +289,7 @@ export type CardData =
   | DocumentContextCardData
   | AssimilationPlanCardData
   | AssimilationProgressCardData
+  | AgentPlanCardData
   | ArticleCardData[]
   | ShopListingCardData[]
 

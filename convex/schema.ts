@@ -23,7 +23,8 @@ export default defineSchema({
       v.literal("result_card"),
       v.literal("progress"),
       v.literal("error"),
-      v.literal("tool_approval")
+      v.literal("tool_approval"),
+      v.literal("agent_plan")
     ),
     cardData: v.optional(v.any()),
     sessionId: v.optional(v.id("researchSessions")),
@@ -424,6 +425,54 @@ export default defineSchema({
   })
     .index("by_conversation", ["conversationId"])
     .index("by_status", ["status"]),
+
+  // Agent plan tables
+  agentPlans: defineTable({
+    conversationId: v.id("conversations"),
+    messageId: v.id("chatMessages"),
+    title: v.string(),
+    status: v.union(
+      v.literal("created"),
+      v.literal("executing"),
+      v.literal("awaiting_approval"),
+      v.literal("completed"),
+      v.literal("failed"),
+      v.literal("cancelled")
+    ),
+    currentStepIndex: v.number(),
+    totalSteps: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    completedAt: v.optional(v.number()),
+  })
+    .index("by_conversation", ["conversationId"])
+    .index("by_status", ["status"])
+    .index("by_message", ["messageId"]),
+
+  agentPlanSteps: defineTable({
+    planId: v.id("agentPlans"),
+    stepIndex: v.number(),
+    toolName: v.string(),
+    toolDisplayName: v.string(),
+    toolArgs: v.any(),
+    description: v.string(),
+    requiresApproval: v.boolean(),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("running"),
+      v.literal("awaiting_approval"),
+      v.literal("approved"),
+      v.literal("completed"),
+      v.literal("skipped"),
+      v.literal("failed")
+    ),
+    toolCallId: v.optional(v.id("toolCalls")),
+    resultSummary: v.optional(v.string()),
+    errorMessage: v.optional(v.string()),
+    startedAt: v.optional(v.number()),
+    completedAt: v.optional(v.number()),
+  })
+    .index("by_plan", ["planId", "stepIndex"]),
 
   // Assimilation metadata for Borg-themed repository analysis
   assimilationMetadata: defineTable({
