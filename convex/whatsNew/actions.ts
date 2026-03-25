@@ -24,6 +24,12 @@ interface Finding {
   score?: number;
   summary?: string;
   publishedAt?: string;
+  // Extended fields for enhanced filtering and ranking
+  engagementVelocity?: number; // 0-100 score based on engagement rate
+  crossSourceCorroboration?: number; // Count of sources mentioning this
+  author?: string; // Author or creator name
+  tags?: string[]; // Associated tags/topics
+  metadataJson?: any; // Extensible metadata for future fields
 }
 
 interface FetchResult {
@@ -328,6 +334,81 @@ async function fetchLobsters(days: number): Promise<FetchResult> {
 }
 
 /**
+ * Fetch from GitHub repository changelogs
+ *
+ * Fetches latest releases from specified repositories.
+ * Focuses on AI/ML tools and frameworks.
+ */
+async function fetchChangelog(days: number): Promise<FetchResult> {
+  const findings: Finding[] = [];
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - days);
+
+  // Key AI/ML repositories to monitor for releases
+  const repositories = [
+    "anthropics/anthropic-sdk-python",
+    "anthropics/anthropic-sdk-typescript",
+    "openai/openai-python",
+    "openai/openai-node",
+    "langchain-ai/langchain",
+    "langchain-ai/langchainjs",
+    "microsoft/semantic-kernel",
+    "mistralai/mistral-common",
+    "huggingface/transformers",
+    "modal/modal",
+  ];
+
+  try {
+    for (const repo of repositories) {
+      const [owner, name] = repo.split("/");
+      const apiUrl = `https://api.github.com/repos/${owner}/${name}/releases?per_page=5`;
+
+      try {
+        const response = await fetch(apiUrl, {
+          headers: {
+            "User-Agent": "Holocron-WhatsNew/1.0",
+            Accept: "application/vnd.github.v3+json",
+          },
+        });
+
+        if (!response.ok) {
+          console.error(`[fetchChangelog] HTTP ${response.status} for ${repo}`);
+          continue;
+        }
+
+        const releases = await response.json();
+
+        for (const release of releases) {
+          // Skip draft releases
+          if (release.draft) continue;
+
+          const publishedDate = new Date(release.published_at);
+          if (publishedDate < cutoffDate) continue;
+
+          findings.push({
+            title: `${repo}: ${release.name || release.tag_name}`,
+            url: release.html_url,
+            source: `GitHub (${repo})`,
+            category: "release",
+            score: 0, // Releases don't have a score per se
+            publishedAt: release.published_at,
+            author: release.author?.login,
+            summary: release.body?.substring(0, 200),
+            tags: ["github", "release", name],
+          });
+        }
+      } catch (error) {
+        console.error(`[fetchChangelog] Error fetching ${repo}:`, error);
+      }
+    }
+  } catch (error) {
+    console.error("[fetchChangelog] Error:", error);
+  }
+
+  return { source: "GitHub Changelogs", findings };
+}
+
+/**
  * Fetch from Bluesky AT Protocol (AI accounts)
  *
  * Uses public Bluesky API - no auth required.
@@ -507,6 +588,71 @@ function formatScore(item: Finding): string {
   if (!item.score) return "";
   if (item.source === "GitHub") return ` ⭐ ${item.score}`;
   return ` (${item.score} pts)`;
+}
+
+/**
+ * Calculate cross-source corroboration for findings
+ * Returns the count of findings mentioned by multiple sources
+ */
+function calculateCorroboration(findings: Finding[]): number {
+  // Group findings by URL pattern to detect cross-source mentions
+  const urlGroups = new Map<string, number>();
+
+  for (const finding of findings) {
+    // Normalize URL for grouping (remove query params, fragments)
+    try {
+      const url = new URL(finding.url);
+      const normalized = `${url.hostname}${url.pathname}`;
+      urlGroups.set(normalized, (urlGroups.get(normalized) || 0) + 1);
+    } catch {
+      // If URL parsing fails, use the full URL as key
+      urlGroups.set(finding.url, (urlGroups.get(finding.url) || 0) + 1);
+    }
+  }
+
+  // Count URLs mentioned by 2+ sources
+  let corroborated = 0;
+  for (const count of urlGroups.values()) {
+    if (count >= 2) corroborated++;
+  }
+
+  return corroborated;
+}
+
+/**
+ * Calculate top engagement velocity from findings
+ * Returns the highest engagement velocity score (0-100)
+ */
+function calculateTopEngagementVelocity(findings: Finding[]): number {
+  let maxVelocity = 0;
+
+  for (const finding of findings) {
+    if (finding.engagementVelocity !== undefined && finding.engagementVelocity > maxVelocity) {
+      maxVelocity = finding.engagementVelocity;
+    }
+
+    // Fallback: estimate velocity from score if engagementVelocity not set
+    if (finding.engagementVelocity === undefined && finding.score !== undefined) {
+      // Simple heuristic: normalize score to 0-100 range
+      const estimatedVelocity = Math.min(100, finding.score * 10);
+      if (estimatedVelocity > maxVelocity) {
+        maxVelocity = estimatedVelocity;
+      }
+    }
+  }
+
+  return maxVelocity;
+}
+
+/**
+ * Extract unique sources from findings
+ */
+function extractSources(findings: Finding[]): string[] {
+  const uniqueSources = new Set<string>();
+  for (const finding of findings) {
+    uniqueSources.add(finding.source);
+  }
+  return Array.from(uniqueSources).sort();
 }
 
 /**
@@ -712,6 +858,7 @@ export const generateDailyReport = internalAction({
       fetchLobsters(days),
       fetchBluesky(days),
       fetchTwitter(days),
+      fetchChangelog(days),
     ]);
 
     // Collect all findings
@@ -732,8 +879,16 @@ export const generateDailyReport = internalAction({
     const { discoveries, releases, trends, discussions } =
       categorizeFindings(uniqueFindings);
 
+    // Calculate extended metrics
+    const topEngagementVelocity = calculateTopEngagementVelocity(uniqueFindings);
+    const totalCorroborationCount = calculateCorroboration(uniqueFindings);
+    const sources = extractSources(uniqueFindings);
+
     console.log(
       `[generateDailyReport] ${uniqueFindings.length} unique findings (${discoveries.length} discoveries, ${releases.length} releases, ${trends.length} trends, ${discussions.length} discussions)`
+    );
+    console.log(
+      `[generateDailyReport] Extended metrics: topEngagementVelocity=${topEngagementVelocity}, totalCorroborationCount=${totalCorroborationCount}, sources=${sources.length}`
     );
 
     // 4. Generate markdown report
@@ -786,6 +941,10 @@ export const generateDailyReport = internalAction({
               {} as Record<string, number>
             )
           ).sort((a, b) => b[1] - a[1]),
+          // Extended metrics for UI display
+          topEngagementVelocity,
+          totalCorroborationCount,
+          sources,
         },
         documentId: documentResult.documentId,
       }

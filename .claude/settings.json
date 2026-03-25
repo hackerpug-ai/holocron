@@ -15,14 +15,24 @@
   "hooks": {
     "SubagentStop": [
       {
-        "type": "command",
-        "command": "git diff --quiet HEAD && git diff --cached --quiet || echo 'UNCOMMITTED CHANGES DETECTED: You have modified files that were not committed. You MUST fix any lint/type/test errors and commit your work before finishing. Run: pnpm lint, pnpm tsc --noEmit, pnpm test — then commit. Do NOT finish without committing.'"
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "git diff --quiet HEAD && git diff --cached --quiet || echo 'UNCOMMITTED CHANGES DETECTED: You have modified files that were not committed. You MUST fix any lint/type/test errors and commit your work before finishing. Run: pnpm lint, pnpm tsc --noEmit, pnpm test — then commit. Do NOT finish without committing.'"
+          }
+        ]
       }
     ],
     "Stop": [
       {
-        "type": "command",
-        "command": "git diff --quiet HEAD && git diff --cached --quiet || echo 'REMINDER: There are uncommitted changes in the working tree.'"
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "git diff --quiet HEAD && git diff --cached --quiet || echo 'REMINDER: There are uncommitted changes in the working tree.'"
+          }
+        ]
       }
     ]
   }

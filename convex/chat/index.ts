@@ -158,6 +158,10 @@ interface WhatsNewReportCard {
   trend_count: number;
   content?: string;
   is_from_today: boolean;
+  // Extended fields for enhanced filtering and ranking
+  top_engagement_velocity?: number; // Highest engagement score in this report
+  total_corroboration_count?: number; // Total cross-source mentions
+  sources?: string[]; // List of sources in this report
 }
 
 interface WhatsNewLoadingCard {
@@ -884,6 +888,13 @@ export const send = action({
             };
           } else {
             const report = reportData.report;
+            const summaryJson = report.summaryJson as {
+              topSources?: [string, number][];
+              topEngagementVelocity?: number;
+              totalCorroborationCount?: number;
+              sources?: string[];
+            } | undefined;
+
             agentResponse = {
               content: `What's New in AI (${report.days} days)`,
               messageType: "result_card",
@@ -899,6 +910,10 @@ export const send = action({
                 trend_count: report.trendCount,
                 content: reportData.content,
                 is_from_today: reportData.isFromToday,
+                // Extended fields
+                top_engagement_velocity: summaryJson?.topEngagementVelocity,
+                total_corroboration_count: summaryJson?.totalCorroborationCount,
+                sources: summaryJson?.sources,
               } as WhatsNewReportCard,
             };
           }

@@ -440,6 +440,12 @@ async function executeWhatsNew(
     }
 
     const report = reportData.report;
+    const summaryJson = report.summaryJson as {
+      topSources?: [string, number][];
+      topEngagementVelocity?: number;
+      totalCorroborationCount?: number;
+      sources?: string[];
+    } | undefined;
 
     return {
       content: `What's New in AI (${report.days} days)`,
@@ -456,6 +462,10 @@ async function executeWhatsNew(
         trend_count: report.trendCount,
         content: reportData.content,
         is_from_today: reportData.isFromToday,
+        // Extended fields
+        top_engagement_velocity: summaryJson?.topEngagementVelocity,
+        total_corroboration_count: summaryJson?.totalCorroborationCount,
+        sources: summaryJson?.sources,
       },
     };
   } catch (error) {

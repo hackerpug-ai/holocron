@@ -92,6 +92,8 @@ import type * as shop_mutations from "../shop/mutations.js";
 import type * as shop_queries from "../shop/queries.js";
 import type * as shop_search from "../shop/search.js";
 import type * as subscriptions_actions from "../subscriptions/actions.js";
+import type * as subscriptions_deduplication from "../subscriptions/deduplication.js";
+import type * as subscriptions_deduplication_helpers from "../subscriptions/deduplication_helpers.js";
 import type * as subscriptions_index from "../subscriptions/index.js";
 import type * as subscriptions_internal from "../subscriptions/internal.js";
 import type * as subscriptions_mutations from "../subscriptions/mutations.js";
@@ -207,6 +209,8 @@ declare const fullApi: ApiFromModules<{
   "shop/queries": typeof shop_queries;
   "shop/search": typeof shop_search;
   "subscriptions/actions": typeof subscriptions_actions;
+  "subscriptions/deduplication": typeof subscriptions_deduplication;
+  "subscriptions/deduplication_helpers": typeof subscriptions_deduplication_helpers;
   "subscriptions/index": typeof subscriptions_index;
   "subscriptions/internal": typeof subscriptions_internal;
   "subscriptions/mutations": typeof subscriptions_mutations;

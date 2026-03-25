@@ -163,6 +163,10 @@ export interface WhatsNewReportCardData {
   trend_count: number
   content?: string
   is_from_today: boolean
+  // Extended fields for enhanced filtering and ranking
+  top_engagement_velocity?: number // Highest engagement score in this report
+  total_corroboration_count?: number // Total cross-source mentions
+  sources?: string[] // List of sources in this report
 }
 
 // What's New loading card - generating briefing
