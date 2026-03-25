@@ -2,8 +2,9 @@
  * What's New Actions
  *
  * Server-side report generation with automatic caching.
- * Fetches from external APIs (Reddit, HN, GitHub, Dev.to, Lobsters),
- * synthesizes into markdown, stores as document with embedding.
+ * Fetches from external APIs (Reddit, HN, GitHub, Dev.to, Lobsters, Bluesky, Twitter/X),
+ * with Twitter/Bluesky accounts pulled dynamically from subscriptionSources.
+ * Synthesizes into markdown, stores as document with embedding.
  */
 
 "use node";
@@ -410,25 +411,28 @@ async function fetchChangelog(days: number): Promise<FetchResult> {
 }
 
 /**
- * Fetch from Bluesky AT Protocol (AI accounts)
+ * Fetch from Bluesky AT Protocol
  *
  * Uses public Bluesky API - no auth required.
- * Monitors AI company accounts for official announcements.
+ * Accepts dynamic account list from subscriptions.
  */
-async function fetchBluesky(days: number): Promise<FetchResult> {
+async function fetchBluesky(days: number, accounts: Array<{ handle: string; name: string }>): Promise<FetchResult> {
   const findings: Finding[] = [];
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - days);
 
-  // AI company accounts to monitor
-  const aiAccounts = [
-    "anthropic.bsky.social",
-    "openai.bsky.social",
-    "cursor.bsky.social",
-  ];
+  // Fallback to defaults if no subscription accounts configured yet
+  const aiAccounts = accounts.length > 0
+    ? accounts
+    : [
+        { handle: "anthropic.bsky.social", name: "Anthropic" },
+        { handle: "openai.bsky.social", name: "OpenAI" },
+        { handle: "cursor.bsky.social", name: "Cursor" },
+      ];
 
   try {
-    for (const handle of aiAccounts) {
+    for (const account of aiAccounts) {
+      const handle = account.handle.includes('.') ? account.handle : `${account.handle}.bsky.social`;
       try {
         const response = await fetch(
           `https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=${encodeURIComponent(handle)}&limit=25`,
@@ -451,12 +455,10 @@ async function fetchBluesky(days: number): Promise<FetchResult> {
           const publishedDate = new Date(post.record.createdAt);
           if (publishedDate < cutoffDate) continue;
 
-          // Extract text and create title
           const text = post.record.text || "";
           const title = text.length > 100 ? text.substring(0, 100) + "..." : text;
 
-          // Build post URL
-          const uri = post.uri; // at://did:plc:xxx/app.bsky.feed.post/xxx
+          const uri = post.uri;
           const parts = uri.split("/");
           const did = parts[2];
           const rkey = parts[parts.length - 1];
@@ -465,7 +467,7 @@ async function fetchBluesky(days: number): Promise<FetchResult> {
           findings.push({
             title,
             url: link,
-            source: `Bluesky (@${handle})`,
+            source: `Bluesky (@${account.name || handle})`,
             category: "discussion",
             publishedAt: post.record.createdAt,
           });
@@ -482,58 +484,150 @@ async function fetchBluesky(days: number): Promise<FetchResult> {
 }
 
 /**
- * Fetch from Twitter/X via Nitter RSS
+ * Fetch from Twitter/X via Jina Reader
  *
- * Uses Nitter instances to fetch tweets without authentication.
+ * Uses Jina Reader (r.jina.ai) to scrape X profile pages.
+ * Accepts dynamic account list from subscriptions.
  * Best-effort only - wraps all fetches in try/catch.
  */
-async function fetchTwitter(days: number): Promise<FetchResult> {
+async function fetchTwitter(days: number, accounts: Array<{ handle: string; name: string }>): Promise<FetchResult> {
   const findings: Finding[] = [];
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - days);
 
-  // AI accounts to monitor
-  const aiAccounts = ["AnthropicAI", "OpenAI", "cursor_ai"];
+  // Fallback to defaults if no subscription accounts configured yet
+  const aiAccounts = accounts.length > 0
+    ? accounts
+    : [
+        { handle: "AnthropicAI", name: "Anthropic" },
+        { handle: "OpenAI", name: "OpenAI" },
+        { handle: "cursor_ai", name: "Cursor" },
+      ];
 
-  // Try multiple Nitter instances for reliability
-  const nitterInstances = [
-    "https://nitter.net",
-    "https://nitter.privacydev.net",
-    "https://nitter.poast.org",
-  ];
+  for (const account of aiAccounts) {
+    const cleanHandle = account.handle.replace(/^@/, '');
 
-  for (const handle of aiAccounts) {
-    let fetched = false;
+    try {
+      const response = await fetch(`https://r.jina.ai/https://x.com/${cleanHandle}`, {
+        headers: {
+          "Accept": "text/plain",
+          "User-Agent": "Holocron-WhatsNew/1.0",
+          "X-Return-Format": "markdown",
+        },
+      });
 
-    for (const instance of nitterInstances) {
-      if (fetched) break;
-
-      try {
-        const feedUrl = `${instance}/${handle}/rss`;
-        const items = await parseRSSFeed(feedUrl);
-
-        for (const item of items.slice(0, 10)) {
-          const publishedDate = new Date(item.published);
-          if (publishedDate < cutoffDate) continue;
-
-          findings.push({
-            title: item.title,
-            url: item.link,
-            source: `Twitter/X (@${handle})`,
-            category: "discussion",
-            publishedAt: item.published,
-          });
-        }
-
-        fetched = true;
-      } catch {
-        // Try next instance
+      if (!response.ok) {
+        console.error(`[fetchTwitter] HTTP ${response.status} for @${cleanHandle}`);
         continue;
       }
+
+      const markdown = await response.text();
+
+      // Parse tweets from the markdown output
+      const tweets = parseTwitterProfileMarkdown(markdown, cleanHandle);
+
+      for (const tweet of tweets) {
+        // We can't reliably get exact timestamps from profile scraping,
+        // so include all visible tweets (they're recent by nature)
+        findings.push({
+          title: tweet.title,
+          url: tweet.link,
+          source: `Twitter/X (@${account.name || cleanHandle})`,
+          category: "discussion",
+          publishedAt: tweet.published,
+          author: cleanHandle,
+        });
+      }
+    } catch (error) {
+      console.error(`[fetchTwitter] Error fetching @${cleanHandle}:`, error);
     }
   }
 
   return { source: "Twitter/X", findings };
+}
+
+/**
+ * Parse tweet data from Jina Reader markdown output of an X profile page.
+ */
+function parseTwitterProfileMarkdown(markdown: string, _handle: string): Array<{
+  title: string;
+  link: string;
+  published: string;
+}> {
+  const items: Array<{ title: string; link: string; published: string }> = [];
+
+  // Strategy 1: Find tweet status URLs and extract surrounding text as content
+  const lines = markdown.split('\n');
+  let currentTweet = '';
+  let currentLink = '';
+
+  for (const line of lines) {
+    const statusMatch = line.match(/https?:\/\/(?:x|twitter)\.com\/\w+\/status\/(\d+)/);
+    if (statusMatch) {
+      if (currentTweet.trim() && currentLink) {
+        const title = currentTweet.trim().length > 200
+          ? currentTweet.trim().substring(0, 200) + '...'
+          : currentTweet.trim();
+        if (title.length > 10) {
+          items.push({
+            title,
+            link: currentLink,
+            published: new Date().toISOString(),
+          });
+        }
+      }
+      currentTweet = '';
+      currentLink = statusMatch[0];
+      continue;
+    }
+
+    // Skip UI chrome and engagement metrics
+    if (line.match(/^(Home|Explore|Messages|Notifications|Premium|Profile|More|Follow|Followers|Following|\d+[KMB]?\s+(replies|reposts|likes|views|bookmarks))/i)) continue;
+    if (line.match(/^\s*[\d,.]+[KMB]?\s*$/)) continue;
+    if (line.match(/^(Reply|Repost|Like|Share|Bookmark|More)\s*$/i)) continue;
+
+    if (currentLink && line.trim()) {
+      currentTweet += (currentTweet ? ' ' : '') + line.trim();
+    }
+  }
+
+  // Don't forget the last tweet
+  if (currentTweet.trim() && currentLink) {
+    const title = currentTweet.trim().length > 200
+      ? currentTweet.trim().substring(0, 200) + '...'
+      : currentTweet.trim();
+    if (title.length > 10) {
+      items.push({
+        title,
+        link: currentLink,
+        published: new Date().toISOString(),
+      });
+    }
+  }
+
+  // Strategy 2: Fallback - extract all tweet URLs with surrounding context
+  if (items.length === 0) {
+    const urlRegex = /https?:\/\/(?:x|twitter)\.com\/\w+\/status\/(\d+)/g;
+    let match;
+    while ((match = urlRegex.exec(markdown)) !== null) {
+      const start = Math.max(0, match.index - 200);
+      const context = markdown.substring(start, match.index).trim();
+      const lastBlock = context.split(/\n\n/).pop()?.trim() || '';
+      const title = lastBlock.length > 200
+        ? lastBlock.substring(0, 200) + '...'
+        : lastBlock;
+
+      if (title.length > 10) {
+        items.push({
+          title,
+          link: match[0],
+          published: new Date().toISOString(),
+        });
+      }
+    }
+  }
+
+  return items.slice(0, 25);
 }
 
 // ============================================================================
@@ -690,7 +784,17 @@ export const generateDailyReport = internalAction({
       }
     }
 
-    // 2. Fetch from all sources in parallel
+    // 2. Fetch creator accounts from subscriptions for dynamic Twitter/Bluesky lists
+    console.log("[generateDailyReport] Loading creator accounts from subscriptions...");
+    const [twitterAccounts, blueskyAccounts] = await Promise.all([
+      ctx.runQuery(internal.subscriptions.internal.getCreatorAccountsByPlatform, { platform: "twitter" }),
+      ctx.runQuery(internal.subscriptions.internal.getCreatorAccountsByPlatform, { platform: "bluesky" }),
+    ]);
+    console.log(
+      `[generateDailyReport] Found ${twitterAccounts.length} Twitter, ${blueskyAccounts.length} Bluesky accounts`
+    );
+
+    // 3. Fetch from all sources in parallel
     console.log("[generateDailyReport] Fetching from external sources...");
     const fetchResults = await Promise.allSettled([
       fetchReddit(days),
@@ -698,8 +802,8 @@ export const generateDailyReport = internalAction({
       fetchGitHub(days),
       fetchDevTo(days),
       fetchLobsters(days),
-      fetchBluesky(days),
-      fetchTwitter(days),
+      fetchBluesky(days, blueskyAccounts),
+      fetchTwitter(days, twitterAccounts),
       fetchChangelog(days),
     ]);
 
@@ -716,7 +820,7 @@ export const generateDailyReport = internalAction({
       }
     }
 
-    // 3. Deduplicate and categorize
+    // 4. Deduplicate and categorize
     const uniqueFindings = deduplicateFindings(allFindings);
     const { discoveries, releases, trends, discussions } =
       categorizeFindings(uniqueFindings);
@@ -733,7 +837,7 @@ export const generateDailyReport = internalAction({
       `[generateDailyReport] Extended metrics: topEngagementVelocity=${topEngagementVelocity}, totalCorroborationCount=${totalCorroborationCount}, sources=${sources.length}`
     );
 
-    // 4. Generate markdown report using two-pass LLM synthesis with static fallback
+    // 5. Generate markdown report using two-pass LLM synthesis with static fallback
     const now = new Date();
     const periodEnd = now;
     const periodStart = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
@@ -755,7 +859,7 @@ export const generateDailyReport = internalAction({
 
     const reportMarkdown = synthesisResult.markdown;
 
-    // 5. Store document with embedding
+    // 6. Store document with embedding
     console.log("[generateDailyReport] Creating document with embedding...");
     const documentResult = await ctx.runAction(
       api.documents.storage.createWithEmbedding,
@@ -768,7 +872,7 @@ export const generateDailyReport = internalAction({
       }
     );
 
-    // 6. Create whatsNewReports entry
+    // 7. Create whatsNewReports entry
     console.log("[generateDailyReport] Creating report entry...");
     const reportId = await ctx.runMutation(
       internal.whatsNew.mutations.createReport,

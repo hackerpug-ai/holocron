@@ -23,7 +23,8 @@ export const list = query({
         v.literal("changelog"),
         v.literal("reddit"),
         v.literal("ebay"),
-        v.literal("whats-new")
+        v.literal("whats-new"),
+        v.literal("creator")
       )
     ),
     autoResearchOnly: v.optional(v.boolean()),
