@@ -446,7 +446,7 @@ export default function DocumentRoute() {
         conversationId: targetConversationId,
         role: 'user',
         content,
-        messageType: 'text',
+        messageType: 'result_card',
         cardData: {
           card_type: 'document_context',
           document_id: id,

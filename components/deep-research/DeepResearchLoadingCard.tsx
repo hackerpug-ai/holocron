@@ -80,28 +80,9 @@ export function DeepResearchLoadingCard({
   const isInProgress = !isComplete && !isCancelled && !isError
   const displayMessage = isCancelled ? 'Cancelled' : isError ? 'Research failed' : (message ?? colors.defaultMessage)
   // Animated values
-  const pulseAnim = useRef(new Animated.Value(0)).current
   const rotateAnim = useRef(new Animated.Value(0)).current
 
   useEffect(() => {
-    // Pulse animation for border
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 2000,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: false,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 0,
-          duration: 2000,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: false,
-        }),
-      ])
-    ).start()
-
     // Rotation for spinner (only when in progress)
     if (isInProgress) {
       Animated.loop(
@@ -113,12 +94,7 @@ export function DeepResearchLoadingCard({
         })
       ).start()
     }
-  }, [pulseAnim, rotateAnim, isInProgress])
-
-  const borderOpacity = pulseAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.6, 1],
-  })
+  }, [rotateAnim, isInProgress])
 
   const rotation = rotateAnim.interpolate({
     inputRange: [0, 1],
@@ -141,11 +117,6 @@ export function DeepResearchLoadingCard({
   const confStyle = getConfidenceStyle()
 
   return (
-    <Animated.View
-      style={{
-        opacity: borderOpacity,
-      }}
-    >
       <Pressable
         onPress={onPress}
         disabled={!isComplete}
@@ -153,8 +124,7 @@ export function DeepResearchLoadingCard({
       >
         <Card
           className={cn(
-            'border bg-gradient-to-r from-background to-muted/10 w-full overflow-hidden',
-            isComplete ? 'border-success/40' : colors.border,
+            'border border-border bg-card w-full overflow-hidden',
             className
           )}
           testID="deep-research-loading-card"
@@ -261,6 +231,5 @@ export function DeepResearchLoadingCard({
           </CardContent>
         </Card>
       </Pressable>
-    </Animated.View>
   )
 }

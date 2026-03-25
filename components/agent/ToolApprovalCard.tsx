@@ -122,10 +122,7 @@ export function ToolApprovalCard({
 
   return (
     <Card
-      className={cn(
-        'border',
-        isPending ? 'border-primary/50' : 'border-border'
-      )}
+      className="border border-border"
       testID="tool-approval-card"
     >
       {/* ── Header ── */}

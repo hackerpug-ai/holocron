@@ -6,7 +6,6 @@ import type { MessageRole, MessageType } from '@/lib/types/conversations'
 import { formatTimestamp } from '@/lib/formatTimestamp'
 import { ResultCard, type ResultCardData, type CardType } from '@/components/ui/result-card'
 import { DeepResearchLoadingCard } from '@/components/deep-research/DeepResearchLoadingCard'
-import { Card } from '@/components/ui/card'
 import { AssimilationCard } from '@/components/AssimilationCard'
 import { ShopResultsCard, ShopLoadingCard } from '@/components/shop'
 import { SubscriptionAddedCard, SubscriptionListCard } from '@/components/subscriptions'
@@ -146,8 +145,10 @@ export function MessageBubble({
       return null
     }
 
-    // Render result card for non-user messages
-    if (!isUser) {
+    // Render result cards for assistant messages, and document_context cards for any role
+    // (users can add documents to chat which should render as cards, not text bubbles)
+    const isDocumentContext = cardType === 'document_context'
+    if (!isUser || isDocumentContext) {
       const cardContent = renderResultCard(card_data, message_type, testID, onCardPress, onFinalResultPress, onWhatsNewReportPress, loadingCardId, cardError, onDocumentContextNavigate, router, onDeleteMessage, messageId)
 
       // If renderResultCard returns null, suppress the entire message
@@ -264,20 +265,24 @@ function ToolApprovalBubble({
 }
 
 /**
- * Wrapper component for DeepResearchLoadingCard that polls session status
+ * Wrapper component for DeepResearchLoadingCard that polls session status.
+ * When research completes and produces a document, renders a DocumentContextCard
+ * instead of the loading card.
  */
 function DeepResearchLoadingCardWithPolling({
   sessionId,
   topic,
   researchType = 'deep',
   testID,
-  onFinalResultPress
+  onFinalResultPress,
+  onDocumentContextNavigate,
 }: {
   sessionId: string
   topic: string
   researchType?: 'quick' | 'deep'
   testID: string
   onFinalResultPress?: (sessionId: string) => void
+  onDocumentContextNavigate?: (documentId: string, blockIndex?: number) => void
 }) {
   // Poll session status for real-time updates
   const session = useQuery(
@@ -293,15 +298,6 @@ function DeepResearchLoadingCardWithPolling({
   const statusStr = session?.status as string | undefined
   const isError = statusStr === 'error' || statusStr === 'failed' || statusStr === 'timeout'
 
-  // Determine confidence from coverage score (derived from last iteration)
-  let confidence: 'HIGH' | 'MEDIUM' | 'LOW' | undefined
-  const lastIteration = session?.iterations?.[session.iterations.length - 1]
-  const lastCoverageScore = lastIteration?.coverageScore
-  if (isComplete && lastCoverageScore) {
-    confidence = lastCoverageScore >= 4 ? 'HIGH' :
-                 lastCoverageScore >= 3 ? 'MEDIUM' : 'LOW'
-  }
-
   const handleCancel = () => {
     cancelSession({ sessionId: sessionId as Id<"deepResearchSessions"> })
   }
@@ -310,15 +306,32 @@ function DeepResearchLoadingCardWithPolling({
     retrySession({ sessionId: sessionId as Id<"deepResearchSessions"> })
   }
 
+  // When research is complete and has a document, render as a DocumentContextCard
+  if (isComplete && session?.documentId) {
+    return (
+      <DocumentContextCard
+        data={{
+          card_type: 'document_context',
+          document_id: session.documentId,
+          title: topic || 'Research Complete',
+          category: 'research',
+          scope: 'full',
+          excerpt: session.report?.replace(/^---[\s\S]*?---\n*/, '').replace(/[#*_`>[\]]/g, '').trim().slice(0, 120),
+        }}
+        onNavigateToDocument={onDocumentContextNavigate}
+        testID={`${testID}-document`}
+      />
+    )
+  }
+
   return (
     <DeepResearchLoadingCard
       query={topic}
       researchType={researchType}
       message={session?.status ? STATUS_LABELS[session.status] || session.status : undefined}
-      isComplete={isComplete}
+      isComplete={false}
       isCancelled={isCancelled}
       isError={isError}
-      confidence={confidence}
       sessionId={sessionId}
       onPress={() => onFinalResultPress?.(sessionId)}
       onCancel={handleCancel}
@@ -526,15 +539,14 @@ function renderResultCard(
 
   // Handle deep research loading card - check card_type and status
   if (cardType === 'deep_research_loading') {
-    const status = card_data.status as string
     const topic = (card_data.topic as string) ?? (card_data.query as string) ?? ''
     const sessionId = (card_data.session_id as string) ?? ''
     // Determine research type from card_data.research_type field
     // 'simple' maps to 'quick', anything else (including undefined) maps to 'deep'
     const researchType: 'quick' | 'deep' = card_data.research_type === 'simple' ? 'quick' : 'deep'
 
-    // In progress - show loading card with live polling
-    if (status === 'in_progress' && sessionId) {
+    // Show polling card - renders loading while in progress, DocumentContextCard when complete
+    if (sessionId) {
       return (
         <DeepResearchLoadingCardWithPolling
           sessionId={sessionId}
@@ -542,6 +554,7 @@ function renderResultCard(
           researchType={researchType}
           testID={`${testID}-card`}
           onFinalResultPress={onFinalResultPress}
+          onDocumentContextNavigate={onDocumentContextNavigate}
         />
       )
     }
@@ -556,42 +569,27 @@ function renderResultCard(
     return null
   }
 
-  // Handle deep research completion - check status for completed research
+  // Handle deep research completion - render as DocumentContextCard
   if (message_type === 'result_card' && card_data.status === 'completed') {
     const topic = (card_data.topic as string) ?? (card_data.query as string) ?? ''
-    const sessionId = (card_data.session_id as string) ?? ''
+    const documentId = (card_data.document_id as string) ?? ''
 
-    return (
-      <Pressable
-        onPress={() => onFinalResultPress?.(sessionId)}
-        className="active:opacity-80 w-full"
-        testID={`${testID}-final-result-pressable`}
-      >
-        <Card className="bg-card border-border">
-          <View className="p-4 gap-2">
-            <View className="flex-row items-center gap-2">
-              <Text className="text-foreground font-semibold flex-1 text-lg">
-                {topic || 'Research Complete'}
-              </Text>
-              <View className="bg-primary/20 px-2 py-1 rounded-full">
-                <Text className="text-primary text-xs font-semibold">
-                  Score: {(card_data.final_coverage_score as number) ?? 3}/5
-                </Text>
-              </View>
-            </View>
-            <Text className="text-muted-foreground text-sm" numberOfLines={2}>
-              {(card_data.findings_summary as string) ?? 'Tap to view full research findings.'}
-            </Text>
-            <View className="flex-row items-center gap-1 mt-1">
-              <Text className="text-muted-foreground text-xs">
-                {(card_data.total_iterations as number) ?? 0} iterations completed
-              </Text>
-              <Text className="text-muted-foreground">→</Text>
-            </View>
-          </View>
-        </Card>
-      </Pressable>
-    )
+    if (documentId) {
+      return (
+        <DocumentContextCard
+          data={{
+            card_type: 'document_context',
+            document_id: documentId,
+            title: topic || 'Research Complete',
+            category: 'research',
+            scope: 'full',
+            excerpt: (card_data.findings_summary as string) ?? undefined,
+          }}
+          onNavigateToDocument={onDocumentContextNavigate}
+          testID={`${testID}-document-context`}
+        />
+      )
+    }
   }
 
   // Handle deep research confirmation card - render same loading card as agent-initiated research
@@ -602,47 +600,32 @@ function renderResultCard(
         topic={(card_data.topic as string) ?? ''}
         testID={`${testID}-card`}
         onFinalResultPress={onFinalResultPress}
+        onDocumentContextNavigate={onDocumentContextNavigate}
       />
     )
   }
 
-  // Handle final result card - navigate to research detail view
+  // Handle final result card - render as DocumentContextCard
   if (cardType === 'final_result') {
-    const sessionId = (card_data.session_id as string) ?? ''
+    const documentId = (card_data.document_id as string) ?? ''
+    const topic = (card_data.topic as string) ?? 'Research Complete'
 
-    // For now, render a simple pressable card with topic and score
-    // TODO: Create dedicated FinalResultCard component in follow-up
-    return (
-      <Pressable
-        onPress={() => onFinalResultPress?.(sessionId)}
-        className="active:opacity-80 w-full"
-        testID={`${testID}-final-result-pressable`}
-      >
-        <Card className="bg-card border-border">
-          <View className="p-4 gap-2">
-            <View className="flex-row items-center gap-2">
-              <Text className="text-foreground font-semibold flex-1 text-lg">
-                {(card_data.topic as string) ?? 'Research Complete'}
-              </Text>
-              <View className="bg-primary/20 px-2 py-1 rounded-full">
-                <Text className="text-primary text-xs font-semibold">
-                  Score: {card_data.final_coverage_score as number}/5
-                </Text>
-              </View>
-            </View>
-            <Text className="text-muted-foreground text-sm" numberOfLines={2}>
-              {(card_data.findings_summary as string) ?? 'Tap to view full research findings.'}
-            </Text>
-            <View className="flex-row items-center gap-1 mt-1">
-              <Text className="text-muted-foreground text-xs">
-                {card_data.total_iterations as number} iterations completed
-              </Text>
-              <Text className="text-muted-foreground">→</Text>
-            </View>
-          </View>
-        </Card>
-      </Pressable>
-    )
+    if (documentId) {
+      return (
+        <DocumentContextCard
+          data={{
+            card_type: 'document_context',
+            document_id: documentId,
+            title: topic,
+            category: 'research',
+            scope: 'full',
+            excerpt: (card_data.findings_summary as string) ?? undefined,
+          }}
+          onNavigateToDocument={onDocumentContextNavigate}
+          testID={`${testID}-document-context`}
+        />
+      )
+    }
   }
 
   // Handle assimilation plan card - display plan overview with Convex live data
