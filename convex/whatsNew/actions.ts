@@ -327,6 +327,133 @@ async function fetchLobsters(days: number): Promise<FetchResult> {
   return { source: "Lobsters", findings };
 }
 
+/**
+ * Fetch from Bluesky AT Protocol (AI accounts)
+ *
+ * Uses public Bluesky API - no auth required.
+ * Monitors AI company accounts for official announcements.
+ */
+async function fetchBluesky(days: number): Promise<FetchResult> {
+  const findings: Finding[] = [];
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - days);
+
+  // AI company accounts to monitor
+  const aiAccounts = [
+    "anthropic.bsky.social",
+    "openai.bsky.social",
+    "cursor.bsky.social",
+  ];
+
+  try {
+    for (const handle of aiAccounts) {
+      try {
+        const response = await fetch(
+          `https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=${encodeURIComponent(handle)}&limit=25`,
+          {
+            headers: { Accept: "application/json" },
+          }
+        );
+
+        if (!response.ok) {
+          console.error(`[fetchBluesky] HTTP ${response.status} for ${handle}`);
+          continue;
+        }
+
+        const data = await response.json();
+
+        for (const feedItem of data.feed || []) {
+          const post = feedItem.post;
+          if (!post?.record) continue;
+
+          const publishedDate = new Date(post.record.createdAt);
+          if (publishedDate < cutoffDate) continue;
+
+          // Extract text and create title
+          const text = post.record.text || "";
+          const title = text.length > 100 ? text.substring(0, 100) + "..." : text;
+
+          // Build post URL
+          const uri = post.uri; // at://did:plc:xxx/app.bsky.feed.post/xxx
+          const parts = uri.split("/");
+          const did = parts[2];
+          const rkey = parts[parts.length - 1];
+          const link = `https://bsky.app/profile/${did}/post/${rkey}`;
+
+          findings.push({
+            title,
+            url: link,
+            source: `Bluesky (@${handle})`,
+            category: "discussion",
+            publishedAt: post.record.createdAt,
+          });
+        }
+      } catch (error) {
+        console.error(`[fetchBluesky] Error fetching ${handle}:`, error);
+      }
+    }
+  } catch (error) {
+    console.error("[fetchBluesky] Error:", error);
+  }
+
+  return { source: "Bluesky", findings };
+}
+
+/**
+ * Fetch from Twitter/X via Nitter RSS
+ *
+ * Uses Nitter instances to fetch tweets without authentication.
+ * Best-effort only - wraps all fetches in try/catch.
+ */
+async function fetchTwitter(days: number): Promise<FetchResult> {
+  const findings: Finding[] = [];
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - days);
+
+  // AI accounts to monitor
+  const aiAccounts = ["AnthropicAI", "OpenAI", "cursor_ai"];
+
+  // Try multiple Nitter instances for reliability
+  const nitterInstances = [
+    "https://nitter.net",
+    "https://nitter.privacydev.net",
+    "https://nitter.poast.org",
+  ];
+
+  for (const handle of aiAccounts) {
+    let fetched = false;
+
+    for (const instance of nitterInstances) {
+      if (fetched) break;
+
+      try {
+        const feedUrl = `${instance}/${handle}/rss`;
+        const items = await parseRSSFeed(feedUrl);
+
+        for (const item of items.slice(0, 10)) {
+          const publishedDate = new Date(item.published);
+          if (publishedDate < cutoffDate) continue;
+
+          findings.push({
+            title: item.title,
+            url: item.link,
+            source: `Twitter/X (@${handle})`,
+            category: "discussion",
+            publishedAt: item.published,
+          });
+        }
+
+        fetched = true;
+      } catch {
+        // Try next instance
+        continue;
+      }
+    }
+  }
+
+  return { source: "Twitter/X", findings };
+}
+
 // ============================================================================
 // Report Synthesis
 // ============================================================================
@@ -583,6 +710,8 @@ export const generateDailyReport = internalAction({
       fetchGitHub(days),
       fetchDevTo(days),
       fetchLobsters(days),
+      fetchBluesky(days),
+      fetchTwitter(days),
     ]);
 
     // Collect all findings
