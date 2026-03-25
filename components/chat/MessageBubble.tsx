@@ -30,8 +30,6 @@ import type {
   ShopListingCardData,
   SubscriptionAddedCardData,
   SubscriptionListCardData,
-  SubscriptionSuggestionCardData,
-  SubscriptionProgressCardData,
   WhatsNewReportCardData,
   WhatsNewLoadingCardData,
   ToolSearchResultsCardData,
@@ -447,7 +445,7 @@ function renderResultCard(
   if (cardType === 'subscription_suggestion') {
     return (
       <SubscriptionSuggestionCard
-        data={card_data as unknown as SubscriptionSuggestionCardData}
+        data={card_data as any}
         testID={`${testID}-subscription-suggestion`}
       />
     )
@@ -457,8 +455,7 @@ function renderResultCard(
   if (cardType === 'subscription_progress') {
     return (
       <SubscriptionProgressCard
-        data={card_data as unknown as SubscriptionProgressCardData}
-        testID={`${testID}-subscription-progress`}
+        {...(card_data as any)}
       />
     )
   }
