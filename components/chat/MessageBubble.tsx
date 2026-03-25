@@ -8,7 +8,12 @@ import { ResultCard, type ResultCardData, type CardType } from '@/components/ui/
 import { DeepResearchLoadingCard } from '@/components/deep-research/DeepResearchLoadingCard'
 import { AssimilationCard } from '@/components/AssimilationCard'
 import { ShopResultsCard, ShopLoadingCard } from '@/components/shop'
-import { SubscriptionAddedCard, SubscriptionListCard } from '@/components/subscriptions'
+import {
+  SubscriptionAddedCard,
+  SubscriptionListCard,
+  SubscriptionSuggestionCard,
+  SubscriptionProgressCard,
+} from '@/components/subscriptions'
 import { WhatsNewReportCard, WhatsNewLoadingCard } from '@/components/whats-new'
 import { ToolSearchResultsCard, ToolAddingCard, ToolAddedCard } from '@/components/toolbelt'
 import { DocumentSavedCard, DocumentContextCard } from '@/components/documents'
@@ -25,6 +30,8 @@ import type {
   ShopListingCardData,
   SubscriptionAddedCardData,
   SubscriptionListCardData,
+  SubscriptionSuggestionCardData,
+  SubscriptionProgressCardData,
   WhatsNewReportCardData,
   WhatsNewLoadingCardData,
   ToolSearchResultsCardData,
@@ -385,7 +392,7 @@ function renderResultCard(
   }
 
   // Single card - cast through unknown to satisfy TypeScript discriminated union
-  const cardType = card_data.card_type as CardType | 'deep_research_loading' | 'deep_research_iteration' | 'deep_research_confirmation' | 'final_result' | 'assimilation' | 'assimilation_plan' | 'assimilation_progress' | 'shop_results' | 'shop_loading' | 'subscription_added' | 'subscription_list' | 'whats_new_report' | 'whats_new_loading' | 'tool_search_results' | 'tool_adding' | 'tool_added' | 'document_saved' | 'document_context'
+  const cardType = card_data.card_type as CardType | 'deep_research_loading' | 'deep_research_iteration' | 'deep_research_confirmation' | 'final_result' | 'assimilation' | 'assimilation_plan' | 'assimilation_progress' | 'shop_results' | 'shop_loading' | 'subscription_added' | 'subscription_list' | 'subscription_suggestion' | 'subscription_progress' | 'whats_new_report' | 'whats_new_loading' | 'tool_search_results' | 'tool_adding' | 'tool_added' | 'document_saved' | 'document_context'
 
   // Handle shop results card
   if (cardType === 'shop_results') {
@@ -432,6 +439,26 @@ function renderResultCard(
       <SubscriptionListCard
         data={card_data as unknown as SubscriptionListCardData}
         testID={`${testID}-subscription-list`}
+      />
+    )
+  }
+
+  // Handle subscription suggestion card
+  if (cardType === 'subscription_suggestion') {
+    return (
+      <SubscriptionSuggestionCard
+        data={card_data as unknown as SubscriptionSuggestionCardData}
+        testID={`${testID}-subscription-suggestion`}
+      />
+    )
+  }
+
+  // Handle subscription progress card
+  if (cardType === 'subscription_progress') {
+    return (
+      <SubscriptionProgressCard
+        data={card_data as unknown as SubscriptionProgressCardData}
+        testID={`${testID}-subscription-progress`}
       />
     )
   }

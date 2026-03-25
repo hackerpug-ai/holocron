@@ -150,6 +150,35 @@ export interface SubscriptionListCardData {
   filter_type?: string
 }
 
+// Subscription suggestion card - AI suggests creator to follow
+export interface SubscriptionSuggestionCardData {
+  card_type: 'subscription_suggestion'
+  creator_id: string
+  name: string
+  handle: string
+  bio?: string
+  avatar_url?: string
+  platforms: {
+    youtube?: { handle: string; verified?: boolean }
+    twitter?: { handle: string; verified?: boolean }
+    bluesky?: { handle: string; verified?: boolean }
+    github?: { handle: string; verified?: boolean }
+    website?: { url: string; verified?: boolean }
+  }
+  existing_subscriptions?: Array<'youtube' | 'twitter' | 'bluesky' | 'github' | 'website'>
+}
+
+// Subscription progress card - real-time subscription progress
+export interface SubscriptionProgressCardData {
+  card_type: 'subscription_progress'
+  creator_name: string
+  platforms: Array<{
+    platform: string
+    status: 'pending' | 'in_progress' | 'success' | 'error'
+    error?: string
+  }>
+}
+
 // What's New report card - AI news briefing display
 export interface WhatsNewReportCardData {
   card_type: 'whats_new_report'
@@ -284,6 +313,8 @@ export type CardData =
   | ShopLoadingCardData
   | SubscriptionAddedCardData
   | SubscriptionListCardData
+  | SubscriptionSuggestionCardData
+  | SubscriptionProgressCardData
   | WhatsNewReportCardData
   | WhatsNewLoadingCardData
   | ToolSearchResultsCardData

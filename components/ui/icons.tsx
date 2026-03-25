@@ -89,6 +89,9 @@ import {
   Wrench,
   X,
   XCircle,
+  Youtube,
+  Twitter,
+  Github,
   Zap,
 } from 'lucide-react-native'
 
@@ -177,6 +180,9 @@ const icons = [
   Wrench,
   X,
   XCircle,
+  Youtube,
+  Twitter,
+  Github,
   Zap,
 ] as const
 
@@ -272,5 +278,8 @@ export {
   Wrench,
   X,
   XCircle,
+  Youtube,
+  Twitter,
+  Github,
   Zap,
 }
