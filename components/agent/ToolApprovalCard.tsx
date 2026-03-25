@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { ActivityIndicator, Pressable, View } from 'react-native'
-import { useMutation } from 'convex/react'
+import { useAction, useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
@@ -259,12 +259,12 @@ export type ToolApprovalCardWithConvexProps = Omit<
  * Approving sets status to "approved"; rejecting sets status to "rejected".
  */
 export function ToolApprovalCardWithConvex(props: ToolApprovalCardWithConvexProps) {
+  const executeTool = useAction(api.chat.agent.executeTool)
   const updateStatus = useMutation(api.toolCalls.mutations.updateStatus)
 
   const handleApprove = () => {
-    updateStatus({
-      id: props.approvalId as Id<'toolCalls'>,
-      status: 'approved',
+    executeTool({
+      toolCallId: props.approvalId as Id<'toolCalls'>,
     })
   }
 
