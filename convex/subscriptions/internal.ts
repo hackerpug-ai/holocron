@@ -957,6 +957,22 @@ export const getQueuedContent = internalQuery({
   },
 });
 
+/**
+ * Patch a creator's configJson (used for fixing bad handles).
+ */
+export const patchCreatorConfig = internalMutation({
+  args: {
+    id: v.id("subscriptionSources"),
+    configJson: v.any(),
+    url: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const updates: Record<string, unknown> = { configJson: args.configJson, updatedAt: Date.now() };
+    if (args.url) updates.url = args.url;
+    await ctx.db.patch(args.id, updates);
+  },
+});
+
 export const getSource = internalQuery({
   args: {
     id: v.id("subscriptionSources"),
@@ -1575,5 +1591,150 @@ export const seedCreatorAccounts = internalMutation({
 
     console.log(`[seedCreatorAccounts] Created ${created}, skipped ${skipped} (already exist)`);
     return { created, skipped };
+  },
+});
+
+// ============================================================================
+// Expanded Creator & Newsletter Seeding (YouTube, Twitter additions, RSS)
+// ============================================================================
+
+/**
+ * YouTube creators to add as subscriptions.
+ * These are the top AI/engineering YouTube channels matched to the user's
+ * taste profile (practical builders, AI engineering, research distillation).
+ */
+const YOUTUBE_CREATORS = [
+  { name: "Fireship", identifier: "fireship", tier: 1, platforms: { twitter: "fireship_dev", youtube: "UCsBjURrPoezykLs9EqgamOA" }, category: "rapid-explainers" },
+  { name: "ThePrimeagen", identifier: "ThePrimeagen", tier: 1, platforms: { twitter: "ThePrimeagen", youtube: "UC8ENHE5xdFSwx71u3fDH5Xw" }, category: "unfiltered-takes" },
+  { name: "Sentdex", identifier: "sentdex", tier: 1, platforms: { twitter: "Sentdex", youtube: "UCfzlCWGWYyIQ0aLC5w48gBQ" }, category: "practical-ml" },
+  { name: "LangChain", identifier: "langchain-yt", tier: 2, platforms: { twitter: "LangChainAI", youtube: "UCC-lyoTfSrcJzA1ab3APAgw" }, category: "agent-tutorials" },
+  { name: "Yannic Kilcher", identifier: "yannic-kilcher", tier: 2, platforms: { twitter: "ykilcher", youtube: "UCZHmQk67mSJgfCCTn7xBfew" }, category: "paper-reviews" },
+  { name: "All About AI", identifier: "all-about-ai", tier: 2, platforms: { youtube: "UCUyeluBRhGPCW4rPe_UvBZQ" }, category: "practical-coding" },
+  { name: "AI Jason", identifier: "ai-jason", tier: 2, platforms: { twitter: "jasonzhou1993", youtube: "UCaC_ojf4AH_SGjlbUbQBemg" }, category: "short-explainers" },
+  { name: "Matthew Berman", identifier: "matthew-berman", tier: 2, platforms: { twitter: "MatthewBerman", youtube: "UCmN4MlruSQmHvaK1EfFBSqg" }, category: "tool-reviews" },
+  { name: "Umar Jamil", identifier: "umar-jamil", tier: 3, platforms: { youtube: "UC6gOFkvAM3GBn9MUi4ONAOA" }, category: "deep-technical" },
+  { name: "Dwarkesh Patel", identifier: "dwarkesh-patel", tier: 2, platforms: { twitter: "dwarkesh_sp", youtube: "UC2LqM2ChFZHRUMGd142pF0Q" }, category: "intellectual-interviews" },
+];
+
+/**
+ * Additional Twitter-only creators not yet in the system.
+ */
+const ADDITIONAL_TWITTER_CREATORS = [
+  { name: "Nathan Lambert", identifier: "NathanLambert", tier: 2, platforms: { twitter: "natolambert" }, category: "rlhf-research" },
+  { name: "Hamel Husain", identifier: "HamelHusain", tier: 2, platforms: { twitter: "HamelHusain" }, category: "practical-ai-eng" },
+  { name: "Jason Liu", identifier: "JasonLiu200", tier: 2, platforms: { twitter: "jxnlco" }, category: "structured-outputs" },
+  { name: "Eugene Yan", identifier: "EugeneYan", tier: 2, platforms: { twitter: "eugeneyan" }, category: "production-ml" },
+  { name: "Alex Volkov (ThursdAI)", identifier: "altryne", tier: 2, platforms: { twitter: "altryne" }, category: "oss-ai-news" },
+];
+
+/**
+ * Newsletter/RSS feeds to add as subscriptions.
+ */
+const NEWSLETTER_FEEDS = [
+  { name: "Latent Space (swyx)", identifier: "latent-space-newsletter", feedUrl: "https://www.latent.space/feed", url: "https://www.latent.space", category: "ai-engineering" },
+  { name: "Interconnects (Nathan Lambert)", identifier: "interconnects-newsletter", feedUrl: "https://www.interconnects.ai/feed", url: "https://www.interconnects.ai", category: "rlhf-research" },
+  { name: "Import AI (Jack Clark)", identifier: "import-ai-newsletter", feedUrl: "https://importai.substack.com/feed", url: "https://importai.substack.com", category: "policy-research" },
+  { name: "TLDR AI", identifier: "tldr-ai-newsletter", feedUrl: "https://tldr.tech/ai/rss", url: "https://tldr.tech/ai", category: "daily-aggregator" },
+  { name: "PulseMCP", identifier: "pulsemcp-newsletter", feedUrl: "https://www.pulsemcp.com/feed", url: "https://www.pulsemcp.com", category: "mcp-ecosystem" },
+  { name: "Simon Willison's Blog", identifier: "simonwillison-blog", feedUrl: "https://simonwillison.net/atom/everything/", url: "https://simonwillison.net", category: "practical-ai" },
+  { name: "Ahead of AI (Sebastian Raschka)", identifier: "ahead-of-ai-newsletter", feedUrl: "https://magazine.sebastianraschka.com/feed", url: "https://magazine.sebastianraschka.com", category: "deep-technical-ml" },
+  { name: "AI Snake Oil (Arvind Narayanan)", identifier: "ai-snake-oil-newsletter", feedUrl: "https://www.aisnakeoil.com/feed", url: "https://www.aisnakeoil.com", category: "critical-analysis" },
+  { name: "Lilian Weng's Blog", identifier: "lilianweng-blog", feedUrl: "https://lilianweng.github.io/index.xml", url: "https://lilianweng.github.io", category: "research-deep-dives" },
+  { name: "Eugene Yan's Blog", identifier: "eugeneyan-blog", feedUrl: "https://eugeneyan.com/rss/", url: "https://eugeneyan.com", category: "production-ml" },
+  { name: "Gwern", identifier: "gwern-blog", feedUrl: "https://gwern.net/feed", url: "https://gwern.net", category: "ml-research-safety" },
+];
+
+/**
+ * Seed expanded creator recommendations (YouTube, Twitter additions, newsletters).
+ * Skips any that already exist by identifier. Idempotent.
+ */
+export const seedExpandedRecommendations = internalMutation({
+  args: {},
+  handler: async (ctx): Promise<{
+    creators: { created: number; skipped: number };
+    newsletters: { created: number; skipped: number };
+  }> => {
+    const now = Date.now();
+    const creatorsResult = { created: 0, skipped: 0 };
+    const newslettersResult = { created: 0, skipped: 0 };
+
+    // Seed YouTube + additional Twitter creators
+    const allCreators = [...YOUTUBE_CREATORS, ...ADDITIONAL_TWITTER_CREATORS];
+    for (const creator of allCreators) {
+      const existing = await ctx.db
+        .query("subscriptionSources")
+        .withIndex("by_identifier", (q) => q.eq("identifier", creator.identifier))
+        .first();
+
+      if (existing) {
+        creatorsResult.skipped++;
+        continue;
+      }
+
+      const twitterHandle = creator.platforms.twitter;
+      const youtubeId = (creator.platforms as { youtube?: string }).youtube;
+
+      await ctx.db.insert("subscriptionSources", {
+        sourceType: "creator",
+        identifier: creator.identifier,
+        name: creator.name,
+        url: twitterHandle
+          ? `https://x.com/${twitterHandle}`
+          : youtubeId
+            ? `https://www.youtube.com/channel/${youtubeId}`
+            : undefined,
+        feedUrl: youtubeId
+          ? `https://www.youtube.com/feeds/videos.xml?channel_id=${youtubeId}`
+          : undefined,
+        fetchMethod: youtubeId ? "rss" : "jina",
+        configJson: {
+          platforms: creator.platforms,
+          tier: creator.tier,
+          category: creator.category,
+        },
+        autoResearch: creator.tier <= 2,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      creatorsResult.created++;
+    }
+
+    // Seed newsletter/RSS feeds
+    for (const newsletter of NEWSLETTER_FEEDS) {
+      const existing = await ctx.db
+        .query("subscriptionSources")
+        .withIndex("by_identifier", (q) => q.eq("identifier", newsletter.identifier))
+        .first();
+
+      if (existing) {
+        newslettersResult.skipped++;
+        continue;
+      }
+
+      await ctx.db.insert("subscriptionSources", {
+        sourceType: "newsletter",
+        identifier: newsletter.identifier,
+        name: newsletter.name,
+        url: newsletter.url,
+        feedUrl: newsletter.feedUrl,
+        fetchMethod: "rss",
+        configJson: {
+          category: newsletter.category,
+          source: "deep-research-recommendation",
+        },
+        autoResearch: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      newslettersResult.created++;
+    }
+
+    console.log(
+      `[seedExpandedRecommendations] Creators: ${creatorsResult.created} created, ${creatorsResult.skipped} skipped. Newsletters: ${newslettersResult.created} created, ${newslettersResult.skipped} skipped.`
+    );
+
+    return { creators: creatorsResult, newsletters: newslettersResult };
   },
 });
