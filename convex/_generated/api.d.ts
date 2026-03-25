@@ -8,6 +8,10 @@
  * @module
  */
 
+import type * as agentPlans_actions from "../agentPlans/actions.js";
+import type * as agentPlans_mutations from "../agentPlans/mutations.js";
+import type * as agentPlans_queries from "../agentPlans/queries.js";
+import type * as agentPlans_scheduled from "../agentPlans/scheduled.js";
 import type * as assimilate_index from "../assimilate/index.js";
 import type * as assimilate_mutations from "../assimilate/mutations.js";
 import type * as assimilate_prompts from "../assimilate/prompts.js";
@@ -116,6 +120,10 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  "agentPlans/actions": typeof agentPlans_actions;
+  "agentPlans/mutations": typeof agentPlans_mutations;
+  "agentPlans/queries": typeof agentPlans_queries;
+  "agentPlans/scheduled": typeof agentPlans_scheduled;
   "assimilate/index": typeof assimilate_index;
   "assimilate/mutations": typeof assimilate_mutations;
   "assimilate/prompts": typeof assimilate_prompts;
