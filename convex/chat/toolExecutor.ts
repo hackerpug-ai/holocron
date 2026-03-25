@@ -21,6 +21,10 @@ export type AgentResponse = {
   content: string;
   messageType: string;
   cardData?: any;
+  /** When true, the caller should NOT schedule continueAfterTool.
+   *  Used by fire-and-forget tools (research, etc.) that post their
+   *  own results asynchronously. */
+  skipContinuation?: boolean;
 };
 
 // ---------------------------------------------------------------------------
@@ -49,6 +53,7 @@ async function executeSearchKnowledgeBase(
   return {
     content: `Searching knowledge base for "${query}"...`,
     messageType: "text",
+    skipContinuation: true,
   };
 }
 
@@ -184,7 +189,7 @@ async function executeQuickResearch(
     topic: query,
   });
 
-  return { content: `Researching: "${query}"`, messageType: "text" };
+  return { content: `Researching: "${query}"`, messageType: "text", skipContinuation: true };
 }
 
 // ---------------------------------------------------------------------------
@@ -211,6 +216,7 @@ async function executeDeepResearch(
   return {
     content: `Started deep research: "${topic}"`,
     messageType: "text",
+    skipContinuation: true,
   };
 }
 
@@ -238,7 +244,7 @@ async function executeShopSearch(
     query,
   });
 
-  return { content: `Searching for "${query}"...`, messageType: "text" };
+  return { content: `Searching for "${query}"...`, messageType: "text", skipContinuation: true };
 }
 
 // ---------------------------------------------------------------------------
@@ -393,6 +399,7 @@ async function executeCheckSubscriptions(ctx: ActionCtx): Promise<AgentResponse>
     return {
       content: "Checking subscriptions for new content...",
       messageType: "text",
+      skipContinuation: true,
     };
   } catch (error) {
     return {
@@ -428,6 +435,7 @@ async function executeWhatsNew(
           card_type: "whats_new_loading",
           message: `Generating ${days}-day briefing...`,
         },
+        skipContinuation: true,
       };
     }
 
@@ -548,6 +556,7 @@ async function executeSaveDocument(
   return {
     content: `Saving "${title}" to knowledge base...`,
     messageType: "text",
+    skipContinuation: true,
   };
 }
 

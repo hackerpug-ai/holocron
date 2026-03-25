@@ -235,6 +235,8 @@ export const executeTool = action({
       busy: true,
     });
 
+    let skipContinuation = false;
+
     try {
       const agentResponse = await executeAgentTool(
         ctx,
@@ -242,6 +244,8 @@ export const executeTool = action({
         toolCall.toolArgs,
         conversationId,
       );
+
+      skipContinuation = agentResponse.skipContinuation ?? false;
 
       // Validate messageType against allowed chatMessages schema values
       const allowedTypes = ["text", "result_card", "error", "progress"] as const;
@@ -291,10 +295,13 @@ export const executeTool = action({
       });
     }
 
-    // Schedule LLM continuation regardless of tool success/failure
-    await ctx.scheduler.runAfter(0, internal.chat.agent.continueAfterTool, {
-      conversationId,
-    });
+    // Skip LLM continuation for fire-and-forget tools (research, etc.)
+    // that post their own results asynchronously.
+    if (!skipContinuation) {
+      await ctx.scheduler.runAfter(0, internal.chat.agent.continueAfterTool, {
+        conversationId,
+      });
+    }
   },
 });
 
