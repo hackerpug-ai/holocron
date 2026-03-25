@@ -255,7 +255,93 @@ export const startShopSearch = action({
     priceMax: v.optional(v.number()),
   },
   handler: async (ctx, args): Promise<ShopSearchActionResult> => {
-    return executeShopSearch(ctx, args);
+    const { conversationId, query } = args;
+
+    try {
+      // Post loading card if we have a conversation
+      if (conversationId) {
+        await ctx.runMutation(api.chatMessages.mutations.create, {
+          conversationId,
+          role: "agent" as const,
+          content: `Searching for "${query}"...`,
+          messageType: "result_card" as const,
+          cardData: { card_type: "shop_search_loading", query },
+        });
+      }
+
+      // Run the actual search
+      const shopResult = await executeShopSearch(ctx, args);
+
+      // Post result/error cards if we have a conversation
+      if (conversationId) {
+        if (shopResult.totalListings > 0) {
+          // Query listings from DB and build result card
+          const listingsData: any[] = await ctx.runQuery(
+            api.shop.queries.getShopListings,
+            {
+              sessionId: shopResult.sessionId,
+              limit: 10,
+              excludeDuplicates: true,
+              sortBy: "dealScore",
+            },
+          );
+
+          const listings = (listingsData || []).map((l: any) => ({
+            card_type: "shop_listing",
+            listing_id: l._id,
+            title: l.title,
+            price: l.price,
+            original_price: l.originalPrice,
+            currency: l.currency || "USD",
+            condition: l.condition,
+            retailer: l.retailer,
+            seller: l.seller,
+            seller_rating: l.sellerRating,
+            url: l.url,
+            image_url: l.imageUrl,
+            in_stock: l.inStock ?? true,
+            deal_score: l.dealScore,
+          }));
+
+          await ctx.runMutation(api.chatMessages.mutations.create, {
+            conversationId,
+            role: "agent" as const,
+            content: `Found ${shopResult.totalListings} product${shopResult.totalListings === 1 ? "" : "s"} for "${query}"`,
+            messageType: "result_card" as const,
+            cardData: {
+              card_type: "shop_results",
+              session_id: shopResult.sessionId,
+              query,
+              total_listings: shopResult.totalListings,
+              best_deal_id: shopResult.bestDealId,
+              listings,
+              status: shopResult.status,
+              duration_ms: shopResult.durationMs,
+            },
+          });
+        } else {
+          await ctx.runMutation(api.chatMessages.mutations.create, {
+            conversationId,
+            role: "agent" as const,
+            content: `No products found for "${query}".`,
+            messageType: "text" as const,
+          });
+        }
+      }
+
+      return shopResult;
+    } catch (error) {
+      // Post error card if we have a conversation
+      if (conversationId) {
+        await ctx.runMutation(api.chatMessages.mutations.create, {
+          conversationId,
+          role: "agent" as const,
+          content: `Shop search failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+          messageType: "error" as const,
+        });
+      }
+      throw error;
+    }
   },
 });
 

@@ -8,7 +8,7 @@
  * agent tool calls and /commands share the same backend logic.
  */
 
-import { api } from "../_generated/api";
+import { api, internal } from "../_generated/api";
 import type { ActionCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { DOCUMENT_CATEGORIES, isValidCategory } from "../lib/categories";
@@ -30,6 +30,7 @@ export type AgentResponse = {
 async function executeSearchKnowledgeBase(
   ctx: ActionCtx,
   args: Record<string, any>,
+  conversationId: Id<"conversations">,
 ): Promise<AgentResponse> {
   const query: string = args.query ?? "";
   const limit: number = args.limit ?? 5;
@@ -38,45 +39,17 @@ async function executeSearchKnowledgeBase(
     return { content: "Please provide a search query.", messageType: "text" };
   }
 
-  try {
-    const searchResults: any[] = await ctx.runAction(
-      api.documents.search.hybridSearch,
-      { query, limit },
-    );
+  // Fire-and-forget: background action posts its own result/error cards
+  ctx.scheduler.runAfter(
+    0,
+    internal.chat.toolActions.searchKnowledgeBaseAsync,
+    { conversationId, query, limit },
+  );
 
-    if (!searchResults || searchResults.length === 0) {
-      return {
-        content: `No results found`,
-        messageType: "result_card",
-        cardData: {
-          card_type: "no_results",
-          message: `No articles found matching "${query}"`,
-        },
-      };
-    }
-
-    const articleCards = searchResults.map((doc: any) => ({
-      card_type: "article",
-      title: doc.title,
-      category: doc.category,
-      snippet: doc.content
-        ? doc.content.substring(0, 150) + (doc.content.length > 150 ? "..." : "")
-        : "",
-      document_id: doc._id,
-      metadata: { relevance_score: doc.score },
-    }));
-
-    return {
-      content: `Found ${searchResults.length} article${searchResults.length === 1 ? "" : "s"} matching "${query}"`,
-      messageType: "result_card",
-      cardData: articleCards,
-    };
-  } catch (error) {
-    return {
-      content: `Search failed: ${error instanceof Error ? error.message : "Unknown error"}`,
-      messageType: "error",
-    };
-  }
+  return {
+    content: `Searching knowledge base for "${query}"...`,
+    messageType: "text",
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -206,30 +179,12 @@ async function executeQuickResearch(
     return { content: "Please provide a research topic.", messageType: "text" };
   }
 
-  try {
-    const researchResult: any = await ctx.runAction(
-      api.research.actions.startSimpleResearch,
-      { conversationId, topic: query },
-    );
+  ctx.scheduler.runAfter(0, api.research.actions.startSimpleResearch, {
+    conversationId,
+    topic: query,
+  });
 
-    return {
-      content: researchResult.summary,
-      messageType: "result_card",
-      cardData: {
-        card_type: "simple_research_result",
-        session_id: researchResult.sessionId,
-        topic: query,
-        summary: researchResult.summary,
-        confidence: researchResult.confidence,
-        duration_ms: researchResult.durationMs,
-      },
-    };
-  } catch (error) {
-    return {
-      content: `Research failed: ${error instanceof Error ? error.message : "Unknown error"}`,
-      messageType: "error",
-    };
-  }
+  return { content: `Researching: "${query}"`, messageType: "text" };
 }
 
 // ---------------------------------------------------------------------------
@@ -277,66 +232,13 @@ async function executeShopSearch(
     };
   }
 
-  try {
-    const shopResult: any = await ctx.runAction(
-      api.shop.index.startShopSearch,
-      { conversationId, query },
-    );
+  // Fire-and-forget: background action posts its own loading/result/error cards
+  ctx.scheduler.runAfter(0, api.shop.index.startShopSearch, {
+    conversationId,
+    query,
+  });
 
-    if (!shopResult || shopResult.totalListings === 0) {
-      return {
-        content: `No products found for "${query}". Try a different search term.`,
-        messageType: "text",
-      };
-    }
-
-    const listingsData: any[] = await ctx.runQuery(
-      api.shop.queries.getShopListings,
-      {
-        sessionId: shopResult.sessionId,
-        limit: 10,
-        excludeDuplicates: true,
-        sortBy: "dealScore",
-      },
-    );
-
-    const listings = (listingsData || []).map((l: any) => ({
-      card_type: "shop_listing",
-      listing_id: l._id,
-      title: l.title,
-      price: l.price,
-      original_price: l.originalPrice,
-      currency: l.currency || "USD",
-      condition: l.condition,
-      retailer: l.retailer,
-      seller: l.seller,
-      seller_rating: l.sellerRating,
-      url: l.url,
-      image_url: l.imageUrl,
-      in_stock: l.inStock ?? true,
-      deal_score: l.dealScore,
-    }));
-
-    return {
-      content: `Found ${shopResult.totalListings} product${shopResult.totalListings === 1 ? "" : "s"} for "${query}"`,
-      messageType: "result_card",
-      cardData: {
-        card_type: "shop_results",
-        session_id: shopResult.sessionId,
-        query,
-        total_listings: shopResult.totalListings,
-        best_deal_id: shopResult.bestDealId,
-        listings,
-        status: shopResult.status,
-        duration_ms: shopResult.durationMs,
-      },
-    };
-  } catch (error) {
-    return {
-      content: `Shop search failed: ${error instanceof Error ? error.message : "Unknown error"}`,
-      messageType: "error",
-    };
-  }
+  return { content: `Searching for "${query}"...`, messageType: "text" };
 }
 
 // ---------------------------------------------------------------------------
@@ -619,6 +521,7 @@ async function executeToolbeltSearch(
 async function executeSaveDocument(
   ctx: ActionCtx,
   args: Record<string, any>,
+  conversationId: Id<"conversations">,
 ): Promise<AgentResponse> {
   const title: string = args.title ?? "";
   const content: string = args.content ?? "";
@@ -631,33 +534,21 @@ async function executeSaveDocument(
     };
   }
 
-  try {
-    const result: any = await ctx.runAction(
-      api.documents.storage.createWithEmbedding,
-      {
-        title,
-        content,
-        category,
-        status: "complete",
-      },
-    );
+  await ctx.scheduler.runAfter(
+    0,
+    internal.chat.toolActions.saveDocumentAsync,
+    {
+      conversationId,
+      title,
+      content,
+      category,
+    },
+  );
 
-    return {
-      content: `Saved "${title}" to knowledge base`,
-      messageType: "result_card",
-      cardData: {
-        card_type: "document_saved",
-        document_id: result.documentId,
-        title,
-        category,
-      },
-    };
-  } catch (error) {
-    return {
-      content: `Save document failed: ${error instanceof Error ? error.message : "Unknown error"}`,
-      messageType: "error",
-    };
-  }
+  return {
+    content: `Saving "${title}" to knowledge base...`,
+    messageType: "text",
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -738,7 +629,7 @@ export async function executeAgentTool(
 ): Promise<AgentResponse> {
   switch (toolName) {
     case "search_knowledge_base":
-      return executeSearchKnowledgeBase(ctx, toolArgs);
+      return executeSearchKnowledgeBase(ctx, toolArgs, conversationId);
 
     case "browse_category":
       return executeBrowseCategory(ctx, toolArgs);
@@ -774,7 +665,7 @@ export async function executeAgentTool(
       return executeToolbeltSearch(ctx, toolArgs);
 
     case "save_document":
-      return executeSaveDocument(ctx, toolArgs);
+      return executeSaveDocument(ctx, toolArgs, conversationId);
 
     case "assimilate":
       return executeAssimilate(ctx, toolArgs, conversationId);

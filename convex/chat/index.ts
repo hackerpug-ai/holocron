@@ -687,64 +687,15 @@ export const send = action({
             messageType: "text",
           };
         } else {
-          // Call shop search action directly
-          const shopResult: any = await ctx.runAction(
-            api.shop.index.startShopSearch,
-            {
-              conversationId: finalConversationId,
-              query,
-            }
-          );
-
-          // Fetch listings if we got results
-          if (shopResult.totalListings > 0) {
-            const listingsData = await ctx.runQuery(
-              api.shop.queries.getShopListings,
-              {
-                sessionId: shopResult.sessionId,
-                limit: 10,
-                excludeDuplicates: true,
-                sortBy: "dealScore",
-              }
-            );
-
-            const listings: ShopListingCard[] = (listingsData || []).map((l: any) => ({
-              card_type: "shop_listing",
-              listing_id: l._id,
-              title: l.title,
-              price: l.price,
-              original_price: l.originalPrice,
-              currency: l.currency || "USD",
-              condition: l.condition,
-              retailer: l.retailer,
-              seller: l.seller,
-              seller_rating: l.sellerRating,
-              url: l.url,
-              image_url: l.imageUrl,
-              in_stock: l.inStock ?? true,
-              deal_score: l.dealScore,
-            }));
-
-            agentResponse = {
-              content: `Found ${shopResult.totalListings} product${shopResult.totalListings === 1 ? "" : "s"} for "${query}"`,
-              messageType: "result_card",
-              cardData: {
-                card_type: "shop_results",
-                session_id: shopResult.sessionId,
-                query,
-                total_listings: shopResult.totalListings,
-                best_deal_id: shopResult.bestDealId,
-                listings,
-                status: shopResult.status,
-                duration_ms: shopResult.durationMs,
-              } as ShopResultsCard,
-            };
-          } else {
-            agentResponse = {
-              content: `No products found for "${query}". Try a different search term.`,
-              messageType: "text",
-            };
-          }
+          // Fire-and-forget: background action posts its own loading/result/error cards
+          ctx.scheduler.runAfter(0, api.shop.index.startShopSearch, {
+            conversationId: finalConversationId,
+            query,
+          });
+          agentResponse = {
+            content: `Searching for "${query}"...`,
+            messageType: "text",
+          };
         }
       } else if (parsed.command === "deep-research") {
         const topic = parsed.args || "";
@@ -774,26 +725,15 @@ export const send = action({
             messageType: "text",
           };
         } else {
-          // Call simple research action directly (synchronous, completes quickly)
-          const researchResult: any = await ctx.runAction(
-            api.research.actions.startSimpleResearch,
-            {
-              conversationId: finalConversationId,
-              topic,
-            }
-          );
+          // Trigger async research workflow (fire-and-forget pattern)
+          ctx.scheduler.runAfter(0, api.research.actions.startSimpleResearch, {
+            conversationId: finalConversationId,
+            topic,
+          });
 
           agentResponse = {
-            content: researchResult.summary,
-            messageType: "result_card",
-            cardData: {
-              card_type: "simple_research_result",
-              session_id: researchResult.sessionId,
-              topic,
-              summary: researchResult.summary,
-              confidence: researchResult.confidence,
-              duration_ms: researchResult.durationMs,
-            },
+            content: `Researching: "${topic}"`,
+            messageType: "text",
           };
         }
       } else if (parsed.command === "subscribe") {

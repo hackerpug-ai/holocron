@@ -29,6 +29,7 @@ import type * as chat_agentMutations from "../chat/agentMutations.js";
 import type * as chat_context from "../chat/context.js";
 import type * as chat_index from "../chat/index.js";
 import type * as chat_prompts from "../chat/prompts.js";
+import type * as chat_toolActions from "../chat/toolActions.js";
 import type * as chat_toolExecutor from "../chat/toolExecutor.js";
 import type * as chat_tools from "../chat/tools.js";
 import type * as chatMessages_index from "../chatMessages/index.js";
@@ -143,6 +144,7 @@ declare const fullApi: ApiFromModules<{
   "chat/context": typeof chat_context;
   "chat/index": typeof chat_index;
   "chat/prompts": typeof chat_prompts;
+  "chat/toolActions": typeof chat_toolActions;
   "chat/toolExecutor": typeof chat_toolExecutor;
   "chat/tools": typeof chat_tools;
   "chatMessages/index": typeof chatMessages_index;

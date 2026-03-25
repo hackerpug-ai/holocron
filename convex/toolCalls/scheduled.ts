@@ -3,17 +3,15 @@ import { internalMutation } from "../_generated/server";
 /**
  * Tool-specific timeout thresholds.
  *
- * Most tools are synchronous and should complete quickly (search, browse, stats).
- * Some tools kick off long-running async workflows (deep_research, assimilate,
- * quick_research, shop_search) and need a longer leash.
+ * All tools now use fire-and-forget scheduling (ctx.scheduler.runAfter)
+ * so they complete almost instantly in executeTool. The default 5-min
+ * timeout is a safety net for any edge case where a tool hangs.
  *
  * The cron runs every 2 minutes (cheap to check), but only times out a tool
  * once the threshold for that specific tool has been exceeded.
  */
 const TOOL_TIMEOUT_MS: Record<string, number> = {
-  // Synchronous tools that legitimately take longer
-  quick_research: 10 * 60 * 1000,   // 10 min (parallel domain search + synthesis)
-  shop_search: 10 * 60 * 1000,      // 10 min (multi-retailer crawl)
+  // No tool-specific overrides needed — all tools fire-and-forget now
 };
 
 const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000; // 5 min for all other tools

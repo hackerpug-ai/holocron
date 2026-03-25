@@ -786,18 +786,22 @@ export const startSimpleResearch = action({
     const startTime = Date.now();
     console.log(`[startSimpleResearch] Entry - topic: "${topic}"`);
 
+    let sessionId: Id<"deepResearchSessions"> | undefined;
+    let effectiveConversationId: Id<"conversations"> | undefined;
+
+    try {
     // Import helper function
     const { decomposeIntoDomains } = await import("./parallel");
 
     // Step 1: Create conversation if needed
-    const effectiveConversationId =
+    effectiveConversationId =
       conversationId ??
       (await ctx.runMutation(api.conversations.mutations.create, {
         title: `Quick Research: ${topic}`,
       }));
 
     // Step 2: Create session with researchType: "simple"
-    const sessionId = await ctx.runMutation(
+    sessionId = await ctx.runMutation(
       api.research.mutations.createDeepResearchSession,
       {
         conversationId: effectiveConversationId,
@@ -977,6 +981,30 @@ State whether confidence is HIGH, MEDIUM, or LOW based on:
       confidence: synthesis.confidence,
       durationMs: totalTime,
     };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      console.error(`[startSimpleResearch] ERROR:`, error);
+
+      // Post error to chat so user sees it
+      if (effectiveConversationId) {
+        await ctx.runMutation(api.chatMessages.mutations.create, {
+          conversationId: effectiveConversationId,
+          role: "agent" as const,
+          content: `Quick research failed: ${errorMessage}`,
+          messageType: "error" as const,
+        });
+      }
+
+      // Mark session as error if it was created
+      if (sessionId) {
+        await ctx.runMutation(api.research.mutations.completeDeepResearchSession, {
+          sessionId,
+          status: "error",
+        });
+      }
+
+      throw error; // Re-throw so Convex logs it
+    }
   },
 });
 
