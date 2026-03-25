@@ -367,7 +367,23 @@ function categorizeFindings(findings: Finding[]) {
 }
 
 /**
- * Generate markdown report from findings
+ * Pick the top N findings by score, falling back to array order
+ */
+function topByScore(items: Finding[], n: number): Finding[] {
+  return [...items].sort((a, b) => (b.score ?? 0) - (a.score ?? 0)).slice(0, n);
+}
+
+/**
+ * Format a finding's score for display
+ */
+function formatScore(item: Finding): string {
+  if (!item.score) return "";
+  if (item.source === "GitHub") return ` ⭐ ${item.score}`;
+  return ` (${item.score} pts)`;
+}
+
+/**
+ * Generate markdown report from findings, matching the rich skill output format
  */
 function synthesizeReport(
   findings: Finding[],
@@ -380,61 +396,131 @@ function synthesizeReport(
 
   const formatDate = (d: Date) => d.toISOString().split("T")[0];
 
+  // Build source breakdown
+  const sourceCounts = findings.reduce(
+    (acc, f) => {
+      acc[f.source] = (acc[f.source] || 0) + 1;
+      return acc;
+    },
+    {} as Record<string, number>
+  );
+  const sourceBreakdown = Object.entries(sourceCounts)
+    .sort((a, b) => b[1] - a[1])
+    .map(([source, count]) => `${source}: ${count}`)
+    .join(" · ");
+
   let markdown = `# What's New in AI Software Engineering
 
 **Period:** ${formatDate(periodStart)} to ${formatDate(periodEnd)} (${days} days)
 **Generated:** ${new Date().toISOString()}
-**Total Findings:** ${findings.length}
+**Findings:** ${findings.length} total (${discoveries.length} discoveries, ${releases.length} releases, ${trends.length} trends, ${discussions.length} discussions)
 
 ---
 
 `;
 
-  // Discoveries section
-  if (discoveries.length > 0) {
-    markdown += `## 🔬 Discoveries & New Tools (${discoveries.length})\n\n`;
-    for (const item of discoveries.slice(0, 15)) {
-      markdown += `### [${item.title}](${item.url})\n`;
-      markdown += `*Source: ${item.source}*`;
-      if (item.score) markdown += ` | Score: ${item.score}`;
-      markdown += "\n\n";
-      if (item.summary) {
-        markdown += `${item.summary}\n\n`;
-      }
+  // ── TL;DR (Top 5) ──
+  const top5 = topByScore(findings, 5);
+  if (top5.length > 0) {
+    markdown += `## TL;DR\n\n`;
+    for (let i = 0; i < top5.length; i++) {
+      const item = top5[i];
+      markdown += `${i + 1}. **[${item.title}](${item.url})**${formatScore(item)}\n`;
     }
+    markdown += "\n---\n\n";
   }
 
-  // Releases section
+  // ── Releases & Updates ──
   if (releases.length > 0) {
-    markdown += `## 📦 Releases & Updates (${releases.length})\n\n`;
+    markdown += `## 📦 Releases & Updates\n\n`;
+    markdown += `| Release | Source | Score |\n`;
+    markdown += `|---------|--------|-------|\n`;
     for (const item of releases.slice(0, 10)) {
-      markdown += `- [${item.title}](${item.url}) - *${item.source}*\n`;
+      const score = item.score ? `${item.score}` : "—";
+      markdown += `| [${item.title}](${item.url}) | ${item.source} | ${score} |\n`;
     }
     markdown += "\n";
   }
 
-  // Trends section
-  if (trends.length > 0) {
-    markdown += `## 📈 Trends (${trends.length})\n\n`;
-    for (const item of trends.slice(0, 10)) {
-      markdown += `- [${item.title}](${item.url}) - *${item.source}*\n`;
+  // ── Discoveries & New Tools ──
+  if (discoveries.length > 0) {
+    // Split GitHub (repos) from other discoveries
+    const githubFinds = discoveries.filter((f) => f.source === "GitHub");
+    const otherFinds = discoveries.filter((f) => f.source !== "GitHub");
+
+    markdown += `## 🔬 New Tools & Discoveries\n\n`;
+
+    if (otherFinds.length > 0) {
+      for (const item of otherFinds.slice(0, 10)) {
+        markdown += `- **[${item.title}](${item.url})** — *${item.source}*${formatScore(item)}\n`;
+        if (item.summary) {
+          markdown += `  ${item.summary}\n`;
+        }
+      }
+      markdown += "\n";
     }
-    markdown += "\n";
+
+    if (githubFinds.length > 0) {
+      markdown += `### Trending Repos\n\n`;
+      markdown += `| Repository | Stars |\n`;
+      markdown += `|------------|-------|\n`;
+      for (const item of topByScore(githubFinds, 10)) {
+        markdown += `| [${item.title}](${item.url}) | ${item.score ? `⭐ ${item.score}` : "—"} |\n`;
+      }
+      markdown += "\n";
+    }
   }
 
-  // Discussions section
+  // ── Community Pulse ──
   if (discussions.length > 0) {
-    markdown += `## 💬 Community Discussions (${discussions.length})\n\n`;
-    for (const item of discussions.slice(0, 15)) {
-      markdown += `- [${item.title}](${item.url}) - *${item.source}*\n`;
+    // Split by source
+    const redditPosts = discussions.filter((f) => f.source.startsWith("r/"));
+    const lobsterPosts = discussions.filter((f) => f.source === "Lobsters");
+    const otherDiscussions = discussions.filter(
+      (f) => !f.source.startsWith("r/") && f.source !== "Lobsters"
+    );
+
+    markdown += `## 💬 Community Pulse\n\n`;
+
+    if (redditPosts.length > 0) {
+      markdown += `### Reddit\n\n`;
+      markdown += `| Post | Subreddit |\n`;
+      markdown += `|------|-----------|\n`;
+      for (const item of redditPosts.slice(0, 10)) {
+        markdown += `| [${item.title}](${item.url}) | ${item.source} |\n`;
+      }
+      markdown += "\n";
+    }
+
+    if (lobsterPosts.length > 0) {
+      markdown += `### Lobsters\n\n`;
+      for (const item of lobsterPosts.slice(0, 5)) {
+        markdown += `- [${item.title}](${item.url})\n`;
+      }
+      markdown += "\n";
+    }
+
+    if (otherDiscussions.length > 0) {
+      for (const item of otherDiscussions.slice(0, 5)) {
+        markdown += `- [${item.title}](${item.url}) — *${item.source}*\n`;
+      }
+      markdown += "\n";
+    }
+  }
+
+  // ── Trends ──
+  if (trends.length > 0) {
+    markdown += `## 📈 Trends\n\n`;
+    for (const item of trends.slice(0, 10)) {
+      markdown += `- **[${item.title}](${item.url})** — *${item.source}*\n`;
     }
     markdown += "\n";
   }
 
-  markdown += `---
-
-*This report was automatically generated by Holocron's What's New system.*
-`;
+  // ── Sources ──
+  markdown += `---\n\n`;
+  markdown += `**Sources:** ${sourceBreakdown}\n\n`;
+  markdown += `*Generated by Holocron's What's New system*\n`;
 
   return markdown;
 }
