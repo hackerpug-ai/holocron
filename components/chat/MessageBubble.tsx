@@ -14,6 +14,7 @@ import { WhatsNewReportCard, WhatsNewLoadingCard } from '@/components/whats-new'
 import { ToolSearchResultsCard, ToolAddingCard, ToolAddedCard } from '@/components/toolbelt'
 import { DocumentSavedCard, DocumentContextCard } from '@/components/documents'
 import { ToolApprovalCardWithConvex } from '@/components/agent/ToolApprovalCard'
+import { AgentPlanCardWithConvex } from '@/components/agent/AgentPlanCardWithConvex'
 import { AssimilationPlanCardWithConvex } from '@/components/assimilate/AssimilationPlanCard'
 import { AssimilationProgressCard } from '@/components/assimilate/AssimilationProgressCard'
 import { useRouter } from 'expo-router'
@@ -89,6 +90,29 @@ export function MessageBubble({
   const isUser = role === 'user'
   const isSystem = role === 'system'
   const router = useRouter()
+
+  // Handle agent_plan messages - render live plan card
+  if (message_type === 'agent_plan' && card_data?.plan_id) {
+    return (
+      <View
+        className={cn('my-1 px-4')}
+        testID="agent-plan-bubble"
+      >
+        <AgentPlanCardWithConvex
+          planId={card_data.plan_id as string}
+        />
+        {showTimestamp && createdAt && (
+          <Text
+            variant="small"
+            className="text-muted-foreground mt-0.5 text-xs self-start"
+            testID={`${testID}-timestamp`}
+          >
+            {formatTimestamp(createdAt)}
+          </Text>
+        )}
+      </View>
+    )
+  }
 
   // Handle tool_approval messages - render live tool approval card
   if (message_type === 'tool_approval' && toolCallId) {
