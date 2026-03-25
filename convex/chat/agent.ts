@@ -25,20 +25,7 @@ import { zaiPro } from "../lib/ai/zai_provider";
 import { agentTools } from "./tools";
 import { executeAgentTool } from "./toolExecutor";
 import { HOLOCRON_SYSTEM_PROMPT } from "./prompts";
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/**
- * Format a snake_case tool name into a human-readable display name
- */
-function formatToolDisplayName(toolName: string): string {
-  return toolName
-    .split("_")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
-}
+import { toTitleCase } from "../lib/strings";
 
 /**
  * callLlmAndHandleResponse
@@ -104,7 +91,7 @@ async function callLlmAndHandleResponse(
 
     // Existing tool_approval flow for individual tools
     for (const toolCall of result.toolCalls) {
-      const toolDisplayName = formatToolDisplayName(toolCall.toolName);
+      const toolDisplayName = toTitleCase(toolCall.toolName);
       const content = `I'd like to use the **${toolDisplayName}** tool to help with your request.`;
 
       // Insert the tool_approval chatMessage first (to get its ID)

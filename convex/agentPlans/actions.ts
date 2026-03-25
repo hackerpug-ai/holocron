@@ -7,7 +7,6 @@
  *
  * Flow:
  *   executePlanStep() — fetches current step, handles approval gate or executes tool
- *   continueAfterPlan() — schedules LLM continuation after plan finishes
  *   resumeAfterApproval() — resumes plan execution after a step is approved
  */
 
@@ -51,7 +50,7 @@ export const executePlanStep = internalAction({
       });
       await ctx.scheduler.runAfter(
         0,
-        internal.agentPlans.actions.continueAfterPlan,
+        internal.chat.agent.continueAfterTool,
         { conversationId: plan.conversationId },
       );
       return;
@@ -182,31 +181,11 @@ export const executePlanStep = internalAction({
         // Let LLM acknowledge the failure
         await ctx.scheduler.runAfter(
           0,
-          internal.agentPlans.actions.continueAfterPlan,
+          internal.chat.agent.continueAfterTool,
           { conversationId: plan.conversationId },
         );
       }
     }
-  },
-});
-
-// ---------------------------------------------------------------------------
-// continueAfterPlan
-// ---------------------------------------------------------------------------
-
-/**
- * Delegate to continueAfterTool — it rebuilds conversation context and prompts
- * the LLM for a follow-up response, which is exactly what we need after a plan
- * completes or fails.
- */
-export const continueAfterPlan = internalAction({
-  args: { conversationId: v.id("conversations") },
-  handler: async (ctx, { conversationId }): Promise<void> => {
-    await ctx.scheduler.runAfter(
-      0,
-      internal.chat.agent.continueAfterTool,
-      { conversationId },
-    );
   },
 });
 

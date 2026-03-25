@@ -50,7 +50,7 @@ describe('Agent Plans API', () => {
    */
   describe('AC-3: toolDisplayName generation from toolName', () => {
     it('should convert snake_case tool names to Title Case display names', async () => {
-      const { toTitleCase } = await import('../../convex/agentPlans/mutations');
+      const { toTitleCase } = await import('../../convex/lib/strings');
       expect(toTitleCase('web_search')).toBe('Web Search');
       expect(toTitleCase('create_document')).toBe('Create Document');
       expect(toTitleCase('singleword')).toBe('Singleword');
@@ -62,12 +62,11 @@ describe('Agent Plans API', () => {
    * AC-4: agentPlans actions exist in the generated internal API
    */
   describe('AC-4: agentPlans actions are registered', () => {
-    it('should have internal actions: executePlanStep, continueAfterPlan, resumeAfterApproval', async () => {
+    it('should have internal actions: executePlanStep, resumeAfterApproval', async () => {
       const { internal } = await import('../../convex/_generated/api');
       expect(internal.agentPlans).toBeDefined();
       expect(internal.agentPlans.actions).toBeDefined();
       expect(internal.agentPlans.actions.executePlanStep).toBeDefined();
-      expect(internal.agentPlans.actions.continueAfterPlan).toBeDefined();
       expect(internal.agentPlans.actions.resumeAfterApproval).toBeDefined();
     });
   });

@@ -5,14 +5,17 @@ const TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 /**
  * Timeout Stuck Agent Plans
  *
- * Finds agent plans stuck in "executing" or "awaiting_approval" status beyond
- * 30 minutes and marks them as "failed". Also marks active steps as failed,
- * resets agentBusy on the conversation, and posts an error message to chat so
- * the user knows what happened.
+ * Finds agent plans stuck in "executing" status beyond 30 minutes and marks
+ * them as "failed". Also marks active steps as failed, resets agentBusy on
+ * the conversation, and posts an error message to chat so the user knows what
+ * happened.
  *
  * This handles the case where the Convex runtime kills an action mid-flight
  * (e.g., 10-minute action timeout) and the catch/finally blocks never execute,
  * leaving the plan in "executing" and agentBusy=true forever.
+ *
+ * Plans in "awaiting_approval" are stable waiting states (user stepped away)
+ * and are intentionally excluded from this timeout.
  *
  * Intended to be called on a cron schedule (every 5 minutes).
  */
@@ -26,12 +29,7 @@ export const timeoutStuckPlans = internalMutation({
       .withIndex("by_status", (q) => q.eq("status", "executing"))
       .collect();
 
-    const awaitingPlans = await ctx.db
-      .query("agentPlans")
-      .withIndex("by_status", (q) => q.eq("status", "awaiting_approval"))
-      .collect();
-
-    const stuckPlans = [...executingPlans, ...awaitingPlans].filter(
+    const stuckPlans = executingPlans.filter(
       (plan) => now - plan.updatedAt > TIMEOUT_MS
     );
 

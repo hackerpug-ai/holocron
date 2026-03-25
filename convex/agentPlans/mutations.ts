@@ -1,16 +1,7 @@
 import { mutation, internalMutation } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { v } from "convex/values";
-
-/**
- * Convert a snake_case tool name to a Title Case display name.
- * e.g. "web_search" → "Web Search"
- */
-export const toTitleCase = (toolName: string): string =>
-  toolName
-    .split("_")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
+import { toTitleCase } from "../lib/strings";
 
 /**
  * Create an agent plan with all its steps.

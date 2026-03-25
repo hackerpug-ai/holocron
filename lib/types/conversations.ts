@@ -44,7 +44,4 @@ export interface ConversationUpdate {
 }
 
 /** ENUM type for message roles (used by future chat_messages table) */
-export type MessageRole = 'user' | 'agent' | 'system'
-
-/** ENUM type for message types (used by future chat_messages table) */
-export type MessageType = 'text' | 'slash_command' | 'result_card' | 'progress' | 'error' | 'tool_approval' | 'agent_plan'
+export type { MessageRole, MessageType } from './chat'
