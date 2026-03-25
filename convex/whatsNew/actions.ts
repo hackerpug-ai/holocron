@@ -11,6 +11,7 @@
 import { v } from "convex/values";
 import { internalAction, action } from "../_generated/server";
 import { api, internal } from "../_generated/api";
+import { synthesizeReport as llmSynthesizeReport } from "./llm";
 
 // ============================================================================
 // Types
@@ -575,22 +576,6 @@ function categorizeFindings(findings: Finding[]) {
 }
 
 /**
- * Pick the top N findings by score, falling back to array order
- */
-function topByScore(items: Finding[], n: number): Finding[] {
-  return [...items].sort((a, b) => (b.score ?? 0) - (a.score ?? 0)).slice(0, n);
-}
-
-/**
- * Format a finding's score for display
- */
-function formatScore(item: Finding): string {
-  if (!item.score) return "";
-  if (item.source === "GitHub") return ` ⭐ ${item.score}`;
-  return ` (${item.score} pts)`;
-}
-
-/**
  * Calculate cross-source corroboration for findings
  * Returns the count of findings mentioned by multiple sources
  */
@@ -653,149 +638,6 @@ function extractSources(findings: Finding[]): string[] {
     uniqueSources.add(finding.source);
   }
   return Array.from(uniqueSources).sort();
-}
-
-/**
- * Generate markdown report from findings, matching the rich skill output format
- */
-function synthesizeReport(
-  findings: Finding[],
-  days: number,
-  periodStart: Date,
-  periodEnd: Date
-): string {
-  const { discoveries, releases, trends, discussions } =
-    categorizeFindings(findings);
-
-  const formatDate = (d: Date) => d.toISOString().split("T")[0];
-
-  // Build source breakdown
-  const sourceCounts = findings.reduce(
-    (acc, f) => {
-      acc[f.source] = (acc[f.source] || 0) + 1;
-      return acc;
-    },
-    {} as Record<string, number>
-  );
-  const sourceBreakdown = Object.entries(sourceCounts)
-    .sort((a, b) => b[1] - a[1])
-    .map(([source, count]) => `${source}: ${count}`)
-    .join(" · ");
-
-  let markdown = `# What's New in AI Software Engineering
-
-**Period:** ${formatDate(periodStart)} to ${formatDate(periodEnd)} (${days} days)
-**Generated:** ${new Date().toISOString()}
-**Findings:** ${findings.length} total (${discoveries.length} discoveries, ${releases.length} releases, ${trends.length} trends, ${discussions.length} discussions)
-
----
-
-`;
-
-  // ── TL;DR (Top 5) ──
-  const top5 = topByScore(findings, 5);
-  if (top5.length > 0) {
-    markdown += `## TL;DR\n\n`;
-    for (let i = 0; i < top5.length; i++) {
-      const item = top5[i];
-      markdown += `${i + 1}. **[${item.title}](${item.url})**${formatScore(item)}\n`;
-    }
-    markdown += "\n---\n\n";
-  }
-
-  // ── Releases & Updates ──
-  if (releases.length > 0) {
-    markdown += `## 📦 Releases & Updates\n\n`;
-    markdown += `| Release | Source | Score |\n`;
-    markdown += `|---------|--------|-------|\n`;
-    for (const item of releases.slice(0, 10)) {
-      const score = item.score ? `${item.score}` : "—";
-      markdown += `| [${item.title}](${item.url}) | ${item.source} | ${score} |\n`;
-    }
-    markdown += "\n";
-  }
-
-  // ── Discoveries & New Tools ──
-  if (discoveries.length > 0) {
-    // Split GitHub (repos) from other discoveries
-    const githubFinds = discoveries.filter((f) => f.source === "GitHub");
-    const otherFinds = discoveries.filter((f) => f.source !== "GitHub");
-
-    markdown += `## 🔬 New Tools & Discoveries\n\n`;
-
-    if (otherFinds.length > 0) {
-      for (const item of otherFinds.slice(0, 10)) {
-        markdown += `- **[${item.title}](${item.url})** — *${item.source}*${formatScore(item)}\n`;
-        if (item.summary) {
-          markdown += `  ${item.summary}\n`;
-        }
-      }
-      markdown += "\n";
-    }
-
-    if (githubFinds.length > 0) {
-      markdown += `### Trending Repos\n\n`;
-      markdown += `| Repository | Stars |\n`;
-      markdown += `|------------|-------|\n`;
-      for (const item of topByScore(githubFinds, 10)) {
-        markdown += `| [${item.title}](${item.url}) | ${item.score ? `⭐ ${item.score}` : "—"} |\n`;
-      }
-      markdown += "\n";
-    }
-  }
-
-  // ── Community Pulse ──
-  if (discussions.length > 0) {
-    // Split by source
-    const redditPosts = discussions.filter((f) => f.source.startsWith("r/"));
-    const lobsterPosts = discussions.filter((f) => f.source === "Lobsters");
-    const otherDiscussions = discussions.filter(
-      (f) => !f.source.startsWith("r/") && f.source !== "Lobsters"
-    );
-
-    markdown += `## 💬 Community Pulse\n\n`;
-
-    if (redditPosts.length > 0) {
-      markdown += `### Reddit\n\n`;
-      markdown += `| Post | Subreddit |\n`;
-      markdown += `|------|-----------|\n`;
-      for (const item of redditPosts.slice(0, 10)) {
-        markdown += `| [${item.title}](${item.url}) | ${item.source} |\n`;
-      }
-      markdown += "\n";
-    }
-
-    if (lobsterPosts.length > 0) {
-      markdown += `### Lobsters\n\n`;
-      for (const item of lobsterPosts.slice(0, 5)) {
-        markdown += `- [${item.title}](${item.url})\n`;
-      }
-      markdown += "\n";
-    }
-
-    if (otherDiscussions.length > 0) {
-      for (const item of otherDiscussions.slice(0, 5)) {
-        markdown += `- [${item.title}](${item.url}) — *${item.source}*\n`;
-      }
-      markdown += "\n";
-    }
-  }
-
-  // ── Trends ──
-  if (trends.length > 0) {
-    markdown += `## 📈 Trends\n\n`;
-    for (const item of trends.slice(0, 10)) {
-      markdown += `- **[${item.title}](${item.url})** — *${item.source}*\n`;
-    }
-    markdown += "\n";
-  }
-
-  // ── Sources ──
-  markdown += `---\n\n`;
-  markdown += `**Sources:** ${sourceBreakdown}\n\n`;
-  markdown += `*Generated by Holocron's What's New system*\n`;
-
-  return markdown;
 }
 
 // ============================================================================
@@ -891,17 +733,27 @@ export const generateDailyReport = internalAction({
       `[generateDailyReport] Extended metrics: topEngagementVelocity=${topEngagementVelocity}, totalCorroborationCount=${totalCorroborationCount}, sources=${sources.length}`
     );
 
-    // 4. Generate markdown report
+    // 4. Generate markdown report using two-pass LLM synthesis with static fallback
     const now = new Date();
     const periodEnd = now;
     const periodStart = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
 
-    const reportMarkdown = synthesizeReport(
+    console.log("[generateDailyReport] Generating report with LLM synthesis...");
+    const synthesisResult = await llmSynthesizeReport(
       uniqueFindings,
       days,
       periodStart,
       periodEnd
     );
+
+    console.log(
+      `[generateDailyReport] Report generated using method: ${synthesisResult.method}`
+    );
+    if (synthesisResult.error) {
+      console.error("[generateDailyReport] LLM synthesis error:", synthesisResult.error);
+    }
+
+    const reportMarkdown = synthesisResult.markdown;
 
     // 5. Store document with embedding
     console.log("[generateDailyReport] Creating document with embedding...");
