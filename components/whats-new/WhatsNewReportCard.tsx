@@ -2,10 +2,11 @@
  * WhatsNewReportCard - AI news briefing display
  */
 
-import { View } from 'react-native'
+import { View, ScrollView } from 'react-native'
 import { Text } from '@/components/ui/text'
 import { Card } from '@/components/ui/card'
-import { Newspaper, Sparkles, TrendingUp, Package, MessageSquare, Calendar } from '@/components/ui/icons'
+import { Badge } from '@/components/ui/badge'
+import { Newspaper, Sparkles, TrendingUp, Package, MessageSquare, Calendar, Zap, GitFork } from '@/components/ui/icons'
 import { useTheme } from '@/hooks/use-theme'
 import type { WhatsNewReportCardData } from '@/lib/types/chat'
 
@@ -43,6 +44,9 @@ export function WhatsNewReportCard({
     trend_count,
     content,
     is_from_today,
+    top_engagement_velocity,
+    total_corroboration_count,
+    sources,
   } = data
 
   return (
@@ -78,7 +82,7 @@ export function WhatsNewReportCard({
         </View>
 
         {/* Stats Row */}
-        <View className="mb-4 flex-row flex-wrap gap-3">
+        <View className="mb-3 flex-row flex-wrap gap-3">
           {/* Total Findings */}
           <View className="flex-row items-center gap-1.5 rounded-lg bg-muted px-2.5 py-1.5">
             <Sparkles size={14} color={themeColors.primary} />
@@ -120,7 +124,49 @@ export function WhatsNewReportCard({
               <Text className="text-muted-foreground text-sm">trends</Text>
             </View>
           )}
+
+          {/* Top Engagement Velocity */}
+          {top_engagement_velocity !== undefined && top_engagement_velocity > 0 && (
+            <View className="flex-row items-center gap-1.5 rounded-lg bg-muted px-2.5 py-1.5">
+              <Zap size={14} color={themeColors.warning} />
+              <Text className="text-foreground text-sm font-semibold">
+                {top_engagement_velocity}
+              </Text>
+              <Text className="text-muted-foreground text-sm">top velocity</Text>
+            </View>
+          )}
+
+          {/* Cross-Source Corroboration */}
+          {total_corroboration_count !== undefined && total_corroboration_count > 0 && (
+            <View className="flex-row items-center gap-1.5 rounded-lg bg-muted px-2.5 py-1.5">
+              <GitFork size={14} color={themeColors.primary} />
+              <Text className="text-foreground text-sm font-semibold">
+                {total_corroboration_count}
+              </Text>
+              <Text className="text-muted-foreground text-sm">corroborated</Text>
+            </View>
+          )}
         </View>
+
+        {/* Sources */}
+        {sources && sources.length > 0 && (
+          <View className="mb-3">
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View className="flex-row gap-2">
+                {sources.slice(0, 8).map((source, index) => (
+                  <Badge key={`${source}-${index}`} variant="outline" className="border-border">
+                    <Text className="text-muted-foreground text-xs">{source}</Text>
+                  </Badge>
+                ))}
+                {sources.length > 8 && (
+                  <Badge variant="outline" className="border-border">
+                    <Text className="text-muted-foreground text-xs">+{sources.length - 8}</Text>
+                  </Badge>
+                )}
+              </View>
+            </ScrollView>
+          </View>
+        )}
 
         {/* Content Preview */}
         {content && (

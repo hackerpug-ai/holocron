@@ -264,11 +264,16 @@ export default defineSchema({
     discoveredAt: v.number(),
     researchedAt: v.optional(v.number()),
     documentId: v.optional(v.id("documents")), // Link to created document
+    embedding: v.optional(v.array(v.float64())), // 1024 dimensions for semantic deduplication
   })
     .index("by_source", ["sourceId", "discoveredAt"])
     .index("by_source_content", ["sourceId", "contentId"])
     .index("by_status", ["researchStatus"])
-    .index("by_content_id", ["contentId"]),
+    .index("by_content_id", ["contentId"])
+    .vectorIndex("by_embedding", {
+      vectorField: "embedding",
+      dimensions: 1024,
+    }),
 
   subscriptionFilters: defineTable({
     sourceId: v.optional(v.id("subscriptionSources")), // null = type-level rule

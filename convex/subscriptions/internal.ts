@@ -2,6 +2,36 @@ import { v } from "convex/values";
 import { internalAction, internalQuery, internalMutation } from "../_generated/server";
 import { api, internal } from "../_generated/api";
 import { readUrlWithJina, readUrlWithJinaAndLinks } from "../research/search.js";
+import { embed } from "ai";
+import { cohereEmbedding } from "../lib/ai/embeddings_provider";
+
+// ============================================================================
+// Embedding Generation Helpers
+// ============================================================================
+
+/**
+ * Generate embedding for subscription content title
+ */
+async function generateContentEmbedding(title: string): Promise<number[]> {
+  const MAX_LENGTH = 2000;
+  const truncated = title.slice(0, MAX_LENGTH);
+
+  const { embedding } = await embed({
+    model: cohereEmbedding,
+    value: truncated,
+  });
+
+  return embedding;
+}
+
+/**
+ * Generate embeddings in batch for multiple content items
+ */
+async function generateEmbeddingsBatch(titles: string[]): Promise<number[][]> {
+  return await Promise.all(
+    titles.map(title => generateContentEmbedding(title))
+  );
+}
 
 // ============================================================================
 // RSS Parser Helper
@@ -808,6 +838,7 @@ export const insertContent = internalMutation({
     relevancyReason: v.string(),
     passedFilter: v.boolean(),
     metadataJson: v.optional(v.any()),
+    embedding: v.optional(v.array(v.float64())),
   },
   handler: async (ctx, args) => {
     const now = Date.now();
@@ -822,6 +853,7 @@ export const insertContent = internalMutation({
       researchStatus: args.passedFilter ? "queued" : "skipped",
       discoveredAt: now,
       researchedAt: undefined,
+      embedding: args.embedding,
     });
 
     return id;
@@ -940,9 +972,14 @@ async function processSingleSource(
   // Fetch items (fetchers use in-memory duplicate checking)
   const items = await fetchFn(source, filters, existingIds);
 
-  // Insert new items into database
+  // Generate embeddings in batch for all items
+  const titles = items.map(item => item.title);
+  const embeddings = await generateEmbeddingsBatch(titles);
+
+  // Insert new items into database with embeddings
   let queued = 0;
-  for (const item of items) {
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
     await ctx.runMutation(internal.subscriptions.internal.insertContent, {
       sourceId: item.sourceId,
       contentId: item.contentId,
@@ -952,6 +989,7 @@ async function processSingleSource(
       relevancyReason: item.relevancyReason,
       passedFilter: item.passedFilter,
       metadataJson: item.metadataJson,
+      embedding: embeddings[i],
     });
     if (item.passedFilter) queued++;
   }
@@ -1049,9 +1087,14 @@ export const checkAllSubscriptions = internalAction({
             ? await fetchBlog(source, filters, existingIds)
             : [];
 
-          // Insert items
+          // Generate embeddings in batch for all items
+          const titles = items.map(item => item.title);
+          const embeddings = await generateEmbeddingsBatch(titles);
+
+          // Insert items with embeddings
           let queued = 0;
-          for (const item of items) {
+          for (let i = 0; i < items.length; i++) {
+            const item = items[i];
             await ctx.runMutation(internal.subscriptions.internal.insertContent, {
               sourceId: item.sourceId,
               contentId: item.contentId,
@@ -1061,6 +1104,7 @@ export const checkAllSubscriptions = internalAction({
               relevancyReason: item.relevancyReason,
               passedFilter: item.passedFilter,
               metadataJson: item.metadataJson,
+              embedding: embeddings[i],
             });
             if (item.passedFilter) queued++;
           }
@@ -1142,10 +1186,12 @@ export const processQueuedContent = internalAction({
   handler: async (ctx): Promise<{
     processed: number;
     succeeded: number;
+    skipped: number;
     failed: number;
     errors: Array<{ contentId: string; error: string }>;
   }> => {
     const BATCH_SIZE = 5;
+    const SIMILARITY_THRESHOLD = 0.88; // High threshold to avoid false positives
 
     // Get queued content items
     const queuedItems = await ctx.runQuery(
@@ -1156,6 +1202,7 @@ export const processQueuedContent = internalAction({
     const results = {
       processed: queuedItems.length,
       succeeded: 0,
+      skipped: 0,
       failed: 0,
       errors: [] as Array<{ contentId: string; error: string }>,
     };
@@ -1169,6 +1216,41 @@ export const processQueuedContent = internalAction({
             { contentId: item._id, status: "skipped" }
           );
           continue;
+        }
+
+        // Check for semantic duplicates if embedding exists
+        if (item.embedding) {
+          const similarDocs = await ctx.vectorSearch("documents", "by_embedding", {
+            vector: item.embedding,
+            limit: 3,
+          });
+
+          // Filter by threshold and fetch full documents
+          const duplicates: Array<{ title: string; similarity: number }> = [];
+          for (const result of similarDocs) {
+            if (result._score >= SIMILARITY_THRESHOLD) {
+              const doc = await ctx.runQuery(api.documents.queries.get, {
+                id: result._id,
+              });
+              if (doc) {
+                duplicates.push({ title: doc.title, similarity: result._score });
+              }
+            }
+          }
+
+          if (duplicates.length > 0) {
+            // Found duplicate, skip processing
+            console.log(
+              `[subscription-dedup] Skipping duplicate content: "${item.title}" ` +
+              `(similar to: "${duplicates[0].title}" similarity: ${duplicates[0].similarity.toFixed(3)})`
+            );
+            await ctx.runMutation(
+              internal.subscriptions.internal.updateContentResearchStatus,
+              { contentId: item._id, status: "skipped" }
+            );
+            results.skipped++;
+            continue;
+          }
         }
 
         // Read content using Jina Reader
@@ -1255,7 +1337,7 @@ export const processQueuedContent = internalAction({
     }
 
     console.log(
-      `[subscription-auto-research] Processed ${results.processed} items: ${results.succeeded} succeeded, ${results.failed} failed`
+      `[subscription-auto-research] Processed ${results.processed} items: ${results.succeeded} succeeded, ${results.skipped} skipped (duplicates), ${results.failed} failed`
     );
 
     return results;
