@@ -135,6 +135,53 @@ export async function buildConversationContext(
   const llmMessages: LlmMessage[] = [];
 
   for (const message of orderedMessages) {
+    // agent_plan messages → convert to structured plan text for the assistant
+    if (message.messageType === "agent_plan") {
+      const cardData = message.cardData as { plan_id?: string } | undefined;
+      const planId = cardData?.plan_id;
+      if (!planId) continue;
+
+      const plan = await db.get(planId as Id<"agentPlans">);
+      if (!plan) continue;
+
+      const steps = await db
+        .query("agentPlanSteps")
+        .withIndex("by_plan", (q) =>
+          q.eq("planId", planId as Id<"agentPlans">)
+        )
+        .order("asc")
+        .collect();
+
+      const statusLabel = (
+        s: string
+      ): string => {
+        const map: Record<string, string> = {
+          pending: "pending",
+          running: "running",
+          awaiting_approval: "awaiting approval",
+          approved: "approved",
+          completed: "completed",
+          skipped: "skipped",
+          failed: "failed",
+        };
+        return map[s] ?? s;
+      };
+
+      const stepLines = steps.map((step, idx) => {
+        let suffix = "";
+        if (step.status === "completed" && step.resultSummary) {
+          suffix = ` → ${step.resultSummary}`;
+        } else if (step.status === "failed" && step.errorMessage) {
+          suffix = ` → Error: ${step.errorMessage}`;
+        }
+        return `Step ${idx + 1} (${statusLabel(step.status)}): ${step.description}${suffix}`;
+      });
+
+      const planText = `[I created a plan: "${plan.title}"]\n${stepLines.join("\n")}`;
+      llmMessages.push({ role: "assistant", content: planText });
+      continue;
+    }
+
     // tool_approval messages → convert to descriptive assistant text + include result
     if (message.messageType === "tool_approval") {
       const tc = toolCallByApprovalMessageId.get(message._id);
