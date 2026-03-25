@@ -247,31 +247,40 @@ export const executeTool = action({
 
       skipContinuation = agentResponse.skipContinuation ?? false;
 
-      // Validate messageType against allowed chatMessages schema values
-      const allowedTypes = ["text", "result_card", "error", "progress"] as const;
-      type AllowedType = (typeof allowedTypes)[number];
-      const messageType: AllowedType = allowedTypes.includes(
-        agentResponse.messageType as AllowedType,
-      )
-        ? (agentResponse.messageType as AllowedType)
-        : "text";
+      // Fire-and-forget tools post their own progress/result cards
+      // asynchronously, so skip the redundant acknowledgment message.
+      if (!skipContinuation) {
+        // Validate messageType against allowed chatMessages schema values
+        const allowedTypes = ["text", "result_card", "error", "progress"] as const;
+        type AllowedType = (typeof allowedTypes)[number];
+        const messageType: AllowedType = allowedTypes.includes(
+          agentResponse.messageType as AllowedType,
+        )
+          ? (agentResponse.messageType as AllowedType)
+          : "text";
 
-      const resultMessageId: string = await ctx.runMutation(
-        api.chatMessages.mutations.create,
-        {
-          conversationId,
-          role: "agent",
-          content: agentResponse.content,
-          messageType,
-          cardData: agentResponse.cardData,
-        },
-      );
+        const resultMessageId: string = await ctx.runMutation(
+          api.chatMessages.mutations.create,
+          {
+            conversationId,
+            role: "agent",
+            content: agentResponse.content,
+            messageType,
+            cardData: agentResponse.cardData,
+          },
+        );
 
-      await ctx.runMutation(api.toolCalls.mutations.updateStatus, {
-        id: toolCallId,
-        status: "completed",
-        resultMessageId: resultMessageId as any,
-      });
+        await ctx.runMutation(api.toolCalls.mutations.updateStatus, {
+          id: toolCallId,
+          status: "completed",
+          resultMessageId: resultMessageId as any,
+        });
+      } else {
+        await ctx.runMutation(api.toolCalls.mutations.updateStatus, {
+          id: toolCallId,
+          status: "completed",
+        });
+      }
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "Tool execution failed";
