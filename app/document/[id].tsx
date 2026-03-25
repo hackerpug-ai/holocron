@@ -45,7 +45,8 @@ import Animated, {
 import * as Haptics from 'expo-haptics'
 import * as Clipboard from 'expo-clipboard'
 import { parseMarkdown } from '@/components/markdown/parsers'
-import { computeNarrationMap, extractTextFromNode } from '@/lib/mdast-utils'
+import { computeNarrationMap, extractTextFromNode, findNearestOffset } from '@/lib/mdast-utils'
+import { extractParagraphs } from '@/lib/extractParagraphs'
 import {
   saveNarrationProgress,
   loadNarrationProgress,
@@ -124,15 +125,22 @@ export default function DocumentRoute() {
     [sanitizedContent]
   )
 
-  // Compute narration segment map (root child index → narration index)
-  // Skips code blocks since the backend strips them
-  const narrationMap = useMemo(
-    () => parsedAst ? computeNarrationMap(parsedAst) : new Map<number, number>(),
-    [parsedAst]
+  // Extract paragraphs using the same logic as the backend (convex/audio/actions.ts)
+  // to ensure frontend narration indices match audio segment indices exactly
+  const backendParagraphs = useMemo(
+    () => sanitizedContent ? extractParagraphs(sanitizedContent) : [],
+    [sanitizedContent]
   )
 
-  // Count paragraphs for narration (from the MDAST map, which matches backend counting)
-  const paragraphCount = narrationMap.size
+  // Compute narration segment map (root child index → backend paragraph index)
+  // Uses text-matching to align MDAST nodes with backend audio segments
+  const narrationMap = useMemo(
+    () => parsedAst ? computeNarrationMap(parsedAst, backendParagraphs) : new Map<number, number>(),
+    [parsedAst, backendParagraphs]
+  )
+
+  // Paragraph count must match the backend's segment count (not MDAST node count)
+  const paragraphCount = backendParagraphs.length
 
   const narration = useNarrationState(paragraphCount)
   const { isNarrationMode } = narration
@@ -557,10 +565,11 @@ export default function DocumentRoute() {
     }
   }, [isNarrationMode, narrationMap, narration.state.activeParagraphIndex, themeColors.primary, handleLongPressBlock, getHeadingSlug, highlightedBlock, highlightOpacity, textSelectionVisible])
 
-  // Auto-scroll to active paragraph
+  // Auto-scroll to active paragraph (with fallback for unmapped indices)
   useEffect(() => {
     if (!isNarrationMode || narration.state.activeParagraphIndex < 0) return
     const offset = paragraphOffsets.current.get(narration.state.activeParagraphIndex)
+      ?? findNearestOffset(paragraphOffsets.current, narration.state.activeParagraphIndex)
     if (offset !== undefined) {
       scrollViewRef.current?.scrollTo({ y: Math.max(0, offset - 120), animated: true })
     }

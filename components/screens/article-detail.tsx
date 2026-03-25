@@ -40,7 +40,8 @@ import { api } from "@/convex/_generated/api";
 import { type Id } from "@/convex/_generated/dataModel";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { parseMarkdown } from "@/components/markdown/parsers";
-import { computeNarrationMap, extractTextFromNode } from "@/lib/mdast-utils";
+import { computeNarrationMap, extractTextFromNode, findNearestOffset } from "@/lib/mdast-utils";
+import { extractParagraphs } from "@/lib/extractParagraphs";
 import {
   saveNarrationProgress,
   loadNarrationProgress,
@@ -133,14 +134,20 @@ export function ArticleDetail({
     [sanitizedContent],
   );
 
-  // Compute narration segment map (root child index → narration index)
-  const narrationMap = useMemo(
-    () => parsedAst ? computeNarrationMap(parsedAst) : new Map<number, number>(),
-    [parsedAst],
+  // Extract paragraphs using the same logic as the backend (convex/audio/actions.ts)
+  const backendParagraphs = useMemo(
+    () => sanitizedContent ? extractParagraphs(sanitizedContent) : [],
+    [sanitizedContent],
   );
 
-  // Count paragraphs for narration (from MDAST map, matches backend)
-  const paragraphCount = narrationMap.size;
+  // Compute narration segment map (root child index → backend paragraph index)
+  const narrationMap = useMemo(
+    () => parsedAst ? computeNarrationMap(parsedAst, backendParagraphs) : new Map<number, number>(),
+    [parsedAst, backendParagraphs],
+  );
+
+  // Paragraph count must match the backend's segment count
+  const paragraphCount = backendParagraphs.length;
 
   const narration = useNarrationState(paragraphCount);
   const { isNarrationMode } = narration;
@@ -229,7 +236,7 @@ export function ArticleDetail({
     if (!isNarrationMode || narration.state.activeParagraphIndex < 0) return;
     const offset = paragraphOffsets.current.get(
       narration.state.activeParagraphIndex,
-    );
+    ) ?? findNearestOffset(paragraphOffsets.current, narration.state.activeParagraphIndex);
     if (offset !== undefined) {
       scrollViewRef.current?.scrollTo({
         y: Math.max(0, offset - 120),
