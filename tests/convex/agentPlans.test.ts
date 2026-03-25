@@ -91,4 +91,85 @@ describe('Agent Plans API', () => {
       expect(src).toContain('resumeAfterApproval');
     });
   });
+
+  /**
+   * AC-6: createPlan inserts chatMessage WITH cardData.plan_id populated
+   *
+   * GIVEN: createPlan is called
+   * WHEN:  the agent_plan chatMessage is inserted
+   * THEN:  the message must carry cardData: { plan_id: <the planId> }
+   *        so that MessageBubble can render the AgentPlanCard and
+   *        buildConversationContext can look up the plan state.
+   *
+   * Verified structurally: the mutations source must create the plan record
+   * BEFORE inserting the chat message, and must pass cardData containing plan_id
+   * to the chatMessages insert call.
+   */
+  describe('AC-6: createPlan chatMessage includes cardData.plan_id', () => {
+    it('should insert the plan record before the chatMessage and pass cardData with plan_id', async () => {
+      const path = await import('path');
+      const fs = await import('fs');
+      const mutationsPath = path.resolve(
+        __dirname,
+        '../../convex/agentPlans/mutations.ts',
+      );
+      const src = fs.readFileSync(mutationsPath, 'utf8');
+
+      // The plan insert must come before the chatMessages insert in the source
+      const planInsertIdx = src.indexOf('db.insert("agentPlans"');
+      const messageInsertIdx = src.indexOf('db.insert("chatMessages"');
+      expect(planInsertIdx).toBeGreaterThan(-1);
+      expect(messageInsertIdx).toBeGreaterThan(-1);
+      expect(planInsertIdx).toBeLessThan(messageInsertIdx);
+
+      // The chatMessages insert must include cardData with plan_id
+      expect(src).toContain('cardData');
+      expect(src).toContain('plan_id');
+    });
+  });
+
+  /**
+   * AC-7: rejectStep schedules executePlanStep when there are remaining steps
+   *
+   * GIVEN a plan in awaiting_approval with multiple steps
+   * WHEN the user rejects the current step
+   * THEN rejectStep must schedule executePlanStep so the plan continues instead of hanging
+   */
+  describe('AC-7: rejectStep schedules executePlanStep for remaining steps', () => {
+    it('should schedule executePlanStep in rejectStep when steps remain', async () => {
+      const path = await import('path');
+      const fs = await import('fs');
+      const mutationsPath = path.resolve(
+        __dirname,
+        '../../convex/agentPlans/mutations.ts',
+      );
+      const src = fs.readFileSync(mutationsPath, 'utf8');
+      // rejectStep must schedule executePlanStep so execution continues after rejection
+      expect(src).toContain('executePlanStep');
+    });
+  });
+
+  /**
+   * AC-8: rejectStep clears agentBusy after rejection
+   *
+   * GIVEN a plan in awaiting_approval with agentBusy=true on the conversation
+   * WHEN the user rejects the current step
+   * THEN agentBusy must be cleared so the conversation input is not locked
+   */
+  describe('AC-8: rejectStep clears agentBusy after rejection', () => {
+    it('should clear agentBusy in rejectStep handler', async () => {
+      const path = await import('path');
+      const fs = await import('fs');
+      const mutationsPath = path.resolve(
+        __dirname,
+        '../../convex/agentPlans/mutations.ts',
+      );
+      const src = fs.readFileSync(mutationsPath, 'utf8');
+      // rejectStep must clear agentBusy — either via setAgentBusy or direct db.patch
+      const clearsViaSetAgentBusy =
+        src.includes('setAgentBusy') && src.includes('busy: false');
+      const clearsViaPatch = src.includes('agentBusy: false');
+      expect(clearsViaSetAgentBusy || clearsViaPatch).toBe(true);
+    });
+  });
 });

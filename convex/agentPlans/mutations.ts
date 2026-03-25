@@ -32,19 +32,20 @@ export const createPlan = internalMutation({
   handler: async (ctx, { conversationId, title, steps }) => {
     const now = Date.now();
 
-    // Insert the chat message first so we have a messageId for the plan record
-    const messageId = await ctx.db.insert("chatMessages", {
-      conversationId,
-      role: "agent",
-      content: `I've created a plan: ${title}`,
-      messageType: "agent_plan",
-      createdAt: now,
-    });
-
-    // Insert the plan record
+    // Insert the plan record first so we have a planId for cardData on the message.
+    // Use a placeholder messageId that we back-patch after creating the message.
+    // We use a two-step approach: insert plan → insert message with cardData → patch plan.
+    //
+    // Convex does not support forward-referencing IDs, so we insert the plan with a
+    // sentinel messageId, create the chat message (with plan_id in cardData), then
+    // patch the plan with the real messageId.
+    //
+    // Step 1: Insert the plan record (messageId will be back-patched below)
     const planId = await ctx.db.insert("agentPlans", {
       conversationId,
-      messageId,
+      // Temporary placeholder — patched immediately after messageId is known.
+      // We cast to satisfy the type; the patch below sets the real value.
+      messageId: "" as unknown as import("../_generated/dataModel").Id<"chatMessages">,
       title,
       status: "created",
       currentStepIndex: 0,
@@ -52,6 +53,19 @@ export const createPlan = internalMutation({
       createdAt: now,
       updatedAt: now,
     });
+
+    // Step 2: Insert the chat message WITH cardData so consumers see plan_id
+    const messageId = await ctx.db.insert("chatMessages", {
+      conversationId,
+      role: "agent",
+      content: `I've created a plan: ${title}`,
+      messageType: "agent_plan",
+      cardData: { plan_id: planId },
+      createdAt: now,
+    });
+
+    // Step 3: Back-patch the plan record with the real messageId
+    await ctx.db.patch(planId, { messageId });
 
     // Insert all step records
     for (let i = 0; i < steps.length; i++) {
@@ -236,18 +250,33 @@ export const rejectStep = mutation({
     const now = Date.now();
 
     if (nextStepIndex >= plan.totalSteps) {
+      // Last step rejected — complete the plan and clear agentBusy
       await ctx.db.patch(planId, {
         status: "completed",
         currentStepIndex: nextStepIndex,
         completedAt: now,
         updatedAt: now,
       });
+      await ctx.db.patch(plan.conversationId, {
+        agentBusy: false,
+        agentBusySince: undefined,
+      });
     } else {
+      // More steps remain — advance, clear agentBusy, then schedule next step
       await ctx.db.patch(planId, {
         status: "executing",
         currentStepIndex: nextStepIndex,
         updatedAt: now,
       });
+      await ctx.db.patch(plan.conversationId, {
+        agentBusy: false,
+        agentBusySince: undefined,
+      });
+      await ctx.scheduler.runAfter(
+        0,
+        internal.agentPlans.actions.executePlanStep,
+        { planId },
+      );
     }
   },
 });
