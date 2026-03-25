@@ -1,6 +1,12 @@
 import { useEffect } from 'react'
 import { useRouter } from 'expo-router'
-import * as Notifications from 'expo-notifications'
+
+let Notifications: typeof import('expo-notifications') | null = null
+try {
+  Notifications = require('expo-notifications')
+} catch {
+  // Native module not available (e.g. Expo Go without dev client)
+}
 
 /**
  * usePushNotifications — side-effect hook for device push notifications
@@ -9,11 +15,15 @@ import * as Notifications from 'expo-notifications'
  * - Requesting notification permissions on mount
  * - Suppressing foreground alert display (in-app toast handles it)
  * - Navigating to the relevant route when a notification is tapped
+ *
+ * Gracefully no-ops when expo-notifications native module is unavailable.
  */
 export function usePushNotifications(): void {
   const router = useRouter()
 
   useEffect(() => {
+    if (!Notifications) return
+
     // Suppress foreground alerts — the in-app toast handles display
     Notifications.setNotificationHandler({
       handleNotification: async () => ({
