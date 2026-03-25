@@ -7,6 +7,7 @@ export { SubscriptionListCard } from './SubscriptionListCard'
 export { SubscriptionSuggestionCard } from './SubscriptionSuggestionCard'
 export { SubscriptionProgressCard } from './SubscriptionProgressCard'
 export { PlatformBadge } from './PlatformBadge'
+export { SubscriptionCard } from './SubscriptionCard'
 
 export type {
   SubscriptionSuggestionData,
@@ -17,3 +18,5 @@ export type {
 export type { PlatformType, PlatformBadgeProps } from './PlatformBadge'
 
 export type { PlatformProgress, SubscriptionProgressCardProps } from './SubscriptionProgressCard'
+
+export type { SubscriptionCardProps, SubscriptionSource } from './SubscriptionCard'

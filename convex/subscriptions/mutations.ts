@@ -89,6 +89,36 @@ export const remove = mutation({
 });
 
 /**
+ * Update a subscription source (e.g., toggle auto-research)
+ */
+export const update = mutation({
+  args: {
+    id: v.id("subscriptionSources"),
+    autoResearch: v.optional(v.boolean()),
+    name: v.optional(v.string()),
+    url: v.optional(v.string()),
+    feedUrl: v.optional(v.string()),
+    fetchMethod: v.optional(v.string()),
+    configJson: v.optional(v.any()),
+  },
+  handler: async (ctx, args) => {
+    const { id, ...updates } = args;
+
+    const subscription = await ctx.db.get(id);
+    if (!subscription) {
+      throw new Error(`Subscription ${id} not found`);
+    }
+
+    await ctx.db.patch(id, {
+      ...updates,
+      updatedAt: Date.now(),
+    });
+
+    return await ctx.db.get(id);
+  },
+});
+
+/**
  * Set a filter for a subscription source
  */
 export const setFilter = mutation({
