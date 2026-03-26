@@ -265,6 +265,15 @@ export default defineSchema({
     researchedAt: v.optional(v.number()),
     documentId: v.optional(v.id("documents")), // Link to created document
     embedding: v.optional(v.array(v.float64())), // 1024 dimensions for semantic deduplication
+    // Feed metadata fields (FR-002)
+    feedItemId: v.optional(v.id("feedItems")), // Link to aggregated feed item
+    inFeed: v.optional(v.boolean()), // Whether this content appears in the feed
+    thumbnailUrl: v.optional(v.string()), // Content thumbnail/image URL
+    duration: v.optional(v.number()), // Content duration in seconds
+    authorHandle: v.optional(v.string()), // Content author/creator handle
+    likesCount: v.optional(v.number()), // Engagement metrics
+    commentsCount: v.optional(v.number()), // Engagement metrics
+    contentCategory: v.optional(v.string()), // Content category/type
   })
     .index("by_source", ["sourceId", "discoveredAt"])
     .index("by_source_content", ["sourceId", "contentId"])
@@ -654,7 +663,8 @@ export default defineSchema({
       v.literal("whats_new"),
       v.literal("subscription_update"),
       v.literal("assimilate_complete"),
-      v.literal("system")
+      v.literal("system"),
+      v.literal("feed_digest")
     ),
     title: v.string(),
     body: v.string(),
@@ -662,6 +672,10 @@ export default defineSchema({
     referenceId: v.optional(v.string()),
     read: v.boolean(),
     createdAt: v.number(),
+    // Feed digest support (optional fields for backward compatibility)
+    feedItemIds: v.optional(v.array(v.id("feedItems"))),
+    digestCount: v.optional(v.number()),
+    digestSummary: v.optional(v.string()),
   })
     .index("by_unread", ["read", "createdAt"])
     .index("by_created", ["createdAt"]),
