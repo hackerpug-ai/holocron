@@ -1,0 +1,5 @@
+Test Files  29 passed (29)
+     Tests  264 passed (264)
+  Start at  10:04:42
+  Duration  317ms (transform 1.05s, setup 0ms, import 828ms, tests 1.18s, environment 2ms)
+Exit code: 0

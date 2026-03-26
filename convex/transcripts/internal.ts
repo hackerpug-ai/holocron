@@ -2,9 +2,14 @@
  * Transcript service internal actions
  * Handles YouTube API integration for fetching video transcripts
  * Handles Jina Reader fallback for videos without captions
+ *
+ * NOTE: YouTube caption downloads require OAuth2 authentication.
+ * API keys work for listing captions but NOT for downloading.
+ * This module uses OAuth2 for downloads when available.
  */
 
 import { internalAction } from "../_generated/server";
+import { internal } from "../_generated/api";
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 
@@ -63,15 +68,20 @@ type JinaFetchTranscriptResult = JinaFetchSuccessResult | JinaFetchErrorResult;
  * Fetch transcript for a YouTube video via YouTube Data API v3
  *
  * This function:
- * 1. Lists available captions for the video
- * 2. Downloads the first available caption track
- * 3. Stores the full transcript in Convex file storage
- * 4. Returns metadata including previewText, wordCount, and storageId
+ * 1. Lists available captions for the video (uses API key)
+ * 2. Downloads caption track using OAuth2 (required by YouTube)
+ * 3. Falls back to Jina Reader if OAuth2 unavailable or fails
+ * 4. Stores the full transcript in Convex file storage
+ * 5. Returns metadata including previewText, wordCount, and storageId
+ *
+ * IMPORTANT: YouTube caption downloads REQUIRE OAuth2 authentication.
+ * API keys work for listing captions but NOT for downloading.
  *
  * Error handling:
  * - 404: Video not found (private/deleted)
  * - No captions: Returns { hasCaptions: false, transcript: null }
  * - Rate limit (429): Returns { error: "API rate limit exceeded", hasCaptions: false }
+ * - OAuth2 failure: Falls back to Jina Reader automatically
  */
 export const fetchYouTubeTranscript = internalAction({
   args: {
@@ -88,7 +98,8 @@ export const fetchYouTubeTranscript = internalAction({
     }
 
     try {
-      // Step 1: List captions for video
+      // Step 1: List captions for video (API key works for listing)
+      console.log(`[YouTube] Listing captions for ${args.contentId}`);
       const captionsResponse = await fetch(
         `https://www.googleapis.com/youtube/v3/captions?part=snippet&videoId=${args.contentId}&key=${apiKey}`
       );
@@ -115,28 +126,89 @@ export const fetchYouTubeTranscript = internalAction({
 
       // Check if captions are available
       if (!captionsData.items || captionsData.items.length === 0) {
+        console.log(`[YouTube] No captions found for ${args.contentId}`);
         return {
           hasCaptions: false,
           transcript: null,
         };
       }
 
-      // Step 2: Download first available caption track
-      const captionTrack = captionsData.items[0];
-      const downloadUrl = `https://www.googleapis.com/youtube/v3/captions/${captionTrack.id}?key=${apiKey}`;
-      const transcriptResponse = await fetch(downloadUrl);
+      console.log(`[YouTube] Found ${captionsData.items.length} caption track(s)`);
 
-      if (!transcriptResponse.ok) {
-        throw new Error(`Failed to download caption: ${transcriptResponse.status}`);
+      // Step 2: Try OAuth2 download first
+      let accessToken: string | null = null;
+      try {
+        accessToken = await ctx.runAction(internal.transcripts.oauth.getAccessToken, {});
+      } catch {
+        console.log("[YouTube] OAuth2 not available, will try API key");
       }
 
-      const transcriptText = await transcriptResponse.text();
+      const captionTrack = captionsData.items[0];
+      let transcriptText: string | null = null;
+      let transcriptSource = "youtube_api_oauth2";
 
-      // Step 3: Store in file storage
+      if (accessToken) {
+        // Try OAuth2 download (required by YouTube for caption downloads)
+        console.log(`[YouTube] Attempting OAuth2 download for caption ${captionTrack.id}`);
+        const oauthUrl = `https://www.googleapis.com/youtube/v3/captions/${captionTrack.id}`;
+        const oauthResponse = await fetch(oauthUrl, {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        });
+
+        if (oauthResponse.ok) {
+          transcriptText = await oauthResponse.text();
+          console.log(`[YouTube] ✅ Transcript downloaded via OAuth2 (${transcriptText.length} chars)`);
+        } else {
+          console.warn(`[YouTube] OAuth2 download failed: ${oauthResponse.status}`);
+          // Don't give up yet, try API key (might work for some public videos)
+        }
+      } else {
+        console.log("[YouTube] OAuth2 not configured, trying API key...");
+      }
+
+      // Step 3: Try API key download (may work for some public videos)
+      if (!transcriptText) {
+        const apiUrl = `https://www.googleapis.com/youtube/v3/captions/${captionTrack.id}?key=${apiKey}`;
+        const apiResponse = await fetch(apiUrl);
+
+        if (apiResponse.ok) {
+          transcriptText = await apiResponse.text();
+          transcriptSource = "youtube_api";
+          console.log(`[YouTube] ✅ Transcript downloaded via API key (${transcriptText.length} chars)`);
+        } else {
+          console.warn(`[YouTube] API key download failed: ${apiResponse.status}`);
+        }
+      }
+
+      // Step 4: If both YouTube methods fail, fall back to Jina Reader
+      if (!transcriptText) {
+        console.log(`[YouTube] Both OAuth2 and API key failed, trying Jina Reader fallback`);
+
+        const jinaResult = await ctx.runAction(
+          internal.transcripts.internal.fetchJinaTranscript,
+          { contentId: args.contentId }
+        );
+
+        if (jinaResult.hasTranscript) {
+          console.log(`[YouTube] ✅ Jina Reader fallback succeeded`);
+          return {
+            hasCaptions: true,
+            transcript: jinaResult.transcript,
+          };
+        }
+
+        return {
+          hasCaptions: false,
+          error: "Failed to download transcript via YouTube API (OAuth2/API key) or Jina Reader",
+        };
+      }
+
+      // Step 5: Store and return transcript
       const blob = new Blob([transcriptText], { type: "text/plain" });
       const storageId = await ctx.storage.store(blob);
 
-      // Step 4: Extract metadata
       const previewText = transcriptText.slice(0, 500);
       const wordCount = transcriptText.split(/\s+/).filter(w => w.length > 0).length;
 
@@ -146,7 +218,7 @@ export const fetchYouTubeTranscript = internalAction({
           contentId: args.contentId,
           sourceUrl: `https://www.youtube.com/watch?v=${args.contentId}`,
           transcriptType: "api" as const,
-          transcriptSource: "youtube_api",
+          transcriptSource,
           storageId,
           previewText,
           wordCount,

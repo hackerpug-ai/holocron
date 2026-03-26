@@ -4,7 +4,7 @@
  */
 
 import type { HolocronConvexClient } from "../convex/client.ts";
-import type { ShopSession, ShopListing } from "../convex/types.ts";
+import type { ShopListing, ShopSession } from "../convex/types.ts";
 
 // ============================================================================
 // Types
@@ -78,8 +78,9 @@ function formatPrice(cents: number, currency = "USD"): string {
 
 /**
  * Poll for session completion with timeout
+ * @internal Not currently used but kept for future use
  */
-async function pollForCompletion(
+async function _pollForCompletion(
   client: HolocronConvexClient,
   sessionId: string,
   maxWaitMs = 60000,
@@ -88,10 +89,13 @@ async function pollForCompletion(
   const startTime = Date.now();
 
   while (Date.now() - startTime < maxWaitMs) {
-    // biome-ignore lint/suspicious/noExplicitAny: Dynamic Convex function reference
-    const session = await client.query<ShopSession | null>("shop/queries:getShopSessionByStringId" as any, {
-      sessionId,
-    });
+    const session = await client.query<ShopSession | null>(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      "shop/queries:getShopSessionByStringId" as any,
+      {
+        sessionId,
+      }
+    );
 
     if (!session) {
       return null;
@@ -106,7 +110,7 @@ async function pollForCompletion(
   }
 
   // Timeout - return last known state
-  // biome-ignore lint/suspicious/noExplicitAny: Dynamic Convex function reference
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return client.query<ShopSession | null>("shop/queries:getShopSessionByStringId" as any, {
     sessionId,
   });
@@ -136,7 +140,7 @@ export async function shopProducts(
     bestDealId?: string;
     durationMs: number;
     error?: string;
-    // biome-ignore lint/suspicious/noExplicitAny: Dynamic Convex function reference
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   }>("shop/index:startShopSearch" as any, {
     query: input.query,
     retailers: input.retailers,
@@ -146,13 +150,16 @@ export async function shopProducts(
   });
 
   // Get the listings
-  // biome-ignore lint/suspicious/noExplicitAny: Dynamic Convex function reference
-  const listings = await client.query<ShopListing[]>("shop/queries:getShopListingsByStringId" as any, {
-    sessionId: result.sessionId,
-    excludeDuplicates: true,
-    sortBy: "dealScore",
-    limit: 20,
-  });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const listings = await client.query<ShopListing[]>(
+    "shop/queries:getShopListingsByStringId" as any,
+    {
+      sessionId: result.sessionId,
+      excludeDuplicates: true,
+      sortBy: "dealScore",
+      limit: 20,
+    }
+  );
 
   // Find the best deal
   const bestDealListing = listings.find((l) => !l.isDuplicate);
@@ -193,10 +200,13 @@ export async function getShopSession(
   client: HolocronConvexClient,
   input: GetShopSessionInput
 ): Promise<GetShopSessionOutput> {
-  // biome-ignore lint/suspicious/noExplicitAny: Dynamic Convex function reference
-  const session = await client.query<ShopSession | null>("shop/queries:getShopSessionByStringId" as any, {
-    sessionId: input.sessionId,
-  });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const session = await client.query<ShopSession | null>(
+    "shop/queries:getShopSessionByStringId" as any,
+    {
+      sessionId: input.sessionId,
+    }
+  );
 
   return { session };
 }
@@ -208,13 +218,16 @@ export async function getShopListings(
   client: HolocronConvexClient,
   input: GetShopListingsInput
 ): Promise<GetShopListingsOutput> {
-  // biome-ignore lint/suspicious/noExplicitAny: Dynamic Convex function reference
-  const listings = await client.query<ShopListing[]>("shop/queries:getShopListingsByStringId" as any, {
-    sessionId: input.sessionId,
-    limit: input.limit,
-    excludeDuplicates: input.excludeDuplicates ?? true,
-    sortBy: input.sortBy ?? "dealScore",
-  });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const listings = await client.query<ShopListing[]>(
+    "shop/queries:getShopListingsByStringId" as any,
+    {
+      sessionId: input.sessionId,
+      limit: input.limit,
+      excludeDuplicates: input.excludeDuplicates ?? true,
+      sortBy: input.sortBy ?? "dealScore",
+    }
+  );
 
   return { listings };
 }

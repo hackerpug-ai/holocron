@@ -1,0 +1,24 @@
+{
+  "task_id": "TR-006",
+  "task_title": "Integrate transcript job creation into YouTube subscription flow",
+  "commit_sha": "dfbd870c3d220bbe190bcb5483107933b12fabb0",
+  "base_sha": "9fb3d22ba785b02313801196ea46b73c029add59",
+  "status": "completed",
+  "implementation_summary": "Successfully integrated transcript job creation into YouTube subscription flow. New YouTube videos discovered via RSS feed now automatically trigger transcript job creation with priority 5 (medium).",
+  "files_modified": [
+    "convex/subscriptions/internal.ts",
+    "tests/convex/TR-006-youtube-integration.test.ts"
+  ],
+  "acceptance_criteria_verified": [
+    "AC-1: New YouTube video discovered: fetchYouTube() processes video, transcript job created",
+    "AC-2: Video with existing transcript: fetchYouTube() processes video, no duplicate job created",
+    "AC-3: Transcript job created: Job status tracked, processed by scheduled function",
+    "AC-4: Subscription content queried: After job completes, transcript metadata linked",
+    "AC-5: Transcript job creation fails: fetchYouTube() catches error, video still saved",
+    "AC-6: Multiple new videos: fetchYouTube() processes batch, jobs created for all videos"
+  ],
+  "tests_added": "tests/convex/TR-006-youtube-integration.test.ts (6 test cases)",
+  "tests_passing": true,
+  "typecheck_passing": true,
+  "lint_passing": true
+}

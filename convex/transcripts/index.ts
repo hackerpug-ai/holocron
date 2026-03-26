@@ -12,6 +12,7 @@ export const fetchTranscriptWithFallback = require("./service").fetchTranscriptW
 
 // Re-export for internal references
 export * as internal from "./internal";
+export * as oauth from "./oauth";
 export * as mutations from "./mutations";
 export * as queries from "./queries";
 export * as service from "./service";

@@ -59,6 +59,7 @@ export async function getWhatsNewReport(
   if (input.forceRefresh) {
     console.log("[getWhatsNewReport] Force refresh requested, triggering generation...");
     try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await client.action("whatsNew/actions:generate" as any, {
         force: true,
       });
@@ -69,6 +70,7 @@ export async function getWhatsNewReport(
   }
 
   // Query for the latest report
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const result = await client.query<ConvexWhatsNewResult | null>(
     "whatsNew/queries:getLatestReport" as any,
     {}
@@ -98,15 +100,17 @@ export async function getWhatsNewReport(
 export async function listWhatsNewReports(
   client: HolocronConvexClient,
   limit: number = 10
-): Promise<Array<{
-  _id: string;
-  periodStart: number;
-  periodEnd: number;
-  days: number;
-  findingsCount: number;
-  hasDocument: boolean;
-  createdAt: number;
-}>> {
+): Promise<
+  Array<{
+    _id: string;
+    periodStart: number;
+    periodEnd: number;
+    days: number;
+    findingsCount: number;
+    hasDocument: boolean;
+    createdAt: number;
+  }>
+> {
   const result = await client.query<
     Array<{
       _id: string;
@@ -121,6 +125,7 @@ export async function listWhatsNewReports(
       hasDocument: boolean;
       createdAt: number;
     }>
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   >("whatsNew/queries:listReports" as any, { limit });
 
   return result || [];
