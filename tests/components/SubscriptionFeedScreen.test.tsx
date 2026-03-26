@@ -121,9 +121,18 @@ describe('SubscriptionFeedScreen - Component Structure', () => {
 
     it('should NOT contain hardcoded spacing values', () => {
       const source = readComponent()
-      // Check for padding/margin with bare numbers (excluding threshold values like 0.5)
+      // Check for padding/margin with bare numbers in inline styles
       const hardcodedSpacingRegex = /(?:padding|margin):\s*\d+[,\s]/
       const matches = source.match(hardcodedSpacingRegex)
+      expect(matches?.length ?? 0).toBe(0)
+    })
+
+    it('should NOT contain hardcoded spacing in StyleSheet', () => {
+      const source = readComponent()
+      // Check for padding/margin with bare numbers in StyleSheet definitions
+      // Matches: paddingVertical: 16, paddingHorizontal: 24, etc.
+      const stylesheetSpacingRegex = /(?:padding|margin)(?:Vertical|Horizontal|Top|Bottom|Left|Right)?:\s*\d+/
+      const matches = source.match(stylesheetSpacingRegex)
       expect(matches?.length ?? 0).toBe(0)
     })
 

@@ -35,6 +35,35 @@ export function SubscriptionFeedScreen({
   renderItem,
 }: SubscriptionFeedScreenProps) {
   const theme = useTheme()
+
+  // StyleSheet with theme tokens (defined inside component to access theme)
+  const styles = StyleSheet.create({
+    listContent: {
+      flexGrow: 1,
+    },
+    emptyListContent: {
+      flexGrow: 1,
+    },
+    itemContainer: {
+      paddingVertical: theme.spacing.lg,
+      paddingHorizontal: theme.spacing.lg,
+      borderBottomWidth: 1,
+    },
+    emptyContainer: {
+      flex: 1,
+      paddingHorizontal: theme.spacing.xl,
+      paddingVertical: theme.spacing['2xl'],
+    },
+    emptyCentered: {
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    loadingContainer: {
+      paddingVertical: theme.spacing.lg,
+      paddingHorizontal: theme.spacing.lg,
+    },
+  })
+
   // Don't pass contentType if it's not one of the supported values
   const safeContentType = contentType === 'mixed' ? undefined : contentType
   const { items, isLoading, hasMore } = useSubscriptionFeed({
@@ -139,30 +168,3 @@ export function SubscriptionFeedScreen({
     />
   )
 }
-
-const styles = StyleSheet.create({
-  listContent: {
-    flexGrow: 1,
-  },
-  emptyListContent: {
-    flexGrow: 1,
-  },
-  itemContainer: {
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-  },
-  emptyContainer: {
-    flex: 1,
-    paddingHorizontal: 24,
-    paddingVertical: 32,
-  },
-  emptyCentered: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingContainer: {
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-  },
-})
