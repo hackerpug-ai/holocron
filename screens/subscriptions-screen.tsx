@@ -4,13 +4,15 @@ import { Text } from '@/components/ui/text'
 import { SearchInput } from '@/components/SearchInput'
 import { FilterChip } from '@/components/FilterChip'
 import { EmptyState } from '@/components/EmptyState'
-import { SubscriptionCard, type SubscriptionSource } from '@/components/subscriptions/SubscriptionCard'
+import { CreatorGroupCard } from '@/components/subscriptions/CreatorGroupCard'
 import { SectionHeader } from '@/components/SectionHeader'
 import { cn } from '@/lib/utils'
 import { useQuery, useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
 import { Loader2, Bell as BellIcon } from '@/components/ui/icons'
+import type { CreatorGroup } from '@/components/subscriptions/types'
+import { useRouter } from 'expo-router'
 
 type PlatformType = 'youtube' | 'newsletter' | 'changelog' | 'reddit' | 'ebay' | 'whats-new' | 'creator' | 'all'
 
@@ -26,50 +28,56 @@ const PLATFORM_LABELS: Record<PlatformType, string> = {
 }
 
 interface SubscriptionsScreenProps extends Omit<ViewProps, 'children'> {
-  /** Callback when a subscription is pressed */
-  onSubscriptionPress?: (subscription: SubscriptionSource) => void
   /** Callback when unsubscribe is triggered */
-  onUnsubscribe?: (id: string) => void
+  onUnsubscribe?: (ids: string[]) => void
 }
 
 /**
- * SubscriptionsScreen - manage all subscription sources
+ * SubscriptionsScreen - manage all subscription sources grouped by creator
  *
- * Displays a searchable, filterable list of all subscriptions with
+ * Displays a searchable, filterable list of all subscription groups with
  * quick actions for toggling auto-research and unsubscribing.
  * Organized by platform type with horizontal filter chips.
  */
 export function SubscriptionsScreen({
-  onSubscriptionPress,
   onUnsubscribe,
   className,
   ...props
 }: SubscriptionsScreenProps) {
   const [searchValue, setSearchValue] = useState('')
   const [selectedPlatform, setSelectedPlatform] = useState<PlatformType>('all')
+  const router = useRouter()
 
-  // Fetch subscriptions with optional filtering
-  const subscriptionsListArgs =
-    selectedPlatform !== 'all' ? { sourceType: selectedPlatform } : 'skip'
-  const subscriptions = useQuery(api.subscriptions.queries.list, subscriptionsListArgs)
+  // Fetch grouped subscriptions with optional filtering
+  const groups = useQuery(
+    api.subscriptions.queries.listGroupedByCreator,
+    selectedPlatform !== 'all' ? { sourceType: selectedPlatform, limit: 100 } : { limit: 100 }
+  )
 
   // Mutation for toggling auto-research
   const toggleAutoResearch = useMutation(api.subscriptions.mutations.update)
 
-  // Filter by search query
-  const filteredSubscriptions = subscriptions?.filter((sub: SubscriptionSource) => {
+  // Mutation for bulk unsubscribe
+  const bulkRemove = useMutation(api.subscriptions.mutations.bulkRemove)
+
+  // Filter by search query - search group name OR any subscription identifier
+  const filteredGroups = groups?.filter((group: CreatorGroup) => {
     if (!searchValue) return true
     const query = searchValue.toLowerCase()
-    return (
-      sub.name?.toLowerCase().includes(query) ||
+    // Check group name
+    if (group.name.toLowerCase().includes(query)) return true
+    // Check any subscription identifier
+    return group.subscriptions.some((sub) =>
       sub.identifier.toLowerCase().includes(query)
     )
   })
 
-  // Get platform counts for chips
-  const platformCounts = subscriptions?.reduce(
-    (acc: Record<string, number>, sub: SubscriptionSource) => {
-      acc[sub.sourceType] = (acc[sub.sourceType] || 0) + 1
+  // Get platform counts for chips - count by unique source types across all subscriptions
+  const platformCounts = groups?.reduce(
+    (acc: Record<string, number>, group: CreatorGroup) => {
+      group.subscriptions.forEach((sub) => {
+        acc[sub.sourceType] = (acc[sub.sourceType] || 0) + 1
+      })
       return acc
     },
     {} as Record<string, number>
@@ -93,18 +101,26 @@ export function SubscriptionsScreen({
     setSelectedPlatform(platform as PlatformType)
   }
 
-  const handleToggleAutoResearch = async (id: string) => {
-    const subscription = subscriptions?.find((s: SubscriptionSource) => s._id === id)
-    if (subscription) {
-      await toggleAutoResearch({
-        id: id as Id<'subscriptionSources'>,
-        autoResearch: !subscription.autoResearch,
-      })
-    }
+  const handleToggleAutoResearch = async (id: string, currentValue: boolean) => {
+    await toggleAutoResearch({
+      id: id as Id<'subscriptionSources'>,
+      autoResearch: !currentValue,
+    })
+  }
+
+  const handleUnsubscribe = async (subscriptionIds: string[]) => {
+    await bulkRemove({ subscriptionIds: subscriptionIds as Id<'subscriptionSources'>[] })
+    onUnsubscribe?.(subscriptionIds)
+  }
+
+  const handleGroupPress = (group: CreatorGroup) => {
+    // Navigate to detail view with subscription IDs
+    const subscriptionIds = group.subscriptions.map((s) => s._id.toString()).join(',')
+    router.push(`/subscription-content/${encodeURIComponent(subscriptionIds)}`)
   }
 
   const renderEmptyState = () => {
-    if (subscriptions === undefined) {
+    if (groups === undefined) {
       return (
         <View className="flex-1 items-center justify-center p-8">
           <Loader2 size={32} className="text-muted-foreground animate-spin" />
@@ -162,7 +178,7 @@ export function SubscriptionsScreen({
         {availablePlatforms.map((platform) => {
           const count =
             platform === 'all'
-              ? subscriptions?.length || 0
+              ? groups?.length || 0
               : (platformCounts?.[platform] || 0)
 
           return (
@@ -178,16 +194,16 @@ export function SubscriptionsScreen({
       </ScrollView>
 
       {/* Subscription list or empty state */}
-      {filteredSubscriptions && filteredSubscriptions.length > 0 ? (
+      {filteredGroups && filteredGroups.length > 0 ? (
         <FlatList
-          data={filteredSubscriptions}
-          keyExtractor={(item) => item._id}
+          data={filteredGroups}
+          keyExtractor={(item) => item.creatorProfileId || `standalone-${item.subscriptions[0]?._id}`}
           renderItem={({ item }) => (
-            <SubscriptionCard
-              subscription={item}
+            <CreatorGroupCard
+              group={item}
               onToggleAutoResearch={handleToggleAutoResearch}
-              onUnsubscribe={onUnsubscribe}
-              onPress={() => onSubscriptionPress?.(item)}
+              onUnsubscribe={handleUnsubscribe}
+              onPress={() => handleGroupPress(item)}
               className="mx-4 mb-3"
             />
           )}

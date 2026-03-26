@@ -277,3 +277,56 @@ export const batchSubscribe = mutation({
     return { created, failed };
   },
 });
+
+/**
+ * Bulk remove multiple subscriptions by IDs.
+ * Deletes subscriptions and all associated content and filters.
+ */
+export const bulkRemove = mutation({
+  args: {
+    subscriptionIds: v.array(v.id("subscriptionSources")),
+  },
+  handler: async (ctx, args) => {
+    const deleted: Array<{ subscriptionId: string; contentCount: number; filterCount: number }> = [];
+
+    for (const subscriptionId of args.subscriptionIds) {
+      // Delete all associated content
+      const content = await ctx.db
+        .query("subscriptionContent")
+        .withIndex("by_source", (q) => q.eq("sourceId", subscriptionId))
+        .collect();
+
+      for (const item of content) {
+        await ctx.db.delete(item._id);
+      }
+
+      // Delete all associated filters
+      const filters = await ctx.db
+        .query("subscriptionFilters")
+        .collect()
+        .then((allFilters) =>
+          allFilters.filter((f) => f.sourceId?.toString() === subscriptionId.toString())
+        );
+
+      for (const filter of filters) {
+        await ctx.db.delete(filter._id);
+      }
+
+      // Delete the subscription
+      const subscription = await ctx.db.get(subscriptionId);
+      if (subscription) {
+        await ctx.db.delete(subscriptionId);
+        deleted.push({
+          subscriptionId: subscriptionId.toString(),
+          contentCount: content.length,
+          filterCount: filters.length,
+        });
+      }
+    }
+
+    return {
+      deletedCount: deleted.length,
+      details: deleted,
+    };
+  },
+});
