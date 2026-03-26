@@ -1,0 +1,25 @@
+{
+  "task_id": "FR-004",
+  "timestamp": "2025-03-26T09:26:00Z",
+  "commit_sha": "c129f65409a61f002a8f4eeff3e29be13a9ef9d6",
+  "base_sha": "6aa70c4fc8c0b008821612d53053097904440c55",
+  "typecheck": {
+    "exit_code": 0,
+    "convex_feeds_errors": 0,
+    "pre_existing_errors": 9
+  },
+  "tests": {
+    "exit_code": 0,
+    "total_tests": 12,
+    "passed_tests": 12,
+    "failed_tests": 0
+  },
+  "pre_existing_issues": true,
+  "pre_existing_documentation": ".tmp/FR-004/pre-existing-issues.md",
+  "files_created": [
+    "convex/feeds/validators.ts",
+    "tests/convex/feeds/validators.test.ts"
+  ],
+  "exports_count": 10,
+  "acceptance_criteria_completed": 7
+}

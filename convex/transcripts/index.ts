@@ -11,5 +11,8 @@ export const createTranscriptJob = require("./mutations").createTranscriptJob;
 export const updateJobStatus = require("./mutations").updateJobStatus;
 export const markFailed = require("./mutations").markFailed;
 
-// Internal Actions
-export const fetchYouTubeTranscript = require("./internal").fetchYouTubeTranscript;
+// Re-export internal module for internal references
+export * as internal from "./internal";
+
+// Service orchestration
+export const fetchTranscriptWithFallback = require("./service").fetchTranscriptWithFallback;

@@ -1,0 +1,15 @@
+app/document/[id].tsx(171,110): error TS7006: Parameter 's' implicitly has an 'any' type.
+app/subscription-content/[groupKey].tsx(33,26): error TS7006: Parameter 's' implicitly has an 'any' type.
+app/subscription-content/[groupKey].tsx(34,26): error TS7006: Parameter 's' implicitly has an 'any' type.
+components/agent/AgentPlanCardWithConvex.tsx(52,25): error TS7006: Parameter 'step' implicitly has an 'any' type.
+convex/research/actions.ts(977,7): error TS2322: Type 'Id<"deepResearchSessions"> | undefined' is not assignable to type 'Id<"deepResearchSessions">'.
+  Type 'undefined' is not assignable to type 'Id<"deepResearchSessions">'.
+    Type 'undefined' is not assignable to type 'string'.
+convex/research/actions.ts(978,7): error TS2322: Type 'Id<"conversations"> | undefined' is not assignable to type 'Id<"conversations">'.
+  Type 'undefined' is not assignable to type 'Id<"conversations">'.
+    Type 'undefined' is not assignable to type 'string'.
+convex/transcripts/service.ts(31,14): error TS7022: 'fetchTranscriptWithFallback' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+convex/transcripts/service.ts(36,3): error TS7023: 'handler' implicitly has return type 'any' because it does not have a return type annotation and is referenced directly or indirectly in one of its return expressions.
+convex/transcripts/service.ts(38,11): error TS7022: 'youtubeResult' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+convex/transcripts/service.ts(60,11): error TS7022: 'jinaResult' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+screens/subscription-detail-screen.tsx(43,57): error TS7006: Parameter 'item' implicitly has an 'any' type.
