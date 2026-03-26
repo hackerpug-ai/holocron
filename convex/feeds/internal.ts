@@ -177,3 +177,130 @@ export const markContentInFeed = internalMutation({
     }
   },
 });
+
+// ============================================================================
+// Feed Session Tracking
+// ============================================================================
+
+/**
+ * Start a new feed reading session
+ *
+ * Call this when user opens the feed screen. Creates a session record
+ * with start time for tracking reading behavior.
+ *
+ * @returns The ID of the created session
+ */
+export const startFeedSession = internalMutation({
+  args: {
+    sessionSource: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+
+    const sessionId = await ctx.db.insert("feedSessions", {
+      startTime: now,
+      endTime: undefined,
+      itemsViewed: 0,
+      itemsConsumed: 0,
+      sessionSource: args.sessionSource,
+    });
+
+    return sessionId;
+  },
+});
+
+/**
+ * End a feed reading session
+ *
+ * Call this when user closes the feed screen or after a period of inactivity.
+ * Updates the session with end time and engagement metrics.
+ *
+ * Engagement levels:
+ * - itemsViewed: Number of items scrolled into view
+ * - itemsConsumed: Number of items clicked/opened
+ *
+ * @param sessionId The session to end
+ * @param itemsViewed Number of unique items viewed during session
+ * @param itemsConsumed Number of items clicked/opened during session
+ */
+export const endFeedSession = internalMutation({
+  args: {
+    sessionId: v.id("feedSessions"),
+    itemsViewed: v.number(),
+    itemsConsumed: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+
+    if (!session) {
+      throw new Error(`Session ${args.sessionId} not found`);
+    }
+
+    if (session.endTime) {
+      // Session already ended - don't update
+      return session;
+    }
+
+    const now = Date.now();
+
+    // Validate endTime >= startTime
+    if (now < session.startTime) {
+      throw new Error("endTime cannot be before startTime");
+    }
+
+    // Validate counts are non-negative
+    if (args.itemsViewed < 0 || args.itemsConsumed < 0) {
+      throw new Error("itemsViewed and itemsConsumed must be non-negative");
+    }
+
+    // Validate consumed <= viewed
+    if (args.itemsConsumed > args.itemsViewed) {
+      throw new Error("itemsConsumed cannot exceed itemsViewed");
+    }
+
+    await ctx.db.patch(args.sessionId, {
+      endTime: now,
+      itemsViewed: args.itemsViewed,
+      itemsConsumed: args.itemsConsumed,
+    });
+
+    return await ctx.db.get(args.sessionId);
+  },
+});
+
+/**
+ * Increment session engagement counters
+ *
+ * Call this when user views or consumes an item. Updates the session
+ * counters in real-time without ending the session.
+ *
+ * @param sessionId The session to update
+ * @param itemsViewedIncrement Number of new items viewed
+ * @param itemsConsumedIncrement Number of new items consumed
+ */
+export const incrementSessionEngagement = internalMutation({
+  args: {
+    sessionId: v.id("feedSessions"),
+    itemsViewedIncrement: v.number(),
+    itemsConsumedIncrement: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+
+    if (!session) {
+      throw new Error(`Session ${args.sessionId} not found`);
+    }
+
+    if (session.endTime) {
+      // Session already ended - don't update
+      return session;
+    }
+
+    await ctx.db.patch(args.sessionId, {
+      itemsViewed: session.itemsViewed + args.itemsViewedIncrement,
+      itemsConsumed: session.itemsConsumed + args.itemsConsumedIncrement,
+    });
+
+    return await ctx.db.get(args.sessionId);
+  },
+});
