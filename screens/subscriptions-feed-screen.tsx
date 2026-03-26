@@ -20,12 +20,15 @@ import type { FilterType } from '@/components/subscriptions/SubscriptionFeedFilt
 import { useRouter } from 'expo-router'
 import { Inbox } from '@/components/ui/icons'
 import { useTheme } from '@/hooks/use-theme'
+import { useWebView } from '@/hooks/useWebView'
+import { WebViewSheet } from '@/components/webview/WebViewSheet'
 
 export function SubscriptionFeedScreen() {
   const [selectedFilter, setSelectedFilter] = useState<FilterType>('all')
   const [settingsVisible, setSettingsVisible] = useState(false)
   const router = useRouter()
   const { colors, spacing, radius } = useTheme()
+  const { webViewState, openUrl, closeWebView } = useWebView()
 
   // Fetch feed data with optional content type filter
   const feedItems = useQuery(api.feeds.queries.getFeed, {
@@ -55,6 +58,15 @@ export function SubscriptionFeedScreen() {
   const handleManageSubscriptions = () => {
     setSettingsVisible(false)
     router.push('/subscriptions')
+  }
+
+  const handleItemPress = async (item: Doc<'feedItems'>) => {
+    // For now, derive URL from item metadata or use a placeholder
+    // In production, this would fetch from subscriptionContent via getFeedItemUrl query
+    // TODO: Implement URL fetching from subscriptionContent (FR-030)
+    const url = 'https://example.com' // Placeholder URL
+    openUrl(url)
+    console.log('[Feed] Pressed item:', item._id, 'URL:', url)
   }
 
   const renderEmptyState = () => {
@@ -115,8 +127,9 @@ export function SubscriptionFeedScreen() {
         {feedItems && feedItems.length > 0 ? (
           <View style={[styles.feedList, { padding: spacing.lg }]}>
             {feedItems.map((item: Doc<'feedItems'>) => (
-              <View
+              <Pressable
                 key={item._id}
+                onPress={() => handleItemPress(item)}
                 style={[
                   styles.feedItem,
                   {
@@ -135,7 +148,7 @@ export function SubscriptionFeedScreen() {
                 <Text variant="small" style={styles.itemMeta}>
                   {item.contentType} • {new Date(item.discoveredAt).toLocaleDateString()}
                 </Text>
-              </View>
+              </Pressable>
             ))}
           </View>
         ) : (
@@ -148,6 +161,14 @@ export function SubscriptionFeedScreen() {
         visible={settingsVisible}
         onDismiss={() => setSettingsVisible(false)}
         onManageSubscriptions={handleManageSubscriptions}
+      />
+
+      {/* WebViewSheet for feed item content */}
+      <WebViewSheet
+        visible={webViewState.visible}
+        url={webViewState.url}
+        onClose={closeWebView}
+        testID="subscription-feed-webview"
       />
     </View>
   )

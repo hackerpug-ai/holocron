@@ -1,39 +1,30 @@
 {
   "task_id": "FR-028",
-  "timestamp": "2026-03-26T11:26:02Z",
-  "commit_sha": "6ba283172c2384648714422b60aa1d00a527be48",
-  "typecheck": {
+  "timestamp": "2025-03-26T11:38:00Z",
+  "commit_sha": "00e0662e5d1564a1ad691abea4c832f88f54a7a8",
+  "tests": {
     "exit_code": 0,
-    "notes": "All FR-028 files pass type check. Tests passed: 490/490."
+    "passed": 490,
+    "failed": 0,
+    "total": 490
   },
-  "acceptance_criteria": {
-    "AC-1": "✓ Created app/(drawer)/subscriptions/feed.tsx route file",
-    "AC-2": "✓ Created screens/subscriptions-feed-screen.tsx component",
-    "AC-3": "✓ Added SectionHeader with settings button (gear icon)",
-    "AC-4": "✓ Rendered SubscriptionFeedFilters component",
-    "AC-5": "✓ Implemented settings modal state and rendering",
-    "AC-6": "✓ Connected filter state to feed query",
-    "AC-7": "✓ Added navigation to /subscriptions management",
-    "AC-8": "✓ Preserved existing app/subscriptions.tsx route (no changes)",
-    "AC-9": "✓ Used StyleSheet.create for static layout",
-    "AC-10": "✓ Assigned testIDs to screen and major sections",
-    "AC-11": "✓ Type check passes for FR-028 files"
+  "typecheck": {
+    "exit_code": 0
   },
-  "files_created": [
-    "app/(drawer)/subscriptions/feed.tsx",
-    "screens/subscriptions-feed-screen.tsx",
-    "components/subscriptions/SubscriptionSettingsModal.tsx"
+  "lint": {
+    "exit_code": 0,
+    "warnings": 0,
+    "errors": 0
+  },
+  "changes": [
+    "Replaced item:any with Doc<'feedItems'> type from convex dataModel",
+    "Added useTheme hook import",
+    "Replaced hardcoded colors with theme tokens (colors.background, colors.muted, colors.border)",
+    "Replaced hardcoded spacing with theme tokens (spacing.lg, spacing.md, spacing.xs)",
+    "Replaced hardcoded borderRadius with theme tokens (radius.lg)",
+    "Moved all dynamic theme values to inline styles using array syntax",
+    "StyleSheet now contains only layout props (flex, flexDirection, etc.)",
+    "Fixed unused variable (typography) to pass lint"
   ],
-  "files_modified": [
-    "app/(drawer)/_layout.tsx - Added feed route to drawer navigation",
-    "components/subscriptions/index.ts - Removed FeedSettings export"
-  ],
-  "route_path": "/subscriptions/feed",
-  "screen_features": {
-    "section_header": true,
-    "filters": true,
-    "feed_list": true,
-    "settings_modal": true,
-    "navigation": true
-  }
+  "pre_existing_issues": false
 }

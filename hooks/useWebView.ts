@@ -1,33 +1,65 @@
-import { useRouter } from 'expo-router'
-import { useCallback } from 'react'
+import { useState } from 'react'
+
+export interface WebViewState {
+  visible: boolean
+  url: string
+}
 
 /**
- * Hook to open URLs in the in-app WebView.
+ * WebViewSheet Integration for Feed Items
+ *
+ * STANDARD PATTERN (MUST USE):
+ * 1. Import useWebView hook
+ * 2. Destructure: webViewState, openUrl, closeWebView
+ * 3. Add single WebViewSheet at component root
+ * 4. Call openUrl() from Pressable onPress
  *
  * @example
  * ```tsx
- * const { openUrl } = useWebView()
+ * import { useWebView } from '@/hooks/useWebView'
+ * import { WebViewSheet } from '@/components/webview/WebViewSheet'
  *
- * // Open a URL in the WebView
- * openUrl('https://example.com')
+ * export function MyFeedCard({ item }) {
+ *   const { webViewState, openUrl, closeWebView } = useWebView()
+ *
+ *   return (
+ *     <>
+ *       <Pressable onPress={() => openUrl(item.url)}>
+ *         <Text>{item.title}</Text>
+ *       </Pressable>
+ *
+ *       <WebViewSheet
+ *         visible={webViewState.visible}
+ *         url={webViewState.url}
+ *         onClose={closeWebView}
+ *         testID={`feed-item-${item._id}-webview`}
+ *       />
+ *     </>
+ *   )
+ * }
  * ```
+ *
+ * ALTERNATIVES: NONE - This is the only approved pattern for feed items
+ *
+ * WHY: Consistent UX, in-app browsing, swipe-to-dismiss, navigation controls
  */
 export function useWebView() {
-  const router = useRouter()
+  const [webViewState, setWebViewState] = useState<WebViewState>({
+    visible: false,
+    url: '',
+  })
 
-  /**
-   * Opens a URL in the in-app WebView browser.
-   * Encodes the URL to safely pass through route parameters.
-   */
-  const openUrl = useCallback(
-    (url: string) => {
-      const encodedUrl = encodeURIComponent(url)
-      router.push(`/webview/${encodedUrl}`)
-    },
-    [router]
-  )
+  const openUrl = (url: string) => {
+    setWebViewState({ visible: true, url })
+  }
+
+  const closeWebView = () => {
+    setWebViewState({ visible: false, url: '' })
+  }
 
   return {
+    webViewState,
     openUrl,
+    closeWebView,
   }
 }

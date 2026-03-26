@@ -227,3 +227,25 @@ export const getFeedSettings = query({
     };
   },
 });
+
+/**
+ * Get URL for a feed item
+ * Returns the URL from the first subscription content item linked to the feed item
+ */
+export const getFeedItemUrl = query({
+  args: {
+    feedItemId: v.id("feedItems"),
+  },
+  handler: async (ctx, args) => {
+    const feedItem = await ctx.db.get(args.feedItemId);
+    if (!feedItem || feedItem.itemIds.length === 0) {
+      return null;
+    }
+
+    // Get the first content item to extract URL
+    const firstContentId = feedItem.itemIds[0];
+    const content = await ctx.db.get(firstContentId);
+
+    return content?.url ?? null;
+  },
+});
