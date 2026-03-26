@@ -1,6 +1,26 @@
 # ATTENTION ALL REVIEWERS
 - this is a personal app that will NEVER be published to the app store, our keys are the security, you don't need to worry about production hardening for RLS or multi tennant.
 
+# Planning & Execution Workflow
+
+## Plan Storage
+All plans (PRDs, specs, design docs) MUST be stored in `.spec/prd/` — each plan in its own subdirectory:
+```
+.spec/prd/{feature-name}/
+├── README.md          # The plan/PRD itself
+└── ...                # Supporting artifacts
+```
+
+## Plan → Task Pipeline
+After generating a plan, ALWAYS run `/kb-project-plan` to create task files from the plan. This produces structured task files in `.spec/tasks/{epic-id}/` that are compatible with `/kb-run-epic` for execution.
+
+**Workflow:**
+1. Create plan in `.spec/prd/{feature-name}/`
+2. Run `/kb-project-plan` to generate task files
+3. Run `/kb-run-epic` to execute tasks
+
+---
+
 # Git Commit Policy
 - Commit automatically whenever you complete a meaningful change (feature, fix, refactor, etc.) — don't wait to be asked.
 - Write a descriptive commit message that explains **what** changed and **why**, not just "save" or "wip".

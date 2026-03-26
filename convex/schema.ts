@@ -610,6 +610,41 @@ export default defineSchema({
     .index("by_document", ["documentId"])
     .index("by_status", ["status"]),
 
+  // Video transcripts storage (hybrid approach like audioSegments)
+  videoTranscripts: defineTable({
+    contentId: v.string(), // YouTube video ID
+    sourceUrl: v.string(), // YouTube video URL
+    transcriptType: v.union(v.literal("api"), v.literal("generated"), v.literal("jina_fallback")),
+    transcriptSource: v.string(), // youtube_api, jina_reader_api
+    storageId: v.id("_storage"), // Full transcript in file storage
+    previewText: v.string(), // First 500 chars for search/display
+    wordCount: v.number(),
+    durationMs: v.optional(v.number()),
+    language: v.optional(v.string()),
+    metadataJson: v.optional(v.any()),
+    generatedAt: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_content_id", ["contentId"])
+    .index("by_source_url", ["sourceUrl"]),
+
+  // Transcript generation jobs (follows audioJobs pattern)
+  transcriptJobs: defineTable({
+    contentId: v.string(),
+    sourceUrl: v.string(),
+    status: v.union(v.literal("pending"), v.literal("downloading"), v.literal("transcribing"), v.literal("completed"), v.literal("failed"), v.literal("no_captions")),
+    priority: v.number(), // 0-10, higher = sooner
+    retryCount: v.number(),
+    errorMessage: v.optional(v.string()),
+    transcriptId: v.optional(v.id("videoTranscripts")),
+    startedAt: v.optional(v.number()),
+    completedAt: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_status", ["status"])
+    .index("by_content", ["contentId"])
+    .index("by_priority", ["priority", "createdAt"]),
+
   // Notifications
   notifications: defineTable({
     type: v.union(

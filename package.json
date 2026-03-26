@@ -9,7 +9,7 @@
     "dev": "expo start --dev-client --ios",
     "dev:android": "expo start --dev-client --android",
     "build:ios": "expo run:ios",
-    "deploy:direct": "expo run:ios --device --configuration Release",
+    "deploy:local": "expo run:ios --device --configuration Release",
     "build:android": "expo run:android",
     "clean:ios": "rm -rf ios/build && rm -rf ~/Library/Developer/Xcode/DerivedData/holocron-*",
     "prebuild": "expo prebuild",
