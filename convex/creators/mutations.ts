@@ -12,11 +12,13 @@ export const create = mutation({
   args: createCreatorProfileValidator,
   handler: async (ctx, args) => {
     // Check if handle already exists
-    const existing = await ctx.db
+    // Scan index range and filter in-memory for exact handle match
+    const results = await ctx.db
       .query("creatorProfiles")
       .withIndex("by_handle")
-      .filter((q) => q.eq(q.field("handle"), args.handle))
-      .first();
+      .take(1);
+
+    const existing = results.find(c => c.handle === args.handle);
 
     if (existing) {
       throw new Error(`Creator with handle "${args.handle}" already exists`);

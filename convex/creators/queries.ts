@@ -14,14 +14,15 @@ export const search = query({
     const limit = args.limit ?? 20;
 
     if (args.exactMatch) {
-      // Exact match via by_name index
+      // Exact match via by_name index (range scan since name is not unique)
       const results = await ctx.db
         .query("creatorProfiles")
         .withIndex("by_name")
-        .filter((q) => q.eq(q.field("name"), args.query))
         .take(limit);
 
-      return { creators: results };
+      // Filter in-memory for exact match
+      const exactMatches = results.filter(c => c.name === args.query);
+      return { creators: exactMatches };
     }
 
     // Fuzzy search via searchIndex
@@ -60,17 +61,19 @@ export const getByHandle = query({
     handle: v.string(),
   },
   handler: async (ctx, args) => {
+    // For unique index, scan range and filter in-memory
     const results = await ctx.db
       .query("creatorProfiles")
       .withIndex("by_handle")
-      .filter((q) => q.eq(q.field("handle"), args.handle))
       .take(1);
 
-    if (results.length === 0) {
+    // Filter in-memory for exact handle match
+    const exactMatch = results.find(c => c.handle === args.handle);
+    if (!exactMatch) {
       return { creator: null };
     }
 
-    return { creator: results[0] };
+    return { creator: exactMatch };
   },
 });
 
@@ -106,13 +109,14 @@ export const getSubscriptions = query({
     // Query subscriptions by identifiers
     const subscriptions = [];
     for (const identifier of platformIdentifiers) {
+      // Scan index range and filter in-memory for exact identifier match
       const results = await ctx.db
         .query("subscriptionSources")
         .withIndex("by_identifier")
-        .filter((q) => q.eq(q.field("identifier"), identifier))
-        .collect();
+        .take(100);
 
-      subscriptions.push(...results);
+      const exactMatches = results.filter(s => s.identifier === identifier);
+      subscriptions.push(...exactMatches);
     }
 
     return { subscriptions };
