@@ -130,7 +130,7 @@ function VideoFeedCard({
             ]}
           >
             <Text
-              style={{ color: '#FFFFFF' }}
+              style={{ color: colors.primary }}
               testID="feed-item-video-duration"
             >
               {formatDuration(duration)}

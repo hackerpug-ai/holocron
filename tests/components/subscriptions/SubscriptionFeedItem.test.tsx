@@ -413,16 +413,37 @@ describe('SubscriptionFeedItem - Component Structure', () => {
         expect(source).toContain('feed-item-social-avatar')
       })
 
-      it('should use Avatar component', () => {
+      it('should use Avatar component from ui/avatar', () => {
         const source = readComponent()
         expect(source).toMatch(/from ['"]@\/components\/ui\/avatar['"]/)
         const socialSection = source.split('function SocialFeedCard')[1]?.split('export function')[0]
         expect(socialSection).toContain('<Avatar')
       })
 
-      it('should have getInitials helper function', () => {
+      it('should have getInitials helper function that extracts first letters', () => {
         const source = readComponent()
-        expect(source).toContain('getInitials')
+        expect(source).toContain('function getInitials')
+        // Verify it splits by space, takes first char, joins, and uppercases
+        expect(source).toMatch(/\.split\(['"]\s['"]\)/)
+        expect(source).toMatch(/\[0\]\)/)
+        expect(source).toMatch(/\.join\(['"]['"]\)/)
+        expect(source).toMatch(/\.toUpperCase\(\)/)
+      })
+
+      it('should limit initials to 2 characters', () => {
+        const source = readComponent()
+        expect(source).toContain('slice(0, 2)')
+      })
+
+      it('should accept authorName and authorHandle props', () => {
+        const source = readComponent()
+        expect(source).toContain('authorName: string')
+        expect(source).toContain('authorHandle: string')
+      })
+
+      it('should accept optional authorAvatarUrl prop', () => {
+        const source = readComponent()
+        expect(source).toContain('authorAvatarUrl?:')
       })
     })
 
@@ -437,21 +458,37 @@ describe('SubscriptionFeedItem - Component Structure', () => {
         const socialSection = source.split('function SocialFeedCard')[1]?.split('export function')[0]
         expect(socialSection).toContain('numberOfLines={4}')
       })
+
+      it('should accept optional content prop', () => {
+        const source = readComponent()
+        expect(source).toContain('content?:')
+      })
+
+      it('should conditionally render content section', () => {
+        const source = readComponent()
+        const socialSection = source.split('function SocialFeedCard')[1]?.split('export function')[0]
+        expect(socialSection).toContain('{content &&')
+      })
     })
 
     describe('AC-3: Show engagement stats (likes, comments)', () => {
       it('should have formatEngagement function', () => {
         const source = readComponent()
-        expect(source).toContain('formatEngagement')
+        expect(source).toContain('function formatEngagement')
       })
 
-      it('should format engagement with K/M suffix', () => {
+      it('should format engagement with K suffix for thousands', () => {
         const source = readComponent()
-        // Check that formatEngagement function exists and uses toFixed for K/M formatting
-        expect(source).toContain('formatEngagement')
-        expect(source).toContain('toFixed(1)')
-        // Check for the K/M suffix logic
-        expect(source).toMatch(/1000000.*M|1000.*K/)
+        expect(source).toContain('>= 1000')
+        expect(source).toContain('/ 1000')
+        expect(source).toContain('K')
+      })
+
+      it('should format engagement with M suffix for millions', () => {
+        const source = readComponent()
+        expect(source).toContain('>= 1000000')
+        expect(source).toContain('/ 1000000')
+        expect(source).toContain('M')
       })
 
       it('should have likes testID', () => {
@@ -464,6 +501,11 @@ describe('SubscriptionFeedItem - Component Structure', () => {
         expect(source).toContain('feed-item-social-comments')
       })
 
+      it('should have shares testID', () => {
+        const source = readComponent()
+        expect(source).toContain('feed-item-social-shares')
+      })
+
       it('should use Star icon for likes', () => {
         const source = readComponent()
         const socialSection = source.split('function SocialFeedCard')[1]?.split('export function')[0]
@@ -474,6 +516,27 @@ describe('SubscriptionFeedItem - Component Structure', () => {
         const source = readComponent()
         const socialSection = source.split('function SocialFeedCard')[1]?.split('export function')[0]
         expect(socialSection).toContain('<MessageSquare')
+      })
+
+      it('should use Share2 icon for shares', () => {
+        const source = readComponent()
+        const socialSection = source.split('function SocialFeedCard')[1]?.split('export function')[0]
+        expect(socialSection).toContain('<Share2')
+      })
+
+      it('should accept optional engagement count props', () => {
+        const source = readComponent()
+        expect(source).toContain('likesCount?:')
+        expect(source).toContain('commentsCount?:')
+        expect(source).toContain('sharesCount?:')
+      })
+
+      it('should conditionally render engagement stats when provided', () => {
+        const source = readComponent()
+        const socialSection = source.split('function SocialFeedCard')[1]?.split('export function')[0]
+        expect(socialSection).toMatch(/\{.*likesCount.*!==.*undefined/)
+        expect(socialSection).toMatch(/\{.*commentsCount.*!==.*undefined/)
+        expect(socialSection).toMatch(/\{.*sharesCount.*!==.*undefined/)
       })
     })
 
@@ -493,12 +556,26 @@ describe('SubscriptionFeedItem - Component Structure', () => {
         const source = readComponent()
         expect(source).toContain('feed-item-social-platform')
       })
+
+      it('should pass platform and handle props to PlatformBadge', () => {
+        const source = readComponent()
+        const socialSection = source.split('function SocialFeedCard')[1]?.split('export function')[0]
+        const platformBadgeMatch = socialSection.match(/<PlatformBadge([^>]*)>/)
+        expect(platformBadgeMatch).toBeTruthy()
+        expect(platformBadgeMatch?.[1]).toContain('platform={platform}')
+        expect(platformBadgeMatch?.[1]).toContain('handle={authorHandle}')
+      })
+
+      it('should accept platform prop with supported platforms', () => {
+        const source = readComponent()
+        expect(source).toMatch(/platform:\s*['"]twitter['"]\s*\|\s*['"]bluesky['"]\s*\|\s*['"]github['"]\s*\|\s*['"]website['"]\s*\|\s*['"]youtube['"]/)
+      })
     })
 
     describe('AC-5: Display published timestamp with relative formatting', () => {
       it('should reuse formatRelativeTime function', () => {
         const source = readComponent()
-        expect(source).toContain('formatRelativeTime')
+        expect(source).toContain('formatRelativeTime(publishedAt)')
       })
 
       it('should have published time testID', () => {
@@ -506,10 +583,9 @@ describe('SubscriptionFeedItem - Component Structure', () => {
         expect(source).toContain('feed-item-social-published-time')
       })
 
-      it('should display relative time in social card', () => {
+      it('should accept publishedAt as required prop', () => {
         const source = readComponent()
-        const socialSection = source.split('function SocialFeedCard')[1]?.split('export function')[0]
-        expect(socialSection).toContain('formatRelativeTime')
+        expect(source).toContain('publishedAt: number')
       })
     })
   })
