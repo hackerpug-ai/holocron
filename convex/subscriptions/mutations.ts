@@ -235,11 +235,13 @@ export const batchSubscribe = mutation({
         const handle = "handle" in platformData ? platformData.handle : platformData.url;
 
         // Check if subscription already exists
-        const existing = await ctx.db
+        // Scan index range and filter in-memory for exact identifier match
+        const results = await ctx.db
           .query("subscriptionSources")
           .withIndex("by_identifier")
-          .filter((q) => q.eq(q.field("identifier"), handle))
-          .first();
+          .take(1);
+
+        const existing = results.find(s => s.identifier === handle);
 
         if (existing) {
           failed.push({ platform, error: "Subscription already exists" });
