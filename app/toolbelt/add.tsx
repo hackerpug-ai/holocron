@@ -1,7 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ActivityIndicator, Pressable, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Text } from '@/components/ui/text'
@@ -29,8 +29,12 @@ export default function ToolbeltAddScreen() {
   const [toolTitle, setToolTitle] = useState('')
 
   const addTool = useMutation(api.toolbelt.mutations.addFromUrl)
+  const didRun = useRef(false)
 
   useEffect(() => {
+    if (didRun.current) return
+    didRun.current = true
+
     async function addToolFromParams() {
       try {
         // Validate required params
@@ -71,7 +75,7 @@ export default function ToolbeltAddScreen() {
     }
 
     addToolFromParams()
-  }, [params, addTool, router])
+  }, [])
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>
