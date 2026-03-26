@@ -200,3 +200,32 @@ export const updateFeedSettings = mutation({
     return { success: true, settings: args };
   },
 });
+
+/**
+ * Open feed item
+ *
+ * Fetches the URL for a feed item from its linked subscription content.
+ * Returns the URL or null if no URL is available.
+ * Used by the feed screen to open items in a WebView.
+ */
+export const openFeedItem = mutation({
+  args: {
+    feedItemId: v.id("feedItems"),
+  },
+  handler: async (ctx, args) => {
+    // Fetch the feed item
+    const feedItem = await ctx.db.get(args.feedItemId);
+    if (!feedItem) {
+      throw new Error("Feed item not found");
+    }
+
+    // Get the first linked content item (which has the URL)
+    const firstContentId = feedItem.itemIds[0];
+    if (!firstContentId) {
+      return null;
+    }
+
+    const content = await ctx.db.get(firstContentId);
+    return content?.url ?? null;
+  },
+});

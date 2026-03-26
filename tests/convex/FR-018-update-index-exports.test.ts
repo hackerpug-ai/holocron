@@ -10,19 +10,20 @@ import * as path from "path";
 
 describe("FR-018: Update feeds index exports", () => {
   describe("AC-1: Verify mutations.ts exists with all mutations", () => {
-    it("should have four mutations exported", async () => {
+    it("should have five mutations exported", async () => {
       const mutationsPath = path.join(process.cwd(), "convex/feeds/mutations.ts");
       const content = fs.readFileSync(mutationsPath, "utf-8");
 
-      // Should have 4 export const statements (markViewed, markAllViewed, createDigestNotification, updateFeedSettings)
+      // Should have 5 export const statements (markViewed, markAllViewed, createDigestNotification, updateFeedSettings, openFeedItem)
       const exportMatches = content.match(/export\s+const\s+\w+/g) || [];
-      expect(exportMatches.length).toBe(4);
+      expect(exportMatches.length).toBe(5);
 
       // Should have specific mutations
       expect(content).toMatch(/export\s+const\s+markViewed/);
       expect(content).toMatch(/export\s+const\s+markAllViewed/);
       expect(content).toMatch(/export\s+const\s+createDigestNotification/);
       expect(content).toMatch(/export\s+const\s+updateFeedSettings/);
+      expect(content).toMatch(/export\s+const\s+openFeedItem/);
     });
   });
 

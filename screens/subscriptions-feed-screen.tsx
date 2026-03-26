@@ -6,7 +6,7 @@
  */
 import { useState } from 'react'
 import { View, ScrollView, StyleSheet, ActivityIndicator, type ViewStyle } from 'react-native'
-import { useQuery } from 'convex/react'
+import { useQuery, useMutation } from 'convex/react'
 import type { Doc } from '@/convex/_generated/dataModel'
 import { api } from '@/convex/_generated/api'
 import { SectionHeader } from '@/components/SectionHeader'
@@ -29,6 +29,9 @@ export function SubscriptionFeedScreen() {
   const router = useRouter()
   const { colors, spacing, radius } = useTheme()
   const { webViewState, openUrl, closeWebView } = useWebView()
+
+  // Mutation to fetch URL when opening a feed item
+  const openFeedItemMutation = useMutation(api.feeds.mutations.openFeedItem)
 
   // Fetch feed data with optional content type filter
   const feedItems = useQuery(api.feeds.queries.getFeed, {
@@ -61,12 +64,16 @@ export function SubscriptionFeedScreen() {
   }
 
   const handleItemPress = async (item: Doc<'feedItems'>) => {
-    // For now, derive URL from item metadata or use a placeholder
-    // In production, this would fetch from subscriptionContent via getFeedItemUrl query
-    // TODO: Implement URL fetching from subscriptionContent (FR-030)
-    const url = 'https://example.com' // Placeholder URL
-    openUrl(url)
-    console.log('[Feed] Pressed item:', item._id, 'URL:', url)
+    try {
+      const url = await openFeedItemMutation({ feedItemId: item._id })
+      if (url) {
+        openUrl(url)
+      } else {
+        console.warn('[Feed] No URL available for item:', item._id)
+      }
+    } catch (error) {
+      console.error('[Feed] Failed to open item:', error)
+    }
   }
 
   const renderEmptyState = () => {
