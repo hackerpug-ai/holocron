@@ -4,8 +4,6 @@ import { useQuery } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import type { Doc } from '@/convex/_generated/dataModel'
 import { useRouter } from 'expo-router'
-import { log } from '@/lib/logger-client'
-import * as Linking from 'expo-linking'
 
 /**
  * Toolbelt route - displays searchable, filterable list of tools
@@ -41,9 +39,7 @@ export default function ToolbeltRoute() {
 
   const handleToolPress = (tool: Tool) => {
     if (tool.sourceUrl) {
-      Linking.openURL(tool.sourceUrl).catch((err) => {
-        log('ToolbeltRoute').error('Failed to open URL', err, { url: tool.sourceUrl })
-      })
+      router.push(`/webview/${encodeURIComponent(tool.sourceUrl)}`)
     }
   }
 
