@@ -6,7 +6,9 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated'
 import { useState } from 'react'
-import { Play, Clock, Calendar, User, Newspaper } from '@/components/ui/icons'
+import { Play, Clock, Calendar, User, Newspaper, Star, MessageSquare, Share2 } from '@/components/ui/icons'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { PlatformBadge } from './PlatformBadge'
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable)
 
@@ -48,6 +50,21 @@ function formatRelativeTime(timestamp: number): string {
 function calculateReadTime(wordCount: number): number {
   // Average reading speed: 200 words per minute
   return Math.max(1, Math.ceil(wordCount / 200))
+}
+
+function formatEngagement(count: number): string {
+  if (count >= 1000000) return `${(count / 1000000).toFixed(1)}M`
+  if (count >= 1000) return `${(count / 1000).toFixed(1)}K`
+  return count.toString()
+}
+
+function getInitials(name: string): string {
+  return name
+    .split(' ')
+    .map((word) => word[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2)
 }
 
 // ============================================================================
@@ -253,6 +270,148 @@ function BlogFeedCard({
 }
 
 // ============================================================================
+// SOCIAL FEED CARD
+// ============================================================================
+
+interface SocialFeedCardProps {
+  authorName: string
+  authorHandle: string
+  authorAvatarUrl?: string
+  content?: string
+  platform: 'twitter' | 'bluesky' | 'github' | 'website' | 'youtube'
+  likesCount?: number
+  commentsCount?: number
+  sharesCount?: number
+  publishedAt: number
+}
+
+function SocialFeedCard({
+  authorName,
+  authorHandle,
+  authorAvatarUrl,
+  content,
+  platform,
+  likesCount,
+  commentsCount,
+  sharesCount,
+  publishedAt,
+}: SocialFeedCardProps) {
+  const { colors, spacing } = useTheme()
+
+  return (
+    <View style={[styles.socialContainer, { gap: spacing.md }]}>
+      {/* Author row */}
+      <View style={[styles.authorRow, { gap: spacing.sm }]}>
+        {/* Avatar */}
+        <Avatar
+          className="h-10 w-10"
+          alt={authorName}
+          testID="feed-item-social-avatar"
+        >
+          {authorAvatarUrl ? (
+            <AvatarImage source={{ uri: authorAvatarUrl }} />
+          ) : (
+            <AvatarFallback>
+              <Text className="text-foreground font-semibold text-sm">
+                {getInitials(authorName)}
+              </Text>
+            </AvatarFallback>
+          )}
+        </Avatar>
+
+        {/* Author info */}
+        <View style={styles.authorInfo}>
+          <View style={[styles.authorNameRow, { gap: spacing.xs }]}>
+            <Text
+              style={{ color: colors.foreground }}
+              className="text-base font-semibold"
+              testID="feed-item-social-author-name"
+            >
+              {authorName}
+            </Text>
+          </View>
+          <View style={[styles.authorMetaRow, { gap: spacing.xs }]} testID="feed-item-social-platform">
+            <Text
+              style={{ color: colors.mutedForeground }}
+              className="text-sm"
+              testID="feed-item-social-author-handle"
+            >
+              @{authorHandle}
+            </Text>
+            <PlatformBadge
+              platform={platform}
+              handle={authorHandle}
+              className="pressable-opacity"
+            />
+          </View>
+          <Text
+            style={{ color: colors.mutedForeground }}
+            className="text-sm"
+            testID="feed-item-social-published-time"
+          >
+            {formatRelativeTime(publishedAt)}
+          </Text>
+        </View>
+      </View>
+
+      {/* Content preview */}
+      {content && (
+        <Text
+          style={{ color: colors.foreground }}
+          numberOfLines={4}
+          className="text-base"
+          testID="feed-item-social-content"
+        >
+          {content}
+        </Text>
+      )}
+
+      {/* Engagement stats */}
+      <View style={[styles.engagement, { gap: spacing.md }]}>
+        {likesCount !== undefined && (
+          <View style={styles.socialStatItem}>
+            <Star size={14} className="text-muted-foreground" testID="feed-item-social-likes-icon" />
+            <Text
+              style={{ color: colors.mutedForeground }}
+              className="text-sm"
+              testID="feed-item-social-likes"
+            >
+              {formatEngagement(likesCount)}
+            </Text>
+          </View>
+        )}
+
+        {commentsCount !== undefined && (
+          <View style={styles.socialStatItem}>
+            <MessageSquare size={14} className="text-muted-foreground" testID="feed-item-social-comments-icon" />
+            <Text
+              style={{ color: colors.mutedForeground }}
+              className="text-sm"
+              testID="feed-item-social-comments"
+            >
+              {formatEngagement(commentsCount)}
+            </Text>
+          </View>
+        )}
+
+        {sharesCount !== undefined && (
+          <View style={styles.socialStatItem}>
+            <Share2 size={14} className="text-muted-foreground" testID="feed-item-social-shares-icon" />
+            <Text
+              style={{ color: colors.mutedForeground }}
+              className="text-sm"
+              testID="feed-item-social-shares"
+            >
+              {formatEngagement(sharesCount)}
+            </Text>
+          </View>
+        )}
+      </View>
+    </View>
+  )
+}
+
+// ============================================================================
 // MAIN COMPONENT
 // ============================================================================
 
@@ -274,6 +433,13 @@ export interface FeedItemProps {
   viewsCount?: number
   // Blog-specific props
   wordCount?: number
+  // Social-specific props
+  authorHandle?: string
+  authorAvatarUrl?: string
+  platform?: 'twitter' | 'bluesky' | 'github' | 'website' | 'youtube'
+  likesCount?: number
+  commentsCount?: number
+  sharesCount?: number
 }
 
 /**
@@ -301,6 +467,12 @@ export function SubscriptionFeedItem({
   creatorName,
   viewsCount,
   wordCount,
+  authorHandle,
+  authorAvatarUrl,
+  platform,
+  likesCount,
+  commentsCount,
+  sharesCount,
   onPress,
   testID,
 }: FeedItemProps) {
@@ -362,14 +534,17 @@ export function SubscriptionFeedItem({
       )}
 
       {contentType === 'social' && (
-        <View style={styles.contentContainer}>
-          <Text style={{ color: colors.foreground }}>{title}</Text>
-          {summary && (
-            <Text style={{ color: colors.mutedForeground }}>
-              {summary}
-            </Text>
-          )}
-        </View>
+        <SocialFeedCard
+          authorName={creatorName || title}
+          authorHandle={authorHandle || ''}
+          authorAvatarUrl={authorAvatarUrl}
+          content={summary}
+          platform={platform || 'twitter'}
+          likesCount={likesCount}
+          commentsCount={commentsCount}
+          sharesCount={sharesCount}
+          publishedAt={publishedAt}
+        />
       )}
     </AnimatedPressable>
   )
@@ -433,6 +608,36 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   metaItem: {
+    flexDirection: 'row',
+    gap: 6,
+    alignItems: 'center',
+  },
+  // Social card styles
+  socialContainer: {
+    width: '100%',
+    paddingVertical: 4,
+  },
+  authorRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  authorInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  authorNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  authorMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
+  engagement: {
+    flexDirection: 'row',
+  },
+  socialStatItem: {
     flexDirection: 'row',
     gap: 6,
     alignItems: 'center',

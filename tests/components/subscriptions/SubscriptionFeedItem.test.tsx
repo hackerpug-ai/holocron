@@ -395,4 +395,122 @@ describe('SubscriptionFeedItem - Component Structure', () => {
       })
     })
   })
+
+  describe('FR-025: Social Card Variant', () => {
+    describe('AC-1: Render author info (avatar, name, handle)', () => {
+      it('should have social author name testID', () => {
+        const source = readComponent()
+        expect(source).toContain('feed-item-social-author-name')
+      })
+
+      it('should have social author handle testID', () => {
+        const source = readComponent()
+        expect(source).toContain('feed-item-social-author-handle')
+      })
+
+      it('should have social avatar testID', () => {
+        const source = readComponent()
+        expect(source).toContain('feed-item-social-avatar')
+      })
+
+      it('should use Avatar component', () => {
+        const source = readComponent()
+        expect(source).toMatch(/from ['"]@\/components\/ui\/avatar['"]/)
+        const socialSection = source.split('function SocialFeedCard')[1]?.split('export function')[0]
+        expect(socialSection).toContain('<Avatar')
+      })
+
+      it('should have getInitials helper function', () => {
+        const source = readComponent()
+        expect(source).toContain('getInitials')
+      })
+    })
+
+    describe('AC-2: Display content preview with truncation', () => {
+      it('should have social content testID', () => {
+        const source = readComponent()
+        expect(source).toContain('feed-item-social-content')
+      })
+
+      it('should truncate content to 4 lines', () => {
+        const source = readComponent()
+        const socialSection = source.split('function SocialFeedCard')[1]?.split('export function')[0]
+        expect(socialSection).toContain('numberOfLines={4}')
+      })
+    })
+
+    describe('AC-3: Show engagement stats (likes, comments)', () => {
+      it('should have formatEngagement function', () => {
+        const source = readComponent()
+        expect(source).toContain('formatEngagement')
+      })
+
+      it('should format engagement with K/M suffix', () => {
+        const source = readComponent()
+        // Check that formatEngagement function exists and uses toFixed for K/M formatting
+        expect(source).toContain('formatEngagement')
+        expect(source).toContain('toFixed(1)')
+        // Check for the K/M suffix logic
+        expect(source).toMatch(/1000000.*M|1000.*K/)
+      })
+
+      it('should have likes testID', () => {
+        const source = readComponent()
+        expect(source).toContain('feed-item-social-likes')
+      })
+
+      it('should have comments testID', () => {
+        const source = readComponent()
+        expect(source).toContain('feed-item-social-comments')
+      })
+
+      it('should use Star icon for likes', () => {
+        const source = readComponent()
+        const socialSection = source.split('function SocialFeedCard')[1]?.split('export function')[0]
+        expect(socialSection).toContain('<Star')
+      })
+
+      it('should use MessageSquare icon for comments', () => {
+        const source = readComponent()
+        const socialSection = source.split('function SocialFeedCard')[1]?.split('export function')[0]
+        expect(socialSection).toContain('<MessageSquare')
+      })
+    })
+
+    describe('AC-4: Display platform badge (Twitter, Bluesky, etc.)', () => {
+      it('should import PlatformBadge component', () => {
+        const source = readComponent()
+        expect(source).toMatch(/from ['"].*PlatformBadge['"]/)
+      })
+
+      it('should use PlatformBadge in social card', () => {
+        const source = readComponent()
+        const socialSection = source.split('function SocialFeedCard')[1]?.split('export function')[0]
+        expect(socialSection).toContain('<PlatformBadge')
+      })
+
+      it('should have platform badge testID', () => {
+        const source = readComponent()
+        expect(source).toContain('feed-item-social-platform')
+      })
+    })
+
+    describe('AC-5: Display published timestamp with relative formatting', () => {
+      it('should reuse formatRelativeTime function', () => {
+        const source = readComponent()
+        expect(source).toContain('formatRelativeTime')
+      })
+
+      it('should have published time testID', () => {
+        const source = readComponent()
+        expect(source).toContain('feed-item-social-published-time')
+      })
+
+      it('should display relative time in social card', () => {
+        const source = readComponent()
+        const socialSection = source.split('function SocialFeedCard')[1]?.split('export function')[0]
+        expect(socialSection).toContain('formatRelativeTime')
+      })
+    })
+  })
 })
