@@ -12,6 +12,8 @@ import { useColorScheme } from '@/lib/useColorScheme'
 import { cn } from '@/lib/utils'
 import { NotificationToastProvider } from '@/components/notifications'
 import { usePushNotifications } from '@/hooks/use-push-notifications'
+import * as Linking from 'expo-linking'
+import { router } from 'expo-router'
 
 // Validate required env vars at startup
 const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL
@@ -35,6 +37,27 @@ const queryClient = new QueryClient({
 // When STORYBOOK_ENABLED=true, render Storybook directly
 const STORYBOOK_ENABLED = process.env.EXPO_PUBLIC_STORYBOOK_ENABLED === 'true'
 
+/**
+ * Handle incoming deep links
+ * Routes holocron://toolbelt/add URLs to the toolbelt add screen
+ */
+function handleIncomingURL({ url }: { url: string }) {
+  try {
+    const parsed = Linking.parse(url)
+
+    if (parsed.scheme === 'holocron' && parsed.path === 'toolbelt/add') {
+      const params = parsed.queryParams as Record<string, string>
+      // Navigate to toolbelt-add screen
+      router.push({
+        pathname: '/toolbelt/add',
+        params,
+      })
+    }
+  } catch (error) {
+    console.error('[RootLayout] Failed to handle URL:', error)
+  }
+}
+
 /** Syncs the device color scheme to NativeWind so .dark CSS variables activate */
 function ThemeSync({ children }: { children: React.ReactNode }) {
   const systemColorScheme = useRNColorScheme()
@@ -56,6 +79,18 @@ function ThemeSync({ children }: { children: React.ReactNode }) {
 export default function RootLayout() {
   usePushNotifications()
 
+  // Handle deep linking for toolbelt add URLs
+  useEffect(() => {
+    const subscription = Linking.addEventListener('url', handleIncomingURL)
+
+    // Handle initial URL (app opened from URL)
+    Linking.getInitialURL().then((url) => {
+      if (url) handleIncomingURL({ url })
+    })
+
+    return () => subscription.remove()
+  }, [])
+
   // Render Storybook UI directly, bypassing Expo Router
   if (STORYBOOK_ENABLED) {
     const StorybookUI = require('../.rnstorybook').default
@@ -76,6 +111,7 @@ export default function RootLayout() {
                   <Stack.Screen name="document/[id]" />
                   <Stack.Screen name="webview/[url]" />
                   <Stack.Screen name="storybook" />
+                  <Stack.Screen name="toolbelt/add" options={{ presentation: 'modal' }} />
                   <Stack.Screen name="+not-found" />
                 </Stack>
               </NotificationToastProvider>

@@ -137,3 +137,67 @@ export const clearAll = mutation({
     return { deleted: tools.length };
   },
 });
+
+/**
+ * Add a tool from URL parameters (one-click add from What's New)
+ */
+export const addFromUrl = mutation({
+  args: {
+    title: v.string(),
+    description: v.string(),
+    category: v.union(
+      v.literal("libraries"),
+      v.literal("cli"),
+      v.literal("framework"),
+      v.literal("service"),
+      v.literal("database"),
+      v.literal("tool")
+    ),
+    sourceUrl: v.string(),
+    sourceType: v.union(
+      v.literal("github"),
+      v.literal("npm"),
+      v.literal("pypi"),
+      v.literal("website"),
+      v.literal("cargo"),
+      v.literal("go"),
+      v.literal("other")
+    ),
+    language: v.optional(v.string()),
+    tags: v.optional(v.string()), // Comma-separated
+    useCases: v.optional(v.string()), // Comma-separated
+  },
+  handler: async (ctx, args) => {
+    // Check for duplicate by sourceUrl
+    const existing = await ctx.db
+      .query("toolbeltTools")
+      .withIndex("by_sourceUrl", (q) => q.eq("sourceUrl", args.sourceUrl))
+      .first();
+
+    if (existing) {
+      return { success: true, toolId: existing._id, isNew: false };
+    }
+
+    // Parse comma-separated arrays
+    const tags = args.tags ? args.tags.split(",").map((t) => t.trim()).filter(Boolean) : [];
+    const useCases = args.useCases ? args.useCases.split(",").map((u) => u.trim()).filter(Boolean) : [];
+
+    // Create tool with draft status
+    const now = Date.now();
+    const toolId = await ctx.db.insert("toolbeltTools", {
+      title: args.title,
+      description: args.description,
+      category: args.category,
+      sourceUrl: args.sourceUrl,
+      sourceType: args.sourceType,
+      language: args.language,
+      tags,
+      useCases,
+      status: "draft",
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    return { success: true, toolId, isNew: true };
+  },
+});

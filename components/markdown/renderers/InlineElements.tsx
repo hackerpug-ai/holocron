@@ -3,6 +3,7 @@ import { useTheme } from '@/hooks/use-theme'
 import type { InlineCode, Link, Strong, Emphasis, Text as MdastText } from 'mdast'
 import * as React from 'react'
 import { Platform, StyleSheet, Text as RNText } from 'react-native'
+import { useMemo } from 'react'
 
 /**
  * InlineElements renderer handles inline markdown elements
@@ -25,10 +26,39 @@ export const LinkRenderer = React.memo(
     const { colors } = useTheme()
     const url = node.url
 
+    // Check if this is a toolbelt add link
+    const isToolbeltLink = useMemo(() => {
+      try {
+        const parsed = new URL(url)
+        return parsed.protocol === 'holocron:' && parsed.pathname === '/toolbelt/add'
+      } catch {
+        return false
+      }
+    }, [url])
+
     const handlePress = () => {
       if (onLinkPress) {
         onLinkPress(url)
       }
+    }
+
+    // Special styling for toolbelt links
+    if (isToolbeltLink) {
+      return (
+        <Text
+          onPress={handlePress}
+          testID={testID}
+          accessible={true}
+          accessibilityRole="link"
+          accessibilityLabel={`Add to toolbelt`}
+          style={{
+            color: colors.success,
+            textDecorationLine: 'underline',
+          }}
+        >
+          📦 {children}
+        </Text>
+      )
     }
 
     // Use Text with onPress for inline rendering (can be nested in other Text)

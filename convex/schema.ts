@@ -301,6 +301,7 @@ export default defineSchema({
     reportPath: v.string(), // Path to saved markdown report
     summaryJson: v.optional(v.any()), // Structured summary data
     documentId: v.optional(v.id("documents")), // Link to full report document
+    toolSuggestionsJson: v.optional(v.string()), // JSON string of ToolSuggestion[] for one-click add
     createdAt: v.number(),
   })
     .index("by_created", ["createdAt"])
@@ -359,6 +360,7 @@ export default defineSchema({
     .index("by_creationTime", ["createdAt"])
     .index("by_category", ["category"])
     .index("by_sourceType", ["sourceType"])
+    .index("by_sourceUrl", ["sourceUrl"])
     .vectorIndex("by_embedding", {
       vectorField: "embedding",
       dimensions: 1024,

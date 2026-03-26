@@ -1,5 +1,6 @@
 {
   "expo": {
+    "scheme": "holocron",
     "userInterfaceStyle": "automatic",
     "extra": {
       "router": {},
@@ -21,13 +22,27 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "package": "com.holocron.app"
+      "package": "com.holocron.app",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "data": {
+            "scheme": "holocron"
+          },
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
     },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.holocron.app",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": ["holocron"]
+          }
+        ]
       }
     }
   }

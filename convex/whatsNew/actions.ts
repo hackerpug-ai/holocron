@@ -874,6 +874,16 @@ export const generateDailyReport = internalAction({
 
     // 7. Create whatsNewReports entry
     console.log("[generateDailyReport] Creating report entry...");
+
+    // Serialize tool suggestions for storage
+    const toolSuggestionsJson = synthesisResult.toolSuggestions
+      ? JSON.stringify(synthesisResult.toolSuggestions)
+      : undefined;
+
+    if (synthesisResult.toolSuggestions) {
+      console.log(`[generateDailyReport] Storing ${synthesisResult.toolSuggestions.length} tool suggestions`);
+    }
+
     const reportId = await ctx.runMutation(
       internal.whatsNew.mutations.createReport,
       {
@@ -903,6 +913,7 @@ export const generateDailyReport = internalAction({
           sources,
         },
         documentId: documentResult.documentId,
+        toolSuggestionsJson,
       }
     );
 

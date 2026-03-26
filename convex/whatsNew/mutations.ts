@@ -26,6 +26,7 @@ export const createReport = internalMutation({
     reportPath: v.string(),
     summaryJson: v.optional(v.any()),
     documentId: v.optional(v.id("documents")),
+    toolSuggestionsJson: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const reportId = await ctx.db.insert("whatsNewReports", {
