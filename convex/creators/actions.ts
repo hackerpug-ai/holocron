@@ -3,6 +3,7 @@ import { internal, api } from "../_generated/api";
 import {
   discoverCreatorValidator,
   verifyPlatformsValidator,
+  assimilateCreatorValidator,
 } from "./validators";
 
 /**
@@ -348,5 +349,166 @@ export const verifyPlatforms = action({
       totalVerified: verified.length,
       totalFailed: failed.length,
     };
+  },
+});
+
+/**
+ * Assimilate a creator by fetching all their channel videos and creating transcript jobs
+ * This action fetches all videos from a creator's YouTube channel and creates
+ * transcript jobs for them with priority=1 (higher than subscriptions)
+ */
+export const assimilateCreator = action({
+  args: assimilateCreatorValidator,
+  handler: async (ctx, args) => {
+    const { profileId, forceRegenerate = false } = args;
+
+    // Get the creator profile
+    const profileResult = await ctx.runQuery(
+      api.creators.queries.get,
+      { profileId }
+    );
+
+    if (!profileResult.creator) {
+      return {
+        success: false,
+        error: "Creator profile not found",
+        documentId: null,
+        videosFound: 0,
+        transcriptsCreated: 0,
+        transcriptsSkipped: 0,
+        status: "failed",
+      };
+    }
+
+    const profile = profileResult.creator;
+
+    // Check if profile has YouTube platform
+    if (!profile.platforms.youtube || !profile.platforms.youtube.channelId) {
+      return {
+        success: false,
+        error: "Creator profile does not have a verified YouTube channel",
+        documentId: profileId,
+        videosFound: 0,
+        transcriptsCreated: 0,
+        transcriptsSkipped: 0,
+        status: "failed",
+      };
+    }
+
+    const apiKey = process.env.YOUTUBE_API_KEY;
+    if (!apiKey) {
+      return {
+        success: false,
+        error: "YouTube API key not configured",
+        documentId: profileId,
+        videosFound: 0,
+        transcriptsCreated: 0,
+        transcriptsSkipped: 0,
+        status: "failed",
+      };
+    }
+
+    try {
+      // Fetch all videos from the channel using YouTube Data API v3
+      const channelId = profile.platforms.youtube.channelId;
+      const videos: Array<{ videoId: string; title: string; url: string }> = [];
+      let nextPageToken: string | undefined = undefined;
+
+      do {
+        const searchParams = new URLSearchParams({
+          part: "snippet",
+          channelId: channelId,
+          maxResults: "50",
+          order: "date",
+          type: "video",
+          key: apiKey,
+        });
+
+        if (nextPageToken) {
+          searchParams.append("pageToken", nextPageToken);
+        }
+
+        const response = await fetch(
+          `https://www.googleapis.com/youtube/v3/search?${searchParams.toString()}`
+        );
+
+        if (!response.ok) {
+          if (response.status === 403) {
+            return {
+              success: false,
+              error: "YouTube API quota exceeded or access denied",
+              documentId: profileId,
+              videosFound: 0,
+              transcriptsCreated: 0,
+              transcriptsSkipped: 0,
+              status: "failed",
+            };
+          }
+          throw new Error(`YouTube API error: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        if (data.items) {
+          for (const item of data.items) {
+            if (item.id.kind === "youtube#video") {
+              videos.push({
+                videoId: item.id.videoId,
+                title: item.snippet.title,
+                url: `https://www.youtube.com/watch?v=${item.id.videoId}`,
+              });
+            }
+          }
+        }
+
+        nextPageToken = data.nextPageToken;
+      } while (nextPageToken);
+
+      // Create transcript jobs for each video
+      let transcriptsCreated = 0;
+      let transcriptsSkipped = 0;
+
+      for (const video of videos) {
+        // Check if transcript already exists
+        const existingTranscript = await ctx.runQuery(
+          internal.transcripts.queries.getTranscript,
+          { contentId: video.videoId }
+        );
+
+        if (existingTranscript && !forceRegenerate) {
+          transcriptsSkipped++;
+          continue;
+        }
+
+        // Create transcript job with priority=1 (higher than subscriptions which use priority=5)
+        await ctx.runMutation(internal.transcripts.mutations.createTranscriptJob, {
+          contentId: video.videoId,
+          sourceUrl: video.url,
+          priority: 1,
+        });
+
+        transcriptsCreated++;
+      }
+
+      return {
+        success: true,
+        documentId: profileId,
+        videosFound: videos.length,
+        transcriptsCreated,
+        transcriptsSkipped,
+        status: "completed",
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      return {
+        success: false,
+        error: errorMessage,
+        documentId: profileId,
+        videosFound: 0,
+        transcriptsCreated: 0,
+        transcriptsSkipped: 0,
+        status: "failed",
+      };
+    }
   },
 });
