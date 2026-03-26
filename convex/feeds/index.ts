@@ -10,6 +10,6 @@ export * from "./validators";
 export * as internal from "./internal";
 
 // Future exports (when files are created):
-// export * from "./queries";
+export * from "./queries";
 // export * from "./mutations";
 export * from "./actions";

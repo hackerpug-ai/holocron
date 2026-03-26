@@ -1,3 +1,7 @@
+// NOTE: This is a personal app (never published to app store).
+// Authorization and rate limiting skipped for personal use.
+// See CLAUDE.md: "this is a personal app that will NEVER be published"
+
 import { action } from "../_generated/server";
 import { internal, api } from "../_generated/api";
 import {
