@@ -7,6 +7,7 @@
 import { useState } from 'react'
 import { View, ScrollView, StyleSheet, ActivityIndicator, type ViewStyle } from 'react-native'
 import { useQuery } from 'convex/react'
+import type { Doc } from '@/convex/_generated/dataModel'
 import { api } from '@/convex/_generated/api'
 import { SectionHeader } from '@/components/SectionHeader'
 import { Settings } from '@/components/ui/icons'
@@ -18,11 +19,13 @@ import { Pressable } from 'react-native'
 import type { FilterType } from '@/components/subscriptions/SubscriptionFeedFilters'
 import { useRouter } from 'expo-router'
 import { Inbox } from '@/components/ui/icons'
+import { useTheme } from '@/hooks/use-theme'
 
 export function SubscriptionFeedScreen() {
   const [selectedFilter, setSelectedFilter] = useState<FilterType>('all')
   const [settingsVisible, setSettingsVisible] = useState(false)
   const router = useRouter()
+  const { colors, spacing, radius } = useTheme()
 
   // Fetch feed data with optional content type filter
   const feedItems = useQuery(api.feeds.queries.getFeed, {
@@ -57,7 +60,7 @@ export function SubscriptionFeedScreen() {
   const renderEmptyState = () => {
     if (isLoading) {
       return (
-        <View style={styles.centered}>
+        <View style={[styles.centered, { padding: spacing.lg }]}>
           <ActivityIndicator size="large" testID="loading-spinner" />
           <Text className="text-muted-foreground mt-4 text-sm">Loading feed...</Text>
         </View>
@@ -75,9 +78,16 @@ export function SubscriptionFeedScreen() {
   }
 
   return (
-    <View style={styles.container} testID="subscription-feed-screen">
+    <View style={[styles.container, { backgroundColor: colors.background }]} testID="subscription-feed-screen">
       {/* Header with settings button */}
-      <View style={styles.header}>
+      <View style={[
+        styles.header,
+        {
+          paddingHorizontal: spacing.lg,
+          paddingVertical: spacing.md,
+          borderBottomColor: colors.border,
+        }
+      ]}>
         <SectionHeader
           title="Subscription Feed"
           size="lg"
@@ -103,10 +113,23 @@ export function SubscriptionFeedScreen() {
       {/* Feed content */}
       <ScrollView style={styles.content} testID="feed-content">
         {feedItems && feedItems.length > 0 ? (
-          <View style={styles.feedList}>
-            {feedItems.map((item: any) => (
-              <View key={item._id} style={styles.feedItem} testID={`feed-item-${item._id}`}>
-                <Text variant="h4" style={styles.itemTitle}>
+          <View style={[styles.feedList, { padding: spacing.lg }]}>
+            {feedItems.map((item: Doc<'feedItems'>) => (
+              <View
+                key={item._id}
+                style={[
+                  styles.feedItem,
+                  {
+                    padding: spacing.lg,
+                    marginBottom: spacing.md,
+                    backgroundColor: colors.muted,
+                    borderRadius: radius.lg,
+                    borderColor: colors.border,
+                  }
+                ]}
+                testID={`feed-item-${item._id}`}
+              >
+                <Text variant="h4" style={{ marginBottom: spacing.xs }}>
                   {item.title}
                 </Text>
                 <Text variant="small" style={styles.itemMeta}>
@@ -133,15 +156,11 @@ export function SubscriptionFeedScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
   } as ViewStyle,
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0, 0, 0, 0.05)',
   },
   content: {
     flex: 1,
@@ -150,26 +169,14 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 16,
   },
   feedList: {
-    padding: 16,
+    gap: 0,
   },
   feedItem: {
-    padding: 16,
-    marginBottom: 12,
-    backgroundColor: 'rgba(0, 0, 0, 0.02)',
-    borderRadius: 8,
     borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.05)',
-  },
-  itemTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
   },
   itemMeta: {
-    fontSize: 12,
     opacity: 0.7,
   },
 })
