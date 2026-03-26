@@ -230,7 +230,10 @@ export type ListWhatsNewReportsInput = z.infer<typeof ListWhatsNewReportsSchema>
 
 // Assimilation schemas
 export const StartAssimilationSchema = z.object({
-  repositoryUrl: z.string().min(1).describe("GitHub repository URL (https://github.com/{owner}/{repo})"),
+  repositoryUrl: z
+    .string()
+    .min(1)
+    .describe("GitHub repository URL (https://github.com/{owner}/{repo})"),
   profile: z.enum(["fast", "standard", "thorough"]).optional().describe("Analysis depth profile"),
   autoApprove: z.boolean().optional().describe("Automatically approve plan without human review"),
 });
@@ -253,3 +256,31 @@ export type StartAssimilationInput = z.infer<typeof StartAssimilationSchema>;
 export type AssimilationSessionIdInput = z.infer<typeof AssimilationSessionIdSchema>;
 export type RejectAssimilationPlanInput = z.infer<typeof RejectAssimilationPlanSchema>;
 export type SteerAssimilationInput = z.infer<typeof SteerAssimilationSchema>;
+
+// Creator management schemas
+export const AssimilateCreatorSchema = z.object({
+  profileId: z.string().min(1).describe("Creator profile ID (Convex ID)"),
+  forceRegenerate: z
+    .boolean()
+    .optional()
+    .describe("Re-transcribe videos that already have transcripts"),
+});
+
+export const GetCreatorTranscriptsSchema = z.object({
+  profileId: z.string().min(1).describe("Creator profile ID (Convex ID)"),
+  limit: z.number().int().positive().optional().describe("Maximum number of transcripts to return"),
+});
+
+export const RegenerateTranscriptSchema = z.object({
+  contentId: z.string().min(1).describe("YouTube video ID"),
+  sourceUrl: z
+    .string()
+    .url()
+    .optional()
+    .describe("YouTube video URL (optional, will be generated if not provided)"),
+  priority: z.number().int().min(0).max(10).optional().describe("Job priority (0-10, default: 5)"),
+});
+
+export type AssimilateCreatorInput = z.infer<typeof AssimilateCreatorSchema>;
+export type GetCreatorTranscriptsInput = z.infer<typeof GetCreatorTranscriptsSchema>;
+export type RegenerateTranscriptInput = z.infer<typeof RegenerateTranscriptSchema>;

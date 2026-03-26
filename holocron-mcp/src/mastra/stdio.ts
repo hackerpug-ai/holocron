@@ -41,9 +41,11 @@ import { z } from "zod";
 // Validation schemas
 import {
   AddSubscriptionSchema,
+  AssimilateCreatorSchema,
   AssimilationSessionIdSchema,
   CheckSubscriptionsSchema,
   DocumentIdSchema,
+  GetCreatorTranscriptsSchema,
   GetShopListingsSchema,
   GetShopSessionSchema,
   GetSubscriptionContentSchema,
@@ -53,6 +55,7 @@ import {
   ListSubscriptionsSchema,
   ListToolsSchema,
   ListWhatsNewReportsSchema,
+  RegenerateTranscriptSchema,
   RejectAssimilationPlanSchema,
   RemoveSubscriptionSchema,
   RemoveToolSchema,
@@ -78,6 +81,11 @@ import {
   startAssimilation,
   steerAssimilation,
 } from "../tools/assimilation.ts";
+import {
+  assimilateCreator,
+  getCreatorTranscripts,
+  regenerateTranscript,
+} from "../tools/creators.ts";
 import { hybridSearch } from "../tools/hybrid-search.ts";
 // Tool implementations
 import { getDocument, listDocuments } from "../tools/retrieval.ts";
@@ -608,6 +616,52 @@ const steerAssimilationTool = createTool({
   },
 });
 
+// Creator management tools
+const assimilateCreatorTool = createTool({
+  id: "assimilate_creator",
+  description:
+    "Assimilate a creator by extracting transcripts from all their videos. Fetches all videos from the creator's YouTube channel and creates transcript jobs for them.",
+  inputSchema: AssimilateCreatorSchema,
+  execute: async (input) => {
+    try {
+      return await assimilateCreator(holocronClient, input);
+    } catch (error) {
+      console.error(formatError(error));
+      throw error;
+    }
+  },
+});
+
+const getCreatorTranscriptsTool = createTool({
+  id: "get_creator_transcripts",
+  description:
+    "Retrieve all transcripts for a creator profile. Returns transcript metadata including preview text, word count, and source.",
+  inputSchema: GetCreatorTranscriptsSchema,
+  execute: async (input) => {
+    try {
+      return await getCreatorTranscripts(holocronClient, input);
+    } catch (error) {
+      console.error(formatError(error));
+      throw error;
+    }
+  },
+});
+
+const regenerateTranscriptTool = createTool({
+  id: "regenerate_transcript",
+  description:
+    "Force re-transcription of a video. Creates a new transcript job that will re-fetch the transcript using YouTube API or Jina Reader fallback.",
+  inputSchema: RegenerateTranscriptSchema,
+  execute: async (input) => {
+    try {
+      return await regenerateTranscript(holocronClient, input);
+    } catch (error) {
+      console.error(formatError(error));
+      throw error;
+    }
+  },
+});
+
 /**
  * Initialize Mastra MCP server
  */
@@ -650,6 +704,9 @@ const server = new MCPServer({
     getAssimilationStatusTool,
     cancelAssimilationTool,
     steerAssimilationTool,
+    assimilateCreatorTool,
+    getCreatorTranscriptsTool,
+    regenerateTranscriptTool,
   },
 });
 
@@ -686,7 +743,7 @@ process.on("unhandledRejection", (reason, promise) => {
  * Start MCP server on stdio
  */
 log("[Holocron MCP] Starting server...");
-log(`[Holocron MCP] Tools registered: 35`);
+log(`[Holocron MCP] Tools registered: 38`);
 log(`[Holocron MCP] Convex URL: ${process.env.CONVEX_URL || process.env.HOLOCRON_URL}`);
 
 try {
