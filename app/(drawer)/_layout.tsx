@@ -260,6 +260,10 @@ export default function DrawerLayout() {
           options={{ headerShown: false, title: 'Subscriptions' }}
         />
         <Drawer.Screen
+          name="subscriptions/feed"
+          options={{ headerShown: false, title: 'Subscription Feed' }}
+        />
+        <Drawer.Screen
           name="subscription-content/[groupKey]"
           options={{ headerShown: false, title: 'Subscription Content' }}
         />

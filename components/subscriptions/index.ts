@@ -9,6 +9,7 @@ export { SubscriptionProgressCard } from './SubscriptionProgressCard'
 export { PlatformBadge } from './PlatformBadge'
 export { SubscriptionCard } from './SubscriptionCard'
 export { CreatorGroupCard } from './CreatorGroupCard'
+export { SubscriptionSettingsModal } from './SubscriptionSettingsModal'
 
 export type {
   SubscriptionSuggestionData,

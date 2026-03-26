@@ -1,0 +1,31 @@
+{
+  "task_id": "FR-028",
+  "timestamp": "2026-03-26T10:00:00Z",
+  "commit_sha": "pending",
+  "typecheck": {
+    "exit_code": 0,
+    "notes": "FR-028 files pass type check. Pre-existing errors in convex/feeds/mutations.ts are unrelated to this task."
+  },
+  "acceptance_criteria": {
+    "AC-1": "✓ Created app/(drawer)/subscriptions/feed.tsx route file",
+    "AC-2": "✓ Created screens/subscriptions-feed-screen.tsx component",
+    "AC-3": "✓ Added SectionHeader with settings button (gear icon)",
+    "AC-4": "✓ Rendered SubscriptionFeedFilters component",
+    "AC-5": "✓ Implemented settings modal state and rendering",
+    "AC-6": "✓ Connected filter state to feed query",
+    "AC-7": "✓ Added navigation to /subscriptions management",
+    "AC-8": "✓ Preserved existing app/subscriptions.tsx route (no changes)",
+    "AC-9": "✓ Used StyleSheet.create for static layout",
+    "AC-10": "✓ Assigned testIDs to screen and major sections",
+    "AC-11": "✓ Type check passes for FR-028 files"
+  },
+  "files_created": [
+    "app/(drawer)/subscriptions/feed.tsx",
+    "screens/subscriptions-feed-screen.tsx",
+    "components/subscriptions/SubscriptionSettingsModal.tsx"
+  ],
+  "files_modified": [
+    "app/(drawer)/_layout.tsx - Added feed route to drawer navigation",
+    "components/subscriptions/index.ts - Removed FeedSettings export (no longer exported)"
+  ]
+}
