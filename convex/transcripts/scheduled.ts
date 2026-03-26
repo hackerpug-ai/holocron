@@ -16,7 +16,7 @@ import { internalAction } from "../_generated/server";
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
 
-const STAGGER_MS = 2000; // 2 seconds between jobs
+const STAGGER_MS = 5000; // 5 seconds between jobs (increased to avoid YouTube bot protection)
 const MAX_RETRIES = 3;
 
 /**

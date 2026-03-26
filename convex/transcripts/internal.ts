@@ -20,6 +20,36 @@ import type { Id } from "../_generated/dataModel";
 "use node";
 
 /**
+ * Rate limiter for YouTube API calls to prevent bot protection
+ * Tracks last request time and enforces minimum delay
+ */
+class YouTubeRateLimiter {
+  private lastRequestTime = 0;
+  private readonly minDelayMs: number;
+
+  constructor(minDelayMs: number = 3000) {
+    this.minDelayMs = minDelayMs;
+  }
+
+  async waitIfNeeded(): Promise<void> {
+    const now = Date.now();
+    const timeSinceLastRequest = now - this.lastRequestTime;
+
+    if (timeSinceLastRequest < this.minDelayMs) {
+      const waitTime = this.minDelayMs - timeSinceLastRequest;
+      console.log(`[RateLimiter] Waiting ${waitTime}ms before YouTube API call`);
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+    }
+
+    this.lastRequestTime = Date.now();
+  }
+}
+
+// Global rate limiter instances (shared across all requests in this process)
+const rateLimiter = new YouTubeRateLimiter(3000); // 3 seconds minimum between YouTube API calls
+const jinaRateLimiter = new YouTubeRateLimiter(2000); // 2 seconds minimum between Jina Reader calls
+
+/**
  * Transcript metadata returned from fetch actions
  */
 interface TranscriptMetadata {
@@ -99,6 +129,7 @@ export const fetchYouTubeTranscript = internalAction({
 
     try {
       // Step 1: List captions for video (API key works for listing)
+      await rateLimiter.waitIfNeeded();
       console.log(`[YouTube] Listing captions for ${args.contentId}`);
       const captionsResponse = await fetch(
         `https://www.googleapis.com/youtube/v3/captions?part=snippet&videoId=${args.contentId}&key=${apiKey}`
@@ -149,6 +180,7 @@ export const fetchYouTubeTranscript = internalAction({
 
       if (accessToken) {
         // Try OAuth2 download (required by YouTube for caption downloads)
+        await rateLimiter.waitIfNeeded();
         console.log(`[YouTube] Attempting OAuth2 download for caption ${captionTrack.id}`);
         const oauthUrl = `https://www.googleapis.com/youtube/v3/captions/${captionTrack.id}`;
         const oauthResponse = await fetch(oauthUrl, {
@@ -170,6 +202,7 @@ export const fetchYouTubeTranscript = internalAction({
 
       // Step 3: Try API key download (may work for some public videos)
       if (!transcriptText) {
+        await rateLimiter.waitIfNeeded();
         const apiUrl = `https://www.googleapis.com/youtube/v3/captions/${captionTrack.id}?key=${apiKey}`;
         const apiResponse = await fetch(apiUrl);
 
@@ -289,6 +322,9 @@ export const fetchJinaTranscript = internalAction({
     const url = `https://www.youtube.com/watch?v=${args.contentId}`;
 
     try {
+      // Rate limit before Jina Reader call
+      await jinaRateLimiter.waitIfNeeded();
+
       // Fetch page content via Jina Reader
       const response = await fetch(`https://r.jina.ai/http://${url}`);
 
