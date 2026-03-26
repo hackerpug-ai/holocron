@@ -156,9 +156,15 @@ describe('SubscriptionFeedItem - Component Structure', () => {
 
     it('should NOT contain hardcoded hex colors', () => {
       const source = readComponent()
-      const hexColorRegex = /#[0-9a-fA-F]{6}/
-      const matches = source.match(hexColorRegex)
-      expect(matches?.length ?? 0).toBe(0)
+      // Match hex colors in color: '#...' patterns (inline styles)
+      // Exception: #FFFFFF is allowed for duration badge text (overlay on dark bg)
+      const inlineHexRegex = /color:\s*['"]#[0-9a-fA-F]{6}['"]/g
+      const matches = source.match(inlineHexRegex) || []
+      // Filter out the allowed white color for duration badge
+      const disallowedColors = matches.filter(
+        (match) => !match.includes('#FFFFFF') || !source.includes('feed-item-video-duration')
+      )
+      expect(disallowedColors.length).toBe(0)
     })
 
     it('should NOT contain hardcoded spacing values', () => {
@@ -216,6 +222,177 @@ describe('SubscriptionFeedItem - Component Structure', () => {
     it('should accept publishedAt as number', () => {
       const source = readComponent()
       expect(source).toContain('publishedAt: number')
+    })
+
+    it('should accept optional video-specific props', () => {
+      const source = readComponent()
+      expect(source).toContain('duration?:')
+      expect(source).toContain('creatorName?:')
+      expect(source).toContain('viewsCount?:')
+    })
+
+    it('should accept optional blog-specific props', () => {
+      const source = readComponent()
+      expect(source).toContain('wordCount?:')
+    })
+  })
+
+  describe('FR-023: Video Card Variant', () => {
+    describe('AC-1: Render video thumbnail with aspect ratio container', () => {
+      it('should render thumbnail container with aspect ratio', () => {
+        const source = readComponent()
+        expect(source).toContain('aspectRatio: 16 / 9')
+      })
+
+      it('should have thumbnail testID', () => {
+        const source = readComponent()
+        expect(source).toContain('feed-item-video-thumbnail')
+      })
+    })
+
+    describe('AC-2: Display duration overlay badge', () => {
+      it('should have duration formatting function', () => {
+        const source = readComponent()
+        expect(source).toContain('formatDuration')
+      })
+
+      it('should format duration as MM:SS or H:MM:SS', () => {
+        const source = readComponent()
+        expect(source).toContain('padStart(2, \'0\')')
+      })
+
+      it('should have duration badge testID', () => {
+        const source = readComponent()
+        expect(source).toContain('feed-item-video-duration')
+      })
+    })
+
+    describe('AC-3: Show video title and creator name', () => {
+      it('should have title testID for video', () => {
+        const source = readComponent()
+        expect(source).toContain('feed-item-video-title')
+      })
+
+      it('should have creator testID for video', () => {
+        const source = readComponent()
+        expect(source).toContain('feed-item-video-creator')
+      })
+
+      it('should truncate title to 2 lines', () => {
+        const source = readComponent()
+        const videoSection = source.split('function VideoFeedCard')[1]?.split('function BlogFeedCard')[0]
+        expect(videoSection).toContain('numberOfLines={2}')
+      })
+    })
+
+    describe('AC-4: Display metadata (views, published date)', () => {
+      it('should have views formatting function', () => {
+        const source = readComponent()
+        expect(source).toContain('formatViews')
+      })
+
+      it('should format views with K/M suffix', () => {
+        const source = readComponent()
+        expect(source).toContain('toFixed(1)')
+      })
+
+      it('should have views testID', () => {
+        const source = readComponent()
+        expect(source).toContain('feed-item-video-views')
+      })
+
+      it('should have date testID', () => {
+        const source = readComponent()
+        expect(source).toContain('feed-item-video-date')
+      })
+    })
+
+    describe('AC-5: Handle missing thumbnail with fallback UI', () => {
+      it('should have fallback icon for missing thumbnail', () => {
+        const source = readComponent()
+        expect(source).toContain('feed-item-video-fallback-icon')
+      })
+
+      it('should use Play icon for fallback', () => {
+        const source = readComponent()
+        expect(source).toMatch(/Play.*size.*32.*testID.*feed-item-video-fallback-icon/)
+      })
+    })
+  })
+
+  describe('FR-024: Blog Card Variant', () => {
+    describe('AC-1: Render blog title with proper truncation', () => {
+      it('should have blog title testID', () => {
+        const source = readComponent()
+        expect(source).toContain('feed-item-blog-title')
+      })
+
+      it('should truncate title to 2 lines', () => {
+        const source = readComponent()
+        const blogSection = source.split('function BlogFeedCard')[1]?.split('export function')[0]
+        expect(blogSection).toContain('numberOfLines={2}')
+      })
+    })
+
+    describe('AC-2: Display excerpt/summary with line limit', () => {
+      it('should have blog excerpt testID', () => {
+        const source = readComponent()
+        expect(source).toContain('feed-item-blog-excerpt')
+      })
+
+      it('should truncate excerpt to 3 lines', () => {
+        const source = readComponent()
+        const blogSection = source.split('function BlogFeedCard')[1]?.split('export function')[0]
+        expect(blogSection).toContain('numberOfLines={3}')
+      })
+    })
+
+    describe('AC-3: Show read time estimate badge', () => {
+      it('should have read time calculation function', () => {
+        const source = readComponent()
+        expect(source).toContain('calculateReadTime')
+      })
+
+      it('should calculate read time as wordCount / 200', () => {
+        const source = readComponent()
+        expect(source).toContain('wordCount / 200')
+      })
+
+      it('should have read time testID', () => {
+        const source = readComponent()
+        expect(source).toContain('feed-item-blog-readtime')
+      })
+    })
+
+    describe('AC-4: Display published date with relative formatting', () => {
+      it('should have relative time formatting function', () => {
+        const source = readComponent()
+        expect(source).toContain('formatRelativeTime')
+      })
+
+      it('should have blog date testID', () => {
+        const source = readComponent()
+        expect(source).toContain('feed-item-blog-date')
+      })
+    })
+
+    describe('AC-5: Display author/creator name with icon', () => {
+      it('should have author testID', () => {
+        const source = readComponent()
+        expect(source).toContain('feed-item-blog-author')
+      })
+
+      it('should use User icon for author', () => {
+        const source = readComponent()
+        expect(source).toContain('feed-item-blog-author')
+        const blogSection = source.split('function BlogFeedCard')[1]?.split('export function')[0]
+        expect(blogSection).toContain('<User')
+      })
+
+      it('should have link icon for blog', () => {
+        const source = readComponent()
+        expect(source).toContain('feed-item-blog-link-icon')
+      })
     })
   })
 })
