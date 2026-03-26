@@ -1,0 +1,62 @@
+{
+  "task_id": "FR-003",
+  "task_title": "Extend notifications table for feed digest support",
+  "epic_id": "01-backend-foundation",
+  "status": "completed",
+  "base_sha": "614aeccf3bb0114a9f05a67a8c9b21e62e8e052a",
+  "implementation_commit": "007ceb2708c4ab3a74888a63413cacfc46b01aea",
+  "documentation_commit": "7c1de98f53cf8883ec4f2fe74e3663121c2c920b",
+  "commit_blocked": false,
+  "evidence_path": ".tmp/FR-003/",
+  "acceptance_criteria": {
+    "AC-1": {
+      "description": "Add feed_digest type to notifications union",
+      "status": "complete",
+      "verification": "v.literal(\"feed_digest\") added to type union at line 667"
+    },
+    "AC-2": {
+      "description": "Add feedItemIds array field",
+      "status": "complete",
+      "verification": "feedItemIds: v.optional(v.array(v.id(\"feedItems\"))) added at line 677"
+    },
+    "AC-3": {
+      "description": "Add digestCount number field",
+      "status": "complete",
+      "verification": "digestCount: v.optional(v.number()) added at line 678"
+    },
+    "AC-4": {
+      "description": "Add digestSummary string field",
+      "status": "complete",
+      "verification": "digestSummary: v.optional(v.string()) added at line 679"
+    },
+    "AC-5": {
+      "description": "Verify backward compatibility",
+      "status": "complete",
+      "verification": "All new fields use v.optional(), typecheck passes, existing queries valid"
+    }
+  },
+  "quality_gates": {
+    "typescript_typecheck": {
+      "command": "pnpm tsc --noEmit",
+      "status": "pass",
+      "exit_code": 0
+    },
+    "test_suite": {
+      "command": "pnpm test",
+      "status": "pass",
+      "test_files": 22,
+      "test_count": 208,
+      "exit_code": 0
+    }
+  },
+  "files_modified": [
+    "convex/schema.ts"
+  ],
+  "pattern_compliance": {
+    "optional_fields": true,
+    "union_at_end": true,
+    "no_existing_modifications": true,
+    "no_type_removals": true
+  },
+  "summary": "Extended notifications table with feed_digest notification type and 3 optional fields (feedItemIds, digestCount, digestSummary) to support feed digest notifications. All changes are backward compatible with optional fields. Implementation was completed as part of FR-002 commit 007ceb2."
+}
