@@ -78,6 +78,32 @@ export const getFeed = query({
 });
 
 /**
+ * Get feed items for a specific creator
+ * Optimized for creator detail views with by_creator index
+ * Returns items in descending order (newest first)
+ */
+export const getByCreator = query({
+  args: {
+    creatorProfileId: v.id("creatorProfiles"),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const limit = args.limit ?? 20;
+
+    // Use by_creator index for optimal performance
+    const items = await ctx.db
+      .query("feedItems")
+      .withIndex("by_creator", (q) =>
+        q.eq("creatorProfileId", args.creatorProfileId)
+      )
+      .order("desc")
+      .take(limit);
+
+    return items;
+  },
+});
+
+/**
  * Get count of unviewed feed items
  * Returns the number of items where viewed=false
  * Supports optional filtering by creatorProfileId
@@ -95,7 +121,7 @@ export const getUnviewedCount = query({
         .withIndex("by_creator", (q) =>
           q.eq("creatorProfileId", args.creatorProfileId)
         )
-        .filter((q) => !q.field("viewed"))
+        .filter((q) => q.eq(q.field("viewed"), false))
         .collect();
 
       return items.length;
