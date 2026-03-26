@@ -1,5 +1,6 @@
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import type { Doc } from "@/convex/_generated/dataModel";
 
 interface UseSubscriptionFeedArgs {
   limit?: number;
@@ -24,8 +25,8 @@ export function useSubscriptionFeed({
 
   // Client-side search filtering
   const filteredItems = searchQuery && feedItems
-    ? feedItems.filter(item =>
-        item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    ? feedItems.filter((item: Doc<"feedItems">) =>
+        (item.title?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
         item.summary?.toLowerCase().includes(searchQuery.toLowerCase())
       )
     : feedItems;
@@ -33,7 +34,7 @@ export function useSubscriptionFeed({
   return {
     items: filteredItems ?? [],
     isLoading: feedItems === undefined,
-    error: null,
+    error: null, // Convex useQuery doesn't expose errors directly; they're handled by error boundaries
     hasMore: (filteredItems?.length ?? 0) >= limit,
   };
 }
