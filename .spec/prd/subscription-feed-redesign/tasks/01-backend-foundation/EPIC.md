@@ -1,6 +1,6 @@
 # EPIC-01: Backend Foundation
 
-**Status**: [ ] Complete
+**Status**: [x] Complete
 **Epic ID**: FR-EPIC-01
 **PRD Section**: Phase 1 - Convex Backend Changes (Schema & Validators)
 
