@@ -60,6 +60,7 @@ import type * as documents_storage from "../documents/storage.js";
 import type * as feeds_actions from "../feeds/actions.js";
 import type * as feeds_index from "../feeds/index.js";
 import type * as feeds_internal from "../feeds/internal.js";
+import type * as feeds_mutations from "../feeds/mutations.js";
 import type * as feeds_queries from "../feeds/queries.js";
 import type * as feeds_validators from "../feeds/validators.js";
 import type * as http from "../http.js";
@@ -196,6 +197,7 @@ declare const fullApi: ApiFromModules<{
   "feeds/actions": typeof feeds_actions;
   "feeds/index": typeof feeds_index;
   "feeds/internal": typeof feeds_internal;
+  "feeds/mutations": typeof feeds_mutations;
   "feeds/queries": typeof feeds_queries;
   "feeds/validators": typeof feeds_validators;
   http: typeof http;
