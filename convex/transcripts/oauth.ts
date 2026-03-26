@@ -251,7 +251,7 @@ async function createServiceAccountJWT(
   const now = Math.floor(Date.now() / 1000);
   const payload = {
     iss: credentials.client_email,
-    scope: "https://www.googleapis.com/auth/youtube.readonly",
+    scope: "https://www.googleapis.com/auth/youtube",
     aud: credentials.token_uri,
     exp: now + 3600,
     iat: now,
