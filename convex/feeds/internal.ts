@@ -16,8 +16,10 @@ import type { Doc, Id } from "../_generated/dataModel";
  * Idempotent: Safe to run multiple times - skips content already in feed.
  */
 export const buildFeed = internalAction({
-  args: {},
-  handler: async (ctx): Promise<{
+  args: {
+    timeoutMinutes: v.optional(v.number()),
+  },
+  handler: async (ctx, _args): Promise<{
     processed: number;
     items: Array<{ groupKey: string; feedItemId: Id<"feedItems">; itemCount: number }>;
   }> => {

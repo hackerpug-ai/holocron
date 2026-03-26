@@ -65,6 +65,26 @@ crons.interval(
 );
 
 /**
+ * Feed Builder
+ *
+ * Builds feed items from recent subscription content.
+ * - Runs every 2 hours
+ * - Groups content by creator
+ * - Creates feed items and marks content as in feed
+ *
+ * This ensures the feed is regularly updated with new content
+ * from all active subscriptions.
+ *
+ * @see .spec/prd/subscription-feed-redesign/tasks/02-feed-building/FR-009.md
+ */
+crons.interval(
+  "feed-builder",
+  { hours: 2 }, // Run every 2 hours
+  internal.feeds.internal.buildFeed,
+  { timeoutMinutes: 10 } // Maximum execution time
+);
+
+/**
  * Document Embedding Backfill
  *
  * Backfills embeddings for documents that were created without them.
