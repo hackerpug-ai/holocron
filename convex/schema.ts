@@ -818,4 +818,24 @@ export default defineSchema({
   })
     .index("by_start", ["startTime"])
     .index("by_period", ["startTime", "endTime"]),
+
+  // Rate limit tracking for synthesis providers (Z.ai, YouTube, Jina)
+  rateLimitTracking: defineTable({
+    provider: v.string(), // "zai", "youtube", "jina"
+    quotaLimit: v.number(), // Daily/max quota (YouTube: 10000, Z.ai: -1 for token-based)
+    quotaUsed: v.number(), // Quota consumed in current period
+    quotaResetAt: v.number(), // Unix timestamp when quota resets
+    concurrentRequests: v.number(), // Current active requests
+    maxConcurrent: v.number(), // Max concurrent allowed
+    status: v.union(v.literal("available"), v.literal("throttled"), v.literal("exhausted")),
+    lastError: v.optional(v.string()), // Last error message (429, etc.)
+    lastErrorTime: v.optional(v.number()), // Unix timestamp of last error
+    // Token budget tracking (Z.ai specific)
+    tokenBudget: v.optional(v.number()), // Remaining token budget
+    tokensUsed: v.optional(v.number()), // Tokens used in current period
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_provider", ["provider"])
+    .index("by_status", ["status"]),
 });
