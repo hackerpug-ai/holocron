@@ -5,6 +5,7 @@
  */
 
 import { mutation } from "../_generated/server";
+import { v } from "convex/values";
 import { markViewedArgs, markAllViewedArgs, createDigestNotificationArgs } from "./validators";
 
 /**
@@ -177,3 +178,25 @@ function buildDigestMessage(summary: any): string {
   const itemList = parts.join(", ");
   return `${counts.total} new feed items: ${itemList}`;
 }
+
+/**
+ * Update feed settings
+ *
+ * Updates user's feed preferences. For now, this is a stub that logs the update.
+ * In a future epic, these will be persisted to a user preferences table.
+ */
+export const updateFeedSettings = mutation({
+  args: {
+    enablePushNotifications: v.optional(v.boolean()),
+    enableInAppNotifications: v.optional(v.boolean()),
+    showThumbnails: v.optional(v.boolean()),
+    autoPlayVideos: v.optional(v.boolean()),
+    contentFilter: v.optional(v.union(v.literal("all"), v.literal("videos-only"), v.literal("blogs-only"))),
+  },
+  handler: async (_ctx, args) => {
+    // TODO: In future epic, persist to user preferences table
+    // For now, this is a stub that accepts any setting changes
+    console.log("Feed settings updated:", args);
+    return { success: true, settings: args };
+  },
+});

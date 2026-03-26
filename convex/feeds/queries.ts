@@ -205,3 +205,25 @@ export const getDigestSummary = query({
     };
   },
 });
+
+/**
+ * Get feed settings for current user
+ *
+ * Returns user's feed preferences including notification settings,
+ * display options, and content filter. For now, returns default settings.
+ * In a future epic, these will be persisted to a user preferences table.
+ */
+export const getFeedSettings = query({
+  args: {},
+  handler: async (_ctx, _args) => {
+    // TODO: In future epic, fetch from user preferences table
+    // For now, return default settings
+    return {
+      enablePushNotifications: false,
+      enableInAppNotifications: false,
+      showThumbnails: true,
+      autoPlayVideos: false,
+      contentFilter: "all" as const,
+    };
+  },
+});

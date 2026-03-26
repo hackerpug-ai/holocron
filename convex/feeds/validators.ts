@@ -74,3 +74,20 @@ export const markAllViewedArgs = {
 export const createDigestNotificationArgs = {
   limit: v.optional(v.number()),
 };
+
+// Feed settings validators
+export const feedSettingsFields = {
+  enablePushNotifications: v.boolean(),
+  enableInAppNotifications: v.boolean(),
+  showThumbnails: v.boolean(),
+  autoPlayVideos: v.boolean(),
+  contentFilter: v.union(v.literal("all"), v.literal("videos-only"), v.literal("blogs-only")),
+};
+
+export const updateFeedSettingsArgs = {
+  enablePushNotifications: v.optional(v.boolean()),
+  enableInAppNotifications: v.optional(v.boolean()),
+  showThumbnails: v.optional(v.boolean()),
+  autoPlayVideos: v.optional(v.boolean()),
+  contentFilter: v.optional(v.union(v.literal("all"), v.literal("videos-only"), v.literal("blogs-only"))),
+};
