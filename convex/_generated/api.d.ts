@@ -57,6 +57,7 @@ import type * as documents_queries from "../documents/queries.js";
 import type * as documents_scheduled from "../documents/scheduled.js";
 import type * as documents_search from "../documents/search.js";
 import type * as documents_storage from "../documents/storage.js";
+import type * as feeds_actions from "../feeds/actions.js";
 import type * as feeds_index from "../feeds/index.js";
 import type * as feeds_internal from "../feeds/internal.js";
 import type * as feeds_validators from "../feeds/validators.js";
@@ -191,6 +192,7 @@ declare const fullApi: ApiFromModules<{
   "documents/scheduled": typeof documents_scheduled;
   "documents/search": typeof documents_search;
   "documents/storage": typeof documents_storage;
+  "feeds/actions": typeof feeds_actions;
   "feeds/index": typeof feeds_index;
   "feeds/internal": typeof feeds_internal;
   "feeds/validators": typeof feeds_validators;
