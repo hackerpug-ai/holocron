@@ -56,20 +56,23 @@ export const generateLink = mutation({
     const expiresAt = args.expiresIn ? now + args.expiresIn * 1000 : undefined;
 
     // Check if token already exists (unlikely but possible)
-    const existing = await ctx.db
+    // Scan index range and filter in-memory for exact token match
+    const results = await ctx.db
       .query("subscriptionLinks")
       .withIndex("by_token")
-      .filter((q) => q.eq(q.field("token"), token))
-      .first();
+      .take(1);
+
+    const existing = results.find(l => l.token === token);
 
     if (existing) {
       // Regenerate with different token (simple retry)
       const newToken = generateToken(8);
-      const newExisting = await ctx.db
+      const newResults = await ctx.db
         .query("subscriptionLinks")
         .withIndex("by_token")
-        .filter((q) => q.eq(q.field("token"), newToken))
-        .first();
+        .take(1);
+
+      const newExisting = newResults.find(l => l.token === newToken);
 
       if (newExisting) {
         throw new Error("Unable to generate unique token");
@@ -122,11 +125,13 @@ export const resolveLink = query({
     token: v.string(),
   },
   handler: async (ctx, args) => {
-    const link = await ctx.db
+    // Scan index range and filter in-memory for exact token match
+    const results = await ctx.db
       .query("subscriptionLinks")
       .withIndex("by_token")
-      .filter((q) => q.eq(q.field("token"), args.token))
-      .first();
+      .take(1);
+
+    const link = results.find(l => l.token === args.token);
 
     if (!link) {
       throw new Error("Subscription link not found");
@@ -187,12 +192,13 @@ export const subscribeFromLink = mutation({
     autoResearch: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    // Get the link directly
-    const link = await ctx.db
+    // Get the link directly - scan index range and filter in-memory
+    const results = await ctx.db
       .query("subscriptionLinks")
       .withIndex("by_token")
-      .filter((q) => q.eq(q.field("token"), args.token))
-      .first();
+      .take(1);
+
+    const link = results.find(l => l.token === args.token);
 
     if (!link) {
       throw new Error("Subscription link not found");
@@ -245,11 +251,13 @@ export const subscribeFromLink = mutation({
     for (const sub of subsToCreate) {
       try {
         // Check if subscription already exists
-        const existing = await ctx.db
+        // Scan index range and filter in-memory for exact identifier match
+        const subResults = await ctx.db
           .query("subscriptionSources")
           .withIndex("by_identifier")
-          .filter((q) => q.eq(q.field("identifier"), sub.identifier))
-          .first();
+          .take(1);
+
+        const existing = subResults.find(s => s.identifier === sub.identifier);
 
         if (existing) {
           failed.push({
@@ -284,11 +292,13 @@ export const subscribeFromLink = mutation({
     }
 
     // Increment click count
-    const linkRecord = await ctx.db
+    // Scan index range and filter in-memory for exact token match
+    const clickResults = await ctx.db
       .query("subscriptionLinks")
       .withIndex("by_token")
-      .filter((q) => q.eq(q.field("token"), args.token))
-      .first();
+      .take(1);
+
+    const linkRecord = clickResults.find(l => l.token === args.token);
 
     if (linkRecord) {
       await ctx.db.patch(linkRecord._id, {
