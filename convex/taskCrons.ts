@@ -31,13 +31,9 @@ export const timeoutStuckTasks = internalAction({
     const now = Date.now();
     const cutoffTime = now - timeoutMs;
 
-    console.log(`[task-timeout-worker] Checking for tasks running longer than ${timeoutMinutes} minutes`);
-    console.log(`[task-timeout-worker] Cutoff time: ${new Date(cutoffTime).toISOString()}`);
-
     // Get all running tasks
     const runningTasks = await ctx.runQuery(internal.taskCrons.getRunningTasks);
-
-    console.log(`[task-timeout-worker] Found ${runningTasks.length} running tasks`);
+    if (runningTasks.length === 0) return { timed_out_count: 0, timeout_minutes: timeoutMinutes };
 
     // Filter to tasks that have exceeded the timeout
     const stuckTasks = runningTasks.filter((task: any) => {
@@ -45,7 +41,7 @@ export const timeoutStuckTasks = internalAction({
       return startedAt < cutoffTime;
     });
 
-    console.log(`[task-timeout-worker] Found ${stuckTasks.length} stuck tasks to timeout`);
+    if (stuckTasks.length === 0) return { timed_out_count: 0, timeout_minutes: timeoutMinutes };
 
     // Mark each stuck task as errored
     let timedOutCount = 0;
@@ -68,7 +64,7 @@ export const timeoutStuckTasks = internalAction({
       }
     }
 
-    console.log(`[task-timeout-worker] Successfully timed out ${timedOutCount} tasks`);
+    console.log(`[task-timeout-worker] Timed out ${timedOutCount} task(s)`);
 
     return {
       timed_out_count: timedOutCount,

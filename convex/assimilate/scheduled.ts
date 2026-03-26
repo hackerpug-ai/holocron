@@ -680,8 +680,6 @@ export const synthesizeAndSave = internalAction({
 export const timeoutStuckSessions = internalAction({
   args: {},
   handler: async (ctx) => {
-    console.log(`[timeoutStuckSessions] Entry`);
-
     const activeStatuses = [
       "planning",
       "in_progress",
@@ -703,9 +701,7 @@ export const timeoutStuckSessions = internalAction({
       )
     ).flat();
 
-    console.log(
-      `[timeoutStuckSessions] Found ${allActiveSessions.length} active sessions`
-    );
+    if (allActiveSessions.length === 0) return;
 
     let timedOutCount = 0;
 
@@ -728,8 +724,10 @@ export const timeoutStuckSessions = internalAction({
       }
     }
 
-    console.log(
-      `[timeoutStuckSessions] Exit — timed out ${timedOutCount} sessions`
-    );
+    if (timedOutCount > 0) {
+      console.log(
+        `[timeoutStuckSessions] Timed out ${timedOutCount} session(s)`
+      );
+    }
   },
 });
