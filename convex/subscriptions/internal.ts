@@ -1150,6 +1150,23 @@ async function processSingleSource(
       embedding: embeddings[i],
     });
     if (item.passedFilter) queued++;
+
+    // TR-006: Create transcript job for YouTube videos (fire-and-forget)
+    if (source.sourceType === 'youtube') {
+      try {
+        const result = await ctx.runMutation(internal.transcripts.mutations.createTranscriptJob, {
+          contentId: item.contentId,
+          sourceUrl: item.url,
+          priority: 5, // Medium priority
+        });
+        if (result.created) {
+          console.log(`[TR-006] Created transcript job for YouTube video ${item.contentId}`);
+        }
+      } catch (error) {
+        // Don't block video discovery if transcript job creation fails
+        console.error(`[TR-006] Failed to create transcript job for ${item.contentId}:`, error);
+      }
+    }
   }
 
   // Update last_checked timestamp
