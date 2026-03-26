@@ -623,7 +623,7 @@ export default defineSchema({
   videoTranscripts: defineTable({
     contentId: v.string(), // YouTube video ID
     sourceUrl: v.string(), // YouTube video URL
-    transcriptType: v.union(v.literal("api"), v.literal("generated"), v.literal("jina_fallback")),
+    transcriptType: v.union(v.literal("api"), v.literal("generated"), v.literal("node_fallback"), v.literal("jina_fallback")),
     transcriptSource: v.string(), // youtube_api, jina_reader_api
     storageId: v.id("_storage"), // Full transcript in file storage
     previewText: v.string(), // First 500 chars for search/display

@@ -140,7 +140,7 @@ export const storeTranscript = internalMutation({
     transcript: v.object({
       contentId: v.string(),
       sourceUrl: v.string(),
-      transcriptType: v.union(v.literal("api"), v.literal("jina_fallback")),
+      transcriptType: v.union(v.literal("api"), v.literal("node_fallback"), v.literal("jina_fallback")),
       transcriptSource: v.string(),
       storageId: v.id("_storage"),
       previewText: v.string(),

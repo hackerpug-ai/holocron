@@ -39,7 +39,7 @@ export const fetchTranscriptWithFallback = internalAction({
     transcript?: {
       contentId: string;
       sourceUrl: string;
-      transcriptType: "api" | "jina_fallback";
+      transcriptType: "api" | "node_fallback" | "jina_fallback";
       transcriptSource: string;
       storageId: Id<"_storage">;
       previewText: string;

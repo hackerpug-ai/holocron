@@ -12,6 +12,7 @@ import { internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
+import { fetchNodeTranscript } from "./nodeTranscript";
 
 /**
  * "use node" directive - runs in Node.js environment (not V8 isolate)
@@ -55,7 +56,7 @@ const jinaRateLimiter = new YouTubeRateLimiter(2000); // 2 seconds minimum betwe
 interface TranscriptMetadata {
   contentId: string;
   sourceUrl: string;
-  transcriptType: "api" | "jina_fallback";
+  transcriptType: "api" | "node_fallback" | "jina_fallback";
   transcriptSource: string;
   storageId: Id<"_storage">;
   previewText: string;
@@ -215,10 +216,37 @@ export const fetchYouTubeTranscript = internalAction({
         }
       }
 
-      // Step 4: If both YouTube methods fail, fall back to Jina Reader
+      // Step 4: If both YouTube methods fail, try Node.js youtube-transcript package
       if (!transcriptText) {
-        console.log(`[YouTube] Both OAuth2 and API key failed, trying Jina Reader fallback`);
+        console.log(`[YouTube] Both OAuth2 and API key failed, trying Node.js youtube-transcript fallback`);
 
+        const nodeResult = await fetchNodeTranscript(args.contentId);
+
+        if (nodeResult.success && nodeResult.transcript) {
+          console.log(`[YouTube] ✅ Node.js youtube-transcript fallback succeeded`);
+          const blob = new Blob([nodeResult.transcript], { type: "text/plain" });
+          const storageId = await ctx.storage.store(blob);
+          const previewText = nodeResult.transcript.slice(0, 500);
+          const wordCount = nodeResult.metadata?.wordCount || nodeResult.transcript.split(/\s+/).filter(w => w.length > 0).length;
+
+          return {
+            hasCaptions: true,
+            transcript: {
+              contentId: args.contentId,
+              sourceUrl: `https://www.youtube.com/watch?v=${args.contentId}`,
+              transcriptType: "node_fallback" as const,
+              transcriptSource: "youtube_transcript_nodejs",
+              storageId,
+              previewText,
+              wordCount,
+              generatedAt: Date.now(),
+            },
+          };
+        }
+
+        console.log(`[YouTube] Node.js youtube-transcript failed, trying Jina Reader as final fallback`);
+
+        // Step 5: If Node.js method also fails, fall back to Jina Reader
         const jinaResult = await ctx.runAction(
           internal.transcripts.internal.fetchJinaTranscript,
           { contentId: args.contentId }
@@ -234,7 +262,7 @@ export const fetchYouTubeTranscript = internalAction({
 
         return {
           hasCaptions: false,
-          error: "Failed to download transcript via YouTube API (OAuth2/API key) or Jina Reader",
+          error: "Failed to download transcript via YouTube API (OAuth2/API key), Node.js youtube-transcript, or Jina Reader",
         };
       }
 

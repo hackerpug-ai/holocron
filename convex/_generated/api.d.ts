@@ -131,6 +131,7 @@ import type * as toolbelt_storage from "../toolbelt/storage.js";
 import type * as transcripts_index from "../transcripts/index.js";
 import type * as transcripts_internal from "../transcripts/internal.js";
 import type * as transcripts_mutations from "../transcripts/mutations.js";
+import type * as transcripts_nodeTranscript from "../transcripts/nodeTranscript.js";
 import type * as transcripts_oauth from "../transcripts/oauth.js";
 import type * as transcripts_queries from "../transcripts/queries.js";
 import type * as transcripts_scheduled from "../transcripts/scheduled.js";
@@ -273,6 +274,7 @@ declare const fullApi: ApiFromModules<{
   "transcripts/index": typeof transcripts_index;
   "transcripts/internal": typeof transcripts_internal;
   "transcripts/mutations": typeof transcripts_mutations;
+  "transcripts/nodeTranscript": typeof transcripts_nodeTranscript;
   "transcripts/oauth": typeof transcripts_oauth;
   "transcripts/queries": typeof transcripts_queries;
   "transcripts/scheduled": typeof transcripts_scheduled;
