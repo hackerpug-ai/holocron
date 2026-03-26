@@ -118,6 +118,10 @@ function CustomDrawerContent() {
     router.push('/toolbelt')
   }
 
+  const handleSubscriptionsPress = () => {
+    router.push('/subscriptions')
+  }
+
   const handleSettingsPress = () => {
     router.push('/settings')
   }
@@ -144,6 +148,7 @@ function CustomDrawerContent() {
       onConversationPress={handleConversationPress}
       onConversationDelete={handleConversationDelete}
       onArticlesPress={handleArticlesPress}
+      onSubscriptionsPress={handleSubscriptionsPress}
       onToolbeltPress={handleToolbeltPress}
       onSettingsPress={handleSettingsPress}
       onRetry={() => {}}
@@ -249,6 +254,14 @@ export default function DrawerLayout() {
         <Drawer.Screen
           name="toolbelt"
           options={{ headerShown: false, title: 'Toolbelt' }}
+        />
+        <Drawer.Screen
+          name="subscriptions"
+          options={{ headerShown: false, title: 'Subscriptions' }}
+        />
+        <Drawer.Screen
+          name="settings"
+          options={{ headerShown: false, title: 'Settings' }}
         />
       </Drawer>
     </SafeAreaView>
