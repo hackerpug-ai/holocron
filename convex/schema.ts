@@ -756,4 +756,52 @@ export default defineSchema({
   })
     .index("by_token", ["token"])
     .index("by_profile", ["creatorProfileId"]),
+
+  // Feed items - Aggregated content grouped by creator
+  feedItems: defineTable({
+    // Grouping key - creator handle or "unlinked-{hash}"
+    groupKey: v.string(),
+    // Display fields
+    title: v.string(),
+    summary: v.optional(v.string()),
+    // Content type union
+    contentType: v.union(
+      v.literal("video"),
+      v.literal("blog"),
+      v.literal("social")
+    ),
+    // Aggregation metadata
+    itemCount: v.number(), // Number of items in this group
+    itemIds: v.array(v.id("subscriptionContent")), // Linked content items
+    // Creator relationship (optional - may be unlinked)
+    creatorProfileId: v.optional(v.id("creatorProfiles")),
+    subscriptionIds: v.array(v.id("subscriptionSources")), // Source subscriptions
+    // Media
+    thumbnailUrl: v.optional(v.string()),
+    // View tracking
+    viewed: v.boolean(),
+    viewedAt: v.optional(v.number()),
+    // Timestamps
+    publishedAt: v.number(), // Earliest publishedAt in group
+    discoveredAt: v.number(), // When this feed item was created
+    createdAt: v.number(),
+  })
+    .index("by_groupKey", ["groupKey"])
+    .index("by_viewed", ["viewed", "discoveredAt"])
+    .index("by_created", ["createdAt"])
+    .index("by_creator", ["creatorProfileId"]),
+
+  // Feed sessions - Track user reading sessions
+  feedSessions: defineTable({
+    // Session timing
+    startTime: v.number(),
+    endTime: v.optional(v.number()),
+    // Engagement metrics
+    itemsViewed: v.number(), // Items marked as viewed
+    itemsConsumed: v.number(), // Items opened/consumed
+    // Source tracking
+    sessionSource: v.optional(v.string()), // "push", "direct", "cron_notification"
+  })
+    .index("by_start", ["startTime"])
+    .index("by_period", ["startTime", "endTime"]),
 });
