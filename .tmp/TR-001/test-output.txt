@@ -1,0 +1,12 @@
+0
+$ vitest run
+
+[1m[46m RUN [49m[22m [36mv4.1.0 [39m[90m/Users/justinrich/Projects/holocron[39m
+
+
+[2m Test Files [22m [1m[32m21 passed[39m[22m[90m (21)[39m
+[2m      Tests [22m [1m[32m200 passed[39m[22m[90m (200)[39m
+[2m   Start at [22m 09:05:47
+[2m   Duration [22m 323ms[2m (transform 1.11s, setup 0ms, import 891ms, tests 989ms, environment 1ms)[22m
+
+Exit code: 0

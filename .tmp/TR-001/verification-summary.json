@@ -1,0 +1,31 @@
+{
+  "task_id": "TR-001",
+  "timestamp": "2025-03-26T09:05:43Z",
+  "commit_sha": "5fa336d4763e88d1ed4505c5b739e22a7620dbf6",
+  "base_sha": "6175e439356bb01bb9d44ff946ebf32811738766",
+  "tests": {
+    "exit_code": 0,
+    "passed": 200,
+    "failed": 0,
+    "test_files": 21
+  },
+  "typecheck": {
+    "exit_code": 0
+  },
+  "lint": {
+    "exit_code": 0,
+    "warnings": 0
+  },
+  "pre_existing_issues": false,
+  "acceptance_criteria_verified": [
+    "Schema changes made and committed",
+    "TypeScript compilation passes",
+    "All tests pass (200 tests)",
+    "Linting passes with no warnings",
+    "videoTranscripts table with hybrid storage pattern (storageId + previewText)",
+    "transcriptJobs table with job queue pattern",
+    "All required indexes created: by_content_id, by_source_url, by_status, by_content, by_priority",
+    "Status field with exact literals: pending, downloading, transcribing, completed, failed, no_captions",
+    "Pattern matches audioSegments hybrid storage approach"
+  ]
+}

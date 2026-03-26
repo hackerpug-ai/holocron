@@ -118,6 +118,8 @@ import type * as toolbelt_mutations from "../toolbelt/mutations.js";
 import type * as toolbelt_queries from "../toolbelt/queries.js";
 import type * as toolbelt_search from "../toolbelt/search.js";
 import type * as toolbelt_storage from "../toolbelt/storage.js";
+import type * as transcripts_mutations from "../transcripts/mutations.js";
+import type * as transcripts_queries from "../transcripts/queries.js";
 import type * as whatsNew from "../whatsNew.js";
 import type * as whatsNew_actions from "../whatsNew/actions.js";
 import type * as whatsNew_index from "../whatsNew/index.js";
@@ -243,6 +245,8 @@ declare const fullApi: ApiFromModules<{
   "toolbelt/queries": typeof toolbelt_queries;
   "toolbelt/search": typeof toolbelt_search;
   "toolbelt/storage": typeof toolbelt_storage;
+  "transcripts/mutations": typeof transcripts_mutations;
+  "transcripts/queries": typeof transcripts_queries;
   whatsNew: typeof whatsNew;
   "whatsNew/actions": typeof whatsNew_actions;
   "whatsNew/index": typeof whatsNew_index;
