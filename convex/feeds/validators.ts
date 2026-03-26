@@ -57,6 +57,7 @@ export const getUnviewedCountArgs = {
 };
 
 export const getDigestSummaryArgs = {
+  since: v.optional(v.number()),
   limit: v.optional(v.number()),
 };
 

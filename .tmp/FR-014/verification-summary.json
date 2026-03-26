@@ -1,0 +1,55 @@
+{
+  "task_id": "FR-014",
+  "task_title": "Create getDigestSummary query",
+  "status": "completed",
+  "base_sha": "a33031437b5ba125ca88e8fa5b82d6be37c80d4d",
+  "commit_sha": "634f903e7de416456097005324ea94248ce4d03e",
+  "implementation_notes": "getDigestSummary query was already implemented in FR-011 commit d1375f0",
+  "verification_gates": {
+    "gate_1_query_exported": "PASS",
+    "gate_2_typecheck": "PASS",
+    "gate_3_since_parameter": "PASS",
+    "gate_4_counts_structure": "PASS",
+    "gate_5_sample_items": "PASS",
+    "gate_6_summary_generation": "PASS",
+    "gate_7_index_usage": "PASS",
+    "gate_8_default_24h": "PASS"
+  },
+  "acceptance_criteria": {
+    "AC-1": "PASS: getDigestSummary query exported from convex/feeds/queries.ts",
+    "AC-2": "PASS: Query accepts optional since parameter",
+    "AC-3": "PASS: Query returns counts by contentType (video, blog, social)",
+    "AC-4": "PASS: Query includes sample items (up to 3 unviewed)",
+    "AC-5": "PASS: Query generates human-readable summary text",
+    "AC-6": "PASS: Query uses 24-hour default window",
+    "AC-7": "PASS: Query uses by_created index",
+    "AC-8": "PASS: Type check passes with zero errors"
+  },
+  "files_modified": [
+    "convex/feeds/queries.ts",
+    "convex/feeds/validators.ts",
+    "tests/convex/feeds/FR-014-getDigestSummary.test.ts",
+    "tests/convex/feeds/FR-012-queries.test.ts"
+  ],
+  "test_results": {
+    "test_files": "33 passed",
+    "test_cases": "302 passed",
+    "fr_014_tests": "9 passed"
+  },
+  "implementation_details": {
+    "function": "getDigestSummary",
+    "args": {
+      "since": "optional number - Timestamp to filter from",
+      "limit": "optional number - Max items to analyze (default 100)"
+    },
+    "return_structure": {
+      "counts": "Object with video/blog/social/total/unviewed counts",
+      "sampleItems": "Array of up to 3 unviewed feed items",
+      "summary": "Natural language summary text",
+      "timestamp": "Current timestamp"
+    },
+    "default_window": "24 hours (86400000 ms)",
+    "index_used": "by_created",
+    "sample_count": "3 items"
+  }
+}
