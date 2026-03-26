@@ -6,6 +6,7 @@
 import { internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { v } from "convex/values";
+import type { Id } from "../_generated/dataModel";
 
 /**
  * "use node" directive - runs in Node.js environment (not V8 isolate)
@@ -40,7 +41,7 @@ export const fetchTranscriptWithFallback = internalAction({
       sourceUrl: string;
       transcriptType: "api" | "jina_fallback";
       transcriptSource: string;
-      storageId: string;
+      storageId: Id<"_storage">;
       previewText: string;
       wordCount: number;
       generatedAt: number;
@@ -64,7 +65,7 @@ export const fetchTranscriptWithFallback = internalAction({
     }
 
     // YouTube API failed or no captions, try Jina Reader (fallback)
-    const youtubeError = youtubeResult.error;
+    const youtubeError = 'error' in youtubeResult ? youtubeResult.error : undefined;
     if (youtubeError) {
       console.log(`YouTube API failed for ${args.contentId}: ${youtubeError}, trying Jina Reader`);
     } else {

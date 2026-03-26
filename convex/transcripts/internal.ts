@@ -6,12 +6,58 @@
 
 import { internalAction } from "../_generated/server";
 import { v } from "convex/values";
+import type { Id } from "../_generated/dataModel";
 
 /**
  * "use node" directive - runs in Node.js environment (not V8 isolate)
  * Required for calling external APIs (YouTube Data API v3, Jina Reader)
  */
 "use node";
+
+/**
+ * Transcript metadata returned from fetch actions
+ */
+interface TranscriptMetadata {
+  contentId: string;
+  sourceUrl: string;
+  transcriptType: "api" | "jina_fallback";
+  transcriptSource: string;
+  storageId: Id<"_storage">;
+  previewText: string;
+  wordCount: number;
+  generatedAt: number;
+}
+
+// YouTube API fetch results (uses hasCaptions)
+interface FetchSuccessResult {
+  hasCaptions: true;
+  transcript: TranscriptMetadata;
+}
+
+interface FetchNoCaptionsResult {
+  hasCaptions: false;
+  transcript: null;
+}
+
+interface FetchErrorResult {
+  hasCaptions: false;
+  error: string;
+}
+
+type FetchTranscriptResult = FetchSuccessResult | FetchNoCaptionsResult | FetchErrorResult;
+
+// Jina Reader fetch results (uses hasTranscript)
+interface JinaFetchSuccessResult {
+  hasTranscript: true;
+  transcript: TranscriptMetadata;
+}
+
+interface JinaFetchErrorResult {
+  hasTranscript: false;
+  error: string;
+}
+
+type JinaFetchTranscriptResult = JinaFetchSuccessResult | JinaFetchErrorResult;
 
 /**
  * Fetch transcript for a YouTube video via YouTube Data API v3
@@ -31,7 +77,7 @@ export const fetchYouTubeTranscript = internalAction({
   args: {
     contentId: v.string(), // YouTube video ID
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<FetchTranscriptResult> => {
     const apiKey = process.env.YOUTUBE_API_KEY;
     if (!apiKey) {
       console.warn("YOUTUBE_API_KEY not set, cannot fetch transcript");
@@ -167,7 +213,7 @@ export const fetchJinaTranscript = internalAction({
   args: {
     contentId: v.string(), // YouTube video ID
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<JinaFetchTranscriptResult> => {
     const url = `https://www.youtube.com/watch?v=${args.contentId}`;
 
     try {
