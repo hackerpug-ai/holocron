@@ -57,6 +57,7 @@ import type * as documents_queries from "../documents/queries.js";
 import type * as documents_scheduled from "../documents/scheduled.js";
 import type * as documents_search from "../documents/search.js";
 import type * as documents_storage from "../documents/storage.js";
+import type * as feeds_index from "../feeds/index.js";
 import type * as feeds_validators from "../feeds/validators.js";
 import type * as http from "../http.js";
 import type * as lib_ai_embeddings_provider from "../lib/ai/embeddings_provider.js";
@@ -188,6 +189,7 @@ declare const fullApi: ApiFromModules<{
   "documents/scheduled": typeof documents_scheduled;
   "documents/search": typeof documents_search;
   "documents/storage": typeof documents_storage;
+  "feeds/index": typeof feeds_index;
   "feeds/validators": typeof feeds_validators;
   http: typeof http;
   "lib/ai/embeddings_provider": typeof lib_ai_embeddings_provider;
