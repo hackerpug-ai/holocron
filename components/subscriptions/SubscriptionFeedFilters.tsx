@@ -1,5 +1,6 @@
 import { ScrollView, StyleSheet, View } from 'react-native'
 import { FilterChip } from '@/components/FilterChip'
+import { useTheme } from '@/hooks/use-theme'
 
 export type FilterType = 'all' | 'video' | 'blog' | 'social'
 
@@ -38,17 +39,29 @@ export function SubscriptionFeedFilters({
   counts,
   testID = 'feed-filters',
 }: SubscriptionFeedFiltersProps) {
+  const { spacing, colors } = useTheme()
+
   const optionsWithCounts = FILTER_OPTIONS.map((opt) => ({
     ...opt,
     count: counts[opt.type],
   }))
 
   return (
-    <View style={styles.container} testID={testID}>
+    <View
+      style={[
+        styles.container,
+        {
+          paddingVertical: spacing.md,
+          paddingHorizontal: spacing.lg,
+          borderBottomColor: colors.border,
+        },
+      ]}
+      testID={testID}
+    >
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { gap: spacing.sm }]}
         testID={`${testID}-scroll`}
       >
         {optionsWithCounts.map(({ type, label, count }) => (
@@ -67,12 +80,9 @@ export function SubscriptionFeedFilters({
 
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0, 0, 0, 0.05)',
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   scrollContent: {
-    gap: 8,
+    gap: 0,
   },
 })

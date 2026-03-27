@@ -123,7 +123,8 @@ function VideoFeedCard({
             style={[
               styles.durationBadge,
               {
-                backgroundColor: 'rgba(0, 0, 0, 0.75)',
+                backgroundColor: colors.overlay,
+                opacity: 0.75,
                 padding: spacing.xs,
                 borderRadius: radius.sm,
               },
