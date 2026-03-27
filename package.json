@@ -9,7 +9,6 @@
     "dev": "expo start --dev-client --ios",
     "dev:android": "expo start --dev-client --android",
     "build:ios": "expo run:ios",
-    "deploy:local": "expo run:ios --device --configuration Release",
     "build:android": "expo run:android",
     "clean:ios": "rm -rf ios/build && rm -rf ~/Library/Developer/Xcode/DerivedData/holocron-*",
     "prebuild": "expo prebuild",
@@ -25,9 +24,9 @@
     "deploy:ios": "pnpm exec eas build --platform ios --profile production --auto-submit",
     "deploy:android": "pnpm exec eas build --platform android --profile production",
     "validate": "npx tsx scripts/validate-migration.ts",
-    "storybook": "STORYBOOK_ENABLED=true EXPO_PUBLIC_STORYBOOK_ENABLED=true expo start --dev-client --clear",
-    "storybook:ios": "STORYBOOK_ENABLED=true EXPO_PUBLIC_STORYBOOK_ENABLED=true expo start --dev-client --ios --clear",
-    "storybook:android": "STORYBOOK_ENABLED=true EXPO_PUBLIC_STORYBOOK_ENABLED=true expo start --dev-client --android --clear",
+    "start:storybook": "STORYBOOK_ENABLED=true EXPO_PUBLIC_STORYBOOK_ENABLED=true expo start --dev-client --clear",
+    "start:storybook:ios": "STORYBOOK_ENABLED=true EXPO_PUBLIC_STORYBOOK_ENABLED=true expo start --dev-client --ios --clear",
+    "start:storybook:android": "STORYBOOK_ENABLED=true EXPO_PUBLIC_STORYBOOK_ENABLED=true expo start --dev-client --android --clear",
     "benchmark-search": "npx tsx scripts/benchmark-search.ts",
     "prepare": "husky"
   },
@@ -80,6 +79,7 @@
     "elevenlabs": "^1.59.0",
     "exa-js": "^2.7.0",
     "expo": "~55.0.5",
+    "expo-asset": "~55.0.10",
     "expo-audio": "~55.0.9",
     "expo-clipboard": "^55.0.9",
     "expo-constants": "~55.0.7",
@@ -117,8 +117,7 @@
     "tailwind-merge": "^3.5.0",
     "tailwindcss": "~3",
     "unified": "^11.0.5",
-    "unist-util-visit": "^5.1.0",
-    "youtube-transcript": "^1.3.0"
+    "unist-util-visit": "^5.1.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

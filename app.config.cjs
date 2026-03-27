@@ -13,7 +13,6 @@ module.exports = {
     orientation: 'portrait',
     icon: './assets/icon.png',
     userInterfaceStyle: 'automatic',
-    newArchEnabled: true,
     splash: {
       image: './assets/splash-icon.png',
       resizeMode: 'contain',
@@ -24,9 +23,11 @@ module.exports = {
       bundleIdentifier: 'com.holocron.app',
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
-      },
-      simulator: {
-        device: 'iPhone 15 Pro',
+        CFBundleURLTypes: [
+          {
+            CFBundleURLSchemes: ['holocron'],
+          },
+        ],
       },
     },
     android: {
@@ -37,6 +38,15 @@ module.exports = {
         monochromeImage: './assets/android-icon-monochrome.png',
       },
       package: 'com.holocron.app',
+      intentFilters: [
+        {
+          action: 'VIEW',
+          data: {
+            scheme: 'holocron',
+          },
+          category: ['BROWSABLE', 'DEFAULT'],
+        },
+      ],
     },
     web: {
       favicon: './assets/favicon.png',
@@ -47,6 +57,7 @@ module.exports = {
       'expo-sqlite',
       'expo-font',
       'expo-notifications',
+      'expo-asset',
       '@react-native-community/datetimepicker',
       [
         'expo-audio',
