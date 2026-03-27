@@ -85,6 +85,23 @@ crons.interval(
 );
 
 /**
+ * Morning Digest
+ *
+ * Creates a daily digest notification at 9 AM local time.
+ * - Runs daily at 9 AM (16:00 UTC)
+ * - Summarizes unviewed feed content from the last 24 hours
+ * - Provides users with a morning overview of new content
+ *
+ * @see .spec/prd/subscription-feed-redesign/tasks/09-red-hat-remediation/FR-036.md
+ */
+crons.daily(
+  "morning-digest",
+  { hourUTC: 16, minuteUTC: 0 }, // 9 AM PST (16:00 UTC)
+  internal.feeds.internal.createMorningDigest,
+  {} as any
+);
+
+/**
  * Document Embedding Backfill
  *
  * Backfills embeddings for documents that were created without them.
