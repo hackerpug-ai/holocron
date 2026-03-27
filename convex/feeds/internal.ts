@@ -109,7 +109,7 @@ export const getUnprocessedContent = internalQuery({
     // Note: This is not ideal but we don't have a by_discoveredAt index
     const allContent = await ctx.db
       .query("subscriptionContent")
-      .filter((q) => q.eq(q.field("inFeed"), false))
+      .filter((q) => q.neq(q.field("inFeed"), true))
       .collect();
 
     // Filter by discoveredAt in-memory

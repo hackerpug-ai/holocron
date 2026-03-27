@@ -1012,6 +1012,7 @@ export const insertContent = internalMutation({
       discoveredAt: now,
       researchedAt: undefined,
       embedding: args.embedding,
+      inFeed: false,
     });
 
     return id;
@@ -1338,6 +1339,11 @@ export const checkAllSubscriptions = internalAction({
 
     // Log performance metrics
     console.log(`[checkAllSubscriptions] Processed ${results.length} sources in ${durationMs}ms (${totalFetched} items fetched, ${totalQueued} queued)`);
+
+    // Trigger feed build immediately if new content was fetched
+    if (totalFetched > 0) {
+      await ctx.scheduler.runAfter(0, internal.feeds.internal.buildFeed, {});
+    }
 
     return {
       sourcesChecked: results.length,
