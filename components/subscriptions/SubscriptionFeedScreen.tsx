@@ -1,12 +1,26 @@
-import React from 'react'
-import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, View } from 'react-native'
-import { useAction, useQuery } from 'convex/react'
+/**
+ * SubscriptionFeedScreen - Display aggregated feed of subscription content
+ *
+ * Shows feed items with filtering by content type (video, blog, social).
+ * Includes settings modal for configuring feed preferences.
+ * Uses FlatList for performance with infinite scroll and pull-to-refresh.
+ */
+import React, { useState } from 'react'
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native'
+import { useRouter } from 'expo-router'
+import { useAction, useMutation, useQuery } from 'convex/react'
+import type { Doc } from '@/convex/_generated/dataModel'
+import { api } from '@/convex/_generated/api'
+import { Settings } from '@/components/ui/icons'
 import { Text } from '@/components/ui/text'
 import { Button } from '@/components/ui/button'
 import { useTheme } from '@/hooks/use-theme'
 import { useSubscriptionFeed } from '@/hooks/use-subscription-feed'
-import { api } from '@/convex/_generated/api'
-import type { Doc } from '@/convex/_generated/dataModel'
+import { useWebView } from '@/hooks/useWebView'
+import { SubscriptionFeedFilters } from '@/components/subscriptions/SubscriptionFeedFilters'
+import { SubscriptionSettingsModal } from '@/components/subscriptions/SubscriptionSettingsModal'
+import { WebViewSheet } from '@/components/webview/WebViewSheet'
+import type { FilterType } from '@/components/subscriptions/SubscriptionFeedFilters'
 
 interface SubscriptionFeedScreenProps {
   /** Content type filter - "mixed" shows all types (frontend concept) */
@@ -38,41 +52,39 @@ export function SubscriptionFeedScreen({
   testID = 'subscription-feed',
   renderItem,
 }: SubscriptionFeedScreenProps) {
-  const theme = useTheme()
+  const { colors, spacing, radius } = useTheme()
+  const router = useRouter()
+  const { webViewState, openUrl, closeWebView } = useWebView()
 
-  // StyleSheet with theme tokens (defined inside component to access theme)
-  const styles = StyleSheet.create({
-    listContent: {
-      flexGrow: 1,
-    },
-    emptyListContent: {
-      flexGrow: 1,
-    },
-    itemContainer: {
-      paddingVertical: theme.spacing.lg,
-      paddingHorizontal: theme.spacing.lg,
-      borderBottomWidth: 1,
-    },
-    emptyContainer: {
-      flex: 1,
-      paddingHorizontal: theme.spacing.xl,
-      paddingVertical: theme.spacing['2xl'],
-    },
-    emptyCentered: {
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    loadingContainer: {
-      paddingVertical: theme.spacing.lg,
-      paddingHorizontal: theme.spacing.lg,
-    },
+  // Filter state
+  const [selectedFilter, setSelectedFilter] = useState<FilterType>('all')
+  // Settings modal state
+  const [settingsVisible, setSettingsVisible] = useState(false)
+
+  // Mutation to fetch URL when opening a feed item
+  const openFeedItemMutation = useMutation(api.feeds.mutations.openFeedItem)
+
+  // Fetch digest summary for filter counts
+  const digest = useQuery(api.feeds.queries.getDigestSummary, {
+    limit: 1000, // Get all items for accurate counts
   })
+
+  // Calculate counts from digest summary
+  const counts = {
+    all: digest?.counts.total ?? 0,
+    video: digest?.counts.video ?? 0,
+    blog: digest?.counts.blog ?? 0,
+    social: digest?.counts.social ?? 0,
+  }
+
+  // Map filter type to contentType for query
+  const filterContentType = selectedFilter === 'all' ? undefined : selectedFilter
 
   // Don't pass contentType if it's not one of the supported values
   const safeContentType = contentType === 'mixed' ? undefined : contentType
   const { items, isLoading, hasMore } = useSubscriptionFeed({
     limit: 20,
-    contentType: safeContentType,
+    contentType: filterContentType ?? safeContentType,
     searchQuery,
   })
 
@@ -81,7 +93,7 @@ export function SubscriptionFeedScreen({
   const hasContent = useQuery(api.subscriptions.queries.hasAnyContent)
   const buildFeed = useAction(api.feeds.actions.buildFeed)
 
-  const [isBuildingFeed, setIsBuildingFeed] = React.useState(false)
+  const [isBuildingFeed, setIsBuildingFeed] = useState(false)
 
   const handleBuildFeed = async () => {
     setIsBuildingFeed(true)
@@ -89,6 +101,28 @@ export function SubscriptionFeedScreen({
       await buildFeed({})
     } finally {
       setIsBuildingFeed(false)
+    }
+  }
+
+  const handleSettingsPress = () => {
+    setSettingsVisible(true)
+  }
+
+  const handleManageSubscriptions = () => {
+    setSettingsVisible(false)
+    router.push('/subscriptions')
+  }
+
+  const handleItemPress = async (item: Doc<'feedItems'>) => {
+    try {
+      const url = await openFeedItemMutation({ feedItemId: item._id })
+      if (url) {
+        openUrl(url)
+      } else {
+        console.warn('[Feed] No URL available for item:', item._id)
+      }
+    } catch (error) {
+      console.error('[Feed] Failed to open item:', error)
     }
   }
 
@@ -107,6 +141,48 @@ export function SubscriptionFeedScreen({
     // The isLoading state will update automatically
   }
 
+  // StyleSheet with theme tokens (defined inside component to access theme)
+  const styles = StyleSheet.create({
+    listContent: {
+      flexGrow: 1,
+    },
+    emptyListContent: {
+      flexGrow: 1,
+    },
+    itemContainer: {
+      paddingVertical: spacing.lg,
+      paddingHorizontal: spacing.lg,
+      marginBottom: spacing.sm,
+      borderWidth: 1,
+    },
+    emptyContainer: {
+      flex: 1,
+      paddingHorizontal: spacing.xl,
+      paddingVertical: spacing['2xl'],
+    },
+    emptyCentered: {
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    loadingContainer: {
+      paddingVertical: spacing.lg,
+      paddingHorizontal: spacing.lg,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+    },
+    headerTitle: {
+      flex: 1,
+    },
+    settingsButton: {
+      padding: spacing.sm,
+    },
+  })
+
   // Default item renderer (simple text-based for now)
   const defaultRenderItem = ({ item }: { item: Doc<'feedItems'> }) => {
     if (renderItem) {
@@ -114,25 +190,64 @@ export function SubscriptionFeedScreen({
     }
 
     return (
-      <View
+      <Pressable
         testID={`${testID}-item-${item._id}`}
+        onPress={() => handleItemPress(item)}
         style={[
           styles.itemContainer,
-          { borderBottomColor: theme.colors.border }
+          {
+            backgroundColor: colors.muted,
+            borderColor: colors.border,
+            borderRadius: radius.lg,
+          }
         ]}
       >
-        <Text variant="h3">{item.title || 'Untitled'}</Text>
+        <Text variant="h4">{item.title || 'Untitled'}</Text>
         {item.summary && (
           <Text variant="p" className="text-muted-foreground mt-2">
             {item.summary}
           </Text>
         )}
         <Text variant="small" className="text-muted-foreground mt-2">
-          {new Date(item.createdAt).toLocaleDateString()}
+          {item.contentType} • {new Date(item.discoveredAt).toLocaleDateString()}
         </Text>
-      </View>
+      </Pressable>
     )
   }
+
+  // List header with settings button
+  const ListHeader = () => (
+    <>
+      {/* Header with settings button */}
+      <View
+        style={[
+          styles.header,
+          { borderBottomColor: colors.border }
+        ]}
+        testID={`${testID}-header`}
+      >
+        <Text variant="h3" style={styles.headerTitle}>
+          Subscription Feed
+        </Text>
+        <Pressable
+          onPress={handleSettingsPress}
+          style={styles.settingsButton}
+          className="active:opacity-70"
+          testID={`${testID}-settings-button`}
+        >
+          <Settings size={24} className="text-foreground" />
+        </Pressable>
+      </View>
+
+      {/* Filters */}
+      <SubscriptionFeedFilters
+        selectedFilter={selectedFilter}
+        onFilterChange={setSelectedFilter}
+        counts={counts}
+        testID={`${testID}-filters`}
+      />
+    </>
+  )
 
   // Empty state component
   // Distinguishes between "feed is building" (content exists but feed not yet
@@ -203,33 +318,52 @@ export function SubscriptionFeedScreen({
   const keyExtractor = (item: Doc<'feedItems'>) => item._id
 
   return (
-    <FlatList
-      testID={testID}
-      data={items}
-      renderItem={defaultRenderItem}
-      keyExtractor={keyExtractor}
-      onEndReached={loadMore}
-      onEndReachedThreshold={0.5}
-      refreshControl={
-        <RefreshControl
-          refreshing={isLoading}
-          onRefresh={handleRefresh}
-        />
-      }
-      ListEmptyComponent={EmptyState}
-      contentContainerStyle={[
-        styles.listContent,
-        !items.length && styles.emptyListContent,
-      ]}
-      ListFooterComponent={
-        isLoading && items.length > 0 ? (
-          <View style={styles.loadingContainer}>
-            <Text variant="small" className="text-muted-foreground text-center">
-              Loading more...
-            </Text>
-          </View>
-        ) : undefined
-      }
-    />
+    <>
+      <FlatList
+        testID={testID}
+        data={items}
+        renderItem={defaultRenderItem}
+        keyExtractor={keyExtractor}
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.5}
+        refreshControl={
+          <RefreshControl
+            refreshing={isLoading}
+            onRefresh={handleRefresh}
+          />
+        }
+        ListHeaderComponent={ListHeader}
+        ListEmptyComponent={EmptyState}
+        contentContainerStyle={[
+          styles.listContent,
+          !items.length && styles.emptyListContent,
+        ]}
+        ListFooterComponent={
+          isLoading && items.length > 0 ? (
+            <View style={styles.loadingContainer}>
+              <Text variant="small" className="text-muted-foreground text-center">
+                Loading more...
+              </Text>
+            </View>
+          ) : undefined
+        }
+      />
+
+      {/* Settings modal */}
+      <SubscriptionSettingsModal
+        visible={settingsVisible}
+        onDismiss={() => setSettingsVisible(false)}
+        onManageSubscriptions={handleManageSubscriptions}
+        testID={`${testID}-settings-modal`}
+      />
+
+      {/* WebViewSheet for feed item content */}
+      <WebViewSheet
+        visible={webViewState.visible}
+        url={webViewState.url}
+        onClose={closeWebView}
+        testID={`${testID}-webview`}
+      />
+    </>
   )
 }

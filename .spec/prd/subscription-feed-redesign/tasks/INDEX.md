@@ -15,6 +15,7 @@ This redesign is organized into **8 epics**, each delivering human-testable func
 6. **[EPIC-06: Feed Item Cards](06-feed-cards/)** - Multi-variant cards (video/blog/social)
 7. **[EPIC-07: Feed Navigation & Filters](07-navigation-filters/)** - Routing, settings modal, filter chips
 8. **[EPIC-08: Webview Integration](08-webview-integration/)** - Consistent WebViewSheet usage for all content
+9. **[EPIC-09: Red-Hat Remediation](09-red-hat-remediation/)** - Fix critical gaps from adversarial review
 
 ## Dependencies
 
@@ -26,6 +27,8 @@ EPIC-02 (Feed Building) → EPIC-03 (Feed Queries) → EPIC-04 (Feed Mutations)
 EPIC-05 (Feed Screen) ← EPIC-06 (Feed Cards) ← EPIC-07 (Navigation & Filters)
                                                     ↓
                                             EPIC-08 (Webview Integration)
+                                                    ↓
+                                            EPIC-09 (Red-Hat Remediation)
 ```
 
 ## Task Count Summary
@@ -40,7 +43,8 @@ EPIC-05 (Feed Screen) ← EPIC-06 (Feed Cards) ← EPIC-07 (Navigation & Filters
 | EPIC-06 | 4 | Feed card components |
 | EPIC-07 | 3 | Navigation + settings |
 | EPIC-08 | 1 | Webview consistency |
-| **Total** | **29** | Full feature delivery |
+| EPIC-09 | 8 | Red-hat remediation |
+| **Total** | **37** | Full feature delivery |
 
 ## Testing Strategy
 

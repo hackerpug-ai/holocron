@@ -193,37 +193,47 @@ export function MessageBubble({
       )}
       testID={testID}
     >
-      <View
-        className={cn(
-          'rounded-lg p-3',
-          isUser && 'bg-primary max-w-[75%]',
-          isSystem && 'bg-muted max-w-[80%]',
-          !isUser && !isSystem && 'bg-muted max-w-[75%]'
-        )}
-      >
-        {!isUser && !isSystem ? (
-          <View>
-            <MarkdownText
-              content={content}
-              onLinkPress={(url) => Linking.openURL(url)}
-              testID={`${testID}-markdown`}
-            />
-            {isStreaming && <StreamingCursor />}
-          </View>
-        ) : (
-          <View className={cn('flex-row flex-wrap items-end')}>
-            <Text
-              variant={isSystem ? 'small' : 'default'}
-              className={cn(
-                isUser && 'text-primary-foreground',
-                isSystem && 'text-muted-foreground',
-              )}
-            >
-              {content}
-            </Text>
-          </View>
-        )}
-      </View>
+      {/* User messages: Keep bubble style */}
+      {isUser ? (
+        <View
+          className={cn(
+            'rounded-lg p-3',
+            'bg-primary max-w-[75%]'
+          )}
+        >
+          <Text
+            variant="default"
+            className="text-primary-foreground"
+          >
+            {content}
+          </Text>
+        </View>
+      ) : isSystem ? (
+        /* System messages: Keep centered bubble style */
+        <View
+          className={cn(
+            'rounded-lg p-3',
+            'bg-muted max-w-[80%]'
+          )}
+        >
+          <Text
+            variant="small"
+            className="text-muted-foreground"
+          >
+            {content}
+          </Text>
+        </View>
+      ) : (
+        /* AI messages: Inline full-width text (no bubble) */
+        <View className="w-full">
+          <MarkdownText
+            content={content}
+            onLinkPress={(url) => Linking.openURL(url)}
+            testID={`${testID}-markdown`}
+          />
+          {isStreaming && <StreamingCursor />}
+        </View>
+      )}
       {showTimestamp && createdAt && (
         <Text
           variant="small"
