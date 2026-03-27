@@ -1,7 +1,11 @@
-import { FlatList, RefreshControl, StyleSheet, View } from 'react-native'
+import React from 'react'
+import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, View } from 'react-native'
+import { useAction, useQuery } from 'convex/react'
 import { Text } from '@/components/ui/text'
+import { Button } from '@/components/ui/button'
 import { useTheme } from '@/hooks/use-theme'
 import { useSubscriptionFeed } from '@/hooks/use-subscription-feed'
+import { api } from '@/convex/_generated/api'
 import type { Doc } from '@/convex/_generated/dataModel'
 
 interface SubscriptionFeedScreenProps {
@@ -72,6 +76,22 @@ export function SubscriptionFeedScreen({
     searchQuery,
   })
 
+  // Detect whether subscriptionContent records exist even when feed is empty.
+  // This distinguishes "feed is building" from "no subscriptions added".
+  const hasContent = useQuery(api.subscriptions.queries.hasAnyContent)
+  const buildFeed = useAction(api.feeds.actions.buildFeed)
+
+  const [isBuildingFeed, setIsBuildingFeed] = React.useState(false)
+
+  const handleBuildFeed = async () => {
+    setIsBuildingFeed(true)
+    try {
+      await buildFeed({})
+    } finally {
+      setIsBuildingFeed(false)
+    }
+  }
+
   // Load more items when reaching end of list
   const loadMore = () => {
     // Note: Pagination logic will be added when feed queries support cursors
@@ -115,23 +135,69 @@ export function SubscriptionFeedScreen({
   }
 
   // Empty state component
-  const EmptyState = () => (
-    <View
-      testID={`${testID}-empty-state`}
-      style={[styles.emptyContainer, !items.length && styles.emptyCentered]}
-    >
-      <Text variant="h3" className="text-muted-foreground text-center mb-4">
-        {searchQuery
-          ? `No results for "${searchQuery}"`
-          : 'No content yet'}
-      </Text>
-      <Text variant="p" className="text-muted-foreground text-center">
-        {searchQuery
-          ? 'Try a different search term'
-          : 'Subscribe to sources to see their content here'}
-      </Text>
-    </View>
-  )
+  // Distinguishes between "feed is building" (content exists but feed not yet
+  // populated) and "no subscriptions added" (no content records at all).
+  const EmptyState = () => {
+    if (searchQuery) {
+      return (
+        <View
+          testID={`${testID}-empty-state`}
+          style={[styles.emptyContainer, styles.emptyCentered]}
+        >
+          <Text variant="h3" className="text-muted-foreground text-center mb-4">
+            {`No results for "${searchQuery}"`}
+          </Text>
+          <Text variant="p" className="text-muted-foreground text-center">
+            Try a different search term
+          </Text>
+        </View>
+      )
+    }
+
+    if (hasContent) {
+      // Content records exist but feedItems is empty — feed is still building
+      return (
+        <View
+          testID={`${testID}-empty-state-building`}
+          style={[styles.emptyContainer, styles.emptyCentered]}
+        >
+          <ActivityIndicator
+            testID={`${testID}-building-indicator`}
+            className="mb-4"
+          />
+          <Text variant="h3" className="text-muted-foreground text-center mb-2">
+            Feed is building...
+          </Text>
+          <Text variant="p" className="text-muted-foreground text-center mb-6">
+            Your subscription content is being processed. This may take a moment.
+          </Text>
+          <Button
+            testID={`${testID}-refresh-feed-button`}
+            variant="outline"
+            onPress={handleBuildFeed}
+            disabled={isBuildingFeed}
+          >
+            <Text>{isBuildingFeed ? 'Refreshing...' : 'Refresh feed'}</Text>
+          </Button>
+        </View>
+      )
+    }
+
+    // No content records at all — prompt user to add subscriptions
+    return (
+      <View
+        testID={`${testID}-empty-state`}
+        style={[styles.emptyContainer, styles.emptyCentered]}
+      >
+        <Text variant="h3" className="text-muted-foreground text-center mb-4">
+          No content yet
+        </Text>
+        <Text variant="p" className="text-muted-foreground text-center">
+          Subscribe to sources to see their content here
+        </Text>
+      </View>
+    )
+  }
 
   // Key extractor for FlatList
   const keyExtractor = (item: Doc<'feedItems'>) => item._id

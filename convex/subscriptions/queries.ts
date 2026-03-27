@@ -121,6 +121,20 @@ export const listContent = query({
 });
 
 /**
+ * Check whether any subscriptionContent records exist.
+ * Lightweight existence check used by the feed screen to determine
+ * whether the feed is still building vs. truly empty.
+ * Returns true if at least one content record exists.
+ */
+export const hasAnyContent = query({
+  args: {},
+  handler: async (ctx) => {
+    const first = await ctx.db.query("subscriptionContent").first();
+    return first !== null;
+  },
+});
+
+/**
  * Batch fetch all existing subscription content for duplicate checking.
  * Returns a map of sourceId -> Set of contentIds for O(1) lookups.
  * Used by checkAllSubscriptions to avoid per-item database queries.
