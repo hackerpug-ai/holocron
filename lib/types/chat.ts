@@ -297,6 +297,20 @@ export interface DocumentContextCardData {
   blockIndex?: number
 }
 
+// Document full card - complete document content display
+export interface DocumentFullCardData {
+  card_type: 'document_full'
+  document_id: string
+  title: string
+  category?: string
+  content: string
+  metadata?: {
+    date?: string
+    researchType?: string
+    createdAt?: number
+  }
+}
+
 // Discriminated union of all card data types
 // Also supports arrays of article cards for multiple search results
 export type CardData =
@@ -322,6 +336,7 @@ export type CardData =
   | ToolAddedCardData
   | DocumentSavedCardData
   | DocumentContextCardData
+  | DocumentFullCardData
   | AssimilationPlanCardData
   | AssimilationProgressCardData
   | AgentPlanCardData

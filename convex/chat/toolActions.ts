@@ -138,3 +138,74 @@ export const saveDocumentAsync = internalAction({
     }
   },
 });
+
+/**
+ * updateDocumentAsync
+ *
+ * Background action for update_document tool.
+ * Updates document and posts result card.
+ */
+export const updateDocumentAsync = internalAction({
+  args: {
+    conversationId: v.id("conversations"),
+    documentId: v.id("documents"),
+    title: v.optional(v.string()),
+    content: v.optional(v.string()),
+    category: v.optional(v.string()),
+  },
+  handler: async (ctx, { conversationId, documentId, title, content, category }) => {
+    try {
+      // Get current document data
+      const currentDoc = await ctx.runQuery(api.documents.queries.get, { id: documentId });
+      if (!currentDoc) {
+        throw new Error("Document not found");
+      }
+
+      // Build update object with only provided fields
+      const updates: any = {};
+      if (title !== undefined) updates.title = title;
+      if (content !== undefined) updates.content = content;
+      if (category !== undefined) updates.category = category;
+
+      // If content or title changed, use updateWithEmbedding to regenerate embedding
+      if (content !== undefined || title !== undefined) {
+        await ctx.runAction(api.documents.storage.updateWithEmbedding, {
+          id: documentId,
+          ...updates,
+        });
+      } else {
+        // Only category changed, use simple update
+        await ctx.runMutation(api.documents.mutations.update, {
+          id: documentId,
+          ...updates,
+        });
+      }
+
+      await ctx.runMutation(api.chatMessages.mutations.create, {
+        conversationId,
+        role: "agent" as const,
+        content: `Updated "${currentDoc.title}" in knowledge base`,
+        messageType: "result_card" as const,
+        cardData: {
+          card_type: "document_saved",
+          document_id: documentId,
+          title: title ?? currentDoc.title,
+          category: category ?? currentDoc.category,
+        },
+      });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+      console.error(`[updateDocumentAsync] ERROR:`, error);
+
+      await ctx.runMutation(api.chatMessages.mutations.create, {
+        conversationId,
+        role: "agent" as const,
+        content: `Failed to update document: ${errorMessage}`,
+        messageType: "error" as const,
+      });
+
+      throw error;
+    }
+  },
+});
