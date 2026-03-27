@@ -168,6 +168,7 @@ export const saveReport = mutation({
           researchStatus: "researched" as const,
           discoveredAt: finding.timestamp || now,
           researchedAt: now,
+          inFeed: false,
         });
       }
     }

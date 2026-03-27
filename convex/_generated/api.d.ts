@@ -70,6 +70,7 @@ import type * as lib_categories from "../lib/categories.js";
 import type * as lib_json from "../lib/json.js";
 import type * as lib_strings from "../lib/strings.js";
 import type * as migrations_backfill_chat_titles from "../migrations/backfill_chat_titles.js";
+import type * as migrations_backfill_infeed from "../migrations/backfill_infeed.js";
 import type * as migrations_backfill_missing_embeddings from "../migrations/backfill_missing_embeddings.js";
 import type * as migrations_backfill_research_documents from "../migrations/backfill_research_documents.js";
 import type * as migrations_reembed_documents_1024 from "../migrations/reembed_documents_1024.js";
@@ -213,6 +214,7 @@ declare const fullApi: ApiFromModules<{
   "lib/json": typeof lib_json;
   "lib/strings": typeof lib_strings;
   "migrations/backfill_chat_titles": typeof migrations_backfill_chat_titles;
+  "migrations/backfill_infeed": typeof migrations_backfill_infeed;
   "migrations/backfill_missing_embeddings": typeof migrations_backfill_missing_embeddings;
   "migrations/backfill_research_documents": typeof migrations_backfill_research_documents;
   "migrations/reembed_documents_1024": typeof migrations_reembed_documents_1024;

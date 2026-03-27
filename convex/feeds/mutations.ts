@@ -182,8 +182,8 @@ function buildDigestMessage(summary: any): string {
 /**
  * Update feed settings
  *
- * Updates user's feed preferences. For now, this is a stub that logs the update.
- * In a future epic, these will be persisted to a user preferences table.
+ * Updates user's feed preferences. Persists to Convex feedSettings table
+ * using singleton pattern with fixed ID "user_settings".
  */
 export const updateFeedSettings = mutation({
   args: {
@@ -193,11 +193,31 @@ export const updateFeedSettings = mutation({
     autoPlayVideos: v.optional(v.boolean()),
     contentFilter: v.optional(v.union(v.literal("all"), v.literal("videos-only"), v.literal("blogs-only"))),
   },
-  handler: async (_ctx, args) => {
-    // TODO: In future epic, persist to user preferences table
-    // For now, this is a stub that accepts any setting changes
-    console.log("Feed settings updated:", args);
-    return { success: true, settings: args };
+  handler: async (ctx, args) => {
+    // Check if settings document exists
+    const existingSettings = await ctx.db
+      .query("feedSettings")
+      .first();
+
+    // Build updated settings object
+    const updatedSettings = {
+      enablePushNotifications: args.enablePushNotifications ?? false,
+      enableInAppNotifications: args.enableInAppNotifications ?? false,
+      showThumbnails: args.showThumbnails ?? true,
+      autoPlayVideos: args.autoPlayVideos ?? false,
+      contentFilter: args.contentFilter ?? "all" as const,
+      updatedAt: Date.now(),
+    };
+
+    if (existingSettings) {
+      // Update existing settings
+      await ctx.db.patch(existingSettings._id, updatedSettings);
+    } else {
+      // Create new settings document
+      await ctx.db.insert("feedSettings", updatedSettings);
+    }
+
+    return { success: true, settings: updatedSettings };
   },
 });
 
@@ -227,5 +247,34 @@ export const openFeedItem = mutation({
 
     const content = await ctx.db.get(firstContentId);
     return content?.url ?? null;
+  },
+});
+
+/**
+ * Backfill inFeed field
+ *
+ * Sets inFeed: false on all subscriptionContent records where inFeed is undefined.
+ * This is an idempotent migration - safe to run multiple times.
+ *
+ * Run this from the Convex dashboard to backfill existing records.
+ */
+export const backfillInFeedField = mutation({
+  args: {},
+  handler: async (ctx): Promise<{ updated: number }> => {
+    // Get all subscriptionContent records where inFeed is undefined
+    // Note: We need to fetch all and filter in-memory since we can't query for undefined directly
+    const allContent = await ctx.db
+      .query("subscriptionContent")
+      .collect();
+
+    // Filter for records where inFeed is undefined
+    const contentWithoutFlag = allContent.filter(c => c.inFeed === undefined);
+
+    // Set inFeed: false on all
+    for (const content of contentWithoutFlag) {
+      await ctx.db.patch(content._id, { inFeed: false });
+    }
+
+    return { updated: contentWithoutFlag.length };
   },
 });

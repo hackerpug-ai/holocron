@@ -210,14 +210,29 @@ export const getDigestSummary = query({
  * Get feed settings for current user
  *
  * Returns user's feed preferences including notification settings,
- * display options, and content filter. For now, returns default settings.
- * In a future epic, these will be persisted to a user preferences table.
+ * display options, and content filter. Reads from Convex feedSettings table
+ * with fallback to sensible defaults if no settings exist.
  */
 export const getFeedSettings = query({
   args: {},
-  handler: async (_ctx, _args) => {
-    // TODO: In future epic, fetch from user preferences table
-    // For now, return default settings
+  handler: async (ctx, _args) => {
+    // Try to fetch existing settings
+    const settings = await ctx.db
+      .query("feedSettings")
+      .first();
+
+    // Return saved settings or defaults
+    if (settings) {
+      return {
+        enablePushNotifications: settings.enablePushNotifications,
+        enableInAppNotifications: settings.enableInAppNotifications,
+        showThumbnails: settings.showThumbnails,
+        autoPlayVideos: settings.autoPlayVideos,
+        contentFilter: settings.contentFilter,
+      };
+    }
+
+    // Return defaults if no settings saved yet
     return {
       enablePushNotifications: false,
       enableInAppNotifications: false,

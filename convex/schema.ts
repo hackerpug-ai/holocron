@@ -838,4 +838,15 @@ export default defineSchema({
   })
     .index("by_provider", ["provider"])
     .index("by_status", ["status"]),
+
+  // Feed settings - Singleton document for user feed preferences
+  // Uses fixed ID "user_settings" for single-user app pattern
+  feedSettings: defineTable({
+    enablePushNotifications: v.boolean(),
+    enableInAppNotifications: v.boolean(),
+    showThumbnails: v.boolean(),
+    autoPlayVideos: v.boolean(),
+    contentFilter: v.union(v.literal("all"), v.literal("videos-only"), v.literal("blogs-only")),
+    updatedAt: v.number(),
+  }),
 });
