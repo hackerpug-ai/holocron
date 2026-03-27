@@ -108,6 +108,7 @@ export default function DocumentRoute() {
   const paragraphOffsets = useRef<Map<number, number>>(new Map())
   const headingOffsets = useRef<Map<string, number>>(new Map())
   const generatingRef = useRef(false)
+  const skipDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [copiedToast, setCopiedToast] = useState(false)
 
   // Highlight-on-navigate: block index from query params
@@ -499,8 +500,16 @@ export default function DocumentRoute() {
             key={`narration-${narrationIndex}`}
             testID={`narration-block-${narrationIndex}`}
             onPress={() => {
-              narration.skipToParagraph(narrationIndex)
+              // Haptic fires immediately for a responsive feel
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+              // Debounce the actual skip to prevent overlapping player teardown/create cycles
+              if (skipDebounceRef.current !== null) {
+                clearTimeout(skipDebounceRef.current)
+              }
+              skipDebounceRef.current = setTimeout(() => {
+                skipDebounceRef.current = null
+                narration.skipToParagraph(narrationIndex)
+              }, 200)
             }}
             onLongPress={() => handleLongPressBlock(rootIndex)}
             onLayout={(e) => {
@@ -510,16 +519,9 @@ export default function DocumentRoute() {
               }
             }}
           >
-            <Animated.View
-              style={{
-                backgroundColor: isActive ? `${themeColors.primary}14` : 'transparent',
-                borderLeftWidth: isActive ? 2 : 0,
-                borderLeftColor: isActive ? themeColors.primary : 'transparent',
-                paddingLeft: isActive ? 8 : 0,
-              }}
-            >
+            <NarrationHighlightBlock isActive={isActive} primaryColor={themeColors.primary}>
               {child}
-            </Animated.View>
+            </NarrationHighlightBlock>
           </Pressable>
         )
       }
@@ -798,6 +800,42 @@ export default function DocumentRoute() {
         </View>
       )}
     </ScreenLayout>
+  )
+}
+
+/**
+ * Animated narration highlight wrapper.
+ * Smoothly transitions the active paragraph's background, border, and padding
+ * using withTiming instead of instant style swaps.
+ */
+function NarrationHighlightBlock({
+  children,
+  isActive,
+  primaryColor,
+}: {
+  children: React.ReactNode
+  isActive: boolean
+  primaryColor: string
+}) {
+  const activeValue = useSharedValue(isActive ? 1 : 0)
+
+  useEffect(() => {
+    activeValue.value = withTiming(isActive ? 1 : 0, { duration: 150 })
+  }, [isActive, activeValue])
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    backgroundColor: activeValue.value > 0
+      ? `${primaryColor}${Math.round(activeValue.value * 0x14).toString(16).padStart(2, '0')}`
+      : 'transparent',
+    borderLeftWidth: activeValue.value * 2,
+    borderLeftColor: primaryColor,
+    paddingLeft: activeValue.value * 8,
+  }))
+
+  return (
+    <Animated.View style={animatedStyle}>
+      {children}
+    </Animated.View>
   )
 }
 

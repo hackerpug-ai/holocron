@@ -71,6 +71,7 @@ export function useAudioPlayback(
 
   const playerRef = useRef<AudioPlayer | null>(null)
   const loadedIndexRef = useRef<number>(-1)
+  const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const [isLoading, setIsLoading] = useState(false)
 
@@ -131,6 +132,7 @@ export function useAudioPlayback(
     }
 
     const audioUrl = segment.audioUrl
+    const segmentDurationMs = segment.durationMs ?? null
 
     // Same segment already loaded: just play or pause without reloading
     if (loadedIndexRef.current === activeParagraphIndex && playerRef.current) {
@@ -193,6 +195,12 @@ export function useAudioPlayback(
             // Guard: only auto-advance if still on the segment this listener was created for
             if (narrationRef.current.state.activeParagraphIndex !== targetIndex) return
 
+            // Clear the fallback timer — didJustFinish already handled the advance
+            if (fallbackTimerRef.current !== null) {
+              clearTimeout(fallbackTimerRef.current)
+              fallbackTimerRef.current = null
+            }
+
             const { activeParagraphIndex: currentIndex, totalParagraphs } =
               narrationRef.current.state
 
@@ -209,6 +217,36 @@ export function useAudioPlayback(
         // Start playback once loaded if status is playing
         if (status === 'playing') {
           player.play()
+
+          // Set a safety-net fallback timer in case didJustFinish is never fired
+          // (e.g. due to an expo-audio bug or a race between player teardown and
+          // the status listener). The delay is the segment duration adjusted for
+          // playback speed, plus a 500 ms grace period.
+          if (segmentDurationMs) {
+            const fallbackDelayMs = segmentDurationMs / playbackSpeed + 500
+            if (fallbackTimerRef.current !== null) {
+              clearTimeout(fallbackTimerRef.current)
+            }
+            fallbackTimerRef.current = setTimeout(() => {
+              fallbackTimerRef.current = null
+
+              // Only act if we're still on the same paragraph and still playing
+              const current = narrationRef.current.state
+              if (current.activeParagraphIndex !== targetIndex) return
+              if (current.status !== 'playing') return
+
+              // Check whether the player appears to have stalled at the end
+              const currentPlayer = playerRef.current
+              if (!currentPlayer) return
+
+              const isLastSegment = current.activeParagraphIndex >= current.totalParagraphs - 1
+              if (isLastSegment) {
+                narrationRef.current.togglePlayPause()
+              } else {
+                narrationRef.current.skipNext()
+              }
+            }, fallbackDelayMs)
+          }
         }
       } catch {
         // Audio load failure is non-fatal; the UI reflects the current state
@@ -223,6 +261,11 @@ export function useAudioPlayback(
 
     return () => {
       cancelled = true
+      // Clear fallback timer when the effect re-runs (paragraph changed, user skipped, etc.)
+      if (fallbackTimerRef.current !== null) {
+        clearTimeout(fallbackTimerRef.current)
+        fallbackTimerRef.current = null
+      }
     }
   }, [narration.state.status, narration.state.activeParagraphIndex, segments])
 
