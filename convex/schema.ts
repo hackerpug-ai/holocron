@@ -239,13 +239,15 @@ export default defineSchema({
     fetchMethod: v.string(), // rss, api, web_search
     configJson: v.optional(v.any()),
     autoResearch: v.boolean(),
+    creatorProfileId: v.optional(v.id("creatorProfiles")), // Link to creator profile (for multi-platform aggregation)
     lastChecked: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index("by_type", ["sourceType"])
     .index("by_identifier", ["identifier"])
-    .index("by_auto_research", ["autoResearch"]),
+    .index("by_auto_research", ["autoResearch"])
+    .index("by_creator", ["creatorProfileId"]),
 
   subscriptionContent: defineTable({
     sourceId: v.id("subscriptionSources"),
