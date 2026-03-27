@@ -5,7 +5,7 @@
  * Includes settings modal for configuring feed preferences.
  * Uses FlatList for performance with infinite scroll and pull-to-refresh.
  */
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useAction, useMutation, useQuery } from 'convex/react'
@@ -83,7 +83,7 @@ export function SubscriptionFeedScreen({
 
   // Don't pass contentType if it's not one of the supported values
   const safeContentType = contentType === 'mixed' ? undefined : contentType
-  const { items, isLoading, hasMore } = useSubscriptionFeed({
+  const { items, isLoading, loadMore, reset } = useSubscriptionFeed({
     limit: 20,
     contentType: filterContentType ?? safeContentType,
     searchQuery,
@@ -128,19 +128,22 @@ export function SubscriptionFeedScreen({
   }
 
   // Load more items when reaching end of list
-  const loadMore = () => {
-    // Note: Pagination logic will be added when feed queries support cursors
-    // For now, hasMore indicates if more items could exist
-    if (hasMore && !isLoading) {
-      // TODO: pagination when feed queries support cursors
+  const handleLoadMore = () => {
+    if (!isLoading) {
+      loadMore()
     }
   }
 
   // Refetch data on pull-to-refresh
   const handleRefresh = () => {
-    // Convex useQuery automatically refetches when the component re-renders
-    // The isLoading state will update automatically
+    // Reset to initial limit and refetch
+    reset()
   }
+
+  // Reset feed when filters change
+  useEffect(() => {
+    reset()
+  }, [selectedFilter, searchQuery, reset])
 
   // StyleSheet with theme tokens (defined inside component to access theme)
   const styles = StyleSheet.create({
@@ -315,7 +318,7 @@ export function SubscriptionFeedScreen({
         data={items}
         renderItem={defaultRenderItem}
         keyExtractor={keyExtractor}
-        onEndReached={loadMore}
+        onEndReached={handleLoadMore}
         onEndReachedThreshold={0.5}
         refreshControl={
           <RefreshControl

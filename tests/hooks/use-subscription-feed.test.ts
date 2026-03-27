@@ -77,12 +77,14 @@ describe("FR-019: Create useSubscriptionFeed hook", () => {
 
     it("should pass limit to useQuery args", () => {
       const content = readHook();
-      expect(content).toMatch(/limit,\s*contentType:/);
+      // Updated for FR-032: Pagination uses currentLimit state variable
+      expect(content).toMatch(/limit:\s*currentLimit/);
     });
 
     it("should return hasMore indicator based on items length", () => {
       const content = readHook();
-      expect(content).toMatch(/hasMore:\s*\(filteredItems\?\.length\s*\?\?\s*0\)\s*>=\s*limit/);
+      // Updated for FR-032: hasMore is declared as const, not inline in return
+      expect(content).toMatch(/const hasMore = \(filteredItems\?\.length\s*\?\?\s*0\)\s*>=\s*limit/);
     });
   });
 
@@ -151,8 +153,9 @@ describe("FR-019: Create useSubscriptionFeed hook", () => {
 
     it("should return typed result object with all required fields", () => {
       const content = readHook();
-      // Should return object with items, isLoading, error, hasMore
-      expect(content).toMatch(/return\s*\{[\s\S]*items:[\s\S]*isLoading:[\s\S]*error:[\s\S]*hasMore:/);
+      // Should return object with items, isLoading, error, hasMore, loadMore, reset (FR-032 additions)
+      // Updated to match shorthand syntax: hasMore, loadMore, reset
+      expect(content).toMatch(/return\s*\{[\s\S]*items:[\s\S]*isLoading:[\s\S]*error:[\s\S]*hasMore/);
     });
 
     it("should provide empty array fallback for items", () => {

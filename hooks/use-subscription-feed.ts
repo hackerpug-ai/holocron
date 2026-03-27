@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Doc } from "@/convex/_generated/dataModel";
@@ -15,12 +16,15 @@ export function useSubscriptionFeed({
   viewed,
   searchQuery,
 }: UseSubscriptionFeedArgs) {
+  // Track current limit for pagination
+  const [currentLimit, setCurrentLimit] = useState(limit);
+
   // When contentType is "mixed" (frontend concept), don't filter
   const queryContentType = contentType;
 
   const feedItems = useQuery(
     api.feeds.queries.getFeed,
-    { limit, contentType: queryContentType, viewed }
+    { limit: currentLimit, contentType: queryContentType, viewed }
   );
 
   // Client-side search filtering
@@ -31,10 +35,27 @@ export function useSubscriptionFeed({
       )
     : feedItems;
 
+  // Determine if there are more items to load
+  const hasMore = (filteredItems?.length ?? 0) >= limit;
+
+  // Load more items by increasing the limit
+  const loadMore = () => {
+    if (hasMore) {
+      setCurrentLimit((prev) => prev + limit);
+    }
+  };
+
+  // Reset limit when filters change
+  const reset = () => {
+    setCurrentLimit(limit);
+  };
+
   return {
     items: filteredItems ?? [],
     isLoading: feedItems === undefined,
     error: null, // Convex useQuery doesn't expose errors directly; they're handled by error boundaries
-    hasMore: (filteredItems?.length ?? 0) >= limit,
+    hasMore,
+    loadMore,
+    reset,
   };
 }

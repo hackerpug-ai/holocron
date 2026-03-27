@@ -11,6 +11,8 @@
     "build:ios": "expo run:ios",
     "build:ios:device": "expo run:ios --device",
     "build:android": "expo run:android",
+    "build:ios:standalone": "bash scripts/prebuild-ios-release.sh",
+    "build:android:standalone": "bash scripts/prebuild-android-release.sh",
     "clean:ios": "rm -rf ios/build && rm -rf ~/Library/Developer/Xcode/DerivedData/holocron-*",
     "prebuild": "expo prebuild",
     "prebuild:clean": "expo prebuild --clean",

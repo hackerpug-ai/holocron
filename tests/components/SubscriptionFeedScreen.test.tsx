@@ -55,7 +55,9 @@ describe('SubscriptionFeedScreen - Component Structure', () => {
 
     it('should check hasMore before loading more', () => {
       const source = readComponent()
-      expect(source).toContain('hasMore')
+      // Updated for FR-032: hasMore is checked inside the hook's loadMore function
+      // Component calls loadMore which internally checks hasMore
+      expect(source).toContain('loadMore')
     })
   })
 
