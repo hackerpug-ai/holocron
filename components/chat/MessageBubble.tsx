@@ -1,4 +1,4 @@
-import { View, Pressable, Linking } from 'react-native'
+import { View, Pressable, Linking, ScrollView } from 'react-native'
 import { Text } from '@/components/ui/text'
 import { MarkdownText } from '@/components/markdown'
 import { cn } from '@/lib/utils'
@@ -400,7 +400,7 @@ function renderResultCard(
   }
 
   // Single card - cast through unknown to satisfy TypeScript discriminated union
-  const cardType = card_data.card_type as CardType | 'deep_research_loading' | 'deep_research_iteration' | 'deep_research_confirmation' | 'final_result' | 'assimilation' | 'assimilation_plan' | 'assimilation_progress' | 'shop_results' | 'shop_loading' | 'subscription_added' | 'subscription_list' | 'subscription_suggestion' | 'subscription_progress' | 'whats_new_report' | 'whats_new_loading' | 'tool_search_results' | 'tool_adding' | 'tool_added' | 'document_saved' | 'document_context'
+  const cardType = card_data.card_type as CardType | 'deep_research_loading' | 'deep_research_iteration' | 'deep_research_confirmation' | 'final_result' | 'assimilation' | 'assimilation_plan' | 'assimilation_progress' | 'shop_results' | 'shop_loading' | 'subscription_added' | 'subscription_list' | 'subscription_suggestion' | 'subscription_progress' | 'whats_new_report' | 'whats_new_loading' | 'tool_search_results' | 'tool_adding' | 'tool_added' | 'document_saved' | 'document_context' | 'document_full'
 
   // Handle shop results card
   if (cardType === 'shop_results') {
@@ -568,6 +568,39 @@ function renderResultCard(
         onDeleteFromChat={messageId ? () => onDeleteMessage?.(messageId) : undefined}
         testID={`${testID}-document-context`}
       />
+    )
+  }
+
+  // Handle document_full card
+  if (cardType === 'document_full') {
+    const docData = card_data as unknown as { document_id: string; title: string; category?: string; content: string; metadata?: { date?: string } }
+    return (
+      <Pressable
+        onPress={() => onCardPress?.(parseInt(docData.document_id, 10))}
+        className="active:opacity-80 w-full"
+        testID={`${testID}-document-full-pressable`}
+      >
+        <View className="bg-card border border-border rounded-lg p-4">
+          <Text className="text-lg font-semibold text-foreground mb-2">
+            {docData.title}
+          </Text>
+          {docData.category && (
+            <Text className="text-sm text-muted-foreground mb-2">
+              Category: {docData.category}
+            </Text>
+          )}
+          <ScrollView className="max-h-64">
+            <Text className="text-sm text-foreground">
+              {docData.content}
+            </Text>
+          </ScrollView>
+          {docData.metadata?.date && (
+            <Text className="text-xs text-muted-foreground mt-2">
+              Date: {docData.metadata.date}
+            </Text>
+          )}
+        </View>
+      </Pressable>
     )
   }
 
