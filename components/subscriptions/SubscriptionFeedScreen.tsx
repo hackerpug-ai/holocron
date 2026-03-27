@@ -77,13 +77,12 @@ export function SubscriptionFeedScreen({
     // Note: Pagination logic will be added when feed queries support cursors
     // For now, hasMore indicates if more items could exist
     if (hasMore && !isLoading) {
-      console.log('[SubscriptionFeedScreen] Load more triggered - pagination to be implemented')
+      // TODO: pagination when feed queries support cursors
     }
   }
 
   // Refetch data on pull-to-refresh
   const handleRefresh = () => {
-    console.log('[SubscriptionFeedScreen] Refresh triggered')
     // Convex useQuery automatically refetches when the component re-renders
     // The isLoading state will update automatically
   }

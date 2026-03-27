@@ -109,7 +109,7 @@ export function NotificationToastProvider({ children }: NotificationToastProvide
       // App is in background — expo-notifications is not installed.
       // To enable push notifications, install expo-notifications and replace
       // this block with Notifications.scheduleNotificationAsync({ ... }).
-      console.log('[NotificationToastProvider] App backgrounded — push notifications not configured')
+      // Push notifications not configured — no-op when backgrounded
     }
   }, [unread, markReadMutation])
 

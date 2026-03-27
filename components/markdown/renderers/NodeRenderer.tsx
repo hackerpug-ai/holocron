@@ -243,8 +243,6 @@ export const NodeRenderer = React.memo(
       case 'callout':
         return <CalloutRenderer node={node as any} testID={testID} />
       default:
-        // Handle unknown node types
-        console.warn('[NodeRenderer] Unknown node type:', node.type)
         return <View testID={testID}>{children}</View>
     }
   }

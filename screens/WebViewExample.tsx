@@ -167,8 +167,7 @@ export function SmartLinkHandler({ url }: { url: string }) {
       // Open documentation in WebView
       openUrl(url)
     } else {
-      // Could use Linking.openURL for external links
-      console.log('Open in external browser:', url)
+      // TODO: use Linking.openURL for external links
     }
   }
 

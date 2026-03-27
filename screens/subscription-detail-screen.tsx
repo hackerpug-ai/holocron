@@ -57,11 +57,9 @@ export function SubscriptionDetailScreen({
     setSearchValue('')
   }
 
-  const handleArticlePress = (documentId: string) => {
-    // Navigate to document detail view
-    // This would typically use router.push(`/document/${documentId}`)
-    // For now, we'll just log it
-    console.log('Navigate to document:', documentId)
+  const handleArticlePress = (_documentId: string) => {
+    // TODO: Navigate to document detail view
+    // router.push(`/document/${_documentId}`)
   }
 
   const renderEmptyState = () => {

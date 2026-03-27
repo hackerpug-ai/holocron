@@ -166,7 +166,6 @@ export default function ChatScreen() {
       conversation === null &&
       conversations !== undefined
     ) {
-      console.log('Conversation not found, redirecting to new')
       router.replace('/chat/new')
     }
   }, [conversationId, conversation, isNewConversation, conversations, router])
