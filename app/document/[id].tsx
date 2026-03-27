@@ -496,7 +496,7 @@ export default function DocumentRoute() {
         const isActive = narration.state.activeParagraphIndex === narrationIndex
         return (
           <Pressable
-            key={`narration-${narrationIndex}-${isActive}`}
+            key={`narration-${narrationIndex}`}
             testID={`narration-block-${narrationIndex}`}
             onPress={() => {
               narration.skipToParagraph(narrationIndex)
