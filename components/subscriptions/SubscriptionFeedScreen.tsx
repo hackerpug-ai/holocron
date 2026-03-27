@@ -18,6 +18,7 @@ import { useTheme } from '@/hooks/use-theme'
 import { useSubscriptionFeed } from '@/hooks/use-subscription-feed'
 import { useWebView } from '@/hooks/useWebView'
 import { SubscriptionFeedFilters } from '@/components/subscriptions/SubscriptionFeedFilters'
+import { SubscriptionFeedItem } from '@/components/subscriptions/SubscriptionFeedItem'
 import { SubscriptionSettingsModal } from '@/components/subscriptions/SubscriptionSettingsModal'
 import { WebViewSheet } from '@/components/webview/WebViewSheet'
 import type { FilterType } from '@/components/subscriptions/SubscriptionFeedFilters'
@@ -52,7 +53,7 @@ export function SubscriptionFeedScreen({
   testID = 'subscription-feed',
   renderItem,
 }: SubscriptionFeedScreenProps) {
-  const { colors, spacing, radius } = useTheme()
+  const { colors, spacing } = useTheme()
   const router = useRouter()
   const { webViewState, openUrl, closeWebView } = useWebView()
 
@@ -150,10 +151,7 @@ export function SubscriptionFeedScreen({
       flexGrow: 1,
     },
     itemContainer: {
-      paddingVertical: spacing.lg,
-      paddingHorizontal: spacing.lg,
-      marginBottom: spacing.sm,
-      borderWidth: 1,
+      paddingVertical: spacing.sm,
     },
     emptyContainer: {
       flex: 1,
@@ -183,35 +181,28 @@ export function SubscriptionFeedScreen({
     },
   })
 
-  // Default item renderer (simple text-based for now)
+  // Default item renderer using SubscriptionFeedItem card component
   const defaultRenderItem = ({ item }: { item: Doc<'feedItems'> }) => {
     if (renderItem) {
       return renderItem(item) as React.ReactElement
     }
 
     return (
-      <Pressable
-        testID={`${testID}-item-${item._id}`}
-        onPress={() => handleItemPress(item)}
-        style={[
-          styles.itemContainer,
-          {
-            backgroundColor: colors.muted,
-            borderColor: colors.border,
-            borderRadius: radius.lg,
-          }
-        ]}
-      >
-        <Text variant="h4">{item.title || 'Untitled'}</Text>
-        {item.summary && (
-          <Text variant="p" className="text-muted-foreground mt-2">
-            {item.summary}
-          </Text>
-        )}
-        <Text variant="small" className="text-muted-foreground mt-2">
-          {item.contentType} • {new Date(item.discoveredAt).toLocaleDateString()}
-        </Text>
-      </Pressable>
+      <View style={styles.itemContainer}>
+        <SubscriptionFeedItem
+          feedItemId={item._id}
+          groupKey={item.groupKey}
+          title={item.title}
+          summary={item.summary}
+          contentType={item.contentType}
+          itemCount={item.itemCount}
+          thumbnailUrl={item.thumbnailUrl}
+          viewed={item.viewed}
+          publishedAt={item.publishedAt}
+          onPress={() => handleItemPress(item)}
+          testID={`${testID}-item-${item._id}`}
+        />
+      </View>
     )
   }
 
