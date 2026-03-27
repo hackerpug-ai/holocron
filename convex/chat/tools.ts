@@ -277,6 +277,52 @@ const save_document = tool({
 });
 
 /**
+ * update_document - Update an existing document in the knowledge base
+ */
+const update_document = tool({
+  description:
+    "Update an existing document in the knowledge base. " +
+    "Use this when the user wants to modify the content of a previously saved document. " +
+    "Requires the document ID which can be found by searching the knowledge base first. " +
+    "You can update the title, content, and/or category. Any fields not provided will remain unchanged.",
+  inputSchema: z.object({
+    documentId: z
+      .string()
+      .describe(
+        "The ID of the document to update. Find this by using search_knowledge_base first, " +
+        "which returns document IDs in the results.",
+      ),
+    title: z
+      .string()
+      .optional()
+      .describe("New title for the document (optional, keeps existing if not provided)"),
+    content: z
+      .string()
+      .optional()
+      .describe("New content for the document (optional, keeps existing if not provided)"),
+    category: z
+      .string()
+      .optional()
+      .describe("New category for the document (optional, keeps existing if not provided)"),
+  }),
+});
+
+/**
+ * get_document - Get full document content by ID
+ */
+const get_document = tool({
+  description:
+    "Get the full content of a document by ID. " +
+    "Use this when you need to read the complete text of a document that was found in search results. " +
+    "Returns the title, content, category, and metadata.",
+  inputSchema: z.object({
+    documentId: z
+      .string()
+      .describe("The document ID to retrieve (from search_knowledge_base results)"),
+  }),
+});
+
+/**
  * create_plan - Create a multi-step execution plan
  */
 const create_plan = tool({
@@ -304,7 +350,7 @@ const create_plan = tool({
 });
 
 /**
- * agentTools - All 15 chat agent tools
+ * agentTools - All 17 chat agent tools
  */
 export const agentTools = {
   search_knowledge_base,
@@ -320,6 +366,8 @@ export const agentTools = {
   whats_new,
   toolbelt_search,
   save_document,
+  update_document,
+  get_document,
   assimilate,
   create_plan,
 };

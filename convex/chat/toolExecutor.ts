@@ -571,6 +571,110 @@ async function executeSaveDocument(
 }
 
 // ---------------------------------------------------------------------------
+// update_document
+// ---------------------------------------------------------------------------
+
+async function executeUpdateDocument(
+  ctx: ActionCtx,
+  args: Record<string, any>,
+  conversationId: Id<"conversations">,
+): Promise<AgentResponse> {
+  const documentIdString: string = args.documentId ?? "";
+  const title: string | undefined = args.title;
+  const content: string | undefined = args.content;
+  const category: string | undefined = args.category;
+
+  if (!documentIdString) {
+    return {
+      content: "Required field: documentId. Use search_knowledge_base to find document IDs.",
+      messageType: "text",
+    };
+  }
+
+  if (!title && !content && !category) {
+    return {
+      content: "Please provide at least one field to update: title, content, or category.",
+      messageType: "text",
+    };
+  }
+
+  // Convert string to Id<"documents">
+  const documentId = documentIdString as Id<"documents">;
+
+  await ctx.scheduler.runAfter(
+    0,
+    internal.chat.toolActions.updateDocumentAsync,
+    {
+      conversationId,
+      documentId,
+      title,
+      content,
+      category,
+    },
+  );
+
+  return {
+    content: `Updating document...`,
+    messageType: "text",
+    skipContinuation: true,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// get_document
+// ---------------------------------------------------------------------------
+
+async function executeGetDocument(
+  ctx: ActionCtx,
+  args: Record<string, any>,
+): Promise<AgentResponse> {
+  const documentIdString: string = args.documentId ?? "";
+
+  if (!documentIdString) {
+    return {
+      content: "Required field: documentId. Use search_knowledge_base to find document IDs.",
+      messageType: "text",
+    };
+  }
+
+  try {
+    const documentId = documentIdString as Id<"documents">;
+    const document: any = await ctx.runQuery(api.documents.queries.get, {
+      id: documentId,
+    });
+
+    if (!document) {
+      return {
+        content: `Document not found: ${documentIdString}`,
+        messageType: "error",
+      };
+    }
+
+    return {
+      content: `Document: ${document.title}`,
+      messageType: "result_card",
+      cardData: {
+        card_type: "document_full",
+        document_id: document._id,
+        title: document.title,
+        category: document.category,
+        content: document.content,
+        metadata: {
+          date: document.date,
+          researchType: document.researchType,
+          createdAt: document.createdAt,
+        },
+      },
+    };
+  } catch (error) {
+    return {
+      content: `Failed to retrieve document: ${error instanceof Error ? error.message : "Unknown error"}`,
+      messageType: "error",
+    };
+  }
+}
+
+// ---------------------------------------------------------------------------
 // assimilate
 // ---------------------------------------------------------------------------
 
@@ -688,6 +792,12 @@ export async function executeAgentTool(
 
     case "assimilate":
       return executeAssimilate(ctx, toolArgs, conversationId);
+
+    case "update_document":
+      return executeUpdateDocument(ctx, toolArgs, conversationId);
+
+    case "get_document":
+      return executeGetDocument(ctx, toolArgs);
 
     default:
       return {
