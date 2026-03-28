@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { dispatchFunctionCall } from '@/lib/voice/function-dispatcher'
+import { dispatchFunctionCall, classifyError, getSpokenErrorMessage } from '@/lib/voice/function-dispatcher'
 import type { DispatcherDeps } from '@/lib/voice/function-dispatcher'
 import type { ParsedFunctionCall } from '@/lib/voice/types'
 
@@ -206,13 +206,15 @@ describe('dispatch error handling', () => {
     // Must NOT throw
     await expect(dispatchFunctionCall(fn, deps)).resolves.toBeUndefined()
 
-    // Must send error result, not throw
+    // Must send error result, not throw — error must be user-friendly (no raw error text)
     const itemCreate = getItemCreateCall(deps.sendEvent as ReturnType<typeof vi.fn>)
     expect(itemCreate).toBeDefined()
     const item = itemCreate!.item as Record<string, unknown>
     const output = JSON.parse(item.output as string) as { success: boolean; error: string }
     expect(output.success).toBe(false)
-    expect(output.error).toContain('Convex search failed')
+    // Must NOT expose raw error message to user
+    expect(output.error).not.toContain('Convex search failed')
+    expect(output.error).toBeDefined()
 
     // Must still send response.create
     const responseCreate = getResponseCreateCall(deps.sendEvent as ReturnType<typeof vi.fn>)
@@ -314,5 +316,238 @@ describe('sendEvent ordering', () => {
 
     expect(itemIdx).toBeGreaterThanOrEqual(0)
     expect(responseIdx).toBeGreaterThan(itemIdx)
+  })
+})
+
+// ─── US-018: Execution failure handling ──────────────────────────────────────
+
+// ─── US-018 AC-1: transient retry ────────────────────────────────────────────
+
+describe('transient retry - AC-1', () => {
+  it('retries once on transient error (network timeout); succeeds on retry without spoken message', async () => {
+    let callCount = 0
+    const deps = makeDeps({
+      convex: {
+        runAction: vi.fn().mockImplementation(() => {
+          callCount++
+          if (callCount === 1) return Promise.reject(new Error('network timeout'))
+          return Promise.resolve([{ _id: 'doc1' }])
+        }),
+        runMutation: vi.fn().mockResolvedValue('cmd-id'),
+        runQuery: vi.fn().mockResolvedValue([]),
+      },
+    })
+
+    const fn = makeFunctionCall('search_knowledge', { query: 'test' }, 'call_transient1')
+    await dispatchFunctionCall(fn, deps)
+
+    // Should have called the action twice (initial + retry)
+    expect(deps.convex.runAction).toHaveBeenCalledTimes(2)
+    // After retry succeeds, result should be success
+    const itemCreate = getItemCreateCall(deps.sendEvent as ReturnType<typeof vi.fn>)
+    const item = itemCreate!.item as Record<string, unknown>
+    const output = JSON.parse(item.output as string) as { success: boolean }
+    expect(output.success).toBe(true)
+  })
+
+  it('speaks user-friendly message after transient error retry also fails', async () => {
+    const transientError = new Error('network timeout')
+    const deps = makeDeps({
+      convex: {
+        runAction: vi.fn().mockRejectedValue(transientError),
+        runMutation: vi.fn().mockResolvedValue('cmd-id'),
+        runQuery: vi.fn().mockResolvedValue([]),
+      },
+    })
+
+    const fn = makeFunctionCall('search_knowledge', { query: 'test' }, 'call_transient2')
+    await dispatchFunctionCall(fn, deps)
+
+    // Should have attempted twice (initial + retry)
+    expect(deps.convex.runAction).toHaveBeenCalledTimes(2)
+
+    // Error message must be user-friendly, not raw error
+    const itemCreate = getItemCreateCall(deps.sendEvent as ReturnType<typeof vi.fn>)
+    const item = itemCreate!.item as Record<string, unknown>
+    const output = JSON.parse(item.output as string) as { success: boolean; error: string }
+    expect(output.success).toBe(false)
+    expect(output.error).not.toContain('network timeout')
+    expect(output.error).toBe('Something went wrong. Let me try again.')
+  })
+})
+
+// ─── US-018 AC-2: permanent error ────────────────────────────────────────────
+
+describe('permanent error - AC-2', () => {
+  it('does not retry on permanent error (404 not found) and speaks user-friendly message', async () => {
+    const permanentError = new Error('404 not found')
+    const deps = makeDeps({
+      convex: {
+        runAction: vi.fn().mockResolvedValue([]),
+        runMutation: vi.fn().mockResolvedValue('cmd-id'),
+        runQuery: vi.fn().mockRejectedValue(permanentError),
+      },
+    })
+
+    const fn = makeFunctionCall('get_document', { document_id: 'missing-doc' }, 'call_perm1')
+    await dispatchFunctionCall(fn, deps)
+
+    // Should only attempt once — no retry for permanent errors
+    expect(deps.convex.runQuery).toHaveBeenCalledTimes(1)
+
+    // Error message must be user-friendly
+    const itemCreate = getItemCreateCall(deps.sendEvent as ReturnType<typeof vi.fn>)
+    const item = itemCreate!.item as Record<string, unknown>
+    const output = JSON.parse(item.output as string) as { success: boolean; error: string }
+    expect(output.success).toBe(false)
+    expect(output.error).not.toContain('404')
+    expect(output.error).not.toContain('not found')
+  })
+
+  it('session continues after permanent error (does not throw)', async () => {
+    const deps = makeDeps({
+      convex: {
+        runAction: vi.fn().mockResolvedValue([]),
+        runMutation: vi.fn().mockResolvedValue('cmd-id'),
+        runQuery: vi.fn().mockRejectedValue(new Error('403 permission denied')),
+      },
+    })
+
+    const fn = makeFunctionCall('get_document', { document_id: 'forbidden' }, 'call_perm2')
+
+    // Must NOT throw — session continues
+    await expect(dispatchFunctionCall(fn, deps)).resolves.toBeUndefined()
+
+    // Must still send response.create so model can continue
+    const responseCreate = getResponseCreateCall(deps.sendEvent as ReturnType<typeof vi.fn>)
+    expect(responseCreate).toBeDefined()
+  })
+})
+
+// ─── US-018 AC-3: rate limit ──────────────────────────────────────────────────
+
+describe('rate limit - AC-3', () => {
+  it('speaks "Too many requests" message on 429 error without retrying', async () => {
+    const rateLimitError = new Error('429 rate limit exceeded')
+    const deps = makeDeps({
+      convex: {
+        runAction: vi.fn().mockRejectedValue(rateLimitError),
+        runMutation: vi.fn().mockResolvedValue('cmd-id'),
+        runQuery: vi.fn().mockResolvedValue([]),
+      },
+    })
+
+    const fn = makeFunctionCall('search_knowledge', { query: 'test' }, 'call_rate1')
+    await dispatchFunctionCall(fn, deps)
+
+    // Must NOT retry for rate limit
+    expect(deps.convex.runAction).toHaveBeenCalledTimes(1)
+
+    // Error message must be the rate limit message
+    const itemCreate = getItemCreateCall(deps.sendEvent as ReturnType<typeof vi.fn>)
+    const item = itemCreate!.item as Record<string, unknown>
+    const output = JSON.parse(item.output as string) as { success: boolean; error: string }
+    expect(output.success).toBe(false)
+    expect(output.error).toBe('Too many requests. Try again in a moment.')
+  })
+})
+
+// ─── US-018 AC-4: error logged ───────────────────────────────────────────────
+
+describe('error logged - AC-4', () => {
+  it('records voiceCommand with success=false and error type on any execution failure', async () => {
+    const deps = makeDeps({
+      convex: {
+        runAction: vi.fn().mockRejectedValue(new Error('500 internal server error')),
+        runMutation: vi.fn().mockResolvedValue('cmd-id'),
+        runQuery: vi.fn().mockResolvedValue([]),
+      },
+    })
+
+    const fn = makeFunctionCall('search_knowledge', { query: 'test' }, 'call_log1')
+    await dispatchFunctionCall(fn, deps)
+
+    // Wait for fire-and-forget recordCommand
+    await new Promise((resolve) => setTimeout(resolve, 10))
+
+    const recordCalls = (deps.convex.runMutation as ReturnType<typeof vi.fn>).mock.calls.filter(
+      (args: unknown[]) => args[0] === 'voice/mutations:recordCommand'
+    )
+    expect(recordCalls.length).toBeGreaterThan(0)
+    const recordArgs = recordCalls[0][1] as Record<string, unknown>
+    expect(recordArgs.success).toBe(false)
+    const result = recordArgs.result as Record<string, unknown>
+    expect(result.error).toBeDefined()
+    expect(result.success).toBe(false)
+  })
+
+  it('records voiceCommand with success=false on permanent error', async () => {
+    const deps = makeDeps({
+      convex: {
+        runAction: vi.fn().mockResolvedValue([]),
+        runMutation: vi.fn().mockResolvedValue('cmd-id'),
+        runQuery: vi.fn().mockRejectedValue(new Error('404 not found')),
+      },
+    })
+
+    const fn = makeFunctionCall('get_document', { document_id: 'missing' }, 'call_log2')
+    await dispatchFunctionCall(fn, deps)
+
+    await new Promise((resolve) => setTimeout(resolve, 10))
+
+    const recordCalls = (deps.convex.runMutation as ReturnType<typeof vi.fn>).mock.calls.filter(
+      (args: unknown[]) => args[0] === 'voice/mutations:recordCommand'
+    )
+    expect(recordCalls.length).toBeGreaterThan(0)
+    const recordArgs = recordCalls[0][1] as Record<string, unknown>
+    expect(recordArgs.success).toBe(false)
+  })
+})
+
+// ─── classifyError unit tests ─────────────────────────────────────────────────
+
+describe('classifyError', () => {
+  it('classifies timeout as transient', () => {
+    expect(classifyError(new Error('network timeout'))).toBe('transient')
+  })
+
+  it('classifies 500 as transient', () => {
+    expect(classifyError(new Error('500 internal server error'))).toBe('transient')
+  })
+
+  it('classifies 429 as rate_limit', () => {
+    expect(classifyError(new Error('429 too many requests'))).toBe('rate_limit')
+  })
+
+  it('classifies 404 as permanent', () => {
+    expect(classifyError(new Error('404 not found'))).toBe('permanent')
+  })
+
+  it('classifies 403 as permanent', () => {
+    expect(classifyError(new Error('403 permission denied'))).toBe('permanent')
+  })
+
+  it('classifies unknown errors as permanent', () => {
+    expect(classifyError(new Error('some unknown error'))).toBe('permanent')
+  })
+})
+
+// ─── getSpokenErrorMessage unit tests ────────────────────────────────────────
+
+describe('getSpokenErrorMessage', () => {
+  it('returns transient message', () => {
+    expect(getSpokenErrorMessage('transient')).toBe('Something went wrong. Let me try again.')
+  })
+
+  it('returns rate_limit message', () => {
+    expect(getSpokenErrorMessage('rate_limit')).toBe('Too many requests. Try again in a moment.')
+  })
+
+  it('returns permanent fallback message without context', () => {
+    expect(getSpokenErrorMessage('permanent')).toBe("I can't do that right now.")
+  })
+
+  it('returns permanent message with context', () => {
+    expect(getSpokenErrorMessage('permanent', 'find that document')).toBe("I couldn't find that document.")
   })
 })
