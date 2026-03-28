@@ -218,9 +218,44 @@ export async function buildConversationContext(
       continue;
     }
 
-    // Skip result_card messages that are already included in tool call descriptions above
+    // Skip result_card messages that are already represented in tool_approval descriptions,
+    // UNLESS they contain document references that the agent needs for get_document/update_document
     if (resultMessageIds.has(message._id)) {
-      continue;
+      // Still include if it has document references in cardData
+      const hasDocRefs =
+        message.cardData &&
+        (Array.isArray(message.cardData)
+          ? message.cardData.some((c: any) => c.document_id)
+          : (message.cardData as any).document_id);
+      if (!hasDocRefs) {
+        continue;
+      }
+    }
+
+    // For result_card messages with document references in cardData, include document IDs
+    if (message.messageType === "result_card" && message.cardData) {
+      const cards = Array.isArray(message.cardData)
+        ? message.cardData
+        : [message.cardData];
+      const docRefs = cards
+        .filter(
+          (c: any) =>
+            c.document_id &&
+            [
+              "article",
+              "document_saved",
+              "document_context",
+              "document_full",
+              "final_result",
+            ].includes(c.card_type)
+        )
+        .map((c: any) => `- "${c.title || "Untitled"}" [ID: ${c.document_id}]`);
+
+      if (docRefs.length > 0) {
+        const enrichedContent = `${message.content}\n\nDocuments referenced:\n${docRefs.join("\n")}`;
+        llmMessages.push({ role: "assistant", content: enrichedContent });
+        continue;
+      }
     }
 
     if (message.role === "user") {
