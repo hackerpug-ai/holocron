@@ -851,4 +851,54 @@ export default defineSchema({
     contentFilter: v.union(v.literal("all"), v.literal("videos-only"), v.literal("blogs-only")),
     updatedAt: v.number(),
   }),
+
+  // Universal plan execution system
+  executionPlans: defineTable({
+    // Plan identification
+    type: v.union(
+      v.literal("deep-research"),
+      v.literal("shop"),
+      v.literal("assimilation")
+    ),
+    // Plan status workflow
+    status: v.union(
+      v.literal("draft"),
+      v.literal("pending"),
+      v.literal("approved"),
+      v.literal("rejected"),
+      v.literal("executing"),
+      v.literal("completed"),
+      v.literal("failed")
+    ),
+    // Plan content (structured JSON)
+    content: v.optional(v.any()),
+    // Additional metadata for execution context
+    metadata: v.optional(v.any()),
+    // Timestamps
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_status", ["status"])
+    .index("by_type", ["type"])
+    .index("by_created", ["createdAt"])
+    .index("by_status_and_type", ["status", "type"]),
+
+  // Plan approval tracking
+  planApprovals: defineTable({
+    // Link to execution plan
+    planId: v.id("executionPlans"),
+    // User who approved/rejected (for multi-user future-proofing)
+    approvedBy: v.string(),
+    // Approval timestamp
+    approvedAt: v.number(),
+    // Approval decision
+    decision: v.union(v.literal("approved"), v.literal("rejected")),
+    // Rejection reason (if rejected)
+    rejectionReason: v.optional(v.string()),
+    // Additional feedback
+    feedback: v.optional(v.string()),
+  })
+    .index("by_plan", ["planId"])
+    .index("by_approved_by", ["approvedBy"])
+    .index("by_decision", ["decision"]),
 });
