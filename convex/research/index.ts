@@ -18,6 +18,12 @@
 // NEW ENTRY POINTS (Recommended)
 // =============================================================================
 
+/** Plan-based research with user approval workflow (Task #302) */
+export {
+  startDeepResearchWithPlan,
+  executeApprovedResearchPlan,
+} from "./actions";
+
 /** Smart research router - selects optimal strategy automatically */
 export { startSmartResearch, analyzeResearchStrategy, type ResearchStrategy } from "./actions";
 

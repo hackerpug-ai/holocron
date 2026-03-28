@@ -141,6 +141,244 @@ export const startDeepResearch = action({
 });
 
 /**
+ * Start Deep Research with Planning Phase
+ *
+ * Task #302: Creates a research plan and returns it for user approval.
+ *
+ * This is the NEW entry point for deep research that includes planning:
+ * 1. Generates a research plan using the plan generation service
+ * 2. Posts a plan confirmation card to chat
+ * 3. Returns the plan ID for user approval
+ * 4. After approval, use executeApprovedResearchPlan to start research
+ *
+ * AC-1: Research request -> Generate plan -> Return plan for approval
+ */
+export const startDeepResearchWithPlan = action({
+  args: {
+    conversationId: v.optional(v.id("conversations")),
+    topic: v.string(),
+    maxIterations: v.optional(v.number()),
+    outputFormat: v.optional(v.string()),
+  },
+  handler: async (
+    ctx,
+    { conversationId: existingConversationId, topic, maxIterations = 5, outputFormat = "document" },
+  ): Promise<{
+    planId: Id<"executionPlans">;
+    conversationId: Id<"conversations">;
+    status: string;
+  }> => {
+    console.log(
+      `[startDeepResearchWithPlan] Entry - topic: "${topic}", maxIterations: ${maxIterations}`,
+    );
+
+    // Step 0: Create conversation with first message (avoid empty conversations)
+    console.log(`[startDeepResearchWithPlan] Step 0: Creating/using conversation`);
+    const conversationId =
+      existingConversationId ??
+      (await ctx.runMutation(api.conversations.mutations.create, {
+        title: `Deep Research: ${topic}`,
+      }));
+    console.log(
+      `[startDeepResearchWithPlan] Step 0: Conversation ID: ${conversationId}`,
+    );
+
+    // Step 1: Generate research plan
+    console.log(`[startDeepResearchWithPlan] Step 1: Generating research plan`);
+    const planId = await ctx.runMutation(api.plans.generator.generateDeepResearchPlan, {
+      topic,
+      maxIterations,
+      outputFormat,
+      conversationId,
+    });
+    console.log(
+      `[startDeepResearchWithPlan] Step 1: Plan generated - ID: ${planId}`,
+    );
+
+    // Step 2: Post plan confirmation card
+    console.log(
+      `[startDeepResearchWithPlan] Step 2: Posting plan confirmation card`,
+    );
+    const plan = await ctx.runQuery(api.plans.queries.get, { id: planId });
+
+    await ctx.runMutation(api.chatMessages.mutations.create, {
+      conversationId,
+      role: "agent" as const,
+      content: `Research plan generated for: ${topic}`,
+      messageType: "result_card" as const,
+      cardData: {
+        card_type: "plan_confirmation",
+        plan_id: planId,
+        plan_title: plan?.content?.title || `Research: ${topic}`,
+        plan_description: plan?.content?.description || "",
+        plan_type: "deep-research",
+        tracks: plan?.content?.tracks || [],
+        estimated_steps: plan?.content?.estimatedSteps || 0,
+        estimated_duration: plan?.content?.estimatedDurationMs || 0,
+        status: "pending",
+      },
+    });
+    console.log(
+      `[startDeepResearchWithPlan] Step 2: Plan confirmation card posted`,
+    );
+
+    // Step 3: Return plan ID for approval
+    console.log(
+      `[startDeepResearchWithPlan] Exit - Awaiting approval`,
+    );
+    return {
+      planId,
+      conversationId,
+      status: "pending_approval",
+    };
+  },
+});
+
+/**
+ * Execute Approved Research Plan
+ *
+ * Task #302: Starts research execution after plan approval.
+ *
+ * This action:
+ * 1. Validates plan is approved
+ * 2. Creates deep research session
+ * 3. Posts loading card
+ * 4. Executes research using the approved plan
+ * 5. Updates plan status through execution lifecycle
+ *
+ * AC-2: Approved plan -> Execute -> Research runs with plan, status updated
+ */
+export const executeApprovedResearchPlan = action({
+  args: {
+    planId: v.id("executionPlans"),
+  },
+  handler: async (
+    ctx,
+    { planId },
+  ): Promise<{
+    sessionId: Id<"deepResearchSessions">;
+    conversationId: Id<"conversations">;
+    status: string;
+  }> => {
+    console.log(
+      `[executeApprovedResearchPlan] Entry - planId: ${planId}`,
+    );
+
+    // Step 1: Fetch and validate plan
+    console.log(
+      `[executeApprovedResearchPlan] Step 1: Fetching plan`,
+    );
+    const plan = await ctx.runQuery(api.plans.queries.get, { id: planId });
+
+    if (!plan) {
+      throw new Error(`Plan ${planId} not found`);
+    }
+
+    if (plan.status !== "approved") {
+      throw new Error(
+        `Plan ${planId} is not approved (current status: ${plan.status})`,
+      );
+    }
+
+    if (!plan.metadata?.conversationId) {
+      throw new Error(`Plan ${planId} has no associated conversation`);
+    }
+
+    const conversationId = plan.metadata.conversationId as Id<"conversations">;
+    const topic = plan.metadata.topic as string;
+    console.log(
+      `[executeApprovedResearchPlan] Step 1: Plan validated - topic: "${topic}"`,
+    );
+
+    // Step 2: Update plan status to executing
+    console.log(
+      `[executeApprovedResearchPlan] Step 2: Updating plan status to executing`,
+    );
+    await ctx.runMutation(api.plans.confirmation.startExecution, { planId });
+
+    // Step 3: Create deep research session
+    console.log(
+      `[executeApprovedResearchPlan] Step 3: Creating deep research session`,
+    );
+    const sessionId = await ctx.runMutation(
+      api.research.mutations.createDeepResearchSession,
+      {
+        conversationId,
+        topic,
+        maxIterations: plan.content?.maxIterations || 5,
+        researchType: "deep",
+      },
+    );
+    console.log(
+      `[executeApprovedResearchPlan] Step 3: Session created - ID: ${sessionId}`,
+    );
+
+    // Step 4: Post loading card
+    console.log(
+      `[executeApprovedResearchPlan] Step 4: Posting loading card`,
+    );
+    await ctx.runMutation(api.chatMessages.mutations.create, {
+      conversationId,
+      role: "agent" as const,
+      content: `Executing research plan: ${topic}`,
+      messageType: "result_card" as const,
+      cardData: {
+        card_type: "deep_research_loading",
+        status: "in_progress",
+        session_id: sessionId,
+        topic,
+        plan_id: planId,
+      },
+    });
+
+    // Step 5: Execute research using plan-based dispatcher
+    console.log(
+      `[executeApprovedResearchPlan] Step 5: Executing plan-based research`,
+    );
+
+    try {
+      const result = await ctx.runAction(
+        internal.research.dispatcher.executePlanBasedResearch,
+        {
+          conversationId,
+          sessionId,
+          plan: plan.content,
+          topic,
+        },
+      );
+
+      // Step 6: Update plan status based on result
+      if (result.status === "completed" || result.status === "partial") {
+        await ctx.runMutation(api.plans.confirmation.completeExecution, {
+          planId,
+        });
+      } else {
+        await ctx.runMutation(api.plans.confirmation.failExecution, {
+          planId,
+        });
+      }
+
+      console.log(
+        `[executeApprovedResearchPlan] Exit - Research completed, status: ${result.status}`,
+      );
+
+      return {
+        sessionId,
+        conversationId,
+        status: result.status,
+      };
+    } catch (error) {
+      // Mark plan as failed on error
+      await ctx.runMutation(api.plans.confirmation.failExecution, {
+        planId,
+      });
+
+      throw error;
+    }
+  },
+});
+
+/**
  * Run Iterative Research - Core orchestration for deep research
  *
  * Task #779: Implements the iterative research workflow:
