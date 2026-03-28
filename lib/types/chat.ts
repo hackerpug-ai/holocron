@@ -283,6 +283,53 @@ export interface AgentPlanCardData {
   total_steps: number
 }
 
+// Deep research plan card - displayed when a deep research plan is created
+export interface DeepResearchPlanCardData {
+  card_type: 'deep_research_plan'
+  plan_id: string
+  session_id: string
+  topic: string
+  max_iterations: number
+  total_steps: number
+  query?: string
+}
+
+// Shop plan card - displayed when a shopping search plan is created
+export interface ShopPlanCardData {
+  card_type: 'shop_plan'
+  plan_id: string
+  session_id: string
+  query: string
+  total_steps: number
+  retailers?: string[]
+  max_results?: number
+  price_range?: {
+    min_cents?: number
+    max_cents?: number
+  }
+}
+
+// Universal plan card - displayed for any plan type (unified format)
+export interface UniversalPlanCardData {
+  card_type: 'universal_plan'
+  plan_id: string
+  plan_type: 'deep-research' | 'shop' | 'assimilation' | 'agent'
+  title: string
+  status: 'created' | 'pending_approval' | 'approved' | 'executing' | 'in_progress' | 'completed' | 'failed' | 'cancelled' | 'rejected'
+  total_steps: number
+  current_step?: number
+  metadata?: {
+    session_id?: string
+    conversation_id?: string
+    repository_name?: string
+    repository_url?: string
+    profile?: string
+    plan_summary?: string
+    estimated_cost_usd?: number
+    [key: string]: unknown
+  }
+}
+
 // Document context card - document reference added to chat from document viewer
 export interface DocumentContextCardData {
   card_type: 'document_context'
@@ -340,6 +387,9 @@ export type CardData =
   | AssimilationPlanCardData
   | AssimilationProgressCardData
   | AgentPlanCardData
+  | DeepResearchPlanCardData
+  | ShopPlanCardData
+  | UniversalPlanCardData
   | ArticleCardData[]
   | ShopListingCardData[]
 
