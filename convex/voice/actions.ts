@@ -1,0 +1,137 @@
+"use node";
+
+import { action } from "../_generated/server";
+import { api, internal } from "../_generated/api";
+import { v } from "convex/values";
+
+import type { FunctionReference } from "convex/server";
+
+const OPENAI_REALTIME_SESSIONS_URL =
+  "https://api.openai.com/v1/realtime/client_secrets";
+
+type CreateSessionCtx = {
+  runQuery: (
+    ref: FunctionReference<"query", "public" | "internal">,
+    args: Record<string, unknown>
+  ) => Promise<unknown>;
+  runMutation: (
+    ref: FunctionReference<"mutation", "public" | "internal">,
+    args: Record<string, unknown>
+  ) => Promise<unknown>;
+};
+
+/**
+ * Pure handler for createSession — extracted for unit testability.
+ *
+ * Steps:
+ * 1. Check for existing active session
+ * 2. Validate OPENAI_API_KEY
+ * 3. POST to /v1/realtime/client_secrets
+ * 4. Create session record via internal mutation
+ * 5. Return {ephemeralKey, expiresAt, sessionId}
+ *
+ * NEVER stores the ephemeral key in the database.
+ * NEVER exposes OPENAI_API_KEY to the client.
+ */
+export const createSessionHandler = async (
+  ctx: CreateSessionCtx,
+  args: { conversationId: string },
+  overrides?: {
+    activeSessionQuery?: FunctionReference<"query", "public" | "internal">;
+    createSessionMutation?: FunctionReference<"mutation", "public" | "internal">;
+  }
+): Promise<{ ephemeralKey: string; expiresAt: number; sessionId: string }> => {
+  // 1. Check for active session — prevent duplicate concurrent sessions
+  const activeSessionRef =
+    overrides?.activeSessionQuery ?? api.voice.queries.getActiveSession;
+  const activeSession = await ctx.runQuery(activeSessionRef, {
+    conversationId: args.conversationId,
+  });
+
+  if (activeSession) {
+    throw new Error(
+      `An active session already exists for conversationId ${args.conversationId}. End the existing session before creating a new one.`
+    );
+  }
+
+  // 2. Validate API key is present
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error(
+      "OPENAI_API_KEY is not configured. Set it in the Convex environment variables."
+    );
+  }
+
+  // 3. Generate ephemeral token from OpenAI Realtime API
+  const response = await fetch(OPENAI_REALTIME_SESSIONS_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      session: {
+        type: "realtime",
+        model: "gpt-realtime",
+        audio: { output: { voice: "cedar" } },
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(
+      `OpenAI API returned status ${response.status}: ${errorText}`
+    );
+  }
+
+  const tokenData = (await response.json()) as {
+    value: string;
+    expires_at: number;
+  };
+
+  const ephemeralKey = tokenData.value;
+  const expiresAt = tokenData.expires_at;
+
+  // 4. Create session record via internal mutation (does NOT store the ephemeral key)
+  const startedAt = Date.now();
+  const createSessionMutationRef =
+    overrides?.createSessionMutation ??
+    internal.voice.mutations.internalCreateSession;
+
+  const sessionId = (await ctx.runMutation(createSessionMutationRef, {
+    conversationId: args.conversationId,
+    startedAt,
+  })) as string;
+
+  // 5. Return ephemeral token + session metadata to client
+  return {
+    ephemeralKey,
+    expiresAt,
+    sessionId,
+  };
+};
+
+/**
+ * Creates a voice session by generating an OpenAI Realtime ephemeral token.
+ * Registered as a Convex action for client use.
+ */
+export const createSession = action({
+  args: {
+    conversationId: v.id("conversations"),
+  },
+  returns: v.object({
+    ephemeralKey: v.string(),
+    expiresAt: v.number(),
+    sessionId: v.id("voiceSessions"),
+  }),
+  handler: async (ctx, args) => {
+    return createSessionHandler(ctx, args) as ReturnType<
+      typeof createSessionHandler
+    > as Promise<{
+      ephemeralKey: string;
+      expiresAt: number;
+      sessionId: string & { __tableName: "voiceSessions" };
+    }>;
+  },
+});
