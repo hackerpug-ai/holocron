@@ -107,3 +107,19 @@ export {
 export type { ResearchPlan, SubagentResult } from "./tools";
 export type { ResearchContext, StructuredFinding } from "./prompts";
 export type { ConfidenceFactors, ConfidenceLevel, ConfidenceResult, ConfidenceStats } from "./confidence";
+
+// =============================================================================
+// WORKER DISPATCHER (Plan-based parallel research)
+// =============================================================================
+
+export {
+  executePlanBasedResearch,
+  runPlanBasedResearch,
+  parsePlanIntoTracks,
+  selectTracksForTopic,
+  aggregateTrackResults,
+  type ResearchTrack,
+  type TrackConfig,
+  type TrackWorkerResult,
+  type DispatcherResult,
+} from "./dispatcher";
