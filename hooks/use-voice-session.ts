@@ -28,6 +28,7 @@ import { createEventHandler } from "@/lib/voice/event-handler";
 import { createTranscriptRecorder } from "@/lib/voice/transcript-recorder";
 import { SessionTimeout, WarmConnection } from "@/lib/voice/session-timeout";
 import { createRetryManager } from "@/lib/voice/retry-manager";
+import { createVoiceErrorHandler } from "@/lib/voice/error-handler";
 
 /**
  * Session config sent via data channel after WebRTC connects.
@@ -145,6 +146,32 @@ export function useVoiceSession(
 
     dispatch({ type: "CONNECT", conversationId });
 
+    // Error handler provides user-friendly messages and resource cleanup.
+    const errorHandler = createVoiceErrorHandler({
+      onError: (voiceError) => {
+        dispatch({
+          type: "ERROR",
+          error: voiceError.userMessage,
+          errorKind: voiceError.kind,
+        });
+      },
+      onCleanup: async () => {
+        if (connectionRef.current) {
+          connectionRef.current.destroy();
+          connectionRef.current = null;
+        }
+        const sid = sessionIdRef.current;
+        if (sid) {
+          sessionIdRef.current = null;
+          try {
+            await endSession({ sessionId: sid as Id<"voiceSessions"> });
+          } catch {
+            // Best-effort cleanup
+          }
+        }
+      },
+    });
+
     // US-017: check for warm connection (fast re-activation path, <200ms)
     const warmConn = warmConnectionRef.current.reactivate();
     if (warmConn) {
@@ -172,9 +199,18 @@ export function useVoiceSession(
 
     try {
       // 1. Create Convex session → ephemeral key
-      const { ephemeralKey, sessionId } = await createSession({
-        conversationId,
-      });
+      let ephemeralKey: string;
+      let sessionId: string;
+      try {
+        const result = await createSession({ conversationId });
+        ephemeralKey = result.ephemeralKey;
+        sessionId = result.sessionId;
+      } catch (tokenError) {
+        errorHandler.handleTokenGenerationFailure(
+          tokenError instanceof Error ? tokenError : new Error("Token generation failed")
+        );
+        return;
+      }
       sessionIdRef.current = sessionId;
       ephemeralKeyRef.current = ephemeralKey;
 
@@ -196,6 +232,7 @@ export function useVoiceSession(
         {
           onSessionCreated: () => {
             // Session created by OpenAI — send session.update config
+            errorHandler.handleSuccess();
             try {
               conn.sendEvent(
                 SESSION_UPDATE_EVENT as unknown as Record<string, unknown>
@@ -207,6 +244,7 @@ export function useVoiceSession(
           onSpeechStarted: () => {
             // US-017: user spoke — cancel any pending timeout (interrupt farewell)
             sessionTimeoutRef.current?.cancel();
+            errorHandler.handleSuccess();
             dispatch({ type: "START_LISTENING" });
           },
           onSpeechStopped: () => {
@@ -215,6 +253,7 @@ export function useVoiceSession(
             sessionTimeoutRef.current?.start();
           },
           onTranscript: (transcript: string) => {
+            errorHandler.handleSuccess();
             transcriptRef.current = transcript;
             transcriptRecorder.onAgentTranscript(transcript);
           },
@@ -222,6 +261,9 @@ export function useVoiceSession(
             transcriptRecorder.onUserTranscript(transcript);
           },
           onError: (error) => {
+            // Count consecutive mid-session errors; triggers cleanup after 3
+            errorHandler.handleConsecutiveError();
+            // Also dispatch immediate error state for single errors
             dispatch({ type: "ERROR", error: error.message });
           },
         },
@@ -286,33 +328,63 @@ export function useVoiceSession(
         },
       });
 
-      // 3. Connect WebRTC
-      await conn.connect(ephemeralKey);
+      // 3. Connect WebRTC — microphone permission errors handled here
+      try {
+        await conn.connect(ephemeralKey);
+      } catch (connectError) {
+        const errMsg =
+          connectError instanceof Error
+            ? connectError.message
+            : "Connection failed";
+        // Detect microphone permission denial
+        if (
+          errMsg.toLowerCase().includes("permission") ||
+          errMsg.toLowerCase().includes("notallowederror") ||
+          errMsg.toLowerCase().includes("not allowed")
+        ) {
+          errorHandler.handleMicrophonePermissionDenied();
+        } else {
+          errorHandler.handleTokenGenerationFailure(
+            connectError instanceof Error
+              ? connectError
+              : new Error("Connection failed")
+          );
+        }
+        // End the Convex session since WebRTC failed after token was generated
+        const sid = sessionIdRef.current;
+        if (sid) {
+          sessionIdRef.current = null;
+          try {
+            await endSession({ sessionId: sid as Id<"voiceSessions"> });
+          } catch {
+            // Best-effort cleanup
+          }
+        }
+        return;
+      }
+
       connectionRef.current = conn;
 
       // 4. Transition to LISTENING and start idle timeout
       dispatch({ type: "CONNECTED", sessionId });
       sessionTimeoutRef.current.start();
     } catch (error) {
-      // Clean up any partial resources
+      // Unexpected error path — clean up and show generic service unavailable
       if (connectionRef.current) {
         connectionRef.current.destroy();
         connectionRef.current = null;
       }
       sessionTimeoutRef.current?.cancel();
 
-      const message =
-        error instanceof Error ? error.message : "Unknown connection error";
-      dispatch({ type: "ERROR", error: message });
+      errorHandler.handleTokenGenerationFailure(
+        error instanceof Error ? error : new Error("Unknown connection error")
+      );
 
-      // If we got a sessionId but WebRTC failed, end the Convex session
       if (sessionIdRef.current) {
         const sid = sessionIdRef.current;
         sessionIdRef.current = null;
         try {
-          await endSession({
-            sessionId: sid as Id<"voiceSessions">,
-          });
+          await endSession({ sessionId: sid as Id<"voiceSessions"> });
         } catch {
           // Best-effort cleanup
         }

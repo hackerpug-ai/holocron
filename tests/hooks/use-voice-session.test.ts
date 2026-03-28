@@ -11,6 +11,15 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import type { RealtimeEventCallbacks } from "@/lib/voice/types";
 
+// --- Mock react-native (required for error-handler import) ---
+vi.mock("react-native", () => ({
+  Platform: { OS: "ios" },
+  Linking: {
+    openURL: vi.fn(() => Promise.resolve()),
+    openSettings: vi.fn(() => Promise.resolve()),
+  },
+}));
+
 // --- Mock Convex ---
 const mockCreateSession = vi.fn();
 const mockEndSession = vi.fn();
@@ -188,7 +197,7 @@ describe("US-008: useVoiceSession (renderHook)", () => {
   });
 
   describe("AC-4: Connection failure -> ERROR state", () => {
-    it("transitions to error when createSession fails", async () => {
+    it("transitions to error when createSession fails (service unavailable message)", async () => {
       mockCreateSession.mockRejectedValueOnce(
         new Error("Auth token expired")
       );
@@ -200,10 +209,13 @@ describe("US-008: useVoiceSession (renderHook)", () => {
       });
 
       expect(result.current.state.status).toBe("error");
-      expect(result.current.state.errorMessage).toBe("Auth token expired");
+      // US-016: user-friendly message, never expose raw API error details
+      expect(result.current.state.errorMessage).toBe(
+        "Voice assistant is currently unavailable"
+      );
     });
 
-    it("transitions to error when WebRTC connect fails", async () => {
+    it("transitions to error when WebRTC connect fails (service unavailable message)", async () => {
       mockConnect.mockRejectedValueOnce(
         new Error("SDP exchange failed: 401")
       );
@@ -215,8 +227,9 @@ describe("US-008: useVoiceSession (renderHook)", () => {
       });
 
       expect(result.current.state.status).toBe("error");
+      // US-016: user-friendly message, never expose SDP/API details
       expect(result.current.state.errorMessage).toBe(
-        "SDP exchange failed: 401"
+        "Voice assistant is currently unavailable"
       );
       // Partial cleanup: end the Convex session
       expect(mockEndSession).toHaveBeenCalledWith({
@@ -224,7 +237,7 @@ describe("US-008: useVoiceSession (renderHook)", () => {
       });
     });
 
-    it("handles non-Error throws gracefully", async () => {
+    it("handles non-Error throws gracefully (service unavailable message)", async () => {
       mockConnect.mockRejectedValueOnce("string error");
 
       const { result } = renderHook(() => useVoiceSession(CONV_ID));
@@ -234,8 +247,9 @@ describe("US-008: useVoiceSession (renderHook)", () => {
       });
 
       expect(result.current.state.status).toBe("error");
+      // US-016: user-friendly message for connection failures
       expect(result.current.state.errorMessage).toBe(
-        "Unknown connection error"
+        "Voice assistant is currently unavailable"
       );
     });
   });
