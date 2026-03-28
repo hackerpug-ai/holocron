@@ -26,31 +26,21 @@ import { agentTools } from "./tools";
 import { executeAgentTool } from "./toolExecutor";
 import { HOLOCRON_SYSTEM_PROMPT } from "./prompts";
 import { toTitleCase } from "../lib/strings";
+import { classifyIntent } from "./triage";
+import { getSpecialist, INTENT_TO_SPECIALIST } from "./specialists";
+import type { IntentCategory } from "./specialists";
 
 /**
- * callLlmAndHandleResponse
+ * handleLlmResult
  *
- * Builds context, calls the LLM, and handles the response:
- * - Plain text → persists agent chatMessage
- * - Tool calls → creates tool_approval chatMessage + toolCall record per call
+ * Processes the LLM generateText result: handles tool calls (create_plan or individual),
+ * or persists plain text response. Shared between specialist and fallback paths.
  */
-async function callLlmAndHandleResponse(
+async function handleLlmResult(
   ctx: any,
   conversationId: string,
+  result: any,
 ): Promise<void> {
-  // Build context from conversation history (via internal query in V8 file)
-  const messages = await ctx.runQuery(
-    internal.chat.agentMutations.buildContext,
-    { conversationId },
-  );
-
-  const result = await generateText({
-    model: zaiPro(),
-    system: HOLOCRON_SYSTEM_PROMPT,
-    messages,
-    tools: agentTools,
-  });
-
   // Handle tool calls — create approval messages
   if (result.toolCalls && result.toolCalls.length > 0) {
     // Check if the LLM wants to create a plan
@@ -149,6 +139,91 @@ async function callLlmAndHandleResponse(
       messageType: "text",
     });
   }
+}
+
+/**
+ * callLlmMonolithic
+ *
+ * Original monolithic agent path: all 17 tools + full system prompt.
+ * Used as fallback when triage confidence is low.
+ */
+async function callLlmMonolithic(
+  ctx: any,
+  conversationId: string,
+  messages: any[],
+): Promise<void> {
+  const result = await generateText({
+    model: zaiPro(),
+    system: HOLOCRON_SYSTEM_PROMPT,
+    messages,
+    tools: agentTools,
+  });
+
+  await handleLlmResult(ctx, conversationId, result);
+}
+
+/**
+ * callLlmAndHandleResponse
+ *
+ * Triage-then-dispatch flow:
+ * 1. Classify intent with zaiFlash (fast, no tools)
+ * 2. Direct conversation response → persist directResponse, done
+ * 3. Low confidence → fallback to monolithic agent
+ * 4. Specialist intent → dispatch to domain-focused specialist
+ */
+async function callLlmAndHandleResponse(
+  ctx: any,
+  conversationId: string,
+): Promise<void> {
+  // Build context from conversation history (via internal query in V8 file)
+  const messages = await ctx.runQuery(
+    internal.chat.agentMutations.buildContext,
+    { conversationId },
+  );
+
+  // Step 1: Triage — classify intent with zaiFlash (no tools, ~100-200ms)
+  const triage = await classifyIntent(messages);
+  console.log(`[agent] Triage: intent=${triage.intent} confidence=${triage.confidence} reasoning="${triage.reasoning}"`);
+
+  // Step 2: Direct conversation response (no specialist needed)
+  if (
+    triage.intent === "conversation" &&
+    triage.confidence !== "low" &&
+    triage.directResponse
+  ) {
+    await ctx.runMutation(api.chatMessages.mutations.create, {
+      conversationId,
+      role: "agent",
+      content: triage.directResponse,
+      messageType: "text",
+    });
+    return;
+  }
+
+  // Step 3: Low confidence → fallback to monolithic agent (safety valve)
+  if (triage.confidence === "low") {
+    console.log("[agent] Low confidence triage, falling back to monolithic agent");
+    return callLlmMonolithic(ctx, conversationId, messages);
+  }
+
+  // Step 4: Dispatch to specialist
+  const specialistName = INTENT_TO_SPECIALIST[triage.intent as IntentCategory];
+  if (!specialistName) {
+    // No specialist for this intent (conversation without directResponse → monolithic)
+    return callLlmMonolithic(ctx, conversationId, messages);
+  }
+
+  const specialist = getSpecialist(specialistName);
+  console.log(`[agent] Dispatching to ${specialist.name} specialist`);
+
+  const result = await generateText({
+    model: specialist.model(),
+    system: specialist.systemPrompt,
+    messages,
+    tools: specialist.tools,
+  });
+
+  await handleLlmResult(ctx, conversationId, result);
 }
 
 // ---------------------------------------------------------------------------
