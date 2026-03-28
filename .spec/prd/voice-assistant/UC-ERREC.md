@@ -112,29 +112,31 @@ Error Recovery handles failures gracefully with spoken guidance, automatic retri
 
 ---
 
-## UC-ERREC-05: Activate Fallback Mode
+## UC-ERREC-05: Handle Service Unavailable
+
+> **Updated**: No fallback stack. OpenAI Realtime is the single provider. If unavailable, show error and end session.
 
 **Actor**: System
-**Trigger**: Primary service unavailable for extended period
-**Preconditions**: Primary STT/TTS failing repeatedly
+**Trigger**: OpenAI Realtime API unavailable or connection fails
+**Preconditions**: Attempting to start or maintain voice session
 
 ### Main Flow
-1. System detects primary service down (3 consecutive failures)
-2. System switches to fallback services
-3. System announces: "Switching to backup. Quality may vary."
-4. Session continues with fallback
-5. System periodically checks if primary is back
+1. System detects OpenAI Realtime is unreachable (connection failure or 3 consecutive errors)
+2. System displays "Voice assistant is currently unavailable" in the UI
+3. System plays gentle error tone
+4. System ends voice session cleanly
+5. System periodically retries connection in background (if session was active)
 
 ### Alternate Flows
-- **A1**: Fallback also fails → "Voice is unavailable. Try again later."
-- **A2**: Primary recovers → Silently switch back
-- **A3**: Partial fallback → Use what's available (device TTS + cloud STT)
+- **A1**: Mid-session disconnect → "Lost connection to voice service. Please try again."
+- **A2**: Ephemeral token generation fails → "Unable to start voice session. Check your connection."
+- **A3**: User retries → Attempt fresh connection with new ephemeral token
 
 ### Acceptance Criteria
-- [ ] Fallback activated within 10s of primary failure
-- [ ] User warned about potential quality difference
-- [ ] Automatic recovery when primary returns
-- [ ] All core features work in fallback mode
+- [ ] Error message is clear and non-technical
+- [ ] UI returns to non-voice state cleanly
+- [ ] No orphaned WebRTC connections
+- [ ] Retry available immediately via tap
 
 ---
 

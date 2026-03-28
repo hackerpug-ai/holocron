@@ -30,5 +30,8 @@ Holocron document: `js7ecpzbs9bqe0k11837j6y` - Voice Assistant Implementation Gu
 
 - **UX Paradigm**: Hands-Free Continuous - voice stays active like a co-pilot
 - **Wait Behavior**: Audio Feedback Loop - progress narration, interruptible
-- **Primary Stack**: OpenAI Realtime API + ElevenLabs TTS + Deepgram STT
-- **Fallback Stack**: Pipecat framework for modular pipeline control
+- **Stack**: OpenAI Realtime API (`gpt-realtime` GA model) via `react-native-webrtc`
+- **Fallback**: None — if service unavailable, show "voice assistant currently unavailable"
+- **Transport**: Native WebRTC via `react-native-webrtc` + `react-native-webrtc-web-shim`
+- **Audio**: `react-native-incall-manager` for speaker routing, `expo-av` for audio mode
+- **Function Calling**: OpenAI Realtime function calling bridges to Holocron via Convex

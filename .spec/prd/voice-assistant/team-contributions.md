@@ -41,69 +41,64 @@ This document captures the planning team outputs that informed this PRD.
 ### System Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                     React Native App Layer                       │
-├─────────────────────────────────────────────────────────────────┤
-│  VoiceSessionManager  │  AudioCaptureService  │  UIStateManager │
-├─────────────────────────────────────────────────────────────────┤
-│              WebRTCTransport / WebSocketTransport               │
-├─────────────────────────────────────────────────────────────────┤
-│    STTProcessor    │    TTSStreamer    │    LLMOrchestrator    │
-├─────────────────────────────────────────────────────────────────┤
-│                       Convex Backend                            │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
-│  │ voiceSessions│  │ voiceAnalytics│  │ voiceCommands│          │
-│  └──────────────┘  └──────────────┘  └──────────────┘          │
-└─────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────┐
+│                React Native App (Expo)                │
+├──────────────────────────────────────────────────────┤
+│  VoiceSessionState   │  VoiceUI          │  Convex   │
+│  (useReducer)        │  (overlay, mic,   │  Client   │
+│                      │   indicators)     │           │
+├──────────────────────────────────────────────────────┤
+│  VoiceConnectionManager (react-native-webrtc)        │
+│  RTCPeerConnection + DataChannel('oai-events')       │
+├──────────────────────────────────────────────────────┤
+│  VoiceEventHandler (function call dispatch)          │
+├──────────────────────────────────────────────────────┤
+│                 Convex Backend                        │
+│  ┌──────────────┐  ┌──────────────┐                  │
+│  │ voiceSessions│  │ voiceCommands│                   │
+│  └──────────────┘  └──────────────┘                  │
+└──────────────────────────────────────────────────────┘
+         │ WebRTC + data channel
+         ▼
+┌─────────────────────────────────────┐
+│  OpenAI Realtime (gpt-realtime)     │
+│  VAD, STT, TTS, interruption,      │
+│  context mgmt, async func calling   │
+└─────────────────────────────────────┘
 ```
 
 ### Component Responsibilities
 
 | Component | Purpose |
 |-----------|---------|
-| VoiceSessionManager | State machine, lifecycle, context |
-| AudioCaptureService | Mic access, encoding, streaming |
-| WebRTCTransport | Real-time audio transport |
-| STTProcessor | Speech-to-text with VAD |
-| TTSStreamer | Text-to-speech playback |
-| LLMOrchestrator | Intent routing, action dispatch |
+| VoiceSessionState | Client-side state machine (useReducer), lifecycle |
+| VoiceConnectionManager | RTCPeerConnection, data channel, mic/speaker |
+| VoiceEventHandler | Parse data channel events, dispatch function calls to Convex |
+| VoiceUI | Overlay, mic button, indicators, waveform |
+| Convex Backend | Session persistence, function call handlers, ephemeral token generation |
 
 ### Convex Schema Extensions
 
-```typescript
-// voiceSessions table
-{
-  userId: v.id("users"),
-  startedAt: v.number(),
-  endedAt: v.optional(v.number()),
-  state: v.union("idle", "listening", "processing", "speaking"),
-  turnCount: v.number(),
-  context: v.array(v.object({...})),
-}
-
-// voiceAnalytics table
-{
-  sessionId: v.id("voiceSessions"),
-  sttLatency: v.number(),
-  ttsLatency: v.number(),
-  confidence: v.number(),
-  errorType: v.optional(v.string()),
-}
-```
+See `technical-requirements.md` for full corrected schema. Key tables:
+- `voiceSessions` — linked to `conversations` via `conversationId`
+- `voiceCommands` — records function calls and results per session
+- `voiceAnalytics` — latency metrics (P2, deferred)
 
 ### External Dependencies
 
-| Service | Purpose | Fallback |
-|---------|---------|----------|
-| OpenAI Realtime API | Speech-to-speech | Separate STT+LLM+TTS |
-| ElevenLabs | High-quality TTS | Deepgram Aura |
-| Deepgram Nova-3 | Fast STT | Whisper API |
-| Silero VAD | Voice activity | WebRTC VAD |
+| Service | Purpose | Notes |
+|---------|---------|-------|
+| OpenAI Realtime API | Speech-to-speech via WebRTC | Single provider, no fallback |
+| `react-native-webrtc` | Native WebRTC module | Must install |
+| `react-native-incall-manager` | Speaker routing | Must install |
 
 ### Technical Constraints
 
-- **Latency Budget**: 1.5s end-to-end (500ms STT + 500ms LLM + 500ms TTS)
-- **Audio Format**: 16kHz mono PCM for STT, MP3 for TTS
+- **Latency Budget**: ~800ms end-to-end (single-service speech-to-speech)
+- **Audio Format**: PCM 24kHz (WebRTC native)
+- **Context Window**: 32,768 tokens (auto-truncation with retention_ratio: 0.8)
+- **Session Duration**: 60 minutes max
+- **Cost**: ~$3 per 10-minute session
 - **Memory**: <100MB for voice processing
 - **Battery**: <10% per hour active use
 
@@ -153,27 +148,47 @@ This document captures the planning team outputs that informed this PRD.
 ### Component Architecture
 
 ```
-VoiceOverlay/
-├── MicButton.tsx        # Tap-to-talk trigger
-├── ListeningIndicator/  # Pulsing dot
-├── ProcessingSpinner/   # Rotating dots
-├── WaveformDisplay/     # Speaking visualization
-└── StatusAnnouncer/     # Screen reader updates
+components/voice/
+├── VoiceOverlay.tsx              # Modal overlay (adapts ImprovementSubmitSheet pattern)
+├── MicButton.tsx                 # Tap-to-talk (extends NarrationToggleButton: spring + haptics)
+├── ListeningIndicator.tsx        # Pulsing dot (adapts TypingIndicator AnimatedDot pattern)
+├── ProcessingSpinner.tsx         # Spinning arc (reuses SpinnerRing directly)
+├── WaveformDisplay.tsx           # Audio bars — net-new (react-native-svg, already installed)
+├── StatusAnnouncer.tsx           # Accessibility — net-new (AccessibilityInfo.announceForAccessibility)
+└── hooks/
+    ├── useVoiceSessionState.ts   # useReducer state machine (mirrors useNarrationState pattern)
+    ├── useVoiceConnection.ts     # RTCPeerConnection + data channel lifecycle
+    ├── useVoiceEventHandler.ts   # Data channel event parsing + function call dispatch
+    └── useVoiceAccessibility.ts  # AccessibilityInfo announcements for state changes
 ```
+
+### Component Reuse Map
+
+| Voice Component | Reuses From | What's Reused |
+|----------------|-------------|---------------|
+| VoiceOverlay | `ImprovementSubmitSheet` | Modal + animated backdrop + pan-to-dismiss |
+| MicButton | `NarrationToggleButton` | Spring scale animation, haptics, Mic icon |
+| ListeningIndicator | `TypingIndicator` | `withRepeat + withSequence + withTiming` pulse pattern |
+| ProcessingSpinner | `SpinnerRing` | Entire component (parameterize color/size) |
+| WaveformDisplay | — | Net-new (use `react-native-svg` bars) |
+| StatusAnnouncer | — | Net-new (`AccessibilityInfo` hook) |
+| useVoiceSessionState | `useNarrationState` | `useReducer` + action types pattern |
+| useVoiceConnection | — | Net-new (WebRTC lifecycle) |
+| useVoiceEventHandler | — | Net-new (data channel events) |
 
 ---
 
 ## Research Reference
 
 Deep research findings stored in Holocron:
-- **Document ID**: `js7ecpzbs9bqe0k11837j6y`
-- **Title**: Voice Assistant Implementation Guide
-- **Topics**: OpenAI Realtime API, Pipecat, ElevenLabs, Deepgram, WebRTC, expo-av
+- **Document ID**: `js79bg8zt1j787w7p3sts2scp583stnz` — OpenAI Realtime API + React Native Integration Guide (Mar 2026)
+- **Document ID**: `js7ecpzbs9bqe0k11837j6y` — Voice Assistant Implementation Guide (Mar 2026, original research)
+- **Reference Impl**: [thorwebdev/expo-webrtc-openai-realtime](https://github.com/thorwebdev/expo-webrtc-openai-realtime) (143 stars)
 
 ### Key Research Insights
 
-1. **OpenAI Realtime API** - Best for integrated speech-to-speech with function calling
-2. **Pipecat** - Open-source alternative for modular pipeline control
-3. **ElevenLabs Flash** - Lowest latency TTS (75ms)
-4. **Deepgram Nova-3** - Fastest STT (300ms, 92-97% accuracy)
-5. **WebRTC** - Preferred transport for mobile real-time audio
+1. **OpenAI Realtime API (GA)** - Single-service speech-to-speech with async function calling, ~800ms E2E latency
+2. **`react-native-webrtc`** - Proven for native WebRTC in Expo React Native, used by reference implementation
+3. **Async Function Calling** - GA model continues conversation while functions are pending, no re-engineering needed
+4. **Ephemeral Tokens** - Server generates ~60s tokens via `/v1/realtime/client_secrets`, client never sees API key
+5. **`semantic_vad`** - Smarter than `server_vad`, chunks on meaning not silence (available for P1 upgrade)

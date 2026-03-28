@@ -13,10 +13,10 @@ Voice Session Management handles the lifecycle of voice interactions from activa
 **Preconditions**: App is open, microphone permission granted
 
 ### Main Flow
-1. User activates voice (tap or wake word)
+1. User activates voice (tap)
 2. System plays activation sound
-3. System initializes audio capture
-4. System establishes WebRTC/WebSocket connection
+3. System requests ephemeral token from Convex (`voice.createSession` action)
+4. System creates `RTCPeerConnection`, gets mic via `getUserMedia`, establishes WebRTC connection to OpenAI Realtime
 5. System transitions to LISTENING state
 6. System displays minimal visual indicator (pulsing dot)
 
@@ -109,6 +109,8 @@ Voice Session Management handles the lifecycle of voice interactions from activa
 ---
 
 ## UC-VSESS-05: Wake Word Activation
+
+> **Deferred to Phase 2** — Requires native on-device ML model (e.g., Porcupine SDK). Estimated 4-6 week standalone effort. Users activate via tap only in V1.
 
 **Actor**: User
 **Trigger**: User says "Hey Holocron" (or configured wake word)

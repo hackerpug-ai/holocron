@@ -49,16 +49,16 @@ IDLE → LISTENING → PROCESSING → SPEAKING → IDLE
 **Purpose**: Handle all audio I/O including microphone capture, speaker playback, and audio session management.
 
 **Responsibilities**:
-- Microphone access and streaming
-- Audio encoding/decoding
-- TTS audio playback
+- Mic capture via `react-native-webrtc` `mediaDevices.getUserMedia({ audio: true })`
+- Speaker output via WebRTC `ontrack` event + `react-native-incall-manager`
+- Audio session config via `expo-av` `Audio.setAudioModeAsync({ playsInSilentModeIOS: true })`
 - Background audio session
 - Audio ducking (lower other audio)
 - Bluetooth/headphone routing
 
 **Key Flows**:
-- Capture → Encode → Stream to STT
-- Receive TTS → Decode → Play with ducking
+- Capture: `getUserMedia` → `pc.addTrack` → WebRTC to OpenAI
+- Playback: OpenAI → WebRTC `ontrack` → speaker via `InCallManager`
 
 **Use Case File**: [UC-AUDIO.md](./UC-AUDIO.md)
 
@@ -76,12 +76,13 @@ IDLE → LISTENING → PROCESSING → SPEAKING → IDLE
 - Noise suppression
 - Confidence scoring
 
-**Providers**:
-| Function | Primary | Fallback |
-|----------|---------|----------|
-| STT | Deepgram Nova-3 | Whisper |
-| TTS | ElevenLabs Flash | Deepgram Aura |
-| VAD | Silero VAD | WebRTC VAD |
+**Provider**: OpenAI Realtime API (single provider, no fallback)
+
+| Function | Provider | Notes |
+|----------|----------|-------|
+| STT | OpenAI Realtime (built-in) | Server-side, no separate service |
+| TTS | OpenAI Realtime (built-in) | Server-side, voices: `cedar` or `marin` |
+| VAD | OpenAI Realtime (`server_vad` or `semantic_vad`) | Server-side, configurable |
 
 **Use Case File**: [UC-SPEECH.md](./UC-SPEECH.md)
 

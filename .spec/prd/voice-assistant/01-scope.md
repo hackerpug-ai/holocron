@@ -9,25 +9,27 @@
 ### Must Have (P0)
 
 - [ ] Voice session lifecycle (start, maintain, end)
-- [ ] Real-time speech-to-text with <300ms latency
-- [ ] Natural text-to-speech with ElevenLabs quality
-- [ ] Interruption handling (barge-in support)
-- [ ] Progress narration during operations
-- [ ] Basic command execution (queries, navigation)
+- [ ] OpenAI Realtime API connection via native WebRTC (`react-native-webrtc`)
+- [ ] Server-side VAD + interruption handling (provided by OpenAI Realtime)
+- [ ] Function calling bridge to Holocron (pure reads + agent dispatchers)
+- [ ] Context persistence across turns (OpenAI manages in-session; Convex persists)
+- [ ] Progress narration (model announces intent before function calls via prompt)
+- [ ] Basic command execution via function calling (queries, navigation, note capture)
 - [ ] Error recovery with spoken guidance
 - [ ] Mobile app integration (iOS/Android)
 
 ### Should Have (P1)
 
-- [ ] Context persistence across turns
-- [ ] Wake word detection ("Hey Holocron")
-- [ ] Noise suppression and VAD tuning
 - [ ] Command history and repeat
 - [ ] Hands-free confirmation patterns
-- [ ] Session analytics and quality metrics
+- [ ] Upgrade to `semantic_vad` (from `server_vad`)
 
 ### Could Have (P2)
 
+- [ ] Wake word detection ("Hey Holocron") — requires native on-device ML model
+- [ ] On-device VAD (Silero) — currently using OpenAI server-side VAD
+- [ ] Detailed session analytics (voiceAnalytics table)
+- [ ] Noise suppression
 - [ ] Custom wake word training
 - [ ] Voice cloning for personalized TTS
 - [ ] Multi-language support
@@ -48,17 +50,20 @@
 | Constraint | Details |
 |------------|---------|
 | Platform | iOS 15+, Android 12+ |
-| Network | Requires internet (no offline STT/TTS) |
+| Network | OpenAI Realtime requires persistent internet connection |
+| WebRTC | iOS 14.3+ and Android WebView 80+ for WebRTC support |
 | Audio | Microphone permission required |
 | Battery | Background audio session limits |
 | Privacy | Audio not stored beyond session |
+| No fallback | Single provider dependency on OpenAI Realtime — if unavailable, show error |
 
 ## Dependencies
 
-| Dependency | Purpose | Risk |
-|------------|---------|------|
-| OpenAI Realtime API | Speech-to-speech | Beta availability |
-| ElevenLabs API | High-quality TTS | Rate limits, cost |
-| Deepgram API | Fast STT fallback | Accuracy variance |
-| expo-av | Audio capture | Platform quirks |
-| Convex | Session persistence | None (existing) |
+| Dependency | Purpose | Status |
+|------------|---------|--------|
+| OpenAI Realtime API | Speech-to-speech via WebRTC | Required (no fallback) |
+| `react-native-webrtc` | Native WebRTC module | Must install |
+| `react-native-webrtc-web-shim` | Web-compatible API wrapper | Must install |
+| `react-native-incall-manager` | Force audio to speaker | Must install |
+| `expo-av` | Audio mode config (playsInSilentModeIOS) | Already installed |
+| Convex | Session persistence, function call backend | Already installed |
