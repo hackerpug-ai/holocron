@@ -14,7 +14,7 @@
  */
 
 import { useEffect, useRef } from 'react'
-import { ActivityIndicator, Animated, Pressable, StyleSheet, View } from 'react-native'
+import { ActivityIndicator, Animated, Linking, Platform, Pressable, StyleSheet, View } from 'react-native'
 import { Text } from '@/components/ui/text'
 import { AlertCircle } from '@/components/ui/icons'
 import { useTheme } from '@/hooks/use-theme'
@@ -29,6 +29,17 @@ export interface VoiceSessionOverlayProps {
   onRetry?: () => void
   /** Optional testID for the root container */
   testID?: string
+}
+
+/**
+ * Opens platform-specific app settings for microphone permission guidance.
+ */
+function openAppSettings(): void {
+  if (Platform.OS === 'ios') {
+    Linking.openURL('app-settings:').catch(() => {})
+  } else {
+    Linking.openSettings().catch(() => {})
+  }
 }
 
 // ─── Sub-components ────────────────────────────────────────────────────────────
@@ -173,10 +184,12 @@ function ProcessingIndicator({ color }: { color: string }) {
 }
 
 /**
- * Error indicator with icon, message, and Retry button.
+ * Error indicator with icon, message, and action button.
+ * Shows Retry for service_unavailable, Open Settings for permission_denied.
  */
 function ErrorIndicator({
   errorMessage,
+  errorKind,
   onRetry,
   errorColor,
   primaryColor,
@@ -187,6 +200,7 @@ function ErrorIndicator({
   radiusLg,
 }: {
   errorMessage: string | null
+  errorKind: 'service_unavailable' | 'permission_denied' | null
   onRetry?: () => void
   errorColor: string
   primaryColor: string
@@ -196,21 +210,37 @@ function ErrorIndicator({
   spacingXl: number
   radiusLg: number
 }) {
+  const settingsGuidance =
+    errorKind === 'permission_denied'
+      ? Platform.OS === 'ios'
+        ? 'Go to Settings > Holocron > Microphone'
+        : 'Go to Settings > Apps > Holocron > Permissions'
+      : null
+
   return (
     <View style={styles.indicatorContainer} testID="voice-overlay-error-indicator">
       <AlertCircle size={40} color={errorColor} />
       <Text
         className="text-base mt-3 text-center"
-        style={[styles.errorMessage, { color: errorColor, marginBottom: spacingLg }]}
+        style={[styles.errorMessage, { color: errorColor, marginBottom: settingsGuidance ? spacingSm : spacingLg }]}
       >
         {errorMessage ?? 'An error occurred'}
       </Text>
-      {onRetry && (
+      {settingsGuidance && (
+        <Text
+          className="text-sm text-center"
+          style={[styles.errorMessage, { color: errorColor, marginBottom: spacingLg }]}
+          testID="voice-overlay-settings-guidance"
+        >
+          {settingsGuidance}
+        </Text>
+      )}
+      {errorKind === 'permission_denied' ? (
         <Pressable
-          testID="voice-overlay-retry-button"
-          onPress={onRetry}
+          testID="voice-overlay-open-settings-button"
+          onPress={openAppSettings}
           accessibilityRole="button"
-          accessibilityLabel="Retry voice connection"
+          accessibilityLabel="Open app settings to grant microphone permission"
           style={({ pressed }) => [
             styles.retryButton,
             {
@@ -226,9 +256,35 @@ function ErrorIndicator({
             className="text-sm font-semibold"
             style={{ color: primaryColor }}
           >
-            Retry
+            Open Settings
           </Text>
         </Pressable>
+      ) : (
+        onRetry && (
+          <Pressable
+            testID="voice-overlay-retry-button"
+            onPress={onRetry}
+            accessibilityRole="button"
+            accessibilityLabel="Retry voice connection"
+            style={({ pressed }) => [
+              styles.retryButton,
+              {
+                backgroundColor: pressed ? primaryColor : surfaceColor,
+                borderColor: primaryColor,
+                paddingHorizontal: spacingXl,
+                borderRadius: radiusLg,
+                paddingVertical: spacingSm,
+              },
+            ]}
+          >
+            <Text
+              className="text-sm font-semibold"
+              style={{ color: primaryColor }}
+            >
+              Retry
+            </Text>
+          </Pressable>
+        )
       )}
     </View>
   )
@@ -287,6 +343,7 @@ export function VoiceSessionOverlay({
       {state.status === 'error' && (
         <ErrorIndicator
           errorMessage={state.errorMessage}
+          errorKind={state.errorKind ?? null}
           onRetry={onRetry}
           errorColor={colors.destructive}
           primaryColor={colors.primary}

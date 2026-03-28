@@ -28,6 +28,7 @@ describe("US-005: voiceSessionReducer", () => {
         sessionId: null,
         conversationId: null,
         errorMessage: null,
+        errorKind: null,
         transcript: "",
         isInterrupted: false,
       });

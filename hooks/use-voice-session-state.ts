@@ -34,13 +34,15 @@ export type VoiceState =
   | "speaking"
   | "error";
 
+export type VoiceErrorKind = "service_unavailable" | "permission_denied";
+
 export type VoiceAction =
   | { type: "CONNECT"; conversationId: string }
   | { type: "CONNECTED"; sessionId: string }
   | { type: "START_LISTENING" }
   | { type: "START_SPEAKING" }
   | { type: "STOP_SPEAKING" }
-  | { type: "ERROR"; error: string }
+  | { type: "ERROR"; error: string; errorKind?: VoiceErrorKind }
   | { type: "DISCONNECT" }
   | { type: "TIMEOUT" };
 
@@ -49,6 +51,7 @@ export interface VoiceSessionState {
   sessionId: string | null;
   conversationId: string | null;
   errorMessage: string | null;
+  errorKind: VoiceErrorKind | null;
   transcript: string;
   isInterrupted: boolean;
 }
@@ -58,6 +61,7 @@ export const initialVoiceSessionState: VoiceSessionState = {
   sessionId: null,
   conversationId: null,
   errorMessage: null,
+  errorKind: null,
   transcript: "",
   isInterrupted: false,
 };
@@ -128,6 +132,7 @@ export function voiceSessionReducer(
         ...state,
         status: "error",
         errorMessage: action.error,
+        errorKind: action.errorKind ?? null,
       };
     }
 
