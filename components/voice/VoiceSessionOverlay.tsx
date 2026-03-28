@@ -51,7 +51,7 @@ function ConnectingIndicator({ color }: { color: string }) {
  * Pulsing dot animation for LISTENING state.
  * Uses Animated API — no heavy computation on the main thread.
  */
-function ListeningIndicator({ color }: { color: string }) {
+function ListeningIndicator({ color, radiusFull }: { color: string; radiusFull: number }) {
   const pulseAnim = useRef(new Animated.Value(1)).current
 
   useEffect(() => {
@@ -80,6 +80,7 @@ function ListeningIndicator({ color }: { color: string }) {
           styles.pulseDot,
           {
             backgroundColor: color,
+            borderRadius: radiusFull, // full circle
             transform: [{ scale: pulseAnim }],
           },
         ]}
@@ -95,7 +96,7 @@ function ListeningIndicator({ color }: { color: string }) {
  * Animated waveform bars for SPEAKING state.
  * Three bars animate with staggered timing for a wave effect.
  */
-function SpeakingIndicator({ color }: { color: string }) {
+function SpeakingIndicator({ color, radiusSm }: { color: string; radiusSm: number }) {
   const bar1 = useRef(new Animated.Value(0.4)).current
   const bar2 = useRef(new Animated.Value(0.4)).current
   const bar3 = useRef(new Animated.Value(0.4)).current
@@ -143,6 +144,7 @@ function SpeakingIndicator({ color }: { color: string }) {
               styles.waveformBar,
               {
                 backgroundColor: color,
+                borderRadius: radiusSm,
                 transform: [{ scaleY: anim }],
               },
             ]}
@@ -179,19 +181,25 @@ function ErrorIndicator({
   errorColor,
   primaryColor,
   surfaceColor,
+  spacingLg,
+  spacingXl,
+  radiusLg,
 }: {
   errorMessage: string | null
   onRetry?: () => void
   errorColor: string
   primaryColor: string
   surfaceColor: string
+  spacingLg: number
+  spacingXl: number
+  radiusLg: number
 }) {
   return (
     <View style={styles.indicatorContainer} testID="voice-overlay-error-indicator">
       <AlertCircle size={40} color={errorColor} />
       <Text
         className="text-base mt-3 text-center"
-        style={[styles.errorMessage, { color: errorColor }]}
+        style={[styles.errorMessage, { color: errorColor, marginBottom: spacingLg }]}
       >
         {errorMessage ?? 'An error occurred'}
       </Text>
@@ -206,6 +214,10 @@ function ErrorIndicator({
             {
               backgroundColor: pressed ? primaryColor : surfaceColor,
               borderColor: primaryColor,
+              paddingHorizontal: spacingXl,
+              borderRadius: radiusLg,
+              // paddingVertical: 10 — no exact token (sm=8, md=12); fixed visual dimension
+              paddingVertical: 10,
             },
           ]}
         >
@@ -263,10 +275,10 @@ export function VoiceSessionOverlay({
         <ConnectingIndicator color={colors.primary} />
       )}
       {state.status === 'listening' && (
-        <ListeningIndicator color={colors.primary} />
+        <ListeningIndicator color={colors.primary} radiusFull={radius.full} />
       )}
       {state.status === 'speaking' && (
-        <SpeakingIndicator color={colors.accentForeground} />
+        <SpeakingIndicator color={colors.accentForeground} radiusSm={radius.sm} />
       )}
       {state.status === 'processing' && (
         <ProcessingIndicator color={colors.mutedForeground} />
@@ -278,6 +290,9 @@ export function VoiceSessionOverlay({
           errorColor={colors.destructive}
           primaryColor={colors.primary}
           surfaceColor={colors.card}
+          spacingLg={spacing.lg}
+          spacingXl={spacing.xl}
+          radiusLg={radius.lg}
         />
       )}
     </View>
@@ -290,36 +305,34 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
-    minWidth: 200,
+    minWidth: 200, // fixed minimum width for overlay legibility
   },
   indicatorContainer: {
     alignItems: 'center',
     justifyContent: 'center',
   },
   pulseDot: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 24,  // fixed visual dimension (dot size)
+    height: 24, // fixed visual dimension (dot size)
+    // borderRadius applied inline via radius.full token
   },
   waveformContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    height: 40,
+    gap: 6,    // fixed visual gap between bars (no exact token: sm=8, xs=4)
+    height: 40, // fixed visual dimension (waveform height)
   },
   waveformBar: {
-    width: 6,
-    height: 32,
-    borderRadius: 3,
+    width: 6,   // fixed visual dimension (bar width)
+    height: 32, // fixed visual dimension (bar height)
+    // borderRadius applied inline via radius.sm token
   },
   errorMessage: {
-    maxWidth: 240,
-    marginBottom: 16,
+    maxWidth: 240, // fixed max width for readable error text wrapping
+    // marginBottom applied inline via spacing.lg token
   },
   retryButton: {
-    paddingHorizontal: 24,
-    paddingVertical: 10,
-    borderRadius: 8,
-    borderWidth: 1.5,
+    borderWidth: 1.5, // fine visual detail — not a spacing token
+    // paddingHorizontal, paddingVertical, borderRadius applied inline via tokens
   },
 })
