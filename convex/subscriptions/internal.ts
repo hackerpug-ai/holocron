@@ -986,6 +986,17 @@ export const getSource = internalQuery({
 // Mutations
 // ============================================================================
 
+const SOURCE_TYPE_TO_CATEGORY: Record<string, string> = {
+  youtube: "video",
+  reddit: "social",
+  newsletter: "article",
+  changelog: "article",
+  blog: "article",
+  twitter: "social",
+  bluesky: "social",
+  ebay: "blog",
+};
+
 export const insertContent = internalMutation({
   args: {
     sourceId: v.id("subscriptionSources"),
@@ -997,6 +1008,10 @@ export const insertContent = internalMutation({
     passedFilter: v.boolean(),
     metadataJson: v.optional(v.any()),
     embedding: v.optional(v.array(v.float64())),
+    contentCategory: v.optional(v.string()),
+    thumbnailUrl: v.optional(v.string()),
+    authorHandle: v.optional(v.string()),
+    duration: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const now = Date.now();
@@ -1013,6 +1028,10 @@ export const insertContent = internalMutation({
       researchedAt: undefined,
       embedding: args.embedding,
       inFeed: false,
+      contentCategory: args.contentCategory,
+      thumbnailUrl: args.thumbnailUrl,
+      authorHandle: args.authorHandle,
+      duration: args.duration,
     });
 
     return id;
@@ -1139,6 +1158,9 @@ async function processSingleSource(
   let queued = 0;
   for (let i = 0; i < items.length; i++) {
     const item = items[i];
+    const meta = item.metadataJson as Record<string, unknown> | undefined;
+    const thumbnailUrl = (meta?.thumbnailUrl ?? meta?.thumbnail ?? meta?.image) as string | undefined;
+    const duration = meta?.duration as number | undefined;
     await ctx.runMutation(internal.subscriptions.internal.insertContent, {
       sourceId: item.sourceId,
       contentId: item.contentId,
@@ -1149,6 +1171,10 @@ async function processSingleSource(
       passedFilter: item.passedFilter,
       metadataJson: item.metadataJson,
       embedding: embeddings[i],
+      contentCategory: SOURCE_TYPE_TO_CATEGORY[source.sourceType],
+      thumbnailUrl,
+      authorHandle: source.name ?? source.identifier,
+      duration,
     });
     if (item.passedFilter) queued++;
 
@@ -1271,6 +1297,9 @@ export const checkAllSubscriptions = internalAction({
           let queued = 0;
           for (let i = 0; i < items.length; i++) {
             const item = items[i];
+            const meta = item.metadataJson as Record<string, unknown> | undefined;
+            const thumbnailUrl = (meta?.thumbnailUrl ?? meta?.thumbnail ?? meta?.image) as string | undefined;
+            const duration = meta?.duration as number | undefined;
             await ctx.runMutation(internal.subscriptions.internal.insertContent, {
               sourceId: item.sourceId,
               contentId: item.contentId,
@@ -1281,6 +1310,10 @@ export const checkAllSubscriptions = internalAction({
               passedFilter: item.passedFilter,
               metadataJson: item.metadataJson,
               embedding: embeddings[i],
+              contentCategory: SOURCE_TYPE_TO_CATEGORY[source.sourceType],
+              thumbnailUrl,
+              authorHandle: source.name ?? source.identifier,
+              duration,
             });
             if (item.passedFilter) queued++;
           }
