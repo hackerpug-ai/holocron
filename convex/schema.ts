@@ -903,4 +903,55 @@ export default defineSchema({
     .index("by_plan", ["planId"])
     .index("by_approved_by", ["approvedBy"])
     .index("by_decision", ["decision"]),
+
+  // Improvement/bug reporting system
+  improvementRequests: defineTable({
+    description: v.string(),
+    title: v.optional(v.string()),
+    summary: v.optional(v.string()),
+    status: v.union(
+      v.literal("submitted"),
+      v.literal("processing"),
+      v.literal("pending_review"),
+      v.literal("approved"),
+      v.literal("done"),
+      v.literal("merged")
+    ),
+    sourceScreen: v.string(),
+    sourceComponent: v.optional(v.string()),
+    agentDecision: v.optional(v.object({
+      action: v.union(v.literal("create_new"), v.literal("merge")),
+      mergeTargetId: v.optional(v.id("improvementRequests")),
+      confidence: v.number(),
+      reasoning: v.string(),
+      similarRequests: v.array(v.object({
+        id: v.id("improvementRequests"),
+        title: v.string(),
+        similarity: v.number(),
+      })),
+    })),
+    mergedIntoId: v.optional(v.id("improvementRequests")),
+    mergedFromIds: v.optional(v.array(v.id("improvementRequests"))),
+    userFeedback: v.optional(v.string()),
+    embedding: v.optional(v.array(v.float64())),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    processedAt: v.optional(v.number()),
+  })
+    .index("by_status", ["status"])
+    .index("by_created", ["createdAt"])
+    .index("by_mergedInto", ["mergedIntoId"])
+    .searchIndex("by_title_search", { searchField: "title", filterFields: ["status"] })
+    .vectorIndex("by_embedding", {
+      vectorField: "embedding",
+      dimensions: 1024,
+    }),
+
+  improvementImages: defineTable({
+    requestId: v.id("improvementRequests"),
+    storageId: v.id("_storage"),
+    caption: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_request", ["requestId"]),
 });
