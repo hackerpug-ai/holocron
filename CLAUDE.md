@@ -47,6 +47,39 @@ If ANY gate fails, the commit is rejected. This is by design. **Do not work arou
 6. **Clean up what you touch.** If you edit a file with pre-existing lint/type errors, fix them. Leave every file better than you found it.
 7. **Orchestrators: plan for commit success.** When scoping work for subagents, include "pass all hooks and commit" as an explicit requirement, not an afterthought.
 
+---
+
+# Deploy Policy
+
+## When to Deploy
+
+When an orchestrator completes a plan or series of tasks that includes **client code changes** (files in `app/`, `components/`, `hooks/`, `screens/`, `lib/`, or `assets/`), it MUST trigger a deploy before reporting completion. Backend-only changes (e.g. `convex/`, `supabase/`) do NOT require a client deploy.
+
+## How to Deploy
+
+Deploying creates a GitHub Release, which triggers the EAS Deploy workflow (`.github/workflows/eas-deploy.yml`). The workflow runs quality gates (typecheck + tests), then builds iOS (with App Store submit) and Android in parallel on EAS.
+
+```bash
+# 1. Make sure all changes are committed and pushed to main
+git push origin main
+
+# 2. Determine the next version tag (check latest)
+git tag --sort=-v:refname | head -5
+
+# 3. Create the release (bumps patch by default, use minor/major as appropriate)
+gh release create v{X.Y.Z} --generate-notes --title "v{X.Y.Z}"
+```
+
+**Version bumping rules:**
+- **Patch** (`v1.0.1`): Bug fixes, small UI tweaks
+- **Minor** (`v1.1.0`): New features, new screens, significant UI changes
+- **Major** (`v2.0.0`): Breaking changes, major redesigns
+
+**Do NOT:**
+- Deploy for backend-only changes (`convex/`, `supabase/`)
+- Deploy if quality gates (typecheck, tests) are failing locally
+- Skip pushing to `main` before creating the release
+
 # React & React Native Rules
 
 This document consolidates all React and React Native development rules, patterns, and standards.
