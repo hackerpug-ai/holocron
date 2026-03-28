@@ -18,6 +18,16 @@ export const get = query({
 });
 
 /**
+ * Get plan by ID (alias for compatibility)
+ */
+export const getPlan = query({
+  args: { planId: v.id("executionPlans") },
+  handler: async (ctx, { planId }) => {
+    return await ctx.db.get(planId);
+  },
+});
+
+/**
  * Get plans by status
  */
 export const getByStatus = query({

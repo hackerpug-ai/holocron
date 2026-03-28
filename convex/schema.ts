@@ -385,6 +385,7 @@ export default defineSchema({
     priceMin: v.optional(v.number()),
     priceMax: v.optional(v.number()),
     retailers: v.optional(v.array(v.string())),
+    planId: v.optional(v.id("executionPlans")), // Link to execution plan
     status: v.string(), // "pending" | "searching" | "completed" | "failed"
     totalListings: v.optional(v.number()),
     bestDealId: v.optional(v.id("shopListings")),
@@ -395,7 +396,8 @@ export default defineSchema({
   })
     .index("by_conversation", ["conversationId"])
     .index("by_status", ["status"])
-    .index("by_created", ["createdAt"]),
+    .index("by_created", ["createdAt"])
+    .index("by_plan", ["planId"]),
 
   // Shop listings - Individual product listings
   shopListings: defineTable({
