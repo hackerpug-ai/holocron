@@ -284,6 +284,17 @@ export function WebViewSheet({
                 ref={webViewRef}
                 source={{ uri: url }}
                 onNavigationStateChange={handleNavigationStateChange}
+                onShouldStartLoadWithRequest={(request) => {
+                  const { url: reqUrl } = request
+                  if (
+                    reqUrl.startsWith('twitter://') ||
+                    reqUrl.startsWith('x://') ||
+                    reqUrl.startsWith('intent://')
+                  ) {
+                    return false
+                  }
+                  return true
+                }}
                 onLoadStart={() => setLoading(true)}
                 onLoadEnd={() => setLoading(false)}
                 style={{ backgroundColor: colors.background }}
