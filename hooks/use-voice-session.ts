@@ -19,6 +19,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 import {
   voiceSessionReducer,
   initialVoiceSessionState,
+  type VoiceSessionState,
 } from "@/hooks/use-voice-session-state";
 import { WebRTCConnection } from "@/lib/voice/webrtc-connection";
 import { createEventHandler } from "@/lib/voice/event-handler";
@@ -50,7 +51,7 @@ const SESSION_UPDATE_EVENT = {
 } as const;
 
 export interface UseVoiceSessionReturn {
-  state: typeof initialVoiceSessionState;
+  state: VoiceSessionState;
   start: () => Promise<void>;
   stop: () => Promise<void>;
   transcript: string;
@@ -153,15 +154,6 @@ export function useVoiceSession(
 
       // 4. Transition to LISTENING
       dispatch({ type: "CONNECTED", sessionId });
-
-      // 5. Send session.update immediately (data channel may be open by now)
-      try {
-        conn.sendEvent(
-          SESSION_UPDATE_EVENT as unknown as Record<string, unknown>
-        );
-      } catch {
-        // Will be sent on session.created event if data channel isn't ready yet
-      }
     } catch (error) {
       // Clean up any partial resources
       if (connectionRef.current) {

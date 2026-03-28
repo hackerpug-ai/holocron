@@ -1,11 +1,15 @@
 /**
  * US-008: useVoiceSession integration hook tests
  *
- * Tests the orchestration of state machine, WebRTC, and Convex
- * through the useVoiceSession hook.
+ * Tests the actual hook via renderHook, exercising real state transitions,
+ * cleanup on unmount, and error handling.
+ *
+ * @vitest-environment jsdom
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { renderHook, act } from "@testing-library/react";
+import type { RealtimeEventCallbacks } from "@/lib/voice/types";
 
 // --- Mock Convex ---
 const mockCreateSession = vi.fn();
@@ -44,31 +48,27 @@ vi.mock("@/lib/voice/webrtc-connection", () => ({
   WebRTCConnection: MockWebRTCConnection,
 }));
 
-// --- Mock event handler ---
+// --- Mock event handler — capture callbacks for simulating events ---
+let capturedCallbacks: RealtimeEventCallbacks = {};
 const mockEventHandlerFn = vi.fn();
+
 vi.mock("@/lib/voice/event-handler", () => ({
-  createEventHandler: vi.fn(() => mockEventHandlerFn),
+  createEventHandler: vi.fn((cbs: RealtimeEventCallbacks) => {
+    capturedCallbacks = cbs;
+    return mockEventHandlerFn;
+  }),
 }));
 
-// --- Import after mocks ---
-import {
-  voiceSessionReducer,
-  initialVoiceSessionState,
-  type VoiceSessionState,
-} from "@/hooks/use-voice-session-state";
-import { WebRTCConnection } from "@/lib/voice/webrtc-connection";
+// --- Import hook after mocks ---
+import { useVoiceSession } from "@/hooks/use-voice-session";
+import type { Id } from "@/convex/_generated/dataModel";
 
-/**
- * Since we can't easily use renderHook without react-native testing setup,
- * we test the integration logic by exercising the reducer + verifying
- * that the mocked dependencies are called correctly in the right order.
- *
- * We simulate the hook's orchestration flow directly.
- */
+const CONV_ID = "conv-test-123" as Id<"conversations">;
 
-describe("US-008: useVoiceSession integration", () => {
+describe("US-008: useVoiceSession (renderHook)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    capturedCallbacks = {};
     mockCreateSession.mockResolvedValue({
       ephemeralKey: "ek-test-123",
       expiresAt: Date.now() + 60000,
@@ -78,328 +78,234 @@ describe("US-008: useVoiceSession integration", () => {
     mockConnect.mockResolvedValue(undefined);
   });
 
-  describe("AC-1: start() transitions IDLE->CONNECTING->LISTENING", () => {
-    it("creates Convex session, connects WebRTC, and sends session.update", async () => {
-      let state: VoiceSessionState = initialVoiceSessionState;
+  describe("AC-1: start() transitions IDLE -> CONNECTING -> LISTENING", () => {
+    it("creates session, connects WebRTC, and transitions to listening", async () => {
+      const { result } = renderHook(() => useVoiceSession(CONV_ID));
 
-      // 1. CONNECT dispatch
-      state = voiceSessionReducer(state, {
-        type: "CONNECT",
-        conversationId: "conv-123",
+      expect(result.current.state.status).toBe("idle");
+
+      await act(async () => {
+        await result.current.start();
       });
-      expect(state.status).toBe("connecting");
 
-      // 2. Call createSession
-      const { ephemeralKey, sessionId } = await mockCreateSession({
-        conversationId: "conv-123",
+      // Verify Convex createSession was called
+      expect(mockCreateSession).toHaveBeenCalledWith({
+        conversationId: CONV_ID,
       });
-      expect(ephemeralKey).toBe("ek-test-123");
-      expect(sessionId).toBe("session-001");
 
-      // 3. WebRTC connection
-      const conn = new WebRTCConnection();
-      conn.setCallbacks({ onEvent: vi.fn() });
-      await conn.connect(ephemeralKey);
-
-      expect(mockSetCallbacks).toHaveBeenCalled();
+      // Verify WebRTC was connected with ephemeral key
       expect(mockConnect).toHaveBeenCalledWith("ek-test-123");
 
-      // 4. CONNECTED dispatch
-      state = voiceSessionReducer(state, { type: "CONNECTED", sessionId });
-      expect(state.status).toBe("listening");
-      expect(state.sessionId).toBe("session-001");
+      // Verify callbacks were wired
+      expect(mockSetCallbacks).toHaveBeenCalled();
 
-      // 5. session.update sent
-      conn.sendEvent({ type: "session.update", session: {} });
-      expect(mockSendEvent).toHaveBeenCalledWith({
-        type: "session.update",
-        session: {},
-      });
-    });
-  });
-
-  describe("AC-2: stop() transitions to IDLE, destroys WebRTC, calls endSession", () => {
-    it("cleans up all resources on stop", async () => {
-      // Setup: simulate active session
-      let state: VoiceSessionState = initialVoiceSessionState;
-      state = voiceSessionReducer(state, {
-        type: "CONNECT",
-        conversationId: "conv-123",
-      });
-      state = voiceSessionReducer(state, {
-        type: "CONNECTED",
-        sessionId: "session-001",
-      });
-      expect(state.status).toBe("listening");
-
-      // Create connection mock
-      const conn = new WebRTCConnection();
-
-      // Stop: destroy WebRTC
-      conn.destroy();
-      expect(mockDestroy).toHaveBeenCalled();
-
-      // Stop: end Convex session
-      await mockEndSession({ sessionId: "session-001" });
-      expect(mockEndSession).toHaveBeenCalledWith({
-        sessionId: "session-001",
-      });
-
-      // Stop: DISCONNECT dispatch
-      state = voiceSessionReducer(state, { type: "DISCONNECT" });
-      expect(state.status).toBe("idle");
-      expect(state.sessionId).toBeNull();
-    });
-  });
-
-  describe("AC-3: Component unmount cleans up resources", () => {
-    it("cleanup destroys WebRTC and calls endSession", async () => {
-      // Simulate what useEffect cleanup does:
-      // 1. Destroy connection
-      const conn = new WebRTCConnection();
-      conn.destroy();
-      expect(mockDestroy).toHaveBeenCalled();
-
-      // 2. End session (best-effort)
-      await mockEndSession({ sessionId: "session-001" });
-      expect(mockEndSession).toHaveBeenCalledWith({
-        sessionId: "session-001",
-      });
-    });
-  });
-
-  describe("AC-4: WebRTC connection failure -> ERROR state", () => {
-    it("transitions to ERROR with message when WebRTC fails", async () => {
-      mockConnect.mockRejectedValueOnce(new Error("SDP exchange failed: 401"));
-
-      let state: VoiceSessionState = initialVoiceSessionState;
-
-      // 1. CONNECT
-      state = voiceSessionReducer(state, {
-        type: "CONNECT",
-        conversationId: "conv-123",
-      });
-      expect(state.status).toBe("connecting");
-
-      // 2. createSession succeeds
-      await mockCreateSession({ conversationId: "conv-123" });
-
-      // 3. WebRTC connect fails
-      const conn = new WebRTCConnection();
-      conn.setCallbacks({ onEvent: vi.fn() });
-
-      let errorMessage = "";
-      try {
-        await conn.connect("ek-test-123");
-      } catch (error) {
-        errorMessage =
-          error instanceof Error ? error.message : "Unknown error";
-        // Cleanup partial resources
-        conn.destroy();
-      }
-
-      expect(errorMessage).toBe("SDP exchange failed: 401");
-      expect(mockDestroy).toHaveBeenCalled();
-
-      // 4. ERROR dispatch
-      state = voiceSessionReducer(state, {
-        type: "ERROR",
-        error: errorMessage,
-      });
-      expect(state.status).toBe("error");
-      expect(state.errorMessage).toBe("SDP exchange failed: 401");
-
-      // 5. End Convex session (cleanup partial)
-      await mockEndSession({ sessionId: "session-001" });
-      expect(mockEndSession).toHaveBeenCalled();
+      // State should be listening after successful start
+      expect(result.current.state.status).toBe("listening");
+      expect(result.current.state.sessionId).toBe("session-001");
     });
 
-    it("handles non-Error throws gracefully", async () => {
-      mockConnect.mockRejectedValueOnce("string error");
+    it("sends session.update only via onSessionCreated callback (no duplicate)", async () => {
+      const { result } = renderHook(() => useVoiceSession(CONV_ID));
 
-      let state: VoiceSessionState = initialVoiceSessionState;
-      state = voiceSessionReducer(state, {
-        type: "CONNECT",
-        conversationId: "conv-123",
+      await act(async () => {
+        await result.current.start();
       });
 
-      const conn = new WebRTCConnection();
+      // session.update is NOT sent directly after connect —
+      // it's sent only when onSessionCreated fires
+      expect(mockSendEvent).not.toHaveBeenCalled();
 
-      let errorMessage = "";
-      try {
-        await conn.connect("ek-test-123");
-      } catch (error) {
-        errorMessage =
-          error instanceof Error ? error.message : "Unknown connection error";
-        conn.destroy();
-      }
-
-      state = voiceSessionReducer(state, {
-        type: "ERROR",
-        error: errorMessage,
-      });
-      expect(state.status).toBe("error");
-      expect(state.errorMessage).toBe("Unknown connection error");
-    });
-  });
-
-  describe("event handler wiring", () => {
-    it("speech_started maps to START_LISTENING transition", () => {
-      let state: VoiceSessionState = {
-        ...initialVoiceSessionState,
-        status: "speaking",
-        sessionId: "s1",
-        conversationId: "c1",
-      };
-
-      // onSpeechStarted dispatches START_LISTENING
-      state = voiceSessionReducer(state, { type: "START_LISTENING" });
-      expect(state.status).toBe("listening");
-    });
-
-    it("error event maps to ERROR transition", () => {
-      let state: VoiceSessionState = {
-        ...initialVoiceSessionState,
-        status: "listening",
-        sessionId: "s1",
-        conversationId: "c1",
-      };
-
-      state = voiceSessionReducer(state, {
-        type: "ERROR",
-        error: "Rate limit exceeded",
-      });
-      expect(state.status).toBe("error");
-      expect(state.errorMessage).toBe("Rate limit exceeded");
-    });
-
-    it("transcript callback stores transcript text", () => {
-      // Simulate the onTranscript callback behavior
-      let transcript = "";
-      const onTranscript = (text: string) => {
-        transcript = text;
-      };
-
-      onTranscript("Hello, how can I help you?");
-      expect(transcript).toBe("Hello, how can I help you?");
-    });
-  });
-
-  describe("session.update config", () => {
-    it("sendEvent is called with session.update payload", () => {
-      const conn = new WebRTCConnection();
-
-      const sessionUpdate = {
-        type: "session.update",
-        session: {
+      // Simulate OpenAI sending session.created event
+      act(() => {
+        capturedCallbacks.onSessionCreated?.({
+          id: "sess_abc",
           model: "gpt-realtime",
-          modalities: ["text", "audio"],
-          voice: "cedar",
-          instructions:
-            "You are the Holocron voice assistant. You help users search their knowledge base, manage tasks, check on research, and navigate the app.",
-          turn_detection: {
-            type: "server_vad",
-            threshold: 0.5,
-            prefix_padding_ms: 300,
-            silence_duration_ms: 500,
-            idle_timeout_ms: 30000,
-          },
-          tools: [],
-          tool_choice: "auto",
-          truncation: { type: "retention_ratio", retention_ratio: 0.8 },
-          input_audio_transcription: { model: "gpt-4o-transcribe" },
-        },
-      };
+        });
+      });
 
-      conn.sendEvent(sessionUpdate);
+      // Now session.update should have been sent exactly once
+      expect(mockSendEvent).toHaveBeenCalledTimes(1);
       expect(mockSendEvent).toHaveBeenCalledWith(
         expect.objectContaining({
           type: "session.update",
           session: expect.objectContaining({
             model: "gpt-realtime",
-            modalities: ["text", "audio"],
             voice: "cedar",
-            turn_detection: expect.objectContaining({
-              type: "server_vad",
-            }),
-            input_audio_transcription: { model: "gpt-4o-transcribe" },
           }),
         })
       );
     });
   });
 
-  describe("idempotent cleanup", () => {
-    it("calling stop multiple times does not throw", async () => {
-      // First stop
-      const conn = new WebRTCConnection();
-      conn.destroy();
-      await mockEndSession({ sessionId: "session-001" });
+  describe("AC-2: stop() transitions to IDLE, destroys WebRTC, calls endSession", () => {
+    it("cleans up all resources and returns to idle", async () => {
+      const { result } = renderHook(() => useVoiceSession(CONV_ID));
 
-      // Verify first stop worked
-      expect(mockDestroy).toHaveBeenCalledTimes(1);
-      expect(mockEndSession).toHaveBeenCalledTimes(1);
+      // Start a session
+      await act(async () => {
+        await result.current.start();
+      });
+      expect(result.current.state.status).toBe("listening");
 
-      // Second stop — in the real hook, connectionRef is nulled out
-      // so destroy() wouldn't be called again. Verify the pattern works.
-      const conn2 = new WebRTCConnection();
-      conn2.destroy();
+      // Stop the session
+      await act(async () => {
+        await result.current.stop();
+      });
 
-      // First conn + second conn2 = 2 destroy calls total in this test
-      expect(mockDestroy).toHaveBeenCalledTimes(2);
+      // WebRTC destroyed
+      expect(mockDestroy).toHaveBeenCalled();
+
+      // Convex session ended
+      expect(mockEndSession).toHaveBeenCalledWith({
+        sessionId: "session-001",
+      });
+
+      // State back to idle
+      expect(result.current.state.status).toBe("idle");
+      expect(result.current.state.sessionId).toBeNull();
     });
   });
 
-  describe("full lifecycle orchestration", () => {
-    it("complete flow: idle -> connecting -> listening -> stop -> idle", async () => {
-      let state: VoiceSessionState = initialVoiceSessionState;
+  describe("AC-3: Component unmount cleans up resources", () => {
+    it("destroys WebRTC and calls endSession on unmount", async () => {
+      const { result, unmount } = renderHook(() => useVoiceSession(CONV_ID));
 
-      // Start: CONNECT
-      state = voiceSessionReducer(state, {
-        type: "CONNECT",
-        conversationId: "conv-lifecycle",
+      // Start a session
+      await act(async () => {
+        await result.current.start();
       });
-      expect(state.status).toBe("connecting");
+      expect(result.current.state.status).toBe("listening");
 
-      // Start: createSession
-      const result = await mockCreateSession({
-        conversationId: "conv-lifecycle",
-      });
+      // Unmount the hook (simulates component unmount)
+      unmount();
 
-      // Start: WebRTC connect
-      const conn = new WebRTCConnection();
-      await conn.connect(result.ephemeralKey);
-
-      // Start: CONNECTED
-      state = voiceSessionReducer(state, {
-        type: "CONNECTED",
-        sessionId: result.sessionId,
-      });
-      expect(state.status).toBe("listening");
-
-      // Start: send session.update
-      conn.sendEvent({ type: "session.update", session: {} });
-      expect(mockSendEvent).toHaveBeenCalled();
-
-      // AI speaks
-      state = voiceSessionReducer(state, { type: "START_SPEAKING" });
-      expect(state.status).toBe("speaking");
-
-      // AI stops speaking
-      state = voiceSessionReducer(state, { type: "STOP_SPEAKING" });
-      expect(state.status).toBe("listening");
-
-      // Stop: destroy + endSession + DISCONNECT
-      conn.destroy();
-      await mockEndSession({ sessionId: result.sessionId });
-      state = voiceSessionReducer(state, { type: "DISCONNECT" });
-
-      expect(state.status).toBe("idle");
-      expect(state.sessionId).toBeNull();
+      // Cleanup should have fired
       expect(mockDestroy).toHaveBeenCalled();
       expect(mockEndSession).toHaveBeenCalledWith({
         sessionId: "session-001",
       });
+    });
+  });
+
+  describe("AC-4: Connection failure -> ERROR state", () => {
+    it("transitions to error when createSession fails", async () => {
+      mockCreateSession.mockRejectedValueOnce(
+        new Error("Auth token expired")
+      );
+
+      const { result } = renderHook(() => useVoiceSession(CONV_ID));
+
+      await act(async () => {
+        await result.current.start();
+      });
+
+      expect(result.current.state.status).toBe("error");
+      expect(result.current.state.errorMessage).toBe("Auth token expired");
+    });
+
+    it("transitions to error when WebRTC connect fails", async () => {
+      mockConnect.mockRejectedValueOnce(
+        new Error("SDP exchange failed: 401")
+      );
+
+      const { result } = renderHook(() => useVoiceSession(CONV_ID));
+
+      await act(async () => {
+        await result.current.start();
+      });
+
+      expect(result.current.state.status).toBe("error");
+      expect(result.current.state.errorMessage).toBe(
+        "SDP exchange failed: 401"
+      );
+      // Partial cleanup: end the Convex session
+      expect(mockEndSession).toHaveBeenCalledWith({
+        sessionId: "session-001",
+      });
+    });
+
+    it("handles non-Error throws gracefully", async () => {
+      mockConnect.mockRejectedValueOnce("string error");
+
+      const { result } = renderHook(() => useVoiceSession(CONV_ID));
+
+      await act(async () => {
+        await result.current.start();
+      });
+
+      expect(result.current.state.status).toBe("error");
+      expect(result.current.state.errorMessage).toBe(
+        "Unknown connection error"
+      );
+    });
+  });
+
+  describe("event handler wiring", () => {
+    it("onSpeechStarted dispatches START_LISTENING (no-op from listening)", async () => {
+      const { result } = renderHook(() => useVoiceSession(CONV_ID));
+
+      await act(async () => {
+        await result.current.start();
+      });
+      expect(result.current.state.status).toBe("listening");
+
+      // onSpeechStarted fires — but START_LISTENING from 'listening' is a no-op
+      // in the state machine (only valid from speaking/processing)
+      act(() => {
+        capturedCallbacks.onSpeechStarted?.();
+      });
+      // State stays listening (no invalid transition)
+      expect(result.current.state.status).toBe("listening");
+    });
+
+    it("onError dispatches ERROR transition", async () => {
+      const { result } = renderHook(() => useVoiceSession(CONV_ID));
+
+      await act(async () => {
+        await result.current.start();
+      });
+
+      act(() => {
+        capturedCallbacks.onError?.({
+          type: "rate_limit",
+          message: "Rate limit exceeded",
+        });
+      });
+
+      expect(result.current.state.status).toBe("error");
+      expect(result.current.state.errorMessage).toBe("Rate limit exceeded");
+    });
+  });
+
+  describe("guard against double-start", () => {
+    it("ignores start() when already connecting/listening", async () => {
+      const { result } = renderHook(() => useVoiceSession(CONV_ID));
+
+      await act(async () => {
+        await result.current.start();
+      });
+      expect(result.current.state.status).toBe("listening");
+
+      // Calling start again should be a no-op
+      mockCreateSession.mockClear();
+      await act(async () => {
+        await result.current.start();
+      });
+      expect(mockCreateSession).not.toHaveBeenCalled();
+      expect(result.current.state.status).toBe("listening");
+    });
+  });
+
+  describe("return type", () => {
+    it("state type supports all VoiceState values", async () => {
+      const { result } = renderHook(() => useVoiceSession(CONV_ID));
+
+      // TypeScript compilation of this test validates the return type
+      // allows checking against all status values
+      const status = result.current.state.status;
+      expect(
+        ["idle", "connecting", "listening", "processing", "speaking", "error"]
+      ).toContain(status);
     });
   });
 });
