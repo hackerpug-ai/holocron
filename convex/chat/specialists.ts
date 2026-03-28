@@ -29,17 +29,9 @@ import {
   ANALYSIS_SPECIALIST_PROMPT,
   PLANNER_SPECIALIST_PROMPT,
 } from "./specialistPrompts";
+import type { IntentCategory } from "./triage";
 
-export type IntentCategory =
-  | "conversation"
-  | "knowledge"
-  | "research"
-  | "commerce"
-  | "subscriptions"
-  | "discovery"
-  | "documents"
-  | "analysis"
-  | "multi_step";
+export type { IntentCategory };
 
 export type SpecialistName =
   | "knowledge"
