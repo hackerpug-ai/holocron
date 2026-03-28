@@ -19,6 +19,7 @@ import { useSubscriptionFeed } from '@/hooks/use-subscription-feed'
 import { useWebView } from '@/hooks/useWebView'
 import { SubscriptionFeedFilters } from '@/components/subscriptions/SubscriptionFeedFilters'
 import { SubscriptionFeedItem } from '@/components/subscriptions/SubscriptionFeedItem'
+import { FeedItemSkeleton } from '@/components/subscriptions/FeedItemSkeleton'
 import { SubscriptionSettingsModal } from '@/components/subscriptions/SubscriptionSettingsModal'
 import { WebViewSheet } from '@/components/webview/WebViewSheet'
 import type { FilterType } from '@/components/subscriptions/SubscriptionFeedFilters'
@@ -336,13 +337,15 @@ export function SubscriptionFeedScreen({
         ]}
         ListFooterComponent={
           isLoading && items.length > 0 ? (
-            <View style={styles.loadingContainer}>
-              <Text variant="small" className="text-muted-foreground text-center">
-                Loading more...
-              </Text>
+            <View style={styles.loadingContainer} testID={`${testID}-loading-footer`}>
+              <FeedItemSkeleton variant="blog" testID={`${testID}-skeleton-0`} />
+              <FeedItemSkeleton variant="blog" testID={`${testID}-skeleton-1`} />
             </View>
           ) : undefined
         }
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={10}
+        windowSize={5}
       />
 
       {/* Settings modal */}
