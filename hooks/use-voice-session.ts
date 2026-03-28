@@ -24,6 +24,7 @@ import {
 import { WebRTCConnection } from "@/lib/voice/webrtc-connection";
 import { createEventHandler } from "@/lib/voice/event-handler";
 import { createTranscriptRecorder } from "@/lib/voice/transcript-recorder";
+import { createRetryManager } from "@/lib/voice/retry-manager";
 
 /**
  * Session config sent via data channel after WebRTC connects.
@@ -56,6 +57,8 @@ export interface UseVoiceSessionReturn {
   start: () => Promise<void>;
   stop: () => Promise<void>;
   transcript: string;
+  /** User-facing spoken feedback message during network retry (null when idle) */
+  retryMessage: string | null;
 }
 
 export function useVoiceSession(
@@ -73,6 +76,8 @@ export function useVoiceSession(
   const connectionRef = useRef<WebRTCConnection | null>(null);
   const sessionIdRef = useRef<string | null>(null);
   const transcriptRef = useRef<string>("");
+  const retryMessageRef = useRef<string | null>(null);
+  const ephemeralKeyRef = useRef<string | null>(null);
 
   /**
    * Tear down WebRTC and end the Convex session.
@@ -109,6 +114,7 @@ export function useVoiceSession(
         conversationId,
       });
       sessionIdRef.current = sessionId;
+      ephemeralKeyRef.current = ephemeralKey;
 
       // 2. Set up WebRTC connection with event handler wiring
       const conn = new WebRTCConnection();
@@ -154,10 +160,61 @@ export function useVoiceSession(
         { debug: () => {} } // Silence debug logging in production
       );
 
+      // Build retry manager bound to this session
+      const retryManager = createRetryManager({
+        onSpokenFeedback: (message) => {
+          retryMessageRef.current = message;
+        },
+        onStateChange: (retryState) => {
+          if (retryState === "connecting") {
+            dispatch({ type: "CONNECT", conversationId });
+          } else if (retryState === "listening") {
+            retryMessageRef.current = null;
+            if (sessionIdRef.current) {
+              dispatch({ type: "CONNECTED", sessionId: sessionIdRef.current });
+            }
+          } else if (retryState === "error") {
+            dispatch({
+              type: "ERROR",
+              error: "No internet. Please check your connection.",
+            });
+          }
+        },
+        onCleanup: () => {
+          if (connectionRef.current) {
+            connectionRef.current.destroy();
+            connectionRef.current = null;
+          }
+        },
+      });
+
       conn.setCallbacks({
         onEvent: (event) => {
           // The WebRTC connection already parses JSON; event handler expects raw string
           handleRawEvent(JSON.stringify(event));
+        },
+        onConnectionFailed: () => {
+          // Trigger retry with exponential backoff using current ephemeral key
+          const key = ephemeralKeyRef.current;
+          if (!key) return;
+
+          retryManager
+            .handleConnectionFailure(async () => {
+              const newConn = new WebRTCConnection();
+              newConn.setCallbacks({
+                onEvent: (event) => {
+                  handleRawEvent(JSON.stringify(event));
+                },
+                onConnectionFailed: () => {
+                  // Nested failures handled by the outer retry manager
+                },
+              });
+              await newConn.connect(key);
+              connectionRef.current = newConn;
+            })
+            .catch(() => {
+              // Retry exhaustion is handled by onStateChange('error')
+            });
         },
       });
 
@@ -220,5 +277,6 @@ export function useVoiceSession(
     start,
     stop,
     transcript: transcriptRef.current,
+    retryMessage: retryMessageRef.current,
   };
 }
