@@ -189,4 +189,21 @@ crons.interval(
   internal.agentPlans.scheduled.timeoutStuckPlans
 );
 
+/**
+ * Voice Session Timeout Worker
+ *
+ * Detects and marks orphaned voice sessions as completed with an error.
+ * - Runs every 10 minutes
+ * - Affects sessions with no completedAt that are older than 10 minutes
+ * - Marks sessions completed with errorMessage: "Session timed out"
+ * - Preserves sessions for audit trail (never deletes)
+ *
+ * @see convex/voice/scheduled.ts
+ */
+crons.interval(
+  "voice-session-timeout",
+  { minutes: 10 },
+  internal.voice.scheduled.timeoutOrphanedSessions
+);
+
 export default crons;
