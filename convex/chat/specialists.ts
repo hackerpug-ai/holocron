@@ -1,0 +1,141 @@
+"use node";
+
+/**
+ * Specialist Registry
+ *
+ * Maps intent categories to specialist configurations.
+ * Each specialist has a focused tool set, domain-optimized prompt, and model selection.
+ */
+
+import type { LanguageModel, ToolSet } from "ai";
+import { zaiFlash, zaiPro } from "../lib/ai/zai_provider";
+import {
+  knowledgeTools,
+  researchTools,
+  commerceTools,
+  subscriptionTools,
+  discoveryTools,
+  documentTools,
+  analysisTools,
+  plannerTools,
+} from "./tools";
+import {
+  KNOWLEDGE_SPECIALIST_PROMPT,
+  RESEARCH_SPECIALIST_PROMPT,
+  COMMERCE_SPECIALIST_PROMPT,
+  SUBSCRIPTIONS_SPECIALIST_PROMPT,
+  DISCOVERY_SPECIALIST_PROMPT,
+  DOCUMENTS_SPECIALIST_PROMPT,
+  ANALYSIS_SPECIALIST_PROMPT,
+  PLANNER_SPECIALIST_PROMPT,
+} from "./specialistPrompts";
+
+export type IntentCategory =
+  | "conversation"
+  | "knowledge"
+  | "research"
+  | "commerce"
+  | "subscriptions"
+  | "discovery"
+  | "documents"
+  | "analysis"
+  | "multi_step";
+
+export type SpecialistName =
+  | "knowledge"
+  | "research"
+  | "commerce"
+  | "subscriptions"
+  | "discovery"
+  | "documents"
+  | "analysis"
+  | "planner";
+
+export type SpecialistConfig = {
+  name: SpecialistName;
+  model: () => LanguageModel;
+  tools: ToolSet;
+  systemPrompt: string;
+};
+
+/**
+ * Maps intent categories to specialist names.
+ * "conversation" maps to null (handled directly by triage).
+ */
+export const INTENT_TO_SPECIALIST: Record<
+  IntentCategory,
+  SpecialistName | null
+> = {
+  conversation: null,
+  knowledge: "knowledge",
+  research: "research",
+  commerce: "commerce",
+  subscriptions: "subscriptions",
+  discovery: "discovery",
+  documents: "documents",
+  analysis: "analysis",
+  multi_step: "planner",
+};
+
+const SPECIALIST_CONFIGS: Record<SpecialistName, SpecialistConfig> = {
+  knowledge: {
+    name: "knowledge",
+    model: zaiFlash,
+    tools: knowledgeTools,
+    systemPrompt: KNOWLEDGE_SPECIALIST_PROMPT,
+  },
+  research: {
+    name: "research",
+    model: zaiPro,
+    tools: researchTools,
+    systemPrompt: RESEARCH_SPECIALIST_PROMPT,
+  },
+  commerce: {
+    name: "commerce",
+    model: zaiFlash,
+    tools: commerceTools,
+    systemPrompt: COMMERCE_SPECIALIST_PROMPT,
+  },
+  subscriptions: {
+    name: "subscriptions",
+    model: zaiFlash,
+    tools: subscriptionTools,
+    systemPrompt: SUBSCRIPTIONS_SPECIALIST_PROMPT,
+  },
+  discovery: {
+    name: "discovery",
+    model: zaiFlash,
+    tools: discoveryTools,
+    systemPrompt: DISCOVERY_SPECIALIST_PROMPT,
+  },
+  documents: {
+    name: "documents",
+    model: zaiPro,
+    tools: documentTools,
+    systemPrompt: DOCUMENTS_SPECIALIST_PROMPT,
+  },
+  analysis: {
+    name: "analysis",
+    model: zaiPro,
+    tools: analysisTools,
+    systemPrompt: ANALYSIS_SPECIALIST_PROMPT,
+  },
+  planner: {
+    name: "planner",
+    model: zaiPro,
+    tools: plannerTools,
+    systemPrompt: PLANNER_SPECIALIST_PROMPT,
+  },
+};
+
+/**
+ * Get specialist configuration by name.
+ * Throws if specialist not found.
+ */
+export function getSpecialist(name: SpecialistName): SpecialistConfig {
+  const config = SPECIALIST_CONFIGS[name];
+  if (!config) {
+    throw new Error(`Unknown specialist: ${name}`);
+  }
+  return config;
+}
