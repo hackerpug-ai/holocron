@@ -1,12 +1,14 @@
 /**
- * US-008: useVoiceSession — integration hook
+ * US-008 + US-017: useVoiceSession — integration hook
  *
  * Orchestrates the full voice session lifecycle:
  *   1. Convex createSession action → ephemeral key + sessionId
  *   2. WebRTC connect with ephemeral key
  *   3. Send session.update via data channel
  *   4. Wire data channel events → state machine transitions
- *   5. Cleanup on stop() or unmount
+ *   5. Idle timeout with spoken farewell (UC-VSESS-03)
+ *   6. Warm connection kept for 5 minutes for quick re-activation
+ *   7. Cleanup on stop() or unmount
  *
  * Consumer API: { state, start, stop, transcript }
  * NEVER exposes WebRTC internals.
@@ -24,10 +26,12 @@ import {
 import { WebRTCConnection } from "@/lib/voice/webrtc-connection";
 import { createEventHandler } from "@/lib/voice/event-handler";
 import { createTranscriptRecorder } from "@/lib/voice/transcript-recorder";
+import { SessionTimeout, WarmConnection } from "@/lib/voice/session-timeout";
 
 /**
  * Session config sent via data channel after WebRTC connects.
  * Matches 02-session-config.md specification.
+ * idle_timeout_ms: 30000 — OpenAI fires the idle event after 30s silence.
  */
 const SESSION_UPDATE_EVENT = {
   type: "session.update",
@@ -56,6 +60,8 @@ export interface UseVoiceSessionReturn {
   start: () => Promise<void>;
   stop: () => Promise<void>;
   transcript: string;
+  /** True when a warm connection is available for fast re-activation */
+  isWarm: boolean;
 }
 
 export function useVoiceSession(
@@ -74,34 +80,90 @@ export function useVoiceSession(
   const sessionIdRef = useRef<string | null>(null);
   const transcriptRef = useRef<string>("");
 
+  // US-017: timeout and warm connection managers
+  const sessionTimeoutRef = useRef<SessionTimeout | null>(null);
+  const warmConnectionRef = useRef<WarmConnection>(new WarmConnection());
+  const isWarmRef = useRef<boolean>(false);
+
   /**
    * Tear down WebRTC and end the Convex session.
    * Safe to call multiple times — idempotent.
+   * Does NOT touch the warm connection (caller decides warm vs cold close).
    */
-  const cleanup = useCallback(async () => {
-    if (connectionRef.current) {
-      connectionRef.current.destroy();
-      connectionRef.current = null;
-    }
-
-    const sid = sessionIdRef.current;
-    if (sid) {
-      sessionIdRef.current = null;
-      try {
-        await endSession({
-          sessionId: sid as Id<"voiceSessions">,
-        });
-      } catch {
-        // Best-effort — session may already be ended
+  const cleanup = useCallback(
+    async (keepWarm: boolean = false) => {
+      // Cancel any pending idle timeout
+      if (sessionTimeoutRef.current) {
+        sessionTimeoutRef.current.cancel();
       }
-    }
-  }, [endSession]);
+
+      if (connectionRef.current) {
+        if (keepWarm) {
+          // Hand the connection over to the warm manager — do NOT destroy it
+          warmConnectionRef.current.startWarmPeriod(connectionRef.current);
+          isWarmRef.current = true;
+        } else {
+          connectionRef.current.destroy();
+          isWarmRef.current = false;
+        }
+        connectionRef.current = null;
+      }
+
+      const sid = sessionIdRef.current;
+      if (sid) {
+        sessionIdRef.current = null;
+        try {
+          await endSession({
+            sessionId: sid as Id<"voiceSessions">,
+          });
+        } catch {
+          // Best-effort — session may already be ended
+        }
+      }
+    },
+    [endSession]
+  );
+
+  /**
+   * Handle session timeout (UC-VSESS-03):
+   * 1. Transition to IDLE (dispatching TIMEOUT)
+   * 2. Keep WebRTC connection warm for 5 minutes
+   */
+  const handleTimeout = useCallback(async () => {
+    dispatch({ type: "TIMEOUT" });
+    await cleanup(true /* keepWarm */);
+  }, [cleanup]);
 
   const start = useCallback(async () => {
     // Guard against double-start
     if (state.status !== "idle" && state.status !== "error") return;
 
     dispatch({ type: "CONNECT", conversationId });
+
+    // US-017: check for warm connection (fast re-activation path, <200ms)
+    const warmConn = warmConnectionRef.current.reactivate();
+    if (warmConn) {
+      // Warm re-activation — reuse existing WebRTC connection, create new Convex session
+      isWarmRef.current = false;
+      connectionRef.current = warmConn as WebRTCConnection;
+
+      try {
+        const { sessionId } = await createSession({ conversationId });
+        sessionIdRef.current = sessionId;
+        dispatch({ type: "CONNECTED", sessionId });
+
+        // Restart idle timeout for re-activated session
+        if (!sessionTimeoutRef.current) {
+          sessionTimeoutRef.current = new SessionTimeout({ onTimeout: handleTimeout });
+        }
+        sessionTimeoutRef.current.start();
+      } catch (error) {
+        connectionRef.current = null;
+        const message = error instanceof Error ? error.message : "Unknown connection error";
+        dispatch({ type: "ERROR", error: message });
+      }
+      return;
+    }
 
     try {
       // 1. Create Convex session → ephemeral key
@@ -120,6 +182,9 @@ export function useVoiceSession(
         conversationId,
       });
 
+      // Set up idle timeout (US-017)
+      sessionTimeoutRef.current = new SessionTimeout({ onTimeout: handleTimeout });
+
       // Wire data channel events to state machine via event handler
       const handleRawEvent = createEventHandler(
         {
@@ -134,11 +199,14 @@ export function useVoiceSession(
             }
           },
           onSpeechStarted: () => {
+            // US-017: user spoke — cancel any pending timeout (interrupt farewell)
+            sessionTimeoutRef.current?.cancel();
             dispatch({ type: "START_LISTENING" });
           },
           onSpeechStopped: () => {
             // speech_stopped indicates user stopped speaking — model will process
-            // No direct state transition here; model response triggers START_SPEAKING
+            // Restart the idle timeout countdown
+            sessionTimeoutRef.current?.start();
           },
           onTranscript: (transcript: string) => {
             transcriptRef.current = transcript;
@@ -165,14 +233,16 @@ export function useVoiceSession(
       await conn.connect(ephemeralKey);
       connectionRef.current = conn;
 
-      // 4. Transition to LISTENING
+      // 4. Transition to LISTENING and start idle timeout
       dispatch({ type: "CONNECTED", sessionId });
+      sessionTimeoutRef.current.start();
     } catch (error) {
       // Clean up any partial resources
       if (connectionRef.current) {
         connectionRef.current.destroy();
         connectionRef.current = null;
       }
+      sessionTimeoutRef.current?.cancel();
 
       const message =
         error instanceof Error ? error.message : "Unknown connection error";
@@ -191,16 +261,25 @@ export function useVoiceSession(
         }
       }
     }
-  }, [conversationId, createSession, endSession, recordTranscript, state.status]);
+  }, [conversationId, createSession, endSession, handleTimeout, recordTranscript, state.status]);
 
   const stop = useCallback(async () => {
-    await cleanup();
+    // US-017: destroy warm connection on explicit stop (user intent to fully end)
+    warmConnectionRef.current.destroy();
+    isWarmRef.current = false;
+    await cleanup(false /* cold close */);
     dispatch({ type: "DISCONNECT" });
   }, [cleanup]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      // Cancel timeout
+      sessionTimeoutRef.current?.cancel();
+      // Destroy warm connection
+      warmConnectionRef.current.destroy();
+      isWarmRef.current = false;
+
       // Fire-and-forget cleanup on unmount
       if (connectionRef.current) {
         connectionRef.current.destroy();
@@ -220,5 +299,6 @@ export function useVoiceSession(
     start,
     stop,
     transcript: transcriptRef.current,
+    isWarm: isWarmRef.current,
   };
 }
