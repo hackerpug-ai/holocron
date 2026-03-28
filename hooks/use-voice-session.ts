@@ -23,6 +23,7 @@ import {
 } from "@/hooks/use-voice-session-state";
 import { WebRTCConnection } from "@/lib/voice/webrtc-connection";
 import { createEventHandler } from "@/lib/voice/event-handler";
+import { createTranscriptRecorder } from "@/lib/voice/transcript-recorder";
 
 /**
  * Session config sent via data channel after WebRTC connects.
@@ -67,6 +68,7 @@ export function useVoiceSession(
 
   const createSession = useAction(api.voice.actions.createSession);
   const endSession = useMutation(api.voice.mutations.endSession);
+  const recordTranscript = useMutation(api.voice.mutations.recordTranscript);
 
   const connectionRef = useRef<WebRTCConnection | null>(null);
   const sessionIdRef = useRef<string | null>(null);
@@ -111,6 +113,13 @@ export function useVoiceSession(
       // 2. Set up WebRTC connection with event handler wiring
       const conn = new WebRTCConnection();
 
+      // Wire transcript recorder for fire-and-forget persistence
+      const transcriptRecorder = createTranscriptRecorder({
+        recordTranscript,
+        sessionId: sessionId as Id<"voiceSessions">,
+        conversationId,
+      });
+
       // Wire data channel events to state machine via event handler
       const handleRawEvent = createEventHandler(
         {
@@ -133,6 +142,10 @@ export function useVoiceSession(
           },
           onTranscript: (transcript: string) => {
             transcriptRef.current = transcript;
+            transcriptRecorder.onAgentTranscript(transcript);
+          },
+          onUserTranscript: (transcript: string) => {
+            transcriptRecorder.onUserTranscript(transcript);
           },
           onError: (error) => {
             dispatch({ type: "ERROR", error: error.message });
@@ -178,7 +191,7 @@ export function useVoiceSession(
         }
       }
     }
-  }, [conversationId, createSession, endSession, state.status]);
+  }, [conversationId, createSession, endSession, recordTranscript, state.status]);
 
   const stop = useCallback(async () => {
     await cleanup();

@@ -54,6 +54,10 @@ export function createEventHandler(
         callbacks.onTranscript?.(event.transcript)
         break
 
+      case 'conversation.item.input_audio_transcription.completed':
+        callbacks.onUserTranscript?.(event.transcript)
+        break
+
       case 'input_audio_buffer.speech_started':
         callbacks.onSpeechStarted?.()
         break

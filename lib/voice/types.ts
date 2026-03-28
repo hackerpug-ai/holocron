@@ -57,6 +57,13 @@ export type ResponseAudioTranscriptDoneEvent = {
   transcript: string
 }
 
+// --- Input Audio Transcription Events ---
+
+export type InputAudioTranscriptionCompletedEvent = {
+  type: 'conversation.item.input_audio_transcription.completed'
+  transcript: string
+}
+
 // --- Input Audio Buffer Events ---
 
 export type InputAudioBufferSpeechStartedEvent = {
@@ -86,6 +93,7 @@ export type RealtimeEvent =
   | SessionUpdatedEvent
   | ResponseOutputItemDoneEvent
   | ResponseAudioTranscriptDoneEvent
+  | InputAudioTranscriptionCompletedEvent
   | InputAudioBufferSpeechStartedEvent
   | InputAudioBufferSpeechStoppedEvent
   | RealtimeErrorEvent
@@ -103,6 +111,7 @@ export type RealtimeEventCallbacks = {
   onSessionUpdated?: (session: SessionConfig) => void
   onFunctionCall?: (fn: ParsedFunctionCall) => void
   onTranscript?: (transcript: string) => void
+  onUserTranscript?: (transcript: string) => void
   onSpeechStarted?: () => void
   onSpeechStopped?: () => void
   onError?: (error: { type: string; message: string }) => void

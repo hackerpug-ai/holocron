@@ -17,6 +17,7 @@ describe('createEventHandler', () => {
       onSessionUpdated: vi.fn(),
       onFunctionCall: vi.fn(),
       onTranscript: vi.fn(),
+      onUserTranscript: vi.fn(),
       onSpeechStarted: vi.fn(),
       onSpeechStopped: vi.fn(),
       onError: vi.fn(),
