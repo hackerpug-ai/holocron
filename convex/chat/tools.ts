@@ -371,3 +371,59 @@ export const agentTools = {
   assimilate,
   create_plan,
 };
+
+/**
+ * Domain-grouped tool subsets for specialist agents.
+ * Each specialist gets only the tools relevant to its domain,
+ * improving tool selection accuracy (research shows degradation after ~10 tools).
+ */
+
+/** Knowledge retrieval: search, browse, stats, read documents, find tools */
+export const knowledgeTools = {
+  search_knowledge_base,
+  browse_category,
+  knowledge_base_stats,
+  get_document,
+  toolbelt_search,
+};
+
+/** Web research: quick single-pass and deep multi-iteration */
+export const researchTools = {
+  quick_research,
+  deep_research,
+};
+
+/** Product shopping and price comparison */
+export const commerceTools = {
+  shop_search,
+};
+
+/** Subscription management: add, remove, list, check for updates */
+export const subscriptionTools = {
+  subscribe,
+  unsubscribe,
+  list_subscriptions,
+  check_subscriptions,
+};
+
+/** News and trend discovery */
+export const discoveryTools = {
+  whats_new,
+};
+
+/** Document management: save, update, read */
+export const documentTools = {
+  save_document,
+  update_document,
+  get_document,
+};
+
+/** Repository analysis */
+export const analysisTools = {
+  assimilate,
+};
+
+/** Multi-step plan creation */
+export const plannerTools = {
+  create_plan,
+};
