@@ -181,6 +181,7 @@ function ErrorIndicator({
   errorColor,
   primaryColor,
   surfaceColor,
+  spacingSm,
   spacingLg,
   spacingXl,
   radiusLg,
@@ -190,6 +191,7 @@ function ErrorIndicator({
   errorColor: string
   primaryColor: string
   surfaceColor: string
+  spacingSm: number
   spacingLg: number
   spacingXl: number
   radiusLg: number
@@ -216,8 +218,7 @@ function ErrorIndicator({
               borderColor: primaryColor,
               paddingHorizontal: spacingXl,
               borderRadius: radiusLg,
-              // paddingVertical: 10 — no exact token (sm=8, md=12); fixed visual dimension
-              paddingVertical: 10,
+              paddingVertical: spacingSm,
             },
           ]}
         >
@@ -290,6 +291,7 @@ export function VoiceSessionOverlay({
           errorColor={colors.destructive}
           primaryColor={colors.primary}
           surfaceColor={colors.card}
+          spacingSm={spacing.sm}
           spacingLg={spacing.lg}
           spacingXl={spacing.xl}
           radiusLg={radius.lg}
@@ -334,5 +336,6 @@ const styles = StyleSheet.create({
   retryButton: {
     borderWidth: 1.5, // fine visual detail — not a spacing token
     // paddingHorizontal, paddingVertical, borderRadius applied inline via tokens
+    // paddingVertical uses spacing.sm token
   },
 })

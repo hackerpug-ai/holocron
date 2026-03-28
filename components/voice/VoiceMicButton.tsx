@@ -71,7 +71,7 @@ export function VoiceMicButton({ voiceState, onStart, onStop, className }: Voice
       {({ pressed }) => (
         <View
           className={cn(
-            'h-16 w-16 items-center justify-center rounded-full',
+            'h-10 w-10 items-center justify-center rounded-full',
             isConnecting
               ? 'bg-muted opacity-50'
               : isActive
@@ -84,9 +84,9 @@ export function VoiceMicButton({ voiceState, onStart, onStop, className }: Voice
           )}
         >
           {isActive ? (
-            <Square size={28} className="text-primary-foreground" />
+            <Square size={22} className="text-primary-foreground" />
           ) : (
-            <Mic size={28} className="text-primary-foreground" />
+            <Mic size={22} className="text-primary-foreground" />
           )}
         </View>
       )}
