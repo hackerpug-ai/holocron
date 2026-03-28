@@ -1,9 +1,12 @@
+"use node";
+
 import { v } from "convex/values";
 import { internalAction, internalQuery, internalMutation } from "../_generated/server";
 import { api, internal } from "../_generated/api";
 import { readUrlWithJina, readUrlWithJinaAndLinks } from "../research/search.js";
-import { embed } from "ai";
+import { embed, generateText } from "ai";
 import { cohereEmbedding } from "../lib/ai/embeddings_provider";
+import { zaiFlash } from "../lib/ai/zai_provider";
 
 // ============================================================================
 // Embedding Generation Helpers
@@ -146,6 +149,95 @@ function calculateRelevancyScore(
   }
 
   return { score, reason };
+}
+
+// ============================================================================
+// AI Relevance Scoring
+// ============================================================================
+
+type ContentItem = {
+  title: string;
+  platform: string;
+};
+
+type AiScore = {
+  score: number;
+  reason: string;
+};
+
+/**
+ * Batch-score an array of content items for relevance to a creator's topic area.
+ *
+ * Sends all items in a single LLM prompt for efficiency. Falls back to
+ * returning an empty array (no AI scores) if the LLM call fails so the
+ * existing keyword scoring remains unaffected.
+ *
+ * @param items - Array of {title, platform} objects to score
+ * @param sourceName - Creator / source name for context
+ * @param topic - Topic or category string (e.g. "AI tools", "rust programming")
+ * @returns Array of {score, reason} with one entry per input item, or [] on failure
+ */
+async function scoreCreatorContentRelevance(
+  items: ContentItem[],
+  sourceName: string,
+  topic: string
+): Promise<AiScore[]> {
+  if (items.length === 0) return [];
+
+  const itemList = items
+    .map((item, i) => `${i + 1}. [${item.platform}] ${item.title}`)
+    .join("\n");
+
+  const prompt = `You are a relevance scorer for a personal content feed. Score each item 0.0-1.0 for relevance to the creator's topic area.
+
+Creator: ${sourceName}
+Topic/Category: ${topic}
+
+Items to score:
+${itemList}
+
+Rules:
+- Score 0.9-1.0: Directly about the topic
+- Score 0.5-0.8: Tangentially related
+- Score 0.0-0.3: Unrelated (personal, off-topic, promotional)
+
+Respond with ONLY a JSON array, no other text: [{"score": 0.8, "reason": "brief reason"}, ...]
+The array must have exactly ${items.length} entries in the same order as the items.`;
+
+  try {
+    const result = await generateText({
+      model: zaiFlash(),
+      prompt,
+    });
+
+    const text = result.text.trim();
+    // Extract JSON array from the response (handle markdown code blocks)
+    const jsonMatch = text.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) {
+      console.warn("[scoreCreatorContentRelevance] No JSON array found in response");
+      return [];
+    }
+
+    const parsed: unknown = JSON.parse(jsonMatch[0]);
+    if (!Array.isArray(parsed)) return [];
+
+    const scores: AiScore[] = parsed.map((entry: unknown) => {
+      const obj = entry as Record<string, unknown>;
+      const score = typeof obj.score === "number" ? Math.min(1, Math.max(0, obj.score)) : 0.5;
+      const reason = typeof obj.reason === "string" ? obj.reason : "ai_scored";
+      return { score, reason };
+    });
+
+    // Ensure we got back the right count; pad with defaults if not
+    while (scores.length < items.length) {
+      scores.push({ score: 0.5, reason: "ai_no_score" });
+    }
+
+    return scores.slice(0, items.length);
+  } catch (err) {
+    console.warn("[scoreCreatorContentRelevance] LLM scoring failed, skipping:", err);
+    return [];
+  }
 }
 
 // ============================================================================
@@ -811,8 +903,14 @@ async function fetchCreator(
   const results = await Promise.all(fetchPromises);
   const platformItems = results.flat();
 
-  // Deduplicate by URL and process items
+  // Deduplicate by URL and build candidate list
   const seenUrls = new Set<string>();
+  type Candidate = {
+    item: { title: string; link: string; published: string; platform: string };
+    contentId: string;
+    keywordScore: number;
+  };
+  const candidates: Candidate[] = [];
 
   for (const item of platformItems) {
     if (seenUrls.has(item.link)) continue;
@@ -824,24 +922,53 @@ async function fetchCreator(
     // Check if already exists (in-memory, O(1))
     if (existingIds.has(contentId)) continue;
 
-    // Apply relevancy filter
+    // Apply keyword relevancy filter (hard blacklist / age / min-score gates)
     const content = {
       title: item.title,
       published: item.published,
     };
-    const { score, reason: _reason } = calculateRelevancyScore(content, filter);
+    const { score } = calculateRelevancyScore(content, filter);
 
-    // For trusted creators, lower the threshold
+    // For trusted creators, lower the hard-fail threshold
     if (score < 0.2) continue;
+
+    candidates.push({ item, contentId, keywordScore: score });
+  }
+
+  // Batch AI scoring for all candidates in a single LLM call
+  const topic =
+    (config as Record<string, unknown>).topic as string ||
+    (config as Record<string, unknown>).category as string ||
+    "general tech";
+
+  const scoringItems: ContentItem[] = candidates.map((c) => ({
+    title: c.item.title,
+    platform: c.item.platform,
+  }));
+
+  const aiScores = await scoreCreatorContentRelevance(
+    scoringItems,
+    source.name ?? source.identifier ?? "unknown",
+    topic
+  );
+
+  for (let i = 0; i < candidates.length; i++) {
+    const { item, contentId, keywordScore } = candidates[i];
+    const aiScore = aiScores[i] ?? null;
+
+    // If AI scored it and it's clearly irrelevant, skip it
+    const passedFilter = aiScore === null || aiScore.score >= 0.3;
 
     allItems.push({
       sourceId: source._id,
       contentId,
       title: `[${item.platform.toUpperCase()}] ${item.title}`,
       url: item.link,
-      relevancyScore: Math.max(score, 0.6), // Boost score for trusted creators
+      relevancyScore: Math.max(keywordScore, 0.6), // Boost score for trusted creators
       relevancyReason: `creator_${item.platform}`,
-      passedFilter: true,
+      passedFilter,
+      aiRelevanceScore: aiScore?.score ?? undefined,
+      aiRelevanceReason: aiScore?.reason ?? undefined,
       metadataJson: {
         platform: item.platform,
         creatorName: source.name,
@@ -1027,6 +1154,8 @@ export const insertContent = internalMutation({
     thumbnailUrl: v.optional(v.string()),
     authorHandle: v.optional(v.string()),
     duration: v.optional(v.number()),
+    aiRelevanceScore: v.optional(v.number()),
+    aiRelevanceReason: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const now = Date.now();
@@ -1047,6 +1176,8 @@ export const insertContent = internalMutation({
       thumbnailUrl: args.thumbnailUrl,
       authorHandle: args.authorHandle,
       duration: args.duration,
+      aiRelevanceScore: args.aiRelevanceScore,
+      aiRelevanceReason: args.aiRelevanceReason,
     });
 
     return id;
@@ -1190,6 +1321,8 @@ async function processSingleSource(
       thumbnailUrl,
       authorHandle: source.name ?? source.identifier,
       duration,
+      aiRelevanceScore: item.aiRelevanceScore,
+      aiRelevanceReason: item.aiRelevanceReason,
     });
     if (item.passedFilter) queued++;
 

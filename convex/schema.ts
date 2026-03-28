@@ -276,6 +276,8 @@ export default defineSchema({
     likesCount: v.optional(v.number()), // Engagement metrics
     commentsCount: v.optional(v.number()), // Engagement metrics
     contentCategory: v.optional(v.string()), // Content category/type
+    aiRelevanceScore: v.optional(v.number()), // 0-1 AI-scored relevance
+    aiRelevanceReason: v.optional(v.string()), // Brief AI explanation
   })
     .index("by_source", ["sourceId", "discoveredAt"])
     .index("by_source_content", ["sourceId", "contentId"])
