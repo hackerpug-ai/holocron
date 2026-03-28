@@ -1,6 +1,5 @@
-import { View, ScrollView, Pressable, type ViewProps } from 'react-native'
+import { View, ScrollView, Pressable } from 'react-native'
 import { Text } from '@/components/ui/text'
-import { SectionHeader } from '@/components/SectionHeader'
 import { cn } from '@/lib/utils'
 import { useColorScheme } from '@/lib/useColorScheme'
 import { useState } from 'react'
@@ -56,7 +55,9 @@ const THEME_OPTIONS: ThemeOption[] = [
   },
 ]
 
-interface SettingsScreenProps extends Omit<ViewProps, 'children'> {}
+interface SettingsScreenProps {
+  // No props needed - ScreenLayout handles navigation
+}
 
 /**
  * SettingsScreen - app preferences and theme customization
@@ -64,7 +65,7 @@ interface SettingsScreenProps extends Omit<ViewProps, 'children'> {}
  * Features live theme preview cards and smooth theme transitions.
  * Built with semantic tokens for full theme awareness.
  */
-export function SettingsScreen({ className, ...props }: SettingsScreenProps) {
+export function SettingsScreen(_props: SettingsScreenProps) {
   const { colorScheme, setColorScheme } = useColorScheme()
   const [selectedTheme, setSelectedTheme] = useState<ThemeMode>(
     colorScheme === 'dark' ? 'dark' : 'light'
@@ -209,23 +210,12 @@ export function SettingsScreen({ className, ...props }: SettingsScreenProps) {
   }
 
   return (
-    <View
-      className={cn('flex-1 bg-background', className)}
+    <ScrollView
+      className="flex-1"
+      contentContainerClassName="p-4 gap-6"
+      showsVerticalScrollIndicator={false}
       testID="settings-screen"
-      {...props}
     >
-      {/* Header */}
-      <SectionHeader
-        title="Settings"
-        className="border-b border-border px-4 pb-4"
-      />
-
-      {/* Settings content */}
-      <ScrollView
-        className="flex-1"
-        contentContainerClassName="p-4 gap-6"
-        showsVerticalScrollIndicator={false}
-      >
         {/* Theme Section */}
         <View className="gap-3">
           {/* Section title with icon */}
@@ -270,6 +260,5 @@ export function SettingsScreen({ className, ...props }: SettingsScreenProps) {
           </Text>
         </View>
       </ScrollView>
-    </View>
   )
 }
