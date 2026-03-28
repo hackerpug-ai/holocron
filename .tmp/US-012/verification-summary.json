@@ -1,0 +1,36 @@
+{
+  "task_id": "US-012",
+  "timestamp": "2026-03-28T22:42:43Z",
+  "original_commit_sha": "3a334b956d745a4faea9cf387dce9f7fde6cd819",
+  "remediation_commit_sha": "e485bd5",
+  "status": "completed",
+  "commit_blocked": false,
+  "tests": {
+    "status": "passed",
+    "total": 696,
+    "passed": 696,
+    "failed": 0
+  },
+  "typecheck": {
+    "status": "passed",
+    "errors": 0
+  },
+  "lint": {
+    "status": "passed",
+    "errors": 0,
+    "warnings": 0
+  },
+  "files_created": [
+    "components/voice/VoiceSessionOverlay.tsx",
+    "components/voice/VoiceSessionOverlay.stories.tsx",
+    "tests/components/voice/VoiceSessionOverlay.test.tsx"
+  ],
+  "acceptance_criteria": {
+    "AC-1": "CONNECTING state shows ActivityIndicator spinner + 'Connecting...' label using colors.primary",
+    "AC-2": "LISTENING state shows Animated pulsing dot + 'Listening...' label",
+    "AC-3": "ERROR state shows AlertCircle icon, errorMessage text, Retry button with testID='voice-overlay-retry-button'",
+    "AC-4": "SPEAKING state shows staggered waveform bars with smooth Animated transitions from LISTENING",
+    "AC-5": "All colors use useTheme().colors.*, spacing uses spacing.*, radii use radius.*"
+  },
+  "remediation_summary": "Replaced hardcoded pixel values in StyleSheet.create with theme tokens. borderRadius:12->radius.xl, borderRadius:8->radius.lg, borderRadius:3->radius.sm, marginBottom:16->spacing.lg, paddingHorizontal:24->spacing.xl. Token values passed as props to sub-components. Fixed visual dimensions without token equivalents kept with explanatory comments."
+}
