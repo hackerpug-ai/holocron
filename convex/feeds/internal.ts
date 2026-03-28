@@ -8,10 +8,30 @@ import type { Doc, Id } from "../_generated/dataModel";
 // ============================================================================
 
 /**
- * Build feed from recent subscription content
+ * Derive feed content type from contentCategory field.
+ * Maps stored category strings to the feedItems contentType union.
+ */
+function deriveFeedContentType(contentCategory: string | undefined): "video" | "blog" | "social" {
+  switch (contentCategory) {
+    case 'video':
+      return 'video';
+    case 'social':
+    case 'twitter':
+    case 'bluesky':
+      return 'social';
+    case 'article':
+    case 'blog':
+      return 'blog';
+    default:
+      return 'blog';
+  }
+}
+
+/**
+ * Build feed from recent subscription content.
  *
- * Groups content by creatorProfileId (from subscription source) and creates feed items.
- * Falls back to sourceId grouping if creatorProfileId is undefined.
+ * Creates one feedItem per subscriptionContent item (1:1 mapping).
+ * This gives users individual content cards rather than grouped creator cards.
  * This action is called by cron job every 2 hours.
  *
  * Idempotent: Safe to run multiple times - skips content already in feed.
@@ -42,72 +62,49 @@ export const buildFeed = internalAction({
       sources.filter((s): s is Doc<"subscriptionSources"> => s !== null).map((s) => [s._id, s])
     );
 
-    // Step 3: Group by creatorProfileId (with sourceId fallback)
-    const groupedByCreator = new Map<string, Array<{ content: Doc<"subscriptionContent">; source: Doc<"subscriptionSources"> }>>();
+    // Step 3: Create one feed item per content item (1:1 mapping)
+    const results: Array<{ groupKey: string; feedItemId: Id<"feedItems">; itemCount: number }> = [];
 
     for (const content of recentContent) {
       const source = sourceMap.get(content.sourceId);
       if (!source) continue; // Skip if source not found
 
-      // Use creatorProfileId if available, otherwise fall back to sourceId
+      // Use creatorProfileId if available, otherwise fall back to sourceId for grouping key
       const creatorId = source.creatorProfileId;
       const groupKey = creatorId ? `creator:${creatorId}` : `source:${content.sourceId}`;
 
-      if (!groupedByCreator.has(groupKey)) {
-        groupedByCreator.set(groupKey, []);
-      }
-      groupedByCreator.get(groupKey)!.push({ content, source });
-    }
+      // Derive content type from stored category
+      const contentType = deriveFeedContentType(content.contentCategory);
 
-    // Step 4: Create feed items for each group
-    const results: Array<{ groupKey: string; feedItemId: Id<"feedItems">; itemCount: number }> = [];
-    for (const [groupKey, items] of groupedByCreator.entries()) {
-      const firstItem = items[0];
-      const contents = items.map((i) => i.content);
-      const sources = items.map((i) => i.source);
+      // Extract summary from metadataJson if available
+      const metaJson = content.metadataJson as Record<string, unknown> | undefined;
+      const summary = (metaJson?.summary as string | undefined)
+        ?? (metaJson?.description as string | undefined)
+        ?? undefined;
 
-      // Determine content type (majority wins)
-      const typeCounts = { video: 0, blog: 0, social: 0 };
-      contents.forEach((c) => {
-        const category = c.contentCategory as string;
-        if (category === 'video') typeCounts.video++;
-        else if (category === 'blog' || category === 'article') typeCounts.blog++;
-        else if (category === 'social' || category === 'twitter' || category === 'bluesky') typeCounts.social++;
-      });
-      const dominantType = (Object.entries(typeCounts)
-        .sort((a, b) => b[1] - a[1])[0][0]) as "video" | "blog" | "social";
-
-      // Use authorHandle if available, otherwise use a generic name
-      const displayName = firstItem.content.authorHandle || `Source ${firstItem.source._id}`;
-
-      // Get creatorProfileId from the first source (all sources in group should have same creator)
-      const creatorProfileId = firstItem.source.creatorProfileId;
-
-      // Create feed item
+      // Create one feed item for this individual content item
       const feedItemId = await ctx.runMutation(internal.feeds.internal.createFeedItem, {
         groupKey,
-        title: displayName,
-        summary: contents.length === 1
-          ? firstItem.content.title
-          : `${contents.length} new items from ${displayName}`,
-        contentType: dominantType,
-        itemCount: contents.length,
-        itemIds: contents.map((c) => c._id),
-        creatorProfileId,
-        subscriptionIds: sources.map((s) => s._id),
-        thumbnailUrl: contents.find((c) => c.thumbnailUrl)?.thumbnailUrl,
-        publishedAt: Math.max(...contents.map((c) => c.discoveredAt || 0)),
-        discoveredAt: Math.min(...contents.map((c) => c.discoveredAt || now)),
+        title: content.title,
+        summary,
+        contentType,
+        itemCount: 1,
+        itemIds: [content._id],
+        creatorProfileId: source.creatorProfileId,
+        subscriptionIds: [source._id],
+        thumbnailUrl: content.thumbnailUrl,
+        publishedAt: content.discoveredAt || now,
+        discoveredAt: content.discoveredAt || now,
         createdAt: now,
       });
 
       // Mark content as in feed
       await ctx.runMutation(internal.feeds.internal.markContentInFeed, {
-        contentIds: contents.map((c) => c._id),
+        contentIds: [content._id],
         feedItemId,
       });
 
-      results.push({ groupKey, feedItemId, itemCount: contents.length });
+      results.push({ groupKey, feedItemId, itemCount: 1 });
     }
 
     return {
@@ -135,15 +132,13 @@ export const getUnprocessedContent = internalQuery({
     since: v.number(),
   },
   handler: async (ctx, args) => {
-    // Get all content and filter in-memory
-    // Note: This is not ideal but we don't have a by_discoveredAt index
-    const allContent = await ctx.db
+    // Use by_inFeed_discoveredAt index for efficient querying
+    return await ctx.db
       .query("subscriptionContent")
-      .filter((q) => q.neq(q.field("inFeed"), true))
+      .withIndex("by_inFeed_discoveredAt", (q) =>
+        q.eq("inFeed", false).gte("discoveredAt", args.since)
+      )
       .collect();
-
-    // Filter by discoveredAt in-memory
-    return allContent.filter(c => c.discoveredAt >= args.since);
   },
 });
 
@@ -404,3 +399,92 @@ export const getRecentFeedItemsForDigest = internalQuery({
       .take(100);
   },
 });
+
+// ============================================================================
+// Backfill Migrations
+// ============================================================================
+
+/**
+ * Backfill contentCategory and authorHandle on existing subscriptionContent records.
+ *
+ * For each record, looks up the source and derives metadata from sourceType.
+ * Safe to run multiple times - only patches records missing contentCategory.
+ */
+export const backfillContentMetadata = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const allContent = await ctx.db.query("subscriptionContent").collect();
+
+    let patched = 0;
+    for (const content of allContent) {
+      // Only backfill records that are missing contentCategory
+      if (content.contentCategory) continue;
+
+      const source = await ctx.db.get(content.sourceId);
+      if (!source) continue;
+
+      const contentCategory = deriveBackfillCategory(source.sourceType);
+      const authorHandle = content.authorHandle ?? source.name ?? source.identifier;
+
+      await ctx.db.patch(content._id, {
+        contentCategory,
+        authorHandle,
+      });
+      patched++;
+    }
+
+    return { patched };
+  },
+});
+
+/**
+ * Rebuild the feed by deleting all existing feedItems and resetting inFeed flags.
+ *
+ * After running this, trigger buildFeed to regenerate the feed with 1:1 mapping.
+ * WARNING: This deletes all existing feedItems. Run backfillContentMetadata first.
+ */
+export const rebuildFeed = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    // Delete all existing feedItems
+    const allFeedItems = await ctx.db.query("feedItems").collect();
+    for (const item of allFeedItems) {
+      await ctx.db.delete(item._id);
+    }
+
+    // Reset inFeed flag on all subscriptionContent
+    const allContent = await ctx.db.query("subscriptionContent").collect();
+    const contentWithFeedFlag = allContent.filter((c) => c.inFeed);
+    for (const content of contentWithFeedFlag) {
+      await ctx.db.patch(content._id, {
+        inFeed: false,
+        feedItemId: undefined,
+      });
+    }
+
+    return {
+      feedItemsDeleted: allFeedItems.length,
+      contentReset: contentWithFeedFlag.length,
+    };
+  },
+});
+
+/**
+ * Derive content category string from source type for backfill purposes.
+ */
+function deriveBackfillCategory(sourceType: string): string {
+  switch (sourceType) {
+    case 'youtube':
+      return 'video';
+    case 'reddit':
+    case 'twitter':
+    case 'bluesky':
+      return 'social';
+    case 'newsletter':
+    case 'changelog':
+    case 'blog':
+      return 'article';
+    default:
+      return 'article';
+  }
+}

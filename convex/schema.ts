@@ -281,6 +281,7 @@ export default defineSchema({
     .index("by_source_content", ["sourceId", "contentId"])
     .index("by_status", ["researchStatus"])
     .index("by_content_id", ["contentId"])
+    .index("by_inFeed_discoveredAt", ["inFeed", "discoveredAt"])
     .vectorIndex("by_embedding", {
       vectorField: "embedding",
       dimensions: 1024,
@@ -675,6 +676,7 @@ export default defineSchema({
     route: v.string(),
     referenceId: v.optional(v.string()),
     read: v.boolean(),
+    importance: v.optional(v.union(v.literal("high"), v.literal("normal"))),
     createdAt: v.number(),
     // Feed digest support (optional fields for backward compatibility)
     feedItemIds: v.optional(v.array(v.id("feedItems"))),
@@ -683,6 +685,12 @@ export default defineSchema({
   })
     .index("by_unread", ["read", "createdAt"])
     .index("by_created", ["createdAt"]),
+
+  // User preferences (singleton)
+  userPreferences: defineTable({
+    notificationsLastSeenAt: v.optional(v.number()),
+    updatedAt: v.number(),
+  }),
 
   // Creator profiles for multi-platform subscription management
   creatorProfiles: defineTable({
