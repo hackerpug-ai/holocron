@@ -126,6 +126,10 @@ function CustomDrawerContent() {
     router.push('/settings')
   }
 
+  const handleImprovementsPress = () => {
+    router.push('/improvements')
+  }
+
   // Map Convex documents to Conversation interface
   const mappedConversations: Conversation[] = conversations.map((c: Doc<'conversations'>) => ({
     id: c._id,
@@ -151,6 +155,7 @@ function CustomDrawerContent() {
       onSubscriptionsPress={handleSubscriptionsPress}
       onToolbeltPress={handleToolbeltPress}
       onSettingsPress={handleSettingsPress}
+      onImprovementsPress={handleImprovementsPress}
       onRetry={() => {}}
       actionMenuOpen={isActionMenuOpen}
       actionMenuConversationTitle={actionMenuConversation?.title ?? ''}
@@ -270,6 +275,14 @@ export default function DrawerLayout() {
         <Drawer.Screen
           name="settings"
           options={{ headerShown: false, title: 'Settings' }}
+        />
+        <Drawer.Screen
+          name="improvements"
+          options={{ headerShown: false, title: 'Improvements' }}
+        />
+        <Drawer.Screen
+          name="improvements/[requestId]"
+          options={{ headerShown: false, title: 'Improvement Details' }}
         />
       </Drawer>
     </SafeAreaView>

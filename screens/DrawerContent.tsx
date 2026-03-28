@@ -3,7 +3,7 @@ import { ConversationActionMenu } from '@/components/ConversationActionMenu'
 import { DrawerHeader, type NavSection } from '@/components/DrawerHeader'
 import { Text } from '@/components/ui/text'
 import { cn } from '@/lib/utils'
-import { BookOpen, Bell, Settings, Wrench } from '@/components/ui/icons'
+import { BookOpen, Bell, Lightbulb, Settings, Wrench } from '@/components/ui/icons'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { FlatList, Pressable, View, type ViewProps } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -29,6 +29,8 @@ interface DrawerContentProps extends Omit<ViewProps, 'children'> {
   onSubscriptionsPress?: () => void
   /** Callback when Toolbelt link is pressed */
   onToolbeltPress?: () => void
+  /** Callback when Improvements link is pressed */
+  onImprovementsPress?: () => void
   /** Callback when Settings is pressed */
   onSettingsPress?: () => void
   /** Callback when New Chat is pressed */
@@ -77,6 +79,7 @@ export function DrawerContent({
   onArticlesPress,
   onSubscriptionsPress,
   onToolbeltPress,
+  onImprovementsPress,
   onSettingsPress,
   onNewChatPress,
   onConversationPress,
@@ -134,6 +137,7 @@ export function DrawerContent({
     { id: 'articles', label: 'Articles', icon: <BookOpen size={20} className="text-foreground" />, onPress: onArticlesPress },
     { id: 'subscriptions', label: 'Subscriptions', icon: <Bell size={20} className="text-foreground" />, onPress: onSubscriptionsPress },
     { id: 'toolbelt', label: 'Toolbelt', icon: <Wrench size={20} className="text-foreground" />, onPress: onToolbeltPress },
+    { id: 'improvements', label: 'Improvements', icon: <Lightbulb size={20} className="text-foreground" />, onPress: onImprovementsPress },
     { id: 'settings', label: 'Settings', icon: <Settings size={20} className="text-foreground" />, onPress: onSettingsPress },
   ]
 
