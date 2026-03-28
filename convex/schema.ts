@@ -954,4 +954,46 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index("by_request", ["requestId"]),
+
+  // Voice assistant tables
+  voiceSessions: defineTable({
+    conversationId: v.id("conversations"),
+    startedAt: v.number(),
+    completedAt: v.optional(v.number()),
+    turnCount: v.number(),
+    totalDurationMs: v.optional(v.number()),
+    metadata: v.optional(v.object({
+      deviceType: v.string(),
+      platform: v.string(),
+      appVersion: v.string(),
+    })),
+    errorMessage: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_conversation", ["conversationId"])
+    .index("by_started", ["startedAt"])
+    .index("by_created", ["createdAt"]),
+
+  voiceCommands: defineTable({
+    sessionId: v.id("voiceSessions"),
+    transcript: v.string(),
+    intent: v.string(),
+    entities: v.array(v.object({
+      type: v.string(),
+      value: v.string(),
+      confidence: v.number(),
+    })),
+    actionType: v.string(),
+    actionParams: v.optional(v.record(v.string(), v.string())),
+    result: v.optional(v.object({
+      success: v.boolean(),
+      data: v.optional(v.any()),
+      error: v.optional(v.string()),
+    })),
+    success: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_session", ["sessionId", "createdAt"]),
 });

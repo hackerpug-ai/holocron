@@ -67,6 +67,7 @@ import type * as feeds_mutations from "../feeds/mutations.js";
 import type * as feeds_queries from "../feeds/queries.js";
 import type * as feeds_validators from "../feeds/validators.js";
 import type * as http from "../http.js";
+import type * as improvements_actions from "../improvements/actions.js";
 import type * as improvements_internal from "../improvements/internal.js";
 import type * as improvements_mutations from "../improvements/mutations.js";
 import type * as improvements_prompts from "../improvements/prompts.js";
@@ -226,6 +227,7 @@ declare const fullApi: ApiFromModules<{
   "feeds/queries": typeof feeds_queries;
   "feeds/validators": typeof feeds_validators;
   http: typeof http;
+  "improvements/actions": typeof improvements_actions;
   "improvements/internal": typeof improvements_internal;
   "improvements/mutations": typeof improvements_mutations;
   "improvements/prompts": typeof improvements_prompts;
