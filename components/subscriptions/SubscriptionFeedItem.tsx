@@ -59,7 +59,8 @@ function formatEngagement(count: number): string {
 }
 
 function getInitials(name: string): string {
-  return name
+  const cleaned = name.replace(/^\[[\w]+\]\s*/, '')
+  return cleaned
     .split(' ')
     .map((word) => word[0])
     .join('')
