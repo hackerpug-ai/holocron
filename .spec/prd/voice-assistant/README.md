@@ -20,7 +20,7 @@
 | [UC-QUERY.md](./UC-QUERY.md) | Query & Action Execution use cases |
 | [UC-ERREC.md](./UC-ERREC.md) | Error Recovery use cases |
 | [team-contributions.md](./team-contributions.md) | Team phase outputs |
-| [technical-requirements.md](./technical-requirements.md) | Architecture and technical specs |
+| [technical-requirements/](./technical-requirements/) | Architecture and technical specs (split into 7 focused docs) |
 
 ## Research Reference
 
