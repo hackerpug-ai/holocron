@@ -13,6 +13,8 @@ const DATA_CHANNEL_NAME = 'oai-events'
 export type WebRTCConnectionCallbacks = {
   onEvent?: (event: unknown) => void
   onTrack?: (stream: MediaStream) => void
+  /** Called when ICE connection fails or data channel closes unexpectedly */
+  onConnectionFailed?: () => void
 }
 
 export class WebRTCConnection {
@@ -54,6 +56,14 @@ export class WebRTCConnection {
         }
       })
 
+      // Detect ICE connection failure for retry
+      this.pc.addEventListener('iceconnectionstatechange', () => {
+        const iceState = (this.pc as unknown as { iceConnectionState?: string })?.iceConnectionState
+        if (iceState === 'failed' || iceState === 'disconnected') {
+          this.callbacks.onConnectionFailed?.()
+        }
+      })
+
       // Create data channel for events (name MUST be 'oai-events')
       const dc = this.pc.createDataChannel(DATA_CHANNEL_NAME)
       this.dc = dc
@@ -65,6 +75,11 @@ export class WebRTCConnection {
         } catch {
           // Ignore malformed messages
         }
+      })
+
+      // Detect data channel close as a connection failure signal
+      dc.addEventListener('close', () => {
+        this.callbacks.onConnectionFailed?.()
       })
 
       // Create SDP offer
