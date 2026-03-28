@@ -30,6 +30,13 @@ import { NotificationToast, type NotificationData } from './NotificationToast'
 
 const AUTO_DISMISS_MS = 4000
 
+/** Notification types that warrant a full toast (user-initiated async completions) */
+const HIGH_IMPORTANCE_TYPES = new Set([
+  'research_complete',
+  'audio_complete',
+  'assimilate_complete',
+])
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 interface NotificationToastProviderProps {
@@ -84,6 +91,10 @@ export function NotificationToastProvider({ children }: NotificationToastProvide
 
     shownIds.current.add(next._id)
 
+    // Only show toast for high-importance notifications (user-initiated async completions).
+    // Normal-importance notifications are bell-only — the NotificationListSheet handles those.
+    if (!HIGH_IMPORTANCE_TYPES.has(next.type)) return
+
     const notification: NotificationData = {
       _id: next._id,
       type: next.type as NotificationData['type'],
@@ -101,17 +112,15 @@ export function NotificationToastProvider({ children }: NotificationToastProvide
         // Haptics may not be available on all devices; ignore errors
       })
 
-      // Mark read immediately so Convex removes it from the unread feed
-      markReadMutation({ id: next._id as Id<'notifications'> }).catch((err: unknown) => {
-        console.warn('[NotificationToastProvider] markRead failed:', err)
-      })
+      // Do NOT mark read here — let the notification bell list handle read state.
+      // This allows the bell dot to show even after the toast is dismissed.
     } else {
       // App is in background — expo-notifications is not installed.
       // To enable push notifications, install expo-notifications and replace
       // this block with Notifications.scheduleNotificationAsync({ ... }).
       // Push notifications not configured — no-op when backgrounded
     }
-  }, [unread, markReadMutation])
+  }, [unread])
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 

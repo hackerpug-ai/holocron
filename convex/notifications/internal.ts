@@ -6,10 +6,27 @@ import { internalMutation } from "../_generated/server";
 // ============================================================
 
 /**
+ * Maps notification types to importance levels.
+ * "high" = user-initiated async completions that warrant a toast.
+ * "normal" = informational, bell-only notifications.
+ */
+const IMPORTANCE_MAP: Record<string, "high" | "normal"> = {
+  research_complete: "high",
+  audio_complete: "high",
+  assimilate_complete: "high",
+  research_failed: "normal",
+  whats_new: "normal",
+  subscription_update: "normal",
+  feed_digest: "normal",
+  system: "normal",
+};
+
+/**
  * Create a new notification (internal use only)
  *
- * Inserts a notification with read:false. Called by internal workflows
- * (e.g. research completion, system alerts) to surface events to the user.
+ * Inserts a notification with read:false and derived importance level.
+ * Called by internal workflows (e.g. research completion, system alerts)
+ * to surface events to the user.
  */
 export const create = internalMutation({
   args: {
@@ -37,6 +54,7 @@ export const create = internalMutation({
       route,
       referenceId,
       read: false,
+      importance: IMPORTANCE_MAP[type] ?? "normal",
       createdAt: now,
     });
 

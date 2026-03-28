@@ -42,32 +42,31 @@ export const listRecent = query({
 });
 
 /**
- * Get the timestamp when the user last viewed the notification list.
- * Returns 0 if never seen (treats all notifications as new).
+ * Check if any notifications exist after a given timestamp
+ *
+ * Used by the notification bell to show a red dot indicator.
  */
-export const getLastSeen = query({
-  args: {},
-  returns: v.number(),
-  handler: async (_ctx) => {
-    // Stub: returns 0 until user preferences tracking is implemented
-    return 0;
+export const hasNewSince = query({
+  args: { since: v.number() },
+  handler: async (ctx, { since }) => {
+    const newer = await ctx.db
+      .query("notifications")
+      .withIndex("by_created")
+      .filter((q) => q.gt(q.field("createdAt"), since))
+      .first();
+    return newer !== null;
   },
 });
 
 /**
- * Check if there are any notifications newer than a given timestamp.
- * Used by the notification bell to show/hide the new-items dot.
+ * Get the last-seen timestamp from user preferences
+ *
+ * Returns 0 if no preferences have been saved yet.
  */
-export const hasNewSince = query({
-  args: { since: v.number() },
-  returns: v.boolean(),
-  handler: async (ctx, { since }) => {
-    const recent = await ctx.db
-      .query("notifications")
-      .withIndex("by_created")
-      .order("desc")
-      .first();
-    if (!recent) return false;
-    return recent.createdAt > since;
+export const getLastSeen = query({
+  args: {},
+  handler: async (ctx) => {
+    const prefs = await ctx.db.query("userPreferences").first();
+    return prefs?.notificationsLastSeenAt ?? 0;
   },
 });

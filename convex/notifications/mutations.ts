@@ -44,3 +44,23 @@ export const markAllRead = mutation({
     return { updated: unread.length };
   },
 });
+
+/**
+ * Update the last-seen timestamp for notification bell
+ *
+ * Creates or updates the userPreferences singleton with the current time,
+ * so the bell dot knows which notifications have been "seen".
+ */
+export const updateLastSeen = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const prefs = await ctx.db.query("userPreferences").first();
+    const now = Date.now();
+    if (prefs) {
+      await ctx.db.patch(prefs._id, { notificationsLastSeenAt: now, updatedAt: now });
+    } else {
+      await ctx.db.insert("userPreferences", { notificationsLastSeenAt: now, updatedAt: now });
+    }
+    return now;
+  },
+});
