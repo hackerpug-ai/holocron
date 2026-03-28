@@ -1,12 +1,9 @@
-"use node";
-
 import { v } from "convex/values";
 import { internalAction, internalQuery, internalMutation } from "../_generated/server";
 import { api, internal } from "../_generated/api";
 import { readUrlWithJina, readUrlWithJinaAndLinks } from "../research/search.js";
-import { embed, generateText } from "ai";
+import { embed } from "ai";
 import { cohereEmbedding } from "../lib/ai/embeddings_provider";
-import { zaiFlash } from "../lib/ai/zai_provider";
 
 // ============================================================================
 // Embedding Generation Helpers
@@ -155,90 +152,6 @@ function calculateRelevancyScore(
 // AI Relevance Scoring
 // ============================================================================
 
-type ContentItem = {
-  title: string;
-  platform: string;
-};
-
-type AiScore = {
-  score: number;
-  reason: string;
-};
-
-/**
- * Batch-score an array of content items for relevance to a creator's topic area.
- *
- * Sends all items in a single LLM prompt for efficiency. Falls back to
- * returning an empty array (no AI scores) if the LLM call fails so the
- * existing keyword scoring remains unaffected.
- *
- * @param items - Array of {title, platform} objects to score
- * @param sourceName - Creator / source name for context
- * @param topic - Topic or category string (e.g. "AI tools", "rust programming")
- * @returns Array of {score, reason} with one entry per input item, or [] on failure
- */
-async function scoreCreatorContentRelevance(
-  items: ContentItem[],
-  sourceName: string,
-  topic: string
-): Promise<AiScore[]> {
-  if (items.length === 0) return [];
-
-  const itemList = items
-    .map((item, i) => `${i + 1}. [${item.platform}] ${item.title}`)
-    .join("\n");
-
-  const prompt = `You are a relevance scorer for a personal content feed. Score each item 0.0-1.0 for relevance to the creator's topic area.
-
-Creator: ${sourceName}
-Topic/Category: ${topic}
-
-Items to score:
-${itemList}
-
-Rules:
-- Score 0.9-1.0: Directly about the topic
-- Score 0.5-0.8: Tangentially related
-- Score 0.0-0.3: Unrelated (personal, off-topic, promotional)
-
-Respond with ONLY a JSON array, no other text: [{"score": 0.8, "reason": "brief reason"}, ...]
-The array must have exactly ${items.length} entries in the same order as the items.`;
-
-  try {
-    const result = await generateText({
-      model: zaiFlash(),
-      prompt,
-    });
-
-    const text = result.text.trim();
-    // Extract JSON array from the response (handle markdown code blocks)
-    const jsonMatch = text.match(/\[[\s\S]*\]/);
-    if (!jsonMatch) {
-      console.warn("[scoreCreatorContentRelevance] No JSON array found in response");
-      return [];
-    }
-
-    const parsed: unknown = JSON.parse(jsonMatch[0]);
-    if (!Array.isArray(parsed)) return [];
-
-    const scores: AiScore[] = parsed.map((entry: unknown) => {
-      const obj = entry as Record<string, unknown>;
-      const score = typeof obj.score === "number" ? Math.min(1, Math.max(0, obj.score)) : 0.5;
-      const reason = typeof obj.reason === "string" ? obj.reason : "ai_scored";
-      return { score, reason };
-    });
-
-    // Ensure we got back the right count; pad with defaults if not
-    while (scores.length < items.length) {
-      scores.push({ score: 0.5, reason: "ai_no_score" });
-    }
-
-    return scores.slice(0, items.length);
-  } catch (err) {
-    console.warn("[scoreCreatorContentRelevance] LLM scoring failed, skipping:", err);
-    return [];
-  }
-}
 
 // ============================================================================
 // Source Fetchers
@@ -957,30 +870,7 @@ async function fetchCreator(
     candidates.push({ item, contentId, keywordScore: score });
   }
 
-  // Batch AI scoring for all candidates in a single LLM call
-  const topic =
-    (config as Record<string, unknown>).topic as string ||
-    (config as Record<string, unknown>).category as string ||
-    "general tech";
-
-  const scoringItems: ContentItem[] = candidates.map((c) => ({
-    title: c.item.title,
-    platform: c.item.platform,
-  }));
-
-  const aiScores = await scoreCreatorContentRelevance(
-    scoringItems,
-    source.name ?? source.identifier ?? "unknown",
-    topic
-  );
-
-  for (let i = 0; i < candidates.length; i++) {
-    const { item, contentId, keywordScore } = candidates[i];
-    const aiScore = aiScores[i] ?? null;
-
-    // If AI scored it and it's clearly irrelevant, skip it
-    const passedFilter = aiScore === null || aiScore.score >= 0.3;
-
+  for (const { item, contentId, keywordScore } of candidates) {
     allItems.push({
       sourceId: source._id,
       contentId,
@@ -988,9 +878,7 @@ async function fetchCreator(
       url: item.link,
       relevancyScore: Math.max(keywordScore, 0.6), // Boost score for trusted creators
       relevancyReason: `creator_${item.platform}`,
-      passedFilter,
-      aiRelevanceScore: aiScore?.score ?? undefined,
-      aiRelevanceReason: aiScore?.reason ?? undefined,
+      passedFilter: true,
       metadataJson: {
         platform: item.platform,
         creatorName: source.name,
@@ -1317,6 +1205,37 @@ async function processSingleSource(
 
   // Fetch items (fetchers use in-memory duplicate checking)
   const items = await fetchFn(source, filters, existingIds);
+
+  // AI relevance scoring for creator sources (runs in separate Node.js action)
+  if (source.sourceType === 'creator' && items.length > 0) {
+    const config = (source.configJson || {}) as Record<string, unknown>;
+    const topic = (config.topic as string) || (config.category as string) || "general tech";
+    try {
+      const aiScores = await ctx.runAction(
+        internal.subscriptions.ai_scoring.scoreContentRelevance,
+        {
+          items: items.map((item: any) => ({
+            title: item.title,
+            platform: (item.metadataJson as Record<string, unknown>)?.platform as string || "unknown",
+          })),
+          sourceName: source.name ?? source.identifier ?? "unknown",
+          topic,
+        }
+      );
+      for (let i = 0; i < items.length; i++) {
+        const aiScore = aiScores[i];
+        if (aiScore) {
+          items[i].aiRelevanceScore = aiScore.score;
+          items[i].aiRelevanceReason = aiScore.reason;
+          if (aiScore.score < 0.3) {
+            items[i].passedFilter = false;
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("[checkAllSubscriptions] AI scoring failed, using keyword scores:", err);
+    }
+  }
 
   // Generate embeddings in batch for all items
   const titles = items.map(item => item.title);
