@@ -69,7 +69,7 @@ export function SubscriptionFeedFilters({
             key={type}
             label={`${label} (${count})`}
             selected={selectedFilter === type}
-            onPress={() => onFilterChange(type)}
+            onPress={() => onFilterChange(selectedFilter === type ? 'all' : type)}
             testID={`${testID}-${type}`}
           />
         ))}
