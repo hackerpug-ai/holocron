@@ -837,7 +837,7 @@ async function fetchCreator(
     allItems.push({
       sourceId: source._id,
       contentId,
-      title: `[${item.platform.toUpperCase()}] ${item.title}`,
+      title: item.title,
       url: item.link,
       relevancyScore: Math.max(score, 0.6), // Boost score for trusted creators
       relevancyReason: `creator_${item.platform}`,
