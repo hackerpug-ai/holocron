@@ -453,10 +453,9 @@ describe('SubscriptionFeedItem - Component Structure', () => {
         expect(source).toContain('feed-item-social-content')
       })
 
-      it('should truncate content to 4 lines', () => {
+      it('should truncate content via maxHeight', () => {
         const source = readComponent()
-        const socialSection = source.split('function SocialFeedCard')[1]?.split('export function')[0]
-        expect(socialSection).toContain('numberOfLines={4}')
+        expect(source).toContain('maxHeight: 120')
       })
 
       it('should accept optional content prop', () => {

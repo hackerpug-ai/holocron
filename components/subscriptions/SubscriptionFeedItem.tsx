@@ -1,5 +1,6 @@
-import { View, Pressable, StyleSheet, Image } from 'react-native'
+import { View, Pressable, StyleSheet, Image, Linking } from 'react-native'
 import { Text } from '@/components/ui/text'
+import { MarkdownText } from '@/components/markdown'
 import { useTheme } from '@/hooks/use-theme'
 import Animated, {
   useAnimatedStyle,
@@ -285,6 +286,7 @@ interface SocialFeedCardProps {
   commentsCount?: number
   sharesCount?: number
   publishedAt: number
+  onLinkPress?: (url: string) => void
 }
 
 function SocialFeedCard({
@@ -297,6 +299,7 @@ function SocialFeedCard({
   commentsCount,
   sharesCount,
   publishedAt,
+  onLinkPress,
 }: SocialFeedCardProps) {
   const { colors, spacing } = useTheme()
 
@@ -358,14 +361,13 @@ function SocialFeedCard({
 
       {/* Content preview */}
       {content && (
-        <Text
-          style={{ color: colors.foreground }}
-          numberOfLines={4}
-          className="text-base"
-          testID="feed-item-social-content"
-        >
-          {content}
-        </Text>
+        <View style={styles.contentPreview} testID="feed-item-social-content">
+          <MarkdownText
+            content={content}
+            onLinkPress={onLinkPress}
+            testID="feed-item-social-content-markdown"
+          />
+        </View>
       )}
 
       {/* Engagement stats */}
@@ -546,6 +548,7 @@ export function SubscriptionFeedItem({
           commentsCount={commentsCount}
           sharesCount={sharesCount}
           publishedAt={publishedAt}
+          onLinkPress={(url) => Linking.openURL(url)}
         />
       )}
     </AnimatedPressable>
@@ -643,5 +646,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 6,
     alignItems: 'center',
+  },
+  contentPreview: {
+    maxHeight: 120,
+    overflow: 'hidden',
   },
 })
