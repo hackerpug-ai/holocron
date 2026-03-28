@@ -16,6 +16,29 @@
 
 import type { ParsedFunctionCall } from './types'
 
+// ─── Error classification ─────────────────────────────────────────────────────
+
+export type ErrorClass = 'transient' | 'permanent' | 'rate_limit'
+
+export function classifyError(error: unknown): ErrorClass {
+  if (error instanceof Error) {
+    if (error.message.includes('429')) return 'rate_limit'
+    if (error.message.includes('timeout') || error.message.includes('500')) return 'transient'
+  }
+  return 'permanent'
+}
+
+export function getSpokenErrorMessage(errorClass: ErrorClass, context?: string): string {
+  switch (errorClass) {
+    case 'transient':
+      return 'Something went wrong. Let me try again.'
+    case 'rate_limit':
+      return 'Too many requests. Try again in a moment.'
+    case 'permanent':
+      return context ? `I couldn't ${context}.` : "I can't do that right now."
+  }
+}
+
 // ─── Dependency types ────────────────────────────────────────────────────────
 
 export type RouterPush = (path: string) => void
@@ -255,10 +278,25 @@ export async function dispatchFunctionCall(
     try {
       result = await handler(fn.arguments, deps)
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : String(err)
-      result = {
-        success: false,
-        error: errorMessage,
+      const errorClass = classifyError(err)
+
+      if (errorClass === 'transient') {
+        // Retry once automatically for transient errors
+        try {
+          result = await handler(fn.arguments, deps)
+        } catch {
+          // Retry also failed — speak user-friendly message
+          result = {
+            success: false,
+            error: getSpokenErrorMessage('transient'),
+          }
+        }
+      } else {
+        // Permanent or rate_limit — no retry
+        result = {
+          success: false,
+          error: getSpokenErrorMessage(errorClass),
+        }
       }
     }
   }
