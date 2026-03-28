@@ -232,6 +232,7 @@ export const openFeedItem = mutation({
   args: {
     feedItemId: v.id("feedItems"),
   },
+  returns: v.union(v.string(), v.null()),
   handler: async (ctx, args) => {
     // Fetch the feed item
     const feedItem = await ctx.db.get(args.feedItemId);
