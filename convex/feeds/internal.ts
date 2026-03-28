@@ -69,6 +69,9 @@ export const buildFeed = internalAction({
       const source = sourceMap.get(content.sourceId);
       if (!source) continue; // Skip if source not found
 
+      // Defense-in-depth: skip already-ingested unavailable tweet placeholders
+      if (isUnavailableContent(content.title)) continue;
+
       // Use creatorProfileId if available, otherwise fall back to sourceId for grouping key
       const creatorId = source.creatorProfileId;
       const groupKey = creatorId ? `creator:${creatorId}` : `source:${content.sourceId}`;
@@ -503,4 +506,18 @@ function deriveBackfillCategoryFromUrl(url: string, sourceType: string): string 
   if (url.includes("bsky.app") || url.includes("bluesky")) return "social";
   if (sourceType === "creator") return "social"; // Default for creators
   return 'article';
+}
+
+/**
+ * Returns true if the given title matches known "unavailable" content placeholder patterns.
+ * Defense-in-depth filter applied during feed building to skip any placeholders
+ * that slipped through ingestion.
+ */
+function isUnavailableContent(title: string | undefined): boolean {
+  if (!title) return false;
+  return (
+    /this post is unavailable/i.test(title) ||
+    /this tweet is unavailable/i.test(title) ||
+    /content is not available/i.test(title)
+  );
 }

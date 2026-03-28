@@ -525,12 +525,15 @@ function parseTwitterMarkdown(markdown: string, _handle: string): Array<{
           ? currentTweet.trim().substring(0, 200) + '...'
           : currentTweet.trim();
         if (title.length > 10) { // Skip very short fragments
-          items.push({
-            title,
-            link: currentLink,
-            published: new Date().toISOString(), // X doesn't expose exact timestamps in profile view
-            platform: 'twitter',
-          });
+          // Skip "unavailable" placeholder tweets
+          if (!isUnavailableTweet(title)) {
+            items.push({
+              title,
+              link: currentLink,
+              published: new Date().toISOString(), // X doesn't expose exact timestamps in profile view
+              platform: 'twitter',
+            });
+          }
         }
       }
       currentTweet = '';
@@ -555,12 +558,15 @@ function parseTwitterMarkdown(markdown: string, _handle: string): Array<{
       ? currentTweet.trim().substring(0, 200) + '...'
       : currentTweet.trim();
     if (title.length > 10) {
-      items.push({
-        title,
-        link: currentLink,
-        published: new Date().toISOString(),
-        platform: 'twitter',
-      });
+      // Skip "unavailable" placeholder tweets
+      if (!isUnavailableTweet(title)) {
+        items.push({
+          title,
+          link: currentLink,
+          published: new Date().toISOString(),
+          platform: 'twitter',
+        });
+      }
     }
   }
 
@@ -579,17 +585,33 @@ function parseTwitterMarkdown(markdown: string, _handle: string): Array<{
         : lastBlock;
 
       if (title.length > 10) {
-        items.push({
-          title,
-          link: match[0],
-          published: new Date().toISOString(),
-          platform: 'twitter',
-        });
+        // Skip "unavailable" placeholder tweets
+        if (!isUnavailableTweet(title)) {
+          items.push({
+            title,
+            link: match[0],
+            published: new Date().toISOString(),
+            platform: 'twitter',
+          });
+        }
       }
     }
   }
 
   return items.slice(0, 25); // Cap at 25 tweets
+}
+
+/**
+ * Returns true if the given text matches known "unavailable" tweet placeholder patterns.
+ * Used to filter out Twitter/X placeholder messages that appear when a tweet is deleted
+ * or made unavailable.
+ */
+function isUnavailableTweet(text: string): boolean {
+  return (
+    /this post is unavailable/i.test(text) ||
+    /this tweet is unavailable/i.test(text) ||
+    /content is not available/i.test(text)
+  );
 }
 
 /**
