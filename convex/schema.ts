@@ -804,6 +804,9 @@ export default defineSchema({
     subscriptionIds: v.array(v.id("subscriptionSources")), // Source subscriptions
     // Media
     thumbnailUrl: v.optional(v.string()),
+    // Author info (for social/video cards)
+    authorHandle: v.optional(v.string()),
+    creatorName: v.optional(v.string()),
     // View tracking
     viewed: v.boolean(),
     viewedAt: v.optional(v.number()),

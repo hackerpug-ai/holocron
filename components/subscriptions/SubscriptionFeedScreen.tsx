@@ -202,6 +202,8 @@ export function SubscriptionFeedScreen({
           thumbnailUrl={item.thumbnailUrl}
           viewed={item.viewed}
           publishedAt={item.publishedAt}
+          authorHandle={item.authorHandle}
+          creatorName={item.creatorName}
           onPress={() => handleItemPress(item)}
           testID={`${testID}-item-${item._id}`}
         />

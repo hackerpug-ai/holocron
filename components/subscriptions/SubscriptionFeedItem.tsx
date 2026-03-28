@@ -536,10 +536,10 @@ export function SubscriptionFeedItem({
 
       {contentType === 'social' && (
         <SocialFeedCard
-          authorName={creatorName || title}
+          authorName={creatorName || 'Unknown'}
           authorHandle={authorHandle || ''}
           authorAvatarUrl={authorAvatarUrl}
-          content={summary}
+          content={summary || title}
           platform={platform || 'twitter'}
           likesCount={likesCount}
           commentsCount={commentsCount}
