@@ -14,6 +14,8 @@ import { ChatThread } from '@/components/chat/ChatThread'
 import { ChatInput } from '@/components/chat/ChatInput'
 import { SquarePen } from '@/components/ui/icons'
 import { spacing } from '@/lib/theme'
+import { useVoiceSession } from '@/hooks/use-voice-session'
+import { VoiceMicButton, VoiceSessionOverlay } from '@/components/voice'
 
 /**
  * Chat screen for a specific conversation.
@@ -150,6 +152,18 @@ export default function ChatScreen() {
     router.push('/chat/new')
   }
 
+  // Voice session — only wired for real (non-new) conversations.
+  // For new conversations, we pass a placeholder and hide the mic button,
+  // so start() is never called with the invalid ID.
+  const voiceConversationId = (
+    isNewConversation ? '' : (conversationId ?? '')
+  ) as Id<'conversations'>
+  const {
+    state: voiceState,
+    start: startVoice,
+    stop: stopVoice,
+  } = useVoiceSession(voiceConversationId)
+
   // Set the active conversation when the route loads (skip for 'new')
   useEffect(() => {
     if (conversationId && !isNewConversation) {
@@ -220,6 +234,8 @@ export default function ChatScreen() {
   // so when scrolled to the top, the first message has breathing room below the header
   const contentTopPadding = spacing.lg
 
+  const isVoiceActive = voiceState.status !== 'idle'
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -232,30 +248,52 @@ export default function ChatScreen() {
         showMenu
         onMenu={handleOpenMenu}
         rightContent={
-          <Pressable
-            onPress={handleNewChat}
-            className="h-10 w-10 items-center justify-center rounded-full active:bg-muted"
-            testID="chat-header-new-chat-button"
-            accessibilityRole="button"
-            accessibilityLabel="New chat"
-          >
-            <SquarePen size={22} className="text-foreground" />
-          </Pressable>
+          <View className="flex-row items-center gap-2">
+            {!isNewConversation && (
+              <VoiceMicButton
+                voiceState={voiceState.status}
+                onStart={startVoice}
+                onStop={stopVoice}
+              />
+            )}
+            <Pressable
+              onPress={handleNewChat}
+              className="h-10 w-10 items-center justify-center rounded-full active:bg-muted"
+              testID="chat-header-new-chat-button"
+              accessibilityRole="button"
+              accessibilityLabel="New chat"
+            >
+              <SquarePen size={22} className="text-foreground" />
+            </Pressable>
+          </View>
         }
         testID="chat-header"
       />
-      <ChatThread
-        messages={messages}
-        showTypingIndicator={isSending || agentBusy}
-        isLoading={isLoadingMessages}
-        safeAreaTop={contentTopPadding}
-        testID="chat-thread"
-        onFinalResultPress={handleFinalResultPress}
-        onWhatsNewReportPress={handleWhatsNewReportPress}
-        onDocumentContextNavigate={handleDocumentContextNavigate}
-        onDeleteMessage={(messageId) => softDelete({ id: messageId as Id<'chatMessages'> })}
-        streamingMessageId={streamingMessageId}
-      />
+      {/* Chat content area — voice overlay floats above this */}
+      <View style={styles.chatContent}>
+        <ChatThread
+          messages={messages}
+          showTypingIndicator={isSending || agentBusy}
+          isLoading={isLoadingMessages}
+          safeAreaTop={contentTopPadding}
+          testID="chat-thread"
+          onFinalResultPress={handleFinalResultPress}
+          onWhatsNewReportPress={handleWhatsNewReportPress}
+          onDocumentContextNavigate={handleDocumentContextNavigate}
+          onDeleteMessage={(messageId) => softDelete({ id: messageId as Id<'chatMessages'> })}
+          streamingMessageId={streamingMessageId}
+        />
+        {/* Voice session overlay — floats above chat, does not replace it */}
+        {isVoiceActive && (
+          <View style={styles.voiceOverlayContainer} testID="voice-overlay-wrapper" pointerEvents="box-none">
+            <VoiceSessionOverlay
+              state={voiceState}
+              onRetry={startVoice}
+              testID="voice-session-overlay"
+            />
+          </View>
+        )}
+      </View>
       {/* Bottom area with safe area padding */}
       <View style={{ paddingBottom: insets.bottom }}>
         {sendError && (
@@ -302,5 +340,15 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  chatContent: {
+    flex: 1,
+  },
+  voiceOverlayContainer: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    // Semi-transparent background so chat is still visible beneath overlay
+    backgroundColor: 'rgba(0,0,0,0.35)',
   },
 })

@@ -1,28 +1,22 @@
 {
-  "task_id": "US-014",
-  "title": "Design ChatThread component with auto-scroll and infinite scroll pagination",
-  "base_sha": "0c5123bf3a20fd7b409d5ab58b4743f7007a7f72",
-  "commit_sha": "f7b1b5b08dafdcbb6cab03688bd3eabe09660fa0",
+  "task": "US-014",
+  "title": "Integrate voice UI into conversation screen",
   "status": "completed",
+  "checks": {
+    "typecheck": "PASS",
+    "tests": "PASS (696/696)",
+    "lint": "PASS"
+  },
   "files_created": [
-    "components/chat/ChatThread.tsx",
-    "components/chat/ChatThread.stories.tsx"
+    "components/voice/index.ts"
   ],
   "files_modified": [
-    "components/chat/index.ts"
+    "app/(drawer)/chat/[conversationId].tsx"
   ],
-  "verifications": {
-    "typecheck": "PASSED",
-    "lint": "SKIPPED (eslint not installed)",
-    "stories_created": "YES (7 stories)"
-  },
-  "notes": [
-    "Created temporary MessageBubble stub since US-013 is not yet complete",
-    "Uses NativeWind/Tailwind theme tokens (bg-primary, text-foreground, etc.)",
-    "Implements inverted FlatList for newest-at-bottom display",
-    "Auto-scroll to bottom on new messages via useEffect + scrollToEnd",
-    "Infinite scroll via onEndReached callback",
-    "Loading indicator shown at top when isLoadingMore=true",
-    "Empty state component for zero messages"
-  ]
+  "acceptance_criteria": {
+    "AC-1": "VoiceMicButton visible in header rightContent with testID='voice-mic-button' (hidden for /chat/new)",
+    "AC-2": "Tapping mic button calls startVoice(), VoiceSessionOverlay appears with absolute positioning above chat thread",
+    "AC-3": "Stop button in overlay calls stopVoice(), voiceState returns to 'idle', overlay unmounts",
+    "AC-4": "Voice transcripts are recorded to Convex via transcript-recorder in useVoiceSession; Convex reactivity surfaces them in useChatHistory"
+  }
 }
