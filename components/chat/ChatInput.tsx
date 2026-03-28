@@ -41,6 +41,10 @@ export interface ChatInputProps {
   testID?: string
   /** Available commands */
   commands?: SlashCommand[]
+  /** Whether a plan is currently pending approval */
+  planPending?: boolean
+  /** Custom placeholder when plan is pending */
+  planPendingPlaceholder?: string
 }
 
 const DEFAULT_COMMANDS: SlashCommand[] = [
@@ -136,6 +140,8 @@ export function ChatInput({
   onChangeText,
   testID = 'chat-input',
   commands = DEFAULT_COMMANDS,
+  planPending = false,
+  planPendingPlaceholder = 'Waiting for plan approval...',
 }: ChatInputProps) {
   const { colors: themeColors } = useTheme()
 
@@ -169,7 +175,9 @@ export function ChatInput({
   })
 
   const trimmedValue = value.trim()
-  const canSend = trimmedValue.length > 0 && !disabled
+  const canSend = trimmedValue.length > 0 && !disabled && !planPending
+  const effectiveDisabled = disabled || planPending
+  const effectivePlaceholder = planPending ? planPendingPlaceholder : placeholder
 
   // Track whether the wand button forced the command panel open
   const [forceShowCommands, setForceShowCommands] = useState(false)
@@ -267,7 +275,7 @@ export function ChatInput({
         <Pressable
           testID="chat-input-slash-button"
           onPress={handleSlashButtonPress}
-          disabled={disabled}
+          disabled={effectiveDisabled}
           className={cn(
             'h-10 w-10 items-center justify-center rounded-full',
             showCommandPanel ? 'bg-primary' : 'bg-muted'
@@ -288,8 +296,11 @@ export function ChatInput({
             {/* Placeholder - shown when input is empty */}
             {showPlaceholder && (
               <View pointerEvents="none" style={styles.placeholderContainer}>
-                <Text className="text-muted-foreground" style={styles.placeholder}>
-                  {placeholder}
+                <Text className={cn(
+                  'text-muted-foreground',
+                  planPending && 'text-warning/70'
+                )} style={styles.placeholder}>
+                  {effectivePlaceholder}
                 </Text>
               </View>
             )}
@@ -300,7 +311,7 @@ export function ChatInput({
               testID="chat-input-field"
               style={[styles.textInput, { color: themeColors.foreground }]}
               multiline
-              editable={!disabled}
+              editable={!effectiveDisabled}
               scrollEnabled
             />
           </View>

@@ -234,9 +234,17 @@ export async function executeShopSearch(
 // ============================================================================
 
 /**
- * Start Shop Search
+ * Start Shop Search (with Planning Phase)
  *
  * Main entry point for product searches across multiple retailers.
+ *
+ * NEW Workflow (with planId):
+ * 1. Validate plan is approved
+ * 2. Execute search with approved plan
+ * 3. Update plan status during execution
+ *
+ * LEGACY Workflow (without planId):
+ * Direct execution without planning phase (backward compatibility)
  *
  * @param conversationId - Optional conversation to associate results with
  * @param query - Product search query
@@ -244,6 +252,7 @@ export async function executeShopSearch(
  * @param condition - Filter by condition: "new", "used", or "any"
  * @param priceMin - Minimum price in dollars
  * @param priceMax - Maximum price in dollars
+ * @param planId - Optional execution plan ID (new workflow)
  */
 export const startShopSearch = action({
   args: {
@@ -253,97 +262,428 @@ export const startShopSearch = action({
     condition: v.optional(v.string()),
     priceMin: v.optional(v.number()),
     priceMax: v.optional(v.number()),
+    planId: v.optional(v.id("executionPlans")),
   },
   handler: async (ctx, args): Promise<ShopSearchActionResult> => {
-    const { conversationId, query } = args;
+    const { planId } = args;
 
-    try {
-      // Post loading card if we have a conversation
-      if (conversationId) {
-        await ctx.runMutation(api.chatMessages.mutations.create, {
-          conversationId,
-          role: "agent" as const,
-          content: `Searching for "${query}"...`,
-          messageType: "result_card" as const,
-          cardData: { card_type: "shop_search_loading", query },
-        });
+    // NEW WORKFLOW: With planning phase
+    if (planId) {
+      return await executeShopSearchWithPlan(ctx, { ...args, planId });
+    }
+
+    // LEGACY WORKFLOW: Direct execution (backward compatibility)
+    return await executeShopSearchDirect(ctx, args);
+  },
+});
+
+/**
+ * Execute shop search with approved plan (NEW workflow)
+ *
+ * AC-2: Approved plan -> Execute search -> Update plan status during execution
+ */
+async function executeShopSearchWithPlan(
+  ctx: ActionCtx,
+  args: {
+    conversationId?: Id<"conversations">;
+    query: string;
+    retailers?: string[];
+    condition?: string;
+    priceMin?: number;
+    priceMax?: number;
+    planId: Id<"executionPlans">;
+  }
+): Promise<ShopSearchActionResult> {
+  const { conversationId, query, planId } = args;
+
+  // Validate plan is approved
+  const plan: any = await ctx.runQuery(api.plans.queries.getPlan, { planId });
+  if (!plan) {
+    throw new Error(`Plan ${planId} not found`);
+  }
+
+  if (plan.status !== "approved") {
+    throw new Error(`Cannot execute plan in ${plan.status} status. Plan must be approved first.`);
+  }
+
+  // Extract retailers from plan content
+  const planRetailers = plan.content.retailers
+    ?.filter((r: any) => r.enabled)
+    .map((r: any) => r.name) || DEFAULT_RETAILERS;
+
+  console.log(
+    `[executeShopSearchWithPlan] Entry - planId: ${planId}, query: "${query}", retailers: [${planRetailers.join(", ")}]`
+  );
+
+  try {
+    // Update plan status to executing
+    await ctx.runMutation(api.shop.mutations.updateShopPlanExecutionStatus, {
+      planId,
+      status: "executing" as const,
+      currentStepIndex: 0,
+    });
+
+    // Post execution card if we have a conversation
+    if (conversationId) {
+      await ctx.runMutation(api.chatMessages.mutations.create, {
+        conversationId,
+        role: "agent" as const,
+        content: `Searching for "${query}"...`,
+        messageType: "result_card" as const,
+        cardData: {
+          card_type: "shop_search_loading",
+          query,
+          planId,
+          retailers: planRetailers,
+        },
+      });
+    }
+
+    // Execute the actual search
+    const startTime = Date.now();
+    const retailers = planRetailers.length ? planRetailers : DEFAULT_RETAILERS;
+
+    // Step 1: Create session
+    const sessionId = await ctx.runMutation(api.shop.mutations.createShopSession, {
+      conversationId: args.conversationId,
+      query: args.query,
+      condition: args.condition,
+      priceMin: args.priceMin,
+      priceMax: args.priceMax,
+      retailers,
+      planId,
+    });
+
+    console.log(`[executeShopSearchWithPlan] Created session: ${sessionId}`);
+
+    // Update plan progress
+    await ctx.runMutation(api.shop.mutations.updateShopPlanExecutionStatus, {
+      planId,
+      status: "executing" as const,
+      currentStepIndex: 1,
+    });
+
+    // Step 2: Update status to searching
+    await ctx.runMutation(api.shop.mutations.updateShopSession, {
+      sessionId,
+      status: "searching",
+    });
+
+    // Step 3: Execute parallel search
+    const searchResult = await executeParallelShopSearch(
+      args.query,
+      retailers,
+      {
+        maxRetries: 2,
+        timeoutMs: 15000,
+        deduplicateResults: true,
       }
+    );
 
-      // Run the actual search
-      const shopResult = await executeShopSearch(ctx, args);
+    console.log(
+      `[executeShopSearchWithPlan] Search complete - ${searchResult.results.length} results`
+    );
 
-      // Post result/error cards if we have a conversation
-      if (conversationId) {
-        if (shopResult.totalListings > 0) {
-          // Query listings from DB and build result card
-          const listingsData: any[] = await ctx.runQuery(
-            api.shop.queries.getShopListings,
-            {
-              sessionId: shopResult.sessionId,
-              limit: 10,
-              excludeDuplicates: true,
-              sortBy: "dealScore",
-            },
+    // Update plan progress
+    await ctx.runMutation(api.shop.mutations.updateShopPlanExecutionStatus, {
+      planId,
+      status: "executing" as const,
+      currentStepIndex: 2,
+    });
+
+    // Step 4: Filter results by condition and price if specified
+    let filteredResults = searchResult.results;
+
+    if (args.condition && args.condition !== "any") {
+      filteredResults = filteredResults.filter((r) => {
+        if (args.condition === "new") {
+          return r.condition === "new";
+        }
+        if (args.condition === "used") {
+          return ["used", "refurbished", "open_box", "like_new"].includes(
+            r.condition
           );
+        }
+        return true;
+      });
+    }
 
-          const listings = (listingsData || []).map((l: any) => ({
-            card_type: "shop_listing",
-            listing_id: l._id,
+    if (args.priceMin !== undefined) {
+      filteredResults = filteredResults.filter(
+        (r) => r.price >= args.priceMin! * 100
+      );
+    }
+
+    if (args.priceMax !== undefined) {
+      filteredResults = filteredResults.filter(
+        (r) => r.price <= args.priceMax! * 100
+      );
+    }
+
+    console.log(
+      `[executeShopSearchWithPlan] After filtering: ${filteredResults.length} results`
+    );
+
+    // Step 5: Mark duplicates within session
+    const seenHashes = new Set<string>();
+    const listingsWithDuplicates: Array<ShopSearchResult & { isDuplicate: boolean }> = [];
+
+    for (const result of filteredResults) {
+      const isDuplicate = seenHashes.has(result.productHash);
+      seenHashes.add(result.productHash);
+      listingsWithDuplicates.push({ ...result, isDuplicate });
+    }
+
+    // Step 6: Batch create listings
+    if (listingsWithDuplicates.length > 0) {
+      const listingIds = await ctx.runMutation(
+        api.shop.mutations.batchCreateListings,
+        {
+          sessionId,
+          listings: listingsWithDuplicates.map((l) => ({
             title: l.title,
             price: l.price,
-            original_price: l.originalPrice,
-            currency: l.currency || "USD",
+            originalPrice: l.originalPrice,
+            currency: l.currency,
             condition: l.condition,
             retailer: l.retailer,
             seller: l.seller,
-            seller_rating: l.sellerRating,
+            sellerRating: l.sellerRating,
             url: l.url,
-            image_url: l.imageUrl,
-            in_stock: l.inStock ?? true,
-            deal_score: l.dealScore,
-          }));
-
-          await ctx.runMutation(api.chatMessages.mutations.create, {
-            conversationId,
-            role: "agent" as const,
-            content: `Found ${shopResult.totalListings} product${shopResult.totalListings === 1 ? "" : "s"} for "${query}"`,
-            messageType: "result_card" as const,
-            cardData: {
-              card_type: "shop_results",
-              session_id: shopResult.sessionId,
-              query,
-              total_listings: shopResult.totalListings,
-              best_deal_id: shopResult.bestDealId,
-              listings,
-              status: shopResult.status,
-              duration_ms: shopResult.durationMs,
-            },
-          });
-        } else {
-          await ctx.runMutation(api.chatMessages.mutations.create, {
-            conversationId,
-            role: "agent" as const,
-            content: `No products found for "${query}".`,
-            messageType: "text" as const,
-          });
+            imageUrl: l.imageUrl,
+            inStock: l.inStock,
+            productHash: l.productHash,
+            isDuplicate: l.isDuplicate,
+            dealScore: l.dealScore,
+          })),
         }
+      );
+
+      console.log(`[executeShopSearchWithPlan] Created ${listingIds.length} listings`);
+
+      // Find best deal (highest deal score, non-duplicate)
+      const nonDuplicates = listingsWithDuplicates.filter((l) => !l.isDuplicate);
+      const bestDeal = nonDuplicates.sort(
+        (a, b) => (b.dealScore || 0) - (a.dealScore || 0)
+      )[0];
+
+      const bestDealId = bestDeal
+        ? listingIds[listingsWithDuplicates.indexOf(
+            listingsWithDuplicates.find(
+              (l) => l.productHash === bestDeal.productHash && !l.isDuplicate
+            )!
+          )]
+        : undefined;
+
+      // Step 7: Complete session
+      await ctx.runMutation(api.shop.mutations.completeShopSession, {
+        sessionId,
+        status: "completed" as const,
+        totalListings: listingsWithDuplicates.filter((l) => !l.isDuplicate).length,
+        bestDealId,
+      });
+
+      // Update plan status to completed
+      await ctx.runMutation(api.shop.mutations.updateShopPlanExecutionStatus, {
+        planId,
+        status: "completed" as const,
+      });
+
+      const durationMs = Date.now() - startTime;
+      console.log(`[executeShopSearchWithPlan] Exit - completed in ${durationMs}ms`);
+
+      const shopResult = {
+        sessionId,
+        status: "completed" as const,
+        totalListings: listingsWithDuplicates.filter((l) => !l.isDuplicate).length,
+        bestDealId,
+        durationMs,
+      };
+
+      // Post result cards if we have a conversation
+      if (conversationId) {
+        await postShopResults(ctx, conversationId, query, sessionId, shopResult);
       }
 
       return shopResult;
-    } catch (error) {
-      // Post error card if we have a conversation
-      if (conversationId) {
-        await ctx.runMutation(api.chatMessages.mutations.create, {
-          conversationId,
-          role: "agent" as const,
-          content: `Shop search failed: ${error instanceof Error ? error.message : "Unknown error"}`,
-          messageType: "error" as const,
-        });
-      }
-      throw error;
     }
-  },
-});
+
+    // No results found
+    await ctx.runMutation(api.shop.mutations.completeShopSession, {
+      sessionId,
+      status: "completed" as const,
+      totalListings: 0,
+    });
+
+    // Update plan status to completed
+    await ctx.runMutation(api.shop.mutations.updateShopPlanExecutionStatus, {
+      planId,
+      status: "completed" as const,
+    });
+
+    const durationMs = Date.now() - startTime;
+    const shopResult = {
+      sessionId,
+      status: "completed" as const,
+      totalListings: 0,
+      durationMs,
+    };
+
+    if (conversationId) {
+      await ctx.runMutation(api.chatMessages.mutations.create, {
+        conversationId,
+        role: "agent" as const,
+        content: `No products found for "${query}".`,
+        messageType: "text" as const,
+      });
+    }
+
+    return shopResult;
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(`[executeShopSearchWithPlan] Error: ${errorMessage}`);
+
+    // Update plan status to failed
+    await ctx.runMutation(api.shop.mutations.updateShopPlanExecutionStatus, {
+      planId,
+      status: "failed" as const,
+      errorMessage,
+    });
+
+    // Post error card if we have a conversation
+    if (conversationId) {
+      await ctx.runMutation(api.chatMessages.mutations.create, {
+        conversationId,
+        role: "agent" as const,
+        content: `Shop search failed: ${errorMessage}`,
+        messageType: "error" as const,
+      });
+    }
+
+    throw error;
+  }
+}
+
+/**
+ * Execute shop search directly (LEGACY workflow)
+ *
+ * Backward compatibility for calls without planning phase.
+ */
+async function executeShopSearchDirect(
+  ctx: ActionCtx,
+  args: {
+    conversationId?: Id<"conversations">;
+    query: string;
+    retailers?: string[];
+    condition?: string;
+    priceMin?: number;
+    priceMax?: number;
+  }
+): Promise<ShopSearchActionResult> {
+  const { conversationId, query } = args;
+
+  try {
+    // Post loading card if we have a conversation
+    if (conversationId) {
+      await ctx.runMutation(api.chatMessages.mutations.create, {
+        conversationId,
+        role: "agent" as const,
+        content: `Searching for "${query}"...`,
+        messageType: "result_card" as const,
+        cardData: { card_type: "shop_search_loading", query },
+      });
+    }
+
+    // Run the actual search
+    const shopResult = await executeShopSearch(ctx, args);
+
+    // Post result/error cards if we have a conversation
+    if (conversationId) {
+      await postShopResults(ctx, conversationId, query, shopResult.sessionId, shopResult);
+    }
+
+    return shopResult;
+  } catch (error) {
+    // Post error card if we have a conversation
+    if (conversationId) {
+      await ctx.runMutation(api.chatMessages.mutations.create, {
+        conversationId,
+        role: "agent" as const,
+        content: `Shop search failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+        messageType: "error" as const,
+      });
+    }
+    throw error;
+  }
+}
+
+/**
+ * Post shop results to conversation
+ *
+ * Helper function to post search results as a card.
+ */
+async function postShopResults(
+  ctx: ActionCtx,
+  conversationId: Id<"conversations">,
+  query: string,
+  sessionId: Id<"shopSessions">,
+  shopResult: ShopSearchActionResult
+): Promise<void> {
+  if (shopResult.totalListings > 0) {
+    // Query listings from DB and build result card
+    const listingsData: any[] = await ctx.runQuery(
+      api.shop.queries.getShopListings,
+      {
+        sessionId,
+        limit: 10,
+        excludeDuplicates: true,
+        sortBy: "dealScore",
+      },
+    );
+
+    const listings = (listingsData || []).map((l: any) => ({
+      card_type: "shop_listing",
+      listing_id: l._id,
+      title: l.title,
+      price: l.price,
+      original_price: l.originalPrice,
+      currency: l.currency || "USD",
+      condition: l.condition,
+      retailer: l.retailer,
+      seller: l.seller,
+      seller_rating: l.sellerRating,
+      url: l.url,
+      image_url: l.imageUrl,
+      in_stock: l.inStock ?? true,
+      deal_score: l.dealScore,
+    }));
+
+    await ctx.runMutation(api.chatMessages.mutations.create, {
+      conversationId,
+      role: "agent" as const,
+      content: `Found ${shopResult.totalListings} product${shopResult.totalListings === 1 ? "" : "s"} for "${query}"`,
+      messageType: "result_card" as const,
+      cardData: {
+        card_type: "shop_results",
+        session_id: sessionId,
+        query,
+        total_listings: shopResult.totalListings,
+        best_deal_id: shopResult.bestDealId,
+        listings,
+        status: shopResult.status,
+        duration_ms: shopResult.durationMs,
+      },
+    });
+  } else {
+    await ctx.runMutation(api.chatMessages.mutations.create, {
+      conversationId,
+      role: "agent" as const,
+      content: `No products found for "${query}".`,
+      messageType: "text" as const,
+    });
+  }
+}
+
 
 /**
  * Get Shop Session with Listings

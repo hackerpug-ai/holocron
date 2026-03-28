@@ -109,6 +109,7 @@ import type * as researchIterations_mutations from "../researchIterations/mutati
 import type * as researchIterations_queries from "../researchIterations/queries.js";
 import type * as researchSessions_mutations from "../researchSessions/mutations.js";
 import type * as researchSessions_queries from "../researchSessions/queries.js";
+import type * as shop_dispatcher from "../shop/dispatcher.js";
 import type * as shop_index from "../shop/index.js";
 import type * as shop_mutations from "../shop/mutations.js";
 import type * as shop_queries from "../shop/queries.js";
@@ -259,6 +260,7 @@ declare const fullApi: ApiFromModules<{
   "researchIterations/queries": typeof researchIterations_queries;
   "researchSessions/mutations": typeof researchSessions_mutations;
   "researchSessions/queries": typeof researchSessions_queries;
+  "shop/dispatcher": typeof shop_dispatcher;
   "shop/index": typeof shop_index;
   "shop/mutations": typeof shop_mutations;
   "shop/queries": typeof shop_queries;
