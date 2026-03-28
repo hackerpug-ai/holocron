@@ -930,6 +930,20 @@ export const generateDailyReport = internalAction({
       referenceId: reportId,
     });
 
+    // Add to subscription feed so it appears in the daily feed
+    await ctx.runMutation(internal.feeds.internal.createFeedItem, {
+      groupKey: `whats-new:${reportId}`,
+      title: `AI Engineering Daily: ${uniqueFindings.length} findings`,
+      summary: `Discoveries: ${discoveries.length}, Releases: ${releases.length}, Trends: ${trends.length}`,
+      contentType: "blog",
+      itemCount: 1,
+      itemIds: [],
+      subscriptionIds: [],
+      publishedAt: Date.now(),
+      discoveredAt: Date.now(),
+      createdAt: Date.now(),
+    });
+
     return {
       reportId,
       documentId: documentResult.documentId,

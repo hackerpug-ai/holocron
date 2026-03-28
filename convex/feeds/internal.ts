@@ -417,20 +417,20 @@ export const backfillContentMetadata = internalMutation({
 
     let patched = 0;
     for (const content of allContent) {
-      // Only backfill records that are missing contentCategory
-      if (content.contentCategory) continue;
-
       const source = await ctx.db.get(content.sourceId);
       if (!source) continue;
 
-      const contentCategory = deriveBackfillCategory(source.sourceType);
+      const contentCategory = deriveBackfillCategoryFromUrl(content.url ?? "", source.sourceType);
       const authorHandle = content.authorHandle ?? source.name ?? source.identifier;
 
-      await ctx.db.patch(content._id, {
-        contentCategory,
-        authorHandle,
-      });
-      patched++;
+      // Always re-derive to fix misclassified records
+      if (content.contentCategory !== contentCategory || !content.authorHandle) {
+        await ctx.db.patch(content._id, {
+          contentCategory,
+          authorHandle,
+        });
+        patched++;
+      }
     }
 
     return { patched };
@@ -470,9 +470,12 @@ export const rebuildFeed = internalMutation({
 });
 
 /**
- * Derive content category string from source type for backfill purposes.
+ * Derive content category from URL and source type for backfill purposes.
+ * Uses URL domain detection as primary signal for "creator" source types
+ * since most creator subscriptions are Twitter/X accounts.
  */
-function deriveBackfillCategory(sourceType: string): string {
+function deriveBackfillCategoryFromUrl(url: string, sourceType: string): string {
+  // Direct source type mapping for known types
   switch (sourceType) {
     case 'youtube':
       return 'video';
@@ -484,7 +487,14 @@ function deriveBackfillCategory(sourceType: string): string {
     case 'changelog':
     case 'blog':
       return 'article';
-    default:
+    case 'whats-new':
       return 'article';
   }
+  // For "creator" and other generic types, detect from URL
+  if (url.includes("twitter.com") || url.includes("x.com")) return "social";
+  if (url.includes("youtube.com") || url.includes("youtu.be")) return "video";
+  if (url.includes("reddit.com")) return "social";
+  if (url.includes("bsky.app") || url.includes("bluesky")) return "social";
+  if (sourceType === "creator") return "social"; // Default for creators
+  return 'article';
 }

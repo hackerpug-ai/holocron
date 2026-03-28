@@ -995,7 +995,22 @@ const SOURCE_TYPE_TO_CATEGORY: Record<string, string> = {
   twitter: "social",
   bluesky: "social",
   ebay: "blog",
+  "whats-new": "article",
 };
+
+/**
+ * Derive content category from URL when sourceType is generic (e.g. "creator").
+ * Falls back to "social" for creator types since most are Twitter/X accounts.
+ */
+function deriveCategoryFromUrl(url: string, sourceType: string): string {
+  if (SOURCE_TYPE_TO_CATEGORY[sourceType]) return SOURCE_TYPE_TO_CATEGORY[sourceType];
+  if (url.includes("twitter.com") || url.includes("x.com")) return "social";
+  if (url.includes("youtube.com") || url.includes("youtu.be")) return "video";
+  if (url.includes("reddit.com")) return "social";
+  if (url.includes("bsky.app") || url.includes("bluesky")) return "social";
+  if (sourceType === "creator") return "social"; // Most creators are social accounts
+  return "article";
+}
 
 export const insertContent = internalMutation({
   args: {
@@ -1171,7 +1186,7 @@ async function processSingleSource(
       passedFilter: item.passedFilter,
       metadataJson: item.metadataJson,
       embedding: embeddings[i],
-      contentCategory: SOURCE_TYPE_TO_CATEGORY[source.sourceType],
+      contentCategory: deriveCategoryFromUrl(item.url, source.sourceType),
       thumbnailUrl,
       authorHandle: source.name ?? source.identifier,
       duration,
@@ -1310,7 +1325,7 @@ export const checkAllSubscriptions = internalAction({
               passedFilter: item.passedFilter,
               metadataJson: item.metadataJson,
               embedding: embeddings[i],
-              contentCategory: SOURCE_TYPE_TO_CATEGORY[source.sourceType],
+              contentCategory: deriveCategoryFromUrl(item.url, source.sourceType),
               thumbnailUrl,
               authorHandle: source.name ?? source.identifier,
               duration,
