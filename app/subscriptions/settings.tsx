@@ -1,3 +1,5 @@
+import { useRouter } from 'expo-router'
+import { ScreenLayout } from '@/components/ui/screen-layout'
 import { SubscriptionsScreen } from '@/screens/subscriptions-screen'
 
 /**
@@ -5,5 +7,27 @@ import { SubscriptionsScreen } from '@/screens/subscriptions-screen'
  * Manage all subscription sources with search and filtering.
  */
 export default function SubscriptionsSettingsRoute() {
-  return <SubscriptionsScreen />
+  const router = useRouter()
+
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back()
+    } else {
+      router.navigate('/subscriptions')
+    }
+  }
+
+  return (
+    <ScreenLayout
+      header={{
+        title: 'Subscriptions',
+        showBack: true,
+        onBack: handleBack,
+      }}
+      edges="bottom"
+      testID="subscriptions-settings-route"
+    >
+      <SubscriptionsScreen />
+    </ScreenLayout>
+  )
 }
