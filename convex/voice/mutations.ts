@@ -70,6 +70,7 @@ export const recordTranscript = mutation({
       role: args.role,
       content: args.content,
       messageType: "text",
+      voiceSessionId: args.sessionId,
       createdAt: now,
     });
 
