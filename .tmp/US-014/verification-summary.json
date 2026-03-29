@@ -7,11 +7,21 @@
     "tests": "PASS (696/696)",
     "lint": "PASS"
   },
+  "remediation": {
+    "commit_sha": "191e90f1147b9716775c0e7fc90f430e66ea4d12",
+    "commit_blocked": false,
+    "fixes_applied": [
+      "VoiceMicButton inner View h-16 w-16 -> h-10 w-10; icon size 28 -> 22",
+      "VoiceSessionOverlay retry button paddingVertical: 10 -> spacing.sm token"
+    ]
+  },
   "files_created": [
     "components/voice/index.ts"
   ],
   "files_modified": [
-    "app/(drawer)/chat/[conversationId].tsx"
+    "app/(drawer)/chat/[conversationId].tsx",
+    "components/voice/VoiceMicButton.tsx",
+    "components/voice/VoiceSessionOverlay.tsx"
   ],
   "acceptance_criteria": {
     "AC-1": "VoiceMicButton visible in header rightContent with testID='voice-mic-button' (hidden for /chat/new)",

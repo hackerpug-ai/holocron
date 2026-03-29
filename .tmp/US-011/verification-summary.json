@@ -1,0 +1,25 @@
+{
+  "task_id": "US-011",
+  "commit_sha": "62cb53d51e2ea87ba40a2e78b125851987bcccda",
+  "gates": {
+    "typecheck": "PASS",
+    "lint": "PASS",
+    "tests": "PASS - 641 tests across 54 files"
+  },
+  "files_created": [
+    "lib/voice/transcript-recorder.ts",
+    "tests/lib/voice/transcript-recorder.test.ts"
+  ],
+  "files_modified": [
+    "hooks/use-voice-session.ts",
+    "lib/voice/types.ts",
+    "lib/voice/event-handler.ts",
+    "tests/lib/voice/event-handler.test.ts"
+  ],
+  "acceptance_criteria": {
+    "AC-1": "PASS - onUserTranscript wired to recordTranscript with role user",
+    "AC-2": "PASS - onTranscript (response.audio_transcript.done) wired to recordTranscript with role agent",
+    "AC-3": "PASS - errors caught in .catch(), logged to console.error, session continues",
+    "AC-4": "PASS - fire-and-forget calls preserve call order"
+  }
+}

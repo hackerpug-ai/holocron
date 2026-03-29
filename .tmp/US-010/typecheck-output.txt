@@ -1,2 +1,1 @@
-0
-TypeScript compilation successful - no errors
+typecheck passed

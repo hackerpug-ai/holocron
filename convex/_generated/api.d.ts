@@ -84,6 +84,7 @@ import type * as migrations_backfill_missing_embeddings from "../migrations/back
 import type * as migrations_backfill_research_documents from "../migrations/backfill_research_documents.js";
 import type * as migrations_reembed_documents_1024 from "../migrations/reembed_documents_1024.js";
 import type * as migrations_refactor_deep_research_messages from "../migrations/refactor_deep_research_messages.js";
+import type * as migrations_strip_platform_prefix from "../migrations/strip_platform_prefix.js";
 import type * as notifications_index from "../notifications/index.js";
 import type * as notifications_internal from "../notifications/internal.js";
 import type * as notifications_mutations from "../notifications/mutations.js";
@@ -124,6 +125,7 @@ import type * as shop_mutations from "../shop/mutations.js";
 import type * as shop_queries from "../shop/queries.js";
 import type * as shop_search from "../shop/search.js";
 import type * as subscriptions_actions from "../subscriptions/actions.js";
+import type * as subscriptions_ai_scoring from "../subscriptions/ai_scoring.js";
 import type * as subscriptions_deduplication from "../subscriptions/deduplication.js";
 import type * as subscriptions_deduplication_helpers from "../subscriptions/deduplication_helpers.js";
 import type * as subscriptions_index from "../subscriptions/index.js";
@@ -248,6 +250,7 @@ declare const fullApi: ApiFromModules<{
   "migrations/backfill_research_documents": typeof migrations_backfill_research_documents;
   "migrations/reembed_documents_1024": typeof migrations_reembed_documents_1024;
   "migrations/refactor_deep_research_messages": typeof migrations_refactor_deep_research_messages;
+  "migrations/strip_platform_prefix": typeof migrations_strip_platform_prefix;
   "notifications/index": typeof notifications_index;
   "notifications/internal": typeof notifications_internal;
   "notifications/mutations": typeof notifications_mutations;
@@ -288,6 +291,7 @@ declare const fullApi: ApiFromModules<{
   "shop/queries": typeof shop_queries;
   "shop/search": typeof shop_search;
   "subscriptions/actions": typeof subscriptions_actions;
+  "subscriptions/ai_scoring": typeof subscriptions_ai_scoring;
   "subscriptions/deduplication": typeof subscriptions_deduplication;
   "subscriptions/deduplication_helpers": typeof subscriptions_deduplication_helpers;
   "subscriptions/index": typeof subscriptions_index;

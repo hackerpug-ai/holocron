@@ -23,7 +23,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "deploy": "pnpm exec eas build --platform all --profile production",
+    "deploy": "git push origin main && gh release create v$(node -p \"require('./package.json').version\") --generate-notes --title v$(node -p \"require('./package.json').version\")",
     "deploy:ios": "pnpm exec eas build --platform ios --profile production --auto-submit",
     "deploy:android": "pnpm exec eas build --platform android --profile production",
     "validate": "npx tsx scripts/validate-migration.ts",
