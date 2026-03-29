@@ -84,6 +84,37 @@ export async function buildConversationContext(
     }
   }
 
+  // Second pass: extract document IDs from result_card messages with cardData
+  // This makes the agent aware of articles cited in chat history
+  for (const message of orderedMessages) {
+    if (message.messageType !== "result_card") continue;
+    if (!message.cardData) continue;
+
+    // Normalize cardData to array
+    const cards = Array.isArray(message.cardData)
+      ? message.cardData
+      : [message.cardData];
+
+    for (const card of cards) {
+      if (documentContextMap.size >= MAX_DOCUMENT_CONTEXT_COUNT) break;
+
+      const cardType = (card as any).card_type;
+      const documentId = (card as any).document_id;
+
+      // Only process specific card types that contain document references
+      if (
+        documentId &&
+        ["article", "document_saved", "document_full", "final_result"].includes(cardType)
+      ) {
+        const docId = documentId as Id<"documents">;
+        if (!documentContextMap.has(docId)) {
+          // Store null for cardData since we don't have full context info
+          documentContextMap.set(docId, null);
+        }
+      }
+    }
+  }
+
   // Fetch referenced documents and build system context
   const documentContextParts: string[] = [];
   for (const [documentId, cardData] of documentContextMap) {
