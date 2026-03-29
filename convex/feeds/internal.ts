@@ -409,6 +409,40 @@ export const getRecentFeedItemsForDigest = internalQuery({
   },
 });
 
+/**
+ * Get recent user feedback for feed items
+ *
+ * Internal query to fetch recent feedback (up/down votes) for feed items.
+ * Used to improve AI scoring by incorporating user preferences.
+ */
+export const getRecentFeedback = internalQuery({
+  args: {
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const limit = args.limit ?? 50;
+
+    // Query recent feedItems by creation time, then filter for feedback
+    // We fetch more than needed to account for items without feedback
+    const fetchLimit = limit * 3;
+    const allItems = await ctx.db
+      .query("feedItems")
+      .withIndex("by_created")
+      .order("desc")
+      .take(fetchLimit);
+
+    // Filter and return only items with userFeedback
+    return allItems
+      .filter((item) => item.userFeedback !== undefined)
+      .slice(0, limit)
+      .map((item) => ({
+        title: item.title,
+        feedback: item.userFeedback as "up" | "down",
+        feedbackAt: item.userFeedbackAt,
+      }));
+  },
+});
+
 // ============================================================================
 // Backfill Migrations
 // ============================================================================

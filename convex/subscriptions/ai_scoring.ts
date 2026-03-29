@@ -4,6 +4,7 @@ import { v } from "convex/values";
 import { internalAction } from "../_generated/server";
 import { generateText } from "ai";
 import { zaiFlash } from "../lib/ai/zai_provider";
+import { internal } from "../_generated/api";
 
 /**
  * Batch-score an array of content items for relevance to a creator's topic area.
@@ -11,6 +12,8 @@ import { zaiFlash } from "../lib/ai/zai_provider";
  * Sends all items in a single LLM prompt for efficiency. Falls back to
  * returning an empty array (no AI scores) if the LLM call fails so the
  * existing keyword scoring remains unaffected.
+ *
+ * Enhanced with user feedback: Incorporates recent up/down votes as few-shot examples.
  */
 export const scoreContentRelevance = internalAction({
   args: {
@@ -18,8 +21,24 @@ export const scoreContentRelevance = internalAction({
     sourceName: v.string(),
     topic: v.string(),
   },
-  handler: async (_ctx, { items, sourceName, topic }): Promise<Array<{ score: number; reason: string }>> => {
+  handler: async (ctx, { items, sourceName, topic }): Promise<Array<{ score: number; reason: string }>> => {
     if (items.length === 0) return [];
+
+    // Fetch recent user feedback for few-shot examples
+    const recentFeedback = await ctx.runQuery(internal.feeds.internal.getRecentFeedback, { limit: 20 });
+
+    // Build few-shot examples from user feedback
+    const likedExamples = recentFeedback
+      .filter((f) => f.feedback === "up")
+      .slice(0, 5)
+      .map((f) => f.title)
+      .join("\n");
+
+    const dislikedExamples = recentFeedback
+      .filter((f) => f.feedback === "down")
+      .slice(0, 5)
+      .map((f) => f.title)
+      .join("\n");
 
     const itemList = items
       .map((item, i) => `${i + 1}. [${item.platform}] ${item.title}`)
@@ -45,11 +64,20 @@ Platform-specific rules for [youtube]/[github]/[blog]:
 `;
     }
 
+    // Build user feedback section
+    let feedbackSection = '';
+    if (likedExamples || dislikedExamples) {
+      feedbackSection = `
+User preferences (learned from past feedback):
+${likedExamples ? `Items the user liked (score these HIGH):\n${likedExamples}\n` : ''}
+${dislikedExamples ? `Items the user disliked (score these LOW):\n${dislikedExamples}\n` : ''}`;
+    }
+
     const prompt = `You are a relevance scorer for a personal content feed. Score each item 0.0-1.0 for relevance to the creator's topic area.
 
 Creator: ${sourceName}
 Topic/Category: ${topic}
-
+${feedbackSection}
 Items to score:
 ${itemList}
 
