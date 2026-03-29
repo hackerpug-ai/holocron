@@ -28,7 +28,7 @@ export {
 export { startSmartResearch, analyzeResearchStrategy, type ResearchStrategy } from "./actions";
 
 /** Fast-path parallel fan-out strategy */
-export { runParallelFanOut, executeParallelFanOut, decomposeIntoDomains, type ParallelFanOutResult } from "./parallel";
+export { runParallelFanOut, executeParallelFanOut, decomposeIntoDomainsStatic, decomposeIntoSubQuestions, type ParallelFanOutResult, type SubQuestion } from "./parallel";
 
 /** Parallel iteration strategy for deep research */
 export {

@@ -1041,7 +1041,7 @@ export const startSimpleResearch = action({
 
     try {
     // Import helper function
-    const { decomposeIntoDomains } = await import("./parallel");
+    const { decomposeIntoDomainsStatic } = await import("./parallel");
 
     // Step 1: Create conversation if needed
     effectiveConversationId =
@@ -1077,7 +1077,7 @@ export const startSimpleResearch = action({
     });
 
     // Step 4: Decompose into domains
-    const domains = decomposeIntoDomains(topic, mode);
+    const domains = decomposeIntoDomainsStatic(topic, mode);
     console.log(`[startSimpleResearch] Decomposed into ${domains.length} domains`);
 
     // Step 5: Execute all domains in parallel

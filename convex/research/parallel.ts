@@ -22,7 +22,7 @@ import {
 } from "./search";
 import { stripMarkdownCodeBlock } from "../lib/json";
 import type { ResearchMode } from "./intent";
-import { getSynthesisInstructions } from "./mode_prompts";
+import { getSynthesisInstructions, getSearchBudget, getDecompositionInstructions, buildFollowUpContext } from "./mode_prompts";
 import type { Id } from "../_generated/dataModel";
 import type { ActionCtx } from "../_generated/server";
 
@@ -39,15 +39,19 @@ export interface ParallelFanOutResult {
 }
 
 /**
- * Domain decomposition for parallel research
- *
- * Splits a topic into 4 specialized domain queries:
- * 1. Technical/Implementation
- * 2. Academic/Research
- * 3. Industry/Practical
- * 4. Emerging/Trends
+ * Sub-question for LLM-driven query decomposition
  */
-export function decomposeIntoDomains(topic: string, mode?: ResearchMode): string[] {
+export interface SubQuestion {
+  query: string;       // The actual search query
+  focus: string;       // What this sub-question targets
+  rationale: string;   // Why this angle matters
+  dependsOn: number[]; // Indices of sub-questions this depends on (future DAG support)
+}
+
+/**
+ * @deprecated Use decomposeIntoSubQuestions() instead. Kept as fallback.
+ */
+export function decomposeIntoDomainsStatic(topic: string, mode?: ResearchMode): string[] {
   const words = topic.toLowerCase();
 
   // Mode-specific decomposition takes priority over keyword detection
@@ -150,6 +154,100 @@ export function decomposeIntoDomains(topic: string, mode?: ResearchMode): string
     `${topic} industry best practices real-world`,
     `${topic} latest developments trends 2024 2025`,
   ];
+}
+
+/**
+ * LLM-driven query decomposition into sub-questions.
+ *
+ * Uses zaiFlash to generate dependency-aware sub-questions tailored to
+ * the research mode. Falls back to static decomposition on failure.
+ *
+ * @param topic - Research topic
+ * @param mode - Research mode for decomposition guidance
+ * @param maxCount - Maximum number of sub-questions (from search budget)
+ * @returns Array of SubQuestion objects
+ */
+export async function decomposeIntoSubQuestions(
+  topic: string,
+  mode?: ResearchMode,
+  maxCount: number = 4
+): Promise<SubQuestion[]> {
+  console.log(
+    `[decomposeIntoSubQuestions] Entry - topic: "${topic}", mode: ${mode ?? "unset"}, maxCount: ${maxCount}`
+  );
+
+  const modeInstructions = mode
+    ? getDecompositionInstructions(mode)
+    : `Generate sub-questions that cover different aspects:
+1. Technical/implementation details
+2. Real-world usage and case studies
+3. Best practices and patterns
+4. Recent developments and trends`;
+
+  const prompt = `Decompose this research topic into exactly ${maxCount} focused sub-questions for parallel search.
+
+Topic: "${topic}"
+
+${modeInstructions}
+
+RULES:
+- Each sub-question must be a COMPLETE, standalone search query (not keywords appended to the topic)
+- Sub-questions must be NON-OVERLAPPING — each covers a distinct aspect
+- Include dependency info: if a sub-question needs results from another to be useful, mark it
+- Be specific and targeted — vague queries waste search budget
+
+Return ONLY a JSON array:
+[
+  {
+    "query": "complete search query string",
+    "focus": "what this sub-question targets (2-5 words)",
+    "rationale": "why this angle matters for the research",
+    "dependsOn": []
+  }
+]
+
+Generate exactly ${maxCount} sub-questions.`;
+
+  try {
+    const result = await generateText({
+      model: zaiFlash(),
+      prompt,
+    });
+
+    const parsed = JSON.parse(stripMarkdownCodeBlock(result.text)) as SubQuestion[];
+
+    if (!Array.isArray(parsed) || parsed.length < 2 || parsed.length > maxCount + 1) {
+      throw new Error(`Invalid sub-question count: ${parsed.length}, expected 2-${maxCount}`);
+    }
+
+    // Validate each sub-question has required fields
+    for (const sq of parsed) {
+      if (!sq.query || !sq.focus) {
+        throw new Error("Sub-question missing required fields");
+      }
+      if (!sq.dependsOn) sq.dependsOn = [];
+      if (!sq.rationale) sq.rationale = "";
+    }
+
+    console.log(
+      `[decomposeIntoSubQuestions] Generated ${parsed.length} sub-questions via LLM`
+    );
+    return parsed.slice(0, maxCount);
+  } catch (error) {
+    console.warn(
+      `[decomposeIntoSubQuestions] LLM decomposition failed: ${error instanceof Error ? error.message : String(error)}`
+    );
+    console.log(`[decomposeIntoSubQuestions] Falling back to static decomposition`);
+
+    // Fall back to static decomposition, wrapping as SubQuestion[]
+    const staticDomains = decomposeIntoDomainsStatic(topic, mode);
+    return staticDomains.map((domain, i) => ({
+      query: domain,
+      focus: `Domain ${i + 1}`,
+      rationale: "Static fallback",
+      dependsOn: [],
+    }));
+  }
 }
 
 /**
@@ -280,36 +378,37 @@ export async function executeParallelFanOut(
     },
   });
 
-  // Step 4: Decompose into domains
-  const domains = decomposeIntoDomains(topic, mode);
+  // Step 4: Decompose into sub-questions
+  const budget = getSearchBudget(mode);
+  const subQuestions = await decomposeIntoSubQuestions(topic, mode, budget.primarySearchCount);
   console.log(
-    `[executeParallelFanOut] Decomposed into ${domains.length} domains`
+    `[executeParallelFanOut] Decomposed into ${subQuestions.length} sub-questions`
   );
 
-  // Step 4b: Show "analyzing query" step now that we know the domain count
+  // Step 4b: Show "analyzing query" step now that we know the sub-question count
   await updateFanOutLoadingCard(ctx, effectiveConversationId, sessionId, topic, [
     {
       id: "analyze",
-      label: `Analyzing query... Selected parallel fan-out strategy (${domains.length} domains)`,
+      label: `Analyzing query... Selected parallel fan-out strategy (${subQuestions.length} domains)`,
       status: "completed",
     },
     {
       id: "search",
-      label: `Searching ${domains.length} domains in parallel...`,
+      label: `Searching ${subQuestions.length} domains in parallel...`,
       status: "in-progress",
     },
   ]);
 
-  // Step 5: Execute all domains in parallel
+  // Step 5: Execute all sub-questions in parallel
   console.log(`[executeParallelFanOut] Executing parallel domain searches`);
-  const domainSearches = domains.map(async (domain) => {
+  const domainSearches = subQuestions.map(async (subQuestion) => {
     const result = await executeParallelSearchWithRetry(
-      domain,
+      subQuestion.query,
       {},
       [],
-      { maxRetries: 1, timeoutMs: 10000, deduplicateResults: true }
+      { maxRetries: budget.maxRetries, timeoutMs: budget.searchTimeoutMs, deduplicateResults: true }
     );
-    return { domain, ...result };
+    return { domain: subQuestion.focus, ...result };
   });
 
   const domainResults = await Promise.all(domainSearches);
@@ -327,12 +426,12 @@ export async function executeParallelFanOut(
   await updateFanOutLoadingCard(ctx, effectiveConversationId, sessionId, topic, [
     {
       id: "analyze",
-      label: `Analyzed query — parallel fan-out across ${domains.length} domains`,
+      label: `Analyzed query — parallel fan-out across ${subQuestions.length} domains`,
       status: "completed",
     },
     {
       id: "search",
-      label: `Searched ${totalResults} sources across ${domains.length} domains`,
+      label: `Searched ${totalResults} sources across ${subQuestions.length} domains`,
       status: "completed",
     },
     {
@@ -382,12 +481,12 @@ export async function executeParallelFanOut(
   const postSynthesisSteps = [
     {
       id: "analyze",
-      label: `Analyzed query — parallel fan-out across ${domains.length} domains`,
+      label: `Analyzed query — parallel fan-out across ${subQuestions.length} domains`,
       status: "completed" as const,
     },
     {
       id: "search",
-      label: `Searched ${totalResults} sources across ${domains.length} domains`,
+      label: `Searched ${totalResults} sources across ${subQuestions.length} domains`,
       status: "completed" as const,
     },
     {
@@ -412,11 +511,12 @@ export async function executeParallelFanOut(
       },
     ]);
 
+    const contextualGaps = buildFollowUpContext(synthesis.keyFindings, synthesis.gaps);
     const followUpResult = await executeParallelSearchWithRetry(
       topic,
       {},
-      synthesis.gaps.slice(0, 2), // Focus on top 2 gaps
-      { maxRetries: 2, timeoutMs: 15000, deduplicateResults: true }
+      contextualGaps.slice(0, budget.followUpBudget),
+      { maxRetries: budget.maxRetries, timeoutMs: budget.followUpTimeoutMs, deduplicateResults: true }
     );
 
     // Append follow-up findings to synthesis
@@ -445,7 +545,7 @@ export async function executeParallelFanOut(
   // Step 8: Create iteration record
   const summary = synthesis.keyFindings.length > 0
     ? synthesis.keyFindings[0].slice(0, 50) // Use first key finding as summary
-    : `Fan-out search across ${domains.length} domains`;
+    : `Fan-out search across ${subQuestions.length} domains`;
 
   await ctx.runMutation(api.research.mutations.createDeepResearchIteration, {
     sessionId,
