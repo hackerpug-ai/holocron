@@ -23,6 +23,12 @@ module.exports = {
       bundleIdentifier: 'com.holocron.app',
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
+        NSMicrophoneUsageDescription:
+          'Holocron needs microphone access for voice assistant conversations.',
+        NSCameraUsageDescription:
+          'Holocron needs camera access for future media features.',
+        NSSpeechRecognitionUsageDescription:
+          'Holocron uses speech recognition for voice assistant features.',
         CFBundleURLTypes: [
           {
             CFBundleURLSchemes: ['holocron'],
