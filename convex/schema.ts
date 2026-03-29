@@ -28,6 +28,7 @@ export default defineSchema({
     ),
     cardData: v.optional(v.any()),
     sessionId: v.optional(v.id("researchSessions")),
+    voiceSessionId: v.optional(v.id("voiceSessions")),
     documentId: v.optional(v.id("documents")),
     deleted: v.optional(v.boolean()),
     toolCallId: v.optional(v.string()),
