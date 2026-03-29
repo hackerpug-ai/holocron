@@ -30,6 +30,7 @@ export type VoiceState =
   | "idle"
   | "connecting"
   | "listening"
+  | "muted"
   | "processing"
   | "speaking"
   | "error";
@@ -42,6 +43,9 @@ export type VoiceAction =
   | { type: "START_LISTENING" }
   | { type: "START_SPEAKING" }
   | { type: "STOP_SPEAKING" }
+  | { type: "MUTE" }
+  | { type: "UNMUTE" }
+  | { type: "ADD_TRANSCRIPT"; role: 'user' | 'agent'; content: string }
   | { type: "ERROR"; error: string; errorKind?: VoiceErrorKind }
   | { type: "DISCONNECT" }
   | { type: "TIMEOUT" };
@@ -53,6 +57,7 @@ export interface VoiceSessionState {
   errorMessage: string | null;
   errorKind: VoiceErrorKind | null;
   transcript: string;
+  transcripts: Array<{ role: 'user' | 'agent'; content: string; timestamp: number }>;
   isInterrupted: boolean;
 }
 
@@ -63,6 +68,7 @@ export const initialVoiceSessionState: VoiceSessionState = {
   errorMessage: null,
   errorKind: null,
   transcript: "",
+  transcripts: [],
   isInterrupted: false,
 };
 
@@ -83,6 +89,7 @@ export function voiceSessionReducer(
         ...initialVoiceSessionState,
         status: "connecting",
         conversationId: action.conversationId,
+        transcripts: [], // Clear transcripts on new session
       };
     }
 
@@ -123,6 +130,37 @@ export function voiceSessionReducer(
         ...state,
         status: "listening",
         isInterrupted: false,
+      };
+    }
+
+    case "MUTE": {
+      if (state.status !== "listening" && state.status !== "processing") return state;
+      return {
+        ...state,
+        status: "muted",
+      };
+    }
+
+    case "UNMUTE": {
+      if (state.status !== "muted") return state;
+      return {
+        ...state,
+        status: "listening",
+      };
+    }
+
+    case "ADD_TRANSCRIPT": {
+      return {
+        ...state,
+        transcripts: [
+          ...state.transcripts,
+          {
+            role: action.role,
+            content: action.content,
+            timestamp: Date.now(),
+          },
+        ],
+        transcript: action.content, // Update current transcript
       };
     }
 

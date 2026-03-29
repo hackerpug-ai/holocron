@@ -61,7 +61,10 @@ export interface UseVoiceSessionReturn {
   state: VoiceSessionState;
   start: () => Promise<void>;
   stop: () => Promise<void>;
+  mute: () => void;
+  unmute: () => void;
   transcript: string;
+  transcripts: Array<{ role: 'user' | 'agent'; content: string; timestamp: number }>;
   /** True when a warm connection is available for fast re-activation */
   isWarm: boolean;
   /** User-facing spoken feedback message during network retry (null when idle) */
@@ -256,9 +259,21 @@ export function useVoiceSession(
             errorHandler.handleSuccess();
             transcriptRef.current = transcript;
             transcriptRecorder.onAgentTranscript(transcript);
+            // Accumulate transcript in state
+            dispatch({
+              type: "ADD_TRANSCRIPT",
+              role: "agent" as const,
+              content: transcript,
+            });
           },
           onUserTranscript: (transcript: string) => {
             transcriptRecorder.onUserTranscript(transcript);
+            // Accumulate transcript in state
+            dispatch({
+              type: "ADD_TRANSCRIPT",
+              role: "user" as const,
+              content: transcript,
+            });
           },
           onError: (error) => {
             // Count consecutive mid-session errors; triggers cleanup after 3
@@ -423,11 +438,22 @@ export function useVoiceSession(
     };
   }, [endSession]);
 
+  const mute = useCallback(() => {
+    dispatch({ type: "MUTE" });
+  }, []);
+
+  const unmute = useCallback(() => {
+    dispatch({ type: "UNMUTE" });
+  }, []);
+
   return {
     state,
     start,
     stop,
+    mute,
+    unmute,
     transcript: transcriptRef.current,
+    transcripts: state.transcripts,
     isWarm: isWarmRef.current,
     retryMessage: retryMessageRef.current,
   };
