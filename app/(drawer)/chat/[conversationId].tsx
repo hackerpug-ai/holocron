@@ -15,7 +15,7 @@ import { ChatInput } from '@/components/chat/ChatInput'
 import { SquarePen } from '@/components/ui/icons'
 import { spacing } from '@/lib/theme'
 import { useVoiceSession } from '@/hooks/use-voice-session'
-import { VoiceMicButton, VoiceSessionOverlay } from '@/components/voice'
+import { VoiceSessionOverlay } from '@/components/voice'
 
 /**
  * Chat screen for a specific conversation.
@@ -248,24 +248,15 @@ export default function ChatScreen() {
         showMenu
         onMenu={handleOpenMenu}
         rightContent={
-          <View className="flex-row items-center gap-2">
-            {!isNewConversation && (
-              <VoiceMicButton
-                voiceState={voiceState.status}
-                onStart={startVoice}
-                onStop={stopVoice}
-              />
-            )}
-            <Pressable
-              onPress={handleNewChat}
-              className="h-10 w-10 items-center justify-center rounded-full active:bg-muted"
-              testID="chat-header-new-chat-button"
-              accessibilityRole="button"
-              accessibilityLabel="New chat"
-            >
-              <SquarePen size={22} className="text-foreground" />
-            </Pressable>
-          </View>
+          <Pressable
+            onPress={handleNewChat}
+            className="h-10 w-10 items-center justify-center rounded-full active:bg-muted"
+            testID="chat-header-new-chat-button"
+            accessibilityRole="button"
+            accessibilityLabel="New chat"
+          >
+            <SquarePen size={22} className="text-foreground" />
+          </Pressable>
         }
         testID="chat-header"
       />
@@ -321,6 +312,10 @@ export default function ChatScreen() {
           onSend={handleSend}
           disabled={isSending || agentBusy}
           testID="chat-input"
+          showVoiceButton={!isNewConversation}
+          voiceState={voiceState.status}
+          onVoiceStart={startVoice}
+          onVoiceStop={stopVoice}
         />
       </View>
     </KeyboardAvoidingView>
