@@ -329,3 +329,106 @@ export function getFallbackVariants(
       ];
   }
 }
+
+/**
+ * Search budget configuration per research mode.
+ * Controls how many sub-questions to generate, timeouts, retries, and follow-up budget.
+ */
+export interface SearchBudget {
+  primarySearchCount: number;   // How many sub-questions to generate
+  searchTimeoutMs: number;      // Per-search timeout
+  maxRetries: number;           // Per-search retry count
+  followUpBudget: number;       // Max follow-up searches (0 = disabled)
+  followUpTimeoutMs: number;    // Per-follow-up timeout
+}
+
+const SEARCH_BUDGETS: Record<ResearchMode, SearchBudget> = {
+  ACTIONABLE:  { primarySearchCount: 3, searchTimeoutMs: 12000, maxRetries: 2, followUpBudget: 1, followUpTimeoutMs: 15000 },
+  OVERVIEW:    { primarySearchCount: 5, searchTimeoutMs: 10000, maxRetries: 1, followUpBudget: 2, followUpTimeoutMs: 12000 },
+  COMPARATIVE: { primarySearchCount: 3, searchTimeoutMs: 12000, maxRetries: 2, followUpBudget: 1, followUpTimeoutMs: 15000 },
+  EXPLORATORY: { primarySearchCount: 4, searchTimeoutMs: 10000, maxRetries: 1, followUpBudget: 2, followUpTimeoutMs: 12000 },
+};
+
+const DEFAULT_BUDGET: SearchBudget = {
+  primarySearchCount: 4,
+  searchTimeoutMs: 10000,
+  maxRetries: 1,
+  followUpBudget: 2,
+  followUpTimeoutMs: 15000,
+};
+
+/**
+ * Get search budget for a research mode.
+ * Returns DEFAULT_BUDGET when mode is undefined.
+ */
+export function getSearchBudget(mode?: ResearchMode): SearchBudget {
+  return mode ? SEARCH_BUDGETS[mode] : DEFAULT_BUDGET;
+}
+
+/**
+ * Instructions for LLM sub-question generation.
+ * Guides what kinds of sub-questions to decompose the topic into per mode.
+ */
+export function getDecompositionInstructions(mode: ResearchMode): string {
+  switch (mode) {
+    case "ACTIONABLE":
+      return `Focus on IMPLEMENTATION sub-questions. Generate sub-questions that target:
+1. Tutorials, step-by-step guides, and code examples for building or configuring the thing
+2. Architecture patterns and design decisions used in real production systems
+3. Production case studies, lessons learned, and common pitfalls to avoid
+
+Each sub-question should be a complete, standalone search query optimized for finding implementation guidance — not market overviews or trend analyses.`;
+
+    case "OVERVIEW":
+      return `Focus on LANDSCAPE COVERAGE sub-questions. Generate sub-questions that target:
+1. Market context, key players, major developments, and industry adoption levels
+2. Recent trends, emerging patterns, and future outlook with concrete predictions
+3. Statistics, data points, analyst reports, and expert forecasts
+
+Sub-questions should cover breadth across the topic — each one exploring a distinct slice of the landscape rather than drilling into implementation details.`;
+
+    case "COMPARATIVE":
+      return `Focus on EVALUATION sub-questions. Generate sub-questions that target:
+1. Feature sets, capabilities, and known limitations of each option being compared
+2. Performance benchmarks, real-world trade-offs, and head-to-head decision criteria
+3. Community adoption, migration stories, and when-to-use guidance for each option
+
+If the topic names specific options to compare, extract those subjects and ensure sub-questions cover all sides. Each sub-question should yield information useful for making a choice.`;
+
+    case "EXPLORATORY":
+      return `Focus on DISCOVERY sub-questions. Generate sub-questions that target:
+1. Different approaches, methods, and solution categories that exist for the problem
+2. Real-world use cases and applications showing how each approach is used in practice
+3. Critical evaluation of trade-offs, limitations, and risks across solution categories
+
+Aim for breadth across the solution space — each sub-question should illuminate a different category of approach rather than going deep on a single one.`;
+  }
+}
+
+/**
+ * Build context-aware follow-up gap queries.
+ *
+ * Enhances raw gap labels with a summary of already-found findings
+ * so follow-up searches don't re-discover existing information.
+ */
+export function buildFollowUpContext(
+  keyFindings: string[],
+  gaps: string[]
+): string[] {
+  if (gaps.length === 0) return [];
+
+  // Summarize what's already known (truncate each finding, take top 3)
+  const knownTopics = keyFindings
+    .slice(0, 3)
+    .map(f => f.length > 60 ? f.slice(0, 57) + "..." : f)
+    .join(", ");
+
+  if (!knownTopics) return gaps;
+
+  // Enhance each gap with context about what's already covered
+  return gaps.map(gap => {
+    const enhanced = `${gap} (excluding already covered: ${knownTopics})`;
+    // Keep total under 200 chars for search query effectiveness
+    return enhanced.length > 200 ? `${gap} (new information only)` : enhanced;
+  });
+}

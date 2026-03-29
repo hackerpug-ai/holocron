@@ -29,7 +29,7 @@ import {
 } from "./search";
 import { stripMarkdownCodeBlock } from "../lib/json";
 import type { ResearchMode } from "./intent";
-import { getVariantInstructions, getSynthesisInstructions, getFallbackVariants } from "./mode_prompts";
+import { getVariantInstructions, getSynthesisInstructions, getFallbackVariants, getSearchBudget, buildFollowUpContext } from "./mode_prompts";
 import type { Id } from "../_generated/dataModel";
 import type { ActionCtx } from "../_generated/server";
 
@@ -65,7 +65,8 @@ export interface QueryVariant {
  */
 export async function generateQueryVariants(
   topic: string,
-  mode?: ResearchMode
+  mode?: ResearchMode,
+  maxCount: number = 3
 ): Promise<QueryVariant[]> {
   console.log(
     `[generateQueryVariants] Entry - topic: "${topic}", mode: ${mode ?? "unset"}`
@@ -79,7 +80,7 @@ export async function generateQueryVariants(
 3. Industry/practical focus
 4. Latest developments/trends`;
 
-  const prompt = `Generate 2-3 diverse search query variants for comprehensive research on: "${topic}"
+  const prompt = `Generate exactly ${maxCount} diverse search query variants for comprehensive research on: "${topic}"
 
 ${variantInstructions}
 
@@ -104,8 +105,8 @@ Be specific and targeted. Each query should uncover different information.`;
     console.log(`[generateQueryVariants] Parsing LLM response`);
     const variants = JSON.parse(stripMarkdownCodeBlock(result.text)) as QueryVariant[];
 
-    if (!Array.isArray(variants) || variants.length < 2 || variants.length > 3) {
-      throw new Error(`Invalid variant count: ${variants.length}`);
+    if (!Array.isArray(variants) || variants.length < 2 || variants.length > maxCount + 1) {
+      throw new Error(`Invalid variant count: ${variants.length}, expected 2-${maxCount}`);
     }
 
     console.log(`[generateQueryVariants] Generated ${variants.length} variants via LLM`);
@@ -118,7 +119,7 @@ Be specific and targeted. Each query should uncover different information.`;
 
     // Fallback to mode-aware static variants
     if (mode) {
-      return getFallbackVariants(topic, mode);
+      return getFallbackVariants(topic, mode).slice(0, maxCount);
     }
     return [
       {
@@ -136,7 +137,7 @@ Be specific and targeted. Each query should uncover different information.`;
         focus: "Industry practice",
         rationale: "Real-world usage and patterns",
       },
-    ].slice(0, 3);
+    ].slice(0, maxCount);
   }
 }
 
@@ -274,6 +275,8 @@ export async function executeParallelIteration(
     `[executeParallelIteration] Session created - ID: ${sessionId}, type: parallel_iteration`
   );
 
+  const budget = getSearchBudget(mode);
+
   // Step 3: Post loading card
   await ctx.runMutation(api.chatMessages.mutations.create, {
     conversationId: effectiveConversationId,
@@ -300,7 +303,7 @@ export async function executeParallelIteration(
     },
   ]);
 
-  const variants = await generateQueryVariants(topic, mode);
+  const variants = await generateQueryVariants(topic, mode, budget.primarySearchCount);
   console.log(
     `[executeParallelIteration] Generated ${variants.length} query variants`
   );
@@ -326,7 +329,7 @@ export async function executeParallelIteration(
       variant.query,
       {},
       [],
-      { maxRetries: 2, timeoutMs: 12000, deduplicateResults: true }
+      { maxRetries: budget.maxRetries, timeoutMs: budget.searchTimeoutMs, deduplicateResults: true }
     );
     return { variant, ...result };
   });
@@ -434,12 +437,12 @@ export async function executeParallelIteration(
       },
     ]);
 
-    // Use top 2 gaps for follow-up
+    const contextualGaps = buildFollowUpContext(synthesis.keyFindings, synthesis.gaps);
     const followUpResult = await executeParallelSearchWithRetry(
       topic,
       {},
-      synthesis.gaps.slice(0, 2),
-      { maxRetries: 2, timeoutMs: 15000, deduplicateResults: true }
+      contextualGaps.slice(0, budget.followUpBudget),
+      { maxRetries: budget.maxRetries, timeoutMs: budget.followUpTimeoutMs, deduplicateResults: true }
     );
 
     // Append follow-up findings to synthesis
