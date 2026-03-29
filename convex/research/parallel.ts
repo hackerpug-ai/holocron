@@ -21,6 +21,8 @@ import {
   executeParallelSearchWithRetry,
 } from "./search";
 import { stripMarkdownCodeBlock } from "../lib/json";
+import type { ResearchMode } from "./intent";
+import { getSynthesisInstructions } from "./mode_prompts";
 import type { Id } from "../_generated/dataModel";
 import type { ActionCtx } from "../_generated/server";
 
@@ -45,8 +47,55 @@ export interface ParallelFanOutResult {
  * 3. Industry/Practical
  * 4. Emerging/Trends
  */
-export function decomposeIntoDomains(topic: string): string[] {
+export function decomposeIntoDomains(topic: string, mode?: ResearchMode): string[] {
   const words = topic.toLowerCase();
+
+  // Mode-specific decomposition takes priority over keyword detection
+  if (mode === "ACTIONABLE") {
+    return [
+      `${topic} implementation code example tutorial`,
+      `${topic} architecture patterns design decisions`,
+      `${topic} production case study lessons learned`,
+      `${topic} tools frameworks libraries getting started`,
+    ];
+  }
+
+  if (mode === "COMPARATIVE") {
+    // Try to extract comparison subjects for better decomposition
+    const parts = topic.split(/\s+vs\.?\s+|\s+compared?\s+to\s+/i);
+    if (parts.length >= 2) {
+      return [
+        `${parts[0]} features capabilities advantages`,
+        `${parts[1]} features capabilities advantages`,
+        `${parts[0]} vs ${parts[1]} comparison benchmark`,
+        `${parts[0]} ${parts[1]} when to use best practices`,
+      ];
+    }
+    return [
+      `${topic} comparison features capabilities`,
+      `${topic} benchmarks performance trade-offs`,
+      `${topic} pros cons advantages disadvantages`,
+      `${topic} when to use decision criteria`,
+    ];
+  }
+
+  if (mode === "OVERVIEW") {
+    return [
+      `${topic} market landscape key players adoption`,
+      `${topic} trends developments 2024 2025`,
+      `${topic} statistics data market size growth`,
+      `${topic} future outlook predictions trajectory`,
+    ];
+  }
+
+  if (mode === "EXPLORATORY") {
+    return [
+      `${topic} approaches methods techniques`,
+      `${topic} use cases applications real-world`,
+      `${topic} advantages disadvantages tradeoffs`,
+      `${topic} tools frameworks alternatives`,
+    ];
+  }
 
   // Detect topic type for better decomposition
   const isTechnical =
@@ -108,7 +157,8 @@ export function decomposeIntoDomains(topic: string): string[] {
  */
 function buildFanOutSynthesisPrompt(
   topic: string,
-  domainResults: Array<{ domain: string; findings: string }>
+  domainResults: Array<{ domain: string; findings: string }>,
+  mode?: ResearchMode
 ): string {
   const resultsSection = domainResults
     .map(
@@ -119,10 +169,14 @@ ${r.findings}
     )
     .join("\n");
 
+  const modeInstructions = mode
+    ? getSynthesisInstructions(mode)
+    : "";
+
   return `Synthesize the following parallel research results into a comprehensive response.
 
 Topic: ${topic}
-
+${modeInstructions ? `\n${modeInstructions}\n` : ""}
 Research Results:
 ${resultsSection}
 
@@ -186,11 +240,12 @@ export async function executeParallelFanOut(
   ctx: ActionCtx,
   conversationId: Id<"conversations"> | undefined,
   topic: string,
-  enableFollowUp: boolean = true
+  enableFollowUp: boolean = true,
+  mode?: ResearchMode
 ): Promise<ParallelFanOutResult> {
   const startTime = Date.now();
   console.log(
-    `[executeParallelFanOut] Entry - topic: "${topic}", enableFollowUp: ${enableFollowUp}`
+    `[executeParallelFanOut] Entry - topic: "${topic}", enableFollowUp: ${enableFollowUp}, mode: ${mode ?? "unset"}`
   );
 
   // Step 1: Create conversation if needed
@@ -207,6 +262,7 @@ export async function executeParallelFanOut(
       conversationId: effectiveConversationId,
       topic,
       maxIterations: 1, // Fan-out is typically single-pass
+      researchMode: mode,
     }
   );
 
@@ -225,7 +281,7 @@ export async function executeParallelFanOut(
   });
 
   // Step 4: Decompose into domains
-  const domains = decomposeIntoDomains(topic);
+  const domains = decomposeIntoDomains(topic, mode);
   console.log(
     `[executeParallelFanOut] Decomposed into ${domains.length} domains`
   );
@@ -290,7 +346,8 @@ export async function executeParallelFanOut(
   console.log(`[executeParallelFanOut] Running synthesis`);
   const synthesisPrompt = buildFanOutSynthesisPrompt(
     topic,
-    domainResults.map((r) => ({ domain: r.domain, findings: r.findings }))
+    domainResults.map((r) => ({ domain: r.domain, findings: r.findings })),
+    mode
   );
 
   const synthesisResult = await generateText({
@@ -438,8 +495,9 @@ export const runParallelFanOut = action({
     conversationId: v.optional(v.id("conversations")),
     topic: v.string(),
     enableFollowUp: v.optional(v.boolean()),
+    researchMode: v.optional(v.string()),
   },
-  handler: async (ctx, { conversationId, topic, enableFollowUp = true }): Promise<ParallelFanOutResult> => {
-    return executeParallelFanOut(ctx, conversationId, topic, enableFollowUp);
+  handler: async (ctx, { conversationId, topic, enableFollowUp = true, researchMode }): Promise<ParallelFanOutResult> => {
+    return executeParallelFanOut(ctx, conversationId, topic, enableFollowUp, researchMode as ResearchMode | undefined);
   },
 });

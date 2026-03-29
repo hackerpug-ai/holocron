@@ -96,6 +96,7 @@ export default defineSchema({
     taskId: v.optional(v.id("tasks")),
     topic: v.string(),
     researchType: v.optional(v.string()), // "deep" | "simple"
+    researchMode: v.optional(v.string()), // "OVERVIEW" | "ACTIONABLE" | "COMPARATIVE" | "EXPLORATORY"
     maxIterations: v.optional(v.number()),
     status: v.string(),
     currentIteration: v.optional(v.number()),

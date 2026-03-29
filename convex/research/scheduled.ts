@@ -189,9 +189,12 @@ export const processDeepResearchIteration = internalAction({
           },
         ],
       );
+      // Get research mode from session for mode-aware prompts
+      const researchMode = (session as any).researchMode as string | undefined;
       const searchPrompt = buildSearchPrompt(
         currentTopic,
         context.previousIterations,
+        researchMode as any,
       );
       const searchResult = await generateText({
         model: openai("gpt-4o-mini"), // Fast, cheap, good at tool calls
@@ -236,7 +239,7 @@ export const processDeepResearchIteration = internalAction({
           },
         ],
       );
-      const synthesisPrompt = buildSynthesisPrompt(context, searchFindings);
+      const synthesisPrompt = buildSynthesisPrompt(context, searchFindings, researchMode as any);
       const synthesisResult = await generateText({
         model: openai("gpt-4o"), // Fast, reliable, cheaper than gpt-4-turbo
         prompt: synthesisPrompt,

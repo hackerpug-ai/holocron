@@ -141,7 +141,8 @@ export const createResearchDocument = internalAction({
             findings: it.findings ?? '',
             coverageScore: it.coverageScore,
             summary: it.summary,
-          }))
+          })),
+          (session as any).researchMode as any
         );
 
         // Call LLM to synthesize findings into cohesive report

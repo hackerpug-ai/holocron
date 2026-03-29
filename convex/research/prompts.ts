@@ -9,6 +9,8 @@
 
 import type { Id } from "../_generated/dataModel";
 import type { GenericActionCtx } from "convex/server";
+import type { ResearchMode } from "./intent";
+import { getSearchFocusInstructions, getSynthesisInstructions, getReportStructure } from "./mode_prompts";
 
 /**
  * Research context structure
@@ -79,9 +81,10 @@ export async function buildResearchContext(
  */
 export function buildSearchPrompt(
   topic: string,
-  previousIterations: ResearchContext["previousIterations"]
+  previousIterations: ResearchContext["previousIterations"],
+  mode?: ResearchMode
 ): string {
-  console.log(`[buildSearchPrompt] Entry - topic: "${topic}", previousIterations: ${previousIterations.length}`);
+  console.log(`[buildSearchPrompt] Entry - topic: "${topic}", previousIterations: ${previousIterations.length}, mode: ${mode ?? "unset"}`);
 
   const contextSection = previousIterations.length > 0
     ? `
@@ -96,9 +99,11 @@ Focus on NEW information that complements previous research.
 `
     : "";
 
+  const searchFocus = mode ? `\nSEARCH FOCUS:\n${getSearchFocusInstructions(mode)}\n` : "";
+
   const prompt = `Research the following topic: "${topic}"
 
-${contextSection}
+${contextSection}${searchFocus}
 Your task:
 1. Generate 3-5 focused search queries that cover different aspects of this topic
 2. Execute searches using the available tools:
@@ -145,9 +150,10 @@ export interface StructuredFinding {
  */
 export function buildSynthesisPrompt(
   context: ResearchContext,
-  searchFindings: string
+  searchFindings: string,
+  mode?: ResearchMode
 ): string {
-  console.log(`[buildSynthesisPrompt] Entry - topic: "${context.topic}", searchFindings length: ${searchFindings.length}, previousIterations: ${context.previousIterations.length}`);
+  console.log(`[buildSynthesisPrompt] Entry - topic: "${context.topic}", searchFindings length: ${searchFindings.length}, previousIterations: ${context.previousIterations.length}, mode: ${mode ?? "unset"}`);
 
   const previousContext = context.previousIterations.length > 0
     ? `
@@ -160,10 +166,12 @@ Build on this foundation - do NOT simply repeat what was already found.
 `
     : "";
 
+  const modeGuidance = mode ? `\n${getSynthesisInstructions(mode)}\n` : "";
+
   const prompt = `Synthesize research findings into a structured JSON format with confidence scoring.
 
 Topic: ${context.topic}
-
+${modeGuidance}
 Latest Search Findings:
 ${searchFindings}
 
@@ -316,9 +324,10 @@ export function buildFinalSynthesisPrompt(
     findings: string;
     coverageScore?: number;
     summary?: string;
-  }>
+  }>,
+  mode?: ResearchMode
 ): string {
-  console.log(`[buildFinalSynthesisPrompt] Entry - topic: "${topic}", iterations: ${iterations.length}`);
+  console.log(`[buildFinalSynthesisPrompt] Entry - topic: "${topic}", iterations: ${iterations.length}, mode: ${mode ?? "unset"}`);
 
   const iterationContent = iterations
     .filter(it => it.findings)
@@ -337,33 +346,9 @@ ${it.findings}`)
   const topicWords = topic.toLowerCase().split(/\s+/).filter(w => w.length > 3);
   const tags = topicWords.slice(0, 5).join(", ");
 
-  const prompt = `Synthesize the following research iterations into a comprehensive, well-structured markdown report.
-
-**Research Topic:** ${topic}
-
-**Research Iterations:**
-${iterationContent}
-
-**Your Task:**
-Create a cohesive research report in markdown format with YAML frontmatter and the following structure:
-
----
-title: "${topic} - Research Report"
-date: "${new Date().toISOString().split('T')[0]}"
-time: "${new Date().toTimeString().slice(0, 5)}"
-category: "research"
-tags: [${tags}]
-status: "complete"
-research_type: "deep_research"
-iterations: ${iterations.length}
-sources_consulted: ${totalSources}
-confidence: "${overallConfidence}"
-method: "deep-research"
----
-
-# ${topic}
-
-## Executive Summary
+  const reportStructure = mode
+    ? getReportStructure(mode)
+    : `## Executive Summary
 Write 3-5 sentences that directly answer the research question based on all findings. Include:
 - The main conclusion or answer
 - Key supporting points
@@ -406,7 +391,37 @@ List forums, Q&A sites, and community discussions (if relevant):
 Identify:
 - Unanswered questions from the research
 - Conflicting information that needs resolution
-- Suggested follow-up research topics
+- Suggested follow-up research topics`;
+
+  const modeLabel = mode ? ` [${mode}]` : "";
+
+  const prompt = `Synthesize the following research iterations into a comprehensive, well-structured markdown report.
+
+**Research Topic:** ${topic}
+
+**Research Iterations:**
+${iterationContent}
+
+**Your Task:**
+Create a cohesive research report in markdown format with YAML frontmatter and the following structure:
+
+---
+title: "${topic} - Research Report"
+date: "${new Date().toISOString().split('T')[0]}"
+time: "${new Date().toTimeString().slice(0, 5)}"
+category: "research"
+tags: [${tags}]
+status: "complete"
+research_type: "deep_research${modeLabel}"
+iterations: ${iterations.length}
+sources_consulted: ${totalSources}
+confidence: "${overallConfidence}"
+method: "deep-research"
+---
+
+# ${topic}
+
+${reportStructure}
 
 ## Methodology
 
@@ -461,10 +476,11 @@ export interface UrlContent {
 export function buildSinglePassSynthesisPrompt(
   topic: string,
   urlContents: UrlContent[],
-  searchSnippets: string
+  searchSnippets: string,
+  mode?: ResearchMode
 ): string {
   console.log(
-    `[buildSinglePassSynthesisPrompt] Entry - topic: "${topic}", urlContents: ${urlContents.length}, snippetsLength: ${searchSnippets.length}`
+    `[buildSinglePassSynthesisPrompt] Entry - topic: "${topic}", urlContents: ${urlContents.length}, snippetsLength: ${searchSnippets.length}, mode: ${mode ?? "unset"}`
   );
 
   // Build URL content sections
@@ -494,38 +510,9 @@ ${u.content}
     .filter((w) => w.length > 3);
   const tags = topicWords.slice(0, 5).join(", ");
 
-  const prompt = `You are a research synthesis expert. Synthesize the following research materials into a comprehensive markdown report.
-
-**Research Topic:** ${topic}
-
-${hasFullContent ? `## Full Source Content
-${urlContentSections}` : ""}
-
-## Search Result Snippets
-${searchSnippets}
-
-**Your Task:**
-Create a comprehensive research report in markdown format with YAML frontmatter.
-
-**IMPORTANT FORMAT REQUIREMENTS:**
-Return ONLY the markdown report. Do NOT wrap in code blocks. Start directly with the YAML frontmatter.
-
----
-title: "${topic}"
-date: "${dateStr}"
-time: "${timeStr}"
-category: "research"
-tags: [${tags}]
-status: "complete"
-research_type: "single_pass"
-sources_consulted: ${urlContents.length}
-confidence: "PENDING"
-method: "single-pass-deep-research"
----
-
-# ${topic}
-
-## Executive Summary
+  const reportBody = mode
+    ? getReportStructure(mode)
+    : `## Executive Summary
 Write 3-5 sentences that directly answer the research question. Include:
 - The main conclusion or answer
 - Key supporting points (1-2)
@@ -547,7 +534,43 @@ Sources: [Source Title](URL), [Source Title](URL)
 
 List all sources used in the research:
 1. [Title](URL) - Brief description of what it contributed
-2. [Title](URL) - Brief description
+2. [Title](URL) - Brief description`;
+
+  const modeLabel = mode ? ` [${mode}]` : "";
+  const modeGuidance = mode ? `\n${getSynthesisInstructions(mode)}\n` : "";
+
+  const prompt = `You are a research synthesis expert. Synthesize the following research materials into a comprehensive markdown report.
+
+**Research Topic:** ${topic}
+${modeGuidance}
+${hasFullContent ? `## Full Source Content
+${urlContentSections}` : ""}
+
+## Search Result Snippets
+${searchSnippets}
+
+**Your Task:**
+Create a comprehensive research report in markdown format with YAML frontmatter.
+
+**IMPORTANT FORMAT REQUIREMENTS:**
+Return ONLY the markdown report. Do NOT wrap in code blocks. Start directly with the YAML frontmatter.
+
+---
+title: "${topic}"
+date: "${dateStr}"
+time: "${timeStr}"
+category: "research"
+tags: [${tags}]
+status: "complete"
+research_type: "single_pass${modeLabel}"
+sources_consulted: ${urlContents.length}
+confidence: "PENDING"
+method: "single-pass-deep-research"
+---
+
+# ${topic}
+
+${reportBody}
 
 ## Confidence Assessment
 

@@ -104,6 +104,8 @@ import type * as research_documentQueries from "../research/documentQueries.js";
 import type * as research_documents from "../research/documents.js";
 import type * as research_embeddings from "../research/embeddings.js";
 import type * as research_index from "../research/index.js";
+import type * as research_intent from "../research/intent.js";
+import type * as research_mode_prompts from "../research/mode_prompts.js";
 import type * as research_mutations from "../research/mutations.js";
 import type * as research_output from "../research/output.js";
 import type * as research_parallel from "../research/parallel.js";
@@ -270,6 +272,8 @@ declare const fullApi: ApiFromModules<{
   "research/documents": typeof research_documents;
   "research/embeddings": typeof research_embeddings;
   "research/index": typeof research_index;
+  "research/intent": typeof research_intent;
+  "research/mode_prompts": typeof research_mode_prompts;
   "research/mutations": typeof research_mutations;
   "research/output": typeof research_output;
   "research/parallel": typeof research_parallel;

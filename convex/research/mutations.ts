@@ -19,15 +19,17 @@ export const createDeepResearchSession = mutation({
     topic: v.string(),
     maxIterations: v.optional(v.number()),
     researchType: v.optional(v.string()),
+    researchMode: v.optional(v.string()),
   },
-  handler: async (ctx, { conversationId, topic, maxIterations = 5, researchType = "deep" }) => {
-    console.log(`[createDeepResearchSession] Entry - conversationId: ${conversationId}, topic: "${topic}", maxIterations: ${maxIterations}, researchType: ${researchType}`);
+  handler: async (ctx, { conversationId, topic, maxIterations = 5, researchType = "deep", researchMode }) => {
+    console.log(`[createDeepResearchSession] Entry - conversationId: ${conversationId}, topic: "${topic}", maxIterations: ${maxIterations}, researchType: ${researchType}, researchMode: ${researchMode ?? "unset"}`);
     const now = Date.now();
 
     const sessionId = await ctx.db.insert("deepResearchSessions", {
       conversationId,
       topic,
       researchType,
+      researchMode,
       maxIterations,
       status: "pending",
       createdAt: now,

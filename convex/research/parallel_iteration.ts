@@ -28,6 +28,8 @@ import {
   executeParallelSearchWithRetry,
 } from "./search";
 import { stripMarkdownCodeBlock } from "../lib/json";
+import type { ResearchMode } from "./intent";
+import { getVariantInstructions, getSynthesisInstructions, getFallbackVariants } from "./mode_prompts";
 import type { Id } from "../_generated/dataModel";
 import type { ActionCtx } from "../_generated/server";
 
@@ -62,19 +64,24 @@ export interface QueryVariant {
  * @returns Array of 2-3 query variants
  */
 export async function generateQueryVariants(
-  topic: string
+  topic: string,
+  mode?: ResearchMode
 ): Promise<QueryVariant[]> {
   console.log(
-    `[generateQueryVariants] Entry - topic: "${topic}"`
+    `[generateQueryVariants] Entry - topic: "${topic}", mode: ${mode ?? "unset"}`
   );
 
-  const prompt = `Generate 2-3 diverse search query variants for comprehensive research on: "${topic}"
-
-Each variant should explore a different aspect:
+  const variantInstructions = mode
+    ? getVariantInstructions(mode)
+    : `Each variant should explore a different aspect:
 1. Technical/implementation focus
 2. Academic/research focus
 3. Industry/practical focus
-4. Latest developments/trends
+4. Latest developments/trends`;
+
+  const prompt = `Generate 2-3 diverse search query variants for comprehensive research on: "${topic}"
+
+${variantInstructions}
 
 Return ONLY a JSON array:
 [
@@ -109,7 +116,10 @@ Be specific and targeted. Each query should uncover different information.`;
     );
     console.log(`[generateQueryVariants] Falling back to static variants`);
 
-    // Fallback to static variants
+    // Fallback to mode-aware static variants
+    if (mode) {
+      return getFallbackVariants(topic, mode);
+    }
     return [
       {
         query: `${topic} implementation guide tutorial example`,
@@ -141,7 +151,8 @@ Be specific and targeted. Each query should uncover different information.`;
  */
 function buildParallelSynthesisPrompt(
   topic: string,
-  variantResults: Array<{ variant: QueryVariant; findings: string }>
+  variantResults: Array<{ variant: QueryVariant; findings: string }>,
+  mode?: ResearchMode
 ): string {
   const resultsSection = variantResults
     .map(
@@ -155,10 +166,14 @@ ${r.findings}
     )
     .join("\n");
 
+  const modeInstructions = mode
+    ? getSynthesisInstructions(mode)
+    : "";
+
   return `Synthesize the following parallel research results into a comprehensive response.
 
 Topic: ${topic}
-
+${modeInstructions ? `\n${modeInstructions}\n` : ""}
 Research Results:
 ${resultsSection}
 
@@ -228,11 +243,12 @@ export async function executeParallelIteration(
   ctx: ActionCtx,
   conversationId: Id<"conversations"> | undefined,
   topic: string,
-  enableFollowUp: boolean = true
+  enableFollowUp: boolean = true,
+  mode?: ResearchMode
 ): Promise<ParallelIterationResult> {
   const startTime = Date.now();
   console.log(
-    `[executeParallelIteration] Entry - topic: "${topic}", enableFollowUp: ${enableFollowUp}`
+    `[executeParallelIteration] Entry - topic: "${topic}", enableFollowUp: ${enableFollowUp}, mode: ${mode ?? "unset"}`
   );
 
   // Step 1: Create conversation if needed
@@ -250,6 +266,7 @@ export async function executeParallelIteration(
       topic,
       maxIterations: 1, // Parallel iteration is typically single-pass
       researchType: "parallel_iteration",
+      researchMode: mode,
     }
   );
 
@@ -283,7 +300,7 @@ export async function executeParallelIteration(
     },
   ]);
 
-  const variants = await generateQueryVariants(topic);
+  const variants = await generateQueryVariants(topic, mode);
   console.log(
     `[executeParallelIteration] Generated ${variants.length} query variants`
   );
@@ -351,7 +368,8 @@ export async function executeParallelIteration(
     variantResults.map((r) => ({
       variant: r.variant,
       findings: r.findings,
-    }))
+    })),
+    mode
   );
 
   const synthesisResult = await generateText({
@@ -495,8 +513,9 @@ export const runParallelIteration = action({
     conversationId: v.optional(v.id("conversations")),
     topic: v.string(),
     enableFollowUp: v.optional(v.boolean()),
+    researchMode: v.optional(v.string()),
   },
-  handler: async (ctx, { conversationId, topic, enableFollowUp = true }): Promise<ParallelIterationResult> => {
-    return executeParallelIteration(ctx, conversationId, topic, enableFollowUp);
+  handler: async (ctx, { conversationId, topic, enableFollowUp = true, researchMode }): Promise<ParallelIterationResult> => {
+    return executeParallelIteration(ctx, conversationId, topic, enableFollowUp, researchMode as ResearchMode | undefined);
   },
 });

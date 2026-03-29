@@ -28,6 +28,7 @@ import {
   type StructuredFinding,
   type UrlContent,
 } from "./prompts";
+import { classifyResearchIntent, type ResearchMode } from "./intent";
 import {
   calculateConfidenceScore,
   determineConfidenceLevel,
@@ -78,7 +79,11 @@ export const startDeepResearch = action({
       `[startDeepResearch] Entry - topic: "${topic}", maxIterations: ${maxIterations}, existingConversationId: ${existingConversationId || "none"}`,
     );
 
-    // Step 0: Create conversation with first message (avoid empty conversations)
+    // Step 0a: Classify research intent
+    const intent = await classifyResearchIntent(topic);
+    console.log(`[startDeepResearch] Intent classified: ${intent.mode} - ${intent.reasoning}`);
+
+    // Step 0b: Create conversation with first message (avoid empty conversations)
     console.log(`[startDeepResearch] Step 0: Creating/using conversation`);
     const conversationId =
       existingConversationId ??
@@ -89,7 +94,7 @@ export const startDeepResearch = action({
       `[startDeepResearch] Step 0: Conversation ID: ${conversationId}`,
     );
 
-    // Step 1: Create session
+    // Step 1: Create session with research mode
     console.log(`[startDeepResearch] Step 1: Creating deep research session`);
     const sessionId = await ctx.runMutation(
       api.research.mutations.createDeepResearchSession,
@@ -97,6 +102,7 @@ export const startDeepResearch = action({
         conversationId,
         topic,
         maxIterations,
+        researchMode: intent.mode,
       },
     );
     console.log(
@@ -406,10 +412,11 @@ export async function runIterativeResearch(
   conversationId: Id<"conversations">,
   topic: string,
   maxIterations: number = 5,
+  mode?: ResearchMode,
   criteria: TerminationCriteria = DEFAULT_CRITERIA,
 ): Promise<{ totalIterations: number; finalCoverageScore: number; finalConfidenceStats?: ConfidenceStats }> {
   console.log(
-    `[runIterativeResearch] Entry - sessionId: ${sessionId}, topic: "${topic}", maxIterations: ${maxIterations}`,
+    `[runIterativeResearch] Entry - sessionId: ${sessionId}, topic: "${topic}", maxIterations: ${maxIterations}, mode: ${mode ?? "unset"}`,
   );
   console.log(
     `[runIterativeResearch] Termination criteria - coverage: ${criteria.minCoverage}, confidence: ${criteria.minConfidence}%, maxCost: ${criteria.maxCostUsd ? `$${criteria.maxCostUsd}` : 'unlimited'}, maxDuration: ${criteria.maxDurationMs ? `${Math.round(criteria.maxDurationMs / 60000)}m` : 'unlimited'}`,
@@ -526,7 +533,7 @@ export async function runIterativeResearch(
       console.log(
         `[runIterativeResearch] Step 2b: SYNTHESIZE - Building synthesis prompt`,
       );
-      const synthesisPrompt = buildSynthesisPrompt(context, searchFindings);
+      const synthesisPrompt = buildSynthesisPrompt(context, searchFindings, mode);
       console.log(
         `[runIterativeResearch] Step 2b: Synthesis prompt length: ${synthesisPrompt.length} chars`,
       );
@@ -1024,6 +1031,11 @@ export const startSimpleResearch = action({
     const startTime = Date.now();
     console.log(`[startSimpleResearch] Entry - topic: "${topic}"`);
 
+    // Classify research intent
+    const intent = await classifyResearchIntent(topic);
+    const mode = intent.mode;
+    console.log(`[startSimpleResearch] Intent classified: ${mode} - ${intent.reasoning}`);
+
     let sessionId: Id<"deepResearchSessions"> | undefined;
     let effectiveConversationId: Id<"conversations"> | undefined;
 
@@ -1046,6 +1058,7 @@ export const startSimpleResearch = action({
         topic,
         maxIterations: 1,
         researchType: "simple",
+        researchMode: mode,
       }
     );
 
@@ -1064,7 +1077,7 @@ export const startSimpleResearch = action({
     });
 
     // Step 4: Decompose into domains
-    const domains = decomposeIntoDomains(topic);
+    const domains = decomposeIntoDomains(topic, mode);
     console.log(`[startSimpleResearch] Decomposed into ${domains.length} domains`);
 
     // Step 5: Execute all domains in parallel
@@ -1099,10 +1112,14 @@ export const startSimpleResearch = action({
     // Count total sources for confidence estimation
     const sourceCount = totalResults;
 
+    // Import mode-specific synthesis instructions
+    const { getSynthesisInstructions: getModeSynthesis } = await import("./mode_prompts");
+    const modeGuidance = mode ? `\n${getModeSynthesis(mode)}\n` : "";
+
     const synthesisPrompt = `Synthesize the following research results into a well-formatted markdown article.
 
 **Topic:** ${topic}
-
+${modeGuidance}
 **Research Results:**
 ${resultsSection}
 
@@ -1279,10 +1296,11 @@ export interface SinglePassResearchResult {
 export async function executeSinglePassResearch(
   ctx: any,
   conversationId: Id<"conversations"> | undefined,
-  topic: string
+  topic: string,
+  mode?: ResearchMode
 ): Promise<SinglePassResearchResult> {
   const startTime = Date.now();
-  console.log(`[executeSinglePassResearch] Entry - topic: "${topic}"`);
+  console.log(`[executeSinglePassResearch] Entry - topic: "${topic}", mode: ${mode ?? "unset"}`);
 
   // Step 1: Create conversation if needed
   const effectiveConversationId =
@@ -1299,6 +1317,7 @@ export async function executeSinglePassResearch(
       topic,
       maxIterations: 1,
       researchType: "single_pass",
+      researchMode: mode,
     }
   );
 
@@ -1323,7 +1342,7 @@ export async function executeSinglePassResearch(
   // Step 4: Generate 3 query variants
   console.log(`[executeSinglePassResearch] Generating query variants`);
   const { generateQueryVariants } = await import("./parallel_iteration");
-  const variants = await generateQueryVariants(topic);
+  const variants = await generateQueryVariants(topic, mode);
   console.log(
     `[executeSinglePassResearch] Generated ${variants.length} query variants`
   );
@@ -1398,7 +1417,8 @@ export async function executeSinglePassResearch(
   const synthesisPrompt = buildSinglePassSynthesisPrompt(
     topic,
     urlContents,
-    searchSnippets
+    searchSnippets,
+    mode
   );
 
   const synthesisResult = await generateText({
@@ -1502,23 +1522,28 @@ export const startSmartResearch = action({
   }> => {
     console.log(`[startSmartResearch] Entry - topic: "${topic}"`);
 
-    // Analyze query to determine strategy
+    // Step 1: Classify research intent (determines output style)
+    const intent = await classifyResearchIntent(topic);
+    const mode = intent.mode;
+    console.log(`[startSmartResearch] Intent classified: ${mode} - ${intent.reasoning}`);
+
+    // Step 2: Select execution strategy (determines how to search)
     const strategy = analyzeResearchStrategy(topic);
-    console.log(`[startSmartResearch] Selected strategy: ${strategy}`);
+    console.log(`[startSmartResearch] Selected strategy: ${strategy}, mode: ${mode}`);
 
     if (strategy === "parallel_fan_out") {
       // Import and run parallel fan-out helper directly
       const { executeParallelFanOut } = await import("./parallel");
-      const result = await executeParallelFanOut(ctx, conversationId, topic, true);
+      const result = await executeParallelFanOut(ctx, conversationId, topic, true, mode);
       return result;
     } else if (strategy === "parallel_iteration") {
       // Import and run parallel iteration for deep research
       const { executeParallelIteration } = await import("./parallel_iteration");
-      const result = await executeParallelIteration(ctx, conversationId, topic);
+      const result = await executeParallelIteration(ctx, conversationId, topic, true, mode);
       return result;
     } else if (strategy === "single_pass") {
       // Fast single-pass research with full URL reading
-      const result = await executeSinglePassResearch(ctx, conversationId, topic);
+      const result = await executeSinglePassResearch(ctx, conversationId, topic, mode);
       return {
         sessionId: result.sessionId,
         conversationId: result.conversationId,
@@ -1544,6 +1569,7 @@ export const startSmartResearch = action({
           conversationId: effectiveConversationId,
           topic,
           maxIterations: 5,
+          researchMode: mode,
         },
       );
 
@@ -1561,8 +1587,8 @@ export const startSmartResearch = action({
         },
       });
 
-      // Step 3: Run Iterative Research
-      const result = await runIterativeResearch(ctx, sessionId, effectiveConversationId, topic, 5);
+      // Step 3: Run Iterative Research (mode threaded through prompts)
+      const result = await runIterativeResearch(ctx, sessionId, effectiveConversationId, topic, 5, mode);
 
       console.log(`[startSmartResearch] Iterative research completed - ${result.totalIterations} iterations`);
 
