@@ -28,7 +28,8 @@ type CreateSessionCtx = {
  * 2. Validate OPENAI_API_KEY
  * 3. POST to /v1/realtime/client_secrets
  * 4. Create session record via internal mutation
- * 5. Return {ephemeralKey, expiresAt, sessionId}
+ * 5. Build dynamic voice instructions for the conversation
+ * 6. Return {ephemeralKey, expiresAt, sessionId, instructions}
  *
  * NEVER stores the ephemeral key in the database.
  * NEVER exposes OPENAI_API_KEY to the client.
@@ -39,8 +40,14 @@ export const createSessionHandler = async (
   overrides?: {
     activeSessionQuery?: FunctionReference<"query", "public" | "internal">;
     createSessionMutation?: FunctionReference<"mutation", "public" | "internal">;
+    buildInstructionsQuery?: FunctionReference<"query", "public" | "internal">;
   }
-): Promise<{ ephemeralKey: string; expiresAt: number; sessionId: string }> => {
+): Promise<{
+  ephemeralKey: string;
+  expiresAt: number;
+  sessionId: string;
+  instructions: string;
+}> => {
   // 1. Check for active session — prevent duplicate concurrent sessions
   const activeSessionRef =
     overrides?.activeSessionQuery ?? api.voice.queries.getActiveSession;
@@ -104,11 +111,20 @@ export const createSessionHandler = async (
     startedAt,
   })) as string;
 
-  // 5. Return ephemeral token + session metadata to client
+  // 5. Build dynamic voice instructions for the conversation
+  const buildInstructionsQueryRef =
+    overrides?.buildInstructionsQuery ??
+    internal.voice.context.buildVoiceInstructions;
+  const instructions = (await ctx.runQuery(buildInstructionsQueryRef, {
+    conversationId: args.conversationId,
+  })) as string;
+
+  // 6. Return ephemeral token + session metadata + instructions to client
   return {
     ephemeralKey,
     expiresAt,
     sessionId,
+    instructions,
   };
 };
 
@@ -124,6 +140,7 @@ export const createSession = action({
     ephemeralKey: v.string(),
     expiresAt: v.number(),
     sessionId: v.id("voiceSessions"),
+    instructions: v.string(),
   }),
   handler: async (ctx, args) => {
     return createSessionHandler(ctx, args) as ReturnType<
@@ -132,6 +149,7 @@ export const createSession = action({
       ephemeralKey: string;
       expiresAt: number;
       sessionId: string & { __tableName: "voiceSessions" };
+      instructions: string;
     }>;
   },
 });
