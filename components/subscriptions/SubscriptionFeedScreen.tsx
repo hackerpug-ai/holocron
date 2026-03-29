@@ -8,7 +8,7 @@
 import React, { useEffect, useState } from 'react'
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native'
 import { useRouter } from 'expo-router'
-import { useAction, useQuery } from 'convex/react'
+import { useAction, useMutation, useQuery } from 'convex/react'
 import type { Doc } from '@/convex/_generated/dataModel'
 import { api } from '@/convex/_generated/api'
 import { Settings } from '@/components/ui/icons'
@@ -57,6 +57,9 @@ export function SubscriptionFeedScreen({
   const { colors, spacing } = useTheme()
   const router = useRouter()
   const { webViewState, closeWebView } = useWebView()
+
+  // Feedback mutation
+  const submitFeedback = useMutation(api.feeds.mutations.submitFeedback)
 
   // Filter state
   const [selectedFilter, setSelectedFilter] = useState<FilterType>('all')
@@ -125,6 +128,27 @@ export function SubscriptionFeedScreen({
     reset()
   }
 
+  // Context menu handlers for feed items
+  const handleItemOpen = (item: Doc<'feedItems'>) => {
+    // For now, navigate to subscription content detail view
+    // TODO: Extract URL from linked subscriptionContent items
+    router.push(`/subscription-content/${item.groupKey}`)
+  }
+
+  const handleAddToChat = (_item: Doc<'feedItems'>) => {
+    // Navigate to chat with item reference
+    // TODO: Pass item content to chat context
+    router.push('/chat/new')
+  }
+
+  const handleThumbsUp = async (feedItemId: Doc<'feedItems'>['_id']) => {
+    await submitFeedback({ feedItemId, feedback: 'up' })
+  }
+
+  const handleThumbsDown = async (feedItemId: Doc<'feedItems'>['_id']) => {
+    await submitFeedback({ feedItemId, feedback: 'down' })
+  }
+
   // Reset feed when filters change
   useEffect(() => {
     reset()
@@ -190,6 +214,10 @@ export function SubscriptionFeedScreen({
           authorHandle={item.authorHandle}
           creatorName={item.creatorName}
           testID={`${testID}-item-${item._id}`}
+          onOpen={() => handleItemOpen(item)}
+          onAddToChat={() => handleAddToChat(item)}
+          onThumbsUp={() => handleThumbsUp(item._id)}
+          onThumbsDown={() => handleThumbsDown(item._id)}
         />
       </View>
     )
