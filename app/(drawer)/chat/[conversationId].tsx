@@ -15,7 +15,8 @@ import { ChatInput } from '@/components/chat/ChatInput'
 import { SquarePen } from '@/components/ui/icons'
 import { spacing } from '@/lib/theme'
 import { useVoiceSession } from '@/hooks/use-voice-session'
-import { VoiceSessionOverlay } from '@/components/voice'
+import { VoiceAssistantOverlay } from '@/components/voice/VoiceAssistantOverlay'
+import type { TranscriptEntry } from '@/components/voice/VoiceTranscriptFeed'
 
 /**
  * Chat screen for a specific conversation.
@@ -162,7 +163,29 @@ export default function ChatScreen() {
     state: voiceState,
     start: startVoice,
     stop: stopVoice,
+    mute,
+    unmute,
+    transcripts,
   } = useVoiceSession(voiceConversationId)
+
+  // Mute state and toggle handler
+  const isMuted = voiceState.status === 'muted'
+  const toggleMute = () => {
+    if (isMuted) {
+      unmute()
+    } else {
+      mute()
+    }
+  }
+
+  // Transform transcripts to TranscriptEntry format
+  const transcriptEntries: TranscriptEntry[] = transcripts.map((t) => ({
+    id: `${t.timestamp}-${t.role}`,
+    speaker: t.role,
+    text: t.content,
+    timestamp: new Date(t.timestamp).toISOString(),
+    isPartial: false,
+  }))
 
   // Set the active conversation when the route loads (skip for 'new')
   useEffect(() => {
@@ -234,8 +257,6 @@ export default function ChatScreen() {
   // so when scrolled to the top, the first message has breathing room below the header
   const contentTopPadding = spacing.lg
 
-  const isVoiceActive = voiceState.status !== 'idle'
-
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -260,7 +281,7 @@ export default function ChatScreen() {
         }
         testID="chat-header"
       />
-      {/* Chat content area — voice overlay floats above this */}
+      {/* Chat content area */}
       <View style={styles.chatContent}>
         <ChatThread
           messages={messages}
@@ -274,17 +295,19 @@ export default function ChatScreen() {
           onDeleteMessage={(messageId) => softDelete({ id: messageId as Id<'chatMessages'> })}
           streamingMessageId={streamingMessageId}
         />
-        {/* Voice session overlay — floats above chat, does not replace it */}
-        {isVoiceActive && (
-          <View style={styles.voiceOverlayContainer} testID="voice-overlay-wrapper" pointerEvents="box-none">
-            <VoiceSessionOverlay
-              state={voiceState}
-              onRetry={startVoice}
-              testID="voice-session-overlay"
-            />
-          </View>
-        )}
       </View>
+
+      {/* Voice assistant overlay — modal with its own visibility management */}
+      <VoiceAssistantOverlay
+        state={voiceState}
+        transcript={transcriptEntries}
+        isMuted={isMuted}
+        onToggleMute={toggleMute}
+        onStop={stopVoice}
+        onDismiss={stopVoice}
+        onRetry={startVoice}
+        testID="voice-assistant-overlay"
+      />
       {/* Bottom area with safe area padding */}
       <View style={{ paddingBottom: insets.bottom }}>
         {sendError && (
@@ -338,12 +361,5 @@ const styles = StyleSheet.create({
   },
   chatContent: {
     flex: 1,
-  },
-  voiceOverlayContainer: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'center',
-    justifyContent: 'center',
-    // Semi-transparent background so chat is still visible beneath overlay
-    backgroundColor: 'rgba(0,0,0,0.35)',
   },
 })
