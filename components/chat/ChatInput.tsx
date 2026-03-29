@@ -10,6 +10,8 @@ import {
   type TriggersConfig,
   type SuggestionsProvidedProps,
 } from 'react-native-controlled-mentions'
+import { VoiceMicButton } from '@/components/voice/VoiceMicButton'
+import type { VoiceState } from '@/hooks/use-voice-session-state'
 
 export interface SlashCommand {
   /** Command name without the leading slash */
@@ -45,6 +47,14 @@ export interface ChatInputProps {
   planPending?: boolean
   /** Custom placeholder when plan is pending */
   planPendingPlaceholder?: string
+  /** Whether to show the voice button */
+  showVoiceButton?: boolean
+  /** Current voice session state */
+  voiceState?: VoiceState
+  /** Callback when voice session should start */
+  onVoiceStart?: () => void
+  /** Callback when voice session should stop */
+  onVoiceStop?: () => void
 }
 
 const DEFAULT_COMMANDS: SlashCommand[] = [
@@ -142,6 +152,10 @@ export function ChatInput({
   commands = DEFAULT_COMMANDS,
   planPending = false,
   planPendingPlaceholder = 'Waiting for plan approval...',
+  showVoiceButton = false,
+  voiceState = 'idle',
+  onVoiceStart,
+  onVoiceStop,
 }: ChatInputProps) {
   const { colors: themeColors } = useTheme()
 
@@ -328,21 +342,29 @@ export function ChatInput({
           </View>
         </View>
 
-        {/* Send Button */}
-        <Pressable
-          testID="chat-input-send-button"
-          onPress={handleSend}
-          disabled={!canSend}
-          className={cn(
-            'h-10 w-10 items-center justify-center rounded-full',
-            canSend ? 'bg-primary' : 'bg-muted'
-          )}
-        >
-          <Send
-            size={20}
-            color={canSend ? themeColors.primaryForeground : themeColors.mutedForeground}
+        {/* Send Button or Voice Mic Button */}
+        {showVoiceButton && value.length === 0 ? (
+          <VoiceMicButton
+            voiceState={voiceState ?? 'idle'}
+            onStart={onVoiceStart ?? (() => {})}
+            onStop={onVoiceStop ?? (() => {})}
           />
-        </Pressable>
+        ) : (
+          <Pressable
+            testID="chat-input-send-button"
+            onPress={handleSend}
+            disabled={!canSend}
+            className={cn(
+              'h-10 w-10 items-center justify-center rounded-full',
+              canSend ? 'bg-primary' : 'bg-muted'
+            )}
+          >
+            <Send
+              size={20}
+              color={canSend ? themeColors.primaryForeground : themeColors.mutedForeground}
+            />
+          </Pressable>
+        )}
       </View>
     </View>
   )
