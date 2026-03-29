@@ -217,9 +217,20 @@ export function ChatInput({
   const handleCommandSelect = useCallback(
     (suggestion: { id: string; name: string }) => {
       setForceShowCommands(false)
-      triggers.command.onSelect(suggestion)
+
+      // Check if mentions system is active (user typed "/")
+      const mentionsActive = triggers.command.keyword !== undefined
+
+      if (mentionsActive) {
+        // Use the mentions system's onSelect (normal flow)
+        triggers.command.onSelect(suggestion)
+      } else {
+        // Wand button forced panel - directly inject command as plain text
+        const commandText = `/${suggestion.name} `
+        setValue(commandText)
+      }
     },
-    [triggers.command]
+    [triggers.command, setValue]
   )
 
   // Handle wand button press - toggle command menu without injecting "/"
