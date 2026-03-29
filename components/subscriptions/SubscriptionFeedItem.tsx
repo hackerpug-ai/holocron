@@ -2,16 +2,17 @@ import { View, Pressable, StyleSheet, Image, Linking } from 'react-native'
 import { Text } from '@/components/ui/text'
 import { MarkdownText } from '@/components/markdown'
 import { useTheme } from '@/hooks/use-theme'
-import Animated, {
-  useAnimatedStyle,
-  withSpring,
-} from 'react-native-reanimated'
-import { useState } from 'react'
-import { Play, Clock, Calendar, User, Newspaper, Star, MessageSquare, Share2 } from '@/components/ui/icons'
+import Animated from 'react-native-reanimated'
+import { Play, Clock, Calendar, User, Newspaper, Star, MessageSquare, MessageSquarePlus, Share2, ExternalLink, ThumbsUp, ThumbsDown } from '@/components/ui/icons'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { PlatformBadge } from './PlatformBadge'
-
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable)
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu'
+import { Icon } from '@/components/ui/icon'
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -80,6 +81,7 @@ interface VideoFeedCardProps {
   creatorName?: string
   viewsCount?: number
   publishedAt: number
+  onOpen?: () => void
 }
 
 function VideoFeedCard({
@@ -89,6 +91,7 @@ function VideoFeedCard({
   creatorName,
   viewsCount,
   publishedAt,
+  onOpen,
 }: VideoFeedCardProps) {
   const { colors, spacing, radius } = useTheme()
 
@@ -144,13 +147,20 @@ function VideoFeedCard({
 
       {/* Title and metadata */}
       <View style={[styles.metadata, { gap: spacing.xs }]}>
-        <Text
-          style={{ color: colors.foreground }}
-          numberOfLines={2}
-          testID="feed-item-video-title"
-        >
-          {title}
-        </Text>
+        <View style={styles.titleRow}>
+          <Text
+            style={{ color: colors.foreground, flex: 1 }}
+            numberOfLines={2}
+            testID="feed-item-video-title"
+          >
+            {title}
+          </Text>
+          {onOpen && (
+            <Pressable onPress={onOpen} testID="feed-item-video-open-button">
+              <Icon as={ExternalLink} size={16} className="text-muted-foreground" />
+            </Pressable>
+          )}
+        </View>
         {creatorName && (
           <Text
             style={{ color: colors.mutedForeground }}
@@ -192,6 +202,7 @@ interface BlogFeedCardProps {
   creatorName?: string
   wordCount?: number
   publishedAt: number
+  onOpen?: () => void
 }
 
 function BlogFeedCard({
@@ -200,20 +211,28 @@ function BlogFeedCard({
   creatorName,
   wordCount,
   publishedAt,
+  onOpen,
 }: BlogFeedCardProps) {
   const { colors, spacing } = useTheme()
   const readTime = wordCount ? calculateReadTime(wordCount) : null
 
   return (
     <View style={[styles.blogContainer, { gap: spacing.md }]}>
-      {/* Title */}
-      <Text
-        style={{ color: colors.foreground }}
-        numberOfLines={2}
-        testID="feed-item-blog-title"
-      >
-        {title}
-      </Text>
+      {/* Title row with Open button */}
+      <View style={styles.titleRow}>
+        <Text
+          style={{ color: colors.foreground, flex: 1 }}
+          numberOfLines={2}
+          testID="feed-item-blog-title"
+        >
+          {title}
+        </Text>
+        {onOpen && (
+          <Pressable onPress={onOpen} testID="feed-item-blog-open-button">
+            <Icon as={ExternalLink} size={16} className="text-muted-foreground" />
+          </Pressable>
+        )}
+      </View>
 
       {/* Excerpt */}
       {summary && (
@@ -287,6 +306,7 @@ interface SocialFeedCardProps {
   sharesCount?: number
   publishedAt: number
   onLinkPress?: (url: string) => void
+  onOpen?: () => void
 }
 
 function SocialFeedCard({
@@ -300,6 +320,7 @@ function SocialFeedCard({
   sharesCount,
   publishedAt,
   onLinkPress,
+  onOpen,
 }: SocialFeedCardProps) {
   const { colors, spacing } = useTheme()
 
@@ -334,6 +355,11 @@ function SocialFeedCard({
             >
               {authorName}
             </Text>
+            {onOpen && (
+              <Pressable onPress={onOpen} testID="feed-item-social-open-button">
+                <Icon as={ExternalLink} size={14} className="text-muted-foreground" />
+              </Pressable>
+            )}
           </View>
           <View style={[styles.authorMetaRow, { gap: spacing.xs }]} testID="feed-item-social-platform">
             <Text
@@ -429,8 +455,12 @@ export interface FeedItemProps {
   thumbnailUrl?: string
   viewed: boolean
   publishedAt: number
-  onPress?: () => void
   testID?: string
+  // Context menu callbacks
+  onOpen?: () => void
+  onAddToChat?: () => void
+  onThumbsUp?: () => void
+  onThumbsDown?: () => void
   // Video-specific props
   duration?: number
   creatorName?: string
@@ -452,7 +482,7 @@ export interface FeedItemProps {
  * Displays different content types (video, blog, social) in the subscription feed.
  * Handles:
  * - Variant switching based on contentType
- * - Animated press feedback (0.98 scale)
+ * - Context menu for actions (Open, Add to Chat, Thumbs Up, Thumbs Down)
  * - Viewed state styling (opacity 0.6)
  * - Semantic theme tokens
  * - Proper testID attributes
@@ -477,81 +507,91 @@ export function SubscriptionFeedItem({
   likesCount,
   commentsCount,
   sharesCount,
-  onPress,
+  onOpen,
+  onAddToChat,
+  onThumbsUp,
+  onThumbsDown,
   testID,
 }: FeedItemProps) {
   const { colors, spacing, radius } = useTheme()
-  const [pressed, setPressed] = useState(false)
-
-  const animatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ scale: withSpring(pressed ? 0.98 : 1) }],
-    }
-  })
-
-  const handlePressIn = () => {
-    setPressed(true)
-  }
-
-  const handlePressOut = () => {
-    setPressed(false)
-  }
 
   return (
-    <AnimatedPressable
-      onPress={onPress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
-      style={[
-        styles.container,
-        animatedStyle,
-        {
-          opacity: viewed ? 0.6 : 1,
-          backgroundColor: colors.card,
-          borderColor: colors.border,
-          borderRadius: radius.lg,
-          padding: spacing.lg,
-        },
-      ]}
-      testID={testID || `feed-item-${feedItemId}`}
-    >
-      {/* Variant content based on contentType */}
-      {contentType === 'video' && (
-        <VideoFeedCard
-          thumbnailUrl={thumbnailUrl}
-          duration={duration}
-          title={title}
-          creatorName={creatorName}
-          viewsCount={viewsCount}
-          publishedAt={publishedAt}
-        />
-      )}
+    <ContextMenu>
+      <ContextMenuTrigger>
+        <Animated.View
+          style={[
+            styles.container,
+            {
+              opacity: viewed ? 0.6 : 1,
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+              borderRadius: radius.lg,
+              padding: spacing.lg,
+            },
+          ]}
+          testID={testID || `feed-item-${feedItemId}`}
+        >
+          {/* Variant content based on contentType */}
+          {contentType === 'video' && (
+            <VideoFeedCard
+              thumbnailUrl={thumbnailUrl}
+              duration={duration}
+              title={title}
+              creatorName={creatorName}
+              viewsCount={viewsCount}
+              publishedAt={publishedAt}
+              onOpen={onOpen}
+            />
+          )}
 
-      {contentType === 'blog' && (
-        <BlogFeedCard
-          title={title}
-          summary={summary}
-          creatorName={creatorName}
-          wordCount={wordCount}
-          publishedAt={publishedAt}
-        />
-      )}
+          {contentType === 'blog' && (
+            <BlogFeedCard
+              title={title}
+              summary={summary}
+              creatorName={creatorName}
+              wordCount={wordCount}
+              publishedAt={publishedAt}
+              onOpen={onOpen}
+            />
+          )}
 
-      {contentType === 'social' && (
-        <SocialFeedCard
-          authorName={creatorName || 'Unknown'}
-          authorHandle={authorHandle || ''}
-          authorAvatarUrl={authorAvatarUrl}
-          content={summary || title}
-          platform={platform || 'twitter'}
-          likesCount={likesCount}
-          commentsCount={commentsCount}
-          sharesCount={sharesCount}
-          publishedAt={publishedAt}
-          onLinkPress={(url) => Linking.openURL(url)}
-        />
-      )}
-    </AnimatedPressable>
+          {contentType === 'social' && (
+            <SocialFeedCard
+              authorName={creatorName || 'Unknown'}
+              authorHandle={authorHandle || ''}
+              authorAvatarUrl={authorAvatarUrl}
+              content={summary || title}
+              platform={platform || 'twitter'}
+              likesCount={likesCount}
+              commentsCount={commentsCount}
+              sharesCount={sharesCount}
+              publishedAt={publishedAt}
+              onLinkPress={(url) => Linking.openURL(url)}
+              onOpen={onOpen}
+            />
+          )}
+        </Animated.View>
+      </ContextMenuTrigger>
+
+      <ContextMenuContent>
+        <ContextMenuItem onPress={onOpen}>
+          <Icon as={ExternalLink} size={16} className="text-foreground" />
+          <Text>Open</Text>
+        </ContextMenuItem>
+        <ContextMenuItem onPress={onAddToChat}>
+          <Icon as={MessageSquarePlus} size={16} className="text-foreground" />
+          <Text>Add to Chat</Text>
+        </ContextMenuItem>
+        <ContextMenuItem onPress={onThumbsUp}>
+          <Icon as={ThumbsUp} size={16} className="text-foreground" />
+          <Text>Thumbs Up</Text>
+        </ContextMenuItem>
+        <ContextMenuItem onPress={onThumbsDown}>
+          <Icon as={ThumbsDown} size={16} className="text-foreground" />
+          <Text>Thumbs Down</Text>
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   )
 }
 
@@ -561,6 +601,11 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   contentContainer: {
+    gap: 8,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     gap: 8,
   },
   // Video card styles

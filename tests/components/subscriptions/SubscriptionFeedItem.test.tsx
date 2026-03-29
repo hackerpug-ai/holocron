@@ -47,7 +47,10 @@ describe('SubscriptionFeedItem - Component Structure', () => {
       const source = readComponent()
       expect(source).toContain('summary?:')
       expect(source).toContain('thumbnailUrl?:')
-      expect(source).toContain('onPress?:')
+      expect(source).toContain('onOpen?:')
+      expect(source).toContain('onAddToChat?:')
+      expect(source).toContain('onThumbsUp?:')
+      expect(source).toContain('onThumbsDown?:')
     })
   })
 
@@ -74,27 +77,51 @@ describe('SubscriptionFeedItem - Component Structure', () => {
     })
   })
 
-  describe('AC-3: Animated press feedback with scale transform', () => {
-    it('should use React Native Reanimated', () => {
+  describe('AC-3: Context menu with actions', () => {
+    it('should use ContextMenu components', () => {
       const source = readComponent()
-      expect(source).toContain('react-native-reanimated')
+      expect(source).toContain('ContextMenu')
+      expect(source).toContain('ContextMenuTrigger')
+      expect(source).toContain('ContextMenuContent')
+      expect(source).toContain('ContextMenuItem')
     })
 
-    it('should create Animated Pressable component', () => {
+    it('should have context menu callback props', () => {
       const source = readComponent()
-      expect(source).toContain('Animated.createAnimatedComponent')
-      expect(source).toContain('Pressable')
+      expect(source).toContain('onOpen?:')
+      expect(source).toContain('onAddToChat?:')
+      expect(source).toContain('onThumbsUp?:')
+      expect(source).toContain('onThumbsDown?:')
     })
 
-    it('should use useAnimatedStyle hook', () => {
+    it('should have Open menu item with ExternalLink icon', () => {
       const source = readComponent()
-      expect(source).toContain('useAnimatedStyle')
+      expect(source).toContain('ExternalLink')
+      expect(source).toContain('Open')
     })
 
-    it('should scale to 0.98 on press', () => {
+    it('should have Add to Chat menu item with MessageSquarePlus icon', () => {
       const source = readComponent()
-      expect(source).toContain('0.98')
-      expect(source).toMatch(/scale.*0\.98/)
+      expect(source).toContain('MessageSquarePlus')
+      expect(source).toContain('Add to Chat')
+    })
+
+    it('should have Thumbs Up menu item with ThumbsUp icon', () => {
+      const source = readComponent()
+      expect(source).toContain('ThumbsUp')
+      expect(source).toContain('Thumbs Up')
+    })
+
+    it('should have Thumbs Down menu item with ThumbsDown icon', () => {
+      const source = readComponent()
+      expect(source).toContain('ThumbsDown')
+      expect(source).toContain('Thumbs Down')
+    })
+
+    it('should use Animated.View instead of AnimatedPressable', () => {
+      const source = readComponent()
+      expect(source).toContain('Animated.View')
+      expect(source).not.toContain('AnimatedPressable')
     })
   })
 
@@ -318,6 +345,19 @@ describe('SubscriptionFeedItem - Component Structure', () => {
         expect(source).toMatch(/Play.*size.*32.*testID.*feed-item-video-fallback-icon/)
       })
     })
+
+    describe('AC-6: Display Open button in card', () => {
+      it('should have Open button testID for video card', () => {
+        const source = readComponent()
+        expect(source).toContain('feed-item-video-open-button')
+      })
+
+      it('should use ExternalLink icon for Open button', () => {
+        const source = readComponent()
+        const videoSection = source.split('function VideoFeedCard')[1]?.split('function BlogFeedCard')[0]
+        expect(videoSection).toContain('ExternalLink')
+      })
+    })
   })
 
   describe('FR-024: Blog Card Variant', () => {
@@ -392,6 +432,19 @@ describe('SubscriptionFeedItem - Component Structure', () => {
       it('should have link icon for blog', () => {
         const source = readComponent()
         expect(source).toContain('feed-item-blog-link-icon')
+      })
+    })
+
+    describe('AC-6: Display Open button in card', () => {
+      it('should have Open button testID for blog card', () => {
+        const source = readComponent()
+        expect(source).toContain('feed-item-blog-open-button')
+      })
+
+      it('should use ExternalLink icon for Open button', () => {
+        const source = readComponent()
+        const blogSection = source.split('function BlogFeedCard')[1]?.split('function SocialFeedCard')[0]
+        expect(blogSection).toContain('ExternalLink')
       })
     })
   })
@@ -585,6 +638,19 @@ describe('SubscriptionFeedItem - Component Structure', () => {
       it('should accept publishedAt as required prop', () => {
         const source = readComponent()
         expect(source).toContain('publishedAt: number')
+      })
+    })
+
+    describe('AC-6: Display Open button in card', () => {
+      it('should have Open button testID for social card', () => {
+        const source = readComponent()
+        expect(source).toContain('feed-item-social-open-button')
+      })
+
+      it('should use ExternalLink icon for Open button', () => {
+        const source = readComponent()
+        const socialSection = source.split('function SocialFeedCard')[1]?.split('export function')[0]
+        expect(socialSection).toContain('ExternalLink')
       })
     })
   })

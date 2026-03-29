@@ -271,6 +271,7 @@ export const createShopSession = mutation({
     priceMax: v.optional(v.number()),
     retailers: v.optional(v.array(v.string())),
     planId: v.optional(v.id("executionPlans")),
+    verifiedOnly: v.optional(v.boolean()),
   },
   handler: async (ctx, args): Promise<Id<"shopSessions">> => {
     const now = Date.now();
@@ -282,6 +283,7 @@ export const createShopSession = mutation({
       priceMax: args.priceMax,
       retailers: args.retailers,
       planId: args.planId,
+      verifiedOnly: args.verifiedOnly,
       status: "pending",
       createdAt: now,
       updatedAt: now,
@@ -365,6 +367,9 @@ export const batchCreateListings = mutation({
         productHash: v.string(),
         isDuplicate: v.boolean(),
         dealScore: v.optional(v.number()),
+        trustTier: v.optional(v.number()),
+        sellerTrustScore: v.optional(v.number()),
+        isVerifiedSeller: v.optional(v.boolean()),
       })
     ),
   },
@@ -405,6 +410,9 @@ export const createListing = mutation({
     productHash: v.string(),
     isDuplicate: v.boolean(),
     dealScore: v.optional(v.number()),
+    trustTier: v.optional(v.number()),
+    sellerTrustScore: v.optional(v.number()),
+    isVerifiedSeller: v.optional(v.boolean()),
   },
   handler: async (ctx, args): Promise<Id<"shopListings">> => {
     const now = Date.now();

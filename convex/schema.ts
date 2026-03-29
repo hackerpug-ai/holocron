@@ -390,6 +390,7 @@ export default defineSchema({
     priceMax: v.optional(v.number()),
     retailers: v.optional(v.array(v.string())),
     planId: v.optional(v.id("executionPlans")), // Link to execution plan
+    verifiedOnly: v.optional(v.boolean()), // Filter for verified sellers only
     status: v.string(), // "pending" | "searching" | "completed" | "failed"
     totalListings: v.optional(v.number()),
     bestDealId: v.optional(v.id("shopListings")),
@@ -420,11 +421,16 @@ export default defineSchema({
     productHash: v.string(), // For deduplication
     isDuplicate: v.boolean(),
     dealScore: v.optional(v.number()), // 0-100 computed score
+    // Trust fields for seller verification and trustworthiness
+    trustTier: v.optional(v.number()), // 1-5 tier classification
+    sellerTrustScore: v.optional(v.number()), // 0-100 trust score
+    isVerifiedSeller: v.optional(v.boolean()), // Platform-verified seller
     createdAt: v.number(),
   })
     .index("by_session", ["sessionId"])
     .index("by_session_deal_score", ["sessionId", "dealScore"])
-    .index("by_product_hash", ["productHash"]),
+    .index("by_product_hash", ["productHash"])
+    .index("by_trust_tier", ["sessionId", "trustTier"]),
 
   // Tool call approvals for human-in-the-loop tool execution
   toolCalls: defineTable({

@@ -16,12 +16,38 @@ import { createHash } from "node:crypto";
 // ============================================================================
 
 /**
+ * Trust tier levels
+ */
+export type TrustTier = 1 | 2 | 3;
+
+/**
+ * Warranty types
+ */
+export type WarrantyType = "manufacturer" | "retailer" | "seller" | "none";
+
+/**
+ * Marketplace seller signals extracted from content
+ */
+export interface MarketplaceSellerSignals {
+  feedbackCount?: number;
+  positivePercentage?: number;
+  isTopRated?: boolean;
+  hasReturnPolicy?: boolean;
+  hasAuthenticityGuarantee?: boolean;
+  isShippedFromAmazon?: boolean;
+}
+
+/**
  * Retailer configuration
  */
 export interface RetailerConfig {
   name: string;
   domain: string;
   searchPattern?: string; // Optional custom search pattern
+  trustTier: TrustTier;
+  isAuthorized: boolean;
+  warrantyType: WarrantyType;
+  maxListingsPerSearch: number;
 }
 
 /**
@@ -42,6 +68,8 @@ export interface ShopSearchResult {
   productHash: string;
   dealScore?: number;
   rawContent?: string;
+  trustTier?: TrustTier;
+  sellerTrustScore?: number;
 }
 
 /**
@@ -71,30 +99,58 @@ export const RETAILERS: Record<string, RetailerConfig> = {
   amazon: {
     name: "Amazon",
     domain: "amazon.com",
+    trustTier: 1,
+    isAuthorized: true,
+    warrantyType: "manufacturer",
+    maxListingsPerSearch: 20,
   },
   ebay: {
     name: "eBay",
     domain: "ebay.com",
+    trustTier: 2,
+    isAuthorized: false,
+    warrantyType: "seller",
+    maxListingsPerSearch: 30,
   },
   newegg: {
     name: "Newegg",
     domain: "newegg.com",
+    trustTier: 1,
+    isAuthorized: true,
+    warrantyType: "retailer",
+    maxListingsPerSearch: 20,
   },
   bestbuy: {
     name: "Best Buy",
     domain: "bestbuy.com",
+    trustTier: 1,
+    isAuthorized: true,
+    warrantyType: "retailer",
+    maxListingsPerSearch: 15,
   },
   bh: {
     name: "B&H Photo",
     domain: "bhphotovideo.com",
+    trustTier: 1,
+    isAuthorized: true,
+    warrantyType: "retailer",
+    maxListingsPerSearch: 15,
   },
   backmarket: {
     name: "Back Market",
     domain: "backmarket.com",
+    trustTier: 2,
+    isAuthorized: true,
+    warrantyType: "retailer",
+    maxListingsPerSearch: 20,
   },
   walmart: {
     name: "Walmart",
     domain: "walmart.com",
+    trustTier: 1,
+    isAuthorized: true,
+    warrantyType: "retailer",
+    maxListingsPerSearch: 20,
   },
 };
 

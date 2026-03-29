@@ -8,7 +8,7 @@
 import React, { useEffect, useState } from 'react'
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native'
 import { useRouter } from 'expo-router'
-import { useAction, useMutation, useQuery } from 'convex/react'
+import { useAction, useQuery } from 'convex/react'
 import type { Doc } from '@/convex/_generated/dataModel'
 import { api } from '@/convex/_generated/api'
 import { Settings } from '@/components/ui/icons'
@@ -56,15 +56,12 @@ export function SubscriptionFeedScreen({
 }: SubscriptionFeedScreenProps) {
   const { colors, spacing } = useTheme()
   const router = useRouter()
-  const { webViewState, openUrl, closeWebView } = useWebView()
+  const { webViewState, closeWebView } = useWebView()
 
   // Filter state
   const [selectedFilter, setSelectedFilter] = useState<FilterType>('all')
   // Settings modal state
   const [settingsVisible, setSettingsVisible] = useState(false)
-
-  // Mutation to fetch URL when opening a feed item
-  const openFeedItemMutation = useMutation(api.feeds.mutations.openFeedItem)
 
   // Fetch digest summary for filter counts
   const digest = useQuery(api.feeds.queries.getDigestSummary, {
@@ -113,19 +110,6 @@ export function SubscriptionFeedScreen({
   const handleManageSubscriptions = () => {
     setSettingsVisible(false)
     router.push('/subscriptions')
-  }
-
-  const handleItemPress = async (item: Doc<'feedItems'>) => {
-    try {
-      const url = await openFeedItemMutation({ feedItemId: item._id })
-      if (url) {
-        openUrl(url)
-      } else {
-        console.warn('[Feed] No URL available for item:', item._id)
-      }
-    } catch (error) {
-      console.error('[Feed] Failed to open item:', error)
-    }
   }
 
   // Load more items when reaching end of list
@@ -205,7 +189,6 @@ export function SubscriptionFeedScreen({
           publishedAt={item.publishedAt}
           authorHandle={item.authorHandle}
           creatorName={item.creatorName}
-          onPress={() => handleItemPress(item)}
           testID={`${testID}-item-${item._id}`}
         />
       </View>
