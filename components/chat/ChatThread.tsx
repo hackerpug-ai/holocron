@@ -15,6 +15,7 @@ export interface ChatMessage {
   message_type?: MessageType
   card_data?: Record<string, unknown> | null
   toolCallId?: string | null
+  voiceSessionId?: string | null
   createdAt: Date
 }
 
@@ -117,6 +118,7 @@ export function ChatThread({
         message_type={item.message_type}
         card_data={item.card_data}
         toolCallId={item.toolCallId}
+        voiceSessionId={item.voiceSessionId}
         createdAt={item.createdAt}
         showTimestamp={true}
         testID={`message-${item.id}`}

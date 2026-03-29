@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils'
 import type { MessageRole, MessageType } from '@/lib/types/conversations'
 import { formatTimestamp } from '@/lib/formatTimestamp'
 import { ResultCard, type ResultCardData, type CardType } from '@/components/ui/result-card'
+import { Mic } from '@/components/ui/icons'
 import { DeepResearchLoadingCard } from '@/components/deep-research/DeepResearchLoadingCard'
 import { AssimilationCard } from '@/components/AssimilationCard'
 import { ShopResultsCard, ShopLoadingCard } from '@/components/shop'
@@ -55,6 +56,7 @@ export interface MessageBubbleProps {
   message_type?: MessageType
   card_data?: Record<string, unknown> | null
   toolCallId?: string | null
+  voiceSessionId?: string | null
   isStreaming?: boolean
   createdAt?: Date
   showTimestamp?: boolean
@@ -78,6 +80,7 @@ export function MessageBubble({
   message_type,
   card_data,
   toolCallId,
+  voiceSessionId,
   isStreaming = false,
   createdAt,
   showTimestamp = true,
@@ -235,18 +238,25 @@ export function MessageBubble({
         </View>
       )}
       {showTimestamp && createdAt && (
-        <Text
-          variant="small"
+        <View
           className={cn(
-            'text-muted-foreground mt-0.5 text-xs',
+            'mt-0.5 flex-row items-center gap-1',
             isUser && 'self-end',
             isSystem && 'self-center',
             !isUser && !isSystem && 'self-start'
           )}
-          testID={`${testID}-timestamp`}
         >
-          {formatTimestamp(createdAt)}
-        </Text>
+          {voiceSessionId && (
+            <Mic size={12} className="text-muted-foreground" />
+          )}
+          <Text
+            variant="small"
+            className="text-muted-foreground text-xs"
+            testID={`${testID}-timestamp`}
+          >
+            {formatTimestamp(createdAt)}
+          </Text>
+        </View>
       )}
     </View>
   )

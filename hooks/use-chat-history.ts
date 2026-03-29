@@ -58,6 +58,7 @@ export function useChatHistory(
       message_type: msg.messageType,
       card_data: msg.cardData,
       toolCallId: msg.toolCallId ?? null,
+      voiceSessionId: msg.voiceSessionId ?? null,
       createdAt: new Date(msg.createdAt),
     }
 
