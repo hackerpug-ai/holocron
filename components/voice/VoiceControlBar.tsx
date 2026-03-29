@@ -1,0 +1,251 @@
+/**
+ * VoiceControlBar
+ *
+ * Control buttons for the voice overlay.
+ *
+ * Three buttons in a horizontal row:
+ * - Mute (left): Mic/MicOff icon toggle, 52dp diameter. Active → colors.primary, Muted → colors.destructive
+ * - Stop (center): Square icon, 64dp diameter (primary action), always colors.destructive
+ * - Dismiss (right): X icon, 52dp diameter, colors.mutedForeground
+ *
+ * Each button uses 300ms debounce pattern from VoiceMicButton (useRef guard).
+ * All get accessibilityRole="button" and descriptive accessibilityLabel.
+ *
+ * Uses Lucide icons from lucide-react-native, theme tokens from useTheme().
+ */
+
+import { useRef, useState } from 'react'
+import { Pressable, StyleSheet, View } from 'react-native'
+import { Mic, MicOff, Square, X } from '@/components/ui/icons'
+import { useTheme } from '@/hooks/use-theme'
+
+// ─── Types ─────────────────────────────────────────────────────────────────────
+
+export interface VoiceControlBarProps {
+  /** Whether the microphone is muted */
+  isMuted: boolean
+  /** Called when user taps mute button */
+  onToggleMute: () => void
+  /** Called when user taps stop button */
+  onStop: () => void
+  /** Called when user taps dismiss button */
+  onDismiss: () => void
+  /** Optional testID for the root container */
+  testID?: string
+}
+
+// ─── Helper Types ─────────────────────────────────────────────────────────────
+
+type ControlButtonType = 'mute' | 'stop' | 'dismiss'
+
+// ─── Sub-components ────────────────────────────────────────────────────────────
+
+/**
+ * Individual control button with debounce.
+ */
+function ControlButton({
+  type,
+  isMuted,
+  onPress,
+  colors,
+  radius,
+  testID,
+}: {
+  type: ControlButtonType
+  isMuted: boolean
+  onPress: () => void
+  colors: ReturnType<typeof useTheme>['colors']
+  radius: ReturnType<typeof useTheme>['radius']
+  testID?: string
+}) {
+  const [pressed, setPressed] = useState(false)
+  const debounceRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Determine button styling
+  const getButtonStyle = () => {
+    const baseStyle = {
+      justifyContent: 'center' as const,
+      alignItems: 'center' as const,
+    }
+
+    switch (type) {
+      case 'mute':
+        return {
+          ...baseStyle,
+          width: 52,
+          height: 52,
+          borderRadius: 26,
+          backgroundColor: pressed ? colors.primary : colors.card,
+          borderWidth: 2,
+          borderColor: isMuted ? colors.destructive : colors.primary,
+        }
+      case 'stop':
+        return {
+          ...baseStyle,
+          width: 64,
+          height: 64,
+          borderRadius: radius.lg,
+          backgroundColor: pressed ? colors.destructive : colors.card,
+          borderWidth: 2,
+          borderColor: colors.destructive,
+        }
+      case 'dismiss':
+        return {
+          ...baseStyle,
+          width: 52,
+          height: 52,
+          borderRadius: 26,
+          backgroundColor: pressed ? colors.mutedForeground : colors.card,
+          borderWidth: 2,
+          borderColor: colors.mutedForeground,
+        }
+    }
+  }
+
+  // Determine icon and color
+  const getIcon = () => {
+    const iconColor =
+      type === 'mute'
+        ? isMuted
+          ? colors.destructive
+          : colors.primary
+        : type === 'stop'
+        ? colors.destructive
+        : colors.mutedForeground
+
+    switch (type) {
+      case 'mute':
+        return isMuted ? <MicOff size={24} color={iconColor} /> : <Mic size={24} color={iconColor} />
+      case 'stop':
+        return <Square size={28} color={iconColor} />
+      case 'dismiss':
+        return <X size={24} color={iconColor} />
+    }
+  }
+
+  // Determine accessibility label
+  const getAccessibilityLabel = () => {
+    switch (type) {
+      case 'mute':
+        return isMuted ? 'Unmute microphone' : 'Mute microphone'
+      case 'stop':
+        return 'Stop voice session'
+      case 'dismiss':
+        return 'Dismiss voice assistant'
+    }
+  }
+
+  // Handle press with 300ms debounce
+  const handlePress = () => {
+    // Clear any existing debounce timer
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current)
+    }
+
+    // Set pressed state for visual feedback
+    setPressed(true)
+    setTimeout(() => setPressed(false), 150)
+
+    // Debounce the actual callback
+    debounceRef.current = setTimeout(() => {
+      onPress()
+    }, 300)
+  }
+
+  return (
+    <Pressable
+      testID={testID}
+      onPress={handlePress}
+      onPressIn={() => setPressed(true)}
+      onPressOut={() => setPressed(false)}
+      accessibilityRole="button"
+      accessibilityLabel={getAccessibilityLabel()}
+      style={[styles.button, getButtonStyle()]}
+    >
+      {getIcon()}
+    </Pressable>
+  )
+}
+
+// ─── Main Component ────────────────────────────────────────────────────────────
+
+/**
+ * VoiceControlBar renders control buttons for the voice overlay.
+ *
+ * @example
+ * ```tsx
+ * <VoiceControlBar
+ *   isMuted={false}
+ *   onToggleMute={() => toggleMute()}
+ *   onStop={() => stopSession()}
+ *   onDismiss={() => dismiss()}
+ * />
+ * ```
+ */
+export function VoiceControlBar({
+  isMuted,
+  onToggleMute,
+  onStop,
+  onDismiss,
+  testID = 'voice-control-bar',
+}: VoiceControlBarProps) {
+  const { colors, spacing, radius } = useTheme()
+
+  return (
+    <View
+      testID={testID}
+      style={[
+        styles.container,
+        {
+          paddingHorizontal: spacing.lg,
+          paddingVertical: spacing.md,
+          gap: spacing.md,
+        },
+      ]}
+    >
+      {/* Mute button */}
+      <ControlButton
+        type="mute"
+        isMuted={isMuted}
+        onPress={onToggleMute}
+        colors={colors}
+        radius={radius}
+        testID="voice-assistant-control-mute"
+      />
+
+      {/* Stop button (center) */}
+      <ControlButton
+        type="stop"
+        isMuted={isMuted}
+        onPress={onStop}
+        colors={colors}
+        radius={radius}
+        testID="voice-assistant-control-stop"
+      />
+
+      {/* Dismiss button */}
+      <ControlButton
+        type="dismiss"
+        isMuted={isMuted}
+        onPress={onDismiss}
+        colors={colors}
+        radius={radius}
+        testID="voice-assistant-control-dismiss"
+      />
+    </View>
+  )
+}
+
+// ─── Styles ────────────────────────────────────────────────────────────────────
+
+const styles = StyleSheet.create({
+  container: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+  },
+  button: {
+    // Dynamic styles applied inline based on button type
+  },
+})
