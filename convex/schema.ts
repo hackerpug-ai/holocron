@@ -813,6 +813,9 @@ export default defineSchema({
     // View tracking
     viewed: v.boolean(),
     viewedAt: v.optional(v.number()),
+    // User feedback
+    userFeedback: v.optional(v.union(v.literal("up"), v.literal("down"))),
+    userFeedbackAt: v.optional(v.number()),
     // Timestamps
     publishedAt: v.number(), // Earliest publishedAt in group
     discoveredAt: v.number(), // When this feed item was created

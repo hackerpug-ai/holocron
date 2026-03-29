@@ -14,6 +14,7 @@ import { NotificationToastProvider } from '@/components/notifications'
 import { usePushNotifications } from '@/hooks/use-push-notifications'
 import * as Linking from 'expo-linking'
 import { router } from 'expo-router'
+import { PortalHost } from '@rn-primitives/portal'
 
 // Validate required env vars at startup
 const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL
@@ -114,6 +115,7 @@ export default function RootLayout() {
                   <Stack.Screen name="toolbelt/add" options={{ presentation: 'modal' }} />
                   <Stack.Screen name="+not-found" />
                 </Stack>
+                <PortalHost />
               </NotificationToastProvider>
             </ThemeSync>
           </QueryClientProvider>

@@ -75,6 +75,11 @@ export const createDigestNotificationArgs = {
   limit: v.optional(v.number()),
 };
 
+export const submitFeedbackArgs = {
+  feedItemId: v.id("feedItems"),
+  feedback: v.union(v.literal("up"), v.literal("down")),
+};
+
 // Feed settings validators
 export const feedSettingsFields = {
   enablePushNotifications: v.boolean(),

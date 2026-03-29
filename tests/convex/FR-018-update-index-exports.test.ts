@@ -10,13 +10,13 @@ import * as path from "path";
 
 describe("FR-018: Update feeds index exports", () => {
   describe("AC-1: Verify mutations.ts exists with all mutations", () => {
-    it("should have six mutations exported", async () => {
+    it("should have seven mutations exported", async () => {
       const mutationsPath = path.join(process.cwd(), "convex/feeds/mutations.ts");
       const content = fs.readFileSync(mutationsPath, "utf-8");
 
-      // Should have 6 export const statements (markViewed, markAllViewed, createDigestNotification, updateFeedSettings, openFeedItem, backfillInFeedField)
+      // Should have 7 export const statements (markViewed, markAllViewed, createDigestNotification, updateFeedSettings, openFeedItem, backfillInFeedField, submitFeedback)
       const exportMatches = content.match(/export\s+const\s+\w+/g) || [];
-      expect(exportMatches.length).toBe(6);
+      expect(exportMatches.length).toBe(7);
 
       // Should have specific mutations
       expect(content).toMatch(/export\s+const\s+markViewed/);
@@ -25,6 +25,7 @@ describe("FR-018: Update feeds index exports", () => {
       expect(content).toMatch(/export\s+const\s+updateFeedSettings/);
       expect(content).toMatch(/export\s+const\s+openFeedItem/);
       expect(content).toMatch(/export\s+const\s+backfillInFeedField/);
+      expect(content).toMatch(/export\s+const\s+submitFeedback/);
     });
   });
 

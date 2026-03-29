@@ -6,7 +6,7 @@
 
 import { mutation } from "../_generated/server";
 import { v } from "convex/values";
-import { markViewedArgs, markAllViewedArgs, createDigestNotificationArgs } from "./validators";
+import { markViewedArgs, markAllViewedArgs, createDigestNotificationArgs, submitFeedbackArgs } from "./validators";
 
 /**
  * Mark feed items as viewed
@@ -277,5 +277,32 @@ export const backfillInFeedField = mutation({
     }
 
     return { updated: contentWithoutFlag.length };
+  },
+});
+
+/**
+ * Submit feedback on a feed item
+ *
+ * Records user feedback (up/down) on a feed item.
+ * Updates userFeedback and userFeedbackAt fields.
+ */
+export const submitFeedback = mutation({
+  args: submitFeedbackArgs,
+  handler: async (ctx, args) => {
+    const { feedItemId, feedback } = args;
+
+    // Verify the feed item exists
+    const feedItem = await ctx.db.get(feedItemId);
+    if (!feedItem) {
+      throw new Error("Feed item not found");
+    }
+
+    // Update the feed item with feedback
+    await ctx.db.patch(feedItemId, {
+      userFeedback: feedback,
+      userFeedbackAt: Date.now(),
+    });
+
+    return { success: true, feedback };
   },
 });
