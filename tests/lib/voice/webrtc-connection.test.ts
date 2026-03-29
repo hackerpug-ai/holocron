@@ -62,10 +62,8 @@ vi.mock('react-native-incall-manager', () => ({
   },
 }))
 
-vi.mock('expo-av', () => ({
-  Audio: {
-    setAudioModeAsync: vi.fn(() => Promise.resolve()),
-  },
+vi.mock('expo-audio', () => ({
+  setAudioModeAsync: vi.fn(() => Promise.resolve()),
 }))
 
 // Mock global fetch
@@ -75,7 +73,7 @@ vi.stubGlobal('fetch', mockFetch)
 // --- Import after mocks ---
 import { WebRTCConnection } from '@/lib/voice/webrtc-connection'
 import InCallManager from 'react-native-incall-manager'
-import { Audio } from 'expo-av'
+import { setAudioModeAsync } from 'expo-audio'
 import { mediaDevices } from 'react-native-webrtc-web-shim'
 
 describe('WebRTCConnection', () => {
@@ -103,8 +101,8 @@ describe('WebRTCConnection', () => {
       await connection.connect('ek_test_token')
 
       // Audio setup
-      expect(Audio.setAudioModeAsync).toHaveBeenCalledWith({
-        playsInSilentModeIOS: true,
+      expect(setAudioModeAsync).toHaveBeenCalledWith({
+        playsInSilentMode: true,
       })
       expect(InCallManager.start).toHaveBeenCalledWith({ media: 'audio' })
       expect(InCallManager.setForceSpeakerphoneOn).toHaveBeenCalledWith(true)

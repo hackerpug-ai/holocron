@@ -5,7 +5,7 @@ import {
   type WebRTCDataChannel,
 } from 'react-native-webrtc-web-shim'
 import InCallManager from 'react-native-incall-manager'
-import { Audio } from 'expo-av'
+import { setAudioModeAsync } from 'expo-audio'
 
 const OPENAI_REALTIME_URL = 'https://api.openai.com/v1/realtime/calls'
 const DATA_CHANNEL_NAME = 'oai-events'
@@ -30,7 +30,7 @@ export class WebRTCConnection {
   async connect(ephemeralKey: string): Promise<void> {
     try {
       // Enable audio in silent mode (iOS)
-      await Audio.setAudioModeAsync({ playsInSilentModeIOS: true })
+      await setAudioModeAsync({ playsInSilentMode: true })
 
       // Force speaker output for voice assistant
       InCallManager.start({ media: 'audio' })

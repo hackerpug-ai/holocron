@@ -40,11 +40,3 @@ declare module "react-native-incall-manager" {
   };
   export default InCallManager;
 }
-
-declare module "expo-av" {
-  export const Audio: {
-    setAudioModeAsync(options: {
-      playsInSilentModeIOS: boolean;
-    }): Promise<void>;
-  };
-}
