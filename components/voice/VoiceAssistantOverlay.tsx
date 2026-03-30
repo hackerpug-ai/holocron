@@ -4,9 +4,10 @@
  * Full-screen voice assistant overlay that composes VoiceAgentOrb, VoiceTranscriptFeed, and VoiceControlBar.
  *
  * Layout:
- * - React Native Modal (transparent: true)
+ * - React Native Modal (transparent: true, animationType: none)
+ * - Reanimated slide-up entrance + backdrop fade (matches ChatPickerSheet pattern)
  * - SafeAreaView wrapping everything
- * - Semi-transparent background (~0.85 opacity, colors.background)
+ * - Semi-transparent background (~0.85 opacity via animated opacity, colors.background)
  * - Header zone: status label (state name) + dismiss X button (top-right)
  * - Center zone (flex:1): VoiceAgentOrb centered
  * - Lower zone: VoiceTranscriptFeed + VoiceControlBar stacked
@@ -16,8 +17,16 @@
  * All colors, spacing, and radii use theme tokens via useTheme().
  */
 
-import { useMemo } from 'react'
-import { Modal, Pressable, SafeAreaView, StyleSheet, View } from 'react-native'
+import { useCallback, useEffect, useMemo } from 'react'
+import { Dimensions, Modal, Pressable, SafeAreaView, StyleSheet, View } from 'react-native'
+import Animated, {
+  Easing,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated'
+import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import { Text } from '@/components/ui/text'
 import { X } from '@/components/ui/icons'
 import { useTheme } from '@/hooks/use-theme'
@@ -25,6 +34,22 @@ import { VoiceAgentOrb } from './VoiceAgentOrb'
 import { VoiceTranscriptFeed, type TranscriptEntry } from './VoiceTranscriptFeed'
 import { VoiceControlBar } from './VoiceControlBar'
 import type { VoiceSessionState } from '@/hooks/use-voice-session-state'
+
+// ─── Constants ─────────────────────────────────────────────────────────────────
+
+const SCREEN_HEIGHT = Dimensions.get('window').height
+
+const TIMING_IN = {
+  duration: 300,
+  easing: Easing.out(Easing.cubic),
+}
+
+const TIMING_OUT = {
+  duration: 250,
+  easing: Easing.in(Easing.cubic),
+}
+
+const DISMISS_THRESHOLD = 120
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -103,6 +128,64 @@ export function VoiceAssistantOverlay({
 }: VoiceAssistantOverlayProps) {
   const { colors, spacing } = useTheme()
 
+  // ─── Animation shared values ──────────────────────────────────────────────
+  const translateY = useSharedValue(SCREEN_HEIGHT)
+  const backdropOpacity = useSharedValue(0)
+
+  // Trigger entrance animation when overlay becomes active (status !== 'idle')
+  useEffect(() => {
+    if (state.status !== 'idle') {
+      translateY.value = withTiming(0, TIMING_IN)
+      backdropOpacity.value = withTiming(0.85, TIMING_IN)
+    }
+  }, [state.status, translateY, backdropOpacity])
+
+  // Animate out then call the dismiss callback
+  const animateOut = useCallback(
+    (callback: () => void) => {
+      translateY.value = withTiming(SCREEN_HEIGHT, TIMING_OUT)
+      backdropOpacity.value = withTiming(0, TIMING_OUT)
+      setTimeout(() => callback(), 250)
+    },
+    [translateY, backdropOpacity]
+  )
+
+  const handleDismiss = useCallback(() => {
+    animateOut(onDismiss)
+  }, [animateOut, onDismiss])
+
+  const handleStop = useCallback(() => {
+    animateOut(onStop)
+  }, [animateOut, onStop])
+
+  // ─── Pan gesture: swipe down to dismiss ──────────────────────────────────
+  const panGesture = Gesture.Pan()
+    .onUpdate((e) => {
+      if (e.translationY > 0) {
+        translateY.value = e.translationY
+      }
+    })
+    .onEnd((e) => {
+      if (e.translationY > DISMISS_THRESHOLD) {
+        translateY.value = withTiming(SCREEN_HEIGHT, TIMING_OUT)
+        backdropOpacity.value = withTiming(0, TIMING_OUT)
+        runOnJS(onDismiss)()
+      } else {
+        translateY.value = withTiming(0, TIMING_IN)
+      }
+    })
+
+  // ─── Animated styles ──────────────────────────────────────────────────────
+  const containerAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: Math.max(translateY.value, 0) }],
+  }))
+
+  const backdropAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: backdropOpacity.value,
+  }))
+
+  // ─── Derived state ────────────────────────────────────────────────────────
+
   // Transform VoiceSessionState.transcripts to TranscriptEntry format
   const transcriptEntries: TranscriptEntry[] = useMemo(
     () =>
@@ -128,140 +211,148 @@ export function VoiceAssistantOverlay({
     <Modal
       visible
       transparent
-      animationType="fade"
+      animationType="none"
       statusBarTranslucent
       testID={testID}
     >
-      <SafeAreaView
+      {/* Backdrop — animated opacity over solid background color */}
+      <Animated.View
         style={[
-          styles.safeArea,
-          {
-            backgroundColor: `${colors.background}dd`, // ~0.85 opacity
-          },
+          styles.backdrop,
+          backdropAnimatedStyle,
+          { backgroundColor: colors.background },
         ]}
-      >
-        <View
-          style={[
-            styles.container,
-            {
-              paddingHorizontal: spacing.lg,
-            },
-          ]}
-        >
-          {/* Header zone: status label + dismiss button */}
-          <View
-            style={[
-              styles.header,
-              {
-                paddingTop: spacing.md,
-                paddingBottom: spacing.lg,
-                gap: spacing.md,
-              },
-            ]}
-          >
-            {/* Status label */}
-            <View style={styles.statusContainer}>
-              <Text
-                variant="h4"
-                style={{ color: colors.foreground }}
-                testID="voice-assistant-status-label"
-              >
-                {statusLabel}
-              </Text>
-              {isError && state.errorMessage && (
-                <Text
-                  variant="p"
-                  className="text-sm"
-                  style={{ color: colors.destructive, marginTop: 4 }}
-                  testID="voice-assistant-error-message"
-                >
-                  {state.errorMessage}
-                </Text>
-              )}
-            </View>
+        pointerEvents="none"
+      />
 
-            {/* Dismiss button */}
-            <Pressable
-              testID="voice-assistant-header-dismiss"
-              onPress={onDismiss}
-              accessibilityRole="button"
-              accessibilityLabel="Dismiss voice assistant"
-              style={({ pressed }) => [
-                styles.dismissButton,
+      {/* Slide-up container */}
+      <GestureDetector gesture={panGesture}>
+        <Animated.View style={[styles.animatedContainer, containerAnimatedStyle]}>
+          <SafeAreaView style={styles.safeArea}>
+            <View
+              style={[
+                styles.container,
                 {
-                  backgroundColor: pressed ? colors.muted : colors.card,
-                  borderRadius: 20,
-                  padding: spacing.sm,
+                  paddingHorizontal: spacing.lg,
                 },
               ]}
             >
-              <X size={20} color={colors.mutedForeground} />
-            </Pressable>
-          </View>
-
-          {/* Center zone: VoiceAgentOrb */}
-          <View style={styles.centerZone}>
-            <VoiceAgentOrb
-              status={state.status}
-              size={160}
-              testID="voice-assistant-agent-orb"
-            />
-          </View>
-
-          {/* Lower zone: transcript + controls */}
-          <View
-            style={[
-              styles.lowerZone,
-              {
-                paddingBottom: spacing.xl,
-                gap: spacing.lg,
-              },
-            ]}
-          >
-            {/* Transcript feed */}
-            <VoiceTranscriptFeed
-              transcript={transcriptEntries}
-              testID="voice-assistant-transcript-feed"
-            />
-
-            {/* Control bar */}
-            <VoiceControlBar
-              isMuted={isMuted}
-              onToggleMute={onToggleMute}
-              onStop={onStop}
-              onDismiss={onDismiss}
-              testID="voice-assistant-control-bar"
-            />
-
-            {/* Retry button in error state */}
-            {isError && onRetry && (
-              <Pressable
-                testID="voice-assistant-retry-button"
-                onPress={onRetry}
-                accessibilityRole="button"
-                accessibilityLabel="Retry voice connection"
-                style={({ pressed }) => [
-                  styles.retryButton,
+              {/* Header zone: status label + dismiss button */}
+              <View
+                style={[
+                  styles.header,
                   {
-                    backgroundColor: pressed ? colors.primary : colors.card,
-                    borderColor: colors.primary,
-                    borderRadius: 12,
-                    paddingVertical: spacing.md,
-                    paddingHorizontal: spacing.xl,
+                    paddingTop: spacing.md,
+                    paddingBottom: spacing.lg,
+                    gap: spacing.md,
                   },
                 ]}
               >
-                <Text
-                  variant="lead"
-                  style={{ color: colors.primary }}
+                {/* Status label */}
+                <View style={styles.statusContainer}>
+                  <Text
+                    variant="h4"
+                    style={{ color: colors.foreground }}
+                    testID="voice-assistant-status-label"
+                  >
+                    {statusLabel}
+                  </Text>
+                  {isError && state.errorMessage && (
+                    <Text
+                      variant="p"
+                      className="text-sm"
+                      style={{ color: colors.destructive, marginTop: 4 }}
+                      testID="voice-assistant-error-message"
+                    >
+                      {state.errorMessage}
+                    </Text>
+                  )}
+                </View>
+
+                {/* Dismiss button */}
+                <Pressable
+                  testID="voice-assistant-header-dismiss"
+                  onPress={handleDismiss}
+                  accessibilityRole="button"
+                  accessibilityLabel="Dismiss voice assistant"
+                  style={({ pressed }) => [
+                    styles.dismissButton,
+                    {
+                      backgroundColor: pressed ? colors.muted : colors.card,
+                      borderRadius: 20,
+                      padding: spacing.sm,
+                    },
+                  ]}
                 >
-                  Retry
-                </Text>
-              </Pressable>
-            )}
-          </View>
-        </View>
-      </SafeAreaView>
+                  <X size={20} color={colors.mutedForeground} />
+                </Pressable>
+              </View>
+
+              {/* Center zone: VoiceAgentOrb */}
+              <View style={styles.centerZone}>
+                <VoiceAgentOrb
+                  status={state.status}
+                  size={160}
+                  testID="voice-assistant-agent-orb"
+                />
+              </View>
+
+              {/* Lower zone: transcript + controls */}
+              <View
+                style={[
+                  styles.lowerZone,
+                  {
+                    paddingBottom: spacing.xl,
+                    gap: spacing.lg,
+                  },
+                ]}
+              >
+                {/* Transcript feed */}
+                <VoiceTranscriptFeed
+                  transcript={transcriptEntries}
+                  testID="voice-assistant-transcript-feed"
+                />
+
+                {/* Control bar */}
+                <VoiceControlBar
+                  isMuted={isMuted}
+                  onToggleMute={onToggleMute}
+                  onStop={handleStop}
+                  onDismiss={handleDismiss}
+                  testID="voice-assistant-control-bar"
+                />
+
+                {/* Retry button in error state */}
+                {isError && onRetry && (
+                  <Pressable
+                    testID="voice-assistant-retry-button"
+                    onPress={onRetry}
+                    accessibilityRole="button"
+                    accessibilityLabel="Retry voice connection"
+                    style={({ pressed }) => [
+                      styles.retryButton,
+                      {
+                        backgroundColor: pressed ? colors.primary : colors.card,
+                        borderColor: colors.primary,
+                        borderRadius: 12,
+                        paddingVertical: spacing.md,
+                        paddingHorizontal: spacing.xl,
+                      },
+                    ]}
+                  >
+                    <Text
+                      variant="lead"
+                      style={{ color: colors.primary }}
+                    >
+                      Retry
+                    </Text>
+                  </Pressable>
+                )}
+              </View>
+            </View>
+          </SafeAreaView>
+        </Animated.View>
+      </GestureDetector>
     </Modal>
   )
 }
@@ -269,6 +360,12 @@ export function VoiceAssistantOverlay({
 // ─── Styles ────────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  animatedContainer: {
+    flex: 1,
+  },
   safeArea: {
     flex: 1,
   },
