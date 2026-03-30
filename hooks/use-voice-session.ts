@@ -31,31 +31,36 @@ import { createRetryManager } from "@/lib/voice/retry-manager";
 import { createVoiceErrorHandler } from "@/lib/voice/error-handler";
 
 /**
- * Session config sent via data channel after WebRTC connects.
+ * Build session config sent via data channel after WebRTC connects.
  * Matches 02-session-config.md specification.
  * idle_timeout_ms: 30000 — OpenAI fires the idle event after 30s silence.
+ *
+ * Takes server-built instructions from createSession() so language directives
+ * and dynamic context are preserved (fixes language bug where hardcoded
+ * instructions overwrote server instructions).
  */
-const SESSION_UPDATE_EVENT = {
-  type: "session.update",
-  session: {
-    model: "gpt-realtime",
-    modalities: ["text", "audio"],
-    voice: "cedar",
-    instructions:
-      "You are the Holocron voice assistant. You help users search their knowledge base, manage tasks, check on research, and navigate the app. Before calling any function tool, briefly announce what you're about to do. When a function call is pending and the user asks about it, say you're still waiting on the result.",
-    turn_detection: {
-      type: "server_vad",
-      threshold: 0.5,
-      prefix_padding_ms: 300,
-      silence_duration_ms: 500,
-      idle_timeout_ms: 30000,
+function buildSessionUpdateEvent(instructions: string) {
+  return {
+    type: "session.update",
+    session: {
+      model: "gpt-realtime",
+      modalities: ["text", "audio"],
+      voice: "cedar",
+      instructions,
+      turn_detection: {
+        type: "server_vad",
+        threshold: 0.5,
+        prefix_padding_ms: 300,
+        silence_duration_ms: 500,
+        idle_timeout_ms: 30000,
+      },
+      tools: [] as unknown[],
+      tool_choice: "auto",
+      truncation: { type: "retention_ratio", retention_ratio: 0.8 },
+      input_audio_transcription: { model: "gpt-4o-transcribe" },
     },
-    tools: [] as unknown[],
-    tool_choice: "auto",
-    truncation: { type: "retention_ratio", retention_ratio: 0.8 },
-    input_audio_transcription: { model: "gpt-4o-transcribe" },
-  },
-} as const;
+  };
+}
 
 export interface UseVoiceSessionReturn {
   state: VoiceSessionState;
@@ -88,6 +93,7 @@ export function useVoiceSession(
   const transcriptRef = useRef<string>("");
   const retryMessageRef = useRef<string | null>(null);
   const ephemeralKeyRef = useRef<string | null>(null);
+  const instructionsRef = useRef<string>("");
 
   // US-017: timeout and warm connection managers
   const sessionTimeoutRef = useRef<SessionTimeout | null>(null);
@@ -183,9 +189,19 @@ export function useVoiceSession(
       connectionRef.current = warmConn as WebRTCConnection;
 
       try {
-        const { sessionId } = await createSession({ conversationId });
+        const { sessionId, instructions } = await createSession({ conversationId });
         sessionIdRef.current = sessionId;
+        instructionsRef.current = instructions;
         dispatch({ type: "CONNECTED", sessionId });
+
+        // Send fresh session.update with server instructions on warm re-activation
+        try {
+          (connectionRef.current as WebRTCConnection).sendEvent(
+            buildSessionUpdateEvent(instructionsRef.current) as unknown as Record<string, unknown>
+          );
+        } catch {
+          // Data channel may not be ready; session.update is best-effort
+        }
 
         // Restart idle timeout for re-activated session
         if (!sessionTimeoutRef.current) {
@@ -208,6 +224,7 @@ export function useVoiceSession(
         const result = await createSession({ conversationId });
         ephemeralKey = result.ephemeralKey;
         sessionId = result.sessionId;
+        instructionsRef.current = result.instructions;
       } catch (tokenError) {
         errorHandler.handleTokenGenerationFailure(
           tokenError instanceof Error ? tokenError : new Error("Token generation failed")
@@ -238,7 +255,7 @@ export function useVoiceSession(
             errorHandler.handleSuccess();
             try {
               conn.sendEvent(
-                SESSION_UPDATE_EVENT as unknown as Record<string, unknown>
+                buildSessionUpdateEvent(instructionsRef.current) as unknown as Record<string, unknown>
               );
             } catch {
               // Data channel may not be ready yet; session.update is best-effort
