@@ -6,19 +6,29 @@
  *   - Glow ring: medium circle with opacity
  *   - Pulse ring: outer circle that expands outward
  *
- * State-driven animations (all useNativeDriver: true):
+ * State-driven animations (Reanimated — GPU-accelerated):
  *   - connecting: opacity breathing loop (0.6→1, 1s cycle)
  *   - listening: spring to audioLevel prop for reactive pulse; fallback slow loop when no input
- *   - speaking: active breathing (scale 0.97→1.03, 600ms) + fast outward pulse ring
- *   - processing: rotateZ loop via interpolate
+ *   - speaking: audio-responsive breathing (amplitude scales with audioLevel) + outward pulse ring
+ *   - processing: rotateZ loop
  *   - error: shake animation (translateX -6→+6, 3 cycles) + destructive color
  *   - muted: desaturated color, static
  *
  * All colors use theme tokens via useTheme().
  */
 
-import { useEffect, useRef } from 'react'
-import { Animated, StyleSheet, View } from 'react-native'
+import { useEffect } from 'react'
+import { StyleSheet, View } from 'react-native'
+import Animated, {
+  cancelAnimation,
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated'
 import { useTheme } from '@/hooks/use-theme'
 import type { VoiceState } from '@/hooks/use-voice-session-state'
 
@@ -33,104 +43,6 @@ export interface VoiceAgentOrbProps {
   size?: number
   /** Optional testID for the root container */
   testID?: string
-}
-
-// ─── Helper Components ───────────────────────────────────────────────────────────
-
-/**
- * Core circle — solid center of the orb.
- */
-function CoreCircle({
-  size,
-  color,
-  scale,
-  testID,
-}: {
-  size: number
-  color: string
-  scale: Animated.Value
-  testID?: string
-}) {
-  return (
-    <Animated.View
-      testID={testID}
-      style={[
-        styles.coreCircle,
-        {
-          width: size * 0.4,
-          height: size * 0.4,
-          backgroundColor: color,
-          borderRadius: (size * 0.4) / 2,
-          transform: [{ scale }],
-        },
-      ]}
-    />
-  )
-}
-
-/**
- * Glow ring — medium circle with opacity.
- */
-function GlowRing({
-  size,
-  color,
-  opacity,
-  testID,
-}: {
-  size: number
-  color: string
-  opacity: Animated.Value
-  testID?: string
-}) {
-  return (
-    <Animated.View
-      testID={testID}
-      style={[
-        styles.glowRing,
-        {
-          width: size * 0.65,
-          height: size * 0.65,
-          backgroundColor: color,
-          borderRadius: (size * 0.65) / 2,
-          opacity,
-        },
-      ]}
-    />
-  )
-}
-
-/**
- * Pulse ring — outer circle that expands outward.
- */
-function PulseRing({
-  size,
-  color,
-  scale,
-  opacity,
-  testID,
-}: {
-  size: number
-  color: string
-  scale: Animated.Value
-  opacity: Animated.Value
-  testID?: string
-}) {
-  return (
-    <Animated.View
-      testID={testID}
-      style={[
-        styles.pulseRing,
-        {
-          width: size * 0.9,
-          height: size * 0.9,
-          backgroundColor: color,
-          borderRadius: (size * 0.9) / 2,
-          transform: [{ scale }],
-          opacity,
-        },
-      ]}
-    />
-  )
 }
 
 // ─── Main Component ────────────────────────────────────────────────────────────
@@ -169,188 +81,138 @@ export function VoiceAgentOrb({
 
   const color = getColor()
 
-  // Animation values
-  const coreScale = useRef(new Animated.Value(1)).current
-  const glowOpacity = useRef(new Animated.Value(0.6)).current
-  const pulseScale = useRef(new Animated.Value(1)).current
-  const pulseOpacity = useRef(new Animated.Value(0.3)).current
-  const rotation = useRef(new Animated.Value(0)).current
-  const shake = useRef(new Animated.Value(0)).current
+  // ─── Shared animation values ─────────────────────────────────────────────────
 
-  // ─── State-driven animations ─────────────────────────────────────────────────────
+  const coreScale = useSharedValue(1)
+  const glowOpacity = useSharedValue(0.6)
+  const pulseScale = useSharedValue(1)
+  const pulseOpacity = useSharedValue(0.3)
+  const rotation = useSharedValue(0)
+  const shake = useSharedValue(0)
+
+  // ─── Animated styles ─────────────────────────────────────────────────────────
+
+  const coreStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: coreScale.value }],
+  }))
+
+  const glowStyle = useAnimatedStyle(() => ({
+    opacity: glowOpacity.value,
+  }))
+
+  const pulseStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pulseScale.value }],
+    opacity: pulseOpacity.value,
+  }))
+
+  const rotationStyle = useAnimatedStyle(() => ({
+    transform: [{ rotateZ: `${rotation.value}deg` }],
+  }))
+
+  const shakeStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: shake.value }],
+  }))
+
+  // ─── State-driven animations ──────────────────────────────────────────────────
 
   useEffect(() => {
-    // Clear all running animations - reset to default values
-    coreScale.setValue(1)
-    glowOpacity.setValue(0.6)
-    pulseScale.setValue(1)
-    pulseOpacity.setValue(0.3)
-    rotation.setValue(0)
-    shake.setValue(0)
+    // Cancel all running animations and reset to default values
+    cancelAnimation(coreScale)
+    cancelAnimation(glowOpacity)
+    cancelAnimation(pulseScale)
+    cancelAnimation(pulseOpacity)
+    cancelAnimation(rotation)
+    cancelAnimation(shake)
+
+    coreScale.value = 1
+    glowOpacity.value = 0.6
+    pulseScale.value = 1
+    pulseOpacity.value = 0.3
+    rotation.value = 0
+    shake.value = 0
 
     switch (status) {
       case 'connecting': {
         // Breathing opacity: 0.6→1, 1s cycle
-        Animated.loop(
-          Animated.sequence([
-            Animated.timing(glowOpacity, {
-              toValue: 1,
-              duration: 500,
-              useNativeDriver: true,
-            }),
-            Animated.timing(glowOpacity, {
-              toValue: 0.6,
-              duration: 500,
-              useNativeDriver: true,
-            }),
-          ])
-        ).start()
+        glowOpacity.value = withRepeat(
+          withSequence(
+            withTiming(1, { duration: 500 }),
+            withTiming(0.6, { duration: 500 }),
+          ),
+          -1,
+        )
         break
       }
 
       case 'listening': {
         if (audioLevel > 0) {
-          // Reactive pulse to audio level
+          // Reactive spring pulse to audio level
           const targetScale = 1 + audioLevel * 0.3
           const targetOpacity = 0.3 + audioLevel * 0.5
-          Animated.spring(pulseScale, {
-            toValue: targetScale,
-            useNativeDriver: true,
-            bounciness: 0,
-            speed: 30,
-          }).start()
-          Animated.spring(pulseOpacity, {
-            toValue: targetOpacity,
-            useNativeDriver: true,
-            bounciness: 0,
-            speed: 30,
-          }).start()
+          pulseScale.value = withSpring(targetScale, { damping: 15, stiffness: 150 })
+          pulseOpacity.value = withSpring(targetOpacity, { damping: 15, stiffness: 150 })
         } else {
           // Fallback slow loop when no input
-          Animated.loop(
-            Animated.sequence([
-              Animated.timing(pulseScale, {
-                toValue: 1.15,
-                duration: 1500,
-                useNativeDriver: true,
-              }),
-              Animated.timing(pulseScale, {
-                toValue: 1,
-                duration: 1500,
-                useNativeDriver: true,
-              }),
-            ])
-          ).start()
+          pulseScale.value = withRepeat(
+            withSequence(
+              withTiming(1.15, { duration: 1500 }),
+              withTiming(1, { duration: 1500 }),
+            ),
+            -1,
+          )
         }
         break
       }
 
       case 'speaking': {
-        // Active breathing: scale 0.97→1.03, 600ms
-        const breathing = Animated.loop(
-          Animated.sequence([
-            Animated.timing(coreScale, {
-              toValue: 1.03,
-              duration: 300,
-              useNativeDriver: true,
-            }),
-            Animated.timing(coreScale, {
-              toValue: 0.97,
-              duration: 300,
-              useNativeDriver: true,
-            }),
-          ])
+        // Audio-responsive breathing: amplitude scales with audioLevel (0.03→0.08)
+        const breathingAmplitude = 0.03 + audioLevel * 0.05
+        coreScale.value = withRepeat(
+          withSequence(
+            withTiming(1 + breathingAmplitude, { duration: 300 }),
+            withTiming(1 - breathingAmplitude, { duration: 300 }),
+          ),
+          -1,
         )
-        breathing.start()
 
-        // Fast outward pulse ring
-        const pulse = Animated.loop(
-          Animated.sequence([
-            Animated.timing(pulseScale, {
-              toValue: 1.4,
-              duration: 400,
-              useNativeDriver: true,
-            }),
-            Animated.timing(pulseOpacity, {
-              toValue: 0,
-              duration: 400,
-              useNativeDriver: true,
-            }),
-            Animated.parallel([
-              Animated.timing(pulseScale, {
-                toValue: 1,
-                duration: 0,
-                useNativeDriver: true,
-              }),
-              Animated.timing(pulseOpacity, {
-                toValue: 0.3,
-                duration: 0,
-                useNativeDriver: true,
-              }),
-            ]),
-          ])
+        // Smooth outward pulse ring expansion
+        pulseScale.value = withRepeat(
+          withSequence(
+            withTiming(1.4, { duration: 600, easing: Easing.out(Easing.cubic) }),
+            withTiming(1, { duration: 200, easing: Easing.in(Easing.cubic) }),
+          ),
+          -1,
         )
-        pulse.start()
-
-        return () => {
-          breathing.stop()
-          pulse.stop()
-        }
+        pulseOpacity.value = withRepeat(
+          withSequence(
+            withTiming(0, { duration: 600 }),
+            withTiming(0.3, { duration: 0 }),
+          ),
+          -1,
+        )
+        break
       }
 
       case 'processing': {
-        // Rotate via interpolate
-        const rotateAnim = Animated.loop(
-          Animated.timing(rotation, {
-            toValue: 1,
-            duration: 2000,
-            useNativeDriver: true,
-          })
+        // Full rotation loop
+        rotation.value = withRepeat(
+          withTiming(360, { duration: 2000, easing: Easing.linear }),
+          -1,
         )
-        rotateAnim.start()
-        return () => rotateAnim.stop()
+        break
       }
 
       case 'error': {
         // Shake animation: translateX -6→+6, 3 cycles
-        const shakeAnim = Animated.sequence([
-          Animated.timing(shake, {
-            toValue: -6,
-            duration: 50,
-            useNativeDriver: true,
-          }),
-          Animated.timing(shake, {
-            toValue: 6,
-            duration: 50,
-            useNativeDriver: true,
-          }),
-          Animated.timing(shake, {
-            toValue: -6,
-            duration: 50,
-            useNativeDriver: true,
-          }),
-          Animated.timing(shake, {
-            toValue: 6,
-            duration: 50,
-            useNativeDriver: true,
-          }),
-          Animated.timing(shake, {
-            toValue: -6,
-            duration: 50,
-            useNativeDriver: true,
-          }),
-          Animated.timing(shake, {
-            toValue: 6,
-            duration: 50,
-            useNativeDriver: true,
-          }),
-          Animated.timing(shake, {
-            toValue: 0,
-            duration: 50,
-            useNativeDriver: true,
-          }),
-        ])
-        shakeAnim.start()
+        shake.value = withSequence(
+          withTiming(-6, { duration: 50 }),
+          withTiming(6, { duration: 50 }),
+          withTiming(-6, { duration: 50 }),
+          withTiming(6, { duration: 50 }),
+          withTiming(-6, { duration: 50 }),
+          withTiming(6, { duration: 50 }),
+          withTiming(0, { duration: 50 }),
+        )
         break
       }
 
@@ -362,7 +224,7 @@ export function VoiceAgentOrb({
       default:
         break
     }
-  }, [status, audioLevel, coreScale, glowOpacity, pulseScale, pulseOpacity, rotation, shake])
+  }, [status, audioLevel])
 
   return (
     <View
@@ -376,26 +238,59 @@ export function VoiceAgentOrb({
       ]}
     >
       {/* Pulse ring (outermost) */}
-      <PulseRing size={size} color={color} scale={pulseScale} opacity={pulseOpacity} testID={`${testID}-pulse-ring`} />
-
-      {/* Glow ring (middle) */}
-      <GlowRing size={size} color={color} opacity={glowOpacity} testID={`${testID}-glow-ring`} />
-
-      {/* Core circle (innermost) */}
-      <CoreCircle
-        size={size}
-        color={color}
-        scale={coreScale}
-        testID={`${testID}-core`}
+      <Animated.View
+        testID={`${testID}-pulse-ring`}
+        style={[
+          styles.pulseRing,
+          {
+            width: size * 0.9,
+            height: size * 0.9,
+            backgroundColor: color,
+            borderRadius: (size * 0.9) / 2,
+          },
+          pulseStyle,
+        ]}
       />
 
-      {/* Shake wrapper for error state */}
+      {/* Glow ring (middle) */}
+      <Animated.View
+        testID={`${testID}-glow-ring`}
+        style={[
+          styles.glowRing,
+          {
+            width: size * 0.65,
+            height: size * 0.65,
+            backgroundColor: color,
+            borderRadius: (size * 0.65) / 2,
+          },
+          glowStyle,
+        ]}
+      />
+
+      {/* Core circle (innermost) — also carries rotation for processing state */}
+      <Animated.View
+        testID={`${testID}-core`}
+        style={[
+          styles.coreCircle,
+          {
+            width: size * 0.4,
+            height: size * 0.4,
+            backgroundColor: color,
+            borderRadius: (size * 0.4) / 2,
+          },
+          coreStyle,
+          status === 'processing' ? rotationStyle : undefined,
+        ]}
+      />
+
+      {/* Shake wrapper — visible for error state, applies translateX to all rings */}
       {status === 'error' && (
         <Animated.View
-          style={{
-            position: 'absolute',
-            transform: [{ translateX: shake }],
-          }}
+          style={[
+            styles.shakeOverlay,
+            shakeStyle,
+          ]}
+          pointerEvents="none"
         />
       )}
     </View>
@@ -421,5 +316,12 @@ const styles = StyleSheet.create({
   pulseRing: {
     position: 'absolute',
     zIndex: 1,
+  },
+  shakeOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
 })
