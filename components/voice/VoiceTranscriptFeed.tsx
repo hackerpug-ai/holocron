@@ -5,18 +5,27 @@
  *
  * Features:
  * - FlatList of TranscriptEntry items (not ScrollView, for performance)
+ * - Speaker labels ("You" / "Holocron") above each bubble
  * - User entries: right-aligned, bg-secondary background, radius.lg
  * - Agent entries: left-aligned, bg-muted background, 3dp left accent bar in colors.primary, radius.lg
  * - Auto-scrolls to bottom on new entries via ref.current.scrollToEnd()
- * - Partial entries (isPartial: true) show blinking cursor (Animated.View, 500ms opacity loop)
- * - Font: text-sm (14px)
+ * - Partial entries (isPartial: true) show blinking cursor (Reanimated, 500ms opacity loop)
+ * - New entries animate in with FadeInDown (Reanimated layout animation)
+ * - Last entry uses text-base; previous entries use text-sm
  * - maxHeight ~220dp
  *
- * Uses Paper Text component, theme tokens from useTheme().
+ * Uses Text from @/components/ui/text, theme tokens from useTheme().
  */
 
 import { useEffect, useRef } from 'react'
-import { Animated, FlatList, StyleSheet, View } from 'react-native'
+import { FlatList, StyleSheet, View } from 'react-native'
+import Animated, {
+  FadeInDown,
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withTiming,
+} from 'react-native-reanimated'
 import { Text } from '@/components/ui/text'
 import { useTheme } from '@/hooks/use-theme'
 
@@ -41,45 +50,36 @@ export interface VoiceTranscriptFeedProps {
 
 /**
  * Blinking cursor for partial entries.
- * Uses 500ms opacity loop (on/off).
+ * Uses 500ms opacity cycle (250ms fade out, 250ms fade in) via Reanimated.
  */
 function BlinkingCursor({ color }: { color: string }) {
-  const opacity = useRef(new Animated.Value(1)).current
+  const opacity = useSharedValue(1)
 
   useEffect(() => {
-    const blink = Animated.loop(
-      Animated.sequence([
-        Animated.timing(opacity, {
-          toValue: 0,
-          duration: 250,
-          useNativeDriver: true,
-        }),
-        Animated.timing(opacity, {
-          toValue: 1,
-          duration: 250,
-          useNativeDriver: true,
-        }),
-      ])
+    opacity.value = withRepeat(
+      withTiming(0, { duration: 250 }),
+      -1,
+      true
     )
-    blink.start()
-    return () => blink.stop()
-  }, [opacity])
+  }, [])
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+  }))
 
   return (
     <Animated.View
       style={[
         styles.cursor,
-        {
-          backgroundColor: color,
-          opacity,
-        },
+        { backgroundColor: color },
+        animatedStyle,
       ]}
     />
   )
 }
 
 /**
- * Individual transcript entry.
+ * Individual transcript entry with speaker label above the bubble.
  */
 function TranscriptEntryItem({
   entry,
@@ -97,54 +97,72 @@ function TranscriptEntryItem({
   const isUser = entry.speaker === 'user'
 
   return (
-    <View
-      testID={`voice-assistant-transcript-entry-${entry.id}`}
-      style={[
-        styles.entryContainer,
-        isUser ? styles.userEntry : styles.agentEntry,
-        {
-          marginBottom: isLast ? 0 : spacing.sm,
-        },
-      ]}
-    >
-      {/* Accent bar for agent entries */}
-      {!isUser && (
-        <View
-          style={[
-            styles.accentBar,
-            {
-              backgroundColor: colors.primary,
-              borderTopLeftRadius: radius.lg,
-              borderBottomLeftRadius: radius.lg,
-            },
-          ]}
-        />
-      )}
-
-      {/* Entry content */}
+    <Animated.View entering={FadeInDown.duration(300)}>
       <View
+        testID={`voice-assistant-transcript-entry-${entry.id}`}
         style={[
-          styles.entryContent,
+          styles.entryContainer,
           {
-            backgroundColor: isUser ? colors.secondary : colors.muted,
-            borderRadius: radius.lg,
-            paddingHorizontal: spacing.md,
-            paddingVertical: spacing.sm,
+            marginBottom: isLast ? 0 : spacing.sm,
+            alignItems: isUser ? 'flex-end' : 'flex-start',
           },
         ]}
       >
+        {/* Speaker label */}
         <Text
-          variant="p"
-          className="text-sm"
-          style={{ color: isUser ? colors.primaryForeground : colors.foreground }}
+          className="text-xs"
+          style={{
+            color: colors.mutedForeground,
+            marginBottom: spacing.xs,
+          }}
         >
-          {entry.text}
+          {isUser ? 'You' : 'Holocron'}
         </Text>
 
-        {/* Blinking cursor for partial entries */}
-        {entry.isPartial && <BlinkingCursor color={isUser ? colors.primaryForeground : colors.foreground} />}
+        {/* Bubble row: accent bar (agent only) + content */}
+        <View style={[styles.entryRow, isUser ? styles.userEntry : styles.agentEntry]}>
+          {/* Accent bar for agent entries */}
+          {!isUser && (
+            <View
+              style={[
+                styles.accentBar,
+                {
+                  backgroundColor: colors.primary,
+                  borderTopLeftRadius: radius.lg,
+                  borderBottomLeftRadius: radius.lg,
+                },
+              ]}
+            />
+          )}
+
+          {/* Entry content */}
+          <View
+            style={[
+              styles.entryContent,
+              {
+                backgroundColor: isUser ? colors.secondary : colors.muted,
+                borderRadius: radius.lg,
+                paddingHorizontal: spacing.md,
+                paddingVertical: spacing.sm,
+              },
+            ]}
+          >
+            <Text
+              variant="p"
+              className={isLast ? 'text-base' : 'text-sm'}
+              style={{ color: isUser ? colors.primaryForeground : colors.foreground }}
+            >
+              {entry.text}
+            </Text>
+
+            {/* Blinking cursor for partial entries */}
+            {entry.isPartial && (
+              <BlinkingCursor color={isUser ? colors.primaryForeground : colors.foreground} />
+            )}
+          </View>
+        </View>
       </View>
-    </View>
+    </Animated.View>
   )
 }
 
@@ -244,9 +262,12 @@ const styles = StyleSheet.create({
     paddingVertical: 32,
   },
   entryContainer: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     width: '100%',
     marginBottom: 8, // Default spacing (overridden by prop)
+  },
+  entryRow: {
+    flexDirection: 'row',
   },
   userEntry: {
     justifyContent: 'flex-end',
