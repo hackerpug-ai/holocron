@@ -40,18 +40,21 @@ log(
 import { z } from "zod";
 // Validation schemas
 import {
+  AddImprovementSchema,
   AddSubscriptionSchema,
   AssimilateCreatorSchema,
   AssimilationSessionIdSchema,
   CheckSubscriptionsSchema,
   DocumentIdSchema,
   GetCreatorTranscriptsSchema,
+  GetImprovementSchema,
   GetShopListingsSchema,
   GetShopSessionSchema,
   GetSubscriptionContentSchema,
   GetSubscriptionFiltersSchema,
   GetToolSchema,
   GetWhatsNewSchema,
+  ListImprovementsSchema_Improvements,
   ListSubscriptionsSchema,
   ListToolsSchema,
   ListWhatsNewReportsSchema,
@@ -59,6 +62,7 @@ import {
   RejectAssimilationPlanSchema,
   RemoveSubscriptionSchema,
   RemoveToolSchema,
+  SearchImprovementsSchema,
   SearchSchema,
   SearchToolsSchema,
   SearchVectorSchema,
@@ -87,6 +91,12 @@ import {
   regenerateTranscript,
 } from "../tools/creators.ts";
 import { hybridSearch } from "../tools/hybrid-search.ts";
+import {
+  addImprovement,
+  getImprovement,
+  listImprovements,
+  searchImprovements,
+} from "../tools/improvements.ts";
 // Tool implementations
 import { getDocument, listDocuments } from "../tools/retrieval.ts";
 import { searchFts, searchVector } from "../tools/search.ts";
@@ -662,6 +672,66 @@ const regenerateTranscriptTool = createTool({
   },
 });
 
+// Improvement request tools
+const searchImprovementsTool = createTool({
+  id: "search_improvements",
+  description:
+    "Search existing improvement requests using hybrid similarity search. Returns similar improvements ranked by relevance.",
+  inputSchema: SearchImprovementsSchema,
+  execute: async (input) => {
+    try {
+      return await searchImprovements(holocronClient, input);
+    } catch (error) {
+      console.error(formatError(error));
+      throw error;
+    }
+  },
+});
+
+const getImprovementTool = createTool({
+  id: "get_improvement",
+  description: "Retrieve a specific improvement request by ID.",
+  inputSchema: GetImprovementSchema,
+  execute: async (input) => {
+    try {
+      return await getImprovement(holocronClient, input);
+    } catch (error) {
+      console.error(formatError(error));
+      throw error;
+    }
+  },
+});
+
+const listImprovementsTool = createTool({
+  id: "list_improvements",
+  description:
+    "List improvement requests with optional status filter. Statuses: submitted, processing, pending_review, approved, done, merged.",
+  inputSchema: ListImprovementsSchema_Improvements,
+  execute: async (input) => {
+    try {
+      return await listImprovements(holocronClient, input);
+    } catch (error) {
+      console.error(formatError(error));
+      throw error;
+    }
+  },
+});
+
+const addImprovementTool = createTool({
+  id: "add_improvement",
+  description:
+    "Submit one or more improvement requests. Each item needs a description and optional sourceScreen.",
+  inputSchema: AddImprovementSchema,
+  execute: async (input) => {
+    try {
+      return await addImprovement(holocronClient, input);
+    } catch (error) {
+      console.error(formatError(error));
+      throw error;
+    }
+  },
+});
+
 /**
  * Initialize Mastra MCP server
  */
@@ -707,6 +777,10 @@ const server = new MCPServer({
     assimilateCreatorTool,
     getCreatorTranscriptsTool,
     regenerateTranscriptTool,
+    searchImprovementsTool,
+    getImprovementTool,
+    listImprovementsTool,
+    addImprovementTool,
   },
 });
 
@@ -743,7 +817,7 @@ process.on("unhandledRejection", (reason, promise) => {
  * Start MCP server on stdio
  */
 log("[Holocron MCP] Starting server...");
-log(`[Holocron MCP] Tools registered: 38`);
+log(`[Holocron MCP] Tools registered: 42`);
 log(`[Holocron MCP] Convex URL: ${process.env.CONVEX_URL || process.env.HOLOCRON_URL}`);
 
 try {

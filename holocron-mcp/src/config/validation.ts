@@ -285,3 +285,38 @@ export const RegenerateTranscriptSchema = z.object({
 export type AssimilateCreatorInput = z.infer<typeof AssimilateCreatorSchema>;
 export type GetCreatorTranscriptsInput = z.infer<typeof GetCreatorTranscriptsSchema>;
 export type RegenerateTranscriptInput = z.infer<typeof RegenerateTranscriptSchema>;
+
+// Improvement request schemas
+export const SearchImprovementsSchema = z.object({
+  query: z.string().min(1).describe("Search query for finding similar improvements"),
+  limit: z.number().int().positive().optional().describe("Max results (default 5)"),
+});
+
+export const GetImprovementSchema = z.object({
+  id: z.string().min(1).describe("Improvement request ID"),
+});
+
+export const ListImprovementsSchema_Improvements = z.object({
+  status: z
+    .enum(["submitted", "processing", "pending_review", "approved", "done", "merged"])
+    .optional()
+    .describe("Filter by status"),
+  limit: z.number().int().positive().optional().describe("Max results (default 20)"),
+});
+
+export const AddImprovementSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        description: z.string().min(1).describe("Description of the improvement"),
+        sourceScreen: z.string().optional().describe("Screen where improvement was identified"),
+      })
+    )
+    .min(1)
+    .describe("One or more improvements to submit"),
+});
+
+export type SearchImprovementsInput = z.infer<typeof SearchImprovementsSchema>;
+export type GetImprovementInput = z.infer<typeof GetImprovementSchema>;
+export type ListImprovementsInput = z.infer<typeof ListImprovementsSchema_Improvements>;
+export type AddImprovementInput = z.infer<typeof AddImprovementSchema>;

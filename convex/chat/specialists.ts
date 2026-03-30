@@ -17,6 +17,7 @@ import {
   discoveryTools,
   documentTools,
   analysisTools,
+  improvementTools,
   plannerTools,
 } from "./tools";
 import {
@@ -27,6 +28,7 @@ import {
   DISCOVERY_SPECIALIST_PROMPT,
   DOCUMENTS_SPECIALIST_PROMPT,
   ANALYSIS_SPECIALIST_PROMPT,
+  IMPROVEMENTS_SPECIALIST_PROMPT,
   PLANNER_SPECIALIST_PROMPT,
 } from "./specialistPrompts";
 import type { IntentCategory } from "./triage";
@@ -41,6 +43,7 @@ export type SpecialistName =
   | "discovery"
   | "documents"
   | "analysis"
+  | "improvements"
   | "planner";
 
 export type SpecialistConfig = {
@@ -66,6 +69,7 @@ export const INTENT_TO_SPECIALIST: Record<
   discovery: "discovery",
   documents: "documents",
   analysis: "analysis",
+  improvements: "improvements",
   multi_step: "planner",
 };
 
@@ -111,6 +115,12 @@ const SPECIALIST_CONFIGS: Record<SpecialistName, SpecialistConfig> = {
     model: zaiPro,
     tools: analysisTools,
     systemPrompt: ANALYSIS_SPECIALIST_PROMPT,
+  },
+  improvements: {
+    name: "improvements",
+    model: zaiPro,
+    tools: improvementTools,
+    systemPrompt: IMPROVEMENTS_SPECIALIST_PROMPT,
   },
   planner: {
     name: "planner",
