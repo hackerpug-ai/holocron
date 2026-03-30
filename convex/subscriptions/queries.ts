@@ -269,6 +269,40 @@ export const listGroupedByCreator = query({
 });
 
 /**
+ * Full-text search over subscription content titles.
+ *
+ * Uses the by_title_search search index. Returns a simplified projection
+ * suitable for search result lists. Returns an empty array for blank queries.
+ */
+export const searchContent = query({
+  args: {
+    query: v.string(),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, { query, limit = 30 }) => {
+    if (!query.trim()) {
+      return [];
+    }
+
+    const results = await ctx.db
+      .query("subscriptionContent")
+      .withSearchIndex("by_title_search", (q) => q.search("title", query))
+      .take(limit);
+
+    return results.map((item) => ({
+      _id: item._id,
+      title: item.title,
+      url: item.url,
+      contentCategory: item.contentCategory,
+      authorHandle: item.authorHandle,
+      thumbnailUrl: item.thumbnailUrl,
+      aiRelevanceScore: item.aiRelevanceScore,
+      discoveredAt: item.discoveredAt,
+    }));
+  },
+});
+
+/**
  * List content with documents for multiple subscriptions.
  * Returns content items joined with their associated documents.
  */

@@ -160,6 +160,79 @@ export const getReportById = query({
 });
 
 /**
+ * Get the latest findings from the most recent What's New report.
+ *
+ * Parses the findingsJson field and optionally filters by category.
+ * Returns an empty findings array and null report when no report exists.
+ */
+export const getLatestFindings = query({
+  args: {
+    category: v.optional(
+      v.union(
+        v.literal("discovery"),
+        v.literal("release"),
+        v.literal("trend"),
+        v.literal("discussion")
+      )
+    ),
+  },
+  handler: async (ctx, { category }) => {
+    const report = await ctx.db
+      .query("whatsNewReports")
+      .withIndex("by_created")
+      .order("desc")
+      .first();
+
+    if (!report) {
+      return { findings: [], report: null };
+    }
+
+    type Finding = {
+      title: string;
+      url: string;
+      source: string;
+      category: "discovery" | "release" | "trend" | "discussion";
+      score?: number;
+      summary?: string;
+      publishedAt?: string;
+      engagementVelocity?: number;
+      crossSourceCorroboration?: number;
+      author?: string;
+      tags?: string[];
+    };
+
+    let findings: Finding[] = [];
+    if (report.findingsJson) {
+      try {
+        findings = JSON.parse(report.findingsJson) as Finding[];
+      } catch {
+        findings = [];
+      }
+    }
+
+    if (category) {
+      findings = findings.filter((f) => f.category === category);
+    }
+
+    return {
+      findings,
+      report: {
+        _id: report._id,
+        periodStart: report.periodStart,
+        periodEnd: report.periodEnd,
+        days: report.days,
+        findingsCount: report.findingsCount,
+        discoveryCount: report.discoveryCount,
+        releaseCount: report.releaseCount,
+        trendCount: report.trendCount,
+        summaryJson: report.summaryJson,
+        createdAt: report.createdAt,
+      },
+    };
+  },
+});
+
+/**
  * List recent reports with pagination
  */
 export const listReports = query({
