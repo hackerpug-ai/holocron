@@ -83,17 +83,17 @@ export interface VoiceAssistantOverlayProps {
 function formatStateName(status: VoiceSessionState['status']): string {
   switch (status) {
     case 'connecting':
-      return 'Connecting...'
+      return 'Getting ready...'
     case 'listening':
-      return 'Listening'
+      return "I'm listening..."
     case 'speaking':
-      return 'Speaking'
+      return ''
     case 'processing':
-      return 'Processing'
+      return 'Thinking...'
     case 'muted':
       return 'Muted'
     case 'error':
-      return 'Error'
+      return 'Something went wrong'
     case 'idle':
       return ''
   }
@@ -254,13 +254,15 @@ export function VoiceAssistantOverlay({
               >
                 {/* Status label */}
                 <View style={styles.statusContainer}>
-                  <Text
-                    variant="h4"
-                    style={{ color: colors.foreground }}
-                    testID="voice-assistant-status-label"
-                  >
-                    {statusLabel}
-                  </Text>
+                  {statusLabel !== '' && (
+                    <Text
+                      variant="h4"
+                      style={{ color: colors.foreground }}
+                      testID="voice-assistant-status-label"
+                    >
+                      {statusLabel}
+                    </Text>
+                  )}
                   {isError && state.errorMessage && (
                     <Text
                       variant="p"
