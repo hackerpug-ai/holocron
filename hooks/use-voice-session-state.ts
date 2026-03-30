@@ -154,6 +154,18 @@ export function voiceSessionReducer(
     }
 
     case "ADD_TRANSCRIPT": {
+      const last = state.transcripts[state.transcripts.length - 1];
+      if (last && last.role === action.role) {
+        // Merge: replace last entry's content (streaming effect)
+        const updated = [...state.transcripts];
+        updated[updated.length - 1] = {
+          ...last,
+          content: action.content,
+          timestamp: Date.now(), // refresh timestamp so auto-dismiss resets
+        };
+        return { ...state, transcripts: updated, transcript: action.content };
+      }
+      // New speaker: append new entry
       return {
         ...state,
         transcripts: [
@@ -164,7 +176,7 @@ export function voiceSessionReducer(
             timestamp: Date.now(),
           },
         ],
-        transcript: action.content, // Update current transcript
+        transcript: action.content,
       };
     }
 
