@@ -48,6 +48,7 @@ export async function executeShopSearch(
     condition?: string;
     priceMin?: number;
     priceMax?: number;
+    verifiedOnly?: boolean;
   }
 ): Promise<ShopSearchActionResult> {
   const startTime = Date.now();
@@ -65,6 +66,7 @@ export async function executeShopSearch(
     priceMin: args.priceMin,
     priceMax: args.priceMax,
     retailers,
+    verifiedOnly: args.verifiedOnly,
   });
 
   console.log(`[executeShopSearch] Created session: ${sessionId}`);
@@ -120,6 +122,15 @@ export async function executeShopSearch(
       ); // Convert to cents
     }
 
+    // Verified-only filter: Tier 1 always, Tier 2 with sellerTrustScore >= 60
+    if (args.verifiedOnly) {
+      filteredResults = filteredResults.filter((r) => {
+        if (r.trustTier === 1) return true;
+        if (r.trustTier === 2 && (r.sellerTrustScore ?? 0) >= 60) return true;
+        return false;
+      });
+    }
+
     console.log(
       `[executeShopSearch] After filtering: ${filteredResults.length} results`
     );
@@ -155,6 +166,9 @@ export async function executeShopSearch(
             productHash: l.productHash,
             isDuplicate: l.isDuplicate,
             dealScore: l.dealScore,
+            trustTier: l.trustTier,
+            sellerTrustScore: l.sellerTrustScore,
+            isVerifiedSeller: l.trustTier === 1 || (l.trustTier === 2 && (l.sellerTrustScore ?? 0) >= 60),
           })),
         }
       );
@@ -262,6 +276,7 @@ export const startShopSearch = action({
     condition: v.optional(v.string()),
     priceMin: v.optional(v.number()),
     priceMax: v.optional(v.number()),
+    verifiedOnly: v.optional(v.boolean()),
     planId: v.optional(v.id("executionPlans")),
   },
   handler: async (ctx, args): Promise<ShopSearchActionResult> => {
@@ -291,6 +306,7 @@ async function executeShopSearchWithPlan(
     condition?: string;
     priceMin?: number;
     priceMax?: number;
+    verifiedOnly?: boolean;
     planId: Id<"executionPlans">;
   }
 ): Promise<ShopSearchActionResult> {
@@ -352,6 +368,7 @@ async function executeShopSearchWithPlan(
       priceMax: args.priceMax,
       retailers,
       planId,
+      verifiedOnly: args.verifiedOnly,
     });
 
     console.log(`[executeShopSearchWithPlan] Created session: ${sessionId}`);
@@ -420,6 +437,15 @@ async function executeShopSearchWithPlan(
       );
     }
 
+    // Verified-only filter: Tier 1 always, Tier 2 with sellerTrustScore >= 60
+    if (args.verifiedOnly) {
+      filteredResults = filteredResults.filter((r) => {
+        if (r.trustTier === 1) return true;
+        if (r.trustTier === 2 && (r.sellerTrustScore ?? 0) >= 60) return true;
+        return false;
+      });
+    }
+
     console.log(
       `[executeShopSearchWithPlan] After filtering: ${filteredResults.length} results`
     );
@@ -455,6 +481,9 @@ async function executeShopSearchWithPlan(
             productHash: l.productHash,
             isDuplicate: l.isDuplicate,
             dealScore: l.dealScore,
+            trustTier: l.trustTier,
+            sellerTrustScore: l.sellerTrustScore,
+            isVerifiedSeller: l.trustTier === 1 || (l.trustTier === 2 && (l.sellerTrustScore ?? 0) >= 60),
           })),
         }
       );
@@ -578,6 +607,7 @@ async function executeShopSearchDirect(
     condition?: string;
     priceMin?: number;
     priceMax?: number;
+    verifiedOnly?: boolean;
   }
 ): Promise<ShopSearchActionResult> {
   const { conversationId, query } = args;
