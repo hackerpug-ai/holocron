@@ -99,10 +99,10 @@ export const RETAILERS: Record<string, RetailerConfig> = {
   amazon: {
     name: "Amazon",
     domain: "amazon.com",
-    trustTier: 1,
-    isAuthorized: true,
-    warrantyType: "manufacturer",
-    maxListingsPerSearch: 20,
+    trustTier: 2,
+    isAuthorized: false,
+    warrantyType: "seller",
+    maxListingsPerSearch: 5,
   },
   ebay: {
     name: "eBay",
@@ -110,7 +110,7 @@ export const RETAILERS: Record<string, RetailerConfig> = {
     trustTier: 2,
     isAuthorized: false,
     warrantyType: "seller",
-    maxListingsPerSearch: 30,
+    maxListingsPerSearch: 3,
   },
   newegg: {
     name: "Newegg",
@@ -118,31 +118,31 @@ export const RETAILERS: Record<string, RetailerConfig> = {
     trustTier: 1,
     isAuthorized: true,
     warrantyType: "retailer",
-    maxListingsPerSearch: 20,
+    maxListingsPerSearch: 5,
   },
   bestbuy: {
     name: "Best Buy",
     domain: "bestbuy.com",
     trustTier: 1,
     isAuthorized: true,
-    warrantyType: "retailer",
-    maxListingsPerSearch: 15,
+    warrantyType: "manufacturer",
+    maxListingsPerSearch: 5,
   },
   bh: {
     name: "B&H Photo",
     domain: "bhphotovideo.com",
     trustTier: 1,
     isAuthorized: true,
-    warrantyType: "retailer",
-    maxListingsPerSearch: 15,
+    warrantyType: "manufacturer",
+    maxListingsPerSearch: 5,
   },
   backmarket: {
     name: "Back Market",
     domain: "backmarket.com",
     trustTier: 2,
-    isAuthorized: true,
+    isAuthorized: false,
     warrantyType: "retailer",
-    maxListingsPerSearch: 20,
+    maxListingsPerSearch: 5,
   },
   walmart: {
     name: "Walmart",
@@ -150,7 +150,7 @@ export const RETAILERS: Record<string, RetailerConfig> = {
     trustTier: 1,
     isAuthorized: true,
     warrantyType: "retailer",
-    maxListingsPerSearch: 20,
+    maxListingsPerSearch: 5,
   },
 };
 
@@ -219,6 +219,104 @@ export function parseCondition(text: string): string {
 }
 
 /**
+ * Extract marketplace seller signals from search content
+ *
+ * For eBay/Amazon results, extracts feedback count, positive %,
+ * top rated status, return policy, and authenticity guarantees.
+ */
+export function extractMarketplaceSellerSignals(
+  content: string
+): MarketplaceSellerSignals {
+  const signals: MarketplaceSellerSignals = {};
+
+  // Feedback count: "1,234 feedback" or "12345 ratings"
+  const feedbackMatch = content.match(/(\d[\d,]*)\s*(?:feedback|ratings?)/i);
+  if (feedbackMatch) {
+    signals.feedbackCount = parseInt(feedbackMatch[1].replace(/,/g, ""), 10);
+  }
+
+  // Positive percentage: "99.5% positive" or "98% positive feedback"
+  const positiveMatch = content.match(/([\d.]+)%\s*positive/i);
+  if (positiveMatch) {
+    signals.positivePercentage = parseFloat(positiveMatch[1]);
+  }
+
+  // Top Rated badge
+  signals.isTopRated = /top\s*rated\s*(seller|plus)?/i.test(content);
+
+  // Return policy
+  signals.hasReturnPolicy = /(?:free\s*)?returns?|money\s*back/i.test(content);
+
+  // Authenticity Guarantee
+  signals.hasAuthenticityGuarantee = /authenticity\s*guarantee/i.test(content);
+
+  // Shipped from and sold by Amazon (= max trust for Amazon marketplace)
+  signals.isShippedFromAmazon = /ships?\s*from\s*and\s*sold\s*by\s*amazon/i.test(content);
+
+  return signals;
+}
+
+/**
+ * Calculate seller trust score (0-100)
+ *
+ * Scores marketplace sellers based on extracted signals.
+ */
+export function calculateSellerTrustScore(
+  signals: MarketplaceSellerSignals
+): number {
+  // Ships from Amazon = max trust
+  if (signals.isShippedFromAmazon) {
+    return 100;
+  }
+
+  let score = 0;
+  let hasAnySignal = false;
+
+  // Feedback count: up to 25 points
+  if (signals.feedbackCount !== undefined) {
+    hasAnySignal = true;
+    if (signals.feedbackCount >= 10000) score += 25;
+    else if (signals.feedbackCount >= 1000) score += 20;
+    else if (signals.feedbackCount >= 500) score += 15;
+    else if (signals.feedbackCount >= 100) score += 8;
+  }
+
+  // Positive percentage: up to 25 points
+  if (signals.positivePercentage !== undefined) {
+    hasAnySignal = true;
+    if (signals.positivePercentage >= 99.5) score += 25;
+    else if (signals.positivePercentage >= 99) score += 20;
+    else if (signals.positivePercentage >= 98) score += 15;
+    else if (signals.positivePercentage >= 95) score += 8;
+  }
+
+  // Top Rated: 20 points
+  if (signals.isTopRated) {
+    hasAnySignal = true;
+    score += 20;
+  }
+
+  // Return policy: 15 points
+  if (signals.hasReturnPolicy) {
+    hasAnySignal = true;
+    score += 15;
+  }
+
+  // Authenticity guarantee: 15 points
+  if (signals.hasAuthenticityGuarantee) {
+    hasAnySignal = true;
+    score += 15;
+  }
+
+  // No signals penalty
+  if (!hasAnySignal) {
+    score = Math.max(0, score - 10);
+  }
+
+  return Math.min(100, score);
+}
+
+/**
  * Calculate deal score (0-100)
  *
  * Based on:
@@ -226,8 +324,15 @@ export function parseCondition(text: string): string {
  * - Seller rating
  * - Condition
  * - In stock status
+ * - Trust tier (optional)
+ * - Warranty type (optional)
+ * - Marketplace seller signals (optional, tier 2 only)
  */
-export function calculateDealScore(result: Partial<ShopSearchResult>): number {
+export function calculateDealScore(
+  result: Partial<ShopSearchResult>,
+  retailerKey?: string,
+  sellerSignals?: MarketplaceSellerSignals
+): number {
   let score = 50; // Base score
 
   // Price discount bonus
@@ -263,6 +368,28 @@ export function calculateDealScore(result: Partial<ShopSearchResult>): number {
   // In stock bonus
   if (result.inStock) {
     score += 5;
+  }
+
+  // Trust tier adjustments
+  if (retailerKey) {
+    const retailer = RETAILERS[retailerKey];
+    if (retailer) {
+      // Tier 1: +15, Tier 3: -15
+      if (retailer.trustTier === 1) score += 15;
+      else if (retailer.trustTier === 3) score -= 15;
+
+      // Warranty bonus
+      if (retailer.warrantyType === "manufacturer") score += 3;
+      else if (retailer.warrantyType === "retailer") score += 1;
+
+      // Marketplace seller trust (tier 2 only): -5 to +5
+      if (retailer.trustTier === 2 && sellerSignals) {
+        const sellerScore = calculateSellerTrustScore(sellerSignals);
+        // Scale 0-100 to -5 to +5
+        const trustAdjustment = ((sellerScore / 100) * 10) - 5;
+        score += trustAdjustment;
+      }
+    }
   }
 
   return Math.max(0, Math.min(100, Math.round(score)));
@@ -341,7 +468,8 @@ async function executeSearchWithRetry<T>(
  */
 async function executeExaRetailerSearch(
   query: string,
-  retailer: RetailerConfig
+  retailer: RetailerConfig,
+  retailerKey: string
 ): Promise<ShopSearchResult[]> {
   const apiKey = process.env.EXA_API_KEY;
   if (!apiKey) {
@@ -354,7 +482,7 @@ async function executeExaRetailerSearch(
 
   const searchResults = await withRateLimit("exa", async () => {
     return await exa.searchAndContents(siteQuery, {
-      numResults: 5,
+      numResults: retailer.maxListingsPerSearch,
       useAutoprompt: true,
       text: { maxCharacters: 5000 },
     });
@@ -367,6 +495,10 @@ async function executeExaRetailerSearch(
     const productInfo = extractProductInfo(content, result.url || "", retailer.name);
 
     if (productInfo && productInfo.price) {
+      const sellerSignals = retailer.trustTier === 2
+        ? extractMarketplaceSellerSignals(content)
+        : undefined;
+
       const fullResult: ShopSearchResult = {
         retailer: retailer.name,
         url: result.url || "",
@@ -382,14 +514,18 @@ async function executeExaRetailerSearch(
         productHash: generateProductHash(result.title || productInfo.title || "", retailer.name),
         rawContent: productInfo.rawContent,
         dealScore: 0,
+        trustTier: retailer.trustTier,
+        sellerTrustScore: sellerSignals
+          ? calculateSellerTrustScore(sellerSignals)
+          : undefined,
       };
 
-      fullResult.dealScore = calculateDealScore(fullResult);
+      fullResult.dealScore = calculateDealScore(fullResult, retailerKey, sellerSignals);
       results.push(fullResult);
     }
   }
 
-  return results;
+  return results.slice(0, retailer.maxListingsPerSearch);
 }
 
 /**
@@ -397,7 +533,8 @@ async function executeExaRetailerSearch(
  */
 async function executeJinaRetailerSearch(
   query: string,
-  retailer: RetailerConfig
+  retailer: RetailerConfig,
+  retailerKey: string
 ): Promise<ShopSearchResult[]> {
   const apiKey = process.env.JINA_API_KEY;
   if (!apiKey) {
@@ -430,6 +567,10 @@ async function executeJinaRetailerSearch(
     const productInfo = extractProductInfo(content, result.url || result.link || "", retailer.name);
 
     if (productInfo && productInfo.price) {
+      const sellerSignals = retailer.trustTier === 2
+        ? extractMarketplaceSellerSignals(content)
+        : undefined;
+
       const fullResult: ShopSearchResult = {
         retailer: retailer.name,
         url: result.url || result.link || "",
@@ -445,14 +586,18 @@ async function executeJinaRetailerSearch(
         productHash: generateProductHash(result.title || productInfo.title || "", retailer.name),
         rawContent: productInfo.rawContent,
         dealScore: 0,
+        trustTier: retailer.trustTier,
+        sellerTrustScore: sellerSignals
+          ? calculateSellerTrustScore(sellerSignals)
+          : undefined,
       };
 
-      fullResult.dealScore = calculateDealScore(fullResult);
+      fullResult.dealScore = calculateDealScore(fullResult, retailerKey, sellerSignals);
       results.push(fullResult);
     }
   }
 
-  return results;
+  return results.slice(0, retailer.maxListingsPerSearch);
 }
 
 /**
@@ -521,7 +666,7 @@ export async function executeParallelShopSearch(
     // Add Exa search
     searchPromises.push(
       executeSearchWithRetry(
-        () => executeExaRetailerSearch(query, retailer),
+        () => executeExaRetailerSearch(query, retailer, retailerKey),
         maxRetries,
         timeoutMs
       ).then((results) => results || [])
@@ -534,7 +679,7 @@ export async function executeParallelShopSearch(
     // Add Jina search
     searchPromises.push(
       executeSearchWithRetry(
-        () => executeJinaRetailerSearch(query, retailer),
+        () => executeJinaRetailerSearch(query, retailer, retailerKey),
         maxRetries,
         timeoutMs
       ).then((results) => results || [])
