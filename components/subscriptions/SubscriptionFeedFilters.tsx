@@ -2,49 +2,37 @@ import { ScrollView, StyleSheet, View } from 'react-native'
 import { FilterChip } from '@/components/FilterChip'
 import { useTheme } from '@/hooks/use-theme'
 
-export type FilterType = 'all' | 'video' | 'blog' | 'social'
-
-interface FilterOption {
-  type: FilterType
+export interface FilterOption {
+  key: string
   label: string
   count: number
 }
 
 interface SubscriptionFeedFiltersProps {
-  /** Currently selected filter type */
-  selectedFilter: FilterType
+  /** Filter options to display (All is prepended automatically) */
+  options: FilterOption[]
+  /** Currently selected filter key */
+  selectedFilter: string
   /** Callback when filter is changed */
-  onFilterChange: (filter: FilterType) => void
-  /** Count data for each filter type */
-  counts: {
-    all: number
-    video: number
-    blog: number
-    social: number
-  }
+  onFilterChange: (filter: string) => void
   /** Test ID prefix for testing */
   testID?: string
 }
 
-const FILTER_OPTIONS: FilterOption[] = [
-  { type: 'all', label: 'All', count: 0 },
-  { type: 'video', label: 'Video', count: 0 },
-  { type: 'blog', label: 'Blog', count: 0 },
-  { type: 'social', label: 'Social', count: 0 },
-]
-
 export function SubscriptionFeedFilters({
+  options,
   selectedFilter,
   onFilterChange,
-  counts,
   testID = 'feed-filters',
 }: SubscriptionFeedFiltersProps) {
   const { spacing, colors } = useTheme()
 
-  const optionsWithCounts = FILTER_OPTIONS.map((opt) => ({
-    ...opt,
-    count: counts[opt.type],
-  }))
+  // "All" always prepended, sum of all option counts
+  const allCount = options.reduce((sum, opt) => sum + opt.count, 0)
+  const allOptions: FilterOption[] = [
+    { key: 'all', label: 'All', count: allCount },
+    ...options,
+  ]
 
   return (
     <View
@@ -64,13 +52,13 @@ export function SubscriptionFeedFilters({
         contentContainerStyle={[styles.scrollContent, { gap: spacing.sm }]}
         testID={`${testID}-scroll`}
       >
-        {optionsWithCounts.map(({ type, label, count }) => (
+        {allOptions.map(({ key, label, count }) => (
           <FilterChip
-            key={type}
+            key={key}
             label={`${label} (${count})`}
-            selected={selectedFilter === type}
-            onPress={() => onFilterChange(selectedFilter === type ? 'all' : type)}
-            testID={`${testID}-${type}`}
+            selected={selectedFilter === key}
+            onPress={() => onFilterChange(selectedFilter === key ? 'all' : key)}
+            testID={`${testID}-${key}`}
           />
         ))}
       </ScrollView>

@@ -1,183 +1,137 @@
 /**
- * SubscriptionFeedScreen - Display aggregated feed of subscription content
+ * SubscriptionFeedScreen - What's New briefing feed with search
  *
- * Shows feed items with filtering by content type (video, blog, social).
- * Includes settings modal for configuring feed preferences.
- * Uses FlatList for performance with infinite scroll and pull-to-refresh.
+ * Default mode: Displays AI-curated findings from the latest What's New report.
+ * Search mode: Full-text search over subscription content when user types 2+ chars.
+ *
+ * Uses FlatList for performance with pull-to-refresh in default mode.
  */
-import React, { useEffect, useState } from 'react'
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native'
+import React, { useState } from 'react'
+import {
+  ActivityIndicator,
+  FlatList,
+  Pressable,
+  RefreshControl,
+  StyleSheet,
+  TextInput,
+  View,
+} from 'react-native'
 import { useRouter } from 'expo-router'
-import { useAction, useMutation, useQuery } from 'convex/react'
-import type { Doc } from '@/convex/_generated/dataModel'
+import { useQuery } from 'convex/react'
 import { api } from '@/convex/_generated/api'
-import { Settings } from '@/components/ui/icons'
+import { Search, Settings, X } from '@/components/ui/icons'
 import { Text } from '@/components/ui/text'
-import { Button } from '@/components/ui/button'
 import { useTheme } from '@/hooks/use-theme'
-import { useSubscriptionFeed } from '@/hooks/use-subscription-feed'
+import { useWhatsNewFeed } from '@/hooks/use-whats-new-feed'
 import { useWebView } from '@/hooks/useWebView'
 import { SubscriptionFeedFilters } from '@/components/subscriptions/SubscriptionFeedFilters'
-import { SubscriptionFeedItem } from '@/components/subscriptions/SubscriptionFeedItem'
 import { FeedItemSkeleton } from '@/components/subscriptions/FeedItemSkeleton'
 import { SubscriptionSettingsModal } from '@/components/subscriptions/SubscriptionSettingsModal'
 import { WebViewSheet } from '@/components/webview/WebViewSheet'
-import type { FilterType } from '@/components/subscriptions/SubscriptionFeedFilters'
+import { WhatsNewFindingCard } from '@/components/whats-new/WhatsNewFindingCard'
+import { SearchContentCard } from '@/components/subscriptions/SearchContentCard'
 
 interface SubscriptionFeedScreenProps {
-  /** Content type filter - "mixed" shows all types (frontend concept) */
-  contentType?: 'video' | 'blog' | 'social' | 'mixed'
-  /** Search query for filtering content */
-  searchQuery?: string
-  /** Optional test ID prefix for testing */
   testID?: string
-  /** Optional custom renderer for feed items (defaults to simple rendering) */
-  renderItem?: (item: Doc<'feedItems'>) => React.ReactNode
+}
+
+function formatRelativeTime(timestamp: number): string {
+  const now = Date.now()
+  const diff = now - timestamp
+  const minutes = Math.floor(diff / 60000)
+  const hours = Math.floor(minutes / 60)
+  const days = Math.floor(hours / 24)
+
+  if (days > 0) return `${days}d ago`
+  if (hours > 0) return `${hours}h ago`
+  if (minutes > 0) return `${minutes}m ago`
+  return 'just now'
 }
 
 /**
- * SubscriptionFeedScreen displays subscription content with infinite scroll
- * and pull-to-refresh. Uses FlatList for performance and semantic theme tokens.
- *
- * @example
- * ```tsx
- * <SubscriptionFeedScreen
- *   contentType="mixed"
- *   searchQuery="react"
- *   testID="subscription-feed"
- * />
- * ```
+ * Maps the selectedCategory filter key to the hook's category argument.
  */
+function toCategoryArg(
+  key: string
+): 'discovery' | 'release' | 'trend' | 'discussion' | undefined {
+  if (
+    key === 'discovery' ||
+    key === 'release' ||
+    key === 'trend' ||
+    key === 'discussion'
+  ) {
+    return key
+  }
+  return undefined
+}
+
 export function SubscriptionFeedScreen({
-  contentType,
-  searchQuery,
   testID = 'subscription-feed',
-  renderItem,
 }: SubscriptionFeedScreenProps) {
   const { colors, spacing } = useTheme()
   const router = useRouter()
-  const { webViewState, closeWebView } = useWebView()
+  const { webViewState, openUrl, closeWebView } = useWebView()
 
-  // Feedback mutation
-  const submitFeedback = useMutation(api.feeds.mutations.submitFeedback)
+  // Search state
+  const [searchText, setSearchText] = useState('')
+  const [isSearching, setIsSearching] = useState(false)
+  const [selectedCategory, setSelectedCategory] = useState<string>('all')
 
-  // Filter state
-  const [selectedFilter, setSelectedFilter] = useState<FilterType>('all')
   // Settings modal state
   const [settingsVisible, setSettingsVisible] = useState(false)
 
-  // Fetch digest summary for filter counts
-  const digest = useQuery(api.feeds.queries.getDigestSummary, {
-    limit: 1000, // Get all items for accurate counts
+  // What's New feed (default mode)
+  const { findings, report, isLoading, isRefreshing, refresh } = useWhatsNewFeed({
+    category: toCategoryArg(selectedCategory),
   })
 
-  // Calculate counts from digest summary
-  const counts = {
-    all: digest?.counts.total ?? 0,
-    video: digest?.counts.video ?? 0,
-    blog: digest?.counts.blog ?? 0,
-    social: digest?.counts.social ?? 0,
-  }
+  // Search query — only active when 2+ chars entered
+  const searchArgs =
+    isSearching && searchText.length >= 2
+      ? { query: searchText }
+      : ('skip' as const)
+  const searchResults = useQuery(
+    api.subscriptions.queries.searchContent,
+    searchArgs
+  )
 
-  // Map filter type to contentType for query
-  const filterContentType = selectedFilter === 'all' ? undefined : selectedFilter
-
-  // Don't pass contentType if it's not one of the supported values
-  const safeContentType = contentType === 'mixed' ? undefined : contentType
-  const { items, isLoading, loadMore, reset } = useSubscriptionFeed({
-    limit: 20,
-    contentType: filterContentType ?? safeContentType,
-    searchQuery,
-  })
-
-  // Detect whether subscriptionContent records exist even when feed is empty.
-  // This distinguishes "feed is building" from "no subscriptions added".
-  const hasContent = useQuery(api.subscriptions.queries.hasAnyContent)
-  const buildFeed = useAction(api.feeds.actions.buildFeed)
-
-  const [isBuildingFeed, setIsBuildingFeed] = useState(false)
-
-  const handleBuildFeed = async () => {
-    setIsBuildingFeed(true)
-    try {
-      await buildFeed({})
-    } finally {
-      setIsBuildingFeed(false)
-    }
-  }
-
-  const handleSettingsPress = () => {
-    setSettingsVisible(true)
-  }
+  const handleSettingsPress = () => setSettingsVisible(true)
 
   const handleManageSubscriptions = () => {
     setSettingsVisible(false)
     router.push('/subscriptions')
   }
 
-  // Load more items when reaching end of list
-  const handleLoadMore = () => {
-    if (!isLoading) {
-      loadMore()
-    }
+  const handleSearchIconPress = () => {
+    setIsSearching(true)
   }
 
-  // Refetch data on pull-to-refresh
-  const handleRefresh = () => {
-    // Reset to initial limit and refetch
-    reset()
+  const handleClearSearch = () => {
+    setSearchText('')
+    setIsSearching(false)
   }
 
-  // Context menu handlers for feed items
-  const handleItemOpen = (item: Doc<'feedItems'>) => {
-    // For now, navigate to subscription content detail view
-    // TODO: Extract URL from linked subscriptionContent items
-    router.push(`/subscription-content/${item.groupKey}`)
-  }
+  // Filter chip options derived from latest report counts
+  const discussionCount =
+    report
+      ? Math.max(
+          0,
+          (report.findingsCount ?? 0) -
+            (report.discoveryCount ?? 0) -
+            (report.releaseCount ?? 0) -
+            (report.trendCount ?? 0)
+        )
+      : 0
 
-  const handleAddToChat = (_item: Doc<'feedItems'>) => {
-    // Navigate to chat with item reference
-    // TODO: Pass item content to chat context
-    router.push('/chat/new')
-  }
+  const filterOptions = [
+    { key: 'discovery', label: 'Discoveries', count: report?.discoveryCount ?? 0 },
+    { key: 'release', label: 'Releases', count: report?.releaseCount ?? 0 },
+    { key: 'trend', label: 'Trends', count: report?.trendCount ?? 0 },
+    { key: 'discussion', label: 'Discussions', count: discussionCount },
+  ]
 
-  const handleThumbsUp = async (feedItemId: Doc<'feedItems'>['_id']) => {
-    await submitFeedback({ feedItemId, feedback: 'up' })
-  }
-
-  const handleThumbsDown = async (feedItemId: Doc<'feedItems'>['_id']) => {
-    await submitFeedback({ feedItemId, feedback: 'down' })
-  }
-
-  // Reset feed when filters change
-  useEffect(() => {
-    reset()
-  }, [selectedFilter, searchQuery, reset])
-
-  // StyleSheet with theme tokens (defined inside component to access theme)
+  // ---- StyleSheet ----
   const styles = StyleSheet.create({
-    listContent: {
-      flexGrow: 1,
-    },
-    emptyListContent: {
-      flexGrow: 1,
-    },
-    itemContainer: {
-      paddingVertical: spacing.sm,
-    },
-    emptyContainer: {
-      flex: 1,
-      paddingHorizontal: spacing.xl,
-      paddingVertical: spacing['2xl'],
-    },
-    emptyCentered: {
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    loadingContainer: {
-      paddingVertical: spacing.lg,
-      paddingHorizontal: spacing.lg,
-    },
     header: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -188,178 +142,302 @@ export function SubscriptionFeedScreen({
     headerTitle: {
       flex: 1,
     },
-    settingsButton: {
+    headerButtons: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+    },
+    iconButton: {
       padding: spacing.sm,
+    },
+    searchRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.sm,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      gap: spacing.sm,
+    },
+    searchInput: {
+      flex: 1,
+      paddingVertical: spacing.xs,
+    },
+    metaBanner: {
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.sm,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+    },
+    generatingBanner: {
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.sm,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+    },
+    listContent: {
+      flexGrow: 1,
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.md,
+    },
+    emptyContainer: {
+      flex: 1,
+      paddingHorizontal: spacing.xl,
+      paddingVertical: spacing['2xl'],
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    loadingContainer: {
+      paddingVertical: spacing.lg,
     },
   })
 
-  // Default item renderer using SubscriptionFeedItem card component
-  const defaultRenderItem = ({ item }: { item: Doc<'feedItems'> }) => {
-    if (renderItem) {
-      return renderItem(item) as React.ReactElement
-    }
+  // ---- Sub-components ----
 
-    return (
-      <View style={styles.itemContainer}>
-        <SubscriptionFeedItem
-          feedItemId={item._id}
-          groupKey={item.groupKey}
-          title={item.title}
-          summary={item.summary}
-          contentType={item.contentType}
-          itemCount={item.itemCount}
-          thumbnailUrl={item.thumbnailUrl}
-          viewed={item.viewed}
-          publishedAt={item.publishedAt}
-          authorHandle={item.authorHandle}
-          creatorName={item.creatorName}
-          testID={`${testID}-item-${item._id}`}
-          onOpen={() => handleItemOpen(item)}
-          onAddToChat={() => handleAddToChat(item)}
-          onThumbsUp={() => handleThumbsUp(item._id)}
-          onThumbsDown={() => handleThumbsDown(item._id)}
-        />
-      </View>
-    )
-  }
-
-  // List header with settings button
   const ListHeader = () => (
     <>
-      {/* Header with settings button */}
+      {/* Header row */}
       <View
-        style={[
-          styles.header,
-          { borderBottomColor: colors.border }
-        ]}
+        style={[styles.header, { borderBottomColor: colors.border }]}
         testID={`${testID}-header`}
       >
-        <Text variant="h3" style={styles.headerTitle}>
-          Subscription Feed
-        </Text>
-        <Pressable
-          onPress={handleSettingsPress}
-          style={styles.settingsButton}
-          className="active:opacity-70"
-          testID={`${testID}-settings-button`}
-        >
-          <Settings size={24} className="text-foreground" />
-        </Pressable>
+        {isSearching ? (
+          <Text
+            variant="h3"
+            style={styles.headerTitle}
+            testID={`${testID}-search-title`}
+          >
+            Search
+          </Text>
+        ) : (
+          <Text
+            variant="h3"
+            style={styles.headerTitle}
+            testID={`${testID}-title`}
+          >
+            What's New
+          </Text>
+        )}
+
+        <View style={styles.headerButtons}>
+          {!isSearching && (
+            <Pressable
+              onPress={handleSearchIconPress}
+              style={styles.iconButton}
+              className="active:opacity-70"
+              testID={`${testID}-search-button`}
+            >
+              <Search size={22} className="text-foreground" />
+            </Pressable>
+          )}
+          <Pressable
+            onPress={handleSettingsPress}
+            style={styles.iconButton}
+            className="active:opacity-70"
+            testID={`${testID}-settings-button`}
+          >
+            <Settings size={22} className="text-foreground" />
+          </Pressable>
+        </View>
       </View>
 
-      {/* Filters */}
-      <SubscriptionFeedFilters
-        selectedFilter={selectedFilter}
-        onFilterChange={setSelectedFilter}
-        counts={counts}
-        testID={`${testID}-filters`}
-      />
+      {/* Search input row (visible when searching) */}
+      {isSearching && (
+        <View
+          style={[styles.searchRow, { borderBottomColor: colors.border }]}
+          testID={`${testID}-search-row`}
+        >
+          <Search size={16} className="text-muted-foreground" />
+          <TextInput
+            autoFocus
+            value={searchText}
+            onChangeText={setSearchText}
+            placeholder="Search subscriptions..."
+            placeholderTextColor={colors.mutedForeground}
+            style={[styles.searchInput, { color: colors.foreground }]}
+            testID={`${testID}-search-input`}
+            returnKeyType="search"
+            clearButtonMode="never"
+          />
+          <Pressable
+            onPress={handleClearSearch}
+            style={styles.iconButton}
+            testID={`${testID}-clear-search`}
+          >
+            <X size={18} className="text-muted-foreground" />
+          </Pressable>
+        </View>
+      )}
+
+      {/* Report metadata banner (default mode only) */}
+      {!isSearching && report && (
+        <View
+          style={[styles.metaBanner, { borderBottomColor: colors.border }]}
+          testID={`${testID}-meta-banner`}
+        >
+          <Text variant="muted" className="text-xs text-muted-foreground">
+            {`${report.findingsCount ?? 0} findings from ${
+              (report.summaryJson as { sources?: unknown[] } | undefined)?.sources?.length ?? 0
+            } sources · Generated ${formatRelativeTime(report.createdAt)}`}
+          </Text>
+        </View>
+      )}
+
+      {/* Generating new report banner */}
+      {!isSearching && isRefreshing && (
+        <View
+          style={[styles.generatingBanner, { borderBottomColor: colors.border }]}
+          testID={`${testID}-generating-banner`}
+        >
+          <ActivityIndicator size="small" />
+          <Text variant="muted" className="text-xs text-muted-foreground">
+            Generating new report...
+          </Text>
+        </View>
+      )}
+
+      {/* Filter chips (default mode only) */}
+      {!isSearching && (
+        <SubscriptionFeedFilters
+          options={filterOptions}
+          selectedFilter={selectedCategory}
+          onFilterChange={setSelectedCategory}
+          testID={`${testID}-filters`}
+        />
+      )}
     </>
   )
 
-  // Empty state component
-  // Distinguishes between "feed is building" (content exists but feed not yet
-  // populated) and "no subscriptions added" (no content records at all).
-  const EmptyState = () => {
-    if (searchQuery) {
-      return (
-        <View
-          testID={`${testID}-empty-state`}
-          style={[styles.emptyContainer, styles.emptyCentered]}
-        >
-          <Text variant="h3" className="text-muted-foreground text-center mb-4">
-            {`No results for "${searchQuery}"`}
-          </Text>
-          <Text variant="p" className="text-muted-foreground text-center">
-            Try a different search term
-          </Text>
-        </View>
-      )
-    }
+  // ---- Render helpers ----
 
-    if (hasContent) {
-      // Content records exist but feedItems is empty — feed is still building
-      return (
-        <View
-          testID={`${testID}-empty-state-building`}
-          style={[styles.emptyContainer, styles.emptyCentered]}
-        >
-          <ActivityIndicator
-            testID={`${testID}-building-indicator`}
-            className="mb-4"
-          />
-          <Text variant="h3" className="text-muted-foreground text-center mb-2">
-            Feed is building...
-          </Text>
-          <Text variant="p" className="text-muted-foreground text-center mb-6">
-            Your subscription content is being processed. This may take a moment.
-          </Text>
-          <Button
-            testID={`${testID}-refresh-feed-button`}
-            variant="outline"
-            onPress={handleBuildFeed}
-            disabled={isBuildingFeed}
-          >
-            <Text>{isBuildingFeed ? 'Refreshing...' : 'Refresh feed'}</Text>
-          </Button>
-        </View>
-      )
-    }
+  if (isSearching) {
+    const results = searchResults ?? []
+    const isLoadingSearch = searchText.length >= 2 && searchResults === undefined
 
-    // No content records at all — prompt user to add subscriptions
     return (
-      <View
-        testID={`${testID}-empty-state`}
-        style={[styles.emptyContainer, styles.emptyCentered]}
-      >
-        <Text variant="h3" className="text-muted-foreground text-center mb-4">
-          No content yet
-        </Text>
-        <Text variant="p" className="text-muted-foreground text-center">
-          Subscribe to sources to see their content here
-        </Text>
-      </View>
+      <>
+        <FlatList
+          testID={`${testID}-search-list`}
+          data={results}
+          keyExtractor={(item) => item._id}
+          ListHeaderComponent={ListHeader}
+          contentContainerStyle={styles.listContent}
+          renderItem={({ item }) => (
+            <SearchContentCard
+              key={item._id}
+              title={item.title}
+              url={item.url ?? ''}
+              contentCategory={item.contentCategory ?? undefined}
+              authorHandle={item.authorHandle ?? undefined}
+              thumbnailUrl={item.thumbnailUrl ?? undefined}
+              aiRelevanceScore={item.aiRelevanceScore ?? undefined}
+              discoveredAt={item.discoveredAt}
+              testID={`${testID}-search-result-${item._id}`}
+              onPress={item.url ? () => openUrl(item.url!) : undefined}
+            />
+          )}
+          ListEmptyComponent={
+            isLoadingSearch ? (
+              <View
+                style={styles.loadingContainer}
+                testID={`${testID}-search-loading`}
+              >
+                <FeedItemSkeleton variant="blog" testID={`${testID}-search-skeleton-0`} />
+                <FeedItemSkeleton variant="blog" testID={`${testID}-search-skeleton-1`} />
+              </View>
+            ) : searchText.length >= 2 ? (
+              <View
+                style={styles.emptyContainer}
+                testID={`${testID}-search-empty`}
+              >
+                <Text
+                  variant="h3"
+                  className="text-muted-foreground text-center mb-4"
+                >
+                  {`No results for "${searchText}"`}
+                </Text>
+                <Text variant="p" className="text-muted-foreground text-center">
+                  Try a different search term
+                </Text>
+              </View>
+            ) : null
+          }
+        />
+
+        <SubscriptionSettingsModal
+          visible={settingsVisible}
+          onDismiss={() => setSettingsVisible(false)}
+          onManageSubscriptions={handleManageSubscriptions}
+          testID={`${testID}-settings-modal`}
+        />
+
+        <WebViewSheet
+          visible={webViewState.visible}
+          url={webViewState.url}
+          onClose={closeWebView}
+          testID={`${testID}-webview`}
+        />
+      </>
     )
   }
 
-  // Key extractor for FlatList
-  const keyExtractor = (item: Doc<'feedItems'>) => item._id
-
+  // Default mode: What's New feed
   return (
     <>
       <FlatList
         testID={testID}
-        data={items}
-        renderItem={defaultRenderItem}
-        keyExtractor={keyExtractor}
-        onEndReached={handleLoadMore}
-        onEndReachedThreshold={0.5}
-        refreshControl={
-          <RefreshControl
-            refreshing={isLoading}
-            onRefresh={handleRefresh}
-          />
-        }
+        data={findings}
+        keyExtractor={(_, index) => String(index)}
         ListHeaderComponent={ListHeader}
-        ListEmptyComponent={EmptyState}
-        contentContainerStyle={[
-          styles.listContent,
-          !items.length && styles.emptyListContent,
-        ]}
-        ListFooterComponent={
-          isLoading && items.length > 0 ? (
-            <View style={styles.loadingContainer} testID={`${testID}-loading-footer`}>
+        contentContainerStyle={styles.listContent}
+        refreshControl={
+          <RefreshControl refreshing={isRefreshing} onRefresh={refresh} />
+        }
+        renderItem={({ item, index }) => (
+          <WhatsNewFindingCard
+            title={item.title}
+            url={item.url}
+            source={item.source}
+            category={item.category}
+            score={item.score}
+            summary={item.summary}
+            publishedAt={item.publishedAt}
+            author={item.author}
+            engagementVelocity={item.engagementVelocity}
+            tags={item.tags}
+            testID={`${testID}-finding-${index}`}
+            onPress={() => openUrl(item.url)}
+          />
+        )}
+        ListEmptyComponent={
+          isLoading ? (
+            <View
+              style={styles.loadingContainer}
+              testID={`${testID}-loading`}
+            >
               <FeedItemSkeleton variant="blog" testID={`${testID}-skeleton-0`} />
               <FeedItemSkeleton variant="blog" testID={`${testID}-skeleton-1`} />
+              <FeedItemSkeleton variant="blog" testID={`${testID}-skeleton-2`} />
             </View>
-          ) : undefined
+          ) : (
+            <View
+              style={styles.emptyContainer}
+              testID={`${testID}-empty`}
+            >
+              <Text
+                variant="h3"
+                className="text-muted-foreground text-center mb-4"
+              >
+                No reports yet
+              </Text>
+              <Text variant="p" className="text-muted-foreground text-center">
+                Pull down to generate your first briefing.
+              </Text>
+            </View>
+          )
         }
-        removeClippedSubviews={true}
-        maxToRenderPerBatch={10}
-        windowSize={5}
       />
 
-      {/* Settings modal */}
       <SubscriptionSettingsModal
         visible={settingsVisible}
         onDismiss={() => setSettingsVisible(false)}
@@ -367,7 +445,6 @@ export function SubscriptionFeedScreen({
         testID={`${testID}-settings-modal`}
       />
 
-      {/* WebViewSheet for feed item content */}
       <WebViewSheet
         visible={webViewState.visible}
         url={webViewState.url}
