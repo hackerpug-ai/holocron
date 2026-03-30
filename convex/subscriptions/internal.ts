@@ -1227,7 +1227,12 @@ async function processSingleSource(
         if (aiScore) {
           items[i].aiRelevanceScore = aiScore.score;
           items[i].aiRelevanceReason = aiScore.reason;
-          if (aiScore.score < 0.3) {
+
+          // Stricter threshold for twitter/bluesky — most social posts are noise
+          const platform = ((items[i].metadataJson as Record<string, unknown>)?.platform as string || "").toLowerCase();
+          const threshold = (platform === 'twitter' || platform === 'bluesky') ? 0.5 : 0.3;
+
+          if (aiScore.score < threshold) {
             items[i].passedFilter = false;
           }
         }

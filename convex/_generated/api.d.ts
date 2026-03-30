@@ -82,6 +82,8 @@ import type * as migrations_backfill_chat_titles from "../migrations/backfill_ch
 import type * as migrations_backfill_infeed from "../migrations/backfill_infeed.js";
 import type * as migrations_backfill_missing_embeddings from "../migrations/backfill_missing_embeddings.js";
 import type * as migrations_backfill_research_documents from "../migrations/backfill_research_documents.js";
+import type * as migrations_cleanup_irrelevant_twitter from "../migrations/cleanup_irrelevant_twitter.js";
+import type * as migrations_cleanup_irrelevant_twitter_actions from "../migrations/cleanup_irrelevant_twitter_actions.js";
 import type * as migrations_reembed_documents_1024 from "../migrations/reembed_documents_1024.js";
 import type * as migrations_refactor_deep_research_messages from "../migrations/refactor_deep_research_messages.js";
 import type * as migrations_strip_platform_prefix from "../migrations/strip_platform_prefix.js";
@@ -251,6 +253,8 @@ declare const fullApi: ApiFromModules<{
   "migrations/backfill_infeed": typeof migrations_backfill_infeed;
   "migrations/backfill_missing_embeddings": typeof migrations_backfill_missing_embeddings;
   "migrations/backfill_research_documents": typeof migrations_backfill_research_documents;
+  "migrations/cleanup_irrelevant_twitter": typeof migrations_cleanup_irrelevant_twitter;
+  "migrations/cleanup_irrelevant_twitter_actions": typeof migrations_cleanup_irrelevant_twitter_actions;
   "migrations/reembed_documents_1024": typeof migrations_reembed_documents_1024;
   "migrations/refactor_deep_research_messages": typeof migrations_refactor_deep_research_messages;
   "migrations/strip_platform_prefix": typeof migrations_strip_platform_prefix;

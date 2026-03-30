@@ -52,10 +52,19 @@ export const scoreContentRelevance = internalAction({
     let platformRules = '';
     if (hasTwitterOrBluesky) {
       platformRules = `
-Platform-specific rules for [twitter]/[bluesky]:
-- Score 0.8-1.0 ONLY for: tool/model/API releases, technical benchmarks, original AI engineering insights, code examples, technical tutorials
-- Score 0.0-0.3 for: personal opinions, vague musings, off-topic AI mentions, promotional content, hot takes, engagement bait, "just thinking" posts
-- Be STRICT - most social media content should score low
+Platform-specific rules for [twitter]/[bluesky] — BE VERY STRICT:
+- Score 0.7-1.0 ONLY for: AI coding tool releases (Claude Code, Cursor, Copilot, etc.), LLM model releases with technical detail, MCP servers/integrations, agentic coding workflows, AI model benchmarks for coding, API/pricing changes for AI providers, developer tooling integrations
+- Score 0.0-0.2 for ALL of these (they are IRRELEVANT):
+  * Vague hot takes ("Holy sh*t", "This is insane", "Mind blown")
+  * AI party tricks (playing games, tic tac toe, rock paper scissors, generating memes)
+  * General tech humor or memes ("The hottest new programming language is English")
+  * Non-coding AI applications (art, music, video generation for entertainment)
+  * Generic programming opinions not related to AI tooling
+  * Personal life updates from tech personalities
+  * Engagement bait with no substance
+  * ChatGPT/Claude doing non-coding tasks
+  * One-liner reactions without technical content
+- Most social media posts should score LOW. Only score high for substantive technical content.
 
 Platform-specific rules for [youtube]/[github]/[blog]:
 - Score 0.9-1.0: Directly about the topic with substantial content
