@@ -64,11 +64,14 @@ export function createVoiceErrorHandler(
   const { onError, onCleanup } = options
   let consecutiveErrorCount = 0
 
-  function handleTokenGenerationFailure(_error: Error): void {
+  function handleTokenGenerationFailure(error: Error): void {
     onCleanup()
+    const isStaleSession = error.message.includes('active session already exists')
     onError({
       kind: 'service_unavailable',
-      userMessage: 'Voice assistant is currently unavailable',
+      userMessage: isStaleSession
+        ? 'A previous session is still active. Please try again.'
+        : 'Voice assistant is currently unavailable',
       canRetry: true,
       isMidSession: false,
     })
