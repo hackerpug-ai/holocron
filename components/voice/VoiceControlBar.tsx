@@ -16,6 +16,7 @@
 
 import { useRef, useState } from 'react'
 import { Pressable, StyleSheet, View } from 'react-native'
+import * as Haptics from 'expo-haptics'
 import { Mic, MicOff, Square, X } from '@/components/ui/icons'
 import { useTheme } from '@/hooks/use-theme'
 
@@ -148,6 +149,11 @@ function ControlButton({
 
     // Debounce the actual callback
     debounceRef.current = setTimeout(() => {
+      if (type === 'mute') {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+      } else if (type === 'stop') {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+      }
       onPress()
     }, 300)
   }

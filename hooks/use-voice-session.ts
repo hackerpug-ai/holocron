@@ -15,6 +15,7 @@
  */
 
 import { useCallback, useEffect, useRef, useReducer } from "react";
+import * as Haptics from "expo-haptics";
 import { useAction, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -193,6 +194,7 @@ export function useVoiceSession(
         sessionIdRef.current = sessionId;
         instructionsRef.current = instructions;
         dispatch({ type: "CONNECTED", sessionId });
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
         // Send fresh session.update with server instructions on warm re-activation
         try {
@@ -212,6 +214,7 @@ export function useVoiceSession(
         connectionRef.current = null;
         const message = error instanceof Error ? error.message : "Unknown connection error";
         dispatch({ type: "ERROR", error: message });
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       }
       return;
     }
@@ -297,6 +300,7 @@ export function useVoiceSession(
             errorHandler.handleConsecutiveError();
             // Also dispatch immediate error state for single errors
             dispatch({ type: "ERROR", error: error.message });
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
           },
         },
         { debug: () => {} } // Silence debug logging in production
@@ -314,12 +318,14 @@ export function useVoiceSession(
             retryMessageRef.current = null;
             if (sessionIdRef.current) {
               dispatch({ type: "CONNECTED", sessionId: sessionIdRef.current });
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
             }
           } else if (retryState === "error") {
             dispatch({
               type: "ERROR",
               error: "No internet. Please check your connection.",
             });
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
           }
         },
         onCleanup: () => {
@@ -399,6 +405,7 @@ export function useVoiceSession(
 
       // 4. Transition to LISTENING and start idle timeout
       dispatch({ type: "CONNECTED", sessionId });
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       sessionTimeoutRef.current.start();
     } catch (error) {
       // Unexpected error path — clean up and show generic service unavailable
