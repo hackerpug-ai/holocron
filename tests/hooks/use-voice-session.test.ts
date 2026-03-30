@@ -11,6 +11,14 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import type { RealtimeEventCallbacks } from "@/lib/voice/types";
 
+// --- Mock expo-haptics (native module not available in test) ---
+vi.mock("expo-haptics", () => ({
+  impactAsync: vi.fn(),
+  notificationAsync: vi.fn(),
+  ImpactFeedbackStyle: { Light: "Light", Medium: "Medium", Heavy: "Heavy" },
+  NotificationFeedbackType: { Success: "Success", Warning: "Warning", Error: "Error" },
+}));
+
 // --- Mock react-native (required for error-handler import) ---
 vi.mock("react-native", () => ({
   Platform: { OS: "ios" },
@@ -50,6 +58,8 @@ function MockWebRTCConnection() {
     destroy: mockDestroy,
     sendEvent: mockSendEvent,
     setCallbacks: mockSetCallbacks,
+    startAudioLevelMonitoring: vi.fn(),
+    stopAudioLevelMonitoring: vi.fn(),
   };
 }
 

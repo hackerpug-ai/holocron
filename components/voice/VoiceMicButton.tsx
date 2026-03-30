@@ -9,6 +9,7 @@
 
 import { useRef } from 'react'
 import { Pressable, View } from 'react-native'
+import * as Haptics from 'expo-haptics'
 import { cn } from '@/lib/utils'
 import { Mic, Square } from '@/components/ui/icons'
 import type { VoiceState } from '@/hooks/use-voice-session-state'
@@ -52,6 +53,7 @@ export function VoiceMicButton({ voiceState, onStart, onStop, className }: Voice
     if (isActive) {
       onStop()
     } else {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
       onStart()
     }
   }
