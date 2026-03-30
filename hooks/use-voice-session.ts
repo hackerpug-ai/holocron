@@ -15,7 +15,8 @@
  */
 
 import { useCallback, useEffect, useRef, useReducer } from "react";
-import { useAction, useMutation } from "convex/react";
+import { useAction, useMutation, useConvex } from "convex/react";
+import { useRouter } from "expo-router";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import {
@@ -29,6 +30,8 @@ import { createTranscriptRecorder } from "@/lib/voice/transcript-recorder";
 import { SessionTimeout, WarmConnection } from "@/lib/voice/session-timeout";
 import { createRetryManager } from "@/lib/voice/retry-manager";
 import { createVoiceErrorHandler } from "@/lib/voice/error-handler";
+import { getToolDefinitions } from "@/lib/voice/tool-definitions";
+import { dispatchFunctionCall, type DispatcherDeps } from "@/lib/voice/function-dispatcher";
 
 /**
  * Build session config sent via data channel after WebRTC connects.
@@ -54,7 +57,7 @@ function buildSessionUpdateEvent(instructions: string) {
         silence_duration_ms: 500,
         idle_timeout_ms: 30000,
       },
-      tools: [] as unknown[],
+      tools: getToolDefinitions(),
       tool_choice: "auto",
       truncation: { type: "retention_ratio", retention_ratio: 0.8 },
       input_audio_transcription: { model: "gpt-4o-transcribe" },
@@ -87,6 +90,8 @@ export function useVoiceSession(
   const createSession = useAction(api.voice.actions.createSession);
   const endSession = useMutation(api.voice.mutations.endSession);
   const recordTranscript = useMutation(api.voice.mutations.recordTranscript);
+  const convex = useConvex();
+  const router = useRouter();
 
   const connectionRef = useRef<WebRTCConnection | null>(null);
   const sessionIdRef = useRef<string | null>(null);
@@ -291,6 +296,27 @@ export function useVoiceSession(
               role: "user" as const,
               content: transcript,
             });
+          },
+          onFunctionCall: async (fn) => {
+            dispatch({ type: "TOOL_START", toolName: fn.name });
+            try {
+              const deps: DispatcherDeps = {
+                convex: {
+                  runAction: (path, args) => convex.action(path as never, args as never),
+                  runMutation: (path, args) => convex.mutation(path as never, args as never),
+                  runQuery: (path, args) => convex.query(path as never, args as never),
+                },
+                routerPush: (path) => router.push(path as never),
+                sendEvent: (event) => conn.sendEvent(event),
+                sessionId: sessionIdRef.current ?? "",
+              };
+              await dispatchFunctionCall(fn, deps);
+            } catch {
+              // Function dispatch errors are handled internally by the dispatcher
+              // which sends error results back to OpenAI
+            } finally {
+              dispatch({ type: "TOOL_END" });
+            }
           },
           onError: (error) => {
             // Count consecutive mid-session errors; triggers cleanup after 3

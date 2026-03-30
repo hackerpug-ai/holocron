@@ -48,7 +48,9 @@ export type VoiceAction =
   | { type: "ADD_TRANSCRIPT"; role: 'user' | 'agent'; content: string }
   | { type: "ERROR"; error: string; errorKind?: VoiceErrorKind }
   | { type: "DISCONNECT" }
-  | { type: "TIMEOUT" };
+  | { type: "TIMEOUT" }
+  | { type: "TOOL_START"; toolName: string }
+  | { type: "TOOL_END" };
 
 export interface VoiceSessionState {
   status: VoiceState;
@@ -59,6 +61,7 @@ export interface VoiceSessionState {
   transcript: string;
   transcripts: Array<{ role: 'user' | 'agent'; content: string; timestamp: number }>;
   isInterrupted: boolean;
+  activeTool: string | null;
 }
 
 export const initialVoiceSessionState: VoiceSessionState = {
@@ -70,6 +73,7 @@ export const initialVoiceSessionState: VoiceSessionState = {
   transcript: "",
   transcripts: [],
   isInterrupted: false,
+  activeTool: null,
 };
 
 /**
@@ -171,6 +175,7 @@ export function voiceSessionReducer(
         status: "error",
         errorMessage: action.error,
         errorKind: action.errorKind ?? null,
+        activeTool: null,
       };
     }
 
@@ -186,6 +191,21 @@ export function voiceSessionReducer(
         ...initialVoiceSessionState,
         errorMessage:
           state.status === "error" ? state.errorMessage : "Session timed out",
+      };
+    }
+
+    case "TOOL_START": {
+      if (state.status === "idle") return state;
+      return {
+        ...state,
+        activeTool: action.toolName,
+      };
+    }
+
+    case "TOOL_END": {
+      return {
+        ...state,
+        activeTool: null,
       };
     }
 

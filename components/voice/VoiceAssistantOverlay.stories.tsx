@@ -19,6 +19,7 @@ function makeState(
     transcript: '',
     transcripts: [],
     isInterrupted: false,
+    activeTool: null,
     ...overrides,
   }
 }

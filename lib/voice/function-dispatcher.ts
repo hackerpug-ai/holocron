@@ -16,6 +16,22 @@
 
 import type { ParsedFunctionCall } from './types'
 
+// ─── Tool display names ────────────────────────────────────────────────────────
+
+export const TOOL_DISPLAY_NAMES: Record<string, string> = {
+  search_knowledge: "Searching knowledge...",
+  list_recent_documents: "Fetching documents...",
+  get_document: "Loading document...",
+  get_conversations: "Fetching conversations...",
+  get_research_sessions: "Checking research...",
+  get_improvements: "Loading improvements...",
+  check_agent_status: "Checking status...",
+  start_research: "Starting research...",
+  submit_improvement: "Submitting improvement...",
+  create_note: "Creating note...",
+  navigate_app: "Navigating...",
+}
+
 // ─── Error classification ─────────────────────────────────────────────────────
 
 export type ErrorClass = 'transient' | 'permanent' | 'rate_limit'
