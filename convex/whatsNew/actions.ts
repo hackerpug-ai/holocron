@@ -860,6 +860,47 @@ export const generateDailyReport = internalAction({
       }
     }
 
+    // 3b. AI-score Twitter findings to filter noise
+    const twitterFindings = allFindings.filter(f => f.source.startsWith("Twitter"));
+    if (twitterFindings.length > 0) {
+      try {
+        const twitterScores = await ctx.runAction(
+          internal.subscriptions.ai_scoring.scoreContentRelevance,
+          {
+            items: twitterFindings.map(f => ({
+              title: f.title,
+              platform: "twitter",
+            })),
+            sourceName: "Twitter/X",
+            topic: "AI coding tools, agentic workflows, developer tooling",
+          }
+        );
+
+        // Collect titles of low-scoring findings (score < 0.5)
+        const lowScoredTitles = new Set<string>();
+        for (let i = 0; i < twitterFindings.length; i++) {
+          const scoreEntry = twitterScores[i];
+          if (scoreEntry && scoreEntry.score < 0.5) {
+            lowScoredTitles.add(twitterFindings[i].title);
+          }
+        }
+
+        // Filter out low-scoring Twitter findings
+        const beforeCount = allFindings.length;
+        const filtered = allFindings.filter(
+          f => !f.source.startsWith("Twitter") || !lowScoredTitles.has(f.title)
+        );
+        const removedCount = beforeCount - filtered.length;
+        if (removedCount > 0) {
+          console.log(`[generateDailyReport] AI-filtered ${removedCount} irrelevant Twitter findings`);
+        }
+        allFindings.length = 0;
+        allFindings.push(...filtered);
+      } catch (err) {
+        console.warn("[generateDailyReport] Twitter AI scoring failed, keeping all:", err);
+      }
+    }
+
     // 4. Deduplicate and categorize
     const uniqueFindings = deduplicateFindings(allFindings);
     const cappedFindings = capFindingsPerSource(uniqueFindings, 15);
