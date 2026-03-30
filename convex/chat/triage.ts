@@ -59,8 +59,8 @@ const VALID_CONFIDENCES = ["high", "medium", "low"] as const;
 export async function classifyIntent(
   messages: LlmMessage[],
 ): Promise<TriageResult> {
-  // Use only the last 5 messages to keep cost low
-  const recentMessages = messages.slice(-5);
+  // Use the last 10 messages for better intent classification context
+  const recentMessages = messages.slice(-10);
 
   try {
     const result = await generateText({

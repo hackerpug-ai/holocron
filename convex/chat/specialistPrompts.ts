@@ -6,6 +6,9 @@
  */
 
 const BASE_FORMATTING = `
+## Conversation Awareness
+- You have access to the full conversation history. Reference earlier messages, articles, and research when relevant to the user's current question.
+
 ## Formatting
 - Write short paragraphs (2-3 sentences max). Use bullet points for lists.
 - Lead with the most important information first.

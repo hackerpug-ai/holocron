@@ -60,6 +60,51 @@ export async function buildConversationContext(
     }
   }
 
+  // Build a brief summary of excluded messages so the agent is aware of earlier topics
+  const excludedCount = messages.length - includedMessages.length;
+  let conversationSummary: LlmMessage | null = null;
+
+  if (excludedCount > 0) {
+    const excludedMessages = messages.slice(includedMessages.length);
+    const topics: string[] = [];
+
+    for (const msg of excludedMessages) {
+      // Collect document titles referenced
+      if (msg.documentId) {
+        const doc = await db.get(msg.documentId);
+        if (doc?.title) {
+          const label = `document "${doc.title}"`;
+          if (!topics.includes(label)) topics.push(label);
+        }
+      }
+
+      // Collect tool names used
+      if (msg.messageType === "tool_approval") {
+        const tc = msg.content.match(/\b(\w+)\s+tool\b/i);
+        if (tc) {
+          const label = `${tc[1]} tool usage`;
+          if (!topics.includes(label)) topics.push(label);
+        }
+      }
+
+      // Collect first sentence of user messages
+      if (msg.role === "user" && msg.content) {
+        const firstSentence = msg.content.split(/[.!?\n]/)[0]?.trim();
+        if (firstSentence && firstSentence.length > 5) {
+          topics.push(`"${firstSentence}"`);
+        }
+      }
+    }
+
+    if (topics.length > 0) {
+      let summaryText = `Earlier in this conversation, topics included: ${topics.join(", ")}`;
+      if (summaryText.length > 500) {
+        summaryText = summaryText.slice(0, 497) + "...";
+      }
+      conversationSummary = { role: "system", content: summaryText };
+    }
+  }
+
   // Reverse to get oldest-first order for the LLM
   const orderedMessages = includedMessages.reverse();
 
@@ -299,16 +344,21 @@ export async function buildConversationContext(
     }
   }
 
-  // Prepend document context as a system message if any documents were found
+  // Prepend context system messages: conversation summary first, then document context
+  const prefixMessages: LlmMessage[] = [];
+
+  if (conversationSummary) {
+    prefixMessages.push(conversationSummary);
+  }
+
   if (documentContextParts.length > 0) {
-    const systemMessage: LlmMessage = {
+    prefixMessages.push({
       role: "system",
       content:
         "The following documents are referenced in this conversation:\n\n" +
         documentContextParts.join("\n\n"),
-    };
-    return [systemMessage, ...llmMessages];
+    });
   }
 
-  return llmMessages;
+  return [...prefixMessages, ...llmMessages];
 }
