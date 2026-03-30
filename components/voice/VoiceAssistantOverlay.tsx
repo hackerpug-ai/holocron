@@ -24,6 +24,7 @@ import { useTheme } from '@/hooks/use-theme'
 import { VoiceAgentOrb } from './VoiceAgentOrb'
 import { VoiceTranscriptFeed, type TranscriptEntry } from './VoiceTranscriptFeed'
 import { VoiceControlBar } from './VoiceControlBar'
+import { VoiceToolActivityPill } from './VoiceToolActivityPill'
 import type { VoiceSessionState } from '@/hooks/use-voice-session-state'
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -201,6 +202,12 @@ export function VoiceAssistantOverlay({
               <X size={20} color={colors.mutedForeground} />
             </Pressable>
           </View>
+
+          {/* Tool activity pill: shown when a tool is executing */}
+          <VoiceToolActivityPill
+            toolName={state.activeTool}
+            testID="voice-assistant-tool-activity-pill"
+          />
 
           {/* Center zone: VoiceAgentOrb */}
           <View style={styles.centerZone}>

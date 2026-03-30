@@ -32,9 +32,20 @@ vi.mock("react-native", () => ({
 const mockCreateSession = vi.fn();
 const mockEndSession = vi.fn();
 
+const mockConvexClient = {
+  action: vi.fn(),
+  mutation: vi.fn(),
+  query: vi.fn(),
+};
+
 vi.mock("convex/react", () => ({
   useAction: () => mockCreateSession,
   useMutation: () => mockEndSession,
+  useConvex: () => mockConvexClient,
+}));
+
+vi.mock("expo-router", () => ({
+  useRouter: () => ({ push: vi.fn() }),
 }));
 
 vi.mock("@/convex/_generated/api", () => ({
@@ -76,6 +87,15 @@ vi.mock("@/lib/voice/event-handler", () => ({
     capturedCallbacks = cbs;
     return mockEventHandlerFn;
   }),
+}));
+
+vi.mock("@/lib/voice/tool-definitions", () => ({
+  getToolDefinitions: () => [],
+}));
+
+vi.mock("@/lib/voice/function-dispatcher", () => ({
+  dispatchFunctionCall: vi.fn(),
+  TOOL_DISPLAY_NAMES: {},
 }));
 
 // --- Import hook after mocks ---

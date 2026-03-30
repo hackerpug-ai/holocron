@@ -32,6 +32,7 @@ describe("US-005: voiceSessionReducer", () => {
         transcript: "",
         transcripts: [],
         isInterrupted: false,
+        activeTool: null,
       });
     });
   });
