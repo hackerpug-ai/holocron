@@ -527,6 +527,21 @@ async function fetchTwitter(days: number, accounts: Array<{ handle: string; name
       const tweets = parseTwitterProfileMarkdown(markdown, cleanHandle);
 
       for (const tweet of tweets) {
+        // Filter tweets to AI coding/tools topics only
+        const aiCodingKeywords = [
+          'ai', 'llm', 'gpt', 'claude', 'gemini', 'model', 'agent', 'copilot',
+          'coding', 'developer', 'dev', 'api', 'sdk', 'framework', 'release',
+          'benchmark', 'inference', 'embedding', 'rag', 'cursor', 'vscode',
+          'mcp', 'tool', 'launch', 'open source', 'opensource', 'prompt',
+          'token', 'context', 'fine-tune', 'finetune', 'training', 'neural',
+          'transformer', 'diffusion', 'multimodal', 'reasoning', 'agentic',
+          'langchain', 'llamaindex', 'anthropic', 'openai', 'hugging face',
+          'mistral', 'ollama', 'local llm', 'code gen', 'autocomplete',
+        ];
+        const tweetTextLower = tweet.title.toLowerCase();
+        const isRelevant = aiCodingKeywords.some(kw => tweetTextLower.includes(kw));
+        if (!isRelevant) continue;
+
         // We can't reliably get exact timestamps from profile scraping,
         // so include all visible tweets (they're recent by nature)
         findings.push({
@@ -655,6 +670,31 @@ function deduplicateFindings(findings: Finding[]): Finding[] {
   }
 
   return unique;
+}
+
+/**
+ * Cap findings per source to prevent any single source from dominating.
+ * Keeps top N findings per source, sorted by score descending.
+ */
+function capFindingsPerSource(findings: Finding[], maxPerSource: number): Finding[] {
+  const bySource = new Map<string, Finding[]>();
+  for (const finding of findings) {
+    // Normalize source to base name (e.g., "Twitter/X (@foo)" -> "Twitter/X")
+    const baseSource = finding.source.replace(/\s*\(.*\)$/, '');
+    if (!bySource.has(baseSource)) {
+      bySource.set(baseSource, []);
+    }
+    bySource.get(baseSource)!.push(finding);
+  }
+
+  const capped: Finding[] = [];
+  for (const [, sourceFindings] of bySource) {
+    // Sort by score descending, take top N
+    sourceFindings.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+    capped.push(...sourceFindings.slice(0, maxPerSource));
+  }
+
+  return capped;
 }
 
 /**
@@ -822,16 +862,17 @@ export const generateDailyReport = internalAction({
 
     // 4. Deduplicate and categorize
     const uniqueFindings = deduplicateFindings(allFindings);
+    const cappedFindings = capFindingsPerSource(uniqueFindings, 15);
     const { discoveries, releases, trends, discussions } =
-      categorizeFindings(uniqueFindings);
+      categorizeFindings(cappedFindings);
 
     // Calculate extended metrics
-    const topEngagementVelocity = calculateTopEngagementVelocity(uniqueFindings);
-    const totalCorroborationCount = calculateCorroboration(uniqueFindings);
-    const sources = extractSources(uniqueFindings);
+    const topEngagementVelocity = calculateTopEngagementVelocity(cappedFindings);
+    const totalCorroborationCount = calculateCorroboration(cappedFindings);
+    const sources = extractSources(cappedFindings);
 
     console.log(
-      `[generateDailyReport] ${uniqueFindings.length} unique findings (${discoveries.length} discoveries, ${releases.length} releases, ${trends.length} trends, ${discussions.length} discussions)`
+      `[generateDailyReport] ${cappedFindings.length} unique findings (${discoveries.length} discoveries, ${releases.length} releases, ${trends.length} trends, ${discussions.length} discussions)`
     );
     console.log(
       `[generateDailyReport] Extended metrics: topEngagementVelocity=${topEngagementVelocity}, totalCorroborationCount=${totalCorroborationCount}, sources=${sources.length}`
@@ -844,7 +885,7 @@ export const generateDailyReport = internalAction({
 
     console.log("[generateDailyReport] Generating report with LLM synthesis...");
     const synthesisResult = await llmSynthesizeReport(
-      uniqueFindings,
+      cappedFindings,
       days,
       periodStart,
       periodEnd
@@ -884,6 +925,8 @@ export const generateDailyReport = internalAction({
       console.log(`[generateDailyReport] Storing ${synthesisResult.toolSuggestions.length} tool suggestions`);
     }
 
+    const findingsJson = JSON.stringify(cappedFindings);
+
     const reportId = await ctx.runMutation(
       internal.whatsNew.mutations.createReport,
       {
@@ -892,14 +935,14 @@ export const generateDailyReport = internalAction({
         days,
         focus: "all",
         discoveryOnly: false,
-        findingsCount: uniqueFindings.length,
+        findingsCount: cappedFindings.length,
         discoveryCount: discoveries.length,
         releaseCount: releases.length,
         trendCount: trends.length,
         reportPath: "", // Not using file paths, using documentId instead
         summaryJson: {
           topSources: Object.entries(
-            uniqueFindings.reduce(
+            cappedFindings.reduce(
               (acc, f) => {
                 acc[f.source] = (acc[f.source] || 0) + 1;
                 return acc;
@@ -914,6 +957,7 @@ export const generateDailyReport = internalAction({
         },
         documentId: documentResult.documentId,
         toolSuggestionsJson,
+        findingsJson,
       }
     );
 
@@ -925,7 +969,7 @@ export const generateDailyReport = internalAction({
     await ctx.runMutation(internal.notifications.internal.create, {
       type: "whats_new",
       title: "What's New Report Ready",
-      body: `Your daily AI digest is ready with ${uniqueFindings.length} findings.`,
+      body: `Your daily AI digest is ready with ${cappedFindings.length} findings.`,
       route: `/whats-new/${reportId}`,
       referenceId: reportId,
     });
@@ -933,7 +977,7 @@ export const generateDailyReport = internalAction({
     // Add to subscription feed so it appears in the daily feed
     await ctx.runMutation(internal.feeds.internal.createFeedItem, {
       groupKey: `whats-new:${reportId}`,
-      title: `AI Engineering Daily: ${uniqueFindings.length} findings`,
+      title: `AI Engineering Daily: ${cappedFindings.length} findings`,
       summary: `Discoveries: ${discoveries.length}, Releases: ${releases.length}, Trends: ${trends.length}`,
       contentType: "blog",
       itemCount: 1,
