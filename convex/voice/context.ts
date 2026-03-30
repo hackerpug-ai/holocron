@@ -9,10 +9,9 @@ const MAX_CHARS_PER_EXCHANGE = 200;
 /**
  * Base system prompt for the Holocron voice assistant.
  * Establishes the voice assistant's role and behavior.
+ * The language instruction is appended dynamically from user preferences.
  */
-const BASE_VOICE_SYSTEM_PROMPT = `You are the Holocron voice assistant. You help users search their knowledge base, manage tasks, check on research, and navigate the app. Before calling any function tool, briefly announce what you're about to do. When a function call is pending and the user asks about it, say you're still waiting on the result.
-
-Always respond in English.`;
+const BASE_VOICE_SYSTEM_PROMPT = `You are the Holocron voice assistant. You help users search their knowledge base, manage tasks, check on research, and navigate the app. Before calling any function tool, briefly announce what you're about to do. When a function call is pending and the user asks about it, say you're still waiting on the result.`;
 
 /**
  * Internal query that builds voice instructions for a conversation.
@@ -35,6 +34,11 @@ export const buildVoiceInstructions = internalQuery({
   },
   returns: v.string(),
   handler: async (ctx, args) => {
+    // Look up user's preferred voice language
+    const prefs = await ctx.db.query("userPreferences").first();
+    const language = prefs?.voiceLanguage ?? "English";
+    const systemPrompt = `${BASE_VOICE_SYSTEM_PROMPT}\n\nAlways respond in ${language}.`;
+
     // Build conversation context with reduced token budget for voice
     const messages = await buildConversationContext(
       ctx.db,
@@ -59,13 +63,13 @@ export const buildVoiceInstructions = internalQuery({
       return `${msg.role}: ${truncated}`;
     });
 
-    // If no exchanges, return just the base prompt
+    // If no exchanges, return just the system prompt with language
     if (truncatedExchanges.length === 0) {
-      return BASE_VOICE_SYSTEM_PROMPT;
+      return systemPrompt;
     }
 
-    // Combine base prompt with conversation history
+    // Combine system prompt with conversation history
     const conversationHistory = truncatedExchanges.join("\n\n");
-    return `${BASE_VOICE_SYSTEM_PROMPT}\n\nConversation history:\n\n${conversationHistory}`;
+    return `${systemPrompt}\n\nConversation history:\n\n${conversationHistory}`;
   },
 });

@@ -699,6 +699,7 @@ export default defineSchema({
   // User preferences (singleton)
   userPreferences: defineTable({
     notificationsLastSeenAt: v.optional(v.number()),
+    voiceLanguage: v.optional(v.string()),
     updatedAt: v.number(),
   }),
 

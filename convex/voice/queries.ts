@@ -1,4 +1,5 @@
 import { query } from "../_generated/server";
+import { internalQuery } from "../_generated/server";
 import { v } from "convex/values";
 
 /**
@@ -42,5 +43,32 @@ export const getActiveSession = query({
       .first();
 
     return session ?? null;
+  },
+});
+
+/**
+ * Get the user's preferred voice language.
+ * Returns the language string (defaults to "English" if not set).
+ * Public query for the settings UI.
+ */
+export const getVoiceLanguage = query({
+  args: {},
+  returns: v.string(),
+  handler: async (ctx) => {
+    const prefs = await ctx.db.query("userPreferences").first();
+    return prefs?.voiceLanguage ?? "English";
+  },
+});
+
+/**
+ * Internal query to get the user's preferred voice language.
+ * Used by buildVoiceInstructions to set the response language.
+ */
+export const internalGetVoiceLanguage = internalQuery({
+  args: {},
+  returns: v.string(),
+  handler: async (ctx) => {
+    const prefs = await ctx.db.query("userPreferences").first();
+    return prefs?.voiceLanguage ?? "English";
   },
 });

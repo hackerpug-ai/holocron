@@ -135,3 +135,22 @@ export const recordCommand = mutation({
     return commandId;
   },
 });
+
+/**
+ * Set the user's preferred voice language.
+ * Creates or updates the userPreferences singleton.
+ */
+export const setVoiceLanguage = mutation({
+  args: { language: v.string() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const prefs = await ctx.db.query("userPreferences").first();
+    const now = Date.now();
+    if (prefs) {
+      await ctx.db.patch(prefs._id, { voiceLanguage: args.language, updatedAt: now });
+    } else {
+      await ctx.db.insert("userPreferences", { voiceLanguage: args.language, updatedAt: now });
+    }
+    return null;
+  },
+});

@@ -3,7 +3,9 @@ import { Text } from '@/components/ui/text'
 import { cn } from '@/lib/utils'
 import { useColorScheme } from '@/lib/useColorScheme'
 import { useState } from 'react'
-import { Check, Sun, Moon, Monitor } from '@/components/ui/icons'
+import { Check, Sun, Moon, Monitor, Globe } from '@/components/ui/icons'
+import { useQuery, useMutation } from 'convex/react'
+import { api } from '@/convex/_generated/api'
 
 type ThemeMode = 'light' | 'dark' | 'system'
 
@@ -55,6 +57,17 @@ const THEME_OPTIONS: ThemeOption[] = [
   },
 ]
 
+const VOICE_LANGUAGE_OPTIONS = [
+  'English',
+  'Spanish',
+  'French',
+  'German',
+  'Portuguese',
+  'Japanese',
+  'Korean',
+  'Chinese',
+] as const
+
 interface SettingsScreenProps {
   // No props needed - ScreenLayout handles navigation
 }
@@ -71,6 +84,13 @@ export function SettingsScreen(_props: SettingsScreenProps) {
     colorScheme === 'dark' ? 'dark' : 'light'
   )
   const [isTransitioning, setIsTransitioning] = useState(false)
+
+  const voiceLanguage = useQuery(api.voice.queries.getVoiceLanguage)
+  const setVoiceLanguage = useMutation(api.voice.mutations.setVoiceLanguage)
+
+  const handleLanguageChange = (language: string) => {
+    void setVoiceLanguage({ language })
+  }
 
   const handleThemeChange = async (value: ThemeMode) => {
     if (value === selectedTheme || isTransitioning) return
@@ -242,6 +262,64 @@ export function SettingsScreen(_props: SettingsScreenProps) {
                 isSelected={selectedTheme === option.value}
               />
             ))}
+          </View>
+        </View>
+
+        {/* Voice Language Section */}
+        <View className="gap-3">
+          {/* Section title with icon */}
+          <View className="flex-row items-center gap-2 px-1">
+            <View className="rounded-lg bg-primary/10 p-2">
+              <Globe size={16} className="text-primary" />
+            </View>
+            <Text variant="h2" className="text-foreground">
+              Voice Language
+            </Text>
+          </View>
+
+          {/* Section description */}
+          <Text variant="default" className="px-1 text-muted-foreground">
+            Choose the language the voice assistant responds in.
+          </Text>
+
+          {/* Language options */}
+          <View className="gap-1 pt-2 rounded-2xl border border-border bg-card overflow-hidden">
+            {VOICE_LANGUAGE_OPTIONS.map((lang, index) => {
+              const isSelected = voiceLanguage === lang
+              return (
+                <Pressable
+                  key={lang}
+                  onPress={() => handleLanguageChange(lang)}
+                  className={cn(
+                    'flex-row items-center justify-between px-4 py-3',
+                    'active:bg-muted/50',
+                    index < VOICE_LANGUAGE_OPTIONS.length - 1 && 'border-b border-border'
+                  )}
+                  testID={`voice-language-${lang.toLowerCase()}`}
+                >
+                  <Text
+                    variant="default"
+                    className={cn(
+                      isSelected ? 'text-foreground' : 'text-muted-foreground'
+                    )}
+                  >
+                    {lang}
+                  </Text>
+                  <View
+                    className={cn(
+                      'h-5 w-5 rounded-full border-2 items-center justify-center',
+                      isSelected
+                        ? 'border-primary bg-primary'
+                        : 'border-muted-foreground/30'
+                    )}
+                  >
+                    {isSelected && (
+                      <Check size={12} className="text-primary-foreground" strokeWidth={3} />
+                    )}
+                  </View>
+                </Pressable>
+              )
+            })}
           </View>
         </View>
 
