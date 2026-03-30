@@ -7,9 +7,15 @@
  * - Debounced 300ms to prevent rapid double-start
  */
 
-import { useRef } from 'react'
+import { useRef, useEffect } from 'react'
 import { Pressable, View } from 'react-native'
 import * as Haptics from 'expo-haptics'
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withTiming,
+} from 'react-native-reanimated'
 import { cn } from '@/lib/utils'
 import { Mic, Square } from '@/components/ui/icons'
 import type { VoiceState } from '@/hooks/use-voice-session-state'
@@ -23,6 +29,8 @@ export interface VoiceMicButtonProps {
   onStop: () => void
   /** Optional additional className for the outer Pressable */
   className?: string
+  /** When true and voiceState is idle, shows a pulsing warm connection indicator dot */
+  isWarm?: boolean
 }
 
 /**
@@ -36,12 +44,31 @@ export interface VoiceMicButtonProps {
  * - processing → stop icon, enabled
  * - error      → mic icon, enabled (allows retry)
  */
-export function VoiceMicButton({ voiceState, onStart, onStop, className }: VoiceMicButtonProps) {
+export function VoiceMicButton({ voiceState, onStart, onStop, className, isWarm = false }: VoiceMicButtonProps) {
   const lastPressTime = useRef<number>(0)
   const DEBOUNCE_MS = 300
 
   const isConnecting = voiceState === 'connecting'
   const isActive = voiceState === 'listening' || voiceState === 'speaking' || voiceState === 'processing'
+  const showWarmDot = isWarm && voiceState === 'idle'
+
+  const warmPulse = useSharedValue(1)
+
+  useEffect(() => {
+    if (showWarmDot) {
+      warmPulse.value = withRepeat(
+        withTiming(0.5, { duration: 1000 }),
+        -1,
+        true
+      )
+    } else {
+      warmPulse.value = 1
+    }
+  }, [showWarmDot, warmPulse])
+
+  const warmDotStyle = useAnimatedStyle(() => ({
+    opacity: warmPulse.value,
+  }))
 
   function handlePress() {
     if (isConnecting) return
@@ -89,6 +116,13 @@ export function VoiceMicButton({ voiceState, onStart, onStop, className }: Voice
             <Square size={22} className="text-primary-foreground" />
           ) : (
             <Mic size={22} className="text-primary-foreground" />
+          )}
+          {showWarmDot && (
+            <Animated.View
+              testID="voice-mic-warm-indicator"
+              className="absolute top-0 right-0 h-1.5 w-1.5 rounded-full bg-emerald-400"
+              style={warmDotStyle}
+            />
           )}
         </View>
       )}

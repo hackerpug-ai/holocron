@@ -55,6 +55,8 @@ export interface ChatInputProps {
   onVoiceStart?: () => void
   /** Callback when voice session should stop */
   onVoiceStop?: () => void
+  /** Whether a warm WebRTC connection is available for fast re-activation */
+  isWarm?: boolean
 }
 
 const DEFAULT_COMMANDS: SlashCommand[] = [
@@ -156,6 +158,7 @@ export function ChatInput({
   voiceState = 'idle',
   onVoiceStart,
   onVoiceStop,
+  isWarm = false,
 }: ChatInputProps) {
   const { colors: themeColors } = useTheme()
 
@@ -348,6 +351,7 @@ export function ChatInput({
             voiceState={voiceState ?? 'idle'}
             onStart={onVoiceStart ?? (() => {})}
             onStop={onVoiceStop ?? (() => {})}
+            isWarm={isWarm}
           />
         ) : (
           <Pressable
