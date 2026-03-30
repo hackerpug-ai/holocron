@@ -1,7 +1,7 @@
 import { internalMutation } from "../_generated/server";
 import { v } from "convex/values";
 
-const SESSION_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
+const SESSION_TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes
 
 /**
  * Finds and marks orphaned voice sessions as completed with an error message.

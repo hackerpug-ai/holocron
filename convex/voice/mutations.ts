@@ -137,6 +137,29 @@ export const recordCommand = mutation({
 });
 
 /**
+ * Internal mutation to idempotently end a voice session.
+ * Called from createSessionHandler to auto-end stale/orphaned sessions
+ * that block new session creation.
+ * Safe to call on an already-completed session — returns null without patching.
+ */
+export const internalEndSession = internalMutation({
+  args: { sessionId: v.id("voiceSessions") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session || session.completedAt) return null;
+    const now = Date.now();
+    await ctx.db.patch(args.sessionId, {
+      completedAt: now,
+      totalDurationMs: now - session.startedAt,
+      errorMessage: "Replaced by new session",
+      updatedAt: now,
+    });
+    return null;
+  },
+});
+
+/**
  * Set the user's preferred voice language.
  * Creates or updates the userPreferences singleton.
  */

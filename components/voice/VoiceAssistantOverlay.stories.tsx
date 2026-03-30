@@ -2,7 +2,6 @@ import type { Meta, StoryObj } from '@storybook/react'
 import { View, Pressable, Text as RNText } from 'react-native'
 import { VoiceAssistantOverlay } from './VoiceAssistantOverlay'
 import type { VoiceSessionState } from '@/hooks/use-voice-session-state'
-import type { TranscriptEntry } from './VoiceTranscriptFeed'
 
 // ─── Mock Factory ──────────────────────────────────────────────────────────────
 
@@ -21,18 +20,6 @@ function makeState(
     isInterrupted: false,
     activeTool: null,
     ...overrides,
-  }
-}
-
-function makeTranscript(
-  speaker: 'user' | 'agent',
-  text: string
-): TranscriptEntry {
-  return {
-    id: `${Date.now()}-${speaker}`,
-    speaker,
-    text,
-    timestamp: new Date().toISOString(),
   }
 }
 
@@ -77,7 +64,7 @@ type Story = StoryObj<typeof VoiceAssistantOverlay>
 export const Listening: Story = {
   args: {
     state: makeState('listening'),
-    transcript: [],
+
     isMuted: false,
     onToggleMute: () => console.log('Toggle mute'),
     onStop: () => console.log('Stop'),
@@ -97,10 +84,6 @@ export const ListeningWithTranscript: Story = {
         { role: 'agent', content: 'I can help you search your knowledge base.', timestamp: Date.now() - 3000 },
       ],
     }),
-    transcript: [
-      makeTranscript('user', 'What can you help me with?'),
-      makeTranscript('agent', 'I can help you search your knowledge base.'),
-    ],
     isMuted: false,
     onToggleMute: () => console.log('Toggle mute'),
     onStop: () => console.log('Stop'),
@@ -119,10 +102,6 @@ export const Speaking: Story = {
         { role: 'agent', content: 'Why did the chicken cross the road?', timestamp: Date.now() - 1000 },
       ],
     }),
-    transcript: [
-      makeTranscript('user', 'Tell me a joke'),
-      makeTranscript('agent', 'Why did the chicken cross the road?'),
-    ],
     isMuted: false,
     onToggleMute: () => console.log('Toggle mute'),
     onStop: () => console.log('Stop'),
@@ -136,7 +115,7 @@ export const Speaking: Story = {
 export const Muted: Story = {
   args: {
     state: makeState('muted'),
-    transcript: [],
+
     isMuted: true,
     onToggleMute: () => console.log('Toggle mute'),
     onStop: () => console.log('Stop'),
@@ -153,7 +132,7 @@ export const Error: Story = {
       errorMessage: 'No internet connection',
       errorKind: 'service_unavailable',
     }),
-    transcript: [],
+
     isMuted: false,
     onToggleMute: () => console.log('Toggle mute'),
     onStop: () => console.log('Stop'),
@@ -168,7 +147,7 @@ export const Error: Story = {
 export const Connecting: Story = {
   args: {
     state: makeState('connecting'),
-    transcript: [],
+
     isMuted: false,
     onToggleMute: () => console.log('Toggle mute'),
     onStop: () => console.log('Stop'),
@@ -184,7 +163,7 @@ export const Connecting: Story = {
 export const Idle: Story = {
   args: {
     state: makeState('idle'),
-    transcript: [],
+
     isMuted: false,
     onToggleMute: () => console.log('Toggle mute'),
     onStop: () => console.log('Stop'),
@@ -206,11 +185,6 @@ export const InteractiveDemo: Story = {
         { role: 'agent', content: 'Hi there! How can I help?', timestamp: Date.now() - 3000 },
       ],
     })
-
-    const transcript = status === 'idle' ? [] : [
-      makeTranscript('user', 'Hello!'),
-      makeTranscript('agent', 'Hi there! How can I help?'),
-    ]
 
     return (
       <>
@@ -248,7 +222,6 @@ export const InteractiveDemo: Story = {
         </View>
         <VoiceAssistantOverlay
           state={state}
-          transcript={transcript}
           isMuted={isMuted}
           onToggleMute={() => setIsMuted(!isMuted)}
           onStop={() => console.log('Stop')}

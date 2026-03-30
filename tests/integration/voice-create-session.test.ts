@@ -67,11 +67,27 @@ describe("voice.createSession - AC-1: Returns token on success", () => {
 });
 
 // ============================================================================
-// AC-2: Throws error if active session already exists for conversationId
+// AC-2: Auto-ends stale session instead of throwing when active session exists
 // ============================================================================
 
-describe("voice.createSession - AC-2: Active session guard", () => {
-  it("createSessionHandler throws when active session exists", async () => {
+describe("voice.createSession - AC-2: Stale session auto-end", () => {
+  it("createSessionHandler auto-ends stale session and proceeds to create new one", async () => {
+    process.env.OPENAI_API_KEY = "sk-test-key";
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve({
+            value: "ek_abc123_testtoken",
+            expires_at: 1234567890,
+          }),
+        text: () => Promise.resolve(""),
+      })
+    );
+
     const { createSessionHandler } = await import("../../convex/voice/actions");
 
     const mockActiveSession = {
@@ -84,21 +100,75 @@ describe("voice.createSession - AC-2: Active session guard", () => {
       updatedAt: Date.now() - 5000,
     };
 
+    const mockNewSessionId = "vs_newSession456";
     const mockCtx = {
       runQuery: vi.fn().mockResolvedValue(mockActiveSession),
-      runMutation: vi.fn(),
+      runMutation: vi.fn().mockResolvedValue(mockNewSessionId),
     };
 
-    await expect(
-      createSessionHandler(
-        mockCtx as any,
-        { conversationId: "conv_123" },
-        { activeSessionQuery: "mock-query-ref" as any }
-      )
-    ).rejects.toThrow(/active session/i);
+    // Should NOT throw — should auto-end the stale session and succeed
+    const result = await createSessionHandler(
+      mockCtx as any,
+      { conversationId: "conv_123" },
+      {
+        activeSessionQuery: "mock-query-ref" as any,
+        endSessionMutation: "mock-end-mutation-ref" as any,
+        createSessionMutation: "mock-create-mutation-ref" as any,
+        buildInstructionsQuery: "mock-instructions-ref" as any,
+      }
+    );
 
-    // Mutation must NOT have been called
-    expect(mockCtx.runMutation).not.toHaveBeenCalled();
+    // First mutation call should be the auto-end of stale session
+    expect(mockCtx.runMutation).toHaveBeenCalledWith("mock-end-mutation-ref", {
+      sessionId: "vs_existing123",
+    });
+
+    // Should still return a valid result with new session
+    expect(result.ephemeralKey).toBe("ek_abc123_testtoken");
+    expect(result.sessionId).toBe(mockNewSessionId);
+  });
+
+  it("createSessionHandler does not call endSession when no active session exists", async () => {
+    process.env.OPENAI_API_KEY = "sk-test-key";
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve({
+            value: "ek_fresh_token",
+            expires_at: 9999999999,
+          }),
+        text: () => Promise.resolve(""),
+      })
+    );
+
+    const { createSessionHandler } = await import("../../convex/voice/actions");
+
+    const mockSessionId = "vs_brand_new";
+    const mockCtx = {
+      runQuery: vi.fn().mockResolvedValue(null), // no active session
+      runMutation: vi.fn().mockResolvedValue(mockSessionId),
+    };
+
+    await createSessionHandler(
+      mockCtx as any,
+      { conversationId: "conv_fresh" },
+      {
+        activeSessionQuery: "mock-query-ref" as any,
+        endSessionMutation: "mock-end-mutation-ref" as any,
+        createSessionMutation: "mock-create-mutation-ref" as any,
+        buildInstructionsQuery: "mock-instructions-ref" as any,
+      }
+    );
+
+    // endSession mutation should NOT have been called since there was no stale session
+    expect(mockCtx.runMutation).not.toHaveBeenCalledWith(
+      "mock-end-mutation-ref",
+      expect.anything()
+    );
   });
 });
 

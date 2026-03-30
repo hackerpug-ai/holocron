@@ -154,6 +154,29 @@ describe('createVoiceErrorHandler', () => {
     })
   })
 
+  // --- AC-3b: stale session error — better message ---
+  describe('stale session - helpful error message', () => {
+    it('stale session: shows helpful message when error indicates active session already exists', () => {
+      handler.handleTokenGenerationFailure(
+        new Error('An active session already exists for conversationId conv_123')
+      )
+
+      expect(mockOnError).toHaveBeenCalledOnce()
+      const errorArg = mockOnError.mock.calls[0][0]
+      expect(errorArg.userMessage).toBe('A previous session is still active. Please try again.')
+    })
+
+    it('stale session: still returns service_unavailable kind for stale session errors', () => {
+      handler.handleTokenGenerationFailure(
+        new Error('An active session already exists for conversationId conv_123')
+      )
+
+      const errorArg = mockOnError.mock.calls[0][0]
+      expect(errorArg.kind).toBe('service_unavailable')
+      expect(errorArg.canRetry).toBe(true)
+    })
+  })
+
   // --- AC-4: mid-session unavailable (3 consecutive errors) ---
   describe('mid-session unavailable - 3 consecutive errors', () => {
     it('mid-session unavailable: accumulates consecutive errors without triggering on first two', () => {

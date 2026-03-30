@@ -84,3 +84,23 @@ describe('AC-5: recordCommand handles error details when success=false', () => {
     expect(mutations.recordCommand).toBeDefined();
   });
 });
+
+/**
+ * AC-6: internalEndSession is exported and idempotent
+ *       - Exported from convex/voice/mutations.ts
+ *       - Present in the generated internal API
+ */
+describe('AC-6: internalEndSession exists and is exported', () => {
+  it('should export internalEndSession from convex/voice/mutations.ts', async () => {
+    const mutations = await import('../../convex/voice/mutations');
+    expect(mutations.internalEndSession).toBeDefined();
+    expect(['function', 'object'].includes(typeof mutations.internalEndSession)).toBe(true);
+  });
+
+  it('should have voice.mutations.internalEndSession in the generated internal API', async () => {
+    const { internal } = await import('../../convex/_generated/api');
+    expect(internal.voice).toBeDefined();
+    expect(internal.voice.mutations).toBeDefined();
+    expect(internal.voice.mutations.internalEndSession).toBeDefined();
+  });
+});

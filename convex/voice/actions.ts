@@ -39,6 +39,7 @@ export const createSessionHandler = async (
   args: { conversationId: string },
   overrides?: {
     activeSessionQuery?: FunctionReference<"query", "public" | "internal">;
+    endSessionMutation?: FunctionReference<"mutation", "public" | "internal">;
     createSessionMutation?: FunctionReference<"mutation", "public" | "internal">;
     buildInstructionsQuery?: FunctionReference<"query", "public" | "internal">;
   }
@@ -48,7 +49,7 @@ export const createSessionHandler = async (
   sessionId: string;
   instructions: string;
 }> => {
-  // 1. Check for active session — prevent duplicate concurrent sessions
+  // 1. Check for active session — auto-end stale sessions instead of blocking
   const activeSessionRef =
     overrides?.activeSessionQuery ?? api.voice.queries.getActiveSession;
   const activeSession = await ctx.runQuery(activeSessionRef, {
@@ -56,9 +57,13 @@ export const createSessionHandler = async (
   });
 
   if (activeSession) {
-    throw new Error(
-      `An active session already exists for conversationId ${args.conversationId}. End the existing session before creating a new one.`
-    );
+    // Auto-end stale session instead of blocking new session creation
+    const endSessionRef =
+      overrides?.endSessionMutation ??
+      internal.voice.mutations.internalEndSession;
+    await ctx.runMutation(endSessionRef, {
+      sessionId: (activeSession as { _id: string })._id,
+    });
   }
 
   // 2. Validate API key is present

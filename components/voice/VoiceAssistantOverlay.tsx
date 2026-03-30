@@ -17,7 +17,7 @@
  * All colors, spacing, and radii use theme tokens via useTheme().
  */
 
-import { useCallback, useEffect, useMemo } from 'react'
+import { useCallback, useEffect } from 'react'
 import { Dimensions, Modal, Pressable, SafeAreaView, StyleSheet, View } from 'react-native'
 import Animated, {
   Easing,
@@ -31,7 +31,7 @@ import { Text } from '@/components/ui/text'
 import { X } from '@/components/ui/icons'
 import { useTheme } from '@/hooks/use-theme'
 import { VoiceAgentOrb } from './VoiceAgentOrb'
-import { VoiceTranscriptFeed, type TranscriptEntry } from './VoiceTranscriptFeed'
+import { VoiceCaptions } from './VoiceCaptions'
 import { VoiceControlBar } from './VoiceControlBar'
 import { VoiceToolActivityPill } from './VoiceToolActivityPill'
 import type { VoiceSessionState } from '@/hooks/use-voice-session-state'
@@ -57,8 +57,8 @@ const DISMISS_THRESHOLD = 120
 export interface VoiceAssistantOverlayProps {
   /** Current voice session state */
   state: VoiceSessionState
-  /** Transcript entries to display */
-  transcript: TranscriptEntry[]
+  /** @deprecated No longer used - captions read from state.transcripts directly */
+  transcript?: unknown[]
   /** Whether the microphone is muted */
   isMuted: boolean
   /** Called when user toggles mute */
@@ -121,7 +121,7 @@ function formatStateName(status: VoiceSessionState['status']): string {
  */
 export function VoiceAssistantOverlay({
   state,
-  transcript: _transcript,
+  transcript: _transcript = [],
   isMuted,
   onToggleMute,
   onStop,
@@ -187,21 +187,6 @@ export function VoiceAssistantOverlay({
   const backdropAnimatedStyle = useAnimatedStyle(() => ({
     opacity: backdropOpacity.value,
   }))
-
-  // ─── Derived state ────────────────────────────────────────────────────────
-
-  // Transform VoiceSessionState.transcripts to TranscriptEntry format
-  const transcriptEntries: TranscriptEntry[] = useMemo(
-    () =>
-      state.transcripts.map((t) => ({
-        id: `${t.timestamp}-${t.role}`,
-        speaker: t.role,
-        text: t.content,
-        timestamp: new Date(t.timestamp).toISOString(),
-        isPartial: false, // Completed entries are never partial
-      })),
-    [state.transcripts]
-  )
 
   // Don't render if idle
   if (state.status === 'idle') {
@@ -320,10 +305,9 @@ export function VoiceAssistantOverlay({
                   },
                 ]}
               >
-                {/* Transcript feed */}
-                <VoiceTranscriptFeed
-                  transcript={transcriptEntries}
-                  testID="voice-assistant-transcript-feed"
+                {/* Captions: positioned just above controls */}
+                <VoiceCaptions
+                  transcripts={state.transcripts}
                 />
 
                 {/* Control bar */}

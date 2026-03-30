@@ -16,7 +16,6 @@ import { SquarePen } from '@/components/ui/icons'
 import { spacing } from '@/lib/theme'
 import { useVoiceSession } from '@/hooks/use-voice-session'
 import { VoiceAssistantOverlay } from '@/components/voice/VoiceAssistantOverlay'
-import type { TranscriptEntry } from '@/components/voice/VoiceTranscriptFeed'
 
 /**
  * Chat screen for a specific conversation.
@@ -165,7 +164,6 @@ export default function ChatScreen() {
     stop: stopVoice,
     mute,
     unmute,
-    transcripts,
     audioLevel,
     isWarm,
   } = useVoiceSession(voiceConversationId)
@@ -179,15 +177,6 @@ export default function ChatScreen() {
       mute()
     }
   }
-
-  // Transform transcripts to TranscriptEntry format
-  const transcriptEntries: TranscriptEntry[] = transcripts.map((t) => ({
-    id: `${t.timestamp}-${t.role}`,
-    speaker: t.role,
-    text: t.content,
-    timestamp: new Date(t.timestamp).toISOString(),
-    isPartial: false,
-  }))
 
   // Set the active conversation when the route loads (skip for 'new')
   useEffect(() => {
@@ -302,7 +291,6 @@ export default function ChatScreen() {
       {/* Voice assistant overlay — modal with its own visibility management */}
       <VoiceAssistantOverlay
         state={voiceState}
-        transcript={transcriptEntries}
         isMuted={isMuted}
         onToggleMute={toggleMute}
         onStop={stopVoice}
