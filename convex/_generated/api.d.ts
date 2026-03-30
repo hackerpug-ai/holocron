@@ -161,6 +161,7 @@ import type * as transcripts_scheduled from "../transcripts/scheduled.js";
 import type * as transcripts_service from "../transcripts/service.js";
 import type * as voice_actions from "../voice/actions.js";
 import type * as voice_context from "../voice/context.js";
+import type * as voice_executeTool from "../voice/executeTool.js";
 import type * as voice_mutations from "../voice/mutations.js";
 import type * as voice_queries from "../voice/queries.js";
 import type * as voice_scheduled from "../voice/scheduled.js";
@@ -332,6 +333,7 @@ declare const fullApi: ApiFromModules<{
   "transcripts/service": typeof transcripts_service;
   "voice/actions": typeof voice_actions;
   "voice/context": typeof voice_context;
+  "voice/executeTool": typeof voice_executeTool;
   "voice/mutations": typeof voice_mutations;
   "voice/queries": typeof voice_queries;
   "voice/scheduled": typeof voice_scheduled;

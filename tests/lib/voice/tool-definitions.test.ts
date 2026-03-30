@@ -6,11 +6,11 @@ import {
 } from '@/lib/voice/tool-definitions'
 
 describe('toolDefinitions', () => {
-  // AC-1: getToolDefinitions() returns array of 11 tool objects
-  it('returns 11 tool objects each with type, name, description, and parameters fields', () => {
+  // AC-1: getToolDefinitions() returns array of 21 tool objects (20 chat parity + navigate_app)
+  it('returns 21 tool objects each with type, name, description, and parameters fields', () => {
     const tools = getToolDefinitions()
 
-    expect(tools).toHaveLength(11)
+    expect(tools).toHaveLength(21)
 
     for (const tool of tools) {
       expect(tool).toHaveProperty('type', 'function')
@@ -26,10 +26,10 @@ describe('toolDefinitions', () => {
     }
   })
 
-  // AC-2: search_knowledge tool has required 'query' parameter
-  it('search_knowledge has required query parameter of type string with description', () => {
+  // AC-2: search_knowledge_base tool has required 'query' parameter
+  it('search_knowledge_base has required query parameter of type string with description', () => {
     const tools = getToolDefinitions()
-    const searchTool = tools.find((t) => t.name === 'search_knowledge')
+    const searchTool = tools.find((t) => t.name === 'search_knowledge_base')
 
     expect(searchTool).toBeDefined()
     expect(searchTool!.parameters.properties).toHaveProperty('query')
@@ -63,24 +63,34 @@ describe('toolDefinitions', () => {
     expect(combined.length).toBeLessThan(MAX_CHARS)
   })
 
-  // AC-4: Invalid tool name lookup returns undefined or throws descriptive error
+  // AC-4: Invalid tool name lookup returns undefined
   it('unknown tool: returns undefined when looking up an invalid tool name', () => {
     const result = getToolByName('nonexistent_tool_xyz')
     expect(result).toBeUndefined()
   })
 
-  it('all P0 tool names are present in TOOL_NAMES', () => {
+  it('all tool names are present in TOOL_NAMES', () => {
     const required = [
-      'search_knowledge',
-      'list_recent_documents',
+      'search_knowledge_base',
+      'browse_category',
+      'knowledge_base_stats',
+      'save_document',
+      'update_document',
       'get_document',
-      'get_conversations',
-      'get_research_sessions',
-      'get_improvements',
-      'check_agent_status',
-      'start_research',
-      'submit_improvement',
-      'create_note',
+      'quick_research',
+      'deep_research',
+      'shop_search',
+      'subscribe',
+      'unsubscribe',
+      'list_subscriptions',
+      'check_subscriptions',
+      'whats_new',
+      'toolbelt_search',
+      'assimilate',
+      'add_improvement',
+      'search_improvements',
+      'get_improvement',
+      'list_improvements',
       'navigate_app',
     ]
 
