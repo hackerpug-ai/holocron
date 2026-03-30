@@ -6,13 +6,14 @@ import type { ParsedFunctionCall } from '@/lib/voice/types'
 function makeDeps(overrides: Partial<DispatcherDeps> = {}): DispatcherDeps {
   return {
     convex: {
-      runAction: vi.fn().mockResolvedValue([]),
+      runAction: vi.fn().mockResolvedValue({ success: true, content: '[]', skipContinuation: false }),
       runMutation: vi.fn().mockResolvedValue('mock-id'),
       runQuery: vi.fn().mockResolvedValue([]),
     },
     routerPush: vi.fn(),
     sendEvent: vi.fn(),
     sessionId: 'session123' as unknown as string,
+    conversationId: 'conv123' as unknown as string,
     ...overrides,
   }
 }
@@ -41,14 +42,14 @@ function getResponseCreateCall(sendEvent: ReturnType<typeof vi.fn>) {
   return call ? (call[0] as Record<string, unknown>) : undefined
 }
 
-// ─── AC-1: dispatch search_knowledge ─────────────────────────────────────────
+// ─── Server-side tool dispatch ──────────────────────────────────────────────
 
-describe('dispatch search_knowledge', () => {
-  it('calls Convex hybridSearch action with query, sends result via conversation.item.create with matching call_id, then response.create', async () => {
-    const mockResults = [{ _id: 'doc1', title: 'Voice Research', score: 0.9 }]
+describe('server-side tool dispatch', () => {
+  it('calls executeTool action with toolName, toolArgs, and conversationId', async () => {
+    const mockResult = { success: true, content: JSON.stringify([{ _id: 'doc1' }]), skipContinuation: false }
     const deps = makeDeps({
       convex: {
-        runAction: vi.fn().mockResolvedValue(mockResults),
+        runAction: vi.fn().mockResolvedValue(mockResult),
         runMutation: vi.fn().mockResolvedValue('cmd-id'),
         runQuery: vi.fn().mockResolvedValue([]),
       },
@@ -57,10 +58,14 @@ describe('dispatch search_knowledge', () => {
     const fn = makeFunctionCall('search_knowledge', { query: 'test query' }, 'call_search1')
     await dispatchFunctionCall(fn, deps)
 
-    // Must call hybridSearch action
+    // Must call executeTool action with correct args
     expect(deps.convex.runAction).toHaveBeenCalledWith(
-      'documents/search:hybridSearch',
-      expect.objectContaining({ query: 'test query' })
+      'voice/executeTool:executeTool',
+      {
+        toolName: 'search_knowledge',
+        toolArgs: { query: 'test query' },
+        conversationId: 'conv123',
+      }
     )
 
     // Must send conversation.item.create with correct call_id
@@ -70,26 +75,15 @@ describe('dispatch search_knowledge', () => {
     expect(item.call_id).toBe('call_search1')
     expect(item.type).toBe('function_call_output')
 
-    // Output must be JSON-stringified result
+    // Output must be JSON-stringified result with server content
     const output = JSON.parse(item.output as string) as { success: boolean; data: unknown }
     expect(output.success).toBe(true)
-    expect(output.data).toEqual(mockResults)
+    expect(output.data).toBe(mockResult.content)
 
     // Must send response.create after
     const responseCreate = getResponseCreateCall(deps.sendEvent as ReturnType<typeof vi.fn>)
     expect(responseCreate).toBeDefined()
     expect(responseCreate!.type).toBe('response.create')
-
-    // response.create must come after conversation.item.create
-    const allCalls = (deps.sendEvent as ReturnType<typeof vi.fn>).mock.calls
-    const itemCreateIndex = allCalls.findIndex(
-      (args: unknown[]) => (args[0] as Record<string, unknown>).type === 'conversation.item.create'
-    )
-    const responseCreateIndex = allCalls.findIndex(
-      (args: unknown[]) => (args[0] as Record<string, unknown>).type === 'response.create'
-    )
-    expect(itemCreateIndex).toBeGreaterThanOrEqual(0)
-    expect(responseCreateIndex).toBeGreaterThan(itemCreateIndex)
   })
 
   it('uses call_id from callId field, not item.id', async () => {
@@ -101,16 +95,13 @@ describe('dispatch search_knowledge', () => {
     const item = itemCreate!.item as Record<string, unknown>
     expect(item.call_id).toBe('call_CORRECT')
   })
-})
 
-// ─── AC-2: dispatch create_note ───────────────────────────────────────────────
-
-describe('dispatch create_note', () => {
-  it('calls Convex documents.create mutation, returns success result, records voiceCommand with success=true', async () => {
+  it('routes create_note through server-side executeTool', async () => {
+    const mockResult = { success: true, content: JSON.stringify({ id: 'new-doc-id' }), skipContinuation: false }
     const deps = makeDeps({
       convex: {
-        runAction: vi.fn().mockResolvedValue(null),
-        runMutation: vi.fn().mockResolvedValue('new-doc-id'),
+        runAction: vi.fn().mockResolvedValue(mockResult),
+        runMutation: vi.fn().mockResolvedValue('cmd-id'),
         runQuery: vi.fn().mockResolvedValue(null),
       },
     })
@@ -122,23 +113,27 @@ describe('dispatch create_note', () => {
     )
     await dispatchFunctionCall(fn, deps)
 
-    // Must call documents create mutation
-    expect(deps.convex.runMutation).toHaveBeenCalledWith(
-      'documents/mutations:create',
-      expect.objectContaining({
-        title: 'Test Note',
-        content: 'Content here',
-        category: 'note',
-      })
+    expect(deps.convex.runAction).toHaveBeenCalledWith(
+      'voice/executeTool:executeTool',
+      {
+        toolName: 'create_note',
+        toolArgs: { title: 'Test Note', content: 'Content here' },
+        conversationId: 'conv123',
+      }
     )
 
-    // Must return success result
     const itemCreate = getItemCreateCall(deps.sendEvent as ReturnType<typeof vi.fn>)
     const item = itemCreate!.item as Record<string, unknown>
     const output = JSON.parse(item.output as string) as { success: boolean }
     expect(output.success).toBe(true)
+  })
 
-    // Must record voiceCommand — wait a tick for fire-and-forget
+  it('records audit trail via recordCommand mutation', async () => {
+    const deps = makeDeps()
+    const fn = makeFunctionCall('search_knowledge', { query: 'test' }, 'call_audit1')
+    await dispatchFunctionCall(fn, deps)
+
+    // Wait for fire-and-forget recordCommand
     await new Promise((resolve) => setTimeout(resolve, 10))
     const recordCalls = (deps.convex.runMutation as ReturnType<typeof vi.fn>).mock.calls.filter(
       (args: unknown[]) => args[0] === 'voice/mutations:recordCommand'
@@ -146,10 +141,11 @@ describe('dispatch create_note', () => {
     expect(recordCalls.length).toBeGreaterThan(0)
     const recordArgs = recordCalls[0][1] as Record<string, unknown>
     expect(recordArgs.success).toBe(true)
+    expect(recordArgs.sessionId).toBe('session123')
   })
 })
 
-// ─── AC-3: dispatch navigate_app ─────────────────────────────────────────────
+// ─── navigate_app (client-side) ─────────────────────────────────────────────
 
 describe('dispatch navigate_app', () => {
   it('calls router.push with correct path for settings, returns success result', async () => {
@@ -159,6 +155,9 @@ describe('dispatch navigate_app', () => {
     await dispatchFunctionCall(fn, deps)
 
     expect(deps.routerPush).toHaveBeenCalledWith('/settings')
+
+    // Should NOT call executeTool for navigate_app
+    expect(deps.convex.runAction).not.toHaveBeenCalled()
 
     const itemCreate = getItemCreateCall(deps.sendEvent as ReturnType<typeof vi.fn>)
     const item = itemCreate!.item as Record<string, unknown>
@@ -189,10 +188,10 @@ describe('dispatch navigate_app', () => {
   })
 })
 
-// ─── AC-4: dispatch error — pure read fails ───────────────────────────────────
+// ─── Error handling ─────────────────────────────────────────────────────────
 
 describe('dispatch error handling', () => {
-  it('returns error result via conversation.item.create (not thrown) when Convex throws, records voiceCommand with success=false', async () => {
+  it('returns error result via conversation.item.create when server action throws permanent error', async () => {
     const deps = makeDeps({
       convex: {
         runAction: vi.fn().mockRejectedValue(new Error('Convex search failed')),
@@ -206,13 +205,12 @@ describe('dispatch error handling', () => {
     // Must NOT throw
     await expect(dispatchFunctionCall(fn, deps)).resolves.toBeUndefined()
 
-    // Must send error result, not throw — error must be user-friendly (no raw error text)
+    // Must send error result, not throw — error must be user-friendly
     const itemCreate = getItemCreateCall(deps.sendEvent as ReturnType<typeof vi.fn>)
     expect(itemCreate).toBeDefined()
     const item = itemCreate!.item as Record<string, unknown>
     const output = JSON.parse(item.output as string) as { success: boolean; error: string }
     expect(output.success).toBe(false)
-    // Must NOT expose raw error message to user
     expect(output.error).not.toContain('Convex search failed')
     expect(output.error).toBeDefined()
 
@@ -229,109 +227,19 @@ describe('dispatch error handling', () => {
     const recordArgs = recordCalls[0][1] as Record<string, unknown>
     expect(recordArgs.success).toBe(false)
   })
-
-  it('handles unknown function name by returning error result without throwing', async () => {
-    const deps = makeDeps()
-    const fn = makeFunctionCall('nonexistent_tool', {}, 'call_unknown1')
-
-    await expect(dispatchFunctionCall(fn, deps)).resolves.toBeUndefined()
-
-    const itemCreate = getItemCreateCall(deps.sendEvent as ReturnType<typeof vi.fn>)
-    const item = itemCreate!.item as Record<string, unknown>
-    const output = JSON.parse(item.output as string) as { success: boolean; error: string }
-    expect(output.success).toBe(false)
-    expect(output.error).toContain('Unknown function: nonexistent_tool')
-  })
 })
 
-// ─── AC-5: dispatch async start_research with timeout ────────────────────────
+// ─── Transient retry ────────────────────────────────────────────────────────
 
-describe('dispatch async start_research', () => {
-  it('returns result within timeout when Convex mutation resolves quickly', async () => {
-    const deps = makeDeps({
-      convex: {
-        runAction: vi.fn().mockResolvedValue(null),
-        runMutation: vi.fn().mockResolvedValue('research-session-id'),
-        runQuery: vi.fn().mockResolvedValue(null),
-      },
-      researchTimeoutMs: 5000,
-    })
-
-    const fn = makeFunctionCall('start_research', { topic: 'AI safety' }, 'call_research1')
-    await dispatchFunctionCall(fn, deps)
-
-    expect(deps.convex.runMutation).toHaveBeenCalledWith(
-      'researchSessions/mutations:create',
-      expect.objectContaining({ query: 'AI safety' })
-    )
-
-    const itemCreate = getItemCreateCall(deps.sendEvent as ReturnType<typeof vi.fn>)
-    const item = itemCreate!.item as Record<string, unknown>
-    const output = JSON.parse(item.output as string) as { success: boolean; data: { sessionId: string } }
-    expect(output.success).toBe(true)
-    expect(output.data.sessionId).toBe('research-session-id')
-  })
-
-  it('returns timeout message when Convex mutation exceeds timeout', async () => {
-    const TIMEOUT_MS = 50
-    // Simulate a slow mutation that won't resolve within our short timeout
-    const deps = makeDeps({
-      convex: {
-        runAction: vi.fn().mockResolvedValue(null),
-        runMutation: vi.fn().mockImplementation(
-          (path: string) =>
-            path === 'researchSessions/mutations:create'
-              ? new Promise((resolve) => setTimeout(() => resolve('session-id'), TIMEOUT_MS * 10))
-              : Promise.resolve('cmd-id')
-        ),
-        runQuery: vi.fn().mockResolvedValue(null),
-      },
-      researchTimeoutMs: TIMEOUT_MS,
-    })
-
-    const fn = makeFunctionCall('start_research', { topic: 'slow topic' }, 'call_timeout1')
-    await dispatchFunctionCall(fn, deps)
-
-    const itemCreate = getItemCreateCall(deps.sendEvent as ReturnType<typeof vi.fn>)
-    const item = itemCreate!.item as Record<string, unknown>
-    const output = JSON.parse(item.output as string) as { success: boolean; error: string; data: string }
-    // Timeout returns the timeout message as data/error
-    expect(output.data).toContain('Research is still running')
-  }, 5000)
-})
-
-// ─── sendEvent ordering ───────────────────────────────────────────────────────
-
-describe('sendEvent ordering', () => {
-  it('always sends response.create after conversation.item.create', async () => {
-    const deps = makeDeps()
-    const fn = makeFunctionCall('navigate_app', { screen: 'home' })
-    await dispatchFunctionCall(fn, deps)
-
-    const allCalls = (deps.sendEvent as ReturnType<typeof vi.fn>).mock.calls
-    const types = allCalls.map((args: unknown[]) => (args[0] as Record<string, unknown>).type)
-
-    const itemIdx = types.indexOf('conversation.item.create')
-    const responseIdx = types.indexOf('response.create')
-
-    expect(itemIdx).toBeGreaterThanOrEqual(0)
-    expect(responseIdx).toBeGreaterThan(itemIdx)
-  })
-})
-
-// ─── US-018: Execution failure handling ──────────────────────────────────────
-
-// ─── US-018 AC-1: transient retry ────────────────────────────────────────────
-
-describe('transient retry - AC-1', () => {
-  it('retries once on transient error (network timeout); succeeds on retry without spoken message', async () => {
+describe('transient retry', () => {
+  it('retries once on transient error; succeeds on retry', async () => {
     let callCount = 0
     const deps = makeDeps({
       convex: {
         runAction: vi.fn().mockImplementation(() => {
           callCount++
           if (callCount === 1) return Promise.reject(new Error('network timeout'))
-          return Promise.resolve([{ _id: 'doc1' }])
+          return Promise.resolve({ success: true, content: 'retried', skipContinuation: false })
         }),
         runMutation: vi.fn().mockResolvedValue('cmd-id'),
         runQuery: vi.fn().mockResolvedValue([]),
@@ -343,7 +251,6 @@ describe('transient retry - AC-1', () => {
 
     // Should have called the action twice (initial + retry)
     expect(deps.convex.runAction).toHaveBeenCalledTimes(2)
-    // After retry succeeds, result should be success
     const itemCreate = getItemCreateCall(deps.sendEvent as ReturnType<typeof vi.fn>)
     const item = itemCreate!.item as Record<string, unknown>
     const output = JSON.parse(item.output as string) as { success: boolean }
@@ -366,7 +273,6 @@ describe('transient retry - AC-1', () => {
     // Should have attempted twice (initial + retry)
     expect(deps.convex.runAction).toHaveBeenCalledTimes(2)
 
-    // Error message must be user-friendly, not raw error
     const itemCreate = getItemCreateCall(deps.sendEvent as ReturnType<typeof vi.fn>)
     const item = itemCreate!.item as Record<string, unknown>
     const output = JSON.parse(item.output as string) as { success: boolean; error: string }
@@ -376,16 +282,16 @@ describe('transient retry - AC-1', () => {
   })
 })
 
-// ─── US-018 AC-2: permanent error ────────────────────────────────────────────
+// ─── Permanent error ────────────────────────────────────────────────────────
 
-describe('permanent error - AC-2', () => {
-  it('does not retry on permanent error (404 not found) and speaks user-friendly message', async () => {
+describe('permanent error', () => {
+  it('does not retry on permanent error and speaks user-friendly message', async () => {
     const permanentError = new Error('404 not found')
     const deps = makeDeps({
       convex: {
-        runAction: vi.fn().mockResolvedValue([]),
+        runAction: vi.fn().mockRejectedValue(permanentError),
         runMutation: vi.fn().mockResolvedValue('cmd-id'),
-        runQuery: vi.fn().mockRejectedValue(permanentError),
+        runQuery: vi.fn().mockResolvedValue([]),
       },
     })
 
@@ -393,9 +299,8 @@ describe('permanent error - AC-2', () => {
     await dispatchFunctionCall(fn, deps)
 
     // Should only attempt once — no retry for permanent errors
-    expect(deps.convex.runQuery).toHaveBeenCalledTimes(1)
+    expect(deps.convex.runAction).toHaveBeenCalledTimes(1)
 
-    // Error message must be user-friendly
     const itemCreate = getItemCreateCall(deps.sendEvent as ReturnType<typeof vi.fn>)
     const item = itemCreate!.item as Record<string, unknown>
     const output = JSON.parse(item.output as string) as { success: boolean; error: string }
@@ -407,26 +312,26 @@ describe('permanent error - AC-2', () => {
   it('session continues after permanent error (does not throw)', async () => {
     const deps = makeDeps({
       convex: {
-        runAction: vi.fn().mockResolvedValue([]),
+        runAction: vi.fn().mockRejectedValue(new Error('403 permission denied')),
         runMutation: vi.fn().mockResolvedValue('cmd-id'),
-        runQuery: vi.fn().mockRejectedValue(new Error('403 permission denied')),
+        runQuery: vi.fn().mockResolvedValue([]),
       },
     })
 
     const fn = makeFunctionCall('get_document', { document_id: 'forbidden' }, 'call_perm2')
 
-    // Must NOT throw — session continues
+    // Must NOT throw
     await expect(dispatchFunctionCall(fn, deps)).resolves.toBeUndefined()
 
-    // Must still send response.create so model can continue
+    // Must still send response.create
     const responseCreate = getResponseCreateCall(deps.sendEvent as ReturnType<typeof vi.fn>)
     expect(responseCreate).toBeDefined()
   })
 })
 
-// ─── US-018 AC-3: rate limit ──────────────────────────────────────────────────
+// ─── Rate limit ─────────────────────────────────────────────────────────────
 
-describe('rate limit - AC-3', () => {
+describe('rate limit', () => {
   it('speaks "Too many requests" message on 429 error without retrying', async () => {
     const rateLimitError = new Error('429 rate limit exceeded')
     const deps = makeDeps({
@@ -443,7 +348,6 @@ describe('rate limit - AC-3', () => {
     // Must NOT retry for rate limit
     expect(deps.convex.runAction).toHaveBeenCalledTimes(1)
 
-    // Error message must be the rate limit message
     const itemCreate = getItemCreateCall(deps.sendEvent as ReturnType<typeof vi.fn>)
     const item = itemCreate!.item as Record<string, unknown>
     const output = JSON.parse(item.output as string) as { success: boolean; error: string }
@@ -452,10 +356,10 @@ describe('rate limit - AC-3', () => {
   })
 })
 
-// ─── US-018 AC-4: error logged ───────────────────────────────────────────────
+// ─── Error logging ──────────────────────────────────────────────────────────
 
-describe('error logged - AC-4', () => {
-  it('records voiceCommand with success=false and error type on any execution failure', async () => {
+describe('error logged', () => {
+  it('records voiceCommand with success=false on execution failure', async () => {
     const deps = makeDeps({
       convex: {
         runAction: vi.fn().mockRejectedValue(new Error('500 internal server error')),
@@ -480,31 +384,28 @@ describe('error logged - AC-4', () => {
     expect(result.error).toBeDefined()
     expect(result.success).toBe(false)
   })
+})
 
-  it('records voiceCommand with success=false on permanent error', async () => {
-    const deps = makeDeps({
-      convex: {
-        runAction: vi.fn().mockResolvedValue([]),
-        runMutation: vi.fn().mockResolvedValue('cmd-id'),
-        runQuery: vi.fn().mockRejectedValue(new Error('404 not found')),
-      },
-    })
+// ─── sendEvent ordering ─────────────────────────────────────────────────────
 
-    const fn = makeFunctionCall('get_document', { document_id: 'missing' }, 'call_log2')
+describe('sendEvent ordering', () => {
+  it('always sends response.create after conversation.item.create', async () => {
+    const deps = makeDeps()
+    const fn = makeFunctionCall('navigate_app', { screen: 'home' })
     await dispatchFunctionCall(fn, deps)
 
-    await new Promise((resolve) => setTimeout(resolve, 10))
+    const allCalls = (deps.sendEvent as ReturnType<typeof vi.fn>).mock.calls
+    const types = allCalls.map((args: unknown[]) => (args[0] as Record<string, unknown>).type)
 
-    const recordCalls = (deps.convex.runMutation as ReturnType<typeof vi.fn>).mock.calls.filter(
-      (args: unknown[]) => args[0] === 'voice/mutations:recordCommand'
-    )
-    expect(recordCalls.length).toBeGreaterThan(0)
-    const recordArgs = recordCalls[0][1] as Record<string, unknown>
-    expect(recordArgs.success).toBe(false)
+    const itemIdx = types.indexOf('conversation.item.create')
+    const responseIdx = types.indexOf('response.create')
+
+    expect(itemIdx).toBeGreaterThanOrEqual(0)
+    expect(responseIdx).toBeGreaterThan(itemIdx)
   })
 })
 
-// ─── classifyError unit tests ─────────────────────────────────────────────────
+// ─── classifyError unit tests ───────────────────────────────────────────────
 
 describe('classifyError', () => {
   it('classifies timeout as transient', () => {
@@ -532,7 +433,7 @@ describe('classifyError', () => {
   })
 })
 
-// ─── getSpokenErrorMessage unit tests ────────────────────────────────────────
+// ─── getSpokenErrorMessage unit tests ───────────────────────────────────────
 
 describe('getSpokenErrorMessage', () => {
   it('returns transient message', () => {

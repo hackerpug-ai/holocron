@@ -1,15 +1,15 @@
 /**
  * Function call dispatcher for the Holocron voice assistant.
  *
- * Routes OpenAI Realtime function_call events to Convex endpoints,
- * returns results via the data channel, and records execution audit trail.
+ * Routes OpenAI Realtime function_call events:
+ * - navigate_app → client-side (needs router.push)
+ * - All other tools → server-side via voice/executeTool action
  *
  * Design: pure function with injected dependencies for testability.
  *
  * CRITICAL:
  * - Use item.call_id (call_XXXX), NOT item.id (item_XXXX)
  * - Always send response.create after conversation.item.create
- * - Pure reads execute immediately; agent dispatchers use timeout
  * - All results JSON.stringified before sending as output
  * - Record each function call via voice.recordCommand mutation
  */
@@ -72,10 +72,7 @@ export type DispatcherDeps = {
   routerPush: RouterPush
   sendEvent: SendEvent
   sessionId: string
-  /** Optional override for async timeout ms (default: 60_000) */
-  researchTimeoutMs?: number
-  /** Optional override for submit_improvement timeout ms (default: 30_000) */
-  improvementTimeoutMs?: number
+  conversationId: string
 }
 
 // ─── Result types ─────────────────────────────────────────────────────────────
@@ -97,181 +94,13 @@ const SCREEN_PATHS: Record<string, string> = {
   settings: '/settings',
 }
 
-// ─── Timeout helper ────────────────────────────────────────────────────────────
-
-function withTimeout<T>(promise: Promise<T>, ms: number, timeoutMessage: string): Promise<T | string> {
-  const timer = new Promise<string>((resolve) => {
-    setTimeout(() => resolve(timeoutMessage), ms)
-  })
-  return Promise.race([promise, timer])
-}
-
-// ─── Individual tool handlers ──────────────────────────────────────────────────
-
-async function handleSearchKnowledge(
-  args: Record<string, unknown>,
-  deps: DispatcherDeps
-): Promise<DispatchResult> {
-  const query = args.query as string
-  const results = await deps.convex.runAction('documents/search:hybridSearch', {
-    query,
-    limit: 10,
-  })
-  return { success: true, data: results }
-}
-
-async function handleListRecentDocuments(
-  args: Record<string, unknown>,
-  deps: DispatcherDeps
-): Promise<DispatchResult> {
-  const limit = args.limit !== undefined ? Number(args.limit) : 10
-  const results = await deps.convex.runQuery('documents/queries:list', { limit })
-  return { success: true, data: results }
-}
-
-async function handleGetDocument(
-  args: Record<string, unknown>,
-  deps: DispatcherDeps
-): Promise<DispatchResult> {
-  const result = await deps.convex.runQuery('documents/queries:get', {
-    id: args.document_id,
-  })
-  return { success: true, data: result }
-}
-
-async function handleGetConversations(
-  args: Record<string, unknown>,
-  deps: DispatcherDeps
-): Promise<DispatchResult> {
-  const limit = args.limit !== undefined ? Number(args.limit) : 5
-  const results = await deps.convex.runQuery('conversations/queries:list', { limit })
-  return { success: true, data: results }
-}
-
-async function handleGetResearchSessions(
-  args: Record<string, unknown>,
-  deps: DispatcherDeps
-): Promise<DispatchResult> {
-  const limit = args.limit !== undefined ? Number(args.limit) : 5
-  const results = await deps.convex.runQuery('researchSessions/queries:list', { limit })
-  return { success: true, data: results }
-}
-
-async function handleGetImprovements(
-  args: Record<string, unknown>,
-  deps: DispatcherDeps
-): Promise<DispatchResult> {
-  const limit = args.limit !== undefined ? Number(args.limit) : 5
-  const results = await deps.convex.runQuery('improvements/queries:list', { limit })
-  return { success: true, data: results }
-}
-
-async function handleCheckAgentStatus(
-  args: Record<string, unknown>,
-  deps: DispatcherDeps
-): Promise<DispatchResult> {
-  const result = await deps.convex.runQuery('researchSessions/queries:get', {
-    id: args.session_id,
-  })
-  return { success: true, data: result }
-}
-
-async function handleCreateNote(
-  args: Record<string, unknown>,
-  deps: DispatcherDeps
-): Promise<DispatchResult> {
-  const id = await deps.convex.runMutation('documents/mutations:create', {
-    title: args.title,
-    content: args.content,
-    category: 'note',
-  })
-  return { success: true, data: { id } }
-}
-
-async function handleNavigateApp(
-  args: Record<string, unknown>,
-  deps: DispatcherDeps
-): Promise<DispatchResult> {
-  const screen = args.screen as string
-  const path = SCREEN_PATHS[screen] ?? `/${screen}`
-  deps.routerPush(path)
-  return { success: true, data: { navigatedTo: screen, path } }
-}
-
-async function handleStartResearch(
-  args: Record<string, unknown>,
-  deps: DispatcherDeps
-): Promise<DispatchResult> {
-  const timeoutMs = deps.researchTimeoutMs ?? 60_000
-  const researchPromise = (async (): Promise<DispatchResult> => {
-    const sessionId = await deps.convex.runMutation('researchSessions/mutations:create', {
-      query: args.topic,
-      researchType: 'topic_research',
-      inputType: 'voice',
-      status: 'pending',
-    })
-    return { success: true, data: { sessionId } }
-  })()
-
-  const result = await withTimeout(
-    researchPromise,
-    timeoutMs,
-    'Research is still running. Ask me to check later.'
-  )
-
-  if (typeof result === 'string') {
-    return { success: false, data: result, error: result }
-  }
-  return result
-}
-
-async function handleSubmitImprovement(
-  args: Record<string, unknown>,
-  deps: DispatcherDeps
-): Promise<DispatchResult> {
-  const timeoutMs = deps.improvementTimeoutMs ?? 30_000
-  const improvementPromise = (async (): Promise<DispatchResult> => {
-    const id = await deps.convex.runMutation('improvements/mutations:submit', {
-      description: args.description,
-      sourceScreen: 'voice',
-    })
-    return { success: true, data: { id } }
-  })()
-
-  const result = await withTimeout(
-    improvementPromise,
-    timeoutMs,
-    'Improvement submitted, still being analyzed.'
-  )
-
-  if (typeof result === 'string') {
-    return { success: false, data: result, error: result }
-  }
-  return result
-}
-
-// ─── Router ────────────────────────────────────────────────────────────────────
-
-type ToolHandler = (args: Record<string, unknown>, deps: DispatcherDeps) => Promise<DispatchResult>
-
-const TOOL_HANDLERS: Record<string, ToolHandler> = {
-  search_knowledge: handleSearchKnowledge,
-  list_recent_documents: handleListRecentDocuments,
-  get_document: handleGetDocument,
-  get_conversations: handleGetConversations,
-  get_research_sessions: handleGetResearchSessions,
-  get_improvements: handleGetImprovements,
-  check_agent_status: handleCheckAgentStatus,
-  create_note: handleCreateNote,
-  navigate_app: handleNavigateApp,
-  start_research: handleStartResearch,
-  submit_improvement: handleSubmitImprovement,
-}
-
 // ─── Main dispatcher ───────────────────────────────────────────────────────────
 
 /**
- * Dispatch a function call from OpenAI Realtime to the appropriate Convex endpoint.
+ * Dispatch a function call from OpenAI Realtime to the appropriate handler.
+ *
+ * - navigate_app is handled client-side (needs router.push)
+ * - All other tools are routed to the server-side executeTool action
  *
  * Always returns a result via conversation.item.create + response.create.
  * Never throws — errors are captured and returned as error results.
@@ -281,38 +110,43 @@ export async function dispatchFunctionCall(
   fn: ParsedFunctionCall,
   deps: DispatcherDeps
 ): Promise<void> {
-  const handler = TOOL_HANDLERS[fn.name]
-
   let result: DispatchResult
 
-  if (!handler) {
-    result = {
-      success: false,
-      error: `Unknown function: ${fn.name}`,
-    }
+  if (fn.name === 'navigate_app') {
+    // Client-side only — needs router.push
+    const screen = fn.arguments.screen as string
+    const path = SCREEN_PATHS[screen] ?? `/${screen}`
+    deps.routerPush(path)
+    result = { success: true, data: { navigatedTo: screen, path } }
   } else {
+    // ALL other tools → server-side via executeAgentTool
     try {
-      result = await handler(fn.arguments, deps)
+      const serverResult = await deps.convex.runAction(
+        'voice/executeTool:executeTool',
+        {
+          toolName: fn.name,
+          toolArgs: fn.arguments,
+          conversationId: deps.conversationId,
+        }
+      )
+      const typed = serverResult as { success: boolean; content: string; skipContinuation: boolean }
+      result = { success: typed.success, data: typed.content }
     } catch (err) {
       const errorClass = classifyError(err)
 
       if (errorClass === 'transient') {
-        // Retry once automatically for transient errors
         try {
-          result = await handler(fn.arguments, deps)
+          const retryResult = await deps.convex.runAction(
+            'voice/executeTool:executeTool',
+            { toolName: fn.name, toolArgs: fn.arguments, conversationId: deps.conversationId }
+          )
+          const typed = retryResult as { success: boolean; content: string; skipContinuation: boolean }
+          result = { success: typed.success, data: typed.content }
         } catch {
-          // Retry also failed — speak user-friendly message
-          result = {
-            success: false,
-            error: getSpokenErrorMessage('transient'),
-          }
+          result = { success: false, error: getSpokenErrorMessage('transient') }
         }
       } else {
-        // Permanent or rate_limit — no retry
-        result = {
-          success: false,
-          error: getSpokenErrorMessage(errorClass),
-        }
+        result = { success: false, error: getSpokenErrorMessage(errorClass) }
       }
     }
   }

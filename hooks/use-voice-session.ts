@@ -317,6 +317,7 @@ export function useVoiceSession(
                 routerPush: (path) => router.push(path as never),
                 sendEvent: (event) => conn.sendEvent(event),
                 sessionId: sessionIdRef.current ?? "",
+                conversationId,
               };
               await dispatchFunctionCall(fn, deps);
             } catch {
