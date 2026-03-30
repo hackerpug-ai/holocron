@@ -25,6 +25,7 @@ import {
   initialVoiceSessionState,
   type VoiceSessionState,
 } from "@/hooks/use-voice-session-state";
+import { useVoiceResultBridge } from "@/hooks/use-voice-result-bridge";
 import { WebRTCConnection } from "@/lib/voice/webrtc-connection";
 import { createEventHandler } from "@/lib/voice/event-handler";
 import { createTranscriptRecorder } from "@/lib/voice/transcript-recorder";
@@ -104,6 +105,21 @@ export function useVoiceSession(
   const instructionsRef = useRef<string>("");
 
   const [audioLevel, setAudioLevel] = useState(0);
+
+  // Voice result bridge: push async tool results to OpenAI when they complete
+  const sendEventToOpenAI = useCallback((event: Record<string, unknown>) => {
+    if (connectionRef.current) {
+      connectionRef.current.sendEvent(event);
+    }
+  }, []);
+
+  const isSessionActive =
+    state.status === "listening" ||
+    state.status === "processing" ||
+    state.status === "speaking" ||
+    state.status === "muted";
+
+  useVoiceResultBridge(conversationId, isSessionActive, sendEventToOpenAI);
 
   // US-017: timeout and warm connection managers
   const sessionTimeoutRef = useRef<SessionTimeout | null>(null);

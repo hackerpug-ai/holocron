@@ -42,6 +42,7 @@ vi.mock("convex/react", () => ({
   useAction: () => mockCreateSession,
   useMutation: () => mockEndSession,
   useConvex: () => mockConvexClient,
+  useQuery: () => undefined,
 }));
 
 vi.mock("expo-router", () => ({
@@ -53,6 +54,9 @@ vi.mock("@/convex/_generated/api", () => ({
     voice: {
       actions: { createSession: "createSession" },
       mutations: { endSession: "endSession" },
+    },
+    chatMessages: {
+      queries: { listByConversation: "listByConversation" },
     },
   },
 }));
