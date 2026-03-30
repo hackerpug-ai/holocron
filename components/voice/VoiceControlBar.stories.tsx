@@ -11,7 +11,7 @@ const meta: Meta<typeof VoiceControlBar> = {
     docs: {
       description: {
         component:
-          'Control buttons for the voice overlay. Three buttons in a horizontal row: Mute (left, 52dp), Stop (center, 64dp, primary action), Dismiss (right, 52dp). Each button uses 300ms debounce. Mute toggles between Mic/MicOff icons with primary/destructive colors.',
+          'Control buttons for the voice overlay. Two buttons centered in a horizontal row: Mute (left, 52dp), Stop (right, 64dp, primary action). Each button uses 300ms debounce. Mute toggles between Mic/MicOff icons with primary/destructive colors.',
       },
     },
   },
@@ -40,7 +40,6 @@ export const Active: Story = {
     isMuted: false,
     onToggleMute: () => console.log('Toggle mute'),
     onStop: () => console.log('Stop'),
-    onDismiss: () => console.log('Dismiss'),
   },
 }
 
@@ -53,7 +52,6 @@ export const Muted: Story = {
     isMuted: true,
     onToggleMute: () => console.log('Toggle mute'),
     onStop: () => console.log('Stop'),
-    onDismiss: () => console.log('Dismiss'),
   },
 }
 
@@ -70,7 +68,6 @@ export const Centered: Story = {
     isMuted: false,
     onToggleMute: () => console.log('Toggle mute'),
     onStop: () => console.log('Stop'),
-    onDismiss: () => console.log('Dismiss'),
   },
 }
 
@@ -86,7 +83,6 @@ export const BothStates: Story = {
           isMuted={false}
           onToggleMute={() => console.log('Toggle mute')}
           onStop={() => console.log('Stop')}
-          onDismiss={() => console.log('Dismiss')}
           testID="control-bar-active"
         />
       </View>
@@ -96,7 +92,6 @@ export const BothStates: Story = {
           isMuted={true}
           onToggleMute={() => console.log('Toggle mute')}
           onStop={() => console.log('Stop')}
-          onDismiss={() => console.log('Dismiss')}
           testID="control-bar-muted"
         />
       </View>

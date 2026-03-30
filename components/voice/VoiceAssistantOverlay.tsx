@@ -233,7 +233,6 @@ export function VoiceAssistantOverlay({
               isMuted={isMuted}
               onToggleMute={onToggleMute}
               onStop={onStop}
-              onDismiss={onDismiss}
               testID="voice-assistant-control-bar"
             />
 
