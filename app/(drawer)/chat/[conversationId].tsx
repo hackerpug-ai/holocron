@@ -166,6 +166,7 @@ export default function ChatScreen() {
     mute,
     unmute,
     transcripts,
+    audioLevel,
   } = useVoiceSession(voiceConversationId)
 
   // Mute state and toggle handler
@@ -306,6 +307,7 @@ export default function ChatScreen() {
         onStop={stopVoice}
         onDismiss={stopVoice}
         onRetry={startVoice}
+        audioLevel={audioLevel}
         testID="voice-assistant-overlay"
       />
       {/* Bottom area with safe area padding */}

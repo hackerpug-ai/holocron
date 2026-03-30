@@ -14,7 +14,7 @@
  * NEVER exposes WebRTC internals.
  */
 
-import { useCallback, useEffect, useRef, useReducer } from "react";
+import { useCallback, useEffect, useRef, useReducer, useState } from "react";
 import { useAction, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -74,6 +74,8 @@ export interface UseVoiceSessionReturn {
   isWarm: boolean;
   /** User-facing spoken feedback message during network retry (null when idle) */
   retryMessage: string | null;
+  /** Current microphone audio level (0.0–1.0), updated at ~10Hz */
+  audioLevel: number;
 }
 
 export function useVoiceSession(
@@ -94,6 +96,8 @@ export function useVoiceSession(
   const retryMessageRef = useRef<string | null>(null);
   const ephemeralKeyRef = useRef<string | null>(null);
   const instructionsRef = useRef<string>("");
+
+  const [audioLevel, setAudioLevel] = useState(0);
 
   // US-017: timeout and warm connection managers
   const sessionTimeoutRef = useRef<SessionTimeout | null>(null);
@@ -122,6 +126,7 @@ export function useVoiceSession(
           isWarmRef.current = false;
         }
         connectionRef.current = null;
+        setAudioLevel(0);
       }
 
       const sid = sessionIdRef.current;
@@ -396,6 +401,7 @@ export function useVoiceSession(
       }
 
       connectionRef.current = conn;
+      conn.startAudioLevelMonitoring(setAudioLevel);
 
       // 4. Transition to LISTENING and start idle timeout
       dispatch({ type: "CONNECTED", sessionId });
@@ -473,5 +479,6 @@ export function useVoiceSession(
     transcripts: state.transcripts,
     isWarm: isWarmRef.current,
     retryMessage: retryMessageRef.current,
+    audioLevel,
   };
 }

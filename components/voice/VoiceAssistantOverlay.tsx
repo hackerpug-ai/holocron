@@ -45,6 +45,8 @@ export interface VoiceAssistantOverlayProps {
   onRetry?: () => void
   /** Optional testID for the root container */
   testID?: string
+  /** Current microphone audio level (0.0–1.0), drives orb animation */
+  audioLevel?: number
 }
 
 // ─── Helper Functions ──────────────────────────────────────────────────────────
@@ -100,6 +102,7 @@ export function VoiceAssistantOverlay({
   onDismiss,
   onRetry,
   testID = 'voice-assistant-overlay-root',
+  audioLevel = 0,
 }: VoiceAssistantOverlayProps) {
   const { colors, spacing } = useTheme()
 
@@ -203,6 +206,7 @@ export function VoiceAssistantOverlay({
           <View style={styles.centerZone}>
             <VoiceAgentOrb
               status={state.status}
+              audioLevel={audioLevel}
               size={160}
               testID="voice-assistant-agent-orb"
             />

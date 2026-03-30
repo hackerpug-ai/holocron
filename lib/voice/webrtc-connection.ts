@@ -22,6 +22,7 @@ export class WebRTCConnection {
   private dc: WebRTCDataChannel | null = null
   private localStream: MediaStream | null = null
   private callbacks: WebRTCConnectionCallbacks = {}
+  private audioLevelInterval: ReturnType<typeof setInterval> | null = null
 
   setCallbacks(callbacks: WebRTCConnectionCallbacks): void {
     this.callbacks = callbacks
@@ -114,6 +115,56 @@ export class WebRTCConnection {
     }
   }
 
+  startAudioLevelMonitoring(callback: (level: number) => void): void {
+    if (this.audioLevelInterval !== null) {
+      // Already monitoring — clear previous interval before starting a new one
+      clearInterval(this.audioLevelInterval)
+    }
+
+    this.audioLevelInterval = setInterval(async () => {
+      if (!this.pc) {
+        callback(0)
+        return
+      }
+
+      try {
+        type AudioStatsReport = { type: string; kind?: string; audioLevel?: number }
+        type RTCSenderLike = { track?: { kind: string } | null; getStats(): Promise<Map<string, AudioStatsReport>> }
+        type RTCPCLike = { getSenders(): RTCSenderLike[] }
+
+        const pc = this.pc as unknown as RTCPCLike
+        const senders = pc.getSenders()
+        const audioSender = senders.find((s) => s.track?.kind === 'audio')
+
+        if (!audioSender) {
+          callback(0)
+          return
+        }
+
+        const stats = await audioSender.getStats()
+        let level = 0
+
+        stats.forEach((report) => {
+          if (report.type === 'media-source' && report.kind === 'audio' && typeof report.audioLevel === 'number') {
+            level = report.audioLevel
+          }
+        })
+
+        callback(level)
+      } catch {
+        // Stats unavailable — fallback to 0
+        callback(0)
+      }
+    }, 100)
+  }
+
+  stopAudioLevelMonitoring(): void {
+    if (this.audioLevelInterval !== null) {
+      clearInterval(this.audioLevelInterval)
+      this.audioLevelInterval = null
+    }
+  }
+
   sendEvent(event: Record<string, unknown>): void {
     if (!this.dc || this.dc.readyState !== 'open') {
       throw new Error('Data channel is not open')
@@ -122,6 +173,9 @@ export class WebRTCConnection {
   }
 
   destroy(): void {
+    // Stop audio level monitoring
+    this.stopAudioLevelMonitoring()
+
     // Stop all local mic tracks
     if (this.localStream) {
       for (const track of this.localStream.getTracks()) {
