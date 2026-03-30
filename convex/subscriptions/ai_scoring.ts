@@ -52,19 +52,34 @@ export const scoreContentRelevance = internalAction({
     let platformRules = '';
     if (hasTwitterOrBluesky) {
       platformRules = `
-Platform-specific rules for [twitter]/[bluesky] — BE VERY STRICT:
-- Score 0.7-1.0 ONLY for: AI coding tool releases (Claude Code, Cursor, Copilot, etc.), LLM model releases with technical detail, MCP servers/integrations, agentic coding workflows, AI model benchmarks for coding, API/pricing changes for AI providers, developer tooling integrations
-- Score 0.0-0.2 for ALL of these (they are IRRELEVANT):
-  * Vague hot takes ("Holy sh*t", "This is insane", "Mind blown")
-  * AI party tricks (playing games, tic tac toe, rock paper scissors, generating memes)
-  * General tech humor or memes ("The hottest new programming language is English")
-  * Non-coding AI applications (art, music, video generation for entertainment)
-  * Generic programming opinions not related to AI tooling
-  * Personal life updates from tech personalities
-  * Engagement bait with no substance
-  * ChatGPT/Claude doing non-coding tasks
-  * One-liner reactions without technical content
-- Most social media posts should score LOW. Only score high for substantive technical content.
+Platform-specific rules for [twitter]/[bluesky] — evaluate on TWO axes, then combine:
+
+AXIS 1 — Intellectual Gravity (does this require engineering knowledge to appreciate?):
+  HIGH (0.7-1.0): Model architecture details, benchmark methodology, API design decisions,
+    training insights, infrastructure scaling, technical comparisons between systems
+  MEDIUM (0.4-0.6): Surface-level announcements of technical products, brief mentions of tools
+  LOW (0.0-0.3): Hot takes, reactions, memes, entertainment, personality commentary,
+    anything a non-engineer would engage with equally
+
+AXIS 2 — Builder Relevance (can a developer act on this information?):
+  HIGH (0.7-1.0): New tool/model with usage details, workflow technique, breaking API change,
+    pricing update affecting costs, integration guide, migration path
+  MEDIUM (0.4-0.6): Awareness-level info (a tool exists, a model was released), no actionable detail
+  LOW (0.0-0.3): Pure opinion, entertainment, social commentary, no developer action possible
+
+Final score = average of both axes. Only tweets scoring HIGH on BOTH axes should reach 0.7+.
+
+Examples of IRRELEVANT tweets (score 0.0-0.2):
+- Reaction tweets with no technical content (expressing surprise, excitement, disbelief)
+- AI doing non-coding tasks (playing games, generating art for fun, chatbot conversations)
+- Generic tech humor or memes about programming
+- Engagement bait that wraps a fact everyone already knows
+- Surface-level takes that add no insight beyond what a headline says
+
+Examples of RELEVANT tweets (score 0.7-1.0):
+- "Kimi K2 uses fewer attention heads but more expert modules than DeepSeek V3" (architecture analysis)
+- "Claude Code now supports MCP tool servers natively — here's how to configure them" (actionable tooling)
+- "Measured 40% latency reduction switching from GPT-4o to Claude 3.5 for code review tasks" (benchmark)
 
 Platform-specific rules for [youtube]/[github]/[blog]:
 - Score 0.9-1.0: Directly about the topic with substantial content

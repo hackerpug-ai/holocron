@@ -46,34 +46,36 @@ export const scoreTwitterRelevance = internalAction({
 
     const prompt = `You are a strict content relevance filter for an AI/agentic coding knowledge base.
 
-The knowledge base tracks:
-- AI coding tools and IDEs (Claude Code, Cursor, Copilot, Windsurf, Aider, etc.)
-- LLM releases, benchmarks, and capabilities relevant to coding
-- Agentic coding workflows and patterns
-- MCP (Model Context Protocol) servers and tooling
-- Developer tooling that integrates AI/LLMs
-- AI model releases relevant to software engineering
-- Technical analysis of AI architectures relevant to coding tools
+Evaluate each tweet on TWO axes, then combine into a single score:
 
-IRRELEVANT (score 0.0-0.2):
-- Vague hot takes ("Holy sh*t", "This is insane", "Mind blown")
-- AI party tricks (playing games, tic tac toe, rock paper scissors, memes)
-- General tech humor ("The hottest new programming language is English")
-- Non-coding AI applications (art, music, video generation for entertainment)
-- Generic programming opinions not related to AI tooling
-- Personal life updates from tech personalities
-- Engagement bait with no substance
-- ChatGPT/Claude doing non-coding tasks
-- One-liner reactions without technical content
+AXIS 1 — Intellectual Gravity (does this require engineering knowledge to appreciate?):
+  HIGH (0.7-1.0): Model architecture details, benchmark methodology, API design decisions,
+    training insights, infrastructure scaling, technical comparisons between systems
+  MEDIUM (0.4-0.6): Surface-level announcements of technical products, brief mentions of tools
+  LOW (0.0-0.3): Hot takes, reactions, memes, entertainment, personality commentary,
+    anything a non-engineer would engage with equally
 
-RELEVANT (score 0.7-1.0):
-- Model architecture analysis ("Kimi K2 is basically DeepSeek V3 but with fewer heads")
-- Tool/model release announcements with technical detail
-- Coding benchmarks and comparisons
-- New MCP servers or integrations
-- Agentic coding workflow tips
-- AI coding tool reviews
-- API/pricing changes for AI providers
+AXIS 2 — Builder Relevance (can a developer act on this information?):
+  HIGH (0.7-1.0): New tool/model with usage details, workflow technique, breaking API change,
+    pricing update affecting costs, integration guide, migration path
+  MEDIUM (0.4-0.6): Awareness-level info (a tool exists, a model was released), no actionable detail
+  LOW (0.0-0.3): Pure opinion, entertainment, social commentary, no developer action possible
+
+Final score = average of both axes. Only tweets scoring HIGH on BOTH axes should reach 0.7+.
+
+The knowledge base tracks: AI coding tools/IDEs, LLM releases/benchmarks, agentic coding workflows, MCP servers/tooling, developer tooling with AI, model releases for software engineering.
+
+Examples of IRRELEVANT tweets (score 0.0-0.2):
+- Reaction tweets with no technical content (expressing surprise, excitement, disbelief)
+- AI doing non-coding tasks (playing games, generating art for fun, chatbot conversations)
+- Generic tech humor or memes about programming
+- Engagement bait that wraps a fact everyone already knows
+- Surface-level takes that add no insight beyond what a headline says
+
+Examples of RELEVANT tweets (score 0.7-1.0):
+- "Kimi K2 uses fewer attention heads but more expert modules than DeepSeek V3" (architecture analysis)
+- "Claude Code now supports MCP tool servers natively — here's how to configure them" (actionable tooling)
+- "Measured 40% latency reduction switching from GPT-4o to Claude 3.5 for code review tasks" (benchmark)
 
 Score each item 0.0-1.0:
 

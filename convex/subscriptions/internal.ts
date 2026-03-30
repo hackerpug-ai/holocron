@@ -550,6 +550,8 @@ function parseTwitterMarkdown(markdown: string, _handle: string): Array<{
     if (line.match(/^(Home|Explore|Messages|Notifications|Premium|Profile|More|Follow|Followers|Following|\d+[KMB]?\s+(replies|reposts|likes|views|bookmarks))/i)) continue;
     if (line.match(/^\s*[\d,.]+[KMB]?\s*$/)) continue; // Pure numbers (engagement counts)
     if (line.match(/^(Reply|Repost|Like|Share|Bookmark|More)\s*$/i)) continue;
+    if (line.match(/don'?t\s+miss\s+what'?s\s+happening/i)) continue;
+    if (line.match(/^people on x are the first to know/i)) continue;
 
     // Accumulate tweet text
     if (currentLink && line.trim()) {
