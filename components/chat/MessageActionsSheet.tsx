@@ -11,12 +11,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useEffect } from 'react'
 import { Text } from '@/components/ui/text'
 import { Trash2 } from '@/components/ui/icons'
+import { Copy } from 'lucide-react-native'
+import * as Clipboard from 'expo-clipboard'
 import * as Haptics from 'expo-haptics'
 
 export interface MessageActionsSheetProps {
   visible: boolean
   onClose: () => void
   onDeletePress: () => void
+  messageContent?: string | null
+  onCopyPress?: () => void
   testID?: string
 }
 
@@ -39,6 +43,8 @@ export function MessageActionsSheet({
   visible,
   onClose,
   onDeletePress,
+  messageContent,
+  onCopyPress,
   testID = 'message-actions-sheet',
 }: MessageActionsSheetProps) {
   const insets = useSafeAreaInsets()
@@ -81,6 +87,15 @@ export function MessageActionsSheet({
       }
     })
 
+  const handleCopy = async () => {
+    if (messageContent) {
+      await Clipboard.setStringAsync(messageContent)
+    }
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+    onClose()
+    onCopyPress?.()
+  }
+
   const handleDelete = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
     onClose()
@@ -122,6 +137,27 @@ export function MessageActionsSheet({
             <View className="mb-4 items-center">
               <View className="h-1 w-10 rounded-full bg-muted-foreground/30" />
             </View>
+
+            {/* Copy action */}
+            {messageContent ? (
+              <Pressable
+                testID={`${testID}-copy`}
+                onPress={handleCopy}
+                className="flex-row items-center gap-4 rounded-xl px-4 py-3.5 active:bg-muted"
+              >
+                <View className="rounded-full bg-primary/15 p-2">
+                  <Copy size={20} className="text-foreground" />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-foreground text-base font-medium">
+                    Copy Message
+                  </Text>
+                  <Text className="text-muted-foreground text-sm">
+                    Copy message text to clipboard
+                  </Text>
+                </View>
+              </Pressable>
+            ) : null}
 
             {/* Delete action */}
             <Pressable

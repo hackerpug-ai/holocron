@@ -56,6 +56,7 @@ export function ChatThread({
   // Bottom sheet state for message actions
   const [actionSheetVisible, setActionSheetVisible] = useState(false)
   const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null)
+  const [selectedMessageContent, setSelectedMessageContent] = useState<string | null>(null)
 
   // Check if the most recent message has an active research loading card
   // If so, suppress the typing indicator to avoid showing double loaders
@@ -87,12 +88,12 @@ export function ChatThread({
     router.push(`/document/${documentId}`)
   }, [router])
 
-  const handleMessageLongPress = useCallback((messageId: string) => {
-    if (!onDeleteMessage) return
+  const handleMessageLongPress = useCallback((messageId: string, content: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
     setSelectedMessageId(messageId)
+    setSelectedMessageContent(content)
     setActionSheetVisible(true)
-  }, [onDeleteMessage])
+  }, [])
 
   const handleDeleteFromSheet = useCallback(() => {
     if (selectedMessageId && onDeleteMessage) {
@@ -104,13 +105,13 @@ export function ChatThread({
   const handleSheetClose = useCallback(() => {
     setActionSheetVisible(false)
     setSelectedMessageId(null)
+    setSelectedMessageContent(null)
   }, [])
 
   const renderMessage = ({ item }: { item: ChatMessage }) => (
     <Pressable
-      onLongPress={() => handleMessageLongPress(item.id)}
+      onLongPress={() => handleMessageLongPress(item.id, item.content)}
       delayLongPress={400}
-      disabled={!onDeleteMessage}
     >
       <MessageBubble
         role={item.role}
@@ -188,6 +189,7 @@ export function ChatThread({
         visible={actionSheetVisible}
         onClose={handleSheetClose}
         onDeletePress={handleDeleteFromSheet}
+        messageContent={selectedMessageContent}
       />
     </View>
   )

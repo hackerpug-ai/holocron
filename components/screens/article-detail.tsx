@@ -19,6 +19,7 @@ import Animated, {
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
+  withRepeat,
   withSpring,
   withTiming,
 } from "react-native-reanimated";
@@ -51,6 +52,63 @@ import type { Root } from "mdast";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 const SWIPE_THRESHOLD = SCREEN_HEIGHT * 0.25;
+
+/**
+ * Animated wrapper for narration blocks that pulses when audio is loading.
+ */
+function NarrationBlockWrapper({
+  isActive,
+  isLoading,
+  primaryColor,
+  children,
+  onPress,
+  onLongPress,
+  onLayout,
+  testID,
+}: {
+  isActive: boolean;
+  isLoading: boolean;
+  primaryColor: string;
+  children: React.ReactNode;
+  onPress: () => void;
+  onLongPress: () => void;
+  onLayout: (e: { nativeEvent: { layout: { y: number } } }) => void;
+  testID: string;
+}) {
+  const pulseOpacity = useSharedValue(0);
+
+  useEffect(() => {
+    if (isLoading && isActive) {
+      pulseOpacity.value = withRepeat(
+        withTiming(0.15, { duration: 600 }),
+        -1,
+        true,
+      );
+    } else {
+      pulseOpacity.value = withTiming(isActive ? 0.08 : 0, { duration: 200 });
+    }
+  }, [isLoading, isActive, pulseOpacity]);
+
+  const animatedBgStyle = useAnimatedStyle(() => ({
+    backgroundColor: `${primaryColor}${Math.round(pulseOpacity.value * 255).toString(16).padStart(2, "0")}`,
+    borderLeftWidth: isActive ? 2 : 0,
+    borderLeftColor: isActive ? primaryColor : "transparent",
+    paddingLeft: isActive ? 8 : 0,
+  }));
+
+  return (
+    <Pressable
+      testID={testID}
+      onPress={onPress}
+      onLongPress={onLongPress}
+      onLayout={onLayout}
+    >
+      <Animated.View style={animatedBgStyle}>
+        {children}
+      </Animated.View>
+    </Pressable>
+  );
+}
 
 /**
  * Mock article data structure for design/preview purposes.
@@ -127,6 +185,7 @@ export function ArticleDetail({
   const insets = useSafeAreaInsets();
   const paragraphOffsets = useRef<Map<number, number>>(new Map());
   const [copiedToast, setCopiedToast] = useState(false);
+  const [skipToast, setSkipToast] = useState<number | null>(null);
 
   // Parse MDAST for narration index mapping and copy support
   const parsedAst = useMemo<Root | null>(
@@ -160,7 +219,7 @@ export function ArticleDetail({
       isNarrationMode && convexDocId ? { documentId: convexDocId } : "skip",
     ) ?? [];
 
-  useAudioPlayback(segments, narration, {
+  const { isLoading: isAudioLoading } = useAudioPlayback(segments, narration, {
     title: article.title,
   });
 
@@ -362,32 +421,29 @@ export function ArticleDetail({
     return (child: React.ReactNode, rootIndex: number, _nodeType: string) => {
       const narrationIndex = narrationMap.get(rootIndex);
 
-      // In narration mode: wrap with highlight + tap-to-skip + long-press-to-copy
+      // In narration mode: wrap with animated highlight + tap-to-skip + long-press-to-copy
       if (isNarrationMode && narrationIndex !== undefined) {
-        const isActive = narration.state.activeParagraphIndex === narrationIndex;
+        const isBlockActive = narration.state.activeParagraphIndex === narrationIndex;
         return (
-          <Pressable
+          <NarrationBlockWrapper
+            key={`narration-${narrationIndex}`}
             testID={`narration-block-${narrationIndex}`}
+            isActive={isBlockActive}
+            isLoading={isAudioLoading}
+            primaryColor={colors.primary}
             onPress={() => {
               narration.skipToParagraph(narrationIndex);
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              setSkipToast(narrationIndex);
+              setTimeout(() => setSkipToast(null), 1500);
             }}
             onLongPress={() => handleCopySection(rootIndex)}
             onLayout={(e) => {
               paragraphOffsets.current.set(narrationIndex, e.nativeEvent.layout.y);
             }}
           >
-            <Animated.View
-              style={{
-                backgroundColor: isActive ? `${colors.primary}14` : "transparent",
-                borderLeftWidth: isActive ? 2 : 0,
-                borderLeftColor: isActive ? colors.primary : "transparent",
-                paddingLeft: isActive ? 8 : 0,
-              }}
-            >
-              {child}
-            </Animated.View>
-          </Pressable>
+            {child}
+          </NarrationBlockWrapper>
         );
       }
 
@@ -401,7 +457,7 @@ export function ArticleDetail({
         </Pressable>
       );
     };
-  }, [isNarrationMode, narrationMap, narration.state.activeParagraphIndex, colors.primary, handleCopySection]);
+  }, [isNarrationMode, narrationMap, narration.state.activeParagraphIndex, colors.primary, isAudioLoading, handleCopySection]);
 
   // Don't render if not visible
   if (!visible) return null;
@@ -603,6 +659,25 @@ export function ArticleDetail({
             >
               <Text style={{ color: colors.background, fontSize: 14, fontWeight: "600" }}>
                 Copied to clipboard
+              </Text>
+            </View>
+          )}
+
+          {skipToast !== null && (
+            <View
+              style={{
+                position: "absolute",
+                bottom: isNarrationMode ? NARRATION_BAR_HEIGHT + insets.bottom + 16 : insets.bottom + 16,
+                alignSelf: "center",
+                backgroundColor: colors.foreground,
+                paddingHorizontal: 16,
+                paddingVertical: 8,
+                borderRadius: 20,
+              }}
+              pointerEvents="none"
+            >
+              <Text style={{ color: colors.background, fontSize: 14, fontWeight: "600" }}>
+                {`Loading section ${skipToast + 1}...`}
               </Text>
             </View>
           )}
