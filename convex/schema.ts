@@ -289,7 +289,8 @@ export default defineSchema({
     .vectorIndex("by_embedding", {
       vectorField: "embedding",
       dimensions: 1024,
-    }),
+    })
+    .searchIndex("by_title_search", { searchField: "title" }),
 
   subscriptionFilters: defineTable({
     sourceId: v.optional(v.id("subscriptionSources")), // null = type-level rule
@@ -318,6 +319,7 @@ export default defineSchema({
     summaryJson: v.optional(v.any()), // Structured summary data
     documentId: v.optional(v.id("documents")), // Link to full report document
     toolSuggestionsJson: v.optional(v.string()), // JSON string of ToolSuggestion[] for one-click add
+    findingsJson: v.optional(v.string()), // JSON string of Finding[] for card rendering
     createdAt: v.number(),
   })
     .index("by_created", ["createdAt"])
