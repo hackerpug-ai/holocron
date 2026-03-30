@@ -25,6 +25,7 @@ export const TOOLS_REQUIRING_APPROVAL: Set<string> = new Set([
   "deep_research",
   "shop_search",
   "whats_new",
+  "add_improvement",
 ]);
 
 /**
@@ -47,4 +48,8 @@ export const VALID_TOOL_NAMES: Set<string> = new Set([
   "toolbelt_search",
   "save_document",
   "assimilate",
+  "add_improvement",
+  "search_improvements",
+  "get_improvement",
+  "list_improvements",
 ]);

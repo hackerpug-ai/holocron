@@ -26,6 +26,7 @@ export type IntentCategory =
   | "discovery"
   | "documents"
   | "analysis"
+  | "improvements"
   | "multi_step";
 
 export interface TriageResult {
@@ -44,6 +45,7 @@ const VALID_INTENTS: IntentCategory[] = [
   "discovery",
   "documents",
   "analysis",
+  "improvements",
   "multi_step",
 ];
 

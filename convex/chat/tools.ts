@@ -323,6 +323,95 @@ const get_document = tool({
 });
 
 /**
+ * add_improvement - Submit one or more improvement requests
+ */
+const add_improvement = tool({
+  description:
+    "Submit one or more improvement requests for the Holocron app. " +
+    "Each item becomes a tracked improvement ticket that goes through AI dedup processing. " +
+    "Search for existing improvements first to avoid duplicates.",
+  inputSchema: z.object({
+    items: z
+      .array(
+        z.object({
+          description: z
+            .string()
+            .describe("Description of the improvement or feature request"),
+          sourceScreen: z
+            .string()
+            .optional()
+            .describe("Screen or area of the app this improvement relates to"),
+        }),
+      )
+      .min(1)
+      .describe("One or more improvements to submit"),
+  }),
+});
+
+/**
+ * search_improvements - Search existing improvement requests
+ */
+const search_improvements = tool({
+  description:
+    "Search existing improvement requests using hybrid vector + full-text similarity search. " +
+    "Use this before creating new improvements to check for duplicates, " +
+    "or when the user wants to find previously submitted improvements.",
+  inputSchema: z.object({
+    query: z
+      .string()
+      .describe("The search query to find similar improvements"),
+    limit: z
+      .number()
+      .optional()
+      .default(5)
+      .describe("Maximum number of results to return (default 5)"),
+  }),
+});
+
+/**
+ * get_improvement - Get full details of an improvement request
+ */
+const get_improvement = tool({
+  description:
+    "Get the full details of an improvement request by ID, " +
+    "including images, agent decision, and merge history. " +
+    "Use this when you have a specific improvement ID from search results.",
+  inputSchema: z.object({
+    id: z
+      .string()
+      .describe("The improvement request ID to retrieve"),
+  }),
+});
+
+/**
+ * list_improvements - List improvement requests with optional filter
+ */
+const list_improvements = tool({
+  description:
+    "List improvement requests with optional status filter. " +
+    "Excludes merged items by default. Use this when the user wants to see " +
+    "all improvements, check status, or review pending items.",
+  inputSchema: z.object({
+    status: z
+      .enum([
+        "submitted",
+        "processing",
+        "pending_review",
+        "approved",
+        "done",
+        "merged",
+      ])
+      .optional()
+      .describe("Filter by status (optional, shows all non-merged if omitted)"),
+    limit: z
+      .number()
+      .optional()
+      .default(20)
+      .describe("Maximum number of results to return (default 20)"),
+  }),
+});
+
+/**
  * create_plan - Create a multi-step execution plan
  */
 const create_plan = tool({
@@ -350,7 +439,7 @@ const create_plan = tool({
 });
 
 /**
- * agentTools - All 17 chat agent tools
+ * agentTools - All 21 chat agent tools
  */
 export const agentTools = {
   search_knowledge_base,
@@ -369,6 +458,10 @@ export const agentTools = {
   update_document,
   get_document,
   assimilate,
+  add_improvement,
+  search_improvements,
+  get_improvement,
+  list_improvements,
   create_plan,
 };
 
@@ -421,6 +514,14 @@ export const documentTools = {
 /** Repository analysis */
 export const analysisTools = {
   assimilate,
+};
+
+/** Improvement request management */
+export const improvementTools = {
+  add_improvement,
+  search_improvements,
+  get_improvement,
+  list_improvements,
 };
 
 /** Multi-step plan creation */

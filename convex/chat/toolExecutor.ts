@@ -799,10 +799,200 @@ export async function executeAgentTool(
     case "get_document":
       return executeGetDocument(ctx, toolArgs);
 
+    case "add_improvement":
+      return executeAddImprovement(ctx, toolArgs);
+
+    case "search_improvements":
+      return executeSearchImprovements(ctx, toolArgs);
+
+    case "get_improvement":
+      return executeGetImprovement(ctx, toolArgs);
+
+    case "list_improvements":
+      return executeListImprovements(ctx, toolArgs);
+
     default:
       return {
         content: `Tool execution pending implementation: unknown tool "${toolName}"`,
         messageType: "text",
       };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// add_improvement
+// ---------------------------------------------------------------------------
+
+async function executeAddImprovement(
+  ctx: ActionCtx,
+  args: Record<string, any>,
+): Promise<AgentResponse> {
+  const items: Array<{ description: string; sourceScreen?: string }> =
+    args.items ?? [];
+
+  if (items.length === 0) {
+    return {
+      content: "Please provide at least one improvement with a description.",
+      messageType: "text",
+    };
+  }
+
+  try {
+    const createdIds: string[] = [];
+    for (const item of items) {
+      const id = await ctx.runMutation(api.improvements.mutations.submit, {
+        description: item.description,
+        sourceScreen: item.sourceScreen ?? "chat",
+      });
+      createdIds.push(id as string);
+    }
+
+    return {
+      content:
+        `Submitted ${createdIds.length} improvement${createdIds.length === 1 ? "" : "s"}. ` +
+        `Each will be processed through AI dedup analysis.`,
+      messageType: "text",
+    };
+  } catch (error) {
+    return {
+      content: `Failed to submit improvement: ${error instanceof Error ? error.message : "Unknown error"}`,
+      messageType: "error",
+    };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// search_improvements
+// ---------------------------------------------------------------------------
+
+async function executeSearchImprovements(
+  ctx: ActionCtx,
+  args: Record<string, any>,
+): Promise<AgentResponse> {
+  const query: string = args.query ?? "";
+  const limit: number = args.limit ?? 5;
+
+  if (!query) {
+    return { content: "Please provide a search query.", messageType: "text" };
+  }
+
+  try {
+    const results: any[] = await ctx.runAction(
+      api.improvements.search.findSimilar,
+      { description: query, limit },
+    );
+
+    if (results.length === 0) {
+      return {
+        content: `No improvements found matching "${query}".`,
+        messageType: "text",
+      };
+    }
+
+    const formatted = results
+      .map(
+        (r: any, i: number) =>
+          `${i + 1}. **${r.title ?? "(no title)"}** [${r.status}] (score: ${(r.score * 100).toFixed(0)}%)\n   ${r.description?.slice(0, 120) ?? ""}`,
+      )
+      .join("\n");
+
+    return {
+      content: `Found ${results.length} similar improvement${results.length === 1 ? "" : "s"}:\n\n${formatted}`,
+      messageType: "text",
+    };
+  } catch (error) {
+    return {
+      content: `Search improvements failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+      messageType: "error",
+    };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// get_improvement
+// ---------------------------------------------------------------------------
+
+async function executeGetImprovement(
+  ctx: ActionCtx,
+  args: Record<string, any>,
+): Promise<AgentResponse> {
+  const id = args.id as string | undefined;
+
+  if (!id) {
+    return { content: "Please provide an improvement ID.", messageType: "text" };
+  }
+
+  try {
+    const result: any = await ctx.runQuery(api.improvements.queries.get, {
+      id: id as Id<"improvementRequests">,
+    });
+
+    if (!result) {
+      return { content: `Improvement ${id} not found.`, messageType: "text" };
+    }
+
+    const lines = [
+      `**${result.title ?? "(no title)"}**`,
+      `Status: ${result.status}`,
+      `Description: ${result.description}`,
+    ];
+
+    if (result.summary) lines.push(`Summary: ${result.summary}`);
+    if (result.agentDecision) {
+      lines.push(`Agent decision: ${result.agentDecision.action} (confidence: ${(result.agentDecision.confidence * 100).toFixed(0)}%)`);
+      lines.push(`Reasoning: ${result.agentDecision.reasoning}`);
+    }
+    if (result.images?.length > 0) {
+      lines.push(`Images: ${result.images.length} attached`);
+    }
+
+    return { content: lines.join("\n"), messageType: "text" };
+  } catch (error) {
+    return {
+      content: `Get improvement failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+      messageType: "error",
+    };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// list_improvements
+// ---------------------------------------------------------------------------
+
+async function executeListImprovements(
+  ctx: ActionCtx,
+  args: Record<string, any>,
+): Promise<AgentResponse> {
+  try {
+    const results: any[] = await ctx.runQuery(api.improvements.queries.list, {
+      status: args.status ?? undefined,
+      limit: args.limit ?? 20,
+    });
+
+    if (results.length === 0) {
+      return {
+        content: args.status
+          ? `No improvements with status "${args.status}".`
+          : "No improvements found.",
+        messageType: "text",
+      };
+    }
+
+    const formatted = results
+      .map(
+        (r: any, i: number) =>
+          `${i + 1}. **${r.title ?? "(no title)"}** [${r.status}]${r.mergedFromIds?.length ? ` (${r.mergedFromIds.length} merged)` : ""}`,
+      )
+      .join("\n");
+
+    return {
+      content: `${results.length} improvement${results.length === 1 ? "" : "s"}:\n\n${formatted}`,
+      messageType: "text",
+    };
+  } catch (error) {
+    return {
+      content: `List improvements failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+      messageType: "error",
+    };
   }
 }

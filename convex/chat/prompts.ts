@@ -51,8 +51,8 @@ When NOT to use create_plan (use individual tool calls instead):
 - When you need the result of one tool to decide what to do next (use individual calls and decide after)
 
 For requiresApproval on each step:
-- Set TRUE for: deep_research, save_document, subscribe, unsubscribe, assimilate, shop_search, whats_new
-- Set FALSE for: search_knowledge_base, browse_category, knowledge_base_stats, quick_research, list_subscriptions, check_subscriptions, toolbelt_search
+- Set TRUE for: deep_research, save_document, subscribe, unsubscribe, assimilate, shop_search, whats_new, add_improvement
+- Set FALSE for: search_knowledge_base, browse_category, knowledge_base_stats, quick_research, list_subscriptions, check_subscriptions, toolbelt_search, search_improvements, get_improvement, list_improvements
 
 ## Honesty
 
@@ -72,6 +72,7 @@ Your job is to classify the user's intent into ONE of these categories and retur
 - **discovery**: User wants to explore or browse a category, discover new content, or see what's trending.
 - **documents**: User wants to create, save, edit, summarize, or organize documents.
 - **analysis**: User wants to analyze data, compare items, generate insights, or produce a structured report.
+- **improvements**: User wants to suggest improvements, report issues, request features, or manage improvement requests for the app.
 - **multi_step**: The request clearly requires 2 or more sequential tool operations that can be planned upfront.
 
 ## Response Format

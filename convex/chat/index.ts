@@ -259,7 +259,10 @@ function generateHelpResponse(): string {
 **Tools & Content**
 /whats-new [days] - Get AI news briefing (default: 1 day)
 /toolbelt <query or url> - Search tools or add from URL
-/save <title> [category] - Save document to knowledge base`;
+/save <title> [category] - Save document to knowledge base
+
+**Improvements**
+/improve <description> - Submit an improvement request`;
 }
 
 /**
@@ -1036,6 +1039,31 @@ export const send = action({
           } catch (error) {
             agentResponse = {
               content: `Failed to save document: ${error instanceof Error ? error.message : "Unknown error"}`,
+              messageType: "error",
+            };
+          }
+        }
+      } else if (parsed.command === "improve") {
+        const description = parsed.args || "";
+        if (!description) {
+          agentResponse = {
+            content:
+              "Please provide a description. Usage: /improve <description>",
+            messageType: "text",
+          };
+        } else {
+          try {
+            await ctx.runMutation(api.improvements.mutations.submit, {
+              description,
+              sourceScreen: "chat",
+            });
+            agentResponse = {
+              content: `Improvement submitted: "${description.slice(0, 80)}". It will be processed through AI dedup analysis.`,
+              messageType: "text",
+            };
+          } catch (error) {
+            agentResponse = {
+              content: `Failed to submit improvement: ${error instanceof Error ? error.message : "Unknown error"}`,
               messageType: "error",
             };
           }
