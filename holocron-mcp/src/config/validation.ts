@@ -191,6 +191,7 @@ export const ShopProductsSchema = z.object({
   condition: z.enum(["new", "used", "any"]).optional(),
   priceMin: z.number().optional(),
   priceMax: z.number().optional(),
+  verifiedOnly: z.boolean().optional(),
 });
 
 export const GetShopSessionSchema = z.object({

@@ -78,5 +78,8 @@ export type ShopListing = {
   productHash: string;
   isDuplicate: boolean;
   dealScore?: number;
+  trustTier?: number;
+  sellerTrustScore?: number;
+  isVerifiedSeller?: boolean;
   createdAt: number;
 };

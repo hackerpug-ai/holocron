@@ -16,6 +16,7 @@ export interface ShopProductsInput {
   condition?: "new" | "used" | "any";
   priceMin?: number;
   priceMax?: number;
+  verifiedOnly?: boolean;
 }
 
 export interface GetShopSessionInput {
@@ -48,6 +49,10 @@ export interface ShopProductsOutput {
     condition: string;
     url: string;
     dealScore?: number;
+    trustTier?: number;
+    sellerTrustScore?: number;
+    isVerifiedSeller?: boolean;
+    trustLabel?: "Authorized" | "Verified Seller" | "Unverified";
   }>;
   durationMs: number;
   error?: string;
@@ -64,6 +69,19 @@ export interface GetShopListingsOutput {
 // ============================================================================
 // Helper Functions
 // ============================================================================
+
+/**
+ * Compute trust label from tier and verification status
+ */
+function computeTrustLabel(
+  trustTier?: number,
+  isVerifiedSeller?: boolean
+): "Authorized" | "Verified Seller" | "Unverified" | undefined {
+  if (trustTier === undefined) return undefined;
+  if (trustTier === 1) return "Authorized";
+  if (isVerifiedSeller) return "Verified Seller";
+  return "Unverified";
+}
 
 /**
  * Format price from cents to dollars string
@@ -147,6 +165,7 @@ export async function shopProducts(
     condition: input.condition,
     priceMin: input.priceMin,
     priceMax: input.priceMax,
+    verifiedOnly: input.verifiedOnly,
   });
 
   // Get the listings
@@ -187,6 +206,10 @@ export async function shopProducts(
       condition: l.condition,
       url: l.url,
       dealScore: l.dealScore,
+      trustTier: l.trustTier,
+      sellerTrustScore: l.sellerTrustScore,
+      isVerifiedSeller: l.isVerifiedSeller,
+      trustLabel: computeTrustLabel(l.trustTier, l.isVerifiedSeller),
     })),
     durationMs,
     error: result.error,
