@@ -77,13 +77,13 @@ export function VoiceCaptions({ transcripts }: VoiceCaptionsProps) {
                 {
                   backgroundColor: isAgent ? `${colors.muted}CC` : 'transparent',
                   borderRadius: radius.lg,
-                  paddingHorizontal: spacing.md,
-                  paddingVertical: spacing.xs,
+                  paddingHorizontal: spacing.lg,
+                  paddingVertical: spacing.sm,
                 },
               ]}
             >
               <Text
-                className={isAgent ? 'text-sm' : 'text-xs'}
+                className={isAgent ? 'text-base' : 'text-sm'}
                 style={[
                   {
                     color: isAgent ? colors.foreground : colors.mutedForeground,

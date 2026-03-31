@@ -41,12 +41,12 @@ import type { VoiceSessionState } from '@/hooks/use-voice-session-state'
 const SCREEN_HEIGHT = Dimensions.get('window').height
 
 const TIMING_IN = {
-  duration: 300,
-  easing: Easing.out(Easing.cubic),
+  duration: 200,
+  easing: Easing.bezier(0.25, 0.1, 0.25, 1.0),
 }
 
 const TIMING_OUT = {
-  duration: 250,
+  duration: 180,
   easing: Easing.in(Easing.cubic),
 }
 
@@ -135,23 +135,26 @@ export function VoiceAssistantOverlay({
   // ─── Animation shared values ──────────────────────────────────────────────
   const translateY = useSharedValue(SCREEN_HEIGHT)
   const backdropOpacity = useSharedValue(0)
+  const containerScale = useSharedValue(0.97)
 
   // Trigger entrance animation when overlay becomes active (status !== 'idle')
   useEffect(() => {
     if (state.status !== 'idle') {
       translateY.value = withTiming(0, TIMING_IN)
-      backdropOpacity.value = withTiming(0.85, TIMING_IN)
+      backdropOpacity.value = withTiming(0.65, TIMING_IN)
+      containerScale.value = withTiming(1, TIMING_IN)
     }
-  }, [state.status, translateY, backdropOpacity])
+  }, [state.status, translateY, backdropOpacity, containerScale])
 
   // Animate out then call the dismiss callback
   const animateOut = useCallback(
     (callback: () => void) => {
       translateY.value = withTiming(SCREEN_HEIGHT, TIMING_OUT)
       backdropOpacity.value = withTiming(0, TIMING_OUT)
-      setTimeout(() => callback(), 250)
+      containerScale.value = withTiming(0.97, TIMING_OUT)
+      setTimeout(() => callback(), 180)
     },
-    [translateY, backdropOpacity]
+    [translateY, backdropOpacity, containerScale]
   )
 
   const handleDismiss = useCallback(() => {
@@ -181,7 +184,10 @@ export function VoiceAssistantOverlay({
 
   // ─── Animated styles ──────────────────────────────────────────────────────
   const containerAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: Math.max(translateY.value, 0) }],
+    transform: [
+      { translateY: Math.max(translateY.value, 0) },
+      { scale: containerScale.value },
+    ],
   }))
 
   const backdropAnimatedStyle = useAnimatedStyle(() => ({
@@ -226,6 +232,19 @@ export function VoiceAssistantOverlay({
                 },
               ]}
             >
+              {/* Drag handle */}
+              <View
+                style={{
+                  alignSelf: 'center',
+                  width: 36,
+                  height: 5,
+                  borderRadius: 999,
+                  backgroundColor: colors.muted,
+                  marginTop: spacing.sm,
+                  marginBottom: spacing.xs,
+                }}
+              />
+
               {/* Header zone: status label + dismiss button */}
               <View
                 style={[

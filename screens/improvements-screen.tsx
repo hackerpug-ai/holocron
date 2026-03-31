@@ -1,7 +1,6 @@
 import { ImprovementRequestCard } from '@/components/improvements/ImprovementRequestCard'
 import { ImprovementCardSkeleton } from '@/components/improvements/ImprovementCardSkeleton'
-import { ImprovementSubmitSheet } from '@/components/improvements/ImprovementSubmitSheet'
-import { Lightbulb, Plus, Search } from '@/components/ui/icons'
+import { Lightbulb, Search } from '@/components/ui/icons'
 import { Text } from '@/components/ui/text'
 import { cn } from '@/lib/utils'
 import { useState, useMemo } from 'react'
@@ -61,7 +60,6 @@ export function ImprovementsScreen({
   const { colorScheme } = useColorScheme()
   const [searchQuery, setSearchQuery] = useState('')
   const [activeFilter, setActiveFilter] = useState<FilterChip>('all')
-  const [sheetVisible, setSheetVisible] = useState(false)
 
   const filteredRequests = useMemo(() => {
     const query = searchQuery.trim().toLowerCase()
@@ -197,23 +195,6 @@ export function ImprovementsScreen({
         keyboardDismissMode="on-drag"
       />
 
-      {/* Floating Action Button */}
-      <Pressable
-        onPress={() => setSheetVisible(true)}
-        className="absolute bottom-6 right-6 bg-primary rounded-full p-4 active:opacity-80"
-        testID="improvements-screen-fab"
-        accessibilityRole="button"
-        accessibilityLabel="Submit improvement"
-      >
-        <Plus size={24} className="text-primary-foreground" />
-      </Pressable>
-
-      {/* Improvement Submit Sheet */}
-      <ImprovementSubmitSheet
-        visible={sheetVisible}
-        onClose={() => setSheetVisible(false)}
-        testID="improvements-screen-submit-sheet"
-      />
     </View>
   )
 }

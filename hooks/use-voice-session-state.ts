@@ -49,6 +49,7 @@ export type VoiceAction =
   | { type: "ERROR"; error: string; errorKind?: VoiceErrorKind }
   | { type: "DISCONNECT" }
   | { type: "TIMEOUT" }
+  | { type: "SET_CONNECTING_PHASE"; phase: 'preparing' | 'connecting_ai' | 'almost_ready' | null }
   | { type: "TOOL_START"; toolName: string }
   | { type: "TOOL_END" };
 
@@ -62,6 +63,7 @@ export interface VoiceSessionState {
   transcripts: Array<{ role: 'user' | 'agent'; content: string; timestamp: number }>;
   isInterrupted: boolean;
   activeTool: string | null;
+  connectingPhase: 'preparing' | 'connecting_ai' | 'almost_ready' | null;
 }
 
 export const initialVoiceSessionState: VoiceSessionState = {
@@ -74,6 +76,7 @@ export const initialVoiceSessionState: VoiceSessionState = {
   transcripts: [],
   isInterrupted: false,
   activeTool: null,
+  connectingPhase: null,
 };
 
 /**
@@ -94,6 +97,7 @@ export function voiceSessionReducer(
         status: "connecting",
         conversationId: action.conversationId,
         transcripts: [], // Clear transcripts on new session
+        connectingPhase: 'preparing',
       };
     }
 
@@ -104,6 +108,7 @@ export function voiceSessionReducer(
         status: "listening",
         sessionId: action.sessionId,
         errorMessage: null,
+        connectingPhase: null,
       };
     }
 
@@ -188,6 +193,7 @@ export function voiceSessionReducer(
         errorMessage: action.error,
         errorKind: action.errorKind ?? null,
         activeTool: null,
+        connectingPhase: null,
       };
     }
 
@@ -219,6 +225,11 @@ export function voiceSessionReducer(
         ...state,
         activeTool: null,
       };
+    }
+
+    case "SET_CONNECTING_PHASE": {
+      if (state.status !== "connecting") return state;
+      return { ...state, connectingPhase: action.phase };
     }
 
     default:

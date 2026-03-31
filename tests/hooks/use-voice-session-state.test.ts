@@ -33,6 +33,7 @@ describe("US-005: voiceSessionReducer", () => {
         transcripts: [],
         isInterrupted: false,
         activeTool: null,
+        connectingPhase: null,
       });
     });
   });
@@ -296,6 +297,86 @@ describe("US-005: voiceSessionReducer", () => {
         expect(result.sessionId).toBeNull();
         expect(result.errorMessage).toBeNull();
       }
+    });
+  });
+
+  describe("connectingPhase", () => {
+    it("CONNECT sets connectingPhase to preparing", () => {
+      const result = voiceSessionReducer(initialVoiceSessionState, {
+        type: "CONNECT",
+        conversationId: "conv-1",
+      });
+      expect(result.connectingPhase).toBe("preparing");
+    });
+
+    it("SET_CONNECTING_PHASE updates phase while connecting", () => {
+      const connecting = stateAt({ status: "connecting", connectingPhase: "preparing" });
+      const result = voiceSessionReducer(connecting, {
+        type: "SET_CONNECTING_PHASE",
+        phase: "connecting_ai",
+      });
+      expect(result.connectingPhase).toBe("connecting_ai");
+    });
+
+    it("SET_CONNECTING_PHASE to almost_ready while connecting", () => {
+      const connecting = stateAt({ status: "connecting", connectingPhase: "connecting_ai" });
+      const result = voiceSessionReducer(connecting, {
+        type: "SET_CONNECTING_PHASE",
+        phase: "almost_ready",
+      });
+      expect(result.connectingPhase).toBe("almost_ready");
+    });
+
+    it("SET_CONNECTING_PHASE is ignored when not connecting", () => {
+      const listening = stateAt({ status: "listening", sessionId: "s1" });
+      const result = voiceSessionReducer(listening, {
+        type: "SET_CONNECTING_PHASE",
+        phase: "connecting_ai",
+      });
+      expect(result).toBe(listening);
+    });
+
+    it("CONNECTED resets connectingPhase to null", () => {
+      const connecting = stateAt({
+        status: "connecting",
+        conversationId: "conv-1",
+        connectingPhase: "almost_ready",
+      });
+      const result = voiceSessionReducer(connecting, {
+        type: "CONNECTED",
+        sessionId: "sess-1",
+      });
+      expect(result.connectingPhase).toBeNull();
+    });
+
+    it("ERROR resets connectingPhase to null", () => {
+      const connecting = stateAt({
+        status: "connecting",
+        connectingPhase: "connecting_ai",
+      });
+      const result = voiceSessionReducer(connecting, {
+        type: "ERROR",
+        error: "Failed",
+      });
+      expect(result.connectingPhase).toBeNull();
+    });
+
+    it("DISCONNECT resets connectingPhase to null (via initialState spread)", () => {
+      const connecting = stateAt({
+        status: "connecting",
+        connectingPhase: "preparing",
+      });
+      const result = voiceSessionReducer(connecting, { type: "DISCONNECT" });
+      expect(result.connectingPhase).toBeNull();
+    });
+
+    it("TIMEOUT resets connectingPhase to null (via initialState spread)", () => {
+      const connecting = stateAt({
+        status: "connecting",
+        connectingPhase: "almost_ready",
+      });
+      const result = voiceSessionReducer(connecting, { type: "TIMEOUT" });
+      expect(result.connectingPhase).toBeNull();
     });
   });
 

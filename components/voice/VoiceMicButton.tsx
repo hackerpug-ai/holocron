@@ -46,7 +46,7 @@ export interface VoiceMicButtonProps {
  */
 export function VoiceMicButton({ voiceState, onStart, onStop, className, isWarm = false }: VoiceMicButtonProps) {
   const lastPressTime = useRef<number>(0)
-  const DEBOUNCE_MS = 300
+  const DEBOUNCE_MS = 150
 
   const isConnecting = voiceState === 'connecting'
   const isActive = voiceState === 'listening' || voiceState === 'speaking' || voiceState === 'processing'

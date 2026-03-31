@@ -27,6 +27,7 @@ import {
 } from "@/hooks/use-voice-session-state";
 import { useVoiceResultBridge } from "@/hooks/use-voice-result-bridge";
 import { WebRTCConnection } from "@/lib/voice/webrtc-connection";
+import type { MediaStream } from "react-native-webrtc-web-shim";
 import { createEventHandler } from "@/lib/voice/event-handler";
 import { createTranscriptRecorder } from "@/lib/voice/transcript-recorder";
 import { SessionTimeout, WarmConnection } from "@/lib/voice/session-timeout";
@@ -246,30 +247,16 @@ export function useVoiceSession(
     }
 
     try {
-      // 1. Create Convex session → ephemeral key
-      let ephemeralKey: string;
-      let sessionId: string;
-      try {
-        const result = await createSession({ conversationId });
-        ephemeralKey = result.ephemeralKey;
-        sessionId = result.sessionId;
-        instructionsRef.current = result.instructions;
-      } catch (tokenError) {
-        errorHandler.handleTokenGenerationFailure(
-          tokenError instanceof Error ? tokenError : new Error("Token generation failed")
-        );
-        return;
-      }
-      sessionIdRef.current = sessionId;
-      ephemeralKeyRef.current = ephemeralKey;
-
-      // 2. Set up WebRTC connection with event handler wiring
+      // Set up WebRTC connection with event handler wiring
       const conn = new WebRTCConnection();
 
-      // Wire transcript recorder for fire-and-forget persistence
+      // Wire transcript recorder for fire-and-forget persistence.
+      // sessionId is set after Promise.all but before any events fire,
+      // so we wrap recordTranscript to read sessionIdRef at call time.
       const transcriptRecorder = createTranscriptRecorder({
-        recordTranscript,
-        sessionId: sessionId as Id<"voiceSessions">,
+        recordTranscript: (args) =>
+          recordTranscript({ ...args, sessionId: sessionIdRef.current as Id<"voiceSessions"> }),
+        sessionId: "placeholder" as unknown as Id<"voiceSessions">,
         conversationId,
       });
 
@@ -414,15 +401,64 @@ export function useVoiceSession(
         },
       });
 
-      // 3. Connect WebRTC — microphone permission errors handled here
+      // Run token generation and media acquisition in parallel
+      dispatch({ type: "SET_CONNECTING_PHASE", phase: "connecting_ai" });
+      let tokenResult: { ephemeralKey: string; sessionId: string; instructions: string };
+      let mediaStream: MediaStream;
       try {
-        await conn.connect(ephemeralKey);
+        const results = await Promise.all([
+          createSession({ conversationId }),
+          conn.prepareMedia(),
+        ]);
+        tokenResult = results[0];
+        mediaStream = results[1];
+      } catch (parallelError) {
+        const errMsg =
+          parallelError instanceof Error
+            ? parallelError.message
+            : "Connection failed";
+        // Detect microphone permission denial
+        if (
+          errMsg.toLowerCase().includes("permission") ||
+          errMsg.toLowerCase().includes("notallowederror") ||
+          errMsg.toLowerCase().includes("not allowed")
+        ) {
+          errorHandler.handleMicrophonePermissionDenied();
+        } else {
+          errorHandler.handleTokenGenerationFailure(
+            parallelError instanceof Error
+              ? parallelError
+              : new Error("Connection failed")
+          );
+        }
+        // Cross-cleanup: destroy conn to release any acquired media
+        conn.destroy();
+        // End any Convex session that may have been created
+        const sid = sessionIdRef.current;
+        if (sid) {
+          sessionIdRef.current = null;
+          try {
+            await endSession({ sessionId: sid as Id<"voiceSessions"> });
+          } catch {
+            // Best-effort cleanup
+          }
+        }
+        return;
+      }
+
+      sessionIdRef.current = tokenResult.sessionId;
+      instructionsRef.current = tokenResult.instructions;
+      ephemeralKeyRef.current = tokenResult.ephemeralKey;
+
+      // SDP exchange with pre-acquired media
+      dispatch({ type: "SET_CONNECTING_PHASE", phase: "almost_ready" });
+      try {
+        await conn.connectWithMedia(tokenResult.ephemeralKey, mediaStream);
       } catch (connectError) {
         const errMsg =
           connectError instanceof Error
             ? connectError.message
             : "Connection failed";
-        // Detect microphone permission denial
         if (
           errMsg.toLowerCase().includes("permission") ||
           errMsg.toLowerCase().includes("notallowederror") ||
@@ -452,8 +488,8 @@ export function useVoiceSession(
       connectionRef.current = conn;
       conn.startAudioLevelMonitoring(setAudioLevel);
 
-      // 4. Transition to LISTENING and start idle timeout
-      dispatch({ type: "CONNECTED", sessionId });
+      // Transition to LISTENING and start idle timeout
+      dispatch({ type: "CONNECTED", sessionId: tokenResult.sessionId });
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       sessionTimeoutRef.current.start();
     } catch (error) {

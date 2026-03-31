@@ -267,49 +267,51 @@ export function ImprovementSubmitSheet({
           />
         </Pressable>
 
-        {/* Sheet */}
-        <GestureDetector gesture={panGesture}>
-          <Animated.View
-            style={[
-              sheetStyle,
-              styles.sheet,
-              { paddingBottom: insets.bottom, backgroundColor: colors.card },
-            ]}
-          >
-            {/* Drag handle */}
-            <View style={styles.handleRow}>
-              <View
-                style={[styles.handle, { backgroundColor: colors.mutedForeground + '4D' }]}
-              />
-            </View>
-
-            {/* Header */}
-            <View style={[styles.header, { borderBottomColor: colors.border }]}>
-              <View style={styles.flex}>
-                <Text className="text-foreground text-base font-semibold">
-                  {sheetState === 'input' && 'Report Improvement'}
-                  {sheetState === 'processing' && 'Processing...'}
-                  {sheetState === 'result' &&
-                    (isMergeSuggested ? 'Similar Request Found' : 'Request Created')}
-                  {sheetState === 'success' && 'Done!'}
-                </Text>
-              </View>
-              <Pressable
-                onPress={dismiss}
-                style={styles.iconButton}
-                className="bg-muted rounded-full"
-                testID={`${testID}-close`}
-                accessibilityRole="button"
-                accessibilityLabel="Close"
-              >
-                <X size={18} className="text-muted-foreground" />
-              </Pressable>
-            </View>
-
-            <KeyboardAvoidingView
-              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-              style={styles.flex}
+        {/* KAV wraps entire sheet so it moves up with keyboard */}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.kavWrapper}
+          pointerEvents="box-none"
+        >
+          {/* Sheet */}
+          <GestureDetector gesture={panGesture}>
+            <Animated.View
+              style={[
+                sheetStyle,
+                styles.sheet,
+                { paddingBottom: insets.bottom, backgroundColor: colors.card },
+              ]}
             >
+              {/* Drag handle */}
+              <View style={styles.handleRow}>
+                <View
+                  style={[styles.handle, { backgroundColor: colors.mutedForeground + '4D' }]}
+                />
+              </View>
+
+              {/* Header */}
+              <View style={[styles.header, { borderBottomColor: colors.border }]}>
+                <View style={styles.flex}>
+                  <Text className="text-foreground text-base font-semibold">
+                    {sheetState === 'input' && 'Report Improvement'}
+                    {sheetState === 'processing' && 'Processing...'}
+                    {sheetState === 'result' &&
+                      (isMergeSuggested ? 'Similar Request Found' : 'Request Created')}
+                    {sheetState === 'success' && 'Done!'}
+                  </Text>
+                </View>
+                <Pressable
+                  onPress={dismiss}
+                  style={styles.iconButton}
+                  className="bg-muted rounded-full"
+                  testID={`${testID}-close`}
+                  accessibilityRole="button"
+                  accessibilityLabel="Close"
+                >
+                  <X size={18} className="text-muted-foreground" />
+                </Pressable>
+              </View>
+
               <ScrollView
                 style={styles.flex}
                 contentContainerStyle={styles.bodyContent}
@@ -555,9 +557,9 @@ export function ImprovementSubmitSheet({
                   </View>
                 )}
               </ScrollView>
-            </KeyboardAvoidingView>
-          </Animated.View>
-        </GestureDetector>
+            </Animated.View>
+          </GestureDetector>
+        </KeyboardAvoidingView>
       </GestureHandlerRootView>
     </Modal>
   )
@@ -571,15 +573,17 @@ const styles = StyleSheet.create({
   backdrop: {
     backgroundColor: 'rgba(0,0,0,0.5)',
   },
-  sheet: {
+  kavWrapper: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
+    maxHeight: '85%',
+  },
+  sheet: {
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     overflow: 'hidden',
-    maxHeight: '85%',
   },
   handleRow: {
     alignItems: 'center',

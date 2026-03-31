@@ -28,7 +28,13 @@ export class WebRTCConnection {
     this.callbacks = callbacks
   }
 
-  async connect(ephemeralKey: string): Promise<void> {
+  /**
+   * Acquire microphone media and set up audio routing.
+   * Can be called independently to run in parallel with token generation.
+   * Stores the stream in this.localStream and returns it.
+   */
+  async prepareMedia(): Promise<MediaStream> {
+    let stream: MediaStream | null = null
     try {
       // Enable audio in silent mode (iOS)
       await setAudioModeAsync({ playsInSilentMode: true })
@@ -37,16 +43,41 @@ export class WebRTCConnection {
       InCallManager.start({ media: 'audio' })
       InCallManager.setForceSpeakerphoneOn(true)
 
-      // Create peer connection
-      this.pc = new RTCPeerConnection()
-
-      // Get microphone access and add track
+      // Get microphone access
       const ms = await mediaDevices.getUserMedia({ audio: true })
-      this.localStream = ms as MediaStream
-      const tracks = this.localStream.getTracks()
+      stream = ms as MediaStream
+      const tracks = stream.getTracks()
       if (tracks.length === 0) {
         throw new Error('No audio tracks available from microphone')
       }
+
+      this.localStream = stream
+      return stream
+    } catch (error) {
+      // Clean up partial resources on failure
+      if (stream) {
+        for (const track of stream.getTracks()) {
+          track.stop()
+        }
+      }
+      InCallManager.stop()
+      throw error
+    }
+  }
+
+  /**
+   * Establish WebRTC connection using a pre-acquired MediaStream.
+   * Sets up peer connection, data channel, event listeners, and SDP exchange.
+   */
+  async connectWithMedia(ephemeralKey: string, mediaStream: MediaStream): Promise<void> {
+    try {
+      this.localStream = mediaStream
+
+      // Create peer connection
+      this.pc = new RTCPeerConnection()
+
+      // Add first track from pre-acquired media
+      const tracks = mediaStream.getTracks()
       this.pc.addTrack(tracks[0])
 
       // Handle remote audio track from OpenAI
@@ -113,6 +144,15 @@ export class WebRTCConnection {
       this.destroy()
       throw error
     }
+  }
+
+  /**
+   * Full connect: acquire media then establish WebRTC connection.
+   * Kept for backward compat (warm reconnection and retry paths).
+   */
+  async connect(ephemeralKey: string): Promise<void> {
+    const mediaStream = await this.prepareMedia()
+    await this.connectWithMedia(ephemeralKey, mediaStream)
   }
 
   startAudioLevelMonitoring(callback: (level: number) => void): void {
