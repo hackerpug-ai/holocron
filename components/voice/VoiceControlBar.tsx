@@ -7,7 +7,7 @@
  * - Mute (left): Mic/MicOff icon toggle, 52dp diameter. Active → colors.primary, Muted → colors.destructive
  * - Stop (right): Square icon, 64dp diameter (primary action), always colors.destructive
  *
- * Each button uses 300ms debounce pattern from VoiceMicButton (useRef guard).
+ * Stop fires immediately (idempotent). Mute uses 100ms debounce. Haptics fire immediately for both.
  * All get accessibilityRole="button" and descriptive accessibilityLabel.
  *
  * Uses Lucide icons from lucide-react-native, theme tokens from useTheme().
@@ -117,26 +117,22 @@ function ControlButton({
     }
   }
 
-  // Handle press with 300ms debounce
   const handlePress = () => {
-    // Clear any existing debounce timer
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current)
+    // Haptics fire immediately for both
+    if (type === 'mute') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+    } else {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
     }
 
-    // Set pressed state for visual feedback
-    setPressed(true)
-    setTimeout(() => setPressed(false), 150)
-
-    // Debounce the actual callback
-    debounceRef.current = setTimeout(() => {
-      if (type === 'mute') {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-      } else if (type === 'stop') {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
-      }
+    if (type === 'stop') {
+      // No debounce — stop is idempotent
       onPress()
-    }, 300)
+    } else {
+      // Short debounce for mute toggle
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+      debounceRef.current = setTimeout(() => onPress(), 100)
+    }
   }
 
   return (

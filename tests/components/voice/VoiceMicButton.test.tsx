@@ -158,10 +158,10 @@ describe('VoiceMicButton - AC-4: debounce rapid taps', () => {
     expect(source).toContain('lastPressTime')
   })
 
-  it('defines DEBOUNCE_MS constant at 300', () => {
+  it('defines DEBOUNCE_MS constant at 150', () => {
     const source = readComponent()
     expect(source).toContain('DEBOUNCE_MS')
-    expect(source).toContain('300')
+    expect(source).toContain('150')
   })
 
   it('compares Date.now() to lastPressTime for debounce', () => {

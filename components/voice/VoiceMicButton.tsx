@@ -4,7 +4,7 @@
  * - IDLE: shows mic icon, tappable, calls onStart on press
  * - LISTENING | SPEAKING: shows stop icon, tappable, calls onStop on press
  * - CONNECTING: disabled, tap does nothing
- * - Debounced 300ms to prevent rapid double-start
+ * - Debounced 150ms to prevent rapid double-start
  */
 
 import { useRef, useEffect } from 'react'
@@ -120,7 +120,7 @@ export function VoiceMicButton({ voiceState, onStart, onStop, className, isWarm 
           {showWarmDot && (
             <Animated.View
               testID="voice-mic-warm-indicator"
-              className="absolute top-0 right-0 h-1.5 w-1.5 rounded-full bg-emerald-400"
+              className="absolute top-0 right-0 h-2 w-2 rounded-full bg-emerald-400"
               style={warmDotStyle}
             />
           )}
