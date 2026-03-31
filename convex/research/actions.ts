@@ -14,7 +14,7 @@ import { v } from "convex/values";
 import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { generateText } from "ai";
-import { zaiPro } from "../lib/ai/zai_provider";
+import { openai } from "@ai-sdk/openai";
 import { stripMarkdownCodeBlock } from "../lib/json";
 import {
   executeParallelSearchWithRetry,
@@ -541,7 +541,7 @@ export async function runIterativeResearch(
       console.log(`[runIterativeResearch] Step 2b: Calling LLM (glm-4.7) for synthesis`);
       const synthesisStartTime = Date.now();
       const synthesisResult = await generateText({
-        model: zaiPro(),
+        model: openai("gpt-5.4"),
         prompt: synthesisPrompt,
       });
       const synthesisDuration = Date.now() - synthesisStartTime;
@@ -713,7 +713,7 @@ export async function runIterativeResearch(
       );
       const reviewStartTime = Date.now();
       const reviewResult = await generateText({
-        model: zaiPro(),
+        model: openai("gpt-5.4"),
         prompt: reviewPrompt,
       });
       const reviewDuration = Date.now() - reviewStartTime;
@@ -1158,7 +1158,7 @@ State whether confidence is HIGH, MEDIUM, or LOW based on:
 - Be specific and actionable`;
 
     const synthesisResult = await generateText({
-      model: zaiPro(),
+      model: openai("gpt-5.4"),
       prompt: synthesisPrompt,
     });
 
@@ -1413,7 +1413,7 @@ export async function executeSinglePassResearch(
     .join("\n\n---\n\n");
 
   // Step 9: Single synthesis with full content
-  console.log(`[executeSinglePassResearch] Running synthesis with zaiPro`);
+  console.log(`[executeSinglePassResearch] Running synthesis with gpt-5.4`);
   const synthesisPrompt = buildSinglePassSynthesisPrompt(
     topic,
     urlContents,
@@ -1422,7 +1422,7 @@ export async function executeSinglePassResearch(
   );
 
   const synthesisResult = await generateText({
-    model: zaiPro(),
+    model: openai("gpt-5.4"),
     prompt: synthesisPrompt,
   });
 

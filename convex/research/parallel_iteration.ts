@@ -2,9 +2,9 @@
  * Parallel Iteration Strategy for Deep Research
  *
  * Optimized research strategy that:
- * 1. Generates 2-3 query variants using LLM (zaiFlash)
+ * 1. Generates 2-3 query variants using LLM (gpt-5.4-mini)
  * 2. Executes all variants in parallel
- * 3. Synthesizes findings with quality model (zaiPro)
+ * 3. Synthesizes findings with quality model (gpt-5.4)
  * 4. Handles follow-up searches for identified gaps
  *
  * Target: 2-3x faster than serial iteration (25-40s vs 45-90s)
@@ -13,7 +13,7 @@
  * Key optimizations:
  * - Variant generation with fallback to static queries
  * - Parallel search execution via Promise.all
- * - Quality synthesis with zaiPro
+ * - Quality synthesis with gpt-5.4
  * - Optional follow-up for gaps
  */
 
@@ -23,7 +23,7 @@ import { action } from "../_generated/server";
 import { v } from "convex/values";
 import { api } from "../_generated/api";
 import { generateText } from "ai";
-import { zaiFlash, zaiPro } from "../lib/ai/zai_provider";
+import { openai } from "@ai-sdk/openai";
 import {
   executeParallelSearchWithRetry,
 } from "./search";
@@ -57,7 +57,7 @@ export interface QueryVariant {
 /**
  * Generate query variants using LLM
  *
- * Uses zaiFlash for fast, cheap variant generation.
+ * Uses gpt-5.4-mini for fast, cheap variant generation.
  * Falls back to static variants if LLM fails.
  *
  * @param topic - Research topic
@@ -96,9 +96,9 @@ Return ONLY a JSON array:
 Be specific and targeted. Each query should uncover different information.`;
 
   try {
-    console.log(`[generateQueryVariants] Calling zaiFlash for variant generation`);
+    console.log(`[generateQueryVariants] Calling gpt-5.4-mini for variant generation`);
     const result = await generateText({
-      model: zaiFlash(),
+      model: openai("gpt-5.4-mini"),
       prompt,
     });
 
@@ -148,7 +148,7 @@ Be specific and targeted. Each query should uncover different information.`;
  *
  * @param topic - Research topic
  * @param variantResults - Results from each variant
- * @returns Synthesis prompt for zaiPro
+ * @returns Synthesis prompt for gpt-5.4
  */
 function buildParallelSynthesisPrompt(
   topic: string,
@@ -364,8 +364,8 @@ export async function executeParallelIteration(
     },
   ]);
 
-  // Step 6: Synthesize with zaiPro for quality
-  console.log(`[executeParallelIteration] Running synthesis with zaiPro`);
+  // Step 6: Synthesize with gpt-5.4 for quality
+  console.log(`[executeParallelIteration] Running synthesis with gpt-5.4`);
   const synthesisPrompt = buildParallelSynthesisPrompt(
     topic,
     variantResults.map((r) => ({
@@ -376,7 +376,7 @@ export async function executeParallelIteration(
   );
 
   const synthesisResult = await generateText({
-    model: zaiPro(),
+    model: openai("gpt-5.4"),
     prompt: synthesisPrompt,
   });
 
@@ -505,7 +505,7 @@ export async function executeParallelIteration(
  * Run Parallel Iteration Strategy
  *
  * Fast-path research strategy for deep research queries.
- * Executes 2-3 query variants in parallel, then synthesizes with zaiPro.
+ * Executes 2-3 query variants in parallel, then synthesizes with gpt-5.4.
  *
  * @param conversationId - Optional conversation to post results to
  * @param topic - Research topic

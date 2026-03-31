@@ -14,7 +14,7 @@
 "use node";
 
 import { generateText } from "ai";
-import { zaiFlash } from "../lib/ai/zai_provider";
+import { openai } from "@ai-sdk/openai";
 import { stripMarkdownCodeBlock } from "../lib/json";
 
 export type ResearchMode = "OVERVIEW" | "ACTIONABLE" | "COMPARATIVE" | "EXPLORATORY";
@@ -28,7 +28,7 @@ export interface IntentClassification {
 /**
  * Classify research intent using LLM with heuristic fallback.
  *
- * Cost: ~$0.0005 per call (zaiFlash).
+ * Cost: cheap (gpt-5.4-nano).
  * Latency: ~1-2s (runs concurrently with strategy selection).
  */
 export async function classifyResearchIntent(topic: string): Promise<IntentClassification> {
@@ -36,7 +36,7 @@ export async function classifyResearchIntent(topic: string): Promise<IntentClass
 
   try {
     const result = await generateText({
-      model: zaiFlash(),
+      model: openai("gpt-5.4-nano"),
       prompt: `Classify this research query into exactly ONE mode based on what the user wants to learn.
 
 Query: "${topic}"

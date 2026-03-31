@@ -16,7 +16,7 @@ import { action } from "../_generated/server";
 import { v } from "convex/values";
 import { api } from "../_generated/api";
 import { generateText } from "ai";
-import { zaiFlash } from "../lib/ai/zai_provider";
+import { openai } from "@ai-sdk/openai";
 import {
   executeParallelSearchWithRetry,
 } from "./search";
@@ -159,7 +159,7 @@ export function decomposeIntoDomainsStatic(topic: string, mode?: ResearchMode): 
 /**
  * LLM-driven query decomposition into sub-questions.
  *
- * Uses zaiFlash to generate dependency-aware sub-questions tailored to
+ * Uses gpt-5.4-mini to generate dependency-aware sub-questions tailored to
  * the research mode. Falls back to static decomposition on failure.
  *
  * @param topic - Research topic
@@ -210,7 +210,7 @@ Generate exactly ${maxCount} sub-questions.`;
 
   try {
     const result = await generateText({
-      model: zaiFlash(),
+      model: openai("gpt-5.4-mini"),
       prompt,
     });
 
@@ -450,7 +450,7 @@ export async function executeParallelFanOut(
   );
 
   const synthesisResult = await generateText({
-    model: zaiFlash(),
+    model: openai("gpt-5.4-mini"),
     prompt: synthesisPrompt,
   });
 

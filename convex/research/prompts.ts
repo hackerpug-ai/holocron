@@ -477,7 +477,7 @@ export interface UrlContent {
  * @param topic - Research topic
  * @param urlContents - Full content from read URLs
  * @param searchSnippets - Fallback snippets from search results
- * @returns Synthesis prompt for zaiPro
+ * @returns Synthesis prompt for gpt-5.4
  */
 export function buildSinglePassSynthesisPrompt(
   topic: string,

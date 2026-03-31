@@ -21,7 +21,7 @@ import type {
   IterationWithStats,
 } from "./documentQueries";
 import { generateText } from "ai";
-import { zaiPro } from "../lib/ai/zai_provider";
+import { openai } from "@ai-sdk/openai";
 import { buildFinalSynthesisPrompt } from "./prompts";
 
 /**
@@ -146,10 +146,10 @@ export const createResearchDocument = internalAction({
         );
 
         // Call LLM to synthesize findings into cohesive report
-        // Using glm-4.7 (zaiPro) for synthesis - brings together ideas from iterations
-        console.log(`[createResearchDocument] Calling glm-4.7 (zaiPro) to synthesize findings`);
+        // Using gpt-5.4 for final synthesis - brings together ideas from iterations
+        console.log(`[createResearchDocument] Calling gpt-5.4 to synthesize findings`);
         const result = await generateText({
-          model: zaiPro(),
+          model: openai("gpt-5.4"),
           prompt: synthesisPrompt,
         });
 
