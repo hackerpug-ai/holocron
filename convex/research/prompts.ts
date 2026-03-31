@@ -168,12 +168,18 @@ Build on this foundation - do NOT simply repeat what was already found.
 
   const modeGuidance = mode ? `\n${getSynthesisInstructions(mode)}\n` : "";
 
+  // Truncate findings to avoid context window overflow with deep-read content
+  const MAX_FINDINGS_LENGTH = 80000;
+  const truncatedFindings = searchFindings.length > MAX_FINDINGS_LENGTH
+    ? searchFindings.slice(0, MAX_FINDINGS_LENGTH) + "\n\n[Truncated - additional sources available]"
+    : searchFindings;
+
   const prompt = `Synthesize research findings into a structured JSON format with confidence scoring.
 
 Topic: ${context.topic}
 ${modeGuidance}
 Latest Search Findings:
-${searchFindings}
+${truncatedFindings}
 
 ${previousContext}
 Return a JSON object with the following structure:

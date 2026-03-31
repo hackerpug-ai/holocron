@@ -86,6 +86,7 @@ import type * as migrations_cleanup_irrelevant_twitter from "../migrations/clean
 import type * as migrations_cleanup_irrelevant_twitter_actions from "../migrations/cleanup_irrelevant_twitter_actions.js";
 import type * as migrations_reembed_documents_1024 from "../migrations/reembed_documents_1024.js";
 import type * as migrations_refactor_deep_research_messages from "../migrations/refactor_deep_research_messages.js";
+import type * as migrations_remove_twitter_content from "../migrations/remove_twitter_content.js";
 import type * as migrations_strip_platform_prefix from "../migrations/strip_platform_prefix.js";
 import type * as notifications_index from "../notifications/index.js";
 import type * as notifications_internal from "../notifications/internal.js";
@@ -258,6 +259,7 @@ declare const fullApi: ApiFromModules<{
   "migrations/cleanup_irrelevant_twitter_actions": typeof migrations_cleanup_irrelevant_twitter_actions;
   "migrations/reembed_documents_1024": typeof migrations_reembed_documents_1024;
   "migrations/refactor_deep_research_messages": typeof migrations_refactor_deep_research_messages;
+  "migrations/remove_twitter_content": typeof migrations_remove_twitter_content;
   "migrations/strip_platform_prefix": typeof migrations_strip_platform_prefix;
   "notifications/index": typeof notifications_index;
   "notifications/internal": typeof notifications_internal;

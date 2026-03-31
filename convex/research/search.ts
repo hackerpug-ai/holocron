@@ -436,7 +436,7 @@ async function executeExaSearch(query: string): Promise<StructuredSearchResult[]
   // Apply rate limiting (10 QPS)
   const searchResults = await withRateLimit('exa', async () => {
     return await exa.searchAndContents(query, {
-      numResults: 5,
+      numResults: 8,
       useAutoprompt: true,
     });
   });

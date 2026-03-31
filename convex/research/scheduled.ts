@@ -3,6 +3,9 @@
  *
  * Background job processing for deep research iterations.
  * Prevents 600-second action timeout by processing one iteration at a time.
+ *
+ * Pipeline per iteration:
+ *   EXPAND (gpt-5.4-mini) → SEARCH (direct API) → DEEP READ (Jina) → SYNTHESIZE (gpt-5.4) → REVIEW (gpt-5.4)
  */
 
 "use node";
@@ -13,18 +16,19 @@ import { api, internal } from "../_generated/api";
 import { generateText } from "ai";
 import { openai } from "@ai-sdk/openai";
 import {
-  exaSearchTool,
-  jinaSearchTool,
-  jinaSiteSearchTool,
-  jinaReaderTool,
-} from "./tools";
+  executeParallelSearchWithRetry,
+  executeParallelUrlRead,
+  generateDiverseQueries,
+  type StructuredSearchResult,
+} from "./search";
 import {
   buildResearchContext,
-  buildSearchPrompt,
   buildSynthesisPrompt,
   buildReviewPrompt,
 } from "./prompts";
 import { stripMarkdownCodeBlock } from "../lib/json";
+import type { ResearchMode } from "./intent";
+import { getVariantInstructions } from "./mode_prompts";
 
 /**
  * Generate a concise 3-6 word summary from research feedback and findings
@@ -114,16 +118,80 @@ async function updateLoadingCardSteps(
 }
 
 /**
+ * Generate diverse query variants using LLM
+ *
+ * Uses gpt-5.4-mini for fast, intelligent query expansion.
+ * Falls back to static generation if LLM fails.
+ */
+async function expandQueries(
+  topic: string,
+  previousGaps: string[],
+  mode?: ResearchMode,
+  count: number = 6,
+): Promise<Array<{ query: string; focus: string; rationale: string }>> {
+  const gapContext = previousGaps.length > 0
+    ? `\nPrevious research identified these gaps to address:\n${previousGaps.map((g, i) => `${i + 1}. ${g}`).join("\n")}\n\nPrioritize queries that fill these gaps.`
+    : "";
+
+  const variantInstructions = mode
+    ? getVariantInstructions(mode)
+    : `Each variant should explore a different aspect:
+1. Technical/implementation focus
+2. Academic/research focus
+3. Industry/practical focus
+4. Latest developments/trends
+5. Expert opinions and case studies
+6. Comparative analysis`;
+
+  const prompt = `Generate exactly ${count} diverse search query variants for comprehensive research on: "${topic}"
+
+${variantInstructions}
+${gapContext}
+
+Return ONLY a JSON array:
+[
+  {
+    "query": "actual search query",
+    "focus": "what this query focuses on (2-5 words)",
+    "rationale": "why this angle matters"
+  }
+]
+
+Be specific and targeted. Each query should uncover different information.`;
+
+  try {
+    const result = await generateText({
+      model: openai("gpt-5.4-mini"),
+      prompt,
+    });
+
+    const variants = JSON.parse(stripMarkdownCodeBlock(result.text));
+    if (Array.isArray(variants) && variants.length >= 2) {
+      console.log(`[expandQueries] Generated ${variants.length} variants via gpt-5.4-mini`);
+      return variants.slice(0, count);
+    }
+    throw new Error(`Invalid variant count: ${variants.length}`);
+  } catch (error) {
+    console.warn(`[expandQueries] LLM failed, using static fallback: ${error instanceof Error ? error.message : String(error)}`);
+    return generateDiverseQueries(topic, previousGaps).map((q, i) => ({
+      query: q,
+      focus: `Angle ${i + 1}`,
+      rationale: "Static fallback",
+    }));
+  }
+}
+
+/**
  * Process Deep Research Iteration
  *
- * Scheduled function that:
- * 1. Loads session from DB
- * 2. Runs ONE iteration (search → synthesize → review)
- * 3. Saves results to DB
- * 4. Schedules next iteration OR completes session
+ * Scheduled function that runs ONE iteration of the enhanced research pipeline:
+ *   1. EXPAND — Generate 6 diverse query variants (gpt-5.4-mini)
+ *   2. SEARCH — Execute parallel searches across all variants (Exa + Jina APIs)
+ *   3. DEEP READ — Read top 8 source URLs in full (Jina Reader, 10k chars each)
+ *   4. SYNTHESIZE — Combine snippets + full articles into structured findings (gpt-5.4)
+ *   5. REVIEW — Assess coverage quality and identify gaps (gpt-5.4)
  *
- * This function has no timeout limit, but each iteration completes quickly
- * enough to stay under reasonable execution time.
+ * Saves results to DB, then schedules next iteration OR completes session.
  */
 export const processDeepResearchIteration = internalAction({
   args: {
@@ -156,11 +224,9 @@ export const processDeepResearchIteration = internalAction({
       // Get current iteration from the session data
       const currentIteration = (session.iterations.length || 0) + 1;
       const maxIterations = session.maxIterations ?? 5;
-      const currentTopic = session.topic;
-      const _previousCoverageScore = 0;
 
       console.log(
-        `[processIteration] Iteration ${currentIteration}/${maxIterations}, topic: "${currentTopic}"`,
+        `[processIteration] Iteration ${currentIteration}/${maxIterations}, topic: "${session.topic}"`,
       );
 
       // Build context from database
@@ -173,7 +239,42 @@ export const processDeepResearchIteration = internalAction({
         status: "completed" as const,
       }));
 
-      // SEARCH Phase — update loading card to show search in-progress
+      const researchMode = (session as any).researchMode as ResearchMode | undefined;
+
+      // Get gaps from previous iterations for query refinement
+      const previousGaps = context.previousIterations.length > 0
+        ? context.previousIterations[context.previousIterations.length - 1].gaps
+        : [];
+
+      // ─── PHASE 1: EXPAND QUERIES ───────────────────────────────────────
+      console.log(`[processIteration] EXPAND phase starting`);
+      await updateLoadingCardSteps(
+        ctx,
+        session.conversationId as string,
+        sessionId.toString(),
+        session.topic,
+        [
+          ...completedIterationSteps,
+          {
+            id: `expand-${currentIteration}`,
+            label: `Iteration ${currentIteration}: Expanding search queries...`,
+            status: "in-progress",
+          },
+        ],
+      );
+
+      const queryVariants = await expandQueries(
+        session.topic, // Always use original topic, not mangled refinedTopic
+        previousGaps,
+        researchMode,
+        6,
+      );
+
+      console.log(
+        `[processIteration] EXPAND complete - ${queryVariants.length} variants generated`,
+      );
+
+      // ─── PHASE 2: PARALLEL SEARCH ─────────────────────────────────────
       console.log(`[processIteration] SEARCH phase starting`);
       await updateLoadingCardSteps(
         ctx,
@@ -183,42 +284,115 @@ export const processDeepResearchIteration = internalAction({
         [
           ...completedIterationSteps,
           {
+            id: `expand-${currentIteration}`,
+            label: `Iteration ${currentIteration}: Generated ${queryVariants.length} search angles`,
+            status: "completed",
+          },
+          {
             id: `search-${currentIteration}`,
-            label: `Iteration ${currentIteration}: Searching sources in parallel...`,
+            label: `Iteration ${currentIteration}: Searching ${queryVariants.length} queries across multiple sources...`,
             status: "in-progress",
           },
         ],
       );
-      // Get research mode from session for mode-aware prompts
-      const researchMode = (session as any).researchMode as string | undefined;
-      const searchPrompt = buildSearchPrompt(
-        currentTopic,
-        context.previousIterations,
-        researchMode as any,
-      );
-      const searchResult = await generateText({
-        model: openai("gpt-4o-mini"), // Fast, cheap, good at tool calls
-        prompt: searchPrompt,
-        tools: {
-          exaSearch: exaSearchTool,
-          jinaSearch: jinaSearchTool,
-          jinaSiteSearch: jinaSiteSearchTool,
-          jinaReader: jinaReaderTool,
-        },
-      });
 
-      // Extract tool results - these contain the actual search data
-      const toolResults = searchResult.toolResults || [];
-      const searchFindings =
-        toolResults.length > 0
-          ? JSON.stringify(toolResults, null, 2)
-          : searchResult.text || "No search results found";
+      // Execute parallel searches for each query variant
+      const searchPromises = queryVariants.map(variant =>
+        executeParallelSearchWithRetry(variant.query, {}, previousGaps, {
+          maxRetries: 2,
+          timeoutMs: 15000,
+          deduplicateResults: true,
+        })
+      );
+
+      const searchResults = await Promise.all(searchPromises);
+
+      // Aggregate and deduplicate results across all variants
+      const seenUrls = new Set<string>();
+      const allStructuredResults: StructuredSearchResult[] = [];
+      for (const result of searchResults) {
+        for (const sr of result.structuredResults) {
+          const normalized = sr.url.toLowerCase().replace(/\/$/, "");
+          if (!seenUrls.has(normalized)) {
+            seenUrls.add(normalized);
+            allStructuredResults.push(sr);
+          }
+        }
+      }
+
+      // Combine findings text from all search results
+      const searchFindings = searchResults
+        .map(r => r.findings)
+        .filter(f => f.length > 0)
+        .join("\n\n---\n\n");
+
+      const totalToolCalls = searchResults.reduce((sum, r) => sum + r.toolCallCount, 0);
 
       console.log(
-        `[processIteration] SEARCH complete - ${searchFindings.length} chars, ${toolResults.length} tool calls`,
+        `[processIteration] SEARCH complete - ${allStructuredResults.length} unique sources from ${totalToolCalls} searches`,
       );
 
-      // SYNTHESIZE Phase — update loading card before synthesis begins
+      // ─── PHASE 3: DEEP READ TOP SOURCES ───────────────────────────────
+      console.log(`[processIteration] DEEP READ phase starting`);
+      await updateLoadingCardSteps(
+        ctx,
+        session.conversationId as string,
+        sessionId.toString(),
+        session.topic,
+        [
+          ...completedIterationSteps,
+          {
+            id: `expand-${currentIteration}`,
+            label: `Iteration ${currentIteration}: Generated ${queryVariants.length} search angles`,
+            status: "completed",
+          },
+          {
+            id: `search-${currentIteration}`,
+            label: `Iteration ${currentIteration}: Found ${allStructuredResults.length} unique sources`,
+            status: "completed",
+          },
+          {
+            id: `read-${currentIteration}`,
+            label: `Iteration ${currentIteration}: Reading top articles in depth...`,
+            status: "in-progress",
+          },
+        ],
+      );
+
+      // Sort by relevance score and take top 8 URLs for deep reading
+      const topUrls = allStructuredResults
+        .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+        .slice(0, 8)
+        .map(r => r.url)
+        .filter(url => url && url.startsWith("http"));
+
+      let deepReadContent = "";
+      let deepReadCount = 0;
+
+      if (topUrls.length > 0) {
+        const readResults = await executeParallelUrlRead(topUrls, {
+          maxConcurrent: 5,
+          timeoutMs: 15000,
+          maxContentLength: 10000,
+        });
+
+        const successfulReads = readResults.filter(r => r.success && r.content.length > 100);
+        deepReadCount = successfulReads.length;
+        deepReadContent = successfulReads
+          .map(r => `### ${r.title || "Source"}\nURL: ${r.url}\n\n${r.content}`)
+          .join("\n\n---\n\n");
+      }
+
+      console.log(
+        `[processIteration] DEEP READ complete - ${deepReadCount}/${topUrls.length} articles read`,
+      );
+
+      // Combine search snippets + deep read content for synthesis
+      const enrichedFindings = deepReadContent
+        ? `## Search Snippets (${allStructuredResults.length} sources)\n\n${searchFindings}\n\n## Full Article Content (${deepReadCount} articles)\n\n${deepReadContent}`
+        : searchFindings;
+
+      // ─── PHASE 4: SYNTHESIZE ──────────────────────────────────────────
       console.log(`[processIteration] SYNTHESIZE phase starting`);
       await updateLoadingCardSteps(
         ctx,
@@ -228,20 +402,31 @@ export const processDeepResearchIteration = internalAction({
         [
           ...completedIterationSteps,
           {
+            id: `expand-${currentIteration}`,
+            label: `Iteration ${currentIteration}: Generated ${queryVariants.length} search angles`,
+            status: "completed",
+          },
+          {
             id: `search-${currentIteration}`,
-            label: `Iteration ${currentIteration}: Searched ${toolResults.length} sources`,
+            label: `Iteration ${currentIteration}: Found ${allStructuredResults.length} unique sources`,
+            status: "completed",
+          },
+          {
+            id: `read-${currentIteration}`,
+            label: `Iteration ${currentIteration}: Read ${deepReadCount} articles in depth`,
             status: "completed",
           },
           {
             id: `synthesize-${currentIteration}`,
-            label: `Iteration ${currentIteration}: Synthesizing findings...`,
+            label: `Iteration ${currentIteration}: Synthesizing ${allStructuredResults.length} sources + ${deepReadCount} articles...`,
             status: "in-progress",
           },
         ],
       );
-      const synthesisPrompt = buildSynthesisPrompt(context, searchFindings, researchMode as any);
+
+      const synthesisPrompt = buildSynthesisPrompt(context, enrichedFindings, researchMode);
       const synthesisResult = await generateText({
-        model: openai("gpt-4o"), // Fast, reliable, cheaper than gpt-4-turbo
+        model: openai("gpt-5.4"), // Frontier model for high-quality synthesis
         prompt: synthesisPrompt,
       });
       const synthesis = synthesisResult.text;
@@ -249,7 +434,7 @@ export const processDeepResearchIteration = internalAction({
         `[processIteration] SYNTHESIZE complete - ${synthesis.length} chars`,
       );
 
-      // REVIEW Phase — update loading card before review begins
+      // ─── PHASE 5: REVIEW ──────────────────────────────────────────────
       console.log(`[processIteration] REVIEW phase starting`);
       await updateLoadingCardSteps(
         ctx,
@@ -259,8 +444,18 @@ export const processDeepResearchIteration = internalAction({
         [
           ...completedIterationSteps,
           {
+            id: `expand-${currentIteration}`,
+            label: `Iteration ${currentIteration}: Generated ${queryVariants.length} search angles`,
+            status: "completed",
+          },
+          {
             id: `search-${currentIteration}`,
-            label: `Iteration ${currentIteration}: Searched ${toolResults.length} sources`,
+            label: `Iteration ${currentIteration}: Found ${allStructuredResults.length} unique sources`,
+            status: "completed",
+          },
+          {
+            id: `read-${currentIteration}`,
+            label: `Iteration ${currentIteration}: Read ${deepReadCount} articles in depth`,
             status: "completed",
           },
           {
@@ -277,7 +472,7 @@ export const processDeepResearchIteration = internalAction({
       );
       const reviewPrompt = buildReviewPrompt(context, synthesis);
       const reviewResult = await generateText({
-        model: openai("gpt-4o"), // Fast, reliable, cheaper than gpt-4-turbo
+        model: openai("gpt-5.4"), // Frontier model for accurate review
         prompt: reviewPrompt,
       });
 
@@ -318,8 +513,18 @@ export const processDeepResearchIteration = internalAction({
         [
           ...completedIterationSteps,
           {
+            id: `expand-${currentIteration}`,
+            label: `Iteration ${currentIteration}: Generated ${queryVariants.length} search angles`,
+            status: "completed",
+          },
+          {
             id: `search-${currentIteration}`,
-            label: `Iteration ${currentIteration}: Searched ${toolResults.length} sources`,
+            label: `Iteration ${currentIteration}: Found ${allStructuredResults.length} unique sources`,
+            status: "completed",
+          },
+          {
+            id: `read-${currentIteration}`,
+            label: `Iteration ${currentIteration}: Read ${deepReadCount} articles in depth`,
             status: "completed",
           },
           {
@@ -372,17 +577,12 @@ export const processDeepResearchIteration = internalAction({
         ],
       );
 
-      // Update session with progress
-      const refinedTopic =
-        review.coverageScore < 4 && review.gaps.length > 0
-          ? `${session.topic} - Focus on: ${review.gaps.slice(0, 3).join(", ")}`
-          : currentTopic;
-
+      // Update session — keep original topic intact (query expansion handles gaps)
       await ctx.runMutation(api.research.mutations.updateDeepResearchSession, {
         sessionId,
         status: "in_progress",
         currentIteration,
-        refinedTopic,
+        refinedTopic: session.topic, // Keep original topic, don't mangle with gaps
         currentCoverageScore: review.coverageScore,
       });
 
