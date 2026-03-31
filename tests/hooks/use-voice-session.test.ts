@@ -63,13 +63,20 @@ vi.mock("@/convex/_generated/api", () => ({
 
 // --- Mock WebRTC Connection ---
 const mockConnect = vi.fn();
+const mockPrepareMedia = vi.fn();
+const mockConnectWithMedia = vi.fn();
 const mockDestroy = vi.fn();
 const mockSendEvent = vi.fn();
 const mockSetCallbacks = vi.fn();
 
+// Fake MediaStream for prepareMedia mock
+const mockMediaStream = { getTracks: () => [{ stop: vi.fn(), kind: 'audio' }] };
+
 function MockWebRTCConnection() {
   return {
     connect: mockConnect,
+    prepareMedia: mockPrepareMedia,
+    connectWithMedia: mockConnectWithMedia,
     destroy: mockDestroy,
     sendEvent: mockSendEvent,
     setCallbacks: mockSetCallbacks,
@@ -116,9 +123,12 @@ describe("US-008: useVoiceSession (renderHook)", () => {
       ephemeralKey: "ek-test-123",
       expiresAt: Date.now() + 60000,
       sessionId: "session-001",
+      instructions: "Test instructions",
     });
     mockEndSession.mockResolvedValue(null);
     mockConnect.mockResolvedValue(undefined);
+    mockPrepareMedia.mockResolvedValue(mockMediaStream);
+    mockConnectWithMedia.mockResolvedValue(undefined);
   });
 
   describe("AC-1: start() transitions IDLE -> CONNECTING -> LISTENING", () => {
@@ -136,8 +146,9 @@ describe("US-008: useVoiceSession (renderHook)", () => {
         conversationId: CONV_ID,
       });
 
-      // Verify WebRTC was connected with ephemeral key
-      expect(mockConnect).toHaveBeenCalledWith("ek-test-123");
+      // Verify WebRTC prepareMedia + connectWithMedia were called
+      expect(mockPrepareMedia).toHaveBeenCalled();
+      expect(mockConnectWithMedia).toHaveBeenCalledWith("ek-test-123", mockMediaStream);
 
       // Verify callbacks were wired
       expect(mockSetCallbacks).toHaveBeenCalled();
@@ -250,7 +261,7 @@ describe("US-008: useVoiceSession (renderHook)", () => {
     });
 
     it("transitions to error when WebRTC connect fails (service unavailable message)", async () => {
-      mockConnect.mockRejectedValueOnce(
+      mockConnectWithMedia.mockRejectedValueOnce(
         new Error("SDP exchange failed: 401")
       );
 
@@ -272,7 +283,7 @@ describe("US-008: useVoiceSession (renderHook)", () => {
     });
 
     it("handles non-Error throws gracefully (service unavailable message)", async () => {
-      mockConnect.mockRejectedValueOnce("string error");
+      mockConnectWithMedia.mockRejectedValueOnce("string error");
 
       const { result } = renderHook(() => useVoiceSession(CONV_ID));
 
