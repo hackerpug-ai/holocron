@@ -11,7 +11,7 @@ import {
   Loader2,
 } from '@/components/ui/icons'
 
-export type PlatformType = 'youtube' | 'twitter' | 'bluesky' | 'github' | 'website'
+export type PlatformType = 'youtube' | 'bluesky' | 'github' | 'website'
 
 export interface PlatformBadgeProps {
   platform: PlatformType
@@ -28,7 +28,6 @@ const platformConfig: Record<
   { label: string; icon: typeof Youtube; color: string }
 > = {
   youtube: { label: 'YouTube', icon: Youtube, color: 'text-red-500' },
-  twitter: { label: 'Twitter/X', icon: Twitter, color: 'text-sky-500' },
   bluesky: { label: 'Bluesky', icon: Twitter, color: 'text-blue-500' },
   github: { label: 'GitHub', icon: Github, color: 'text-foreground' },
   website: { label: 'Website', icon: Globe, color: 'text-emerald-500' },

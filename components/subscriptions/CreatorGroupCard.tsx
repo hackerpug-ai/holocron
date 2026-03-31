@@ -122,10 +122,10 @@ export function CreatorGroupCard({
     const sourceType = sub.sourceType
 
     // If we have a platform from configJson, use it for PlatformBadge
-    if (platform && ['youtube', 'twitter', 'bluesky', 'github', 'website'].includes(platform)) {
+    if (platform && ['youtube', 'bluesky', 'github', 'website'].includes(platform)) {
       return {
         type: 'platform' as const,
-        platform: platform as 'youtube' | 'twitter' | 'bluesky' | 'github' | 'website',
+        platform: platform as 'youtube' | 'bluesky' | 'github' | 'website',
         handle: sub.identifier,
       }
     }

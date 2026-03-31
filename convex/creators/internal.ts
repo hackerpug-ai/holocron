@@ -3,7 +3,6 @@ import { v } from "convex/values";
 
 // Handle normalization patterns
 const YOUTUBE_HANDLE_REGEX = /^[a-zA-Z0-9_-]{3,30}$/;
-const TWITTER_HANDLE_REGEX = /^[a-zA-Z0-9_]{1,15}$/;
 const BLUESKY_HANDLE_REGEX = /^[a-zA-Z0-9.-]+\.([a-zA-Z]{2,})$/;
 const GITHUB_HANDLE_REGEX = /^[a-zA-Z0-9-]{1,39}$/;
 
@@ -23,8 +22,6 @@ export const normalizeHandle = internalAction({
       switch (platform) {
         case "youtube":
           return YOUTUBE_HANDLE_REGEX.test(normalized);
-        case "twitter":
-          return TWITTER_HANDLE_REGEX.test(normalized);
         case "bluesky":
           // Bluesky handles must include domain
           return BLUESKY_HANDLE_REGEX.test(normalized);
@@ -99,50 +96,6 @@ export const lookupYouTubeChannel = internalAction({
       };
     } catch (error) {
       console.error("YouTube lookup error:", error);
-      return {
-        handle: args.handle,
-        verified: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-      };
-    }
-  },
-});
-
-/**
- * Lookup Twitter/X user via Jina Reader (already integrated)
- */
-export const lookupTwitterUser = internalAction({
-  args: {
-    handle: v.string(),
-  },
-  handler: async (_, args) => {
-    try {
-      // Use Jina Reader to fetch Twitter profile
-      const url = `https://x.com/${args.handle}`;
-      const response = await fetch(`https://r.jina.ai/http://${url}`);
-
-      if (!response.ok) {
-        return {
-          handle: args.handle,
-          verified: false,
-          error: `Twitter fetch failed: ${response.status}`,
-        };
-      }
-
-      const content = await response.text();
-
-      // Parse basic info from the page content
-      // Jina Reader returns cleaned text, so we look for profile indicators
-      const hasProfile = content.includes(args.handle) || content.includes("@");
-
-      return {
-        handle: args.handle,
-        verified: hasProfile,
-        // Note: Jina Reader doesn't provide user ID or follower count
-        // For a production app, you'd use the Twitter API
-      };
-    } catch (error) {
-      console.error("Twitter lookup error:", error);
       return {
         handle: args.handle,
         verified: false,

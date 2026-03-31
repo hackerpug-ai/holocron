@@ -18,7 +18,6 @@ export interface SubscriptionSuggestionData {
   avatarUrl?: string
   platforms: {
     youtube?: CreatorPlatformData
-    twitter?: CreatorPlatformData
     bluesky?: CreatorPlatformData
     github?: CreatorPlatformData
     website?: CreatorPlatformData | { url: string; verified?: boolean }

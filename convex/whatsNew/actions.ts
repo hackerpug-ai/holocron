@@ -2,8 +2,8 @@
  * What's New Actions
  *
  * Server-side report generation with automatic caching.
- * Fetches from external APIs (Reddit, HN, GitHub, Dev.to, Lobsters, Bluesky, Twitter/X),
- * with Twitter/Bluesky accounts pulled dynamically from subscriptionSources.
+ * Fetches from external APIs (Reddit, HN, GitHub, Dev.to, Lobsters, Bluesky),
+ * with Bluesky accounts pulled dynamically from subscriptionSources.
  * Synthesizes into markdown, stores as document with embedding.
  */
 
@@ -483,168 +483,6 @@ async function fetchBluesky(days: number, accounts: Array<{ handle: string; name
   return { source: "Bluesky", findings };
 }
 
-/**
- * Fetch from Twitter/X via Jina Reader
- *
- * Uses Jina Reader (r.jina.ai) to scrape X profile pages.
- * Accepts dynamic account list from subscriptions.
- * Best-effort only - wraps all fetches in try/catch.
- */
-async function fetchTwitter(days: number, accounts: Array<{ handle: string; name: string }>): Promise<FetchResult> {
-  const findings: Finding[] = [];
-  const cutoffDate = new Date();
-  cutoffDate.setDate(cutoffDate.getDate() - days);
-
-  // Fallback to defaults if no subscription accounts configured yet
-  const aiAccounts = accounts.length > 0
-    ? accounts
-    : [
-        { handle: "AnthropicAI", name: "Anthropic" },
-        { handle: "OpenAI", name: "OpenAI" },
-        { handle: "cursor_ai", name: "Cursor" },
-      ];
-
-  for (const account of aiAccounts) {
-    const cleanHandle = account.handle.replace(/^@/, '');
-
-    try {
-      const response = await fetch(`https://r.jina.ai/https://x.com/${cleanHandle}`, {
-        headers: {
-          "Accept": "text/plain",
-          "User-Agent": "Holocron-WhatsNew/1.0",
-          "X-Return-Format": "markdown",
-        },
-      });
-
-      if (!response.ok) {
-        console.error(`[fetchTwitter] HTTP ${response.status} for @${cleanHandle}`);
-        continue;
-      }
-
-      const markdown = await response.text();
-
-      // Parse tweets from the markdown output
-      const tweets = parseTwitterProfileMarkdown(markdown, cleanHandle);
-
-      for (const tweet of tweets) {
-        // Filter tweets to AI coding/tools topics only
-        const aiCodingKeywords = [
-          'ai', 'llm', 'gpt', 'claude', 'gemini', 'model', 'agent', 'copilot',
-          'coding', 'developer', 'dev', 'api', 'sdk', 'framework', 'release',
-          'benchmark', 'inference', 'embedding', 'rag', 'cursor', 'vscode',
-          'mcp', 'tool', 'launch', 'open source', 'opensource', 'prompt',
-          'token', 'context', 'fine-tune', 'finetune', 'training', 'neural',
-          'transformer', 'diffusion', 'multimodal', 'reasoning', 'agentic',
-          'langchain', 'llamaindex', 'anthropic', 'openai', 'hugging face',
-          'mistral', 'ollama', 'local llm', 'code gen', 'autocomplete',
-        ];
-        const tweetTextLower = tweet.title.toLowerCase();
-        const isRelevant = aiCodingKeywords.some(kw => tweetTextLower.includes(kw));
-        if (!isRelevant) continue;
-
-        // We can't reliably get exact timestamps from profile scraping,
-        // so include all visible tweets (they're recent by nature)
-        findings.push({
-          title: tweet.title,
-          url: tweet.link,
-          source: `Twitter/X (@${account.name || cleanHandle})`,
-          category: "discussion",
-          publishedAt: tweet.published,
-          author: cleanHandle,
-        });
-      }
-    } catch (error) {
-      console.error(`[fetchTwitter] Error fetching @${cleanHandle}:`, error);
-    }
-  }
-
-  return { source: "Twitter/X", findings };
-}
-
-/**
- * Parse tweet data from Jina Reader markdown output of an X profile page.
- */
-function parseTwitterProfileMarkdown(markdown: string, _handle: string): Array<{
-  title: string;
-  link: string;
-  published: string;
-}> {
-  const items: Array<{ title: string; link: string; published: string }> = [];
-
-  // Strategy 1: Find tweet status URLs and extract surrounding text as content
-  const lines = markdown.split('\n');
-  let currentTweet = '';
-  let currentLink = '';
-
-  for (const line of lines) {
-    const statusMatch = line.match(/https?:\/\/(?:x|twitter)\.com\/\w+\/status\/(\d+)/);
-    if (statusMatch) {
-      if (currentTweet.trim() && currentLink) {
-        const title = currentTweet.trim().length > 200
-          ? currentTweet.trim().substring(0, 200) + '...'
-          : currentTweet.trim();
-        if (title.length > 10) {
-          items.push({
-            title,
-            link: currentLink,
-            published: new Date().toISOString(),
-          });
-        }
-      }
-      currentTweet = '';
-      currentLink = statusMatch[0];
-      continue;
-    }
-
-    // Skip UI chrome and engagement metrics
-    if (line.match(/^(Home|Explore|Messages|Notifications|Premium|Profile|More|Follow|Followers|Following|\d+[KMB]?\s+(replies|reposts|likes|views|bookmarks))/i)) continue;
-    if (line.match(/^\s*[\d,.]+[KMB]?\s*$/)) continue;
-    if (line.match(/^(Reply|Repost|Like|Share|Bookmark|More)\s*$/i)) continue;
-
-    if (currentLink && line.trim()) {
-      currentTweet += (currentTweet ? ' ' : '') + line.trim();
-    }
-  }
-
-  // Don't forget the last tweet
-  if (currentTweet.trim() && currentLink) {
-    const title = currentTweet.trim().length > 200
-      ? currentTweet.trim().substring(0, 200) + '...'
-      : currentTweet.trim();
-    if (title.length > 10) {
-      items.push({
-        title,
-        link: currentLink,
-        published: new Date().toISOString(),
-      });
-    }
-  }
-
-  // Strategy 2: Fallback - extract all tweet URLs with surrounding context
-  if (items.length === 0) {
-    const urlRegex = /https?:\/\/(?:x|twitter)\.com\/\w+\/status\/(\d+)/g;
-    let match;
-    while ((match = urlRegex.exec(markdown)) !== null) {
-      const start = Math.max(0, match.index - 200);
-      const context = markdown.substring(start, match.index).trim();
-      const lastBlock = context.split(/\n\n/).pop()?.trim() || '';
-      const title = lastBlock.length > 200
-        ? lastBlock.substring(0, 200) + '...'
-        : lastBlock;
-
-      if (title.length > 10) {
-        items.push({
-          title,
-          link: match[0],
-          published: new Date().toISOString(),
-        });
-      }
-    }
-  }
-
-  return items.slice(0, 25);
-}
-
 // ============================================================================
 // Report Synthesis
 // ============================================================================
@@ -679,7 +517,7 @@ function deduplicateFindings(findings: Finding[]): Finding[] {
 function capFindingsPerSource(findings: Finding[], maxPerSource: number): Finding[] {
   const bySource = new Map<string, Finding[]>();
   for (const finding of findings) {
-    // Normalize source to base name (e.g., "Twitter/X (@foo)" -> "Twitter/X")
+    // Normalize source to base name (e.g., "Bluesky (@foo)" -> "Bluesky")
     const baseSource = finding.source.replace(/\s*\(.*\)$/, '');
     if (!bySource.has(baseSource)) {
       bySource.set(baseSource, []);
@@ -824,14 +662,13 @@ export const generateDailyReport = internalAction({
       }
     }
 
-    // 2. Fetch creator accounts from subscriptions for dynamic Twitter/Bluesky lists
+    // 2. Fetch creator accounts from subscriptions for dynamic Bluesky lists
     console.log("[generateDailyReport] Loading creator accounts from subscriptions...");
-    const [twitterAccounts, blueskyAccounts] = await Promise.all([
-      ctx.runQuery(internal.subscriptions.internal.getCreatorAccountsByPlatform, { platform: "twitter" }),
-      ctx.runQuery(internal.subscriptions.internal.getCreatorAccountsByPlatform, { platform: "bluesky" }),
-    ]);
+    const blueskyAccounts = await ctx.runQuery(
+      internal.subscriptions.internal.getCreatorAccountsByPlatform, { platform: "bluesky" }
+    );
     console.log(
-      `[generateDailyReport] Found ${twitterAccounts.length} Twitter, ${blueskyAccounts.length} Bluesky accounts`
+      `[generateDailyReport] Found ${blueskyAccounts.length} Bluesky accounts`
     );
 
     // 3. Fetch from all sources in parallel
@@ -843,7 +680,6 @@ export const generateDailyReport = internalAction({
       fetchDevTo(days),
       fetchLobsters(days),
       fetchBluesky(days, blueskyAccounts),
-      fetchTwitter(days, twitterAccounts),
       fetchChangelog(days),
     ]);
 
@@ -857,47 +693,6 @@ export const generateDailyReport = internalAction({
         );
       } else {
         console.error("[generateDailyReport] Fetch failed:", result.reason);
-      }
-    }
-
-    // 3b. AI-score Twitter findings to filter noise
-    const twitterFindings = allFindings.filter(f => f.source.startsWith("Twitter"));
-    if (twitterFindings.length > 0) {
-      try {
-        const twitterScores = await ctx.runAction(
-          internal.subscriptions.ai_scoring.scoreContentRelevance,
-          {
-            items: twitterFindings.map(f => ({
-              title: f.title,
-              platform: "twitter",
-            })),
-            sourceName: "Twitter/X",
-            topic: "AI coding tools, agentic workflows, developer tooling",
-          }
-        );
-
-        // Collect titles of low-scoring findings (score < 0.5)
-        const lowScoredTitles = new Set<string>();
-        for (let i = 0; i < twitterFindings.length; i++) {
-          const scoreEntry = twitterScores[i];
-          if (scoreEntry && scoreEntry.score < 0.5) {
-            lowScoredTitles.add(twitterFindings[i].title);
-          }
-        }
-
-        // Filter out low-scoring Twitter findings
-        const beforeCount = allFindings.length;
-        const filtered = allFindings.filter(
-          f => !f.source.startsWith("Twitter") || !lowScoredTitles.has(f.title)
-        );
-        const removedCount = beforeCount - filtered.length;
-        if (removedCount > 0) {
-          console.log(`[generateDailyReport] AI-filtered ${removedCount} irrelevant Twitter findings`);
-        }
-        allFindings.length = 0;
-        allFindings.push(...filtered);
-      } catch (err) {
-        console.warn("[generateDailyReport] Twitter AI scoring failed, keeping all:", err);
       }
     }
 

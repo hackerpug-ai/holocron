@@ -16,7 +16,6 @@ function deriveFeedContentType(contentCategory: string | undefined): "video" | "
     case 'video':
       return 'video';
     case 'social':
-    case 'twitter':
     case 'bluesky':
       return 'social';
     case 'article':
@@ -523,7 +522,6 @@ function deriveBackfillCategoryFromUrl(url: string, sourceType: string): string 
     case 'youtube':
       return 'video';
     case 'reddit':
-    case 'twitter':
     case 'bluesky':
       return 'social';
     case 'newsletter':
@@ -534,7 +532,6 @@ function deriveBackfillCategoryFromUrl(url: string, sourceType: string): string 
       return 'article';
   }
   // For "creator" and other generic types, detect from URL
-  if (url.includes("twitter.com") || url.includes("x.com")) return "social";
   if (url.includes("youtube.com") || url.includes("youtu.be")) return "video";
   if (url.includes("reddit.com")) return "social";
   if (url.includes("bsky.app") || url.includes("bluesky")) return "social";

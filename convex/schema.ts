@@ -721,14 +721,6 @@ export default defineSchema({
           subscriberCount: v.optional(v.number()),
         })
       ),
-      twitter: v.optional(
-        v.object({
-          handle: v.string(), // @user without @
-          userId: v.optional(v.string()), // Numeric ID (from API)
-          verified: v.boolean(),
-          followerCount: v.optional(v.number()),
-        })
-      ),
       bluesky: v.optional(
         v.object({
           handle: v.string(), // @user.bsky.social or custom

@@ -8,13 +8,6 @@ export const youtubePlatformValidator = v.object({
   subscriberCount: v.optional(v.number()),
 });
 
-export const twitterPlatformValidator = v.object({
-  handle: v.string(),
-  userId: v.optional(v.string()),
-  verified: v.boolean(),
-  followerCount: v.optional(v.number()),
-});
-
 export const blueskyPlatformValidator = v.object({
   handle: v.string(),
   did: v.optional(v.string()),
@@ -37,7 +30,6 @@ export const websitePlatformValidator = v.object({
 // Combined platforms validator
 export const platformsValidator = v.object({
   youtube: v.optional(youtubePlatformValidator),
-  twitter: v.optional(twitterPlatformValidator),
   bluesky: v.optional(blueskyPlatformValidator),
   github: v.optional(githubPlatformValidator),
   website: v.optional(websitePlatformValidator),
@@ -73,7 +65,6 @@ export const batchSubscribeValidator = v.object({
   platforms: v.array(
     v.union(
       v.literal("youtube"),
-      v.literal("twitter"),
       v.literal("bluesky"),
       v.literal("github"),
       v.literal("website")
@@ -123,7 +114,6 @@ export const discoverCreatorValidator = v.object({
   platformHints: v.optional(
     v.object({
       youtube: v.optional(v.string()),
-      twitter: v.optional(v.string()),
       bluesky: v.optional(v.string()),
       github: v.optional(v.string()),
       website: v.optional(v.string()),

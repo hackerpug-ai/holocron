@@ -300,7 +300,7 @@ interface SocialFeedCardProps {
   authorHandle: string
   authorAvatarUrl?: string
   content?: string
-  platform: 'twitter' | 'bluesky' | 'github' | 'website' | 'youtube'
+  platform: 'bluesky' | 'github' | 'website' | 'youtube'
   likesCount?: number
   commentsCount?: number
   sharesCount?: number
@@ -470,7 +470,7 @@ export interface FeedItemProps {
   // Social-specific props
   authorHandle?: string
   authorAvatarUrl?: string
-  platform?: 'twitter' | 'bluesky' | 'github' | 'website' | 'youtube'
+  platform?: 'bluesky' | 'github' | 'website' | 'youtube'
   likesCount?: number
   commentsCount?: number
   sharesCount?: number
@@ -561,7 +561,7 @@ export function SubscriptionFeedItem({
               authorHandle={authorHandle || ''}
               authorAvatarUrl={authorAvatarUrl}
               content={summary || title}
-              platform={platform || 'twitter'}
+              platform={platform || 'bluesky'}
               likesCount={likesCount}
               commentsCount={commentsCount}
               sharesCount={sharesCount}

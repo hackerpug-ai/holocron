@@ -450,175 +450,10 @@ async function fetchChangelog(
 
 interface CreatorConfig {
   platforms?: {
-    twitter?: string;
     bluesky?: string;
     youtube?: string;
     github?: string;
   };
-}
-
-/**
- * Fetch posts from Twitter/X via Jina Reader
- *
- * Jina Reader (r.jina.ai) converts web pages to clean markdown.
- * We fetch the user's X profile page and parse visible tweets from the output.
- */
-async function fetchTwitterViaJina(handle: string): Promise<Array<{
-  title: string;
-  link: string;
-  published: string;
-  platform: string;
-}>> {
-  const cleanHandle = handle.replace(/^@/, '');
-  const targetUrl = `https://x.com/${cleanHandle}`;
-
-  try {
-    const response = await fetch(`https://r.jina.ai/${targetUrl}`, {
-      headers: {
-        "Accept": "text/plain",
-        "User-Agent": "Holocron/1.0",
-        "X-Return-Format": "markdown",
-      },
-    });
-
-    if (!response.ok) {
-      console.error(`[fetchTwitterViaJina] HTTP ${response.status} for @${cleanHandle}`);
-      return [];
-    }
-
-    const markdown = await response.text();
-    return parseTwitterMarkdown(markdown, cleanHandle);
-  } catch (error) {
-    console.error(`[fetchTwitterViaJina] Error fetching @${cleanHandle}:`, error);
-    return [];
-  }
-}
-
-/**
- * Parse tweet data from Jina Reader markdown output of an X profile page.
- *
- * Jina renders X profiles as markdown with tweet text blocks.
- * We extract individual tweets by looking for patterns in the output.
- */
-function parseTwitterMarkdown(markdown: string, _handle: string): Array<{
-  title: string;
-  link: string;
-  published: string;
-  platform: string;
-}> {
-  const items: Array<{
-    title: string;
-    link: string;
-    published: string;
-    platform: string;
-  }> = [];
-
-  // Split by common tweet separators in Jina markdown output
-  // Tweets typically appear as text blocks separated by --- or blank lines
-  // with metadata like timestamps and engagement counts
-  const lines = markdown.split('\n');
-  let currentTweet = '';
-  let currentLink = '';
-
-  for (const line of lines) {
-    // Look for tweet links (x.com/{handle}/status/{id})
-    const statusMatch = line.match(/https?:\/\/(?:x|twitter)\.com\/\w+\/status\/(\d+)/);
-    if (statusMatch) {
-      // If we have a pending tweet, save it
-      if (currentTweet.trim() && currentLink) {
-        const title = currentTweet.trim().length > 200
-          ? currentTweet.trim().substring(0, 200) + '...'
-          : currentTweet.trim();
-        if (title.length > 10) { // Skip very short fragments
-          // Skip "unavailable" placeholder tweets
-          if (!isUnavailableTweet(title)) {
-            items.push({
-              title,
-              link: currentLink,
-              published: new Date().toISOString(), // X doesn't expose exact timestamps in profile view
-              platform: 'twitter',
-            });
-          }
-        }
-      }
-      currentTweet = '';
-      currentLink = statusMatch[0];
-      continue;
-    }
-
-    // Skip navigation/UI elements and engagement metrics
-    if (line.match(/^(Home|Explore|Messages|Notifications|Premium|Profile|More|Follow|Followers|Following|\d+[KMB]?\s+(replies|reposts|likes|views|bookmarks))/i)) continue;
-    if (line.match(/^\s*[\d,.]+[KMB]?\s*$/)) continue; // Pure numbers (engagement counts)
-    if (line.match(/^(Reply|Repost|Like|Share|Bookmark|More)\s*$/i)) continue;
-    if (line.match(/don'?t\s+miss\s+what'?s\s+happening/i)) continue;
-    if (line.match(/^people on x are the first to know/i)) continue;
-
-    // Accumulate tweet text
-    if (currentLink && line.trim()) {
-      currentTweet += (currentTweet ? ' ' : '') + line.trim();
-    }
-  }
-
-  // Don't forget the last tweet
-  if (currentTweet.trim() && currentLink) {
-    const title = currentTweet.trim().length > 200
-      ? currentTweet.trim().substring(0, 200) + '...'
-      : currentTweet.trim();
-    if (title.length > 10) {
-      // Skip "unavailable" placeholder tweets
-      if (!isUnavailableTweet(title)) {
-        items.push({
-          title,
-          link: currentLink,
-          published: new Date().toISOString(),
-          platform: 'twitter',
-        });
-      }
-    }
-  }
-
-  // Fallback: if structured parsing found nothing, extract any tweet URLs
-  // and use surrounding text as titles
-  if (items.length === 0) {
-    const urlRegex = /https?:\/\/(?:x|twitter)\.com\/\w+\/status\/(\d+)/g;
-    let match;
-    while ((match = urlRegex.exec(markdown)) !== null) {
-      // Grab surrounding context (100 chars before the URL)
-      const start = Math.max(0, match.index - 200);
-      const context = markdown.substring(start, match.index).trim();
-      const lastBlock = context.split(/\n\n/).pop()?.trim() || '';
-      const title = lastBlock.length > 200
-        ? lastBlock.substring(0, 200) + '...'
-        : lastBlock;
-
-      if (title.length > 10) {
-        // Skip "unavailable" placeholder tweets
-        if (!isUnavailableTweet(title)) {
-          items.push({
-            title,
-            link: match[0],
-            published: new Date().toISOString(),
-            platform: 'twitter',
-          });
-        }
-      }
-    }
-  }
-
-  return items.slice(0, 25); // Cap at 25 tweets
-}
-
-/**
- * Returns true if the given text matches known "unavailable" tweet placeholder patterns.
- * Used to filter out Twitter/X placeholder messages that appear when a tweet is deleted
- * or made unavailable.
- */
-function isUnavailableTweet(text: string): boolean {
-  return (
-    /this post is unavailable/i.test(text) ||
-    /this tweet is unavailable/i.test(text) ||
-    /content is not available/i.test(text)
-  );
 }
 
 /**
@@ -824,9 +659,6 @@ async function fetchCreator(
     platform: string;
   }>>[] = [];
 
-  if (platforms.twitter) {
-    fetchPromises.push(fetchTwitterViaJina(platforms.twitter));
-  }
   if (platforms.bluesky) {
     fetchPromises.push(fetchBlueskyFeed(platforms.bluesky));
   }
@@ -910,13 +742,12 @@ export const getActiveSources = internalQuery({
 
 /**
  * Get creator subscription accounts by platform.
- * Used by What's New to dynamically pull Twitter/Bluesky accounts
+ * Used by What's New to dynamically pull Bluesky accounts
  * instead of hardcoding them.
  */
 export const getCreatorAccountsByPlatform = internalQuery({
   args: {
     platform: v.union(
-      v.literal("twitter"),
       v.literal("bluesky"),
       v.literal("youtube"),
       v.literal("github")
@@ -1031,7 +862,6 @@ const SOURCE_TYPE_TO_CATEGORY: Record<string, string> = {
   newsletter: "article",
   changelog: "article",
   blog: "article",
-  twitter: "social",
   bluesky: "social",
   ebay: "blog",
   "whats-new": "article",
@@ -1039,15 +869,14 @@ const SOURCE_TYPE_TO_CATEGORY: Record<string, string> = {
 
 /**
  * Derive content category from URL when sourceType is generic (e.g. "creator").
- * Falls back to "social" for creator types since most are Twitter/X accounts.
+ * Falls back to "social" for creator types.
  */
 function deriveCategoryFromUrl(url: string, sourceType: string): string {
   if (SOURCE_TYPE_TO_CATEGORY[sourceType]) return SOURCE_TYPE_TO_CATEGORY[sourceType];
-  if (url.includes("twitter.com") || url.includes("x.com")) return "social";
   if (url.includes("youtube.com") || url.includes("youtu.be")) return "video";
   if (url.includes("reddit.com")) return "social";
   if (url.includes("bsky.app") || url.includes("bluesky")) return "social";
-  if (sourceType === "creator") return "social"; // Most creators are social accounts
+  if (sourceType === "creator") return "social";
   return "article";
 }
 
@@ -1230,9 +1059,9 @@ async function processSingleSource(
           items[i].aiRelevanceScore = aiScore.score;
           items[i].aiRelevanceReason = aiScore.reason;
 
-          // Stricter threshold for twitter/bluesky — most social posts are noise
+          // Stricter threshold for bluesky — most social posts are noise
           const platform = ((items[i].metadataJson as Record<string, unknown>)?.platform as string || "").toLowerCase();
-          const threshold = (platform === 'twitter' || platform === 'bluesky') ? 0.5 : 0.3;
+          const threshold = (platform === 'bluesky') ? 0.5 : 0.3;
 
           if (aiScore.score < threshold) {
             items[i].passedFilter = false;
@@ -1659,44 +1488,20 @@ export const processQueuedContent = internalAction({
 // ============================================================================
 
 /**
- * Recommended AI creator accounts for Twitter/X and Bluesky.
+ * Recommended AI creator accounts for Bluesky.
  * Organized by tier:
  *   1 = Must-follow (AI coding & agentic engineering)
  *   2 = High-value signal (tools, infra, products)
  *   3 = Depth & context (research, critical analysis)
  *   4 = Corporate accounts
+ *
+ * Note: Twitter/X was removed — too noisy, low signal-to-noise ratio.
  */
 const RECOMMENDED_CREATORS = [
-  // Tier 1: Must-Follow (AI Coding & Agentic Engineering)
-  { name: "Andrej Karpathy", identifier: "karpathy", tier: 1, platforms: { twitter: "karpathy" }, category: "core-thinking" },
-  { name: "Simon Willison", identifier: "simonw", tier: 1, platforms: { twitter: "simonw" }, category: "builder-signal" },
-  { name: "Peter Steinberger", identifier: "steipete", tier: 1, platforms: { twitter: "steipete" }, category: "agentic-coding" },
-  { name: "swyx", identifier: "swyx", tier: 1, platforms: { twitter: "swyx" }, category: "ai-engineering" },
-  { name: "Sebastian Raschka", identifier: "rasbt", tier: 1, platforms: { twitter: "rasbt" }, category: "practical-ml" },
-  { name: "AK", identifier: "_akhaliq", tier: 1, platforms: { twitter: "_akhaliq" }, category: "discovery-firehose" },
-
-  // Tier 2: High-Value Signal
-  { name: "Logan Kilpatrick", identifier: "OfficialLoganK", tier: 2, platforms: { twitter: "OfficialLoganK" }, category: "platform-insider" },
-  { name: "Ethan Mollick", identifier: "emollick", tier: 2, platforms: { twitter: "emollick" }, category: "impact-analysis" },
-  { name: "DAIR.AI", identifier: "dair_ai", tier: 2, platforms: { twitter: "dair_ai" }, category: "research-digest" },
-  { name: "The Rundown AI", identifier: "TheRundownAI", tier: 2, platforms: { twitter: "TheRundownAI" }, category: "news-firehose" },
-
-  // Tier 3: Depth & Context
-  { name: "Thomas Wolf", identifier: "Thom_Wolf", tier: 3, platforms: { twitter: "Thom_Wolf" }, category: "open-source-ml" },
-  { name: "Jim Fan", identifier: "DrJimFan", tier: 3, platforms: { twitter: "DrJimFan" }, category: "research-frontier" },
-  { name: "Gary Marcus", identifier: "GaryMarcus", tier: 3, platforms: { twitter: "GaryMarcus" }, category: "critical-analysis" },
-  { name: "Andrew Ng", identifier: "AndrewYNg", tier: 3, platforms: { twitter: "AndrewYNg" }, category: "education-industry" },
-  { name: "Chip Huyen", identifier: "chipro", tier: 3, platforms: { twitter: "chipro" }, category: "systems-design" },
-
-  // Tier 4: Corporate Accounts (Twitter + Bluesky where available)
-  { name: "Anthropic", identifier: "AnthropicAI", tier: 4, platforms: { twitter: "AnthropicAI", bluesky: "anthropic.bsky.social" }, category: "corporate" },
-  { name: "OpenAI", identifier: "OpenAI", tier: 4, platforms: { twitter: "OpenAI", bluesky: "openai.bsky.social" }, category: "corporate" },
-  { name: "Cursor", identifier: "cursor_ai", tier: 4, platforms: { twitter: "cursor_ai", bluesky: "cursor.bsky.social" }, category: "corporate" },
-  { name: "Google DeepMind", identifier: "GoogleDeepMind", tier: 4, platforms: { twitter: "GoogleDeepMind" }, category: "corporate" },
-  { name: "Meta AI", identifier: "MetaAI", tier: 4, platforms: { twitter: "MetaAI" }, category: "corporate" },
-  { name: "Mistral AI", identifier: "MistralAI", tier: 4, platforms: { twitter: "MistralAI" }, category: "corporate" },
-  { name: "Groq", identifier: "GroqInc", tier: 4, platforms: { twitter: "GroqInc" }, category: "corporate" },
-  { name: "LangChain", identifier: "LangChainAI", tier: 4, platforms: { twitter: "LangChainAI" }, category: "corporate" },
+  // Tier 4: Corporate Accounts (Bluesky only)
+  { name: "Anthropic", identifier: "AnthropicAI", tier: 4, platforms: { bluesky: "anthropic.bsky.social" }, category: "corporate" },
+  { name: "OpenAI", identifier: "OpenAI", tier: 4, platforms: { bluesky: "openai.bsky.social" }, category: "corporate" },
+  { name: "Cursor", identifier: "cursor_ai", tier: 4, platforms: { bluesky: "cursor.bsky.social" }, category: "corporate" },
 ];
 
 /**
@@ -1722,11 +1527,14 @@ export const seedCreatorAccounts = internalMutation({
         continue;
       }
 
+      const blueskyHandle = creator.platforms.bluesky;
       await ctx.db.insert("subscriptionSources", {
         sourceType: "creator",
         identifier: creator.identifier,
         name: creator.name,
-        url: `https://x.com/${creator.platforms.twitter || creator.identifier}`,
+        url: blueskyHandle
+          ? `https://bsky.app/profile/${blueskyHandle}`
+          : undefined,
         fetchMethod: "jina",
         configJson: {
           platforms: creator.platforms,
@@ -1747,7 +1555,7 @@ export const seedCreatorAccounts = internalMutation({
 });
 
 // ============================================================================
-// Expanded Creator & Newsletter Seeding (YouTube, Twitter additions, RSS)
+// Expanded Creator & Newsletter Seeding (YouTube, RSS)
 // ============================================================================
 
 /**
@@ -1756,27 +1564,16 @@ export const seedCreatorAccounts = internalMutation({
  * taste profile (practical builders, AI engineering, research distillation).
  */
 const YOUTUBE_CREATORS = [
-  { name: "Fireship", identifier: "fireship", tier: 1, platforms: { twitter: "fireship_dev", youtube: "UCsBjURrPoezykLs9EqgamOA" }, category: "rapid-explainers" },
-  { name: "ThePrimeagen", identifier: "ThePrimeagen", tier: 1, platforms: { twitter: "ThePrimeagen", youtube: "UC8ENHE5xdFSwx71u3fDH5Xw" }, category: "unfiltered-takes" },
-  { name: "Sentdex", identifier: "sentdex", tier: 1, platforms: { twitter: "Sentdex", youtube: "UCfzlCWGWYyIQ0aLC5w48gBQ" }, category: "practical-ml" },
-  { name: "LangChain", identifier: "langchain-yt", tier: 2, platforms: { twitter: "LangChainAI", youtube: "UCC-lyoTfSrcJzA1ab3APAgw" }, category: "agent-tutorials" },
-  { name: "Yannic Kilcher", identifier: "yannic-kilcher", tier: 2, platforms: { twitter: "ykilcher", youtube: "UCZHmQk67mSJgfCCTn7xBfew" }, category: "paper-reviews" },
+  { name: "Fireship", identifier: "fireship", tier: 1, platforms: { youtube: "UCsBjURrPoezykLs9EqgamOA" }, category: "rapid-explainers" },
+  { name: "ThePrimeagen", identifier: "ThePrimeagen", tier: 1, platforms: { youtube: "UC8ENHE5xdFSwx71u3fDH5Xw" }, category: "unfiltered-takes" },
+  { name: "Sentdex", identifier: "sentdex", tier: 1, platforms: { youtube: "UCfzlCWGWYyIQ0aLC5w48gBQ" }, category: "practical-ml" },
+  { name: "LangChain", identifier: "langchain-yt", tier: 2, platforms: { youtube: "UCC-lyoTfSrcJzA1ab3APAgw" }, category: "agent-tutorials" },
+  { name: "Yannic Kilcher", identifier: "yannic-kilcher", tier: 2, platforms: { youtube: "UCZHmQk67mSJgfCCTn7xBfew" }, category: "paper-reviews" },
   { name: "All About AI", identifier: "all-about-ai", tier: 2, platforms: { youtube: "UCUyeluBRhGPCW4rPe_UvBZQ" }, category: "practical-coding" },
-  { name: "AI Jason", identifier: "ai-jason", tier: 2, platforms: { twitter: "jasonzhou1993", youtube: "UCaC_ojf4AH_SGjlbUbQBemg" }, category: "short-explainers" },
-  { name: "Matthew Berman", identifier: "matthew-berman", tier: 2, platforms: { twitter: "MatthewBerman", youtube: "UCmN4MlruSQmHvaK1EfFBSqg" }, category: "tool-reviews" },
+  { name: "AI Jason", identifier: "ai-jason", tier: 2, platforms: { youtube: "UCaC_ojf4AH_SGjlbUbQBemg" }, category: "short-explainers" },
+  { name: "Matthew Berman", identifier: "matthew-berman", tier: 2, platforms: { youtube: "UCmN4MlruSQmHvaK1EfFBSqg" }, category: "tool-reviews" },
   { name: "Umar Jamil", identifier: "umar-jamil", tier: 3, platforms: { youtube: "UC6gOFkvAM3GBn9MUi4ONAOA" }, category: "deep-technical" },
-  { name: "Dwarkesh Patel", identifier: "dwarkesh-patel", tier: 2, platforms: { twitter: "dwarkesh_sp", youtube: "UC2LqM2ChFZHRUMGd142pF0Q" }, category: "intellectual-interviews" },
-];
-
-/**
- * Additional Twitter-only creators not yet in the system.
- */
-const ADDITIONAL_TWITTER_CREATORS = [
-  { name: "Nathan Lambert", identifier: "NathanLambert", tier: 2, platforms: { twitter: "natolambert" }, category: "rlhf-research" },
-  { name: "Hamel Husain", identifier: "HamelHusain", tier: 2, platforms: { twitter: "HamelHusain" }, category: "practical-ai-eng" },
-  { name: "Jason Liu", identifier: "JasonLiu200", tier: 2, platforms: { twitter: "jxnlco" }, category: "structured-outputs" },
-  { name: "Eugene Yan", identifier: "EugeneYan", tier: 2, platforms: { twitter: "eugeneyan" }, category: "production-ml" },
-  { name: "Alex Volkov (ThursdAI)", identifier: "altryne", tier: 2, platforms: { twitter: "altryne" }, category: "oss-ai-news" },
+  { name: "Dwarkesh Patel", identifier: "dwarkesh-patel", tier: 2, platforms: { youtube: "UC2LqM2ChFZHRUMGd142pF0Q" }, category: "intellectual-interviews" },
 ];
 
 /**
@@ -1797,7 +1594,7 @@ const NEWSLETTER_FEEDS = [
 ];
 
 /**
- * Seed expanded creator recommendations (YouTube, Twitter additions, newsletters).
+ * Seed expanded creator recommendations (YouTube, newsletters).
  * Skips any that already exist by identifier. Idempotent.
  */
 export const seedExpandedRecommendations = internalMutation({
@@ -1810,8 +1607,8 @@ export const seedExpandedRecommendations = internalMutation({
     const creatorsResult = { created: 0, skipped: 0 };
     const newslettersResult = { created: 0, skipped: 0 };
 
-    // Seed YouTube + additional Twitter creators
-    const allCreators = [...YOUTUBE_CREATORS, ...ADDITIONAL_TWITTER_CREATORS];
+    // Seed YouTube creators
+    const allCreators = [...YOUTUBE_CREATORS];
     for (const creator of allCreators) {
       const existing = await ctx.db
         .query("subscriptionSources")
@@ -1823,18 +1620,15 @@ export const seedExpandedRecommendations = internalMutation({
         continue;
       }
 
-      const twitterHandle = creator.platforms.twitter;
       const youtubeId = (creator.platforms as { youtube?: string }).youtube;
 
       await ctx.db.insert("subscriptionSources", {
         sourceType: "creator",
         identifier: creator.identifier,
         name: creator.name,
-        url: twitterHandle
-          ? `https://x.com/${twitterHandle}`
-          : youtubeId
-            ? `https://www.youtube.com/channel/${youtubeId}`
-            : undefined,
+        url: youtubeId
+          ? `https://www.youtube.com/channel/${youtubeId}`
+          : undefined,
         feedUrl: youtubeId
           ? `https://www.youtube.com/feeds/videos.xml?channel_id=${youtubeId}`
           : undefined,

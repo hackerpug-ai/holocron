@@ -179,7 +179,6 @@ export const batchSubscribe = mutation({
     platforms: v.array(
       v.union(
         v.literal("youtube"),
-        v.literal("twitter"),
         v.literal("bluesky"),
         v.literal("github"),
         v.literal("website")
@@ -204,8 +203,6 @@ export const batchSubscribe = mutation({
       switch (platform) {
         case "youtube":
           return `https://youtube.com/@${handle}`;
-        case "twitter":
-          return `https://x.com/${handle}`;
         case "bluesky":
           return handle.includes(".") ? `https://bsky.app/profile/${handle}` : `https://bsky.app/profile/${handle}.bsky.social`;
         case "github":

@@ -54,4 +54,4 @@ export type PlatformType =
 /**
  * Platform type for creator profiles (extended with additional platforms).
  */
-export type CreatorPlatformType = PlatformType | 'twitter' | 'bluesky' | 'github' | 'website'
+export type CreatorPlatformType = PlatformType | 'bluesky' | 'github' | 'website'

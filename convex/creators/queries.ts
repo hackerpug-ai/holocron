@@ -96,9 +96,6 @@ export const getSubscriptions = query({
     if (profile.platforms.youtube) {
       platformIdentifiers.push(profile.platforms.youtube.handle);
     }
-    if (profile.platforms.twitter) {
-      platformIdentifiers.push(profile.platforms.twitter.handle);
-    }
     if (profile.platforms.bluesky) {
       platformIdentifiers.push(profile.platforms.bluesky.handle);
     }

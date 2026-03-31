@@ -63,35 +63,6 @@ export const discover = action({
       );
     }
 
-    // Twitter
-    if (platformHints?.twitter || !platformHints) {
-      lookups.push(
-        (async () => {
-          try {
-            const result = await ctx.runAction(
-              internal.creators.internal.lookupTwitterUser,
-              {
-                handle: platformHints?.twitter || handle,
-              }
-            );
-            if (result.verified) {
-              platforms.twitter = {
-                handle: result.handle,
-                verified: true,
-              };
-              totalVerified++;
-            } else {
-              errors.push(`Twitter: ${result.error || "Not found"}`);
-            }
-          } catch (error) {
-            errors.push(
-              `Twitter: ${error instanceof Error ? error.message : "Unknown error"}`
-            );
-          }
-        })()
-      );
-    }
-
     // Bluesky
     if (platformHints?.bluesky || !platformHints) {
       lookups.push(
@@ -225,32 +196,6 @@ export const verifyPlatforms = action({
           } catch (error) {
             failed.push({
               platform: "youtube",
-              error: error instanceof Error ? error.message : "Unknown error",
-            });
-          }
-        })()
-      );
-    }
-
-    if (profile.platforms.twitter) {
-      lookups.push(
-        (async () => {
-          try {
-            const result = await ctx.runAction(
-              internal.creators.internal.lookupTwitterUser,
-              { handle: profile.platforms.twitter!.handle }
-            );
-            if (result.verified) {
-              verified.push("twitter");
-            } else {
-              failed.push({
-                platform: "twitter",
-                error: result.error || "Verification failed",
-              });
-            }
-          } catch (error) {
-            failed.push({
-              platform: "twitter",
               error: error instanceof Error ? error.message : "Unknown error",
             });
           }

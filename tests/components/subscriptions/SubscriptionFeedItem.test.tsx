@@ -620,7 +620,7 @@ describe('SubscriptionFeedItem - Component Structure', () => {
 
       it('should accept platform prop with supported platforms', () => {
         const source = readComponent()
-        expect(source).toMatch(/platform:\s*['"]twitter['"]\s*\|\s*['"]bluesky['"]\s*\|\s*['"]github['"]\s*\|\s*['"]website['"]\s*\|\s*['"]youtube['"]/)
+        expect(source).toMatch(/platform:\s*['"]bluesky['"]\s*\|\s*['"]github['"]\s*\|\s*['"]website['"]\s*\|\s*['"]youtube['"]/)
       })
     })
 
