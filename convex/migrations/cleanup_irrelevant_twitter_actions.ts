@@ -158,10 +158,22 @@ interface CleanupResult {
   deletedFeedItems: number;
 }
 
-/** Score all twitter content and delete irrelevant items */
+/**
+ * Score a chunk of twitter content and delete irrelevant items.
+ * Processes PAGE_SIZE items per invocation to avoid Convex 600s timeout.
+ * Call with offset=0 first, then increment by PAGE_SIZE until done.
+ *
+ * npx convex run migrations/cleanup_irrelevant_twitter_actions:cleanupIrrelevantTwitter '{"offset": 0}'
+ */
+const PAGE_SIZE = 60; // ~3 LLM batches of 20, fits within 600s timeout
+
 export const cleanupIrrelevantTwitter = internalAction({
-  args: {},
-  handler: async (ctx): Promise<CleanupResult> => {
+  args: {
+    offset: v.optional(v.number()),
+  },
+  handler: async (ctx, { offset: startOffset }): Promise<CleanupResult> => {
+    const offset = startOffset ?? 0;
+
     const twitterContent: Array<{ subscriptionContentId: string; documentId: string; title: string }> = await ctx.runQuery(
       internal.migrations.cleanup_irrelevant_twitter.getTwitterContentWithDocuments, {}
     );
@@ -170,7 +182,7 @@ export const cleanupIrrelevantTwitter = internalAction({
     );
 
     // Build unified scoring list, dedup by documentId
-    const itemsToScore: Array<{
+    const allItems: Array<{
       id: string;
       title: string;
       contentPreview?: string;
@@ -179,7 +191,7 @@ export const cleanupIrrelevantTwitter = internalAction({
     }> = [];
 
     for (const record of twitterContent) {
-      itemsToScore.push({
+      allItems.push({
         id: record.subscriptionContentId,
         title: record.title,
         subscriptionContentId: record.subscriptionContentId,
@@ -190,7 +202,7 @@ export const cleanupIrrelevantTwitter = internalAction({
     const linkedDocIds = new Set(twitterContent.map((t: any) => t.documentId).filter(Boolean));
     for (const doc of prefixedDocs) {
       if (!linkedDocIds.has(doc.documentId)) {
-        itemsToScore.push({
+        allItems.push({
           id: doc.documentId,
           title: doc.title,
           contentPreview: doc.content,
@@ -199,7 +211,16 @@ export const cleanupIrrelevantTwitter = internalAction({
       }
     }
 
-    console.log(`Scoring ${itemsToScore.length} twitter items in batches of ${BATCH_SIZE}`);
+    // Paginate
+    const itemsToScore = allItems.slice(offset, offset + PAGE_SIZE);
+    const hasMore = offset + PAGE_SIZE < allItems.length;
+
+    console.log(`[page offset=${offset}] Scoring ${itemsToScore.length} of ${allItems.length} total items (${hasMore ? `next page: offset=${offset + PAGE_SIZE}` : "LAST PAGE"})`);
+
+    if (itemsToScore.length === 0) {
+      console.log("No items to score at this offset. Done.");
+      return { scored: 0, kept: 0, removed: 0, deletedDocs: 0, deletedContent: 0, deletedFeedItems: 0 };
+    }
 
     // Score in batches
     const allScores: Array<{ id: string; score: number; reason: string }> = [];
@@ -260,12 +281,20 @@ export const cleanupIrrelevantTwitter = internalAction({
         }
       );
 
+      if (hasMore) {
+        console.log(`Page done. Run next page: npx convex run migrations/cleanup_irrelevant_twitter_actions:cleanupIrrelevantTwitter '{"offset": ${offset + PAGE_SIZE}}'`);
+      }
+
       return {
         scored: itemsToScore.length,
         kept: kept.length,
         removed: removed.length,
         ...result,
       };
+    }
+
+    if (hasMore) {
+      console.log(`Page done (nothing to delete). Run next page: npx convex run migrations/cleanup_irrelevant_twitter_actions:cleanupIrrelevantTwitter '{"offset": ${offset + PAGE_SIZE}}'`);
     }
 
     return { scored: itemsToScore.length, kept: kept.length, removed: removed.length, deletedDocs: 0, deletedContent: 0, deletedFeedItems: 0 };
