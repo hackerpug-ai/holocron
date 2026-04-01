@@ -54,7 +54,9 @@ function articleHtml(doc: ArticleDoc): string {
   const escapedTitle = escapeHtml(doc.title);
   const categoryLabel = escapeHtml(doc.category);
   const researchTypeLabel = doc.researchType ? escapeHtml(doc.researchType) : null;
-  const bodyHtml = markdownToHtml(doc.content);
+  // Strip leading heading if it duplicates the document title
+  const contentWithoutDuplicateTitle = stripLeadingTitle(doc.content, doc.title);
+  const bodyHtml = markdownToHtml(contentWithoutDuplicateTitle);
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -484,6 +486,31 @@ function slugifyText(text: string): string {
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-")
     .replace(/^-+|-+$/g, "");
+}
+
+function stripLeadingTitle(content: string, title: string): string {
+  // Remove a leading markdown heading (# or ##) if its text matches the document title.
+  // Normalizes whitespace and ignores case for comparison.
+  const normalize = (s: string) =>
+    s.replace(/[^\w\s]/g, "").replace(/\s+/g, " ").trim().toLowerCase();
+  const normalizedTitle = normalize(title);
+
+  const lines = content.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    const trimmed = lines[i].trim();
+    if (trimmed === "") continue; // skip leading blank lines
+    const headingMatch = trimmed.match(/^#{1,2}\s+(.+)$/);
+    if (headingMatch && normalize(headingMatch[1]) === normalizedTitle) {
+      // Remove this line and any immediately following blank lines
+      lines.splice(i, 1);
+      while (i < lines.length && lines[i].trim() === "") {
+        lines.splice(i, 1);
+      }
+      return lines.join("\n");
+    }
+    break; // first non-blank line wasn't a matching heading, stop
+  }
+  return content;
 }
 
 function escapeHtml(str: string): string {
