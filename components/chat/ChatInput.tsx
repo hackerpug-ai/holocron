@@ -299,22 +299,6 @@ export function ChatInput({
 
       {/* Input Row */}
       <View className="flex-row items-end gap-2 border-t border-border bg-background px-4 py-2">
-        {/* Slash Button */}
-        <Pressable
-          testID="chat-input-slash-button"
-          onPress={handleSlashButtonPress}
-          disabled={effectiveDisabled}
-          className={cn(
-            'h-10 w-10 items-center justify-center rounded-full',
-            showCommandPanel ? 'bg-primary' : 'bg-muted'
-          )}
-        >
-          <WandSparkles
-            size={20}
-            color={showCommandPanel ? themeColors.primaryForeground : themeColors.foreground}
-          />
-        </Pressable>
-
         {/* Text Input Container */}
         <View className="relative flex-1">
           <View
@@ -343,6 +327,22 @@ export function ChatInput({
               scrollEnabled
             />
           </View>
+
+          {/* Slash Button - positioned inside input on the right */}
+          <Pressable
+            testID="chat-input-slash-button"
+            onPress={handleSlashButtonPress}
+            disabled={effectiveDisabled}
+            className={cn(
+              'absolute right-2 top-1.5 h-8 w-8 items-center justify-center rounded-full',
+              showCommandPanel ? 'bg-primary' : 'bg-muted'
+            )}
+          >
+            <WandSparkles
+              size={18}
+              color={showCommandPanel ? themeColors.primaryForeground : themeColors.foreground}
+            />
+          </Pressable>
         </View>
 
         {/* Send Button or Voice Mic Button */}
@@ -379,6 +379,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 22,
     paddingHorizontal: 16,
+    paddingRight: 48, // Extra padding for the slash button inside the input
     paddingVertical: 8,
     minHeight: 40,
     maxHeight: 128,
@@ -391,6 +392,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     justifyContent: 'center',
     paddingHorizontal: 16,
+    paddingRight: 48, // Match textInput right padding
   },
   placeholder: {
     fontSize: 16,
