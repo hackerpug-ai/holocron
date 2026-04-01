@@ -242,3 +242,60 @@ export const addImage = mutation({
     return imageId;
   },
 });
+
+/**
+ * Remove an improvement request.
+ * Deletes the request, cleans up associated images from storage,
+ * and handles merge relationships (un-merges any requests that were merged into this one).
+ */
+export const remove = mutation({
+  args: {
+    id: v.id("improvementRequests"),
+  },
+  handler: async (ctx, { id }) => {
+    const request = await ctx.db.get(id);
+    if (!request) {
+      throw new Error(`Improvement request ${id} not found`);
+    }
+
+    // Delete associated images from storage
+    const images = await ctx.db
+      .query("improvementImages")
+      .withIndex("by_request", (q) => q.eq("requestId", id))
+      .collect();
+
+    await Promise.all([
+      // Delete image records
+      ...images.map((img) => ctx.db.delete(img._id)),
+      // Delete image files from storage
+      ...images.map((img) => ctx.storage.delete(img.storageId)),
+    ]);
+
+    // Un-merge any requests that were merged into this one
+    if (request.mergedFromIds) {
+      await Promise.all(
+        request.mergedFromIds.map((mergedId) =>
+          ctx.db.patch(mergedId, {
+            status: "approved",
+            mergedIntoId: undefined,
+            updatedAt: Date.now(),
+          })
+        )
+      );
+    }
+
+    // If this request was merged into another, remove it from that target's list
+    if (request.mergedIntoId) {
+      const target = await ctx.db.get(request.mergedIntoId);
+      if (target?.mergedFromIds) {
+        await ctx.db.patch(request.mergedIntoId, {
+          mergedFromIds: target.mergedFromIds.filter((mid) => mid !== id),
+          updatedAt: Date.now(),
+        });
+      }
+    }
+
+    await ctx.db.delete(id);
+    return id;
+  },
+});

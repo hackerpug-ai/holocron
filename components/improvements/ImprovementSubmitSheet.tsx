@@ -60,6 +60,7 @@ type SheetState = 'input' | 'processing' | 'result' | 'success'
 export interface ImprovementSubmitSheetProps {
   visible: boolean
   onClose: () => void
+  onSubmitted?: (requestId: Id<'improvementRequests'>) => void
   screenshotUri?: string | null
   sourceComponent?: string
   testID?: string
@@ -69,6 +70,7 @@ export interface ImprovementSubmitSheetProps {
 export function ImprovementSubmitSheet({
   visible,
   onClose,
+  onSubmitted,
   screenshotUri,
   sourceComponent,
   testID = 'improvement-submit-sheet',
@@ -99,14 +101,6 @@ export function ImprovementSubmitSheet({
     api.improvements.queries.get,
     processingId ? { id: processingId } : 'skip'
   )
-
-  // ── Watch request status changes ─────────────────────────────────────────
-  useEffect(() => {
-    if (!processingId || sheetState !== 'processing') return
-    if (requestData?.status === 'pending_review') {
-      setSheetState('result')
-    }
-  }, [requestData?.status, processingId, sheetState])
 
   // ── Animation on visibility change ───────────────────────────────────────
   useEffect(() => {
@@ -203,11 +197,13 @@ export function ImprovementSubmitSheet({
         sourceComponent,
       })
 
-      setProcessingId(requestId as Id<'improvementRequests'>)
-      setSheetState('processing')
+      // Close sheet immediately and notify parent
+      animateOut(() => {
+        onClose()
+        onSubmitted?.(requestId as Id<'improvementRequests'>)
+      })
     } catch {
       // If upload/submit fails, stay on input state
-    } finally {
       setIsSubmitting(false)
     }
   }

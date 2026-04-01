@@ -1,4 +1,4 @@
-import { ImprovementRequestCard } from '@/components/improvements/ImprovementRequestCard'
+import { ImprovementCardWithActions } from '@/components/improvements/ImprovementCardWithActions'
 import { ImprovementCardSkeleton } from '@/components/improvements/ImprovementCardSkeleton'
 import { Lightbulb, Search } from '@/components/ui/icons'
 import { Text } from '@/components/ui/text'
@@ -26,6 +26,8 @@ export interface ImprovementsScreenProps {
   }>
   isLoading: boolean
   onRequestPress: (id: string) => void
+  onEdit?: (id: string, title: string, description: string) => void
+  onDelete?: (id: string) => void
   onRefresh?: () => void
   isRefreshing?: boolean
 }
@@ -54,6 +56,8 @@ export function ImprovementsScreen({
   requests,
   isLoading,
   onRequestPress,
+  onEdit,
+  onDelete,
   onRefresh,
   isRefreshing = false,
 }: ImprovementsScreenProps) {
@@ -74,7 +78,7 @@ export function ImprovementsScreen({
 
   const renderItem = ({ item }: { item: ImprovementsScreenProps['requests'][number] }) => (
     <View className="px-4 pb-3">
-      <ImprovementRequestCard
+      <ImprovementCardWithActions
         id={item._id}
         title={item.title ?? item.description.slice(0, 60)}
         description={item.description}
@@ -83,6 +87,8 @@ export function ImprovementsScreen({
         createdAt={item.createdAt}
         mergedCount={item.mergedFromIds?.length}
         onPress={() => onRequestPress(item._id)}
+        onEdit={() => onEdit?.(item._id, item.title ?? item.description.slice(0, 60), item.description)}
+        onDelete={() => onDelete?.(item._id)}
         testID={`improvements-screen-card-${item._id}`}
       />
     </View>

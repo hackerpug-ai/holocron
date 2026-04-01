@@ -1,12 +1,16 @@
 import { ImprovementsScreen } from '@/screens/improvements-screen'
 import { ImprovementSubmitSheet } from '@/components/improvements/ImprovementSubmitSheet'
+import { ImprovementEditSheet } from '@/components/improvements/ImprovementEditSheet'
+import { ImprovementActionMenu } from '@/components/improvements/ImprovementActionMenu'
+import { ImprovementProcessingIndicator } from '@/components/improvements/ImprovementProcessingIndicator'
 import { ScreenLayout } from '@/components/ui/screen-layout'
 import { Plus } from '@/components/ui/icons'
-import { useQuery } from 'convex/react'
+import { useQuery, useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import { useRouter } from 'expo-router'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Pressable } from 'react-native'
+import type { Id } from '@/convex/_generated/dataModel'
 
 /**
  * Improvements route - displays searchable, filterable list of improvement requests.
@@ -15,9 +19,28 @@ import { Pressable } from 'react-native'
 export default function ImprovementsRoute() {
   const router = useRouter()
   const [sheetVisible, setSheetVisible] = useState(false)
+  const [actionMenuId, setActionMenuId] = useState<string | null>(null)
+  const [editSheetId, setEditSheetId] = useState<string | null>(null)
+  const [processingRequestId, setProcessingRequestId] = useState<Id<'improvementRequests'> | null>(null)
 
   const requestsData = useQuery(api.improvements.queries.list, { limit: 50 })
   const isLoading = requestsData === undefined
+
+  const updateMutation = useMutation(api.improvements.mutations.update)
+  const removeMutation = useMutation(api.improvements.mutations.remove)
+
+  // Watch the processing request status to hide indicator when done
+  const requestStatus = useQuery(
+    api.improvements.queries.get,
+    processingRequestId ? { id: processingRequestId } : 'skip'
+  )
+
+  // Hide indicator when processing completes
+  useEffect(() => {
+    if (requestStatus?.status === 'pending_review' || requestStatus?.status === 'processing') {
+      setProcessingRequestId(null)
+    }
+  }, [requestStatus?.status])
 
   const requests = (requestsData ?? []).map((req) => ({
     _id: req._id as string,
@@ -32,6 +55,29 @@ export default function ImprovementsRoute() {
 
   const handleRequestPress = (id: string) => {
     router.push(`/improvements/${id}`)
+  }
+
+  const handleEdit = (id: string) => {
+    setEditSheetId(id)
+  }
+
+  const handleDelete = async (id: string) => {
+    await removeMutation({ id: id as Id<'improvementRequests'> })
+    setActionMenuId(null)
+  }
+
+  const handleSaveEdit = async (title: string, description: string) => {
+    if (!editSheetId) return
+    await updateMutation({
+      id: editSheetId as Id<'improvementRequests'>,
+      title,
+      description,
+    })
+    setEditSheetId(null)
+  }
+
+  const handleSubmitted = (requestId: Id<'improvementRequests'>) => {
+    setProcessingRequestId(requestId)
   }
 
   const handleBack = () => {
@@ -67,12 +113,46 @@ export default function ImprovementsRoute() {
         requests={requests}
         isLoading={isLoading}
         onRequestPress={handleRequestPress}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+      />
+
+      <ImprovementProcessingIndicator
+        visible={processingRequestId !== null}
+        testID="improvements-processing-indicator"
       />
 
       <ImprovementSubmitSheet
         visible={sheetVisible}
         onClose={() => setSheetVisible(false)}
+        onSubmitted={handleSubmitted}
         testID="improvements-screen-submit-sheet"
+      />
+
+      {editSheetId && requestsData && (
+        <ImprovementEditSheet
+          visible={editSheetId !== null}
+          onClose={() => setEditSheetId(null)}
+          onSave={handleSaveEdit}
+          initialTitle={requestsData.find((r) => r._id === editSheetId)?.title ?? ''}
+          initialDescription={requestsData.find((r) => r._id === editSheetId)?.description ?? ''}
+          testID="improvements-edit-sheet"
+        />
+      )}
+
+      <ImprovementActionMenu
+        open={actionMenuId !== null}
+        onClose={() => setActionMenuId(null)}
+        onEdit={() => {
+          const id = actionMenuId
+          setActionMenuId(null)
+          if (id) handleEdit(id)
+        }}
+        onDelete={async () => {
+          const id = actionMenuId
+          if (id) await handleDelete(id)
+        }}
+        testID="improvements-action-menu"
       />
     </ScreenLayout>
   )

@@ -3,11 +3,15 @@ import { useMutation, useQuery } from 'convex/react'
 import { ActivityIndicator, Pressable, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { api } from '@/convex/_generated/api'
+import type { Id } from '@/convex/_generated/dataModel'
 import { ImprovementDetailView } from '@/components/improvements/ImprovementDetailView'
-import { ArrowLeft } from '@/components/ui/icons'
+import { ImprovementActionMenu } from '@/components/improvements/ImprovementActionMenu'
+import { ImprovementEditSheet } from '@/components/improvements/ImprovementEditSheet'
+import { ArrowLeft, EllipsisVertical } from '@/components/ui/icons'
 import { Text } from '@/components/ui/text'
 import { Button } from '@/components/ui/button'
 import { useTheme } from '@/hooks/use-theme'
+import { useState } from 'react'
 
 /**
  * Improvement Request Detail Screen
@@ -25,11 +29,16 @@ export default function ImprovementDetailScreen() {
   const router = useRouter()
   const theme = useTheme()
 
+  const [actionMenuOpen, setActionMenuOpen] = useState(false)
+  const [editSheetOpen, setEditSheetOpen] = useState(false)
+
   const data = useQuery(api.improvements.queries.get, { id: requestId as any })
 
   const approve = useMutation(api.improvements.mutations.approve)
   const reject = useMutation(api.improvements.mutations.reject)
   const requestSeparate = useMutation(api.improvements.mutations.requestSeparate)
+  const updateMutation = useMutation(api.improvements.mutations.update)
+  const removeMutation = useMutation(api.improvements.mutations.remove)
 
   const handleBack = () => {
     if (router.canGoBack()) {
@@ -52,6 +61,23 @@ export default function ImprovementDetailScreen() {
   const handleRequestSeparate = async () => {
     if (!requestId) return
     await requestSeparate({ id: requestId as any })
+  }
+
+  const handleSaveEdit = async (title: string, description: string) => {
+    if (!requestId) return
+    await updateMutation({
+      id: requestId as Id<'improvementRequests'>,
+      title,
+      description,
+    })
+    setEditSheetOpen(false)
+  }
+
+  const handleDelete = async () => {
+    if (!requestId) return
+    await removeMutation({ id: requestId as Id<'improvementRequests'> })
+    setActionMenuOpen(false)
+    router.back()
   }
 
   // Loading state: data is undefined while the query is in-flight
@@ -152,6 +178,15 @@ export default function ImprovementDetailScreen() {
         >
           {request.title ?? 'Improvement Request'}
         </Text>
+        <Pressable
+          onPress={() => setActionMenuOpen(true)}
+          style={{ padding: theme.spacing.sm }}
+          testID="improvement-detail-menu-button"
+          accessibilityRole="button"
+          accessibilityLabel="More options"
+        >
+          <EllipsisVertical size={24} color={theme.colors.foreground} />
+        </Pressable>
       </View>
 
       <ImprovementDetailView
@@ -162,6 +197,28 @@ export default function ImprovementDetailScreen() {
         onRequestSeparate={handleRequestSeparate}
         testID="improvement-detail-view"
       />
+
+      <ImprovementActionMenu
+        open={actionMenuOpen}
+        onClose={() => setActionMenuOpen(false)}
+        onEdit={() => {
+          setActionMenuOpen(false)
+          setEditSheetOpen(true)
+        }}
+        onDelete={handleDelete}
+        testID="improvement-detail-action-menu"
+      />
+
+      {editSheetOpen && (
+        <ImprovementEditSheet
+          visible={editSheetOpen}
+          onClose={() => setEditSheetOpen(false)}
+          onSave={handleSaveEdit}
+          initialTitle={request.title ?? ''}
+          initialDescription={request.description}
+          testID="improvement-detail-edit-sheet"
+        />
+      )}
     </SafeAreaView>
   )
 }
