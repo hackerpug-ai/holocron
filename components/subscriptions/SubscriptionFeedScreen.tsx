@@ -238,6 +238,12 @@ export function SubscriptionFeedScreen({
         refreshControl={
           <RefreshControl refreshing={isRefreshing} onRefresh={refresh} />
         }
+        // Performance optimizations for 60fps scrolling
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={10}
+        updateCellsBatchingPeriod={50}
+        initialNumToRender={10}
+        windowSize={5}
         ListHeaderComponent={
           <View className="pb-4">
             {/* Search Input */}

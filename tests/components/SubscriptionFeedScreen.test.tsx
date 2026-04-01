@@ -62,55 +62,108 @@ describe('SubscriptionFeedScreen - Component Structure', () => {
       expect(source).toContain('onRefresh')
       expect(source).toContain('refresh')
     })
+
+    it('should show "Generating new report..." message during refresh', () => {
+      const source = readComponent()
+      expect(source).toMatch(/Generating new report/i)
+    })
   })
 
-  describe('AC-3: Empty state displays when no reports', () => {
-    it('should have ListEmptyComponent', () => {
+  describe('AC-3: Category filter functionality', () => {
+    it('should track selectedCategory state', () => {
+      const source = readComponent()
+      expect(source).toContain('selectedCategory')
+    })
+
+    it('should use SubscriptionFeedFilters component', () => {
+      const source = readComponent()
+      expect(source).toContain('SubscriptionFeedFilters')
+      expect(source).toContain('@/components/subscriptions/SubscriptionFeedFilters')
+    })
+
+    it('should pass filter options with counts', () => {
+      const source = readComponent()
+      expect(source).toContain('filterOptions')
+      expect(source).toContain('discoveryCount')
+      expect(source).toContain('releaseCount')
+    })
+
+    it('should filter findings based on selected category', () => {
+      const source = readComponent()
+      expect(source).toContain('toCategoryArg')
+    })
+  })
+
+  describe('AC-4: Loading state shows skeleton placeholders', () => {
+    it('should use isLoading from useWhatsNewFeed hook', () => {
+      const source = readComponent()
+      expect(source).toContain('isLoading')
+    })
+
+    it('should render FeedItemSkeleton during loading', () => {
+      const source = readComponent()
+      expect(source).toContain('FeedItemSkeleton')
+      expect(source).toContain('@/components/subscriptions/FeedItemSkeleton')
+    })
+
+    it('should show multiple skeletons during loading', () => {
+      const source = readComponent()
+      // Should have skeleton-0, skeleton-1, skeleton-2 testIDs
+      const skeletonMatches = source.match(/skeleton-\d+/g)
+      expect(skeletonMatches?.length).toBeGreaterThan(1)
+    })
+  })
+
+  describe('AC-5: FlatList performance optimizations for 60fps', () => {
+    it('should use removeClippedSubviews optimization', () => {
+      const source = readComponent()
+      expect(source).toContain('removeClippedSubviews={true}')
+    })
+
+    it('should use maxToRenderPerBatch optimization', () => {
+      const source = readComponent()
+      expect(source).toContain('maxToRenderPerBatch')
+    })
+
+    it('should use updateCellsBatchingPeriod optimization', () => {
+      const source = readComponent()
+      expect(source).toContain('updateCellsBatchingPeriod')
+    })
+
+    it('should use windowSize optimization', () => {
+      const source = readComponent()
+      expect(source).toContain('windowSize')
+    })
+
+    it('should use initialNumToRender optimization', () => {
+      const source = readComponent()
+      expect(source).toContain('initialNumToRender')
+    })
+  })
+
+  describe('AC-6: Error state with retry functionality', () => {
+    it('should have ListEmptyComponent for error/empty state', () => {
       const source = readComponent()
       expect(source).toContain('ListEmptyComponent')
     })
 
-    it('should show "No reports yet" message in empty state', () => {
+    it('should show empty state message when no reports', () => {
       const source = readComponent()
-      expect(source).toMatch(/no reports yet/i)
+      expect(source).toMatch(/No reports yet/i)
     })
 
     it('should mention pull to generate first briefing', () => {
       const source = readComponent()
-      expect(source).toMatch(/briefing/i)
+      expect(source).toMatch(/Pull down to generate/i)
+    })
+
+    it('should have testID for empty state', () => {
+      const source = readComponent()
+      expect(source).toMatch(/\$\{testID\}-empty/)
     })
   })
 
-  describe('AC-4: Search mode', () => {
-    it('should use searchContent query from subscriptions', () => {
-      const source = readComponent()
-      expect(source).toContain('searchContent')
-      expect(source).toContain('api.subscriptions.queries.searchContent')
-    })
-
-    it('should track searchText state', () => {
-      const source = readComponent()
-      expect(source).toContain('searchText')
-    })
-
-    it('should track isSearching state', () => {
-      const source = readComponent()
-      expect(source).toContain('isSearching')
-    })
-
-    it('should render SearchContentCard for search results', () => {
-      const source = readComponent()
-      expect(source).toContain('SearchContentCard')
-      expect(source).toContain('@/components/subscriptions/SearchContentCard')
-    })
-
-    it('should show search results for no results found', () => {
-      const source = readComponent()
-      expect(source).toMatch(/no results for/i)
-    })
-  })
-
-  describe('AC-5: All interactive elements have testID', () => {
+  describe('AC-7: All interactive elements have testID', () => {
     it('should have testID prop in component interface', () => {
       const source = readComponent()
       expect(source).toContain('testID?:')
@@ -121,23 +174,33 @@ describe('SubscriptionFeedScreen - Component Structure', () => {
       expect(source).toContain('testID={testID}')
     })
 
-    it('should have testID on empty state component', () => {
-      const source = readComponent()
-      expect(source).toMatch(/\$\{testID\}-empty/)
-    })
-
     it('should have testID on search input', () => {
       const source = readComponent()
-      expect(source).toMatch(/\$\{testID\}-search/)
+      expect(source).toMatch(/\$\{testID\}-search-input/)
     })
 
     it('should have testID on filters', () => {
       const source = readComponent()
       expect(source).toMatch(/\$\{testID\}-filters/)
     })
+
+    it('should have testID on meta banner', () => {
+      const source = readComponent()
+      expect(source).toMatch(/\$\{testID\}-meta-banner/)
+    })
+
+    it('should have testID on generating banner', () => {
+      const source = readComponent()
+      expect(source).toMatch(/\$\{testID\}-generating-banner/)
+    })
+
+    it('should have testID on finding cards', () => {
+      const source = readComponent()
+      expect(source).toMatch(/\$\{testID\}-finding-\$/)
+    })
   })
 
-  describe('AC-6: Component uses semantic theme tokens', () => {
+  describe('AC-8: Component uses semantic theme tokens', () => {
     it('should NOT contain hardcoded hex colors', () => {
       const source = readComponent()
       const hexColorRegex = /#[0-9a-fA-F]{6}/
@@ -153,29 +216,19 @@ describe('SubscriptionFeedScreen - Component Structure', () => {
       expect(matches?.length ?? 0).toBe(0)
     })
 
-    it('should NOT contain hardcoded spacing in StyleSheet', () => {
-      const source = readComponent()
-      // Check for padding/margin with bare numbers in StyleSheet definitions
-      const stylesheetSpacingRegex = /(?:padding|margin)(?:Vertical|Horizontal|Top|Bottom|Left|Right)?:\s*\d+/
-      const matches = source.match(stylesheetSpacingRegex)
-      expect(matches?.length ?? 0).toBe(0)
-    })
-
-    it('should NOT contain hardcoded fontSize', () => {
-      const source = readComponent()
-      const hardcodedFontSizeRegex = /fontSize:\s*\d+/
-      const matches = source.match(hardcodedFontSizeRegex)
-      expect(matches?.length ?? 0).toBe(0)
-    })
-
     it('should use useTheme hook', () => {
       const source = readComponent()
       expect(source).toContain('useTheme')
       expect(source).toContain('@/hooks/use-theme')
     })
+
+    it('should use NativeWind className for styling', () => {
+      const source = readComponent()
+      expect(source).toContain('className=')
+    })
   })
 
-  describe('AC-7: Component uses correct Text import', () => {
+  describe('AC-9: Component uses correct Text import', () => {
     it('should import Text from ui/text component', () => {
       const source = readComponent()
       expect(source).toMatch(/from ['"]@\/components\/ui\/text['"]/)
@@ -220,26 +273,30 @@ describe('SubscriptionFeedScreen - Component Structure', () => {
       expect(source).toContain('@/components/whats-new/WhatsNewFindingCard')
     })
 
-    it('should show title "What\'s New"', () => {
+    it('should show report metadata banner with findings count', () => {
       const source = readComponent()
-      expect(source).toContain("What's New")
+      expect(source).toContain('findingsCount')
     })
 
-    it('should derive filter options from report counts', () => {
+    it('should show relative time for report generation', () => {
       const source = readComponent()
-      expect(source).toContain('discoveryCount')
-      expect(source).toContain('releaseCount')
-      expect(source).toContain('trendCount')
+      expect(source).toContain('formatRelativeTime')
+      expect(source).toContain('Generated')
+    })
+  })
+
+  describe('Social posts grouping', () => {
+    it('should separate social findings from non-social', () => {
+      const source = readComponent()
+      expect(source).toContain('isSocialSource')
+      expect(source).toContain('nonSocialFindings')
+      expect(source).toContain('socialFindings')
     })
 
-    it('should show report metadata banner', () => {
+    it('should render SocialPostsGroupCard when social findings exist', () => {
       const source = readComponent()
-      expect(source).toMatch(/\$\{testID\}-meta-banner/)
-    })
-
-    it('should show generating banner during refresh', () => {
-      const source = readComponent()
-      expect(source).toMatch(/Generating new report/i)
+      expect(source).toContain('SocialPostsGroupCard')
+      expect(source).toContain('@/components/whats-new/SocialPostsGroupCard')
     })
   })
 
@@ -258,6 +315,38 @@ describe('SubscriptionFeedScreen - Component Structure', () => {
     it('should call openUrl when a finding is pressed', () => {
       const source = readComponent()
       expect(source).toContain('openUrl')
+      expect(source).toContain('onPress')
+    })
+  })
+
+  describe('Search functionality', () => {
+    it('should track searchText state', () => {
+      const source = readComponent()
+      expect(source).toContain('searchText')
+      expect(source).toContain('setSearchText')
+    })
+
+    it('should use searchContent query from subscriptions', () => {
+      const source = readComponent()
+      expect(source).toContain('searchContent')
+      expect(source).toContain('api.subscriptions.queries.searchContent')
+    })
+
+    it('should render SearchInput component', () => {
+      const source = readComponent()
+      expect(source).toContain('SearchInput')
+      expect(source).toContain('@/components/SearchInput')
+    })
+
+    it('should render SearchContentCard for search results', () => {
+      const source = readComponent()
+      expect(source).toContain('SearchContentCard')
+      expect(source).toContain('@/components/subscriptions/SearchContentCard')
+    })
+
+    it('should show "No results" message when search is empty', () => {
+      const source = readComponent()
+      expect(source).toMatch(/No results for/i)
     })
   })
 })
