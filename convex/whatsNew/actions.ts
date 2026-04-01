@@ -12,7 +12,7 @@
 import { v } from "convex/values";
 import { internalAction, action } from "../_generated/server";
 import { api, internal } from "../_generated/api";
-import { synthesizeReport as llmSynthesizeReport } from "./llm";
+import { synthesizeReport as llmSynthesizeReport, generateFindingSummary } from "./llm";
 
 // ============================================================================
 // Types
@@ -1215,6 +1215,32 @@ Respond with ONLY a JSON array: [{"url": "...", "summary": "..."}]`;
           console.warn("[generateDailyReport] Content enrichment summarization failed:", err);
         }
       }
+    }
+
+    // 5.5. AI summary generation for findings lacking summaries
+    // Use individual LLM calls for high-quality 80-150 char summaries
+    const findingsNeedingAiSummary = cappedFindings
+      .filter((f) => !f.summary || f.summary.length < 50)
+      .slice(0, 20); // Limit to top 20 to avoid excessive LLM calls
+
+    if (findingsNeedingAiSummary.length > 0) {
+      console.log(`[generateDailyReport] Generating AI summaries for ${findingsNeedingAiSummary.length} findings...`);
+
+      for (const finding of findingsNeedingAiSummary) {
+        try {
+          const summary = await generateFindingSummary(ctx, finding);
+          if (summary) {
+            finding.summary = summary;
+            console.log(`[generateDailyReport] Generated summary for "${finding.title.substring(0, 50)}..." (${summary.length} chars)`);
+          }
+        } catch (error) {
+          // Summary generation failed - continue without it
+          console.warn(`[generateDailyReport] Summary generation failed for "${finding.title.substring(0, 50)}...":`, error);
+        }
+      }
+
+      const enrichedCount = findingsNeedingAiSummary.filter((f) => f.summary && f.summary.length >= 80).length;
+      console.log(`[generateDailyReport] Successfully enriched ${enrichedCount}/${findingsNeedingAiSummary.length} findings with AI summaries`);
     }
 
     // 6. Generate markdown report using two-pass LLM synthesis with static fallback

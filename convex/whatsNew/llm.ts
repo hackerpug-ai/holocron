@@ -450,6 +450,72 @@ function generateStaticFallback(
 }
 
 // ============================================================================
+// Summary Generation
+// ============================================================================
+
+/**
+ * Generate a 2-3 line summary (80-150 chars) for a finding
+ *
+ * This function:
+ * - Uses LLM to generate concise summaries
+ * - Handles failures gracefully (returns undefined, not error)
+ * - Enforces 150 character limit with ellipsis
+ * - Captures key technical insight for AI engineers
+ *
+ * @param ctx - Action context for running LLM
+ * @param finding - Finding to summarize
+ * @returns Summary string (80-150 chars) or undefined if generation fails
+ */
+export async function generateFindingSummary(
+  ctx: any,
+  finding: {
+    title: string;
+    source: string;
+    url?: string;
+    content?: string;
+  }
+): Promise<string | undefined> {
+  try {
+    const prompt = `Summarize this content in 2-3 sentences (max 150 chars) for an AI engineer:
+
+Title: ${finding.title}
+Source: ${finding.source}
+Content Preview: ${finding.content?.slice(0, 500) || "N/A"}
+
+Focus on: What is this? Why does it matter to an AI engineer? What can I do with this?
+
+Respond with ONLY the summary text, no additional formatting.`;
+
+    const result = await generateText({
+      model: zaiPro(),
+      prompt,
+    });
+
+    const summary = result?.text?.trim();
+
+    // Enforce length limit
+    if (summary && summary.length > 150) {
+      return summary.slice(0, 147) + "...";
+    }
+
+    // Only return if minimum length met (80 chars)
+    if (summary && summary.length >= 80) {
+      return summary;
+    }
+
+    // Too short - treat as failure
+    console.warn(
+      `[generateFindingSummary] Summary too short (${summary?.length || 0} chars), treating as failure`
+    );
+    return undefined;
+  } catch (error) {
+    // Log but don't fail - summary is optional
+    console.error("[generateFindingSummary] Failed:", error);
+    return undefined;
+  }
+}
+
+// ============================================================================
 // Main Synthesis Function
 // ============================================================================
 
