@@ -32,6 +32,11 @@ interface Finding {
   author?: string; // Author or creator name
   tags?: string[]; // Associated tags/topics
   metadataJson?: any; // Extensible metadata for future fields
+  // Quality scoring fields
+  qualityScore?: number; // 0-1 LLM-assessed quality score
+  qualityReason?: string; // Brief explanation of quality assessment
+  upvotes?: number; // Platform-specific upvote/like count
+  commentCount?: number; // Number of comments/replies
 }
 
 interface FetchResult {
@@ -97,6 +102,9 @@ async function parseRSSFeed(
 
 /**
  * Fetch AI/ML related posts from Reddit
+ *
+ * Uses JSON API instead of RSS to get engagement data (upvotes, comments)
+ * for quality scoring. Falls back to RSS if JSON API fails.
  */
 async function fetchReddit(days: number): Promise<FetchResult> {
   const subreddits = ["LocalLLaMA", "MachineLearning", "ClaudeAI", "artificial"];
@@ -107,19 +115,58 @@ async function fetchReddit(days: number): Promise<FetchResult> {
 
   for (const subreddit of subreddits) {
     try {
-      const feedUrl = `https://www.reddit.com/r/${subreddit}/hot/.rss`;
-      const items = await parseRSSFeed(feedUrl);
+      // Use JSON API for engagement data (upvotes, comments)
+      const response = await fetch(
+        `https://www.reddit.com/r/${subreddit}/hot.json?limit=15`,
+        {
+          headers: { "User-Agent": "Holocron-WhatsNew/1.0" },
+        }
+      );
 
-      for (const item of items.slice(0, 10)) {
-        const publishedDate = new Date(item.published);
+      if (!response.ok) {
+        // Fallback to RSS if JSON API fails
+        console.warn(`[fetchReddit] JSON API failed for r/${subreddit} (${response.status}), falling back to RSS`);
+        const feedUrl = `https://www.reddit.com/r/${subreddit}/hot/.rss`;
+        const items = await parseRSSFeed(feedUrl);
+        for (const item of items.slice(0, 10)) {
+          const publishedDate = new Date(item.published);
+          if (publishedDate < cutoffDate) continue;
+          findings.push({
+            title: item.title,
+            url: item.link,
+            source: `r/${subreddit}`,
+            category: "discussion",
+            publishedAt: item.published,
+          });
+        }
+        continue;
+      }
+
+      const data = await response.json();
+      const posts = data?.data?.children ?? [];
+
+      for (const child of posts) {
+        const post = child.data;
+        if (!post || post.stickied) continue;
+
+        const publishedDate = new Date(post.created_utc * 1000);
         if (publishedDate < cutoffDate) continue;
 
+        // Calculate engagement velocity: upvotes per hour since posting
+        const ageHours = Math.max(1, (Date.now() - publishedDate.getTime()) / (1000 * 60 * 60));
+        const velocity = post.score / ageHours;
+
         findings.push({
-          title: item.title,
-          url: item.link,
+          title: post.title,
+          url: `https://www.reddit.com${post.permalink}`,
           source: `r/${subreddit}`,
           category: "discussion",
-          publishedAt: item.published,
+          score: post.score,
+          publishedAt: publishedDate.toISOString(),
+          author: post.author,
+          upvotes: post.score,
+          commentCount: post.num_comments,
+          engagementVelocity: Math.min(100, Math.round(velocity * 2)),
         });
       }
     } catch (error) {
@@ -613,6 +660,149 @@ function extractSources(findings: Finding[]): string[] {
 }
 
 // ============================================================================
+// Quality Scoring
+// ============================================================================
+
+/**
+ * Batch-score findings for content quality using LLM.
+ *
+ * Uses a two-axis scoring system (adapted from subscriptions/ai_scoring.ts):
+ * - Intellectual Gravity: Does this require engineering knowledge to appreciate?
+ * - Builder Relevance: Can a developer act on this information?
+ *
+ * Only scores social/discussion sources (Reddit, Bluesky, Lobsters).
+ * Releases, GitHub repos, and HN (already score-filtered) pass through.
+ */
+async function scoreFindingsQuality(
+  findings: Finding[]
+): Promise<Finding[]> {
+  // Separate findings that need scoring from those that don't
+  const socialSources = new Set(["Reddit", "Bluesky", "Lobsters", "Dev.to"]);
+  const needsScoring: Finding[] = [];
+  const passThrough: Finding[] = [];
+
+  for (const finding of findings) {
+    const baseSource = finding.source.replace(/\s*\(.*\)$/, "");
+    if (socialSources.has(baseSource) || finding.source.startsWith("r/")) {
+      needsScoring.push(finding);
+    } else {
+      // HN (already keyword+score filtered), GitHub, Changelogs pass through
+      passThrough.push({ ...finding, qualityScore: 0.8 });
+    }
+  }
+
+  if (needsScoring.length === 0) {
+    return passThrough;
+  }
+
+  console.log(
+    `[scoreFindingsQuality] Scoring ${needsScoring.length} social findings`
+  );
+
+  // Build prompt for batch scoring
+  const itemList = needsScoring
+    .map((f, i) => {
+      const meta = [
+        f.upvotes !== undefined ? `upvotes:${f.upvotes}` : null,
+        f.commentCount !== undefined ? `comments:${f.commentCount}` : null,
+        f.author ? `by:${f.author}` : null,
+      ]
+        .filter(Boolean)
+        .join(", ");
+      return `${i + 1}. [${f.source}] ${f.title}${meta ? ` (${meta})` : ""}`;
+    })
+    .join("\n");
+
+  const prompt = `You are a quality scorer for an AI software engineering daily briefing. Score each item 0.0-1.0 for whether it belongs in a curated, high-quality daily digest for an AI engineer.
+
+Items to score:
+${itemList}
+
+Score on TWO axes, then average:
+
+AXIS 1 — Intellectual Gravity (does this require engineering knowledge to appreciate?):
+  HIGH (0.7-1.0): Model architecture details, benchmark methodology, API design decisions,
+    training insights, infrastructure scaling, technical comparisons, new tool deep-dives
+  MEDIUM (0.4-0.6): Surface-level announcements of technical products, brief tool mentions
+  LOW (0.0-0.3): Hot takes, reactions, memes, entertainment, personality commentary,
+    anything a non-engineer would engage with equally, vague questions, help-me posts
+
+AXIS 2 — Builder Relevance (can a developer act on this information?):
+  HIGH (0.7-1.0): New tool/model with usage details, workflow technique, breaking API change,
+    pricing update, integration guide, migration path, code examples
+  MEDIUM (0.4-0.6): Awareness-level info (a tool exists, a model was released), no actionable detail
+  LOW (0.0-0.3): Pure opinion, entertainment, social commentary, no developer action possible
+
+FILTER OUT (score 0.0-0.2):
+- "What model should I use?" / help-me-choose posts
+- Memes, jokes, rage posts about AI companies
+- Screenshots of chatbot conversations (unless demonstrating a technique)
+- Vague speculation with no evidence ("AI will replace X")
+- Self-promotion with no substance
+- Duplicate/rehash of widely known news (everyone already knows GPT-5 exists)
+- Posts with very low engagement (< 5 upvotes) unless genuinely novel
+
+INCLUDE (score 0.7-1.0):
+- Detailed benchmarks or comparisons with methodology
+- New tool announcements with technical details
+- Workflow tips that save real engineering time
+- Bug reports / breaking changes that affect developers
+- Architecture discussions with concrete examples
+- Release notes with meaningful changes
+
+Final score = average of both axes.
+
+Respond with ONLY a JSON array: [{"score": 0.8, "reason": "brief reason"}, ...]
+The array must have exactly ${needsScoring.length} entries in the same order.`;
+
+  try {
+    const { generateText } = await import("ai");
+    const { zaiFlash } = await import("../lib/ai/zai_provider");
+
+    const result = await generateText({
+      model: zaiFlash(),
+      prompt,
+    });
+
+    const text = result.text.trim();
+    const jsonMatch = text.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) {
+      console.warn("[scoreFindingsQuality] No JSON array in LLM response, passing all through");
+      return [...passThrough, ...needsScoring.map((f) => ({ ...f, qualityScore: 0.5 }))];
+    }
+
+    const parsed: unknown = JSON.parse(jsonMatch[0]);
+    if (!Array.isArray(parsed)) {
+      console.warn("[scoreFindingsQuality] Parsed result not an array");
+      return [...passThrough, ...needsScoring.map((f) => ({ ...f, qualityScore: 0.5 }))];
+    }
+
+    // Apply scores to findings
+    const scored = needsScoring.map((finding, i) => {
+      const entry = parsed[i] as Record<string, unknown> | undefined;
+      const score =
+        entry && typeof entry.score === "number"
+          ? Math.min(1, Math.max(0, entry.score))
+          : 0.5;
+      const reason =
+        entry && typeof entry.reason === "string" ? entry.reason : "ai_scored";
+      return { ...finding, qualityScore: score, qualityReason: reason };
+    });
+
+    const filtered = scored.filter((f) => f.qualityScore! >= 0.4);
+    const removed = scored.length - filtered.length;
+    console.log(
+      `[scoreFindingsQuality] Scored ${scored.length} items, filtered out ${removed} low-quality (< 0.4)`
+    );
+
+    return [...passThrough, ...filtered];
+  } catch (err) {
+    console.warn("[scoreFindingsQuality] LLM scoring failed, passing all through:", err);
+    return [...passThrough, ...needsScoring.map((f) => ({ ...f, qualityScore: 0.5 }))];
+  }
+}
+
+// ============================================================================
 // Main Generation Action
 // ============================================================================
 
@@ -696,9 +886,17 @@ export const generateDailyReport = internalAction({
       }
     }
 
-    // 4. Deduplicate and categorize
+    // 4. Deduplicate, quality-score, and categorize
     const uniqueFindings = deduplicateFindings(allFindings);
-    const cappedFindings = capFindingsPerSource(uniqueFindings, 15);
+
+    // Quality scoring: LLM-based filtering for social posts
+    console.log("[generateDailyReport] Scoring findings quality...");
+    const qualityFindings = await scoreFindingsQuality(uniqueFindings);
+    console.log(
+      `[generateDailyReport] Quality filter: ${uniqueFindings.length} → ${qualityFindings.length} findings`
+    );
+
+    const cappedFindings = capFindingsPerSource(qualityFindings, 15);
     const { discoveries, releases, trends, discussions } =
       categorizeFindings(cappedFindings);
 

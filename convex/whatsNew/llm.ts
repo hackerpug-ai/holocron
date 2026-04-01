@@ -29,6 +29,10 @@ interface Finding {
   author?: string;
   tags?: string[];
   metadataJson?: any;
+  qualityScore?: number;
+  qualityReason?: string;
+  upvotes?: number;
+  commentCount?: number;
 }
 
 interface ToolSuggestion {

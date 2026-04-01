@@ -299,3 +299,26 @@ export const remove = mutation({
     return id;
   },
 });
+
+/**
+ * Mark an improvement request as done.
+ * Used when the improvement has been implemented.
+ */
+export const markAsDone = mutation({
+  args: {
+    id: v.id("improvementRequests"),
+  },
+  handler: async (ctx, { id }) => {
+    const request = await ctx.db.get(id);
+    if (!request) {
+      throw new Error(`Improvement request ${id} not found`);
+    }
+
+    await ctx.db.patch(id, {
+      status: "done",
+      updatedAt: Date.now(),
+    });
+
+    return id;
+  },
+});
