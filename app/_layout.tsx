@@ -40,19 +40,42 @@ const STORYBOOK_ENABLED = process.env.EXPO_PUBLIC_STORYBOOK_ENABLED === 'true'
 
 /**
  * Handle incoming deep links
- * Routes holocron://toolbelt/add URLs to the toolbelt add screen
+ * Routes holocron:// URLs to appropriate screens
  */
 function handleIncomingURL({ url }: { url: string }) {
   try {
     const parsed = Linking.parse(url)
 
-    if (parsed.scheme === 'holocron' && parsed.path === 'toolbelt/add') {
+    if (parsed.scheme === 'holocron') {
       const params = parsed.queryParams as Record<string, string>
-      // Navigate to toolbelt-add screen
-      router.push({
-        pathname: '/toolbelt/add',
-        params,
-      })
+
+      // Handle toolbelt/add deep links
+      if (parsed.path === 'toolbelt/add') {
+        router.push({
+          pathname: '/toolbelt/add',
+          params,
+        })
+        return
+      }
+
+      // Handle subscriptions deep links (redirect to new locations)
+      if (parsed.path === 'subscriptions') {
+        // Redirect to Settings > Subscriptions
+        router.push({
+          pathname: '/subscriptions/settings',
+          params,
+        })
+        return
+      }
+
+      if (parsed.path === 'subscriptions/feed') {
+        // Redirect to What's New (social posts view)
+        router.push({
+          pathname: '/subscriptions/social',
+          params,
+        })
+        return
+      }
     }
   } catch (error) {
     console.error('[RootLayout] Failed to handle URL:', error)
