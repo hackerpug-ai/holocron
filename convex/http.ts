@@ -290,73 +290,141 @@ function markdownToHtml(md: string): string {
     return html;
   });
 
-  // Block-level processing: split into blocks by blank lines
+  // Line-by-line block processing
+  // Classify each line, then group consecutive lines of the same type
   const NUL = "\x00";
   const codePlaceholderTest = new RegExp(`^${NUL}CODE\\d+${NUL}$`);
   const codePlaceholderCapture = new RegExp(`${NUL}CODE(\\d+)${NUL}`);
-  const blocks = text.split(/\n{2,}/);
-  const processed = blocks.map((block) => {
-    // Restore code blocks
-    if (codePlaceholderTest.test(block.trim())) {
-      const idx = parseInt(block.trim().replace(codePlaceholderCapture, "$1"), 10);
-      return codeBlocks[idx];
+
+  const lines = text.split("\n");
+  const output: string[] = [];
+  let paragraphLines: string[] = [];
+  let listItems: string[] = [];
+  let listType: "ul" | "ol" | null = null;
+  let blockquoteLines: string[] = [];
+
+  const flushParagraph = () => {
+    if (paragraphLines.length > 0) {
+      output.push(`<p>${paragraphLines.map((l) => inlineMarkdown(l)).join(" ")}</p>`);
+      paragraphLines = [];
+    }
+  };
+
+  const flushList = () => {
+    if (listItems.length > 0 && listType) {
+      const tag = listType;
+      const items = listItems.map((l) => `<li>${inlineMarkdown(l)}</li>`).join("\n");
+      output.push(`<${tag}>\n${items}\n</${tag}>`);
+      listItems = [];
+      listType = null;
+    }
+  };
+
+  const flushBlockquote = () => {
+    if (blockquoteLines.length > 0) {
+      const inner = blockquoteLines.join("\n").trim();
+      // Recursively parse blockquote content
+      output.push(`<blockquote>${markdownToHtml(inner)}</blockquote>`);
+      blockquoteLines = [];
+    }
+  };
+
+  const flushAll = () => {
+    flushParagraph();
+    flushList();
+    flushBlockquote();
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    // Blank line: flush current context
+    if (trimmed === "") {
+      flushAll();
+      continue;
+    }
+
+    // Code block placeholder
+    if (codePlaceholderTest.test(trimmed)) {
+      flushAll();
+      const idx = parseInt(trimmed.replace(codePlaceholderCapture, "$1"), 10);
+      output.push(codeBlocks[idx]);
+      continue;
     }
 
     // Already HTML (from table conversion)
-    if (/^<(table|thead|tbody|tr|th|td)/.test(block.trim())) {
-      return block.trim();
+    if (/^<(table|thead|tbody|tr|th|td)/.test(trimmed)) {
+      flushAll();
+      output.push(trimmed);
+      continue;
     }
 
     // ATX headings
-    const headingMatch = block.match(/^(#{1,6})\s+(.+)$/);
+    const headingMatch = trimmed.match(/^(#{1,6})\s+(.+)$/);
     if (headingMatch) {
+      flushAll();
       const level = headingMatch[1].length;
       const headingText = headingMatch[2].trim();
       const slug = slugifyText(headingText);
-      return `<h${level} id="${slug}">${inlineMarkdown(headingText)}</h${level}>`;
+      output.push(`<h${level} id="${slug}">${inlineMarkdown(headingText)}</h${level}>`);
+      continue;
     }
 
     // Horizontal rule
-    if (/^(\*{3,}|-{3,}|_{3,})\s*$/.test(block.trim())) {
-      return "<hr />";
+    if (/^(\*{3,}|-{3,}|_{3,})\s*$/.test(trimmed)) {
+      flushAll();
+      output.push("<hr />");
+      continue;
     }
 
     // Blockquote
-    if (block.trim().startsWith(">")) {
-      const inner = block
-        .split("\n")
-        .map((line) => line.replace(/^>\s?/, ""))
-        .join("\n");
-      return `<blockquote><p>${inlineMarkdown(inner.trim())}</p></blockquote>`;
+    if (trimmed.startsWith(">")) {
+      flushParagraph();
+      flushList();
+      blockquoteLines.push(trimmed.replace(/^>\s?/, ""));
+      continue;
+    }
+    // If we were in a blockquote but this line doesn't start with >, flush it
+    if (blockquoteLines.length > 0) {
+      flushBlockquote();
     }
 
-    // Unordered list
-    if (/^[*\-+]\s/.test(block.trim())) {
-      const items = block
-        .split("\n")
-        .filter((l) => l.trim())
-        .map((l) => `<li>${inlineMarkdown(l.replace(/^[*\-+]\s+/, ""))}</li>`)
-        .join("\n");
-      return `<ul>\n${items}\n</ul>`;
+    // Unordered list item
+    const ulMatch = trimmed.match(/^[*\-+]\s+(.*)/);
+    if (ulMatch) {
+      flushParagraph();
+      flushBlockquote();
+      if (listType === "ol") flushList();
+      listType = "ul";
+      listItems.push(ulMatch[1]);
+      continue;
     }
 
-    // Ordered list
-    if (/^\d+\.\s/.test(block.trim())) {
-      const items = block
-        .split("\n")
-        .filter((l) => l.trim())
-        .map((l) => `<li>${inlineMarkdown(l.replace(/^\d+\.\s+/, ""))}</li>`)
-        .join("\n");
-      return `<ol>\n${items}\n</ol>`;
+    // Ordered list item
+    const olMatch = trimmed.match(/^\d+\.\s+(.*)/);
+    if (olMatch) {
+      flushParagraph();
+      flushBlockquote();
+      if (listType === "ul") flushList();
+      listType = "ol";
+      listItems.push(olMatch[1]);
+      continue;
     }
 
-    // Paragraph
-    const lines = block.split("\n").filter((l) => l.trim());
-    if (lines.length === 0) return "";
-    return `<p>${lines.map((l) => inlineMarkdown(l)).join(" ")}</p>`;
-  });
+    // If we were in a list but this line isn't a list item, flush the list
+    if (listItems.length > 0) {
+      flushList();
+    }
 
-  let result = processed.filter(Boolean).join("\n");
+    // Regular text: accumulate as paragraph
+    paragraphLines.push(trimmed);
+  }
+
+  // Flush any remaining content
+  flushAll();
+
+  let result = output.filter(Boolean).join("\n");
 
   // Restore any remaining code block placeholders (e.g. inline in paragraphs)
   const codePlaceholderGlobal = new RegExp(`${NUL}CODE(\\d+)${NUL}`, "g");
