@@ -8,10 +8,13 @@
 import React, { useState, useMemo } from 'react'
 import { View, FlatList, Pressable } from 'react-native'
 import { useRouter } from 'expo-router'
+import { useQuery, useMutation } from 'convex/react'
+import { api } from '@/convex/_generated/api'
 import { Text } from '@/components/ui/text'
 import { Badge } from '@/components/ui/badge'
 import { WhatsNewFindingCard } from '@/components/whats-new/WhatsNewFindingCard'
 import { WebViewSheet } from '@/components/webview/WebViewSheet'
+import { NavigationTooltip } from '@/components/NavigationTooltip'
 import { useWhatsNewFeed } from '@/hooks/use-whats-new-feed'
 import { useWebView } from '@/hooks/useWebView'
 import { useTheme } from '@/hooks/use-theme'
@@ -69,6 +72,29 @@ export function SocialPostsListScreen({
   const { colors: themeColors, isDark } = useTheme()
   const { webViewState, openUrl, closeWebView } = useWebView()
   const { findings } = useWhatsNewFeed({})
+
+  // Navigation tooltip state
+  const hasSeenNavTooltip = useQuery(api.notifications.queries.getHasSeenNavTooltip) ?? false
+  const markNavTooltipSeen = useMutation(api.notifications.mutations.markNavTooltipSeen)
+  const [showTooltip, setShowTooltip] = useState(false)
+
+  // Show tooltip on first visit
+  React.useEffect(() => {
+    if (!hasSeenNavTooltip) {
+      // Small delay to let screen render first
+      const timer = setTimeout(() => {
+        setShowTooltip(true)
+      }, 500)
+      return () => clearTimeout(timer)
+    }
+  }, [hasSeenNavTooltip])
+
+  const handleDismissTooltip = () => {
+    setShowTooltip(false)
+    markNavTooltipSeen().catch((err) => {
+      console.error('Failed to mark tooltip as seen:', err)
+    })
+  }
 
   const [sortMode, setSortMode] = useState<SortMode>('score')
   const [platformFilter, setPlatformFilter] = useState<string>('All')
@@ -254,6 +280,13 @@ export function SocialPostsListScreen({
         url={webViewState.url}
         visible={webViewState.visible}
         onClose={closeWebView}
+      />
+
+      {/* Navigation change tooltip */}
+      <NavigationTooltip
+        visible={showTooltip}
+        onDismiss={handleDismissTooltip}
+        testID={`${testID}-nav-tooltip`}
       />
     </View>
   )

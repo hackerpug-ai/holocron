@@ -70,3 +70,16 @@ export const getLastSeen = query({
     return prefs?.notificationsLastSeenAt ?? 0;
   },
 });
+
+/**
+ * Check if user has seen the navigation tooltip
+ *
+ * Returns false if no preferences have been saved yet.
+ */
+export const getHasSeenNavTooltip = query({
+  args: {},
+  handler: async (ctx) => {
+    const prefs = await ctx.db.query("userPreferences").first();
+    return prefs?.hasSeenNavTooltip ?? false;
+  },
+});

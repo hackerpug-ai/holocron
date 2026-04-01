@@ -64,3 +64,23 @@ export const updateLastSeen = mutation({
     return now;
   },
 });
+
+/**
+ * Mark the navigation tooltip as seen
+ *
+ * Creates or updates the userPreferences singleton to mark that
+ * the user has seen the navigation change tooltip.
+ */
+export const markNavTooltipSeen = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const prefs = await ctx.db.query("userPreferences").first();
+    const now = Date.now();
+    if (prefs) {
+      await ctx.db.patch(prefs._id, { hasSeenNavTooltip: true, updatedAt: now });
+    } else {
+      await ctx.db.insert("userPreferences", { hasSeenNavTooltip: true, updatedAt: now });
+    }
+    return { success: true };
+  },
+});

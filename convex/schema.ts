@@ -702,6 +702,7 @@ export default defineSchema({
   userPreferences: defineTable({
     notificationsLastSeenAt: v.optional(v.number()),
     voiceLanguage: v.optional(v.string()),
+    hasSeenNavTooltip: v.optional(v.boolean()),
     updatedAt: v.number(),
   }),
 
