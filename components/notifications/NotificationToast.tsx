@@ -144,9 +144,13 @@ export function NotificationToast({
   // ── Tap handler ──
   const handleTap = React.useCallback(() => {
     onMarkRead?.(notification._id)
+    const route = notification.route
     setOpen(false)
     onDismiss()
-    router.push(notification.route as Parameters<typeof router.push>[0])
+    // Navigate after dismiss to avoid crash from routing while toast is mounted
+    setTimeout(() => {
+      router.push(route as Parameters<typeof router.push>[0])
+    }, 0)
   }, [notification._id, notification.route, onMarkRead, onDismiss, router])
 
   return (

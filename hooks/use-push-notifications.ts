@@ -44,7 +44,10 @@ export function usePushNotifications(): void {
     const subscription = Notifications.addNotificationResponseReceivedListener(response => {
       const route = response.notification.request.content.data?.route as string | undefined
       if (route) {
-        router.push(route as Parameters<typeof router.push>[0])
+        // Delay to ensure navigation tree is ready when app launches from notification
+        setTimeout(() => {
+          router.push(route as Parameters<typeof router.push>[0])
+        }, 100)
       }
     })
 

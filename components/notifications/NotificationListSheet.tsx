@@ -185,8 +185,13 @@ export function NotificationListSheet({
     if (!item.read) {
       markRead({ id: item._id as Id<'notifications'> }).catch(() => {})
     }
-    dismiss()
-    router.push(item.route as Parameters<typeof router.push>[0])
+    // Close modal first, navigate after animation completes to avoid crash
+    translateY.value = withTiming(600, TIMING_OUT)
+    backdropOpacity.value = withTiming(0, TIMING_OUT)
+    setTimeout(() => {
+      onClose()
+      router.push(item.route as Parameters<typeof router.push>[0])
+    }, 250)
   }
 
   const handleMarkAllRead = () => {
