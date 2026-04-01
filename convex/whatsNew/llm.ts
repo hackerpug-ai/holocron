@@ -461,6 +461,7 @@ function generateStaticFallback(
  * - Handles failures gracefully (returns undefined, not error)
  * - Enforces 150 character limit with ellipsis
  * - Captures key technical insight for AI engineers
+ * - Logs quality metrics for monitoring
  *
  * @param ctx - Action context for running LLM
  * @param finding - Finding to summarize
@@ -475,6 +476,9 @@ export async function generateFindingSummary(
     content?: string;
   }
 ): Promise<string | undefined> {
+  // Generate a finding ID for logging (use URL or title hash)
+  const findingId = finding.url || finding.title.replace(/\s+/g, "-").toLowerCase();
+
   try {
     const prompt = `Summarize this content in 2-3 sentences (max 150 chars) for an AI engineer:
 
@@ -495,22 +499,35 @@ Respond with ONLY the summary text, no additional formatting.`;
 
     // Enforce length limit
     if (summary && summary.length > 150) {
-      return summary.slice(0, 147) + "...";
+      const truncated = summary.slice(0, 147) + "...";
+      // Log success with truncated length
+      console.log(
+        `[Summary Quality] SUCCESS: findingId="${findingId}" length=${truncated.length} truncated=true`
+      );
+      return truncated;
     }
 
     // Only return if minimum length met (80 chars)
     if (summary && summary.length >= 80) {
+      // Log success
+      console.log(
+        `[Summary Quality] SUCCESS: findingId="${findingId}" length=${summary.length}`
+      );
       return summary;
     }
 
     // Too short - treat as failure
+    const shortLength = summary?.length || 0;
     console.warn(
-      `[generateFindingSummary] Summary too short (${summary?.length || 0} chars), treating as failure`
+      `[Summary Quality] FAILURE: findingId="${findingId}" reason="too_short (${shortLength} chars)"`
     );
     return undefined;
   } catch (error) {
-    // Log but don't fail - summary is optional
-    console.error("[generateFindingSummary] Failed:", error);
+    // Log failure but don't fail - summary is optional
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(
+      `[Summary Quality] FAILURE: findingId="${findingId}" error="${errorMessage}"`
+    );
     return undefined;
   }
 }
