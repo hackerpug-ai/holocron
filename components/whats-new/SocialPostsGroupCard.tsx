@@ -86,8 +86,20 @@ export function SocialPostsGroupCard({
   const topPost = [...findings].sort((a, b) => (b.score ?? 0) - (a.score ?? 0))[0]
   const totalEngagement = findings.reduce((sum, f) => sum + (f.upvotes ?? f.score ?? 0), 0)
 
+  // Build accessibility label for screen readers
+  const platformList = Array.from(platforms.entries())
+    .map(([platform, stats]) => `${stats.count} ${platform}`)
+    .join(', ')
+  const accessibilityLabel = `Community Pulse. ${findings.length} social posts from ${platformList}. Top post: ${topPost.title}. ${topPost.source}. View all discussions.`
+
   return (
-    <Pressable onPress={onPress} testID={testID}>
+    <Pressable
+      onPress={onPress}
+      testID={testID}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityHint="Opens social posts view with all community discussions"
+    >
       <Card className="border-border bg-card mb-3 overflow-hidden">
         {/* Platform color stripe bar at top */}
         <View className="flex-row" style={{ height: 3 }}>

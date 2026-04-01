@@ -63,6 +63,9 @@ export function VideoCard({
 }: VideoCardProps) {
   const { colors, spacing, radius } = useTheme()
 
+  // Build accessibility label for screen readers
+  const accessibilityLabel = `Video. ${title}${summary ? `. ${summary}` : ''}${source ? `. Source: ${source}` : ''}${duration ? `. Duration: ${duration}` : ''}${publishedAt ? `. ${publishedAt}` : ''}. Tap to watch.`
+
   return (
     <Pressable
       testID={testID}
@@ -76,6 +79,10 @@ export function VideoCard({
           borderRadius: radius.lg,
         },
       ]}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityHint="Opens video in web view"
+      accessibilityState={{ disabled: !onPress }}
     >
       {/* Thumbnail container with 16:9 aspect ratio */}
       <View
@@ -86,13 +93,19 @@ export function VideoCard({
         testID={`${testID}-thumbnail-container`}
       >
         {thumbnailUrl ? (
-          <OptimizedImage
-            source={{ uri: thumbnailUrl }}
-            aspectRatio={16 / 9}
-            borderRadius={radius.lg}
-            testID={`${testID}-thumbnail`}
-            priority="normal"
-          />
+          <View
+            accessible={true}
+            accessibilityRole="image"
+            accessibilityLabel={`Video thumbnail for ${title}`}
+          >
+            <OptimizedImage
+              source={{ uri: thumbnailUrl }}
+              aspectRatio={16 / 9}
+              borderRadius={radius.lg}
+              testID={`${testID}-thumbnail`}
+              priority="normal"
+            />
+          </View>
         ) : (
           <View
             style={[
@@ -103,6 +116,9 @@ export function VideoCard({
               },
             ]}
             testID={`${testID}-fallback`}
+            accessible={true}
+            accessibilityRole="image"
+            accessibilityLabel="No thumbnail available"
           >
             <Play size={48} color={colors.mutedForeground} testID={`${testID}-fallback-icon`} />
           </View>

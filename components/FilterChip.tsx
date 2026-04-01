@@ -40,6 +40,7 @@ export function FilterChip({
       disabled={disabled}
       testID={testID}
       accessibilityRole="button"
+      accessibilityLabel={label}
       accessibilityState={{ selected, disabled: disabled ?? false }}
       {...props}
     >

@@ -244,6 +244,9 @@ export function SubscriptionFeedScreen({
         data={nonSocialFindings}
         keyExtractor={(_, index) => String(index)}
         contentContainerStyle={{ flexGrow: 1, paddingHorizontal: spacing.lg, paddingTop: spacing.md }}
+        accessibilityRole="list"
+        accessibilityLabel="Content feed"
+        accessibilityValue={{ text: `${nonSocialFindings.length} items` }}
         refreshControl={
           <RefreshControl refreshing={isRefreshing} onRefresh={refresh} />
         }

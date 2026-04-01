@@ -86,13 +86,24 @@ export function WhatsNewFindingCard({
   const config = CATEGORY_CONFIG[category]
   const { Icon } = config
 
+  // Build comprehensive accessibility label for screen readers
+  const accessibilityLabel = `${config.label}. ${title}${summary ? `. ${summary}` : ''}. Source: ${source}${author ? `. Author: ${author}` : ''}${publishedAt ? `. ${formatRelativeTime(publishedAt)}` : ''}`
+
   return (
     <Card testID={testID} className="border-border bg-card mb-3 overflow-hidden">
-      <View
-        className="px-4 pb-4 pt-3 gap-2"
-        accessible={true}
-        accessibilityRole="none"
+      <Pressable
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel}
+        accessibilityHint={`Opens ${config.label.toLowerCase()} in browser`}
+        accessibilityState={{ disabled: !onPress }}
+        testID={`${testID}-pressable`}
       >
+        <View
+          className="px-4 pb-4 pt-3 gap-2"
+          accessible={true}
+          accessibilityRole="none"
+        >
         {/* Top row: category pill + relative time */}
         <View className="flex-row items-center justify-between">
           <View
@@ -133,13 +144,11 @@ export function WhatsNewFindingCard({
         </View>
 
         {/* Title */}
-        <Pressable
-          onPress={onPress}
-          testID={`${testID}-title-button`}
-          accessibilityRole="button"
-          accessibilityLabel={title}
-          accessibilityHint={`Opens ${config.label.toLowerCase()} in browser`}
-          accessibilityState={{ disabled: !onPress }}
+        <View
+          testID={`${testID}-title-container`}
+          accessible={true}
+          accessibilityRole="text"
+          accessibilityLabel={`Title: ${title}`}
         >
           <Text
             className="text-foreground text-base font-bold leading-snug"
@@ -148,7 +157,7 @@ export function WhatsNewFindingCard({
           >
             {title}
           </Text>
-        </Pressable>
+        </View>
 
         {/* Summary */}
         {summary && (
@@ -200,6 +209,7 @@ export function WhatsNewFindingCard({
           />
         </View>
       </View>
+      </Pressable>
     </Card>
   )
 }

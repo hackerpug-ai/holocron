@@ -52,22 +52,44 @@ export function SearchContentCard({
       ? `${Math.round(aiRelevanceScore * 100)}%`
       : null
 
+  // Build accessibility label for screen readers
+  const accessibilityLabel = `${contentCategory ? `${contentCategory}. ` : ''}${title}${authorHandle ? `. By ${authorHandle}` : ''}${relevancePercent ? `. Relevance: ${relevancePercent}` : ''}. ${formatRelativeTime(discoveredAt)}. Tap to open.`
+
   return (
     <Card testID={testID} className="border-border bg-card mb-2 overflow-hidden">
+      <Pressable
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel}
+        accessibilityHint="Opens content in web view"
+        accessibilityState={{ disabled: !onPress }}
+        testID={`${testID}-pressable`}
+      >
       {/* Thumbnail with 16:9 aspect ratio */}
       {thumbnailUrl && (
-        <OptimizedImage
-          source={{ uri: thumbnailUrl }}
-          aspectRatio={16 / 9}
-          borderRadius={0}
-          testID={`${testID}-thumbnail`}
-          priority="low"
-        />
+        <View
+          accessible={true}
+          accessibilityRole="image"
+          accessibilityLabel={`Thumbnail for ${title}`}
+        >
+          <OptimizedImage
+            source={{ uri: thumbnailUrl }}
+            aspectRatio={16 / 9}
+            borderRadius={0}
+            testID={`${testID}-thumbnail`}
+            priority="low"
+          />
+        </View>
       )}
 
       <View className="px-4 pb-3 pt-3 gap-2">
         {/* Title */}
-        <Pressable onPress={onPress} testID={`${testID}-title-button`}>
+        <View
+          testID={`${testID}-title-container`}
+          accessible={true}
+          accessibilityRole="text"
+          accessibilityLabel={`Title: ${title}`}
+        >
           <Text
             className="text-foreground text-base font-bold leading-snug"
             numberOfLines={2}
@@ -75,7 +97,7 @@ export function SearchContentCard({
           >
             {title}
           </Text>
-        </Pressable>
+        </View>
 
         {/* Bottom row: category + author + time + relevance */}
         <View className="flex-row items-center gap-2 flex-wrap">
@@ -114,6 +136,7 @@ export function SearchContentCard({
           )}
         </View>
       </View>
+      </Pressable>
     </Card>
   )
 }
