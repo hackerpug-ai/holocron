@@ -6,13 +6,14 @@
  *
  * Uses FlatList for performance with pull-to-refresh in default mode.
  */
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import {
   ActivityIndicator,
   FlatList,
   RefreshControl,
   View,
 } from 'react-native'
+import { useRouter } from 'expo-router'
 import { useQuery } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import { Text } from '@/components/ui/text'
@@ -24,7 +25,18 @@ import { SubscriptionFeedFilters } from '@/components/subscriptions/Subscription
 import { FeedItemSkeleton } from '@/components/subscriptions/FeedItemSkeleton'
 import { WebViewSheet } from '@/components/webview/WebViewSheet'
 import { WhatsNewFindingCard } from '@/components/whats-new/WhatsNewFindingCard'
+import { SocialPostsGroupCard } from '@/components/whats-new/SocialPostsGroupCard'
 import { SearchContentCard } from '@/components/subscriptions/SearchContentCard'
+
+/** Check if a finding is from a social/community source */
+function isSocialSource(source: string): boolean {
+  return (
+    source.startsWith('r/') ||
+    source.includes('Bluesky') ||
+    source === 'Lobsters' ||
+    source === 'Dev.to'
+  )
+}
 
 interface SubscriptionFeedScreenProps {
   testID?: string
@@ -64,6 +76,7 @@ export function SubscriptionFeedScreen({
   testID = 'subscription-feed',
 }: SubscriptionFeedScreenProps) {
   const { spacing } = useTheme()
+  const router = useRouter()
   const { webViewState, openUrl, closeWebView } = useWebView()
 
   // Search state
@@ -74,6 +87,25 @@ export function SubscriptionFeedScreen({
   const { findings, report, isLoading, isRefreshing, refresh } = useWhatsNewFeed({
     category: toCategoryArg(selectedCategory),
   })
+
+  // Separate social posts from non-social findings
+  // Social posts get grouped into a single card; non-social show individually
+  const { nonSocialFindings, socialFindings } = useMemo(() => {
+    // When filtering to "discussion" category, show all individually (user explicitly asked)
+    if (selectedCategory === 'discussion') {
+      return { nonSocialFindings: findings, socialFindings: [] }
+    }
+    const social: typeof findings = []
+    const nonSocial: typeof findings = []
+    for (const f of findings) {
+      if (isSocialSource(f.source)) {
+        social.push(f)
+      } else {
+        nonSocial.push(f)
+      }
+    }
+    return { nonSocialFindings: nonSocial, socialFindings: social }
+  }, [findings, selectedCategory])
 
   // Search query — only active when 2+ chars entered
   const isSearching = searchText.length >= 2
@@ -199,7 +231,7 @@ export function SubscriptionFeedScreen({
     <>
       <FlatList
         testID={testID}
-        data={findings}
+        data={nonSocialFindings}
         keyExtractor={(_, index) => String(index)}
         contentContainerStyle={{ flexGrow: 1, paddingHorizontal: spacing.lg, paddingTop: spacing.md }}
         refreshControl={
@@ -247,6 +279,15 @@ export function SubscriptionFeedScreen({
               onFilterChange={setSelectedCategory}
               testID={`${testID}-filters`}
             />
+
+            {/* Social posts group card — shown when not filtering to discussions */}
+            {socialFindings.length > 0 && (
+              <SocialPostsGroupCard
+                findings={socialFindings}
+                onPress={() => router.push('/subscriptions/social')}
+                testID={`${testID}-social-group`}
+              />
+            )}
           </View>
         }
         renderItem={({ item, index }) => (

@@ -269,6 +269,10 @@ export default function DrawerLayout() {
           options={{ headerShown: false, title: 'Subscription Settings' }}
         />
         <Drawer.Screen
+          name="subscriptions/social"
+          options={{ headerShown: false, title: 'Community Posts' }}
+        />
+        <Drawer.Screen
           name="subscription-content/[groupKey]"
           options={{ headerShown: false, title: 'Subscription Content' }}
         />
