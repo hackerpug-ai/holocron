@@ -1,0 +1,56 @@
+{
+  "task_id": "US-NAV-004",
+  "title": "Deep link redirects",
+  "status": "completed",
+  "commit_sha": "15755e1683d83aa404d588b54c71690ce766f017",
+  "commit_blocked": false,
+  "evidence_path": ".tmp/US-NAV-004/",
+  "summary": "Added deep link redirects for subscription routes to new locations",
+  "implementation": {
+    "files_created": [
+      "app/subscriptions/feed.tsx"
+    ],
+    "files_modified": [
+      "app/subscriptions/index.tsx",
+      "app/_layout.tsx"
+    ],
+    "redirects_implemented": {
+      "holocron://subscriptions": {
+        "redirects_to": "/subscriptions/settings",
+        "description": "Settings > Subscriptions management view"
+      },
+      "holocron://subscriptions/feed": {
+        "redirects_to": "/subscriptions/social",
+        "description": "What's New (social posts view)"
+      }
+    },
+    "features": {
+      "query_params_preserved": true,
+      "root_layout_handler": true,
+      "redirect_components": true
+    }
+  },
+  "verification": {
+    "typecheck": "passed",
+    "lint": "passed",
+    "tests": "passed (64 files, 824 tests)",
+    "pre_commit_hooks": "all passed"
+  },
+  "acceptance_criteria": [
+    {
+      "criterion": "GIVEN user opens deep link holocron://subscriptions, WHEN app processes the link, THEN user is redirected to Settings > Subscriptions",
+      "status": "implemented",
+      "implementation": "Redirect component in app/subscriptions/index.tsx + root layout handler"
+    },
+    {
+      "criterion": "GIVEN user opens deep link holocron://subscriptions/feed, WHEN app processes the link, THEN user is redirected to What's New",
+      "status": "implemented",
+      "implementation": "Redirect component in app/subscriptions/feed.tsx + root layout handler"
+    },
+    {
+      "criterion": "GIVEN user opens deep link with query params, WHEN redirecting, THEN query params are preserved",
+      "status": "implemented",
+      "implementation": "useLocalSearchParams + URLSearchParams to preserve query string"
+    }
+  ]
+}
