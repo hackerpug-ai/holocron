@@ -13,6 +13,7 @@ import { v } from "convex/values";
 import { internalAction, action } from "../_generated/server";
 import { api, internal } from "../_generated/api";
 import { synthesizeReport as llmSynthesizeReport, generateFindingSummary } from "./llm";
+import { QUALITY_CONFIG } from "./config";
 
 // ============================================================================
 // Types
@@ -972,6 +973,7 @@ FILTER OUT (score 0.0-0.2):
 - Self-promotion with no substance
 - Duplicate/rehash of widely known news (everyone already knows GPT-5 exists)
 - Posts with very low engagement (< 5 upvotes) unless genuinely novel
+- Clickbait titles ("You won't believe...", "Must see!", "Shocking...", "This changes everything")
 
 INCLUDE (score 0.7-1.0):
 - Detailed benchmarks or comparisons with methodology
@@ -982,6 +984,7 @@ INCLUDE (score 0.7-1.0):
 - Release notes with meaningful changes
 
 Final score = average of both axes.
+PENALTIES: Subtract 0.3 for clickbait titles, 0.2 for self-promotion without substance.
 
 Respond with ONLY a JSON array: [{"score": 0.8, "reason": "brief reason"}, ...]
 The array must have exactly ${needsScoring.length} entries in the same order.`;
@@ -1020,10 +1023,10 @@ The array must have exactly ${needsScoring.length} entries in the same order.`;
       return { ...finding, qualityScore: score, qualityReason: reason };
     });
 
-    const filtered = scored.filter((f) => f.qualityScore! >= 0.4);
+    const filtered = scored.filter((f) => f.qualityScore! >= QUALITY_CONFIG.minQualityScore);
     const removed = scored.length - filtered.length;
     console.log(
-      `[scoreFindingsQuality] Scored ${scored.length} items, filtered out ${removed} low-quality (< 0.4)`
+      `[scoreFindingsQuality] Scored ${scored.length} items, filtered out ${removed} low-quality (< ${QUALITY_CONFIG.minQualityScore})`
     );
 
     return [...passThrough, ...filtered];
