@@ -232,7 +232,8 @@ export default defineSchema({
       v.literal("reddit"),
       v.literal("ebay"),
       v.literal("whats-new"),
-      v.literal("creator")
+      v.literal("creator"),
+      v.literal("github")
     ),
     identifier: v.string(), // @handle, r/subreddit, search query, etc.
     name: v.string(),
@@ -771,7 +772,8 @@ export default defineSchema({
             v.literal("reddit"),
             v.literal("ebay"),
             v.literal("whats-new"),
-            v.literal("creator")
+            v.literal("creator"),
+            v.literal("github")
           ),
           identifier: v.string(),
           name: v.string(),

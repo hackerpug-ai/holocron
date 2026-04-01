@@ -63,7 +63,15 @@ export type DocumentIdInput = z.infer<typeof DocumentIdSchema>;
 
 // Subscription management schemas
 export const AddSubscriptionSchema = z.object({
-  sourceType: z.enum(["youtube", "newsletter", "changelog", "reddit", "ebay", "whats-new"]),
+  sourceType: z.enum([
+    "youtube",
+    "newsletter",
+    "changelog",
+    "reddit",
+    "ebay",
+    "whats-new",
+    "github",
+  ]),
   identifier: z.string().min(1),
   name: z.string().min(1),
   url: z.string().url().optional(),

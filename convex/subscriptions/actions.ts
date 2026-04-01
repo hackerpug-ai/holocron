@@ -16,7 +16,8 @@ export const check = action({
         v.literal("reddit"),
         v.literal("ebay"),
         v.literal("whats-new"),
-        v.literal("creator")
+        v.literal("creator"),
+        v.literal("github")
       )
     ),
   },

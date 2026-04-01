@@ -273,7 +273,7 @@ const hybridSearchTool = createTool({
 const addSubscriptionTool = createTool({
   id: "add_subscription",
   description:
-    "Add a new subscription source (youtube, newsletter, changelog, reddit, ebay, whats-new)",
+    "Add a new subscription source (youtube, newsletter, changelog, reddit, ebay, whats-new, github)",
   inputSchema: AddSubscriptionSchema,
   execute: async (input) => {
     try {

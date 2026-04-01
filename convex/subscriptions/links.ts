@@ -32,7 +32,8 @@ export const generateLink = mutation({
             v.literal("reddit"),
             v.literal("ebay"),
             v.literal("whats-new"),
-            v.literal("creator")
+            v.literal("creator"),
+            v.literal("github")
           ),
           identifier: v.string(),
           name: v.string(),

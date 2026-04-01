@@ -188,7 +188,7 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
         sourceType: {
           type: 'string',
           description: 'Type of content source',
-          enum: ['youtube', 'newsletter', 'changelog', 'reddit', 'ebay', 'whats-new', 'creator'],
+          enum: ['youtube', 'newsletter', 'changelog', 'reddit', 'ebay', 'whats-new', 'creator', 'github'],
         },
         identifier: {
           type: 'string',

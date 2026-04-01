@@ -444,6 +444,107 @@ async function fetchChangelog(
   return newItems;
 }
 
+/**
+ * Fetch public activity for a GitHub user/org
+ *
+ * Uses the GitHub Events API to surface repos created, releases published,
+ * and other notable public activity.
+ * Identifier: GitHub username (e.g. "Dicklesworthstone")
+ */
+async function fetchGitHub(
+  source: any,
+  filter: RelevancyRule[],
+  existingIds: Set<string>
+): Promise<any[]> {
+  const username = source.identifier.replace(/^https?:\/\/github\.com\//, "").replace(/\/$/, "");
+  const apiUrl = `https://api.github.com/users/${username}/events/public?per_page=30`;
+
+  const response = await fetch(apiUrl, {
+    headers: { "User-Agent": "Holocron-Subscription-Fetch" },
+  });
+
+  if (!response.ok) return [];
+
+  const events = await response.json();
+  const newItems: any[] = [];
+
+  for (const event of events) {
+    // Focus on high-signal events
+    const interestingTypes = new Set([
+      "CreateEvent",      // Repo/branch/tag created
+      "ReleaseEvent",     // Release published
+      "PublicEvent",      // Repo made public
+      "PushEvent",        // Commits pushed (high-volume, filter to defaults only)
+      "ForkEvent",        // Forked a repo
+      "WatchEvent",       // Starred a repo
+    ]);
+
+    if (!interestingTypes.has(event.type)) continue;
+
+    // Skip high-volume push events unless to default branch
+    if (event.type === "PushEvent") {
+      const ref = event.payload?.ref ?? "";
+      if (!ref.endsWith("/main") && !ref.endsWith("/master")) continue;
+    }
+
+    const contentId = event.id;
+    if (existingIds.has(contentId)) continue;
+
+    let title: string;
+    let url: string;
+
+    switch (event.type) {
+      case "CreateEvent": {
+        const refType = event.payload?.ref_type ?? "repository";
+        if (refType === "repository") {
+          title = `Created repo: ${event.repo?.name}`;
+          url = `https://github.com/${event.repo?.name}`;
+        } else if (refType === "tag") {
+          title = `Tagged ${event.payload?.ref} in ${event.repo?.name}`;
+          url = `https://github.com/${event.repo?.name}/releases/tag/${event.payload?.ref}`;
+        } else {
+          continue; // Skip branch creates
+        }
+        break;
+      }
+      case "ReleaseEvent":
+        title = `Released ${event.payload?.release?.tag_name ?? "new version"} of ${event.repo?.name}`;
+        url = event.payload?.release?.html_url ?? `https://github.com/${event.repo?.name}`;
+        break;
+      case "PublicEvent":
+        title = `Made ${event.repo?.name} public`;
+        url = `https://github.com/${event.repo?.name}`;
+        break;
+      case "PushEvent":
+        title = `Pushed to ${event.repo?.name} (${event.payload?.size ?? 0} commits)`;
+        url = `https://github.com/${event.repo?.name}`;
+        break;
+      case "ForkEvent":
+        title = `Forked ${event.repo?.name}`;
+        url = event.payload?.forkee?.html_url ?? `https://github.com/${event.repo?.name}`;
+        break;
+      case "WatchEvent":
+        title = `Starred ${event.repo?.name}`;
+        url = `https://github.com/${event.repo?.name}`;
+        break;
+      default:
+        continue;
+    }
+
+    newItems.push({
+      sourceId: source._id,
+      contentId,
+      title,
+      url,
+      relevancyScore: event.type === "ReleaseEvent" || event.type === "CreateEvent" ? 0.9 : 0.6,
+      relevancyReason: `github_${event.type.toLowerCase()}`,
+      passedFilter: true,
+    });
+  }
+
+  return newItems;
+}
+
 // ============================================================================
 // Creator Platform Fetchers
 // ============================================================================
@@ -865,6 +966,7 @@ const SOURCE_TYPE_TO_CATEGORY: Record<string, string> = {
   bluesky: "social",
   ebay: "blog",
   "whats-new": "article",
+  github: "social",
 };
 
 /**
@@ -1154,6 +1256,8 @@ function getSourceFetcher(sourceType: string): ((source: any, filters: any[], ex
       return fetchChangelog;
     case 'creator':
       return fetchCreator;
+    case 'github':
+      return fetchGitHub;
     default:
       return null;
   }

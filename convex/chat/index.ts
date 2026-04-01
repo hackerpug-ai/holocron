@@ -746,11 +746,11 @@ export const send = action({
       } else if (parsed.command === "subscribe") {
         // /subscribe <type> <identifier> [name]
         const parts = (parsed.args || "").split(" ");
-        const sourceType = parts[0] as "youtube" | "newsletter" | "changelog" | "reddit" | "ebay" | "whats-new" | "creator";
+        const sourceType = parts[0] as "youtube" | "newsletter" | "changelog" | "reddit" | "ebay" | "whats-new" | "creator" | "github";
         const identifier = parts[1];
         const name = parts.slice(2).join(" ") || identifier;
 
-        const validTypes = ["youtube", "newsletter", "changelog", "reddit", "ebay", "whats-new", "creator"];
+        const validTypes = ["youtube", "newsletter", "changelog", "reddit", "ebay", "whats-new", "creator", "github"];
         if (!sourceType || !identifier) {
           agentResponse = {
             content: "Usage: /subscribe <type> <identifier> [name]\nTypes: youtube, newsletter, changelog, reddit, ebay, whats-new, creator",

@@ -10,7 +10,15 @@ import type { HolocronConvexClient } from "../convex/client.ts";
 // ============================================================================
 
 export interface AddSubscriptionInput {
-  sourceType: "youtube" | "newsletter" | "changelog" | "reddit" | "ebay" | "whats-new" | "creator";
+  sourceType:
+    | "youtube"
+    | "newsletter"
+    | "changelog"
+    | "reddit"
+    | "ebay"
+    | "whats-new"
+    | "creator"
+    | "github";
   identifier: string;
   name: string;
   url?: string;
@@ -30,13 +38,29 @@ export interface RemoveSubscriptionInput {
 }
 
 export interface ListSubscriptionsInput {
-  sourceType?: "youtube" | "newsletter" | "changelog" | "reddit" | "ebay" | "whats-new" | "creator";
+  sourceType?:
+    | "youtube"
+    | "newsletter"
+    | "changelog"
+    | "reddit"
+    | "ebay"
+    | "whats-new"
+    | "creator"
+    | "github";
   autoResearchOnly?: boolean;
   limit?: number;
 }
 
 export interface CheckSubscriptionsInput {
-  sourceType?: "youtube" | "newsletter" | "changelog" | "reddit" | "ebay" | "whats-new" | "creator";
+  sourceType?:
+    | "youtube"
+    | "newsletter"
+    | "changelog"
+    | "reddit"
+    | "ebay"
+    | "whats-new"
+    | "creator"
+    | "github";
 }
 
 export interface GetSubscriptionContentInput {

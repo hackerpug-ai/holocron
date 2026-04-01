@@ -24,7 +24,8 @@ export const list = query({
         v.literal("reddit"),
         v.literal("ebay"),
         v.literal("whats-new"),
-        v.literal("creator")
+        v.literal("creator"),
+        v.literal("github")
       )
     ),
     autoResearchOnly: v.optional(v.boolean()),
@@ -177,7 +178,8 @@ export const listGroupedByCreator = query({
         v.literal("reddit"),
         v.literal("ebay"),
         v.literal("whats-new"),
-        v.literal("creator")
+        v.literal("creator"),
+        v.literal("github")
       )
     ),
     limit: v.optional(v.number()),
