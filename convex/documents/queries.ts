@@ -26,7 +26,8 @@ export const list = query({
     // Use withIndex to order by creation time descending
     let query = ctx.db
       .query("documents")
-      .withIndex("by_creationTime");
+      .withIndex("by_creationTime")
+      .order("desc");
 
     // Apply category filter if specified
     if (category) {
