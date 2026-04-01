@@ -107,7 +107,10 @@ async function parseRSSFeed(
  * for quality scoring. Falls back to RSS if JSON API fails.
  */
 async function fetchReddit(days: number): Promise<FetchResult> {
-  const subreddits = ["LocalLLaMA", "MachineLearning", "ClaudeAI", "artificial"];
+  const subreddits = [
+    "LocalLLaMA", "MachineLearning", "ClaudeAI", "artificial",
+    "ChatGPT", "devtools", "OpenAI", "CursorAI", "SideProject",
+  ];
   const findings: Finding[] = [];
 
   const cutoffDate = new Date();
@@ -274,6 +277,9 @@ async function fetchGitHub(days: number): Promise<FetchResult> {
       `topic:artificial-intelligence created:>${dateStr}`,
       `topic:llm created:>${dateStr}`,
       `topic:machine-learning created:>${dateStr}`,
+      `"AI coding" created:>${dateStr}`,
+      `"developer tool" AI created:>${dateStr}`,
+      `stars:>100 pushed:>${dateStr} topic:llm`,
     ];
 
     for (const query of queries) {
@@ -635,6 +641,98 @@ async function fetchTwitter(days: number): Promise<FetchResult> {
   return { source: "Twitter/X", findings: unique };
 }
 
+/**
+ * Fetch broader AI news via Exa web search (no domain restriction)
+ *
+ * Supplements the direct API fetches with neural web search to find
+ * things that Reddit/HN/GitHub APIs might miss.
+ */
+async function fetchWebSearch(days: number): Promise<FetchResult> {
+  const findings: Finding[] = [];
+
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - days);
+  const dateStr = cutoffDate.toISOString().split("T")[0];
+
+  const exaApiKey = process.env.EXA_API_KEY;
+  if (!exaApiKey) {
+    console.warn("[fetchWebSearch] No EXA_API_KEY set, skipping web search");
+    return { source: "Web Search", findings: [] };
+  }
+
+  const now = new Date();
+  const monthYear = now.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+
+  const queries = [
+    `AI developer tool release ${monthYear}`,
+    "new coding assistant AI agent",
+    "MCP server announcement Model Context Protocol",
+  ];
+
+  try {
+    for (const query of queries) {
+      try {
+        const response = await fetch("https://api.exa.ai/search", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": exaApiKey,
+          },
+          body: JSON.stringify({
+            query,
+            numResults: 10,
+            startPublishedDate: dateStr,
+            type: "neural",
+          }),
+        });
+
+        if (!response.ok) {
+          console.error(`[fetchWebSearch] Exa HTTP ${response.status} for query: ${query}`);
+          continue;
+        }
+
+        const data = await response.json();
+
+        for (const result of data.results ?? []) {
+          const publishedDate = result.publishedDate
+            ? new Date(result.publishedDate)
+            : undefined;
+
+          if (publishedDate && publishedDate < cutoffDate) continue;
+
+          const title = result.title
+            ? result.title.replace(/\s+/g, " ").trim()
+            : "";
+          if (!title || title.length < 10) continue;
+
+          findings.push({
+            title,
+            url: result.url,
+            source: "Web Search",
+            category: "discovery",
+            publishedAt: publishedDate?.toISOString(),
+            summary: result.text?.substring(0, 300),
+          });
+        }
+      } catch (error) {
+        console.error(`[fetchWebSearch] Error for query "${query}":`, error);
+      }
+    }
+  } catch (error) {
+    console.error("[fetchWebSearch] Error:", error);
+  }
+
+  // Deduplicate by URL
+  const seen = new Set<string>();
+  const unique = findings.filter((f) => {
+    if (seen.has(f.url)) return false;
+    seen.add(f.url);
+    return true;
+  });
+
+  return { source: "Web Search", findings: unique };
+}
+
 // ============================================================================
 // Report Synthesis
 // ============================================================================
@@ -726,6 +824,34 @@ function calculateCorroboration(findings: Finding[]): number {
   }
 
   return corroborated;
+}
+
+/**
+ * Populate crossSourceCorroboration on each finding.
+ * Mutates the findings array in place.
+ */
+function populatePerFindingCorroboration(findings: Finding[]): void {
+  const urlGroups = new Map<string, number>();
+
+  for (const finding of findings) {
+    try {
+      const url = new URL(finding.url);
+      const normalized = `${url.hostname}${url.pathname}`;
+      urlGroups.set(normalized, (urlGroups.get(normalized) || 0) + 1);
+    } catch {
+      urlGroups.set(finding.url, (urlGroups.get(finding.url) || 0) + 1);
+    }
+  }
+
+  for (const finding of findings) {
+    try {
+      const url = new URL(finding.url);
+      const normalized = `${url.hostname}${url.pathname}`;
+      finding.crossSourceCorroboration = urlGroups.get(normalized) ?? 1;
+    } catch {
+      finding.crossSourceCorroboration = urlGroups.get(finding.url) ?? 1;
+    }
+  }
 }
 
 /**
@@ -977,6 +1103,7 @@ export const generateDailyReport = internalAction({
       fetchBluesky(days, blueskyAccounts),
       fetchChangelog(days),
       fetchTwitter(days),
+      fetchWebSearch(days),
     ]);
 
     // Collect all findings
@@ -1007,6 +1134,9 @@ export const generateDailyReport = internalAction({
       categorizeFindings(cappedFindings);
 
     // Calculate extended metrics
+    // Populate per-finding corroboration so synthesis LLM can use it for boosting
+    populatePerFindingCorroboration(cappedFindings);
+
     const topEngagementVelocity = calculateTopEngagementVelocity(cappedFindings);
     const totalCorroborationCount = calculateCorroboration(cappedFindings);
     const sources = extractSources(cappedFindings);
@@ -1018,7 +1148,76 @@ export const generateDailyReport = internalAction({
       `[generateDailyReport] Extended metrics: topEngagementVelocity=${topEngagementVelocity}, totalCorroborationCount=${totalCorroborationCount}, sources=${sources.length}`
     );
 
-    // 5. Generate markdown report using two-pass LLM synthesis with static fallback
+    // 5. Content enrichment: fetch summaries for top findings lacking them
+    const findingsNeedingSummary = cappedFindings
+      .filter((f) => !f.summary || f.summary.length < 20)
+      .sort((a, b) => (b.qualityScore ?? 0) - (a.qualityScore ?? 0))
+      .slice(0, 15);
+
+    if (findingsNeedingSummary.length > 0) {
+      console.log(`[generateDailyReport] Enriching ${findingsNeedingSummary.length} findings with content summaries...`);
+      const enrichResults = await Promise.allSettled(
+        findingsNeedingSummary.map(async (finding) => {
+          try {
+            const response = await fetch(`https://r.jina.ai/${finding.url}`, {
+              headers: {
+                Accept: "text/plain",
+                "User-Agent": "Holocron-WhatsNew/1.0",
+              },
+              signal: AbortSignal.timeout(10000),
+            });
+            if (!response.ok) return null;
+            const text = await response.text();
+            return { url: finding.url, content: text.substring(0, 2000) };
+          } catch {
+            return null;
+          }
+        })
+      );
+
+      // Batch-summarize fetched content
+      const fetchedContent: Array<{ url: string; content: string }> = [];
+      for (const result of enrichResults) {
+        if (result.status === "fulfilled" && result.value) {
+          fetchedContent.push(result.value);
+        }
+      }
+
+      if (fetchedContent.length > 0) {
+        try {
+          const { generateText } = await import("ai");
+          const { zaiFlash } = await import("../lib/ai/zai_provider");
+
+          const batchPrompt = `For each article below, write a concise 1-2 sentence summary for an AI engineer. Return a JSON array of objects with "url" and "summary" fields.
+
+${fetchedContent.map((c, i) => `Article ${i + 1} (${c.url}):\n${c.content.substring(0, 500)}`).join("\n\n")}
+
+Respond with ONLY a JSON array: [{"url": "...", "summary": "..."}]`;
+
+          const summaryResult = await generateText({
+            model: zaiFlash(),
+            prompt: batchPrompt,
+          });
+
+          const jsonMatch = summaryResult.text.match(/\[[\s\S]*\]/);
+          if (jsonMatch) {
+            const summaries = JSON.parse(jsonMatch[0]) as Array<{ url: string; summary: string }>;
+            const summaryMap = new Map(summaries.map((s) => [s.url, s.summary]));
+            for (const finding of cappedFindings) {
+              const summary = summaryMap.get(finding.url);
+              if (summary) {
+                finding.summary = summary;
+              }
+            }
+            console.log(`[generateDailyReport] Enriched ${summaries.length} findings with summaries`);
+          }
+        } catch (err) {
+          console.warn("[generateDailyReport] Content enrichment summarization failed:", err);
+        }
+      }
+    }
+
+    // 6. Generate markdown report using two-pass LLM synthesis with static fallback
     const now = new Date();
     const periodEnd = now;
     const periodStart = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);

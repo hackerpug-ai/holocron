@@ -10,7 +10,7 @@
 "use node";
 
 import { generateText } from "ai";
-import { zaiPro, zaiFlash } from "../lib/ai/zai_provider";
+import { zaiPro } from "../lib/ai/zai_provider";
 
 // ============================================================================
 // Types
@@ -82,133 +82,119 @@ async function generateInitialSynthesis(
   const discussions = findings.filter((f) => f.category === "discussion");
   const trends = findings.filter((f) => f.category === "trend");
 
-  // Build top findings by score/engagement
-  const topFindings = [...findings]
-    .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
-    .slice(0, 20);
+  // Sort ALL findings by score — no slice, send everything to the LLM
+  const sortedFindings = [...findings]
+    .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
 
+  // Enrich the JSON with all available metadata for better synthesis
   const findingsJson = JSON.stringify(
-    topFindings.map((f) => ({
+    sortedFindings.map((f) => ({
       title: f.title,
       url: f.url,
       source: f.source,
       category: f.category,
       score: f.score,
       summary: f.summary,
+      crossSourceCorroboration: f.crossSourceCorroboration,
+      engagementVelocity: f.engagementVelocity,
+      qualityScore: f.qualityScore,
+      upvotes: f.upvotes,
+      commentCount: f.commentCount,
     })),
     null,
     2
   );
 
-  const prompt = `You are synthesizing a daily "What's New in AI Software Engineering" report.
+  const prompt = `You are a knowledgeable AI engineering peer writing a daily "What's New in AI Software Engineering" briefing for a senior AI engineer. Write with authority and editorial insight — not as a news aggregator, but as someone who understands why these developments matter.
 
 **Period:** ${formatDate(periodStart)} to ${formatDate(periodEnd)} (${days} days)
 **Total Findings:** ${findings.length} (${discoveries.length} discoveries, ${releases.length} releases, ${discussions.length} discussions, ${trends.length} trends)
 
-**Available Findings (top 20 by score):**
+**All Findings (sorted by score):**
 \`\`\`json
 ${findingsJson}
 \`\`\`
 
-**Task:** Create an initial synthesis markdown report that:
-1. Starts with a TL;DR section listing the top 5 most significant items
-2. Groups findings into logical sections: "Releases & Updates", "New Tools & Discoveries", "Community Pulse"
-3. For each item, include: title, URL, source, and brief context
-4. Identifies cross-cutting themes and connections between items
-5. Uses the exact format specified below
+**CROSS-SOURCE BOOSTING:** Items with \`crossSourceCorroboration >= 2\` appeared on multiple independent sources — these are the most significant stories and MUST appear in the TL;DR or Headline Releases sections.
 
-**Required Format:**
+**EDITORIAL VOICE:** For each item in TL;DR, don't just state what happened — explain WHY it matters to a working AI engineer. Example: "Claude Code source code leaked via .map file (March 31) — community is dissecting Anthropic's internal safety architecture, prompt injection defenses, and agent loop design."
+
+**Required Output Format (follow EXACTLY):**
+
 \`\`\`markdown
-# What's New in AI Software Engineering
+What's New: AI Software Engineering
 
-**Period:** YYYY-MM-DD to YYYY-MM-DD (X days)
-**Generated:** [ISO timestamp]
-**Findings:** X total
+  {Period label} | {total} findings | {discoveries} new discoveries | {releases} releases
 
----
+  ---
+  TL;DR — Top 5
 
-## TL;DR
+  1. {Title} ({date if known}) — {1-2 sentence editorial context explaining WHY this matters}
+  2. ...
 
-1. **[Title](URL)** — Brief context
-2. **[Title](URL)** — Brief context
-...
+  ---
+  Headline Releases
 
-## 📦 Releases & Updates
+  ┌───────────────────┬────────────────────────────────────────┐
+  │      Product      │              What Shipped              │
+  ├───────────────────┼────────────────────────────────────────┤
+  │ Product Name      │ Brief description of what shipped      │
+  ├───────────────────┼────────────────────────────────────────┤
+  │ ...               │ ...                                    │
+  └───────────────────┴────────────────────────────────────────┘
 
-### Major Releases
-- **[Title](URL)** — *Source* — Brief description
+  ---
+  New Tools
 
-### Library Updates
-- **[Title](URL)** — *Source* — Brief description
+  Tool: {url}
+  Stars: ⭐ {count}
+  What It Is: {1-line description}
+  ────────────────────────────────────────
+  Tool: {url}
+  ...
 
-## 🔬 New Tools & Discoveries
+  ---
+  Community Pulse
 
-### Trending Repositories
-| Repository | Stars |
-|------------|-------|
-| [Repo](URL) | ⭐ X |
+  {Editorial summary of what the community is buzzing about — Reddit hot topics, HN signal, Bluesky/Twitter notable posts. Write as prose, not a list. Reference specific subreddits and point counts.}
 
-### Notable Discoveries
-- **[Title](URL)** — *Source* — Brief description
+  ---
+  Trends
 
-## 💬 Community Pulse
+  1. {Trend name} — {2-3 sentence explanation with specific examples from findings}
+  2. ...
 
-### Reddit Discussions
-| Post | Subreddit |
-|------|-----------|
-| [Title](URL) | r/subreddit |
+  ---
+  Recommended Subscriptions
 
-### Social Media
-- **[Title](URL)** — *Source* — Brief description
+  {Suggest 3-5 new sources worth following based on discoveries in this report. Format as actionable commands:}
+  /subscribe add reddit r/{subreddit}
+  /subscribe add github {repo}
+  /subscribe add changelog {product}
 
-## 📈 Key Themes & Trends
-
-[Identify 3-5 key themes emerging from the findings, with brief explanations]
-
----
-
-**Sources:** Source1: X · Source2: Y · ...
-
-*Generated by Holocron's What's New system*
+  ---
+  ════════════════════════════════════════════
+  WHAT'S NEW COMPLETE
+  ════════════════════════════════════════════
+  Period: {date range}
+  Findings: {total} ({discovery_count} new discoveries)
+  Releases: {release_count}
+  ════════════════════════════════════════════
 \`\`\`
 
 **Guidelines:**
-- Be concise but informative
-- Prioritize impactful items over popularity scores
-- Highlight unexpected connections or insights
-- Use the exact section headers specified
-- Include all links in markdown [title](url) format
-
-**Additional Task:** For each tool/library/framework mentioned that users might want to save:
-1. Extract structured metadata: title, description, category, sourceUrl, sourceType, language, tags, useCases
-2. Return these as a JSON array using this exact format after the markdown:
-
-\`\`\`json
-[
-  {
-    "id": "tool-1",
-    "title": "Tool Name",
-    "description": "Brief description",
-    "category": "libraries",
-    "sourceUrl": "https://...",
-    "sourceType": "github",
-    "language": "typescript",
-    "tags": ["tag1", "tag2"],
-    "useCases": ["use case 1", "use case 2"]
-  }
-]
-\`\`\`
-
-3. Include an "Add to Toolbelt" link in the markdown using:
-   \`[📦 Add to Toolbelt](holocron://toolbelt/add?title={encoded_title}&description={encoded_description}&category={category}&sourceUrl={encoded_url}&sourceType={type}&language={lang}&tags={encoded_tags}&useCases={encoded_usecases})\`
-
-Category options: libraries, cli, framework, service, database, tool
-SourceType options: github, npm, pypi, website, cargo, go, other
-All parameter values must be URL-encoded.`;
+- For Headline Releases table: include 6-12 most significant product releases. Use ASCII box-drawing characters (┌─┬─┐ etc.) for the table.
+- For New Tools: include ALL GitHub repos and new tool discoveries with star counts. Format each as a block with Tool/Stars/What It Is.
+- For TL;DR: Pick the 5 most impactful items across ALL categories. Bias toward cross-source corroborated items.
+- For Trends: Identify 3-5 patterns that emerge across multiple findings. Be specific with examples.
+- For Community Pulse: Write editorial prose summarizing the mood and hot topics. Mention specific subreddits, point counts, and notable threads.
+- For Recommended Subscriptions: Only suggest sources that appeared in this report's findings.
+- Do NOT include markdown heading syntax (#). Use plain text headers as shown in the format.
+- Include all URLs inline where relevant.`;
 
   try {
     const result = await generateText({
-      model: zaiFlash(),
+      model: zaiPro(),
       prompt,
     });
 
@@ -254,34 +240,34 @@ async function refineSynthesis(
     .map(([source, count]) => `${source}: ${count}`)
     .join(" · ");
 
-  const prompt = `You are refining a daily "What's New in AI Software Engineering" report.
+  const prompt = `You are refining a daily "What's New in AI Software Engineering" report. Your job is editorial polish — improve the writing quality, strengthen the narrative, and ensure completeness.
 
 **Period:** ${formatDate(periodStart)} to ${formatDate(periodEnd)} (${days} days)
 **Total Findings:** ${findings.length}
+**Sources:** ${sourceBreakdown}
 
 **Initial Synthesis:**
-\`\`\`markdown
+\`\`\`
 ${initialSynthesis}
 \`\`\`
 
-**Task:** Refine the synthesis to:
-1. Improve clarity, flow, and readability
-2. Strengthen connections between related items
-3. Add brief insightful commentary on key trends
-4. Ensure all sections are well-organized and complete
-5. Fix any formatting issues
-6. Update the sources line to: **Sources:** ${sourceBreakdown}
+**Refinement Tasks:**
+1. **Editorial voice**: Ensure the TL;DR items explain WHY each development matters, not just WHAT happened. Write as a knowledgeable peer.
+2. **Headline Releases table**: Ensure the ASCII box-drawing table (┌─┬─┐ etc.) is properly formatted and aligned. Include 6-12 entries.
+3. **New Tools section**: Every tool should have URL, star count (if GitHub), and a clear 1-line description.
+4. **Community Pulse**: Should read as editorial prose, not a bullet list. Reference specific subreddits, point counts, notable threads.
+5. **Trends**: Each trend should have 2-3 sentences with specific examples from the findings. Identify cross-cutting patterns.
+6. **Recommended Subscriptions**: Must be present. Suggest 3-5 actionable /subscribe commands for sources found in this report.
+7. **Completeness**: Ensure the footer banner with "WHAT'S NEW COMPLETE" and stats is present.
+8. **Formatting**: Fix any broken ASCII tables. Remove any markdown heading syntax (#) — use plain text headers only.
 
 **Guidelines:**
-- Keep the same structure and section headers
-- Maintain factual accuracy (don't invent details)
-- Enhance writing quality with better transitions
-- Add 1-2 sentences of insight for major themes
-- Preserve all links and metadata
-- Preserve any "Add to Toolbelt" links in the format: [📦 Add to Toolbelt](holocron://toolbelt/add?...)
-- End with the exact footer: "*Generated by Holocron's What's New system*"
+- Maintain factual accuracy — never invent details, URLs, or star counts
+- Preserve all links and URLs exactly as they appear
+- Keep the same section structure — do not add or remove sections
+- The report should feel like a curated briefing from someone who reads everything so you don't have to
 
-**Return the complete refined markdown report.**`;
+**Return the complete refined report.**`;
 
   try {
     const result = await generateText({
@@ -508,21 +494,6 @@ export async function synthesizeReport(
     const pass1Duration = Date.now() - pass1Start;
     console.log(`[synthesizeReport] Pass 1 complete (${pass1Duration}ms)`);
 
-    // Parse tool suggestions from Pass 1 output
-    let toolSuggestions: ToolSuggestion[] | undefined;
-    const jsonMatch = initialSynthesis.match(/```json\n([\s\S]*?)\n```/);
-    if (jsonMatch) {
-      try {
-        const parsed = JSON.parse(jsonMatch[1]);
-        if (Array.isArray(parsed)) {
-          toolSuggestions = parsed;
-          console.log(`[synthesizeReport] Found ${toolSuggestions.length} tool suggestions`);
-        }
-      } catch (e) {
-        console.log("[synthesizeReport] Failed to parse tool suggestions JSON:", e);
-      }
-    }
-
     console.log("[synthesizeReport] Pass 2: Refinement...");
     const pass2Start = Date.now();
     const refinedSynthesis = await refineSynthesis(
@@ -543,7 +514,6 @@ export async function synthesizeReport(
       markdown: refinedSynthesis,
       method: "llm-two-pass",
       pass1Content: initialSynthesis,
-      toolSuggestions,
     };
   } catch (error) {
     console.error("[synthesizeReport] LLM synthesis failed, using static fallback:", error);
