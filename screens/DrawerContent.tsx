@@ -3,7 +3,7 @@ import { ConversationActionMenu } from '@/components/ConversationActionMenu'
 import { DrawerHeader, type NavSection } from '@/components/DrawerHeader'
 import { Text } from '@/components/ui/text'
 import { cn } from '@/lib/utils'
-import { BookOpen, Bell, Lightbulb, Settings, Wrench } from '@/components/ui/icons'
+import { BookOpen, Lightbulb, Newspaper, Settings, Wrench } from '@/components/ui/icons'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { FlatList, Pressable, View, type ViewProps } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -135,7 +135,7 @@ export function DrawerContent({
 
   const sections: NavSection[] = [
     { id: 'articles', label: 'Articles', icon: <BookOpen size={20} className="text-foreground" />, onPress: onArticlesPress },
-    { id: 'subscriptions', label: 'Subscriptions', icon: <Bell size={20} className="text-foreground" />, onPress: onSubscriptionsPress },
+    { id: 'subscriptions', label: "What's New", icon: <Newspaper size={20} className="text-foreground" />, onPress: onSubscriptionsPress },
     { id: 'toolbelt', label: 'Toolbelt', icon: <Wrench size={20} className="text-foreground" />, onPress: onToolbeltPress },
     { id: 'improvements', label: 'Improvements', icon: <Lightbulb size={20} className="text-foreground" />, onPress: onImprovementsPress },
     { id: 'settings', label: 'Settings', icon: <Settings size={20} className="text-foreground" />, onPress: onSettingsPress },

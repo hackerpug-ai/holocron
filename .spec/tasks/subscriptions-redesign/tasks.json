@@ -1,0 +1,1219 @@
+[
+  {
+    "id": "fr-1-1",
+    "title": "Drawer Navigation Update - Rename Subscriptions to What's New",
+    "specification": {
+      "objective": "Update drawer navigation to rename 'Subscriptions' to 'What's New' and configure route redirects for backward compatibility",
+      "success_state": "Drawer shows 'What's New' label, navigating to /subscriptions redirects to /whats-new, deep links continue to work"
+    },
+    "acceptance_criteria": [
+      {
+        "given": "User opens the app drawer",
+        "when": "User views the navigation sections",
+        "then": "Subscriptions label is renamed to 'What's New'",
+        "verify": "pnpm test -- subscriptions-redesign-e2e"
+      },
+      {
+        "given": "User navigates to /subscriptions",
+        "when": "Route is accessed",
+        "then": "User is redirected to /whats-new",
+        "verify": "curl -I http://localhost:8081/subscriptions"
+      },
+      {
+        "given": "User navigates to /subscriptions/feed",
+        "when": "Route is accessed",
+        "then": "User is redirected to /whats-new",
+        "verify": "curl -I http://localhost:8081/subscriptions/feed"
+      },
+      {
+        "given": "Existing deep links point to /subscriptions",
+        "when": "Deep link is opened",
+        "then": "User is redirected to /whats-new seamlessly",
+        "verify": "Test deep link from notification"
+      },
+      {
+        "given": "Drawer screen configuration",
+        "when": "Screen is registered",
+        "then": "Title is set to 'What's New' for accessibility",
+        "verify": "pnpm test -- accessibility-scan"
+      }
+    ],
+    "constraints": {
+      "MUST": [
+        "Maintain backward compatibility with existing deep links",
+        "Use Expo Router redirects for navigation changes",
+        "Preserve existing drawer navigation structure"
+      ],
+      "NEVER": [
+        "Break existing notification deep links",
+        "Change drawer navigation behavior patterns",
+        "Remove subscription management functionality"
+      ]
+    },
+    "design": {
+      "mock_paths": [],
+      "ui_references": [
+        "app/(drawer)/_layout.tsx - Drawer screen configuration",
+        "screens/DrawerContent.tsx - Navigation sections array"
+      ],
+      "interaction_notes": "Renaming is label-only, subscription management moves to settings in separate task",
+      "pattern_from_codebase": "Follow existing drawer section pattern in DrawerContent.tsx sections array"
+    },
+    "verification": {
+      "gates": [
+        "pnpm tsc --noEmit",
+        "vitest run --reporter=verbose",
+        "pnpm test -- subscriptions-redesign-e2e"
+      ],
+      "manual_checks": [
+        "Open drawer and verify 'What's New' label appears",
+        "Test /subscriptions redirect in browser",
+        "Test notification deep link opens correctly"
+      ]
+    },
+    "guardrails": {
+      "WRITE_ALLOWED": [
+        "app/(drawer)/_layout.tsx",
+        "screens/DrawerContent.tsx",
+        "app/(drawer)/whats-new.tsx (create new route)"
+      ]
+    },
+    "agent_assignment": "react-native-implement",
+    "estimate_minutes": 240,
+    "dependencies": [],
+    "coding_standards": [
+      "brain/docs/REACT-RULES.md",
+      "brain/docs/vite-rules/README.md"
+    ]
+  },
+  {
+    "id": "fr-1-2",
+    "title": "Settings Screen - Add Subscriptions Management Section",
+    "specification": {
+      "objective": "Add 'Subscriptions' section to Settings screen for subscription management access",
+      "success_state": "Settings screen shows Subscriptions section after Voice Language, tapping navigates to subscription management"
+    },
+    "acceptance_criteria": [
+      {
+        "given": "User opens Settings screen",
+        "when": "User scrolls to Subscriptions section",
+        "then": "Section appears with icon, label, and navigation chevron",
+        "verify": "pnpm test -- settings-screen-test"
+      },
+      {
+        "given": "User taps Subscriptions section",
+        "when": "Press event fires",
+        "then": "User navigates to subscription management screen",
+        "verify": "Test navigation with testID 'settings-subscriptions-section'"
+      },
+      {
+        "given": "Settings screen sections",
+        "when": "Sections are rendered",
+        "then": "Subscriptions appears after Voice Language",
+        "verify": "Visual inspection of Settings screen"
+      },
+      {
+        "given": "Subscriptions section",
+        "when": "User views the section",
+        "then": "Section matches existing Settings UI patterns",
+        "verify": "Compare with Voice Language section styling"
+      },
+      {
+        "given": "Accessibility scan",
+        "when": "Screen reader is active",
+        "then": "Subscriptions section is properly labeled",
+        "verify": "pnpm test -- accessibility-scan"
+      }
+    ],
+    "constraints": {
+      "MUST": [
+        "Match existing Settings section UI patterns",
+        "Use semantic tokens for styling",
+        "Support navigation to existing SubscriptionsScreen component"
+      ],
+      "NEVER": [
+        "Duplicate existing subscription management logic",
+        "Break existing Settings screen functionality",
+        "Add new dependencies"
+      ]
+    },
+    "design": {
+      "mock_paths": [],
+      "ui_references": [
+        "screens/settings-screen.tsx - Existing Settings screen structure",
+        "screens/subscriptions-screen.tsx - Reuse existing component"
+      ],
+      "interaction_notes": "Follow Voice Language section pattern for consistency",
+      "pattern_from_codebase": "Copy Voice Language section structure, update labels and navigation"
+    },
+    "verification": {
+      "gates": [
+        "pnpm tsc --noEmit",
+        "vitest run --reporter=verbose"
+      ],
+      "manual_checks": [
+        "Open Settings and verify Subscriptions section appears",
+        "Tap section and verify navigation to subscription management",
+        "Verify section styling matches other sections"
+      ]
+    },
+    "guardrails": {
+      "WRITE_ALLOWED": [
+        "screens/settings-screen.tsx"
+      ]
+    },
+    "agent_assignment": "react-native-implement",
+    "estimate_minutes": 120,
+    "dependencies": ["fr-1-1"],
+    "coding_standards": [
+      "brain/docs/REACT-RULES.md",
+      "brain/docs/THEME-RULES.md"
+    ]
+  },
+  {
+    "id": "fr-1-3",
+    "title": "Navigation Change Tooltip - One-time Onboarding",
+    "specification": {
+      "objective": "Create and integrate NavigationChangeTooltip component to explain the navigation change on first visit",
+      "success_state": "Tooltip shows once on first What's New visit, displays message, 'Got it' dismisses permanently"
+    },
+    "acceptance_criteria": [
+      {
+        "given": "User opens What's New for first time after update",
+        "when": "Screen loads",
+        "then": "Tooltip appears with explanation message",
+        "verify": "pnpm test -- navigation-tooltip-test"
+      },
+      {
+        "given": "User taps 'Got it' button",
+        "when": "Press event fires",
+        "then": "Tooltip is dismissed and stored in user preferences",
+        "verify": "Check Convex userPreferences table for navigationChangeTooltipShown=true"
+      },
+      {
+        "given": "User returns to What's New after dismissing",
+        "when": "Screen loads again",
+        "then": "Tooltip does not appear",
+        "verify": "Test subsequent visits show no tooltip"
+      },
+      {
+        "given": "Tooltip component",
+        "when": "Rendered",
+        "then": "Uses semantic tokens and matches app design",
+        "verify": "Visual inspection matches design specs"
+      },
+      {
+        "given": "Accessibility scan",
+        "when": "Screen reader is active",
+        "then": "Tooltip and button are properly labeled",
+        "verify": "pnpm test -- accessibility-scan"
+      }
+    ],
+    "constraints": {
+      "MUST": [
+        "Store dismissal state in Convex userPreferences table",
+        "Show only once per user",
+        "Use semantic tokens for all styling",
+        "Support testID for testing"
+      ],
+      "NEVER": [
+        "Show tooltip on every visit",
+        "Use local storage for state (must persist)",
+        "Break existing What's New screen layout"
+      ]
+    },
+    "design": {
+      "mock_paths": [],
+      "ui_references": [
+        "components/ui/tooltip.tsx - Base tooltip component",
+        "components/ui/popover.tsx - Popover for positioning"
+      ],
+      "interaction_notes": "Modal-style overlay with 'Got it' button, positioned near top of screen",
+      "pattern_from_codebase": "Follow existing modal/bottom sheet patterns in codebase"
+    },
+    "verification": {
+      "gates": [
+        "pnpm tsc --noEmit",
+        "vitest run --reporter=verbose"
+      ],
+      "manual_checks": [
+        "Clear user preferences and verify tooltip appears",
+        "Dismiss and verify tooltip doesn't reappear",
+        "Verify tooltip styling matches design"
+      ]
+    },
+    "guardrails": {
+      "WRITE_ALLOWED": [
+        "components/subscriptions/NavigationChangeTooltip.tsx",
+        "app/(drawer)/whats-new.tsx",
+        "convex/userPreferences/* (add queries/mutations if needed)"
+      ]
+    },
+    "agent_assignment": "react-native-implement",
+    "estimate_minutes": 180,
+    "dependencies": ["fr-1-1"],
+    "coding_standards": [
+      "brain/docs/REACT-RULES.md",
+      "brain/docs/THEME-RULES.md"
+    ]
+  },
+  {
+    "id": "fr-2-5",
+    "title": "FeedCard Router Component",
+    "specification": {
+      "objective": "Create FeedCard router component that routes to appropriate card variant based on content type",
+      "success_state": "FeedCard accepts Finding prop and renders correct card variant with fallbacks"
+    },
+    "acceptance_criteria": [
+      {
+        "given": "FeedCard receives video content type",
+        "when": "Component renders",
+        "then": "VideoCard is displayed with thumbnail and duration",
+        "verify": "pnpm test -- feedcard-router-test"
+      },
+      {
+        "given": "FeedCard receives article content type",
+        "when": "Component renders",
+        "then": "ArticleCard is displayed with hero image and summary",
+        "verify": "Test article variant rendering"
+      },
+      {
+        "given": "FeedCard receives social content type",
+        "when": "Component renders",
+        "then": "SocialCard is displayed with author avatar",
+        "verify": "Test social variant rendering"
+      },
+      {
+        "given": "FeedCard receives release content type",
+        "when": "Component renders",
+        "then": "ReleaseCard is displayed with version badge",
+        "verify": "Test release variant rendering"
+      },
+      {
+        "given": "FeedCard receives content with missing data",
+        "when": "Component renders",
+        "then": "Appropriate fallback UI is shown",
+        "verify": "Test fallback rendering with incomplete data"
+      }
+    ],
+    "constraints": {
+      "MUST": [
+        "Accept Finding interface matching whatsNew findings structure",
+        "Route to correct variant based on content category",
+        "Provide loading skeleton state",
+        "Support testID for testing"
+      ],
+      "NEVER": [
+        "Hardcode content type detection logic",
+        "Duplicate card rendering logic",
+        "Break existing WhatsNewFindingCard functionality"
+      ]
+    },
+    "design": {
+      "mock_paths": [],
+      "ui_references": [
+        "components/whats-new/WhatsNewFindingCard.tsx - Existing card pattern",
+        "components/subscriptions/FeedItemSkeleton.tsx - Loading skeleton"
+      ],
+      "interaction_notes": "Switch statement for routing, pass through all props to variant",
+      "pattern_from_codebase": "Follow WhatsNewFindingCard props interface pattern"
+    },
+    "verification": {
+      "gates": [
+        "pnpm tsc --noEmit",
+        "vitest run --reporter=verbose"
+      ],
+      "manual_checks": [
+        "View Storybook stories for all variants",
+        "Test with real data from whatsNew findings",
+        "Verify fallback behavior"
+      ]
+    },
+    "guardrails": {
+      "WRITE_ALLOWED": [
+        "components/subscriptions/FeedCard.tsx",
+        "components/subscriptions/FeedCard.stories.tsx"
+      ]
+    },
+    "agent_assignment": "react-native-implement",
+    "estimate_minutes": 240,
+    "dependencies": [],
+    "coding_standards": [
+      "brain/docs/REACT-RULES.md",
+      "brain/docs/THEME-RULES.md"
+    ]
+  },
+  {
+    "id": "fr-2-1",
+    "title": "VideoCard Component",
+    "specification": {
+      "objective": "Create VideoCard component for video content with thumbnail, duration badge, and play icon",
+      "success_state": "VideoCard displays 16:9 thumbnail with overlay elements, falls back to text-only"
+    },
+    "acceptance_criteria": [
+      {
+        "given": "VideoCard has thumbnailUrl",
+        "when": "Component renders",
+        "then": "16:9 thumbnail image is displayed",
+        "verify": "Test thumbnail rendering with sample URL"
+      },
+      {
+        "given": "VideoCard has duration",
+        "when": "Component renders",
+        "then": "Duration badge appears in bottom-right corner",
+        "verify": "Test duration formatting (e.g., '12:34')"
+      },
+      {
+        "given": "VideoCard is rendered",
+        "when": "User views the card",
+        "then": "Play icon is centered on thumbnail",
+        "verify": "Visual inspection of play icon positioning"
+      },
+      {
+        "given": "VideoCard has no thumbnailUrl",
+        "when": "Component renders",
+        "then": "Text-only fallback is shown with title and source",
+        "verify": "Test fallback rendering"
+      },
+      {
+        "given": "User taps the card",
+        "when": "onPress callback fires",
+        "then": "Navigation to video URL occurs",
+        "verify": "Test onPress callback"
+      }
+    ],
+    "constraints": {
+      "MUST": [
+        "Use semantic tokens for all colors and spacing",
+        "Support testID for testing",
+        "Handle image load failures gracefully",
+        "Match existing card styling patterns"
+      ],
+      "NEVER": [
+        "Hardcode colors or spacing values",
+        "Use react-native Image (use FastImage or similar)",
+        "Break thumbnail aspect ratio"
+      ]
+    },
+    "design": {
+      "mock_paths": [
+        "components/subscriptions/VideoCard.stories.tsx"
+      ],
+      "ui_references": [
+        "components/ArticleCard.tsx - Existing card pattern",
+        "components/ui/skeleton.tsx - Loading skeleton"
+      ],
+      "interaction_notes": "Pressable entire card, duration badge bottom-right, play icon centered",
+      "pattern_from_codebase": "Follow ArticleCard structure and styling patterns"
+    },
+    "verification": {
+      "gates": [
+        "pnpm tsc --noEmit",
+        "vitest run --reporter=verbose"
+      ],
+      "manual_checks": [
+        "View Storybook stories",
+        "Test with and without thumbnail",
+        "Verify press interaction"
+      ]
+    },
+    "guardrails": {
+      "WRITE_ALLOWED": [
+        "components/subscriptions/VideoCard.tsx",
+        "components/subscriptions/VideoCard.stories.tsx"
+      ]
+    },
+    "agent_assignment": "react-native-implement",
+    "estimate_minutes": 480,
+    "dependencies": [],
+    "coding_standards": [
+      "brain/docs/REACT-RULES.md",
+      "brain/docs/THEME-RULES.md"
+    ]
+  },
+  {
+    "id": "fr-2-2",
+    "title": "ArticleCard Component",
+    "specification": {
+      "objective": "Create ArticleCard component for article/blog content with hero image and summary",
+      "success_state": "ArticleCard displays hero image (4:3), title, summary, source badge, and read time"
+    },
+    "acceptance_criteria": [
+      {
+        "given": "ArticleCard has heroImageUrl",
+        "when": "Component renders",
+        "then": "Hero image is displayed at 4:3 or 16:9 aspect ratio",
+        "verify": "Test hero image rendering"
+      },
+      {
+        "given": "ArticleCard has summary",
+        "when": "Component renders",
+        "then": "Summary is displayed below title, truncated to 2-3 lines",
+        "verify": "Test summary truncation"
+      },
+      {
+        "given": "ArticleCard has readTime",
+        "when": "Component renders",
+        "then": "Read time badge is shown (e.g., '5 min read')",
+        "verify": "Test read time display"
+      },
+      {
+        "given": "ArticleCard has no heroImageUrl",
+        "when": "Component renders",
+        "then": "Text-only fallback is shown",
+        "verify": "Test fallback rendering"
+      },
+      {
+        "given": "User taps the card",
+        "when": "onPress callback fires",
+        "then": "Navigation to article URL occurs",
+        "verify": "Test onPress callback"
+      }
+    ],
+    "constraints": {
+      "MUST": [
+        "Use semantic tokens for all styling",
+        "Support testID for testing",
+        "Handle image load failures gracefully",
+        "Truncate summary to 2-3 lines with ellipsis"
+      ],
+      "NEVER": [
+        "Hardcode colors or spacing",
+        "Show more than 3 lines of summary",
+        "Break image aspect ratio"
+      ]
+    },
+    "design": {
+      "mock_paths": [
+        "components/subscriptions/ArticleCard.stories.tsx"
+      ],
+      "ui_references": [
+        "components/ArticleCard.tsx - Existing article card pattern",
+        "components/ui/skeleton.tsx - Loading skeleton"
+      ],
+      "interaction_notes": "Pressable entire card, image top, content below",
+      "pattern_from_codebase": "Follow existing ArticleCard component pattern"
+    },
+    "verification": {
+      "gates": [
+        "pnpm tsc --noEmit",
+        "vitest run --reporter=verbose"
+      ],
+      "manual_checks": [
+        "View Storybook stories",
+        "Test with and without hero image",
+        "Verify summary truncation"
+      ]
+    },
+    "guardrails": {
+      "WRITE_ALLOWED": [
+        "components/subscriptions/ArticleCard.tsx",
+        "components/subscriptions/ArticleCard.stories.tsx"
+      ]
+    },
+    "agent_assignment": "react-native-implement",
+    "estimate_minutes": 480,
+    "dependencies": [],
+    "coding_standards": [
+      "brain/docs/REACT-RULES.md",
+      "brain/docs/THEME-RULES.md"
+    ]
+  },
+  {
+    "id": "fr-2-3",
+    "title": "SocialCard Component",
+    "specification": {
+      "objective": "Create SocialCard component for social media posts with author avatar and engagement metrics",
+      "success_state": "SocialCard displays circular avatar, author info, content preview, and engagement metrics"
+    },
+    "acceptance_criteria": [
+      {
+        "given": "SocialCard has authorAvatarUrl",
+        "when": "Component renders",
+        "then": "Circular 40x40 avatar is displayed",
+        "verify": "Test avatar rendering"
+      },
+      {
+        "given": "SocialCard has authorName and authorHandle",
+        "when": "Component renders",
+        "then": "Author info is displayed below avatar",
+        "verify": "Test author info display"
+      },
+      {
+        "given": "SocialCard has contentPreview",
+        "when": "Component renders",
+        "then": "Content is truncated to 2-3 lines",
+        "verify": "Test content truncation"
+      },
+      {
+        "given": "SocialCard has likes and comments",
+        "when": "Component renders",
+        "then": "Engagement metrics are shown",
+        "verify": "Test engagement metrics display"
+      },
+      {
+        "given": "SocialCard has no avatar",
+        "when": "Component renders",
+        "then": "Initials fallback is shown",
+        "verify": "Test fallback rendering"
+      }
+    ],
+    "constraints": {
+      "MUST": [
+        "Use semantic tokens for all styling",
+        "Support testID for testing",
+        "Handle missing avatar gracefully",
+        "Show source badge (Twitter/X, Bluesky, etc.)"
+      ],
+      "NEVER": [
+        "Hardcode avatar size (use theme tokens)",
+        "Show more than 3 lines of content",
+        "Break circular avatar aspect ratio"
+      ]
+    },
+    "design": {
+      "mock_paths": [
+        "components/subscriptions/SocialCard.stories.tsx"
+      ],
+      "ui_references": [
+        "components/ui/avatar.tsx - Avatar component",
+        "components/subscriptions/FeedItemSkeleton.tsx - Social skeleton pattern"
+      ],
+      "interaction_notes": "Avatar top-left, content below, metrics at bottom",
+      "pattern_from_codebase": "Follow FeedItemSkeleton social variant layout"
+    },
+    "verification": {
+      "gates": [
+        "pnpm tsc --noEmit",
+        "vitest run --reporter=verbose"
+      ],
+      "manual_checks": [
+        "View Storybook stories",
+        "Test with and without avatar",
+        "Verify engagement metrics display"
+      ]
+    },
+    "guardrails": {
+      "WRITE_ALLOWED": [
+        "components/subscriptions/SocialCard.tsx",
+        "components/subscriptions/SocialCard.stories.tsx"
+      ]
+    },
+    "agent_assignment": "react-native-implement",
+    "estimate_minutes": 360,
+    "dependencies": [],
+    "coding_standards": [
+      "brain/docs/REACT-RULES.md",
+      "brain/docs/THEME-RULES.md"
+    ]
+  },
+  {
+    "id": "fr-2-4",
+    "title": "ReleaseCard Component",
+    "specification": {
+      "objective": "Create ReleaseCard component for releases/changelogs with version badge and summary",
+      "success_state": "ReleaseCard displays version pill badge, title, summary, and 'View changelog' button"
+    },
+    "acceptance_criteria": [
+      {
+        "given": "ReleaseCard has version",
+        "when": "Component renders",
+        "then": "Pill badge with version is displayed (e.g., 'v2.1.0')",
+        "verify": "Test version badge rendering"
+      },
+      {
+        "given": "ReleaseCard has summary",
+        "when": "Component renders",
+        "then": "Summary is displayed below title, 2-3 lines",
+        "verify": "Test summary display"
+      },
+      {
+        "given": "ReleaseCard has repositoryName",
+        "when": "Component renders",
+        "then": "Repository name is shown with source",
+        "verify": "Test repository display"
+      },
+      {
+        "given": "User taps 'View changelog' button",
+        "when": "onPress callback fires",
+        "then": "Navigation to changelog URL occurs",
+        "verify": "Test button press"
+      },
+      {
+        "given": "ReleaseCard has no summary",
+        "when": "Component renders",
+        "then": "Card displays with title and version only",
+        "verify": "Test minimal state"
+      }
+    ],
+    "constraints": {
+      "MUST": [
+        "Use semantic tokens for all styling",
+        "Support testID for testing",
+        "Show version as pill badge",
+        "Include 'View changelog' button"
+      ],
+      "NEVER": [
+        "Hardcode badge styling",
+        "Show more than 3 lines of summary",
+        "Hide version information"
+      ]
+    },
+    "design": {
+      "mock_paths": [
+        "components/subscriptions/ReleaseCard.stories.tsx"
+      ],
+      "ui_references": [
+        "components/ui/badge.tsx - Badge component",
+        "components/ui/button.tsx - Button component"
+      ],
+      "interaction_notes": "Version badge top-left, button bottom-right",
+      "pattern_from_codebase": "Follow WhatsNewFindingCard category badge pattern"
+    },
+    "verification": {
+      "gates": [
+        "pnpm tsc --noEmit",
+        "vitest run --reporter=verbose"
+      ],
+      "manual_checks": [
+        "View Storybook stories",
+        "Test button interaction",
+        "Verify version badge styling"
+      ]
+    },
+    "guardrails": {
+      "WRITE_ALLOWED": [
+        "components/subscriptions/ReleaseCard.tsx",
+        "components/subscriptions/ReleaseCard.stories.tsx"
+      ]
+    },
+    "agent_assignment": "react-native-implement",
+    "estimate_minutes": 360,
+    "dependencies": [],
+    "coding_standards": [
+      "brain/docs/REACT-RULES.md",
+      "brain/docs/THEME-RULES.md"
+    ]
+  },
+  {
+    "id": "fr-3-1",
+    "title": "Summary Generation Pipeline - Backend",
+    "specification": {
+      "objective": "Add AI summary generation to whatsNew report creation pipeline",
+      "success_state": "Each finding gets a 2-3 sentence summary (80-150 chars) stored in findingsJson"
+    },
+    "acceptance_criteria": [
+      {
+        "given": "whatsNew report generation runs",
+        "when": "Findings are fetched",
+        "then": "Each finding is summarized with LLM",
+        "verify": "Check Convex dashboard for findings with summary field"
+      },
+      {
+        "given": "Summary generation succeeds",
+        "when": "Summary is generated",
+        "then": "Summary is 80-150 characters, 2-3 sentences",
+        "verify": "Query findingsJson and check summary length"
+      },
+      {
+        "given": "Summary generation fails",
+        "when": "LLM call fails",
+        "then": "Finding is still included without summary",
+        "verify": "Test failure handling in report generation"
+      },
+      {
+        "given": "Summary is generated",
+        "when": "Content is analyzed",
+        "then": "Summary captures technical insight for AI engineers",
+        "verify": "Manual review of generated summaries"
+      },
+      {
+        "given": "Report is complete",
+        "when": "findingsJson is stored",
+        "then": "Summary field is populated for each finding",
+        "verify": "Parse findingsJson and verify summary field"
+      }
+    ],
+    "constraints": {
+      "MUST": [
+        "Use GPT-4o-mini for cost-effective generation",
+        "Store summary in findingsJson field",
+        "Handle failures gracefully (no summary = title only)",
+        "Limit to 150 characters max"
+      ],
+      "NEVER": [
+        "Block report generation if summary fails",
+        "Generate summaries longer than 150 chars",
+        "Store summaries in separate table"
+      ]
+    },
+    "design": {
+      "mock_paths": [],
+      "ui_references": [
+        "convex/whatsNew/actions.ts - Report generation action",
+        "convex/whatsNew/llm.ts - LLM synthesis functions"
+      ],
+      "interaction_notes": "Add summary generation step after fetching findings, before synthesis",
+      "pattern_from_codebase": "Follow existing scoreFindingsQuality pattern for batch processing"
+    },
+    "verification": {
+      "gates": [
+        "pnpm tsc --noEmit",
+        "vitest run --reporter=verbose"
+      ],
+      "manual_checks": [
+        "Trigger report generation and check summaries",
+        "Verify summary quality and length",
+        "Test failure handling"
+      ]
+    },
+    "guardrails": {
+      "WRITE_ALLOWED": [
+        "convex/whatsNew/actions.ts",
+        "convex/whatsNew/llm.ts"
+      ]
+    },
+    "agent_assignment": "convex-backend",
+    "estimate_minutes": 480,
+    "dependencies": [],
+    "coding_standards": [
+      "CLAUDE.md"
+    ]
+  },
+  {
+    "id": "fr-4-1",
+    "title": "Feedback Buttons Component",
+    "specification": {
+      "objective": "Create FeedbackButtons component with thumbs up/down buttons for card feedback",
+      "success_state": "FeedbackButtons shows thumbs up/down, handles toggle, provides visual feedback"
+    },
+    "acceptance_criteria": [
+      {
+        "given": "FeedbackButtons is rendered",
+        "when": "Component mounts",
+        "then": "Thumbs up and thumbs down buttons are shown",
+        "verify": "pnpm test -- feedback-buttons-test"
+      },
+      {
+        "given": "User taps thumbs up",
+        "when": "Button is pressed",
+        "then": "Button shows filled state, thumbs down shows outline",
+        "verify": "Test positive feedback toggle"
+      },
+      {
+        "given": "User taps same button again",
+        "when": "Button is pressed",
+        "then": "Feedback is undone (both buttons outline)",
+        "verify": "Test undo behavior"
+      },
+      {
+        "given": "User taps thumbs down",
+        "when": "After thumbs up was selected",
+        "then": "Thumbs down fills, thumbs up outline",
+        "verify": "Test switching feedback"
+      },
+      {
+        "given": "Accessibility scan",
+        "when": "Screen reader is active",
+        "then": "Buttons are labeled 'More like this' and 'Less like this'",
+        "verify": "pnpm test -- accessibility-scan"
+      }
+    ],
+    "constraints": {
+      "MUST": [
+        "Use semantic tokens for all styling",
+        "Support testID for testing",
+        "Provide accessibility labels",
+        "Minimum hitbox size 44x44"
+      ],
+      "NEVER": [
+        "Hardcode colors or sizes",
+        "Show both buttons filled simultaneously",
+        "Break hitbox size requirement"
+      ]
+    },
+    "design": {
+      "mock_paths": [
+        "components/subscriptions/FeedbackButtons.stories.tsx"
+      ],
+      "ui_references": [
+        "components/ui/button.tsx - Button component",
+        "components/ui/icons.tsx - Thumbs up/down icons"
+      ],
+      "interaction_notes": "Minimal placement (top-right or bottom-right), toggle behavior",
+      "pattern_from_codebase": "Follow existing button and icon patterns"
+    },
+    "verification": {
+      "gates": [
+        "pnpm tsc --noEmit",
+        "vitest run --reporter=verbose"
+      ],
+      "manual_checks": [
+        "View Storybook stories",
+        "Test toggle behavior",
+        "Verify accessibility labels"
+      ]
+    },
+    "guardrails": {
+      "WRITE_ALLOWED": [
+        "components/subscriptions/FeedbackButtons.tsx",
+        "components/subscriptions/FeedbackButtons.stories.tsx"
+      ]
+    },
+    "agent_assignment": "react-native-implement",
+    "estimate_minutes": 240,
+    "dependencies": [],
+    "coding_standards": [
+      "brain/docs/REACT-RULES.md",
+      "brain/docs/THEME-RULES.md"
+    ]
+  },
+  {
+    "id": "fr-4-2",
+    "title": "Feedback Data Storage - Backend Schema",
+    "specification": {
+      "objective": "Add userFeedback table to Convex schema and create queries/mutations for feedback storage",
+      "success_state": "userFeedback table exists with indexes, feedback can be recorded and queried"
+    },
+    "acceptance_criteria": [
+      {
+        "given": "Convex schema is updated",
+        "when": "Migration runs",
+        "then": "userFeedback table is created with proper indexes",
+        "verify": "npx convex dev --check"
+      },
+      {
+        "given": "User submits feedback",
+        "when": "api.feedback.mutations.record is called",
+        "then": "Feedback is stored in userFeedback table",
+        "verify": "Query userFeedback table after mutation"
+      },
+      {
+        "given": "User wants to undo feedback",
+        "when": "api.feedback.mutations.undo is called",
+        "then": "Feedback is removed from table",
+        "verify": "Query userFeedback table after undo"
+      },
+      {
+        "given": "User views feedback history",
+        "when": "api.feedback.queries.getHistory is called",
+        "then": "User's feedback is returned with pagination",
+        "verify": "Test query returns user's feedback"
+      },
+      {
+        "given": "Finding needs feedback check",
+        "when": "api.feedback.queries.getByFinding is called",
+        "then": "Feedback counts and user sentiment are returned",
+        "verify": "Test query returns finding feedback"
+      }
+    ],
+    "constraints": {
+      "MUST": [
+        "Create userFeedback table in schema.ts",
+        "Add indexes: by_user, by_finding, by_user_and_timestamp",
+        "Create queries: getHistory, getByFinding",
+        "Create mutations: record, undo"
+      ],
+      "NEVER": [
+        "Store PII in feedback data",
+        "Create indexes without proper fields",
+        "Break existing schema migrations"
+      ]
+    },
+    "design": {
+      "mock_paths": [],
+      "ui_references": [
+        "convex/schema.ts - Existing schema definitions",
+        "convex/whatsNew/queries.ts - Query pattern reference"
+      ],
+      "interaction_notes": "Follow Convex table and index patterns",
+      "pattern_from_codebase": "Copy existing table/index patterns from schema.ts"
+    },
+    "verification": {
+      "gates": [
+        "pnpm tsc --noEmit",
+        "npx convex dev --check"
+      ],
+      "manual_checks": [
+        "Verify table creation in Convex dashboard",
+        "Test mutations and queries manually",
+        "Check indexes in dashboard"
+      ]
+    },
+    "guardrails": {
+      "WRITE_ALLOWED": [
+        "convex/schema.ts",
+        "convex/feedback/index.ts",
+        "convex/feedback/queries.ts",
+        "convex/feedback/mutations.ts"
+      ]
+    },
+    "agent_assignment": "convex-backend",
+    "estimate_minutes": 360,
+    "dependencies": [],
+    "coding_standards": [
+      "CLAUDE.md"
+    ]
+  },
+  {
+    "id": "fr-4-1-integration",
+    "title": "Integrate FeedbackButtons into FeedCard",
+    "specification": {
+      "objective": "Integrate FeedbackButtons into all card variants with optimistic updates",
+      "success_state": "All cards show feedback buttons, optimistic updates work, mutations are called"
+    },
+    "acceptance_criteria": [
+      {
+        "given": "FeedCard renders any variant",
+        "when": "Card is displayed",
+        "then": "FeedbackButtons are shown in corner",
+        "verify": "Visual inspection of all card variants"
+      },
+      {
+        "given": "User taps feedback button",
+        "when": "Button is pressed",
+        "then": "Optimistic update occurs immediately",
+        "verify": "Test button state changes instantly"
+      },
+      {
+        "given": "Mutation is called",
+        "when": "Optimistic update succeeds",
+        "then": "api.feedback.mutations.record is called",
+        "verify": "Check Convex dashboard for feedback record"
+      },
+      {
+        "given": "Mutation fails",
+        "when": "Network error occurs",
+        "then": "Optimistic update is rolled back",
+        "verify": "Test error handling with mock failure"
+      },
+      {
+        "given": "Card with existing feedback",
+        "when": "Card is rendered",
+        "then": "Correct feedback button is filled",
+        "verify": "Test with pre-existing feedback"
+      }
+    ],
+    "constraints": {
+      "MUST": [
+        "Integrate into all card variants",
+        "Use optimistic updates",
+        "Rollback on mutation failure",
+        "Pass findingId and initialSentiment props"
+      ],
+      "NEVER": [
+        "Show feedback buttons on loading skeletons",
+        "Block UI while mutation is in flight",
+        "Break card layout"
+      ]
+    },
+    "design": {
+      "mock_paths": [],
+      "ui_references": [
+        "components/subscriptions/FeedCard.tsx - Router component",
+        "components/subscriptions/FeedbackButtons.tsx - Buttons component"
+      ],
+      "interaction_notes": "Add FeedbackButtons to each card variant, handle mutations",
+      "pattern_from_codebase": "Follow existing useMutation patterns in codebase"
+    },
+    "verification": {
+      "gates": [
+        "pnpm tsc --noEmit",
+        "vitest run --reporter=verbose"
+      ],
+      "manual_checks": [
+        "Test feedback on all card variants",
+        "Test optimistic updates",
+        "Test error rollback"
+      ]
+    },
+    "guardrails": {
+      "WRITE_ALLOWED": [
+        "components/subscriptions/VideoCard.tsx",
+        "components/subscriptions/ArticleCard.tsx",
+        "components/subscriptions/SocialCard.tsx",
+        "components/subscriptions/ReleaseCard.tsx",
+        "components/subscriptions/FeedCard.tsx"
+      ]
+    },
+    "agent_assignment": "react-native-implement",
+    "estimate_minutes": 240,
+    "dependencies": ["fr-2-1", "fr-2-2", "fr-2-3", "fr-2-4", "fr-2-5", "fr-4-1", "fr-4-2"],
+    "coding_standards": [
+      "brain/docs/REACT-RULES.md"
+    ]
+  },
+  {
+    "id": "fr-6-1",
+    "title": "Image Extraction Pipeline - Backend",
+    "specification": {
+      "objective": "Add image extraction from Open Graph tags during whatsNew report generation",
+      "success_state": "Each finding has thumbnailUrl extracted from OG tags or fallback"
+    },
+    "acceptance_criteria": [
+      {
+        "given": "Finding has URL",
+        "when": "Report is generated",
+        "then": "OG image is extracted and stored in thumbnailUrl",
+        "verify": "Check findingsJson for thumbnailUrl field"
+      },
+      {
+        "given": "URL has no OG image",
+        "when": "Extraction fails",
+        "then": "Default fallback image is used based on content type",
+        "verify": "Test with URLs without OG images"
+      },
+      {
+        "given": "YouTube video finding",
+        "when": "Extraction runs",
+        "then": "YouTube thumbnail is extracted",
+        "verify": "Test YouTube URL extraction"
+      },
+      {
+        "given": "Image extraction is slow",
+        "when": "Multiple findings are processed",
+        "then": "Report generation continues without blocking",
+        "verify": "Test with timeout scenarios"
+      },
+      {
+        "given": "Cached image exists",
+        "when": "Same URL is processed again",
+        "then": "Cached thumbnailUrl is used",
+        "verify": "Test caching behavior"
+      }
+    ],
+    "constraints": {
+      "MUST": [
+        "Extract from Open Graph tags",
+        "Provide fallback images per content type",
+        "Handle extraction failures gracefully",
+        "Store in thumbnailUrl field"
+      ],
+      "NEVER": [
+        "Block report generation on image failure",
+        "Store full-size images (use thumbnails)",
+        "Extract images for every source type"
+      ]
+    },
+    "design": {
+      "mock_paths": [],
+      "ui_references": [
+        "convex/whatsNew/actions.ts - Report generation",
+        "convex/subscriptions/actions.ts - Existing fetch patterns"
+      ],
+      "interaction_notes": "Add image extraction after fetching findings, parallel processing",
+      "pattern_from_codebase": "Follow existing fetchReddit/fetchHackerNews patterns"
+    },
+    "verification": {
+      "gates": [
+        "pnpm tsc --noEmit",
+        "vitest run --reporter=verbose"
+      ],
+      "manual_checks": [
+        "Generate report and check thumbnailUrl",
+        "Test fallback images",
+        "Verify caching works"
+      ]
+    },
+    "guardrails": {
+      "WRITE_ALLOWED": [
+        "convex/whatsNew/actions.ts",
+        "convex/whatsNew/llm.ts"
+      ]
+    },
+    "agent_assignment": "convex-backend",
+    "estimate_minutes": 480,
+    "dependencies": [],
+    "coding_standards": [
+      "CLAUDE.md"
+    ]
+  },
+  {
+    "id": "fr-6-2",
+    "title": "Image Loading with FastImage",
+    "specification": {
+      "objective": "Update all card components to use react-native-fast-image for optimized image loading",
+      "success_state": "All images use FastImage with caching, progressive loading, and error handling"
+    },
+    "acceptance_criteria": [
+      {
+        "given": "Card has thumbnailUrl",
+        "when": "Image loads",
+        "then": "FastImage is used with caching enabled",
+        "verify": "Test image caching behavior"
+      },
+      {
+        "given": "Image is loading",
+        "when": "Component mounts",
+        "then": "Skeleton is shown until image loads",
+        "verify": "Test loading state"
+      },
+      {
+        "given": "Image fails to load",
+        "when": "Error occurs",
+        "then": "Fallback UI is shown",
+        "verify": "Test error handling"
+      },
+      {
+        "given": "User scrolls feed",
+        "when": "Images enter viewport",
+        "then": "Images load smoothly without jank",
+        "verify": "Performance test with many images"
+      },
+      {
+        "given": "Same image appears multiple times",
+        "when": "Feed is rendered",
+        "then": "Cached image is used instantly",
+        "verify": "Test cache hit behavior"
+      }
+    ],
+    "constraints": {
+      "MUST": [
+        "Install react-native-fast-image",
+        "Use FastImage for all card images",
+        "Show skeleton while loading",
+        "Handle load failures with fallback"
+      ],
+      "NEVER": [
+        "Use react-native Image component",
+        "Show broken image icons",
+        "Block UI on image load"
+      ]
+    },
+    "design": {
+      "mock_paths": [],
+      "ui_references": [
+        "components/subscriptions/VideoCard.tsx",
+        "components/subscriptions/ArticleCard.tsx",
+        "components/subscriptions/SocialCard.tsx"
+      ],
+      "interaction_notes": "Wrap existing images in FastImage, add onLoad handlers",
+      "pattern_from_codebase": "Follow existing skeleton patterns in FeedItemSkeleton"
+    },
+    "verification": {
+      "gates": [
+        "pnpm tsc --noEmit",
+        "vitest run --reporter=verbose"
+      ],
+      "manual_checks": [
+        "Test image loading on slow network",
+        "Test error handling",
+        "Verify performance"
+      ]
+    },
+    "guardrails": {
+      "WRITE_ALLOWED": [
+        "components/subscriptions/VideoCard.tsx",
+        "components/subscriptions/ArticleCard.tsx",
+        "components/subscriptions/SocialCard.tsx",
+        "package.json"
+      ]
+    },
+    "agent_assignment": "react-native-implement",
+    "estimate_minutes": 360,
+    "dependencies": ["fr-2-1", "fr-2-2", "fr-2-3", "fr-6-1"],
+    "coding_standards": [
+      "brain/docs/REACT-RULES.md"
+    ]
+  }
+]
