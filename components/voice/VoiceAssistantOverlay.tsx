@@ -80,10 +80,22 @@ export interface VoiceAssistantOverlayProps {
 /**
  * Format state name for display.
  */
-function formatStateName(status: VoiceSessionState['status']): string {
+function formatStateName(
+  status: VoiceSessionState['status'],
+  connectingPhase?: VoiceSessionState['connectingPhase'],
+): string {
   switch (status) {
     case 'connecting':
-      return 'Getting ready...'
+      switch (connectingPhase) {
+        case 'preparing':
+          return 'Setting up microphone...'
+        case 'connecting_ai':
+          return 'Connecting to AI...'
+        case 'almost_ready':
+          return 'Almost ready...'
+        default:
+          return 'Getting ready...'
+      }
     case 'listening':
       return "I'm listening..."
     case 'speaking':
@@ -199,7 +211,7 @@ export function VoiceAssistantOverlay({
     return null
   }
 
-  const statusLabel = formatStateName(state.status)
+  const statusLabel = formatStateName(state.status, state.connectingPhase)
   const isError = state.status === 'error'
 
   return (
@@ -309,6 +321,7 @@ export function VoiceAssistantOverlay({
                 <VoiceAgentOrb
                   status={state.status}
                   audioLevel={audioLevel}
+                  connectingPhase={state.connectingPhase}
                   size={160}
                   testID="voice-assistant-agent-orb"
                 />
@@ -329,13 +342,16 @@ export function VoiceAssistantOverlay({
                   transcripts={state.transcripts}
                 />
 
-                {/* Control bar */}
-                <VoiceControlBar
-                  isMuted={isMuted}
-                  onToggleMute={onToggleMute}
-                  onStop={handleStop}
-                  testID="voice-assistant-control-bar"
-                />
+                {/* Control bar — hidden during connecting (controls are useless) */}
+                {state.status !== 'connecting' && (
+                  <VoiceControlBar
+                    isMuted={isMuted}
+                    onToggleMute={onToggleMute}
+                    onStop={handleStop}
+                    voiceStatus={state.status}
+                    testID="voice-assistant-control-bar"
+                  />
+                )}
 
                 {/* Retry button in error state */}
                 {isError && onRetry && (

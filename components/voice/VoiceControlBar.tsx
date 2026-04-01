@@ -18,6 +18,7 @@ import { Pressable, StyleSheet, View } from 'react-native'
 import * as Haptics from 'expo-haptics'
 import { Mic, MicOff, Square } from '@/components/ui/icons'
 import { useTheme } from '@/hooks/use-theme'
+import type { VoiceState } from '@/hooks/use-voice-session-state'
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -28,6 +29,8 @@ export interface VoiceControlBarProps {
   onToggleMute: () => void
   /** Called when user taps stop button */
   onStop: () => void
+  /** Current voice status for state-aware rendering */
+  voiceStatus?: VoiceState
   /** Optional testID for the root container */
   testID?: string
 }
@@ -46,14 +49,12 @@ function ControlButton({
   isMuted,
   onPress,
   colors,
-  radius,
   testID,
 }: {
   type: ControlButtonType
   isMuted: boolean
   onPress: () => void
   colors: ReturnType<typeof useTheme>['colors']
-  radius: ReturnType<typeof useTheme>['radius']
   testID?: string
 }) {
   const [pressed, setPressed] = useState(false)
@@ -70,9 +71,9 @@ function ControlButton({
       case 'mute':
         return {
           ...baseStyle,
-          width: 52,
-          height: 52,
-          borderRadius: 26,
+          width: 56,
+          height: 56,
+          borderRadius: 28,
           backgroundColor: pressed ? colors.primary : colors.card,
           borderWidth: 2,
           borderColor: isMuted ? colors.destructive : colors.primary,
@@ -80,9 +81,9 @@ function ControlButton({
       case 'stop':
         return {
           ...baseStyle,
-          width: 64,
-          height: 64,
-          borderRadius: radius.lg,
+          width: 56,
+          height: 56,
+          borderRadius: 28,
           backgroundColor: pressed ? colors.destructive : colors.card,
           borderWidth: 2,
           borderColor: colors.destructive,
@@ -168,9 +169,10 @@ export function VoiceControlBar({
   isMuted,
   onToggleMute,
   onStop,
+  voiceStatus,
   testID = 'voice-control-bar',
 }: VoiceControlBarProps) {
-  const { colors, spacing, radius } = useTheme()
+  const { colors, spacing } = useTheme()
 
   return (
     <View
@@ -184,15 +186,17 @@ export function VoiceControlBar({
         },
       ]}
     >
-      {/* Mute button */}
-      <ControlButton
-        type="mute"
-        isMuted={isMuted}
-        onPress={onToggleMute}
-        colors={colors}
-        radius={radius}
-        testID="voice-assistant-control-mute"
-      />
+      {/* Mute button — hidden during connecting */}
+      {voiceStatus !== 'connecting' && (
+        <ControlButton
+          type="mute"
+          isMuted={isMuted}
+          onPress={onToggleMute}
+          colors={colors}
+
+          testID="voice-assistant-control-mute"
+        />
+      )}
 
       {/* Stop button */}
       <ControlButton
@@ -200,7 +204,6 @@ export function VoiceControlBar({
         isMuted={isMuted}
         onPress={onStop}
         colors={colors}
-        radius={radius}
         testID="voice-assistant-control-stop"
       />
     </View>

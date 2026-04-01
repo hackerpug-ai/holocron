@@ -39,6 +39,8 @@ export interface VoiceAgentOrbProps {
   status: VoiceState
   /** Audio level for reactive listening animation (0-1) */
   audioLevel?: number
+  /** Sub-phase during connecting state for staged animations */
+  connectingPhase?: 'preparing' | 'connecting_ai' | 'almost_ready' | null
   /** Size of the orb in dp (default: 160) */
   size?: number
   /** Optional testID for the root container */
@@ -62,6 +64,7 @@ export interface VoiceAgentOrbProps {
 export function VoiceAgentOrb({
   status,
   audioLevel = 0,
+  connectingPhase,
   size = 160,
   testID = 'voice-agent-orb',
 }: VoiceAgentOrbProps) {
@@ -133,14 +136,52 @@ export function VoiceAgentOrb({
 
     switch (status) {
       case 'connecting': {
-        // Breathing opacity: 0.6→1, 1s cycle
-        glowOpacity.value = withRepeat(
-          withSequence(
-            withTiming(1, { duration: 500 }),
-            withTiming(0.6, { duration: 500 }),
-          ),
-          -1,
-        )
+        switch (connectingPhase) {
+          case 'preparing':
+            // Core materializes — scale up from small
+            coreScale.value = 0.5
+            coreScale.value = withSpring(1, { damping: 12, stiffness: 100 })
+            glowOpacity.value = 0.3
+            break
+          case 'connecting_ai':
+            // Glow ring fades in and begins slow pulse
+            glowOpacity.value = withTiming(0.8, { duration: 400 })
+            pulseScale.value = withRepeat(
+              withSequence(
+                withTiming(1.1, { duration: 1200 }),
+                withTiming(1, { duration: 1200 }),
+              ),
+              -1,
+            )
+            break
+          case 'almost_ready':
+            // All rings active with faster rhythm
+            glowOpacity.value = 1
+            pulseScale.value = withRepeat(
+              withSequence(
+                withTiming(1.2, { duration: 800 }),
+                withTiming(1, { duration: 800 }),
+              ),
+              -1,
+            )
+            pulseOpacity.value = withRepeat(
+              withSequence(
+                withTiming(0.5, { duration: 800 }),
+                withTiming(0.3, { duration: 800 }),
+              ),
+              -1,
+            )
+            break
+          default:
+            // Fallback: original breathing opacity
+            glowOpacity.value = withRepeat(
+              withSequence(
+                withTiming(1, { duration: 500 }),
+                withTiming(0.6, { duration: 500 }),
+              ),
+              -1,
+            )
+        }
         break
       }
 
@@ -224,7 +265,7 @@ export function VoiceAgentOrb({
       default:
         break
     }
-  }, [status, audioLevel])
+  }, [status, audioLevel, connectingPhase])
 
   return (
     <View
