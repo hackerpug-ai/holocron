@@ -30,7 +30,8 @@ function isSocialSource(source: string): boolean {
     source.startsWith('r/') ||
     source.includes('Bluesky') ||
     source === 'Lobsters' ||
-    source === 'Dev.to'
+    source === 'Dev.to' ||
+    source === 'Twitter/X'
   )
 }
 
@@ -40,6 +41,7 @@ function getPlatform(source: string): string {
   if (source.includes('Bluesky')) return 'Bluesky'
   if (source === 'Lobsters') return 'Lobsters'
   if (source === 'Dev.to') return 'Dev.to'
+  if (source === 'Twitter/X') return 'Twitter/X'
   return 'Other'
 }
 
@@ -56,6 +58,7 @@ const PLATFORM_COLORS: Record<string, string> = {
   Bluesky: '#0085FF',
   Lobsters: '#AC130D',
   'Dev.to': '#0A0A0A',
+  'Twitter/X': '#1DA1F2',
   All: '#64748B',
 }
 

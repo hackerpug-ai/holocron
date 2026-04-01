@@ -530,6 +530,111 @@ async function fetchBluesky(days: number, accounts: Array<{ handle: string; name
   return { source: "Bluesky", findings };
 }
 
+/**
+ * Fetch AI-related tweets from Twitter/X via Exa search
+ *
+ * Uses Exa API to find recent AI/ML tweets from high-signal accounts.
+ * No Twitter API key needed — Exa crawls and indexes Twitter content.
+ * Results pass through the same quality scoring pipeline as Reddit.
+ */
+async function fetchTwitter(days: number): Promise<FetchResult> {
+  const findings: Finding[] = [];
+
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - days);
+  const dateStr = cutoffDate.toISOString().split("T")[0];
+
+  const exaApiKey = process.env.EXA_API_KEY;
+  if (!exaApiKey) {
+    console.warn("[fetchTwitter] No EXA_API_KEY set, skipping Twitter fetch");
+    return { source: "Twitter/X", findings: [] };
+  }
+
+  // High-signal AI/ML queries scoped to twitter.com/x.com
+  const queries = [
+    "AI coding tools new release announcement",
+    "LLM benchmark results comparison",
+    "developer tooling AI agent workflow",
+  ];
+
+  try {
+    for (const query of queries) {
+      try {
+        const response = await fetch("https://api.exa.ai/search", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": exaApiKey,
+          },
+          body: JSON.stringify({
+            query,
+            numResults: 10,
+            startPublishedDate: dateStr,
+            includeDomains: ["twitter.com", "x.com"],
+            type: "neural",
+          }),
+        });
+
+        if (!response.ok) {
+          console.error(`[fetchTwitter] Exa HTTP ${response.status} for query: ${query}`);
+          continue;
+        }
+
+        const data = await response.json();
+
+        for (const result of data.results ?? []) {
+          // Extract author from URL pattern: twitter.com/{handle}/status/...
+          let author: string | undefined;
+          try {
+            const url = new URL(result.url);
+            const pathParts = url.pathname.split("/");
+            if (pathParts.length >= 2 && pathParts[1]) {
+              author = `@${pathParts[1]}`;
+            }
+          } catch {
+            // URL parse failed, skip author extraction
+          }
+
+          const publishedDate = result.publishedDate
+            ? new Date(result.publishedDate)
+            : undefined;
+
+          if (publishedDate && publishedDate < cutoffDate) continue;
+
+          const title = result.title
+            ? result.title.replace(/\s+/g, " ").trim()
+            : "";
+          if (!title || title.length < 10) continue;
+
+          findings.push({
+            title,
+            url: result.url,
+            source: "Twitter/X",
+            category: "discussion",
+            publishedAt: publishedDate?.toISOString(),
+            author,
+            summary: result.text?.substring(0, 200),
+          });
+        }
+      } catch (error) {
+        console.error(`[fetchTwitter] Error for query "${query}":`, error);
+      }
+    }
+  } catch (error) {
+    console.error("[fetchTwitter] Error:", error);
+  }
+
+  // Deduplicate by URL (Exa may return same tweet across queries)
+  const seen = new Set<string>();
+  const unique = findings.filter((f) => {
+    if (seen.has(f.url)) return false;
+    seen.add(f.url);
+    return true;
+  });
+
+  return { source: "Twitter/X", findings: unique };
+}
+
 // ============================================================================
 // Report Synthesis
 // ============================================================================
@@ -677,7 +782,7 @@ async function scoreFindingsQuality(
   findings: Finding[]
 ): Promise<Finding[]> {
   // Separate findings that need scoring from those that don't
-  const socialSources = new Set(["Reddit", "Bluesky", "Lobsters", "Dev.to"]);
+  const socialSources = new Set(["Reddit", "Bluesky", "Lobsters", "Dev.to", "Twitter/X"]);
   const needsScoring: Finding[] = [];
   const passThrough: Finding[] = [];
 
@@ -871,6 +976,7 @@ export const generateDailyReport = internalAction({
       fetchLobsters(days),
       fetchBluesky(days, blueskyAccounts),
       fetchChangelog(days),
+      fetchTwitter(days),
     ]);
 
     // Collect all findings

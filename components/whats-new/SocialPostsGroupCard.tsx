@@ -53,6 +53,7 @@ function computePlatformStats(findings: SocialFinding[]) {
     else if (f.source.includes('Bluesky')) platform = 'Bluesky'
     else if (f.source === 'Lobsters') platform = 'Lobsters'
     else if (f.source === 'Dev.to') platform = 'Dev.to'
+    else if (f.source === 'Twitter/X') platform = 'Twitter/X'
 
     const existing = platforms.get(platform) ?? { count: 0, topScore: 0 }
     existing.count++
@@ -68,6 +69,7 @@ const PLATFORM_COLORS: Record<string, string> = {
   Bluesky: '#0085FF',
   Lobsters: '#AC130D',
   'Dev.to': '#0A0A0A',
+  'Twitter/X': '#1DA1F2',
   Other: '#64748B',
 }
 

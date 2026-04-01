@@ -34,7 +34,8 @@ function isSocialSource(source: string): boolean {
     source.startsWith('r/') ||
     source.includes('Bluesky') ||
     source === 'Lobsters' ||
-    source === 'Dev.to'
+    source === 'Dev.to' ||
+    source === 'Twitter/X'
   )
 }
 
