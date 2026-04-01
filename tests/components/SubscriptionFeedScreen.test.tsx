@@ -126,14 +126,14 @@ describe('SubscriptionFeedScreen - Component Structure', () => {
       expect(source).toMatch(/\$\{testID\}-empty/)
     })
 
-    it('should have testID on settings button', () => {
+    it('should have testID on search input', () => {
       const source = readComponent()
-      expect(source).toMatch(/\$\{testID\}-settings-button/)
+      expect(source).toMatch(/\$\{testID\}-search/)
     })
 
-    it('should have testID on search button', () => {
+    it('should have testID on filters', () => {
       const source = readComponent()
-      expect(source).toMatch(/\$\{testID\}-search-button/)
+      expect(source).toMatch(/\$\{testID\}-filters/)
     })
   })
 
@@ -207,9 +207,9 @@ describe('SubscriptionFeedScreen - Component Structure', () => {
       expect(source).toContain('keyExtractor')
     })
 
-    it('should use StyleSheet for static styles', () => {
+    it('should use NativeWind className for styling', () => {
       const source = readComponent()
-      expect(source).toContain('StyleSheet.create')
+      expect(source).toContain('className=')
     })
   })
 

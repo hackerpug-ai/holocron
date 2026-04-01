@@ -54,3 +54,29 @@ export const linkDocument = internalMutation({
     return { success: true };
   },
 });
+
+/**
+ * Update report findings after quality re-scoring (internal)
+ *
+ * Used by backfill migration to update findingsJson and findingsCount.
+ */
+export const updateReportFindings = internalMutation({
+  args: {
+    reportId: v.id("whatsNewReports"),
+    findingsJson: v.string(),
+    findingsCount: v.number(),
+    discoveryCount: v.number(),
+    releaseCount: v.number(),
+    trendCount: v.number(),
+  },
+  handler: async (ctx, { reportId, findingsJson, findingsCount, discoveryCount, releaseCount, trendCount }) => {
+    await ctx.db.patch(reportId, {
+      findingsJson,
+      findingsCount,
+      discoveryCount,
+      releaseCount,
+      trendCount,
+    });
+    return { success: true };
+  },
+});

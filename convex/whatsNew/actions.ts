@@ -1048,3 +1048,109 @@ export const generate = action({
     });
   },
 });
+
+// ============================================================================
+// Backfill: Quality Re-Score Existing Reports
+// ============================================================================
+
+/**
+ * Backfill quality scores on existing report findings.
+ *
+ * Iterates through all reports, parses findingsJson, runs LLM quality scoring,
+ * filters out low-quality items, and updates the report.
+ */
+export const backfillQualityScores = internalAction({
+  args: {
+    skip: v.optional(v.number()),
+    dryRun: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args): Promise<{
+    processed: number;
+    updated: number;
+    totalRemoved: number;
+    hasMore: boolean;
+  }> => {
+    const skip = args.skip ?? 0;
+    const dryRun = args.dryRun ?? false;
+
+    console.log(
+      `[backfillQualityScores] Starting batch (skip=${skip}, dryRun=${dryRun})`
+    );
+
+    const reports = await ctx.runQuery(
+      internal.whatsNew.internal.getReportsForBackfill,
+      { skip }
+    );
+
+    if (reports.length === 0) {
+      console.log("[backfillQualityScores] No more reports to process");
+      return { processed: 0, updated: 0, totalRemoved: 0, hasMore: false };
+    }
+
+    let updated = 0;
+    let totalRemoved = 0;
+
+    for (const report of reports) {
+      if (!report.findingsJson) {
+        console.log(`[backfillQualityScores] Report ${report._id} has no findingsJson, skipping`);
+        continue;
+      }
+
+      let findings: Finding[];
+      try {
+        findings = JSON.parse(report.findingsJson);
+      } catch {
+        console.warn(`[backfillQualityScores] Failed to parse findingsJson for ${report._id}`);
+        continue;
+      }
+
+      const before = findings.length;
+      const scored = await scoreFindingsQuality(findings);
+      const removed = before - scored.length;
+
+      console.log(
+        `[backfillQualityScores] Report ${report._id}: ${before} → ${scored.length} findings (removed ${removed})`
+      );
+
+      if (removed > 0 || scored.some((f) => f.qualityScore !== undefined)) {
+        const discoveries = scored.filter((f) => f.category === "discovery").length;
+        const releases = scored.filter((f) => f.category === "release").length;
+        const trends = scored.filter((f) => f.category === "trend").length;
+
+        if (!dryRun) {
+          await ctx.runMutation(
+            internal.whatsNew.mutations.updateReportFindings,
+            {
+              reportId: report._id,
+              findingsJson: JSON.stringify(scored),
+              findingsCount: scored.length,
+              discoveryCount: discoveries,
+              releaseCount: releases,
+              trendCount: trends,
+            }
+          );
+        }
+
+        updated++;
+        totalRemoved += removed;
+      }
+    }
+
+    const hasMore = reports.length === 5;
+
+    console.log(
+      `[backfillQualityScores] Batch complete: ${reports.length} processed, ${updated} updated, ${totalRemoved} findings removed, hasMore=${hasMore}`
+    );
+
+    // Auto-continue to next batch if there are more
+    if (hasMore) {
+      console.log(`[backfillQualityScores] Scheduling next batch (skip=${skip + 5})`);
+      await ctx.scheduler.runAfter(1000, internal.whatsNew.actions.backfillQualityScores, {
+        skip: skip + 5,
+        dryRun,
+      });
+    }
+
+    return { processed: reports.length, updated, totalRemoved, hasMore };
+  },
+});
