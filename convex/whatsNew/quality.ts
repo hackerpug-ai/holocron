@@ -103,27 +103,52 @@ export const getSummaryStats = query({
     for (const report of reports) {
       if (!report.findingsJson) continue;
 
-      const findings = JSON.parse(report.findingsJson) as Array<{
-        summary?: string;
-      }>;
+      try {
+        const findings = JSON.parse(report.findingsJson) as Array<{
+          summary?: string;
+        }>;
 
-      totalFindings += findings.length;
+        // Ensure findings is an array
+        if (!Array.isArray(findings)) {
+          console.error(
+            "[Summary Quality] findingsJson is not an array for report:",
+            report._id
+          );
+          continue;
+        }
 
-      for (const finding of findings) {
-        if (finding.summary) {
-          withSummary++;
-          const len = finding.summary.length;
-          lengthSum += len;
+        totalFindings += findings.length;
 
-          // Track length distribution
-          if (len >= 80 && len <= 120) {
-            lengthDistribution["80-120"]++;
-          } else if (len >= 121 && len <= 150) {
-            lengthDistribution["121-150"]++;
-          } else if (len > 150) {
-            lengthDistribution["151+"]++;
+        for (const finding of findings) {
+          // Handle null/undefined findings
+          if (!finding || typeof finding !== 'object') {
+            continue;
+          }
+
+          // Only count non-empty strings as having a summary
+          if (finding.summary && finding.summary.length > 0) {
+            withSummary++;
+            const len = finding.summary.length;
+            lengthSum += len;
+
+            // Track length distribution
+            if (len >= 80 && len <= 120) {
+              lengthDistribution["80-120"]++;
+            } else if (len >= 121 && len <= 150) {
+              lengthDistribution["121-150"]++;
+            } else if (len > 150) {
+              lengthDistribution["151+"]++;
+            }
           }
         }
+      } catch (error) {
+        // Log malformed JSON but continue processing other reports
+        console.error(
+          "[Summary Quality] Failed to parse findingsJson for report:",
+          report._id,
+          error
+        );
+        continue;
       }
     }
 
@@ -132,7 +157,7 @@ export const getSummaryStats = query({
       totalFindings,
       withSummary,
       coverageRate:
-        totalFindings > 0 ? (withSummary / totalFindings) * 100 : 0,
+        totalFindings > 0 ? Math.round((withSummary / totalFindings) * 100 * 100) / 100 : 0,
       avgLength: withSummary > 0 ? Math.round(lengthSum / withSummary) : 0,
       lengthDistribution,
     };
