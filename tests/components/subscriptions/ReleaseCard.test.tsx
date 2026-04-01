@@ -48,17 +48,15 @@ describe('ReleaseCard - Component Structure', () => {
       expect(source).toContain('summary')
     })
 
-    it('should truncate summary to 3 lines', () => {
+    it('should use SummaryText component', () => {
       const source = readComponent()
-      // Find the summary Text component and check for numberOfLines={3}
-      expect(source).toContain('numberOfLines={3}')
-      // Ensure summary variable is used
-      expect(source).toContain('{summary}')
+      expect(source).toContain('SummaryText')
+      expect(source).toContain("from './SummaryText'")
     })
 
-    it('should conditionally render summary', () => {
+    it('should pass summary prop to SummaryText', () => {
       const source = readComponent()
-      expect(source).toMatch(/summary\s*&&/)
+      expect(source).toContain('summary={summary}')
     })
   })
 
@@ -243,10 +241,6 @@ describe('ReleaseCard - Component Structure', () => {
       const source = readComponent()
       // Check for numberOfLines={2} in the component
       expect(source).toContain('numberOfLines={2}')
-      // Verify there are two Text components with different numberOfLines values
-      const lines = source.match(/numberOfLines={\d}/g) || []
-      expect(lines).toContain('numberOfLines={2}')
-      expect(lines).toContain('numberOfLines={3}')
     })
 
     it('should have content testID', () => {

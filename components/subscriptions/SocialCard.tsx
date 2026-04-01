@@ -7,12 +7,15 @@ import { Text } from '@/components/ui/text'
 import { Card } from '@/components/ui/card'
 import { ThumbsUp, MessageSquare } from '@/components/ui/icons'
 import { cn } from '@/lib/utils'
+import { SummaryText } from './SummaryText'
 
 export interface SocialCardProps {
   authorAvatarUrl?: string
   authorName: string
   authorHandle: string
   contentPreview: string
+  /** Optional summary text */
+  summary?: string
   likes?: number
   comments?: number
   source: string // "Twitter/X" | "Bluesky" | etc.
@@ -41,6 +44,7 @@ export function SocialCard({
   authorName,
   authorHandle,
   contentPreview,
+  summary,
   likes,
   comments,
   source,
@@ -131,6 +135,13 @@ export function SocialCard({
           >
             {contentPreview}
           </Text>
+
+          {/* Summary */}
+          <SummaryText
+            summary={summary}
+            title={contentPreview}
+            testID={`${testID}-summary`}
+          />
 
           {/* Engagement metrics */}
           {(likes !== undefined || comments !== undefined) && (

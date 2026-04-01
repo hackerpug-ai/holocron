@@ -16,6 +16,7 @@ import { View, Pressable, StyleSheet } from 'react-native'
 import { Text } from '@/components/ui/text'
 import { Button } from '@/components/ui/button'
 import { useTheme } from '@/hooks/use-theme'
+import { SummaryText } from './SummaryText'
 
 export interface ReleaseCardProps {
   /** Version string (e.g., "v2.1.0", "1.0.0-beta") */
@@ -150,16 +151,11 @@ export function ReleaseCard({
         </Text>
 
         {/* Summary */}
-        {summary && (
-          <Text
-            style={{ color: colors.mutedForeground }}
-            className="text-sm leading-relaxed"
-            numberOfLines={3}
-            testID={`${testID}-summary`}
-          >
-            {summary}
-          </Text>
-        )}
+        <SummaryText
+          summary={summary}
+          title={title}
+          testID={`${testID}-summary`}
+        />
 
         {/* Changelog button */}
         {changelogUrl && (

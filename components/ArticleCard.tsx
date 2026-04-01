@@ -10,6 +10,7 @@ import Animated, {
   withSpring,
 } from "react-native-reanimated";
 import { useTheme } from "@/hooks/use-theme";
+import { SummaryText } from "@/components/subscriptions/SummaryText";
 
 interface ArticleCardProps extends Omit<ViewProps, "children"> {
   /** Article title */
@@ -20,6 +21,8 @@ interface ArticleCardProps extends Omit<ViewProps, "children"> {
   date: string | Date;
   /** Optional content snippet */
   snippet?: string;
+  /** Optional summary text */
+  summary?: string;
   /** Optional research iteration count (for deep research) */
   iterationCount?: number;
   /** Callback when card is pressed */
@@ -39,6 +42,7 @@ export function ArticleCard({
   category,
   date,
   snippet,
+  summary,
   iterationCount,
   onPress,
   compact = false,
@@ -110,11 +114,18 @@ export function ArticleCard({
           {title}
         </Text>
       </CardHeader>
-      {!compact && snippet && (
+      {!compact && (snippet || summary) && (
         <CardContent className="pt-0">
-          <Text className="text-muted-foreground text-sm" numberOfLines={2}>
-            {snippet}
-          </Text>
+          {snippet && (
+            <Text className="text-muted-foreground text-sm" numberOfLines={2}>
+              {snippet}
+            </Text>
+          )}
+          <SummaryText
+            summary={summary}
+            title={title}
+            testID="article-card-summary"
+          />
         </CardContent>
       )}
       <CardContent className={cn("pt-2", compact && "pt-0")}>

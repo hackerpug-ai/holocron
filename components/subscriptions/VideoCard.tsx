@@ -14,6 +14,7 @@ import { View, Pressable, StyleSheet, Image } from 'react-native'
 import { Text } from '@/components/ui/text'
 import { Play } from '@/components/ui/icons'
 import { useTheme } from '@/hooks/use-theme'
+import { SummaryText } from './SummaryText'
 
 export interface VideoCardProps {
   /** URL to thumbnail image (16:9 aspect ratio) */
@@ -22,6 +23,8 @@ export interface VideoCardProps {
   duration?: string
   /** Video title */
   title: string
+  /** Optional summary text */
+  summary?: string
   /** Source name (e.g., "YouTube", "Vimeo") */
   source?: string
   /** Optional published timestamp (relative time display) */
@@ -51,6 +54,7 @@ export function VideoCard({
   thumbnailUrl,
   duration,
   title,
+  summary,
   source,
   publishedAt,
   onPress,
@@ -144,6 +148,13 @@ export function VideoCard({
         >
           {title}
         </Text>
+
+        {/* Summary */}
+        <SummaryText
+          summary={summary}
+          title={title}
+          testID={`${testID}-summary`}
+        />
 
         {/* Source and published date */}
         <View style={[styles.metaRow, { gap: spacing.sm }]}>
