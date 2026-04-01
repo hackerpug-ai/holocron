@@ -6,6 +6,7 @@ import { useState } from 'react'
 import { Check, Sun, Moon, Monitor, Globe } from '@/components/ui/icons'
 import { useQuery, useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
+import { SubscriptionSection } from '@/components/settings/SubscriptionSection'
 
 type ThemeMode = 'light' | 'dark' | 'system'
 
@@ -236,6 +237,9 @@ export function SettingsScreen(_props: SettingsScreenProps) {
       showsVerticalScrollIndicator={false}
       testID="settings-screen"
     >
+        {/* Subscriptions Section */}
+        <SubscriptionSection testID="settings-subscription-section" />
+
         {/* Theme Section */}
         <View className="gap-3">
           {/* Section title with icon */}
