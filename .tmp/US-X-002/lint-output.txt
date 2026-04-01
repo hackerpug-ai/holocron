@@ -1,0 +1,11 @@
+$ eslint .
+
+/Users/justinrich/Projects/holocron/components/ui/OptimizedImage.tsx
+  66:11  error  'spacing' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/justinrich/Projects/holocron/components/whats-new/WhatsNewFindingCard.tsx
+  90:9  error  'accessibilityLabel' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+✖ 2 problems (2 errors, 0 warnings)
+
+error: script "lint" exited with code 1

@@ -54,16 +54,10 @@ describe('VideoCard - Component Structure', () => {
       expect(source).toContain('`${testID}-thumbnail`')
     })
 
-    it('should use Image component from react-native', () => {
+    it('should use OptimizedImage for thumbnail', () => {
       const source = readComponent()
-      expect(source).toMatch(/from ['"]react-native['"]/)
-      expect(source).toContain('Image')
-    })
-
-    it('should use resizeMode cover for thumbnail', () => {
-      const source = readComponent()
-      expect(source).toContain('resizeMode=')
-      expect(source).toContain('cover')
+      expect(source).toContain('OptimizedImage')
+      expect(source).toContain('aspectRatio=')
     })
   })
 

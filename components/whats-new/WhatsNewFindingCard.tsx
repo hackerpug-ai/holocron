@@ -88,10 +88,19 @@ export function WhatsNewFindingCard({
 
   return (
     <Card testID={testID} className="border-border bg-card mb-3 overflow-hidden">
-      <View className="px-4 pb-4 pt-3 gap-2">
+      <View
+        className="px-4 pb-4 pt-3 gap-2"
+        accessible={true}
+        accessibilityRole="none"
+      >
         {/* Top row: category pill + relative time */}
         <View className="flex-row items-center justify-between">
-          <View className={`flex-row items-center gap-1 rounded-full px-2 py-1 ${config.pillClass}`}>
+          <View
+            className={`flex-row items-center gap-1 rounded-full px-2 py-1 ${config.pillClass}`}
+            accessible={true}
+            accessibilityRole="text"
+            accessibilityLabel={`${config.label} category`}
+          >
             <Icon size={12} className={config.textClass} />
             <Text className={`text-xs font-medium ${config.textClass}`}>
               {config.label}
@@ -100,13 +109,23 @@ export function WhatsNewFindingCard({
 
           <View className="flex-row items-center gap-2">
             {score !== undefined && (
-              <View className="flex-row items-center gap-1 rounded-full bg-muted px-2 py-0.5">
+              <View
+                className="flex-row items-center gap-1 rounded-full bg-muted px-2 py-0.5"
+                accessible={true}
+                accessibilityRole="text"
+                accessibilityLabel={`Score ${score}`}
+              >
                 <Zap size={10} color={themeColors.warning} />
                 <Text className="text-xs text-muted-foreground">{score}</Text>
               </View>
             )}
             {publishedAt && (
-              <Text className="text-xs text-muted-foreground" testID={`${testID}-time`}>
+              <Text
+                className="text-xs text-muted-foreground"
+                testID={`${testID}-time`}
+                accessible={true}
+                accessibilityRole="text"
+              >
                 {formatRelativeTime(publishedAt)}
               </Text>
             )}
@@ -114,7 +133,14 @@ export function WhatsNewFindingCard({
         </View>
 
         {/* Title */}
-        <Pressable onPress={onPress} testID={`${testID}-title-button`}>
+        <Pressable
+          onPress={onPress}
+          testID={`${testID}-title-button`}
+          accessibilityRole="button"
+          accessibilityLabel={title}
+          accessibilityHint={`Opens ${config.label.toLowerCase()} in browser`}
+          accessibilityState={{ disabled: !onPress }}
+        >
           <Text
             className="text-foreground text-base font-bold leading-snug"
             numberOfLines={2}
@@ -130,13 +156,20 @@ export function WhatsNewFindingCard({
             className="text-muted-foreground text-sm leading-relaxed"
             numberOfLines={3}
             testID={`${testID}-summary`}
+            accessible={true}
+            accessibilityRole="text"
           >
             {summary}
           </Text>
         )}
 
         {/* Bottom row: source badge + author + external link */}
-        <View className="flex-row items-center gap-2 flex-wrap">
+        <View
+          className="flex-row items-center gap-2 flex-wrap"
+          accessible={true}
+          accessibilityRole="text"
+          accessibilityLabel={`Source: ${source}${author ? `. Author: ${author}` : ''}${engagementVelocity ? `. Engagement: ${engagementVelocity}` : ''}`}
+        >
           <Badge variant="outline" className="border-border" testID={`${testID}-source-badge`}>
             <Text className="text-muted-foreground text-xs">{source}</Text>
           </Badge>

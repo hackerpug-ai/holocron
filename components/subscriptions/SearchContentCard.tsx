@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { User } from '@/components/ui/icons'
 import { useTheme } from '@/hooks/use-theme'
+import { OptimizedImage } from '@/components/ui/OptimizedImage'
 
 export interface SearchContentCardProps {
   title: string
@@ -37,6 +38,7 @@ function formatRelativeTime(timestamp: number): string {
 
 export function SearchContentCard({
   title,
+  thumbnailUrl,
   contentCategory,
   authorHandle,
   aiRelevanceScore,
@@ -52,6 +54,17 @@ export function SearchContentCard({
 
   return (
     <Card testID={testID} className="border-border bg-card mb-2 overflow-hidden">
+      {/* Thumbnail with 16:9 aspect ratio */}
+      {thumbnailUrl && (
+        <OptimizedImage
+          source={{ uri: thumbnailUrl }}
+          aspectRatio={16 / 9}
+          borderRadius={0}
+          testID={`${testID}-thumbnail`}
+          priority="low"
+        />
+      )}
+
       <View className="px-4 pb-3 pt-3 gap-2">
         {/* Title */}
         <Pressable onPress={onPress} testID={`${testID}-title-button`}>

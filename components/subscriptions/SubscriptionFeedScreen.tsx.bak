@@ -28,9 +28,6 @@ import { WebViewSheet } from '@/components/webview/WebViewSheet'
 import { WhatsNewFindingCard } from '@/components/whats-new/WhatsNewFindingCard'
 import { SocialPostsGroupCard } from '@/components/whats-new/SocialPostsGroupCard'
 import { SearchContentCard } from '@/components/subscriptions/SearchContentCard'
-import { OfflineBanner } from '@/components/subscriptions/OfflineBanner'
-import { QueueIndicator } from '@/components/subscriptions/QueueIndicator'
-import { useOfflineQueue } from '@/hooks/useOfflineQueue'
 
 /** Check if a finding is from a social/community source */
 function isSocialSource(source: string): boolean {
@@ -83,9 +80,6 @@ export function SubscriptionFeedScreen({
   const { spacing } = useTheme()
   const router = useRouter()
   const { webViewState, openUrl, closeWebView } = useWebView()
-
-  // Offline support
-  const { queueLength } = useOfflineQueue()
 
   // Search state
   const [searchText, setSearchText] = useState('')
@@ -237,8 +231,6 @@ export function SubscriptionFeedScreen({
   // Default mode: What's New feed
   return (
     <>
-      <OfflineBanner testID={`${testID}-offline-banner`} />
-
       <FlatList
         testID={testID}
         data={nonSocialFindings}
@@ -255,13 +247,6 @@ export function SubscriptionFeedScreen({
         windowSize={5}
         ListHeaderComponent={
           <View className="pb-4">
-            {/* Queue indicator */}
-            {queueLength > 0 && (
-              <View className="mb-2">
-                <QueueIndicator count={queueLength} testID={`${testID}-queue-indicator`} />
-              </View>
-            )}
-
             {/* Search Input */}
             <SearchInput
               value={searchText}

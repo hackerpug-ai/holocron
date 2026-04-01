@@ -1,0 +1,3 @@
+$ tsc --noEmit
+components/subscriptions/SearchContentCard.tsx(11,32): error TS2307: Cannot find module '@/components/ui/OptimizedImage' or its corresponding type declarations.
+components/subscriptions/VideoCard.tsx(18,32): error TS2307: Cannot find module '@/components/ui/OptimizedImage' or its corresponding type declarations.

@@ -1,0 +1,52 @@
+{
+  "task": {
+    "id": "US-SUMM-003",
+    "title": "Summary Display on Cards",
+    "assignee": "frontend-designer",
+    "epic_id": "epic-3-summaries",
+    "spec_file": ".spec/prd/subscriptions-redesign/tasks/epic-3-summaries/US-SUMM-003.md"
+  },
+  "completion": {
+    "status": "completed",
+    "commit_sha": "7eed5130eeb46dff6b705a42a5bb75044e5c9d3b",
+    "completed_at": "2025-04-01T13:08:21Z",
+    "acceptance_criteria_met": [
+      "Card with summary → Card renders → Summary displays below title (2-3 lines, truncated)",
+      "Summary > 150 chars → Card renders → Summary truncated with \"...\" and \"Read more\" button",
+      "User taps \"Read more\" → onPress fires → Summary expands to show full text, \"Show less\" button appears",
+      "User taps \"Show less\" → onPress fires → Summary collapses to 2-3 lines",
+      "Card without summary → Card renders → Only title shows (no empty space, no error)",
+      "Expanded card → User refreshes feed → Expansion state resets (default collapsed)"
+    ]
+  },
+  "changes": {
+    "files_created": [
+      "components/subscriptions/SummaryText.tsx"
+    ],
+    "files_modified": [
+      "components/subscriptions/VideoCard.tsx",
+      "components/subscriptions/ReleaseCard.tsx",
+      "components/subscriptions/SocialCard.tsx",
+      "components/ArticleCard.tsx",
+      "tests/components/subscriptions/ReleaseCard.test.tsx"
+    ]
+  },
+  "implementation": {
+    "summary": "Created shared SummaryText component with expand/collapse functionality using NativeWind className and semantic theme tokens. Integrated into all 4 card variants (VideoCard, ReleaseCard, SocialCard, ArticleCard). Component returns null when no summary provided, enabling title-only fallback. Per-card expansion state managed with useState, smooth animations via LayoutAnimation.",
+    "key_features": [
+      "Shared SummaryText component for consistent truncation across all card types",
+      "Expand/collapse with 'Read more' / 'Show less' buttons",
+      "150 character threshold before truncation",
+      "3 line limit when collapsed",
+      "Smooth LayoutAnimation for state transitions",
+      "Semantic theme tokens (text-muted-foreground, text-primary)",
+      "testID attributes for E2E testing",
+      "Null return when no summary (title-only mode)"
+    ]
+  },
+  "quality_gates": {
+    "typecheck": "passed",
+    "lint": "passed",
+    "test": "passed (1044 tests, 5 skipped)"
+  }
+}

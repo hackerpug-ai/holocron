@@ -168,6 +168,7 @@ import type * as voice_queries from "../voice/queries.js";
 import type * as voice_scheduled from "../voice/scheduled.js";
 import type * as whatsNew from "../whatsNew.js";
 import type * as whatsNew_actions from "../whatsNew/actions.js";
+import type * as whatsNew_config from "../whatsNew/config.js";
 import type * as whatsNew_index from "../whatsNew/index.js";
 import type * as whatsNew_internal from "../whatsNew/internal.js";
 import type * as whatsNew_llm from "../whatsNew/llm.js";
@@ -342,6 +343,7 @@ declare const fullApi: ApiFromModules<{
   "voice/scheduled": typeof voice_scheduled;
   whatsNew: typeof whatsNew;
   "whatsNew/actions": typeof whatsNew_actions;
+  "whatsNew/config": typeof whatsNew_config;
   "whatsNew/index": typeof whatsNew_index;
   "whatsNew/internal": typeof whatsNew_internal;
   "whatsNew/llm": typeof whatsNew_llm;

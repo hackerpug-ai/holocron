@@ -10,11 +10,12 @@
  * Handles missing thumbnails with fallback UI.
  */
 
-import { View, Pressable, StyleSheet, Image } from 'react-native'
+import { View, Pressable, StyleSheet } from 'react-native'
 import { Text } from '@/components/ui/text'
 import { Play } from '@/components/ui/icons'
 import { useTheme } from '@/hooks/use-theme'
 import { SummaryText } from './SummaryText'
+import { OptimizedImage } from '@/components/ui/OptimizedImage'
 
 export interface VideoCardProps {
   /** URL to thumbnail image (16:9 aspect ratio) */
@@ -85,11 +86,12 @@ export function VideoCard({
         testID={`${testID}-thumbnail-container`}
       >
         {thumbnailUrl ? (
-          <Image
+          <OptimizedImage
             source={{ uri: thumbnailUrl }}
-            style={styles.thumbnail}
-            resizeMode="cover"
+            aspectRatio={16 / 9}
+            borderRadius={radius.lg}
             testID={`${testID}-thumbnail`}
+            priority="normal"
           />
         ) : (
           <View

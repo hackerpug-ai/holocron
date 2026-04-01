@@ -1,0 +1,271 @@
+$ vitest run
+
+[1m[46m RUN [49m[22m [36mv4.1.0 [39m[90m/Users/justinrich/Projects/holocron[39m
+
+ [31m❯[39m tests/components/subscriptions/VideoCard.test.tsx [2m([22m[2m47 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 7[2mms[22m[39m
+[31m       [31m×[31m should use resizeMode cover for thumbnail[39m[32m 3[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m tests/components/subscriptions/VideoCard.test.tsx[2m > [22mVideoCard - Component Structure[2m > [22mAC-2: VideoCard with valid thumbnailUrl renders 16:9 thumbnail[2m > [22mshould use resizeMode cover for thumbnail
+[31m[1mAssertionError[22m: expected '/**\n * VideoCard - Card component fo…' to contain 'resizeMode='[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- resizeMode=[39m
+[31m+ /**[39m
+[31m+  * VideoCard - Card component for video content with thumbnail, duration, and metadata[39m
+[31m+  *[39m
+[31m+  * Displays:[39m
+[31m+  * - 16:9 thumbnail image with play icon overlay[39m
+[31m+  * - Duration badge in bottom-right corner[39m
+[31m+  * - Title (truncated to 2 lines)[39m
+[31m+  * - Source information[39m
+[31m+  *[39m
+[31m+  * Handles missing thumbnails with fallback UI.[39m
+[31m+  */[39m
+[31m+[39m
+[31m+ import { View, Pressable, StyleSheet } from 'react-native'[39m
+[31m+ import { Text } from '@/components/ui/text'[39m
+[31m+ import { Play } from '@/components/ui/icons'[39m
+[31m+ import { useTheme } from '@/hooks/use-theme'[39m
+[31m+ import { SummaryText } from './SummaryText'[39m
+[31m+ import { OptimizedImage } from '@/components/ui/OptimizedImage'[39m
+[31m+[39m
+[31m+ export interface VideoCardProps {[39m
+[31m+   /** URL to thumbnail image (16:9 aspect ratio) */[39m
+[31m+   thumbnailUrl?: string[39m
+[31m+   /** Duration string in format "MM:SS" or "H:MM:SS" */[39m
+[31m+   duration?: string[39m
+[31m+   /** Video title */[39m
+[31m+   title: string[39m
+[31m+   /** Optional summary text */[39m
+[31m+   summary?: string[39m
+[31m+   /** Source name (e.g., "YouTube", "Vimeo") */[39m
+[31m+   source?: string[39m
+[31m+   /** Optional published timestamp (relative time display) */[39m
+[31m+   publishedAt?: string[39m
+[31m+   /** Callback when card is pressed */[39m
+[31m+   onPress?: () => void[39m
+[31m+   /** Test ID for testing */[39m
+[31m+   testID?: string[39m
+[31m+ }[39m
+[31m+[39m
+[31m+ /**[39m
+[31m+  * VideoCard component[39m
+[31m+  *[39m
+[31m+  * @example[39m
+[31m+  * ```tsx[39m
+[31m+  * <VideoCard[39m
+[31m+  *   thumbnailUrl="https://example.com/thumb.jpg"[39m
+[31m+  *   duration="12:34"[39m
+[31m+  *   title="Understanding React Native"[39m
+[31m+  *   source="YouTube"[39m
+[31m+  *   onPress={() => navigateToVideo()}[39m
+[31m+  *   testID="video-card-1"[39m
+[31m+  * />[39m
+[31m+  * ```[39m
+[31m+  */[39m
+[31m+ export function VideoCard({[39m
+[31m+   thumbnailUrl,[39m
+[31m+   duration,[39m
+[31m+   title,[39m
+[31m+   summary,[39m
+[31m+   source,[39m
+[31m+   publishedAt,[39m
+[31m+   onPress,[39m
+[31m+   testID = 'video-card',[39m
+[31m+ }: VideoCardProps) {[39m
+[31m+   const { colors, spacing, radius } = useTheme()[39m
+[31m+[39m
+[31m+   return ([39m
+[31m+     <Pressable[39m
+[31m+       testID={testID}[39m
+[31m+       onPress={onPress}[39m
+[31m+       style={({ pressed }) => [[39m
+[31m+         styles.container,[39m
+[31m+         {[39m
+[31m+           opacity: pressed ? 0.7 : 1,[39m
+[31m+           backgroundColor: colors.card,[39m
+[31m+           borderColor: colors.border,[39m
+[31m+           borderRadius: radius.lg,[39m
+[31m+         },[39m
+[31m+       ]}[39m
+[31m+     >[39m
+[31m+       {/* Thumbnail container with 16:9 aspect ratio */}[39m
+[31m+       <View[39m
+[31m+         style={[[39m
+[31m+           styles.thumbnailContainer,[39m
+[31m+           { borderRadius: radius.lg },[39m
+[31m+         ]}[39m
+[31m+         testID={`${testID}-thumbnail-container`}[39m
+[31m+       >[39m
+[31m+         {thumbnailUrl ? ([39m
+[31m+           <OptimizedImage[39m
+[31m+             source={{ uri: thumbnailUrl }}[39m
+[31m+             aspectRatio={16 / 9}[39m
+[31m+             borderRadius={radius.lg}[39m
+[31m+             testID={`${testID}-thumbnail`}[39m
+[31m+             priority="normal"[39m
+[31m+           />[39m
+[31m+         ) : ([39m
+[31m+           <View[39m
+[31m+             style={[[39m
+[31m+               styles.fallback,[39m
+[31m+               {[39m
+[31m+                 backgroundColor: colors.muted,[39m
+[31m+                 borderRadius: radius.lg,[39m
+[31m+               },[39m
+[31m+             ]}[39m
+[31m+             testID={`${testID}-fallback`}[39m
+[31m+           >[39m
+[31m+             <Play size={48} color={colors.mutedForeground} testID={`${testID}-fallback-icon`} />[39m
+[31m+           </View>[39m
+[31m+         )}[39m
+[31m+[39m
+[31m+         {/* Duration badge */}[39m
+[31m+         {duration && ([39m
+[31m+           <View[39m
+[31m+             style={[[39m
+[31m+               styles.durationBadge,[39m
+[31m+               {[39m
+[31m+                 backgroundColor: colors.overlay,[39m
+[31m+                 opacity: 0.85,[39m
+[31m+                 padding: spacing.xs,[39m
+[31m+                 borderRadius: radius.sm,[39m
+[31m+               },[39m
+[31m+             ]}[39m
+[31m+             testID={`${testID}-duration`}[39m
+[31m+           >[39m
+[31m+             <Text[39m
+[31m+               style={{ color: colors.primary }}[39m
+[31m+               className="text-xs font-semibold"[39m
+[31m+             >[39m
+[31m+               {duration}[39m
+[31m+             </Text>[39m
+[31m+           </View>[39m
+[31m+         )}[39m
+[31m+[39m
+[31m+         {/* Play icon overlay */}[39m
+[31m+         {thumbnailUrl && ([39m
+[31m+           <View style={styles.playIcon} testID={`${testID}-play-icon`}>[39m
+[31m+             <Play size={40} color={colors.primary} />[39m
+[31m+           </View>[39m
+[31m+         )}[39m
+[31m+       </View>[39m
+[31m+[39m
+[31m+       {/* Metadata section */}[39m
+[31m+       <View style={[styles.metadata, { padding: spacing.md, gap: spacing.xs }]}>[39m
+[31m+         {/* Title */}[39m
+[31m+         <Text[39m
+[31m+           style={{ color: colors.foreground }}[39m
+[31m+           className="text-base font-semibold leading-snug"[39m
+[31m+           numberOfLines={2}[39m
+[31m+           testID={`${testID}-title`}[39m
+[31m+         >[39m
+[31m+           {title}[39m
+[31m+         </Text>[39m
+[31m+[39m
+[31m+         {/* Summary */}[39m
+[31m+         <SummaryText[39m
+[31m+           summary={summary}[39m
+[31m+           title={title}[39m
+[31m+           testID={`${testID}-summary`}[39m
+[31m+         />[39m
+[31m+[39m
+[31m+         {/* Source and published date */}[39m
+[31m+         <View style={[styles.metaRow, { gap: spacing.sm }]}>[39m
+[31m+           {source && ([39m
+[31m+             <Text[39m
+[31m+               style={{ color: colors.mutedForeground }}[39m
+[31m+               className="text-sm"[39m
+[31m+               testID={`${testID}-source`}[39m
+[31m+             >[39m
+[31m+               {source}[39m
+[31m+             </Text>[39m
+[31m+           )}[39m
+[31m+           {publishedAt && ([39m
+[31m+             <>[39m
+[31m+               <View style={[styles.dot, { backgroundColor: colors.mutedForeground }]} />[39m
+[31m+               <Text[39m
+[31m+                 style={{ color: colors.mutedForeground }}[39m
+[31m+                 className="text-sm"[39m
+[31m+                 testID={`${testID}-published-at`}[39m
+[31m+               >[39m
+[31m+                 {publishedAt}[39m
+[31m+               </Text>[39m
+[31m+             </>[39m
+[31m+           )}[39m
+[31m+         </View>[39m
+[31m+       </View>[39m
+[31m+     </Pressable>[39m
+[31m+   )[39m
+[31m+ }[39m
+[31m+[39m
+[31m+ const styles = StyleSheet.create({[39m
+[31m+   container: {[39m
+[31m+     borderWidth: 1,[39m
+[31m+     width: '100%',[39m
+[31m+     overflow: 'hidden',[39m
+[31m+   },[39m
+[31m+   thumbnailContainer: {[39m
+[31m+     position: 'relative',[39m
+[31m+     width: '100%',[39m
+[31m+     aspectRatio: 16 / 9,[39m
+[31m+     overflow: 'hidden',[39m
+[31m+   },[39m
+[31m+   thumbnail: {[39m
+[31m+     width: '100%',[39m
+[31m+     height: '100%',[39m
+[31m+   },[39m
+[31m+   fallback: {[39m
+[31m+     width: '100%',[39m
+[31m+     height: '100%',[39m
+[31m+     justifyContent: 'center',[39m
+[31m+     alignItems: 'center',[39m
+[31m+   },[39m
+[31m+   durationBadge: {[39m
+[31m+     position: 'absolute',[39m
+[31m+     bottom: 8,[39m
+[31m+     right: 8,[39m
+[31m+   },[39m
+[31m+   playIcon: {[39m
+[31m+     position: 'absolute',[39m
+[31m+     top: '50%',[39m
+[31m+     left: '50%',[39m
+[31m+     marginTop: -20, // Half of icon size (40)[39m
+[31m+     marginLeft: -20, // Half of icon size (40)[39m
+[31m+   },[39m
+[31m+   metadata: {[39m
+[31m+     width: '100%',[39m
+[31m+   },[39m
+[31m+   metaRow: {[39m
+[31m+     flexDirection: 'row',[39m
+[31m+     alignItems: 'center',[39m
+[31m+   },[39m
+[31m+   dot: {[39m
+[31m+     width: 4,[39m
+[31m+     height: 4,[39m
+[31m+     borderRadius: 2,[39m
+[31m+   },[39m
+[31m+ })[39m
+[31m+[39m
+
+[36m [2m❯[22m tests/components/subscriptions/VideoCard.test.tsx:[2m65:22[22m[39m
+    [90m 63|[39m     [34mit[39m([32m'should use resizeMode cover for thumbnail'[39m[33m,[39m () [33m=>[39m {
+    [90m 64|[39m       [35mconst[39m source [33m=[39m [34mreadComponent[39m()
+    [90m 65|[39m       [34mexpect[39m(source)[33m.[39m[34mtoContain[39m([32m'resizeMode='[39m)
+    [90m   |[39m                      [31m^[39m
+    [90m 66|[39m       [34mexpect[39m(source)[33m.[39m[34mtoContain[39m([32m'cover'[39m)
+    [90m 67|[39m     })
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m71 passed[39m[22m[2m | [22m[33m1 skipped[39m[90m (73)[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m1053 passed[39m[22m[2m | [22m[33m5 skipped[39m[90m (1059)[39m
+[2m   Start at [22m 13:59:07
+[2m   Duration [22m 814ms[2m (transform 2.63s, setup 0ms, import 2.54s, tests 2.17s, environment 375ms)[22m
+
+error: script "test" exited with code 1
