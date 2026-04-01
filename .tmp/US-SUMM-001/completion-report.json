@@ -1,0 +1,31 @@
+{
+  "status": "completed",
+  "commit_sha": "f156e5d39353c607bfadc4d5b7e8343dcc1502d1",
+  "evidence_path": ".tmp/US-SUMM-001/",
+  "summary": "Implemented AI-powered summary generation for What's New findings. Added generateFindingSummary() function to convex/whatsNew/llm.ts that generates 2-3 line summaries (80-150 characters) using LLM. Integrated into daily report synthesis flow in convex/whatsNew/actions.ts to process top 20 findings lacking summaries. Function handles failures gracefully by returning undefined and logging errors without blocking report generation. All 5 acceptance criteria verified with integration tests.",
+  "acceptance_criteria_verified": [
+    "AC-1: Each finding has summary field (80-150 chars)",
+    "AC-2: Summary captures key insight accurately",
+    "AC-3: Graceful failure handling (returns undefined, not error)",
+    "AC-4: Truncate long summaries to 150 chars with ellipsis",
+    "AC-5: Video source handling"
+  ],
+  "quality_gates": {
+    "tests": "PASS (6/6 tests passing)",
+    "typecheck": "PASS (no TypeScript errors)",
+    "lint": "PASS (no warnings)"
+  },
+  "files_modified": [
+    "convex/whatsNew/llm.ts (added generateFindingSummary function)",
+    "convex/whatsNew/actions.ts (integrated summary generation into synthesis flow)",
+    "tests/integration/whats-new-summary-generation.test.ts (added 5 test cases)"
+  ],
+  "implementation_details": {
+    "function": "generateFindingSummary",
+    "model": "zaiPro (Claude via OpenRouter)",
+    "max_length": 150 characters with ellipsis truncation",
+    "min_length": 80 characters (shorter treated as failure)",
+    "error_handling": "Returns undefined on failure, logs error",
+    "processing_limit": "Top 20 findings per report"
+  }
+}

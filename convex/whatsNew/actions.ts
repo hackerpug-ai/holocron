@@ -1220,7 +1220,7 @@ Respond with ONLY a JSON array: [{"url": "...", "summary": "..."}]`;
     // 5.5. AI summary generation for findings lacking summaries
     // Use individual LLM calls for high-quality 80-150 char summaries
     const findingsNeedingAiSummary = cappedFindings
-      .filter((f) => !f.summary || f.summary.length < 50)
+      .filter((f) => !f.summary || f.summary.length < 80)
       .slice(0, 20); // Limit to top 20 to avoid excessive LLM calls
 
     if (findingsNeedingAiSummary.length > 0) {
