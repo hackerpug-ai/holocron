@@ -1,6 +1,6 @@
 import { Card, CardContent } from '@/components/ui/card'
 import { Text } from '@/components/ui/text'
-import { GitMerge, Images } from '@/components/ui/icons'
+import { GitMerge, Images, EllipsisVertical } from '@/components/ui/icons'
 import { cn } from '@/lib/utils'
 import { Pressable, View } from 'react-native'
 
@@ -13,6 +13,7 @@ export interface ImprovementRequestCardProps {
   createdAt: number
   mergedCount?: number
   onPress?: () => void
+  onMenuPress?: () => void
   testID?: string
 }
 
@@ -78,6 +79,7 @@ export function ImprovementRequestCard({
   createdAt,
   mergedCount,
   onPress,
+  onMenuPress,
   testID,
 }: ImprovementRequestCardProps) {
   const statusStyle = STATUS_STYLES[status]
@@ -92,14 +94,30 @@ export function ImprovementRequestCard({
     >
       <Card className="border border-border bg-card w-full overflow-hidden">
         <CardContent className="py-3 px-4">
-          {/* Header row: status badge + relative date */}
+          {/* Header row: status badge + relative date + menu button */}
           <View className="flex-row items-center justify-between mb-2">
             <View className={cn('px-2 py-0.5 rounded-full self-start', statusStyle.badge)}>
               <Text className={cn('text-xs font-medium', statusStyle.text)}>
                 {statusStyle.label}
               </Text>
             </View>
-            <Text className="text-muted-foreground text-xs">{relativeDate}</Text>
+            <View className="flex-row items-center gap-2">
+              <Text className="text-muted-foreground text-xs">{relativeDate}</Text>
+              {onMenuPress && (
+                <Pressable
+                  onPress={(e) => {
+                    e.stopPropagation()
+                    onMenuPress()
+                  }}
+                  className="h-7 w-7 items-center justify-center rounded-full active:bg-muted"
+                  testID={`${testID ?? 'improvement-request-card'}-menu-button`}
+                  accessibilityRole="button"
+                  accessibilityLabel="More options"
+                >
+                  <EllipsisVertical size={18} className="text-muted-foreground" />
+                </Pressable>
+              )}
+            </View>
           </View>
 
           {/* Title */}

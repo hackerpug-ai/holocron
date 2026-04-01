@@ -1,7 +1,7 @@
 import { ImprovementsScreen } from '@/screens/improvements-screen'
 import { ImprovementSubmitSheet } from '@/components/improvements/ImprovementSubmitSheet'
 import { ImprovementEditSheet } from '@/components/improvements/ImprovementEditSheet'
-import { ImprovementActionMenu } from '@/components/improvements/ImprovementActionMenu'
+import { ImprovementActionBottomSheet } from '@/components/improvements/ImprovementActionMenu'
 import { ImprovementProcessingIndicator } from '@/components/improvements/ImprovementProcessingIndicator'
 import { ScreenLayout } from '@/components/ui/screen-layout'
 import { Plus } from '@/components/ui/icons'
@@ -57,13 +57,16 @@ export default function ImprovementsRoute() {
     router.push(`/improvements/${id}`)
   }
 
+  const handleMenuPress = (id: string) => {
+    setActionMenuId(id)
+  }
+
   const handleEdit = (id: string) => {
     setEditSheetId(id)
   }
 
   const handleDelete = async (id: string) => {
     await removeMutation({ id: id as Id<'improvementRequests'> })
-    setActionMenuId(null)
   }
 
   const handleSaveEdit = async (title: string, description: string) => {
@@ -113,8 +116,7 @@ export default function ImprovementsRoute() {
         requests={requests}
         isLoading={isLoading}
         onRequestPress={handleRequestPress}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
+        onMenuPress={handleMenuPress}
       />
 
       <ImprovementProcessingIndicator
@@ -140,7 +142,7 @@ export default function ImprovementsRoute() {
         />
       )}
 
-      <ImprovementActionMenu
+      <ImprovementActionBottomSheet
         open={actionMenuId !== null}
         onClose={() => setActionMenuId(null)}
         onEdit={() => {
@@ -152,7 +154,7 @@ export default function ImprovementsRoute() {
           const id = actionMenuId
           if (id) await handleDelete(id)
         }}
-        testID="improvements-action-menu"
+        testID="improvements-action-bottom-sheet"
       />
     </ScreenLayout>
   )

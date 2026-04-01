@@ -26,8 +26,7 @@ export interface ImprovementsScreenProps {
   }>
   isLoading: boolean
   onRequestPress: (id: string) => void
-  onEdit?: (id: string, title: string, description: string) => void
-  onDelete?: (id: string) => void
+  onMenuPress: (id: string) => void
   onRefresh?: () => void
   isRefreshing?: boolean
 }
@@ -56,8 +55,7 @@ export function ImprovementsScreen({
   requests,
   isLoading,
   onRequestPress,
-  onEdit,
-  onDelete,
+  onMenuPress,
   onRefresh,
   isRefreshing = false,
 }: ImprovementsScreenProps) {
@@ -87,8 +85,7 @@ export function ImprovementsScreen({
         createdAt={item.createdAt}
         mergedCount={item.mergedFromIds?.length}
         onPress={() => onRequestPress(item._id)}
-        onEdit={() => onEdit?.(item._id, item.title ?? item.description.slice(0, 60), item.description)}
-        onDelete={() => onDelete?.(item._id)}
+        onMenuPress={() => onMenuPress(item._id)}
         testID={`improvements-screen-card-${item._id}`}
       />
     </View>

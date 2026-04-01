@@ -1,20 +1,34 @@
 /**
- * ImprovementActionMenu - Action menu for improvement items with edit and delete options.
+ * ImprovementActionBottomSheet - Bottom sheet action menu for improvement items.
  *
- * Following the pattern from ConversationActionMenu:
- * - Three-state flow: menu → edit → delete (confirmation)
- * - Positioned at right:0, top:0
- * - Fade in/out animations
+ * Replaces the dropdown menu with a bottom sheet pattern consistent with other sheets:
+ * - Three-state flow: menu → delete (confirmation)
+ * - Slides up from bottom with grow-upward animation
+ * - Pan gesture to dismiss
+ * - Backdrop tap to dismiss
  * - AlertDialog for delete confirmation
+ *
+ * Follows the animation pattern from ImprovementEditSheet:
+ * - Modal transparent, animationType="none"
+ * - Animated backdrop tap-to-dismiss
+ * - Timing: IN 300ms Easing.out(cubic), OUT 250ms Easing.in(cubic)
  */
 
 import React, { useEffect, useState } from 'react'
-import { Pressable, View, StyleSheet } from 'react-native'
+import { Modal, Pressable, StyleSheet, View } from 'react-native'
 import Animated, {
+  Easing,
+  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated'
+import {
+  Gesture,
+  GestureDetector,
+  GestureHandlerRootView,
+} from 'react-native-gesture-handler'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Text } from '@/components/ui/text'
 import {
   AlertDialog,
@@ -26,11 +40,17 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Pencil, Trash2 } from '@/components/ui/icons'
+import { useTheme } from '@/hooks/use-theme'
+
+// ── Animation constants (mirrors ImprovementEditSheet) ──────────────────────
+const TIMING_IN = { duration: 300, easing: Easing.out(Easing.cubic) }
+const TIMING_OUT = { duration: 250, easing: Easing.in(Easing.cubic) }
+const DISMISS_THRESHOLD = 80
 
 // ── Types ──────────────────────────────────────────────────────────────────
 type ViewState = 'menu' | 'delete'
 
-export interface ImprovementActionMenuProps {
+export interface ImprovementActionBottomSheetProps {
   open: boolean
   onClose: () => void
   onEdit: () => void
@@ -40,39 +60,83 @@ export interface ImprovementActionMenuProps {
 }
 
 // ── Component ──────────────────────────────────────────────────────────────
-export function ImprovementActionMenu({
+export function ImprovementActionBottomSheet({
   open,
   onClose,
   onEdit,
   onDelete,
   isDeleting = false,
-  testID = 'improvement-action-menu',
-}: ImprovementActionMenuProps) {
-  // ── Animation shared values ──────────────────────────────────────────────
-  const opacity = useSharedValue(0)
-  const scale = useSharedValue(0.95)
+  testID = 'improvement-action-bottom-sheet',
+}: ImprovementActionBottomSheetProps) {
+  const insets = useSafeAreaInsets()
+  const { colors } = useTheme()
 
-  // ── Animate in/out on open change ────────────────────────────────────────
+  // ── Animation shared values ──────────────────────────────────────────────
+  const translateY = useSharedValue(400)
+  const backdropOpacity = useSharedValue(0)
+
+  // ── Local state ──────────────────────────────────────────────────────────
+  const [viewState, setViewState] = useState<ViewState>('menu')
+
+  // ── Reset state when menu closes ───────────────────────────────────────────
+  useEffect(() => {
+    if (!open) {
+      setViewState('menu')
+    }
+  }, [open])
+
+  // ── Animation on visibility change ───────────────────────────────────────
   useEffect(() => {
     if (open) {
-      opacity.value = withTiming(1, { duration: 150 })
-      scale.value = withTiming(1, { duration: 150 })
+      translateY.value = withTiming(0, TIMING_IN)
+      backdropOpacity.value = withTiming(1, TIMING_IN)
     } else {
-      opacity.value = withTiming(0, { duration: 100 })
-      scale.value = withTiming(0.95, { duration: 100 })
+      translateY.value = withTiming(400, TIMING_OUT)
+      backdropOpacity.value = withTiming(0, TIMING_OUT)
     }
-  }, [open, opacity, scale])
+  }, [open, backdropOpacity, translateY])
 
   // ── Animated styles ───────────────────────────────────────────────────────
-  const menuAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-    transform: [{ scale: scale.value }],
+  const sheetStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: Math.max(translateY.value, 0) }],
   }))
+
+  const backdropStyle = useAnimatedStyle(() => ({
+    opacity: backdropOpacity.value,
+  }))
+
+  // ── Dismiss helpers ───────────────────────────────────────────────────────
+  const animateOut = (callback: () => void) => {
+    translateY.value = withTiming(400, TIMING_OUT)
+    backdropOpacity.value = withTiming(0, TIMING_OUT)
+    setTimeout(callback, 250)
+  }
+
+  const dismiss = () => animateOut(onClose)
+
+  // ── Pan gesture (swipe-to-dismiss) ────────────────────────────────────────
+  const panGesture = Gesture.Pan()
+    .onUpdate((e) => {
+      if (e.translationY > 0) {
+        translateY.value = e.translationY
+      }
+    })
+    .onEnd((e) => {
+      if (e.translationY > DISMISS_THRESHOLD) {
+        translateY.value = withTiming(400, TIMING_OUT)
+        backdropOpacity.value = withTiming(0, TIMING_OUT)
+        runOnJS(onClose)()
+      } else {
+        translateY.value = withTiming(0, TIMING_IN)
+      }
+    })
 
   // ── Handlers ───────────────────────────────────────────────────────────────
   const handleEdit = () => {
-    onClose()
-    onEdit()
+    animateOut(() => {
+      onClose()
+      onEdit()
+    })
   }
 
   const handleDelete = () => {
@@ -82,61 +146,76 @@ export function ImprovementActionMenu({
   const confirmDelete = async () => {
     await onDelete()
     setViewState('menu')
-    onClose()
+    animateOut(onClose)
   }
-
-  const [viewState, setViewState] = useState<ViewState>('menu')
-
-  // Reset state when menu closes
-  useEffect(() => {
-    if (!open) {
-      setViewState('menu')
-    }
-  }, [open])
 
   if (!open) return null
 
   return (
     <>
-      {/* Backdrop */}
-      <Pressable
-        onPress={onClose}
-        style={styles.backdrop}
-        testID={`${testID}-backdrop`}
-        pointerEvents="box-none"
+      <Modal
+        transparent
+        visible={open}
+        animationType="none"
+        onRequestClose={dismiss}
+        testID={testID}
       >
-        {/* Menu */}
-        {viewState === 'menu' && (
-          <View style={styles.menuContainer} pointerEvents="box-none">
+        <GestureHandlerRootView style={styles.flex}>
+          {/* Backdrop */}
+          <Pressable
+            onPress={dismiss}
+            testID={`${testID}-backdrop`}
+            style={styles.flex}
+          >
             <Animated.View
-              style={[menuAnimatedStyle, styles.menu]}
-              className="right-0 top-0 w-56 rounded-md bg-card shadow-lg border border-border"
-            >
-              <Pressable
-                onPress={handleEdit}
-                className="flex-row items-center gap-3 px-4 py-3 active:bg-muted"
-                testID={`${testID}-edit-button`}
-                accessibilityRole="button"
-                accessibilityLabel="Edit"
-              >
-                <Pencil size={16} className="text-foreground" />
-                <Text className="text-foreground text-sm">Edit</Text>
-              </Pressable>
+              style={[backdropStyle, styles.flex, styles.backdrop]}
+            />
+          </Pressable>
 
-              <Pressable
-                onPress={handleDelete}
-                className="flex-row items-center gap-3 px-4 py-3 active:bg-muted"
-                testID={`${testID}-delete-button`}
-                accessibilityRole="button"
-                accessibilityLabel="Delete"
-              >
-                <Trash2 size={16} className="text-destructive" />
-                <Text className="text-destructive text-sm">Delete</Text>
-              </Pressable>
+          {/* Sheet */}
+          <GestureDetector gesture={panGesture}>
+            <Animated.View
+              style={[
+                sheetStyle,
+                styles.sheet,
+                { paddingBottom: insets.bottom, backgroundColor: colors.card },
+              ]}
+            >
+              {/* Drag handle */}
+              <View style={styles.handleRow}>
+                <View
+                  style={[styles.handle, { backgroundColor: colors.mutedForeground + '4D' }]}
+                />
+              </View>
+
+              {/* Menu options */}
+              <View style={styles.content}>
+                <Pressable
+                  onPress={handleEdit}
+                  className="flex-row items-center gap-3 px-4 py-3 active:bg-muted border-b border-border"
+                  testID={`${testID}-edit-button`}
+                  accessibilityRole="button"
+                  accessibilityLabel="Edit"
+                >
+                  <Pencil size={20} className="text-foreground" />
+                  <Text className="text-foreground text-base">Edit</Text>
+                </Pressable>
+
+                <Pressable
+                  onPress={handleDelete}
+                  className="flex-row items-center gap-3 px-4 py-3 active:bg-muted"
+                  testID={`${testID}-delete-button`}
+                  accessibilityRole="button"
+                  accessibilityLabel="Delete"
+                >
+                  <Trash2 size={20} className="text-destructive" />
+                  <Text className="text-destructive text-base">Delete</Text>
+                </Pressable>
+              </View>
             </Animated.View>
-          </View>
-        )}
-      </Pressable>
+          </GestureDetector>
+        </GestureHandlerRootView>
+      </Modal>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={viewState === 'delete'} onOpenChange={(open) => !open && setViewState('menu')}>
@@ -169,24 +248,38 @@ export function ImprovementActionMenu({
 
 // ── Styles ─────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
+  flex: {
+    flex: 1,
+  },
   backdrop: {
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  sheet: {
     position: 'absolute',
-    top: 0,
+    bottom: 0,
     left: 0,
     right: 0,
-    bottom: 0,
-  },
-  menuContainer: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    left: 0,
-    bottom: 0,
-    alignItems: 'flex-end',
-    paddingTop: 8,
-    paddingRight: 12,
-  },
-  menu: {
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
     overflow: 'hidden',
   },
+  handleRow: {
+    alignItems: 'center',
+    paddingTop: 10,
+    paddingBottom: 6,
+  },
+  handle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+  },
+  content: {
+    paddingTop: 8,
+    paddingBottom: 8,
+  },
 })
+
+// ── Backward-compatible export ──────────────────────────────────────────────
+// Export as ImprovementActionMenu for backward compatibility
+export { ImprovementActionBottomSheet as ImprovementActionMenu }
+
