@@ -1,5 +1,5 @@
 {
-  "nextId": 25,
+  "nextId": 31,
   "tasks": [
     {
       "id": "1",
@@ -263,9 +263,11 @@
         "agentType": "frontend-designer"
       },
       "blocks": [],
-      "blockedBy": [],
+      "blockedBy": [
+        "25"
+      ],
       "createdAt": 1775140951968,
-      "updatedAt": 1775140951968
+      "updatedAt": 1775142131005
     },
     {
       "id": "15",
@@ -282,9 +284,11 @@
         "agentType": "frontend-designer"
       },
       "blocks": [],
-      "blockedBy": [],
+      "blockedBy": [
+        "25"
+      ],
       "createdAt": 1775140951968,
-      "updatedAt": 1775140951968
+      "updatedAt": 1775142131005
     },
     {
       "id": "16",
@@ -456,6 +460,164 @@
       "blockedBy": [],
       "createdAt": 1775140953508,
       "updatedAt": 1775140955460
+    },
+    {
+      "id": "25",
+      "subject": "Feedback Buttons on Cards",
+      "description": "File: /Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-4-feedback/US-FB-001.md\n\nCategory: Feedback-Driven Recommendations\nPriority: P0\nStatus: To Do\nAssignee: frontend-designer\n\nAdd thumbs up/down feedback buttons to all card variants (Video, Article, Social, Release). Buttons are subtle (44x44 min hitbox), provide visual feedback on tap, and support toggle behavior (tap again to undo). Accessibility labels included.",
+      "status": "pending",
+      "metadata": {
+        "task_id": "US-FB-001",
+        "epic_id": "epic-4-feedback",
+        "category": "Feedback-Driven Recommendations",
+        "priority": "P0",
+        "effort": "90min",
+        "file_path": "/Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-4-feedback/US-FB-001.md",
+        "assignee": "frontend-designer",
+        "blocked_by": [
+          "Epic-2"
+        ],
+        "agentType": "frontend-designer"
+      },
+      "blocks": [
+        "26",
+        "29",
+        "14",
+        "15"
+      ],
+      "blockedBy": [],
+      "createdAt": 1775142128658,
+      "updatedAt": 1775142131005
+    },
+    {
+      "id": "26",
+      "subject": "Feedback Data Storage",
+      "description": "File: /Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-4-feedback/US-FB-002.md\n\nCategory: Feedback-Driven Recommendations\nPriority: P0\nStatus: To Do\nAssignee: convex-implementer\n\nCreate Convex backend for storing user feedback (userId, findingId, sentiment, timestamp). Support record/undo feedback, query history by user, query by finding for aggregation. Use indexes for efficient queries.",
+      "status": "pending",
+      "metadata": {
+        "task_id": "US-FB-002",
+        "epic_id": "epic-4-feedback",
+        "category": "Feedback-Driven Recommendations",
+        "priority": "P0",
+        "effort": "90min",
+        "file_path": "/Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-4-feedback/US-FB-002.md",
+        "assignee": "convex-implementer",
+        "blocked_by": [
+          "US-FB-001"
+        ],
+        "agentType": "convex-implementer"
+      },
+      "blocks": [
+        "27",
+        "28"
+      ],
+      "blockedBy": [
+        "25"
+      ],
+      "createdAt": 1775142128659,
+      "updatedAt": 1775142129966
+    },
+    {
+      "id": "27",
+      "subject": "Feedback-Influenced Scoring",
+      "description": "File: /Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-4-feedback/US-FB-003.md\n\nCategory: Feedback-Driven Recommendations\nPriority: P1\nStatus: To Do\nAssignee: convex-implementer\n\nWeight user feedback in quality scoring algorithm. Positive feedback boosts similar content, negative suppresses similar content. Include diversification to prevent filter bubbles. Consider feedback from last 30 days with time decay.",
+      "status": "pending",
+      "metadata": {
+        "task_id": "US-FB-003",
+        "epic_id": "epic-4-feedback",
+        "category": "Feedback-Driven Recommendations",
+        "priority": "P1",
+        "effort": "180min",
+        "file_path": "/Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-4-feedback/US-FB-003.md",
+        "assignee": "convex-implementer",
+        "blocked_by": [
+          "US-FB-002"
+        ],
+        "agentType": "convex-implementer"
+      },
+      "blocks": [
+        "30"
+      ],
+      "blockedBy": [
+        "26"
+      ],
+      "createdAt": 1775142128659,
+      "updatedAt": 1775142129967
+    },
+    {
+      "id": "28",
+      "subject": "Feedback History Screen",
+      "description": "File: /Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-4-feedback/US-FB-004.md\n\nCategory: Feedback-Driven Recommendations\nPriority: P2\nStatus: To Do\nAssignee: frontend-designer\n\nCreate Feedback History screen in Settings. Show list of all feedback (title, sentiment, timestamp), allow undoing individual items, allow clearing all feedback. Show \"No feedback yet\" when empty.",
+      "status": "pending",
+      "metadata": {
+        "task_id": "US-FB-004",
+        "epic_id": "epic-4-feedback",
+        "category": "Feedback-Driven Recommendations",
+        "priority": "P2",
+        "effort": "90min",
+        "file_path": "/Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-4-feedback/US-FB-004.md",
+        "assignee": "frontend-designer",
+        "blocked_by": [
+          "US-FB-002"
+        ],
+        "agentType": "frontend-designer"
+      },
+      "blocks": [],
+      "blockedBy": [
+        "26"
+      ],
+      "createdAt": 1775142128660,
+      "updatedAt": 1775142129966
+    },
+    {
+      "id": "29",
+      "subject": "Unobtrusive Feedback UX",
+      "description": "File: /Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-4-feedback/US-FB-005.md\n\nCategory: Feedback-Driven Recommendations\nPriority: P0\nStatus: To Do\nAssignee: frontend-designer\n\nEnsure feedback buttons are unobtrusive. Small subtle buttons (44x44 min hitbox), easy to tap but not accidental. Minimal visual feedback (just icon state change, no modals/toasts). Consistent positioning across card variants.",
+      "status": "pending",
+      "metadata": {
+        "task_id": "US-FB-005",
+        "epic_id": "epic-4-feedback",
+        "category": "Feedback-Driven Recommendations",
+        "priority": "P0",
+        "effort": "45min",
+        "file_path": "/Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-4-feedback/US-FB-005.md",
+        "assignee": "frontend-designer",
+        "blocked_by": [
+          "US-FB-001"
+        ],
+        "agentType": "frontend-designer"
+      },
+      "blocks": [],
+      "blockedBy": [
+        "25"
+      ],
+      "createdAt": 1775142128660,
+      "updatedAt": 1775142129967
+    },
+    {
+      "id": "30",
+      "subject": "Personalized Content Over Time",
+      "description": "File: /Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-4-feedback/US-FB-006.md\n\nCategory: Feedback-Driven Recommendations\nPriority: P1\nStatus: To Do\nAssignee: convex-implementer\n\nEnsure personalization improves over time. After 10+ feedback signals, content relevance increases. Cold start users get quality baseline. Provide reset mechanism in Settings. Balance personalization with discovery to prevent filter bubbles.",
+      "status": "pending",
+      "metadata": {
+        "task_id": "US-FB-006",
+        "epic_id": "epic-4-feedback",
+        "category": "Feedback-Driven Recommendations",
+        "priority": "P1",
+        "effort": "60min",
+        "file_path": "/Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-4-feedback/US-FB-006.md",
+        "assignee": "convex-implementer",
+        "blocked_by": [
+          "US-FB-003"
+        ],
+        "agentType": "convex-implementer"
+      },
+      "blocks": [],
+      "blockedBy": [
+        "27"
+      ],
+      "createdAt": 1775142128661,
+      "updatedAt": 1775142129967
     }
   ]
 }
