@@ -465,7 +465,7 @@
       "id": "25",
       "subject": "Feedback Buttons on Cards",
       "description": "File: /Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-4-feedback/US-FB-001.md\n\nCategory: Feedback-Driven Recommendations\nPriority: P0\nStatus: To Do\nAssignee: frontend-designer\n\nAdd thumbs up/down feedback buttons to all card variants (Video, Article, Social, Release). Buttons are subtle (44x44 min hitbox), provide visual feedback on tap, and support toggle behavior (tap again to undo). Accessibility labels included.",
-      "status": "pending",
+      "status": "in_progress",
       "metadata": {
         "task_id": "US-FB-001",
         "epic_id": "epic-4-feedback",
@@ -487,7 +487,7 @@
       ],
       "blockedBy": [],
       "createdAt": 1775142128658,
-      "updatedAt": 1775142131005
+      "updatedAt": 1775142459768
     },
     {
       "id": "26",
