@@ -1,0 +1,325 @@
+{
+  "nextId": 24,
+  "tasks": [
+    {
+      "id": "1",
+      "subject": "Run epic-5-infrastructure via kb-run-epic workflow",
+      "description": "Execute the epic located at .spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure by following the kb-run-epic skill: validate files, parse dependencies, create all task entries, then dispatch ready tasks/reviewers and summarize results. Note: source path is under .spec/prd/.../tasks rather than .spec/tasks/.",
+      "status": "completed",
+      "activeForm": "Running epic-5-infrastructure workflow",
+      "metadata": {},
+      "blocks": [],
+      "blockedBy": [],
+      "createdAt": 1775110198988,
+      "updatedAt": 1775110269972
+    },
+    {
+      "id": "2",
+      "subject": "Create pi-tasks entries for epic-5-infrastructure spec tasks",
+      "description": "Create task board entries for all actionable tasks in .spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure, skipping already completed tasks unless force is requested. Preserve dependencies and assignee mapping from the spec/EPIC.md.",
+      "status": "completed",
+      "activeForm": "Creating pi-tasks entries for epic-5-infrastructure",
+      "metadata": {},
+      "blocks": [
+        "3"
+      ],
+      "blockedBy": [],
+      "createdAt": 1775110212771,
+      "updatedAt": 1775110259899
+    },
+    {
+      "id": "3",
+      "subject": "Dispatch ready epic-5-infrastructure implementation tasks",
+      "description": "Dispatch ready tasks from epic-5-infrastructure to appropriate subagents after the planning phase, then collect results and reviewer verdicts per kb-run-epic workflow. Blocked because TaskExecute/pi-subagents execution is unavailable in the current session.",
+      "status": "in_progress",
+      "activeForm": "Dispatching epic-5-infrastructure implementation tasks",
+      "metadata": {},
+      "blocks": [
+        "4"
+      ],
+      "blockedBy": [
+        "2"
+      ],
+      "createdAt": 1775110215595,
+      "updatedAt": 1775110267127
+    },
+    {
+      "id": "4",
+      "subject": "Summarize epic-5-infrastructure execution results",
+      "description": "After planning/dispatching, summarize approved, rejected, pending, and skipped tasks for epic-5-infrastructure and note any path/layout deviations from the standard kb-run-epic workflow.",
+      "status": "completed",
+      "activeForm": "Summarizing epic-5-infrastructure execution results",
+      "metadata": {},
+      "blocks": [],
+      "blockedBy": [
+        "3"
+      ],
+      "createdAt": 1775110218257,
+      "updatedAt": 1775110268993
+    },
+    {
+      "id": "5",
+      "subject": "Create task entry for US-X-001",
+      "description": "Spec file: .spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-001.md\nTask: US-X-001 - Feed loads in under 2 seconds\nAssignee: frontend-designer (mapped to worker because no custom agent exists)\nStatus in spec: To Do\nDependencies: external Epic 2 only; no intra-epic blockers. Create pi-task entry for tracking and future execution.",
+      "status": "completed",
+      "activeForm": "Creating task entry for US-X-001",
+      "metadata": {
+        "agentType": "worker"
+      },
+      "blocks": [],
+      "blockedBy": [],
+      "createdAt": 1775110221576,
+      "updatedAt": 1775110352852
+    },
+    {
+      "id": "6",
+      "subject": "Create task entry for US-X-002",
+      "description": "Spec file: .spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-002.md\nTask: US-X-002 - 60fps scroll performance\nAssignee: frontend-designer (mapped to worker because no custom agent exists)\nStatus in spec: To Do\nDependencies: external Epic 2 only; no intra-epic blockers. Create pi-task entry for tracking and future execution.",
+      "status": "in_progress",
+      "activeForm": "Creating task entry for US-X-002",
+      "metadata": {
+        "agentType": "worker"
+      },
+      "blocks": [],
+      "blockedBy": [],
+      "createdAt": 1775110223695,
+      "updatedAt": 1775110354074
+    },
+    {
+      "id": "7",
+      "subject": "Create task entry for US-X-003",
+      "description": "Spec file: .spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-003.md\nTask: US-X-003 - Skeleton states while images load\nAssignee: frontend-designer (mapped to worker because no custom agent exists)\nStatus in spec: To Do\nDependencies: external Epic 2 only; no intra-epic blockers. Create pi-task entry for tracking and future execution.",
+      "status": "pending",
+      "activeForm": "Creating task entry for US-X-003",
+      "metadata": {
+        "agentType": "worker"
+      },
+      "blocks": [],
+      "blockedBy": [],
+      "createdAt": 1775110225860,
+      "updatedAt": 1775110225860
+    },
+    {
+      "id": "8",
+      "subject": "Create task entry for US-X-004",
+      "description": "Spec file: .spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-004.md\nTask: US-X-004 - Offscreen image cancellation and memory stability\nAssignee: frontend-designer (mapped to worker because no custom agent exists)\nStatus in spec: To Do\nDependencies: external Epic 2 only; no intra-epic blockers. Create pi-task entry for tracking and future execution.",
+      "status": "pending",
+      "activeForm": "Creating task entry for US-X-004",
+      "metadata": {
+        "agentType": "worker"
+      },
+      "blocks": [],
+      "blockedBy": [],
+      "createdAt": 1775110227828,
+      "updatedAt": 1775110227828
+    },
+    {
+      "id": "9",
+      "subject": "Create task entry for US-X-005",
+      "description": "Spec file: .spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-005.md\nTask: US-X-005 - Memory under 200MB with 50+ cards\nAssignee: frontend-designer (mapped to worker because no custom agent exists)\nStatus in spec: To Do\nDependencies: external Epic 2 only; no intra-epic blockers. Create pi-task entry for tracking and future execution.",
+      "status": "pending",
+      "activeForm": "Creating task entry for US-X-005",
+      "metadata": {
+        "agentType": "worker"
+      },
+      "blocks": [],
+      "blockedBy": [],
+      "createdAt": 1775110229848,
+      "updatedAt": 1775110229848
+    },
+    {
+      "id": "10",
+      "subject": "Create task entry for US-X-006",
+      "description": "Spec file: .spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-006.md\nTask: US-X-006 - Cards render in under 3 seconds on 4G\nAssignee: frontend-designer (mapped to worker because no custom agent exists)\nStatus in spec: To Do\nDependencies: external Epic 2 only; no intra-epic blockers. Create pi-task entry for tracking and future execution.",
+      "status": "pending",
+      "activeForm": "Creating task entry for US-X-006",
+      "metadata": {
+        "agentType": "worker"
+      },
+      "blocks": [],
+      "blockedBy": [],
+      "createdAt": 1775110231825,
+      "updatedAt": 1775110231825
+    },
+    {
+      "id": "11",
+      "subject": "Create task entry for US-X-007",
+      "description": "Spec file: .spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-007.md\nTask: US-X-007 - Offline banner appears on network loss\nAssignee: frontend-designer (mapped to worker because no custom agent exists)\nStatus in spec: To Do\nDependencies: external Epic 2 and Epic 4 only; no intra-epic blockers. Create pi-task entry for tracking and future execution.",
+      "status": "pending",
+      "activeForm": "Creating task entry for US-X-007",
+      "metadata": {
+        "agentType": "worker"
+      },
+      "blocks": [],
+      "blockedBy": [],
+      "createdAt": 1775110233771,
+      "updatedAt": 1775110233771
+    },
+    {
+      "id": "12",
+      "subject": "Create task entry for US-X-008",
+      "description": "Spec file: .spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-008.md\nTask: US-X-008 - Cached items display when offline\nAssignee: frontend-designer (mapped to worker because no custom agent exists)\nStatus in spec: To Do\nDependencies: external Epic 2 and Epic 4 only; no intra-epic blockers. Create pi-task entry for tracking and future execution.",
+      "status": "pending",
+      "activeForm": "Creating task entry for US-X-008",
+      "metadata": {
+        "agentType": "worker"
+      },
+      "blocks": [],
+      "blockedBy": [],
+      "createdAt": 1775110236149,
+      "updatedAt": 1775110236149
+    },
+    {
+      "id": "13",
+      "subject": "Create task entry for US-X-009",
+      "description": "Spec file: .spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-009.md\nTask: US-X-009 - Feedback queued when offline\nAssignee: frontend-designer (mapped to worker because no custom agent exists)\nStatus in spec: To Do\nDependencies: external Epic 2 and Epic 4 only; no intra-epic blockers. Create pi-task entry for tracking and future execution.",
+      "status": "pending",
+      "activeForm": "Creating task entry for US-X-009",
+      "metadata": {
+        "agentType": "worker"
+      },
+      "blocks": [],
+      "blockedBy": [],
+      "createdAt": 1775110238519,
+      "updatedAt": 1775110238519
+    },
+    {
+      "id": "14",
+      "subject": "Create task entry for US-X-010",
+      "description": "Spec file: .spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-010.md\nTask: US-X-010 - Queued feedback submits on reconnect\nAssignee: frontend-designer (mapped to worker because no custom agent exists)\nStatus in spec: To Do\nDependencies: external Epic 2 and Epic 4 only; no intra-epic blockers. Create pi-task entry for tracking and future execution.",
+      "status": "pending",
+      "activeForm": "Creating task entry for US-X-010",
+      "metadata": {
+        "agentType": "worker"
+      },
+      "blocks": [],
+      "blockedBy": [],
+      "createdAt": 1775110240562,
+      "updatedAt": 1775110240562
+    },
+    {
+      "id": "15",
+      "subject": "Create task entry for US-X-011",
+      "description": "Spec file: .spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-011.md\nTask: US-X-011 - Cache expires after 7 days\nAssignee: frontend-designer (mapped to worker because no custom agent exists)\nStatus in spec: To Do\nDependencies: external Epic 2 and Epic 4 only; no intra-epic blockers. Create pi-task entry for tracking and future execution.",
+      "status": "pending",
+      "activeForm": "Creating task entry for US-X-011",
+      "metadata": {
+        "agentType": "worker"
+      },
+      "blocks": [],
+      "blockedBy": [],
+      "createdAt": 1775110242575,
+      "updatedAt": 1775110242575
+    },
+    {
+      "id": "16",
+      "subject": "Create task entry for US-X-012",
+      "description": "Spec file: .spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-012.md\nTask: US-X-012 - Cached card opens in WebViewSheet\nAssignee: frontend-designer (mapped to worker because no custom agent exists)\nStatus in spec: To Do\nDependencies: external Epic 2 and Epic 4 only; no intra-epic blockers. Create pi-task entry for tracking and future execution.",
+      "status": "pending",
+      "activeForm": "Creating task entry for US-X-012",
+      "metadata": {
+        "agentType": "worker"
+      },
+      "blocks": [],
+      "blockedBy": [],
+      "createdAt": 1775110244643,
+      "updatedAt": 1775110244643
+    },
+    {
+      "id": "17",
+      "subject": "Create task entry for US-X-013",
+      "description": "Spec file: .spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-013.md\nTask: US-X-013 - Card content announced by screen reader\nAssignee: frontend-designer (mapped to worker because no custom agent exists)\nStatus in spec: To Do\nDependencies: external Epic 2 only; no intra-epic blockers. Create pi-task entry for tracking and future execution.",
+      "status": "pending",
+      "activeForm": "Creating task entry for US-X-013",
+      "metadata": {
+        "agentType": "worker"
+      },
+      "blocks": [],
+      "blockedBy": [],
+      "createdAt": 1775110246870,
+      "updatedAt": 1775110246870
+    },
+    {
+      "id": "18",
+      "subject": "Create task entry for US-X-014",
+      "description": "Spec file: .spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-014.md\nTask: US-X-014 - Feedback button accessibility label\nAssignee: frontend-designer (mapped to worker because no custom agent exists)\nStatus in spec: To Do\nDependencies: external Epic 2 only; no intra-epic blockers. Create pi-task entry for tracking and future execution.",
+      "status": "pending",
+      "activeForm": "Creating task entry for US-X-014",
+      "metadata": {
+        "agentType": "worker"
+      },
+      "blocks": [],
+      "blockedBy": [],
+      "createdAt": 1775110249406,
+      "updatedAt": 1775110249406
+    },
+    {
+      "id": "19",
+      "subject": "Create task entry for US-X-015",
+      "description": "Spec file: .spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-015.md\nTask: US-X-015 - Feedback action state announced\nAssignee: frontend-designer (mapped to worker because no custom agent exists)\nStatus in spec: To Do\nDependencies: external Epic 2 only; no intra-epic blockers. Create pi-task entry for tracking and future execution.",
+      "status": "pending",
+      "activeForm": "Creating task entry for US-X-015",
+      "metadata": {
+        "agentType": "worker"
+      },
+      "blocks": [],
+      "blockedBy": [],
+      "createdAt": 1775110251525,
+      "updatedAt": 1775110251525
+    },
+    {
+      "id": "20",
+      "subject": "Create task entry for US-X-016",
+      "description": "Spec file: .spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-016.md\nTask: US-X-016 - Feed navigation in logical order\nAssignee: frontend-designer (mapped to worker because no custom agent exists)\nStatus in spec: To Do\nDependencies: external Epic 2 only; no intra-epic blockers. Create pi-task entry for tracking and future execution.",
+      "status": "pending",
+      "activeForm": "Creating task entry for US-X-016",
+      "metadata": {
+        "agentType": "worker"
+      },
+      "blocks": [],
+      "blockedBy": [],
+      "createdAt": 1775110253831,
+      "updatedAt": 1775110253831
+    },
+    {
+      "id": "21",
+      "subject": "Create task entry for US-X-017",
+      "description": "Spec file: .spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-017.md\nTask: US-X-017 - High contrast mode readability\nAssignee: frontend-designer (mapped to worker because no custom agent exists)\nStatus in spec: To Do\nDependencies: external Epic 2 only; no intra-epic blockers. Create pi-task entry for tracking and future execution.",
+      "status": "pending",
+      "activeForm": "Creating task entry for US-X-017",
+      "metadata": {
+        "agentType": "worker"
+      },
+      "blocks": [],
+      "blockedBy": [],
+      "createdAt": 1775110256692,
+      "updatedAt": 1775110256692
+    },
+    {
+      "id": "22",
+      "subject": "Create task entry for US-X-018",
+      "description": "Spec file: .spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-018.md\nTask: US-X-018 - Filter chip accessibility\nAssignee: frontend-designer (mapped to worker because no custom agent exists)\nStatus in spec: To Do\nDependencies: external Epic 2 only; no intra-epic blockers. Create pi-task entry for tracking and future execution.",
+      "status": "pending",
+      "activeForm": "Creating task entry for US-X-018",
+      "metadata": {
+        "agentType": "worker"
+      },
+      "blocks": [],
+      "blockedBy": [],
+      "createdAt": 1775110258898,
+      "updatedAt": 1775110258898
+    },
+    {
+      "id": "23",
+      "subject": "Execute epic-5-infrastructure tasks iteratively one by one",
+      "description": "Push each task file from .spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure onto the task list and then work through them sequentially, implementing each task, verifying, committing, and updating the corresponding spec file status before moving to the next.",
+      "status": "in_progress",
+      "activeForm": "Executing epic-5-infrastructure tasks one by one",
+      "metadata": {},
+      "blocks": [],
+      "blockedBy": [],
+      "createdAt": 1775110311582,
+      "updatedAt": 1775110312724
+    }
+  ]
+}

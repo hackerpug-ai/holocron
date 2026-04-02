@@ -9,6 +9,7 @@
  * accents as left-border stripes, dense info layout.
  */
 
+import React from 'react'
 import { View, Pressable } from 'react-native'
 import { Text } from '@/components/ui/text'
 import { Card } from '@/components/ui/card'
@@ -40,6 +41,15 @@ export interface SocialPostsGroupCardProps {
   testID?: string
 }
 
+const PLATFORM_COLORS: Record<string, string> = {
+  Reddit: '#FF4500',
+  Bluesky: '#0085FF',
+  Lobsters: '#AC130D',
+  'Dev.to': '#0A0A0A',
+  'Twitter/X': '#1DA1F2',
+  Other: '#64748B',
+}
+
 /**
  * Group findings by platform and compute stats
  */
@@ -64,16 +74,7 @@ function computePlatformStats(findings: SocialFinding[]) {
   return platforms
 }
 
-const PLATFORM_COLORS: Record<string, string> = {
-  Reddit: '#FF4500',
-  Bluesky: '#0085FF',
-  Lobsters: '#AC130D',
-  'Dev.to': '#0A0A0A',
-  'Twitter/X': '#1DA1F2',
-  Other: '#64748B',
-}
-
-export function SocialPostsGroupCard({
+export const SocialPostsGroupCard = React.memo(function SocialPostsGroupCard({
   findings,
   onPress,
   testID = 'social-posts-group',
@@ -206,4 +207,4 @@ export function SocialPostsGroupCard({
       </Card>
     </Pressable>
   )
-}
+})

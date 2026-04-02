@@ -1,0 +1,461 @@
+{
+  "nextId": 25,
+  "tasks": [
+    {
+      "id": "1",
+      "subject": "Feed loads in under 2 seconds",
+      "description": "File: /Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-001.md\n\nCategory: Performance\nPriority: P0\nStatus: Done (Approved 2026-04-02, commit: f99df007bd8dfe3467d0372a299bd1c4c8ce7f93)\n\nFeed renders within 2 seconds using FlatList performance tuning and skeleton loading states.",
+      "status": "completed",
+      "metadata": {
+        "task_id": "US-X-001",
+        "category": "Performance",
+        "priority": "P0",
+        "effort": "S",
+        "file_path": "/Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-001.md",
+        "status": "completed",
+        "agentType": "frontend-designer"
+      },
+      "blocks": [],
+      "blockedBy": [],
+      "createdAt": 1775140949560,
+      "updatedAt": 1775140955457
+    },
+    {
+      "id": "2",
+      "subject": "60fps scroll performance",
+      "description": "File: /Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-002.md\n\nCategory: Performance\nPriority: P0\nStatus: To Do\n\nFeed scrolls smoothly at 60fps with images loading.",
+      "status": "completed",
+      "metadata": {
+        "task_id": "US-X-002",
+        "category": "Performance",
+        "priority": "P0",
+        "effort": "S",
+        "file_path": "/Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-002.md",
+        "status": "pending",
+        "agentType": "frontend-designer"
+      },
+      "blocks": [],
+      "blockedBy": [],
+      "createdAt": 1775140949560,
+      "updatedAt": 1775141086076
+    },
+    {
+      "id": "3",
+      "subject": "Skeleton states while images load",
+      "description": "File: /Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-003.md\n\nCategory: Performance\nPriority: P0\nStatus: To Do\n\nSkeleton loading states show while images load.",
+      "status": "pending",
+      "metadata": {
+        "task_id": "US-X-003",
+        "category": "Performance",
+        "priority": "P0",
+        "effort": "S",
+        "file_path": "/Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-003.md",
+        "status": "pending",
+        "agentType": "frontend-designer"
+      },
+      "blocks": [],
+      "blockedBy": [],
+      "createdAt": 1775140949560,
+      "updatedAt": 1775140949560
+    },
+    {
+      "id": "4",
+      "subject": "Offscreen image cancellation and memory stability",
+      "description": "File: /Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-004.md\n\nCategory: Performance\nPriority: P0\nStatus: To Do\n\nImages that scroll off-screen are cancelled to prevent memory leaks.",
+      "status": "pending",
+      "metadata": {
+        "task_id": "US-X-004",
+        "category": "Performance",
+        "priority": "P0",
+        "effort": "S",
+        "file_path": "/Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-004.md",
+        "status": "pending",
+        "agentType": "frontend-designer"
+      },
+      "blocks": [],
+      "blockedBy": [],
+      "createdAt": 1775140949561,
+      "updatedAt": 1775140949561
+    },
+    {
+      "id": "5",
+      "subject": "Memory under 200MB with 50+ cards",
+      "description": "File: /Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-005.md\n\nCategory: Performance\nPriority: P0\nStatus: To Do\n\nApp memory stays under 200MB when scrolling through 50+ cards.",
+      "status": "pending",
+      "metadata": {
+        "task_id": "US-X-005",
+        "category": "Performance",
+        "priority": "P0",
+        "effort": "S",
+        "file_path": "/Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-005.md",
+        "status": "pending",
+        "agentType": "frontend-designer"
+      },
+      "blocks": [],
+      "blockedBy": [],
+      "createdAt": 1775140949561,
+      "updatedAt": 1775140949561
+    },
+    {
+      "id": "6",
+      "subject": "Cards render in under 3 seconds on 4G",
+      "description": "File: /Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-006.md\n\nCategory: Performance\nPriority: P0\nStatus: To Do\n\nFeed cards render in under 3 seconds when on 4G connection.",
+      "status": "pending",
+      "metadata": {
+        "task_id": "US-X-006",
+        "category": "Performance",
+        "priority": "P0",
+        "effort": "S",
+        "file_path": "/Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-006.md",
+        "status": "pending",
+        "agentType": "frontend-designer"
+      },
+      "blocks": [],
+      "blockedBy": [],
+      "createdAt": 1775140949561,
+      "updatedAt": 1775140949561
+    },
+    {
+      "id": "7",
+      "subject": "Offline banner appears on network loss",
+      "description": "File: /Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-007.md\n\nCategory: Offline Support\nPriority: P1\nStatus: To Do\n\nOffline banner appears when network connection is lost.",
+      "status": "pending",
+      "metadata": {
+        "task_id": "US-X-007",
+        "category": "Offline Support",
+        "priority": "P1",
+        "effort": "S",
+        "file_path": "/Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-007.md",
+        "status": "pending",
+        "agentType": "frontend-designer"
+      },
+      "blocks": [],
+      "blockedBy": [],
+      "createdAt": 1775140950809,
+      "updatedAt": 1775140950809
+    },
+    {
+      "id": "8",
+      "subject": "Cached items display when offline",
+      "description": "File: /Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-008.md\n\nCategory: Offline Support\nPriority: P1\nStatus: To Do\n\nCached feed items display even when offline (last 50 items).",
+      "status": "pending",
+      "metadata": {
+        "task_id": "US-X-008",
+        "category": "Offline Support",
+        "priority": "P1",
+        "effort": "S",
+        "file_path": "/Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-008.md",
+        "status": "pending",
+        "agentType": "frontend-designer"
+      },
+      "blocks": [],
+      "blockedBy": [],
+      "createdAt": 1775140950809,
+      "updatedAt": 1775140950809
+    },
+    {
+      "id": "9",
+      "subject": "Feedback queued when offline",
+      "description": "File: /Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-009.md\n\nCategory: Offline Support\nPriority: P1\nStatus: To Do\n\nUser feedback (save/skip) is queued locally when offline.",
+      "status": "pending",
+      "metadata": {
+        "task_id": "US-X-009",
+        "category": "Offline Support",
+        "priority": "P1",
+        "effort": "S",
+        "file_path": "/Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-009.md",
+        "status": "pending",
+        "agentType": "frontend-designer"
+      },
+      "blocks": [],
+      "blockedBy": [],
+      "createdAt": 1775140950810,
+      "updatedAt": 1775140950810
+    },
+    {
+      "id": "10",
+      "subject": "Queued feedback submits on reconnect",
+      "description": "File: /Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-010.md\n\nCategory: Offline Support\nPriority: P1\nStatus: To Do\n\nQueued feedback is automatically submitted when connection is restored.",
+      "status": "pending",
+      "metadata": {
+        "task_id": "US-X-010",
+        "category": "Offline Support",
+        "priority": "P1",
+        "effort": "S",
+        "file_path": "/Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-010.md",
+        "status": "pending",
+        "agentType": "frontend-designer"
+      },
+      "blocks": [],
+      "blockedBy": [],
+      "createdAt": 1775140950810,
+      "updatedAt": 1775140950810
+    },
+    {
+      "id": "11",
+      "subject": "Cache expires after 7 days",
+      "description": "File: /Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-011.md\n\nCategory: Offline Support\nPriority: P1\nStatus: To Do\n\nCached content expires after 7 days and is removed.",
+      "status": "pending",
+      "metadata": {
+        "task_id": "US-X-011",
+        "category": "Offline Support",
+        "priority": "P1",
+        "effort": "S",
+        "file_path": "/Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-011.md",
+        "status": "pending",
+        "agentType": "frontend-designer"
+      },
+      "blocks": [],
+      "blockedBy": [],
+      "createdAt": 1775140950810,
+      "updatedAt": 1775140950810
+    },
+    {
+      "id": "12",
+      "subject": "Cached card opens in WebViewSheet",
+      "description": "File: /Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-012.md\n\nCategory: Offline Support\nPriority: P1\nStatus: To Do\n\nCached cards can be opened in WebViewSheet when offline.",
+      "status": "pending",
+      "metadata": {
+        "task_id": "US-X-012",
+        "category": "Offline Support",
+        "priority": "P1",
+        "effort": "S",
+        "file_path": "/Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-012.md",
+        "status": "pending",
+        "agentType": "frontend-designer"
+      },
+      "blocks": [],
+      "blockedBy": [],
+      "createdAt": 1775140950811,
+      "updatedAt": 1775140950811
+    },
+    {
+      "id": "13",
+      "subject": "Card content announced by screen reader",
+      "description": "File: /Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-013.md\n\nCategory: Accessibility\nPriority: P0\nStatus: To Do\n\nScreen readers properly announce card content (title, summary, source).",
+      "status": "pending",
+      "metadata": {
+        "task_id": "US-X-013",
+        "category": "Accessibility",
+        "priority": "P0",
+        "effort": "S",
+        "file_path": "/Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-013.md",
+        "status": "pending",
+        "agentType": "frontend-designer"
+      },
+      "blocks": [],
+      "blockedBy": [],
+      "createdAt": 1775140951967,
+      "updatedAt": 1775140951967
+    },
+    {
+      "id": "14",
+      "subject": "Feedback button accessibility label",
+      "description": "File: /Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-014.md\n\nCategory: Accessibility\nPriority: P0\nStatus: To Do\n\nFeedback buttons (save/skip) have proper accessibility labels announced by screen readers.",
+      "status": "pending",
+      "metadata": {
+        "task_id": "US-X-014",
+        "category": "Accessibility",
+        "priority": "P0",
+        "effort": "S",
+        "file_path": "/Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-014.md",
+        "status": "pending",
+        "agentType": "frontend-designer"
+      },
+      "blocks": [],
+      "blockedBy": [],
+      "createdAt": 1775140951968,
+      "updatedAt": 1775140951968
+    },
+    {
+      "id": "15",
+      "subject": "Feedback action state announced",
+      "description": "File: /Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-015.md\n\nCategory: Accessibility\nPriority: P0\nStatus: To Do\n\nScreen readers announce when feedback action state changes (saved/skipped).",
+      "status": "pending",
+      "metadata": {
+        "task_id": "US-X-015",
+        "category": "Accessibility",
+        "priority": "P0",
+        "effort": "S",
+        "file_path": "/Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-015.md",
+        "status": "pending",
+        "agentType": "frontend-designer"
+      },
+      "blocks": [],
+      "blockedBy": [],
+      "createdAt": 1775140951968,
+      "updatedAt": 1775140951968
+    },
+    {
+      "id": "16",
+      "subject": "Feed navigation in logical order",
+      "description": "File: /Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-016.md\n\nCategory: Accessibility\nPriority: P0\nStatus: To Do\n\nScreen reader navigation flows in logical order through cards.",
+      "status": "pending",
+      "metadata": {
+        "task_id": "US-X-016",
+        "category": "Accessibility",
+        "priority": "P0",
+        "effort": "S",
+        "file_path": "/Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-016.md",
+        "status": "pending",
+        "agentType": "frontend-designer"
+      },
+      "blocks": [],
+      "blockedBy": [],
+      "createdAt": 1775140951968,
+      "updatedAt": 1775140951968
+    },
+    {
+      "id": "17",
+      "subject": "High contrast mode readability",
+      "description": "File: /Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-017.md\n\nCategory: Accessibility\nPriority: P0\nStatus: To Do\n\nFeed cards remain readable in high contrast mode.",
+      "status": "pending",
+      "metadata": {
+        "task_id": "US-X-017",
+        "category": "Accessibility",
+        "priority": "P0",
+        "effort": "S",
+        "file_path": "/Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-017.md",
+        "status": "pending",
+        "agentType": "frontend-designer"
+      },
+      "blocks": [],
+      "blockedBy": [],
+      "createdAt": 1775140951969,
+      "updatedAt": 1775140951969
+    },
+    {
+      "id": "18",
+      "subject": "Filter chip accessibility",
+      "description": "File: /Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-018.md\n\nCategory: Accessibility\nPriority: P0\nStatus: To Do\n\nFilter chips are accessible with proper labels and state announcements.",
+      "status": "pending",
+      "metadata": {
+        "task_id": "US-X-018",
+        "category": "Accessibility",
+        "priority": "P0",
+        "effort": "S",
+        "file_path": "/Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-018.md",
+        "status": "pending",
+        "agentType": "frontend-designer"
+      },
+      "blocks": [],
+      "blockedBy": [],
+      "createdAt": 1775140951969,
+      "updatedAt": 1775140951969
+    },
+    {
+      "id": "19",
+      "subject": "Finding above threshold included in report",
+      "description": "File: /Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-019.md\n\nCategory: Content Quality\nPriority: P0\nStatus: Done (Approved 2026-04-01, commit: 876c781)\n\nFindings with score >= 0.4 are included in the report.",
+      "status": "completed",
+      "metadata": {
+        "task_id": "US-X-019",
+        "category": "Content Quality",
+        "priority": "P0",
+        "effort": "S",
+        "file_path": "/Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-019.md",
+        "status": "completed",
+        "agentType": "convex-implementer"
+      },
+      "blocks": [],
+      "blockedBy": [],
+      "createdAt": 1775140953506,
+      "updatedAt": 1775140955457
+    },
+    {
+      "id": "20",
+      "subject": "Finding below threshold filtered out",
+      "description": "File: /Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-020.md\n\nCategory: Content Quality\nPriority: P0\nStatus: Done (commit: 876c781)\n\nFindings with score < 0.4 are filtered out from the report.",
+      "status": "completed",
+      "metadata": {
+        "task_id": "US-X-020",
+        "category": "Content Quality",
+        "priority": "P0",
+        "effort": "S",
+        "file_path": "/Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-020.md",
+        "status": "completed",
+        "agentType": "convex-implementer"
+      },
+      "blocks": [],
+      "blockedBy": [],
+      "createdAt": 1775140953506,
+      "updatedAt": 1775140955458
+    },
+    {
+      "id": "21",
+      "subject": "Clickbait title score penalized",
+      "description": "File: /Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-021.md\n\nCategory: Content Quality\nPriority: P0\nStatus: Done (commit: 876c781)\n\nClickbait titles are penalized in quality scoring.",
+      "status": "completed",
+      "metadata": {
+        "task_id": "US-X-021",
+        "category": "Content Quality",
+        "priority": "P0",
+        "effort": "S",
+        "file_path": "/Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-021.md",
+        "status": "completed",
+        "agentType": "convex-implementer"
+      },
+      "blocks": [],
+      "blockedBy": [],
+      "createdAt": 1775140953507,
+      "updatedAt": 1775140955458
+    },
+    {
+      "id": "22",
+      "subject": "Debug mode shows quality score",
+      "description": "File: /Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-022.md\n\nCategory: Content Quality\nPriority: P0\nStatus: Done (commit: 876c781)\n\nDebug mode displays quality scores for each finding.",
+      "status": "completed",
+      "metadata": {
+        "task_id": "US-X-022",
+        "category": "Content Quality",
+        "priority": "P0",
+        "effort": "S",
+        "file_path": "/Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-022.md",
+        "status": "completed",
+        "agentType": "convex-implementer"
+      },
+      "blocks": [],
+      "blockedBy": [],
+      "createdAt": 1775140953507,
+      "updatedAt": 1775140955459
+    },
+    {
+      "id": "23",
+      "subject": "Only quality findings in report",
+      "description": "File: /Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-023.md\n\nCategory: Content Quality\nPriority: P0\nStatus: Done (commit: 876c781)\n\nReport only includes findings that meet quality threshold.",
+      "status": "completed",
+      "metadata": {
+        "task_id": "US-X-023",
+        "category": "Content Quality",
+        "priority": "P0",
+        "effort": "S",
+        "file_path": "/Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-023.md",
+        "status": "completed",
+        "agentType": "convex-implementer"
+      },
+      "blocks": [],
+      "blockedBy": [],
+      "createdAt": 1775140953507,
+      "updatedAt": 1775140955459
+    },
+    {
+      "id": "24",
+      "subject": "Configurable threshold applied",
+      "description": "File: /Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-024.md\n\nCategory: Content Quality\nPriority: P0\nStatus: Done (commit: 876c781)\n\nQuality threshold is configurable and properly applied.",
+      "status": "completed",
+      "metadata": {
+        "task_id": "US-X-024",
+        "category": "Content Quality",
+        "priority": "P0",
+        "effort": "S",
+        "file_path": "/Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-024.md",
+        "status": "completed",
+        "agentType": "convex-implementer"
+      },
+      "blocks": [],
+      "blockedBy": [],
+      "createdAt": 1775140953508,
+      "updatedAt": 1775140955460
+    }
+  ]
+}

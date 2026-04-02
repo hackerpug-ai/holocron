@@ -21,4 +21,11 @@ describe('SubscriptionFeedScreen performance contract', () => {
     expect(source).toContain('<FeedSkeleton count={5} testID={`${testID}-loading`} />')
     expect(source).not.toContain('Block feed rendering waiting for all images')
   })
+
+  it('scrollMaintainsSixtyFps', () => {
+    const source = readComponent()
+
+    expect(source).toContain('removeClippedSubviews={true}')
+    expect(source).toContain('keyExtractor={(item) => item.url}')
+  })
 })

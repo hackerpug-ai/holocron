@@ -242,7 +242,7 @@ export function SubscriptionFeedScreen({
       <FlatList
         testID={testID}
         data={nonSocialFindings}
-        keyExtractor={(_, index) => String(index)}
+        keyExtractor={(item) => item.url}
         contentContainerStyle={{ flexGrow: 1, paddingHorizontal: spacing.lg, paddingTop: spacing.md }}
         accessibilityRole="list"
         accessibilityLabel="Content feed"

@@ -2,6 +2,7 @@
  * SearchContentCard - Simplified card for subscription content search results
  */
 
+import React from 'react'
 import { View, Pressable } from 'react-native'
 import { Text } from '@/components/ui/text'
 import { Card } from '@/components/ui/card'
@@ -36,7 +37,7 @@ function formatRelativeTime(timestamp: number): string {
   return 'just now'
 }
 
-export function SearchContentCard({
+export const SearchContentCard = React.memo(function SearchContentCard({
   title,
   thumbnailUrl,
   contentCategory,
@@ -139,4 +140,4 @@ export function SearchContentCard({
       </Pressable>
     </Card>
   )
-}
+})

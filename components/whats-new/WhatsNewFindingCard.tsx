@@ -2,6 +2,7 @@
  * WhatsNewFindingCard - Individual finding card for the What's New feed
  */
 
+import React from 'react'
 import { View, Pressable } from 'react-native'
 import { Text } from '@/components/ui/text'
 import { Card } from '@/components/ui/card'
@@ -70,7 +71,7 @@ const CATEGORY_CONFIG = {
   },
 } as const
 
-export function WhatsNewFindingCard({
+function WhatsNewFindingCardComponent({
   title,
   source,
   category,
@@ -213,3 +214,5 @@ export function WhatsNewFindingCard({
     </Card>
   )
 }
+
+export const WhatsNewFindingCard = React.memo(WhatsNewFindingCardComponent)
