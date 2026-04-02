@@ -138,7 +138,7 @@
       "id": "8",
       "subject": "Cached items display when offline",
       "description": "File: /Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-008.md\n\nCategory: Offline Support\nPriority: P1\nStatus: To Do\n\nCached feed items display even when offline (last 50 items).",
-      "status": "pending",
+      "status": "completed",
       "metadata": {
         "task_id": "US-X-008",
         "category": "Offline Support",
@@ -151,13 +151,13 @@
       "blocks": [],
       "blockedBy": [],
       "createdAt": 1775140950809,
-      "updatedAt": 1775140950809
+      "updatedAt": 1775141414332
     },
     {
       "id": "9",
       "subject": "Feedback queued when offline",
       "description": "File: /Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-009.md\n\nCategory: Offline Support\nPriority: P1\nStatus: To Do\n\nUser feedback (save/skip) is queued locally when offline.",
-      "status": "pending",
+      "status": "completed",
       "metadata": {
         "task_id": "US-X-009",
         "category": "Offline Support",
@@ -170,13 +170,13 @@
       "blocks": [],
       "blockedBy": [],
       "createdAt": 1775140950810,
-      "updatedAt": 1775140950810
+      "updatedAt": 1775141414332
     },
     {
       "id": "10",
       "subject": "Queued feedback submits on reconnect",
       "description": "File: /Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-010.md\n\nCategory: Offline Support\nPriority: P1\nStatus: To Do\n\nQueued feedback is automatically submitted when connection is restored.",
-      "status": "pending",
+      "status": "completed",
       "metadata": {
         "task_id": "US-X-010",
         "category": "Offline Support",
@@ -189,13 +189,13 @@
       "blocks": [],
       "blockedBy": [],
       "createdAt": 1775140950810,
-      "updatedAt": 1775140950810
+      "updatedAt": 1775141414333
     },
     {
       "id": "11",
       "subject": "Cache expires after 7 days",
       "description": "File: /Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-011.md\n\nCategory: Offline Support\nPriority: P1\nStatus: To Do\n\nCached content expires after 7 days and is removed.",
-      "status": "pending",
+      "status": "completed",
       "metadata": {
         "task_id": "US-X-011",
         "category": "Offline Support",
@@ -208,13 +208,13 @@
       "blocks": [],
       "blockedBy": [],
       "createdAt": 1775140950810,
-      "updatedAt": 1775140950810
+      "updatedAt": 1775141414333
     },
     {
       "id": "12",
       "subject": "Cached card opens in WebViewSheet",
       "description": "File: /Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-012.md\n\nCategory: Offline Support\nPriority: P1\nStatus: To Do\n\nCached cards can be opened in WebViewSheet when offline.",
-      "status": "pending",
+      "status": "completed",
       "metadata": {
         "task_id": "US-X-012",
         "category": "Offline Support",
@@ -227,7 +227,7 @@
       "blocks": [],
       "blockedBy": [],
       "createdAt": 1775140950811,
-      "updatedAt": 1775140950811
+      "updatedAt": 1775141414333
     },
     {
       "id": "13",
