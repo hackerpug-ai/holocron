@@ -35,6 +35,8 @@ export interface OptimizedImageProps {
   fallback?: React.ReactNode
   /** Priority for loading (default: normal) */
   priority?: 'low' | 'normal' | 'high'
+  /** Default placeholder source while image loads (require() only) */
+  defaultSource?: Source
 }
 
 /**
@@ -61,6 +63,7 @@ export function OptimizedImage({
   testID = 'optimized-image',
   fallback,
   priority = 'normal',
+  defaultSource,
 }: OptimizedImageProps) {
   const [isLoading, setIsLoading] = useState(true)
   const [hasError, setHasError] = useState(false)
@@ -138,6 +141,7 @@ export function OptimizedImage({
             ...source,
             priority: fastPriority,
             cache: FastImage.cacheControl.web,
+            ...(defaultSource && { defaultSource }),
           }}
           resizeMode={fastResizeMode}
           onLoad={handleLoad}
@@ -146,6 +150,7 @@ export function OptimizedImage({
             width: '100%',
             height: '100%',
             borderRadius: typeof borderRadius === 'number' ? borderRadius : undefined,
+            backgroundColor: isLoading ? 'rgba(0,0,0,0.05)' : undefined,
           }}
         />
       </Animated.View>

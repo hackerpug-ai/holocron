@@ -43,7 +43,7 @@
       "id": "3",
       "subject": "Skeleton states while images load",
       "description": "File: /Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-003.md\n\nCategory: Performance\nPriority: P0\nStatus: To Do\n\nSkeleton loading states show while images load.",
-      "status": "pending",
+      "status": "completed",
       "metadata": {
         "task_id": "US-X-003",
         "category": "Performance",
@@ -56,7 +56,7 @@
       "blocks": [],
       "blockedBy": [],
       "createdAt": 1775140949560,
-      "updatedAt": 1775140949560
+      "updatedAt": 1775141178970
     },
     {
       "id": "4",
