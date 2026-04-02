@@ -81,7 +81,7 @@
       "id": "5",
       "subject": "Memory under 200MB with 50+ cards",
       "description": "File: /Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-005.md\n\nCategory: Performance\nPriority: P0\nStatus: To Do\n\nApp memory stays under 200MB when scrolling through 50+ cards.",
-      "status": "pending",
+      "status": "completed",
       "metadata": {
         "task_id": "US-X-005",
         "category": "Performance",
@@ -94,13 +94,13 @@
       "blocks": [],
       "blockedBy": [],
       "createdAt": 1775140949561,
-      "updatedAt": 1775140949561
+      "updatedAt": 1775141329862
     },
     {
       "id": "6",
       "subject": "Cards render in under 3 seconds on 4G",
       "description": "File: /Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-006.md\n\nCategory: Performance\nPriority: P0\nStatus: To Do\n\nFeed cards render in under 3 seconds when on 4G connection.",
-      "status": "pending",
+      "status": "completed",
       "metadata": {
         "task_id": "US-X-006",
         "category": "Performance",
@@ -113,13 +113,13 @@
       "blocks": [],
       "blockedBy": [],
       "createdAt": 1775140949561,
-      "updatedAt": 1775140949561
+      "updatedAt": 1775141329862
     },
     {
       "id": "7",
       "subject": "Offline banner appears on network loss",
       "description": "File: /Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-007.md\n\nCategory: Offline Support\nPriority: P1\nStatus: To Do\n\nOffline banner appears when network connection is lost.",
-      "status": "pending",
+      "status": "completed",
       "metadata": {
         "task_id": "US-X-007",
         "category": "Offline Support",
@@ -132,7 +132,7 @@
       "blocks": [],
       "blockedBy": [],
       "createdAt": 1775140950809,
-      "updatedAt": 1775140950809
+      "updatedAt": 1775141349396
     },
     {
       "id": "8",
