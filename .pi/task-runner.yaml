@@ -14,6 +14,10 @@ task_areas:
     path: ".spec/tasks"
     prefix: "TP"
     context: ".spec/tasks/CONTEXT.md"
+  epic-4-feedback:
+    path: ".spec/tasks/epic-4-feedback"
+    prefix: "US-FB"
+    context: ".spec/prd/subscriptions-redesign/tasks/epic-4-feedback/EPIC.md"
 
 # ── Reference Docs ────────────────────────────────────────────────────
 # Docs that tasks can reference in their "Context to Read First" section.
