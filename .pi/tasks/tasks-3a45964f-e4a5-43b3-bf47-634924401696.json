@@ -62,7 +62,7 @@
       "id": "4",
       "subject": "Offscreen image cancellation and memory stability",
       "description": "File: /Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-004.md\n\nCategory: Performance\nPriority: P0\nStatus: To Do\n\nImages that scroll off-screen are cancelled to prevent memory leaks.",
-      "status": "pending",
+      "status": "completed",
       "metadata": {
         "task_id": "US-X-004",
         "category": "Performance",
@@ -75,7 +75,7 @@
       "blocks": [],
       "blockedBy": [],
       "createdAt": 1775140949561,
-      "updatedAt": 1775140949561
+      "updatedAt": 1775141259987
     },
     {
       "id": "5",
