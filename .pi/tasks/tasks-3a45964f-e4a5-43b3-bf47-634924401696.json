@@ -233,7 +233,7 @@
       "id": "13",
       "subject": "Card content announced by screen reader",
       "description": "File: /Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-013.md\n\nCategory: Accessibility\nPriority: P0\nStatus: To Do\n\nScreen readers properly announce card content (title, summary, source).",
-      "status": "pending",
+      "status": "completed",
       "metadata": {
         "task_id": "US-X-013",
         "category": "Accessibility",
@@ -246,7 +246,7 @@
       "blocks": [],
       "blockedBy": [],
       "createdAt": 1775140951967,
-      "updatedAt": 1775140951967
+      "updatedAt": 1775141430383
     },
     {
       "id": "14",
@@ -290,7 +290,7 @@
       "id": "16",
       "subject": "Feed navigation in logical order",
       "description": "File: /Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-016.md\n\nCategory: Accessibility\nPriority: P0\nStatus: To Do\n\nScreen reader navigation flows in logical order through cards.",
-      "status": "pending",
+      "status": "completed",
       "metadata": {
         "task_id": "US-X-016",
         "category": "Accessibility",
@@ -303,13 +303,13 @@
       "blocks": [],
       "blockedBy": [],
       "createdAt": 1775140951968,
-      "updatedAt": 1775140951968
+      "updatedAt": 1775141430383
     },
     {
       "id": "17",
       "subject": "High contrast mode readability",
       "description": "File: /Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-017.md\n\nCategory: Accessibility\nPriority: P0\nStatus: To Do\n\nFeed cards remain readable in high contrast mode.",
-      "status": "pending",
+      "status": "completed",
       "metadata": {
         "task_id": "US-X-017",
         "category": "Accessibility",
@@ -322,13 +322,13 @@
       "blocks": [],
       "blockedBy": [],
       "createdAt": 1775140951969,
-      "updatedAt": 1775140951969
+      "updatedAt": 1775141430384
     },
     {
       "id": "18",
       "subject": "Filter chip accessibility",
       "description": "File: /Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-5-infrastructure/US-X-018.md\n\nCategory: Accessibility\nPriority: P0\nStatus: To Do\n\nFilter chips are accessible with proper labels and state announcements.",
-      "status": "pending",
+      "status": "completed",
       "metadata": {
         "task_id": "US-X-018",
         "category": "Accessibility",
@@ -341,7 +341,7 @@
       "blocks": [],
       "blockedBy": [],
       "createdAt": 1775140951969,
-      "updatedAt": 1775140951969
+      "updatedAt": 1775141430384
     },
     {
       "id": "19",

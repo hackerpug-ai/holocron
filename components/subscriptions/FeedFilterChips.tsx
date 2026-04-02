@@ -68,6 +68,10 @@ export function FeedFilterChips({
               key={category}
               testID={`filter-chip-${category}`}
               onPress={() => onCategoryChange(category)}
+              accessibilityRole="button"
+              accessibilityLabel={`${isActive ? 'Selected' : 'Filter by'} ${label}. ${count} items`}
+              accessibilityHint={isActive ? 'Currently selected' : 'Tap to filter'}
+              accessibilityState={{ selected: isActive }}
               style={({ pressed }) => [
                 styles.chip,
                 {
