@@ -6,6 +6,7 @@ import { FilterChip } from "@/components/FilterChip";
 import { SearchInput } from "@/components/SearchInput";
 import { SectionHeader } from "@/components/SectionHeader";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ImportButton } from "@/components/article/ImportButton";
 import { VALID_CATEGORIES } from "@/lib/category-mapping";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -65,6 +66,8 @@ interface ArticlesScreenProps extends Omit<ViewProps, "children"> {
   onArticlePress?: (_article: Article) => void;
   /** Callback when a category filter is selected */
   onCategoryChange?: (_category?: CategoryType) => void;
+  /** Callback when import button is pressed */
+  onImportPress?: () => void;
 }
 
 /**
@@ -84,6 +87,7 @@ export function ArticlesScreen({
   onSearch,
   onArticlePress,
   onCategoryChange,
+  onImportPress,
   className,
   ...props
 }: ArticlesScreenProps) {
@@ -130,14 +134,26 @@ export function ArticlesScreen({
     >
       {/* Header Section with Search and Categories */}
       <View className="px-4 pb-4 pt-4">
-        {/* Search Input - always editable to allow query refinement */}
-        <SearchInput
-          value={searchValue}
-          onChangeText={handleSearchChange}
-          placeholder="Search articles..."
-          onClear={handleClear}
-          testID="articles-search-input"
-        />
+        {/* Search and Import Row */}
+        <View className="flex-row items-center gap-2">
+          {/* Search Input - always editable to allow query refinement */}
+          <View className="flex-1">
+            <SearchInput
+              value={searchValue}
+              onChangeText={handleSearchChange}
+              placeholder="Search articles..."
+              onClear={handleClear}
+              testID="articles-search-input"
+            />
+          </View>
+
+          {/* Import Button */}
+          <ImportButton
+            onPress={onImportPress}
+            disabled={loading}
+            testID="articles-import-button"
+          />
+        </View>
 
         {/* Horizontal Filter Chips */}
         <ScrollView

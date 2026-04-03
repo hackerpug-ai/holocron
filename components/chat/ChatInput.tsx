@@ -75,6 +75,7 @@ const DEFAULT_COMMANDS: SlashCommand[] = [
   { name: 'whats-new', description: 'Get AI news briefing', syntax: '[days]' },
   { name: 'toolbelt', description: 'Search or add tools', syntax: '<query or url>' },
   { name: 'save', description: 'Save document to knowledge base', syntax: '<title> [category]' },
+  { name: 'add-text', description: 'Import text from AI platforms', syntax: '<documentId> <text>' },
   { name: 'help', description: 'Show all available commands' },
 ]
 

@@ -10,6 +10,7 @@ import {
   mapDocumentCategoryToCategoryType,
   mapCategoryTypeToDocumentCategory,
 } from '@/lib/category-mapping'
+import { ArticleImportModal } from '@/components/articles/ArticleImportModal'
 
 interface Article {
   id: string
@@ -65,6 +66,7 @@ export default function ArticlesRoute() {
   const [searchQuery, setSearchQuery] = useState<string>('')
   const [searchResults, setSearchResults] = useState<Article[] | null>(null)
   const [isSearching, setIsSearching] = useState(false)
+  const [importModalVisible, setImportModalVisible] = useState(false)
 
   // Map category type to Convex category string using centralized mapping
   const convexCategory = mapCategoryTypeToDocumentCategory(selectedCategory)
@@ -215,8 +217,22 @@ export default function ArticlesRoute() {
     router.push(`/document/${article.id}`)
   }
 
+  const handleImportPress = () => {
+    setImportModalVisible(true)
+  }
+
+  const handleImportDismiss = () => {
+    setImportModalVisible(false)
+  }
+
+  const handleImportSuccess = () => {
+    // Refresh the articles list after import
+    // The query will automatically refetch due to Convex reactivity
+  }
+
   return (
-    <ScreenLayout
+    <>
+      <ScreenLayout
       header={{
         title: 'Articles',
         showBack: true,
@@ -237,8 +253,18 @@ export default function ArticlesRoute() {
         onSearch={handleSearch}
         onCategoryChange={handleCategoryChange}
         onArticlePress={handleArticlePress}
+        onImportPress={handleImportPress}
         testID="articles-route"
       />
     </ScreenLayout>
+
+    {/* Import Modal */}
+    <ArticleImportModal
+      visible={importModalVisible}
+      onDismiss={handleImportDismiss}
+      onSuccess={handleImportSuccess}
+      testID="articles-import-modal"
+    />
+    </>
   )
 }
