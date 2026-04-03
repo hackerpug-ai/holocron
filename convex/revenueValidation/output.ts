@@ -8,9 +8,7 @@
  */
 
 import {
-  formatReportHeader,
   formatTable,
-  todayISO,
 } from "../lib/reportFormat";
 import type { Doc } from "../_generated/dataModel";
 
@@ -158,20 +156,15 @@ function formatSummaryBlock(
   // Unit economics (base + bear scenarios)
   const unitEconomics = (session.unitEconomics as UnitEconomics | null) ?? null;
   const base = unitEconomics?.base;
-  const bear = unitEconomics?.bear;
   const ltvCac = base?.ltvCacRatio ?? "—";
   const payback =
     base?.paybackMonths !== undefined ? `${base.paybackMonths}` : "—";
-  const worstLtvCac = bear?.ltvCacRatio ?? "—";
 
   // Top risk and next step
   const topRiskText = topRisk(evidence);
   const nextStep = session.executiveSummary
     ? session.executiveSummary.split(/[.!]/)[0].trim()
     : "Complete validation analysis";
-
-  // Document id
-  const docId = session.documentId ?? "—";
 
   // DVF box inner lines — fixed-width to fit the box borders
   const dvfBox = [
@@ -189,7 +182,6 @@ function formatSummaryBlock(
     "",
     `Product:     ${session.productName}`,
     `Verdict:     ${verdict} (${rawScore}/100)`,
-    `             Raw: ${rawScore}/100 | Governed: ${governedScore}/30`,
     "",
     `Evidence:    T1: ${t1} | T2: ${t2} | T3: ${t3} | T4: ${t4}`,
     `Challenged:  ${survived}/${total} survived | ${contradicted} contradicted`,
@@ -199,12 +191,9 @@ function formatSummaryBlock(
     `Market:        TAM ${tam} → SAM ${sam} → SOM ${som}`,
     `Competitors:   ${competitorCount} identified (median $${medPriceStr}/mo)`,
     `Unit Econ:     LTV:CAC ${ltvCac}:1 | Payback ${payback}mo`,
-    `Nightmare:     LTV:CAC ${worstLtvCac}:1 (all worst-case)`,
+    `Top Risk:      ${topRiskText}`,
+    `Next Step:     ${nextStep}`,
     "",
-    `Top Risk:         ${topRiskText}`,
-    `Next Step:        ${nextStep}`,
-    "",
-    `Holocron:      Document #${String(docId)}`,
     SEPARATOR,
   ];
 
@@ -212,13 +201,6 @@ function formatSummaryBlock(
 }
 
 // ── Detailed Report Helpers ───────────────────────────────────────────────────
-
-function confidenceLabel(score: number | undefined): string {
-  if (score === undefined) return "—";
-  if (score >= 7) return "H";
-  if (score >= 4) return "M";
-  return "L";
-}
 
 function scoreLabel(score: number | undefined, max = 10): string {
   return score !== undefined ? `${score}/${max}` : "—";
@@ -239,25 +221,22 @@ function formatDvfTable(session: Session, evidence: Evidence[]): string {
     [
       "Desirability",
       scoreLabel(session.desirabilityScore),
-      confidenceLabel(session.desirabilityScore),
       topClaimForDimension(evidence, "desirability"),
     ],
     [
       "Viability",
       scoreLabel(session.viabilityScore),
-      confidenceLabel(session.viabilityScore),
       topClaimForDimension(evidence, "viability"),
     ],
     [
       "Feasibility",
       scoreLabel(session.feasibilityScore),
-      confidenceLabel(session.feasibilityScore),
       topClaimForDimension(evidence, "feasibility"),
     ],
   ];
 
   return formatTable(
-    ["Dimension", "Score", "Confidence", "Key Evidence"],
+    ["Dimension", "Score", "Key Evidence"],
     rows,
     40,
   );
@@ -342,19 +321,7 @@ export function formatRevenueValidationReport(
   const summaryBlock = formatSummaryBlock(session, evidence, competitors);
 
   // ── Part 2: Full markdown report ──
-  const verdict = session.verdict ?? "PENDING";
-  const total = session.totalScore !== undefined ? session.totalScore : "—";
-  const instantValue = `Verdict: ${verdict} — DVF ${total}/30`;
-
-  const header = formatReportHeader(
-    `Revenue Validation: ${session.productName}`,
-    instantValue,
-    {
-      date: todayISO(),
-      type: "revenue-validation",
-      agents: session.agentCount,
-    },
-  );
+  const header = `# Revenue Validation: ${session.productName}\n`;
 
   const executiveSummary = session.executiveSummary
     ? `## Executive Summary\n${session.executiveSummary}\n`

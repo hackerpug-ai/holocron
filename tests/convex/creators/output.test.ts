@@ -61,31 +61,32 @@ describe('AC-2: report header contains creator name', () => {
     expect(typeof result).toBe('string');
     // Title is "Crash Course: {Domain} by {Creator}"
     expect(result).toContain('Alice Example');
-    expect(result).toContain('creator-analysis');
-    // Header metadata includes "Videos: 3 analyzed"
+    // Header metadata includes "Videos: N analyzed" and Date per ASSIMILATE_CREATOR_TEMPLATE
     expect(result).toContain(`**Videos**: 3 analyzed`);
+    expect(result).toContain('**Date**:');
   });
 });
 
 /**
- * AC-3: Formats subscriber count with K/M suffixes
+ * AC-3: Source link and video count appear in header
+ * Template: **Source**: [{Channel}]({url}) | **Videos**: {N} analyzed | **Date**: {date}
  */
-describe('AC-3: subscriber count formatting', () => {
-  it('should format 1200000 subscribers as 1.2M', () => {
+describe('AC-3: header source and video metadata', () => {
+  it('should include the channel URL in the Source field', () => {
     const result = formatCreatorReport({ profile: baseProfile, videos: baseVideos });
-    expect(result).toContain('1.2M');
+    expect(result).toContain('**Source**:');
+    expect(result).toContain('https://youtube.com/@alice');
   });
 
-  it('should format 45000 subscribers as 45K', () => {
-    const profile = { ...baseProfile, subscriberCount: 45000 };
-    const result = formatCreatorReport({ profile, videos: baseVideos });
-    expect(result).toContain('45K');
+  it('should include video count in the Videos field', () => {
+    const result = formatCreatorReport({ profile: baseProfile, videos: baseVideos });
+    expect(result).toContain('**Videos**: 3 analyzed');
   });
 
-  it('should format sub-1000 subscribers as plain number', () => {
-    const profile = { ...baseProfile, subscriberCount: 500 };
+  it('should fall back to plain name when no channel URL', () => {
+    const profile = { ...baseProfile, channelUrl: undefined };
     const result = formatCreatorReport({ profile, videos: baseVideos });
-    expect(result).toContain('500');
+    expect(result).toContain('**Source**: Alice Example');
   });
 });
 

@@ -11,7 +11,6 @@
  */
 
 import {
-  formatReportHeader,
   formatTable,
   todayISO,
 } from "../lib/reportFormat";
@@ -96,10 +95,10 @@ function formatJobToBeDone(
 
 /**
  * Format the Competitive Map section as a positioning table.
+ * Features are shown in a separate ## Feature Comparison section.
  */
 function formatCompetitiveMap(
-  competitors: CompetitiveAnalysisCompetitor[],
-  features: CompetitiveAnalysisFeature[]
+  competitors: CompetitiveAnalysisCompetitor[]
 ): string {
   if (competitors.length === 0) {
     return `## Competitive Map\n\n_No competitor data available._`;
@@ -107,39 +106,48 @@ function formatCompetitiveMap(
 
   const lines = [`## Competitive Map`, ""];
 
-  const headers = ["Competitor", "Focus", "Founded", "Funding"];
+  const headers = ["Competitor", "Focus", "Funding", "Strength"];
   const rows = competitors.map((c) => [
     c.name,
     c.focus ?? "—",
-    c.founded ?? "—",
     c.funding ?? "—",
+    c.strengths && c.strengths.length > 0 ? c.strengths[0] : "—",
   ]);
 
   lines.push(formatTable(headers, rows, 25));
 
-  // Feature matrix as a sub-section
-  if (features.length > 0) {
-    lines.push("");
-    lines.push("**Feature Coverage**");
-    lines.push("");
-    const competitorNames = competitors.map((c) => c.name);
-    const fHeaders = ["Feature", "Us", ...competitorNames];
-    const fRows = features.map((f) => {
-      const competitorCells = competitorNames.map((name) => {
-        const support =
-          typeof f.competitorSupport === "object" &&
-          f.competitorSupport !== null &&
-          name in f.competitorSupport
-            ? String((f.competitorSupport as Record<string, string>)[name])
-            : "?";
-        return supportSymbol(support);
-      });
-      return [f.featureName, supportSymbol(f.ourSupport), ...competitorCells];
+  return lines.join("\n");
+}
+
+/**
+ * Format the Feature Comparison section as a separate section.
+ * Matches COMPETITIVE_ANALYSIS_TEMPLATE § Feature Comparison.
+ */
+function formatFeatureComparison(
+  competitors: CompetitiveAnalysisCompetitor[],
+  features: CompetitiveAnalysisFeature[]
+): string {
+  if (features.length === 0) return "";
+
+  const lines = [`## Feature Comparison`, ""];
+
+  const competitorNames = competitors.map((c) => c.name);
+  const fHeaders = ["Feature", "Us", ...competitorNames];
+  const fRows = features.map((f) => {
+    const competitorCells = competitorNames.map((name) => {
+      const support =
+        typeof f.competitorSupport === "object" &&
+        f.competitorSupport !== null &&
+        name in f.competitorSupport
+          ? String((f.competitorSupport as Record<string, string>)[name])
+          : "?";
+      return supportSymbol(support);
     });
-    lines.push(formatTable(fHeaders, fRows, 25));
-    lines.push("");
-    lines.push("_Legend: ✓ = yes, ~ = partial, ✗ = no_");
-  }
+    return [f.featureName, supportSymbol(f.ourSupport), ...competitorCells];
+  });
+  lines.push(formatTable(fHeaders, fRows, 25));
+  lines.push("");
+  lines.push("✓ = yes, ~ = partial, ✗ = no");
 
   return lines.join("\n");
 }
@@ -210,48 +218,20 @@ function formatSubstitutes(
   return lines.join("\n");
 }
 
-/**
- * Format the Customer Segments section.
- * Derived from competitor focus areas and feature coverage patterns.
- */
-function formatCustomerSegments(
-  session: CompetitiveAnalysisSession,
-  competitors: CompetitiveAnalysisCompetitor[]
-): string {
-  const lines = [`## Customer Segments`, ""];
-
-  const focusAreas = competitors
-    .map((c) => c.focus)
-    .filter((f): f is string => Boolean(f));
-  const unique = [...new Set(focusAreas)];
-
-  if (unique.length > 0) {
-    lines.push(`Key segments identified for **${session.market}**:`);
-    unique.forEach((focus) => {
-      lines.push(`- ${focus}`);
-    });
-  } else {
-    lines.push(
-      `_Customer segment analysis for **${session.market}** — review competitor focus areas for segment breakdown._`
-    );
-  }
-
-  return lines.join("\n");
-}
 
 /**
  * Format the Industry Forces (Porter's Five Forces) section.
  */
 function formatIndustryForces(session: CompetitiveAnalysisSession): string {
   const forces: Array<[string, string | undefined, string]> = [
-    ["Competitive Rivalry", session.porterRivalry, "Internal competition intensity"],
-    ["Threat of New Entrants", session.porterNewEntrants, "Barriers to entry"],
-    ["Threat of Substitutes", session.porterSubstitutes, "Alternative solutions"],
+    ["Rivalry", session.porterRivalry, "Internal competition intensity"],
+    ["New Entrants", session.porterNewEntrants, "Barriers to entry"],
+    ["Substitutes", session.porterSubstitutes, "Alternative solutions"],
     ["Buyer Power", session.porterBuyerPower, "Customer negotiating leverage"],
     ["Supplier Power", session.porterSupplierPower, "Vendor/partner leverage"],
   ];
 
-  const lines = [`## Industry Forces (Porter)`, ""];
+  const lines = [`## Industry Forces (Porter's)`, ""];
 
   forces.forEach(([label, rating, description]) => {
     const ratingStr = rating ?? "_not rated_";
@@ -451,28 +431,31 @@ export function formatCompetitiveAnalysisReport(
   competitors: CompetitiveAnalysisCompetitor[],
   features: CompetitiveAnalysisFeature[]
 ): string {
-  const title = `Competitive Analysis: ${session.market}`;
-  const instantValue = session.marketVerdict ?? "Market analysis in progress.";
+  const verdict = session.marketVerdict ?? "Market analysis in progress.";
+  const sourcesStr = session.sourceCount ? String(session.sourceCount) : "—";
 
-  const header = formatReportHeader(title, instantValue, {
-    date: todayISO(),
-    type: "competitive-analysis",
-    sources: session.sourceCount,
-  });
+  // Header matching COMPETITIVE_ANALYSIS_TEMPLATE
+  const header =
+    `# Competitive Analysis: ${session.market}\n\n` +
+    `${verdict}\n\n` +
+    `**Date**: ${todayISO()} | **Sources**: ${sourcesStr}\n` +
+    `---`;
+
+  const featureComparison = formatFeatureComparison(competitors, features);
 
   const sections = [
     header,
+    "",
     formatMarketSnapshot(session, competitors),
     "",
     formatJobToBeDone(session, competitors),
     "",
-    formatCompetitiveMap(competitors, features),
+    formatCompetitiveMap(competitors),
     "",
     formatKeyCompetitors(competitors),
+    ...(featureComparison ? ["", featureComparison] : []),
     "",
     formatSubstitutes(session, competitors),
-    "",
-    formatCustomerSegments(session, competitors),
     "",
     formatIndustryForces(session),
     "",

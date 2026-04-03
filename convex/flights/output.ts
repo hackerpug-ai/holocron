@@ -5,7 +5,7 @@
  * with a date grid price calendar and top route options table.
  */
 
-import { formatReportHeader, todayISO } from "../lib/reportFormat";
+import { todayISO } from "../lib/reportFormat";
 
 // ============================================================================
 // Types
@@ -202,28 +202,27 @@ export function formatFlightsReport(
 ): string {
   const title = `Flights: ${session.origin} → ${session.destination}`;
 
-  // Build instant value line (best deal or placeholder)
-  let instantValue: string;
+  // Build best deal line matching FLIGHTS_TEMPLATE
+  let bestDealLine: string;
   if (
     session.bestDealPrice !== undefined &&
     session.bestDealAirline &&
     session.bestDealDates
   ) {
-    instantValue = `★ BEST DEAL: ${session.bestDealDates} — ${formatPrice(session.bestDealPrice)} on ${session.bestDealAirline}`;
+    bestDealLine = `★ BEST DEAL: ${session.bestDealDates} — ${formatPrice(session.bestDealPrice)} on ${session.bestDealAirline}`;
   } else if (routes.length > 0) {
     const cheapest = [...routes].sort((a, b) => a.price - b.price)[0];
-    instantValue = `★ BEST DEAL: ${cheapest.departDate} — ${formatPrice(cheapest.price)} on ${cheapest.airline}`;
+    bestDealLine = `★ BEST DEAL: ${cheapest.departDate} — ${formatPrice(cheapest.price)} on ${cheapest.airline}`;
   } else {
-    instantValue = "No flight options found.";
+    bestDealLine = "No flight options found.";
   }
 
-  const meta = {
-    date: todayISO(),
-    type: "flights" as const,
-    ...(session.season && { extra: { Season: session.season } }),
-  };
-
-  const header = formatReportHeader(title, instantValue, meta);
+  const seasonStr = session.season ?? "unknown";
+  const header =
+    `# ${title}\n\n` +
+    `${bestDealLine}\n\n` +
+    `**Date**: ${todayISO()} | **Season**: ${seasonStr}\n` +
+    `---`;
 
   // Determine month label from first price calendar entry or route
   let month: string | undefined;

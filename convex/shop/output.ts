@@ -69,9 +69,7 @@ function buildHeader(session: ShopSession, date: string): string {
 
   return (
     `# Shop Results: ${session.query}\n\n` +
-    `**Search Date**: ${date}\n` +
-    `**Budget**: ${budget}\n` +
-    `**Condition**: ${condition}\n` +
+    `**Search Date**: ${date} | **Budget**: ${budget} | **Condition**: ${condition}\n` +
     `**Session**: ${sid}\n\n`
   );
 }

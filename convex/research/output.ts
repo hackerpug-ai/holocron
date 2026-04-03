@@ -15,7 +15,6 @@
 
 import type { ConfidenceStats } from "./confidence";
 import {
-  formatReportHeader,
   getConfidenceBadge,
   formatScoreBar,
   formatTable,
@@ -172,73 +171,33 @@ export function generateConfidenceReport(
 
   const instantValue = narrativeSummary || fallbackSummary;
 
-  // Build header
-  let report = formatReportHeader(topic, instantValue, {
-    date: todayISO(),
-    type: "deep-research",
-    confidence: overallLevel,
-    sources: findings.reduce((sum, f) => sum + f.sourceCount, 0),
-  });
+  const totalSources = findings.reduce((sum, f) => sum + f.sourceCount, 0);
+
+  // YAML frontmatter matching DEEP_RESEARCH_TEMPLATE
+  let report = `---\ntitle: "${topic}"\ndate: "${todayISO()}"\ncategory: "research"\nconfidence: "${overallLevel}"\nsources_consulted: ${totalSources}\niterations: 1\n---\n\n`;
+
+  // Title + Executive Summary
+  report += `# ${topic}\n\n`;
+  report += `## Executive Summary\n${instantValue}\n\n`;
 
   // Key findings grouped by theme
   report += formatFindingsWithConfidence(findings, filter);
 
-  // Confidence Summary table (below findings)
-  const lowPct =
-    totalClaims > 0
-      ? Math.round((stats.lowConfidenceCount / totalClaims) * 100)
-      : 0;
+  // Confidence Assessment table (per-finding rows, matching DEEP_RESEARCH_TEMPLATE)
+  const assessmentRows: string[][] = findings.map((f) => [
+    f.claimText.slice(0, 50) + (f.claimText.length > 50 ? "…" : ""),
+    f.confidenceLevel,
+    String(f.sourceCount),
+  ]);
 
-  const tableRows: string[][] = [
-    ["🟢 HIGH", String(stats.highConfidenceCount), `${highPct}%`],
-    ["🟡 MEDIUM", String(stats.mediumConfidenceCount), `${medPct}%`],
-    ["🔴 LOW", String(stats.lowConfidenceCount), `${lowPct}%`],
-  ];
-
-  report += `## Confidence Summary\n\n`;
-  report += formatTable(["Level", "Count", "Pct"], tableRows);
-  report += `\n\nAverage: ${formatScoreBar(avgScore)}\n\n`;
-
-  // Gaps & Open Questions from LOW confidence findings
-  const lowFindings = findings.filter(
-    (f) => f.confidenceLevel === "LOW" && filter === "ALL"
-  );
-  if (lowFindings.length > 0) {
-    report += `## Gaps & Open Questions\n\n`;
-    report += `_The following areas have limited source support and warrant further investigation:_\n\n`;
-    for (const f of lowFindings) {
-      const category = f.claimCategory ? ` _(${f.claimCategory})_` : "";
-      report += `- ${f.claimText}${category}`;
-      if (f.warnings.length > 0) {
-        report += ` — ⚠️ ${f.warnings.join("; ")}`;
-      }
-      report += "\n";
-    }
-    report += "\n";
+  report += `## Confidence Assessment\n\n`;
+  if (assessmentRows.length > 0) {
+    report += formatTable(["Finding", "Confidence", "Sources"], assessmentRows);
+    report += "\n\n";
   }
+  report += `Average: ${formatScoreBar(avgScore)}\n\n`;
 
-  // Methodology
-  report += `## Methodology
-
-This report uses a 5-factor confidence scoring algorithm:
-
-1. **Source Credibility** (25%): Quality and authority of information sources
-2. **Evidence Quality** (25%): Directness of evidence (primary vs. anecdotal)
-3. **Corroboration** (25%): Number of independent sources confirming claims
-4. **Recency** (15%): How current the information is
-5. **Expert Consensus** (10%): Agreement among domain experts
-
-**Confidence Levels:**
-- 🟢 **HIGH** (80-100): 3+ authoritative sources, strong corroboration
-- 🟡 **MEDIUM** (50-79): Some support but room for verification
-- 🔴 **LOW** (0-49): Limited support, exercise caution
-
----
-
-_Generated with multi-source confidence analysis_
-`;
-
-  // Deduplicated sources section
+  // Deduplicated sources section (before Gaps, matching DEEP_RESEARCH_TEMPLATE order)
   const allCitations = findings.flatMap((f) => f.citations);
   const seen = new Set<string>();
   const uniqueSources: Array<{ url: string; title?: string; domain?: string }> =
@@ -251,8 +210,27 @@ _Generated with multi-source confidence analysis_
   }
 
   if (uniqueSources.length > 0) {
-    report += `\n${formatSources(uniqueSources)}\n`;
+    report += `${formatSources(uniqueSources)}\n\n`;
   }
+
+  // Gaps & Open Questions from LOW confidence findings
+  const lowFindings = findings.filter(
+    (f) => f.confidenceLevel === "LOW" && filter === "ALL"
+  );
+  report += `## Gaps & Open Questions\n`;
+  if (lowFindings.length > 0) {
+    for (const f of lowFindings) {
+      const category = f.claimCategory ? ` _(${f.claimCategory})_` : "";
+      report += `- ${f.claimText}${category}`;
+      if (f.warnings.length > 0) {
+        report += ` — ⚠️ ${f.warnings.join("; ")}`;
+      }
+      report += "\n";
+    }
+  } else {
+    report += `- No significant gaps identified\n- Suggested follow-up: verify high-confidence claims with primary sources\n`;
+  }
+  report += "\n";
 
   return report;
 }

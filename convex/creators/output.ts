@@ -11,7 +11,7 @@
  *            Learning Paths → Extended Research → Video Catalog
  */
 
-import { formatReportHeader, formatTable, todayISO } from "../lib/reportFormat";
+import { formatTable, todayISO } from "../lib/reportFormat";
 
 export type CreatorProfile = {
   name: string;
@@ -89,22 +89,6 @@ export type CreatorReportInput = {
   /** Primary domain/subject of this creator's content */
   domain?: string;
 };
-
-/**
- * Format subscriber count with K/M suffixes.
- * 1200000 → "1.2M", 45000 → "45K", 500 → "500"
- */
-function formatSubscriberCount(count: number): string {
-  if (count >= 1_000_000) {
-    const m = count / 1_000_000;
-    return `${parseFloat(m.toFixed(1))}M`;
-  }
-  if (count >= 1_000) {
-    const k = count / 1_000;
-    return `${parseFloat(k.toFixed(1))}K`;
-  }
-  return String(count);
-}
 
 /**
  * Truncate a string to maxLen chars, appending "…" if truncated.
@@ -412,31 +396,16 @@ export function formatCreatorReport(input: CreatorReportInput): string {
   // Resolve domain for the title
   const domain = input.domain ?? profile.platform ?? "Content";
 
-  // Subscriber count for profile line
-  const subscriberStr = profile.subscriberCount
-    ? formatSubscriberCount(profile.subscriberCount)
-    : "N/A";
-
-  const coreThesis = input.coreThesis ?? profile.description ?? "";
-
-  // ── Header ───────────────────────────────────────────────────────────────
+  // ── Header matching ASSIMILATE_CREATOR_TEMPLATE ──────────────────────────
+  // # Crash Course: {Domain} by {Creator}
+  // **Source**: [{Channel}]({url}) | **Videos**: {N} analyzed | **Date**: {date}
   const sourceStr = profile.channelUrl
     ? `[${profile.name}](${profile.channelUrl})`
     : profile.name;
 
-  const header = formatReportHeader(
-    `Crash Course: ${domain} by ${profile.name}`,
-    coreThesis,
-    {
-      date: todayISO(),
-      type: "creator-analysis",
-      extra: {
-        Source: sourceStr,
-        Videos: `${videos.length} analyzed`,
-        Subscribers: subscriberStr,
-      },
-    }
-  );
+  const header =
+    `# Crash Course: ${domain} by ${profile.name}\n\n` +
+    `**Source**: ${sourceStr} | **Videos**: ${videos.length} analyzed | **Date**: ${todayISO()}\n`;
 
   // ── Assemble full report ─────────────────────────────────────────────────
   const sectionParts: string[] = [

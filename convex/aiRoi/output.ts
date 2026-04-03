@@ -97,10 +97,19 @@ function formatOpportunitySection(
     "",
   ];
 
-  // The Manual Process Today
+  // The Manual Process Today — format as numbered steps if multi-line, else single step
   if (opp.currentProcess) {
     lines.push("**The Manual Process Today**");
-    lines.push(opp.currentProcess);
+    const steps = opp.currentProcess
+      .split(/\n/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (steps.length > 1) {
+      steps.forEach((step, i) => lines.push(`${i + 1}. ${step}`));
+    } else {
+      // Single block — output as step 1
+      lines.push(`1. ${opp.currentProcess}`);
+    }
     lines.push("");
   }
 
@@ -155,9 +164,6 @@ function formatOpportunitySection(
 
     lines.push("");
   }
-
-  lines.push("---");
-  lines.push("");
 
   return lines.join("\n");
 }
