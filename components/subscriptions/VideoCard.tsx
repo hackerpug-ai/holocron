@@ -131,7 +131,7 @@ export function VideoCard({
               aspectRatio={16 / 9}
               borderRadius={radius.lg}
               testID={`${testID}-thumbnail`}
-              priority="normal"
+              
             />
           </View>
         ) : (

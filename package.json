@@ -105,7 +105,6 @@
     "react-native": "0.83.2",
     "react-native-controlled-mentions": "^3.1.0",
     "react-native-drawer-layout": "^4.2.2",
-    "react-native-fast-image": "^8.6.3",
     "react-native-gesture-handler": "~2.30.0",
     "react-native-incall-manager": "^4.2.1",
     "react-native-markdown-display": "^7.0.2",

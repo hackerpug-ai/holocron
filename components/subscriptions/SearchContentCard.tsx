@@ -78,7 +78,7 @@ export const SearchContentCard = React.memo(function SearchContentCard({
             aspectRatio={16 / 9}
             borderRadius={0}
             testID={`${testID}-thumbnail`}
-            priority="low"
+            
           />
         </View>
       )}

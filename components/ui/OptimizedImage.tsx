@@ -11,12 +11,12 @@
 
 import React, { useState } from 'react'
 import { View, StyleSheet, Animated, ViewStyle } from 'react-native'
-import FastImage, { Source } from 'react-native-fast-image'
+import { Image } from 'expo-image'
 import { Skeleton } from './skeleton'
 
 export interface OptimizedImageProps {
   /** Image URI or require() source */
-  source: Source
+  source: string | number | { uri: string }
   /** Image resize mode */
   resizeMode?: 'contain' | 'cover' | 'stretch' | 'center'
   /** Optional style for the container */
@@ -33,10 +33,6 @@ export interface OptimizedImageProps {
   testID?: string
   /** Fallback component to show on error */
   fallback?: React.ReactNode
-  /** Priority for loading (default: normal) */
-  priority?: 'low' | 'normal' | 'high'
-  /** Default placeholder source while image loads (require() only) */
-  defaultSource?: Source
 }
 
 /**
@@ -62,8 +58,6 @@ export function OptimizedImage({
   borderRadius = 0,
   testID = 'optimized-image',
   fallback,
-  priority = 'normal',
-  defaultSource,
 }: OptimizedImageProps) {
   const [isLoading, setIsLoading] = useState(true)
   const [hasError, setHasError] = useState(false)
@@ -84,16 +78,8 @@ export function OptimizedImage({
     setHasError(true)
   }
 
-  // Map priority to FastImage priority
-  const fastPriority =
-    priority === 'high'
-      ? FastImage.priority.high
-      : priority === 'low'
-        ? FastImage.priority.low
-        : FastImage.priority.normal
-
-  // Map resizeMode to FastImage resizeMode
-  const fastResizeMode = FastImage.resizeMode[resizeMode]
+  // Map resizeMode to Image resizeMode
+  const imageResizeMode = resizeMode === 'center' ? 'center' : resizeMode
 
   const containerStyle: ViewStyle = {
     width: typeof width === 'number' ? width : undefined,
@@ -127,7 +113,7 @@ export function OptimizedImage({
         </View>
       )}
 
-      {/* FastImage with fade-in */}
+      {/* Image with fade-in */}
       <Animated.View
         style={{
           opacity,
@@ -136,14 +122,11 @@ export function OptimizedImage({
         }}
         pointerEvents="none"
       >
-        <FastImage
-          source={{
-            ...source,
-            priority: fastPriority,
-            cache: FastImage.cacheControl.web,
-            ...(defaultSource && { defaultSource }),
-          }}
-          resizeMode={fastResizeMode}
+        <Image
+          source={typeof source === 'string' ? source : (typeof source === 'number' ? source : source.uri)}
+          cachePolicy="memory"
+          recyclingKey={typeof source === 'string' ? source : (typeof source === 'number' ? String(source) : source.uri)}
+          resizeMode={imageResizeMode}
           onLoad={handleLoad}
           onError={handleError}
           style={{

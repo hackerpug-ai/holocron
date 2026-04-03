@@ -103,7 +103,7 @@ export function ArticleCard({
               aspectRatio={16 / 9}
               borderRadius={radius.lg}
               testID={`${testID}-hero`}
-              priority="normal"
+              
             />
           </View>
         ) : (
