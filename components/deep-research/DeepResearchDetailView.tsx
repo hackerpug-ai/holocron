@@ -6,6 +6,7 @@ import * as React from 'react'
 import { ScrollView, View, Pressable } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { MarkdownView } from '../markdown/MarkdownView'
+import { ReportOutline } from '../research/ReportOutline'
 
 /**
  * Citation represents a source reference from deep research
@@ -75,6 +76,8 @@ export interface DeepResearchDetailViewProps {
   testID?: string
   /** Optional class name */
   className?: string
+  /** Whether to use outline format for report display (default: true) */
+  useOutlineFormat?: boolean
 }
 
 /**
@@ -248,6 +251,7 @@ export function DeepResearchDetailView({
   onCitationPress,
   testID = 'deep-research-detail-view',
   className,
+  useOutlineFormat = true,
 }: DeepResearchDetailViewProps) {
   // Extract actual markdown content from potentially JSON-wrapped report
   const reportContent = React.useMemo(
@@ -293,7 +297,7 @@ export function DeepResearchDetailView({
           )}
         </View>
 
-        {/* Synthesized Report Section */}
+        {/* Synthesized Report Section - Use Outline Format by Default */}
         <Card className="mb-4">
           <CardHeader>
             <View className="flex-row items-center gap-2">
@@ -301,14 +305,24 @@ export function DeepResearchDetailView({
               <CardTitle>Research Report</CardTitle>
             </View>
           </CardHeader>
-          <CardContent>
-            <MarkdownView
-              content={reportContent}
-              variant="full"
-              contentOnly
-              className="text-foreground"
-              onLinkPress={onCitationPress}
-            />
+          <CardContent className="p-0">
+            {useOutlineFormat ? (
+              <ReportOutline
+                content={reportContent}
+                testID={`${testID}-report-outline`}
+                defaultExpanded={false}
+              />
+            ) : (
+              <View className="p-4">
+                <MarkdownView
+                  content={reportContent}
+                  variant="full"
+                  contentOnly
+                  className="text-foreground"
+                  onLinkPress={onCitationPress}
+                />
+              </View>
+            )}
           </CardContent>
         </Card>
 
