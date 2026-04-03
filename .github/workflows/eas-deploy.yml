@@ -57,7 +57,7 @@ jobs:
           echo "${{ secrets.ASC_API_KEY_P8 }}" > keys/AuthKey_JDJ44N377P.p8
 
       - name: Build and submit iOS
-        run: eas build --platform ios --profile production --auto-submit --non-interactive
+        run: eas build --platform ios --profile production --auto-submit --non-interactive --clear-cache
 
   build-android:
     name: Build Android
@@ -81,4 +81,4 @@ jobs:
           token: ${{ secrets.EXPO_TOKEN }}
 
       - name: Build Android
-        run: eas build --platform android --profile production --non-interactive
+        run: eas build --platform android --profile production --non-interactive --clear-cache
