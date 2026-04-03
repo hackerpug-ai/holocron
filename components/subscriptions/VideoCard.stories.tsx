@@ -9,7 +9,7 @@ const meta: Meta<typeof VideoCard> = {
     docs: {
       description: {
         component:
-          'Video card component with 16:9 thumbnail, duration overlay, and play icon. Supports fallback UI when thumbnail is missing.',
+          'Video card component with 16:9 thumbnail, duration overlay, and play icon. Supports fallback UI when thumbnail is missing. Can display feedback buttons when feedItemId is provided.',
       },
     },
   },
@@ -41,6 +41,10 @@ const meta: Meta<typeof VideoCard> = {
     testID: {
       control: { type: 'text' },
       description: 'Test ID for testing',
+    },
+    feedItemId: {
+      control: { type: 'text' },
+      description: 'Feed item ID for feedback functionality',
     },
   },
   args: {
@@ -176,5 +180,69 @@ export const Pressable: Story = {
     duration: '22:18',
     source: 'YouTube',
     onPress: () => console.log('Video card pressed'),
+  },
+}
+
+export const WithFeedback: Story = {
+  args: {
+    thumbnailUrl: 'https://picsum.photos/seed/video8/640/360',
+    title: 'Video Card with Feedback',
+    duration: '18:45',
+    source: 'YouTube',
+    publishedAt: '1 day ago',
+    feedItemId: 'feed123' as any,
+  },
+  parameters: {
+    docs: {
+      description: {
+        story: 'Video card with feedback buttons enabled. The feedback buttons appear in the bottom-right of the metadata section.',
+      },
+    },
+  },
+}
+
+export const FeedbackList: Story = {
+  render: () => {
+    const videos = [
+      {
+        thumbnailUrl: 'https://picsum.photos/seed/vf1/640/360',
+        duration: '12:34',
+        title: 'React Native Fundamentals',
+        source: 'YouTube',
+        publishedAt: '2 days ago',
+        feedItemId: 'feed001' as any,
+      },
+      {
+        thumbnailUrl: 'https://picsum.photos/seed/vf2/640/360',
+        duration: '45:21',
+        title: 'Advanced TypeScript Patterns',
+        source: 'YouTube',
+        publishedAt: '1 week ago',
+        feedItemId: 'feed002' as any,
+      },
+      {
+        thumbnailUrl: 'https://picsum.photos/seed/vf3/640/360',
+        duration: '8:15',
+        title: 'Video Without Thumbnail',
+        source: 'Vimeo',
+        publishedAt: '3 days ago',
+        feedItemId: 'feed003' as any,
+      },
+    ]
+
+    return (
+      <View style={{ gap: 12, padding: 16 }}>
+        {videos.map((video, index) => (
+          <VideoCard key={index} {...video} testID={`video-card-${index}`} />
+        ))}
+      </View>
+    )
+  },
+  parameters: {
+    docs: {
+      description: {
+        story: 'List of video cards with feedback buttons enabled for each item.',
+      },
+    },
   },
 }

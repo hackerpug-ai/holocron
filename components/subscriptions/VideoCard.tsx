@@ -6,6 +6,7 @@
  * - Duration badge in bottom-right corner
  * - Title (truncated to 2 lines)
  * - Source information
+ * - Feedback buttons (when feedItemId provided)
  *
  * Handles missing thumbnails with fallback UI.
  */
@@ -16,6 +17,10 @@ import { Play } from '@/components/ui/icons'
 import { useTheme } from '@/hooks/use-theme'
 import { SummaryText } from './SummaryText'
 import { OptimizedImage } from '@/components/ui/OptimizedImage'
+import { FeedbackButtons } from './FeedbackButtons'
+import { useQuery, useMutation } from 'convex/react'
+import { api } from '@/convex/_generated/api'
+import type { Id } from '@/convex/_generated/dataModel'
 
 export interface VideoCardProps {
   /** URL to thumbnail image (16:9 aspect ratio) */
@@ -34,6 +39,8 @@ export interface VideoCardProps {
   onPress?: () => void
   /** Test ID for testing */
   testID?: string
+  /** Feed item ID for feedback functionality */
+  feedItemId?: Id<'feedItems'>
 }
 
 /**
@@ -60,8 +67,29 @@ export function VideoCard({
   publishedAt,
   onPress,
   testID = 'video-card',
+  feedItemId,
 }: VideoCardProps) {
   const { colors, spacing, radius } = useTheme()
+
+  // Fetch feedback state if feedItemId is provided
+  const feedbackData = useQuery(
+    api.feeds.queries.getFeedItemFeedback,
+    feedItemId ? { feedItemId } : 'skip'
+  )
+  const currentFeedback = feedbackData?.feedback ?? null
+
+  const submitFeedbackMutation = useMutation(api.feeds.mutations.submitFeedback)
+
+  const handleFeedback = (type: 'positive' | 'negative' | null) => {
+    if (!feedItemId) return
+
+    // Map FeedbackButtons type to Convex type
+    // Only submit if not null (deselecting)
+    if (type !== null) {
+      const feedback = type === 'positive' ? 'up' : 'down'
+      submitFeedbackMutation({ feedItemId, feedback })
+    }
+  }
 
   // Build accessibility label for screen readers
   const accessibilityLabel = `Video. ${title}${summary ? `. ${summary}` : ''}${source ? `. Source: ${source}` : ''}${duration ? `. Duration: ${duration}` : ''}${publishedAt ? `. ${publishedAt}` : ''}. Tap to watch.`
@@ -176,26 +204,42 @@ export function VideoCard({
 
         {/* Source and published date */}
         <View style={[styles.metaRow, { gap: spacing.sm }]}>
-          {source && (
-            <Text
-              style={{ color: colors.mutedForeground }}
-              className="text-sm"
-              testID={`${testID}-source`}
-            >
-              {source}
-            </Text>
-          )}
-          {publishedAt && (
-            <>
-              <View style={[styles.dot, { backgroundColor: colors.mutedForeground }]} />
+          <View style={[styles.metaLeft, { gap: spacing.sm }]}>
+            {source && (
               <Text
                 style={{ color: colors.mutedForeground }}
                 className="text-sm"
-                testID={`${testID}-published-at`}
+                testID={`${testID}-source`}
               >
-                {publishedAt}
+                {source}
               </Text>
-            </>
+            )}
+            {publishedAt && (
+              <>
+                <View style={[styles.dot, { backgroundColor: colors.mutedForeground }]} />
+                <Text
+                  style={{ color: colors.mutedForeground }}
+                  className="text-sm"
+                  testID={`${testID}-published-at`}
+                >
+                  {publishedAt}
+                </Text>
+              </>
+            )}
+          </View>
+
+          {/* Feedback buttons */}
+          {feedItemId && (
+            <FeedbackButtons
+              findingId={feedItemId}
+              currentFeedback={
+                currentFeedback === 'up' ? 'positive' :
+                currentFeedback === 'down' ? 'negative' :
+                null
+              }
+              onFeedback={handleFeedback}
+              testID={`${testID}-feedback`}
+            />
           )}
         </View>
       </View>
@@ -241,6 +285,11 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  metaLeft: {
     flexDirection: 'row',
     alignItems: 'center',
   },
