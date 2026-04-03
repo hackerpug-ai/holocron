@@ -198,63 +198,93 @@ ${Object.entries(dimensionScores)
 
 ## Task
 
-Synthesize ALL findings into a comprehensive, well-structured assimilation report following the SARA template below. This is the FINAL output document.
-
-### Rating Bars
-Use "█" for filled and "░" for empty. A rating of N out of 5 = N filled + (5-N) empty.
-Examples: 1/5 = "█░░░░", 2/5 = "██░░░", 3/5 = "███░░", 4/5 = "████░", 5/5 = "█████"
+Synthesize ALL findings into a comprehensive, well-structured assimilation report following the Borg assimilation format below. This is the FINAL output document.
 
 ### Required content template
 The "content" field MUST follow this exact markdown structure:
 
 \`\`\`
-# Repository Analysis: {repo-name}
-Overall Sophistication: {sophisticationRating}/5 — {one-line characterization of the repo}
+# Assimilation Complete: {repo-name}
 
-**Date**: {YYYY-MM-DD} | **Type**: assimilation | **Language**: {primaryLanguage}
----
+**Date**: {YYYY-MM-DD}
+**Species**: {repository_url}
+**Primary Language**: {primaryLanguage}
+**Stars**: {count or "N/A"}
+**Sophistication Rating**: {sophisticationRating}/5
 
-## Quick Stats
-**Size**: {files} files, {LOC} LOC | **License**: {license or "Unknown"}
-**Stars**: {N or "N/A"} | **Contributors**: {N or "N/A"} | **Last Active**: {date or "N/A"}
+═════════════════════════════════════════════════════════
+YOUR BIOLOGICAL AND TECHNOLOGICAL DISTINCTIVENESS
+HAS BEEN ADDED TO OUR OWN.
+═════════════════════════════════════════════════════════
 
-## Architecture
-{Module organization description — 2-3 paragraphs covering overall structure, key boundaries, data flow}
+## Executive Summary
+{2-3 paragraph synthesis of the entire analysis}
 
-\`\`\`
-{ASCII tree of key directories, e.g.:}
-src/
-├── core/       # {brief description}
-├── api/        # {brief description}
-└── utils/      # {brief description}
-\`\`\`
+## Architecture Overview
+{System design, key modules, data flow}
 
-## Dimension Ratings
+### Module Structure
+{Description of how code is organized}
 
-| Dimension      | Rating | Assessment             |
-|----------------|--------|------------------------|
-| Architecture   | {bar}  | {one-line assessment}  |
-| Patterns       | {bar}  | {one-line assessment}  |
-| Testing        | {bar}  | {one-line assessment}  |
-| Documentation  | {bar}  | {one-line assessment}  |
-| Dependencies   | {bar}  | {one-line assessment}  |
+### Key Abstractions
+{Main types/interfaces/patterns used}
 
-## Key Strengths
-- {Strength 1 — specific, referencing actual code or structure}
-- {Strength 2}
-- {Strength 3}
+## Code Patterns & Conventions
+{Code patterns, idioms, best practices}
 
-## Key Weaknesses
-- {Weakness 1 — specific, referencing actual code or structure}
-- {Weakness 2}
+| Pattern | Description | Files |
+|---------|-------------|-------|
+| ... | ... | ... |
+
+## Notable Approaches
+{Unique or innovative techniques worth highlighting}
+
+## Documentation Quality
+{README assessment, API docs, onboarding experience}
+
+## Testing & Quality
+{Test patterns, coverage observations, CI/CD setup}
+
+## Dependencies & Ecosystem
+{External libs used, version strategy}
+
+## Sophistication Assessment
+
+| Track | Rating | Notes |
+|-------|--------|-------|
+| Architecture | {X}/5 | ... |
+| Patterns | {X}/5 | ... |
+| Documentation | {X}/5 | ... |
+| Dependencies | {X}/5 | ... |
+| Testing | {X}/5 | ... |
+| **Overall** | **{X}/5** | ... |
 
 ## Actionable Learnings
-1. **{Learning title}** — {how to apply this pattern to our codebase}
-2. **{Learning title}** — {how to apply}
-3. **{Learning title}** — {how to apply}
 
-## Anti-Patterns Found
-- **{Pattern name}**: {where found in the repo and why it's problematic}
+1. **{Learning title}** — Priority: HIGH
+   - What: {description}
+   - Why: {benefit}
+   - How: {implementation approach}
+
+2. **{Learning title}** — Priority: MEDIUM
+   - What: {description}
+   - Why: {benefit}
+   - How: {implementation approach}
+
+## What to Avoid
+
+1. **{Anti-pattern name}**
+   - What they do: {description}
+   - Why problematic: {issue}
+   - Better approach: {alternative}
+
+## Sources
+- Repository: {url}
+- Documentation: {docs_url if available}
+- Related: {related_urls if available}
+
+---
+*Assimilated by /assimilate on {YYYY-MM-DD}*
 \`\`\`
 
 Respond with JSON:
