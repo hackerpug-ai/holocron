@@ -221,70 +221,52 @@ HAS BEEN ADDED TO OUR OWN.
 {2-3 paragraph synthesis of the entire analysis}
 
 ## Architecture Overview
-{System design, key modules, data flow}
-
-### Module Structure
-{Description of how code is organized}
-
-### Key Abstractions
-{Main types/interfaces/patterns used}
+{Module organization, key abstractions, data flow}
 
 ## Code Patterns & Conventions
-{Code patterns, idioms, best practices}
 
-| Pattern | Description | Files |
-|---------|-------------|-------|
-| ... | ... | ... |
+| Pattern | Usage | Quality |
+|---------|-------|---------|
+| {pattern} | {where used} | {assessment} |
 
 ## Notable Approaches
-{Unique or innovative techniques worth highlighting}
+{Things done differently or cleverly}
 
 ## Documentation Quality
-{README assessment, API docs, onboarding experience}
+{Assessment of docs, README, inline comments}
 
 ## Testing & Quality
-{Test patterns, coverage observations, CI/CD setup}
+{Test coverage, CI/CD, quality gates}
 
 ## Dependencies & Ecosystem
-{External libs used, version strategy}
+{Key deps, how they're managed, vulnerabilities}
 
 ## Sophistication Assessment
 
 | Track | Rating | Notes |
 |-------|--------|-------|
-| Architecture | {X}/5 | ... |
-| Patterns | {X}/5 | ... |
-| Documentation | {X}/5 | ... |
-| Dependencies | {X}/5 | ... |
-| Testing | {X}/5 | ... |
-| **Overall** | **{X}/5** | ... |
+| Architecture | {X}/5 | {one-line} |
+| Patterns | {X}/5 | {one-line} |
+| Documentation | {X}/5 | {one-line} |
+| Dependencies | {X}/5 | {one-line} |
+| Testing | {X}/5 | {one-line} |
+
+## Functional Comparison
+
+| Aspect | Our Project | Their Project | Learning |
+|--------|-------------|---------------|----------|
+| {aspect} | {ours} | {theirs} | {takeaway} |
 
 ## Actionable Learnings
+1. **{Learning}** — Priority: HIGH
+   {How to apply to our codebase}
 
-1. **{Learning title}** — Priority: HIGH
-   - What: {description}
-   - Why: {benefit}
-   - How: {implementation approach}
-
-2. **{Learning title}** — Priority: MEDIUM
-   - What: {description}
-   - Why: {benefit}
-   - How: {implementation approach}
+2. **{Learning}** — Priority: MEDIUM
+   {How to apply to our codebase}
 
 ## What to Avoid
-
-1. **{Anti-pattern name}**
-   - What they do: {description}
-   - Why problematic: {issue}
-   - Better approach: {alternative}
-
-## Sources
-- Repository: {url}
-- Documentation: {docs_url if available}
-- Related: {related_urls if available}
-
----
-*Assimilated by /assimilate on {YYYY-MM-DD}*
+1. **{Anti-pattern}**
+   {Why it's problematic and what to do instead}
 \`\`\`
 
 Respond with JSON:
