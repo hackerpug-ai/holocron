@@ -23,6 +23,11 @@ export interface ResearchContext {
     coverageScore: number;
     gaps: string[];
   }>;
+  previousSessions?: Array<{
+    sessionId: string;
+    topic: string;
+    summary: string;
+  }>;
 }
 
 /**
@@ -30,6 +35,7 @@ export interface ResearchContext {
  *
  * Retrieves session and all previous iterations to provide
  * full context for LLM calls without agent threads.
+ * Now includes context from previous sessions in the same conversation.
  */
 export async function buildResearchContext(
   ctx: GenericActionCtx<any>,
@@ -59,6 +65,33 @@ export async function buildResearchContext(
 
   console.log(`[buildResearchContext] Found ${iterations.length} previous iterations`);
 
+  // Fetch previous sessions from the same conversation for context
+  let previousSessions: Array<{
+    sessionId: string;
+    topic: string;
+    summary: string;
+  }> = [];
+
+  if (session.conversationId) {
+    console.log(`[buildResearchContext] Fetching previous sessions from conversation`);
+    const completedSessions = await ctx.runQuery(
+      api.research.queries.getByConversation,
+      { conversationId: session.conversationId as Id<"conversations"> }
+    );
+
+    // Filter out the current session and limit to last 5
+    previousSessions = completedSessions
+      .filter((s: any) => s._id.toString() !== sessionId.toString())
+      .slice(-5)
+      .map((s: any) => ({
+        sessionId: s._id.toString(),
+        topic: s.topic,
+        summary: `Previous research on: ${s.topic}`,
+      }));
+
+    console.log(`[buildResearchContext] Found ${previousSessions.length} previous sessions in conversation`);
+  }
+
   const context = {
     topic: session.topic,
     previousIterations: iterations.map((it: any) => ({
@@ -67,9 +100,10 @@ export async function buildResearchContext(
       coverageScore: it.coverageScore ?? 0,
       gaps: (it.refinedQueries as string[]) ?? [],
     })),
+    previousSessions,
   };
 
-  console.log(`[buildResearchContext] Exit - context built with ${context.previousIterations.length} iterations`);
+  console.log(`[buildResearchContext] Exit - context built with ${context.previousIterations.length} iterations and ${context.previousSessions?.length ?? 0} previous sessions`);
   return context;
 }
 
@@ -78,17 +112,31 @@ export async function buildResearchContext(
  *
  * Generates prompt for search planning and execution.
  * Includes previous iteration context to avoid duplication.
+ * Now includes context from previous sessions in the same conversation.
  */
 export function buildSearchPrompt(
   topic: string,
   previousIterations: ResearchContext["previousIterations"],
+  previousSessions?: ResearchContext["previousSessions"],
   mode?: ResearchMode
 ): string {
-  console.log(`[buildSearchPrompt] Entry - topic: "${topic}", previousIterations: ${previousIterations.length}, mode: ${mode ?? "unset"}`);
+  console.log(`[buildSearchPrompt] Entry - topic: "${topic}", previousIterations: ${previousIterations.length}, previousSessions: ${previousSessions?.length ?? 0}, mode: ${mode ?? "unset"}`);
 
-  const contextSection = previousIterations.length > 0
+  const previousSessionsSection = previousSessions && previousSessions.length > 0
     ? `
-Previous Research Context (${previousIterations.length} iterations):
+Previous Research Sessions in Conversation:
+${previousSessions.map((session, idx) =>
+  `${idx + 1}. "${session.topic}"
+${session.summary}`
+).join("\n\n")}
+
+Build upon these previous findings to provide a comprehensive answer.
+`
+    : "";
+
+  const iterationContextSection = previousIterations.length > 0
+    ? `
+Current Session Progress (${previousIterations.length} iterations):
 ${previousIterations.map(it =>
   `Iteration ${it.iteration} (score: ${it.coverageScore}/5):
 ${it.findings}
@@ -99,6 +147,7 @@ Focus on NEW information that complements previous research.
 `
     : "";
 
+  const contextSection = previousSessionsSection + iterationContextSection;
   const searchFocus = mode ? `\nSEARCH FOCUS:\n${getSearchFocusInstructions(mode)}\n` : "";
 
   const prompt = `Research the following topic: "${topic}"

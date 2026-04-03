@@ -123,3 +123,37 @@ export const executeMerge = internalMutation({
     );
   },
 });
+
+/**
+ * Submit an improvement request from a specialist agent.
+ * Used by academic and technical research specialists to log improvements.
+ */
+export const submitFromSpecialist = internalMutation({
+  args: {
+    description: v.string(),
+    source: v.union(
+      v.literal("academic_specialist"),
+      v.literal("technical_specialist"),
+      v.literal("generalist_specialist")
+    ),
+  },
+  handler: async (ctx, { description, source }) => {
+    const now = Date.now();
+
+    const requestId = await ctx.db.insert("improvementRequests", {
+      description,
+      title: description.slice(0, 80),
+      status: "submitted",
+      sourceScreen: `specialist_${source}`,
+      sourceComponent: source,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    console.log(
+      `[submitFromSpecialist] Created improvement request ${requestId} from ${source}`
+    );
+
+    return requestId;
+  },
+});

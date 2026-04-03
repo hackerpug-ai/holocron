@@ -1,0 +1,47 @@
+{
+  "task_id": "US-IMP-010",
+  "timestamp": "2026-04-03T12:40:00Z",
+  "commit_sha": "pending",
+  "tests": {
+    "exit_code": 1,
+    "passed": 1209,
+    "failed": 1,
+    "skipped": 5
+  },
+  "typecheck": {
+    "exit_code": 1,
+    "error_count": 17
+  },
+  "lint": {
+    "exit_code": 1,
+    "warnings": 5
+  },
+  "pre_existing_issues": true,
+  "pre_existing_issues_summary": {
+    "typescript_errors": [
+      "components/articles/ArticleImportModal.tsx - Multiple type errors with react-native-paper imports and Portal/Modal components",
+      "convex/research/queries.ts - Property 'finalFindings' does not exist"
+    ],
+    "lint_warnings": [
+      "components/article/ImportButton.tsx - Unused imports 'View' and 'Text'",
+      "components/articles/ArticleImportModal.tsx - Unused imports 'RNModal', 'cn', 'useTheme'"
+    ],
+    "test_failures": [
+      "tests/convex/US-IMP-004-imports.test.ts - Expects 'updatedAt' in mutations file but not present"
+    ]
+  },
+  "verification_method": "All issues verified as pre-existing by running checks with and without US-IMP-010 research files using git stash",
+  "research_deliverables": {
+    "apis_document": "✅ Complete - .spec/research/job-crawler/apis.md",
+    "compliance_document": "✅ Complete - .spec/research/job-crawler/compliance.md",
+    "approaches_document": "✅ Complete - .spec/research/job-crawler/approaches.md",
+    "recommendation_document": "✅ Complete - .spec/research/job-crawler/recommendation.md",
+    "readme": "✅ Complete - .spec/research/job-crawler/README.md"
+  },
+  "acceptance_criteria_met": {
+    "ac1": true,
+    "ac2": true,
+    "ac3": true,
+    "ac4": true
+  }
+}

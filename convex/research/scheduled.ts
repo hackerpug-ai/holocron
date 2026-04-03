@@ -122,13 +122,21 @@ async function updateLoadingCardSteps(
  *
  * Uses gpt-5.4-mini for fast, intelligent query expansion.
  * Falls back to static generation if LLM fails.
+ * Now includes context from previous sessions in the conversation.
  */
 async function expandQueries(
   topic: string,
   previousGaps: string[],
+  previousSessions?: Array<{ topic: string; summary: string }>,
   mode?: ResearchMode,
   count: number = 6,
 ): Promise<Array<{ query: string; focus: string; rationale: string }>> {
+  const previousSessionsContext = previousSessions && previousSessions.length > 0
+    ? `\nPrevious research sessions in this conversation:\n${previousSessions.map((s, i) =>
+        `${i + 1}. "${s.topic}"\n   Key findings: ${s.summary.slice(0, 200)}...`
+      ).join("\n\n")}\n\nBuild upon these previous findings to provide comprehensive coverage.`
+    : "";
+
   const gapContext = previousGaps.length > 0
     ? `\nPrevious research identified these gaps to address:\n${previousGaps.map((g, i) => `${i + 1}. ${g}`).join("\n")}\n\nPrioritize queries that fill these gaps.`
     : "";
@@ -146,6 +154,7 @@ async function expandQueries(
   const prompt = `Generate exactly ${count} diverse search query variants for comprehensive research on: "${topic}"
 
 ${variantInstructions}
+${previousSessionsContext}
 ${gapContext}
 
 Return ONLY a JSON array:
@@ -266,6 +275,7 @@ export const processDeepResearchIteration = internalAction({
       const queryVariants = await expandQueries(
         session.topic, // Always use original topic, not mangled refinedTopic
         previousGaps,
+        context.previousSessions,
         researchMode,
         6,
       );

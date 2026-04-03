@@ -126,3 +126,29 @@ export const clearAll = mutation({
     return { deleted: documents.length };
   },
 });
+
+/**
+ * Append text to an existing document
+ * Used for importing text from external sources (ChatGPT, Claude, etc.)
+ */
+export const appendText = mutation({
+  args: {
+    documentId: v.id("documents"),
+    text: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const doc = await ctx.db.get(args.documentId);
+    if (!doc) {
+      throw new Error(`Document ${args.documentId} not found`);
+    }
+
+    // Append text with double newline separator
+    const updatedContent = doc.content + "\n\n" + args.text;
+
+    await ctx.db.patch(args.documentId, {
+      content: updatedContent,
+    });
+
+    return args.documentId;
+  },
+});

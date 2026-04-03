@@ -389,3 +389,28 @@ export const fullTextSearchIterations = query({
     }));
   },
 });
+
+/**
+ * Get all research sessions for a conversation (for context building)
+ *
+ * Returns completed sessions ordered by creation time (oldest first)
+ */
+export const getByConversation = query({
+  args: {
+    conversationId: v.id("conversations"),
+  },
+  handler: async (ctx, { conversationId }) => {
+    const sessions = await ctx.db
+      .query("deepResearchSessions")
+      .withIndex("by_conversation", (q) => q.eq("conversationId", conversationId))
+      .filter((q) => q.eq(q.field("status"), "completed"))
+      .order("asc")
+      .collect();
+
+    return sessions.map((session) => ({
+      _id: session._id,
+      topic: session.topic,
+      createdAt: session.createdAt,
+    }));
+  },
+});

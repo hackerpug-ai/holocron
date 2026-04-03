@@ -48,6 +48,15 @@ export type ResearchTrack =
   | "technical";  // Deep technical analysis, architecture
 
 /**
+ * Specialist agent types for domain-specific research
+ * US-IMP-002: Research Agent Specialists
+ */
+export type SpecialistType =
+  | "academic"    // Academic research specialist
+  | "technical"   // Technical research specialist
+  | "generalist"; // General research agent (fallback)
+
+/**
  * Research track configuration
  */
 export interface TrackConfig {
@@ -235,6 +244,52 @@ export function selectTracksForTopic(topic: string): ResearchTrack[] {
 
   // Default balanced set
   return ["academic", "business", "code", "news"];
+}
+
+/**
+ * Detect the appropriate specialist type for a research query
+ * US-IMP-002: Research Agent Specialists
+ *
+ * @param query - The research query to analyze
+ * @returns The detected specialist type
+ */
+export function detectSpecialist(query: string): SpecialistType {
+  const words = query.toLowerCase();
+
+  // Academic keywords: research, paper, study, academic, journal, citation, peer-reviewed
+  const isAcademic =
+    words.includes("academic") ||
+    words.includes("research") ||
+    words.includes("paper") ||
+    words.includes("study") ||
+    words.includes("scholarly") ||
+    words.includes("journal") ||
+    words.includes("citation") ||
+    words.includes("peer-reviewed") ||
+    words.includes("peer reviewed");
+
+  // Technical keywords: implement, code, api, sdk, programming, technical, architecture
+  const isTechnical =
+    words.includes("technical") ||
+    words.includes("implement") ||
+    words.includes("code") ||
+    words.includes("api") ||
+    words.includes("sdk") ||
+    words.includes("programming") ||
+    words.includes("architecture") ||
+    words.includes("development") ||
+    words.includes("engineering");
+
+  // Priority: academic > technical > generalist
+  if (isAcademic) {
+    return "academic";
+  }
+  if (isTechnical) {
+    return "technical";
+  }
+
+  // Default to generalist for ambiguous queries
+  return "generalist";
 }
 
 // ============================================================================

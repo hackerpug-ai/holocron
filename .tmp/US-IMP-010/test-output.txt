@@ -1,0 +1,12 @@
+
+[1m[46m RUN [49m[22m [36mv4.1.0 [39m[90m/Users/justinrich/Projects/holocron[39m
+
+ [31m❯[39m tests/convex/US-IMP-004-imports.test.ts [2m([22m[2m19 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 7[2mms[22m[39m
+[31m     [31m×[31m appendText mutation updates updatedAt timestamp[39m[32m 3[2mms[22m[39m
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m80 passed[39m[22m[2m | [22m[33m1 skipped[39m[90m (82)[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m1209 passed[39m[22m[2m | [22m[33m5 skipped[39m[90m (1215)[39m
+[2m   Start at [22m 12:41:08
+[2m   Duration [22m 917ms[2m (transform 2.78s, setup 0ms, import 2.89s, tests 2.29s, environment 443ms)[22m
+
+Exit code: 1

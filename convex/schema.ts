@@ -1018,4 +1018,15 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_session", ["sessionId", "createdAt"]),
+
+  // Multi-source text imports
+  imports: defineTable({
+    documentId: v.id("documents"),
+    source: v.string(), // "chat", "manual", "chatgpt", "claude", "perplexity", etc.
+    text: v.string(),
+    importedAt: v.number(),
+  })
+    .index("by_document", ["documentId"])
+    .index("by_source", ["source"])
+    .index("by_importedAt", ["importedAt"]),
 });
