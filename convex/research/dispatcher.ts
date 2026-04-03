@@ -50,11 +50,14 @@ export type ResearchTrack =
 /**
  * Specialist agent types for domain-specific research
  * US-IMP-002: Research Agent Specialists
+ * US-IMP-011: Product/Service Finder Specialists
  */
 export type SpecialistType =
-  | "academic"    // Academic research specialist
-  | "technical"   // Technical research specialist
-  | "generalist"; // General research agent (fallback)
+  | "academic"       // Academic research specialist
+  | "technical"      // Technical research specialist
+  | "product_finder" // Product finder specialist
+  | "service_finder" // Service finder specialist
+  | "generalist";    // General research agent (fallback)
 
 /**
  * Research track configuration
@@ -249,6 +252,7 @@ export function selectTracksForTopic(topic: string): ResearchTrack[] {
 /**
  * Detect the appropriate specialist type for a research query
  * US-IMP-002: Research Agent Specialists
+ * US-IMP-011: Product/Service Finder Specialists
  *
  * @param query - The research query to analyze
  * @returns The detected specialist type
@@ -280,12 +284,62 @@ export function detectSpecialist(query: string): SpecialistType {
     words.includes("development") ||
     words.includes("engineering");
 
-  // Priority: academic > technical > generalist
+  // Product keywords: buy, purchase, price, laptop, phone, product, best, comparison
+  const isProduct =
+    words.includes("buy") ||
+    words.includes("purchase") ||
+    words.includes("price") ||
+    words.includes("laptop") ||
+    words.includes("phone") ||
+    words.includes("product") ||
+    words.includes("best") && (
+      words.includes("laptop") ||
+      words.includes("phone") ||
+      words.includes("camera") ||
+      words.includes("tablet") ||
+      words.includes("headphones") ||
+      words.includes("monitor") ||
+      words.includes("keyboard") ||
+      words.includes("mouse")
+    ) ||
+    words.includes("comparison") && (
+      words.includes("product") ||
+      words.includes("price") ||
+      words.includes("review")
+    );
+
+  // Service keywords: service, plumber, contractor, cleaner, repair, near me
+  const isService =
+    words.includes("service") ||
+    words.includes("plumber") ||
+    words.includes("contractor") ||
+    words.includes("cleaner") ||
+    words.includes("cleaning") ||
+    words.includes("repair") ||
+    words.includes("near me") ||
+    words.includes("nearby") ||
+    words.includes("provider") && (
+      words.includes("service") ||
+      words.includes("internet") ||
+      words.includes("hosting") ||
+      words.includes("consulting")
+    ) ||
+    words.includes("web design") ||
+    words.includes("landscaping") ||
+    words.includes("electrician");
+
+  // Priority: academic > technical > product > service > generalist
   if (isAcademic) {
     return "academic";
   }
   if (isTechnical) {
     return "technical";
+  }
+  if (isProduct) {
+    return "product_finder";
+  }
+  if (isService) {
+    return "service_finder";
   }
 
   // Default to generalist for ambiguous queries

@@ -126,7 +126,7 @@ export const executeMerge = internalMutation({
 
 /**
  * Submit an improvement request from a specialist agent.
- * Used by academic and technical research specialists to log improvements.
+ * Used by academic, technical, product, and service research specialists to log improvements.
  */
 export const submitFromSpecialist = internalMutation({
   args: {
@@ -134,7 +134,9 @@ export const submitFromSpecialist = internalMutation({
     source: v.union(
       v.literal("academic_specialist"),
       v.literal("technical_specialist"),
-      v.literal("generalist_specialist")
+      v.literal("generalist_specialist"),
+      v.literal("product_finder"),
+      v.literal("service_finder")
     ),
   },
   handler: async (ctx, { description, source }) => {
