@@ -2,6 +2,7 @@
  * NewsCard - Card component with media support for What's New
  *
  * Displays news items with optional images, handles image loading errors gracefully.
+ * Integrates with feedback system for user preferences.
  */
 
 import { useState } from 'react'
@@ -11,6 +12,7 @@ import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Newspaper, Calendar } from '@/components/ui/icons'
 import { useTheme } from '@/hooks/use-theme'
+import { FeedbackButtons, type FeedbackType } from '@/components/subscriptions/FeedbackButtons'
 
 export interface NewsCardProps {
   title: string
@@ -20,6 +22,9 @@ export interface NewsCardProps {
   publishedAt?: number
   testID?: string
   onPress?: () => void
+  // Feedback props - uses 'up'/'down' to match Convex schema
+  feedback?: 'up' | 'down' | null
+  onFeedback?: (type: 'up' | 'down' | null) => void
 }
 
 /**
@@ -41,10 +46,21 @@ export function NewsCard({
   publishedAt,
   testID = 'news-card',
   onPress: _onPress,
+  feedback,
+  onFeedback,
 }: NewsCardProps) {
   const { colors: themeColors } = useTheme()
   const [imageError, setImageError] = useState(false)
   const [imageLoading, setImageLoading] = useState(true)
+
+  // Convert between FeedbackButton types ('positive'/'negative') and mutation types ('up'/'down')
+  const handleFeedback = (type: FeedbackType) => {
+    if (!onFeedback) return
+
+    // Map 'positive' → 'up', 'negative' → 'down', null → null (remove feedback)
+    const mappedType: 'up' | 'down' | null = type === 'positive' ? 'up' : type === 'negative' ? 'down' : null
+    onFeedback(mappedType)
+  }
 
   const hasMedia = imageUrl && !imageError
 
@@ -117,6 +133,18 @@ export function NewsCard({
           >
             {summary}
           </Text>
+        )}
+
+        {/* Feedback Buttons */}
+        {onFeedback && (
+          <View className="mt-3 flex-row items-center justify-end">
+            <FeedbackButtons
+              findingId={testID || 'news-card'}
+              currentFeedback={feedback === 'up' ? 'positive' : feedback === 'down' ? 'negative' : null}
+              onFeedback={handleFeedback}
+              testID={`${testID}-feedback`}
+            />
+          </View>
         )}
       </View>
     </Card>
