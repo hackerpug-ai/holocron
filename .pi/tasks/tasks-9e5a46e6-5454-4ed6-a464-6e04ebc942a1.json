@@ -1,0 +1,113 @@
+{
+  "nextId": 7,
+  "tasks": [
+    {
+      "id": "1",
+      "subject": "US-FB-001: Implement Feedback Loop",
+      "description": "Implement a feedback loop for user subscriptions, including real-time updates and notifications.",
+      "status": "pending",
+      "metadata": {
+        "epic_id": "epic-4-feedback",
+        "task_id": "US-FB-001",
+        "assignee": "worker",
+        "wave": 0,
+        "file_path": "/Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-4-feedback/US-FB-001.md",
+        "agentType": "worker"
+      },
+      "blocks": [],
+      "blockedBy": [],
+      "createdAt": 1775164638300,
+      "updatedAt": 1775164638300
+    },
+    {
+      "id": "2",
+      "subject": "US-FB-002: Design Feedback UI",
+      "description": "Design a user interface for providing feedback on subscriptions, ensuring it's intuitive and accessible.",
+      "status": "pending",
+      "metadata": {
+        "epic_id": "epic-4-feedback",
+        "task_id": "US-FB-002",
+        "assignee": "worker",
+        "wave": 0,
+        "file_path": "/Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-4-feedback/US-FB-002.md",
+        "agentType": "worker"
+      },
+      "blocks": [],
+      "blockedBy": [],
+      "createdAt": 1775164657374,
+      "updatedAt": 1775164657374
+    },
+    {
+      "id": "3",
+      "subject": "US-FB-003: Implement Feedback Storage",
+      "description": "Implement a storage solution for feedback data, ensuring it's secure and scalable.",
+      "status": "pending",
+      "metadata": {
+        "epic_id": "epic-4-feedback",
+        "task_id": "US-FB-003",
+        "assignee": "worker",
+        "wave": 0,
+        "file_path": "/Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-4-feedback/US-FB-003.md",
+        "agentType": "worker"
+      },
+      "blocks": [],
+      "blockedBy": [],
+      "createdAt": 1775164676049,
+      "updatedAt": 1775164676049
+    },
+    {
+      "id": "4",
+      "subject": "US-FB-004: Integrate Feedback with Analytics",
+      "description": "Integrate the feedback system with analytics tools to track user behavior and preferences.",
+      "status": "pending",
+      "metadata": {
+        "epic_id": "epic-4-feedback",
+        "task_id": "US-FB-004",
+        "assignee": "worker",
+        "wave": 0,
+        "file_path": "/Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-4-feedback/US-FB-004.md",
+        "agentType": "worker"
+      },
+      "blocks": [],
+      "blockedBy": [],
+      "createdAt": 1775164681332,
+      "updatedAt": 1775164681332
+    },
+    {
+      "id": "5",
+      "subject": "US-FB-005: Implement Feedback Notifications",
+      "description": "Implement notification system for feedback submissions, including email and in-app alerts.",
+      "status": "pending",
+      "metadata": {
+        "epic_id": "epic-4-feedback",
+        "task_id": "US-FB-005",
+        "assignee": "worker",
+        "wave": 0,
+        "file_path": "/Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-4-feedback/US-FB-005.md",
+        "agentType": "worker"
+      },
+      "blocks": [],
+      "blockedBy": [],
+      "createdAt": 1775165311147,
+      "updatedAt": 1775165311147
+    },
+    {
+      "id": "6",
+      "subject": "US-FB-006: Test Feedback System",
+      "description": "Conduct comprehensive testing of the feedback system to ensure all components work together seamlessly and meet acceptance criteria.",
+      "status": "pending",
+      "metadata": {
+        "epic_id": "epic-4-feedback",
+        "task_id": "US-FB-006",
+        "assignee": "worker",
+        "wave": 0,
+        "file_path": "/Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-4-feedback/US-FB-006.md",
+        "agentType": "worker"
+      },
+      "blocks": [],
+      "blockedBy": [],
+      "createdAt": 1775165334001,
+      "updatedAt": 1775165334001
+    }
+  ]
+}

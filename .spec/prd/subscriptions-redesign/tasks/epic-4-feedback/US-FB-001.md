@@ -5,6 +5,7 @@
 > Priority: P0
 > Estimate: 90 minutes
 > Assignee: frontend-designer
+> **Status: PARTIAL** - FeedbackButtons component exists but is NOT integrated into card components
 
 ## CRITICAL CONSTRAINTS
 
@@ -206,6 +207,35 @@ Depends on:
 1. `.spec/prd/subscriptions-redesign/02-user-stories.md` - US-FB-001, US-FB-005 acceptance criteria
 2. `components/subscriptions/VideoCard.tsx` - existing card structure
 3. `components/ui/icons/` - available icons
+
+## IMPLEMENTATION STATUS
+
+**PARTIAL** - 2026-04-02
+
+### ✅ Completed
+- `components/subscriptions/FeedbackButtons.tsx` exists with:
+  - Toggle behavior (tap to select/deselect)
+  - 44x44 minimum hitbox
+  - Accessibility labels and hints
+  - Theme-appropriate colors
+  - Memoized version for performance
+
+### ❌ Missing
+- **NOT integrated into card components**:
+  - `VideoCard.tsx` - no FeedbackButtons import
+  - `SocialCard.tsx` - no FeedbackButtons import
+  - `ReleaseCard.tsx` - no FeedbackButtons import
+  - Other card types - no integration
+- No onFeedback handlers in card components
+- No connection to backend mutations
+
+### Next Steps
+1. Import FeedbackButtons into each card type
+2. Add onFeedback prop handlers
+3. Connect to Convex mutations (requires US-FB-002)
+4. Add testID attributes for E2E testing
+
+---
 
 ## NOTES
 

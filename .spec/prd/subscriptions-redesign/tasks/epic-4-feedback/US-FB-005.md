@@ -5,6 +5,7 @@
 > Priority: P0
 > Estimate: 45 minutes
 > Assignee: frontend-designer
+> **Status: NOT DONE** - Refinement task, blocked by US-FB-001 (buttons not integrated)
 
 ## CRITICAL CONSTRAINTS
 
@@ -179,6 +180,27 @@ Depends on:
 1. `.spec/prd/subscriptions-redesign/02-user-stories.md` - US-FB-005 acceptance criteria
 2. Apple HIG - touch targets
 3. Material Design - accessibility guidelines
+
+## IMPLEMENTATION STATUS
+
+**NOT DONE** - 2026-04-02
+
+### ℹ️ Context
+This is a **refinement/polish task** for US-FB-001. The FeedbackButtons component exists but needs UX refinement and integration verification.
+
+### ⚠️ Pre-requisite
+- **Blocked by US-FB-001**: Cannot polish UX until buttons are integrated into cards
+
+### Verification Checklist (when US-FB-001 complete)
+- [ ] Buttons positioned consistently (top-right or bottom-right)
+- [ ] Subtle colors when inactive (muted-foreground)
+- [ ] No toast/modal on feedback (icon state change only)
+- [ ] 44x44 hitbox with visual padding
+- [ ] Proper accessibility labels verified
+- [ ] High contrast mode tested
+- [ ] No overlap with other UI elements
+
+---
 
 ## NOTES
 

@@ -1,0 +1,23 @@
+{
+  "nanocoder": {
+    "providers": [
+      {
+        "name": "mlx-server",
+        "models": [
+          "mlx-community/Qwen3-14B-4bit"
+        ],
+        "baseUrl": "http://localhost:8000/v1"
+      },
+      {
+        "name": "Z.ai Coding Subscription",
+        "models": [
+          "glm-5",
+          "glm-4.7",
+          "glm-4.7-flash"
+        ],
+        "baseUrl": "https://api.z.ai/api/coding/paas/v4/",
+        "apiKey": "365a4a1cff194e8f870c005ff01af04d.dwV8qZCjrZwRLwnL"
+      }
+    ]
+  }
+}

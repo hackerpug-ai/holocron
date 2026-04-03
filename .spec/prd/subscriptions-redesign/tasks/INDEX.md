@@ -1,9 +1,10 @@
 # Task Index: Subscriptions Redesign
 
 > Generated: 2026-04-01
+> Last Updated: 2026-04-02 (Epic 6 added for remediation)
 > PRD: .spec/prd/subscriptions-redesign/README.md
-> Total Epics: 5
-> Total Tasks: 25
+> Total Epics: 6
+> Total Tasks: 32
 
 ## Overview
 
@@ -18,6 +19,7 @@
 | [Epic 3](./epic-3-summaries/INDEX.md) | AI Summaries | 4 | P0 | To Do |
 | [Epic 4](./epic-4-feedback/INDEX.md) | Feedback-Driven Recommendations | 6 | P1 | To Do |
 | [Epic 5](./epic-5-infrastructure/INDEX.md) | Cross-Feature Requirements | 4 | P0/P1/P2 | To Do |
+| [Epic 6](./epic-6-remediation/) | Remediation (Audit Gaps) | 7 | P0 | **NEW** |
 
 ## Epic Dependency Graph
 
@@ -52,6 +54,15 @@ Epic 5: Infrastructure (parallel with Epics 3 & 4)
   - US-SUMM-004: Summary Quality Monitoring (blocked by US-SUMM-001)
 
 ### Wave 3: Feedback & Infrastructure
+- **Epic 6: Remediation** (NEW - fixes audit gaps, should run first or in parallel)
+  - US-REM-001: Add getFeedItemFeedback Query
+  - US-REM-002: Integrate FeedbackButtons into VideoCard
+  - US-REM-003: Integrate FeedbackButtons into SocialCard & ReleaseCard
+  - US-REM-004: Create Missing ArticleCard Component
+  - US-REM-005: Implement Deep Link Redirects
+  - US-REM-006: Add Navigation Change Tooltip
+  - US-REM-007: Update INDEX.md with Actual Status
+
 - **Epic 4: Feedback-Driven Recommendations**
   - US-FB-001: Feedback Buttons on Cards
   - US-FB-002: Feedback Data Storage (blocked by US-FB-001)
@@ -71,6 +82,9 @@ Epic 5: Infrastructure (parallel with Epics 3 & 4)
 Execute epics in order using `/kb-run-epic`:
 
 ```bash
+# Wave 0 (NEW - Run first or in parallel with Wave 2)
+/kb-run-epic epic-6-remediation
+
 # Wave 1 (COMPLETE)
 /kb-run-epic epic-2-cards
 

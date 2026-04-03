@@ -59,9 +59,26 @@ This epic covers:
 
 | Task | Status | Assignee | Commit |
 |------|--------|----------|--------|
-| US-FB-001 | To Do | frontend-designer | - |
-| US-FB-002 | To Do | convex-implementer | - |
-| US-FB-003 | To Do | convex-implementer | - |
-| US-FB-004 | To Do | frontend-designer | - |
-| US-FB-005 | To Do | frontend-designer | - |
-| US-FB-006 | To Do | convex-implementer | - |
+| US-FB-001 | **PARTIAL** | frontend-designer | - |
+| US-FB-002 | **To Do** | convex-implementer | - |
+| US-FB-003 | **To Do** | convex-implementer | - |
+| US-FB-004 | **To Do** | frontend-designer | - |
+| US-FB-005 | **To Do** | frontend-designer | - |
+| US-FB-006 | **To Do** | convex-implementer | - |
+
+### Status Summary - 2026-04-02
+
+- **0/6 tasks complete** (0%)
+- **1/6 tasks partial** (17%) - US-FB-001: FeedbackButtons component exists but not integrated
+- **5/6 tasks not started** (83%)
+
+### Key Blockers
+1. **US-FB-001 incomplete**: FeedbackButtons not integrated into VideoCard, SocialCard, ReleaseCard
+2. **US-FB-002 blocks backend**: No `convex/feedback/` directory, no mutations/queries
+3. **No feedback data flow**: Component exists but no way to persist feedback
+
+### Recommended Next Steps
+1. **Integrate FeedbackButtons** into all card types (finish US-FB-001)
+2. **Create feedback backend** (US-FB-002) - schema decision needed (fields vs table)
+3. **Connect UI to backend** with mutations and queries
+4. **Implement scoring** (US-FB-003) once data flow exists

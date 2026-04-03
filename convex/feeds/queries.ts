@@ -264,3 +264,23 @@ export const getFeedItemUrl = query({
     return content?.url ?? null;
   },
 });
+
+/**
+ * Get feedback state for a single feed item
+ * Returns current user feedback (up/down/null) and timestamp
+ */
+export const getFeedItemFeedback = query({
+  args: {
+    feedItemId: v.id("feedItems"),
+  },
+  handler: async (ctx, args) => {
+    const item = await ctx.db.get(args.feedItemId);
+    if (!item) {
+      return null;
+    }
+    return {
+      feedback: item.userFeedback ?? null,
+      feedbackAt: item.userFeedbackAt ?? null,
+    };
+  },
+});

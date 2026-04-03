@@ -1,0 +1,323 @@
+Exit code: 0
+/**
+ * Test for ArticleCard component
+ *
+ * Tests verify component structure, theme usage, and React Native patterns
+ * without importing the component directly (vitest environment limitation).
+ */
+import { describe, it, expect } from 'vitest'
+import { readFileSync } from 'fs'
+import { join } from 'path'
+
+describe('ArticleCard - Component Structure', () => {
+  const componentPath = join(process.cwd(), 'components', 'subscriptions', 'ArticleCard.tsx')
+
+  const readComponent = (): string => {
+    return readFileSync(componentPath, 'utf-8')
+  }
+
+  describe('AC-1: ArticleCard with valid heroImageUrl renders 16:9 hero image', () => {
+    it('should render hero image container with 16:9 aspect ratio', () => {
+      const source = readComponent()
+      expect(source).toContain('aspectRatio: 16 / 9')
+    })
+
+    it('should have hero testID', () => {
+      const source = readComponent()
+      expect(source).toContain('`${testID}-hero`')
+    })
+
+    it('should use OptimizedImage for hero image', () => {
+      const source = readComponent()
+      expect(source).toContain('OptimizedImage')
+      expect(source).toContain('aspectRatio=')
+    })
+  })
+
+  describe('AC-2: ArticleCard without heroImageUrl shows fallback UI', () => {
+    it('should have fallback testID', () => {
+      const source = readComponent()
+      expect(source).toContain('`${testID}-fallback`')
+    })
+
+    it('should use FileText icon for fallback', () => {
+      const source = readComponent()
+      expect(source).toContain('FileText')
+      expect(source).toContain('`${testID}-fallback-icon`')
+    })
+
+    it('should conditionally render hero image or fallback', () => {
+      const source = readComponent()
+      expect(source).toMatch(/heroImageUrl\s*\?/)
+    })
+  })
+
+  describe('AC-3: ArticleCard with summary truncates to 2-3 lines', () => {
+    it('should have summary testID', () => {
+      const source = readComponent()
+      expect(source).toContain('`${testID}-summary`')
+    })
+
+    it('should use SummaryText component', () => {
+      const source = readComponent()
+      expect(source).toContain('SummaryText')
+      expect(source).toMatch(/from ['"]\.\/SummaryText['"]/)
+    })
+
+    it('should conditionally render summary', () => {
+      const source = readComponent()
+      expect(source).toContain('summary')
+      expect(source).toContain('title={title}')
+    })
+  })
+
+  describe('AC-4: User tap on ArticleCard fires onPress callback', () => {
+    it('should use Pressable component', () => {
+      const source = readComponent()
+      expect(source).toContain('Pressable')
+    })
+
+    it('should have pressable testID', () => {
+      const source = readComponent()
+      expect(source).toContain('`${testID}-pressable`')
+    })
+
+    it('should have onPress prop handler', () => {
+      const source = readComponent()
+      expect(source).toContain('onPress={onPress}')
+    })
+
+    it('should apply opacity change on press', () => {
+      const source = readComponent()
+      expect(source).toMatch(/pressed.*\?.*0\.7.*:.*1/)
+    })
+  })
+
+  describe('AC-5: ArticleCard with readTime displays read time', () => {
+    it('should have readTime testID', () => {
+      const source = readComponent()
+      expect(source).toContain('`${testID}-read-time`')
+    })
+
+    it('should conditionally render readTime', () => {
+      const source = readComponent()
+      expect(source).toMatch(/readTime\s*&&/)
+    })
+
+    it('should display readTime as text', () => {
+      const source = readComponent()
+      expect(source).toContain('readTime')
+    })
+  })
+
+  describe('Component exports with TypeScript interface', () => {
+    it('should export ArticleCard as a named export', () => {
+      const source = readComponent()
+      expect(source).toContain('export')
+      expect(source).toContain('ArticleCard')
+    })
+
+    it('should have ArticleCardProps interface', () => {
+      const source = readComponent()
+      expect(source).toMatch(/interface\s+ArticleCardProps/)
+    })
+
+    it('should have required props in interface', () => {
+      const source = readComponent()
+      expect(source).toContain('title: string')
+      expect(source).toContain('source: string')
+    })
+
+    it('should have optional props', () => {
+      const source = readComponent()
+      expect(source).toContain('heroImageUrl?:')
+      expect(source).toContain('summary?:')
+      expect(source).toContain('readTime?:')
+      expect(source).toContain('publishedAt?:')
+      expect(source).toContain('onPress?:')
+      expect(source).toContain('testID?:')
+    })
+  })
+
+  describe('Title rendering and truncation', () => {
+    it('should have title testID', () => {
+      const source = readComponent()
+      expect(source).toContain('`${testID}-title`')
+    })
+
+    it('should truncate title to 2 lines', () => {
+      const source = readComponent()
+      expect(source).toContain('numberOfLines={2}')
+    })
+  })
+
+  describe('Source and metadata rendering', () => {
+    it('should have source testID', () => {
+      const source = readComponent()
+      expect(source).toContain('`${testID}-source`')
+    })
+
+    it('should have publishedAt testID', () => {
+      const source = readComponent()
+      expect(source).toContain('`${testID}-published-at`')
+    })
+
+    it('should conditionally render publishedAt', () => {
+      const source = readComponent()
+      expect(source).toMatch(/publishedAt\s*&&/)
+    })
+
+    it('should show dot separator between metadata items', () => {
+      const source = readComponent()
+      expect(source).toContain('styles.dot')
+    })
+  })
+
+  describe('Accessibility', () => {
+    it('should have accessibilityRole="button"', () => {
+      const source = readComponent()
+      expect(source).toContain('accessibilityRole="button"')
+    })
+
+    it('should have accessibilityLabel', () => {
+      const source = readComponent()
+      expect(source).toContain('accessibilityLabel')
+    })
+
+    it('should have accessibilityHint', () => {
+      const source = readComponent()
+      expect(source).toContain('accessibilityHint')
+    })
+
+    it('should have accessibilityState', () => {
+      const source = readComponent()
+      expect(source).toContain('accessibilityState')
+      expect(source).toContain('disabled: !onPress')
+    })
+  })
+
+  describe('Dark mode active renders all colors from semantic theme', () => {
+    it('should use useTheme hook', () => {
+      const source = readComponent()
+      expect(source).toContain('useTheme')
+      expect(source).toMatch(/from ['"]@\/hooks\/use-theme['"]/)
+    })
+
+    it('should use theme colors for styling', () => {
+      const source = readComponent()
+      expect(source).toContain('colors.card')
+      expect(source).toContain('colors.border')
+      expect(source).toContain('colors.foreground')
+      expect(source).toContain('colors.mutedForeground')
+      expect(source).toContain('colors.muted')
+    })
+
+    it('should use theme spacing', () => {
+      const source = readComponent()
+      expect(source).toContain('spacing.md')
+      expect(source).toContain('spacing.xs')
+      expect(source).toContain('spacing.sm')
+    })
+
+    it('should use theme radius', () => {
+      const source = readComponent()
+      expect(source).toContain('radius.lg')
+    })
+  })
+
+  describe('React Native Patterns', () => {
+    it('should use StyleSheet.create for static styles', () => {
+      const source = readComponent()
+      expect(source).toContain('StyleSheet.create')
+    })
+
+    it('should import Pressable from react-native', () => {
+      const source = readComponent()
+      expect(source).toContain('Pressable')
+    })
+
+    it('should use Text from ui/text component', () => {
+      const source = readComponent()
+      expect(source).toMatch(/from ['"]@\/components\/ui\/text['"]/)
+    })
+
+    it('should use icons from ui/icons', () => {
+      const source = readComponent()
+      expect(source).toMatch(/from ['"]@\/components\/ui\/icons['"]/)
+    })
+
+    it('should have proper container structure', () => {
+      const source = readComponent()
+      expect(source).toContain('styles.container')
+      expect(source).toContain('styles.heroContainer')
+      expect(source).toContain('styles.metadata')
+    })
+  })
+
+  describe('Theme Compliance', () => {
+    it('should NOT contain hardcoded hex colors in inline styles', () => {
+      const source = readComponent()
+      // Match hex colors in color: '#...' patterns (inline styles)
+      const inlineHexRegex = /color:\s*['"]#[0-9a-fA-F]{6}['"]/g
+      const matches = source.match(inlineHexRegex) || []
+      expect(matches.length).toBe(0)
+    })
+
+    it('should NOT contain hardcoded spacing values', () => {
+      const source = readComponent()
+      // Check for padding/margin with bare numbers in StyleSheet
+      const hardcodedSpacingInStylesheet = /(?:padding|margin):\s*\d+[^,}]/g
+      const matches = source.match(hardcodedSpacingInStylesheet) || []
+      // Filter out allowed numeric values for positioning (width, height)
+      const disallowedSpacing = matches.filter(
+        (match) => !match.includes('width:') && !match.includes('height:')
+      )
+      expect(disallowedSpacing.length).toBe(0)
+    })
+
+    it('should NOT contain hardcoded fontSize', () => {
+      const source = readComponent()
+      const hardcodedFontSizeRegex = /fontSize:\s*\d+/
+      const matches = source.match(hardcodedFontSizeRegex)
+      expect(matches?.length ?? 0).toBe(0)
+    })
+
+    it('should use theme colors for all color properties', () => {
+      const source = readComponent()
+      // Check that colors are accessed from theme
+      expect(source).toContain('colors.')
+    })
+  })
+
+  describe('Component Structure and Layout', () => {
+    it('should have heroContainer style with aspectRatio', () => {
+      const source = readComponent()
+      expect(source).toContain('heroContainer')
+      expect(source).toContain('aspectRatio: 16 / 9')
+    })
+
+    it('should have fallback style for missing images', () => {
+      const source = readComponent()
+      expect(source).toContain('styles.fallback')
+      expect(source).toContain('justifyContent:')
+      expect(source).toContain('alignItems:')
+    })
+
+    it('should have metadata style for content section', () => {
+      const source = readComponent()
+      expect(source).toContain('styles.metadata')
+    })
+
+    it('should have metaRow style for footer metadata', () => {
+      const source = readComponent()
+      expect(source).toContain('styles.metaRow')
+      expect(source).toContain('flexDirection:')
+    })
+
+    it('should have dot style for separator', () => {
+      const source = readComponent()
+      expect(source).toContain('styles.dot')
+      expect(source).toContain('borderRadius:')
+    })
+  })
+})

@@ -5,6 +5,7 @@
 > Priority: P1
 > Estimate: 180 minutes
 > Assignee: convex-implementer
+> **Status: NOT DONE** - Blocked by US-FB-002 (no feedback data to analyze)
 
 ## CRITICAL CONSTRAINTS
 
@@ -187,6 +188,29 @@ Depends on:
 1. `.spec/prd/subscriptions-redesign/02-user-stories.md` - US-FB-003, US-FB-006 acceptance criteria
 2. `convex/whatsNew/llm.ts` - existing scoring logic
 3. `convex/feedback/queries.ts` - feedback access patterns
+
+## IMPLEMENTATION STATUS
+
+**NOT DONE** - 2026-04-02
+
+### ❌ Missing
+- No `convex/feedback/analysis.ts` exists
+- No `convex/whatsNew/scoring.ts` exists
+- No user preference extraction from feedback
+- No personalization algorithm in report generation
+- No diversity penalty implementation
+
+### Dependencies
+- **Blocked by US-FB-002**: Cannot implement scoring without feedback data storage
+
+### Next Steps
+1. Complete US-FB-002 first
+2. Create preference extraction logic
+3. Implement user multiplier calculation
+4. Add diversity penalty to prevent filter bubbles
+5. Integrate into report synthesis pipeline
+
+---
 
 ## NOTES
 

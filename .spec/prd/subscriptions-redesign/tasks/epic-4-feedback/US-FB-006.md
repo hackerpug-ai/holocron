@@ -5,6 +5,7 @@
 > Priority: P1
 > Estimate: 60 minutes
 > Assignee: convex-implementer
+> **Status: NOT DONE** - Blocked by US-FB-002 and US-FB-003
 
 ## CRITICAL CONSTRAINTS
 
@@ -161,6 +162,29 @@ Depends on:
 1. `.spec/prd/subscriptions-redesign/02-user-stories.md` - US-FB-006 acceptance criteria
 2. `convex/whatsNew/scoring.ts` - existing scoring logic
 3. Research on filter bubbles and diversification
+
+## IMPLEMENTATION STATUS
+
+**NOT DONE** - 2026-04-02
+
+### ❌ Missing
+- No gradual personalization ramp (feedback count → weight)
+- No `resetPersonalization` mutation
+- No personalization metrics tracking
+- No cold start baseline verification
+
+### Dependencies
+- **Blocked by US-FB-002**: Requires feedback data storage
+- **Blocked by US-FB-003**: Requires base scoring algorithm
+
+### Next Steps
+1. Complete US-FB-002 and US-FB-003 first
+2. Implement gradual personalization strength curve
+3. Add reset mechanism in backend
+4. Verify cold start experience
+5. Add observability metrics
+
+---
 
 ## NOTES
 

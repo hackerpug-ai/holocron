@@ -5,6 +5,7 @@
 > Priority: P0
 > Estimate: 90 minutes
 > Assignee: convex-implementer
+> **Status: NOT DONE** - No feedback backend infrastructure exists
 
 ## CRITICAL CONSTRAINTS
 
@@ -236,6 +237,30 @@ Depends on:
 1. `.spec/prd/subscriptions-redesign/02-user-stories.md` - US-FB-002 acceptance criteria
 2. `convex/schema.ts` - existing schema patterns
 3. `convex/auth/util.ts` - getAuthUserId pattern
+
+## IMPLEMENTATION STATUS
+
+**NOT DONE** - 2026-04-02
+
+### ❌ Missing
+- No `convex/feedback/` directory exists
+- No `userFeedback` table (spec calls for separate table, not fields on feedItems)
+- No mutations: `record`, `undo`
+- No queries: `getHistory`, `getByFinding`, `getBulkByFindings`
+- No indexes for efficient feedback lookup
+
+### ⚠️ Schema Note
+Current schema has `userFeedback` and `userFeedbackAt` fields on the `feedItems` table, but the task spec requires a separate `userFeedback` table with proper indexes. Need to decide:
+1. Use existing feedItems fields (simpler, less normalized)
+2. Create dedicated userFeedback table per spec (better for history/analysis)
+
+### Next Steps
+1. Create `convex/feedback/` directory structure
+2. Decide schema approach (fields vs table)
+3. Implement mutations and queries
+4. Add indexes for performance
+
+---
 
 ## NOTES
 
