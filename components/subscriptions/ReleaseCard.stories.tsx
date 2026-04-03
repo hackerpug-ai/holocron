@@ -50,6 +50,10 @@ const meta: Meta<typeof ReleaseCard> = {
       control: 'text',
       description: 'Test ID prefix for testing',
     },
+    feedItemId: {
+      control: 'text',
+      description: 'Feed item ID for feedback functionality (enables feedback buttons)',
+    },
   },
   args: {
     version: 'v2.1.0',
@@ -229,6 +233,27 @@ export const MultipleReleases: Story = {
     docs: {
       description: {
         story: 'Multiple release cards displayed in a feed layout showing different variants.',
+      },
+    },
+  },
+}
+
+export const WithFeedback: Story = {
+  args: {
+    version: 'v2.1.0',
+    title: 'New Performance Improvements',
+    summary: 'This release includes significant performance improvements and bug fixes for better user experience.',
+    repositoryName: 'facebook/react',
+    source: 'GitHub',
+    publishedAt: '2 days ago',
+    changelogUrl: 'https://github.com/facebook/react/releases/tag/v2.1.0',
+    feedItemId: 'feed456' as any,
+    testID: 'release-card-feedback',
+  },
+  parameters: {
+    docs: {
+      description: {
+        story: 'Release card with feedback buttons enabled via feedItemId prop.',
       },
     },
   },

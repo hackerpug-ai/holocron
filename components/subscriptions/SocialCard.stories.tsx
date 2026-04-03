@@ -54,6 +54,10 @@ const meta: Meta<typeof SocialCard> = {
       control: { type: 'text' },
       description: 'Test ID prefix for testing',
     },
+    feedItemId: {
+      control: { type: 'text' },
+      description: 'Feed item ID for feedback functionality (enables feedback buttons)',
+    },
   },
   args: {
     authorName: 'John Doe',
@@ -181,5 +185,26 @@ export const AllVariants: Story = {
         />
       </View>
     )
+  },
+}
+
+export const WithFeedback: Story = {
+  args: {
+    authorName: 'John Doe',
+    authorHandle: 'johndoe',
+    contentPreview:
+      'Just discovered an amazing new framework for building React Native apps with TypeScript! #reactnative #typescript',
+    likes: 24,
+    comments: 8,
+    source: 'Twitter/X',
+    feedItemId: 'feed123' as any,
+    testID: 'social-card-feedback',
+  },
+  parameters: {
+    docs: {
+      description: {
+        story: 'Social card with feedback buttons enabled via feedItemId prop.',
+      },
+    },
   },
 }

@@ -8,10 +8,6 @@ import { Card } from '@/components/ui/card'
 import { ThumbsUp, MessageSquare } from '@/components/ui/icons'
 import { cn } from '@/lib/utils'
 import { SummaryText } from './SummaryText'
-import { FeedbackButtons } from './FeedbackButtons'
-import { useQuery, useMutation } from 'convex/react'
-import { api } from '@/convex/_generated/api'
-import type { Id } from '@/convex/_generated/dataModel'
 
 export interface SocialCardProps {
   authorAvatarUrl?: string
@@ -26,8 +22,6 @@ export interface SocialCardProps {
   publishedAt?: string
   onPress?: () => void
   testID?: string
-  /** Feed item ID for feedback functionality */
-  feedItemId?: Id<'feedItems'>
 }
 
 function getInitials(name: string): string {
@@ -57,29 +51,8 @@ export function SocialCard({
   publishedAt: _publishedAt,
   onPress,
   testID = 'social-card',
-  feedItemId,
 }: SocialCardProps) {
   const initials = getInitials(authorName)
-
-  // Fetch feedback state if feedItemId is provided
-  const feedbackData = useQuery(
-    api.feeds.queries.getFeedItemFeedback,
-    feedItemId ? { feedItemId } : 'skip'
-  )
-  const currentFeedback = feedbackData?.feedback ?? null
-
-  const submitFeedbackMutation = useMutation(api.feeds.mutations.submitFeedback)
-
-  const handleFeedback = (type: 'positive' | 'negative' | null) => {
-    if (!feedItemId) return
-
-    // Map FeedbackButtons type to Convex type
-    // Only submit if not null (deselecting)
-    if (type !== null) {
-      const feedback = type === 'positive' ? 'up' : 'down'
-      submitFeedbackMutation({ feedItemId, feedback })
-    }
-  }
 
   return (
     <Pressable
@@ -170,9 +143,12 @@ export function SocialCard({
             testID={`${testID}-summary`}
           />
 
-          {/* Engagement metrics and feedback */}
-          <View className="flex-row items-center justify-between pt-1">
-            <View className="flex-row items-center gap-3">
+          {/* Engagement metrics */}
+          {(likes !== undefined || comments !== undefined) && (
+            <View
+              className="flex-row items-center gap-3 pt-1"
+              testID={`${testID}-metrics`}
+            >
               {likes !== undefined && (
                 <View
                   className="flex-row items-center gap-1"
@@ -196,21 +172,7 @@ export function SocialCard({
                 </View>
               )}
             </View>
-
-            {/* Feedback buttons */}
-            {feedItemId && (
-              <FeedbackButtons
-                findingId={feedItemId}
-                currentFeedback={
-                  currentFeedback === 'up' ? 'positive' :
-                  currentFeedback === 'down' ? 'negative' :
-                  null
-                }
-                onFeedback={handleFeedback}
-                testID={`${testID}-feedback`}
-              />
-            )}
-          </View>
+          )}
         </View>
       </Card>
     </Pressable>

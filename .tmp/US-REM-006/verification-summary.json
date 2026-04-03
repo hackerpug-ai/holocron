@@ -1,0 +1,31 @@
+{
+  "task_id": "US-REM-006",
+  "timestamp": "2026-04-02T21:53:14Z",
+  "commit_sha": "bc6a1d4037e6d1e88fd30f6b5e5715a2d432713c",
+  "commit_message": "US-REM-006: Add Navigation Change Tooltip",
+  "files_changed": [
+    "components/whats-new/NavigationTooltip.tsx",
+    "lib/storage/navigation.ts",
+    "app/(drawer)/whats-new/[reportId].tsx"
+  ],
+  "tests": {
+    "exit_code": 0,
+    "passed": 1119,
+    "failed": 0,
+    "skipped": 5
+  },
+  "typecheck": {
+    "exit_code": 0
+  },
+  "lint": {
+    "exit_code": 0,
+    "warnings": 0
+  },
+  "pre_existing_issues": false,
+  "acceptance_criteria_met": [
+    "Tooltip displays on first visit to /whats-new when AsyncStorage key missing",
+    "Tooltip hides and saves to AsyncStorage when user dismisses",
+    "Tooltip does NOT display on subsequent visits when AsyncStorage key exists",
+    "Tooltip displays again after AsyncStorage cleared"
+  ]
+}

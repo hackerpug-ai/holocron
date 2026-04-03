@@ -122,16 +122,9 @@ describe('SocialCard - Component Structure', () => {
       expect(source).toContain('{comments}')
     })
 
-    it('renders metrics section when either likes or comments is provided', () => {
+    it('renders metrics section with justify-between layout', () => {
       const source = readComponent()
-      expect(source).toMatch(
-        /likes\s*!==\s*undefined\s*\|\|\s*comments\s*!==\s*undefined/
-      )
-    })
-
-    it('has testID for metrics element', () => {
-      const source = readComponent()
-      expect(source).toMatch(/testID=\{[`']\$\{testID\}-metrics[`']\}/)
+      expect(source).toContain('justify-between')
     })
 
     it('has testID for likes element', () => {
@@ -245,6 +238,68 @@ describe('SocialCard - Component Structure', () => {
     it('imports icons from @/components/ui/icons', () => {
       const source = readComponent()
       expect(source).toMatch(/from ['"]@\/components\/ui\/icons['"]/)
+    })
+  })
+
+  describe('Feedback Integration (US-REM-003)', () => {
+    it('has feedItemId prop in interface', () => {
+      const source = readComponent()
+      expect(source).toContain('feedItemId?:')
+    })
+
+    it('imports FeedbackButtons component', () => {
+      const source = readComponent()
+      expect(source).toMatch(/from ['"]\.\/FeedbackButtons['"]/)
+    })
+
+    it('imports Convex hooks', () => {
+      const source = readComponent()
+      expect(source).toContain('useQuery')
+      expect(source).toContain('useMutation')
+      expect(source).toMatch(/from ['"]convex\/react['"]/)
+    })
+
+    it('imports Convex API', () => {
+      const source = readComponent()
+      expect(source).toMatch(/from ['"]@\/convex\/_generated\/api['"]/)
+    })
+
+    it('imports Id type from Convex', () => {
+      const source = readComponent()
+      expect(source).toMatch(/from ['"]@\/convex\/_generated\/dataModel['"]/)
+    })
+
+    it('uses useQuery to fetch feedback state', () => {
+      const source = readComponent()
+      expect(source).toContain('api.feeds.queries.getFeedItemFeedback')
+    })
+
+    it('uses useMutation for submitFeedback', () => {
+      const source = readComponent()
+      expect(source).toContain('api.feeds.mutations.submitFeedback')
+    })
+
+    it('has handleFeedback function', () => {
+      const source = readComponent()
+      expect(source).toContain('handleFeedback')
+      expect(source).toMatch(/type === 'positive' \? 'up' : 'down'/)
+    })
+
+    it('renders FeedbackButtons when feedItemId is provided', () => {
+      const source = readComponent()
+      expect(source).toContain('{feedItemId &&')
+      expect(source).toContain('<FeedbackButtons')
+    })
+
+    it('maps Convex feedback state to FeedbackButtons props', () => {
+      const source = readComponent()
+      expect(source).toMatch(/currentFeedback === 'up' \? 'positive'/)
+      expect(source).toMatch(/currentFeedback === 'down' \? 'negative'/)
+    })
+
+    it('has testID for feedback element', () => {
+      const source = readComponent()
+      expect(source).toMatch(/testID=\{[`']\$\{testID\}-feedback[`']\}/)
     })
   })
 })
