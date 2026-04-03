@@ -28,6 +28,11 @@ const categoryLabels: Record<CategoryType, string> = {
   libraries: "Libraries",
   "claude-code-configuration": "Claude Config",
   toolbelt: "Toolbelt",
+  "revenue-validation": "Revenue",
+  "competitive-analysis": "Competitive",
+  "ai-roi": "AI ROI",
+  flights: "Flights",
+  "creator-analysis": "Creator",
 };
 
 function getCategoryLabel(category: CategoryType): string {

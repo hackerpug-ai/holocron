@@ -30,6 +30,11 @@ const categoryConfig: Record<CategoryType, { label: string; variant: BadgeProps[
   libraries: { label: 'Libraries', variant: 'outline' },
   'claude-code-configuration': { label: 'Claude Config', variant: 'outline' },
   toolbelt: { label: 'Toolbelt', variant: 'default' },
+  'revenue-validation': { label: 'Revenue', variant: 'secondary' },
+  'competitive-analysis': { label: 'Competitive', variant: 'secondary' },
+  'ai-roi': { label: 'AI ROI', variant: 'default' },
+  flights: { label: 'Flights', variant: 'outline' },
+  'creator-analysis': { label: 'Creator', variant: 'secondary' },
 }
 
 /**

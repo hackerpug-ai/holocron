@@ -882,7 +882,11 @@ export default defineSchema({
     type: v.union(
       v.literal("deep-research"),
       v.literal("shop"),
-      v.literal("assimilation")
+      v.literal("assimilation"),
+      v.literal("revenue-validation"),
+      v.literal("competitive-analysis"),
+      v.literal("ai-roi"),
+      v.literal("flights")
     ),
     // Plan status workflow
     status: v.union(
@@ -1018,6 +1022,207 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_session", ["sessionId", "createdAt"]),
+
+  // Revenue Validation sessions
+  revenueValidationSessions: defineTable({
+    productName: v.string(),
+    codebaseUrl: v.optional(v.string()),
+    status: v.string(), // "pending" | "analyzing" | "completed" | "failed"
+    // DVF Scores (Desirability / Viability / Feasibility) — each 0-10
+    desirabilityScore: v.optional(v.number()),
+    viabilityScore: v.optional(v.number()),
+    feasibilityScore: v.optional(v.number()),
+    totalScore: v.optional(v.number()), // Sum of DVF (0-30)
+    verdict: v.optional(v.string()), // "GO" | "CAUTION" | "NO-GO"
+    confidenceLevel: v.optional(v.string()), // "HIGH" | "MEDIUM" | "LOW"
+    // Market sizing
+    tam: v.optional(v.string()), // Total Addressable Market (formatted string e.g. "$5B")
+    sam: v.optional(v.string()), // Serviceable Addressable Market
+    som: v.optional(v.string()), // Serviceable Obtainable Market
+    // Unit economics (stored as JSON for flexibility across scenarios)
+    unitEconomics: v.optional(v.any()), // { base: {ltv, cac, payback}, bull: {...}, bear: {...} }
+    // Summary
+    executiveSummary: v.optional(v.string()),
+    agentCount: v.optional(v.number()),
+    documentId: v.optional(v.id("documents")),
+    errorReason: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    completedAt: v.optional(v.number()),
+  })
+    .index("by_status", ["status"])
+    .index("by_created", ["createdAt"]),
+
+  revenueValidationEvidence: defineTable({
+    sessionId: v.id("revenueValidationSessions"),
+    claim: v.string(),
+    tier: v.number(), // 1-4 (T1=primary data, T4=anecdotal)
+    sourceTitle: v.optional(v.string()),
+    sourceUrl: v.optional(v.string()),
+    dimension: v.string(), // "desirability" | "viability" | "feasibility"
+    challengeStatus: v.optional(v.string()), // "validated" | "contested" | "refuted"
+    createdAt: v.number(),
+  })
+    .index("by_session", ["sessionId"])
+    .index("by_dimension", ["sessionId", "dimension"]),
+
+  revenueValidationCompetitors: defineTable({
+    sessionId: v.id("revenueValidationSessions"),
+    name: v.string(),
+    pricing: v.optional(v.string()),
+    differentiator: v.optional(v.string()),
+    url: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_session", ["sessionId"]),
+
+  // Competitive Analysis sessions
+  competitiveAnalysisSessions: defineTable({
+    market: v.string(), // Market or category being analyzed
+    status: v.string(), // "pending" | "analyzing" | "completed" | "failed"
+    // Porter's Five Forces ratings (each "HIGH" | "MEDIUM" | "LOW")
+    porterRivalry: v.optional(v.string()),
+    porterNewEntrants: v.optional(v.string()),
+    porterSubstitutes: v.optional(v.string()),
+    porterBuyerPower: v.optional(v.string()),
+    porterSupplierPower: v.optional(v.string()),
+    // Summary
+    marketVerdict: v.optional(v.string()),
+    sourceCount: v.optional(v.number()),
+    documentId: v.optional(v.id("documents")),
+    errorReason: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    completedAt: v.optional(v.number()),
+  })
+    .index("by_status", ["status"])
+    .index("by_created", ["createdAt"]),
+
+  competitiveAnalysisCompetitors: defineTable({
+    sessionId: v.id("competitiveAnalysisSessions"),
+    name: v.string(),
+    focus: v.optional(v.string()),
+    founded: v.optional(v.string()),
+    funding: v.optional(v.string()),
+    strengths: v.optional(v.array(v.string())),
+    weaknesses: v.optional(v.array(v.string())),
+    url: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_session", ["sessionId"]),
+
+  competitiveAnalysisFeatures: defineTable({
+    sessionId: v.id("competitiveAnalysisSessions"),
+    featureName: v.string(),
+    ourSupport: v.string(), // "yes" | "partial" | "no"
+    competitorSupport: v.any(), // Record<competitorName, "yes"|"partial"|"no">
+    createdAt: v.number(),
+  })
+    .index("by_session", ["sessionId"]),
+
+  // AI ROI Analysis sessions
+  aiRoiSessions: defineTable({
+    company: v.string(), // Company or domain being analyzed
+    status: v.string(), // "pending" | "analyzing" | "completed" | "failed"
+    executiveSummary: v.optional(v.string()),
+    sourceCount: v.optional(v.number()),
+    topOpportunityName: v.optional(v.string()),
+    topOpportunitySavings: v.optional(v.string()), // Formatted e.g. "$150K/yr"
+    topOpportunityConfidence: v.optional(v.string()), // "HIGH" | "MEDIUM" | "LOW"
+    documentId: v.optional(v.id("documents")),
+    errorReason: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    completedAt: v.optional(v.number()),
+  })
+    .index("by_status", ["status"])
+    .index("by_created", ["createdAt"]),
+
+  aiRoiOpportunities: defineTable({
+    sessionId: v.id("aiRoiSessions"),
+    rank: v.number(),
+    name: v.string(),
+    confidence: v.string(), // "HIGH" | "MEDIUM" | "LOW"
+    currentProcess: v.optional(v.string()),
+    proposedAutomation: v.optional(v.string()),
+    // Cost/benefit metrics
+    currentTimePerWeek: v.optional(v.string()), // e.g. "20hrs"
+    automatedTimePerWeek: v.optional(v.string()),
+    currentCostPerYear: v.optional(v.string()), // e.g. "$120K"
+    automatedCostPerYear: v.optional(v.string()),
+    savingsPerYear: v.optional(v.string()),
+    errorRateBefore: v.optional(v.string()),
+    errorRateAfter: v.optional(v.string()),
+    // Implementation phase
+    phase: v.optional(v.string()), // "quick-win" | "medium-term" | "strategic"
+    createdAt: v.number(),
+  })
+    .index("by_session", ["sessionId"])
+    .index("by_rank", ["sessionId", "rank"]),
+
+  aiRoiEvidence: defineTable({
+    sessionId: v.id("aiRoiSessions"),
+    opportunityId: v.optional(v.id("aiRoiOpportunities")),
+    claim: v.string(),
+    tier: v.number(), // 1-5 (T5 excluded from base case)
+    source: v.optional(v.string()),
+    sourceUrl: v.optional(v.string()),
+    challengeStatus: v.optional(v.string()), // "validated" | "contested"
+    createdAt: v.number(),
+  })
+    .index("by_session", ["sessionId"])
+    .index("by_opportunity", ["opportunityId"]),
+
+  // Flights sessions
+  flightsSessions: defineTable({
+    origin: v.string(), // Airport code or city
+    destination: v.string(),
+    dateRange: v.optional(v.string()), // e.g. "2026-05 to 2026-06"
+    status: v.string(), // "pending" | "searching" | "completed" | "failed"
+    // Best deal
+    bestDealPrice: v.optional(v.number()), // In cents
+    bestDealAirline: v.optional(v.string()),
+    bestDealDates: v.optional(v.string()),
+    season: v.optional(v.string()), // "shoulder" | "peak" | "off-peak"
+    // Tips
+    cheapestDay: v.optional(v.string()),
+    shoulderSeason: v.optional(v.string()),
+    bookBy: v.optional(v.string()),
+    documentId: v.optional(v.id("documents")),
+    errorReason: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    completedAt: v.optional(v.number()),
+  })
+    .index("by_status", ["status"])
+    .index("by_created", ["createdAt"]),
+
+  flightsRoutes: defineTable({
+    sessionId: v.id("flightsSessions"),
+    airline: v.string(),
+    departDate: v.string(), // YYYY-MM-DD
+    returnDate: v.optional(v.string()),
+    price: v.number(), // In cents
+    stops: v.number(),
+    duration: v.optional(v.string()), // e.g. "5h30m"
+    isBestDeal: v.boolean(),
+    bookingUrl: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_session", ["sessionId"])
+    .index("by_price", ["sessionId", "price"]),
+
+  flightsPriceCalendar: defineTable({
+    sessionId: v.id("flightsSessions"),
+    date: v.string(), // YYYY-MM-DD
+    dayOfWeek: v.string(), // "Mon" | "Tue" | ...
+    weekNumber: v.number(), // 1-5 within the month
+    price: v.number(), // In cents (lowest price for that date)
+    isCheapest: v.boolean(),
+    createdAt: v.number(),
+  })
+    .index("by_session", ["sessionId"])
+    .index("by_date", ["sessionId", "date"]),
 
   // Multi-source text imports
   imports: defineTable({

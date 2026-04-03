@@ -27,6 +27,11 @@ export const DOCUMENT_CATEGORIES = [
   'libraries',
   'claude-code-configuration',
   'toolbelt',
+  'revenue-validation',
+  'competitive-analysis',
+  'ai-roi',
+  'flights',
+  'creator-analysis',
 ] as const
 
 /**
@@ -62,6 +67,11 @@ export const CATEGORY_METADATA: Record<
   libraries: { label: 'Libraries', color: 'pink' },
   'claude-code-configuration': { label: 'Claude Code', color: 'yellow' },
   toolbelt: { label: 'Toolbelt', color: 'red' },
+  'revenue-validation': { label: 'Revenue Validation', color: 'green' },
+  'competitive-analysis': { label: 'Competitive Analysis', color: 'orange' },
+  'ai-roi': { label: 'AI ROI', color: 'blue' },
+  flights: { label: 'Flights', color: 'cyan' },
+  'creator-analysis': { label: 'Creator Analysis', color: 'purple' },
 }
 
 /**
