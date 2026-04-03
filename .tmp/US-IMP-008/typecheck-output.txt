@@ -1,0 +1,4 @@
+$ tsc --noEmit
+app/(drawer)/whats-new/index.tsx(79,13): error TS2739: Type '{ days: number; period_start: number; period_end: number; findings_count: number; discovery_count: number; release_count: number; trend_count: number; content: undefined; is_from_today: boolean; sources: never[]; }' is missing the following properties from type 'WhatsNewReportCardData': card_type, report_id
+components/research/ReportOutline.tsx(16,40): error TS2305: Module '"@/components/ui/icons"' has no exported member 'Minus'.
+Exit code: 2

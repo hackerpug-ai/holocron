@@ -1,0 +1,114 @@
+$ vitest run
+
+[1m[46m RUN [49m[22m [36mv4.1.0 [39m[90m/Users/justinrich/Projects/holocron[39m
+
+ [31m❯[39m tests/components/whats-new/NewsStream.test.tsx [2m([22m[2m7 tests[22m[2m | [22m[31m7 failed[39m[2m)[22m[32m 4[2mms[22m[39m
+[31m       [31m×[31m should have NewsStream component file[39m[32m 2[2mms[22m[39m
+[31m       [31m×[31m should export NewsStream as named export[39m[32m 0[2mms[22m[39m
+[31m       [31m×[31m should use FlatList for efficient scrolling with lazy loading[39m[32m 0[2mms[22m[39m
+[31m       [31m×[31m should render NewsCard components in the stream[39m[32m 0[2mms[22m[39m
+[31m       [31m×[31m should have onEndReached handler for lazy loading[39m[32m 0[2mms[22m[39m
+[31m       [31m×[31m should have onEndReachedThreshold for scroll trigger[39m[32m 0[2mms[22m[39m
+[31m       [31m×[31m should accept items prop for data source[39m[32m 0[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 7 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m tests/components/whats-new/NewsStream.test.tsx[2m > [22mNewsStream - AC-4: Lazy loading on scroll[2m > [22mRED Phase: Tests fail before implementation[2m > [22mshould have NewsStream component file
+[31m[1mError[22m: ENOENT: no such file or directory, open '/Users/justinrich/Projects/holocron/components/whats-new/NewsStream.tsx'[39m
+[36m [2m❯[22m readComponent tests/components/whats-new/NewsStream.test.tsx:[2m22:12[22m[39m
+    [90m 20|[39m
+    [90m 21|[39m   [35mconst[39m readComponent [33m=[39m ()[33m:[39m string [33m=>[39m {
+    [90m 22|[39m     [35mreturn[39m [34mreadFileSync[39m(componentPath[33m,[39m [32m'utf-8'[39m)
+    [90m   |[39m            [31m^[39m
+    [90m 23|[39m   }
+    [90m 24|[39m
+[90m [2m❯[22m tests/components/whats-new/NewsStream.test.tsx:[2m28:22[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/7]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/components/whats-new/NewsStream.test.tsx[2m > [22mNewsStream - AC-4: Lazy loading on scroll[2m > [22mRED Phase: Tests fail before implementation[2m > [22mshould export NewsStream as named export
+[31m[1mError[22m: ENOENT: no such file or directory, open '/Users/justinrich/Projects/holocron/components/whats-new/NewsStream.tsx'[39m
+[36m [2m❯[22m readComponent tests/components/whats-new/NewsStream.test.tsx:[2m22:12[22m[39m
+    [90m 20|[39m
+    [90m 21|[39m   [35mconst[39m readComponent [33m=[39m ()[33m:[39m string [33m=>[39m {
+    [90m 22|[39m     [35mreturn[39m [34mreadFileSync[39m(componentPath[33m,[39m [32m'utf-8'[39m)
+    [90m   |[39m            [31m^[39m
+    [90m 23|[39m   }
+    [90m 24|[39m
+[90m [2m❯[22m tests/components/whats-new/NewsStream.test.tsx:[2m33:22[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/7]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/components/whats-new/NewsStream.test.tsx[2m > [22mNewsStream - AC-4: Lazy loading on scroll[2m > [22mRED Phase: Tests fail before implementation[2m > [22mshould use FlatList for efficient scrolling with lazy loading
+[31m[1mError[22m: ENOENT: no such file or directory, open '/Users/justinrich/Projects/holocron/components/whats-new/NewsStream.tsx'[39m
+[36m [2m❯[22m readComponent tests/components/whats-new/NewsStream.test.tsx:[2m22:12[22m[39m
+    [90m 20|[39m
+    [90m 21|[39m   [35mconst[39m readComponent [33m=[39m ()[33m:[39m string [33m=>[39m {
+    [90m 22|[39m     [35mreturn[39m [34mreadFileSync[39m(componentPath[33m,[39m [32m'utf-8'[39m)
+    [90m   |[39m            [31m^[39m
+    [90m 23|[39m   }
+    [90m 24|[39m
+[90m [2m❯[22m tests/components/whats-new/NewsStream.test.tsx:[2m39:22[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/7]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/components/whats-new/NewsStream.test.tsx[2m > [22mNewsStream - AC-4: Lazy loading on scroll[2m > [22mRED Phase: Tests fail before implementation[2m > [22mshould render NewsCard components in the stream
+[31m[1mError[22m: ENOENT: no such file or directory, open '/Users/justinrich/Projects/holocron/components/whats-new/NewsStream.tsx'[39m
+[36m [2m❯[22m readComponent tests/components/whats-new/NewsStream.test.tsx:[2m22:12[22m[39m
+    [90m 20|[39m
+    [90m 21|[39m   [35mconst[39m readComponent [33m=[39m ()[33m:[39m string [33m=>[39m {
+    [90m 22|[39m     [35mreturn[39m [34mreadFileSync[39m(componentPath[33m,[39m [32m'utf-8'[39m)
+    [90m   |[39m            [31m^[39m
+    [90m 23|[39m   }
+    [90m 24|[39m
+[90m [2m❯[22m tests/components/whats-new/NewsStream.test.tsx:[2m45:22[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/7]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/components/whats-new/NewsStream.test.tsx[2m > [22mNewsStream - AC-4: Lazy loading on scroll[2m > [22mRED Phase: Tests fail before implementation[2m > [22mshould have onEndReached handler for lazy loading
+[31m[1mError[22m: ENOENT: no such file or directory, open '/Users/justinrich/Projects/holocron/components/whats-new/NewsStream.tsx'[39m
+[36m [2m❯[22m readComponent tests/components/whats-new/NewsStream.test.tsx:[2m22:12[22m[39m
+    [90m 20|[39m
+    [90m 21|[39m   [35mconst[39m readComponent [33m=[39m ()[33m:[39m string [33m=>[39m {
+    [90m 22|[39m     [35mreturn[39m [34mreadFileSync[39m(componentPath[33m,[39m [32m'utf-8'[39m)
+    [90m   |[39m            [31m^[39m
+    [90m 23|[39m   }
+    [90m 24|[39m
+[90m [2m❯[22m tests/components/whats-new/NewsStream.test.tsx:[2m51:22[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/7]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/components/whats-new/NewsStream.test.tsx[2m > [22mNewsStream - AC-4: Lazy loading on scroll[2m > [22mRED Phase: Tests fail before implementation[2m > [22mshould have onEndReachedThreshold for scroll trigger
+[31m[1mError[22m: ENOENT: no such file or directory, open '/Users/justinrich/Projects/holocron/components/whats-new/NewsStream.tsx'[39m
+[36m [2m❯[22m readComponent tests/components/whats-new/NewsStream.test.tsx:[2m22:12[22m[39m
+    [90m 20|[39m
+    [90m 21|[39m   [35mconst[39m readComponent [33m=[39m ()[33m:[39m string [33m=>[39m {
+    [90m 22|[39m     [35mreturn[39m [34mreadFileSync[39m(componentPath[33m,[39m [32m'utf-8'[39m)
+    [90m   |[39m            [31m^[39m
+    [90m 23|[39m   }
+    [90m 24|[39m
+[90m [2m❯[22m tests/components/whats-new/NewsStream.test.tsx:[2m56:22[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/7]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/components/whats-new/NewsStream.test.tsx[2m > [22mNewsStream - AC-4: Lazy loading on scroll[2m > [22mRED Phase: Tests fail before implementation[2m > [22mshould accept items prop for data source
+[31m[1mError[22m: ENOENT: no such file or directory, open '/Users/justinrich/Projects/holocron/components/whats-new/NewsStream.tsx'[39m
+[36m [2m❯[22m readComponent tests/components/whats-new/NewsStream.test.tsx:[2m22:12[22m[39m
+    [90m 20|[39m
+    [90m 21|[39m   [35mconst[39m readComponent [33m=[39m ()[33m:[39m string [33m=>[39m {
+    [90m 22|[39m     [35mreturn[39m [34mreadFileSync[39m(componentPath[33m,[39m [32m'utf-8'[39m)
+    [90m   |[39m            [31m^[39m
+    [90m 23|[39m   }
+    [90m 24|[39m
+[90m [2m❯[22m tests/components/whats-new/NewsStream.test.tsx:[2m61:22[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/7]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m77 passed[39m[22m[2m | [22m[33m1 skipped[39m[90m (79)[39m
+[2m      Tests [22m [1m[31m7 failed[39m[22m[2m | [22m[1m[32m1161 passed[39m[22m[2m | [22m[33m5 skipped[39m[90m (1173)[39m
+[2m   Start at [22m 12:28:28
+[2m   Duration [22m 1.04s[2m (transform 2.98s, setup 0ms, import 3.10s, tests 2.49s, environment 537ms)[22m
+
+error: script "test" exited with code 1
+Exit code: 1

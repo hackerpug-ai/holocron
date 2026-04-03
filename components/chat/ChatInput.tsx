@@ -2,7 +2,7 @@ import { View, TextInput, Pressable, ScrollView, StyleSheet } from 'react-native
 import { Text } from '@/components/ui/text'
 import { cn } from '@/lib/utils'
 import { useState, useMemo, useCallback, useEffect } from 'react'
-import { Send, WandSparkles } from '@/components/ui/icons'
+import { Send } from '@/components/ui/icons'
 import { useTheme } from '@/hooks/use-theme'
 import {
   useMentions,
@@ -12,6 +12,7 @@ import {
 } from 'react-native-controlled-mentions'
 import { VoiceMicButton } from '@/components/voice/VoiceMicButton'
 import type { VoiceState } from '@/hooks/use-voice-session-state'
+import { AssistantButton } from '@/components/chat/AssistantButton'
 
 export interface SlashCommand {
   /** Command name without the leading slash */
@@ -328,21 +329,15 @@ export function ChatInput({
             />
           </View>
 
-          {/* Slash Button - positioned inside input on the right */}
-          <Pressable
-            testID="chat-input-slash-button"
-            onPress={handleSlashButtonPress}
-            disabled={effectiveDisabled}
-            className={cn(
-              'absolute right-2 top-1.5 h-8 w-8 items-center justify-center rounded-full',
-              showCommandPanel ? 'bg-primary' : 'bg-muted'
-            )}
-          >
-            <WandSparkles
-              size={18}
-              color={showCommandPanel ? themeColors.primaryForeground : themeColors.foreground}
+          {/* Assistant Button - positioned inside input on the right */}
+          <View className="absolute right-2 top-1.5">
+            <AssistantButton
+              isActive={showCommandPanel}
+              disabled={effectiveDisabled}
+              onPress={handleSlashButtonPress}
+              testID="assistant-button"
             />
-          </Pressable>
+          </View>
         </View>
 
         {/* Send Button or Voice Mic Button */}
