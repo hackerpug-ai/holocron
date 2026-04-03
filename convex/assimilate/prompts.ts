@@ -198,12 +198,69 @@ ${Object.entries(dimensionScores)
 
 ## Task
 
-Synthesize ALL findings into a comprehensive, well-structured assimilation report. This is the FINAL output document.
+Synthesize ALL findings into a comprehensive, well-structured assimilation report following the SARA template below. This is the FINAL output document.
+
+### Rating Bars
+Use "█" for filled and "░" for empty. A rating of N out of 5 = N filled + (5-N) empty.
+Examples: 1/5 = "█░░░░", 2/5 = "██░░░", 3/5 = "███░░", 4/5 = "████░", 5/5 = "█████"
+
+### Required content template
+The "content" field MUST follow this exact markdown structure:
+
+\`\`\`
+# Repository Analysis: {repo-name}
+Overall Sophistication: {sophisticationRating}/5 — {one-line characterization of the repo}
+
+**Date**: {YYYY-MM-DD} | **Type**: assimilation | **Language**: {primaryLanguage}
+---
+
+## Quick Stats
+**Size**: {files} files, {LOC} LOC | **License**: {license or "Unknown"}
+**Stars**: {N or "N/A"} | **Contributors**: {N or "N/A"} | **Last Active**: {date or "N/A"}
+
+## Architecture
+{Module organization description — 2-3 paragraphs covering overall structure, key boundaries, data flow}
+
+\`\`\`
+{ASCII tree of key directories, e.g.:}
+src/
+├── core/       # {brief description}
+├── api/        # {brief description}
+└── utils/      # {brief description}
+\`\`\`
+
+## Dimension Ratings
+
+| Dimension      | Rating | Assessment             |
+|----------------|--------|------------------------|
+| Architecture   | {bar}  | {one-line assessment}  |
+| Patterns       | {bar}  | {one-line assessment}  |
+| Testing        | {bar}  | {one-line assessment}  |
+| Documentation  | {bar}  | {one-line assessment}  |
+| Dependencies   | {bar}  | {one-line assessment}  |
+
+## Key Strengths
+- {Strength 1 — specific, referencing actual code or structure}
+- {Strength 2}
+- {Strength 3}
+
+## Key Weaknesses
+- {Weakness 1 — specific, referencing actual code or structure}
+- {Weakness 2}
+
+## Actionable Learnings
+1. **{Learning title}** — {how to apply this pattern to our codebase}
+2. **{Learning title}** — {how to apply}
+3. **{Learning title}** — {how to apply}
+
+## Anti-Patterns Found
+- **{Pattern name}**: {where found in the repo and why it's problematic}
+\`\`\`
 
 Respond with JSON:
 {
   "title": "Assimilation: ${repositoryName}",
-  "content": "# Assimilation Report: ${repositoryName}\\n\\n## Executive Summary\\n{3-5 sentences}\\n\\n## Architecture\\n{detailed findings}\\n\\n## Code Patterns & Conventions\\n{detailed findings}\\n\\n## Documentation\\n{detailed findings}\\n\\n## Dependencies & Ecosystem\\n{detailed findings}\\n\\n## Testing & Quality\\n{detailed findings}\\n\\n## Sophistication Ratings\\n{table of ratings}\\n\\n## Key Takeaways\\n{prioritized actionable insights}\\n\\n## Anti-Patterns to Avoid\\n{what NOT to copy}",
+  "content": "{full markdown report following the template above — use actual \\n for newlines in the JSON string}",
   "trackRatings": {
     "architecture": {1-5 integer},
     "patterns": {1-5 integer},
