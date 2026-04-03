@@ -14,6 +14,7 @@ import {
 import { useMemo, useState } from 'react'
 import type { Id } from '@/convex/_generated/dataModel'
 import { WebViewSheet } from '@/components/webview/WebViewSheet'
+import { NavigationTooltip } from '@/components/whats-new/NavigationTooltip'
 
 /**
  * Format date period for title
@@ -178,6 +179,7 @@ export default function WhatsNewDetailScreen() {
         onClose={() => setWebViewUrl(null)}
         testID="whats-new-webview-sheet"
       />
+      <NavigationTooltip />
     </>
   )
 }
