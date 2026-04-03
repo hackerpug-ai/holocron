@@ -1,0 +1,39 @@
+{
+  "task_id": "US-IMP-001",
+  "timestamp": "2025-04-03T12:35:13Z",
+  "commit_sha": "e86691c49cd194ac5b953192a0b7c5b4631c0534",
+  "base_sha": "77df44c4f7b901d021ee787fbaea316883b9b35f",
+  "tests": {
+    "exit_code": 0,
+    "passed": 1168,
+    "failed": 0,
+    "skipped": 5
+  },
+  "typecheck": {
+    "exit_code": 0,
+    "errors": 0
+  },
+  "lint": {
+    "exit_code": 0,
+    "warnings": 0,
+    "errors": 0
+  },
+  "pre_existing_issues": false,
+  "implementation_summary": {
+    "components_created": [
+      "components/research/ReportOutline.tsx"
+    ],
+    "components_modified": [
+      "components/deep-research/DeepResearchDetailView.tsx"
+    ],
+    "tests_created": [
+      "tests/components/research/ReportOutline.test.tsx"
+    ],
+    "acceptance_criteria_met": [
+      "AC-1: Report displays in collapsible outline format by default",
+      "AC-2: Tapping header expands collapsed section",
+      "AC-3: Tapping header collapses expanded section",
+      "AC-4: Expand/collapse all buttons toggle all sections"
+    ]
+  }
+}

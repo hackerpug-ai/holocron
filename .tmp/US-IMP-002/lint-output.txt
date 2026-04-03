@@ -1,0 +1,21 @@
+$ eslint . convex/improvements/internal.ts convex/research/dispatcher.ts convex/research/specialists/ "tests/convex/US-IMP-002-research-specialists.test.ts"
+
+/Users/justinrich/Projects/holocron/components/article/ImportButton.tsx
+  1:21  error  'View' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  3:10  error  'Text' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/justinrich/Projects/holocron/components/articles/ArticleImportModal.tsx
+   8:39  error  'TextInput' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  11:10  error  'cn' is defined but never used. Allowed unused vars must match /^_/u         @typescript-eslint/no-unused-vars
+
+/Users/justinrich/Projects/holocron/convex/research/actions.ts
+   51:31  error  'extractRelevantFindings' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  105:11  error  'contextSummary' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/justinrich/Projects/holocron/convex/research/context.ts
+   7:10  error  'v' is defined but never used. Allowed unused vars must match /^_/u                   @typescript-eslint/no-unused-vars
+  45:13  error  'sessionId' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+✖ 8 problems (8 errors, 0 warnings)
+
+error: script "lint" exited with code 1
