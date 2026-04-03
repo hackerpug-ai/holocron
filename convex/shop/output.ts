@@ -1,14 +1,13 @@
 /**
  * Shop Report Formatter
  *
- * Formats shop session data into a Wirecutter-style markdown report.
+ * Formats shop session data into skill-spec markdown:
+ * Header → Comparison Tables (New / Used) → Recommendations → Notes → Trust Legend
+ *
+ * Reference: ~/.claude/skills/shop/SKILL.md § OUTPUT FORMAT
  */
 
-import {
-  formatReportHeader,
-  formatTable,
-  todayISO,
-} from "../lib/reportFormat";
+import { formatTable, todayISO } from "../lib/reportFormat";
 
 export type ShopListing = {
   title: string;
@@ -25,142 +24,188 @@ export type ShopListing = {
 
 export type ShopSession = {
   query: string;
+  budget?: number; // in cents — undefined means no limit
+  condition?: string; // "new" | "used" | "any" — defaults to "any"
+  sessionId?: string;
   bestDealId?: string;
 };
 
-/**
- * Format cents to a dollar string, e.g. 27900 → "$279.00"
- */
+// ---------------------------------------------------------------------------
+// Private helpers
+// ---------------------------------------------------------------------------
+
+/** Format cents to a dollar string, e.g. 27900 → "$279.00" */
 function formatPrice(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
 }
 
-/**
- * Map trustTier number to human-readable label
- * 1 = Authorized, 2-3 = Verified, 4-5 = Unverified
- */
+/** Map trustTier number to human-readable label matching Trust Legend */
 function trustLabel(trustTier?: number): string {
   if (trustTier === undefined) return "Unverified";
   if (trustTier === 1) return "Authorized";
-  if (trustTier <= 3) return "Verified";
+  if (trustTier === 2 || trustTier === 3) return "Verified Seller";
   return "Unverified";
 }
 
-/**
- * Truncate a string to a maximum length, appending "…" if truncated
- */
+/** Truncate a string to a maximum length, appending "…" if needed */
 function truncate(s: string, max: number): string {
-  return s.length > max ? s.slice(0, max - 1) + "…" : s;
+  return s.length > max ? s.slice(0, max - 1) + "\u2026" : s;
 }
 
-/**
- * Format a single Top Pick card
- */
-function formatPickCard(
+/** True when condition string indicates a new product */
+function isNew(condition?: string): boolean {
+  if (!condition) return true; // default assumption
+  return condition.toLowerCase() === "new";
+}
+
+// ---------------------------------------------------------------------------
+// Section builders
+// ---------------------------------------------------------------------------
+
+function buildHeader(session: ShopSession, date: string): string {
+  const budget = session.budget ? formatPrice(session.budget) : "No limit";
+  const condition = session.condition ?? "any";
+  const sid = session.sessionId ?? "\u2014";
+
+  return (
+    `# Shop Results: ${session.query}\n\n` +
+    `**Search Date**: ${date}\n` +
+    `**Budget**: ${budget}\n` +
+    `**Condition**: ${condition}\n` +
+    `**Session**: ${sid}\n\n`
+  );
+}
+
+function buildComparisonTable(
   label: string,
-  listing: ShopListing,
-  star = false,
+  listings: ShopListing[],
+  includeConditionCol: boolean,
 ): string {
-  const prefix = star ? "★ " : "";
-  const price = formatPrice(listing.price);
-  const condition = listing.condition ?? "New";
-  const score = listing.dealScore ?? 0;
-  const trust = trustLabel(listing.trustTier);
-  const title = truncate(listing.title, 30);
+  if (listings.length === 0) return "";
 
-  return `### ${prefix}${label}: ${title}
-**${price}** | ${listing.retailer} | ${condition} | [Buy](${listing.url})
-Score: ${score}/100 | Trust: ${trust}
-`;
+  const rows = listings.map((l) => {
+    const base = [truncate(l.title, 30), formatPrice(l.price), l.retailer];
+    if (includeConditionCol) {
+      base.push(l.condition ?? "Used");
+    }
+    // Use a large maxColWidth so formatTable does not truncate URLs.
+    // Arrow display text is short; the full markdown link must be preserved.
+    base.push(trustLabel(l.trustTier), `${l.dealScore ?? 0}/100`, `[\u2192](${l.url})`);
+    return base;
+  });
+
+  const headers = includeConditionCol
+    ? ["Product", "Price", "Retailer", "Condition", "Trust", "Deal Score", "Link"]
+    : ["Product", "Price", "Retailer", "Trust", "Deal Score", "Link"];
+
+  const table = formatTable(headers, rows, 200);
+  return `### ${label}\n${table}\n`;
 }
 
+function buildRecommendations(
+  newListings: ShopListing[],
+  usedListings: ShopListing[],
+  allByScore: ShopListing[],
+): string {
+  const lines: string[] = ["## Recommendations\n"];
+
+  // Best Deal — highest deal score overall
+  const bestDeal = allByScore[0];
+  if (bestDeal) {
+    lines.push(
+      `**Best Deal**: [${truncate(bestDeal.title, 40)}](${bestDeal.url}) @ ${formatPrice(bestDeal.price)} from ${bestDeal.retailer} (Score: ${bestDeal.dealScore ?? 0})`,
+    );
+  }
+
+  // Budget Pick — lowest price overall (excluding best deal to avoid repeat)
+  const allByPrice = [...allByScore].sort((a, b) => a.price - b.price);
+  const budgetPick = allByPrice.find((l) => l !== bestDeal) ?? allByPrice[0];
+  if (budgetPick && budgetPick !== bestDeal) {
+    lines.push(
+      `**Budget Pick**: [${truncate(budgetPick.title, 40)}](${budgetPick.url}) @ ${formatPrice(budgetPick.price)} from ${budgetPick.retailer}`,
+    );
+  }
+
+  // Best New — highest score among new listings (already sorted by score)
+  const bestNew = newListings[0];
+  if (bestNew) {
+    lines.push(
+      `**Best New**: [${truncate(bestNew.title, 40)}](${bestNew.url}) @ ${formatPrice(bestNew.price)} from ${bestNew.retailer}`,
+    );
+  }
+
+  // Best Used — highest score among used listings (already sorted by score)
+  const bestUsed = usedListings[0];
+  if (bestUsed) {
+    lines.push(
+      `**Best Used**: [${truncate(bestUsed.title, 40)}](${bestUsed.url}) @ ${formatPrice(bestUsed.price)} from ${bestUsed.retailer}`,
+    );
+  }
+
+  return lines.join("\n") + "\n";
+}
+
+const NOTES_SECTION =
+  "## Notes\n" +
+  "- Prices and availability may change \u2014 verify before purchasing.\n" +
+  "- Trust tier reflects seller verification status, not product quality.\n" +
+  "- Deal Score combines price competitiveness, seller trust, and availability signals.\n";
+
+const TRUST_LEGEND =
+  "**Trust Legend:**\n" +
+  "- **Authorized**: Tier 1 retailer (direct manufacturer, authorized dealer)\n" +
+  "- **Verified Seller**: Tier 2 marketplace seller with validated feedback (60+ score)\n" +
+  "- **Unverified**: Tier 2/3 seller without sufficient validation signals\n\n" +
+  "---\n" +
+  "*Generated by /shop via holocron MCP - results not saved (ephemeral)*";
+
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
+
 /**
- * Format shop session data into a Wirecutter-style markdown report.
+ * Format shop session data into the skill-spec markdown report.
+ *
+ * Sections: Header → Comparison Table (New) → Comparison Table (Used) →
+ *           Recommendations → Notes → Trust Legend
  */
 export function formatShopReport(
   session: ShopSession,
   listings: ShopListing[],
 ): string {
+  const date = todayISO();
+
   if (listings.length === 0) {
-    return formatReportHeader(
-      `${session.query} — Shopping Report`,
-      "No listings found.",
-      { date: todayISO(), type: "shop", extra: { Query: `"${session.query}"` } },
+    return (
+      buildHeader(session, date) +
+      "_No listings found for this search. Try expanding the query or adjusting filters._\n"
     );
   }
 
-  // Sort by dealScore descending to find Best Overall and Runner Up
-  const byScore = [...listings].sort(
+  // Partition by condition
+  const newListings = listings
+    .filter((l) => isNew(l.condition))
+    .sort((a, b) => (b.dealScore ?? 0) - (a.dealScore ?? 0));
+
+  const usedListings = listings
+    .filter((l) => !isNew(l.condition))
+    .sort((a, b) => (b.dealScore ?? 0) - (a.dealScore ?? 0));
+
+  const allByScore = [...listings].sort(
     (a, b) => (b.dealScore ?? 0) - (a.dealScore ?? 0),
   );
-  const bestOverall = byScore[0];
-  const runnerUp = byScore[1];
 
-  // Budget Pick = lowest price that isn't the best overall
-  const byPrice = [...listings].sort((a, b) => a.price - b.price);
-  const budgetPick =
-    byPrice[0] === bestOverall ? byPrice[1] : byPrice[0];
+  const header = buildHeader(session, date);
 
-  const instantValue = `★ BEST VALUE: ${truncate(bestOverall.title, 30)} — ${formatPrice(bestOverall.price)} at ${bestOverall.retailer}`;
+  const comparisonSection =
+    "## Comparison Table\n\n" +
+    buildComparisonTable("New Products", newListings, false) +
+    (usedListings.length > 0 ? "\n" : "") +
+    buildComparisonTable("Used/Refurbished", usedListings, true);
 
-  const header = formatReportHeader(
-    `${session.query} — Shopping Report`,
-    instantValue,
-    {
-      date: todayISO(),
-      type: "shop",
-      extra: { Query: `"${session.query}"` },
-    },
+  const recommendations = buildRecommendations(newListings, usedListings, allByScore);
+
+  return [header, comparisonSection, recommendations, NOTES_SECTION, TRUST_LEGEND].join(
+    "\n",
   );
-
-  // Top Picks section
-  const topPickLines: string[] = ["## Top Picks\n"];
-  topPickLines.push(formatPickCard("Best Overall", bestOverall, true));
-  if (runnerUp) {
-    topPickLines.push(formatPickCard("Runner Up", runnerUp));
-  }
-  if (budgetPick && budgetPick !== bestOverall && budgetPick !== runnerUp) {
-    topPickLines.push(formatPickCard("Budget Pick", budgetPick));
-  }
-  const topPicksSection = topPickLines.join("\n");
-
-  // Quick Compare table (up to top 5 by score)
-  const compareListings = byScore.slice(0, 5);
-  const compareRows = compareListings.map((l, i) => {
-    const star = i === 0 ? "★ " : "";
-    return [
-      star + truncate(l.title, 28),
-      formatPrice(l.price),
-      String(l.dealScore ?? 0),
-      l.retailer,
-      trustLabel(l.trustTier),
-    ];
-  });
-  const compareTable = formatTable(
-    ["Product", "Price", "Score", "Retailer", "Trust"],
-    compareRows,
-    30,
-  );
-
-  // All Listings table
-  const allRows = listings.map((l, i) => [
-    String(i + 1),
-    truncate(l.title, 30),
-    formatPrice(l.price),
-    l.retailer,
-    String(l.dealScore ?? 0),
-    `[Buy](${l.url})`,
-  ]);
-  const allTable = formatTable(
-    ["#", "Product", "Price", "Retailer", "Score", "Link"],
-    allRows,
-    30,
-  );
-
-  return [
-    header,
-    topPicksSection,
-    `## Quick Compare\n\n${compareTable}\n`,
-    `## All Listings (${listings.length} total)\n\n${allTable}\n`,
-  ].join("\n");
 }
