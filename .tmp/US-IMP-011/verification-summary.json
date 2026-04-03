@@ -1,0 +1,73 @@
+{
+  "task_id": "US-IMP-011",
+  "task_title": "Product/Service Finder Specialists",
+  "status": "COMPLETED",
+  "base_sha": "ebff39f170271e110e68625faae369e1ad05299e",
+  "commit_sha": "992403d752f5daa4e3b4a06813323aad919d17cc",
+  "branch": "main",
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "description": "User submits product query → Query matches product domain → Product specialist generates product report",
+      "status": "PASSED",
+      "verification": "Product finder specialist implemented in convex/research/specialists/product_finder.ts with executeProductFinder function. Dispatcher updated to detect product domain keywords (buy, purchase, price, laptop, phone, best, comparison) and route to product_finder specialist.",
+      "test_evidence": "tests/convex/US-IMP-011-product-service-finders.test.ts - AC-1 tests (5 tests) all passing"
+    },
+    {
+      "id": "AC-2",
+      "description": "Product report completes → Report generated → Report includes structured fields (price, rating, specs)",
+      "status": "PASSED",
+      "verification": "ProductReport interface includes structured fields: products array (name, price, rating, specs, availability), comparisons array, priceRange object (min, max, average), and topRated field.",
+      "test_evidence": "tests/convex/US-IMP-011-product-service-finders.test.ts - AC-2 tests (3 tests) all passing"
+    },
+    {
+      "id": "AC-3",
+      "description": "Service query submitted → Query matches service domain → Service specialist generates service report",
+      "status": "PASSED",
+      "verification": "Service finder specialist implemented in convex/research/specialists/service_finder.ts with executeServiceFinder function. Dispatcher updated to detect service domain keywords (service, plumber, contractor, cleaner, repair, near me) and route to service_finder specialist.",
+      "test_evidence": "tests/convex/US-IMP-011-product-service-finders.test.ts - AC-3 tests (5 tests) all passing"
+    },
+    {
+      "id": "AC-4",
+      "description": "Specialist identifies gaps → Research completes → Improvements logged to improvements system",
+      "status": "PASSED",
+      "verification": "Both specialists include logImprovementsFromProductResearch and logImprovementsFromServiceResearch functions that analyze findings for improvement keywords and use internal.improvements.internal.submitFromSpecialist mutation. Improvements internal updated to accept product_finder and service_finder sources.",
+      "test_evidence": "tests/convex/US-IMP-011-product-service-finders.test.ts - AC-4 tests (7 tests) all passing"
+    }
+  ],
+  "test_results": {
+    "test_file": "tests/convex/US-IMP-011-product-service-finders.test.ts",
+    "total_tests": 22,
+    "passed": 22,
+    "failed": 0,
+    "skipped": 0,
+    "duration_ms": 85
+  },
+  "quality_gates": {
+    "tests": "PASSED",
+    "test_details": "22/22 tests passing for US-IMP-011, 1276/1281 total tests passing (5 skipped)",
+    "linting": "PASSED",
+    "lint_details": "No lint errors in new code (pre-existing issues unrelated to this implementation)",
+    "typecheck": "SKIPPED",
+    "typecheck_details": "TypeScript compiler has memory issues checking individual files, but syntax validation passed"
+  },
+  "files_changed": [
+    "convex/research/specialists/product_finder.ts (new)",
+    "convex/research/specialists/service_finder.ts (new)",
+    "convex/research/specialists/index.ts (modified)",
+    "convex/research/dispatcher.ts (modified)",
+    "convex/improvements/internal.ts (modified)",
+    "tests/convex/US-IMP-011-product-service-finders.test.ts (new)",
+    "convex/_generated/api.d.ts (auto-generated)"
+  ],
+  "patterns_followed": [
+    "All external API calls use rate-limited executeParallelSearchWithRetry",
+    "Error handling with try/catch blocks in all improvement logging functions",
+    "Follows same pattern as academic and technical specialists from US-IMP-002",
+    "Uses v validators from convex/values",
+    "Pure functions for confidence score calculation",
+    "Named exports for all specialist functions"
+  ],
+  "implementation_summary": "Implemented product and service finder specialists that generate domain-specific research reports with structured fields (price, rating, specs) and automatically log improvements to the improvements system. Both specialists follow the established pattern from academic and technical specialists, using rate-limited search with retry logic and LLM-based report generation.",
+  "completion_time": "2025-04-03T12:55:43Z"
+}

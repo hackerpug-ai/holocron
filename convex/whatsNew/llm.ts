@@ -105,10 +105,15 @@ async function generateInitialSynthesis(
     2
   );
 
-  const prompt = `You are a knowledgeable AI engineering peer writing a daily "What's New in AI Software Engineering" briefing for a senior AI engineer. Write with authority and editorial insight — not as a news aggregator, but as someone who understands why these developments matter.
+  const period = days === 1
+    ? formatDate(periodStart)
+    : `${formatDate(periodStart)} to ${formatDate(periodEnd)}`;
 
-**Period:** ${formatDate(periodStart)} to ${formatDate(periodEnd)} (${days} days)
+  const prompt = `You are a knowledgeable AI engineering peer writing a daily "What's New in AI Engineering" briefing for a senior AI engineer. Write with authority and editorial insight — not as a news aggregator, but as someone who understands why these developments matter.
+
+**Period:** ${period} (${days} day${days !== 1 ? "s" : ""})
 **Total Findings:** ${findings.length} (${discoveries.length} discoveries, ${releases.length} releases, ${discussions.length} discussions, ${trends.length} trends)
+**Report Date:** ${formatDate(periodEnd)}
 
 **All Findings (sorted by score):**
 \`\`\`json
@@ -117,80 +122,61 @@ ${findingsJson}
 
 **CROSS-SOURCE BOOSTING:** Items with \`crossSourceCorroboration >= 2\` appeared on multiple independent sources — these are the most significant stories and MUST appear in the TL;DR or Headline Releases sections.
 
-**EDITORIAL VOICE:** For each item in TL;DR, don't just state what happened — explain WHY it matters to a working AI engineer. Example: "Claude Code source code leaked via .map file (March 31) — community is dissecting Anthropic's internal safety architecture, prompt injection defenses, and agent loop design."
+**EDITORIAL VOICE:** For TL;DR items, don't just state what happened — explain WHY it matters to a working AI engineer and link directly to the source. Example: "Claude Code source code leaked via .map file — community is dissecting Anthropic's internal safety architecture and agent loop design. [Read more](https://...)"
 
-**Required Output Format (follow EXACTLY):**
+**Required Output Format (follow EXACTLY — including heading levels and table syntax):**
 
 \`\`\`markdown
-What's New: AI Software Engineering
+# What's New in AI Engineering
+{Period label} | {total} findings | {discoveries} discoveries | {releases} releases
 
-  {Period label} | {total} findings | {discoveries} new discoveries | {releases} releases
+**Date**: {YYYY-MM-DD} | **Type**: whats-new
+---
 
-  ---
-  TL;DR — Top 5
+## TL;DR
+1. {Most important finding with inline [link](url) — 1-2 sentences on WHY it matters}
+2. {Second most important with inline [link](url)}
+3. {Third most important with inline [link](url)}
 
-  1. {Title} ({date if known}) — {1-2 sentence editorial context explaining WHY this matters}
-  2. ...
+## Headline Releases
 
-  ---
-  Headline Releases
+| Product       | What Shipped                  | Link        |
+|---------------|-------------------------------|-------------|
+| {name}        | {one-line description}        | [Link]({url}) |
 
-  ┌───────────────────┬────────────────────────────────────────┐
-  │      Product      │              What Shipped              │
-  ├───────────────────┼────────────────────────────────────────┤
-  │ Product Name      │ Brief description of what shipped      │
-  ├───────────────────┼────────────────────────────────────────┤
-  │ ...               │ ...                                    │
-  └───────────────────┴────────────────────────────────────────┘
+## New Tools & Discoveries
 
-  ---
-  New Tools
+| Tool          | What It Does                  | Category    |
+|---------------|-------------------------------|-------------|
+| [{name}]({url}) | {one-line description}      | {category}  |
 
-  Tool: {url}
-  Stars: ⭐ {count}
-  What It Is: {1-line description}
-  ────────────────────────────────────────
-  Tool: {url}
-  ...
+## Community Pulse
+- {Hot take or notable discussion from Reddit/HN — include subreddit, point count, and what the sentiment IS}
+- {Emerging sentiment or debate — editorial take, not just a link}
 
-  ---
-  Community Pulse
+## Trends to Watch
+- **{Trend name}**: {2-3 sentences on why it's forming, who's involved, specific examples from findings}
 
-  {Editorial summary of what the community is buzzing about — Reddit hot topics, HN signal, Bluesky/Twitter notable posts. Write as prose, not a list. Reference specific subreddits and point counts.}
-
-  ---
-  Trends
-
-  1. {Trend name} — {2-3 sentence explanation with specific examples from findings}
-  2. ...
-
-  ---
-  Recommended Subscriptions
-
-  {Suggest 3-5 new sources worth following based on discoveries in this report. Format as actionable commands:}
-  /subscribe add reddit r/{subreddit}
-  /subscribe add github {repo}
-  /subscribe add changelog {product}
-
-  ---
-  ════════════════════════════════════════════
-  WHAT'S NEW COMPLETE
-  ════════════════════════════════════════════
-  Period: {date range}
-  Findings: {total} ({discovery_count} new discoveries)
-  Releases: {release_count}
-  ════════════════════════════════════════════
+## Recommended Subscriptions
+\`\`\`
+/subscribe add github {repo}
+/subscribe add reddit r/{subreddit}
 \`\`\`
 
-**Guidelines:**
-- For Headline Releases table: include 6-12 most significant product releases. Use ASCII box-drawing characters (┌─┬─┐ etc.) for the table.
-- For New Tools: include ALL GitHub repos and new tool discoveries with star counts. Format each as a block with Tool/Stars/What It Is.
-- For TL;DR: Pick the 5 most impactful items across ALL categories. Bias toward cross-source corroborated items.
-- For Trends: Identify 3-5 patterns that emerge across multiple findings. Be specific with examples.
-- For Community Pulse: Write editorial prose summarizing the mood and hot topics. Mention specific subreddits, point counts, and notable threads.
-- For Recommended Subscriptions: Only suggest sources that appeared in this report's findings.
-- Do NOT include markdown heading syntax (#). Use plain text headers as shown in the format.
-- Include all URLs inline where relevant.`;
+---
+Sources: {N} across {track count} tracks
+\`\`\`
+
+**Section guidelines:**
+- **TL;DR**: Top 3 items across ALL categories. Every item must have an inline markdown link. Bias toward cross-source corroborated items. Instant value — reader should understand the week from just this section.
+- **Headline Releases**: 4-10 most significant product releases. Use standard markdown pipe tables (not ASCII box-drawing). Each row gets a [Link](url) in the Link column.
+- **New Tools & Discoveries**: ALL GitHub repos and new tool discoveries. Name column should be a markdown link [name](url). Category column: one of: library, CLI, framework, service, model, dataset, paper.
+- **Community Pulse**: Bullet points — each bullet is an editorial take on what the community IS saying/feeling, not just a link. Reference specific subreddits, point counts where available.
+- **Trends to Watch**: 2-5 forward-looking patterns. Bold the trend name. Be specific with examples from the findings.
+- **Recommended Subscriptions**: Only suggest sources that appeared in this report's findings. Copy-pasteable /subscribe commands only.
+- **Sources footer**: Count total findings and unique source tracks (e.g., "42 across 8 tracks").
+- Use proper markdown heading syntax (# ## ###) exactly as shown.
+- Include all URLs as inline markdown links [text](url).`;
 
   try {
     const result = await generateText({
@@ -240,9 +226,13 @@ async function refineSynthesis(
     .map(([source, count]) => `${source}: ${count}`)
     .join(" · ");
 
-  const prompt = `You are refining a daily "What's New in AI Software Engineering" report. Your job is editorial polish — improve the writing quality, strengthen the narrative, and ensure completeness.
+  const period = days === 1
+    ? formatDate(periodStart)
+    : `${formatDate(periodStart)} to ${formatDate(periodEnd)}`;
 
-**Period:** ${formatDate(periodStart)} to ${formatDate(periodEnd)} (${days} days)
+  const prompt = `You are refining a daily "What's New in AI Engineering" report. Your job is editorial polish — improve writing quality, strengthen the narrative, and enforce the required structure.
+
+**Period:** ${period} (${days} day${days !== 1 ? "s" : ""})
 **Total Findings:** ${findings.length}
 **Sources:** ${sourceBreakdown}
 
@@ -251,21 +241,66 @@ async function refineSynthesis(
 ${initialSynthesis}
 \`\`\`
 
-**Refinement Tasks:**
-1. **Editorial voice**: Ensure the TL;DR items explain WHY each development matters, not just WHAT happened. Write as a knowledgeable peer.
-2. **Headline Releases table**: Ensure the ASCII box-drawing table (┌─┬─┐ etc.) is properly formatted and aligned. Include 6-12 entries.
-3. **New Tools section**: Every tool should have URL, star count (if GitHub), and a clear 1-line description.
-4. **Community Pulse**: Should read as editorial prose, not a bullet list. Reference specific subreddits, point counts, notable threads.
-5. **Trends**: Each trend should have 2-3 sentences with specific examples from the findings. Identify cross-cutting patterns.
-6. **Recommended Subscriptions**: Must be present. Suggest 3-5 actionable /subscribe commands for sources found in this report.
-7. **Completeness**: Ensure the footer banner with "WHAT'S NEW COMPLETE" and stats is present.
-8. **Formatting**: Fix any broken ASCII tables. Remove any markdown heading syntax (#) — use plain text headers only.
+**Required Final Structure (enforce exactly):**
 
-**Guidelines:**
-- Maintain factual accuracy — never invent details, URLs, or star counts
-- Preserve all links and URLs exactly as they appear
-- Keep the same section structure — do not add or remove sections
-- The report should feel like a curated briefing from someone who reads everything so you don't have to
+\`\`\`markdown
+# What's New in AI Engineering
+{Period label} | {total} findings | {discoveries} discoveries | {releases} releases
+
+**Date**: {YYYY-MM-DD} | **Type**: whats-new
+---
+
+## TL;DR
+1. {Most important finding with inline [link](url) — 1-2 sentences on WHY it matters}
+2. {Second most important with inline [link](url)}
+3. {Third most important with inline [link](url)}
+
+## Headline Releases
+
+| Product       | What Shipped                  | Link        |
+|---------------|-------------------------------|-------------|
+| {name}        | {one-line description}        | [Link]({url}) |
+
+## New Tools & Discoveries
+
+| Tool          | What It Does                  | Category    |
+|---------------|-------------------------------|-------------|
+| [{name}]({url}) | {one-line description}      | {category}  |
+
+## Community Pulse
+- {Hot take or notable discussion — include subreddit, point count, and what the sentiment IS}
+- {Emerging sentiment or debate — editorial take, not just a link}
+
+## Trends to Watch
+- **{Trend name}**: {Why it's forming, who's involved, specific examples}
+
+## Recommended Subscriptions
+\`\`\`
+/subscribe add github {repo}
+/subscribe add reddit r/{subreddit}
+\`\`\`
+
+---
+Sources: {N} across {track count} tracks
+\`\`\`
+
+**Refinement checklist — fix each issue in the initial synthesis:**
+1. **H1 title**: Must be "# What's New in AI Engineering" — fix if different.
+2. **Subtitle line**: "{period} | {N} findings | {N} discoveries | {N} releases" — fill in real numbers.
+3. **Metadata line**: Must be "**Date**: {YYYY-MM-DD} | **Type**: whats-new" followed by "---".
+4. **TL;DR section**: Exactly "## TL;DR". Must have at minimum 3 numbered items. Every item must have an inline markdown [link](url). Each item explains WHY it matters, not just WHAT happened.
+5. **Headline Releases**: "## Headline Releases" — standard markdown pipe table with columns: Product, What Shipped, Link. Link column uses [Link](url). 4-10 rows.
+6. **New Tools & Discoveries**: "## New Tools & Discoveries" — standard markdown pipe table with columns: Tool, What It Does, Category. Tool column uses [name](url) links. Include all GitHub repos and tool discoveries.
+7. **Community Pulse**: "## Community Pulse" — bullet list. Each bullet is an editorial take on what the community IS saying/feeling. Mention subreddits and point counts where available. Not just links.
+8. **Trends to Watch**: "## Trends to Watch" — bullet list. Bold the trend name. 2-3 sentences each with specific examples.
+9. **Recommended Subscriptions**: "## Recommended Subscriptions" — fenced code block containing /subscribe commands. Only sources that appeared in the findings.
+10. **Footer**: "---" then "Sources: {N} across {track count} tracks".
+
+**Hard rules:**
+- Never invent details, URLs, or star counts
+- Preserve all links and URLs exactly as they appear in the initial synthesis
+- Use proper markdown heading syntax (# ## ###)
+- Do NOT use ASCII box-drawing characters (┌─┬─┐) — use standard markdown pipe tables only
 
 **Return the complete refined report.**`;
 
@@ -318,133 +353,133 @@ function generateStaticFallback(
     },
     {} as Record<string, number>
   );
-  const sourceBreakdown = Object.entries(sourceCounts)
-    .sort((a, b) => b[1] - a[1])
-    .map(([source, count]) => `${source}: ${count}`)
-    .join(" · ");
-
-  // Format score
-  const formatScore = (item: Finding): string => {
-    if (!item.score) return "";
-    if (item.source === "GitHub") return ` ⭐ ${item.score}`;
-    return ` (${item.score} pts)`;
-  };
-
   // Top by score
   const topByScore = (items: Finding[], n: number): Finding[] => {
     return [...items].sort((a, b) => (b.score ?? 0) - (a.score ?? 0)).slice(0, n);
   };
 
-  let markdown = `# What's New in AI Software Engineering
+  const period = days === 1
+    ? formatDate(periodStart)
+    : `${formatDate(periodStart)} to ${formatDate(periodEnd)}`;
+  const reportDate = formatDate(periodEnd);
+  const trackCount = Object.keys(sourceCounts).length;
 
-**Period:** ${formatDate(periodStart)} to ${formatDate(periodEnd)} (${days} days)
-**Generated:** ${new Date().toISOString()}
-**Findings:** ${findings.length} total (${discoveries.length} discoveries, ${releases.length} releases, ${trends.length} trends, ${discussions.length} discussions)
+  // Header
+  let markdown = `# What's New in AI Engineering
+${period} | ${findings.length} findings | ${discoveries.length} discoveries | ${releases.length} releases
 
+**Date**: ${reportDate} | **Type**: whats-new
 ---
 
 `;
 
-  // TL;DR
-  const top5 = topByScore(findings, 5);
-  if (top5.length > 0) {
-    markdown += `## TL;DR\n\n`;
-    for (let i = 0; i < top5.length; i++) {
-      const item = top5[i];
-      markdown += `${i + 1}. **[${item.title}](${item.url})**${formatScore(item)}\n`;
+  // TL;DR — top 3 by score, with links
+  const top3 = topByScore(findings, 3);
+  markdown += `## TL;DR\n\n`;
+  if (top3.length > 0) {
+    for (let i = 0; i < top3.length; i++) {
+      const item = top3[i];
+      const summary = item.summary ? ` — ${item.summary}` : "";
+      markdown += `${i + 1}. [${item.title}](${item.url})${summary}\n`;
     }
-    markdown += "\n---\n\n";
+  } else {
+    markdown += `1. No findings available for this period.\n`;
   }
+  markdown += "\n";
 
-  // Releases
+  // Headline Releases
   if (releases.length > 0) {
-    markdown += `## 📦 Releases & Updates\n\n`;
-    markdown += `| Release | Source | Score |\n`;
-    markdown += `|---------|--------|-------|\n`;
-    for (const item of releases.slice(0, 10)) {
-      const score = item.score ? `${item.score}` : "—";
-      markdown += `| [${item.title}](${item.url}) | ${item.source} | ${score} |\n`;
+    markdown += `## Headline Releases\n\n`;
+    markdown += `| Product | What Shipped | Link |\n`;
+    markdown += `|---------|--------------|------|\n`;
+    for (const item of topByScore(releases, 10)) {
+      const desc = item.summary ? item.summary.slice(0, 60) : item.source;
+      markdown += `| ${item.title} | ${desc} | [Link](${item.url}) |\n`;
     }
     markdown += "\n";
   }
 
-  // Discoveries
+  // New Tools & Discoveries
   if (discoveries.length > 0) {
-    const githubFinds = discoveries.filter((f) => f.source === "GitHub");
-    const otherFinds = discoveries.filter((f) => f.source !== "GitHub");
-
-    markdown += `## 🔬 New Tools & Discoveries\n\n`;
-
-    if (otherFinds.length > 0) {
-      for (const item of otherFinds.slice(0, 10)) {
-        markdown += `- **[${item.title}](${item.url})** — *${item.source}*${formatScore(item)}\n`;
-        if (item.summary) {
-          markdown += `  ${item.summary}\n`;
-        }
-      }
-      markdown += "\n";
-    }
-
-    if (githubFinds.length > 0) {
-      markdown += `### Trending Repos\n\n`;
-      markdown += `| Repository | Stars |\n`;
-      markdown += `|------------|-------|\n`;
-      for (const item of topByScore(githubFinds, 10)) {
-        markdown += `| [${item.title}](${item.url}) | ${item.score ? `⭐ ${item.score}` : "—"} |\n`;
-      }
-      markdown += "\n";
-    }
-  }
-
-  // Discussions
-  if (discussions.length > 0) {
-    const redditPosts = discussions.filter((f) => f.source.startsWith("r/"));
-    const lobsterPosts = discussions.filter((f) => f.source === "Lobsters");
-    const otherDiscussions = discussions.filter(
-      (f) => !f.source.startsWith("r/") && f.source !== "Lobsters"
-    );
-
-    markdown += `## 💬 Community Pulse\n\n`;
-
-    if (redditPosts.length > 0) {
-      markdown += `### Reddit\n\n`;
-      markdown += `| Post | Subreddit |\n`;
-      markdown += `|------|-----------|\n`;
-      for (const item of redditPosts.slice(0, 10)) {
-        markdown += `| [${item.title}](${item.url}) | ${item.source} |\n`;
-      }
-      markdown += "\n";
-    }
-
-    if (lobsterPosts.length > 0) {
-      markdown += `### Lobsters\n\n`;
-      for (const item of lobsterPosts.slice(0, 5)) {
-        markdown += `- [${item.title}](${item.url})\n`;
-      }
-      markdown += "\n";
-    }
-
-    if (otherDiscussions.length > 0) {
-      for (const item of otherDiscussions.slice(0, 5)) {
-        markdown += `- [${item.title}](${item.url}) — *${item.source}*\n`;
-      }
-      markdown += "\n";
-    }
-  }
-
-  // Trends
-  if (trends.length > 0) {
-    markdown += `## 📈 Trends\n\n`;
-    for (const item of trends.slice(0, 10)) {
-      markdown += `- **[${item.title}](${item.url})** — *${item.source}*\n`;
+    markdown += `## New Tools & Discoveries\n\n`;
+    markdown += `| Tool | What It Does | Category |\n`;
+    markdown += `|------|--------------|----------|\n`;
+    for (const item of topByScore(discoveries, 12)) {
+      const desc = item.summary ? item.summary.slice(0, 60) : item.source;
+      const cat = item.source === "GitHub" ? "library" : "tool";
+      markdown += `| [${item.title}](${item.url}) | ${desc} | ${cat} |\n`;
     }
     markdown += "\n";
   }
+
+  // Community Pulse
+  const discussionItems = topByScore(discussions, 5);
+  markdown += `## Community Pulse\n\n`;
+  if (discussionItems.length > 0) {
+    for (const item of discussionItems) {
+      const pts = item.score ? ` (${item.score} pts)` : "";
+      const src = item.source.startsWith("r/") ? item.source : item.source;
+      markdown += `- [${item.title}](${item.url}) — ${src}${pts}\n`;
+    }
+  } else {
+    markdown += `- No community discussions surfaced for this period.\n`;
+  }
+  markdown += "\n";
+
+  // Trends to Watch
+  markdown += `## Trends to Watch\n\n`;
+  if (trends.length > 0) {
+    for (const item of topByScore(trends, 5)) {
+      const desc = item.summary ? ` ${item.summary}` : "";
+      markdown += `- **${item.title}**:${desc} ([source](${item.url}))\n`;
+    }
+  } else {
+    // Derive trends from top cross-source corroborated items
+    const corroborated = findings
+      .filter((f) => (f.crossSourceCorroboration ?? 0) >= 2)
+      .slice(0, 3);
+    if (corroborated.length > 0) {
+      for (const item of corroborated) {
+        markdown += `- **${item.title}**: Appeared across multiple sources. ([source](${item.url}))\n`;
+      }
+    } else {
+      markdown += `- No trend signals identified for this period.\n`;
+    }
+  }
+  markdown += "\n";
+
+  // Recommended Subscriptions — derive from top sources in findings
+  const topSources = Object.entries(sourceCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 4)
+    .map(([source]) => source);
+
+  markdown += `## Recommended Subscriptions\n\n`;
+  markdown += "```\n";
+  for (const source of topSources) {
+    if (source.startsWith("r/")) {
+      markdown += `/subscribe add reddit ${source}\n`;
+    } else if (source === "GitHub") {
+      // Pick top GitHub repo
+      const topRepo = topByScore(
+        findings.filter((f) => f.source === "GitHub"),
+        1
+      )[0];
+      if (topRepo) {
+        // Extract "owner/repo" from url if possible
+        const match = topRepo.url.match(/github\.com\/([^/]+\/[^/]+)/);
+        const repo = match ? match[1] : topRepo.title;
+        markdown += `/subscribe add github ${repo}\n`;
+      }
+    } else {
+      markdown += `/subscribe add changelog ${source.toLowerCase().replace(/\s+/g, "-")}\n`;
+    }
+  }
+  markdown += "```\n\n";
 
   // Footer
-  markdown += `---\n\n`;
-  markdown += `**Sources:** ${sourceBreakdown}\n\n`;
-  markdown += `*Generated by Holocron's What's New system (static fallback)*\n`;
+  markdown += `---\n`;
+  markdown += `Sources: ${findings.length} across ${trackCount} tracks\n`;
 
   return markdown;
 }

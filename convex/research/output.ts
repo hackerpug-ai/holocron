@@ -1,14 +1,28 @@
 /**
  * Output Formatting for Deep Research with Confidence
  *
- * Generates confidence-aware markdown output with:
- * - Confidence summary at top
- * - HIGH confidence findings (no caveats)
- * - MEDIUM confidence findings (with caveats)
- * - LOW confidence findings (with warnings)
+ * Generates confidence-aware markdown output following the McKinsey Pyramid
+ * Principle: direct answer first, supporting evidence organized by theme.
+ *
+ * Structure:
+ * - Title + direct answer (narrativeSummary) at the top
+ * - Key Findings grouped by theme/category
+ * - Confidence Summary table
+ * - Gaps & Open Questions (from LOW confidence findings)
+ * - Methodology
+ * - Sources
  */
 
 import type { ConfidenceStats } from "./confidence";
+import {
+  formatReportHeader,
+  getConfidenceBadge,
+  formatScoreBar,
+  formatTable,
+  formatSources,
+  todayISO,
+  scoreToConfidenceLevel,
+} from "../lib/reportFormat";
 
 /**
  * Finding structure for output formatting
@@ -34,115 +48,42 @@ export interface FormattedFinding {
 export type ConfidenceFilter = "HIGH_ONLY" | "HIGH_MEDIUM" | "ALL";
 
 /**
- * Format confidence badge for markdown
+ * Format a single finding entry within a themed section.
+ * Shows: badge, bold claim title, claim text, source count, citations.
  */
-function getConfidenceBadge(level: "HIGH" | "MEDIUM" | "LOW"): string {
-  switch (level) {
-    case "HIGH":
-      return "🟢 HIGH";
-    case "MEDIUM":
-      return "🟡 MEDIUM";
-    case "LOW":
-      return "🔴 LOW";
-  }
-}
-
-/**
- * Format confidence score as percentage bar
- */
-function formatScoreBar(score: number): string {
-  const filled = Math.round(score / 10);
-  const empty = 10 - filled;
-  return `[${"█".repeat(filled)}${"░".repeat(empty)}] ${score}%`;
-}
-
-/**
- * Generate confidence summary section
- */
-export function formatConfidenceSummary(
-  stats: ConfidenceStats,
-  topic: string
-): string {
-  const totalClaims = stats.totalClaims;
-  const avgScore = stats.averageConfidenceScore;
-
-  const highPct = totalClaims > 0 ? Math.round((stats.highConfidenceCount / totalClaims) * 100) : 0;
-  const medPct = totalClaims > 0 ? Math.round((stats.mediumConfidenceCount / totalClaims) * 100) : 0;
-  const lowPct = totalClaims > 0 ? Math.round((stats.lowConfidenceCount / totalClaims) * 100) : 0;
-
-  const multiSourcePct = totalClaims > 0 ? Math.round((stats.claimsWithMultipleSources / totalClaims) * 100) : 0;
-
-  // Determine overall assessment
-  let overallAssessment: string;
-  if (highPct >= 60 && avgScore >= 75) {
-    overallAssessment = "🟢 **HIGH CONFIDENCE RESEARCH** - Findings are well-supported by multiple authoritative sources.";
-  } else if (highPct + medPct >= 70 && avgScore >= 50) {
-    overallAssessment = "🟡 **MEDIUM CONFIDENCE RESEARCH** - Findings are generally supported but some claims need additional verification.";
-  } else {
-    overallAssessment = "🔴 **LOW CONFIDENCE RESEARCH** - Findings require significant additional verification before relying on them.";
-  }
-
-  return `# Research Report: ${topic}
-
-## Confidence Summary
-
-${overallAssessment}
-
-### Statistics
-
-| Metric | Value |
-|--------|-------|
-| Total Claims | ${totalClaims} |
-| Average Confidence | ${formatScoreBar(avgScore)} |
-| High Confidence Claims | ${stats.highConfidenceCount} (${highPct}%) |
-| Medium Confidence Claims | ${stats.mediumConfidenceCount} (${medPct}%) |
-| Low Confidence Claims | ${stats.lowConfidenceCount} (${lowPct}%) |
-| Multi-Source Claims (3+) | ${stats.claimsWithMultipleSources} (${multiSourcePct}%) |
-
----
-
-`;
-}
-
-/**
- * Format a single finding with confidence metadata
- */
-function formatFinding(finding: FormattedFinding, index: number): string {
+function formatFindingEntry(finding: FormattedFinding): string {
   const badge = getConfidenceBadge(finding.confidenceLevel);
-  const category = finding.claimCategory ? ` | ${finding.claimCategory}` : "";
 
-  let output = `### ${index + 1}. ${badge}${category}
+  // Use first sentence of claim as a short title
+  const titleMatch = finding.claimText.match(/^([^.!?]+[.!?]?)/);
+  const title = titleMatch ? titleMatch[0].trim() : finding.claimText.slice(0, 80);
+  const body = finding.claimText.length > title.length ? finding.claimText : "";
 
-${finding.claimText}
+  const citationList = finding.citations
+    .map((c) => `[${c.title || c.domain || "Source"}](${c.url})`)
+    .join(", ");
 
-**Sources** (${finding.sourceCount}):
-${finding.citations.map(c => `- [${c.title || c.domain || 'Source'}](${c.url})`).join("\n")}
+  let entry = `- **${title}** ${badge} (${finding.sourceCount} source${finding.sourceCount !== 1 ? "s" : ""})`;
 
-**Confidence Score**: ${formatScoreBar(finding.confidenceScore)}
-`;
+  if (body) {
+    entry += `\n  ${body}`;
+  }
+
+  if (citationList) {
+    entry += `\n  Sources: ${citationList}`;
+  }
 
   // Add caveats for MEDIUM confidence
   if (finding.confidenceLevel === "MEDIUM" && finding.caveats.length > 0) {
-    output += `
-> **Caveats:**
-${finding.caveats.map(c => `> - ${c}`).join("\n")}
-`;
+    entry += `\n  _Caveats: ${finding.caveats.join("; ")}_`;
   }
 
-  // Add warnings for LOW confidence
-  if (finding.confidenceLevel === "LOW" && finding.warnings.length > 0) {
-    output += `
-> **⚠️ Warnings:**
-${finding.warnings.map(w => `> - ${w}`).join("\n")}
-`;
-  }
-
-  output += "\n---\n\n";
-  return output;
+  return entry;
 }
 
 /**
- * Format findings grouped by confidence level
+ * Format findings grouped by category/theme.
+ * If findings have no claimCategory, they go under "General Findings".
  */
 export function formatFindingsWithConfidence(
   findings: FormattedFinding[],
@@ -152,71 +93,45 @@ export function formatFindingsWithConfidence(
   let filteredFindings = findings;
   switch (filter) {
     case "HIGH_ONLY":
-      filteredFindings = findings.filter(f => f.confidenceLevel === "HIGH");
+      filteredFindings = findings.filter((f) => f.confidenceLevel === "HIGH");
       break;
     case "HIGH_MEDIUM":
-      filteredFindings = findings.filter(f =>
-        f.confidenceLevel === "HIGH" || f.confidenceLevel === "MEDIUM"
+      filteredFindings = findings.filter(
+        (f) => f.confidenceLevel === "HIGH" || f.confidenceLevel === "MEDIUM"
       );
       break;
     case "ALL":
     default:
-      // No filter
       break;
   }
 
-  // Group by confidence level
-  const highFindings = filteredFindings.filter(f => f.confidenceLevel === "HIGH");
-  const mediumFindings = filteredFindings.filter(f => f.confidenceLevel === "MEDIUM");
-  const lowFindings = filteredFindings.filter(f => f.confidenceLevel === "LOW");
-
-  let output = "";
-  let globalIndex = 0;
-
-  // HIGH confidence section
-  if (highFindings.length > 0) {
-    output += `## 🟢 High Confidence Findings
-
-These findings are supported by 3+ authoritative sources with strong corroboration.
-
-`;
-    for (const finding of highFindings) {
-      output += formatFinding(finding, globalIndex++);
-    }
+  // Group by category/theme
+  const categoryMap = new Map<string, FormattedFinding[]>();
+  for (const finding of filteredFindings) {
+    const category = finding.claimCategory || "General Findings";
+    const existing = categoryMap.get(category) ?? [];
+    existing.push(finding);
+    categoryMap.set(category, existing);
   }
 
-  // MEDIUM confidence section
-  if (mediumFindings.length > 0 && filter !== "HIGH_ONLY") {
-    output += `## 🟡 Medium Confidence Findings
+  let output = `## Key Findings\n\n`;
 
-These findings have supporting evidence but may benefit from additional verification.
+  for (const [category, categoryFindings] of categoryMap) {
+    // Sort within category by confidence score descending
+    const sorted = [...categoryFindings].sort(
+      (a, b) => b.confidenceScore - a.confidenceScore
+    );
 
-`;
-    for (const finding of mediumFindings) {
-      output += formatFinding(finding, globalIndex++);
-    }
+    output += `### ${category}\n`;
+    output += sorted.map(formatFindingEntry).join("\n\n");
+    output += "\n\n";
   }
 
-  // LOW confidence section
-  if (lowFindings.length > 0 && filter === "ALL") {
-    output += `## 🔴 Low Confidence Findings
-
-⚠️ **Caution**: These findings have limited source support and should be independently verified before use.
-
-`;
-    for (const finding of lowFindings) {
-      output += formatFinding(finding, globalIndex++);
-    }
-  }
-
-  // Add filter note if applicable
+  // Filter note
   if (filter !== "ALL") {
     const hiddenCount = findings.length - filteredFindings.length;
     if (hiddenCount > 0) {
-      output += `---
-
-*Note: ${hiddenCount} lower-confidence finding(s) have been filtered out. Use filter "ALL" to see complete results.*
-`;
+      output += `_Note: ${hiddenCount} lower-confidence finding(s) filtered out. Use filter "ALL" to see complete results._\n\n`;
     }
   }
 
@@ -224,7 +139,8 @@ These findings have supporting evidence but may benefit from additional verifica
 }
 
 /**
- * Generate complete research report with confidence
+ * Generate complete research report with confidence.
+ * Follows McKinsey Pyramid Principle: answer first, evidence second.
  */
 export function generateConfidenceReport(
   topic: string,
@@ -233,25 +149,76 @@ export function generateConfidenceReport(
   filter: ConfidenceFilter = "ALL",
   narrativeSummary?: string
 ): string {
-  let report = formatConfidenceSummary(stats, topic);
+  const totalClaims = stats.totalClaims;
+  const avgScore = stats.averageConfidenceScore;
+  const overallLevel = scoreToConfidenceLevel(avgScore);
 
-  // Add narrative summary if provided
-  if (narrativeSummary) {
-    report += `## Executive Summary
+  // Fallback instant value if no narrativeSummary
+  const highPct =
+    totalClaims > 0
+      ? Math.round((stats.highConfidenceCount / totalClaims) * 100)
+      : 0;
+  const medPct =
+    totalClaims > 0
+      ? Math.round((stats.mediumConfidenceCount / totalClaims) * 100)
+      : 0;
 
-${narrativeSummary}
+  const fallbackSummary =
+    overallLevel === "HIGH"
+      ? `Findings are well-supported by multiple authoritative sources (${highPct}% high confidence across ${totalClaims} claims).`
+      : overallLevel === "MEDIUM"
+        ? `Findings are generally supported but some claims need additional verification (${highPct + medPct}% high/medium confidence across ${totalClaims} claims).`
+        : `Findings require significant additional verification before relying on them (average confidence: ${avgScore}% across ${totalClaims} claims).`;
 
----
+  const instantValue = narrativeSummary || fallbackSummary;
 
-`;
-  }
+  // Build header
+  let report = formatReportHeader(topic, instantValue, {
+    date: todayISO(),
+    type: "deep-research",
+    confidence: overallLevel,
+    sources: findings.reduce((sum, f) => sum + f.sourceCount, 0),
+  });
 
-  // Add findings
+  // Key findings grouped by theme
   report += formatFindingsWithConfidence(findings, filter);
 
-  // Add methodology note
-  report += `
-## Methodology
+  // Confidence Summary table (below findings)
+  const lowPct =
+    totalClaims > 0
+      ? Math.round((stats.lowConfidenceCount / totalClaims) * 100)
+      : 0;
+
+  const tableRows: string[][] = [
+    ["🟢 HIGH", String(stats.highConfidenceCount), `${highPct}%`],
+    ["🟡 MEDIUM", String(stats.mediumConfidenceCount), `${medPct}%`],
+    ["🔴 LOW", String(stats.lowConfidenceCount), `${lowPct}%`],
+  ];
+
+  report += `## Confidence Summary\n\n`;
+  report += formatTable(["Level", "Count", "Pct"], tableRows);
+  report += `\n\nAverage: ${formatScoreBar(avgScore)}\n\n`;
+
+  // Gaps & Open Questions from LOW confidence findings
+  const lowFindings = findings.filter(
+    (f) => f.confidenceLevel === "LOW" && filter === "ALL"
+  );
+  if (lowFindings.length > 0) {
+    report += `## Gaps & Open Questions\n\n`;
+    report += `_The following areas have limited source support and warrant further investigation:_\n\n`;
+    for (const f of lowFindings) {
+      const category = f.claimCategory ? ` _(${f.claimCategory})_` : "";
+      report += `- ${f.claimText}${category}`;
+      if (f.warnings.length > 0) {
+        report += ` — ⚠️ ${f.warnings.join("; ")}`;
+      }
+      report += "\n";
+    }
+    report += "\n";
+  }
+
+  // Methodology
+  report += `## Methodology
 
 This report uses a 5-factor confidence scoring algorithm:
 
@@ -268,14 +235,30 @@ This report uses a 5-factor confidence scoring algorithm:
 
 ---
 
-*Generated with multi-source confidence analysis*
+_Generated with multi-source confidence analysis_
 `;
+
+  // Deduplicated sources section
+  const allCitations = findings.flatMap((f) => f.citations);
+  const seen = new Set<string>();
+  const uniqueSources: Array<{ url: string; title?: string; domain?: string }> =
+    [];
+  for (const c of allCitations) {
+    if (!seen.has(c.url)) {
+      seen.add(c.url);
+      uniqueSources.push(c);
+    }
+  }
+
+  if (uniqueSources.length > 0) {
+    report += `\n${formatSources(uniqueSources)}\n`;
+  }
 
   return report;
 }
 
 /**
- * Generate JSON output for programmatic consumption
+ * Generate JSON output for programmatic consumption (unchanged)
  */
 export function generateConfidenceJSON(
   topic: string,
@@ -287,8 +270,12 @@ export function generateConfidenceJSON(
     topic,
     generatedAt: new Date().toISOString(),
     confidence: {
-      overallLevel: stats.averageConfidenceScore >= 75 ? "HIGH" :
-                    stats.averageConfidenceScore >= 50 ? "MEDIUM" : "LOW",
+      overallLevel:
+        stats.averageConfidenceScore >= 75
+          ? "HIGH"
+          : stats.averageConfidenceScore >= 50
+            ? "MEDIUM"
+            : "LOW",
       averageScore: stats.averageConfidenceScore,
       distribution: {
         high: stats.highConfidenceCount,
@@ -299,7 +286,7 @@ export function generateConfidenceJSON(
       multiSourceClaims: stats.claimsWithMultipleSources,
     },
     narrativeSummary,
-    findings: findings.map(f => ({
+    findings: findings.map((f) => ({
       claim: f.claimText,
       category: f.claimCategory,
       confidence: {
