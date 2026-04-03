@@ -53,14 +53,16 @@ describe('AC-1: formatCreatorReport export', () => {
 });
 
 /**
- * AC-2: Returns a string with the report header containing the creator name
+ * AC-2: Returns a string with the report header containing the creator name and video count
  */
 describe('AC-2: report header contains creator name', () => {
   it('should include creator name in the report header', () => {
     const result = formatCreatorReport({ profile: baseProfile, videos: baseVideos });
     expect(typeof result).toBe('string');
+    // Title is "Crash Course: {Domain} by {Creator}"
     expect(result).toContain('Alice Example');
     expect(result).toContain('creator-analysis');
+    // Header metadata includes "Videos: 3 analyzed"
     expect(result).toContain(`**Videos**: 3 analyzed`);
   });
 });
