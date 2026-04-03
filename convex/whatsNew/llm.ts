@@ -83,8 +83,7 @@ async function generateInitialSynthesis(
   const trends = findings.filter((f) => f.category === "trend");
 
   // Sort ALL findings by score — no slice, send everything to the LLM
-  const sortedFindings = [...findings]
-    .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+  const sortedFindings = [...findings].sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
 
   // Enrich the JSON with all available metadata for better synthesis
   const findingsJson = JSON.stringify(
@@ -105,9 +104,10 @@ async function generateInitialSynthesis(
     2
   );
 
-  const period = days === 1
-    ? formatDate(periodStart)
-    : `${formatDate(periodStart)} to ${formatDate(periodEnd)}`;
+  const period =
+    days === 1
+      ? formatDate(periodStart)
+      : `${formatDate(periodStart)} to ${formatDate(periodEnd)}`;
 
   const prompt = `You are a knowledgeable AI engineering peer writing a daily "What's New in AI Engineering" briefing for a senior AI engineer. Write with authority and editorial insight — not as a news aggregator, but as someone who understands why these developments matter.
 
@@ -126,7 +126,6 @@ ${findingsJson}
 
 **Required Output Format (follow EXACTLY — including heading levels and table syntax):**
 
-\`\`\`markdown
 # What's New in AI Engineering
 {Period label} | {total} findings | {discoveries} discoveries | {releases} releases
 
@@ -165,10 +164,9 @@ ${findingsJson}
 
 ---
 Sources: {N} across {track count} tracks
-\`\`\`
 
 **Section guidelines:**
-- **TL;DR**: Top 3 items across ALL categories. Every item must have an inline markdown link. Bias toward cross-source corroborated items. Instant value — reader should understand the week from just this section.
+- **TL;DR**: Top 3 items across ALL categories. Every item must have an inline markdown link. Bias toward cross-source corroborated items. Instant value — reader should understand the period from just this section.
 - **Headline Releases**: 4-10 most significant product releases. Use standard markdown pipe tables (not ASCII box-drawing). Each row gets a [Link](url) in the Link column.
 - **New Tools & Discoveries**: ALL GitHub repos and new tool discoveries. Name column should be a markdown link [name](url). Category column: one of: library, CLI, framework, service, model, dataset, paper.
 - **Community Pulse**: Bullet points — each bullet is an editorial take on what the community IS saying/feeling, not just a link. Reference specific subreddits, point counts where available.
@@ -226,9 +224,10 @@ async function refineSynthesis(
     .map(([source, count]) => `${source}: ${count}`)
     .join(" · ");
 
-  const period = days === 1
-    ? formatDate(periodStart)
-    : `${formatDate(periodStart)} to ${formatDate(periodEnd)}`;
+  const period =
+    days === 1
+      ? formatDate(periodStart)
+      : `${formatDate(periodStart)} to ${formatDate(periodEnd)}`;
 
   const prompt = `You are refining a daily "What's New in AI Engineering" report. Your job is editorial polish — improve writing quality, strengthen the narrative, and enforce the required structure.
 
@@ -243,7 +242,6 @@ ${initialSynthesis}
 
 **Required Final Structure (enforce exactly):**
 
-\`\`\`markdown
 # What's New in AI Engineering
 {Period label} | {total} findings | {discoveries} discoveries | {releases} releases
 
@@ -282,7 +280,6 @@ ${initialSynthesis}
 
 ---
 Sources: {N} across {track count} tracks
-\`\`\`
 
 **Refinement checklist — fix each issue in the initial synthesis:**
 1. **H1 title**: Must be "# What's New in AI Engineering" — fix if different.
@@ -345,7 +342,7 @@ function generateStaticFallback(
     discussions: findings.filter((f) => f.category === "discussion"),
   };
 
-  // Build source breakdown
+  // Build source counts for footer and subscription suggestions
   const sourceCounts = findings.reduce(
     (acc, f) => {
       acc[f.source] = (acc[f.source] || 0) + 1;
@@ -353,14 +350,16 @@ function generateStaticFallback(
     },
     {} as Record<string, number>
   );
+
   // Top by score
   const topByScore = (items: Finding[], n: number): Finding[] => {
     return [...items].sort((a, b) => (b.score ?? 0) - (a.score ?? 0)).slice(0, n);
   };
 
-  const period = days === 1
-    ? formatDate(periodStart)
-    : `${formatDate(periodStart)} to ${formatDate(periodEnd)}`;
+  const period =
+    days === 1
+      ? formatDate(periodStart)
+      : `${formatDate(periodStart)} to ${formatDate(periodEnd)}`;
   const reportDate = formatDate(periodEnd);
   const trackCount = Object.keys(sourceCounts).length;
 
@@ -418,8 +417,7 @@ ${period} | ${findings.length} findings | ${discoveries.length} discoveries | ${
   if (discussionItems.length > 0) {
     for (const item of discussionItems) {
       const pts = item.score ? ` (${item.score} pts)` : "";
-      const src = item.source.startsWith("r/") ? item.source : item.source;
-      markdown += `- [${item.title}](${item.url}) — ${src}${pts}\n`;
+      markdown += `- [${item.title}](${item.url}) — ${item.source}${pts}\n`;
     }
   } else {
     markdown += `- No community discussions surfaced for this period.\n`;
@@ -594,7 +592,7 @@ export async function synthesizeReport(
   if (findings.length === 0) {
     console.log("[synthesizeReport] No findings, using minimal report");
     return {
-      markdown: `# What's New in AI Software Engineering\n\nNo findings for this period.\n\n*Generated by Holocron's What's New system*`,
+      markdown: `# What's New in AI Engineering\n\nNo findings for this period.\n\n*Generated by Holocron's What's New system*`,
       method: "static-fallback",
     };
   }
@@ -636,12 +634,7 @@ export async function synthesizeReport(
   } catch (error) {
     console.error("[synthesizeReport] LLM synthesis failed, using static fallback:", error);
     const fallbackStart = Date.now();
-    const fallbackReport = generateStaticFallback(
-      findings,
-      days,
-      periodStart,
-      periodEnd
-    );
+    const fallbackReport = generateStaticFallback(findings, days, periodStart, periodEnd);
     const fallbackDuration = Date.now() - fallbackStart;
     console.log(`[synthesizeReport] Static fallback generated (${fallbackDuration}ms)`);
 
