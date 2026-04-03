@@ -119,7 +119,7 @@ function formatPortersFiveForces(session: CompetitiveAnalysisSession): string {
 function deriveStrategicImplications(
   session: CompetitiveAnalysisSession,
   features: CompetitiveAnalysisFeature[],
-  competitors: CompetitiveAnalysisCompetitor[]
+  _competitors: CompetitiveAnalysisCompetitor[]
 ): string {
   const implications: string[] = [];
 
