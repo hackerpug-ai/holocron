@@ -939,8 +939,14 @@ export const send = action({
           const isUrl = /^https?:\/\//.test(input);
 
           if (isUrl) {
-            // Fire-and-forget: add tool from URL
-            // For now, return a loading state (tool storage action would be implemented separately)
+            // Fire-and-forget: background action fetches metadata, classifies
+            // via LLM, saves tool, and posts a tool_added card back to this
+            // conversation when finished.
+            await ctx.scheduler.runAfter(
+              0,
+              api.toolbelt.actions.addFromUrl,
+              { url: input, conversationId: finalConversationId },
+            );
             agentResponse = {
               content: `Adding tool from ${input}...`,
               messageType: "result_card",
@@ -950,7 +956,6 @@ export const send = action({
                 message: "Fetching metadata...",
               } as ToolAddingCard,
             };
-            // TODO: ctx.scheduler.runAfter(0, api.toolbelt.actions.addFromUrl, { url: input });
           } else {
             // Search toolbelt
             try {
