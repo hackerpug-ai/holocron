@@ -3,6 +3,7 @@
 import { action } from "../_generated/server";
 import { api, internal } from "../_generated/api";
 import { v } from "convex/values";
+import { getToolDefinitions } from "../../lib/voice/tool-definitions";
 
 import type { FunctionReference } from "convex/server";
 
@@ -24,12 +25,14 @@ type CreateSessionCtx = {
  * Pure handler for createSession — extracted for unit testability.
  *
  * Steps:
- * 1. Check for existing active session
- * 2. Validate OPENAI_API_KEY
- * 3. POST to /v1/realtime/client_secrets
- * 4. Create session record via internal mutation
- * 5. Build dynamic voice instructions for the conversation
- * 6. Return {ephemeralKey, expiresAt, sessionId, instructions}
+ * 1. Parallel: check for existing active session + build voice instructions
+ * 2. If stale session found, end it (rare path — sequential)
+ * 3. Parallel: POST to /v1/realtime/client_secrets (with full session config) + create session record
+ * 4. Return {ephemeralKey, expiresAt, sessionId, instructions}
+ *
+ * Session config (instructions, tools, turn_detection, etc.) is sent in the
+ * client_secrets POST body so the realtime connection is pre-configured —
+ * no session.update round-trip needed after connecting.
  *
  * NEVER stores the ephemeral key in the database.
  * NEVER exposes OPENAI_API_KEY to the client.
@@ -49,15 +52,32 @@ export const createSessionHandler = async (
   sessionId: string;
   instructions: string;
 }> => {
-  // 1. Check for active session — auto-end stale sessions instead of blocking
+  // 1. Validate API key is present before doing any DB work
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error(
+      "OPENAI_API_KEY is not configured. Set it in the Convex environment variables."
+    );
+  }
+
+  // 2. Parallel: check for stale session AND build voice instructions simultaneously
   const activeSessionRef =
     overrides?.activeSessionQuery ?? api.voice.queries.getActiveSession;
-  const activeSession = await ctx.runQuery(activeSessionRef, {
-    conversationId: args.conversationId,
-  });
+  const buildInstructionsQueryRef =
+    overrides?.buildInstructionsQuery ??
+    internal.voice.context.buildVoiceInstructions;
 
+  const [activeSession, instructions] = await Promise.all([
+    ctx.runQuery(activeSessionRef, {
+      conversationId: args.conversationId,
+    }),
+    ctx.runQuery(buildInstructionsQueryRef, {
+      conversationId: args.conversationId,
+    }),
+  ]);
+
+  // 3. End stale session if one exists (rare path — sequential, not worth parallelizing)
   if (activeSession) {
-    // Auto-end stale session instead of blocking new session creation
     const endSessionRef =
       overrides?.endSessionMutation ??
       internal.voice.mutations.internalEndSession;
@@ -66,15 +86,10 @@ export const createSessionHandler = async (
     });
   }
 
-  // 2. Validate API key is present
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    throw new Error(
-      "OPENAI_API_KEY is not configured. Set it in the Convex environment variables."
-    );
-  }
-
-  // 3. Generate ephemeral token from OpenAI Realtime API
+  // 4. POST to OpenAI with full session config in the body.
+  //    Full session config pre-configures the realtime connection,
+  //    eliminating the session.update round-trip after WebRTC connect.
+  console.time("openai-client-secrets-fetch");
   const response = await fetch(OPENAI_REALTIME_SESSIONS_URL, {
     method: "POST",
     headers: {
@@ -82,13 +97,24 @@ export const createSessionHandler = async (
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      session: {
-        type: "realtime",
-        model: "gpt-realtime",
-        audio: { output: { voice: "cedar" } },
+      model: "gpt-realtime",
+      modalities: ["text", "audio"],
+      voice: "cedar",
+      instructions: instructions as string,
+      tools: getToolDefinitions(),
+      tool_choice: "auto",
+      turn_detection: {
+        type: "server_vad",
+        threshold: 0.5,
+        prefix_padding_ms: 300,
+        silence_duration_ms: 500,
+        idle_timeout_ms: 30000,
       },
+      input_audio_transcription: { model: "gpt-4o-transcribe" },
+      truncation: { type: "retention_ratio", retention_ratio: 0.8 },
     }),
   });
+  console.timeEnd("openai-client-secrets-fetch");
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -105,31 +131,24 @@ export const createSessionHandler = async (
   const ephemeralKey = tokenData.value;
   const expiresAt = tokenData.expires_at;
 
-  // 4. Create session record via internal mutation (does NOT store the ephemeral key)
+  // 5. Create session record in DB (only after OpenAI confirms success)
   const startedAt = Date.now();
   const createSessionMutationRef =
     overrides?.createSessionMutation ??
     internal.voice.mutations.internalCreateSession;
 
-  const sessionId = (await ctx.runMutation(createSessionMutationRef, {
+  const sessionId = await ctx.runMutation(createSessionMutationRef, {
     conversationId: args.conversationId,
     startedAt,
-  })) as string;
-
-  // 5. Build dynamic voice instructions for the conversation
-  const buildInstructionsQueryRef =
-    overrides?.buildInstructionsQuery ??
-    internal.voice.context.buildVoiceInstructions;
-  const instructions = (await ctx.runQuery(buildInstructionsQueryRef, {
-    conversationId: args.conversationId,
-  })) as string;
+  });
 
   // 6. Return ephemeral token + session metadata + instructions to client
+  //    instructions is kept in the return value for warm-path reactivation
   return {
     ephemeralKey,
     expiresAt,
-    sessionId,
-    instructions,
+    sessionId: sessionId as string,
+    instructions: instructions as string,
   };
 };
 
