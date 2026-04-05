@@ -187,16 +187,30 @@ Guidelines:
  * Add a tool from URL (async).
  *
  * Fetches the URL, extracts metadata via HTML meta tags + LLM classification,
- * and saves it to the toolbelt. If a conversationId is provided, posts a
- * tool_added (or error) card to that conversation when finished.
+ * and saves it to the toolbelt. If a loadingMessageId is provided, updates
+ * that chat message in place with a tool_added (or error) card when finished.
  */
 export const addFromUrl = action({
   args: {
     url: v.string(),
     conversationId: v.optional(v.id("conversations")),
+    loadingMessageId: v.optional(v.id("chatMessages")),
   },
-  handler: async (ctx, { url, conversationId }): Promise<void> => {
+  handler: async (
+    ctx,
+    { url, conversationId, loadingMessageId }
+  ): Promise<void> => {
     const postError = async (message: string): Promise<void> => {
+      // Prefer updating the loading message in place so the spinner goes away.
+      if (loadingMessageId) {
+        await ctx.runMutation(api.chatMessages.mutations.update, {
+          id: loadingMessageId,
+          content: message,
+          messageType: "error" as const,
+          cardData: undefined,
+        });
+        return;
+      }
       if (!conversationId) return;
       await ctx.runMutation(api.chatMessages.mutations.create, {
         conversationId,
@@ -268,24 +282,35 @@ export const addFromUrl = action({
           useCases: classification.useCases || undefined,
         });
 
-      // 6. Post result card to the conversation
-      if (conversationId) {
+      // 6. Post result card — prefer updating the loading message in place
+      // so the spinner is replaced by the success card.
+      const successContent = result.isNew
+        ? `Added **${title}** to your toolbelt.`
+        : `**${title}** is already in your toolbelt.`;
+      const successCard = {
+        card_type: "tool_added" as const,
+        tool_id: result.toolId,
+        title,
+        description,
+        category: classification.category,
+        source_type: sourceType,
+        url,
+      };
+
+      if (loadingMessageId) {
+        await ctx.runMutation(api.chatMessages.mutations.update, {
+          id: loadingMessageId,
+          content: successContent,
+          messageType: "result_card" as const,
+          cardData: successCard,
+        });
+      } else if (conversationId) {
         await ctx.runMutation(api.chatMessages.mutations.create, {
           conversationId,
           role: "agent" as const,
-          content: result.isNew
-            ? `Added **${title}** to your toolbelt.`
-            : `**${title}** is already in your toolbelt.`,
+          content: successContent,
           messageType: "result_card" as const,
-          cardData: {
-            card_type: "tool_added",
-            tool_id: result.toolId,
-            title,
-            description,
-            category: classification.category,
-            source_type: sourceType,
-            url,
-          },
+          cardData: successCard,
         });
       }
     } catch (error) {

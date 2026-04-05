@@ -939,22 +939,40 @@ export const send = action({
           const isUrl = /^https?:\/\//.test(input);
 
           if (isUrl) {
-            // Fire-and-forget: background action fetches metadata, classifies
-            // via LLM, saves tool, and posts a tool_added card back to this
-            // conversation when finished.
+            // Insert the loading card message first so we have its ID.
+            // The scheduled action will UPDATE this message in place once the
+            // tool is saved (replacing the spinner with a tool_added card).
+            const loadingMessageId: any = await ctx.runMutation(
+              api.chatMessages.mutations.create,
+              {
+                conversationId: finalConversationId,
+                role: "agent" as const,
+                content: `Adding tool from ${input}...`,
+                messageType: "result_card" as const,
+                cardData: {
+                  card_type: "tool_adding",
+                  url: input,
+                  message: "Fetching metadata...",
+                },
+                createdAt: Date.now(),
+              },
+            );
+
             await ctx.scheduler.runAfter(
               0,
               api.toolbelt.actions.addFromUrl,
-              { url: input, conversationId: finalConversationId },
-            );
-            agentResponse = {
-              content: `Adding tool from ${input}...`,
-              messageType: "result_card",
-              cardData: {
-                card_type: "tool_adding",
+              {
                 url: input,
-                message: "Fetching metadata...",
-              } as ToolAddingCard,
+                conversationId: finalConversationId,
+                loadingMessageId,
+              },
+            );
+
+            // Return early — we've already persisted the agent message.
+            return {
+              userMessageId,
+              agentMessageId: loadingMessageId,
+              conversationId: finalConversationId,
             };
           } else {
             // Search toolbelt
