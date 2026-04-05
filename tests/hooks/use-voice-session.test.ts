@@ -158,15 +158,15 @@ describe("US-008: useVoiceSession (renderHook)", () => {
       expect(result.current.state.sessionId).toBe("session-001");
     });
 
-    it("sends session.update only via onSessionCreated callback (no duplicate)", async () => {
+    it("does NOT send session.update on cold path (backend embeds config in /client_secrets)", async () => {
       const { result } = renderHook(() => useVoiceSession(CONV_ID));
 
       await act(async () => {
         await result.current.start();
       });
 
-      // session.update is NOT sent directly after connect —
-      // it's sent only when onSessionCreated fires
+      // No session.update before or after session.created on the cold path —
+      // the backend already embedded all static config in the /client_secrets POST body.
       expect(mockSendEvent).not.toHaveBeenCalled();
 
       // Simulate OpenAI sending session.created event
@@ -177,17 +177,8 @@ describe("US-008: useVoiceSession (renderHook)", () => {
         });
       });
 
-      // Now session.update should have been sent exactly once
-      expect(mockSendEvent).toHaveBeenCalledTimes(1);
-      expect(mockSendEvent).toHaveBeenCalledWith(
-        expect.objectContaining({
-          type: "session.update",
-          session: expect.objectContaining({
-            model: "gpt-realtime",
-            voice: "cedar",
-          }),
-        })
-      );
+      // Still no session.update sent — cold path is backend-configured
+      expect(mockSendEvent).not.toHaveBeenCalled();
     });
   });
 

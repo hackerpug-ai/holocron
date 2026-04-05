@@ -37,33 +37,24 @@ import { getToolDefinitions } from "@/lib/voice/tool-definitions";
 import { dispatchFunctionCall, type DispatcherDeps } from "@/lib/voice/function-dispatcher";
 
 /**
- * Build session config sent via data channel after WebRTC connects.
- * Matches 02-session-config.md specification.
- * idle_timeout_ms: 30000 — OpenAI fires the idle event after 30s silence.
+ * Build session.update for warm-path reactivation only.
  *
- * Takes server-built instructions from createSession() so language directives
- * and dynamic context are preserved (fixes language bug where hardcoded
- * instructions overwrote server instructions).
+ * Static config (model, voice, turn_detection, truncation, transcription) is
+ * now embedded in the /client_secrets POST body by the backend createSession
+ * action, so the cold-path session.update is no longer needed. This function
+ * only sends the fields that change per-conversation on warm reuse: fresh
+ * instructions, the current tool list, and the tool_choice policy.
+ *
+ * NOTE: Do NOT use this on the cold path — the backend already sent all static
+ * config via /client_secrets.
  */
 function buildSessionUpdateEvent(instructions: string) {
   return {
     type: "session.update",
     session: {
-      model: "gpt-realtime",
-      modalities: ["text", "audio"],
-      voice: "cedar",
       instructions,
-      turn_detection: {
-        type: "server_vad",
-        threshold: 0.5,
-        prefix_padding_ms: 300,
-        silence_duration_ms: 500,
-        idle_timeout_ms: 30000,
-      },
       tools: getToolDefinitions(),
       tool_choice: "auto",
-      truncation: { type: "retention_ratio", retention_ratio: 0.8 },
-      input_audio_transcription: { model: "gpt-4o-transcribe" },
     },
   };
 }
@@ -184,6 +175,7 @@ export function useVoiceSession(
     // Guard against double-start
     if (state.status !== "idle" && state.status !== "error") return;
 
+    console.time("voice:cold-start");
     dispatch({ type: "CONNECT", conversationId });
 
     // Error handler provides user-friendly messages and resource cleanup.
@@ -270,15 +262,9 @@ export function useVoiceSession(
       const handleEvent = createEventHandler(
         {
           onSessionCreated: () => {
-            // Session created by OpenAI — send session.update config
+            // Backend already embedded all session config in /client_secrets POST body.
+            // No session.update needed on the cold path.
             errorHandler.handleSuccess();
-            try {
-              conn.sendEvent(
-                buildSessionUpdateEvent(instructionsRef.current) as unknown as Record<string, unknown>
-              );
-            } catch {
-              // Data channel may not be ready yet; session.update is best-effort
-            }
           },
           onSpeechStarted: () => {
             // US-017: user spoke — cancel any pending timeout (interrupt farewell)
@@ -493,6 +479,7 @@ export function useVoiceSession(
       );
 
       // Transition to LISTENING and start idle timeout
+      console.timeEnd("voice:cold-start");
       dispatch({ type: "CONNECTED", sessionId: tokenResult.sessionId });
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       sessionTimeoutRef.current.start();

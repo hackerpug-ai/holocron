@@ -183,9 +183,12 @@ export async function dispatchFunctionCall(
   // Always trigger follow-up response — model won't respond without this
   deps.sendEvent({ type: 'response.create' })
 
-  // Record audit trail (fire-and-forget — do not await, don't block response)
-  deps.convex
-    .runMutation('voice/mutations:recordCommand', {
+  // Record audit trail (fire-and-forget — do not await, don't block response).
+  // Skip when sessionId is empty (race: function call arrived before session ID
+  // was stored in the ref — common at session creation time).
+  if (deps.sessionId) {
+    deps.convex
+      .runMutation('voice/mutations:recordCommand', {
       sessionId: deps.sessionId,
       transcript: fn.name,
       intent: fn.name,
@@ -199,8 +202,9 @@ export async function dispatchFunctionCall(
         data: result.data,
         error: result.error,
       },
-    })
-    .catch(() => {
-      // Audit trail failure must not disrupt the voice session
-    })
+      })
+      .catch(() => {
+        // Audit trail failure must not disrupt the voice session
+      })
+  }
 }
