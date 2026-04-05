@@ -306,9 +306,9 @@ export const GetImprovementSchema = z.object({
 
 export const ListImprovementsSchema_Improvements = z.object({
   status: z
-    .enum(["submitted", "processing", "pending_review", "approved", "done", "merged"])
+    .enum(["open", "closed"])
     .optional()
-    .describe("Filter by status"),
+    .describe("Filter by status (open or closed). Omit to list all non-merged items."),
   limit: z.number().int().positive().optional().describe("Max results (default 20)"),
 });
 
@@ -324,7 +324,33 @@ export const AddImprovementSchema = z.object({
     .describe("One or more improvements to submit"),
 });
 
+export const CloseImprovementSchema = z.object({
+  id: z.string().min(1).describe("Improvement request ID to close"),
+  reason: z
+    .string()
+    .optional()
+    .describe(
+      "Why this improvement is being closed (e.g. 'shipped in PR #123' or 'superseded by X')"
+    ),
+  evidence: z
+    .array(z.string())
+    .optional()
+    .describe("File paths, PR links, or commit hashes that prove the improvement was completed"),
+});
+
+export const SetImprovementStatusSchema = z.object({
+  id: z.string().min(1).describe("Improvement request ID"),
+  status: z.enum(["open", "closed"]).describe("Target status"),
+  reason: z.string().optional().describe("Reason when closing (ignored when reopening)"),
+  evidence: z
+    .array(z.string())
+    .optional()
+    .describe("Evidence (file paths, links) when closing (ignored when reopening)"),
+});
+
 export type SearchImprovementsInput = z.infer<typeof SearchImprovementsSchema>;
 export type GetImprovementInput = z.infer<typeof GetImprovementSchema>;
 export type ListImprovementsInput = z.infer<typeof ListImprovementsSchema_Improvements>;
 export type AddImprovementInput = z.infer<typeof AddImprovementSchema>;
+export type CloseImprovementInput = z.infer<typeof CloseImprovementSchema>;
+export type SetImprovementStatusInput = z.infer<typeof SetImprovementStatusSchema>;

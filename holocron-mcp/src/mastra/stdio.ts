@@ -45,6 +45,7 @@ import {
   AssimilateCreatorSchema,
   AssimilationSessionIdSchema,
   CheckSubscriptionsSchema,
+  CloseImprovementSchema,
   DocumentIdSchema,
   GetCreatorTranscriptsSchema,
   GetImprovementSchema,
@@ -67,6 +68,7 @@ import {
   SearchToolsSchema,
   SearchVectorSchema,
   SessionIdSchema,
+  SetImprovementStatusSchema,
   SetSubscriptionFilterSchema,
   ShareDocumentSchema,
   ShopProductsSchema,
@@ -93,9 +95,11 @@ import {
 import { hybridSearch } from "../tools/hybrid-search.ts";
 import {
   addImprovement,
+  closeImprovement,
   getImprovement,
   listImprovements,
   searchImprovements,
+  setImprovementStatus,
 } from "../tools/improvements.ts";
 // Tool implementations
 import { getDocument, listDocuments } from "../tools/retrieval.ts";
@@ -705,7 +709,7 @@ const getImprovementTool = createTool({
 const listImprovementsTool = createTool({
   id: "list_improvements",
   description:
-    "List improvement requests with optional status filter. Statuses: submitted, processing, pending_review, approved, done, merged.",
+    "List improvement requests with optional status filter. Statuses: open, closed. Omit status to list all non-merged items.",
   inputSchema: ListImprovementsSchema_Improvements,
   execute: async (input) => {
     try {
@@ -725,6 +729,36 @@ const addImprovementTool = createTool({
   execute: async (input) => {
     try {
       return await addImprovement(holocronClient, input);
+    } catch (error) {
+      console.error(formatError(error));
+      throw error;
+    }
+  },
+});
+
+const closeImprovementTool = createTool({
+  id: "close_improvement",
+  description:
+    "Close an improvement request. Records optional reason and evidence (file paths, PR links, commits) proving the improvement was shipped. Use this when auditing the improvements list against the codebase.",
+  inputSchema: CloseImprovementSchema,
+  execute: async (input) => {
+    try {
+      return await closeImprovement(holocronClient, input);
+    } catch (error) {
+      console.error(formatError(error));
+      throw error;
+    }
+  },
+});
+
+const setImprovementStatusTool = createTool({
+  id: "set_improvement_status",
+  description:
+    "Set an improvement request's status to 'open' or 'closed'. Reopening a closed item clears its closure metadata.",
+  inputSchema: SetImprovementStatusSchema,
+  execute: async (input) => {
+    try {
+      return await setImprovementStatus(holocronClient, input);
     } catch (error) {
       console.error(formatError(error));
       throw error;
@@ -781,6 +815,8 @@ const server = new MCPServer({
     getImprovementTool,
     listImprovementsTool,
     addImprovementTool,
+    closeImprovementTool,
+    setImprovementStatusTool,
   },
 });
 

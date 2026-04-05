@@ -65,3 +65,39 @@ export async function addImprovement(
 
   return { created: results.length, ids: results };
 }
+
+/**
+ * Close an improvement request with optional reason + evidence.
+ * Convenience wrapper over setStatus for the common "this is done" case.
+ */
+export async function closeImprovement(
+  client: HolocronConvexClient,
+  input: { id: string; reason?: string; evidence?: string[] }
+) {
+  // biome-ignore lint/suspicious/noExplicitAny: Dynamic Convex function reference and ID type
+  await client.mutation("improvements/mutations:setStatus" as any, {
+    id: input.id as any,
+    status: "closed",
+    reason: input.reason,
+    evidence: input.evidence,
+  });
+  return { id: input.id, status: "closed" as const };
+}
+
+/**
+ * Set the status of an improvement request to open or closed.
+ * When reopening, closure metadata is cleared.
+ */
+export async function setImprovementStatus(
+  client: HolocronConvexClient,
+  input: { id: string; status: "open" | "closed"; reason?: string; evidence?: string[] }
+) {
+  // biome-ignore lint/suspicious/noExplicitAny: Dynamic Convex function reference and ID type
+  await client.mutation("improvements/mutations:setStatus" as any, {
+    id: input.id as any,
+    status: input.status,
+    reason: input.reason,
+    evidence: input.evidence,
+  });
+  return { id: input.id, status: input.status };
+}
