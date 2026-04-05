@@ -29,7 +29,8 @@ export default function ImprovementsRoute() {
   const updateMutation = useMutation(api.improvements.mutations.update)
   const removeMutation = useMutation(api.improvements.mutations.remove)
 
-  // Watch the processing request status to hide indicator when done
+  // Watch the processing request to hide indicator once the dedup agent
+  // has written back (processedAt becomes defined).
   const requestStatus = useQuery(
     api.improvements.queries.get,
     processingRequestId ? { id: processingRequestId } : 'skip'
@@ -37,10 +38,10 @@ export default function ImprovementsRoute() {
 
   // Hide indicator when processing completes
   useEffect(() => {
-    if (requestStatus?.status === 'pending_review' || requestStatus?.status === 'processing') {
+    if (requestStatus?.processedAt !== undefined) {
       setProcessingRequestId(null)
     }
-  }, [requestStatus?.status])
+  }, [requestStatus?.processedAt])
 
   const requests = (requestsData ?? []).map((req) => ({
     _id: req._id as string,

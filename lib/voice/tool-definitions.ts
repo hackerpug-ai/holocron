@@ -366,7 +366,7 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
         status: {
           type: 'string',
           description: 'Filter by status',
-          enum: ['submitted', 'processing', 'pending_review', 'approved', 'done', 'merged'],
+          enum: ['open', 'closed'],
         },
         limit: { type: 'number', description: 'Max results (default 20)' },
       },

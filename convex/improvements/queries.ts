@@ -1,14 +1,7 @@
 import { query } from "../_generated/server";
 import { v } from "convex/values";
 
-const STATUS_VALUES = v.union(
-  v.literal("submitted"),
-  v.literal("processing"),
-  v.literal("pending_review"),
-  v.literal("approved"),
-  v.literal("done"),
-  v.literal("merged")
-);
+const STATUS_VALUES = v.union(v.literal("open"), v.literal("closed"));
 
 /**
  * List improvement requests, excluding merged ones.

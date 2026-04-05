@@ -8,9 +8,9 @@
  * 2. Find semantically similar existing requests
  * 3. Call LLM to classify: create_new or merge
  * 4. Persist the agent decision (title, summary, agentDecision, embedding)
- * 5. If merge: execute the merge mutation
+ * 5. If merge: execute the merge mutation (sets source to closed, mergedIntoId=target)
  *
- * On any failure, resets status back to "submitted" for retry.
+ * Status stays "open" throughout — no review gate. Merge decisions are auto-applied.
  */
 
 import { internalAction } from "../_generated/server";
@@ -71,12 +71,6 @@ export const processNewRequest = internalAction({
     requestId: v.id("improvementRequests"),
   },
   handler: async (ctx, { requestId }): Promise<void> => {
-    // Step 1: Mark as processing
-    await ctx.runMutation(internal.improvements.internal.updateStatus, {
-      requestId,
-      status: "processing",
-    });
-
     try {
       // Step 2: Fetch the request
       const request = await ctx.runQuery(improvementsQueriesGet, {
@@ -105,12 +99,7 @@ export const processNewRequest = internalAction({
 
       // Step 5: Filter candidates — exclude self, exclude merged, take top 3
       const candidates = similarResults
-        .filter(
-          (r) =>
-            r._id !== requestId &&
-            r.status !== "merged" &&
-            r.mergedIntoId === undefined
-        )
+        .filter((r) => r._id !== requestId && r.mergedIntoId === undefined)
         .slice(0, 3);
 
       // Step 6: Call LLM for deduplication decision
@@ -191,17 +180,12 @@ export const processNewRequest = internalAction({
         });
       }
     } catch (error) {
-      // On any failure, reset to "submitted" so the request can be retried
+      // On any failure, log — the request stays "open" regardless of agent outcome.
       const message =
         error instanceof Error ? error.message : String(error);
       console.error(
         `[improvements/actions] processNewRequest failed for ${requestId}: ${message}`,
       );
-
-      await ctx.runMutation(internal.improvements.internal.updateStatus, {
-        requestId,
-        status: "submitted",
-      });
     }
   },
 });

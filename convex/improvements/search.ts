@@ -121,9 +121,7 @@ export const findSimilar = action({
         ...doc,
         score: resultScore.get(doc._id.toString())!,
       }))
-      .filter(
-        (doc) => doc.status !== "merged" && doc.mergedIntoId === undefined
-      )
+      .filter((doc) => doc.mergedIntoId === undefined)
       .slice(0, limit);
 
     return sortedResults;

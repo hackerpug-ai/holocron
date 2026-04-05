@@ -8,7 +8,7 @@ export interface ImprovementRequestCardProps {
   id: string
   title: string
   description: string
-  status: 'submitted' | 'processing' | 'pending_review' | 'approved' | 'done' | 'merged'
+  status: 'open' | 'closed'
   imageCount: number
   createdAt: number
   mergedCount?: number
@@ -21,35 +21,15 @@ const STATUS_STYLES: Record<
   ImprovementRequestCardProps['status'],
   { badge: string; text: string; label: string }
 > = {
-  submitted: {
+  open: {
     badge: 'bg-blue-500/20',
     text: 'text-blue-400',
-    label: 'Submitted',
+    label: 'Open',
   },
-  processing: {
-    badge: 'bg-amber-500/20',
-    text: 'text-amber-400',
-    label: 'Processing',
-  },
-  pending_review: {
-    badge: 'bg-violet-500/20',
-    text: 'text-violet-400',
-    label: 'Pending Review',
-  },
-  approved: {
+  closed: {
     badge: 'bg-green-500/20',
     text: 'text-green-400',
-    label: 'Approved',
-  },
-  done: {
-    badge: 'bg-muted',
-    text: 'text-muted-foreground',
-    label: 'Done',
-  },
-  merged: {
-    badge: 'bg-muted',
-    text: 'text-muted-foreground',
-    label: 'Merged',
+    label: 'Closed',
   },
 }
 

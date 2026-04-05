@@ -5,17 +5,16 @@
  * shape, and that the handler implementations satisfy each acceptance criterion
  * by structural inspection of the source files.
  *
- * AC-1:  submit creates request with status "submitted" and correct fields
+ * AC-1:  submit creates request with status "open" and correct fields
  * AC-2:  submit with storageId creates associated improvementImages row
  * AC-3:  submit without storageId creates no image row
  * AC-4:  update patches title and description, updates updatedAt
- * AC-5:  approve transitions from pending_review to approved
- * AC-6:  approve throws/rejects if status is not pending_review
- * AC-7:  list returns non-merged requests ordered by createdAt desc
- * AC-8:  list filters by status when provided
- * AC-9:  list excludes merged requests (mergedIntoId is set)
- * AC-10: get returns request with images array
- * AC-11: getImages returns images with resolved URLs
+ * AC-5:  setStatus transitions between open/closed and records closure metadata
+ * AC-6:  list returns non-merged requests ordered by createdAt desc
+ * AC-7:  list filters by status when provided
+ * AC-8:  list excludes merged requests (mergedIntoId is set)
+ * AC-9:  get returns request with images array
+ * AC-10: getImages returns images with resolved URLs
  */
 
 import { describe, it, expect } from "vitest";
@@ -54,17 +53,17 @@ function extractHandlerBody(src: string, exportName: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// AC-1: submit creates request with status "submitted" and correct fields
+// AC-1: submit creates request with status "open" and correct fields
 // ---------------------------------------------------------------------------
-describe("AC-1: submit creates request with status submitted and correct fields", () => {
-  it("should insert into improvementRequests with status submitted, description, title, sourceScreen, createdAt, updatedAt", () => {
+describe("AC-1: submit creates request with status open and correct fields", () => {
+  it("should insert into improvementRequests with status open, description, title, sourceScreen, createdAt, updatedAt", () => {
     const src = readMutations();
     expect(fs.existsSync(mutationsPath)).toBe(true);
     expect(src).toContain('export const submit');
 
     const body = extractHandlerBody(src, "submit");
-    // Status must be hardcoded as "submitted" on insert
-    expect(body).toContain('"submitted"');
+    // Status must be hardcoded as "open" on insert
+    expect(body).toContain('"open"');
     // Must insert into improvementRequests table
     expect(body).toContain('db.insert("improvementRequests"');
     // Must carry required fields
@@ -76,7 +75,6 @@ describe("AC-1: submit creates request with status submitted and correct fields"
 
   it("should derive title from the first 80 characters of description", () => {
     const body = extractHandlerBody(readMutations(), "submit");
-    // title is set via description.slice(0, 80)
     expect(body).toContain("description.slice(0, 80)");
   });
 });
@@ -87,10 +85,8 @@ describe("AC-1: submit creates request with status submitted and correct fields"
 describe("AC-2: submit with storageId creates an improvementImages row", () => {
   it("should insert into improvementImages when storageId is provided", () => {
     const body = extractHandlerBody(readMutations(), "submit");
-    // Conditional on storageId being defined
     expect(body).toContain("storageId");
     expect(body).toContain('db.insert("improvementImages"');
-    // The row must reference the newly created requestId
     expect(body).toContain("requestId");
   });
 });
@@ -101,7 +97,6 @@ describe("AC-2: submit with storageId creates an improvementImages row", () => {
 describe("AC-3: submit without storageId creates no image row", () => {
   it("should guard improvementImages insert behind a storageId check", () => {
     const body = extractHandlerBody(readMutations(), "submit");
-    // The guard must test that storageId is not undefined before inserting
     const hasUndefinedGuard =
       body.includes("storageId !== undefined") ||
       body.includes("storageId != undefined") ||
@@ -134,7 +129,6 @@ describe("AC-4: update patches title and description, updates updatedAt", () => 
 
   it("should only patch fields that are explicitly provided (conditional patching)", () => {
     const body = extractHandlerBody(readMutations(), "update");
-    // Both title and description are optional and patched conditionally
     const titleIsConditional =
       body.includes("title !== undefined") ||
       body.includes("if (title)") ||
@@ -149,56 +143,46 @@ describe("AC-4: update patches title and description, updates updatedAt", () => 
 });
 
 // ---------------------------------------------------------------------------
-// AC-5: approve transitions from pending_review to approved
+// AC-5: setStatus transitions between open/closed and records closure metadata
 // ---------------------------------------------------------------------------
-describe("AC-5: approve transitions from pending_review to approved", () => {
+describe("AC-5: setStatus transitions between open/closed", () => {
   it("should be defined as a mutation in mutations.ts", () => {
     const src = readMutations();
-    expect(src).toContain("export const approve");
+    expect(src).toContain("export const setStatus");
     expect(src).toContain("mutation");
   });
 
-  it("should patch status to approved when no merge action is indicated", () => {
-    const body = extractHandlerBody(readMutations(), "approve");
-    expect(body).toContain('"approved"');
-    expect(body).toContain("db.patch");
-    expect(body).toContain("updatedAt");
+  it("should accept both open and closed statuses", () => {
+    const src = readMutations();
+    // STATUS_VALUES union is defined at module scope and used by setStatus
+    expect(src).toContain('"open"');
+    expect(src).toContain('"closed"');
+    const body = extractHandlerBody(src, "setStatus");
+    // Body branches on closed to set closure fields
+    expect(body).toContain('"closed"');
   });
 
-  it("should check for pending_review status before approving", () => {
-    const body = extractHandlerBody(readMutations(), "approve");
-    expect(body).toContain('"pending_review"');
+  it("should set closedAt when closing", () => {
+    const body = extractHandlerBody(readMutations(), "setStatus");
+    expect(body).toContain("closedAt");
   });
-});
 
-// ---------------------------------------------------------------------------
-// AC-6: approve throws if status is not pending_review
-// ---------------------------------------------------------------------------
-describe("AC-6: approve throws if status is not pending_review", () => {
-  it("should throw with an error message when status is not pending_review", () => {
-    const body = extractHandlerBody(readMutations(), "approve");
-    // Must contain a throw and reference the status mismatch
+  it("should record closure reason and evidence when provided", () => {
+    const body = extractHandlerBody(readMutations(), "setStatus");
+    expect(body).toContain("closureReason");
+    expect(body).toContain("closureEvidence");
+  });
+
+  it("should throw if the request is not found", () => {
+    const body = extractHandlerBody(readMutations(), "setStatus");
     expect(body).toContain("throw new Error");
-    // Error must reference the expected status
-    expect(body).toContain('"pending_review"');
-    // Error must mention "status" so the caller gets a useful message
-    expect(body.toLowerCase()).toContain("status");
-  });
-
-  it("should guard the throw before any db.patch call", () => {
-    const body = extractHandlerBody(readMutations(), "approve");
-    const throwIdx = body.indexOf("throw new Error");
-    const firstPatchIdx = body.indexOf("db.patch");
-    expect(throwIdx).toBeGreaterThan(-1);
-    expect(firstPatchIdx).toBeGreaterThan(-1);
-    expect(throwIdx).toBeLessThan(firstPatchIdx);
   });
 });
 
 // ---------------------------------------------------------------------------
-// AC-7: list returns non-merged requests ordered by createdAt desc
+// AC-6: list returns non-merged requests ordered by createdAt desc
 // ---------------------------------------------------------------------------
-describe("AC-7: list returns non-merged requests ordered by createdAt desc", () => {
+describe("AC-6: list returns non-merged requests ordered by createdAt desc", () => {
   it("should be defined as a query in queries.ts", () => {
     const src = readQueries();
     expect(fs.existsSync(queriesPath)).toBe(true);
@@ -215,7 +199,6 @@ describe("AC-7: list returns non-merged requests ordered by createdAt desc", () 
   it("should filter out records that have mergedIntoId defined", () => {
     const body = extractHandlerBody(readQueries(), "list");
     expect(body).toContain("mergedIntoId");
-    // The filter must check mergedIntoId is undefined
     const hasUndefinedFilter =
       body.includes("mergedIntoId === undefined") ||
       body.includes("mergedIntoId == undefined") ||
@@ -226,44 +209,42 @@ describe("AC-7: list returns non-merged requests ordered by createdAt desc", () 
 });
 
 // ---------------------------------------------------------------------------
-// AC-8: list filters by status when provided
+// AC-7: list filters by status when provided
 // ---------------------------------------------------------------------------
-describe("AC-8: list filters by status when provided", () => {
+describe("AC-7: list filters by status when provided", () => {
   it("should use by_status index when status arg is present", () => {
     const body = extractHandlerBody(readQueries(), "list");
     expect(body).toContain('"by_status"');
-    // Must do an equality filter on status
     expect(body).toContain("status");
   });
 
-  it("should accept optional status arg with all valid status literals", () => {
+  it("should accept optional status arg with open|closed literals only", () => {
     const src = readQueries();
-    // All status literals must be present in the query validators
-    expect(src).toContain('"submitted"');
-    expect(src).toContain('"processing"');
-    expect(src).toContain('"pending_review"');
-    expect(src).toContain('"approved"');
-    expect(src).toContain('"done"');
-    expect(src).toContain('"merged"');
+    expect(src).toContain('"open"');
+    expect(src).toContain('"closed"');
+    // Legacy literals must be gone
+    expect(src).not.toContain('"submitted"');
+    expect(src).not.toContain('"pending_review"');
+    expect(src).not.toContain('"approved"');
+    expect(src).not.toContain('"merged"');
   });
 });
 
 // ---------------------------------------------------------------------------
-// AC-9: list excludes merged requests (mergedIntoId is set)
+// AC-8: list excludes merged requests (mergedIntoId is set)
 // ---------------------------------------------------------------------------
-describe("AC-9: list excludes merged requests", () => {
+describe("AC-8: list excludes merged requests", () => {
   it("should post-filter results to exclude entries where mergedIntoId is defined", () => {
     const body = extractHandlerBody(readQueries(), "list");
-    // The filter must be a .filter() call referencing mergedIntoId
     expect(body).toContain(".filter(");
     expect(body).toContain("mergedIntoId");
   });
 });
 
 // ---------------------------------------------------------------------------
-// AC-10: get returns request with images array
+// AC-9: get returns request with images array
 // ---------------------------------------------------------------------------
-describe("AC-10: get returns request with images array", () => {
+describe("AC-9: get returns request with images array", () => {
   it("should be defined as a query in queries.ts", () => {
     const src = readQueries();
     expect(src).toContain("export const get");
@@ -279,7 +260,6 @@ describe("AC-10: get returns request with images array", () => {
 
   it("should spread the request fields and add an images property", () => {
     const body = extractHandlerBody(readQueries(), "get");
-    // Result must merge request and images: { ...request, images: ... }
     expect(body).toContain("...request");
     expect(body).toContain("images");
   });
@@ -291,9 +271,9 @@ describe("AC-10: get returns request with images array", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-11: getImages returns images with resolved URLs
+// AC-10: getImages returns images with resolved URLs
 // ---------------------------------------------------------------------------
-describe("AC-11: getImages returns images with resolved URLs", () => {
+describe("AC-10: getImages returns images with resolved URLs", () => {
   it("should be defined as a query in queries.ts", () => {
     const src = readQueries();
     expect(src).toContain("export const getImages");
@@ -308,9 +288,7 @@ describe("AC-11: getImages returns images with resolved URLs", () => {
 
   it("should return the images with url field attached", () => {
     const body = extractHandlerBody(readQueries(), "getImages");
-    // url must be included in the returned object
     expect(body).toContain("url");
-    // Uses Promise.all or map to resolve all image URLs
     const usesPromiseAll =
       body.includes("Promise.all") || body.includes(".map(");
     expect(usesPromiseAll).toBe(true);
@@ -334,8 +312,8 @@ describe("API registration: improvements mutations and queries", () => {
     const m = improvements as Record<string, unknown>;
     expect(m.submit).toBeDefined();
     expect(m.update).toBeDefined();
-    expect(m.approve).toBeDefined();
-    expect(m.reject).toBeDefined();
+    expect(m.setStatus).toBeDefined();
+    expect(m.remove).toBeDefined();
     expect(m.generateUploadUrl).toBeDefined();
   });
 

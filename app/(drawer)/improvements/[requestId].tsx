@@ -34,9 +34,7 @@ export default function ImprovementDetailScreen() {
 
   const data = useQuery(api.improvements.queries.get, { id: requestId as any })
 
-  const approve = useMutation(api.improvements.mutations.approve)
-  const reject = useMutation(api.improvements.mutations.reject)
-  const requestSeparate = useMutation(api.improvements.mutations.requestSeparate)
+  const setStatusMutation = useMutation(api.improvements.mutations.setStatus)
   const updateMutation = useMutation(api.improvements.mutations.update)
   const removeMutation = useMutation(api.improvements.mutations.remove)
 
@@ -48,19 +46,10 @@ export default function ImprovementDetailScreen() {
     }
   }
 
-  const handleApprove = async () => {
-    if (!requestId) return
-    await approve({ id: requestId as any })
-  }
-
-  const handleReject = async (feedback?: string) => {
-    if (!requestId) return
-    await reject({ id: requestId as any, userFeedback: feedback })
-  }
-
-  const handleRequestSeparate = async () => {
-    if (!requestId) return
-    await requestSeparate({ id: requestId as any })
+  const handleToggleStatus = async () => {
+    if (!requestId || !data) return
+    const nextStatus = data.status === 'open' ? 'closed' : 'open'
+    await setStatusMutation({ id: requestId as any, status: nextStatus })
   }
 
   const handleSaveEdit = async (title: string, description: string) => {
@@ -192,9 +181,7 @@ export default function ImprovementDetailScreen() {
       <ImprovementDetailView
         request={request}
         images={images}
-        onApprove={handleApprove}
-        onReject={handleReject}
-        onRequestSeparate={handleRequestSeparate}
+        onToggleStatus={handleToggleStatus}
         testID="improvement-detail-view"
       />
 

@@ -393,16 +393,9 @@ const list_improvements = tool({
     "all improvements, check status, or review pending items.",
   inputSchema: z.object({
     status: z
-      .enum([
-        "submitted",
-        "processing",
-        "pending_review",
-        "approved",
-        "done",
-        "merged",
-      ])
+      .enum(["open", "closed"])
       .optional()
-      .describe("Filter by status (optional, shows all non-merged if omitted)"),
+      .describe("Filter by status (open or closed). Omit to list all non-merged items."),
     limit: z
       .number()
       .optional()

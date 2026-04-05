@@ -2,32 +2,9 @@ import { internalMutation } from "../_generated/server";
 import { v } from "convex/values";
 
 /**
- * Update the status of an improvement request.
- * Called by the AI agent action to move requests through the workflow.
- */
-export const updateStatus = internalMutation({
-  args: {
-    requestId: v.id("improvementRequests"),
-    status: v.union(
-      v.literal("submitted"),
-      v.literal("processing"),
-      v.literal("pending_review"),
-      v.literal("approved"),
-      v.literal("done"),
-      v.literal("merged")
-    ),
-  },
-  handler: async (ctx, { requestId, status }) => {
-    await ctx.db.patch(requestId, {
-      status,
-      updatedAt: Date.now(),
-    });
-  },
-});
-
-/**
  * Apply the agent's analysis result to an improvement request.
- * Sets title, summary, agentDecision, embedding, and advances status to pending_review.
+ * Sets title, summary, agentDecision, embedding, and processedAt.
+ * Status stays "open" — there is no review gate.
  */
 export const updateFromAgent = internalMutation({
   args: {
@@ -56,7 +33,6 @@ export const updateFromAgent = internalMutation({
       summary,
       agentDecision,
       embedding,
-      status: "pending_review",
       processedAt: now,
       updatedAt: now,
     });
@@ -66,7 +42,7 @@ export const updateFromAgent = internalMutation({
 /**
  * Execute a merge of one improvement request into another.
  *
- * - Marks source as merged (mergedIntoId = targetId, status = "merged")
+ * - Marks source as closed with mergedIntoId = targetId
  * - Appends sourceId to target's mergedFromIds array
  * - Re-links all improvementImages from source to target
  *
@@ -78,7 +54,7 @@ export const executeMerge = internalMutation({
     targetId: v.id("improvementRequests"),
     reason: v.string(),
   },
-  handler: async (ctx, { sourceId, targetId, reason: _reason }) => {
+  handler: async (ctx, { sourceId, targetId, reason }) => {
     const [source, target] = await Promise.all([
       ctx.db.get(sourceId),
       ctx.db.get(targetId),
@@ -98,10 +74,12 @@ export const executeMerge = internalMutation({
 
     const now = Date.now();
 
-    // Mark source as merged
+    // Mark source as closed (merged)
     await ctx.db.patch(sourceId, {
       mergedIntoId: targetId,
-      status: "merged",
+      status: "closed" as const,
+      closedAt: now,
+      closureReason: `Merged into ${targetId}: ${reason}`,
       updatedAt: now,
     });
 
@@ -145,7 +123,7 @@ export const submitFromSpecialist = internalMutation({
     const requestId = await ctx.db.insert("improvementRequests", {
       description,
       title: description.slice(0, 80),
-      status: "submitted",
+      status: "open",
       sourceScreen: `specialist_${source}`,
       sourceComponent: source,
       createdAt: now,

@@ -19,7 +19,7 @@ export interface ImprovementsScreenProps {
     _id: string
     title?: string
     description: string
-    status: 'submitted' | 'processing' | 'pending_review' | 'approved' | 'done' | 'merged'
+    status: 'open' | 'closed'
     createdAt: number
     images?: Array<unknown>
     mergedFromIds?: string[]
@@ -31,13 +31,12 @@ export interface ImprovementsScreenProps {
   isRefreshing?: boolean
 }
 
-type FilterChip = 'all' | 'open' | 'pending_review' | 'done'
+type FilterChip = 'all' | 'open' | 'closed'
 
 const FILTER_CHIPS: { value: FilterChip; label: string }[] = [
   { value: 'all', label: 'All' },
   { value: 'open', label: 'Open' },
-  { value: 'pending_review', label: 'Pending Review' },
-  { value: 'done', label: 'Done' },
+  { value: 'closed', label: 'Closed' },
 ]
 
 function matchesFilter(
@@ -45,10 +44,7 @@ function matchesFilter(
   filter: FilterChip,
 ): boolean {
   if (filter === 'all') return true
-  if (filter === 'open') return status === 'submitted' || status === 'processing'
-  if (filter === 'pending_review') return status === 'pending_review'
-  if (filter === 'done') return status === 'approved' || status === 'done'
-  return false
+  return status === filter
 }
 
 export function ImprovementsScreen({

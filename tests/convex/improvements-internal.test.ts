@@ -1,9 +1,8 @@
 /**
  * Internal mutations for improvement reporting system
  *
- * AC-1: updateStatus is registered as an internal mutation
- * AC-2: updateFromAgent is registered as an internal mutation
- * AC-3: executeMerge is registered as an internal mutation
+ * AC-1: updateFromAgent is registered as an internal mutation
+ * AC-2: executeMerge is registered as an internal mutation
  */
 
 import { describe, it, expect } from "vitest";
@@ -12,16 +11,7 @@ import fs from "fs";
 
 const internalFilePath = path.resolve(__dirname, "../../convex/improvements/internal.ts");
 
-describe("AC-1: updateStatus internal mutation", () => {
-  it("is defined and exported in convex/improvements/internal.ts", () => {
-    expect(fs.existsSync(internalFilePath)).toBe(true);
-    const src = fs.readFileSync(internalFilePath, "utf8");
-    expect(src).toContain("updateStatus");
-    expect(src).toContain("internalMutation");
-  });
-});
-
-describe("AC-2: updateFromAgent internal mutation", () => {
+describe("AC-1: updateFromAgent internal mutation", () => {
   it("is defined and exported in convex/improvements/internal.ts", () => {
     expect(fs.existsSync(internalFilePath)).toBe(true);
     const src = fs.readFileSync(internalFilePath, "utf8");
@@ -30,7 +20,7 @@ describe("AC-2: updateFromAgent internal mutation", () => {
   });
 });
 
-describe("AC-3: executeMerge internal mutation", () => {
+describe("AC-2: executeMerge internal mutation", () => {
   it("is defined and exported in convex/improvements/internal.ts and patches mergedIntoId + mergedFromIds", () => {
     expect(fs.existsSync(internalFilePath)).toBe(true);
     const src = fs.readFileSync(internalFilePath, "utf8");

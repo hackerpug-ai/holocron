@@ -935,14 +935,7 @@ export default defineSchema({
     description: v.string(),
     title: v.optional(v.string()),
     summary: v.optional(v.string()),
-    status: v.union(
-      v.literal("submitted"),
-      v.literal("processing"),
-      v.literal("pending_review"),
-      v.literal("approved"),
-      v.literal("done"),
-      v.literal("merged")
-    ),
+    status: v.union(v.literal("open"), v.literal("closed")),
     sourceScreen: v.string(),
     sourceComponent: v.optional(v.string()),
     agentDecision: v.optional(v.object({
@@ -960,6 +953,10 @@ export default defineSchema({
     mergedFromIds: v.optional(v.array(v.id("improvementRequests"))),
     userFeedback: v.optional(v.string()),
     embedding: v.optional(v.array(v.float64())),
+    // Closure metadata — set when status transitions to "closed"
+    closureReason: v.optional(v.string()),
+    closureEvidence: v.optional(v.array(v.string())),
+    closedAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
     processedAt: v.optional(v.number()),
