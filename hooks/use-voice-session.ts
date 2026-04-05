@@ -37,6 +37,22 @@ import { getToolDefinitions } from "@/lib/voice/tool-definitions";
 import { dispatchFunctionCall, type DispatcherDeps } from "@/lib/voice/function-dispatcher";
 
 /**
+ * Discard prewarm data this many ms before the OpenAI 60s token TTL expires.
+ * 50s gives a 10s safety margin.
+ */
+const PREWARM_TTL_MS = 50_000;
+
+/** Data cached by the prewarm path, cleared once consumed or expired. */
+interface PrewarmData {
+  ephemeralKey: string;
+  sessionId: string;
+  instructions: string;
+  expiresAt: number;
+  mediaStream: MediaStream;
+  connection: WebRTCConnection;
+}
+
+/**
  * Build session.update for warm-path reactivation only.
  *
  * Static config (model, voice, turn_detection, truncation, transcription) is
@@ -73,6 +89,12 @@ export interface UseVoiceSessionReturn {
   retryMessage: string | null;
   /** Current microphone audio level (0.0–1.0), updated at ~10Hz */
   audioLevel: number;
+  /**
+   * Pre-warm: fetch ephemeral key + acquire mic BEFORE the user taps.
+   * Safe to call multiple times — guards against concurrent pre-warms.
+   * No-op if a pre-warm is already in flight or data is still valid.
+   */
+  prewarm: () => Promise<void>;
 }
 
 export function useVoiceSession(
@@ -98,6 +120,13 @@ export function useVoiceSession(
   /** Mirrors state.status so predicates can read it without stale closures. Updated each render. */
   const statusRef = useRef(state.status);
   statusRef.current = state.status;
+
+  /** Prewarm data cached before the user taps mic. Cleared on use or expiry. */
+  const prewarmDataRef = useRef<PrewarmData | null>(null);
+  /** Prewarm discard timer — clears prewarm data after PREWARM_TTL_MS. */
+  const prewarmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Guards against concurrent prewarm calls. */
+  const isPrewarmingRef = useRef<boolean>(false);
 
   const [audioLevel, setAudioLevel] = useState(0);
 
@@ -171,6 +200,105 @@ export function useVoiceSession(
     await cleanup(true /* keepWarm */);
   }, [cleanup]);
 
+  /**
+   * Discard prewarm data: stop mic tracks, end Convex session, clear refs.
+   * Safe to call when prewarmDataRef is null (no-op).
+   */
+  const discardPrewarm = useCallback(() => {
+    // Cancel the auto-discard timer
+    if (prewarmTimerRef.current !== null) {
+      clearTimeout(prewarmTimerRef.current);
+      prewarmTimerRef.current = null;
+    }
+
+    const data = prewarmDataRef.current;
+    if (!data) return;
+    prewarmDataRef.current = null;
+
+    // Stop mic tracks to release hardware
+    for (const track of data.mediaStream.getTracks()) {
+      track.stop();
+    }
+
+    // Destroy the WebRTC connection (no SDP exchange happened, so it's just media+peer cleanup)
+    data.connection.destroy();
+
+    // End the Convex session fire-and-forget
+    endSession({ sessionId: data.sessionId as Id<"voiceSessions"> }).catch(() => {});
+  }, [endSession]);
+
+  /**
+   * Pre-warm: fetch ephemeral key + acquire mic BEFORE the user taps.
+   *
+   * Runs createSession + prepareMedia in parallel (same as the cold path does
+   * right now). Stores the result in prewarmDataRef so start() can skip that
+   * work entirely and go straight to connectWithMedia().
+   *
+   * Does NOT perform the SDP exchange — that's the expensive network hit we
+   * want to defer until the user actually commits.
+   */
+  const prewarm = useCallback(async () => {
+    // Guard: don't prewarm while a real session is live
+    if (
+      statusRef.current !== "idle" &&
+      statusRef.current !== "error"
+    ) {
+      return;
+    }
+
+    // Guard: don't fire a second concurrent prewarm
+    if (isPrewarmingRef.current) return;
+
+    // Guard: prewarm data is still valid — no need to redo it
+    if (
+      prewarmDataRef.current !== null &&
+      Date.now() < prewarmDataRef.current.expiresAt
+    ) {
+      return;
+    }
+
+    isPrewarmingRef.current = true;
+    console.time("voice:prewarm");
+
+    const conn = new WebRTCConnection();
+    try {
+      const [tokenResult, mediaStream] = await Promise.all([
+        createSession({ conversationId }),
+        conn.prepareMedia(),
+      ]);
+
+      // Discard any stale prewarm data before storing new data
+      discardPrewarm();
+
+      const expiresAt = Date.now() + PREWARM_TTL_MS;
+
+      prewarmDataRef.current = {
+        ephemeralKey: tokenResult.ephemeralKey,
+        sessionId: tokenResult.sessionId,
+        instructions: tokenResult.instructions,
+        expiresAt,
+        mediaStream,
+        connection: conn,
+      };
+
+      // Schedule auto-discard slightly before token expiry
+      prewarmTimerRef.current = setTimeout(() => {
+        console.log("[voice] prewarm expired — discarding stale token");
+        prewarmTimerRef.current = null;
+        discardPrewarm();
+      }, PREWARM_TTL_MS);
+
+      console.timeEnd("voice:prewarm");
+      console.log("[voice] prewarm hit");
+    } catch {
+      // Prewarm failures are silent — cold path is the fallback
+      conn.destroy();
+      console.timeEnd("voice:prewarm");
+    } finally {
+      isPrewarmingRef.current = false;
+    }
+  }, [conversationId, createSession, discardPrewarm]);
+
   const start = useCallback(async () => {
     // Guard against double-start
     if (state.status !== "idle" && state.status !== "error") return;
@@ -241,9 +369,31 @@ export function useVoiceSession(
       return;
     }
 
+    // Check prewarm data before creating a new connection
+    const prewarmSnapshot = prewarmDataRef.current;
+    const usingPrewarm =
+      prewarmSnapshot !== null && Date.now() < prewarmSnapshot.expiresAt;
+
+    if (usingPrewarm && prewarmSnapshot !== null) {
+      // Consume prewarm — cancel expiry timer and clear ref now so we own the data
+      if (prewarmTimerRef.current !== null) {
+        clearTimeout(prewarmTimerRef.current);
+        prewarmTimerRef.current = null;
+      }
+      prewarmDataRef.current = null;
+    } else if (prewarmSnapshot !== null) {
+      // Prewarm exists but is expired — discard it (discardPrewarm clears timer + ref)
+      console.log("[voice] prewarm miss (expired)");
+      discardPrewarm();
+    } else {
+      console.log("[voice] prewarm miss (none)");
+    }
+
     try {
-      // Set up WebRTC connection with event handler wiring
-      const conn = new WebRTCConnection();
+      // Use prewarm connection if available, otherwise create fresh
+      const conn = usingPrewarm && prewarmSnapshot
+        ? prewarmSnapshot.connection
+        : new WebRTCConnection();
 
       // Wire transcript recorder for fire-and-forget persistence.
       // sessionId is set after Promise.all but before any events fire,
@@ -389,49 +539,61 @@ export function useVoiceSession(
         },
       });
 
-      // Run token generation and media acquisition in parallel
       dispatch({ type: "SET_CONNECTING_PHASE", phase: "connecting_ai" });
       let tokenResult: { ephemeralKey: string; sessionId: string; instructions: string };
       let mediaStream: MediaStream;
-      try {
-        const results = await Promise.all([
-          createSession({ conversationId }),
-          conn.prepareMedia(),
-        ]);
-        tokenResult = results[0];
-        mediaStream = results[1];
-      } catch (parallelError) {
-        const errMsg =
-          parallelError instanceof Error
-            ? parallelError.message
-            : "Connection failed";
-        // Detect microphone permission denial
-        if (
-          errMsg.toLowerCase().includes("permission") ||
-          errMsg.toLowerCase().includes("notallowederror") ||
-          errMsg.toLowerCase().includes("not allowed")
-        ) {
-          errorHandler.handleMicrophonePermissionDenied();
-        } else {
-          errorHandler.handleTokenGenerationFailure(
+
+      if (usingPrewarm && prewarmSnapshot !== null) {
+        // Prewarm hit: skip the expensive parallel fetch — data is already cached
+        console.log("[voice] prewarm hit");
+        tokenResult = {
+          ephemeralKey: prewarmSnapshot.ephemeralKey,
+          sessionId: prewarmSnapshot.sessionId,
+          instructions: prewarmSnapshot.instructions,
+        };
+        mediaStream = prewarmSnapshot.mediaStream;
+      } else {
+        // Cold path: run token generation and media acquisition in parallel
+        try {
+          const results = await Promise.all([
+            createSession({ conversationId }),
+            conn.prepareMedia(),
+          ]);
+          tokenResult = results[0];
+          mediaStream = results[1];
+        } catch (parallelError) {
+          const errMsg =
             parallelError instanceof Error
-              ? parallelError
-              : new Error("Connection failed")
-          );
-        }
-        // Cross-cleanup: destroy conn to release any acquired media
-        conn.destroy();
-        // End any Convex session that may have been created
-        const sid = sessionIdRef.current;
-        if (sid) {
-          sessionIdRef.current = null;
-          try {
-            await endSession({ sessionId: sid as Id<"voiceSessions"> });
-          } catch {
-            // Best-effort cleanup
+              ? parallelError.message
+              : "Connection failed";
+          // Detect microphone permission denial
+          if (
+            errMsg.toLowerCase().includes("permission") ||
+            errMsg.toLowerCase().includes("notallowederror") ||
+            errMsg.toLowerCase().includes("not allowed")
+          ) {
+            errorHandler.handleMicrophonePermissionDenied();
+          } else {
+            errorHandler.handleTokenGenerationFailure(
+              parallelError instanceof Error
+                ? parallelError
+                : new Error("Connection failed")
+            );
           }
+          // Cross-cleanup: destroy conn to release any acquired media
+          conn.destroy();
+          // End any Convex session that may have been created
+          const sid = sessionIdRef.current;
+          if (sid) {
+            sessionIdRef.current = null;
+            try {
+              await endSession({ sessionId: sid as Id<"voiceSessions"> });
+            } catch {
+              // Best-effort cleanup
+            }
+          }
+          return;
         }
-        return;
       }
 
       sessionIdRef.current = tokenResult.sessionId;
@@ -505,7 +667,7 @@ export function useVoiceSession(
         }
       }
     }
-  }, [conversationId, createSession, endSession, handleTimeout, recordTranscript, state.status]);
+  }, [conversationId, createSession, discardPrewarm, endSession, handleTimeout, recordTranscript, state.status]);
 
   const stop = useCallback(async () => {
     // US-017: destroy warm connection on explicit stop (user intent to fully end)
@@ -513,7 +675,10 @@ export function useVoiceSession(
     isWarmRef.current = false;
     await cleanup(false /* cold close */);
     dispatch({ type: "DISCONNECT" });
-  }, [cleanup]);
+    // Kick off a fresh prewarm so the next tap is fast
+    // Fire-and-forget — errors are silent (prewarm is best-effort)
+    prewarm().catch(() => {});
+  }, [cleanup, prewarm]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -523,6 +688,10 @@ export function useVoiceSession(
       // Destroy warm connection
       warmConnectionRef.current.destroy();
       isWarmRef.current = false;
+
+      // Discard any pending prewarm (releases mic + ends Convex session)
+      // discardPrewarm calls endSession internally, fire-and-forget is fine here
+      discardPrewarm();
 
       // Fire-and-forget cleanup on unmount
       if (connectionRef.current) {
@@ -536,7 +705,7 @@ export function useVoiceSession(
         endSession({ sessionId: sid as Id<"voiceSessions"> }).catch(() => {});
       }
     };
-  }, [endSession]);
+  }, [discardPrewarm, endSession]);
 
   const mute = useCallback(() => {
     dispatch({ type: "MUTE" });
@@ -557,5 +726,6 @@ export function useVoiceSession(
     isWarm: isWarmRef.current,
     retryMessage: retryMessageRef.current,
     audioLevel,
+    prewarm,
   };
 }

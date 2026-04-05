@@ -166,6 +166,7 @@ export default function ChatScreen() {
     unmute,
     audioLevel,
     isWarm,
+    prewarm: prewarmVoice,
   } = useVoiceSession(voiceConversationId)
 
   // Mute state and toggle handler
@@ -331,6 +332,7 @@ export default function ChatScreen() {
           onVoiceStart={startVoice}
           onVoiceStop={stopVoice}
           isWarm={isWarm}
+          onVoicePrewarm={prewarmVoice}
         />
       </View>
     </KeyboardAvoidingView>

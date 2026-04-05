@@ -58,6 +58,8 @@ export interface ChatInputProps {
   onVoiceStop?: () => void
   /** Whether a warm WebRTC connection is available for fast re-activation */
   isWarm?: boolean
+  /** Called on VoiceMicButton mount to pre-warm the connection */
+  onVoicePrewarm?: () => void
 }
 
 const DEFAULT_COMMANDS: SlashCommand[] = [
@@ -161,6 +163,7 @@ export function ChatInput({
   onVoiceStart,
   onVoiceStop,
   isWarm = false,
+  onVoicePrewarm,
 }: ChatInputProps) {
   const { colors: themeColors } = useTheme()
 
@@ -348,6 +351,7 @@ export function ChatInput({
             onStart={onVoiceStart ?? (() => {})}
             onStop={onVoiceStop ?? (() => {})}
             isWarm={isWarm}
+            onPrewarm={onVoicePrewarm}
           />
         ) : (
           <Pressable

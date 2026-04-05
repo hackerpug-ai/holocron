@@ -358,4 +358,149 @@ describe("US-008: useVoiceSession (renderHook)", () => {
       ).toContain(status);
     });
   });
+
+  describe("#606: prewarm — pre-warm ephemeral key + mic on mount", () => {
+    it("prewarm() calls createSession + prepareMedia in the background", async () => {
+      const { result } = renderHook(() => useVoiceSession(CONV_ID));
+
+      await act(async () => {
+        await result.current.prewarm();
+      });
+
+      // Both must be called during prewarm
+      expect(mockCreateSession).toHaveBeenCalledWith({ conversationId: CONV_ID });
+      expect(mockPrepareMedia).toHaveBeenCalled();
+
+      // Session should still be idle — prewarm doesn't activate
+      expect(result.current.state.status).toBe("idle");
+    });
+
+    it("prewarm hit: start() skips createSession + prepareMedia and goes straight to connectWithMedia", async () => {
+      const { result } = renderHook(() => useVoiceSession(CONV_ID));
+
+      // Step 1: prewarm
+      await act(async () => {
+        await result.current.prewarm();
+      });
+      expect(mockCreateSession).toHaveBeenCalledTimes(1);
+      expect(mockPrepareMedia).toHaveBeenCalledTimes(1);
+
+      // Step 2: user taps mic — should reuse prewarm data
+      mockCreateSession.mockClear();
+      mockPrepareMedia.mockClear();
+
+      await act(async () => {
+        await result.current.start();
+      });
+
+      // Prewarm data was consumed — no new session or media fetch
+      expect(mockCreateSession).not.toHaveBeenCalled();
+      expect(mockPrepareMedia).not.toHaveBeenCalled();
+
+      // But connectWithMedia IS called with the prewarmed key + stream
+      expect(mockConnectWithMedia).toHaveBeenCalledWith("ek-test-123", mockMediaStream);
+
+      expect(result.current.state.status).toBe("listening");
+    });
+
+    it("prewarm miss (expired): start() falls back to cold path when prewarm token is stale", async () => {
+      vi.useFakeTimers();
+
+      const { result } = renderHook(() => useVoiceSession(CONV_ID));
+
+      // Prewarm
+      await act(async () => {
+        await result.current.prewarm();
+      });
+      expect(mockCreateSession).toHaveBeenCalledTimes(1);
+
+      // Advance past the 50s prewarm TTL so data auto-expires
+      act(() => {
+        vi.advanceTimersByTime(51_000);
+      });
+
+      // start() should now take the cold path
+      mockCreateSession.mockClear();
+      mockPrepareMedia.mockClear();
+
+      await act(async () => {
+        await result.current.start();
+      });
+
+      // Cold path: both createSession and prepareMedia called again
+      expect(mockCreateSession).toHaveBeenCalledTimes(1);
+      expect(mockPrepareMedia).toHaveBeenCalledTimes(1);
+
+      expect(result.current.state.status).toBe("listening");
+
+      vi.useRealTimers();
+    });
+
+    it("prewarm miss (none): start() takes cold path when prewarm was never called", async () => {
+      const { result } = renderHook(() => useVoiceSession(CONV_ID));
+
+      // No prewarm() call — go straight to start()
+      await act(async () => {
+        await result.current.start();
+      });
+
+      // Cold path: both must be called
+      expect(mockCreateSession).toHaveBeenCalledWith({ conversationId: CONV_ID });
+      expect(mockPrepareMedia).toHaveBeenCalled();
+
+      expect(result.current.state.status).toBe("listening");
+    });
+
+    it("guards against concurrent prewarm calls (isPrewarming flag)", async () => {
+      // Make createSession hang so we can fire a second prewarm while the first is in flight
+      let resolveSession: (v: typeof mockCreateSession extends (...args: never[]) => Promise<infer R> ? R : never) => void;
+      mockCreateSession.mockImplementationOnce(
+        () => new Promise((res) => { resolveSession = res as typeof resolveSession; })
+      );
+
+      const { result } = renderHook(() => useVoiceSession(CONV_ID));
+
+      // Fire two prewarms simultaneously
+      let prewarm1Done = false;
+      let prewarm2Done = false;
+      act(() => {
+        result.current.prewarm().then(() => { prewarm1Done = true; }).catch(() => {});
+        result.current.prewarm().then(() => { prewarm2Done = true; }).catch(() => {});
+      });
+
+      // Resolve the hanging session
+      await act(async () => {
+        resolveSession!({
+          ephemeralKey: "ek-test-123",
+          expiresAt: Date.now() + 60000,
+          sessionId: "session-001",
+          instructions: "Test instructions",
+        });
+      });
+
+      expect(prewarm1Done || prewarm2Done).toBe(true);
+      // createSession should only be called ONCE despite two concurrent prewarm calls
+      expect(mockCreateSession).toHaveBeenCalledTimes(1);
+    });
+
+    it("unmount cleans up prewarm data (stops tracks + calls endSession)", async () => {
+      const mockTrackStop = vi.fn();
+      mockPrepareMedia.mockResolvedValueOnce({
+        getTracks: () => [{ stop: mockTrackStop, kind: 'audio' }],
+      });
+
+      const { result, unmount } = renderHook(() => useVoiceSession(CONV_ID));
+
+      await act(async () => {
+        await result.current.prewarm();
+      });
+      expect(mockCreateSession).toHaveBeenCalledTimes(1);
+
+      unmount();
+
+      // Prewarm cleanup: track stopped + Convex session ended
+      expect(mockTrackStop).toHaveBeenCalled();
+      expect(mockEndSession).toHaveBeenCalledWith({ sessionId: "session-001" });
+    });
+  });
 });

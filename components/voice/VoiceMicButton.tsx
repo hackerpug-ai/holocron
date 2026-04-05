@@ -31,6 +31,11 @@ export interface VoiceMicButtonProps {
   className?: string
   /** When true and voiceState is idle, shows a pulsing warm connection indicator dot */
   isWarm?: boolean
+  /**
+   * Called on mount (empty-deps useEffect) to pre-warm the voice connection.
+   * Optional — if not provided, no pre-warming is attempted.
+   */
+  onPrewarm?: () => void
 }
 
 /**
@@ -44,7 +49,7 @@ export interface VoiceMicButtonProps {
  * - processing → stop icon, enabled
  * - error      → mic icon, enabled (allows retry)
  */
-export function VoiceMicButton({ voiceState, onStart, onStop, className, isWarm = false }: VoiceMicButtonProps) {
+export function VoiceMicButton({ voiceState, onStart, onStop, className, isWarm = false, onPrewarm }: VoiceMicButtonProps) {
   const lastPressTime = useRef<number>(0)
   const DEBOUNCE_MS = 150
 
@@ -53,6 +58,15 @@ export function VoiceMicButton({ voiceState, onStart, onStop, className, isWarm 
   const showWarmDot = isWarm && voiceState === 'idle'
 
   const warmPulse = useSharedValue(1)
+
+  // Pre-warm the voice connection as soon as the mic button mounts.
+  // onPrewarmRef lets us read the latest onPrewarm without it being a dep,
+  // keeping the effect truly mount-only (runs once per button mount).
+  const onPrewarmRef = useRef(onPrewarm)
+  onPrewarmRef.current = onPrewarm
+  useEffect(() => {
+    onPrewarmRef.current?.()
+  }, [])
 
   useEffect(() => {
     if (showWarmDot) {
