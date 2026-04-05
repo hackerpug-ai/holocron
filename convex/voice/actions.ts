@@ -97,21 +97,29 @@ export const createSessionHandler = async (
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "gpt-realtime",
-      modalities: ["text", "audio"],
-      voice: "cedar",
-      instructions: instructions as string,
-      tools: getToolDefinitions(),
-      tool_choice: "auto",
-      turn_detection: {
-        type: "server_vad",
-        threshold: 0.5,
-        prefix_padding_ms: 300,
-        silence_duration_ms: 500,
-        idle_timeout_ms: 30000,
+      session: {
+        type: "realtime",
+        model: "gpt-realtime",
+        instructions: instructions as string,
+        tools: getToolDefinitions(),
+        tool_choice: "auto",
+        audio: {
+          input: {
+            turn_detection: {
+              type: "server_vad",
+              threshold: 0.5,
+              prefix_padding_ms: 300,
+              silence_duration_ms: 500,
+              idle_timeout_ms: 30000,
+            },
+            transcription: { model: "gpt-4o-transcribe" },
+          },
+          output: {
+            voice: "cedar",
+          },
+        },
+        truncation: { type: "retention_ratio", retention_ratio: 0.8 },
       },
-      input_audio_transcription: { model: "gpt-4o-transcribe" },
-      truncation: { type: "retention_ratio", retention_ratio: 0.8 },
     }),
   });
   console.timeEnd("openai-client-secrets-fetch");
