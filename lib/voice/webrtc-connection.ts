@@ -23,6 +23,8 @@ export class WebRTCConnection {
   private localStream: MediaStream | null = null
   private callbacks: WebRTCConnectionCallbacks = {}
   private audioLevelInterval: ReturnType<typeof setInterval> | null = null
+  /** True once setAudioModeAsync and InCallManager.start have been called. Skipped on warm reuse. */
+  private audioConfigured = false
 
   setCallbacks(callbacks: WebRTCConnectionCallbacks): void {
     this.callbacks = callbacks
@@ -36,12 +38,16 @@ export class WebRTCConnection {
   async prepareMedia(): Promise<MediaStream> {
     let stream: MediaStream | null = null
     try {
-      // Enable audio in silent mode (iOS)
-      await setAudioModeAsync({ playsInSilentMode: true })
+      if (!this.audioConfigured) {
+        // Enable audio in silent mode (iOS) — cold path only
+        await setAudioModeAsync({ playsInSilentMode: true })
 
-      // Force speaker output for voice assistant
-      InCallManager.start({ media: 'audio' })
-      InCallManager.setForceSpeakerphoneOn(true)
+        // Force speaker output for voice assistant
+        InCallManager.start({ media: 'audio' })
+        InCallManager.setForceSpeakerphoneOn(true)
+
+        this.audioConfigured = true
+      }
 
       // Get microphone access
       const ms = await mediaDevices.getUserMedia({ audio: true })
@@ -155,13 +161,32 @@ export class WebRTCConnection {
     await this.connectWithMedia(ephemeralKey, mediaStream)
   }
 
-  startAudioLevelMonitoring(callback: (level: number) => void): void {
+  /**
+   * Begin polling microphone audio levels at ~10 Hz.
+   *
+   * @param callback - Receives the current audio level (0.0–1.0).
+   * @param shouldPoll - Optional predicate called before each getStats() call.
+   *   When provided, the level callback is only invoked while shouldPoll()
+   *   returns true (e.g. only during 'listening' or 'speaking' states). When
+   *   the predicate returns false the tick is skipped and the callback is NOT
+   *   called, avoiding unnecessary getStats() round-trips during idle/muted/
+   *   processing states. When omitted, every tick polls unconditionally.
+   */
+  startAudioLevelMonitoring(
+    callback: (level: number) => void,
+    shouldPoll?: () => boolean
+  ): void {
     if (this.audioLevelInterval !== null) {
       // Already monitoring — clear previous interval before starting a new one
       clearInterval(this.audioLevelInterval)
     }
 
     this.audioLevelInterval = setInterval(async () => {
+      // Skip expensive getStats() call when the predicate says we're not active
+      if (shouldPoll && !shouldPoll()) {
+        return
+      }
+
       if (!this.pc) {
         callback(0)
         return
@@ -238,6 +263,9 @@ export class WebRTCConnection {
 
     // Stop InCallManager
     InCallManager.stop()
+
+    // Reset audio config flag so a reused instance re-initializes on next prepareMedia
+    this.audioConfigured = false
 
     // Clear callbacks
     this.callbacks = {}

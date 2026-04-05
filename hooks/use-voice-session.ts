@@ -104,6 +104,9 @@ export function useVoiceSession(
   const retryMessageRef = useRef<string | null>(null);
   const ephemeralKeyRef = useRef<string | null>(null);
   const instructionsRef = useRef<string>("");
+  /** Mirrors state.status so predicates can read it without stale closures. Updated each render. */
+  const statusRef = useRef(state.status);
+  statusRef.current = state.status;
 
   const [audioLevel, setAudioLevel] = useState(0);
 
@@ -485,7 +488,9 @@ export function useVoiceSession(
       }
 
       connectionRef.current = conn;
-      conn.startAudioLevelMonitoring(setAudioLevel);
+      conn.startAudioLevelMonitoring(setAudioLevel, () =>
+        statusRef.current === "listening" || statusRef.current === "speaking"
+      );
 
       // Transition to LISTENING and start idle timeout
       dispatch({ type: "CONNECTED", sessionId: tokenResult.sessionId });

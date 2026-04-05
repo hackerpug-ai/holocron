@@ -248,6 +248,82 @@ describe('WebRTCConnection', () => {
     })
   })
 
+  describe('prepareMedia() audioConfigured flag', () => {
+    it('calls setAudioModeAsync and InCallManager.start on first prepareMedia', async () => {
+      await connection.prepareMedia()
+
+      expect(setAudioModeAsync).toHaveBeenCalledWith({ playsInSilentMode: true })
+      expect(InCallManager.start).toHaveBeenCalledWith({ media: 'audio' })
+    })
+
+    it('skips setAudioModeAsync and InCallManager.start on subsequent prepareMedia calls', async () => {
+      await connection.prepareMedia()
+      vi.clearAllMocks()
+
+      await connection.prepareMedia()
+
+      expect(setAudioModeAsync).not.toHaveBeenCalled()
+      expect(InCallManager.start).not.toHaveBeenCalled()
+    })
+
+    it('re-runs audio setup after destroy()', async () => {
+      await connection.prepareMedia()
+      connection.destroy()
+      vi.clearAllMocks()
+
+      await connection.prepareMedia()
+
+      expect(setAudioModeAsync).toHaveBeenCalledWith({ playsInSilentMode: true })
+      expect(InCallManager.start).toHaveBeenCalledWith({ media: 'audio' })
+    })
+  })
+
+  describe('startAudioLevelMonitoring() shouldPoll predicate', () => {
+    beforeEach(() => {
+      vi.useFakeTimers()
+    })
+
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('skips getStats when shouldPoll returns false', async () => {
+      await connection.connect('ek_test_token')
+
+      const callback = vi.fn()
+      connection.startAudioLevelMonitoring(callback, () => false)
+
+      // Advance timer — interval fires but predicate returns false, so no callback
+      await vi.advanceTimersByTimeAsync(200)
+
+      expect(callback).not.toHaveBeenCalled()
+      connection.stopAudioLevelMonitoring()
+    })
+
+    it('calls callback when shouldPoll returns true and pc is null', async () => {
+      // Don't connect — pc is null
+      const callback = vi.fn()
+      connection.startAudioLevelMonitoring(callback, () => true)
+
+      await vi.advanceTimersByTimeAsync(150)
+
+      // pc is null, so callback(0) is called
+      expect(callback).toHaveBeenCalledWith(0)
+      connection.stopAudioLevelMonitoring()
+    })
+
+    it('calls callback unconditionally when no predicate is provided', async () => {
+      // Don't connect — pc is null
+      const callback = vi.fn()
+      connection.startAudioLevelMonitoring(callback)
+
+      await vi.advanceTimersByTimeAsync(150)
+
+      expect(callback).toHaveBeenCalledWith(0)
+      connection.stopAudioLevelMonitoring()
+    })
+  })
+
   describe('destroy()', () => {
     it('stops mic track, closes data channel, closes peer connection, removes listeners', async () => {
       await connection.connect('ek_test_token')
