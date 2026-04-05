@@ -19,16 +19,35 @@ import type { ParsedFunctionCall } from './types'
 // ─── Tool display names ────────────────────────────────────────────────────────
 
 export const TOOL_DISPLAY_NAMES: Record<string, string> = {
-  search_knowledge: "Searching knowledge...",
-  list_recent_documents: "Fetching documents...",
+  // Knowledge Base
+  search_knowledge_base: "Searching knowledge...",
+  browse_category: "Browsing category...",
+  knowledge_base_stats: "Fetching stats...",
+  // Documents
+  save_document: "Saving document...",
+  update_document: "Updating document...",
   get_document: "Loading document...",
-  get_conversations: "Fetching conversations...",
-  get_research_sessions: "Checking research...",
-  get_improvements: "Loading improvements...",
-  check_agent_status: "Checking status...",
-  start_research: "Starting research...",
-  submit_improvement: "Submitting improvement...",
-  create_note: "Creating note...",
+  // Research
+  quick_research: "Researching...",
+  deep_research: "Researching deeply...",
+  // Shopping
+  shop_search: "Searching products...",
+  // Subscriptions
+  subscribe: "Subscribing...",
+  unsubscribe: "Unsubscribing...",
+  list_subscriptions: "Fetching subscriptions...",
+  check_subscriptions: "Checking subscriptions...",
+  // Discovery
+  whats_new: "Checking what's new...",
+  toolbelt_search: "Searching toolbelt...",
+  // Repository Analysis
+  assimilate: "Analyzing repository...",
+  // Improvements
+  add_improvement: "Submitting improvement...",
+  search_improvements: "Searching improvements...",
+  get_improvement: "Loading improvement...",
+  list_improvements: "Loading improvements...",
+  // Voice-Only
   navigate_app: "Navigating...",
 }
 
