@@ -264,7 +264,7 @@ export function useVoiceSession(
       sessionTimeoutRef.current = new SessionTimeout({ onTimeout: handleTimeout });
 
       // Wire data channel events to state machine via event handler
-      const handleRawEvent = createEventHandler(
+      const handleEvent = createEventHandler(
         {
           onSessionCreated: () => {
             // Session created by OpenAI — send session.update config
@@ -373,8 +373,7 @@ export function useVoiceSession(
 
       conn.setCallbacks({
         onEvent: (event) => {
-          // The WebRTC connection already parses JSON; event handler expects raw string
-          handleRawEvent(JSON.stringify(event));
+          handleEvent(event);
         },
         onConnectionFailed: () => {
           // Trigger retry with exponential backoff using current ephemeral key
@@ -386,7 +385,7 @@ export function useVoiceSession(
               const newConn = new WebRTCConnection();
               newConn.setCallbacks({
                 onEvent: (event) => {
-                  handleRawEvent(JSON.stringify(event));
+                  handleEvent(event);
                 },
                 onConnectionFailed: () => {
                   // Nested failures handled by the outer retry manager

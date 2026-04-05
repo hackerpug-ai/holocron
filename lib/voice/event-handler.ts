@@ -5,8 +5,12 @@ import type {
 } from './types'
 
 /**
- * Creates a data channel message handler that parses OpenAI Realtime events
- * and dispatches them to typed callbacks.
+ * Creates a data channel message handler that dispatches pre-parsed OpenAI
+ * Realtime events to typed callbacks.
+ *
+ * The caller is responsible for parsing the raw JSON before calling the
+ * returned handler. webrtc-connection.ts already parses data channel messages,
+ * so passing a parsed object avoids a redundant JSON.stringify/parse round-trip.
  *
  * Usage:
  * ```ts
@@ -16,46 +20,42 @@ import type {
  *   onError: (err) => console.error(err.type, err.message),
  * })
  *
- * dc.addEventListener('message', (e) => handler(e.data))
+ * dc.addEventListener('message', (e) => {
+ *   try { handler(JSON.parse(e.data)) } catch { }
+ * })
  * ```
  */
 export function createEventHandler(
   callbacks: RealtimeEventCallbacks,
   logger: { debug: (msg: string, ...args: unknown[]) => void } = console
-): (rawData: string) => void {
-  return (rawData: string) => {
-    let event: RealtimeEvent & { type: string }
-    try {
-      event = JSON.parse(rawData) as RealtimeEvent & { type: string }
-    } catch {
-      logger.debug('[voice/event-handler] Malformed JSON on data channel:', rawData)
+): (event: unknown) => void {
+  return (event: unknown) => {
+    const parsed = event as RealtimeEvent & { type: string }
+
+    if (!parsed || typeof parsed.type !== 'string') {
+      logger.debug('[voice/event-handler] Event missing type field:', parsed)
       return
     }
 
-    if (!event || typeof event.type !== 'string') {
-      logger.debug('[voice/event-handler] Event missing type field:', event)
-      return
-    }
-
-    switch (event.type) {
+    switch (parsed.type) {
       case 'session.created':
-        callbacks.onSessionCreated?.(event.session)
+        callbacks.onSessionCreated?.(parsed.session)
         break
 
       case 'session.updated':
-        callbacks.onSessionUpdated?.(event.session)
+        callbacks.onSessionUpdated?.(parsed.session)
         break
 
       case 'response.output_item.done':
-        handleOutputItemDone(event, callbacks, logger)
+        handleOutputItemDone(parsed, callbacks, logger)
         break
 
       case 'response.audio_transcript.done':
-        callbacks.onTranscript?.(event.transcript)
+        callbacks.onTranscript?.(parsed.transcript)
         break
 
       case 'conversation.item.input_audio_transcription.completed':
-        callbacks.onUserTranscript?.(event.transcript)
+        callbacks.onUserTranscript?.(parsed.transcript)
         break
 
       case 'input_audio_buffer.speech_started':
@@ -68,13 +68,13 @@ export function createEventHandler(
 
       case 'error':
         callbacks.onError?.({
-          type: event.error.type,
-          message: event.error.message,
+          type: parsed.error.type,
+          message: parsed.error.message,
         })
         break
 
       default:
-        logger.debug('[voice/event-handler] Unhandled event type:', (event as { type: string }).type)
+        logger.debug('[voice/event-handler] Unhandled event type:', (parsed as { type: string }).type)
         break
     }
   }

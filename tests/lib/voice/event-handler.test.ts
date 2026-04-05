@@ -9,7 +9,7 @@ function makeLogger() {
 describe('createEventHandler', () => {
   let callbacks: Required<RealtimeEventCallbacks>
   let logger: ReturnType<typeof makeLogger>
-  let handler: (raw: string) => void
+  let handler: (event: unknown) => void
 
   beforeEach(() => {
     callbacks = {
@@ -39,7 +39,7 @@ describe('createEventHandler', () => {
         },
       }
 
-      handler(JSON.stringify(event))
+      handler(event)
 
       expect(callbacks.onSessionCreated).toHaveBeenCalledOnce()
       expect(callbacks.onSessionCreated).toHaveBeenCalledWith({
@@ -65,7 +65,7 @@ describe('createEventHandler', () => {
         },
       }
 
-      handler(JSON.stringify(event))
+      handler(event)
 
       expect(callbacks.onFunctionCall).toHaveBeenCalledOnce()
       expect(callbacks.onFunctionCall).toHaveBeenCalledWith({
@@ -87,7 +87,7 @@ describe('createEventHandler', () => {
         },
       }
 
-      handler(JSON.stringify(event))
+      handler(event)
 
       const call = vi.mocked(callbacks.onFunctionCall).mock.calls[0][0]
       expect(call.callId).toBe('call_CORRECT')
@@ -108,7 +108,7 @@ describe('createEventHandler', () => {
         },
       }
 
-      handler(JSON.stringify(event))
+      handler(event)
 
       expect(callbacks.onFunctionCall).not.toHaveBeenCalled()
     })
@@ -122,36 +122,36 @@ describe('createEventHandler', () => {
         },
       }
 
-      handler(JSON.stringify(event))
+      handler(event)
 
       expect(callbacks.onFunctionCall).not.toHaveBeenCalled()
     })
   })
 
-  // --- AC 4: malformed JSON ---
-  describe('malformed JSON handling', () => {
-    it('catches malformed JSON and logs debug, handler does not crash', () => {
-      expect(() => handler('this is not json{')).not.toThrow()
+  // --- AC 4: null/undefined/non-object handling ---
+  describe('null/missing type field handling', () => {
+    it('handles null event gracefully without crashing', () => {
+      expect(() => handler(null)).not.toThrow()
       expect(logger.debug).toHaveBeenCalledWith(
-        expect.stringContaining('Malformed JSON'),
-        expect.any(String)
+        expect.stringContaining('missing type'),
+        null
       )
     })
 
-    it('continues processing events after malformed message', () => {
-      handler('broken{{{')
+    it('continues processing events after bad event', () => {
+      handler(null)
 
       const event = {
         type: 'session.created',
         session: { id: 'sess_1', model: 'gpt-realtime' },
       }
-      handler(JSON.stringify(event))
+      handler(event)
 
       expect(callbacks.onSessionCreated).toHaveBeenCalledOnce()
     })
 
     it('handles event without type field', () => {
-      handler(JSON.stringify({ data: 'no type here' }))
+      handler({ data: 'no type here' })
       expect(logger.debug).toHaveBeenCalledWith(
         expect.stringContaining('missing type'),
         expect.anything()
@@ -171,7 +171,7 @@ describe('createEventHandler', () => {
         },
       }
 
-      handler(JSON.stringify(event))
+      handler(event)
 
       expect(callbacks.onError).toHaveBeenCalledOnce()
       expect(callbacks.onError).toHaveBeenCalledWith({
@@ -189,7 +189,7 @@ describe('createEventHandler', () => {
         session: { id: 'sess_1', model: 'gpt-realtime', voice: 'marin' },
       }
 
-      handler(JSON.stringify(event))
+      handler(event)
 
       expect(callbacks.onSessionUpdated).toHaveBeenCalledOnce()
       expect(callbacks.onSessionUpdated).toHaveBeenCalledWith(
@@ -205,7 +205,7 @@ describe('createEventHandler', () => {
         transcript: 'Hello, how can I help you?',
       }
 
-      handler(JSON.stringify(event))
+      handler(event)
 
       expect(callbacks.onTranscript).toHaveBeenCalledWith('Hello, how can I help you?')
     })
@@ -213,12 +213,12 @@ describe('createEventHandler', () => {
 
   describe('input_audio_buffer events', () => {
     it('fires onSpeechStarted', () => {
-      handler(JSON.stringify({ type: 'input_audio_buffer.speech_started' }))
+      handler({ type: 'input_audio_buffer.speech_started' })
       expect(callbacks.onSpeechStarted).toHaveBeenCalledOnce()
     })
 
     it('fires onSpeechStopped', () => {
-      handler(JSON.stringify({ type: 'input_audio_buffer.speech_stopped' }))
+      handler({ type: 'input_audio_buffer.speech_stopped' })
       expect(callbacks.onSpeechStopped).toHaveBeenCalledOnce()
     })
   })
@@ -226,7 +226,7 @@ describe('createEventHandler', () => {
   // --- Unknown events logged ---
   describe('unknown event types', () => {
     it('logs unknown event types at debug level', () => {
-      handler(JSON.stringify({ type: 'conversation.item.created' }))
+      handler({ type: 'conversation.item.created' })
       expect(logger.debug).toHaveBeenCalledWith(
         expect.stringContaining('Unhandled event type'),
         'conversation.item.created'
@@ -248,7 +248,7 @@ describe('createEventHandler', () => {
         },
       }
 
-      handler(JSON.stringify(event))
+      handler(event)
 
       expect(callbacks.onFunctionCall).not.toHaveBeenCalled()
       expect(callbacks.onError).toHaveBeenCalledWith(
