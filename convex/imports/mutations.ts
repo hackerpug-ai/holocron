@@ -1,4 +1,5 @@
 import { mutation, query } from "../_generated/server";
+import type { MutationCtx } from "../_generated/server";
 import { v } from "convex/values";
 
 const MAX_IMPORTS_PER_HOUR = 10;
@@ -8,15 +9,14 @@ const HOUR_IN_MS = 60 * 60 * 1000;
  * Check rate limit for imports
  * Returns true if rate limit would be exceeded
  */
-async function wouldExceedRateLimit(ctx: any): Promise<boolean> {
+async function wouldExceedRateLimit(ctx: MutationCtx): Promise<boolean> {
   const now = Date.now();
   const oneHourAgo = now - HOUR_IN_MS;
 
   // Count imports in the last hour
   const recentImports = await ctx.db
     .query("imports")
-    .withIndex("by_importedAt")
-    .gte("importedAt", oneHourAgo)
+    .withIndex("by_importedAt", (q) => q.gte("importedAt", oneHourAgo))
     .collect();
 
   return recentImports.length >= MAX_IMPORTS_PER_HOUR;

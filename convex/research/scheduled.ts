@@ -11,8 +11,10 @@
 "use node";
 
 import { internalAction } from "../_generated/server";
+import type { ActionCtx } from "../_generated/server";
 import { v } from "convex/values";
 import { api, internal } from "../_generated/api";
+import type { Id } from "../_generated/dataModel";
 import { generateText } from "ai";
 import { openai } from "@ai-sdk/openai";
 import {
@@ -93,7 +95,7 @@ function generateIterationSummary(
  * in-progress feedback without repeating the query+update boilerplate.
  */
 async function updateLoadingCardSteps(
-  ctx: any,
+  ctx: ActionCtx,
   conversationId: string,
   sessionId: string,
   topic: string,
@@ -101,7 +103,7 @@ async function updateLoadingCardSteps(
 ): Promise<void> {
   const loadingCard = await ctx.runQuery(
     api.chatMessages.queries.findLoadingCardBySession,
-    { conversationId, sessionId },
+    { conversationId: conversationId as Id<"conversations">, sessionId },
   );
   if (!loadingCard) return;
 
@@ -259,7 +261,7 @@ export const processDeepResearchIteration = internalAction({
       console.log(`[processIteration] EXPAND phase starting`);
       await updateLoadingCardSteps(
         ctx,
-        session.conversationId as string,
+        session.conversationId,
         sessionId.toString(),
         session.topic,
         [
@@ -288,7 +290,7 @@ export const processDeepResearchIteration = internalAction({
       console.log(`[processIteration] SEARCH phase starting`);
       await updateLoadingCardSteps(
         ctx,
-        session.conversationId as string,
+        session.conversationId,
         sessionId.toString(),
         session.topic,
         [
@@ -346,7 +348,7 @@ export const processDeepResearchIteration = internalAction({
       console.log(`[processIteration] DEEP READ phase starting`);
       await updateLoadingCardSteps(
         ctx,
-        session.conversationId as string,
+        session.conversationId,
         sessionId.toString(),
         session.topic,
         [
@@ -406,7 +408,7 @@ export const processDeepResearchIteration = internalAction({
       console.log(`[processIteration] SYNTHESIZE phase starting`);
       await updateLoadingCardSteps(
         ctx,
-        session.conversationId as string,
+        session.conversationId,
         sessionId.toString(),
         session.topic,
         [
@@ -448,7 +450,7 @@ export const processDeepResearchIteration = internalAction({
       console.log(`[processIteration] REVIEW phase starting`);
       await updateLoadingCardSteps(
         ctx,
-        session.conversationId as string,
+        session.conversationId,
         sessionId.toString(),
         session.topic,
         [
@@ -517,7 +519,7 @@ export const processDeepResearchIteration = internalAction({
       // Show "Saving..." step before persisting iteration
       await updateLoadingCardSteps(
         ctx,
-        session.conversationId as string,
+        session.conversationId,
         sessionId.toString(),
         session.topic,
         [
@@ -573,7 +575,7 @@ export const processDeepResearchIteration = internalAction({
       // Mark iteration save as complete
       await updateLoadingCardSteps(
         ctx,
-        session.conversationId as string,
+        session.conversationId,
         sessionId.toString(),
         session.topic,
         [
@@ -630,7 +632,7 @@ export const processDeepResearchIteration = internalAction({
         // Show "Saving to knowledge base..." before document creation
         await updateLoadingCardSteps(
           ctx,
-          session.conversationId as string,
+          session.conversationId,
           sessionId.toString(),
           session.topic,
           [

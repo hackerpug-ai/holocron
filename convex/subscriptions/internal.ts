@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { internalAction, internalQuery, internalMutation } from "../_generated/server";
+import type { ActionCtx } from "../_generated/server";
 import { api, internal } from "../_generated/api";
 import { readUrlWithJina, readUrlWithJinaAndLinks } from "../research/search.js";
 import { embed } from "ai";
@@ -1096,7 +1097,7 @@ export const createDocumentFromContent = internalMutation({
 async function processSingleSource(
   source: any,
   existingContentMap: Record<string, string[]>,
-  ctx: any
+  ctx: ActionCtx
 ): Promise<{
   sourceId: any;
   identifier: string;
