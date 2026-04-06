@@ -18,9 +18,11 @@
  */
 
 import { internalAction, action } from "../_generated/server";
+import type { ActionCtx } from "../_generated/server";
 import { internal, api } from "../_generated/api";
 import { v } from "convex/values";
 import { generateText } from "ai";
+import type { GenerateTextResult, ModelMessage, ToolSet } from "ai";
 import { zaiPro } from "../lib/ai/zai_provider";
 import { agentTools } from "./tools";
 import { executeAgentTool } from "./toolExecutor";
@@ -37,15 +39,15 @@ import type { IntentCategory } from "./specialists";
  * or persists plain text response. Shared between specialist and fallback paths.
  */
 async function handleLlmResult(
-  ctx: any,
+  ctx: ActionCtx,
   conversationId: string,
-  result: any,
+  result: GenerateTextResult<ToolSet, never>,
 ): Promise<void> {
   // Handle tool calls — create approval messages
   if (result.toolCalls && result.toolCalls.length > 0) {
     // Check if the LLM wants to create a plan
     const planCall = result.toolCalls.find(
-      (tc: any) => tc.toolName === "create_plan"
+      (tc) => tc.toolName === "create_plan"
     );
 
     if (planCall) {
@@ -148,9 +150,9 @@ async function handleLlmResult(
  * Used as fallback when triage confidence is low.
  */
 async function callLlmMonolithic(
-  ctx: any,
+  ctx: ActionCtx,
   conversationId: string,
-  messages: any[],
+  messages: ModelMessage[],
 ): Promise<void> {
   const result = await generateText({
     model: zaiPro(),
@@ -172,7 +174,7 @@ async function callLlmMonolithic(
  * 4. Specialist intent → dispatch to domain-focused specialist
  */
 async function callLlmAndHandleResponse(
-  ctx: any,
+  ctx: ActionCtx,
   conversationId: string,
 ): Promise<void> {
   // Build context from conversation history (via internal query in V8 file)
@@ -348,7 +350,7 @@ export const executeTool = action({
         await ctx.runMutation(api.toolCalls.mutations.updateStatus, {
           id: toolCallId,
           status: "completed",
-          resultMessageId: resultMessageId as any,
+          resultMessageId,
         });
       } else {
         await ctx.runMutation(api.toolCalls.mutations.updateStatus, {
@@ -443,7 +445,7 @@ export const continueAfterTool = internalAction({
     const completedToolCalls = await ctx.runQuery(api.toolCalls.queries.listByConversation, {
       conversationId,
     });
-    const completedCount = (completedToolCalls ?? []).filter((tc: any) => tc.status === 'completed').length;
+    const completedCount = (completedToolCalls ?? []).filter((tc) => tc.status === 'completed').length;
     const MAX_TOOL_CHAIN_DEPTH = 10;
     if (completedCount >= MAX_TOOL_CHAIN_DEPTH) {
       await ctx.runMutation(api.chatMessages.mutations.create, {
