@@ -68,7 +68,7 @@ export async function searchResearch(
     sessionId: iter.sessionId,
     topic: iter.findings?.slice(0, 100) || "Research session",
     relevanceScore: iter.score || 1 - index / sessionMap.size,
-    status: "completed",
+    status: (iter.status as string) ?? "unknown",
     createdAt: iter.createdAt || Date.now(),
   }));
 
