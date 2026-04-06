@@ -30,6 +30,7 @@ import { WebRTCConnection } from "@/lib/voice/webrtc-connection";
 import type { MediaStream } from "react-native-webrtc-web-shim";
 import { createEventHandler } from "@/lib/voice/event-handler";
 import { createTranscriptRecorder } from "@/lib/voice/transcript-recorder";
+import { createAudioRecorder, type AudioRecorder } from "@/lib/voice/audio-recorder";
 import { SessionTimeout, WarmConnection } from "@/lib/voice/session-timeout";
 import { createRetryManager } from "@/lib/voice/retry-manager";
 import { createVoiceErrorHandler } from "@/lib/voice/error-handler";
@@ -108,6 +109,8 @@ export function useVoiceSession(
   const createSession = useAction(api.voice.actions.createSession);
   const endSession = useMutation(api.voice.mutations.endSession);
   const recordTranscript = useMutation(api.voice.mutations.recordTranscript);
+  const generateAudioUploadUrl = useMutation(api.voice.mutations.generateAudioUploadUrl);
+  const attachAudio = useMutation(api.voice.mutations.attachAudio);
   const convex = useConvex();
   const router = useRouter();
 
@@ -120,6 +123,9 @@ export function useVoiceSession(
   /** Mirrors state.status so predicates can read it without stale closures. Updated each render. */
   const statusRef = useRef(state.status);
   statusRef.current = state.status;
+
+  /** Audio recorder for capturing remote assistant audio. */
+  const audioRecorderRef = useRef<AudioRecorder | null>(null);
 
   /** Prewarm data cached before the user taps mic. Cleared on use or expiry. */
   const prewarmDataRef = useRef<PrewarmData | null>(null);
@@ -157,6 +163,12 @@ export function useVoiceSession(
    */
   const cleanup = useCallback(
     async (keepWarm: boolean = false) => {
+      // Stop audio recording and upload before tearing down the connection
+      if (audioRecorderRef.current) {
+        await audioRecorderRef.current.stopAndUpload();
+        audioRecorderRef.current = null;
+      }
+
       // Cancel any pending idle timeout
       if (sessionTimeoutRef.current) {
         sessionTimeoutRef.current.cancel();
@@ -510,9 +522,21 @@ export function useVoiceSession(
         },
       });
 
+      // Create audio recorder — will be started when remote track arrives
+      const audioRecorder = createAudioRecorder({
+        generateUploadUrl: () => generateAudioUploadUrl(),
+        attachAudio: (args) => attachAudio(args),
+        sessionId: sessionIdRef.current as Id<"voiceSessions">,
+      });
+      audioRecorderRef.current = audioRecorder;
+
       conn.setCallbacks({
         onEvent: (event) => {
           handleEvent(event);
+        },
+        onTrack: (remoteStream) => {
+          // Start capturing remote (assistant) audio for storage
+          audioRecorder.start(remoteStream as unknown as globalThis.MediaStream);
         },
         onConnectionFailed: () => {
           // Trigger retry with exponential backoff using current ephemeral key
@@ -667,7 +691,7 @@ export function useVoiceSession(
         }
       }
     }
-  }, [conversationId, createSession, discardPrewarm, endSession, handleTimeout, recordTranscript, state.status]);
+  }, [conversationId, createSession, discardPrewarm, endSession, generateAudioUploadUrl, attachAudio, handleTimeout, recordTranscript, state.status]);
 
   const stop = useCallback(async () => {
     // US-017: destroy warm connection on explicit stop (user intent to fully end)
@@ -692,6 +716,12 @@ export function useVoiceSession(
       // Discard any pending prewarm (releases mic + ends Convex session)
       // discardPrewarm calls endSession internally, fire-and-forget is fine here
       discardPrewarm();
+
+      // Stop audio recording (fire-and-forget upload on unmount)
+      if (audioRecorderRef.current) {
+        audioRecorderRef.current.stopAndUpload().catch(() => {});
+        audioRecorderRef.current = null;
+      }
 
       // Fire-and-forget cleanup on unmount
       if (connectionRef.current) {
