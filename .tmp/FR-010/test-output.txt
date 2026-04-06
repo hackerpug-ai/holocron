@@ -1,6 +1,0 @@
-Exit code: 0
-
-Test Files  29 passed (29)
-     Tests  264 passed (264)
-  Start at  10:01:39
-  Duration  350ms (transform 1.30s, setup 0ms, import 919ms, tests 1.33s, environment 1ms)

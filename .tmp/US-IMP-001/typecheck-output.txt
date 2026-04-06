@@ -1,5 +1,0 @@
-$ tsc --noEmit
-
-No errors.
-
-Exit code: 0

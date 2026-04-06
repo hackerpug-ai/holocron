@@ -1,2 +1,0 @@
-0
-No Storybook tests configured - exit code 0

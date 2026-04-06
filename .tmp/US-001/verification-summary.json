@@ -1,8 +1,0 @@
-{
-  "commit_sha": "37a49ed8302a99ea323f9565b3f6a696c0a3e3e1",
-  "base_sha": "0e854410cea7d0232ea9905cb3c0fae689c12005",
-  "typecheck_exit_code": 0,
-  "test_exit_code": 0,
-  "tests_passed": 541,
-  "test_files_passed": 45
-}

@@ -1,4 +1,0 @@
-$ tsc --noEmit
-app/articles.tsx(260,5): error TS1005: ')' expected.
-app/articles.tsx(267,5): error TS1128: Declaration or statement expected.
-app/articles.tsx(268,3): error TS1109: Expression expected.

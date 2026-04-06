@@ -1,7 +1,0 @@
-
-> holocron@1.0.0 lint /Users/justinrich/Projects/holocron
-> eslint .
-
-sh: eslint: command not found
- ELIFECYCLE  Command failed.
-Exit code: 1

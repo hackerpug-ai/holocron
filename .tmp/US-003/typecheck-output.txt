@@ -1,2 +1,0 @@
-[0m[32mCheck[0m supabase/functions/conversations/index.ts
-Exit code: 0

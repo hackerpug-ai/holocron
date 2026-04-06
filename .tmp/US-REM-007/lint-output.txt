@@ -1,4 +1,0 @@
-0
-# Lint Output - US-REM-007
-# Documentation-only change - no code linting impact
-# ESLint: PASSED (0 warnings, 0 errors)

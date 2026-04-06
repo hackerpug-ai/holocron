@@ -1,3 +1,0 @@
-0
-$ eslint .
-Exit code: 0

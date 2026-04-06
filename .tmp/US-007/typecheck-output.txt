@@ -1,5 +1,0 @@
-TypeScript compilation completed successfully with no errors.
-
-Command: pnpm tsc --noEmit
-
-Exit code: 0

@@ -1,4 +1,0 @@
-0
-# Test Output - US-REM-007
-# Documentation-only change - no test impact
-# All tests: PASSED (0 failed, 0 affected)

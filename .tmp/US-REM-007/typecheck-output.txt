@@ -1,4 +1,0 @@
-0
-# TypeScript Output - US-REM-007
-# Documentation-only change - no TypeScript impact
-# Type check: PASSED (0 errors)

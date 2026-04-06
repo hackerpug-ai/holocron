@@ -1,2 +1,0 @@
-0
-No test script configured for this project - TypeScript type check passed with exit code 0

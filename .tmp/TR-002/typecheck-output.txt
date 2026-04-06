@@ -1,5 +1,0 @@
-
-> holocron@1.0.0 typecheck /Users/justinrich/Projects/holocron
-> tsc --noEmit
-
-Exit code: 0

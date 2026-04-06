@@ -1,2 +1,0 @@
-0
-No test framework configured - Storybook stories for visual verification

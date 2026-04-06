@@ -1,5 +1,0 @@
-TypeScript compilation passed successfully.
-> holocron@1.0.0 typecheck /Users/justinrich/Projects/holocron
-> tsc --noEmit
-
-(No errors - clean exit)

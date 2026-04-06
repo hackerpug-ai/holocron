@@ -1,7 +1,0 @@
-0
-No linting errors found.
-
-Files checked:
-- supabase/functions/chat-send/index.ts
-- supabase/functions/chat-send/slash-commands.ts
-- supabase/functions/chat-send/slash-commands.test.ts

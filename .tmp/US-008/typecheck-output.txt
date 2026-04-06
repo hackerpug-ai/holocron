@@ -1,4 +1,0 @@
-TypeScript type check passed with no errors.
-
-Command: pnpm tsc --noEmit
-Exit code: 0
