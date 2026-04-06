@@ -31,6 +31,7 @@ yarn-error.*
 
 # macOS
 .DS_Store
+._*
 *.pem
 
 # local env files
@@ -61,3 +62,9 @@ yarn-error.*
 
 # Pi project-local packages (if using pi install -l)
 .pi/npm/
+
+# Personal files (interview prep, research, etc.)
+*-interview-prep-*.md
+*-post-research-*.md
+*-vs-*-comparison-*.md
+PHASE*.md
