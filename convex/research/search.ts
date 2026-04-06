@@ -133,7 +133,7 @@ export async function readUrlWithJina(
       url,
       content: "",
       success: false,
-      error: isTimeout ? "Timeout reading URL" : errorMessage,
+      error: isTimeout ? "Jina timeout reading URL" : `Jina: ${errorMessage}`,
     };
   }
 }
@@ -242,7 +242,7 @@ export async function readUrlWithJinaAndLinks(
       content: "",
       links: [],
       success: false,
-      error: isTimeout ? "Timeout reading URL" : errorMessage,
+      error: isTimeout ? "Jina timeout reading URL" : `Jina: ${errorMessage}`,
     };
   }
 }
@@ -380,20 +380,24 @@ export function generateDiverseQueries(
 }
 
 /**
- * Execute a single search with retry logic
+ * Execute a single search with retry logic and provider attribution
  */
 async function executeSearchWithRetry(
   searchFn: () => Promise<StructuredSearchResult[]>,
   maxRetries: number,
-  timeoutMs: number
+  timeoutMs: number,
+  provider: string = "unknown"
 ): Promise<StructuredSearchResult[]> {
   let lastError: Error | undefined;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      // Create timeout promise
+      // Create timeout promise with provider attribution
       const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error("Search timeout")), timeoutMs);
+        setTimeout(
+          () => reject(new Error(`${provider} search timeout after ${timeoutMs}ms`)),
+          timeoutMs
+        );
       });
 
       // Race between search and timeout
@@ -402,7 +406,7 @@ async function executeSearchWithRetry(
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
       console.warn(
-        `[executeSearchWithRetry] Attempt ${attempt + 1}/${maxRetries + 1} failed:`,
+        `[executeSearchWithRetry] ${provider} attempt ${attempt + 1}/${maxRetries + 1} failed:`,
         lastError.message
       );
 
@@ -415,7 +419,7 @@ async function executeSearchWithRetry(
   }
 
   console.error(
-    `[executeSearchWithRetry] All retries exhausted:`,
+    `[executeSearchWithRetry] ${provider} search failed after ${maxRetries + 1} attempts:`,
     lastError?.message
   );
   return [];
@@ -592,10 +596,10 @@ export async function executeParallelSearchWithRetry(
     `[executeParallelSearchWithRetry] Generated ${queries.length} diverse queries`
   );
 
-  // Execute all searches in parallel
+  // Execute all searches in parallel with provider attribution
   const searchPromises = queries.flatMap((query) => [
-    executeSearchWithRetry(() => executeExaSearch(query), maxRetries, timeoutMs),
-    executeSearchWithRetry(() => executeJinaSearch(query), maxRetries, timeoutMs),
+    executeSearchWithRetry(() => executeExaSearch(query), maxRetries, timeoutMs, "Exa"),
+    executeSearchWithRetry(() => executeJinaSearch(query), maxRetries, timeoutMs, "Jina"),
   ]);
 
   console.log(
