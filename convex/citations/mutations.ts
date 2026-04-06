@@ -68,10 +68,16 @@ export const insertFromMigration = mutation({
 
 /**
  * Clear all citations (for testing only - use with caution)
+ * Requires ALLOW_CLEAR_ALL=true environment variable to be set.
  */
 export const clearAll = mutation({
   args: {},
   handler: async (ctx) => {
+    if (process.env.ALLOW_CLEAR_ALL !== "true") {
+      throw new Error(
+        "clearAll is disabled. Set ALLOW_CLEAR_ALL=true to enable."
+      );
+    }
     const citations = await ctx.db.query("citations").collect();
     for (const citation of citations) {
       await ctx.db.delete(citation._id);

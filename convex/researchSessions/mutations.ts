@@ -102,10 +102,16 @@ export const insertFromMigration = mutation({
 
 /**
  * Clear all research sessions (for testing only - use with caution)
+ * Requires ALLOW_CLEAR_ALL=true environment variable to be set.
  */
 export const clearAll = mutation({
   args: {},
   handler: async (ctx) => {
+    if (process.env.ALLOW_CLEAR_ALL !== "true") {
+      throw new Error(
+        "clearAll is disabled. Set ALLOW_CLEAR_ALL=true to enable."
+      );
+    }
     const sessions = await ctx.db.query("researchSessions").collect();
     for (const session of sessions) {
       await ctx.db.delete(session._id);

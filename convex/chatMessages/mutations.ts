@@ -104,10 +104,16 @@ export const softDelete = mutation({
 
 /**
  * Clear all chat messages (for testing only - use with caution)
+ * Requires ALLOW_CLEAR_ALL=true environment variable to be set.
  */
 export const clearAll = mutation({
   args: {},
   handler: async (ctx) => {
+    if (process.env.ALLOW_CLEAR_ALL !== "true") {
+      throw new Error(
+        "clearAll is disabled. Set ALLOW_CLEAR_ALL=true to enable."
+      );
+    }
     const messages = await ctx.db.query("chatMessages").collect();
     for (const message of messages) {
       await ctx.db.delete(message._id);
