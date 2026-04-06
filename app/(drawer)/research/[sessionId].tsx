@@ -13,6 +13,7 @@ import {
 } from '@/components/deep-research/DeepResearchDetailView'
 import type { DeepResearchSessionWithIterations } from '@/lib/types/deep-research'
 import { useMemo } from 'react'
+import type { Id } from '@/convex/_generated/dataModel'
 
 /**
  * Transform session data to DeepResearchDetailView format
@@ -71,7 +72,8 @@ export default function ResearchDetailScreen() {
   const { sessionId } = useLocalSearchParams<{ sessionId: string }>()
   const router = useRouter()
   const theme = useTheme()
-  const { session, isLoading, error } = useDeepResearchSession(sessionId ?? null)
+  const typedSessionId = sessionId ? (sessionId as Id<'deepResearchSessions'>) : null
+  const { session, isLoading, error } = useDeepResearchSession(typedSessionId)
 
   // If the research session has a saved document, redirect to the canonical document view
   // which has sharing, better rendering, and consistent UX
