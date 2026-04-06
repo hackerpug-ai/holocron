@@ -78,7 +78,7 @@ module.exports = {
         projectId: 'a580bd53-e7a9-4968-96c8-f6cf207a4abe',
       },
     },
-    owner: 'hackerpug',
+    owner: process.env.EXPO_OWNER || 'holocron-app',
     // EAS Updates configuration (merged from app.json)
     runtimeVersion: {
       policy: 'appVersion',
