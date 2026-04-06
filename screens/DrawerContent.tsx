@@ -27,6 +27,8 @@ interface DrawerContentProps extends Omit<ViewProps, 'children'> {
   onArticlesPress?: () => void
   /** Callback when Subscriptions link is pressed */
   onSubscriptionsPress?: () => void
+  /** Callback when What's New link is pressed */
+  onWhatsNewPress?: () => void
   /** Callback when Toolbelt link is pressed */
   onToolbeltPress?: () => void
   /** Callback when Improvements link is pressed */
@@ -78,6 +80,7 @@ export function DrawerContent({
   onSearchChange,
   onArticlesPress,
   onSubscriptionsPress,
+  onWhatsNewPress,
   onToolbeltPress,
   onImprovementsPress,
   onSettingsPress,
@@ -135,7 +138,7 @@ export function DrawerContent({
 
   const sections: NavSection[] = [
     { id: 'articles', label: 'Articles', icon: <BookOpen size={20} className="text-foreground" />, onPress: onArticlesPress },
-    { id: 'subscriptions', label: "What's New", icon: <Newspaper size={20} className="text-foreground" />, onPress: onSubscriptionsPress },
+    { id: 'whats-new', label: "What's New", icon: <Newspaper size={20} className="text-foreground" />, onPress: onWhatsNewPress },
     { id: 'toolbelt', label: 'Toolbelt', icon: <Wrench size={20} className="text-foreground" />, onPress: onToolbeltPress },
     { id: 'improvements', label: 'Improvements', icon: <Lightbulb size={20} className="text-foreground" />, onPress: onImprovementsPress },
     { id: 'settings', label: 'Settings', icon: <Settings size={20} className="text-foreground" />, onPress: onSettingsPress },
