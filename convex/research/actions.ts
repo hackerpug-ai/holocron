@@ -10,6 +10,7 @@
 "use node";
 
 import { action } from "../_generated/server";
+import type { ActionCtx } from "../_generated/server";
 import { v } from "convex/values";
 import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
@@ -407,7 +408,7 @@ export const executeApprovedResearchPlan = action({
  * @returns Summary of iterations and final coverage score
  */
 export async function runIterativeResearch(
-  ctx: any,
+  ctx: ActionCtx,
   sessionId: Id<"deepResearchSessions">,
   conversationId: Id<"conversations">,
   topic: string,
@@ -1294,7 +1295,7 @@ export interface SinglePassResearchResult {
  * @param topic - Research topic
  */
 export async function executeSinglePassResearch(
-  ctx: any,
+  ctx: ActionCtx,
   conversationId: Id<"conversations"> | undefined,
   topic: string,
   mode?: ResearchMode
