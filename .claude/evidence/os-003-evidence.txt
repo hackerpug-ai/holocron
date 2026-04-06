@@ -1,0 +1,64 @@
+OS-003 EVIDENCE BUNDLE
+======================
+
+COMMIT SHA: cb3a2872af4b4e33817a58e2f21435a378527055
+
+DIRECTORIES REMOVED:
+- holocron-mcp.backup/ (old MCP server backup)
+- holocron-general-mcp.old/ (old general MCP server)
+- .tmp/ (temporary task evidence files)
+- supabase/ (deprecated Supabase infrastructure)
+- .claude/worktrees/ tracked entries (3 tracked worktree submodules removed)
+
+BUILD VERIFICATION:
+✓ Typecheck passed: bun run typecheck (tsc --noEmit)
+✓ Lint passed: bun run lint (eslint .)
+✓ Tests passed: 88 test files passed, 1320 tests passed (5 skipped)
+
+VERIFICATION COMMANDS OUTPUT:
+==============================
+
+1. Typecheck (tsc --noEmit):
+   Exit code: 0
+   Status: PASSED
+   No TypeScript errors found.
+
+2. Lint (eslint .):
+   Exit code: 0
+   Status: PASSED
+   No ESLint errors found.
+
+3. Tests (vitest run):
+   Exit code: 0
+   Status: PASSED
+   Test Files: 88 passed | 1 skipped (89)
+   Tests: 1320 passed | 5 skipped (1325)
+   Duration: 1.07s
+
+4. Directory removal verification:
+   - holocron-mcp.backup/: REMOVED
+   - holocron-general-mcp.old/: REMOVED
+   - .tmp/: REMOVED
+   - supabase/: REMOVED
+   - .claude/worktrees/: Tracked entries removed (active worktrees preserved)
+
+ACCEPTANCE CRITERIA:
+====================
+✓ AC-1: All dead directories removed from git tracking
+✓ AC-2: No broken imports remain (typecheck passes)
+✓ AC-3: Application still builds and runs (all tests pass)
+
+FILES CHANGED:
+==============
+464 files changed, 35139 deletions(-)
+
+SUMMARY:
+========
+Successfully removed all dead directories as specified in OS-003:
+- Old MCP server backups (holocron-mcp.backup, holocron-general-mcp.old)
+- Temporary task evidence files (.tmp/)
+- Deprecated Supabase infrastructure (supabase/)
+- Tracked worktree entries (.claude/worktrees/)
+
+All verification checks passed. The application builds and runs correctly.
+No broken imports or regressions introduced.

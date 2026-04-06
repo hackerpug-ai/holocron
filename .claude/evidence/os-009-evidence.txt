@@ -1,0 +1,40 @@
+OS-009 EVIDENCE BUNDLE
+======================
+
+COMMIT SHA: f11b03e518818be103dc56d09185fd461143e419
+
+FILES MODIFIED:
+- .env.example
+- README.md
+
+CHANGES MADE:
+1. Renamed EXPO_PUBLIC_OPENAI_API_KEY to EXPO_PUBLIC_LLM_API_KEY in .env.example
+2. Updated .env.example to use provider-agnostic naming with "your-api-key-here" placeholder
+3. Updated README.md prerequisites from "OpenAI API key" to "LLM provider API key (OpenAI, Z.ai, or compatible provider)"
+4. Updated README.md environment variable documentation to use EXPO_PUBLIC_LLM_API_KEY
+5. Added clarifying comments in .env.example about supported providers
+6. Preserved runtime compatibility - did NOT modify:
+   - supabase/functions/embeddings-etl/index.ts
+   - scripts/generate-embeddings.js
+   - scripts/benchmark-search.ts
+   - python/holocron_client.py
+
+VERIFICATION COMMANDS OUTPUT:
+
+AC-1: EXPO_PUBLIC_OPENAI_API_KEY removed from .env.example
+$ ! grep -q "EXPO_PUBLIC_OPENAI_API_KEY=" .env.example && echo "PASS"
+PASS
+
+AC-2: Safe placeholder pattern found in .env.example
+$ grep -E "YOUR.*KEY.*HERE|your-api-key-here" .env.example
+EXPO_PUBLIC_LLM_API_KEY="your-api-key-here"
+PASS
+
+AC-3: Documentation uses generic naming
+$ ! grep -r "EXPO_PUBLIC_OPENAI_API_KEY" README.md docs/ 2>/dev/null && echo "PASS"
+PASS
+
+PRE-COMMIT CHECKS:
+- Typecheck: PASSED (tsc --noEmit)
+- Lint: PASSED (no new errors introduced)
+- Tests: PASSED (89 test files, 1328 tests passed)

@@ -11,6 +11,13 @@ import Exa from "exa-js";
 import { withRateLimit } from "../research/rateLimiter.js";
 import { createHash } from "node:crypto";
 
+/**
+ * Minimal ctx shape required for rate limiting (subset of ActionCtx)
+ */
+type RateLimitCtx = {
+  runMutation: (fn: unknown, args: Record<string, unknown>) => Promise<unknown>;
+} | null | undefined;
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -469,7 +476,8 @@ async function executeSearchWithRetry<T>(
 async function executeExaRetailerSearch(
   query: string,
   retailer: RetailerConfig,
-  retailerKey: string
+  retailerKey: string,
+  ctx?: RateLimitCtx
 ): Promise<ShopSearchResult[]> {
   const apiKey = process.env.EXA_API_KEY;
   if (!apiKey) {
@@ -480,13 +488,14 @@ async function executeExaRetailerSearch(
   const exa = new Exa(apiKey);
   const siteQuery = `${query} site:${retailer.domain}`;
 
-  const searchResults = await withRateLimit("exa", async () => {
-    return await exa.searchAndContents(siteQuery, {
-      numResults: retailer.maxListingsPerSearch,
-      useAutoprompt: true,
-      text: { maxCharacters: 5000 },
-    });
+  const searchFn = async () => exa.searchAndContents(siteQuery, {
+    numResults: retailer.maxListingsPerSearch,
+    useAutoprompt: true,
+    text: { maxCharacters: 5000 },
   });
+  const searchResults = ctx
+    ? await withRateLimit(ctx, "exa", searchFn)
+    : await searchFn();
 
   const results: ShopSearchResult[] = [];
 
@@ -534,7 +543,8 @@ async function executeExaRetailerSearch(
 async function executeJinaRetailerSearch(
   query: string,
   retailer: RetailerConfig,
-  retailerKey: string
+  retailerKey: string,
+  ctx?: RateLimitCtx
 ): Promise<ShopSearchResult[]> {
   const apiKey = process.env.JINA_API_KEY;
   if (!apiKey) {
@@ -545,15 +555,16 @@ async function executeJinaRetailerSearch(
   const siteQuery = `${query} site:${retailer.domain}`;
   const encodedQuery = encodeURIComponent(siteQuery);
 
-  const response = await withRateLimit("jina", async () => {
-    return await fetch(`https://s.jina.ai/?q=${encodedQuery}`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        Accept: "application/json",
-      },
-    });
+  const fetchFn = async () => fetch(`https://s.jina.ai/?q=${encodedQuery}`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      Accept: "application/json",
+    },
   });
+  const response = ctx
+    ? await withRateLimit(ctx, "jina", fetchFn)
+    : await fetchFn();
 
   if (!response.ok) {
     throw new Error(`Jina search failed: ${response.status}`);
@@ -639,7 +650,8 @@ function sortByDealScore(results: ShopSearchResult[]): ShopSearchResult[] {
 export async function executeParallelShopSearch(
   query: string,
   retailers: string[] = DEFAULT_RETAILERS,
-  options: ParallelShopSearchOptions = {}
+  options: ParallelShopSearchOptions = {},
+  ctx?: RateLimitCtx
 ): Promise<ParallelShopSearchResult> {
   const startTime = Date.now();
   const {
@@ -666,7 +678,7 @@ export async function executeParallelShopSearch(
     // Add Exa search
     searchPromises.push(
       executeSearchWithRetry(
-        () => executeExaRetailerSearch(query, retailer, retailerKey),
+        () => executeExaRetailerSearch(query, retailer, retailerKey, ctx),
         maxRetries,
         timeoutMs
       ).then((results) => results || [])
@@ -679,7 +691,7 @@ export async function executeParallelShopSearch(
     // Add Jina search
     searchPromises.push(
       executeSearchWithRetry(
-        () => executeJinaRetailerSearch(query, retailer, retailerKey),
+        () => executeJinaRetailerSearch(query, retailer, retailerKey, ctx),
         maxRetries,
         timeoutMs
       ).then((results) => results || [])

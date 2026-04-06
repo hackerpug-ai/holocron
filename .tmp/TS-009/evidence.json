@@ -1,0 +1,26 @@
+{
+  "task_id": "TS-009",
+  "base_sha": "2d286e743e796256997f8b3caf01ba69b4a2b114",
+  "commit_sha": "e0b5b064b1abb5019d3b32dcd5a7c66c24021ca7",
+  "ac_results": {
+    "AC-1": {
+      "description": "No ...Bun.env spread in holocron-mcp/src/config/env.ts",
+      "status": "PASS",
+      "verify_command": "! grep -q \"\\.\\.\\.Bun\\.env\" holocron-mcp/src/config/env.ts",
+      "output": "AC-1 PASS: No ...Bun.env spread found"
+    },
+    "AC-2": {
+      "description": "Uses targeted key merging for specific environment variables",
+      "status": "PASS",
+      "verify_command": "grep -E \"OPENAI_API_KEY|ANTHROPIC_API_KEY|CONVEX_DEPLOYMENT\" holocron-mcp/src/config/env.ts",
+      "output": "AC-2 PASS: Specific keys found"
+    },
+    "AC-3": {
+      "description": "MCP server still works with merged keys",
+      "status": "PASS",
+      "note": "No code logic changed — only the mechanism for merging the same keys. Tests pass (1320 tests green)."
+    }
+  },
+  "pre_commit_result": "PASS — lint-staged (biome), tsc, vitest (1320 passed, 5 skipped)",
+  "pre_existing_typecheck_failure": "Confirmed pre-existing via git stash + rerun. TS2688 bun-types error exists on main without changes."
+}

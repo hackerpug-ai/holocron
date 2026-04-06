@@ -6,6 +6,7 @@ import { v } from "convex/values";
  */
 const deepResearchIterationStatus = v.union(
   v.literal("pending"),
+  v.literal("processing"),
   v.literal("running"),
   v.literal("in_progress"),
   v.literal("in-progress"),

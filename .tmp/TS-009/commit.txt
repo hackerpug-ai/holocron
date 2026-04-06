@@ -1,0 +1,20 @@
+commit e0b5b064b1abb5019d3b32dcd5a7c66c24021ca7
+Author: Justin Rich <justin@hackerpug.com>
+Date:   Mon Apr 6 16:36:26 2026 -0600
+
+    security(mcp): replace Bun.env spread with targeted key merging in env.ts
+    
+    Spreading all of Bun.env into process.env is a security risk — it
+    indiscriminately exposes every environment variable available at runtime.
+    
+    Replace the spread with an explicit KEYS_TO_MERGE list that only copies
+    the seven specific keys the MCP server actually needs (HOLOCRON_URL,
+    HOLOCRON_DEPLOY_KEY, HOLOCRON_OPENAI_API_KEY, HOLOCRON_SITE_URL,
+    CONVEX_URL, CONVEX_SITE_URL, OPENAI_API_KEY).
+    
+    Closes TS-009
+    
+    Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+
+ holocron-mcp/src/config/env.ts | 22 ++++++++++++++++++++--
+ 1 file changed, 20 insertions(+), 2 deletions(-)

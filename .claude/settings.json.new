@@ -1,0 +1,73 @@
+{
+  "otelHeadersHelper": ".claude/otel-langfuse-headers.sh",
+  "env": {
+    "CLAUDE_CODE_ENABLE_TELEMETRY": "1",
+    "CLAUDE_CODE_TASK_LIST_ID": "holocron",
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
+    "OTEL_METRICS_EXPORTER": "otlp",
+    "OTEL_LOGS_EXPORTER": "otlp",
+    "OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf",
+    "OTEL_EXPORTER_OTLP_ENDPOINT": "https://us.cloud.langfuse.com/api/public/otel",
+    "OTEL_LOG_USER_PROMPTS": "1",
+    "OTEL_LOG_TOOL_DETAILS": "1",
+    "OTEL_RESOURCE_ATTRIBUTES": "project=holocron"
+  },
+  "permissions": {
+    "deny": [
+      "Bash(git commit --no-verify:*)",
+      "Bash(git commit -n:*)",
+      "Bash(git push --no-verify:*)",
+      "Bash(git rebase --no-verify:*)",
+      "Bash(git merge --no-verify:*)",
+      "Bash(git cherry-pick --no-verify:*)",
+      "Bash(git am --no-verify:*)",
+      "Edit(.claude/settings.json)",
+      "Write(.claude/settings.json)",
+      "MultiEdit(.claude/settings.json)",
+      "Edit(.claude/hooks/**)",
+      "Write(.claude/hooks/**)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {"type": "command", "command": "python3 ~/.claude/hooks/check-dangerous.py"}
+        ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {"type": "command", "command": "python3 ~/.claude/hooks/protect-hooks.py"}
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "git diff --quiet HEAD && git diff --cached --quiet || echo 'UNCOMMITTED CHANGES DETECTED: You have modified files that were not committed. You MUST fix any lint/type/test errors and commit your work before finishing. Run: pnpm lint, pnpm tsc --noEmit, pnpm test — then commit. Do NOT finish without committing.'"
+          },
+          {
+            "type": "command",
+            "command": "python3 ~/.claude/hooks/subagent-precommit-gate.py"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "git diff --quiet HEAD && git diff --cached --quiet || echo 'REMINDER: There are uncommitted changes in the working tree.'"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -10,6 +10,7 @@ import { api, internal } from "../_generated/api";
 
 const deepResearchSessionStatus = v.union(
   v.literal("pending"),
+  v.literal("processing"),
   v.literal("running"),
   v.literal("in_progress"),
   v.literal("in-progress"),
@@ -22,6 +23,7 @@ const deepResearchSessionStatus = v.union(
 
 const deepResearchIterationStatus = v.union(
   v.literal("pending"),
+  v.literal("processing"),
   v.literal("running"),
   v.literal("in_progress"),
   v.literal("in-progress"),

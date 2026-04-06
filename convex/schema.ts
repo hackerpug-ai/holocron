@@ -115,6 +115,7 @@ export default defineSchema({
     maxIterations: v.optional(v.number()),
     status: v.union(
       v.literal("pending"),
+      v.literal("processing"),
       v.literal("running"),
       v.literal("in_progress"),
       v.literal("in-progress"),
@@ -155,6 +156,7 @@ export default defineSchema({
     refinedQueries: v.optional(v.any()),
     status: v.union(
       v.literal("pending"),
+      v.literal("processing"),
       v.literal("running"),
       v.literal("in_progress"),
       v.literal("in-progress"),
@@ -1272,4 +1274,13 @@ export default defineSchema({
     .index("by_document", ["documentId"])
     .index("by_source", ["source"])
     .index("by_importedAt", ["importedAt"]),
+
+  // API rate limit events for sliding-window tracking (research/shop endpoints)
+  // Each record represents one request; old records are cleaned up automatically
+  rateLimits: defineTable({
+    key: v.string(), // endpoint identifier: "exa", "jina", "jina-reader"
+    timestamp: v.number(), // Unix timestamp (ms) when the request was made
+  })
+    .index("by_key", ["key"])
+    .index("by_key_timestamp", ["key", "timestamp"]),
 });

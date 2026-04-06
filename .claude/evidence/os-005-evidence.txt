@@ -1,0 +1,42 @@
+OS-005 EVIDENCE BUNDLE
+======================
+
+COMMIT SHA: 1636cb3591048c9118dfbc58a98d933d27da237f
+
+FILES REMOVED:
+- None (0 .DS_Store files found in repository)
+
+GITIGNORE PATTERNS ADDED:
+- ._*
+
+VERIFICATION COMMANDS OUTPUT:
+
+=== FINAL VERIFICATION ===
+✓ .DS_Store files: 0
+✓ Resource fork files: 0
+✓ .DS_Store in gitignore: 1 (already present)
+✓ ._ pattern in gitignore: 1 (newly added)
+
+Git diff:
+diff --git a/.gitignore b/.gitignore
+index de9ce9d..4a76b51 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -31,6 +31,7 @@ yarn-error.*
+
+ # macOS
+ .DS_Store
++._*
+ *.pem
+
+ # local env files
+
+Pre-commit checks:
+✓ TypeScript type check: PASSED
+✓ ESLint: PASSED
+✓ Vitest: 88 passed, 1 skipped, 1320 passed, 5 skipped
+
+All acceptance criteria MET:
+✓ AC-1: All .DS_Store files removed from repository (0 found)
+✓ AC-2: .DS_Store pattern added to .gitignore (already present)
+✓ AC-3: ._* pattern added for macOS resource forks

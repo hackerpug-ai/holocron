@@ -1,0 +1,283 @@
+{
+  "analysisMetadata": {
+    "analyst": "UI Designer Agent",
+    "date": "2026-04-06",
+    "prdSection": "2.10-2.11 (React Native Polish + Design System & Frontend)",
+    "totalACs": 24,
+    "designACs": 12
+  },
+  "designDependencies": [
+    {
+      "ac": "AC-70 (ConversationRow delete button colors)",
+      "dependsOn": [],
+      "blocks": [],
+      "reason": "Self-contained color token migration. No dependencies."
+    },
+    {
+      "ac": "AC-71 (Settings theme preview cards)",
+      "dependsOn": [],
+      "blocks": ["AC-77 (ThemePreviewCard extraction)"],
+      "reason": "AC-77 requires AC-71 to be complete first since it extracts the component that AC-71 fixes."
+    },
+    {
+      "ac": "AC-72 (PLATFORM_COLORS extraction)",
+      "dependsOn": [],
+      "blocks": [],
+      "reason": "New shared constant file. Independent work."
+    },
+    {
+      "ac": "AC-73 (ShopListingCard retailer colors)",
+      "dependsOn": [],
+      "blocks": [],
+      "reason": "Single-file refactor. No dependencies."
+    },
+    {
+      "ac": "AC-74 (placeholderTextColor consistency)",
+      "dependsOn": [],
+      "blocks": [],
+      "reason": "Global find-replace with theme token mapping. Independent."
+    },
+    {
+      "ac": "AC-75 (UI primitives Storybook stories)",
+      "dependsOn": [],
+      "blocks": [],
+      "reason": "New story files for existing components. Can run in parallel with all other ACs."
+    },
+    {
+      "ac": "AC-76 (Voice story decorator fixes)",
+      "dependsOn": [],
+      "blocks": [],
+      "reason": "Existing voice story files need RNText→Paper and hex→token replacements. Independent."
+    },
+    {
+      "ac": "AC-77 (ThemePreviewCard extraction)",
+      "dependsOn": ["AC-71"],
+      "blocks": [],
+      "reason": "Must extract AFTER AC-71 fixes are applied, or extraction will capture broken code."
+    },
+    {
+      "ac": "AC-78 (ScreenHeader flex centering)",
+      "dependsOn": [],
+      "blocks": [],
+      "reason": "Single-component layout fix. Independent."
+    },
+    {
+      "ac": "AC-79 (NavigationTooltip border color)",
+      "dependsOn": [],
+      "blocks": [],
+      "reason": "Single hardcoded color fix. Independent."
+    },
+    {
+      "ac": "AC-80 (Pressable accessibility audit)",
+      "dependsOn": [],
+      "blocks": [],
+      "reason": "Audit and fix across components. Can be parallelized by component file."
+    },
+    {
+      "ac": "AC-81 (CategoryBadge variant mapping)",
+      "dependsOn": [],
+      "blocks": [],
+      "reason": "Single-component logic expansion. Independent."
+    }
+  ],
+  "uiUxRisks": [
+    {
+      "risk": "Storybook stories may not render correctly with current theme token structure",
+      "severity": "MEDIUM",
+      "mitigation": "Run Storybook build after first 3 story files are created to verify decorators and theme providers work. Fix issues before bulk story creation."
+    },
+    {
+      "risk": "placeholderTextColor fixes may break in dark mode if HSL conversion is incorrect",
+      "severity": "HIGH",
+      "mitigation": "Test placeholder visibility in both light and dark modes for all affected inputs. Create a test screen with all input variants before committing."
+    },
+    {
+      "risk": "PLATFORM_COLORS extraction may break if category names don't match exactly",
+      "severity": "LOW",
+      "mitigation": "Use a Record with a fallback default color. Add unit tests for the color lookup function."
+    },
+    {
+      "risk": "Pressable accessibility audit scope is large (87 files with Pressable/TouchableOpacity)",
+      "severity": "MEDIUM",
+      "mitigation": "Focus on high-traffic interactive components first (cards, list items, buttons). Create a checklist sorted by usage frequency. Can be shipped incrementally."
+    },
+    {
+      "risk": "Voice story decorator fixes touch 7 story files with hardcoded RNText imports",
+      "severity": "LOW",
+      "mitigation": "Create a shared story decorator file that handles Paper Text imports properly, then update all voice stories to use it."
+    },
+    {
+      "risk": "ThemePreviewCard extraction may break if ThemeSync or ColorSchemeProvider dependencies aren't preserved",
+      "severity": "MEDIUM",
+      "mitigation": "Verify all context imports are included in extracted component. Test theme switching in both light and dark modes after extraction."
+    }
+  ],
+  "humanTestableDeliverables": [
+    {
+      "deliverable": "Theme compliance verification",
+      "testSteps": [
+        "Open app in light mode, navigate to Settings screen",
+        "Verify theme preview cards show correct colors (no arbitrary hex)",
+        "Toggle between light/dark/system themes",
+        "Verify all theme transitions are smooth and colors match preview",
+        "Navigate to various screens (chat, research, subscriptions)",
+        "Verify no hardcoded colors visible (no white/black on wrong backgrounds)"
+      ],
+      "acceptance": "All theme preview cards use semantic token classes. Dark mode toggle works without color glitches."
+    },
+    {
+      "deliverable": "Storybook design system review",
+      "testSteps": [
+        "Run Storybook (pnpm storybook or equivalent)",
+        "Navigate to UI primitives section",
+        "Verify Button, Card, Badge, Input stories exist",
+        "Verify each story has Default and AllVariants exports",
+        "Check voice stories use Paper Text component",
+        "Verify all colors use theme tokens (no hardcoded hex in stories)"
+      ],
+      "acceptance": "All key UI primitives have stories with variants. Voice stories use Paper Text. Zero hardcoded colors in story decorators."
+    },
+    {
+      "deliverable": "Accessibility audit verification",
+      "testSteps": [
+        "Enable screen reader (VoiceOver/TalkBack)",
+        "Navigate to conversation list",
+        "Long-press a conversation, verify delete button is announced",
+        "Navigate to result cards and feed items",
+        "Verify each interactive element announces its purpose",
+        "Verify all buttons have accessibilityRole='button' set",
+        "Verify all cards with onPress have descriptive accessibilityLabel"
+      ],
+      "acceptance": "Screen reader announces all interactive elements meaningfully. No generic 'button' or 'element' labels without context."
+    },
+    {
+      "deliverable": "Component consistency verification",
+      "testSteps": [
+        "Open Shop screen, verify retailer badges show correct brand colors",
+        "Open social posts view, verify platform color stripes match brands",
+        "Check NavigationTooltip has correct border color in dark mode",
+        "Verify ScreenHeader centers title even with long text",
+        "Check CategoryBadge shows distinct colors for different categories"
+      ],
+      "acceptance": "All platform/retailer colors use shared constants. Dark mode borders render correctly. Title centering is robust."
+    }
+  ],
+  "effortEstimates": [
+    {
+      "ac": "AC-70",
+      "effort": "1 hour",
+      "rationale": "Two files, simple hex→token replacement. Delete button affordances are isolated."
+    },
+    {
+      "ac": "AC-71",
+      "effort": "2 hours",
+      "rationale": "Settings screen has 3 theme options with arbitrary Tailwind values. Map to existing global.css tokens. Test in both modes."
+    },
+    {
+      "ac": "AC-72",
+      "effort": "2 hours",
+      "rationale": "Create new lib/constants/platform-colors.ts file. Update imports in 2 files. Add fallback color for safety."
+    },
+    {
+      "ac": "AC-73",
+      "effort": "1.5 hours",
+      "rationale": "Single file (ShopListingCard.tsx). Consolidate retailer color object. Remove dark/light duplication. Add theme-aware fallback."
+    },
+    {
+      "ac": "AC-74",
+      "effort": "3 hours",
+      "rationale": "5 files with placeholderTextColor issues. Fix broken HSL syntax. Add dark mode variants. Test all inputs in both themes."
+    },
+    {
+      "ac": "AC-75",
+      "effort": "6 hours",
+      "rationale": "Create stories for Button, Card, Badge, Input, and other key UI primitives (~8-10 components). Each needs Default + AllVariants exports with proper decorators."
+    },
+    {
+      "ac": "AC-76",
+      "effort": "3 hours",
+      "rationale": "7 voice story files need RNText→Paper import and hex→token replacements. Batch find-replace with verification."
+    },
+    {
+      "ac": "AC-77",
+      "effort": "2 hours",
+      "rationale": "Extract ThemePreviewCard to components/settings/ with proper exports. Create co-located .stories.tsx. Update imports in settings screen."
+    },
+    {
+      "ac": "AC-78",
+      "effort": "1 hour",
+      "rationale": "Single file (screen-header.tsx). Replace min-w side-zone with flex-1 centering. Test with long titles."
+    },
+    {
+      "ac": "AC-79",
+      "effort": "0.5 hours",
+      "rationale": "Single hardcoded border color in NavigationTooltip. Replace with border-border class."
+    },
+    {
+      "ac": "AC-80",
+      "effort": "8 hours",
+      "rationale": "87 files with Pressable/TouchableOpacity. Focus on high-traffic components (~30 files). Add accessibilityRole and accessibilityLabel to each."
+    },
+    {
+      "ac": "AC-81",
+      "effort": "2 hours",
+      "rationale": "CategoryBadge component needs variant mapping expansion. Research existing categories, map to distinct visual treatments."
+    }
+  ],
+  "parallelizationOpportunities": [
+    {
+      "group": "Theme Compliance Sprint",
+      "acs": ["AC-70", "AC-71", "AC-72", "AC-73", "AC-79"],
+      "canRunInParallel": true,
+      "reason": "All are independent color/token fixes in different files. No shared dependencies."
+    },
+    {
+      "group": "Storybook Sprint",
+      "acs": ["AC-75", "AC-76"],
+      "canRunInParallel": true,
+      "reason": "AC-75 creates new UI primitive stories. AC-76 fixes existing voice stories. Different directories, no conflicts."
+    },
+    {
+      "group": "Component Extraction Sprint",
+      "acs": ["AC-77", "AC-78", "AC-81"],
+      "canRunInParallel": true,
+      "reason": "AC-77 extracts ThemePreviewCard. AC-78 fixes ScreenHeader. AC-81 expands CategoryBadge. Different components."
+    },
+    {
+      "group": "Accessibility Sprint",
+      "acs": ["AC-80"],
+      "canRunInParallel": true,
+      "reason": "Large but isolated work. Can be split by component directory (chat/, subscriptions/, voice/, etc.)."
+    },
+    {
+      "group": "Input Fixes Sprint",
+      "acs": ["AC-74"],
+      "canRunInParallel": true,
+      "reason": "Independent work on placeholderTextColor. Can be done while other sprints run."
+    }
+  ],
+  "section210Dependencies": {
+    "hasUIDependencies": true,
+    "relatedACs": ["AC-62 (article-detail decomposition)"],
+    "reason": "AC-62 extracts NarrationBlockWrapper from article-detail.tsx. While primarily code organization, any UI work in article-detail should coordinate to avoid merge conflicts."
+  },
+  "designSystemReadiness": {
+    "currentStatus": "PARTIAL",
+    "gaps": [
+      "Missing Storybook stories for core UI primitives (Button, Card, Badge, Input)",
+      "Hardcoded colors in delete affordances (ConversationRow, SwipeableRow)",
+      "Inconsistent placeholder colors across inputs",
+      "Platform/retailer colors duplicated across files",
+      "Theme preview cards use arbitrary Tailwind values",
+      "Voice story decorators use RNText instead of Paper Text"
+    ],
+    "strengths": [
+      "Well-defined theme token system in global.css and lib/theme.ts",
+      "Existing semantic color tokens (primary, destructive, muted, etc.)",
+      "Strong Storybook adoption across feature components (50+ story files)",
+      "NativeWind/Tailwind integration working well",
+      "Good accessibility baseline in some components (ConversationRow has full a11y)"
+    ],
+    "recommendation": "Design system work (AC-70 to AC-81) can run in parallel with backend work (Sections 2.2-2.6, 2.9). No blocking dependencies. UI work is isolated to component files and doesn't touch Convex schema or queries."
+  }
+}

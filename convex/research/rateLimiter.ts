@@ -1,136 +1,162 @@
 /**
- * Rate Limiter for API calls to Exa and Jina
+ * Database-backed Rate Limiter for API calls to Exa and Jina
  *
- * Implements token bucket algorithm to respect API rate limits:
- * - Exa: 10 QPS (queries per second) for search endpoint
- * - Jina: 10,000 requests per 60 seconds (IP-based), Free tier: 100 RPM
+ * Implements sliding-window rate limiting using the `rateLimits` table in Convex.
+ * State is persisted in the database and survives serverless function restarts.
  *
- * This prevents 429 rate limit errors and ensures smooth operation.
+ * Endpoints tracked:
+ * - Exa: 10 QPS (queries per second)
+ * - Jina: 100 RPM for free tier (~1.5 per second)
+ * - Jina Reader: 30 RPM (~0.5 per second)
  */
 
-interface RateLimitConfig {
-  maxTokens: number;      // Maximum requests per interval
-  refillRate: number;     // Tokens refilled per second
-  refillInterval: number; // How often to refill (ms)
-}
+import { internalMutation } from "../_generated/server";
+import { v } from "convex/values";
+import { internal } from "../_generated/api";
 
-class TokenBucket {
-  private tokens: number;
-  private lastRefill: number;
-  private config: RateLimitConfig;
+// ============================================================================
+// Rate limit configurations (requests per windowMs)
+// ============================================================================
 
-  constructor(config: RateLimitConfig) {
-    this.config = config;
-    this.tokens = config.maxTokens;
-    this.lastRefill = Date.now();
-  }
+type RateLimitEndpoint = "exa" | "jina" | "jina-reader";
 
-  /**
-   * Refill tokens based on elapsed time
-   */
-  private refill(): void {
+const RATE_LIMIT_CONFIGS: Record<
+  RateLimitEndpoint,
+  { maxRequests: number; windowMs: number }
+> = {
+  exa: {
+    maxRequests: 10,
+    windowMs: 1000, // 10 per second
+  },
+  jina: {
+    maxRequests: 90,
+    windowMs: 60_000, // 90 per minute (conservative for 100 RPM free tier)
+  },
+  "jina-reader": {
+    maxRequests: 30,
+    windowMs: 60_000, // 30 per minute
+  },
+};
+
+// ============================================================================
+// Internal mutation: check-and-record rate limit event
+// Returns true if request is allowed, false if rate limit exceeded
+// ============================================================================
+
+export const checkAndRecord = internalMutation({
+  args: {
+    endpoint: v.union(
+      v.literal("exa"),
+      v.literal("jina"),
+      v.literal("jina-reader")
+    ),
+  },
+  returns: v.object({
+    allowed: v.boolean(),
+    retryAfterMs: v.number(), // ms to wait before retrying (0 if allowed)
+  }),
+  handler: async (ctx, args) => {
+    const config = RATE_LIMIT_CONFIGS[args.endpoint];
     const now = Date.now();
-    const elapsed = now - this.lastRefill;
-    const tokensToAdd = (elapsed / this.config.refillInterval) * this.config.refillRate;
+    const windowStart = now - config.windowMs;
 
-    this.tokens = Math.min(this.config.maxTokens, this.tokens + tokensToAdd);
-    this.lastRefill = now;
-  }
+    // Clean up old entries outside the sliding window
+    const oldEntries = await ctx.db
+      .query("rateLimits")
+      .withIndex("by_key_timestamp", (q) =>
+        q.eq("key", args.endpoint).lt("timestamp", windowStart)
+      )
+      .collect();
 
-  /**
-   * Wait until a token is available, then consume it
-   */
-  async consume(): Promise<void> {
-    this.refill();
-
-    if (this.tokens >= 1) {
-      this.tokens -= 1;
-      return;
+    for (const entry of oldEntries) {
+      await ctx.db.delete(entry._id);
     }
 
-    // Calculate wait time until next token
-    const tokensNeeded = 1 - this.tokens;
-    const waitMs = (tokensNeeded / this.config.refillRate) * this.config.refillInterval;
+    // Count requests in current window
+    const currentEntries = await ctx.db
+      .query("rateLimits")
+      .withIndex("by_key", (q) => q.eq("key", args.endpoint))
+      .collect();
 
-    console.log(`[RateLimiter] Waiting ${Math.round(waitMs)}ms for token...`);
-    await new Promise(resolve => setTimeout(resolve, waitMs));
-
-    // Refill and consume after waiting
-    this.refill();
-    this.tokens -= 1;
-  }
-}
-
-/**
- * Rate limiter for all API endpoints
- */
-class ApiRateLimiter {
-  private buckets: Map<string, TokenBucket>;
-
-  constructor() {
-    this.buckets = new Map();
-
-    // Exa search - 10 QPS (conservative)
-    this.buckets.set('exa', new TokenBucket({
-      maxTokens: 10,
-      refillRate: 10,
-      refillInterval: 1000, // 1 second
-    }));
-
-    // Jina search - 100 RPM for free tier (conservative)
-    // Using 100 per minute = 1.67 per second, round down to 1.5 for safety
-    this.buckets.set('jina', new TokenBucket({
-      maxTokens: 30,      // Allow burst of 30 requests
-      refillRate: 1.5,    // Refill 1.5 tokens per second (90 per minute)
-      refillInterval: 1000, // 1 second
-    }));
-
-    // Jina Reader - for full URL content reading
-    // More conservative: 5 concurrent, 30/min (0.5 per second)
-    this.buckets.set('jina-reader', new TokenBucket({
-      maxTokens: 5,       // Allow 5 concurrent requests
-      refillRate: 0.5,    // Refill 0.5 tokens per second (30 per minute)
-      refillInterval: 1000, // 1 second
-    }));
-  }
-
-  /**
-   * Wait for rate limit before making request to endpoint
-   */
-  async waitForEndpoint(endpoint: 'exa' | 'jina' | 'jina-reader'): Promise<void> {
-    const bucket = this.buckets.get(endpoint);
-    if (!bucket) {
-      console.warn(`[ApiRateLimiter] Unknown endpoint: ${endpoint}`);
-      return;
+    if (currentEntries.length >= config.maxRequests) {
+      // Find the oldest entry to calculate how long to wait
+      const oldest = currentEntries.reduce((min, e) =>
+        e.timestamp < min.timestamp ? e : min
+      );
+      const retryAfterMs = Math.max(
+        0,
+        oldest.timestamp + config.windowMs - now
+      );
+      return { allowed: false, retryAfterMs };
     }
 
-    await bucket.consume();
-  }
-}
+    // Record this request
+    await ctx.db.insert("rateLimits", {
+      key: args.endpoint,
+      timestamp: now,
+    });
 
-// Singleton instance
-let rateLimiterInstance: ApiRateLimiter | null = null;
+    return { allowed: true, retryAfterMs: 0 };
+  },
+});
 
-export function getApiRateLimiter(): ApiRateLimiter {
-  if (!rateLimiterInstance) {
-    rateLimiterInstance = new ApiRateLimiter();
-  }
-  return rateLimiterInstance;
-}
+// ============================================================================
+// withRateLimit: wrap an API call with database-backed rate limiting
+//
+// ctx must be an ActionCtx (has runMutation). Callers (Node.js actions)
+// should pass ctx from their action handler.
+// ============================================================================
+
+type ActionCtxLike = {
+  runMutation: (
+    fn: unknown,
+    args: Record<string, unknown>
+  ) => Promise<unknown>;
+};
 
 /**
- * Wrap an API call with rate limiting
+ * Wrap an API call with database-backed rate limiting.
+ *
+ * Rate limit state is stored in the `rateLimits` Convex table and persists
+ * across serverless function invocations. If the rate limit is exceeded,
+ * the function waits and retries up to maxRetries times.
  *
  * @example
- * const results = await withRateLimit('exa', async () => {
+ * const results = await withRateLimit(ctx, 'exa', async () => {
  *   return await exa.searchAndContents(query, options);
  * });
  */
 export async function withRateLimit<T>(
-  endpoint: 'exa' | 'jina' | 'jina-reader',
-  fn: () => Promise<T>
+  ctx: ActionCtxLike,
+  endpoint: RateLimitEndpoint,
+  fn: () => Promise<T>,
+  maxRetries = 5
 ): Promise<T> {
-  const limiter = getApiRateLimiter();
-  await limiter.waitForEndpoint(endpoint);
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const result = (await ctx.runMutation(
+      internal.research.rateLimiter.checkAndRecord,
+      { endpoint }
+    )) as { allowed: boolean; retryAfterMs: number };
+
+    if (result.allowed) {
+      return fn();
+    }
+
+    if (attempt === maxRetries) {
+      console.warn(
+        `[RateLimiter] Rate limit exceeded for ${endpoint} after ${maxRetries} retries`
+      );
+      // Fall through and execute anyway to avoid blocking indefinitely
+      return fn();
+    }
+
+    const waitMs = Math.max(result.retryAfterMs, 100);
+    console.log(
+      `[RateLimiter] Rate limit hit for ${endpoint}, waiting ${Math.round(waitMs)}ms (attempt ${attempt + 1}/${maxRetries})`
+    );
+    await new Promise((resolve) => setTimeout(resolve, waitMs));
+  }
+
+  // TypeScript requires a return here; the loop always returns or throws above
   return fn();
 }
