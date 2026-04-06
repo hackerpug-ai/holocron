@@ -463,7 +463,7 @@ export default defineSchema({
   // Agent plan tables
   agentPlans: defineTable({
     conversationId: v.id("conversations"),
-    messageId: v.id("chatMessages"),
+    messageId: v.optional(v.id("chatMessages")),
     title: v.string(),
     status: v.union(
       v.literal("created"),

@@ -44,19 +44,15 @@ export const createPlan = internalMutation({
     }));
 
     // Insert the plan record first so we have a planId for cardData on the message.
-    // Use a placeholder messageId that we back-patch after creating the message.
     // We use a two-step approach: insert plan → insert message with cardData → patch plan.
     //
-    // Convex does not support forward-referencing IDs, so we insert the plan with a
-    // sentinel messageId, create the chat message (with plan_id in cardData), then
-    // patch the plan with the real messageId.
+    // Convex does not support forward-referencing IDs, so we insert the plan without
+    // a messageId, create the chat message (with plan_id in cardData), then patch
+    // the plan with the real messageId.
     //
-    // Step 1: Insert the plan record (messageId will be back-patched below)
+    // Step 1: Insert the plan record (messageId omitted; back-patched below)
     const planId = await ctx.db.insert("agentPlans", {
       conversationId,
-      // Temporary placeholder — patched immediately after messageId is known.
-      // We cast to satisfy the type; the patch below sets the real value.
-      messageId: "" as unknown as import("../_generated/dataModel").Id<"chatMessages">,
       title,
       status: "created",
       currentStepIndex: 0,
