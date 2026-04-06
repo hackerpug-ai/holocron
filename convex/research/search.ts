@@ -133,7 +133,7 @@ export async function readUrlWithJina(
       url,
       content: "",
       success: false,
-      error: isTimeout ? "Jina timeout reading URL" : `Jina: ${errorMessage}`,
+      error: isTimeout ? "Jina Reader timeout reading URL" : `Jina Reader: ${errorMessage}`,
     };
   }
 }
@@ -242,7 +242,7 @@ export async function readUrlWithJinaAndLinks(
       content: "",
       links: [],
       success: false,
-      error: isTimeout ? "Jina timeout reading URL" : `Jina: ${errorMessage}`,
+      error: isTimeout ? "Jina Reader timeout reading URL" : `Jina Reader: ${errorMessage}`,
     };
   }
 }
@@ -581,7 +581,7 @@ export async function executeParallelSearchWithRetry(
 ): Promise<ParallelSearchResult> {
   const startTime = Date.now();
   const {
-    maxRetries = 2,
+    maxRetries = 3,
     timeoutMs = 15000,
     deduplicateResults = true,
   } = options;
