@@ -110,10 +110,16 @@ export const touch = mutation({
 
 /**
  * Clear all conversations (for testing only - use with caution)
+ * Requires ALLOW_CLEAR_ALL=true environment variable to be set.
  */
 export const clearAll = mutation({
   args: {},
   handler: async (ctx) => {
+    if (process.env.ALLOW_CLEAR_ALL !== "true") {
+      throw new Error(
+        "clearAll is disabled. Set ALLOW_CLEAR_ALL=true to enable."
+      );
+    }
     const conversations = await ctx.db.query("conversations").collect();
     for (const conversation of conversations) {
       await ctx.db.delete(conversation._id);

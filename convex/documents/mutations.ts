@@ -115,10 +115,16 @@ export const unpublishDocument = mutation({
 
 /**
  * Clear all documents (for testing only - use with caution)
+ * Requires ALLOW_CLEAR_ALL=true environment variable to be set.
  */
 export const clearAll = mutation({
   args: {},
   handler: async (ctx) => {
+    if (process.env.ALLOW_CLEAR_ALL !== "true") {
+      throw new Error(
+        "clearAll is disabled. Set ALLOW_CLEAR_ALL=true to enable."
+      );
+    }
     const documents = await ctx.db.query("documents").collect();
     for (const doc of documents) {
       await ctx.db.delete(doc._id);

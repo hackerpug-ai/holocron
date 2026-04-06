@@ -126,10 +126,16 @@ export const remove = mutation({
 
 /**
  * Clear all tools (for testing only - use with caution)
+ * Requires ALLOW_CLEAR_ALL=true environment variable to be set.
  */
 export const clearAll = mutation({
   args: {},
   handler: async (ctx) => {
+    if (process.env.ALLOW_CLEAR_ALL !== "true") {
+      throw new Error(
+        "clearAll is disabled. Set ALLOW_CLEAR_ALL=true to enable."
+      );
+    }
     const tools = await ctx.db.query("toolbeltTools").collect();
     for (const tool of tools) {
       await ctx.db.delete(tool._id);

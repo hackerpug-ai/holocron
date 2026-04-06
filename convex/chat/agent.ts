@@ -20,9 +20,10 @@
 import { internalAction, action } from "../_generated/server";
 import type { ActionCtx } from "../_generated/server";
 import { internal, api } from "../_generated/api";
+import type { Id } from "../_generated/dataModel";
 import { v } from "convex/values";
 import { generateText } from "ai";
-import type { GenerateTextResult, ModelMessage, ToolSet } from "ai";
+import type { GenerateTextResult, ModelMessage } from "ai";
 import { zaiPro } from "../lib/ai/zai_provider";
 import { agentTools } from "./tools";
 import { executeAgentTool } from "./toolExecutor";
@@ -40,8 +41,9 @@ import type { IntentCategory } from "./specialists";
  */
 async function handleLlmResult(
   ctx: ActionCtx,
-  conversationId: string,
-  result: GenerateTextResult<ToolSet, never>,
+  conversationId: Id<"conversations">,
+   
+  result: GenerateTextResult<any, any>,
 ): Promise<void> {
   // Handle tool calls — create approval messages
   if (result.toolCalls && result.toolCalls.length > 0) {
@@ -87,7 +89,7 @@ async function handleLlmResult(
       const content = `I'd like to use the **${toolDisplayName}** tool to help with your request.`;
 
       // Insert the tool_approval chatMessage first (to get its ID)
-      const approvalMessageId: string = await ctx.runMutation(
+      const approvalMessageId = await ctx.runMutation(
         internal.chat.agentMutations.createToolApprovalMessage,
         {
           conversationId,
@@ -101,7 +103,7 @@ async function handleLlmResult(
       );
 
       // Create the toolCall record linked to the approval message
-      const toolCallId: string = await ctx.runMutation(
+      const toolCallId = await ctx.runMutation(
         api.toolCalls.mutations.create,
         {
           conversationId,
@@ -151,7 +153,7 @@ async function handleLlmResult(
  */
 async function callLlmMonolithic(
   ctx: ActionCtx,
-  conversationId: string,
+  conversationId: Id<"conversations">,
   messages: ModelMessage[],
 ): Promise<void> {
   const result = await generateText({
@@ -175,7 +177,7 @@ async function callLlmMonolithic(
  */
 async function callLlmAndHandleResponse(
   ctx: ActionCtx,
-  conversationId: string,
+  conversationId: Id<"conversations">,
 ): Promise<void> {
   // Build context from conversation history (via internal query in V8 file)
   const messages = await ctx.runQuery(
@@ -336,7 +338,7 @@ export const executeTool = action({
           ? (agentResponse.messageType as AllowedType)
           : "text";
 
-        const resultMessageId: string = await ctx.runMutation(
+        const resultMessageId = await ctx.runMutation(
           api.chatMessages.mutations.create,
           {
             conversationId,
