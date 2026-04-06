@@ -160,6 +160,39 @@ export const internalEndSession = internalMutation({
 });
 
 /**
+ * Generate a short-lived upload URL for storing audio blobs in Convex file storage.
+ */
+export const generateAudioUploadUrl = mutation({
+  args: {},
+  returns: v.string(),
+  handler: async (ctx) => {
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+/**
+ * Attach a previously uploaded audio file to a voice session.
+ * Safe to call on sessions that already have audio — overwrites the reference.
+ */
+export const attachAudio = mutation({
+  args: {
+    sessionId: v.id("voiceSessions"),
+    storageId: v.id("_storage"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session) throw new Error("Session not found");
+
+    await ctx.db.patch(args.sessionId, {
+      audioStorageId: args.storageId,
+      updatedAt: Date.now(),
+    });
+    return null;
+  },
+});
+
+/**
  * Set the user's preferred voice language.
  * Creates or updates the userPreferences singleton.
  */

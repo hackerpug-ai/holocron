@@ -991,6 +991,7 @@ export default defineSchema({
       appVersion: v.string(),
     })),
     errorMessage: v.optional(v.string()),
+    audioStorageId: v.optional(v.id("_storage")),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
