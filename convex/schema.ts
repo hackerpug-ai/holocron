@@ -1231,4 +1231,13 @@ export default defineSchema({
     .index("by_document", ["documentId"])
     .index("by_source", ["source"])
     .index("by_importedAt", ["importedAt"]),
+
+  // API rate limit events for sliding-window tracking (research/shop endpoints)
+  // Each record represents one request; old records are cleaned up automatically
+  rateLimits: defineTable({
+    key: v.string(), // endpoint identifier: "exa", "jina", "jina-reader"
+    timestamp: v.number(), // Unix timestamp (ms) when the request was made
+  })
+    .index("by_key", ["key"])
+    .index("by_key_timestamp", ["key", "timestamp"]),
 });

@@ -16,6 +16,13 @@ import Exa from "exa-js";
 import { withRateLimit } from "./rateLimiter.js";
 
 /**
+ * Minimal ctx shape required for rate limiting (subset of ActionCtx)
+ */
+type RateLimitCtx = {
+  runMutation: (fn: unknown, args: Record<string, unknown>) => Promise<unknown>;
+} | null | undefined;
+
+/**
  * Result from reading a single URL
  */
 export interface UrlReadResult {
@@ -61,7 +68,8 @@ export interface ParallelUrlReadOptions {
 export async function readUrlWithJina(
   url: string,
   timeoutMs: number = 15000,
-  maxContentLength: number = 10000
+  maxContentLength: number = 10000,
+  ctx?: RateLimitCtx
 ): Promise<UrlReadResult> {
   const apiKey = process.env.JINA_API_KEY;
   if (!apiKey) {
@@ -80,17 +88,18 @@ export async function readUrlWithJina(
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-    const response = await withRateLimit("jina-reader", async () => {
-      return await fetch(readerUrl, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          Accept: "text/plain",
-          "X-Return-Format": "text",
-        },
-        signal: controller.signal,
-      });
+    const fetchFn = async () => fetch(readerUrl, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        Accept: "text/plain",
+        "X-Return-Format": "text",
+      },
+      signal: controller.signal,
     });
+    const response = ctx
+      ? await withRateLimit(ctx, "jina-reader", fetchFn)
+      : await fetchFn();
 
     clearTimeout(timeoutId);
 
@@ -151,7 +160,8 @@ export async function readUrlWithJina(
 export async function readUrlWithJinaAndLinks(
   url: string,
   timeoutMs: number = 15000,
-  maxContentLength: number = 10000
+  maxContentLength: number = 10000,
+  ctx?: RateLimitCtx
 ): Promise<UrlReadWithLinksResult> {
   const apiKey = process.env.JINA_API_KEY;
   if (!apiKey) {
@@ -171,17 +181,18 @@ export async function readUrlWithJinaAndLinks(
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-    const response = await withRateLimit("jina-reader", async () => {
-      return await fetch(readerUrl, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          Accept: "application/json",
-          "X-With-Links-Summary": "true",
-        },
-        signal: controller.signal,
-      });
+    const fetchFn = async () => fetch(readerUrl, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        Accept: "application/json",
+        "X-With-Links-Summary": "true",
+      },
+      signal: controller.signal,
     });
+    const response = ctx
+      ? await withRateLimit(ctx, "jina-reader", fetchFn)
+      : await fetchFn();
 
     clearTimeout(timeoutId);
 
@@ -259,7 +270,8 @@ export async function readUrlWithJinaAndLinks(
  */
 export async function executeParallelUrlRead(
   urls: string[],
-  options: ParallelUrlReadOptions = {}
+  options: ParallelUrlReadOptions = {},
+  ctx?: RateLimitCtx
 ): Promise<UrlReadResult[]> {
   const {
     maxConcurrent = 5,
@@ -294,7 +306,7 @@ export async function executeParallelUrlRead(
     );
 
     const batchResults = await Promise.all(
-      batch.map((url) => readUrlWithJina(url, timeoutMs, maxContentLength))
+      batch.map((url) => readUrlWithJina(url, timeoutMs, maxContentLength, ctx))
     );
 
     results.push(...batchResults);
@@ -424,7 +436,7 @@ async function executeSearchWithRetry(
 /**
  * Execute Exa search for a query
  */
-async function executeExaSearch(query: string): Promise<StructuredSearchResult[]> {
+async function executeExaSearch(query: string, ctx?: RateLimitCtx): Promise<StructuredSearchResult[]> {
   const apiKey = process.env.EXA_API_KEY;
   if (!apiKey) {
     console.warn("[executeExaSearch] EXA_API_KEY not configured");
@@ -434,12 +446,13 @@ async function executeExaSearch(query: string): Promise<StructuredSearchResult[]
   const exa = new Exa(apiKey);
 
   // Apply rate limiting (10 QPS)
-  const searchResults = await withRateLimit('exa', async () => {
-    return await exa.searchAndContents(query, {
-      numResults: 8,
-      useAutoprompt: true,
-    });
+  const searchFn = async () => exa.searchAndContents(query, {
+    numResults: 8,
+    useAutoprompt: true,
   });
+  const searchResults = ctx
+    ? await withRateLimit(ctx, 'exa', searchFn)
+    : await searchFn();
 
   return searchResults.results.map((result: any) => ({
     source: "exa",
@@ -455,7 +468,7 @@ async function executeExaSearch(query: string): Promise<StructuredSearchResult[]
 /**
  * Execute Jina search for a query
  */
-async function executeJinaSearch(query: string): Promise<StructuredSearchResult[]> {
+async function executeJinaSearch(query: string, ctx?: RateLimitCtx): Promise<StructuredSearchResult[]> {
   const apiKey = process.env.JINA_API_KEY;
   if (!apiKey) {
     console.warn("[executeJinaSearch] JINA_API_KEY not configured");
@@ -465,15 +478,16 @@ async function executeJinaSearch(query: string): Promise<StructuredSearchResult[
   const encodedQuery = encodeURIComponent(query);
 
   // Apply rate limiting (100 RPM for free tier)
-  const response = await withRateLimit('jina', async () => {
-    return await fetch(`https://s.jina.ai/?q=${encodedQuery}`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        Accept: "application/json",
-      },
-    });
+  const fetchFn = async () => fetch(`https://s.jina.ai/?q=${encodedQuery}`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      Accept: "application/json",
+    },
   });
+  const response = ctx
+    ? await withRateLimit(ctx, 'jina', fetchFn)
+    : await fetchFn();
 
   if (!response.ok) {
     throw new Error(`Jina search failed: ${response.status}`);
@@ -573,7 +587,8 @@ export async function executeParallelSearchWithRetry(
   topic: string,
   _context: Record<string, unknown>,
   previousGaps: string[] = [],
-  options: ParallelSearchOptions = {}
+  options: ParallelSearchOptions = {},
+  ctx?: RateLimitCtx
 ): Promise<ParallelSearchResult> {
   const startTime = Date.now();
   const {
@@ -594,8 +609,8 @@ export async function executeParallelSearchWithRetry(
 
   // Execute all searches in parallel
   const searchPromises = queries.flatMap((query) => [
-    executeSearchWithRetry(() => executeExaSearch(query), maxRetries, timeoutMs),
-    executeSearchWithRetry(() => executeJinaSearch(query), maxRetries, timeoutMs),
+    executeSearchWithRetry(() => executeExaSearch(query, ctx), maxRetries, timeoutMs),
+    executeSearchWithRetry(() => executeJinaSearch(query, ctx), maxRetries, timeoutMs),
   ]);
 
   console.log(
