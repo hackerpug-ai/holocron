@@ -122,6 +122,10 @@ function CustomDrawerContent() {
     router.push('/subscriptions')
   }
 
+  const handleWhatsNewPress = () => {
+    router.push('/whats-new')
+  }
+
   const handleSettingsPress = () => {
     router.push('/settings')
   }
@@ -153,6 +157,7 @@ function CustomDrawerContent() {
       onConversationDelete={handleConversationDelete}
       onArticlesPress={handleArticlesPress}
       onSubscriptionsPress={handleSubscriptionsPress}
+      onWhatsNewPress={handleWhatsNewPress}
       onToolbeltPress={handleToolbeltPress}
       onSettingsPress={handleSettingsPress}
       onImprovementsPress={handleImprovementsPress}
@@ -275,6 +280,14 @@ export default function DrawerLayout() {
         <Drawer.Screen
           name="subscription-content/[groupKey]"
           options={{ headerShown: false, title: 'Subscription Content' }}
+        />
+        <Drawer.Screen
+          name="whats-new/index"
+          options={{ headerShown: false, title: "What's New" }}
+        />
+        <Drawer.Screen
+          name="whats-new/[reportId]"
+          options={{ headerShown: false, title: "What's New Report" }}
         />
         <Drawer.Screen
           name="settings"
