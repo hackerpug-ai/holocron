@@ -555,13 +555,35 @@ export const executePlanBasedResearch = internalAction({
       });
     }
 
-    // Step 3: Execute all track workers in parallel
+    // Step 3: Execute all track workers in parallel with graceful degradation
     console.log(`[executePlanBasedResearch] Executing ${tracks.length} workers`);
     const workerPromises = tracks.map((config) =>
       executeTrackWorkerWithRetry(ctx, config)
     );
 
-    const trackResults = await Promise.all(workerPromises);
+    // Use Promise.allSettled so one provider failure doesn't block others
+    const settledResults = await Promise.allSettled(workerPromises);
+    const trackResults = settledResults.map((result, index) => {
+      if (result.status === "fulfilled") {
+        return result.value;
+      }
+      // Convert rejected promise into a failed TrackWorkerResult
+      const config = tracks[index];
+      const errorMessage = result.reason instanceof Error
+        ? result.reason.message
+        : String(result.reason);
+      console.error(
+        `[executePlanBasedResearch] Track ${config.track} rejected: ${errorMessage}`
+      );
+      return {
+        track: config.track,
+        query: config.query,
+        success: false,
+        error: errorMessage,
+        durationMs: 0,
+        retryCount: config.retryCount,
+      } as TrackWorkerResult;
+    });
 
     // Step 4: Aggregate results
     const completedTracks = trackResults.filter((r) => r.success);
