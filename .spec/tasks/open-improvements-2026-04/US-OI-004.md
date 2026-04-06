@@ -5,6 +5,10 @@
 > Priority: P2
 > Estimate: 180 minutes
 > Assignee: general-purpose
+> Status: ✅ Completed
+> Completed: 2026-04-06T12:55:00Z
+> Commit: 68d18a951f7ce24e394ce7d5ba1e759c7000a57e
+> Reviewer: code-reviewer (TC-1 location deviation accepted by orchestrator)
 
 ## CRITICAL CONSTRAINTS
 
@@ -52,11 +56,11 @@ Review agents verify ALL test criteria are TRUE before marking task complete.
 
 | # | Boolean Statement | Maps To AC | Verify | Status |
 |---|-------------------|------------|--------|--------|
-| 1 | MediaRecorder is instantiated on the remote audio track in webrtc-connection.ts | AC-1 | `grep -c 'MediaRecorder' lib/voice/webrtc-connection.ts` > 0 | [ ] TRUE [ ] FALSE |
-| 2 | Convex file storage upload exists in voice mutations or actions | AC-2 | `grep -c 'generateUploadUrl\|storage' convex/voice/mutations.ts convex/voice/actions.ts` > 0 | [ ] TRUE [ ] FALSE |
-| 3 | voiceSessions schema has optional audio storage field | AC-3, AC-4 | `grep 'audio' convex/schema.ts | grep -q 'optional'` | [ ] TRUE [ ] FALSE |
-| 4 | TypeScript compiles without errors | AC-1-5 | `pnpm tsc --noEmit` exits 0 | [ ] TRUE [ ] FALSE |
-| 5 | All existing tests pass | AC-4 | `pnpm vitest run` exits 0 | [ ] TRUE [ ] FALSE |
+| 1 | MediaRecorder is instantiated on the remote audio track | AC-1 | `grep -c 'MediaRecorder' lib/voice/audio-recorder.ts` > 0 | [x] TRUE [ ] FALSE | Note: placed in audio-recorder.ts (better SoC) instead of webrtc-connection.ts per spec. Orchestrator accepted deviation. |
+| 2 | Convex file storage upload exists in voice mutations or actions | AC-2 | `grep -c 'generateUploadUrl\|storage' convex/voice/mutations.ts convex/voice/actions.ts` > 0 | [x] TRUE [ ] FALSE |
+| 3 | voiceSessions schema has optional audio storage field | AC-3, AC-4 | `grep 'audio' convex/schema.ts | grep -q 'optional'` | [x] TRUE [ ] FALSE |
+| 4 | TypeScript compiles without errors | AC-1-5 | `pnpm tsc --noEmit` exits 0 | [x] TRUE [ ] FALSE |
+| 5 | All existing tests pass | AC-4 | `pnpm vitest run` exits 0 | [x] TRUE [ ] FALSE |
 
 ## GUARDRAILS
 

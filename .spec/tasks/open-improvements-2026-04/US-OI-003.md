@@ -5,6 +5,10 @@
 > Priority: P1
 > Estimate: 120 minutes
 > Assignee: general-purpose
+> Status: ✅ Completed
+> Completed: 2026-04-06T12:50:00Z
+> Commit: 38bd06a (remediation of e9ea891)
+> Reviewer: code-reviewer
 
 ## CRITICAL CONSTRAINTS
 
@@ -52,11 +56,11 @@ Review agents verify ALL test criteria are TRUE before marking task complete.
 
 | # | Boolean Statement | Maps To AC | Verify | Status |
 |---|-------------------|------------|--------|--------|
-| 1 | Jina timeout errors include "Jina" in the error message | AC-1 | `grep -c 'Jina' convex/research/search.ts` > 0 in timeout/error context | [ ] TRUE [ ] FALSE |
-| 2 | Exa timeout errors include "Exa" in the error message | AC-2 | `grep -c 'Exa' convex/research/search.ts` > 0 in timeout/error context | [ ] TRUE [ ] FALSE |
-| 3 | Retry logic exists with exponential backoff pattern | AC-3 | `grep -E 'retry|backoff|attempt.*[0-9]' convex/research/search.ts | wc -l` > 0 | [ ] TRUE [ ] FALSE |
-| 4 | TypeScript compiles without errors | AC-1-5 | `pnpm tsc --noEmit` exits 0 | [ ] TRUE [ ] FALSE |
-| 5 | All existing tests pass | AC-5 | `pnpm vitest run` exits 0 | [ ] TRUE [ ] FALSE |
+| 1 | Jina timeout errors include "Jina" in the error message | AC-1 | `grep -c 'Jina' convex/research/search.ts` > 0 in timeout/error context | [x] TRUE [ ] FALSE |
+| 2 | Exa timeout errors include "Exa" in the error message | AC-2 | `grep -c 'Exa' convex/research/search.ts` > 0 in timeout/error context | [x] TRUE [ ] FALSE |
+| 3 | Retry logic exists with exponential backoff pattern | AC-3 | `grep -E 'retry|backoff|attempt.*[0-9]' convex/research/search.ts | wc -l` > 0 | [x] TRUE [ ] FALSE |
+| 4 | TypeScript compiles without errors | AC-1-5 | `pnpm tsc --noEmit` exits 0 | [x] TRUE [ ] FALSE |
+| 5 | All existing tests pass | AC-5 | `pnpm vitest run` exits 0 | [x] TRUE [ ] FALSE |
 
 ## GUARDRAILS
 

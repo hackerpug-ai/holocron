@@ -5,6 +5,10 @@
 > Priority: P0
 > Estimate: 30 minutes
 > Assignee: general-purpose
+> Status: ✅ Completed
+> Completed: 2026-04-06T12:35:00Z
+> Commit: 9420f7bc23838be2b352a4e653b59c1de7c4e19d
+> Reviewer: code-reviewer
 
 ## CRITICAL CONSTRAINTS
 
@@ -47,11 +51,11 @@ Review agents verify ALL test criteria are TRUE before marking task complete.
 
 | # | Boolean Statement | Maps To AC | Verify | Status |
 |---|-------------------|------------|--------|--------|
-| 1 | Drawer.Screen entries exist for "whats-new" and "whats-new/[reportId]" in _layout.tsx | AC-1, AC-2 | `grep -c 'whats-new' app/\(drawer\)/_layout.tsx` returns >= 2 | [ ] TRUE [ ] FALSE |
-| 2 | handleWhatsNewPress handler exists and routes to /whats-new | AC-1 | `grep 'handleWhatsNewPress' app/\(drawer\)/_layout.tsx | grep -q "whats-new"` | [ ] TRUE [ ] FALSE |
-| 3 | DrawerContent "What's New" item uses onWhatsNewPress not onSubscriptionsPress | AC-1 | `grep "What's New" screens/DrawerContent.tsx | grep -q 'onWhatsNewPress'` | [ ] TRUE [ ] FALSE |
-| 4 | TypeScript compiles without errors | AC-1-4 | `pnpm tsc --noEmit` exits 0 | [ ] TRUE [ ] FALSE |
-| 5 | All existing tests pass | AC-4 | `pnpm vitest run` exits 0 | [ ] TRUE [ ] FALSE |
+| 1 | Drawer.Screen entries exist for "whats-new" and "whats-new/[reportId]" in _layout.tsx | AC-1, AC-2 | `grep -c 'whats-new' app/\(drawer\)/_layout.tsx` returns >= 2 | [x] TRUE [ ] FALSE |
+| 2 | handleWhatsNewPress handler exists and routes to /whats-new | AC-1 | `grep 'handleWhatsNewPress' app/\(drawer\)/_layout.tsx | grep -q "whats-new"` | [x] TRUE [ ] FALSE |
+| 3 | DrawerContent "What's New" item uses onWhatsNewPress not onSubscriptionsPress | AC-1 | `grep "What's New" screens/DrawerContent.tsx | grep -q 'onWhatsNewPress'` | [x] TRUE [ ] FALSE |
+| 4 | TypeScript compiles without errors | AC-1-4 | `pnpm tsc --noEmit` exits 0 | [x] TRUE [ ] FALSE |
+| 5 | All existing tests pass | AC-4 | `pnpm vitest run` exits 0 | [x] TRUE [ ] FALSE |
 
 ## GUARDRAILS
 
