@@ -1,6 +1,6 @@
 import { useQuery } from 'convex/react'
 import { api } from '@/convex/_generated/api'
-import type { Doc } from '@/convex/_generated/dataModel'
+import type { Doc, Id } from '@/convex/_generated/dataModel'
 
 /**
  * Hook for fetching a research session with its iterations from Convex.
@@ -24,12 +24,12 @@ import type { Doc } from '@/convex/_generated/dataModel'
  * return <ResearchSessionView session={session} />
  * ```
  */
-export function useResearchSession(sessionId: string | null) {
+export function useResearchSession(sessionId: Id<'researchSessions'> | null) {
   // Direct query - Convex auto-updates when entity changes!
   // This is the key pattern from US-060 - no manual subscriptions needed
   const session = useQuery(
     api.researchSessions.queries.get,
-    sessionId ? { id: sessionId as any } : 'skip'
+    sessionId ? { id: sessionId } : 'skip'
   )
 
   return {
@@ -59,10 +59,10 @@ export function useResearchSession(sessionId: string | null) {
  * return <DeepResearchDetailView session={session} />
  * ```
  */
-export function useDeepResearchSession(sessionId: string | null) {
+export function useDeepResearchSession(sessionId: Id<'deepResearchSessions'> | null) {
   const session = useQuery(
     api.research.queries.getDeepResearchSession,
-    sessionId ? { sessionId: sessionId as any } : 'skip'
+    sessionId ? { sessionId } : 'skip'
   )
 
   return {
@@ -75,15 +75,15 @@ export function useDeepResearchSession(sessionId: string | null) {
 /**
  * Type guard to check if session is loading
  */
-export function isSessionLoading(session: any | undefined): session is undefined {
+export function isSessionLoading(session: Doc<'researchSessions'> | null | undefined): session is undefined {
   return session === undefined
 }
 
 /**
  * Type guard to check if session exists
  */
-export function sessionExists(session: any | undefined): session is Doc<'researchSessions'> {
-  return session !== undefined
+export function sessionExists(session: Doc<'researchSessions'> | null | undefined): session is Doc<'researchSessions'> {
+  return session !== undefined && session !== null
 }
 
 /**
