@@ -1,6 +1,18 @@
 import { mutation } from "../_generated/server";
 import { v } from "convex/values";
 
+const deepResearchSessionStatus = v.union(
+  v.literal("pending"),
+  v.literal("running"),
+  v.literal("in_progress"),
+  v.literal("in-progress"),
+  v.literal("completed"),
+  v.literal("cancelled"),
+  v.literal("error"),
+  v.literal("failed"),
+  v.literal("timeout")
+);
+
 /**
  * Create a new deep research session
  */
@@ -10,7 +22,7 @@ export const create = mutation({
     taskId: v.optional(v.id("tasks")),
     topic: v.string(),
     maxIterations: v.optional(v.number()),
-    status: v.string(),
+    status: deepResearchSessionStatus,
   },
   handler: async (ctx, args) => {
     const now = Date.now();
@@ -30,7 +42,7 @@ export const update = mutation({
     id: v.id("deepResearchSessions"),
     taskId: v.optional(v.id("tasks")),
     maxIterations: v.optional(v.number()),
-    status: v.optional(v.string()),
+    status: v.optional(deepResearchSessionStatus),
     completedAt: v.optional(v.number()),
   },
   handler: async (ctx, { id, ...updates }) => {
@@ -57,7 +69,7 @@ export const insertFromMigration = mutation({
     taskId: v.optional(v.id("tasks")),
     topic: v.string(),
     maxIterations: v.optional(v.number()),
-    status: v.string(),
+    status: deepResearchSessionStatus,
     createdAt: v.number(),
     updatedAt: v.number(),
     completedAt: v.optional(v.number()),

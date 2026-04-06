@@ -4,6 +4,16 @@ import { v } from "convex/values";
 /**
  * Create a new deep research iteration
  */
+const deepResearchIterationStatus = v.union(
+  v.literal("pending"),
+  v.literal("running"),
+  v.literal("in_progress"),
+  v.literal("in-progress"),
+  v.literal("completed"),
+  v.literal("failed"),
+  v.literal("error")
+);
+
 export const create = mutation({
   args: {
     sessionId: v.id("deepResearchSessions"),
@@ -12,7 +22,7 @@ export const create = mutation({
     feedback: v.optional(v.string()),
     findings: v.optional(v.string()),
     refinedQueries: v.optional(v.any()),
-    status: v.string(),
+    status: deepResearchIterationStatus,
   },
   handler: async (ctx, args) => {
     return await ctx.db.insert("deepResearchIterations", {
@@ -32,7 +42,7 @@ export const update = mutation({
     feedback: v.optional(v.string()),
     findings: v.optional(v.string()),
     refinedQueries: v.optional(v.any()),
-    status: v.optional(v.string()),
+    status: v.optional(deepResearchIterationStatus),
   },
   handler: async (ctx, { id, ...updates }) => {
     const existing = await ctx.db.get(id);
@@ -57,7 +67,7 @@ export const insertFromMigration = mutation({
     feedback: v.optional(v.string()),
     findings: v.optional(v.string()),
     refinedQueries: v.optional(v.any()),
-    status: v.string(),
+    status: deepResearchIterationStatus,
     createdAt: v.number(),
   },
   handler: async (ctx, args) => {

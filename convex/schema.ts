@@ -64,7 +64,21 @@ export default defineSchema({
     query: v.string(),
     researchType: v.string(),
     inputType: v.string(),
-    status: v.string(),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("running"),
+      v.literal("in_progress"),
+      v.literal("searching"),
+      v.literal("analyzing"),
+      v.literal("synthesizing"),
+      v.literal("completed"),
+      v.literal("failed"),
+      v.literal("cancelled"),
+      v.literal("error"),
+      v.literal("paused"),
+      v.literal("pending_approval"),
+      v.literal("processing")
+    ),
     maxIterations: v.optional(v.number()),
     currentIteration: v.optional(v.number()),
     coverageScore: v.optional(v.number()),
@@ -99,7 +113,17 @@ export default defineSchema({
     researchType: v.optional(v.string()), // "deep" | "simple"
     researchMode: v.optional(v.string()), // "OVERVIEW" | "ACTIONABLE" | "COMPARATIVE" | "EXPLORATORY"
     maxIterations: v.optional(v.number()),
-    status: v.string(),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("running"),
+      v.literal("in_progress"),
+      v.literal("in-progress"),
+      v.literal("completed"),
+      v.literal("cancelled"),
+      v.literal("error"),
+      v.literal("failed"),
+      v.literal("timeout")
+    ),
     currentIteration: v.optional(v.number()),
     refinedTopic: v.optional(v.string()),
     currentCoverageScore: v.optional(v.number()),
@@ -129,7 +153,15 @@ export default defineSchema({
     feedback: v.optional(v.string()),
     findings: v.optional(v.string()),
     refinedQueries: v.optional(v.any()),
-    status: v.string(),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("running"),
+      v.literal("in_progress"),
+      v.literal("in-progress"),
+      v.literal("completed"),
+      v.literal("failed"),
+      v.literal("error")
+    ),
     // Short human-readable summary of what was found (3-6 words)
     summary: v.optional(v.string()),
     // Confidence stats for this iteration
@@ -184,7 +216,15 @@ export default defineSchema({
   tasks: defineTable({
     conversationId: v.optional(v.id("conversations")),
     taskType: v.string(),
-    status: v.string(),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("queued"),
+      v.literal("loading"),
+      v.literal("running"),
+      v.literal("completed"),
+      v.literal("error"),
+      v.literal("cancelled")
+    ),
     config: v.optional(v.any()),
     currentStep: v.optional(v.number()),
     totalSteps: v.optional(v.number()),
