@@ -1,7 +1,8 @@
 "use node";
 
-import { action } from "../_generated/server";
+import { action, ActionCtx } from "../_generated/server";
 import { v } from "convex/values";
+import { Id } from "../_generated/dataModel";
 import { api, internal } from "../_generated/api";
 
 import { generateText } from "ai";
@@ -280,7 +281,7 @@ interface AgentResponse {
  */
 async function handleSearchCommand(
   query: string,
-  ctx: any,
+  ctx: ActionCtx,
 ): Promise<AgentResponse> {
   try {
     const searchResults = await ctx.runAction(
@@ -304,7 +305,7 @@ async function handleSearchCommand(
     }
 
     // Build article cards from search results
-    const articleCards: SearchArticleCard[] = searchResults.map((doc: any) => ({
+    const articleCards: SearchArticleCard[] = searchResults.map((doc: { _id: string; title: string; category: string; content?: string; score?: number }) => ({
       card_type: "article",
       title: doc.title,
       category: doc.category,
@@ -337,7 +338,7 @@ async function handleSearchCommand(
  */
 async function handleBrowseCommand(
   categoryArg: string | undefined,
-  ctx: any,
+  ctx: ActionCtx,
 ): Promise<AgentResponse> {
   try {
     // No category arg - list all categories with counts
@@ -388,7 +389,7 @@ async function handleBrowseCommand(
     }
 
     // Build article cards
-    const articleCards: BrowseArticleCard[] = articles.map((doc: any) => ({
+    const articleCards: BrowseArticleCard[] = articles.map((doc: { _id: string; title: string; date?: string; researchType?: string }) => ({
       card_type: "article",
       title: doc.title,
       date: doc.date || undefined,
@@ -413,7 +414,7 @@ async function handleBrowseCommand(
  * Handle /stats command
  * Return knowledge base statistics
  */
-async function handleStatsCommand(ctx: any): Promise<AgentResponse> {
+async function handleStatsCommand(ctx: ActionCtx): Promise<AgentResponse> {
   try {
     const categoryCounts = await ctx.runQuery(
       api.documents.queries.countByCategory,
@@ -421,7 +422,7 @@ async function handleStatsCommand(ctx: any): Promise<AgentResponse> {
     );
 
     const totalCount = Object.values(categoryCounts).reduce(
-      (sum: number, count: any) => sum + (count as number),
+      (sum: number, count: unknown) => sum + (count as number),
       0,
     );
 
@@ -514,7 +515,7 @@ export const generateChatTitle = action({
     const context: string = messages
       .slice(0, 5)
       .reverse() // Reverse because listByConversation returns newest first
-      .map((m: any) => `${m.role}: ${m.content}`)
+      .map((m: { role: string; content: string }) => `${m.role}: ${m.content}`)
       .join("\n\n");
 
     // Helper: truncate title to max 50 chars
@@ -526,9 +527,9 @@ export const generateChatTitle = action({
       const firstUserMsg = messages
         .slice()
         .reverse()
-        .find((m: any) => m.role === "user");
+        .find((m: { role: string; content: string }) => m.role === "user");
       if (!firstUserMsg) return "Untitled Chat";
-      const content = (firstUserMsg as any).content as string;
+      const content = firstUserMsg.content;
       // Strip leading slash commands for cleaner titles
       const cleaned = content.replace(/^\/\S+\s*/, "").trim();
       if (!cleaned) return "Untitled Chat";
@@ -621,9 +622,9 @@ export const send = action({
     ctx,
     { conversationId, content, messageType = "text" },
   ): Promise<{
-    userMessageId: any;
-    agentMessageId: any;
-    conversationId: any;
+    userMessageId: Id<"chatMessages">;
+    agentMessageId: Id<"chatMessages"> | null;
+    conversationId: Id<"conversations">;
   }> => {
     const now = Date.now();
 
@@ -643,7 +644,7 @@ export const send = action({
     const actualMessageType = parsed.isCommand ? "slash_command" : messageType;
 
     // 2. Persist user message (AC-1)
-    const userMessageId: any = await ctx.runMutation(
+    const userMessageId: Id<"chatMessages"> = await ctx.runMutation(
       api.chatMessages.mutations.create,
       {
         conversationId: finalConversationId,
@@ -763,7 +764,7 @@ export const send = action({
           };
         } else {
           try {
-            const result: any = await ctx.runMutation(
+            const result: { _id: string; url?: string } | null = await ctx.runMutation(
               api.subscriptions.mutations.add,
               {
                 sourceType,
@@ -776,11 +777,11 @@ export const send = action({
               messageType: "result_card",
               cardData: {
                 card_type: "subscription_added",
-                subscription_id: result._id,
+                subscription_id: result?._id ?? "",
                 source_type: sourceType,
                 identifier,
                 name,
-                url: result.url,
+                url: result?.url,
               } as SubscriptionAddedCard,
             };
           } catch (error) {
@@ -801,7 +802,7 @@ export const send = action({
         } else {
           try {
             await ctx.runMutation(api.subscriptions.mutations.remove, {
-              subscriptionId: subscriptionId as any,
+              subscriptionId: subscriptionId as Id<"subscriptionSources">,
             });
             agentResponse = {
               content: `Unsubscribed successfully`,
@@ -818,7 +819,7 @@ export const send = action({
         // /subscriptions [type]
         const filterType = parsed.args as "youtube" | "newsletter" | "changelog" | "reddit" | "ebay" | "whats-new" | undefined;
         try {
-          const subscriptions: any[] = await ctx.runQuery(
+          const subscriptions: Array<{ _id: string; sourceType: string; identifier: string; name: string; autoResearch: boolean; createdAt: number }> = await ctx.runQuery(
             api.subscriptions.queries.list,
             { sourceType: filterType || undefined }
           );
@@ -836,7 +837,7 @@ export const send = action({
               messageType: "result_card",
               cardData: {
                 card_type: "subscription_list",
-                subscriptions: subscriptions.map((s: any) => ({
+                subscriptions: subscriptions.map((s) => ({
                   id: s._id,
                   source_type: s.sourceType,
                   identifier: s.identifier,
@@ -873,7 +874,26 @@ export const send = action({
         const rawDays = parsed.args ? parseInt(parsed.args, 10) : 1
         const days = Number.isNaN(rawDays) ? 1 : Math.max(1, Math.min(30, rawDays));
         try {
-          const reportData: any = await ctx.runQuery(
+          const reportData: {
+            report?: {
+              _id: string;
+              days: number;
+              periodStart: number;
+              periodEnd: number;
+              findingsCount: number;
+              discoveryCount: number;
+              releaseCount: number;
+              trendCount: number;
+              summaryJson?: {
+                topSources?: [string, number][];
+                topEngagementVelocity?: number;
+                totalCorroborationCount?: number;
+                sources?: string[];
+              };
+            };
+            content?: string | null;
+            isFromToday?: boolean;
+          } | null = await ctx.runQuery(
             api.whatsNew.queries.getLatestReport,
             {}
           );
@@ -891,28 +911,23 @@ export const send = action({
             };
           } else {
             const report = reportData.report;
-            const summaryJson = report.summaryJson as {
-              topSources?: [string, number][];
-              topEngagementVelocity?: number;
-              totalCorroborationCount?: number;
-              sources?: string[];
-            } | undefined;
+            const summaryJson = report?.summaryJson;
 
             agentResponse = {
-              content: `What's New in AI (${report.days} days)`,
+              content: `What's New in AI (${report?.days} days)`,
               messageType: "result_card",
               cardData: {
                 card_type: "whats_new_report",
-                report_id: report._id,
-                period_start: report.periodStart,
-                period_end: report.periodEnd,
-                days: report.days,
-                findings_count: report.findingsCount,
-                discovery_count: report.discoveryCount,
-                release_count: report.releaseCount,
-                trend_count: report.trendCount,
+                report_id: report?._id ?? "",
+                period_start: report?.periodStart ?? 0,
+                period_end: report?.periodEnd ?? 0,
+                days: report?.days ?? 0,
+                findings_count: report?.findingsCount ?? 0,
+                discovery_count: report?.discoveryCount ?? 0,
+                release_count: report?.releaseCount ?? 0,
+                trend_count: report?.trendCount ?? 0,
                 content: reportData.content,
-                is_from_today: reportData.isFromToday,
+                is_from_today: reportData.isFromToday ?? false,
                 // Extended fields
                 top_engagement_velocity: summaryJson?.topEngagementVelocity,
                 total_corroboration_count: summaryJson?.totalCorroborationCount,
@@ -942,7 +957,7 @@ export const send = action({
             // Insert the loading card message first so we have its ID.
             // The scheduled action will UPDATE this message in place once the
             // tool is saved (replacing the spinner with a tool_added card).
-            const loadingMessageId: any = await ctx.runMutation(
+            const loadingMessageId: Id<"chatMessages"> = await ctx.runMutation(
               api.chatMessages.mutations.create,
               {
                 conversationId: finalConversationId,
@@ -977,7 +992,7 @@ export const send = action({
           } else {
             // Search toolbelt
             try {
-              const results: any[] = await ctx.runQuery(
+              const results: Array<{ _id: string; title: string; description?: string; category: string; sourceType: string; language?: string; tags?: string[]; score?: number }> = await ctx.runQuery(
                 api.toolbelt.queries.fullTextSearch,
                 { query: input, limit: 5 }
               );
@@ -994,7 +1009,7 @@ export const send = action({
                   cardData: {
                     card_type: "tool_search_results",
                     query: input,
-                    results: results.map((t: any) => ({
+                    results: results.map((t) => ({
                       id: t._id,
                       title: t.title,
                       description: t.description,
@@ -1036,10 +1051,10 @@ export const send = action({
 
             const conversationSummary = messages
               .reverse()
-              .map((m: any) => `${m.role}: ${m.content}`)
+              .map((m: { role: string; content: string }) => `${m.role}: ${m.content}`)
               .join("\n\n");
 
-            const result: any = await ctx.runAction(
+            const result: { documentId: string } = await ctx.runAction(
               api.documents.storage.createWithEmbedding,
               {
                 title,
@@ -1115,7 +1130,7 @@ export const send = action({
           conversationId: finalConversationId,
           limit: 100,
         })
-        .then((msgs: any[]) => msgs.length);
+        .then((msgs: unknown[]) => msgs.length);
 
       if (messageCount >= 1) {
         const currentConversation = await ctx.runQuery(
@@ -1141,7 +1156,7 @@ export const send = action({
     }
 
     // 5. Persist agent response (slash command path only)
-    const agentMessageId: any = await ctx.runMutation(
+    const agentMessageId: Id<"chatMessages"> = await ctx.runMutation(
       api.chatMessages.mutations.create,
       {
         conversationId: finalConversationId,
@@ -1160,7 +1175,7 @@ export const send = action({
         conversationId: finalConversationId,
         limit: 100, // Get all messages to count accurately
       })
-      .then((msgs: any[]) => msgs.length);
+      .then((msgs: unknown[]) => msgs.length);
 
     if (messageCount >= 2) {
       const currentConversation = await ctx.runQuery(
