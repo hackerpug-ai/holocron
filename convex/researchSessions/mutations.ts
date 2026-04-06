@@ -1,6 +1,22 @@
 import { mutation } from "../_generated/server";
 import { v } from "convex/values";
 
+const researchSessionStatus = v.union(
+  v.literal("pending"),
+  v.literal("running"),
+  v.literal("in_progress"),
+  v.literal("searching"),
+  v.literal("analyzing"),
+  v.literal("synthesizing"),
+  v.literal("completed"),
+  v.literal("failed"),
+  v.literal("cancelled"),
+  v.literal("error"),
+  v.literal("paused"),
+  v.literal("pending_approval"),
+  v.literal("processing")
+);
+
 /**
  * Create a new research session
  */
@@ -9,7 +25,7 @@ export const create = mutation({
     query: v.string(),
     researchType: v.string(),
     inputType: v.string(),
-    status: v.string(),
+    status: researchSessionStatus,
     maxIterations: v.optional(v.number()),
     currentIteration: v.optional(v.number()),
     coverageScore: v.optional(v.number()),
@@ -34,7 +50,7 @@ export const create = mutation({
 export const update = mutation({
   args: {
     id: v.id("researchSessions"),
-    status: v.optional(v.string()),
+    status: v.optional(researchSessionStatus),
     currentIteration: v.optional(v.number()),
     coverageScore: v.optional(v.number()),
     plan: v.optional(v.any()),
@@ -80,7 +96,7 @@ export const insertFromMigration = mutation({
     query: v.string(),
     researchType: v.optional(v.string()),
     inputType: v.string(),
-    status: v.string(),
+    status: researchSessionStatus,
     maxIterations: v.optional(v.number()),
     currentIteration: v.optional(v.number()),
     coverageScore: v.optional(v.number()),

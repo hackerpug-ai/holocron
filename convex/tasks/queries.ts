@@ -67,7 +67,17 @@ export const getActiveByConversation = query({
  * Get all tasks by status
  */
 export const getByStatus = query({
-  args: { status: v.string() },
+  args: {
+    status: v.union(
+      v.literal("pending"),
+      v.literal("queued"),
+      v.literal("loading"),
+      v.literal("running"),
+      v.literal("completed"),
+      v.literal("error"),
+      v.literal("cancelled")
+    ),
+  },
   handler: async (ctx, { status }) => {
     return await ctx.db
       .query("tasks")

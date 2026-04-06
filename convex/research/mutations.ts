@@ -8,6 +8,28 @@ import { mutation, internalMutation } from "../_generated/server";
 import { v } from "convex/values";
 import { api, internal } from "../_generated/api";
 
+const deepResearchSessionStatus = v.union(
+  v.literal("pending"),
+  v.literal("running"),
+  v.literal("in_progress"),
+  v.literal("in-progress"),
+  v.literal("completed"),
+  v.literal("cancelled"),
+  v.literal("error"),
+  v.literal("failed"),
+  v.literal("timeout")
+);
+
+const deepResearchIterationStatus = v.union(
+  v.literal("pending"),
+  v.literal("running"),
+  v.literal("in_progress"),
+  v.literal("in-progress"),
+  v.literal("completed"),
+  v.literal("failed"),
+  v.literal("error")
+);
+
 /**
  * Create a new deep research session
  *
@@ -54,7 +76,7 @@ export const createDeepResearchIteration = mutation({
     feedback: v.optional(v.string()),
     findings: v.optional(v.string()),
     refinedQueries: v.optional(v.any()),
-    status: v.string(),
+    status: deepResearchIterationStatus,
     summary: v.optional(v.string()),
     embedding: v.optional(v.array(v.float64())),
   },
@@ -110,7 +132,7 @@ export const createDeepResearchIteration = mutation({
 export const updateDeepResearchSession = mutation({
   args: {
     sessionId: v.id("deepResearchSessions"),
-    status: v.string(),
+    status: deepResearchSessionStatus,
     currentIteration: v.optional(v.number()),
     refinedTopic: v.optional(v.string()),
     currentCoverageScore: v.optional(v.number()),
@@ -158,7 +180,7 @@ export const updateDeepResearchSession = mutation({
 export const completeDeepResearchSession = mutation({
   args: {
     sessionId: v.id("deepResearchSessions"),
-    status: v.string(),
+    status: deepResearchSessionStatus,
     finalConfidenceSummary: v.optional(v.object({
       highConfidenceCount: v.number(),
       mediumConfidenceCount: v.number(),

@@ -186,7 +186,15 @@ export const insertFromMigration = mutation({
   args: {
     conversationId: v.optional(v.id("conversations")),
     taskType: v.string(),
-    status: v.string(),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("queued"),
+      v.literal("loading"),
+      v.literal("running"),
+      v.literal("completed"),
+      v.literal("error"),
+      v.literal("cancelled")
+    ),
     config: v.optional(v.any()),
     currentStep: v.optional(v.number()),
     totalSteps: v.optional(v.number()),
