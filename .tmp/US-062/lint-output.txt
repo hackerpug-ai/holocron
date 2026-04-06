@@ -1,4 +1,0 @@
-Exit code: 1
-Total lint warnings: 70
-Note: All lint warnings are pre-existing issues in the codebase and are NOT related to the US-062 migration file.
-The migration file (supabase/migrations/20260303_add_citations_table.sql) is SQL and is not linted by ESLint.

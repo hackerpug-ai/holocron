@@ -1,2 +1,0 @@
-1
-eslint command not found - linter not installed in project

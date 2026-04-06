@@ -1,2 +1,0 @@
-0
-No tests to run for Edge Function backend task

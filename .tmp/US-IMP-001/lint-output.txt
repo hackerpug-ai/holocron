@@ -1,5 +1,0 @@
-$ eslint .
-
-No errors or warnings.
-
-Exit code: 0

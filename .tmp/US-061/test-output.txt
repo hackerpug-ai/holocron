@@ -1,2 +1,0 @@
-0
-Tests not available for Supabase functions - exit code 0 (pass)

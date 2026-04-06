@@ -1,4 +1,0 @@
-0
-Lint passed for project files
-Note: Supabase Edge Functions are ignored by ESLint config
-and will be validated by Deno when deployed

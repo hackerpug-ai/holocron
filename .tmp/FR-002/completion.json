@@ -1,7 +1,0 @@
-{
-  "status": "completed",
-  "commit_sha": "007ceb2708c4ab3a74888a63413cacfc46b01aea",
-  "commit_blocked": false,
-  "evidence_path": ".tmp/FR-002/",
-  "summary": "Extended subscriptionContent table with 8 new optional fields for feed metadata: feedItemId (foreign key), inFeed, thumbnailUrl, duration, authorHandle, likesCount, commentsCount, and contentCategory. All fields use v.optional() for backward compatibility. Type check passes with zero errors, all 208 tests pass."
-}

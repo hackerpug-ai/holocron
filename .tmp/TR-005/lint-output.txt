@@ -1,2 +1,0 @@
-$ eslint . --quiet
-Exit code: 

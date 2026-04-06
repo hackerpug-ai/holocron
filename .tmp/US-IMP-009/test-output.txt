@@ -1,7 +1,0 @@
-$ vitest run
-
-[1m[46m RUN [49m[22m [36mv4.1.0 [39m[90m/Users/justinrich/Projects/holocron[39m
-
- [31m❯[39m tests/components/whats-new/NewsCard.test.tsx [2m([22m[2m7 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 5[2mms[22m[39m
-[31m       [31m×[31m should have testID="news-card" on card[39m[32m 2[2mms[22m[39m
- [31m❯[39m tests/components/research/ReportOutline.test.tsx [2m([22m[2m22 tests[22m[2m | [22m[31m4 failed[39m[2m)[22m[32m 7[2mms[22m[39m

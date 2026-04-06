@@ -1,8 +1,0 @@
-bun test v4.1.0 /Users/justinrich/Projects/holocron
-
- Test Files  78 passed | 1 skipped (79)
-      Tests  1168 passed | 5 skipped (1173)
-   Start at  12:35:13
-   Duration  1.07s (transform 2.87s, setup 0ms, import 2.95s, tests 2.34s, environment 553ms)
-
-Exit code: 0

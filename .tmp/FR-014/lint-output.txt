@@ -1,4 +1,0 @@
-
-> holocron@1.0.0 lint /Users/justinrich/Projects/holocron
-> eslint .
-

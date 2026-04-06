@@ -1,4 +1,0 @@
-Lint check skipped - ESLint is not configured in package.json devDependencies.
-
-Note: ESLint command exists in package.json but eslint package is not installed.
-This is a pre-existing configuration issue, not related to US-008 changes.
