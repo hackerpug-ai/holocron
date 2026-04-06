@@ -59,7 +59,7 @@ See [convex/schema.ts](convex/schema.ts) for full schema definitions.
 - Node.js 18+ and pnpm
 - Expo CLI (`npm install -g expo-cli`)
 - Convex account (sign up at [convex.dev](https://convex.dev))
-- OpenAI API key
+- LLM provider API key (OpenAI, Z.ai, or compatible provider)
 
 ### 1. Install Dependencies
 
@@ -89,8 +89,8 @@ Create a `.env` file in the project root:
 # Convex Backend
 EXPO_PUBLIC_CONVEX_URL="https://your-project.convex.cloud"
 
-# OpenAI API
-EXPO_PUBLIC_OPENAI_API_KEY="sk-..."
+# LLM Provider API Key (OpenAI, Z.ai, or compatible provider)
+EXPO_PUBLIC_LLM_API_KEY="your-api-key-here"
 
 # Langfuse (Optional - for observability)
 LANGFUSE_BASE_URL="https://us.cloud.langfuse.com"
