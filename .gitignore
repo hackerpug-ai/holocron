@@ -63,6 +63,12 @@ yarn-error.*
 # Pi project-local packages (if using pi install -l)
 .pi/npm/
 
+# Build artifacts (binary files)
+*.ipa
+*.apk
+*.app
+*.aab
+
 # Personal files (interview prep, research, etc.)
 *-interview-prep-*.md
 *-post-research-*.md
