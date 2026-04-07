@@ -94,7 +94,7 @@ export function NavigationTooltip({
           style={StyleSheet.absoluteFill}
           testID={`${testID}-backdrop`}
         >
-          <View style={styles.backdrop} />
+          <View style={[styles.backdrop, { backgroundColor: themeColors.overlay }]} />
         </Pressable>
       )}
 
@@ -118,7 +118,12 @@ export function NavigationTooltip({
         <View
           style={[
             styles.arrow,
-            { borderTopColor: themeColors.border },
+            {
+              borderTopColor: themeColors.border,
+              borderRightColor: 'transparent',
+              borderBottomColor: 'transparent',
+              borderLeftColor: 'transparent',
+            },
           ]}
         />
 
@@ -159,7 +164,6 @@ export function NavigationTooltip({
 const styles = StyleSheet.create({
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
   },
   tooltipContainer: {
     position: 'absolute',
