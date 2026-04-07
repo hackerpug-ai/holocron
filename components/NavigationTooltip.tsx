@@ -31,7 +31,7 @@ export function NavigationTooltip({
   onDismiss,
   testID = 'navigation-tooltip',
 }: NavigationTooltipProps) {
-  const { colors: themeColors, spacing, radius } = useTheme()
+  const { colors: themeColors, spacing, radius, typography } = useTheme()
   const [position, setPosition] = useState({ x: 0, y: 0 })
   const tooltipRef = useRef<View>(null)
   const [isAnimating, setIsAnimating] = useState(false)
@@ -131,8 +131,8 @@ export function NavigationTooltip({
         >
           <Text
             style={{
-              fontSize: 14,
-              fontWeight: '500',
+              fontSize: typography.bodySmall.fontSize,
+              fontWeight: typography.bodySmall.fontWeight,
               color: themeColors.foreground,
               lineHeight: 20,
             }}

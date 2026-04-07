@@ -18,8 +18,8 @@ interface CodeBlockProps {
 }
 
 export const CodeBlockRenderer = React.memo(({ node, testID }: CodeBlockProps) => {
-  const { spacing, radius, colors } = useTheme()
-  const styles = useStyles()
+  const { spacing, radius, colors, typography } = useTheme()
+  const styles = useStyles(typography)
 
   // Get language from node meta (e.g., ```typescript)
   const language = node.lang || 'text'
@@ -32,7 +32,7 @@ export const CodeBlockRenderer = React.memo(({ node, testID }: CodeBlockProps) =
       <Text
         style={{
           fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-          fontSize: 14,
+          fontSize: typography.bodySmall.fontSize,
           lineHeight: 22,
           color: colors.codeBlockForeground,
         }}
@@ -68,7 +68,7 @@ export const CodeBlockRenderer = React.memo(({ node, testID }: CodeBlockProps) =
 })
 CodeBlockRenderer.displayName = 'CodeBlockRenderer'
 
-const useStyles = () => {
+const useStyles = (_typography: any) => {
   return StyleSheet.create({
     codeBlock: {
       overflow: 'hidden',

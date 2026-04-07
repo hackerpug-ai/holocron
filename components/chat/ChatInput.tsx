@@ -165,7 +165,10 @@ export function ChatInput({
   isWarm = false,
   onVoicePrewarm,
 }: ChatInputProps) {
-  const { colors: themeColors } = useTheme()
+  const { colors: themeColors, typography } = useTheme()
+
+  // Generate styles based on typography tokens
+  const styles = useStyles(typography)
 
   // Support both controlled and uncontrolled modes
   const isControlled = controlledValue !== undefined && onChangeText !== undefined
@@ -374,27 +377,29 @@ export function ChatInput({
   )
 }
 
-const styles = StyleSheet.create({
-  textInput: {
-    fontSize: 16,
-    lineHeight: 22,
-    paddingHorizontal: 16,
-    paddingRight: 48, // Extra padding for the slash button inside the input
-    paddingVertical: 8,
-    minHeight: 40,
-    maxHeight: 128,
-  },
-  placeholderContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-    paddingRight: 48, // Match textInput right padding
-  },
-  placeholder: {
-    fontSize: 16,
-  },
-})
+const useStyles = (typography: any) => {
+  return useMemo(() => StyleSheet.create({
+    textInput: {
+      fontSize: typography.body.fontSize,
+      lineHeight: 22,
+      paddingHorizontal: 16,
+      paddingRight: 48, // Extra padding for the slash button inside the input
+      paddingVertical: 8,
+      minHeight: 40,
+      maxHeight: 128,
+    },
+    placeholderContainer: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      justifyContent: 'center',
+      paddingHorizontal: 16,
+      paddingRight: 48, // Match textInput right padding
+    },
+    placeholder: {
+      fontSize: typography.body.fontSize,
+    },
+  }), [typography])
+}

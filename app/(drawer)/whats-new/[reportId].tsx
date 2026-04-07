@@ -118,7 +118,7 @@ export default function WhatsNewDetailScreen() {
           <Pressable onPress={handleBack} style={{ padding: theme.spacing.sm }}>
             <ArrowLeft size={24} color={theme.colors.foreground} />
           </Pressable>
-          <Text style={{ flex: 1, fontSize: 17, fontWeight: '600', color: theme.colors.foreground }}>
+          <Text style={{ flex: 1, fontSize: theme.typography.h4.fontSize, fontWeight: theme.typography.h4.fontWeight, color: theme.colors.foreground }}>
             Loading...
           </Text>
         </View>
@@ -148,7 +148,7 @@ export default function WhatsNewDetailScreen() {
           <Pressable onPress={handleBack} style={{ padding: theme.spacing.sm }}>
             <ArrowLeft size={24} color={theme.colors.foreground} />
           </Pressable>
-          <Text style={{ flex: 1, fontSize: 17, fontWeight: '600', color: theme.colors.foreground }}>
+          <Text style={{ flex: 1, fontSize: theme.typography.h4.fontSize, fontWeight: theme.typography.h4.fontWeight, color: theme.colors.foreground }}>
             Error
           </Text>
         </View>

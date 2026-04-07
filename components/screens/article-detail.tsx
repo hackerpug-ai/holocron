@@ -169,7 +169,7 @@ export function ArticleDetail({
   ...props
 }: ArticleDetailProps) {
   const theme = useTheme();
-  const { colors } = theme;
+  const { colors, typography } = theme;
   const { openUrl } = useWebView();
   const translateY = useSharedValue(0);
   const contextY = useSharedValue(0);
@@ -657,7 +657,7 @@ export function ArticleDetail({
               }}
               pointerEvents="none"
             >
-              <Text style={{ color: colors.background, fontSize: 14, fontWeight: "600" }}>
+              <Text style={{ color: colors.background, fontSize: typography.label.fontSize, fontWeight: typography.label.fontWeight }}>
                 Copied to clipboard
               </Text>
             </View>
@@ -676,7 +676,7 @@ export function ArticleDetail({
               }}
               pointerEvents="none"
             >
-              <Text style={{ color: colors.background, fontSize: 14, fontWeight: "600" }}>
+              <Text style={{ color: colors.background, fontSize: typography.label.fontSize, fontWeight: typography.label.fontWeight }}>
                 {`Loading section ${skipToast + 1}...`}
               </Text>
             </View>

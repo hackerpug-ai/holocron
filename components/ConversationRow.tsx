@@ -58,7 +58,7 @@ export function ConversationRow({
   className,
   ...props
 }: ConversationRowProps) {
-  const { colors: themeColors } = useTheme()
+  const { colors: themeColors, typography } = useTheme()
   const rowScale = useSharedValue(1)
   const deleteOpacity = useSharedValue(isDeleteVisible ? 1 : 0)
   const deleteScale = useSharedValue(isDeleteVisible ? 1 : 0.6)
@@ -193,7 +193,7 @@ export function ConversationRow({
             testID="conversation-delete-button"
           >
             <Trash2 size={16} color="#fff" />
-            <Text style={{ color: '#fff', fontWeight: '600', fontSize: 13 }}>Delete</Text>
+            <Text style={{ color: '#fff', fontWeight: typography.label.fontWeight, fontSize: typography.caption.fontSize }}>Delete</Text>
           </Pressable>
         </Animated.View>
       )}

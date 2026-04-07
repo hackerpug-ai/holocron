@@ -138,8 +138,8 @@ interface InlineCodeProps {
 
 export const InlineCodeRenderer = React.memo(
   ({ children, testID }: InlineCodeProps) => {
-    const { spacing, colors, radius } = useTheme()
-    const styles = useStyles()
+    const { spacing, colors, radius, typography } = useTheme()
+    const styles = useStyles(typography)
 
     return (
       <Text
@@ -182,11 +182,11 @@ TextRenderer.displayName = 'TextRenderer'
 // STYLES
 // ============================================================================
 
-const useStyles = () => {
+const useStyles = (typography: any) => {
   return StyleSheet.create({
     inlineCode: {
       fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-      fontSize: 14,
+      fontSize: typography.bodySmall.fontSize,
     },
   })
 }

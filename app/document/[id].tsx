@@ -103,7 +103,7 @@ export default function DocumentRoute() {
   )
 
   const insets = useSafeAreaInsets()
-  const { colors: themeColors } = useTheme()
+  const { colors: themeColors, typography } = useTheme()
   const scrollViewRef = useRef<ScrollViewType>(null)
   const paragraphOffsets = useRef<Map<number, number>>(new Map())
   const headingOffsets = useRef<Map<string, number>>(new Map())
@@ -794,7 +794,7 @@ export default function DocumentRoute() {
           }}
           pointerEvents="none"
         >
-          <Text style={{ color: themeColors.background, fontSize: 14, fontWeight: '600' }}>
+          <Text style={{ color: themeColors.background, fontSize: typography.label.fontSize, fontWeight: typography.label.fontWeight }}>
             Copied to clipboard
           </Text>
         </View>

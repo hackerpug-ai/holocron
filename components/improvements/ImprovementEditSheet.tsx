@@ -62,7 +62,8 @@ export function ImprovementEditSheet({
   testID = 'improvement-edit-sheet',
 }: ImprovementEditSheetProps) {
   const insets = useSafeAreaInsets()
-  const { colors } = useTheme()
+  const { colors, typography } = useTheme()
+  const styles = useStyles(typography)
 
   // ── Animation shared values ──────────────────────────────────────────────
   const translateY = useSharedValue(600)
@@ -297,64 +298,66 @@ export function ImprovementEditSheet({
 }
 
 // ── Styles ─────────────────────────────────────────────────────────────────
-const styles = StyleSheet.create({
-  flex: {
-    flex: 1,
-  },
-  backdrop: {
-    backgroundColor: 'rgba(0,0,0,0.5)',
-  },
-  kavWrapper: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    maxHeight: '85%',
-  },
-  sheet: {
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    overflow: 'hidden',
-  },
-  handleRow: {
-    alignItems: 'center',
-    paddingTop: 10,
-    paddingBottom: 6,
-  },
-  handle: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingBottom: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  iconButton: {
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  bodyContent: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 24,
-  },
-  textInput: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 16,
-  },
-  disabledButton: {
-    opacity: 0.5,
-  },
-})
+const useStyles = (typography: any) => {
+  return StyleSheet.create({
+    flex: {
+      flex: 1,
+    },
+    backdrop: {
+      backgroundColor: 'rgba(0,0,0,0.5)',
+    },
+    kavWrapper: {
+      position: 'absolute',
+      bottom: 0,
+      left: 0,
+      right: 0,
+      maxHeight: '85%',
+    },
+    sheet: {
+      borderTopLeftRadius: 16,
+      borderTopRightRadius: 16,
+      overflow: 'hidden',
+    },
+    handleRow: {
+      alignItems: 'center',
+      paddingTop: 10,
+      paddingBottom: 6,
+    },
+    handle: {
+      width: 40,
+      height: 4,
+      borderRadius: 2,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 20,
+      paddingBottom: 14,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+    },
+    iconButton: {
+      width: 32,
+      height: 32,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    bodyContent: {
+      paddingHorizontal: 20,
+      paddingTop: 16,
+      paddingBottom: 24,
+    },
+    textInput: {
+      fontSize: typography.bodySmall.fontSize,
+      lineHeight: 20,
+    },
+    buttonRow: {
+      flexDirection: 'row',
+      gap: 12,
+      marginTop: 16,
+    },
+    disabledButton: {
+      opacity: 0.5,
+    },
+  })
+}

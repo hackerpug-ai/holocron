@@ -3,19 +3,34 @@ import { StyleSheet, View, Text, Pressable } from 'react-native'
 import { useTheme } from '@/hooks/use-theme'
 
 export default function NotFoundScreen() {
-  const { colors: themeColors } = useTheme()
+  const { colors: themeColors, typography } = useTheme()
+
+  const dynamicStyles = {
+    headline: {
+      fontSize: typography.h1.fontSize,
+      fontWeight: typography.h1.fontWeight as any,
+    },
+    subtitle: {
+      fontSize: typography.bodyLarge.fontSize,
+      fontWeight: typography.bodyLarge.fontWeight as any,
+    },
+    buttonText: {
+      fontSize: typography.label.fontSize,
+      fontWeight: typography.label.fontWeight as any,
+    },
+  }
 
   return (
     <>
       <Stack.Screen options={{ title: 'Oops!' }} />
       <View style={styles.container}>
-        <Text style={styles.headline}>Page not found</Text>
-        <Text style={styles.subtitle}>
+        <Text style={[styles.headline, dynamicStyles.headline]}>Page not found</Text>
+        <Text style={[styles.subtitle, dynamicStyles.subtitle]}>
           This screen doesn't exist.
         </Text>
         <Link href="/" asChild>
           <Pressable style={StyleSheet.flatten([styles.button, { backgroundColor: themeColors.primary }])}>
-            <Text style={StyleSheet.flatten([styles.buttonText, { color: themeColors.primaryForeground }])}>Go to home screen</Text>
+            <Text style={StyleSheet.flatten([styles.buttonText, dynamicStyles.buttonText, { color: themeColors.primaryForeground }])}>Go to home screen</Text>
           </Pressable>
         </Link>
       </View>

@@ -32,7 +32,7 @@ export function ArticleImportModal({
   onSuccess,
   testID = 'article-import-modal',
 }: ArticleImportModalProps) {
-  const { colors: themeColors } = useTheme()
+  const { colors: themeColors, typography } = useTheme()
   const [selectedArticleId, setSelectedArticleId] = useState<string>('')
   const [textToImport, setTextToImport] = useState<string>('')
   const [isImporting, setIsImporting] = useState(false)
@@ -159,7 +159,7 @@ export function ArticleImportModal({
                 padding: 12,
                 minHeight: 150,
                 textAlignVertical: 'top',
-                fontSize: 16,
+                fontSize: typography.body.fontSize,
                 color: themeColors.foreground,
                 backgroundColor: themeColors.background,
               }}
