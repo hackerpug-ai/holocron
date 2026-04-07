@@ -56,6 +56,8 @@ const SORT_OPTIONS: { key: SortMode; label: string }[] = [
   { key: 'velocity', label: 'Trending' },
 ]
 
+// Platform brand colors for distinctive badges
+// NOTE: These are official platform brand colors and should remain as hardcoded values
 const PLATFORM_COLORS: Record<string, string> = {
   Reddit: '#FF4500',
   Bluesky: '#0085FF',

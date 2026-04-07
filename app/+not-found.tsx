@@ -23,13 +23,13 @@ export default function NotFoundScreen() {
   return (
     <>
       <Stack.Screen options={{ title: 'Oops!' }} />
-      <View style={styles.container}>
+      <View style={[styles.container, { padding: spacing.xl }]}>
         <Text style={[styles.headline, dynamicStyles.headline]}>Page not found</Text>
         <Text style={[styles.subtitle, dynamicStyles.subtitle]}>
           This screen doesn't exist.
         </Text>
         <Link href="/" asChild>
-          <Pressable style={StyleSheet.flatten([styles.button, { backgroundColor: themeColors.primary }])}>
+          <Pressable style={StyleSheet.flatten([styles.button, { backgroundColor: themeColors.primary, paddingVertical: spacing.md, paddingHorizontal: spacing.xl }])}>
             <Text style={StyleSheet.flatten([styles.buttonText, dynamicStyles.buttonText, { color: themeColors.primaryForeground }])}>Go to home screen</Text>
           </Pressable>
         </Link>
@@ -43,7 +43,6 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: spacing.xl,
   },
   headline: {
     fontSize: 28,
@@ -57,8 +56,6 @@ const styles = StyleSheet.create({
   },
   button: {
     marginTop: 16,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
     borderRadius: 8,
   },
   buttonText: {

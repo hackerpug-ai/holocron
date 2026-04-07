@@ -71,7 +71,7 @@ export function NavigationTooltip() {
       testID="navigation-tooltip-modal"
     >
       <Pressable
-        style={styles.overlay}
+        style={[styles.overlay, { backgroundColor: colors.overlay }]}
         onPress={handleDismiss}
         accessibilityRole="button"
         accessibilityLabel="Dismiss tooltip"
@@ -98,7 +98,7 @@ export function NavigationTooltip() {
           {/* Close button */}
           <Pressable
             onPress={handleDismiss}
-            style={styles.closeButton}
+            style={[styles.closeButton, { padding: spacing.xs }]}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             accessibilityRole="button"
             accessibilityLabel="Close"
@@ -171,7 +171,6 @@ import { typography } from '@/lib/theme'
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -181,7 +180,6 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     alignSelf: 'flex-end',
-    padding: spacing.xs,
   },
   button: {
     width: '100%',

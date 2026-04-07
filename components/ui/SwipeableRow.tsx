@@ -142,7 +142,7 @@ export function SwipeableRow({
         <Animated.View style={[styles.deleteOverlay, deleteButtonAnimatedStyle]}>
           <Pressable
             onPress={handleDelete}
-            style={[styles.deleteButton, { backgroundColor: themeColors.destructive }]}
+            style={[styles.deleteButton, { backgroundColor: themeColors.destructive, gap: spacing.sm, paddingHorizontal: spacing.lg, paddingVertical: spacing.md }]}
             testID="message-delete-button"
           >
             <Trash2 size={18} color="#fff" />
@@ -173,9 +173,6 @@ const styles = StyleSheet.create({
   deleteButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
     borderRadius: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },

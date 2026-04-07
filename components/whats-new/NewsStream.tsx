@@ -64,7 +64,7 @@ export function NewsStream({
   const renderFooter = () => {
     if (!isLoadingMore) return null
     return (
-      <View style={styles.footer} testID={`${testID}-loading-more`}>
+      <View style={[styles.footer, { padding: semanticSpacing.lg }]} testID={`${testID}-loading-more`}>
         <View className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
       </View>
     )
@@ -100,7 +100,6 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   footer: {
-    padding: spacing.lg,
     alignItems: 'center',
   },
   empty: {

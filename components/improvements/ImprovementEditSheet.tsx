@@ -298,7 +298,7 @@ export function ImprovementEditSheet({
 }
 
 // ── Styles ─────────────────────────────────────────────────────────────────
-const useStyles = (typography: any, spacing: any) => {
+const useStyles = (typography: any, _spacing: any) => {
   return StyleSheet.create({
     flex: {
       flex: 1,
