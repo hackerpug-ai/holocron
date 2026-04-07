@@ -83,7 +83,7 @@ export function NewsCard({
           />
           {imageLoading && (
             <View
-              style={styles.loadingOverlay}
+              style={[styles.loadingOverlay, { backgroundColor: themeColors.muted }]}
               testID={`${testID}-image-loading`}
             />
           )}
@@ -158,7 +158,6 @@ const styles = StyleSheet.create({
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
     justifyContent: 'center',
     alignItems: 'center',
   },

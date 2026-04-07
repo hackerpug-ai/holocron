@@ -184,10 +184,6 @@ const styles = StyleSheet.create({
     borderRightWidth: 10,
     borderBottomWidth: 10,
     borderLeftWidth: 0,
-    borderTopColor: '#E2E8F0',
-    borderRightColor: 'transparent',
-    borderBottomColor: 'transparent',
-    borderLeftColor: 'transparent',
     transform: [{ rotate: '180deg' }],
   },
 })
