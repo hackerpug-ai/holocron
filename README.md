@@ -60,21 +60,100 @@ This project has been migrated from Supabase to Convex for improved developer ex
 
 ### Schema Overview
 
-The Convex schema includes 9 tables:
+Holocron uses Convex for data persistence with 58+ tables organized by domain:
 
+### Core
 | Table | Description |
 |-------|-------------|
 | `conversations` | Chat conversation threads |
 | `chatMessages` | Individual messages within conversations |
 | `documents` | Knowledge base documents with vector embeddings (1024 dimensions) |
 | `tasks` | Background task tracking |
+| `toolCalls` | LLM tool call tracking |
+| `notifications` | User notifications |
+| `userPreferences` | User settings and preferences |
+
+### Research
+| Table | Description |
+|-------|-------------|
 | `researchSessions` | Basic research workflow sessions |
 | `researchIterations` | Individual research iteration results |
+| `researchFindings` | Research findings and sources |
 | `deepResearchSessions` | Deep research workflow sessions (multi-agent) |
 | `deepResearchIterations` | Deep research iteration results |
 | `citations` | Source citations for research findings |
 
-See [convex/schema.ts](convex/schema.ts) for full schema definitions.
+### Subscriptions & Feeds
+| Table | Description |
+|-------|-------------|
+| `subscriptionSources` | YouTube, newsletter, changelog sources |
+| `subscriptionContent` | Fetched content from subscriptions |
+| `subscriptionFilters` | Content filtering rules |
+| `subscriptionLinks` | Subscription feed links |
+| `feedItems` | RSS/Atom feed items |
+| `feedSessions` | Feed browsing sessions |
+| `feedSettings` | Feed configuration |
+| `whatsNewReports` | Daily tech news briefings |
+
+### Tools & Agents
+| Table | Description |
+|-------|-------------|
+| `toolbeltTools` | Available tools and utilities |
+| `agentPlans` | Agent execution plans |
+| `agentPlanSteps` | Individual plan steps |
+| `executionPlans` | Workflow execution plans |
+| `planApprovals` | Plan approval tracking |
+| `assimilationSessions` | GitHub repository analysis |
+| `assimilationIterations` | Analysis iterations |
+| `assimilationMetadata` | Repository metadata |
+
+### Shopping & Deals
+| Table | Description |
+|-------|-------------|
+| `shopSessions` | Shopping research sessions |
+| `shopListings` | Product listings across retailers |
+
+### Voice & Audio
+| Table | Description |
+|-------|-------------|
+| `voiceSessions` | Voice interaction sessions |
+| `voiceCommands` | Voice command processing |
+| `audioSegments` | Audio transcript segments |
+| `audioJobs` | Audio processing jobs |
+| `videoTranscripts` | YouTube video transcripts |
+| `transcriptJobs` | Transcript generation jobs |
+| `creatorProfiles` | YouTube creator profiles |
+
+### Business Analysis
+| Table | Description |
+|-------|-------------|
+| `improvementRequests` | Product improvement tracking |
+| `improvementImages` | Improvement screenshots |
+| `revenueValidationSessions` | Revenue validation workflows |
+| `revenueValidationEvidence` | Revenue validation data |
+| `revenueValidationCompetitors` | Competitor revenue data |
+| `competitiveAnalysisSessions` | Competitive analysis workflows |
+| `competitiveAnalysisCompetitors` | Competitor profiles |
+| `competitiveAnalysisFeatures` | Feature comparisons |
+| `aiRoiSessions` | AI ROI analysis sessions |
+| `aiRoiOpportunities` | ROI opportunities |
+| `aiRoiEvidence` | ROI calculation evidence |
+
+### Travel
+| Table | Description |
+|-------|-------------|
+| `flightsSessions` | Flight search sessions |
+| `flightsRoutes` | Flight route data |
+| `flightsPriceCalendar` | Price tracking data |
+
+### System
+| Table | Description |
+|-------|-------------|
+| `rateLimitTracking` | API rate limit tracking |
+| `rateLimits` | Rate limit configuration |
+| `imports` | Data import tracking |
+
+*Full schema defined in [`convex/schema.ts`](convex/schema.ts)*
 
 ## Setup
 
