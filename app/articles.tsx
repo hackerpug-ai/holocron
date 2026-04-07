@@ -204,6 +204,19 @@ export default function ArticlesRoute() {
   // Use search results when there's an active search, otherwise use all articles
   const displayArticles = searchQuery.trim() && searchResults ? searchResults : articles
 
+  // Calculate the count to display in results header
+  const displayCount = useMemo(() => {
+    if (searchQuery.trim() && searchResults) {
+      return searchResults.length
+    }
+    // When no category is selected, use totalArticleCount
+    if (!selectedCategory) {
+      return totalArticleCount
+    }
+    // When category is selected, use the filtered count
+    return totalCount ?? 0
+  }, [searchQuery, searchResults, selectedCategory, totalArticleCount, totalCount])
+
   const handleCategoryChange = (category?: CategoryType) => {
     setSelectedCategory(category ?? null)
   }
@@ -243,7 +256,7 @@ export default function ArticlesRoute() {
     >
       <ArticlesScreen
         articles={displayArticles}
-        totalCount={searchQuery.trim() ? searchResults?.length : totalCount}
+        totalCount={displayCount}
         categories={availableCategories}
         categoryCounts={categoryCounts}
         totalArticleCount={totalArticleCount}
