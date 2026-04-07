@@ -95,7 +95,7 @@ describe("Summary Generation - AC-2: Summary captures key insight", () => {
 
     const result = await generateFindingSummary(mockCtx, finding);
 
-    expect(result).toBeDefined();
+    expect(result).toBeTruthy();
     expect(result).toContain("safety architecture");
     expect(result).toContain("agent loop");
     expect(result?.length).toBeGreaterThanOrEqual(80);
@@ -168,7 +168,7 @@ describe("Summary Generation - AC-4: Truncate long summaries", () => {
     const result = await generateFindingSummary(mockCtx, finding);
 
     // Should be truncated to 150 chars (147 + "...")
-    expect(result).toBeDefined();
+    expect(result).toBeTruthy();
     expect(result?.length).toBe(150);
     expect(result?.endsWith("...")).toBe(true);
   });
@@ -220,7 +220,7 @@ describe("Summary Generation - AC-5: Video source handling", () => {
 
     const result = await generateFindingSummary(mockCtx, finding);
 
-    expect(result).toBeDefined();
+    expect(result).toBeTruthy();
     expect(result?.length).toBeGreaterThanOrEqual(80);
     expect(result?.length).toBeLessThanOrEqual(150);
     expect(generateText).toHaveBeenCalledOnce();
@@ -251,7 +251,7 @@ describe("Summary Generation - Edge Cases", () => {
 
     const result = await generateFindingSummary(mockCtx, finding);
 
-    expect(result).toBeDefined();
+    expect(result).toBeTruthy();
 
     // Verify prompt handles missing content
     const callArgs = (generateText as any).mock.calls[0][0];
@@ -275,7 +275,7 @@ describe("Summary Generation - Edge Cases", () => {
 
     const result = await generateFindingSummary(mockCtx, finding);
 
-    expect(result).toBeDefined();
+    expect(result).toBeTruthy();
     expect(result).not.toContain("\n");
     expect(result).not.toMatch(/^\s/);
     expect(result).not.toMatch(/\s$/);

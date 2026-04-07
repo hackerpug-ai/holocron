@@ -211,7 +211,7 @@ describe("Migration Validation - AC-2: FK Relationships", () => {
       (r) => r.table === "chatMessages" && r.check === "fk_conversations"
     );
 
-    expect(fkCheck).toBeDefined();
+    expect(fkCheck).toBeTruthy();
     expect(fkCheck?.status).toBe("PASS");
     expect(fkCheck?.actual).toEqual(0);
   });
@@ -267,7 +267,7 @@ describe("Migration Validation - AC-3: Embedding Dimensions", () => {
       (r) => r.table === "documents" && r.check === "embedding_dimensions"
     );
 
-    expect(embeddingCheck).toBeDefined();
+    expect(embeddingCheck).toBeTruthy();
     expect(embeddingCheck?.status).toBe("PASS");
     expect(embeddingCheck?.expected).toEqual(1536);
   });
@@ -277,7 +277,7 @@ describe("Migration Validation - AC-3: Embedding Dimensions", () => {
       (r) => r.table === "documents" && r.check === "embedding_dimensions"
     );
 
-    expect(embeddingCheck).toBeDefined();
+    expect(embeddingCheck).toBeTruthy();
     if (embeddingCheck?.status === "FAIL") {
       const invalidCount = parseInt(embeddingCheck.actual as string);
       expect(invalidCount).toEqual(0);
@@ -324,9 +324,9 @@ describe("Migration Validation - AC-4: Integrity Report", () => {
     }
 
     // Verify report structure
-    expect(report).toBeDefined();
-    expect(report.timestamp).toBeDefined();
-    expect(report.summary).toBeDefined();
+    expect(report).toBeTruthy();
+    expect(report.timestamp).toBeTruthy();
+    expect(report.summary).toBeTruthy();
     expect(report.summary.total).toBeGreaterThan(0);
     expect(report.summary.passed).toBeGreaterThanOrEqual(0);
     expect(report.summary.failed).toBeGreaterThanOrEqual(0);
@@ -347,7 +347,7 @@ describe("Migration Validation - AC-4: Integrity Report", () => {
   it("should have validateMigration function exported", async () => {
     const module = await import("../../scripts/validate-migration");
 
-    expect(module.validateMigration).toBeDefined();
+    expect(module.validateMigration).toBeTruthy();
     expect(typeof module.validateMigration).toBe("function");
   });
 

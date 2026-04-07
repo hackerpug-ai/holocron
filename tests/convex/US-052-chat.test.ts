@@ -17,9 +17,9 @@ describe('US-052: Chat Operations', () => {
     it('should have chat.index.send in the generated API', async () => {
       const { api } = await import('../../convex/_generated/api');
       // chat module should exist in the generated API
-      expect(api.chat).toBeDefined();
-      expect(api.chat.index).toBeDefined();
-      expect(api.chat.index.send).toBeDefined();
+      expect(api.chat).toBeTruthy();
+      expect(api.chat.index).toBeTruthy();
+      expect(api.chat.index.send).toBeTruthy();
     });
   });
 
@@ -29,9 +29,9 @@ describe('US-052: Chat Operations', () => {
   describe('AC-2: List message history', () => {
     it('should have chatMessages queries in the generated API', async () => {
       const { api } = await import('../../convex/_generated/api');
-      expect(api.chatMessages).toBeDefined();
-      expect(api.chatMessages.queries).toBeDefined();
-      expect(api.chatMessages.queries.listByConversation).toBeDefined();
+      expect(api.chatMessages).toBeTruthy();
+      expect(api.chatMessages.queries).toBeTruthy();
+      expect(api.chatMessages.queries.listByConversation).toBeTruthy();
     });
   });
 
@@ -42,7 +42,7 @@ describe('US-052: Chat Operations', () => {
     it('should route slash commands through the send action', async () => {
       const { api } = await import('../../convex/_generated/api');
       // Slash commands go through the same send action
-      expect(api.chat.index.send).toBeDefined();
+      expect(api.chat.index.send).toBeTruthy();
     });
   });
 
@@ -53,7 +53,7 @@ describe('US-052: Chat Operations', () => {
     it('should have chat agent mutations for error persistence', async () => {
       const { api } = await import('../../convex/_generated/api');
       // Agent mutations handle error message persistence
-      expect(api.chat.agentMutations).toBeDefined();
+      expect(api.chat.agentMutations).toBeTruthy();
     });
   });
 });

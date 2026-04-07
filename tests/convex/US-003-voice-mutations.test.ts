@@ -14,15 +14,15 @@ import { describe, it, expect } from 'vitest';
 describe('AC-1: endSession marks session completed', () => {
   it('should export endSession from convex/voice/mutations.ts', async () => {
     const mutations = await import('../../convex/voice/mutations');
-    expect(mutations.endSession).toBeDefined();
+    expect(mutations.endSession).toBeTruthy();
     expect(['function', 'object'].includes(typeof mutations.endSession)).toBe(true);
   });
 
   it('should have voice.mutations.endSession in the generated API', async () => {
     const { api } = await import('../../convex/_generated/api');
-    expect(api.voice).toBeDefined();
-    expect(api.voice.mutations).toBeDefined();
-    expect(api.voice.mutations.endSession).toBeDefined();
+    expect(api.voice).toBeTruthy();
+    expect(api.voice.mutations).toBeTruthy();
+    expect(api.voice.mutations.endSession).toBeTruthy();
   });
 });
 
@@ -34,7 +34,7 @@ describe('AC-2: endSession enforces single-completion invariant', () => {
   it('should export endSession that guards against double-completion', async () => {
     const mutations = await import('../../convex/voice/mutations');
     // endSession must exist — the "already ended" guard is in the handler
-    expect(mutations.endSession).toBeDefined();
+    expect(mutations.endSession).toBeTruthy();
   });
 });
 
@@ -46,13 +46,13 @@ describe('AC-2: endSession enforces single-completion invariant', () => {
 describe('AC-3: recordTranscript creates chatMessage and increments turnCount', () => {
   it('should export recordTranscript from convex/voice/mutations.ts', async () => {
     const mutations = await import('../../convex/voice/mutations');
-    expect(mutations.recordTranscript).toBeDefined();
+    expect(mutations.recordTranscript).toBeTruthy();
     expect(['function', 'object'].includes(typeof mutations.recordTranscript)).toBe(true);
   });
 
   it('should have voice.mutations.recordTranscript in the generated API', async () => {
     const { api } = await import('../../convex/_generated/api');
-    expect(api.voice.mutations.recordTranscript).toBeDefined();
+    expect(api.voice.mutations.recordTranscript).toBeTruthy();
   });
 });
 
@@ -63,13 +63,13 @@ describe('AC-3: recordTranscript creates chatMessage and increments turnCount', 
 describe('AC-4: recordCommand creates voiceCommand record', () => {
   it('should export recordCommand from convex/voice/mutations.ts', async () => {
     const mutations = await import('../../convex/voice/mutations');
-    expect(mutations.recordCommand).toBeDefined();
+    expect(mutations.recordCommand).toBeTruthy();
     expect(['function', 'object'].includes(typeof mutations.recordCommand)).toBe(true);
   });
 
   it('should have voice.mutations.recordCommand in the generated API', async () => {
     const { api } = await import('../../convex/_generated/api');
-    expect(api.voice.mutations.recordCommand).toBeDefined();
+    expect(api.voice.mutations.recordCommand).toBeTruthy();
   });
 });
 
@@ -81,7 +81,7 @@ describe('AC-5: recordCommand handles error details when success=false', () => {
   it('should export recordCommand supporting optional result with error field', async () => {
     const mutations = await import('../../convex/voice/mutations');
     // recordCommand must exist and its args spec includes result.error (optional)
-    expect(mutations.recordCommand).toBeDefined();
+    expect(mutations.recordCommand).toBeTruthy();
   });
 });
 
@@ -93,14 +93,14 @@ describe('AC-5: recordCommand handles error details when success=false', () => {
 describe('AC-6: internalEndSession exists and is exported', () => {
   it('should export internalEndSession from convex/voice/mutations.ts', async () => {
     const mutations = await import('../../convex/voice/mutations');
-    expect(mutations.internalEndSession).toBeDefined();
+    expect(mutations.internalEndSession).toBeTruthy();
     expect(['function', 'object'].includes(typeof mutations.internalEndSession)).toBe(true);
   });
 
   it('should have voice.mutations.internalEndSession in the generated internal API', async () => {
     const { internal } = await import('../../convex/_generated/api');
-    expect(internal.voice).toBeDefined();
-    expect(internal.voice.mutations).toBeDefined();
-    expect(internal.voice.mutations.internalEndSession).toBeDefined();
+    expect(internal.voice).toBeTruthy();
+    expect(internal.voice.mutations).toBeTruthy();
+    expect(internal.voice.mutations.internalEndSession).toBeTruthy();
   });
 });

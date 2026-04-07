@@ -7,7 +7,7 @@ describe("FR-004: Feed Validators", () => {
       const validatorsModule = await import("../../../convex/feeds/validators");
 
       // Module should exist
-      expect(validatorsModule).toBeDefined();
+      expect(validatorsModule).toBeTruthy();
 
       // Should have exports (we'll verify specific ones in later ACs)
       expect(Object.keys(validatorsModule).length).toBeGreaterThan(0);
@@ -23,7 +23,7 @@ describe("FR-004: Feed Validators", () => {
 
       // Should be defined
       const contentTypeEnum = validatorsModule.contentTypeEnum;
-      expect(contentTypeEnum).toBeDefined();
+      expect(contentTypeEnum).toBeTruthy();
     });
   });
 
@@ -35,7 +35,7 @@ describe("FR-004: Feed Validators", () => {
       expect(validatorsModule).toHaveProperty("feedItemFields");
 
       const feedItemFields = validatorsModule.feedItemFields;
-      expect(feedItemFields).toBeDefined();
+      expect(feedItemFields).toBeTruthy();
 
       // Should have all required fields from schema
       const requiredFields = [
@@ -69,7 +69,7 @@ describe("FR-004: Feed Validators", () => {
       expect(validatorsModule).toHaveProperty("feedSessionFields");
 
       const feedSessionFields = validatorsModule.feedSessionFields;
-      expect(feedSessionFields).toBeDefined();
+      expect(feedSessionFields).toBeTruthy();
 
       // Should have all required fields from schema
       const requiredFields = [
@@ -91,28 +91,28 @@ describe("FR-004: Feed Validators", () => {
       const validatorsModule = await import("../../../convex/feeds/validators");
       expect(validatorsModule).toHaveProperty("getFeedArgs");
       const getFeedArgs = validatorsModule.getFeedArgs;
-      expect(getFeedArgs).toBeDefined();
+      expect(getFeedArgs).toBeTruthy();
     });
 
     it("should export getByCreatorArgs validator", async () => {
       const validatorsModule = await import("../../../convex/feeds/validators");
       expect(validatorsModule).toHaveProperty("getByCreatorArgs");
       const getByCreatorArgs = validatorsModule.getByCreatorArgs;
-      expect(getByCreatorArgs).toBeDefined();
+      expect(getByCreatorArgs).toBeTruthy();
     });
 
     it("should export getUnviewedCountArgs validator", async () => {
       const validatorsModule = await import("../../../convex/feeds/validators");
       expect(validatorsModule).toHaveProperty("getUnviewedCountArgs");
       const getUnviewedCountArgs = validatorsModule.getUnviewedCountArgs;
-      expect(getUnviewedCountArgs).toBeDefined();
+      expect(getUnviewedCountArgs).toBeTruthy();
     });
 
     it("should export getDigestSummaryArgs validator", async () => {
       const validatorsModule = await import("../../../convex/feeds/validators");
       expect(validatorsModule).toHaveProperty("getDigestSummaryArgs");
       const getDigestSummaryArgs = validatorsModule.getDigestSummaryArgs;
-      expect(getDigestSummaryArgs).toBeDefined();
+      expect(getDigestSummaryArgs).toBeTruthy();
     });
   });
 
@@ -121,21 +121,21 @@ describe("FR-004: Feed Validators", () => {
       const validatorsModule = await import("../../../convex/feeds/validators");
       expect(validatorsModule).toHaveProperty("markViewedArgs");
       const markViewedArgs = validatorsModule.markViewedArgs;
-      expect(markViewedArgs).toBeDefined();
+      expect(markViewedArgs).toBeTruthy();
     });
 
     it("should export markAllViewedArgs validator", async () => {
       const validatorsModule = await import("../../../convex/feeds/validators");
       expect(validatorsModule).toHaveProperty("markAllViewedArgs");
       const markAllViewedArgs = validatorsModule.markAllViewedArgs;
-      expect(markAllViewedArgs).toBeDefined();
+      expect(markAllViewedArgs).toBeTruthy();
     });
 
     it("should export createDigestNotificationArgs validator", async () => {
       const validatorsModule = await import("../../../convex/feeds/validators");
       expect(validatorsModule).toHaveProperty("createDigestNotificationArgs");
       const createDigestNotificationArgs = validatorsModule.createDigestNotificationArgs;
-      expect(createDigestNotificationArgs).toBeDefined();
+      expect(createDigestNotificationArgs).toBeTruthy();
     });
   });
 

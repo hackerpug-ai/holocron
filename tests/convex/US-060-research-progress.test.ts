@@ -29,7 +29,7 @@ describe('US-060: Research Progress Tracking', () => {
 
       // If it exists, verify the get query signature
       if (api.researchSessions.queries.get) {
-        expect(api.researchSessions.queries.get).toBeDefined();
+        expect(api.researchSessions.queries.get).toBeTruthy();
       } else {
         // Query doesn't exist yet - RED phase confirmed
         expect(true).toBe(true);
@@ -42,7 +42,7 @@ describe('US-060: Research Progress Tracking', () => {
       const { api } = await import('../../convex/_generated/api');
 
       if (api.researchSessions?.queries.get) {
-        expect(api.researchSessions.queries.get).toBeDefined();
+        expect(api.researchSessions.queries.get).toBeTruthy();
       } else {
         // RED phase - query doesn't exist
         expect(true).toBe(true);
@@ -61,7 +61,7 @@ describe('US-060: Research Progress Tracking', () => {
       const { api } = await import('../../convex/_generated/api');
 
       if (api.researchSessions?.queries.get) {
-        expect(api.researchSessions.queries.get).toBeDefined();
+        expect(api.researchSessions.queries.get).toBeTruthy();
       } else {
         // RED phase - query doesn't exist
         expect(true).toBe(true);
@@ -80,7 +80,7 @@ describe('US-060: Research Progress Tracking', () => {
       const { api } = await import('../../convex/_generated/api');
 
       if (api.researchSessions?.queries.get) {
-        expect(api.researchSessions.queries.get).toBeDefined();
+        expect(api.researchSessions.queries.get).toBeTruthy();
       } else {
         // RED phase - query doesn't exist
         expect(true).toBe(true);
@@ -99,7 +99,7 @@ describe('US-060: Research Progress Tracking', () => {
       const { api } = await import('../../convex/_generated/api');
 
       if (api.researchSessions?.queries.get) {
-        expect(api.researchSessions.queries.get).toBeDefined();
+        expect(api.researchSessions.queries.get).toBeTruthy();
       } else {
         // RED phase - query doesn't exist
         expect(true).toBe(true);

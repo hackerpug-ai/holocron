@@ -18,12 +18,12 @@ describe('US-055: Deep Research Workflow', () => {
   describe('AC-1: Research API structure', () => {
     it('should have research module in the generated API', async () => {
       const { api } = await import('../../convex/_generated/api');
-      expect(api.research).toBeDefined();
+      expect(api.research).toBeTruthy();
     });
 
     it('should have research index with start action', async () => {
       const { api } = await import('../../convex/_generated/api');
-      expect(api.research.index).toBeDefined();
+      expect(api.research.index).toBeTruthy();
     });
 
     it('should export deprecated planResearch stub that throws', async () => {
@@ -70,21 +70,21 @@ describe('US-055: Deep Research Workflow', () => {
   describe('AC-3: Search tools (replacements for agents)', () => {
     it('should export exaSearchTool', async () => {
       const { exaSearchTool } = await import('../../convex/research/tools');
-      expect(exaSearchTool).toBeDefined();
+      expect(exaSearchTool).toBeTruthy();
       expect(exaSearchTool).toHaveProperty('description');
       expect(exaSearchTool).toHaveProperty('execute');
     });
 
     it('should export jinaSearchTool', async () => {
       const { jinaSearchTool } = await import('../../convex/research/tools');
-      expect(jinaSearchTool).toBeDefined();
+      expect(jinaSearchTool).toBeTruthy();
       expect(jinaSearchTool).toHaveProperty('description');
       expect(jinaSearchTool).toHaveProperty('execute');
     });
 
     it('should export jinaReaderTool', async () => {
       const { jinaReaderTool } = await import('../../convex/research/tools');
-      expect(jinaReaderTool).toBeDefined();
+      expect(jinaReaderTool).toBeTruthy();
       expect(jinaReaderTool).toHaveProperty('description');
       expect(jinaReaderTool).toHaveProperty('execute');
     });

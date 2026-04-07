@@ -13,9 +13,9 @@ import { describe, it, expect } from 'vitest';
 describe('AC-1: transcripts queries are registered', () => {
   it('should have internal query: getTranscript', async () => {
     const { internal } = await import('../../convex/_generated/api');
-    expect(internal.transcripts).toBeDefined();
-    expect(internal.transcripts.queries).toBeDefined();
-    expect(internal.transcripts.queries.getTranscript).toBeDefined();
+    expect(internal.transcripts).toBeTruthy();
+    expect(internal.transcripts.queries).toBeTruthy();
+    expect(internal.transcripts.queries.getTranscript).toBeTruthy();
   });
 });
 
@@ -25,11 +25,11 @@ describe('AC-1: transcripts queries are registered', () => {
 describe('AC-2: transcripts mutations are registered', () => {
   it('should have internal mutations: createTranscriptJob, updateJobStatus, markFailed', async () => {
     const { internal } = await import('../../convex/_generated/api');
-    expect(internal.transcripts).toBeDefined();
-    expect(internal.transcripts.mutations).toBeDefined();
-    expect(internal.transcripts.mutations.createTranscriptJob).toBeDefined();
-    expect(internal.transcripts.mutations.updateJobStatus).toBeDefined();
-    expect(internal.transcripts.mutations.markFailed).toBeDefined();
+    expect(internal.transcripts).toBeTruthy();
+    expect(internal.transcripts.mutations).toBeTruthy();
+    expect(internal.transcripts.mutations.createTranscriptJob).toBeTruthy();
+    expect(internal.transcripts.mutations.updateJobStatus).toBeTruthy();
+    expect(internal.transcripts.mutations.markFailed).toBeTruthy();
   });
 });
 
@@ -41,7 +41,7 @@ describe('AC-3: getTranscript returns transcript with previewText', () => {
     // This test requires a full Convex test setup with database
     // For now, we verify the function exists and has correct structure
     const { internal } = await import('../../convex/_generated/api');
-    expect(internal.transcripts.queries.getTranscript).toBeDefined();
+    expect(internal.transcripts.queries.getTranscript).toBeTruthy();
   });
 });
 
@@ -53,7 +53,7 @@ describe('AC-4: getTranscript returns null for non-existent contentId', () => {
     // This test requires a full Convex test setup
     // For now, we verify the function exists
     const { internal } = await import('../../convex/_generated/api');
-    expect(internal.transcripts.queries.getTranscript).toBeDefined();
+    expect(internal.transcripts.queries.getTranscript).toBeTruthy();
   });
 });
 
@@ -65,7 +65,7 @@ describe('AC-5: createTranscriptJob is idempotent', () => {
     // This test requires a full Convex test setup
     // For now, we verify the function exists
     const { internal } = await import('../../convex/_generated/api');
-    expect(internal.transcripts.mutations.createTranscriptJob).toBeDefined();
+    expect(internal.transcripts.mutations.createTranscriptJob).toBeTruthy();
   });
 });
 
@@ -77,7 +77,7 @@ describe('AC-6: createTranscriptJob creates new job', () => {
     // This test requires a full Convex test setup
     // For now, we verify the function exists
     const { internal } = await import('../../convex/_generated/api');
-    expect(internal.transcripts.mutations.createTranscriptJob).toBeDefined();
+    expect(internal.transcripts.mutations.createTranscriptJob).toBeTruthy();
   });
 });
 
@@ -89,7 +89,7 @@ describe('AC-7: updateJobStatus updates job status and timestamp', () => {
     // This test requires a full Convex test setup
     // For now, we verify the function exists
     const { internal } = await import('../../convex/_generated/api');
-    expect(internal.transcripts.mutations.updateJobStatus).toBeDefined();
+    expect(internal.transcripts.mutations.updateJobStatus).toBeTruthy();
   });
 });
 
@@ -101,6 +101,6 @@ describe('AC-8: markFailed sets status to failed with errorMessage', () => {
     // This test requires a full Convex test setup
     // For now, we verify the function exists
     const { internal } = await import('../../convex/_generated/api');
-    expect(internal.transcripts.mutations.markFailed).toBeDefined();
+    expect(internal.transcripts.mutations.markFailed).toBeTruthy();
   });
 });

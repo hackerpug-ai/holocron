@@ -26,15 +26,15 @@ describe('US-786: Lazy Conversation Creation', () => {
       });
 
       // Convex validators are plain objects describing shape - they exist if constructed
-      expect(expectedArgsValidator).toBeDefined();
-      expect(optionalConversationIdValidator).toBeDefined();
+      expect(expectedArgsValidator).toBeTruthy();
+      expect(optionalConversationIdValidator).toBeTruthy();
     });
 
     it('should have chat.index.send action in the API', async () => {
       const { api } = await import('../../convex/_generated/api');
-      expect(api.chat).toBeDefined();
-      expect(api.chat.index).toBeDefined();
-      expect(api.chat.index.send).toBeDefined();
+      expect(api.chat).toBeTruthy();
+      expect(api.chat.index).toBeTruthy();
+      expect(api.chat.index.send).toBeTruthy();
     });
   });
 
@@ -55,7 +55,7 @@ describe('US-786: Lazy Conversation Creation', () => {
         conversationId: 'conv1',
       };
 
-      expect(mockReturn.conversationId).toBeDefined();
+      expect(mockReturn.conversationId).toBeTruthy();
       expect(mockReturn.conversationId).toBe('conv1');
     });
   });
@@ -66,8 +66,8 @@ describe('US-786: Lazy Conversation Creation', () => {
   describe('AC-3: Filter empty conversations', () => {
     it('should have conversation list query in the API', async () => {
       const { api } = await import('../../convex/_generated/api');
-      expect(api.conversations).toBeDefined();
-      expect(api.conversations.queries).toBeDefined();
+      expect(api.conversations).toBeTruthy();
+      expect(api.conversations.queries).toBeTruthy();
     });
 
     it('should have message count check concept for filtering', () => {

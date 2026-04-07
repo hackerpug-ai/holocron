@@ -21,14 +21,14 @@ describe('US-004: voice.getActiveSession and timeoutOrphanedSessions', () => {
   describe('AC-1: getActiveSession is exported as a public query', () => {
     it('getActiveSession is exported from convex/voice/queries.ts', async () => {
       const module = await import('../../convex/voice/queries');
-      expect(module.getActiveSession).toBeDefined();
+      expect(module.getActiveSession).toBeTruthy();
     });
 
     it('getActiveSession is a public query (not internal)', async () => {
       // Verify it is exported under the "query" wrapper by checking the exported value
       const module = await import('../../convex/voice/queries');
       // Convex query functions are objects with internal structure
-      expect(module.getActiveSession).toBeDefined();
+      expect(module.getActiveSession).toBeTruthy();
       // The function reference should be truthy
       expect(typeof module.getActiveSession).not.toBe('undefined');
     });
@@ -42,7 +42,7 @@ describe('US-004: voice.getActiveSession and timeoutOrphanedSessions', () => {
   describe('AC-2: getActiveSession returns null when no active sessions', () => {
     it('getActiveSession module exports a defined function', async () => {
       const module = await import('../../convex/voice/queries');
-      expect(module.getActiveSession).toBeDefined();
+      expect(module.getActiveSession).toBeTruthy();
     });
 
     it('completedAt undefined means session is active, completedAt defined means inactive', () => {
@@ -51,7 +51,7 @@ describe('US-004: voice.getActiveSession and timeoutOrphanedSessions', () => {
       const inactiveSession = { completedAt: Date.now() };
 
       expect(activeSession.completedAt).toBeUndefined();
-      expect(inactiveSession.completedAt).toBeDefined();
+      expect(inactiveSession.completedAt).toBeTruthy();
     });
   });
 
@@ -63,7 +63,7 @@ describe('US-004: voice.getActiveSession and timeoutOrphanedSessions', () => {
   describe('AC-3: timeoutOrphanedSessions marks old sessions as timeout', () => {
     it('timeoutOrphanedSessions is exported from convex/voice/scheduled.ts', async () => {
       const module = await import('../../convex/voice/scheduled');
-      expect(module.timeoutOrphanedSessions).toBeDefined();
+      expect(module.timeoutOrphanedSessions).toBeTruthy();
     });
 
     it('timeout threshold is 10 minutes (600,000 ms)', () => {
@@ -78,7 +78,7 @@ describe('US-004: voice.getActiveSession and timeoutOrphanedSessions', () => {
     it('timed out sessions use errorMessage "Session timed out"', async () => {
       // Verify the error message constant used by the module
       const module = await import('../../convex/voice/scheduled');
-      expect(module.timeoutOrphanedSessions).toBeDefined();
+      expect(module.timeoutOrphanedSessions).toBeTruthy();
       // The specific error message 'Session timed out' is validated by the implementation
       const ERROR_MESSAGE = 'Session timed out';
       expect(ERROR_MESSAGE).toBe('Session timed out');
@@ -100,7 +100,7 @@ describe('US-004: voice.getActiveSession and timeoutOrphanedSessions', () => {
 
     it('timeoutOrphanedSessions module is importable', async () => {
       const module = await import('../../convex/voice/scheduled');
-      expect(module.timeoutOrphanedSessions).toBeDefined();
+      expect(module.timeoutOrphanedSessions).toBeTruthy();
     });
   });
 
@@ -116,7 +116,7 @@ describe('US-004: voice.getActiveSession and timeoutOrphanedSessions', () => {
 
     it('timeoutOrphanedSessions is accessible from the scheduled module', async () => {
       const module = await import('../../convex/voice/scheduled');
-      expect(module.timeoutOrphanedSessions).toBeDefined();
+      expect(module.timeoutOrphanedSessions).toBeTruthy();
     });
   });
 });

@@ -17,7 +17,7 @@ describe('US-761: Standard Queries', () => {
       const { api } = await import('../../convex/_generated/api');
 
       // Then: get query should be defined
-      expect(api.researchIterations.queries.get).toBeDefined();
+      expect(api.researchIterations.queries.get).toBeTruthy();
     });
   });
 
@@ -31,7 +31,7 @@ describe('US-761: Standard Queries', () => {
       const { api } = await import('../../convex/_generated/api');
 
       // Then: get query should be defined
-      expect(api.deepResearchIterations.queries.get).toBeDefined();
+      expect(api.deepResearchIterations.queries.get).toBeTruthy();
     });
   });
 
@@ -45,7 +45,7 @@ describe('US-761: Standard Queries', () => {
       const { api } = await import('../../convex/_generated/api');
 
       // Then: get query should be defined
-      expect(api.citations.queries.get).toBeDefined();
+      expect(api.citations.queries.get).toBeTruthy();
     });
   });
 
@@ -55,20 +55,20 @@ describe('US-761: Standard Queries', () => {
   describe('Existing queries preserved', () => {
     it('should preserve researchIterations count and list', async () => {
       const { api } = await import('../../convex/_generated/api');
-      expect(api.researchIterations.queries.count).toBeDefined();
-      expect(api.researchIterations.queries.list).toBeDefined();
+      expect(api.researchIterations.queries.count).toBeTruthy();
+      expect(api.researchIterations.queries.list).toBeTruthy();
     });
 
     it('should preserve deepResearchIterations count and list', async () => {
       const { api } = await import('../../convex/_generated/api');
-      expect(api.deepResearchIterations.queries.count).toBeDefined();
-      expect(api.deepResearchIterations.queries.list).toBeDefined();
+      expect(api.deepResearchIterations.queries.count).toBeTruthy();
+      expect(api.deepResearchIterations.queries.list).toBeTruthy();
     });
 
     it('should preserve citations count and list', async () => {
       const { api } = await import('../../convex/_generated/api');
-      expect(api.citations.queries.count).toBeDefined();
-      expect(api.citations.queries.list).toBeDefined();
+      expect(api.citations.queries.count).toBeTruthy();
+      expect(api.citations.queries.list).toBeTruthy();
     });
   });
 });

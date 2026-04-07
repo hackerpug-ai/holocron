@@ -22,7 +22,7 @@ describe("voice.createSession - AC-1: Returns token on success", () => {
   it("createSession action is exported from convex/voice/actions.ts", async () => {
     const { createSession } = await import("../../convex/voice/actions");
 
-    expect(createSession).toBeDefined();
+    expect(createSession).toBeTruthy();
     expect(typeof createSession).toBe("function");
   });
 
@@ -251,7 +251,7 @@ describe("voice.createSession - Internal mutation", () => {
       "../../convex/voice/mutations"
     );
 
-    expect(internalCreateSession).toBeDefined();
+    expect(internalCreateSession).toBeTruthy();
     expect(typeof internalCreateSession).toBe("function");
   });
 });

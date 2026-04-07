@@ -23,7 +23,7 @@ describe("Conversation CRUD - Create", () => {
   it("creates a new conversation with custom title", async () => {
     const { create } = await import("../../convex/conversations/mutations");
 
-    expect(create).toBeDefined();
+    expect(create).toBeTruthy();
     expect(typeof create).toBe("function");
 
     // Verify we can pass custom title
@@ -34,7 +34,7 @@ describe("Conversation CRUD - Create", () => {
   it("creates conversation with lastMessagePreview", async () => {
     const { create } = await import("../../convex/conversations/mutations");
 
-    expect(create).toBeDefined();
+    expect(create).toBeTruthy();
 
     const args = {
       title: "Test Chat",
@@ -48,7 +48,7 @@ describe("Conversation CRUD - Read", () => {
   it("lists all conversations", async () => {
     const { list } = await import("../../convex/conversations/queries");
 
-    expect(list).toBeDefined();
+    expect(list).toBeTruthy();
     expect(typeof list).toBe("function");
 
     // Verify list accepts optional limit parameter
@@ -70,7 +70,7 @@ describe("Conversation CRUD - Read", () => {
   it("returns count of conversations", async () => {
     const { count } = await import("../../convex/conversations/queries");
 
-    expect(count).toBeDefined();
+    expect(count).toBeTruthy();
     expect(typeof count).toBe("function");
   });
 });
@@ -79,7 +79,7 @@ describe("Conversation CRUD - Update", () => {
   it("updates conversation title", async () => {
     const { update } = await import("../../convex/conversations/mutations");
 
-    expect(update).toBeDefined();
+    expect(update).toBeTruthy();
     expect(typeof update).toBe("function");
 
     const args = {
@@ -107,7 +107,7 @@ describe("Conversation CRUD - Delete", () => {
   it("deletes conversation", async () => {
     const { remove } = await import("../../convex/conversations/mutations");
 
-    expect(remove).toBeDefined();
+    expect(remove).toBeTruthy();
     expect(typeof remove).toBe("function");
 
     const args = { id: "test-id" as any };
@@ -129,7 +129,7 @@ describe("Conversation CRUD - Touch (update timestamp)", () => {
   it("updates conversation updatedAt timestamp", async () => {
     const { touch } = await import("../../convex/conversations/mutations");
 
-    expect(touch).toBeDefined();
+    expect(touch).toBeTruthy();
     expect(typeof touch).toBe("function");
 
     const args = { id: "test-id" as any };
@@ -139,7 +139,7 @@ describe("Conversation CRUD - Touch (update timestamp)", () => {
   it("updates lastMessagePreview when touching", async () => {
     const { touch } = await import("../../convex/conversations/mutations");
 
-    expect(touch).toBeDefined();
+    expect(touch).toBeTruthy();
 
     const args = {
       id: "test-id" as any,
@@ -186,19 +186,19 @@ describe("Conversation CRUD - Module Exports", () => {
   it("exports all queries from index", async () => {
     const conversationsModule = await import("../../convex/conversations");
 
-    expect(conversationsModule.list).toBeDefined();
-    expect(conversationsModule.get).toBeDefined();
-    expect(conversationsModule.count).toBeDefined();
+    expect(conversationsModule.list).toBeTruthy();
+    expect(conversationsModule.get).toBeTruthy();
+    expect(conversationsModule.count).toBeTruthy();
   });
 
   it("exports all mutations from index", async () => {
     const conversationsModule = await import("../../convex/conversations");
 
-    expect(conversationsModule.create).toBeDefined();
-    expect(conversationsModule.update).toBeDefined();
-    expect(conversationsModule.remove).toBeDefined();
-    expect(conversationsModule.touch).toBeDefined();
-    expect(conversationsModule.insertFromMigration).toBeDefined();
-    expect(conversationsModule.clearAll).toBeDefined();
+    expect(conversationsModule.create).toBeTruthy();
+    expect(conversationsModule.update).toBeTruthy();
+    expect(conversationsModule.remove).toBeTruthy();
+    expect(conversationsModule.touch).toBeTruthy();
+    expect(conversationsModule.insertFromMigration).toBeTruthy();
+    expect(conversationsModule.clearAll).toBeTruthy();
   });
 });

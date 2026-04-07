@@ -14,14 +14,14 @@ describe('US-IMP-003: Sequential Research Context', () => {
     it('should have context storage fields in schema', async () => {
       const { api } = await import('../../convex/_generated/api');
       // Context-related queries should exist
-      expect(api.research).toBeDefined();
-      expect(api.research.queries).toBeDefined();
-      expect(api.research.queries.getByConversation).toBeDefined();
+      expect(api.research).toBeTruthy();
+      expect(api.research.queries).toBeTruthy();
+      expect(api.research.queries.getByConversation).toBeTruthy();
     });
 
     it('should have context building utilities', async () => {
       const { buildContextSummary } = await import('../../convex/research/context');
-      expect(buildContextSummary).toBeDefined();
+      expect(buildContextSummary).toBeTruthy();
       expect(typeof buildContextSummary).toBe('function');
     });
   });
@@ -32,14 +32,14 @@ describe('US-IMP-003: Sequential Research Context', () => {
   describe('AC-2: Follow-up query uses previous context', () => {
     it('should have startDeepResearch action that accepts context', async () => {
       const { api } = await import('../../convex/_generated/api');
-      expect(api.research.actions).toBeDefined();
-      expect(api.research.actions.startDeepResearch).toBeDefined();
+      expect(api.research.actions).toBeTruthy();
+      expect(api.research.actions.startDeepResearch).toBeTruthy();
     });
 
     it('should have getByConversation query for retrieving previous sessions', async () => {
       const { api } = await import('../../convex/_generated/api');
-      expect(api.research.queries).toBeDefined();
-      expect(api.research.queries.getByConversation).toBeDefined();
+      expect(api.research.queries).toBeTruthy();
+      expect(api.research.queries.getByConversation).toBeTruthy();
     });
   });
 
@@ -49,13 +49,13 @@ describe('US-IMP-003: Sequential Research Context', () => {
   describe('AC-3: Context limit and pruning', () => {
     it('should have context pruning utility', async () => {
       const { pruneOldContext } = await import('../../convex/research/context');
-      expect(pruneOldContext).toBeDefined();
+      expect(pruneOldContext).toBeTruthy();
       expect(typeof pruneOldContext).toBe('function');
     });
 
     it('should respect MAX_CONTEXT_ENTRIES constant', async () => {
       const { MAX_CONTEXT_ENTRIES } = await import('../../convex/research/context');
-      expect(MAX_CONTEXT_ENTRIES).toBeDefined();
+      expect(MAX_CONTEXT_ENTRIES).toBeTruthy();
       expect(MAX_CONTEXT_ENTRIES).toBe(5);
     });
   });
@@ -66,14 +66,14 @@ describe('US-IMP-003: Sequential Research Context', () => {
   describe('AC-4: New conversation clears context', () => {
     it('should have sessions query that filters by conversation', async () => {
       const { api } = await import('../../convex/_generated/api');
-      expect(api.research.queries).toBeDefined();
-      expect(api.research.queries.getByConversation).toBeDefined();
+      expect(api.research.queries).toBeTruthy();
+      expect(api.research.queries.getByConversation).toBeTruthy();
     });
 
     it('should return empty array for conversation with no sessions', async () => {
       const { api } = await import('../../convex/_generated/api');
       // Query should exist and handle empty results
-      expect(api.research.queries.getByConversation).toBeDefined();
+      expect(api.research.queries.getByConversation).toBeTruthy();
     });
   });
 });

@@ -14,7 +14,7 @@ import { describe, it, expect } from 'vitest';
 describe('AC-1: YouTube API no captions triggers Jina Reader fallback', () => {
   it('should have internal action: fetchJinaTranscript', async () => {
     const module = await import('../../convex/transcripts/internal');
-    expect(module.fetchJinaTranscript).toBeDefined();
+    expect(module.fetchJinaTranscript).toBeTruthy();
     expect(typeof module.fetchJinaTranscript).toBe('function');
   });
 
@@ -28,7 +28,7 @@ describe('AC-1: YouTube API no captions triggers Jina Reader fallback', () => {
       expect((e as NodeJS.ErrnoException).code).toBe('ERR_MODULE_NOT_FOUND');
       return;
     }
-    expect(serviceModule.fetchTranscriptWithFallback).toBeDefined();
+    expect(serviceModule.fetchTranscriptWithFallback).toBeTruthy();
     expect(typeof serviceModule.fetchTranscriptWithFallback).toBe('function');
   });
 });
@@ -40,13 +40,13 @@ describe('AC-1: YouTube API no captions triggers Jina Reader fallback', () => {
 describe('AC-2: Jina Reader success stores correct metadata', () => {
   it('should return transcript with transcriptSource="jina_reader_api"', async () => {
     const module = await import('../../convex/transcripts/internal');
-    expect(module.fetchJinaTranscript).toBeDefined();
+    expect(module.fetchJinaTranscript).toBeTruthy();
     // Note: Full integration test requires mocked Jina Reader API response
   });
 
   it('should return transcript with transcriptType="jina_fallback"', async () => {
     const module = await import('../../convex/transcripts/internal');
-    expect(module.fetchJinaTranscript).toBeDefined();
+    expect(module.fetchJinaTranscript).toBeTruthy();
     // Note: Full integration test requires mocked Jina Reader API response
   });
 });
@@ -64,7 +64,7 @@ describe('AC-3: Both services fail marks job as no_captions', () => {
       expect((e as NodeJS.ErrnoException).code).toBe('ERR_MODULE_NOT_FOUND');
       return;
     }
-    expect(serviceModule.fetchTranscriptWithFallback).toBeDefined();
+    expect(serviceModule.fetchTranscriptWithFallback).toBeTruthy();
     // Note: Full integration test requires mocking both YouTube API and Jina Reader failures
   });
 });
@@ -82,7 +82,7 @@ describe('AC-4: YouTube API failure triggers Jina fallback', () => {
       expect((e as NodeJS.ErrnoException).code).toBe('ERR_MODULE_NOT_FOUND');
       return;
     }
-    expect(serviceModule.fetchTranscriptWithFallback).toBeDefined();
+    expect(serviceModule.fetchTranscriptWithFallback).toBeTruthy();
     // Note: Full integration test requires mocked YouTube API failure and Jina Reader call
   });
 });
@@ -93,7 +93,7 @@ describe('AC-4: YouTube API failure triggers Jina fallback', () => {
 describe('AC-5: Jina Reader rate limit handled gracefully', () => {
   it('should return error without crashing on rate limit', async () => {
     const module = await import('../../convex/transcripts/internal');
-    expect(module.fetchJinaTranscript).toBeDefined();
+    expect(module.fetchJinaTranscript).toBeTruthy();
     // Note: Full integration test requires mocked Jina Reader 429 response
   });
 });
@@ -111,7 +111,7 @@ describe('AC-6: Private video marked as no_captions', () => {
       expect((e as NodeJS.ErrnoException).code).toBe('ERR_MODULE_NOT_FOUND');
       return;
     }
-    expect(serviceModule.fetchTranscriptWithFallback).toBeDefined();
+    expect(serviceModule.fetchTranscriptWithFallback).toBeTruthy();
     // Note: Full integration test requires mocked 404 from both services
   });
 });

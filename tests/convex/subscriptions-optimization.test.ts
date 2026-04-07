@@ -17,7 +17,7 @@ describe('Subscription Checking Optimization', () => {
   describe('AC-1: Batch duplicate checking', () => {
     it('should have batchGetExistingContent query that returns a map', async () => {
       // The query should exist in the API
-      expect(api.subscriptions.queries.batchGetExistingContent).toBeDefined();
+      expect(api.subscriptions.queries.batchGetExistingContent).toBeTruthy();
 
       // Query should be a function reference from Convex
       expect(typeof api.subscriptions.queries.batchGetExistingContent).toBe('object');
@@ -27,7 +27,7 @@ describe('Subscription Checking Optimization', () => {
     it('should return sourceId -> contentId[] mapping structure', async () => {
       // Verify the query exists and has the correct structure
       const query = api.subscriptions.queries.batchGetExistingContent;
-      expect(query).toBeDefined();
+      expect(query).toBeTruthy();
       expect(query).toBeTruthy();
     });
   });
@@ -38,14 +38,14 @@ describe('Subscription Checking Optimization', () => {
   describe('AC-2: Parallel processing', () => {
     it('should have checkAllSubscriptions action with new return structure', async () => {
       // The action should exist
-      expect(internal.subscriptions.internal.checkAllSubscriptions).toBeDefined();
+      expect(internal.subscriptions.internal.checkAllSubscriptions).toBeTruthy();
       expect(internal.subscriptions.internal.checkAllSubscriptions).toBeTruthy();
     });
 
     it('should return durationMs for performance tracking', async () => {
       // The action should exist with the optimized implementation
       const action = internal.subscriptions.internal.checkAllSubscriptions;
-      expect(action).toBeDefined();
+      expect(action).toBeTruthy();
       expect(action).toBeTruthy();
     });
   });
@@ -60,27 +60,27 @@ describe('Subscription Checking Optimization', () => {
 
     it('should support YouTube fetching with in-memory checks', async () => {
       // The action should handle youtube sources
-      expect(internal.subscriptions.internal.checkAllSubscriptions).toBeDefined();
+      expect(internal.subscriptions.internal.checkAllSubscriptions).toBeTruthy();
     });
 
     it('should support newsletter fetching with in-memory checks', async () => {
       // The action should handle newsletter sources
-      expect(internal.subscriptions.internal.checkAllSubscriptions).toBeDefined();
+      expect(internal.subscriptions.internal.checkAllSubscriptions).toBeTruthy();
     });
 
     it('should support Reddit fetching with in-memory checks', async () => {
       // The action should handle reddit sources
-      expect(internal.subscriptions.internal.checkAllSubscriptions).toBeDefined();
+      expect(internal.subscriptions.internal.checkAllSubscriptions).toBeTruthy();
     });
 
     it('should support changelog fetching with in-memory checks', async () => {
       // The action should handle changelog sources
-      expect(internal.subscriptions.internal.checkAllSubscriptions).toBeDefined();
+      expect(internal.subscriptions.internal.checkAllSubscriptions).toBeTruthy();
     });
 
     it('should support creator fetching with in-memory checks', async () => {
       // The action should handle creator sources
-      expect(internal.subscriptions.internal.checkAllSubscriptions).toBeDefined();
+      expect(internal.subscriptions.internal.checkAllSubscriptions).toBeTruthy();
     });
   });
 
@@ -91,14 +91,14 @@ describe('Subscription Checking Optimization', () => {
     it('should return error information in result structure', async () => {
       // The action should exist with error tracking
       const action = internal.subscriptions.internal.checkAllSubscriptions;
-      expect(action).toBeDefined();
+      expect(action).toBeTruthy();
       expect(action).toBeTruthy();
     });
 
     it('should include per-source metrics in results', async () => {
       // Results should include sourcesChecked, totalFetched, totalQueued, durationMs
       const action = internal.subscriptions.internal.checkAllSubscriptions;
-      expect(action).toBeDefined();
+      expect(action).toBeTruthy();
       expect(action).toBeTruthy();
     });
   });
@@ -110,14 +110,14 @@ describe('Subscription Checking Optimization', () => {
     it('should use batch query instead of per-item queries', async () => {
       // Verify the batch query exists - this is the key optimization
       const batchQuery = api.subscriptions.queries.batchGetExistingContent;
-      expect(batchQuery).toBeDefined();
+      expect(batchQuery).toBeTruthy();
       expect(batchQuery).toBeTruthy();
     });
 
     it('should track execution duration', async () => {
       // Verify the action exists for execution tracking
       const action = internal.subscriptions.internal.checkAllSubscriptions;
-      expect(action).toBeDefined();
+      expect(action).toBeTruthy();
       expect(action).toBeTruthy();
     });
   });
@@ -127,11 +127,11 @@ describe('Subscription Checking Optimization', () => {
    */
   describe('AC-6: Content insertion mutations', () => {
     it('should have insertContent mutation', async () => {
-      expect(internal.subscriptions.internal.insertContent).toBeDefined();
+      expect(internal.subscriptions.internal.insertContent).toBeTruthy();
     });
 
     it('should have updateSourceLastChecked mutation', async () => {
-      expect(internal.subscriptions.internal.updateSourceLastChecked).toBeDefined();
+      expect(internal.subscriptions.internal.updateSourceLastChecked).toBeTruthy();
     });
   });
 
@@ -140,17 +140,17 @@ describe('Subscription Checking Optimization', () => {
    */
   describe('AC-7: Source query functions', () => {
     it('should have getActiveSources query', async () => {
-      expect(internal.subscriptions.internal.getActiveSources).toBeDefined();
+      expect(internal.subscriptions.internal.getActiveSources).toBeTruthy();
     });
 
     it('should have getFiltersForSource query', async () => {
-      expect(internal.subscriptions.internal.getFiltersForSource).toBeDefined();
+      expect(internal.subscriptions.internal.getFiltersForSource).toBeTruthy();
     });
 
     it('should have getContentBySourceAndId query (for backwards compatibility)', async () => {
       // This query is no longer used in the optimized flow
       // but should still exist for backwards compatibility
-      expect(internal.subscriptions.internal.getContentBySourceAndId).toBeDefined();
+      expect(internal.subscriptions.internal.getContentBySourceAndId).toBeTruthy();
     });
   });
 });
