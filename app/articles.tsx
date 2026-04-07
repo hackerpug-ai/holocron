@@ -80,6 +80,9 @@ export default function ArticlesRoute() {
   // Fetch documents using Convex query with stable args
   const documents = useQuery(api.documents.queries.list, listQueryArgs)
 
+  // Fetch total count (not just page length) for accurate display
+  const totalCount = useQuery(api.documents.queries.countWithFilter, listQueryArgs)
+
   // Fetch category counts to sort categories with articles first
   const categoryCounts = useQuery(api.documents.queries.countByCategory, {})
 
@@ -193,18 +196,14 @@ export default function ArticlesRoute() {
   const displayArticles = searchQuery.trim() && searchResults ? searchResults : articles
 
   // Calculate the count to display in results header
-  // Use actual document length when available (more accurate than denormalized counters)
+  // Use totalCount (total documents, not just current page) for accurate display
   const displayCount = useMemo(() => {
     if (searchQuery.trim() && searchResults) {
       return searchResults.length
     }
-    // When documents are loaded, use actual length
-    if (documents) {
-      return documents.length
-    }
-    // Fallback when loading
-    return 0
-  }, [searchQuery, searchResults, documents])
+    // Use totalCount for the total number of documents (not just current page)
+    return totalCount ?? 0
+  }, [searchQuery, searchResults, totalCount])
 
   const handleCategoryChange = (category?: CategoryType) => {
     setSelectedCategory(category ?? null)
