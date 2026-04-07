@@ -66,7 +66,6 @@ export async function executeAcademicResearch(
   ctx: ActionCtx,
   query: string
 ): Promise<AcademicReport> {
-  console.log(`[executeAcademicResearch] Starting research for query: "${query}"`);
 
   // Enhance query with academic-specific terms
   const academicQuery = `${query} academic research paper peer-reviewed scholarly`;
@@ -83,9 +82,7 @@ export async function executeAcademicResearch(
     }
   );
 
-  console.log(
-    `[executeAcademicResearch] Found ${searchResult.structuredResults.length} sources`
-  );
+  
 
   // Generate academic report using LLM
   const academicReport = await generateAcademicReport(query, searchResult);
@@ -93,7 +90,6 @@ export async function executeAcademicResearch(
   // Log improvements if any product/app suggestions found
   await logImprovementsFromAcademicResearch(ctx, query, academicReport);
 
-  console.log(`[executeAcademicResearch] Completed research`);
 
   return academicReport;
 }
@@ -245,9 +241,7 @@ If there are no specific improvement suggestions, return an empty array: []`;
         });
       }
 
-      console.log(
-        `[logImprovementsFromAcademicResearch] Logged ${suggestions.length} improvements`
-      );
+      
     }
   } catch (error) {
     console.error(

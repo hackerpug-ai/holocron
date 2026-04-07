@@ -19,7 +19,6 @@ import { internalMutation } from "../_generated/server";
 export const migrate = internalMutation({
   args: {},
   handler: async (ctx) => {
-    console.log("[Migration] Starting deep research message refactor...");
 
     // Query all messages
     const messages = await ctx.db.query("chatMessages").collect();
@@ -64,14 +63,10 @@ export const migrate = internalMutation({
       });
 
       migratedCount++;
-      console.log(
-        `[Migration] Migrated message ${message._id}: ${cardType} -> status:${status}`,
-      );
+      
     }
 
-    console.log(
-      `[Migration] Complete! Migrated: ${migratedCount}, Skipped: ${skippedCount}`,
-    );
+    
 
     return {
       success: true,

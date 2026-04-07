@@ -83,9 +83,7 @@ export async function executeServiceFinder(
   ctx: ActionCtx,
   query: string
 ): Promise<ServiceReport> {
-  console.log(
-    `[executeServiceFinder] Starting research for query: "${query}"`
-  );
+  
 
   // Enhance query with service-specific terms
   const serviceQuery = `${query} service provider review rating pricing near me`;
@@ -102,9 +100,7 @@ export async function executeServiceFinder(
     }
   );
 
-  console.log(
-    `[executeServiceFinder] Found ${searchResult.structuredResults.length} sources`
-  );
+  
 
   // Generate service report using LLM
   const serviceReport = await generateServiceReport(query, searchResult);
@@ -112,7 +108,6 @@ export async function executeServiceFinder(
   // Log improvements if any product/app suggestions found
   await logImprovementsFromServiceResearch(ctx, query, serviceReport);
 
-  console.log(`[executeServiceFinder] Completed research`);
 
   return serviceReport;
 }
@@ -298,9 +293,7 @@ If there are no specific improvement suggestions, return an empty array: []`;
         });
       }
 
-      console.log(
-        `[logImprovementsFromServiceResearch] Logged ${suggestions.length} improvements`
-      );
+      
     }
   } catch (error) {
     console.error(

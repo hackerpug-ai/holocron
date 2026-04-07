@@ -49,6 +49,7 @@ import {
   type LoopMetrics,
 } from "./termination";
 
+import { logEvent, logError } from "../lib/logger";
 /**
  * Start Deep Research
  *
@@ -75,27 +76,21 @@ export const startDeepResearch = action({
     conversationId: any;
     status: string;
   }> => {
-    console.log(
-      `[startDeepResearch] Entry - topic: "${topic}", maxIterations: ${maxIterations}, existingConversationId: ${existingConversationId || "none"}`,
-    );
+    
 
     // Step 0a: Classify research intent
     const intent = await classifyResearchIntent(topic);
-    console.log(`[startDeepResearch] Intent classified: ${intent.mode} - ${intent.reasoning}`);
+    
 
     // Step 0b: Create conversation with first message (avoid empty conversations)
-    console.log(`[startDeepResearch] Step 0: Creating/using conversation`);
     const conversationId =
       existingConversationId ??
       (await ctx.runMutation(api.conversations.mutations.create, {
         title: `Deep Research: ${topic}`,
       }));
-    console.log(
-      `[startDeepResearch] Step 0: Conversation ID: ${conversationId}`,
-    );
+    
 
     // Step 1: Create session with research mode
-    console.log(`[startDeepResearch] Step 1: Creating deep research session`);
     const sessionId = await ctx.runMutation(
       api.research.mutations.createDeepResearchSession,
       {
@@ -105,14 +100,10 @@ export const startDeepResearch = action({
         researchMode: intent.mode,
       },
     );
-    console.log(
-      `[startDeepResearch] Step 1: Session created - ID: ${sessionId}`,
-    );
+    
 
     // Step 2: Post loading card (first actual content in conversation)
-    console.log(
-      `[startDeepResearch] Step 2: Posting loading card to conversation`,
-    );
+    
     await ctx.runMutation(api.chatMessages.mutations.create, {
       conversationId,
       role: "agent" as const,
@@ -125,19 +116,15 @@ export const startDeepResearch = action({
         topic,
       },
     });
-    console.log(`[startDeepResearch] Step 2: Loading card posted`);
 
     // Step 3: Schedule the first iteration to run immediately
     // This runs asynchronously and avoids Cloudflare 524 timeout
-    console.log(`[startDeepResearch] Step 3: Scheduling first iteration`);
     await ctx.scheduler.runAfter(0, (api as any).research.scheduled.processDeepResearchIteration, {
       sessionId,
     });
-    console.log(`[startDeepResearch] Step 3: First iteration scheduled`);
 
     // Step 4: Return immediately with running status
     // Client will poll session status for real-time updates
-    console.log(`[startDeepResearch] Exit - Running`);
     return {
       sessionId,
       conversationId, // Frontend can navigate to this conversation
@@ -174,37 +161,27 @@ export const startDeepResearchWithPlan = action({
     conversationId: Id<"conversations">;
     status: string;
   }> => {
-    console.log(
-      `[startDeepResearchWithPlan] Entry - topic: "${topic}", maxIterations: ${maxIterations}`,
-    );
+    
 
     // Step 0: Create conversation with first message (avoid empty conversations)
-    console.log(`[startDeepResearchWithPlan] Step 0: Creating/using conversation`);
     const conversationId =
       existingConversationId ??
       (await ctx.runMutation(api.conversations.mutations.create, {
         title: `Deep Research: ${topic}`,
       }));
-    console.log(
-      `[startDeepResearchWithPlan] Step 0: Conversation ID: ${conversationId}`,
-    );
+    
 
     // Step 1: Generate research plan
-    console.log(`[startDeepResearchWithPlan] Step 1: Generating research plan`);
     const planId = await ctx.runMutation(api.plans.generator.generateDeepResearchPlan, {
       topic,
       maxIterations,
       outputFormat,
       conversationId,
     });
-    console.log(
-      `[startDeepResearchWithPlan] Step 1: Plan generated - ID: ${planId}`,
-    );
+    
 
     // Step 2: Post plan confirmation card
-    console.log(
-      `[startDeepResearchWithPlan] Step 2: Posting plan confirmation card`,
-    );
+    
     const plan = await ctx.runQuery(api.plans.queries.get, { id: planId });
 
     await ctx.runMutation(api.chatMessages.mutations.create, {
@@ -224,14 +201,10 @@ export const startDeepResearchWithPlan = action({
         status: "pending",
       },
     });
-    console.log(
-      `[startDeepResearchWithPlan] Step 2: Plan confirmation card posted`,
-    );
+    
 
     // Step 3: Return plan ID for approval
-    console.log(
-      `[startDeepResearchWithPlan] Exit - Awaiting approval`,
-    );
+    
     return {
       planId,
       conversationId,
@@ -266,14 +239,10 @@ export const executeApprovedResearchPlan = action({
     conversationId: Id<"conversations">;
     status: string;
   }> => {
-    console.log(
-      `[executeApprovedResearchPlan] Entry - planId: ${planId}`,
-    );
+    
 
     // Step 1: Fetch and validate plan
-    console.log(
-      `[executeApprovedResearchPlan] Step 1: Fetching plan`,
-    );
+    
     const plan = await ctx.runQuery(api.plans.queries.get, { id: planId });
 
     if (!plan) {
@@ -292,20 +261,14 @@ export const executeApprovedResearchPlan = action({
 
     const conversationId = plan.metadata.conversationId as Id<"conversations">;
     const topic = plan.metadata.topic as string;
-    console.log(
-      `[executeApprovedResearchPlan] Step 1: Plan validated - topic: "${topic}"`,
-    );
+    
 
     // Step 2: Update plan status to executing
-    console.log(
-      `[executeApprovedResearchPlan] Step 2: Updating plan status to executing`,
-    );
+    
     await ctx.runMutation(api.plans.confirmation.startExecution, { planId });
 
     // Step 3: Create deep research session
-    console.log(
-      `[executeApprovedResearchPlan] Step 3: Creating deep research session`,
-    );
+    
     const sessionId = await ctx.runMutation(
       api.research.mutations.createDeepResearchSession,
       {
@@ -315,14 +278,10 @@ export const executeApprovedResearchPlan = action({
         researchType: "deep",
       },
     );
-    console.log(
-      `[executeApprovedResearchPlan] Step 3: Session created - ID: ${sessionId}`,
-    );
+    
 
     // Step 4: Post loading card
-    console.log(
-      `[executeApprovedResearchPlan] Step 4: Posting loading card`,
-    );
+    
     await ctx.runMutation(api.chatMessages.mutations.create, {
       conversationId,
       role: "agent" as const,
@@ -338,9 +297,7 @@ export const executeApprovedResearchPlan = action({
     });
 
     // Step 5: Execute research using plan-based dispatcher
-    console.log(
-      `[executeApprovedResearchPlan] Step 5: Executing plan-based research`,
-    );
+    
 
     try {
       const result = await ctx.runAction(
@@ -364,9 +321,7 @@ export const executeApprovedResearchPlan = action({
         });
       }
 
-      console.log(
-        `[executeApprovedResearchPlan] Exit - Research completed, status: ${result.status}`,
-      );
+      
 
       return {
         sessionId,
@@ -415,9 +370,7 @@ export async function runIterativeResearch(
   mode?: ResearchMode,
   criteria: TerminationCriteria = DEFAULT_CRITERIA,
 ): Promise<{ totalIterations: number; finalCoverageScore: number; finalConfidenceStats?: ConfidenceStats }> {
-  console.log(
-    `[runIterativeResearch] Entry - sessionId: ${sessionId}, topic: "${topic}", maxIterations: ${maxIterations}, mode: ${mode ?? "unset"}`,
-  );
+  
   console.log(
     `[runIterativeResearch] Termination criteria - coverage: ${criteria.minCoverage}, confidence: ${criteria.minConfidence}%, maxCost: ${criteria.maxCostUsd ? `$${criteria.maxCostUsd}` : 'unlimited'}, maxDuration: ${criteria.maxDurationMs ? `${Math.round(criteria.maxDurationMs / 60000)}m` : 'unlimited'}`,
   );
@@ -450,9 +403,7 @@ export async function runIterativeResearch(
       totalClaims: 0,
     };
 
-    console.log(
-      `[runIterativeResearch] Initialized - iteration: ${iteration}, coverageScore: ${coverageScore}`,
-    );
+    
 
     // Step 2: Main loop - iterate until termination criteria met
     while (true) {
@@ -468,42 +419,33 @@ export async function runIterativeResearch(
       const decision = shouldContinueResearch(loopMetrics, criteria);
 
       if (!decision.continue) {
-        console.log(`[runIterativeResearch] Terminating: ${decision.reason}`);
+        
         break;
       }
 
-      console.log(
-        `[runIterativeResearch] Continue decision: ${decision.reason}`,
-      );
+      
       iteration++;
 
       // Check timeout at start of each iteration
       checkTimeout();
 
-      console.log(
-        `\n[runIterativeResearch] ========== ITERATION ${iteration}/${maxIterations} START ==========`,
-      );
-      console.log(`[runIterativeResearch] Current topic: "${currentTopic}"`);
-      console.log(`[runIterativeResearch] Previous coverage score: ${coverageScore}, avgConfidence: ${averageConfidence}`);
+      
+      
+      
 
       // Build context from database
-      console.log(`[runIterativeResearch] Building research context from database`);
+      
       const context = await buildResearchContext(ctx, sessionId);
-      console.log(
-        `[runIterativeResearch] Context built - previousIterations: ${context.previousIterations.length}`,
-      );
+      
 
       // Step 2a: SEARCH - Execute parallel searches with retry
-      console.log(`[runIterativeResearch] Step 2a: SEARCH - Executing parallel search`);
 
       // Extract gaps from previous iteration's review (if any)
       const previousGaps = context.previousIterations.length > 0
         ? context.previousIterations[context.previousIterations.length - 1].gaps
         : [];
 
-      console.log(
-        `[runIterativeResearch] Step 2a: Previous gaps: ${previousGaps.length}`,
-      );
+      
 
       const searchStartTime = Date.now();
       const parallelSearchResult = await executeParallelSearchWithRetry(
@@ -517,45 +459,29 @@ export async function runIterativeResearch(
       console.log(
         `[runIterativeResearch] Step 2a: Parallel search completed in ${parallelSearchResult.durationMs}ms (total: ${searchDuration}ms)`,
       );
-      console.log(
-        `[runIterativeResearch] Step 2a: Search findings length: ${parallelSearchResult.findings.length} chars`,
-      );
-      console.log(
-        `[runIterativeResearch] Step 2a: Tool calls made: ${parallelSearchResult.toolCallCount}`,
-      );
-      console.log(
-        `[runIterativeResearch] Step 2a: Structured results: ${parallelSearchResult.structuredResults.length}`,
-      );
+      
+      
+      
 
       const searchFindings = parallelSearchResult.findings;
 
       // Step 2b: SYNTHESIZE - Write coherent report with structured confidence output
-      console.log(
-        `[runIterativeResearch] Step 2b: SYNTHESIZE - Building synthesis prompt`,
-      );
+      
       const synthesisPrompt = buildSynthesisPrompt(context, searchFindings, mode);
-      console.log(
-        `[runIterativeResearch] Step 2b: Synthesis prompt length: ${synthesisPrompt.length} chars`,
-      );
+      
 
-      console.log(`[runIterativeResearch] Step 2b: Calling LLM (glm-4.7) for synthesis`);
       const synthesisStartTime = Date.now();
       const synthesisResult = await generateText({
         model: openai("gpt-5.4"),
         prompt: synthesisPrompt,
       });
       const synthesisDuration = Date.now() - synthesisStartTime;
-      console.log(
-        `[runIterativeResearch] Step 2b: Synthesis completed in ${synthesisDuration}ms`,
-      );
-      console.log(
-        `[runIterativeResearch] Step 2b: Synthesis length: ${synthesisResult.text.length} chars`,
-      );
+      
+      
 
       const synthesisRaw = synthesisResult.text;
 
       // Step 2b.1: Parse structured synthesis and create findings/citations
-      console.log(`[runIterativeResearch] Step 2b.1: Parsing structured synthesis`);
       let structuredFindings: StructuredFinding[] = [];
       let narrativeSummary = synthesisRaw;
 
@@ -563,25 +489,21 @@ export async function runIterativeResearch(
         const parsed = JSON.parse(synthesisRaw);
         structuredFindings = parsed.findings || [];
         narrativeSummary = parsed.narrativeSummary || synthesisRaw;
-        console.log(`[runIterativeResearch] Step 2b.1: Parsed ${structuredFindings.length} structured findings`);
       } catch {
         console.warn(`[runIterativeResearch] Step 2b.1: Failed to parse structured synthesis, using narrative only`);
         // Fallback: use raw text as narrative, no structured findings
       }
 
       // Step 2b.1.5: Generate embedding for iteration findings
-      console.log(`[runIterativeResearch] Step 2b.1.5: Generating embedding for iteration findings`);
       let iterationEmbedding: number[] | undefined;
       try {
         iterationEmbedding = await generateIterationEmbedding(narrativeSummary);
-        console.log(`[runIterativeResearch] Step 2b.1.5: Generated embedding: ${iterationEmbedding.length} dimensions`);
       } catch (error) {
         console.error(`[runIterativeResearch] Step 2b.1.5: Failed to generate iteration embedding:`, error);
         // Continue without embedding - it's optional
       }
 
       // Step 2b.2: Create iteration record first to get iterationId
-      console.log(`[runIterativeResearch] Step 2b.2: Creating iteration record`);
       const iterationId = await ctx.runMutation(
         api.research.mutations.createDeepResearchIteration,
         {
@@ -597,7 +519,6 @@ export async function runIterativeResearch(
       );
 
       // Step 2b.3: Process structured findings - create citations and findings
-      console.log(`[runIterativeResearch] Step 2b.3: Processing ${structuredFindings.length} findings with confidence`);
       const iterationFindingsForStats: Array<{
         confidenceLevel: string;
         confidenceScore: number;
@@ -673,7 +594,6 @@ export async function runIterativeResearch(
 
       // Step 2b.4: Calculate and store iteration confidence stats
       const iterationStats = aggregateConfidenceStats(iterationFindingsForStats);
-      console.log(`[runIterativeResearch] Step 2b.4: Iteration stats - high: ${iterationStats.highConfidenceCount}, medium: ${iterationStats.mediumConfidenceCount}, low: ${iterationStats.lowConfidenceCount}, avg: ${iterationStats.averageConfidenceScore}`);
 
       if (iterationFindingsForStats.length > 0) {
         await ctx.runMutation(
@@ -702,11 +622,8 @@ export async function runIterativeResearch(
       averageConfidence = cumulativeConfidenceStats.averageConfidenceScore;
 
       // Step 2c: REVIEW - Score coverage (now includes confidence assessment)
-      console.log(`[runIterativeResearch] Step 2c: REVIEW - Building review prompt`);
       const reviewPrompt = buildReviewPrompt(context, narrativeSummary);
-      console.log(
-        `[runIterativeResearch] Step 2c: Review prompt length: ${reviewPrompt.length} chars`,
-      );
+      
 
       console.log(
         `[runIterativeResearch] Step 2c: Calling LLM (glm-4.7) for coverage review`,
@@ -717,12 +634,8 @@ export async function runIterativeResearch(
         prompt: reviewPrompt,
       });
       const reviewDuration = Date.now() - reviewStartTime;
-      console.log(
-        `[runIterativeResearch] Step 2c: Review completed in ${reviewDuration}ms`,
-      );
-      console.log(
-        `[runIterativeResearch] Step 2c: Review response length: ${reviewResult.text.length} chars`,
-      );
+      
+      
 
       // Parse review response (with fallback)
       let review: {
@@ -739,16 +652,11 @@ export async function runIterativeResearch(
         };
       };
 
-      console.log(`[runIterativeResearch] Step 2c: Parsing review JSON`);
       try {
         review = JSON.parse(stripMarkdownCodeBlock(reviewResult.text));
-        console.log(
-          `[runIterativeResearch] Step 2c: Review parsed successfully - score: ${review.coverageScore}, gaps: ${review.gaps.length}, shouldContinue: ${review.shouldContinue}`,
-        );
+        
         if (review.confidenceAssessment) {
-          console.log(
-            `[runIterativeResearch] Step 2c: Confidence assessment - level: ${review.confidenceAssessment.overallConfidenceLevel}, multiSource: ${review.confidenceAssessment.multiSourceCoverage}%`,
-          );
+          
         }
       } catch (error) {
         // Fallback if JSON parsing fails
@@ -766,18 +674,13 @@ export async function runIterativeResearch(
           feedback: reviewResult.text,
           shouldContinue: true,
         };
-        console.log(
-          `[runIterativeResearch] Step 2c: Using fallback review - score: ${review.coverageScore}`,
-        );
+        
       }
 
       coverageScore = review.coverageScore;
-      console.log(
-        `[runIterativeResearch] Step 2c: Updated coverage score to ${coverageScore}`,
-      );
+      
 
       // Step 2d: UPDATE iteration with review results
-      console.log(`[runIterativeResearch] Step 2d: Updating iteration with review results`);
       // Note: We already created the iteration, now we need to update it with review results
       // Using a patch via the existing mutation pattern
 
@@ -806,12 +709,9 @@ export async function runIterativeResearch(
           },
         },
       });
-      console.log(`[runIterativeResearch] Step 2e: Iteration card posted`);
 
       // Step 2f: REFINE - Update topic for next iteration (include low confidence areas)
-      console.log(
-        `[runIterativeResearch] Step 2f: REFINE - Checking if topic refinement needed`,
-      );
+      
 
       // New condition: continue if coverage < 4 OR average confidence < 70
       const needsMoreCoverage = coverageScore < 4;
@@ -841,29 +741,20 @@ export async function runIterativeResearch(
         );
       }
 
-      console.log(
-        `[runIterativeResearch] ========== ITERATION ${iteration}/${maxIterations} END ==========\n`,
-      );
-      console.log(
-        `[runIterativeResearch] Loop condition check - iteration: ${iteration} < maxIterations: ${maxIterations} = ${iteration < maxIterations}, coverageScore: ${coverageScore} < 4 = ${coverageScore < 4}, avgConfidence: ${averageConfidence} < 70 = ${averageConfidence < 70}`,
-      );
+      
+      
     }
 
-    console.log(
-      `[runIterativeResearch] Loop finished - Total iterations: ${iteration}, Final coverage: ${coverageScore}, Final confidence: ${averageConfidence}`,
-    );
+    
 
     // Step 3: Complete session with final confidence summary
-    console.log(`[runIterativeResearch] Step 3: Completing session in database with confidence summary`);
     await ctx.runMutation(api.research.mutations.completeDeepResearchSession, {
       sessionId,
       status: "completed",
       finalConfidenceSummary: cumulativeConfidenceStats,
     });
-    console.log(`[runIterativeResearch] Step 3: Session marked as completed`);
 
     // Return summary
-    console.log(`[runIterativeResearch] Exit - Success`);
     return {
       totalIterations: iteration,
       finalCoverageScore: coverageScore,
@@ -873,14 +764,12 @@ export async function runIterativeResearch(
     // Error handling: mark session as error and rethrow
     const isTimeout = error instanceof Error && error.message.includes("RESEARCH_TIMEOUT");
     console.error(`[runIterativeResearch] ${isTimeout ? "TIMEOUT" : "ERROR"} caught:`, error);
-    console.log(`[runIterativeResearch] Marking session as error in database`);
 
     await ctx.runMutation(api.research.mutations.completeDeepResearchSession, {
       sessionId,
       status: "error",
       errorReason: isTimeout ? "timeout" : "unknown",
     });
-    console.log(`[runIterativeResearch] Session marked as error (reason: ${isTimeout ? "timeout" : "unknown"})`);
 
     throw error;
   }
@@ -971,32 +860,31 @@ export function analyzeResearchStrategy(topic: string): ResearchStrategy {
   const isQuestion = topic.includes("?");
   const isSimpleQuestion = isQuestion && wordCount < 12;
   if (isSimpleQuestion) {
-    console.log(`[analyzeResearchStrategy] Simple question detected -> parallel_fan_out`);
+    
     return "parallel_fan_out";
   }
 
   // Comparison queries (favor fast path)
   const isComparison = words.includes("vs") || words.includes("compare") || words.includes("versus");
   if (isComparison) {
-    console.log(`[analyzeResearchStrategy] Comparison detected -> parallel_fan_out`);
+    
     return "parallel_fan_out";
   }
 
   // Deep research explicit request - use single_pass for speed
   const isDeepRequest = words.includes("deep") || words.includes("comprehensive") || words.includes("thorough") || words.includes("detailed");
   if (isDeepRequest) {
-    console.log(`[analyzeResearchStrategy] Deep research request detected -> single_pass`);
+    
     return "single_pass";
   }
 
   // Long queries suggest complexity - use single_pass
   if (wordCount > 15) {
-    console.log(`[analyzeResearchStrategy] Long query (${wordCount} words) -> single_pass`);
     return "single_pass";
   }
 
   // Default to fast path for most queries
-  console.log(`[analyzeResearchStrategy] Default -> parallel_fan_out`);
+  
   return "parallel_fan_out";
 }
 
@@ -1029,12 +917,11 @@ export const startSimpleResearch = action({
     durationMs: number;
   }> => {
     const startTime = Date.now();
-    console.log(`[startSimpleResearch] Entry - topic: "${topic}"`);
 
     // Classify research intent
     const intent = await classifyResearchIntent(topic);
     const mode = intent.mode;
-    console.log(`[startSimpleResearch] Intent classified: ${mode} - ${intent.reasoning}`);
+    
 
     let sessionId: Id<"deepResearchSessions"> | undefined;
     let effectiveConversationId: Id<"conversations"> | undefined;
@@ -1078,7 +965,7 @@ export const startSimpleResearch = action({
 
     // Step 4: Decompose into domains
     const domains = decomposeIntoDomainsStatic(topic, mode);
-    console.log(`[startSimpleResearch] Decomposed into ${domains.length} domains`);
+    
 
     // Step 5: Execute all domains in parallel
     const domainSearches = domains.map(async (domain) => {
@@ -1097,10 +984,8 @@ export const startSimpleResearch = action({
       0
     );
 
-    console.log(`[startSimpleResearch] All domain searches complete - ${totalResults} results`);
 
     // Step 6: Single-pass synthesis - output pure markdown article
-    console.log(`[startSimpleResearch] Running synthesis`);
 
     // Build synthesis prompt
     const resultsSection = domainResults
@@ -1186,10 +1071,9 @@ State whether confidence is HIGH, MEDIUM, or LOW based on:
 
     const synthesis = { report, summary, confidence };
 
-    console.log(`[startSimpleResearch] Synthesis complete - confidence: ${synthesis.confidence}`);
+    
 
     // Step 7: Create document with full report content BEFORE completing session
-    console.log(`[startSimpleResearch] Creating document with full report`);
     const docResult = await ctx.runAction(api.documents.storage.createWithEmbedding, {
       title: `Research: ${topic}`,
       content: synthesis.report,
@@ -1197,7 +1081,6 @@ State whether confidence is HIGH, MEDIUM, or LOW based on:
       researchType: "simple",
     });
 
-    console.log(`[startSimpleResearch] Document created: ${docResult.documentId}`);
 
     // Link document to session
     await ctx.runMutation(internal.research.mutations.updateDeepResearchSessionDocumentId, {
@@ -1205,7 +1088,7 @@ State whether confidence is HIGH, MEDIUM, or LOW based on:
       documentId: docResult.documentId as Id<"documents">,
     });
 
-    console.log(`[startSimpleResearch] Document linked to session`);
+    
 
     // Step 8: Complete session (document already exists, will skip createResearchDocument)
     await ctx.runMutation(api.research.mutations.completeDeepResearchSession, {
@@ -1226,7 +1109,6 @@ State whether confidence is HIGH, MEDIUM, or LOW based on:
     // Creating it here causes duplicate messages.
     const totalTime = Date.now() - startTime;
 
-    console.log(`[startSimpleResearch] Exit - completed in ${totalTime}ms`);
 
     return {
       sessionId,
@@ -1300,7 +1182,6 @@ export async function executeSinglePassResearch(
   mode?: ResearchMode
 ): Promise<SinglePassResearchResult> {
   const startTime = Date.now();
-  console.log(`[executeSinglePassResearch] Entry - topic: "${topic}", mode: ${mode ?? "unset"}`);
 
   // Step 1: Create conversation if needed
   const effectiveConversationId =
@@ -1321,9 +1202,7 @@ export async function executeSinglePassResearch(
     }
   );
 
-  console.log(
-    `[executeSinglePassResearch] Session created - ID: ${sessionId}, type: single_pass`
-  );
+  
 
   // Step 3: Post loading card (simple spinner)
   await ctx.runMutation(api.chatMessages.mutations.create, {
@@ -1340,15 +1219,11 @@ export async function executeSinglePassResearch(
   });
 
   // Step 4: Generate 3 query variants
-  console.log(`[executeSinglePassResearch] Generating query variants`);
   const { generateQueryVariants } = await import("./parallel_iteration");
   const variants = await generateQueryVariants(topic, mode);
-  console.log(
-    `[executeSinglePassResearch] Generated ${variants.length} query variants`
-  );
+  
 
   // Step 5: Execute all variants in parallel (8 searches: 4 queries x 2 engines)
-  console.log(`[executeSinglePassResearch] Executing parallel searches`);
   const searchPromises = variants.map((variant) =>
     executeParallelSearchWithRetry(
       variant.query,
@@ -1362,9 +1237,7 @@ export async function executeSinglePassResearch(
   const allResults = searchResults.flatMap((r) => r.structuredResults);
   const totalSearchResults = allResults.length;
 
-  console.log(
-    `[executeSinglePassResearch] Search complete - ${totalSearchResults} results`
-  );
+  
 
   // Step 6: Deduplicate URLs and select top 8 for reading
   const uniqueUrls = new Map<string, { url: string; title: string }>();
@@ -1382,9 +1255,7 @@ export async function executeSinglePassResearch(
     .slice(0, 8)
     .map((u) => u.url);
 
-  console.log(
-    `[executeSinglePassResearch] Reading ${urlsToRead.length} URLs in parallel`
-  );
+  
 
   // Step 7: Read top URLs in parallel
   const urlReadResults = await executeParallelUrlRead(urlsToRead, {
@@ -1394,9 +1265,7 @@ export async function executeSinglePassResearch(
   });
 
   const successfulReads = urlReadResults.filter((r) => r.success);
-  console.log(
-    `[executeSinglePassResearch] Read ${successfulReads.length}/${urlsToRead.length} URLs successfully`
-  );
+  
 
   // Step 8: Build URL content for synthesis
   const urlContents: UrlContent[] = urlReadResults
@@ -1413,7 +1282,6 @@ export async function executeSinglePassResearch(
     .join("\n\n---\n\n");
 
   // Step 9: Single synthesis with full content
-  console.log(`[executeSinglePassResearch] Running synthesis with gpt-5.4`);
   const synthesisPrompt = buildSinglePassSynthesisPrompt(
     topic,
     urlContents,
@@ -1437,9 +1305,7 @@ export async function executeSinglePassResearch(
     confidence = "LOW";
   }
 
-  console.log(
-    `[executeSinglePassResearch] Synthesis complete - confidence: ${confidence}`
-  );
+  
 
   // Step 10: Create iteration record
   await ctx.runMutation(api.research.mutations.createDeepResearchIteration, {
@@ -1460,9 +1326,7 @@ export async function executeSinglePassResearch(
 
   const totalTime = Date.now() - startTime;
 
-  console.log(
-    `[executeSinglePassResearch] Exit - completed in ${totalTime}ms`
-  );
+  
 
   return {
     sessionId,
@@ -1520,16 +1384,15 @@ export const startSmartResearch = action({
     confidence?: string;
     durationMs?: number;
   }> => {
-    console.log(`[startSmartResearch] Entry - topic: "${topic}"`);
 
     // Step 1: Classify research intent (determines output style)
     const intent = await classifyResearchIntent(topic);
     const mode = intent.mode;
-    console.log(`[startSmartResearch] Intent classified: ${mode} - ${intent.reasoning}`);
+    
 
     // Step 2: Select execution strategy (determines how to search)
     const strategy = analyzeResearchStrategy(topic);
-    console.log(`[startSmartResearch] Selected strategy: ${strategy}, mode: ${mode}`);
+    
 
     if (strategy === "parallel_fan_out") {
       // Import and run parallel fan-out helper directly
@@ -1590,7 +1453,6 @@ export const startSmartResearch = action({
       // Step 3: Run Iterative Research (mode threaded through prompts)
       const result = await runIterativeResearch(ctx, sessionId, effectiveConversationId, topic, 5, mode);
 
-      console.log(`[startSmartResearch] Iterative research completed - ${result.totalIterations} iterations`);
 
       return {
         sessionId,

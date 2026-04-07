@@ -30,9 +30,7 @@ export const stripPlatformPrefixFromTitles = internalMutation({
       }
     }
 
-    console.log(
-      `[stripPlatformPrefixFromTitles] Completed. Updated ${updated} records.`
-    );
+    
 
     return { updated };
   },

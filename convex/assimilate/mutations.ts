@@ -52,11 +52,9 @@ export const saveAssimilation = mutation({
       trackRatings,
     }
   ) => {
-    console.log(`[saveAssimilation] Entry - repository: "${repositoryName}", rating: ${sophisticationRating}`);
     const now = Date.now();
 
     // Step 1: Insert document entry
-    console.log(`[saveAssimilation] Creating document entry`);
     const documentId = await ctx.db.insert("documents", {
       title,
       content,
@@ -65,7 +63,7 @@ export const saveAssimilation = mutation({
       researchType,
       createdAt: now,
     });
-    console.log(`[saveAssimilation] Document created - ID: ${documentId}`);
+    
 
     // Schedule embedding generation for the new document
     await ctx.scheduler.runAfter(0, api.documents.storage.updateWithEmbedding as any, {
@@ -74,7 +72,6 @@ export const saveAssimilation = mutation({
     });
 
     // Step 2: Insert metadata entry
-    console.log(`[saveAssimilation] Creating metadata entry`);
     const metadataId = await ctx.db.insert("assimilationMetadata", {
       documentId,
       repositoryUrl,
@@ -85,9 +82,8 @@ export const saveAssimilation = mutation({
       trackRatings,
       createdAt: now,
     });
-    console.log(`[saveAssimilation] Metadata created - ID: ${metadataId}`);
+    
 
-    console.log(`[saveAssimilation] Exit - Success`);
     return {
       documentId,
       metadataId,
@@ -125,9 +121,7 @@ export const startAssimilationWithPlan = mutation({
     planId: Id<"executionPlans">;
     status: string;
   }> => {
-    console.log(
-      `[startAssimilationWithPlan] Entry - repositoryUrl: "${repositoryUrl}", profile: ${profile}`,
-    );
+    
 
     // Validate URL
     if (!isValidGitHubUrl(repositoryUrl)) {
@@ -135,7 +129,6 @@ export const startAssimilationWithPlan = mutation({
     }
 
     // Step 1: Generate assimilation plan
-    console.log(`[startAssimilationWithPlan] Step 1: Generating assimilation plan`);
     const planId = await ctx.runMutation(api.plans.generator.generateAssimilationPlan, {
       repositoryUrl,
       profile,
@@ -143,14 +136,10 @@ export const startAssimilationWithPlan = mutation({
       autoApprove,
       conversationId,
     });
-    console.log(
-      `[startAssimilationWithPlan] Step 1: Plan generated - ID: ${planId}`,
-    );
+    
 
     // Step 2: Post plan confirmation card
-    console.log(
-      `[startAssimilationWithPlan] Step 2: Posting plan confirmation card`,
-    );
+    
     const plan = await ctx.runQuery(api.plans.queries.get, { id: planId });
 
     await ctx.runMutation(api.chatMessages.mutations.create, {
@@ -175,14 +164,10 @@ export const startAssimilationWithPlan = mutation({
         status: "pending",
       },
     });
-    console.log(
-      `[startAssimilationWithPlan] Step 2: Plan confirmation card posted`,
-    );
+    
 
     // Step 3: Return plan ID for approval
-    console.log(
-      `[startAssimilationWithPlan] Exit - Awaiting approval`,
-    );
+    
     return {
       planId,
       status: "pending_approval",
@@ -212,14 +197,10 @@ export const executeApprovedAssimilationPlan = mutation({
     planId: Id<"executionPlans">;
     status: string;
   }> => {
-    console.log(
-      `[executeApprovedAssimilationPlan] Entry - planId: ${planId}`,
-    );
+    
 
     // Step 1: Fetch and validate plan
-    console.log(
-      `[executeApprovedAssimilationPlan] Step 1: Fetching plan`,
-    );
+    
     const plan = await ctx.runQuery(api.plans.queries.get, { id: planId });
 
     if (!plan) {
@@ -238,20 +219,14 @@ export const executeApprovedAssimilationPlan = mutation({
     const _maxIterations = plan.content?.maxIterations as number || 10;
     const conversationId = plan.metadata?.conversationId as Id<"conversations"> | undefined;
 
-    console.log(
-      `[executeApprovedAssimilationPlan] Step 1: Plan validated - repository: "${repositoryUrl}"`,
-    );
+    
 
     // Step 2: Update plan status to executing
-    console.log(
-      `[executeApprovedAssimilationPlan] Step 2: Updating plan status to executing`,
-    );
+    
     await ctx.runMutation(api.plans.confirmation.startExecution, { planId });
 
     // Step 3: Create assimilation session
-    console.log(
-      `[executeApprovedAssimilationPlan] Step 3: Creating assimilation session`,
-    );
+    
 
     const now = Date.now();
     const criteria = resolveProfile(profile);
@@ -282,14 +257,10 @@ export const executeApprovedAssimilationPlan = mutation({
       updatedAt: now,
       startedAt: now,
     });
-    console.log(
-      `[executeApprovedAssimilationPlan] Step 3: Session created - ID: ${sessionId}`,
-    );
+    
 
     // Step 4: Schedule first iteration
-    console.log(
-      `[executeApprovedAssimilationPlan] Step 4: Scheduling first iteration`,
-    );
+    
 
     if (autoApprove) {
       // Skip approval, start immediately
@@ -298,14 +269,10 @@ export const executeApprovedAssimilationPlan = mutation({
       });
     } else {
       // Wait for user approval (session is in pending_approval status)
-      console.log(
-        `[executeApprovedAssimilationPlan] Step 4: Session awaiting user approval`,
-      );
+      
     }
 
-    console.log(
-      `[executeApprovedAssimilationPlan] Exit - Session ${sessionId} ${autoApprove ? 'started' : 'awaiting approval'}`,
-    );
+    
 
     return {
       sessionId,
@@ -594,14 +561,10 @@ export const completeSession = internalMutation({
         if (plan && plan.status === "executing") {
           if (status === "completed") {
             await ctx.runMutation(api.plans.confirmation.completeExecution, { planId });
-            console.log(
-              `[completeSession] Updated plan ${planId} status to completed`,
-            );
+            
           } else if (status === "failed" || status === "cancelled") {
             await ctx.runMutation(api.plans.confirmation.failExecution, { planId });
-            console.log(
-              `[completeSession] Updated plan ${planId} status to failed`,
-            );
+            
           }
         }
       } catch (error) {

@@ -121,7 +121,6 @@ export const exaSearchTool = tool({
     query: z.string().describe("The search query"),
   }),
   execute: async ({ query }: { query: string }) => {
-    console.log(`[exaSearchTool] Entry - query: "${query}"`);
     // Use default values since we removed optional parameters to fix schema conversion
     const category = "any";
     try {
@@ -137,9 +136,7 @@ export const exaSearchTool = tool({
       }
 
       const numResults = 5;
-      console.log(
-        `[exaSearchTool] Calling Exa API - numResults: ${numResults}, useAutoprompt: true`,
-      );
+      
       const exa = new Exa(apiKey);
 
       const startTime = Date.now();
@@ -150,9 +147,7 @@ export const exaSearchTool = tool({
       });
       const duration = Date.now() - startTime;
 
-      console.log(
-        `[exaSearchTool] Exa API returned in ${duration}ms - results: ${searchResults.results.length}`,
-      );
+      
 
       const results = searchResults.results.map((result: any) => ({
         title: result.title || "",
@@ -163,9 +158,7 @@ export const exaSearchTool = tool({
         author: result.author || null,
       }));
 
-      console.log(
-        `[exaSearchTool] Exit - Success with ${results.length} results`,
-      );
+      
       return {
         query,
         results,
@@ -198,7 +191,6 @@ export const jinaSearchTool = tool({
     query: z.string().describe("The search query"),
   }),
   execute: async ({ query }: { query: string }) => {
-    console.log(`[jinaSearchTool] Entry - query: "${query}"`);
     try {
       const apiKey = process.env.JINA_API_KEY;
       if (!apiKey) {
@@ -211,9 +203,7 @@ export const jinaSearchTool = tool({
         };
       }
 
-      console.log(
-        `[jinaSearchTool] Calling Jina Search API - query: "${query}"`,
-      );
+      
       const startTime = Date.now();
       // Jina Search uses s.jina.ai with query parameter
       const encodedQuery = encodeURIComponent(query);
@@ -226,9 +216,7 @@ export const jinaSearchTool = tool({
       });
       const duration = Date.now() - startTime;
 
-      console.log(
-        `[jinaSearchTool] Jina API responded in ${duration}ms - status: ${response.status}`,
-      );
+      
 
       if (!response.ok) {
         console.error(
@@ -244,9 +232,7 @@ export const jinaSearchTool = tool({
 
       // Jina Search returns JSON with data array
       const data = await response.json();
-      console.log(
-        `[jinaSearchTool] Received response - has data: ${!!data.data}`,
-      );
+      
 
       // Parse search results from Jina's response format
       const results = (data.data || []).map((result: any) => ({
@@ -256,9 +242,7 @@ export const jinaSearchTool = tool({
         domain: result.domain || new URL(result.url || result.link || "").hostname,
       }));
 
-      console.log(
-        `[jinaSearchTool] Exit - Success with ${results.length} results`,
-      );
+      
       return {
         query,
         results,
@@ -292,7 +276,6 @@ export const jinaSiteSearchTool = tool({
     site: z.string().url().describe("The website to search within (e.g., https://jina.ai)"),
   }),
   execute: async ({ query, site }: { query: string; site: string }) => {
-    console.log(`[jinaSiteSearchTool] Entry - query: "${query}", site: "${site}"`);
     try {
       const apiKey = process.env.JINA_API_KEY;
       if (!apiKey) {
@@ -306,9 +289,7 @@ export const jinaSiteSearchTool = tool({
         };
       }
 
-      console.log(
-        `[jinaSiteSearchTool] Calling Jina Site Search API - query: "${query}", site: "${site}"`,
-      );
+      
       const startTime = Date.now();
       const encodedQuery = encodeURIComponent(query);
       const response = await fetch(`https://s.jina.ai/?q=${encodedQuery}`, {
@@ -321,9 +302,7 @@ export const jinaSiteSearchTool = tool({
       });
       const duration = Date.now() - startTime;
 
-      console.log(
-        `[jinaSiteSearchTool] Jina Site Search API responded in ${duration}ms - status: ${response.status}`,
-      );
+      
 
       if (!response.ok) {
         console.error(
@@ -339,9 +318,7 @@ export const jinaSiteSearchTool = tool({
       }
 
       const data = await response.json();
-      console.log(
-        `[jinaSiteSearchTool] Received response - has data: ${!!data.data}`,
-      );
+      
 
       const results = (data.data || []).map((result: any) => ({
         title: result.title || "",
@@ -350,9 +327,7 @@ export const jinaSiteSearchTool = tool({
         domain: result.domain || new URL(result.url || result.link || "").hostname,
       }));
 
-      console.log(
-        `[jinaSiteSearchTool] Exit - Success with ${results.length} results from ${site}`,
-      );
+      
       return {
         query,
         site,
@@ -387,7 +362,6 @@ export const jinaReaderTool = tool({
     url: z.string().url().describe("The URL to extract content from"),
   }),
   execute: async ({ url }: { url: string }) => {
-    console.log(`[jinaReaderTool] Entry - url: "${url}"`);
     try {
       const apiKey = process.env.JINA_API_KEY;
       if (!apiKey) {
@@ -400,7 +374,6 @@ export const jinaReaderTool = tool({
         };
       }
 
-      console.log(`[jinaReaderTool] Calling Jina Reader API`);
       const startTime = Date.now();
       const response = await fetch(`https://r.jina.ai/${url}`, {
         method: "GET",
@@ -411,9 +384,7 @@ export const jinaReaderTool = tool({
       });
       const duration = Date.now() - startTime;
 
-      console.log(
-        `[jinaReaderTool] Jina Reader API responded in ${duration}ms - status: ${response.status}`,
-      );
+      
 
       if (!response.ok) {
         console.error(

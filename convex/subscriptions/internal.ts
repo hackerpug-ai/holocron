@@ -1214,7 +1214,6 @@ async function processSingleSource(
           priority: 5, // Medium priority
         });
         if (result.created) {
-          console.log(`[TR-006] Created transcript job for YouTube video ${item.contentId}`);
         }
       } catch (error) {
         // Don't block video discovery if transcript job creation fails
@@ -1400,7 +1399,6 @@ export const checkAllSubscriptions = internalAction({
     const durationMs = Date.now() - startTime;
 
     // Log performance metrics
-    console.log(`[checkAllSubscriptions] Processed ${results.length} sources in ${durationMs}ms (${totalFetched} items fetched, ${totalQueued} queued)`);
 
     // Trigger feed build immediately if new content was fetched
     if (totalFetched > 0) {
@@ -1653,7 +1651,6 @@ export const seedCreatorAccounts = internalMutation({
       created++;
     }
 
-    console.log(`[seedCreatorAccounts] Created ${created}, skipped ${skipped} (already exist)`);
     return { created, skipped };
   },
 });
@@ -1781,9 +1778,7 @@ export const seedExpandedRecommendations = internalMutation({
       newslettersResult.created++;
     }
 
-    console.log(
-      `[seedExpandedRecommendations] Creators: ${creatorsResult.created} created, ${creatorsResult.skipped} skipped. Newsletters: ${newslettersResult.created} created, ${newslettersResult.skipped} skipped.`
-    );
+    
 
     return { creators: creatorsResult, newsletters: newslettersResult };
   },

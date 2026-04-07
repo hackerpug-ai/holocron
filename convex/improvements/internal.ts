@@ -130,9 +130,7 @@ export const submitFromSpecialist = internalMutation({
       updatedAt: now,
     });
 
-    console.log(
-      `[submitFromSpecialist] Created improvement request ${requestId} from ${source}`
-    );
+    
 
     return requestId;
   },

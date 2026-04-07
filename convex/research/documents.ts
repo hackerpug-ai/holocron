@@ -31,7 +31,6 @@ import { buildFinalSynthesisPrompt } from "./prompts";
 export const createResearchDocument = internalAction({
   args: { sessionId: v.id("deepResearchSessions") },
   handler: async (ctx, { sessionId }): Promise<{ status: string; error?: string; reason?: string; documentId?: string }> => {
-    console.log(`[createResearchDocument] Starting document creation for session: ${sessionId}`);
 
     // 1. Get session
     const session = await ctx.runQuery(internal.research.documentQueries.getSessionForDocument, {
@@ -39,12 +38,12 @@ export const createResearchDocument = internalAction({
     });
 
     if (!session) {
-      console.log(`[createResearchDocument] Session not found: ${sessionId}`);
+      
       return { status: "error", error: "Session not found" };
     }
 
     if (session.documentId) {
-      console.log(`[createResearchDocument] Document already exists: ${session.documentId}`);
+      
       return { status: "skipped", reason: "Document already exists" };
     }
 
@@ -53,7 +52,6 @@ export const createResearchDocument = internalAction({
       sessionId,
     });
 
-    console.log(`[createResearchDocument] Found ${findings.length} findings`);
 
     // 3. If no findings, check for iterations (parallel strategies)
     let content: string;
@@ -119,10 +117,10 @@ export const createResearchDocument = internalAction({
         { sessionId }
       );
 
-      console.log(`[createResearchDocument] No structured findings, synthesizing ${iterations.length} iterations`);
+      
 
       if (iterations.length === 0) {
-        console.log(`[createResearchDocument] No iterations found, creating minimal document`);
+        
         content = `# Research Report: ${session.topic}\n\nNo detailed findings available.`;
         stats = {
           totalClaims: 0,
@@ -147,7 +145,6 @@ export const createResearchDocument = internalAction({
 
         // Call LLM to synthesize findings into cohesive report
         // Using gpt-5.4 for final synthesis - brings together ideas from iterations
-        console.log(`[createResearchDocument] Calling gpt-5.4 to synthesize findings`);
         const result = await generateText({
           model: openai("gpt-5.4"),
           prompt: synthesisPrompt,
@@ -207,7 +204,7 @@ export const createResearchDocument = internalAction({
       iterations: session.currentIteration,
     });
 
-    console.log(`[createResearchDocument] Document created: ${result.documentId}`);
+    
 
     // 7. Link document to session
     await ctx.runMutation(internal.research.mutations.updateDeepResearchSessionDocumentId, {
@@ -215,7 +212,7 @@ export const createResearchDocument = internalAction({
       documentId: result.documentId as Id<"documents">,
     });
 
-    console.log(`[createResearchDocument] Document linked to session`);
+    
 
     // 8. Post result card to conversation
     // Extract key findings from the content for the card preview
@@ -262,7 +259,6 @@ export const createResearchDocument = internalAction({
       },
     });
 
-    console.log(`[createResearchDocument] Result card posted to conversation`);
 
     return { documentId: result.documentId, status: "created" };
   },

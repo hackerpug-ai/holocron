@@ -927,9 +927,7 @@ async function scoreFindingsQuality(
     return passThrough;
   }
 
-  console.log(
-    `[scoreFindingsQuality] Scoring ${needsScoring.length} social findings`
-  );
+  
 
   // Build prompt for batch scoring
   const itemList = needsScoring
@@ -1074,9 +1072,7 @@ export const generateDailyReport = internalAction({
         internal.whatsNew.internal.getTodaysReport
       );
       if (existingReport) {
-        console.log(
-          "[generateDailyReport] Today's report already exists, returning cached"
-        );
+        
         return {
           reportId: existingReport._id,
           documentId: existingReport.documentId || "",
@@ -1087,16 +1083,12 @@ export const generateDailyReport = internalAction({
     }
 
     // 2. Fetch creator accounts from subscriptions for dynamic Bluesky lists
-    console.log("[generateDailyReport] Loading creator accounts from subscriptions...");
     const blueskyAccounts = await ctx.runQuery(
       internal.subscriptions.internal.getCreatorAccountsByPlatform, { platform: "bluesky" }
     );
-    console.log(
-      `[generateDailyReport] Found ${blueskyAccounts.length} Bluesky accounts`
-    );
+    
 
     // 3. Fetch from all sources in parallel
-    console.log("[generateDailyReport] Fetching from external sources...");
     const fetchResults = await Promise.allSettled([
       fetchReddit(days),
       fetchHackerNews(days),
@@ -1114,9 +1106,7 @@ export const generateDailyReport = internalAction({
     for (const result of fetchResults) {
       if (result.status === "fulfilled") {
         allFindings.push(...result.value.findings);
-        console.log(
-          `[generateDailyReport] ${result.value.source}: ${result.value.findings.length} findings`
-        );
+        
       } else {
         console.error("[generateDailyReport] Fetch failed:", result.reason);
       }
@@ -1126,11 +1116,9 @@ export const generateDailyReport = internalAction({
     const uniqueFindings = deduplicateFindings(allFindings);
 
     // Quality scoring: LLM-based filtering for social posts
-    console.log("[generateDailyReport] Scoring findings quality...");
+    
     const qualityFindings = await scoreFindingsQuality(uniqueFindings);
-    console.log(
-      `[generateDailyReport] Quality filter: ${uniqueFindings.length} → ${qualityFindings.length} findings`
-    );
+    
 
     const cappedFindings = capFindingsPerSource(qualityFindings, 15);
     const { discoveries, releases, trends, discussions } =
@@ -1147,9 +1135,7 @@ export const generateDailyReport = internalAction({
     console.log(
       `[generateDailyReport] ${cappedFindings.length} unique findings (${discoveries.length} discoveries, ${releases.length} releases, ${trends.length} trends, ${discussions.length} discussions)`
     );
-    console.log(
-      `[generateDailyReport] Extended metrics: topEngagementVelocity=${topEngagementVelocity}, totalCorroborationCount=${totalCorroborationCount}, sources=${sources.length}`
-    );
+    
 
     // 5. Content enrichment: fetch summaries for top findings lacking them
     const findingsNeedingSummary = cappedFindings
@@ -1158,7 +1144,7 @@ export const generateDailyReport = internalAction({
       .slice(0, 15);
 
     if (findingsNeedingSummary.length > 0) {
-      console.log(`[generateDailyReport] Enriching ${findingsNeedingSummary.length} findings with content summaries...`);
+      
       const enrichResults = await Promise.allSettled(
         findingsNeedingSummary.map(async (finding) => {
           try {
@@ -1212,7 +1198,7 @@ Respond with ONLY a JSON array: [{"url": "...", "summary": "..."}]`;
                 finding.summary = summary;
               }
             }
-            console.log(`[generateDailyReport] Enriched ${summaries.length} findings with summaries`);
+            
           }
         } catch (err) {
           console.warn("[generateDailyReport] Content enrichment summarization failed:", err);
@@ -1227,14 +1213,12 @@ Respond with ONLY a JSON array: [{"url": "...", "summary": "..."}]`;
       .slice(0, 20); // Limit to top 20 to avoid excessive LLM calls
 
     if (findingsNeedingAiSummary.length > 0) {
-      console.log(`[generateDailyReport] Generating AI summaries for ${findingsNeedingAiSummary.length} findings...`);
 
       for (const finding of findingsNeedingAiSummary) {
         try {
           const summary = await generateFindingSummary(ctx, finding);
           if (summary) {
             finding.summary = summary;
-            console.log(`[generateDailyReport] Generated summary for "${finding.title.substring(0, 50)}..." (${summary.length} chars)`);
           }
         } catch (error) {
           // Summary generation failed - continue without it
@@ -1243,7 +1227,7 @@ Respond with ONLY a JSON array: [{"url": "...", "summary": "..."}]`;
       }
 
       const enrichedCount = findingsNeedingAiSummary.filter((f) => f.summary && f.summary.length >= 80).length;
-      console.log(`[generateDailyReport] Successfully enriched ${enrichedCount}/${findingsNeedingAiSummary.length} findings with AI summaries`);
+      
     }
 
     // 6. Generate markdown report using two-pass LLM synthesis with static fallback
@@ -1251,7 +1235,6 @@ Respond with ONLY a JSON array: [{"url": "...", "summary": "..."}]`;
     const periodEnd = now;
     const periodStart = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
 
-    console.log("[generateDailyReport] Generating report with LLM synthesis...");
     const synthesisResult = await llmSynthesizeReport(
       cappedFindings,
       days,
@@ -1259,9 +1242,7 @@ Respond with ONLY a JSON array: [{"url": "...", "summary": "..."}]`;
       periodEnd
     );
 
-    console.log(
-      `[generateDailyReport] Report generated using method: ${synthesisResult.method}`
-    );
+    
     if (synthesisResult.error) {
       console.error("[generateDailyReport] LLM synthesis error:", synthesisResult.error);
     }
@@ -1269,7 +1250,6 @@ Respond with ONLY a JSON array: [{"url": "...", "summary": "..."}]`;
     const reportMarkdown = synthesisResult.markdown;
 
     // 6. Store document with embedding
-    console.log("[generateDailyReport] Creating document with embedding...");
     const documentResult = await ctx.runAction(
       api.documents.storage.createWithEmbedding,
       {
@@ -1282,7 +1262,6 @@ Respond with ONLY a JSON array: [{"url": "...", "summary": "..."}]`;
     );
 
     // 7. Create whatsNewReports entry
-    console.log("[generateDailyReport] Creating report entry...");
 
     // Serialize tool suggestions for storage
     const toolSuggestionsJson = synthesisResult.toolSuggestions
@@ -1290,7 +1269,6 @@ Respond with ONLY a JSON array: [{"url": "...", "summary": "..."}]`;
       : undefined;
 
     if (synthesisResult.toolSuggestions) {
-      console.log(`[generateDailyReport] Storing ${synthesisResult.toolSuggestions.length} tool suggestions`);
     }
 
     const findingsJson = JSON.stringify(cappedFindings);
@@ -1329,9 +1307,7 @@ Respond with ONLY a JSON array: [{"url": "...", "summary": "..."}]`;
       }
     );
 
-    console.log(
-      `[generateDailyReport] Complete! reportId=${reportId}, documentId=${documentResult.documentId}`
-    );
+    
 
     // Notify that a new What's New report is available
     await ctx.runMutation(internal.notifications.internal.create, {
@@ -1417,7 +1393,7 @@ export const backfillQualityScores = internalAction({
     );
 
     if (reports.length === 0) {
-      console.log("[backfillQualityScores] No more reports to process");
+      
       return { processed: 0, updated: 0, totalRemoved: 0, hasMore: false };
     }
 
@@ -1426,7 +1402,7 @@ export const backfillQualityScores = internalAction({
 
     for (const report of reports) {
       if (!report.findingsJson) {
-        console.log(`[backfillQualityScores] Report ${report._id} has no findingsJson, skipping`);
+        
         continue;
       }
 
@@ -1472,13 +1448,10 @@ export const backfillQualityScores = internalAction({
 
     const hasMore = reports.length === 5;
 
-    console.log(
-      `[backfillQualityScores] Batch complete: ${reports.length} processed, ${updated} updated, ${totalRemoved} findings removed, hasMore=${hasMore}`
-    );
+    
 
     // Auto-continue to next batch if there are more
     if (hasMore) {
-      console.log(`[backfillQualityScores] Scheduling next batch (skip=${skip + 5})`);
       await ctx.scheduler.runAfter(1000, internal.whatsNew.actions.backfillQualityScores, {
         skip: skip + 5,
         dryRun,

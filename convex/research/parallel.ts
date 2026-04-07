@@ -172,9 +172,7 @@ export async function decomposeIntoSubQuestions(
   mode?: ResearchMode,
   maxCount: number = 4
 ): Promise<SubQuestion[]> {
-  console.log(
-    `[decomposeIntoSubQuestions] Entry - topic: "${topic}", mode: ${mode ?? "unset"}, maxCount: ${maxCount}`
-  );
+  
 
   const modeInstructions = mode
     ? getDecompositionInstructions(mode)
@@ -229,15 +227,13 @@ Generate exactly ${maxCount} sub-questions.`;
       if (!sq.rationale) sq.rationale = "";
     }
 
-    console.log(
-      `[decomposeIntoSubQuestions] Generated ${parsed.length} sub-questions via LLM`
-    );
+    
     return parsed.slice(0, maxCount);
   } catch (error) {
     console.warn(
       `[decomposeIntoSubQuestions] LLM decomposition failed: ${error instanceof Error ? error.message : String(error)}`
     );
-    console.log(`[decomposeIntoSubQuestions] Falling back to static decomposition`);
+    
 
     // Fall back to static decomposition, wrapping as SubQuestion[]
     const staticDomains = decomposeIntoDomainsStatic(topic, mode);
@@ -342,9 +338,7 @@ export async function executeParallelFanOut(
   mode?: ResearchMode
 ): Promise<ParallelFanOutResult> {
   const startTime = Date.now();
-  console.log(
-    `[executeParallelFanOut] Entry - topic: "${topic}", enableFollowUp: ${enableFollowUp}, mode: ${mode ?? "unset"}`
-  );
+  
 
   // Step 1: Create conversation if needed
   const effectiveConversationId =
@@ -381,9 +375,7 @@ export async function executeParallelFanOut(
   // Step 4: Decompose into sub-questions
   const budget = getSearchBudget(mode);
   const subQuestions = await decomposeIntoSubQuestions(topic, mode, budget.primarySearchCount);
-  console.log(
-    `[executeParallelFanOut] Decomposed into ${subQuestions.length} sub-questions`
-  );
+  
 
   // Step 4b: Show "analyzing query" step now that we know the sub-question count
   await updateFanOutLoadingCard(ctx, effectiveConversationId, sessionId, topic, [
@@ -400,7 +392,6 @@ export async function executeParallelFanOut(
   ]);
 
   // Step 5: Execute all sub-questions in parallel
-  console.log(`[executeParallelFanOut] Executing parallel domain searches`);
   const domainSearches = subQuestions.map(async (subQuestion) => {
     const result = await executeParallelSearchWithRetry(
       subQuestion.query,
@@ -418,9 +409,7 @@ export async function executeParallelFanOut(
   );
   const totalDuration = domainResults.reduce((sum, r) => sum + r.durationMs, 0);
 
-  console.log(
-    `[executeParallelFanOut] All domain searches complete - ${totalResults} results in ${totalDuration}ms`
-  );
+  
 
   // Step 5b: Update card — search done, synthesis starting
   await updateFanOutLoadingCard(ctx, effectiveConversationId, sessionId, topic, [
@@ -442,7 +431,6 @@ export async function executeParallelFanOut(
   ]);
 
   // Step 6: Single-pass synthesis
-  console.log(`[executeParallelFanOut] Running synthesis`);
   const synthesisPrompt = buildFanOutSynthesisPrompt(
     topic,
     domainResults.map((r) => ({ domain: r.domain, findings: r.findings })),
@@ -473,9 +461,7 @@ export async function executeParallelFanOut(
     };
   }
 
-  console.log(
-    `[executeParallelFanOut] Synthesis complete - confidence: ${synthesis.confidence}, gaps: ${synthesis.gaps.length}`
-  );
+  
 
   // Step 6b: Update card — synthesis done, optionally show follow-up or save
   const postSynthesisSteps = [
@@ -498,9 +484,7 @@ export async function executeParallelFanOut(
 
   // Step 7: Optional follow-up for gaps (mini iterative research iteration)
   if (enableFollowUp && synthesis.gaps.length > 0 && synthesis.confidence !== "HIGH") {
-    console.log(
-      `[executeParallelFanOut] Running follow-up for ${synthesis.gaps.length} gaps`
-    );
+    
 
     await updateFanOutLoadingCard(ctx, effectiveConversationId, sessionId, topic, [
       ...postSynthesisSteps,
@@ -521,9 +505,7 @@ export async function executeParallelFanOut(
 
     // Append follow-up findings to synthesis
     synthesis.summary += `\n\n## Additional Findings\n${followUpResult.findings}`;
-    console.log(
-      `[executeParallelFanOut] Follow-up complete - ${followUpResult.structuredResults.length} additional results`
-    );
+    
 
     postSynthesisSteps.push({
       id: "followup",

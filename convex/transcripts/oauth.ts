@@ -73,7 +73,6 @@ export const getAccessToken = internalAction({
     // Return cached token if valid (refresh 60 seconds early)
     if (cachedToken && Date.now() < tokenExpiry) {
       const ttl = Math.floor((tokenExpiry - Date.now()) / 1000);
-      console.log(`[Auth] Using cached token (expires in ${ttl}s)`);
       return cachedToken.access_token;
     }
 
@@ -116,7 +115,7 @@ async function getServiceAccountToken(): Promise<string | null> {
     return null;
   }
 
-  console.log("[ServiceAccount] Attempting authentication...");
+  
 
   try {
     // Import Node.js crypto module (only available with "use node")
@@ -186,7 +185,7 @@ async function getOAuth2Token(): Promise<string | null> {
     return null;
   }
 
-  console.log("[OAuth2] Attempting authentication...");
+  
 
   try {
     const response = await fetch("https://oauth2.googleapis.com/token", {
@@ -319,8 +318,8 @@ export const getAuthorizationUrl = internalAction({
 
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
 
-    console.log("[OAuth2] Authorization URL generated");
-    console.log("[OAuth2] Open this URL in a browser to authorize:");
+    
+    
 
     return authUrl;
   },
@@ -376,8 +375,8 @@ export const exchangeCodeForToken = internalAction({
         return null;
       }
 
-      console.log("[OAuth2] Authorization code exchanged successfully");
-      console.log("[OAuth2] Store this refresh token in YOUTUBE_OAUTH_REFRESH_TOKEN:");
+      
+      
 
       return { refresh_token: token.refresh_token };
     } catch (error) {

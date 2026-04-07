@@ -183,7 +183,7 @@ async function callLlmAndHandleResponse(
 
   // Step 1: Triage — classify intent with zaiFlash (no tools, ~100-200ms)
   const triage = await classifyIntent(messages);
-  console.log(`[agent] Triage: intent=${triage.intent} confidence=${triage.confidence} reasoning="${triage.reasoning}"`);
+  
 
   // Step 2: Direct conversation response (no specialist needed)
   if (
@@ -202,7 +202,7 @@ async function callLlmAndHandleResponse(
 
   // Step 3: Low confidence → fallback to monolithic agent (safety valve)
   if (triage.confidence === "low") {
-    console.log("[agent] Low confidence triage, falling back to monolithic agent");
+    
     return callLlmMonolithic(ctx, conversationId, messages);
   }
 
@@ -214,7 +214,7 @@ async function callLlmAndHandleResponse(
   }
 
   const specialist = getSpecialist(specialistName);
-  console.log(`[agent] Dispatching to ${specialist.name} specialist`);
+  
 
   const result = await generateText({
     model: specialist.model(),

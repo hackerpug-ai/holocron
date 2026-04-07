@@ -362,9 +362,7 @@ async function executeTrackWorker(
   config: TrackConfig
 ): Promise<TrackWorkerResult> {
   const startTime = Date.now();
-  console.log(
-    `[executeTrackWorker] Starting track: ${config.track}, query: "${config.query}"`
-  );
+  
 
   try {
     const result = await executeParallelSearchWithRetry(
@@ -379,9 +377,7 @@ async function executeTrackWorker(
     );
 
     const durationMs = Date.now() - startTime;
-    console.log(
-      `[executeTrackWorker] Completed track: ${config.track} in ${durationMs}ms, sources: ${result.structuredResults.length}`
-    );
+    
 
     return {
       track: config.track,
@@ -426,9 +422,7 @@ async function executeTrackWorkerWithRetry(
 
   // Retry failed tracks
   while (!result.success && config.retryCount < config.maxRetries) {
-    console.log(
-      `[executeTrackWorkerWithRetry] Retrying track: ${config.track}, attempt: ${config.retryCount + 1}/${config.maxRetries}`
-    );
+    
 
     config.retryCount++;
     result = await executeTrackWorker(ctx, config);
@@ -515,15 +509,11 @@ export const executePlanBasedResearch = internalAction({
     { conversationId, sessionId, plan, topic }
   ): Promise<DispatcherResult> => {
     const startTime = Date.now();
-    console.log(
-      `[executePlanBasedResearch] Entry - topic: "${topic}", sessionId: ${sessionId}`
-    );
+    
 
     // Step 1: Parse plan into track assignments
     const tracks = parsePlanIntoTracks(plan, topic);
-    console.log(
-      `[executePlanBasedResearch] Parsed plan into ${tracks.length} tracks`
-    );
+    
 
     // Step 2: Update loading card with track assignments
     const loadingCard = await ctx.runQuery(
@@ -556,7 +546,6 @@ export const executePlanBasedResearch = internalAction({
     }
 
     // Step 3: Execute all track workers in parallel
-    console.log(`[executePlanBasedResearch] Executing ${tracks.length} workers`);
     const workerPromises = tracks.map((config) =>
       executeTrackWorkerWithRetry(ctx, config)
     );
@@ -567,9 +556,7 @@ export const executePlanBasedResearch = internalAction({
     const completedTracks = trackResults.filter((r) => r.success);
     const failedTracks = trackResults.filter((r) => !r.success);
 
-    console.log(
-      `[executePlanBasedResearch] Workers complete - ${completedTracks.length}/${tracks.length} successful`
-    );
+    
 
     const findings = aggregateTrackResults(trackResults);
 
@@ -631,9 +618,7 @@ export const executePlanBasedResearch = internalAction({
         ? "partial"
         : "failed";
 
-    console.log(
-      `[executePlanBasedResearch] Exit - status: ${status}, duration: ${totalTime}ms`
-    );
+    
 
     return {
       sessionId,
@@ -669,9 +654,7 @@ export const runPlanBasedResearch = action({
     sessionId: Id<"deepResearchSessions">;
     status: string;
   }> => {
-    console.log(
-      `[runPlanBasedResearch] Entry - planId: ${planId}, topic: "${topic}"`
-    );
+    
 
     // Fetch the approved plan
     const plan = await ctx.runQuery(api.plans.queries.get, {
