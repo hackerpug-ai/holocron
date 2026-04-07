@@ -26,7 +26,7 @@ describe("Summary Generation - AC-1: Each finding has summary field", () => {
   });
 
   it("should generate summary between 80-150 characters", async () => {
-    const mockCtx = {};
+    const mockCtx = {} as any;
 
     const finding = {
       title: "New AI Framework Released",
@@ -51,7 +51,7 @@ describe("Summary Generation - AC-1: Each finding has summary field", () => {
   });
 
   it("should reject summaries shorter than 80 characters", async () => {
-    const mockCtx = {};
+    const mockCtx = {} as any;
 
     const finding = {
       title: "AI Tool",
@@ -78,7 +78,7 @@ describe("Summary Generation - AC-2: Summary captures key insight", () => {
   });
 
   it("should capture key technical insight accurately", async () => {
-    const mockCtx = {};
+    const mockCtx = {} as any;
 
     const finding = {
       title: "Claude Code Source Code Leaked",
@@ -108,7 +108,7 @@ describe("Summary Generation - AC-3: Graceful failure handling", () => {
   });
 
   it("should return undefined when LLM fails, not throw error", async () => {
-    const mockCtx = {};
+    const mockCtx = {} as any;
 
     const finding = {
       title: "Test Finding",
@@ -126,7 +126,7 @@ describe("Summary Generation - AC-3: Graceful failure handling", () => {
   });
 
   it("should return undefined when LLM returns empty response", async () => {
-    const mockCtx = {};
+    const mockCtx = {} as any;
 
     const finding = {
       title: "Test Finding",
@@ -151,7 +151,7 @@ describe("Summary Generation - AC-4: Truncate long summaries", () => {
   });
 
   it("should truncate summaries longer than 150 characters with ellipsis", async () => {
-    const mockCtx = {};
+    const mockCtx = {} as any;
 
     const finding = {
       title: "Comprehensive AI Framework",
@@ -174,7 +174,7 @@ describe("Summary Generation - AC-4: Truncate long summaries", () => {
   });
 
   it("should not truncate summaries exactly at 150 characters", async () => {
-    const mockCtx = {};
+    const mockCtx = {} as any;
 
     const finding = {
       title: "Perfect Length Summary",
@@ -203,7 +203,7 @@ describe("Summary Generation - AC-5: Video source handling", () => {
   });
 
   it("should generate summary for video sources", async () => {
-    const mockCtx = {};
+    const mockCtx = {} as any;
 
     const finding = {
       title: "Introduction to LangGraph",
@@ -237,7 +237,7 @@ describe("Summary Generation - Edge Cases", () => {
   });
 
   it("should handle findings with no content gracefully", async () => {
-    const mockCtx = {};
+    const mockCtx = {} as any;
 
     const finding = {
       title: "Title Only Finding",
@@ -259,7 +259,7 @@ describe("Summary Generation - Edge Cases", () => {
   });
 
   it("should trim whitespace from generated summaries", async () => {
-    const mockCtx = {};
+    const mockCtx = {} as any;
 
     const finding = {
       title: "Test Finding",
@@ -282,7 +282,7 @@ describe("Summary Generation - Edge Cases", () => {
   });
 
   it("should pass all finding metadata to LLM prompt", async () => {
-    const mockCtx = {};
+    const mockCtx = {} as any;
 
     const finding = {
       title: "React 19 Released",

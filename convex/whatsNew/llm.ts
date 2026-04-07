@@ -10,6 +10,7 @@
 "use node";
 
 import { generateText } from "ai";
+import type { ActionCtx } from "../_generated/server";
 import { zaiPro } from "../lib/ai/zai_provider";
 
 // ============================================================================
@@ -501,7 +502,7 @@ ${period} | ${findings.length} findings | ${discoveries.length} discoveries | ${
  * @returns Summary string (80-150 chars) or undefined if generation fails
  */
 export async function generateFindingSummary(
-  ctx: any,
+  _ctx: ActionCtx,
   finding: {
     title: string;
     source: string;
