@@ -339,6 +339,101 @@ python -m holocron_cli stats
 
 See [cli/README.md](cli/README.md) for setup instructions.
 
+## MCP Server Integration
+
+Holocron includes a Model Context Protocol (MCP) server that provides **42 tools** for interacting with your knowledge base, research workflows, subscriptions, and more. The MCP server enables Claude Code and other MCP-compatible clients to seamlessly integrate with Holocron.
+
+### Available MCP Tools
+
+The MCP server provides tools across several categories:
+
+**Search & Retrieval (6 tools)**
+- `hybrid_search` - Combined full-text + semantic search
+- `search_fts` - Full-text keyword search
+- `search_vector` - Semantic vector search
+- `get_document` - Retrieve document by ID
+- `list_documents` - List documents with pagination
+- `share_document` - Publish/unpublish documents
+
+**Research Sessions (2 tools)**
+- `get_research_session` - Retrieve research session by ID
+- `search_research` - Search research findings
+
+**Document Management (3 tools)**
+- `store_document` - Create new document with embeddings
+- `update_document` - Update existing document
+- `share_document` - Share documents publicly
+
+**Subscriptions (8 tools)**
+- `add_subscription` - Add YouTube, newsletter, changelog, Reddit sources
+- `remove_subscription` - Remove subscription
+- `list_subscriptions` - List subscriptions with filters
+- `check_subscriptions` - Fetch new content from sources
+- `get_subscription_content` - Get subscription content items
+- `set_subscription_filter` - Set keyword/score filters
+- `get_subscription_filters` - Get filter rules
+
+**Toolbelt (6 tools)**
+- `store_tool` - Store tools with embeddings
+- `search_tools` - Search tools (hybrid)
+- `get_tool` - Get tool by ID
+- `list_tools` - List tools with filters
+- `update_tool` - Update tool
+- `remove_tool` - Remove tool
+
+**Shopping (3 tools)**
+- `shop_products` - Search products across retailers
+- `get_shop_session` - Retrieve shop session
+- `get_shop_listings` - Get product listings
+
+**What's New (2 tools)**
+- `get_whats_new_report` - Get AI news briefing
+- `list_whats_new_reports` - List recent reports
+
+**Assimilation (6 tools)**
+- `start_assimilation` - Analyze GitHub repo
+- `approve_assimilation_plan` - Approve analysis plan
+- `reject_assimilation_plan` - Reject with feedback
+- `get_assimilation_status` - Get session status
+- `cancel_assimilation` - Cancel active session
+- `steer_assimilation` - Inject steering notes
+
+**Creator Management (3 tools)**
+- `assimilate_creator` - Extract YouTube transcripts
+- `get_creator_transcripts` - Get creator transcripts
+- `regenerate_transcript` - Re-transcribe video
+
+**Improvement Requests (5 tools)**
+- `search_improvements` - Search improvement requests
+- `get_improvement` - Get improvement by ID
+- `list_improvements` - List improvements
+- `add_improvement` - Submit improvement request
+- `close_improvement` - Close improvement with evidence
+
+### Setup
+
+To configure the Holocron MCP server with Claude Code, add the following to your `~/.claude/settings.json`:
+
+```json
+{
+  "mcpServers": {
+    "holocron": {
+      "type": "stdio",
+      "command": "/path/to/bun",
+      "args": ["dist/stdio.js"],
+      "cwd": "/path/to/holocron/holocron-mcp",
+      "env": {
+        "HOLOCRON_URL": "https://your-deployment.convex.cloud",
+        "HOLOCRON_DEPLOY_KEY": "dev:your-key",
+        "HOLOCRON_OPENAI_API_KEY": "sk-your-key"
+      }
+    }
+  }
+}
+```
+
+Replace the paths and environment variables with your actual values. See [holocron-mcp/MCP-SETUP.md](holocron-mcp/MCP-SETUP.md) for detailed setup instructions.
+
 ## Slash Commands
 
 The chat interface supports slash commands:
