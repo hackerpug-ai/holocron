@@ -11,7 +11,7 @@ describe("Conversation CRUD - Create", () => {
     const { create } = await import("../../convex/conversations/mutations");
 
     // Verify create mutation exists and has correct signature
-    expect(create).toBeDefined();
+    expect(create).toBeTruthy();
     expect(typeof create).toBe("function");
 
     // The mutation should accept optional title and lastMessagePreview
@@ -59,7 +59,7 @@ describe("Conversation CRUD - Read", () => {
   it("gets a single conversation by id", async () => {
     const { get } = await import("../../convex/conversations/queries");
 
-    expect(get).toBeDefined();
+    expect(get).toBeTruthy();
     expect(typeof get).toBe("function");
 
     // Verify get requires id parameter
@@ -92,7 +92,7 @@ describe("Conversation CRUD - Update", () => {
   it("updates conversation and marks title as user-set", async () => {
     const { update } = await import("../../convex/conversations/mutations");
 
-    expect(update).toBeDefined();
+    expect(update).toBeTruthy();
 
     const args = {
       id: "test-id" as any,
@@ -117,7 +117,7 @@ describe("Conversation CRUD - Delete", () => {
   it("deletes conversation and cascades to chat messages", async () => {
     const { remove } = await import("../../convex/conversations/mutations");
 
-    expect(remove).toBeDefined();
+    expect(remove).toBeTruthy();
 
     // Verify remove mutation exists (cascade behavior is implemented in the mutation)
     const args = { id: "test-id" as any };
@@ -153,7 +153,7 @@ describe("Conversation CRUD - Edge Cases", () => {
   it("handles empty title", async () => {
     const { create } = await import("../../convex/conversations/mutations");
 
-    expect(create).toBeDefined();
+    expect(create).toBeTruthy();
 
     // Empty title is valid (will be stored as empty string)
     const args = { title: "" };
@@ -163,7 +163,7 @@ describe("Conversation CRUD - Edge Cases", () => {
   it("preserves conversation data across updates", async () => {
     const { update } = await import("../../convex/conversations/mutations");
 
-    expect(update).toBeDefined();
+    expect(update).toBeTruthy();
 
     // Verify update only modifies specified fields
     const originalData = {
