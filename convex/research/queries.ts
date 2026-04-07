@@ -360,6 +360,7 @@ export const vectorSearchIterations = query({
  * Full-text search for research iterations
  *
  * Searches iterations by keyword matching in findings text
+ * Uses index-based filtering for session to improve performance
  */
 export const fullTextSearchIterations = query({
   args: {
@@ -368,12 +369,17 @@ export const fullTextSearchIterations = query({
     sessionId: v.optional(v.id("deepResearchSessions")),
   },
   handler: async (ctx, { query: searchQuery, limit = 10, sessionId }) => {
-    let iterations = await ctx.db
-      .query("deepResearchIterations")
-      .collect();
-
+    // Use index for sessionId filtering when provided
+    let iterations;
     if (sessionId) {
-      iterations = iterations.filter(it => it.sessionId === sessionId);
+      iterations = await ctx.db
+        .query("deepResearchIterations")
+        .withIndex("by_session", q => q.eq("sessionId", sessionId))
+        .collect();
+    } else {
+      iterations = await ctx.db
+        .query("deepResearchIterations")
+        .collect();
     }
 
     const searchLower = searchQuery.toLowerCase();
