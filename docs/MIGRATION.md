@@ -206,7 +206,7 @@ const results = useQuery(api.documents.search.fullTextSearch, {
 Both platforms support vector embeddings:
 
 ```typescript
-// Convex (1536 dimensions, OpenAI embeddings)
+// Convex (1024 dimensions, OpenAI embeddings)
 const results = useQuery(api.documents.search.vectorSearch, {
   query: 'machine learning'
 })

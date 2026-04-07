@@ -120,7 +120,7 @@ conversations       // Chat conversation threads
 chatMessages        // Individual messages
 
 // Document management
-documents           // Knowledge base with vector embeddings (1536d)
+documents           // Knowledge base with vector embeddings (1024d)
 
 // Task management
 tasks               // Background jobs and workflows

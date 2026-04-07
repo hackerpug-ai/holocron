@@ -12,6 +12,30 @@ Holocron is a cross-platform application that helps you manage documents, conduc
 - Real-time updates and progress tracking
 - Cross-platform support (iOS, Android, Web)
 
+## Screenshots
+
+### Chat Interface
+![Chat Interface](docs/screenshots/chat-interface.png)
+
+The main chat interface with slash commands, AI-powered responses, and conversation management.
+
+### Search Results
+![Search Results](docs/screenshots/search-results.png)
+
+Full-text and vector search across your knowledge base with hybrid search capabilities.
+
+### Research Workflow
+![Research Workflow](docs/screenshots/research-workflow.png)
+
+Deep research workflows with multi-agent orchestration and real-time progress tracking.
+
+### Document Management
+![Document Management](docs/screenshots/document-management.png)
+
+Browse, search, and manage documents with automatic vector embedding and semantic search.
+
+> **Note**: The above screenshots are placeholders. To add real screenshots, run the app and capture images of the key screens. See [docs/screenshots/README.md](docs/screenshots/README.md) for guidelines.
+
 ## Tech Stack
 
 - **Frontend**: React Native with Expo Router
@@ -384,4 +408,4 @@ This is a personal project. See [RULES.md](RULES.md) for development standards.
 
 ## License
 
-Private - Not for distribution
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
