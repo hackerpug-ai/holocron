@@ -324,6 +324,9 @@ importers:
       '@vitest/ui':
         specifier: ^4.0.18
         version: 4.1.0(vitest@4.1.0)
+      convex-test:
+        specifier: ^0.0.47
+        version: 0.0.47(convex@1.33.1(react@19.2.0))
       eslint:
         specifier: ^9.8.0
         version: 9.39.4(jiti@1.21.7)
@@ -3849,6 +3852,11 @@ packages:
         optional: true
       zod:
         optional: true
+
+  convex-test@0.0.47:
+    resolution: {integrity: sha512-EBJQ2Ys2sHWFCZYYO1bAqudrrMW3y+SP7BF2+E5rYIGVntU4v+EoWxx1h/X+2ISMKvecf4RJLV6ojBvWNUFDcw==}
+    peerDependencies:
+      convex: ^1.32.0
 
   convex@1.33.1:
     resolution: {integrity: sha512-mRhR1XqZPLhgJsUepecM/kOgQVRCWKJtHHtyEX/XYY4zmzfItG0D1GNh5fjNEkuO5+72X4PCkzbEFA6327rxog==}
@@ -11429,6 +11437,10 @@ snapshots:
       react: 19.2.0
       typescript: 5.9.3
       zod: 3.25.76
+
+  convex-test@0.0.47(convex@1.33.1(react@19.2.0)):
+    dependencies:
+      convex: 1.33.1(react@19.2.0)
 
   convex@1.33.1(react@19.2.0):
     dependencies:
