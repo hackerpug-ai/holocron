@@ -1,7 +1,7 @@
 import { ArticlesScreen } from '@/screens/articles-screen'
 import { useQuery, useAction } from 'convex/react'
 import { api } from '@/convex/_generated/api'
-import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import type { CategoryType } from '@/components/CategoryBadge'
 import { ScreenLayout } from '@/components/ui/screen-layout'
 import { useRouter } from 'expo-router'
@@ -11,6 +11,7 @@ import {
   mapCategoryTypeToDocumentCategory,
 } from '@/lib/category-mapping'
 import { ArticleImportModal } from '@/components/articles/ArticleImportModal'
+import { useDebounce } from '@/hooks/useDebounce'
 
 interface Article {
   id: string
@@ -22,38 +23,6 @@ interface Article {
 }
 
 type DocumentDoc = Doc<'documents'>
-
-/**
- * Custom debounce hook that properly cancels on unmount
- */
-function useDebounce<T extends (...args: any[]) => any>(fn: T, delay: number): T {
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const fnRef = useRef(fn)
-
-  // Keep fn ref up to date
-  useEffect(() => {
-    fnRef.current = fn
-  }, [fn])
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current)
-      }
-    }
-  }, [])
-
-  return useCallback(
-    ((...args: Parameters<T>) => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current)
-      }
-      timeoutRef.current = setTimeout(() => fnRef.current(...args), delay)
-    }) as T,
-    [delay]
-  )
-}
 
 /**
  * Articles route screen
