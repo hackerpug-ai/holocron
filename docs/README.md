@@ -60,7 +60,7 @@ const conversations = useQuery(api.conversations.queries.list)
 |-------|---------|--------------|
 | `conversations` | Chat threads | Title, timestamps |
 | `chatMessages` | Chat messages | Role, content, type |
-| `documents` | Knowledge base | Vector embeddings (1536d) |
+| `documents` | Knowledge base | Vector embeddings (1024d) |
 | `tasks` | Background jobs | Status, progress, results |
 | `researchSessions` | Research workflows | Query, status, findings |
 | `researchIterations` | Research results | Iteration data, sources |
@@ -73,7 +73,7 @@ const conversations = useQuery(api.conversations.queries.list)
 Holocron supports three search modes:
 
 1. **Full-Text Search (FTS)**: Keyword matching with BM25 ranking
-2. **Vector Search**: Semantic similarity using OpenAI embeddings (1536d)
+2. **Vector Search**: Semantic similarity using OpenAI embeddings (1024d)
 3. **Hybrid Search**: Combines FTS + vector with score blending
 
 See [documents/search.ts](../convex/documents/search.ts) for implementation.
@@ -107,7 +107,7 @@ The migration from Supabase to Convex (March 2026) brought significant improveme
 
 All data was successfully migrated:
 - ✅ 9 tables migrated
-- ✅ Vector embeddings preserved (1536 dimensions)
+- ✅ Vector embeddings preserved (1024 dimensions)
 - ✅ Foreign key relationships maintained
 - ✅ Row counts validated (100% match)
 

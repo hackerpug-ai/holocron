@@ -42,7 +42,7 @@ The Convex schema includes 9 tables:
 |-------|-------------|
 | `conversations` | Chat conversation threads |
 | `chatMessages` | Individual messages within conversations |
-| `documents` | Knowledge base documents with vector embeddings (1536 dimensions) |
+| `documents` | Knowledge base documents with vector embeddings (1024 dimensions) |
 | `tasks` | Background task tracking |
 | `researchSessions` | Basic research workflow sessions |
 | `researchIterations` | Individual research iteration results |
@@ -369,7 +369,7 @@ This project was migrated from Supabase to Convex in March 2026. Key changes:
 ### Data Migration
 All data was successfully migrated with 100% validation pass rate:
 - 9 tables migrated
-- Vector embeddings preserved (1536 dimensions)
+- Vector embeddings preserved (1024 dimensions)
 - Foreign key relationships maintained
 - Zero data loss
 

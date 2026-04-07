@@ -48,7 +48,7 @@ This document summarizes the completed migration from Supabase to Convex (March 
 |----------------|--------------|-------|
 | `conversations` | `conversations` | UUID → Convex Id |
 | `chat_messages` | `chatMessages` | CamelCase naming |
-| `documents` | `documents` | Vector embeddings preserved (1536d) |
+| `documents` | `documents` | Vector embeddings preserved (1024d) |
 | `long_running_tasks` | `tasks` | Simplified name |
 | `research_sessions` | `researchSessions` | CamelCase naming |
 | `research_iterations` | `researchIterations` | CamelCase naming |
@@ -62,7 +62,7 @@ This document summarizes the completed migration from Supabase to Convex (March 
 
 - Row counts match exactly for all 9 tables
 - Foreign key relationships preserved
-- Vector embeddings validated (1536 dimensions)
+- Vector embeddings validated (1024 dimensions)
 - Chat message ordering maintained
 - Timestamps preserved
 
