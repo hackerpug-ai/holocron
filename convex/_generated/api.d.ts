@@ -99,6 +99,7 @@ import type * as lib_reportFormat from "../lib/reportFormat.js";
 import type * as lib_reportTemplates from "../lib/reportTemplates.js";
 import type * as lib_strings from "../lib/strings.js";
 import type * as migrations_backfill_chat_titles from "../migrations/backfill_chat_titles.js";
+import type * as migrations_backfill_document_counters from "../migrations/backfill_document_counters.js";
 import type * as migrations_backfill_infeed from "../migrations/backfill_infeed.js";
 import type * as migrations_backfill_missing_embeddings from "../migrations/backfill_missing_embeddings.js";
 import type * as migrations_backfill_research_documents from "../migrations/backfill_research_documents.js";
@@ -313,6 +314,7 @@ declare const fullApi: ApiFromModules<{
   "lib/reportTemplates": typeof lib_reportTemplates;
   "lib/strings": typeof lib_strings;
   "migrations/backfill_chat_titles": typeof migrations_backfill_chat_titles;
+  "migrations/backfill_document_counters": typeof migrations_backfill_document_counters;
   "migrations/backfill_infeed": typeof migrations_backfill_infeed;
   "migrations/backfill_missing_embeddings": typeof migrations_backfill_missing_embeddings;
   "migrations/backfill_research_documents": typeof migrations_backfill_research_documents;

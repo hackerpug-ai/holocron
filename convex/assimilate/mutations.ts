@@ -5,6 +5,7 @@
  */
 
 import { mutation, internalMutation } from "../_generated/server";
+import { makeFunctionReference } from "convex/server";
 import { v } from "convex/values";
 import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
@@ -68,10 +69,16 @@ export const saveAssimilation = mutation({
     await updateDocumentCountersInline(ctx, "assimilation", false, 1);
 
     // Schedule embedding generation for the new document
-    await ctx.scheduler.runAfter(0, api.documents.storage.updateWithEmbedding as any, {
-      id: documentId,
-      content,
-    });
+    await ctx.scheduler.runAfter(
+      0,
+      makeFunctionReference<"action", { id: Id<"documents">; content: string }, any>(
+        "documents/storage:updateWithEmbedding",
+      ),
+      {
+        id: documentId,
+        content,
+      },
+    );
 
     // Step 2: Insert metadata entry
     const metadataId = await ctx.db.insert("assimilationMetadata", {

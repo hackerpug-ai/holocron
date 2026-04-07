@@ -13,11 +13,6 @@ import { mutation } from "../_generated/server";
 export const markRead = mutation({
   args: { id: v.id("notifications") },
   handler: async (ctx, { id }) => {
-    const notification = await ctx.db.get(id);
-    if (!notification) {
-      throw new Error(`Notification ${id} not found`);
-    }
-
     await ctx.db.patch(id, { read: true });
 
     return { success: true };

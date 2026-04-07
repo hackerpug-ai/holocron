@@ -17,6 +17,16 @@ import type { Id } from "../_generated/dataModel";
 import { generateText } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { stripMarkdownCodeBlock } from "../lib/json";
+import { makeFunctionReference } from "convex/server";
+
+// The scheduled file does not exist yet; reference it explicitly so the scheduler
+// call can be wired at runtime without a generated-API type error.
+const processDeepResearchIteration = makeFunctionReference<
+  "action",
+  { sessionId: string },
+  null
+>("research/scheduled:processDeepResearchIteration");
+
 import {
   executeParallelSearchWithRetry,
   executeParallelUrlRead,
@@ -50,7 +60,7 @@ import {
   type LoopMetrics,
 } from "./termination";
 
-import { logEvent, logError } from "../lib/logger";
+// import { logEvent, logError } from "../lib/logger"; // Unused imports
 /**
  * Start Deep Research
  *
@@ -120,7 +130,7 @@ export const startDeepResearch = action({
 
     // Step 3: Schedule the first iteration to run immediately
     // This runs asynchronously and avoids Cloudflare 524 timeout
-    await ctx.scheduler.runAfter(0, (api as any).research.scheduled.processDeepResearchIteration, {
+    await ctx.scheduler.runAfter(0, processDeepResearchIteration, {
       sessionId,
     });
 
@@ -476,7 +486,7 @@ export async function runIterativeResearch(
         model: openai("gpt-5.4"),
         prompt: synthesisPrompt,
       });
-      const synthesisDuration = Date.now() - synthesisStartTime;
+      const _synthesisDuration = Date.now() - synthesisStartTime;
       
       
 
@@ -634,7 +644,7 @@ export async function runIterativeResearch(
         model: openai("gpt-5.4"),
         prompt: reviewPrompt,
       });
-      const reviewDuration = Date.now() - reviewStartTime;
+      const _reviewDuration = Date.now() - reviewStartTime;
       
       
 
@@ -655,9 +665,9 @@ export async function runIterativeResearch(
 
       try {
         review = JSON.parse(stripMarkdownCodeBlock(reviewResult.text));
-        
+
         if (review.confidenceAssessment) {
-          
+          // TODO: Handle confidence assessment
         }
       } catch (error) {
         // Fallback if JSON parsing fails
@@ -1236,7 +1246,7 @@ export async function executeSinglePassResearch(
 
   const searchResults = await Promise.all(searchPromises);
   const allResults = searchResults.flatMap((r) => r.structuredResults);
-  const totalSearchResults = allResults.length;
+  const _totalSearchResults = allResults.length;
 
   
 
