@@ -133,13 +133,13 @@ export const collectTwitterDocuments = internalAction({
       internal.migrations.cleanup_irrelevant_twitter.getTwitterPrefixedDocuments, {}
     );
 
-    console.log(`Found ${twitterContent.length} twitter subscriptionContent records`);
-    console.log(`Found ${prefixedDocs.length} [TWITTER]-prefixed documents`);
+    
+    
     for (const item of twitterContent.slice(0, 15)) {
-      console.log(`  - "${item.title}"`);
+      
     }
     for (const doc of prefixedDocs.slice(0, 15)) {
-      console.log(`  - "${doc.title}"`);
+      
     }
 
     return {
@@ -215,10 +215,9 @@ export const cleanupIrrelevantTwitter = internalAction({
     const itemsToScore = allItems.slice(offset, offset + PAGE_SIZE);
     const hasMore = offset + PAGE_SIZE < allItems.length;
 
-    console.log(`[page offset=${offset}] Scoring ${itemsToScore.length} of ${allItems.length} total items (${hasMore ? `next page: offset=${offset + PAGE_SIZE}` : "LAST PAGE"})`);
 
     if (itemsToScore.length === 0) {
-      console.log("No items to score at this offset. Done.");
+      
       return { scored: 0, kept: 0, removed: 0, deletedDocs: 0, deletedContent: 0, deletedFeedItems: 0 };
     }
 
@@ -258,13 +257,7 @@ export const cleanupIrrelevantTwitter = internalAction({
       }
     }
 
-    console.log(`Keeping ${kept.length} relevant items:`);
-    for (const line of kept.slice(0, 20)) console.log(`  + ${line}`);
-
-    console.log(`Removing ${removed.length} irrelevant items:`);
-    for (const line of removed.slice(0, 20)) console.log(`  - ${line}`);
-
-    // Find feedItems that reference the content being deleted
+    
     const feedItemIds: string[] = await ctx.runQuery(
       internal.migrations.cleanup_irrelevant_twitter.getFeedItemsByContentIds,
       { contentIds: subscriptionContentToDelete }
@@ -282,7 +275,7 @@ export const cleanupIrrelevantTwitter = internalAction({
       );
 
       if (hasMore) {
-        console.log(`Page done. Run next page: npx convex run migrations/cleanup_irrelevant_twitter_actions:cleanupIrrelevantTwitter '{"offset": ${offset + PAGE_SIZE}}'`);
+        
       }
 
       return {

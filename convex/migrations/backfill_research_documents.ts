@@ -45,7 +45,6 @@ export const backfill = action({
     dryRun: v.optional(v.boolean()),   // Log what would be done without executing
   },
   handler: async (ctx, { batchSize = 10, dryRun = false }): Promise<BackfillResult> => {
-    console.log(`[backfillResearchDocuments] Starting - dryRun: ${dryRun}, batchSize: ${batchSize}`);
 
     // Step 1: Find all completed sessions without documents
     const allSessions = await ctx.runQuery(
@@ -54,7 +53,6 @@ export const backfill = action({
     ) as SessionNeedingDocument[];
 
     const totalSessions = allSessions.length;
-    console.log(`[backfillResearchDocuments] Found ${totalSessions} sessions needing documents`);
 
     if (totalSessions === 0) {
       return {
@@ -79,7 +77,7 @@ export const backfill = action({
 
       try {
         if (dryRun) {
-          console.log(`[backfillResearchDocuments] DRY RUN: Would create document for session ${session._id} - "${session.topic}"`);
+          
           created++;
           processedSessionIds.push(session._id);
         } else {
@@ -90,7 +88,6 @@ export const backfill = action({
             internal.research.documents.createResearchDocument,
             { sessionId: session._id }
           );
-          console.log(`[backfillResearchDocuments] Scheduled document creation for session ${session._id}`);
           created++;
           processedSessionIds.push(session._id);
         }

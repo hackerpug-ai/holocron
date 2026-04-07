@@ -68,9 +68,7 @@ export async function generateQueryVariants(
   mode?: ResearchMode,
   maxCount: number = 3
 ): Promise<QueryVariant[]> {
-  console.log(
-    `[generateQueryVariants] Entry - topic: "${topic}", mode: ${mode ?? "unset"}`
-  );
+  
 
   const variantInstructions = mode
     ? getVariantInstructions(mode)
@@ -96,26 +94,24 @@ Return ONLY a JSON array:
 Be specific and targeted. Each query should uncover different information.`;
 
   try {
-    console.log(`[generateQueryVariants] Calling gpt-5.4-mini for variant generation`);
     const result = await generateText({
       model: openai("gpt-5.4-mini"),
       prompt,
     });
 
-    console.log(`[generateQueryVariants] Parsing LLM response`);
+    
     const variants = JSON.parse(stripMarkdownCodeBlock(result.text)) as QueryVariant[];
 
     if (!Array.isArray(variants) || variants.length < 2 || variants.length > maxCount + 1) {
       throw new Error(`Invalid variant count: ${variants.length}, expected 2-${maxCount}`);
     }
 
-    console.log(`[generateQueryVariants] Generated ${variants.length} variants via LLM`);
     return variants;
   } catch (error) {
     console.warn(
       `[generateQueryVariants] LLM generation failed: ${error instanceof Error ? error.message : String(error)}`
     );
-    console.log(`[generateQueryVariants] Falling back to static variants`);
+    
 
     // Fallback to mode-aware static variants
     if (mode) {
@@ -248,9 +244,7 @@ export async function executeParallelIteration(
   mode?: ResearchMode
 ): Promise<ParallelIterationResult> {
   const startTime = Date.now();
-  console.log(
-    `[executeParallelIteration] Entry - topic: "${topic}", enableFollowUp: ${enableFollowUp}, mode: ${mode ?? "unset"}`
-  );
+  
 
   // Step 1: Create conversation if needed
   const effectiveConversationId =
@@ -271,9 +265,7 @@ export async function executeParallelIteration(
     }
   );
 
-  console.log(
-    `[executeParallelIteration] Session created - ID: ${sessionId}, type: parallel_iteration`
-  );
+  
 
   const budget = getSearchBudget(mode);
 
@@ -292,7 +284,6 @@ export async function executeParallelIteration(
   });
 
   // Step 4: Generate query variants
-  console.log(`[executeParallelIteration] Generating query variants`);
 
   // Show "analyzing" step while generating variants
   await updateIterationLoadingCard(ctx, effectiveConversationId, sessionId, topic, [
@@ -304,9 +295,7 @@ export async function executeParallelIteration(
   ]);
 
   const variants = await generateQueryVariants(topic, mode, budget.primarySearchCount);
-  console.log(
-    `[executeParallelIteration] Generated ${variants.length} query variants`
-  );
+  
 
   // Show "searching" step now that we know how many variants we have
   await updateIterationLoadingCard(ctx, effectiveConversationId, sessionId, topic, [
@@ -323,7 +312,6 @@ export async function executeParallelIteration(
   ]);
 
   // Step 5: Execute all variants in parallel
-  console.log(`[executeParallelIteration] Executing parallel variant searches`);
   const variantSearches = variants.map(async (variant) => {
     const result = await executeParallelSearchWithRetry(
       variant.query,
@@ -341,9 +329,7 @@ export async function executeParallelIteration(
   );
   const totalDuration = variantResults.reduce((sum, r) => sum + r.durationMs, 0);
 
-  console.log(
-    `[executeParallelIteration] All variant searches complete - ${totalResults} results in ${totalDuration}ms`
-  );
+  
 
   // Step 5b: Update card — search done, synthesis starting
   await updateIterationLoadingCard(ctx, effectiveConversationId, sessionId, topic, [
@@ -365,7 +351,6 @@ export async function executeParallelIteration(
   ]);
 
   // Step 6: Synthesize with gpt-5.4 for quality
-  console.log(`[executeParallelIteration] Running synthesis with gpt-5.4`);
   const synthesisPrompt = buildParallelSynthesisPrompt(
     topic,
     variantResults.map((r) => ({
@@ -399,9 +384,7 @@ export async function executeParallelIteration(
     };
   }
 
-  console.log(
-    `[executeParallelIteration] Synthesis complete - confidence: ${synthesis.confidence}, gaps: ${synthesis.gaps.length}`
-  );
+  
 
   // Build post-synthesis completed steps
   const postSynthesisSteps = [
@@ -424,9 +407,7 @@ export async function executeParallelIteration(
 
   // Step 7: Optional follow-up for gaps
   if (enableFollowUp && synthesis.gaps.length > 0 && synthesis.confidence !== "HIGH") {
-    console.log(
-      `[executeParallelIteration] Running follow-up for ${synthesis.gaps.length} gaps`
-    );
+    
 
     await updateIterationLoadingCard(ctx, effectiveConversationId, sessionId, topic, [
       ...postSynthesisSteps,
@@ -447,9 +428,7 @@ export async function executeParallelIteration(
 
     // Append follow-up findings to synthesis
     synthesis.summary += `\n\n## Additional Findings\n${followUpResult.findings}`;
-    console.log(
-      `[executeParallelIteration] Follow-up complete - ${followUpResult.structuredResults.length} additional results`
-    );
+    
 
     postSynthesisSteps.push({
       id: "followup",

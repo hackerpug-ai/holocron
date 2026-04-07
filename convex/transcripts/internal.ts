@@ -38,7 +38,7 @@ class YouTubeRateLimiter {
 
     if (timeSinceLastRequest < this.minDelayMs) {
       const waitTime = this.minDelayMs - timeSinceLastRequest;
-      console.log(`[RateLimiter] Waiting ${waitTime}ms before YouTube API call`);
+      
       await new Promise(resolve => setTimeout(resolve, waitTime));
     }
 
@@ -131,7 +131,7 @@ export const fetchYouTubeTranscript = internalAction({
     try {
       // Step 1: List captions for video (API key works for listing)
       await rateLimiter.waitIfNeeded();
-      console.log(`[YouTube] Listing captions for ${args.contentId}`);
+      
       const captionsResponse = await fetch(
         `https://www.googleapis.com/youtube/v3/captions?part=snippet&videoId=${args.contentId}&key=${apiKey}`
       );
@@ -158,21 +158,20 @@ export const fetchYouTubeTranscript = internalAction({
 
       // Check if captions are available
       if (!captionsData.items || captionsData.items.length === 0) {
-        console.log(`[YouTube] No captions found for ${args.contentId}`);
+        
         return {
           hasCaptions: false,
           transcript: null,
         };
       }
 
-      console.log(`[YouTube] Found ${captionsData.items.length} caption track(s)`);
 
       // Step 2: Try OAuth2 download first
       let accessToken: string | null = null;
       try {
         accessToken = await ctx.runAction(internal.transcripts.oauth.getAccessToken, {});
       } catch {
-        console.log("[YouTube] OAuth2 not available, will try API key");
+        
       }
 
       const captionTrack = captionsData.items[0];
@@ -182,7 +181,7 @@ export const fetchYouTubeTranscript = internalAction({
       if (accessToken) {
         // Try OAuth2 download (required by YouTube for caption downloads)
         await rateLimiter.waitIfNeeded();
-        console.log(`[YouTube] Attempting OAuth2 download for caption ${captionTrack.id}`);
+        
         const oauthUrl = `https://www.googleapis.com/youtube/v3/captions/${captionTrack.id}`;
         const oauthResponse = await fetch(oauthUrl, {
           headers: {
@@ -198,7 +197,7 @@ export const fetchYouTubeTranscript = internalAction({
           // Don't give up yet, try API key (might work for some public videos)
         }
       } else {
-        console.log("[YouTube] OAuth2 not configured, trying API key...");
+        
       }
 
       // Step 3: Try API key download (may work for some public videos)
@@ -218,12 +217,12 @@ export const fetchYouTubeTranscript = internalAction({
 
       // Step 4: If both YouTube methods fail, try Node.js youtube-transcript package
       if (!transcriptText) {
-        console.log(`[YouTube] Both OAuth2 and API key failed, trying Node.js youtube-transcript fallback`);
+        
 
         const nodeResult = await fetchNodeTranscript(args.contentId);
 
         if (nodeResult.success && nodeResult.transcript) {
-          console.log(`[YouTube] ✅ Node.js youtube-transcript fallback succeeded`);
+          
           const blob = new Blob([nodeResult.transcript], { type: "text/plain" });
           const storageId = await ctx.storage.store(blob);
           const previewText = nodeResult.transcript.slice(0, 500);
@@ -244,7 +243,7 @@ export const fetchYouTubeTranscript = internalAction({
           };
         }
 
-        console.log(`[YouTube] Node.js youtube-transcript failed, trying Jina Reader as final fallback`);
+        
 
         // Step 5: If Node.js method also fails, fall back to Jina Reader
         const jinaResult = await ctx.runAction(
@@ -253,7 +252,7 @@ export const fetchYouTubeTranscript = internalAction({
         );
 
         if (jinaResult.hasTranscript) {
-          console.log(`[YouTube] ✅ Jina Reader fallback succeeded`);
+          
           return {
             hasCaptions: true,
             transcript: jinaResult.transcript,

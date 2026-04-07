@@ -32,7 +32,6 @@ export interface IntentClassification {
  * Latency: ~1-2s (runs concurrently with strategy selection).
  */
 export async function classifyResearchIntent(topic: string): Promise<IntentClassification> {
-  console.log(`[classifyResearchIntent] Entry - topic: "${topic}"`);
 
   try {
     const result = await generateText({
@@ -63,7 +62,7 @@ Return ONLY a JSON object:
       throw new Error(`Invalid mode: ${parsed.mode}`);
     }
 
-    console.log(`[classifyResearchIntent] LLM classified as ${parsed.mode}: ${parsed.reasoning}`);
+    
     return parsed;
   } catch (error) {
     console.warn(
@@ -91,7 +90,7 @@ function classifyResearchIntentHeuristic(topic: string): IntentClassification {
     lower.includes("pros and cons") ||
     lower.includes("difference between")
   ) {
-    console.log(`[classifyResearchIntent] Heuristic: COMPARATIVE`);
+    
     return {
       mode: "COMPARATIVE",
       reasoning: "Query contains comparison signals",
@@ -116,7 +115,7 @@ function classifyResearchIntentHeuristic(topic: string): IntentClassification {
     lower.includes("tutorial") ||
     lower.includes("guide to")
   ) {
-    console.log(`[classifyResearchIntent] Heuristic: ACTIONABLE`);
+    
     return {
       mode: "ACTIONABLE",
       reasoning: "Query contains implementation/how-to signals",
@@ -136,7 +135,7 @@ function classifyResearchIntentHeuristic(topic: string): IntentClassification {
     lower.includes("current state") ||
     lower.includes("future of")
   ) {
-    console.log(`[classifyResearchIntent] Heuristic: OVERVIEW`);
+    
     return {
       mode: "OVERVIEW",
       reasoning: "Query contains landscape/trends signals",
@@ -145,7 +144,6 @@ function classifyResearchIntentHeuristic(topic: string): IntentClassification {
   }
 
   // Default to EXPLORATORY
-  console.log(`[classifyResearchIntent] Heuristic: EXPLORATORY (default)`);
   return {
     mode: "EXPLORATORY",
     reasoning: "No strong signals for other modes; treating as open-ended exploration",

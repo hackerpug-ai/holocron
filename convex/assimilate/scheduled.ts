@@ -51,7 +51,6 @@ export const processIteration = internalAction({
     sessionId: v.id("assimilationSessions"),
   },
   handler: async (ctx, { sessionId }) => {
-    console.log(`[processIteration] Entry - sessionId: ${sessionId}`);
 
     try {
       // ── Load session ───────────────────────────────────────────────────────
@@ -68,9 +67,7 @@ export const processIteration = internalAction({
       // Guard: terminal statuses
       const terminalStatuses = ["completed", "failed", "cancelled", "rejected"];
       if (terminalStatuses.includes(session.status)) {
-        console.log(
-          `[processIteration] Session already ${session.status}, skipping`
-        );
+        
         return;
       }
 
@@ -81,7 +78,7 @@ export const processIteration = internalAction({
       if (
         (session.estimatedCostUsd ?? 0) >= terminationCriteria.maxCostUsd
       ) {
-        console.log(`[processIteration] Cost limit reached — failing session`);
+        
         await ctx.runMutation(internal.assimilate.mutations.completeSession, {
           sessionId,
           status: "failed",
@@ -93,7 +90,7 @@ export const processIteration = internalAction({
       // Guard: duration limit
       const elapsedMs = now - (session.startedAt ?? now);
       if (elapsedMs >= terminationCriteria.maxDurationMs) {
-        console.log(`[processIteration] Duration limit reached — failing session`);
+        
         await ctx.runMutation(internal.assimilate.mutations.completeSession, {
           sessionId,
           status: "failed",
@@ -104,11 +101,9 @@ export const processIteration = internalAction({
 
       // ── PLANNING (iteration 0) ─────────────────────────────────────────────
       if (currentIteration === 0) {
-        console.log(`[processIteration] PLANNING phase - iteration 0`);
 
         // Fetch repo structure via Jina Reader
         const repoUrl = `https://r.jina.ai/${session.repositoryUrl}`;
-        console.log(`[processIteration] Fetching repo via Jina Reader: ${repoUrl}`);
 
         let repoStructure = "";
         try {
@@ -140,7 +135,6 @@ export const processIteration = internalAction({
           session.planFeedback
         );
 
-        console.log(`[processIteration] Calling zaiFlash for planning`);
         const planResult = await generateText({
           model: zaiFlash(),
           prompt: planningPrompt,
@@ -192,9 +186,7 @@ export const processIteration = internalAction({
         );
 
         if (session.autoApprove) {
-          console.log(
-            `[processIteration] autoApprove=true — moving to in_progress`
-          );
+          
           await ctx.runMutation(
             internal.assimilate.mutations.updateSessionProgress,
             {
@@ -209,9 +201,7 @@ export const processIteration = internalAction({
             { sessionId }
           );
         } else {
-          console.log(
-            `[processIteration] autoApprove=false — waiting for human approval`
-          );
+          
           await ctx.runMutation(
             internal.assimilate.mutations.updateSessionProgress,
             {
@@ -222,14 +212,12 @@ export const processIteration = internalAction({
           // STOP — wait for approveAssimilationPlan mutation to resume
         }
 
-        console.log(`[processIteration] PLANNING complete`);
+        
         return;
       }
 
       // ── ANALYSIS (iterations 1+) ───────────────────────────────────────────
-      console.log(
-        `[processIteration] ANALYSIS phase - iteration ${currentIteration}`
-      );
+      
 
       // Determine current dimension
       const dimension: AssimilationDimension =
@@ -238,7 +226,6 @@ export const processIteration = internalAction({
           (currentIteration - 1) % DEFAULT_DIMENSION_SEQUENCE.length
         ];
 
-      console.log(`[processIteration] Analyzing dimension: ${dimension}`);
 
       // Read and clear steering note
       const steeringNote = session.steeringNote;
@@ -290,7 +277,6 @@ export const processIteration = internalAction({
       }
 
       // SEARCH phase: use gpt-4o-mini + search tools
-      console.log(`[processIteration] SEARCH phase starting`);
       const analysisPrompt = buildAnalysisPrompt(
         session.repositoryName,
         dimension,
@@ -318,9 +304,7 @@ export const processIteration = internalAction({
           ? JSON.stringify(toolResults, null, 2)
           : searchResult.text ?? "No search results";
 
-      console.log(
-        `[processIteration] SEARCH complete - ${rawSearchOutput.length} chars, ${toolResults.length} tool calls`
-      );
+      
 
       // ANALYZE phase: parse findings from search output
       let findings = "";
@@ -364,12 +348,9 @@ export const processIteration = internalAction({
         summary = `${dimension} analyzed`;
       }
 
-      console.log(
-        `[processIteration] ANALYZE complete - score: ${dimensionCoverageScore}, gaps: ${gaps.length}`
-      );
+      
 
       // EVALUATE phase: noveltyScore and next action
-      console.log(`[processIteration] EVALUATE phase starting`);
       const evalPrompt = buildEvaluationPrompt(
         findings,
         accumulatedNotes,
@@ -409,9 +390,7 @@ export const processIteration = internalAction({
         );
       }
 
-      console.log(
-        `[processIteration] EVALUATE complete - novelty: ${noveltyScore}, continue: ${nextAction.shouldContinue}`
-      );
+      
 
       // Estimate iteration cost (~$0.002 per iteration as rough approximation)
       const iterationCostUsd = 0.002;
@@ -457,9 +436,7 @@ export const processIteration = internalAction({
       let updatedFailureConstraints = [...failureConstraints];
       if (saturated && !failureConstraints.includes(dimension)) {
         updatedFailureConstraints = [...failureConstraints, dimension];
-        console.log(
-          `[processIteration] Dimension "${dimension}" saturated — adding to constraints`
-        );
+        
       }
 
       // Update session progress
@@ -492,9 +469,7 @@ export const processIteration = internalAction({
       };
 
       const termination = evaluateTermination(metrics, terminationCriteria);
-      console.log(
-        `[processIteration] Termination: trigger=${termination.trigger}, continue=${termination.continue}, reason="${termination.reason}"`
-      );
+      
 
       if (termination.continue && termination.trigger !== "needs_synthesis") {
         // Schedule next analysis iteration
@@ -515,7 +490,6 @@ export const processIteration = internalAction({
         );
       }
 
-      console.log(`[processIteration] ANALYSIS iteration ${currentIteration} complete`);
     } catch (error) {
       console.error(`[processIteration] ERROR:`, error);
       await ctx.runMutation(internal.assimilate.mutations.completeSession, {
@@ -539,7 +513,6 @@ export const synthesizeAndSave = internalAction({
     sessionId: v.id("assimilationSessions"),
   },
   handler: async (ctx, { sessionId }) => {
-    console.log(`[synthesizeAndSave] Entry - sessionId: ${sessionId}`);
 
     try {
       // Update session status to synthesizing
@@ -568,9 +541,7 @@ export const synthesizeAndSave = internalAction({
         .filter((iter: { iterationType: string; findings?: string }) => iter.iterationType !== "plan" && iter.findings)
         .map((iter: { findings?: string }) => iter.findings as string);
 
-      console.log(
-        `[synthesizeAndSave] Synthesizing ${allFindings.length} iteration findings`
-      );
+      
 
       const accumulatedNotes = session.accumulatedNotes ?? "";
       const dimensionScores = session.dimensionScores ?? {
@@ -585,7 +556,6 @@ export const synthesizeAndSave = internalAction({
         dimensionScores
       );
 
-      console.log(`[synthesizeAndSave] Calling zaiPro for synthesis`);
       const synthesisResult = await generateText({
         model: zaiPro(),
         prompt: synthesisPrompt,
@@ -619,9 +589,7 @@ export const synthesizeAndSave = internalAction({
         );
       }
 
-      console.log(
-        `[synthesizeAndSave] Synthesis complete - title: "${title}", rating: ${sophisticationRating}`
-      );
+      
 
       // Save assimilation (creates document + metadata)
       const result = await ctx.runMutation(api.assimilate.mutations.saveAssimilation, {
@@ -635,9 +603,7 @@ export const synthesizeAndSave = internalAction({
         trackRatings,
       });
 
-      console.log(
-        `[synthesizeAndSave] Saved - documentId: ${result.documentId}, metadataId: ${result.metadataId}`
-      );
+      
 
       // Mark session completed
       await ctx.runMutation(internal.assimilate.mutations.completeSession, {
@@ -656,7 +622,7 @@ export const synthesizeAndSave = internalAction({
         referenceId: result.documentId,
       });
 
-      console.log(`[synthesizeAndSave] Session completed successfully`);
+      
     } catch (error) {
       console.error(`[synthesizeAndSave] ERROR:`, error);
       await ctx.runMutation(internal.assimilate.mutations.completeSession, {

@@ -17,7 +17,6 @@ export const checkExistingAssimilation = query({
     repositoryUrl: v.string(),
   },
   handler: async (ctx, { repositoryUrl }) => {
-    console.log(`[checkExistingAssimilation] Entry - repositoryUrl: "${repositoryUrl}"`);
 
     // Search for existing assimilation by repository URL
     const metadata = await ctx.db
@@ -26,14 +25,13 @@ export const checkExistingAssimilation = query({
       .first();
 
     if (!metadata) {
-      console.log(`[checkExistingAssimilation] No existing assimilation found`);
+      
       return null;
     }
 
     // Fetch the associated document
     const document = await ctx.db.get(metadata.documentId);
 
-    console.log(`[checkExistingAssimilation] Found existing assimilation - metadataId: ${metadata._id}, documentId: ${metadata.documentId}`);
 
     return {
       metadata,
@@ -53,7 +51,6 @@ export const listAssimilations = query({
     minRating: v.optional(v.number()),
   },
   handler: async (ctx, { language, minRating }) => {
-    console.log(`[listAssimilations] Entry - language: ${language ?? "none"}, minRating: ${minRating ?? "none"}`);
 
     let results: any[];
 
@@ -75,7 +72,6 @@ export const listAssimilations = query({
     // Sort by sophistication rating descending
     results.sort((a, b) => b.sophisticationRating - a.sophisticationRating);
 
-    console.log(`[listAssimilations] Found ${results.length} assimilations`);
 
     // Fetch associated documents for each result
     const resultsWithDocuments = await Promise.all(
@@ -102,7 +98,6 @@ export const getAssimilationByDocumentId = query({
     documentId: v.id("documents"),
   },
   handler: async (ctx, { documentId }) => {
-    console.log(`[getAssimilationByDocumentId] Entry - documentId: ${documentId}`);
 
     const metadata = await ctx.db
       .query("assimilationMetadata")
@@ -110,13 +105,12 @@ export const getAssimilationByDocumentId = query({
       .first();
 
     if (!metadata) {
-      console.log(`[getAssimilationByDocumentId] No metadata found for document`);
+      
       return null;
     }
 
     const document = await ctx.db.get(metadata.documentId);
 
-    console.log(`[getAssimilationByDocumentId] Found assimilation - metadataId: ${metadata._id}`);
 
     return {
       metadata,

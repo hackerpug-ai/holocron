@@ -46,7 +46,6 @@ export const createDeepResearchSession = mutation({
     researchMode: v.optional(v.string()),
   },
   handler: async (ctx, { conversationId, topic, maxIterations = 5, researchType = "deep", researchMode }) => {
-    console.log(`[createDeepResearchSession] Entry - conversationId: ${conversationId}, topic: "${topic}", maxIterations: ${maxIterations}, researchType: ${researchType}, researchMode: ${researchMode ?? "unset"}`);
     const now = Date.now();
 
     const sessionId = await ctx.db.insert("deepResearchSessions", {
@@ -60,7 +59,7 @@ export const createDeepResearchSession = mutation({
       updatedAt: now,
     });
 
-    console.log(`[createDeepResearchSession] Session created - ID: ${sessionId}, type: ${researchType}`);
+    
     return sessionId;
   },
 });
@@ -96,7 +95,6 @@ export const createDeepResearchIteration = mutation({
       embedding,
     }
   ) => {
-    console.log(`[createDeepResearchIteration] Entry - sessionId: ${sessionId}, iteration: ${iterationNumber}, coverageScore: ${coverageScore}, status: ${status}`);
     const now = Date.now();
 
     const iterationId = await ctx.db.insert("deepResearchIterations", {
@@ -112,16 +110,13 @@ export const createDeepResearchIteration = mutation({
       createdAt: now,
     });
 
-    console.log(`[createDeepResearchIteration] Iteration created - ID: ${iterationId}`);
 
     // Update session status
-    console.log(`[createDeepResearchIteration] Updating session status to: ${status}`);
     await ctx.db.patch(sessionId, {
       status,
       updatedAt: now,
     });
 
-    console.log(`[createDeepResearchIteration] Exit - Success`);
     return iterationId;
   },
 });
@@ -140,7 +135,6 @@ export const updateDeepResearchSession = mutation({
     currentCoverageScore: v.optional(v.number()),
   },
   handler: async (ctx, { sessionId, status, currentIteration, refinedTopic, currentCoverageScore }) => {
-    console.log(`[updateDeepResearchSession] Entry - sessionId: ${sessionId}, status: ${status}, iteration: ${currentIteration}, score: ${currentCoverageScore}`);
     const now = Date.now();
 
     const updates: any = {
@@ -150,27 +144,24 @@ export const updateDeepResearchSession = mutation({
 
     if (currentIteration !== undefined) {
       updates.currentIteration = currentIteration;
-      console.log(`[updateDeepResearchSession] Setting currentIteration to ${currentIteration}`);
     }
 
     if (refinedTopic !== undefined) {
       updates.refinedTopic = refinedTopic;
-      console.log(`[updateDeepResearchSession] Setting refinedTopic to "${refinedTopic.substring(0, 50)}..."`);
     }
 
     if (currentCoverageScore !== undefined) {
       updates.currentCoverageScore = currentCoverageScore;
-      console.log(`[updateDeepResearchSession] Setting currentCoverageScore to ${currentCoverageScore}`);
+      
     }
 
-    console.log(`[updateDeepResearchSession] Applying updates:`, updates);
+    
     await ctx.db.patch(sessionId, updates);
 
     // Verify the update by reading back
     const updatedSession = await ctx.db.get(sessionId);
-    console.log(`[updateDeepResearchSession] Session after update - currentIteration: ${updatedSession?.currentIteration}, currentCoverageScore: ${updatedSession?.currentCoverageScore}`);
 
-    console.log(`[updateDeepResearchSession] Session updated successfully`);
+    
   },
 });
 
@@ -194,7 +185,6 @@ export const completeDeepResearchSession = mutation({
     errorReason: v.optional(v.string()),
   },
   handler: async (ctx, { sessionId, status, finalConfidenceSummary, errorReason }) => {
-    console.log(`[completeDeepResearchSession] Entry - sessionId: ${sessionId}, status: ${status}${errorReason ? `, errorReason: ${errorReason}` : ""}`);
     const now = Date.now();
 
     const updates: any = {
@@ -205,17 +195,15 @@ export const completeDeepResearchSession = mutation({
 
     if (finalConfidenceSummary) {
       updates.finalConfidenceSummary = finalConfidenceSummary;
-      console.log(`[completeDeepResearchSession] Setting finalConfidenceSummary - high: ${finalConfidenceSummary.highConfidenceCount}, medium: ${finalConfidenceSummary.mediumConfidenceCount}, low: ${finalConfidenceSummary.lowConfidenceCount}`);
+      
     }
 
     if (errorReason) {
       updates.errorReason = errorReason;
-      console.log(`[completeDeepResearchSession] Setting errorReason: ${errorReason}`);
     }
 
     await ctx.db.patch(sessionId, updates);
 
-    console.log(`[completeDeepResearchSession] Session completed at ${new Date(now).toISOString()}`);
 
     // Create notification for completion or error
     if (status === "completed" && !errorReason) {
@@ -233,12 +221,11 @@ export const completeDeepResearchSession = mutation({
       // Trigger document creation for successfully completed sessions
       // Skip if document already exists (e.g., simple research creates document inline)
       if (!session?.documentId) {
-        console.log(`[completeDeepResearchSession] Scheduling document creation for session ${sessionId}`);
         await ctx.scheduler.runAfter(0, internal.research.documents.createResearchDocument, {
           sessionId,
         });
       } else {
-        console.log(`[completeDeepResearchSession] Document already exists: ${session.documentId}, skipping creation`);
+        
       }
     } else if (errorReason) {
       await ctx.db.insert("notifications", {
@@ -279,7 +266,6 @@ export const createResearchFinding = mutation({
     embedding: v.optional(v.array(v.float64())),
   },
   handler: async (ctx, args) => {
-    console.log(`[createResearchFinding] Entry - sessionId: ${args.sessionId}, confidenceLevel: ${args.confidenceLevel}, score: ${args.confidenceScore}`);
     const now = Date.now();
 
     const findingId = await ctx.db.insert("researchFindings", {
@@ -302,7 +288,7 @@ export const createResearchFinding = mutation({
       createdAt: now,
     });
 
-    console.log(`[createResearchFinding] Finding created - ID: ${findingId}, citations: ${args.citationIds.length}`);
+    
     return findingId;
   },
 });
@@ -327,7 +313,6 @@ export const createCitationWithCredibility = mutation({
     authorCredentials: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    console.log(`[createCitationWithCredibility] Entry - sessionId: ${args.deepResearchSessionId}, sourceType: ${args.sourceType}, credibility: ${args.credibilityScore}`);
     const now = Date.now();
 
     // Extract domain from URL if not provided
@@ -355,7 +340,7 @@ export const createCitationWithCredibility = mutation({
       retrievedAt: now,
     });
 
-    console.log(`[createCitationWithCredibility] Citation created - ID: ${citationId}, domain: ${domain}`);
+    
     return citationId;
   },
 });
@@ -378,14 +363,12 @@ export const updateIterationConfidenceStats = mutation({
     }),
   },
   handler: async (ctx, { iterationId, confidenceStats }) => {
-    console.log(`[updateIterationConfidenceStats] Entry - iterationId: ${iterationId}`);
-    console.log(`[updateIterationConfidenceStats] Stats - high: ${confidenceStats.highConfidenceCount}, medium: ${confidenceStats.mediumConfidenceCount}, low: ${confidenceStats.lowConfidenceCount}, avg: ${confidenceStats.averageConfidenceScore}`);
+    
 
     await ctx.db.patch(iterationId, {
       confidenceStats,
     });
 
-    console.log(`[updateIterationConfidenceStats] Iteration stats updated`);
   },
 });
 
@@ -467,8 +450,8 @@ export const updateDeepResearchSessionDocumentId = internalMutation({
     documentId: v.id("documents"),
   },
   handler: async (ctx, { sessionId, documentId }) => {
-    console.log(`[updateDeepResearchSessionDocumentId] Linking document ${documentId} to session ${sessionId}`);
+    
     await ctx.db.patch(sessionId, { documentId });
-    console.log(`[updateDeepResearchSessionDocumentId] Document linked successfully`);
+    
   },
 });

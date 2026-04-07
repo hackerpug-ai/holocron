@@ -56,7 +56,7 @@ export const fetchTranscriptWithFallback = internalAction({
     );
 
     if (youtubeResult.hasCaptions && youtubeResult.transcript) {
-      console.log(`Transcript found via YouTube API for ${args.contentId}`);
+      
       return {
         success: true,
         transcript: youtubeResult.transcript,
@@ -69,7 +69,7 @@ export const fetchTranscriptWithFallback = internalAction({
     if (youtubeError) {
       console.log(`YouTube API failed for ${args.contentId}: ${youtubeError}, trying Jina Reader`);
     } else {
-      console.log(`No captions via YouTube API for ${args.contentId}, trying Jina Reader`);
+      
     }
 
     const jinaResult = await ctx.runAction(
@@ -78,7 +78,7 @@ export const fetchTranscriptWithFallback = internalAction({
     );
 
     if (jinaResult.hasTranscript && jinaResult.transcript) {
-      console.log(`Transcript found via Jina Reader for ${args.contentId}`);
+      
       return {
         success: true,
         transcript: jinaResult.transcript,
@@ -87,7 +87,7 @@ export const fetchTranscriptWithFallback = internalAction({
     }
 
     // Both failed
-    console.log(`No transcript found for ${args.contentId} via any source`);
+    
     return {
       success: false,
       error: "No transcript available (tried YouTube API and Jina Reader)",

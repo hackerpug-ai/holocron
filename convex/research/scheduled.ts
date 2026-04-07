@@ -178,7 +178,6 @@ Be specific and targeted. Each query should uncover different information.`;
 
     const variants = JSON.parse(stripMarkdownCodeBlock(result.text));
     if (Array.isArray(variants) && variants.length >= 2) {
-      console.log(`[expandQueries] Generated ${variants.length} variants via gpt-5.4-mini`);
       return variants.slice(0, count);
     }
     throw new Error(`Invalid variant count: ${variants.length}`);
@@ -209,7 +208,6 @@ export const processDeepResearchIteration = internalAction({
     sessionId: v.id("deepResearchSessions"),
   },
   handler: async (ctx, { sessionId }) => {
-    console.log(`[processIteration] Starting - sessionId: ${sessionId}`);
 
     try {
       // Load session directly from database (actions need all fields)
@@ -226,9 +224,7 @@ export const processDeepResearchIteration = internalAction({
       }
 
       if (session.status === "completed" || session.status === "cancelled") {
-        console.log(
-          `[processIteration] Session already ${session.status}, skipping`,
-        );
+        
         return;
       }
 
@@ -236,9 +232,7 @@ export const processDeepResearchIteration = internalAction({
       const currentIteration = (session.iterations.length || 0) + 1;
       const maxIterations = session.maxIterations ?? 5;
 
-      console.log(
-        `[processIteration] Iteration ${currentIteration}/${maxIterations}, topic: "${session.topic}"`,
-      );
+      
 
       // Build context from database
       const context = await buildResearchContext(ctx, sessionId);
@@ -258,7 +252,6 @@ export const processDeepResearchIteration = internalAction({
         : [];
 
       // ─── PHASE 1: EXPAND QUERIES ───────────────────────────────────────
-      console.log(`[processIteration] EXPAND phase starting`);
       await updateLoadingCardSteps(
         ctx,
         session.conversationId,
@@ -282,12 +275,9 @@ export const processDeepResearchIteration = internalAction({
         6,
       );
 
-      console.log(
-        `[processIteration] EXPAND complete - ${queryVariants.length} variants generated`,
-      );
+      
 
       // ─── PHASE 2: PARALLEL SEARCH ─────────────────────────────────────
-      console.log(`[processIteration] SEARCH phase starting`);
       await updateLoadingCardSteps(
         ctx,
         session.conversationId,
@@ -340,12 +330,9 @@ export const processDeepResearchIteration = internalAction({
 
       const totalToolCalls = searchResults.reduce((sum, r) => sum + r.toolCallCount, 0);
 
-      console.log(
-        `[processIteration] SEARCH complete - ${allStructuredResults.length} unique sources from ${totalToolCalls} searches`,
-      );
+      
 
       // ─── PHASE 3: DEEP READ TOP SOURCES ───────────────────────────────
-      console.log(`[processIteration] DEEP READ phase starting`);
       await updateLoadingCardSteps(
         ctx,
         session.conversationId,
@@ -395,9 +382,7 @@ export const processDeepResearchIteration = internalAction({
           .join("\n\n---\n\n");
       }
 
-      console.log(
-        `[processIteration] DEEP READ complete - ${deepReadCount}/${topUrls.length} articles read`,
-      );
+      
 
       // Combine search snippets + deep read content for synthesis
       const enrichedFindings = deepReadContent
@@ -405,7 +390,6 @@ export const processDeepResearchIteration = internalAction({
         : searchFindings;
 
       // ─── PHASE 4: SYNTHESIZE ──────────────────────────────────────────
-      console.log(`[processIteration] SYNTHESIZE phase starting`);
       await updateLoadingCardSteps(
         ctx,
         session.conversationId,
@@ -442,12 +426,9 @@ export const processDeepResearchIteration = internalAction({
         prompt: synthesisPrompt,
       });
       const synthesis = synthesisResult.text;
-      console.log(
-        `[processIteration] SYNTHESIZE complete - ${synthesis.length} chars`,
-      );
+      
 
       // ─── PHASE 5: REVIEW ──────────────────────────────────────────────
-      console.log(`[processIteration] REVIEW phase starting`);
       await updateLoadingCardSteps(
         ctx,
         session.conversationId,
@@ -509,9 +490,7 @@ export const processDeepResearchIteration = internalAction({
         };
       }
 
-      console.log(
-        `[processIteration] REVIEW complete - score: ${review.coverageScore}, gaps: ${review.gaps.length}`,
-      );
+      
 
       // Generate a concise summary from the feedback (3-6 words)
       const summary = generateIterationSummary(review.feedback, synthesis, review.coverageScore);
@@ -603,7 +582,6 @@ export const processDeepResearchIteration = internalAction({
         review.coverageScore < 4 && currentIteration < maxIterations;
 
       if (shouldContinue) {
-        console.log(`[processIteration] Scheduling next iteration`);
         // Schedule next iteration to run after a short delay (1 second)
         await ctx.scheduler.runAfter(
           1000,
@@ -613,9 +591,7 @@ export const processDeepResearchIteration = internalAction({
           },
         );
       } else {
-        console.log(
-          `[processIteration] Research complete - finalizing session`,
-        );
+        
 
         // Fetch all saved iterations to build the completed steps list
         const allIterations = await ctx.runQuery(
@@ -655,9 +631,7 @@ export const processDeepResearchIteration = internalAction({
         );
       }
 
-      console.log(
-        `[processIteration] Complete - next: ${shouldContinue ? "scheduled" : "done"}`,
-      );
+      
     } catch (error) {
       console.error(`[processIteration] ERROR:`, error);
       // Mark session as error

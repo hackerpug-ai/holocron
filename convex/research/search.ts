@@ -279,9 +279,7 @@ export async function executeParallelUrlRead(
     maxContentLength = 10000,
   } = options;
 
-  console.log(
-    `[executeParallelUrlRead] Entry - ${urls.length} URLs, maxConcurrent: ${maxConcurrent}, timeoutMs: ${timeoutMs}`
-  );
+  
 
   if (urls.length === 0) {
     return [];
@@ -295,9 +293,7 @@ export async function executeParallelUrlRead(
     batches.push(urls.slice(i, i + maxConcurrent));
   }
 
-  console.log(
-    `[executeParallelUrlRead] Processing ${batches.length} batches`
-  );
+  
 
   for (let i = 0; i < batches.length; i++) {
     const batch = batches[i];
@@ -318,9 +314,7 @@ export async function executeParallelUrlRead(
   }
 
   const successCount = results.filter((r) => r.success).length;
-  console.log(
-    `[executeParallelUrlRead] Exit - ${successCount}/${urls.length} successful`
-  );
+  
 
   return results;
 }
@@ -601,15 +595,11 @@ export async function executeParallelSearchWithRetry(
     deduplicateResults = true,
   } = options;
 
-  console.log(
-    `[executeParallelSearchWithRetry] Entry - topic: "${topic}", gaps: ${previousGaps.length}, maxRetries: ${maxRetries}, timeoutMs: ${timeoutMs}`
-  );
+  
 
   // Generate diverse queries
   const queries = generateDiverseQueries(topic, previousGaps);
-  console.log(
-    `[executeParallelSearchWithRetry] Generated ${queries.length} diverse queries`
-  );
+  
 
   // Execute all searches in parallel with provider attribution
   const searchPromises = queries.flatMap((query) => [
@@ -617,9 +607,7 @@ export async function executeParallelSearchWithRetry(
     executeSearchWithRetry(() => executeJinaSearch(query, ctx), maxRetries, timeoutMs, "Jina"),
   ]);
 
-  console.log(
-    `[executeParallelSearchWithRetry] Executing ${searchPromises.length} parallel searches`
-  );
+  
 
   // Use Promise.allSettled for resilient execution
   const settledResults = await Promise.allSettled(searchPromises);
@@ -635,16 +623,12 @@ export async function executeParallelSearchWithRetry(
     }
   }
 
-  console.log(
-    `[executeParallelSearchWithRetry] Collected ${allResults.length} raw results from ${toolCallCount} successful searches`
-  );
+  
 
   // Deduplicate
   if (deduplicateResults) {
     allResults = deduplicateByUrl(allResults);
-    console.log(
-      `[executeParallelSearchWithRetry] Deduplicated to ${allResults.length} unique results`
-    );
+    
   }
 
   // Sort by relevance
@@ -654,9 +638,7 @@ export async function executeParallelSearchWithRetry(
   const findings = formatFindings(allResults);
 
   const durationMs = Date.now() - startTime;
-  console.log(
-    `[executeParallelSearchWithRetry] Exit - ${allResults.length} results in ${durationMs}ms`
-  );
+  
 
   return {
     findings,

@@ -66,7 +66,6 @@ export async function executeTechnicalResearch(
   ctx: ActionCtx,
   query: string
 ): Promise<TechnicalReport> {
-  console.log(`[executeTechnicalResearch] Starting research for query: "${query}"`);
 
   // Enhance query with technical-specific terms
   const technicalQuery = `${query} implementation code example API documentation tutorial`;
@@ -83,9 +82,7 @@ export async function executeTechnicalResearch(
     }
   );
 
-  console.log(
-    `[executeTechnicalResearch] Found ${searchResult.structuredResults.length} sources`
-  );
+  
 
   // Generate technical report using LLM
   const technicalReport = await generateTechnicalReport(query, searchResult);
@@ -93,7 +90,6 @@ export async function executeTechnicalResearch(
   // Log improvements if any product/app suggestions found
   await logImprovementsFromTechnicalResearch(ctx, query, technicalReport);
 
-  console.log(`[executeTechnicalResearch] Completed research`);
 
   return technicalReport;
 }
@@ -245,9 +241,7 @@ If there are no specific improvement suggestions, return an empty array: []`;
         });
       }
 
-      console.log(
-        `[logImprovementsFromTechnicalResearch] Logged ${suggestions.length} improvements`
-      );
+      
     }
   } catch (error) {
     console.error(

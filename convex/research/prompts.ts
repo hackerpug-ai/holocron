@@ -41,10 +41,8 @@ export async function buildResearchContext(
   ctx: GenericActionCtx<any>,
   sessionId: Id<"deepResearchSessions">
 ): Promise<ResearchContext> {
-  console.log(`[buildResearchContext] Entry - sessionId: ${sessionId}`);
   const { api } = await import("../_generated/api");
 
-  console.log(`[buildResearchContext] Fetching session from database`);
   const session = await ctx.runQuery(
     api.research.queries.getDeepResearchSession,
     { sessionId }
@@ -55,15 +53,13 @@ export async function buildResearchContext(
     throw new Error(`Session ${sessionId} not found`);
   }
 
-  console.log(`[buildResearchContext] Session found - topic: "${session.topic}"`);
+  
 
-  console.log(`[buildResearchContext] Fetching iterations for session`);
   const iterations = await ctx.runQuery(
     api.research.queries.listDeepResearchIterations,
     { sessionId }
   );
 
-  console.log(`[buildResearchContext] Found ${iterations.length} previous iterations`);
 
   // Fetch previous sessions from the same conversation for context
   let previousSessions: Array<{
@@ -73,7 +69,6 @@ export async function buildResearchContext(
   }> = [];
 
   if (session.conversationId) {
-    console.log(`[buildResearchContext] Fetching previous sessions from conversation`);
     const completedSessions = await ctx.runQuery(
       api.research.queries.getByConversation,
       { conversationId: session.conversationId as Id<"conversations"> }
@@ -89,7 +84,6 @@ export async function buildResearchContext(
         summary: `Previous research on: ${s.topic}`,
       }));
 
-    console.log(`[buildResearchContext] Found ${previousSessions.length} previous sessions in conversation`);
   }
 
   const context = {
@@ -103,7 +97,6 @@ export async function buildResearchContext(
     previousSessions,
   };
 
-  console.log(`[buildResearchContext] Exit - context built with ${context.previousIterations.length} iterations and ${context.previousSessions?.length ?? 0} previous sessions`);
   return context;
 }
 
@@ -120,7 +113,6 @@ export function buildSearchPrompt(
   previousSessions?: ResearchContext["previousSessions"],
   mode?: ResearchMode
 ): string {
-  console.log(`[buildSearchPrompt] Entry - topic: "${topic}", previousIterations: ${previousIterations.length}, previousSessions: ${previousSessions?.length ?? 0}, mode: ${mode ?? "unset"}`);
 
   const previousSessionsSection = previousSessions && previousSessions.length > 0
     ? `
@@ -164,7 +156,6 @@ Your task:
 
 Be thorough and systematic. Use multiple search queries to gather comprehensive information.`;
 
-  console.log(`[buildSearchPrompt] Exit - prompt length: ${prompt.length} chars`);
   return prompt;
 }
 
@@ -202,7 +193,6 @@ export function buildSynthesisPrompt(
   searchFindings: string,
   mode?: ResearchMode
 ): string {
-  console.log(`[buildSynthesisPrompt] Entry - topic: "${context.topic}", searchFindings length: ${searchFindings.length}, previousIterations: ${context.previousIterations.length}, mode: ${mode ?? "unset"}`);
 
   const previousContext = context.previousIterations.length > 0
     ? `
@@ -299,7 +289,6 @@ IMPORTANT:
 - Be honest about confidence levels - don't inflate scores
 - Include the narrativeSummary for human-readable output`;
 
-  console.log(`[buildSynthesisPrompt] Exit - prompt length: ${prompt.length} chars`);
   return prompt;
 }
 
@@ -313,7 +302,6 @@ export function buildReviewPrompt(
   context: ResearchContext,
   synthesis: string
 ): string {
-  console.log(`[buildReviewPrompt] Entry - topic: "${context.topic}", synthesis length: ${synthesis.length}, iterations completed: ${context.previousIterations.length + 1}`);
 
   const prompt = `Review the following research synthesis and assess its coverage and confidence quality.
 
@@ -362,7 +350,6 @@ Set shouldContinue to TRUE if ANY of these conditions are met:
 Be strict - only score 4+ when truly comprehensive with authoritative sources and multiple perspectives.
 Flag any claims that rely on single sources or have credibility concerns.`;
 
-  console.log(`[buildReviewPrompt] Exit - prompt length: ${prompt.length} chars`);
   return prompt;
 }
 
@@ -382,7 +369,6 @@ export function buildFinalSynthesisPrompt(
   }>,
   mode?: ResearchMode
 ): string {
-  console.log(`[buildFinalSynthesisPrompt] Entry - topic: "${topic}", iterations: ${iterations.length}, mode: ${mode ?? "unset"}`);
 
   const iterationContent = iterations
     .filter(it => it.findings)
@@ -502,7 +488,6 @@ This report uses a 5-factor confidence scoring algorithm:
 - Group findings by theme with clear headings
 - Target 800-1500 words for the full report`;
 
-  console.log(`[buildFinalSynthesisPrompt] Exit - prompt length: ${prompt.length} chars`);
   return prompt;
 }
 
@@ -534,9 +519,7 @@ export function buildSinglePassSynthesisPrompt(
   searchSnippets: string,
   mode?: ResearchMode
 ): string {
-  console.log(
-    `[buildSinglePassSynthesisPrompt] Entry - topic: "${topic}", urlContents: ${urlContents.length}, snippetsLength: ${searchSnippets.length}, mode: ${mode ?? "unset"}`
-  );
+  
 
   // Build URL content sections
   const urlContentSections = urlContents
@@ -646,8 +629,6 @@ Summarize overall confidence:
 - Target 600-1200 words for the full report
 - Do NOT use code blocks around the output`;
 
-  console.log(
-    `[buildSinglePassSynthesisPrompt] Exit - prompt length: ${prompt.length} chars`
-  );
+  
   return prompt;
 }

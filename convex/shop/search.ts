@@ -702,31 +702,25 @@ export async function executeParallelShopSearch(
     );
   }
 
-  console.log(
-    `[executeParallelShopSearch] Executing ${searchPromises.length} parallel searches`
-  );
+  
 
   // Execute all searches in parallel
   const allResults = await Promise.all(searchPromises);
   let results = allResults.flat();
 
-  console.log(
-    `[executeParallelShopSearch] Collected ${results.length} raw results`
-  );
+  
 
   // Deduplicate
   if (dedupe) {
     results = deduplicateResults(results);
-    console.log(`[executeParallelShopSearch] Deduplicated to ${results.length} unique results`);
+    
   }
 
   // Sort by deal score
   results = sortByDealScore(results);
 
   const durationMs = Date.now() - startTime;
-  console.log(
-    `[executeParallelShopSearch] Exit - ${results.length} results in ${durationMs}ms`
-  );
+  
 
   return {
     results,

@@ -69,9 +69,7 @@ export const backfill = action({
     ctx,
     { batchSize = 10, dryRun = false }
   ): Promise<BackfillResult> => {
-    console.log(
-      `[backfillChatTitles] Starting - dryRun: ${dryRun}, batchSize: ${batchSize}`
-    );
+    
 
     // Step 1: Find all conversations needing titles
     const allConversations = (await ctx.runQuery(
@@ -80,9 +78,7 @@ export const backfill = action({
     )) as ConversationNeedingTitle[];
 
     const totalConversations = allConversations.length;
-    console.log(
-      `[backfillChatTitles] Found ${totalConversations} conversations needing titles`
-    );
+    
 
     if (totalConversations === 0) {
       return {
@@ -107,9 +103,7 @@ export const backfill = action({
 
       try {
         if (dryRun) {
-          console.log(
-            `[backfillChatTitles] DRY RUN: Would generate title for conversation ${conversation._id} - "${conversation.title}"`
-          );
+          
           scheduled++;
           processedConversationIds.push(conversation._id);
         } else {
@@ -120,9 +114,7 @@ export const backfill = action({
             (internal as any).chat.index.generateChatTitle,
             { conversationId: conversation._id }
           );
-          console.log(
-            `[backfillChatTitles] Scheduled title generation for conversation ${conversation._id}`
-          );
+          
           scheduled++;
           processedConversationIds.push(conversation._id);
         }

@@ -31,9 +31,7 @@ export const backfill = mutation({
     remaining: number;
     message: string;
   }> => {
-    console.log(
-      `[backfillInFeed] Starting - dryRun: ${dryRun}, batchSize: ${batchSize}`
-    );
+    
 
     // Take batchSize + 1 to detect whether more records exist beyond the batch
     const sample = await ctx.db
@@ -43,9 +41,7 @@ export const backfill = mutation({
     const missing = sample.filter((c) => c.inFeed === undefined);
     const batch = missing.slice(0, batchSize);
 
-    console.log(
-      `[backfillInFeed] Found ${missing.length} records missing inFeed in current page`
-    );
+    
 
     if (batch.length === 0) {
       return {
@@ -77,7 +73,7 @@ export const backfill = mutation({
       ? `Patched ${patched} records. More records may remain — run again to continue.`
       : `Patched ${patched} records. Migration complete.`;
 
-    console.log(`[backfillInFeed] ${message}`);
+    
 
     return {
       status: hasMore ? "partial" : "complete",

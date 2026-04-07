@@ -582,9 +582,7 @@ export const generateChatTitle = action({
 
     if (attempt < TITLE_RETRY_DELAYS_MS.length) {
       const delay = TITLE_RETRY_DELAYS_MS[attempt];
-      console.log(
-        `Scheduling title retry ${attempt + 1} in ${delay / 1000}s for ${conversationId}`,
-      );
+      
       ctx.scheduler.runAfter(delay, api.chat.index.generateChatTitle, {
         conversationId,
         attempt: attempt + 1,
@@ -594,7 +592,7 @@ export const generateChatTitle = action({
 
     // 6. All retries exhausted — use fallback title from first user message
     const title = truncate(fallbackTitle());
-    console.log(`All retries exhausted, using fallback title: "${title}"`);
+    
     await ctx.runMutation(api.conversations.mutations.update, {
       id: conversationId,
       title,

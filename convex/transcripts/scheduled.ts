@@ -30,11 +30,11 @@ export const processPendingJobs = internalAction({
     const jobs = await ctx.runQuery(internal.transcripts.queries.listPendingJobs, {});
 
     if (jobs.length === 0) {
-      console.log("No pending transcript jobs");
+      
       return;
     }
 
-    console.log(`Processing ${jobs.length} pending transcript jobs`);
+    
 
     // Stagger jobs to avoid rate limits
     let staggerIndex = 0;
@@ -48,7 +48,7 @@ export const processPendingJobs = internalAction({
       staggerIndex++;
     }
 
-    console.log(`Scheduled ${jobs.length} jobs with ${STAGGER_MS}ms stagger`);
+    
   },
 });
 
@@ -74,11 +74,11 @@ export const processJob = internalAction({
     // Status guard: prevent re-processing of terminal states
     const terminalStatuses = ["completed", "failed", "no_captions"];
     if (terminalStatuses.includes(job.status)) {
-      console.log(`Job ${args.jobId} already ${job.status}, skipping`);
+      
       return;
     }
 
-    console.log(`Processing transcript job for ${job.contentId}`);
+    
 
     // Update status to "transcribing"
     await ctx.runMutation(internal.transcripts.mutations.updateJobStatus, {
@@ -123,7 +123,7 @@ export const processJob = internalAction({
           completedAt: Date.now(),
         });
 
-        console.log(`Transcript job completed for ${job.contentId}`);
+        
       } else {
         // No transcript available (not a failure, expected for some videos)
         await ctx.runMutation(internal.transcripts.mutations.updateJobStatus, {
@@ -133,7 +133,7 @@ export const processJob = internalAction({
           completedAt: Date.now(),
         });
 
-        console.log(`No captions available for ${job.contentId}`);
+        
       }
     } catch (error) {
       // Handle system errors (API down, network issues, etc.)
@@ -159,7 +159,7 @@ export const processJob = internalAction({
           { jobId: args.jobId }
         );
 
-        console.log(`Scheduled retry ${newRetryCount}/${MAX_RETRIES} for ${job.contentId} after ${backoffMs}ms`);
+        
       } else {
         // Max retries reached, mark as permanently failed
         await ctx.runMutation(internal.transcripts.mutations.updateJobStatus, {
@@ -169,7 +169,7 @@ export const processJob = internalAction({
           completedAt: Date.now(),
         });
 
-        console.log(`Job ${args.jobId} permanently failed after ${MAX_RETRIES} retries`);
+        
       }
     }
   },

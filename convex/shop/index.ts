@@ -69,7 +69,6 @@ export async function executeShopSearch(
     verifiedOnly: args.verifiedOnly,
   });
 
-  console.log(`[executeShopSearch] Created session: ${sessionId}`);
 
   // Step 2: Update status to searching
   await ctx.runMutation(api.shop.mutations.updateShopSession, {
@@ -89,9 +88,7 @@ export async function executeShopSearch(
       }
     );
 
-    console.log(
-      `[executeShopSearch] Search complete - ${searchResult.results.length} results`
-    );
+    
 
     // Step 4: Filter results by condition and price if specified
     let filteredResults = searchResult.results;
@@ -131,9 +128,7 @@ export async function executeShopSearch(
       });
     }
 
-    console.log(
-      `[executeShopSearch] After filtering: ${filteredResults.length} results`
-    );
+    
 
     // Step 5: Mark duplicates within session
     const seenHashes = new Set<string>();
@@ -173,7 +168,6 @@ export async function executeShopSearch(
         }
       );
 
-      console.log(`[executeShopSearch] Created ${listingIds.length} listings`);
 
       // Find best deal (highest deal score, non-duplicate)
       const nonDuplicates = listingsWithDuplicates.filter((l) => !l.isDuplicate);
@@ -198,7 +192,6 @@ export async function executeShopSearch(
       });
 
       const durationMs = Date.now() - startTime;
-      console.log(`[executeShopSearch] Exit - completed in ${durationMs}ms`);
 
       return {
         sessionId,
@@ -371,7 +364,6 @@ async function executeShopSearchWithPlan(
       verifiedOnly: args.verifiedOnly,
     });
 
-    console.log(`[executeShopSearchWithPlan] Created session: ${sessionId}`);
 
     // Update plan progress
     await ctx.runMutation(api.shop.mutations.updateShopPlanExecutionStatus, {
@@ -397,9 +389,7 @@ async function executeShopSearchWithPlan(
       }
     );
 
-    console.log(
-      `[executeShopSearchWithPlan] Search complete - ${searchResult.results.length} results`
-    );
+    
 
     // Update plan progress
     await ctx.runMutation(api.shop.mutations.updateShopPlanExecutionStatus, {
@@ -446,9 +436,7 @@ async function executeShopSearchWithPlan(
       });
     }
 
-    console.log(
-      `[executeShopSearchWithPlan] After filtering: ${filteredResults.length} results`
-    );
+    
 
     // Step 5: Mark duplicates within session
     const seenHashes = new Set<string>();
@@ -488,7 +476,6 @@ async function executeShopSearchWithPlan(
         }
       );
 
-      console.log(`[executeShopSearchWithPlan] Created ${listingIds.length} listings`);
 
       // Find best deal (highest deal score, non-duplicate)
       const nonDuplicates = listingsWithDuplicates.filter((l) => !l.isDuplicate);
@@ -519,7 +506,6 @@ async function executeShopSearchWithPlan(
       });
 
       const durationMs = Date.now() - startTime;
-      console.log(`[executeShopSearchWithPlan] Exit - completed in ${durationMs}ms`);
 
       const shopResult = {
         sessionId,

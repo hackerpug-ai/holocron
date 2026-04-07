@@ -194,9 +194,7 @@ async function executeRetailerWorker(
     };
   }
 
-  console.log(
-    `[executeRetailerWorker] Starting retailer: ${retailer.name}, query: "${assignment.searchQuery}"`
-  );
+  
 
   try {
     const searchResult = await executeParallelShopSearch(
@@ -210,9 +208,7 @@ async function executeRetailerWorker(
     );
 
     const durationMs = Date.now() - startTime;
-    console.log(
-      `[executeRetailerWorker] Completed retailer: ${retailer.name} in ${durationMs}ms, results: ${searchResult.results.length}`
-    );
+    
 
     return {
       retailer: retailer.name,
@@ -334,18 +330,13 @@ export const executePlanBasedShopSearch = internalAction({
     { conversationId, sessionId, plan, query, condition, priceMin, priceMax }
   ): Promise<RetailerDispatcherResult> => {
     const startTime = Date.now();
-    console.log(
-      `[executePlanBasedShopSearch] Entry - query: "${query}", sessionId: ${sessionId}`
-    );
+    
 
     // Step 1: Parse plan into retailer assignments
     const assignments = parsePlanIntoRetailers(plan, query);
-    console.log(
-      `[executePlanBasedShopSearch] Parsed plan into ${assignments.length} retailer assignments`
-    );
+    
 
     // Step 2: Execute all retailer workers in parallel
-    console.log(`[executePlanBasedShopSearch] Executing ${assignments.length} workers`);
     const workerPromises = assignments.map((assignment) =>
       executeRetailerWorker(ctx, assignment)
     );
@@ -356,9 +347,7 @@ export const executePlanBasedShopSearch = internalAction({
     const completedRetailers = workerResults.filter((r) => r.success);
     const failedRetailers = workerResults.filter((r) => !r.success);
 
-    console.log(
-      `[executePlanBasedShopSearch] Workers complete - ${completedRetailers.length}/${assignments.length} successful`
-    );
+    
 
     const listings = aggregateRetailerResults(workerResults, query);
 
@@ -434,9 +423,7 @@ export const executePlanBasedShopSearch = internalAction({
         ? "partial"
         : "failed";
 
-    console.log(
-      `[executePlanBasedShopSearch] Exit - status: ${status}, duration: ${totalTime}ms`
-    );
+    
 
     return {
       sessionId,
@@ -484,9 +471,7 @@ export const runPlanBasedShopSearch = action({
     totalListings: number;
     bestDealId?: Id<"shopListings">;
   }> => {
-    console.log(
-      `[runPlanBasedShopSearch] Entry - planId: ${planId}, query: "${query}"`
-    );
+    
 
     // Fetch the approved plan
     const plan = await ctx.runQuery(api.plans.queries.get, {

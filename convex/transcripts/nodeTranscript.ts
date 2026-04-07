@@ -64,7 +64,6 @@ export async function fetchNodeTranscript(videoId: string): Promise<TranscriptRe
       };
     }
 
-    console.log(`[NodeTranscript] ✅ Fetched ${videoId}: ${wordCount} words, ${charCount} chars`);
 
     return {
       success: true,

@@ -110,9 +110,7 @@ export const deleteIrrelevantContent = internalMutation({
       } catch { /* already deleted */ }
     }
 
-    console.log(
-      `[cleanup] Deleted ${deletedDocs} docs, ${deletedContent} content, ${deletedFeedItems} feedItems`
-    );
+    
 
     return { deletedDocs, deletedContent, deletedFeedItems };
   },

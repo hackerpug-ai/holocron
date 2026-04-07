@@ -80,9 +80,7 @@ export async function executeProductFinder(
   ctx: ActionCtx,
   query: string
 ): Promise<ProductReport> {
-  console.log(
-    `[executeProductFinder] Starting research for query: "${query}"`
-  );
+  
 
   // Enhance query with product-specific terms
   const productQuery = `${query} price comparison review rating specs buy purchase`;
@@ -99,9 +97,7 @@ export async function executeProductFinder(
     }
   );
 
-  console.log(
-    `[executeProductFinder] Found ${searchResult.structuredResults.length} sources`
-  );
+  
 
   // Generate product report using LLM
   const productReport = await generateProductReport(query, searchResult);
@@ -109,7 +105,6 @@ export async function executeProductFinder(
   // Log improvements if any product/app suggestions found
   await logImprovementsFromProductResearch(ctx, query, productReport);
 
-  console.log(`[executeProductFinder] Completed research`);
 
   return productReport;
 }
@@ -295,9 +290,7 @@ If there are no specific improvement suggestions, return an empty array: []`;
         });
       }
 
-      console.log(
-        `[logImprovementsFromProductResearch] Logged ${suggestions.length} improvements`
-      );
+      
     }
   } catch (error) {
     console.error(

@@ -21,7 +21,7 @@ export const reembedAllDocuments = action({
     // Filter to only documents with embeddings
     const documentsWithEmbeddings: any[] = documents.filter((doc: any) => doc.embedding !== undefined);
 
-    console.log(`Found ${documentsWithEmbeddings.length} documents with embeddings to re-embed`);
+    
 
     let successCount = 0;
     let errorCount = 0;
