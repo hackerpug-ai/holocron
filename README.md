@@ -12,29 +12,56 @@ Holocron is a cross-platform application that helps you manage documents, conduc
 - Real-time updates and progress tracking
 - Cross-platform support (iOS, Android, Web)
 
-## Screenshots
+## 📸 Screenshots
 
-### Chat Interface
-![Chat Interface](docs/screenshots/chat-interface.png)
+> **Want to add screenshots?** See [docs/screenshots/README.md](docs/screenshots/README.md) for guidelines.
 
-The main chat interface with slash commands, AI-powered responses, and conversation management.
+### Key Screens
 
-### Search Results
-![Search Results](docs/screenshots/search-results.png)
+| Screen | Description | Status |
+|--------|-------------|--------|
+| `chat-interface.png` | Main chat interface with slash commands | 📸 Needed |
+| `chat-interface-dark.png` | Chat interface in dark mode | 📸 Needed |
+| `search-results.png` | Document search with hybrid results | 📸 Needed |
+| `research-workflow.png` | Deep research with progress tracking | 📸 Needed |
+| `document-management.png` | Document browser and management | 📸 Needed |
+| `articles-list.png` | Article feed with filtering | 📸 Needed |
+| `settings-screen.png` | Settings and preferences | 📸 Needed |
+| `web-view.png` | Web view for external content | 📸 Needed |
 
-Full-text and vector search across your knowledge base with hybrid search capabilities.
+**To contribute screenshots:**
+1. Run the app: `pnpm start`
+2. Capture screen (iOS: `Cmd+S`, Android: `Cmd+Shift+S`)
+3. Place in `docs/screenshots/` with descriptive name
+4. Update this table to mark as ✅ Added
 
-### Research Workflow
-![Research Workflow](docs/screenshots/research-workflow.png)
+## 🚀 Getting Started
 
-Deep research workflows with multi-agent orchestration and real-time progress tracking.
+**New here?** Start with [**docs/LAY-OF-THE-LAND.md**](docs/LAY-OF-THE-LAND.md) for a visual guide to the codebase structure.
 
-### Document Management
-![Document Management](docs/screenshots/document-management.png)
+### Quick Start (5 minutes)
 
-Browse, search, and manage documents with automatic vector embedding and semantic search.
+```bash
+# 1. Install dependencies
+pnpm install
 
-> **Note**: The above screenshots are placeholders. To add real screenshots, run the app and capture images of the key screens. See [docs/screenshots/README.md](docs/screenshots/README.md) for guidelines.
+# 2. Start Convex backend
+npx convex dev
+
+# 3. Run the app
+pnpm start
+```
+
+**What's happening:**
+- `npx convex dev` starts your backend server and generates types
+- `pnpm start` opens Expo DevTools - press `i` for iOS Simulator or `a` for Android Emulator
+
+### Next Steps
+
+- **Browse** the app and try slash commands (`/help`, `/search`, `/browse`)
+- **Read** [docs/LAY-OF-THE-LAND.md](docs/LAY-OF-THE-LAND.md) for architecture overview
+- **Explore** `convex/schema.ts` to see data models
+- **Check** `CLAUDE.md` for development standards
 
 ## Tech Stack
 
@@ -637,7 +664,39 @@ For detailed migration information, see:
 
 ## Contributing
 
-This is a personal project. See [RULES.md](RULES.md) for development standards.
+This is a personal project, but contributions are welcome!
+
+### Development Standards
+
+- **Code Style:** See [CLAUDE.md](CLAUDE.md) for React Native patterns and rules
+- **Commit Messages:** Use conventional commits (`feat:`, `fix:`, `refactor:`, etc.)
+- **Pre-commit Hooks:** All commits must pass typecheck, lint, and tests
+
+### Making Changes
+
+1. **Create a branch:** `git checkout -b feature/your-feature`
+2. **Make changes:** Follow patterns in [CLAUDE.md](CLAUDE.md)
+3. **Test locally:** `pnpm typecheck && pnpm lint && pnpm test`
+4. **Commit:** Pre-commit hooks will run automatically
+5. **Push:** `git push origin feature/your-feature`
+6. **PR:** Create a pull request
+
+### Adding Features
+
+Check `.spec/prd/` for planned features and specifications. If you're adding something new:
+1. Create a spec document in `.spec/prd/`
+2. Run `/kb-project-plan` to generate tasks (if using Claude Code)
+3. Implement following React Native rules in [CLAUDE.md](CLAUDE.md)
+
+### Reporting Issues
+
+If you find bugs or have suggestions:
+1. Check existing issues in GitHub
+2. Create a new issue with:
+   - Clear title and description
+   - Steps to reproduce (for bugs)
+   - Expected vs actual behavior
+   - Screenshots if applicable
 
 ## License
 
