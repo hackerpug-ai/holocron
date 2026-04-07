@@ -1083,10 +1083,15 @@ export const createDocumentFromContent = internalMutation({
     filePath: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    return await ctx.db.insert("documents", {
+    const id = await ctx.db.insert("documents", {
       ...args,
       createdAt: Date.now(),
     });
+
+    // Update document counters (BP-005)
+    await updateDocumentCountersInline(ctx, args.category, false, 1);
+
+    return id;
   },
 });
 
@@ -1787,8 +1792,62 @@ export const seedExpandedRecommendations = internalMutation({
       newslettersResult.created++;
     }
 
-    
-
     return { creators: creatorsResult, newsletters: newslettersResult };
   },
 });
+
+/**
+ * Helper: Update document counters inline
+ * BP-005: Maintains denormalized counters for efficient counting
+ */
+async function updateDocumentCountersInline(
+  ctx: any,
+  category: string | undefined,
+  hasEmbedding: boolean,
+  increment: number
+) {
+  // Update total counter
+  const totalCounter = await ctx.db
+    .query("documentCounters")
+    .withIndex("by_name", (q: any) => q.eq("name", "total"))
+    .first();
+
+  if (totalCounter) {
+    await ctx.db.patch(totalCounter._id, { count: totalCounter.count + increment });
+  } else {
+    await ctx.db.insert("documentCounters", { name: "total", count: increment });
+  }
+
+  // Update category counter
+  if (category) {
+    const categoryCounter = await ctx.db
+      .query("documentCounters")
+      .withIndex("by_name", (q: any) => q.eq("name", category))
+      .first();
+
+    if (categoryCounter) {
+      await ctx.db.patch(categoryCounter._id, { count: categoryCounter.count + increment });
+    } else {
+      await ctx.db.insert("documentCounters", { name: category, count: increment });
+    }
+  }
+
+  // Update withoutEmbeddings counter
+  if (!hasEmbedding) {
+    const withoutEmbeddingsCounter = await ctx.db
+      .query("documentCounters")
+      .withIndex("by_name", (q: any) => q.eq("name", "withoutEmbeddings"))
+      .first();
+
+    if (withoutEmbeddingsCounter) {
+      await ctx.db.patch(withoutEmbeddingsCounter._id, {
+        count: withoutEmbeddingsCounter.count + increment,
+      });
+    } else {
+      await ctx.db.insert("documentCounters", {
+        name: "withoutEmbeddings",
+        count: increment,
+      });
+    }
+  }
+}
