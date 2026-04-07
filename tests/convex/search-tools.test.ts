@@ -18,7 +18,7 @@ describe('US-777: Search Tools Implementation', () => {
   describe('AC-1: exaSearchTool', () => {
     it('should be exported from convex/research/tools', async () => {
       const tools = await import('../../convex/research/tools');
-      expect(tools.exaSearchTool).toBeDefined();
+      expect(tools.exaSearchTool).toBeTruthy();
       expect(typeof tools.exaSearchTool).toBe('object');
     });
 
@@ -45,7 +45,7 @@ describe('US-777: Search Tools Implementation', () => {
   describe('AC-2: jinaSearchTool', () => {
     it('should be exported from convex/research/tools', async () => {
       const tools = await import('../../convex/research/tools');
-      expect(tools.jinaSearchTool).toBeDefined();
+      expect(tools.jinaSearchTool).toBeTruthy();
       expect(typeof tools.jinaSearchTool).toBe('object');
     });
 
@@ -61,7 +61,7 @@ describe('US-777: Search Tools Implementation', () => {
       const tools = await import('../../convex/research/tools');
 
       // Verify error handling structure exists
-      expect(tools.jinaSearchTool.execute).toBeDefined();
+      expect(tools.jinaSearchTool.execute).toBeTruthy();
       expect(typeof tools.jinaSearchTool.execute).toBe('function');
     });
   });
@@ -72,7 +72,7 @@ describe('US-777: Search Tools Implementation', () => {
   describe('AC-3: jinaReaderTool', () => {
     it('should be exported from convex/research/tools', async () => {
       const tools = await import('../../convex/research/tools');
-      expect(tools.jinaReaderTool).toBeDefined();
+      expect(tools.jinaReaderTool).toBeTruthy();
       expect(typeof tools.jinaReaderTool).toBe('object');
     });
 
@@ -88,7 +88,7 @@ describe('US-777: Search Tools Implementation', () => {
       const tools = await import('../../convex/research/tools');
 
       // Verify error handling structure exists
-      expect(tools.jinaReaderTool.execute).toBeDefined();
+      expect(tools.jinaReaderTool.execute).toBeTruthy();
       expect(typeof tools.jinaReaderTool.execute).toBe('function');
     });
   });
@@ -101,9 +101,9 @@ describe('US-777: Search Tools Implementation', () => {
       const tools = await import('../../convex/research/tools');
 
       // All tools should have execute functions that catch errors
-      expect(tools.exaSearchTool.execute).toBeDefined();
-      expect(tools.jinaSearchTool.execute).toBeDefined();
-      expect(tools.jinaReaderTool.execute).toBeDefined();
+      expect(tools.exaSearchTool.execute).toBeTruthy();
+      expect(tools.jinaSearchTool.execute).toBeTruthy();
+      expect(tools.jinaReaderTool.execute).toBeTruthy();
 
       // Execute functions should be async functions
       expect(tools.exaSearchTool.execute!.constructor.name).toBe('AsyncFunction');

@@ -13,15 +13,15 @@ import { describe, it, expect } from 'vitest';
 describe('AC-1: Pending job transitions to transcribing', () => {
   it('should have scheduled action: processPendingJobs', async () => {
     const { internal } = await import('../../convex/_generated/api');
-    expect(internal.transcripts).toBeDefined();
-    expect(internal.transcripts.scheduled).toBeDefined();
-    expect(internal.transcripts.scheduled.processPendingJobs).toBeDefined();
+    expect(internal.transcripts).toBeTruthy();
+    expect(internal.transcripts.scheduled).toBeTruthy();
+    expect(internal.transcripts.scheduled.processPendingJobs).toBeTruthy();
   });
 
   it('should have scheduled action: processJob', async () => {
     const { internal } = await import('../../convex/_generated/api');
-    expect(internal.transcripts.scheduled).toBeDefined();
-    expect(internal.transcripts.scheduled.processJob).toBeDefined();
+    expect(internal.transcripts.scheduled).toBeTruthy();
+    expect(internal.transcripts.scheduled.processJob).toBeTruthy();
   });
 });
 
@@ -32,8 +32,8 @@ describe('AC-1: Pending job transitions to transcribing', () => {
 describe('AC-2: Successful transcript fetch completes job', () => {
   it('should update job status to completed on success', async () => {
     const { internal } = await import('../../convex/_generated/api');
-    expect(internal.transcripts.scheduled).toBeDefined();
-    expect(internal.transcripts.scheduled.processJob).toBeDefined();
+    expect(internal.transcripts.scheduled).toBeTruthy();
+    expect(internal.transcripts.scheduled.processJob).toBeTruthy();
     // Note: Full integration test requires Convex test setup
   });
 });
@@ -44,8 +44,8 @@ describe('AC-2: Successful transcript fetch completes job', () => {
 describe('AC-3: Transcript stored in videoTranscripts table', () => {
   it('should store transcript metadata when fetch succeeds', async () => {
     const { internal } = await import('../../convex/_generated/api');
-    expect(internal.transcripts.scheduled).toBeDefined();
-    expect(internal.transcripts.scheduled.processJob).toBeDefined();
+    expect(internal.transcripts.scheduled).toBeTruthy();
+    expect(internal.transcripts.scheduled.processJob).toBeTruthy();
     // Note: Full integration test requires database verification
   });
 });
@@ -57,8 +57,8 @@ describe('AC-3: Transcript stored in videoTranscripts table', () => {
 describe('AC-4: No captions changes status to no_captions', () => {
   it('should set status to no_captions when no transcript available', async () => {
     const { internal } = await import('../../convex/_generated/api');
-    expect(internal.transcripts.scheduled).toBeDefined();
-    expect(internal.transcripts.scheduled.processJob).toBeDefined();
+    expect(internal.transcripts.scheduled).toBeTruthy();
+    expect(internal.transcripts.scheduled.processJob).toBeTruthy();
     // Note: Full integration test requires mocked service response
   });
 });
@@ -70,8 +70,8 @@ describe('AC-4: No captions changes status to no_captions', () => {
 describe('AC-5: Fetch error changes status to failed', () => {
   it('should set status to failed with errorMessage on error', async () => {
     const { internal } = await import('../../convex/_generated/api');
-    expect(internal.transcripts.scheduled).toBeDefined();
-    expect(internal.transcripts.scheduled.processJob).toBeDefined();
+    expect(internal.transcripts.scheduled).toBeTruthy();
+    expect(internal.transcripts.scheduled.processJob).toBeTruthy();
     // Note: Full integration test requires error simulation
   });
 });
@@ -82,8 +82,8 @@ describe('AC-5: Fetch error changes status to failed', () => {
 describe('AC-6: Failed job retries with exponential backoff', () => {
   it('should schedule retry with exponential backoff', async () => {
     const { internal } = await import('../../convex/_generated/api');
-    expect(internal.transcripts.scheduled).toBeDefined();
-    expect(internal.transcripts.scheduled.processJob).toBeDefined();
+    expect(internal.transcripts.scheduled).toBeTruthy();
+    expect(internal.transcripts.scheduled.processJob).toBeTruthy();
     // Note: Full integration test requires retry verification
   });
 });
@@ -94,8 +94,8 @@ describe('AC-6: Failed job retries with exponential backoff', () => {
 describe('AC-7: Max retries marks job permanently failed', () => {
   it('should mark job as failed when max retries exceeded', async () => {
     const { internal } = await import('../../convex/_generated/api');
-    expect(internal.transcripts.scheduled).toBeDefined();
-    expect(internal.transcripts.scheduled.processJob).toBeDefined();
+    expect(internal.transcripts.scheduled).toBeTruthy();
+    expect(internal.transcripts.scheduled.processJob).toBeTruthy();
     // Note: Full integration test requires retry count verification
   });
 });
@@ -106,8 +106,8 @@ describe('AC-7: Max retries marks job permanently failed', () => {
 describe('AC-8: Multiple jobs processed with staggered delays', () => {
   it('should schedule jobs with staggered delays', async () => {
     const { internal } = await import('../../convex/_generated/api');
-    expect(internal.transcripts.scheduled).toBeDefined();
-    expect(internal.transcripts.scheduled.processPendingJobs).toBeDefined();
+    expect(internal.transcripts.scheduled).toBeTruthy();
+    expect(internal.transcripts.scheduled.processPendingJobs).toBeTruthy();
     // Note: Full integration test requires scheduler verification
   });
 });

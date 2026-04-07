@@ -308,22 +308,22 @@ describe("API registration: improvements mutations and queries", () => {
   it("should have public mutations registered in the generated API", async () => {
     const { api } = await import("../../convex/_generated/api");
     const improvements = (api as Record<string, unknown>)["improvements/mutations"];
-    expect(improvements).toBeDefined();
+    expect(improvements).toBeTruthy();
     const m = improvements as Record<string, unknown>;
-    expect(m.submit).toBeDefined();
-    expect(m.update).toBeDefined();
-    expect(m.setStatus).toBeDefined();
-    expect(m.remove).toBeDefined();
-    expect(m.generateUploadUrl).toBeDefined();
+    expect(m.submit).toBeTruthy();
+    expect(m.update).toBeTruthy();
+    expect(m.setStatus).toBeTruthy();
+    expect(m.remove).toBeTruthy();
+    expect(m.generateUploadUrl).toBeTruthy();
   });
 
   it("should have public queries registered in the generated API", async () => {
     const { api } = await import("../../convex/_generated/api");
     const improvements = (api as Record<string, unknown>)["improvements/queries"];
-    expect(improvements).toBeDefined();
+    expect(improvements).toBeTruthy();
     const q = improvements as Record<string, unknown>;
-    expect(q.list).toBeDefined();
-    expect(q.get).toBeDefined();
-    expect(q.getImages).toBeDefined();
+    expect(q.list).toBeTruthy();
+    expect(q.get).toBeTruthy();
+    expect(q.getImages).toBeTruthy();
   });
 });

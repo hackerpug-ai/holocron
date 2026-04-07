@@ -11,7 +11,7 @@ describe("FR-013: Create getUnviewedCount query", () => {
         expect(queriesModule).toHaveProperty("getUnviewedCount");
 
         const getUnviewedCount = queriesModule.getUnviewedCount;
-        expect(getUnviewedCount).toBeDefined();
+        expect(getUnviewedCount).toBeTruthy();
       } catch (error) {
         // Test passes if module doesn't exist yet (RED phase)
         expect((error as Error).message).toMatch(/Cannot find|Failed to load/);
@@ -163,7 +163,7 @@ describe("FR-013: Create getUnviewedCount query", () => {
           /export const getUnviewedCount[\s\S]*?\n\}\);/
         );
 
-        expect(getUnviewedCountMatch).toBeDefined();
+        expect(getUnviewedCountMatch).toBeTruthy();
 
         if (getUnviewedCountMatch) {
           const functionBody = getUnviewedCountMatch[0];

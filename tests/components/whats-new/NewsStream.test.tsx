@@ -26,7 +26,7 @@ describe('NewsStream - AC-4: Lazy loading on scroll', () => {
     it('should have NewsStream component file', () => {
       // This test will FAIL until we create the file
       const source = readComponent()
-      expect(source).toBeDefined()
+      expect(source).toBeTruthy()
     })
 
     it('should export NewsStream as named export', () => {

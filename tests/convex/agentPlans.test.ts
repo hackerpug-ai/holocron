@@ -14,21 +14,21 @@ describe('Agent Plans API', () => {
   describe('AC-1: agentPlans mutations are registered', () => {
     it('should have internal mutations: createPlan, updatePlanStatus, updateStepStatus, advanceStep', async () => {
       const { internal } = await import('../../convex/_generated/api');
-      expect(internal.agentPlans).toBeDefined();
-      expect(internal.agentPlans.mutations).toBeDefined();
-      expect(internal.agentPlans.mutations.createPlan).toBeDefined();
-      expect(internal.agentPlans.mutations.updatePlanStatus).toBeDefined();
-      expect(internal.agentPlans.mutations.updateStepStatus).toBeDefined();
-      expect(internal.agentPlans.mutations.advanceStep).toBeDefined();
+      expect(internal.agentPlans).toBeTruthy();
+      expect(internal.agentPlans.mutations).toBeTruthy();
+      expect(internal.agentPlans.mutations.createPlan).toBeTruthy();
+      expect(internal.agentPlans.mutations.updatePlanStatus).toBeTruthy();
+      expect(internal.agentPlans.mutations.updateStepStatus).toBeTruthy();
+      expect(internal.agentPlans.mutations.advanceStep).toBeTruthy();
     });
 
     it('should have public mutations: approveStep, rejectStep, cancelPlan', async () => {
       const { api } = await import('../../convex/_generated/api');
-      expect(api.agentPlans).toBeDefined();
-      expect(api.agentPlans.mutations).toBeDefined();
-      expect(api.agentPlans.mutations.approveStep).toBeDefined();
-      expect(api.agentPlans.mutations.rejectStep).toBeDefined();
-      expect(api.agentPlans.mutations.cancelPlan).toBeDefined();
+      expect(api.agentPlans).toBeTruthy();
+      expect(api.agentPlans.mutations).toBeTruthy();
+      expect(api.agentPlans.mutations.approveStep).toBeTruthy();
+      expect(api.agentPlans.mutations.rejectStep).toBeTruthy();
+      expect(api.agentPlans.mutations.cancelPlan).toBeTruthy();
     });
   });
 
@@ -38,10 +38,10 @@ describe('Agent Plans API', () => {
   describe('AC-2: agentPlans queries are registered', () => {
     it('should have public queries: get, getSteps, getActivePlan', async () => {
       const { api } = await import('../../convex/_generated/api');
-      expect(api.agentPlans.queries).toBeDefined();
-      expect(api.agentPlans.queries.get).toBeDefined();
-      expect(api.agentPlans.queries.getSteps).toBeDefined();
-      expect(api.agentPlans.queries.getActivePlan).toBeDefined();
+      expect(api.agentPlans.queries).toBeTruthy();
+      expect(api.agentPlans.queries.get).toBeTruthy();
+      expect(api.agentPlans.queries.getSteps).toBeTruthy();
+      expect(api.agentPlans.queries.getActivePlan).toBeTruthy();
     });
   });
 
@@ -64,10 +64,10 @@ describe('Agent Plans API', () => {
   describe('AC-4: agentPlans actions are registered', () => {
     it('should have internal actions: executePlanStep, resumeAfterApproval', async () => {
       const { internal } = await import('../../convex/_generated/api');
-      expect(internal.agentPlans).toBeDefined();
-      expect(internal.agentPlans.actions).toBeDefined();
-      expect(internal.agentPlans.actions.executePlanStep).toBeDefined();
-      expect(internal.agentPlans.actions.resumeAfterApproval).toBeDefined();
+      expect(internal.agentPlans).toBeTruthy();
+      expect(internal.agentPlans.actions).toBeTruthy();
+      expect(internal.agentPlans.actions.executePlanStep).toBeTruthy();
+      expect(internal.agentPlans.actions.resumeAfterApproval).toBeTruthy();
     });
   });
 

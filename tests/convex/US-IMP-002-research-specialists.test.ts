@@ -100,7 +100,7 @@ describe("AC-2: Academic specialist generates academic-focused report", () => {
   it("should have academic specialist implementation", () => {
     const files = listSpecialistFiles();
     const academicFile = files.find(f => f.match(/academic/i));
-    expect(academicFile).toBeDefined();
+    expect(academicFile).toBeTruthy();
   });
 
   it("should export executeAcademicResearch function", () => {
@@ -143,7 +143,7 @@ describe("AC-3: Technical specialist generates technical report", () => {
   it("should have technical specialist implementation", () => {
     const files = listSpecialistFiles();
     const technicalFile = files.find(f => f.match(/technical/i));
-    expect(technicalFile).toBeDefined();
+    expect(technicalFile).toBeTruthy();
   });
 
   it("should export executeTechnicalResearch function", () => {

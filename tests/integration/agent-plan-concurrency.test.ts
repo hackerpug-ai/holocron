@@ -11,7 +11,7 @@ describe("AgentPlan Concurrency - AC-1: approveStep rejects already-approved ste
   it("should have approveStep mutation defined", async () => {
     const { approveStep } = await import("../../convex/agentPlans/mutations");
 
-    expect(approveStep).toBeDefined();
+    expect(approveStep).toBeTruthy();
     expect(typeof approveStep).toBe("function");
   });
 
@@ -25,7 +25,7 @@ describe("AgentPlan Concurrency - AC-1: approveStep rejects already-approved ste
     const mutationsSource = await import("../../convex/agentPlans/mutations");
 
     // approveStep must be exported
-    expect(mutationsSource.approveStep).toBeDefined();
+    expect(mutationsSource.approveStep).toBeTruthy();
 
     // Read the source to verify the guard exists (behavioral check via source inspection)
     const fs = await import("fs");
@@ -73,7 +73,7 @@ describe("AgentPlan Concurrency - AC-2: executePlanStep bails if step already ru
   it("should have executePlanStep action defined", async () => {
     const { executePlanStep } = await import("../../convex/agentPlans/actions");
 
-    expect(executePlanStep).toBeDefined();
+    expect(executePlanStep).toBeTruthy();
     expect(typeof executePlanStep).toBe("function");
   });
 

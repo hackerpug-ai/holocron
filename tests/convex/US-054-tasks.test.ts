@@ -19,8 +19,8 @@ describe('US-054: Task Management', () => {
 
       // Then: Task is created with pending status
       const { api } = await import('../../convex/_generated/api');
-      expect(api.tasks.index.start).toBeDefined();
-      expect(api.tasks.index.getByConversation).toBeDefined();
+      expect(api.tasks.index.start).toBeTruthy();
+      expect(api.tasks.index.getByConversation).toBeTruthy();
     });
 
     it('should support all task types', async () => {
@@ -28,7 +28,7 @@ describe('US-054: Task Management', () => {
       const taskTypes = ['deep-research', 'research', 'assimilate', 'shop', 'research-loop'] as const;
 
       const { api } = await import('../../convex/_generated/api');
-      expect(api.tasks.index.start).toBeDefined();
+      expect(api.tasks.index.start).toBeTruthy();
 
       // All task types should be valid
       taskTypes.forEach((type) => {
@@ -46,18 +46,18 @@ describe('US-054: Task Management', () => {
       // When: Querying task status
       // Then: Returns current progress with status
       const { api } = await import('../../convex/_generated/api');
-      expect(api.tasks.index.get).toBeDefined();
-      expect(api.tasks.index.getByConversation).toBeDefined();
+      expect(api.tasks.index.get).toBeTruthy();
+      expect(api.tasks.index.getByConversation).toBeTruthy();
     });
 
     it('should return task by ID', async () => {
       const { api } = await import('../../convex/_generated/api');
-      expect(api.tasks.index.get).toBeDefined();
+      expect(api.tasks.index.get).toBeTruthy();
     });
 
     it('should return latest task for conversation', async () => {
       const { api } = await import('../../convex/_generated/api');
-      expect(api.tasks.index.getByConversation).toBeDefined();
+      expect(api.tasks.index.getByConversation).toBeTruthy();
     });
   });
 
@@ -76,14 +76,14 @@ describe('US-054: Task Management', () => {
 
       // Then: Progress is persisted and subscribers are notified
       const { api } = await import('../../convex/_generated/api');
-      expect(api.tasks.index.updateProgress).toBeDefined();
-      expect(api.tasks.index.updateStatus).toBeDefined();
+      expect(api.tasks.index.updateProgress).toBeTruthy();
+      expect(api.tasks.index.updateStatus).toBeTruthy();
     });
 
     it('should support partial progress updates', async () => {
       // Can update just currentStep, just progressMessage, etc.
       const { api } = await import('../../convex/_generated/api');
-      expect(api.tasks.index.updateProgress).toBeDefined();
+      expect(api.tasks.index.updateProgress).toBeTruthy();
     });
   });
 
@@ -96,7 +96,7 @@ describe('US-054: Task Management', () => {
       // When: Cancelling the task
       // Then: Status becomes cancelled
       const { api } = await import('../../convex/_generated/api');
-      expect(api.tasks.index.cancel).toBeDefined();
+      expect(api.tasks.index.cancel).toBeTruthy();
     });
 
     it('should not allow cancelling completed tasks', async () => {
@@ -104,7 +104,7 @@ describe('US-054: Task Management', () => {
       // When: Trying to cancel
       // Then: Should throw error
       const { api } = await import('../../convex/_generated/api');
-      expect(api.tasks.index.cancel).toBeDefined();
+      expect(api.tasks.index.cancel).toBeTruthy();
     });
 
     it('should not allow cancelling error tasks', async () => {
@@ -112,7 +112,7 @@ describe('US-054: Task Management', () => {
       // When: Trying to cancel
       // Then: Should throw error
       const { api } = await import('../../convex/_generated/api');
-      expect(api.tasks.index.cancel).toBeDefined();
+      expect(api.tasks.index.cancel).toBeTruthy();
     });
   });
 
@@ -122,17 +122,17 @@ describe('US-054: Task Management', () => {
   describe('Task workflow integration', () => {
     it('should support status transitions', async () => {
       const { api } = await import('../../convex/_generated/api');
-      expect(api.tasks.index.updateStatus).toBeDefined();
-      expect(api.tasks.index.complete).toBeDefined();
-      expect(api.tasks.index.fail).toBeDefined();
+      expect(api.tasks.index.updateStatus).toBeTruthy();
+      expect(api.tasks.index.complete).toBeTruthy();
+      expect(api.tasks.index.fail).toBeTruthy();
     });
 
     it('should export workflow utilities', async () => {
       const module = await import('../../convex/tasks/workflow');
-      expect(module.isActiveTaskStatus).toBeDefined();
-      expect(module.isTerminalTaskStatus).toBeDefined();
-      expect(module.taskConfigSchema).toBeDefined();
-      expect(module.taskResultSchema).toBeDefined();
+      expect(module.isActiveTaskStatus).toBeTruthy();
+      expect(module.isTerminalTaskStatus).toBeTruthy();
+      expect(module.taskConfigSchema).toBeTruthy();
+      expect(module.taskResultSchema).toBeTruthy();
     });
   });
 });

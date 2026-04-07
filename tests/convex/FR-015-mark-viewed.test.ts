@@ -15,7 +15,7 @@ describe("FR-015: Create markViewed mutation", () => {
 
       try {
         const content = fs.readFileSync(mutationsPath, "utf-8");
-        expect(content).toBeDefined();
+        expect(content).toBeTruthy();
 
         // Should import mutation
         expect(content).toMatch(/import\s+.*mutation.*from.*["'].*_generated\/server/);

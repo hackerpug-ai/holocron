@@ -13,9 +13,9 @@ import { describe, it, expect } from 'vitest';
 describe('AC-1: transcripts internal actions are registered', () => {
   it('should have internal action: fetchYouTubeTranscript', async () => {
     const { internal } = await import('../../convex/_generated/api');
-    expect(internal.transcripts).toBeDefined();
-    expect(internal.transcripts.internal).toBeDefined();
-    expect(internal.transcripts.internal.fetchYouTubeTranscript).toBeDefined();
+    expect(internal.transcripts).toBeTruthy();
+    expect(internal.transcripts.internal).toBeTruthy();
+    expect(internal.transcripts.internal.fetchYouTubeTranscript).toBeTruthy();
   });
 });
 
@@ -26,7 +26,7 @@ describe('AC-1: transcripts internal actions are registered', () => {
 describe('AC-2: Video with captions downloads transcript', () => {
   it('should fetchYouTubeTranscript action exist', async () => {
     const { internal } = await import('../../convex/_generated/api');
-    expect(internal.transcripts.internal.fetchYouTubeTranscript).toBeDefined();
+    expect(internal.transcripts.internal.fetchYouTubeTranscript).toBeTruthy();
     // Note: Full integration test requires Convex test setup with mocked YouTube API
     // This verifies the function is registered and callable
   });
@@ -38,7 +38,7 @@ describe('AC-2: Video with captions downloads transcript', () => {
 describe('AC-3: Video with captions returns metadata', () => {
   it('should have function that returns previewText and wordCount', async () => {
     const { internal } = await import('../../convex/_generated/api');
-    expect(internal.transcripts.internal.fetchYouTubeTranscript).toBeDefined();
+    expect(internal.transcripts.internal.fetchYouTubeTranscript).toBeTruthy();
     // Note: Full integration test requires mocked YouTube API response
     // Verifies function structure is correct
   });
@@ -50,7 +50,7 @@ describe('AC-3: Video with captions returns metadata', () => {
 describe('AC-4: Video without captions returns empty', () => {
   it('should return { hasCaptions: false, transcript: null } for no captions', async () => {
     const { internal } = await import('../../convex/_generated/api');
-    expect(internal.transcripts.internal.fetchYouTubeTranscript).toBeDefined();
+    expect(internal.transcripts.internal.fetchYouTubeTranscript).toBeTruthy();
     // Note: Full integration test requires mocked YouTube API response with empty items
   });
 });
@@ -61,7 +61,7 @@ describe('AC-4: Video without captions returns empty', () => {
 describe('AC-5: Private/deleted video returns 404', () => {
   it('should return { error: "Video not found", hasCaptions: false }', async () => {
     const { internal } = await import('../../convex/_generated/api');
-    expect(internal.transcripts.internal.fetchYouTubeTranscript).toBeDefined();
+    expect(internal.transcripts.internal.fetchYouTubeTranscript).toBeTruthy();
     // Note: Full integration test requires mocked YouTube API 404 response
   });
 });
@@ -72,7 +72,7 @@ describe('AC-5: Private/deleted video returns 404', () => {
 describe('AC-6: API quota exceeded returns rate limit error', () => {
   it('should return { error: "API rate limit exceeded", hasCaptions: false }', async () => {
     const { internal } = await import('../../convex/_generated/api');
-    expect(internal.transcripts.internal.fetchYouTubeTranscript).toBeDefined();
+    expect(internal.transcripts.internal.fetchYouTubeTranscript).toBeTruthy();
     // Note: Full integration test requires mocked YouTube API 429 response
   });
 });
@@ -83,7 +83,7 @@ describe('AC-6: API quota exceeded returns rate limit error', () => {
 describe('AC-7: Transcript stored with metadata', () => {
   it('should store transcript with contentId, storageId, previewText, wordCount, transcriptSource', async () => {
     const { internal } = await import('../../convex/_generated/api');
-    expect(internal.transcripts.internal.fetchYouTubeTranscript).toBeDefined();
+    expect(internal.transcripts.internal.fetchYouTubeTranscript).toBeTruthy();
     // Note: Full integration test requires database verification
     // This verifies the function exists for manual/integration testing
   });
@@ -95,7 +95,7 @@ describe('AC-7: Transcript stored with metadata', () => {
 describe('AC-8: File storage retrieves complete transcript', () => {
   it('should store transcript in Convex storage and retrieve via storageId', async () => {
     const { internal } = await import('../../convex/_generated/api');
-    expect(internal.transcripts.internal.fetchYouTubeTranscript).toBeDefined();
+    expect(internal.transcripts.internal.fetchYouTubeTranscript).toBeTruthy();
     // Note: Full integration test requires storage verification
     // This verifies the function exists for manual/integration testing
   });

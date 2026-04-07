@@ -29,7 +29,7 @@ describe('CardActions - AC-1: Settings button visible on card', () => {
   describe('RED Phase: Tests fail before implementation', () => {
     it('should have CardActions component file', () => {
       const source = readComponent()
-      expect(source).toBeDefined()
+      expect(source).toBeTruthy()
       expect(source.length).toBeGreaterThan(0)
     })
 

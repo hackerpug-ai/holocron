@@ -29,7 +29,7 @@ describe('SubscriptionSettings - AC-2: Subscription preferences shown', () => {
   describe('RED Phase: Tests fail before implementation', () => {
     it('should have SubscriptionSettings component file', () => {
       const source = readComponent()
-      expect(source).toBeDefined()
+      expect(source).toBeTruthy()
       expect(source.length).toBeGreaterThan(0)
     })
 

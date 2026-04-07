@@ -31,7 +31,7 @@ describe('toolDefinitions', () => {
     const tools = getToolDefinitions()
     const searchTool = tools.find((t) => t.name === 'search_knowledge_base')
 
-    expect(searchTool).toBeDefined()
+    expect(searchTool).toBeTruthy()
     expect(searchTool!.parameters.properties).toHaveProperty('query')
 
     const queryParam = searchTool!.parameters.properties.query as {

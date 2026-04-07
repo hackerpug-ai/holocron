@@ -9,7 +9,7 @@ describe("FR-008: Public Feed Building Action", () => {
         const actionsModule = await import("../../../convex/feeds/actions");
 
         // Module should exist
-        expect(actionsModule).toBeDefined();
+        expect(actionsModule).toBeTruthy();
 
         // Should have exports
         expect(Object.keys(actionsModule).length).toBeGreaterThan(0);
@@ -30,7 +30,7 @@ describe("FR-008: Public Feed Building Action", () => {
         expect(actionsModule).toHaveProperty("buildFeed");
 
         const buildFeed = actionsModule.buildFeed;
-        expect(buildFeed).toBeDefined();
+        expect(buildFeed).toBeTruthy();
       } catch (error) {
         // Test passes if module doesn't exist yet
         expect((error as Error).message).toContain("Cannot find module");

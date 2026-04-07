@@ -141,7 +141,7 @@ Extract 3-5 findings. Be honest about confidence levels.`,
     const parsed = JSON.parse(result.text.replace(/```json\n?|\n?```/g, "").trim());
 
     // Validate structure
-    expect(parsed.findings).toBeDefined();
+    expect(parsed.findings).toBeTruthy();
     expect(Array.isArray(parsed.findings)).toBe(true);
     expect(parsed.findings.length).toBeGreaterThanOrEqual(2);
     expect(parsed.narrativeSummary).toBeTruthy();

@@ -13,7 +13,7 @@ import { describe, it, expect } from 'vitest';
 describe('AC-1: assimilateCreator action exists', () => {
   it('should export assimilateCreator from creators actions', async () => {
     const { api } = await import('../../convex/_generated/api');
-    expect(api.creators.actions.assimilateCreator).toBeDefined();
+    expect(api.creators.actions.assimilateCreator).toBeTruthy();
   });
 });
 
@@ -23,7 +23,7 @@ describe('AC-1: assimilateCreator action exists', () => {
 describe('AC-2: assimilateCreator creates transcript jobs with priority=1', () => {
   it('should create transcript jobs for each video with priority=1', async () => {
     const { api } = await import('../../convex/_generated/api');
-    expect(api.creators.actions.assimilateCreator).toBeDefined();
+    expect(api.creators.actions.assimilateCreator).toBeTruthy();
   });
 });
 
@@ -33,7 +33,7 @@ describe('AC-2: assimilateCreator creates transcript jobs with priority=1', () =
 describe('AC-3: assimilateCreator skips videos with existing transcripts', () => {
   it('should skip creating job for videos with existing transcripts when forceRegenerate=false', async () => {
     const { api } = await import('../../convex/_generated/api');
-    expect(api.creators.actions.assimilateCreator).toBeDefined();
+    expect(api.creators.actions.assimilateCreator).toBeTruthy();
   });
 });
 
@@ -43,7 +43,7 @@ describe('AC-3: assimilateCreator skips videos with existing transcripts', () =>
 describe('AC-4: assimilateCreator can force regenerate transcripts', () => {
   it('should create new job for videos with existing transcripts when forceRegenerate=true', async () => {
     const { api } = await import('../../convex/_generated/api');
-    expect(api.creators.actions.assimilateCreator).toBeDefined();
+    expect(api.creators.actions.assimilateCreator).toBeTruthy();
   });
 });
 
@@ -53,7 +53,7 @@ describe('AC-4: assimilateCreator can force regenerate transcripts', () => {
 describe('AC-5: assimilateCreator returns structured response with counts', () => {
   it('should return object with documentId, videosFound, transcriptsCreated, transcriptsSkipped, status', async () => {
     const { api } = await import('../../convex/_generated/api');
-    expect(api.creators.actions.assimilateCreator).toBeDefined();
+    expect(api.creators.actions.assimilateCreator).toBeTruthy();
   });
 });
 
@@ -63,6 +63,6 @@ describe('AC-5: assimilateCreator returns structured response with counts', () =
 describe('AC-6: assimilateCreator handles YouTube API failures gracefully', () => {
   it('should return error object when YouTube API fails', async () => {
     const { api } = await import('../../convex/_generated/api');
-    expect(api.creators.actions.assimilateCreator).toBeDefined();
+    expect(api.creators.actions.assimilateCreator).toBeTruthy();
   });
 });

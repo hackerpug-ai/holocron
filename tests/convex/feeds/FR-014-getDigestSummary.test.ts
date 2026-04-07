@@ -8,7 +8,7 @@ describe("FR-014: getDigestSummary Query", () => {
       // Should export getDigestSummary
       expect(queriesModule).toHaveProperty("getDigestSummary");
       const getDigestSummary = queriesModule.getDigestSummary;
-      expect(getDigestSummary).toBeDefined();
+      expect(getDigestSummary).toBeTruthy();
     });
   });
 
@@ -18,7 +18,7 @@ describe("FR-014: getDigestSummary Query", () => {
       const getDigestSummary = queriesModule.getDigestSummary;
 
       // Query should be defined
-      expect(getDigestSummary).toBeDefined();
+      expect(getDigestSummary).toBeTruthy();
     });
 
     it("should have since defined as optional number in args", async () => {
@@ -149,10 +149,10 @@ describe("FR-014: getDigestSummary Query", () => {
       const queriesModule = await import("../../../convex/feeds/queries");
 
       // Module should load without type errors
-      expect(queriesModule).toBeDefined();
+      expect(queriesModule).toBeTruthy();
 
       const getDigestSummary = queriesModule.getDigestSummary;
-      expect(getDigestSummary).toBeDefined();
+      expect(getDigestSummary).toBeTruthy();
     });
   });
 });

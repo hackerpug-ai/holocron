@@ -32,7 +32,7 @@ describe('Agent Plans Security (Task #417)', () => {
   describe('AC-1: Server-side requiresApproval allowlist', () => {
     it('toolConfig.ts should export TOOLS_REQUIRING_APPROVAL as a Set', async () => {
       const toolConfig = await import('../../convex/agentPlans/toolConfig');
-      expect(toolConfig.TOOLS_REQUIRING_APPROVAL).toBeDefined();
+      expect(toolConfig.TOOLS_REQUIRING_APPROVAL).toBeTruthy();
       expect(toolConfig.TOOLS_REQUIRING_APPROVAL).toBeInstanceOf(Set);
     });
 
@@ -68,7 +68,7 @@ describe('Agent Plans Security (Task #417)', () => {
   describe('AC-2: toolName validation', () => {
     it('toolConfig.ts should export VALID_TOOL_NAMES as a Set', async () => {
       const toolConfig = await import('../../convex/agentPlans/toolConfig');
-      expect(toolConfig.VALID_TOOL_NAMES).toBeDefined();
+      expect(toolConfig.VALID_TOOL_NAMES).toBeTruthy();
       expect(toolConfig.VALID_TOOL_NAMES).toBeInstanceOf(Set);
     });
 

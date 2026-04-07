@@ -27,7 +27,7 @@ describe('WhatsNewScreen - AC-1: Card-based stream layout', () => {
     it('should have index.tsx file in whats-new directory', () => {
       // This test will FAIL until we create the file
       const source = readComponent()
-      expect(source).toBeDefined()
+      expect(source).toBeTruthy()
     })
 
     it('should export a default component for Expo Router', () => {

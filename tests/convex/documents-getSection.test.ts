@@ -19,12 +19,12 @@ describe('Task-142: documents.getSection', () => {
   describe('AC-1: getSection is exported', () => {
     it('should export getSection query from documents/queries', async () => {
       const queries = await import('../../convex/documents/queries');
-      expect(queries.getSection).toBeDefined();
+      expect(queries.getSection).toBeTruthy();
     });
 
     it('should be accessible via generated api', async () => {
       const { api } = await import('../../convex/_generated/api');
-      expect(api.documents.queries.getSection).toBeDefined();
+      expect(api.documents.queries.getSection).toBeTruthy();
     });
   });
 
@@ -38,7 +38,7 @@ describe('Task-142: documents.getSection', () => {
     it('should export getSection as a Convex query callable', async () => {
       const queries = await import('../../convex/documents/queries');
       // Convex query() returns a callable (function)
-      expect(queries.getSection).toBeDefined();
+      expect(queries.getSection).toBeTruthy();
       expect(queries.getSection).not.toBeNull();
     });
   });
@@ -54,9 +54,9 @@ describe('Task-142: documents.getSection', () => {
       const queries = await import('../../convex/documents/queries');
       const { api } = await import('../../convex/_generated/api');
 
-      expect(queries.getSection).toBeDefined();
+      expect(queries.getSection).toBeTruthy();
       // api is a Proxy (anyApi) so any path resolves - verify the path is accessible
-      expect(api.documents.queries).toBeDefined();
+      expect(api.documents.queries).toBeTruthy();
     });
   });
 

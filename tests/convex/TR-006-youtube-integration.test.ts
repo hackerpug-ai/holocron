@@ -17,9 +17,9 @@ describe('AC-1: New YouTube video creates transcript job', () => {
     // 1. The internal function exists
     // 2. The createTranscriptJob mutation is accessible
     const { internal } = await import('../../convex/_generated/api');
-    expect(internal.transcripts).toBeDefined();
-    expect(internal.transcripts.mutations).toBeDefined();
-    expect(internal.transcripts.mutations.createTranscriptJob).toBeDefined();
+    expect(internal.transcripts).toBeTruthy();
+    expect(internal.transcripts.mutations).toBeTruthy();
+    expect(internal.transcripts.mutations.createTranscriptJob).toBeTruthy();
   });
 });
 
@@ -31,7 +31,7 @@ describe('AC-2: Existing transcript prevents duplicate job', () => {
     // This test requires a full Convex test setup
     // For now, we verify the idempotent createTranscriptJob function exists
     const { internal } = await import('../../convex/_generated/api');
-    expect(internal.transcripts.mutations.createTranscriptJob).toBeDefined();
+    expect(internal.transcripts.mutations.createTranscriptJob).toBeTruthy();
   });
 });
 
@@ -43,7 +43,7 @@ describe('AC-3: Transcript job status is tracked', () => {
     // This test requires a full Convex test setup
     // For now, we verify the job tracking mutations exist
     const { internal } = await import('../../convex/_generated/api');
-    expect(internal.transcripts.mutations.updateJobStatus).toBeDefined();
+    expect(internal.transcripts.mutations.updateJobStatus).toBeTruthy();
   });
 });
 
@@ -55,7 +55,7 @@ describe('AC-4: Transcript metadata linked to subscription content', () => {
     // This test requires a full Convex test setup
     // For now, we verify the subscription content structure supports transcripts
     const { internal } = await import('../../convex/_generated/api');
-    expect(internal.subscriptions).toBeDefined();
+    expect(internal.subscriptions).toBeTruthy();
   });
 });
 
@@ -67,7 +67,7 @@ describe('AC-5: Transcript job creation failure is handled gracefully', () => {
     // This test requires a full Convex test setup
     // For now, we verify the error handling pattern exists
     const { internal } = await import('../../convex/_generated/api');
-    expect(internal.transcripts.mutations.createTranscriptJob).toBeDefined();
+    expect(internal.transcripts.mutations.createTranscriptJob).toBeTruthy();
   });
 });
 
@@ -79,6 +79,6 @@ describe('AC-6: Multiple videos create multiple transcript jobs', () => {
     // This test requires a full Convex test setup
     // For now, we verify the batch processing exists
     const { internal } = await import('../../convex/_generated/api');
-    expect(internal.transcripts.mutations.createTranscriptJob).toBeDefined();
+    expect(internal.transcripts.mutations.createTranscriptJob).toBeTruthy();
   });
 });

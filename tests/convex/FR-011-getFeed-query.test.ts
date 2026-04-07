@@ -8,7 +8,7 @@ describe("FR-011: Create getFeed query with pagination", () => {
         const queriesModule = await import("../../../convex/feeds/queries");
 
         // Module should exist
-        expect(queriesModule).toBeDefined();
+        expect(queriesModule).toBeTruthy();
 
         // Should have exports
         expect(Object.keys(queriesModule).length).toBeGreaterThan(0);
@@ -61,7 +61,7 @@ describe("FR-011: Create getFeed query with pagination", () => {
         expect(queriesModule).toHaveProperty("getFeed");
 
         const getFeed = queriesModule.getFeed;
-        expect(getFeed).toBeDefined();
+        expect(getFeed).toBeTruthy();
       } catch (error) {
         // Test passes if module doesn't exist yet
         expect((error as Error).message).toMatch(/Cannot find|Failed to load/);

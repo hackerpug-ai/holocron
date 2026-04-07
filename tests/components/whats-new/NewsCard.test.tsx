@@ -27,7 +27,7 @@ describe('NewsCard - AC-2 & AC-3: Media support with error handling', () => {
     it('should have NewsCard component file', () => {
       // This test will FAIL until we create the file
       const source = readComponent()
-      expect(source).toBeDefined()
+      expect(source).toBeTruthy()
     })
 
     it('should export NewsCard as named export', () => {

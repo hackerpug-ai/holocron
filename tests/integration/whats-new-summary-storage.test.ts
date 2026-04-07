@@ -37,7 +37,7 @@ describe("US-SUMM-002: Summary Storage & Retrieval", () => {
       // Verify the createReport mutation accepts findingsJson with summaries
       const createReport = whatsNewMutations.createReport;
 
-      expect(createReport).toBeDefined();
+      expect(createReport).toBeTruthy();
       expect(typeof createReport).toBe("function");
 
       // Verify we can serialize findings with summaries to JSON
@@ -104,14 +104,14 @@ describe("US-SUMM-002: Summary Storage & Retrieval", () => {
         // summary is optional, so this should be valid
       };
 
-      expect(findingWithSummary.summary).toBeDefined();
+      expect(findingWithSummary.summary).toBeTruthy();
       expect(findingWithoutSummary.summary).toBeUndefined();
     });
 
     it("should have getLatestFindings query that returns summary field", async () => {
       const { getLatestFindings } = await import("../../convex/whatsNew/queries");
 
-      expect(getLatestFindings).toBeDefined();
+      expect(getLatestFindings).toBeTruthy();
       expect(typeof getLatestFindings).toBe("function");
     });
 
@@ -243,20 +243,20 @@ describe("US-SUMM-002: Summary Storage & Retrieval", () => {
       const whatsNewInternal = await import("../../convex/whatsNew/internal");
 
       // Verify the main query is exported
-      expect(whatsNewQueries.getLatestReport).toBeDefined();
-      expect(whatsNewQueries.getLatestFindings).toBeDefined();
+      expect(whatsNewQueries.getLatestReport).toBeTruthy();
+      expect(whatsNewQueries.getLatestFindings).toBeTruthy();
 
       // Verify the internal mutations are exported
-      expect(whatsNewMutations.createReport).toBeDefined();
+      expect(whatsNewMutations.createReport).toBeTruthy();
 
       // Verify internal queries are exported
-      expect(whatsNewInternal.getTodaysReport).toBeDefined();
+      expect(whatsNewInternal.getTodaysReport).toBeTruthy();
     });
 
     it("should have getLatestFindings that filters by category", async () => {
       const { getLatestFindings } = await import("../../convex/whatsNew/queries");
 
-      expect(getLatestFindings).toBeDefined();
+      expect(getLatestFindings).toBeTruthy();
 
       // Verify category filter works
       const findings = [
@@ -289,7 +289,7 @@ describe("US-SUMM-002: Summary Storage & Retrieval", () => {
     it("should provide complete report metadata with findings", async () => {
       const { getLatestFindings } = await import("../../convex/whatsNew/queries");
 
-      expect(getLatestFindings).toBeDefined();
+      expect(getLatestFindings).toBeTruthy();
 
       // Verify the query returns both findings and report metadata
       type GetLatestFindingsResult = {

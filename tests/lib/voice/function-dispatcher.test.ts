@@ -70,7 +70,7 @@ describe('server-side tool dispatch', () => {
 
     // Must send conversation.item.create with correct call_id
     const itemCreate = getItemCreateCall(deps.sendEvent as ReturnType<typeof vi.fn>)
-    expect(itemCreate).toBeDefined()
+    expect(itemCreate).toBeTruthy()
     const item = itemCreate!.item as Record<string, unknown>
     expect(item.call_id).toBe('call_search1')
     expect(item.type).toBe('function_call_output')
@@ -82,7 +82,7 @@ describe('server-side tool dispatch', () => {
 
     // Must send response.create after
     const responseCreate = getResponseCreateCall(deps.sendEvent as ReturnType<typeof vi.fn>)
-    expect(responseCreate).toBeDefined()
+    expect(responseCreate).toBeTruthy()
     expect(responseCreate!.type).toBe('response.create')
   })
 
@@ -207,16 +207,16 @@ describe('dispatch error handling', () => {
 
     // Must send error result, not throw — error must be user-friendly
     const itemCreate = getItemCreateCall(deps.sendEvent as ReturnType<typeof vi.fn>)
-    expect(itemCreate).toBeDefined()
+    expect(itemCreate).toBeTruthy()
     const item = itemCreate!.item as Record<string, unknown>
     const output = JSON.parse(item.output as string) as { success: boolean; error: string }
     expect(output.success).toBe(false)
     expect(output.error).not.toContain('Convex search failed')
-    expect(output.error).toBeDefined()
+    expect(output.error).toBeTruthy()
 
     // Must still send response.create
     const responseCreate = getResponseCreateCall(deps.sendEvent as ReturnType<typeof vi.fn>)
-    expect(responseCreate).toBeDefined()
+    expect(responseCreate).toBeTruthy()
 
     // Must record voiceCommand with success=false
     await new Promise((resolve) => setTimeout(resolve, 10))
@@ -325,7 +325,7 @@ describe('permanent error', () => {
 
     // Must still send response.create
     const responseCreate = getResponseCreateCall(deps.sendEvent as ReturnType<typeof vi.fn>)
-    expect(responseCreate).toBeDefined()
+    expect(responseCreate).toBeTruthy()
   })
 })
 
@@ -381,7 +381,7 @@ describe('error logged', () => {
     const recordArgs = recordCalls[0][1] as Record<string, unknown>
     expect(recordArgs.success).toBe(false)
     const result = recordArgs.result as Record<string, unknown>
-    expect(result.error).toBeDefined()
+    expect(result.error).toBeTruthy()
     expect(result.success).toBe(false)
   })
 })

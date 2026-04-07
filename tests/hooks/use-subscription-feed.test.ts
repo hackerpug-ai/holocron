@@ -23,7 +23,7 @@ describe("FR-019: Create useSubscriptionFeed hook", () => {
   describe("AC-1: Hook fetches feed items with useQuery", () => {
     it("should create hooks/use-subscription-feed.ts file", () => {
       const content = readHook();
-      expect(content).toBeDefined();
+      expect(content).toBeTruthy();
       expect(content.length).toBeGreaterThan(0);
     });
 

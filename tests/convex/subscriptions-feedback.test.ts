@@ -30,7 +30,7 @@ describe('Subscription Feedback Mutations - AC-3 & AC-4: Feedback submission', (
   describe('RED Phase: Tests fail before implementation', () => {
     it('should have feedback mutations file', () => {
       const source = readMutations()
-      expect(source).toBeDefined()
+      expect(source).toBeTruthy()
       expect(source.length).toBeGreaterThan(0)
     })
 

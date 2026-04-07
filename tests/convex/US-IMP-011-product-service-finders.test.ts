@@ -51,7 +51,7 @@ describe("AC-1: Product specialist generates product report", () => {
   it("should have product finder specialist implementation", () => {
     const files = listSpecialistFiles();
     const productFile = files.find((f) => f.match(/product/i));
-    expect(productFile).toBeDefined();
+    expect(productFile).toBeTruthy();
   });
 
   it("should export executeProductFinder function", () => {
@@ -137,7 +137,7 @@ describe("AC-3: Service specialist generates service report", () => {
   it("should have service finder specialist implementation", () => {
     const files = listSpecialistFiles();
     const serviceFile = files.find((f) => f.match(/service/i));
-    expect(serviceFile).toBeDefined();
+    expect(serviceFile).toBeTruthy();
   });
 
   it("should export executeServiceFinder function", () => {
