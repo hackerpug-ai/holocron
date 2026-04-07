@@ -94,6 +94,7 @@ import type * as lib_ai_embeddings_provider from "../lib/ai/embeddings_provider.
 import type * as lib_ai_zai_provider from "../lib/ai/zai_provider.js";
 import type * as lib_categories from "../lib/categories.js";
 import type * as lib_json from "../lib/json.js";
+import type * as lib_logger from "../lib/logger.js";
 import type * as lib_reportFormat from "../lib/reportFormat.js";
 import type * as lib_reportTemplates from "../lib/reportTemplates.js";
 import type * as lib_strings from "../lib/strings.js";
@@ -304,6 +305,7 @@ declare const fullApi: ApiFromModules<{
   "lib/ai/zai_provider": typeof lib_ai_zai_provider;
   "lib/categories": typeof lib_categories;
   "lib/json": typeof lib_json;
+  "lib/logger": typeof lib_logger;
   "lib/reportFormat": typeof lib_reportFormat;
   "lib/reportTemplates": typeof lib_reportTemplates;
   "lib/strings": typeof lib_strings;
