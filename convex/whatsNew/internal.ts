@@ -7,6 +7,9 @@
 import { v } from "convex/values";
 import { internalQuery } from "../_generated/server";
 
+// Re-export workflow functions for internal access
+export * from "./workflow";
+
 /**
  * Check if today's report already exists (internal)
  *

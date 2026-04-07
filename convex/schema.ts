@@ -374,6 +374,29 @@ export default defineSchema({
     .index("by_created", ["createdAt"])
     .index("by_period", ["periodStart", "periodEnd"]),
 
+  // What's New workflow orchestration - splits monolithic report generation into timeout-safe phases
+  whatsNewWorkflows: defineTable({
+    phase: v.union(
+      v.literal("pending"),
+      v.literal("fetching"),
+      v.literal("enriching"),
+      v.literal("synthesizing"),
+      v.literal("completed"),
+      v.literal("failed")
+    ),
+    days: v.number(),
+    force: v.boolean(),
+    startedAt: v.number(), // Workflow start timestamp
+    updatedAt: v.number(), // Last phase update timestamp
+    completedAt: v.optional(v.number()), // Completion timestamp
+    findingsCount: v.number(), // Number of findings after deduplication
+    findingsJson: v.optional(v.string()), // JSON string of findings (evolves: raw → enriched)
+    error: v.optional(v.string()), // Error message if failed
+    reportId: v.optional(v.id("whatsNewReports")), // Link to final report when complete
+  })
+    .index("by_updated", ["updatedAt"])
+    .index("by_phase", ["phase"]),
+
   // Toolbelt tools - Developer tools knowledge base
   toolbeltTools: defineTable({
     // Core fields

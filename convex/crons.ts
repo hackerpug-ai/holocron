@@ -1,5 +1,6 @@
 import { cronJobs } from "convex/server";
 import { internal } from "./_generated/api";
+import { makeFunctionReference } from "convex/server";
 
 /**
  * Convex Cron Jobs
@@ -8,6 +9,21 @@ import { internal } from "./_generated/api";
  *
  * @see https://docs.convex.dev/scheduling/cron-jobs
  */
+
+// Function references for scheduled/internal functions that may not be
+// available in the generated API at type-check time.
+const backfillOrphanedEmbeddings = makeFunctionReference<
+  "action",
+  {},
+  any
+>("documents/scheduled:backfillOrphanedEmbeddings");
+
+// Workflow-based daily report generation (replaces monolithic action)
+const startDailyReportWorkflow = makeFunctionReference<
+  "mutation",
+  { days?: number; force?: boolean },
+  any
+>("whatsNew/workflow:startWorkflow");
 
 const crons = cronJobs();
 
@@ -114,7 +130,7 @@ crons.daily(
 crons.interval(
   "document-embedding-backfill",
   { hours: 1 }, // Run every hour
-  (internal as any).documents.scheduled.backfillOrphanedEmbeddings
+  backfillOrphanedEmbeddings
 );
 
 /**
@@ -125,12 +141,17 @@ crons.interval(
  * - Fetches from Reddit, HN, GitHub, Dev.to, Lobsters
  * - Synthesizes into markdown report with embeddings
  * - Stores as document for MCP/app retrieval
+ *
+ * Uses workflow orchestration to avoid timeout issues:
+ * - Phase 1: Fetch from all sources (120s timeout)
+ * - Phase 2: Enrich findings with quality scoring (180s timeout)
+ * - Phase 3: Synthesize markdown report (180s timeout)
  */
 crons.daily(
   "whats-new-daily",
   { hourUTC: 13, minuteUTC: 0 }, // 6 AM PST
-  internal.whatsNew.actions.generateDailyReport as any,
-  {} as any
+  startDailyReportWorkflow,
+  {}
 );
 
 /**

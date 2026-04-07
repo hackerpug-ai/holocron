@@ -50,7 +50,7 @@ interface FetchResult {
 // RSS Parser Helper (shared with subscriptions module)
 // ============================================================================
 
-async function parseRSSFeed(
+export async function parseRSSFeed(
   url: string
 ): Promise<Array<{ title: string; link: string; published: string }>> {
   const response = await fetch(url, {
@@ -107,7 +107,7 @@ async function parseRSSFeed(
  * Uses JSON API instead of RSS to get engagement data (upvotes, comments)
  * for quality scoring. Falls back to RSS if JSON API fails.
  */
-async function fetchReddit(days: number): Promise<FetchResult> {
+export async function fetchReddit(days: number): Promise<FetchResult> {
   const subreddits = [
     "LocalLLaMA", "MachineLearning", "ClaudeAI", "artificial",
     "ChatGPT", "devtools", "OpenAI", "CursorAI", "SideProject",
@@ -184,7 +184,7 @@ async function fetchReddit(days: number): Promise<FetchResult> {
 /**
  * Fetch from Hacker News (top/new stories)
  */
-async function fetchHackerNews(days: number): Promise<FetchResult> {
+export async function fetchHackerNews(days: number): Promise<FetchResult> {
   const findings: Finding[] = [];
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - days);
@@ -265,7 +265,7 @@ async function fetchHackerNews(days: number): Promise<FetchResult> {
 /**
  * Fetch trending AI repositories from GitHub
  */
-async function fetchGitHub(days: number): Promise<FetchResult> {
+export async function fetchGitHub(days: number): Promise<FetchResult> {
   const findings: Finding[] = [];
 
   const cutoffDate = new Date();
@@ -319,7 +319,7 @@ async function fetchGitHub(days: number): Promise<FetchResult> {
 /**
  * Fetch from Dev.to AI tag
  */
-async function fetchDevTo(days: number): Promise<FetchResult> {
+export async function fetchDevTo(days: number): Promise<FetchResult> {
   const findings: Finding[] = [];
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - days);
@@ -361,7 +361,7 @@ async function fetchDevTo(days: number): Promise<FetchResult> {
 /**
  * Fetch from Lobsters (tech discussion)
  */
-async function fetchLobsters(days: number): Promise<FetchResult> {
+export async function fetchLobsters(days: number): Promise<FetchResult> {
   const findings: Finding[] = [];
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - days);
@@ -395,7 +395,7 @@ async function fetchLobsters(days: number): Promise<FetchResult> {
  * Fetches latest releases from specified repositories.
  * Focuses on AI/ML tools and frameworks.
  */
-async function fetchChangelog(days: number): Promise<FetchResult> {
+export async function fetchChangelog(days: number): Promise<FetchResult> {
   const findings: Finding[] = [];
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - days);
@@ -470,7 +470,7 @@ async function fetchChangelog(days: number): Promise<FetchResult> {
  * Uses public Bluesky API - no auth required.
  * Accepts dynamic account list from subscriptions.
  */
-async function fetchBluesky(days: number, accounts: Array<{ handle: string; name: string }>): Promise<FetchResult> {
+export async function fetchBluesky(days: number, accounts: Array<{ handle: string; name: string }>): Promise<FetchResult> {
   const findings: Finding[] = [];
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - days);
@@ -544,7 +544,7 @@ async function fetchBluesky(days: number, accounts: Array<{ handle: string; name
  * No Twitter API key needed — Exa crawls and indexes Twitter content.
  * Results pass through the same quality scoring pipeline as Reddit.
  */
-async function fetchTwitter(days: number): Promise<FetchResult> {
+export async function fetchTwitter(days: number): Promise<FetchResult> {
   const findings: Finding[] = [];
 
   const cutoffDate = new Date();
@@ -648,7 +648,7 @@ async function fetchTwitter(days: number): Promise<FetchResult> {
  * Supplements the direct API fetches with neural web search to find
  * things that Reddit/HN/GitHub APIs might miss.
  */
-async function fetchWebSearch(days: number): Promise<FetchResult> {
+export async function fetchWebSearch(days: number): Promise<FetchResult> {
   const findings: Finding[] = [];
 
   const cutoffDate = new Date();
@@ -741,7 +741,7 @@ async function fetchWebSearch(days: number): Promise<FetchResult> {
 /**
  * Deduplicate findings by URL
  */
-function deduplicateFindings(findings: Finding[]): Finding[] {
+export function deduplicateFindings(findings: Finding[]): Finding[] {
   const seen = new Set<string>();
   const unique: Finding[] = [];
 
@@ -765,7 +765,7 @@ function deduplicateFindings(findings: Finding[]): Finding[] {
  * Cap findings per source to prevent any single source from dominating.
  * Keeps top N findings per source, sorted by score descending.
  */
-function capFindingsPerSource(findings: Finding[], maxPerSource: number): Finding[] {
+export function capFindingsPerSource(findings: Finding[], maxPerSource: number): Finding[] {
   const bySource = new Map<string, Finding[]>();
   for (const finding of findings) {
     // Normalize source to base name (e.g., "Bluesky (@foo)" -> "Bluesky")
@@ -789,7 +789,7 @@ function capFindingsPerSource(findings: Finding[], maxPerSource: number): Findin
 /**
  * Categorize findings
  */
-function categorizeFindings(findings: Finding[]) {
+export function categorizeFindings(findings: Finding[]) {
   const discoveries = findings.filter((f) => f.category === "discovery");
   const releases = findings.filter((f) => f.category === "release");
   const trends = findings.filter((f) => f.category === "trend");
@@ -802,7 +802,7 @@ function categorizeFindings(findings: Finding[]) {
  * Calculate cross-source corroboration for findings
  * Returns the count of findings mentioned by multiple sources
  */
-function calculateCorroboration(findings: Finding[]): number {
+export function calculateCorroboration(findings: Finding[]): number {
   // Group findings by URL pattern to detect cross-source mentions
   const urlGroups = new Map<string, number>();
 
@@ -831,7 +831,7 @@ function calculateCorroboration(findings: Finding[]): number {
  * Populate crossSourceCorroboration on each finding.
  * Mutates the findings array in place.
  */
-function populatePerFindingCorroboration(findings: Finding[]): void {
+export function populatePerFindingCorroboration(findings: Finding[]): void {
   const urlGroups = new Map<string, number>();
 
   for (const finding of findings) {
@@ -859,7 +859,7 @@ function populatePerFindingCorroboration(findings: Finding[]): void {
  * Calculate top engagement velocity from findings
  * Returns the highest engagement velocity score (0-100)
  */
-function calculateTopEngagementVelocity(findings: Finding[]): number {
+export function calculateTopEngagementVelocity(findings: Finding[]): number {
   let maxVelocity = 0;
 
   for (const finding of findings) {
@@ -883,7 +883,7 @@ function calculateTopEngagementVelocity(findings: Finding[]): number {
 /**
  * Extract unique sources from findings
  */
-function extractSources(findings: Finding[]): string[] {
+export function extractSources(findings: Finding[]): string[] {
   const uniqueSources = new Set<string>();
   for (const finding of findings) {
     uniqueSources.add(finding.source);
@@ -905,7 +905,7 @@ function extractSources(findings: Finding[]): string[] {
  * Only scores social/discussion sources (Reddit, Bluesky, Lobsters).
  * Releases, GitHub repos, and HN (already score-filtered) pass through.
  */
-async function scoreFindingsQuality(
+export async function scoreFindingsQuality(
   findings: Finding[]
 ): Promise<Finding[]> {
   // Separate findings that need scoring from those that don't
@@ -1226,8 +1226,9 @@ Respond with ONLY a JSON array: [{"url": "...", "summary": "..."}]`;
         }
       }
 
-      const enrichedCount = findingsNeedingAiSummary.filter((f) => f.summary && f.summary.length >= 80).length;
-      
+      // Track enrichment coverage
+      const _enrichedCount = findingsNeedingAiSummary.filter((f) => f.summary && f.summary.length >= 80).length;
+      console.log(`[generateDailyReport] Enriched ${_enrichedCount}/${findingsNeedingAiSummary.length} findings with AI summaries`);
     }
 
     // 6. Generate markdown report using two-pass LLM synthesis with static fallback
@@ -1267,9 +1268,6 @@ Respond with ONLY a JSON array: [{"url": "...", "summary": "..."}]`;
     const toolSuggestionsJson = synthesisResult.toolSuggestions
       ? JSON.stringify(synthesisResult.toolSuggestions)
       : undefined;
-
-    if (synthesisResult.toolSuggestions) {
-    }
 
     const findingsJson = JSON.stringify(cappedFindings);
 
