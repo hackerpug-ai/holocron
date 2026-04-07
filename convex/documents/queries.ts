@@ -88,16 +88,7 @@ export const countWithFilter = query({
         .query("documentCounters")
         .withIndex("by_name", (q) => q.eq("name", "total"))
         .first();
-
-      // If counter doesn't exist or is 0, fall back to actual count
-      // This handles cases where the counter hasn't been initialized yet
-      if (counter && counter.count > 0) {
-        return counter.count;
-      }
-
-      // Fallback: count all documents
-      const allDocs = await ctx.db.query("documents").collect();
-      return allDocs.length;
+      return counter?.count ?? 0;
     }
 
     // Return category-specific count
@@ -105,16 +96,7 @@ export const countWithFilter = query({
       .query("documentCounters")
       .withIndex("by_name", (q) => q.eq("name", category))
       .first();
-
-    // If counter doesn't exist or is 0, fall back to actual count
-    if (counter && counter.count > 0) {
-      return counter.count;
-    }
-
-    // Fallback: filter and count documents in this category
-    const allDocs = await ctx.db.query("documents").collect();
-    const categoryDocs = allDocs.filter((doc) => doc.category === category);
-    return categoryDocs.length;
+    return counter?.count ?? 0;
   },
 });
 
