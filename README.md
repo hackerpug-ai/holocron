@@ -12,28 +12,44 @@ Holocron is a cross-platform application that helps you manage documents, conduc
 - Real-time updates and progress tracking
 - Cross-platform support (iOS, Android, Web)
 
-## 📸 Screenshots
+## ✨ Features
 
-> **Want to add screenshots?** See [docs/screenshots/README.md](docs/screenshots/README.md) for guidelines.
+### AI-Powered Chat
+<a href="assets/readme/features/chat.png">
+  <img src="assets/readme/features/chat.png" alt="Chat Interface" width="200">
+</a>
+<a href="assets/readme/features/chat-dark.png">
+  <img src="assets/readme/features/chat-dark.png" alt="Chat Dark Mode" width="200">
+</a>
 
-### Key Screens
+Natural conversations with slash commands (`/search`, `/browse`, `/stats`) and real-time AI responses. Click images to view full size.
 
-| Screen | Description | Status |
-|--------|-------------|--------|
-| `chat-interface.png` | Main chat interface with slash commands | 📸 Needed |
-| `chat-interface-dark.png` | Chat interface in dark mode | 📸 Needed |
-| `search-results.png` | Document search with hybrid results | 📸 Needed |
-| `research-workflow.png` | Deep research with progress tracking | 📸 Needed |
-| `document-management.png` | Document browser and management | 📸 Needed |
-| `articles-list.png` | Article feed with filtering | 📸 Needed |
-| `settings-screen.png` | Settings and preferences | 📸 Needed |
-| `web-view.png` | Web view for external content | 📸 Needed |
+### Article Management
+<a href="assets/readme/features/article-listen.png">
+  <img src="assets/readme/features/article-listen.png" alt="Article List" width="200">
+</a>
+<a href="assets/readme/features/article-menu.png">
+  <img src="assets/readme/features/article-menu.png" alt="Article Menu" width="200">
+</a>
+<a href="assets/readme/features/article-search.png">
+  <img src="assets/readme/features/article-search.png" alt="Article Search" width="200">
+</a>
 
-**To contribute screenshots:**
-1. Run the app: `pnpm start`
-2. Capture screen (iOS: `Cmd+S`, Android: `Cmd+Shift+S`)
-3. Place in `docs/screenshots/` with descriptive name
-4. Update this table to mark as ✅ Added
+Browse, search, and listen to articles from your knowledge base. Full-text search with instant results and audio playback support.
+
+### Article Details
+<a href="assets/readme/features/article-details.png">
+  <img src="assets/readme/features/article-details.png" alt="Article Details" width="200">
+</a>
+<a href="assets/readme/features/article-webview.png">
+  <img src="assets/readme/features/article-webview.png" alt="Article WebView" width="200">
+</a>
+
+Read article details or open in integrated web view for full content. Save highlights and manage your reading list.
+
+---
+
+**Click any thumbnail to view the full-size screenshot.**
 
 ## 🚀 Getting Started
 
