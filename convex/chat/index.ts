@@ -874,26 +874,7 @@ export const send = action({
         const rawDays = parsed.args ? parseInt(parsed.args, 10) : 1
         const days = Number.isNaN(rawDays) ? 1 : Math.max(1, Math.min(30, rawDays));
         try {
-          const reportData: {
-            report?: {
-              _id: string;
-              days: number;
-              periodStart: number;
-              periodEnd: number;
-              findingsCount: number;
-              discoveryCount: number;
-              releaseCount: number;
-              trendCount: number;
-              summaryJson?: {
-                topSources?: [string, number][];
-                topEngagementVelocity?: number;
-                totalCorroborationCount?: number;
-                sources?: string[];
-              };
-            };
-            content?: string | null;
-            isFromToday?: boolean;
-          } | null = await ctx.runQuery(
+          const reportData = await ctx.runQuery(
             api.whatsNew.queries.getLatestReport,
             {}
           );

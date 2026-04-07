@@ -26,7 +26,7 @@ export default defineSchema({
       v.literal("tool_approval"),
       v.literal("agent_plan")
     ),
-    cardData: v.optional(v.any()),
+    cardData: v.optional(v.record(v.string(), v.any())), // Heterogeneous card payload: shape varies by messageType (result_card, progress, tool_approval, etc.)
     sessionId: v.optional(v.id("researchSessions")),
     voiceSessionId: v.optional(v.id("voiceSessions")),
     documentId: v.optional(v.id("documents")),
@@ -82,8 +82,8 @@ export default defineSchema({
     maxIterations: v.optional(v.number()),
     currentIteration: v.optional(v.number()),
     coverageScore: v.optional(v.number()),
-    plan: v.optional(v.any()),
-    findings: v.optional(v.any()),
+    plan: v.optional(v.record(v.string(), v.any())), // Complex JSON from execution plan (tracks, content, metadata)
+    findings: v.optional(v.string()), // Synthesized findings text from iterations
     documentId: v.optional(v.id("documents")),
     errorText: v.optional(v.string()),
     createdAt: v.number(),
@@ -97,11 +97,11 @@ export default defineSchema({
     sessionId: v.id("researchSessions"),
     iterationNumber: v.number(),
     findingsSummary: v.optional(v.string()),
-    sources: v.optional(v.any()),
+    sources: v.optional(v.array(v.record(v.string(), v.any()))), // Array of source objects (url, title, snippet, etc.)
     reviewScore: v.optional(v.number()),
     reviewFeedback: v.optional(v.string()),
-    reviewGaps: v.optional(v.any()),
-    refinedQueries: v.optional(v.any()),
+    reviewGaps: v.optional(v.array(v.string())), // Identified research gaps as string list
+    refinedQueries: v.optional(v.array(v.string())), // Follow-up queries for next iteration
     createdAt: v.number(),
   }).index("by_session", ["sessionId"]),
 
@@ -153,7 +153,7 @@ export default defineSchema({
     coverageScore: v.optional(v.number()),
     feedback: v.optional(v.string()),
     findings: v.optional(v.string()),
-    refinedQueries: v.optional(v.any()),
+    refinedQueries: v.optional(v.array(v.string())), // Follow-up queries for next iteration
     status: v.union(
       v.literal("pending"),
       v.literal("processing"),
@@ -200,7 +200,13 @@ export default defineSchema({
     confidenceScore: v.number(),
     confidenceLevel: v.string(), // HIGH | MEDIUM | LOW
     citationIds: v.array(v.id("citations")),
-    confidenceFactors: v.optional(v.any()), // Full factor details for transparency
+    confidenceFactors: v.optional(v.object({
+      sourceCredibilityScore: v.number(), // 0-100
+      evidenceQualityScore: v.number(), // 0-100
+      corroborationScore: v.number(), // 0-100
+      recencyScore: v.number(), // 0-100
+      expertConsensusScore: v.number(), // 0-100
+    })), // Full 5-factor confidence scores for transparency
     caveats: v.optional(v.array(v.string())), // MEDIUM confidence caveats
     warnings: v.optional(v.array(v.string())), // LOW confidence warnings
     embedding: v.optional(v.array(v.float64())), // 1024 dimensions (Z.ai embedding-2/embedding-3)
@@ -227,13 +233,13 @@ export default defineSchema({
       v.literal("error"),
       v.literal("cancelled")
     ),
-    config: v.optional(v.any()),
+    config: v.optional(v.record(v.string(), v.any())), // Task-type-specific config (varies by taskType: deep-research, research, shop, etc.)
     currentStep: v.optional(v.number()),
     totalSteps: v.optional(v.number()),
     progressMessage: v.optional(v.string()),
-    result: v.optional(v.any()),
+    result: v.optional(v.record(v.string(), v.any())), // Task-type-specific result (varies by taskType)
     errorMessage: v.optional(v.string()),
-    errorDetails: v.optional(v.any()),
+    errorDetails: v.optional(v.record(v.string(), v.any())), // Error context (stack, cause, etc.)
     startedAt: v.optional(v.number()),
     completedAt: v.optional(v.number()),
     createdAt: v.number(),
@@ -282,7 +288,7 @@ export default defineSchema({
     url: v.optional(v.string()),
     feedUrl: v.optional(v.string()),
     fetchMethod: v.string(), // rss, api, web_search
-    configJson: v.optional(v.any()),
+    configJson: v.optional(v.record(v.string(), v.any())), // Source-type-specific config (creatorProfileId, platform handles, tiers, etc.)
     autoResearch: v.boolean(),
     creatorProfileId: v.optional(v.id("creatorProfiles")), // Link to creator profile (for multi-platform aggregation)
     lastChecked: v.optional(v.number()),
@@ -299,7 +305,7 @@ export default defineSchema({
     contentId: v.string(), // video ID, post ID, item ID, etc.
     title: v.string(),
     url: v.optional(v.string()),
-    metadataJson: v.optional(v.any()),
+    metadataJson: v.optional(v.record(v.string(), v.any())), // Platform-specific media metadata (duration, viewCount, publishedAt, etc.)
     passedFilter: v.boolean(),
     filterReason: v.optional(v.string()),
     researchStatus: v.union(
@@ -340,7 +346,7 @@ export default defineSchema({
     sourceType: v.optional(v.string()), // for type-level rules
     ruleName: v.string(),
     ruleType: v.string(), // keyword_whitelist, keyword_blacklist, min_score, etc.
-    ruleValue: v.any(),
+    ruleValue: v.any(), // Rule-type-specific value: string[] for keyword rules, number for min_score/max_age — no single type fits all
     weight: v.number(),
     createdAt: v.number(),
   })
@@ -359,7 +365,12 @@ export default defineSchema({
     releaseCount: v.number(),
     trendCount: v.number(),
     reportPath: v.string(), // Path to saved markdown report
-    summaryJson: v.optional(v.any()), // Structured summary data
+    summaryJson: v.optional(v.object({
+      topSources: v.optional(v.array(v.array(v.union(v.string(), v.number())))), // [[source, count], ...]
+      topEngagementVelocity: v.optional(v.number()),
+      totalCorroborationCount: v.optional(v.number()),
+      sources: v.optional(v.array(v.string())),
+    })), // Structured summary data for UI display
     documentId: v.optional(v.id("documents")), // Link to full report document
     toolSuggestionsJson: v.optional(v.string()), // JSON string of ToolSuggestion[] for one-click add
     findingsJson: v.optional(v.string()), // JSON string of Finding[] for card rendering
@@ -484,7 +495,7 @@ export default defineSchema({
     messageId: v.id("chatMessages"),
     toolName: v.string(),
     toolDisplayName: v.string(),
-    toolArgs: v.any(),
+    toolArgs: v.record(v.string(), v.any()), // Tool-specific arguments — shape varies per tool name
     reasoning: v.optional(v.string()),
     status: v.union(
       v.literal("pending"),
@@ -530,7 +541,7 @@ export default defineSchema({
     stepIndex: v.number(),
     toolName: v.string(),
     toolDisplayName: v.string(),
-    toolArgs: v.any(),
+    toolArgs: v.record(v.string(), v.any()), // Tool-specific arguments — shape varies per tool name
     description: v.string(),
     requiresApproval: v.boolean(),
     status: v.union(
@@ -585,7 +596,13 @@ export default defineSchema({
     planFeedback: v.optional(v.string()),
     autoApprove: v.optional(v.boolean()),
     accumulatedNotes: v.optional(v.string()),
-    coveragePlan: v.optional(v.any()),
+    coveragePlan: v.optional(v.object({
+      dimensions: v.optional(v.array(v.object({
+        name: v.string(),
+        keyFiles: v.optional(v.array(v.string())),
+        description: v.optional(v.string()),
+      }))),
+    })), // Structured coverage plan with per-dimension key files
     nextDimension: v.optional(v.string()),
     failureConstraints: v.optional(v.array(v.string())),
     dimensionScores: v.optional(v.object({
@@ -690,7 +707,7 @@ export default defineSchema({
     wordCount: v.number(),
     durationMs: v.optional(v.number()),
     language: v.optional(v.string()),
-    metadataJson: v.optional(v.any()),
+    metadataJson: v.optional(v.record(v.string(), v.any())), // Transcript source metadata (apiVersion, captionTrack, etc.) — varies by transcriptSource
     generatedAt: v.number(),
     createdAt: v.number(),
   })
@@ -821,7 +838,7 @@ export default defineSchema({
           name: v.string(),
           url: v.optional(v.string()),
           feedUrl: v.optional(v.string()),
-          configJson: v.optional(v.any()),
+          configJson: v.optional(v.record(v.string(), v.any())), // Source-type-specific config (same as subscriptionSources.configJson)
         })
       )
     ),
@@ -941,9 +958,9 @@ export default defineSchema({
       v.literal("failed")
     ),
     // Plan content (structured JSON)
-    content: v.optional(v.any()),
+    content: v.optional(v.record(v.string(), v.any())), // Plan-type-specific content (tracks, queries, config) — shape varies by type
     // Additional metadata for execution context
-    metadata: v.optional(v.any()),
+    metadata: v.optional(v.record(v.string(), v.any())), // Execution context metadata (conversationId, userId, etc.) — shape varies by type
     // Timestamps
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -1054,7 +1071,7 @@ export default defineSchema({
     actionParams: v.optional(v.record(v.string(), v.string())),
     result: v.optional(v.object({
       success: v.boolean(),
-      data: v.optional(v.any()),
+      data: v.optional(v.any()), // Action-specific result data — shape varies by actionType (navigate, search, research, etc.)
       error: v.optional(v.string()),
     })),
     success: v.boolean(),
@@ -1080,7 +1097,11 @@ export default defineSchema({
     sam: v.optional(v.string()), // Serviceable Addressable Market
     som: v.optional(v.string()), // Serviceable Obtainable Market
     // Unit economics (stored as JSON for flexibility across scenarios)
-    unitEconomics: v.optional(v.any()), // { base: {ltv, cac, payback}, bull: {...}, bear: {...} }
+    unitEconomics: v.optional(v.object({
+      base: v.optional(v.object({ ltv: v.optional(v.string()), cac: v.optional(v.string()), ltvCacRatio: v.optional(v.string()), paybackMonths: v.optional(v.number()) })),
+      bull: v.optional(v.object({ ltv: v.optional(v.string()), cac: v.optional(v.string()), ltvCacRatio: v.optional(v.string()), paybackMonths: v.optional(v.number()) })),
+      bear: v.optional(v.object({ ltv: v.optional(v.string()), cac: v.optional(v.string()), ltvCacRatio: v.optional(v.string()), paybackMonths: v.optional(v.number()) })),
+    })), // { base: {ltv, cac, payback}, bull: {...}, bear: {...} }
     // Summary
     executiveSummary: v.optional(v.string()),
     agentCount: v.optional(v.number()),
@@ -1155,7 +1176,7 @@ export default defineSchema({
     sessionId: v.id("competitiveAnalysisSessions"),
     featureName: v.string(),
     ourSupport: v.string(), // "yes" | "partial" | "no"
-    competitorSupport: v.any(), // Record<competitorName, "yes"|"partial"|"no">
+    competitorSupport: v.record(v.string(), v.string()), // Record<competitorName, "yes"|"partial"|"no">
     createdAt: v.number(),
   })
     .index("by_session", ["sessionId"]),
