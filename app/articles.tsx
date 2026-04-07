@@ -80,9 +80,6 @@ export default function ArticlesRoute() {
   // Fetch documents using Convex query with stable args
   const documents = useQuery(api.documents.queries.list, listQueryArgs)
 
-  // Fetch total count for accurate display
-  const totalCount = useQuery(api.documents.queries.countWithFilter, listQueryArgs)
-
   // Fetch category counts to sort categories with articles first
   const categoryCounts = useQuery(api.documents.queries.countByCategory, {})
 
@@ -94,15 +91,6 @@ export default function ArticlesRoute() {
     return (Object.keys(categoryCounts) as CategoryType[])
       .filter((cat) => (categoryCounts[cat] ?? 0) > 0)
       .sort((a, b) => (categoryCounts[b] ?? 0) - (categoryCounts[a] ?? 0))
-  }, [categoryCounts])
-
-  // Calculate total article count across all categories
-  const totalArticleCount = useMemo(() => {
-    if (!categoryCounts) return 0
-    return Object.values(categoryCounts as Record<string, number>).reduce(
-      (sum, count) => sum + (count ?? 0),
-      0
-    )
   }, [categoryCounts])
 
   // Hybrid search action
@@ -205,17 +193,18 @@ export default function ArticlesRoute() {
   const displayArticles = searchQuery.trim() && searchResults ? searchResults : articles
 
   // Calculate the count to display in results header
+  // Use actual document length when available (more accurate than denormalized counters)
   const displayCount = useMemo(() => {
     if (searchQuery.trim() && searchResults) {
       return searchResults.length
     }
-    // When no category is selected, use totalArticleCount
-    if (!selectedCategory) {
-      return totalArticleCount
+    // When documents are loaded, use actual length
+    if (documents) {
+      return documents.length
     }
-    // When category is selected, use the filtered count
-    return totalCount ?? 0
-  }, [searchQuery, searchResults, selectedCategory, totalArticleCount, totalCount])
+    // Fallback when loading
+    return 0
+  }, [searchQuery, searchResults, documents])
 
   const handleCategoryChange = (category?: CategoryType) => {
     setSelectedCategory(category ?? null)
@@ -258,8 +247,6 @@ export default function ArticlesRoute() {
         articles={displayArticles}
         totalCount={displayCount}
         categories={availableCategories}
-        categoryCounts={categoryCounts}
-        totalArticleCount={totalArticleCount}
         selectedCategory={selectedCategory}
         loading={isLoading || isSearching}
         isLoadingCategories={isLoadingCategories}

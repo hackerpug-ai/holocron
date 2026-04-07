@@ -55,10 +55,6 @@ interface ArticlesScreenProps extends Omit<ViewProps, "children"> {
   totalCount?: number;
   /** Available categories for filtering (sorted by count, with populated categories first) */
   categories?: CategoryType[];
-  /** Category counts for displaying on chips */
-  categoryCounts?: Record<string, number>;
-  /** Total article count across all categories */
-  totalArticleCount?: number;
   /** Currently selected category filter */
   selectedCategory?: CategoryType | null;
   /** Whether data is loading */
@@ -84,8 +80,6 @@ export function ArticlesScreen({
   articles = [],
   totalCount,
   categories = VALID_CATEGORIES,
-  categoryCounts,
-  totalArticleCount = 0,
   selectedCategory,
   loading = false,
   isLoadingCategories = false,
@@ -180,7 +174,7 @@ export function ArticlesScreen({
             <>
               {/* "All" Chip */}
               <FilterChip
-                label={`All (${totalArticleCount})`}
+                label="All"
                 selected={isAllSelected}
                 disabled={loading}
                 onPress={handleAllPress}
@@ -189,11 +183,10 @@ export function ArticlesScreen({
 
               {/* Category Chips */}
               {categories.map((category) => {
-                const count = categoryCounts?.[category] ?? 0;
                 return (
                   <FilterChip
                     key={category}
-                    label={`${getCategoryLabel(category)} (${count})`}
+                    label={getCategoryLabel(category)}
                     selected={selectedCategory === category}
                     disabled={loading}
                     onPress={() => handleCategoryPress(category)}
