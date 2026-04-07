@@ -1,6 +1,22 @@
 import { GenericDatabaseReader } from "convex/server";
 import { DataModel, Id } from "../_generated/dataModel";
 
+/**
+ * Normalize cardData to an array of card objects.
+ * Handles: arrays (legacy), { items: [...] } (post-migration), single objects.
+ */
+function normalizeCardData(cardData: unknown): Record<string, unknown>[] {
+  if (Array.isArray(cardData)) return cardData;
+  if (typeof cardData === "object" && cardData !== null) {
+    const obj = cardData as Record<string, unknown>;
+    if (obj.card_type === "search_results" && Array.isArray(obj.items)) {
+      return obj.items as Record<string, unknown>[];
+    }
+    return [obj];
+  }
+  return [];
+}
+
 type LlmMessage = {
   role: "user" | "assistant" | "system";
   content: string;
@@ -135,16 +151,13 @@ export async function buildConversationContext(
     if (message.messageType !== "result_card") continue;
     if (!message.cardData) continue;
 
-    // Normalize cardData to array
-    const cards = Array.isArray(message.cardData)
-      ? message.cardData
-      : [message.cardData];
+    const cards = normalizeCardData(message.cardData);
 
     for (const card of cards) {
       if (documentContextMap.size >= MAX_DOCUMENT_CONTEXT_COUNT) break;
 
-      const cardType = (card as any).card_type;
-      const documentId = (card as any).document_id;
+      const cardType = card.card_type as string;
+      const documentId = card.document_id;
 
       // Only process specific card types that contain document references
       if (
@@ -300,9 +313,7 @@ export async function buildConversationContext(
       // Still include if it has document references in cardData
       const hasDocRefs =
         message.cardData &&
-        (Array.isArray(message.cardData)
-          ? message.cardData.some((c: any) => c.document_id)
-          : (message.cardData as any).document_id);
+        normalizeCardData(message.cardData).some((c) => c.document_id);
       if (!hasDocRefs) {
         continue;
       }
@@ -310,12 +321,10 @@ export async function buildConversationContext(
 
     // For result_card messages with document references in cardData, include document IDs
     if (message.messageType === "result_card" && message.cardData) {
-      const cards = Array.isArray(message.cardData)
-        ? message.cardData
-        : [message.cardData];
+      const cards = normalizeCardData(message.cardData);
       const docRefs = cards
         .filter(
-          (c: any) =>
+          (c) =>
             c.document_id &&
             [
               "article",
@@ -323,7 +332,7 @@ export async function buildConversationContext(
               "document_context",
               "document_full",
               "final_result",
-            ].includes(c.card_type)
+            ].includes(c.card_type as string)
         )
         .map((c: any) => `- "${c.title || "Untitled"}" [ID: ${c.document_id}]`);
 

@@ -26,7 +26,7 @@ export default defineSchema({
       v.literal("tool_approval"),
       v.literal("agent_plan")
     ),
-    cardData: v.optional(v.record(v.string(), v.any())), // Heterogeneous card payload: shape varies by messageType (result_card, progress, tool_approval, etc.)
+    cardData: v.optional(v.record(v.string(), v.any())), // Card payload — always an object (arrays migrated to { card_type: "search_results", items: [...] })
     sessionId: v.optional(v.id("researchSessions")),
     voiceSessionId: v.optional(v.id("voiceSessions")),
     documentId: v.optional(v.id("documents")),

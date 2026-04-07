@@ -384,11 +384,16 @@ function renderResultCard(
   onDeleteMessage?: (messageId: string) => void,
   messageId?: string,
 ) {
-  // Check if card_data is an array (multiple search results)
-  if (Array.isArray(card_data)) {
+  // Check if card_data contains multiple search results (array or wrapped)
+  const isSearchResults = Array.isArray(card_data) ||
+    (card_data.card_type === 'search_results' && Array.isArray(card_data.items))
+  if (isSearchResults) {
+    const items = Array.isArray(card_data)
+      ? card_data
+      : (card_data.items as Record<string, unknown>[])
     return (
       <View className="gap-2">
-        {card_data.map((card, index) => {
+        {items.map((card, index) => {
           const cardType = (card.card_type as CardType) || 'article'
           const documentId = card.document_id as number | undefined
           const isLoading = loadingCardId != null && documentId === loadingCardId
