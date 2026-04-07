@@ -50,9 +50,20 @@ export default [
     }
   },
   {
+    files: ['**/*.cjs'],
+    languageOptions: {
+      ecmaVersion: 2021,
+      sourceType: 'commonjs',
+      globals: {
+        ...globals.node,
+      }
+    }
+  },
+  {
     ignores: [
       'node_modules/**',
       '.expo/**',
+      '.claude/**',
       'expo/**',
       'supabase/**',
       'dist/**',
