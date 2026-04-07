@@ -104,6 +104,7 @@ import type * as migrations_backfill_research_documents from "../migrations/back
 import type * as migrations_cleanup_irrelevant_twitter from "../migrations/cleanup_irrelevant_twitter.js";
 import type * as migrations_cleanup_irrelevant_twitter_actions from "../migrations/cleanup_irrelevant_twitter_actions.js";
 import type * as migrations_collapse_improvement_statuses from "../migrations/collapse_improvement_statuses.js";
+import type * as migrations_normalize_card_data from "../migrations/normalize_card_data.js";
 import type * as migrations_reembed_documents_1024 from "../migrations/reembed_documents_1024.js";
 import type * as migrations_refactor_deep_research_messages from "../migrations/refactor_deep_research_messages.js";
 import type * as migrations_remove_twitter_content from "../migrations/remove_twitter_content.js";
@@ -313,6 +314,7 @@ declare const fullApi: ApiFromModules<{
   "migrations/cleanup_irrelevant_twitter": typeof migrations_cleanup_irrelevant_twitter;
   "migrations/cleanup_irrelevant_twitter_actions": typeof migrations_cleanup_irrelevant_twitter_actions;
   "migrations/collapse_improvement_statuses": typeof migrations_collapse_improvement_statuses;
+  "migrations/normalize_card_data": typeof migrations_normalize_card_data;
   "migrations/reembed_documents_1024": typeof migrations_reembed_documents_1024;
   "migrations/refactor_deep_research_messages": typeof migrations_refactor_deep_research_messages;
   "migrations/remove_twitter_content": typeof migrations_remove_twitter_content;
