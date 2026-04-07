@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   footer: {
-    padding: 16,
+    padding: spacing.lg,
     alignItems: 'center',
   },
   empty: {

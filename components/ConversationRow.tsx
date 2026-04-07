@@ -58,7 +58,7 @@ export function ConversationRow({
   className,
   ...props
 }: ConversationRowProps) {
-  const { colors: themeColors, typography } = useTheme()
+  const { colors: themeColors, typography, spacing } = useTheme()
   const rowScale = useSharedValue(1)
   const deleteOpacity = useSharedValue(isDeleteVisible ? 1 : 0)
   const deleteScale = useSharedValue(isDeleteVisible ? 1 : 0.6)
@@ -179,9 +179,9 @@ export function ConversationRow({
             style={{
               flexDirection: 'row',
               alignItems: 'center',
-              gap: 6,
-              paddingHorizontal: 14,
-              paddingVertical: 10,
+              gap: spacing.sm,
+              paddingHorizontal: spacing.lg,
+              paddingVertical: spacing.md,
               borderRadius: 20,
               backgroundColor: themeColors.destructive,
               shadowColor: '#000',

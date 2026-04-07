@@ -103,7 +103,7 @@ export default function DocumentRoute() {
   )
 
   const insets = useSafeAreaInsets()
-  const { colors: themeColors, typography } = useTheme()
+  const { colors: themeColors, typography, spacing } = useTheme()
   const scrollViewRef = useRef<ScrollViewType>(null)
   const paragraphOffsets = useRef<Map<number, number>>(new Map())
   const headingOffsets = useRef<Map<string, number>>(new Map())
@@ -788,8 +788,8 @@ export default function DocumentRoute() {
             bottom: isNarrationMode ? NARRATION_BAR_HEIGHT + insets.bottom + 16 : insets.bottom + 16,
             alignSelf: 'center',
             backgroundColor: themeColors.foreground,
-            paddingHorizontal: 16,
-            paddingVertical: 8,
+            paddingHorizontal: spacing.lg,
+            paddingVertical: spacing.sm,
             borderRadius: 20,
           }}
           pointerEvents="none"

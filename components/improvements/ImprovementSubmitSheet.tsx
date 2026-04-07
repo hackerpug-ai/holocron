@@ -69,8 +69,8 @@ export function ImprovementSubmitSheet({
   testID = 'improvement-submit-sheet',
 }: ImprovementSubmitSheetProps) {
   const insets = useSafeAreaInsets()
-  const { colors, typography } = useTheme()
-  const styles = useStyles(typography)
+  const { colors, typography, spacing } = useTheme()
+  const styles = useStyles(typography, spacing)
 
   // ── Animation shared values ──────────────────────────────────────────────
   const translateY = useSharedValue(600)
@@ -333,7 +333,7 @@ export function ImprovementSubmitSheet({
 }
 
 // ── Styles ─────────────────────────────────────────────────────────────────
-const useStyles = (typography: any) => {
+const useStyles = (typography: any, spacing: any) => {
   return StyleSheet.create({
     flex: {
       flex: 1,

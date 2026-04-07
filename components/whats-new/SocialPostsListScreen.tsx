@@ -69,7 +69,7 @@ export function SocialPostsListScreen({
   testID = 'social-posts-list',
 }: SocialPostsListScreenProps) {
   const router = useRouter()
-  const { colors: themeColors, isDark } = useTheme()
+  const { colors: themeColors, isDark, spacing } = useTheme()
   const { webViewState, openUrl, closeWebView } = useWebView()
   const { findings } = useWhatsNewFeed({})
 
@@ -248,7 +248,7 @@ export function SocialPostsListScreen({
       <FlatList
         data={socialFindings}
         keyExtractor={(item, index) => `${item.url}-${index}`}
-        contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+        contentContainerStyle={{ padding: spacing.lg, paddingBottom: 40 }}
         renderItem={({ item, index }) => (
           <WhatsNewFindingCard
             title={item.title}

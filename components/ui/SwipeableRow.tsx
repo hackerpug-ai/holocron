@@ -46,7 +46,7 @@ export function SwipeableRow({
   className,
   ...props
 }: SwipeableRowProps) {
-  const { colors: themeColors } = useTheme()
+  const { colors: themeColors, spacing } = useTheme()
   const [showDelete, setShowDelete] = useState(false)
   const dismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -173,9 +173,9 @@ const styles = StyleSheet.create({
   deleteButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
     borderRadius: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },

@@ -181,7 +181,7 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     alignSelf: 'flex-end',
-    padding: 4,
+    padding: spacing.xs,
   },
   button: {
     width: '100%',

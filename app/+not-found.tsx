@@ -3,7 +3,7 @@ import { StyleSheet, View, Text, Pressable } from 'react-native'
 import { useTheme } from '@/hooks/use-theme'
 
 export default function NotFoundScreen() {
-  const { colors: themeColors, typography } = useTheme()
+  const { colors: themeColors, typography, spacing } = useTheme()
 
   const dynamicStyles = {
     headline: {
@@ -43,7 +43,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 24,
+    padding: spacing.xl,
   },
   headline: {
     fontSize: 28,
@@ -57,8 +57,8 @@ const styles = StyleSheet.create({
   },
   button: {
     marginTop: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
     borderRadius: 8,
   },
   buttonText: {

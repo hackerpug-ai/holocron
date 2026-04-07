@@ -62,8 +62,8 @@ export function ImprovementEditSheet({
   testID = 'improvement-edit-sheet',
 }: ImprovementEditSheetProps) {
   const insets = useSafeAreaInsets()
-  const { colors, typography } = useTheme()
-  const styles = useStyles(typography)
+  const { colors, typography, spacing } = useTheme()
+  const styles = useStyles(typography, spacing)
 
   // ── Animation shared values ──────────────────────────────────────────────
   const translateY = useSharedValue(600)
@@ -298,7 +298,7 @@ export function ImprovementEditSheet({
 }
 
 // ── Styles ─────────────────────────────────────────────────────────────────
-const useStyles = (typography: any) => {
+const useStyles = (typography: any, spacing: any) => {
   return StyleSheet.create({
     flex: {
       flex: 1,
