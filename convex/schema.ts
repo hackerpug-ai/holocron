@@ -26,7 +26,7 @@ export default defineSchema({
       v.literal("tool_approval"),
       v.literal("agent_plan")
     ),
-    cardData: v.optional(v.record(v.string(), v.any())), // Card payload — always an object (arrays migrated to { card_type: "search_results", items: [...] })
+    cardData: v.optional(v.record(v.string(), v.any())), // Card payload — arrays migrated to { card_type: "search_results", items: [...] }
     sessionId: v.optional(v.id("researchSessions")),
     voiceSessionId: v.optional(v.id("voiceSessions")),
     documentId: v.optional(v.id("documents")),
@@ -365,12 +365,7 @@ export default defineSchema({
     releaseCount: v.number(),
     trendCount: v.number(),
     reportPath: v.string(), // Path to saved markdown report
-    summaryJson: v.optional(v.object({
-      topSources: v.optional(v.array(v.array(v.union(v.string(), v.number())))), // [[source, count], ...]
-      topEngagementVelocity: v.optional(v.number()),
-      totalCorroborationCount: v.optional(v.number()),
-      sources: v.optional(v.array(v.string())),
-    })), // Structured summary data for UI display
+    summaryJson: v.optional(v.record(v.string(), v.any())), // Structured summary data — shape evolves with report versions (discoveries, releases, top5, trends, etc.)
     documentId: v.optional(v.id("documents")), // Link to full report document
     toolSuggestionsJson: v.optional(v.string()), // JSON string of ToolSuggestion[] for one-click add
     findingsJson: v.optional(v.string()), // JSON string of Finding[] for card rendering

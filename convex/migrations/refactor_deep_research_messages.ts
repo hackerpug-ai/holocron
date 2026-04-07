@@ -29,15 +29,16 @@ export const migrate = internalMutation({
 
     for (const message of messages) {
       // Only migrate deep research messages
+      const cd = message.cardData as Record<string, unknown> | undefined;
       if (
         message.messageType !== "result_card" ||
-        !message.cardData?.card_type
+        !cd?.card_type
       ) {
         skippedCount++;
         continue;
       }
 
-      const cardType = message.cardData.card_type as string;
+      const cardType = cd.card_type as string;
 
       // Only migrate deep research card types
       if (
@@ -53,7 +54,7 @@ export const migrate = internalMutation({
         cardType === "deep_research_loading" ? "in_progress" : "completed";
 
       // Create new cardData without card_type
-      const { card_type, ...restCardData } = message.cardData;
+      const { card_type, ...restCardData } = cd;
 
       // Update the message (keep as result_card, just update cardData)
       await ctx.db.patch(message._id, {
