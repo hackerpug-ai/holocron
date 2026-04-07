@@ -23,6 +23,49 @@ Holocron is a cross-platform application that helps you manage documents, conduc
 
 ## Architecture
 
+```mermaid
+graph TD
+    subgraph Client
+        RN[React Native App]
+        CLI[Python CLI]
+    end
+
+    subgraph Convex
+        Queries[ Queries]
+        Mutations[ Mutations]
+        Actions[ Actions]
+        DB[(Database)]
+        Vectors[Vector Embeddings]
+    end
+
+    subgraph External
+        OpenAI[OpenAI GPT-4]
+        ArXiv[ArXiv API]
+        Web[Web Search]
+    end
+
+    RN -->|useQuery| Queries
+    RN -->|useMutation| Mutations
+    RN -->|useAction| Actions
+    CLI -->|HTTP| Queries
+
+    Queries --> DB
+    Queries --> Vectors
+    Mutations --> DB
+    Mutations --> Vectors
+
+    Actions -->|Chat| OpenAI
+    Actions -->|Research| ArXiv
+    Actions -->|Search| Web
+
+    style RN fill:#61DAFB
+    style Convex fill:#24292E
+    style DB fill:#4DB33D
+    style OpenAI fill:#00A67E
+    style ArXiv fill:#B31B1B
+    style Web fill:#4285F4
+```
+
 ### Backend Migration (Supabase → Convex)
 
 This project has been migrated from Supabase to Convex for improved developer experience and simplified real-time patterns. See [Migration Summary](.spec/MIGRATION-SUMMARY.md) for details.
