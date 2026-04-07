@@ -157,11 +157,6 @@ export const updateDeepResearchSession = mutation({
 
     
     await ctx.db.patch(sessionId, updates);
-
-    // Verify the update by reading back
-    const updatedSession = await ctx.db.get(sessionId);
-
-    
   },
 });
 
@@ -224,8 +219,6 @@ export const completeDeepResearchSession = mutation({
         await ctx.scheduler.runAfter(0, internal.research.documents.createResearchDocument, {
           sessionId,
         });
-      } else {
-        
       }
     } else if (errorReason) {
       await ctx.db.insert("notifications", {
