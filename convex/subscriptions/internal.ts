@@ -898,7 +898,16 @@ export const getContentBySourceAndId = internalQuery({
 export const getFiltersForSource = internalQuery({
   args: {
     sourceId: v.id("subscriptionSources"),
-    sourceType: v.string(),
+    sourceType: v.union(
+      v.literal("youtube"),
+      v.literal("newsletter"),
+      v.literal("changelog"),
+      v.literal("reddit"),
+      v.literal("ebay"),
+      v.literal("whats-new"),
+      v.literal("creator"),
+      v.literal("github")
+    ),
   },
   handler: async (ctx, args) => {
     const filters = await ctx.db
@@ -1209,13 +1218,12 @@ async function processSingleSource(
     // TR-006: Create transcript job for YouTube videos (fire-and-forget)
     if (source.sourceType === 'youtube') {
       try {
-        const result = await ctx.runMutation(internal.transcripts.mutations.createTranscriptJob, {
+        await ctx.runMutation(internal.transcripts.mutations.createTranscriptJob, {
           contentId: item.contentId,
           sourceUrl: item.url,
           priority: 5, // Medium priority
         });
-        if (result.created) {
-        }
+        // Transcript job created successfully
       } catch (error) {
         // Don't block video discovery if transcript job creation fails
         console.error(`[TR-006] Failed to create transcript job for ${item.contentId}:`, error);

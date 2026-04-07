@@ -125,10 +125,25 @@ export const update = mutation({
 export const setFilter = mutation({
   args: {
     sourceId: v.optional(v.id("subscriptionSources")),
-    sourceType: v.optional(v.string()),
+    sourceType: v.optional(
+      v.union(
+        v.literal("youtube"),
+        v.literal("newsletter"),
+        v.literal("changelog"),
+        v.literal("reddit"),
+        v.literal("ebay"),
+        v.literal("whats-new"),
+        v.literal("creator"),
+        v.literal("github")
+      )
+    ),
     ruleName: v.string(),
     ruleType: v.string(),
-    ruleValue: v.any(),
+    ruleValue: v.union(
+      v.string(),
+      v.number(),
+      v.array(v.string())
+    ),
     weight: v.optional(v.number()),
   },
   handler: async (ctx, args) => {

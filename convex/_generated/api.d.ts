@@ -209,8 +209,11 @@ import type * as whatsNew_index from "../whatsNew/index.js";
 import type * as whatsNew_internal from "../whatsNew/internal.js";
 import type * as whatsNew_llm from "../whatsNew/llm.js";
 import type * as whatsNew_mutations from "../whatsNew/mutations.js";
+import type * as whatsNew_processing from "../whatsNew/processing.js";
 import type * as whatsNew_quality from "../whatsNew/quality.js";
 import type * as whatsNew_queries from "../whatsNew/queries.js";
+import type * as whatsNew_types from "../whatsNew/types.js";
+import type * as whatsNew_workflow from "../whatsNew/workflow.js";
 
 import type {
   ApiFromModules,
@@ -420,8 +423,11 @@ declare const fullApi: ApiFromModules<{
   "whatsNew/internal": typeof whatsNew_internal;
   "whatsNew/llm": typeof whatsNew_llm;
   "whatsNew/mutations": typeof whatsNew_mutations;
+  "whatsNew/processing": typeof whatsNew_processing;
   "whatsNew/quality": typeof whatsNew_quality;
   "whatsNew/queries": typeof whatsNew_queries;
+  "whatsNew/types": typeof whatsNew_types;
+  "whatsNew/workflow": typeof whatsNew_workflow;
 }>;
 
 /**
