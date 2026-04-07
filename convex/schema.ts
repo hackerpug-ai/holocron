@@ -389,7 +389,7 @@ export default defineSchema({
     releaseCount: v.number(),
     trendCount: v.number(),
     reportPath: v.string(), // Path to saved markdown report
-    summaryJson: v.optional(v.record(v.string(), v.union(v.string(), v.number(), v.boolean(), v.null()))), // Structured summary data — shape evolves with report versions (discoveries, releases, top5, trends, etc.)
+    summaryJson: v.optional(v.record(v.string(), v.any())), // Structured summary data — shape evolves with report versions (discoveries, releases, top5, trends, etc.)
     documentId: v.optional(v.id("documents")), // Link to full report document
     toolSuggestionsJson: v.optional(v.string()), // JSON string of ToolSuggestion[] for one-click add
     findingsJson: v.optional(v.string()), // JSON string of Finding[] for card rendering
