@@ -898,7 +898,16 @@ export const getContentBySourceAndId = internalQuery({
 export const getFiltersForSource = internalQuery({
   args: {
     sourceId: v.id("subscriptionSources"),
-    sourceType: v.string(),
+    sourceType: v.union(
+      v.literal("youtube"),
+      v.literal("newsletter"),
+      v.literal("changelog"),
+      v.literal("reddit"),
+      v.literal("ebay"),
+      v.literal("whats-new"),
+      v.literal("creator"),
+      v.literal("github")
+    ),
   },
   handler: async (ctx, args) => {
     const filters = await ctx.db
@@ -1214,7 +1223,9 @@ async function processSingleSource(
           sourceUrl: item.url,
           priority: 5, // Medium priority
         });
+        // Transcript job created successfully
         if (result.created) {
+          // Optionally log or track successful transcript job creation
         }
       } catch (error) {
         // Don't block video discovery if transcript job creation fails

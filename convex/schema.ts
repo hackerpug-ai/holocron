@@ -343,7 +343,18 @@ export default defineSchema({
 
   subscriptionFilters: defineTable({
     sourceId: v.optional(v.id("subscriptionSources")), // null = type-level rule
-    sourceType: v.optional(v.string()), // for type-level rules
+    sourceType: v.optional(
+      v.union(
+        v.literal("youtube"),
+        v.literal("newsletter"),
+        v.literal("changelog"),
+        v.literal("reddit"),
+        v.literal("ebay"),
+        v.literal("whats-new"),
+        v.literal("creator"),
+        v.literal("github")
+      )
+    ), // for type-level rules - matches subscriptionSources.sourceType
     ruleName: v.string(),
     ruleType: v.string(), // keyword_whitelist, keyword_blacklist, min_score, etc.
     ruleValue: v.any(), // Rule-type-specific value: string[] for keyword rules, number for min_score/max_age — no single type fits all
