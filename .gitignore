@@ -74,3 +74,10 @@ yarn-error.*
 *-post-research-*.md
 *-vs-*-comparison-*.md
 PHASE*.md
+
+# Backup files
+*.bak
+*.backup
+*.old
+*.tmp
+*~
