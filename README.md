@@ -38,12 +38,28 @@ Browse, search, and manage documents with automatic vector embedding and semanti
 
 ## Tech Stack
 
-- **Frontend**: React Native with Expo Router
-- **Backend**: Convex (backend-as-a-service)
-- **Database**: Convex (with vector embeddings)
-- **AI**: OpenAI GPT-4
-- **State Management**: Convex useQuery/useMutation (reactive)
+### Frontend
+- **Framework**: React Native with Expo Router
 - **Styling**: NativeWind (Tailwind for React Native)
+- **Navigation**: Expo Router (file-based routing)
+- **UI Components**: React Native Paper
+- **State Management**: Convex useQuery/useMutation (reactive)
+
+### Backend
+- **Backend-as-a-Service**: Convex
+- **Database**: Convex (with vector embeddings for semantic search)
+- **Real-time**: Automatic reactivity via Convex subscriptions
+
+### AI & Machine Learning
+- **AI Provider**: Z.ai (primary AI services)
+- **Vector Embeddings**: 1536-dimensional embeddings for semantic search
+- **Search Capabilities**: Full-text, vector, and hybrid search
+
+### Development Tools
+- **Language**: TypeScript
+- **Package Manager**: pnpm
+- **Testing**: Vitest
+- **CLI**: Python CLI for database operations
 
 ## Architecture
 
