@@ -172,11 +172,8 @@ export const vectorSearch = query({
 
 /**
  * AC-2: Full-text search using Convex searchIndex
- * Performs keyword-based search across title and content fields
+ * Performs keyword-based search across title field
  * Supports optional category filtering
- *
- * Note: Uses filter-based text search. For production use with large datasets,
- * consider adding dedicated text search indexes or using a search service.
  */
 export const fullTextSearch = query({
   args: {
@@ -185,33 +182,26 @@ export const fullTextSearch = query({
     category: v.optional(v.string()),
   },
   handler: async (ctx, { query: searchQuery, limit = 10, category }) => {
-    // Get all documents up to a reasonable limit
-    let documents = await ctx.db.query("documents").collect();
+    // Use search index for efficient text search
+    let results = await ctx.db
+      .query("documents")
+      .withSearchIndex("by_title_content", (q) => q.search("title", searchQuery))
+      .take(limit);
 
     // Apply category filter if specified
     if (category) {
-      documents = documents.filter((doc) => doc.category === category);
+      results = results.filter((doc) => doc.category === category);
     }
 
-    // Filter for text matches in title or content (case-insensitive)
-    const searchLower = searchQuery.toLowerCase();
-    const filtered = documents.filter(
-      (doc) =>
-        doc.title.toLowerCase().includes(searchLower) ||
-        doc.content.toLowerCase().includes(searchLower)
-    );
-
-    // Return with search scores (simple relevance based on match position)
-    return filtered
-      .slice(0, limit)
-      .map((doc, index) => ({
-        _id: doc._id,
-        title: doc.title,
-        content: doc.content,
-        category: doc.category,
-        // Score based on position (earlier results = higher score)
-        score: filtered.length > 0 ? 1 - index / filtered.length : 0,
-      }));
+    // Return with search scores (simple relevance based on position)
+    return results.map((doc, index) => ({
+      _id: doc._id,
+      title: doc.title,
+      content: doc.content,
+      category: doc.category,
+      // Score based on position (earlier results = higher score)
+      score: results.length > 0 ? 1 - index / results.length : 0,
+    }));
   },
 });
 

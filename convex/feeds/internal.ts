@@ -451,10 +451,14 @@ export const getRecentFeedback = internalQuery({
  *
  * For each record, looks up the source and derives metadata from sourceType.
  * Safe to run multiple times - only patches records missing contentCategory.
+ *
+ * NOTE: Intentional full table scan - this is a backfill operation that must
+ * process all records to ensure metadata completeness.
  */
 export const backfillContentMetadata = internalMutation({
   args: {},
   handler: async (ctx) => {
+    // Full scan is intentional for backfill - must process all records
     const allContent = await ctx.db.query("subscriptionContent").collect();
 
     let patched = 0;
@@ -484,17 +488,20 @@ export const backfillContentMetadata = internalMutation({
  *
  * After running this, trigger buildFeed to regenerate the feed with 1:1 mapping.
  * WARNING: This deletes all existing feedItems. Run backfillContentMetadata first.
+ *
+ * NOTE: Intentional full table scans - this is a rebuild operation that must
+ * process all records to reset the feed state.
  */
 export const rebuildFeed = internalMutation({
   args: {},
   handler: async (ctx) => {
-    // Delete all existing feedItems
+    // Full scan is intentional for rebuild - must delete all feed items
     const allFeedItems = await ctx.db.query("feedItems").collect();
     for (const item of allFeedItems) {
       await ctx.db.delete(item._id);
     }
 
-    // Reset inFeed flag on all subscriptionContent
+    // Full scan is intentional for rebuild - must reset all content flags
     const allContent = await ctx.db.query("subscriptionContent").collect();
     const contentWithFeedFlag = allContent.filter((c) => c.inFeed);
     for (const content of contentWithFeedFlag) {

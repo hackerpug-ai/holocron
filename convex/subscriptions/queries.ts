@@ -55,6 +55,10 @@ export const list = query({
 
 /**
  * Get filters for a subscription source
+ *
+ * NOTE: Full table scan is acceptable here because subscriptionFilters is expected
+ * to be a small table (typically <100 records). The query needs both source-specific
+ * and global filters (sourceId = undefined), which requires fetching all filters.
  */
 export const getFilters = query({
   args: {
@@ -64,6 +68,7 @@ export const getFilters = query({
   handler: async (ctx, args) => {
     const { subscriptionId, sourceType } = args;
 
+    // Small table (<100 records expected) - full scan acceptable
     const filters = await ctx.db.query("subscriptionFilters").collect();
 
     // Filter by source ID if provided
@@ -139,10 +144,14 @@ export const hasAnyContent = query({
  * Batch fetch all existing subscription content for duplicate checking.
  * Returns a map of sourceId -> Set of contentIds for O(1) lookups.
  * Used by checkAllSubscriptions to avoid per-item database queries.
+ *
+ * NOTE: Intentional full table scan - this is a batch operation that needs
+ * all content for duplicate checking. More efficient than per-item queries.
  */
 export const batchGetExistingContent = query({
   args: {},
   handler: async (ctx) => {
+    // Full scan intentional - batch duplicate check needs all content
     const allContent = await ctx.db.query("subscriptionContent").collect();
     const lookup = new Map<string, Set<string>>();
 
@@ -238,13 +247,17 @@ export const listGroupedByCreator = query({
       }
     }
 
-    // Count documents for each group
-    const allContent = await ctx.db.query("subscriptionContent").collect();
+    // Count documents for each group - use indexed query for efficiency
+    const researchedContent = await ctx.db
+      .query("subscriptionContent")
+      .withIndex("by_status_document", (q) => q.eq("researchStatus", "researched"))
+      .collect();
+
     const documentCounts = new Map<string, number>();
 
-    for (const content of allContent) {
-      // Only count researched content with documents
-      if (content.researchStatus === "researched" && content.documentId) {
+    for (const content of researchedContent) {
+      // Only count content with documents
+      if (content.documentId) {
         const sourceIdStr = content.sourceId.toString();
         documentCounts.set(sourceIdStr, (documentCounts.get(sourceIdStr) || 0) + 1);
       }

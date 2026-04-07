@@ -54,6 +54,7 @@ export default defineSchema({
     .index("by_creationTime", ["createdAt"])
     .index("by_shareToken", ["shareToken"])
     .searchIndex("by_category", { searchField: "category" })
+    .searchIndex("by_title_content", { searchField: "title" })
     .vectorIndex("by_embedding", {
       vectorField: "embedding",
       dimensions: 1024,
@@ -340,6 +341,7 @@ export default defineSchema({
     .index("by_source", ["sourceId", "discoveredAt"])
     .index("by_source_content", ["sourceId", "contentId"])
     .index("by_status", ["researchStatus"])
+    .index("by_status_document", ["researchStatus", "documentId"])
     .index("by_content_id", ["contentId"])
     .index("by_inFeed_discoveredAt", ["inFeed", "discoveredAt"])
     .vectorIndex("by_embedding", {
