@@ -59,6 +59,13 @@ export default defineSchema({
       dimensions: 1024,
     }),
 
+  // Document counters for efficient counting (BP-005)
+  documentCounters: defineTable({
+    name: v.string(), // "total" | "withoutEmbeddings" | "{category}"
+    count: v.number(),
+  })
+    .index("by_name", ["name"]),
+
   // Research tables
   researchSessions: defineTable({
     query: v.string(),

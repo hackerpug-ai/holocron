@@ -43,29 +43,44 @@ export const list = query({
 
 /**
  * Get document count (for validation)
+ * BP-005: Uses denormalized counter instead of .collect().length
  */
 export const count = query({
   args: {},
   handler: async (ctx) => {
-    const documents = await ctx.db.query("documents").collect();
-    return documents.length;
+    const counter = await ctx.db
+      .query("documentCounters")
+      .withIndex("by_name", (q) => q.eq("name", "total"))
+      .first();
+    return counter?.count ?? 0;
   },
 });
 
 /**
  * Get document count with optional category filter
  * Used for displaying total counts in the articles screen
+ * BP-005: Uses denormalized counters instead of .collect().length
  */
 export const countWithFilter = query({
   args: {
     category: v.optional(v.string()),
   },
   handler: async (ctx, { category }) => {
-    let documents = await ctx.db.query("documents").collect();
-    if (category) {
-      documents = documents.filter((doc) => doc.category === category);
+    if (!category) {
+      // Return total count
+      const counter = await ctx.db
+        .query("documentCounters")
+        .withIndex("by_name", (q) => q.eq("name", "total"))
+        .first();
+      return counter?.count ?? 0;
     }
-    return documents.length;
+
+    // Return category-specific count
+    const counter = await ctx.db
+      .query("documentCounters")
+      .withIndex("by_name", (q) => q.eq("name", category))
+      .first();
+    return counter?.count ?? 0;
   },
 });
 
@@ -95,16 +110,21 @@ export const getSampleWithEmbedding = query({
 
 /**
  * Get documents count by category
+ * BP-005: Uses denormalized counters instead of .collect().length
  */
 export const countByCategory = query({
   args: {},
   handler: async (ctx) => {
-    const documents = await ctx.db.query("documents").collect();
-    const counts: Record<string, number> = {};
+    // Get all category counters
+    const counters = await ctx.db
+      .query("documentCounters")
+      .collect();
 
-    for (const doc of documents) {
-      const category = doc.category;
-      counts[category] = (counts[category] || 0) + 1;
+    const counts: Record<string, number> = {};
+    for (const counter of counters) {
+      if (counter.name !== "total" && counter.name !== "withoutEmbeddings") {
+        counts[counter.name] = counter.count;
+      }
     }
 
     return counts;
@@ -220,12 +240,16 @@ export const findDocumentsWithoutEmbeddings = query({
 
 /**
  * Count documents without embeddings
+ * BP-005: Uses denormalized counter instead of .collect().length
  */
 export const countDocumentsWithoutEmbeddings = query({
   args: {},
   handler: async (ctx) => {
-    const all = await ctx.db.query("documents").collect();
-    return all.filter(doc => !doc.embedding).length;
+    const counter = await ctx.db
+      .query("documentCounters")
+      .withIndex("by_name", (q) => q.eq("name", "withoutEmbeddings"))
+      .first();
+    return counter?.count ?? 0;
   },
 });
 

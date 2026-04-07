@@ -3,6 +3,7 @@ import { v } from "convex/values";
 
 /**
  * Create a new document (for testing and future use)
+ * BP-005: Maintains document counters
  */
 export const create = mutation({
   args: {
@@ -20,10 +21,92 @@ export const create = mutation({
   },
   handler: async (ctx, args) => {
     const now = Date.now();
-    return await ctx.db.insert("documents", {
+    const id = await ctx.db.insert("documents", {
       ...args,
       createdAt: now,
     });
+
+    // Update counters
+    await updateDocumentCounters(ctx, args.category, args.embedding);
+
+    return id;
+  },
+});
+
+/**
+ * Helper: Update document counters after insert/delete
+ * BP-005: Maintains denormalized counters for efficient counting
+ */
+async function updateDocumentCounters(
+  ctx: any,
+  category: string | undefined,
+  embedding: number[] | undefined,
+  increment: number = 1
+) {
+  // Update total counter
+  const totalCounter = await ctx.db
+    .query("documentCounters")
+    .withIndex("by_name", (q: any) => q.eq("name", "total"))
+    .first();
+
+  if (totalCounter) {
+    await ctx.db.patch(totalCounter._id, { count: totalCounter.count + increment });
+  } else {
+    await ctx.db.insert("documentCounters", { name: "total", count: increment });
+  }
+
+  // Update category counter
+  if (category) {
+    const categoryCounter = await ctx.db
+      .query("documentCounters")
+      .withIndex("by_name", (q: any) => q.eq("name", category))
+      .first();
+
+    if (categoryCounter) {
+      await ctx.db.patch(categoryCounter._id, { count: categoryCounter.count + increment });
+    } else {
+      await ctx.db.insert("documentCounters", { name: category, count: increment });
+    }
+  }
+
+  // Update withoutEmbeddings counter
+  if (!embedding) {
+    const withoutEmbeddingsCounter = await ctx.db
+      .query("documentCounters")
+      .withIndex("by_name", (q: any) => q.eq("name", "withoutEmbeddings"))
+      .first();
+
+    if (withoutEmbeddingsCounter) {
+      await ctx.db.patch(withoutEmbeddingsCounter._id, {
+        count: withoutEmbeddingsCounter.count + increment,
+      });
+    } else {
+      await ctx.db.insert("documentCounters", {
+        name: "withoutEmbeddings",
+        count: increment,
+      });
+    }
+  }
+}
+
+/**
+ * Delete a document
+ * BP-005: Maintains document counters
+ */
+export const remove = mutation({
+  args: { id: v.id("documents") },
+  handler: async (ctx, { id }) => {
+    const doc = await ctx.db.get(id);
+    if (!doc) {
+      throw new Error(`Document ${id} not found`);
+    }
+
+    await ctx.db.delete(id);
+
+    // Update counters (decrement)
+    await updateDocumentCounters(ctx, doc.category, doc.embedding, -1);
+
+    return { success: true };
   },
 });
 
@@ -59,6 +142,7 @@ export const update = mutation({
 
 /**
  * Insert a document with embedding (used by migration script)
+ * BP-005: Maintains document counters
  */
 export const insertFromMigration = mutation({
   args: {
@@ -76,10 +160,15 @@ export const insertFromMigration = mutation({
     embedding: v.optional(v.array(v.float64())),
   },
   handler: async (ctx, args) => {
-    return await ctx.db.insert("documents", {
+    const id = await ctx.db.insert("documents", {
       ...args,
       content: args.content ?? "",
     });
+
+    // Update counters
+    await updateDocumentCounters(ctx, args.category, args.embedding);
+
+    return id;
   },
 });
 
@@ -116,6 +205,7 @@ export const unpublishDocument = mutation({
 /**
  * Clear all documents (for testing only - use with caution)
  * Requires ALLOW_CLEAR_ALL=true environment variable to be set.
+ * BP-005: Resets document counters
  */
 export const clearAll = mutation({
   args: {},
@@ -129,6 +219,13 @@ export const clearAll = mutation({
     for (const doc of documents) {
       await ctx.db.delete(doc._id);
     }
+
+    // Reset all counters to 0
+    const counters = await ctx.db.query("documentCounters").collect();
+    for (const counter of counters) {
+      await ctx.db.patch(counter._id, { count: 0 });
+    }
+
     return { deleted: documents.length };
   },
 });

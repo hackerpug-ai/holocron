@@ -63,7 +63,9 @@ export const saveAssimilation = mutation({
       researchType,
       createdAt: now,
     });
-    
+
+    // Update document counters (BP-005)
+    await updateDocumentCountersInline(ctx, "assimilation", false, 1);
 
     // Schedule embedding generation for the new document
     await ctx.scheduler.runAfter(0, api.documents.storage.updateWithEmbedding as any, {
@@ -575,3 +577,59 @@ export const completeSession = internalMutation({
     }
   },
 });
+
+/**
+ * Helper: Update document counters inline
+ * BP-005: Maintains denormalized counters for efficient counting
+ */
+async function updateDocumentCountersInline(
+  ctx: any,
+  category: string | undefined,
+  hasEmbedding: boolean,
+  increment: number
+) {
+  // Update total counter
+  const totalCounter = await ctx.db
+    .query("documentCounters")
+    .withIndex("by_name", (q: any) => q.eq("name", "total"))
+    .first();
+
+  if (totalCounter) {
+    await ctx.db.patch(totalCounter._id, { count: totalCounter.count + increment });
+  } else {
+    await ctx.db.insert("documentCounters", { name: "total", count: increment });
+  }
+
+  // Update category counter
+  if (category) {
+    const categoryCounter = await ctx.db
+      .query("documentCounters")
+      .withIndex("by_name", (q: any) => q.eq("name", category))
+      .first();
+
+    if (categoryCounter) {
+      await ctx.db.patch(categoryCounter._id, { count: categoryCounter.count + increment });
+    } else {
+      await ctx.db.insert("documentCounters", { name: category, count: increment });
+    }
+  }
+
+  // Update withoutEmbeddings counter
+  if (!hasEmbedding) {
+    const withoutEmbeddingsCounter = await ctx.db
+      .query("documentCounters")
+      .withIndex("by_name", (q: any) => q.eq("name", "withoutEmbeddings"))
+      .first();
+
+    if (withoutEmbeddingsCounter) {
+      await ctx.db.patch(withoutEmbeddingsCounter._id, {
+        count: withoutEmbeddingsCounter.count + increment,
+      });
+    } else {
+      await ctx.db.insert("documentCounters", {
+        name: "withoutEmbeddings",
+        count: increment,
+      });
+    }
+  }
+}
