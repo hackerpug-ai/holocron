@@ -97,10 +97,12 @@ async function executeBrowseCategory(
       };
     }
 
-    const articles: any[] = await ctx.runQuery(api.documents.queries.list, {
+    const listResult = await ctx.runQuery(api.documents.queries.list, {
       category: normalizedCategory,
       limit: 10,
     });
+
+    const articles = listResult?.documents ?? [];
 
     if (!articles || articles.length === 0) {
       return {
@@ -118,7 +120,7 @@ async function executeBrowseCategory(
     }));
 
     return {
-      content: `Found ${articles.length} article${articles.length === 1 ? "" : "s"} in ${category}`,
+      content: `Found ${listResult?.metadata?.totalCount ?? articles.length} article${(listResult?.metadata?.totalCount ?? articles.length) === 1 ? "" : "s"} in ${category}`,
       messageType: "result_card",
       cardData: articleCards,
     };

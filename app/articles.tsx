@@ -78,10 +78,11 @@ export default function ArticlesRoute() {
   )
 
   // Fetch documents using Convex query with stable args
-  const documents = useQuery(api.documents.queries.list, listQueryArgs)
+  const listResult = useQuery(api.documents.queries.list, listQueryArgs)
 
-  // Fetch total count (not just page length) for accurate display
-  const totalCount = useQuery(api.documents.queries.countWithFilter, listQueryArgs)
+  // Extract documents and metadata from the new response structure
+  const documents = listResult?.documents ?? []
+  const totalCount = listResult?.metadata?.totalCount ?? 0
 
   // Fetch category counts to sort categories with articles first
   const categoryCounts = useQuery(api.documents.queries.countByCategory, {})
@@ -152,7 +153,7 @@ export default function ArticlesRoute() {
   }, [convexCategory, performSearch, searchQuery])
 
   // Determine which data source to use
-  const isLoading = documents === undefined
+  const isLoading = listResult === undefined
   const isLoadingCategories = categoryCounts === undefined
   const sourceDocuments = useMemo(() => {
     return documents ?? []

@@ -16,7 +16,8 @@ export const reembedAllDocuments = action({
   args: {},
   handler: async (ctx): Promise<{ total: number; success: number; errors: number; errorDetails: string[] }> => {
     // Fetch all documents with embeddings
-    const documents: any[] = await ctx.runQuery(api.documents.queries.list, {});
+    const listResult = await ctx.runQuery(api.documents.queries.list, {});
+    const documents: any[] = listResult?.documents ?? [];
 
     // Filter to only documents with embeddings
     const documentsWithEmbeddings: any[] = documents.filter((doc: any) => doc.embedding !== undefined);

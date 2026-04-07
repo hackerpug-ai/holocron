@@ -376,10 +376,12 @@ async function handleBrowseCommand(
     }
 
     // Fetch documents by category
-    const articles = await ctx.runQuery(api.documents.queries.list, {
+    const listResult = await ctx.runQuery(api.documents.queries.list, {
       category: normalizedCategory,
       limit: 10,
     });
+
+    const articles = listResult?.documents ?? [];
 
     if (!articles || articles.length === 0) {
       return {
@@ -398,7 +400,7 @@ async function handleBrowseCommand(
     }));
 
     return {
-      content: `Found ${articles.length} article${articles.length === 1 ? "" : "s"} in ${categoryArg}`,
+      content: `Found ${listResult?.metadata?.totalCount ?? articles.length} article${(listResult?.metadata?.totalCount ?? articles.length) === 1 ? "" : "s"} in ${categoryArg}`,
       messageType: "result_card",
       cardData: articleCards,
     };

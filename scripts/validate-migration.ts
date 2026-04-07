@@ -361,7 +361,8 @@ async function validateEmbeddingDimensions(): Promise<void> {
   const { convex: cvx } = getClients();
 
   try {
-    const documents = await cvx!.query(api.documents.index.list, {});
+    const listResult = await cvx!.query(api.documents.index.list, {});
+    const documents = listResult?.documents ?? [];
 
     // Filter documents with embeddings
     const docsWithEmbeddings = documents.filter(

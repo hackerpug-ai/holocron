@@ -14,6 +14,7 @@ export const get = query({
 /**
  * List all documents with optional filtering
  * Returns documents ordered by creation time (newest first)
+ * Includes metadata with total count for pagination
  */
 export const list = query({
   args: {
@@ -37,7 +38,22 @@ export const list = query({
     // Use take() to limit results
     const results = await query.take(limit);
 
-    return results;
+    // Get total count using counters (BP-005)
+    const counterName = category ?? "total";
+    const counter = await ctx.db
+      .query("documentCounters")
+      .withIndex("by_name", (q) => q.eq("name", counterName))
+      .first();
+
+    const totalCount = counter?.count ?? 0;
+
+    return {
+      documents: results,
+      metadata: {
+        totalCount,
+        hasMore: results.length === limit,
+      },
+    };
   },
 });
 
@@ -72,7 +88,16 @@ export const countWithFilter = query({
         .query("documentCounters")
         .withIndex("by_name", (q) => q.eq("name", "total"))
         .first();
-      return counter?.count ?? 0;
+
+      // If counter doesn't exist or is 0, fall back to actual count
+      // This handles cases where the counter hasn't been initialized yet
+      if (counter && counter.count > 0) {
+        return counter.count;
+      }
+
+      // Fallback: count all documents
+      const allDocs = await ctx.db.query("documents").collect();
+      return allDocs.length;
     }
 
     // Return category-specific count
@@ -80,7 +105,16 @@ export const countWithFilter = query({
       .query("documentCounters")
       .withIndex("by_name", (q) => q.eq("name", category))
       .first();
-    return counter?.count ?? 0;
+
+    // If counter doesn't exist or is 0, fall back to actual count
+    if (counter && counter.count > 0) {
+      return counter.count;
+    }
+
+    // Fallback: filter and count documents in this category
+    const allDocs = await ctx.db.query("documents").collect();
+    const categoryDocs = allDocs.filter((doc) => doc.category === category);
+    return categoryDocs.length;
   },
 });
 

@@ -38,7 +38,8 @@ export function ArticleImportModal({
   const [isImporting, setIsImporting] = useState(false)
 
   // Fetch all articles for the selector
-  const articles = useQuery(api.documents.queries.list, {})
+  const listResult = useQuery(api.documents.queries.list, {})
+  const articles = listResult?.documents ?? []
   const createImport = useMutation(api.imports.mutations.createImport)
 
   const handleImport = useCallback(async () => {
