@@ -157,6 +157,8 @@ export const updateDeepResearchSession = mutation({
 
     
     await ctx.db.patch(sessionId, updates);
+
+    return { success: true };
   },
 });
 
@@ -182,6 +184,9 @@ export const completeDeepResearchSession = mutation({
   handler: async (ctx, { sessionId, status, finalConfidenceSummary, errorReason }) => {
     const now = Date.now();
 
+    // Read session BEFORE patch to avoid redundant read-after-write
+    const session = await ctx.db.get(sessionId);
+
     const updates: any = {
       status,
       completedAt: now,
@@ -190,7 +195,7 @@ export const completeDeepResearchSession = mutation({
 
     if (finalConfidenceSummary) {
       updates.finalConfidenceSummary = finalConfidenceSummary;
-      
+
     }
 
     if (errorReason) {
@@ -202,7 +207,6 @@ export const completeDeepResearchSession = mutation({
 
     // Create notification for completion or error
     if (status === "completed" && !errorReason) {
-      const session = await ctx.db.get(sessionId);
       await ctx.db.insert("notifications", {
         type: "research_complete",
         title: "Research Complete",
