@@ -90,7 +90,7 @@ export default defineSchema({
     maxIterations: v.optional(v.number()),
     currentIteration: v.optional(v.number()),
     coverageScore: v.optional(v.number()),
-    plan: v.optional(v.record(v.string(), v.any())), // Complex JSON from execution plan (tracks, content, metadata)
+    plan: v.optional(v.record(v.string(), v.union(v.string(), v.number(), v.boolean(), v.null()))), // Complex JSON from execution plan (tracks, content, metadata)
     findings: v.optional(v.string()), // Synthesized findings text from iterations
     documentId: v.optional(v.id("documents")),
     errorText: v.optional(v.string()),
@@ -105,7 +105,7 @@ export default defineSchema({
     sessionId: v.id("researchSessions"),
     iterationNumber: v.number(),
     findingsSummary: v.optional(v.string()),
-    sources: v.optional(v.array(v.record(v.string(), v.any()))), // Array of source objects (url, title, snippet, etc.)
+    sources: v.optional(v.array(v.record(v.string(), v.union(v.string(), v.number(), v.boolean(), v.null())))), // Array of source objects (url, title, snippet, etc.)
     reviewScore: v.optional(v.number()),
     reviewFeedback: v.optional(v.string()),
     reviewGaps: v.optional(v.array(v.string())), // Identified research gaps as string list
@@ -241,13 +241,13 @@ export default defineSchema({
       v.literal("error"),
       v.literal("cancelled")
     ),
-    config: v.optional(v.record(v.string(), v.any())), // Task-type-specific config (varies by taskType: deep-research, research, shop, etc.)
+    config: v.optional(v.record(v.string(), v.union(v.string(), v.number(), v.boolean(), v.null()))), // Task-type-specific config (varies by taskType: deep-research, research, shop, etc.)
     currentStep: v.optional(v.number()),
     totalSteps: v.optional(v.number()),
     progressMessage: v.optional(v.string()),
-    result: v.optional(v.record(v.string(), v.any())), // Task-type-specific result (varies by taskType)
+    result: v.optional(v.record(v.string(), v.union(v.string(), v.number(), v.boolean(), v.null()))), // Task-type-specific result (varies by taskType)
     errorMessage: v.optional(v.string()),
-    errorDetails: v.optional(v.record(v.string(), v.any())), // Error context (stack, cause, etc.)
+    errorDetails: v.optional(v.record(v.string(), v.union(v.string(), v.number(), v.boolean(), v.null()))), // Error context (stack, cause, etc.)
     startedAt: v.optional(v.number()),
     completedAt: v.optional(v.number()),
     createdAt: v.number(),
@@ -389,7 +389,7 @@ export default defineSchema({
     releaseCount: v.number(),
     trendCount: v.number(),
     reportPath: v.string(), // Path to saved markdown report
-    summaryJson: v.optional(v.record(v.string(), v.any())), // Structured summary data — shape evolves with report versions (discoveries, releases, top5, trends, etc.)
+    summaryJson: v.optional(v.record(v.string(), v.union(v.string(), v.number(), v.boolean(), v.null()))), // Structured summary data — shape evolves with report versions (discoveries, releases, top5, trends, etc.)
     documentId: v.optional(v.id("documents")), // Link to full report document
     toolSuggestionsJson: v.optional(v.string()), // JSON string of ToolSuggestion[] for one-click add
     findingsJson: v.optional(v.string()), // JSON string of Finding[] for card rendering
@@ -1113,7 +1113,7 @@ export default defineSchema({
     actionParams: v.optional(v.record(v.string(), v.string())),
     result: v.optional(v.object({
       success: v.boolean(),
-      data: v.optional(v.any()), // Action-specific result data — shape varies by actionType (navigate, search, research, etc.)
+      data: v.optional(v.union(v.string(), v.number(), v.boolean(), v.null(), v.array(v.string()), v.array(v.number()))), // Action-specific result data — shape varies by actionType (navigate, search, research, etc.)
       error: v.optional(v.string()),
     })),
     success: v.boolean(),
