@@ -361,7 +361,7 @@ export default defineSchema({
         v.literal("creator"),
         v.literal("github")
       )
-    ), // for type-level rules
+    ), // for type-level rules - matches subscriptionSources.sourceType
     ruleName: v.string(),
     ruleType: v.string(), // keyword_whitelist, keyword_blacklist, min_score, etc.
     ruleValue: v.union(
