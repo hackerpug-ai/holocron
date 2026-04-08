@@ -629,6 +629,49 @@ Summarize overall confidence:
 - Target 600-1200 words for the full report
 - Do NOT use code blocks around the output`;
 
-  
+
   return prompt;
+}
+
+/**
+ * Build a ReAct-style reasoning prompt for research loop gap refinement.
+ *
+ * Used between iterations to produce a targeted follow-up query grounded in
+ * what was actually found, rather than heuristically concatenating gap labels.
+ *
+ * @param topic - Original research topic
+ * @param gaps - Gap labels identified in the review step
+ * @param keyFindings - Recent finding claims (for grounding the reasoning)
+ * @param iteration - Current iteration number
+ * @returns Prompt for a zaiFlash call that returns JSON with refinedQuery
+ */
+export function buildGapReasoningPrompt(
+  topic: string,
+  gaps: string[],
+  keyFindings: string[],
+  iteration: number,
+): string {
+  const findingsText = keyFindings.length > 0
+    ? keyFindings.slice(0, 5).map((f, i) => `${i + 1}. ${f}`).join("\n")
+    : "(no findings yet)";
+
+  const gapsText = gaps.map((g, i) => `${i + 1}. ${g}`).join("\n");
+
+  return `You are refining a research query based on what was found and what is still missing.
+
+Topic: ${topic}
+Iteration: ${iteration}
+
+Key findings so far:
+${findingsText}
+
+Identified gaps:
+${gapsText}
+
+Return JSON only (no markdown, no explanation):
+{
+  "thought": "One sentence: what the findings cover and what is genuinely missing",
+  "refinedQuery": "A specific search query under 100 characters targeting the most important gap",
+  "rationale": "Why this query will fill the gap"
+}`;
 }

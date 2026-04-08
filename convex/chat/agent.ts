@@ -32,18 +32,23 @@ import { toTitleCase } from "../lib/strings";
 import { classifyIntent } from "./triage";
 import { getSpecialist, INTENT_TO_SPECIALIST } from "./specialists";
 import type { IntentCategory } from "./specialists";
+import { generateTextWithReAct } from "../lib/react";
 
 /**
  * handleLlmResult
  *
  * Processes the LLM generateText result: handles tool calls (create_plan or individual),
  * or persists plain text response. Shared between specialist and fallback paths.
+ *
+ * @param specialistName - The specialist that produced this result. Stored in tool
+ *   approval cardData so continueAfterTool can dispatch back to the same specialist
+ *   without re-triaging.
  */
 async function handleLlmResult(
   ctx: ActionCtx,
   conversationId: Id<"conversations">,
-   
   result: GenerateTextResult<any, any>,
+  specialistName?: string,
 ): Promise<void> {
   // Handle tool calls — create approval messages
   if (result.toolCalls && result.toolCalls.length > 0) {
@@ -98,6 +103,9 @@ async function handleLlmResult(
             tool_name: toolCall.toolName,
             tool_display_name: toolDisplayName,
             tool_args: toolCall.input,
+            // Thread the specialist name through so continueAfterTool can
+            // dispatch back to the same specialist without re-triaging.
+            specialist_name: specialistName ?? null,
           },
         },
       );
@@ -156,7 +164,7 @@ async function callLlmMonolithic(
   conversationId: Id<"conversations">,
   messages: ModelMessage[],
 ): Promise<void> {
-  const result = await generateText({
+  const result = await generateTextWithReAct({
     model: zaiPro(),
     system: HOLOCRON_SYSTEM_PROMPT,
     messages,
@@ -174,11 +182,13 @@ async function callLlmMonolithic(
  * 2. Direct conversation response → persist directResponse, done
  * 3. Low confidence → fallback to monolithic agent
  * 4. Specialist intent → dispatch to domain-focused specialist
+ *
+ * Returns the specialist name used (for threading through tool continuations).
  */
 async function callLlmAndHandleResponse(
   ctx: ActionCtx,
   conversationId: Id<"conversations">,
-): Promise<void> {
+): Promise<string | null> {
   // Build context from conversation history (via internal query in V8 file)
   const messages = await ctx.runQuery(
     internal.chat.agentMutations.buildContext,
@@ -187,7 +197,6 @@ async function callLlmAndHandleResponse(
 
   // Step 1: Triage — classify intent with zaiFlash (no tools, ~100-200ms)
   const triage = await classifyIntent(messages);
-  
 
   // Step 2: Direct conversation response (no specialist needed)
   if (
@@ -201,33 +210,34 @@ async function callLlmAndHandleResponse(
       content: triage.directResponse,
       messageType: "text",
     });
-    return;
+    return null;
   }
 
   // Step 3: Low confidence → fallback to monolithic agent (safety valve)
   if (triage.confidence === "low") {
-    
-    return callLlmMonolithic(ctx, conversationId, messages);
+    await callLlmMonolithic(ctx, conversationId, messages);
+    return null;
   }
 
   // Step 4: Dispatch to specialist
   const specialistName = INTENT_TO_SPECIALIST[triage.intent as IntentCategory];
   if (!specialistName) {
     // No specialist for this intent (conversation without directResponse → monolithic)
-    return callLlmMonolithic(ctx, conversationId, messages);
+    await callLlmMonolithic(ctx, conversationId, messages);
+    return null;
   }
 
   const specialist = getSpecialist(specialistName);
-  
 
-  const result = await generateText({
+  const result = await generateTextWithReAct({
     model: specialist.model(),
     system: specialist.systemPrompt,
     messages,
     tools: specialist.tools,
   });
 
-  await handleLlmResult(ctx, conversationId, result);
+  await handleLlmResult(ctx, conversationId, result, specialistName);
+  return specialistName;
 }
 
 // ---------------------------------------------------------------------------
@@ -302,6 +312,15 @@ export const executeTool = action({
     }
 
     const conversationId = toolCall.conversationId;
+    // Read the specialist that generated this tool call from the approval
+    // message cardData so continueAfterTool can skip re-triage.
+    const approvalMessage = await ctx.runQuery(api.chatMessages.queries.get, {
+      id: toolCall.messageId,
+    });
+    const specialistName: string | undefined =
+      typeof (approvalMessage?.cardData as any)?.specialist_name === "string"
+        ? (approvalMessage?.cardData as any).specialist_name
+        : undefined;
 
     // Mark as approved
     await ctx.runMutation(api.toolCalls.mutations.updateStatus, {
@@ -388,6 +407,7 @@ export const executeTool = action({
     if (!skipContinuation) {
       await ctx.scheduler.runAfter(0, internal.chat.agent.continueAfterTool, {
         conversationId,
+        specialistName,
       });
     }
   },
@@ -438,16 +458,21 @@ export const rejectTool = action({
  * Internal action scheduled after a tool is executed or rejected.
  * Rebuilds the full conversation context (now including tool results)
  * and calls the LLM for a follow-up response.
+ *
+ * If specialistName is provided (threaded from the original tool approval),
+ * skips triage and dispatches directly to that specialist — preserving intent
+ * context across multi-tool chains.
  */
 export const continueAfterTool = internalAction({
   args: {
     conversationId: v.id("conversations"),
+    specialistName: v.optional(v.string()),
   },
-  handler: async (ctx, { conversationId }): Promise<void> => {
+  handler: async (ctx, { conversationId, specialistName }): Promise<void> => {
     const completedToolCalls = await ctx.runQuery(api.toolCalls.queries.listByConversation, {
       conversationId,
     });
-    const completedCount = (completedToolCalls ?? []).filter((tc) => tc.status === 'completed').length;
+    const completedCount = (completedToolCalls ?? []).filter((tc: { status: string }) => tc.status === 'completed').length;
     const MAX_TOOL_CHAIN_DEPTH = 10;
     if (completedCount >= MAX_TOOL_CHAIN_DEPTH) {
       await ctx.runMutation(api.chatMessages.mutations.create, {
@@ -469,7 +494,24 @@ export const continueAfterTool = internalAction({
     });
 
     try {
-      await callLlmAndHandleResponse(ctx, conversationId);
+      if (specialistName) {
+        // Skip triage — dispatch directly to the original specialist so intent
+        // context is preserved across multi-tool chains without re-classification.
+        const messages = await ctx.runQuery(
+          internal.chat.agentMutations.buildContext,
+          { conversationId },
+        );
+        const specialist = getSpecialist(specialistName as any);
+        const result = await generateTextWithReAct({
+          model: specialist.model(),
+          system: specialist.systemPrompt,
+          messages,
+          tools: specialist.tools,
+        });
+        await handleLlmResult(ctx, conversationId, result, specialistName);
+      } else {
+        await callLlmAndHandleResponse(ctx, conversationId);
+      }
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "An unexpected error occurred";

@@ -36,9 +36,11 @@ import {
   buildSynthesisPrompt,
   buildReviewPrompt,
   buildSinglePassSynthesisPrompt,
+  buildGapReasoningPrompt,
   type StructuredFinding,
   type UrlContent,
 } from "./prompts";
+import { zaiFlash } from "../lib/ai/zai_provider";
 import { classifyResearchIntent, type ResearchMode } from "./intent";
 import {
   calculateConfidenceScore,
@@ -729,22 +731,37 @@ export async function runIterativeResearch(
       const needsMoreConfidence = averageConfidence < 70;
 
       if ((needsMoreCoverage || needsMoreConfidence) && iteration < maxIterations) {
-        const refinementReasons: string[] = [];
-
         if (review.gaps.length > 0) {
-          refinementReasons.push(...review.gaps.slice(0, 2));
-        }
-
-        // Add focus on low confidence claims
-        if (review.confidenceAssessment?.lowConfidenceClaimIds?.length) {
-          refinementReasons.push("Improve source coverage for low-confidence claims");
-        }
-
-        if (refinementReasons.length > 0) {
-          currentTopic = `${topic} - Focus on: ${refinementReasons.join(", ")}`;
-          console.log(
-            `[runIterativeResearch] Step 2f: Topic refined to focus on: "${refinementReasons.join(", ")}"`,
-          );
+          // ReAct-style reasoning: explicitly reason about what's missing before
+          // choosing the next query, rather than heuristically concatenating gaps.
+          const keyFindingTexts = structuredFindings.slice(0, 10).map((f: StructuredFinding) => f.claimText);
+          try {
+            const reasoningResult = await generateText({
+              model: zaiFlash(),
+              prompt: buildGapReasoningPrompt(topic, review.gaps, keyFindingTexts, iteration),
+            });
+            const jsonMatch = reasoningResult.text.match(/\{[\s\S]*\}/);
+            const parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : {};
+            if (parsed.refinedQuery && typeof parsed.refinedQuery === "string") {
+              currentTopic = parsed.refinedQuery;
+              console.log(
+                `[runIterativeResearch] Step 2f: ReAct refined query: "${parsed.refinedQuery}" (thought: "${parsed.thought ?? ""}")`,
+              );
+            } else {
+              // Fallback to heuristic if reasoning produces no usable query
+              currentTopic = `${topic} - Focus on: ${review.gaps.slice(0, 2).join(", ")}`;
+              console.log(
+                `[runIterativeResearch] Step 2f: Fallback topic: "${currentTopic}"`,
+              );
+            }
+          } catch (err) {
+            // Reasoning call failed — fall back to heuristic
+            currentTopic = `${topic} - Focus on: ${review.gaps.slice(0, 2).join(", ")}`;
+            console.warn("[runIterativeResearch] Step 2f: Gap reasoning failed, using heuristic:", err);
+          }
+        } else if (review.confidenceAssessment?.lowConfidenceClaimIds?.length) {
+          currentTopic = `${topic} - Focus on: improving source coverage for low-confidence claims`;
+          console.log(`[runIterativeResearch] Step 2f: Targeting low-confidence claims`);
         }
       } else {
         console.log(
