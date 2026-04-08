@@ -8,8 +8,8 @@
  * - deepResearchIterations table
  */
 
-import { action } from "../_generated/server";
-import { api } from "../_generated/api";
+import { action, internalQuery } from "../_generated/server";
+import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { embed } from "ai";
 import { cohereEmbedding } from "../lib/ai/embeddings_provider";
@@ -44,37 +44,39 @@ interface BackfillResult {
 /**
  * Find research findings without embeddings
  */
-const findResearchFindingsWithoutEmbeddings = async (ctx: any, limit: number = 1000): Promise<OrphanResearchFinding[]> => {
-  const findings = await ctx.runQuery(api.research.queries.listFindings, {});
-  const withoutEmbeddings = findings
-    .filter((f: any) => !f.embedding)
-    .slice(0, limit)
-    .map((f: any) => ({
-      _id: f._id,
-      claimText: f.claimText,
-      claimCategory: f.claimCategory,
-      createdAt: f.createdAt,
-    }));
-
-  return withoutEmbeddings;
-};
+export const findResearchFindingsWithoutEmbeddings = internalQuery({
+  args: {},
+  handler: async (ctx): Promise<OrphanResearchFinding[]> => {
+    const findings = await ctx.db.query("researchFindings").collect();
+    return findings
+      .filter((f) => !f.embedding)
+      .slice(0, 1000)
+      .map((f) => ({
+        _id: f._id,
+        claimText: f.claimText,
+        claimCategory: f.claimCategory,
+        createdAt: f.createdAt,
+      }));
+  },
+});
 
 /**
  * Find deep research iterations without embeddings
  */
-const findDeepResearchIterationsWithoutEmbeddings = async (ctx: any, limit: number = 1000): Promise<OrphanDeepResearchIteration[]> => {
-  const iterations = await ctx.runQuery(api.research.queries.listIterations, {});
-  const withoutEmbeddings = iterations
-    .filter((i: any) => !i.embedding)
-    .slice(0, limit)
-    .map((i: any) => ({
-      _id: i._id,
-      findings: i.findings,
-      createdAt: i.createdAt,
-    }));
-
-  return withoutEmbeddings;
-};
+export const findDeepResearchIterationsWithoutEmbeddings = internalQuery({
+  args: {},
+  handler: async (ctx): Promise<OrphanDeepResearchIteration[]> => {
+    const iterations = await ctx.db.query("deepResearchIterations").collect();
+    return iterations
+      .filter((i) => !i.embedding)
+      .slice(0, 1000)
+      .map((i) => ({
+        _id: i._id,
+        findings: i.findings,
+        createdAt: i.createdAt,
+      }));
+  },
+});
 
 /**
  * Generate embedding for research finding claim text
@@ -105,8 +107,8 @@ export const backfill = action({
   args: {},
   handler: async (ctx): Promise<BackfillResult> => {
     // Find records without embeddings
-    const orphanFindings = await findResearchFindingsWithoutEmbeddings(ctx, 1000);
-    const orphanIterations = await findDeepResearchIterationsWithoutEmbeddings(ctx, 1000);
+    const orphanFindings = await ctx.runQuery(internal.migrations.backfillResearchEmbeddings.findResearchFindingsWithoutEmbeddings, {});
+    const orphanIterations = await ctx.runQuery(internal.migrations.backfillResearchEmbeddings.findDeepResearchIterationsWithoutEmbeddings, {});
 
     if (orphanFindings.length === 0 && orphanIterations.length === 0) {
       return {
@@ -136,8 +138,8 @@ export const backfill = action({
           // Generate embedding
           const embedding = await generateFindingEmbedding(finding.claimText);
 
-          // Update the finding with embedding
-          await ctx.runMutation(api.research.mutations.updateResearchFinding, {
+          // Update the finding with embedding using internal mutation
+          await ctx.runMutation(internal.research.mutations.updateResearchFinding, {
             id: finding._id,
             embedding,
           });
@@ -166,8 +168,8 @@ export const backfill = action({
           // Generate embedding
           const embedding = await generateIterationEmbedding(iteration.findings);
 
-          // Update the iteration with embedding
-          await ctx.runMutation(api.research.mutations.updateDeepResearchIteration, {
+          // Update the iteration with embedding using internal mutation
+          await ctx.runMutation(internal.research.mutations.updateDeepResearchIteration, {
             id: iteration._id,
             embedding,
           });
@@ -213,19 +215,42 @@ export const status = action({
     findingsPercentComplete: number;
     iterationsPercentComplete: number;
   }> => {
-    const orphanFindings = await findResearchFindingsWithoutEmbeddings(ctx, 100000);
-    const orphanIterations = await findDeepResearchIterationsWithoutEmbeddings(ctx, 100000);
+    const orphanFindings = await ctx.runQuery(internal.migrations.backfillResearchEmbeddings.findResearchFindingsWithoutEmbeddings, {});
+    const orphanIterations = await ctx.runQuery(internal.migrations.backfillResearchEmbeddings.findDeepResearchIterationsWithoutEmbeddings, {});
 
-    const allFindings = await ctx.runQuery(api.research.queries.listFindings, {});
-    const allIterations = await ctx.runQuery(api.research.queries.listIterations, {});
+    // Get totals via direct queries (simplified for monitoring)
+    const totalFindingsResult = await ctx.runQuery(internal.migrations.backfillResearchEmbeddings.countTotalFindings, {});
+    const totalIterationsResult = await ctx.runQuery(internal.migrations.backfillResearchEmbeddings.countTotalIterations, {});
 
     return {
       findingsWithoutEmbeddings: orphanFindings.length,
       iterationsWithoutEmbeddings: orphanIterations.length,
-      totalFindings: allFindings.length,
-      totalIterations: allIterations.length,
-      findingsPercentComplete: allFindings.length > 0 ? ((allFindings.length - orphanFindings.length) / allFindings.length) * 100 : 100,
-      iterationsPercentComplete: allIterations.length > 0 ? ((allIterations.length - orphanIterations.length) / allIterations.length) * 100 : 100,
+      totalFindings: totalFindingsResult,
+      totalIterations: totalIterationsResult,
+      findingsPercentComplete: totalFindingsResult > 0 ? ((totalFindingsResult - orphanFindings.length) / totalFindingsResult) * 100 : 100,
+      iterationsPercentComplete: totalIterationsResult > 0 ? ((totalIterationsResult - orphanIterations.length) / totalIterationsResult) * 100 : 100,
     };
+  },
+});
+
+/**
+ * Count total research findings
+ */
+export const countTotalFindings = internalQuery({
+  args: {},
+  handler: async (ctx): Promise<number> => {
+    const findings = await ctx.db.query("researchFindings").collect();
+    return findings.length;
+  },
+});
+
+/**
+ * Count total deep research iterations
+ */
+export const countTotalIterations = internalQuery({
+  args: {},
+  handler: async (ctx): Promise<number> => {
+    const iterations = await ctx.db.query("deepResearchIterations").collect();
+    return iterations.length;
   },
 });

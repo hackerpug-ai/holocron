@@ -7,8 +7,8 @@
  * - improvementRequests table
  */
 
-import { action } from "../_generated/server";
-import { api, internal } from "../_generated/api";
+import { action, internalQuery } from "../_generated/server";
+import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { embed } from "ai";
 import { cohereEmbedding } from "../lib/ai/embeddings_provider";
@@ -34,20 +34,21 @@ interface BackfillResult {
 /**
  * Find improvement requests without embeddings
  */
-const findImprovementRequestsWithoutEmbeddings = async (ctx: any, limit: number = 1000): Promise<OrphanImprovementRequest[]> => {
-  const requests = await ctx.runQuery(api.improvements.list, {});
-  const withoutEmbeddings = requests
-    .filter((r: any) => !r.embedding)
-    .slice(0, limit)
-    .map((r: any) => ({
-      _id: r._id,
-      description: r.description,
-      title: r.title,
-      createdAt: r.createdAt,
-    }));
-
-  return withoutEmbeddings;
-};
+export const findImprovementRequestsWithoutEmbeddings = internalQuery({
+  args: {},
+  handler: async (ctx): Promise<OrphanImprovementRequest[]> => {
+    const requests = await ctx.db.query("improvementRequests").collect();
+    return requests
+      .filter((r) => !r.embedding)
+      .slice(0, 1000)
+      .map((r) => ({
+        _id: r._id,
+        description: r.description,
+        title: r.title,
+        createdAt: r.createdAt,
+      }));
+  },
+});
 
 /**
  * Generate embedding for improvement request description
@@ -70,7 +71,7 @@ export const backfill = action({
   args: {},
   handler: async (ctx): Promise<BackfillResult> => {
     // Find requests without embeddings
-    const orphans = await findImprovementRequestsWithoutEmbeddings(ctx, 1000);
+    const orphans = await ctx.runQuery(internal.migrations.backfillImprovementsEmbeddings.findImprovementRequestsWithoutEmbeddings, {});
 
     if (orphans.length === 0) {
       return {
@@ -136,13 +137,24 @@ export const status = action({
     totalRequests: number;
     percentComplete: number;
   }> => {
-    const orphans = await findImprovementRequestsWithoutEmbeddings(ctx, 100000);
-    const all = await ctx.runQuery(api.improvements.list, {});
+    const orphans = await ctx.runQuery(internal.migrations.backfillImprovementsEmbeddings.findImprovementRequestsWithoutEmbeddings, {});
+    const total = await ctx.runQuery(internal.migrations.backfillImprovementsEmbeddings.countTotalRequests, {});
 
     return {
       requestsWithoutEmbeddings: orphans.length,
-      totalRequests: all.length,
-      percentComplete: all.length > 0 ? ((all.length - orphans.length) / all.length) * 100 : 100,
+      totalRequests: total,
+      percentComplete: total > 0 ? ((total - orphans.length) / total) * 100 : 100,
     };
+  },
+});
+
+/**
+ * Count total improvement requests
+ */
+export const countTotalRequests = internalQuery({
+  args: {},
+  handler: async (ctx): Promise<number> => {
+    const requests = await ctx.db.query("improvementRequests").collect();
+    return requests.length;
   },
 });
