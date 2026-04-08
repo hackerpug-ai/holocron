@@ -43,8 +43,8 @@ async function generateImprovementEmbedding(description: string): Promise<number
 export const backfill = action({
   args: {},
   handler: async (ctx): Promise<BackfillResult> => {
-    // Use existing public query to get all improvement requests
-    const allRequests = await ctx.runQuery(api.improvements.list, {});
+    // Use internal query to get all improvement requests
+    const allRequests = await ctx.runQuery(internal.improvements._queries.listAll, {});
 
     // Filter to find requests without embeddings
     const orphans = allRequests.filter((r: any) => !r.embedding).slice(0, 1000);
@@ -113,7 +113,7 @@ export const status = action({
     totalRequests: number;
     percentComplete: number;
   }> => {
-    const allRequests = await ctx.runQuery(api.improvements.list, {});
+    const allRequests = await ctx.runQuery(internal.improvements._queries.listAll, {});
     const orphans = allRequests.filter((r: any) => !r.embedding);
 
     return {
