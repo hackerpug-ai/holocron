@@ -9,7 +9,7 @@
  */
 
 import { action } from "../_generated/server";
-import { internal } from "../_generated/api";
+import { api, internal } from "../_generated/api";
 import { embed } from "ai";
 import { cohereEmbedding } from "../lib/ai/embeddings_provider";
 
@@ -55,9 +55,13 @@ async function generateIterationEmbedding(findings: string): Promise<number[]> {
 export const backfill = action({
   args: {},
   handler: async (ctx): Promise<BackfillResult> => {
-    // Find records without embeddings
-    const orphanFindings = await ctx.runQuery(internal.migrations.backfillResearchEmbeddingsQueries.findResearchFindingsWithoutEmbeddings, {});
-    const orphanIterations = await ctx.runQuery(internal.migrations.backfillResearchEmbeddingsQueries.findDeepResearchIterationsWithoutEmbeddings, {});
+    // Use existing public queries to get all data
+    const allIterations = await ctx.runQuery(api.research.queries.listDeepResearchIterations, {});
+    const allFindings = await ctx.runQuery(api.research.queries.getFindingsByConfidence, {});
+
+    // Filter to find records without embeddings
+    const orphanFindings = allFindings.filter((f: any) => !f.embedding).slice(0, 1000);
+    const orphanIterations = allIterations.filter((i: any) => !i.embedding).slice(0, 1000);
 
     if (orphanFindings.length === 0 && orphanIterations.length === 0) {
       return {
@@ -83,7 +87,7 @@ export const backfill = action({
       const batch = orphanFindings.slice(i, i + 10);
 
       const results = await Promise.allSettled(
-        batch.map(async (finding) => {
+        batch.map(async (finding: any) => {
           // Generate embedding
           const embedding = await generateFindingEmbedding(finding.claimText);
 
@@ -113,9 +117,9 @@ export const backfill = action({
       const batch = orphanIterations.slice(i, i + 10);
 
       const results = await Promise.allSettled(
-        batch.map(async (iteration) => {
+        batch.map(async (iteration: any) => {
           // Generate embedding
-          const embedding = await generateIterationEmbedding(iteration.findings);
+          const embedding = await generateIterationEmbedding(iteration.findings ?? "");
 
           // Update the iteration with embedding using internal mutation
           await ctx.runMutation(internal.research.mutations.updateDeepResearchIteration, {
@@ -164,20 +168,19 @@ export const status = action({
     findingsPercentComplete: number;
     iterationsPercentComplete: number;
   }> => {
-    const orphanFindings = await ctx.runQuery(internal.migrations.backfillResearchEmbeddingsQueries.findResearchFindingsWithoutEmbeddings, {});
-    const orphanIterations = await ctx.runQuery(internal.migrations.backfillResearchEmbeddingsQueries.findDeepResearchIterationsWithoutEmbeddings, {});
+    const allIterations = await ctx.runQuery(api.research.queries.listDeepResearchIterations, {});
+    const allFindings = await ctx.runQuery(api.research.queries.getFindingsByConfidence, {});
 
-    // Get totals
-    const totalFindingsResult = await ctx.runQuery(internal.migrations.backfillResearchEmbeddingsQueries.countTotalFindings, {});
-    const totalIterationsResult = await ctx.runQuery(internal.migrations.backfillResearchEmbeddingsQueries.countTotalIterations, {});
+    const orphanFindings = allFindings.filter((f: any) => !f.embedding);
+    const orphanIterations = allIterations.filter((i: any) => !i.embedding);
 
     return {
       findingsWithoutEmbeddings: orphanFindings.length,
       iterationsWithoutEmbeddings: orphanIterations.length,
-      totalFindings: totalFindingsResult,
-      totalIterations: totalIterationsResult,
-      findingsPercentComplete: totalFindingsResult > 0 ? ((totalFindingsResult - orphanFindings.length) / totalFindingsResult) * 100 : 100,
-      iterationsPercentComplete: totalIterationsResult > 0 ? ((totalIterationsResult - orphanIterations.length) / totalIterationsResult) * 100 : 100,
+      totalFindings: allFindings.length,
+      totalIterations: allIterations.length,
+      findingsPercentComplete: allFindings.length > 0 ? ((allFindings.length - orphanFindings.length) / allFindings.length) * 100 : 100,
+      iterationsPercentComplete: allIterations.length > 0 ? ((allIterations.length - orphanIterations.length) / allIterations.length) * 100 : 100,
     };
   },
 });

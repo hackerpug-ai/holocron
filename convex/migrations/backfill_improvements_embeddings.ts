@@ -8,7 +8,7 @@
  */
 
 import { action } from "../_generated/server";
-import { internal } from "../_generated/api";
+import { api, internal } from "../_generated/api";
 import { embed } from "ai";
 import { cohereEmbedding } from "../lib/ai/embeddings_provider";
 
@@ -43,8 +43,11 @@ async function generateImprovementEmbedding(description: string): Promise<number
 export const backfill = action({
   args: {},
   handler: async (ctx): Promise<BackfillResult> => {
-    // Find requests without embeddings
-    const orphans = await ctx.runQuery(internal.migrations.backfillImprovementsEmbeddingsQueries.findImprovementRequestsWithoutEmbeddings, {});
+    // Use existing public query to get all improvement requests
+    const allRequests = await ctx.runQuery(api.improvements.list, {});
+
+    // Filter to find requests without embeddings
+    const orphans = allRequests.filter((r: any) => !r.embedding).slice(0, 1000);
 
     if (orphans.length === 0) {
       return {
@@ -65,7 +68,7 @@ export const backfill = action({
       const batch = orphans.slice(i, i + 10);
 
       const results = await Promise.allSettled(
-        batch.map(async (request) => {
+        batch.map(async (request: any) => {
           // Generate embedding
           const embedding = await generateImprovementEmbedding(request.description);
 
@@ -110,13 +113,13 @@ export const status = action({
     totalRequests: number;
     percentComplete: number;
   }> => {
-    const orphans = await ctx.runQuery(internal.migrations.backfillImprovementsEmbeddingsQueries.findImprovementRequestsWithoutEmbeddings, {});
-    const total = await ctx.runQuery(internal.migrations.backfillImprovementsEmbeddingsQueries.countTotalRequests, {});
+    const allRequests = await ctx.runQuery(api.improvements.list, {});
+    const orphans = allRequests.filter((r: any) => !r.embedding);
 
     return {
       requestsWithoutEmbeddings: orphans.length,
-      totalRequests: total,
-      percentComplete: total > 0 ? ((total - orphans.length) / total) * 100 : 100,
+      totalRequests: allRequests.length,
+      percentComplete: allRequests.length > 0 ? ((allRequests.length - orphans.length) / allRequests.length) * 100 : 100,
     };
   },
 });
