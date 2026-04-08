@@ -8,7 +8,7 @@
  */
 
 import { action, internalQuery } from "../_generated/server";
-import { internal } from "../_generated/api";
+import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { embed } from "ai";
 import { cohereEmbedding } from "../lib/ai/embeddings_provider";
@@ -70,8 +70,8 @@ async function generateImprovementEmbedding(description: string): Promise<number
 export const backfill = action({
   args: {},
   handler: async (ctx): Promise<BackfillResult> => {
-    // Find requests without embeddings
-    const orphans = await ctx.runQuery(internal.migrations.backfillImprovementsEmbeddings.findImprovementRequestsWithoutEmbeddings, {});
+    // Find requests without embeddings using api reference
+    const orphans = await ctx.runQuery(api.migrations.backfillImprovementsEmbeddings.findImprovementRequestsWithoutEmbeddings, {});
 
     if (orphans.length === 0) {
       return {
@@ -137,8 +137,8 @@ export const status = action({
     totalRequests: number;
     percentComplete: number;
   }> => {
-    const orphans = await ctx.runQuery(internal.migrations.backfillImprovementsEmbeddings.findImprovementRequestsWithoutEmbeddings, {});
-    const total = await ctx.runQuery(internal.migrations.backfillImprovementsEmbeddings.countTotalRequests, {});
+    const orphans = await ctx.runQuery(api.migrations.backfillImprovementsEmbeddings.findImprovementRequestsWithoutEmbeddings, {});
+    const total = await ctx.runQuery(api.migrations.backfillImprovementsEmbeddings.countTotalRequests, {});
 
     return {
       requestsWithoutEmbeddings: orphans.length,
