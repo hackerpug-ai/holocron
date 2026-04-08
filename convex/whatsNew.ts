@@ -1,5 +1,8 @@
 import { v } from "convex/values";
-import { query, mutation } from "./_generated/server";
+import { query, mutation, action, internalAction } from "./_generated/server";
+import { internal } from "./_generated/api";
+import { embed } from "ai";
+import { cohereEmbedding } from "./lib/ai/embeddings_provider";
 
 // ============================================================================
 // Queries
@@ -99,10 +102,13 @@ export const getLatestReport = query({
 // ============================================================================
 
 /**
- * Save a whats-new report after completion
+ * Internal mutation: Save a whats-new report with embeddings
  * Creates a subscription source and individual findings as content items
+ *
+ * This is called by saveReportWithEmbeddings action.
+ * Use saveReportWithEmbeddings for external calls to ensure embeddings are generated.
  */
-export const saveReport = mutation({
+export const saveReportInternal = mutation({
   args: {
     periodStart: v.number(),
     periodEnd: v.number(),
@@ -123,6 +129,7 @@ export const saveReport = mutation({
       timestamp: v.optional(v.number()),
       summary: v.optional(v.string()),
       tags: v.optional(v.array(v.string())),
+      embedding: v.optional(v.array(v.float64())),
     }))),
   },
   handler: async (ctx, args) => {
@@ -149,7 +156,7 @@ export const saveReport = mutation({
       updatedAt: now,
     });
 
-    // Insert individual findings as content items
+    // Insert individual findings as content items with embeddings
     if (args.findings && args.findings.length > 0) {
       for (const finding of args.findings) {
         await ctx.db.insert("subscriptionContent", {
@@ -157,6 +164,7 @@ export const saveReport = mutation({
           contentId: `${identifier}-${finding.title.substring(0, 50).replace(/[^a-zA-Z0-9]/g, '-')}`,
           title: finding.title,
           url: finding.url,
+          embedding: finding.embedding, // Include embedding for semantic search
           metadataJson: {
             score: finding.score,
             source: finding.source,
@@ -190,5 +198,123 @@ export const saveReport = mutation({
     });
 
     return { reportId, sourceId, identifier };
+  },
+});
+
+/**
+ * Internal action: Generate embedding for a single finding title
+ *
+ * @param title - Finding title to embed
+ * @returns embedding vector (1024 dimensions)
+ */
+async function generateFindingEmbedding(title: string): Promise<number[]> {
+  const MAX_LENGTH = 2000;
+  const truncated = title.slice(0, MAX_LENGTH);
+
+  const { embedding } = await embed({
+    model: cohereEmbedding,
+    value: truncated,
+  });
+
+  return embedding;
+}
+
+/**
+ * Save a whats-new report with embeddings (action version)
+ *
+ * This action version generates embeddings for each finding before saving,
+ * enabling semantic search and deduplication.
+ */
+export const saveReportWithEmbeddings = internalAction({
+  args: {
+    periodStart: v.number(),
+    periodEnd: v.number(),
+    days: v.number(),
+    focus: v.string(),
+    discoveryOnly: v.boolean(),
+    findingsCount: v.number(),
+    discoveryCount: v.number(),
+    releaseCount: v.number(),
+    trendCount: v.number(),
+    reportPath: v.string(),
+    summaryJson: v.optional(v.any()),
+    findings: v.optional(v.array(v.object({
+      title: v.string(),
+      url: v.optional(v.string()),
+      source: v.string(),
+      score: v.optional(v.number()),
+      timestamp: v.optional(v.number()),
+      summary: v.optional(v.string()),
+      tags: v.optional(v.array(v.string())),
+      embedding: v.optional(v.array(v.float64())),
+    }))),
+  },
+  handler: async (ctx, args) => {
+    // Generate embeddings for all findings in parallel
+    const embeddings: number[][] = [];
+    if (args.findings && args.findings.length > 0) {
+      const embeddingPromises = args.findings.map(finding =>
+        generateFindingEmbedding(finding.title)
+      );
+      const generatedEmbeddings = await Promise.all(embeddingPromises);
+      embeddings.push(...generatedEmbeddings);
+    }
+
+    // Call the mutation with embeddings included
+    const result = await ctx.runMutation(internal.whatsNew.saveReportInternal, {
+      periodStart: args.periodStart,
+      periodEnd: args.periodEnd,
+      days: args.days,
+      focus: args.focus,
+      discoveryOnly: args.discoveryOnly,
+      findingsCount: args.findingsCount,
+      discoveryCount: args.discoveryCount,
+      releaseCount: args.releaseCount,
+      trendCount: args.trendCount,
+      reportPath: args.reportPath,
+      summaryJson: args.summaryJson,
+      findings: args.findings?.map((finding, index) => ({
+        ...finding,
+        embedding: embeddings[index],
+      })),
+    });
+
+    return result;
+  },
+});
+
+/**
+ * Public action: Save a whats-new report with embeddings
+ *
+ * This is the main entry point for saving whats-new reports with semantic search support.
+ * Can be called from the whats-new skill or MCP tools.
+ */
+export const saveReportWithEmbeddingsPublic = action({
+  args: {
+    periodStart: v.number(),
+    periodEnd: v.number(),
+    days: v.number(),
+    focus: v.string(),
+    discoveryOnly: v.boolean(),
+    findingsCount: v.number(),
+    discoveryCount: v.number(),
+    releaseCount: v.number(),
+    trendCount: v.number(),
+    reportPath: v.string(),
+    summaryJson: v.optional(v.any()),
+    findings: v.optional(v.array(v.object({
+      title: v.string(),
+      url: v.optional(v.string()),
+      source: v.string(),
+      score: v.optional(v.number()),
+      timestamp: v.optional(v.number()),
+      summary: v.optional(v.string()),
+      tags: v.optional(v.array(v.string())),
+      embedding: v.optional(v.array(v.float64())),
+    }))),
+  },
+  handler: async (ctx, args) => {
+    // Delegate to the internal action
+    return await ctx.runAction(internal.whatsNew.saveReportWithEmbeddings, args);
   },
 });

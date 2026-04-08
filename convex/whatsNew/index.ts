@@ -13,4 +13,4 @@ export * from "./workflow";
 export * as internal from "./internal";
 
 // Re-export top-level functions for MCP tools and direct access
-export { getRecentReports, getRecentSubscriptionContent, getLatestReport, saveReport } from "../whatsNew";
+export { getRecentReports, getRecentSubscriptionContent, getLatestReport, saveReportInternal as saveReport, saveReportWithEmbeddingsPublic as saveReportWithEmbeddings } from "../whatsNew";
