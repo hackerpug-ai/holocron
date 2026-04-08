@@ -261,3 +261,79 @@ export const listReports = query({
     }));
   },
 });
+
+/**
+ * Get recent whats-new reports to check if we should run a new scan
+ * Returns reports from the last N days
+ */
+export const getRecentReports = query({
+  args: {
+    daysAgo: v.optional(v.number()), // Default: 3 days
+  },
+  handler: async (ctx, args) => {
+    const daysAgo = args.daysAgo ?? 3;
+    const cutoff = Date.now() - daysAgo * 24 * 60 * 60 * 1000;
+
+    const reports = await ctx.db
+      .query("whatsNewReports")
+      .withIndex("by_created")
+      .order("desc")
+      .take(5);
+
+    // Filter to reports created after the cutoff
+    return reports.filter((r) => r.createdAt > cutoff);
+  },
+});
+
+/**
+ * Get recent subscription content for "known ecosystem" context
+ * Returns content from the past N days, grouped by source type
+ */
+export const getRecentSubscriptionContent = query({
+  args: {
+    daysAgo: v.number(), // 1-90 days
+  },
+  handler: async (ctx, args) => {
+    const cutoff = Date.now() - args.daysAgo * 24 * 60 * 60 * 1000;
+
+    // Get all content from the period (order by discoveredAt desc)
+    const allContent = await ctx.db
+      .query("subscriptionContent")
+      .order("desc")
+      .collect();
+
+    // Filter by date and passed filter
+    const filteredContent = allContent.filter(
+      (c) => c.discoveredAt > cutoff && c.passedFilter
+    );
+
+    // Fetch sources to get type info
+    const contentWithSource = await Promise.all(
+      filteredContent.map(async (content) => {
+        const source = await ctx.db.get(content.sourceId);
+        return {
+          ...content,
+          sourceType: source?.sourceType ?? "unknown",
+          sourceIdentifier: source?.identifier ?? "",
+          sourceName: source?.name ?? "",
+        };
+      })
+    );
+
+    // Group by source type
+    const grouped = {
+      youtube: contentWithSource.filter((c) => c.sourceType === "youtube"),
+      newsletter: contentWithSource.filter((c) => c.sourceType === "newsletter"),
+      changelog: contentWithSource.filter((c) => c.sourceType === "changelog"),
+      reddit: contentWithSource.filter((c) => c.sourceType === "reddit"),
+      ebay: contentWithSource.filter((c) => c.sourceType === "ebay"),
+      "whats-new": contentWithSource.filter((c) => c.sourceType === "whats-new"),
+    };
+
+    return {
+      total: filteredContent.length,
+      grouped,
+      all: contentWithSource,
+    };
+  },
+});

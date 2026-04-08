@@ -11,3 +11,6 @@ export * from "./workflow";
 
 // Re-export internal module for cron jobs and internal references
 export * as internal from "./internal";
+
+// Re-export top-level functions for MCP tools and direct access
+export { getRecentReports, getRecentSubscriptionContent, getLatestReport, saveReport } from "../whatsNew";
