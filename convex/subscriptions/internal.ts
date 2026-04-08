@@ -1072,7 +1072,12 @@ export const updateContentResearchStatus = internalMutation({
   },
 });
 
-export const createDocumentFromContent = internalMutation({
+/**
+ * Create a document from subscription content with embedding generation.
+ * Changed from internalMutation to internalAction to support embedding generation.
+ * Uses the documents module's createWithEmbedding action to ensure embeddings are always generated.
+ */
+export const createDocumentFromContent = internalAction({
   args: {
     title: v.string(),
     content: v.string(),
@@ -1082,14 +1087,18 @@ export const createDocumentFromContent = internalMutation({
     researchType: v.optional(v.string()),
     filePath: v.optional(v.string()),
   },
-  handler: async (ctx, args) => {
-    const id = await ctx.db.insert("documents", {
-      ...args,
-      createdAt: Date.now(),
+  handler: async (ctx, args): Promise<string> => {
+    // Use the documents module's action which handles embedding generation
+    const id: string = await ctx.runAction(api.documents.storage.createWithEmbedding, {
+      title: args.title,
+      content: args.content,
+      category: args.category,
+      filePath: args.filePath,
+      fileType: undefined,
+      status: args.status,
+      date: args.date,
+      researchType: args.researchType,
     });
-
-    // Update document counters (BP-005)
-    await updateDocumentCountersInline(ctx, args.category, false, 1);
 
     return id;
   },

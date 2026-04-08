@@ -134,6 +134,34 @@ crons.interval(
 );
 
 /**
+ * Research Embedding Backfill
+ *
+ * Backfills embeddings for research findings and iterations that were created without them.
+ * - Runs every 2 hours
+ * - Processes researchFindings and deepResearchIterations tables
+ * - Ensures semantic search works for research content
+ */
+crons.interval(
+  "research-embedding-backfill",
+  { hours: 2 },
+  internal.migrations.backfillResearchEmbeddings.backfill
+);
+
+/**
+ * Improvements Embedding Backfill
+ *
+ * Backfills embeddings for improvement requests that were created without them.
+ * - Runs every 2 hours
+ * - Processes improvementRequests table
+ * - Ensures semantic search works for improvement requests
+ */
+crons.interval(
+  "improvements-embedding-backfill",
+  { hours: 2 },
+  internal.migrations.backfillImprovementsEmbeddings.backfill
+);
+
+/**
  * What's New Daily Report Generator
  *
  * Automatically generates a daily AI software engineering news briefing.

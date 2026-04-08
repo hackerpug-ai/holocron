@@ -508,13 +508,9 @@ export async function runIterativeResearch(
       }
 
       // Step 2b.1.5: Generate embedding for iteration findings
-      let iterationEmbedding: number[] | undefined;
-      try {
-        iterationEmbedding = await generateIterationEmbedding(narrativeSummary);
-      } catch (error) {
-        console.error(`[runIterativeResearch] Step 2b.1.5: Failed to generate iteration embedding:`, error);
-        // Continue without embedding - it's optional
-      }
+      // CRITICAL: Embedding generation is BLOCKING - if this fails, the iteration fails
+      // Research findings without embeddings are broken data (semantic search won't work)
+      const iterationEmbedding = await generateIterationEmbedding(narrativeSummary);
 
       // Step 2b.2: Create iteration record first to get iterationId
       const iterationId = await ctx.runMutation(
@@ -567,13 +563,9 @@ export async function runIterativeResearch(
         const warnings = confidenceLevel === "LOW" ? generateWarnings(factors, citationIds.length) : [];
 
         // Generate embedding for finding
-        let findingEmbedding: number[] | undefined;
-        try {
-          findingEmbedding = await generateFindingEmbedding(finding.claimText);
-        } catch (error) {
-          console.error(`[runIterativeResearch] Failed to generate finding embedding:`, error);
-          // Continue without embedding - it's optional
-        }
+        // CRITICAL: Embedding generation is BLOCKING - if this fails, the finding creation fails
+        // Research findings without embeddings are broken data (semantic search won't work)
+        const findingEmbedding = await generateFindingEmbedding(finding.claimText);
 
         // Create research finding record with embedding
         await ctx.runMutation(

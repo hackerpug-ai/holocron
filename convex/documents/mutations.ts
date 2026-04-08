@@ -17,7 +17,9 @@ export const create = mutation({
     time: v.optional(v.string()),
     researchType: v.optional(v.string()),
     iterations: v.optional(v.number()),
-    embedding: v.optional(v.array(v.float64())),
+    // REQUIRED: All documents must have embeddings for semantic search
+    // Use createWithEmbedding action instead of calling this mutation directly
+    embedding: v.array(v.float64()),
   },
   handler: async (ctx, args) => {
     const now = Date.now();
