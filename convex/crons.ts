@@ -18,6 +18,19 @@ const backfillOrphanedEmbeddings = makeFunctionReference<
   any
 >("documents/scheduled:backfillOrphanedEmbeddings");
 
+// Research and improvements embedding backfill (may not be in generated API yet)
+const backfillResearchEmbeddings = makeFunctionReference<
+  "action",
+  {},
+  any
+>("migrations/backfill_research_embeddings:backfill");
+
+const backfillImprovementsEmbeddings = makeFunctionReference<
+  "action",
+  {},
+  any
+>("migrations/backfill_improvements_embeddings:backfill");
+
 // Workflow-based daily report generation (replaces monolithic action)
 const startDailyReportWorkflow = makeFunctionReference<
   "mutation",
@@ -144,7 +157,7 @@ crons.interval(
 crons.interval(
   "research-embedding-backfill",
   { hours: 2 },
-  internal.migrations.backfillResearchEmbeddings.backfill
+  backfillResearchEmbeddings
 );
 
 /**
@@ -158,7 +171,7 @@ crons.interval(
 crons.interval(
   "improvements-embedding-backfill",
   { hours: 2 },
-  internal.migrations.backfillImprovementsEmbeddings.backfill
+  backfillImprovementsEmbeddings
 );
 
 /**
