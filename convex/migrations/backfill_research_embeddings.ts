@@ -55,9 +55,24 @@ async function generateIterationEmbedding(findings: string): Promise<number[]> {
 export const backfill = action({
   args: {},
   handler: async (ctx): Promise<BackfillResult> => {
-    // Use existing public queries to get all data
-    const allIterations = await ctx.runQuery(api.research.queries.listDeepResearchIterations, {});
-    const allFindings = await ctx.runQuery(api.research.queries.getFindingsByConfidence, {});
+    // Get all research sessions first
+    const sessions = await ctx.runQuery(internal.research._queries.listAllSessions, {});
+
+    // Collect all iterations and findings from all sessions
+    const allIterations: any[] = [];
+    const allFindings: any[] = [];
+
+    for (const session of sessions) {
+      const iterations = await ctx.runQuery(api.research.queries.listDeepResearchIterations, {
+        sessionId: session._id
+      });
+      allIterations.push(...iterations);
+
+      const findings = await ctx.runQuery(api.research.queries.getFindingsByConfidence, {
+        sessionId: session._id
+      });
+      allFindings.push(...findings);
+    }
 
     // Filter to find records without embeddings
     const orphanFindings = allFindings.filter((f: any) => !f.embedding).slice(0, 1000);
@@ -168,8 +183,24 @@ export const status = action({
     findingsPercentComplete: number;
     iterationsPercentComplete: number;
   }> => {
-    const allIterations = await ctx.runQuery(api.research.queries.listDeepResearchIterations, {});
-    const allFindings = await ctx.runQuery(api.research.queries.getFindingsByConfidence, {});
+    // Get all research sessions first
+    const sessions = await ctx.runQuery(internal.research._queries.listAllSessions, {});
+
+    // Collect all iterations and findings from all sessions
+    const allIterations: any[] = [];
+    const allFindings: any[] = [];
+
+    for (const session of sessions) {
+      const iterations = await ctx.runQuery(api.research.queries.listDeepResearchIterations, {
+        sessionId: session._id
+      });
+      allIterations.push(...iterations);
+
+      const findings = await ctx.runQuery(api.research.queries.getFindingsByConfidence, {
+        sessionId: session._id
+      });
+      allFindings.push(...findings);
+    }
 
     const orphanFindings = allFindings.filter((f: any) => !f.embedding);
     const orphanIterations = allIterations.filter((i: any) => !i.embedding);
