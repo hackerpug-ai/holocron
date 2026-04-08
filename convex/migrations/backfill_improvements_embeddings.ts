@@ -7,20 +7,12 @@
  * - improvementRequests table
  */
 
-import { action, internalQuery } from "../_generated/server";
-import { api, internal } from "../_generated/api";
-import type { Id } from "../_generated/dataModel";
+import { action } from "../_generated/server";
+import { internal } from "../_generated/api";
 import { embed } from "ai";
 import { cohereEmbedding } from "../lib/ai/embeddings_provider";
 
 "use node";
-
-interface OrphanImprovementRequest {
-  _id: Id<"improvementRequests">;
-  description: string;
-  title: string;
-  createdAt?: number;
-}
 
 interface BackfillResult {
   success: boolean;
@@ -30,25 +22,6 @@ interface BackfillResult {
   message?: string;
   errors?: string[];
 }
-
-/**
- * Find improvement requests without embeddings
- */
-export const findImprovementRequestsWithoutEmbeddings = internalQuery({
-  args: {},
-  handler: async (ctx): Promise<OrphanImprovementRequest[]> => {
-    const requests = await ctx.db.query("improvementRequests").collect();
-    return requests
-      .filter((r) => !r.embedding)
-      .slice(0, 1000)
-      .map((r) => ({
-        _id: r._id,
-        description: r.description,
-        title: r.title,
-        createdAt: r.createdAt,
-      }));
-  },
-});
 
 /**
  * Generate embedding for improvement request description
@@ -70,8 +43,8 @@ async function generateImprovementEmbedding(description: string): Promise<number
 export const backfill = action({
   args: {},
   handler: async (ctx): Promise<BackfillResult> => {
-    // Find requests without embeddings using api reference
-    const orphans = await ctx.runQuery(api.migrations.backfillImprovementsEmbeddings.findImprovementRequestsWithoutEmbeddings, {});
+    // Find requests without embeddings
+    const orphans = await ctx.runQuery(internal.migrations.backfillImprovementsEmbeddingsQueries.findImprovementRequestsWithoutEmbeddings, {});
 
     if (orphans.length === 0) {
       return {
@@ -137,24 +110,13 @@ export const status = action({
     totalRequests: number;
     percentComplete: number;
   }> => {
-    const orphans = await ctx.runQuery(api.migrations.backfillImprovementsEmbeddings.findImprovementRequestsWithoutEmbeddings, {});
-    const total = await ctx.runQuery(api.migrations.backfillImprovementsEmbeddings.countTotalRequests, {});
+    const orphans = await ctx.runQuery(internal.migrations.backfillImprovementsEmbeddingsQueries.findImprovementRequestsWithoutEmbeddings, {});
+    const total = await ctx.runQuery(internal.migrations.backfillImprovementsEmbeddingsQueries.countTotalRequests, {});
 
     return {
       requestsWithoutEmbeddings: orphans.length,
       totalRequests: total,
       percentComplete: total > 0 ? ((total - orphans.length) / total) * 100 : 100,
     };
-  },
-});
-
-/**
- * Count total improvement requests
- */
-export const countTotalRequests = internalQuery({
-  args: {},
-  handler: async (ctx): Promise<number> => {
-    const requests = await ctx.db.query("improvementRequests").collect();
-    return requests.length;
   },
 });
