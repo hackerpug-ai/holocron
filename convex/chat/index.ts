@@ -83,7 +83,7 @@ interface StatsCard {
 
 interface SearchResultsCard {
   card_type: "search_results";
-  items: SearchArticleCard[];
+  items: Array<SearchArticleCard | BrowseArticleCard>;
 }
 
 interface SimpleResearchResultCard {
