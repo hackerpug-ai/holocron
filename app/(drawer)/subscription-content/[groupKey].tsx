@@ -30,8 +30,8 @@ export default function SubscriptionContentRoute() {
 
   // Get the group's display name (use first subscription's name or identifier)
   const groupName =
-    subscriptions?.find((s) => s._id.toString() === subscriptionIds[0])?.name ||
-    subscriptions?.find((s) => s._id.toString() === subscriptionIds[0])?.identifier ||
+    subscriptions?.find((s: any) => s._id.toString() === subscriptionIds[0])?.name ||
+    subscriptions?.find((s: any) => s._id.toString() === subscriptionIds[0])?.identifier ||
     'Subscriptions'
 
   // Show loading while fetching group name

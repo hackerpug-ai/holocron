@@ -43,7 +43,7 @@ export default function ImprovementsRoute() {
     }
   }, [requestStatus?.processedAt])
 
-  const requests = (requestsData ?? []).map((req) => ({
+  const requests = (requestsData ?? []).map((req: any) => ({
     _id: req._id as string,
     title: req.title,
     description: req.description,
@@ -137,8 +137,8 @@ export default function ImprovementsRoute() {
           visible={editSheetId !== null}
           onClose={() => setEditSheetId(null)}
           onSave={handleSaveEdit}
-          initialTitle={requestsData.find((r) => r._id === editSheetId)?.title ?? ''}
-          initialDescription={requestsData.find((r) => r._id === editSheetId)?.description ?? ''}
+          initialTitle={requestsData.find((r: any) => r._id === editSheetId)?.title ?? ''}
+          initialDescription={requestsData.find((r: any) => r._id === editSheetId)?.description ?? ''}
           testID="improvements-edit-sheet"
         />
       )}

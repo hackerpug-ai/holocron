@@ -122,7 +122,7 @@ export function ArticleImportModal({
                 borderRadius: 8,
               }}
             >
-              {articles?.map((article) => (
+              {articles?.map((article: any) => (
                 <Pressable
                   key={article._id}
                   onPress={() => setSelectedArticleId(article._id)}

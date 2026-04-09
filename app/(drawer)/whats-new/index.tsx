@@ -27,7 +27,7 @@ export default function WhatsNewScreen() {
   }
 
   // Transform reports to NewsItem format
-  const newsItems: NewsItem[] = (reportsData ?? []).map((report) => ({
+  const newsItems: NewsItem[] = (reportsData ?? []).map((report: any) => ({
     id: report._id,
     title: `What's New in AI (${report.days} days)`,
     summary: `${report.findingsCount} findings • ${report.discoveryCount || 0} discoveries • ${report.releaseCount || 0} releases`,

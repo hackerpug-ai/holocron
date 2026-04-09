@@ -32,8 +32,8 @@ export function SubscriptionSection({
   const groups = useQuery(api.subscriptions.queries.listGroupedByCreator, { limit: 100 })
 
   // Calculate total subscriptions and document count
-  const totalSubscriptions = groups?.reduce((acc, group) => acc + group.subscriptions.length, 0) ?? 0
-  const totalDocuments = groups?.reduce((acc, group) => acc + group.documentCount, 0) ?? 0
+  const totalSubscriptions = groups?.reduce((acc: number, group: any) => acc + group.subscriptions.length, 0) ?? 0
+  const totalDocuments = groups?.reduce((acc: number, group: any) => acc + group.documentCount, 0) ?? 0
 
   const handleManageSubscriptions = () => {
     router.push('/subscriptions')

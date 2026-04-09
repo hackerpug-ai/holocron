@@ -51,14 +51,14 @@ export const buildFeed = internalAction({
     });
 
     // Step 2: Fetch all unique subscription sources to get creatorProfileId
-    const uniqueSourceIds = new Set(recentContent.map((c) => c.sourceId));
+    const uniqueSourceIds = new Set(recentContent.map((c: { sourceId: string }) => c.sourceId));
     const sources = await Promise.all(
       Array.from(uniqueSourceIds).map((sourceId) =>
         ctx.runQuery(internal.feeds.internal.getSubscriptionSource, { sourceId })
       )
     );
     const sourceMap = new Map(
-      sources.filter((s): s is Doc<"subscriptionSources"> => s !== null).map((s) => [s._id, s])
+      sources.filter((s: Doc<"subscriptionSources"> | null): s is Doc<"subscriptionSources"> => s !== null).map((s: Doc<"subscriptionSources">) => [s._id, s])
     );
 
     // Step 3: Create one feed item per content item (1:1 mapping)

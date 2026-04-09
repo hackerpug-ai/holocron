@@ -183,7 +183,7 @@ export function SubscriptionFeedScreen({
 
     return (
       <View className="gap-3" testID={`${testID}-search-list`}>
-        {results.map((item) => (
+        {results.map((item: any) => (
           <SearchContentCard
             key={item._id}
             title={item.title}

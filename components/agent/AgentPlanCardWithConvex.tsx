@@ -49,7 +49,7 @@ export function AgentPlanCardWithConvex({ planId }: AgentPlanCardWithConvexProps
     <AgentPlanCard
       title={plan.title}
       status={plan.status}
-      steps={steps.map((step) => ({
+      steps={steps.map((step: any) => ({
         stepIndex: step.stepIndex,
         toolDisplayName: step.toolDisplayName,
         description: step.description,

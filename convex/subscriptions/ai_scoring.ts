@@ -29,15 +29,15 @@ export const scoreContentRelevance = internalAction({
 
     // Build few-shot examples from user feedback
     const likedExamples = recentFeedback
-      .filter((f) => f.feedback === "up")
+      .filter((f: { feedback: string }) => f.feedback === "up")
       .slice(0, 5)
-      .map((f) => f.title)
+      .map((f: { title: string }) => f.title)
       .join("\n");
 
     const dislikedExamples = recentFeedback
-      .filter((f) => f.feedback === "down")
+      .filter((f: { feedback: string }) => f.feedback === "down")
       .slice(0, 5)
-      .map((f) => f.title)
+      .map((f: { title: string }) => f.title)
       .join("\n");
 
     const itemList = items

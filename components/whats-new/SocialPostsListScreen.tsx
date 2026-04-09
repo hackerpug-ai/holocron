@@ -103,19 +103,19 @@ export function SocialPostsListScreen({
 
   // Filter to social-only findings
   const socialFindings = useMemo(() => {
-    let filtered = findings.filter((f) => isSocialSource(f.source))
+    let filtered = findings.filter((f: any) => isSocialSource(f.source))
 
     if (platformFilter !== 'All') {
-      filtered = filtered.filter((f) => getPlatform(f.source) === platformFilter)
+      filtered = filtered.filter((f: any) => getPlatform(f.source) === platformFilter)
     }
 
     // Sort
     switch (sortMode) {
       case 'score':
-        filtered.sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+        filtered.sort((a: any, b: any) => (b.score ?? 0) - (a.score ?? 0))
         break
       case 'recent':
-        filtered.sort((a, b) => {
+        filtered.sort((a: any, b: any) => {
           const dateA = a.publishedAt ? new Date(a.publishedAt).getTime() : 0
           const dateB = b.publishedAt ? new Date(b.publishedAt).getTime() : 0
           return dateB - dateA
@@ -123,7 +123,7 @@ export function SocialPostsListScreen({
         break
       case 'velocity':
         filtered.sort(
-          (a, b) => (b.engagementVelocity ?? 0) - (a.engagementVelocity ?? 0)
+          (a: any, b: any) => (b.engagementVelocity ?? 0) - (a.engagementVelocity ?? 0)
         )
         break
     }

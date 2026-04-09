@@ -169,7 +169,7 @@ export default function DocumentRoute() {
     isNarrationMode && documentId ? { documentId } : 'skip'
   )
 
-  const audioSegments: import('@/components/narration/hooks/useAudioPlayback').AudioSegment[] = segments.map(s => ({
+  const audioSegments: import('@/components/narration/hooks/useAudioPlayback').AudioSegment[] = segments.map((s: any) => ({
     _id: s._id,
     paragraphIndex: s.paragraphIndex,
     status: s.status,

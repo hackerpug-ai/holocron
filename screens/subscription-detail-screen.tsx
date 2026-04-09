@@ -40,7 +40,7 @@ export function SubscriptionDetailScreen({
   })
 
   // Filter by search query
-  const filteredContent = contentWithDocuments?.filter((item) => {
+  const filteredContent = contentWithDocuments?.filter((item: any) => {
     if (!searchValue) return true
     const query = searchValue.toLowerCase()
     return (

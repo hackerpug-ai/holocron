@@ -215,7 +215,7 @@ export function NotificationListSheet({
       .map((g) => ({ label: g, items: groupMap.get(g)! }))
   }, [notifications])
 
-  const hasUnread = notifications?.some((n) => !n.read) ?? false
+  const hasUnread = notifications?.some((n: any) => !n.read) ?? false
 
   if (!visible) return null
 
