@@ -71,7 +71,7 @@ export const searchKnowledgeBaseAsync = internalAction({
         role: "agent" as const,
         content: `Found ${searchResults.length} article${searchResults.length === 1 ? "" : "s"} matching "${query}"`,
         messageType: "result_card" as const,
-        cardData: articleCards,
+        cardData: { card_type: "search_results", items: articleCards },
       });
     } catch (error) {
       const errorMessage =

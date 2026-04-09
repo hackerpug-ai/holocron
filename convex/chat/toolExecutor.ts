@@ -122,7 +122,7 @@ async function executeBrowseCategory(
     return {
       content: `Found ${listResult?.metadata?.totalCount ?? articles.length} article${(listResult?.metadata?.totalCount ?? articles.length) === 1 ? "" : "s"} in ${category}`,
       messageType: "result_card",
-      cardData: articleCards,
+      cardData: { card_type: "search_results", items: articleCards },
     };
   } catch (error) {
     return {

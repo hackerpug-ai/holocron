@@ -322,7 +322,7 @@ async function handleSearchCommand(
     return {
       content: `Found ${searchResults.length} article${searchResults.length === 1 ? "" : "s"} matching "${query}"`,
       messageType: "result_card",
-      cardData: articleCards,
+      cardData: { card_type: "search_results", items: articleCards },
     };
   } catch (error) {
     return {
@@ -402,7 +402,7 @@ async function handleBrowseCommand(
     return {
       content: `Found ${listResult?.metadata?.totalCount ?? articles.length} article${(listResult?.metadata?.totalCount ?? articles.length) === 1 ? "" : "s"} in ${categoryArg}`,
       messageType: "result_card",
-      cardData: articleCards,
+      cardData: { card_type: "search_results", items: articleCards },
     };
   } catch (error) {
     return {
