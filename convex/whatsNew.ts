@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { query, mutation, action, internalAction } from "./_generated/server";
-import { internal } from "./_generated/api";
+import { internal, api } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import { embed } from "ai";
 import { cohereEmbedding } from "./lib/ai/embeddings_provider";
 
@@ -249,7 +250,7 @@ export const saveReportWithEmbeddings = internalAction({
       embedding: v.optional(v.array(v.float64())),
     }))),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<Id<"whatsNewReports">> => {
     // Generate embeddings for all findings in parallel
     const embeddings: number[][] = [];
     if (args.findings && args.findings.length > 0) {
@@ -261,7 +262,7 @@ export const saveReportWithEmbeddings = internalAction({
     }
 
     // Call the mutation with embeddings included
-    const result = await ctx.runMutation(internal.whatsNew.saveReportInternal, {
+    const result = await ctx.runMutation(api.whatsNew.saveReportInternal, {
       periodStart: args.periodStart,
       periodEnd: args.periodEnd,
       days: args.days,
@@ -279,7 +280,7 @@ export const saveReportWithEmbeddings = internalAction({
       })),
     });
 
-    return result;
+    return result.reportId;
   },
 });
 
@@ -313,7 +314,7 @@ export const saveReportWithEmbeddingsPublic = action({
       embedding: v.optional(v.array(v.float64())),
     }))),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<Id<"whatsNewReports">> => {
     // Delegate to the internal action
     return await ctx.runAction(internal.whatsNew.saveReportWithEmbeddings, args);
   },

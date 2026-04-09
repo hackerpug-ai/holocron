@@ -635,8 +635,10 @@ export const send = action({
     const now = Date.now();
 
     // US-786 AC-1: If no conversationId provided, create conversation first
-    let finalConversationId = conversationId;
-    if (!finalConversationId) {
+    let finalConversationId: Id<"conversations">;
+    if (conversationId) {
+      finalConversationId = conversationId;
+    } else {
       finalConversationId = await ctx.runMutation(
         api.conversations.mutations.create,
         {

@@ -1131,8 +1131,8 @@ State whether confidence is HIGH, MEDIUM, or LOW based on:
 
 
     return {
-      sessionId,
-      conversationId: effectiveConversationId,
+      sessionId: sessionId!,
+      conversationId: effectiveConversationId!,
       status: "completed",
       summary: synthesis.summary,
       confidence: synthesis.confidence,
