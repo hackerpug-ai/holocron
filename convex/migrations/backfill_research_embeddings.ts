@@ -63,6 +63,10 @@ export const updateFindingEmbedding = internalMutation({
     embedding: v.array(v.float64()),
   },
   handler: async (ctx, args) => {
+    const finding = await ctx.db.get(args.findingId);
+    if (!finding) {
+      throw new Error(`Finding ${args.findingId} not found`);
+    }
     await ctx.db.patch(args.findingId, {
       embedding: args.embedding,
     });
@@ -78,6 +82,10 @@ export const updateIterationEmbedding = internalMutation({
     embedding: v.array(v.float64()),
   },
   handler: async (ctx, args) => {
+    const iteration = await ctx.db.get(args.iterationId);
+    if (!iteration) {
+      throw new Error(`Iteration ${args.iterationId} not found`);
+    }
     await ctx.db.patch(args.iterationId, {
       embedding: args.embedding,
     });
@@ -142,6 +150,14 @@ export const backfill = action({
 
       const results = await Promise.allSettled(
         batch.map(async (finding: any) => {
+          // Validate finding has required fields
+          if (!finding._id) {
+            throw new Error(`Finding missing _id: ${JSON.stringify(finding)}`);
+          }
+          if (!finding.claimText) {
+            throw new Error(`Finding ${finding._id} missing claimText`);
+          }
+
           // Generate embedding
           const embedding = await generateFindingEmbedding(finding.claimText);
 
@@ -172,7 +188,12 @@ export const backfill = action({
 
       const results = await Promise.allSettled(
         batch.map(async (iteration: any) => {
-          // Generate embedding
+          // Validate iteration has required fields
+          if (!iteration._id) {
+            throw new Error(`Iteration missing _id: ${JSON.stringify(iteration)}`);
+          }
+
+          // Generate embedding (empty string is ok if no findings)
           const embedding = await generateIterationEmbedding(iteration.findings ?? "");
 
           // Update the iteration with embedding using internal mutation

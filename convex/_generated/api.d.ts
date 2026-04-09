@@ -116,6 +116,7 @@ import type * as migrations_reembed_documents_1024 from "../migrations/reembed_d
 import type * as migrations_refactor_deep_research_messages from "../migrations/refactor_deep_research_messages.js";
 import type * as migrations_remove_twitter_content from "../migrations/remove_twitter_content.js";
 import type * as migrations_strip_platform_prefix from "../migrations/strip_platform_prefix.js";
+import type * as notifications from "../notifications.js";
 import type * as notifications_index from "../notifications/index.js";
 import type * as notifications_internal from "../notifications/internal.js";
 import type * as notifications_mutations from "../notifications/mutations.js";
@@ -338,6 +339,7 @@ declare const fullApi: ApiFromModules<{
   "migrations/refactor_deep_research_messages": typeof migrations_refactor_deep_research_messages;
   "migrations/remove_twitter_content": typeof migrations_remove_twitter_content;
   "migrations/strip_platform_prefix": typeof migrations_strip_platform_prefix;
+  notifications: typeof notifications;
   "notifications/index": typeof notifications_index;
   "notifications/internal": typeof notifications_internal;
   "notifications/mutations": typeof notifications_mutations;
