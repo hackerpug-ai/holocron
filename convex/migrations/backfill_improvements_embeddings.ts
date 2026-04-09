@@ -75,6 +75,14 @@ export const backfill = action({
           // Update the request with embedding using the internal mutation
           await ctx.runMutation(internal.improvements.internal.updateFromAgent, {
             requestId: request._id,
+            title: request.title || "",
+            summary: request.description || "",
+            agentDecision: {
+              action: "create_new",
+              confidence: 0.8,
+              reasoning: "Backfilled embedding",
+              similarRequests: [],
+            },
             embedding,
           });
 

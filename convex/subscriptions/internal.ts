@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { internalAction, internalQuery, internalMutation } from "../_generated/server";
 import type { ActionCtx } from "../_generated/server";
+import type { Id } from "../_generated/dataModel";
 import { api, internal } from "../_generated/api";
 import { readUrlWithJina, readUrlWithJinaAndLinks } from "../research/search.js";
 import { embed } from "ai";
@@ -1087,9 +1088,9 @@ export const createDocumentFromContent = internalAction({
     researchType: v.optional(v.string()),
     filePath: v.optional(v.string()),
   },
-  handler: async (ctx, args): Promise<string> => {
+  handler: async (ctx, args): Promise<Id<"documents">> => {
     // Use the documents module's action which handles embedding generation
-    const id: string = await ctx.runAction(api.documents.storage.createWithEmbedding, {
+    const result = await ctx.runAction(api.documents.storage.createWithEmbedding, {
       title: args.title,
       content: args.content,
       category: args.category,
@@ -1100,7 +1101,7 @@ export const createDocumentFromContent = internalAction({
       researchType: args.researchType,
     });
 
-    return id;
+    return result.documentId as Id<"documents">;
   },
 });
 

@@ -8,10 +8,12 @@
  * - deepResearchIterations table
  */
 
-import { action } from "../_generated/server";
+import { action, internalMutation } from "../_generated/server";
 import { api, internal } from "../_generated/api";
+import { v } from "convex/values";
 import { embed } from "ai";
 import { cohereEmbedding } from "../lib/ai/embeddings_provider";
+import type { Id } from "../_generated/dataModel";
 
 "use node";
 
@@ -48,6 +50,44 @@ async function generateIterationEmbedding(findings: string): Promise<number[]> {
   });
   return embedding;
 }
+
+// ============================================================================
+// Internal Mutations (for db access from actions)
+// ============================================================================
+
+/**
+ * Internal mutation: Update a research finding with embedding
+ */
+export const updateFindingEmbedding = internalMutation({
+  args: {
+    findingId: v.id("researchFindings"),
+    embedding: v.array(v.float64()),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.findingId, {
+      embedding: args.embedding,
+    });
+  },
+});
+
+/**
+ * Internal mutation: Update a deep research iteration with embedding
+ */
+export const updateIterationEmbedding = internalMutation({
+  args: {
+    iterationId: v.id("deepResearchIterations"),
+    embedding: v.array(v.float64()),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.iterationId, {
+      embedding: args.embedding,
+    });
+  },
+});
+
+// ============================================================================
+// Backfill Action
+// ============================================================================
 
 /**
  * Backfill embeddings for research findings and iterations that don't have them.
@@ -107,8 +147,8 @@ export const backfill = action({
           const embedding = await generateFindingEmbedding(finding.claimText);
 
           // Update the finding with embedding using internal mutation
-          await ctx.runMutation(internal.research.mutations.updateResearchFinding, {
-            id: finding._id,
+          await ctx.runMutation(internal.migrations.backfill_research_embeddings.updateFindingEmbedding, {
+            findingId: finding._id,
             embedding,
           });
 
@@ -137,8 +177,8 @@ export const backfill = action({
           const embedding = await generateIterationEmbedding(iteration.findings ?? "");
 
           // Update the iteration with embedding using internal mutation
-          await ctx.runMutation(internal.research.mutations.updateDeepResearchIteration, {
-            id: iteration._id,
+          await ctx.runMutation(internal.migrations.backfill_research_embeddings.updateIterationEmbedding, {
+            iterationId: iteration._id,
             embedding,
           });
 
