@@ -81,6 +81,11 @@ interface StatsCard {
   }>;
 }
 
+interface SearchResultsCard {
+  card_type: "search_results";
+  items: SearchArticleCard[];
+}
+
 interface SimpleResearchResultCard {
   card_type: "simple_research_result";
   session_id: string;
@@ -214,6 +219,7 @@ type CardData =
   | BrowseArticleCard[]
   | SearchArticleCard
   | SearchArticleCard[]
+  | SearchResultsCard
   | NoResultsCard
   | CategoryNotFoundCard
   | StatsCard
