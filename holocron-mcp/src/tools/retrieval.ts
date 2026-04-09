@@ -17,10 +17,22 @@ export async function getDocument(
   client: HolocronConvexClient,
   input: GetDocumentInput
 ): Promise<Document | null> {
-  // biome-ignore lint/suspicious/noExplicitAny: Dynamic Convex function reference
-  return await client.query<Document | null>("documents/queries:get" as any, {
-    id: input.documentId,
-  });
+  // Check if the input looks like a Convex ID (format: "documents:...")
+  // If not, try to look up by title instead
+  const isConvexId = input.documentId.includes(":");
+
+  if (isConvexId) {
+    // biome-ignore lint/suspicious/noExplicitAny: Dynamic Convex function reference
+    return await client.query<Document | null>("documents/queries:get" as any, {
+      id: input.documentId,
+    });
+  } else {
+    // Try to find by title (for cases where title/slug is passed instead of ID)
+    // biome-ignore lint/suspicious/noExplicitAny: Dynamic Convex function reference
+    return await client.query<Document | null>("documents/queries:getByTitle" as any, {
+      title: input.documentId,
+    });
+  }
 }
 
 /**

@@ -12,6 +12,25 @@ export const get = query({
 });
 
 /**
+ * Get a document by title (for flexible lookups from MCP/tools)
+ * Returns null if not found. Use this when you have a title/slug instead of an ID.
+ */
+export const getByTitle = query({
+  args: { title: v.string() },
+  handler: async (ctx, args) => {
+    // Search for document by title (case-insensitive)
+    const doc = await ctx.db
+      .query("documents")
+      .withSearchIndex("by_title_content", (q) =>
+        q.search("title", args.title)
+      )
+      .first();
+
+    return doc;
+  },
+});
+
+/**
  * List all documents with optional filtering
  * Returns documents ordered by creation time (newest first)
  * Includes metadata with total count for pagination
