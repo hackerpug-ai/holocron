@@ -24,9 +24,11 @@ export {
   create,
   update,
   remove,
-  setPublic,
-  incrementCounter,
-  decrementCounter,
+  insertFromMigration,
+  publishDocument,
+  unpublishDocument,
+  clearAll,
+  appendText,
 } from "./documents/mutations";
 
 // Import documents actions to ensure deployment
@@ -42,5 +44,5 @@ export {
 
 // Import documents scheduled functions to ensure deployment
 export {
-  processDocumentQueue,
+  backfillOrphanedEmbeddings,
 } from "./documents/scheduled";
