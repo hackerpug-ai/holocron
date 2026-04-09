@@ -8,7 +8,7 @@
  */
 
 import { action } from "../_generated/server";
-import { api, internal } from "../_generated/api";
+import { internal } from "../_generated/api";
 import { embed } from "ai";
 import { cohereEmbedding } from "../lib/ai/embeddings_provider";
 

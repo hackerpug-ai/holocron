@@ -13,7 +13,6 @@ import { api, internal } from "../_generated/api";
 import { v } from "convex/values";
 import { embed } from "ai";
 import { cohereEmbedding } from "../lib/ai/embeddings_provider";
-import type { Id } from "../_generated/dataModel";
 
 "use node";
 
