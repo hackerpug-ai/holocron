@@ -36,7 +36,7 @@ interface ResultCardProps extends Omit<ViewProps, 'children'> {
   /** Data object for the card (type varies by cardType) */
   data: ResultCardData
   /** Callback when card is pressed (receives documentId for article cards) */
-  onPress?: (_documentId?: number) => void
+  onPress?: (_documentId?: string) => void
   /** Optional test ID prefix */
   testID?: string
   /** Loading state - shows skeleton when true */

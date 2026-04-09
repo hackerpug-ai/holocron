@@ -395,7 +395,7 @@ function renderResultCard(
       <View className="gap-2">
         {items.map((card, index) => {
           const cardType = (card.card_type as CardType) || 'article'
-          const documentId = card.document_id as number | undefined
+          const documentId = card.document_id as string | undefined
           const isLoading = loadingCardId != null && documentId === loadingCardId
 
           return (
