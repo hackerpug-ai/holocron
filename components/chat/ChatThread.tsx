@@ -84,7 +84,7 @@ export function ChatThread({
   }, [messages.length, effectiveShowTypingIndicator])
 
   // Handle card press - navigate to document screen
-  const handleCardPress = useCallback((documentId: number) => {
+  const handleCardPress = useCallback((documentId: string) => {
     router.push(`/document/${documentId}`)
   }, [router])
 

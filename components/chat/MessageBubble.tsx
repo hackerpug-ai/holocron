@@ -61,12 +61,12 @@ export interface MessageBubbleProps {
   createdAt?: Date
   showTimestamp?: boolean
   testID?: string
-  onCardPress?: (documentId: number) => void
+  onCardPress?: (documentId: string) => void
   onFinalResultPress?: (sessionId: string) => void
   onWhatsNewReportPress?: (reportId: string) => void
   /** Navigate to a document with optional highlight at a specific block */
   onDocumentContextNavigate?: (documentId: string, blockIndex?: number) => void
-  loadingCardId?: number | null
+  loadingCardId?: string | null
   cardError?: string | null
   /** Callback to delete this message from the chat */
   onDeleteMessage?: (messageId: string) => void
@@ -374,10 +374,10 @@ function renderResultCard(
   card_data: Record<string, unknown>,
   message_type: MessageType | undefined,
   testID: string,
-  onCardPress?: (documentId: number) => void,
+  onCardPress?: (documentId: string) => void,
   onFinalResultPress?: (sessionId: string) => void,
   onWhatsNewReportPress?: (reportId: string) => void,
-  loadingCardId?: number | null,
+  loadingCardId?: string | null,
   cardError?: string | null,
   onDocumentContextNavigate?: (documentId: string, blockIndex?: number) => void,
   router?: ReturnType<typeof useRouter>,
@@ -591,7 +591,7 @@ function renderResultCard(
     const docData = card_data as unknown as { document_id: string; title: string; category?: string; content: string; metadata?: { date?: string } }
     return (
       <Pressable
-        onPress={() => onCardPress?.(parseInt(docData.document_id, 10))}
+        onPress={() => onCardPress?.(docData.document_id)}
         className="active:opacity-80 w-full"
         testID={`${testID}-document-full-pressable`}
       >
@@ -787,7 +787,7 @@ function renderResultCard(
     )
   }
 
-  const documentId = card_data.document_id as number | undefined
+  const documentId = card_data.document_id as string | undefined
   const isLoading = loadingCardId != null && documentId === loadingCardId
 
   return (
@@ -808,10 +808,10 @@ function renderResultCard(
  */
 function handleCardPress(
   card_data: Record<string, unknown>,
-  onCardPress?: (documentId: number) => void
+  onCardPress?: (documentId: string) => void
 ) {
-  // Extract document_id from card_data (number type)
-  const documentId = card_data.document_id as number | undefined
+  // Extract document_id from card_data (string type - Convex ID)
+  const documentId = card_data.document_id as string | undefined
   if (documentId !== undefined && onCardPress) {
     onCardPress(documentId)
   }
