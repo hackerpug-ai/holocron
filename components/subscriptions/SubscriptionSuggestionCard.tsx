@@ -54,8 +54,11 @@ export function SubscriptionSuggestionCard({
     new Set()
   )
 
-  const { name, handle, bio, avatarUrl, platforms, existingSubscriptions = [] } =
+  const { name, handle, bio, avatarUrl, platforms, existingSubscriptions } =
     data
+
+  // Ensure existingSubscriptions is always an array
+  const subscribedPlatforms = existingSubscriptions ?? []
 
   // Get all available platforms
   const availablePlatforms = Object.entries(platforms)
@@ -65,17 +68,17 @@ export function SubscriptionSuggestionCard({
   // Check if all platforms are already subscribed
   const allSubscribed =
     availablePlatforms.length > 0 &&
-    availablePlatforms.every((p) => existingSubscriptions.includes(p))
+    availablePlatforms.every((p) => subscribedPlatforms.includes(p))
 
   // Check if any platforms are available to subscribe to
   const canSubscribe =
     availablePlatforms.length > 0 &&
-    availablePlatforms.some((p) => !existingSubscriptions.includes(p))
+    availablePlatforms.some((p) => !subscribedPlatforms.includes(p))
 
   // Handle subscribe all
   const handleSubscribeAll = () => {
     const platformsToSubscribe = availablePlatforms.filter(
-      (p) => !existingSubscriptions.includes(p)
+      (p) => !subscribedPlatforms.includes(p)
     )
     onSubscribe?.(platformsToSubscribe)
   }
@@ -83,7 +86,7 @@ export function SubscriptionSuggestionCard({
   // Handle subscribe selected
   const handleSubscribeSelected = () => {
     const platformsToSubscribe = Array.from(selectedPlatforms).filter(
-      (p) => !existingSubscriptions.includes(p)
+      (p) => !subscribedPlatforms.includes(p)
     )
     onSubscribe?.(platformsToSubscribe)
   }
@@ -102,7 +105,7 @@ export function SubscriptionSuggestionCard({
 
   // Count available (non-subscribed) platforms
   const availableCount = availablePlatforms.filter(
-    (p) => !existingSubscriptions.includes(p)
+    (p) => !subscribedPlatforms.includes(p)
   ).length
 
   return (
@@ -175,7 +178,7 @@ export function SubscriptionSuggestionCard({
               const platformData = platforms[platform]
               if (!platformData) return null
 
-              const isSubscribed = existingSubscriptions.includes(platform)
+              const isSubscribed = subscribedPlatforms.includes(platform)
               const isSelected = selectedPlatforms.has(platform)
 
               // Handle website platform which has 'url' instead of 'handle'

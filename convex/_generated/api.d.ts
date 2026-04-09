@@ -65,6 +65,7 @@ import type * as deepResearchIterations_mutations from "../deepResearchIteration
 import type * as deepResearchIterations_queries from "../deepResearchIterations/queries.js";
 import type * as deepResearchSessions_mutations from "../deepResearchSessions/mutations.js";
 import type * as deepResearchSessions_queries from "../deepResearchSessions/queries.js";
+import type * as documents from "../documents.js";
 import type * as documents_index from "../documents/index.js";
 import type * as documents_mutations from "../documents/mutations.js";
 import type * as documents_queries from "../documents/queries.js";
@@ -124,6 +125,7 @@ import type * as plans_generator from "../plans/generator.js";
 import type * as plans_index from "../plans/index.js";
 import type * as plans_mutations from "../plans/mutations.js";
 import type * as plans_queries from "../plans/queries.js";
+import type * as queries_documents_index from "../queries/documents/index.js";
 import type * as rateLimits_index from "../rateLimits/index.js";
 import type * as rateLimits_mutations from "../rateLimits/mutations.js";
 import type * as rateLimits_queries from "../rateLimits/queries.js";
@@ -285,6 +287,7 @@ declare const fullApi: ApiFromModules<{
   "deepResearchIterations/queries": typeof deepResearchIterations_queries;
   "deepResearchSessions/mutations": typeof deepResearchSessions_mutations;
   "deepResearchSessions/queries": typeof deepResearchSessions_queries;
+  documents: typeof documents;
   "documents/index": typeof documents_index;
   "documents/mutations": typeof documents_mutations;
   "documents/queries": typeof documents_queries;
@@ -344,6 +347,7 @@ declare const fullApi: ApiFromModules<{
   "plans/index": typeof plans_index;
   "plans/mutations": typeof plans_mutations;
   "plans/queries": typeof plans_queries;
+  "queries/documents/index": typeof queries_documents_index;
   "rateLimits/index": typeof rateLimits_index;
   "rateLimits/mutations": typeof rateLimits_mutations;
   "rateLimits/queries": typeof rateLimits_queries;

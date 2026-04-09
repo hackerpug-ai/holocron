@@ -2,6 +2,13 @@ import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
 import { api } from "./_generated/api";
 
+// Import documents functions to ensure they're deployed
+import "./documents/queries";
+import "./documents/mutations";
+import "./documents/search";
+import "./documents/storage";
+import "./documents/scheduled";
+
 const http = httpRouter();
 
 http.route({
