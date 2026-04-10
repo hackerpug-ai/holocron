@@ -1,0 +1,16 @@
+{
+  "setupComplete": true,
+  "lastChecked": "2026-04-10T00:00:00Z",
+  "xcodeVersion": "Xcode 26.4",
+  "hasDistributionCert": true,
+  "distributionCertSource": "managed (Expo server)",
+  "provisioningProfileSource": "managed (Expo server)",
+  "localCerts": {
+    "development": "Apple Development: Justin Rich (HYW3CS9YX9)",
+    "distribution": "managed via EAS -- no local install needed"
+  },
+  "easProfile": "production",
+  "bundleId": "com.holocron.app",
+  "ascAppId": "6760728265",
+  "teamId": "37KW26GSN4"
+}
