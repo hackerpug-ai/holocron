@@ -64,7 +64,6 @@ jobs:
           EAS_ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           EAS_ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           EAS_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          EAS_APPLE_TEAM_TYPE: ${{ secrets.APPLE_TEAM_TYPE }}
 
   build-android:
     name: Build Android

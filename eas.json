@@ -49,8 +49,7 @@
         "ascApiKeyPath": "$EAS_ASC_API_KEY_PATH",
         "ascApiKeyIssuerId": "$EAS_ASC_ISSUER_ID",
         "ascApiKeyId": "$EAS_ASC_KEY_ID",
-        "appleTeamId": "$EAS_APPLE_TEAM_ID",
-        "appleTeamType": "$EAS_APPLE_TEAM_TYPE"
+        "appleTeamId": "$EAS_APPLE_TEAM_ID"
       }
     },
     "production": {
@@ -59,8 +58,7 @@
         "ascApiKeyPath": "$EAS_ASC_API_KEY_PATH",
         "ascApiKeyIssuerId": "$EAS_ASC_ISSUER_ID",
         "ascApiKeyId": "$EAS_ASC_KEY_ID",
-        "appleTeamId": "$EAS_APPLE_TEAM_ID",
-        "appleTeamType": "$EAS_APPLE_TEAM_TYPE"
+        "appleTeamId": "$EAS_APPLE_TEAM_ID"
       }
     }
   }
