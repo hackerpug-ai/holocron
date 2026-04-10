@@ -387,9 +387,12 @@ export function generateDiverseQueries(
 
 /**
  * Execute a single search with retry logic and provider attribution
+ *
+ * Uses AbortController so timed-out HTTP requests are actually cancelled
+ * (freeing rate-limit slots) and clears the timeout timer on success.
  */
 async function executeSearchWithRetry(
-  searchFn: () => Promise<StructuredSearchResult[]>,
+  searchFn: (signal?: AbortSignal) => Promise<StructuredSearchResult[]>,
   maxRetries: number,
   timeoutMs: number,
   provider: string = "unknown"
@@ -397,17 +400,20 @@ async function executeSearchWithRetry(
   let lastError: Error | undefined;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const controller = new AbortController();
+    let timerId: ReturnType<typeof setTimeout> | undefined;
+
     try {
-      // Create timeout promise with provider attribution
+      // Create timeout that aborts the fetch AND rejects the race
       const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(
-          () => reject(new Error(`${provider} search timeout after ${timeoutMs}ms`)),
-          timeoutMs
-        );
+        timerId = setTimeout(() => {
+          controller.abort();
+          reject(new Error(`${provider} search timeout after ${timeoutMs}ms`));
+        }, timeoutMs);
       });
 
-      // Race between search and timeout
-      const results = await Promise.race([searchFn(), timeoutPromise]);
+      // Race between search (with abort signal) and timeout
+      const results = await Promise.race([searchFn(controller.signal), timeoutPromise]);
       return results;
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
@@ -421,6 +427,9 @@ async function executeSearchWithRetry(
         const backoffMs = Math.min(1000 * Math.pow(2, attempt), 5000);
         await new Promise((resolve) => setTimeout(resolve, backoffMs));
       }
+    } finally {
+      // Always clean up the timer to prevent leaks
+      if (timerId !== undefined) clearTimeout(timerId);
     }
   }
 
@@ -434,7 +443,7 @@ async function executeSearchWithRetry(
 /**
  * Execute Exa search for a query
  */
-async function executeExaSearch(query: string, ctx?: RateLimitCtx): Promise<StructuredSearchResult[]> {
+async function executeExaSearch(query: string, ctx?: RateLimitCtx, _signal?: AbortSignal): Promise<StructuredSearchResult[]> {
   const apiKey = process.env.EXA_API_KEY;
   if (!apiKey) {
     console.warn("[executeExaSearch] EXA_API_KEY not configured");
@@ -466,7 +475,7 @@ async function executeExaSearch(query: string, ctx?: RateLimitCtx): Promise<Stru
 /**
  * Execute Jina search for a query
  */
-async function executeJinaSearch(query: string, ctx?: RateLimitCtx): Promise<StructuredSearchResult[]> {
+async function executeJinaSearch(query: string, ctx?: RateLimitCtx, signal?: AbortSignal): Promise<StructuredSearchResult[]> {
   const apiKey = process.env.JINA_API_KEY;
   if (!apiKey) {
     console.warn("[executeJinaSearch] JINA_API_KEY not configured");
@@ -482,6 +491,7 @@ async function executeJinaSearch(query: string, ctx?: RateLimitCtx): Promise<Str
       Authorization: `Bearer ${apiKey}`,
       Accept: "application/json",
     },
+    signal,
   });
   const response = ctx
     ? await withRateLimit(ctx, 'jina', fetchFn)
@@ -590,8 +600,8 @@ export async function executeParallelSearchWithRetry(
 ): Promise<ParallelSearchResult> {
   const startTime = Date.now();
   const {
-    maxRetries = 3,
-    timeoutMs = 15000,
+    maxRetries = 2,
+    timeoutMs = 30000,
     deduplicateResults = true,
   } = options;
 
@@ -603,8 +613,8 @@ export async function executeParallelSearchWithRetry(
 
   // Execute all searches in parallel with provider attribution
   const searchPromises = queries.flatMap((query) => [
-    executeSearchWithRetry(() => executeExaSearch(query, ctx), maxRetries, timeoutMs, "Exa"),
-    executeSearchWithRetry(() => executeJinaSearch(query, ctx), maxRetries, timeoutMs, "Jina"),
+    executeSearchWithRetry((signal) => executeExaSearch(query, ctx, signal), maxRetries, timeoutMs, "Exa"),
+    executeSearchWithRetry((signal) => executeJinaSearch(query, ctx, signal), maxRetries, timeoutMs, "Jina"),
   ]);
 
   
