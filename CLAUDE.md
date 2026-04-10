@@ -380,6 +380,12 @@ app/
 │   ├── index.tsx         # First tab (default)
 │   ├── explore.tsx       # Second tab
 │   └── settings.tsx      # Third tab
+├── (drawer)/             # Drawer group (drawer navigation screens)
+│   ├── _layout.tsx       # Drawer navigator layout
+│   ├── articles.tsx      # Articles screen
+│   ├── improvements.tsx  # Improvements screen
+│   └── whats-new/        # What's New screen group
+│       └── index.tsx     # What's New list
 ├── (auth)/               # Auth group (shared layout)
 │   ├── _layout.tsx       # Auth layout (e.g., no tabs)
 │   ├── login.tsx         # /login
@@ -405,6 +411,61 @@ hooks/                    # Custom hooks (outside app/)
 - `+not-found.tsx` - 404 handler
 - Files in `app/` = routes (use default exports)
 - Files outside `app/` = components (use named exports)
+
+### Drawer Subview Layout Requirement (MANDATORY)
+
+**ALL screens in the `(drawer)/` group MUST use `ScreenLayout` with header navigation.**
+
+This ensures consistent UX across all drawer-accessible screens with:
+- Proper back navigation to chat/new or previous screen
+- Consistent header styling
+- Safe area handling
+
+```typescript
+// ✅ CORRECT: All drawer screens use ScreenLayout
+import { ScreenLayout } from '@/components/ui/screen-layout'
+import { useRouter } from 'expo-router'
+
+export default function MyDrawerScreen() {
+  const router = useRouter()
+
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back()
+    } else {
+      router.navigate('/chat/new')
+    }
+  }
+
+  return (
+    <ScreenLayout
+      header={{
+        title: 'Screen Title',
+        showBack: true,
+        onBack: handleBack,
+      }}
+      edges="bottom"
+      testID="my-screen-layout"
+    >
+      {/* Screen content */}
+    </ScreenLayout>
+  )
+}
+
+// ❌ WRONG: Direct View without ScreenLayout
+export default function MyDrawerScreen() {
+  return (
+    <View className="flex-1 bg-background">
+      {/* Content */}
+    </View>
+  )
+}
+```
+
+**Examples of compliant drawer screens:**
+- `app/(drawer)/articles.tsx`
+- `app/(drawer)/improvements.tsx`
+- `app/(drawer)/whats-new/index.tsx`
 
 ---
 

@@ -5,6 +5,7 @@ import { api } from '@/convex/_generated/api'
 import { NewsStream, type NewsItem } from '@/components/whats-new/NewsStream'
 import { useRouter } from 'expo-router'
 import { useTheme } from '@/hooks/use-theme'
+import { ScreenLayout } from '@/components/ui/screen-layout'
 
 /**
  * What's New Screen - Card-based stream layout
@@ -26,6 +27,14 @@ export default function WhatsNewScreen() {
     router.push(`/whats-new/${reportId}`)
   }
 
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back()
+    } else {
+      router.navigate('/chat/new')
+    }
+  }
+
   // Transform reports to NewsItem format
   const newsItems: NewsItem[] = (reportsData ?? []).map((report: any) => ({
     id: report._id,
@@ -36,37 +45,67 @@ export default function WhatsNewScreen() {
 
   if (isLoading) {
     return (
-      <View
-        className="flex-1 items-center justify-center bg-background"
-        style={{ padding: semanticSpacing.lg }}
-        testID="whats-new-screen"
+      <ScreenLayout
+        header={{
+          title: "What's New",
+          showBack: true,
+          onBack: handleBack,
+        }}
+        edges="bottom"
+        testID="whats-new-layout"
       >
-        <ActivityIndicator size="large" color={themeColors.primary} />
-        <Text className="text-muted-foreground mt-4">Loading What's New...</Text>
-      </View>
+        <View
+          className="flex-1 items-center justify-center"
+          style={{ padding: semanticSpacing.lg }}
+          testID="whats-new-loading"
+        >
+          <ActivityIndicator size="large" color={themeColors.primary} />
+          <Text className="text-muted-foreground mt-4">Loading What's New...</Text>
+        </View>
+      </ScreenLayout>
     )
   }
 
   if (!reportsData || reportsData.length === 0) {
     return (
-      <View
-        className="flex-1 items-center justify-center bg-background"
-        style={{ padding: semanticSpacing.lg }}
-        testID="whats-new-screen"
+      <ScreenLayout
+        header={{
+          title: "What's New",
+          showBack: true,
+          onBack: handleBack,
+        }}
+        edges="bottom"
+        testID="whats-new-layout"
       >
-        <Text className="text-foreground text-lg mb-4">No reports yet</Text>
-        <Text className="text-muted-foreground text-center">
-          Check back soon for the latest AI news and updates.
-        </Text>
-      </View>
+        <View
+          className="flex-1 items-center justify-center"
+          style={{ padding: semanticSpacing.lg }}
+          testID="whats-new-empty"
+        >
+          <Text className="text-foreground text-lg mb-4">No reports yet</Text>
+          <Text className="text-muted-foreground text-center">
+            Check back soon for the latest AI news and updates.
+          </Text>
+        </View>
+      </ScreenLayout>
     )
   }
 
   return (
-    <NewsStream
-      items={newsItems}
-      onCardPress={handleCardPress}
-      testID="whats-new-screen"
-    />
+    <ScreenLayout
+      header={{
+        title: "What's New",
+        showBack: true,
+        onBack: handleBack,
+      }}
+      edges="bottom"
+      testID="whats-new-layout"
+    >
+      <NewsStream
+        items={newsItems}
+        onCardPress={handleCardPress}
+        testID="whats-new-stream"
+      />
+    </ScreenLayout>
   )
 }
