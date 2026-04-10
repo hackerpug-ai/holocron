@@ -59,11 +59,12 @@ jobs:
       - name: Build and submit iOS
         run: eas build --platform ios --profile production --auto-submit --non-interactive
         env:
-          EXPO_ASC_API_KEY_PATH: keys/ApiKey_YSUNUUHQV8PO.p8
-          EXPO_ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-          EXPO_ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-          EXPO_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          EXPO_APPLE_TEAM_TYPE: ${{ secrets.APPLE_TEAM_TYPE }}
+          EAS_ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
+          EAS_ASC_API_KEY_PATH: keys/ApiKey_YSUNUUHQV8PO.p8
+          EAS_ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          EAS_ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          EAS_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          EAS_APPLE_TEAM_TYPE: ${{ secrets.APPLE_TEAM_TYPE }}
 
   build-android:
     name: Build Android
