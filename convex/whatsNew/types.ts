@@ -27,6 +27,12 @@ export interface Finding {
   upvotes?: number; // Platform-specific upvote/like count
   commentCount?: number; // Number of comments/replies
   corroboration?: number; // Number of sources mentioning this item
+  // Enhanced metadata for report tables (Phase 2)
+  extendedDescription?: string; // 100-200 chars for table descriptions
+  starCount?: number; // GitHub stars for ranking
+  isDiscovery?: boolean; // true = new tool, false = known tool update
+  platform?: string; // 'reddit', 'hn', 'github', 'devto', 'lobsters'
+  releaseType?: 'official' | 'community' | 'unknown';
 }
 
 /**

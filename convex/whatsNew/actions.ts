@@ -38,6 +38,13 @@ interface Finding {
   qualityReason?: string; // Brief explanation of quality assessment
   upvotes?: number; // Platform-specific upvote/like count
   commentCount?: number; // Number of comments/replies
+  corroboration?: number; // Number of sources mentioning this item
+  // Enhanced metadata for report tables (Phase 2)
+  extendedDescription?: string; // 100-200 chars for table descriptions
+  starCount?: number; // GitHub stars for ranking
+  isDiscovery?: boolean; // true = new tool, false = known tool update
+  platform?: string; // 'reddit', 'hn', 'github', 'devto', 'lobsters'
+  releaseType?: 'official' | 'community' | 'unknown';
 }
 
 interface FetchResult {
@@ -171,6 +178,7 @@ export async function fetchReddit(days: number): Promise<FetchResult> {
           upvotes: post.score,
           commentCount: post.num_comments,
           engagementVelocity: Math.min(100, Math.round(velocity * 2)),
+          platform: "reddit",
         });
       }
     } catch (error) {
@@ -253,6 +261,8 @@ export async function fetchHackerNews(days: number): Promise<FetchResult> {
           : "discovery",
         score: story.score,
         publishedAt: new Date(story.time * 1000).toISOString(),
+        upvotes: story.score,
+        platform: "hn",
       });
     }
   } catch (error) {
@@ -299,13 +309,21 @@ export async function fetchGitHub(days: number): Promise<FetchResult> {
       const data = await response.json();
 
       for (const repo of data.items || []) {
+        const description = repo.description || "No description provided";
+
         findings.push({
-          title: `${repo.full_name}: ${repo.description || "No description"}`,
+          title: repo.full_name,
           url: repo.html_url,
           source: "GitHub",
           category: "discovery",
           score: repo.stargazers_count,
           publishedAt: repo.created_at,
+          // Enhanced metadata
+          extendedDescription: description.slice(0, 200),
+          starCount: repo.stargazers_count,
+          isDiscovery: true, // New repos from search are discoveries
+          platform: "github",
+          upvotes: repo.stargazers_count, // Stars act as upvotes for sorting
         });
       }
     }
@@ -349,6 +367,7 @@ export async function fetchDevTo(days: number): Promise<FetchResult> {
         category: "discovery",
         summary: article.description,
         publishedAt: article.published_at,
+        platform: "devto",
       });
     }
   } catch (error) {
@@ -380,6 +399,7 @@ export async function fetchLobsters(days: number): Promise<FetchResult> {
         source: "Lobsters",
         category: "discussion",
         publishedAt: item.published,
+        platform: "lobsters",
       });
     }
   } catch (error) {
@@ -451,6 +471,9 @@ export async function fetchChangelog(days: number): Promise<FetchResult> {
             author: release.author?.login,
             summary: release.body?.substring(0, 200),
             tags: ["github", "release", name],
+            platform: "github",
+            releaseType: "official",
+            isDiscovery: false, // Known repos releasing updates
           });
         }
       } catch (error) {
