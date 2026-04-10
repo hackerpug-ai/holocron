@@ -54,10 +54,16 @@ jobs:
       - name: Write ASC API key
         run: |
           mkdir -p keys
-          echo "${{ secrets.ASC_API_KEY_P8 }}" > keys/AuthKey_JDJ44N377P.p8
+          echo "${{ secrets.ASC_API_KEY_P8 }}" > keys/ApiKey_YSUNUUHQV8PO.p8
 
       - name: Build and submit iOS
-        run: eas build --platform ios --profile production --auto-submit --non-interactive --clear-cache
+        run: eas build --platform ios --profile production --auto-submit --non-interactive
+        env:
+          EXPO_ASC_API_KEY_PATH: keys/ApiKey_YSUNUUHQV8PO.p8
+          EXPO_ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          EXPO_ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          EXPO_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          EXPO_APPLE_TEAM_TYPE: ${{ secrets.APPLE_TEAM_TYPE }}
 
   build-android:
     name: Build Android

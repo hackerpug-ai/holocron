@@ -50,10 +50,7 @@
     },
     "production": {
       "ios": {
-        "ascAppId": "$EAS_ASC_APP_ID",
-        "ascApiKeyPath": "$EAS_ASC_KEY_PATH",
-        "ascApiKeyIssuerId": "$EAS_ASC_ISSUER_ID",
-        "ascApiKeyId": "$EAS_ASC_KEY_ID"
+        "ascAppId": "$EAS_ASC_APP_ID"
       }
     }
   }
