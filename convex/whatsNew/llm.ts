@@ -477,6 +477,11 @@ function generateStaticFallback(
     discussions: findings.filter((f) => f.category === "discussion"),
   };
 
+  const period =
+    days === 1
+      ? formatDate(periodStart)
+      : `${formatDate(periodStart)} to ${formatDate(periodEnd)}`;
+
   // Build source counts for footer and subscription suggestions
   const sourceCounts = findings.reduce(
     (acc, f) => {
@@ -490,13 +495,6 @@ function generateStaticFallback(
   const topByScore = (items: Finding[], n: number): Finding[] => {
     return [...items].sort((a, b) => (b.score ?? 0) - (a.score ?? 0)).slice(0, n);
   };
-
-  const period =
-    days === 1
-      ? formatDate(periodStart)
-      : `${formatDate(periodStart)} to ${formatDate(periodEnd)}`;
-  const reportDate = formatDate(periodEnd);
-  const trackCount = Object.keys(sourceCounts).length;
 
   // Format period as "Month Day range, Year"
   const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
