@@ -46,18 +46,18 @@
     "preview": {
       "ios": {
         "ascAppId": "6760728265",
-        "ascApiKeyPath": "keys/ApiKey_YSUNUUHQV8PO.p8",
+        "ascApiKeyPath": "keys/AuthKey_A44U785G3H.p8",
         "ascApiKeyIssuerId": "69a6de80-5cfe-47e3-e053-5b8c7c11a4d1",
-        "ascApiKeyId": "YSUNUUHQV8PO",
+        "ascApiKeyId": "A44U785G3H",
         "appleTeamId": "37KW26GSN4"
       }
     },
     "production": {
       "ios": {
         "ascAppId": "6760728265",
-        "ascApiKeyPath": "keys/ApiKey_YSUNUUHQV8PO.p8",
+        "ascApiKeyPath": "keys/AuthKey_A44U785G3H.p8",
         "ascApiKeyIssuerId": "69a6de80-5cfe-47e3-e053-5b8c7c11a4d1",
-        "ascApiKeyId": "YSUNUUHQV8PO",
+        "ascApiKeyId": "A44U785G3H",
         "appleTeamId": "37KW26GSN4"
       }
     }

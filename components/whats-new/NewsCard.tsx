@@ -6,7 +6,7 @@
  */
 
 import { useState } from 'react'
-import { View, Image, ImageStyle, StyleSheet } from 'react-native'
+import { Pressable, View, Image, ImageStyle, StyleSheet } from 'react-native'
 import { Text } from '@/components/ui/text'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -45,7 +45,7 @@ export function NewsCard({
   source,
   publishedAt,
   testID = 'news-card',
-  onPress: _onPress,
+  onPress,
   feedback,
   onFeedback,
 }: NewsCardProps) {
@@ -64,7 +64,7 @@ export function NewsCard({
 
   const hasMedia = imageUrl && !imageError
 
-  return (
+  const cardContent = (
     <Card testID={testID} className="border-border bg-card overflow-hidden">
       {/* Media Section */}
       {hasMedia && (
@@ -149,6 +149,23 @@ export function NewsCard({
       </View>
     </Card>
   )
+
+  // Wrap in Pressable if onPress is provided
+  if (onPress) {
+    return (
+      <Pressable
+        onPress={onPress}
+        testID={`${testID}-pressable`}
+        style={({ pressed }) => ({
+          opacity: pressed ? 0.8 : 1,
+        })}
+      >
+        {cardContent}
+      </Pressable>
+    )
+  }
+
+  return cardContent
 }
 
 const styles = StyleSheet.create({
