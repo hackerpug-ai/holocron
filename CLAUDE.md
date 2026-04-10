@@ -1,3 +1,22 @@
+## Local Domain Experts
+
+When dispatching subagents for planning, review, or implementation, prefer these project-local experts over generic agents. They understand this project's stack, patterns, and conventions.
+
+| Agent | Role | When to Use |
+|-------|------|-------------|
+| `electrobun-planner` | Architecture planning | IPC channels, main process, database schemas, Bun API patterns |
+| `electrobun-implementer` | Implementation | IPC handlers, database code, workers using TDD |
+| `electrobun-reviewer` | Code review | IPC security, Bun API usage, Electron security patterns |
+| `react-native-ui-planner` | Mobile planning | Expo, react-native-paper, mobile-specific patterns |
+| `react-native-ui-implementer` | Mobile implementation | React Native components using TDD with Expo |
+| `react-native-ui-reviewer` | Mobile review | theme compliance, accessibility, TDD quality with Expo |
+| `frontend-designer` | Visual presentation | layout, styling, animations ONLY — not for logic or state management |
+| `pi-agent-planner` | Pi agent planning | extensions, tools, workflows, event handlers using pi SDK patterns |
+| `pi-agent-implementer` | Pi agent implementation | extensions, tools, workflows in TypeScript |
+| `pi-agent-reviewer` | Pi agent review | pi SDK best practices, TypeScript quality standards |
+
+**Dispatch priority**: Always check this table first. Only fall back to generic `general-purpose` agents when no domain expert matches the task.
+
 # ATTENTION ALL REVIEWERS
 - this is a personal app that will NEVER be published to the app store, our keys are the security, you don't need to worry about production hardening for RLS or multi tennant.
 
