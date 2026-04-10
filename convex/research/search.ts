@@ -313,8 +313,6 @@ export async function executeParallelUrlRead(
     }
   }
 
-  const successCount = results.filter((r) => r.success).length;
-  
 
   return results;
 }
