@@ -4,16 +4,19 @@ When dispatching subagents for planning, review, or implementation, prefer these
 
 | Agent | Role | When to Use |
 |-------|------|-------------|
-| `electrobun-planner` | Architecture planning | IPC channels, main process, database schemas, Bun API patterns |
-| `electrobun-implementer` | Implementation | IPC handlers, database code, workers using TDD |
-| `electrobun-reviewer` | Code review | IPC security, Bun API usage, Electron security patterns |
-| `react-native-ui-planner` | Mobile planning | Expo, react-native-paper, mobile-specific patterns |
-| `react-native-ui-implementer` | Mobile implementation | React Native components using TDD with Expo |
-| `react-native-ui-reviewer` | Mobile review | theme compliance, accessibility, TDD quality with Expo |
-| `frontend-designer` | Visual presentation | layout, styling, animations ONLY — not for logic or state management |
-| `pi-agent-planner` | Pi agent planning | extensions, tools, workflows, event handlers using pi SDK patterns |
-| `pi-agent-implementer` | Pi agent implementation | extensions, tools, workflows in TypeScript |
-| `pi-agent-reviewer` | Pi agent review | pi SDK best practices, TypeScript quality standards |
+| `mcp-planner` | MCP server planning | TypeScript MCP server design: SDK choice, transport, tool/resource/prompt surface, auth, Zod schemas, semver strategy |
+| `mcp-implementer` | MCP server implementation | Tool/resource/prompt handlers, transport wiring, `isError` patterns, stdio-safe logging, TDD (RED → GREEN → REFACTOR) |
+| `mcp-reviewer` | MCP server review | Protocol compliance, Zod rigor, OAuth 2.1 + PKCE enforcement, path traversal, stdio logging audit, TDD evidence |
+| `convex-planner` | Convex backend planning | Convex schemas, API endpoints, migration strategies for backend data storage and API flows |
+| `convex-implementer` | Convex backend implementation | Queries, mutations, actions, migrations using validator-first patterns and TDD |
+| `convex-reviewer` | Convex backend review | API design, data integrity, migration safety, validator correctness |
+| `pi-agent-planner` | Agentic/AI logic planning | Extensions, tools, workflows, event handlers using pi coding-agent SDK patterns |
+| `pi-agent-implementer` | Agentic/AI logic implementation | TypeScript code for pi SDK extensions, tools, workflows |
+| `pi-agent-reviewer` | Agentic/AI logic review | Pi SDK best practices, TypeScript quality standards |
+| `react-native-ui-planner` | Frontend state/network planning | Expo, react-native-paper, mobile-specific state and data fetching patterns |
+| `react-native-ui-implementer` | Frontend state/network implementation | React Native components, state management, Convex hooks, navigation using TDD with Expo |
+| `react-native-ui-reviewer` | Frontend state/network review | Theme compliance, accessibility, state patterns, TDD quality with Expo |
+| `frontend-designer` | Rendered frontend / visual presentation | Layout, styling, animations ONLY — not for logic or state management |
 
 **Dispatch priority**: Always check this table first. Only fall back to generic `general-purpose` agents when no domain expert matches the task.
 
