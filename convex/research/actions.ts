@@ -1517,6 +1517,7 @@ export const answerQuestionAction = internalAction({
     }
 
     // 1. Execute web search using Jina Search API
+    // eslint-disable-next-line no-useless-assignment -- Variable IS used in subsequent statements (false positive due to early returns)
     let searchResults: Array<{ title: string; url: string; content: string }> = [];
     try {
       const encodedQuery = encodeURIComponent(query);
@@ -1583,6 +1584,7 @@ export const answerQuestionAction = internalAction({
     }
 
     // 3. Synthesize answer using zaiFlash (fast, cost-effective)
+    // eslint-disable-next-line no-useless-assignment -- Variable IS used in return statement (false positive due to early returns)
     let answer = "";
     try {
       const { text } = await generateText({

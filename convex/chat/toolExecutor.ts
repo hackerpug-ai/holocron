@@ -229,7 +229,7 @@ async function executeDeepResearch(
 async function executeAnswerQuestion(
   ctx: ActionCtx,
   args: Record<string, any>,
-  conversationId: Id<"conversations">,
+  _conversationId: Id<"conversations">,
 ): Promise<AgentResponse> {
   const query: string = args.query ?? "";
   const sources: number = args.sources ?? 5;

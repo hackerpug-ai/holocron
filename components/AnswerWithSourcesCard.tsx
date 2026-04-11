@@ -1,7 +1,6 @@
 import { Card, CardContent } from '@/components/ui/card'
 import { Text } from '@/components/ui/text'
 import { View } from 'react-native'
-import { ExternalLink } from '@/components/ui/icons'
 import { cn } from '@/lib/utils'
 
 export interface Source {
