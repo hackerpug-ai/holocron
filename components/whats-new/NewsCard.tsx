@@ -21,6 +21,7 @@ export interface NewsCardProps {
   source?: string
   publishedAt?: number
   testID?: string
+  url?: string
   onPress?: () => void
   // Feedback props - uses 'up'/'down' to match Convex schema
   feedback?: 'up' | 'down' | null

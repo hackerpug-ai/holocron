@@ -16,6 +16,7 @@ export interface NewsItem {
   imageUrl?: string
   source?: string
   publishedAt?: number
+  url?: string
 }
 
 export interface NewsStreamProps {
@@ -23,7 +24,7 @@ export interface NewsStreamProps {
   onLoadMore?: () => void
   isLoadingMore?: boolean
   testID?: string
-  onCardPress?: (itemId: string) => void
+  onCardPress?: (itemId: string, url?: string) => void
 }
 
 /**
@@ -54,8 +55,9 @@ export function NewsStream({
           imageUrl={item.imageUrl}
           source={item.source}
           publishedAt={item.publishedAt}
+          url={item.url}
           testID={`news-card-${index}`}
-          onPress={() => onCardPress?.(item.id)}
+          onPress={() => onCardPress?.(item.id, item.url)}
         />
       </View>
     )
