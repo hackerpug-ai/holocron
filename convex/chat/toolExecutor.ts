@@ -223,6 +223,48 @@ async function executeDeepResearch(
 }
 
 // ---------------------------------------------------------------------------
+// answer_question
+// ---------------------------------------------------------------------------
+
+async function executeAnswerQuestion(
+  ctx: ActionCtx,
+  args: Record<string, any>,
+  conversationId: Id<"conversations">,
+): Promise<AgentResponse> {
+  const query: string = args.query ?? "";
+  const sources: number = args.sources ?? 5;
+
+  if (!query) {
+    return { content: "Please provide a question.", messageType: "text" };
+  }
+
+  try {
+    // Execute research synchronously (wait for result)
+    const result = await ctx.runAction(internal.research.actions.answerQuestionAction, {
+      query,
+      sources,
+    });
+
+    return {
+      content: result.answer,
+      messageType: "result_card",
+      cardData: {
+        card_type: "answer_with_sources",
+        sources: result.sources,
+        durationMs: result.durationMs,
+      },
+      // DON'T skip continuation — agent can elaborate if needed
+      skipContinuation: false,
+    };
+  } catch (error) {
+    return {
+      content: `Research failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+      messageType: "error",
+    };
+  }
+}
+
+// ---------------------------------------------------------------------------
 // shop_search
 // ---------------------------------------------------------------------------
 
@@ -767,6 +809,9 @@ export async function executeAgentTool(
 
     case "deep_research":
       return executeDeepResearch(ctx, toolArgs, conversationId);
+
+    case "answer_question":
+      return executeAnswerQuestion(ctx, toolArgs, conversationId);
 
     case "shop_search":
       return executeShopSearch(ctx, toolArgs, conversationId);

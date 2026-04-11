@@ -93,6 +93,27 @@ const deep_research = tool({
 });
 
 /**
+ * answer_question - Research and answer in one step
+ */
+const answer_question = tool({
+  description:
+    "Research a topic on the web and provide a direct answer to the user's question. " +
+    "Use this when the user asks a question that requires up-to-date information from the web, " +
+    "but doesn't need a comprehensive stored report. Best for: factual questions, current events, " +
+    "'what is X', 'how does Y work', comparisons, explanations.",
+  inputSchema: z.object({
+    query: z
+      .string()
+      .describe("The specific question or topic to research and answer"),
+    sources: z
+      .number()
+      .optional()
+      .default(5)
+      .describe("Number of sources to consult (default 5, max 10)"),
+  }),
+});
+
+/**
  * shop_search - Search for products across retailers
  */
 const shop_search = tool({
@@ -423,7 +444,7 @@ const create_plan = tool({
         requiresApproval: z.boolean().describe(
           "Whether this step needs user approval. " +
           "TRUE for: deep_research, save_document, subscribe, unsubscribe, assimilate, shop_search, whats_new. " +
-          "FALSE for: search_knowledge_base, browse_category, knowledge_base_stats, quick_research, " +
+          "FALSE for: search_knowledge_base, browse_category, knowledge_base_stats, quick_research, answer_question, " +
           "list_subscriptions, check_subscriptions, toolbelt_search."
         ),
       })
@@ -477,6 +498,7 @@ export const knowledgeTools = {
 export const researchTools = {
   quick_research,
   deep_research,
+  answer_question,
 };
 
 /** Product shopping and price comparison */

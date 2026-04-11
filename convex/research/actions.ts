@@ -9,7 +9,7 @@
 
 "use node";
 
-import { action } from "../_generated/server";
+import { action, internalAction } from "../_generated/server";
 import type { ActionCtx } from "../_generated/server";
 import { v } from "convex/values";
 import { api, internal } from "../_generated/api";
@@ -1483,5 +1483,142 @@ export const startSmartResearch = action({
         finalCoverageScore: result.finalCoverageScore,
       };
     }
+  },
+});
+
+/**
+ * answerQuestionAction - Synchronous research + answer
+ *
+ * Unlike startSimpleResearch/startSmartResearch (which create sessions/documents),
+ * this executes synchronously and returns a direct answer for chat response.
+ *
+ * Flow:
+ * 1. Execute web search using Jina Search API
+ * 2. Read full content from top 3 sources
+ * 3. Synthesize answer using zaiFlash (fast, cost-effective)
+ * 4. Return answer + sources for immediate chat response
+ */
+export const answerQuestionAction = internalAction({
+  args: {
+    query: v.string(),
+    sources: v.optional(v.number()),
+  },
+  handler: async (ctx, { query, sources = 5 }) => {
+    const numSources = Math.min(sources, 10); // Cap at 10
+    const startTime = Date.now();
+
+    const apiKey = process.env.JINA_API_KEY;
+    if (!apiKey) {
+      return {
+        answer: "JINA_API_KEY not configured. Please set the environment variable.",
+        sources: [],
+        durationMs: Date.now() - startTime,
+      };
+    }
+
+    // 1. Execute web search using Jina Search API
+    let searchResults: Array<{ title: string; url: string; content: string }> = [];
+    try {
+      const encodedQuery = encodeURIComponent(query);
+      const response = await fetch(`https://s.jina.ai/?q=${encodedQuery}`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          Accept: "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Jina Search API error: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      searchResults = (data.data || []).slice(0, numSources).map((result: any) => ({
+        title: result.title || "",
+        url: result.url || result.link || "",
+        content: (result.description || result.content || "").slice(0, 500),
+      }));
+    } catch (error) {
+      console.error("[answerQuestionAction] Search error:", error);
+      return {
+        answer: `Search failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+        sources: [],
+        durationMs: Date.now() - startTime,
+      };
+    }
+
+    if (searchResults.length === 0) {
+      return {
+        answer: `I couldn't find any relevant information for "${query}".`,
+        sources: [],
+        durationMs: Date.now() - startTime,
+      };
+    }
+
+    // 2. Read full content from top 3 sources using Jina Reader
+    const topUrls = searchResults.slice(0, 3).map((r) => r.url);
+    const contents: Array<{ title: string; content: string; url: string }> = [];
+
+    for (const url of topUrls) {
+      try {
+        const response = await fetch(`https://r.jina.ai/${url}`, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "X-Return-Format": "markdown",
+          },
+        });
+
+        if (response.ok) {
+          const content = await response.text();
+          contents.push({
+            title: searchResults.find((r) => r.url === url)?.title || url,
+            content: content.slice(0, 3000), // Limit content for synthesis
+            url,
+          });
+        }
+      } catch (error) {
+        console.warn(`[answerQuestionAction] Failed to read ${url}:`, error);
+      }
+    }
+
+    // 3. Synthesize answer using zaiFlash (fast, cost-effective)
+    let answer = "";
+    try {
+      const { text } = await generateText({
+        model: zaiFlash(),
+        system: `You are a research assistant. Answer the user's question based on the provided web search results.
+
+Guidelines:
+- Be concise (2-4 sentences for simple answers, 1-2 short paragraphs for complex topics)
+- Lead with the most important information first
+- Use bullet points for lists
+- Include [Source X] citations in brackets when referencing specific information
+- Don't fabricate facts — if the sources don't contain the answer, say so`,
+        prompt: `Question: ${query}
+
+Sources:
+${contents.map((c, i) => `[${i + 1}] ${c.title}\n${c.content}`).join("\n\n")}
+
+Answer:`,
+      });
+      answer = text.trim();
+    } catch (error) {
+      console.error("[answerQuestionAction] Synthesis error:", error);
+      answer = `I found ${searchResults.length} sources but couldn't synthesize an answer. Here are the top results:\n\n${searchResults.slice(0, 3).map((r, i) => `${i + 1}. [${r.title}](${r.url})`).join("\n")}`;
+    }
+
+    // 4. Format sources for card display
+    const formattedSources = searchResults.slice(0, 5).map((r) => ({
+      title: r.title,
+      url: r.url,
+      snippet: r.content.slice(0, 150),
+    }));
+
+    return {
+      answer,
+      sources: formattedSources,
+      durationMs: Date.now() - startTime,
+    };
   },
 });
