@@ -40,7 +40,7 @@ import {
   type StructuredFinding,
   type UrlContent,
 } from "./prompts";
-import { zaiFlash } from "../lib/ai/zai_provider";
+import { zaiFlash, zaiPro } from "../lib/ai/zai_provider";
 import { classifyResearchIntent, type ResearchMode } from "./intent";
 import {
   calculateConfidenceScore,
@@ -1623,4 +1623,417 @@ Answer:`,
       durationMs: Date.now() - startTime,
     };
   },
+});
+
+// =============================================================================
+// FIND RECOMMENDATIONS ACTION (REC-003)
+// =============================================================================
+
+import { RecommendationSynthesisSchema, RECOMMENDATION_SYNTHESIS_PROMPT } from "../chat/specialistPrompts";
+
+/**
+ * Args for findRecommendationsCore
+ */
+interface FindRecommendationsArgs {
+  query: string;
+  count?: number;
+  location?: string;
+  constraints?: string[];
+}
+
+/**
+ * Result from findRecommendationsCore
+ */
+interface FindRecommendationsResult {
+  items: Array<{
+    name: string;
+    description: string;
+    whyRecommended: string;
+    rating?: number;
+    location?: string;
+    pricing?: string;
+    contact?: {
+      phone?: string;
+      url?: string;
+      email?: string;
+    };
+  }>;
+  sources: Array<{
+    title: string;
+    url: string;
+    snippet: string;
+  }>;
+  query: string;
+  durationMs: number;
+}
+
+/**
+ * Build enhanced query from base query + location + constraints
+ */
+function buildEnhancedQuery(args: FindRecommendationsArgs): string {
+  const parts = [args.query];
+  if (args.location) {
+    parts.push(`in ${args.location}`);
+  }
+  if (args.constraints && args.constraints.length > 0) {
+    parts.push(args.constraints.join(" "));
+  }
+  return parts.join(" ");
+}
+
+/**
+ * Call Jina Search API and return results
+ */
+async function jinaSearch(
+  query: string,
+  options: { signal: AbortSignal }
+): Promise<Array<{ title: string; url: string; snippet: string }>> {
+  const apiKey = process.env.JINA_API_KEY;
+  if (!apiKey) {
+    console.error("[jinaSearch] JINA_API_KEY not configured");
+    return [];
+  }
+
+  try {
+    const searchUrl = `https://s.jina.ai/${encodeURIComponent(query)}`;
+    const response = await fetch(searchUrl, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+      },
+      signal: options.signal,
+    });
+
+    if (!response.ok) {
+      console.error(`[jinaSearch] HTTP error: ${response.status} ${response.statusText}`);
+      return [];
+    }
+
+    const text = await response.text();
+    const lines = text.split("\n").filter((line) => line.trim());
+
+    const results: Array<{ title: string; url: string; snippet: string }> = [];
+
+    for (const line of lines) {
+      // Jina returns format: [title] - [url] - [content]
+      const match = line.match(/\[(.*?)\] - \[(.*?)\] - (.*)/);
+      if (match) {
+        results.push({
+          title: match[1],
+          url: match[2],
+          snippet: match[3].slice(0, 200),
+        });
+      }
+    }
+
+    return results.slice(0, 8); // Max 8 sources for recommendation synthesis
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    if (errorMessage.includes("abort") || errorMessage.includes("The operation was aborted")) {
+      console.warn("[jinaSearch] Request aborted");
+      throw error; // Re-throw abort errors so they can be caught by the outer try-catch
+    } else {
+      console.error("[jinaSearch] Error:", error);
+      return [];
+    }
+  }
+}
+
+/**
+ * Read multiple URLs in parallel using Jina Reader
+ */
+async function parallelJinaReader(
+  sources: Array<{ url: string; title: string; snippet: string }>,
+  options: { signal: AbortSignal; timeoutMs: number }
+): Promise<string> {
+  const apiKey = process.env.JINA_API_KEY;
+  if (!apiKey) {
+    console.error("[parallelJinaReader] JINA_API_KEY not configured");
+    return "";
+  }
+
+  const readPromises = sources.slice(0, 5).map(async (source) => {
+    try {
+      const readerUrl = `https://r.jina.ai/${encodeURIComponent(source.url)}`;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), options.timeoutMs);
+
+      const response = await fetch(readerUrl, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          Accept: "text/plain",
+        },
+        signal: options.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        return null;
+      }
+
+      const content = await response.text();
+      return `## ${source.title}\n${content.slice(0, 2000)}`; // Limit to 2k chars per source
+    } catch (error) {
+      console.warn(`[parallelJinaReader] Failed to read ${source.url}:`, error);
+      return null;
+    }
+  });
+
+  const results = await Promise.all(readPromises);
+  return results.filter((r): r is string => r !== null).join("\n\n");
+}
+
+/**
+ * Synthesize recommendations using LLM
+ */
+async function synthesize(
+  content: string,
+  args: FindRecommendationsArgs,
+  options: { signal: AbortSignal; strict?: boolean }
+): Promise<any | null> {
+  const count = args.count || 5;
+  const strict = options.strict || false;
+
+  const strictInstructions = strict
+    ? `\n\nCRITICAL: Your response MUST be valid JSON matching this schema:\n${JSON.stringify(
+        {
+          items: [
+            {
+              name: "string",
+              description: "string",
+              whyRecommended: "string",
+              rating: "number (optional)",
+              location: "string (optional)",
+              pricing: "string (optional)",
+              contact: {
+                phone: "string (optional)",
+                url: "string (optional)",
+                email: "string (optional)",
+              },
+            },
+          ],
+          sources: [
+            {
+              title: "string",
+              url: "string",
+              snippet: "string",
+            },
+          ],
+          query: "string",
+          durationMs: "number",
+        },
+        null,
+        2
+      )}\n\nDo NOT include any text outside the JSON object. No markdown code blocks. Just the raw JSON.`
+    : "";
+
+  try {
+    const { text } = await generateText({
+      model: zaiPro(),
+      system: RECOMMENDATION_SYNTHESIS_PROMPT + strictInstructions,
+      prompt: `Query: ${args.query}\nCount: ${count}\nLocation: ${args.location || "not specified"}\nConstraints: ${args.constraints?.join(", ") || "none"}\n\nSources:\n${content}`,
+      // @ts-ignore - signal is supported by generateText but not in the type definition
+      signal: options.signal,
+    });
+
+    // Parse JSON response
+    const jsonMatch = text.match(/```json\n([\s\S]*?)\n```/) || text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      console.error("[synthesize] No JSON found in response");
+      return null;
+    }
+
+    const jsonString = jsonMatch[1] || jsonMatch[0];
+    try {
+      return JSON.parse(jsonString);
+    } catch (parseError) {
+      console.error("[synthesize] JSON parse error:", parseError);
+      return null;
+    }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    if (errorMessage.includes("abort") || errorMessage.includes("The operation was aborted")) {
+      console.warn("[synthesize] Request aborted");
+      throw error; // Re-throw abort errors
+    }
+    console.error("[synthesize] Error:", error);
+    return null;
+  }
+}
+
+/**
+ * Core implementation of findRecommendations
+ *
+ * This is a pure function that doesn't use Convex context.
+ * It can be called from both internalAction and public action wrappers.
+ */
+/**
+ * Core implementation of findRecommendations
+ *
+ * This is a pure function that doesn't use Convex context.
+ * It can be called from both internalAction and public action wrappers.
+ *
+ * @internal Exported for testing only
+ */
+export async function findRecommendationsCore(args: FindRecommendationsArgs): Promise<FindRecommendationsResult> {
+  const start = Date.now();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 30_000);
+
+  try {
+    // Step 1: Build enhanced query
+    const enhancedQuery = buildEnhancedQuery(args);
+
+    // Step 2: Call Jina Search
+    const sources = await jinaSearch(enhancedQuery, { signal: controller.signal });
+
+    // Step 3: Handle empty sources
+    if (sources.length === 0) {
+      return {
+        items: [],
+        sources: [],
+        query: args.query,
+        durationMs: Date.now() - start,
+      };
+    }
+
+    // Step 4: Read top 5 sources in parallel with 15s timeout
+    const content = await parallelJinaReader(sources, {
+      signal: controller.signal,
+      timeoutMs: 15_000,
+    });
+
+    // Step 5: Synthesize with LLM
+    let synth = await synthesize(content, args, { signal: controller.signal });
+
+    // Step 6: Validate with Zod
+    let parsed = synth ? RecommendationSynthesisSchema.safeParse(synth) : { success: false };
+
+    // Step 7: Retry once with strict instructions if validation fails
+    if (!parsed.success) {
+      console.warn("[findRecommendationsCore] First synthesis failed validation, retrying with strict instructions");
+      synth = await synthesize(content, args, { signal: controller.signal, strict: true });
+      parsed = synth ? RecommendationSynthesisSchema.safeParse(synth) : { success: false };
+    }
+
+    // Step 8: Return successful result or fallback
+    if (parsed.success) {
+      // Type assertion: parsed is SafeParseSuccess when success is true
+      return {
+        items: (parsed as any).data.items,
+        sources: (parsed as any).data.sources,
+        query: args.query,
+        durationMs: Date.now() - start,
+      };
+    }
+
+    // Fallback if validation failed
+    console.error("[findRecommendationsCore] Synthesis validation failed after retry");
+    return {
+      items: [],
+      sources,
+      query: args.query,
+      durationMs: Date.now() - start,
+    };
+  } catch (error) {
+    // Handle abort errors specifically
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    if (errorMessage.includes("abort") || errorMessage.includes("The operation was aborted")) {
+      console.warn("[findRecommendationsCore] Operation aborted after timeout");
+      return {
+        items: [],
+        sources: [],
+        query: args.query,
+        durationMs: Date.now() - start,
+      };
+    }
+    // Re-throw other errors
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Internal action for findRecommendations (used by tool executor)
+ */
+export const findRecommendationsAction = internalAction({
+  args: {
+    query: v.string(),
+    count: v.optional(v.number()),
+    location: v.optional(v.string()),
+    constraints: v.optional(v.array(v.string())),
+  },
+  returns: v.object({
+    items: v.array(
+      v.object({
+        name: v.string(),
+        description: v.string(),
+        whyRecommended: v.string(),
+        rating: v.optional(v.number()),
+        location: v.optional(v.string()),
+        pricing: v.optional(v.string()),
+        contact: v.optional(
+          v.object({
+            phone: v.optional(v.string()),
+            url: v.optional(v.string()),
+            email: v.optional(v.string()),
+          })
+        ),
+      })
+    ),
+    sources: v.array(
+      v.object({
+        title: v.string(),
+        url: v.string(),
+        snippet: v.string(),
+      })
+    ),
+    query: v.string(),
+    durationMs: v.number(),
+  }),
+  handler: async (_ctx, args) => findRecommendationsCore(args),
+});
+
+/**
+ * Public action for findRecommendations (exposed to MCP)
+ */
+export const findRecommendations = action({
+  args: {
+    query: v.string(),
+    count: v.optional(v.number()),
+    location: v.optional(v.string()),
+    constraints: v.optional(v.array(v.string())),
+  },
+  returns: v.object({
+    items: v.array(
+      v.object({
+        name: v.string(),
+        description: v.string(),
+        whyRecommended: v.string(),
+        rating: v.optional(v.number()),
+        location: v.optional(v.string()),
+        pricing: v.optional(v.string()),
+        contact: v.optional(
+          v.object({
+            phone: v.optional(v.string()),
+            url: v.optional(v.string()),
+            email: v.optional(v.string()),
+          })
+        ),
+      })
+    ),
+    sources: v.array(
+      v.object({
+        title: v.string(),
+        url: v.string(),
+        snippet: v.string(),
+      })
+    ),
+    query: v.string(),
+    durationMs: v.number(),
+  }),
+  handler: async (_ctx, args) => findRecommendationsCore(args),
 });
