@@ -9,9 +9,49 @@ export default defineSchema({
     lastMessagePreview: v.optional(v.string()),
     agentBusy: v.optional(v.boolean()),
     agentBusySince: v.optional(v.number()),
+    // NEW — multi-turn intent coherence
+    pendingIntent: v.optional(v.string()), // one of IntentCategory values
+    pendingQueryShape: v.optional(v.string()), // one of QueryShape values
+    pendingSince: v.optional(v.number()), // epoch ms; used for 30-min expiry
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_updated", ["updatedAt"]),
+
+  // Agent telemetry for intent classification (INT-001)
+  agentTelemetry: defineTable({
+    conversationId: v.id("conversations"),
+    messageId: v.id("chatMessages"),
+    // Classification output
+    intent: v.string(),
+    queryShape: v.string(),
+    confidence: v.string(),
+    reasoning: v.optional(v.string()),
+    // Source of classification
+    classificationSource: v.union(
+      v.literal("regex"),
+      v.literal("llm"),
+      v.literal("fallback"),
+      v.literal("pending_rehydrate")
+    ),
+    // Optional diagnostic fields
+    regexMatchPattern: v.optional(v.string()),
+    rawLlmResponse: v.optional(v.string()), // truncated to 2000 chars
+    llmDurationMs: v.optional(v.number()),
+    // Dispatch outcome
+    specialistUsed: v.optional(v.string()),
+    toolsCalled: v.optional(v.array(v.string())),
+    // Ambiguity fields
+    ambiguousIntents: v.optional(v.array(v.string())),
+    clarificationQuestion: v.optional(v.string()),
+    // Timing
+    totalDurationMs: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_conversation", ["conversationId", "createdAt"])
+    .index("by_intent", ["intent", "createdAt"])
+    .index("by_queryShape", ["queryShape", "createdAt"])
+    .index("by_createdAt", ["createdAt"])
+    .index("by_source", ["classificationSource", "createdAt"]),
 
   chatMessages: defineTable({
     conversationId: v.id("conversations"),
