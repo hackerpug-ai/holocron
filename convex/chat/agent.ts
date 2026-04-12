@@ -517,10 +517,30 @@ export const continueAfterTool = internalAction({
       if (specialistName) {
         // Skip triage — dispatch directly to the original specialist so intent
         // context is preserved across multi-tool chains without re-classification.
-        const messages = await ctx.runQuery(
+        let messages = await ctx.runQuery(
           internal.chat.agentMutations.buildContext,
           { conversationId },
         );
+
+        // REC-005: Inject continuation hint for find_recommendations
+        // Get the most recent completed tool call
+        const priorTool = completedToolCalls && completedToolCalls.length > 0
+          ? completedToolCalls[completedToolCalls.length - 1]
+          : null;
+
+        if (priorTool?.toolName === 'find_recommendations') {
+          const FIND_REC_CONTINUATION_HINT =
+            'The user just saw a list of recommendations. Do NOT re-render the list. ' +
+            'Do NOT call another tool for the same query. ' +
+            'In 1-2 sentences max, acknowledge the list and offer to save it to their KB if they want.';
+
+          // Prepend hint as system message to guide specialist behavior
+          messages = [
+            { role: 'system' as const, content: FIND_REC_CONTINUATION_HINT },
+            ...messages,
+          ];
+        }
+
         const specialist = getSpecialist(specialistName as any);
         const result = await generateTextWithReAct({
           model: specialist.model(),

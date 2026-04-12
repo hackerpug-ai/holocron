@@ -858,6 +858,25 @@ export async function executeAgentTool(
     case "list_improvements":
       return executeListImprovements(ctx, toolArgs);
 
+    case "find_recommendations": {
+      const { query, count, location, constraints } = toolArgs;
+      const result = await ctx.runAction(internal.research.actions.findRecommendationsAction, {
+        query, count, location, constraints,
+      });
+      return {
+        content: `Found ${result.items.length} recommendation${result.items.length === 1 ? '' : 's'} for "${query}"`,
+        messageType: "result_card" as const,
+        cardData: {
+          card_type: "recommendation_list" as const,
+          items: result.items,
+          sources: result.sources,
+          query: result.query,
+          durationMs: result.durationMs,
+        },
+        skipContinuation: false,
+      };
+    }
+
     default:
       return {
         content: `Tool execution pending implementation: unknown tool "${toolName}"`,

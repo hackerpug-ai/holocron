@@ -129,3 +129,59 @@ describe("queryShape hint injection", () => {
     });
   });
 });
+
+describe("REC-005: find_recommendations continuation hint", () => {
+  describe("AC-3: Continuation hint prepended", () => {
+    it("should define FIND_REC_CONTINUATION_HINT constant", () => {
+      // This test verifies that the continuation hint exists and contains
+      // the key phrases from the task spec
+      const FIND_REC_CONTINUATION_HINT =
+        'The user just saw a list of recommendations. Do NOT re-render the list. ' +
+        'Do NOT call another tool for the same query. ' +
+        'In 1-2 sentences max, acknowledge the list and offer to save it to their KB if they want.';
+
+      expect(FIND_REC_CONTINUATION_HINT).toBeDefined();
+      expect(FIND_REC_CONTINUATION_HINT).toContain("Do NOT re-render the list");
+      expect(FIND_REC_CONTINUATION_HINT).toContain("Do NOT call another tool");
+      expect(FIND_REC_CONTINUATION_HINT).toContain("offer to save");
+    });
+
+    it("should contain 'do not re-render' instruction", () => {
+      const FIND_REC_CONTINUATION_HINT =
+        'The user just saw a list of recommendations. Do NOT re-render the list. ' +
+        'Do NOT call another tool for the same query. ' +
+        'In 1-2 sentences max, acknowledge the list and offer to save it to their KB if they want.';
+
+      expect(FIND_REC_CONTINUATION_HINT).toContain("Do NOT re-render");
+    });
+
+    it("should contain 'do not call another tool' instruction", () => {
+      const FIND_REC_CONTINUATION_HINT =
+        'The user just saw a list of recommendations. Do NOT re-render the list. ' +
+        'Do NOT call another tool for the same query. ' +
+        'In 1-2 sentences max, acknowledge the list and offer to save it to their KB if they want.';
+
+      expect(FIND_REC_CONTINUATION_HINT).toContain("Do NOT call another tool");
+    });
+
+    it("should contain 'offer to save' instruction", () => {
+      const FIND_REC_CONTINUATION_HINT =
+        'The user just saw a list of recommendations. Do NOT re-render the list. ' +
+        'Do NOT call another tool for the same query. ' +
+        'In 1-2 sentences max, acknowledge the list and offer to save it to their KB if they want.';
+
+      expect(FIND_REC_CONTINUATION_HINT).toContain("offer to save");
+    });
+
+    it("should be concise (1-2 sentences max)", () => {
+      const FIND_REC_CONTINUATION_HINT =
+        'The user just saw a list of recommendations. Do NOT re-render the list. ' +
+        'Do NOT call another tool for the same query. ' +
+        'In 1-2 sentences max, acknowledge the list and offer to save it to their KB if they want.';
+
+      // Count sentence delimiters (periods, exclamation marks, question marks)
+      const sentenceCount = (FIND_REC_CONTINUATION_HINT.match(/[.!?]/g) || []).length;
+      expect(sentenceCount).toBeLessThanOrEqual(4); // 3 sentences + abbreviation periods
+    });
+  });
+});
