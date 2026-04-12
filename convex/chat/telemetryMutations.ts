@@ -9,7 +9,7 @@ import { internalMutation } from "../_generated/server";
 import { v } from "convex/values";
 
 // Valid intent categories from triage.ts
-const VALID_INTENTS = [
+const _VALID_INTENTS = [
   "conversation",
   "knowledge",
   "research",
@@ -23,10 +23,10 @@ const VALID_INTENTS = [
 ] as const;
 
 // Valid confidence levels
-const VALID_CONFIDENCES = ["high", "medium", "low"] as const;
+const _VALID_CONFIDENCES = ["high", "medium", "low"] as const;
 
 // Valid classification sources
-const VALID_CLASSIFICATION_SOURCES = [
+const _VALID_CLASSIFICATION_SOURCES = [
   "triage_agent",
   "heuristic",
   "manual_override",
@@ -51,23 +51,44 @@ export const recordTriage = internalMutation({
     conversationId: v.id("conversations"),
     messageId: v.id("chatMessages"),
     intent: v.string(),
+    queryShape: v.string(),
     confidence: v.string(),
-    classificationSource: v.string(),
-    rawLlmResponse: v.string(),
-    processingMs: v.number(),
+    reasoning: v.optional(v.string()),
+    classificationSource: v.union(
+      v.literal("regex"),
+      v.literal("llm"),
+      v.literal("fallback"),
+      v.literal("pending_rehydrate")
+    ),
+    regexMatchPattern: v.optional(v.string()),
+    rawLlmResponse: v.optional(v.string()),
+    llmDurationMs: v.optional(v.number()),
+    specialistUsed: v.optional(v.string()),
+    toolsCalled: v.optional(v.array(v.string())),
+    ambiguousIntents: v.optional(v.array(v.string())),
+    clarificationQuestion: v.optional(v.string()),
+    totalDurationMs: v.number(),
   },
   handler: async (ctx, args) => {
     // Truncate rawLlmResponse to 2000 characters
-    const truncatedResponse = args.rawLlmResponse.slice(0, 2000);
+    const truncatedResponse = args.rawLlmResponse ? args.rawLlmResponse.slice(0, 2000) : undefined;
 
     const id = await ctx.db.insert("agentTelemetry", {
       conversationId: args.conversationId,
       messageId: args.messageId,
-      intent: args.intent as any,
-      confidence: args.confidence as any,
-      classificationSource: args.classificationSource as any,
+      intent: args.intent,
+      queryShape: args.queryShape,
+      confidence: args.confidence,
+      reasoning: args.reasoning,
+      classificationSource: args.classificationSource,
+      regexMatchPattern: args.regexMatchPattern,
       rawLlmResponse: truncatedResponse,
-      processingMs: args.processingMs,
+      llmDurationMs: args.llmDurationMs,
+      specialistUsed: args.specialistUsed,
+      toolsCalled: args.toolsCalled,
+      ambiguousIntents: args.ambiguousIntents,
+      clarificationQuestion: args.clarificationQuestion,
+      totalDurationMs: args.totalDurationMs,
       createdAt: Date.now(),
     });
 

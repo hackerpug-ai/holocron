@@ -1387,21 +1387,4 @@ export default defineSchema({
     .index("by_key", ["key"])
     .index("by_key_timestamp", ["key", "timestamp"]),
 
-  // Agent telemetry for triage intelligence system
-  // Records classification results for analysis and improvement
-  agentTelemetry: defineTable({
-    conversationId: v.id("conversations"),
-    messageId: v.id("chatMessages"),
-    intent: v.string(), // "conversation" | "knowledge" | "research" | "commerce" | "subscriptions" | "discovery" | "documents" | "analysis" | "improvements" | "multi_step"
-    confidence: v.string(), // "high" | "medium" | "low"
-    classificationSource: v.string(), // "triage_agent" | "heuristic" | "manual_override" | "cached"
-    rawLlmResponse: v.string(), // Truncated to 2000 chars
-    processingMs: v.number(), // Time taken to classify
-    createdAt: v.number(),
-  })
-    .index("by_conversation", ["conversationId"])
-    .index("by_message", ["messageId"])
-    .index("by_created", ["createdAt"])
-    .index("by_intent", ["intent"])
-    .index("by_source", ["classificationSource"]),
 });

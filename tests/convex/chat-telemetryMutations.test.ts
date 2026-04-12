@@ -49,14 +49,17 @@ describe('telemetryMutations', () => {
         conversationId: 'conv123' as any,
         messageId: 'msg456' as any,
         intent: 'research',
+        queryShape: 'comprehensive',
         confidence: 'high' as const,
-        classificationSource: 'triage_agent' as const,
+        reasoning: 'User wants to research something',
+        classificationSource: 'llm' as const,
         rawLlmResponse: JSON.stringify({
           intent: 'research',
+          queryShape: 'comprehensive',
           confidence: 'high',
           reasoning: 'User wants to research something',
         }),
-        processingMs: 150,
+        totalDurationMs: 150,
       };
 
       await recordTriage(mockCtx, args);
@@ -66,10 +69,12 @@ describe('telemetryMutations', () => {
         conversationId: 'conv123',
         messageId: 'msg456',
         intent: 'research',
+        queryShape: 'comprehensive',
         confidence: 'high',
-        classificationSource: 'triage_agent',
+        classificationSource: 'llm',
+        reasoning: 'User wants to research something',
         rawLlmResponse: expect.stringContaining('research'),
-        processingMs: 150,
+        totalDurationMs: 150,
         createdAt: expect.any(Number),
       }));
     });
@@ -88,11 +93,13 @@ describe('telemetryMutations', () => {
       const args = {
         conversationId: 'conv123' as any,
         messageId: 'msg456' as any,
-        intent: 'conversation' as const,
+        intent: 'conversation',
+        queryShape: 'factual',
         confidence: 'medium' as const,
+        reasoning: 'Short question',
         classificationSource: 'heuristic' as const,
         rawLlmResponse: longResponse,
-        processingMs: 50,
+        totalDurationMs: 50,
       };
 
       await recordTriage(mockCtx, args);
@@ -112,11 +119,13 @@ describe('telemetryMutations', () => {
       const args = {
         conversationId: 'conv123' as any,
         messageId: 'msg456' as any,
-        intent: 'knowledge' as const,
+        intent: 'knowledge',
+        queryShape: 'factual',
         confidence: 'high' as const,
-        classificationSource: 'manual_override' as const,
+        reasoning: 'Short question',
+        classificationSource: 'llm' as const,
         rawLlmResponse: shortResponse,
-        processingMs: 10,
+        totalDurationMs: 10,
       };
 
       await recordTriage(mockCtx, args);
@@ -148,11 +157,13 @@ describe('telemetryMutations', () => {
         const args = {
           conversationId: 'conv123' as any,
           messageId: 'msg456' as any,
-          intent: 'conversation' as const,
+          intent: 'conversation',
+          queryShape: 'factual',
           confidence: 'low' as const,
+          reasoning: 'Test',
           classificationSource: source,
           rawLlmResponse: '{}',
-          processingMs: 0,
+          totalDurationMs: 0,
         };
 
         await recordTriage(mockCtx, args);
