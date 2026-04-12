@@ -114,6 +114,49 @@ const answer_question = tool({
 });
 
 /**
+ * find_recommendations - Find specific recommendations, referrals, or providers
+ */
+const find_recommendations = tool({
+  description:
+    "Find specific recommendations, referrals, or providers for the user. " +
+    "Returns a numbered list of 3-7 named entities with contact details, ratings, location, and one-sentence reasons each fits the user's criteria. " +
+    "Use this when the user wants specific named options they can act on. " +
+    "Triggers: 'find me N X', 'best X in Y', 'top N X', 'recommend X', 'referrals for X', 'who should I hire for X', 'where can I find X', 'highly rated X'. " +
+    "Do NOT use this for 'what is X', 'how does X work', 'pros and cons of X', or 'X vs Y' — use answer_question instead. " +
+    "Do NOT use this when the user wants a comprehensive report or saved document — use deep_research instead. " +
+    "This tool produces an INLINE response — no document is created.",
+  inputSchema: z.object({
+    query: z
+      .string()
+      .describe(
+        "The recommendation request, including any constraints. Example: 'career coaches specializing in autism support'",
+      ),
+    count: z
+      .number()
+      .int()
+      .min(3)
+      .max(7)
+      .optional()
+      .default(5)
+      .describe(
+        "Target number of recommendations (default 5). Use the user's explicit count if specified.",
+      ),
+    location: z
+      .string()
+      .optional()
+      .describe(
+        "Geographic constraint extracted from the query. Omit if global, online, or remote.",
+      ),
+    constraints: z
+      .array(z.string())
+      .optional()
+      .describe(
+        "Other constraints extracted from the query (e.g., ['specializing in autism support', 'in-person only', 'under $200/hr']).",
+      ),
+  }),
+});
+
+/**
  * shop_search - Search for products across retailers
  */
 const shop_search = tool({
@@ -499,6 +542,7 @@ export const researchTools = {
   quick_research,
   deep_research,
   answer_question,
+  find_recommendations,
 };
 
 /** Product shopping and price comparison */

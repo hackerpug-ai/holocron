@@ -22,14 +22,13 @@ import type { ActionCtx } from "../_generated/server";
 import { internal, api } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { v } from "convex/values";
-import { generateText } from "ai";
 import type { GenerateTextResult, ModelMessage } from "ai";
 import { zaiPro } from "../lib/ai/zai_provider";
 import { agentTools } from "./tools";
 import { executeAgentTool } from "./toolExecutor";
 import { HOLOCRON_SYSTEM_PROMPT } from "./prompts";
 import { toTitleCase } from "../lib/strings";
-import { classifyIntent } from "./triage";
+import { classifyIntent, type QueryShape } from "./triage";
 import { getSpecialist, INTENT_TO_SPECIALIST } from "./specialists";
 import type { IntentCategory } from "./specialists";
 import { generateTextWithReAct } from "../lib/react";
@@ -229,10 +228,31 @@ async function callLlmAndHandleResponse(
 
   const specialist = getSpecialist(specialistName);
 
+  // QueryShape hint injection for research specialist
+  // Injects a system-message preamble to guide tool selection based on query shape
+  let dispatchMessages = messages;
+  if (specialistName === "research" && triage.queryShape) {
+    const shapeHints: Record<QueryShape, string | null> = {
+      recommendation: "The user wants named providers they can act on. Use find_recommendations.",
+      comprehensive: "The user explicitly asked for a comprehensive report. Use deep_research.",
+      factual: null,
+      exploratory: null,
+      ambiguous: null,
+    };
+    const preamble = shapeHints[triage.queryShape];
+    if (preamble) {
+      // Prepend hint as system message to guide specialist behavior
+      dispatchMessages = [
+        { role: "system" as const, content: preamble },
+        ...messages,
+      ];
+    }
+  }
+
   const result = await generateTextWithReAct({
     model: specialist.model(),
     system: specialist.systemPrompt,
-    messages,
+    messages: dispatchMessages,
     tools: specialist.tools,
   });
 

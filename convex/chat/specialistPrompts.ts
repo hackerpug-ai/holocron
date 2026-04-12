@@ -5,6 +5,8 @@
  * Each is shorter than the monolithic prompt and focused on its domain.
  */
 
+import { z } from 'zod';
+
 const BASE_FORMATTING = `
 ## Conversation Awareness
 - You have access to the full conversation history. Reference earlier messages, articles, and research when relevant to the user's current question.
@@ -37,17 +39,29 @@ export const RESEARCH_SPECIALIST_PROMPT = `You are Holocron's research specialis
 - answer_question: Research and answer questions that need current web info. Use for most questions.
 - quick_research: Fast research that creates a stored summary card. Use when user wants to save results.
 - deep_research: Comprehensive multi-iteration research. Use ONLY for complex topics requiring broad coverage and a stored report.
+- find_recommendations: Find specific named options (providers, places, products, people) with action details.
 
-## Decision Guide
-- Use answer_question for: "What is X?", "How does Y work?", "Latest on Z?", comparisons, explanations
-- Use quick_research for: "Research X and save it", "Find info on Y for later"
-- Use deep_research for: "Thorough research on X", "Comprehensive report on Y", "Deep dive into Z"
+## TOP PRIORITY: Recommendation Queries
+If the user wants **specific named options** they can act on (providers, places, products, people),
+you MUST use find_recommendations. Signals:
+- "find me N X", "best X in Y", "top N X"
+- "highly rated X", "referrals for X"
+- "who should I hire for X", "where can I find X"
 
-## Behavior
-- Default to answer_question for most questions — it's faster and provides direct answers
-- Only use quick_research/deep_research when the user explicitly wants to save/store research
-- Synthesize clear, concise answers based on the sources found
-- If the conversation already contains research results on this topic, summarize those instead.
+Example: "career coaches for people with autism in San Francisco — provide 3-5 highly rated referrals"
+→ find_recommendations({ query: "career coaches specializing in autism support", count: 5, location: "San Francisco" })
+
+NEVER use deep_research for recommendations that fit in a single message.
+
+## When to use deep_research
+ONLY when the user explicitly asks for a "comprehensive" report, "deep dive", "thorough analysis",
+or "complete guide". Those words are required signals.
+
+## When to use answer_question
+Single factual or comparison questions: "what is X", "how does X work", "X vs Y".
+
+## When to use quick_research
+When the user wants to save research results for later access.
 ${BASE_FORMATTING}`;
 
 export const COMMERCE_SPECIALIST_PROMPT = `You are Holocron's shopping specialist. You help users find products and compare prices.
@@ -173,3 +187,74 @@ When building plans, you can reference these tools in step definitions:
 - Keep plans concise — typically 2-4 steps.
 - Set requiresApproval correctly per the table above.
 ${BASE_FORMATTING}`;
+
+/**
+ * Zod schema for validating recommendation synthesis output.
+ * Used by findRecommendationsAction to parse LLM responses.
+ */
+export const RecommendationSynthesisSchema = z.object({
+  items: z.array(
+    z.object({
+      name: z.string(),
+      description: z.string(),
+      whyRecommended: z.string(),
+      rating: z.number().optional(),
+      location: z.string().optional(),
+      pricing: z.string().optional(),
+      contact: z
+        .object({
+          phone: z.string().optional(),
+          url: z.string().optional(),
+          email: z.string().optional(),
+        })
+        .optional(),
+    })
+  ),
+  sources: z.array(
+    z.object({
+      title: z.string(),
+      url: z.string(),
+      snippet: z.string(),
+    })
+  ),
+  query: z.string(),
+  durationMs: z.number(),
+});
+
+/**
+ * Synthesis prompt for recommendation lists.
+ * Instructs the LLM to extract structured provider data from web sources.
+ */
+export const RECOMMENDATION_SYNTHESIS_PROMPT = `
+# Role
+You synthesize recommendation lists from web sources.
+
+# Output Format (literal markdown template)
+1. **{Name}** — {tagline ≤ 80 chars}
+   - Rating: {rating if available}
+   - Location: {location if available}
+   - Contact: {phone/url/email if available}
+   - Why it fits: {≤ 1 sentence}
+   - Source: [{n}]
+
+# Rules
+1. Return EXACTLY {count} entries unless sources don't support that many.
+2. Every name must be a real entity from the sources. NEVER GUESS.
+3. If a field is missing from the sources, OMIT it — never fabricate.
+4. Every entry must cite at least one source by number [n].
+5. No preamble. No "I found..." No "Here are...".
+6. No conclusion. No "More information". No "Further reading".
+7. Tagline ≤ 80 characters.
+8. Why-it-fits ≤ 1 sentence.
+9. If sources don't yield 3+ providers, return the structured fallback:
+   { items: [], sources: [...], note: "Sources didn't yield 3+ named providers for this query." }
+
+# User Criteria
+Query: {query}
+Count: {count}
+Location: {location if any}
+Constraints: {constraints if any}
+
+# Sources
+{sources}
+`;
