@@ -8,17 +8,18 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
+import type { Mock } from 'vitest';
 
 // Mock DB for testing
-type MockInsert = vi.Mock & {
+type MockInsert = Mock & {
   mockResolvedValue: (value: any) => any;
 };
 
 type MockDb = {
   insert: MockInsert;
-  query: vi.Mock;
-  get: vi.Mock;
-  delete: vi.Mock;
+  query: Mock;
+  get: Mock;
+  delete: Mock;
 };
 
 describe('telemetryMutations', () => {
@@ -62,7 +63,7 @@ describe('telemetryMutations', () => {
         totalDurationMs: 150,
       };
 
-      await recordTriage(mockCtx, args);
+      await (recordTriage as any)(mockCtx, args);
 
       // Verify db.insert was called with correct table and all fields
       expect(mockDb.insert).toHaveBeenCalledWith('agentTelemetry', expect.objectContaining({
@@ -102,7 +103,7 @@ describe('telemetryMutations', () => {
         totalDurationMs: 50,
       };
 
-      await recordTriage(mockCtx, args);
+      await (recordTriage as any)(mockCtx, args);
 
       // Verify the response was truncated to exactly 2000 chars
       const insertCall = mockDb.insert.mock.calls[0];
@@ -128,7 +129,7 @@ describe('telemetryMutations', () => {
         totalDurationMs: 10,
       };
 
-      await recordTriage(mockCtx, args);
+      await (recordTriage as any)(mockCtx, args);
 
       const insertCall = mockDb.insert.mock.calls[0];
       const insertedData = insertCall[1];
@@ -166,7 +167,7 @@ describe('telemetryMutations', () => {
           totalDurationMs: 0,
         };
 
-        await recordTriage(mockCtx, args);
+        await (recordTriage as any)(mockCtx, args);
 
         expect(mockDb.insert).toHaveBeenCalledWith('agentTelemetry', expect.objectContaining({
           classificationSource: source,
@@ -200,7 +201,7 @@ describe('telemetryMutations', () => {
 
       mockDb.delete.mockResolvedValue(undefined);
 
-      await deleteOldTelemetry(mockCtx, { cutoffTimestamp });
+      await (deleteOldTelemetry as any)(mockCtx, { cutoffTimestamp });
 
       // Verify delete was called for old records
       expect(mockDb.delete).toHaveBeenCalledWith('old123');
@@ -225,7 +226,7 @@ describe('telemetryMutations', () => {
         collect: vi.fn().mockResolvedValue([recentTelemetry]),
       });
 
-      await deleteOldTelemetry(mockCtx, { cutoffTimestamp });
+      await (deleteOldTelemetry as any)(mockCtx, { cutoffTimestamp });
 
       // Verify delete was NOT called for recent records
       expect(mockDb.delete).not.toHaveBeenCalled();
@@ -252,7 +253,7 @@ describe('telemetryMutations', () => {
 
       mockDb.delete.mockResolvedValue(undefined);
 
-      const result = await deleteOldTelemetry(mockCtx, { cutoffTimestamp });
+      const result = await (deleteOldTelemetry as any)(mockCtx, { cutoffTimestamp });
 
       // Should return count of deleted records
       expect(result).toBe(3);
