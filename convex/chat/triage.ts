@@ -29,8 +29,16 @@ export type IntentCategory =
   | "improvements"
   | "multi_step";
 
+export type QueryShape =
+  | "factual"
+  | "recommendation"
+  | "comprehensive"
+  | "exploratory"
+  | "ambiguous";
+
 export interface TriageResult {
   intent: IntentCategory;
+  queryShape: QueryShape;
   confidence: "high" | "medium" | "low";
   reasoning: string;
   directResponse?: string;
@@ -49,7 +57,23 @@ const VALID_INTENTS: IntentCategory[] = [
   "multi_step",
 ];
 
+const VALID_QUERY_SHAPES: QueryShape[] = [
+  "factual",
+  "recommendation",
+  "comprehensive",
+  "exploratory",
+  "ambiguous",
+];
+
 const VALID_CONFIDENCES = ["high", "medium", "low"] as const;
+
+/**
+ * Truncate raw LLM response to 2000 characters for telemetry storage.
+ * This prevents oversized records in the agentTelemetry table.
+ */
+export function truncateLlmResponse(response: string): string {
+  return response.slice(0, 2000);
+}
 
 /**
  * Classify user intent from conversation context.
@@ -92,6 +116,11 @@ export async function classifyIntent(
       return fallbackResult();
     }
 
+    // Validate queryShape - fall back to 'factual' if invalid or missing
+    const queryShape = VALID_QUERY_SHAPES.includes(parsed.queryShape)
+      ? (parsed.queryShape as QueryShape)
+      : "factual";
+
     // Validate confidence
     const confidence = VALID_CONFIDENCES.includes(parsed.confidence)
       ? (parsed.confidence as "high" | "medium" | "low")
@@ -99,6 +128,7 @@ export async function classifyIntent(
 
     return {
       intent,
+      queryShape,
       confidence,
       reasoning: parsed.reasoning ?? "",
       directResponse:
@@ -113,6 +143,7 @@ export async function classifyIntent(
 function fallbackResult(): TriageResult {
   return {
     intent: "conversation",
+    queryShape: "factual",
     confidence: "low",
     reasoning: "Classification failed, falling back",
   };
