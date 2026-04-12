@@ -1764,7 +1764,7 @@ async function parallelJinaReader(
           Authorization: `Bearer ${apiKey}`,
           Accept: "text/plain",
         },
-        signal: options.signal,
+        signal: controller.signal,
       });
 
       clearTimeout(timeoutId);
