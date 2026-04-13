@@ -2,11 +2,13 @@
  * Agent Tests
  *
  * Tests for the chat agent orchestrator, including specialist dispatch,
- * queryShape hint injection, and tool continuation flow.
+ * queryShape hint injection, tool continuation flow, and CLR-002
+ * ambiguous short-circuit / pending-state rehydrate logic.
  */
 
 import { describe, it, expect } from "vitest";
 import { RESEARCH_SPECIALIST_PROMPT } from "./specialistPrompts";
+import { isPendingExpired } from "../conversations/mutations";
 
 describe("RESEARCH_SPECIALIST_PROMPT", () => {
   describe("AC-1: TOP PRIORITY section", () => {
@@ -183,5 +185,245 @@ describe("REC-005: find_recommendations continuation hint", () => {
       const sentenceCount = (FIND_REC_CONTINUATION_HINT.match(/[.!?]/g) || []).length;
       expect(sentenceCount).toBeLessThanOrEqual(4); // 3 sentences + abbreviation periods
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// CLR-002: Ambiguous short-circuit + pending-state rehydrate
+// ---------------------------------------------------------------------------
+
+describe("CLR-002: isPendingExpired", () => {
+  it("should return true when pendingSince is undefined", () => {
+    expect(isPendingExpired(undefined)).toBe(true);
+  });
+
+  it("should return false for a recent timestamp (within 30 min)", () => {
+    const recentTimestamp = Date.now() - 5 * 60 * 1000; // 5 minutes ago
+    expect(isPendingExpired(recentTimestamp)).toBe(false);
+  });
+
+  it("should return true for an old timestamp (beyond 30 min)", () => {
+    const oldTimestamp = Date.now() - 31 * 60 * 1000; // 31 minutes ago
+    expect(isPendingExpired(oldTimestamp)).toBe(true);
+  });
+
+  it("should return false for timestamp exactly at boundary (0 ms ago)", () => {
+    expect(isPendingExpired(Date.now())).toBe(false);
+  });
+});
+
+describe("CLR-002: computeClarificationDepth logic", () => {
+  it("should count 0 depth for empty telemetry list", () => {
+    const records: Array<{ queryShape: string }> = [];
+    let depth = 0;
+    for (let i = records.length - 1; i >= 0; i--) {
+      if (records[i].queryShape === "ambiguous") {
+        depth++;
+      } else {
+        break;
+      }
+    }
+    expect(depth).toBe(0);
+  });
+
+  it("should count 1 depth for single trailing ambiguous record", () => {
+    const records = [
+      { queryShape: "factual" },
+      { queryShape: "ambiguous" },
+    ];
+    let depth = 0;
+    for (let i = records.length - 1; i >= 0; i--) {
+      if (records[i].queryShape === "ambiguous") {
+        depth++;
+      } else {
+        break;
+      }
+    }
+    expect(depth).toBe(1);
+  });
+
+  it("should count 2 depth for two trailing ambiguous records", () => {
+    const records = [
+      { queryShape: "factual" },
+      { queryShape: "ambiguous" },
+      { queryShape: "ambiguous" },
+    ];
+    let depth = 0;
+    for (let i = records.length - 1; i >= 0; i--) {
+      if (records[i].queryShape === "ambiguous") {
+        depth++;
+      } else {
+        break;
+      }
+    }
+    expect(depth).toBe(2);
+  });
+
+  it("should count 0 depth when last record is non-ambiguous", () => {
+    const records = [
+      { queryShape: "ambiguous" },
+      { queryShape: "factual" },
+    ];
+    let depth = 0;
+    for (let i = records.length - 1; i >= 0; i--) {
+      if (records[i].queryShape === "ambiguous") {
+        depth++;
+      } else {
+        break;
+      }
+    }
+    expect(depth).toBe(0);
+  });
+});
+
+describe("CLR-002: effective shape computation", () => {
+  it("should force 'factual' when queryShape is ambiguous and depth >= 1", () => {
+    const triageQueryShape = "ambiguous";
+    const clarificationDepth = 1;
+
+    const effectiveShape =
+      triageQueryShape === "ambiguous" && clarificationDepth >= 1
+        ? ("factual" as const)
+        : triageQueryShape;
+
+    expect(effectiveShape).toBe("factual");
+  });
+
+  it("should keep ambiguous when depth is 0", () => {
+    const triageQueryShape = "ambiguous";
+    const clarificationDepth = 0;
+
+    const effectiveShape =
+      triageQueryShape === "ambiguous" && clarificationDepth >= 1
+        ? ("factual" as const)
+        : triageQueryShape;
+
+    expect(effectiveShape).toBe("ambiguous");
+  });
+
+  it("should keep non-ambiguous shapes unchanged regardless of depth", () => {
+    const triageQueryShape: string = "recommendation";
+    const clarificationDepth = 1;
+
+    const effectiveShape =
+      triageQueryShape === "ambiguous" && clarificationDepth >= 1
+        ? ("factual" as const)
+        : triageQueryShape;
+
+    expect(effectiveShape).toBe("recommendation");
+  });
+});
+
+describe("CLR-002: ambiguous short-circuit conditions", () => {
+  it("should short-circuit when ambiguous + directResponse + non-low confidence + depth < 1", () => {
+    const triage: { queryShape: string; directResponse?: string; confidence: string } = {
+      queryShape: "ambiguous",
+      directResponse: "Could you clarify what you're looking for?",
+      confidence: "medium",
+    };
+    const clarificationDepth = 0;
+
+    const shouldShortCircuit =
+      triage.queryShape === "ambiguous" &&
+      triage.directResponse &&
+      triage.confidence !== "low" &&
+      clarificationDepth < 1;
+
+    expect(shouldShortCircuit).toBe(true);
+  });
+
+  it("should NOT short-circuit when confidence is low", () => {
+    const triage: { queryShape: string; directResponse?: string; confidence: string } = {
+      queryShape: "ambiguous",
+      directResponse: "Could you clarify?",
+      confidence: "low",
+    };
+    const clarificationDepth = 0;
+
+    const shouldShortCircuit =
+      triage.queryShape === "ambiguous" &&
+      triage.directResponse &&
+      triage.confidence !== "low" &&
+      clarificationDepth < 1;
+
+    expect(shouldShortCircuit).toBe(false);
+  });
+
+  it("should NOT short-circuit when no directResponse", () => {
+    const triage: { queryShape: string; directResponse?: string; confidence: string } = {
+      queryShape: "ambiguous",
+      directResponse: undefined,
+      confidence: "high",
+    };
+    const clarificationDepth = 0;
+
+    const shouldShortCircuit =
+      triage.queryShape === "ambiguous" &&
+      triage.directResponse &&
+      triage.confidence !== "low" &&
+      clarificationDepth < 1;
+
+    expect(shouldShortCircuit).toBeFalsy();
+  });
+
+  it("should NOT short-circuit when depth >= 1 (cap reached)", () => {
+    const triage: { queryShape: string; directResponse?: string; confidence: string } = {
+      queryShape: "ambiguous",
+      directResponse: "Could you clarify further?",
+      confidence: "high",
+    };
+    const clarificationDepth = 1;
+
+    const shouldShortCircuit =
+      triage.queryShape === "ambiguous" &&
+      triage.directResponse &&
+      triage.confidence !== "low" &&
+      clarificationDepth < 1;
+
+    expect(shouldShortCircuit).toBe(false);
+  });
+});
+
+describe("CLR-002: pending-state rehydrate preamble", () => {
+  it("should build correct preamble from pending state", () => {
+    const conv = {
+      pendingIntent: "research",
+      pendingQueryShape: "recommendation",
+      pendingSince: Date.now() - 1000,
+    };
+
+    const preamble =
+      `The user is mid-request. Their original intent was ${conv.pendingIntent} ` +
+      `with shape ${conv.pendingQueryShape}.`;
+
+    expect(preamble).toContain("mid-request");
+    expect(preamble).toContain("research");
+    expect(preamble).toContain("recommendation");
+  });
+
+  it("should skip preamble when pending state is expired", () => {
+    const conv = {
+      pendingIntent: "research",
+      pendingQueryShape: "recommendation",
+      pendingSince: Date.now() - 31 * 60 * 1000, // expired
+    };
+
+    const shouldPrepend =
+      conv.pendingIntent && !isPendingExpired(conv.pendingSince);
+
+    expect(shouldPrepend).toBe(false);
+  });
+
+  it("should skip preamble when no pending intent", () => {
+    const conv = {
+      pendingIntent: undefined,
+      pendingQueryShape: undefined,
+      pendingSince: undefined,
+    };
+
+    const shouldPrepend =
+      conv.pendingIntent && !isPendingExpired(conv.pendingSince);
+
+    expect(shouldPrepend).toBeFalsy();
   });
 });

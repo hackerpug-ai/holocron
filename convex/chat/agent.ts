@@ -29,6 +29,7 @@ import { executeAgentTool } from "./toolExecutor";
 import { HOLOCRON_SYSTEM_PROMPT } from "./prompts";
 import { toTitleCase } from "../lib/strings";
 import { classifyIntent, type QueryShape } from "./triage";
+import { isPendingExpired } from "../conversations/mutations";
 import { getSpecialist, INTENT_TO_SPECIALIST } from "./specialists";
 import type { IntentCategory } from "./specialists";
 import { generateTextWithReAct } from "../lib/react";
@@ -174,13 +175,43 @@ async function callLlmMonolithic(
 }
 
 /**
+ * computeClarificationDepth
+ *
+ * Counts consecutive ambiguous classifications from the tail of recent
+ * telemetry records. Used to cap the clarification loop at depth 1 —
+ * after one round of clarification, we force a best-guess dispatch.
+ */
+async function computeClarificationDepth(
+  ctx: ActionCtx,
+  conversationId: Id<"conversations">,
+): Promise<number> {
+  const recentClassifications = await ctx.runQuery(
+    internal.chat.agentMutations.listRecentClassifications,
+    { conversationId, limit: 5 },
+  );
+  if (!recentClassifications) return 0;
+
+  // Count consecutive ambiguous results from the end
+  let depth = 0;
+  for (let i = recentClassifications.length - 1; i >= 0; i--) {
+    if (recentClassifications[i].queryShape === "ambiguous") {
+      depth++;
+    } else {
+      break;
+    }
+  }
+  return depth;
+}
+
+/**
  * callLlmAndHandleResponse
  *
  * Triage-then-dispatch flow:
  * 1. Classify intent with zaiFlash (fast, no tools)
  * 2. Direct conversation response → persist directResponse, done
- * 3. Low confidence → fallback to monolithic agent
- * 4. Specialist intent → dispatch to domain-focused specialist
+ * 3. Ambiguous short-circuit → set pending intent, ask clarification
+ * 4. Low confidence → fallback to monolithic agent
+ * 5. Specialist intent → dispatch to domain-focused specialist
  *
  * Returns the specialist name used (for threading through tool continuations).
  */
@@ -189,10 +220,28 @@ async function callLlmAndHandleResponse(
   conversationId: Id<"conversations">,
 ): Promise<string | null> {
   // Build context from conversation history (via internal query in V8 file)
-  const messages = await ctx.runQuery(
+  let messages = await ctx.runQuery(
     internal.chat.agentMutations.buildContext,
     { conversationId },
   );
+
+  // --- Pending-state rehydrate (CLR-002) ---
+  // Read the conversation document to check for fresh pending state.
+  const conv = await ctx.runQuery(
+    internal.chat.agentMutations.getConversation,
+    { conversationId },
+  );
+
+  if (conv && conv.pendingIntent && !isPendingExpired(conv.pendingSince)) {
+    // Prepend a system message so triage sees the original context
+    const pendingPreamble =
+      `The user is mid-request. Their original intent was ${conv.pendingIntent} ` +
+      `with shape ${conv.pendingQueryShape}.`;
+    messages = [
+      { role: "system" as const, content: pendingPreamble },
+      ...messages,
+    ];
+  }
 
   // Step 1: Triage — classify intent with zaiFlash (no tools, ~100-200ms)
   const triage = await classifyIntent(messages);
@@ -210,6 +259,45 @@ async function callLlmAndHandleResponse(
       messageType: "text",
     });
     return null;
+  }
+
+  // --- Ambiguous short-circuit (CLR-002) ---
+  // Check clarification depth to cap at 1 round of clarification.
+  const clarificationDepth = await computeClarificationDepth(ctx, conversationId);
+
+  // Compute effective shape: if ambiguous but depth cap reached, force best-guess
+  const effectiveShape: QueryShape =
+    triage.queryShape === "ambiguous" && clarificationDepth >= 1
+      ? "factual"
+      : triage.queryShape;
+
+  if (
+    triage.queryShape === "ambiguous" &&
+    triage.directResponse &&
+    triage.confidence !== "low" &&
+    clarificationDepth < 1
+  ) {
+    // Set pending intent so next turn can rehydrate
+    await ctx.runMutation(internal.conversations.mutations.setPendingIntent, {
+      conversationId,
+      intent: triage.intent,
+      queryShape: triage.queryShape,
+    });
+    // Persist the clarification question as an assistant message
+    await ctx.runMutation(api.chatMessages.mutations.create, {
+      conversationId,
+      role: "agent",
+      content: triage.directResponse,
+      messageType: "text",
+    });
+    return null; // no specialist dispatch
+  }
+
+  // Clear pending state on non-ambiguous turn completion
+  if (effectiveShape !== "ambiguous" && conv?.pendingIntent) {
+    await ctx.runMutation(internal.conversations.mutations.clearPendingIntent, {
+      conversationId,
+    });
   }
 
   // Step 3: Low confidence → fallback to monolithic agent (safety valve)
@@ -231,7 +319,7 @@ async function callLlmAndHandleResponse(
   // QueryShape hint injection for research specialist
   // Injects a system-message preamble to guide tool selection based on query shape
   let dispatchMessages = messages;
-  if (specialistName === "research" && triage.queryShape) {
+  if (specialistName === "research" && effectiveShape) {
     const shapeHints: Record<QueryShape, string | null> = {
       recommendation: "The user wants named providers they can act on. Use find_recommendations.",
       comprehensive: "The user explicitly asked for a comprehensive report. Use deep_research.",
@@ -239,7 +327,7 @@ async function callLlmAndHandleResponse(
       exploratory: null,
       ambiguous: null,
     };
-    const preamble = shapeHints[triage.queryShape];
+    const preamble = shapeHints[effectiveShape];
     if (preamble) {
       // Prepend hint as system message to guide specialist behavior
       dispatchMessages = [

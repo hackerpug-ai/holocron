@@ -89,3 +89,39 @@ export const buildContext = internalQuery({
     return await buildConversationContext(ctx.db, conversationId);
   },
 });
+
+/**
+ * Get a conversation document by ID.
+ * Used by agent actions (Node.js) to read pending state fields.
+ */
+export const getConversation = internalQuery({
+  args: {
+    conversationId: v.id("conversations"),
+  },
+  handler: async (ctx, { conversationId }) => {
+    return await ctx.db.get(conversationId);
+  },
+});
+
+/**
+ * List recent telemetry classifications for a conversation.
+ * Returns the most recent records ordered by creation time (newest last).
+ * Used by computeClarificationDepth to count consecutive ambiguous results.
+ */
+export const listRecentClassifications = internalQuery({
+  args: {
+    conversationId: v.id("conversations"),
+    limit: v.number(),
+  },
+  handler: async (ctx, { conversationId, limit }) => {
+    const records = await ctx.db
+      .query("agentTelemetry")
+      .withIndex("by_conversation", (q) =>
+        q.eq("conversationId", conversationId)
+      )
+      .order("desc")
+      .take(limit);
+    // Return in chronological order (oldest first) for depth counting
+    return records.reverse();
+  },
+});
