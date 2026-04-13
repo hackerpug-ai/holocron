@@ -104,6 +104,71 @@ export const getConversation = internalQuery({
 });
 
 /**
+ * Get the most recent result_card message in a conversation, and walk back
+ * to the associated tool_approval to read cardData.specialist_name.
+ *
+ * Used by detectRefinement in agent.ts to determine whether the prior turn
+ * ended with a completed tool result so we can inherit the specialist on
+ * multi-turn refinements.
+ *
+ * Returns null when no result_card exists in the conversation.
+ */
+export const getLastToolResultWithSpecialist = internalQuery({
+  args: {
+    conversationId: v.id("conversations"),
+  },
+  handler: async (ctx, { conversationId }) => {
+    // Find the most recent result_card message
+    const messages = await ctx.db
+      .query("chatMessages")
+      .withIndex("by_conversation", (q) =>
+        q.eq("conversationId", conversationId)
+      )
+      .order("desc")
+      .filter((q) => q.eq(q.field("messageType"), "result_card"))
+      .first();
+
+    if (!messages) {
+      return { hasResult: false, specialistName: null, resultCreatedAt: null };
+    }
+
+    // Walk backward to find the toolCall that produced this result_card,
+    // then read the specialist_name from the tool_approval message.
+    // The toolCalls table has resultMessageId pointing to the result_card.
+    const toolCall = await ctx.db
+      .query("toolCalls")
+      .withIndex("by_conversation", (q) =>
+        q.eq("conversationId", conversationId)
+      )
+      .filter((q) => q.eq(q.field("resultMessageId"), messages._id))
+      .first();
+
+    if (!toolCall) {
+      return {
+        hasResult: true,
+        specialistName: null,
+        resultCreatedAt: messages.createdAt,
+      };
+    }
+
+    // Read the tool_approval message (linked via toolCall.messageId)
+    const approvalMessage = await ctx.db.get(toolCall.messageId);
+    const specialistName: string | null =
+      typeof (approvalMessage?.cardData as Record<string, unknown> | undefined)
+        ?.specialist_name === "string"
+        ? (approvalMessage?.cardData as Record<string, unknown>)
+            .specialist_name as string
+        : null;
+
+    return {
+      hasResult: true,
+      specialistName,
+      resultCreatedAt: messages.createdAt,
+    };
+  },
+});
+
+/**
  * List recent telemetry classifications for a conversation.
  * Returns the most recent records ordered by creation time (newest last).
  * Used by computeClarificationDepth to count consecutive ambiguous results.

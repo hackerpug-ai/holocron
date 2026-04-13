@@ -9,6 +9,7 @@
 import { describe, it, expect } from "vitest";
 import { RESEARCH_SPECIALIST_PROMPT } from "./specialistPrompts";
 import { isPendingExpired } from "../conversations/mutations";
+import { detectRefinement } from "./agent";
 
 describe("RESEARCH_SPECIALIST_PROMPT", () => {
   describe("AC-1: TOP PRIORITY section", () => {
@@ -425,5 +426,119 @@ describe("CLR-002: pending-state rehydrate preamble", () => {
       conv.pendingIntent && !isPendingExpired(conv.pendingSince);
 
     expect(shouldPrepend).toBeFalsy();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// detectRefinement — specialist inheritance for multi-turn refinements
+// ---------------------------------------------------------------------------
+
+describe("detectRefinement", () => {
+  const makeMessages = (userContent: string) => [
+    {
+      role: "user" as const,
+      content: userContent,
+    },
+  ];
+
+  it("returns shouldInherit: false when message does not start with a refinement phrase", async () => {
+    const result = await detectRefinement(
+      makeMessages("find me a career coach"),
+      async () => ({
+        hasResult: true,
+        specialistName: "research",
+        resultCreatedAt: Date.now() - 1000,
+      }),
+    );
+    expect(result.shouldInherit).toBe(false);
+  });
+
+  it("returns shouldInherit: false when getLastToolResultWithSpecialist returns hasResult: false", async () => {
+    const result = await detectRefinement(
+      makeMessages("expand the search to include Bay Area"),
+      async () => ({
+        hasResult: false,
+        specialistName: null,
+        resultCreatedAt: null,
+      }),
+    );
+    expect(result.shouldInherit).toBe(false);
+  });
+
+  it("returns shouldInherit: false when specialistName is null (monolithic fallback result)", async () => {
+    const result = await detectRefinement(
+      makeMessages("also show results from Seattle"),
+      async () => ({
+        hasResult: true,
+        specialistName: null,
+        resultCreatedAt: Date.now() - 1000,
+      }),
+    );
+    expect(result.shouldInherit).toBe(false);
+  });
+
+  it("returns shouldInherit: true with specialistName when refinement phrase + recent result_card + specialist_name all present", async () => {
+    const result = await detectRefinement(
+      makeMessages("expand the search to include the West Coast"),
+      async () => ({
+        hasResult: true,
+        specialistName: "research",
+        resultCreatedAt: Date.now() - 1000,
+      }),
+    );
+    expect(result.shouldInherit).toBe(true);
+    if (result.shouldInherit) {
+      expect(result.specialistName).toBe("research");
+    }
+  });
+
+  it("canonical case: 'Expand the search to include the Bay Area and neurodiversity career coaching for high functioning individuals' inherits research specialist", async () => {
+    const result = await detectRefinement(
+      makeMessages(
+        "Expand the search to include the Bay Area and neurodiversity career coaching for high functioning individuals",
+      ),
+      async () => ({
+        hasResult: true,
+        specialistName: "research",
+        resultCreatedAt: Date.now() - 5000,
+      }),
+    );
+    expect(result.shouldInherit).toBe(true);
+    if (result.shouldInherit) {
+      expect(result.specialistName).toBe("research");
+    }
+  });
+
+  it("returns shouldInherit: false when messages array is empty", async () => {
+    const result = await detectRefinement(
+      [],
+      async () => ({
+        hasResult: true,
+        specialistName: "research",
+        resultCreatedAt: Date.now() - 1000,
+      }),
+    );
+    expect(result.shouldInherit).toBe(false);
+  });
+
+  it("returns shouldInherit: false when getLastToolResultWithSpecialist returns null", async () => {
+    const result = await detectRefinement(
+      makeMessages("also include results from Austin"),
+      async () => null,
+    );
+    expect(result.shouldInherit).toBe(false);
+  });
+
+  it("still inherits when result_card was created 2 hours ago (long-delay refinement)", async () => {
+    const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1000;
+    const result = await detectRefinement(
+      makeMessages("actually, try narrowing to executive coaches"),
+      async () => ({
+        hasResult: true,
+        specialistName: "research",
+        resultCreatedAt: twoHoursAgo,
+      }),
+    );
+    expect(result.shouldInherit).toBe(true);
   });
 });

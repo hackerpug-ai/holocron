@@ -31,8 +31,71 @@ import { toTitleCase } from "../lib/strings";
 import { classifyIntent, type QueryShape } from "./triage";
 import { isPendingExpired } from "../conversations/mutations";
 import { getSpecialist, INTENT_TO_SPECIALIST } from "./specialists";
-import type { IntentCategory } from "./specialists";
+import type { IntentCategory, SpecialistName } from "./specialists";
 import { generateTextWithReAct } from "../lib/react";
+import { startsWithRefinementPhrase } from "./refinement";
+
+// ---------------------------------------------------------------------------
+// detectRefinement — deterministic specialist inheritance
+// ---------------------------------------------------------------------------
+
+type ToolResultInfo = {
+  hasResult: boolean;
+  specialistName: string | null;
+  resultCreatedAt: number | null;
+} | null;
+
+type RefinementResult =
+  | { shouldInherit: false }
+  | { shouldInherit: true; specialistName: SpecialistName };
+
+/**
+ * detectRefinement
+ *
+ * Determines whether the current user message is refining a prior tool result.
+ * If so, returns the specialist to inherit — bypassing triage entirely.
+ *
+ * This is a deterministic check (lexicon + DB query), not an LLM decision.
+ * Per the architecture rule: any action that must ALWAYS happen must be
+ * deterministic code.
+ *
+ * @param messages - The full message array built from conversation context
+ * @param getLastToolResult - Injected query function (for testability)
+ * @returns RefinementResult — shouldInherit: true/false + specialistName when true
+ */
+export async function detectRefinement(
+  messages: Array<{ role: string; content: string | unknown }>,
+  getLastToolResult: () => Promise<ToolResultInfo>,
+): Promise<RefinementResult> {
+  // Find the latest user message content
+  const userMessages = messages.filter((m) => m.role === "user");
+  if (userMessages.length === 0) return { shouldInherit: false };
+
+  const lastUserMessage = userMessages[userMessages.length - 1];
+  const content =
+    typeof lastUserMessage.content === "string"
+      ? lastUserMessage.content
+      : "";
+
+  // Step 1: Lexicon check — does the message start with a refinement phrase?
+  if (!startsWithRefinementPhrase(content)) {
+    return { shouldInherit: false };
+  }
+
+  // Step 2: Check for a prior tool result with a specialist name
+  const toolResultInfo = await getLastToolResult();
+
+  if (!toolResultInfo || !toolResultInfo.hasResult || !toolResultInfo.specialistName) {
+    return { shouldInherit: false };
+  }
+
+  // All checks pass — inherit the prior specialist.
+  // Cast is safe: specialist_name is written from a SpecialistName value in handleLlmResult.
+  return {
+    shouldInherit: true,
+    specialistName: toolResultInfo.specialistName as SpecialistName,
+  };
+}
 
 /**
  * handleLlmResult
@@ -241,6 +304,32 @@ async function callLlmAndHandleResponse(
       { role: "system" as const, content: pendingPreamble },
       ...messages,
     ];
+  }
+
+  // --- Refinement detection (deterministic, runs BEFORE triage) ---
+  // If the user is clearly refining a prior tool result, inherit the prior
+  // specialist and bypass triage entirely.
+  const refinement = await detectRefinement(
+    messages,
+    () =>
+      ctx.runQuery(internal.chat.agentMutations.getLastToolResultWithSpecialist, {
+        conversationId,
+      }),
+  );
+
+  if (refinement.shouldInherit) {
+    console.log(
+      `[detectRefinement] Inheriting specialist "${refinement.specialistName}" — bypassing triage`,
+    );
+    const specialist = getSpecialist(refinement.specialistName);
+    const result = await generateTextWithReAct({
+      model: specialist.model(),
+      system: specialist.systemPrompt,
+      messages,
+      tools: specialist.tools,
+    });
+    await handleLlmResult(ctx, conversationId, result, refinement.specialistName);
+    return refinement.specialistName;
   }
 
   // Step 1: Triage — classify intent with zaiFlash (no tools, ~100-200ms)
