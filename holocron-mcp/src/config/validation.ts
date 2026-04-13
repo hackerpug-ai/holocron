@@ -354,3 +354,20 @@ export type ListImprovementsInput = z.infer<typeof ListImprovementsSchema_Improv
 export type AddImprovementInput = z.infer<typeof AddImprovementSchema>;
 export type CloseImprovementInput = z.infer<typeof CloseImprovementSchema>;
 export type SetImprovementStatusInput = z.infer<typeof SetImprovementStatusSchema>;
+
+// Recommendation tool schema
+// sync with convex/research/actions.ts findRecommendations args
+export const FindRecommendationsSchema = z.object({
+  query: z.string().min(1).describe("The recommendation request"),
+  count: z
+    .number()
+    .int()
+    .min(3)
+    .max(7)
+    .optional()
+    .describe("Number of recommendations (3-7, default 5)"),
+  location: z.string().optional().describe("Geographic constraint"),
+  constraints: z.array(z.string()).optional().describe("Additional constraints"),
+});
+
+export type FindRecommendationsInput = z.infer<typeof FindRecommendationsSchema>;

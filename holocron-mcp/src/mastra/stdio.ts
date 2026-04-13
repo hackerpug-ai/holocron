@@ -47,6 +47,7 @@ import {
   CheckSubscriptionsSchema,
   CloseImprovementSchema,
   DocumentIdSchema,
+  FindRecommendationsSchema,
   GetCreatorTranscriptsSchema,
   GetImprovementSchema,
   GetShopListingsSchema,
@@ -766,6 +767,22 @@ const setImprovementStatusTool = createTool({
   },
 });
 
+// Recommendation tool
+const findRecommendationsTool = createTool({
+  id: "findRecommendations",
+  description:
+    "Find specific recommendations with contact details — inline response, no document created.",
+  inputSchema: FindRecommendationsSchema,
+  execute: async (input) => {
+    try {
+      return await holocronClient.action("research/actions:findRecommendations" as any, input);
+    } catch (error) {
+      console.error(formatError(error));
+      throw error;
+    }
+  },
+});
+
 /**
  * Initialize Mastra MCP server
  */
@@ -817,6 +834,7 @@ const server = new MCPServer({
     addImprovementTool,
     closeImprovementTool,
     setImprovementStatusTool,
+    findRecommendationsTool,
   },
 });
 
@@ -853,7 +871,7 @@ process.on("unhandledRejection", (reason, promise) => {
  * Start MCP server on stdio
  */
 log("[Holocron MCP] Starting server...");
-log(`[Holocron MCP] Tools registered: 42`);
+log(`[Holocron MCP] Tools registered: 43`);
 log(`[Holocron MCP] Convex URL: ${process.env.CONVEX_URL || process.env.HOLOCRON_URL}`);
 
 try {
