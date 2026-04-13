@@ -284,7 +284,8 @@ const whats_new = tool({
  */
 const toolbelt_search = tool({
   description:
-    "Search the curated developer toolbelt for tools, libraries, and utilities. " +
+    "Search SAVED DEVELOPER TOOLS ONLY — programming libraries, CLIs, frameworks, package managers. " +
+    "NEVER use for people, services, businesses, or non-technical queries. " +
     "Use this when the user is looking for a specific developer tool, " +
     "wants to find the right library for a task, or is exploring their saved tools collection.",
   inputSchema: z.object({
@@ -528,13 +529,12 @@ export const agentTools = {
  * improving tool selection accuracy (research shows degradation after ~10 tools).
  */
 
-/** Knowledge retrieval: search, browse, stats, read documents, find tools */
+/** Knowledge retrieval: search, browse, stats, read documents */
 export const knowledgeTools = {
   search_knowledge_base,
   browse_category,
   knowledge_base_stats,
   get_document,
-  toolbelt_search,
 };
 
 /** Web research: quick single-pass and deep multi-iteration */

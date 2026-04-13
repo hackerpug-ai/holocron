@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { researchTools } from "./tools";
+import { researchTools, knowledgeTools, agentTools } from "./tools";
 
 describe("tools", () => {
   describe("AC-1: find_recommendations tool defined", () => {
@@ -91,6 +91,33 @@ describe("tools", () => {
     it("researchTools has exactly 4 tools", () => {
       const toolCount = Object.keys(researchTools).length;
       expect(toolCount).toBe(4);
+    });
+  });
+
+  describe("AC-5: toolbelt_search scoped to developer tools only", () => {
+    it("knowledgeTools does not include toolbelt_search", () => {
+      expect(knowledgeTools).not.toHaveProperty("toolbelt_search");
+    });
+
+    it("knowledgeTools contains exactly 4 tools", () => {
+      const toolCount = Object.keys(knowledgeTools).length;
+      expect(toolCount).toBe(4);
+    });
+
+    it("knowledgeTools contains the expected 4 tools", () => {
+      expect(knowledgeTools).toHaveProperty("search_knowledge_base");
+      expect(knowledgeTools).toHaveProperty("browse_category");
+      expect(knowledgeTools).toHaveProperty("knowledge_base_stats");
+      expect(knowledgeTools).toHaveProperty("get_document");
+    });
+
+    it("agentTools still includes toolbelt_search", () => {
+      expect(agentTools).toHaveProperty("toolbelt_search");
+    });
+
+    it("toolbelt_search description contains 'DEVELOPER TOOLS ONLY'", () => {
+      const tool = agentTools.toolbelt_search;
+      expect(tool?.description).toContain("DEVELOPER TOOLS ONLY");
     });
   });
 });
