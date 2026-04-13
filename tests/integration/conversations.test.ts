@@ -202,3 +202,63 @@ describe("Conversation CRUD - Module Exports", () => {
     expect(conversationsModule.clearAll).toBeTruthy();
   });
 });
+
+// ---------------------------------------------------------------------------
+// CLR-001 - Pending Intent State
+// ---------------------------------------------------------------------------
+
+describe("CLR-001 - Pending Intent Mutations", () => {
+  it("exports setPendingIntent internalMutation", async () => {
+    const { setPendingIntent } = await import(
+      "../../convex/conversations/mutations"
+    );
+
+    expect(setPendingIntent).toBeTruthy();
+    expect(typeof setPendingIntent).toBe("function");
+  });
+
+  it("exports clearPendingIntent internalMutation", async () => {
+    const { clearPendingIntent } = await import(
+      "../../convex/conversations/mutations"
+    );
+
+    expect(clearPendingIntent).toBeTruthy();
+    expect(typeof clearPendingIntent).toBe("function");
+  });
+
+  it("exports isPendingExpired helper", async () => {
+    const { isPendingExpired } = await import(
+      "../../convex/conversations/mutations"
+    );
+
+    expect(isPendingExpired).toBeTruthy();
+    expect(typeof isPendingExpired).toBe("function");
+  });
+
+  it("isPendingExpired returns true for undefined pendingSince", async () => {
+    const { isPendingExpired } = await import(
+      "../../convex/conversations/mutations"
+    );
+
+    expect(isPendingExpired(undefined)).toBe(true);
+  });
+
+  it("isPendingExpired returns false for recent pendingSince", async () => {
+    const { isPendingExpired } = await import(
+      "../../convex/conversations/mutations"
+    );
+
+    // Just now should not be expired
+    expect(isPendingExpired(Date.now())).toBe(false);
+  });
+
+  it("isPendingExpired returns true for pendingSince older than 30 minutes", async () => {
+    const { isPendingExpired } = await import(
+      "../../convex/conversations/mutations"
+    );
+
+    // 31 minutes ago should be expired
+    const thirtyOneMinutesAgo = Date.now() - 31 * 60 * 1000;
+    expect(isPendingExpired(thirtyOneMinutesAgo)).toBe(true);
+  });
+});

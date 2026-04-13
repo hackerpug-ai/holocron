@@ -1,4 +1,4 @@
-import { mutation } from "../_generated/server";
+import { mutation, internalMutation } from "../_generated/server";
 import { v } from "convex/values";
 
 /**
@@ -125,5 +125,54 @@ export const clearAll = mutation({
       await ctx.db.delete(conversation._id);
     }
     return { deleted: conversations.length };
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Pending Intent State (CLR-001)
+// ---------------------------------------------------------------------------
+
+const PENDING_EXPIRY_MS = 30 * 60 * 1000; // 30 minutes
+
+/**
+ * Check whether a pending intent has expired.
+ * Returns true if pendingSince is undefined or older than 30 minutes.
+ */
+export function isPendingExpired(pendingSince: number | undefined): boolean {
+  if (pendingSince === undefined) return true;
+  return Date.now() - pendingSince > PENDING_EXPIRY_MS;
+}
+
+export const setPendingIntent = internalMutation({
+  args: {
+    conversationId: v.id("conversations"),
+    intent: v.string(),
+    queryShape: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, { conversationId, intent, queryShape }) => {
+    const conv = await ctx.db.get(conversationId);
+    if (!conv) throw new Error(`Conversation ${conversationId} not found`);
+    await ctx.db.patch(conversationId, {
+      pendingIntent: intent,
+      pendingQueryShape: queryShape,
+      pendingSince: Date.now(),
+    });
+    return null;
+  },
+});
+
+export const clearPendingIntent = internalMutation({
+  args: { conversationId: v.id("conversations") },
+  returns: v.null(),
+  handler: async (ctx, { conversationId }) => {
+    const conv = await ctx.db.get(conversationId);
+    if (!conv) throw new Error(`Conversation ${conversationId} not found`);
+    await ctx.db.patch(conversationId, {
+      pendingIntent: undefined,
+      pendingQueryShape: undefined,
+      pendingSince: undefined,
+    });
+    return null;
   },
 });
