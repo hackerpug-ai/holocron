@@ -10,7 +10,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "node",
-    include: ["tests/**/*.{test,spec}.{js,ts,tsx}", "convex/**/*.{test,spec}.{js,ts,tsx}", "hooks/**/*.{test,spec}.{js,ts}"],
+    include: ["tests/**/*.{test,spec}.{js,ts,tsx}", "convex/**/*.{test,spec}.{js,ts,tsx}", "hooks/**/*.{test,spec}.{js,ts}", "components/**/*.{test,spec}.{js,ts,tsx}"],
     exclude: ["node_modules", "dist", ".expo"],
   },
 });
