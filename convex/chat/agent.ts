@@ -722,7 +722,7 @@ export const continueAfterTool = internalAction({
       if (specialistName) {
         // Skip triage — dispatch directly to the original specialist so intent
         // context is preserved across multi-tool chains without re-classification.
-        let messages = await ctx.runQuery(
+        const messages = await ctx.runQuery(
           internal.chat.agentMutations.buildContext,
           { conversationId },
         );
@@ -733,23 +733,23 @@ export const continueAfterTool = internalAction({
           ? completedToolCalls[completedToolCalls.length - 1]
           : null;
 
+        const specialist = getSpecialist(specialistName as any);
+
+        // Fold continuation hint into the system prompt (not a mid-conversation
+        // system message — Anthropic requires `system` at the top level and
+        // drops/deprioritizes inline system messages).
+        let systemPrompt = specialist.systemPrompt;
         if (priorTool?.toolName === 'find_recommendations') {
           const FIND_REC_CONTINUATION_HINT =
-            'The user just saw a list of recommendations. Do NOT re-render the list. ' +
-            'Do NOT call another tool for the same query. ' +
-            'In 1-2 sentences max, acknowledge the list and offer to save it to their KB if they want.';
-
-          // Prepend hint as system message to guide specialist behavior
-          messages = [
-            { role: 'system' as const, content: FIND_REC_CONTINUATION_HINT },
-            ...messages,
-          ];
+            'IMPORTANT CONTINUATION RULE: The find_recommendations tool has ALREADY been called and the user has ALREADY seen the result list in the UI. ' +
+            'Do NOT call find_recommendations again. Do NOT call any other tool for the same query. ' +
+            'Respond with plain text only — in 1-2 sentences max, acknowledge the list and offer to save it to their KB if they want.';
+          systemPrompt = `${specialist.systemPrompt}\n\n${FIND_REC_CONTINUATION_HINT}`;
         }
 
-        const specialist = getSpecialist(specialistName as any);
         const result = await generateTextWithReAct({
           model: specialist.model(),
-          system: specialist.systemPrompt,
+          system: systemPrompt,
           messages,
           tools: specialist.tools,
         });

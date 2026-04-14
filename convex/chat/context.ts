@@ -283,24 +283,30 @@ export async function buildConversationContext(
             .join(", ")
         : "";
       const callDescription = `[I used the ${tc.toolDisplayName} tool${argsStr ? ` with ${argsStr}` : ""}]`;
+      const toolSlug = tc.toolName.toLowerCase().replace(/\s+/g, "_");
 
+      // Split into assistant (call) + user (observation) so the conversation
+      // alternates properly and ends on a user message — required by models
+      // that don't support assistant-message prefill (e.g. Claude Haiku).
       if (tc.status === "completed" && tc.resultMessageId) {
-        // Find the result message content
         const resultMsg = orderedMessages.find((m) => m._id === tc.resultMessageId);
         const resultContent = resultMsg?.content ?? "Tool completed successfully.";
+        llmMessages.push({ role: "assistant", content: callDescription });
         llmMessages.push({
-          role: "assistant",
-          content: `${callDescription}\n\nResults:\n${resultContent}`,
+          role: "user",
+          content: `Observation (${toolSlug}):\n${resultContent}`,
         });
       } else if (tc.status === "rejected") {
+        llmMessages.push({ role: "assistant", content: callDescription });
         llmMessages.push({
-          role: "assistant",
-          content: `${callDescription}\n\nThe user rejected this tool call.`,
+          role: "user",
+          content: `Observation (${toolSlug}): The user rejected this tool call.`,
         });
       } else if (tc.status === "failed") {
+        llmMessages.push({ role: "assistant", content: callDescription });
         llmMessages.push({
-          role: "assistant",
-          content: `${callDescription}\n\nTool execution failed: ${tc.error ?? "Unknown error"}`,
+          role: "user",
+          content: `Observation (${toolSlug}): Tool execution failed: ${tc.error ?? "Unknown error"}`,
         });
       }
       // Skip pending/approved — not yet resolved

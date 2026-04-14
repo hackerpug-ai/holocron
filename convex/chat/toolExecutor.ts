@@ -863,8 +863,31 @@ export async function executeAgentTool(
       const result = await ctx.runAction(internal.research.actions.findRecommendationsAction, {
         query, count, location, constraints,
       });
+
+      // Build a compact text summary of the items so the LLM can see what
+      // was returned (cardData.items is rendered in the UI but never reaches
+      // the model's context). Without this, the model thinks the tool
+      // produced nothing and retries with a different query.
+      const itemSummary = result.items.length === 0
+        ? "No recommendations found."
+        : result.items
+            .map((it, i) => {
+              const parts = [`${i + 1}. ${it.name}`];
+              if (it.description) parts.push(`— ${it.description}`);
+              if (it.whyRecommended) parts.push(`(${it.whyRecommended})`);
+              if (it.location) parts.push(`[${it.location}]`);
+              if (it.pricing) parts.push(`[${it.pricing}]`);
+              if (it.contact?.url) parts.push(`<${it.contact.url}>`);
+              if (it.contact?.phone) parts.push(`${it.contact.phone}`);
+              return parts.join(" ");
+            })
+            .join("\n");
+
+      const content =
+        `Found ${result.items.length} recommendation${result.items.length === 1 ? '' : 's'} for "${query}":\n${itemSummary}`;
+
       return {
-        content: `Found ${result.items.length} recommendation${result.items.length === 1 ? '' : 's'} for "${query}"`,
+        content,
         messageType: "result_card" as const,
         cardData: {
           card_type: "recommendation_list" as const,
