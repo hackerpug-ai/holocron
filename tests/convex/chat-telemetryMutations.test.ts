@@ -212,7 +212,6 @@ describe('telemetryMutations', () => {
     it('should not delete recent telemetry rows', async () => {
       const { deleteOldTelemetry } = await import('../../convex/chat/telemetryMutations');
 
-      const now = Date.now();
       const oneMinuteMs = 60 * 1000;
 
       // Mock query to return empty batch (no old records)
