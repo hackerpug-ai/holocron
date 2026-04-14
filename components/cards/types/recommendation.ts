@@ -16,6 +16,8 @@ export interface RecommendationContact {
   name: string
   role: string
   email?: string
+  phone?: string
+  location?: string
   avatarUrl?: string
 }
 
@@ -52,7 +54,10 @@ export interface RecommendationListCardProps {
 
 export interface RecommendationItemProps {
   item: RecommendationItemData
-  onPress: (item: RecommendationItemData) => void
+  index?: number
+  onLongPress?: (item: RecommendationItemData) => void
+  onLinkingFallback?: (url: string) => void
+  onPress?: (item: RecommendationItemData) => void
   showConfidence?: boolean
   testID?: string
 }
