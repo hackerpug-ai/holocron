@@ -76,6 +76,8 @@ export interface MessageBubbleProps {
   onSaveRecommendation?: (item: { id: string; title: string; description?: string; url?: string }) => void
   /** Callback when all recommendations in a list are saved to KB */
   onSaveRecommendationList?: (items: { id: string; title: string; description?: string; url?: string }[]) => void
+  /** Callback when a clarification quick reply is tapped */
+  onSendMessage?: (text: string) => void
 }
 
 export function MessageBubble({
@@ -99,6 +101,7 @@ export function MessageBubble({
   messageId,
   onSaveRecommendation,
   onSaveRecommendationList,
+  onSendMessage,
 }: MessageBubbleProps) {
   const isUser = role === 'user'
   const isSystem = role === 'system'
@@ -163,7 +166,7 @@ export function MessageBubble({
     // (users can add documents to chat which should render as cards, not text bubbles)
     const isDocumentContext = cardType === 'document_context'
     if (!isUser || isDocumentContext) {
-      const cardContent = renderResultCard(card_data, message_type, testID, onCardPress, onFinalResultPress, onWhatsNewReportPress, loadingCardId, cardError, onDocumentContextNavigate, router, onDeleteMessage, messageId, onSaveRecommendation, onSaveRecommendationList)
+      const cardContent = renderResultCard(card_data, message_type, testID, onCardPress, onFinalResultPress, onWhatsNewReportPress, loadingCardId, cardError, onDocumentContextNavigate, router, onDeleteMessage, messageId, onSaveRecommendation, onSaveRecommendationList, onSendMessage)
 
       // If renderResultCard returns null, suppress the entire message
       if (cardContent === null) {
@@ -391,6 +394,7 @@ function renderResultCard(
   messageId?: string,
   onSaveRecommendation?: (item: { id: string; title: string; description?: string; url?: string }) => void,
   onSaveRecommendationList?: (items: { id: string; title: string; description?: string; url?: string }[]) => void,
+  onSendMessage?: (text: string) => void,
 ) {
   // Check if card_data contains multiple search results (array or wrapped)
   const isSearchResults = Array.isArray(card_data) ||
@@ -423,7 +427,7 @@ function renderResultCard(
   }
 
   // Single card - cast through unknown to satisfy TypeScript discriminated union
-  const cardType = card_data.card_type as CardType | 'deep_research_loading' | 'deep_research_iteration' | 'deep_research_confirmation' | 'final_result' | 'assimilation' | 'assimilation_plan' | 'assimilation_progress' | 'shop_results' | 'shop_loading' | 'subscription_added' | 'subscription_list' | 'subscription_suggestion' | 'subscription_progress' | 'whats_new_report' | 'whats_new_loading' | 'tool_search_results' | 'tool_adding' | 'tool_added' | 'document_saved' | 'document_context' | 'document_full'
+  const cardType = card_data.card_type as CardType | 'deep_research_loading' | 'deep_research_iteration' | 'deep_research_confirmation' | 'final_result' | 'assimilation' | 'assimilation_plan' | 'assimilation_progress' | 'shop_results' | 'shop_loading' | 'subscription_added' | 'subscription_list' | 'subscription_suggestion' | 'subscription_progress' | 'whats_new_report' | 'whats_new_loading' | 'tool_search_results' | 'tool_adding' | 'tool_added' | 'document_saved' | 'document_context' | 'document_full' | 'clarification'
 
   // Handle shop results card
   if (cardType === 'shop_results') {
@@ -489,6 +493,20 @@ function renderResultCard(
     return (
       <SubscriptionProgressCard
         {...(card_data as any)}
+      />
+    )
+  }
+
+  // Handle clarification card
+  if (cardType === 'clarification') {
+    const { ClarificationMessage } = require('./ClarificationMessage')
+    return (
+      <ClarificationMessage
+        question={(card_data.question as string) || ''}
+        quickReplies={card_data.quickReplies as string[] | undefined}
+        answered={card_data.answered as boolean | undefined}
+        userResponse={card_data.userResponse as string | undefined}
+        onQuickReply={(label: string) => onSendMessage?.(label)}
       />
     )
   }

@@ -41,6 +41,8 @@ export interface ChatThreadProps {
   onSaveRecommendation?: (item: { id: string; title: string; description?: string; url?: string }) => void
   /** Callback when all recommendations in a list are saved to KB */
   onSaveRecommendationList?: (items: { id: string; title: string; description?: string; url?: string }[]) => void
+  /** Callback when a clarification quick reply is tapped - sends message as user */
+  onSendMessage?: (text: string) => void
 }
 
 export function ChatThread({
@@ -56,6 +58,7 @@ export function ChatThread({
   onDocumentContextNavigate,
   onSaveRecommendation,
   onSaveRecommendationList,
+  onSendMessage,
 }: ChatThreadProps) {
   const { width: _screenWidth } = useWindowDimensions()
 
@@ -136,6 +139,7 @@ export function ChatThread({
         isStreaming={item.id === streamingMessageId}
         onSaveRecommendation={onSaveRecommendation}
         onSaveRecommendationList={onSaveRecommendationList}
+        onSendMessage={onSendMessage}
       />
     </Pressable>
   )
