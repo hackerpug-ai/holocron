@@ -268,7 +268,8 @@ export const batchSubscribe = mutation({
           name: `${profile.name} (${platform})`,
           url: getPlatformUrl(platform, handle),
           fetchMethod: "rss",
-          configJson: { creatorProfileId: args.creatorProfileId, platform },
+          configJson: { platform }, // Store platform in configJson, not creatorProfileId
+          creatorProfileId: args.creatorProfileId, // Use dedicated field for proper ID reference
           autoResearch,
           createdAt: now,
           updatedAt: now,

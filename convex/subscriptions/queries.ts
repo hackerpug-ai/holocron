@@ -218,7 +218,10 @@ export const listGroupedByCreator = query({
     }>();
 
     for (const subscription of subscriptions) {
-      const creatorProfileId = subscription.configJson?.creatorProfileId as string | null;
+      // Use the dedicated creatorProfileId field (proper Convex ID), not configJson
+      const creatorProfileId = subscription.creatorProfileId
+        ? subscription.creatorProfileId.toString()
+        : null;
       const groupKey = creatorProfileId || `standalone-${subscription._id}`;
 
       if (!groups.has(groupKey)) {
