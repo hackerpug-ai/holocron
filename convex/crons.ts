@@ -210,6 +210,22 @@ crons.interval(
 );
 
 /**
+ * Audio Transcript Job Processor
+ *
+ * Processes pending audio transcript jobs for podcast transcription.
+ * - Runs every 2 minutes
+ * - Downloads audio, transcribes via Deepgram Nova-3 API
+ * - Handles retries with exponential backoff
+ *
+ * @see convex/audioTranscripts/scheduled.ts
+ */
+crons.interval(
+  "audio-transcript-job-processor",
+  { minutes: 2 },
+  internal.audioTranscripts.scheduled.processPendingJobs
+);
+
+/**
  * Tool Call Timeout Worker
  *
  * Detects and marks stuck tool calls as timed out.

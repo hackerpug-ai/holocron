@@ -813,6 +813,49 @@ export default defineSchema({
     .index("by_content", ["contentId"])
     .index("by_priority", ["priority", "createdAt"]),
 
+  // Audio transcripts (podcasts, voice notes, etc.)
+  audioTranscripts: defineTable({
+    contentId: v.string(), // Podcast episode ID, URL hash, or custom identifier
+    sourceUrl: v.string(), // Original podcast URL (Spotify, Apple, RSS, mp3)
+    transcriptType: v.union(v.literal("deepgram_nova3"), v.literal("deepgram_nova2")),
+    transcriptSource: v.string(), // deepgram_api, etc.
+    storageId: v.id("_storage"), // Full transcript in file storage
+    previewText: v.string(), // First 500 chars for search/display
+    wordCount: v.number(),
+    durationMs: v.optional(v.number()), // Audio duration
+    language: v.optional(v.string()), // Detected language
+    metadataJson: v.optional(
+      v.object({
+        speakers: v.optional(v.number()), // Number of speakers detected
+        platform: v.optional(v.union(v.literal("spotify"), v.literal("apple_podcasts"), v.literal("rss"), v.literal("direct_mp3"))),
+        // Additional fields can be added as needed
+      })
+    ),
+    generatedAt: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_content_id", ["contentId"])
+    .index("by_source_url", ["sourceUrl"]),
+
+  // Audio transcript generation jobs
+  audioTranscriptJobs: defineTable({
+    contentId: v.string(),
+    sourceUrl: v.string(),
+    platform: v.union(v.literal("spotify"), v.literal("apple_podcasts"), v.literal("rss"), v.literal("direct_mp3")),
+    status: v.union(v.literal("pending"), v.literal("downloading"), v.literal("transcribing"), v.literal("completed"), v.literal("failed")),
+    priority: v.number(), // 0-10, higher = sooner
+    retryCount: v.number(),
+    errorMessage: v.optional(v.string()),
+    transcriptId: v.optional(v.id("audioTranscripts")),
+    audioStorageId: v.optional(v.id("_storage")), // Temporary audio file storage
+    startedAt: v.optional(v.number()),
+    completedAt: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_status", ["status"])
+    .index("by_content", ["contentId"])
+    .index("by_priority", ["priority", "createdAt"]),
+
   // Notifications
   notifications: defineTable({
     type: v.union(

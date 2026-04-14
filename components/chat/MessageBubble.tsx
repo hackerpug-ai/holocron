@@ -22,6 +22,7 @@ import { ToolApprovalCardWithConvex } from '@/components/agent/ToolApprovalCard'
 import { AgentPlanCardWithConvex } from '@/components/agent/AgentPlanCardWithConvex'
 import { AssimilationPlanCardWithConvex } from '@/components/assimilate/AssimilationPlanCard'
 import { AssimilationProgressCard } from '@/components/assimilate/AssimilationProgressCard'
+import { PodcastTranscriptionLoadingCard, PodcastTranscriptionCompleteCard } from '@/components/podcast'
 import { useRouter } from 'expo-router'
 import { StreamingCursor } from '@/components/chat/StreamingCursor'
 import { useQuery, useMutation } from 'convex/react'
@@ -427,7 +428,7 @@ function renderResultCard(
   }
 
   // Single card - cast through unknown to satisfy TypeScript discriminated union
-  const cardType = card_data.card_type as CardType | 'deep_research_loading' | 'deep_research_iteration' | 'deep_research_confirmation' | 'final_result' | 'assimilation' | 'assimilation_plan' | 'assimilation_progress' | 'shop_results' | 'shop_loading' | 'subscription_added' | 'subscription_list' | 'subscription_suggestion' | 'subscription_progress' | 'whats_new_report' | 'whats_new_loading' | 'tool_search_results' | 'tool_adding' | 'tool_added' | 'document_saved' | 'document_context' | 'document_full' | 'clarification'
+  const cardType = card_data.card_type as CardType | 'deep_research_loading' | 'deep_research_iteration' | 'deep_research_confirmation' | 'final_result' | 'assimilation' | 'assimilation_plan' | 'assimilation_progress' | 'shop_results' | 'shop_loading' | 'subscription_added' | 'subscription_list' | 'subscription_suggestion' | 'subscription_progress' | 'whats_new_report' | 'whats_new_loading' | 'tool_search_results' | 'tool_adding' | 'tool_added' | 'document_saved' | 'document_context' | 'document_full' | 'clarification' | 'podcast_transcription_loading' | 'podcast_transcription_complete'
 
   // Handle shop results card
   if (cardType === 'shop_results') {
@@ -832,6 +833,40 @@ function renderResultCard(
         snippet={(card_data.snippet as string) ?? undefined}
         date={(card_data.date as string) ?? undefined}
         onPress={() => handleCardPress(card_data, onCardPress)}
+      />
+    )
+  }
+
+  // Handle podcast transcription loading card
+  if (cardType === 'podcast_transcription_loading') {
+    return (
+      <PodcastTranscriptionLoadingCard
+        content_id={card_data.content_id as string}
+        url={card_data.url as string}
+        platform={card_data.platform as 'spotify' | 'apple_podcasts' | 'rss' | 'direct_mp3'}
+        onTranscriptComplete={(transcriptId) => {
+          // When complete, navigate to document view
+          if (onDocumentContextNavigate) {
+            onDocumentContextNavigate(transcriptId)
+          }
+        }}
+      />
+    )
+  }
+
+  // Handle podcast transcription complete card
+  if (cardType === 'podcast_transcription_complete') {
+    return (
+      <PodcastTranscriptionCompleteCard
+        transcript_id={card_data.transcript_id as string}
+        preview_text={card_data.preview_text as string | undefined}
+        word_count={card_data.word_count as number | undefined}
+        duration_ms={card_data.duration_ms as number | undefined}
+        language={card_data.language as string | undefined}
+        metadata={card_data.metadata as {
+          speakers?: number
+          platform?: string
+        } | undefined}
       />
     )
   }

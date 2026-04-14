@@ -38,6 +38,7 @@ export type { IntentCategory };
 export type SpecialistName =
   | "knowledge"
   | "research"
+  | "podcast"
   | "commerce"
   | "subscriptions"
   | "discovery"
@@ -64,6 +65,7 @@ export const INTENT_TO_SPECIALIST: Record<
   conversation: null,
   knowledge: "knowledge",
   research: "research",
+  podcast: "podcast",
   commerce: "commerce",
   subscriptions: "subscriptions",
   discovery: "discovery",
@@ -85,6 +87,12 @@ const SPECIALIST_CONFIGS: Record<SpecialistName, SpecialistConfig> = {
     model: claudePro,
     tools: researchTools,
     systemPrompt: RESEARCH_SPECIALIST_PROMPT,
+  },
+  podcast: {
+    name: "podcast",
+    model: claudePro,
+    tools: researchTools, // Reuse research tools for podcast content analysis
+    systemPrompt: RESEARCH_SPECIALIST_PROMPT, // Can customize later if needed
   },
   commerce: {
     name: "commerce",

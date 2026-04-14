@@ -288,6 +288,34 @@ async function callLlmAndHandleResponse(
     { conversationId },
   );
 
+  // --- Podcast URL detection (deterministic, bypasses triage) ---
+  // Check if the latest user message contains a podcast URL
+  const userMessages = messages.filter((m) => m.role === "user");
+  if (userMessages.length > 0) {
+    const lastUserMessage = userMessages[userMessages.length - 1];
+    const content = typeof lastUserMessage.content === "string" ? lastUserMessage.content : "";
+
+    // Detect podcast URLs (Spotify, Apple Podcasts, RSS feeds, direct MP3)
+    const podcastUrlMatch = content.match(/(https?:\/\/)?(www\.)?(spotify\.com\/(show|episode)|podcasts\.apple\.com|rss|feed|xml)/i);
+    const directMp3Match = content.match(/(https?:\/\/)?(www\.)?[^\s]+\.(mp3|m4a|m4b|opus)(\?[^\s]*)?/i);
+
+    if (podcastUrlMatch || directMp3Match) {
+      // Extract the URL from the message
+      const urlMatch = content.match(/https?:\/\/[^\s]+/i);
+      if (urlMatch) {
+        const url = urlMatch[0];
+
+        // Handle podcast URL directly (bypasses triage)
+        await ctx.runAction(api.chat.podcastActions.handlePodcastUrl, {
+          conversationId,
+          url,
+        });
+
+        return null; // Skip LLM processing
+      }
+    }
+  }
+
   // --- Pending-state rehydrate (CLR-002) ---
   // Read the conversation document to check for fresh pending state.
   const conv = await ctx.runQuery(

@@ -21,6 +21,7 @@ export type IntentCategory =
   | "conversation"
   | "knowledge"
   | "research"
+  | "podcast"
   | "commerce"
   | "subscriptions"
   | "discovery"
@@ -48,6 +49,7 @@ const VALID_INTENTS: IntentCategory[] = [
   "conversation",
   "knowledge",
   "research",
+  "podcast",
   "commerce",
   "subscriptions",
   "discovery",
