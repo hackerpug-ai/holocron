@@ -1786,59 +1786,26 @@ async function parallelJinaReader(
 }
 
 /**
- * Synthesize recommendations using LLM
+ * Synthesize recommendations using LLM.
+ * Returns parsed JSON object or null on failure.
  */
 async function synthesize(
   content: string,
   args: FindRecommendationsArgs,
-  options: { signal: AbortSignal; strict?: boolean }
+  options: { signal: AbortSignal }
 ): Promise<any | null> {
   const count = args.count || 5;
-  const strict = options.strict || false;
-
-  const strictInstructions = strict
-    ? `\n\nCRITICAL: Your response MUST be valid JSON matching this schema:\n${JSON.stringify(
-        {
-          items: [
-            {
-              name: "string",
-              description: "string",
-              whyRecommended: "string",
-              rating: "number (optional)",
-              location: "string (optional)",
-              pricing: "string (optional)",
-              contact: {
-                phone: "string (optional)",
-                url: "string (optional)",
-                email: "string (optional)",
-              },
-            },
-          ],
-          sources: [
-            {
-              title: "string",
-              url: "string",
-              snippet: "string",
-            },
-          ],
-          query: "string",
-          durationMs: "number",
-        },
-        null,
-        2
-      )}\n\nDo NOT include any text outside the JSON object. No markdown code blocks. Just the raw JSON.`
-    : "";
 
   try {
     const { text } = await generateText({
       model: zaiPro(),
-      system: RECOMMENDATION_SYNTHESIS_PROMPT + strictInstructions,
+      system: RECOMMENDATION_SYNTHESIS_PROMPT,
       prompt: `Query: ${args.query}\nCount: ${count}\nLocation: ${args.location || "not specified"}\nConstraints: ${args.constraints?.join(", ") || "none"}\n\nSources:\n${content}`,
       // @ts-ignore - signal is supported by generateText but not in the type definition
       signal: options.signal,
     });
 
-    // Parse JSON response
+    // Parse JSON response — prompt instructs raw JSON only, but also handle code fences defensively
     const jsonMatch = text.match(/```json\n([\s\S]*?)\n```/) || text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       console.error("[synthesize] No JSON found in response");
@@ -1888,9 +1855,11 @@ export async function findRecommendationsCore(args: FindRecommendationsArgs): Pr
 
     // Step 2: Call Jina Search
     const sources = await jinaSearch(enhancedQuery, { signal: controller.signal });
+    console.log(`[findRec] sources found: ${sources.length}`);
 
     // Step 3: Handle empty sources
     if (sources.length === 0) {
+      console.log(`[findRec] returning early — zero sources for query: ${args.query}`);
       return {
         items: [],
         sources: [],
@@ -1904,33 +1873,30 @@ export async function findRecommendationsCore(args: FindRecommendationsArgs): Pr
       signal: controller.signal,
       timeoutMs: 15_000,
     });
+    console.log(`[findRec] content length: ${content.length} chars`);
 
     // Step 5: Synthesize with LLM
-    let synth = await synthesize(content, args, { signal: controller.signal });
+    const synth = await synthesize(content, args, { signal: controller.signal });
 
     // Step 6: Validate with Zod
-    let parsed = synth ? RecommendationSynthesisSchema.safeParse(synth) : { success: false };
+    const parsed = synth ? RecommendationSynthesisSchema.safeParse(synth) : { success: false as const };
+    console.log(`[findRec] parse result: ${parsed.success ? `ok, ${(parsed as any).data?.items?.length ?? 0} items` : "failed"}`);
 
-    // Step 7: Retry once with strict instructions if validation fails
-    if (!parsed.success) {
-      console.warn("[findRecommendationsCore] First synthesis failed validation, retrying with strict instructions");
-      synth = await synthesize(content, args, { signal: controller.signal, strict: true });
-      parsed = synth ? RecommendationSynthesisSchema.safeParse(synth) : { success: false };
-    }
-
-    // Step 8: Return successful result or fallback
+    // Step 7: Return successful result or fallback
     if (parsed.success) {
       // Type assertion: parsed is SafeParseSuccess when success is true
+      const data = (parsed as any).data;
+      console.log(`[findRec] returning ${data.items.length} items`);
       return {
-        items: (parsed as any).data.items,
-        sources: (parsed as any).data.sources,
+        items: data.items,
+        sources: data.sources,
         query: args.query,
         durationMs: Date.now() - start,
       };
     }
 
     // Fallback if validation failed
-    console.error("[findRecommendationsCore] Synthesis validation failed after retry");
+    console.error("[findRecommendationsCore] Synthesis validation failed");
     return {
       items: [],
       sources,

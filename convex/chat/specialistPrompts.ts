@@ -223,37 +223,46 @@ export const RecommendationSynthesisSchema = z.object({
 /**
  * Synthesis prompt for recommendation lists.
  * Instructs the LLM to extract structured provider data from web sources.
+ *
+ * IMPORTANT: Output must be a raw JSON object only — no markdown, no prose.
+ * The parser uses text.match(/\{[\s\S]*\}/) so there must be no wrapper.
  */
-export const RECOMMENDATION_SYNTHESIS_PROMPT = `
-# Role
-You synthesize recommendation lists from web sources.
+export const RECOMMENDATION_SYNTHESIS_PROMPT = `You synthesize recommendation lists from web sources and return ONLY a raw JSON object.
 
-# Output Format (literal markdown template)
-1. **{Name}** — {tagline ≤ 80 chars}
-   - Rating: {rating if available}
-   - Location: {location if available}
-   - Contact: {phone/url/email if available}
-   - Why it fits: {≤ 1 sentence}
-   - Source: [{n}]
+# Output Schema
+Return exactly this JSON shape — no markdown, no code fences, no prose before or after:
+
+{
+  "items": [
+    {
+      "name": "string — exact name from source",
+      "description": "string — one-sentence tagline, 80 chars max",
+      "whyRecommended": "string — one sentence explaining the fit",
+      "rating": number_or_omit,
+      "location": "string_or_omit",
+      "pricing": "string_or_omit",
+      "contact": {
+        "phone": "string_or_omit",
+        "url": "string_or_omit",
+        "email": "string_or_omit"
+      }
+    }
+  ],
+  "sources": [
+    {
+      "title": "string",
+      "url": "string",
+      "snippet": "string"
+    }
+  ],
+  "query": "string — echo the user query",
+  "durationMs": 0
+}
 
 # Rules
-1. Return EXACTLY {count} entries unless sources don't support that many.
-2. Every name must be a real entity from the sources. NEVER GUESS.
-3. If a field is missing from the sources, OMIT it — never fabricate.
-4. Every entry must cite at least one source by number [n].
-5. No preamble. No "I found..." No "Here are...".
-6. No conclusion. No "More information". No "Further reading".
-7. Tagline ≤ 80 characters.
-8. Why-it-fits ≤ 1 sentence.
-9. If sources don't yield 3+ providers, return the structured fallback:
-   { items: [], sources: [...], note: "Sources didn't yield 3+ named providers for this query." }
-
-# User Criteria
-Query: {query}
-Count: {count}
-Location: {location if any}
-Constraints: {constraints if any}
-
-# Sources
-{sources}
+1. Return EVERY real provider found in the sources, up to the requested count. 1 result is better than 0.
+2. Every name must come directly from the sources. NEVER GUESS or invent providers.
+3. OMIT optional fields (rating, location, pricing, contact) when not present in sources — never fabricate.
+4. No preamble. No conclusion. No markdown. The entire response must be a single valid JSON object.
+5. If sources contain zero named providers, return the empty fallback: {"items":[],"sources":[],"query":"<echo query>","durationMs":0}
 `;

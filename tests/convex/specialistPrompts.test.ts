@@ -210,21 +210,24 @@ describe('REC-002: RECOMMENDATION_SYNTHESIS_PROMPT', () => {
       expect(RECOMMENDATION_SYNTHESIS_PROMPT).toMatch(/no conclusion|No conclusion|NO CONCLUSION/s);
     });
 
-    it('should forbid More information sections', () => {
-      expect(RECOMMENDATION_SYNTHESIS_PROMPT).toMatch(/no more information|No "More information"|NO "MORE INFORMATION"/s);
+    it('should forbid preamble or prose outside JSON', () => {
+      // Prompt must instruct no preamble and no extraneous text
+      expect(RECOMMENDATION_SYNTHESIS_PROMPT).toMatch(/no preamble|No preamble|NO PREAMBLE/s);
     });
 
-    it('should forbid Further reading sections', () => {
-      expect(RECOMMENDATION_SYNTHESIS_PROMPT).toMatch(/no further reading|No "Further reading"|NO "FURTHER READING"/s);
+    it('should require JSON-only output', () => {
+      // Prompt must instruct raw JSON — no markdown, no code fences
+      expect(RECOMMENDATION_SYNTHESIS_PROMPT).toMatch(/json|JSON/);
     });
 
-    it('should include fallback response rule', () => {
-      // Check for the fallback when sources don't yield 3+ providers
-      expect(RECOMMENDATION_SYNTHESIS_PROMPT).toMatch(/fallback|3\+|three or more/i);
+    it('should include fallback response rule for zero providers', () => {
+      // Prompt must tell the LLM what to return when no providers are found
+      expect(RECOMMENDATION_SYNTHESIS_PROMPT).toMatch(/fallback|zero|empty/i);
     });
 
-    it('should include output format template', () => {
-      expect(RECOMMENDATION_SYNTHESIS_PROMPT).toMatch(/output format|template|markdown/i);
+    it('should include output schema definition', () => {
+      // Prompt must define the output schema shape
+      expect(RECOMMENDATION_SYNTHESIS_PROMPT).toMatch(/schema|Schema|output|Output/i);
     });
   });
 });

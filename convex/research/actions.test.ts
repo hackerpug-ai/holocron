@@ -13,7 +13,6 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { findRecommendationsAction, findRecommendations, findRecommendationsCore } from './actions';
-import { RecommendationSynthesisSchema } from '../chat/specialistPrompts';
 
 // Mock fetch globally
 const mockFetch = vi.fn();
@@ -199,13 +198,13 @@ describe('REC-003: findRecommendationsAction', () => {
   });
 
   /**
-   * AC-5: Retry on Zod failure
-   * Given: LLM returns invalid JSON on first pass, valid on second
+   * AC-5: Invalid JSON on first pass → graceful empty result, no retry
+   * Given: LLM returns invalid JSON
    * When: findRecommendationsCore runs
-   * Then: result is the second pass's valid output
+   * Then: returns { items: [], ... } without a second LLM call
    */
-  describe('AC-5: Retry on Zod failure', () => {
-    it('synthesis retry', async () => {
+  describe('AC-5: Invalid JSON returns graceful empty, no retry', () => {
+    it('invalid JSON returns empty result with single LLM call', async () => {
       // Mock successful search
       mockFetch.mockResolvedValueOnce({
         ok: true,
@@ -218,37 +217,132 @@ describe('REC-003: findRecommendationsAction', () => {
 
       const { generateText } = await import('ai');
 
-      // First call returns invalid JSON
+      // Single call returns invalid JSON
       // @ts-ignore - mocking generateText return value
       vi.mocked(generateText).mockResolvedValueOnce({
-
         text: 'This is not valid JSON',
-      });
-
-      // Second call returns valid JSON
-      // @ts-ignore - mocking generateText return value
-      vi.mocked(generateText).mockResolvedValueOnce({
-
-        text: JSON.stringify({
-          items: [{ name: 'Test Coach', description: 'Test', whyRecommended: 'Test' }],
-          sources: [{ title: 'Test', url: 'https://example.com', snippet: 'Test' }],
-          query: 'test',
-          durationMs: 1000,
-        }) as any,
       });
 
       const result = await findRecommendationsCore({ query: 'career coaches for autism in SF', count: 5 });
 
-      // Should eventually return valid results
+      // Returns graceful empty
       expect(result).toHaveProperty('items');
       expect(Array.isArray(result.items)).toBe(true);
+      expect(result.items).toEqual([]);
 
-      // Validate against Zod schema
-      const parsed = RecommendationSynthesisSchema.safeParse(result);
-      expect(parsed.success).toBe(true);
+      // No retry — generateText called exactly once
+      expect(generateText).toHaveBeenCalledTimes(1);
+    });
+  });
 
-      // Verify generateText was called twice (initial + retry)
-      expect(generateText).toHaveBeenCalledTimes(2);
+  /**
+   * AC-6: Fewer-than-count returns what was found (no 3+ floor)
+   * Given: LLM finds only 1 real provider for a niche query
+   * When: findRecommendationsCore runs
+   * Then: returns { items: [<that 1 provider>], ... } — NOT empty
+   */
+  describe('AC-6: Fewer-than-count returns what was found', () => {
+    it('returns 1 item when only 1 provider found', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        text: async () => `[Rare Specialist] - [https://example.com/rare] - Only one found`,
+      });
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        text: async () => 'Rare Specialist content',
+      });
+
+      const { generateText } = await import('ai');
+      // @ts-ignore
+      vi.mocked(generateText).mockResolvedValueOnce({
+        text: JSON.stringify({
+          items: [{ name: 'Rare Specialist', description: 'Only one found', whyRecommended: 'Best match available' }],
+          sources: [{ title: 'Rare Specialist', url: 'https://example.com/rare', snippet: 'Only one found' }],
+          query: 'ultra niche niche niche query',
+          durationMs: 1000,
+        }),
+      });
+
+      const result = await findRecommendationsCore({ query: 'ultra niche niche niche query', count: 5 });
+
+      // Must return the 1 item — NOT empty
+      expect(result.items.length).toBe(1);
+      expect(result.items[0].name).toBe('Rare Specialist');
+    });
+  });
+
+  /**
+   * AC-7: No strict-retry path — generateText called exactly once on valid response
+   * Given: LLM returns valid JSON on first pass
+   * When: findRecommendationsCore runs
+   * Then: generateText is called exactly once (no retry)
+   */
+  describe('AC-7: Single LLM call on success', () => {
+    it('generateText called once when first parse succeeds', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        text: async () => `[Coach A] - [https://example.com/a] - Good coach`,
+      });
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        text: async () => 'Coach A content',
+      });
+
+      const { generateText } = await import('ai');
+      // @ts-ignore
+      vi.mocked(generateText).mockResolvedValueOnce({
+        text: JSON.stringify({
+          items: [{ name: 'Coach A', description: 'Good coach', whyRecommended: 'Top rated' }],
+          sources: [{ title: 'Coach A', url: 'https://example.com/a', snippet: 'Good coach' }],
+          query: 'career coach query',
+          durationMs: 500,
+        }),
+      });
+
+      await findRecommendationsCore({ query: 'career coach query', count: 3 });
+
+      expect(generateText).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  /**
+   * AC-8: Diagnostic logs fire at key pipeline points
+   * Given: happy path (sources found, synthesis succeeds)
+   * When: findRecommendationsCore runs
+   * Then: console.log called with [findRec] prefix for sources count, content length, parse result
+   */
+  describe('AC-8: Diagnostic logs at key pipeline points', () => {
+    it('logs sources count, content length, and parse result', async () => {
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        text: async () => `[Coach B] - [https://example.com/b] - Great coach`,
+      });
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        text: async () => 'Coach B content',
+      });
+
+      const { generateText } = await import('ai');
+      // @ts-ignore
+      vi.mocked(generateText).mockResolvedValueOnce({
+        text: JSON.stringify({
+          items: [{ name: 'Coach B', description: 'Great coach', whyRecommended: 'Top pick' }],
+          sources: [{ title: 'Coach B', url: 'https://example.com/b', snippet: 'Great coach' }],
+          query: 'test diagnostic',
+          durationMs: 500,
+        }),
+      });
+
+      await findRecommendationsCore({ query: 'test diagnostic', count: 3 });
+
+      const logCalls = logSpy.mock.calls.map(c => c[0] as string);
+
+      // Must have at least one [findRec] prefixed log
+      expect(logCalls.some(m => m.includes('[findRec]'))).toBe(true);
+
+      logSpy.mockRestore();
     });
   });
 
