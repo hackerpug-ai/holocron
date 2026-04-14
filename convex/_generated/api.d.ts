@@ -65,6 +65,7 @@ import type * as creators_output from "../creators/output.js";
 import type * as creators_queries from "../creators/queries.js";
 import type * as creators_validators from "../creators/validators.js";
 import type * as crons from "../crons.js";
+import type * as db_agentActivity from "../db/agentActivity.js";
 import type * as deepResearchIterations_mutations from "../deepResearchIterations/mutations.js";
 import type * as deepResearchIterations_queries from "../deepResearchIterations/queries.js";
 import type * as deepResearchSessions_mutations from "../deepResearchSessions/mutations.js";
@@ -292,6 +293,7 @@ declare const fullApi: ApiFromModules<{
   "creators/queries": typeof creators_queries;
   "creators/validators": typeof creators_validators;
   crons: typeof crons;
+  "db/agentActivity": typeof db_agentActivity;
   "deepResearchIterations/mutations": typeof deepResearchIterations_mutations;
   "deepResearchIterations/queries": typeof deepResearchIterations_queries;
   "deepResearchSessions/mutations": typeof deepResearchSessions_mutations;
