@@ -132,7 +132,9 @@ export async function classifyIntent(
       confidence,
       reasoning: parsed.reasoning ?? "",
       directResponse:
-        intent === "conversation" ? parsed.directResponse : undefined,
+        intent === "conversation" || queryShape === "ambiguous"
+          ? parsed.directResponse
+          : undefined,
     };
   } catch (error) {
     console.error("[triage] Classification failed:", error);
