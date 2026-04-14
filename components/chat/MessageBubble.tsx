@@ -97,8 +97,8 @@ export function MessageBubble({
   cardError,
   onDeleteMessage,
   messageId,
-  onSaveRecommendation: _onSaveRecommendation,
-  onSaveRecommendationList: _onSaveRecommendationList,
+  onSaveRecommendation,
+  onSaveRecommendationList,
 }: MessageBubbleProps) {
   const isUser = role === 'user'
   const isSystem = role === 'system'
@@ -163,7 +163,7 @@ export function MessageBubble({
     // (users can add documents to chat which should render as cards, not text bubbles)
     const isDocumentContext = cardType === 'document_context'
     if (!isUser || isDocumentContext) {
-      const cardContent = renderResultCard(card_data, message_type, testID, onCardPress, onFinalResultPress, onWhatsNewReportPress, loadingCardId, cardError, onDocumentContextNavigate, router, onDeleteMessage, messageId)
+      const cardContent = renderResultCard(card_data, message_type, testID, onCardPress, onFinalResultPress, onWhatsNewReportPress, loadingCardId, cardError, onDocumentContextNavigate, router, onDeleteMessage, messageId, onSaveRecommendation, onSaveRecommendationList)
 
       // If renderResultCard returns null, suppress the entire message
       if (cardContent === null) {
@@ -389,6 +389,8 @@ function renderResultCard(
   router?: ReturnType<typeof useRouter>,
   onDeleteMessage?: (messageId: string) => void,
   messageId?: string,
+  onSaveRecommendation?: (item: { id: string; title: string; description?: string; url?: string }) => void,
+  onSaveRecommendationList?: (items: { id: string; title: string; description?: string; url?: string }[]) => void,
 ) {
   // Check if card_data contains multiple search results (array or wrapped)
   const isSearchResults = Array.isArray(card_data) ||
@@ -749,6 +751,29 @@ function renderResultCard(
         estimatedCostUsd={card_data.estimated_cost_usd as number}
         documentId={card_data.document_id as string}
         onPress={card_data.document_id ? () => router?.push(`/document/${card_data.document_id as string}`) : undefined}
+      />
+    )
+  }
+
+  // Handle recommendation list card
+  if ((card_data.card_type as string) === 'recommendation_list') {
+    const { RecommendationListCard } = require('@/components/cards/RecommendationListCard')
+    const typeData = card_data as {
+      card_type: 'recommendation_list'
+      items: Array<{
+        id: string
+        title: string
+        description?: string
+        url?: string
+      }>
+      summary?: string
+    }
+    return (
+      <RecommendationListCard
+        data={typeData}
+        testID={`${testID}-recommendation-list`}
+        onSaveAllToKB={onSaveRecommendationList}
+        onSaveRecommendation={onSaveRecommendation}
       />
     )
   }
