@@ -6,6 +6,8 @@ import type { MessageRole, MessageType } from '@/lib/types/conversations'
 import { MessageBubble } from './MessageBubble'
 import { TypingIndicator } from './TypingIndicator'
 import { MessageActionsSheet } from './MessageActionsSheet'
+import { AgentActivityIndicator } from './AgentActivityIndicator'
+import { useAgentActivity } from '@/hooks/use-agent-activity'
 import * as Haptics from 'expo-haptics'
 
 export interface ChatMessage {
@@ -83,6 +85,10 @@ export function ChatThread({
   const effectiveShowTypingIndicator = showTypingIndicator && !hasActiveResearchCard && !streamingMessageId
   const flatListRef = useRef<FlatList>(null)
   const router = useRouter()
+
+  // Subscribe to agent activity for phase-aware indicator
+  const { phase, toolName } = useAgentActivity({ threadId: undefined })
+  const aaiActive = phase !== 'idle'
 
   // Auto-scroll to bottom when new messages are added or typing indicator appears
   // Note: FlatList is inverted, so offset 0 is the visual bottom (newest messages)
@@ -175,6 +181,13 @@ export function ChatThread({
   }
 
   const renderTypingIndicator = () => {
+    if (aaiActive) {
+      return (
+        <View className="my-1 px-4 items-start">
+          <AgentActivityIndicator phase={phase} toolName={toolName} />
+        </View>
+      )
+    }
     if (!effectiveShowTypingIndicator) return null
     return <TypingIndicator />
   }
