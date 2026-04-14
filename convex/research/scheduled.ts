@@ -16,7 +16,7 @@ import { v } from "convex/values";
 import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { generateText } from "ai";
-import { openai } from "@ai-sdk/openai";
+import { claudeFlash, claudePro } from "../lib/ai/anthropic_provider";
 import {
   executeParallelSearchWithRetry,
   executeParallelUrlRead,
@@ -172,7 +172,7 @@ Be specific and targeted. Each query should uncover different information.`;
 
   try {
     const result = await generateText({
-      model: openai("gpt-5.4-mini"),
+      model: claudeFlash(),
       prompt,
     });
 
@@ -328,7 +328,7 @@ export const processDeepResearchIteration = internalAction({
         .filter(f => f.length > 0)
         .join("\n\n---\n\n");
 
-      const totalToolCalls = searchResults.reduce((sum, r) => sum + r.toolCallCount, 0);
+      searchResults.reduce((sum, r) => sum + r.toolCallCount, 0);
 
       
 
@@ -422,7 +422,7 @@ export const processDeepResearchIteration = internalAction({
 
       const synthesisPrompt = buildSynthesisPrompt(context, enrichedFindings, researchMode);
       const synthesisResult = await generateText({
-        model: openai("gpt-5.4"), // Frontier model for high-quality synthesis
+        model: claudePro(), // Frontier model for high-quality synthesis
         prompt: synthesisPrompt,
       });
       const synthesis = synthesisResult.text;
@@ -465,7 +465,7 @@ export const processDeepResearchIteration = internalAction({
       );
       const reviewPrompt = buildReviewPrompt(context, synthesis);
       const reviewResult = await generateText({
-        model: openai("gpt-5.4"), // Frontier model for accurate review
+        model: claudePro(), // Frontier model for accurate review
         prompt: reviewPrompt,
       });
 

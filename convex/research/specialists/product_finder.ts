@@ -17,7 +17,7 @@
 import { internal } from "../../_generated/api";
 import type { ActionCtx } from "../../_generated/server";
 import { generateText } from "ai";
-import { openai } from "@ai-sdk/openai";
+import { claudeFlash } from "../../lib/ai/anthropic_provider";
 import {
   executeParallelSearchWithRetry,
   type ParallelSearchResult,
@@ -119,7 +119,7 @@ async function generateProductReport(
   const prompt = buildProductPrompt(query, searchResult);
 
   const { text } = await generateText({
-    model: openai("gpt-4o-mini"),
+    model: claudeFlash(),
     temperature: 0.7,
     prompt,
   });
@@ -269,7 +269,7 @@ If there are no specific improvement suggestions, return an empty array: []`;
 
   try {
     const { text } = await generateText({
-      model: openai("gpt-4o-mini"),
+      model: claudeFlash(),
       temperature: 0.5,
       prompt,
     });

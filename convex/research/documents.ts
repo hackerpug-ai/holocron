@@ -10,6 +10,8 @@
 import { internalAction } from "../_generated/server";
 import { v } from "convex/values";
 import { api, internal } from "../_generated/api";
+import { generateText } from "ai";
+import { claudePro } from "../lib/ai/anthropic_provider";
 import {
   generateConfidenceReport,
   type FormattedFinding,
@@ -20,8 +22,6 @@ import type {
   FindingWithCitations,
   IterationWithStats,
 } from "./documentQueries";
-import { generateText } from "ai";
-import { openai } from "@ai-sdk/openai";
 import { buildFinalSynthesisPrompt } from "./prompts";
 
 /**
@@ -146,7 +146,7 @@ export const createResearchDocument = internalAction({
         // Call LLM to synthesize findings into cohesive report
         // Using gpt-5.4 for final synthesis - brings together ideas from iterations
         const result = await generateText({
-          model: openai("gpt-5.4"),
+          model: claudePro(),
           prompt: synthesisPrompt,
         });
 

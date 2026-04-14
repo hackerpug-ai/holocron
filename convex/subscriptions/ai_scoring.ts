@@ -3,7 +3,7 @@
 import { v } from "convex/values";
 import { internalAction } from "../_generated/server";
 import { generateText } from "ai";
-import { zaiFlash } from "../lib/ai/zai_provider";
+import { claudeFlash } from "../lib/ai/anthropic_provider";
 import { internal } from "../_generated/api";
 
 /**
@@ -115,7 +115,7 @@ The array must have exactly ${items.length} entries in the same order as the ite
 
     try {
       const result = await generateText({
-        model: zaiFlash(),
+        model: claudeFlash(),
         prompt,
       });
 

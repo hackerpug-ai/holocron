@@ -16,7 +16,7 @@ import { action } from "../_generated/server";
 import { v } from "convex/values";
 import { api } from "../_generated/api";
 import { generateText } from "ai";
-import { openai } from "@ai-sdk/openai";
+import { claudeFlash } from "../lib/ai/anthropic_provider";
 import {
   executeParallelSearchWithRetry,
 } from "./search";
@@ -208,7 +208,7 @@ Generate exactly ${maxCount} sub-questions.`;
 
   try {
     const result = await generateText({
-      model: openai("gpt-5.4-mini"),
+      model: claudeFlash(),
       prompt,
     });
 
@@ -407,7 +407,7 @@ export async function executeParallelFanOut(
     (sum, r) => sum + r.structuredResults.length,
     0
   );
-  const totalDuration = domainResults.reduce((sum, r) => sum + r.durationMs, 0);
+  domainResults.reduce((sum, r) => sum + r.durationMs, 0);
 
   
 
@@ -438,7 +438,7 @@ export async function executeParallelFanOut(
   );
 
   const synthesisResult = await generateText({
-    model: openai("gpt-5.4-mini"),
+    model: claudeFlash(),
     prompt: synthesisPrompt,
   });
 

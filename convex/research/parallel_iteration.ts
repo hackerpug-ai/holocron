@@ -23,7 +23,7 @@ import { action } from "../_generated/server";
 import { v } from "convex/values";
 import { api } from "../_generated/api";
 import { generateText } from "ai";
-import { openai } from "@ai-sdk/openai";
+import { claudeFlash, claudePro } from "../lib/ai/anthropic_provider";
 import {
   executeParallelSearchWithRetry,
 } from "./search";
@@ -95,7 +95,7 @@ Be specific and targeted. Each query should uncover different information.`;
 
   try {
     const result = await generateText({
-      model: openai("gpt-5.4-mini"),
+      model: claudeFlash(),
       prompt,
     });
 
@@ -327,7 +327,7 @@ export async function executeParallelIteration(
     (sum, r) => sum + r.structuredResults.length,
     0
   );
-  const totalDuration = variantResults.reduce((sum, r) => sum + r.durationMs, 0);
+  variantResults.reduce((sum, r) => sum + r.durationMs, 0);
 
   
 
@@ -361,7 +361,7 @@ export async function executeParallelIteration(
   );
 
   const synthesisResult = await generateText({
-    model: openai("gpt-5.4"),
+    model: claudePro(),
     prompt: synthesisPrompt,
   });
 

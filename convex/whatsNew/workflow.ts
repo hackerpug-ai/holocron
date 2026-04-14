@@ -317,7 +317,7 @@ export const enrichPhase = internalAction({
       if (fetchedContent.length > 0) {
         try {
           const { generateText } = await import("ai");
-          const { zaiFlash } = await import("../lib/ai/zai_provider");
+          const { claudeFlash } = await import("../lib/ai/anthropic_provider");
 
           const batchPrompt = `For each article below, write a concise 1-2 sentence summary for an AI engineer. Return a JSON array of objects with "url" and "summary" fields.
 
@@ -326,7 +326,7 @@ ${fetchedContent.map((c, i) => `Article ${i + 1} (${c.url}):\n${c.content.substr
 Respond with ONLY a JSON array: [{"url": "...", "summary": "..."}]`;
 
           const summaryResult = await generateText({
-            model: zaiFlash(),
+            model: claudeFlash(),
             prompt: batchPrompt,
           });
 

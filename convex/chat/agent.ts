@@ -23,7 +23,7 @@ import { internal, api } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { v } from "convex/values";
 import type { GenerateTextResult, ModelMessage } from "ai";
-import { zaiPro } from "../lib/ai/zai_provider";
+import { claudePro } from "../lib/ai/anthropic_provider";
 import { agentTools } from "./tools";
 import { executeAgentTool } from "./toolExecutor";
 import { HOLOCRON_SYSTEM_PROMPT } from "./prompts";
@@ -228,7 +228,7 @@ async function callLlmMonolithic(
   messages: ModelMessage[],
 ): Promise<void> {
   const result = await generateTextWithReAct({
-    model: zaiPro(),
+    model: claudePro(),
     system: HOLOCRON_SYSTEM_PROMPT,
     messages,
     tools: agentTools,

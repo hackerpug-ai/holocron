@@ -6,7 +6,7 @@ import { Id } from "../_generated/dataModel";
 import { api, internal } from "../_generated/api";
 
 import { generateText } from "ai";
-import { zaiFlash } from "../lib/ai/zai_provider";
+import { claudeFlash } from "../lib/ai/anthropic_provider";
 import { DOCUMENT_CATEGORIES, isValidCategory } from "../lib/categories";
 
 /**
@@ -552,7 +552,7 @@ export const generateChatTitle = action({
     for (let i = 0; i < TITLE_MAX_ATTEMPTS; i++) {
       try {
         const result = await generateText({
-          model: zaiFlash(),
+          model: claudeFlash(),
           system:
             "Generate a short, descriptive title (3-5 words, max 50 chars) for this chat conversation. Return ONLY the title, no quotes or explanations.",
           prompt: `Conversation:\n\n${context}`,

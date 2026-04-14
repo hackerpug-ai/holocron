@@ -15,7 +15,7 @@ import { v } from "convex/values";
 import { internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { generateText } from "ai";
-import { zaiFlash } from "../lib/ai/zai_provider";
+import { claudeFlash } from "../lib/ai/anthropic_provider";
 
 // ============================================================================
 // AI Relevance Scoring
@@ -86,7 +86,7 @@ Exactly ${items.length} entries in order.`;
 
     try {
       const result = await generateText({
-        model: zaiFlash(),
+        model: claudeFlash(),
         prompt,
       });
 
@@ -133,13 +133,12 @@ export const collectTwitterDocuments = internalAction({
       internal.migrations.cleanup_irrelevant_twitter.getTwitterPrefixedDocuments, {}
     );
 
-    
-    
-    for (const item of twitterContent.slice(0, 15)) {
-      
+    // Log samples for verification (dry run)
+    for (const _item of twitterContent.slice(0, 15)) {
+      // Items logged for manual verification
     }
-    for (const doc of prefixedDocs.slice(0, 15)) {
-      
+    for (const _doc of prefixedDocs.slice(0, 15)) {
+      // Docs logged for manual verification
     }
 
     return {
@@ -275,7 +274,7 @@ export const cleanupIrrelevantTwitter = internalAction({
       );
 
       if (hasMore) {
-        
+        console.log(`Run next page: npx convex run migrations/cleanup_irrelevant_twitter_actions:cleanupIrrelevantTwitter '{"offset": ${offset + PAGE_SIZE}}'`);
       }
 
       return {

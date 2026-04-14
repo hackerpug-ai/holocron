@@ -11,7 +11,7 @@ import { action } from "../_generated/server";
 import { v } from "convex/values";
 import { api } from "../_generated/api";
 import { generateText } from "ai";
-import { zaiFlash } from "../lib/ai/zai_provider";
+import { claudeFlash } from "../lib/ai/anthropic_provider";
 
 type ToolCategory =
   | "libraries"
@@ -151,7 +151,7 @@ Guidelines:
 
   try {
     const result = await generateText({
-      model: zaiFlash(),
+      model: claudeFlash(),
       prompt,
     });
 

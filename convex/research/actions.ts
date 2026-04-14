@@ -15,7 +15,6 @@ import { v } from "convex/values";
 import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { generateText } from "ai";
-import { openai } from "@ai-sdk/openai";
 import { stripMarkdownCodeBlock } from "../lib/json";
 import { makeFunctionReference } from "convex/server";
 
@@ -40,7 +39,7 @@ import {
   type StructuredFinding,
   type UrlContent,
 } from "./prompts";
-import { zaiFlash, zaiPro } from "../lib/ai/zai_provider";
+import { claudeFlash, claudePro } from "../lib/ai/anthropic_provider";
 import { classifyResearchIntent, type ResearchMode } from "./intent";
 import {
   calculateConfidenceScore,
@@ -485,7 +484,7 @@ export async function runIterativeResearch(
 
       const synthesisStartTime = Date.now();
       const synthesisResult = await generateText({
-        model: openai("gpt-5.4"),
+        model: claudePro(),
         prompt: synthesisPrompt,
       });
       const _synthesisDuration = Date.now() - synthesisStartTime;
@@ -635,7 +634,7 @@ export async function runIterativeResearch(
       );
       const reviewStartTime = Date.now();
       const reviewResult = await generateText({
-        model: openai("gpt-5.4"),
+        model: claudePro(),
         prompt: reviewPrompt,
       });
       const _reviewDuration = Date.now() - reviewStartTime;
@@ -729,7 +728,7 @@ export async function runIterativeResearch(
           const keyFindingTexts = structuredFindings.slice(0, 10).map((f: StructuredFinding) => f.claimText);
           try {
             const reasoningResult = await generateText({
-              model: zaiFlash(),
+              model: claudeFlash(),
               prompt: buildGapReasoningPrompt(topic, review.gaps, keyFindingTexts, iteration),
             });
             const jsonMatch = reasoningResult.text.match(/\{[\s\S]*\}/);
@@ -1063,7 +1062,7 @@ State whether confidence is HIGH, MEDIUM, or LOW based on:
 - Be specific and actionable`;
 
     const synthesisResult = await generateText({
-      model: openai("gpt-5.4"),
+      model: claudePro(),
       prompt: synthesisPrompt,
     });
 
@@ -1310,7 +1309,7 @@ export async function executeSinglePassResearch(
   );
 
   const synthesisResult = await generateText({
-    model: openai("gpt-5.4"),
+    model: claudePro(),
     prompt: synthesisPrompt,
   });
 
@@ -1495,7 +1494,7 @@ export const startSmartResearch = action({
  * Flow:
  * 1. Execute web search using Jina Search API
  * 2. Read full content from top 3 sources
- * 3. Synthesize answer using zaiFlash (fast, cost-effective)
+ * 3. Synthesize answer using claudeFlash (fast, cost-effective)
  * 4. Return answer + sources for immediate chat response
  */
 export const answerQuestionAction = internalAction({
@@ -1583,12 +1582,12 @@ export const answerQuestionAction = internalAction({
       }
     }
 
-    // 3. Synthesize answer using zaiFlash (fast, cost-effective)
+    // 3. Synthesize answer using claudeFlash (fast, cost-effective)
     // eslint-disable-next-line no-useless-assignment -- Variable IS used in return statement (false positive due to early returns)
     let answer = "";
     try {
       const { text } = await generateText({
-        model: zaiFlash(),
+        model: claudeFlash(),
         system: `You are a research assistant. Answer the user's question based on the provided web search results.
 
 Guidelines:
@@ -1798,7 +1797,7 @@ async function synthesize(
 
   try {
     const { text } = await generateText({
-      model: zaiPro(),
+      model: claudePro(),
       system: RECOMMENDATION_SYNTHESIS_PROMPT,
       prompt: `Query: ${args.query}\nCount: ${count}\nLocation: ${args.location || "not specified"}\nConstraints: ${args.constraints?.join(", ") || "none"}\n\nSources:\n${content}`,
       // @ts-ignore - signal is supported by generateText but not in the type definition

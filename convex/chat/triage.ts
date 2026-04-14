@@ -3,13 +3,13 @@
 /**
  * Triage Agent
  *
- * Lightweight intent classification using zaiFlash (no tools).
+ * Lightweight intent classification using claudeFlash (no tools).
  * Classifies user messages into intent categories and optionally
  * generates direct responses for conversational intents.
  */
 
 import { generateText } from "ai";
-import { zaiFlash } from "../lib/ai/zai_provider";
+import { claudeFlash } from "../lib/ai/anthropic_provider";
 import { TRIAGE_SYSTEM_PROMPT } from "./prompts";
 
 type LlmMessage = {
@@ -77,7 +77,7 @@ export function truncateLlmResponse(response: string): string {
 
 /**
  * Classify user intent from conversation context.
- * Uses zaiFlash with no tools for fast, cheap classification.
+ * Uses claudeFlash with no tools for fast, cheap classification.
  * Returns intent category, confidence, and optional direct response.
  */
 export async function classifyIntent(
@@ -88,7 +88,7 @@ export async function classifyIntent(
 
   try {
     const result = await generateText({
-      model: zaiFlash(),
+      model: claudeFlash(),
       system: TRIAGE_SYSTEM_PROMPT,
       messages: recentMessages,
     });

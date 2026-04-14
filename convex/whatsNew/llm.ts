@@ -11,7 +11,7 @@
 
 import { generateText } from "ai";
 import type { ActionCtx } from "../_generated/server";
-import { zaiPro } from "../lib/ai/zai_provider";
+import { claudePro } from "../lib/ai/anthropic_provider";
 
 // ============================================================================
 // Types
@@ -256,7 +256,7 @@ Generated:     {new Date().toISOString()}
 
   try {
     const result = await generateText({
-      model: zaiPro(),
+      model: claudePro(),
       prompt,
     });
 
@@ -438,7 +438,7 @@ Generated:     {timestamp}
 
   try {
     const result = await generateText({
-      model: zaiPro(),
+      model: claudePro(),
       prompt,
     });
 
@@ -751,7 +751,7 @@ Focus on: What is this? Why does it matter to an AI engineer? What can I do with
 Respond with ONLY the summary text, no additional formatting.`;
 
     const result = await generateText({
-      model: zaiPro(),
+      model: claudePro(),
       prompt,
     });
 

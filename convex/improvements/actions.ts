@@ -18,7 +18,7 @@ import { internal } from "../_generated/api";
 import { makeFunctionReference } from "convex/server";
 import { v } from "convex/values";
 import { generateText, embed } from "ai";
-import { zaiFlash } from "../lib/ai/zai_provider";
+import { claudeFlash } from "../lib/ai/anthropic_provider";
 import { cohereEmbedding } from "../lib/ai/embeddings_provider";
 import { DEDUP_SYSTEM_PROMPT, buildUserPrompt } from "./prompts";
 import type { Id } from "../_generated/dataModel";
@@ -104,7 +104,7 @@ export const processNewRequest = internalAction({
 
       // Step 6: Call LLM for deduplication decision
       const result = await generateText({
-        model: zaiFlash(),
+        model: claudeFlash(),
         system: DEDUP_SYSTEM_PROMPT,
         prompt: buildUserPrompt(
           request.description,

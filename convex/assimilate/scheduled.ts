@@ -18,7 +18,7 @@ import { internalAction } from "../_generated/server";
 import { v } from "convex/values";
 import { api, internal } from "../_generated/api";
 import { generateText } from "ai";
-import { openai } from "@ai-sdk/openai";
+import { claudeFlash, claudePro } from "../lib/ai/anthropic_provider";
 import { exaSearchTool, jinaSearchTool, jinaReaderTool } from "../research/tools";
 import {
   buildPlanningPrompt,
@@ -34,7 +34,6 @@ import {
 } from "./validators";
 import type { AssimilationDimension, DimensionScores } from "./validators";
 import { stripMarkdownCodeBlock } from "../lib/json";
-import { zaiFlash, zaiPro } from "../lib/ai/zai_provider";
 
 // ── processIteration ─────────────────────────────────────────────────────────
 
@@ -136,7 +135,7 @@ export const processIteration = internalAction({
         );
 
         const planResult = await generateText({
-          model: zaiFlash(),
+          model: claudeFlash(),
           prompt: planningPrompt,
         });
 
@@ -289,7 +288,7 @@ export const processIteration = internalAction({
       );
 
       const searchResult = await generateText({
-        model: openai("gpt-4o-mini"),
+        model: claudeFlash(),
         prompt: analysisPrompt,
         tools: {
           jinaSearch: jinaSearchTool,
@@ -326,7 +325,7 @@ export const processIteration = internalAction({
       );
 
       const analyzeResult = await generateText({
-        model: zaiFlash(),
+        model: claudeFlash(),
         prompt: extractPrompt,
       });
 
@@ -359,7 +358,7 @@ export const processIteration = internalAction({
       );
 
       const evalResult = await generateText({
-        model: zaiFlash(),
+        model: claudeFlash(),
         prompt: evalPrompt,
       });
 
@@ -557,7 +556,7 @@ export const synthesizeAndSave = internalAction({
       );
 
       const synthesisResult = await generateText({
-        model: zaiPro(),
+        model: claudePro(),
         prompt: synthesisPrompt,
       });
 

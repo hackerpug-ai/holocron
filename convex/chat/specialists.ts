@@ -8,7 +8,7 @@
  */
 
 import type { LanguageModel, ToolSet } from "ai";
-import { zaiFlash, zaiPro } from "../lib/ai/zai_provider";
+import { claudeFlash, claudePro } from "../lib/ai/anthropic_provider";
 import {
   knowledgeTools,
   researchTools,
@@ -76,55 +76,55 @@ export const INTENT_TO_SPECIALIST: Record<
 const SPECIALIST_CONFIGS: Record<SpecialistName, SpecialistConfig> = {
   knowledge: {
     name: "knowledge",
-    model: zaiFlash,
+    model: claudeFlash,
     tools: knowledgeTools,
     systemPrompt: KNOWLEDGE_SPECIALIST_PROMPT,
   },
   research: {
     name: "research",
-    model: zaiPro,
+    model: claudePro,
     tools: researchTools,
     systemPrompt: RESEARCH_SPECIALIST_PROMPT,
   },
   commerce: {
     name: "commerce",
-    model: zaiFlash,
+    model: claudeFlash,
     tools: commerceTools,
     systemPrompt: COMMERCE_SPECIALIST_PROMPT,
   },
   subscriptions: {
     name: "subscriptions",
-    model: zaiFlash,
+    model: claudeFlash,
     tools: subscriptionTools,
     systemPrompt: SUBSCRIPTIONS_SPECIALIST_PROMPT,
   },
   discovery: {
     name: "discovery",
-    model: zaiFlash,
+    model: claudeFlash,
     tools: discoveryTools,
     systemPrompt: DISCOVERY_SPECIALIST_PROMPT,
   },
   documents: {
     name: "documents",
-    model: zaiPro,
+    model: claudePro,
     tools: documentTools,
     systemPrompt: DOCUMENTS_SPECIALIST_PROMPT,
   },
   analysis: {
     name: "analysis",
-    model: zaiPro,
+    model: claudePro,
     tools: analysisTools,
     systemPrompt: ANALYSIS_SPECIALIST_PROMPT,
   },
   improvements: {
     name: "improvements",
-    model: zaiPro,
+    model: claudePro,
     tools: improvementTools,
     systemPrompt: IMPROVEMENTS_SPECIALIST_PROMPT,
   },
   planner: {
     name: "planner",
-    model: zaiPro,
+    model: claudePro,
     tools: plannerTools,
     systemPrompt: PLANNER_SPECIALIST_PROMPT,
   },

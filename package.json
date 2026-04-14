@@ -34,9 +34,9 @@
     "prepare": "husky"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.69",
     "@ai-sdk/cohere": "^3.0.25",
     "@ai-sdk/openai": "^3.0.41",
-    "@ai-sdk/openai-compatible": "^1.0.0",
     "@convex-dev/workflow": "^0.3.5",
     "@convex-dev/workpool": "^0.4.2",
     "@expo/vector-icons": "^15.0.2",

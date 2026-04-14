@@ -14,7 +14,7 @@
 "use node";
 
 import { generateText } from "ai";
-import { openai } from "@ai-sdk/openai";
+import { claudeFlash } from "../lib/ai/anthropic_provider";
 import { stripMarkdownCodeBlock } from "../lib/json";
 
 export type ResearchMode = "OVERVIEW" | "ACTIONABLE" | "COMPARATIVE" | "EXPLORATORY";
@@ -28,14 +28,14 @@ export interface IntentClassification {
 /**
  * Classify research intent using LLM with heuristic fallback.
  *
- * Cost: cheap (gpt-5.4-nano).
+ * Cost: cheap (claude-haiku-4-5-20251001).
  * Latency: ~1-2s (runs concurrently with strategy selection).
  */
 export async function classifyResearchIntent(topic: string): Promise<IntentClassification> {
 
   try {
     const result = await generateText({
-      model: openai("gpt-5.4-nano"),
+      model: claudeFlash(),
       prompt: `Classify this research query into exactly ONE mode based on what the user wants to learn.
 
 Query: "${topic}"
