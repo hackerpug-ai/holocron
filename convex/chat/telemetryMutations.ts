@@ -96,32 +96,58 @@ export const recordTriage = internalMutation({
   },
 });
 
+/** Batch size limit to avoid Convex transaction size limits. */
+export const BATCH_SIZE = 1000;
+
+/** Compute the cutoff timestamp from an olderThanMs duration. */
+export const computeCutoff = (olderThanMs: number, now: number = Date.now()): number => {
+  return now - olderThanMs;
+};
+
 /**
- * Delete telemetry records older than the cutoff timestamp.
- * Used for periodic cleanup of old telemetry data.
+ * Core deletion logic, extracted for testability.
+ * Deletes agentTelemetry rows older than the computed cutoff in batches.
+ */
+export const deleteOldTelemetryCore = async (
+  ctx: any,
+  olderThanMs: number,
+  now: number = Date.now(),
+): Promise<{ deleted: number }> => {
+  const cutoff = computeCutoff(olderThanMs, now);
+  let deleted = 0;
+
+  while (true) {
+    const batch = await ctx.db
+      .query("agentTelemetry")
+      .withIndex("by_createdAt", (q: any) => q.lt("createdAt", cutoff))
+      .take(BATCH_SIZE);
+
+    if (batch.length === 0) break;
+
+    for (const row of batch) {
+      await ctx.db.delete(row._id);
+    }
+    deleted += batch.length;
+
+    if (batch.length < BATCH_SIZE) break;
+  }
+
+  return { deleted };
+};
+
+/**
+ * Delete telemetry records older than the specified duration.
+ * Called by a daily cron to enforce 90-day TTL on agentTelemetry.
  *
- * @param cutoffTimestamp - Delete records with createdAt < this timestamp
+ * @param olderThanMs - Age threshold in milliseconds; rows with createdAt older than (now - olderThanMs) are deleted
  * @returns The number of records deleted
  */
 export const deleteOldTelemetry = internalMutation({
   args: {
-    cutoffTimestamp: v.number(),
+    olderThanMs: v.number(),
   },
-  handler: async (ctx, { cutoffTimestamp }) => {
-    // Query for all telemetry records
-    const oldRecords = await ctx.db
-      .query("agentTelemetry")
-      .collect();
-
-    // Filter records older than cutoff and delete them
-    let deletedCount = 0;
-    for (const record of oldRecords) {
-      if (record.createdAt < cutoffTimestamp) {
-        await ctx.db.delete(record._id);
-        deletedCount++;
-      }
-    }
-
-    return deletedCount;
+  returns: v.object({ deleted: v.number() }),
+  handler: async (ctx, { olderThanMs }) => {
+    return deleteOldTelemetryCore(ctx, olderThanMs);
   },
 });

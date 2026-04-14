@@ -178,6 +178,8 @@ describe('telemetryMutations', () => {
 
   /**
    * AC-4: deleteOldTelemetry removes rows older than cutoff
+   * Updated for REL-002: now uses olderThanMs instead of cutoffTimestamp,
+   * and batches deletes via withIndex + take instead of collect.
    */
   describe('AC-4: deleteOldTelemetry', () => {
     it('should delete telemetry rows older than cutoff date', async () => {
@@ -185,26 +187,26 @@ describe('telemetryMutations', () => {
 
       const now = Date.now();
       const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
-      const cutoffTimestamp = now - thirtyDaysMs;
 
-      // Mock query to return old telemetry records
+      // Mock query to return old telemetry records via take-based batching
       const oldTelemetry = {
         _id: 'old123',
         createdAt: now - thirtyDaysMs - 1000, // Older than cutoff
       };
 
       mockDb.query.mockReturnValue({
-        withIndex: vi.fn().mockReturnThis(),
-        filter: vi.fn().mockReturnThis(),
-        collect: vi.fn().mockResolvedValue([oldTelemetry]),
+        withIndex: vi.fn().mockReturnValue({
+          take: vi.fn().mockResolvedValue([oldTelemetry]),
+        }),
       });
 
       mockDb.delete.mockResolvedValue(undefined);
 
-      await (deleteOldTelemetry as any)(mockCtx, { cutoffTimestamp });
+      const result = await (deleteOldTelemetry as any)(mockCtx, { olderThanMs: thirtyDaysMs });
 
       // Verify delete was called for old records
       expect(mockDb.delete).toHaveBeenCalledWith('old123');
+      expect(result).toEqual({ deleted: 1 });
     });
 
     it('should not delete recent telemetry rows', async () => {
@@ -212,51 +214,47 @@ describe('telemetryMutations', () => {
 
       const now = Date.now();
       const oneMinuteMs = 60 * 1000;
-      const cutoffTimestamp = now - oneMinuteMs;
 
-      // Mock query to return only recent telemetry records
-      const recentTelemetry = {
-        _id: 'recent123',
-        createdAt: now, // Very recent
-      };
-
+      // Mock query to return empty batch (no old records)
       mockDb.query.mockReturnValue({
-        withIndex: vi.fn().mockReturnThis(),
-        filter: vi.fn().mockReturnThis(),
-        collect: vi.fn().mockResolvedValue([recentTelemetry]),
+        withIndex: vi.fn().mockReturnValue({
+          take: vi.fn().mockResolvedValue([]),
+        }),
       });
 
-      await (deleteOldTelemetry as any)(mockCtx, { cutoffTimestamp });
+      const result = await (deleteOldTelemetry as any)(mockCtx, { olderThanMs: oneMinuteMs });
 
       // Verify delete was NOT called for recent records
       expect(mockDb.delete).not.toHaveBeenCalled();
+      expect(result).toEqual({ deleted: 0 });
     });
 
     it('should return count of deleted records', async () => {
       const { deleteOldTelemetry } = await import('../../convex/chat/telemetryMutations');
 
       const now = Date.now();
-      const cutoffTimestamp = now - (30 * 24 * 60 * 60 * 1000);
+      const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
 
-      // Mock multiple old records
+      // Mock multiple old records in one batch
       const oldRecords = [
         { _id: 'old1', createdAt: now - 40 * 24 * 60 * 60 * 1000 },
         { _id: 'old2', createdAt: now - 35 * 24 * 60 * 60 * 1000 },
         { _id: 'old3', createdAt: now - 31 * 24 * 60 * 60 * 1000 },
       ];
 
+      // First call returns records, second call returns empty (done)
       mockDb.query.mockReturnValue({
-        withIndex: vi.fn().mockReturnThis(),
-        filter: vi.fn().mockReturnThis(),
-        collect: vi.fn().mockResolvedValue(oldRecords),
+        withIndex: vi.fn().mockReturnValue({
+          take: vi.fn().mockResolvedValueOnce(oldRecords).mockResolvedValueOnce([]),
+        }),
       });
 
       mockDb.delete.mockResolvedValue(undefined);
 
-      const result = await (deleteOldTelemetry as any)(mockCtx, { cutoffTimestamp });
+      const result = await (deleteOldTelemetry as any)(mockCtx, { olderThanMs: thirtyDaysMs });
 
       // Should return count of deleted records
-      expect(result).toBe(3);
+      expect(result).toEqual({ deleted: 3 });
       expect(mockDb.delete).toHaveBeenCalledTimes(3);
     });
   });

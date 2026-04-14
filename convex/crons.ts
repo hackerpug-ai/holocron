@@ -268,4 +268,21 @@ crons.interval(
   internal.voice.scheduled.timeoutOrphanedSessions
 );
 
+/**
+ * Agent Telemetry Retention Cleanup
+ *
+ * Deletes agentTelemetry rows older than 90 days to enforce a retention TTL.
+ * - Runs daily at 7:00 UTC
+ * - Deletes in batches of 1000 to avoid transaction size limits
+ * - Keeps only the last 90 days of triage telemetry
+ *
+ * @see convex/chat/telemetryMutations.ts
+ */
+crons.daily(
+  "cleanup-agent-telemetry",
+  { hourUTC: 7, minuteUTC: 0 },
+  internal.chat.telemetryMutations.deleteOldTelemetry,
+  { olderThanMs: 90 * 24 * 60 * 60 * 1000 }
+);
+
 export default crons;
