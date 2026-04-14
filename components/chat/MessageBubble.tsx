@@ -72,6 +72,10 @@ export interface MessageBubbleProps {
   onDeleteMessage?: (messageId: string) => void
   /** ID of this message, used with onDeleteMessage */
   messageId?: string
+  /** Callback when a single recommendation is saved to KB */
+  onSaveRecommendation?: (item: { id: string; title: string; description?: string; url?: string }) => void
+  /** Callback when all recommendations in a list are saved to KB */
+  onSaveRecommendationList?: (items: { id: string; title: string; description?: string; url?: string }[]) => void
 }
 
 export function MessageBubble({
@@ -93,6 +97,8 @@ export function MessageBubble({
   cardError,
   onDeleteMessage,
   messageId,
+  onSaveRecommendation: _onSaveRecommendation,
+  onSaveRecommendationList: _onSaveRecommendationList,
 }: MessageBubbleProps) {
   const isUser = role === 'user'
   const isSystem = role === 'system'

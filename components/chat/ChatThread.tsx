@@ -37,6 +37,10 @@ export interface ChatThreadProps {
   streamingMessageId?: string | null
   /** Navigate to a document with optional highlight at a specific block */
   onDocumentContextNavigate?: (documentId: string, blockIndex?: number) => void
+  /** Callback when a single recommendation is saved to KB */
+  onSaveRecommendation?: (item: { id: string; title: string; description?: string; url?: string }) => void
+  /** Callback when all recommendations in a list are saved to KB */
+  onSaveRecommendationList?: (items: { id: string; title: string; description?: string; url?: string }[]) => void
 }
 
 export function ChatThread({
@@ -50,6 +54,8 @@ export function ChatThread({
   onDeleteMessage,
   streamingMessageId = null,
   onDocumentContextNavigate,
+  onSaveRecommendation,
+  onSaveRecommendationList,
 }: ChatThreadProps) {
   const { width: _screenWidth } = useWindowDimensions()
 
@@ -128,6 +134,8 @@ export function ChatThread({
         onWhatsNewReportPress={onWhatsNewReportPress}
         onDocumentContextNavigate={onDocumentContextNavigate}
         isStreaming={item.id === streamingMessageId}
+        onSaveRecommendation={onSaveRecommendation}
+        onSaveRecommendationList={onSaveRecommendationList}
       />
     </Pressable>
   )
