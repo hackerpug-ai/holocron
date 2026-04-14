@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { ActivityIndicator, Pressable, View } from 'react-native'
-import { useAction, useMutation } from 'convex/react'
+import { useAction } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
@@ -8,7 +8,6 @@ import { Text } from '@/components/ui/text'
 import { cn } from '@/lib/utils'
 import {
   AlertTriangle,
-  Check,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
@@ -29,8 +28,7 @@ export interface ToolApprovalCardProps {
   reasoning?: string
   status: 'pending' | 'approved' | 'rejected' | 'executing' | 'completed' | 'timed_out'
   resultCardData?: unknown
-  onApprove?: () => void
-  onReject?: () => void
+  onCancel?: () => void
 }
 
 // ── Status badge ─────────────────────────────────────────────────────────────
@@ -97,9 +95,8 @@ function ParameterRow({ label, value }: { label: string; value: unknown }) {
 // ── Main component ────────────────────────────────────────────────────────────
 
 /**
- * ToolApprovalCard shows a human-in-the-loop approval prompt for an agent
- * tool call. Displays the tool name, parameters, optional reasoning, and
- * approve/reject actions when status is "pending".
+ * ToolApprovalCard shows a tool execution card with cancel capability.
+ * Tools auto-execute — the card displays progress and lets the user cancel.
  */
 export function ToolApprovalCard({
   toolDisplayName,
@@ -107,8 +104,7 @@ export function ToolApprovalCard({
   parameters,
   reasoning,
   status,
-  onApprove,
-  onReject,
+  onCancel,
 }: ToolApprovalCardProps) {
   const [reasoningExpanded, setReasoningExpanded] = useState(false)
 
@@ -131,7 +127,7 @@ export function ToolApprovalCard({
           <Wrench size={16} className="text-muted-foreground shrink-0" />
           <View className="flex-1">
             <Text className="text-muted-foreground text-xs">
-              Agent would like to use
+              Agent is using
             </Text>
             <Text className="text-foreground font-semibold">{toolDisplayName}</Text>
           </View>
@@ -218,25 +214,16 @@ export function ToolApprovalCard({
         ) : null}
       </CardContent>
 
-      {/* ── Actions (pending only) ── */}
-      {isPending ? (
+      {/* ── Cancel button (while pending or executing) ── */}
+      {(isPending || isExecuting) ? (
         <CardFooter className="gap-3 pt-0">
           <Pressable
-            testID="tool-approval-approve-button"
-            className="flex-1 flex-row items-center justify-center gap-2 rounded-lg bg-primary py-2.5 px-4 active:opacity-80"
-            onPress={onApprove}
-          >
-            <Check size={15} className="text-primary-foreground" />
-            <Text className="text-primary-foreground text-sm font-semibold">Approve</Text>
-          </Pressable>
-
-          <Pressable
-            testID="tool-approval-reject-button"
+            testID="tool-approval-cancel-button"
             className="flex-1 flex-row items-center justify-center gap-2 rounded-lg border border-border py-2.5 px-4 active:opacity-80"
-            onPress={onReject}
+            onPress={onCancel}
           >
             <X size={15} className="text-foreground" />
-            <Text className="text-foreground text-sm font-semibold">Reject</Text>
+            <Text className="text-foreground text-sm font-semibold">Cancel</Text>
           </Pressable>
         </CardFooter>
       ) : null}
@@ -248,35 +235,26 @@ export function ToolApprovalCard({
 
 export type ToolApprovalCardWithConvexProps = Omit<
   ToolApprovalCardProps,
-  'onApprove' | 'onReject'
+  'onCancel'
 >
 
 /**
- * ToolApprovalCardWithConvex wires the ToolApprovalCard to Convex mutations.
- * Approving sets status to "approved"; rejecting sets status to "rejected".
+ * ToolApprovalCardWithConvex wires the ToolApprovalCard to Convex actions.
+ * Tools auto-execute — the cancel button calls cancelTool to abort execution.
  */
 export function ToolApprovalCardWithConvex(props: ToolApprovalCardWithConvexProps) {
-  const executeTool = useAction(api.chat.agent.executeTool)
-  const updateStatus = useMutation(api.toolCalls.mutations.updateStatus)
+  const cancelTool = useAction(api.chat.agent.cancelTool)
 
-  const handleApprove = () => {
-    executeTool({
+  const handleCancel = () => {
+    cancelTool({
       toolCallId: props.approvalId as Id<'toolCalls'>,
-    })
-  }
-
-  const handleReject = () => {
-    updateStatus({
-      id: props.approvalId as Id<'toolCalls'>,
-      status: 'rejected',
     })
   }
 
   return (
     <ToolApprovalCard
       {...props}
-      onApprove={handleApprove}
-      onReject={handleReject}
+      onCancel={handleCancel}
     />
   )
 }

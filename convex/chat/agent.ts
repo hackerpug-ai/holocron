@@ -4,12 +4,12 @@
  * Chat Agent Action
  *
  * Core agentic loop for the Holocron chat assistant.
- * Handles LLM invocation, tool call approval flow, and conversation state.
+ * Handles LLM invocation, tool call execution flow, and conversation state.
  *
- * Flow:
- *   run() → LLM → text response OR tool_approval message
- *   executeTool() → approved → executeAgentTool → result_card → continueAfterTool()
- *   rejectTool() → rejected → continueAfterTool()
+ * Flow (opt-out model — tools auto-execute, user can cancel):
+ *   run() → LLM → text response OR tool_approval message + auto-execute
+ *   executeTool() → executeAgentTool → result_card → continueAfterTool()
+ *   cancelTool() → rejected → continueAfterTool()
  *   continueAfterTool() → LLM follow-up response
  *
  * Note: Internal mutations/queries (setAgentBusy, buildContext, etc.) live in
@@ -151,10 +151,10 @@ async function handleLlmResult(
       return;
     }
 
-    // Existing tool_approval flow for individual tools
+    // Tool call flow (opt-out model): create card + auto-execute
     for (const toolCall of result.toolCalls) {
       const toolDisplayName = toTitleCase(toolCall.toolName);
-      const content = `I'd like to use the **${toolDisplayName}** tool to help with your request.`;
+      const content = `Using **${toolDisplayName}**...`;
 
       // Insert the tool_approval chatMessage first (to get its ID)
       const approvalMessageId = await ctx.runMutation(
@@ -188,6 +188,11 @@ async function handleLlmResult(
       // Back-patch the approval message with the toolCallId reference
       await ctx.runMutation(internal.chat.agentMutations.linkToolCallToMessage, {
         messageId: approvalMessageId,
+        toolCallId,
+      });
+
+      // Auto-execute: schedule tool execution immediately (opt-out model)
+      ctx.scheduler.runAfter(0, api.chat.agent.executeTool, {
         toolCallId,
       });
     }
@@ -669,6 +674,62 @@ export const rejectTool = action({
 
     await ctx.scheduler.runAfter(0, internal.chat.agent.continueAfterTool, {
       conversationId: toolCall.conversationId,
+    });
+  },
+});
+
+// ---------------------------------------------------------------------------
+// cancelTool - Cancel an in-progress tool call (opt-out model)
+// ---------------------------------------------------------------------------
+
+/**
+ * cancelTool
+ *
+ * Public action triggered by the user cancelling an in-progress tool call.
+ * Works for tools in "pending" or "approved" (executing) status.
+ * Marks the toolCall as rejected and schedules LLM continuation so
+ * the agent can acknowledge the cancellation.
+ */
+export const cancelTool = action({
+  args: {
+    toolCallId: v.id("toolCalls"),
+  },
+  handler: async (ctx, { toolCallId }): Promise<void> => {
+    const toolCall = await ctx.runQuery(api.toolCalls.queries.get, {
+      id: toolCallId,
+    });
+
+    if (!toolCall) {
+      throw new Error(`toolCall ${toolCallId} not found`);
+    }
+
+    // Can only cancel while pending or actively executing
+    if (toolCall.status !== "pending" && toolCall.status !== "approved") {
+      throw new Error(
+        `Cannot cancel tool (status: ${toolCall.status})`,
+      );
+    }
+
+    await ctx.runMutation(api.toolCalls.mutations.updateStatus, {
+      id: toolCallId,
+      status: "rejected",
+      error: "Cancelled by user",
+    });
+
+    // Read specialist name from the approval message for continuation
+    const approvalMessage = await ctx.runQuery(api.chatMessages.queries.get, {
+      id: toolCall.messageId,
+    });
+    const specialistName: string | undefined =
+      typeof (approvalMessage?.cardData as Record<string, unknown>)
+        ?.specialist_name === "string"
+        ? ((approvalMessage?.cardData as Record<string, unknown>)
+            .specialist_name as string)
+        : undefined;
+
+    await ctx.scheduler.runAfter(0, internal.chat.agent.continueAfterTool, {
+      conversationId: toolCall.conversationId,
+      specialistName,
     });
   },
 });
