@@ -800,19 +800,47 @@ export const continueAfterTool = internalAction({
         // system message — Anthropic requires `system` at the top level and
         // drops/deprioritizes inline system messages).
         let systemPrompt = specialist.systemPrompt;
-        if (priorTool?.toolName === 'find_recommendations') {
-          const FIND_REC_CONTINUATION_HINT =
-            'IMPORTANT CONTINUATION RULE: The find_recommendations tool has ALREADY been called and the user has ALREADY seen the result list in the UI. ' +
-            'Do NOT call find_recommendations again. Do NOT call any other tool for the same query. ' +
-            'Respond with plain text only — in 1-2 sentences max, acknowledge the list and offer to save it to their KB if they want.';
-          systemPrompt = `${specialist.systemPrompt}\n\n${FIND_REC_CONTINUATION_HINT}`;
+        let specialistTools = specialist.tools;
+        if (priorTool?.toolName === 'find_recommendations' && priorTool.resultMessageId) {
+          // Inspect the prior tool's result to decide whether it already
+          // produced items (success path — block retries) or returned zero
+          // items (empty path — allow the model to broaden the query once).
+          const resultMessage = await ctx.runQuery(api.chatMessages.queries.get, {
+            id: priorTool.resultMessageId,
+          });
+          const cardData = resultMessage?.cardData as
+            | { card_type?: string; items?: unknown[] }
+            | undefined;
+          const itemCount = Array.isArray(cardData?.items) ? cardData.items.length : 0;
+
+          if (itemCount > 0) {
+            // Non-empty: force a text-only acknowledgment. Strip tools so the
+            // model physically cannot re-call find_recommendations or any other
+            // tool on the same turn.
+            systemPrompt =
+              `${specialist.systemPrompt}\n\n` +
+              'IMPORTANT CONTINUATION RULE: The find_recommendations tool has ALREADY been called and the user has ALREADY seen the result list in the UI. ' +
+              'You MUST respond with plain text only. Do NOT call any tools. ' +
+              'In 1-2 sentences max, acknowledge the list and offer to save it to their KB if they want.';
+            specialistTools = {};
+          } else {
+            // Empty: allow exactly one broadened retry. Tell the model to
+            // loosen constraints or rephrase rather than giving up or
+            // announcing intent without acting.
+            systemPrompt =
+              `${specialist.systemPrompt}\n\n` +
+              'IMPORTANT CONTINUATION RULE: find_recommendations just returned ZERO results. ' +
+              'Retry ONCE with find_recommendations using a broader query: drop the most specific constraint, widen the location, or rephrase more generically. ' +
+              'Do not announce your intent in text before calling the tool — call it directly. ' +
+              'If this retry also fails, respond with plain text explaining you could not find matches.';
+          }
         }
 
         const result = await generateTextWithReAct({
           model: specialist.model(),
           system: systemPrompt,
           messages,
-          tools: specialist.tools,
+          tools: specialistTools,
         });
         await handleLlmResult(ctx, conversationId, result, specialistName);
       } else {
