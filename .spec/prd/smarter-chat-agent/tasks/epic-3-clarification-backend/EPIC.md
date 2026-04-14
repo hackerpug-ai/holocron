@@ -30,13 +30,13 @@ Ship the backend side of clarification behavior. Persistent `pendingIntent` muta
 
 ## Acceptance Criteria (Epic-level)
 
-- [ ] `setPendingIntent` / `clearPendingIntent` internal mutations exist with 30-minute expiry helper
-- [ ] Ambiguous triage short-circuits specialist dispatch and emits `directResponse`
-- [ ] `clarificationDepth` is capped deterministically at 1 (not via prompt alone)
-- [ ] Pending state rehydrates triage input on the next turn when fresh
-- [ ] Non-ambiguous turn completion clears pending state
-- [ ] `HOLOCRON_SYSTEM_PROMPT` has `## Clarification Before Tools` and `## Inline vs Document Discipline` sections
-- [ ] Document discipline signals (`save`, `comprehensive`, `deep dive`) enumerated in prompt
+- [x] `setPendingIntent` / `clearPendingIntent` internal mutations exist with 30-minute expiry helper
+- [x] Ambiguous triage short-circuits specialist dispatch and emits `directResponse`
+- [x] `clarificationDepth` is capped deterministically at 1 (not via prompt alone)
+- [x] Pending state rehydrates triage input on the next turn when fresh
+- [x] Non-ambiguous turn completion clears pending state
+- [x] `HOLOCRON_SYSTEM_PROMPT` has `## Clarification Before Tools` and `## Inline vs Document Discipline` sections
+- [x] Document discipline signals (`save`, `comprehensive`, `deep dive`) enumerated in prompt
 
 ## Tasks
 
