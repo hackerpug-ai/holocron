@@ -28,9 +28,11 @@ export function useAgentActivity({
     threadId ? { threadId } : 'skip',
   )
 
+  const activity = result as { phase?: AgentPhase; toolName?: string | null } | undefined
+
   return {
-    phase: (result?.phase as AgentPhase) ?? 'idle',
-    toolName: (result?.toolName as string | null) ?? null,
+    phase: activity?.phase ?? 'idle',
+    toolName: activity?.toolName ?? null,
     loading: result === undefined && threadId !== null,
     error: null,
   }
