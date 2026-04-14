@@ -46,10 +46,12 @@ export interface RecommendationListCardData {
 // Component props
 export interface RecommendationListCardProps {
   data: RecommendationListCardData
-  onItemPress: (item: RecommendationItemData) => void
+  onItemPress?: (item: RecommendationItemData) => void
   onDismiss?: () => void
   showSummary?: boolean
   testID?: string
+  onSaveAllToKB?: (items: RecommendationItemData[]) => void
+  onSaveRecommendation?: (item: RecommendationItemData) => void
 }
 
 export interface RecommendationItemProps {
