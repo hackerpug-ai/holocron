@@ -75,6 +75,7 @@ export interface JinaConfig {
  */
 export interface JinaSearchOptions extends Partial<JinaConfig> {
   limit?: number; // Default: 10 results
+  site?: string; // Site-specific search using X-Site header (e.g., "jina.ai")
 }
 
 /**
@@ -106,7 +107,7 @@ export async function jinaSearch(
   query: string,
   options: JinaSearchOptions = {}
 ): Promise<JinaSearchResult[]> {
-  const { apiKey, timeout = 30000, signal, limit = 10 } = options;
+  const { apiKey, timeout = 30000, signal, limit = 10, site } = options;
 
   if (!apiKey) {
     throw new JinaError('JINA_API_KEY is required', 'auth');
@@ -126,12 +127,19 @@ export async function jinaSearch(
     const encodedQuery = encodeURIComponent(query);
     const searchUrl = `https://s.jina.ai/?q=${encodedQuery}`;
 
+    const headers: Record<string, string> = {
+      'Authorization': `Bearer ${apiKey}`,
+      'Accept': 'application/json',
+    };
+
+    // Add X-Site header for site-specific search (native Jina API feature)
+    if (site) {
+      headers['X-Site'] = site;
+    }
+
     const response = await fetch(searchUrl, {
       method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Accept': 'application/json',
-      },
+      headers,
       signal: effectiveSignal,
     });
 

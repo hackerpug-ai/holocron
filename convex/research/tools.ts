@@ -249,8 +249,8 @@ export const jinaSearchTool = tool({
 /**
  * jinaSiteSearchTool - Site-specific search using Jina
  *
- * Uses jinaSearch helper from convex/lib/jina.ts with site-specific query.
- * Note: Jina Search API doesn't have a native site filter, so we append "site:{domain}" to the query.
+ * Uses jinaSearch helper from convex/lib/jina.ts with native X-Site header support.
+ * Jina Search API supports site-specific filtering via the X-Site header.
  * Best for: focused research on documentation sites, company websites, specific domains.
  */
 export const jinaSiteSearchTool = tool({
@@ -276,15 +276,12 @@ export const jinaSiteSearchTool = tool({
         };
       }
 
-      
-      // Extract domain from site URL for site-specific search
+      // Extract domain from site URL for X-Site header
       const domain = new URL(site).hostname;
 
-      // Append site filter to query
-      const siteQuery = `${query} site:${domain}`;
-
       const startTime = Date.now();
-      const searchResults = await jinaSearch(siteQuery, { apiKey, limit: 10 });
+      // Use native X-Site header support in jinaSearch helper
+      const searchResults = await jinaSearch(query, { apiKey, limit: 10, site: domain });
       const duration = Date.now() - startTime;
 
       console.log(
