@@ -8,6 +8,7 @@
 import { tool } from "ai";
 import { z } from "zod";
 import Exa from "exa-js";
+import { jinaSearch, jinaReader, JinaError } from "../lib/jina";
 
 /**
  * Research Plan Schema
@@ -139,17 +140,13 @@ export const exaSearchTool = tool({
       
       const exa = new Exa(apiKey);
 
-      const startTime = Date.now();
       const searchResults = await exa.searchAndContents(query, {
         numResults,
         useAutoprompt: true,
         category: category === "any" ? undefined : category,
       });
-      const duration = Date.now() - startTime;
 
-      
-
-      const results = searchResults.results.map((result: any) => ({
+const results = searchResults.results.map((result: any) => ({
         title: result.title || "",
         url: result.url || "",
         content: (result.text || "").slice(0, 500),
@@ -179,7 +176,7 @@ export const exaSearchTool = tool({
 /**
  * jinaSearchTool - Broad web search using Jina API
  *
- * Uses Jina's direct API for general web search.
+ * Uses jinaSearch helper from convex/lib/jina.ts.
  * Best for: broad web queries, general information, diverse sources.
  */
 export const jinaSearchTool = tool({
@@ -205,44 +202,22 @@ export const jinaSearchTool = tool({
 
       
       const startTime = Date.now();
-      // Jina Search uses s.jina.ai with query parameter
-      const encodedQuery = encodeURIComponent(query);
-      const response = await fetch(`https://s.jina.ai/?q=${encodedQuery}`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          Accept: "application/json",
-        },
-      });
+      const searchResults = await jinaSearch(query, { apiKey, limit: 10 });
       const duration = Date.now() - startTime;
 
-      
+      console.log(
+        `[jinaSearchTool] Exit - Success with ${searchResults.length} results in ${duration}ms`,
+      );
 
-      if (!response.ok) {
-        console.error(
-          `[jinaSearchTool] HTTP error: ${response.status} ${response.statusText}`,
-        );
-        return {
-          query,
-          results: [],
-          error: `HTTP ${response.status}: ${response.statusText}`,
-          source: "jina",
-        };
-      }
-
-      // Jina Search returns JSON with data array
-      const data = await response.json();
-      
-
-      // Parse search results from Jina's response format
-      const results = (data.data || []).map((result: any) => ({
+      const results = searchResults.map((result) => ({
         title: result.title || "",
         url: result.url || result.link || "",
-        content: (result.description || result.content || "").slice(0, 500),
-        domain: result.domain || new URL(result.url || result.link || "").hostname,
+        content: (result.content || result.description || "").slice(0, 500),
+        domain: result.url || result.link
+          ? new URL(result.url || result.link || "").hostname
+          : "",
       }));
 
-      
       return {
         query,
         results,
@@ -250,6 +225,17 @@ export const jinaSearchTool = tool({
       };
     } catch (error) {
       console.error(`[jinaSearchTool] Error:`, error);
+
+      // Handle JinaError specifically
+      if (error instanceof JinaError) {
+        return {
+          query,
+          results: [],
+          error: error.message,
+          source: "jina",
+        };
+      }
+
       return {
         query,
         results: [],
@@ -263,7 +249,8 @@ export const jinaSearchTool = tool({
 /**
  * jinaSiteSearchTool - Site-specific search using Jina
  *
- * Uses Jina's Search API with X-Site header to search within a specific domain.
+ * Uses jinaSearch helper from convex/lib/jina.ts with site-specific query.
+ * Note: Jina Search API doesn't have a native site filter, so we append "site:{domain}" to the query.
  * Best for: focused research on documentation sites, company websites, specific domains.
  */
 export const jinaSiteSearchTool = tool({
@@ -290,44 +277,29 @@ export const jinaSiteSearchTool = tool({
       }
 
       
+      // Extract domain from site URL for site-specific search
+      const domain = new URL(site).hostname;
+
+      // Append site filter to query
+      const siteQuery = `${query} site:${domain}`;
+
       const startTime = Date.now();
-      const encodedQuery = encodeURIComponent(query);
-      const response = await fetch(`https://s.jina.ai/?q=${encodedQuery}`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          Accept: "application/json",
-          "X-Site": site,
-        },
-      });
+      const searchResults = await jinaSearch(siteQuery, { apiKey, limit: 10 });
       const duration = Date.now() - startTime;
 
-      
+      console.log(
+        `[jinaSiteSearchTool] Exit - Success with ${searchResults.length} results in ${duration}ms`,
+      );
 
-      if (!response.ok) {
-        console.error(
-          `[jinaSiteSearchTool] HTTP error: ${response.status} ${response.statusText}`,
-        );
-        return {
-          query,
-          site,
-          results: [],
-          error: `HTTP ${response.status}: ${response.statusText}`,
-          source: "jina-site",
-        };
-      }
-
-      const data = await response.json();
-      
-
-      const results = (data.data || []).map((result: any) => ({
+      const results = searchResults.map((result) => ({
         title: result.title || "",
         url: result.url || result.link || "",
-        content: (result.description || result.content || "").slice(0, 500),
-        domain: result.domain || new URL(result.url || result.link || "").hostname,
+        content: (result.content || result.description || "").slice(0, 500),
+        domain: result.url || result.link
+          ? new URL(result.url || result.link || "").hostname
+          : "",
       }));
 
-      
       return {
         query,
         site,
@@ -336,6 +308,18 @@ export const jinaSiteSearchTool = tool({
       };
     } catch (error) {
       console.error(`[jinaSiteSearchTool] Error:`, error);
+
+      // Handle JinaError specifically
+      if (error instanceof JinaError) {
+        return {
+          query,
+          site,
+          results: [],
+          error: error.message,
+          source: "jina-site",
+        };
+      }
+
       return {
         query,
         site,
@@ -350,7 +334,7 @@ export const jinaSiteSearchTool = tool({
 /**
  * jinaReaderTool - Deep content extraction from URLs
  *
- * Uses Jina's Reader API to extract full markdown content from any URL.
+ * Uses jinaReader helper from convex/lib/jina.ts.
  * Best for: reading articles, extracting full page content, deep analysis.
  */
 export const jinaReaderTool = tool({
@@ -375,34 +359,16 @@ export const jinaReaderTool = tool({
       }
 
       const startTime = Date.now();
-      const response = await fetch(`https://r.jina.ai/${url}`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "X-Return-Format": "markdown",
-        },
+      const content = await jinaReader(url, {
+        apiKey,
+        returnFormat: "markdown",
       });
       const duration = Date.now() - startTime;
 
-      
-
-      if (!response.ok) {
-        console.error(
-          `[jinaReaderTool] HTTP error: ${response.status} ${response.statusText}`,
-        );
-        return {
-          url,
-          content: "",
-          error: `HTTP ${response.status}: ${response.statusText}`,
-          source: "jina-reader",
-        };
-      }
-
-      const content = await response.text();
       const truncatedContent = content.slice(0, 5000);
 
       console.log(
-        `[jinaReaderTool] Exit - Success with ${content.length} chars (truncated to ${truncatedContent.length})`,
+        `[jinaReaderTool] Exit - Success with ${content.length} chars (truncated to ${truncatedContent.length}) in ${duration}ms`,
       );
       return {
         url,
@@ -411,6 +377,17 @@ export const jinaReaderTool = tool({
       };
     } catch (error) {
       console.error(`[jinaReaderTool] Error:`, error);
+
+      // Handle JinaError specifically
+      if (error instanceof JinaError) {
+        return {
+          url,
+          content: "",
+          error: error.message,
+          source: "jina-reader",
+        };
+      }
+
       return {
         url,
         content: "",
