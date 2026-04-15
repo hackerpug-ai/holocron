@@ -40,6 +40,7 @@ import {
 } from "./actions";
 import { synthesizeReport as llmSynthesizeReport, generateFindingSummary } from "./llm";
 import { scoreFindingsQuality } from "./actions";
+import { jinaReader } from "../lib/jina";
 
 // ============================================================================
 // Types
@@ -290,16 +291,11 @@ export const enrichPhase = internalAction({
       const enrichResults = await Promise.allSettled(
         findingsNeedingSummary.map(async (finding) => {
           try {
-            const response = await fetch(`https://r.jina.ai/${finding.url}`, {
-              headers: {
-                Accept: "text/plain",
-                "User-Agent": "Holocron-WhatsNew/1.0",
-              },
-              signal: AbortSignal.timeout(10000),
+            const content = await jinaReader(finding.url, {
+              apiKey: process.env.JINA_API_KEY!,
+              timeout: 10000,
             });
-            if (!response.ok) return null;
-            const text = await response.text();
-            return { url: finding.url, content: text.substring(0, 2000) };
+            return { url: finding.url, content: content.substring(0, 2000) };
           } catch {
             return null;
           }

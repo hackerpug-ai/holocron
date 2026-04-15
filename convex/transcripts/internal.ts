@@ -13,6 +13,7 @@ import { internal } from "../_generated/api";
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { fetchNodeTranscript } from "./nodeTranscript";
+import { jinaReader, JinaError } from "../lib/jina";
 
 /**
  * "use node" directive - runs in Node.js environment (not V8 isolate)
@@ -170,7 +171,8 @@ export const fetchYouTubeTranscript = internalAction({
       let accessToken: string | null = null;
       try {
         accessToken = await ctx.runAction(internal.transcripts.oauth.getAccessToken, {});
-      } catch {
+      } catch {// Silently ignore OAuth2 errors
+
         
       }
 
@@ -192,11 +194,13 @@ export const fetchYouTubeTranscript = internalAction({
         if (oauthResponse.ok) {
           transcriptText = await oauthResponse.text();
           console.log(`[YouTube] ✅ Transcript downloaded via OAuth2 (${transcriptText.length} chars)`);
-        } else {
+        } else {// No OAuth2 access token available
+
           console.warn(`[YouTube] OAuth2 download failed: ${oauthResponse.status}`);
           // Don't give up yet, try API key (might work for some public videos)
         }
-      } else {
+      } else {// No OAuth2 access token available
+
         
       }
 
@@ -210,7 +214,8 @@ export const fetchYouTubeTranscript = internalAction({
           transcriptText = await apiResponse.text();
           transcriptSource = "youtube_api";
           console.log(`[YouTube] ✅ Transcript downloaded via API key (${transcriptText.length} chars)`);
-        } else {
+        } else {// No OAuth2 access token available
+
           console.warn(`[YouTube] API key download failed: ${apiResponse.status}`);
         }
       }
@@ -352,24 +357,16 @@ export const fetchJinaTranscript = internalAction({
       // Rate limit before Jina Reader call
       await jinaRateLimiter.waitIfNeeded();
 
-      // Fetch page content via Jina Reader
-      const response = await fetch(`https://r.jina.ai/http://${url}`);
-
-      if (!response.ok) {
-        // Handle rate limit
-        if (response.status === 429) {
-          return {
-            hasTranscript: false,
-            error: "Jina Reader rate limit exceeded",
-          };
-        }
+      // Fetch page content via Jina Reader using the helper
+      const apiKey = process.env.JINA_API_KEY;
+      if (!apiKey) {
         return {
           hasTranscript: false,
-          error: `Jina Reader fetch failed: ${response.status}`,
+          error: "JINA_API_KEY not configured",
         };
       }
 
-      const content = await response.text();
+      const content = await jinaReader(url, { apiKey });
 
       // Extract transcript-like content from page
       const transcriptText = extractTranscriptFromContent(content);
@@ -403,6 +400,20 @@ export const fetchJinaTranscript = internalAction({
         },
       };
     } catch (error) {
+      // Handle JinaError specifically
+      if (error instanceof JinaError) {
+        if (error.type === 'rate_limit') {
+          return {
+            hasTranscript: false,
+            error: "Jina Reader rate limit exceeded",
+          };
+        }
+        return {
+          hasTranscript: false,
+          error: error.message,
+        };
+      }
+
       console.error("Jina Reader transcript error:", error);
       return {
         hasTranscript: false,

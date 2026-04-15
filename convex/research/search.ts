@@ -14,6 +14,7 @@
 
 import Exa from "exa-js";
 import { withRateLimit } from "./rateLimiter.js";
+import { jinaSearch, JinaError } from "../lib/jina.js";
 
 /**
  * Minimal ctx shape required for rate limiting (subset of ActionCtx)
@@ -471,7 +472,7 @@ async function executeExaSearch(query: string, ctx?: RateLimitCtx, _signal?: Abo
 }
 
 /**
- * Execute Jina search for a query
+ * Execute Jina search for a query using jinaSearch helper
  */
 async function executeJinaSearch(query: string, ctx?: RateLimitCtx, signal?: AbortSignal): Promise<StructuredSearchResult[]> {
   const apiKey = process.env.JINA_API_KEY;
@@ -480,33 +481,36 @@ async function executeJinaSearch(query: string, ctx?: RateLimitCtx, signal?: Abo
     return [];
   }
 
-  const encodedQuery = encodeURIComponent(query);
+  try {
+    // Apply rate limiting (100 RPM for free tier)
+    const fetchFn = async () => jinaSearch(query, {
+      apiKey,
+      timeout: 30000,
+      signal,
+      limit: 10,
+    });
 
-  // Apply rate limiting (100 RPM for free tier)
-  const fetchFn = async () => fetch(`https://s.jina.ai/?q=${encodedQuery}`, {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      Accept: "application/json",
-    },
-    signal,
-  });
-  const response = ctx
-    ? await withRateLimit(ctx, 'jina', fetchFn)
-    : await fetchFn();
+    const results = ctx
+      ? await withRateLimit(ctx, 'jina', fetchFn)
+      : await fetchFn();
 
-  if (!response.ok) {
-    throw new Error(`Jina search failed: ${response.status}`);
+    return results.map((result) => ({
+      source: "jina",
+      url: result.url || result.link || "",
+      title: result.title || "",
+      content: (result.content || result.description || "").slice(0, 500),
+      score: undefined,
+    }));
+  } catch (error) {
+    // Handle JinaError and other errors gracefully
+    if (error instanceof JinaError) {
+      console.warn(`[executeJinaSearch] Jina search failed: ${error.message}`);
+      return [];
+    }
+    // Log unexpected errors but don't propagate
+    console.error(`[executeJinaSearch] Unexpected error:`, error);
+    return [];
   }
-
-  const data = await response.json();
-  return (data.data || []).map((result: any) => ({
-    source: "jina",
-    url: result.url || result.link || "",
-    title: result.title || "",
-    content: (result.description || result.content || "").slice(0, 500),
-    score: undefined,
-  }));
 }
 
 /**
