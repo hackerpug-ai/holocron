@@ -34,6 +34,7 @@ import {
 } from "./validators";
 import type { AssimilationDimension, DimensionScores } from "./validators";
 import { stripMarkdownCodeBlock } from "../lib/json";
+import { jinaReader } from "../lib/jina";
 
 // ── processIteration ─────────────────────────────────────────────────────────
 
@@ -102,28 +103,19 @@ export const processIteration = internalAction({
       if (currentIteration === 0) {
 
         // Fetch repo structure via Jina Reader
-        const repoUrl = `https://r.jina.ai/${session.repositoryUrl}`;
-
         let repoStructure = "";
         try {
           const apiKey = process.env.JINA_API_KEY ?? "";
-          const repoResponse = await fetch(repoUrl, {
-            method: "GET",
-            headers: {
-              Authorization: `Bearer ${apiKey}`,
-              "X-Return-Format": "markdown",
-            },
+          repoStructure = await jinaReader(session.repositoryUrl, {
+            apiKey,
+            returnFormat: "markdown",
           });
-          if (repoResponse.ok) {
-            repoStructure = await repoResponse.text();
-            repoStructure = repoStructure.slice(0, 10000);
-          } else {
-            console.warn(
-              `[processIteration] Jina Reader returned ${repoResponse.status} — proceeding with empty structure`
-            );
-          }
-        } catch (fetchErr) {
-          console.warn(`[processIteration] Jina Reader fetch failed:`, fetchErr);
+          repoStructure = repoStructure.slice(0, 10000);
+        } catch (readErr) {
+          console.warn(
+            `[processIteration] Jina Reader failed — proceeding with empty structure:`,
+            readErr
+          );
         }
 
         // Build and run planning prompt
@@ -255,21 +247,15 @@ export const processIteration = internalAction({
           const fileUrl = `${session.repositoryUrl}/blob/main/${filePath}`;
           try {
             const apiKey = process.env.JINA_API_KEY ?? "";
-            const fileResponse = await fetch(`https://r.jina.ai/${fileUrl}`, {
-              method: "GET",
-              headers: {
-                Authorization: `Bearer ${apiKey}`,
-                "X-Return-Format": "markdown",
-              },
+            const fileContent = await jinaReader(fileUrl, {
+              apiKey,
+              returnFormat: "markdown",
             });
-            if (fileResponse.ok) {
-              const fileContent = await fileResponse.text();
-              repoContent += `\n\n### ${filePath}\n\n${fileContent.slice(0, 3000)}`;
-            }
-          } catch (fetchErr) {
+            repoContent += `\n\n### ${filePath}\n\n${fileContent.slice(0, 3000)}`;
+          } catch (readErr) {
             console.warn(
               `[processIteration] Failed to fetch key file ${filePath}:`,
-              fetchErr
+              readErr
             );
           }
         }
