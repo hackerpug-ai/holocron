@@ -1,5 +1,7 @@
 "use node";
 
+import { jinaReader, JinaError } from "../lib/jina";
+
 import { ActionCtx } from "../_generated/server";
 
 /**
@@ -63,20 +65,23 @@ export async function extractSpotifyAudioUrl(url: string): Promise<string | null
  */
 export async function extractApplePodcastsAudioUrl(url: string): Promise<string | null> {
   try {
-    const jinaUrl = `https://r.jina.ai/${url}`;
-    const response = await fetch(jinaUrl);
-
-    if (!response.ok) {
-      throw new Error(`Jina Reader error: ${response.statusText}`);
+    const apiKey = process.env.JINA_API_KEY;
+    if (!apiKey) {
+      console.error("JINA_API_KEY not configured");
+      return null;
     }
 
-    const text = await response.text();
+    const text = await jinaReader(url, { apiKey });
 
     // Apple Podcasts typically has audio URLs in specific formats
     const audioUrlMatch = text.match(/https?:\/\/[^\s"']+\.(mp3|m4a|m4b)/i);
     return audioUrlMatch ? audioUrlMatch[0] : null;
   } catch (error) {
-    console.error("Failed to extract Apple Podcasts audio URL:", error);
+    if (error instanceof JinaError) {
+      console.error(`Jina Reader error (${error.type}):`, error.message);
+    } else {
+      console.error("Failed to extract Apple Podcasts audio URL:", error);
+    }
     return null;
   }
 }

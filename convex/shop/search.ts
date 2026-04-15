@@ -10,6 +10,7 @@
 import Exa from "exa-js";
 import { withRateLimit } from "../research/rateLimiter.js";
 import { createHash } from "node:crypto";
+import { jinaSearch } from "../lib/jina.js";
 
 /**
  * Minimal ctx shape required for rate limiting (subset of ActionCtx)
@@ -553,28 +554,21 @@ async function executeJinaRetailerSearch(
   }
 
   const siteQuery = `${query} site:${retailer.domain}`;
-  const encodedQuery = encodeURIComponent(siteQuery);
 
-  const fetchFn = async () => fetch(`https://s.jina.ai/?q=${encodedQuery}`, {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      Accept: "application/json",
-    },
+  const searchFn = async () => jinaSearch(siteQuery, {
+    apiKey,
+    timeout: 15000,
+    limit: retailer.maxListingsPerSearch,
   });
-  const response = ctx
-    ? await withRateLimit(ctx, "jina", fetchFn)
-    : await fetchFn();
 
-  if (!response.ok) {
-    throw new Error(`Jina search failed: ${response.status}`);
-  }
+  const searchResults = ctx
+    ? await withRateLimit(ctx, "jina", searchFn)
+    : await searchFn();
 
-  const data = await response.json();
   const results: ShopSearchResult[] = [];
 
-  for (const result of data.data || []) {
-    const content = result.description || result.content || "";
+  for (const result of searchResults) {
+    const content = result.content || result.description || "";
     const productInfo = extractProductInfo(content, result.url || result.link || "", retailer.name);
 
     if (productInfo && productInfo.price) {
@@ -610,6 +604,7 @@ async function executeJinaRetailerSearch(
 
   return results.slice(0, retailer.maxListingsPerSearch);
 }
+
 
 /**
  * Deduplicate results by product hash
