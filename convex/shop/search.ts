@@ -10,7 +10,7 @@
 import Exa from "exa-js";
 import { withRateLimit } from "../research/rateLimiter.js";
 import { createHash } from "node:crypto";
-import { jinaSearch } from "../lib/jina.js";
+import { jinaSearch, JinaError } from "../lib/jina.js";
 
 /**
  * Minimal ctx shape required for rate limiting (subset of ActionCtx)
@@ -555,11 +555,27 @@ async function executeJinaRetailerSearch(
 
   const siteQuery = `${query} site:${retailer.domain}`;
 
-  const searchFn = async () => jinaSearch(siteQuery, {
-    apiKey,
-    timeout: 15000,
-    limit: retailer.maxListingsPerSearch,
-  });
+  const searchFn = async () => {
+    try {
+      return await jinaSearch(siteQuery, {
+        apiKey,
+        timeout: 15000,
+        limit: retailer.maxListingsPerSearch,
+      });
+    } catch (error) {
+      if (error instanceof JinaError) {
+        console.error(`[ShopSearch] JinaError for ${retailer.name}:`, {
+          type: error.type,
+          message: error.message,
+          statusCode: error.statusCode,
+        });
+        // Re-throw to be caught by outer error handler
+        throw error;
+      }
+      // Wrap unknown errors while preserving the cause
+      throw new Error(`Jina search failed for ${retailer.name}: ${error}`, { cause: error });
+    }
+  };
 
   const searchResults = ctx
     ? await withRateLimit(ctx, "jina", searchFn)

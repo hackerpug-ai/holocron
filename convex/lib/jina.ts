@@ -168,7 +168,7 @@ export async function jinaSearch(
     const rawData = await response.json();
 
     // Handle both array and object responses
-    const resultsArray = Array.isArray(rawData) ? rawData : rawData.results || [];
+    const resultsArray = Array.isArray(rawData) ? rawData : rawData.data || [];
 
     // Validate each result loosely (allow extra fields, make fields optional)
     const validatedResults = resultsArray
