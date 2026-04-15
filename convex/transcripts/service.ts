@@ -68,8 +68,6 @@ export const fetchTranscriptWithFallback = internalAction({
     const youtubeError = 'error' in youtubeResult ? youtubeResult.error : undefined;
     if (youtubeError) {
       console.log(`YouTube API failed for ${args.contentId}: ${youtubeError}, trying Jina Reader`);
-    } else {
-      
     }
 
     const jinaResult = await ctx.runAction(

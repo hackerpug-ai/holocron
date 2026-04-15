@@ -72,7 +72,7 @@ export const getAccessToken = internalAction({
   handler: async (): Promise<string | null> => {
     // Return cached token if valid (refresh 60 seconds early)
     if (cachedToken && Date.now() < tokenExpiry) {
-      const ttl = Math.floor((tokenExpiry - Date.now()) / 1000);
+      const _ttl = Math.floor((tokenExpiry - Date.now()) / 1000);
       return cachedToken.access_token;
     }
 
@@ -156,8 +156,8 @@ async function getServiceAccountToken(): Promise<string | null> {
     cachedToken = token;
     tokenExpiry = Date.now() + (token.expires_in - 60) * 1000;
 
-    const ttl = Math.floor((token.expires_in - 60) / 1000);
-    console.log(`[ServiceAccount] ✅ Authentication successful (expires in ${ttl}s)`);
+    const _ttl = Math.floor((token.expires_in - 60) / 1000);
+    console.log(`[ServiceAccount] ✅ Authentication successful (expires in ${_ttl}s)`);
 
     return token.access_token;
   } catch (error) {
@@ -213,8 +213,8 @@ async function getOAuth2Token(): Promise<string | null> {
     cachedToken = token;
     tokenExpiry = Date.now() + (token.expires_in - 60) * 1000;
 
-    const ttl = Math.floor((token.expires_in - 60) / 1000);
-    console.log(`[OAuth2] ✅ Token refreshed successfully (expires in ${ttl}s)`);
+    const _ttl = Math.floor((token.expires_in - 60) / 1000);
+    console.log(`[OAuth2] ✅ Token refreshed successfully (expires in ${_ttl}s)`);
 
     return token.access_token;
   } catch (error) {
