@@ -37,10 +37,16 @@ describe('REC-003: findRecommendationsAction', () => {
    */
   describe('AC-1: Synchronous return with typed shape', () => {
     it('findRecommendations happy path', async () => {
-      // Mock Jina Search API response
+      // Mock Jina Search API response (JSON format for new helper)
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        text: async () => `[Autism Career Coach] - [https://example.com/coach1] - Specialized career coaching for autism\n[SF Career Services] - [https://example.com/coach2] - San Francisco-based career support\n[Neurodiversity Works] - [https://example.com/coach3] - Neurodiverse job placement`,
+        json: async () => ({
+          data: [
+            { title: 'Autism Career Coach', url: 'https://example.com/coach1', description: 'Specialized career coaching for autism' },
+            { title: 'SF Career Services', url: 'https://example.com/coach2', description: 'San Francisco-based career support' },
+            { title: 'Neurodiversity Works', url: 'https://example.com/coach3', description: 'Neurodiverse job placement' },
+          ],
+        }),
       });
 
       // Mock Jina Reader responses
@@ -116,7 +122,7 @@ describe('REC-003: findRecommendationsAction', () => {
       // Mock Jina Search API with empty response
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        text: async () => '',
+        json: async () => ({ data: [] }),
       });
 
       const result = await findRecommendationsCore({ query: 'xyz123 nonexistent query', count: 5 });
@@ -170,7 +176,11 @@ describe('REC-003: findRecommendationsAction', () => {
       // Mock successful search and synthesis
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        text: async () => `[Test Coach] - [https://example.com] - Test`,
+        json: async () => ({
+          data: [
+            { title: 'Test Coach', url: 'https://example.com', description: 'Test' },
+          ],
+        }),
       });
       mockFetch.mockResolvedValueOnce({
         ok: true,
@@ -208,7 +218,11 @@ describe('REC-003: findRecommendationsAction', () => {
       // Mock successful search
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        text: async () => `[Test Coach] - [https://example.com] - Test`,
+        json: async () => ({
+          data: [
+            { title: 'Test Coach', url: 'https://example.com', description: 'Test' },
+          ],
+        }),
       });
       mockFetch.mockResolvedValueOnce({
         ok: true,
@@ -245,7 +259,11 @@ describe('REC-003: findRecommendationsAction', () => {
     it('returns 1 item when only 1 provider found', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        text: async () => `[Rare Specialist] - [https://example.com/rare] - Only one found`,
+        json: async () => ({
+          data: [
+            { title: 'Rare Specialist', url: 'https://example.com/rare', description: 'Only one found' },
+          ],
+        }),
       });
       mockFetch.mockResolvedValueOnce({
         ok: true,
@@ -281,7 +299,11 @@ describe('REC-003: findRecommendationsAction', () => {
     it('generateText called once when first parse succeeds', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        text: async () => `[Coach A] - [https://example.com/a] - Good coach`,
+        json: async () => ({
+          data: [
+            { title: 'Coach A', url: 'https://example.com/a', description: 'Good coach' },
+          ],
+        }),
       });
       mockFetch.mockResolvedValueOnce({
         ok: true,
@@ -317,7 +339,11 @@ describe('REC-003: findRecommendationsAction', () => {
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        text: async () => `[Coach B] - [https://example.com/b] - Great coach`,
+        json: async () => ({
+          data: [
+            { title: 'Coach B', url: 'https://example.com/b', description: 'Great coach' },
+          ],
+        }),
       });
       mockFetch.mockResolvedValueOnce({
         ok: true,

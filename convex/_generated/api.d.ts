@@ -106,6 +106,7 @@ import type * as improvements_search from "../improvements/search.js";
 import type * as lib_ai_anthropic_provider from "../lib/ai/anthropic_provider.js";
 import type * as lib_ai_embeddings_provider from "../lib/ai/embeddings_provider.js";
 import type * as lib_categories from "../lib/categories.js";
+import type * as lib_jina from "../lib/jina.js";
 import type * as lib_json from "../lib/json.js";
 import type * as lib_logger from "../lib/logger.js";
 import type * as lib_react from "../lib/react.js";
@@ -340,6 +341,7 @@ declare const fullApi: ApiFromModules<{
   "lib/ai/anthropic_provider": typeof lib_ai_anthropic_provider;
   "lib/ai/embeddings_provider": typeof lib_ai_embeddings_provider;
   "lib/categories": typeof lib_categories;
+  "lib/jina": typeof lib_jina;
   "lib/json": typeof lib_json;
   "lib/logger": typeof lib_logger;
   "lib/react": typeof lib_react;

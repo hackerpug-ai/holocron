@@ -50,6 +50,7 @@ import {
   type ConfidenceFactors,
   type ConfidenceStats,
 } from "./confidence";
+import { jinaSearch, jinaReader, jinaReaderBatch, JinaError } from "../lib/jina";
 import {
   generateIterationEmbedding,
   generateFindingEmbedding,
@@ -1519,24 +1520,15 @@ export const answerQuestionAction = internalAction({
     // eslint-disable-next-line no-useless-assignment -- Variable IS used in subsequent statements (false positive due to early returns)
     let searchResults: Array<{ title: string; url: string; content: string }> = [];
     try {
-      const encodedQuery = encodeURIComponent(query);
-      const response = await fetch(`https://s.jina.ai/?q=${encodedQuery}`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          Accept: "application/json",
-        },
+      const results = await jinaSearch(query, {
+        apiKey,
+        limit: numSources,
       });
 
-      if (!response.ok) {
-        throw new Error(`Jina Search API error: ${response.status} ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      searchResults = (data.data || []).slice(0, numSources).map((result: any) => ({
+      searchResults = results.map((result) => ({
         title: result.title || "",
         url: result.url || result.link || "",
-        content: (result.description || result.content || "").slice(0, 500),
+        content: (result.content || result.description || "").slice(0, 500),
       }));
     } catch (error) {
       console.error("[answerQuestionAction] Search error:", error);
@@ -1561,22 +1553,16 @@ export const answerQuestionAction = internalAction({
 
     for (const url of topUrls) {
       try {
-        const response = await fetch(`https://r.jina.ai/${url}`, {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            "X-Return-Format": "markdown",
-          },
+        const content = await jinaReader(url, {
+          apiKey,
+          returnFormat: "markdown",
         });
 
-        if (response.ok) {
-          const content = await response.text();
-          contents.push({
-            title: searchResults.find((r) => r.url === url)?.title || url,
-            content: content.slice(0, 3000), // Limit content for synthesis
-            url,
-          });
-        }
+        contents.push({
+          title: searchResults.find((r) => r.url === url)?.title || url,
+          content: content.slice(0, 3000), // Limit content for synthesis
+          url,
+        });
       } catch (error) {
         console.warn(`[answerQuestionAction] Failed to read ${url}:`, error);
       }
@@ -1682,57 +1668,49 @@ function buildEnhancedQuery(args: FindRecommendationsArgs): string {
 
 /**
  * Call Jina Search API and return results
+ *
+ * NOTE: This function now uses the centralized jinaSearch helper from ../lib/jina
+ * which provides consistent error handling, timeout support, and JinaError types.
  */
-async function jinaSearch(
+async function jinaSearchWrapper(
   query: string,
   options: { signal: AbortSignal }
 ): Promise<Array<{ title: string; url: string; snippet: string }>> {
   const apiKey = process.env.JINA_API_KEY;
   if (!apiKey) {
-    console.error("[jinaSearch] JINA_API_KEY not configured");
+    console.error("[jinaSearchWrapper] JINA_API_KEY not configured");
     return [];
   }
 
   try {
-    const searchUrl = `https://s.jina.ai/${encodeURIComponent(query)}`;
-    const response = await fetch(searchUrl, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-      },
+    const results = await jinaSearch(query, {
+      apiKey,
       signal: options.signal,
+      limit: 8, // Max 8 sources for recommendation synthesis
     });
 
-    if (!response.ok) {
-      console.error(`[jinaSearch] HTTP error: ${response.status} ${response.statusText}`);
-      return [];
-    }
-
-    const text = await response.text();
-    const lines = text.split("\n").filter((line) => line.trim());
-
-    const results: Array<{ title: string; url: string; snippet: string }> = [];
-
-    for (const line of lines) {
-      // Jina returns format: [title] - [url] - [content]
-      const match = line.match(/\[(.*?)\] - \[(.*?)\] - (.*)/);
-      if (match) {
-        results.push({
-          title: match[1],
-          url: match[2],
-          snippet: match[3].slice(0, 200),
-        });
-      }
-    }
-
-    return results.slice(0, 8); // Max 8 sources for recommendation synthesis
+    return results.map((result) => ({
+      title: result.title || "",
+      url: result.url || result.link || "",
+      snippet: (result.content || result.description || "").slice(0, 200),
+    }));
   } catch (error) {
+    if (error instanceof JinaError) {
+      console.error(`[jinaSearchWrapper] JinaError (${error.type}):`, error.message);
+      // Return empty array for non-critical errors
+      if (error.type === "rate_limit" || error.type === "network") {
+        return [];
+      }
+      // Re-throw auth errors
+      throw error;
+    }
+
     const errorMessage = error instanceof Error ? error.message : String(error);
     if (errorMessage.includes("abort") || errorMessage.includes("The operation was aborted")) {
-      console.warn("[jinaSearch] Request aborted");
+      console.warn("[jinaSearchWrapper] Request aborted");
       throw error; // Re-throw abort errors so they can be caught by the outer try-catch
     } else {
-      console.error("[jinaSearch] Error:", error);
+      console.error("[jinaSearchWrapper] Error:", error);
       return [];
     }
   }
@@ -1740,6 +1718,9 @@ async function jinaSearch(
 
 /**
  * Read multiple URLs in parallel using Jina Reader
+ *
+ * NOTE: This function now uses the centralized jinaReader helper from ../lib/jina
+ * which provides consistent error handling, timeout support, and JinaError types.
  */
 async function parallelJinaReader(
   sources: Array<{ url: string; title: string; snippet: string }>,
@@ -1751,37 +1732,46 @@ async function parallelJinaReader(
     return "";
   }
 
-  const readPromises = sources.slice(0, 5).map(async (source) => {
-    try {
-      const readerUrl = `https://r.jina.ai/${encodeURIComponent(source.url)}`;
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), options.timeoutMs);
+  const urls = sources.slice(0, 5).map((s) => s.url);
 
-      const response = await fetch(readerUrl, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          Accept: "text/plain",
-        },
-        signal: controller.signal,
-      });
+  try {
+    // Use jinaReaderBatch for parallel reading with individual error handling
+    const contentMap = await jinaReaderBatch(urls, {
+      apiKey,
+      timeout: options.timeoutMs,
+      signal: options.signal,
+    });
 
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        return null;
+    // Build results in the same order as input sources
+    const results: string[] = [];
+    for (const source of sources.slice(0, 5)) {
+      const content = contentMap.get(source.url);
+      if (content) {
+        results.push(`## ${source.title}\n${content.slice(0, 2000)}`); // Limit to 2k chars per source
       }
-
-      const content = await response.text();
-      return `## ${source.title}\n${content.slice(0, 2000)}`; // Limit to 2k chars per source
-    } catch (error) {
-      console.warn(`[parallelJinaReader] Failed to read ${source.url}:`, error);
-      return null;
     }
-  });
 
-  const results = await Promise.all(readPromises);
-  return results.filter((r): r is string => r !== null).join("\n\n");
+    return results.join("\n\n");
+  } catch (error) {
+    if (error instanceof JinaError) {
+      console.error(`[parallelJinaReader] JinaError (${error.type}):`, error.message);
+      // Return empty string for non-critical errors
+      if (error.type === "rate_limit" || error.type === "network") {
+        return "";
+      }
+      // Re-throw auth errors
+      throw error;
+    }
+
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    if (errorMessage.includes("abort") || errorMessage.includes("The operation was aborted")) {
+      console.warn("[parallelJinaReader] Request aborted");
+      throw error;
+    } else {
+      console.error("[parallelJinaReader] Error:", error);
+      return "";
+    }
+  }
 }
 
 /**
@@ -1853,7 +1843,7 @@ export async function findRecommendationsCore(args: FindRecommendationsArgs): Pr
     const enhancedQuery = buildEnhancedQuery(args);
 
     // Step 2: Call Jina Search
-    const sources = await jinaSearch(enhancedQuery, { signal: controller.signal });
+    const sources = await jinaSearchWrapper(enhancedQuery, { signal: controller.signal });
     console.log(`[findRec] sources found: ${sources.length}`);
 
     // Step 3: Handle empty sources
