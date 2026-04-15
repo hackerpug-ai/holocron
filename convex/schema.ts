@@ -72,6 +72,7 @@ export default defineSchema({
     documentId: v.optional(v.id("documents")),
     deleted: v.optional(v.boolean()),
     toolCallId: v.optional(v.string()),
+    reasoning: v.optional(v.string()), // AGENT-01: Store LLM reasoning for transparency
     createdAt: v.number(),
   }).index("by_conversation", ["conversationId", "createdAt"]),
 

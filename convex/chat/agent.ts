@@ -36,6 +36,120 @@ import { generateTextWithReAct } from "../lib/react";
 import { startsWithRefinementPhrase } from "./refinement";
 
 // ---------------------------------------------------------------------------
+// Continuation Rule Configuration (AGENT-01)
+// ---------------------------------------------------------------------------
+
+/**
+ * ContinuationRule
+ *
+ * Defines how to handle LLM follow-up after a tool completes.
+ * Used to generalize tool-specific retry logic (e.g., find_recommendations).
+ */
+type ContinuationRule = {
+  /** Tool name this rule applies to */
+  toolName: string;
+  /** Check if the rule should apply based on tool result */
+  shouldApply: (result: {
+    itemCount?: number;
+    error?: string | null;
+    status: string;
+  }) => boolean;
+  /** Generate continuation prompt based on result state */
+  generatePrompt: (result: {
+    itemCount?: number;
+    error?: string | null;
+    status: string;
+  }) => { systemPrompt: string; disableTools: boolean };
+};
+
+/**
+ * CONTINUATION_RULES
+ *
+ * Configurable continuation policies for tools that need special handling.
+ * Generalizes the hardcoded find_recommendations logic (REC-005).
+ */
+const CONTINUATION_RULES: Record<string, ContinuationRule> = {
+  find_recommendations: {
+    toolName: "find_recommendations",
+    shouldApply: (result) => result.status === "completed",
+    generatePrompt: (result) => {
+      const itemCount = result.itemCount ?? 0;
+
+      if (itemCount > 0) {
+        // Non-empty: force a text-only acknowledgment. Strip tools so the
+        // model physically cannot re-call find_recommendations or any other
+        // tool on the same turn.
+        return {
+          systemPrompt:
+            'IMPORTANT CONTINUATION RULE: The find_recommendations tool has ALREADY been called and the user has ALREADY seen the result list in the UI. ' +
+            'You MUST respond with plain text only. Do NOT call any tools. ' +
+            'In 1-2 sentences max, acknowledge the list and offer to save it to their KB if they want.',
+          disableTools: true,
+        };
+      } else {
+        // Empty: allow exactly one broadened retry. Tell the model to
+        // loosen constraints or rephrase rather than giving up or
+        // announcing intent without acting.
+        return {
+          systemPrompt:
+            'IMPORTANT CONTINUATION RULE: find_recommendations just returned ZERO results. ' +
+            'Retry ONCE with find_recommendations using a broader query: drop the most specific constraint, widen the location, or rephrase more generically. ' +
+            'Do not announce your intent in text before calling the tool — call it directly. ' +
+            'If this retry also fails, respond with plain text explaining you could not find matches.',
+          disableTools: false,
+        };
+      }
+    },
+  },
+};
+
+/**
+ * applyContinuationRule
+ *
+ * Applies a continuation rule for a tool if one exists.
+ * Returns modified system prompt and tool map for the LLM continuation.
+ *
+ * @param priorTool - The most recent completed tool call
+ * @param baseSystemPrompt - The specialist's base system prompt
+ * @returns { systemPrompt, disableTools } or null if no rule applies
+ */
+function applyContinuationRule(
+  priorTool: { toolName: string; resultMessageId?: string },
+  baseSystemPrompt: string,
+  ctx: ActionCtx,
+): { systemPrompt: string; disableTools: boolean } | null {
+  const rule = CONTINUATION_RULES[priorTool.toolName];
+  if (!rule || !priorTool.resultMessageId) {
+    return null;
+  }
+
+  // Fetch the result message to inspect the tool outcome
+  const resultMessage = ctx.runQuery(api.chatMessages.queries.get, {
+    id: priorTool.resultMessageId,
+  });
+
+  if (!resultMessage?.cardData) {
+    return null;
+  }
+
+  const cardData = resultMessage.cardData as
+    | { card_type?: string; items?: unknown[]; error?: string }
+    | undefined;
+
+  const result = {
+    itemCount: Array.isArray(cardData?.items) ? cardData.items.length : 0,
+    error: cardData?.error,
+    status: "completed",
+  };
+
+  if (!rule.shouldApply(result)) {
+    return null;
+  }
+
+  return rule.generatePrompt(result);
+}
+
+// ---------------------------------------------------------------------------
 // detectRefinement — deterministic specialist inheritance
 // ---------------------------------------------------------------------------
 
@@ -203,11 +317,15 @@ async function handleLlmResult(
   // Handle plain text response
   const text = result.text?.trim() ?? "";
   if (text) {
+    // AGENT-01: Extract reasoning text for transparency
+    const reasoningText = result.reasoningText?.trim();
+
     await ctx.runMutation(api.chatMessages.mutations.create, {
       conversationId,
       role: "agent",
       content: text,
       messageType: "text",
+      ...(reasoningText && { reasoning: reasoningText }),
     });
   } else {
     // Fallback: LLM returned neither text nor tool calls
