@@ -1,0 +1,114 @@
+{
+  "epic_id": "rich-recommendation-engine",
+  "version": 1,
+  "updated_at": "2026-04-16T23:08:00Z",
+  "scheduler": {
+    "mode": "loop",
+    "effective_concurrency": 4,
+    "ready_queue": [],
+    "active_tasks": [],
+    "terminal_tasks": [
+      "REC-UPG-01",
+      "REC-UPG-02"
+    ]
+  },
+  "tasks": {
+    "REC-UPG-01": {
+      "title": "Expand the recommendation synthesis contract for additive trust metadata",
+      "status": "completed",
+      "assignee": "pi-agent-implementer",
+      "reviewer": "pi-agent-reviewer",
+      "depends_on": [],
+      "write_scope": [
+        "convex/chat/specialistPrompts.ts",
+        "convex/research/actions.ts",
+        "convex/research/actions.test.ts"
+      ],
+      "implementer_agent_id": "",
+      "reviewer_agent_id": "019d981e-8c08-7290-a027-30228ae967dd",
+      "attempt_count": 1,
+      "review_cycle_count": 1,
+      "last_heartbeat_at": "2026-04-16T00:00:00Z",
+      "last_event": "task_completed",
+      "blocker_class": "none",
+      "next_action": "complete_task",
+      "evidence_path": ".worktrees/rec-upg-01/.tmp/REC-UPG-01/",
+      "notes": [
+        "normalized from task specialist pi-agent-planner",
+        "wrapper_not_found",
+        "orchestrator commit 20990bc29237ff67e0143ae95bc0c13d99844342",
+        "merged to main",
+        "reviewer fallback worker (Carson) approved"
+      ]
+    },
+    "REC-UPG-02": {
+      "title": "Add a domain-agnostic multi-platform discovery fan-out helper",
+      "status": "completed",
+      "assignee": "convex-implementer",
+      "reviewer": "convex-reviewer",
+      "depends_on": [
+        "REC-UPG-01"
+      ],
+      "write_scope": [
+        "convex/research/platformSearch.ts",
+        "convex/research/platformSearch.test.ts",
+        "convex/research/actions.ts",
+        "convex/research/actions.test.ts"
+      ],
+      "implementer_agent_id": "019d981b-d01b-70d0-9ecb-04678123a2b6",
+      "reviewer_agent_id": "019d981e-8c08-7290-a027-30228ae967dd",
+      "attempt_count": 1,
+      "review_cycle_count": 1,
+      "last_heartbeat_at": "2026-04-16T22:49:00Z",
+      "last_event": "review_approved",
+      "blocker_class": "none",
+      "next_action": "complete_task",
+      "evidence_path": ".worktrees/rec-upg-02/.tmp/REC-UPG-02/",
+      "feedback_thread": [],
+      "notes": [
+        "normalized from task specialist convex-planner",
+        "wrapper_not_found",
+        "resume from preserved partial work in .worktrees/rec-upg-02",
+        "preflight preserve commit failed and was absorbed into REC-UPG-02 remediation",
+        "typecheck failed on main: cannot find module ./platformSearch and discovery source mapping has unresolved typing",
+        "current-branch dirty changes map cleanly to REC-UPG-02 write scope",
+        "implementer agent 019d981b-d01b-70d0-9ecb-04678123a2b6 dispatched to continue remediation in existing worktree",
+        "orchestrator pre-commit gates passed in worktree",
+        "orchestrator commit c6a11d2f34f97cfeee63ed4720f68f5f45e0a1b7 created on feat/rec-upg-02",
+        "first reviewer session went stale before emitting a timely heartbeat",
+        "final reviewer approved commit c6a11d2f34f97cfeee63ed4720f68f5f45e0a1b7 with all AC and TC passing"
+      ]
+    },
+    "REC-UPG-03": {
+      "title": "Implement second-pass enrichment and refactor findRecommendationsCore() into a two-pass pipeline",
+      "status": "pending",
+      "assignee": "convex-implementer",
+      "reviewer": "convex-reviewer",
+      "depends_on": [
+        "REC-UPG-01",
+        "REC-UPG-02"
+      ],
+      "write_scope": [
+        "convex/research/enrichment.ts",
+        "convex/research/enrichment.test.ts",
+        "convex/research/actions.ts",
+        "convex/research/actions.test.ts",
+        "convex/research/platformSearch.ts"
+      ],
+      "implementer_agent_id": "",
+      "reviewer_agent_id": "",
+      "attempt_count": 0,
+      "review_cycle_count": 0,
+      "last_heartbeat_at": "",
+      "last_event": "planned",
+      "blocker_class": "none",
+      "next_action": "dispatch_implementer",
+      "evidence_path": "",
+      "feedback_thread": [],
+      "notes": [
+        "normalized from task specialist convex-planner",
+        "wrapper_not_found"
+      ]
+    }
+  }
+}
