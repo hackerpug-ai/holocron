@@ -396,6 +396,73 @@ describe('REC-003: findRecommendationsAction', () => {
       expect(result.items).toEqual([]);
       expect(result.sources).toEqual([]);
     });
+
+    it('returns fallback when abort occurs during second-pass enrichment', async () => {
+      const realSetTimeout = global.setTimeout;
+      let abortMainTimer: (() => void) | null = null;
+      const setTimeoutSpy = vi
+        .spyOn(global, 'setTimeout')
+        .mockImplementation(((handler: TimerHandler, timeout?: number, ...args: any[]) => {
+          if (timeout === RECOMMENDATION_TOTAL_TIMEOUT_MS) {
+            abortMainTimer = () => {
+              if (typeof handler === 'function') {
+                handler(...args);
+              }
+            };
+            return 1 as any;
+          }
+          return realSetTimeout(handler as any, timeout as any, ...args);
+        }) as any);
+
+      mockPlatformSearches([
+        [{ title: 'Coach Timeout', url: 'https://example.com/timeout', description: 'Test' }],
+        [],
+        [],
+        [],
+        [],
+      ]);
+      mockReaderResponses(['Timeout coach content']);
+
+      const { generateText } = await import('ai');
+      vi.mocked(generateText).mockResolvedValueOnce({
+        text: JSON.stringify({
+          items: [
+            {
+              name: 'Coach Timeout',
+              description: 'Needs enrichment',
+              whyRecommended: 'No platform links yet',
+            },
+          ],
+          sources: [{ title: 'Coach Timeout', url: 'https://example.com/timeout', snippet: 'Test' }],
+          query: 'career coach timeout',
+          durationMs: 1000,
+        }),
+      } as any);
+
+      mockFetch.mockImplementationOnce(async () => {
+        abortMainTimer?.();
+        throw new DOMException('The operation was aborted', 'AbortError');
+      });
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ data: [] }),
+      });
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ data: [] }),
+      });
+
+      const result = await findRecommendationsCore({ query: 'career coach timeout', count: 1 });
+
+      expect(result).toEqual({
+        items: [],
+        sources: [],
+        query: 'career coach timeout',
+        durationMs: expect.any(Number),
+      });
+
+      setTimeoutSpy.mockRestore();
+    });
   });
 
   /**

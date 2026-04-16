@@ -67,6 +67,31 @@ const PLATFORM_QUERIES: ReadonlyArray<{ platform: string; site?: string }> = [
   { platform: "facebook", site: "facebook.com" },
 ];
 
+function createAbortError(): Error {
+  try {
+    return new DOMException("The operation was aborted", "AbortError");
+  } catch {
+    const error = new Error("The operation was aborted");
+    error.name = "AbortError";
+    return error;
+  }
+}
+
+function isAbortLikeError(error: unknown): boolean {
+  if (error instanceof DOMException && error.name === "AbortError") {
+    return true;
+  }
+  if (error instanceof Error) {
+    return (
+      error.name === "AbortError" ||
+      error.message.includes("aborted") ||
+      error.message.includes("AbortError")
+    );
+  }
+  const asString = String(error);
+  return asString.includes("aborted") || asString.includes("AbortError");
+}
+
 function hasUsablePlatformLinks(item: RecommendationItemForEnrichment): boolean {
   if (!item.platformLinks || item.platformLinks.length === 0) {
     return false;
@@ -311,11 +336,11 @@ async function defaultExecuteSearch(
 ): Promise<JinaSearchResult[]> {
   return jinaSearch(query.query, {
     apiKey: options.apiKey,
-      signal: options.signal,
-      site: query.site,
-      limit: ENTITY_SEARCH_LIMIT,
-      timeout: 5_000,
-    });
+    signal: options.signal,
+    site: query.site,
+    limit: ENTITY_SEARCH_LIMIT,
+    timeout: 5_000,
+  });
 }
 
 async function defaultReadUrls(
@@ -356,6 +381,10 @@ export async function selectivelyEnrichRecommendations(
   args: SelectiveEnrichmentArgs,
   deps: EnrichmentDeps = {},
 ): Promise<RecommendationItemForEnrichment[]> {
+  if (args.signal?.aborted) {
+    throw createAbortError();
+  }
+
   const apiKey = args.apiKey ?? process.env.JINA_API_KEY;
   const plan = buildSelectiveEnrichmentPlan(items);
   if (!apiKey || plan.length === 0) {
@@ -376,9 +405,18 @@ export async function selectivelyEnrichRecommendations(
           executeSearch(query, { apiKey, signal: args.signal }),
         ),
       );
-      const searchResults = searchSettled.map((result) =>
-        result.status === "fulfilled" ? result.value : [],
-      );
+      const searchResults = searchSettled.map((result) => {
+        if (result.status === "fulfilled") {
+          return result.value;
+        }
+        if (args.signal?.aborted) {
+          throw createAbortError();
+        }
+        if (isAbortLikeError(result.reason)) {
+          throw result.reason;
+        }
+        return [];
+      });
 
       const candidates = searchResults
         .flatMap((results, queryIndex) =>
@@ -411,9 +449,20 @@ export async function selectivelyEnrichRecommendations(
   );
 
   for (const result of settled) {
-    if (result.status === "fulfilled") {
-      nextItems[result.value.index] = result.value.item;
+    if (args.signal?.aborted) {
+      throw createAbortError();
     }
+    if (result.status === "rejected") {
+      if (isAbortLikeError(result.reason)) {
+        throw result.reason;
+      }
+      continue;
+    }
+    nextItems[result.value.index] = result.value.item;
+  }
+
+  if (args.signal?.aborted) {
+    throw createAbortError();
   }
 
   return nextItems;
