@@ -3,14 +3,17 @@ TASK: REC-UPG-03 - Implement second-pass enrichment and refactor `findRecommenda
 ================================================================================
 
 TASK_TYPE: FEATURE
-STATUS: Backlog
-TDD_PHASE: RED
-CURRENT_AC: AC-1
+STATUS: Completed
+TDD_PHASE: GREEN
+CURRENT_AC: AC-5
 PRIORITY: P0
 EFFORT: L
 TYPE: DEV
 ITERATION: 1
 AGENT: convex-planner
+COMPLETED_AT: 2026-04-16
+ORCHESTRATOR_COMMIT: f0a563e18895bc1fcb7a4d0ee9fcfd33ee9a1fca
+REVIEWER: Codex adversarial review
 
 --------------------------------------------------------------------------------
 GOAL
@@ -31,11 +34,11 @@ DELIVERABLE
 DONE WHEN
 --------------------------------------------------------------------------------
 
-- [ ] Incomplete synthesized items are selectively enriched.
-- [ ] Already-rich items are skipped.
-- [ ] One entity or platform failure does not collapse the response.
-- [ ] Timeout cap is raised to `45_000` with the same top-level result shape.
-- [ ] Legacy assertions continue to pass.
+- [x] Incomplete synthesized items are selectively enriched.
+- [x] Already-rich items are skipped.
+- [x] One entity or platform failure does not collapse the response.
+- [x] Timeout cap is raised to `45_000` with the same top-level result shape.
+- [x] Legacy assertions continue to pass.
 
 --------------------------------------------------------------------------------
 OUT OF SCOPE
@@ -80,11 +83,11 @@ TEST CRITERIA
 
 | # | Boolean Statement | Maps To AC | Verify | Status |
 |---|---|---|---|---|
-| TC-1 | an item missing `platformLinks` gains at least one direct platform URL when enrichment evidence exists | AC-1 | `pnpm exec vitest run convex/research/enrichment.test.ts convex/research/actions.test.ts` | [ ] TRUE [ ] FALSE |
-| TC-2 | items that already include `platformLinks` are not re-searched | AC-2 | `pnpm exec vitest run convex/research/enrichment.test.ts` | [ ] TRUE [ ] FALSE |
-| TC-3 | one rejected enrichment search does not reduce the count of other successful items | AC-3 | `pnpm exec vitest run convex/research/enrichment.test.ts convex/research/actions.test.ts` | [ ] TRUE [ ] FALSE |
-| TC-4 | `findRecommendationsCore` uses a `45_000` timeout cap and returns fallback shape on abort | AC-4 | `pnpm exec vitest run convex/research/actions.test.ts` | [ ] TRUE [ ] FALSE |
-| TC-5 | legacy recommendation assertions remain true after the refactor | AC-5 | `pnpm exec vitest run convex/research/actions.test.ts` | [ ] TRUE [ ] FALSE |
+| TC-1 | an item missing `platformLinks` gains at least one direct platform URL when enrichment evidence exists | AC-1 | `pnpm exec vitest run convex/research/enrichment.test.ts convex/research/actions.test.ts` | [x] TRUE [ ] FALSE |
+| TC-2 | items that already include `platformLinks` are not re-searched | AC-2 | `pnpm exec vitest run convex/research/enrichment.test.ts` | [x] TRUE [ ] FALSE |
+| TC-3 | one rejected enrichment search does not reduce the count of other successful items | AC-3 | `pnpm exec vitest run convex/research/enrichment.test.ts convex/research/actions.test.ts` | [x] TRUE [ ] FALSE |
+| TC-4 | `findRecommendationsCore` uses a `45_000` timeout cap and returns fallback shape on abort | AC-4 | `pnpm exec vitest run convex/research/actions.test.ts` | [x] TRUE [ ] FALSE |
+| TC-5 | legacy recommendation assertions remain true after the refactor | AC-5 | `pnpm exec vitest run convex/research/actions.test.ts` | [x] TRUE [ ] FALSE |
 
 --------------------------------------------------------------------------------
 READING LIST
@@ -173,3 +176,23 @@ NOTES
 - Specialist assignment: `convex-planner`
 - Rationale: this is the core backend pipeline refactor and timeout/merge policy work
 
+--------------------------------------------------------------------------------
+REVIEW STATE (2026-04-16)
+--------------------------------------------------------------------------------
+
+- Commit reviewed: `f0a563e18895bc1fcb7a4d0ee9fcfd33ee9a1fca`
+- Verdict: APPROVED
+- Stub/placeholder scan: no new stubbed or placeholder behavior in touched implementation files
+- Review note: initial implementation failed AC-4 because aborts during second-pass enrichment were swallowed; final approval is for the remediated branch head that propagates abort-like failures and adds focused abort coverage
+
+Acceptance Criteria Status:
+- AC-1: PASS (`convex/research/enrichment.ts`, `convex/research/enrichment.test.ts`, `convex/research/actions.test.ts`)
+- AC-2: PASS (`convex/research/enrichment.ts`, `convex/research/enrichment.test.ts`)
+- AC-3: PASS (`convex/research/enrichment.ts`, `convex/research/enrichment.test.ts`, `convex/research/actions.test.ts`)
+- AC-4: PASS (`convex/research/enrichment.ts`, `convex/research/actions.ts`, `convex/research/actions.test.ts`)
+- AC-5: PASS (`convex/research/actions.test.ts`)
+
+Verification Commands (reviewer re-run):
+- `pnpm exec vitest run convex/research/enrichment.test.ts convex/research/actions.test.ts` (pass, 2 files / 19 tests)
+- `pnpm typecheck` (pass)
+- `pnpm exec eslint convex/research/enrichment.ts convex/research/enrichment.test.ts convex/research/actions.ts convex/research/actions.test.ts` (pass)
