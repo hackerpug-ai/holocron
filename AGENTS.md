@@ -1,4 +1,4 @@
-# Holocron - Claude Code Configuration
+# Holocron - Agent Rules
 
 All project rules, domain experts, coding standards, and policies live in **RULES.md**.
 
