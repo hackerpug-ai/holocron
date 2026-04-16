@@ -26,6 +26,36 @@ When dispatching subagents for planning, review, or implementation, prefer these
 
 **Dispatch priority**: Always check this table first. Only fall back to generic `general-purpose` agents when no domain expert matches the task.
 
+## Codex Runtime Overrides
+
+When running in a Codex session backed by a ChatGPT account, some built-in specialist `spawn_agent` roles may be pinned to models that are unavailable in that environment. Preserve the logical specialist mapping above, but dispatch through these supported runtime overrides instead of the unavailable pinned roles.
+
+Verified working model overrides in this environment:
+- `gpt-5.3-codex`
+- `gpt-5.4-mini`
+
+Do not use these unsupported model overrides in this environment:
+- `gpt-5.2-codex`
+- `gpt-5.1-codex-mini`
+
+Runtime dispatch rules for Codex:
+
+| Logical Specialist | Runtime Agent Type | Model Override | When to Use |
+|---|---|---|---|
+| `convex-planner` | `default` | `gpt-5.4-mini` | Convex architecture, schema, API planning |
+| `convex-implementer` | `worker` | `gpt-5.3-codex` | Convex queries, mutations, actions, migrations |
+| `convex-reviewer` | `default` | `gpt-5.3-codex` | Convex review, API/data validation, TDD evidence review |
+| `pi-agent-planner` | `default` | `gpt-5.4-mini` | Agentic workflow/tool planning |
+| `pi-agent-implementer` | `worker` | `gpt-5.3-codex` | Agentic/AI logic implementation |
+| `pi-agent-reviewer` | `default` | `gpt-5.3-codex` | Agentic/AI logic review |
+
+Runtime policy:
+- Keep the logical specialist ownership in task specs, plans, and ledgers.
+- Apply the runtime override only at dispatch time.
+- For implementation tasks, prefer `worker` so the orchestrator can enforce file ownership and non-revert rules.
+- For review tasks, prefer `default` plus an explicit adversarial review prompt.
+- If `gpt-5.3-codex` is unavailable, fall back to `gpt-5.4-mini` before falling back to an untyped generic worker with no model override.
+
 ---
 
 # ATTENTION ALL REVIEWERS
