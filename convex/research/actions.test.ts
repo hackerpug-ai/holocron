@@ -13,6 +13,10 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { findRecommendationsAction, findRecommendations, findRecommendationsCore } from './actions';
+import {
+  RecommendationSynthesisSchema,
+  RECOMMENDATION_SYNTHESIS_PROMPT,
+} from '../chat/specialistPrompts';
 
 // Mock fetch globally
 const mockFetch = vi.fn();
@@ -27,6 +31,104 @@ describe('REC-003: findRecommendationsAction', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.clearAllTimers();
+  });
+
+  describe('REC-UPG-01: additive trust metadata contract', () => {
+    it('parses legacy payloads without trust metadata', () => {
+      const legacyPayload = {
+        items: [
+          {
+            name: 'Legacy Coach',
+            description: 'Legacy recommendation',
+            whyRecommended: 'Matches the user query',
+            rating: 4.8,
+            location: 'San Francisco, CA',
+            pricing: '$$$',
+            contact: {
+              url: 'https://example.com/legacy',
+            },
+          },
+        ],
+        sources: [
+          {
+            title: 'Legacy Coach',
+            url: 'https://example.com/legacy',
+            snippet: 'Legacy result snippet',
+          },
+        ],
+        query: 'legacy query',
+        durationMs: 250,
+      };
+
+      expect(RecommendationSynthesisSchema.safeParse(legacyPayload).success).toBe(true);
+    });
+
+    it('parses rich payloads with reviewCount, platformLinks, and sourcePlatform', () => {
+      const richPayload = {
+        items: [
+          {
+            name: 'Rich Coach',
+            description: 'Rich recommendation',
+            whyRecommended: 'Strong reviews across platforms',
+            rating: 4.9,
+            reviewCount: 187,
+            sourcePlatform: 'yelp',
+            platformLinks: [
+              {
+                platform: 'yelp',
+                url: 'https://www.yelp.com/biz/rich-coach',
+                rating: 4.9,
+                reviewCount: 142,
+              },
+              {
+                platform: 'google',
+                url: 'https://maps.google.com/?cid=rich-coach',
+                reviewCount: 45,
+              },
+            ],
+          },
+        ],
+        sources: [
+          {
+            title: 'Rich Coach',
+            url: 'https://example.com/rich',
+            snippet: 'Rich result snippet',
+          },
+        ],
+        query: 'rich query',
+        durationMs: 400,
+      };
+
+      const parsed = RecommendationSynthesisSchema.safeParse(richPayload);
+
+      expect(parsed.success).toBe(true);
+      if (parsed.success) {
+        expect(parsed.data.items[0].reviewCount).toBe(187);
+        expect(parsed.data.items[0].sourcePlatform).toBe('yelp');
+        expect(parsed.data.items[0].platformLinks).toEqual([
+          {
+            platform: 'yelp',
+            url: 'https://www.yelp.com/biz/rich-coach',
+            rating: 4.9,
+            reviewCount: 142,
+          },
+          {
+            platform: 'google',
+            url: 'https://maps.google.com/?cid=rich-coach',
+            reviewCount: 45,
+          },
+        ]);
+      }
+    });
+
+    it('requests trust metadata and omission of unsupported fields in the prompt', () => {
+      expect(RECOMMENDATION_SYNTHESIS_PROMPT).toContain('"reviewCount": number_or_omit');
+      expect(RECOMMENDATION_SYNTHESIS_PROMPT).toContain('"platformLinks": [');
+      expect(RECOMMENDATION_SYNTHESIS_PROMPT).toContain('"sourcePlatform": "string_or_omit"');
+      expect(RECOMMENDATION_SYNTHESIS_PROMPT).toContain('reviewCount, platformLinks, and sourcePlatform');
+      expect(RECOMMENDATION_SYNTHESIS_PROMPT).toContain('OMIT unsupported optional fields');
+      expect(RECOMMENDATION_SYNTHESIS_PROMPT).toContain('never fabricate');
+    });
   });
 
   /**
@@ -74,6 +176,16 @@ describe('REC-003: findRecommendationsAction', () => {
               description: 'Specialized career coaching for autism',
               whyRecommended: 'Expertise in neurodiversity',
               rating: 4.5,
+              reviewCount: 87,
+              sourcePlatform: 'yelp',
+              platformLinks: [
+                {
+                  platform: 'yelp',
+                  url: 'https://www.yelp.com/biz/autism-career-coach',
+                  rating: 4.5,
+                  reviewCount: 87,
+                },
+              ],
             },
             {
               name: 'SF Career Services',
@@ -108,6 +220,18 @@ describe('REC-003: findRecommendationsAction', () => {
       expect(result.items.length).toBeLessThanOrEqual(7);
       expect(typeof result.durationMs).toBe('number');
       expect(result.durationMs).toBeGreaterThanOrEqual(0); // Can be 0 in tests with instant mocks
+      expect(result.items[0]).toMatchObject({
+        reviewCount: 87,
+        sourcePlatform: 'yelp',
+        platformLinks: [
+          {
+            platform: 'yelp',
+            url: 'https://www.yelp.com/biz/autism-career-coach',
+            rating: 4.5,
+            reviewCount: 87,
+          },
+        ],
+      });
     });
   });
 

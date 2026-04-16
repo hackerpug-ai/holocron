@@ -198,8 +198,20 @@ export const RecommendationSynthesisSchema = z.object({
       description: z.string(),
       whyRecommended: z.string(),
       rating: z.number().optional(),
+      reviewCount: z.number().optional(),
+      platformLinks: z
+        .array(
+          z.object({
+            platform: z.string(),
+            url: z.string(),
+            rating: z.number().optional(),
+            reviewCount: z.number().optional(),
+          })
+        )
+        .optional(),
       location: z.string().optional(),
       pricing: z.string().optional(),
+      sourcePlatform: z.string().optional(),
       contact: z
         .object({
           phone: z.string().optional(),
@@ -239,8 +251,18 @@ Return exactly this JSON shape — no markdown, no code fences, no prose before 
       "description": "string — one-sentence tagline, 80 chars max",
       "whyRecommended": "string — one sentence explaining the fit",
       "rating": number_or_omit,
+      "reviewCount": number_or_omit,
+      "platformLinks": [
+        {
+          "platform": "string",
+          "url": "string",
+          "rating": number_or_omit,
+          "reviewCount": number_or_omit
+        }
+      ],
       "location": "string_or_omit",
       "pricing": "string_or_omit",
+      "sourcePlatform": "string_or_omit",
       "contact": {
         "phone": "string_or_omit",
         "url": "string_or_omit",
@@ -262,7 +284,9 @@ Return exactly this JSON shape — no markdown, no code fences, no prose before 
 # Rules
 1. Return EVERY real provider found in the sources, up to the requested count. 1 result is better than 0.
 2. Every name must come directly from the sources. NEVER GUESS or invent providers.
-3. OMIT optional fields (rating, location, pricing, contact) when not present in sources — never fabricate.
-4. No preamble. No conclusion. No markdown. The entire response must be a single valid JSON object.
-5. If sources contain zero named providers, return the empty fallback: {"items":[],"sources":[],"query":"<echo query>","durationMs":0}
+3. Include trust metadata when directly supported by sources: reviewCount, platformLinks, and sourcePlatform.
+4. Each platformLinks entry may include platform, url, optional rating, and optional reviewCount when supported by sources.
+5. OMIT unsupported optional fields (rating, reviewCount, platformLinks, location, pricing, sourcePlatform, contact) when not present in sources — never fabricate.
+6. No preamble. No conclusion. No markdown. The entire response must be a single valid JSON object.
+7. If sources contain zero named providers, return the empty fallback: {"items":[],"sources":[],"query":"<echo query>","durationMs":0}
 `;

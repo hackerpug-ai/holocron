@@ -1635,8 +1635,16 @@ interface FindRecommendationsResult {
     description: string;
     whyRecommended: string;
     rating?: number;
+    reviewCount?: number;
+    platformLinks?: Array<{
+      platform: string;
+      url: string;
+      rating?: number;
+      reviewCount?: number;
+    }>;
     location?: string;
     pricing?: string;
+    sourcePlatform?: string;
     contact?: {
       phone?: string;
       url?: string;
@@ -1651,6 +1659,34 @@ interface FindRecommendationsResult {
   query: string;
   durationMs: number;
 }
+
+const recommendationItemValidator = v.object({
+  name: v.string(),
+  description: v.string(),
+  whyRecommended: v.string(),
+  rating: v.optional(v.number()),
+  reviewCount: v.optional(v.number()),
+  platformLinks: v.optional(
+    v.array(
+      v.object({
+        platform: v.string(),
+        url: v.string(),
+        rating: v.optional(v.number()),
+        reviewCount: v.optional(v.number()),
+      })
+    )
+  ),
+  location: v.optional(v.string()),
+  pricing: v.optional(v.string()),
+  sourcePlatform: v.optional(v.string()),
+  contact: v.optional(
+    v.object({
+      phone: v.optional(v.string()),
+      url: v.optional(v.string()),
+      email: v.optional(v.string()),
+    })
+  ),
+});
 
 /**
  * Build enhanced query from base query + location + constraints
@@ -1922,23 +1958,7 @@ export const findRecommendationsAction = internalAction({
     constraints: v.optional(v.array(v.string())),
   },
   returns: v.object({
-    items: v.array(
-      v.object({
-        name: v.string(),
-        description: v.string(),
-        whyRecommended: v.string(),
-        rating: v.optional(v.number()),
-        location: v.optional(v.string()),
-        pricing: v.optional(v.string()),
-        contact: v.optional(
-          v.object({
-            phone: v.optional(v.string()),
-            url: v.optional(v.string()),
-            email: v.optional(v.string()),
-          })
-        ),
-      })
-    ),
+    items: v.array(recommendationItemValidator),
     sources: v.array(
       v.object({
         title: v.string(),
@@ -1963,23 +1983,7 @@ export const findRecommendations = action({
     constraints: v.optional(v.array(v.string())),
   },
   returns: v.object({
-    items: v.array(
-      v.object({
-        name: v.string(),
-        description: v.string(),
-        whyRecommended: v.string(),
-        rating: v.optional(v.number()),
-        location: v.optional(v.string()),
-        pricing: v.optional(v.string()),
-        contact: v.optional(
-          v.object({
-            phone: v.optional(v.string()),
-            url: v.optional(v.string()),
-            email: v.optional(v.string()),
-          })
-        ),
-      })
-    ),
+    items: v.array(recommendationItemValidator),
     sources: v.array(
       v.object({
         title: v.string(),
