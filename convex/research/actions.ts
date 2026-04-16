@@ -56,6 +56,7 @@ import {
   executePlatformSearches,
   RECOMMENDATION_TOTAL_TIMEOUT_MS,
 } from "./platformSearch";
+import { selectivelyEnrichRecommendations } from "./enrichment";
 import {
   generateIterationEmbedding,
   generateFindingEmbedding,
@@ -1816,6 +1817,7 @@ export async function findRecommendationsCore(args: FindRecommendationsArgs): Pr
   const timer = setTimeout(() => controller.abort(), RECOMMENDATION_TOTAL_TIMEOUT_MS);
 
   try {
+    // Pass 1: discovery
     const discoveryPlan = buildPlatformSearchPlan({
       query: args.query,
       location: args.location,
@@ -1841,12 +1843,14 @@ export async function findRecommendationsCore(args: FindRecommendationsArgs): Pr
       };
     }
 
+    // Pass 1: reading
     const content = await parallelJinaReader(sources, {
       signal: controller.signal,
       timeoutMs: 15_000,
     });
     console.log(`[findRec] content length: ${content.length} chars`);
 
+    // Pass 1: synthesis
     const synth = await synthesize(content, args, { signal: controller.signal });
 
     const parsed = synth ? RecommendationSynthesisSchema.safeParse(synth) : { success: false as const };
@@ -1854,9 +1858,16 @@ export async function findRecommendationsCore(args: FindRecommendationsArgs): Pr
 
     if (parsed.success) {
       const data = (parsed as any).data;
-      console.log(`[findRec] returning ${data.items.length} items`);
+      // Pass 2: selective enrichment + deterministic merge
+      const enrichedItems = await selectivelyEnrichRecommendations(data.items, {
+        query: args.query,
+        location: args.location,
+        constraints: args.constraints,
+        signal: controller.signal,
+      });
+      console.log(`[findRec] returning ${enrichedItems.length} items`);
       return {
-        items: data.items,
+        items: enrichedItems,
         sources: data.sources,
         query: args.query,
         durationMs: Date.now() - start,

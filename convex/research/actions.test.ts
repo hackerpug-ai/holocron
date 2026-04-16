@@ -51,6 +51,17 @@ function mockReaderResponses(contents: string[]) {
   }
 }
 
+function mockEnrichmentSearches(
+  searchResults: Array<Array<{ title: string; url: string; description: string }>>,
+) {
+  for (const data of searchResults) {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ data }),
+    });
+  }
+}
+
 describe('REC-003: findRecommendationsAction', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -256,7 +267,87 @@ describe('REC-003: findRecommendationsAction', () => {
         ],
       });
       expect(result.sources).toHaveLength(1);
-      expect(mockFetch).toHaveBeenCalledTimes(10);
+      expect(mockFetch.mock.calls.length).toBeGreaterThanOrEqual(10);
+    });
+  });
+
+  describe('REC-UPG-03: second-pass selective enrichment', () => {
+    it('enriches materially incomplete items while preserving already-rich items', async () => {
+      mockPlatformSearches([
+        [{ title: 'Coach One', url: 'https://example.com/coach1', description: 'Primary source' }],
+        [],
+        [],
+        [],
+        [],
+      ]);
+      mockReaderResponses(['Coach synthesis content']);
+      mockEnrichmentSearches([
+        [{ title: 'Coach Two profile', url: 'https://www.google.com/maps/place/coach-two', description: 'Rated 4.7 stars with 121 reviews' }],
+        [],
+        [],
+      ]);
+
+      const { generateText } = await import('ai');
+      vi.mocked(generateText).mockResolvedValueOnce({
+        text: JSON.stringify({
+          items: [
+            {
+              name: 'Coach One',
+              description: 'Already rich',
+              whyRecommended: 'Has platform links',
+              rating: 4.9,
+              reviewCount: 80,
+              sourcePlatform: 'yelp',
+              platformLinks: [
+                {
+                  platform: 'yelp',
+                  url: 'https://www.yelp.com/biz/coach-one',
+                  rating: 4.9,
+                  reviewCount: 80,
+                },
+              ],
+            },
+            {
+              name: 'Coach Two',
+              description: 'Needs enrichment',
+              whyRecommended: 'No links yet',
+            },
+          ],
+          sources: [{ title: 'Coach One', url: 'https://example.com/coach1', snippet: 'Primary source' }],
+          query: 'career coach query',
+          durationMs: 500,
+        }),
+      } as any);
+
+      const result = await findRecommendationsCore({ query: 'career coach query', count: 2 });
+
+      expect(result.items).toHaveLength(2);
+      expect(result.items[0]).toMatchObject({
+        name: 'Coach One',
+        rating: 4.9,
+        reviewCount: 80,
+        sourcePlatform: 'yelp',
+        platformLinks: [
+          {
+            platform: 'yelp',
+            url: 'https://www.yelp.com/biz/coach-one',
+            rating: 4.9,
+            reviewCount: 80,
+          },
+        ],
+      });
+      expect(result.items[1]).toMatchObject({
+        name: 'Coach Two',
+        sourcePlatform: 'google',
+        platformLinks: [
+          {
+            platform: 'google',
+            url: 'https://www.google.com/maps/place/coach-two',
+            rating: 4.7,
+            reviewCount: 121,
+          },
+        ],
+      });
     });
   });
 
