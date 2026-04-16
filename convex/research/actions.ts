@@ -52,6 +52,11 @@ import {
 } from "./confidence";
 import { jinaSearch, jinaReader, jinaReaderBatch, JinaError } from "../lib/jina";
 import {
+  buildPlatformSearchPlan,
+  executePlatformSearches,
+  RECOMMENDATION_TOTAL_TIMEOUT_MS,
+} from "./platformSearch";
+import {
   generateIterationEmbedding,
   generateFindingEmbedding,
 } from "./embeddings";
@@ -1689,70 +1694,6 @@ const recommendationItemValidator = v.object({
 });
 
 /**
- * Build enhanced query from base query + location + constraints
- */
-function buildEnhancedQuery(args: FindRecommendationsArgs): string {
-  const parts = [args.query];
-  if (args.location) {
-    parts.push(`in ${args.location}`);
-  }
-  if (args.constraints && args.constraints.length > 0) {
-    parts.push(args.constraints.join(" "));
-  }
-  return parts.join(" ");
-}
-
-/**
- * Call Jina Search API and return results
- *
- * NOTE: This function now uses the centralized jinaSearch helper from ../lib/jina
- * which provides consistent error handling, timeout support, and JinaError types.
- */
-async function jinaSearchWrapper(
-  query: string,
-  options: { signal: AbortSignal }
-): Promise<Array<{ title: string; url: string; snippet: string }>> {
-  const apiKey = process.env.JINA_API_KEY;
-  if (!apiKey) {
-    console.error("[jinaSearchWrapper] JINA_API_KEY not configured");
-    return [];
-  }
-
-  try {
-    const results = await jinaSearch(query, {
-      apiKey,
-      signal: options.signal,
-      limit: 8, // Max 8 sources for recommendation synthesis
-    });
-
-    return results.map((result) => ({
-      title: result.title || "",
-      url: result.url || result.link || "",
-      snippet: (result.content || result.description || "").slice(0, 200),
-    }));
-  } catch (error) {
-    if (error instanceof JinaError) {
-      console.error(`[jinaSearchWrapper] JinaError (${error.type}):`, error.message);
-      // Return empty array for non-critical errors
-      if (error.type === "rate_limit" || error.type === "network") {
-        return [];
-      }
-      // Re-throw auth errors
-      throw error;
-    }
-
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    if (errorMessage.includes("abort") || errorMessage.includes("The operation was aborted")) {
-      console.warn("[jinaSearchWrapper] Request aborted");
-      throw error; // Re-throw abort errors so they can be caught by the outer try-catch
-    } else {
-      console.error("[jinaSearchWrapper] Error:", error);
-      return [];
-    }
-  }
-}
-
-/**
  * Read multiple URLs in parallel using Jina Reader
  *
  * NOTE: This function now uses the centralized jinaReader helper from ../lib/jina
@@ -1872,17 +1813,24 @@ async function synthesize(
 export async function findRecommendationsCore(args: FindRecommendationsArgs): Promise<FindRecommendationsResult> {
   const start = Date.now();
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 30_000);
+  const timer = setTimeout(() => controller.abort(), RECOMMENDATION_TOTAL_TIMEOUT_MS);
 
   try {
-    // Step 1: Build enhanced query
-    const enhancedQuery = buildEnhancedQuery(args);
-
-    // Step 2: Call Jina Search
-    const sources = await jinaSearchWrapper(enhancedQuery, { signal: controller.signal });
+    const discoveryPlan = buildPlatformSearchPlan({
+      query: args.query,
+      location: args.location,
+      constraints: args.constraints,
+    });
+    const discoverySources = await executePlatformSearches(discoveryPlan, {
+      signal: controller.signal,
+    });
+    const sources = discoverySources.map(({ title, url, snippet }) => ({
+      title,
+      url,
+      snippet,
+    }));
     console.log(`[findRec] sources found: ${sources.length}`);
 
-    // Step 3: Handle empty sources
     if (sources.length === 0) {
       console.log(`[findRec] returning early — zero sources for query: ${args.query}`);
       return {
@@ -1893,23 +1841,18 @@ export async function findRecommendationsCore(args: FindRecommendationsArgs): Pr
       };
     }
 
-    // Step 4: Read top 5 sources in parallel with 15s timeout
     const content = await parallelJinaReader(sources, {
       signal: controller.signal,
       timeoutMs: 15_000,
     });
     console.log(`[findRec] content length: ${content.length} chars`);
 
-    // Step 5: Synthesize with LLM
     const synth = await synthesize(content, args, { signal: controller.signal });
 
-    // Step 6: Validate with Zod
     const parsed = synth ? RecommendationSynthesisSchema.safeParse(synth) : { success: false as const };
     console.log(`[findRec] parse result: ${parsed.success ? `ok, ${(parsed as any).data?.items?.length ?? 0} items` : "failed"}`);
 
-    // Step 7: Return successful result or fallback
     if (parsed.success) {
-      // Type assertion: parsed is SafeParseSuccess when success is true
       const data = (parsed as any).data;
       console.log(`[findRec] returning ${data.items.length} items`);
       return {
@@ -1920,7 +1863,6 @@ export async function findRecommendationsCore(args: FindRecommendationsArgs): Pr
       };
     }
 
-    // Fallback if validation failed
     console.error("[findRecommendationsCore] Synthesis validation failed");
     return {
       items: [],
@@ -1929,7 +1871,6 @@ export async function findRecommendationsCore(args: FindRecommendationsArgs): Pr
       durationMs: Date.now() - start,
     };
   } catch (error) {
-    // Handle abort errors specifically
     const errorMessage = error instanceof Error ? error.message : String(error);
     if (errorMessage.includes("abort") || errorMessage.includes("The operation was aborted")) {
       console.warn("[findRecommendationsCore] Operation aborted after timeout");
@@ -1940,7 +1881,6 @@ export async function findRecommendationsCore(args: FindRecommendationsArgs): Pr
         durationMs: Date.now() - start,
       };
     }
-    // Re-throw other errors
     throw error;
   } finally {
     clearTimeout(timer);

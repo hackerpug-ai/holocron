@@ -5,9 +5,9 @@
  *
  * Tests the synchronous recommendation engine that:
  * - Runs without scheduler (no document creation)
- * - Caps execution at 30 seconds
+ * - Caps execution under the 45 second recommendation budget
  * - Validates synthesis output with Zod
- * - Retries on parse failure
+ * - Returns graceful fallbacks on discovery/synthesis failures
  * - Exposes both internalAction and public action
  */
 
@@ -17,6 +17,7 @@ import {
   RecommendationSynthesisSchema,
   RECOMMENDATION_SYNTHESIS_PROMPT,
 } from '../chat/specialistPrompts';
+import { RECOMMENDATION_TOTAL_TIMEOUT_MS } from './platformSearch';
 
 // Mock fetch globally
 const mockFetch = vi.fn();
@@ -27,10 +28,34 @@ vi.mock('ai', () => ({
   generateText: vi.fn(),
 }));
 
+const PLATFORM_SEARCH_COUNT = 5;
+
+function mockPlatformSearches(
+  searchResults: Array<Array<{ title: string; url: string; description: string }>>,
+) {
+  expect(searchResults).toHaveLength(PLATFORM_SEARCH_COUNT);
+  for (const data of searchResults) {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ data }),
+    });
+  }
+}
+
+function mockReaderResponses(contents: string[]) {
+  for (const content of contents) {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      text: async () => content,
+    });
+  }
+}
+
 describe('REC-003: findRecommendationsAction', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.clearAllTimers();
+    process.env.JINA_API_KEY = 'test-key';
   });
 
   describe('REC-UPG-01: additive trust metadata contract', () => {
@@ -139,35 +164,33 @@ describe('REC-003: findRecommendationsAction', () => {
    */
   describe('AC-1: Synchronous return with typed shape', () => {
     it('findRecommendations happy path', async () => {
-      // Mock Jina Search API response (JSON format for new helper)
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          data: [
-            { title: 'Autism Career Coach', url: 'https://example.com/coach1', description: 'Specialized career coaching for autism' },
-            { title: 'SF Career Services', url: 'https://example.com/coach2', description: 'San Francisco-based career support' },
-            { title: 'Neurodiversity Works', url: 'https://example.com/coach3', description: 'Neurodiverse job placement' },
-          ],
-        }),
-      });
+      mockPlatformSearches([
+        [
+          { title: 'Autism Career Coach', url: 'https://example.com/coach1', description: 'Specialized career coaching for autism' },
+          { title: 'SF Career Services', url: 'https://example.com/coach2', description: 'San Francisco-based career support' },
+        ],
+        [
+          { title: 'Autism Career Coach Yelp', url: 'https://example.com/coach1?utm_source=yelp', description: 'Same provider from review platform' },
+        ],
+        [
+          { title: 'Neurodiversity Works', url: 'https://example.com/coach3', description: 'Neurodiverse job placement' },
+        ],
+        [
+          { title: 'Community Pick', url: 'https://example.com/coach4', description: 'Community-vetted recommendation' },
+        ],
+        [
+          { title: 'Ratings Roundup', url: 'https://example.com/coach5', description: 'Best rated provider summary' },
+        ],
+      ]);
+      mockReaderResponses([
+        'Career Coach 1 content\nSpecialized in autism support',
+        'SF Career Services content\nBased in San Francisco',
+        'Neurodiversity Works content\nJob placement services',
+        'Community Pick content\nReddit discussion summary',
+        'Ratings Roundup content\nReview aggregation',
+      ]);
 
-      // Mock Jina Reader responses
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        text: async () => 'Career Coach 1 content\nSpecialized in autism support',
-      });
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        text: async () => 'SF Career Services content\nBased in San Francisco',
-      });
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        text: async () => 'Neurodiversity Works content\nJob placement services',
-      });
-
-      // Mock LLM synthesis response
       const { generateText } = await import('ai');
-      // @ts-ignore - mocking generateText return value
       vi.mocked(generateText).mockResolvedValueOnce({
         text: JSON.stringify({
           items: [
@@ -208,7 +231,7 @@ describe('REC-003: findRecommendationsAction', () => {
           query: 'career coaches for autism in SF',
           durationMs: 5000,
         }) as any,
-      });
+      } as any);
 
       const result = await findRecommendationsCore({ query: 'career coaches for autism in SF', count: 5 });
 
@@ -232,6 +255,8 @@ describe('REC-003: findRecommendationsAction', () => {
           },
         ],
       });
+      expect(result.sources).toHaveLength(1);
+      expect(mockFetch).toHaveBeenCalledTimes(10);
     });
   });
 
@@ -243,11 +268,7 @@ describe('REC-003: findRecommendationsAction', () => {
    */
   describe('AC-2: Graceful empty-result shape on no sources', () => {
     it('empty sources', async () => {
-      // Mock Jina Search API with empty response
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ data: [] }),
-      });
+      mockPlatformSearches([[], [], [], [], []]);
 
       const result = await findRecommendationsCore({ query: 'xyz123 nonexistent query', count: 5 });
 
@@ -258,31 +279,28 @@ describe('REC-003: findRecommendationsAction', () => {
       expect(result.items).toEqual([]);
       expect(result.sources).toEqual([]);
       expect(typeof result.durationMs).toBe('number');
+      expect(mockFetch).toHaveBeenCalledTimes(PLATFORM_SEARCH_COUNT);
     });
   });
 
   /**
-   * AC-3: 30s AbortController cap
-   * Given: Jina mock delays 40s
-   * When: findRecommendationsCore runs with 30s cap
-   * Then: returns fallback result or throws abort error before 30.5s
+   * AC-3: 45s recommendation budget
+   * Given: discovery hits an abort-shaped error immediately
+   * When: findRecommendationsCore runs under the shared total timeout
+   * Then: returns fallback result quickly instead of hanging
    */
-  describe('AC-3: 30s AbortController cap', () => {
-    it('abort after 30s', async () => {
+  describe('AC-3: Total timeout budget handling', () => {
+    it('returns fallback on abort-shaped discovery failure', async () => {
       const startTime = Date.now();
 
-      // Mock Jina Search that throws an abort error
       mockFetch.mockImplementationOnce(() => Promise.reject(new DOMException('The operation was aborted', 'AbortError')));
+      mockPlatformSearches([[], [], [], [], []]);
 
-      // Should abort and return fallback
       const result = await findRecommendationsCore({ query: 'career coaches for autism in SF', count: 5 });
-
       const duration = Date.now() - startTime;
 
-      // Should complete quickly (not wait 30s)
       expect(duration).toBeLessThan(1000);
-
-      // Should return fallback result
+      expect(RECOMMENDATION_TOTAL_TIMEOUT_MS).toBe(45_000);
       expect(result).toHaveProperty('durationMs');
       expect(result.items).toEqual([]);
       expect(result.sources).toEqual([]);
@@ -297,37 +315,28 @@ describe('REC-003: findRecommendationsAction', () => {
    */
   describe('AC-4: No document written', () => {
     it('no document written', async () => {
-      // Mock successful search and synthesis
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          data: [
-            { title: 'Test Coach', url: 'https://example.com', description: 'Test' },
-          ],
-        }),
-      });
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        text: async () => 'Test content',
-      });
+      mockPlatformSearches([
+        [{ title: 'Test Coach', url: 'https://example.com', description: 'Test' }],
+        [],
+        [],
+        [],
+        [],
+      ]);
+      mockReaderResponses(['Test content']);
 
       const { generateText } = await import('ai');
-      // @ts-ignore - mocking generateText return value
       vi.mocked(generateText).mockResolvedValueOnce({
-
         text: JSON.stringify({
           items: [{ name: 'Test Coach', description: 'Test', whyRecommended: 'Test' }],
           sources: [{ title: 'Test', url: 'https://example.com', snippet: 'Test' }],
           query: 'test',
           durationMs: 1000,
         }) as any,
-      });
+      } as any);
 
       const result = await findRecommendationsCore({ query: 'career coaches for autism in SF', count: 5 });
 
-      // Verify we got a result
       expect(result).toHaveProperty('items');
-      // The action should not create documents (verified by no ctx.runMutation calls in implementation)
     });
   });
 
@@ -339,27 +348,20 @@ describe('REC-003: findRecommendationsAction', () => {
    */
   describe('AC-5: Invalid JSON returns graceful empty, no retry', () => {
     it('invalid JSON returns empty result with single LLM call', async () => {
-      // Mock successful search
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          data: [
-            { title: 'Test Coach', url: 'https://example.com', description: 'Test' },
-          ],
-        }),
-      });
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        text: async () => 'Test content',
-      });
+      mockPlatformSearches([
+        [{ title: 'Test Coach', url: 'https://example.com', description: 'Test' }],
+        [],
+        [],
+        [],
+        [],
+      ]);
+      mockReaderResponses(['Test content']);
 
       const { generateText } = await import('ai');
 
-      // Single call returns invalid JSON
-      // @ts-ignore - mocking generateText return value
       vi.mocked(generateText).mockResolvedValueOnce({
         text: 'This is not valid JSON',
-      });
+      } as any);
 
       const result = await findRecommendationsCore({ query: 'career coaches for autism in SF', count: 5 });
 
@@ -368,7 +370,6 @@ describe('REC-003: findRecommendationsAction', () => {
       expect(Array.isArray(result.items)).toBe(true);
       expect(result.items).toEqual([]);
 
-      // No retry — generateText called exactly once
       expect(generateText).toHaveBeenCalledTimes(1);
     });
   });
@@ -381,21 +382,16 @@ describe('REC-003: findRecommendationsAction', () => {
    */
   describe('AC-6: Fewer-than-count returns what was found', () => {
     it('returns 1 item when only 1 provider found', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          data: [
-            { title: 'Rare Specialist', url: 'https://example.com/rare', description: 'Only one found' },
-          ],
-        }),
-      });
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        text: async () => 'Rare Specialist content',
-      });
+      mockPlatformSearches([
+        [{ title: 'Rare Specialist', url: 'https://example.com/rare', description: 'Only one found' }],
+        [],
+        [],
+        [],
+        [],
+      ]);
+      mockReaderResponses(['Rare Specialist content']);
 
       const { generateText } = await import('ai');
-      // @ts-ignore
       vi.mocked(generateText).mockResolvedValueOnce({
         text: JSON.stringify({
           items: [{ name: 'Rare Specialist', description: 'Only one found', whyRecommended: 'Best match available' }],
@@ -403,7 +399,7 @@ describe('REC-003: findRecommendationsAction', () => {
           query: 'ultra niche niche niche query',
           durationMs: 1000,
         }),
-      });
+      } as any);
 
       const result = await findRecommendationsCore({ query: 'ultra niche niche niche query', count: 5 });
 
@@ -421,21 +417,16 @@ describe('REC-003: findRecommendationsAction', () => {
    */
   describe('AC-7: Single LLM call on success', () => {
     it('generateText called once when first parse succeeds', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          data: [
-            { title: 'Coach A', url: 'https://example.com/a', description: 'Good coach' },
-          ],
-        }),
-      });
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        text: async () => 'Coach A content',
-      });
+      mockPlatformSearches([
+        [{ title: 'Coach A', url: 'https://example.com/a', description: 'Good coach' }],
+        [],
+        [],
+        [],
+        [],
+      ]);
+      mockReaderResponses(['Coach A content']);
 
       const { generateText } = await import('ai');
-      // @ts-ignore
       vi.mocked(generateText).mockResolvedValueOnce({
         text: JSON.stringify({
           items: [{ name: 'Coach A', description: 'Good coach', whyRecommended: 'Top rated' }],
@@ -443,7 +434,7 @@ describe('REC-003: findRecommendationsAction', () => {
           query: 'career coach query',
           durationMs: 500,
         }),
-      });
+      } as any);
 
       await findRecommendationsCore({ query: 'career coach query', count: 3 });
 
@@ -461,21 +452,16 @@ describe('REC-003: findRecommendationsAction', () => {
     it('logs sources count, content length, and parse result', async () => {
       const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          data: [
-            { title: 'Coach B', url: 'https://example.com/b', description: 'Great coach' },
-          ],
-        }),
-      });
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        text: async () => 'Coach B content',
-      });
+      mockPlatformSearches([
+        [{ title: 'Coach B', url: 'https://example.com/b', description: 'Great coach' }],
+        [],
+        [],
+        [],
+        [],
+      ]);
+      mockReaderResponses(['Coach B content']);
 
       const { generateText } = await import('ai');
-      // @ts-ignore
       vi.mocked(generateText).mockResolvedValueOnce({
         text: JSON.stringify({
           items: [{ name: 'Coach B', description: 'Great coach', whyRecommended: 'Top pick' }],
@@ -483,7 +469,7 @@ describe('REC-003: findRecommendationsAction', () => {
           query: 'test diagnostic',
           durationMs: 500,
         }),
-      });
+      } as any);
 
       await findRecommendationsCore({ query: 'test diagnostic', count: 3 });
 
