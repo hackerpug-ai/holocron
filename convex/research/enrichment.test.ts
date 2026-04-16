@@ -128,4 +128,27 @@ describe("enrichment", () => {
     );
     expect(result[1]).toEqual(items[1]);
   });
+
+  it("propagates abort-like failures instead of silently returning partial enrichment", async () => {
+    const items: RecommendationItemForEnrichment[] = [
+      {
+        name: "Coach Abort",
+        description: "Missing links",
+        whyRecommended: "Should abort pipeline",
+      },
+    ];
+
+    await expect(
+      selectivelyEnrichRecommendations(
+        items,
+        { query: "career coach", apiKey: "test-key" },
+        {
+          executeSearch: vi.fn(async () => {
+            throw new DOMException("The operation was aborted", "AbortError");
+          }),
+          readUrls: vi.fn(async () => new Map<string, string>()),
+        },
+      ),
+    ).rejects.toThrow(/aborted|AbortError/i);
+  });
 });
