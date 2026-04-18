@@ -162,7 +162,8 @@ describe('REC-005: find_recommendations tool executor wiring', () => {
 
       expect(result.cardData.items).toBeDefined();
       expect(result.cardData.items).toHaveLength(1);
-      expect(result.cardData.items[0].name).toBe('Test Provider');
+      // Items are mapped: name → title in the adapter
+      expect(result.cardData.items[0].title).toBe('Test Provider');
       expect(result.cardData.sources).toBeDefined();
       expect(result.cardData.sources).toHaveLength(1);
       expect(result.cardData.query).toBe('test query');

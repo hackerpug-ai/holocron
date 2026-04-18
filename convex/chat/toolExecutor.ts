@@ -844,22 +844,53 @@ export async function executeAgentTool(
         constraints,
       });
 
-      // Build a compact text summary of the items so the LLM can see what
-      // was returned (cardData.items is rendered in the UI but never reaches
-      // the model's context). Without this, the model thinks the tool
-      // produced nothing and retries with a different query.
+      // Map backend item shape → frontend RecommendationItemData shape
+      const mappedItems = result.items.map((it, i) => ({
+        id: `rec-${i}`,
+        title: it.name,
+        subtitle: it.location || it.pricing || undefined,
+        description: it.description,
+        url: it.websiteUrl || it.contact?.url || '',
+        rank: it.rank ?? i + 1,
+        sourceScore: it.sourceScore,
+        sourceEvidence: it.sourceEvidence ?? [],
+        confidence: it.sourceScore != null ? it.sourceScore / 100 : undefined,
+        tags: [
+          ...(it.rating != null ? [`${it.rating}★`] : []),
+          ...(it.reviewCount != null ? [`${it.reviewCount.toLocaleString()} reviews`] : []),
+          ...(it.pricing ? [it.pricing] : []),
+        ],
+        contacts:
+          it.contact?.phone || it.contact?.email || it.location
+            ? [
+                {
+                  name: it.name,
+                  role: '',
+                  phone: it.contact?.phone,
+                  email: it.contact?.email,
+                  location: it.location,
+                },
+              ]
+            : [],
+        source: { name: it.sourcePlatform || 'web', type: 'article' as const },
+      }));
+
+      // Build a compact text summary so the LLM can see what was returned
+      // (cardData.items is rendered in the UI but never reaches model context)
       const itemSummary =
         result.items.length === 0
           ? 'No recommendations found.'
           : result.items
-              .map((it, i) => {
-                const parts = [`${i + 1}. ${it.name}`];
+              .map((it) => {
+                const parts = [`#${it.rank}. ${it.name}`];
                 if (it.description) parts.push(`— ${it.description}`);
                 if (it.whyRecommended) parts.push(`(${it.whyRecommended})`);
-                if (it.location) parts.push(`[${it.location}]`);
-                if (it.pricing) parts.push(`[${it.pricing}]`);
-                if (it.contact?.url) parts.push(`<${it.contact.url}>`);
-                if (it.contact?.phone) parts.push(`${it.contact.phone}`);
+                if (it.rating != null) parts.push(`${it.rating}★`);
+                if (it.reviewCount != null) parts.push(`${it.reviewCount.toLocaleString()} reviews`);
+                if (it.sourceEvidence?.length) parts.push(`[${it.sourceEvidence.length} sources]`);
+                const url = it.websiteUrl || it.contact?.url;
+                if (url) parts.push(`<${url}>`);
+                if (it.contact?.phone) parts.push(it.contact.phone);
                 return parts.join(' ');
               })
               .join('\n');
@@ -871,7 +902,7 @@ export async function executeAgentTool(
         messageType: 'result_card' as const,
         cardData: {
           card_type: 'recommendation_list' as const,
-          items: result.items,
+          items: mappedItems,
           sources: result.sources,
           query: result.query,
           durationMs: result.durationMs,

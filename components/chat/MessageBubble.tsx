@@ -820,15 +820,11 @@ function renderResultCard(
   // Handle recommendation list card
   if ((card_data.card_type as string) === 'recommendation_list') {
     const { RecommendationListCard } = require('@/components/cards/RecommendationListCard');
-    const typeData = card_data as {
-      card_type: 'recommendation_list';
-      items: Array<{
-        id: string;
-        title: string;
-        description?: string;
-        url?: string;
-      }>;
-      summary?: string;
+    type RecommendationListCardData = import('@/components/cards/types/recommendation').RecommendationListCardData;
+    const typeData = card_data as unknown as RecommendationListCardData & {
+      sources?: Array<{ title: string; url: string; snippet: string }>;
+      query?: string;
+      durationMs?: number;
     };
     return (
       <RecommendationListCard

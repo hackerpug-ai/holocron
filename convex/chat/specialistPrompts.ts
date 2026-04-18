@@ -191,12 +191,25 @@ ${BASE_FORMATTING}`;
  * Zod schema for validating recommendation synthesis output.
  * Used by findRecommendationsAction to parse LLM responses.
  */
+export const RecommendationSourceEvidenceSchema = z.object({
+  source: z.string(),
+  url: z.string(),
+  excerpt: z.string(),
+  rating: z.number().optional(),
+  reviewCount: z.number().optional(),
+  sourceType: z.enum(['expert', 'ratings', 'editorial', 'community']),
+});
+
 export const RecommendationSynthesisSchema = z.object({
   items: z.array(
     z.object({
       name: z.string(),
       description: z.string(),
       whyRecommended: z.string(),
+      rank: z.number().optional(),
+      websiteUrl: z.string().optional(),
+      sourceScore: z.number().optional(),
+      sourceEvidence: z.array(RecommendationSourceEvidenceSchema).optional(),
       rating: z.number().optional(),
       reviewCount: z.number().optional(),
       platformLinks: z
@@ -249,9 +262,21 @@ Return exactly this JSON shape — no markdown, no code fences, no prose before 
     {
       "name": "string — exact name from source",
       "description": "string — one-sentence tagline, 80 chars max",
-      "whyRecommended": "string — one sentence explaining the fit",
+      "whyRecommended": "string — one sentence explaining the fit based on the evidence",
+      "rank": 1,
+      "websiteUrl": "string_or_omit — the provider's own website URL if found in sources",
       "rating": number_or_omit,
       "reviewCount": number_or_omit,
+      "sourceEvidence": [
+        {
+          "source": "string — publication/platform name (e.g. 'Wirecutter', 'Yelp', 'Consumer Reports')",
+          "url": "string — URL of this source",
+          "excerpt": "string — 1-2 sentences from this source about this specific item",
+          "rating": number_or_omit,
+          "reviewCount": number_or_omit,
+          "sourceType": "expert|ratings|editorial|community"
+        }
+      ],
       "platformLinks": [
         {
           "platform": "string",
@@ -281,12 +306,26 @@ Return exactly this JSON shape — no markdown, no code fences, no prose before 
   "durationMs": 0
 }
 
+# sourceType Classification
+Classify each sourceEvidence entry by the authority of the source:
+- "expert": Wirecutter, Consumer Reports, PCMag, RTings, Tom's Guide, Good Housekeeping, CNET Editors' Choice
+- "ratings": Yelp, Google Reviews, TripAdvisor, Amazon, BBB, Trustpilot, Angi
+- "editorial": News articles, mainstream tech/lifestyle publications, blogs with named authors
+- "community": Reddit, forums, social media, user comments
+
+# Ranking Rules
+Rank items 1 = strongest evidence (most authoritative sources, highest ratings, most reviews).
+Expert source evidence outweighs pure community mentions.
+Higher review counts and ratings improve rank.
+
 # Rules
-1. Return EVERY real provider found in the sources, up to the requested count. 1 result is better than 0.
+1. Return at least 3 items if the sources contain them. Up to the requested count. 1 result is better than 0.
 2. Every name must come directly from the sources. NEVER GUESS or invent providers.
-3. Include trust metadata when directly supported by sources: reviewCount, platformLinks, and sourcePlatform.
-4. Each platformLinks entry may include platform, url, optional rating, and optional reviewCount when supported by sources.
-5. OMIT unsupported optional fields (rating, reviewCount, platformLinks, location, pricing, sourcePlatform, contact) when not present in sources — never fabricate.
-6. No preamble. No conclusion. No markdown. The entire response must be a single valid JSON object.
-7. If sources contain zero named providers, return the empty fallback: {"items":[],"sources":[],"query":"<echo query>","durationMs":0}
+3. For sourceEvidence: only include entries where the source explicitly mentions this item by name. Include a real excerpt. Never fabricate.
+4. Include websiteUrl if the provider's own website appears in sources (not a review site URL).
+5. Include contact.url as the primary website when a direct website URL is found.
+6. Include trust metadata when directly supported by sources: rating, reviewCount, platformLinks.
+7. OMIT unsupported optional fields — never fabricate ratings, reviews, or excerpts.
+8. No preamble. No conclusion. No markdown. The entire response must be a single valid JSON object.
+9. If sources contain zero named providers, return the empty fallback: {"items":[],"sources":[],"query":"<echo query>","durationMs":0}
 `;

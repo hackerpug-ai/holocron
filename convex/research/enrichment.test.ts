@@ -13,6 +13,7 @@ describe('enrichment', () => {
         name: 'Coach Alpha',
         description: 'Needs platform evidence',
         whyRecommended: 'Strong fit',
+        rank: 1,
       },
     ];
 
@@ -55,6 +56,7 @@ describe('enrichment', () => {
         name: 'Coach Rich',
         description: 'Already rich',
         whyRecommended: 'Has full trust data',
+        rank: 1,
         reviewCount: 77,
         sourcePlatform: 'yelp',
         platformLinks: [
@@ -92,11 +94,13 @@ describe('enrichment', () => {
         name: 'Coach Success',
         description: 'Missing links',
         whyRecommended: 'Likely good',
+        rank: 1,
       },
       {
         name: 'Coach Failure',
         description: 'Missing links',
         whyRecommended: 'Fallback expected',
+        rank: 2,
       },
     ];
 
@@ -133,6 +137,7 @@ describe('enrichment', () => {
         name: 'Coach Abort',
         description: 'Missing links',
         whyRecommended: 'Should abort pipeline',
+        rank: 1,
       },
     ];
 

@@ -12,19 +12,21 @@ import {
 
 describe('REC-UPG-02: platformSearch', () => {
   describe('buildPlatformSearchPlan', () => {
-    it('emits 3-5 deterministic targeted searches without category branching', () => {
+    it('emits deterministic targeted searches including expert product sources', () => {
       const plan = buildPlatformSearchPlan({
         query: 'plumbers',
         location: 'Salt Lake City',
       });
 
-      expect(plan).toHaveLength(5);
+      expect(plan).toHaveLength(7);
       expect(plan.map((item) => item.kind)).toEqual([
         'generalWeb',
         'review',
         'maps',
         'community',
         'ratings',
+        'productExpert',
+        'productRatings',
       ]);
       expect(plan.every((item) => item.limit === PLATFORM_RESULT_LIMIT)).toBe(true);
       expect(plan.every((item) => item.timeoutMs === PLATFORM_SEARCH_TIMEOUT_MS)).toBe(true);
@@ -33,6 +35,8 @@ describe('REC-UPG-02: platformSearch', () => {
       expect(plan[1].site).toBe('yelp.com');
       expect(plan[2].site).toBe('google.com');
       expect(plan[3].site).toBe('reddit.com');
+      expect(plan[5].site).toBe('thewirecutter.com');
+      expect(plan[6].site).toBe('rtings.com');
     });
 
     it('builds valid searches without location assumptions', () => {
@@ -41,7 +45,7 @@ describe('REC-UPG-02: platformSearch', () => {
         constraints: ['open-back', 'under $300'],
       });
 
-      expect(plan).toHaveLength(5);
+      expect(plan).toHaveLength(7);
       expect(plan.every((item) => item.query.includes('wireless headphones'))).toBe(true);
       expect(plan.some((item) => item.query.includes('open-back under $300'))).toBe(true);
       expect(plan.every((item) => !item.query.includes('undefined'))).toBe(true);
@@ -54,7 +58,7 @@ describe('REC-UPG-02: platformSearch', () => {
         location: 'Salt Lake City',
       });
 
-      expect(plan).toHaveLength(5);
+      expect(plan).toHaveLength(7);
       expect(plan.every((item) => item.limit <= PLATFORM_RESULT_LIMIT)).toBe(true);
       expect(plan.every((item) => item.timeoutMs <= PLATFORM_SEARCH_TIMEOUT_MS)).toBe(true);
       expect(RECOMMENDATION_TOTAL_TIMEOUT_MS - PLATFORM_SEARCH_TIMEOUT_MS).toBeGreaterThanOrEqual(
@@ -89,12 +93,14 @@ describe('REC-UPG-02: platformSearch', () => {
         executeSearch,
       });
 
-      expect(results).toHaveLength(4);
+      expect(results).toHaveLength(6);
       expect(results.map((item) => item.sourcePlatform)).toEqual([
         'generalWeb',
         'maps',
         'community',
         'ratings',
+        'productExpert',
+        'productRatings',
       ]);
     });
 
@@ -140,7 +146,8 @@ describe('REC-UPG-02: platformSearch', () => {
         executeSearch,
       });
 
-      expect(results).toHaveLength(4);
+      // 7 platforms, generalWeb+ratings deduplicate to 1 → 6 distinct results
+      expect(results).toHaveLength(6);
       expect(results[0]).toMatchObject({
         title: 'Shared Listing',
         url: duplicateUrl,
@@ -174,7 +181,8 @@ describe('REC-UPG-02: platformSearch', () => {
         executeSearch,
       });
 
-      expect(results).toHaveLength(4);
+      // 7 platforms, community fails → 6 remaining
+      expect(results).toHaveLength(6);
       expect(results.some((item) => item.sourcePlatform === 'community')).toBe(false);
     });
   });

@@ -1562,6 +1562,17 @@ interface FindRecommendationsResult {
     name: string;
     description: string;
     whyRecommended: string;
+    rank?: number;
+    websiteUrl?: string;
+    sourceScore?: number;
+    sourceEvidence?: Array<{
+      source: string;
+      url: string;
+      excerpt: string;
+      rating?: number;
+      reviewCount?: number;
+      sourceType: 'expert' | 'ratings' | 'editorial' | 'community';
+    }>;
     rating?: number;
     reviewCount?: number;
     platformLinks?: Array<{
@@ -1588,10 +1599,28 @@ interface FindRecommendationsResult {
   durationMs: number;
 }
 
+const recommendationSourceEvidenceValidator = v.object({
+  source: v.string(),
+  url: v.string(),
+  excerpt: v.string(),
+  rating: v.optional(v.number()),
+  reviewCount: v.optional(v.number()),
+  sourceType: v.union(
+    v.literal('expert'),
+    v.literal('ratings'),
+    v.literal('editorial'),
+    v.literal('community')
+  ),
+});
+
 const recommendationItemValidator = v.object({
   name: v.string(),
   description: v.string(),
   whyRecommended: v.string(),
+  rank: v.optional(v.number()),
+  websiteUrl: v.optional(v.string()),
+  sourceScore: v.optional(v.number()),
+  sourceEvidence: v.optional(v.array(recommendationSourceEvidenceValidator)),
   rating: v.optional(v.number()),
   reviewCount: v.optional(v.number()),
   platformLinks: v.optional(
@@ -1719,6 +1748,32 @@ async function synthesize(
   }
 }
 
+const SOURCE_CREDIBILITY: Record<string, number> = {
+  expert: 95,
+  ratings: 85,
+  editorial: 75,
+  community: 60,
+};
+
+function computeSourceScore(item: { sourceEvidence?: Array<{ sourceType: string }> }): number {
+  if (!item.sourceEvidence?.length) return 0;
+  const scores = item.sourceEvidence.map((e) => SOURCE_CREDIBILITY[e.sourceType] ?? 40);
+  return Math.min(100, Math.round(scores.reduce((a, b) => a + b, 0) / scores.length));
+}
+
+function scoreAndRankItems(
+  items: FindRecommendationsResult['items']
+): Array<FindRecommendationsResult['items'][number] & { rank: number }> {
+  const withScores = items.map((item) => ({
+    ...item,
+    sourceScore: item.sourceEvidence?.length ? computeSourceScore(item) : item.sourceScore,
+  }));
+  // Sort by sourceScore descending (items with no evidence go to the end)
+  withScores.sort((a, b) => (b.sourceScore ?? 0) - (a.sourceScore ?? 0));
+  // Assign final rank based on sort order (always present)
+  return withScores.map((item, i) => ({ ...item, rank: i + 1 }));
+}
+
 /**
  * Core implementation of findRecommendations
  *
@@ -1793,9 +1848,11 @@ export async function findRecommendationsCore(
         constraints: args.constraints,
         signal: controller.signal,
       });
-      console.log(`[findRec] returning ${enrichedItems.length} items`);
+      // Pass 3: source scoring + final rank assignment
+      const scoredItems = scoreAndRankItems(enrichedItems);
+      console.log(`[findRec] returning ${scoredItems.length} items`);
       return {
-        items: enrichedItems,
+        items: scoredItems,
         sources: data.sources,
         query: args.query,
         durationMs: Date.now() - start,

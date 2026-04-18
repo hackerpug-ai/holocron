@@ -8,7 +8,14 @@ export interface PlatformSearchArgs {
   constraints?: string[];
 }
 
-export type PlatformSearchKind = 'generalWeb' | 'review' | 'maps' | 'community' | 'ratings';
+export type PlatformSearchKind =
+  | 'generalWeb'
+  | 'review'
+  | 'maps'
+  | 'community'
+  | 'ratings'
+  | 'productExpert'
+  | 'productRatings';
 
 export interface PlatformSearchPlanItem {
   kind: PlatformSearchKind;
@@ -71,6 +78,18 @@ const PLATFORM_PATTERNS: ReadonlyArray<{
     kind: 'ratings',
     buildQuery: (query, location, modifiers) =>
       compactQuery([query, location, 'ratings reviews best', modifiers]),
+  },
+  {
+    kind: 'productExpert',
+    site: 'thewirecutter.com',
+    buildQuery: (query, _location, modifiers) =>
+      compactQuery([query, 'review best', modifiers]),
+  },
+  {
+    kind: 'productRatings',
+    site: 'rtings.com',
+    buildQuery: (query, _location, modifiers) =>
+      compactQuery([query, 'review ratings', modifiers]),
   },
 ];
 

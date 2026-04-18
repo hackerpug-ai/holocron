@@ -28,7 +28,7 @@ vi.mock('ai', () => ({
   generateText: vi.fn(),
 }));
 
-const PLATFORM_SEARCH_COUNT = 5;
+const PLATFORM_SEARCH_COUNT = 7;
 
 function mockPlatformSearches(
   searchResults: Array<Array<{ title: string; url: string; description: string }>>
@@ -161,9 +161,7 @@ describe('REC-003: findRecommendationsAction', () => {
       expect(RECOMMENDATION_SYNTHESIS_PROMPT).toContain('"reviewCount": number_or_omit');
       expect(RECOMMENDATION_SYNTHESIS_PROMPT).toContain('"platformLinks": [');
       expect(RECOMMENDATION_SYNTHESIS_PROMPT).toContain('"sourcePlatform": "string_or_omit"');
-      expect(RECOMMENDATION_SYNTHESIS_PROMPT).toContain(
-        'reviewCount, platformLinks, and sourcePlatform'
-      );
+      expect(RECOMMENDATION_SYNTHESIS_PROMPT).toContain('sourceEvidence');
       expect(RECOMMENDATION_SYNTHESIS_PROMPT).toContain('OMIT unsupported optional fields');
       expect(RECOMMENDATION_SYNTHESIS_PROMPT).toContain('never fabricate');
     });
@@ -218,6 +216,8 @@ describe('REC-003: findRecommendationsAction', () => {
             description: 'Best rated provider summary',
           },
         ],
+        [],
+        [],
       ]);
       mockReaderResponses([
         'Career Coach 1 content\nSpecialized in autism support',
@@ -304,6 +304,8 @@ describe('REC-003: findRecommendationsAction', () => {
     it('enriches materially incomplete items while preserving already-rich items', async () => {
       mockPlatformSearches([
         [{ title: 'Coach One', url: 'https://example.com/coach1', description: 'Primary source' }],
+        [],
+        [],
         [],
         [],
         [],
@@ -396,7 +398,7 @@ describe('REC-003: findRecommendationsAction', () => {
    */
   describe('AC-2: Graceful empty-result shape on no sources', () => {
     it('empty sources', async () => {
-      mockPlatformSearches([[], [], [], [], []]);
+      mockPlatformSearches([[], [], [], [], [], [], []]);
 
       const result = await findRecommendationsCore({ query: 'xyz123 nonexistent query', count: 5 });
 
@@ -424,7 +426,7 @@ describe('REC-003: findRecommendationsAction', () => {
       mockFetch.mockImplementationOnce(() =>
         Promise.reject(new DOMException('The operation was aborted', 'AbortError'))
       );
-      mockPlatformSearches([[], [], [], [], []]);
+      mockPlatformSearches([[], [], [], [], [], [], []]);
 
       const result = await findRecommendationsCore({
         query: 'career coaches for autism in SF',
@@ -460,6 +462,8 @@ describe('REC-003: findRecommendationsAction', () => {
 
       mockPlatformSearches([
         [{ title: 'Coach Timeout', url: 'https://example.com/timeout', description: 'Test' }],
+        [],
+        [],
         [],
         [],
         [],
@@ -525,6 +529,8 @@ describe('REC-003: findRecommendationsAction', () => {
         [],
         [],
         [],
+        [],
+        [],
       ]);
       mockReaderResponses(['Test content']);
 
@@ -557,6 +563,8 @@ describe('REC-003: findRecommendationsAction', () => {
     it('invalid JSON returns empty result with single LLM call', async () => {
       mockPlatformSearches([
         [{ title: 'Test Coach', url: 'https://example.com', description: 'Test' }],
+        [],
+        [],
         [],
         [],
         [],
@@ -600,6 +608,8 @@ describe('REC-003: findRecommendationsAction', () => {
             description: 'Only one found',
           },
         ],
+        [],
+        [],
         [],
         [],
         [],
@@ -654,6 +664,8 @@ describe('REC-003: findRecommendationsAction', () => {
         [],
         [],
         [],
+        [],
+        [],
       ]);
       mockReaderResponses(['Coach A content']);
 
@@ -685,6 +697,8 @@ describe('REC-003: findRecommendationsAction', () => {
 
       mockPlatformSearches([
         [{ title: 'Coach B', url: 'https://example.com/b', description: 'Great coach' }],
+        [],
+        [],
         [],
         [],
         [],

@@ -9,10 +9,23 @@ export interface RecommendationPlatformLink {
   reviewCount?: number;
 }
 
+export interface RecommendationSourceEvidence {
+  source: string;
+  url: string;
+  excerpt: string;
+  rating?: number;
+  reviewCount?: number;
+  sourceType: 'expert' | 'ratings' | 'editorial' | 'community';
+}
+
 export interface RecommendationItemForEnrichment {
   name: string;
   description: string;
   whyRecommended: string;
+  rank?: number;
+  websiteUrl?: string;
+  sourceScore?: number;
+  sourceEvidence?: RecommendationSourceEvidence[];
   rating?: number;
   reviewCount?: number;
   platformLinks?: RecommendationPlatformLink[];
