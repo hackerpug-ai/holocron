@@ -18,14 +18,14 @@
  * this set, ignoring whatever value the LLM sent.
  */
 export const TOOLS_REQUIRING_APPROVAL: Set<string> = new Set([
-  "save_document",
-  "subscribe",
-  "unsubscribe",
-  "assimilate",
-  "deep_research",
-  "shop_search",
-  "whats_new",
-  "add_improvement",
+  'save_document',
+  'subscribe',
+  'unsubscribe',
+  'assimilate',
+  'deep_research',
+  'shop_search',
+  'whats_new',
+  'add_improvement',
 ]);
 
 /**
@@ -34,22 +34,22 @@ export const TOOLS_REQUIRING_APPROVAL: Set<string> = new Set([
  * create_plan is excluded to prevent nested plans.
  */
 export const VALID_TOOL_NAMES: Set<string> = new Set([
-  "search_knowledge_base",
-  "browse_category",
-  "knowledge_base_stats",
-  "quick_research",
-  "deep_research",
-  "shop_search",
-  "subscribe",
-  "unsubscribe",
-  "list_subscriptions",
-  "check_subscriptions",
-  "whats_new",
-  "toolbelt_search",
-  "save_document",
-  "assimilate",
-  "add_improvement",
-  "search_improvements",
-  "get_improvement",
-  "list_improvements",
+  'search_knowledge_base',
+  'browse_category',
+  'knowledge_base_stats',
+  'quick_research',
+  'deep_research',
+  'shop_search',
+  'subscribe',
+  'unsubscribe',
+  'list_subscriptions',
+  'check_subscriptions',
+  'whats_new',
+  'toolbelt_search',
+  'save_document',
+  'assimilate',
+  'add_improvement',
+  'search_improvements',
+  'get_improvement',
+  'list_improvements',
 ]);

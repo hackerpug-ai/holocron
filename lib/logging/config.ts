@@ -1,6 +1,6 @@
-import type { LoggerConfig, LogLevel } from './types';
-import { Platform } from 'react-native';
 import Constants from 'expo-constants';
+import { Platform } from 'react-native';
+import type { LoggerConfig, LogLevel } from './types';
 
 /**
  * Default logger configuration

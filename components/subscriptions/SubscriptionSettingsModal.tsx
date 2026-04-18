@@ -1,8 +1,6 @@
-import { View, ScrollView, StyleSheet, type ViewStyle } from 'react-native'
-import { Text } from '@/components/ui/text'
-import { Button } from '@/components/ui/button'
-import { Switch } from '@/components/ui/switch'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { useMutation, useQuery } from 'convex/react';
+import { ScrollView, StyleSheet, View, type ViewStyle } from 'react-native';
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -10,30 +8,32 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
-import { useMutation, useQuery } from 'convex/react'
-import { api } from '@/convex/_generated/api'
+} from '@/components/ui/dialog';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Switch } from '@/components/ui/switch';
+import { Text } from '@/components/ui/text';
+import { api } from '@/convex/_generated/api';
 
 export interface FeedSettings {
   // Notification preferences
-  enablePushNotifications: boolean
-  enableInAppNotifications: boolean
+  enablePushNotifications: boolean;
+  enableInAppNotifications: boolean;
   // Display options
-  showThumbnails: boolean
-  autoPlayVideos: boolean
+  showThumbnails: boolean;
+  autoPlayVideos: boolean;
   // Content filter
-  contentFilter: 'all' | 'videos-only' | 'blogs-only'
+  contentFilter: 'all' | 'videos-only' | 'blogs-only';
 }
 
 interface SubscriptionSettingsModalProps {
   /** Whether modal is visible */
-  visible: boolean
+  visible: boolean;
   /** Callback to close modal */
-  onDismiss: () => void
+  onDismiss: () => void;
   /** Navigate to subscriptions management */
-  onManageSubscriptions: () => void
+  onManageSubscriptions: () => void;
   /** Test ID for testing */
-  testID?: string
+  testID?: string;
 }
 
 export function SubscriptionSettingsModal({
@@ -43,10 +43,10 @@ export function SubscriptionSettingsModal({
   testID = 'settings-modal',
 }: SubscriptionSettingsModalProps) {
   // Fetch current settings with default values
-  const settings = useQuery(api.feeds.queries.getFeedSettings, {})
+  const settings = useQuery(api.feeds.queries.getFeedSettings, {});
 
   // Mutation to update settings
-  const updateSettings = useMutation(api.feeds.mutations.updateFeedSettings)
+  const updateSettings = useMutation(api.feeds.mutations.updateFeedSettings);
 
   const currentSettings: FeedSettings = {
     enablePushNotifications: settings?.enablePushNotifications ?? false,
@@ -54,11 +54,11 @@ export function SubscriptionSettingsModal({
     showThumbnails: settings?.showThumbnails ?? true,
     autoPlayVideos: settings?.autoPlayVideos ?? false,
     contentFilter: settings?.contentFilter ?? 'all',
-  }
+  };
 
   const handleSettingChange = async (key: keyof FeedSettings, value: any) => {
-    await updateSettings({ [key]: value })
-  }
+    await updateSettings({ [key]: value });
+  };
 
   return (
     <Dialog open={visible} onOpenChange={(open) => !open && onDismiss()}>
@@ -144,20 +144,28 @@ export function SubscriptionSettingsModal({
 
           <RadioGroup
             value={currentSettings.contentFilter}
-            onValueChange={(value) => handleSettingChange('contentFilter', value as FeedSettings['contentFilter'])}
+            onValueChange={(value) =>
+              handleSettingChange('contentFilter', value as FeedSettings['contentFilter'])
+            }
             testID={`${testID}-content-filter`}
           >
             <View style={styles.radioRow}>
               <RadioGroupItem value="all" testID={`${testID}-filter-all`} />
-              <Text variant="p" style={styles.radioLabel}>All content</Text>
+              <Text variant="p" style={styles.radioLabel}>
+                All content
+              </Text>
             </View>
             <View style={styles.radioRow}>
               <RadioGroupItem value="videos-only" testID={`${testID}-filter-videos`} />
-              <Text variant="p" style={styles.radioLabel}>Videos only</Text>
+              <Text variant="p" style={styles.radioLabel}>
+                Videos only
+              </Text>
             </View>
             <View style={styles.radioRow}>
               <RadioGroupItem value="blogs-only" testID={`${testID}-filter-blogs`} />
-              <Text variant="p" style={styles.radioLabel}>Blogs only</Text>
+              <Text variant="p" style={styles.radioLabel}>
+                Blogs only
+              </Text>
             </View>
           </RadioGroup>
         </ScrollView>
@@ -172,7 +180,7 @@ export function SubscriptionSettingsModal({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
@@ -205,4 +213,4 @@ const styles = StyleSheet.create({
   radioLabel: {
     marginLeft: 4,
   },
-})
+});

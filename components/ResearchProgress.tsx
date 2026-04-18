@@ -1,26 +1,32 @@
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
-import { Text } from '@/components/ui/text'
-import { cn } from '@/lib/utils'
-import { Loader2, Sparkles } from '@/components/ui/icons'
-import { useEffect, useRef } from 'react'
-import { Animated, Easing, View, type ViewProps } from 'react-native'
-import { Progress } from './ui/progress'
+import { useEffect, useRef } from 'react';
+import { Animated, Easing, View, type ViewProps } from 'react-native';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Loader2, Sparkles } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { cn } from '@/lib/utils';
+import { Progress } from './ui/progress';
 
-export type ResearchStatus = 'initializing' | 'searching' | 'analyzing' | 'synthesizing' | 'complete' | 'error'
+export type ResearchStatus =
+  | 'initializing'
+  | 'searching'
+  | 'analyzing'
+  | 'synthesizing'
+  | 'complete'
+  | 'error';
 
 interface ResearchProgressProps extends Omit<ViewProps, 'children'> {
   /** Research query or topic */
-  query: string
+  query: string;
   /** Current status of the research */
-  status: ResearchStatus
+  status: ResearchStatus;
   /** Progress percentage (0-100) */
-  progress: number
+  progress: number;
   /** Current iteration for deep research */
-  currentIteration?: number
+  currentIteration?: number;
   /** Total iterations for deep research */
-  totalIterations?: number
+  totalIterations?: number;
   /** Status message to display */
-  statusMessage?: string
+  statusMessage?: string;
 }
 
 const statusLabels: Record<ResearchStatus, string> = {
@@ -30,7 +36,7 @@ const statusLabels: Record<ResearchStatus, string> = {
   synthesizing: 'Synthesizing results...',
   complete: 'Research complete',
   error: 'Research failed',
-}
+};
 
 /**
  * ResearchProgress displays an in-progress research workflow card
@@ -47,12 +53,12 @@ export function ResearchProgress({
   className,
   ...props
 }: ResearchProgressProps) {
-  const spin = useRef(new Animated.Value(0)).current
+  const spin = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (status === 'complete' || status === 'error') {
-      spin.setValue(0)
-      return
+      spin.setValue(0);
+      return;
     }
 
     const animation = Animated.loop(
@@ -62,28 +68,24 @@ export function ResearchProgress({
         easing: Easing.linear,
         useNativeDriver: true,
       })
-    )
+    );
 
-    animation.start()
+    animation.start();
 
-    return () => animation.stop()
-  }, [status, spin])
+    return () => animation.stop();
+  }, [status, spin]);
 
   const spinInterpolate = spin.interpolate({
     inputRange: [0, 1],
     outputRange: ['0deg', '360deg'],
-  })
+  });
 
-  const isActive = status !== 'complete' && status !== 'error'
-  const displayMessage = statusMessage || statusLabels[status]
+  const isActive = status !== 'complete' && status !== 'error';
+  const displayMessage = statusMessage || statusLabels[status];
 
   return (
     <Card
-      className={cn(
-        'py-4',
-        status === 'error' && 'border-destructive',
-        className
-      )}
+      className={cn('py-4', status === 'error' && 'border-destructive', className)}
       testID="research-progress"
       {...props}
     >
@@ -96,9 +98,7 @@ export function ResearchProgress({
           ) : (
             <Sparkles
               size={18}
-              className={cn(
-                status === 'complete' ? 'text-primary' : 'text-destructive'
-              )}
+              className={cn(status === 'complete' ? 'text-primary' : 'text-destructive')}
             />
           )}
           <Text className="text-foreground flex-1 font-semibold" numberOfLines={1}>
@@ -111,9 +111,7 @@ export function ResearchProgress({
         <Progress
           value={progress}
           className="h-2"
-          indicatorClassName={cn(
-            status === 'error' && 'bg-destructive'
-          )}
+          indicatorClassName={cn(status === 'error' && 'bg-destructive')}
         />
 
         <View className="flex-row items-center justify-between">
@@ -134,5 +132,5 @@ export function ResearchProgress({
         </View>
       </CardContent>
     </Card>
-  )
+  );
 }

@@ -8,48 +8,47 @@
  * - Condition indicators with clear visual hierarchy
  */
 
-import { View, Pressable, Image, Linking, StyleSheet } from 'react-native'
-import { Text } from '@/components/ui/text'
-import { Card } from '@/components/ui/card'
-import { cn } from '@/lib/utils'
+import { Image, Linking, Pressable, StyleSheet, View } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import { Card } from '@/components/ui/card';
 import {
+  CheckCircle2,
   ExternalLink,
-  Tag,
-  TrendingDown,
+  Flame,
   Package,
   Star,
-  Flame,
-  Zap,
-  CheckCircle2,
+  Tag,
+  TrendingDown,
   XCircle,
-} from '@/components/ui/icons'
-import { useTheme } from '@/hooks/use-theme'
-import Animated, {
-  useAnimatedStyle,
-  withSpring,
-  useSharedValue,
-} from 'react-native-reanimated'
+  Zap,
+} from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { useTheme } from '@/hooks/use-theme';
+import { cn } from '@/lib/utils';
 
 export interface ShopListingCardProps {
-  listingId: string
-  title: string
-  price: number // in cents
-  originalPrice?: number // in cents
-  currency: string
-  condition: string
-  retailer: string
-  seller?: string
-  sellerRating?: number
-  url: string
-  imageUrl?: string
-  inStock: boolean
-  dealScore?: number // 0-100
-  testID?: string
-  onPress?: () => void
+  listingId: string;
+  title: string;
+  price: number; // in cents
+  originalPrice?: number; // in cents
+  currency: string;
+  condition: string;
+  retailer: string;
+  seller?: string;
+  sellerRating?: number;
+  url: string;
+  imageUrl?: string;
+  inStock: boolean;
+  dealScore?: number; // 0-100
+  testID?: string;
+  onPress?: () => void;
 }
 
 // Retailer brand colors for distinctive badges
-const RETAILER_COLORS: Record<string, { bg: string; text: string; darkBg: string; darkText: string }> = {
+const RETAILER_COLORS: Record<
+  string,
+  { bg: string; text: string; darkBg: string; darkText: string }
+> = {
   amazon: { bg: '#FF9900', text: '#000000', darkBg: '#FF9900', darkText: '#000000' },
   ebay: { bg: '#E53238', text: '#FFFFFF', darkBg: '#E53238', darkText: '#FFFFFF' },
   walmart: { bg: '#0071DC', text: '#FFFFFF', darkBg: '#0071DC', darkText: '#FFFFFF' },
@@ -57,7 +56,7 @@ const RETAILER_COLORS: Record<string, { bg: string; text: string; darkBg: string
   bestbuy: { bg: '#0046BE', text: '#FFE000', darkBg: '#0046BE', darkText: '#FFE000' },
   newegg: { bg: '#F7941E', text: '#000000', darkBg: '#F7941E', darkText: '#000000' },
   default: { bg: '#6B7280', text: '#FFFFFF', darkBg: '#4B5563', darkText: '#FFFFFF' },
-}
+};
 
 // Condition styling
 const CONDITION_STYLES: Record<string, { label: string; className: string }> = {
@@ -67,29 +66,28 @@ const CONDITION_STYLES: Record<string, { label: string; className: string }> = {
   open_box: { label: 'OPEN BOX', className: 'bg-warning/20 text-warning' },
   used: { label: 'USED', className: 'bg-muted-foreground/20 text-muted-foreground' },
   default: { label: 'UNKNOWN', className: 'bg-muted-foreground/20 text-muted-foreground' },
-}
+};
 
 /**
  * Format price from cents to display string
  */
 function formatPrice(cents: number, currency: string = 'USD'): string {
-  const dollars = cents / 100
+  const dollars = cents / 100;
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency,
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
-  }).format(dollars)
+  }).format(dollars);
 }
 
 /**
  * Calculate discount percentage
  */
 function calculateDiscount(price: number, originalPrice: number): number {
-  if (!originalPrice || originalPrice <= price) return 0
-  return Math.round(((originalPrice - price) / originalPrice) * 100)
+  if (!originalPrice || originalPrice <= price) return 0;
+  return Math.round(((originalPrice - price) / originalPrice) * 100);
 }
-
 
 export function ShopListingCard({
   listingId: _listingId,
@@ -108,57 +106,72 @@ export function ShopListingCard({
   testID = 'shop-listing-card',
   onPress,
 }: ShopListingCardProps) {
-  const { colors: themeColors, isDark } = useTheme()
+  const { colors: themeColors, isDark } = useTheme();
 
   // Build theme-aware deal score styles
   const getDealScoreStyleThemed = (score: number | undefined) => {
     if (!score || score < 50) {
-      return { color: themeColors.mutedForeground, bgColor: `${themeColors.mutedForeground}33`, icon: 'tag' as const, label: 'Standard' }
+      return {
+        color: themeColors.mutedForeground,
+        bgColor: `${themeColors.mutedForeground}33`,
+        icon: 'tag' as const,
+        label: 'Standard',
+      };
     }
     if (score < 75) {
-      return { color: themeColors.warning, bgColor: `${themeColors.warning}33`, icon: 'zap' as const, label: 'Good Deal' }
+      return {
+        color: themeColors.warning,
+        bgColor: `${themeColors.warning}33`,
+        icon: 'zap' as const,
+        label: 'Good Deal',
+      };
     }
-    return { color: themeColors.success, bgColor: `${themeColors.success}33`, icon: 'flame' as const, label: 'Hot Deal' }
-  }
+    return {
+      color: themeColors.success,
+      bgColor: `${themeColors.success}33`,
+      icon: 'flame' as const,
+      label: 'Hot Deal',
+    };
+  };
 
   // Animation for press feedback
-  const scale = useSharedValue(1)
+  const scale = useSharedValue(1);
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
-  }))
+  }));
 
   const handlePressIn = () => {
-    scale.value = withSpring(0.98, { damping: 15, stiffness: 300 })
-  }
+    scale.value = withSpring(0.98, { damping: 15, stiffness: 300 });
+  };
 
   const handlePressOut = () => {
-    scale.value = withSpring(1, { damping: 15, stiffness: 300 })
-  }
+    scale.value = withSpring(1, { damping: 15, stiffness: 300 });
+  };
 
   const handlePress = () => {
     if (onPress) {
-      onPress()
+      onPress();
     } else if (url) {
-      Linking.openURL(url)
+      Linking.openURL(url);
     }
-  }
+  };
 
   // Get retailer colors
-  const retailerKey = retailer.toLowerCase().replace(/[^a-z]/g, '')
-  const retailerStyle = RETAILER_COLORS[retailerKey] || RETAILER_COLORS.default
-  const retailerBg = isDark ? retailerStyle.darkBg : retailerStyle.bg
-  const retailerText = isDark ? retailerStyle.darkText : retailerStyle.text
+  const retailerKey = retailer.toLowerCase().replace(/[^a-z]/g, '');
+  const retailerStyle = RETAILER_COLORS[retailerKey] || RETAILER_COLORS.default;
+  const retailerBg = isDark ? retailerStyle.darkBg : retailerStyle.bg;
+  const retailerText = isDark ? retailerStyle.darkText : retailerStyle.text;
 
   // Get condition styling
-  const conditionKey = condition.toLowerCase().replace(/[^a-z_]/g, '')
-  const conditionStyle = CONDITION_STYLES[conditionKey] || CONDITION_STYLES.default
+  const conditionKey = condition.toLowerCase().replace(/[^a-z_]/g, '');
+  const conditionStyle = CONDITION_STYLES[conditionKey] || CONDITION_STYLES.default;
 
   // Calculate discount
-  const discount = originalPrice ? calculateDiscount(price, originalPrice) : 0
+  const discount = originalPrice ? calculateDiscount(price, originalPrice) : 0;
 
   // Get deal score styling (theme-aware)
-  const dealStyle = getDealScoreStyleThemed(dealScore)
-  const DealIcon = dealStyle.icon === 'flame' ? Flame : dealStyle.icon === 'zap' ? Zap : Tag
+  const dealStyle = getDealScoreStyleThemed(dealScore);
+  const DealIcon = dealStyle.icon === 'flame' ? Flame : dealStyle.icon === 'zap' ? Zap : Tag;
 
   return (
     <Animated.View style={animatedStyle}>
@@ -177,11 +190,7 @@ export function ShopListingCard({
                 className="mr-3 overflow-hidden rounded-lg bg-muted"
                 style={styles.imageContainer}
               >
-                <Image
-                  source={{ uri: imageUrl }}
-                  style={styles.image}
-                  resizeMode="cover"
-                />
+                <Image source={{ uri: imageUrl }} style={styles.image} resizeMode="cover" />
                 {/* Condition Badge - overlaid on image */}
                 <View
                   className={cn(
@@ -217,10 +226,7 @@ export function ShopListingCard({
             {/* Main Info */}
             <View className="flex-1 justify-between">
               {/* Title */}
-              <Text
-                className="text-foreground text-sm font-medium leading-tight"
-                numberOfLines={2}
-              >
+              <Text className="text-foreground text-sm font-medium leading-tight" numberOfLines={2}>
                 {title}
               </Text>
 
@@ -258,15 +264,10 @@ export function ShopListingCard({
           </View>
 
           {/* Bottom Row: Retailer, Deal Score, Stock Status */}
-          <View
-            className="flex-row items-center justify-between border-t border-border px-3 py-2 bg-foreground/[0.02]"
-          >
+          <View className="flex-row items-center justify-between border-t border-border px-3 py-2 bg-foreground/[0.02]">
             {/* Left: Retailer Badge + Seller */}
             <View className="flex-row items-center gap-2">
-              <View
-                className="rounded px-2 py-1"
-                style={{ backgroundColor: retailerBg }}
-              >
+              <View className="rounded px-2 py-1" style={{ backgroundColor: retailerBg }}>
                 <Text
                   className="text-[10px] font-bold uppercase tracking-wider"
                   style={{ color: retailerText }}
@@ -281,7 +282,11 @@ export function ShopListingCard({
                   </Text>
                   {sellerRating && sellerRating > 0 && (
                     <View className="flex-row items-center gap-0.5">
-                      <Star size={10} color={themeColors.starRating} fill={themeColors.starRating} />
+                      <Star
+                        size={10}
+                        color={themeColors.starRating}
+                        fill={themeColors.starRating}
+                      />
                       <Text className="text-star-rating text-xs font-medium">
                         {sellerRating.toFixed(1)}
                       </Text>
@@ -300,10 +305,7 @@ export function ShopListingCard({
                   style={{ backgroundColor: dealStyle.bgColor }}
                 >
                   <DealIcon size={12} color={dealStyle.color} />
-                  <Text
-                    className="text-xs font-bold"
-                    style={{ color: dealStyle.color }}
-                  >
+                  <Text className="text-xs font-bold" style={{ color: dealStyle.color }}>
                     {dealScore}
                   </Text>
                 </View>
@@ -329,7 +331,7 @@ export function ShopListingCard({
         </Card>
       </Pressable>
     </Animated.View>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
@@ -341,4 +343,4 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-})
+});

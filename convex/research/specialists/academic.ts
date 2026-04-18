@@ -12,16 +12,13 @@
  * Also logs improvements to app/product based on academic findings.
  */
 
-"use node";
+'use node';
 
-import { internal } from "../../_generated/api";
-import type { ActionCtx } from "../../_generated/server";
-import { generateText } from "ai";
-import { claudeFlash } from "../../lib/ai/anthropic_provider";
-import {
-  executeParallelSearchWithRetry,
-  type ParallelSearchResult,
-} from "../search";
+import { generateText } from 'ai';
+import { internal } from '../../_generated/api';
+import type { ActionCtx } from '../../_generated/server';
+import { claudeFlash } from '../../lib/ai/anthropic_provider';
+import { executeParallelSearchWithRetry, type ParallelSearchResult } from '../search';
 
 // ============================================================================
 // Types
@@ -31,7 +28,7 @@ import {
  * Academic research report structure
  */
 export interface AcademicReport {
-  specialist: "academic";
+  specialist: 'academic';
   query: string;
   findings: string;
   sources: Array<{
@@ -66,30 +63,21 @@ export async function executeAcademicResearch(
   ctx: ActionCtx,
   query: string
 ): Promise<AcademicReport> {
-
   // Enhance query with academic-specific terms
   const academicQuery = `${query} academic research paper peer-reviewed scholarly`;
 
   // Execute parallel search with retry
-  const searchResult = await executeParallelSearchWithRetry(
-    academicQuery,
-    {},
-    [],
-    {
-      maxRetries: 2,
-      timeoutMs: 15000,
-      deduplicateResults: true,
-    }
-  );
-
-  
+  const searchResult = await executeParallelSearchWithRetry(academicQuery, {}, [], {
+    maxRetries: 2,
+    timeoutMs: 15000,
+    deduplicateResults: true,
+  });
 
   // Generate academic report using LLM
   const academicReport = await generateAcademicReport(query, searchResult);
 
   // Log improvements if any product/app suggestions found
   await logImprovementsFromAcademicResearch(ctx, query, academicReport);
-
 
   return academicReport;
 }
@@ -113,7 +101,7 @@ async function generateAcademicReport(
   const report = JSON.parse(text.trim());
 
   return {
-    specialist: "academic",
+    specialist: 'academic',
     query,
     findings: report.findings,
     sources: searchResult.structuredResults.map((source) => ({
@@ -137,13 +125,10 @@ async function generateAcademicReport(
 /**
  * Build prompt for academic report generation
  */
-function buildAcademicPrompt(
-  query: string,
-  searchResult: ParallelSearchResult
-): string {
+function buildAcademicPrompt(query: string, searchResult: ParallelSearchResult): string {
   const sourcesText = searchResult.structuredResults
     .map((s, i) => `Source ${i + 1}:\nTitle: ${s.title}\nURL: ${s.url}\nContent: ${s.content}`)
-    .join("\n\n");
+    .join('\n\n');
 
   return `You are an academic research specialist. Generate a scholarly research report based on the following sources.
 
@@ -198,12 +183,12 @@ async function logImprovementsFromAcademicResearch(
 ): Promise<void> {
   // Check if findings suggest any improvements
   const improvementKeywords = [
-    "improve",
-    "enhancement",
-    "better",
-    "recommend",
-    "suggest",
-    "opportunity",
+    'improve',
+    'enhancement',
+    'better',
+    'recommend',
+    'suggest',
+    'opportunity',
   ];
 
   const hasImprovements = improvementKeywords.some((keyword) =>
@@ -233,20 +218,16 @@ If there are no specific improvement suggestions, return an empty array: []`;
     if (Array.isArray(suggestions) && suggestions.length > 0) {
       // Log each suggestion as an improvement
       for (const suggestion of suggestions) {
-        const description = typeof suggestion === "string" ? suggestion : JSON.stringify(suggestion);
+        const description =
+          typeof suggestion === 'string' ? suggestion : JSON.stringify(suggestion);
 
         await ctx.runMutation(internal.improvements.internal.submitFromSpecialist, {
           description: `[Academic Research] ${description}\n\nQuery: ${query}`,
-          source: "academic_specialist",
+          source: 'academic_specialist',
         });
       }
-
-      
     }
   } catch (error) {
-    console.error(
-      `[logImprovementsFromAcademicResearch] Failed to log improvements:`,
-      error
-    );
+    console.error(`[logImprovementsFromAcademicResearch] Failed to log improvements:`, error);
   }
 }

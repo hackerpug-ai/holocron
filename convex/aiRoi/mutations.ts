@@ -4,9 +4,9 @@
  * CRUD operations for aiRoiSessions, aiRoiOpportunities, and aiRoiEvidence.
  */
 
-import { mutation } from "../_generated/server";
-import { v } from "convex/values";
-import type { Id } from "../_generated/dataModel";
+import { v } from 'convex/values';
+import type { Id } from '../_generated/dataModel';
+import { mutation } from '../_generated/server';
 
 // ============================================================================
 // Session Mutations
@@ -19,13 +19,13 @@ import type { Id } from "../_generated/dataModel";
 export const createSession = mutation({
   args: {
     company: v.string(),
-    documentId: v.optional(v.id("documents")),
+    documentId: v.optional(v.id('documents')),
   },
-  handler: async (ctx, args): Promise<Id<"aiRoiSessions">> => {
+  handler: async (ctx, args): Promise<Id<'aiRoiSessions'>> => {
     const now = Date.now();
-    const sessionId = await ctx.db.insert("aiRoiSessions", {
+    const sessionId = await ctx.db.insert('aiRoiSessions', {
       company: args.company,
-      status: "pending",
+      status: 'pending',
       documentId: args.documentId,
       createdAt: now,
       updatedAt: now,
@@ -40,14 +40,14 @@ export const createSession = mutation({
  */
 export const updateSession = mutation({
   args: {
-    sessionId: v.id("aiRoiSessions"),
+    sessionId: v.id('aiRoiSessions'),
     status: v.optional(v.string()),
     executiveSummary: v.optional(v.string()),
     sourceCount: v.optional(v.number()),
     topOpportunityName: v.optional(v.string()),
     topOpportunitySavings: v.optional(v.string()),
     topOpportunityConfidence: v.optional(v.string()),
-    documentId: v.optional(v.id("documents")),
+    documentId: v.optional(v.id('documents')),
     errorReason: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<void> => {
@@ -70,20 +70,20 @@ export const updateSession = mutation({
  */
 export const completeSession = mutation({
   args: {
-    sessionId: v.id("aiRoiSessions"),
+    sessionId: v.id('aiRoiSessions'),
     executiveSummary: v.optional(v.string()),
     sourceCount: v.optional(v.number()),
     topOpportunityName: v.optional(v.string()),
     topOpportunitySavings: v.optional(v.string()),
     topOpportunityConfidence: v.optional(v.string()),
-    documentId: v.optional(v.id("documents")),
+    documentId: v.optional(v.id('documents')),
   },
   handler: async (ctx, args): Promise<void> => {
     const { sessionId, ...rest } = args;
     const now = Date.now();
 
     const updates: Record<string, unknown> = {
-      status: "completed",
+      status: 'completed',
       completedAt: now,
       updatedAt: now,
     };
@@ -103,13 +103,13 @@ export const completeSession = mutation({
  */
 export const failSession = mutation({
   args: {
-    sessionId: v.id("aiRoiSessions"),
+    sessionId: v.id('aiRoiSessions'),
     errorReason: v.string(),
   },
   handler: async (ctx, args): Promise<void> => {
     const now = Date.now();
     await ctx.db.patch(args.sessionId, {
-      status: "failed",
+      status: 'failed',
       errorReason: args.errorReason,
       updatedAt: now,
     });
@@ -125,7 +125,7 @@ export const failSession = mutation({
  */
 export const addOpportunity = mutation({
   args: {
-    sessionId: v.id("aiRoiSessions"),
+    sessionId: v.id('aiRoiSessions'),
     rank: v.number(),
     name: v.string(),
     confidence: v.string(),
@@ -140,9 +140,9 @@ export const addOpportunity = mutation({
     errorRateAfter: v.optional(v.string()),
     phase: v.optional(v.string()),
   },
-  handler: async (ctx, args): Promise<Id<"aiRoiOpportunities">> => {
+  handler: async (ctx, args): Promise<Id<'aiRoiOpportunities'>> => {
     const { sessionId, ...opportunityData } = args;
-    const opportunityId = await ctx.db.insert("aiRoiOpportunities", {
+    const opportunityId = await ctx.db.insert('aiRoiOpportunities', {
       sessionId,
       ...opportunityData,
       createdAt: Date.now(),
@@ -160,17 +160,17 @@ export const addOpportunity = mutation({
  */
 export const addEvidence = mutation({
   args: {
-    sessionId: v.id("aiRoiSessions"),
-    opportunityId: v.optional(v.id("aiRoiOpportunities")),
+    sessionId: v.id('aiRoiSessions'),
+    opportunityId: v.optional(v.id('aiRoiOpportunities')),
     claim: v.string(),
     tier: v.number(),
     source: v.optional(v.string()),
     sourceUrl: v.optional(v.string()),
     challengeStatus: v.optional(v.string()),
   },
-  handler: async (ctx, args): Promise<Id<"aiRoiEvidence">> => {
+  handler: async (ctx, args): Promise<Id<'aiRoiEvidence'>> => {
     const { sessionId, ...evidenceData } = args;
-    const evidenceId = await ctx.db.insert("aiRoiEvidence", {
+    const evidenceId = await ctx.db.insert('aiRoiEvidence', {
       sessionId,
       ...evidenceData,
       createdAt: Date.now(),

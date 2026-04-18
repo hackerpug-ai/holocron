@@ -13,33 +13,33 @@
  * - No speaker labels - differentiated by styling only
  */
 
-import { StyleSheet, View } from 'react-native'
-import Animated, { FadeInUp, FadeOut } from 'react-native-reanimated'
-import { Text } from '@/components/ui/text'
-import { useTheme } from '@/hooks/use-theme'
-import { useAutoDismissCaptions } from '@/hooks/use-auto-dismiss-captions'
+import { StyleSheet, View } from 'react-native';
+import Animated, { FadeInUp, FadeOut } from 'react-native-reanimated';
+import { Text } from '@/components/ui/text';
+import { useAutoDismissCaptions } from '@/hooks/use-auto-dismiss-captions';
+import { useTheme } from '@/hooks/use-theme';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
 export type VoiceCaptionsProps = {
-  transcripts: Array<{ role: 'user' | 'agent'; content: string; timestamp: number }>
-}
+  transcripts: Array<{ role: 'user' | 'agent'; content: string; timestamp: number }>;
+};
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
-const MAX_VISIBLE = 4
+const MAX_VISIBLE = 4;
 
 // ─── Main Component ────────────────────────────────────────────────────────────
 
 export function VoiceCaptions({ transcripts }: VoiceCaptionsProps) {
-  const { colors, spacing, radius } = useTheme()
-  const visibleCaptions = useAutoDismissCaptions(transcripts)
+  const { colors, spacing, radius } = useTheme();
+  const visibleCaptions = useAutoDismissCaptions(transcripts);
 
   // Only show the last MAX_VISIBLE captions
-  const displayCaptions = visibleCaptions.slice(-MAX_VISIBLE)
+  const displayCaptions = visibleCaptions.slice(-MAX_VISIBLE);
 
   if (displayCaptions.length === 0) {
-    return null
+    return null;
   }
 
   return (
@@ -55,8 +55,8 @@ export function VoiceCaptions({ transcripts }: VoiceCaptionsProps) {
       testID="voice-captions-container"
     >
       {displayCaptions.map((caption) => {
-        const isAgent = caption.role === 'agent'
-        const key = `${caption.role}-${caption.timestamp}`
+        const isAgent = caption.role === 'agent';
+        const key = `${caption.role}-${caption.timestamp}`;
 
         return (
           <Animated.View
@@ -95,10 +95,10 @@ export function VoiceCaptions({ transcripts }: VoiceCaptionsProps) {
               </Text>
             </View>
           </Animated.View>
-        )
+        );
       })}
     </View>
-  )
+  );
 }
 
 // ─── Styles ────────────────────────────────────────────────────────────────────
@@ -116,4 +116,4 @@ const styles = StyleSheet.create({
   userText: {
     fontStyle: 'italic',
   },
-})
+});

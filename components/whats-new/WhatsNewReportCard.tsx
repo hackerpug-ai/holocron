@@ -2,18 +2,27 @@
  * WhatsNewReportCard - AI news briefing display
  */
 
-import { View, ScrollView } from 'react-native'
-import { Text } from '@/components/ui/text'
-import { Card } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Newspaper, Sparkles, TrendingUp, Package, MessageSquare, Calendar, Zap, GitFork } from '@/components/ui/icons'
-import { useTheme } from '@/hooks/use-theme'
-import type { WhatsNewReportCardData } from '@/lib/types/chat'
+import { ScrollView, View } from 'react-native';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
+import {
+  Calendar,
+  GitFork,
+  MessageSquare,
+  Newspaper,
+  Package,
+  Sparkles,
+  TrendingUp,
+  Zap,
+} from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { useTheme } from '@/hooks/use-theme';
+import type { WhatsNewReportCardData } from '@/lib/types/chat';
 
 export interface WhatsNewReportCardProps {
-  data: WhatsNewReportCardData
-  testID?: string
-  onPress?: () => void
+  data: WhatsNewReportCardData;
+  testID?: string;
+  onPress?: () => void;
 }
 
 /**
@@ -24,7 +33,7 @@ function formatDate(timestamp: number): string {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
-  })
+  });
 }
 
 export function WhatsNewReportCard({
@@ -32,7 +41,7 @@ export function WhatsNewReportCard({
   testID = 'whats-new-report-card',
   onPress: _onPress,
 }: WhatsNewReportCardProps) {
-  const { colors: themeColors } = useTheme()
+  const { colors: themeColors } = useTheme();
 
   const {
     days,
@@ -47,28 +56,21 @@ export function WhatsNewReportCard({
     top_engagement_velocity,
     total_corroboration_count,
     sources,
-  } = data
+  } = data;
 
   return (
     <Card testID={testID} className="border-border bg-card overflow-hidden">
       {/* Top accent bar */}
-      <View
-        className="h-1"
-        style={{ backgroundColor: themeColors.primary }}
-      />
+      <View className="h-1" style={{ backgroundColor: themeColors.primary }} />
 
       <View className="p-4">
         {/* Header */}
         <View className="mb-3 flex-row items-center gap-2">
           <Newspaper size={20} color={themeColors.primary} />
-          <Text className="text-foreground flex-1 text-lg font-bold">
-            What's New in AI
-          </Text>
+          <Text className="text-foreground flex-1 text-lg font-bold">What's New in AI</Text>
           {is_from_today && (
             <View className="rounded-full bg-success/20 px-2 py-1">
-              <Text className="text-xs font-medium text-success">
-                Today
-              </Text>
+              <Text className="text-xs font-medium text-success">Today</Text>
             </View>
           )}
         </View>
@@ -86,9 +88,7 @@ export function WhatsNewReportCard({
           {/* Total Findings */}
           <View className="flex-row items-center gap-1.5 rounded-lg bg-muted px-2.5 py-1.5">
             <Sparkles size={14} color={themeColors.primary} />
-            <Text className="text-foreground text-sm font-semibold">
-              {findings_count}
-            </Text>
+            <Text className="text-foreground text-sm font-semibold">{findings_count}</Text>
             <Text className="text-muted-foreground text-sm">findings</Text>
           </View>
 
@@ -96,9 +96,7 @@ export function WhatsNewReportCard({
           {discovery_count > 0 && (
             <View className="flex-row items-center gap-1.5 rounded-lg bg-muted px-2.5 py-1.5">
               <Sparkles size={14} color={themeColors.warning} />
-              <Text className="text-foreground text-sm font-semibold">
-                {discovery_count}
-              </Text>
+              <Text className="text-foreground text-sm font-semibold">{discovery_count}</Text>
               <Text className="text-muted-foreground text-sm">discoveries</Text>
             </View>
           )}
@@ -107,9 +105,7 @@ export function WhatsNewReportCard({
           {release_count > 0 && (
             <View className="flex-row items-center gap-1.5 rounded-lg bg-muted px-2.5 py-1.5">
               <Package size={14} color={themeColors.success} />
-              <Text className="text-foreground text-sm font-semibold">
-                {release_count}
-              </Text>
+              <Text className="text-foreground text-sm font-semibold">{release_count}</Text>
               <Text className="text-muted-foreground text-sm">releases</Text>
             </View>
           )}
@@ -118,9 +114,7 @@ export function WhatsNewReportCard({
           {trend_count > 0 && (
             <View className="flex-row items-center gap-1.5 rounded-lg bg-muted px-2.5 py-1.5">
               <TrendingUp size={14} color={themeColors.info} />
-              <Text className="text-foreground text-sm font-semibold">
-                {trend_count}
-              </Text>
+              <Text className="text-foreground text-sm font-semibold">{trend_count}</Text>
               <Text className="text-muted-foreground text-sm">trends</Text>
             </View>
           )}
@@ -171,10 +165,7 @@ export function WhatsNewReportCard({
         {/* Content Preview */}
         {content && (
           <View className="rounded-lg bg-muted p-3">
-            <Text
-              className="text-foreground text-sm"
-              numberOfLines={6}
-            >
+            <Text className="text-foreground text-sm" numberOfLines={6}>
               {content.slice(0, 500)}
               {content.length > 500 ? '...' : ''}
             </Text>
@@ -185,12 +176,10 @@ export function WhatsNewReportCard({
         {!content && (
           <View className="flex-row items-center gap-2 rounded-lg bg-muted p-3">
             <MessageSquare size={14} color={themeColors.mutedForeground} />
-            <Text className="text-muted-foreground flex-1 text-sm">
-              Tap to view full briefing
-            </Text>
+            <Text className="text-muted-foreground flex-1 text-sm">Tap to view full briefing</Text>
           </View>
         )}
       </View>
     </Card>
-  )
+  );
 }

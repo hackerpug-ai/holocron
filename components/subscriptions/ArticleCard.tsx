@@ -10,30 +10,30 @@
  * Handles missing hero images with fallback UI showing document icon.
  */
 
-import { View, Pressable, StyleSheet } from 'react-native'
-import { Text } from '@/components/ui/text'
-import { FileText } from '@/components/ui/icons'
-import { useTheme } from '@/hooks/use-theme'
-import { SummaryText } from './SummaryText'
-import { OptimizedImage } from '@/components/ui/OptimizedImage'
+import { Pressable, StyleSheet, View } from 'react-native';
+import { FileText } from '@/components/ui/icons';
+import { OptimizedImage } from '@/components/ui/OptimizedImage';
+import { Text } from '@/components/ui/text';
+import { useTheme } from '@/hooks/use-theme';
+import { SummaryText } from './SummaryText';
 
 export interface ArticleCardProps {
   /** URL to hero image (16:9 aspect ratio) */
-  heroImageUrl?: string
+  heroImageUrl?: string;
   /** Article title */
-  title: string
+  title: string;
   /** Optional summary text (2-3 lines) */
-  summary?: string
+  summary?: string;
   /** Source name (e.g., "TechCrunch", "The Verge") */
-  source: string
+  source: string;
   /** Read time estimate (e.g., "5 min read") */
-  readTime?: string
+  readTime?: string;
   /** Optional published timestamp */
-  publishedAt?: string
+  publishedAt?: string;
   /** Callback when card is pressed */
-  onPress?: () => void
+  onPress?: () => void;
   /** Test ID for testing */
-  testID?: string
+  testID?: string;
 }
 
 /**
@@ -61,10 +61,10 @@ export function ArticleCard({
   onPress,
   testID = 'article-card',
 }: ArticleCardProps) {
-  const { colors, spacing, radius } = useTheme()
+  const { colors, spacing, radius } = useTheme();
 
   // Build accessibility label for screen readers
-  const accessibilityLabel = `Article. ${title}${summary ? `. ${summary}` : ''}${source ? `. Source: ${source}` : ''}${readTime ? `. ${readTime}` : ''}${publishedAt ? `. ${publishedAt}` : ''}. Tap to read.`
+  const accessibilityLabel = `Article. ${title}${summary ? `. ${summary}` : ''}${source ? `. Source: ${source}` : ''}${readTime ? `. ${readTime}` : ''}${publishedAt ? `. ${publishedAt}` : ''}. Tap to read.`;
 
   return (
     <Pressable
@@ -86,10 +86,7 @@ export function ArticleCard({
     >
       {/* Hero image container with 16:9 aspect ratio */}
       <View
-        style={[
-          styles.heroContainer,
-          { borderRadius: radius.lg },
-        ]}
+        style={[styles.heroContainer, { borderRadius: radius.lg }]}
         testID={`${testID}-hero-container`}
       >
         {heroImageUrl ? (
@@ -103,7 +100,6 @@ export function ArticleCard({
               aspectRatio={16 / 9}
               borderRadius={radius.lg}
               testID={`${testID}-hero`}
-              
             />
           </View>
         ) : (
@@ -138,11 +134,7 @@ export function ArticleCard({
         </Text>
 
         {/* Summary */}
-        <SummaryText
-          summary={summary}
-          title={title}
-          testID={`${testID}-summary`}
-        />
+        <SummaryText summary={summary} title={title} testID={`${testID}-summary`} />
 
         {/* Source, read time, and published date */}
         <View style={[styles.metaRow, { gap: spacing.sm }]}>
@@ -180,7 +172,7 @@ export function ArticleCard({
         </View>
       </View>
     </Pressable>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
@@ -212,4 +204,4 @@ const styles = StyleSheet.create({
     height: 4,
     borderRadius: 2,
   },
-})
+});

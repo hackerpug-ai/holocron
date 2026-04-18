@@ -1,6 +1,6 @@
-import { Card, CardContent } from '@/components/ui/card'
-import { Skeleton } from '@/components/ui/skeleton'
-import { View } from 'react-native'
+import { View } from 'react-native';
+import { Card, CardContent } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export function ImprovementCardSkeleton() {
   return (
@@ -25,5 +25,5 @@ export function ImprovementCardSkeleton() {
         </CardContent>
       </Card>
     </View>
-  )
+  );
 }

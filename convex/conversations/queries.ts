@@ -1,5 +1,5 @@
-import { query } from "../_generated/server";
-import { v } from "convex/values";
+import { v } from 'convex/values';
+import { query } from '../_generated/server';
 
 const AGENT_BUSY_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -18,7 +18,7 @@ function isAgentActuallyBusy(conversation: {
 export const count = query({
   args: {},
   handler: async (ctx) => {
-    const conversations = await ctx.db.query("conversations").collect();
+    const conversations = await ctx.db.query('conversations').collect();
     return conversations.length;
   },
 });
@@ -32,9 +32,9 @@ export const list = query({
   },
   handler: async (ctx, { limit = 50 }) => {
     const conversations = await ctx.db
-      .query("conversations")
-      .withIndex("by_updated")
-      .order("desc")
+      .query('conversations')
+      .withIndex('by_updated')
+      .order('desc')
       .take(limit);
     return conversations.map((c) => ({
       ...c,
@@ -48,7 +48,7 @@ export const list = query({
  */
 export const get = query({
   args: {
-    id: v.id("conversations"),
+    id: v.id('conversations'),
   },
   handler: async (ctx, { id }) => {
     const conversation = await ctx.db.get(id);

@@ -1,13 +1,13 @@
-import { Icon } from '@/components/ui/icon';
-import { NativeOnlyAnimatedView } from '@/components/ui/native-only-animated-view';
-import { TextClassContext } from '@/components/ui/text';
-import { cn } from '@/lib/utils';
 import * as SelectPrimitive from '@rn-primitives/select';
-import { Check, ChevronDown, ChevronUp } from '@/components/ui/icons';
 import * as React from 'react';
 import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { FadeIn, FadeOut } from 'react-native-reanimated';
 import { FullWindowOverlay as RNFullWindowOverlay } from 'react-native-screens';
+import { Icon } from '@/components/ui/icon';
+import { Check, ChevronDown, ChevronUp } from '@/components/ui/icons';
+import { NativeOnlyAnimatedView } from '@/components/ui/native-only-animated-view';
+import { TextClassContext } from '@/components/ui/text';
+import { cn } from '@/lib/utils';
 
 type Option = SelectPrimitive.Option;
 
@@ -60,7 +60,8 @@ function SelectTrigger({
         size === 'sm' && 'h-8 py-2 sm:py-1.5',
         className
       )}
-      {...props}>
+      {...props}
+    >
       <>{children}</>
       <Icon as={ChevronDown} aria-hidden={true} className="text-muted-foreground size-4" />
     </SelectPrimitive.Trigger>
@@ -107,7 +108,8 @@ function SelectContent({
                   className
                 )}
                 position={position}
-                {...props}>
+                {...props}
+              >
                 <SelectScrollUpButton />
                 <SelectPrimitive.Viewport
                   className={cn(
@@ -119,7 +121,8 @@ function SelectContent({
                           web: 'h-[var(--radix-select-trigger-height)] min-w-[var(--radix-select-trigger-width)]',
                         })
                       )
-                  )}>
+                  )}
+                >
                   {children}
                 </SelectPrimitive.Viewport>
                 <SelectScrollDownButton />
@@ -159,7 +162,8 @@ function SelectItem({
         props.disabled && 'opacity-50',
         className
       )}
-      {...props}>
+      {...props}
+    >
       <View className="absolute right-2 flex size-3.5 items-center justify-center">
         <SelectPrimitive.ItemIndicator>
           <Icon as={Check} className="text-muted-foreground size-4 shrink-0" />
@@ -200,7 +204,8 @@ function SelectScrollUpButton({
   return (
     <SelectPrimitive.ScrollUpButton
       className={cn('flex cursor-default items-center justify-center py-1', className)}
-      {...props}>
+      {...props}
+    >
       <Icon as={ChevronUp} className="size-4" />
     </SelectPrimitive.ScrollUpButton>
   );
@@ -220,7 +225,8 @@ function SelectScrollDownButton({
   return (
     <SelectPrimitive.ScrollDownButton
       className={cn('flex cursor-default items-center justify-center py-1', className)}
-      {...props}>
+      {...props}
+    >
       <Icon as={ChevronDown} className="size-4" />
     </SelectPrimitive.ScrollDownButton>
   );
@@ -239,6 +245,7 @@ function NativeSelectScrollView({ className, ...props }: React.ComponentProps<ty
 
 export {
   NativeSelectScrollView,
+  type Option,
   Select,
   SelectContent,
   SelectGroup,
@@ -249,5 +256,4 @@ export {
   SelectSeparator,
   SelectTrigger,
   SelectValue,
-  type Option,
 };

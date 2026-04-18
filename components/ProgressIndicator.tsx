@@ -1,24 +1,24 @@
-import { Progress } from '@/components/ui/progress'
-import { Text } from '@/components/ui/text'
-import { cn } from '@/lib/utils'
-import { Clock, Globe, Loader2 } from '@/components/ui/icons'
-import { View, type ViewProps } from 'react-native'
+import { View, type ViewProps } from 'react-native';
+import { Clock, Globe, Loader2 } from '@/components/ui/icons';
+import { Progress } from '@/components/ui/progress';
+import { Text } from '@/components/ui/text';
+import { cn } from '@/lib/utils';
 
-type ResearchPhase = 'searching' | 'analyzing' | 'synthesizing' | 'complete'
+type ResearchPhase = 'searching' | 'analyzing' | 'synthesizing' | 'complete';
 
 interface ProgressIndicatorProps extends Omit<ViewProps, 'children'> {
   /** Current research phase */
-  phase: ResearchPhase
+  phase: ResearchPhase;
   /** Progress percentage (0-100) */
-  progress?: number
+  progress?: number;
   /** Elapsed time in seconds */
-  elapsedTime?: number
+  elapsedTime?: number;
   /** List of sources being consulted */
-  sources?: string[]
+  sources?: string[];
   /** Whether research is active */
-  isActive?: boolean
+  isActive?: boolean;
   /** Optional status message */
-  statusMessage?: string
+  statusMessage?: string;
 }
 
 const phaseLabels: Record<ResearchPhase, string> = {
@@ -26,20 +26,20 @@ const phaseLabels: Record<ResearchPhase, string> = {
   analyzing: 'Analyzing...',
   synthesizing: 'Synthesizing...',
   complete: 'Complete',
-}
+};
 
 const phaseProgress: Record<ResearchPhase, number> = {
   searching: 25,
   analyzing: 50,
   synthesizing: 75,
   complete: 100,
-}
+};
 
 function formatElapsedTime(seconds: number): string {
-  const mins = Math.floor(seconds / 60)
-  const secs = seconds % 60
-  if (mins === 0) return `${secs}s`
-  return `${mins}m ${secs}s`
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  if (mins === 0) return `${secs}s`;
+  return `${mins}m ${secs}s`;
 }
 
 /**
@@ -56,8 +56,8 @@ export function ProgressIndicator({
   className,
   ...props
 }: ProgressIndicatorProps) {
-  const displayProgress = progress ?? phaseProgress[phase]
-  const isComplete = phase === 'complete'
+  const displayProgress = progress ?? phaseProgress[phase];
+  const isComplete = phase === 'complete';
 
   return (
     <View
@@ -68,17 +68,13 @@ export function ProgressIndicator({
       {/* Header */}
       <View className="mb-3 flex-row items-center justify-between">
         <View className="flex-row items-center gap-2">
-          {isActive && !isComplete && (
-            <Loader2 size={16} className="text-primary animate-spin" />
-          )}
+          {isActive && !isComplete && <Loader2 size={16} className="text-primary animate-spin" />}
           <Text className="text-foreground font-semibold">{phaseLabels[phase]}</Text>
         </View>
         {elapsedTime !== undefined && (
           <View className="flex-row items-center gap-1">
             <Clock size={14} className="text-muted-foreground" />
-            <Text className="text-muted-foreground text-sm">
-              {formatElapsedTime(elapsedTime)}
-            </Text>
+            <Text className="text-muted-foreground text-sm">{formatElapsedTime(elapsedTime)}</Text>
           </View>
         )}
       </View>
@@ -87,9 +83,7 @@ export function ProgressIndicator({
       <Progress value={displayProgress} className="mb-3" />
 
       {/* Status message */}
-      {statusMessage && (
-        <Text className="text-muted-foreground mb-3 text-sm">{statusMessage}</Text>
-      )}
+      {statusMessage && <Text className="text-muted-foreground mb-3 text-sm">{statusMessage}</Text>}
 
       {/* Sources */}
       {sources.length > 0 && (
@@ -102,10 +96,7 @@ export function ProgressIndicator({
           </View>
           <View className="flex-row flex-wrap gap-1">
             {sources.slice(0, 5).map((source, index) => (
-              <View
-                key={index}
-                className="rounded bg-muted px-2 py-0.5"
-              >
+              <View key={index} className="rounded bg-muted px-2 py-0.5">
                 <Text className="text-muted-foreground text-xs" numberOfLines={1}>
                   {source}
                 </Text>
@@ -113,14 +104,12 @@ export function ProgressIndicator({
             ))}
             {sources.length > 5 && (
               <View className="rounded bg-muted px-2 py-0.5">
-                <Text className="text-muted-foreground text-xs">
-                  +{sources.length - 5} more
-                </Text>
+                <Text className="text-muted-foreground text-xs">+{sources.length - 5} more</Text>
               </View>
             )}
           </View>
         </View>
       )}
     </View>
-  )
+  );
 }

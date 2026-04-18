@@ -9,10 +9,10 @@
  * Required for calling external OAuth2 endpoints and reading service account files
  */
 
-"use node";
+'use node';
 
-import { internalAction } from "../_generated/server";
-import { v } from "convex/values";
+import { v } from 'convex/values';
+import { internalAction } from '../_generated/server';
 
 /**
  * OAuth2 token response from Google
@@ -88,9 +88,9 @@ export const getAccessToken = internalAction({
       return oauthToken;
     }
 
-    console.warn("[Auth] No authentication method configured");
-    console.warn("[Auth] Set GOOGLE_APPLICATION_CREDENTIALS for service account (recommended)");
-    console.warn("[Auth] Or set YOUTUBE_OAUTH_* variables for OAuth2");
+    console.warn('[Auth] No authentication method configured');
+    console.warn('[Auth] Set GOOGLE_APPLICATION_CREDENTIALS for service account (recommended)');
+    console.warn('[Auth] Or set YOUTUBE_OAUTH_* variables for OAuth2');
 
     return null;
   },
@@ -115,17 +115,15 @@ async function getServiceAccountToken(): Promise<string | null> {
     return null;
   }
 
-  
-
   try {
     // Import Node.js crypto module (only available with "use node")
-    const crypto = await import("crypto");
+    const crypto = await import('crypto');
 
     // Parse service account credentials from environment variable
     const credentials: ServiceAccountCredentials = JSON.parse(credentialsJson);
 
-    if (credentials.type !== "service_account") {
-      console.error("[ServiceAccount] Invalid credentials file (not a service account)");
+    if (credentials.type !== 'service_account') {
+      console.error('[ServiceAccount] Invalid credentials file (not a service account)');
       return null;
     }
 
@@ -133,13 +131,13 @@ async function getServiceAccountToken(): Promise<string | null> {
     const jwt = await createServiceAccountJWT(credentials, crypto);
 
     // Exchange JWT for access token
-    const response = await fetch("https://oauth2.googleapis.com/token", {
-      method: "POST",
+    const response = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
       headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
+        'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: new URLSearchParams({
-        grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+        grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
         assertion: jwt,
       }),
     });
@@ -161,7 +159,7 @@ async function getServiceAccountToken(): Promise<string | null> {
 
     return token.access_token;
   } catch (error) {
-    console.error("[ServiceAccount] Authentication error:", error);
+    console.error('[ServiceAccount] Authentication error:', error);
     return null;
   }
 }
@@ -185,19 +183,17 @@ async function getOAuth2Token(): Promise<string | null> {
     return null;
   }
 
-  
-
   try {
-    const response = await fetch("https://oauth2.googleapis.com/token", {
-      method: "POST",
+    const response = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
       headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
+        'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: new URLSearchParams({
         client_id: clientId,
         client_secret: clientSecret,
         refresh_token: refreshToken,
-        grant_type: "refresh_token",
+        grant_type: 'refresh_token',
       }),
     });
 
@@ -218,7 +214,7 @@ async function getOAuth2Token(): Promise<string | null> {
 
     return token.access_token;
   } catch (error) {
-    console.error("[OAuth2] Token refresh error:", error);
+    console.error('[OAuth2] Token refresh error:', error);
     return null;
   }
 }
@@ -237,12 +233,12 @@ async function getOAuth2Token(): Promise<string | null> {
  */
 async function createServiceAccountJWT(
   credentials: ServiceAccountCredentials,
-  crypto: typeof import("crypto")
+  crypto: typeof import('crypto')
 ): Promise<string> {
   // JWT Header
   const header = {
-    alg: "RS256",
-    typ: "JWT",
+    alg: 'RS256',
+    typ: 'JWT',
     kid: credentials.private_key_id,
   };
 
@@ -250,7 +246,7 @@ async function createServiceAccountJWT(
   const now = Math.floor(Date.now() / 1000);
   const payload = {
     iss: credentials.client_email,
-    scope: "https://www.googleapis.com/auth/youtube",
+    scope: 'https://www.googleapis.com/auth/youtube',
     aud: credentials.token_uri,
     exp: now + 3600,
     iat: now,
@@ -258,8 +254,8 @@ async function createServiceAccountJWT(
 
   // Base64URL encode (without padding)
   function base64UrlEncode(data: string): string {
-    const base64 = Buffer.from(data).toString("base64");
-    return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+    const base64 = Buffer.from(data).toString('base64');
+    return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
   }
 
   const encodedHeader = base64UrlEncode(JSON.stringify(header));
@@ -267,13 +263,14 @@ async function createServiceAccountJWT(
   const signatureInput = `${encodedHeader}.${encodedPayload}`;
 
   // Sign with private key
-  const sign = crypto.createSign("RSA-SHA256");
+  const sign = crypto.createSign('RSA-SHA256');
   sign.update(signatureInput);
   sign.end();
-  const signature = sign.sign(credentials.private_key, "base64")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=/g, "");
+  const signature = sign
+    .sign(credentials.private_key, 'base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=/g, '');
 
   return `${signatureInput}.${signature}`;
 }
@@ -304,22 +301,19 @@ export const getAuthorizationUrl = internalAction({
     const clientId = process.env.YOUTUBE_OAUTH_CLIENT_ID;
 
     if (!clientId) {
-      throw new Error("YOUTUBE_OAUTH_CLIENT_ID not configured");
+      throw new Error('YOUTUBE_OAUTH_CLIENT_ID not configured');
     }
 
     const params = new URLSearchParams({
       client_id: clientId,
-      redirect_uri: "http://localhost:3000/oauth/callback",
-      scope: "https://www.googleapis.com/auth/youtube.readonly",
-      response_type: "code",
-      access_type: "offline",
-      prompt: "consent",
+      redirect_uri: 'http://localhost:3000/oauth/callback',
+      scope: 'https://www.googleapis.com/auth/youtube.readonly',
+      response_type: 'code',
+      access_type: 'offline',
+      prompt: 'consent',
     });
 
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
-
-    
-    
 
     return authUrl;
   },
@@ -343,22 +337,22 @@ export const exchangeCodeForToken = internalAction({
     const clientSecret = process.env.YOUTUBE_OAUTH_CLIENT_SECRET;
 
     if (!clientId || !clientSecret) {
-      console.error("[OAuth2] Client credentials not configured");
+      console.error('[OAuth2] Client credentials not configured');
       return null;
     }
 
     try {
-      const response = await fetch("https://oauth2.googleapis.com/token", {
-        method: "POST",
+      const response = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
         headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
+          'Content-Type': 'application/x-www-form-urlencoded',
         },
         body: new URLSearchParams({
           client_id: clientId,
           client_secret: clientSecret,
           code: args.code,
-          redirect_uri: "http://localhost:3000/oauth/callback",
-          grant_type: "authorization_code",
+          redirect_uri: 'http://localhost:3000/oauth/callback',
+          grant_type: 'authorization_code',
         }),
       });
 
@@ -371,16 +365,13 @@ export const exchangeCodeForToken = internalAction({
       const token: OAuth2Token & { refresh_token?: string } = await response.json();
 
       if (!token.refresh_token) {
-        console.error("[OAuth2] No refresh token in response");
+        console.error('[OAuth2] No refresh token in response');
         return null;
       }
 
-      
-      
-
       return { refresh_token: token.refresh_token };
     } catch (error) {
-      console.error("[OAuth2] Code exchange error:", error);
+      console.error('[OAuth2] Code exchange error:', error);
       return null;
     }
   },

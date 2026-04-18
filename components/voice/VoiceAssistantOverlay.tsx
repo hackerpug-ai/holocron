@@ -17,62 +17,62 @@
  * All colors, spacing, and radii use theme tokens via useTheme().
  */
 
-import { useCallback, useEffect } from 'react'
-import { Dimensions, Modal, Pressable, SafeAreaView, StyleSheet, View } from 'react-native'
+import { useCallback, useEffect } from 'react';
+import { Dimensions, Modal, Pressable, SafeAreaView, StyleSheet, View } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   Easing,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
-} from 'react-native-reanimated'
-import { Gesture, GestureDetector } from 'react-native-gesture-handler'
-import { Text } from '@/components/ui/text'
-import { X } from '@/components/ui/icons'
-import { useTheme } from '@/hooks/use-theme'
-import { VoiceAgentOrb } from './VoiceAgentOrb'
-import { VoiceCaptions } from './VoiceCaptions'
-import { VoiceControlBar } from './VoiceControlBar'
-import { VoiceToolActivityPill } from './VoiceToolActivityPill'
-import type { VoiceSessionState } from '@/hooks/use-voice-session-state'
+} from 'react-native-reanimated';
+import { X } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { useTheme } from '@/hooks/use-theme';
+import type { VoiceSessionState } from '@/hooks/use-voice-session-state';
+import { VoiceAgentOrb } from './VoiceAgentOrb';
+import { VoiceCaptions } from './VoiceCaptions';
+import { VoiceControlBar } from './VoiceControlBar';
+import { VoiceToolActivityPill } from './VoiceToolActivityPill';
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
-const SCREEN_HEIGHT = Dimensions.get('window').height
+const SCREEN_HEIGHT = Dimensions.get('window').height;
 
 const TIMING_IN = {
   duration: 200,
   easing: Easing.bezier(0.25, 0.1, 0.25, 1.0),
-}
+};
 
 const TIMING_OUT = {
   duration: 180,
   easing: Easing.in(Easing.cubic),
-}
+};
 
-const DISMISS_THRESHOLD = 120
+const DISMISS_THRESHOLD = 120;
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
 export interface VoiceAssistantOverlayProps {
   /** Current voice session state */
-  state: VoiceSessionState
+  state: VoiceSessionState;
   /** @deprecated No longer used - captions read from state.transcripts directly */
-  transcript?: unknown[]
+  transcript?: unknown[];
   /** Whether the microphone is muted */
-  isMuted: boolean
+  isMuted: boolean;
   /** Called when user toggles mute */
-  onToggleMute: () => void
+  onToggleMute: () => void;
   /** Called when user stops the session */
-  onStop: () => void
+  onStop: () => void;
   /** Called when user dismisses the overlay */
-  onDismiss: () => void
+  onDismiss: () => void;
   /** Called when user taps retry in error state */
-  onRetry?: () => void
+  onRetry?: () => void;
   /** Audio level for reactive orb animation (0-1) */
-  audioLevel?: number
+  audioLevel?: number;
   /** Optional testID for the root container */
-  testID?: string
+  testID?: string;
 }
 
 // ─── Helper Functions ──────────────────────────────────────────────────────────
@@ -82,32 +82,32 @@ export interface VoiceAssistantOverlayProps {
  */
 function formatStateName(
   status: VoiceSessionState['status'],
-  connectingPhase?: VoiceSessionState['connectingPhase'],
+  connectingPhase?: VoiceSessionState['connectingPhase']
 ): string {
   switch (status) {
     case 'connecting':
       switch (connectingPhase) {
         case 'preparing':
-          return 'Setting up microphone...'
+          return 'Setting up microphone...';
         case 'connecting_ai':
-          return 'Connecting to AI...'
+          return 'Connecting to AI...';
         case 'almost_ready':
-          return 'Almost ready...'
+          return 'Almost ready...';
         default:
-          return 'Getting ready...'
+          return 'Getting ready...';
       }
     case 'listening':
-      return "I'm listening..."
+      return "I'm listening...";
     case 'speaking':
-      return ''
+      return '';
     case 'processing':
-      return 'Thinking...'
+      return 'Thinking...';
     case 'muted':
-      return 'Muted'
+      return 'Muted';
     case 'error':
-      return 'Something went wrong'
+      return 'Something went wrong';
     case 'idle':
-      return ''
+      return '';
   }
 }
 
@@ -142,93 +142,80 @@ export function VoiceAssistantOverlay({
   audioLevel = 0,
   testID = 'voice-assistant-overlay-root',
 }: VoiceAssistantOverlayProps) {
-  const { colors, spacing } = useTheme()
+  const { colors, spacing } = useTheme();
 
   // ─── Animation shared values ──────────────────────────────────────────────
-  const translateY = useSharedValue(SCREEN_HEIGHT)
-  const backdropOpacity = useSharedValue(0)
-  const containerScale = useSharedValue(0.97)
+  const translateY = useSharedValue(SCREEN_HEIGHT);
+  const backdropOpacity = useSharedValue(0);
+  const containerScale = useSharedValue(0.97);
 
   // Trigger entrance animation when overlay becomes active (status !== 'idle')
   useEffect(() => {
     if (state.status !== 'idle') {
-      translateY.value = withTiming(0, TIMING_IN)
-      backdropOpacity.value = withTiming(0.65, TIMING_IN)
-      containerScale.value = withTiming(1, TIMING_IN)
+      translateY.value = withTiming(0, TIMING_IN);
+      backdropOpacity.value = withTiming(0.65, TIMING_IN);
+      containerScale.value = withTiming(1, TIMING_IN);
     }
-  }, [state.status, translateY, backdropOpacity, containerScale])
+  }, [state.status, translateY, backdropOpacity, containerScale]);
 
   // Animate out then call the dismiss callback
   const animateOut = useCallback(
     (callback: () => void) => {
-      translateY.value = withTiming(SCREEN_HEIGHT, TIMING_OUT)
-      backdropOpacity.value = withTiming(0, TIMING_OUT)
-      containerScale.value = withTiming(0.97, TIMING_OUT)
-      setTimeout(() => callback(), 180)
+      translateY.value = withTiming(SCREEN_HEIGHT, TIMING_OUT);
+      backdropOpacity.value = withTiming(0, TIMING_OUT);
+      containerScale.value = withTiming(0.97, TIMING_OUT);
+      setTimeout(() => callback(), 180);
     },
     [translateY, backdropOpacity, containerScale]
-  )
+  );
 
   const handleDismiss = useCallback(() => {
-    animateOut(onDismiss)
-  }, [animateOut, onDismiss])
+    animateOut(onDismiss);
+  }, [animateOut, onDismiss]);
 
   const handleStop = useCallback(() => {
-    animateOut(onStop)
-  }, [animateOut, onStop])
+    animateOut(onStop);
+  }, [animateOut, onStop]);
 
   // ─── Pan gesture: swipe down to dismiss ──────────────────────────────────
   const panGesture = Gesture.Pan()
     .onUpdate((e) => {
       if (e.translationY > 0) {
-        translateY.value = e.translationY
+        translateY.value = e.translationY;
       }
     })
     .onEnd((e) => {
       if (e.translationY > DISMISS_THRESHOLD) {
-        translateY.value = withTiming(SCREEN_HEIGHT, TIMING_OUT)
-        backdropOpacity.value = withTiming(0, TIMING_OUT)
-        runOnJS(onDismiss)()
+        translateY.value = withTiming(SCREEN_HEIGHT, TIMING_OUT);
+        backdropOpacity.value = withTiming(0, TIMING_OUT);
+        runOnJS(onDismiss)();
       } else {
-        translateY.value = withTiming(0, TIMING_IN)
+        translateY.value = withTiming(0, TIMING_IN);
       }
-    })
+    });
 
   // ─── Animated styles ──────────────────────────────────────────────────────
   const containerAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateY: Math.max(translateY.value, 0) },
-      { scale: containerScale.value },
-    ],
-  }))
+    transform: [{ translateY: Math.max(translateY.value, 0) }, { scale: containerScale.value }],
+  }));
 
   const backdropAnimatedStyle = useAnimatedStyle(() => ({
     opacity: backdropOpacity.value,
-  }))
+  }));
 
   // Don't render if idle
   if (state.status === 'idle') {
-    return null
+    return null;
   }
 
-  const statusLabel = formatStateName(state.status, state.connectingPhase)
-  const isError = state.status === 'error'
+  const statusLabel = formatStateName(state.status, state.connectingPhase);
+  const isError = state.status === 'error';
 
   return (
-    <Modal
-      visible
-      transparent
-      animationType="none"
-      statusBarTranslucent
-      testID={testID}
-    >
+    <Modal visible transparent animationType="none" statusBarTranslucent testID={testID}>
       {/* Backdrop — animated opacity over solid background color */}
       <Animated.View
-        style={[
-          styles.backdrop,
-          backdropAnimatedStyle,
-          { backgroundColor: colors.background },
-        ]}
+        style={[styles.backdrop, backdropAnimatedStyle, { backgroundColor: colors.background }]}
         pointerEvents="none"
       />
 
@@ -338,9 +325,7 @@ export function VoiceAssistantOverlay({
                 ]}
               >
                 {/* Captions: positioned just above controls */}
-                <VoiceCaptions
-                  transcripts={state.transcripts}
-                />
+                <VoiceCaptions transcripts={state.transcripts} />
 
                 {/* Control bar — hidden during connecting (controls are useless) */}
                 {state.status !== 'connecting' && (
@@ -371,10 +356,7 @@ export function VoiceAssistantOverlay({
                       },
                     ]}
                   >
-                    <Text
-                      variant="lead"
-                      style={{ color: colors.primary }}
-                    >
+                    <Text variant="lead" style={{ color: colors.primary }}>
                       Retry
                     </Text>
                   </Pressable>
@@ -385,7 +367,7 @@ export function VoiceAssistantOverlay({
         </Animated.View>
       </GestureDetector>
     </Modal>
-  )
+  );
 }
 
 // ─── Styles ────────────────────────────────────────────────────────────────────
@@ -428,4 +410,4 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     borderWidth: 1.5,
   },
-})
+});

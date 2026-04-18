@@ -7,118 +7,128 @@
  * Route: /assimilate/[sessionId]
  */
 
-import { useLocalSearchParams, useRouter } from 'expo-router'
-import { useQuery, useMutation } from 'convex/react'
-import { api } from '@/convex/_generated/api'
-import type { Id } from '@/convex/_generated/dataModel'
-import {
-  ActivityIndicator,
-  ScrollView,
-  TextInput,
-  View,
-} from 'react-native'
-import { Text } from '@/components/ui/text'
-import { Button } from '@/components/ui/button'
-import { ScreenLayout } from '@/components/ui/screen-layout'
-import { MarkdownView } from '@/components/markdown/MarkdownView'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { useState } from 'react'
+import { useMutation, useQuery } from 'convex/react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useState } from 'react';
+import { ActivityIndicator, ScrollView, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { MarkdownView } from '@/components/markdown/MarkdownView';
+import { Button } from '@/components/ui/button';
+import { ScreenLayout } from '@/components/ui/screen-layout';
+import { Text } from '@/components/ui/text';
+import { api } from '@/convex/_generated/api';
+import type { Id } from '@/convex/_generated/dataModel';
 
 /** Human-readable label for each session status. */
 function statusLabel(status: string): string {
   switch (status) {
-    case 'pending_approval': return 'Pending Approval'
-    case 'approved': return 'Approved'
-    case 'rejected': return 'Rejected'
-    case 'planning': return 'Planning'
-    case 'in_progress': return 'In Progress'
-    case 'synthesizing': return 'Synthesizing'
-    case 'completed': return 'Completed'
-    case 'failed': return 'Failed'
-    case 'cancelled': return 'Cancelled'
-    default: return status
+    case 'pending_approval':
+      return 'Pending Approval';
+    case 'approved':
+      return 'Approved';
+    case 'rejected':
+      return 'Rejected';
+    case 'planning':
+      return 'Planning';
+    case 'in_progress':
+      return 'In Progress';
+    case 'synthesizing':
+      return 'Synthesizing';
+    case 'completed':
+      return 'Completed';
+    case 'failed':
+      return 'Failed';
+    case 'cancelled':
+      return 'Cancelled';
+    default:
+      return status;
   }
 }
 
 /** Tailwind className for the status badge background + text. */
 function statusBadgeClass(status: string): string {
   switch (status) {
-    case 'pending_approval': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
+    case 'pending_approval':
+      return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300';
     case 'approved':
-    case 'completed': return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+    case 'completed':
+      return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300';
     case 'rejected':
     case 'failed':
-    case 'cancelled': return 'bg-destructive/10 text-destructive'
+    case 'cancelled':
+      return 'bg-destructive/10 text-destructive';
     case 'in_progress':
-    case 'synthesizing': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
-    default: return 'bg-muted text-muted-foreground'
+    case 'synthesizing':
+      return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300';
+    default:
+      return 'bg-muted text-muted-foreground';
   }
 }
 
 export default function AssimilationPlanRoute() {
-  const router = useRouter()
-  const { sessionId } = useLocalSearchParams<{ sessionId: string }>()
-  const insets = useSafeAreaInsets()
+  const router = useRouter();
+  const { sessionId } = useLocalSearchParams<{ sessionId: string }>();
+  const insets = useSafeAreaInsets();
 
-  const [showRejectInput, setShowRejectInput] = useState(false)
-  const [feedback, setFeedback] = useState('')
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [showRejectInput, setShowRejectInput] = useState(false);
+  const [feedback, setFeedback] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const approve = useMutation(api.assimilate.mutations.approveAssimilationPlan)
-  const reject = useMutation(api.assimilate.mutations.rejectAssimilationPlan)
+  const approve = useMutation(api.assimilate.mutations.approveAssimilationPlan);
+  const reject = useMutation(api.assimilate.mutations.rejectAssimilationPlan);
 
-  const isValidId = sessionId && sessionId !== 'undefined' && sessionId.length > 0
+  const isValidId = sessionId && sessionId !== 'undefined' && sessionId.length > 0;
 
   const session = useQuery(
     api.assimilate.queries.getAssimilationSession,
     isValidId ? { sessionId: sessionId as Id<'assimilationSessions'> } : 'skip'
-  )
+  );
 
   const handleBack = () => {
     if (router.canGoBack()) {
-      router.back()
+      router.back();
     } else {
-      router.navigate('/')
+      router.navigate('/');
     }
-  }
+  };
 
   const handleApprove = async () => {
-    if (!isValidId || isSubmitting) return
-    setIsSubmitting(true)
+    if (!isValidId || isSubmitting) return;
+    setIsSubmitting(true);
     try {
-      await approve({ sessionId: sessionId as Id<'assimilationSessions'> })
-      router.back()
+      await approve({ sessionId: sessionId as Id<'assimilationSessions'> });
+      router.back();
     } catch (err) {
-      console.warn('[AssimilationPlanRoute] Approve error:', err)
+      console.warn('[AssimilationPlanRoute] Approve error:', err);
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
-  }
+  };
 
   const handleRejectTap = () => {
-    setShowRejectInput(true)
-  }
+    setShowRejectInput(true);
+  };
 
   const handleSubmitFeedback = async () => {
-    if (!isValidId || isSubmitting) return
-    setIsSubmitting(true)
+    if (!isValidId || isSubmitting) return;
+    setIsSubmitting(true);
     try {
       await reject({
         sessionId: sessionId as Id<'assimilationSessions'>,
         feedback: feedback.trim() || undefined,
-      })
-      router.back()
+      });
+      router.back();
     } catch (err) {
-      console.warn('[AssimilationPlanRoute] Reject error:', err)
+      console.warn('[AssimilationPlanRoute] Reject error:', err);
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
-  }
+  };
 
   const handleCancelReject = () => {
-    setShowRejectInput(false)
-    setFeedback('')
-  }
+    setShowRejectInput(false);
+    setFeedback('');
+  };
 
   // Loading state
   if (isValidId && session === undefined) {
@@ -132,7 +142,7 @@ export default function AssimilationPlanRoute() {
           <ActivityIndicator size="large" testID="assimilation-plan-loading-indicator" />
         </View>
       </ScreenLayout>
-    )
+    );
   }
 
   // Error: invalid ID
@@ -143,13 +153,14 @@ export default function AssimilationPlanRoute() {
         edges="bottom"
         testID="assimilation-plan-invalid-id-layout"
       >
-        <View className="flex-1 items-center justify-center p-6" testID="assimilation-plan-invalid-id">
-          <Text className="text-muted-foreground text-center text-lg">
-            Invalid session ID.
-          </Text>
+        <View
+          className="flex-1 items-center justify-center p-6"
+          testID="assimilation-plan-invalid-id"
+        >
+          <Text className="text-muted-foreground text-center text-lg">Invalid session ID.</Text>
         </View>
       </ScreenLayout>
-    )
+    );
   }
 
   // Error: not found
@@ -161,22 +172,20 @@ export default function AssimilationPlanRoute() {
         testID="assimilation-plan-error-layout"
       >
         <View className="flex-1 items-center justify-center p-6" testID="assimilation-plan-error">
-          <Text className="text-muted-foreground text-center text-lg">
-            Session not found.
-          </Text>
+          <Text className="text-muted-foreground text-center text-lg">Session not found.</Text>
           <Button onPress={handleBack} className="mt-4">
             <Text>Go Back</Text>
           </Button>
         </View>
       </ScreenLayout>
-    )
+    );
   }
 
   // TypeScript narrowing: after loading/null/invalid guards above, session is defined
-  if (!session) return null
+  if (!session) return null;
 
-  const isPendingApproval = session.status === 'pending_approval'
-  const bottomBarHeight = isPendingApproval ? (showRejectInput ? 180 : 100) : 0
+  const isPendingApproval = session.status === 'pending_approval';
+  const bottomBarHeight = isPendingApproval ? (showRejectInput ? 180 : 100) : 0;
 
   return (
     <ScreenLayout
@@ -209,9 +218,7 @@ export default function AssimilationPlanRoute() {
               className={`rounded-full px-2.5 py-0.5 ${statusBadgeClass(session.status)}`}
               testID="assimilation-plan-status-badge"
             >
-              <Text className="text-xs font-medium">
-                {statusLabel(session.status)}
-              </Text>
+              <Text className="text-xs font-medium">{statusLabel(session.status)}</Text>
             </View>
           </View>
 
@@ -311,5 +318,5 @@ export default function AssimilationPlanRoute() {
         )}
       </View>
     </ScreenLayout>
-  )
+  );
 }

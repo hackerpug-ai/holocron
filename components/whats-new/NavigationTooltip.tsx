@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react'
-import { Modal, Pressable, StyleSheet, View } from 'react-native'
-import { useTheme } from '@/hooks/use-theme'
-import { getWhatsNewTooltipSeen, setWhatsNewTooltipSeen } from '@/lib/storage/navigation'
-import { Text } from '@/components/ui/text'
-import { X } from '@/components/ui/icons'
+import { useEffect, useState } from 'react';
+import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { X } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { useTheme } from '@/hooks/use-theme';
+import { getWhatsNewTooltipSeen, setWhatsNewTooltipSeen } from '@/lib/storage/navigation';
 
 /**
  * NavigationTooltip - One-time tooltip for navigation change
@@ -18,58 +18,53 @@ import { X } from '@/components/ui/icons'
  * - Follows semantic theme for styling
  */
 export function NavigationTooltip() {
-  const { colors, spacing, radius } = useTheme()
-  const [visible, setVisible] = useState(false)
-  const [loading, setLoading] = useState(true)
+  const { colors, spacing, radius } = useTheme();
+  const [visible, setVisible] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   // Check if tooltip was already seen on mount
   useEffect(() => {
     async function checkSeen() {
       try {
-        const seen = await getWhatsNewTooltipSeen()
+        const seen = await getWhatsNewTooltipSeen();
         if (!seen) {
           // Show tooltip after a short delay (don't distract on load)
           const delayTimer = setTimeout(() => {
-            setVisible(true)
-          }, 500)
-          return () => clearTimeout(delayTimer)
+            setVisible(true);
+          }, 500);
+          return () => clearTimeout(delayTimer);
         }
       } catch (error) {
-        console.error('Failed to check tooltip seen status', error)
+        console.error('Failed to check tooltip seen status', error);
         // Show tooltip if AsyncStorage fails (better to show than miss)
         const delayTimer = setTimeout(() => {
-          setVisible(true)
-        }, 500)
-        return () => clearTimeout(delayTimer)
+          setVisible(true);
+        }, 500);
+        return () => clearTimeout(delayTimer);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
     }
-    checkSeen()
-  }, [])
+    checkSeen();
+  }, []);
 
   const handleDismiss = async () => {
     try {
-      await setWhatsNewTooltipSeen()
+      await setWhatsNewTooltipSeen();
     } catch (error) {
-      console.error('Failed to save tooltip seen status', error)
+      console.error('Failed to save tooltip seen status', error);
       // Hide anyway even if save fails
     } finally {
-      setVisible(false)
+      setVisible(false);
     }
-  }
+  };
 
   if (loading || !visible) {
-    return null
+    return null;
   }
 
   return (
-    <Modal
-      visible
-      transparent
-      animationType="fade"
-      testID="navigation-tooltip-modal"
-    >
+    <Modal visible transparent animationType="fade" testID="navigation-tooltip-modal">
       <Pressable
         style={[styles.overlay, { backgroundColor: colors.overlay }]}
         onPress={handleDismiss}
@@ -129,7 +124,8 @@ export function NavigationTooltip() {
             }}
             testID="navigation-tooltip-message"
           >
-            Subscriptions has been renamed to "What's New" to better reflect its content. Your subscriptions and settings are unchanged.
+            Subscriptions has been renamed to "What's New" to better reflect its content. Your
+            subscriptions and settings are unchanged.
           </Text>
 
           {/* Got it button */}
@@ -162,11 +158,11 @@ export function NavigationTooltip() {
         </View>
       </Pressable>
     </Modal>
-  )
+  );
 }
 
 // Import typography for inline styles
-import { typography } from '@/lib/theme'
+import { typography } from '@/lib/theme';
 
 const styles = StyleSheet.create({
   overlay: {
@@ -185,4 +181,4 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
   },
-})
+});

@@ -1,22 +1,22 @@
-import { httpRouter } from "convex/server";
-import { httpAction } from "./_generated/server";
-import { api } from "./_generated/api";
+import { httpRouter } from 'convex/server';
+import { api } from './_generated/api';
+import { httpAction } from './_generated/server';
 
 // Import documents functions to ensure they're deployed
-import "./documents/queries";
-import "./documents/mutations";
-import "./documents/search";
-import "./documents/storage";
-import "./documents/scheduled";
+import './documents/queries';
+import './documents/mutations';
+import './documents/search';
+import './documents/storage';
+import './documents/scheduled';
 
 const http = httpRouter();
 
 http.route({
-  pathPrefix: "/article/",
-  method: "GET",
+  pathPrefix: '/article/',
+  method: 'GET',
   handler: httpAction(async (ctx, request) => {
     const url = new URL(request.url);
-    const pathParts = url.pathname.split("/");
+    const pathParts = url.pathname.split('/');
     const shareToken = pathParts[pathParts.length - 1];
 
     const doc = await ctx.runQuery(api.documents.queries.getByShareToken, { shareToken });
@@ -24,14 +24,14 @@ http.route({
     if (!doc) {
       return new Response(notFoundHtml(), {
         status: 404,
-        headers: { "Content-Type": "text/html; charset=utf-8" },
+        headers: { 'Content-Type': 'text/html; charset=utf-8' },
       });
     }
 
     const html = articleHtml(doc);
     return new Response(html, {
       status: 200,
-      headers: { "Content-Type": "text/html; charset=utf-8" },
+      headers: { 'Content-Type': 'text/html; charset=utf-8' },
     });
   }),
 });
@@ -57,7 +57,7 @@ type ArticleDoc = {
 
 function articleHtml(doc: ArticleDoc): string {
   const formattedDate = formatDate(doc.date, doc.createdAt);
-  const descriptionText = stripMarkdown(doc.content).slice(0, 200).replace(/"/g, "&quot;");
+  const descriptionText = stripMarkdown(doc.content).slice(0, 200).replace(/"/g, '&quot;');
   const escapedTitle = escapeHtml(doc.title);
   const categoryLabel = escapeHtml(doc.category);
   const researchTypeLabel = doc.researchType ? escapeHtml(doc.researchType) : null;
@@ -195,7 +195,7 @@ function articleHtml(doc: ArticleDoc): string {
   <div class="container">
     <div class="meta">
       <span class="badge">${categoryLabel}</span>
-      ${researchTypeLabel ? `<span class="badge">${researchTypeLabel}</span>` : ""}
+      ${researchTypeLabel ? `<span class="badge">${researchTypeLabel}</span>` : ''}
       <span class="date">${formattedDate}</span>
     </div>
     <h1>${escapedTitle}</h1>
@@ -246,12 +246,12 @@ function notFoundHtml(): string {
 
 function markdownToHtml(md: string): string {
   // Normalize line endings
-  let text = md.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  let text = md.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 
   // Protect fenced code blocks
   const codeBlocks: string[] = [];
   text = text.replace(/```([^\n]*)\n([\s\S]*?)```/g, (_match, lang, code) => {
-    const langAttr = lang.trim() ? ` class="language-${escapeHtml(lang.trim())}"` : "";
+    const langAttr = lang.trim() ? ` class="language-${escapeHtml(lang.trim())}"` : '';
     const idx = codeBlocks.length;
     codeBlocks.push(`<pre><code${langAttr}>${escapeHtml(code)}</code></pre>`);
     return `\x00CODE${idx}\x00`;
@@ -259,25 +259,25 @@ function markdownToHtml(md: string): string {
 
   // Tables: detect rows with | separators
   text = text.replace(/((?:\|[^\n]+\|\n)+)/g, (tableBlock) => {
-    const rows = tableBlock.trim().split("\n");
+    const rows = tableBlock.trim().split('\n');
     if (rows.length < 2) return tableBlock;
 
     const parseRow = (row: string) =>
       row
-        .replace(/^\||\|$/g, "")
-        .split("|")
+        .replace(/^\||\|$/g, '')
+        .split('|')
         .map((cell) => cell.trim());
 
     const isSeparator = (row: string) => /^\s*\|?[\s\-:|]+\|/.test(row);
 
-    let html = "<table>\n";
+    let html = '<table>\n';
     let headerDone = false;
     let inBody = false;
 
     for (let i = 0; i < rows.length; i++) {
       if (isSeparator(rows[i])) {
         if (!headerDone) {
-          html += "</tr></thead>\n<tbody>\n";
+          html += '</tr></thead>\n<tbody>\n';
           headerDone = true;
           inBody = true;
         }
@@ -285,36 +285,39 @@ function markdownToHtml(md: string): string {
       }
       const cells = parseRow(rows[i]);
       if (!headerDone && i === 0) {
-        html += "<thead>\n<tr>";
+        html += '<thead>\n<tr>';
         cells.forEach((c) => (html += `<th>${inlineMarkdown(c)}</th>`));
       } else {
-        if (!inBody) { html += "<tbody>\n"; inBody = true; }
-        html += "<tr>";
+        if (!inBody) {
+          html += '<tbody>\n';
+          inBody = true;
+        }
+        html += '<tr>';
         cells.forEach((c) => (html += `<td>${inlineMarkdown(c)}</td>`));
-        html += "</tr>\n";
+        html += '</tr>\n';
       }
     }
-    if (inBody) html += "</tbody>\n";
-    html += "</table>";
+    if (inBody) html += '</tbody>\n';
+    html += '</table>';
     return html;
   });
 
   // Line-by-line block processing
   // Classify each line, then group consecutive lines of the same type
-  const NUL = "\x00";
+  const NUL = '\x00';
   const codePlaceholderTest = new RegExp(`^${NUL}CODE\\d+${NUL}$`);
   const codePlaceholderCapture = new RegExp(`${NUL}CODE(\\d+)${NUL}`);
 
-  const lines = text.split("\n");
+  const lines = text.split('\n');
   const output: string[] = [];
   let paragraphLines: string[] = [];
   let listItems: string[] = [];
-  let listType: "ul" | "ol" | null = null;
+  let listType: 'ul' | 'ol' | null = null;
   let blockquoteLines: string[] = [];
 
   const flushParagraph = () => {
     if (paragraphLines.length > 0) {
-      output.push(`<p>${paragraphLines.map((l) => inlineMarkdown(l)).join(" ")}</p>`);
+      output.push(`<p>${paragraphLines.map((l) => inlineMarkdown(l)).join(' ')}</p>`);
       paragraphLines = [];
     }
   };
@@ -322,7 +325,7 @@ function markdownToHtml(md: string): string {
   const flushList = () => {
     if (listItems.length > 0 && listType) {
       const tag = listType;
-      const items = listItems.map((l) => `<li>${inlineMarkdown(l)}</li>`).join("\n");
+      const items = listItems.map((l) => `<li>${inlineMarkdown(l)}</li>`).join('\n');
       output.push(`<${tag}>\n${items}\n</${tag}>`);
       listItems = [];
       listType = null;
@@ -331,7 +334,7 @@ function markdownToHtml(md: string): string {
 
   const flushBlockquote = () => {
     if (blockquoteLines.length > 0) {
-      const inner = blockquoteLines.join("\n").trim();
+      const inner = blockquoteLines.join('\n').trim();
       // Recursively parse blockquote content
       output.push(`<blockquote>${markdownToHtml(inner)}</blockquote>`);
       blockquoteLines = [];
@@ -349,7 +352,7 @@ function markdownToHtml(md: string): string {
     const trimmed = line.trim();
 
     // Blank line: flush current context
-    if (trimmed === "") {
+    if (trimmed === '') {
       flushAll();
       continue;
     }
@@ -357,7 +360,7 @@ function markdownToHtml(md: string): string {
     // Code block placeholder
     if (codePlaceholderTest.test(trimmed)) {
       flushAll();
-      const idx = parseInt(trimmed.replace(codePlaceholderCapture, "$1"), 10);
+      const idx = parseInt(trimmed.replace(codePlaceholderCapture, '$1'), 10);
       output.push(codeBlocks[idx]);
       continue;
     }
@@ -383,15 +386,15 @@ function markdownToHtml(md: string): string {
     // Horizontal rule
     if (/^(\*{3,}|-{3,}|_{3,})\s*$/.test(trimmed)) {
       flushAll();
-      output.push("<hr />");
+      output.push('<hr />');
       continue;
     }
 
     // Blockquote
-    if (trimmed.startsWith(">")) {
+    if (trimmed.startsWith('>')) {
       flushParagraph();
       flushList();
-      blockquoteLines.push(trimmed.replace(/^>\s?/, ""));
+      blockquoteLines.push(trimmed.replace(/^>\s?/, ''));
       continue;
     }
     // If we were in a blockquote but this line doesn't start with >, flush it
@@ -404,8 +407,8 @@ function markdownToHtml(md: string): string {
     if (ulMatch) {
       flushParagraph();
       flushBlockquote();
-      if (listType === "ol") flushList();
-      listType = "ul";
+      if (listType === 'ol') flushList();
+      listType = 'ul';
       listItems.push(ulMatch[1]);
       continue;
     }
@@ -415,8 +418,8 @@ function markdownToHtml(md: string): string {
     if (olMatch) {
       flushParagraph();
       flushBlockquote();
-      if (listType === "ul") flushList();
-      listType = "ol";
+      if (listType === 'ul') flushList();
+      listType = 'ol';
       listItems.push(olMatch[1]);
       continue;
     }
@@ -433,10 +436,10 @@ function markdownToHtml(md: string): string {
   // Flush any remaining content
   flushAll();
 
-  let result = output.filter(Boolean).join("\n");
+  let result = output.filter(Boolean).join('\n');
 
   // Restore any remaining code block placeholders (e.g. inline in paragraphs)
-  const codePlaceholderGlobal = new RegExp(`${NUL}CODE(\\d+)${NUL}`, "g");
+  const codePlaceholderGlobal = new RegExp(`${NUL}CODE(\\d+)${NUL}`, 'g');
   result = result.replace(codePlaceholderGlobal, (_m, idx) => codeBlocks[parseInt(idx, 10)]);
 
   return result;
@@ -452,27 +455,27 @@ function inlineMarkdown(text: string): string {
   });
 
   // Bold + italic
-  text = text.replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>");
+  text = text.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
   // Bold
-  text = text.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-  text = text.replace(/__(.+?)__/g, "<strong>$1</strong>");
+  text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  text = text.replace(/__(.+?)__/g, '<strong>$1</strong>');
   // Italic
-  text = text.replace(/\*(.+?)\*/g, "<em>$1</em>");
-  text = text.replace(/_(.+?)_/g, "<em>$1</em>");
+  text = text.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  text = text.replace(/_(.+?)_/g, '<em>$1</em>');
 
   // Links (support both external URLs and internal #anchor links)
   text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_m, label, href) => {
-    if (href.startsWith("#")) {
+    if (href.startsWith('#')) {
       const slug = slugifyText(href.slice(1));
       return `<a href="#${slug}">${escapeHtml(label)}</a>`;
     }
-    const safeHref = href.startsWith("http") ? escapeHtml(href) : "#";
+    const safeHref = href.startsWith('http') ? escapeHtml(href) : '#';
     return `<a href="${safeHref}" rel="noopener noreferrer">${escapeHtml(label)}</a>`;
   });
 
   // Restore inline codes
-  const SOH = "\x01";
-  const icPlaceholderGlobal = new RegExp(`${SOH}IC(\\d+)${SOH}`, "g");
+  const SOH = '\x01';
+  const icPlaceholderGlobal = new RegExp(`${SOH}IC(\\d+)${SOH}`, 'g');
   text = text.replace(icPlaceholderGlobal, (_m, idx) => inlineCodes[parseInt(idx, 10)]);
 
   return text;
@@ -481,39 +484,43 @@ function inlineMarkdown(text: string): string {
 function slugifyText(text: string): string {
   // Strip inline markdown formatting before slugifying
   const plain = text
-    .replace(/\*\*\*(.+?)\*\*\*/g, "$1")
-    .replace(/\*\*(.+?)\*\*/g, "$1")
-    .replace(/__(.+?)__/g, "$1")
-    .replace(/\*(.+?)\*/g, "$1")
-    .replace(/_(.+?)_/g, "$1")
-    .replace(/`([^`]+)`/g, "$1");
+    .replace(/\*\*\*(.+?)\*\*\*/g, '$1')
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/__(.+?)__/g, '$1')
+    .replace(/\*(.+?)\*/g, '$1')
+    .replace(/_(.+?)_/g, '$1')
+    .replace(/`([^`]+)`/g, '$1');
   return plain
     .toLowerCase()
-    .replace(/[^\w\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-+|-+$/g, "");
+    .replace(/[^\w\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '');
 }
 
 function stripLeadingTitle(content: string, title: string): string {
   // Remove a leading markdown heading (# or ##) if its text matches the document title.
   // Normalizes whitespace and ignores case for comparison.
   const normalize = (s: string) =>
-    s.replace(/[^\w\s]/g, "").replace(/\s+/g, " ").trim().toLowerCase();
+    s
+      .replace(/[^\w\s]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase();
   const normalizedTitle = normalize(title);
 
-  const lines = content.split("\n");
+  const lines = content.split('\n');
   for (let i = 0; i < lines.length; i++) {
     const trimmed = lines[i].trim();
-    if (trimmed === "") continue; // skip leading blank lines
+    if (trimmed === '') continue; // skip leading blank lines
     const headingMatch = trimmed.match(/^#{1,2}\s+(.+)$/);
     if (headingMatch && normalize(headingMatch[1]) === normalizedTitle) {
       // Remove this line and any immediately following blank lines
       lines.splice(i, 1);
-      while (i < lines.length && lines[i].trim() === "") {
+      while (i < lines.length && lines[i].trim() === '') {
         lines.splice(i, 1);
       }
-      return lines.join("\n");
+      return lines.join('\n');
     }
     break; // first non-blank line wasn't a matching heading, stop
   }
@@ -522,36 +529,36 @@ function stripLeadingTitle(content: string, title: string): string {
 
 function escapeHtml(str: string): string {
   return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 function stripMarkdown(md: string): string {
   return md
-    .replace(/```[\s\S]*?```/g, "")
-    .replace(/`[^`]+`/g, "")
-    .replace(/#{1,6}\s+/g, "")
-    .replace(/\*\*(.+?)\*\*/g, "$1")
-    .replace(/__(.+?)__/g, "$1")
-    .replace(/\*(.+?)\*/g, "$1")
-    .replace(/_(.+?)_/g, "$1")
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
-    .replace(/!\[([^\]]*)\]\([^)]+\)/g, "$1")
-    .replace(/^\s*[>*\-+]\s+/gm, "")
-    .replace(/^\s*\d+\.\s+/gm, "")
-    .replace(/\n{2,}/g, " ")
-    .replace(/\n/g, " ")
+    .replace(/```[\s\S]*?```/g, '')
+    .replace(/`[^`]+`/g, '')
+    .replace(/#{1,6}\s+/g, '')
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/__(.+?)__/g, '$1')
+    .replace(/\*(.+?)\*/g, '$1')
+    .replace(/_(.+?)_/g, '$1')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/!\[([^\]]*)\]\([^)]+\)/g, '$1')
+    .replace(/^\s*[>*\-+]\s+/gm, '')
+    .replace(/^\s*\d+\.\s+/gm, '')
+    .replace(/\n{2,}/g, ' ')
+    .replace(/\n/g, ' ')
     .trim();
 }
 
 function formatDate(date: string | undefined, createdAt: number): string {
   const d = date ? new Date(date) : new Date(createdAt);
-  return d.toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
+  return d.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
   });
 }

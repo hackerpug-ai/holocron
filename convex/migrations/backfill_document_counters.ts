@@ -8,13 +8,13 @@
  * - {category}: Count per category
  */
 
-import { mutation } from "../_generated/server";
+import { mutation } from '../_generated/server';
 
 export const backfillDocumentCounters = mutation({
   args: {},
   handler: async (ctx) => {
     // Get all existing documents
-    const documents = await ctx.db.query("documents").collect();
+    const documents = await ctx.db.query('documents').collect();
 
     const counts: Record<string, number> = {
       total: documents.length,
@@ -37,8 +37,8 @@ export const backfillDocumentCounters = mutation({
     for (const [name, count] of Object.entries(counts)) {
       // Check if counter already exists
       const existing = await ctx.db
-        .query("documentCounters")
-        .withIndex("by_name", (q) => q.eq("name", name))
+        .query('documentCounters')
+        .withIndex('by_name', (q) => q.eq('name', name))
         .first();
 
       if (existing) {
@@ -46,7 +46,7 @@ export const backfillDocumentCounters = mutation({
         await ctx.db.patch(existing._id, { count });
       } else {
         // Create new counter
-        await ctx.db.insert("documentCounters", { name, count });
+        await ctx.db.insert('documentCounters', { name, count });
       }
     }
 

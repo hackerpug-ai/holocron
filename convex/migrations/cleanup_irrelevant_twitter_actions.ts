@@ -9,13 +9,13 @@
  *   npx convex run migrations/cleanup_irrelevant_twitter_actions:cleanupIrrelevantTwitter (execute)
  */
 
-"use node";
+'use node';
 
-import { v } from "convex/values";
-import { internalAction } from "../_generated/server";
-import { internal } from "../_generated/api";
-import { generateText } from "ai";
-import { claudeFlash } from "../lib/ai/anthropic_provider";
+import { generateText } from 'ai';
+import { v } from 'convex/values';
+import { internal } from '../_generated/api';
+import { internalAction } from '../_generated/server';
+import { claudeFlash } from '../lib/ai/anthropic_provider';
 
 // ============================================================================
 // AI Relevance Scoring
@@ -40,9 +40,9 @@ export const scoreTwitterRelevance = internalAction({
     const itemList = items
       .map(
         (item, i) =>
-          `${i + 1}. "${item.title}"${item.contentPreview ? `\n   Preview: ${item.contentPreview.slice(0, 200)}` : ""}`
+          `${i + 1}. "${item.title}"${item.contentPreview ? `\n   Preview: ${item.contentPreview.slice(0, 200)}` : ''}`
       )
-      .join("\n");
+      .join('\n');
 
     const prompt = `You are a strict content relevance filter for an AI/agentic coding knowledge base.
 
@@ -93,24 +93,24 @@ Exactly ${items.length} entries in order.`;
       const text = result.text.trim();
       const jsonMatch = text.match(/\[[\s\S]*\]/);
       if (!jsonMatch) {
-        return items.map((item) => ({ id: item.id, score: 0.5, reason: "ai_parse_failed" }));
+        return items.map((item) => ({ id: item.id, score: 0.5, reason: 'ai_parse_failed' }));
       }
 
       const parsed: unknown = JSON.parse(jsonMatch[0]);
       if (!Array.isArray(parsed)) {
-        return items.map((item) => ({ id: item.id, score: 0.5, reason: "ai_parse_failed" }));
+        return items.map((item) => ({ id: item.id, score: 0.5, reason: 'ai_parse_failed' }));
       }
 
       return items.map((item, i) => {
         const entry = parsed[i] as Record<string, unknown> | undefined;
-        if (!entry) return { id: item.id, score: 0.5, reason: "ai_no_score" };
-        const score = typeof entry.score === "number" ? Math.min(1, Math.max(0, entry.score)) : 0.5;
-        const reason = typeof entry.reason === "string" ? entry.reason : "ai_scored";
+        if (!entry) return { id: item.id, score: 0.5, reason: 'ai_no_score' };
+        const score = typeof entry.score === 'number' ? Math.min(1, Math.max(0, entry.score)) : 0.5;
+        const reason = typeof entry.reason === 'string' ? entry.reason : 'ai_scored';
         return { id: item.id, score, reason };
       });
     } catch (err) {
-      console.warn("[scoreTwitterRelevance] LLM scoring failed:", err);
-      return items.map((item) => ({ id: item.id, score: 0.5, reason: "ai_error" }));
+      console.warn('[scoreTwitterRelevance] LLM scoring failed:', err);
+      return items.map((item) => ({ id: item.id, score: 0.5, reason: 'ai_error' }));
     }
   },
 });
@@ -126,12 +126,19 @@ const BATCH_SIZE = 20;
 export const collectTwitterDocuments = internalAction({
   args: {},
   handler: async (ctx): Promise<{ twitterContentCount: number; prefixedDocCount: number }> => {
-    const twitterContent: Array<{ subscriptionContentId: string; documentId: string; title: string }> = await ctx.runQuery(
-      internal.migrations.cleanup_irrelevant_twitter.getTwitterContentWithDocuments, {}
+    const twitterContent: Array<{
+      subscriptionContentId: string;
+      documentId: string;
+      title: string;
+    }> = await ctx.runQuery(
+      internal.migrations.cleanup_irrelevant_twitter.getTwitterContentWithDocuments,
+      {}
     );
-    const prefixedDocs: Array<{ documentId: string; title: string; content: string }> = await ctx.runQuery(
-      internal.migrations.cleanup_irrelevant_twitter.getTwitterPrefixedDocuments, {}
-    );
+    const prefixedDocs: Array<{ documentId: string; title: string; content: string }> =
+      await ctx.runQuery(
+        internal.migrations.cleanup_irrelevant_twitter.getTwitterPrefixedDocuments,
+        {}
+      );
 
     // Log samples for verification (dry run)
     for (const _item of twitterContent.slice(0, 15)) {
@@ -173,12 +180,19 @@ export const cleanupIrrelevantTwitter = internalAction({
   handler: async (ctx, { offset: startOffset }): Promise<CleanupResult> => {
     const offset = startOffset ?? 0;
 
-    const twitterContent: Array<{ subscriptionContentId: string; documentId: string; title: string }> = await ctx.runQuery(
-      internal.migrations.cleanup_irrelevant_twitter.getTwitterContentWithDocuments, {}
+    const twitterContent: Array<{
+      subscriptionContentId: string;
+      documentId: string;
+      title: string;
+    }> = await ctx.runQuery(
+      internal.migrations.cleanup_irrelevant_twitter.getTwitterContentWithDocuments,
+      {}
     );
-    const prefixedDocs: Array<{ documentId: string; title: string; content: string }> = await ctx.runQuery(
-      internal.migrations.cleanup_irrelevant_twitter.getTwitterPrefixedDocuments, {}
-    );
+    const prefixedDocs: Array<{ documentId: string; title: string; content: string }> =
+      await ctx.runQuery(
+        internal.migrations.cleanup_irrelevant_twitter.getTwitterPrefixedDocuments,
+        {}
+      );
 
     // Build unified scoring list, dedup by documentId
     const allItems: Array<{
@@ -214,10 +228,15 @@ export const cleanupIrrelevantTwitter = internalAction({
     const itemsToScore = allItems.slice(offset, offset + PAGE_SIZE);
     const hasMore = offset + PAGE_SIZE < allItems.length;
 
-
     if (itemsToScore.length === 0) {
-      
-      return { scored: 0, kept: 0, removed: 0, deletedDocs: 0, deletedContent: 0, deletedFeedItems: 0 };
+      return {
+        scored: 0,
+        kept: 0,
+        removed: 0,
+        deletedDocs: 0,
+        deletedContent: 0,
+        deletedFeedItems: 0,
+      };
     }
 
     // Score in batches
@@ -248,7 +267,8 @@ export const cleanupIrrelevantTwitter = internalAction({
       const scoreResult = allScores[i];
 
       if (scoreResult && scoreResult.score < RELEVANCE_THRESHOLD) {
-        if (item.subscriptionContentId) subscriptionContentToDelete.push(item.subscriptionContentId);
+        if (item.subscriptionContentId)
+          subscriptionContentToDelete.push(item.subscriptionContentId);
         if (item.documentId) documentsToDelete.push(item.documentId);
         removed.push(`[${scoreResult.score.toFixed(2)}] "${item.title}" — ${scoreResult.reason}`);
       } else {
@@ -256,7 +276,6 @@ export const cleanupIrrelevantTwitter = internalAction({
       }
     }
 
-    
     const feedItemIds: string[] = await ctx.runQuery(
       internal.migrations.cleanup_irrelevant_twitter.getFeedItemsByContentIds,
       { contentIds: subscriptionContentToDelete }
@@ -264,17 +283,20 @@ export const cleanupIrrelevantTwitter = internalAction({
 
     // Execute deletion
     if (subscriptionContentToDelete.length > 0 || documentsToDelete.length > 0) {
-      const result: { deletedDocs: number; deletedContent: number; deletedFeedItems: number } = await ctx.runMutation(
-        internal.migrations.cleanup_irrelevant_twitter.deleteIrrelevantContent,
-        {
-          subscriptionContentIds: subscriptionContentToDelete,
-          documentIds: documentsToDelete,
-          feedItemIds,
-        }
-      );
+      const result: { deletedDocs: number; deletedContent: number; deletedFeedItems: number } =
+        await ctx.runMutation(
+          internal.migrations.cleanup_irrelevant_twitter.deleteIrrelevantContent,
+          {
+            subscriptionContentIds: subscriptionContentToDelete,
+            documentIds: documentsToDelete,
+            feedItemIds,
+          }
+        );
 
       if (hasMore) {
-        console.log(`Run next page: npx convex run migrations/cleanup_irrelevant_twitter_actions:cleanupIrrelevantTwitter '{"offset": ${offset + PAGE_SIZE}}'`);
+        console.log(
+          `Run next page: npx convex run migrations/cleanup_irrelevant_twitter_actions:cleanupIrrelevantTwitter '{"offset": ${offset + PAGE_SIZE}}'`
+        );
       }
 
       return {
@@ -286,9 +308,18 @@ export const cleanupIrrelevantTwitter = internalAction({
     }
 
     if (hasMore) {
-      console.log(`Page done (nothing to delete). Run next page: npx convex run migrations/cleanup_irrelevant_twitter_actions:cleanupIrrelevantTwitter '{"offset": ${offset + PAGE_SIZE}}'`);
+      console.log(
+        `Page done (nothing to delete). Run next page: npx convex run migrations/cleanup_irrelevant_twitter_actions:cleanupIrrelevantTwitter '{"offset": ${offset + PAGE_SIZE}}'`
+      );
     }
 
-    return { scored: itemsToScore.length, kept: kept.length, removed: removed.length, deletedDocs: 0, deletedContent: 0, deletedFeedItems: 0 };
+    return {
+      scored: itemsToScore.length,
+      kept: kept.length,
+      removed: removed.length,
+      deletedDocs: 0,
+      deletedContent: 0,
+      deletedFeedItems: 0,
+    };
   },
 });

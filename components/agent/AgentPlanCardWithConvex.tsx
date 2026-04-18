@@ -1,27 +1,27 @@
-import { ActivityIndicator, View } from 'react-native'
-import { useQuery, useMutation } from 'convex/react'
-import { api } from '@/convex/_generated/api'
-import type { Id } from '@/convex/_generated/dataModel'
-import { Text } from '@/components/ui/text'
-import { AgentPlanCard } from './AgentPlanCard'
+import { useMutation, useQuery } from 'convex/react';
+import { ActivityIndicator, View } from 'react-native';
+import { Text } from '@/components/ui/text';
+import { api } from '@/convex/_generated/api';
+import type { Id } from '@/convex/_generated/dataModel';
+import { AgentPlanCard } from './AgentPlanCard';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
 export interface AgentPlanCardWithConvexProps {
-  planId: string
+  planId: string;
 }
 
 // ── Main component ──────────────────────────────────────────────────────────
 
 export function AgentPlanCardWithConvex({ planId }: AgentPlanCardWithConvexProps) {
-  const typedPlanId = planId as Id<'agentPlans'>
+  const typedPlanId = planId as Id<'agentPlans'>;
 
-  const plan = useQuery(api.agentPlans.queries.get, { id: typedPlanId })
-  const steps = useQuery(api.agentPlans.queries.getSteps, { planId: typedPlanId })
+  const plan = useQuery(api.agentPlans.queries.get, { id: typedPlanId });
+  const steps = useQuery(api.agentPlans.queries.getSteps, { planId: typedPlanId });
 
-  const approveStep = useMutation(api.agentPlans.mutations.approveStep)
-  const rejectStep = useMutation(api.agentPlans.mutations.rejectStep)
-  const cancelPlan = useMutation(api.agentPlans.mutations.cancelPlan)
+  const approveStep = useMutation(api.agentPlans.mutations.approveStep);
+  const rejectStep = useMutation(api.agentPlans.mutations.rejectStep);
+  const cancelPlan = useMutation(api.agentPlans.mutations.cancelPlan);
 
   // Loading state
   if (!plan || !steps) {
@@ -30,20 +30,20 @@ export function AgentPlanCardWithConvex({ planId }: AgentPlanCardWithConvexProps
         <ActivityIndicator size="small" />
         <Text className="text-muted-foreground text-sm">Loading plan...</Text>
       </View>
-    )
+    );
   }
 
   const handleApproveStep = (stepIndex: number) => {
-    approveStep({ planId: typedPlanId, stepIndex })
-  }
+    approveStep({ planId: typedPlanId, stepIndex });
+  };
 
   const handleRejectStep = (stepIndex: number) => {
-    rejectStep({ planId: typedPlanId, stepIndex })
-  }
+    rejectStep({ planId: typedPlanId, stepIndex });
+  };
 
   const handleCancelPlan = () => {
-    cancelPlan({ planId: typedPlanId })
-  }
+    cancelPlan({ planId: typedPlanId });
+  };
 
   return (
     <AgentPlanCard
@@ -63,5 +63,5 @@ export function AgentPlanCardWithConvex({ planId }: AgentPlanCardWithConvexProps
       onRejectStep={handleRejectStep}
       onCancelPlan={handleCancelPlan}
     />
-  )
+  );
 }

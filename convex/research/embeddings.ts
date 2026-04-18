@@ -5,10 +5,10 @@
  * using Cohere's embed-english-v3.0 model (1024 dimensions)
  */
 
-"use node";
+'use node';
 
-import { embed } from "ai";
-import { cohereEmbedding } from "../lib/ai/embeddings_provider";
+import { embed } from 'ai';
+import { cohereEmbedding } from '../lib/ai/embeddings_provider';
 
 /**
  * Generate embedding for iteration findings text
@@ -17,9 +17,7 @@ import { cohereEmbedding } from "../lib/ai/embeddings_provider";
  * @param findingsText - Narrative summary from synthesis
  * @returns embedding vector from zembed-1
  */
-export async function generateIterationEmbedding(
-  findingsText: string
-): Promise<number[]> {
+export async function generateIterationEmbedding(findingsText: string): Promise<number[]> {
   const MAX_LENGTH = 8000;
   const truncated = findingsText.slice(0, MAX_LENGTH);
 
@@ -37,9 +35,7 @@ export async function generateIterationEmbedding(
  * @param claimText - The claim text from a structured finding
  * @returns embedding vector from zembed-1
  */
-export async function generateFindingEmbedding(
-  claimText: string
-): Promise<number[]> {
+export async function generateFindingEmbedding(claimText: string): Promise<number[]> {
   const { embedding } = await embed({
     model: cohereEmbedding,
     value: claimText,
@@ -55,9 +51,7 @@ export async function generateFindingEmbedding(
  * @param query - Search query string
  * @returns embedding vector from zembed-1
  */
-export async function generateQueryEmbedding(
-  query: string
-): Promise<number[]> {
+export async function generateQueryEmbedding(query: string): Promise<number[]> {
   const { embedding } = await embed({
     model: cohereEmbedding,
     value: query,

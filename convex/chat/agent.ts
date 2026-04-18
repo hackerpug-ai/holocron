@@ -1,4 +1,4 @@
-"use node";
+'use node';
 
 /**
  * Chat Agent Action
@@ -17,23 +17,23 @@
  * to be defined inside Node.js ("use node") files.
  */
 
-import { internalAction, action } from "../_generated/server";
-import type { ActionCtx } from "../_generated/server";
-import { internal, api } from "../_generated/api";
-import type { Id } from "../_generated/dataModel";
-import { v } from "convex/values";
-import type { GenerateTextResult, ModelMessage } from "ai";
-import { claudePro } from "../lib/ai/anthropic_provider";
-import { agentTools } from "./tools";
-import { executeAgentTool } from "./toolExecutor";
-import { HOLOCRON_SYSTEM_PROMPT } from "./prompts";
-import { toTitleCase } from "../lib/strings";
-import { classifyIntent, type QueryShape } from "./triage";
-import { isPendingExpired } from "../conversations/mutations";
-import { getSpecialist, INTENT_TO_SPECIALIST } from "./specialists";
-import type { IntentCategory, SpecialistName } from "./specialists";
-import { generateTextWithReAct } from "../lib/react";
-import { startsWithRefinementPhrase } from "./refinement";
+import type { GenerateTextResult, ModelMessage } from 'ai';
+import { v } from 'convex/values';
+import { api, internal } from '../_generated/api';
+import type { Id } from '../_generated/dataModel';
+import type { ActionCtx } from '../_generated/server';
+import { action, internalAction } from '../_generated/server';
+import { isPendingExpired } from '../conversations/mutations';
+import { claudePro } from '../lib/ai/anthropic_provider';
+import { generateTextWithReAct } from '../lib/react';
+import { toTitleCase } from '../lib/strings';
+import { HOLOCRON_SYSTEM_PROMPT } from './prompts';
+import { startsWithRefinementPhrase } from './refinement';
+import type { IntentCategory, SpecialistName } from './specialists';
+import { getSpecialist, INTENT_TO_SPECIALIST } from './specialists';
+import { executeAgentTool } from './toolExecutor';
+import { agentTools } from './tools';
+import { classifyIntent, type QueryShape } from './triage';
 
 // ---------------------------------------------------------------------------
 // detectRefinement — deterministic specialist inheritance
@@ -65,17 +65,14 @@ type RefinementResult =
  */
 export async function detectRefinement(
   messages: Array<{ role: string; content: string | unknown }>,
-  getLastToolResult: () => Promise<ToolResultInfo>,
+  getLastToolResult: () => Promise<ToolResultInfo>
 ): Promise<RefinementResult> {
   // Find the latest user message content
-  const userMessages = messages.filter((m) => m.role === "user");
+  const userMessages = messages.filter((m) => m.role === 'user');
   if (userMessages.length === 0) return { shouldInherit: false };
 
   const lastUserMessage = userMessages[userMessages.length - 1];
-  const content =
-    typeof lastUserMessage.content === "string"
-      ? lastUserMessage.content
-      : "";
+  const content = typeof lastUserMessage.content === 'string' ? lastUserMessage.content : '';
 
   // Step 1: Lexicon check — does the message start with a refinement phrase?
   if (!startsWithRefinementPhrase(content)) {
@@ -109,16 +106,14 @@ export async function detectRefinement(
  */
 async function handleLlmResult(
   ctx: ActionCtx,
-  conversationId: Id<"conversations">,
+  conversationId: Id<'conversations'>,
   result: GenerateTextResult<any, any>,
-  specialistName?: string,
+  specialistName?: string
 ): Promise<void> {
   // Handle tool calls — create approval messages
   if (result.toolCalls && result.toolCalls.length > 0) {
     // Check if the LLM wants to create a plan
-    const planCall = result.toolCalls.find(
-      (tc) => tc.toolName === "create_plan"
-    );
+    const planCall = result.toolCalls.find((tc) => tc.toolName === 'create_plan');
 
     if (planCall) {
       const input = planCall.input as {
@@ -132,21 +127,14 @@ async function handleLlmResult(
       };
 
       // Create the plan (mutation creates chatMessage + plan + steps)
-      const { planId } = await ctx.runMutation(
-        internal.agentPlans.mutations.createPlan,
-        {
-          conversationId,
-          title: input.title,
-          steps: input.steps,
-        }
-      );
+      const { planId } = await ctx.runMutation(internal.agentPlans.mutations.createPlan, {
+        conversationId,
+        title: input.title,
+        steps: input.steps,
+      });
 
       // Schedule execution of the first step
-      await ctx.scheduler.runAfter(
-        0,
-        internal.agentPlans.actions.executePlanStep,
-        { planId }
-      );
+      await ctx.scheduler.runAfter(0, internal.agentPlans.actions.executePlanStep, { planId });
 
       return;
     }
@@ -170,20 +158,17 @@ async function handleLlmResult(
             // dispatch back to the same specialist without re-triaging.
             specialist_name: specialistName ?? null,
           },
-        },
+        }
       );
 
       // Create the toolCall record linked to the approval message
-      const toolCallId = await ctx.runMutation(
-        api.toolCalls.mutations.create,
-        {
-          conversationId,
-          messageId: approvalMessageId,
-          toolName: toolCall.toolName,
-          toolDisplayName,
-          toolArgs: toolCall.input,
-        },
-      );
+      const toolCallId = await ctx.runMutation(api.toolCalls.mutations.create, {
+        conversationId,
+        messageId: approvalMessageId,
+        toolName: toolCall.toolName,
+        toolDisplayName,
+        toolArgs: toolCall.input,
+      });
 
       // Back-patch the approval message with the toolCallId reference
       await ctx.runMutation(internal.chat.agentMutations.linkToolCallToMessage, {
@@ -201,26 +186,26 @@ async function handleLlmResult(
   }
 
   // Handle plain text response
-  const text = result.text?.trim() ?? "";
+  const text = result.text?.trim() ?? '';
   if (text) {
     // AGENT-01: Extract reasoning text for transparency
     const reasoningText = result.reasoningText?.trim();
 
     await ctx.runMutation(api.chatMessages.mutations.create, {
       conversationId,
-      role: "agent",
+      role: 'agent',
       content: text,
-      messageType: "text",
+      messageType: 'text',
       ...(reasoningText && { reasoning: reasoningText }),
     });
   } else {
     // Fallback: LLM returned neither text nor tool calls
-    console.warn("LLM returned empty response (no text, no tool calls)");
+    console.warn('LLM returned empty response (no text, no tool calls)');
     await ctx.runMutation(api.chatMessages.mutations.create, {
       conversationId,
-      role: "agent",
+      role: 'agent',
       content: "I'm not sure how to respond to that. Could you rephrase your question?",
-      messageType: "text",
+      messageType: 'text',
     });
   }
 }
@@ -233,8 +218,8 @@ async function handleLlmResult(
  */
 async function callLlmMonolithic(
   ctx: ActionCtx,
-  conversationId: Id<"conversations">,
-  messages: ModelMessage[],
+  conversationId: Id<'conversations'>,
+  messages: ModelMessage[]
 ): Promise<void> {
   const result = await generateTextWithReAct({
     model: claudePro(),
@@ -255,18 +240,18 @@ async function callLlmMonolithic(
  */
 async function computeClarificationDepth(
   ctx: ActionCtx,
-  conversationId: Id<"conversations">,
+  conversationId: Id<'conversations'>
 ): Promise<number> {
   const recentClassifications = await ctx.runQuery(
     internal.chat.agentMutations.listRecentClassifications,
-    { conversationId, limit: 5 },
+    { conversationId, limit: 5 }
   );
   if (!recentClassifications) return 0;
 
   // Count consecutive ambiguous results from the end
   let depth = 0;
   for (let i = recentClassifications.length - 1; i >= 0; i--) {
-    if (recentClassifications[i].queryShape === "ambiguous") {
+    if (recentClassifications[i].queryShape === 'ambiguous') {
       depth++;
     } else {
       break;
@@ -289,24 +274,25 @@ async function computeClarificationDepth(
  */
 async function callLlmAndHandleResponse(
   ctx: ActionCtx,
-  conversationId: Id<"conversations">,
+  conversationId: Id<'conversations'>
 ): Promise<string | null> {
   // Build context from conversation history (via internal query in V8 file)
-  let messages = await ctx.runQuery(
-    internal.chat.agentMutations.buildContext,
-    { conversationId },
-  );
+  let messages = await ctx.runQuery(internal.chat.agentMutations.buildContext, { conversationId });
 
   // --- Podcast URL detection (deterministic, bypasses triage) ---
   // Check if the latest user message contains a podcast URL
-  const userMessages = messages.filter((m) => m.role === "user");
+  const userMessages = messages.filter((m) => m.role === 'user');
   if (userMessages.length > 0) {
     const lastUserMessage = userMessages[userMessages.length - 1];
-    const content = typeof lastUserMessage.content === "string" ? lastUserMessage.content : "";
+    const content = typeof lastUserMessage.content === 'string' ? lastUserMessage.content : '';
 
     // Detect podcast URLs (Spotify, Apple Podcasts, RSS feeds, direct MP3)
-    const podcastUrlMatch = content.match(/(https?:\/\/)?(www\.)?(spotify\.com\/(show|episode)|podcasts\.apple\.com|rss|feed|xml)/i);
-    const directMp3Match = content.match(/(https?:\/\/)?(www\.)?[^\s]+\.(mp3|m4a|m4b|opus)(\?[^\s]*)?/i);
+    const podcastUrlMatch = content.match(
+      /(https?:\/\/)?(www\.)?(spotify\.com\/(show|episode)|podcasts\.apple\.com|rss|feed|xml)/i
+    );
+    const directMp3Match = content.match(
+      /(https?:\/\/)?(www\.)?[^\s]+\.(mp3|m4a|m4b|opus)(\?[^\s]*)?/i
+    );
 
     if (podcastUrlMatch || directMp3Match) {
       // Extract the URL from the message
@@ -327,36 +313,28 @@ async function callLlmAndHandleResponse(
 
   // --- Pending-state rehydrate (CLR-002) ---
   // Read the conversation document to check for fresh pending state.
-  const conv = await ctx.runQuery(
-    internal.chat.agentMutations.getConversation,
-    { conversationId },
-  );
+  const conv = await ctx.runQuery(internal.chat.agentMutations.getConversation, { conversationId });
 
   if (conv && conv.pendingIntent && !isPendingExpired(conv.pendingSince)) {
     // Prepend a system message so triage sees the original context
     const pendingPreamble =
       `The user is mid-request. Their original intent was ${conv.pendingIntent} ` +
       `with shape ${conv.pendingQueryShape}.`;
-    messages = [
-      { role: "system" as const, content: pendingPreamble },
-      ...messages,
-    ];
+    messages = [{ role: 'system' as const, content: pendingPreamble }, ...messages];
   }
 
   // --- Refinement detection (deterministic, runs BEFORE triage) ---
   // If the user is clearly refining a prior tool result, inherit the prior
   // specialist and bypass triage entirely.
-  const refinement = await detectRefinement(
-    messages,
-    () =>
-      ctx.runQuery(internal.chat.agentMutations.getLastToolResultWithSpecialist, {
-        conversationId,
-      }),
+  const refinement = await detectRefinement(messages, () =>
+    ctx.runQuery(internal.chat.agentMutations.getLastToolResultWithSpecialist, {
+      conversationId,
+    })
   );
 
   if (refinement.shouldInherit) {
     console.log(
-      `[detectRefinement] Inheriting specialist "${refinement.specialistName}" — bypassing triage`,
+      `[detectRefinement] Inheriting specialist "${refinement.specialistName}" — bypassing triage`
     );
     const specialist = getSpecialist(refinement.specialistName);
     const result = await generateTextWithReAct({
@@ -373,16 +351,12 @@ async function callLlmAndHandleResponse(
   const triage = await classifyIntent(messages);
 
   // Step 2: Direct conversation response (no specialist needed)
-  if (
-    triage.intent === "conversation" &&
-    triage.confidence !== "low" &&
-    triage.directResponse
-  ) {
+  if (triage.intent === 'conversation' && triage.confidence !== 'low' && triage.directResponse) {
     await ctx.runMutation(api.chatMessages.mutations.create, {
       conversationId,
-      role: "agent",
+      role: 'agent',
       content: triage.directResponse,
-      messageType: "text",
+      messageType: 'text',
     });
     return null;
   }
@@ -393,14 +367,12 @@ async function callLlmAndHandleResponse(
 
   // Compute effective shape: if ambiguous but depth cap reached, force best-guess
   const effectiveShape: QueryShape =
-    triage.queryShape === "ambiguous" && clarificationDepth >= 1
-      ? "factual"
-      : triage.queryShape;
+    triage.queryShape === 'ambiguous' && clarificationDepth >= 1 ? 'factual' : triage.queryShape;
 
   if (
-    triage.queryShape === "ambiguous" &&
+    triage.queryShape === 'ambiguous' &&
     triage.directResponse &&
-    triage.confidence !== "low" &&
+    triage.confidence !== 'low' &&
     clarificationDepth < 1
   ) {
     // Set pending intent so next turn can rehydrate
@@ -412,22 +384,22 @@ async function callLlmAndHandleResponse(
     // Persist the clarification question as an assistant message
     await ctx.runMutation(api.chatMessages.mutations.create, {
       conversationId,
-      role: "agent",
+      role: 'agent',
       content: triage.directResponse,
-      messageType: "text",
+      messageType: 'text',
     });
     return null; // no specialist dispatch
   }
 
   // Clear pending state on non-ambiguous turn completion
-  if (effectiveShape !== "ambiguous" && conv?.pendingIntent) {
+  if (effectiveShape !== 'ambiguous' && conv?.pendingIntent) {
     await ctx.runMutation(internal.conversations.mutations.clearPendingIntent, {
       conversationId,
     });
   }
 
   // Step 3: Low confidence → fallback to monolithic agent (safety valve)
-  if (triage.confidence === "low") {
+  if (triage.confidence === 'low') {
     await callLlmMonolithic(ctx, conversationId, messages);
     return null;
   }
@@ -445,10 +417,10 @@ async function callLlmAndHandleResponse(
   // QueryShape hint injection for research specialist
   // Injects a system-message preamble to guide tool selection based on query shape
   let dispatchMessages = messages;
-  if (specialistName === "research" && effectiveShape) {
+  if (specialistName === 'research' && effectiveShape) {
     const shapeHints: Record<QueryShape, string | null> = {
-      recommendation: "The user wants named providers they can act on. Use find_recommendations.",
-      comprehensive: "The user explicitly asked for a comprehensive report. Use deep_research.",
+      recommendation: 'The user wants named providers they can act on. Use find_recommendations.',
+      comprehensive: 'The user explicitly asked for a comprehensive report. Use deep_research.',
       factual: null,
       exploratory: null,
       ambiguous: null,
@@ -456,10 +428,7 @@ async function callLlmAndHandleResponse(
     const preamble = shapeHints[effectiveShape];
     if (preamble) {
       // Prepend hint as system message to guide specialist behavior
-      dispatchMessages = [
-        { role: "system" as const, content: preamble },
-        ...messages,
-      ];
+      dispatchMessages = [{ role: 'system' as const, content: preamble }, ...messages];
     }
   }
 
@@ -486,7 +455,7 @@ async function callLlmAndHandleResponse(
  */
 export const run = internalAction({
   args: {
-    conversationId: v.id("conversations"),
+    conversationId: v.id('conversations'),
   },
   handler: async (ctx, { conversationId }): Promise<void> => {
     await ctx.runMutation(internal.chat.agentMutations.setAgentBusy, {
@@ -497,14 +466,13 @@ export const run = internalAction({
     try {
       await callLlmAndHandleResponse(ctx, conversationId);
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "An unexpected error occurred";
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
 
       await ctx.runMutation(api.chatMessages.mutations.create, {
         conversationId,
-        role: "agent",
+        role: 'agent',
         content: `I encountered an error: ${errorMessage}`,
-        messageType: "error",
+        messageType: 'error',
       });
     } finally {
       await ctx.runMutation(internal.chat.agentMutations.setAgentBusy, {
@@ -528,7 +496,7 @@ export const run = internalAction({
  */
 export const executeTool = action({
   args: {
-    toolCallId: v.id("toolCalls"),
+    toolCallId: v.id('toolCalls'),
   },
   handler: async (ctx, { toolCallId }): Promise<void> => {
     const toolCall = await ctx.runQuery(api.toolCalls.queries.get, {
@@ -539,10 +507,8 @@ export const executeTool = action({
       throw new Error(`toolCall ${toolCallId} not found`);
     }
 
-    if (toolCall.status !== "pending") {
-      throw new Error(
-        `toolCall ${toolCallId} is not pending (status: ${toolCall.status})`,
-      );
+    if (toolCall.status !== 'pending') {
+      throw new Error(`toolCall ${toolCallId} is not pending (status: ${toolCall.status})`);
     }
 
     const conversationId = toolCall.conversationId;
@@ -552,14 +518,14 @@ export const executeTool = action({
       id: toolCall.messageId,
     });
     const specialistName: string | undefined =
-      typeof (approvalMessage?.cardData as any)?.specialist_name === "string"
+      typeof (approvalMessage?.cardData as any)?.specialist_name === 'string'
         ? (approvalMessage?.cardData as any).specialist_name
         : undefined;
 
     // Mark as approved
     await ctx.runMutation(api.toolCalls.mutations.updateStatus, {
       id: toolCallId,
-      status: "approved",
+      status: 'approved',
     });
 
     await ctx.runMutation(internal.chat.agentMutations.setAgentBusy, {
@@ -574,7 +540,7 @@ export const executeTool = action({
         ctx,
         toolCall.toolName,
         toolCall.toolArgs,
-        conversationId,
+        conversationId
       );
 
       skipContinuation = agentResponse.skipContinuation ?? false;
@@ -583,51 +549,47 @@ export const executeTool = action({
       // asynchronously, so skip the redundant acknowledgment message.
       if (!skipContinuation) {
         // Validate messageType against allowed chatMessages schema values
-        const allowedTypes = ["text", "result_card", "error", "progress"] as const;
+        const allowedTypes = ['text', 'result_card', 'error', 'progress'] as const;
         type AllowedType = (typeof allowedTypes)[number];
         const messageType: AllowedType = allowedTypes.includes(
-          agentResponse.messageType as AllowedType,
+          agentResponse.messageType as AllowedType
         )
           ? (agentResponse.messageType as AllowedType)
-          : "text";
+          : 'text';
 
-        const resultMessageId = await ctx.runMutation(
-          api.chatMessages.mutations.create,
-          {
-            conversationId,
-            role: "agent",
-            content: agentResponse.content,
-            messageType,
-            cardData: agentResponse.cardData,
-          },
-        );
+        const resultMessageId = await ctx.runMutation(api.chatMessages.mutations.create, {
+          conversationId,
+          role: 'agent',
+          content: agentResponse.content,
+          messageType,
+          cardData: agentResponse.cardData,
+        });
 
         await ctx.runMutation(api.toolCalls.mutations.updateStatus, {
           id: toolCallId,
-          status: "completed",
+          status: 'completed',
           resultMessageId,
         });
       } else {
         await ctx.runMutation(api.toolCalls.mutations.updateStatus, {
           id: toolCallId,
-          status: "completed",
+          status: 'completed',
         });
       }
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Tool execution failed";
+      const errorMessage = error instanceof Error ? error.message : 'Tool execution failed';
 
       await ctx.runMutation(api.toolCalls.mutations.updateStatus, {
         id: toolCallId,
-        status: "failed",
+        status: 'failed',
         error: errorMessage,
       });
 
       await ctx.runMutation(api.chatMessages.mutations.create, {
         conversationId,
-        role: "agent",
+        role: 'agent',
         content: `Tool execution failed: ${errorMessage}`,
-        messageType: "error",
+        messageType: 'error',
       });
     } finally {
       await ctx.runMutation(internal.chat.agentMutations.setAgentBusy, {
@@ -660,7 +622,7 @@ export const executeTool = action({
  */
 export const rejectTool = action({
   args: {
-    toolCallId: v.id("toolCalls"),
+    toolCallId: v.id('toolCalls'),
   },
   handler: async (ctx, { toolCallId }): Promise<void> => {
     const toolCall = await ctx.runQuery(api.toolCalls.queries.get, {
@@ -673,7 +635,7 @@ export const rejectTool = action({
 
     await ctx.runMutation(api.toolCalls.mutations.updateStatus, {
       id: toolCallId,
-      status: "rejected",
+      status: 'rejected',
     });
 
     await ctx.scheduler.runAfter(0, internal.chat.agent.continueAfterTool, {
@@ -696,7 +658,7 @@ export const rejectTool = action({
  */
 export const cancelTool = action({
   args: {
-    toolCallId: v.id("toolCalls"),
+    toolCallId: v.id('toolCalls'),
   },
   handler: async (ctx, { toolCallId }): Promise<void> => {
     const toolCall = await ctx.runQuery(api.toolCalls.queries.get, {
@@ -708,16 +670,14 @@ export const cancelTool = action({
     }
 
     // Can only cancel while pending or actively executing
-    if (toolCall.status !== "pending" && toolCall.status !== "approved") {
-      throw new Error(
-        `Cannot cancel tool (status: ${toolCall.status})`,
-      );
+    if (toolCall.status !== 'pending' && toolCall.status !== 'approved') {
+      throw new Error(`Cannot cancel tool (status: ${toolCall.status})`);
     }
 
     await ctx.runMutation(api.toolCalls.mutations.updateStatus, {
       id: toolCallId,
-      status: "rejected",
-      error: "Cancelled by user",
+      status: 'rejected',
+      error: 'Cancelled by user',
     });
 
     // Read specialist name from the approval message for continuation
@@ -725,10 +685,8 @@ export const cancelTool = action({
       id: toolCall.messageId,
     });
     const specialistName: string | undefined =
-      typeof (approvalMessage?.cardData as Record<string, unknown>)
-        ?.specialist_name === "string"
-        ? ((approvalMessage?.cardData as Record<string, unknown>)
-            .specialist_name as string)
+      typeof (approvalMessage?.cardData as Record<string, unknown>)?.specialist_name === 'string'
+        ? ((approvalMessage?.cardData as Record<string, unknown>).specialist_name as string)
         : undefined;
 
     await ctx.scheduler.runAfter(0, internal.chat.agent.continueAfterTool, {
@@ -755,21 +713,24 @@ export const cancelTool = action({
  */
 export const continueAfterTool = internalAction({
   args: {
-    conversationId: v.id("conversations"),
+    conversationId: v.id('conversations'),
     specialistName: v.optional(v.string()),
   },
   handler: async (ctx, { conversationId, specialistName }): Promise<void> => {
     const completedToolCalls = await ctx.runQuery(api.toolCalls.queries.listByConversation, {
       conversationId,
     });
-    const completedCount = (completedToolCalls ?? []).filter((tc: { status: string }) => tc.status === 'completed').length;
+    const completedCount = (completedToolCalls ?? []).filter(
+      (tc: { status: string }) => tc.status === 'completed'
+    ).length;
     const MAX_TOOL_CHAIN_DEPTH = 10;
     if (completedCount >= MAX_TOOL_CHAIN_DEPTH) {
       await ctx.runMutation(api.chatMessages.mutations.create, {
         conversationId,
-        role: "agent",
-        content: "I've reached the maximum number of sequential tool operations for this turn. Please send another message if you'd like me to continue.",
-        messageType: "text",
+        role: 'agent',
+        content:
+          "I've reached the maximum number of sequential tool operations for this turn. Please send another message if you'd like me to continue.",
+        messageType: 'text',
       });
       await ctx.runMutation(internal.chat.agentMutations.setAgentBusy, {
         conversationId,
@@ -787,16 +748,16 @@ export const continueAfterTool = internalAction({
       if (specialistName) {
         // Skip triage — dispatch directly to the original specialist so intent
         // context is preserved across multi-tool chains without re-classification.
-        const messages = await ctx.runQuery(
-          internal.chat.agentMutations.buildContext,
-          { conversationId },
-        );
+        const messages = await ctx.runQuery(internal.chat.agentMutations.buildContext, {
+          conversationId,
+        });
 
         // REC-005: Inject continuation hint for find_recommendations
         // Get the most recent completed tool call
-        const priorTool = completedToolCalls && completedToolCalls.length > 0
-          ? completedToolCalls[completedToolCalls.length - 1]
-          : null;
+        const priorTool =
+          completedToolCalls && completedToolCalls.length > 0
+            ? completedToolCalls[completedToolCalls.length - 1]
+            : null;
 
         const specialist = getSpecialist(specialistName as any);
 
@@ -851,14 +812,13 @@ export const continueAfterTool = internalAction({
         await callLlmAndHandleResponse(ctx, conversationId);
       }
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "An unexpected error occurred";
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
 
       await ctx.runMutation(api.chatMessages.mutations.create, {
         conversationId,
-        role: "agent",
+        role: 'agent',
         content: `I encountered an error while continuing: ${errorMessage}`,
-        messageType: "error",
+        messageType: 'error',
       });
     } finally {
       await ctx.runMutation(internal.chat.agentMutations.setAgentBusy, {

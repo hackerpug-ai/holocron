@@ -1,8 +1,8 @@
-import type { Doc } from '@/convex/_generated/dataModel'
+import type { Doc } from '@/convex/_generated/dataModel';
 
-export type SubscriptionSource = Doc<'subscriptionSources'>
-export type SubscriptionContent = Doc<'subscriptionContent'>
-export type Document = Doc<'documents'>
+export type SubscriptionSource = Doc<'subscriptionSources'>;
+export type SubscriptionContent = Doc<'subscriptionContent'>;
+export type Document = Doc<'documents'>;
 
 /**
  * CreatorGroup represents a grouped set of subscriptions that belong to the same creator.
@@ -12,31 +12,31 @@ export type Document = Doc<'documents'>
  */
 export interface CreatorGroup {
   /** Creator profile ID if exists, otherwise this is a standalone subscription group */
-  creatorProfileId: string | null
+  creatorProfileId: string | null;
   /** Canonical name (from creator profile or first subscription) */
-  name: string
+  name: string;
   /** All subscriptions in this group */
-  subscriptions: SubscriptionSource[]
+  subscriptions: SubscriptionSource[];
   /** Number of platforms/subscriptions in this group */
-  platformCount: number
+  platformCount: number;
   /** Total number of researched documents across all subscriptions in the group */
-  documentCount: number
+  documentCount: number;
   /** Timestamp of the most recent activity in this group */
-  lastActivityAt: number
+  lastActivityAt: number;
   /** Avatar URL if from creator profile (optional) */
-  avatarUrl?: string
+  avatarUrl?: string;
 }
 
 /**
  * SubscriptionWithContent represents a subscription with its associated content items.
  */
 export interface SubscriptionWithContent {
-  subscription: SubscriptionSource
+  subscription: SubscriptionSource;
   contentItems: Array<{
-    content: SubscriptionContent
-    document: Document | null
-  }>
-  hasResearchedContent: boolean
+    content: SubscriptionContent;
+    document: Document | null;
+  }>;
+  hasResearchedContent: boolean;
 }
 
 /**
@@ -49,9 +49,9 @@ export type PlatformType =
   | 'reddit'
   | 'ebay'
   | 'whats-new'
-  | 'creator'
+  | 'creator';
 
 /**
  * Platform type for creator profiles (extended with additional platforms).
  */
-export type CreatorPlatformType = PlatformType | 'bluesky' | 'github' | 'website'
+export type CreatorPlatformType = PlatformType | 'bluesky' | 'github' | 'website';

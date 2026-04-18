@@ -9,22 +9,22 @@
  * Check status: npx convex run migrations/backfill_research_documents:status
  */
 
-import { action } from "../_generated/server";
-import { v } from "convex/values";
-import { internal } from "../_generated/api";
-import type { Id } from "../_generated/dataModel";
+import { v } from 'convex/values';
+import { internal } from '../_generated/api';
+import type { Id } from '../_generated/dataModel';
+import { action } from '../_generated/server';
 
 interface SessionNeedingDocument {
-  _id: Id<"deepResearchSessions">;
+  _id: Id<'deepResearchSessions'>;
   topic: string;
   status: string;
-  conversationId: Id<"conversations">;
+  conversationId: Id<'conversations'>;
   researchType?: string;
   currentIteration?: number;
 }
 
 interface BackfillResult {
-  status: "complete" | "partial";
+  status: 'complete' | 'partial';
   processed: number;
   created: number;
   skipped: number;
@@ -42,33 +42,32 @@ interface BackfillResult {
 export const backfill = action({
   args: {
     batchSize: v.optional(v.number()), // Process in batches to avoid timeouts (default: 10)
-    dryRun: v.optional(v.boolean()),   // Log what would be done without executing
+    dryRun: v.optional(v.boolean()), // Log what would be done without executing
   },
   handler: async (ctx, { batchSize = 10, dryRun = false }): Promise<BackfillResult> => {
-
     // Step 1: Find all completed sessions without documents
-    const allSessions = await ctx.runQuery(
+    const allSessions = (await ctx.runQuery(
       internal.research.documentQueries.getSessionsNeedingDocuments,
       {}
-    ) as SessionNeedingDocument[];
+    )) as SessionNeedingDocument[];
 
     const totalSessions = allSessions.length;
 
     if (totalSessions === 0) {
       return {
-        status: "complete",
+        status: 'complete',
         processed: 0,
         created: 0,
         skipped: 0,
         errors: 0,
         remaining: 0,
-        message: "All sessions already have documents"
+        message: 'All sessions already have documents',
       };
     }
 
     // Step 2: Process in batches
     let created = 0;
-    let skipped = 0;
+    const skipped = 0;
     let errors = 0;
     const processedSessionIds: string[] = [];
 
@@ -77,22 +76,22 @@ export const backfill = action({
 
       try {
         if (dryRun) {
-          
           created++;
           processedSessionIds.push(session._id);
         } else {
           // Trigger document creation via scheduler
           // This ensures idempotency - createResearchDocument checks if document already exists
-          await ctx.scheduler.runAfter(
-            0,
-            internal.research.documents.createResearchDocument,
-            { sessionId: session._id }
-          );
+          await ctx.scheduler.runAfter(0, internal.research.documents.createResearchDocument, {
+            sessionId: session._id,
+          });
           created++;
           processedSessionIds.push(session._id);
         }
       } catch (error) {
-        console.error(`[backfillResearchDocuments] Error processing session ${session._id}:`, error);
+        console.error(
+          `[backfillResearchDocuments] Error processing session ${session._id}:`,
+          error
+        );
         errors++;
       }
     }
@@ -104,7 +103,7 @@ export const backfill = action({
       : `Created ${created} documents. ${remaining} sessions remaining.`;
 
     return {
-      status: remaining > 0 ? "partial" : "complete",
+      status: remaining > 0 ? 'partial' : 'complete',
       processed: Math.min(batchSize, totalSessions),
       created,
       skipped,
@@ -123,16 +122,18 @@ export const backfill = action({
  */
 export const status = action({
   args: {},
-  handler: async (ctx): Promise<{
+  handler: async (
+    ctx
+  ): Promise<{
     sessionsNeedingDocuments: number;
     totalSessions: number;
     sessionsWithDocuments: number;
     topicsNeedingDocuments: string[];
   }> => {
-    const sessionsNeeding = await ctx.runQuery(
+    const sessionsNeeding = (await ctx.runQuery(
       internal.research.documentQueries.getSessionsNeedingDocuments,
       {}
-    ) as SessionNeedingDocument[];
+    )) as SessionNeedingDocument[];
 
     // Get total completed sessions count (approximate by using same query logic)
     // In production, you might want a dedicated query for this

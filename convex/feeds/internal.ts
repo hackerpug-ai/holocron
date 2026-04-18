@@ -1,7 +1,7 @@
-import { v } from "convex/values";
-import { internalAction, internalQuery, internalMutation } from "../_generated/server";
-import { internal } from "../_generated/api";
-import type { Doc, Id } from "../_generated/dataModel";
+import { v } from 'convex/values';
+import { internal } from '../_generated/api';
+import type { Doc, Id } from '../_generated/dataModel';
+import { internalAction, internalMutation, internalQuery } from '../_generated/server';
 
 // ============================================================================
 // Feed Building Action
@@ -11,7 +11,7 @@ import type { Doc, Id } from "../_generated/dataModel";
  * Derive feed content type from contentCategory field.
  * Maps stored category strings to the feedItems contentType union.
  */
-function deriveFeedContentType(contentCategory: string | undefined): "video" | "blog" | "social" {
+function deriveFeedContentType(contentCategory: string | undefined): 'video' | 'blog' | 'social' {
   switch (contentCategory) {
     case 'video':
       return 'video';
@@ -39,9 +39,12 @@ export const buildFeed = internalAction({
   args: {
     timeoutMinutes: v.optional(v.number()),
   },
-  handler: async (ctx, _args): Promise<{
+  handler: async (
+    ctx,
+    _args
+  ): Promise<{
     processed: number;
-    items: Array<{ groupKey: string; feedItemId: Id<"feedItems">; itemCount: number }>;
+    items: Array<{ groupKey: string; feedItemId: Id<'feedItems'>; itemCount: number }>;
   }> => {
     const now = Date.now();
 
@@ -51,18 +54,20 @@ export const buildFeed = internalAction({
     });
 
     // Step 2: Fetch all unique subscription sources to get creatorProfileId
-    const uniqueSourceIds = new Set(recentContent.map((c: { sourceId: Id<"subscriptionSources"> }) => c.sourceId));
-    const sources = await Promise.all(
+    const uniqueSourceIds = new Set(
+      recentContent.map((c: { sourceId: Id<'subscriptionSources'> }) => c.sourceId)
+    );
+    const sources = (await Promise.all(
       Array.from(uniqueSourceIds).map((sourceId) =>
         ctx.runQuery(internal.feeds.internal.getSubscriptionSource, { sourceId })
       )
-    ) as Array<Doc<"subscriptionSources"> | null>;
+    )) as Array<Doc<'subscriptionSources'> | null>;
     const sourceMap = new Map(
-      sources.filter((s): s is Doc<"subscriptionSources"> => s !== null).map((s) => [s._id, s])
+      sources.filter((s): s is Doc<'subscriptionSources'> => s !== null).map((s) => [s._id, s])
     );
 
     // Step 3: Create one feed item per content item (1:1 mapping)
-    const results: Array<{ groupKey: string; feedItemId: Id<"feedItems">; itemCount: number }> = [];
+    const results: Array<{ groupKey: string; feedItemId: Id<'feedItems'>; itemCount: number }> = [];
 
     for (const content of recentContent) {
       const source = sourceMap.get(content.sourceId);
@@ -80,9 +85,10 @@ export const buildFeed = internalAction({
 
       // Extract summary from metadataJson if available
       const metaJson = content.metadataJson as Record<string, unknown> | undefined;
-      const summary = (metaJson?.summary as string | undefined)
-        ?? (metaJson?.description as string | undefined)
-        ?? undefined;
+      const summary =
+        (metaJson?.summary as string | undefined) ??
+        (metaJson?.description as string | undefined) ??
+        undefined;
 
       // Create one feed item for this individual content item
       const feedItemId = await ctx.runMutation(internal.feeds.internal.createFeedItem, {
@@ -124,7 +130,7 @@ export const buildFeed = internalAction({
 
 export const getSubscriptionSource = internalQuery({
   args: {
-    sourceId: v.id("subscriptionSources"),
+    sourceId: v.id('subscriptionSources'),
   },
   handler: async (ctx, args) => {
     return await ctx.db.get(args.sourceId);
@@ -138,9 +144,9 @@ export const getUnprocessedContent = internalQuery({
   handler: async (ctx, args) => {
     // Use by_inFeed_discoveredAt index for efficient querying
     return await ctx.db
-      .query("subscriptionContent")
-      .withIndex("by_inFeed_discoveredAt", (q) =>
-        q.eq("inFeed", false).gte("discoveredAt", args.since)
+      .query('subscriptionContent')
+      .withIndex('by_inFeed_discoveredAt', (q) =>
+        q.eq('inFeed', false).gte('discoveredAt', args.since)
       )
       .collect();
   },
@@ -155,15 +161,11 @@ export const createFeedItem = internalMutation({
     groupKey: v.string(),
     title: v.string(),
     summary: v.optional(v.string()),
-    contentType: v.union(
-      v.literal("video"),
-      v.literal("blog"),
-      v.literal("social")
-    ),
+    contentType: v.union(v.literal('video'), v.literal('blog'), v.literal('social')),
     itemCount: v.number(),
-    itemIds: v.array(v.id("subscriptionContent")),
-    creatorProfileId: v.optional(v.id("creatorProfiles")),
-    subscriptionIds: v.array(v.id("subscriptionSources")),
+    itemIds: v.array(v.id('subscriptionContent')),
+    creatorProfileId: v.optional(v.id('creatorProfiles')),
+    subscriptionIds: v.array(v.id('subscriptionSources')),
     thumbnailUrl: v.optional(v.string()),
     authorHandle: v.optional(v.string()),
     creatorName: v.optional(v.string()),
@@ -172,7 +174,7 @@ export const createFeedItem = internalMutation({
     createdAt: v.number(),
   },
   handler: async (ctx, args) => {
-    const feedItemId = await ctx.db.insert("feedItems", {
+    const feedItemId = await ctx.db.insert('feedItems', {
       groupKey: args.groupKey,
       title: args.title,
       summary: args.summary,
@@ -197,8 +199,8 @@ export const createFeedItem = internalMutation({
 
 export const markContentInFeed = internalMutation({
   args: {
-    contentIds: v.array(v.id("subscriptionContent")),
-    feedItemId: v.id("feedItems"),
+    contentIds: v.array(v.id('subscriptionContent')),
+    feedItemId: v.id('feedItems'),
   },
   handler: async (ctx, args) => {
     for (const contentId of args.contentIds) {
@@ -232,7 +234,7 @@ export const startFeedSession = internalMutation({
   handler: async (ctx, args) => {
     const now = Date.now();
 
-    const sessionId = await ctx.db.insert("feedSessions", {
+    const sessionId = await ctx.db.insert('feedSessions', {
       startTime: now,
       endTime: undefined,
       itemsViewed: 0,
@@ -260,7 +262,7 @@ export const startFeedSession = internalMutation({
  */
 export const endFeedSession = internalMutation({
   args: {
-    sessionId: v.id("feedSessions"),
+    sessionId: v.id('feedSessions'),
     itemsViewed: v.number(),
     itemsConsumed: v.number(),
   },
@@ -280,17 +282,17 @@ export const endFeedSession = internalMutation({
 
     // Validate endTime >= startTime
     if (now < session.startTime) {
-      throw new Error("endTime cannot be before startTime");
+      throw new Error('endTime cannot be before startTime');
     }
 
     // Validate counts are non-negative
     if (args.itemsViewed < 0 || args.itemsConsumed < 0) {
-      throw new Error("itemsViewed and itemsConsumed must be non-negative");
+      throw new Error('itemsViewed and itemsConsumed must be non-negative');
     }
 
     // Validate consumed <= viewed
     if (args.itemsConsumed > args.itemsViewed) {
-      throw new Error("itemsConsumed cannot exceed itemsViewed");
+      throw new Error('itemsConsumed cannot exceed itemsViewed');
     }
 
     await ctx.db.patch(args.sessionId, {
@@ -315,7 +317,7 @@ export const endFeedSession = internalMutation({
  */
 export const incrementSessionEngagement = internalMutation({
   args: {
-    sessionId: v.id("feedSessions"),
+    sessionId: v.id('feedSessions'),
     itemsViewedIncrement: v.number(),
     itemsConsumedIncrement: v.number(),
   },
@@ -371,15 +373,17 @@ export const createMorningDigest = internalAction({
     const since = now - 24 * 60 * 60 * 1000; // Last 24 hours
 
     // Get recent feed items
-    const recentItems = await ctx.runQuery(internal.feeds.internal.getRecentFeedItemsForDigest, { since });
+    const recentItems = await ctx.runQuery(internal.feeds.internal.getRecentFeedItemsForDigest, {
+      since,
+    });
 
     // Calculate digest statistics
     const stats = {
       total: recentItems.length,
       unviewed: recentItems.filter((item: any) => !item.viewed).length,
-      video: recentItems.filter((item: any) => item.contentType === "video").length,
-      blog: recentItems.filter((item: any) => item.contentType === "blog").length,
-      social: recentItems.filter((item: any) => item.contentType === "social").length,
+      video: recentItems.filter((item: any) => item.contentType === 'video').length,
+      blog: recentItems.filter((item: any) => item.contentType === 'blog').length,
+      social: recentItems.filter((item: any) => item.contentType === 'social').length,
     };
 
     return {
@@ -400,10 +404,10 @@ export const getRecentFeedItemsForDigest = internalQuery({
   },
   handler: async (ctx, args) => {
     return await ctx.db
-      .query("feedItems")
-      .withIndex("by_created")
-      .filter((q) => q.gte(q.field("discoveredAt"), args.since))
-      .order("desc")
+      .query('feedItems')
+      .withIndex('by_created')
+      .filter((q) => q.gte(q.field('discoveredAt'), args.since))
+      .order('desc')
       .take(100);
   },
 });
@@ -425,9 +429,9 @@ export const getRecentFeedback = internalQuery({
     // We fetch more than needed to account for items without feedback
     const fetchLimit = limit * 3;
     const allItems = await ctx.db
-      .query("feedItems")
-      .withIndex("by_created")
-      .order("desc")
+      .query('feedItems')
+      .withIndex('by_created')
+      .order('desc')
       .take(fetchLimit);
 
     // Filter and return only items with userFeedback
@@ -436,7 +440,7 @@ export const getRecentFeedback = internalQuery({
       .slice(0, limit)
       .map((item) => ({
         title: item.title,
-        feedback: item.userFeedback as "up" | "down",
+        feedback: item.userFeedback as 'up' | 'down',
         feedbackAt: item.userFeedbackAt,
       }));
   },
@@ -459,14 +463,14 @@ export const backfillContentMetadata = internalMutation({
   args: {},
   handler: async (ctx) => {
     // Full scan is intentional for backfill - must process all records
-    const allContent = await ctx.db.query("subscriptionContent").collect();
+    const allContent = await ctx.db.query('subscriptionContent').collect();
 
     let patched = 0;
     for (const content of allContent) {
       const source = await ctx.db.get(content.sourceId);
       if (!source) continue;
 
-      const contentCategory = deriveBackfillCategoryFromUrl(content.url ?? "", source.sourceType);
+      const contentCategory = deriveBackfillCategoryFromUrl(content.url ?? '', source.sourceType);
       const authorHandle = content.authorHandle ?? source.name ?? source.identifier;
 
       // Always re-derive to fix misclassified records
@@ -496,13 +500,13 @@ export const rebuildFeed = internalMutation({
   args: {},
   handler: async (ctx) => {
     // Full scan is intentional for rebuild - must delete all feed items
-    const allFeedItems = await ctx.db.query("feedItems").collect();
+    const allFeedItems = await ctx.db.query('feedItems').collect();
     for (const item of allFeedItems) {
       await ctx.db.delete(item._id);
     }
 
     // Full scan is intentional for rebuild - must reset all content flags
-    const allContent = await ctx.db.query("subscriptionContent").collect();
+    const allContent = await ctx.db.query('subscriptionContent').collect();
     const contentWithFeedFlag = allContent.filter((c) => c.inFeed);
     for (const content of contentWithFeedFlag) {
       await ctx.db.patch(content._id, {
@@ -539,10 +543,10 @@ function deriveBackfillCategoryFromUrl(url: string, sourceType: string): string 
       return 'article';
   }
   // For "creator" and other generic types, detect from URL
-  if (url.includes("youtube.com") || url.includes("youtu.be")) return "video";
-  if (url.includes("reddit.com")) return "social";
-  if (url.includes("bsky.app") || url.includes("bluesky")) return "social";
-  if (sourceType === "creator") return "social"; // Default for creators
+  if (url.includes('youtube.com') || url.includes('youtu.be')) return 'video';
+  if (url.includes('reddit.com')) return 'social';
+  if (url.includes('bsky.app') || url.includes('bluesky')) return 'social';
+  if (sourceType === 'creator') return 'social'; // Default for creators
   return 'article';
 }
 

@@ -1,27 +1,27 @@
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
-import { Text } from '@/components/ui/text'
-import { cn } from '@/lib/utils'
-import { ChevronRight, FileText, Search, Sparkles } from '@/components/ui/icons'
-import { Pressable, View, type ViewProps } from 'react-native'
-import { CategoryBadge, type CategoryType } from './CategoryBadge'
+import { Pressable, View, type ViewProps } from 'react-native';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { ChevronRight, FileText, Search, Sparkles } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { cn } from '@/lib/utils';
+import { CategoryBadge, type CategoryType } from './CategoryBadge';
 
-export type ResultType = 'search' | 'article' | 'research' | 'stats'
+export type ResultType = 'search' | 'article' | 'research' | 'stats';
 
 interface ResultCardProps extends Omit<ViewProps, 'children'> {
   /** Card title */
-  title: string
+  title: string;
   /** Result type determines icon and styling */
-  type: ResultType
+  type: ResultType;
   /** Category for article/research results */
-  category?: CategoryType
+  category?: CategoryType;
   /** Brief description or snippet */
-  snippet?: string
+  snippet?: string;
   /** Confidence score (0-100) for research results */
-  confidence?: number
+  confidence?: number;
   /** Number of sources for research results */
-  sourceCount?: number
+  sourceCount?: number;
   /** Callback when card is pressed */
-  onPress?: () => void
+  onPress?: () => void;
 }
 
 const typeIcons: Record<ResultType, React.ReactNode> = {
@@ -29,7 +29,7 @@ const typeIcons: Record<ResultType, React.ReactNode> = {
   article: <FileText size={16} className="text-muted-foreground" />,
   research: <Sparkles size={16} className="text-primary" />,
   stats: <FileText size={16} className="text-muted-foreground" />,
-}
+};
 
 /**
  * ResultCard displays search results, articles, or research findings
@@ -59,9 +59,7 @@ export function ResultCard({
             {title}
           </Text>
         </View>
-        {onPress && (
-          <ChevronRight size={20} className="text-muted-foreground" />
-        )}
+        {onPress && <ChevronRight size={20} className="text-muted-foreground" />}
       </CardHeader>
 
       {snippet && (
@@ -83,8 +81,8 @@ export function ResultCard({
                   confidence >= 80
                     ? 'text-success'
                     : confidence >= 60
-                    ? 'text-warning'
-                    : 'text-destructive'
+                      ? 'text-warning'
+                      : 'text-destructive'
                 )}
               >
                 {confidence}%
@@ -94,27 +92,21 @@ export function ResultCard({
           {sourceCount !== undefined && (
             <View className="flex-row items-center gap-1">
               <Text className="text-muted-foreground text-xs">Sources:</Text>
-              <Text className="text-foreground text-xs font-semibold">
-                {sourceCount}
-              </Text>
+              <Text className="text-foreground text-xs font-semibold">{sourceCount}</Text>
             </View>
           )}
         </CardContent>
       )}
     </Card>
-  )
+  );
 
   if (onPress) {
     return (
-      <Pressable
-        onPress={onPress}
-        className="active:opacity-80"
-        testID="result-card-pressable"
-      >
+      <Pressable onPress={onPress} className="active:opacity-80" testID="result-card-pressable">
         {content}
       </Pressable>
-    )
+    );
   }
 
-  return content
+  return content;
 }

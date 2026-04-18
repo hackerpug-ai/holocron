@@ -1,24 +1,24 @@
-import { query } from "../_generated/server";
-import { v } from "convex/values";
+import { v } from 'convex/values';
+import { query } from '../_generated/server';
 
 /**
  * Get all audio segments for a document, ordered by paragraphIndex.
  * For completed segments with a storageId, resolves the audio URL from storage.
  */
 export const getSegments = query({
-  args: { documentId: v.id("documents") },
+  args: { documentId: v.id('documents') },
   handler: async (ctx, args) => {
     const segments = await ctx.db
-      .query("audioSegments")
-      .withIndex("by_document", (q) => q.eq("documentId", args.documentId))
-      .order("asc")
+      .query('audioSegments')
+      .withIndex('by_document', (q) => q.eq('documentId', args.documentId))
+      .order('asc')
       .collect();
 
     return Promise.all(
       segments.map(async (segment) => {
         let audioUrl: string | null = null;
 
-        if (segment.status === "completed" && segment.storageId) {
+        if (segment.status === 'completed' && segment.storageId) {
           audioUrl = await ctx.storage.getUrl(segment.storageId);
         }
 
@@ -46,16 +46,16 @@ export const getSegments = query({
  * fragile — if insertion order ever changes, this query would return the wrong segment.
  */
 export const getMostRecentCreation = query({
-  args: { documentId: v.id("documents") },
+  args: { documentId: v.id('documents') },
   handler: async (ctx, args) => {
     const segment = await ctx.db
-      .query("audioSegments")
-      .withIndex("by_document", (q) => q.eq("documentId", args.documentId))
-      .order("desc")
-      .first()
-    return segment ? { createdAt: segment._creationTime } : null
+      .query('audioSegments')
+      .withIndex('by_document', (q) => q.eq('documentId', args.documentId))
+      .order('desc')
+      .first();
+    return segment ? { createdAt: segment._creationTime } : null;
   },
-})
+});
 
 /**
  * Get the most recent audio generation job for a document.
@@ -63,12 +63,12 @@ export const getMostRecentCreation = query({
  * The frontend uses this for overall generation status (progress, errors, etc.).
  */
 export const getJob = query({
-  args: { documentId: v.id("documents") },
+  args: { documentId: v.id('documents') },
   handler: async (ctx, args) => {
     const job = await ctx.db
-      .query("audioJobs")
-      .withIndex("by_document", (q) => q.eq("documentId", args.documentId))
-      .order("desc")
+      .query('audioJobs')
+      .withIndex('by_document', (q) => q.eq('documentId', args.documentId))
+      .order('desc')
       .first();
     return job ?? null;
   },
@@ -79,11 +79,11 @@ export const getJob = query({
  * Returns totals broken down by status.
  */
 export const getStatus = query({
-  args: { documentId: v.id("documents") },
+  args: { documentId: v.id('documents') },
   handler: async (ctx, args) => {
     const segments = await ctx.db
-      .query("audioSegments")
-      .withIndex("by_document", (q) => q.eq("documentId", args.documentId))
+      .query('audioSegments')
+      .withIndex('by_document', (q) => q.eq('documentId', args.documentId))
       .collect();
 
     const counts = {

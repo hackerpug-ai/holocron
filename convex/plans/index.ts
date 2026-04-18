@@ -3,7 +3,7 @@
  * Exports all queries, mutations, and types
  */
 
-export * from "./queries";
-export * from "./mutations";
-export * from "./generator";
-export * from "./confirmation";
+export * from './confirmation';
+export * from './generator';
+export * from './mutations';
+export * from './queries';

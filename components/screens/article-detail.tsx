@@ -1,18 +1,19 @@
-import { CategoryBadge, type CategoryType } from "@/components/CategoryBadge";
-import { MarkdownView } from "@/components/markdown/MarkdownView";
-import { Text } from "@/components/ui/text";
-import { cn } from "@/lib/utils";
-import { X } from "@/components/ui/icons";
+import { useAction, useQuery } from 'convex/react';
+import * as Clipboard from 'expo-clipboard';
+import * as Haptics from 'expo-haptics';
+import type { Root } from 'mdast';
+import type React from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Dimensions,
   Pressable,
   ScrollView,
+  type ScrollView as ScrollViewType,
   StyleSheet,
   View,
   type ViewProps,
-  type ScrollView as ScrollViewType,
-} from "react-native";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
+} from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   Extrapolation,
   interpolate,
@@ -22,35 +23,35 @@ import Animated, {
   withRepeat,
   withSpring,
   withTiming,
-} from "react-native-reanimated";
-import React, { useCallback, useRef, useEffect, useMemo, useState } from "react";
-import { useTheme } from "@/hooks/use-theme";
-import { useWebView } from "@/hooks/useWebView";
-import { sanitizeMarkdown, isValidUrl } from "@/lib/sanitizeMarkdown";
-import { useNarrationState } from "@/components/narration/hooks/useNarrationState";
-import { useAudioPlayback } from "@/components/narration/hooks/useAudioPlayback";
+} from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { CategoryBadge, type CategoryType } from '@/components/CategoryBadge';
+import { MarkdownView } from '@/components/markdown/MarkdownView';
+import { parseMarkdown } from '@/components/markdown/parsers';
+import { useAudioPlayback } from '@/components/narration/hooks/useAudioPlayback';
 import {
-  NarrationControlBar,
-  NARRATION_BAR_HEIGHT,
-} from "@/components/narration/NarrationControlBar";
-import { NarrationToggleButton } from "@/components/narration/NarrationToggleButton";
-import * as Haptics from "expo-haptics";
-import * as Clipboard from "expo-clipboard";
-import { useQuery, useAction } from "convex/react";
-import { api } from "@/convex/_generated/api";
-import { type Id } from "@/convex/_generated/dataModel";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { parseMarkdown } from "@/components/markdown/parsers";
-import { computeNarrationMap, extractTextFromNode, findNearestOffset } from "@/lib/mdast-utils";
-import { extractParagraphs } from "@/lib/extractParagraphs";
-import {
-  saveNarrationProgress,
-  loadNarrationProgress,
   clearNarrationProgress,
-} from "@/components/narration/hooks/useNarrationProgress";
-import type { Root } from "mdast";
+  loadNarrationProgress,
+  saveNarrationProgress,
+} from '@/components/narration/hooks/useNarrationProgress';
+import { useNarrationState } from '@/components/narration/hooks/useNarrationState';
+import {
+  NARRATION_BAR_HEIGHT,
+  NarrationControlBar,
+} from '@/components/narration/NarrationControlBar';
+import { NarrationToggleButton } from '@/components/narration/NarrationToggleButton';
+import { X } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { api } from '@/convex/_generated/api';
+import type { Id } from '@/convex/_generated/dataModel';
+import { useTheme } from '@/hooks/use-theme';
+import { useWebView } from '@/hooks/useWebView';
+import { extractParagraphs } from '@/lib/extractParagraphs';
+import { computeNarrationMap, extractTextFromNode, findNearestOffset } from '@/lib/mdast-utils';
+import { isValidUrl, sanitizeMarkdown } from '@/lib/sanitizeMarkdown';
+import { cn } from '@/lib/utils';
 
-const { height: SCREEN_HEIGHT } = Dimensions.get("window");
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const SWIPE_THRESHOLD = SCREEN_HEIGHT * 0.25;
 
 /**
@@ -79,33 +80,24 @@ function NarrationBlockWrapper({
 
   useEffect(() => {
     if (isLoading && isActive) {
-      pulseOpacity.value = withRepeat(
-        withTiming(0.15, { duration: 600 }),
-        -1,
-        true,
-      );
+      pulseOpacity.value = withRepeat(withTiming(0.15, { duration: 600 }), -1, true);
     } else {
       pulseOpacity.value = withTiming(isActive ? 0.08 : 0, { duration: 200 });
     }
   }, [isLoading, isActive, pulseOpacity]);
 
   const animatedBgStyle = useAnimatedStyle(() => ({
-    backgroundColor: `${primaryColor}${Math.round(pulseOpacity.value * 255).toString(16).padStart(2, "0")}`,
+    backgroundColor: `${primaryColor}${Math.round(pulseOpacity.value * 255)
+      .toString(16)
+      .padStart(2, '0')}`,
     borderLeftWidth: isActive ? 2 : 0,
-    borderLeftColor: isActive ? primaryColor : "transparent",
+    borderLeftColor: isActive ? primaryColor : 'transparent',
     paddingLeft: isActive ? 8 : 0,
   }));
 
   return (
-    <Pressable
-      testID={testID}
-      onPress={onPress}
-      onLongPress={onLongPress}
-      onLayout={onLayout}
-    >
-      <Animated.View style={animatedBgStyle}>
-        {children}
-      </Animated.View>
+    <Pressable testID={testID} onPress={onPress} onLongPress={onLongPress} onLayout={onLayout}>
+      <Animated.View style={animatedBgStyle}>{children}</Animated.View>
     </Pressable>
   );
 }
@@ -126,7 +118,7 @@ export interface MockArticle {
   content: string;
 }
 
-interface ArticleDetailProps extends Omit<ViewProps, "children"> {
+interface ArticleDetailProps extends Omit<ViewProps, 'children'> {
   /** Article data to display */
   article: MockArticle;
   /** Callback when overlay is dismissed */
@@ -162,7 +154,7 @@ export function ArticleDetail({
   article,
   onClose,
   visible,
-  testID = "article-detail",
+  testID = 'article-detail',
   initialScrollPosition = 0,
   onScrollPositionChange,
   className,
@@ -177,10 +169,7 @@ export function ArticleDetail({
   const scrollViewRef = useRef<ScrollViewType>(null);
 
   // Sanitize markdown content to prevent XSS attacks
-  const sanitizedContent = useMemo(
-    () => sanitizeMarkdown(article.content),
-    [article.content],
-  );
+  const sanitizedContent = useMemo(() => sanitizeMarkdown(article.content), [article.content]);
 
   const insets = useSafeAreaInsets();
   const paragraphOffsets = useRef<Map<number, number>>(new Map());
@@ -189,20 +178,21 @@ export function ArticleDetail({
 
   // Parse MDAST for narration index mapping and copy support
   const parsedAst = useMemo<Root | null>(
-    () => sanitizedContent ? parseMarkdown(sanitizedContent) : null,
-    [sanitizedContent],
+    () => (sanitizedContent ? parseMarkdown(sanitizedContent) : null),
+    [sanitizedContent]
   );
 
   // Extract paragraphs using the same logic as the backend (convex/audio/actions.ts)
   const backendParagraphs = useMemo(
-    () => sanitizedContent ? extractParagraphs(sanitizedContent) : [],
-    [sanitizedContent],
+    () => (sanitizedContent ? extractParagraphs(sanitizedContent) : []),
+    [sanitizedContent]
   );
 
   // Compute narration segment map (root child index → backend paragraph index)
   const narrationMap = useMemo(
-    () => parsedAst ? computeNarrationMap(parsedAst, backendParagraphs) : new Map<number, number>(),
-    [parsedAst, backendParagraphs],
+    () =>
+      parsedAst ? computeNarrationMap(parsedAst, backendParagraphs) : new Map<number, number>(),
+    [parsedAst, backendParagraphs]
   );
 
   // Paragraph count must match the backend's segment count
@@ -212,11 +202,11 @@ export function ArticleDetail({
   const { isNarrationMode } = narration;
 
   // Subscribe to audio segments only when in narration mode
-  const convexDocId = article.documentId as Id<"documents"> | undefined;
+  const convexDocId = article.documentId as Id<'documents'> | undefined;
   const segments =
     useQuery(
       api.audio.queries.getSegments,
-      isNarrationMode && convexDocId ? { documentId: convexDocId } : "skip",
+      isNarrationMode && convexDocId ? { documentId: convexDocId } : 'skip'
     ) ?? [];
 
   const { isLoading: isAudioLoading } = useAudioPlayback(segments, narration, {
@@ -225,15 +215,22 @@ export function ArticleDetail({
 
   useEffect(() => {
     if (!isNarrationMode || segments.length === 0) return;
-    const completedCount = segments.filter((s: { status: string }) => s.status === 'completed').length;
-    const totalDuration = segments.reduce((sum: number, s: { durationMs?: number | null }) => sum + (s.durationMs ?? 0), 0);
+    const completedCount = segments.filter(
+      (s: { status: string }) => s.status === 'completed'
+    ).length;
+    const totalDuration = segments.reduce(
+      (sum: number, s: { durationMs?: number | null }) => sum + (s.durationMs ?? 0),
+      0
+    );
     narration.onParagraphReady(completedCount, totalDuration / 1000);
     if (completedCount === segments.length && segments.length > 0) {
       narration.onAllReady();
     }
   }, [segments, isNarrationMode]);
 
-  useEffect(() => { paragraphOffsets.current.clear(); }, [sanitizedContent]);
+  useEffect(() => {
+    paragraphOffsets.current.clear();
+  }, [sanitizedContent]);
 
   // ─── Narration progress persistence ──────────────────────────────────────
 
@@ -242,7 +239,7 @@ export function ArticleDetail({
     if (!convexDocId || !isNarrationMode) return;
     const { activeParagraphIndex, playbackSpeed, status } = narration.state;
     if (activeParagraphIndex < 0) return;
-    if (status === "playing" || status === "paused") {
+    if (status === 'playing' || status === 'paused') {
       saveNarrationProgress(convexDocId, {
         activeParagraphIndex,
         playbackSpeed,
@@ -255,10 +252,16 @@ export function ArticleDetail({
   useEffect(() => {
     if (!convexDocId || !isNarrationMode) return;
     const { activeParagraphIndex, totalParagraphs, status } = narration.state;
-    if (status === "paused" && activeParagraphIndex >= totalParagraphs - 1 && totalParagraphs > 0) {
+    if (status === 'paused' && activeParagraphIndex >= totalParagraphs - 1 && totalParagraphs > 0) {
       clearNarrationProgress(convexDocId);
     }
-  }, [convexDocId, isNarrationMode, narration.state.status, narration.state.activeParagraphIndex, narration.state.totalParagraphs]);
+  }, [
+    convexDocId,
+    isNarrationMode,
+    narration.state.status,
+    narration.state.activeParagraphIndex,
+    narration.state.totalParagraphs,
+  ]);
 
   const generateAction = useAction(api.audio.actions.generateForDocument);
   const regenerateAction = useAction(api.audio.actions.regenerateForDocument);
@@ -267,7 +270,7 @@ export function ArticleDetail({
   const handleLinkPress = (url: string): boolean => {
     // Validate URL before opening
     if (!isValidUrl(url)) {
-      console.warn("[ArticleDetail] Blocked unsafe URL:", url);
+      console.warn('[ArticleDetail] Blocked unsafe URL:', url);
       return false; // Block unsafe URLs
     }
 
@@ -293,9 +296,9 @@ export function ArticleDetail({
   // Auto-scroll to active paragraph during narration
   useEffect(() => {
     if (!isNarrationMode || narration.state.activeParagraphIndex < 0) return;
-    const offset = paragraphOffsets.current.get(
-      narration.state.activeParagraphIndex,
-    ) ?? findNearestOffset(paragraphOffsets.current, narration.state.activeParagraphIndex);
+    const offset =
+      paragraphOffsets.current.get(narration.state.activeParagraphIndex) ??
+      findNearestOffset(paragraphOffsets.current, narration.state.activeParagraphIndex);
     if (offset !== undefined) {
       scrollViewRef.current?.scrollTo({
         y: Math.max(0, offset - 120),
@@ -305,9 +308,7 @@ export function ArticleDetail({
   }, [isNarrationMode, narration.state.activeParagraphIndex]);
 
   // Handle scroll position changes
-  const handleScroll = (event: {
-    nativeEvent: { contentOffset: { y: number } };
-  }) => {
+  const handleScroll = (event: { nativeEvent: { contentOffset: { y: number } } }) => {
     if (onScrollPositionChange) {
       onScrollPositionChange(event.nativeEvent.contentOffset.y);
     }
@@ -354,7 +355,11 @@ export function ArticleDetail({
         }
         // Restore saved progress if available
         const saved = await loadNarrationProgress(convexDocId);
-        if (saved && saved.activeParagraphIndex > 0 && saved.activeParagraphIndex < paragraphCount) {
+        if (
+          saved &&
+          saved.activeParagraphIndex > 0 &&
+          saved.activeParagraphIndex < paragraphCount
+        ) {
           narration.skipToParagraph(saved.activeParagraphIndex);
           if (saved.playbackSpeed && saved.playbackSpeed !== 1) {
             narration.setSpeed(saved.playbackSpeed);
@@ -381,7 +386,7 @@ export function ArticleDetail({
       translateY.value,
       [0, -SCREEN_HEIGHT * 0.5],
       [1, 0],
-      Extrapolation.CLAMP,
+      Extrapolation.CLAMP
     );
 
     return {
@@ -395,7 +400,7 @@ export function ArticleDetail({
       translateY.value,
       [0, -SCREEN_HEIGHT * 0.5],
       [0.5, 0],
-      Extrapolation.CLAMP,
+      Extrapolation.CLAMP
     );
 
     return {
@@ -404,17 +409,20 @@ export function ArticleDetail({
   });
 
   // Copy section text to clipboard
-  const handleCopySection = useCallback(async (rootChildIndex: number) => {
-    if (!parsedAst) return;
-    const node = parsedAst.children[rootChildIndex];
-    if (!node) return;
-    const text = extractTextFromNode(node);
-    if (!text.trim()) return;
-    await Clipboard.setStringAsync(text);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setCopiedToast(true);
-    setTimeout(() => setCopiedToast(false), 1500);
-  }, [parsedAst]);
+  const handleCopySection = useCallback(
+    async (rootChildIndex: number) => {
+      if (!parsedAst) return;
+      const node = parsedAst.children[rootChildIndex];
+      if (!node) return;
+      const text = extractTextFromNode(node);
+      if (!text.trim()) return;
+      await Clipboard.setStringAsync(text);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setCopiedToast(true);
+      setTimeout(() => setCopiedToast(false), 1500);
+    },
+    [parsedAst]
+  );
 
   // Wrap each root-level MDAST child with narration highlight and/or copy support
   const wrapRootChild = useMemo(() => {
@@ -457,26 +465,33 @@ export function ArticleDetail({
         </Pressable>
       );
     };
-  }, [isNarrationMode, narrationMap, narration.state.activeParagraphIndex, colors.primary, isAudioLoading, handleCopySection]);
+  }, [
+    isNarrationMode,
+    narrationMap,
+    narration.state.activeParagraphIndex,
+    colors.primary,
+    isAudioLoading,
+    handleCopySection,
+  ]);
 
   // Don't render if not visible
   if (!visible) return null;
 
   const dateObj = new Date(article.date);
-  const formattedDate = dateObj.toLocaleDateString("en-US", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    year: "numeric",
+  const formattedDate = dateObj.toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
   });
   const formattedTime = article.time
-    ? new Date(article.time).toLocaleTimeString("en-US", {
-        hour: "numeric",
-        minute: "2-digit",
+    ? new Date(article.time).toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
       })
-    : dateObj.toLocaleTimeString("en-US", {
-        hour: "numeric",
-        minute: "2-digit",
+    : dateObj.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
       });
 
   // Create dynamic styles using theme tokens
@@ -491,7 +506,7 @@ export function ArticleDetail({
       backgroundColor: theme.colors.background,
       borderTopLeftRadius: theme.radius.xl,
       borderTopRightRadius: theme.radius.xl,
-      overflow: "hidden",
+      overflow: 'hidden',
     },
     header: {
       paddingHorizontal: theme.spacing.lg,
@@ -505,11 +520,11 @@ export function ArticleDetail({
       height: 4,
       backgroundColor: theme.colors.indicator,
       borderRadius: theme.radius.sm,
-      alignSelf: "center",
+      alignSelf: 'center',
       marginBottom: theme.spacing.lg,
     },
     closeButton: {
-      position: "absolute",
+      position: 'absolute',
       top: theme.spacing.md,
       right: theme.spacing.md,
     },
@@ -524,13 +539,13 @@ export function ArticleDetail({
     scrollContentContainer: {
       paddingHorizontal: theme.spacing.lg,
       paddingTop: theme.spacing.xl,
-      paddingBottom: theme.spacing["2xl"],
+      paddingBottom: theme.spacing['2xl'],
     },
   });
 
   return (
     <View
-      className={cn("absolute bottom-0 left-0 right-0 z-50", className)}
+      className={cn('absolute bottom-0 left-0 right-0 z-50', className)}
       testID={testID}
       {...props}
     >
@@ -549,16 +564,13 @@ export function ArticleDetail({
           {/* Header with drag indicator and close button */}
           <View style={dynamicStyles.header}>
             {/* Drag Indicator */}
-            <View
-              style={dynamicStyles.dragIndicator}
-              testID={`${testID}-drag-indicator`}
-            />
+            <View style={dynamicStyles.dragIndicator} testID={`${testID}-drag-indicator`} />
 
             {/* Narration Toggle - positioned on the left side of the header */}
             {article.documentId && (
               <View
                 style={{
-                  position: "absolute",
+                  position: 'absolute',
                   top: theme.spacing.md,
                   left: theme.spacing.md,
                 }}
@@ -591,7 +603,7 @@ export function ArticleDetail({
               ...dynamicStyles.scrollContentContainer,
               paddingBottom: isNarrationMode
                 ? NARRATION_BAR_HEIGHT + insets.bottom + 24
-                : theme.spacing["2xl"],
+                : theme.spacing['2xl'],
             }}
             testID={`${testID}-scroll-view`}
             showsVerticalScrollIndicator={true}
@@ -607,23 +619,17 @@ export function ArticleDetail({
             <View className="mb-6 flex-row flex-wrap items-center gap-3">
               <CategoryBadge category={article.category} />
               <View className="flex-row items-center gap-1">
-                <Text className="text-muted-foreground text-sm">
-                  {formattedDate}
-                </Text>
+                <Text className="text-muted-foreground text-sm">{formattedDate}</Text>
                 {formattedTime && (
                   <>
                     <Text className="text-muted-foreground text-sm"> at </Text>
-                    <Text className="text-muted-foreground text-sm">
-                      {formattedTime}
-                    </Text>
+                    <Text className="text-muted-foreground text-sm">{formattedTime}</Text>
                   </>
                 )}
               </View>
               {article.research_type && (
                 <View className="rounded-md bg-muted px-2 py-1">
-                  <Text className="text-foreground text-xs">
-                    {article.research_type}
-                  </Text>
+                  <Text className="text-foreground text-xs">{article.research_type}</Text>
                 </View>
               )}
             </View>
@@ -641,15 +647,19 @@ export function ArticleDetail({
           <NarrationControlBar
             narration={narration}
             isVisible={isNarrationMode}
-            onRegenerate={() => { if (convexDocId) regenerateAction({ documentId: convexDocId }) }}
+            onRegenerate={() => {
+              if (convexDocId) regenerateAction({ documentId: convexDocId });
+            }}
           />
 
           {copiedToast && (
             <View
               style={{
-                position: "absolute",
-                bottom: isNarrationMode ? NARRATION_BAR_HEIGHT + insets.bottom + 16 : insets.bottom + 16,
-                alignSelf: "center",
+                position: 'absolute',
+                bottom: isNarrationMode
+                  ? NARRATION_BAR_HEIGHT + insets.bottom + 16
+                  : insets.bottom + 16,
+                alignSelf: 'center',
                 backgroundColor: colors.foreground,
                 paddingHorizontal: 16,
                 paddingVertical: 8,
@@ -657,7 +667,13 @@ export function ArticleDetail({
               }}
               pointerEvents="none"
             >
-              <Text style={{ color: colors.background, fontSize: typography.label.fontSize, fontWeight: typography.label.fontWeight }}>
+              <Text
+                style={{
+                  color: colors.background,
+                  fontSize: typography.label.fontSize,
+                  fontWeight: typography.label.fontWeight,
+                }}
+              >
                 Copied to clipboard
               </Text>
             </View>
@@ -666,9 +682,11 @@ export function ArticleDetail({
           {skipToast !== null && (
             <View
               style={{
-                position: "absolute",
-                bottom: isNarrationMode ? NARRATION_BAR_HEIGHT + insets.bottom + 16 : insets.bottom + 16,
-                alignSelf: "center",
+                position: 'absolute',
+                bottom: isNarrationMode
+                  ? NARRATION_BAR_HEIGHT + insets.bottom + 16
+                  : insets.bottom + 16,
+                alignSelf: 'center',
                 backgroundColor: colors.foreground,
                 paddingHorizontal: 16,
                 paddingVertical: 8,
@@ -676,7 +694,13 @@ export function ArticleDetail({
               }}
               pointerEvents="none"
             >
-              <Text style={{ color: colors.background, fontSize: typography.label.fontSize, fontWeight: typography.label.fontWeight }}>
+              <Text
+                style={{
+                  color: colors.background,
+                  fontSize: typography.label.fontSize,
+                  fontWeight: typography.label.fontWeight,
+                }}
+              >
                 {`Loading section ${skipToast + 1}...`}
               </Text>
             </View>

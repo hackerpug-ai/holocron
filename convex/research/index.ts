@@ -19,25 +19,33 @@
 // =============================================================================
 
 /** Plan-based research with user approval workflow (Task #302) */
-export {
-  startDeepResearchWithPlan,
-  executeApprovedResearchPlan,
-} from "./actions";
-
 /** Smart research router - selects optimal strategy automatically */
-export { startSmartResearch, analyzeResearchStrategy, type ResearchStrategy } from "./actions";
+export {
+  analyzeResearchStrategy,
+  executeApprovedResearchPlan,
+  type ResearchStrategy,
+  startDeepResearchWithPlan,
+  startSmartResearch,
+} from './actions';
 
 /** Fast-path parallel fan-out strategy */
-export { runParallelFanOut, executeParallelFanOut, decomposeIntoDomainsStatic, decomposeIntoSubQuestions, type ParallelFanOutResult, type SubQuestion } from "./parallel";
+export {
+  decomposeIntoDomainsStatic,
+  decomposeIntoSubQuestions,
+  executeParallelFanOut,
+  type ParallelFanOutResult,
+  runParallelFanOut,
+  type SubQuestion,
+} from './parallel';
 
 /** Parallel iteration strategy for deep research */
 export {
-  runParallelIteration,
   executeParallelIteration,
   generateQueryVariants,
   type ParallelIterationResult,
   type QueryVariant,
-} from "./parallel_iteration";
+  runParallelIteration,
+} from './parallel_iteration';
 
 // =============================================================================
 // PARALLEL SEARCH UTILITIES
@@ -47,36 +55,34 @@ export {
 export {
   executeParallelSearchWithRetry,
   generateDiverseQueries,
-  type StructuredSearchResult,
   type ParallelSearchOptions,
   type ParallelSearchResult,
-} from "./search";
+  type StructuredSearchResult,
+} from './search';
 
 // =============================================================================
 // INTERNAL / ADVANCED USE
 // =============================================================================
 
 /** @internal Full iterative research implementation (use startSmartResearch instead) */
-export { runIterativeResearch, hybridSearchIterations } from "./actions";
-
 /**
  * @deprecated Use startSmartResearch instead.
  * This function is kept for backwards compatibility but will be removed in a future version.
  */
-export { startDeepResearch } from "./actions";
+export { hybridSearchIterations, runIterativeResearch, startDeepResearch } from './actions';
 
 // =============================================================================
 // MUTATIONS
 // =============================================================================
 
 export {
-  createDeepResearchSession,
-  createDeepResearchIteration,
-  updateDeepResearchSession,
-  completeDeepResearchSession,
   cancelResearchSession,
+  completeDeepResearchSession,
+  createDeepResearchIteration,
+  createDeepResearchSession,
   retryResearchSession,
-} from "./mutations";
+  updateDeepResearchSession,
+} from './mutations';
 
 // =============================================================================
 // QUERIES
@@ -85,15 +91,13 @@ export {
 export {
   getDeepResearchSession,
   listDeepResearchIterations,
-} from "./queries";
+} from './queries';
 
 // =============================================================================
 // SCHEDULED FUNCTIONS
 // =============================================================================
 
-export {
-  processDeepResearchIteration,
-} from "./scheduled";
+export { processDeepResearchIteration } from './scheduled';
 
 // =============================================================================
 // SEARCH TOOLS (Used by runIterativeResearch)
@@ -101,31 +105,36 @@ export {
 
 export {
   exaSearchTool,
+  jinaReaderTool,
   jinaSearchTool,
   jinaSiteSearchTool,
-  jinaReaderTool,
-} from "./tools";
+} from './tools';
 
 // =============================================================================
 // TYPES
 // =============================================================================
 
-export type { ResearchPlan, SubagentResult } from "./tools";
-export type { ResearchContext, StructuredFinding } from "./prompts";
-export type { ConfidenceFactors, ConfidenceLevel, ConfidenceResult, ConfidenceStats } from "./confidence";
+export type {
+  ConfidenceFactors,
+  ConfidenceLevel,
+  ConfidenceResult,
+  ConfidenceStats,
+} from './confidence';
+export type { ResearchContext, StructuredFinding } from './prompts';
+export type { ResearchPlan, SubagentResult } from './tools';
 
 // =============================================================================
 // WORKER DISPATCHER (Plan-based parallel research)
 // =============================================================================
 
 export {
-  executePlanBasedResearch,
-  runPlanBasedResearch,
-  parsePlanIntoTracks,
-  selectTracksForTopic,
   aggregateTrackResults,
+  type DispatcherResult,
+  executePlanBasedResearch,
+  parsePlanIntoTracks,
   type ResearchTrack,
+  runPlanBasedResearch,
+  selectTracksForTopic,
   type TrackConfig,
   type TrackWorkerResult,
-  type DispatcherResult,
-} from "./dispatcher";
+} from './dispatcher';

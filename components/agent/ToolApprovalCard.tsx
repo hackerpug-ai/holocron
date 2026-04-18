@@ -1,11 +1,7 @@
-import { useState } from 'react'
-import { ActivityIndicator, Pressable, View } from 'react-native'
-import { useAction } from 'convex/react'
-import { api } from '@/convex/_generated/api'
-import type { Id } from '@/convex/_generated/dataModel'
-import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
-import { Text } from '@/components/ui/text'
-import { cn } from '@/lib/utils'
+import { useAction } from 'convex/react';
+import { useState } from 'react';
+import { ActivityIndicator, Pressable, View } from 'react-native';
+import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import {
   AlertTriangle,
   CheckCircle2,
@@ -14,64 +10,64 @@ import {
   Wrench,
   X,
   XCircle,
-} from '@/components/ui/icons'
+} from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { api } from '@/convex/_generated/api';
+import type { Id } from '@/convex/_generated/dataModel';
+import { cn } from '@/lib/utils';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
 export interface ToolApprovalCardProps {
-  approvalId: string
-  toolName: string
-  toolDisplayName: string
-  toolIcon?: string
-  description?: string
-  parameters: Record<string, unknown>
-  reasoning?: string
-  status: 'pending' | 'approved' | 'rejected' | 'executing' | 'completed' | 'timed_out'
-  resultCardData?: unknown
-  onCancel?: () => void
+  approvalId: string;
+  toolName: string;
+  toolDisplayName: string;
+  toolIcon?: string;
+  description?: string;
+  parameters: Record<string, unknown>;
+  reasoning?: string;
+  status: 'pending' | 'approved' | 'rejected' | 'executing' | 'completed' | 'timed_out';
+  resultCardData?: unknown;
+  onCancel?: () => void;
 }
 
 // ── Status badge ─────────────────────────────────────────────────────────────
 
-const STATUS_BADGE: Record<
-  ToolApprovalCardProps['status'],
-  { label: string; className: string }
-> = {
-  pending: {
-    label: 'Pending',
-    className: 'bg-warning/15 text-warning',
-  },
-  approved: {
-    label: 'Approved',
-    className: 'bg-info/15 text-info',
-  },
-  executing: {
-    label: 'Executing',
-    className: 'bg-info/15 text-info',
-  },
-  completed: {
-    label: 'Completed',
-    className: 'bg-success/15 text-success',
-  },
-  rejected: {
-    label: 'Declined',
-    className: 'bg-destructive/15 text-destructive',
-  },
-  timed_out: {
-    label: 'Timed Out',
-    className: 'bg-warning/15 text-warning',
-  },
-}
+const STATUS_BADGE: Record<ToolApprovalCardProps['status'], { label: string; className: string }> =
+  {
+    pending: {
+      label: 'Pending',
+      className: 'bg-warning/15 text-warning',
+    },
+    approved: {
+      label: 'Approved',
+      className: 'bg-info/15 text-info',
+    },
+    executing: {
+      label: 'Executing',
+      className: 'bg-info/15 text-info',
+    },
+    completed: {
+      label: 'Completed',
+      className: 'bg-success/15 text-success',
+    },
+    rejected: {
+      label: 'Declined',
+      className: 'bg-destructive/15 text-destructive',
+    },
+    timed_out: {
+      label: 'Timed Out',
+      className: 'bg-warning/15 text-warning',
+    },
+  };
 
 function StatusBadge({ status }: { status: ToolApprovalCardProps['status'] }) {
-  const config = STATUS_BADGE[status]
+  const config = STATUS_BADGE[status];
   return (
     <View className={cn('rounded-full px-2 py-0.5', config.className)}>
-      <Text className={cn('text-xs font-semibold', config.className)}>
-        {config.label}
-      </Text>
+      <Text className={cn('text-xs font-semibold', config.className)}>{config.label}</Text>
     </View>
-  )
+  );
 }
 
 // ── Parameter row ─────────────────────────────────────────────────────────────
@@ -80,7 +76,7 @@ function ParameterRow({ label, value }: { label: string; value: unknown }) {
   const displayValue =
     typeof value === 'object' && value !== null
       ? JSON.stringify(value, null, 2)
-      : String(value ?? '')
+      : String(value ?? '');
 
   return (
     <View className="flex-row gap-3">
@@ -89,7 +85,7 @@ function ParameterRow({ label, value }: { label: string; value: unknown }) {
       </Text>
       <Text className="text-foreground text-sm flex-1 font-mono">{displayValue}</Text>
     </View>
-  )
+  );
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
@@ -106,29 +102,24 @@ export function ToolApprovalCard({
   status,
   onCancel,
 }: ToolApprovalCardProps) {
-  const [reasoningExpanded, setReasoningExpanded] = useState(false)
+  const [reasoningExpanded, setReasoningExpanded] = useState(false);
 
-  const isPending = status === 'pending'
-  const isExecuting = status === 'approved' || status === 'executing'
-  const isCompleted = status === 'completed'
-  const isRejected = status === 'rejected'
-  const isTimedOut = status === 'timed_out'
+  const isPending = status === 'pending';
+  const isExecuting = status === 'approved' || status === 'executing';
+  const isCompleted = status === 'completed';
+  const isRejected = status === 'rejected';
+  const isTimedOut = status === 'timed_out';
 
-  const paramEntries = Object.entries(parameters)
+  const paramEntries = Object.entries(parameters);
 
   return (
-    <Card
-      className="border border-border"
-      testID="tool-approval-card"
-    >
+    <Card className="border border-border" testID="tool-approval-card">
       {/* ── Header ── */}
       <CardHeader className="pb-3">
         <View className="flex-row items-center gap-2">
           <Wrench size={16} className="text-muted-foreground shrink-0" />
           <View className="flex-1">
-            <Text className="text-muted-foreground text-xs">
-              Agent is using
-            </Text>
+            <Text className="text-muted-foreground text-xs">Agent is using</Text>
             <Text className="text-foreground font-semibold">{toolDisplayName}</Text>
           </View>
           <StatusBadge status={status} />
@@ -215,7 +206,7 @@ export function ToolApprovalCard({
       </CardContent>
 
       {/* ── Cancel button (while pending or executing) ── */}
-      {(isPending || isExecuting) ? (
+      {isPending || isExecuting ? (
         <CardFooter className="gap-3 pt-0">
           <Pressable
             testID="tool-approval-cancel-button"
@@ -228,33 +219,25 @@ export function ToolApprovalCard({
         </CardFooter>
       ) : null}
     </Card>
-  )
+  );
 }
 
 // ── Convex-wired wrapper ──────────────────────────────────────────────────────
 
-export type ToolApprovalCardWithConvexProps = Omit<
-  ToolApprovalCardProps,
-  'onCancel'
->
+export type ToolApprovalCardWithConvexProps = Omit<ToolApprovalCardProps, 'onCancel'>;
 
 /**
  * ToolApprovalCardWithConvex wires the ToolApprovalCard to Convex actions.
  * Tools auto-execute — the cancel button calls cancelTool to abort execution.
  */
 export function ToolApprovalCardWithConvex(props: ToolApprovalCardWithConvexProps) {
-  const cancelTool = useAction(api.chat.agent.cancelTool)
+  const cancelTool = useAction(api.chat.agent.cancelTool);
 
   const handleCancel = () => {
     cancelTool({
       toolCallId: props.approvalId as Id<'toolCalls'>,
-    })
-  }
+    });
+  };
 
-  return (
-    <ToolApprovalCard
-      {...props}
-      onCancel={handleCancel}
-    />
-  )
+  return <ToolApprovalCard {...props} onCancel={handleCancel} />;
 }

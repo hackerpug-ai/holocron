@@ -5,26 +5,23 @@
  * Grouped by platform with sort options. Each post opens in WebViewSheet.
  */
 
-import React, { useState, useMemo } from 'react'
-import { View, FlatList, Pressable } from 'react-native'
-import { useRouter } from 'expo-router'
-import { useQuery, useMutation } from 'convex/react'
-import { api } from '@/convex/_generated/api'
-import { Text } from '@/components/ui/text'
-import { Badge } from '@/components/ui/badge'
-import { WhatsNewFindingCard } from '@/components/whats-new/WhatsNewFindingCard'
-import { WebViewSheet } from '@/components/webview/WebViewSheet'
-import { NavigationTooltip } from '@/components/NavigationTooltip'
-import { useWhatsNewFeed } from '@/hooks/use-whats-new-feed'
-import { useWebView } from '@/hooks/useWebView'
-import { useTheme } from '@/hooks/use-theme'
-import {
-  ArrowLeft,
-  MessageSquare,
-} from '@/components/ui/icons'
+import { useMutation, useQuery } from 'convex/react';
+import { useRouter } from 'expo-router';
+import React, { useMemo, useState } from 'react';
+import { FlatList, Pressable, View } from 'react-native';
+import { NavigationTooltip } from '@/components/NavigationTooltip';
+import { Badge } from '@/components/ui/badge';
+import { ArrowLeft, MessageSquare } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { WebViewSheet } from '@/components/webview/WebViewSheet';
+import { WhatsNewFindingCard } from '@/components/whats-new/WhatsNewFindingCard';
+import { api } from '@/convex/_generated/api';
+import { useTheme } from '@/hooks/use-theme';
+import { useWhatsNewFeed } from '@/hooks/use-whats-new-feed';
+import { useWebView } from '@/hooks/useWebView';
 
 export interface SocialPostsListScreenProps {
-  testID?: string
+  testID?: string;
 }
 
 /** Check if a finding is from a social/community source */
@@ -35,26 +32,26 @@ function isSocialSource(source: string): boolean {
     source === 'Lobsters' ||
     source === 'Dev.to' ||
     source === 'Twitter/X'
-  )
+  );
 }
 
 /** Extract platform name from source */
 function getPlatform(source: string): string {
-  if (source.startsWith('r/')) return 'Reddit'
-  if (source.includes('Bluesky')) return 'Bluesky'
-  if (source === 'Lobsters') return 'Lobsters'
-  if (source === 'Dev.to') return 'Dev.to'
-  if (source === 'Twitter/X') return 'Twitter/X'
-  return 'Other'
+  if (source.startsWith('r/')) return 'Reddit';
+  if (source.includes('Bluesky')) return 'Bluesky';
+  if (source === 'Lobsters') return 'Lobsters';
+  if (source === 'Dev.to') return 'Dev.to';
+  if (source === 'Twitter/X') return 'Twitter/X';
+  return 'Other';
 }
 
-type SortMode = 'score' | 'recent' | 'velocity'
+type SortMode = 'score' | 'recent' | 'velocity';
 
 const SORT_OPTIONS: { key: SortMode; label: string }[] = [
   { key: 'score', label: 'Top' },
   { key: 'recent', label: 'Recent' },
   { key: 'velocity', label: 'Trending' },
-]
+];
 
 // Platform brand colors for distinctive badges
 // NOTE: These are official platform brand colors and should remain as hardcoded values
@@ -65,102 +62,96 @@ const PLATFORM_COLORS: Record<string, string> = {
   'Dev.to': '#0A0A0A',
   'Twitter/X': '#1DA1F2',
   All: '#64748B',
-}
+};
 
 export function SocialPostsListScreen({
   testID = 'social-posts-list',
 }: SocialPostsListScreenProps) {
-  const router = useRouter()
-  const { colors: themeColors, isDark, spacing } = useTheme()
-  const { webViewState, openUrl, closeWebView } = useWebView()
-  const { findings } = useWhatsNewFeed({})
+  const router = useRouter();
+  const { colors: themeColors, isDark, spacing } = useTheme();
+  const { webViewState, openUrl, closeWebView } = useWebView();
+  const { findings } = useWhatsNewFeed({});
 
   // Navigation tooltip state
-  const hasSeenNavTooltip = useQuery(api.notifications.queries.getHasSeenNavTooltip) ?? false
-  const markNavTooltipSeen = useMutation(api.notifications.mutations.markNavTooltipSeen)
-  const [showTooltip, setShowTooltip] = useState(false)
+  const hasSeenNavTooltip = useQuery(api.notifications.queries.getHasSeenNavTooltip) ?? false;
+  const markNavTooltipSeen = useMutation(api.notifications.mutations.markNavTooltipSeen);
+  const [showTooltip, setShowTooltip] = useState(false);
 
   // Show tooltip on first visit
   React.useEffect(() => {
     if (!hasSeenNavTooltip) {
       // Small delay to let screen render first
       const timer = setTimeout(() => {
-        setShowTooltip(true)
-      }, 500)
-      return () => clearTimeout(timer)
+        setShowTooltip(true);
+      }, 500);
+      return () => clearTimeout(timer);
     }
-  }, [hasSeenNavTooltip])
+  }, [hasSeenNavTooltip]);
 
   const handleDismissTooltip = () => {
-    setShowTooltip(false)
+    setShowTooltip(false);
     markNavTooltipSeen().catch((err) => {
-      console.error('Failed to mark tooltip as seen:', err)
-    })
-  }
+      console.error('Failed to mark tooltip as seen:', err);
+    });
+  };
 
-  const [sortMode, setSortMode] = useState<SortMode>('score')
-  const [platformFilter, setPlatformFilter] = useState<string>('All')
+  const [sortMode, setSortMode] = useState<SortMode>('score');
+  const [platformFilter, setPlatformFilter] = useState<string>('All');
 
   // Filter to social-only findings
   const socialFindings = useMemo(() => {
-    let filtered = findings.filter((f: any) => isSocialSource(f.source))
+    let filtered = findings.filter((f: any) => isSocialSource(f.source));
 
     if (platformFilter !== 'All') {
-      filtered = filtered.filter((f: any) => getPlatform(f.source) === platformFilter)
+      filtered = filtered.filter((f: any) => getPlatform(f.source) === platformFilter);
     }
 
     // Sort
     switch (sortMode) {
       case 'score':
-        filtered.sort((a: any, b: any) => (b.score ?? 0) - (a.score ?? 0))
-        break
+        filtered.sort((a: any, b: any) => (b.score ?? 0) - (a.score ?? 0));
+        break;
       case 'recent':
         filtered.sort((a: any, b: any) => {
-          const dateA = a.publishedAt ? new Date(a.publishedAt).getTime() : 0
-          const dateB = b.publishedAt ? new Date(b.publishedAt).getTime() : 0
-          return dateB - dateA
-        })
-        break
+          const dateA = a.publishedAt ? new Date(a.publishedAt).getTime() : 0;
+          const dateB = b.publishedAt ? new Date(b.publishedAt).getTime() : 0;
+          return dateB - dateA;
+        });
+        break;
       case 'velocity':
         filtered.sort(
           (a: any, b: any) => (b.engagementVelocity ?? 0) - (a.engagementVelocity ?? 0)
-        )
-        break
+        );
+        break;
     }
 
-    return filtered
-  }, [findings, sortMode, platformFilter])
+    return filtered;
+  }, [findings, sortMode, platformFilter]);
 
   // Compute platform counts for filter chips
   const platformCounts = useMemo(() => {
-    const counts = new Map<string, number>()
-    counts.set('All', 0)
+    const counts = new Map<string, number>();
+    counts.set('All', 0);
     for (const f of findings) {
-      if (!isSocialSource(f.source)) continue
-      const p = getPlatform(f.source)
-      counts.set(p, (counts.get(p) ?? 0) + 1)
-      counts.set('All', (counts.get('All') ?? 0) + 1)
+      if (!isSocialSource(f.source)) continue;
+      const p = getPlatform(f.source);
+      counts.set(p, (counts.get(p) ?? 0) + 1);
+      counts.set('All', (counts.get('All') ?? 0) + 1);
     }
-    return counts
-  }, [findings])
+    return counts;
+  }, [findings]);
 
   return (
     <View className="flex-1 bg-background" testID={testID}>
       {/* Header */}
       <View className="border-b border-border px-4 pt-3 pb-3">
         <View className="flex-row items-center gap-3">
-          <Pressable
-            onPress={() => router.back()}
-            className="p-1"
-            testID={`${testID}-back`}
-          >
+          <Pressable onPress={() => router.back()} className="p-1" testID={`${testID}-back`}>
             <ArrowLeft size={22} className="text-foreground" />
           </Pressable>
           <View className="flex-row items-center gap-2 flex-1">
             <MessageSquare size={18} className="text-muted-foreground" />
-            <Text className="text-foreground text-lg font-semibold">
-              Community Pulse
-            </Text>
+            <Text className="text-foreground text-lg font-semibold">Community Pulse</Text>
             <View className="bg-primary/15 rounded-full px-2 py-0.5">
               <Text className="text-primary text-xs font-bold">
                 {platformCounts.get('All') ?? 0}
@@ -174,8 +165,8 @@ export function SocialPostsListScreen({
           {Array.from(platformCounts.entries())
             .filter(([, count]) => count > 0)
             .map(([platform, count]) => {
-              const isActive = platformFilter === platform
-              const color = PLATFORM_COLORS[platform] ?? '#64748B'
+              const isActive = platformFilter === platform;
+              const color = PLATFORM_COLORS[platform] ?? '#64748B';
               return (
                 <Pressable
                   key={platform}
@@ -219,7 +210,7 @@ export function SocialPostsListScreen({
                     <Text className="text-xs text-muted-foreground">{count}</Text>
                   </View>
                 </Pressable>
-              )
+              );
             })}
         </View>
 
@@ -270,19 +261,13 @@ export function SocialPostsListScreen({
         ListEmptyComponent={
           <View className="flex-1 items-center justify-center py-16">
             <MessageSquare size={32} className="text-muted-foreground mb-3" />
-            <Text className="text-muted-foreground text-base">
-              No community posts found
-            </Text>
+            <Text className="text-muted-foreground text-base">No community posts found</Text>
           </View>
         }
       />
 
       {/* WebView for opening posts */}
-      <WebViewSheet
-        url={webViewState.url}
-        visible={webViewState.visible}
-        onClose={closeWebView}
-      />
+      <WebViewSheet url={webViewState.url} visible={webViewState.visible} onClose={closeWebView} />
 
       {/* Navigation change tooltip */}
       <NavigationTooltip
@@ -291,5 +276,5 @@ export function SocialPostsListScreen({
         testID={`${testID}-nav-tooltip`}
       />
     </View>
-  )
+  );
 }

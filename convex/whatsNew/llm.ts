@@ -7,11 +7,11 @@
  * - Static Fallback: Template-based report when LLM unavailable
  */
 
-"use node";
+'use node';
 
-import { generateText } from "ai";
-import type { ActionCtx } from "../_generated/server";
-import { claudePro } from "../lib/ai/anthropic_provider";
+import { generateText } from 'ai';
+import type { ActionCtx } from '../_generated/server';
+import { claudePro } from '../lib/ai/anthropic_provider';
 
 // ============================================================================
 // Types
@@ -21,7 +21,7 @@ interface Finding {
   title: string;
   url: string;
   source: string;
-  category: "discovery" | "release" | "trend" | "discussion";
+  category: 'discovery' | 'release' | 'trend' | 'discussion';
   score?: number;
   summary?: string;
   publishedAt?: string;
@@ -46,9 +46,9 @@ interface ToolSuggestion {
   id: string;
   title: string;
   description: string;
-  category: "libraries" | "cli" | "framework" | "service" | "database" | "tool";
+  category: 'libraries' | 'cli' | 'framework' | 'service' | 'database' | 'tool';
   sourceUrl: string;
-  sourceType: "github" | "npm" | "pypi" | "website" | "cargo" | "go" | "other";
+  sourceType: 'github' | 'npm' | 'pypi' | 'website' | 'cargo' | 'go' | 'other';
   language?: string;
   tags: string[];
   useCases: string[];
@@ -56,7 +56,7 @@ interface ToolSuggestion {
 
 interface SynthesisResult {
   markdown: string;
-  method: "llm-two-pass" | "static-fallback";
+  method: 'llm-two-pass' | 'static-fallback';
   pass1Content?: string;
   error?: string;
   toolSuggestions?: ToolSuggestion[];
@@ -81,13 +81,13 @@ async function generateInitialSynthesis(
   periodStart: Date,
   periodEnd: Date
 ): Promise<string> {
-  const formatDate = (d: Date) => d.toISOString().split("T")[0];
+  const formatDate = (d: Date) => d.toISOString().split('T')[0];
 
   // Categorize findings for the prompt
-  const discoveries = findings.filter((f) => f.category === "discovery");
-  const releases = findings.filter((f) => f.category === "release");
-  const discussions = findings.filter((f) => f.category === "discussion");
-  const trends = findings.filter((f) => f.category === "trend");
+  const discoveries = findings.filter((f) => f.category === 'discovery');
+  const releases = findings.filter((f) => f.category === 'release');
+  const discussions = findings.filter((f) => f.category === 'discussion');
+  const trends = findings.filter((f) => f.category === 'trend');
 
   // Sort ALL findings by score — no slice, send everything to the LLM
   const sortedFindings = [...findings].sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
@@ -112,13 +112,11 @@ async function generateInitialSynthesis(
   );
 
   const period =
-    days === 1
-      ? formatDate(periodStart)
-      : `${formatDate(periodStart)} to ${formatDate(periodEnd)}`;
+    days === 1 ? formatDate(periodStart) : `${formatDate(periodStart)} to ${formatDate(periodEnd)}`;
 
   const prompt = `You are a knowledgeable AI engineering peer writing a daily "What's New in AI Engineering" briefing for a senior AI engineer. Write with authority and editorial insight — not as a news aggregator, but as someone who understands why these developments matter.
 
-**Period:** ${period} (${days} day${days !== 1 ? "s" : ""})
+**Period:** ${period} (${days} day${days !== 1 ? 's' : ''})
 **Total Findings:** ${findings.length} (${discoveries.length} discoveries, ${releases.length} releases, ${discussions.length} discussions, ${trends.length} trends)
 **Report Date:** ${formatDate(periodEnd)}
 
@@ -262,7 +260,7 @@ Generated:     {new Date().toISOString()}
 
     return result.text;
   } catch (error) {
-    console.error("[Pass 1] LLM synthesis failed:", error);
+    console.error('[Pass 1] LLM synthesis failed:', error);
     throw error;
   }
 }
@@ -287,7 +285,7 @@ async function refineSynthesis(
   periodStart: Date,
   periodEnd: Date
 ): Promise<string> {
-  const formatDate = (d: Date) => d.toISOString().split("T")[0];
+  const formatDate = (d: Date) => d.toISOString().split('T')[0];
 
   // Calculate source breakdown
   const sourceCounts = findings.reduce(
@@ -300,16 +298,14 @@ async function refineSynthesis(
   const sourceBreakdown = Object.entries(sourceCounts)
     .sort((a, b) => b[1] - a[1])
     .map(([source, count]) => `${source}: ${count}`)
-    .join(" · ");
+    .join(' · ');
 
   const period =
-    days === 1
-      ? formatDate(periodStart)
-      : `${formatDate(periodStart)} to ${formatDate(periodEnd)}`;
+    days === 1 ? formatDate(periodStart) : `${formatDate(periodStart)} to ${formatDate(periodEnd)}`;
 
   const prompt = `You are refining a daily "What's New in AI Engineering" report. Your job is editorial polish — improve writing quality, strengthen the narrative, and enforce the required structure.
 
-**Period:** ${period} (${days} day${days !== 1 ? "s" : ""})
+**Period:** ${period} (${days} day${days !== 1 ? 's' : ''})
 **Total Findings:** ${findings.length}
 **Sources:** ${sourceBreakdown}
 
@@ -444,7 +440,7 @@ Generated:     {timestamp}
 
     return result.text;
   } catch (error) {
-    console.error("[Pass 2] LLM refinement failed:", error);
+    console.error('[Pass 2] LLM refinement failed:', error);
     throw error;
   }
 }
@@ -468,19 +464,17 @@ function generateStaticFallback(
   periodStart: Date,
   periodEnd: Date
 ): string {
-  const formatDate = (d: Date) => d.toISOString().split("T")[0];
+  const formatDate = (d: Date) => d.toISOString().split('T')[0];
 
   const { discoveries, releases, trends, discussions } = {
-    discoveries: findings.filter((f) => f.category === "discovery"),
-    releases: findings.filter((f) => f.category === "release"),
-    trends: findings.filter((f) => f.category === "trend"),
-    discussions: findings.filter((f) => f.category === "discussion"),
+    discoveries: findings.filter((f) => f.category === 'discovery'),
+    releases: findings.filter((f) => f.category === 'release'),
+    trends: findings.filter((f) => f.category === 'trend'),
+    discussions: findings.filter((f) => f.category === 'discussion'),
   };
 
   const period =
-    days === 1
-      ? formatDate(periodStart)
-      : `${formatDate(periodStart)} to ${formatDate(periodEnd)}`;
+    days === 1 ? formatDate(periodStart) : `${formatDate(periodStart)} to ${formatDate(periodEnd)}`;
 
   // Build source counts for footer and subscription suggestions
   const sourceCounts = findings.reduce(
@@ -497,18 +491,32 @@ function generateStaticFallback(
   };
 
   // Format period as "Month Day range, Year"
-  const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  const monthNames = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ];
   const startMonth = monthNames[periodStart.getMonth()];
   const endMonth = monthNames[periodEnd.getMonth()];
   const startDay = periodStart.getDate();
   const endDay = periodEnd.getDate();
   const year = periodEnd.getFullYear();
 
-  const periodLabel = days === 1
-    ? `${startMonth} ${startDay}, ${year}`
-    : (startMonth === endMonth)
-      ? `${startMonth} ${startDay}-${endDay}, ${year}`
-      : `${startMonth} ${startDay} - ${endMonth} ${endDay}, ${year}`;
+  const periodLabel =
+    days === 1
+      ? `${startMonth} ${startDay}, ${year}`
+      : startMonth === endMonth
+        ? `${startMonth} ${startDay}-${endDay}, ${year}`
+        : `${startMonth} ${startDay} - ${endMonth} ${endDay}, ${year}`;
 
   // Header
   let markdown = `# WHAT'S NEW — AI Software Engineering Briefing
@@ -525,14 +533,14 @@ function generateStaticFallback(
   if (top5.length > 0) {
     for (let i = 0; i < Math.min(5, top5.length); i++) {
       const item = top5[i];
-      const summary = item.summary ? ` — ${item.summary}` : "";
-      const sourceName = item.source || "Source";
+      const summary = item.summary ? ` — ${item.summary}` : '';
+      const sourceName = item.source || 'Source';
       markdown += `${i + 1}. **${item.title}**${summary} [${sourceName}](${item.url})\n`;
     }
   } else {
     markdown += `1. No findings available for this period.\n`;
   }
-  markdown += "\n---\n\n";
+  markdown += '\n---\n\n';
 
   // Headline Releases
   if (releases.length > 0) {
@@ -541,10 +549,10 @@ function generateStaticFallback(
     markdown += `|---------|------|--------|\n`;
     for (const item of topByScore(releases, 10)) {
       const desc = item.summary ? item.summary.slice(0, 80) : item.source;
-      const sourceName = item.source || "Source";
+      const sourceName = item.source || 'Source';
       markdown += `| **${item.title}** | ${desc} | [${sourceName}](${item.url}) |\n`;
     }
-    markdown += "\n---\n\n";
+    markdown += '\n---\n\n';
   }
 
   // New Tools & Products
@@ -553,8 +561,8 @@ function generateStaticFallback(
 
     // Split into DISCOVERED (new) and UPDATED (known with activity)
     // For static fallback, we'll use starCount or isDiscovery if available
-    const discovered = discoveries.filter(d => d.isDiscovery !== false); // Default to discovered
-    const updated = discoveries.filter(d => d.isDiscovery === false);
+    const discovered = discoveries.filter((d) => d.isDiscovery !== false); // Default to discovered
+    const updated = discoveries.filter((d) => d.isDiscovery === false);
 
     // DISCOVERED
     markdown += `#### DISCOVERED\n\n`;
@@ -562,8 +570,8 @@ function generateStaticFallback(
     markdown += `|------|-------------|-------------|--------|\n`;
     for (const item of topByScore(discovered, 15)) {
       const desc = item.summary ? item.summary.slice(0, 60) : item.source;
-      const stars = item.starCount ? item.starCount.toLocaleString() : "NEW";
-      const platform = item.platform || item.source || "Source";
+      const stars = item.starCount ? item.starCount.toLocaleString() : 'NEW';
+      const platform = item.platform || item.source || 'Source';
       markdown += `| **[${item.title}](${item.url})** | ${desc} | ${stars} | [${platform}](${item.url}) |\n`;
     }
 
@@ -574,11 +582,11 @@ function generateStaticFallback(
       markdown += `|------|-------------|--------|\n`;
       for (const item of topByScore(updated, 10)) {
         const desc = item.summary ? item.summary.slice(0, 60) : item.source;
-        const sourceName = item.source || "Source";
+        const sourceName = item.source || 'Source';
         markdown += `| **[${item.title}](${item.url})** | ${desc} | [${sourceName}](${item.url}) |\n`;
       }
     }
-    markdown += "\n---\n\n";
+    markdown += '\n---\n\n';
   }
 
   // Community Pulse
@@ -586,65 +594,67 @@ function generateStaticFallback(
   markdown += `### COMMUNITY PULSE\n\n`;
 
   // Split by platform if possible
-  const redditItems = discussionItems.filter(d => d.platform === "reddit" || d.source?.startsWith("r/"));
-  const otherItems = discussionItems.filter(d => d.platform !== "reddit" && !d.source?.startsWith("r/"));
+  const redditItems = discussionItems.filter(
+    (d) => d.platform === 'reddit' || d.source?.startsWith('r/')
+  );
+  const otherItems = discussionItems.filter(
+    (d) => d.platform !== 'reddit' && !d.source?.startsWith('r/')
+  );
 
   if (redditItems.length > 0) {
     markdown += `#### Reddit Hot Takes\n`;
     for (const item of redditItems) {
-      const pts = item.upvotes ? ` (${item.upvotes.toLocaleString()} upvotes)` : "";
-      const subreddit = item.source?.replace("r/", "") || "subreddit";
+      const pts = item.upvotes ? ` (${item.upvotes.toLocaleString()} upvotes)` : '';
+      const subreddit = item.source?.replace('r/', '') || 'subreddit';
       markdown += `- **${item.title}**${pts} [r/${subreddit}](${item.url})\n`;
     }
-    markdown += "\n";
+    markdown += '\n';
   }
 
   if (otherItems.length > 0) {
     for (const item of otherItems) {
-      const pts = item.score ? ` (${item.score} pts)` : "";
-      markdown += `- **${item.title}**${pts} [${item.source || "Source"}](${item.url})\n`;
+      const pts = item.score ? ` (${item.score} pts)` : '';
+      markdown += `- **${item.title}**${pts} [${item.source || 'Source'}](${item.url})\n`;
     }
   }
 
   if (discussionItems.length === 0) {
     markdown += `- No community discussions surfaced for this period.\n`;
   }
-  markdown += "\n---\n\n";
+  markdown += '\n---\n\n';
 
   // Trends & Patterns
   markdown += `### TRENDS & PATTERNS\n\n`;
   if (trends.length > 0) {
     for (let i = 0; i < Math.min(8, trends.length); i++) {
       const item = trends[i];
-      const desc = item.summary ? ` — ${item.summary}` : "";
+      const desc = item.summary ? ` — ${item.summary}` : '';
       markdown += `${i + 1}. **${item.title}**${desc}\n`;
     }
   } else {
     // Derive trends from top cross-source corroborated items
-    const corroborated = findings
-      .filter((f) => (f.crossSourceCorroboration ?? 0) >= 2)
-      .slice(0, 8);
+    const corroborated = findings.filter((f) => (f.crossSourceCorroboration ?? 0) >= 2).slice(0, 8);
 
     if (corroborated.length > 0) {
       for (let i = 0; i < corroborated.length; i++) {
         const item = corroborated[i];
-        const desc = item.summary ? ` — ${item.summary}` : "";
+        const desc = item.summary ? ` — ${item.summary}` : '';
         markdown += `${i + 1}. **${item.title}**${desc}\n`;
       }
     } else {
       markdown += `1. No trend signals identified for this period.\n`;
     }
   }
-  markdown += "\n---\n\n";
+  markdown += '\n---\n\n';
 
   // People to Watch (extract from findings with authors)
-  const findingsWithAuthors = findings.filter(f => f.author && f.author.length > 0).slice(0, 5);
+  const findingsWithAuthors = findings.filter((f) => f.author && f.author.length > 0).slice(0, 5);
   if (findingsWithAuthors.length > 0) {
     markdown += `### PEOPLE TO WATCH\n\n`;
     for (const item of findingsWithAuthors) {
       markdown += `- **${item.author}** — mentioned in [${item.title}](${item.url})\n`;
     }
-    markdown += "\n---\n\n";
+    markdown += '\n---\n\n';
   }
 
   // Recommended Subscriptions — derive from top sources in findings
@@ -654,15 +664,15 @@ function generateStaticFallback(
     .map(([source]) => source);
 
   markdown += `### SUBSCRIPTION RECOMMENDATIONS\n\n`;
-  markdown += "```\n";
+  markdown += '```\n';
   for (const source of topSources) {
-    if (source.startsWith("r/")) {
-      const subreddit = source.replace("r/", "");
+    if (source.startsWith('r/')) {
+      const subreddit = source.replace('r/', '');
       markdown += `/subscribe reddit ${subreddit} "${subreddit} subreddit"\n`;
-    } else if (source === "GitHub") {
+    } else if (source === 'GitHub') {
       // Pick top GitHub repo
       const topRepo = topByScore(
-        findings.filter((f) => f.source === "GitHub"),
+        findings.filter((f) => f.source === 'GitHub'),
         1
       )[0];
       if (topRepo) {
@@ -672,10 +682,10 @@ function generateStaticFallback(
         markdown += `/subscribe github ${repo} "${topRepo.title}"\n`;
       }
     } else {
-      markdown += `/subscribe website https://${source.toLowerCase().replace(/\s+/g, "-")}.com "${source} updates"\n`;
+      markdown += `/subscribe website https://${source.toLowerCase().replace(/\s+/g, '-')}.com "${source} updates"\n`;
     }
   }
-  markdown += "```\n\n";
+  markdown += '```\n\n';
 
   // METHODOLOGY
   markdown += `---\n\n`;
@@ -691,10 +701,10 @@ function generateStaticFallback(
   markdown += `- Multi-source boost: items found on 2+ tracks prioritized\n`;
   markdown += `- Tags: [KNOWN] = from existing subscriptions, [DISCOVERY] = new find\n\n`;
   markdown += `---\n\n`;
-  markdown += "```\n";
-  markdown += "========================================================================\n";
+  markdown += '```\n';
+  markdown += '========================================================================\n';
   markdown += "WHAT'S NEW COMPLETE\n";
-  markdown += "========================================================================\n";
+  markdown += '========================================================================\n';
   markdown += `Period:        ${period} (${days} days)\n`;
   markdown += `Findings:      ${findings.length}+ (${discoveries.length} new discoveries)\n`;
   markdown += `Releases:      ${releases.length} headline releases\n`;
@@ -703,8 +713,8 @@ function generateStaticFallback(
   markdown += `Workers:       4 dispatched\n`;
   markdown += `Sources:       Reddit, HN, GitHub, Dev.to, Lobsters, web search\n`;
   markdown += `Generated:     ${new Date().toISOString()}\n`;
-  markdown += "========================================================================\n";
-  markdown += "```\n";
+  markdown += '========================================================================\n';
+  markdown += '```\n';
 
   return markdown;
 }
@@ -737,14 +747,14 @@ export async function generateFindingSummary(
   }
 ): Promise<string | undefined> {
   // Generate a finding ID for logging (use URL or title hash)
-  const findingId = finding.url || finding.title.replace(/\s+/g, "-").toLowerCase();
+  const findingId = finding.url || finding.title.replace(/\s+/g, '-').toLowerCase();
 
   try {
     const prompt = `Summarize this content in 2-3 sentences (max 150 chars) for an AI engineer:
 
 Title: ${finding.title}
 Source: ${finding.source}
-Content Preview: ${finding.content?.slice(0, 500) || "N/A"}
+Content Preview: ${finding.content?.slice(0, 500) || 'N/A'}
 
 Focus on: What is this? Why does it matter to an AI engineer? What can I do with this?
 
@@ -759,16 +769,16 @@ Respond with ONLY the summary text, no additional formatting.`;
 
     // Enforce length limit
     if (summary && summary.length > 150) {
-      const truncated = summary.slice(0, 147) + "...";
+      const truncated = summary.slice(0, 147) + '...';
       // Log success with truncated length
-      
+
       return truncated;
     }
 
     // Only return if minimum length met (80 chars)
     if (summary && summary.length >= 80) {
       // Log success
-      
+
       return summary;
     }
 
@@ -781,9 +791,7 @@ Respond with ONLY the summary text, no additional formatting.`;
   } catch (error) {
     // Log failure but don't fail - summary is optional
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error(
-      `[Summary Quality] FAILURE: findingId="${findingId}" error="${errorMessage}"`
-    );
+    console.error(`[Summary Quality] FAILURE: findingId="${findingId}" error="${errorMessage}"`);
     return undefined;
   }
 }
@@ -807,33 +815,23 @@ export async function synthesizeReport(
   periodStart: Date,
   periodEnd: Date
 ): Promise<SynthesisResult> {
-  console.log(
-    `[synthesizeReport] Starting two-pass LLM synthesis (${findings.length} findings)`
-  );
+  console.log(`[synthesizeReport] Starting two-pass LLM synthesis (${findings.length} findings)`);
 
   // Validate inputs
   if (findings.length === 0) {
-    
     return {
       markdown: `# What's New in AI Engineering\n\nNo findings for this period.\n\n*Generated by Holocron's What's New system*`,
-      method: "static-fallback",
+      method: 'static-fallback',
     };
   }
 
   // Attempt two-pass LLM synthesis
   try {
-    
     const pass1Start = Date.now();
-    const initialSynthesis = await generateInitialSynthesis(
-      findings,
-      days,
-      periodStart,
-      periodEnd
-    );
+    const initialSynthesis = await generateInitialSynthesis(findings, days, periodStart, periodEnd);
     const pass1Duration = Date.now() - pass1Start;
     console.log(`[synthesizeReport] Pass 1 complete (${pass1Duration}ms)`);
 
-    
     const pass2Start = Date.now();
     const refinedSynthesis = await refineSynthesis(
       initialSynthesis,
@@ -851,11 +849,11 @@ export async function synthesizeReport(
 
     return {
       markdown: refinedSynthesis,
-      method: "llm-two-pass",
+      method: 'llm-two-pass',
       pass1Content: initialSynthesis,
     };
   } catch (error) {
-    console.error("[synthesizeReport] LLM synthesis failed, using static fallback:", error);
+    console.error('[synthesizeReport] LLM synthesis failed, using static fallback:', error);
     const fallbackStart = Date.now();
     const fallbackReport = generateStaticFallback(findings, days, periodStart, periodEnd);
     const fallbackDuration = Date.now() - fallbackStart;
@@ -863,7 +861,7 @@ export async function synthesizeReport(
 
     return {
       markdown: fallbackReport,
-      method: "static-fallback",
+      method: 'static-fallback',
       error: error instanceof Error ? error.message : String(error),
     };
   }

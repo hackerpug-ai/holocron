@@ -1,13 +1,13 @@
-import { mutation } from "../_generated/server";
-import { v } from "convex/values";
+import { v } from 'convex/values';
+import { mutation } from '../_generated/server';
 
 /**
  * Create a new citation
  */
 export const create = mutation({
   args: {
-    sessionId: v.optional(v.id("researchSessions")),
-    documentId: v.optional(v.id("documents")),
+    sessionId: v.optional(v.id('researchSessions')),
+    documentId: v.optional(v.id('documents')),
     sourceUrl: v.string(),
     sourceTitle: v.optional(v.string()),
     sourceDomain: v.optional(v.string()),
@@ -15,7 +15,7 @@ export const create = mutation({
     claimMarker: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    return await ctx.db.insert("citations", {
+    return await ctx.db.insert('citations', {
       ...args,
       retrievedAt: Date.now(),
     });
@@ -27,9 +27,9 @@ export const create = mutation({
  */
 export const update = mutation({
   args: {
-    id: v.id("citations"),
-    sessionId: v.optional(v.id("researchSessions")),
-    documentId: v.optional(v.id("documents")),
+    id: v.id('citations'),
+    sessionId: v.optional(v.id('researchSessions')),
+    documentId: v.optional(v.id('documents')),
     sourceTitle: v.optional(v.string()),
     sourceDomain: v.optional(v.string()),
     claimText: v.optional(v.string()),
@@ -52,8 +52,8 @@ export const update = mutation({
  */
 export const insertFromMigration = mutation({
   args: {
-    sessionId: v.optional(v.id("researchSessions")),
-    documentId: v.optional(v.id("documents")),
+    sessionId: v.optional(v.id('researchSessions')),
+    documentId: v.optional(v.id('documents')),
     sourceUrl: v.string(),
     sourceTitle: v.optional(v.string()),
     sourceDomain: v.optional(v.string()),
@@ -62,7 +62,7 @@ export const insertFromMigration = mutation({
     retrievedAt: v.number(),
   },
   handler: async (ctx, args) => {
-    return await ctx.db.insert("citations", args);
+    return await ctx.db.insert('citations', args);
   },
 });
 
@@ -73,12 +73,10 @@ export const insertFromMigration = mutation({
 export const clearAll = mutation({
   args: {},
   handler: async (ctx) => {
-    if (process.env.ALLOW_CLEAR_ALL !== "true") {
-      throw new Error(
-        "clearAll is disabled. Set ALLOW_CLEAR_ALL=true to enable."
-      );
+    if (process.env.ALLOW_CLEAR_ALL !== 'true') {
+      throw new Error('clearAll is disabled. Set ALLOW_CLEAR_ALL=true to enable.');
     }
-    const citations = await ctx.db.query("citations").collect();
+    const citations = await ctx.db.query('citations').collect();
     for (const citation of citations) {
       await ctx.db.delete(citation._id);
     }

@@ -14,22 +14,17 @@
  * - Timing: IN 300ms Easing.out(cubic), OUT 250ms Easing.in(cubic)
  */
 
-import React, { useEffect, useState } from 'react'
-import { Modal, Pressable, StyleSheet, View } from 'react-native'
+import React, { useEffect, useState } from 'react';
+import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
   Easing,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
-} from 'react-native-reanimated'
-import {
-  Gesture,
-  GestureDetector,
-  GestureHandlerRootView,
-} from 'react-native-gesture-handler'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { Text } from '@/components/ui/text'
+} from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -38,25 +33,26 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
-import { Pencil, Trash2 } from '@/components/ui/icons'
-import { useTheme } from '@/hooks/use-theme'
+} from '@/components/ui/alert-dialog';
+import { Pencil, Trash2 } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { useTheme } from '@/hooks/use-theme';
 
 // ── Animation constants (mirrors ImprovementEditSheet) ──────────────────────
-const TIMING_IN = { duration: 300, easing: Easing.out(Easing.cubic) }
-const TIMING_OUT = { duration: 250, easing: Easing.in(Easing.cubic) }
-const DISMISS_THRESHOLD = 80
+const TIMING_IN = { duration: 300, easing: Easing.out(Easing.cubic) };
+const TIMING_OUT = { duration: 250, easing: Easing.in(Easing.cubic) };
+const DISMISS_THRESHOLD = 80;
 
 // ── Types ──────────────────────────────────────────────────────────────────
-type ViewState = 'menu' | 'delete'
+type ViewState = 'menu' | 'delete';
 
 export interface ImprovementActionBottomSheetProps {
-  open: boolean
-  onClose: () => void
-  onEdit: () => void
-  onDelete: () => Promise<void>
-  isDeleting?: boolean
-  testID?: string
+  open: boolean;
+  onClose: () => void;
+  onEdit: () => void;
+  onDelete: () => Promise<void>;
+  isDeleting?: boolean;
+  testID?: string;
 }
 
 // ── Component ──────────────────────────────────────────────────────────────
@@ -68,88 +64,88 @@ export function ImprovementActionBottomSheet({
   isDeleting = false,
   testID = 'improvement-action-bottom-sheet',
 }: ImprovementActionBottomSheetProps) {
-  const insets = useSafeAreaInsets()
-  const { colors } = useTheme()
+  const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
 
   // ── Animation shared values ──────────────────────────────────────────────
-  const translateY = useSharedValue(400)
-  const backdropOpacity = useSharedValue(0)
+  const translateY = useSharedValue(400);
+  const backdropOpacity = useSharedValue(0);
 
   // ── Local state ──────────────────────────────────────────────────────────
-  const [viewState, setViewState] = useState<ViewState>('menu')
+  const [viewState, setViewState] = useState<ViewState>('menu');
 
   // ── Reset state when menu closes ───────────────────────────────────────────
   useEffect(() => {
     if (!open) {
-      setViewState('menu')
+      setViewState('menu');
     }
-  }, [open])
+  }, [open]);
 
   // ── Animation on visibility change ───────────────────────────────────────
   useEffect(() => {
     if (open) {
-      translateY.value = withTiming(0, TIMING_IN)
-      backdropOpacity.value = withTiming(1, TIMING_IN)
+      translateY.value = withTiming(0, TIMING_IN);
+      backdropOpacity.value = withTiming(1, TIMING_IN);
     } else {
-      translateY.value = withTiming(400, TIMING_OUT)
-      backdropOpacity.value = withTiming(0, TIMING_OUT)
+      translateY.value = withTiming(400, TIMING_OUT);
+      backdropOpacity.value = withTiming(0, TIMING_OUT);
     }
-  }, [open, backdropOpacity, translateY])
+  }, [open, backdropOpacity, translateY]);
 
   // ── Animated styles ───────────────────────────────────────────────────────
   const sheetStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: Math.max(translateY.value, 0) }],
-  }))
+  }));
 
   const backdropStyle = useAnimatedStyle(() => ({
     opacity: backdropOpacity.value,
-  }))
+  }));
 
   // ── Dismiss helpers ───────────────────────────────────────────────────────
   const animateOut = (callback: () => void) => {
-    translateY.value = withTiming(400, TIMING_OUT)
-    backdropOpacity.value = withTiming(0, TIMING_OUT)
-    setTimeout(callback, 250)
-  }
+    translateY.value = withTiming(400, TIMING_OUT);
+    backdropOpacity.value = withTiming(0, TIMING_OUT);
+    setTimeout(callback, 250);
+  };
 
-  const dismiss = () => animateOut(onClose)
+  const dismiss = () => animateOut(onClose);
 
   // ── Pan gesture (swipe-to-dismiss) ────────────────────────────────────────
   const panGesture = Gesture.Pan()
     .onUpdate((e) => {
       if (e.translationY > 0) {
-        translateY.value = e.translationY
+        translateY.value = e.translationY;
       }
     })
     .onEnd((e) => {
       if (e.translationY > DISMISS_THRESHOLD) {
-        translateY.value = withTiming(400, TIMING_OUT)
-        backdropOpacity.value = withTiming(0, TIMING_OUT)
-        runOnJS(onClose)()
+        translateY.value = withTiming(400, TIMING_OUT);
+        backdropOpacity.value = withTiming(0, TIMING_OUT);
+        runOnJS(onClose)();
       } else {
-        translateY.value = withTiming(0, TIMING_IN)
+        translateY.value = withTiming(0, TIMING_IN);
       }
-    })
+    });
 
   // ── Handlers ───────────────────────────────────────────────────────────────
   const handleEdit = () => {
     animateOut(() => {
-      onClose()
-      onEdit()
-    })
-  }
+      onClose();
+      onEdit();
+    });
+  };
 
   const handleDelete = () => {
-    setViewState('delete')
-  }
+    setViewState('delete');
+  };
 
   const confirmDelete = async () => {
-    await onDelete()
-    setViewState('menu')
-    animateOut(onClose)
-  }
+    await onDelete();
+    setViewState('menu');
+    animateOut(onClose);
+  };
 
-  if (!open) return null
+  if (!open) return null;
 
   return (
     <>
@@ -162,14 +158,8 @@ export function ImprovementActionBottomSheet({
       >
         <GestureHandlerRootView style={styles.flex}>
           {/* Backdrop */}
-          <Pressable
-            onPress={dismiss}
-            testID={`${testID}-backdrop`}
-            style={styles.flex}
-          >
-            <Animated.View
-              style={[backdropStyle, styles.flex, styles.backdrop]}
-            />
+          <Pressable onPress={dismiss} testID={`${testID}-backdrop`} style={styles.flex}>
+            <Animated.View style={[backdropStyle, styles.flex, styles.backdrop]} />
           </Pressable>
 
           {/* Sheet */}
@@ -183,9 +173,7 @@ export function ImprovementActionBottomSheet({
             >
               {/* Drag handle */}
               <View style={styles.handleRow}>
-                <View
-                  style={[styles.handle, { backgroundColor: colors.mutedForeground + '4D' }]}
-                />
+                <View style={[styles.handle, { backgroundColor: colors.mutedForeground + '4D' }]} />
               </View>
 
               {/* Menu options */}
@@ -218,7 +206,10 @@ export function ImprovementActionBottomSheet({
       </Modal>
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={viewState === 'delete'} onOpenChange={(open) => !open && setViewState('menu')}>
+      <AlertDialog
+        open={viewState === 'delete'}
+        onOpenChange={(open) => !open && setViewState('menu')}
+      >
         <AlertDialogContent>
           <AlertDialogTitle>Delete improvement?</AlertDialogTitle>
           <AlertDialogDescription>
@@ -243,7 +234,7 @@ export function ImprovementActionBottomSheet({
         </AlertDialogContent>
       </AlertDialog>
     </>
-  )
+  );
 }
 
 // ── Styles ─────────────────────────────────────────────────────────────────
@@ -277,9 +268,8 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 8,
   },
-})
+});
 
 // ── Backward-compatible export ──────────────────────────────────────────────
 // Export as ImprovementActionMenu for backward compatibility
-export { ImprovementActionBottomSheet as ImprovementActionMenu }
-
+export { ImprovementActionBottomSheet as ImprovementActionMenu };

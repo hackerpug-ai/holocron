@@ -7,7 +7,7 @@
  * - Jina Reader: 100 RPM free tier, 5 concurrent max
  */
 
-import { v } from "convex/values";
+import { v } from 'convex/values';
 
 /**
  * Rate limit configuration per provider
@@ -37,14 +37,10 @@ export const RATE_LIMITS = {
 /**
  * Provider type validator
  */
-export const providerValidator = v.union(
-  v.literal("zai"),
-  v.literal("youtube"),
-  v.literal("jina")
-);
+export const providerValidator = v.union(v.literal('zai'), v.literal('youtube'), v.literal('jina'));
 
 /**
  * Rate limit status type
  */
 export type RateLimitProvider = keyof typeof RATE_LIMITS;
-export type RateLimitStatus = "available" | "throttled" | "exhausted";
+export type RateLimitStatus = 'available' | 'throttled' | 'exhausted';

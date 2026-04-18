@@ -1,25 +1,25 @@
-import { View, ScrollView, Pressable } from 'react-native'
-import { Text } from '@/components/ui/text'
-import { cn } from '@/lib/utils'
-import { useColorScheme } from '@/lib/useColorScheme'
-import { useState } from 'react'
-import { Check, Sun, Moon, Monitor, Globe } from '@/components/ui/icons'
-import { useQuery, useMutation } from 'convex/react'
-import { api } from '@/convex/_generated/api'
-import { SubscriptionSection } from '@/components/settings/SubscriptionSection'
+import { useMutation, useQuery } from 'convex/react';
+import { useState } from 'react';
+import { Pressable, ScrollView, View } from 'react-native';
+import { SubscriptionSection } from '@/components/settings/SubscriptionSection';
+import { Check, Globe, Monitor, Moon, Sun } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { api } from '@/convex/_generated/api';
+import { useColorScheme } from '@/lib/useColorScheme';
+import { cn } from '@/lib/utils';
 
-type ThemeMode = 'light' | 'dark' | 'system'
+type ThemeMode = 'light' | 'dark' | 'system';
 
 interface ThemeOption {
-  value: ThemeMode
-  label: string
-  description: string
-  icon: typeof Sun
+  value: ThemeMode;
+  label: string;
+  description: string;
+  icon: typeof Sun;
   previewColors: {
-    background: string
-    foreground: string
-    accent: string
-  }
+    background: string;
+    foreground: string;
+    accent: string;
+  };
 }
 
 const THEME_OPTIONS: ThemeOption[] = [
@@ -56,7 +56,7 @@ const THEME_OPTIONS: ThemeOption[] = [
       accent: 'bg-gradient-to-br from-slate-200 to-[#1E2A3B]',
     },
   },
-]
+];
 
 const VOICE_LANGUAGE_OPTIONS = [
   'English',
@@ -67,11 +67,9 @@ const VOICE_LANGUAGE_OPTIONS = [
   'Japanese',
   'Korean',
   'Chinese',
-] as const
+] as const;
 
-interface SettingsScreenProps {
-  // No props needed - ScreenLayout handles navigation
-}
+type SettingsScreenProps = {};
 
 /**
  * SettingsScreen - app preferences and theme customization
@@ -80,39 +78,45 @@ interface SettingsScreenProps {
  * Built with semantic tokens for full theme awareness.
  */
 export function SettingsScreen(_props: SettingsScreenProps) {
-  const { colorScheme, setColorScheme } = useColorScheme()
+  const { colorScheme, setColorScheme } = useColorScheme();
   const [selectedTheme, setSelectedTheme] = useState<ThemeMode>(
     colorScheme === 'dark' ? 'dark' : 'light'
-  )
-  const [isTransitioning, setIsTransitioning] = useState(false)
+  );
+  const [isTransitioning, setIsTransitioning] = useState(false);
 
-  const voiceLanguage = useQuery(api.voice.queries.getVoiceLanguage)
-  const setVoiceLanguage = useMutation(api.voice.mutations.setVoiceLanguage)
+  const voiceLanguage = useQuery(api.voice.queries.getVoiceLanguage);
+  const setVoiceLanguage = useMutation(api.voice.mutations.setVoiceLanguage);
 
   const handleLanguageChange = (language: string) => {
-    void setVoiceLanguage({ language })
-  }
+    void setVoiceLanguage({ language });
+  };
 
   const handleThemeChange = async (value: ThemeMode) => {
-    if (value === selectedTheme || isTransitioning) return
+    if (value === selectedTheme || isTransitioning) return;
 
-    setIsTransitioning(true)
-    setSelectedTheme(value)
+    setIsTransitioning(true);
+    setSelectedTheme(value);
 
     // Apply theme change with smooth transition
     if (value === 'system') {
       // Reset to system default - will be handled by ThemeSync
-      setColorScheme('light') // Reset to let system take over
+      setColorScheme('light'); // Reset to let system take over
     } else {
-      setColorScheme(value)
+      setColorScheme(value);
     }
 
     // Allow transition to complete
-    setTimeout(() => setIsTransitioning(false), 300)
-  }
+    setTimeout(() => setIsTransitioning(false), 300);
+  };
 
-  const ThemePreviewCard = ({ option, isSelected }: { option: ThemeOption; isSelected: boolean }) => {
-    const Icon = option.icon
+  const ThemePreviewCard = ({
+    option,
+    isSelected,
+  }: {
+    option: ThemeOption;
+    isSelected: boolean;
+  }) => {
+    const Icon = option.icon;
 
     return (
       <Pressable
@@ -166,9 +170,7 @@ export function SettingsScreen(_props: SettingsScreenProps) {
           </View>
 
           {/* Selected indicator overlay */}
-          {isSelected && (
-            <View className="absolute inset-0 bg-primary/10" />
-          )}
+          {isSelected && <View className="absolute inset-0 bg-primary/10" />}
         </View>
 
         {/* Theme info */}
@@ -215,9 +217,7 @@ export function SettingsScreen(_props: SettingsScreenProps) {
             <View
               className={cn(
                 'h-6 w-6 rounded-full border-2 transition-all duration-300 items-center justify-center',
-                isSelected
-                  ? 'border-primary bg-primary'
-                  : 'border-muted-foreground/30'
+                isSelected ? 'border-primary bg-primary' : 'border-muted-foreground/30'
               )}
             >
               {isSelected && (
@@ -227,8 +227,8 @@ export function SettingsScreen(_props: SettingsScreenProps) {
           </View>
         </View>
       </Pressable>
-    )
-  }
+    );
+  };
 
   return (
     <ScrollView
@@ -237,110 +237,105 @@ export function SettingsScreen(_props: SettingsScreenProps) {
       showsVerticalScrollIndicator={false}
       testID="settings-screen"
     >
-        {/* Subscriptions Section */}
-        <SubscriptionSection testID="settings-subscription-section" />
+      {/* Subscriptions Section */}
+      <SubscriptionSection testID="settings-subscription-section" />
 
-        {/* Theme Section */}
-        <View className="gap-3">
-          {/* Section title with icon */}
-          <View className="flex-row items-center gap-2 px-1">
-            <View className="rounded-lg bg-primary/10 p-2">
-              <Monitor size={16} className="text-primary" />
-            </View>
-            <Text variant="h2" className="text-foreground">
-              Appearance
-            </Text>
+      {/* Theme Section */}
+      <View className="gap-3">
+        {/* Section title with icon */}
+        <View className="flex-row items-center gap-2 px-1">
+          <View className="rounded-lg bg-primary/10 p-2">
+            <Monitor size={16} className="text-primary" />
           </View>
-
-          {/* Section description */}
-          <Text variant="default" className="px-1 text-muted-foreground">
-            Customize your interface theme. Changes apply immediately.
+          <Text variant="h2" className="text-foreground">
+            Appearance
           </Text>
-
-          {/* Theme options grid */}
-          <View className="gap-3 pt-2">
-            {THEME_OPTIONS.map((option) => (
-              <ThemePreviewCard
-                key={option.value}
-                option={option}
-                isSelected={selectedTheme === option.value}
-              />
-            ))}
-          </View>
         </View>
 
-        {/* Voice Language Section */}
-        <View className="gap-3">
-          {/* Section title with icon */}
-          <View className="flex-row items-center gap-2 px-1">
-            <View className="rounded-lg bg-primary/10 p-2">
-              <Globe size={16} className="text-primary" />
-            </View>
-            <Text variant="h2" className="text-foreground">
-              Voice Language
-            </Text>
+        {/* Section description */}
+        <Text variant="default" className="px-1 text-muted-foreground">
+          Customize your interface theme. Changes apply immediately.
+        </Text>
+
+        {/* Theme options grid */}
+        <View className="gap-3 pt-2">
+          {THEME_OPTIONS.map((option) => (
+            <ThemePreviewCard
+              key={option.value}
+              option={option}
+              isSelected={selectedTheme === option.value}
+            />
+          ))}
+        </View>
+      </View>
+
+      {/* Voice Language Section */}
+      <View className="gap-3">
+        {/* Section title with icon */}
+        <View className="flex-row items-center gap-2 px-1">
+          <View className="rounded-lg bg-primary/10 p-2">
+            <Globe size={16} className="text-primary" />
           </View>
-
-          {/* Section description */}
-          <Text variant="default" className="px-1 text-muted-foreground">
-            Choose the language the voice assistant responds in.
+          <Text variant="h2" className="text-foreground">
+            Voice Language
           </Text>
+        </View>
 
-          {/* Language options */}
-          <View className="gap-1 pt-2 rounded-2xl border border-border bg-card overflow-hidden">
-            {VOICE_LANGUAGE_OPTIONS.map((lang, index) => {
-              const isSelected = voiceLanguage === lang
-              return (
-                <Pressable
-                  key={lang}
-                  onPress={() => handleLanguageChange(lang)}
-                  className={cn(
-                    'flex-row items-center justify-between px-4 py-3',
-                    'active:bg-muted/50',
-                    index < VOICE_LANGUAGE_OPTIONS.length - 1 && 'border-b border-border'
-                  )}
-                  testID={`voice-language-${lang.toLowerCase()}`}
+        {/* Section description */}
+        <Text variant="default" className="px-1 text-muted-foreground">
+          Choose the language the voice assistant responds in.
+        </Text>
+
+        {/* Language options */}
+        <View className="gap-1 pt-2 rounded-2xl border border-border bg-card overflow-hidden">
+          {VOICE_LANGUAGE_OPTIONS.map((lang, index) => {
+            const isSelected = voiceLanguage === lang;
+            return (
+              <Pressable
+                key={lang}
+                onPress={() => handleLanguageChange(lang)}
+                className={cn(
+                  'flex-row items-center justify-between px-4 py-3',
+                  'active:bg-muted/50',
+                  index < VOICE_LANGUAGE_OPTIONS.length - 1 && 'border-b border-border'
+                )}
+                testID={`voice-language-${lang.toLowerCase()}`}
+              >
+                <Text
+                  variant="default"
+                  className={cn(isSelected ? 'text-foreground' : 'text-muted-foreground')}
                 >
-                  <Text
-                    variant="default"
-                    className={cn(
-                      isSelected ? 'text-foreground' : 'text-muted-foreground'
-                    )}
-                  >
-                    {lang}
-                  </Text>
-                  <View
-                    className={cn(
-                      'h-5 w-5 rounded-full border-2 items-center justify-center',
-                      isSelected
-                        ? 'border-primary bg-primary'
-                        : 'border-muted-foreground/30'
-                    )}
-                  >
-                    {isSelected && (
-                      <Check size={12} className="text-primary-foreground" strokeWidth={3} />
-                    )}
-                  </View>
-                </Pressable>
-              )
-            })}
-          </View>
+                  {lang}
+                </Text>
+                <View
+                  className={cn(
+                    'h-5 w-5 rounded-full border-2 items-center justify-center',
+                    isSelected ? 'border-primary bg-primary' : 'border-muted-foreground/30'
+                  )}
+                >
+                  {isSelected && (
+                    <Check size={12} className="text-primary-foreground" strokeWidth={3} />
+                  )}
+                </View>
+              </Pressable>
+            );
+          })}
         </View>
+      </View>
 
-        {/* Info section */}
-        <View className="mt-auto gap-3 rounded-2xl border border-border bg-card p-4">
-          <View className="flex-row items-center gap-2">
-            <View className="h-2 w-2 rounded-full bg-primary" />
-            <Text variant="h3" className="text-foreground">
-              Theme Preview
-            </Text>
-          </View>
-          <Text variant="small" className="text-muted-foreground leading-relaxed">
-            The preview cards above show how each theme affects colors and contrast.
-            Dark mode uses the "Crystalline Archive" palette with deep navy backgrounds
-            and warm amber accents.
+      {/* Info section */}
+      <View className="mt-auto gap-3 rounded-2xl border border-border bg-card p-4">
+        <View className="flex-row items-center gap-2">
+          <View className="h-2 w-2 rounded-full bg-primary" />
+          <Text variant="h3" className="text-foreground">
+            Theme Preview
           </Text>
         </View>
-      </ScrollView>
-  )
+        <Text variant="small" className="text-muted-foreground leading-relaxed">
+          The preview cards above show how each theme affects colors and contrast. Dark mode uses
+          the "Crystalline Archive" palette with deep navy backgrounds and warm amber accents.
+        </Text>
+      </View>
+    </ScrollView>
+  );
 }

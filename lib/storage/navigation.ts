@@ -1,13 +1,13 @@
-import AsyncStorage from '@react-native-async-storage/async-storage'
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ─── Storage Keys ─────────────────────────────────────────────────────────────
 
-const STORAGE_KEY_PREFIX = 'navigation:'
+const STORAGE_KEY_PREFIX = 'navigation:';
 
 /**
  * Storage key for the What's New tooltip seen flag
  */
-const WHATS_NEW_TOOLTIP_SEEN = `${STORAGE_KEY_PREFIX}whats_new_tooltip_seen`
+const WHATS_NEW_TOOLTIP_SEEN = `${STORAGE_KEY_PREFIX}whats_new_tooltip_seen`;
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
@@ -17,11 +17,11 @@ const WHATS_NEW_TOOLTIP_SEEN = `${STORAGE_KEY_PREFIX}whats_new_tooltip_seen`
  */
 export async function getWhatsNewTooltipSeen(): Promise<boolean> {
   try {
-    const value = await AsyncStorage.getItem(WHATS_NEW_TOOLTIP_SEEN)
-    return value === 'true'
+    const value = await AsyncStorage.getItem(WHATS_NEW_TOOLTIP_SEEN);
+    return value === 'true';
   } catch {
     // Non-critical - assume not seen on error
-    return false
+    return false;
   }
 }
 
@@ -31,7 +31,7 @@ export async function getWhatsNewTooltipSeen(): Promise<boolean> {
  */
 export async function setWhatsNewTooltipSeen(): Promise<void> {
   try {
-    await AsyncStorage.setItem(WHATS_NEW_TOOLTIP_SEEN, 'true')
+    await AsyncStorage.setItem(WHATS_NEW_TOOLTIP_SEEN, 'true');
   } catch {
     // Non-critical - silently ignore storage errors
   }
@@ -43,7 +43,7 @@ export async function setWhatsNewTooltipSeen(): Promise<void> {
  */
 export async function resetWhatsNewTooltipSeen(): Promise<void> {
   try {
-    await AsyncStorage.removeItem(WHATS_NEW_TOOLTIP_SEEN)
+    await AsyncStorage.removeItem(WHATS_NEW_TOOLTIP_SEEN);
   } catch {
     // Non-critical
   }

@@ -14,19 +14,19 @@
  * @see convex/shop/index.ts - Shop module entry point
  */
 
-"use node";
+'use node';
 
-import { action, internalAction } from "../_generated/server";
-import { v } from "convex/values";
-import { api, internal } from "../_generated/api";
-import type { Id } from "../_generated/dataModel";
-import type { ActionCtx } from "../_generated/server";
+import { v } from 'convex/values';
+import { api, internal } from '../_generated/api';
+import type { Id } from '../_generated/dataModel';
+import type { ActionCtx } from '../_generated/server';
+import { action, internalAction } from '../_generated/server';
 import {
+  DEFAULT_RETAILERS,
   executeParallelShopSearch,
   RETAILERS,
-  DEFAULT_RETAILERS,
   type ShopSearchResult,
-} from "./search";
+} from './search';
 
 // ============================================================================
 // Types
@@ -49,9 +49,9 @@ export interface RetailerWorkerResult {
  * Aggregated dispatcher results
  */
 export interface RetailerDispatcherResult {
-  sessionId: Id<"shopSessions">;
-  conversationId: Id<"conversations">;
-  status: "completed" | "partial" | "failed";
+  sessionId: Id<'shopSessions'>;
+  conversationId: Id<'conversations'>;
+  status: 'completed' | 'partial' | 'failed';
   retailers: {
     total: number;
     completed: number;
@@ -92,10 +92,7 @@ export interface RetailerAssignment {
  * @param baseQuery - Base product search query
  * @returns Array of retailer assignments
  */
-export function parsePlanIntoRetailers(
-  plan: any,
-  baseQuery: string
-): RetailerAssignment[] {
+export function parsePlanIntoRetailers(plan: any, baseQuery: string): RetailerAssignment[] {
   // If plan has explicit retailer assignments, use those
   if (plan?.retailers && Array.isArray(plan.retailers)) {
     return plan.retailers.map((r: any) => ({
@@ -133,32 +130,32 @@ export function selectRetailersForQuery(query: string): string[] {
 
   // Detect product type for better retailer selection
   const isElectronics =
-    words.includes("laptop") ||
-    words.includes("phone") ||
-    words.includes("camera") ||
-    words.includes("tv") ||
-    words.includes("computer") ||
-    words.includes("tablet");
+    words.includes('laptop') ||
+    words.includes('phone') ||
+    words.includes('camera') ||
+    words.includes('tv') ||
+    words.includes('computer') ||
+    words.includes('tablet');
   const isPhotoGear =
-    words.includes("camera") ||
-    words.includes("lens") ||
-    words.includes("tripod") ||
-    words.includes("lighting");
+    words.includes('camera') ||
+    words.includes('lens') ||
+    words.includes('tripod') ||
+    words.includes('lighting');
   const isComputerHardware =
-    words.includes("gpu") ||
-    words.includes("cpu") ||
-    words.includes("ram") ||
-    words.includes("motherboard") ||
-    words.includes("ssd");
+    words.includes('gpu') ||
+    words.includes('cpu') ||
+    words.includes('ram') ||
+    words.includes('motherboard') ||
+    words.includes('ssd');
 
   if (isPhotoGear) {
-    return ["bh", "amazon", "ebay", "newegg"];
+    return ['bh', 'amazon', 'ebay', 'newegg'];
   }
   if (isComputerHardware) {
-    return ["newegg", "amazon", "bestbuy", "ebay"];
+    return ['newegg', 'amazon', 'bestbuy', 'ebay'];
   }
   if (isElectronics) {
-    return ["bestbuy", "amazon", "newegg", "ebay", "walmart"];
+    return ['bestbuy', 'amazon', 'newegg', 'ebay', 'walmart'];
   }
 
   // Default balanced set
@@ -188,13 +185,11 @@ async function executeRetailerWorker(
       retailer: assignment.retailerKey,
       retailerKey: assignment.retailerKey,
       success: false,
-      error: "Unknown retailer",
+      error: 'Unknown retailer',
       durationMs: 0,
       resultCount: 0,
     };
   }
-
-  
 
   try {
     const searchResult = await executeParallelShopSearch(
@@ -208,7 +203,6 @@ async function executeRetailerWorker(
     );
 
     const durationMs = Date.now() - startTime;
-    
 
     return {
       retailer: retailer.name,
@@ -220,8 +214,7 @@ async function executeRetailerWorker(
     };
   } catch (error) {
     const durationMs = Date.now() - startTime;
-    const errorMessage =
-      error instanceof Error ? error.message : "Unknown error";
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
     console.error(
       `[executeRetailerWorker] Failed retailer: ${retailer.name}, error: ${errorMessage}`
@@ -317,8 +310,8 @@ export function aggregateRetailerResults(
  */
 export const executePlanBasedShopSearch = internalAction({
   args: {
-    conversationId: v.id("conversations"),
-    sessionId: v.id("shopSessions"),
+    conversationId: v.id('conversations'),
+    sessionId: v.id('shopSessions'),
     plan: v.any(),
     query: v.string(),
     condition: v.optional(v.string()),
@@ -330,16 +323,12 @@ export const executePlanBasedShopSearch = internalAction({
     { conversationId, sessionId, plan, query, condition, priceMin, priceMax }
   ): Promise<RetailerDispatcherResult> => {
     const startTime = Date.now();
-    
 
     // Step 1: Parse plan into retailer assignments
     const assignments = parsePlanIntoRetailers(plan, query);
-    
 
     // Step 2: Execute all retailer workers in parallel
-    const workerPromises = assignments.map((assignment) =>
-      executeRetailerWorker(ctx, assignment)
-    );
+    const workerPromises = assignments.map((assignment) => executeRetailerWorker(ctx, assignment));
 
     const workerResults = await Promise.all(workerPromises);
 
@@ -347,12 +336,10 @@ export const executePlanBasedShopSearch = internalAction({
     const completedRetailers = workerResults.filter((r) => r.success);
     const failedRetailers = workerResults.filter((r) => !r.success);
 
-    
-
     const listings = aggregateRetailerResults(workerResults, query);
 
     // Step 4: Save all listings to database
-    let bestDealId: Id<"shopListings"> | undefined;
+    let bestDealId: Id<'shopListings'> | undefined;
     for (const workerResult of workerResults) {
       if (workerResult.success && workerResult.results) {
         for (const result of workerResult.results) {
@@ -408,7 +395,7 @@ export const executePlanBasedShopSearch = internalAction({
     // Step 5: Complete session
     await ctx.runMutation(api.shop.mutations.completeShopSession, {
       sessionId,
-      status: completedRetailers.length > 0 ? "completed" : "failed",
+      status: completedRetailers.length > 0 ? 'completed' : 'failed',
       totalListings: listings.unique,
       bestDealId,
     });
@@ -416,14 +403,12 @@ export const executePlanBasedShopSearch = internalAction({
     const totalTime = Date.now() - startTime;
 
     // Determine overall status
-    const status: "completed" | "partial" | "failed" =
+    const status: 'completed' | 'partial' | 'failed' =
       completedRetailers.length === assignments.length
-        ? "completed"
+        ? 'completed'
         : completedRetailers.length > 0
-        ? "partial"
-        : "failed";
-
-    
+          ? 'partial'
+          : 'failed';
 
     return {
       sessionId,
@@ -442,7 +427,7 @@ export const executePlanBasedShopSearch = internalAction({
       durationMs: totalTime,
       errors: failedRetailers.map((f) => ({
         retailer: f.retailer,
-        error: f.error || "Unknown error",
+        error: f.error || 'Unknown error',
       })),
     };
   },
@@ -455,8 +440,8 @@ export const executePlanBasedShopSearch = internalAction({
  */
 export const runPlanBasedShopSearch = action({
   args: {
-    conversationId: v.id("conversations"),
-    planId: v.id("executionPlans"),
+    conversationId: v.id('conversations'),
+    planId: v.id('executionPlans'),
     query: v.string(),
     condition: v.optional(v.string()),
     priceMin: v.optional(v.number()),
@@ -466,20 +451,18 @@ export const runPlanBasedShopSearch = action({
     ctx,
     { conversationId, planId, query, condition, priceMin, priceMax }
   ): Promise<{
-    sessionId: Id<"shopSessions">;
+    sessionId: Id<'shopSessions'>;
     status: string;
     totalListings: number;
-    bestDealId?: Id<"shopListings">;
+    bestDealId?: Id<'shopListings'>;
   }> => {
-    
-
     // Fetch the approved plan
     const plan = await ctx.runQuery(api.plans.queries.get, {
       id: planId,
     });
 
-    if (!plan || plan.status !== "approved") {
-      throw new Error("Plan not found or not approved");
+    if (!plan || plan.status !== 'approved') {
+      throw new Error('Plan not found or not approved');
     }
 
     // Create shop session
@@ -489,38 +472,33 @@ export const runPlanBasedShopSearch = action({
       condition,
       priceMin,
       priceMax,
-      retailers: parsePlanIntoRetailers(plan.content, query).map(
-        (a) => a.retailerKey
-      ),
+      retailers: parsePlanIntoRetailers(plan.content, query).map((a) => a.retailerKey),
     });
 
     // Post loading card
     await ctx.runMutation(api.chatMessages.mutations.create, {
       conversationId,
-      role: "agent",
+      role: 'agent',
       content: `Executing shop search plan: ${query}`,
-      messageType: "result_card",
+      messageType: 'result_card',
       cardData: {
-        card_type: "shop_loading",
-        status: "in_progress",
+        card_type: 'shop_loading',
+        status: 'in_progress',
         session_id: sessionId,
         query,
       },
     });
 
     // Execute the dispatcher
-    const result = await ctx.runAction(
-      internal.shop.dispatcher.executePlanBasedShopSearch,
-      {
-        conversationId,
-        sessionId,
-        plan: plan.content,
-        query,
-        condition,
-        priceMin,
-        priceMax,
-      }
-    );
+    const result = await ctx.runAction(internal.shop.dispatcher.executePlanBasedShopSearch, {
+      conversationId,
+      sessionId,
+      plan: plan.content,
+      query,
+      condition,
+      priceMin,
+      priceMax,
+    });
 
     return {
       sessionId: result.sessionId,

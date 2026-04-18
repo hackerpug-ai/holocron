@@ -8,83 +8,83 @@
 // --- Session Events ---
 
 export type SessionConfig = {
-  id: string
-  model: string
-  voice?: string
-  instructions?: string
+  id: string;
+  model: string;
+  voice?: string;
+  instructions?: string;
   tools?: Array<{
-    type: string
-    name: string
-    description?: string
-    parameters?: Record<string, unknown>
-  }>
-  [key: string]: unknown
-}
+    type: string;
+    name: string;
+    description?: string;
+    parameters?: Record<string, unknown>;
+  }>;
+  [key: string]: unknown;
+};
 
 export type SessionCreatedEvent = {
-  type: 'session.created'
-  session: SessionConfig
-}
+  type: 'session.created';
+  session: SessionConfig;
+};
 
 export type SessionUpdatedEvent = {
-  type: 'session.updated'
-  session: SessionConfig
-}
+  type: 'session.updated';
+  session: SessionConfig;
+};
 
 // --- Response Events ---
 
 export type FunctionCallItem = {
-  type: 'function_call'
-  id: string
-  call_id: string
-  name: string
-  arguments: string
-}
+  type: 'function_call';
+  id: string;
+  call_id: string;
+  name: string;
+  arguments: string;
+};
 
 export type MessageItem = {
-  type: 'message'
-  id: string
-  [key: string]: unknown
-}
+  type: 'message';
+  id: string;
+  [key: string]: unknown;
+};
 
 export type ResponseOutputItemDoneEvent = {
-  type: 'response.output_item.done'
-  item: FunctionCallItem | MessageItem
-}
+  type: 'response.output_item.done';
+  item: FunctionCallItem | MessageItem;
+};
 
 export type ResponseAudioTranscriptDoneEvent = {
-  type: 'response.audio_transcript.done'
-  transcript: string
-}
+  type: 'response.audio_transcript.done';
+  transcript: string;
+};
 
 // --- Input Audio Transcription Events ---
 
 export type InputAudioTranscriptionCompletedEvent = {
-  type: 'conversation.item.input_audio_transcription.completed'
-  transcript: string
-}
+  type: 'conversation.item.input_audio_transcription.completed';
+  transcript: string;
+};
 
 // --- Input Audio Buffer Events ---
 
 export type InputAudioBufferSpeechStartedEvent = {
-  type: 'input_audio_buffer.speech_started'
-}
+  type: 'input_audio_buffer.speech_started';
+};
 
 export type InputAudioBufferSpeechStoppedEvent = {
-  type: 'input_audio_buffer.speech_stopped'
-}
+  type: 'input_audio_buffer.speech_stopped';
+};
 
 // --- Error Events ---
 
 export type RealtimeErrorEvent = {
-  type: 'error'
+  type: 'error';
   error: {
-    type: string
-    message: string
-    code?: string
-    [key: string]: unknown
-  }
-}
+    type: string;
+    message: string;
+    code?: string;
+    [key: string]: unknown;
+  };
+};
 
 // --- Discriminated Union ---
 
@@ -96,23 +96,23 @@ export type RealtimeEvent =
   | InputAudioTranscriptionCompletedEvent
   | InputAudioBufferSpeechStartedEvent
   | InputAudioBufferSpeechStoppedEvent
-  | RealtimeErrorEvent
+  | RealtimeErrorEvent;
 
 // --- Callback Types ---
 
 export type ParsedFunctionCall = {
-  callId: string
-  name: string
-  arguments: Record<string, unknown>
-}
+  callId: string;
+  name: string;
+  arguments: Record<string, unknown>;
+};
 
 export type RealtimeEventCallbacks = {
-  onSessionCreated?: (session: SessionConfig) => void
-  onSessionUpdated?: (session: SessionConfig) => void
-  onFunctionCall?: (fn: ParsedFunctionCall) => void
-  onTranscript?: (transcript: string) => void
-  onUserTranscript?: (transcript: string) => void
-  onSpeechStarted?: () => void
-  onSpeechStopped?: () => void
-  onError?: (error: { type: string; message: string }) => void
-}
+  onSessionCreated?: (session: SessionConfig) => void;
+  onSessionUpdated?: (session: SessionConfig) => void;
+  onFunctionCall?: (fn: ParsedFunctionCall) => void;
+  onTranscript?: (transcript: string) => void;
+  onUserTranscript?: (transcript: string) => void;
+  onSpeechStarted?: () => void;
+  onSpeechStopped?: () => void;
+  onError?: (error: { type: string; message: string }) => void;
+};

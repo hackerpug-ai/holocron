@@ -12,16 +12,13 @@
  * Also logs improvements to app/product based on product research findings.
  */
 
-"use node";
+'use node';
 
-import { internal } from "../../_generated/api";
-import type { ActionCtx } from "../../_generated/server";
-import { generateText } from "ai";
-import { claudeFlash } from "../../lib/ai/anthropic_provider";
-import {
-  executeParallelSearchWithRetry,
-  type ParallelSearchResult,
-} from "../search";
+import { generateText } from 'ai';
+import { internal } from '../../_generated/api';
+import type { ActionCtx } from '../../_generated/server';
+import { claudeFlash } from '../../lib/ai/anthropic_provider';
+import { executeParallelSearchWithRetry, type ParallelSearchResult } from '../search';
 
 // ============================================================================
 // Types
@@ -31,7 +28,7 @@ import {
  * Product research report structure
  */
 export interface ProductReport {
-  specialist: "product_finder";
+  specialist: 'product_finder';
   query: string;
   findings: string;
   sources: Array<{
@@ -76,35 +73,22 @@ export interface ProductReport {
  * @param query - Research query
  * @returns Product research report
  */
-export async function executeProductFinder(
-  ctx: ActionCtx,
-  query: string
-): Promise<ProductReport> {
-  
-
+export async function executeProductFinder(ctx: ActionCtx, query: string): Promise<ProductReport> {
   // Enhance query with product-specific terms
   const productQuery = `${query} price comparison review rating specs buy purchase`;
 
   // Execute parallel search with retry
-  const searchResult = await executeParallelSearchWithRetry(
-    productQuery,
-    {},
-    [],
-    {
-      maxRetries: 2,
-      timeoutMs: 15000,
-      deduplicateResults: true,
-    }
-  );
-
-  
+  const searchResult = await executeParallelSearchWithRetry(productQuery, {}, [], {
+    maxRetries: 2,
+    timeoutMs: 15000,
+    deduplicateResults: true,
+  });
 
   // Generate product report using LLM
   const productReport = await generateProductReport(query, searchResult);
 
   // Log improvements if any product/app suggestions found
   await logImprovementsFromProductResearch(ctx, query, productReport);
-
 
   return productReport;
 }
@@ -128,7 +112,7 @@ async function generateProductReport(
   const report = JSON.parse(text.trim());
 
   return {
-    specialist: "product_finder",
+    specialist: 'product_finder',
     query,
     findings: report.findings,
     sources: searchResult.structuredResults.map((source) => ({
@@ -141,8 +125,8 @@ async function generateProductReport(
     metadata: {
       products: report.products || [],
       comparisons: report.comparisons || [],
-      priceRange: report.priceRange || { min: "N/A", max: "N/A", average: "N/A" },
-      topRated: report.topRated || "N/A",
+      priceRange: report.priceRange || { min: 'N/A', max: 'N/A', average: 'N/A' },
+      topRated: report.topRated || 'N/A',
     },
     sourceCount: searchResult.structuredResults.length,
     confidenceScore: calculateProductConfidence(searchResult),
@@ -152,16 +136,10 @@ async function generateProductReport(
 /**
  * Build prompt for product report generation
  */
-function buildProductPrompt(
-  query: string,
-  searchResult: ParallelSearchResult
-): string {
+function buildProductPrompt(query: string, searchResult: ParallelSearchResult): string {
   const sourcesText = searchResult.structuredResults
-    .map(
-      (s, i) =>
-        `Source ${i + 1}:\nTitle: ${s.title}\nURL: ${s.url}\nContent: ${s.content}`
-    )
-    .join("\n\n");
+    .map((s, i) => `Source ${i + 1}:\nTitle: ${s.title}\nURL: ${s.url}\nContent: ${s.content}`)
+    .join('\n\n');
 
   return `You are a product research specialist. Generate a comprehensive product comparison report based on the following sources.
 
@@ -238,16 +216,16 @@ async function logImprovementsFromProductResearch(
 ): Promise<void> {
   // Check if findings suggest any improvements
   const improvementKeywords = [
-    "improve",
-    "enhancement",
-    "better",
-    "feature",
-    "recommend",
-    "suggest",
-    "opportunity",
-    "add",
-    "track",
-    "alert",
+    'improve',
+    'enhancement',
+    'better',
+    'feature',
+    'recommend',
+    'suggest',
+    'opportunity',
+    'add',
+    'track',
+    'alert',
   ];
 
   const hasImprovements = improvementKeywords.some((keyword) =>
@@ -263,7 +241,7 @@ async function logImprovementsFromProductResearch(
 
 Findings: ${report.findings}
 
-Products analyzed: ${report.metadata.products.map(p => p.name).join(", ")}
+Products analyzed: ${report.metadata.products.map((p) => p.name).join(', ')}
 
 If there are no specific improvement suggestions, return an empty array: []`;
 
@@ -280,22 +258,15 @@ If there are no specific improvement suggestions, return an empty array: []`;
       // Log each suggestion as an improvement
       for (const suggestion of suggestions) {
         const description =
-          typeof suggestion === "string"
-            ? suggestion
-            : JSON.stringify(suggestion);
+          typeof suggestion === 'string' ? suggestion : JSON.stringify(suggestion);
 
         await ctx.runMutation(internal.improvements.internal.submitFromSpecialist, {
           description: `[Product Finder] ${description}\n\nQuery: ${query}`,
-          source: "product_finder",
+          source: 'product_finder',
         });
       }
-
-      
     }
   } catch (error) {
-    console.error(
-      `[logImprovementsFromProductResearch] Failed to log improvements:`,
-      error
-    );
+    console.error(`[logImprovementsFromProductResearch] Failed to log improvements:`, error);
   }
 }

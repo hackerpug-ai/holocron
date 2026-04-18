@@ -11,21 +11,21 @@
  */
 
 export const REFINEMENT_LEXICON = [
-  "expand",
-  "also",
-  "include",
-  "add",
-  "try",
-  "instead",
-  "what about",
-  "refine",
-  "narrow",
-  "broaden",
-  "more",
-  "less",
-  "but",
-  "now",
-  "actually",
+  'expand',
+  'also',
+  'include',
+  'add',
+  'try',
+  'instead',
+  'what about',
+  'refine',
+  'narrow',
+  'broaden',
+  'more',
+  'less',
+  'but',
+  'now',
+  'actually',
 ] as const;
 
 /**
@@ -46,6 +46,6 @@ export function startsWithRefinementPhrase(message: string): boolean {
     if (!trimmed.startsWith(phrase)) return false;
     const nextChar = trimmed.charAt(phrase.length);
     // Allow phrase at end-of-string, or followed by whitespace/punctuation
-    return nextChar === "" || /[\s.,;:!?-]/.test(nextChar);
+    return nextChar === '' || /[\s.,;:!?-]/.test(nextChar);
   });
 }

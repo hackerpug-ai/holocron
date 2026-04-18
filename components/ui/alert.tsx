@@ -1,9 +1,9 @@
-import { Icon } from '@/components/ui/icon';
-import { Text, TextClassContext } from '@/components/ui/text';
-import { cn } from '@/lib/utils';
-import type { LucideIcon } from '@/components/ui/icons';
 import * as React from 'react';
 import { View, type ViewProps } from 'react-native';
+import { Icon } from '@/components/ui/icon';
+import type { LucideIcon } from '@/components/ui/icons';
+import { Text, TextClassContext } from '@/components/ui/text';
+import { cn } from '@/lib/utils';
 
 function Alert({
   className,
@@ -24,7 +24,8 @@ function Alert({
         'text-sm text-foreground',
         variant === 'destructive' && 'text-destructive',
         className
-      )}>
+      )}
+    >
       <View
         role="alert"
         className={cn(
@@ -32,12 +33,17 @@ function Alert({
           !icon && 'pl-4',
           className
         )}
-        {...props}>
+        {...props}
+      >
         {icon && (
           <View className="absolute left-3.5 top-3">
             <Icon
               as={icon}
-              className={cn('size-4', variant === 'destructive' && 'text-destructive', iconClassName)}
+              className={cn(
+                'size-4',
+                variant === 'destructive' && 'text-destructive',
+                iconClassName
+              )}
             />
           </View>
         )}

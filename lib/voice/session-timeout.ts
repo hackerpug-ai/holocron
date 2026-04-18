@@ -10,13 +10,13 @@
  */
 
 /** 30 seconds — matches idle_timeout_ms in server_vad config */
-export const IDLE_TIMEOUT_MS = 30_000
+export const IDLE_TIMEOUT_MS = 30_000;
 
 /** 5 minutes — warm connection window after session timeout */
-export const WARM_DURATION_MS = 5 * 60 * 1_000
+export const WARM_DURATION_MS = 5 * 60 * 1_000;
 
 export interface SessionTimeoutOptions {
-  onTimeout: () => void
+  onTimeout: () => void;
 }
 
 /**
@@ -29,30 +29,30 @@ export interface SessionTimeoutOptions {
  *   timeout.isActive()    // true while counting down
  */
 export class SessionTimeout {
-  private readonly onTimeout: () => void
-  private timerId: ReturnType<typeof setTimeout> | null = null
+  private readonly onTimeout: () => void;
+  private timerId: ReturnType<typeof setTimeout> | null = null;
 
   constructor(options: SessionTimeoutOptions) {
-    this.onTimeout = options.onTimeout
+    this.onTimeout = options.onTimeout;
   }
 
   start(): void {
-    this.cancel()
+    this.cancel();
     this.timerId = setTimeout(() => {
-      this.timerId = null
-      this.onTimeout()
-    }, IDLE_TIMEOUT_MS)
+      this.timerId = null;
+      this.onTimeout();
+    }, IDLE_TIMEOUT_MS);
   }
 
   cancel(): void {
     if (this.timerId !== null) {
-      clearTimeout(this.timerId)
-      this.timerId = null
+      clearTimeout(this.timerId);
+      this.timerId = null;
     }
   }
 
   isActive(): boolean {
-    return this.timerId !== null
+    return this.timerId !== null;
   }
 }
 
@@ -62,7 +62,7 @@ export class SessionTimeout {
  * dependency-free from native modules).
  */
 export interface DestroyableConnection {
-  destroy(): void
+  destroy(): void;
 }
 
 /**
@@ -84,8 +84,8 @@ export interface DestroyableConnection {
  *   }
  */
 export class WarmConnection {
-  private timerId: ReturnType<typeof setTimeout> | null = null
-  private connection: DestroyableConnection | null = null
+  private timerId: ReturnType<typeof setTimeout> | null = null;
+  private connection: DestroyableConnection | null = null;
 
   /**
    * Begin the warm period, keeping conn alive for WARM_DURATION_MS.
@@ -93,14 +93,14 @@ export class WarmConnection {
    */
   startWarmPeriod(conn: DestroyableConnection): void {
     // Clear any previous warm period
-    this.destroy()
+    this.destroy();
 
-    this.connection = conn
+    this.connection = conn;
     this.timerId = setTimeout(() => {
-      this.connection?.destroy()
-      this.connection = null
-      this.timerId = null
-    }, WARM_DURATION_MS)
+      this.connection?.destroy();
+      this.connection = null;
+      this.timerId = null;
+    }, WARM_DURATION_MS);
   }
 
   /**
@@ -112,20 +112,20 @@ export class WarmConnection {
    */
   reactivate(): DestroyableConnection | null {
     if (this.connection !== null && this.timerId !== null) {
-      clearTimeout(this.timerId)
-      this.timerId = null
-      const conn = this.connection
-      this.connection = null
-      return conn
+      clearTimeout(this.timerId);
+      this.timerId = null;
+      const conn = this.connection;
+      this.connection = null;
+      return conn;
     }
-    return null
+    return null;
   }
 
   /**
    * Returns true while a warm connection is held (within the 5-min window).
    */
   isWarm(): boolean {
-    return this.connection !== null && this.timerId !== null
+    return this.connection !== null && this.timerId !== null;
   }
 
   /**
@@ -134,12 +134,12 @@ export class WarmConnection {
    */
   destroy(): void {
     if (this.timerId !== null) {
-      clearTimeout(this.timerId)
-      this.timerId = null
+      clearTimeout(this.timerId);
+      this.timerId = null;
     }
     if (this.connection !== null) {
-      this.connection.destroy()
-      this.connection = null
+      this.connection.destroy();
+      this.connection = null;
     }
   }
 }

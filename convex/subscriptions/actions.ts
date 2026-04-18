@@ -1,6 +1,6 @@
-import { action } from "../_generated/server";
-import { v } from "convex/values";
-import { internal } from "../_generated/api";
+import { v } from 'convex/values';
+import { internal } from '../_generated/api';
+import { action } from '../_generated/server';
 
 /**
  * Check subscriptions for new content
@@ -10,14 +10,14 @@ export const check = action({
   args: {
     sourceType: v.optional(
       v.union(
-        v.literal("youtube"),
-        v.literal("newsletter"),
-        v.literal("changelog"),
-        v.literal("reddit"),
-        v.literal("ebay"),
-        v.literal("whats-new"),
-        v.literal("creator"),
-        v.literal("github")
+        v.literal('youtube'),
+        v.literal('newsletter'),
+        v.literal('changelog'),
+        v.literal('reddit'),
+        v.literal('ebay'),
+        v.literal('whats-new'),
+        v.literal('creator'),
+        v.literal('github')
       )
     ),
   },

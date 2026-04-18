@@ -1,50 +1,43 @@
-import { ImprovementCardWithActions } from '@/components/improvements/ImprovementCardWithActions'
-import { ImprovementCardSkeleton } from '@/components/improvements/ImprovementCardSkeleton'
-import { Lightbulb, Search } from '@/components/ui/icons'
-import { Text } from '@/components/ui/text'
-import { cn } from '@/lib/utils'
-import { useState, useMemo } from 'react'
-import {
-  FlatList,
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  TextInput,
-  View,
-} from 'react-native'
-import { useColorScheme } from 'nativewind'
+import { useColorScheme } from 'nativewind';
+import { useMemo, useState } from 'react';
+import { FlatList, Pressable, RefreshControl, ScrollView, TextInput, View } from 'react-native';
+import { ImprovementCardSkeleton } from '@/components/improvements/ImprovementCardSkeleton';
+import { ImprovementCardWithActions } from '@/components/improvements/ImprovementCardWithActions';
+import { Lightbulb, Search } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { cn } from '@/lib/utils';
 
 export interface ImprovementsScreenProps {
   requests: Array<{
-    _id: string
-    title?: string
-    description: string
-    status: 'open' | 'closed'
-    createdAt: number
-    images?: Array<unknown>
-    mergedFromIds?: string[]
-  }>
-  isLoading: boolean
-  onRequestPress: (id: string) => void
-  onMenuPress: (id: string) => void
-  onRefresh?: () => void
-  isRefreshing?: boolean
+    _id: string;
+    title?: string;
+    description: string;
+    status: 'open' | 'closed';
+    createdAt: number;
+    images?: Array<unknown>;
+    mergedFromIds?: string[];
+  }>;
+  isLoading: boolean;
+  onRequestPress: (id: string) => void;
+  onMenuPress: (id: string) => void;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
 }
 
-type FilterChip = 'all' | 'open' | 'closed'
+type FilterChip = 'all' | 'open' | 'closed';
 
 const FILTER_CHIPS: { value: FilterChip; label: string }[] = [
   { value: 'all', label: 'All' },
   { value: 'open', label: 'Open' },
   { value: 'closed', label: 'Closed' },
-]
+];
 
 function matchesFilter(
   status: ImprovementsScreenProps['requests'][number]['status'],
-  filter: FilterChip,
+  filter: FilterChip
 ): boolean {
-  if (filter === 'all') return true
-  return status === filter
+  if (filter === 'all') return true;
+  return status === filter;
 }
 
 export function ImprovementsScreen({
@@ -55,20 +48,20 @@ export function ImprovementsScreen({
   onRefresh,
   isRefreshing = false,
 }: ImprovementsScreenProps) {
-  const { colorScheme } = useColorScheme()
-  const [searchQuery, setSearchQuery] = useState('')
-  const [activeFilter, setActiveFilter] = useState<FilterChip>('all')
+  const { colorScheme } = useColorScheme();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilter, setActiveFilter] = useState<FilterChip>('all');
 
   const filteredRequests = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase()
+    const query = searchQuery.trim().toLowerCase();
     return requests.filter((req) => {
       const matchesSearch =
         query === '' ||
         (req.title ?? '').toLowerCase().includes(query) ||
-        req.description.toLowerCase().includes(query)
-      return matchesSearch && matchesFilter(req.status, activeFilter)
-    })
-  }, [requests, searchQuery, activeFilter])
+        req.description.toLowerCase().includes(query);
+      return matchesSearch && matchesFilter(req.status, activeFilter);
+    });
+  }, [requests, searchQuery, activeFilter]);
 
   const renderItem = ({ item }: { item: ImprovementsScreenProps['requests'][number] }) => (
     <View className="px-4 pb-3">
@@ -85,7 +78,7 @@ export function ImprovementsScreen({
         testID={`improvements-screen-card-${item._id}`}
       />
     </View>
-  )
+  );
 
   const ListHeader = (
     <View>
@@ -115,33 +108,31 @@ export function ImprovementsScreen({
         testID="improvements-screen-filter-chips"
       >
         {FILTER_CHIPS.map((chip) => {
-          const isActive = activeFilter === chip.value
+          const isActive = activeFilter === chip.value;
           return (
             <Pressable
               key={chip.value}
               onPress={() => setActiveFilter(chip.value)}
               className={cn(
                 'px-3 py-1.5 rounded-full border active:opacity-70',
-                isActive
-                  ? 'bg-foreground border-foreground'
-                  : 'bg-transparent border-border',
+                isActive ? 'bg-foreground border-foreground' : 'bg-transparent border-border'
               )}
               testID={`improvements-screen-filter-${chip.value}`}
             >
               <Text
                 className={cn(
                   'text-xs font-medium',
-                  isActive ? 'text-background' : 'text-muted-foreground',
+                  isActive ? 'text-background' : 'text-muted-foreground'
                 )}
               >
                 {chip.label}
               </Text>
             </Pressable>
-          )
+          );
         })}
       </ScrollView>
     </View>
-  )
+  );
 
   if (isLoading) {
     return (
@@ -153,7 +144,7 @@ export function ImprovementsScreen({
           <ImprovementCardSkeleton />
         </View>
       </View>
-    )
+    );
   }
 
   const EmptyState = (
@@ -169,7 +160,7 @@ export function ImprovementsScreen({
         Long press any element to suggest an improvement
       </Text>
     </View>
-  )
+  );
 
   return (
     <View className="flex-1">
@@ -193,7 +184,6 @@ export function ImprovementsScreen({
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
       />
-
     </View>
-  )
+  );
 }

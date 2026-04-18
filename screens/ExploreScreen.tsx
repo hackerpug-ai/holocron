@@ -1,36 +1,36 @@
-import { ArticleCard } from '@/components/ArticleCard'
-import { CategoryBadge, type CategoryType } from '@/components/CategoryBadge'
-import { EmptyState } from '@/components/EmptyState'
-import { SearchInput } from '@/components/SearchInput'
-import { SectionHeader } from '@/components/SectionHeader'
-import { cn } from '@/lib/utils'
-import { useState } from 'react'
-import { Pressable, ScrollView, View, type ViewProps } from 'react-native'
+import { useState } from 'react';
+import { Pressable, ScrollView, View, type ViewProps } from 'react-native';
+import { ArticleCard } from '@/components/ArticleCard';
+import { CategoryBadge, type CategoryType } from '@/components/CategoryBadge';
+import { EmptyState } from '@/components/EmptyState';
+import { SearchInput } from '@/components/SearchInput';
+import { SectionHeader } from '@/components/SectionHeader';
+import { cn } from '@/lib/utils';
 
 interface Article {
-  id: string
-  title: string
-  category: CategoryType
-  date: string
-  snippet?: string
-  iterationCount?: number
+  id: string;
+  title: string;
+  category: CategoryType;
+  date: string;
+  snippet?: string;
+  iterationCount?: number;
 }
 
 interface ExploreScreenProps extends Omit<ViewProps, 'children'> {
   /** Articles to display */
-  articles?: Article[]
+  articles?: Article[];
   /** Available categories for filtering */
-  categories?: CategoryType[]
+  categories?: CategoryType[];
   /** Currently selected category filter */
-  selectedCategory?: CategoryType | null
+  selectedCategory?: CategoryType | null;
   /** Whether data is loading */
-  loading?: boolean
+  loading?: boolean;
   /** Callback when search is submitted */
-  onSearch?: (_query: string) => void
+  onSearch?: (_query: string) => void;
   /** Callback when an article is pressed */
-  onArticlePress?: (_article: Article) => void
+  onArticlePress?: (_article: Article) => void;
   /** Callback when a category filter is selected */
-  onCategorySelect?: (_category: CategoryType | null) => void
+  onCategorySelect?: (_category: CategoryType | null) => void;
 }
 
 const defaultCategories: CategoryType[] = [
@@ -41,7 +41,7 @@ const defaultCategories: CategoryType[] = [
   'entity',
   'url',
   'general',
-]
+];
 
 /**
  * ExploreScreen provides search and category filtering for the knowledge base.
@@ -58,27 +58,27 @@ export function ExploreScreen({
   className,
   ...props
 }: ExploreScreenProps) {
-  const [searchValue, setSearchValue] = useState('')
+  const [searchValue, setSearchValue] = useState('');
 
   const handleSearch = () => {
-    onSearch?.(searchValue)
-  }
+    onSearch?.(searchValue);
+  };
 
   const handleClear = () => {
-    setSearchValue('')
-    onSearch?.('')
-  }
+    setSearchValue('');
+    onSearch?.('');
+  };
 
   const handleCategoryPress = (category: CategoryType) => {
     if (selectedCategory === category) {
-      onCategorySelect?.(null)
+      onCategorySelect?.(null);
     } else {
-      onCategorySelect?.(category)
+      onCategorySelect?.(category);
     }
-  }
+  };
 
-  const hasResults = articles.length > 0
-  const isSearching = searchValue.length > 0 || selectedCategory !== null
+  const hasResults = articles.length > 0;
+  const isSearching = searchValue.length > 0 || selectedCategory !== null;
 
   return (
     <View className={cn('flex-1 bg-background', className)} testID="explore-screen" {...props}>
@@ -108,9 +108,7 @@ export function ExploreScreen({
             >
               <CategoryBadge
                 category={category}
-                className={cn(
-                  selectedCategory === category && 'ring-2 ring-primary ring-offset-1'
-                )}
+                className={cn(selectedCategory === category && 'ring-2 ring-primary ring-offset-1')}
               />
             </Pressable>
           ))}
@@ -118,17 +116,10 @@ export function ExploreScreen({
       </View>
 
       {/* Results */}
-      <ScrollView
-        className="flex-1"
-        contentContainerClassName="p-4 pb-8"
-      >
+      <ScrollView className="flex-1" contentContainerClassName="p-4 pb-8">
         {hasResults ? (
           <>
-            <SectionHeader
-              title={`Results (${articles.length})`}
-              size="md"
-              className="mb-3"
-            />
+            <SectionHeader title={`Results (${articles.length})`} size="md" className="mb-3" />
             <View className="gap-3">
               {articles.map((article) => (
                 <ArticleCard
@@ -149,17 +140,21 @@ export function ExploreScreen({
             title={isSearching ? 'No results found' : 'Start exploring'}
             description={
               isSearching
-                ? 'Try adjusting your search or filters to find what you\'re looking for.'
+                ? "Try adjusting your search or filters to find what you're looking for."
                 : 'Search the knowledge base or select a category to browse articles.'
             }
             actionLabel={isSearching ? 'Clear filters' : undefined}
-            onActionPress={isSearching ? () => {
-              setSearchValue('')
-              onCategorySelect?.(null)
-            } : undefined}
+            onActionPress={
+              isSearching
+                ? () => {
+                    setSearchValue('');
+                    onCategorySelect?.(null);
+                  }
+                : undefined
+            }
           />
         )}
       </ScrollView>
     </View>
-  )
+  );
 }

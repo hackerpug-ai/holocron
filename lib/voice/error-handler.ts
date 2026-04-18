@@ -10,63 +10,61 @@
  * Provides platform-specific settings guidance for permission errors.
  */
 
-import { Platform, Linking } from 'react-native'
+import { Linking, Platform } from 'react-native';
 
-export type VoiceErrorKind = 'service_unavailable' | 'permission_denied'
+export type VoiceErrorKind = 'service_unavailable' | 'permission_denied';
 
 export interface VoiceErrorType {
-  kind: VoiceErrorKind
-  userMessage: string
-  canRetry?: boolean
-  isMidSession?: boolean
-  settingsGuidance?: string
-  openSettings?: () => void
+  kind: VoiceErrorKind;
+  userMessage: string;
+  canRetry?: boolean;
+  isMidSession?: boolean;
+  settingsGuidance?: string;
+  openSettings?: () => void;
 }
 
 export interface VoiceErrorHandlerOptions {
-  onError: (error: VoiceErrorType) => void
-  onCleanup: () => void
+  onError: (error: VoiceErrorType) => void;
+  onCleanup: () => void;
 }
 
 export interface VoiceErrorHandler {
   /** Called when ephemeral token generation fails (session start failure). */
-  handleTokenGenerationFailure: (error: Error) => void
+  handleTokenGenerationFailure: (error: Error) => void;
   /** Called when microphone permission is denied. */
-  handleMicrophonePermissionDenied: () => void
+  handleMicrophonePermissionDenied: () => void;
   /** Called for each consecutive mid-session error. Triggers cleanup after 3. */
-  handleConsecutiveError: () => void
+  handleConsecutiveError: () => void;
   /** Called when an event succeeds — resets the consecutive error counter. */
-  handleSuccess: () => void
+  handleSuccess: () => void;
   /** Resets handler state to allow a fresh retry. */
-  reset: () => void
+  reset: () => void;
 }
 
-const CONSECUTIVE_ERROR_THRESHOLD = 3
+const CONSECUTIVE_ERROR_THRESHOLD = 3;
 
 function getPlatformSettingsGuidance(): string {
   if (Platform.OS === 'ios') {
-    return 'Go to Settings > Holocron > Microphone'
+    return 'Go to Settings > Holocron > Microphone';
   }
-  return 'Go to Settings > Apps > Holocron > Permissions'
+  return 'Go to Settings > Apps > Holocron > Permissions';
 }
 
 function openAppSettings(): void {
   if (Platform.OS === 'ios') {
-    Linking.openURL('app-settings:').catch(() => {})
+    Linking.openURL('app-settings:').catch(() => {});
   } else {
-    Linking.openSettings().catch(() => {})
+    Linking.openSettings().catch(() => {});
   }
 }
 
-export function createVoiceErrorHandler(
-  options: VoiceErrorHandlerOptions
-): VoiceErrorHandler {
-  const { onError, onCleanup } = options
-  let consecutiveErrorCount = 0
+export function createVoiceErrorHandler(options: VoiceErrorHandlerOptions): VoiceErrorHandler {
+  const { onError, onCleanup } = options;
+  let consecutiveErrorCount = 0;
 
   function handleTokenGenerationFailure(error: Error): void {
-    onCleanup()
-    const isStaleSession = error.message.includes('active session already exists')
+    onCleanup();
+    const isStaleSession = error.message.includes('active session already exists');
     onError({
       kind: 'service_unavailable',
       userMessage: isStaleSession
@@ -74,7 +72,7 @@ export function createVoiceErrorHandler(
         : 'Voice assistant is currently unavailable',
       canRetry: true,
       isMidSession: false,
-    })
+    });
   }
 
   function handleMicrophonePermissionDenied(): void {
@@ -84,30 +82,30 @@ export function createVoiceErrorHandler(
       settingsGuidance: getPlatformSettingsGuidance(),
       openSettings: openAppSettings,
       canRetry: false,
-    })
+    });
   }
 
   function handleConsecutiveError(): void {
-    consecutiveErrorCount += 1
+    consecutiveErrorCount += 1;
 
     if (consecutiveErrorCount >= CONSECUTIVE_ERROR_THRESHOLD) {
-      consecutiveErrorCount = 0
-      onCleanup()
+      consecutiveErrorCount = 0;
+      onCleanup();
       onError({
         kind: 'service_unavailable',
         userMessage: 'Lost connection to voice service. Please try again.',
         canRetry: true,
         isMidSession: true,
-      })
+      });
     }
   }
 
   function handleSuccess(): void {
-    consecutiveErrorCount = 0
+    consecutiveErrorCount = 0;
   }
 
   function reset(): void {
-    consecutiveErrorCount = 0
+    consecutiveErrorCount = 0;
   }
 
   return {
@@ -116,5 +114,5 @@ export function createVoiceErrorHandler(
     handleConsecutiveError,
     handleSuccess,
     reset,
-  }
+  };
 }

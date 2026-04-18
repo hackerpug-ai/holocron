@@ -1,8 +1,8 @@
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import { ChevronRight } from "@/components/ui/icons";
-import { View } from "react-native";
-import { useTheme } from "@/hooks/use-theme";
+import { View } from 'react-native';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { ChevronRight } from '@/components/ui/icons';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useTheme } from '@/hooks/use-theme';
 
 interface ArticleCardSkeletonProps {
   /** Staggered animation delay in ms for visual interest (currently unused, for future animation support) */
@@ -49,4 +49,3 @@ export function ArticleCardSkeleton({ delay: _delay = 0 }: ArticleCardSkeletonPr
     </Card>
   );
 }
-

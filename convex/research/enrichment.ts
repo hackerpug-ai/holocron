@@ -1,6 +1,6 @@
-"use node";
+'use node';
 
-import { jinaReaderBatch, jinaSearch, type JinaSearchResult } from "../lib/jina";
+import { type JinaSearchResult, jinaReaderBatch, jinaSearch } from '../lib/jina';
 
 export interface RecommendationPlatformLink {
   platform: string;
@@ -50,11 +50,11 @@ interface EnrichmentCandidate {
 interface EnrichmentDeps {
   executeSearch?: (
     query: EnrichmentQuery,
-    options: { apiKey: string; signal?: AbortSignal },
+    options: { apiKey: string; signal?: AbortSignal }
   ) => Promise<JinaSearchResult[]>;
   readUrls?: (
     urls: string[],
-    options: { apiKey: string; signal?: AbortSignal },
+    options: { apiKey: string; signal?: AbortSignal }
   ) => Promise<Map<string, string>>;
 }
 
@@ -62,34 +62,34 @@ const ENTITY_SEARCH_LIMIT = 3;
 const READER_TIMEOUT_MS = 4_000;
 
 const PLATFORM_QUERIES: ReadonlyArray<{ platform: string; site?: string }> = [
-  { platform: "yelp", site: "yelp.com" },
-  { platform: "google", site: "google.com" },
-  { platform: "facebook", site: "facebook.com" },
+  { platform: 'yelp', site: 'yelp.com' },
+  { platform: 'google', site: 'google.com' },
+  { platform: 'facebook', site: 'facebook.com' },
 ];
 
 function createAbortError(): Error {
   try {
-    return new DOMException("The operation was aborted", "AbortError");
+    return new DOMException('The operation was aborted', 'AbortError');
   } catch {
-    const error = new Error("The operation was aborted");
-    error.name = "AbortError";
+    const error = new Error('The operation was aborted');
+    error.name = 'AbortError';
     return error;
   }
 }
 
 function isAbortLikeError(error: unknown): boolean {
-  if (error instanceof DOMException && error.name === "AbortError") {
+  if (error instanceof DOMException && error.name === 'AbortError') {
     return true;
   }
   if (error instanceof Error) {
     return (
-      error.name === "AbortError" ||
-      error.message.includes("aborted") ||
-      error.message.includes("AbortError")
+      error.name === 'AbortError' ||
+      error.message.includes('aborted') ||
+      error.message.includes('AbortError')
     );
   }
   const asString = String(error);
-  return asString.includes("aborted") || asString.includes("AbortError");
+  return asString.includes('aborted') || asString.includes('AbortError');
 }
 
 function hasUsablePlatformLinks(item: RecommendationItemForEnrichment): boolean {
@@ -109,9 +109,7 @@ export function shouldEnrichItem(item: RecommendationItemForEnrichment): boolean
   return !hasUsablePlatformLinks(item);
 }
 
-export function buildSelectiveEnrichmentPlan(
-  items: RecommendationItemForEnrichment[],
-): number[] {
+export function buildSelectiveEnrichmentPlan(items: RecommendationItemForEnrichment[]): number[] {
   return items
     .map((item, index) => (shouldEnrichItem(item) ? index : -1))
     .filter((index) => index >= 0);
@@ -119,30 +117,25 @@ export function buildSelectiveEnrichmentPlan(
 
 function compactQuery(parts: Array<string | undefined>): string {
   return parts
-    .map((part) => (part ?? "").trim())
+    .map((part) => (part ?? '').trim())
     .filter(Boolean)
-    .join(" ");
+    .join(' ');
 }
 
 function buildEntityQueries(
   item: RecommendationItemForEnrichment,
-  args: SelectiveEnrichmentArgs,
+  args: SelectiveEnrichmentArgs
 ): EnrichmentQuery[] {
-  const constraints = args.constraints?.join(" ");
+  const constraints = args.constraints?.join(' ');
   return PLATFORM_QUERIES.map((entry) => ({
     platform: entry.platform,
     site: entry.site,
-    query: compactQuery([
-      `"${item.name}"`,
-      args.location ?? item.location,
-      "reviews",
-      constraints,
-    ]),
+    query: compactQuery([`"${item.name}"`, args.location ?? item.location, 'reviews', constraints]),
   }));
 }
 
 function toInt(value: string): number | undefined {
-  const parsed = Number.parseInt(value.replace(/,/g, ""), 10);
+  const parsed = Number.parseInt(value.replace(/,/g, ''), 10);
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
@@ -164,11 +157,11 @@ function parseRatingAndReviewCount(text: string): {
 function detectPlatformFromUrl(url: string): string | undefined {
   try {
     const host = new URL(url).hostname.toLowerCase();
-    if (host.includes("yelp.")) return "yelp";
-    if (host.includes("google.")) return "google";
-    if (host.includes("facebook.")) return "facebook";
-    if (host.includes("tripadvisor.")) return "tripadvisor";
-    if (host.includes("reddit.")) return "reddit";
+    if (host.includes('yelp.')) return 'yelp';
+    if (host.includes('google.')) return 'google';
+    if (host.includes('facebook.')) return 'facebook';
+    if (host.includes('tripadvisor.')) return 'tripadvisor';
+    if (host.includes('reddit.')) return 'reddit';
     return undefined;
   } catch {
     return undefined;
@@ -181,14 +174,14 @@ function isDirectPlatformUrl(platform: string, rawUrl: string): boolean {
     const host = url.hostname.toLowerCase();
     const path = url.pathname.toLowerCase();
 
-    if (platform === "yelp") {
-      return host.includes("yelp.") && path.startsWith("/biz/");
+    if (platform === 'yelp') {
+      return host.includes('yelp.') && path.startsWith('/biz/');
     }
-    if (platform === "google") {
-      return host.includes("google.") && path.includes("/maps/");
+    if (platform === 'google') {
+      return host.includes('google.') && path.includes('/maps/');
     }
-    if (platform === "facebook") {
-      return host.includes("facebook.") && path.length > 1;
+    if (platform === 'facebook') {
+      return host.includes('facebook.') && path.length > 1;
     }
     return true;
   } catch {
@@ -198,13 +191,14 @@ function isDirectPlatformUrl(platform: string, rawUrl: string): boolean {
 
 function normalizeCandidate(
   result: JinaSearchResult,
-  platformHint: string,
+  platformHint: string
 ): EnrichmentCandidate | null {
-  const url = typeof result.url === "string" && result.url
-    ? result.url
-    : typeof result.link === "string"
-      ? result.link
-      : "";
+  const url =
+    typeof result.url === 'string' && result.url
+      ? result.url
+      : typeof result.link === 'string'
+        ? result.link
+        : '';
   if (!url) {
     return null;
   }
@@ -214,11 +208,12 @@ function normalizeCandidate(
     return null;
   }
 
-  const snippet = typeof result.content === "string"
-    ? result.content
-    : typeof result.description === "string"
-      ? result.description
-      : "";
+  const snippet =
+    typeof result.content === 'string'
+      ? result.content
+      : typeof result.description === 'string'
+        ? result.description
+        : '';
   const parsed = parseRatingAndReviewCount(snippet);
 
   return {
@@ -232,7 +227,7 @@ function normalizeCandidate(
 function canonicalizeUrl(url: string): string {
   try {
     const parsed = new URL(url);
-    parsed.hash = "";
+    parsed.hash = '';
     return parsed.toString();
   } catch {
     return url.trim().toLowerCase();
@@ -241,7 +236,7 @@ function canonicalizeUrl(url: string): string {
 
 function mergePlatformLinks(
   existing: RecommendationPlatformLink[] | undefined,
-  discovered: EnrichmentCandidate[],
+  discovered: EnrichmentCandidate[]
 ): RecommendationPlatformLink[] | undefined {
   const ordered: RecommendationPlatformLink[] = [];
   const dedup = new Map<string, RecommendationPlatformLink>();
@@ -263,10 +258,7 @@ function mergePlatformLinks(
       if (existingLink.rating === undefined && candidate.rating !== undefined) {
         existingLink.rating = candidate.rating;
       }
-      if (
-        existingLink.reviewCount === undefined &&
-        candidate.reviewCount !== undefined
-      ) {
+      if (existingLink.reviewCount === undefined && candidate.reviewCount !== undefined) {
         existingLink.reviewCount = candidate.reviewCount;
       }
       continue;
@@ -276,9 +268,7 @@ function mergePlatformLinks(
       platform: candidate.platform,
       url: candidate.url,
       ...(candidate.rating !== undefined ? { rating: candidate.rating } : {}),
-      ...(candidate.reviewCount !== undefined
-        ? { reviewCount: candidate.reviewCount }
-        : {}),
+      ...(candidate.reviewCount !== undefined ? { reviewCount: candidate.reviewCount } : {}),
     };
     dedup.set(key, nextLink);
     ordered.push(nextLink);
@@ -288,7 +278,7 @@ function mergePlatformLinks(
 }
 
 function pickPreferredCandidate(
-  candidates: EnrichmentCandidate[],
+  candidates: EnrichmentCandidate[]
 ): EnrichmentCandidate | undefined {
   if (candidates.length === 0) {
     return undefined;
@@ -305,7 +295,7 @@ function pickPreferredCandidate(
 
 export function mergeEnrichedItem(
   original: RecommendationItemForEnrichment,
-  candidates: EnrichmentCandidate[],
+  candidates: EnrichmentCandidate[]
 ): RecommendationItemForEnrichment {
   if (candidates.length === 0) {
     return original;
@@ -319,8 +309,7 @@ export function mergeEnrichedItem(
     ...(original.rating === undefined && preferred?.rating !== undefined
       ? { rating: preferred.rating }
       : {}),
-    ...(original.reviewCount === undefined &&
-    preferred?.reviewCount !== undefined
+    ...(original.reviewCount === undefined && preferred?.reviewCount !== undefined
       ? { reviewCount: preferred.reviewCount }
       : {}),
     ...(original.sourcePlatform === undefined && preferred?.platform
@@ -332,7 +321,7 @@ export function mergeEnrichedItem(
 
 async function defaultExecuteSearch(
   query: EnrichmentQuery,
-  options: { apiKey: string; signal?: AbortSignal },
+  options: { apiKey: string; signal?: AbortSignal }
 ): Promise<JinaSearchResult[]> {
   return jinaSearch(query.query, {
     apiKey: options.apiKey,
@@ -345,7 +334,7 @@ async function defaultExecuteSearch(
 
 async function defaultReadUrls(
   urls: string[],
-  options: { apiKey: string; signal?: AbortSignal },
+  options: { apiKey: string; signal?: AbortSignal }
 ): Promise<Map<string, string>> {
   if (urls.length === 0) {
     return new Map<string, string>();
@@ -359,7 +348,7 @@ async function defaultReadUrls(
 
 function mergeReaderEvidence(
   candidates: EnrichmentCandidate[],
-  contentMap: Map<string, string>,
+  contentMap: Map<string, string>
 ): EnrichmentCandidate[] {
   return candidates.map((candidate) => {
     const content = contentMap.get(candidate.url);
@@ -379,7 +368,7 @@ function mergeReaderEvidence(
 export async function selectivelyEnrichRecommendations(
   items: RecommendationItemForEnrichment[],
   args: SelectiveEnrichmentArgs,
-  deps: EnrichmentDeps = {},
+  deps: EnrichmentDeps = {}
 ): Promise<RecommendationItemForEnrichment[]> {
   if (args.signal?.aborted) {
     throw createAbortError();
@@ -401,12 +390,10 @@ export async function selectivelyEnrichRecommendations(
       const entityQueries = buildEntityQueries(item, args);
 
       const searchSettled = await Promise.allSettled(
-        entityQueries.map((query) =>
-          executeSearch(query, { apiKey, signal: args.signal }),
-        ),
+        entityQueries.map((query) => executeSearch(query, { apiKey, signal: args.signal }))
       );
       const searchResults = searchSettled.map((result) => {
-        if (result.status === "fulfilled") {
+        if (result.status === 'fulfilled') {
           return result.value;
         }
         if (args.signal?.aborted) {
@@ -421,16 +408,13 @@ export async function selectivelyEnrichRecommendations(
       const candidates = searchResults
         .flatMap((results, queryIndex) =>
           results
-            .map((result) =>
-              normalizeCandidate(result, entityQueries[queryIndex].platform),
-            )
-            .filter((candidate): candidate is EnrichmentCandidate => !!candidate),
+            .map((result) => normalizeCandidate(result, entityQueries[queryIndex].platform))
+            .filter((candidate): candidate is EnrichmentCandidate => !!candidate)
         )
         .slice(0, ENTITY_SEARCH_LIMIT);
 
       const requiresReaderEvidence = candidates.some(
-        (candidate) =>
-          candidate.rating === undefined || candidate.reviewCount === undefined,
+        (candidate) => candidate.rating === undefined || candidate.reviewCount === undefined
       );
       const urlsToRead = requiresReaderEvidence
         ? [...new Set(candidates.map((candidate) => candidate.url))]
@@ -445,14 +429,14 @@ export async function selectivelyEnrichRecommendations(
         index,
         item: mergeEnrichedItem(item, mergeReaderEvidence(candidates, contentMap)),
       };
-    }),
+    })
   );
 
   for (const result of settled) {
     if (args.signal?.aborted) {
       throw createAbortError();
     }
-    if (result.status === "rejected") {
+    if (result.status === 'rejected') {
       if (isAbortLikeError(result.reason)) {
         throw result.reason;
       }

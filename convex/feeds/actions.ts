@@ -1,6 +1,6 @@
-import { action } from "../_generated/server";
-import { internal } from "../_generated/api";
-import type { Id } from "../_generated/dataModel";
+import { internal } from '../_generated/api';
+import type { Id } from '../_generated/dataModel';
+import { action } from '../_generated/server';
 
 // ============================================================================
 // Feed Building Actions
@@ -21,14 +21,16 @@ import type { Id } from "../_generated/dataModel";
  */
 export const buildFeed = action({
   args: {},
-  handler: async (ctx): Promise<{
+  handler: async (
+    ctx
+  ): Promise<{
     processed: number;
-    items: Array<{ groupKey: string; feedItemId: Id<"feedItems">; itemCount: number }>;
+    items: Array<{ groupKey: string; feedItemId: Id<'feedItems'>; itemCount: number }>;
   }> => {
     // Authentication check
     const user = await ctx.auth.getUserIdentity();
     if (!user) {
-      throw new Error("Unauthorized: User must be logged in to build feed");
+      throw new Error('Unauthorized: User must be logged in to build feed');
     }
 
     // Call internal action to do the actual work

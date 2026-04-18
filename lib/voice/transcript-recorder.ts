@@ -1,21 +1,21 @@
-import type { Id } from '@/convex/_generated/dataModel'
+import type { Id } from '@/convex/_generated/dataModel';
 
 type RecordTranscriptFn = (args: {
-  sessionId: Id<'voiceSessions'>
-  conversationId: Id<'conversations'>
-  role: 'user' | 'agent'
-  content: string
-}) => Promise<unknown>
+  sessionId: Id<'voiceSessions'>;
+  conversationId: Id<'conversations'>;
+  role: 'user' | 'agent';
+  content: string;
+}) => Promise<unknown>;
 
 interface TranscriptRecorderOptions {
-  recordTranscript: RecordTranscriptFn
-  sessionId: Id<'voiceSessions'>
-  conversationId: Id<'conversations'>
+  recordTranscript: RecordTranscriptFn;
+  sessionId: Id<'voiceSessions'>;
+  conversationId: Id<'conversations'>;
 }
 
 interface TranscriptRecorder {
-  onUserTranscript: (content: string) => void
-  onAgentTranscript: (content: string) => void
+  onUserTranscript: (content: string) => void;
+  onAgentTranscript: (content: string) => void;
 }
 
 /**
@@ -30,15 +30,13 @@ export function createTranscriptRecorder({
   conversationId,
 }: TranscriptRecorderOptions): TranscriptRecorder {
   function record(role: 'user' | 'agent', content: string): void {
-    void recordTranscript({ sessionId, conversationId, role, content }).catch(
-      (err: unknown) => {
-        console.error('[transcript-recorder] Failed to record transcript:', err)
-      }
-    )
+    void recordTranscript({ sessionId, conversationId, role, content }).catch((err: unknown) => {
+      console.error('[transcript-recorder] Failed to record transcript:', err);
+    });
   }
 
   return {
     onUserTranscript: (content: string) => record('user', content),
     onAgentTranscript: (content: string) => record('agent', content),
-  }
+  };
 }

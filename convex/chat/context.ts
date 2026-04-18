@@ -1,5 +1,5 @@
-import { GenericDatabaseReader } from "convex/server";
-import { DataModel, Id } from "../_generated/dataModel";
+import type { GenericDatabaseReader } from 'convex/server';
+import type { DataModel, Id } from '../_generated/dataModel';
 
 /**
  * Normalize cardData to an array of card objects.
@@ -7,9 +7,9 @@ import { DataModel, Id } from "../_generated/dataModel";
  */
 function normalizeCardData(cardData: unknown): Record<string, unknown>[] {
   if (Array.isArray(cardData)) return cardData;
-  if (typeof cardData === "object" && cardData !== null) {
+  if (typeof cardData === 'object' && cardData !== null) {
     const obj = cardData as Record<string, unknown>;
-    if (obj.card_type === "search_results" && Array.isArray(obj.items)) {
+    if (obj.card_type === 'search_results' && Array.isArray(obj.items)) {
       return obj.items as Record<string, unknown>[];
     }
     return [obj];
@@ -18,16 +18,16 @@ function normalizeCardData(cardData: unknown): Record<string, unknown>[] {
 }
 
 type LlmMessage = {
-  role: "user" | "assistant" | "system";
+  role: 'user' | 'assistant' | 'system';
   content: string;
 };
 
 type DocumentContextCardData = {
-  card_type: "document_context";
+  card_type: 'document_context';
   document_id: string;
   title: string;
   category?: string;
-  scope: "full" | "excerpt";
+  scope: 'full' | 'excerpt';
   excerpt?: string;
   blockIndex?: number;
   snippet?: string;
@@ -41,16 +41,14 @@ const MAX_DOCUMENT_CONTEXT_COUNT = 5;
 
 export async function buildConversationContext(
   db: GenericDatabaseReader<DataModel>,
-  conversationId: Id<"conversations">,
+  conversationId: Id<'conversations'>,
   tokenBudget: number = 60000
 ): Promise<LlmMessage[]> {
   // Fetch the last 200 messages for this conversation, ordered by createdAt ascending
   const allMessages = await db
-    .query("chatMessages")
-    .withIndex("by_conversation", (q) =>
-      q.eq("conversationId", conversationId)
-    )
-    .order("desc")
+    .query('chatMessages')
+    .withIndex('by_conversation', (q) => q.eq('conversationId', conversationId))
+    .order('desc')
     .take(MAX_MESSAGES_TO_FETCH);
 
   // Filter out deleted messages
@@ -95,7 +93,7 @@ export async function buildConversationContext(
       }
 
       // Collect tool names used
-      if (msg.messageType === "tool_approval") {
+      if (msg.messageType === 'tool_approval') {
         const tc = msg.content.match(/\b(\w+)\s+tool\b/i);
         if (tc) {
           const label = `${tc[1]} tool usage`;
@@ -104,7 +102,7 @@ export async function buildConversationContext(
       }
 
       // Collect first sentence of user messages
-      if (msg.role === "user" && msg.content) {
+      if (msg.role === 'user' && msg.content) {
         const firstSentence = msg.content.split(/[.!?\n]/)[0]?.trim();
         if (firstSentence && firstSentence.length > 5) {
           topics.push(`"${firstSentence}"`);
@@ -113,11 +111,11 @@ export async function buildConversationContext(
     }
 
     if (topics.length > 0) {
-      let summaryText = `Earlier in this conversation, topics included: ${topics.join(", ")}`;
+      let summaryText = `Earlier in this conversation, topics included: ${topics.join(', ')}`;
       if (summaryText.length > 500) {
-        summaryText = summaryText.slice(0, 497) + "...";
+        summaryText = summaryText.slice(0, 497) + '...';
       }
-      conversationSummary = { role: "system", content: summaryText };
+      conversationSummary = { role: 'system', content: summaryText };
     }
   }
 
@@ -126,10 +124,7 @@ export async function buildConversationContext(
 
   // Collect document context info from messages, tracking cardData for section-aware injection.
   // Maps documentId → the first cardData encountered (or null for legacy messages).
-  const documentContextMap = new Map<
-    Id<"documents">,
-    DocumentContextCardData | null
-  >();
+  const documentContextMap = new Map<Id<'documents'>, DocumentContextCardData | null>();
 
   for (const message of orderedMessages) {
     if (!message.documentId) continue;
@@ -137,7 +132,7 @@ export async function buildConversationContext(
     if (documentContextMap.has(message.documentId)) continue;
 
     const cardData = message.cardData as DocumentContextCardData | undefined;
-    if (cardData && cardData.card_type === "document_context") {
+    if (cardData && cardData.card_type === 'document_context') {
       documentContextMap.set(message.documentId, cardData);
     } else {
       // Legacy message: no cardData or different card type → full injection
@@ -148,7 +143,7 @@ export async function buildConversationContext(
   // Second pass: extract document IDs from result_card messages with cardData
   // This makes the agent aware of articles cited in chat history
   for (const message of orderedMessages) {
-    if (message.messageType !== "result_card") continue;
+    if (message.messageType !== 'result_card') continue;
     if (!message.cardData) continue;
 
     const cards = normalizeCardData(message.cardData);
@@ -162,9 +157,9 @@ export async function buildConversationContext(
       // Only process specific card types that contain document references
       if (
         documentId &&
-        ["article", "document_saved", "document_full", "final_result"].includes(cardType)
+        ['article', 'document_saved', 'document_full', 'final_result'].includes(cardType)
       ) {
-        const docId = documentId as Id<"documents">;
+        const docId = documentId as Id<'documents'>;
         if (!documentContextMap.has(docId)) {
           // Store null for cardData since we don't have full context info
           documentContextMap.set(docId, null);
@@ -176,13 +171,11 @@ export async function buildConversationContext(
   // Fetch referenced documents and build system context
   const documentContextParts: string[] = [];
   for (const [documentId, cardData] of documentContextMap) {
-    if (cardData && cardData.scope === "excerpt") {
+    if (cardData && cardData.scope === 'excerpt') {
       // Excerpt scope: the excerpt text is already in the message content.
       // Emit a light header so the agent knows the source document.
       const blockRef =
-        cardData.blockIndex !== undefined
-          ? ` from block ${cardData.blockIndex}`
-          : "";
+        cardData.blockIndex !== undefined ? ` from block ${cardData.blockIndex}` : '';
       documentContextParts.push(
         `--- Document: ${cardData.title} (excerpt${blockRef}) ---\n[Full document available via ID: ${documentId}]`
       );
@@ -192,7 +185,7 @@ export async function buildConversationContext(
       if (document) {
         const truncatedContent =
           document.content.length > MAX_DOCUMENT_CONTEXT_CHARS
-            ? document.content.slice(0, MAX_DOCUMENT_CONTEXT_CHARS) + "..."
+            ? document.content.slice(0, MAX_DOCUMENT_CONTEXT_CHARS) + '...'
             : document.content;
         documentContextParts.push(
           `--- Document: ${document.title} (ID: ${documentId}) ---\n${truncatedContent}`
@@ -203,14 +196,12 @@ export async function buildConversationContext(
 
   // Fetch all toolCalls for this conversation to represent tool interactions clearly
   const allToolCalls = await db
-    .query("toolCalls")
-    .withIndex("by_conversation", (q) =>
-      q.eq("conversationId", conversationId)
-    )
+    .query('toolCalls')
+    .withIndex('by_conversation', (q) => q.eq('conversationId', conversationId))
     .collect();
 
   // Index tool calls by their approval messageId and track result messageIds
-  const toolCallByApprovalMessageId = new Map<string, typeof allToolCalls[number]>();
+  const toolCallByApprovalMessageId = new Map<string, (typeof allToolCalls)[number]>();
   const resultMessageIds = new Set<string>();
   for (const tc of allToolCalls) {
     toolCallByApprovalMessageId.set(tc.messageId, tc);
@@ -225,54 +216,50 @@ export async function buildConversationContext(
 
   for (const message of orderedMessages) {
     // agent_plan messages → convert to structured plan text for the assistant
-    if (message.messageType === "agent_plan") {
+    if (message.messageType === 'agent_plan') {
       const cardData = message.cardData as { plan_id?: string } | undefined;
       const planId = cardData?.plan_id;
       if (!planId) continue;
 
-      const plan = await db.get(planId as Id<"agentPlans">);
+      const plan = await db.get(planId as Id<'agentPlans'>);
       if (!plan) continue;
 
       const steps = await db
-        .query("agentPlanSteps")
-        .withIndex("by_plan", (q) =>
-          q.eq("planId", planId as Id<"agentPlans">)
-        )
-        .order("asc")
+        .query('agentPlanSteps')
+        .withIndex('by_plan', (q) => q.eq('planId', planId as Id<'agentPlans'>))
+        .order('asc')
         .collect();
 
-      const statusLabel = (
-        s: string
-      ): string => {
+      const statusLabel = (s: string): string => {
         const map: Record<string, string> = {
-          pending: "pending",
-          running: "running",
-          awaiting_approval: "awaiting approval",
-          approved: "approved",
-          completed: "completed",
-          skipped: "skipped",
-          failed: "failed",
+          pending: 'pending',
+          running: 'running',
+          awaiting_approval: 'awaiting approval',
+          approved: 'approved',
+          completed: 'completed',
+          skipped: 'skipped',
+          failed: 'failed',
         };
         return map[s] ?? s;
       };
 
       const stepLines = steps.map((step, idx) => {
-        let suffix = "";
-        if (step.status === "completed" && step.resultSummary) {
+        let suffix = '';
+        if (step.status === 'completed' && step.resultSummary) {
           suffix = ` → ${step.resultSummary}`;
-        } else if (step.status === "failed" && step.errorMessage) {
+        } else if (step.status === 'failed' && step.errorMessage) {
           suffix = ` → Error: ${step.errorMessage}`;
         }
         return `Step ${idx + 1} (${statusLabel(step.status)}): ${step.description}${suffix}`;
       });
 
-      const planText = `[I created a plan: "${plan.title}"]\n${stepLines.join("\n")}`;
-      llmMessages.push({ role: "assistant", content: planText });
+      const planText = `[I created a plan: "${plan.title}"]\n${stepLines.join('\n')}`;
+      llmMessages.push({ role: 'assistant', content: planText });
       continue;
     }
 
     // tool_approval messages → convert to descriptive assistant text + include result
-    if (message.messageType === "tool_approval") {
+    if (message.messageType === 'tool_approval') {
       const tc = toolCallByApprovalMessageId.get(message._id);
       if (!tc) continue;
 
@@ -280,33 +267,33 @@ export async function buildConversationContext(
       const argsStr = tc.toolArgs
         ? Object.entries(tc.toolArgs as Record<string, unknown>)
             .map(([k, v]) => `${k}: ${JSON.stringify(v)}`)
-            .join(", ")
-        : "";
-      const callDescription = `[I used the ${tc.toolDisplayName} tool${argsStr ? ` with ${argsStr}` : ""}]`;
-      const toolSlug = tc.toolName.toLowerCase().replace(/\s+/g, "_");
+            .join(', ')
+        : '';
+      const callDescription = `[I used the ${tc.toolDisplayName} tool${argsStr ? ` with ${argsStr}` : ''}]`;
+      const toolSlug = tc.toolName.toLowerCase().replace(/\s+/g, '_');
 
       // Split into assistant (call) + user (observation) so the conversation
       // alternates properly and ends on a user message — required by models
       // that don't support assistant-message prefill (e.g. Claude Haiku).
-      if (tc.status === "completed" && tc.resultMessageId) {
+      if (tc.status === 'completed' && tc.resultMessageId) {
         const resultMsg = orderedMessages.find((m) => m._id === tc.resultMessageId);
-        const resultContent = resultMsg?.content ?? "Tool completed successfully.";
-        llmMessages.push({ role: "assistant", content: callDescription });
+        const resultContent = resultMsg?.content ?? 'Tool completed successfully.';
+        llmMessages.push({ role: 'assistant', content: callDescription });
         llmMessages.push({
-          role: "user",
+          role: 'user',
           content: `Observation (${toolSlug}):\n${resultContent}`,
         });
-      } else if (tc.status === "rejected") {
-        llmMessages.push({ role: "assistant", content: callDescription });
+      } else if (tc.status === 'rejected') {
+        llmMessages.push({ role: 'assistant', content: callDescription });
         llmMessages.push({
-          role: "user",
+          role: 'user',
           content: `Observation (${toolSlug}): The user rejected this tool call.`,
         });
-      } else if (tc.status === "failed") {
-        llmMessages.push({ role: "assistant", content: callDescription });
+      } else if (tc.status === 'failed') {
+        llmMessages.push({ role: 'assistant', content: callDescription });
         llmMessages.push({
-          role: "user",
-          content: `Observation (${toolSlug}): Tool execution failed: ${tc.error ?? "Unknown error"}`,
+          role: 'user',
+          content: `Observation (${toolSlug}): Tool execution failed: ${tc.error ?? 'Unknown error'}`,
         });
       }
       // Skip pending/approved — not yet resolved
@@ -318,44 +305,43 @@ export async function buildConversationContext(
     if (resultMessageIds.has(message._id)) {
       // Still include if it has document references in cardData
       const hasDocRefs =
-        message.cardData &&
-        normalizeCardData(message.cardData).some((c) => c.document_id);
+        message.cardData && normalizeCardData(message.cardData).some((c) => c.document_id);
       if (!hasDocRefs) {
         continue;
       }
     }
 
     // For result_card messages with document references in cardData, include document IDs
-    if (message.messageType === "result_card" && message.cardData) {
+    if (message.messageType === 'result_card' && message.cardData) {
       const cards = normalizeCardData(message.cardData);
       const docRefs = cards
         .filter(
           (c) =>
             c.document_id &&
             [
-              "article",
-              "document_saved",
-              "document_context",
-              "document_full",
-              "final_result",
+              'article',
+              'document_saved',
+              'document_context',
+              'document_full',
+              'final_result',
             ].includes(c.card_type as string)
         )
-        .map((c: any) => `- "${c.title || "Untitled"}" [ID: ${c.document_id}]`);
+        .map((c: any) => `- "${c.title || 'Untitled'}" [ID: ${c.document_id}]`);
 
       if (docRefs.length > 0) {
-        const enrichedContent = `${message.content}\n\nDocuments referenced:\n${docRefs.join("\n")}`;
-        llmMessages.push({ role: "assistant", content: enrichedContent });
+        const enrichedContent = `${message.content}\n\nDocuments referenced:\n${docRefs.join('\n')}`;
+        llmMessages.push({ role: 'assistant', content: enrichedContent });
         continue;
       }
     }
 
-    if (message.role === "user") {
-      llmMessages.push({ role: "user", content: message.content });
-    } else if (message.role === "system") {
-      llmMessages.push({ role: "system", content: message.content });
+    if (message.role === 'user') {
+      llmMessages.push({ role: 'user', content: message.content });
+    } else if (message.role === 'system') {
+      llmMessages.push({ role: 'system', content: message.content });
     } else {
       // role === "agent" — text, error, progress, result_card messages
-      llmMessages.push({ role: "assistant", content: message.content });
+      llmMessages.push({ role: 'assistant', content: message.content });
     }
   }
 
@@ -368,10 +354,10 @@ export async function buildConversationContext(
 
   if (documentContextParts.length > 0) {
     prefixMessages.push({
-      role: "system",
+      role: 'system',
       content:
-        "The following documents are referenced in this conversation:\n\n" +
-        documentContextParts.join("\n\n"),
+        'The following documents are referenced in this conversation:\n\n' +
+        documentContextParts.join('\n\n'),
     });
   }
 

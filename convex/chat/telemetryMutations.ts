@@ -5,32 +5,32 @@
  * for later analysis and improvement of the triage system.
  */
 
-import { internalMutation } from "../_generated/server";
-import { v } from "convex/values";
+import { v } from 'convex/values';
+import { internalMutation } from '../_generated/server';
 
 // Valid intent categories from triage.ts
 const _VALID_INTENTS = [
-  "conversation",
-  "knowledge",
-  "research",
-  "commerce",
-  "subscriptions",
-  "discovery",
-  "documents",
-  "analysis",
-  "improvements",
-  "multi_step",
+  'conversation',
+  'knowledge',
+  'research',
+  'commerce',
+  'subscriptions',
+  'discovery',
+  'documents',
+  'analysis',
+  'improvements',
+  'multi_step',
 ] as const;
 
 // Valid confidence levels
-const _VALID_CONFIDENCES = ["high", "medium", "low"] as const;
+const _VALID_CONFIDENCES = ['high', 'medium', 'low'] as const;
 
 // Valid classification sources
 const _VALID_CLASSIFICATION_SOURCES = [
-  "triage_agent",
-  "heuristic",
-  "manual_override",
-  "cached",
+  'triage_agent',
+  'heuristic',
+  'manual_override',
+  'cached',
 ] as const;
 
 /**
@@ -48,17 +48,17 @@ const _VALID_CLASSIFICATION_SOURCES = [
  */
 export const recordTriage = internalMutation({
   args: {
-    conversationId: v.id("conversations"),
-    messageId: v.id("chatMessages"),
+    conversationId: v.id('conversations'),
+    messageId: v.id('chatMessages'),
     intent: v.string(),
     queryShape: v.string(),
     confidence: v.string(),
     reasoning: v.optional(v.string()),
     classificationSource: v.union(
-      v.literal("regex"),
-      v.literal("llm"),
-      v.literal("fallback"),
-      v.literal("pending_rehydrate")
+      v.literal('regex'),
+      v.literal('llm'),
+      v.literal('fallback'),
+      v.literal('pending_rehydrate')
     ),
     regexMatchPattern: v.optional(v.string()),
     rawLlmResponse: v.optional(v.string()),
@@ -73,7 +73,7 @@ export const recordTriage = internalMutation({
     // Truncate rawLlmResponse to 2000 characters
     const truncatedResponse = args.rawLlmResponse ? args.rawLlmResponse.slice(0, 2000) : undefined;
 
-    const id = await ctx.db.insert("agentTelemetry", {
+    const id = await ctx.db.insert('agentTelemetry', {
       conversationId: args.conversationId,
       messageId: args.messageId,
       intent: args.intent,
@@ -111,15 +111,15 @@ export const computeCutoff = (olderThanMs: number, now: number = Date.now()): nu
 export const deleteOldTelemetryCore = async (
   ctx: any,
   olderThanMs: number,
-  now: number = Date.now(),
+  now: number = Date.now()
 ): Promise<{ deleted: number }> => {
   const cutoff = computeCutoff(olderThanMs, now);
   let deleted = 0;
 
   while (true) {
     const batch = await ctx.db
-      .query("agentTelemetry")
-      .withIndex("by_createdAt", (q: any) => q.lt("createdAt", cutoff))
+      .query('agentTelemetry')
+      .withIndex('by_createdAt', (q: any) => q.lt('createdAt', cutoff))
       .take(BATCH_SIZE);
 
     if (batch.length === 0) break;

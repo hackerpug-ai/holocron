@@ -1,34 +1,34 @@
-import { View } from 'react-native'
-import { Text } from '@/components/ui/text'
-import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
-import { CheckCircle2, XCircle, Loader2, AlertCircle } from '@/components/ui/icons'
+import { View } from 'react-native';
+import { Button } from '@/components/ui/button';
+import { AlertCircle, CheckCircle2, Loader2, XCircle } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { cn } from '@/lib/utils';
 
 export interface PlatformProgress {
-  platform: string
-  status: 'pending' | 'in_progress' | 'success' | 'error'
-  error?: string
+  platform: string;
+  status: 'pending' | 'in_progress' | 'success' | 'error';
+  error?: string;
 }
 
 // Chat card data type (snake_case to match backend)
 export interface SubscriptionProgressCardData {
-  card_type: 'subscription_progress'
-  creator_name: string
+  card_type: 'subscription_progress';
+  creator_name: string;
   platforms: Array<{
-    platform: string
-    status: 'pending' | 'in_progress' | 'success' | 'error'
-    error?: string
-  }>
+    platform: string;
+    status: 'pending' | 'in_progress' | 'success' | 'error';
+    error?: string;
+  }>;
 }
 
 export interface SubscriptionProgressCardProps {
-  data?: SubscriptionProgressCardData
-  creatorName?: string
-  platforms?: PlatformProgress[]
-  onComplete?: () => void
-  onRetry?: (platform: string) => void
-  className?: string
-  testID?: string
+  data?: SubscriptionProgressCardData;
+  creatorName?: string;
+  platforms?: PlatformProgress[];
+  onComplete?: () => void;
+  onRetry?: (platform: string) => void;
+  className?: string;
+  testID?: string;
 }
 
 /**
@@ -50,20 +50,20 @@ export function SubscriptionProgressCard({
   testID,
 }: SubscriptionProgressCardProps) {
   // Support both `data` prop (from chat cards) and individual props
-  const effectiveCreatorName = creatorName ?? data?.creator_name ?? ''
-  const effectivePlatforms = platforms ?? data?.platforms ?? []
+  const effectiveCreatorName = creatorName ?? data?.creator_name ?? '';
+  const effectivePlatforms = platforms ?? data?.platforms ?? [];
 
   // Calculate overall status
-  const totalPlatforms = effectivePlatforms.length
-  const successCount = effectivePlatforms.filter((p) => p.status === 'success').length
-  const errorCount = effectivePlatforms.filter((p) => p.status === 'error').length
+  const totalPlatforms = effectivePlatforms.length;
+  const successCount = effectivePlatforms.filter((p) => p.status === 'success').length;
+  const errorCount = effectivePlatforms.filter((p) => p.status === 'error').length;
 
   const isComplete = effectivePlatforms.every(
     (p) => p.status === 'success' || p.status === 'error'
-  )
+  );
 
-  const hasErrors = errorCount > 0
-  const allSuccess = successCount === totalPlatforms && totalPlatforms > 0
+  const hasErrors = errorCount > 0;
+  const allSuccess = successCount === totalPlatforms && totalPlatforms > 0;
 
   return (
     <View
@@ -99,16 +99,16 @@ export function SubscriptionProgressCard({
               <Loader2 size={18} className="text-primary animate-spin" />
             ) : (
               <View className="h-4.5 w-4.5 rounded-full border-2 border-muted-foreground/30" />
-            )
+            );
 
           const statusText =
             platform.status === 'success'
               ? 'Subscribed'
               : platform.status === 'error'
-              ? 'Failed'
-              : platform.status === 'in_progress'
-              ? 'Subscribing...'
-              : 'Pending'
+                ? 'Failed'
+                : platform.status === 'in_progress'
+                  ? 'Subscribing...'
+                  : 'Pending';
 
           return (
             <View
@@ -117,9 +117,7 @@ export function SubscriptionProgressCard({
               testID={`platform-progress-${platform.platform}`}
             >
               {/* Status icon */}
-              <View className="h-6 w-6 items-center justify-center">
-                {statusIcon}
-              </View>
+              <View className="h-6 w-6 items-center justify-center">{statusIcon}</View>
 
               {/* Platform name and status */}
               <View className="flex-1">
@@ -127,18 +125,14 @@ export function SubscriptionProgressCard({
                   <Text className="text-sm font-medium text-foreground capitalize">
                     {platform.platform}
                   </Text>
-                  <Text className="text-xs text-muted-foreground">
-                    {statusText}
-                  </Text>
+                  <Text className="text-xs text-muted-foreground">{statusText}</Text>
                 </View>
 
                 {/* Error message */}
                 {platform.status === 'error' && platform.error && (
                   <View className="mt-1 flex-row items-center gap-2">
                     <AlertCircle size={12} className="text-destructive" />
-                    <Text className="text-xs text-destructive">
-                      {platform.error}
-                    </Text>
+                    <Text className="text-xs text-destructive">{platform.error}</Text>
                   </View>
                 )}
               </View>
@@ -152,13 +146,11 @@ export function SubscriptionProgressCard({
                   className="px-3 py-1"
                   testID={`retry-${platform.platform}`}
                 >
-                  <Text className="text-xs font-medium text-foreground">
-                    Retry
-                  </Text>
+                  <Text className="text-xs font-medium text-foreground">Retry</Text>
                 </Button>
               )}
             </View>
-          )
+          );
         })}
       </View>
 
@@ -171,23 +163,18 @@ export function SubscriptionProgressCard({
             </Text>
           ) : hasErrors ? (
             <Text className="text-center text-sm text-muted-foreground">
-              Subscribed to {successCount} of {totalPlatforms} platforms.
-              Tap Retry above to try failed subscriptions again.
+              Subscribed to {successCount} of {totalPlatforms} platforms. Tap Retry above to try
+              failed subscriptions again.
             </Text>
           ) : null}
 
           {onComplete && (
-            <Button
-              onPress={onComplete}
-              variant="ghost"
-              className="mt-2"
-              testID="complete-button"
-            >
+            <Button onPress={onComplete} variant="ghost" className="mt-2" testID="complete-button">
               <Text className="font-medium text-foreground">Done</Text>
             </Button>
           )}
         </View>
       )}
     </View>
-  )
+  );
 }

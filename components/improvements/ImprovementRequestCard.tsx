@@ -1,20 +1,20 @@
-import { Card, CardContent } from '@/components/ui/card'
-import { Text } from '@/components/ui/text'
-import { GitMerge, Images, EllipsisVertical } from '@/components/ui/icons'
-import { cn } from '@/lib/utils'
-import { Pressable, View } from 'react-native'
+import { Pressable, View } from 'react-native';
+import { Card, CardContent } from '@/components/ui/card';
+import { EllipsisVertical, GitMerge, Images } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { cn } from '@/lib/utils';
 
 export interface ImprovementRequestCardProps {
-  id: string
-  title: string
-  description: string
-  status: 'open' | 'closed'
-  imageCount: number
-  createdAt: number
-  mergedCount?: number
-  onPress?: () => void
-  onMenuPress?: () => void
-  testID?: string
+  id: string;
+  title: string;
+  description: string;
+  status: 'open' | 'closed';
+  imageCount: number;
+  createdAt: number;
+  mergedCount?: number;
+  onPress?: () => void;
+  onMenuPress?: () => void;
+  testID?: string;
 }
 
 const STATUS_STYLES: Record<
@@ -31,24 +31,24 @@ const STATUS_STYLES: Record<
     text: 'text-green-400',
     label: 'Closed',
   },
-}
+};
 
 function formatRelativeDate(timestamp: number): string {
-  const nowMs = Date.now()
-  const diffMs = nowMs - timestamp
-  const diffSeconds = Math.floor(diffMs / 1000)
-  const diffMinutes = Math.floor(diffSeconds / 60)
-  const diffHours = Math.floor(diffMinutes / 60)
-  const diffDays = Math.floor(diffHours / 24)
-  const diffWeeks = Math.floor(diffDays / 7)
-  const diffMonths = Math.floor(diffDays / 30)
+  const nowMs = Date.now();
+  const diffMs = nowMs - timestamp;
+  const diffSeconds = Math.floor(diffMs / 1000);
+  const diffMinutes = Math.floor(diffSeconds / 60);
+  const diffHours = Math.floor(diffMinutes / 60);
+  const diffDays = Math.floor(diffHours / 24);
+  const diffWeeks = Math.floor(diffDays / 7);
+  const diffMonths = Math.floor(diffDays / 30);
 
-  if (diffSeconds < 60) return 'just now'
-  if (diffMinutes < 60) return `${diffMinutes}m ago`
-  if (diffHours < 24) return `${diffHours}h ago`
-  if (diffDays < 7) return `${diffDays}d ago`
-  if (diffWeeks < 5) return `${diffWeeks}w ago`
-  return `${diffMonths}mo ago`
+  if (diffSeconds < 60) return 'just now';
+  if (diffMinutes < 60) return `${diffMinutes}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  if (diffWeeks < 5) return `${diffWeeks}w ago`;
+  return `${diffMonths}mo ago`;
 }
 
 export function ImprovementRequestCard({
@@ -62,8 +62,8 @@ export function ImprovementRequestCard({
   onMenuPress,
   testID,
 }: ImprovementRequestCardProps) {
-  const statusStyle = STATUS_STYLES[status]
-  const relativeDate = formatRelativeDate(createdAt)
+  const statusStyle = STATUS_STYLES[status];
+  const relativeDate = formatRelativeDate(createdAt);
 
   return (
     <Pressable
@@ -86,8 +86,8 @@ export function ImprovementRequestCard({
               {onMenuPress && (
                 <Pressable
                   onPress={(e) => {
-                    e.stopPropagation()
-                    onMenuPress()
+                    e.stopPropagation();
+                    onMenuPress();
                   }}
                   className="h-7 w-7 items-center justify-center rounded-full active:bg-muted"
                   testID={`${testID ?? 'improvement-request-card'}-menu-button`}
@@ -136,5 +136,5 @@ export function ImprovementRequestCard({
         </CardContent>
       </Card>
     </Pressable>
-  )
+  );
 }

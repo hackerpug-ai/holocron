@@ -6,13 +6,13 @@
  * Required for complex operations and embedding generation.
  */
 
-import { action } from "../_generated/server";
-import { v } from "convex/values";
-import { api } from "../_generated/api";
-import { embed } from "ai";
-import { cohereEmbedding } from "../lib/ai/embeddings_provider";
+import { embed } from 'ai';
+import { v } from 'convex/values';
+import { api } from '../_generated/api';
+import { action } from '../_generated/server';
+import { cohereEmbedding } from '../lib/ai/embeddings_provider';
 
-"use node";
+('use node');
 
 export const hybridSearch = action({
   args: {

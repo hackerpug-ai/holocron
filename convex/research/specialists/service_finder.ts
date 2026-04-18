@@ -12,16 +12,13 @@
  * Also logs improvements to app/product based on service research findings.
  */
 
-"use node";
+'use node';
 
-import { internal } from "../../_generated/api";
-import type { ActionCtx } from "../../_generated/server";
-import { generateText } from "ai";
-import { claudeFlash } from "../../lib/ai/anthropic_provider";
-import {
-  executeParallelSearchWithRetry,
-  type ParallelSearchResult,
-} from "../search";
+import { generateText } from 'ai';
+import { internal } from '../../_generated/api';
+import type { ActionCtx } from '../../_generated/server';
+import { claudeFlash } from '../../lib/ai/anthropic_provider';
+import { executeParallelSearchWithRetry, type ParallelSearchResult } from '../search';
 
 // ============================================================================
 // Types
@@ -31,7 +28,7 @@ import {
  * Service research report structure
  */
 export interface ServiceReport {
-  specialist: "service_finder";
+  specialist: 'service_finder';
   query: string;
   findings: string;
   sources: Array<{
@@ -79,35 +76,22 @@ export interface ServiceReport {
  * @param query - Research query
  * @returns Service research report
  */
-export async function executeServiceFinder(
-  ctx: ActionCtx,
-  query: string
-): Promise<ServiceReport> {
-  
-
+export async function executeServiceFinder(ctx: ActionCtx, query: string): Promise<ServiceReport> {
   // Enhance query with service-specific terms
   const serviceQuery = `${query} service provider review rating pricing near me`;
 
   // Execute parallel search with retry
-  const searchResult = await executeParallelSearchWithRetry(
-    serviceQuery,
-    {},
-    [],
-    {
-      maxRetries: 2,
-      timeoutMs: 15000,
-      deduplicateResults: true,
-    }
-  );
-
-  
+  const searchResult = await executeParallelSearchWithRetry(serviceQuery, {}, [], {
+    maxRetries: 2,
+    timeoutMs: 15000,
+    deduplicateResults: true,
+  });
 
   // Generate service report using LLM
   const serviceReport = await generateServiceReport(query, searchResult);
 
   // Log improvements if any product/app suggestions found
   await logImprovementsFromServiceResearch(ctx, query, serviceReport);
-
 
   return serviceReport;
 }
@@ -131,7 +115,7 @@ async function generateServiceReport(
   const report = JSON.parse(text.trim());
 
   return {
-    specialist: "service_finder",
+    specialist: 'service_finder',
     query,
     findings: report.findings,
     sources: searchResult.structuredResults.map((source) => ({
@@ -144,8 +128,8 @@ async function generateServiceReport(
     metadata: {
       services: report.services || [],
       comparisons: report.comparisons || [],
-      priceRange: report.priceRange || { min: "N/A", max: "N/A", average: "N/A" },
-      topRated: report.topRated || "N/A",
+      priceRange: report.priceRange || { min: 'N/A', max: 'N/A', average: 'N/A' },
+      topRated: report.topRated || 'N/A',
     },
     sourceCount: searchResult.structuredResults.length,
     confidenceScore: calculateServiceConfidence(searchResult),
@@ -155,16 +139,10 @@ async function generateServiceReport(
 /**
  * Build prompt for service report generation
  */
-function buildServicePrompt(
-  query: string,
-  searchResult: ParallelSearchResult
-): string {
+function buildServicePrompt(query: string, searchResult: ParallelSearchResult): string {
   const sourcesText = searchResult.structuredResults
-    .map(
-      (s, i) =>
-        `Source ${i + 1}:\nTitle: ${s.title}\nURL: ${s.url}\nContent: ${s.content}`
-    )
-    .join("\n\n");
+    .map((s, i) => `Source ${i + 1}:\nTitle: ${s.title}\nURL: ${s.url}\nContent: ${s.content}`)
+    .join('\n\n');
 
   return `You are a service research specialist. Generate a comprehensive service provider comparison report based on the following sources.
 
@@ -241,16 +219,16 @@ async function logImprovementsFromServiceResearch(
 ): Promise<void> {
   // Check if findings suggest any improvements
   const improvementKeywords = [
-    "improve",
-    "enhancement",
-    "better",
-    "feature",
-    "recommend",
-    "suggest",
-    "opportunity",
-    "add",
-    "booking",
-    "integration",
+    'improve',
+    'enhancement',
+    'better',
+    'feature',
+    'recommend',
+    'suggest',
+    'opportunity',
+    'add',
+    'booking',
+    'integration',
   ];
 
   const hasImprovements = improvementKeywords.some((keyword) =>
@@ -266,7 +244,7 @@ async function logImprovementsFromServiceResearch(
 
 Findings: ${report.findings}
 
-Services analyzed: ${report.metadata.services.map(s => s.provider).join(", ")}
+Services analyzed: ${report.metadata.services.map((s) => s.provider).join(', ')}
 
 If there are no specific improvement suggestions, return an empty array: []`;
 
@@ -283,22 +261,15 @@ If there are no specific improvement suggestions, return an empty array: []`;
       // Log each suggestion as an improvement
       for (const suggestion of suggestions) {
         const description =
-          typeof suggestion === "string"
-            ? suggestion
-            : JSON.stringify(suggestion);
+          typeof suggestion === 'string' ? suggestion : JSON.stringify(suggestion);
 
         await ctx.runMutation(internal.improvements.internal.submitFromSpecialist, {
           description: `[Service Finder] ${description}\n\nQuery: ${query}`,
-          source: "service_finder",
+          source: 'service_finder',
         });
       }
-
-      
     }
   } catch (error) {
-    console.error(
-      `[logImprovementsFromServiceResearch] Failed to log improvements:`,
-      error
-    );
+    console.error(`[logImprovementsFromServiceResearch] Failed to log improvements:`, error);
   }
 }

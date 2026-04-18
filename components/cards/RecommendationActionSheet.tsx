@@ -1,6 +1,6 @@
-import { Share, View, Pressable } from 'react-native'
-import { Text } from '@/components/ui/text'
-import type { RecommendationActionSheetProps } from './types/recommendation'
+import { Pressable, Share, View } from 'react-native';
+import { Text } from '@/components/ui/text';
+import type { RecommendationActionSheetProps } from './types/recommendation';
 
 export function RecommendationActionSheet({
   visible,
@@ -10,27 +10,27 @@ export function RecommendationActionSheet({
   onOpenInBrowser,
   testID,
 }: RecommendationActionSheetProps) {
-  if (!visible || !item) return null
+  if (!visible || !item) return null;
 
   const handleSave = () => {
-    onSave?.(item)
-    onDismiss()
-  }
+    onSave?.(item);
+    onDismiss();
+  };
 
   const handleShare = async () => {
-    const message = `${item.title}\n${item.description || ''}`
+    const message = `${item.title}\n${item.description || ''}`;
     try {
-      await Share.share({ message })
+      await Share.share({ message });
     } catch {
       // Share was dismissed or errored - dismiss the sheet
     }
-    onDismiss()
-  }
+    onDismiss();
+  };
 
   const handleOpenInBrowser = () => {
-    onOpenInBrowser?.(item)
-    onDismiss()
-  }
+    onOpenInBrowser?.(item);
+    onDismiss();
+  };
 
   return (
     <View
@@ -75,5 +75,5 @@ export function RecommendationActionSheet({
         </Pressable>
       </View>
     </View>
-  )
+  );
 }

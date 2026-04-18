@@ -1,6 +1,6 @@
-import { SettingsScreen } from '@/screens/settings-screen'
-import { ScreenLayout } from '@/components/ui/screen-layout'
-import { useRouter } from 'expo-router'
+import { useRouter } from 'expo-router';
+import { ScreenLayout } from '@/components/ui/screen-layout';
+import { SettingsScreen } from '@/screens/settings-screen';
 
 /**
  * Settings screen route
@@ -8,15 +8,15 @@ import { useRouter } from 'expo-router'
  * Personal app preferences and theme customization.
  */
 export default function SettingsScreenRoute() {
-  const router = useRouter()
+  const router = useRouter();
 
   const handleBack = () => {
     if (router.canGoBack()) {
-      router.back()
+      router.back();
     } else {
-      router.navigate('/chat/new')
+      router.navigate('/chat/new');
     }
-  }
+  };
 
   return (
     <ScreenLayout
@@ -30,5 +30,5 @@ export default function SettingsScreenRoute() {
     >
       <SettingsScreen />
     </ScreenLayout>
-  )
+  );
 }

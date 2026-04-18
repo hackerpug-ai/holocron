@@ -5,9 +5,9 @@
  * Each generator creates structured plans with steps, estimates, and dependencies.
  */
 
-import { mutation } from "../_generated/server";
-import { v } from "convex/values";
-import type { Id } from "../_generated/dataModel";
+import { v } from 'convex/values';
+import type { Id } from '../_generated/dataModel';
+import { mutation } from '../_generated/server';
 
 /**
  * Generate a deep research plan
@@ -22,9 +22,9 @@ export const generateDeepResearchPlan = mutation({
     topic: v.string(),
     maxIterations: v.optional(v.number()),
     outputFormat: v.optional(v.string()),
-    conversationId: v.optional(v.id("conversations")),
+    conversationId: v.optional(v.id('conversations')),
   },
-  handler: async (ctx, args): Promise<Id<"executionPlans">> => {
+  handler: async (ctx, args): Promise<Id<'executionPlans'>> => {
     const now = Date.now();
 
     // Generate research tracks based on topic complexity
@@ -36,15 +36,15 @@ export const generateDeepResearchPlan = mutation({
       description: `Comprehensive research on "${args.topic}" using multiple tracks`,
       tracks,
       maxIterations: args.maxIterations ?? 5,
-      outputFormat: args.outputFormat ?? "document",
+      outputFormat: args.outputFormat ?? 'document',
       estimatedSteps: tracks.length * 2 + 2, // Analysis + tracks + synthesis + output
       estimatedDurationMs: estimateResearchDuration(tracks.length, args.maxIterations ?? 5),
     };
 
     // Create execution plan
-    const planId = await ctx.db.insert("executionPlans", {
-      type: "deep-research",
-      status: "draft",
+    const planId = await ctx.db.insert('executionPlans', {
+      type: 'deep-research',
+      status: 'draft',
       content,
       metadata: {
         conversationId: args.conversationId,
@@ -74,9 +74,9 @@ export const generateShopPlan = mutation({
     priceMin: v.optional(v.number()),
     priceMax: v.optional(v.number()),
     retailers: v.optional(v.array(v.string())),
-    conversationId: v.optional(v.id("conversations")),
+    conversationId: v.optional(v.id('conversations')),
   },
-  handler: async (ctx, args): Promise<Id<"executionPlans">> => {
+  handler: async (ctx, args): Promise<Id<'executionPlans'>> => {
     const now = Date.now();
 
     // Determine retailers to search
@@ -87,7 +87,7 @@ export const generateShopPlan = mutation({
       title: `Shop: ${args.query}`,
       description: `Find best deals for "${args.query}" across ${targetRetailers.length} retailers`,
       query: args.query,
-      condition: args.condition ?? "any",
+      condition: args.condition ?? 'any',
       priceRange: {
         min: args.priceMin,
         max: args.priceMax,
@@ -102,9 +102,9 @@ export const generateShopPlan = mutation({
     };
 
     // Create execution plan
-    const planId = await ctx.db.insert("executionPlans", {
-      type: "shop",
-      status: "draft",
+    const planId = await ctx.db.insert('executionPlans', {
+      type: 'shop',
+      status: 'draft',
       content,
       metadata: {
         conversationId: args.conversationId,
@@ -133,9 +133,9 @@ export const generateAssimilationPlan = mutation({
     profile: v.optional(v.string()),
     maxIterations: v.optional(v.number()),
     autoApprove: v.optional(v.boolean()),
-    conversationId: v.optional(v.id("conversations")),
+    conversationId: v.optional(v.id('conversations')),
   },
-  handler: async (ctx, args): Promise<Id<"executionPlans">> => {
+  handler: async (ctx, args): Promise<Id<'executionPlans'>> => {
     const now = Date.now();
 
     // Parse repository URL
@@ -143,11 +143,11 @@ export const generateAssimilationPlan = mutation({
 
     // Generate analysis dimensions
     const dimensions = [
-      { name: "architecture", description: "Code structure and design patterns", priority: 1 },
-      { name: "patterns", description: "Coding patterns and conventions", priority: 2 },
-      { name: "documentation", description: "Documentation quality and completeness", priority: 3 },
-      { name: "dependencies", description: "External dependencies and integrations", priority: 4 },
-      { name: "testing", description: "Test coverage and testing approach", priority: 5 },
+      { name: 'architecture', description: 'Code structure and design patterns', priority: 1 },
+      { name: 'patterns', description: 'Coding patterns and conventions', priority: 2 },
+      { name: 'documentation', description: 'Documentation quality and completeness', priority: 3 },
+      { name: 'dependencies', description: 'External dependencies and integrations', priority: 4 },
+      { name: 'testing', description: 'Test coverage and testing approach', priority: 5 },
     ];
 
     // Build plan content
@@ -156,22 +156,25 @@ export const generateAssimilationPlan = mutation({
       description: `Analyzing repository ${repoInfo.name} across ${dimensions.length} dimensions`,
       repositoryUrl: args.repositoryUrl,
       repositoryName: repoInfo.name,
-      profile: args.profile ?? "standard",
+      profile: args.profile ?? 'standard',
       dimensions: dimensions.map((dim) => ({
         ...dim,
-        status: "pending",
+        status: 'pending',
         coverageScore: null,
       })),
       maxIterations: args.maxIterations ?? 10,
       autoApprove: args.autoApprove ?? false,
       estimatedSteps: dimensions.length + 3, // Discovery + dimensions + synthesis + output
-      estimatedDurationMs: estimateAssimilationDuration(dimensions.length, args.maxIterations ?? 10),
+      estimatedDurationMs: estimateAssimilationDuration(
+        dimensions.length,
+        args.maxIterations ?? 10
+      ),
     };
 
     // Create execution plan
-    const planId = await ctx.db.insert("executionPlans", {
-      type: "assimilation",
-      status: "draft",
+    const planId = await ctx.db.insert('executionPlans', {
+      type: 'assimilation',
+      status: 'draft',
       content,
       metadata: {
         conversationId: args.conversationId,
@@ -196,23 +199,19 @@ export const generateAssimilationPlan = mutation({
  */
 export const generatePlan = mutation({
   args: {
-    type: v.union(
-      v.literal("deep-research"),
-      v.literal("shop"),
-      v.literal("assimilation")
-    ),
+    type: v.union(v.literal('deep-research'), v.literal('shop'), v.literal('assimilation')),
     context: v.any(),
   },
-  handler: async (ctx, args): Promise<Id<"executionPlans">> => {
+  handler: async (ctx, args): Promise<Id<'executionPlans'>> => {
     const now = Date.now();
 
     switch (args.type) {
-      case "deep-research": {
+      case 'deep-research': {
         const context = args.context as {
           topic: string;
           maxIterations?: number;
           outputFormat?: string;
-          conversationId?: Id<"conversations">;
+          conversationId?: Id<'conversations'>;
         };
 
         const tracks = generateResearchTracks(context.topic);
@@ -221,14 +220,14 @@ export const generatePlan = mutation({
           description: `Comprehensive research on "${context.topic}" using multiple tracks`,
           tracks,
           maxIterations: context.maxIterations ?? 5,
-          outputFormat: context.outputFormat ?? "document",
+          outputFormat: context.outputFormat ?? 'document',
           estimatedSteps: tracks.length * 2 + 2,
           estimatedDurationMs: estimateResearchDuration(tracks.length, context.maxIterations ?? 5),
         };
 
-        return await ctx.db.insert("executionPlans", {
-          type: "deep-research",
-          status: "draft",
+        return await ctx.db.insert('executionPlans', {
+          type: 'deep-research',
+          status: 'draft',
           content,
           metadata: {
             conversationId: context.conversationId,
@@ -240,14 +239,14 @@ export const generatePlan = mutation({
         });
       }
 
-      case "shop": {
+      case 'shop': {
         const context = args.context as {
           query: string;
           condition?: string;
           priceMin?: number;
           priceMax?: number;
           retailers?: string[];
-          conversationId?: Id<"conversations">;
+          conversationId?: Id<'conversations'>;
         };
 
         const targetRetailers = context.retailers ?? getDefaultRetailers();
@@ -255,7 +254,7 @@ export const generatePlan = mutation({
           title: `Shop: ${context.query}`,
           description: `Find best deals for "${context.query}" across ${targetRetailers.length} retailers`,
           query: context.query,
-          condition: context.condition ?? "any",
+          condition: context.condition ?? 'any',
           priceRange: {
             min: context.priceMin,
             max: context.priceMax,
@@ -269,9 +268,9 @@ export const generatePlan = mutation({
           estimatedDurationMs: estimateShopDuration(targetRetailers.length),
         };
 
-        return await ctx.db.insert("executionPlans", {
-          type: "shop",
-          status: "draft",
+        return await ctx.db.insert('executionPlans', {
+          type: 'shop',
+          status: 'draft',
           content,
           metadata: {
             conversationId: context.conversationId,
@@ -283,22 +282,30 @@ export const generatePlan = mutation({
         });
       }
 
-      case "assimilation": {
+      case 'assimilation': {
         const context = args.context as {
           repositoryUrl: string;
           profile?: string;
           maxIterations?: number;
           autoApprove?: boolean;
-          conversationId?: Id<"conversations">;
+          conversationId?: Id<'conversations'>;
         };
 
         const repoInfo = parseRepositoryUrl(context.repositoryUrl);
         const dimensions = [
-          { name: "architecture", description: "Code structure and design patterns", priority: 1 },
-          { name: "patterns", description: "Coding patterns and conventions", priority: 2 },
-          { name: "documentation", description: "Documentation quality and completeness", priority: 3 },
-          { name: "dependencies", description: "External dependencies and integrations", priority: 4 },
-          { name: "testing", description: "Test coverage and testing approach", priority: 5 },
+          { name: 'architecture', description: 'Code structure and design patterns', priority: 1 },
+          { name: 'patterns', description: 'Coding patterns and conventions', priority: 2 },
+          {
+            name: 'documentation',
+            description: 'Documentation quality and completeness',
+            priority: 3,
+          },
+          {
+            name: 'dependencies',
+            description: 'External dependencies and integrations',
+            priority: 4,
+          },
+          { name: 'testing', description: 'Test coverage and testing approach', priority: 5 },
         ];
 
         const content = {
@@ -306,21 +313,24 @@ export const generatePlan = mutation({
           description: `Analyzing repository ${repoInfo.name} across ${dimensions.length} dimensions`,
           repositoryUrl: context.repositoryUrl,
           repositoryName: repoInfo.name,
-          profile: context.profile ?? "standard",
+          profile: context.profile ?? 'standard',
           dimensions: dimensions.map((dim) => ({
             ...dim,
-            status: "pending",
+            status: 'pending',
             coverageScore: null,
           })),
           maxIterations: context.maxIterations ?? 10,
           autoApprove: context.autoApprove ?? false,
           estimatedSteps: dimensions.length + 3,
-          estimatedDurationMs: estimateAssimilationDuration(dimensions.length, context.maxIterations ?? 10),
+          estimatedDurationMs: estimateAssimilationDuration(
+            dimensions.length,
+            context.maxIterations ?? 10
+          ),
         };
 
-        return await ctx.db.insert("executionPlans", {
-          type: "assimilation",
-          status: "draft",
+        return await ctx.db.insert('executionPlans', {
+          type: 'assimilation',
+          status: 'draft',
           content,
           metadata: {
             conversationId: context.conversationId,
@@ -355,31 +365,31 @@ function generateResearchTracks(topic: string): Array<{
   // Base tracks for all research
   const tracks = [
     {
-      name: "official",
-      description: "Official documentation and specifications",
-      workerType: "web_research",
+      name: 'official',
+      description: 'Official documentation and specifications',
+      workerType: 'web_research',
       priority: 1,
     },
     {
-      name: "expert",
-      description: "Expert blogs and technical articles",
-      workerType: "web_research",
+      name: 'expert',
+      description: 'Expert blogs and technical articles',
+      workerType: 'web_research',
       priority: 2,
     },
     {
-      name: "community",
-      description: "Community discussions and forums",
-      workerType: "web_research",
+      name: 'community',
+      description: 'Community discussions and forums',
+      workerType: 'web_research',
       priority: 3,
     },
   ];
 
   // Add academic track for complex topics
-  if (topic.length > 50 || topic.includes("research") || topic.includes("academic")) {
+  if (topic.length > 50 || topic.includes('research') || topic.includes('academic')) {
     tracks.push({
-      name: "academic",
-      description: "Academic papers and research publications",
-      workerType: "scholar_research",
+      name: 'academic',
+      description: 'Academic papers and research publications',
+      workerType: 'scholar_research',
       priority: 4,
     });
   }
@@ -391,7 +401,7 @@ function generateResearchTracks(topic: string): Array<{
  * Get default retailers for shopping
  */
 function getDefaultRetailers(): string[] {
-  return ["eBay", "Amazon", "Craigslist"];
+  return ['eBay', 'Amazon', 'Craigslist'];
 }
 
 /**
@@ -399,9 +409,9 @@ function getDefaultRetailers(): string[] {
  */
 function getRetailerPriority(retailer: string): number {
   const priorities: Record<string, number> = {
-    "eBay": 1,
-    "Amazon": 2,
-    "Craigslist": 3,
+    eBay: 1,
+    Amazon: 2,
+    Craigslist: 3,
   };
   return priorities[retailer] ?? 99;
 }
@@ -418,11 +428,11 @@ function parseRepositoryUrl(url: string): { name: string; owner?: string } {
     }
 
     // Extract name from path
-    const parts = url.split("/").filter(Boolean);
-    const name = parts[parts.length - 1] ?? "unknown";
+    const parts = url.split('/').filter(Boolean);
+    const name = parts[parts.length - 1] ?? 'unknown';
     return { name };
   } catch {
-    return { name: "unknown" };
+    return { name: 'unknown' };
   }
 }
 

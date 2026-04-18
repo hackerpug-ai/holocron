@@ -1,17 +1,17 @@
-import { Pressable } from 'react-native'
-import { WandSparkles } from '@/components/ui/icons'
-import { cn } from '@/lib/utils'
-import { useTheme } from '@/hooks/use-theme'
+import { Pressable } from 'react-native';
+import { WandSparkles } from '@/components/ui/icons';
+import { useTheme } from '@/hooks/use-theme';
+import { cn } from '@/lib/utils';
 
 export interface AssistantButtonProps {
   /** Whether the button is currently active/pressed */
-  isActive?: boolean
+  isActive?: boolean;
   /** Whether the button is disabled */
-  disabled?: boolean
+  disabled?: boolean;
   /** Callback when button is pressed */
-  onPress: () => void
+  onPress: () => void;
   /** testID for testing */
-  testID?: string
+  testID?: string;
 }
 
 /**
@@ -24,7 +24,7 @@ export function AssistantButton({
   onPress,
   testID = 'assistant-button',
 }: AssistantButtonProps) {
-  const { colors: themeColors } = useTheme()
+  const { colors: themeColors } = useTheme();
 
   return (
     <Pressable
@@ -41,5 +41,5 @@ export function AssistantButton({
         color={isActive ? themeColors.primaryForeground : themeColors.foreground}
       />
     </Pressable>
-  )
+  );
 }

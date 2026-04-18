@@ -1,18 +1,23 @@
-import { View, Pressable, ActivityIndicator } from 'react-native'
-import { Text } from '@/components/ui/text'
-import { useRouter } from 'expo-router'
+import { useRouter } from 'expo-router';
+import { ActivityIndicator, Pressable, View } from 'react-native';
+import { Text } from '@/components/ui/text';
 
 interface Props {
-  savedDocumentId: string | null
-  canSave: boolean
-  isSaving?: boolean
-  onSaveToKB?: () => void
+  savedDocumentId: string | null;
+  canSave: boolean;
+  isSaving?: boolean;
+  onSaveToKB?: () => void;
 }
 
-export function DocumentDisciplineFooter({ savedDocumentId, canSave, isSaving, onSaveToKB }: Props) {
-  const router = useRouter()
+export function DocumentDisciplineFooter({
+  savedDocumentId,
+  canSave,
+  isSaving,
+  onSaveToKB,
+}: Props) {
+  const router = useRouter();
 
-  if (!savedDocumentId && !canSave) return null
+  if (!savedDocumentId && !canSave) return null;
 
   return (
     <View testID="document-discipline-footer" className="flex-row items-center gap-2 mt-1 px-3">
@@ -38,5 +43,5 @@ export function DocumentDisciplineFooter({ savedDocumentId, canSave, isSaving, o
         </Pressable>
       )}
     </View>
-  )
+  );
 }

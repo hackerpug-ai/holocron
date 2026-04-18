@@ -2,6 +2,6 @@
  * Document card components
  */
 
-export { DocumentSavedCard } from './DocumentSavedCard'
-export { DocumentContextCard } from './DocumentContextCard'
-export { SectionReaderSheet } from './SectionReaderSheet'
+export { DocumentContextCard } from './DocumentContextCard';
+export { DocumentSavedCard } from './DocumentSavedCard';
+export { SectionReaderSheet } from './SectionReaderSheet';

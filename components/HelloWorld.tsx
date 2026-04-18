@@ -1,13 +1,13 @@
-import * as React from 'react'
-import { View } from 'react-native'
-import { Text } from '@/components/ui/text'
-import { cn } from '@/lib/utils'
+import * as React from 'react';
+import { View } from 'react-native';
+import { Text } from '@/components/ui/text';
+import { cn } from '@/lib/utils';
 
 export interface HelloWorldProps {
-  title?: string
-  subtitle?: string
-  variant?: 'default' | 'accent' | 'muted'
-  showIcon?: boolean
+  title?: string;
+  subtitle?: string;
+  variant?: 'default' | 'accent' | 'muted';
+  showIcon?: boolean;
 }
 
 const variantStyles = {
@@ -26,7 +26,7 @@ const variantStyles = {
     title: 'text-muted-foreground',
     subtitle: 'text-muted-foreground/70',
   },
-}
+};
 
 export function HelloWorld({
   title = 'Hello, Holocron',
@@ -34,15 +34,10 @@ export function HelloWorld({
   variant = 'default',
   showIcon = true,
 }: HelloWorldProps) {
-  const styles = variantStyles[variant]
+  const styles = variantStyles[variant];
 
   return (
-    <View
-      className={cn(
-        'rounded-lg border p-6',
-        styles.container
-      )}
-    >
+    <View className={cn('rounded-lg border p-6', styles.container)}>
       {showIcon && (
         <View className="mb-4 flex-row items-center gap-3">
           <Text className={cn('text-2xl', styles.title)}>📚</Text>
@@ -57,5 +52,5 @@ export function HelloWorld({
         {subtitle}
       </Text>
     </View>
-  )
+  );
 }

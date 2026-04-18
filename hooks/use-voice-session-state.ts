@@ -24,34 +24,34 @@
  *   ERROR → CONNECTING (CONNECT — retry)
  */
 
-import { useReducer } from "react";
+import { useReducer } from 'react';
 
 export type VoiceState =
-  | "idle"
-  | "connecting"
-  | "listening"
-  | "muted"
-  | "processing"
-  | "speaking"
-  | "error";
+  | 'idle'
+  | 'connecting'
+  | 'listening'
+  | 'muted'
+  | 'processing'
+  | 'speaking'
+  | 'error';
 
-export type VoiceErrorKind = "service_unavailable" | "permission_denied";
+export type VoiceErrorKind = 'service_unavailable' | 'permission_denied';
 
 export type VoiceAction =
-  | { type: "CONNECT"; conversationId: string }
-  | { type: "CONNECTED"; sessionId: string }
-  | { type: "START_LISTENING" }
-  | { type: "START_SPEAKING" }
-  | { type: "STOP_SPEAKING" }
-  | { type: "MUTE" }
-  | { type: "UNMUTE" }
-  | { type: "ADD_TRANSCRIPT"; role: 'user' | 'agent'; content: string }
-  | { type: "ERROR"; error: string; errorKind?: VoiceErrorKind }
-  | { type: "DISCONNECT" }
-  | { type: "TIMEOUT" }
-  | { type: "SET_CONNECTING_PHASE"; phase: 'preparing' | 'connecting_ai' | 'almost_ready' | null }
-  | { type: "TOOL_START"; toolName: string }
-  | { type: "TOOL_END" };
+  | { type: 'CONNECT'; conversationId: string }
+  | { type: 'CONNECTED'; sessionId: string }
+  | { type: 'START_LISTENING' }
+  | { type: 'START_SPEAKING' }
+  | { type: 'STOP_SPEAKING' }
+  | { type: 'MUTE' }
+  | { type: 'UNMUTE' }
+  | { type: 'ADD_TRANSCRIPT'; role: 'user' | 'agent'; content: string }
+  | { type: 'ERROR'; error: string; errorKind?: VoiceErrorKind }
+  | { type: 'DISCONNECT' }
+  | { type: 'TIMEOUT' }
+  | { type: 'SET_CONNECTING_PHASE'; phase: 'preparing' | 'connecting_ai' | 'almost_ready' | null }
+  | { type: 'TOOL_START'; toolName: string }
+  | { type: 'TOOL_END' };
 
 export interface VoiceSessionState {
   status: VoiceState;
@@ -67,12 +67,12 @@ export interface VoiceSessionState {
 }
 
 export const initialVoiceSessionState: VoiceSessionState = {
-  status: "idle",
+  status: 'idle',
   sessionId: null,
   conversationId: null,
   errorMessage: null,
   errorKind: null,
-  transcript: "",
+  transcript: '',
   transcripts: [],
   isInterrupted: false,
   activeTool: null,
@@ -90,75 +90,73 @@ export function voiceSessionReducer(
   action: VoiceAction
 ): VoiceSessionState {
   switch (action.type) {
-    case "CONNECT": {
-      if (state.status !== "idle" && state.status !== "error") return state;
+    case 'CONNECT': {
+      if (state.status !== 'idle' && state.status !== 'error') return state;
       return {
         ...initialVoiceSessionState,
-        status: "connecting",
+        status: 'connecting',
         conversationId: action.conversationId,
         transcripts: [], // Clear transcripts on new session
         connectingPhase: 'preparing',
       };
     }
 
-    case "CONNECTED": {
-      if (state.status !== "connecting") return state;
+    case 'CONNECTED': {
+      if (state.status !== 'connecting') return state;
       return {
         ...state,
-        status: "listening",
+        status: 'listening',
         sessionId: action.sessionId,
         errorMessage: null,
         connectingPhase: null,
       };
     }
 
-    case "START_LISTENING": {
-      if (state.status !== "processing" && state.status !== "speaking")
-        return state;
-      const wasInterrupted = state.status === "speaking";
+    case 'START_LISTENING': {
+      if (state.status !== 'processing' && state.status !== 'speaking') return state;
+      const wasInterrupted = state.status === 'speaking';
       return {
         ...state,
-        status: "listening",
+        status: 'listening',
         isInterrupted: wasInterrupted,
       };
     }
 
-    case "START_SPEAKING": {
-      if (state.status !== "listening" && state.status !== "processing")
-        return state;
+    case 'START_SPEAKING': {
+      if (state.status !== 'listening' && state.status !== 'processing') return state;
       return {
         ...state,
-        status: "speaking",
+        status: 'speaking',
         isInterrupted: false,
       };
     }
 
-    case "STOP_SPEAKING": {
-      if (state.status !== "speaking") return state;
+    case 'STOP_SPEAKING': {
+      if (state.status !== 'speaking') return state;
       return {
         ...state,
-        status: "listening",
+        status: 'listening',
         isInterrupted: false,
       };
     }
 
-    case "MUTE": {
-      if (state.status !== "listening" && state.status !== "processing") return state;
+    case 'MUTE': {
+      if (state.status !== 'listening' && state.status !== 'processing') return state;
       return {
         ...state,
-        status: "muted",
+        status: 'muted',
       };
     }
 
-    case "UNMUTE": {
-      if (state.status !== "muted") return state;
+    case 'UNMUTE': {
+      if (state.status !== 'muted') return state;
       return {
         ...state,
-        status: "listening",
+        status: 'listening',
       };
     }
 
-    case "ADD_TRANSCRIPT": {
+    case 'ADD_TRANSCRIPT': {
       const last = state.transcripts[state.transcripts.length - 1];
       if (last && last.role === action.role) {
         // Merge: replace last entry's content (streaming effect)
@@ -185,11 +183,11 @@ export function voiceSessionReducer(
       };
     }
 
-    case "ERROR": {
-      if (state.status === "idle") return state;
+    case 'ERROR': {
+      if (state.status === 'idle') return state;
       return {
         ...state,
-        status: "error",
+        status: 'error',
         errorMessage: action.error,
         errorKind: action.errorKind ?? null,
         activeTool: null,
@@ -197,38 +195,37 @@ export function voiceSessionReducer(
       };
     }
 
-    case "DISCONNECT": {
+    case 'DISCONNECT': {
       return {
         ...initialVoiceSessionState,
       };
     }
 
-    case "TIMEOUT": {
-      if (state.status === "idle") return state;
+    case 'TIMEOUT': {
+      if (state.status === 'idle') return state;
       return {
         ...initialVoiceSessionState,
-        errorMessage:
-          state.status === "error" ? state.errorMessage : "Session timed out",
+        errorMessage: state.status === 'error' ? state.errorMessage : 'Session timed out',
       };
     }
 
-    case "TOOL_START": {
-      if (state.status === "idle") return state;
+    case 'TOOL_START': {
+      if (state.status === 'idle') return state;
       return {
         ...state,
         activeTool: action.toolName,
       };
     }
 
-    case "TOOL_END": {
+    case 'TOOL_END': {
       return {
         ...state,
         activeTool: null,
       };
     }
 
-    case "SET_CONNECTING_PHASE": {
-      if (state.status !== "connecting") return state;
+    case 'SET_CONNECTING_PHASE': {
+      if (state.status !== 'connecting') return state;
       return { ...state, connectingPhase: action.phase };
     }
 
@@ -242,10 +239,7 @@ export function voiceSessionReducer(
  * Uses useReducer for coordinated state changes.
  */
 export function useVoiceSessionState() {
-  const [state, dispatch] = useReducer(
-    voiceSessionReducer,
-    initialVoiceSessionState
-  );
+  const [state, dispatch] = useReducer(voiceSessionReducer, initialVoiceSessionState);
 
   return { state, dispatch } as const;
 }

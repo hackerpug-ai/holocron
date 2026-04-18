@@ -8,7 +8,7 @@
  * - Metrics calculation
  */
 
-import type { Finding } from "./types";
+import type { Finding } from './types';
 
 // Re-export Finding type for convenience
 export type { Finding };
@@ -24,8 +24,8 @@ export function deduplicateFindings(findings: Finding[]): Finding[] {
     // Normalize URL for deduplication
     const normalizedUrl = finding.url
       .toLowerCase()
-      .replace(/\/$/, "")
-      .replace(/^https?:\/\//, "");
+      .replace(/\/$/, '')
+      .replace(/^https?:\/\//, '');
 
     if (!seen.has(normalizedUrl)) {
       seen.add(normalizedUrl);
@@ -76,16 +76,16 @@ export function categorizeFindings(findings: Finding[]): {
   const discussions: Finding[] = [];
 
   for (const finding of findings) {
-    if (finding.tags?.includes("discovery")) {
+    if (finding.tags?.includes('discovery')) {
       discoveries.push(finding);
     }
-    if (finding.tags?.includes("release")) {
+    if (finding.tags?.includes('release')) {
       releases.push(finding);
     }
-    if (finding.tags?.includes("trend")) {
+    if (finding.tags?.includes('trend')) {
       trends.push(finding);
     }
-    if (finding.tags?.includes("discussion")) {
+    if (finding.tags?.includes('discussion')) {
       discussions.push(finding);
     }
   }
@@ -102,8 +102,8 @@ export function populatePerFindingCorroboration(findings: Finding[]): void {
   for (const finding of findings) {
     const normalizedUrl = finding.url
       .toLowerCase()
-      .replace(/\/$/, "")
-      .replace(/^https?:\/\//, "");
+      .replace(/\/$/, '')
+      .replace(/^https?:\/\//, '');
     if (!byUrl.has(normalizedUrl)) {
       byUrl.set(normalizedUrl, []);
     }
@@ -114,8 +114,8 @@ export function populatePerFindingCorroboration(findings: Finding[]): void {
   for (const finding of findings) {
     const normalizedUrl = finding.url
       .toLowerCase()
-      .replace(/\/$/, "")
-      .replace(/^https?:\/\//, "");
+      .replace(/\/$/, '')
+      .replace(/^https?:\/\//, '');
     finding.corroboration = byUrl.get(normalizedUrl)!.length;
   }
 }
@@ -168,10 +168,8 @@ export function extractSources(findings: Finding[]): string[] {
  *
  * This is a re-export of the function from actions.ts for convenience.
  */
-export async function scoreFindingsQuality(
-  findings: Finding[]
-): Promise<Finding[]> {
+export async function scoreFindingsQuality(findings: Finding[]): Promise<Finding[]> {
   // Import LLM scoring function from actions
-  const { scoreFindingsQuality: llmScore } = await import("./actions");
+  const { scoreFindingsQuality: llmScore } = await import('./actions');
   return llmScore(findings);
 }

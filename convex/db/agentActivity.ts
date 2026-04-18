@@ -1,5 +1,5 @@
-import { v } from 'convex/values'
-import { query } from '../_generated/server'
+import { v } from 'convex/values';
+import { query } from '../_generated/server';
 
 export const get = query({
   args: {
@@ -7,6 +7,6 @@ export const get = query({
   },
   handler: async (_ctx, _args) => {
     // Stub — backend implementation in separate task
-    return null
+    return null;
   },
-})
+});

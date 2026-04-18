@@ -1,21 +1,21 @@
-import { useRouter } from 'expo-router'
-import { ScreenLayout } from '@/components/ui/screen-layout'
-import { SubscriptionsScreen } from '@/screens/subscriptions-screen'
+import { useRouter } from 'expo-router';
+import { ScreenLayout } from '@/components/ui/screen-layout';
+import { SubscriptionsScreen } from '@/screens/subscriptions-screen';
 
 /**
  * Subscriptions settings/management route.
  * Manage all subscription sources with search and filtering.
  */
 export default function SubscriptionsSettingsRoute() {
-  const router = useRouter()
+  const router = useRouter();
 
   const handleBack = () => {
     if (router.canGoBack()) {
-      router.back()
+      router.back();
     } else {
-      router.navigate('/subscriptions')
+      router.navigate('/subscriptions');
     }
-  }
+  };
 
   return (
     <ScreenLayout
@@ -29,5 +29,5 @@ export default function SubscriptionsSettingsRoute() {
     >
       <SubscriptionsScreen />
     </ScreenLayout>
-  )
+  );
 }

@@ -7,13 +7,13 @@
  * Synthesizes into markdown, stores as document with embedding.
  */
 
-"use node";
+'use node';
 
-import { v } from "convex/values";
-import { internalAction, action } from "../_generated/server";
-import { api, internal } from "../_generated/api";
-import { synthesizeReport as llmSynthesizeReport, generateFindingSummary } from "./llm";
-import { QUALITY_CONFIG } from "./config";
+import { v } from 'convex/values';
+import { api, internal } from '../_generated/api';
+import { action, internalAction } from '../_generated/server';
+import { QUALITY_CONFIG } from './config';
+import { generateFindingSummary, synthesizeReport as llmSynthesizeReport } from './llm';
 
 // ============================================================================
 // Types
@@ -23,7 +23,7 @@ interface Finding {
   title: string;
   url: string;
   source: string;
-  category: "discovery" | "release" | "trend" | "discussion";
+  category: 'discovery' | 'release' | 'trend' | 'discussion';
   score?: number;
   summary?: string;
   publishedAt?: string;
@@ -61,7 +61,7 @@ export async function parseRSSFeed(
   url: string
 ): Promise<Array<{ title: string; link: string; published: string }>> {
   const response = await fetch(url, {
-    headers: { "User-Agent": "Holocron-WhatsNew/1.0" },
+    headers: { 'User-Agent': 'Holocron-WhatsNew/1.0' },
   });
   if (!response.ok) {
     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -84,18 +84,12 @@ export async function parseRSSFeed(
       entry.match(/<pubDate[^>]*>([\s\S]*?)<\/pubDate>/) ||
       entry.match(/<updated[^>]*>([\s\S]*?)<\/updated>/);
 
-    let title = titleMatch
-      ? titleMatch[1].replace(/<[^>]*>/g, "").trim()
-      : "Unknown";
+    let title = titleMatch ? titleMatch[1].replace(/<[^>]*>/g, '').trim() : 'Unknown';
     // Handle CDATA
-    title = title.replace(/^<!\[CDATA\[|\]\]>$/g, "");
+    title = title.replace(/^<!\[CDATA\[|\]\]>$/g, '');
 
-    const link = linkMatch
-      ? (linkMatch[2] || linkMatch[1]).replace(/<[^>]*>/g, "").trim()
-      : "";
-    const published = publishedMatch
-      ? publishedMatch[1].trim()
-      : new Date().toISOString();
+    const link = linkMatch ? (linkMatch[2] || linkMatch[1]).replace(/<[^>]*>/g, '').trim() : '';
+    const published = publishedMatch ? publishedMatch[1].trim() : new Date().toISOString();
 
     if (link) {
       items.push({ title, link, published });
@@ -116,8 +110,15 @@ export async function parseRSSFeed(
  */
 export async function fetchReddit(days: number): Promise<FetchResult> {
   const subreddits = [
-    "LocalLLaMA", "MachineLearning", "ClaudeAI", "artificial",
-    "ChatGPT", "devtools", "OpenAI", "CursorAI", "SideProject",
+    'LocalLLaMA',
+    'MachineLearning',
+    'ClaudeAI',
+    'artificial',
+    'ChatGPT',
+    'devtools',
+    'OpenAI',
+    'CursorAI',
+    'SideProject',
   ];
   const findings: Finding[] = [];
 
@@ -127,16 +128,15 @@ export async function fetchReddit(days: number): Promise<FetchResult> {
   for (const subreddit of subreddits) {
     try {
       // Use JSON API for engagement data (upvotes, comments)
-      const response = await fetch(
-        `https://www.reddit.com/r/${subreddit}/hot.json?limit=15`,
-        {
-          headers: { "User-Agent": "Holocron-WhatsNew/1.0" },
-        }
-      );
+      const response = await fetch(`https://www.reddit.com/r/${subreddit}/hot.json?limit=15`, {
+        headers: { 'User-Agent': 'Holocron-WhatsNew/1.0' },
+      });
 
       if (!response.ok) {
         // Fallback to RSS if JSON API fails
-        console.warn(`[fetchReddit] JSON API failed for r/${subreddit} (${response.status}), falling back to RSS`);
+        console.warn(
+          `[fetchReddit] JSON API failed for r/${subreddit} (${response.status}), falling back to RSS`
+        );
         const feedUrl = `https://www.reddit.com/r/${subreddit}/hot/.rss`;
         const items = await parseRSSFeed(feedUrl);
         for (const item of items.slice(0, 10)) {
@@ -146,7 +146,7 @@ export async function fetchReddit(days: number): Promise<FetchResult> {
             title: item.title,
             url: item.link,
             source: `r/${subreddit}`,
-            category: "discussion",
+            category: 'discussion',
             publishedAt: item.published,
           });
         }
@@ -171,14 +171,14 @@ export async function fetchReddit(days: number): Promise<FetchResult> {
           title: post.title,
           url: `https://www.reddit.com${post.permalink}`,
           source: `r/${subreddit}`,
-          category: "discussion",
+          category: 'discussion',
           score: post.score,
           publishedAt: publishedDate.toISOString(),
           author: post.author,
           upvotes: post.score,
           commentCount: post.num_comments,
           engagementVelocity: Math.min(100, Math.round(velocity * 2)),
-          platform: "reddit",
+          platform: 'reddit',
         });
       }
     } catch (error) {
@@ -186,7 +186,7 @@ export async function fetchReddit(days: number): Promise<FetchResult> {
     }
   }
 
-  return { source: "Reddit", findings };
+  return { source: 'Reddit', findings };
 }
 
 /**
@@ -199,16 +199,12 @@ export async function fetchHackerNews(days: number): Promise<FetchResult> {
 
   try {
     // Fetch top stories
-    const topResponse = await fetch(
-      "https://hacker-news.firebaseio.com/v0/topstories.json"
-    );
+    const topResponse = await fetch('https://hacker-news.firebaseio.com/v0/topstories.json');
     const topStoryIds: number[] = await topResponse.json();
 
     // Fetch details for top 30 stories
     const storyPromises = topStoryIds.slice(0, 30).map(async (id) => {
-      const res = await fetch(
-        `https://hacker-news.firebaseio.com/v0/item/${id}.json`
-      );
+      const res = await fetch(`https://hacker-news.firebaseio.com/v0/item/${id}.json`);
       return res.json();
     });
 
@@ -216,28 +212,28 @@ export async function fetchHackerNews(days: number): Promise<FetchResult> {
 
     // AI/ML keywords for filtering
     const aiKeywords = [
-      "ai",
-      "ml",
-      "llm",
-      "gpt",
-      "claude",
-      "anthropic",
-      "openai",
-      "model",
-      "transformer",
-      "neural",
-      "deep learning",
-      "machine learning",
-      "embedding",
-      "inference",
-      "gemini",
-      "llama",
-      "mistral",
-      "agent",
-      "copilot",
-      "chatbot",
-      "diffusion",
-      "stable",
+      'ai',
+      'ml',
+      'llm',
+      'gpt',
+      'claude',
+      'anthropic',
+      'openai',
+      'model',
+      'transformer',
+      'neural',
+      'deep learning',
+      'machine learning',
+      'embedding',
+      'inference',
+      'gemini',
+      'llama',
+      'mistral',
+      'agent',
+      'copilot',
+      'chatbot',
+      'diffusion',
+      'stable',
     ];
 
     for (const story of stories) {
@@ -255,21 +251,19 @@ export async function fetchHackerNews(days: number): Promise<FetchResult> {
       findings.push({
         title: story.title,
         url: story.url,
-        source: "Hacker News",
-        category: story.title.toLowerCase().includes("release")
-          ? "release"
-          : "discovery",
+        source: 'Hacker News',
+        category: story.title.toLowerCase().includes('release') ? 'release' : 'discovery',
         score: story.score,
         publishedAt: new Date(story.time * 1000).toISOString(),
         upvotes: story.score,
-        platform: "hn",
+        platform: 'hn',
       });
     }
   } catch (error) {
-    console.error("[fetchHackerNews] Error:", error);
+    console.error('[fetchHackerNews] Error:', error);
   }
 
-  return { source: "Hacker News", findings };
+  return { source: 'Hacker News', findings };
 }
 
 /**
@@ -280,7 +274,7 @@ export async function fetchGitHub(days: number): Promise<FetchResult> {
 
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - days);
-  const dateStr = cutoffDate.toISOString().split("T")[0];
+  const dateStr = cutoffDate.toISOString().split('T')[0];
 
   try {
     // Search for trending AI/ML repos
@@ -298,8 +292,8 @@ export async function fetchGitHub(days: number): Promise<FetchResult> {
         `https://api.github.com/search/repositories?q=${encodeURIComponent(query)}&sort=stars&order=desc&per_page=10`,
         {
           headers: {
-            "User-Agent": "Holocron-WhatsNew/1.0",
-            Accept: "application/vnd.github.v3+json",
+            'User-Agent': 'Holocron-WhatsNew/1.0',
+            Accept: 'application/vnd.github.v3+json',
           },
         }
       );
@@ -309,29 +303,29 @@ export async function fetchGitHub(days: number): Promise<FetchResult> {
       const data = await response.json();
 
       for (const repo of data.items || []) {
-        const description = repo.description || "No description provided";
+        const description = repo.description || 'No description provided';
 
         findings.push({
           title: repo.full_name,
           url: repo.html_url,
-          source: "GitHub",
-          category: "discovery",
+          source: 'GitHub',
+          category: 'discovery',
           score: repo.stargazers_count,
           publishedAt: repo.created_at,
           // Enhanced metadata
           extendedDescription: description.slice(0, 200),
           starCount: repo.stargazers_count,
           isDiscovery: true, // New repos from search are discoveries
-          platform: "github",
+          platform: 'github',
           upvotes: repo.stargazers_count, // Stars act as upvotes for sorting
         });
       }
     }
   } catch (error) {
-    console.error("[fetchGitHub] Error:", error);
+    console.error('[fetchGitHub] Error:', error);
   }
 
-  return { source: "GitHub", findings };
+  return { source: 'GitHub', findings };
 }
 
 /**
@@ -343,12 +337,9 @@ export async function fetchDevTo(days: number): Promise<FetchResult> {
   cutoffDate.setDate(cutoffDate.getDate() - days);
 
   try {
-    const response = await fetch(
-      "https://dev.to/api/articles?tag=ai&per_page=25",
-      {
-        headers: { "User-Agent": "Holocron-WhatsNew/1.0" },
-      }
-    );
+    const response = await fetch('https://dev.to/api/articles?tag=ai&per_page=25', {
+      headers: { 'User-Agent': 'Holocron-WhatsNew/1.0' },
+    });
 
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
@@ -363,18 +354,18 @@ export async function fetchDevTo(days: number): Promise<FetchResult> {
       findings.push({
         title: article.title,
         url: article.url,
-        source: "Dev.to",
-        category: "discovery",
+        source: 'Dev.to',
+        category: 'discovery',
         summary: article.description,
         publishedAt: article.published_at,
-        platform: "devto",
+        platform: 'devto',
       });
     }
   } catch (error) {
-    console.error("[fetchDevTo] Error:", error);
+    console.error('[fetchDevTo] Error:', error);
   }
 
-  return { source: "Dev.to", findings };
+  return { source: 'Dev.to', findings };
 }
 
 /**
@@ -386,7 +377,7 @@ export async function fetchLobsters(days: number): Promise<FetchResult> {
   cutoffDate.setDate(cutoffDate.getDate() - days);
 
   try {
-    const feedUrl = "https://lobste.rs/t/ai.rss";
+    const feedUrl = 'https://lobste.rs/t/ai.rss';
     const items = await parseRSSFeed(feedUrl);
 
     for (const item of items.slice(0, 15)) {
@@ -396,17 +387,17 @@ export async function fetchLobsters(days: number): Promise<FetchResult> {
       findings.push({
         title: item.title,
         url: item.link,
-        source: "Lobsters",
-        category: "discussion",
+        source: 'Lobsters',
+        category: 'discussion',
         publishedAt: item.published,
-        platform: "lobsters",
+        platform: 'lobsters',
       });
     }
   } catch (error) {
-    console.error("[fetchLobsters] Error:", error);
+    console.error('[fetchLobsters] Error:', error);
   }
 
-  return { source: "Lobsters", findings };
+  return { source: 'Lobsters', findings };
 }
 
 /**
@@ -422,28 +413,28 @@ export async function fetchChangelog(days: number): Promise<FetchResult> {
 
   // Key AI/ML repositories to monitor for releases
   const repositories = [
-    "anthropics/anthropic-sdk-python",
-    "anthropics/anthropic-sdk-typescript",
-    "openai/openai-python",
-    "openai/openai-node",
-    "langchain-ai/langchain",
-    "langchain-ai/langchainjs",
-    "microsoft/semantic-kernel",
-    "mistralai/mistral-common",
-    "huggingface/transformers",
-    "modal/modal",
+    'anthropics/anthropic-sdk-python',
+    'anthropics/anthropic-sdk-typescript',
+    'openai/openai-python',
+    'openai/openai-node',
+    'langchain-ai/langchain',
+    'langchain-ai/langchainjs',
+    'microsoft/semantic-kernel',
+    'mistralai/mistral-common',
+    'huggingface/transformers',
+    'modal/modal',
   ];
 
   try {
     for (const repo of repositories) {
-      const [owner, name] = repo.split("/");
+      const [owner, name] = repo.split('/');
       const apiUrl = `https://api.github.com/repos/${owner}/${name}/releases?per_page=5`;
 
       try {
         const response = await fetch(apiUrl, {
           headers: {
-            "User-Agent": "Holocron-WhatsNew/1.0",
-            Accept: "application/vnd.github.v3+json",
+            'User-Agent': 'Holocron-WhatsNew/1.0',
+            Accept: 'application/vnd.github.v3+json',
           },
         });
 
@@ -465,14 +456,14 @@ export async function fetchChangelog(days: number): Promise<FetchResult> {
             title: `${repo}: ${release.name || release.tag_name}`,
             url: release.html_url,
             source: `GitHub (${repo})`,
-            category: "release",
+            category: 'release',
             score: 0, // Releases don't have a score per se
             publishedAt: release.published_at,
             author: release.author?.login,
             summary: release.body?.substring(0, 200),
-            tags: ["github", "release", name],
-            platform: "github",
-            releaseType: "official",
+            tags: ['github', 'release', name],
+            platform: 'github',
+            releaseType: 'official',
             isDiscovery: false, // Known repos releasing updates
           });
         }
@@ -481,10 +472,10 @@ export async function fetchChangelog(days: number): Promise<FetchResult> {
       }
     }
   } catch (error) {
-    console.error("[fetchChangelog] Error:", error);
+    console.error('[fetchChangelog] Error:', error);
   }
 
-  return { source: "GitHub Changelogs", findings };
+  return { source: 'GitHub Changelogs', findings };
 }
 
 /**
@@ -493,28 +484,34 @@ export async function fetchChangelog(days: number): Promise<FetchResult> {
  * Uses public Bluesky API - no auth required.
  * Accepts dynamic account list from subscriptions.
  */
-export async function fetchBluesky(days: number, accounts: Array<{ handle: string; name: string }>): Promise<FetchResult> {
+export async function fetchBluesky(
+  days: number,
+  accounts: Array<{ handle: string; name: string }>
+): Promise<FetchResult> {
   const findings: Finding[] = [];
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - days);
 
   // Fallback to defaults if no subscription accounts configured yet
-  const aiAccounts = accounts.length > 0
-    ? accounts
-    : [
-        { handle: "anthropic.bsky.social", name: "Anthropic" },
-        { handle: "openai.bsky.social", name: "OpenAI" },
-        { handle: "cursor.bsky.social", name: "Cursor" },
-      ];
+  const aiAccounts =
+    accounts.length > 0
+      ? accounts
+      : [
+          { handle: 'anthropic.bsky.social', name: 'Anthropic' },
+          { handle: 'openai.bsky.social', name: 'OpenAI' },
+          { handle: 'cursor.bsky.social', name: 'Cursor' },
+        ];
 
   try {
     for (const account of aiAccounts) {
-      const handle = account.handle.includes('.') ? account.handle : `${account.handle}.bsky.social`;
+      const handle = account.handle.includes('.')
+        ? account.handle
+        : `${account.handle}.bsky.social`;
       try {
         const response = await fetch(
           `https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=${encodeURIComponent(handle)}&limit=25`,
           {
-            headers: { Accept: "application/json" },
+            headers: { Accept: 'application/json' },
           }
         );
 
@@ -532,11 +529,11 @@ export async function fetchBluesky(days: number, accounts: Array<{ handle: strin
           const publishedDate = new Date(post.record.createdAt);
           if (publishedDate < cutoffDate) continue;
 
-          const text = post.record.text || "";
-          const title = text.length > 100 ? text.substring(0, 100) + "..." : text;
+          const text = post.record.text || '';
+          const title = text.length > 100 ? text.substring(0, 100) + '...' : text;
 
           const uri = post.uri;
-          const parts = uri.split("/");
+          const parts = uri.split('/');
           const did = parts[2];
           const rkey = parts[parts.length - 1];
           const link = `https://bsky.app/profile/${did}/post/${rkey}`;
@@ -545,7 +542,7 @@ export async function fetchBluesky(days: number, accounts: Array<{ handle: strin
             title,
             url: link,
             source: `Bluesky (@${account.name || handle})`,
-            category: "discussion",
+            category: 'discussion',
             publishedAt: post.record.createdAt,
           });
         }
@@ -554,10 +551,10 @@ export async function fetchBluesky(days: number, accounts: Array<{ handle: strin
       }
     }
   } catch (error) {
-    console.error("[fetchBluesky] Error:", error);
+    console.error('[fetchBluesky] Error:', error);
   }
 
-  return { source: "Bluesky", findings };
+  return { source: 'Bluesky', findings };
 }
 
 /**
@@ -572,36 +569,36 @@ export async function fetchTwitter(days: number): Promise<FetchResult> {
 
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - days);
-  const dateStr = cutoffDate.toISOString().split("T")[0];
+  const dateStr = cutoffDate.toISOString().split('T')[0];
 
   const exaApiKey = process.env.EXA_API_KEY;
   if (!exaApiKey) {
-    console.warn("[fetchTwitter] No EXA_API_KEY set, skipping Twitter fetch");
-    return { source: "Twitter/X", findings: [] };
+    console.warn('[fetchTwitter] No EXA_API_KEY set, skipping Twitter fetch');
+    return { source: 'Twitter/X', findings: [] };
   }
 
   // High-signal AI/ML queries scoped to twitter.com/x.com
   const queries = [
-    "AI coding tools new release announcement",
-    "LLM benchmark results comparison",
-    "developer tooling AI agent workflow",
+    'AI coding tools new release announcement',
+    'LLM benchmark results comparison',
+    'developer tooling AI agent workflow',
   ];
 
   try {
     for (const query of queries) {
       try {
-        const response = await fetch("https://api.exa.ai/search", {
-          method: "POST",
+        const response = await fetch('https://api.exa.ai/search', {
+          method: 'POST',
           headers: {
-            "Content-Type": "application/json",
-            "x-api-key": exaApiKey,
+            'Content-Type': 'application/json',
+            'x-api-key': exaApiKey,
           },
           body: JSON.stringify({
             query,
             numResults: 10,
             startPublishedDate: dateStr,
-            includeDomains: ["twitter.com", "x.com"],
-            type: "neural",
+            includeDomains: ['twitter.com', 'x.com'],
+            type: 'neural',
           }),
         });
 
@@ -617,7 +614,7 @@ export async function fetchTwitter(days: number): Promise<FetchResult> {
           let author: string | undefined;
           try {
             const url = new URL(result.url);
-            const pathParts = url.pathname.split("/");
+            const pathParts = url.pathname.split('/');
             if (pathParts.length >= 2 && pathParts[1]) {
               author = `@${pathParts[1]}`;
             }
@@ -625,22 +622,18 @@ export async function fetchTwitter(days: number): Promise<FetchResult> {
             // URL parse failed, skip author extraction
           }
 
-          const publishedDate = result.publishedDate
-            ? new Date(result.publishedDate)
-            : undefined;
+          const publishedDate = result.publishedDate ? new Date(result.publishedDate) : undefined;
 
           if (publishedDate && publishedDate < cutoffDate) continue;
 
-          const title = result.title
-            ? result.title.replace(/\s+/g, " ").trim()
-            : "";
+          const title = result.title ? result.title.replace(/\s+/g, ' ').trim() : '';
           if (!title || title.length < 10) continue;
 
           findings.push({
             title,
             url: result.url,
-            source: "Twitter/X",
-            category: "discussion",
+            source: 'Twitter/X',
+            category: 'discussion',
             publishedAt: publishedDate?.toISOString(),
             author,
             summary: result.text?.substring(0, 200),
@@ -651,7 +644,7 @@ export async function fetchTwitter(days: number): Promise<FetchResult> {
       }
     }
   } catch (error) {
-    console.error("[fetchTwitter] Error:", error);
+    console.error('[fetchTwitter] Error:', error);
   }
 
   // Deduplicate by URL (Exa may return same tweet across queries)
@@ -662,7 +655,7 @@ export async function fetchTwitter(days: number): Promise<FetchResult> {
     return true;
   });
 
-  return { source: "Twitter/X", findings: unique };
+  return { source: 'Twitter/X', findings: unique };
 }
 
 /**
@@ -676,37 +669,37 @@ export async function fetchWebSearch(days: number): Promise<FetchResult> {
 
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - days);
-  const dateStr = cutoffDate.toISOString().split("T")[0];
+  const dateStr = cutoffDate.toISOString().split('T')[0];
 
   const exaApiKey = process.env.EXA_API_KEY;
   if (!exaApiKey) {
-    console.warn("[fetchWebSearch] No EXA_API_KEY set, skipping web search");
-    return { source: "Web Search", findings: [] };
+    console.warn('[fetchWebSearch] No EXA_API_KEY set, skipping web search');
+    return { source: 'Web Search', findings: [] };
   }
 
   const now = new Date();
-  const monthYear = now.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  const monthYear = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
   const queries = [
     `AI developer tool release ${monthYear}`,
-    "new coding assistant AI agent",
-    "MCP server announcement Model Context Protocol",
+    'new coding assistant AI agent',
+    'MCP server announcement Model Context Protocol',
   ];
 
   try {
     for (const query of queries) {
       try {
-        const response = await fetch("https://api.exa.ai/search", {
-          method: "POST",
+        const response = await fetch('https://api.exa.ai/search', {
+          method: 'POST',
           headers: {
-            "Content-Type": "application/json",
-            "x-api-key": exaApiKey,
+            'Content-Type': 'application/json',
+            'x-api-key': exaApiKey,
           },
           body: JSON.stringify({
             query,
             numResults: 10,
             startPublishedDate: dateStr,
-            type: "neural",
+            type: 'neural',
           }),
         });
 
@@ -718,22 +711,18 @@ export async function fetchWebSearch(days: number): Promise<FetchResult> {
         const data = await response.json();
 
         for (const result of data.results ?? []) {
-          const publishedDate = result.publishedDate
-            ? new Date(result.publishedDate)
-            : undefined;
+          const publishedDate = result.publishedDate ? new Date(result.publishedDate) : undefined;
 
           if (publishedDate && publishedDate < cutoffDate) continue;
 
-          const title = result.title
-            ? result.title.replace(/\s+/g, " ").trim()
-            : "";
+          const title = result.title ? result.title.replace(/\s+/g, ' ').trim() : '';
           if (!title || title.length < 10) continue;
 
           findings.push({
             title,
             url: result.url,
-            source: "Web Search",
-            category: "discovery",
+            source: 'Web Search',
+            category: 'discovery',
             publishedAt: publishedDate?.toISOString(),
             summary: result.text?.substring(0, 300),
           });
@@ -743,7 +732,7 @@ export async function fetchWebSearch(days: number): Promise<FetchResult> {
       }
     }
   } catch (error) {
-    console.error("[fetchWebSearch] Error:", error);
+    console.error('[fetchWebSearch] Error:', error);
   }
 
   // Deduplicate by URL
@@ -754,7 +743,7 @@ export async function fetchWebSearch(days: number): Promise<FetchResult> {
     return true;
   });
 
-  return { source: "Web Search", findings: unique };
+  return { source: 'Web Search', findings: unique };
 }
 
 // ============================================================================
@@ -772,8 +761,8 @@ export function deduplicateFindings(findings: Finding[]): Finding[] {
     // Normalize URL for deduplication
     const normalizedUrl = finding.url
       .toLowerCase()
-      .replace(/\/$/, "")
-      .replace(/^https?:\/\//, "");
+      .replace(/\/$/, '')
+      .replace(/^https?:\/\//, '');
 
     if (!seen.has(normalizedUrl)) {
       seen.add(normalizedUrl);
@@ -813,10 +802,10 @@ export function capFindingsPerSource(findings: Finding[], maxPerSource: number):
  * Categorize findings
  */
 export function categorizeFindings(findings: Finding[]) {
-  const discoveries = findings.filter((f) => f.category === "discovery");
-  const releases = findings.filter((f) => f.category === "release");
-  const trends = findings.filter((f) => f.category === "trend");
-  const discussions = findings.filter((f) => f.category === "discussion");
+  const discoveries = findings.filter((f) => f.category === 'discovery');
+  const releases = findings.filter((f) => f.category === 'release');
+  const trends = findings.filter((f) => f.category === 'trend');
+  const discussions = findings.filter((f) => f.category === 'discussion');
 
   return { discoveries, releases, trends, discussions };
 }
@@ -928,17 +917,15 @@ export function extractSources(findings: Finding[]): string[] {
  * Only scores social/discussion sources (Reddit, Bluesky, Lobsters).
  * Releases, GitHub repos, and HN (already score-filtered) pass through.
  */
-export async function scoreFindingsQuality(
-  findings: Finding[]
-): Promise<Finding[]> {
+export async function scoreFindingsQuality(findings: Finding[]): Promise<Finding[]> {
   // Separate findings that need scoring from those that don't
-  const socialSources = new Set(["Reddit", "Bluesky", "Lobsters", "Dev.to", "Twitter/X"]);
+  const socialSources = new Set(['Reddit', 'Bluesky', 'Lobsters', 'Dev.to', 'Twitter/X']);
   const needsScoring: Finding[] = [];
   const passThrough: Finding[] = [];
 
   for (const finding of findings) {
-    const baseSource = finding.source.replace(/\s*\(.*\)$/, "");
-    if (socialSources.has(baseSource) || finding.source.startsWith("r/")) {
+    const baseSource = finding.source.replace(/\s*\(.*\)$/, '');
+    if (socialSources.has(baseSource) || finding.source.startsWith('r/')) {
       needsScoring.push(finding);
     } else {
       // HN (already keyword+score filtered), GitHub, Changelogs pass through
@@ -950,8 +937,6 @@ export async function scoreFindingsQuality(
     return passThrough;
   }
 
-  
-
   // Build prompt for batch scoring
   const itemList = needsScoring
     .map((f, i) => {
@@ -961,10 +946,10 @@ export async function scoreFindingsQuality(
         f.author ? `by:${f.author}` : null,
       ]
         .filter(Boolean)
-        .join(", ");
-      return `${i + 1}. [${f.source}] ${f.title}${meta ? ` (${meta})` : ""}`;
+        .join(', ');
+      return `${i + 1}. [${f.source}] ${f.title}${meta ? ` (${meta})` : ''}`;
     })
-    .join("\n");
+    .join('\n');
 
   const prompt = `You are a quality scorer for an AI software engineering daily briefing. Score each item 0.0-1.0 for whether it belongs in a curated, high-quality daily digest for an AI engineer.
 
@@ -1011,8 +996,8 @@ Respond with ONLY a JSON array: [{"score": 0.8, "reason": "brief reason"}, ...]
 The array must have exactly ${needsScoring.length} entries in the same order.`;
 
   try {
-    const { generateText } = await import("ai");
-    const { claudeFlash } = await import("../lib/ai/anthropic_provider");
+    const { generateText } = await import('ai');
+    const { claudeFlash } = await import('../lib/ai/anthropic_provider');
 
     const result = await generateText({
       model: claudeFlash(),
@@ -1022,13 +1007,13 @@ The array must have exactly ${needsScoring.length} entries in the same order.`;
     const text = result.text.trim();
     const jsonMatch = text.match(/\[[\s\S]*\]/);
     if (!jsonMatch) {
-      console.warn("[scoreFindingsQuality] No JSON array in LLM response, passing all through");
+      console.warn('[scoreFindingsQuality] No JSON array in LLM response, passing all through');
       return [...passThrough, ...needsScoring.map((f) => ({ ...f, qualityScore: 0.5 }))];
     }
 
     const parsed: unknown = JSON.parse(jsonMatch[0]);
     if (!Array.isArray(parsed)) {
-      console.warn("[scoreFindingsQuality] Parsed result not an array");
+      console.warn('[scoreFindingsQuality] Parsed result not an array');
       return [...passThrough, ...needsScoring.map((f) => ({ ...f, qualityScore: 0.5 }))];
     }
 
@@ -1036,11 +1021,8 @@ The array must have exactly ${needsScoring.length} entries in the same order.`;
     const scored = needsScoring.map((finding, i) => {
       const entry = parsed[i] as Record<string, unknown> | undefined;
       const score =
-        entry && typeof entry.score === "number"
-          ? Math.min(1, Math.max(0, entry.score))
-          : 0.5;
-      const reason =
-        entry && typeof entry.reason === "string" ? entry.reason : "ai_scored";
+        entry && typeof entry.score === 'number' ? Math.min(1, Math.max(0, entry.score)) : 0.5;
+      const reason = entry && typeof entry.reason === 'string' ? entry.reason : 'ai_scored';
       return { ...finding, qualityScore: score, qualityReason: reason };
     });
 
@@ -1052,7 +1034,7 @@ The array must have exactly ${needsScoring.length} entries in the same order.`;
 
     return [...passThrough, ...filtered];
   } catch (err) {
-    console.warn("[scoreFindingsQuality] LLM scoring failed, passing all through:", err);
+    console.warn('[scoreFindingsQuality] LLM scoring failed, passing all through:', err);
     return [...passThrough, ...needsScoring.map((f) => ({ ...f, qualityScore: 0.5 }))];
   }
 }
@@ -1076,7 +1058,10 @@ export const generateDailyReport = internalAction({
     days: v.optional(v.number()),
     force: v.optional(v.boolean()),
   },
-  handler: async (ctx, args): Promise<{
+  handler: async (
+    ctx,
+    args
+  ): Promise<{
     reportId: string;
     documentId: string;
     findingsCount: number;
@@ -1085,20 +1070,15 @@ export const generateDailyReport = internalAction({
     const days = args.days ?? 1;
     const force = args.force ?? false;
 
-    console.log(
-      `[generateDailyReport] Starting generation (days=${days}, force=${force})`
-    );
+    console.log(`[generateDailyReport] Starting generation (days=${days}, force=${force})`);
 
     // 1. Check if today's report exists (unless force)
     if (!force) {
-      const existingReport = await ctx.runQuery(
-        internal.whatsNew.internal.getTodaysReport
-      );
+      const existingReport = await ctx.runQuery(internal.whatsNew.internal.getTodaysReport);
       if (existingReport) {
-        
         return {
           reportId: existingReport._id,
-          documentId: existingReport.documentId || "",
+          documentId: existingReport.documentId || '',
           findingsCount: existingReport.findingsCount,
           isNew: false,
         };
@@ -1107,9 +1087,9 @@ export const generateDailyReport = internalAction({
 
     // 2. Fetch creator accounts from subscriptions for dynamic Bluesky lists
     const blueskyAccounts = await ctx.runQuery(
-      internal.subscriptions.internal.getCreatorAccountsByPlatform, { platform: "bluesky" }
+      internal.subscriptions.internal.getCreatorAccountsByPlatform,
+      { platform: 'bluesky' }
     );
-    
 
     // 3. Fetch from all sources in parallel
     const fetchResults = await Promise.allSettled([
@@ -1127,11 +1107,10 @@ export const generateDailyReport = internalAction({
     // Collect all findings
     const allFindings: Finding[] = [];
     for (const result of fetchResults) {
-      if (result.status === "fulfilled") {
+      if (result.status === 'fulfilled') {
         allFindings.push(...result.value.findings);
-        
       } else {
-        console.error("[generateDailyReport] Fetch failed:", result.reason);
+        console.error('[generateDailyReport] Fetch failed:', result.reason);
       }
     }
 
@@ -1139,13 +1118,11 @@ export const generateDailyReport = internalAction({
     const uniqueFindings = deduplicateFindings(allFindings);
 
     // Quality scoring: LLM-based filtering for social posts
-    
+
     const qualityFindings = await scoreFindingsQuality(uniqueFindings);
-    
 
     const cappedFindings = capFindingsPerSource(qualityFindings, 15);
-    const { discoveries, releases, trends, discussions } =
-      categorizeFindings(cappedFindings);
+    const { discoveries, releases, trends, discussions } = categorizeFindings(cappedFindings);
 
     // Calculate extended metrics
     // Populate per-finding corroboration so synthesis LLM can use it for boosting
@@ -1158,7 +1135,6 @@ export const generateDailyReport = internalAction({
     console.log(
       `[generateDailyReport] ${cappedFindings.length} unique findings (${discoveries.length} discoveries, ${releases.length} releases, ${trends.length} trends, ${discussions.length} discussions)`
     );
-    
 
     // 5. Content enrichment: fetch summaries for top findings lacking them
     const findingsNeedingSummary = cappedFindings
@@ -1167,14 +1143,13 @@ export const generateDailyReport = internalAction({
       .slice(0, 15);
 
     if (findingsNeedingSummary.length > 0) {
-      
       const enrichResults = await Promise.allSettled(
         findingsNeedingSummary.map(async (finding) => {
           try {
             const response = await fetch(`https://r.jina.ai/${finding.url}`, {
               headers: {
-                Accept: "text/plain",
-                "User-Agent": "Holocron-WhatsNew/1.0",
+                Accept: 'text/plain',
+                'User-Agent': 'Holocron-WhatsNew/1.0',
               },
               signal: AbortSignal.timeout(10000),
             });
@@ -1190,19 +1165,19 @@ export const generateDailyReport = internalAction({
       // Batch-summarize fetched content
       const fetchedContent: Array<{ url: string; content: string }> = [];
       for (const result of enrichResults) {
-        if (result.status === "fulfilled" && result.value) {
+        if (result.status === 'fulfilled' && result.value) {
           fetchedContent.push(result.value);
         }
       }
 
       if (fetchedContent.length > 0) {
         try {
-          const { generateText } = await import("ai");
-          const { claudeFlash } = await import("../lib/ai/anthropic_provider");
+          const { generateText } = await import('ai');
+          const { claudeFlash } = await import('../lib/ai/anthropic_provider');
 
           const batchPrompt = `For each article below, write a concise 1-2 sentence summary for an AI engineer. Return a JSON array of objects with "url" and "summary" fields.
 
-${fetchedContent.map((c, i) => `Article ${i + 1} (${c.url}):\n${c.content.substring(0, 500)}`).join("\n\n")}
+${fetchedContent.map((c, i) => `Article ${i + 1} (${c.url}):\n${c.content.substring(0, 500)}`).join('\n\n')}
 
 Respond with ONLY a JSON array: [{"url": "...", "summary": "..."}]`;
 
@@ -1221,10 +1196,9 @@ Respond with ONLY a JSON array: [{"url": "...", "summary": "..."}]`;
                 finding.summary = summary;
               }
             }
-            
           }
         } catch (err) {
-          console.warn("[generateDailyReport] Content enrichment summarization failed:", err);
+          console.warn('[generateDailyReport] Content enrichment summarization failed:', err);
         }
       }
     }
@@ -1236,7 +1210,6 @@ Respond with ONLY a JSON array: [{"url": "...", "summary": "..."}]`;
       .slice(0, 20); // Limit to top 20 to avoid excessive LLM calls
 
     if (findingsNeedingAiSummary.length > 0) {
-
       for (const finding of findingsNeedingAiSummary) {
         try {
           const summary = await generateFindingSummary(ctx, finding);
@@ -1245,13 +1218,20 @@ Respond with ONLY a JSON array: [{"url": "...", "summary": "..."}]`;
           }
         } catch (error) {
           // Summary generation failed - continue without it
-          console.warn(`[generateDailyReport] Summary generation failed for "${finding.title.substring(0, 50)}...":`, error);
+          console.warn(
+            `[generateDailyReport] Summary generation failed for "${finding.title.substring(0, 50)}...":`,
+            error
+          );
         }
       }
 
       // Track enrichment coverage
-      const _enrichedCount = findingsNeedingAiSummary.filter((f) => f.summary && f.summary.length >= 80).length;
-      console.log(`[generateDailyReport] Enriched ${_enrichedCount}/${findingsNeedingAiSummary.length} findings with AI summaries`);
+      const _enrichedCount = findingsNeedingAiSummary.filter(
+        (f) => f.summary && f.summary.length >= 80
+      ).length;
+      console.log(
+        `[generateDailyReport] Enriched ${_enrichedCount}/${findingsNeedingAiSummary.length} findings with AI summaries`
+      );
     }
 
     // 6. Generate markdown report using two-pass LLM synthesis with static fallback
@@ -1259,31 +1239,22 @@ Respond with ONLY a JSON array: [{"url": "...", "summary": "..."}]`;
     const periodEnd = now;
     const periodStart = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
 
-    const synthesisResult = await llmSynthesizeReport(
-      cappedFindings,
-      days,
-      periodStart,
-      periodEnd
-    );
+    const synthesisResult = await llmSynthesizeReport(cappedFindings, days, periodStart, periodEnd);
 
-    
     if (synthesisResult.error) {
-      console.error("[generateDailyReport] LLM synthesis error:", synthesisResult.error);
+      console.error('[generateDailyReport] LLM synthesis error:', synthesisResult.error);
     }
 
     const reportMarkdown = synthesisResult.markdown;
 
     // 6. Store document with embedding
-    const documentResult = await ctx.runAction(
-      api.documents.storage.createWithEmbedding,
-      {
-        title: `What's New: ${now.toISOString().split("T")[0]}`,
-        content: reportMarkdown,
-        category: "whats-new",
-        date: now.toISOString().split("T")[0],
-        status: "complete",
-      }
-    );
+    const documentResult = await ctx.runAction(api.documents.storage.createWithEmbedding, {
+      title: `What's New: ${now.toISOString().split('T')[0]}`,
+      content: reportMarkdown,
+      category: 'whats-new',
+      date: now.toISOString().split('T')[0],
+      status: 'complete',
+    });
 
     // 7. Create whatsNewReports entry
 
@@ -1294,45 +1265,40 @@ Respond with ONLY a JSON array: [{"url": "...", "summary": "..."}]`;
 
     const findingsJson = JSON.stringify(cappedFindings);
 
-    const reportId = await ctx.runMutation(
-      internal.whatsNew.mutations.createReport,
-      {
-        periodStart: periodStart.getTime(),
-        periodEnd: periodEnd.getTime(),
-        days,
-        focus: "all",
-        discoveryOnly: false,
-        findingsCount: cappedFindings.length,
-        discoveryCount: discoveries.length,
-        releaseCount: releases.length,
-        trendCount: trends.length,
-        reportPath: "", // Not using file paths, using documentId instead
-        summaryJson: {
-          topSources: Object.entries(
-            cappedFindings.reduce(
-              (acc, f) => {
-                acc[f.source] = (acc[f.source] || 0) + 1;
-                return acc;
-              },
-              {} as Record<string, number>
-            )
-          ).sort((a, b) => b[1] - a[1]),
-          // Extended metrics for UI display
-          topEngagementVelocity,
-          totalCorroborationCount,
-          sources,
-        },
-        documentId: documentResult.documentId,
-        toolSuggestionsJson,
-        findingsJson,
-      }
-    );
-
-    
+    const reportId = await ctx.runMutation(internal.whatsNew.mutations.createReport, {
+      periodStart: periodStart.getTime(),
+      periodEnd: periodEnd.getTime(),
+      days,
+      focus: 'all',
+      discoveryOnly: false,
+      findingsCount: cappedFindings.length,
+      discoveryCount: discoveries.length,
+      releaseCount: releases.length,
+      trendCount: trends.length,
+      reportPath: '', // Not using file paths, using documentId instead
+      summaryJson: {
+        topSources: Object.entries(
+          cappedFindings.reduce(
+            (acc, f) => {
+              acc[f.source] = (acc[f.source] || 0) + 1;
+              return acc;
+            },
+            {} as Record<string, number>
+          )
+        ).sort((a, b) => b[1] - a[1]),
+        // Extended metrics for UI display
+        topEngagementVelocity,
+        totalCorroborationCount,
+        sources,
+      },
+      documentId: documentResult.documentId,
+      toolSuggestionsJson,
+      findingsJson,
+    });
 
     // Notify that a new What's New report is available
     await ctx.runMutation(internal.notifications.internal.create, {
-      type: "whats_new",
+      type: 'whats_new',
       title: "What's New Report Ready",
       body: `Your daily AI digest is ready with ${cappedFindings.length} findings.`,
       route: `/whats-new/${reportId}`,
@@ -1344,7 +1310,7 @@ Respond with ONLY a JSON array: [{"url": "...", "summary": "..."}]`;
       groupKey: `whats-new:${reportId}`,
       title: `AI Engineering Daily: ${cappedFindings.length} findings`,
       summary: `Discoveries: ${discoveries.length}, Releases: ${releases.length}, Trends: ${trends.length}`,
-      contentType: "blog",
+      contentType: 'blog',
       itemCount: 1,
       itemIds: [],
       subscriptionIds: [],
@@ -1395,7 +1361,10 @@ export const backfillQualityScores = internalAction({
     skip: v.optional(v.number()),
     dryRun: v.optional(v.boolean()),
   },
-  handler: async (ctx, args): Promise<{
+  handler: async (
+    ctx,
+    args
+  ): Promise<{
     processed: number;
     updated: number;
     totalRemoved: number;
@@ -1404,17 +1373,11 @@ export const backfillQualityScores = internalAction({
     const skip = args.skip ?? 0;
     const dryRun = args.dryRun ?? false;
 
-    console.log(
-      `[backfillQualityScores] Starting batch (skip=${skip}, dryRun=${dryRun})`
-    );
+    console.log(`[backfillQualityScores] Starting batch (skip=${skip}, dryRun=${dryRun})`);
 
-    const reports = await ctx.runQuery(
-      internal.whatsNew.internal.getReportsForBackfill,
-      { skip }
-    );
+    const reports = await ctx.runQuery(internal.whatsNew.internal.getReportsForBackfill, { skip });
 
     if (reports.length === 0) {
-      
       return { processed: 0, updated: 0, totalRemoved: 0, hasMore: false };
     }
 
@@ -1423,7 +1386,6 @@ export const backfillQualityScores = internalAction({
 
     for (const report of reports) {
       if (!report.findingsJson) {
-        
         continue;
       }
 
@@ -1444,22 +1406,19 @@ export const backfillQualityScores = internalAction({
       );
 
       if (removed > 0 || scored.some((f) => f.qualityScore !== undefined)) {
-        const discoveries = scored.filter((f) => f.category === "discovery").length;
-        const releases = scored.filter((f) => f.category === "release").length;
-        const trends = scored.filter((f) => f.category === "trend").length;
+        const discoveries = scored.filter((f) => f.category === 'discovery').length;
+        const releases = scored.filter((f) => f.category === 'release').length;
+        const trends = scored.filter((f) => f.category === 'trend').length;
 
         if (!dryRun) {
-          await ctx.runMutation(
-            internal.whatsNew.mutations.updateReportFindings,
-            {
-              reportId: report._id,
-              findingsJson: JSON.stringify(scored),
-              findingsCount: scored.length,
-              discoveryCount: discoveries,
-              releaseCount: releases,
-              trendCount: trends,
-            }
-          );
+          await ctx.runMutation(internal.whatsNew.mutations.updateReportFindings, {
+            reportId: report._id,
+            findingsJson: JSON.stringify(scored),
+            findingsCount: scored.length,
+            discoveryCount: discoveries,
+            releaseCount: releases,
+            trendCount: trends,
+          });
         }
 
         updated++;
@@ -1468,8 +1427,6 @@ export const backfillQualityScores = internalAction({
     }
 
     const hasMore = reports.length === 5;
-
-    
 
     // Auto-continue to next batch if there are more
     if (hasMore) {

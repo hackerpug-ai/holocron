@@ -12,22 +12,22 @@
  * - Accessible testIDs
  */
 
-import { View } from 'react-native'
-import { Skeleton } from '@/components/ui/skeleton'
-import { useTheme } from '@/hooks/use-theme'
+import { View } from 'react-native';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useTheme } from '@/hooks/use-theme';
 
 export interface FeedSkeletonProps {
   /** Number of skeleton cards to display */
-  count?: number
+  count?: number;
   /** Optional test ID prefix */
-  testID?: string
+  testID?: string;
 }
 
 /**
  * Individual finding skeleton card
  */
 function FindingSkeleton({ index, testID }: { index: number; testID?: string }) {
-  const { spacing, radius } = useTheme()
+  const { spacing, radius } = useTheme();
 
   return (
     <View
@@ -70,7 +70,7 @@ function FindingSkeleton({ index, testID }: { index: number; testID?: string }) 
         <Skeleton className="h-4 w-4 rounded" />
       </View>
     </View>
-  )
+  );
 }
 
 /**
@@ -81,21 +81,14 @@ function FindingSkeleton({ index, testID }: { index: number; testID?: string }) 
  * <FeedSkeleton count={5} testID="feed-skeleton" />
  * ```
  */
-export function FeedSkeleton({
-  count = 5,
-  testID = 'feed-skeleton',
-}: FeedSkeletonProps) {
-  const { spacing } = useTheme()
+export function FeedSkeleton({ count = 5, testID = 'feed-skeleton' }: FeedSkeletonProps) {
+  const { spacing } = useTheme();
 
   return (
-    <View
-      className="px-4 pt-4"
-      style={{ paddingBottom: spacing.md }}
-      testID={testID}
-    >
+    <View className="px-4 pt-4" style={{ paddingBottom: spacing.md }} testID={testID}>
       {Array.from({ length: count }).map((_, index) => (
         <FindingSkeleton key={index} index={index} testID={testID} />
       ))}
     </View>
-  )
+  );
 }

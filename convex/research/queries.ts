@@ -4,8 +4,8 @@
  * Query functions for retrieving research session and iteration data
  */
 
-import { query } from "../_generated/server";
-import { v } from "convex/values";
+import { v } from 'convex/values';
+import { query } from '../_generated/server';
 
 /**
  * Calculate cosine similarity between two vectors
@@ -35,7 +35,7 @@ function cosineSimilarity(a: number[], b: number[]): number {
  */
 export const getDeepResearchSession = query({
   args: {
-    sessionId: v.id("deepResearchSessions"),
+    sessionId: v.id('deepResearchSessions'),
   },
   handler: async (ctx, { sessionId }) => {
     const session = await ctx.db.get(sessionId);
@@ -45,9 +45,9 @@ export const getDeepResearchSession = query({
 
     // Fetch all iterations for this session
     const iterationsRaw = await ctx.db
-      .query("deepResearchIterations")
-      .withIndex("by_session", q => q.eq("sessionId", sessionId))
-      .order("asc")
+      .query('deepResearchIterations')
+      .withIndex('by_session', (q) => q.eq('sessionId', sessionId))
+      .order('asc')
       .collect();
 
     // Transform iterations to app-level type
@@ -67,8 +67,8 @@ export const getDeepResearchSession = query({
 
     // Fetch all research findings for this session to build citations
     const findings = await ctx.db
-      .query("researchFindings")
-      .withIndex("by_session", q => q.eq("sessionId", sessionId))
+      .query('researchFindings')
+      .withIndex('by_session', (q) => q.eq('sessionId', sessionId))
       .collect();
 
     // Extract unique citations from all findings
@@ -102,14 +102,14 @@ export const getDeepResearchSession = query({
     // If no synthesized document exists yet, indicate synthesis is pending
     // Do NOT fall back to raw iteration findings - synthesis is mandatory
     if (!report) {
-      if (session.status === "completed") {
+      if (session.status === 'completed') {
         // Session complete but document not ready yet - synthesis is in progress
-        report = "Synthesizing research report...";
+        report = 'Synthesizing research report...';
       } else if (iterationsRaw.length > 0) {
         // Research still in progress
-        report = "Research in progress...";
+        report = 'Research in progress...';
       } else {
-        report = "Starting research...";
+        report = 'Starting research...';
       }
     }
 
@@ -139,13 +139,13 @@ export const getDeepResearchSession = query({
  */
 export const listDeepResearchIterations = query({
   args: {
-    sessionId: v.id("deepResearchSessions"),
+    sessionId: v.id('deepResearchSessions'),
   },
   handler: async (ctx, { sessionId }) => {
     return await ctx.db
-      .query("deepResearchIterations")
-      .withIndex("by_session", q => q.eq("sessionId", sessionId))
-      .order("asc")
+      .query('deepResearchIterations')
+      .withIndex('by_session', (q) => q.eq('sessionId', sessionId))
+      .order('asc')
       .collect();
   },
 });
@@ -158,28 +158,28 @@ export const listDeepResearchIterations = query({
  */
 export const getFindingsByConfidence = query({
   args: {
-    sessionId: v.id("deepResearchSessions"),
+    sessionId: v.id('deepResearchSessions'),
     confidenceFilter: v.optional(v.string()), // HIGH_ONLY | HIGH_MEDIUM | ALL
   },
-  handler: async (ctx, { sessionId, confidenceFilter = "ALL" }) => {
+  handler: async (ctx, { sessionId, confidenceFilter = 'ALL' }) => {
     // Fetch all findings for this session
     const findings = await ctx.db
-      .query("researchFindings")
-      .withIndex("by_session", q => q.eq("sessionId", sessionId))
+      .query('researchFindings')
+      .withIndex('by_session', (q) => q.eq('sessionId', sessionId))
       .collect();
 
     // Apply confidence filter
     let filteredFindings = findings;
     switch (confidenceFilter) {
-      case "HIGH_ONLY":
-        filteredFindings = findings.filter(f => f.confidenceLevel === "HIGH");
+      case 'HIGH_ONLY':
+        filteredFindings = findings.filter((f) => f.confidenceLevel === 'HIGH');
         break;
-      case "HIGH_MEDIUM":
-        filteredFindings = findings.filter(f =>
-          f.confidenceLevel === "HIGH" || f.confidenceLevel === "MEDIUM"
+      case 'HIGH_MEDIUM':
+        filteredFindings = findings.filter(
+          (f) => f.confidenceLevel === 'HIGH' || f.confidenceLevel === 'MEDIUM'
         );
         break;
-      case "ALL":
+      case 'ALL':
       default:
         // No filter - return all
         break;
@@ -236,7 +236,7 @@ export const getFindingsByConfidence = query({
  */
 export const getSessionConfidenceSummary = query({
   args: {
-    sessionId: v.id("deepResearchSessions"),
+    sessionId: v.id('deepResearchSessions'),
   },
   handler: async (ctx, { sessionId }) => {
     const session = await ctx.db.get(sessionId);
@@ -246,34 +246,41 @@ export const getSessionConfidenceSummary = query({
 
     // Fetch all findings for this session
     const findings = await ctx.db
-      .query("researchFindings")
-      .withIndex("by_session", q => q.eq("sessionId", sessionId))
+      .query('researchFindings')
+      .withIndex('by_session', (q) => q.eq('sessionId', sessionId))
       .collect();
 
     // Calculate stats if not already stored
     const stats = {
-      highConfidenceCount: findings.filter(f => f.confidenceLevel === "HIGH").length,
-      mediumConfidenceCount: findings.filter(f => f.confidenceLevel === "MEDIUM").length,
-      lowConfidenceCount: findings.filter(f => f.confidenceLevel === "LOW").length,
-      averageConfidenceScore: findings.length > 0
-        ? Math.round(findings.reduce((sum, f) => sum + f.confidenceScore, 0) / findings.length)
-        : 0,
-      claimsWithMultipleSources: findings.filter(f => f.citationIds.length >= 3).length,
+      highConfidenceCount: findings.filter((f) => f.confidenceLevel === 'HIGH').length,
+      mediumConfidenceCount: findings.filter((f) => f.confidenceLevel === 'MEDIUM').length,
+      lowConfidenceCount: findings.filter((f) => f.confidenceLevel === 'LOW').length,
+      averageConfidenceScore:
+        findings.length > 0
+          ? Math.round(findings.reduce((sum, f) => sum + f.confidenceScore, 0) / findings.length)
+          : 0,
+      claimsWithMultipleSources: findings.filter((f) => f.citationIds.length >= 3).length,
       totalClaims: findings.length,
     };
 
     // Calculate confidence distribution percentage
     const distribution = {
-      highPercent: findings.length > 0 ? Math.round((stats.highConfidenceCount / findings.length) * 100) : 0,
-      mediumPercent: findings.length > 0 ? Math.round((stats.mediumConfidenceCount / findings.length) * 100) : 0,
-      lowPercent: findings.length > 0 ? Math.round((stats.lowConfidenceCount / findings.length) * 100) : 0,
+      highPercent:
+        findings.length > 0 ? Math.round((stats.highConfidenceCount / findings.length) * 100) : 0,
+      mediumPercent:
+        findings.length > 0 ? Math.round((stats.mediumConfidenceCount / findings.length) * 100) : 0,
+      lowPercent:
+        findings.length > 0 ? Math.round((stats.lowConfidenceCount / findings.length) * 100) : 0,
     };
 
     // Determine overall confidence level
     let overallLevel: 'HIGH' | 'MEDIUM' | 'LOW' = 'LOW';
     if (distribution.highPercent >= 60 && stats.averageConfidenceScore >= 75) {
       overallLevel = 'HIGH';
-    } else if (distribution.highPercent + distribution.mediumPercent >= 70 && stats.averageConfidenceScore >= 50) {
+    } else if (
+      distribution.highPercent + distribution.mediumPercent >= 70 &&
+      stats.averageConfidenceScore >= 50
+    ) {
       overallLevel = 'MEDIUM';
     }
 
@@ -284,7 +291,8 @@ export const getSessionConfidenceSummary = query({
       stats,
       distribution,
       overallLevel,
-      meetsMultiSourceRequirement: stats.claimsWithMultipleSources >= Math.ceil(stats.totalClaims * 0.5),
+      meetsMultiSourceRequirement:
+        stats.claimsWithMultipleSources >= Math.ceil(stats.totalClaims * 0.5),
       // Use stored summary if available (more accurate for completed sessions)
       finalSummary: session.finalConfidenceSummary ?? null,
     };
@@ -298,15 +306,15 @@ export const getSessionConfidenceSummary = query({
  */
 export const getFindingsByIteration = query({
   args: {
-    iterationId: v.id("deepResearchIterations"),
+    iterationId: v.id('deepResearchIterations'),
   },
   handler: async (ctx, { iterationId }) => {
     const findings = await ctx.db
-      .query("researchFindings")
-      .withIndex("by_iteration", q => q.eq("iterationId", iterationId))
+      .query('researchFindings')
+      .withIndex('by_iteration', (q) => q.eq('iterationId', iterationId))
       .collect();
 
-    return findings.map(finding => ({
+    return findings.map((finding) => ({
       id: finding._id.toString(),
       claimText: finding.claimText,
       claimCategory: finding.claimCategory,
@@ -328,14 +336,11 @@ export const vectorSearchIterations = query({
   args: {
     embedding: v.array(v.float64()),
     limit: v.optional(v.number()),
-    sessionId: v.optional(v.id("deepResearchSessions")),
+    sessionId: v.optional(v.id('deepResearchSessions')),
   },
   handler: async (ctx, { embedding, limit = 10, sessionId }) => {
-    let results = await (ctx.db
-      .query("deepResearchIterations") as any)
-      .withIndex("by_embedding", (q: any) =>
-        q.similar("embedding", embedding, limit * 2)
-      )
+    let results = await (ctx.db.query('deepResearchIterations') as any)
+      .withIndex('by_embedding', (q: any) => q.similar('embedding', embedding, limit * 2))
       .collect();
 
     if (sessionId) {
@@ -347,9 +352,7 @@ export const vectorSearchIterations = query({
         _id: iteration._id,
         sessionId: iteration.sessionId,
         findings: iteration.findings,
-        score: iteration.embedding
-          ? cosineSimilarity(embedding, iteration.embedding)
-          : 0,
+        score: iteration.embedding ? cosineSimilarity(embedding, iteration.embedding) : 0,
       }))
       .sort((a: any, b: any) => b.score - a.score)
       .slice(0, limit);
@@ -366,26 +369,22 @@ export const fullTextSearchIterations = query({
   args: {
     query: v.string(),
     limit: v.optional(v.number()),
-    sessionId: v.optional(v.id("deepResearchSessions")),
+    sessionId: v.optional(v.id('deepResearchSessions')),
   },
   handler: async (ctx, { query: searchQuery, limit = 10, sessionId }) => {
     // Use index for sessionId filtering when provided
     let iterations;
     if (sessionId) {
       iterations = await ctx.db
-        .query("deepResearchIterations")
-        .withIndex("by_session", q => q.eq("sessionId", sessionId))
+        .query('deepResearchIterations')
+        .withIndex('by_session', (q) => q.eq('sessionId', sessionId))
         .collect();
     } else {
-      iterations = await ctx.db
-        .query("deepResearchIterations")
-        .collect();
+      iterations = await ctx.db.query('deepResearchIterations').collect();
     }
 
     const searchLower = searchQuery.toLowerCase();
-    const filtered = iterations.filter(it =>
-      it.findings?.toLowerCase().includes(searchLower)
-    );
+    const filtered = iterations.filter((it) => it.findings?.toLowerCase().includes(searchLower));
 
     return filtered.slice(0, limit).map((iteration, index) => ({
       _id: iteration._id,
@@ -403,14 +402,14 @@ export const fullTextSearchIterations = query({
  */
 export const getByConversation = query({
   args: {
-    conversationId: v.id("conversations"),
+    conversationId: v.id('conversations'),
   },
   handler: async (ctx, { conversationId }) => {
     const sessions = await ctx.db
-      .query("deepResearchSessions")
-      .withIndex("by_conversation", (q) => q.eq("conversationId", conversationId))
-      .filter((q) => q.eq(q.field("status"), "completed"))
-      .order("asc")
+      .query('deepResearchSessions')
+      .withIndex('by_conversation', (q) => q.eq('conversationId', conversationId))
+      .filter((q) => q.eq(q.field('status'), 'completed'))
+      .order('asc')
       .collect();
 
     return sessions.map((session) => ({

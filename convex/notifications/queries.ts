@@ -1,5 +1,5 @@
-import { v } from "convex/values";
-import { query } from "../_generated/server";
+import { v } from 'convex/values';
+import { query } from '../_generated/server';
 
 // ============================================================
 // Notifications Queries
@@ -15,9 +15,9 @@ export const listUnread = query({
   args: {},
   handler: async (ctx) => {
     return await ctx.db
-      .query("notifications")
-      .withIndex("by_unread", (q) => q.eq("read", false))
-      .order("desc")
+      .query('notifications')
+      .withIndex('by_unread', (q) => q.eq('read', false))
+      .order('desc')
       .take(10);
   },
 });
@@ -34,9 +34,9 @@ export const listRecent = query({
   },
   handler: async (ctx, { limit }) => {
     return await ctx.db
-      .query("notifications")
-      .withIndex("by_created")
-      .order("desc")
+      .query('notifications')
+      .withIndex('by_created')
+      .order('desc')
       .take(limit ?? 20);
   },
 });
@@ -50,9 +50,9 @@ export const hasNewSince = query({
   args: { since: v.number() },
   handler: async (ctx, { since }) => {
     const newer = await ctx.db
-      .query("notifications")
-      .withIndex("by_created")
-      .filter((q) => q.gt(q.field("createdAt"), since))
+      .query('notifications')
+      .withIndex('by_created')
+      .filter((q) => q.gt(q.field('createdAt'), since))
       .first();
     return newer !== null;
   },
@@ -66,7 +66,7 @@ export const hasNewSince = query({
 export const getLastSeen = query({
   args: {},
   handler: async (ctx) => {
-    const prefs = await ctx.db.query("userPreferences").first();
+    const prefs = await ctx.db.query('userPreferences').first();
     return prefs?.notificationsLastSeenAt ?? 0;
   },
 });
@@ -79,7 +79,7 @@ export const getLastSeen = query({
 export const getHasSeenNavTooltip = query({
   args: {},
   handler: async (ctx) => {
-    const prefs = await ctx.db.query("userPreferences").first();
+    const prefs = await ctx.db.query('userPreferences').first();
     return prefs?.hasSeenNavTooltip ?? false;
   },
 });

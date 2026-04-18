@@ -1,50 +1,50 @@
-import { Pressable, View } from 'react-native'
-import Animated, { useAnimatedStyle, withSpring } from 'react-native-reanimated'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { Text } from '@/components/ui/text'
-import { Pause, Play, RefreshCw, SkipBack, SkipForward } from '@/components/ui/icons'
-import { cn } from '@/lib/utils'
-import { useTheme } from '@/hooks/use-theme'
-import { SpinnerRing } from './SpinnerRing'
-import type { PlaybackSpeed, UseNarrationStateReturn } from './hooks/useNarrationState'
+import { Pressable, View } from 'react-native';
+import Animated, { useAnimatedStyle, withSpring } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Pause, Play, RefreshCw, SkipBack, SkipForward } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { useTheme } from '@/hooks/use-theme';
+import { cn } from '@/lib/utils';
+import type { PlaybackSpeed, UseNarrationStateReturn } from './hooks/useNarrationState';
+import { SpinnerRing } from './SpinnerRing';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-export const NARRATION_BAR_HEIGHT = 88
+export const NARRATION_BAR_HEIGHT = 88;
 
-const SPEED_CYCLE: PlaybackSpeed[] = [0.5, 1, 1.5, 2]
+const SPEED_CYCLE: PlaybackSpeed[] = [0.5, 1, 1.5, 2];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatTime(seconds: number): string {
-  const mins = Math.floor(seconds / 60)
-  const secs = Math.floor(seconds % 60)
-  return `${mins}:${secs.toString().padStart(2, '0')}`
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
 function nextSpeed(current: PlaybackSpeed): PlaybackSpeed {
-  const idx = SPEED_CYCLE.indexOf(current)
-  return SPEED_CYCLE[(idx + 1) % SPEED_CYCLE.length]
+  const idx = SPEED_CYCLE.indexOf(current);
+  return SPEED_CYCLE[(idx + 1) % SPEED_CYCLE.length];
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 export interface NarrationControlBarProps {
-  narration: UseNarrationStateReturn
-  isVisible: boolean
+  narration: UseNarrationStateReturn;
+  isVisible: boolean;
   /** True when the current segment is not yet available and we're waiting for it */
-  isSegmentLoading?: boolean
-  testID?: string
-  onRegenerate?: () => void
+  isSegmentLoading?: boolean;
+  testID?: string;
+  onRegenerate?: () => void;
   audioJob?: {
-    _id: string
-    status: string
-    totalSegments: number
-    completedSegments: number
-    failedSegments: number
-    errorMessage?: string
-  } | null
-  onRetryFailed?: () => void
+    _id: string;
+    status: string;
+    totalSegments: number;
+    completedSegments: number;
+    failedSegments: number;
+    errorMessage?: string;
+  } | null;
+  onRetryFailed?: () => void;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -68,9 +68,9 @@ export function NarrationControlBar({
   audioJob,
   onRetryFailed,
 }: NarrationControlBarProps) {
-  const insets = useSafeAreaInsets()
-  const { colors: themeColors } = useTheme()
-  const { state } = narration
+  const insets = useSafeAreaInsets();
+  const { colors: themeColors } = useTheme();
+  const { state } = narration;
 
   const {
     status,
@@ -79,24 +79,24 @@ export function NarrationControlBar({
     currentTimeSeconds,
     totalTimeSeconds,
     playbackSpeed,
-  } = state
+  } = state;
 
-  const isPlaying = status === 'playing'
-  const isPaused = status === 'paused'
+  const isPlaying = status === 'playing';
+  const isPaused = status === 'paused';
 
   // Spinner ring only when user has pressed play and we're waiting for audio
-  const showSpinnerRing = (isPlaying || isPaused) && isSegmentLoading
+  const showSpinnerRing = (isPlaying || isPaused) && isSegmentLoading;
 
-  const canSkipPrev = activeParagraphIndex > 0
-  const canSkipNext = activeParagraphIndex < totalParagraphs - 1
+  const canSkipPrev = activeParagraphIndex > 0;
+  const canSkipNext = activeParagraphIndex < totalParagraphs - 1;
 
   const progressFraction =
-    totalTimeSeconds > 0 ? Math.min(currentTimeSeconds / totalTimeSeconds, 1) : 0
+    totalTimeSeconds > 0 ? Math.min(currentTimeSeconds / totalTimeSeconds, 1) : 0;
 
   // ── Animation ──────────────────────────────────────────────────────────────
 
   const animatedStyle = useAnimatedStyle(() => {
-    const hiddenOffset = NARRATION_BAR_HEIGHT + insets.bottom
+    const hiddenOffset = NARRATION_BAR_HEIGHT + insets.bottom;
     return {
       transform: [
         {
@@ -106,17 +106,17 @@ export function NarrationControlBar({
           }),
         },
       ],
-    }
-  })
+    };
+  });
 
   // ── Handlers ───────────────────────────────────────────────────────────────
 
   const handleSpeedPress = () => {
-    narration.setSpeed(nextSpeed(playbackSpeed))
-  }
+    narration.setSpeed(nextSpeed(playbackSpeed));
+  };
 
   // ── Display paragraph index (1-based, min 1 when active) ──────────────────
-  const displayParagraph = activeParagraphIndex >= 0 ? activeParagraphIndex + 1 : 1
+  const displayParagraph = activeParagraphIndex >= 0 ? activeParagraphIndex + 1 : 1;
 
   return (
     <Animated.View
@@ -127,10 +127,7 @@ export function NarrationControlBar({
       {/* Progress stripe */}
       <View className="h-0.5 w-full bg-muted overflow-hidden">
         <View
-          className={cn(
-            'h-full',
-            audioJob?.status === 'running' ? 'bg-warning' : 'bg-primary'
-          )}
+          className={cn('h-full', audioJob?.status === 'running' ? 'bg-warning' : 'bg-primary')}
           style={{ width: `${progressFraction * 100}%` }}
         />
       </View>
@@ -238,8 +235,8 @@ export function NarrationControlBar({
             <Pressable
               testID="narration-regenerate"
               onPress={() => {
-                narration.regenerate()
-                onRegenerate?.()
+                narration.regenerate();
+                onRegenerate?.();
               }}
               accessibilityRole="button"
               accessibilityLabel="Regenerate narration"
@@ -268,5 +265,5 @@ export function NarrationControlBar({
         )}
       </View>
     </Animated.View>
-  )
+  );
 }

@@ -1,16 +1,16 @@
-import { View } from 'react-native'
-import { Text } from '@/components/ui/text'
-import { CommandBadge } from '@/components/CommandBadge'
+import { View } from 'react-native';
+import { CommandBadge } from '@/components/CommandBadge';
+import { Text } from '@/components/ui/text';
 
 export interface SlashCommandMessageProps {
   /** The slash command (e.g., '/search', '/research') */
-  command: string
+  command: string;
   /** Optional arguments following the command */
-  args?: string
+  args?: string;
   /** Optional timestamp to display */
-  timestamp?: string
+  timestamp?: string;
   /** testID for testing */
-  testID?: string
+  testID?: string;
 }
 
 /**
@@ -34,23 +34,17 @@ export function SlashCommandMessage({
         <View className="flex-row flex-wrap items-center gap-2">
           <CommandBadge command={command} />
           {args && (
-            <Text
-              testID={`${testID}-args`}
-              className="font-mono text-sm text-foreground"
-            >
+            <Text testID={`${testID}-args`} className="font-mono text-sm text-foreground">
               {args}
             </Text>
           )}
         </View>
       </View>
       {timestamp && (
-        <Text
-          testID={`${testID}-timestamp`}
-          className="mt-0.5 text-xs text-muted-foreground"
-        >
+        <Text testID={`${testID}-timestamp`} className="mt-0.5 text-xs text-muted-foreground">
           {timestamp}
         </Text>
       )}
     </View>
-  )
+  );
 }

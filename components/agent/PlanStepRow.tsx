@@ -1,14 +1,7 @@
-import { ActivityIndicator, View } from 'react-native'
-import { Text } from '@/components/ui/text'
-import { cn } from '@/lib/utils'
-import {
-  AlertTriangle,
-  CheckCircle2,
-  Circle,
-  Clock,
-  Lock,
-  XCircle,
-} from '@/components/ui/icons'
+import { ActivityIndicator, View } from 'react-native';
+import { AlertTriangle, CheckCircle2, Circle, Clock, Lock, XCircle } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { cn } from '@/lib/utils';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -19,16 +12,16 @@ export type PlanStepStatus =
   | 'approved'
   | 'completed'
   | 'skipped'
-  | 'failed'
+  | 'failed';
 
 export interface PlanStepRowProps {
-  stepIndex: number
-  toolDisplayName: string
-  description: string
-  requiresApproval: boolean
-  status: PlanStepStatus
-  resultSummary?: string
-  errorMessage?: string
+  stepIndex: number;
+  toolDisplayName: string;
+  description: string;
+  requiresApproval: boolean;
+  status: PlanStepStatus;
+  resultSummary?: string;
+  errorMessage?: string;
 }
 
 // ── Status icon ──────────────────────────────────────────────────────────────
@@ -36,19 +29,19 @@ export interface PlanStepRowProps {
 function StepStatusIcon({ status }: { status: PlanStepStatus }) {
   switch (status) {
     case 'pending':
-      return <Circle size={16} className="text-muted-foreground shrink-0" />
+      return <Circle size={16} className="text-muted-foreground shrink-0" />;
     case 'running':
-      return <ActivityIndicator size="small" className="shrink-0" />
+      return <ActivityIndicator size="small" className="shrink-0" />;
     case 'awaiting_approval':
-      return <Clock size={16} className="text-yellow-500 shrink-0" />
+      return <Clock size={16} className="text-yellow-500 shrink-0" />;
     case 'approved':
-      return <CheckCircle2 size={16} className="text-blue-500 shrink-0" />
+      return <CheckCircle2 size={16} className="text-blue-500 shrink-0" />;
     case 'completed':
-      return <CheckCircle2 size={16} className="text-green-500 shrink-0" />
+      return <CheckCircle2 size={16} className="text-green-500 shrink-0" />;
     case 'skipped':
-      return <XCircle size={16} className="text-muted-foreground shrink-0" />
+      return <XCircle size={16} className="text-muted-foreground shrink-0" />;
     case 'failed':
-      return <AlertTriangle size={16} className="text-destructive shrink-0" />
+      return <AlertTriangle size={16} className="text-destructive shrink-0" />;
   }
 }
 
@@ -67,9 +60,7 @@ export function PlanStepRow({
       <View className="flex-row items-center gap-2">
         <StepStatusIcon status={status} />
         <View className="flex-row items-center gap-1 flex-1">
-          {requiresApproval ? (
-            <Lock size={12} className="text-muted-foreground shrink-0" />
-          ) : null}
+          {requiresApproval ? <Lock size={12} className="text-muted-foreground shrink-0" /> : null}
           <Text
             className={cn(
               'text-sm flex-1',
@@ -97,5 +88,5 @@ export function PlanStepRow({
         </View>
       ) : null}
     </View>
-  )
+  );
 }

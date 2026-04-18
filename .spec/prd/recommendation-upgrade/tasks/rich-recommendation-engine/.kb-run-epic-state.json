@@ -7,11 +7,7 @@
     "effective_concurrency": 4,
     "ready_queue": [],
     "active_tasks": [],
-    "terminal_tasks": [
-      "REC-UPG-01",
-      "REC-UPG-02",
-      "REC-UPG-03"
-    ]
+    "terminal_tasks": ["REC-UPG-01", "REC-UPG-02", "REC-UPG-03"]
   },
   "tasks": {
     "REC-UPG-01": {
@@ -47,9 +43,7 @@
       "status": "completed",
       "assignee": "convex-implementer",
       "reviewer": "convex-reviewer",
-      "depends_on": [
-        "REC-UPG-01"
-      ],
+      "depends_on": ["REC-UPG-01"],
       "write_scope": [
         "convex/research/platformSearch.ts",
         "convex/research/platformSearch.test.ts",
@@ -86,10 +80,7 @@
       "status": "completed",
       "assignee": "convex-implementer",
       "reviewer": "convex-reviewer",
-      "depends_on": [
-        "REC-UPG-01",
-        "REC-UPG-02"
-      ],
+      "depends_on": ["REC-UPG-01", "REC-UPG-02"],
       "write_scope": [
         "convex/research/enrichment.ts",
         "convex/research/enrichment.test.ts",

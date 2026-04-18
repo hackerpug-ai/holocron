@@ -1,73 +1,86 @@
-import { View, Pressable, StyleSheet, Image, Linking } from 'react-native'
-import { Text } from '@/components/ui/text'
-import { MarkdownText } from '@/components/markdown'
-import { useTheme } from '@/hooks/use-theme'
-import Animated from 'react-native-reanimated'
-import { Play, Clock, Calendar, User, Newspaper, Star, MessageSquare, MessageSquarePlus, Share2, ExternalLink, ThumbsUp, ThumbsDown } from '@/components/ui/icons'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { PlatformBadge } from './PlatformBadge'
+import { Image, Linking, Pressable, StyleSheet, View } from 'react-native';
+import Animated from 'react-native-reanimated';
+import { MarkdownText } from '@/components/markdown';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuTrigger,
-} from '@/components/ui/context-menu'
-import { Icon } from '@/components/ui/icon'
+} from '@/components/ui/context-menu';
+import { Icon } from '@/components/ui/icon';
+import {
+  Calendar,
+  Clock,
+  ExternalLink,
+  MessageSquare,
+  MessageSquarePlus,
+  Newspaper,
+  Play,
+  Share2,
+  Star,
+  ThumbsDown,
+  ThumbsUp,
+  User,
+} from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { useTheme } from '@/hooks/use-theme';
+import { PlatformBadge } from './PlatformBadge';
 
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
 
 function formatDuration(seconds: number): string {
-  const hours = Math.floor(seconds / 3600)
-  const minutes = Math.floor((seconds % 3600) / 60)
-  const secs = seconds % 60
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
 
   if (hours > 0) {
-    return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+    return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   }
-  return `${minutes}:${secs.toString().padStart(2, '0')}`
+  return `${minutes}:${secs.toString().padStart(2, '0')}`;
 }
 
 function formatViews(count: number): string {
-  if (count >= 1000000) return `${(count / 1000000).toFixed(1)}M`
-  if (count >= 1000) return `${(count / 1000).toFixed(1)}K`
-  return count.toString()
+  if (count >= 1000000) return `${(count / 1000000).toFixed(1)}M`;
+  if (count >= 1000) return `${(count / 1000).toFixed(1)}K`;
+  return count.toString();
 }
 
 function formatRelativeTime(timestamp: number): string {
-  const now = Date.now()
-  const diff = now - timestamp
-  const seconds = Math.floor(diff / 1000)
-  const minutes = Math.floor(seconds / 60)
-  const hours = Math.floor(minutes / 60)
-  const days = Math.floor(hours / 24)
+  const now = Date.now();
+  const diff = now - timestamp;
+  const seconds = Math.floor(diff / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
 
-  if (days > 0) return `${days}d ago`
-  if (hours > 0) return `${hours}h ago`
-  if (minutes > 0) return `${minutes}m ago`
-  return 'just now'
+  if (days > 0) return `${days}d ago`;
+  if (hours > 0) return `${hours}h ago`;
+  if (minutes > 0) return `${minutes}m ago`;
+  return 'just now';
 }
 
 function calculateReadTime(wordCount: number): number {
   // Average reading speed: 200 words per minute
-  return Math.max(1, Math.ceil(wordCount / 200))
+  return Math.max(1, Math.ceil(wordCount / 200));
 }
 
 function formatEngagement(count: number): string {
-  if (count >= 1000000) return `${(count / 1000000).toFixed(1)}M`
-  if (count >= 1000) return `${(count / 1000).toFixed(1)}K`
-  return count.toString()
+  if (count >= 1000000) return `${(count / 1000000).toFixed(1)}M`;
+  if (count >= 1000) return `${(count / 1000).toFixed(1)}K`;
+  return count.toString();
 }
 
 function getInitials(name: string): string {
-  const cleaned = name.replace(/^\[[\w]+\]\s*/, '')
+  const cleaned = name.replace(/^\[[\w]+\]\s*/, '');
   return cleaned
     .split(' ')
     .map((word) => word[0])
     .join('')
     .toUpperCase()
-    .slice(0, 2)
+    .slice(0, 2);
 }
 
 // ============================================================================
@@ -75,13 +88,13 @@ function getInitials(name: string): string {
 // ============================================================================
 
 interface VideoFeedCardProps {
-  thumbnailUrl?: string
-  duration?: number
-  title: string
-  creatorName?: string
-  viewsCount?: number
-  publishedAt: number
-  onOpen?: () => void
+  thumbnailUrl?: string;
+  duration?: number;
+  title: string;
+  creatorName?: string;
+  viewsCount?: number;
+  publishedAt: number;
+  onOpen?: () => void;
 }
 
 function VideoFeedCard({
@@ -93,7 +106,7 @@ function VideoFeedCard({
   publishedAt,
   onOpen,
 }: VideoFeedCardProps) {
-  const { colors, spacing, radius } = useTheme()
+  const { colors, spacing, radius } = useTheme();
 
   return (
     <View style={styles.videoContainer}>
@@ -135,10 +148,7 @@ function VideoFeedCard({
               },
             ]}
           >
-            <Text
-              style={{ color: colors.primary }}
-              testID="feed-item-video-duration"
-            >
+            <Text style={{ color: colors.primary }} testID="feed-item-video-duration">
               {formatDuration(duration)}
             </Text>
           </View>
@@ -162,10 +172,7 @@ function VideoFeedCard({
           )}
         </View>
         {creatorName && (
-          <Text
-            style={{ color: colors.mutedForeground }}
-            testID="feed-item-video-creator"
-          >
+          <Text style={{ color: colors.mutedForeground }} testID="feed-item-video-creator">
             {creatorName}
           </Text>
         )}
@@ -179,17 +186,14 @@ function VideoFeedCard({
           )}
           <View style={styles.statItem}>
             <Clock size={12} color={colors.mutedForeground} />
-            <Text
-              style={{ color: colors.mutedForeground }}
-              testID="feed-item-video-date"
-            >
+            <Text style={{ color: colors.mutedForeground }} testID="feed-item-video-date">
               {formatRelativeTime(publishedAt)}
             </Text>
           </View>
         </View>
       </View>
     </View>
-  )
+  );
 }
 
 // ============================================================================
@@ -197,12 +201,12 @@ function VideoFeedCard({
 // ============================================================================
 
 interface BlogFeedCardProps {
-  title: string
-  summary?: string
-  creatorName?: string
-  wordCount?: number
-  publishedAt: number
-  onOpen?: () => void
+  title: string;
+  summary?: string;
+  creatorName?: string;
+  wordCount?: number;
+  publishedAt: number;
+  onOpen?: () => void;
 }
 
 function BlogFeedCard({
@@ -213,8 +217,8 @@ function BlogFeedCard({
   publishedAt,
   onOpen,
 }: BlogFeedCardProps) {
-  const { colors, spacing } = useTheme()
-  const readTime = wordCount ? calculateReadTime(wordCount) : null
+  const { colors, spacing } = useTheme();
+  const readTime = wordCount ? calculateReadTime(wordCount) : null;
 
   return (
     <View style={[styles.blogContainer, { gap: spacing.md }]}>
@@ -251,10 +255,7 @@ function BlogFeedCard({
         {creatorName && (
           <View style={styles.metaItem}>
             <User size={14} color={colors.mutedForeground} />
-            <Text
-              style={{ color: colors.mutedForeground }}
-              testID="feed-item-blog-author"
-            >
+            <Text style={{ color: colors.mutedForeground }} testID="feed-item-blog-author">
               {creatorName}
             </Text>
           </View>
@@ -264,10 +265,7 @@ function BlogFeedCard({
         {readTime && (
           <View style={styles.metaItem}>
             <Clock size={14} color={colors.mutedForeground} />
-            <Text
-              style={{ color: colors.mutedForeground }}
-              testID="feed-item-blog-readtime"
-            >
+            <Text style={{ color: colors.mutedForeground }} testID="feed-item-blog-readtime">
               {readTime} min read
             </Text>
           </View>
@@ -276,10 +274,7 @@ function BlogFeedCard({
         {/* Published date */}
         <View style={styles.metaItem}>
           <Calendar size={14} color={colors.mutedForeground} />
-          <Text
-            style={{ color: colors.mutedForeground }}
-            testID="feed-item-blog-date"
-          >
+          <Text style={{ color: colors.mutedForeground }} testID="feed-item-blog-date">
             {formatRelativeTime(publishedAt)}
           </Text>
         </View>
@@ -288,7 +283,7 @@ function BlogFeedCard({
         <Newspaper size={14} color={colors.mutedForeground} testID="feed-item-blog-link-icon" />
       </View>
     </View>
-  )
+  );
 }
 
 // ============================================================================
@@ -296,17 +291,17 @@ function BlogFeedCard({
 // ============================================================================
 
 interface SocialFeedCardProps {
-  authorName: string
-  authorHandle: string
-  authorAvatarUrl?: string
-  content?: string
-  platform: 'bluesky' | 'github' | 'website' | 'youtube'
-  likesCount?: number
-  commentsCount?: number
-  sharesCount?: number
-  publishedAt: number
-  onLinkPress?: (url: string) => void
-  onOpen?: () => void
+  authorName: string;
+  authorHandle: string;
+  authorAvatarUrl?: string;
+  content?: string;
+  platform: 'bluesky' | 'github' | 'website' | 'youtube';
+  likesCount?: number;
+  commentsCount?: number;
+  sharesCount?: number;
+  publishedAt: number;
+  onLinkPress?: (url: string) => void;
+  onOpen?: () => void;
 }
 
 function SocialFeedCard({
@@ -322,18 +317,14 @@ function SocialFeedCard({
   onLinkPress,
   onOpen,
 }: SocialFeedCardProps) {
-  const { colors, spacing } = useTheme()
+  const { colors, spacing } = useTheme();
 
   return (
     <View style={[styles.socialContainer, { gap: spacing.md }]}>
       {/* Author row */}
       <View style={[styles.authorRow, { gap: spacing.sm }]}>
         {/* Avatar */}
-        <Avatar
-          className="h-10 w-10"
-          alt={authorName}
-          testID="feed-item-social-avatar"
-        >
+        <Avatar className="h-10 w-10" alt={authorName} testID="feed-item-social-avatar">
           {authorAvatarUrl ? (
             <AvatarImage source={{ uri: authorAvatarUrl }} />
           ) : (
@@ -361,7 +352,10 @@ function SocialFeedCard({
               </Pressable>
             )}
           </View>
-          <View style={[styles.authorMetaRow, { gap: spacing.xs }]} testID="feed-item-social-platform">
+          <View
+            style={[styles.authorMetaRow, { gap: spacing.xs }]}
+            testID="feed-item-social-platform"
+          >
             <Text
               style={{ color: colors.mutedForeground }}
               className="text-sm"
@@ -400,7 +394,11 @@ function SocialFeedCard({
       <View style={[styles.engagement, { gap: spacing.md }]}>
         {likesCount !== undefined && (
           <View style={styles.socialStatItem}>
-            <Star size={14} className="text-muted-foreground" testID="feed-item-social-likes-icon" />
+            <Star
+              size={14}
+              className="text-muted-foreground"
+              testID="feed-item-social-likes-icon"
+            />
             <Text
               style={{ color: colors.mutedForeground }}
               className="text-sm"
@@ -413,7 +411,11 @@ function SocialFeedCard({
 
         {commentsCount !== undefined && (
           <View style={styles.socialStatItem}>
-            <MessageSquare size={14} className="text-muted-foreground" testID="feed-item-social-comments-icon" />
+            <MessageSquare
+              size={14}
+              className="text-muted-foreground"
+              testID="feed-item-social-comments-icon"
+            />
             <Text
               style={{ color: colors.mutedForeground }}
               className="text-sm"
@@ -426,7 +428,11 @@ function SocialFeedCard({
 
         {sharesCount !== undefined && (
           <View style={styles.socialStatItem}>
-            <Share2 size={14} className="text-muted-foreground" testID="feed-item-social-shares-icon" />
+            <Share2
+              size={14}
+              className="text-muted-foreground"
+              testID="feed-item-social-shares-icon"
+            />
             <Text
               style={{ color: colors.mutedForeground }}
               className="text-sm"
@@ -438,7 +444,7 @@ function SocialFeedCard({
         )}
       </View>
     </View>
-  )
+  );
 }
 
 // ============================================================================
@@ -446,34 +452,34 @@ function SocialFeedCard({
 // ============================================================================
 
 export interface FeedItemProps {
-  feedItemId: string
-  groupKey: string
-  title: string
-  summary?: string
-  contentType: 'video' | 'blog' | 'social'
-  itemCount: number
-  thumbnailUrl?: string
-  viewed: boolean
-  publishedAt: number
-  testID?: string
+  feedItemId: string;
+  groupKey: string;
+  title: string;
+  summary?: string;
+  contentType: 'video' | 'blog' | 'social';
+  itemCount: number;
+  thumbnailUrl?: string;
+  viewed: boolean;
+  publishedAt: number;
+  testID?: string;
   // Context menu callbacks
-  onOpen?: () => void
-  onAddToChat?: () => void
-  onThumbsUp?: () => void
-  onThumbsDown?: () => void
+  onOpen?: () => void;
+  onAddToChat?: () => void;
+  onThumbsUp?: () => void;
+  onThumbsDown?: () => void;
   // Video-specific props
-  duration?: number
-  creatorName?: string
-  viewsCount?: number
+  duration?: number;
+  creatorName?: string;
+  viewsCount?: number;
   // Blog-specific props
-  wordCount?: number
+  wordCount?: number;
   // Social-specific props
-  authorHandle?: string
-  authorAvatarUrl?: string
-  platform?: 'bluesky' | 'github' | 'website' | 'youtube'
-  likesCount?: number
-  commentsCount?: number
-  sharesCount?: number
+  authorHandle?: string;
+  authorAvatarUrl?: string;
+  platform?: 'bluesky' | 'github' | 'website' | 'youtube';
+  likesCount?: number;
+  commentsCount?: number;
+  sharesCount?: number;
 }
 
 /**
@@ -513,7 +519,7 @@ export function SubscriptionFeedItem({
   onThumbsDown,
   testID,
 }: FeedItemProps) {
-  const { colors, spacing, radius } = useTheme()
+  const { colors, spacing, radius } = useTheme();
 
   return (
     <ContextMenu>
@@ -592,7 +598,7 @@ export function SubscriptionFeedItem({
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
@@ -696,4 +702,4 @@ const styles = StyleSheet.create({
     maxHeight: 120,
     overflow: 'hidden',
   },
-})
+});

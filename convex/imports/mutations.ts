@@ -1,6 +1,6 @@
-import { mutation, query } from "../_generated/server";
-import type { MutationCtx } from "../_generated/server";
-import { v } from "convex/values";
+import { v } from 'convex/values';
+import type { MutationCtx } from '../_generated/server';
+import { mutation, query } from '../_generated/server';
 
 const MAX_IMPORTS_PER_HOUR = 10;
 const HOUR_IN_MS = 60 * 60 * 1000;
@@ -15,8 +15,8 @@ async function wouldExceedRateLimit(ctx: MutationCtx): Promise<boolean> {
 
   // Count imports in the last hour
   const recentImports = await ctx.db
-    .query("imports")
-    .withIndex("by_importedAt", (q) => q.gte("importedAt", oneHourAgo))
+    .query('imports')
+    .withIndex('by_importedAt', (q) => q.gte('importedAt', oneHourAgo))
     .collect();
 
   return recentImports.length >= MAX_IMPORTS_PER_HOUR;
@@ -28,7 +28,7 @@ async function wouldExceedRateLimit(ctx: MutationCtx): Promise<boolean> {
  */
 export const createImport = mutation({
   args: {
-    documentId: v.id("documents"),
+    documentId: v.id('documents'),
     source: v.string(),
     text: v.string(),
   },
@@ -36,9 +36,7 @@ export const createImport = mutation({
     // Check rate limit
     const exceedsLimit = await wouldExceedRateLimit(ctx);
     if (exceedsLimit) {
-      throw new Error(
-        `Rate limit exceeded: maximum ${MAX_IMPORTS_PER_HOUR} imports per hour`
-      );
+      throw new Error(`Rate limit exceeded: maximum ${MAX_IMPORTS_PER_HOUR} imports per hour`);
     }
 
     // Get the document
@@ -48,13 +46,13 @@ export const createImport = mutation({
     }
 
     // Append text to document
-    const updatedContent = doc.content + "\n\n" + args.text;
+    const updatedContent = doc.content + '\n\n' + args.text;
     await ctx.db.patch(args.documentId, {
       content: updatedContent,
     });
 
     // Create import record for tracking
-    const importId = await ctx.db.insert("imports", {
+    const importId = await ctx.db.insert('imports', {
       documentId: args.documentId,
       source: args.source,
       text: args.text,
@@ -70,13 +68,13 @@ export const createImport = mutation({
  */
 export const getByDocument = query({
   args: {
-    documentId: v.id("documents"),
+    documentId: v.id('documents'),
   },
   handler: async (ctx, args) => {
     const imports = await ctx.db
-      .query("imports")
-      .withIndex("by_document", (q) => q.eq("documentId", args.documentId))
-      .order("desc")
+      .query('imports')
+      .withIndex('by_document', (q) => q.eq('documentId', args.documentId))
+      .order('desc')
       .collect();
 
     return imports;
@@ -92,10 +90,7 @@ export const getRecentCount = query({
     const now = Date.now();
     const oneHourAgo = now - HOUR_IN_MS;
 
-    const allImports = await ctx.db
-      .query("imports")
-      .withIndex("by_importedAt")
-      .collect();
+    const allImports = await ctx.db.query('imports').withIndex('by_importedAt').collect();
 
     // Filter manually to find imports in the last hour
     const recentImports = allImports.filter((imp) => imp.importedAt >= oneHourAgo);
@@ -113,7 +108,7 @@ export const getRecentCount = query({
  */
 export const deleteImport = mutation({
   args: {
-    importId: v.id("imports"),
+    importId: v.id('imports'),
   },
   handler: async (ctx, args) => {
     const importRecord = await ctx.db.get(args.importId);

@@ -1,33 +1,33 @@
+import { setAudioModeAsync } from 'expo-audio';
+import InCallManager from 'react-native-incall-manager';
 import {
+  type MediaStream,
   mediaDevices,
   RTCPeerConnection,
-  MediaStream,
   type WebRTCDataChannel,
-} from 'react-native-webrtc-web-shim'
-import InCallManager from 'react-native-incall-manager'
-import { setAudioModeAsync } from 'expo-audio'
+} from 'react-native-webrtc-web-shim';
 
-const OPENAI_REALTIME_URL = 'https://api.openai.com/v1/realtime/calls'
-const DATA_CHANNEL_NAME = 'oai-events'
+const OPENAI_REALTIME_URL = 'https://api.openai.com/v1/realtime/calls';
+const DATA_CHANNEL_NAME = 'oai-events';
 
 export type WebRTCConnectionCallbacks = {
-  onEvent?: (event: unknown) => void
-  onTrack?: (stream: MediaStream) => void
+  onEvent?: (event: unknown) => void;
+  onTrack?: (stream: MediaStream) => void;
   /** Called when ICE connection fails or data channel closes unexpectedly */
-  onConnectionFailed?: () => void
-}
+  onConnectionFailed?: () => void;
+};
 
 export class WebRTCConnection {
-  private pc: RTCPeerConnection | null = null
-  private dc: WebRTCDataChannel | null = null
-  private localStream: MediaStream | null = null
-  private callbacks: WebRTCConnectionCallbacks = {}
-  private audioLevelInterval: ReturnType<typeof setInterval> | null = null
+  private pc: RTCPeerConnection | null = null;
+  private dc: WebRTCDataChannel | null = null;
+  private localStream: MediaStream | null = null;
+  private callbacks: WebRTCConnectionCallbacks = {};
+  private audioLevelInterval: ReturnType<typeof setInterval> | null = null;
   /** True once setAudioModeAsync and InCallManager.start have been called. Skipped on warm reuse. */
-  private audioConfigured = false
+  private audioConfigured = false;
 
   setCallbacks(callbacks: WebRTCConnectionCallbacks): void {
-    this.callbacks = callbacks
+    this.callbacks = callbacks;
   }
 
   /**
@@ -36,38 +36,38 @@ export class WebRTCConnection {
    * Stores the stream in this.localStream and returns it.
    */
   async prepareMedia(): Promise<MediaStream> {
-    let stream: MediaStream | null = null
+    let stream: MediaStream | null = null;
     try {
       if (!this.audioConfigured) {
         // Enable audio in silent mode (iOS) — cold path only
-        await setAudioModeAsync({ playsInSilentMode: true })
+        await setAudioModeAsync({ playsInSilentMode: true });
 
         // Force speaker output for voice assistant
-        InCallManager.start({ media: 'audio' })
-        InCallManager.setForceSpeakerphoneOn(true)
+        InCallManager.start({ media: 'audio' });
+        InCallManager.setForceSpeakerphoneOn(true);
 
-        this.audioConfigured = true
+        this.audioConfigured = true;
       }
 
       // Get microphone access
-      const ms = await mediaDevices.getUserMedia({ audio: true })
-      stream = ms as MediaStream
-      const tracks = stream.getTracks()
+      const ms = await mediaDevices.getUserMedia({ audio: true });
+      stream = ms as MediaStream;
+      const tracks = stream.getTracks();
       if (tracks.length === 0) {
-        throw new Error('No audio tracks available from microphone')
+        throw new Error('No audio tracks available from microphone');
       }
 
-      this.localStream = stream
-      return stream
+      this.localStream = stream;
+      return stream;
     } catch (error) {
       // Clean up partial resources on failure
       if (stream) {
         for (const track of stream.getTracks()) {
-          track.stop()
+          track.stop();
         }
       }
-      InCallManager.stop()
-      throw error
+      InCallManager.stop();
+      throw error;
     }
   }
 
@@ -77,52 +77,53 @@ export class WebRTCConnection {
    */
   async connectWithMedia(ephemeralKey: string, mediaStream: MediaStream): Promise<void> {
     try {
-      this.localStream = mediaStream
+      this.localStream = mediaStream;
 
       // Create peer connection
-      this.pc = new RTCPeerConnection()
+      this.pc = new RTCPeerConnection();
 
       // Add first track from pre-acquired media
-      const tracks = mediaStream.getTracks()
-      this.pc.addTrack(tracks[0])
+      const tracks = mediaStream.getTracks();
+      this.pc.addTrack(tracks[0]);
 
       // Handle remote audio track from OpenAI
       this.pc.addEventListener('track', (ev: unknown) => {
-        const e = ev as { streams?: MediaStream[] }
+        const e = ev as { streams?: MediaStream[] };
         if (e.streams && e.streams[0]) {
-          this.callbacks.onTrack?.(e.streams[0])
+          this.callbacks.onTrack?.(e.streams[0]);
         }
-      })
+      });
 
       // Detect ICE connection failure for retry
       this.pc.addEventListener('iceconnectionstatechange', () => {
-        const iceState = (this.pc as unknown as { iceConnectionState?: string })?.iceConnectionState
+        const iceState = (this.pc as unknown as { iceConnectionState?: string })
+          ?.iceConnectionState;
         if (iceState === 'failed' || iceState === 'disconnected') {
-          this.callbacks.onConnectionFailed?.()
+          this.callbacks.onConnectionFailed?.();
         }
-      })
+      });
 
       // Create data channel for events (name MUST be 'oai-events')
-      const dc = this.pc.createDataChannel(DATA_CHANNEL_NAME)
-      this.dc = dc
+      const dc = this.pc.createDataChannel(DATA_CHANNEL_NAME);
+      this.dc = dc;
       dc.addEventListener('message', (ev: unknown) => {
-        const e = ev as { data: string }
+        const e = ev as { data: string };
         try {
-          const parsed = JSON.parse(e.data)
-          this.callbacks.onEvent?.(parsed)
+          const parsed = JSON.parse(e.data);
+          this.callbacks.onEvent?.(parsed);
         } catch {
           // Ignore malformed messages
         }
-      })
+      });
 
       // Detect data channel close as a connection failure signal
       dc.addEventListener('close', () => {
-        this.callbacks.onConnectionFailed?.()
-      })
+        this.callbacks.onConnectionFailed?.();
+      });
 
       // Create SDP offer
-      const offer = await this.pc.createOffer()
-      await this.pc.setLocalDescription(offer)
+      const offer = await this.pc.createOffer();
+      await this.pc.setLocalDescription(offer);
 
       // Exchange SDP with OpenAI using ephemeral token
       const sdpResponse = await fetch(OPENAI_REALTIME_URL, {
@@ -132,23 +133,23 @@ export class WebRTCConnection {
           Authorization: `Bearer ${ephemeralKey}`,
           'Content-Type': 'application/sdp',
         },
-      })
+      });
 
       if (!sdpResponse.ok) {
-        throw new Error(`SDP exchange failed: ${sdpResponse.status}`)
+        throw new Error(`SDP exchange failed: ${sdpResponse.status}`);
       }
 
-      const answerSdp = await sdpResponse.text()
+      const answerSdp = await sdpResponse.text();
 
       // CRITICAL: Always set remote description after SDP answer
       await this.pc.setRemoteDescription({
         type: 'answer',
         sdp: answerSdp,
-      } as RTCSessionDescriptionInit)
+      } as RTCSessionDescriptionInit);
     } catch (error) {
       // Clean up partial resources on any failure
-      this.destroy()
-      throw error
+      this.destroy();
+      throw error;
     }
   }
 
@@ -157,8 +158,8 @@ export class WebRTCConnection {
    * Kept for backward compat (warm reconnection and retry paths).
    */
   async connect(ephemeralKey: string): Promise<void> {
-    const mediaStream = await this.prepareMedia()
-    await this.connectWithMedia(ephemeralKey, mediaStream)
+    const mediaStream = await this.prepareMedia();
+    await this.connectWithMedia(ephemeralKey, mediaStream);
   }
 
   /**
@@ -172,102 +173,106 @@ export class WebRTCConnection {
    *   called, avoiding unnecessary getStats() round-trips during idle/muted/
    *   processing states. When omitted, every tick polls unconditionally.
    */
-  startAudioLevelMonitoring(
-    callback: (level: number) => void,
-    shouldPoll?: () => boolean
-  ): void {
+  startAudioLevelMonitoring(callback: (level: number) => void, shouldPoll?: () => boolean): void {
     if (this.audioLevelInterval !== null) {
       // Already monitoring — clear previous interval before starting a new one
-      clearInterval(this.audioLevelInterval)
+      clearInterval(this.audioLevelInterval);
     }
 
     this.audioLevelInterval = setInterval(async () => {
       // Skip expensive getStats() call when the predicate says we're not active
       if (shouldPoll && !shouldPoll()) {
-        return
+        return;
       }
 
       if (!this.pc) {
-        callback(0)
-        return
+        callback(0);
+        return;
       }
 
       try {
-        type AudioStatsReport = { type: string; kind?: string; audioLevel?: number }
-        type RTCSenderLike = { track?: { kind: string } | null; getStats(): Promise<Map<string, AudioStatsReport>> }
-        type RTCPCLike = { getSenders(): RTCSenderLike[] }
+        type AudioStatsReport = { type: string; kind?: string; audioLevel?: number };
+        type RTCSenderLike = {
+          track?: { kind: string } | null;
+          getStats(): Promise<Map<string, AudioStatsReport>>;
+        };
+        type RTCPCLike = { getSenders(): RTCSenderLike[] };
 
-        const pc = this.pc as unknown as RTCPCLike
-        const senders = pc.getSenders()
-        const audioSender = senders.find((s) => s.track?.kind === 'audio')
+        const pc = this.pc as unknown as RTCPCLike;
+        const senders = pc.getSenders();
+        const audioSender = senders.find((s) => s.track?.kind === 'audio');
 
         if (!audioSender) {
-          callback(0)
-          return
+          callback(0);
+          return;
         }
 
-        const stats = await audioSender.getStats()
-        let level = 0
+        const stats = await audioSender.getStats();
+        let level = 0;
 
         stats.forEach((report) => {
-          if (report.type === 'media-source' && report.kind === 'audio' && typeof report.audioLevel === 'number') {
-            level = report.audioLevel
+          if (
+            report.type === 'media-source' &&
+            report.kind === 'audio' &&
+            typeof report.audioLevel === 'number'
+          ) {
+            level = report.audioLevel;
           }
-        })
+        });
 
-        callback(level)
+        callback(level);
       } catch {
         // Stats unavailable — fallback to 0
-        callback(0)
+        callback(0);
       }
-    }, 100)
+    }, 100);
   }
 
   stopAudioLevelMonitoring(): void {
     if (this.audioLevelInterval !== null) {
-      clearInterval(this.audioLevelInterval)
-      this.audioLevelInterval = null
+      clearInterval(this.audioLevelInterval);
+      this.audioLevelInterval = null;
     }
   }
 
   sendEvent(event: Record<string, unknown>): void {
     if (!this.dc || this.dc.readyState !== 'open') {
-      throw new Error('Data channel is not open')
+      throw new Error('Data channel is not open');
     }
-    this.dc.send(JSON.stringify(event))
+    this.dc.send(JSON.stringify(event));
   }
 
   destroy(): void {
     // Stop audio level monitoring
-    this.stopAudioLevelMonitoring()
+    this.stopAudioLevelMonitoring();
 
     // Stop all local mic tracks
     if (this.localStream) {
       for (const track of this.localStream.getTracks()) {
-        track.stop()
+        track.stop();
       }
-      this.localStream = null
+      this.localStream = null;
     }
 
     // Close data channel
     if (this.dc) {
-      this.dc.close()
-      this.dc = null
+      this.dc.close();
+      this.dc = null;
     }
 
     // Close peer connection
     if (this.pc) {
-      this.pc.close()
-      this.pc = null
+      this.pc.close();
+      this.pc = null;
     }
 
     // Stop InCallManager
-    InCallManager.stop()
+    InCallManager.stop();
 
     // Reset audio config flag so a reused instance re-initializes on next prepareMedia
-    this.audioConfigured = false
+    this.audioConfigured = false;
 
     // Clear callbacks
-    this.callbacks = {}
+    this.callbacks = {};
   }
 }

@@ -1,10 +1,10 @@
-"use node";
+'use node';
 
-import { v } from "convex/values";
-import { internalAction } from "../_generated/server";
-import { generateText } from "ai";
-import { claudeFlash } from "../lib/ai/anthropic_provider";
-import { internal } from "../_generated/api";
+import { generateText } from 'ai';
+import { v } from 'convex/values';
+import { internal } from '../_generated/api';
+import { internalAction } from '../_generated/server';
+import { claudeFlash } from '../lib/ai/anthropic_provider';
 
 /**
  * Batch-score an array of content items for relevance to a creator's topic area.
@@ -21,32 +21,38 @@ export const scoreContentRelevance = internalAction({
     sourceName: v.string(),
     topic: v.string(),
   },
-  handler: async (ctx, { items, sourceName, topic }): Promise<Array<{ score: number; reason: string }>> => {
+  handler: async (
+    ctx,
+    { items, sourceName, topic }
+  ): Promise<Array<{ score: number; reason: string }>> => {
     if (items.length === 0) return [];
 
     // Fetch recent user feedback for few-shot examples
-    const recentFeedback = await ctx.runQuery(internal.feeds.internal.getRecentFeedback, { limit: 20 });
+    const recentFeedback = await ctx.runQuery(internal.feeds.internal.getRecentFeedback, {
+      limit: 20,
+    });
 
     // Build few-shot examples from user feedback
     const likedExamples = recentFeedback
-      .filter((f: { feedback: string }) => f.feedback === "up")
+      .filter((f: { feedback: string }) => f.feedback === 'up')
       .slice(0, 5)
       .map((f: { title: string }) => f.title)
-      .join("\n");
+      .join('\n');
 
     const dislikedExamples = recentFeedback
-      .filter((f: { feedback: string }) => f.feedback === "down")
+      .filter((f: { feedback: string }) => f.feedback === 'down')
       .slice(0, 5)
       .map((f: { title: string }) => f.title)
-      .join("\n");
+      .join('\n');
 
     const itemList = items
       .map((item, i) => `${i + 1}. [${item.platform}] ${item.title}`)
-      .join("\n");
+      .join('\n');
 
     // Platform-specific scoring rules
-    const hasTwitterOrBluesky = items.some(item =>
-      item.platform.toLowerCase() === 'twitter' || item.platform.toLowerCase() === 'bluesky'
+    const hasTwitterOrBluesky = items.some(
+      (item) =>
+        item.platform.toLowerCase() === 'twitter' || item.platform.toLowerCase() === 'bluesky'
     );
 
     let platformRules = '';
@@ -122,7 +128,7 @@ The array must have exactly ${items.length} entries in the same order as the ite
       const text = result.text.trim();
       const jsonMatch = text.match(/\[[\s\S]*\]/);
       if (!jsonMatch) {
-        console.warn("[scoreContentRelevance] No JSON array found in response");
+        console.warn('[scoreContentRelevance] No JSON array found in response');
         return [];
       }
 
@@ -131,18 +137,18 @@ The array must have exactly ${items.length} entries in the same order as the ite
 
       const scores = parsed.map((entry: unknown) => {
         const obj = entry as Record<string, unknown>;
-        const score = typeof obj.score === "number" ? Math.min(1, Math.max(0, obj.score)) : 0.5;
-        const reason = typeof obj.reason === "string" ? obj.reason : "ai_scored";
+        const score = typeof obj.score === 'number' ? Math.min(1, Math.max(0, obj.score)) : 0.5;
+        const reason = typeof obj.reason === 'string' ? obj.reason : 'ai_scored';
         return { score, reason };
       });
 
       while (scores.length < items.length) {
-        scores.push({ score: 0.5, reason: "ai_no_score" });
+        scores.push({ score: 0.5, reason: 'ai_no_score' });
       }
 
       return scores.slice(0, items.length);
     } catch (err) {
-      console.warn("[scoreContentRelevance] LLM scoring failed, skipping:", err);
+      console.warn('[scoreContentRelevance] LLM scoring failed, skipping:', err);
       return [];
     }
   },

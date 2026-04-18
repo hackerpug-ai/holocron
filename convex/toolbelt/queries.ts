@@ -1,39 +1,26 @@
-import { query } from "../_generated/server";
-import { v } from "convex/values";
+import { v } from 'convex/values';
+import { query } from '../_generated/server';
 
 /**
  * Toolbelt category type
  */
-export type ToolbeltCategory =
-  | "libraries"
-  | "cli"
-  | "framework"
-  | "service"
-  | "database"
-  | "tool";
+export type ToolbeltCategory = 'libraries' | 'cli' | 'framework' | 'service' | 'database' | 'tool';
 
 /**
  * Toolbelt source type
  */
-export type ToolbeltSourceType =
-  | "github"
-  | "npm"
-  | "pypi"
-  | "website"
-  | "cargo"
-  | "go"
-  | "other";
+export type ToolbeltSourceType = 'github' | 'npm' | 'pypi' | 'website' | 'cargo' | 'go' | 'other';
 
 /**
  * Toolbelt status type
  */
-export type ToolbeltStatus = "complete" | "draft" | "archived";
+export type ToolbeltStatus = 'complete' | 'draft' | 'archived';
 
 /**
  * Get a tool by ID
  */
 export const get = query({
-  args: { id: v.id("toolbeltTools") },
+  args: { id: v.id('toolbeltTools') },
   handler: async (ctx, args) => {
     return await ctx.db.get(args.id);
   },
@@ -45,28 +32,28 @@ export const get = query({
  */
 export const list = query({
   args: {
-    category: v.optional(v.union(
-      v.literal("libraries"),
-      v.literal("cli"),
-      v.literal("framework"),
-      v.literal("service"),
-      v.literal("database"),
-      v.literal("tool")
-    )),
-    sourceType: v.optional(v.union(
-      v.literal("github"),
-      v.literal("npm"),
-      v.literal("pypi"),
-      v.literal("website"),
-      v.literal("cargo"),
-      v.literal("go"),
-      v.literal("other")
-    )),
-    status: v.optional(v.union(
-      v.literal("complete"),
-      v.literal("draft"),
-      v.literal("archived")
-    )),
+    category: v.optional(
+      v.union(
+        v.literal('libraries'),
+        v.literal('cli'),
+        v.literal('framework'),
+        v.literal('service'),
+        v.literal('database'),
+        v.literal('tool')
+      )
+    ),
+    sourceType: v.optional(
+      v.union(
+        v.literal('github'),
+        v.literal('npm'),
+        v.literal('pypi'),
+        v.literal('website'),
+        v.literal('cargo'),
+        v.literal('go'),
+        v.literal('other')
+      )
+    ),
+    status: v.optional(v.union(v.literal('complete'), v.literal('draft'), v.literal('archived'))),
     language: v.optional(v.string()),
     limit: v.optional(v.number()),
   },
@@ -74,9 +61,7 @@ export const list = query({
     const { category, sourceType, status, language, limit = 100 } = args;
 
     // Use withIndex to order by creation time descending
-    let query = ctx.db
-      .query("toolbeltTools")
-      .withIndex("by_creationTime");
+    const query = ctx.db.query('toolbeltTools').withIndex('by_creationTime');
 
     // Apply filters
     const results = await query.collect();
@@ -109,7 +94,7 @@ export const list = query({
 export const count = query({
   args: {},
   handler: async (ctx) => {
-    const tools = await ctx.db.query("toolbeltTools").collect();
+    const tools = await ctx.db.query('toolbeltTools').collect();
     return tools.length;
   },
 });
@@ -120,7 +105,7 @@ export const count = query({
 export const countByCategory = query({
   args: {},
   handler: async (ctx) => {
-    const tools = await ctx.db.query("toolbeltTools").collect();
+    const tools = await ctx.db.query('toolbeltTools').collect();
     const counts: Record<string, number> = {};
 
     for (const tool of tools) {
@@ -145,8 +130,8 @@ export const vectorSearch = query({
   handler: async (ctx, { embedding, limit = 10, category }) => {
     // Get all tools that have embeddings
     let tools = await ctx.db
-      .query("toolbeltTools")
-      .filter((q) => q.neq(q.field("embedding"), undefined))
+      .query('toolbeltTools')
+      .filter((q) => q.neq(q.field('embedding'), undefined))
       .collect();
 
     // Apply category filter if specified
@@ -186,7 +171,7 @@ export const fullTextSearch = query({
   },
   handler: async (ctx, { query: searchQuery, limit = 10, category }) => {
     // Get all tools
-    let tools = await ctx.db.query("toolbeltTools").collect();
+    let tools = await ctx.db.query('toolbeltTools').collect();
 
     // Apply category filter if specified
     if (category) {
@@ -198,28 +183,28 @@ export const fullTextSearch = query({
     const filtered = tools.filter((tool) => {
       const titleMatch = tool.title.toLowerCase().includes(searchLower);
       const descMatch = tool.description?.toLowerCase().includes(searchLower) ?? false;
-      const tagsMatch = tool.tags?.some(t => t.toLowerCase().includes(searchLower)) ?? false;
-      const keywordsMatch = tool.keywords?.some(k => k.toLowerCase().includes(searchLower)) ?? false;
-      const useCasesMatch = tool.useCases?.some(u => u.toLowerCase().includes(searchLower)) ?? false;
+      const tagsMatch = tool.tags?.some((t) => t.toLowerCase().includes(searchLower)) ?? false;
+      const keywordsMatch =
+        tool.keywords?.some((k) => k.toLowerCase().includes(searchLower)) ?? false;
+      const useCasesMatch =
+        tool.useCases?.some((u) => u.toLowerCase().includes(searchLower)) ?? false;
 
       return titleMatch || descMatch || tagsMatch || keywordsMatch || useCasesMatch;
     });
 
     // Return with search scores (simple relevance based on match position)
-    return filtered
-      .slice(0, limit)
-      .map((tool, index) => ({
-        _id: tool._id,
-        title: tool.title,
-        description: tool.description,
-        category: tool.category,
-        sourceType: tool.sourceType,
-        language: tool.language,
-        tags: tool.tags,
-        useCases: tool.useCases,
-        // Score based on position (earlier results = higher score)
-        score: filtered.length > 0 ? 1 - index / filtered.length : 0,
-      }));
+    return filtered.slice(0, limit).map((tool, index) => ({
+      _id: tool._id,
+      title: tool.title,
+      description: tool.description,
+      category: tool.category,
+      sourceType: tool.sourceType,
+      language: tool.language,
+      tags: tool.tags,
+      useCases: tool.useCases,
+      // Score based on position (earlier results = higher score)
+      score: filtered.length > 0 ? 1 - index / filtered.length : 0,
+    }));
   },
 });
 
@@ -233,11 +218,11 @@ export const findToolsWithoutEmbeddings = query({
   },
   handler: async (ctx, { limit = 100 }) => {
     const tools = await ctx.db
-      .query("toolbeltTools")
-      .filter((q) => q.eq(q.field("embedding"), undefined))
+      .query('toolbeltTools')
+      .filter((q) => q.eq(q.field('embedding'), undefined))
       .take(limit);
 
-    return tools.map(tool => ({
+    return tools.map((tool) => ({
       _id: tool._id,
       title: tool.title,
       category: tool.category,
@@ -252,8 +237,8 @@ export const findToolsWithoutEmbeddings = query({
 export const countToolsWithoutEmbeddings = query({
   args: {},
   handler: async (ctx) => {
-    const all = await ctx.db.query("toolbeltTools").collect();
-    return all.filter(tool => !tool.embedding).length;
+    const all = await ctx.db.query('toolbeltTools').collect();
+    return all.filter((tool) => !tool.embedding).length;
   },
 });
 

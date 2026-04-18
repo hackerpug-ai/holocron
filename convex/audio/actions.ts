@@ -1,16 +1,16 @@
-"use node";
+'use node';
 
-import { action, internalAction } from "../_generated/server";
-import { internal, api } from "../_generated/api";
-import { v } from "convex/values";
-import { createHash } from "crypto";
-import { ElevenLabsClient } from "elevenlabs";
+import { v } from 'convex/values';
+import { createHash } from 'crypto';
+import { ElevenLabsClient } from 'elevenlabs';
+import { api, internal } from '../_generated/api';
+import { action, internalAction } from '../_generated/server';
 
-const DEFAULT_VOICE_ID = "DODLEQrClDo8wCz460ld";
-const MODEL_FLASH = "eleven_flash_v2_5";
-const MODEL_MULTILINGUAL = "eleven_multilingual_v2";
+const DEFAULT_VOICE_ID = 'DODLEQrClDo8wCz460ld';
+const MODEL_FLASH = 'eleven_flash_v2_5';
+const MODEL_MULTILINGUAL = 'eleven_multilingual_v2';
 const FLASH_CHAR_LIMIT = 5000;
-const OUTPUT_FORMAT = "mp3_44100_128";
+const OUTPUT_FORMAT = 'mp3_44100_128';
 const STAGGER_MS = 200;
 
 // ============================================================================
@@ -28,13 +28,13 @@ export const extractParagraphs = (
   let text = markdown;
 
   // Strip fenced code blocks
-  text = text.replace(/```[\s\S]*?```/g, "");
+  text = text.replace(/```[\s\S]*?```/g, '');
 
   // Strip inline images ![alt](url)
-  text = text.replace(/!\[([^\]]*)\]\([^)]*\)/g, "");
+  text = text.replace(/!\[([^\]]*)\]\([^)]*\)/g, '');
 
   // Strip HTML tags
-  text = text.replace(/<[^>]+>/g, "");
+  text = text.replace(/<[^>]+>/g, '');
 
   // Split on double newlines to get logical paragraphs
   const rawBlocks = text.split(/\n{2,}/);
@@ -48,17 +48,17 @@ export const extractParagraphs = (
 
     // Heading lines become their own segment (for natural pacing)
     if (/^#{1,6}\s+/.test(trimmed)) {
-      const headingText = trimmed.replace(/^#{1,6}\s+/, "");
+      const headingText = trimmed.replace(/^#{1,6}\s+/, '');
       const segmentText = headingText;
-      const hash = createHash("sha256").update(segmentText).digest("hex");
+      const hash = createHash('sha256').update(segmentText).digest('hex');
       segments.push({ index, hash, text: segmentText });
       index += 1;
       continue;
     }
 
     // Regular paragraph — collapse internal newlines to spaces
-    const segmentText = trimmed.replace(/\n/g, " ");
-    const hash = createHash("sha256").update(segmentText).digest("hex");
+    const segmentText = trimmed.replace(/\n/g, ' ');
+    const hash = createHash('sha256').update(segmentText).digest('hex');
     segments.push({ index, hash, text: segmentText });
     index += 1;
   }
@@ -72,7 +72,7 @@ export const extractParagraphs = (
 
 export const generateSegment = internalAction({
   args: {
-    segmentId: v.id("audioSegments"),
+    segmentId: v.id('audioSegments'),
     text: v.string(),
     voiceId: v.string(),
     previous_text: v.optional(v.string()),
@@ -109,10 +109,10 @@ export const generateSegment = internalAction({
       const buffer = Buffer.concat(chunks);
 
       // OUTPUT_FORMAT is mp3_44100_128 (128kbps CBR MP3) — duration is deterministic
-      const durationMs = Math.round((buffer.length * 8) / (128 * 1000) * 1000);
+      const durationMs = Math.round(((buffer.length * 8) / (128 * 1000)) * 1000);
 
       // Store audio in Convex file storage
-      const blob = new Blob([buffer], { type: "audio/mpeg" });
+      const blob = new Blob([buffer], { type: 'audio/mpeg' });
       const storageId = await ctx.storage.store(blob);
 
       await ctx.runMutation(internal.audio.mutations.completeSegment, {
@@ -122,7 +122,7 @@ export const generateSegment = internalAction({
       });
     } catch (err) {
       // Extract detailed error info from ElevenLabs SDK errors
-      let errorMessage = "Unknown error";
+      let errorMessage = 'Unknown error';
       if (err instanceof Error) {
         errorMessage = err.message;
         // ElevenLabs SDK errors may have statusCode and body properties
@@ -132,20 +132,15 @@ export const generateSegment = internalAction({
         }
         if (apiErr.body) {
           try {
-            const bodyStr = typeof apiErr.body === "string"
-              ? apiErr.body
-              : JSON.stringify(apiErr.body);
+            const bodyStr =
+              typeof apiErr.body === 'string' ? apiErr.body : JSON.stringify(apiErr.body);
             errorMessage += ` | Body: ${bodyStr}`;
           } catch {
             // JSON stringify failed — keep original message
           }
         }
       }
-      console.error(
-        `[generateSegment] Failed for segment ${args.segmentId}:`,
-        errorMessage,
-        err
-      );
+      console.error(`[generateSegment] Failed for segment ${args.segmentId}:`, errorMessage, err);
       try {
         await ctx.runMutation(internal.audio.mutations.failSegment, {
           segmentId: args.segmentId,
@@ -176,7 +171,7 @@ async function runGeneration(
     throw new Error(`Document ${documentId} not found`);
   }
 
-  const paragraphs = extractParagraphs(document.content ?? "");
+  const paragraphs = extractParagraphs(document.content ?? '');
 
   if (paragraphs.length === 0) {
     // Create a job even for empty documents so callers always get a jobId
@@ -196,15 +191,12 @@ async function runGeneration(
   });
 
   // Create pending segment rows (idempotent — returns existing IDs if present)
-  const segmentIds: string[] = await ctx.runMutation(
-    internal.audio.mutations.createSegments,
-    {
-      documentId,
-      voiceId,
-      jobId,
-      paragraphs: paragraphs.map(({ index, hash }) => ({ index, hash })),
-    }
-  );
+  const segmentIds: string[] = await ctx.runMutation(internal.audio.mutations.createSegments, {
+    documentId,
+    voiceId,
+    jobId,
+    paragraphs: paragraphs.map(({ index, hash }) => ({ index, hash })),
+  });
 
   // Check which segments still need generation (skip already-completed ones)
   const existingSegments = await ctx.runQuery(api.audio.queries.getSegments, {
@@ -212,7 +204,7 @@ async function runGeneration(
   });
   const completedIndexes = new Set(
     existingSegments
-      .filter((s: { status: string }) => s.status === "completed")
+      .filter((s: { status: string }) => s.status === 'completed')
       .map((s: { paragraphIndex: number }) => s.paragraphIndex)
   );
 
@@ -243,7 +235,7 @@ async function runGeneration(
 
 export const generateForDocument = action({
   args: {
-    documentId: v.id("documents"),
+    documentId: v.id('documents'),
     voiceId: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<{ jobId: string; segmentCount: number }> => {
@@ -259,7 +251,7 @@ export const generateForDocument = action({
 
 export const regenerateForDocument = action({
   args: {
-    documentId: v.id("documents"),
+    documentId: v.id('documents'),
     voiceId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -279,7 +271,7 @@ export const regenerateForDocument = action({
 // ============================================================================
 
 export const retryFailedSegments = action({
-  args: { documentId: v.id("documents") },
+  args: { documentId: v.id('documents') },
   handler: async (ctx, args) => {
     const status = await ctx.runQuery(api.audio.queries.getStatus, {
       documentId: args.documentId,
@@ -290,16 +282,14 @@ export const retryFailedSegments = action({
     const segments = await ctx.runQuery(api.audio.queries.getSegments, {
       documentId: args.documentId,
     });
-    const failedSegments = segments.filter(
-      (s: { status: string }) => s.status === "failed"
-    );
+    const failedSegments = segments.filter((s: { status: string }) => s.status === 'failed');
 
     // Re-extract paragraphs to get text for failed segments
     const document = await ctx.runQuery(api.documents.queries.get, {
       id: args.documentId,
     });
     if (!document) return { retried: 0 };
-    const paragraphs = extractParagraphs(document.content ?? "");
+    const paragraphs = extractParagraphs(document.content ?? '');
 
     // Get the job to find voiceId
     const job = await ctx.runQuery(api.audio.queries.getJob, {
@@ -309,10 +299,9 @@ export const retryFailedSegments = action({
 
     let retriedCount = 0;
     for (const segment of failedSegments) {
-      const result = await ctx.runMutation(
-        internal.audio.mutations.resetSegmentForRetry,
-        { segmentId: segment._id }
-      );
+      const result = await ctx.runMutation(internal.audio.mutations.resetSegmentForRetry, {
+        segmentId: segment._id,
+      });
       if (!result.retried) continue;
 
       const paraIndex = paragraphs.findIndex(
@@ -321,17 +310,13 @@ export const retryFailedSegments = action({
       if (paraIndex === -1) continue;
       const para = paragraphs[paraIndex];
 
-      await ctx.scheduler.runAfter(
-        0,
-        internal.audio.actions.generateSegment,
-        {
-          segmentId: segment._id,
-          text: para.text,
-          voiceId,
-          previous_text: paraIndex > 0 ? paragraphs[paraIndex - 1].text : undefined,
-          next_text: paraIndex < paragraphs.length - 1 ? paragraphs[paraIndex + 1].text : undefined,
-        }
-      );
+      await ctx.scheduler.runAfter(0, internal.audio.actions.generateSegment, {
+        segmentId: segment._id,
+        text: para.text,
+        voiceId,
+        previous_text: paraIndex > 0 ? paragraphs[paraIndex - 1].text : undefined,
+        next_text: paraIndex < paragraphs.length - 1 ? paragraphs[paraIndex + 1].text : undefined,
+      });
       retriedCount++;
     }
 

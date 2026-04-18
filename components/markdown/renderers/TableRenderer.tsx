@@ -1,9 +1,9 @@
-import { Text } from '@/components/ui/text'
-import { useTheme } from '@/hooks/use-theme'
-import { theme } from '@/lib/theme'
-import type { Table, TableRow, TableCell } from 'mdast'
-import * as React from 'react'
-import { ScrollView, StyleSheet, View } from 'react-native'
+import type { Table, TableCell, TableRow } from 'mdast';
+import * as React from 'react';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from '@/components/ui/text';
+import { useTheme } from '@/hooks/use-theme';
+import { theme } from '@/lib/theme';
 
 /**
  * TableRenderer handles GitHub Flavored Markdown tables
@@ -16,70 +16,71 @@ import { ScrollView, StyleSheet, View } from 'react-native'
  */
 
 interface TableProps {
-  node: Table
-  children: React.ReactNode
-  testID?: string
+  node: Table;
+  children: React.ReactNode;
+  testID?: string;
 }
 
 interface TableContextValue {
-  columnWidths: number[]
+  columnWidths: number[];
 }
 
-const TableContext = React.createContext<TableContextValue | null>(null)
+const TableContext = React.createContext<TableContextValue | null>(null);
 
-const COLUMN_MIN_WIDTH = 100
-const COLUMN_PADDING = 32 // paddingHorizontal * 2 + some buffer
-const CHAR_WIDTH = 8.5 // average character width in pixels
+const COLUMN_MIN_WIDTH = 100;
+const COLUMN_PADDING = 32; // paddingHorizontal * 2 + some buffer
+const CHAR_WIDTH = 8.5; // average character width in pixels
 
 /**
  * Extract plain text from MDAST node recursively
  */
 function extractTextFromNode(node: any): string {
-  if (!node) return ''
-  if (node.type === 'text') return node.value || ''
+  if (!node) return '';
+  if (node.type === 'text') return node.value || '';
   if (node.children && Array.isArray(node.children)) {
-    return node.children.map(extractTextFromNode).join('')
+    return node.children.map(extractTextFromNode).join('');
   }
-  return ''
+  return '';
 }
 
 export const TableRenderer = React.memo(({ node, children, testID }: TableProps) => {
-  const { colors, spacing, radius } = useTheme()
-  const styles = useStyles()
+  const { colors, spacing, radius } = useTheme();
+  const styles = useStyles();
 
   // Calculate column widths from MDAST node directly
   const columnWidths = React.useMemo(() => {
-    if (!node.children || node.children.length === 0) return []
+    if (!node.children || node.children.length === 0) return [];
 
     // Collect all text for each column
-    const allColumns: string[][] = []
+    const allColumns: string[][] = [];
 
     node.children.forEach((row) => {
       if (row.type === 'tableRow' && row.children) {
         row.children.forEach((cell, colIndex) => {
-          if (!allColumns[colIndex]) allColumns[colIndex] = []
-          const cellText = extractTextFromNode(cell)
-          allColumns[colIndex].push(cellText)
-        })
+          if (!allColumns[colIndex]) allColumns[colIndex] = [];
+          const cellText = extractTextFromNode(cell);
+          allColumns[colIndex].push(cellText);
+        });
       }
-    })
+    });
 
     // Calculate width for each column based on longest content
     return allColumns.map((columnCells) => {
-      const longestText = columnCells.reduce((longest, text) =>
-        text.length > longest.length ? text : longest, ''
-      )
+      const longestText = columnCells.reduce(
+        (longest, text) => (text.length > longest.length ? text : longest),
+        ''
+      );
       // Estimate width: character count * average char width + padding
       const estimatedWidth = Math.max(
         COLUMN_MIN_WIDTH,
         longestText.length * CHAR_WIDTH + COLUMN_PADDING
-      )
-      return Math.ceil(estimatedWidth)
-    })
-  }, [node])
+      );
+      return Math.ceil(estimatedWidth);
+    });
+  }, [node]);
 
   // Calculate total table width (minimum of container width handled by flex)
-  const tableWidth = columnWidths.reduce((sum, width) => sum + width, 0)
+  const tableWidth = columnWidths.reduce((sum, width) => sum + width, 0);
 
   return (
     <View
@@ -97,27 +98,25 @@ export const TableRenderer = React.memo(({ node, children, testID }: TableProps)
     >
       <ScrollView horizontal showsHorizontalScrollIndicator={true}>
         <View style={[styles.table, { minWidth: tableWidth }]}>
-          <TableContext.Provider value={{ columnWidths }}>
-            {children}
-          </TableContext.Provider>
+          <TableContext.Provider value={{ columnWidths }}>{children}</TableContext.Provider>
         </View>
       </ScrollView>
     </View>
-  )
-})
-TableRenderer.displayName = 'TableRenderer'
+  );
+});
+TableRenderer.displayName = 'TableRenderer';
 
 interface TableRowProps {
-  node: TableRow
-  children: React.ReactNode
-  isHeader?: boolean
-  testID?: string
+  node: TableRow;
+  children: React.ReactNode;
+  isHeader?: boolean;
+  testID?: string;
 }
 
 export const TableRowRenderer = React.memo(
   ({ node: _node, children, isHeader, testID }: TableRowProps) => {
-    const { colors } = useTheme()
-    const styles = useStyles()
+    const { colors } = useTheme();
+    const styles = useStyles();
 
     return (
       <View
@@ -133,29 +132,29 @@ export const TableRowRenderer = React.memo(
       >
         {children}
       </View>
-    )
+    );
   }
-)
-TableRowRenderer.displayName = 'TableRowRenderer'
+);
+TableRowRenderer.displayName = 'TableRowRenderer';
 
 interface TableCellProps {
-  node: TableCell
-  children: React.ReactNode
-  isHeader?: boolean
-  testID?: string
-  columnIndex?: number
+  node: TableCell;
+  children: React.ReactNode;
+  isHeader?: boolean;
+  testID?: string;
+  columnIndex?: number;
 }
 
 export const TableCellRenderer = React.memo(
   ({ node: _node, children, isHeader, testID, columnIndex = 0 }: TableCellProps) => {
-    const { colors, spacing } = useTheme()
-    const styles = useStyles()
-    const context = React.useContext(TableContext)
+    const { colors, spacing } = useTheme();
+    const styles = useStyles();
+    const context = React.useContext(TableContext);
 
-    const typo = isHeader ? theme.typography.body : theme.typography.bodySmall
+    const typo = isHeader ? theme.typography.body : theme.typography.bodySmall;
 
     // Get column width from context, fallback to minimum
-    const columnWidth = context?.columnWidths[columnIndex] || COLUMN_MIN_WIDTH
+    const columnWidth = context?.columnWidths[columnIndex] || COLUMN_MIN_WIDTH;
 
     return (
       <View
@@ -181,10 +180,10 @@ export const TableCellRenderer = React.memo(
           {children}
         </Text>
       </View>
-    )
+    );
   }
-)
-TableCellRenderer.displayName = 'TableCellRenderer'
+);
+TableCellRenderer.displayName = 'TableCellRenderer';
 
 const useStyles = () => {
   return StyleSheet.create({
@@ -202,5 +201,5 @@ const useStyles = () => {
       justifyContent: 'center',
       alignItems: 'flex-start',
     },
-  })
-}
+  });
+};

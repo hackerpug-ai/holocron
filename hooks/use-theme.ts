@@ -1,6 +1,6 @@
-import { useMemo } from 'react'
-import { colors, spacing, radius, typography } from '@/lib/theme'
-import { useColorScheme } from '@/lib/useColorScheme'
+import { useMemo } from 'react';
+import { colors, radius, spacing, typography } from '@/lib/theme';
+import { useColorScheme } from '@/lib/useColorScheme';
 
 /**
  * Hook to access theme tokens based on current color scheme.
@@ -8,7 +8,7 @@ import { useColorScheme } from '@/lib/useColorScheme'
  * with Tailwind className-based styles.
  */
 export function useTheme() {
-  const { isDarkColorScheme } = useColorScheme()
+  const { isDarkColorScheme } = useColorScheme();
 
   return useMemo(
     () => ({
@@ -19,5 +19,5 @@ export function useTheme() {
       isDark: isDarkColorScheme,
     }),
     [isDarkColorScheme]
-  )
+  );
 }

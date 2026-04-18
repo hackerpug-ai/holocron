@@ -1,11 +1,11 @@
-import { Text } from '@/components/ui/text'
-import { useTheme } from '@/hooks/use-theme'
-import type { Code } from 'mdast'
+import type { Code } from 'mdast';
 // TODO: Implement proper syntax highlighting with react-native-render-html
 // For now, using basic code block styling
 // import Prism from 'react-syntax-highlighter/dist/esm/prism'
-import * as React from 'react'
-import { Platform, ScrollView, StyleSheet, View } from 'react-native'
+import * as React from 'react';
+import { Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from '@/components/ui/text';
+import { useTheme } from '@/hooks/use-theme';
 
 /**
  * CodeBlock renderer handles fenced code blocks with syntax highlighting
@@ -13,17 +13,17 @@ import { Platform, ScrollView, StyleSheet, View } from 'react-native'
  */
 
 interface CodeBlockProps {
-  node: Code
-  testID?: string
+  node: Code;
+  testID?: string;
 }
 
 export const CodeBlockRenderer = React.memo(({ node, testID }: CodeBlockProps) => {
-  const { spacing, radius, colors, typography } = useTheme()
-  const styles = useStyles(typography)
+  const { spacing, radius, colors, typography } = useTheme();
+  const styles = useStyles(typography);
 
   // Get language from node meta (e.g., ```typescript)
-  const language = node.lang || 'text'
-  const code = node.value
+  const language = node.lang || 'text';
+  const code = node.value;
 
   // Render code with monospace styling
   // TODO: Consider using react-native-render-html for full syntax highlighting
@@ -39,8 +39,8 @@ export const CodeBlockRenderer = React.memo(({ node, testID }: CodeBlockProps) =
       >
         {code}
       </Text>
-    )
-  }
+    );
+  };
 
   return (
     <View
@@ -64,14 +64,14 @@ export const CodeBlockRenderer = React.memo(({ node, testID }: CodeBlockProps) =
         {renderCodeContent()}
       </ScrollView>
     </View>
-  )
-})
-CodeBlockRenderer.displayName = 'CodeBlockRenderer'
+  );
+});
+CodeBlockRenderer.displayName = 'CodeBlockRenderer';
 
 const useStyles = (_typography: any) => {
   return StyleSheet.create({
     codeBlock: {
       overflow: 'hidden',
     },
-  })
-}
+  });
+};

@@ -1,60 +1,60 @@
-import { ChatBubble, type ChatRole } from '@/components/ChatBubble'
-import { ChatInput, type SlashCommand } from '@/components/chat/ChatInput'
-import { type CategoryType } from '@/components/CategoryBadge'
-import { CommandBadge } from '@/components/CommandBadge'
-import { ResearchProgress, type ResearchStatus } from '@/components/ResearchProgress'
-import { ResultCard, type ResultType } from '@/components/ResultCard'
-import { TypingIndicator } from '@/components/TypingIndicator'
-import { cn } from '@/lib/utils'
-import { useRef } from 'react'
-import { FlatList, KeyboardAvoidingView, Platform, View, type ViewProps } from 'react-native'
+import { useRef } from 'react';
+import { FlatList, KeyboardAvoidingView, Platform, View, type ViewProps } from 'react-native';
+import type { CategoryType } from '@/components/CategoryBadge';
+import { ChatBubble, type ChatRole } from '@/components/ChatBubble';
+import { CommandBadge } from '@/components/CommandBadge';
+import { ChatInput, type SlashCommand } from '@/components/chat/ChatInput';
+import { ResearchProgress, type ResearchStatus } from '@/components/ResearchProgress';
+import { ResultCard, type ResultType } from '@/components/ResultCard';
+import { TypingIndicator } from '@/components/TypingIndicator';
+import { cn } from '@/lib/utils';
 
 export interface ChatMessage {
-  id: string
-  content: string
-  sender: ChatRole
-  timestamp: Date
-  isPending?: boolean
+  id: string;
+  content: string;
+  sender: ChatRole;
+  timestamp: Date;
+  isPending?: boolean;
   /** If this message contains a slash command */
   command?: {
-    name: string
-    args?: string
-  }
+    name: string;
+    args?: string;
+  };
   /** If this message has result cards */
   results?: Array<{
-    id: string
-    title: string
-    type: ResultType
-    snippet?: string
-    category?: CategoryType
-    confidence?: number
-  }>
+    id: string;
+    title: string;
+    type: ResultType;
+    snippet?: string;
+    category?: CategoryType;
+    confidence?: number;
+  }>;
   /** If this message has active research */
   research?: {
-    query: string
-    status: ResearchStatus
-    progress: number
-    currentIteration?: number
-    totalIterations?: number
-    statusMessage?: string
-  }
+    query: string;
+    status: ResearchStatus;
+    progress: number;
+    currentIteration?: number;
+    totalIterations?: number;
+    statusMessage?: string;
+  };
 }
 
 interface ChatScreenProps extends Omit<ViewProps, 'children'> {
   /** Messages to display */
-  messages?: ChatMessage[]
+  messages?: ChatMessage[];
   /** Whether the agent is processing */
-  isTyping?: boolean
+  isTyping?: boolean;
   /** Whether input should be disabled */
-  inputDisabled?: boolean
+  inputDisabled?: boolean;
   /** Callback when user sends a message */
-  onSendMessage?: (_message: string) => void
+  onSendMessage?: (_message: string) => void;
   /** Callback when user selects a slash command from the menu */
-  onSelectCommand?: (_command: SlashCommand) => void
+  onSelectCommand?: (_command: SlashCommand) => void;
   /** Callback when a result card is pressed */
-  onResultPress?: (_resultId: string) => void
+  onResultPress?: (_resultId: string) => void;
   /** Callback when menu button is pressed */
-  onMenuPress?: () => void
+  onMenuPress?: () => void;
 }
 
 /**
@@ -72,16 +72,16 @@ export function ChatScreen({
   className,
   ...props
 }: ChatScreenProps) {
-  const flatListRef = useRef<FlatList>(null)
+  const flatListRef = useRef<FlatList>(null);
 
   const handleSend = (message: string) => {
-    onSendMessage?.(message)
-  }
+    onSendMessage?.(message);
+  };
 
   const renderMessage = ({ item, index }: { item: ChatMessage; index: number }) => {
-    const isFirstMessage = index === 0
-    const prevMessage = index > 0 ? messages[index - 1] : null
-    const isNewSender = !prevMessage || prevMessage.sender !== item.sender
+    const isFirstMessage = index === 0;
+    const prevMessage = index > 0 ? messages[index - 1] : null;
+    const isNewSender = !prevMessage || prevMessage.sender !== item.sender;
 
     return (
       <View
@@ -138,8 +138,8 @@ export function ChatScreen({
           </View>
         )}
       </View>
-    )
-  }
+    );
+  };
 
   return (
     <KeyboardAvoidingView
@@ -174,5 +174,5 @@ export function ChatScreen({
         placeholder="Ask anything..."
       />
     </KeyboardAvoidingView>
-  )
+  );
 }

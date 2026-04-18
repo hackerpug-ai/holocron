@@ -1,23 +1,30 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Text } from '@/components/ui/text'
-import { cn } from '@/lib/utils'
-import { ArrowLeft, BookOpen, CheckCircle2, ChevronDown, ChevronUp, ExternalLink } from '@/components/ui/icons'
-import * as React from 'react'
-import { ScrollView, View, Pressable } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
-import { MarkdownView } from '../markdown/MarkdownView'
-import { ReportOutline } from '../research/ReportOutline'
+import * as React from 'react';
+import { Pressable, ScrollView, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  ArrowLeft,
+  BookOpen,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  ExternalLink,
+} from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { cn } from '@/lib/utils';
+import { MarkdownView } from '../markdown/MarkdownView';
+import { ReportOutline } from '../research/ReportOutline';
 
 /**
  * Citation represents a source reference from deep research
  */
 export interface Citation {
   /** Citation number */
-  id: number
+  id: number;
   /** Source title or URL */
-  title: string
+  title: string;
   /** Optional URL for direct access */
-  url?: string
+  url?: string;
 }
 
 /**
@@ -26,19 +33,19 @@ export interface Citation {
  */
 export interface ResearchIteration {
   /** Iteration number (1-indexed) */
-  iterationNumber: number
+  iterationNumber: number;
   /** Coverage score (1-5) */
-  coverageScore: number
+  coverageScore: number;
   /** Reviewer feedback identifying gaps */
-  feedback?: string
+  feedback?: string;
   /** Refined queries for next iteration */
-  refinedQueries?: string[]
+  refinedQueries?: string[];
   /** Whether this iteration is currently active */
-  isActive?: boolean
+  isActive?: boolean;
   /** Whether the iteration is complete */
-  isComplete?: boolean
+  isComplete?: boolean;
   /** Key findings from this iteration */
-  findings?: string[]
+  findings?: string[];
 }
 
 /**
@@ -46,38 +53,38 @@ export interface ResearchIteration {
  */
 export interface DeepResearchSession {
   /** Unique session identifier */
-  id: string
+  id: string;
   /** Original research query */
-  query: string
+  query: string;
   /** Synthesized markdown report */
-  report: string
+  report: string;
   /** All iterations in the research process (hidden from UI) */
-  iterations: ResearchIteration[]
+  iterations: ResearchIteration[];
   /** All citations from the research */
-  citations: Citation[]
+  citations: Citation[];
   /** Timestamp when research was completed */
-  completedAt?: Date
+  completedAt?: Date;
   /** Whether saved to Holocron */
-  savedToHolocron?: boolean
+  savedToHolocron?: boolean;
   /** Overall confidence level */
-  confidence?: 'HIGH' | 'MEDIUM' | 'LOW'
+  confidence?: 'HIGH' | 'MEDIUM' | 'LOW';
   /** Number of sources read */
-  sourcesCount?: number
+  sourcesCount?: number;
 }
 
 export interface DeepResearchDetailViewProps {
   /** The research session to display */
-  session: DeepResearchSession
+  session: DeepResearchSession;
   /** Callback when back button is pressed */
-  onBack?: () => void
+  onBack?: () => void;
   /** Callback when a citation URL is pressed */
-  onCitationPress?: (url: string) => void
+  onCitationPress?: (url: string) => void;
   /** Optional test ID */
-  testID?: string
+  testID?: string;
   /** Optional class name */
-  className?: string
+  className?: string;
   /** Whether to use outline format for report display (default: true) */
-  useOutlineFormat?: boolean
+  useOutlineFormat?: boolean;
 }
 
 /**
@@ -100,15 +107,15 @@ function ConfidenceBadge({ level }: { level: 'HIGH' | 'MEDIUM' | 'LOW' }) {
       text: 'text-destructive',
       label: 'Low Confidence',
     },
-  }
+  };
 
-  const { bg, text, label } = config[level]
+  const { bg, text, label } = config[level];
 
   return (
     <View className={cn('px-3 py-1 rounded-full', bg)}>
       <Text className={cn('text-sm font-medium', text)}>{label}</Text>
     </View>
-  )
+  );
 }
 
 /**
@@ -119,24 +126,17 @@ function CitationRow({
   testID,
   onPress,
 }: {
-  citation: Citation
-  testID?: string
-  onPress?: (url: string) => void
+  citation: Citation;
+  testID?: string;
+  onPress?: (url: string) => void;
 }) {
   const content = (
-    <View
-      testID={testID}
-      className="flex-row gap-3 border-b border-border py-3"
-    >
+    <View testID={testID} className="flex-row gap-3 border-b border-border py-3">
       <View className="bg-muted flex h-6 w-6 items-center justify-center rounded-full">
-        <Text className="text-xs font-semibold text-muted-foreground">
-          {citation.id}
-        </Text>
+        <Text className="text-xs font-semibold text-muted-foreground">{citation.id}</Text>
       </View>
       <View className="flex-1">
-        <Text className="text-sm text-foreground">
-          {citation.title}
-        </Text>
+        <Text className="text-sm text-foreground">{citation.title}</Text>
         {citation.url && (
           <View className="flex-row items-center gap-1 mt-0.5">
             <ExternalLink size={10} className="text-primary" />
@@ -147,7 +147,7 @@ function CitationRow({
         )}
       </View>
     </View>
-  )
+  );
 
   if (citation.url && onPress) {
     return (
@@ -158,10 +158,10 @@ function CitationRow({
       >
         {content}
       </Pressable>
-    )
+    );
   }
 
-  return content
+  return content;
 }
 
 /**
@@ -171,12 +171,12 @@ function CollapsibleSources({
   citations,
   onCitationPress,
 }: {
-  citations: Citation[]
-  onCitationPress?: (url: string) => void
+  citations: Citation[];
+  onCitationPress?: (url: string) => void;
 }) {
-  const [isExpanded, setIsExpanded] = React.useState(false)
+  const [isExpanded, setIsExpanded] = React.useState(false);
 
-  if (citations.length === 0) return null
+  if (citations.length === 0) return null;
 
   return (
     <Card className="mb-4">
@@ -208,7 +208,7 @@ function CollapsibleSources({
         </CardContent>
       )}
     </Card>
-  )
+  );
 }
 
 /**
@@ -217,23 +217,25 @@ function CollapsibleSources({
  */
 function extractReportContent(report: string): string {
   // Check if report looks like JSON
-  const trimmed = report.trim()
+  const trimmed = report.trim();
   if (trimmed.startsWith('{') && trimmed.includes('"report"')) {
     try {
-      const parsed = JSON.parse(trimmed)
+      const parsed = JSON.parse(trimmed);
       if (parsed.report && typeof parsed.report === 'string') {
-        return parsed.report
+        return parsed.report;
       }
     } catch {
       // Try extracting report field via regex if JSON parse fails
-      const match = trimmed.match(/"report"\s*:\s*"([\s\S]*?)(?:"\s*,\s*"(?:summary|confidence)"|"\s*})/);
+      const match = trimmed.match(
+        /"report"\s*:\s*"([\s\S]*?)(?:"\s*,\s*"(?:summary|confidence)"|"\s*})/
+      );
       if (match) {
         // Unescape JSON string content
-        return match[1].replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\\\/g, '\\')
+        return match[1].replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\\\/g, '\\');
       }
     }
   }
-  return report
+  return report;
 }
 
 /**
@@ -254,21 +256,25 @@ export function DeepResearchDetailView({
   useOutlineFormat = true,
 }: DeepResearchDetailViewProps) {
   // Extract actual markdown content from potentially JSON-wrapped report
-  const reportContent = React.useMemo(
-    () => extractReportContent(session.report),
-    [session.report]
-  )
+  const reportContent = React.useMemo(() => extractReportContent(session.report), [session.report]);
 
   // Determine confidence from session or infer from iterations
-  const confidence = session.confidence ?? (
-    session.iterations.length > 0
-      ? (session.iterations[session.iterations.length - 1].coverageScore >= 4 ? 'HIGH' :
-         session.iterations[session.iterations.length - 1].coverageScore >= 3 ? 'MEDIUM' : 'LOW')
-      : 'MEDIUM'
-  )
+  const confidence =
+    session.confidence ??
+    (session.iterations.length > 0
+      ? session.iterations[session.iterations.length - 1].coverageScore >= 4
+        ? 'HIGH'
+        : session.iterations[session.iterations.length - 1].coverageScore >= 3
+          ? 'MEDIUM'
+          : 'LOW'
+      : 'MEDIUM');
 
   return (
-    <SafeAreaView testID={testID} className={cn('flex-1 bg-background', className)} edges={['top', 'left', 'right']}>
+    <SafeAreaView
+      testID={testID}
+      className={cn('flex-1 bg-background', className)}
+      edges={['top', 'left', 'right']}
+    >
       {/* Header with back button */}
       <View className="border-border border-b bg-card px-4 py-3">
         <Pressable onPress={onBack} className="flex-row items-center gap-3">
@@ -327,10 +333,7 @@ export function DeepResearchDetailView({
         </Card>
 
         {/* Collapsible Sources Section */}
-        <CollapsibleSources
-          citations={session.citations}
-          onCitationPress={onCitationPress}
-        />
+        <CollapsibleSources citations={session.citations} onCitationPress={onCitationPress} />
 
         {/* Holocron Save Confirmation */}
         {session.savedToHolocron && (
@@ -338,9 +341,7 @@ export function DeepResearchDetailView({
             <CardContent className="flex-row items-center gap-3 py-4">
               <CheckCircle2 size={20} className="text-success" />
               <View className="flex-1">
-                <Text className="text-success font-semibold">
-                  Saved to Holocron
-                </Text>
+                <Text className="text-success font-semibold">Saved to Holocron</Text>
                 <Text className="text-success text-sm">
                   This research report has been added to your knowledge base
                 </Text>
@@ -350,5 +351,5 @@ export function DeepResearchDetailView({
         )}
       </ScrollView>
     </SafeAreaView>
-  )
+  );
 }

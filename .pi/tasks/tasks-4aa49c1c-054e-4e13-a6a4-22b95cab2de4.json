@@ -20,9 +20,7 @@
       "status": "completed",
       "activeForm": "Creating pi-tasks entries for epic-5-infrastructure",
       "metadata": {},
-      "blocks": [
-        "3"
-      ],
+      "blocks": ["3"],
       "blockedBy": [],
       "createdAt": 1775110212771,
       "updatedAt": 1775110259899
@@ -34,12 +32,8 @@
       "status": "in_progress",
       "activeForm": "Dispatching epic-5-infrastructure implementation tasks",
       "metadata": {},
-      "blocks": [
-        "4"
-      ],
-      "blockedBy": [
-        "2"
-      ],
+      "blocks": ["4"],
+      "blockedBy": ["2"],
       "createdAt": 1775110215595,
       "updatedAt": 1775110267127
     },
@@ -51,9 +45,7 @@
       "activeForm": "Summarizing epic-5-infrastructure execution results",
       "metadata": {},
       "blocks": [],
-      "blockedBy": [
-        "3"
-      ],
+      "blockedBy": ["3"],
       "createdAt": 1775110218257,
       "updatedAt": 1775110268993
     },

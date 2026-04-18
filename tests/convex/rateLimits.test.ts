@@ -5,7 +5,7 @@
  * signatures and follow proper patterns.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 /**
  * AC-1: Schema has rateLimitTracking table with indexes

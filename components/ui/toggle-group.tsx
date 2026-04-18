@@ -1,11 +1,11 @@
-import { Icon } from '@/components/ui/icon';
-import { TextClassContext } from '@/components/ui/text';
-import { toggleVariants } from '@/components/ui/toggle';
-import { cn } from '@/lib/utils';
 import * as ToggleGroupPrimitive from '@rn-primitives/toggle-group';
 import type { VariantProps } from 'class-variance-authority';
 import * as React from 'react';
 import { Platform } from 'react-native';
+import { Icon } from '@/components/ui/icon';
+import { TextClassContext } from '@/components/ui/text';
+import { toggleVariants } from '@/components/ui/toggle';
+import { cn } from '@/lib/utils';
 
 const ToggleGroupContext = React.createContext<VariantProps<typeof toggleVariants> | null>(null);
 
@@ -26,7 +26,8 @@ function ToggleGroup({
         variant === 'outline' && 'shadow-sm shadow-black/5',
         className
       )}
-      {...props}>
+      {...props}
+    >
       <ToggleGroupContext.Provider value={{ variant, size }}>
         {children}
       </ToggleGroupContext.Provider>
@@ -68,7 +69,8 @@ function ToggleGroupItem({
         ToggleGroupPrimitive.utils.getIsSelected(value, props.value)
           ? 'text-accent-foreground'
           : Platform.select({ web: 'group-hover:text-muted-foreground' })
-      )}>
+      )}
+    >
       <ToggleGroupPrimitive.Item
         className={cn(
           toggleVariants({
@@ -87,7 +89,8 @@ function ToggleGroupItem({
           }),
           className
         )}
-        {...props}>
+        {...props}
+      >
         {children}
       </ToggleGroupPrimitive.Item>
     </TextClassContext.Provider>

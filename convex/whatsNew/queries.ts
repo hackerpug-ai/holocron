@@ -4,8 +4,8 @@
  * Public queries for retrieving cached What's New reports.
  */
 
-import { v } from "convex/values";
-import { query } from "../_generated/server";
+import { v } from 'convex/values';
+import { query } from '../_generated/server';
 
 /**
  * Get the latest What's New report
@@ -18,9 +18,9 @@ export const getLatestReport = query({
   handler: async (ctx) => {
     // Get the most recent report
     const report = await ctx.db
-      .query("whatsNewReports")
-      .withIndex("by_created")
-      .order("desc")
+      .query('whatsNewReports')
+      .withIndex('by_created')
+      .order('desc')
       .first();
 
     if (!report) {
@@ -35,8 +35,8 @@ export const getLatestReport = query({
     }
 
     // Check if this is today's report
-    const today = new Date().toISOString().split("T")[0];
-    const reportDate = new Date(report.periodEnd).toISOString().split("T")[0];
+    const today = new Date().toISOString().split('T')[0];
+    const reportDate = new Date(report.periodEnd).toISOString().split('T')[0];
     const isFromToday = reportDate === today;
 
     return {
@@ -75,12 +75,12 @@ export const getReportByDate = query({
 
     // Find report where periodStart <= targetDate <= periodEnd
     const reports = await ctx.db
-      .query("whatsNewReports")
-      .withIndex("by_period")
+      .query('whatsNewReports')
+      .withIndex('by_period')
       .filter((q) =>
         q.and(
-          q.lte(q.field("periodStart"), targetTimestamp),
-          q.gte(q.field("periodEnd"), targetTimestamp)
+          q.lte(q.field('periodStart'), targetTimestamp),
+          q.gte(q.field('periodEnd'), targetTimestamp)
         )
       )
       .first();
@@ -123,7 +123,7 @@ export const getReportByDate = query({
  * Returns the full report with document content.
  */
 export const getReportById = query({
-  args: { reportId: v.id("whatsNewReports") },
+  args: { reportId: v.id('whatsNewReports') },
   handler: async (ctx, { reportId }) => {
     const report = await ctx.db.get(reportId);
 
@@ -169,18 +169,18 @@ export const getLatestFindings = query({
   args: {
     category: v.optional(
       v.union(
-        v.literal("discovery"),
-        v.literal("release"),
-        v.literal("trend"),
-        v.literal("discussion")
+        v.literal('discovery'),
+        v.literal('release'),
+        v.literal('trend'),
+        v.literal('discussion')
       )
     ),
   },
   handler: async (ctx, { category }) => {
     const report = await ctx.db
-      .query("whatsNewReports")
-      .withIndex("by_created")
-      .order("desc")
+      .query('whatsNewReports')
+      .withIndex('by_created')
+      .order('desc')
       .first();
 
     if (!report) {
@@ -191,7 +191,7 @@ export const getLatestFindings = query({
       title: string;
       url: string;
       source: string;
-      category: "discovery" | "release" | "trend" | "discussion";
+      category: 'discovery' | 'release' | 'trend' | 'discussion';
       score?: number;
       summary?: string;
       publishedAt?: string;
@@ -241,9 +241,9 @@ export const listReports = query({
   },
   handler: async (ctx, { limit = 10 }) => {
     const reports = await ctx.db
-      .query("whatsNewReports")
-      .withIndex("by_created")
-      .order("desc")
+      .query('whatsNewReports')
+      .withIndex('by_created')
+      .order('desc')
       .take(limit);
 
     return reports.map((report) => ({
@@ -275,9 +275,9 @@ export const getRecentReports = query({
     const cutoff = Date.now() - daysAgo * 24 * 60 * 60 * 1000;
 
     const reports = await ctx.db
-      .query("whatsNewReports")
-      .withIndex("by_created")
-      .order("desc")
+      .query('whatsNewReports')
+      .withIndex('by_created')
+      .order('desc')
       .take(5);
 
     // Filter to reports created after the cutoff
@@ -297,15 +297,10 @@ export const getRecentSubscriptionContent = query({
     const cutoff = Date.now() - args.daysAgo * 24 * 60 * 60 * 1000;
 
     // Get all content from the period (order by discoveredAt desc)
-    const allContent = await ctx.db
-      .query("subscriptionContent")
-      .order("desc")
-      .collect();
+    const allContent = await ctx.db.query('subscriptionContent').order('desc').collect();
 
     // Filter by date and passed filter
-    const filteredContent = allContent.filter(
-      (c) => c.discoveredAt > cutoff && c.passedFilter
-    );
+    const filteredContent = allContent.filter((c) => c.discoveredAt > cutoff && c.passedFilter);
 
     // Fetch sources to get type info
     const contentWithSource = await Promise.all(
@@ -313,21 +308,21 @@ export const getRecentSubscriptionContent = query({
         const source = await ctx.db.get(content.sourceId);
         return {
           ...content,
-          sourceType: source?.sourceType ?? "unknown",
-          sourceIdentifier: source?.identifier ?? "",
-          sourceName: source?.name ?? "",
+          sourceType: source?.sourceType ?? 'unknown',
+          sourceIdentifier: source?.identifier ?? '',
+          sourceName: source?.name ?? '',
         };
       })
     );
 
     // Group by source type
     const grouped = {
-      youtube: contentWithSource.filter((c) => c.sourceType === "youtube"),
-      newsletter: contentWithSource.filter((c) => c.sourceType === "newsletter"),
-      changelog: contentWithSource.filter((c) => c.sourceType === "changelog"),
-      reddit: contentWithSource.filter((c) => c.sourceType === "reddit"),
-      ebay: contentWithSource.filter((c) => c.sourceType === "ebay"),
-      "whats-new": contentWithSource.filter((c) => c.sourceType === "whats-new"),
+      youtube: contentWithSource.filter((c) => c.sourceType === 'youtube'),
+      newsletter: contentWithSource.filter((c) => c.sourceType === 'newsletter'),
+      changelog: contentWithSource.filter((c) => c.sourceType === 'changelog'),
+      reddit: contentWithSource.filter((c) => c.sourceType === 'reddit'),
+      ebay: contentWithSource.filter((c) => c.sourceType === 'ebay'),
+      'whats-new': contentWithSource.filter((c) => c.sourceType === 'whats-new'),
     };
 
     return {

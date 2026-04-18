@@ -10,25 +10,25 @@
  * Matches the ResultCard article pattern: Card > px-6 sections with NativeWind tokens only.
  */
 
-import { useState } from 'react'
-import { Pressable, View } from 'react-native'
-import { Text } from '@/components/ui/text'
-import { Card } from '@/components/ui/card'
-import { FileText, Scissors, ChevronRight } from '@/components/ui/icons'
-import { CategoryBadge, type CategoryType } from '@/components/CategoryBadge'
-import type { DocumentContextCardData } from '@/lib/types/chat'
-import { SectionReaderSheet } from './SectionReaderSheet'
+import { useState } from 'react';
+import { Pressable, View } from 'react-native';
+import { CategoryBadge, type CategoryType } from '@/components/CategoryBadge';
+import { Card } from '@/components/ui/card';
+import { ChevronRight, FileText, Scissors } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import type { DocumentContextCardData } from '@/lib/types/chat';
+import { SectionReaderSheet } from './SectionReaderSheet';
 
 /** Max characters shown inline before truncation */
-const EXCERPT_INLINE_LIMIT = 180
+const EXCERPT_INLINE_LIMIT = 180;
 
 export interface DocumentContextCardProps {
-  data: DocumentContextCardData
+  data: DocumentContextCardData;
   /** Called when user wants to navigate to the full document */
-  onNavigateToDocument?: (documentId: string, blockIndex?: number) => void
+  onNavigateToDocument?: (documentId: string, blockIndex?: number) => void;
   /** Called when user removes this context card from the chat */
-  onDeleteFromChat?: () => void
-  testID?: string
+  onDeleteFromChat?: () => void;
+  testID?: string;
 }
 
 export function DocumentContextCard({
@@ -37,10 +37,10 @@ export function DocumentContextCard({
   onDeleteFromChat,
   testID = 'document-context-card',
 }: DocumentContextCardProps) {
-  const [readerVisible, setReaderVisible] = useState(false)
+  const [readerVisible, setReaderVisible] = useState(false);
 
-  const isExcerpt = data.scope === 'excerpt'
-  const category = data.category as CategoryType | undefined
+  const isExcerpt = data.scope === 'excerpt';
+  const category = data.category as CategoryType | undefined;
 
   // --- Full document variant ---
   if (!isExcerpt) {
@@ -56,10 +56,7 @@ export function DocumentContextCard({
 
           {/* Title with ChevronRight indicating tappability */}
           <View className="flex-row items-start gap-1">
-            <Text
-              className="text-foreground text-base font-semibold flex-1"
-              numberOfLines={2}
-            >
+            <Text className="text-foreground text-base font-semibold flex-1" numberOfLines={2}>
               {data.title}
             </Text>
             <ChevronRight size={18} className="text-muted-foreground mt-0.5 shrink-0" />
@@ -75,7 +72,7 @@ export function DocumentContextCard({
           </View>
         ) : null}
       </Card>
-    )
+    );
 
     if (onNavigateToDocument) {
       return (
@@ -88,19 +85,19 @@ export function DocumentContextCard({
         >
           {cardContent}
         </Pressable>
-      )
+      );
     }
 
-    return cardContent
+    return cardContent;
   }
 
   // --- Section / excerpt variant ---
-  const isTruncated = data.excerpt && data.excerpt.length > EXCERPT_INLINE_LIMIT
+  const isTruncated = data.excerpt && data.excerpt.length > EXCERPT_INLINE_LIMIT;
   const displayText = data.excerpt
     ? isTruncated
       ? data.excerpt.slice(0, EXCERPT_INLINE_LIMIT).trimEnd() + '...'
       : data.excerpt
-    : null
+    : null;
 
   return (
     <>
@@ -123,9 +120,7 @@ export function DocumentContextCard({
         {displayText ? (
           <View className="px-6 pb-2">
             <View className="rounded-lg border border-border/50 bg-muted/50 px-3 py-2.5">
-              <Text className="text-foreground/80 text-sm leading-relaxed">
-                {displayText}
-              </Text>
+              <Text className="text-foreground/80 text-sm leading-relaxed">{displayText}</Text>
               {isTruncated ? (
                 <Pressable
                   onPress={() => setReaderVisible(true)}
@@ -134,9 +129,7 @@ export function DocumentContextCard({
                   accessibilityRole="button"
                   accessibilityLabel="Show full section"
                 >
-                  <Text className="text-primary text-sm font-medium">
-                    Show full section
-                  </Text>
+                  <Text className="text-primary text-sm font-medium">Show full section</Text>
                 </Pressable>
               ) : null}
             </View>
@@ -173,10 +166,10 @@ export function DocumentContextCard({
           onViewInDocument={
             onNavigateToDocument
               ? () => {
-                  setReaderVisible(false)
+                  setReaderVisible(false);
                   setTimeout(() => {
-                    onNavigateToDocument(data.document_id, data.blockIndex)
-                  }, 250)
+                    onNavigateToDocument(data.document_id, data.blockIndex);
+                  }, 250);
                 }
               : undefined
           }
@@ -185,5 +178,5 @@ export function DocumentContextCard({
         />
       ) : null}
     </>
-  )
+  );
 }

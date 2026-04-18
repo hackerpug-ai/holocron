@@ -10,7 +10,7 @@
  * - Cron is registered in convex/crons.ts
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 describe('US-004: voice.getActiveSession and timeoutOrphanedSessions', () => {
   /**

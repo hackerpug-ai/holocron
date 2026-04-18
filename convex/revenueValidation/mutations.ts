@@ -5,15 +5,15 @@
  * and revenueValidationCompetitors tables.
  */
 
-import { mutation } from "../_generated/server";
-import { v } from "convex/values";
-import type { Id } from "../_generated/dataModel";
+import { v } from 'convex/values';
+import type { Id } from '../_generated/dataModel';
+import { mutation } from '../_generated/server';
 import {
+  addCompetitorArgsValidator,
+  addEvidenceArgsValidator,
   createSessionArgsValidator,
   updateSessionArgsValidator,
-  addEvidenceArgsValidator,
-  addCompetitorArgsValidator,
-} from "./validators";
+} from './validators';
 
 // ── Sessions ──────────────────────────────────────────────────────────────────
 
@@ -22,12 +22,12 @@ import {
  */
 export const createSession = mutation({
   args: createSessionArgsValidator.fields,
-  handler: async (ctx, args): Promise<Id<"revenueValidationSessions">> => {
+  handler: async (ctx, args): Promise<Id<'revenueValidationSessions'>> => {
     const now = Date.now();
-    return await ctx.db.insert("revenueValidationSessions", {
+    return await ctx.db.insert('revenueValidationSessions', {
       productName: args.productName,
       codebaseUrl: args.codebaseUrl,
-      status: "pending",
+      status: 'pending',
       createdAt: now,
       updatedAt: now,
     });
@@ -59,15 +59,15 @@ export const updateSession = mutation({
  */
 export const completeSession = mutation({
   args: {
-    sessionId: v.id("revenueValidationSessions"),
-    verdict: v.optional(v.union(v.literal("GO"), v.literal("CAUTION"), v.literal("NO-GO"))),
+    sessionId: v.id('revenueValidationSessions'),
+    verdict: v.optional(v.union(v.literal('GO'), v.literal('CAUTION'), v.literal('NO-GO'))),
     executiveSummary: v.optional(v.string()),
-    documentId: v.optional(v.id("documents")),
+    documentId: v.optional(v.id('documents')),
   },
   handler: async (ctx, args): Promise<void> => {
     const now = Date.now();
     await ctx.db.patch(args.sessionId, {
-      status: "completed",
+      status: 'completed',
       ...(args.verdict !== undefined && { verdict: args.verdict }),
       ...(args.executiveSummary !== undefined && { executiveSummary: args.executiveSummary }),
       ...(args.documentId !== undefined && { documentId: args.documentId }),
@@ -82,13 +82,13 @@ export const completeSession = mutation({
  */
 export const failSession = mutation({
   args: {
-    sessionId: v.id("revenueValidationSessions"),
+    sessionId: v.id('revenueValidationSessions'),
     errorReason: v.string(),
   },
   handler: async (ctx, args): Promise<void> => {
     const now = Date.now();
     await ctx.db.patch(args.sessionId, {
-      status: "failed",
+      status: 'failed',
       errorReason: args.errorReason,
       updatedAt: now,
     });
@@ -102,8 +102,8 @@ export const failSession = mutation({
  */
 export const addEvidence = mutation({
   args: addEvidenceArgsValidator.fields,
-  handler: async (ctx, args): Promise<Id<"revenueValidationEvidence">> => {
-    return await ctx.db.insert("revenueValidationEvidence", {
+  handler: async (ctx, args): Promise<Id<'revenueValidationEvidence'>> => {
+    return await ctx.db.insert('revenueValidationEvidence', {
       sessionId: args.sessionId,
       claim: args.claim,
       tier: args.tier,
@@ -123,8 +123,8 @@ export const addEvidence = mutation({
  */
 export const addCompetitor = mutation({
   args: addCompetitorArgsValidator.fields,
-  handler: async (ctx, args): Promise<Id<"revenueValidationCompetitors">> => {
-    return await ctx.db.insert("revenueValidationCompetitors", {
+  handler: async (ctx, args): Promise<Id<'revenueValidationCompetitors'>> => {
+    return await ctx.db.insert('revenueValidationCompetitors', {
       sessionId: args.sessionId,
       name: args.name,
       pricing: args.pricing,

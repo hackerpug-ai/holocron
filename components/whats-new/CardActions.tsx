@@ -8,18 +8,18 @@
  * - Full accessibility support
  */
 
-import React from 'react'
-import { Pressable } from 'react-native'
-import { Settings } from '@/components/ui/icons'
-import { useTheme } from '@/hooks/use-theme'
+import React from 'react';
+import { Pressable } from 'react-native';
+import { Settings } from '@/components/ui/icons';
+import { useTheme } from '@/hooks/use-theme';
 
 export interface CardActionsProps {
   /** Callback when settings button is pressed */
-  onPress: () => void
+  onPress: () => void;
   /** Optional test ID prefix */
-  testID?: string
+  testID?: string;
   /** Optional custom className for the container */
-  className?: string
+  className?: string;
 }
 
 /**
@@ -38,7 +38,7 @@ export function CardActions({
   testID = 'card-actions',
   className = '',
 }: CardActionsProps) {
-  const { colors } = useTheme()
+  const { colors } = useTheme();
 
   return (
     <Pressable
@@ -49,15 +49,12 @@ export function CardActions({
       accessibilityHint="Open subscription preferences"
       className={`min-h-[44px] min-w-[44px] items-center justify-center rounded-full active:opacity-70 ${className}`}
     >
-      <Settings
-        size={16}
-        color={colors.mutedForeground}
-      />
+      <Settings size={16} color={colors.mutedForeground} />
     </Pressable>
-  )
+  );
 }
 
 /**
  * Memoized version for performance optimization in FlatList
  */
-export const CardActionsMemo = React.memo(CardActions)
+export const CardActionsMemo = React.memo(CardActions);

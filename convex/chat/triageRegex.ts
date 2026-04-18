@@ -9,15 +9,15 @@
  */
 
 export type QueryShape =
-  | "factual"
-  | "recommendation"
-  | "comprehensive"
-  | "exploratory"
-  | "ambiguous";
+  | 'factual'
+  | 'recommendation'
+  | 'comprehensive'
+  | 'exploratory'
+  | 'ambiguous';
 
 export interface RegexResult {
   queryShape: QueryShape;
-  confidence: "high" | "medium";
+  confidence: 'high' | 'medium';
   matchedPattern: string;
 }
 
@@ -26,14 +26,14 @@ export interface RegexResult {
  * Each pattern includes a regex and a label for telemetry/debugging.
  */
 const REC_PATTERNS: { regex: RegExp; label: string }[] = [
-  { regex: /\b(find me|get me|show me)\s+\d+\b/i, label: "find_me_n" },
-  { regex: /\btop\s+\d+\b/i, label: "top_n" },
-  { regex: /\bbest\s+\d+\b/i, label: "best_n" },
-  { regex: /highly\s+rated/i, label: "highly_rated" },
-  { regex: /\breferrals?\s+for\b/i, label: "referrals_for" },
-  { regex: /\bwho\s+should\s+I\s+hire\b/i, label: "who_should_hire" },
-  { regex: /\bwhere\s+can\s+I\s+find\b/i, label: "where_can_find" },
-  { regex: /\bprovide\s+\d+(-\d+)?\b/i, label: "provide_n" },
+  { regex: /\b(find me|get me|show me)\s+\d+\b/i, label: 'find_me_n' },
+  { regex: /\btop\s+\d+\b/i, label: 'top_n' },
+  { regex: /\bbest\s+\d+\b/i, label: 'best_n' },
+  { regex: /highly\s+rated/i, label: 'highly_rated' },
+  { regex: /\breferrals?\s+for\b/i, label: 'referrals_for' },
+  { regex: /\bwho\s+should\s+I\s+hire\b/i, label: 'who_should_hire' },
+  { regex: /\bwhere\s+can\s+I\s+find\b/i, label: 'where_can_find' },
+  { regex: /\bprovide\s+\d+(-\d+)?\b/i, label: 'provide_n' },
 ];
 
 /**
@@ -57,8 +57,8 @@ export function regexClassify(content: string): RegexResult | undefined {
   for (const pattern of REC_PATTERNS) {
     if (pattern.regex.test(content)) {
       return {
-        queryShape: "recommendation",
-        confidence: "high",
+        queryShape: 'recommendation',
+        confidence: 'high',
         matchedPattern: pattern.label,
       };
     }

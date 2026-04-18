@@ -1,38 +1,38 @@
-import { Card, CardContent } from '@/components/ui/card'
-import { Text } from '@/components/ui/text'
-import { cn } from '@/lib/utils'
-import { Loader2, XCircle, AlertCircle, RefreshCw } from '@/components/ui/icons'
-import type { ViewProps } from 'react-native'
-import { View, Animated, Easing, Pressable } from 'react-native'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef } from 'react';
+import type { ViewProps } from 'react-native';
+import { Animated, Easing, Pressable, View } from 'react-native';
+import { Card, CardContent } from '@/components/ui/card';
+import { AlertCircle, Loader2, RefreshCw, XCircle } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { cn } from '@/lib/utils';
 
-export type ResearchType = 'quick' | 'deep'
+export type ResearchType = 'quick' | 'deep';
 
 export interface DeepResearchLoadingCardProps extends Omit<ViewProps, 'children'> {
   /** The search query/topic being researched */
-  query: string
+  query: string;
   /** Research type: 'quick' for /research, 'deep' for /deep-research */
-  researchType?: ResearchType
+  researchType?: ResearchType;
   /** Optional loading message */
-  message?: string
+  message?: string;
   /** Optional class name for custom styling */
-  className?: string
+  className?: string;
   /** Session ID for this research */
-  sessionId?: string
+  sessionId?: string;
   /** Whether this is the final completed state */
-  isComplete?: boolean
+  isComplete?: boolean;
   /** Whether this session was cancelled */
-  isCancelled?: boolean
+  isCancelled?: boolean;
   /** Whether this session errored or timed out */
-  isError?: boolean
+  isError?: boolean;
   /** Confidence level when complete */
-  confidence?: 'HIGH' | 'MEDIUM' | 'LOW'
+  confidence?: 'HIGH' | 'MEDIUM' | 'LOW';
   /** Callback when card is pressed (to navigate to detail) */
-  onPress?: () => void
+  onPress?: () => void;
   /** Callback when cancel is pressed */
-  onCancel?: () => void
+  onCancel?: () => void;
   /** Callback when retry is pressed (shown when isError is true) */
-  onRetry?: () => void
+  onRetry?: () => void;
 }
 
 /**
@@ -60,7 +60,7 @@ const typeColors = {
     label: 'DEEP',
     defaultMessage: 'Deep researching...',
   },
-} as const
+} as const;
 
 export function DeepResearchLoadingCard({
   query,
@@ -76,11 +76,15 @@ export function DeepResearchLoadingCard({
   onRetry,
   ...props
 }: DeepResearchLoadingCardProps) {
-  const colors = typeColors[researchType]
-  const isInProgress = !isComplete && !isCancelled && !isError
-  const displayMessage = isCancelled ? 'Cancelled' : isError ? 'Research failed' : (message ?? colors.defaultMessage)
+  const colors = typeColors[researchType];
+  const isInProgress = !isComplete && !isCancelled && !isError;
+  const displayMessage = isCancelled
+    ? 'Cancelled'
+    : isError
+      ? 'Research failed'
+      : (message ?? colors.defaultMessage);
   // Animated values
-  const rotateAnim = useRef(new Animated.Value(0)).current
+  const rotateAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     // Rotation for spinner (only when in progress)
@@ -92,144 +96,139 @@ export function DeepResearchLoadingCard({
           easing: Easing.linear,
           useNativeDriver: true,
         })
-      ).start()
+      ).start();
     }
-  }, [rotateAnim, isInProgress])
+  }, [rotateAnim, isInProgress]);
 
   const rotation = rotateAnim.interpolate({
     inputRange: [0, 1],
     outputRange: ['0deg', '360deg'],
-  })
+  });
 
   // Confidence badge colors
   const getConfidenceStyle = () => {
-    if (!confidence) return { bg: 'bg-success/20', text: 'text-success' }
+    if (!confidence) return { bg: 'bg-success/20', text: 'text-success' };
     switch (confidence) {
       case 'HIGH':
-        return { bg: 'bg-success/20', text: 'text-success' }
+        return { bg: 'bg-success/20', text: 'text-success' };
       case 'MEDIUM':
-        return { bg: 'bg-warning/20', text: 'text-warning' }
+        return { bg: 'bg-warning/20', text: 'text-warning' };
       case 'LOW':
-        return { bg: 'bg-destructive/20', text: 'text-destructive' }
+        return { bg: 'bg-destructive/20', text: 'text-destructive' };
     }
-  }
+  };
 
-  const confStyle = getConfidenceStyle()
+  const confStyle = getConfidenceStyle();
 
   return (
-      <Pressable
-        onPress={onPress}
-        disabled={!isComplete}
-        className="active:opacity-90 w-full"
+    <Pressable onPress={onPress} disabled={!isComplete} className="active:opacity-90 w-full">
+      <Card
+        className={cn('border border-border bg-card w-full overflow-hidden', className)}
+        testID="deep-research-loading-card"
+        {...props}
       >
-        <Card
-          className={cn(
-            'border border-border bg-card w-full overflow-hidden',
-            className
+        <CardContent className="py-3 px-4">
+          {/* Type badge row */}
+          <View className="mb-2">
+            <View className={cn('px-1.5 py-0.5 rounded self-start', colors.badge)}>
+              <Text className={cn('text-[10px] font-bold tracking-wider', colors.text)}>
+                {colors.label}
+              </Text>
+            </View>
+          </View>
+
+          {/* Main row */}
+          <View className="flex-row items-center gap-3">
+            {/* Spinner, completion check, cancelled, or error icon */}
+            {isCancelled ? (
+              <XCircle size={16} className="text-muted-foreground" />
+            ) : isError ? (
+              <AlertCircle size={16} className="text-destructive" />
+            ) : !isComplete ? (
+              <Animated.View style={{ transform: [{ rotate: rotation }] }}>
+                <Loader2 size={16} className={colors.text} />
+              </Animated.View>
+            ) : (
+              <View className="w-4 h-4 rounded-full bg-success items-center justify-center">
+                <Text className="text-background text-xs font-bold">✓</Text>
+              </View>
+            )}
+
+            {/* Status message */}
+            <Text
+              className={cn(
+                'text-sm font-medium flex-1',
+                isCancelled
+                  ? 'text-muted-foreground'
+                  : isError
+                    ? 'text-destructive'
+                    : isComplete
+                      ? 'text-success'
+                      : colors.text
+              )}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
+              {isCancelled
+                ? 'Cancelled'
+                : isError
+                  ? 'Research Failed'
+                  : isComplete
+                    ? 'Research Complete'
+                    : displayMessage}
+            </Text>
+
+            {/* Confidence badge (when complete) */}
+            {isComplete && confidence && (
+              <View className={cn('px-2 py-0.5 rounded-full', confStyle.bg)}>
+                <Text className={cn('text-xs font-semibold', confStyle.text)}>{confidence}</Text>
+              </View>
+            )}
+          </View>
+
+          {/* Query (subtle) */}
+          <View className="mt-1.5 ml-7">
+            <Text
+              className="text-muted-foreground font-mono text-xs"
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              testID="deep-research-loading-query"
+            >
+              {query}
+            </Text>
+          </View>
+
+          {/* Complete state: tap hint */}
+          {isComplete && onPress && (
+            <View className="mt-2 ml-7">
+              <Text className="text-muted-foreground text-xs">Tap to view full research →</Text>
+            </View>
           )}
-          testID="deep-research-loading-card"
-          {...props}
-        >
-          <CardContent className="py-3 px-4">
-            {/* Type badge row */}
-            <View className="mb-2">
-              <View className={cn('px-1.5 py-0.5 rounded self-start', colors.badge)}>
-                <Text className={cn('text-[10px] font-bold tracking-wider', colors.text)}>
-                  {colors.label}
-                </Text>
-              </View>
-            </View>
 
-            {/* Main row */}
-            <View className="flex-row items-center gap-3">
-              {/* Spinner, completion check, cancelled, or error icon */}
-              {isCancelled ? (
-                <XCircle size={16} className="text-muted-foreground" />
-              ) : isError ? (
-                <AlertCircle size={16} className="text-destructive" />
-              ) : !isComplete ? (
-                <Animated.View style={{ transform: [{ rotate: rotation }] }}>
-                  <Loader2 size={16} className={colors.text} />
-                </Animated.View>
-              ) : (
-                <View className="w-4 h-4 rounded-full bg-success items-center justify-center">
-                  <Text className="text-background text-xs font-bold">✓</Text>
-                </View>
-              )}
+          {/* Cancel button (only while in progress) */}
+          {isInProgress && onCancel && (
+            <Pressable
+              testID="deep-research-cancel-button"
+              className="mt-2 ml-7 self-start active:opacity-70"
+              onPress={onCancel}
+            >
+              <Text className="text-destructive text-xs font-medium">Cancel</Text>
+            </Pressable>
+          )}
 
-              {/* Status message */}
-              <Text
-                className={cn(
-                  'text-sm font-medium flex-1',
-                  isCancelled ? 'text-muted-foreground' :
-                  isError ? 'text-destructive' :
-                  isComplete ? 'text-success' : colors.text
-                )}
-                numberOfLines={1}
-                ellipsizeMode="tail"
-              >
-                {isCancelled ? 'Cancelled' : isError ? 'Research Failed' : isComplete ? 'Research Complete' : displayMessage}
-              </Text>
-
-              {/* Confidence badge (when complete) */}
-              {isComplete && confidence && (
-                <View className={cn('px-2 py-0.5 rounded-full', confStyle.bg)}>
-                  <Text className={cn('text-xs font-semibold', confStyle.text)}>
-                    {confidence}
-                  </Text>
-                </View>
-              )}
-            </View>
-
-            {/* Query (subtle) */}
-            <View className="mt-1.5 ml-7">
-              <Text
-                className="text-muted-foreground font-mono text-xs"
-                numberOfLines={1}
-                ellipsizeMode="tail"
-                testID="deep-research-loading-query"
-              >
-                {query}
-              </Text>
-            </View>
-
-            {/* Complete state: tap hint */}
-            {isComplete && onPress && (
-              <View className="mt-2 ml-7">
-                <Text className="text-muted-foreground text-xs">
-                  Tap to view full research →
-                </Text>
-              </View>
-            )}
-
-            {/* Cancel button (only while in progress) */}
-            {isInProgress && onCancel && (
-              <Pressable
-                testID="deep-research-cancel-button"
-                className="mt-2 ml-7 self-start active:opacity-70"
-                onPress={onCancel}
-              >
-                <Text className="text-destructive text-xs font-medium">
-                  Cancel
-                </Text>
-              </Pressable>
-            )}
-
-            {/* Retry button (only when errored) */}
-            {isError && onRetry && (
-              <Pressable
-                testID="deep-research-retry-button"
-                className="mt-2 ml-7 self-start active:opacity-70 flex-row items-center gap-1"
-                onPress={onRetry}
-              >
-                <RefreshCw size={12} className="text-primary" />
-                <Text className="text-primary text-xs font-medium">
-                  Retry
-                </Text>
-              </Pressable>
-            )}
-          </CardContent>
-        </Card>
-      </Pressable>
-  )
+          {/* Retry button (only when errored) */}
+          {isError && onRetry && (
+            <Pressable
+              testID="deep-research-retry-button"
+              className="mt-2 ml-7 self-start active:opacity-70 flex-row items-center gap-1"
+              onPress={onRetry}
+            >
+              <RefreshCw size={12} className="text-primary" />
+              <Text className="text-primary text-xs font-medium">Retry</Text>
+            </Pressable>
+          )}
+        </CardContent>
+      </Card>
+    </Pressable>
+  );
 }

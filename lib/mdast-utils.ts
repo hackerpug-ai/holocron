@@ -1,5 +1,5 @@
-import type { Root, Content } from 'mdast'
-import type { FrontendParagraph } from './extractParagraphs'
+import type { Content, Root } from 'mdast';
+import type { FrontendParagraph } from './extractParagraphs';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -12,7 +12,7 @@ function normalizeText(text: string): string {
     .replace(/[*_`~[\]()]/g, '')
     .replace(/\s+/g, ' ')
     .trim()
-    .toLowerCase()
+    .toLowerCase();
 }
 
 /**
@@ -21,15 +21,15 @@ function normalizeText(text: string): string {
  * differences between MDAST text extraction and backend regex extraction.
  */
 function textsMatch(mdastText: string, backendText: string): boolean {
-  const a = normalizeText(mdastText)
-  const b = normalizeText(backendText)
-  if (!a || !b) return false
+  const a = normalizeText(mdastText);
+  const b = normalizeText(backendText);
+  if (!a || !b) return false;
 
   // Use the shorter string's length, capped at 40 chars for efficiency
-  const compareLen = Math.min(a.length, b.length, 40)
-  if (compareLen === 0) return false
+  const compareLen = Math.min(a.length, b.length, 40);
+  if (compareLen === 0) return false;
 
-  return a.substring(0, compareLen) === b.substring(0, compareLen)
+  return a.substring(0, compareLen) === b.substring(0, compareLen);
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -50,38 +50,38 @@ export function computeNarrationMap(
   ast: Root,
   backendParagraphs: FrontendParagraph[]
 ): Map<number, number> {
-  const map = new Map<number, number>()
-  let backendPointer = 0
+  const map = new Map<number, number>();
+  let backendPointer = 0;
 
   for (let i = 0; i < ast.children.length; i++) {
-    const child = ast.children[i]
+    const child = ast.children[i];
 
     // Skip code blocks — backend strips them entirely
-    if (child.type === 'code') continue
+    if (child.type === 'code') continue;
 
     // Extract plain text from this MDAST node
-    const nodeText = extractTextFromNode(child)
-    if (!nodeText.trim()) continue
+    const nodeText = extractTextFromNode(child);
+    if (!nodeText.trim()) continue;
 
     // Try to match against the current backend paragraph
     if (backendPointer < backendParagraphs.length) {
-      const backendPara = backendParagraphs[backendPointer]
+      const backendPara = backendParagraphs[backendPointer];
 
       if (textsMatch(nodeText, backendPara.text)) {
-        map.set(i, backendPara.index)
-        backendPointer++
+        map.set(i, backendPara.index);
+        backendPointer++;
       } else {
         // Try scanning ahead up to 2 backend paragraphs in case of split mismatch
-        let matched = false
+        let matched = false;
         for (let scan = 1; scan <= 2 && backendPointer + scan < backendParagraphs.length; scan++) {
-          const candidate = backendParagraphs[backendPointer + scan]
+          const candidate = backendParagraphs[backendPointer + scan];
           if (textsMatch(nodeText, candidate.text)) {
             // Skip the unmatched backend paragraphs (they may map to sub-parts
             // of a previous MDAST node, e.g., list items)
-            map.set(i, candidate.index)
-            backendPointer = backendPointer + scan + 1
-            matched = true
-            break
+            map.set(i, candidate.index);
+            backendPointer = backendPointer + scan + 1;
+            matched = true;
+            break;
           }
         }
         // If no match found, this MDAST node has no audio (e.g., image-only paragraph)
@@ -89,19 +89,18 @@ export function computeNarrationMap(
         if (!matched) {
           // Safety: if the backend paragraph also can't match anything ahead,
           // force-advance to prevent getting permanently stuck
-          const nextNodeText = i + 1 < ast.children.length
-            ? extractTextFromNode(ast.children[i + 1])
-            : ''
+          const nextNodeText =
+            i + 1 < ast.children.length ? extractTextFromNode(ast.children[i + 1]) : '';
           if (nextNodeText.trim() && !textsMatch(nextNodeText, backendPara.text)) {
             // Neither current nor next MDAST node matches — skip this backend paragraph
-            backendPointer++
+            backendPointer++;
           }
         }
       }
     }
   }
 
-  return map
+  return map;
 }
 
 /**
@@ -110,12 +109,12 @@ export function computeNarrationMap(
  */
 export function extractTextFromNode(node: Content | Root): string {
   if ('value' in node && typeof node.value === 'string') {
-    return node.value
+    return node.value;
   }
   if ('children' in node && Array.isArray(node.children)) {
-    return (node.children as Content[]).map(extractTextFromNode).join('')
+    return (node.children as Content[]).map(extractTextFromNode).join('');
   }
-  return ''
+  return '';
 }
 
 /**
@@ -129,13 +128,13 @@ export function findNearestOffset(
   offsets: Map<number, number>,
   target: number
 ): number | undefined {
-  let bestKey = -1
-  let bestValue: number | undefined
+  let bestKey = -1;
+  let bestValue: number | undefined;
   for (const [key, value] of offsets) {
     if (key <= target && key > bestKey) {
-      bestKey = key
-      bestValue = value
+      bestKey = key;
+      bestValue = value;
     }
   }
-  return bestValue
+  return bestValue;
 }

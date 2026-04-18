@@ -1,57 +1,57 @@
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
-import { Text } from '@/components/ui/text'
-import { cn } from '@/lib/utils'
-import { ChevronRight, GitFork, Star, Zap } from '@/components/ui/icons'
-import { Pressable, View, type ViewProps } from 'react-native'
-import type { Id } from '@/convex/_generated/dataModel'
+import { Pressable, View, type ViewProps } from 'react-native';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { ChevronRight, GitFork, Star, Zap } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import type { Id } from '@/convex/_generated/dataModel';
+import { cn } from '@/lib/utils';
 
 export interface AssimilationMetadata {
-  repositoryName: string
-  repositoryUrl: string
-  primaryLanguage?: string
-  stars?: number
-  sophisticationRating: number
+  repositoryName: string;
+  repositoryUrl: string;
+  primaryLanguage?: string;
+  stars?: number;
+  sophisticationRating: number;
   trackRatings: {
-    architecture: number
-    patterns: number
-    documentation: number
-    dependencies: number
-    testing: number
-  }
+    architecture: number;
+    patterns: number;
+    documentation: number;
+    dependencies: number;
+    testing: number;
+  };
 }
 
 interface AssimilationCardProps extends Omit<ViewProps, 'children'> {
   /** Document ID in Convex */
-  documentId: Id<'documents'>
+  documentId: Id<'documents'>;
   /** Assimilation metadata */
-  metadata: AssimilationMetadata
+  metadata: AssimilationMetadata;
   /** Brief description or snippet */
-  snippet?: string
+  snippet?: string;
   /** Date of assimilation */
-  date?: string
+  date?: string;
   /** Callback when card is pressed */
-  onPress?: () => void
+  onPress?: () => void;
 }
 
 /**
  * Get color class for sophistication rating
  */
 function getRatingColor(rating: number): string {
-  if (rating >= 5) return 'text-success'
-  if (rating >= 4) return 'text-info'
-  if (rating >= 3) return 'text-warning'
-  return 'text-destructive'
+  if (rating >= 5) return 'text-success';
+  if (rating >= 4) return 'text-info';
+  if (rating >= 3) return 'text-warning';
+  return 'text-destructive';
 }
 
 /**
  * Get sophistication level label
  */
 function getSophisticationLabel(rating: number): string {
-  if (rating === 5) return 'ELITE'
-  if (rating === 4) return 'ADVANCED'
-  if (rating === 3) return 'COMPETENT'
-  if (rating === 2) return 'DEVELOPING'
-  return 'PRIMITIVE'
+  if (rating === 5) return 'ELITE';
+  if (rating === 4) return 'ADVANCED';
+  if (rating === 3) return 'COMPETENT';
+  if (rating === 2) return 'DEVELOPING';
+  return 'PRIMITIVE';
 }
 
 /**
@@ -67,16 +67,10 @@ export function AssimilationCard({
   className,
   ...props
 }: AssimilationCardProps) {
-  const {
-    repositoryName,
-    primaryLanguage,
-    stars,
-    sophisticationRating,
-    trackRatings,
-  } = metadata
+  const { repositoryName, primaryLanguage, stars, sophisticationRating, trackRatings } = metadata;
 
-  const ratingColor = getRatingColor(sophisticationRating)
-  const sophisticationLabel = getSophisticationLabel(sophisticationRating)
+  const ratingColor = getRatingColor(sophisticationRating);
+  const sophisticationLabel = getSophisticationLabel(sophisticationRating);
 
   const content = (
     <Card className={cn('py-4 border-primary/20', className)} testID="assimilation-card" {...props}>
@@ -99,9 +93,7 @@ export function AssimilationCard({
           </View>
         </View>
 
-        {onPress && (
-          <ChevronRight size={20} className="text-muted-foreground" />
-        )}
+        {onPress && <ChevronRight size={20} className="text-muted-foreground" />}
       </CardHeader>
 
       {/* Metadata section */}
@@ -136,13 +128,16 @@ export function AssimilationCard({
         </Text>
         <View className="flex-row gap-2 flex-wrap">
           {Object.entries(trackRatings).map(([track, rating]) => {
-            const trackColor = getRatingColor(rating as number)
+            const trackColor = getRatingColor(rating as number);
             return (
-              <View key={track} className="flex-row items-center gap-1 bg-muted/50 px-2 py-1 rounded">
+              <View
+                key={track}
+                className="flex-row items-center gap-1 bg-muted/50 px-2 py-1 rounded"
+              >
                 <Text className="text-muted-foreground text-xs capitalize">{track}:</Text>
                 <Text className={cn('text-xs font-bold', trackColor)}>{rating}/5</Text>
               </View>
-            )
+            );
           })}
         </View>
       </CardContent>
@@ -159,13 +154,11 @@ export function AssimilationCard({
       {/* Borg footer */}
       {date && (
         <CardContent className="pt-0">
-          <Text className="text-muted-foreground text-xs italic">
-            Assimilated: {date}
-          </Text>
+          <Text className="text-muted-foreground text-xs italic">Assimilated: {date}</Text>
         </CardContent>
       )}
     </Card>
-  )
+  );
 
   if (onPress) {
     return (
@@ -176,8 +169,8 @@ export function AssimilationCard({
       >
         {content}
       </Pressable>
-    )
+    );
   }
 
-  return content
+  return content;
 }

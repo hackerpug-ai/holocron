@@ -1,13 +1,12 @@
-"use node";
+'use node';
 
-import { action, ActionCtx } from "../_generated/server";
-import { v } from "convex/values";
-import { Id } from "../_generated/dataModel";
-import { api, internal } from "../_generated/api";
-
-import { generateText } from "ai";
-import { claudeFlash } from "../lib/ai/anthropic_provider";
-import { DOCUMENT_CATEGORIES, isValidCategory } from "../lib/categories";
+import { generateText } from 'ai';
+import { v } from 'convex/values';
+import { api, internal } from '../_generated/api';
+import type { Id } from '../_generated/dataModel';
+import { type ActionCtx, action } from '../_generated/server';
+import { claudeFlash } from '../lib/ai/anthropic_provider';
+import { DOCUMENT_CATEGORIES, isValidCategory } from '../lib/categories';
 
 /**
  * Slash command parser
@@ -21,14 +20,14 @@ interface ParsedCommand {
 
 function parseSlashCommand(content: string): ParsedCommand {
   const trimmed = content.trim();
-  if (!trimmed.startsWith("/")) {
+  if (!trimmed.startsWith('/')) {
     return { isCommand: false };
   }
-  const [command, ...argParts] = trimmed.slice(1).split(" ");
+  const [command, ...argParts] = trimmed.slice(1).split(' ');
   return {
     isCommand: true,
     command: command.toLowerCase(),
-    args: argParts.join(" ").trim() || undefined,
+    args: argParts.join(' ').trim() || undefined,
   };
 }
 
@@ -36,7 +35,7 @@ function parseSlashCommand(content: string): ParsedCommand {
  * Card data types for result_card messages
  */
 interface CategoryListCard {
-  card_type: "category_list";
+  card_type: 'category_list';
   categories: Array<{
     name: string;
     count: number;
@@ -44,7 +43,7 @@ interface CategoryListCard {
 }
 
 interface BrowseArticleCard {
-  card_type: "article";
+  card_type: 'article';
   title: string;
   date?: string;
   researchType?: string;
@@ -52,7 +51,7 @@ interface BrowseArticleCard {
 }
 
 interface SearchArticleCard {
-  card_type: "article";
+  card_type: 'article';
   title: string;
   category: string;
   snippet: string;
@@ -63,17 +62,17 @@ interface SearchArticleCard {
 }
 
 interface NoResultsCard {
-  card_type: "no_results";
+  card_type: 'no_results';
   message: string;
 }
 
 interface CategoryNotFoundCard {
-  card_type: "category_not_found";
+  card_type: 'category_not_found';
   valid_categories: string[];
 }
 
 interface StatsCard {
-  card_type: "stats";
+  card_type: 'stats';
   total_count: number;
   category_breakdown: Array<{
     category: string;
@@ -82,21 +81,21 @@ interface StatsCard {
 }
 
 interface SearchResultsCard {
-  card_type: "search_results";
+  card_type: 'search_results';
   items: Array<SearchArticleCard | BrowseArticleCard>;
 }
 
 interface SimpleResearchResultCard {
-  card_type: "simple_research_result";
+  card_type: 'simple_research_result';
   session_id: string;
   topic: string;
   summary: string;
-  confidence: "HIGH" | "MEDIUM" | "LOW";
+  confidence: 'HIGH' | 'MEDIUM' | 'LOW';
   duration_ms: number;
 }
 
 interface ShopListingCard {
-  card_type: "shop_listing";
+  card_type: 'shop_listing';
   listing_id: string;
   title: string;
   price: number;
@@ -113,25 +112,25 @@ interface ShopListingCard {
 }
 
 interface ShopResultsCard {
-  card_type: "shop_results";
+  card_type: 'shop_results';
   session_id: string;
   query: string;
   total_listings: number;
   best_deal_id?: string;
   listings: ShopListingCard[];
-  status: "searching" | "completed" | "failed";
+  status: 'searching' | 'completed' | 'failed';
   duration_ms?: number;
 }
 
 interface ShopLoadingCard {
-  card_type: "shop_loading";
+  card_type: 'shop_loading';
   session_id: string;
   query: string;
   message?: string;
 }
 
 interface SubscriptionAddedCard {
-  card_type: "subscription_added";
+  card_type: 'subscription_added';
   subscription_id: string;
   source_type: string;
   identifier: string;
@@ -140,7 +139,7 @@ interface SubscriptionAddedCard {
 }
 
 interface SubscriptionListCard {
-  card_type: "subscription_list";
+  card_type: 'subscription_list';
   subscriptions: Array<{
     id: string;
     source_type: string;
@@ -153,7 +152,7 @@ interface SubscriptionListCard {
 }
 
 interface WhatsNewReportCard {
-  card_type: "whats_new_report";
+  card_type: 'whats_new_report';
   report_id: string;
   period_start: number;
   period_end: number;
@@ -171,12 +170,12 @@ interface WhatsNewReportCard {
 }
 
 interface WhatsNewLoadingCard {
-  card_type: "whats_new_loading";
+  card_type: 'whats_new_loading';
   message?: string;
 }
 
 interface ToolSearchResultsCard {
-  card_type: "tool_search_results";
+  card_type: 'tool_search_results';
   query: string;
   results: Array<{
     id: string;
@@ -191,13 +190,13 @@ interface ToolSearchResultsCard {
 }
 
 interface ToolAddingCard {
-  card_type: "tool_adding";
+  card_type: 'tool_adding';
   url: string;
   message?: string;
 }
 
 interface ToolAddedCard {
-  card_type: "tool_added";
+  card_type: 'tool_added';
   tool_id: string;
   title: string;
   description?: string;
@@ -207,7 +206,7 @@ interface ToolAddedCard {
 }
 
 interface DocumentSavedCard {
-  card_type: "document_saved";
+  card_type: 'document_saved';
   document_id: string;
   title: string;
   category?: string;
@@ -235,7 +234,6 @@ type CardData =
   | ToolAddingCard
   | ToolAddedCard
   | DocumentSavedCard;
-
 
 /**
  * Generate help response for /help command
@@ -277,7 +275,7 @@ function generateHelpResponse(): string {
  */
 interface AgentResponse {
   content: string;
-  messageType: "text" | "result_card" | "error";
+  messageType: 'text' | 'result_card' | 'error';
   cardData?: CardData;
 }
 
@@ -285,55 +283,56 @@ interface AgentResponse {
  * Handle /search command
  * Uses hybrid search (vector + keyword) for best results
  */
-async function handleSearchCommand(
-  query: string,
-  ctx: ActionCtx,
-): Promise<AgentResponse> {
+async function handleSearchCommand(query: string, ctx: ActionCtx): Promise<AgentResponse> {
   try {
-    const searchResults = await ctx.runAction(
-      api.documents.search.hybridSearch,
-      {
-        query,
-        limit: 3,
-      },
-    );
+    const searchResults = await ctx.runAction(api.documents.search.hybridSearch, {
+      query,
+      limit: 3,
+    });
 
     // No results found
     if (!searchResults || searchResults.length === 0) {
       return {
         content: `No results found`,
-        messageType: "result_card",
+        messageType: 'result_card',
         cardData: {
-          card_type: "no_results",
+          card_type: 'no_results',
           message: `No articles found matching "${query}"`,
         } as NoResultsCard,
       };
     }
 
     // Build article cards from search results
-    const articleCards: SearchArticleCard[] = searchResults.map((doc: { _id: string; title: string; category: string; content?: string; score?: number }) => ({
-      card_type: "article",
-      title: doc.title,
-      category: doc.category,
-      snippet: doc.content
-        ? doc.content.substring(0, 150) +
-          (doc.content.length > 150 ? "..." : "")
-        : "",
-      document_id: doc._id,
-      metadata: {
-        relevance_score: doc.score,
-      },
-    }));
+    const articleCards: SearchArticleCard[] = searchResults.map(
+      (doc: {
+        _id: string;
+        title: string;
+        category: string;
+        content?: string;
+        score?: number;
+      }) => ({
+        card_type: 'article',
+        title: doc.title,
+        category: doc.category,
+        snippet: doc.content
+          ? doc.content.substring(0, 150) + (doc.content.length > 150 ? '...' : '')
+          : '',
+        document_id: doc._id,
+        metadata: {
+          relevance_score: doc.score,
+        },
+      })
+    );
 
     return {
-      content: `Found ${searchResults.length} article${searchResults.length === 1 ? "" : "s"} matching "${query}"`,
-      messageType: "result_card",
-      cardData: { card_type: "search_results", items: articleCards },
+      content: `Found ${searchResults.length} article${searchResults.length === 1 ? '' : 's'} matching "${query}"`,
+      messageType: 'result_card',
+      cardData: { card_type: 'search_results', items: articleCards },
     };
   } catch (error) {
     return {
-      content: `Sorry, I encountered an error while searching: ${error instanceof Error ? error.message : "Unknown error"}`,
-      messageType: "error",
+      content: `Sorry, I encountered an error while searching: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      messageType: 'error',
     };
   }
 }
@@ -344,25 +343,22 @@ async function handleSearchCommand(
  */
 async function handleBrowseCommand(
   categoryArg: string | undefined,
-  ctx: ActionCtx,
+  ctx: ActionCtx
 ): Promise<AgentResponse> {
   try {
     // No category arg - list all categories with counts
     if (!categoryArg) {
-      const categoryCounts = await ctx.runQuery(
-        api.documents.queries.countByCategory,
-        {},
-      );
+      const categoryCounts = await ctx.runQuery(api.documents.queries.countByCategory, {});
 
       const categories = Object.entries(categoryCounts)
         .map(([name, count]) => ({ name, count: count as number }))
         .sort((a, b) => b.count - a.count);
 
       return {
-        content: "Browse articles by category",
-        messageType: "result_card",
+        content: 'Browse articles by category',
+        messageType: 'result_card',
         cardData: {
-          card_type: "category_list",
+          card_type: 'category_list',
           categories,
         } as CategoryListCard,
       };
@@ -372,10 +368,10 @@ async function handleBrowseCommand(
     const normalizedCategory = categoryArg.toLowerCase().trim();
     if (!isValidCategory(normalizedCategory)) {
       return {
-        content: `Category "${categoryArg}" not found. Valid categories: ${DOCUMENT_CATEGORIES.join(", ")}`,
-        messageType: "result_card",
+        content: `Category "${categoryArg}" not found. Valid categories: ${DOCUMENT_CATEGORIES.join(', ')}`,
+        messageType: 'result_card',
         cardData: {
-          card_type: "category_not_found",
+          card_type: 'category_not_found',
           valid_categories: [...DOCUMENT_CATEGORIES],
         } as CategoryNotFoundCard,
       };
@@ -392,28 +388,30 @@ async function handleBrowseCommand(
     if (!articles || articles.length === 0) {
       return {
         content: `No articles found in category "${categoryArg}"`,
-        messageType: "text",
+        messageType: 'text',
       };
     }
 
     // Build article cards
-    const articleCards: BrowseArticleCard[] = articles.map((doc: { _id: string; title: string; date?: string; researchType?: string }) => ({
-      card_type: "article",
-      title: doc.title,
-      date: doc.date || undefined,
-      researchType: doc.researchType || undefined,
-      document_id: doc._id,
-    }));
+    const articleCards: BrowseArticleCard[] = articles.map(
+      (doc: { _id: string; title: string; date?: string; researchType?: string }) => ({
+        card_type: 'article',
+        title: doc.title,
+        date: doc.date || undefined,
+        researchType: doc.researchType || undefined,
+        document_id: doc._id,
+      })
+    );
 
     return {
-      content: `Found ${listResult?.metadata?.totalCount ?? articles.length} article${(listResult?.metadata?.totalCount ?? articles.length) === 1 ? "" : "s"} in ${categoryArg}`,
-      messageType: "result_card",
-      cardData: { card_type: "search_results", items: articleCards },
+      content: `Found ${listResult?.metadata?.totalCount ?? articles.length} article${(listResult?.metadata?.totalCount ?? articles.length) === 1 ? '' : 's'} in ${categoryArg}`,
+      messageType: 'result_card',
+      cardData: { card_type: 'search_results', items: articleCards },
     };
   } catch (error) {
     return {
-      content: `Sorry, I encountered an error while browsing: ${error instanceof Error ? error.message : "Unknown error"}`,
-      messageType: "error",
+      content: `Sorry, I encountered an error while browsing: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      messageType: 'error',
     };
   }
 }
@@ -424,14 +422,11 @@ async function handleBrowseCommand(
  */
 async function handleStatsCommand(ctx: ActionCtx): Promise<AgentResponse> {
   try {
-    const categoryCounts = await ctx.runQuery(
-      api.documents.queries.countByCategory,
-      {},
-    );
+    const categoryCounts = await ctx.runQuery(api.documents.queries.countByCategory, {});
 
     const totalCount = Object.values(categoryCounts).reduce(
       (sum: number, count: unknown) => sum + (count as number),
-      0,
+      0
     );
 
     const categoryBreakdown = Object.entries(categoryCounts)
@@ -444,18 +439,18 @@ async function handleStatsCommand(ctx: ActionCtx): Promise<AgentResponse> {
 Total Documents: ${totalCount}
 
 By Category:
-${categoryBreakdown.map(({ category, count }) => `  ${category}: ${count}`).join("\n")}`,
-      messageType: "result_card",
+${categoryBreakdown.map(({ category, count }) => `  ${category}: ${count}`).join('\n')}`,
+      messageType: 'result_card',
       cardData: {
-        card_type: "stats",
+        card_type: 'stats',
         total_count: totalCount,
         category_breakdown: categoryBreakdown,
       } as StatsCard,
     };
   } catch (error) {
     return {
-      content: `Sorry, I encountered an error fetching statistics: ${error instanceof Error ? error.message : "Unknown error"}`,
-      messageType: "error",
+      content: `Sorry, I encountered an error fetching statistics: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      messageType: 'error',
     };
   }
 }
@@ -474,12 +469,12 @@ const TITLE_INLINE_RETRY_DELAY_MS = 1_000;
 
 export const generateChatTitle = action({
   args: {
-    conversationId: v.id("conversations"),
+    conversationId: v.id('conversations'),
     attempt: v.optional(v.number()), // scheduled retry attempt (0-indexed)
   },
   handler: async (
     ctx,
-    { conversationId, attempt = 0 },
+    { conversationId, attempt = 0 }
   ): Promise<
     | { skipped: true; reason: string }
     | { success: false; error: string; willRetry: boolean }
@@ -492,31 +487,24 @@ export const generateChatTitle = action({
 
     // Skip if user has manually set the title
     if (conversation?.titleSetByUser) {
-      return { skipped: true, reason: "user_set_title" };
+      return { skipped: true, reason: 'user_set_title' };
     }
 
     // Skip if title was already generated (another retry may have succeeded)
     const currentTitle = conversation?.title;
-    if (
-      currentTitle &&
-      currentTitle !== "New Chat" &&
-      currentTitle !== "Untitled Chat"
-    ) {
-      return { skipped: true, reason: "already_titled" };
+    if (currentTitle && currentTitle !== 'New Chat' && currentTitle !== 'Untitled Chat') {
+      return { skipped: true, reason: 'already_titled' };
     }
 
     // 2. Fetch first 3-5 messages
-    const messages = await ctx.runQuery(
-      api.chatMessages.queries.listByConversation,
-      {
-        conversationId,
-        limit: 5,
-      },
-    );
+    const messages = await ctx.runQuery(api.chatMessages.queries.listByConversation, {
+      conversationId,
+      limit: 5,
+    });
 
     // Skip if not enough messages (need at least 2: user + agent)
     if (messages.length < 2) {
-      return { skipped: true, reason: "insufficient_messages" };
+      return { skipped: true, reason: 'insufficient_messages' };
     }
 
     // 3. Build context for title generation
@@ -524,27 +512,26 @@ export const generateChatTitle = action({
       .slice(0, 5)
       .reverse() // Reverse because listByConversation returns newest first
       .map((m: { role: string; content: string }) => `${m.role}: ${m.content}`)
-      .join("\n\n");
+      .join('\n\n');
 
     // Helper: truncate title to max 50 chars
-    const truncate = (t: string) =>
-      t.length > 50 ? t.slice(0, 47) + "..." : t;
+    const truncate = (t: string) => (t.length > 50 ? t.slice(0, 47) + '...' : t);
 
     // Helper: derive a fallback title from the first user message
     const fallbackTitle = (): string => {
       const firstUserMsg = messages
         .slice()
         .reverse()
-        .find((m: { role: string; content: string }) => m.role === "user");
-      if (!firstUserMsg) return "Untitled Chat";
+        .find((m: { role: string; content: string }) => m.role === 'user');
+      if (!firstUserMsg) return 'Untitled Chat';
       const content = firstUserMsg.content;
       // Strip leading slash commands for cleaner titles
-      const cleaned = content.replace(/^\/\S+\s*/, "").trim();
-      if (!cleaned) return "Untitled Chat";
+      const cleaned = content.replace(/^\/\S+\s*/, '').trim();
+      if (!cleaned) return 'Untitled Chat';
       if (cleaned.length <= 50) return cleaned;
       const cut = cleaned.slice(0, 47);
-      const lastSpace = cut.lastIndexOf(" ");
-      return (lastSpace > 20 ? cut.slice(0, lastSpace) : cut) + "...";
+      const lastSpace = cut.lastIndexOf(' ');
+      return (lastSpace > 20 ? cut.slice(0, lastSpace) : cut) + '...';
     };
 
     // 4. Try AI title generation with inline retries
@@ -554,11 +541,11 @@ export const generateChatTitle = action({
         const result = await generateText({
           model: claudeFlash(),
           system:
-            "Generate a short, descriptive title (3-5 words, max 50 chars) for this chat conversation. Return ONLY the title, no quotes or explanations.",
+            'Generate a short, descriptive title (3-5 words, max 50 chars) for this chat conversation. Return ONLY the title, no quotes or explanations.',
           prompt: `Conversation:\n\n${context}`,
         });
 
-        const title: string = result.text?.trim() || "";
+        const title: string = result.text?.trim() || '';
         if (title) {
           const truncatedTitle = truncate(title);
           await ctx.runMutation(api.conversations.mutations.update, {
@@ -569,7 +556,7 @@ export const generateChatTitle = action({
         }
 
         // Empty response — count as failure, retry
-        lastError = new Error("AI returned empty title");
+        lastError = new Error('AI returned empty title');
       } catch (error) {
         lastError = error;
       }
@@ -581,16 +568,15 @@ export const generateChatTitle = action({
     }
 
     // 5. All inline retries exhausted — schedule a delayed retry if attempts remain
-    const errorMsg =
-      lastError instanceof Error ? lastError.message : "api_error";
+    const errorMsg = lastError instanceof Error ? lastError.message : 'api_error';
     console.error(
       `Title generation failed (attempt ${attempt + 1}/${TITLE_RETRY_DELAYS_MS.length + 1}):`,
-      errorMsg,
+      errorMsg
     );
 
     if (attempt < TITLE_RETRY_DELAYS_MS.length) {
       const delay = TITLE_RETRY_DELAYS_MS[attempt];
-      
+
       ctx.scheduler.runAfter(delay, api.chat.index.generateChatTitle, {
         conversationId,
         attempt: attempt + 1,
@@ -600,7 +586,7 @@ export const generateChatTitle = action({
 
     // 6. All retries exhausted — use fallback title from first user message
     const title = truncate(fallbackTitle());
-    
+
     await ctx.runMutation(api.conversations.mutations.update, {
       id: conversationId,
       title,
@@ -618,54 +604,48 @@ export const generateChatTitle = action({
  */
 export const send = action({
   args: {
-    conversationId: v.optional(v.id("conversations")),
+    conversationId: v.optional(v.id('conversations')),
     content: v.string(),
-    messageType: v.optional(
-      v.union(v.literal("text"), v.literal("slash_command")),
-    ),
+    messageType: v.optional(v.union(v.literal('text'), v.literal('slash_command'))),
   },
   handler: async (
     ctx,
-    { conversationId, content, messageType = "text" },
+    { conversationId, content, messageType = 'text' }
   ): Promise<{
-    userMessageId: Id<"chatMessages">;
-    agentMessageId: Id<"chatMessages"> | null;
-    conversationId: Id<"conversations">;
+    userMessageId: Id<'chatMessages'>;
+    agentMessageId: Id<'chatMessages'> | null;
+    conversationId: Id<'conversations'>;
   }> => {
     const now = Date.now();
 
     // US-786 AC-1: If no conversationId provided, create conversation first
-    let finalConversationId: Id<"conversations">;
+    let finalConversationId: Id<'conversations'>;
     if (conversationId) {
       finalConversationId = conversationId;
     } else {
-      finalConversationId = await ctx.runMutation(
-        api.conversations.mutations.create,
-        {
-          title: "New Chat",
-        },
-      );
+      finalConversationId = await ctx.runMutation(api.conversations.mutations.create, {
+        title: 'New Chat',
+      });
     }
 
     // 1. Parse for slash commands (AC-3)
     const parsed = parseSlashCommand(content);
-    const actualMessageType = parsed.isCommand ? "slash_command" : messageType;
+    const actualMessageType = parsed.isCommand ? 'slash_command' : messageType;
 
     // 2. Persist user message (AC-1)
-    const userMessageId: Id<"chatMessages"> = await ctx.runMutation(
+    const userMessageId: Id<'chatMessages'> = await ctx.runMutation(
       api.chatMessages.mutations.create,
       {
         conversationId: finalConversationId,
-        role: "user",
+        role: 'user',
         content,
         messageType: actualMessageType,
         createdAt: now,
-      },
+      }
     );
 
     // 3. Update conversation metadata
-    const preview =
-      content.length > 100 ? content.slice(0, 97) + "..." : content;
+    const preview = content.length > 100 ? content.slice(0, 97) + '...' : content;
     await ctx.runMutation(api.conversations.mutations.touch, {
       id: finalConversationId,
       lastMessagePreview: preview,
@@ -676,31 +656,31 @@ export const send = action({
 
     if (parsed.isCommand) {
       // AC-3: Route slash commands
-      if (parsed.command === "help") {
+      if (parsed.command === 'help') {
         agentResponse = {
           content: generateHelpResponse(),
-          messageType: "text",
+          messageType: 'text',
         };
-      } else if (parsed.command === "search") {
-        const query = parsed.args || "";
+      } else if (parsed.command === 'search') {
+        const query = parsed.args || '';
         if (!query) {
           agentResponse = {
-            content: "Please provide a search query. Usage: /search <query>",
-            messageType: "text",
+            content: 'Please provide a search query. Usage: /search <query>',
+            messageType: 'text',
           };
         } else {
           agentResponse = await handleSearchCommand(query, ctx);
         }
-      } else if (parsed.command === "browse") {
+      } else if (parsed.command === 'browse') {
         agentResponse = await handleBrowseCommand(parsed.args, ctx);
-      } else if (parsed.command === "stats") {
+      } else if (parsed.command === 'stats') {
         agentResponse = await handleStatsCommand(ctx);
-      } else if (parsed.command === "shop") {
-        const query = parsed.args || "";
+      } else if (parsed.command === 'shop') {
+        const query = parsed.args || '';
         if (!query) {
           agentResponse = {
-            content: "Please provide a product to search for. Usage: /shop <product>",
-            messageType: "text",
+            content: 'Please provide a product to search for. Usage: /shop <product>',
+            messageType: 'text',
           };
         } else {
           // Fire-and-forget: background action posts its own loading/result/error cards
@@ -710,15 +690,15 @@ export const send = action({
           });
           agentResponse = {
             content: `Searching for "${query}"...`,
-            messageType: "text",
+            messageType: 'text',
           };
         }
-      } else if (parsed.command === "deep-research") {
-        const topic = parsed.args || "";
+      } else if (parsed.command === 'deep-research') {
+        const topic = parsed.args || '';
         if (!topic) {
           agentResponse = {
-            content: "Please provide a topic. Usage: /deep-research <topic>",
-            messageType: "text",
+            content: 'Please provide a topic. Usage: /deep-research <topic>',
+            messageType: 'text',
           };
         } else {
           // Trigger async research workflow (fire-and-forget pattern)
@@ -730,15 +710,15 @@ export const send = action({
 
           agentResponse = {
             content: `Started deep research: "${topic}"`,
-            messageType: "text",
+            messageType: 'text',
           };
         }
-      } else if (parsed.command === "research") {
-        const topic = parsed.args || "";
+      } else if (parsed.command === 'research') {
+        const topic = parsed.args || '';
         if (!topic) {
           agentResponse = {
-            content: "Please provide a topic. Usage: /research <topic>",
-            messageType: "text",
+            content: 'Please provide a topic. Usage: /research <topic>',
+            messageType: 'text',
           };
         } else {
           // Trigger async research workflow (fire-and-forget pattern)
@@ -749,26 +729,44 @@ export const send = action({
 
           agentResponse = {
             content: `Researching: "${topic}"`,
-            messageType: "text",
+            messageType: 'text',
           };
         }
-      } else if (parsed.command === "subscribe") {
+      } else if (parsed.command === 'subscribe') {
         // /subscribe <type> <identifier> [name]
-        const parts = (parsed.args || "").split(" ");
-        const sourceType = parts[0] as "youtube" | "newsletter" | "changelog" | "reddit" | "ebay" | "whats-new" | "creator" | "github";
+        const parts = (parsed.args || '').split(' ');
+        const sourceType = parts[0] as
+          | 'youtube'
+          | 'newsletter'
+          | 'changelog'
+          | 'reddit'
+          | 'ebay'
+          | 'whats-new'
+          | 'creator'
+          | 'github';
         const identifier = parts[1];
-        const name = parts.slice(2).join(" ") || identifier;
+        const name = parts.slice(2).join(' ') || identifier;
 
-        const validTypes = ["youtube", "newsletter", "changelog", "reddit", "ebay", "whats-new", "creator", "github"];
+        const validTypes = [
+          'youtube',
+          'newsletter',
+          'changelog',
+          'reddit',
+          'ebay',
+          'whats-new',
+          'creator',
+          'github',
+        ];
         if (!sourceType || !identifier) {
           agentResponse = {
-            content: "Usage: /subscribe <type> <identifier> [name]\nTypes: youtube, newsletter, changelog, reddit, ebay, whats-new, creator",
-            messageType: "text",
+            content:
+              'Usage: /subscribe <type> <identifier> [name]\nTypes: youtube, newsletter, changelog, reddit, ebay, whats-new, creator',
+            messageType: 'text',
           };
         } else if (!validTypes.includes(sourceType)) {
           agentResponse = {
-            content: `Invalid subscription type: ${sourceType}\nValid types: ${validTypes.join(", ")}`,
-            messageType: "text",
+            content: `Invalid subscription type: ${sourceType}\nValid types: ${validTypes.join(', ')}`,
+            messageType: 'text',
           };
         } else {
           try {
@@ -782,10 +780,10 @@ export const send = action({
             );
             agentResponse = {
               content: `Subscribed to ${name}`,
-              messageType: "result_card",
+              messageType: 'result_card',
               cardData: {
-                card_type: "subscription_added",
-                subscription_id: result?._id ?? "",
+                card_type: 'subscription_added',
+                subscription_id: result?._id ?? '',
                 source_type: sourceType,
                 identifier,
                 name,
@@ -794,57 +792,70 @@ export const send = action({
             };
           } catch (error) {
             agentResponse = {
-              content: `Failed to add subscription: ${error instanceof Error ? error.message : "Unknown error"}`,
-              messageType: "error",
+              content: `Failed to add subscription: ${error instanceof Error ? error.message : 'Unknown error'}`,
+              messageType: 'error',
             };
           }
         }
-      } else if (parsed.command === "unsubscribe") {
+      } else if (parsed.command === 'unsubscribe') {
         // /unsubscribe <id>
         const subscriptionId = parsed.args;
         if (!subscriptionId) {
           agentResponse = {
-            content: "Usage: /unsubscribe <subscription_id>",
-            messageType: "text",
+            content: 'Usage: /unsubscribe <subscription_id>',
+            messageType: 'text',
           };
         } else {
           try {
             await ctx.runMutation(api.subscriptions.mutations.remove, {
-              subscriptionId: subscriptionId as Id<"subscriptionSources">,
+              subscriptionId: subscriptionId as Id<'subscriptionSources'>,
             });
             agentResponse = {
               content: `Unsubscribed successfully`,
-              messageType: "text",
+              messageType: 'text',
             };
           } catch (error) {
             agentResponse = {
-              content: `Failed to unsubscribe: ${error instanceof Error ? error.message : "Unknown error"}`,
-              messageType: "error",
+              content: `Failed to unsubscribe: ${error instanceof Error ? error.message : 'Unknown error'}`,
+              messageType: 'error',
             };
           }
         }
-      } else if (parsed.command === "subscriptions") {
+      } else if (parsed.command === 'subscriptions') {
         // /subscriptions [type]
-        const filterType = parsed.args as "youtube" | "newsletter" | "changelog" | "reddit" | "ebay" | "whats-new" | undefined;
+        const filterType = parsed.args as
+          | 'youtube'
+          | 'newsletter'
+          | 'changelog'
+          | 'reddit'
+          | 'ebay'
+          | 'whats-new'
+          | undefined;
         try {
-          const subscriptions: Array<{ _id: string; sourceType: string; identifier: string; name: string; autoResearch: boolean; createdAt: number }> = await ctx.runQuery(
-            api.subscriptions.queries.list,
-            { sourceType: filterType || undefined }
-          );
+          const subscriptions: Array<{
+            _id: string;
+            sourceType: string;
+            identifier: string;
+            name: string;
+            autoResearch: boolean;
+            createdAt: number;
+          }> = await ctx.runQuery(api.subscriptions.queries.list, {
+            sourceType: filterType || undefined,
+          });
 
           if (subscriptions.length === 0) {
             agentResponse = {
               content: filterType
                 ? `No ${filterType} subscriptions found`
-                : "No subscriptions found. Use /subscribe to add one.",
-              messageType: "text",
+                : 'No subscriptions found. Use /subscribe to add one.',
+              messageType: 'text',
             };
           } else {
             agentResponse = {
-              content: `Found ${subscriptions.length} subscription${subscriptions.length === 1 ? "" : "s"}`,
-              messageType: "result_card",
+              content: `Found ${subscriptions.length} subscription${subscriptions.length === 1 ? '' : 's'}`,
+              messageType: 'result_card',
               cardData: {
-                card_type: "subscription_list",
+                card_type: 'subscription_list',
                 subscriptions: subscriptions.map((s) => ({
                   id: s._id,
                   source_type: s.sourceType,
@@ -859,42 +870,39 @@ export const send = action({
           }
         } catch (error) {
           agentResponse = {
-            content: `Failed to list subscriptions: ${error instanceof Error ? error.message : "Unknown error"}`,
-            messageType: "error",
+            content: `Failed to list subscriptions: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            messageType: 'error',
           };
         }
-      } else if (parsed.command === "check-subs") {
+      } else if (parsed.command === 'check-subs') {
         // /check-subs - trigger subscription check (fire-and-forget)
         try {
           ctx.scheduler.runAfter(0, api.subscriptions.actions.check, {});
           agentResponse = {
-            content: "Checking subscriptions for new content...",
-            messageType: "text",
+            content: 'Checking subscriptions for new content...',
+            messageType: 'text',
           };
         } catch (error) {
           agentResponse = {
-            content: `Failed to trigger subscription check: ${error instanceof Error ? error.message : "Unknown error"}`,
-            messageType: "error",
+            content: `Failed to trigger subscription check: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            messageType: 'error',
           };
         }
-      } else if (parsed.command === "whats-new") {
+      } else if (parsed.command === 'whats-new') {
         // /whats-new [days]
-        const rawDays = parsed.args ? parseInt(parsed.args, 10) : 1
+        const rawDays = parsed.args ? parseInt(parsed.args, 10) : 1;
         const days = Number.isNaN(rawDays) ? 1 : Math.max(1, Math.min(30, rawDays));
         try {
-          const reportData = await ctx.runQuery(
-            api.whatsNew.queries.getLatestReport,
-            {}
-          );
+          const reportData = await ctx.runQuery(api.whatsNew.queries.getLatestReport, {});
 
           if (!reportData || !reportData.report) {
             // No report exists, trigger generation
             ctx.scheduler.runAfter(0, api.whatsNew.actions.generate, { days });
             agentResponse = {
-              content: "Generating AI news briefing...",
-              messageType: "result_card",
+              content: 'Generating AI news briefing...',
+              messageType: 'result_card',
               cardData: {
-                card_type: "whats_new_loading",
+                card_type: 'whats_new_loading',
                 message: `Generating ${days}-day briefing...`,
               } as WhatsNewLoadingCard,
             };
@@ -904,10 +912,10 @@ export const send = action({
 
             agentResponse = {
               content: `What's New in AI (${report?.days} days)`,
-              messageType: "result_card",
+              messageType: 'result_card',
               cardData: {
-                card_type: "whats_new_report",
-                report_id: report?._id ?? "",
+                card_type: 'whats_new_report',
+                report_id: report?._id ?? '',
                 period_start: report?.periodStart ?? 0,
                 period_end: report?.periodEnd ?? 0,
                 days: report?.days ?? 0,
@@ -926,17 +934,18 @@ export const send = action({
           }
         } catch (error) {
           agentResponse = {
-            content: `Failed to get news briefing: ${error instanceof Error ? error.message : "Unknown error"}`,
-            messageType: "error",
+            content: `Failed to get news briefing: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            messageType: 'error',
           };
         }
-      } else if (parsed.command === "toolbelt") {
+      } else if (parsed.command === 'toolbelt') {
         // /toolbelt <query or url> - Smart routing
-        const input = parsed.args || "";
+        const input = parsed.args || '';
         if (!input) {
           agentResponse = {
-            content: "Usage: /toolbelt <query or url>\n\nExamples:\n- /toolbelt database migrations (search)\n- /toolbelt https://orm.drizzle.team (add tool)",
-            messageType: "text",
+            content:
+              'Usage: /toolbelt <query or url>\n\nExamples:\n- /toolbelt database migrations (search)\n- /toolbelt https://orm.drizzle.team (add tool)',
+            messageType: 'text',
           };
         } else {
           // Simple URL detection (starts with http:// or https://)
@@ -946,31 +955,27 @@ export const send = action({
             // Insert the loading card message first so we have its ID.
             // The scheduled action will UPDATE this message in place once the
             // tool is saved (replacing the spinner with a tool_added card).
-            const loadingMessageId: Id<"chatMessages"> = await ctx.runMutation(
+            const loadingMessageId: Id<'chatMessages'> = await ctx.runMutation(
               api.chatMessages.mutations.create,
               {
                 conversationId: finalConversationId,
-                role: "agent" as const,
+                role: 'agent' as const,
                 content: `Adding tool from ${input}...`,
-                messageType: "result_card" as const,
+                messageType: 'result_card' as const,
                 cardData: {
-                  card_type: "tool_adding",
+                  card_type: 'tool_adding',
                   url: input,
-                  message: "Fetching metadata...",
+                  message: 'Fetching metadata...',
                 },
                 createdAt: Date.now(),
-              },
+              }
             );
 
-            await ctx.scheduler.runAfter(
-              0,
-              api.toolbelt.actions.addFromUrl,
-              {
-                url: input,
-                conversationId: finalConversationId,
-                loadingMessageId,
-              },
-            );
+            await ctx.scheduler.runAfter(0, api.toolbelt.actions.addFromUrl, {
+              url: input,
+              conversationId: finalConversationId,
+              loadingMessageId,
+            });
 
             // Return early — we've already persisted the agent message.
             return {
@@ -981,22 +986,31 @@ export const send = action({
           } else {
             // Search toolbelt
             try {
-              const results: Array<{ _id: string; title: string; description?: string; category: string; sourceType: string; language?: string; tags?: string[]; score?: number }> = await ctx.runQuery(
-                api.toolbelt.queries.fullTextSearch,
-                { query: input, limit: 5 }
-              );
+              const results: Array<{
+                _id: string;
+                title: string;
+                description?: string;
+                category: string;
+                sourceType: string;
+                language?: string;
+                tags?: string[];
+                score?: number;
+              }> = await ctx.runQuery(api.toolbelt.queries.fullTextSearch, {
+                query: input,
+                limit: 5,
+              });
 
               if (results.length === 0) {
                 agentResponse = {
                   content: `No tools found for "${input}"`,
-                  messageType: "text",
+                  messageType: 'text',
                 };
               } else {
                 agentResponse = {
-                  content: `Found ${results.length} tool${results.length === 1 ? "" : "s"} matching "${input}"`,
-                  messageType: "result_card",
+                  content: `Found ${results.length} tool${results.length === 1 ? '' : 's'} matching "${input}"`,
+                  messageType: 'result_card',
                   cardData: {
-                    card_type: "tool_search_results",
+                    card_type: 'tool_search_results',
                     query: input,
                     results: results.map((t) => ({
                       id: t._id,
@@ -1013,98 +1027,98 @@ export const send = action({
               }
             } catch (error) {
               agentResponse = {
-                content: `Failed to search toolbelt: ${error instanceof Error ? error.message : "Unknown error"}`,
-                messageType: "error",
+                content: `Failed to search toolbelt: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                messageType: 'error',
               };
             }
           }
         }
-      } else if (parsed.command === "save") {
+      } else if (parsed.command === 'save') {
         // /save <title> [category]
-        const parts = (parsed.args || "").split(" ");
+        const parts = (parsed.args || '').split(' ');
         const title = parts[0];
         const category = parts[1];
 
         if (!title) {
           agentResponse = {
-            content: "Usage: /save <title> [category]\n\nSaves the conversation context as a document to the knowledge base.",
-            messageType: "text",
+            content:
+              'Usage: /save <title> [category]\n\nSaves the conversation context as a document to the knowledge base.',
+            messageType: 'text',
           };
         } else {
           try {
             // Create a summary of the conversation for the document content
-            const messages = await ctx.runQuery(
-              api.chatMessages.queries.listByConversation,
-              { conversationId: finalConversationId, limit: 20 }
-            );
+            const messages = await ctx.runQuery(api.chatMessages.queries.listByConversation, {
+              conversationId: finalConversationId,
+              limit: 20,
+            });
 
             const conversationSummary = messages
               .reverse()
               .map((m: { role: string; content: string }) => `${m.role}: ${m.content}`)
-              .join("\n\n");
+              .join('\n\n');
 
             const result: { documentId: string } = await ctx.runAction(
               api.documents.storage.createWithEmbedding,
               {
                 title,
                 content: conversationSummary,
-                category: category || "notes",
-                status: "complete",
+                category: category || 'notes',
+                status: 'complete',
               }
             );
 
             agentResponse = {
               content: `Saved "${title}" to knowledge base`,
-              messageType: "result_card",
+              messageType: 'result_card',
               cardData: {
-                card_type: "document_saved",
+                card_type: 'document_saved',
                 document_id: result.documentId,
                 title,
-                category: category || "notes",
+                category: category || 'notes',
               } as DocumentSavedCard,
             };
           } catch (error) {
             agentResponse = {
-              content: `Failed to save document: ${error instanceof Error ? error.message : "Unknown error"}`,
-              messageType: "error",
+              content: `Failed to save document: ${error instanceof Error ? error.message : 'Unknown error'}`,
+              messageType: 'error',
             };
           }
         }
-      } else if (parsed.command === "improve") {
-        const description = parsed.args || "";
+      } else if (parsed.command === 'improve') {
+        const description = parsed.args || '';
         if (!description) {
           agentResponse = {
-            content:
-              "Please provide a description. Usage: /improve <description>",
-            messageType: "text",
+            content: 'Please provide a description. Usage: /improve <description>',
+            messageType: 'text',
           };
         } else {
           try {
             await ctx.runMutation(api.improvements.mutations.submit, {
               description,
-              sourceScreen: "chat",
+              sourceScreen: 'chat',
             });
             agentResponse = {
               content: `Improvement submitted: "${description.slice(0, 80)}". It will be processed through AI dedup analysis.`,
-              messageType: "text",
+              messageType: 'text',
             };
           } catch (error) {
             agentResponse = {
-              content: `Failed to submit improvement: ${error instanceof Error ? error.message : "Unknown error"}`,
-              messageType: "error",
+              content: `Failed to submit improvement: ${error instanceof Error ? error.message : 'Unknown error'}`,
+              messageType: 'error',
             };
           }
         }
-      } else if (parsed.command === "cancel") {
+      } else if (parsed.command === 'cancel') {
         // TODO: Implement cancel logic
         agentResponse = {
-          content: "Cancel functionality will be available soon!",
-          messageType: "text",
+          content: 'Cancel functionality will be available soon!',
+          messageType: 'text',
         };
       } else {
         agentResponse = {
           content: `Unknown command: /${parsed.command}. Type /help to see available commands.`,
-          messageType: "text",
+          messageType: 'text',
         };
       }
     } else {
@@ -1122,13 +1136,11 @@ export const send = action({
         .then((msgs: unknown[]) => msgs.length);
 
       if (messageCount >= 1) {
-        const currentConversation = await ctx.runQuery(
-          api.conversations.queries.get,
-          { id: finalConversationId },
-        );
+        const currentConversation = await ctx.runQuery(api.conversations.queries.get, {
+          id: finalConversationId,
+        });
         const title = currentConversation?.title;
-        const shouldGenerateTitle =
-          !title || title === "New Chat" || title === "Untitled Chat";
+        const shouldGenerateTitle = !title || title === 'New Chat' || title === 'Untitled Chat';
 
         if (shouldGenerateTitle) {
           ctx.scheduler.runAfter(0, api.chat.index.generateChatTitle, {
@@ -1145,16 +1157,16 @@ export const send = action({
     }
 
     // 5. Persist agent response (slash command path only)
-    const agentMessageId: Id<"chatMessages"> = await ctx.runMutation(
+    const agentMessageId: Id<'chatMessages'> = await ctx.runMutation(
       api.chatMessages.mutations.create,
       {
         conversationId: finalConversationId,
-        role: "agent",
+        role: 'agent',
         content: agentResponse.content,
         messageType: agentResponse.messageType,
         cardData: agentResponse.cardData || undefined,
         createdAt: Date.now(),
-      },
+      }
     );
 
     // 6. Auto-generate chat title after first exchange
@@ -1167,15 +1179,11 @@ export const send = action({
       .then((msgs: unknown[]) => msgs.length);
 
     if (messageCount >= 2) {
-      const currentConversation = await ctx.runQuery(
-        api.conversations.queries.get,
-        {
-          id: finalConversationId,
-        },
-      );
+      const currentConversation = await ctx.runQuery(api.conversations.queries.get, {
+        id: finalConversationId,
+      });
       const title = currentConversation?.title;
-      const shouldGenerateTitle =
-        !title || title === "New Chat" || title === "Untitled Chat";
+      const shouldGenerateTitle = !title || title === 'New Chat' || title === 'Untitled Chat';
 
       if (shouldGenerateTitle) {
         // Fire-and-forget: trigger title generation async

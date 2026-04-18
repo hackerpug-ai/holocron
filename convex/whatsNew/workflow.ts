@@ -15,44 +15,44 @@
  * Each phase has its own timeout budget and can be retried independently.
  */
 
-import { v } from "convex/values";
-import { internalMutation, internalAction, internalQuery } from "../_generated/server";
-import { internal, api } from "../_generated/api";
-import type { Doc } from "../_generated/dataModel";
-import type { Finding } from "./types";
+import { v } from 'convex/values';
+import { api, internal } from '../_generated/api';
+import type { Doc } from '../_generated/dataModel';
+import { internalAction, internalMutation, internalQuery } from '../_generated/server';
+import { jinaReader } from '../lib/jina';
 import {
-  fetchReddit,
-  fetchHackerNews,
-  fetchGitHub,
-  fetchDevTo,
-  fetchLobsters,
-  fetchBluesky,
-  fetchChangelog,
-  fetchTwitter,
-  fetchWebSearch,
-  deduplicateFindings,
+  calculateCorroboration,
+  calculateTopEngagementVelocity,
   capFindingsPerSource,
   categorizeFindings,
-  populatePerFindingCorroboration,
-  calculateTopEngagementVelocity,
-  calculateCorroboration,
+  deduplicateFindings,
   extractSources,
-} from "./actions";
-import { synthesizeReport as llmSynthesizeReport, generateFindingSummary } from "./llm";
-import { scoreFindingsQuality } from "./actions";
-import { jinaReader } from "../lib/jina";
+  fetchBluesky,
+  fetchChangelog,
+  fetchDevTo,
+  fetchGitHub,
+  fetchHackerNews,
+  fetchLobsters,
+  fetchReddit,
+  fetchTwitter,
+  fetchWebSearch,
+  populatePerFindingCorroboration,
+  scoreFindingsQuality,
+} from './actions';
+import { generateFindingSummary, synthesizeReport as llmSynthesizeReport } from './llm';
+import type { Finding } from './types';
 
 // ============================================================================
 // Types
 // ============================================================================
 
 export type WorkflowPhase =
-  | "pending"
-  | "fetching"
-  | "enriching"
-  | "synthesizing"
-  | "completed"
-  | "failed";
+  | 'pending'
+  | 'fetching'
+  | 'enriching'
+  | 'synthesizing'
+  | 'completed'
+  | 'failed';
 
 export interface WorkflowState {
   phase: WorkflowPhase;
@@ -86,17 +86,15 @@ export const startWorkflow = internalMutation({
 
     // Check if today's report exists (unless force)
     if (!force) {
-      const existingReport = await ctx.runQuery(
-        internal.whatsNew.internal.getTodaysReport
-      );
+      const existingReport = await ctx.runQuery(internal.whatsNew.internal.getTodaysReport);
       if (existingReport) {
         return { workflowId: existingReport._id, isNew: false };
       }
     }
 
     // Create workflow entry
-    const workflowId = await ctx.db.insert("whatsNewWorkflows", {
-      phase: "pending",
+    const workflowId = await ctx.db.insert('whatsNewWorkflows', {
+      phase: 'pending',
       days,
       force,
       startedAt: Date.now(),
@@ -123,13 +121,13 @@ export const startWorkflow = internalMutation({
  */
 export const updatePhase = internalMutation({
   args: {
-    workflowId: v.id("whatsNewWorkflows"),
+    workflowId: v.id('whatsNewWorkflows'),
     phase: v.union(
-      v.literal("fetching"),
-      v.literal("enriching"),
-      v.literal("synthesizing"),
-      v.literal("completed"),
-      v.literal("failed")
+      v.literal('fetching'),
+      v.literal('enriching'),
+      v.literal('synthesizing'),
+      v.literal('completed'),
+      v.literal('failed')
     ),
     error: v.optional(v.string()),
     findingsJson: v.optional(v.string()),
@@ -138,7 +136,7 @@ export const updatePhase = internalMutation({
   handler: async (ctx, args) => {
     const { workflowId, phase, error, findingsJson, findingsCount } = args;
 
-    const updates: Partial<Doc<"whatsNewWorkflows">> = {
+    const updates: Partial<Doc<'whatsNewWorkflows'>> = {
       phase,
       updatedAt: Date.now(),
     };
@@ -146,7 +144,7 @@ export const updatePhase = internalMutation({
     if (error) updates.error = error;
     if (findingsJson) updates.findingsJson = findingsJson;
     if (findingsCount !== undefined) updates.findingsCount = findingsCount;
-    if (phase === "completed" || phase === "failed") {
+    if (phase === 'completed' || phase === 'failed') {
       updates.completedAt = Date.now();
     }
 
@@ -166,7 +164,7 @@ export const updatePhase = internalMutation({
  */
 export const fetchPhase = internalAction({
   args: {
-    workflowId: v.id("whatsNewWorkflows"),
+    workflowId: v.id('whatsNewWorkflows'),
   },
   handler: async (ctx, args) => {
     const { workflowId } = args;
@@ -174,14 +172,11 @@ export const fetchPhase = internalAction({
     // Update phase
     await ctx.runMutation(internal.whatsNew.workflow.updatePhase, {
       workflowId,
-      phase: "fetching",
+      phase: 'fetching',
     });
 
     // Get workflow config
-    const workflow = await ctx.runQuery(
-      internal.whatsNew.workflow.getWorkflow,
-      { workflowId }
-    );
+    const workflow = await ctx.runQuery(internal.whatsNew.workflow.getWorkflow, { workflowId });
     if (!workflow) {
       throw new Error(`Workflow ${workflowId} not found`);
     }
@@ -191,7 +186,7 @@ export const fetchPhase = internalAction({
     // Fetch Bluesky accounts for dynamic lists
     const blueskyAccounts = await ctx.runQuery(
       internal.subscriptions.internal.getCreatorAccountsByPlatform,
-      { platform: "bluesky" }
+      { platform: 'bluesky' }
     );
 
     // Fetch from all sources in parallel
@@ -210,10 +205,10 @@ export const fetchPhase = internalAction({
     // Collect all findings
     const allFindings: Finding[] = [];
     for (const result of fetchResults) {
-      if (result.status === "fulfilled") {
+      if (result.status === 'fulfilled') {
         allFindings.push(...result.value.findings);
       } else {
-        console.error("[fetchPhase] Fetch failed:", result.reason);
+        console.error('[fetchPhase] Fetch failed:', result.reason);
       }
     }
 
@@ -223,7 +218,7 @@ export const fetchPhase = internalAction({
     // Update workflow with findings
     await ctx.runMutation(internal.whatsNew.workflow.updatePhase, {
       workflowId,
-      phase: "fetching",
+      phase: 'fetching',
       findingsJson,
       findingsCount: allFindings.length,
     });
@@ -243,7 +238,7 @@ export const fetchPhase = internalAction({
  */
 export const enrichPhase = internalAction({
   args: {
-    workflowId: v.id("whatsNewWorkflows"),
+    workflowId: v.id('whatsNewWorkflows'),
     batchIndex: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
@@ -252,14 +247,11 @@ export const enrichPhase = internalAction({
     // Update phase
     await ctx.runMutation(internal.whatsNew.workflow.updatePhase, {
       workflowId,
-      phase: "enriching",
+      phase: 'enriching',
     });
 
     // Get workflow with findings
-    const workflow = await ctx.runQuery(
-      internal.whatsNew.workflow.getWorkflow,
-      { workflowId }
-    );
+    const workflow = await ctx.runQuery(internal.whatsNew.workflow.getWorkflow, { workflowId });
     if (!workflow || !workflow.findingsJson) {
       throw new Error(`Workflow ${workflowId} has no findings`);
     }
@@ -305,19 +297,19 @@ export const enrichPhase = internalAction({
       // Batch-summarize fetched content
       const fetchedContent: Array<{ url: string; content: string }> = [];
       for (const result of enrichResults) {
-        if (result.status === "fulfilled" && result.value) {
+        if (result.status === 'fulfilled' && result.value) {
           fetchedContent.push(result.value);
         }
       }
 
       if (fetchedContent.length > 0) {
         try {
-          const { generateText } = await import("ai");
-          const { claudeFlash } = await import("../lib/ai/anthropic_provider");
+          const { generateText } = await import('ai');
+          const { claudeFlash } = await import('../lib/ai/anthropic_provider');
 
           const batchPrompt = `For each article below, write a concise 1-2 sentence summary for an AI engineer. Return a JSON array of objects with "url" and "summary" fields.
 
-${fetchedContent.map((c, i) => `Article ${i + 1} (${c.url}):\n${c.content.substring(0, 500)}`).join("\n\n")}
+${fetchedContent.map((c, i) => `Article ${i + 1} (${c.url}):\n${c.content.substring(0, 500)}`).join('\n\n')}
 
 Respond with ONLY a JSON array: [{"url": "...", "summary": "..."}]`;
 
@@ -341,7 +333,7 @@ Respond with ONLY a JSON array: [{"url": "...", "summary": "..."}]`;
             }
           }
         } catch (err) {
-          console.warn("[enrichPhase] Content enrichment summarization failed:", err);
+          console.warn('[enrichPhase] Content enrichment summarization failed:', err);
         }
       }
     }
@@ -359,7 +351,10 @@ Respond with ONLY a JSON array: [{"url": "...", "summary": "..."}]`;
             finding.summary = summary;
           }
         } catch (error) {
-          console.warn(`[enrichPhase] Summary generation failed for "${finding.title.substring(0, 50)}...":`, error);
+          console.warn(
+            `[enrichPhase] Summary generation failed for "${finding.title.substring(0, 50)}...":`,
+            error
+          );
         }
       }
     }
@@ -379,7 +374,7 @@ Respond with ONLY a JSON array: [{"url": "...", "summary": "..."}]`;
     // Update workflow
     await ctx.runMutation(internal.whatsNew.workflow.updatePhase, {
       workflowId,
-      phase: "enriching",
+      phase: 'enriching',
       findingsJson: enrichedJson,
       findingsCount: cappedFindings.length,
     });
@@ -399,9 +394,12 @@ Respond with ONLY a JSON array: [{"url": "...", "summary": "..."}]`;
  */
 export const synthesizePhase = internalAction({
   args: {
-    workflowId: v.id("whatsNewWorkflows"),
+    workflowId: v.id('whatsNewWorkflows'),
   },
-  handler: async (ctx, args): Promise<{
+  handler: async (
+    ctx,
+    args
+  ): Promise<{
     reportId: any;
     documentId: any;
     findingsCount: number;
@@ -411,14 +409,11 @@ export const synthesizePhase = internalAction({
     // Update phase
     await ctx.runMutation(internal.whatsNew.workflow.updatePhase, {
       workflowId,
-      phase: "synthesizing",
+      phase: 'synthesizing',
     });
 
     // Get workflow with enriched findings
-    const workflow = await ctx.runQuery(
-      internal.whatsNew.workflow.getWorkflow,
-      { workflowId }
-    );
+    const workflow = await ctx.runQuery(internal.whatsNew.workflow.getWorkflow, { workflowId });
     if (!workflow || !workflow.findingsJson) {
       throw new Error(`Workflow ${workflowId} has no enriched findings`);
     }
@@ -453,23 +448,20 @@ export const synthesizePhase = internalAction({
     if (synthesisResult.error) {
       await ctx.runMutation(internal.whatsNew.workflow.updatePhase, {
         workflowId,
-        phase: "failed",
+        phase: 'failed',
         error: synthesisResult.error,
       });
       throw new Error(`LLM synthesis failed: ${synthesisResult.error}`);
     }
 
     // Store document with embedding
-    const documentResult = await ctx.runAction(
-      api.documents.storage.createWithEmbedding,
-      {
-        title: `What's New: ${now.toISOString().split("T")[0]}`,
-        content: synthesisResult.markdown,
-        category: "whats-new",
-        date: now.toISOString().split("T")[0],
-        status: "complete",
-      }
-    );
+    const documentResult = await ctx.runAction(api.documents.storage.createWithEmbedding, {
+      title: `What's New: ${now.toISOString().split('T')[0]}`,
+      content: synthesisResult.markdown,
+      category: 'whats-new',
+      date: now.toISOString().split('T')[0],
+      status: 'complete',
+    });
 
     // Create whatsNewReports entry
     const toolSuggestionsJson = synthesisResult.toolSuggestions
@@ -482,13 +474,13 @@ export const synthesizePhase = internalAction({
       periodStart: periodStart.getTime(),
       periodEnd: now.getTime(),
       days: workflow.days,
-      focus: "all",
+      focus: 'all',
       discoveryOnly: false,
       findingsCount: cappedFindings.length,
       discoveryCount: discoveries.length,
       releaseCount: releases.length,
       trendCount: trends.length,
-      reportPath: "",
+      reportPath: '',
       summaryJson: {
         topSources: Object.entries(
           cappedFindings.reduce(
@@ -510,7 +502,7 @@ export const synthesizePhase = internalAction({
 
     // Notify user
     await ctx.runMutation(internal.notifications.internal.create, {
-      type: "whats_new",
+      type: 'whats_new',
       title: "What's New Report Ready",
       body: `Your daily AI digest is ready with ${cappedFindings.length} findings.`,
       route: `/whats-new/${reportId}`,
@@ -522,7 +514,7 @@ export const synthesizePhase = internalAction({
       groupKey: `whats-new:${reportId}`,
       title: `AI Engineering Daily: ${cappedFindings.length} findings`,
       summary: `Discoveries: ${discoveries.length}, Releases: ${releases.length}, Trends: ${trends.length}`,
-      contentType: "blog",
+      contentType: 'blog',
       itemCount: 1,
       itemIds: [],
       subscriptionIds: [],
@@ -534,7 +526,7 @@ export const synthesizePhase = internalAction({
     // Mark workflow complete
     await ctx.runMutation(internal.whatsNew.workflow.updatePhase, {
       workflowId,
-      phase: "completed",
+      phase: 'completed',
     });
 
     return {
@@ -554,7 +546,7 @@ export const synthesizePhase = internalAction({
  */
 export const getWorkflow = internalQuery({
   args: {
-    workflowId: v.id("whatsNewWorkflows"),
+    workflowId: v.id('whatsNewWorkflows'),
   },
   handler: async (ctx, args) => {
     return await ctx.db.get(args.workflowId);
@@ -568,13 +560,11 @@ export const getActiveWorkflows = internalQuery({
   args: {},
   handler: async (ctx) => {
     const workflows = await ctx.db
-      .query("whatsNewWorkflows")
-      .withIndex("by_updated")
-      .order("desc")
+      .query('whatsNewWorkflows')
+      .withIndex('by_updated')
+      .order('desc')
       .take(20);
 
-    return workflows.filter(
-      (w) => w.phase !== "completed" && w.phase !== "failed"
-    );
+    return workflows.filter((w) => w.phase !== 'completed' && w.phase !== 'failed');
   },
 });

@@ -1,42 +1,42 @@
-import React, { useRef, useState } from 'react'
-import { View } from 'react-native'
-import { Gesture, GestureDetector } from 'react-native-gesture-handler'
-import ViewShot from 'react-native-view-shot'
-import * as Haptics from 'expo-haptics'
+import * as Haptics from 'expo-haptics';
+import type React from 'react';
+import { useRef, useState } from 'react';
+import { View } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSequence,
-  withTiming,
-  withSpring,
   runOnJS,
-} from 'react-native-reanimated'
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
+import ViewShot from 'react-native-view-shot';
 
 // ImprovementSubmitSheet will be imported once it exists
-let ImprovementSubmitSheet: React.ComponentType<ImprovementSubmitSheetProps> | null = null
+let ImprovementSubmitSheet: React.ComponentType<ImprovementSubmitSheetProps> | null = null;
 try {
-  ImprovementSubmitSheet =
-    require('./ImprovementSubmitSheet').ImprovementSubmitSheet
+  ImprovementSubmitSheet = require('./ImprovementSubmitSheet').ImprovementSubmitSheet;
 } catch {
   // Sheet not yet implemented — wrapper still captures screenshots and manages state
 }
 
 interface ImprovementSubmitSheetProps {
-  visible: boolean
-  onClose: () => void
-  screenshotUri: string | undefined
-  sourceComponent: string | undefined
+  visible: boolean;
+  onClose: () => void;
+  screenshotUri: string | undefined;
+  sourceComponent: string | undefined;
 }
 
 export interface ImprovementLongPressWrapperProps {
-  children: React.ReactNode
+  children: React.ReactNode;
   /** Identifier for the component being reported (e.g. "ArticleCard", "ChatBubble") */
-  sourceComponent?: string
+  sourceComponent?: string;
   /** Disable triple-tap trigger entirely */
-  disabled?: boolean
+  disabled?: boolean;
   /** @deprecated No longer used — kept for backward compatibility */
-  delayLongPress?: number
-  testID?: string
+  delayLongPress?: number;
+  testID?: string;
 }
 
 /**
@@ -60,63 +60,58 @@ export function ImprovementLongPressWrapper({
   delayLongPress: _delayLongPress,
   testID,
 }: ImprovementLongPressWrapperProps) {
-  const viewShotRef = useRef<ViewShot>(null)
-  const [screenshotUri, setScreenshotUri] = useState<string | undefined>(
-    undefined,
-  )
-  const [sheetVisible, setSheetVisible] = useState(false)
+  const viewShotRef = useRef<ViewShot>(null);
+  const [screenshotUri, setScreenshotUri] = useState<string | undefined>(undefined);
+  const [sheetVisible, setSheetVisible] = useState(false);
 
   // Suppress unused variable — kept for backward compat
-  void _delayLongPress
+  void _delayLongPress;
 
-  const scale = useSharedValue(1)
+  const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
-  }))
+  }));
 
   const handleTripleTap = async () => {
-    if (disabled) return
+    if (disabled) return;
 
     // 1. Haptic feedback
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy)
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
 
     // 2. Scale pulse
     scale.value = withSequence(
       withTiming(0.97, { duration: 100 }),
-      withSpring(1, { damping: 15, stiffness: 200 }),
-    )
+      withSpring(1, { damping: 15, stiffness: 200 })
+    );
 
     // 3. Capture screenshot
-    const uri = await viewShotRef.current?.capture?.()
+    const uri = await viewShotRef.current?.capture?.();
 
     // 4. Open sheet
-    setScreenshotUri(uri)
-    setSheetVisible(true)
-  }
+    setScreenshotUri(uri);
+    setSheetVisible(true);
+  };
 
   const tripleTapGesture = Gesture.Tap()
     .numberOfTaps(3)
     .maxDuration(600)
     .onEnd((_event, success) => {
       if (success) {
-        runOnJS(handleTripleTap)()
+        runOnJS(handleTripleTap)();
       }
-    })
+    });
 
   const handleClose = () => {
-    setSheetVisible(false)
-    setScreenshotUri(undefined)
-  }
+    setSheetVisible(false);
+    setScreenshotUri(undefined);
+  };
 
   return (
     <View testID={testID ?? 'improvement-long-press-wrapper'}>
       <GestureDetector gesture={tripleTapGesture}>
         <Animated.View style={animatedStyle}>
-          <ViewShot
-            ref={viewShotRef}
-            options={{ format: 'png', quality: 0.8 }}
-          >
+          <ViewShot ref={viewShotRef} options={{ format: 'png', quality: 0.8 }}>
             {children}
           </ViewShot>
         </Animated.View>
@@ -131,5 +126,5 @@ export function ImprovementLongPressWrapper({
         />
       )}
     </View>
-  )
+  );
 }

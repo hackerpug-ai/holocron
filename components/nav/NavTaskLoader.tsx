@@ -1,9 +1,9 @@
-import { ActivityIndicator, type ActivityIndicatorProps, View } from 'react-native'
-import { useTheme } from '@/hooks/use-theme'
+import { ActivityIndicator, type ActivityIndicatorProps, View } from 'react-native';
+import { useTheme } from '@/hooks/use-theme';
 
 interface NavTaskLoaderProps extends ActivityIndicatorProps {
   /** Whether there are active tasks to display */
-  hasActiveTasks: boolean
+  hasActiveTasks: boolean;
 }
 
 /**
@@ -16,19 +16,15 @@ interface NavTaskLoaderProps extends ActivityIndicatorProps {
  * ```
  */
 export function NavTaskLoader({ hasActiveTasks, ...props }: NavTaskLoaderProps) {
-  const { colors, spacing } = useTheme()
+  const { colors, spacing } = useTheme();
 
   if (!hasActiveTasks) {
-    return null
+    return null;
   }
 
   return (
     <View style={{ marginRight: spacing.sm }} testID="nav-task-loader">
-      <ActivityIndicator
-        size="small"
-        color={colors.primary}
-        {...props}
-      />
+      <ActivityIndicator size="small" color={colors.primary} {...props} />
     </View>
-  )
+  );
 }

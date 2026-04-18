@@ -1,25 +1,18 @@
-import { Card } from '@/components/ui/card'
-import { Text } from '@/components/ui/text'
-import { cn } from '@/lib/utils'
-import {
-  AlertCircle,
-  BarChart3,
-  FileText,
-  Folder,
-  Search,
-  XCircle,
-} from '@/components/ui/icons'
-import { Pressable, View, ActivityIndicator, type ViewProps } from 'react-native'
-import { CategoryBadge, type CategoryType } from '../CategoryBadge'
+import { ActivityIndicator, Pressable, View, type ViewProps } from 'react-native';
+import { Card } from '@/components/ui/card';
+import { AlertCircle, BarChart3, FileText, Folder, Search, XCircle } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
 import type {
   ArticleCardData,
-  StatsCardData,
   CategoryListCardData,
-  NoResultsCardData,
   CategoryNotFoundCardData,
-} from '@/lib/types/chat'
+  NoResultsCardData,
+  StatsCardData,
+} from '@/lib/types/chat';
+import { cn } from '@/lib/utils';
+import { CategoryBadge, type CategoryType } from '../CategoryBadge';
 
-export type CardType = 'article' | 'stats' | 'category_list' | 'no_results' | 'category_not_found'
+export type CardType = 'article' | 'stats' | 'category_list' | 'no_results' | 'category_not_found';
 
 // ResultCardData is the union of all card data types from the shared types
 export type ResultCardData =
@@ -28,21 +21,21 @@ export type ResultCardData =
   | CategoryListCardData
   | NoResultsCardData
   | CategoryNotFoundCardData
-  | ArticleCardData[]
+  | ArticleCardData[];
 
 interface ResultCardProps extends Omit<ViewProps, 'children'> {
   /** Card type determines rendering and layout */
-  cardType: CardType
+  cardType: CardType;
   /** Data object for the card (type varies by cardType) */
-  data: ResultCardData
+  data: ResultCardData;
   /** Callback when card is pressed (receives documentId for article cards) */
-  onPress?: (_documentId?: string) => void
+  onPress?: (_documentId?: string) => void;
   /** Optional test ID prefix */
-  testID?: string
+  testID?: string;
   /** Loading state - shows skeleton when true */
-  loading?: boolean
+  loading?: boolean;
   /** Error message to display */
-  error?: string
+  error?: string;
 }
 
 const typeIcons: Record<CardType, React.ReactNode> = {
@@ -51,24 +44,24 @@ const typeIcons: Record<CardType, React.ReactNode> = {
   category_list: <Folder size={16} className="text-muted-foreground" />,
   no_results: <Search size={16} className="text-muted-foreground" />,
   category_not_found: <AlertCircle size={16} className="text-destructive" />,
-}
+};
 
 /**
  * Strip markdown formatting to plain text for card snippets.
  * Removes frontmatter, skips the first heading (title), and extracts body content.
  */
 const stripMarkdownToPlainText = (markdown: string): string => {
-  if (!markdown) return ''
+  if (!markdown) return '';
 
   let text = markdown
     // Remove YAML frontmatter
     .replace(/^---\s*\n[\s\S]*?\n---\s*\n+/, '')
     // Remove code blocks
     .replace(/```[\s\S]*?```/g, '')
-    .replace(/`[^`]+`/g, '')
+    .replace(/`[^`]+`/g, '');
 
   // Skip the first heading (title) - find first h1/h2 and remove everything up to the next line
-  text = text.replace(/^#\s+[^\n]+\n+/, '')
+  text = text.replace(/^#\s+[^\n]+\n+/, '');
 
   // Remove remaining headings but keep their text
   text = text
@@ -92,10 +85,10 @@ const stripMarkdownToPlainText = (markdown: string): string => {
     // Collapse multiple newlines/spaces
     .replace(/\n+/g, ' ')
     .replace(/\s+/g, ' ')
-    .trim()
+    .trim();
 
-  return text
-}
+  return text;
+};
 
 /**
  * ResultCard displays different card types for knowledge base results.
@@ -116,49 +109,41 @@ export function ResultCard({
   error,
   ...props
 }: ResultCardProps) {
-  const baseTestID = testID || `result-card-${cardType}`
+  const baseTestID = testID || `result-card-${cardType}`;
 
   // Show loading state
   if (loading) {
     return (
-      <Card
-        className={cn('py-4 px-6', className)}
-        testID={`${baseTestID}-loading`}
-        {...props}
-      >
+      <Card className={cn('py-4 px-6', className)} testID={`${baseTestID}-loading`} {...props}>
         <View className="flex-row items-center gap-3 py-2">
           <ActivityIndicator size="small" className="text-primary" />
           <Text className="text-muted-foreground text-sm">Loading...</Text>
         </View>
       </Card>
-    )
+    );
   }
 
   // Show error state
   if (error) {
     return (
-      <Card
-        className={cn('py-4 px-6', className)}
-        testID={`${baseTestID}-error`}
-        {...props}
-      >
+      <Card className={cn('py-4 px-6', className)} testID={`${baseTestID}-error`} {...props}>
         <View className="flex-row items-center gap-2 py-2">
           <XCircle size={16} className="text-destructive" />
           <Text className="text-destructive text-sm">{error}</Text>
         </View>
       </Card>
-    )
+    );
   }
 
   // Article card
   if (cardType === 'article') {
-    const articleData = data as ArticleCardData
+    const articleData = data as ArticleCardData;
     const relevanceScore = articleData.metadata?.relevance_score
       ? Math.round(articleData.metadata.relevance_score * 100)
-      : undefined
+      : undefined;
 
     // Map backend category string to CategoryType for CategoryBadge
-    const categoryType: CategoryType = articleData.category === 'research' ? 'research' : 'general'
+    const categoryType: CategoryType = articleData.category === 'research' ? 'research' : 'general';
 
     const content = (
       <Card className={cn('py-4', className)} testID={baseTestID} {...props}>
@@ -189,8 +174,8 @@ export function ResultCard({
                 relevanceScore >= 80
                   ? 'text-success'
                   : relevanceScore >= 60
-                  ? 'text-warning'
-                  : 'text-destructive'
+                    ? 'text-warning'
+                    : 'text-destructive'
               )}
             >
               {relevanceScore}%
@@ -198,7 +183,7 @@ export function ResultCard({
           </View>
         )}
       </Card>
-    )
+    );
 
     if (onPress) {
       return (
@@ -209,14 +194,14 @@ export function ResultCard({
         >
           {content}
         </Pressable>
-      )
+      );
     }
-    return content
+    return content;
   }
 
   // Stats card
   if (cardType === 'stats') {
-    const statsData = data as StatsCardData
+    const statsData = data as StatsCardData;
 
     const content = (
       <Card className={cn('py-4', className)} testID={baseTestID} {...props}>
@@ -237,14 +222,9 @@ export function ResultCard({
               By Category
             </Text>
             {statsData.category_breakdown.map((item, index) => (
-              <View
-                key={index}
-                className="flex-row items-center justify-between py-1"
-              >
+              <View key={index} className="flex-row items-center justify-between py-1">
                 <Text className="text-foreground text-sm">{item.category}</Text>
-                <Text className="text-muted-foreground text-sm font-semibold">
-                  {item.count}
-                </Text>
+                <Text className="text-muted-foreground text-sm font-semibold">{item.count}</Text>
               </View>
             ))}
           </View>
@@ -261,7 +241,7 @@ export function ResultCard({
           </View>
         )}
       </Card>
-    )
+    );
 
     if (onPress) {
       return (
@@ -272,19 +252,19 @@ export function ResultCard({
         >
           {content}
         </Pressable>
-      )
+      );
     }
-    return content
+    return content;
   }
 
   // Category list card
   if (cardType === 'category_list') {
-    const categoryData = data as CategoryListCardData
+    const categoryData = data as CategoryListCardData;
 
     // Map category name to CategoryType for badge display
     const mapCategoryToBadgeType = (categoryName: string): CategoryType => {
-      return categoryName === 'research' ? 'research' : 'general'
-    }
+      return categoryName === 'research' ? 'research' : 'general';
+    };
 
     const content = (
       <Card className={cn('py-4', className)} testID={baseTestID} {...props}>
@@ -306,15 +286,13 @@ export function ResultCard({
               <Text className="text-foreground text-sm">{item.name}</Text>
               <View className="flex-row items-center gap-1">
                 <CategoryBadge category={mapCategoryToBadgeType(item.name)} size="sm" />
-                <Text className="text-muted-foreground text-sm font-semibold">
-                  {item.count}
-                </Text>
+                <Text className="text-muted-foreground text-sm font-semibold">{item.count}</Text>
               </View>
             </View>
           ))}
         </View>
       </Card>
-    )
+    );
 
     if (onPress) {
       return (
@@ -325,14 +303,14 @@ export function ResultCard({
         >
           {content}
         </Pressable>
-      )
+      );
     }
-    return content
+    return content;
   }
 
   // No results card
   if (cardType === 'no_results') {
-    const noResultsData = data as NoResultsCardData
+    const noResultsData = data as NoResultsCardData;
 
     return (
       <Card className={cn('py-6', className)} testID={baseTestID} {...props}>
@@ -343,12 +321,12 @@ export function ResultCard({
           </Text>
         </View>
       </Card>
-    )
+    );
   }
 
   // Category not found card
   if (cardType === 'category_not_found') {
-    const notFoundData = data as CategoryNotFoundCardData
+    const notFoundData = data as CategoryNotFoundCardData;
 
     return (
       <Card className={cn('py-4', className)} testID={baseTestID} {...props}>
@@ -359,8 +337,9 @@ export function ResultCard({
           </View>
           {notFoundData.category && (
             <Text className="text-muted-foreground mb-3 text-sm">
-              Category <Text className="text-foreground font-semibold">"{notFoundData.category}"</Text>{' '}
-              does not exist.
+              Category{' '}
+              <Text className="text-foreground font-semibold">"{notFoundData.category}"</Text> does
+              not exist.
             </Text>
           )}
           <View className="border-t border-border pt-3">
@@ -381,8 +360,8 @@ export function ResultCard({
           </View>
         </View>
       </Card>
-    )
+    );
   }
 
-  return null
+  return null;
 }

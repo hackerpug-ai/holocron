@@ -15,16 +15,16 @@
  * Report types matching the document categories
  */
 export type ReportType =
-  | "deep-research"
-  | "shop"
-  | "whats-new"
-  | "assimilation"
-  | "creator-analysis"
-  | "revenue-validation"
-  | "competitive-analysis"
-  | "ai-roi"
-  | "flights"
-  | "quick-research";
+  | 'deep-research'
+  | 'shop'
+  | 'whats-new'
+  | 'assimilation'
+  | 'creator-analysis'
+  | 'revenue-validation'
+  | 'competitive-analysis'
+  | 'ai-roi'
+  | 'flights'
+  | 'quick-research';
 
 /**
  * Metadata for the universal report header
@@ -32,7 +32,7 @@ export type ReportType =
 export interface ReportHeaderMeta {
   date: string;
   type: ReportType;
-  confidence?: "HIGH" | "MEDIUM" | "LOW";
+  confidence?: 'HIGH' | 'MEDIUM' | 'LOW';
   sources?: number;
   agents?: number;
   extra?: Record<string, string>;
@@ -67,7 +67,7 @@ export function formatReportHeader(
   return `# ${title}
 ${instantValue}
 
-${metaParts.join(" | ")}
+${metaParts.join(' | ')}
 ---
 
 `;
@@ -78,7 +78,7 @@ ${metaParts.join(" | ")}
  */
 export function formatRatingBar(rating: number, max = 5): string {
   const clamped = Math.max(0, Math.min(max, Math.round(rating)));
-  return "█".repeat(clamped) + "░".repeat(max - clamped);
+  return '█'.repeat(clamped) + '░'.repeat(max - clamped);
 }
 
 /**
@@ -87,34 +87,30 @@ export function formatRatingBar(rating: number, max = 5): string {
 export function formatScoreBar(score: number, width = 10): string {
   const filled = Math.round((score / 100) * width);
   const empty = width - filled;
-  return `[${"█".repeat(filled)}${"░".repeat(empty)}] ${score}%`;
+  return `[${'█'.repeat(filled)}${'░'.repeat(empty)}] ${score}%`;
 }
 
 /**
  * Get confidence badge emoji + text
  */
-export function getConfidenceBadge(
-  level: "HIGH" | "MEDIUM" | "LOW"
-): string {
+export function getConfidenceBadge(level: 'HIGH' | 'MEDIUM' | 'LOW'): string {
   switch (level) {
-    case "HIGH":
-      return "🟢 HIGH";
-    case "MEDIUM":
-      return "🟡 MEDIUM";
-    case "LOW":
-      return "🔴 LOW";
+    case 'HIGH':
+      return '🟢 HIGH';
+    case 'MEDIUM':
+      return '🟡 MEDIUM';
+    case 'LOW':
+      return '🔴 LOW';
   }
 }
 
 /**
  * Determine confidence level from a numeric score
  */
-export function scoreToConfidenceLevel(
-  score: number
-): "HIGH" | "MEDIUM" | "LOW" {
-  if (score >= 75) return "HIGH";
-  if (score >= 50) return "MEDIUM";
-  return "LOW";
+export function scoreToConfidenceLevel(score: number): 'HIGH' | 'MEDIUM' | 'LOW' {
+  if (score >= 75) return 'HIGH';
+  if (score >= 50) return 'MEDIUM';
+  return 'LOW';
 }
 
 /**
@@ -125,35 +121,25 @@ export function scoreToConfidenceLevel(
  * @param rows - Array of row arrays (same length as headers)
  * @param maxColWidth - Maximum column width before truncation (default 30)
  */
-export function formatTable(
-  headers: string[],
-  rows: string[][],
-  maxColWidth = 30
-): string {
-  const truncate = (s: string, max: number) =>
-    s.length > max ? s.slice(0, max - 1) + "…" : s;
+export function formatTable(headers: string[], rows: string[][], maxColWidth = 30): string {
+  const truncate = (s: string, max: number) => (s.length > max ? s.slice(0, max - 1) + '…' : s);
 
   // Calculate column widths
   const colWidths = headers.map((h, i) => {
     const headerLen = h.length;
-    const maxRowLen = rows.reduce(
-      (max, row) => Math.max(max, (row[i] || "").length),
-      0
-    );
+    const maxRowLen = rows.reduce((max, row) => Math.max(max, (row[i] || '').length), 0);
     return Math.min(Math.max(headerLen, maxRowLen), maxColWidth);
   });
 
-  const pad = (s: string, width: number) =>
-    truncate(s, width).padEnd(width);
+  const pad = (s: string, width: number) => truncate(s, width).padEnd(width);
 
-  const headerLine = `| ${headers.map((h, i) => pad(h, colWidths[i])).join(" | ")} |`;
-  const separatorLine = `|${colWidths.map((w) => "-".repeat(w + 2)).join("|")}|`;
+  const headerLine = `| ${headers.map((h, i) => pad(h, colWidths[i])).join(' | ')} |`;
+  const separatorLine = `|${colWidths.map((w) => '-'.repeat(w + 2)).join('|')}|`;
   const dataLines = rows.map(
-    (row) =>
-      `| ${row.map((cell, i) => pad(cell || "", colWidths[i])).join(" | ")} |`
+    (row) => `| ${row.map((cell, i) => pad(cell || '', colWidths[i])).join(' | ')} |`
   );
 
-  return [headerLine, separatorLine, ...dataLines].join("\n");
+  return [headerLine, separatorLine, ...dataLines].join('\n');
 }
 
 /**
@@ -162,19 +148,19 @@ export function formatTable(
 export function formatSources(
   sources: Array<{ title?: string; url: string; domain?: string }>
 ): string {
-  if (sources.length === 0) return "";
+  if (sources.length === 0) return '';
 
   const lines = sources.map((s, i) => {
-    const label = s.title || s.domain || "Source";
+    const label = s.title || s.domain || 'Source';
     return `[${i + 1}] ${label} — ${s.url}`;
   });
 
-  return `## Sources\n${lines.join("\n")}`;
+  return `## Sources\n${lines.join('\n')}`;
 }
 
 /**
  * Format today's date as YYYY-MM-DD
  */
 export function todayISO(): string {
-  return new Date().toISOString().split("T")[0];
+  return new Date().toISOString().split('T')[0];
 }

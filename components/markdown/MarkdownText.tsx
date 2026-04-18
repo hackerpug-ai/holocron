@@ -1,9 +1,9 @@
-import { useMarkdownParser } from './hooks/useMarkdownParser'
-import { useMarkdownRenderer } from './hooks/useMarkdownRenderer'
-import type { CustomRenderers } from './renderers/NodeRenderer'
-import type { ParserOptions } from './parsers'
-import * as React from 'react'
-import { View } from 'react-native'
+import * as React from 'react';
+import { View } from 'react-native';
+import { useMarkdownParser } from './hooks/useMarkdownParser';
+import { useMarkdownRenderer } from './hooks/useMarkdownRenderer';
+import type { ParserOptions } from './parsers';
+import type { CustomRenderers } from './renderers/NodeRenderer';
 
 /**
  * MarkdownText renders markdown content inline without virtualization
@@ -21,17 +21,17 @@ import { View } from 'react-native'
  */
 export interface MarkdownTextProps {
   /** Markdown content to render */
-  content: string
+  content: string;
   /** Callback when links are pressed */
-  onLinkPress?: (url: string) => void
+  onLinkPress?: (url: string) => void;
   /** Custom renderers for overriding defaults */
-  renderers?: CustomRenderers
+  renderers?: CustomRenderers;
   /** Parser options */
-  parserOptions?: ParserOptions
+  parserOptions?: ParserOptions;
   /** Optional test ID */
-  testID?: string
+  testID?: string;
   /** Optional class name (for web compatibility) */
-  className?: string
+  className?: string;
 }
 
 export const MarkdownText = React.memo(
@@ -43,14 +43,18 @@ export const MarkdownText = React.memo(
     testID = 'markdown-text',
     className,
   }: MarkdownTextProps) => {
-    const { ast } = useMarkdownParser(content, parserOptions)
-    const { render } = useMarkdownRenderer({ onLinkPress, renderers, testIDPrefix: testID })
+    const { ast } = useMarkdownParser(content, parserOptions);
+    const { render } = useMarkdownRenderer({ onLinkPress, renderers, testIDPrefix: testID });
 
     if (!ast) {
-      return null
+      return null;
     }
 
-    return <View testID={testID} className={className}>{render(ast)}</View>
+    return (
+      <View testID={testID} className={className}>
+        {render(ast)}
+      </View>
+    );
   }
-)
-MarkdownText.displayName = 'MarkdownText'
+);
+MarkdownText.displayName = 'MarkdownText';

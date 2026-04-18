@@ -9,40 +9,40 @@
  * Footer: "View in Document" button — identical to ExcerptReaderSheet.
  */
 
-import { Dimensions, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native'
+import * as Haptics from 'expo-haptics';
+import { useEffect } from 'react';
+import { Dimensions, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
+  Easing,
+  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
-  Easing,
-  runOnJS,
-} from 'react-native-reanimated'
-import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { useEffect } from 'react'
-import { Text } from '@/components/ui/text'
-import { CategoryBadge, type CategoryType } from '@/components/CategoryBadge'
-import { BookOpen, ChevronRight, Trash2, X } from '@/components/ui/icons'
-import { useTheme } from '@/hooks/use-theme'
-import { MarkdownText } from '@/components/markdown'
-import * as Haptics from 'expo-haptics'
+} from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { CategoryBadge, type CategoryType } from '@/components/CategoryBadge';
+import { MarkdownText } from '@/components/markdown';
+import { BookOpen, ChevronRight, Trash2, X } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { useTheme } from '@/hooks/use-theme';
 
-const SCREEN_HEIGHT = Dimensions.get('window').height
-const SHEET_HEIGHT = SCREEN_HEIGHT * 0.75
+const SCREEN_HEIGHT = Dimensions.get('window').height;
+const SHEET_HEIGHT = SCREEN_HEIGHT * 0.75;
 
-const TIMING_IN = { duration: 300, easing: Easing.out(Easing.cubic) }
-const TIMING_OUT = { duration: 250, easing: Easing.in(Easing.cubic) }
-const DISMISS_THRESHOLD = 100
+const TIMING_IN = { duration: 300, easing: Easing.out(Easing.cubic) };
+const TIMING_OUT = { duration: 250, easing: Easing.in(Easing.cubic) };
+const DISMISS_THRESHOLD = 100;
 
 export interface SectionReaderSheetProps {
-  visible: boolean
-  onClose: () => void
-  title: string
-  content: string
-  category?: CategoryType
-  onViewInDocument?: () => void
-  onDeleteFromChat?: () => void
-  testID?: string
+  visible: boolean;
+  onClose: () => void;
+  title: string;
+  content: string;
+  category?: CategoryType;
+  onViewInDocument?: () => void;
+  onDeleteFromChat?: () => void;
+  testID?: string;
 }
 
 export function SectionReaderSheet({
@@ -55,69 +55,69 @@ export function SectionReaderSheet({
   onDeleteFromChat,
   testID = 'section-reader-sheet',
 }: SectionReaderSheetProps) {
-  const insets = useSafeAreaInsets()
-  const { colors } = useTheme()
-  const translateY = useSharedValue(SHEET_HEIGHT)
-  const backdropOpacity = useSharedValue(0)
+  const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
+  const translateY = useSharedValue(SHEET_HEIGHT);
+  const backdropOpacity = useSharedValue(0);
 
   useEffect(() => {
     if (visible) {
-      translateY.value = withTiming(0, TIMING_IN)
-      backdropOpacity.value = withTiming(1, TIMING_IN)
+      translateY.value = withTiming(0, TIMING_IN);
+      backdropOpacity.value = withTiming(1, TIMING_IN);
     } else {
-      translateY.value = withTiming(SHEET_HEIGHT, TIMING_OUT)
-      backdropOpacity.value = withTiming(0, TIMING_OUT)
+      translateY.value = withTiming(SHEET_HEIGHT, TIMING_OUT);
+      backdropOpacity.value = withTiming(0, TIMING_OUT);
     }
-  }, [visible])
+  }, [visible]);
 
   const sheetStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: Math.max(translateY.value, 0) }],
-  }))
+  }));
 
   const backdropStyle = useAnimatedStyle(() => ({
     opacity: backdropOpacity.value,
-  }))
+  }));
 
   const dismiss = () => {
-    translateY.value = withTiming(SHEET_HEIGHT, TIMING_OUT)
-    backdropOpacity.value = withTiming(0, TIMING_OUT)
-    setTimeout(onClose, 250)
-  }
+    translateY.value = withTiming(SHEET_HEIGHT, TIMING_OUT);
+    backdropOpacity.value = withTiming(0, TIMING_OUT);
+    setTimeout(onClose, 250);
+  };
 
   const panGesture = Gesture.Pan()
     .onUpdate((e) => {
       if (e.translationY > 0) {
-        translateY.value = e.translationY
+        translateY.value = e.translationY;
       }
     })
     .onEnd((e) => {
       if (e.translationY > DISMISS_THRESHOLD) {
-        translateY.value = withTiming(SHEET_HEIGHT, TIMING_OUT)
-        backdropOpacity.value = withTiming(0, TIMING_OUT)
-        runOnJS(onClose)()
+        translateY.value = withTiming(SHEET_HEIGHT, TIMING_OUT);
+        backdropOpacity.value = withTiming(0, TIMING_OUT);
+        runOnJS(onClose)();
       } else {
-        translateY.value = withTiming(0, TIMING_IN)
+        translateY.value = withTiming(0, TIMING_IN);
       }
-    })
+    });
 
   const handleViewInDocument = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-    onViewInDocument?.()
-  }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onViewInDocument?.();
+  };
 
   // dismiss-then-fire pattern: close the sheet first, then call the callback
   // after the closing animation completes so the sheet is gone before any
   // downstream UI changes (e.g. message removal) happen.
   const handleDeleteFromChat = () => {
-    translateY.value = withTiming(SHEET_HEIGHT, TIMING_OUT)
-    backdropOpacity.value = withTiming(0, TIMING_OUT)
+    translateY.value = withTiming(SHEET_HEIGHT, TIMING_OUT);
+    backdropOpacity.value = withTiming(0, TIMING_OUT);
     setTimeout(() => {
-      onClose()
-      onDeleteFromChat?.()
-    }, 250)
-  }
+      onClose();
+      onDeleteFromChat?.();
+    }, 250);
+  };
 
-  if (!visible) return null
+  if (!visible) return null;
 
   return (
     <Modal
@@ -129,14 +129,8 @@ export function SectionReaderSheet({
     >
       <GestureHandlerRootView style={{ flex: 1 }}>
         {/* Backdrop */}
-        <Pressable
-          onPress={dismiss}
-          testID={`${testID}-backdrop`}
-          style={{ flex: 1 }}
-        >
-          <Animated.View
-            style={[backdropStyle, { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }]}
-          />
+        <Pressable onPress={dismiss} testID={`${testID}-backdrop`} style={{ flex: 1 }}>
+          <Animated.View style={[backdropStyle, { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }]} />
         </Pressable>
 
         {/* Sheet */}
@@ -154,15 +148,11 @@ export function SectionReaderSheet({
           >
             {/* Drag handle */}
             <View style={styles.handleRow}>
-              <View
-                style={[styles.handle, { backgroundColor: colors.mutedForeground + '4D' }]}
-              />
+              <View style={[styles.handle, { backgroundColor: colors.mutedForeground + '4D' }]} />
             </View>
 
             {/* Header: category + title, then delete + close buttons */}
-            <View
-              style={[styles.header, { borderBottomColor: colors.border }]}
-            >
+            <View style={[styles.header, { borderBottomColor: colors.border }]}>
               <View className="flex-1 gap-1.5 pr-4">
                 {category && (
                   <View className="flex-row">
@@ -222,9 +212,7 @@ export function SectionReaderSheet({
             </ScrollView>
 
             {/* Footer: View in Document button */}
-            <View
-              style={[styles.footer, { borderTopColor: colors.border }]}
-            >
+            <View style={[styles.footer, { borderTopColor: colors.border }]}>
               <Pressable
                 onPress={handleViewInDocument}
                 className="flex-1 flex-row items-center justify-center gap-2 rounded-xl bg-primary py-3.5 active:opacity-80"
@@ -243,7 +231,7 @@ export function SectionReaderSheet({
         </GestureDetector>
       </GestureHandlerRootView>
     </Modal>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
@@ -300,4 +288,4 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
-})
+});

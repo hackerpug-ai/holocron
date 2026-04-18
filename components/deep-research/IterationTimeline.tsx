@@ -1,41 +1,52 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Progress } from '@/components/ui/progress'
-import { Text } from '@/components/ui/text'
-import { useTheme } from '@/hooks/use-theme'
-import { TrendingUp, DollarSign, Zap } from '@/components/ui/icons'
-import { View, StyleSheet } from 'react-native'
-import type { DeepResearchIteration } from '@/lib/types/deep-research'
+import { StyleSheet, View } from 'react-native';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { DollarSign, TrendingUp, Zap } from '@/components/ui/icons';
+import { Progress } from '@/components/ui/progress';
+import { Text } from '@/components/ui/text';
+import { useTheme } from '@/hooks/use-theme';
+import type { DeepResearchIteration } from '@/lib/types/deep-research';
 
 /**
  * Extended iteration data with cost information
  */
-export interface IterationTimelineData extends Pick<DeepResearchIteration, 'iterationNumber' | 'coverageScore' | 'status'> {
+export interface IterationTimelineData
+  extends Pick<DeepResearchIteration, 'iterationNumber' | 'coverageScore' | 'status'> {
   /** Cost in cents for this iteration */
-  costCents?: number
+  costCents?: number;
   /** Model used for this iteration */
-  modelType?: 'gpt-5' | 'gpt-5-mini'
+  modelType?: 'gpt-5' | 'gpt-5-mini';
   /** Timestamp when iteration started */
-  startedAt?: Date
+  startedAt?: Date;
   /** Timestamp when iteration completed */
-  completedAt?: Date
+  completedAt?: Date;
 }
 
 export interface IterationTimelineProps {
   /** Array of iterations to display */
-  iterations: IterationTimelineData[]
+  iterations: IterationTimelineData[];
   /** Optional total cost in cents */
-  totalCostCents?: number
+  totalCostCents?: number;
   /** Optional test ID */
-  testID?: string
+  testID?: string;
   /** Optional class name */
-  className?: string
+  className?: string;
 }
 
 /**
  * Get color for coverage score
  */
-function getScoreColor(score: number | null, themeColors: { score1: string; score2: string; score3: string; score4: string; score5: string; scoreNeutral: string }): string {
-  if (score === null) return themeColors.scoreNeutral
+function getScoreColor(
+  score: number | null,
+  themeColors: {
+    score1: string;
+    score2: string;
+    score3: string;
+    score4: string;
+    score5: string;
+    scoreNeutral: string;
+  }
+): string {
+  if (score === null) return themeColors.scoreNeutral;
 
   const map: Record<number, string> = {
     1: themeColors.score1,
@@ -43,15 +54,15 @@ function getScoreColor(score: number | null, themeColors: { score1: string; scor
     3: themeColors.score3,
     4: themeColors.score4,
     5: themeColors.score5,
-  }
-  return map[score] || themeColors.scoreNeutral
+  };
+  return map[score] || themeColors.scoreNeutral;
 }
 
 /**
  * Get label for coverage score
  */
 function getScoreLabel(score: number | null): string {
-  if (score === null) return 'Pending'
+  if (score === null) return 'Pending';
 
   const labels = {
     1: 'Poor',
@@ -59,52 +70,43 @@ function getScoreLabel(score: number | null): string {
     3: 'Good',
     4: 'Very Good',
     5: 'Excellent',
-  }
-  return labels[score as keyof typeof labels] || 'N/A'
+  };
+  return labels[score as keyof typeof labels] || 'N/A';
 }
 
 /**
  * Format cost in dollars
  */
 function formatCost(cents: number): string {
-  return `$${(cents / 100).toFixed(3)}`
+  return `$${(cents / 100).toFixed(3)}`;
 }
 
 /**
  * ScoreProgressionBar displays a horizontal bar chart of score progression
  */
 function ScoreProgressionBar({ iterations }: { iterations: IterationTimelineData[] }) {
-  const theme = useTheme()
-  const maxScore = 5
+  const theme = useTheme();
+  const maxScore = 5;
 
   return (
     <View style={styles.progressionContainer}>
       <View style={styles.progressionHeader}>
-        <Text
-          style={[
-            styles.sectionLabel,
-            { color: theme.colors.mutedForeground }
-          ]}
-        >
+        <Text style={[styles.sectionLabel, { color: theme.colors.mutedForeground }]}>
           Coverage Progression
         </Text>
         <View style={styles.scoreRange}>
-          <Text style={[styles.rangeLabel, { color: theme.colors.mutedForeground }]}>
-            1
-          </Text>
-          <Text style={[styles.rangeLabel, { color: theme.colors.mutedForeground }]}>
-            5
-          </Text>
+          <Text style={[styles.rangeLabel, { color: theme.colors.mutedForeground }]}>1</Text>
+          <Text style={[styles.rangeLabel, { color: theme.colors.mutedForeground }]}>5</Text>
         </View>
       </View>
 
       <View style={styles.barContainer}>
         {iterations.map((iteration, _index) => {
-          const score = iteration.coverageScore ?? 0
-          const heightPercent = (score / maxScore) * 100
-          const color = getScoreColor(score, theme.colors)
-          const isActive = iteration.status === 'running'
-          const isPending = iteration.status === 'pending'
+          const score = iteration.coverageScore ?? 0;
+          const heightPercent = (score / maxScore) * 100;
+          const color = getScoreColor(score, theme.colors);
+          const isActive = iteration.status === 'running';
+          const isPending = iteration.status === 'pending';
 
           return (
             <View key={iteration.iterationNumber} style={styles.barWrapper}>
@@ -117,32 +119,24 @@ function ScoreProgressionBar({ iterations }: { iterations: IterationTimelineData
                         height: `${heightPercent}%`,
                         backgroundColor: color,
                         opacity: isPending ? 0.3 : isActive ? 0.8 : 1,
-                      }
+                      },
                     ]}
                   />
                 </View>
-                <Text
-                  style={[
-                    styles.iterationLabel,
-                    { color: theme.colors.mutedForeground }
-                  ]}
-                >
+                <Text style={[styles.iterationLabel, { color: theme.colors.mutedForeground }]}>
                   {iteration.iterationNumber}
                 </Text>
               </View>
             </View>
-          )
+          );
         })}
       </View>
 
       <View style={styles.legendContainer}>
-        {[1, 2, 3, 4, 5].map(score => (
+        {[1, 2, 3, 4, 5].map((score) => (
           <View key={score} style={styles.legendItem}>
             <View
-              style={[
-                styles.legendDot,
-                { backgroundColor: getScoreColor(score, theme.colors) }
-              ]}
+              style={[styles.legendDot, { backgroundColor: getScoreColor(score, theme.colors) }]}
             />
             <Text style={[styles.legendText, { color: theme.colors.mutedForeground }]}>
               {getScoreLabel(score)}
@@ -151,7 +145,7 @@ function ScoreProgressionBar({ iterations }: { iterations: IterationTimelineData
         ))}
       </View>
     </View>
-  )
+  );
 }
 
 /**
@@ -159,22 +153,22 @@ function ScoreProgressionBar({ iterations }: { iterations: IterationTimelineData
  */
 function CostComparison({
   iterations,
-  totalCostCents
+  totalCostCents,
 }: {
-  iterations: IterationTimelineData[],
-  totalCostCents?: number
+  iterations: IterationTimelineData[];
+  totalCostCents?: number;
 }) {
-  const theme = useTheme()
+  const theme = useTheme();
 
-  const gpt5Iterations = iterations.filter(i => i.modelType === 'gpt-5')
-  const gpt5MiniIterations = iterations.filter(i => i.modelType === 'gpt-5-mini')
+  const gpt5Iterations = iterations.filter((i) => i.modelType === 'gpt-5');
+  const gpt5MiniIterations = iterations.filter((i) => i.modelType === 'gpt-5-mini');
 
-  const gpt5Cost = gpt5Iterations.reduce((sum, i) => sum + (i.costCents ?? 0), 0)
-  const gpt5MiniCost = gpt5MiniIterations.reduce((sum, i) => sum + (i.costCents ?? 0), 0)
+  const gpt5Cost = gpt5Iterations.reduce((sum, i) => sum + (i.costCents ?? 0), 0);
+  const gpt5MiniCost = gpt5MiniIterations.reduce((sum, i) => sum + (i.costCents ?? 0), 0);
 
-  const total = totalCostCents ?? (gpt5Cost + gpt5MiniCost)
-  const gpt5Percent = total > 0 ? (gpt5Cost / total) * 100 : 0
-  const gpt5MiniPercent = total > 0 ? (gpt5MiniCost / total) * 100 : 0
+  const total = totalCostCents ?? gpt5Cost + gpt5MiniCost;
+  const gpt5Percent = total > 0 ? (gpt5Cost / total) * 100 : 0;
+  const gpt5MiniPercent = total > 0 ? (gpt5MiniCost / total) * 100 : 0;
 
   return (
     <View style={styles.costContainer}>
@@ -198,9 +192,7 @@ function CostComparison({
               <Zap size={12} color={theme.colors.primaryForeground} />
             </View>
             <View style={styles.modelDetails}>
-              <Text style={[styles.modelName, { color: theme.colors.foreground }]}>
-                GPT-5
-              </Text>
+              <Text style={[styles.modelName, { color: theme.colors.foreground }]}>GPT-5</Text>
               <Text style={[styles.modelCount, { color: theme.colors.mutedForeground }]}>
                 {gpt5Iterations.length} {gpt5Iterations.length === 1 ? 'iteration' : 'iterations'}
               </Text>
@@ -216,11 +208,7 @@ function CostComparison({
           </View>
         </View>
 
-        <Progress
-          value={gpt5Percent}
-          className="h-1.5 mb-3"
-          indicatorClassName="bg-primary"
-        />
+        <Progress value={gpt5Percent} className="h-1.5 mb-3" indicatorClassName="bg-primary" />
 
         {/* GPT-5-mini Row */}
         <View style={styles.modelRow}>
@@ -229,11 +217,10 @@ function CostComparison({
               <Zap size={12} color={theme.colors.secondaryForeground} />
             </View>
             <View style={styles.modelDetails}>
-              <Text style={[styles.modelName, { color: theme.colors.foreground }]}>
-                GPT-5-mini
-              </Text>
+              <Text style={[styles.modelName, { color: theme.colors.foreground }]}>GPT-5-mini</Text>
               <Text style={[styles.modelCount, { color: theme.colors.mutedForeground }]}>
-                {gpt5MiniIterations.length} {gpt5MiniIterations.length === 1 ? 'iteration' : 'iterations'}
+                {gpt5MiniIterations.length}{' '}
+                {gpt5MiniIterations.length === 1 ? 'iteration' : 'iterations'}
               </Text>
             </View>
           </View>
@@ -247,14 +234,10 @@ function CostComparison({
           </View>
         </View>
 
-        <Progress
-          value={gpt5MiniPercent}
-          className="h-1.5"
-          indicatorClassName="bg-secondary"
-        />
+        <Progress value={gpt5MiniPercent} className="h-1.5" indicatorClassName="bg-secondary" />
       </View>
     </View>
-  )
+  );
 }
 
 /**
@@ -277,13 +260,11 @@ export function IterationTimeline({
   testID = 'iteration-timeline',
   className,
 }: IterationTimelineProps) {
-  const theme = useTheme()
+  const theme = useTheme();
 
-  const sortedIterations = [...iterations].sort(
-    (a, b) => a.iterationNumber - b.iterationNumber
-  )
+  const sortedIterations = [...iterations].sort((a, b) => a.iterationNumber - b.iterationNumber);
 
-  const hasCostData = iterations.some(i => i.costCents !== undefined)
+  const hasCostData = iterations.some((i) => i.costCents !== undefined);
 
   return (
     <Card testID={testID} className={className}>
@@ -296,23 +277,16 @@ export function IterationTimeline({
 
       <CardContent>
         {/* Score Progression */}
-        <ScoreProgressionBar
-          iterations={sortedIterations}
-        />
+        <ScoreProgressionBar iterations={sortedIterations} />
 
         {/* Cost Comparison (only show if cost data exists) */}
+        {hasCostData && <View style={[styles.divider, { backgroundColor: theme.colors.border }]} />}
         {hasCostData && (
-          <View style={[styles.divider, { backgroundColor: theme.colors.border }]} />
-        )}
-        {hasCostData && (
-          <CostComparison
-            iterations={sortedIterations}
-            totalCostCents={totalCostCents}
-          />
+          <CostComparison iterations={sortedIterations} totalCostCents={totalCostCents} />
         )}
       </CardContent>
     </Card>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
@@ -460,4 +434,4 @@ const styles = StyleSheet.create({
   costPercent: {
     fontSize: 11,
   },
-})
+});

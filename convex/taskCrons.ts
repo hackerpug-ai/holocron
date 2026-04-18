@@ -1,6 +1,6 @@
-import { internalAction, internalQuery, internalMutation } from "./_generated/server";
-import { internal } from "./_generated/api";
-import { v } from "convex/values";
+import { v } from 'convex/values';
+import { internal } from './_generated/api';
+import { internalAction, internalMutation, internalQuery } from './_generated/server';
 
 /**
  * Task Timeout Cron Job Handler
@@ -50,7 +50,9 @@ export const timeoutStuckTasks = internalAction({
         const startedAt = task.startedAt ?? task.createdAt;
         const runningTime = Math.floor((now - startedAt) / 60000); // minutes
 
-        console.log(`[task-timeout-worker] Timing out task ${task._id} (running for ${runningTime} minutes)`);
+        console.log(
+          `[task-timeout-worker] Timing out task ${task._id} (running for ${runningTime} minutes)`
+        );
 
         await ctx.runMutation(internal.taskCrons.timeoutTask, {
           taskId: task._id,
@@ -82,8 +84,8 @@ export const getRunningTasks = internalQuery({
   args: {},
   handler: async (ctx) => {
     return await ctx.db
-      .query("tasks")
-      .withIndex("by_status", (q) => q.eq("status", "running"))
+      .query('tasks')
+      .withIndex('by_status', (q) => q.eq('status', 'running'))
       .collect();
   },
 });
@@ -95,16 +97,16 @@ export const getRunningTasks = internalQuery({
  */
 export const timeoutTask = internalMutation({
   args: {
-    taskId: v.id("tasks"),
+    taskId: v.id('tasks'),
     runningTime: v.number(),
     timeoutMinutes: v.number(),
   },
   handler: async (ctx, args) => {
     await ctx.db.patch(args.taskId, {
-      status: "error",
+      status: 'error',
       errorMessage: `Task timed out after running for ${args.runningTime} minutes (timeout: ${args.timeoutMinutes} minutes)`,
       errorDetails: {
-        reason: "timeout",
+        reason: 'timeout',
         runningTime: args.runningTime,
         timeoutMinutes: args.timeoutMinutes,
         timedOutAt: Date.now(),

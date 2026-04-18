@@ -48,7 +48,7 @@ export async function fetchNodeTranscript(videoId: string): Promise<TranscriptRe
     // Format transcript as plain text
     // transcriptData is an array of {text, duration, offset} objects
     const transcriptText = transcriptData
-      .map(entry => entry.text)
+      .map((entry) => entry.text)
       .join(' ')
       .replace(/\s+/g, ' ') // Normalize whitespace
       .trim();
@@ -64,7 +64,6 @@ export async function fetchNodeTranscript(videoId: string): Promise<TranscriptRe
       };
     }
 
-
     return {
       success: true,
       transcript: transcriptText,
@@ -78,7 +77,11 @@ export async function fetchNodeTranscript(videoId: string): Promise<TranscriptRe
     const errorMessage = error instanceof Error ? error.message : String(error);
 
     // Check for specific error types
-    if (errorMessage.includes('Could not retrieve') || errorMessage.includes('transcripts') || errorMessage.includes('No transcripts are available')) {
+    if (
+      errorMessage.includes('Could not retrieve') ||
+      errorMessage.includes('transcripts') ||
+      errorMessage.includes('No transcripts are available')
+    ) {
       return {
         success: false,
         error: 'No captions available for this video',

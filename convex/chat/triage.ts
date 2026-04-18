@@ -1,4 +1,4 @@
-"use node";
+'use node';
 
 /**
  * Triage Agent
@@ -8,66 +8,66 @@
  * generates direct responses for conversational intents.
  */
 
-import { generateText } from "ai";
-import { claudeFlash } from "../lib/ai/anthropic_provider";
-import { TRIAGE_SYSTEM_PROMPT } from "./prompts";
+import { generateText } from 'ai';
+import { claudeFlash } from '../lib/ai/anthropic_provider';
+import { TRIAGE_SYSTEM_PROMPT } from './prompts';
 
 type LlmMessage = {
-  role: "user" | "assistant" | "system";
+  role: 'user' | 'assistant' | 'system';
   content: string;
 };
 
 export type IntentCategory =
-  | "conversation"
-  | "knowledge"
-  | "research"
-  | "podcast"
-  | "commerce"
-  | "subscriptions"
-  | "discovery"
-  | "documents"
-  | "analysis"
-  | "improvements"
-  | "multi_step";
+  | 'conversation'
+  | 'knowledge'
+  | 'research'
+  | 'podcast'
+  | 'commerce'
+  | 'subscriptions'
+  | 'discovery'
+  | 'documents'
+  | 'analysis'
+  | 'improvements'
+  | 'multi_step';
 
 export type QueryShape =
-  | "factual"
-  | "recommendation"
-  | "comprehensive"
-  | "exploratory"
-  | "ambiguous";
+  | 'factual'
+  | 'recommendation'
+  | 'comprehensive'
+  | 'exploratory'
+  | 'ambiguous';
 
 export interface TriageResult {
   intent: IntentCategory;
   queryShape: QueryShape;
-  confidence: "high" | "medium" | "low";
+  confidence: 'high' | 'medium' | 'low';
   reasoning: string;
   directResponse?: string;
 }
 
 const VALID_INTENTS: IntentCategory[] = [
-  "conversation",
-  "knowledge",
-  "research",
-  "podcast",
-  "commerce",
-  "subscriptions",
-  "discovery",
-  "documents",
-  "analysis",
-  "improvements",
-  "multi_step",
+  'conversation',
+  'knowledge',
+  'research',
+  'podcast',
+  'commerce',
+  'subscriptions',
+  'discovery',
+  'documents',
+  'analysis',
+  'improvements',
+  'multi_step',
 ];
 
 const VALID_QUERY_SHAPES: QueryShape[] = [
-  "factual",
-  "recommendation",
-  "comprehensive",
-  "exploratory",
-  "ambiguous",
+  'factual',
+  'recommendation',
+  'comprehensive',
+  'exploratory',
+  'ambiguous',
 ];
 
-const VALID_CONFIDENCES = ["high", "medium", "low"] as const;
+const VALID_CONFIDENCES = ['high', 'medium', 'low'] as const;
 
 /**
  * Truncate raw LLM response to 2000 characters for telemetry storage.
@@ -82,9 +82,7 @@ export function truncateLlmResponse(response: string): string {
  * Uses claudeFlash with no tools for fast, cheap classification.
  * Returns intent category, confidence, and optional direct response.
  */
-export async function classifyIntent(
-  messages: LlmMessage[],
-): Promise<TriageResult> {
+export async function classifyIntent(messages: LlmMessage[]): Promise<TriageResult> {
   // Use the last 10 messages for better intent classification context
   const recentMessages = messages.slice(-10);
 
@@ -95,60 +93,53 @@ export async function classifyIntent(
       messages: recentMessages,
     });
 
-    const text = result.text?.trim() ?? "";
+    const text = result.text?.trim() ?? '';
 
     // Try to parse JSON from response (may be wrapped in markdown code blocks)
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      console.warn(
-        "[triage] Failed to extract JSON from response:",
-        text.slice(0, 200),
-      );
+      console.warn('[triage] Failed to extract JSON from response:', text.slice(0, 200));
       return fallbackResult();
     }
 
     const parsed = JSON.parse(jsonMatch[0]);
 
     // Validate intent
-    const intent = VALID_INTENTS.includes(parsed.intent)
-      ? (parsed.intent as IntentCategory)
-      : null;
+    const intent = VALID_INTENTS.includes(parsed.intent) ? (parsed.intent as IntentCategory) : null;
     if (!intent) {
-      console.warn("[triage] Invalid intent:", parsed.intent);
+      console.warn('[triage] Invalid intent:', parsed.intent);
       return fallbackResult();
     }
 
     // Validate queryShape - fall back to 'factual' if invalid or missing
     const queryShape = VALID_QUERY_SHAPES.includes(parsed.queryShape)
       ? (parsed.queryShape as QueryShape)
-      : "factual";
+      : 'factual';
 
     // Validate confidence
     const confidence = VALID_CONFIDENCES.includes(parsed.confidence)
-      ? (parsed.confidence as "high" | "medium" | "low")
-      : "low";
+      ? (parsed.confidence as 'high' | 'medium' | 'low')
+      : 'low';
 
     return {
       intent,
       queryShape,
       confidence,
-      reasoning: parsed.reasoning ?? "",
+      reasoning: parsed.reasoning ?? '',
       directResponse:
-        intent === "conversation" || queryShape === "ambiguous"
-          ? parsed.directResponse
-          : undefined,
+        intent === 'conversation' || queryShape === 'ambiguous' ? parsed.directResponse : undefined,
     };
   } catch (error) {
-    console.error("[triage] Classification failed:", error);
+    console.error('[triage] Classification failed:', error);
     return fallbackResult();
   }
 }
 
 function fallbackResult(): TriageResult {
   return {
-    intent: "conversation",
-    queryShape: "factual",
-    confidence: "low",
-    reasoning: "Classification failed, falling back",
+    intent: 'conversation',
+    queryShape: 'factual',
+    confidence: 'low',
+    reasoning: 'Classification failed, falling back',
   };
 }

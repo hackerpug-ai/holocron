@@ -17,8 +17,8 @@
  * All colors use theme tokens via useTheme().
  */
 
-import { useEffect } from 'react'
-import { StyleSheet, View } from 'react-native'
+import { useEffect } from 'react';
+import { StyleSheet, View } from 'react-native';
 import Animated, {
   cancelAnimation,
   Easing,
@@ -28,23 +28,23 @@ import Animated, {
   withSequence,
   withSpring,
   withTiming,
-} from 'react-native-reanimated'
-import { useTheme } from '@/hooks/use-theme'
-import type { VoiceState } from '@/hooks/use-voice-session-state'
+} from 'react-native-reanimated';
+import { useTheme } from '@/hooks/use-theme';
+import type { VoiceState } from '@/hooks/use-voice-session-state';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
 export interface VoiceAgentOrbProps {
   /** Current voice state */
-  status: VoiceState
+  status: VoiceState;
   /** Audio level for reactive listening animation (0-1) */
-  audioLevel?: number
+  audioLevel?: number;
   /** Sub-phase during connecting state for staged animations */
-  connectingPhase?: 'preparing' | 'connecting_ai' | 'almost_ready' | null
+  connectingPhase?: 'preparing' | 'connecting_ai' | 'almost_ready' | null;
   /** Size of the orb in dp (default: 160) */
-  size?: number
+  size?: number;
   /** Optional testID for the root container */
-  testID?: string
+  testID?: string;
 }
 
 // ─── Main Component ────────────────────────────────────────────────────────────
@@ -68,179 +68,158 @@ export function VoiceAgentOrb({
   size = 160,
   testID = 'voice-agent-orb',
 }: VoiceAgentOrbProps) {
-  const { colors } = useTheme()
+  const { colors } = useTheme();
 
   // Determine color based on state
   const getColor = () => {
     switch (status) {
       case 'error':
-        return colors.destructive
+        return colors.destructive;
       case 'muted':
-        return colors.mutedForeground
+        return colors.mutedForeground;
       default:
-        return colors.primary
+        return colors.primary;
     }
-  }
+  };
 
-  const color = getColor()
+  const color = getColor();
 
   // ─── Shared animation values ─────────────────────────────────────────────────
 
-  const coreScale = useSharedValue(1)
-  const glowOpacity = useSharedValue(0.6)
-  const pulseScale = useSharedValue(1)
-  const pulseOpacity = useSharedValue(0.3)
-  const rotation = useSharedValue(0)
-  const shake = useSharedValue(0)
+  const coreScale = useSharedValue(1);
+  const glowOpacity = useSharedValue(0.6);
+  const pulseScale = useSharedValue(1);
+  const pulseOpacity = useSharedValue(0.3);
+  const rotation = useSharedValue(0);
+  const shake = useSharedValue(0);
 
   // ─── Animated styles ─────────────────────────────────────────────────────────
 
   const coreStyle = useAnimatedStyle(() => ({
     transform: [{ scale: coreScale.value }],
-  }))
+  }));
 
   const glowStyle = useAnimatedStyle(() => ({
     opacity: glowOpacity.value,
-  }))
+  }));
 
   const pulseStyle = useAnimatedStyle(() => ({
     transform: [{ scale: pulseScale.value }],
     opacity: pulseOpacity.value,
-  }))
+  }));
 
   const rotationStyle = useAnimatedStyle(() => ({
     transform: [{ rotateZ: `${rotation.value}deg` }],
-  }))
+  }));
 
   const shakeStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: shake.value }],
-  }))
+  }));
 
   // ─── State-driven animations ──────────────────────────────────────────────────
 
   useEffect(() => {
     // Cancel all running animations and reset to default values
-    cancelAnimation(coreScale)
-    cancelAnimation(glowOpacity)
-    cancelAnimation(pulseScale)
-    cancelAnimation(pulseOpacity)
-    cancelAnimation(rotation)
-    cancelAnimation(shake)
+    cancelAnimation(coreScale);
+    cancelAnimation(glowOpacity);
+    cancelAnimation(pulseScale);
+    cancelAnimation(pulseOpacity);
+    cancelAnimation(rotation);
+    cancelAnimation(shake);
 
-    coreScale.value = 1
-    glowOpacity.value = 0.6
-    pulseScale.value = 1
-    pulseOpacity.value = 0.3
-    rotation.value = 0
-    shake.value = 0
+    coreScale.value = 1;
+    glowOpacity.value = 0.6;
+    pulseScale.value = 1;
+    pulseOpacity.value = 0.3;
+    rotation.value = 0;
+    shake.value = 0;
 
     switch (status) {
       case 'connecting': {
         switch (connectingPhase) {
           case 'preparing':
             // Core materializes — scale up from small
-            coreScale.value = 0.5
-            coreScale.value = withSpring(1, { damping: 12, stiffness: 100 })
-            glowOpacity.value = 0.3
-            break
+            coreScale.value = 0.5;
+            coreScale.value = withSpring(1, { damping: 12, stiffness: 100 });
+            glowOpacity.value = 0.3;
+            break;
           case 'connecting_ai':
             // Glow ring fades in and begins slow pulse
-            glowOpacity.value = withTiming(0.8, { duration: 400 })
+            glowOpacity.value = withTiming(0.8, { duration: 400 });
             pulseScale.value = withRepeat(
-              withSequence(
-                withTiming(1.1, { duration: 1200 }),
-                withTiming(1, { duration: 1200 }),
-              ),
-              -1,
-            )
-            break
+              withSequence(withTiming(1.1, { duration: 1200 }), withTiming(1, { duration: 1200 })),
+              -1
+            );
+            break;
           case 'almost_ready':
             // All rings active with faster rhythm
-            glowOpacity.value = 1
+            glowOpacity.value = 1;
             pulseScale.value = withRepeat(
-              withSequence(
-                withTiming(1.2, { duration: 800 }),
-                withTiming(1, { duration: 800 }),
-              ),
-              -1,
-            )
+              withSequence(withTiming(1.2, { duration: 800 }), withTiming(1, { duration: 800 })),
+              -1
+            );
             pulseOpacity.value = withRepeat(
-              withSequence(
-                withTiming(0.5, { duration: 800 }),
-                withTiming(0.3, { duration: 800 }),
-              ),
-              -1,
-            )
-            break
+              withSequence(withTiming(0.5, { duration: 800 }), withTiming(0.3, { duration: 800 })),
+              -1
+            );
+            break;
           default:
             // Fallback: original breathing opacity
             glowOpacity.value = withRepeat(
-              withSequence(
-                withTiming(1, { duration: 500 }),
-                withTiming(0.6, { duration: 500 }),
-              ),
-              -1,
-            )
+              withSequence(withTiming(1, { duration: 500 }), withTiming(0.6, { duration: 500 })),
+              -1
+            );
         }
-        break
+        break;
       }
 
       case 'listening': {
         if (audioLevel > 0) {
           // Reactive spring pulse to audio level
-          const targetScale = 1 + audioLevel * 0.3
-          const targetOpacity = 0.3 + audioLevel * 0.5
-          pulseScale.value = withSpring(targetScale, { damping: 15, stiffness: 150 })
-          pulseOpacity.value = withSpring(targetOpacity, { damping: 15, stiffness: 150 })
+          const targetScale = 1 + audioLevel * 0.3;
+          const targetOpacity = 0.3 + audioLevel * 0.5;
+          pulseScale.value = withSpring(targetScale, { damping: 15, stiffness: 150 });
+          pulseOpacity.value = withSpring(targetOpacity, { damping: 15, stiffness: 150 });
         } else {
           // Fallback slow loop when no input
           pulseScale.value = withRepeat(
-            withSequence(
-              withTiming(1.15, { duration: 1500 }),
-              withTiming(1, { duration: 1500 }),
-            ),
-            -1,
-          )
+            withSequence(withTiming(1.15, { duration: 1500 }), withTiming(1, { duration: 1500 })),
+            -1
+          );
         }
-        break
+        break;
       }
 
       case 'speaking': {
         // Audio-responsive breathing: amplitude scales with audioLevel (0.03→0.08)
-        const breathingAmplitude = 0.03 + audioLevel * 0.05
+        const breathingAmplitude = 0.03 + audioLevel * 0.05;
         coreScale.value = withRepeat(
           withSequence(
             withTiming(1 + breathingAmplitude, { duration: 300 }),
-            withTiming(1 - breathingAmplitude, { duration: 300 }),
+            withTiming(1 - breathingAmplitude, { duration: 300 })
           ),
-          -1,
-        )
+          -1
+        );
 
         // Smooth outward pulse ring expansion
         pulseScale.value = withRepeat(
           withSequence(
             withTiming(1.4, { duration: 600, easing: Easing.out(Easing.cubic) }),
-            withTiming(1, { duration: 200, easing: Easing.in(Easing.cubic) }),
+            withTiming(1, { duration: 200, easing: Easing.in(Easing.cubic) })
           ),
-          -1,
-        )
+          -1
+        );
         pulseOpacity.value = withRepeat(
-          withSequence(
-            withTiming(0, { duration: 600 }),
-            withTiming(0.3, { duration: 0 }),
-          ),
-          -1,
-        )
-        break
+          withSequence(withTiming(0, { duration: 600 }), withTiming(0.3, { duration: 0 })),
+          -1
+        );
+        break;
       }
 
       case 'processing': {
         // Full rotation loop
-        rotation.value = withRepeat(
-          withTiming(360, { duration: 2000, easing: Easing.linear }),
-          -1,
-        )
-        break
+        rotation.value = withRepeat(withTiming(360, { duration: 2000, easing: Easing.linear }), -1);
+        break;
       }
 
       case 'error': {
@@ -252,20 +231,20 @@ export function VoiceAgentOrb({
           withTiming(6, { duration: 50 }),
           withTiming(-6, { duration: 50 }),
           withTiming(6, { duration: 50 }),
-          withTiming(0, { duration: 50 }),
-        )
-        break
+          withTiming(0, { duration: 50 })
+        );
+        break;
       }
 
       case 'muted': {
         // Static — no animation
-        break
+        break;
       }
 
       default:
-        break
+        break;
     }
-  }, [status, audioLevel, connectingPhase])
+  }, [status, audioLevel, connectingPhase]);
 
   return (
     <View
@@ -326,16 +305,10 @@ export function VoiceAgentOrb({
 
       {/* Shake wrapper — visible for error state, applies translateX to all rings */}
       {status === 'error' && (
-        <Animated.View
-          style={[
-            styles.shakeOverlay,
-            shakeStyle,
-          ]}
-          pointerEvents="none"
-        />
+        <Animated.View style={[styles.shakeOverlay, shakeStyle]} pointerEvents="none" />
       )}
     </View>
-  )
+  );
 }
 
 // ─── Styles ────────────────────────────────────────────────────────────────────
@@ -365,4 +338,4 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
   },
-})
+});

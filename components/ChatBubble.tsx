@@ -1,20 +1,20 @@
-import { Text } from '@/components/ui/text'
-import { cn } from '@/lib/utils'
-import { Bot, User } from '@/components/ui/icons'
-import { useEffect, useRef } from 'react'
-import { Animated, Easing, View, type ViewProps } from 'react-native'
+import { useEffect, useRef } from 'react';
+import { Animated, Easing, View, type ViewProps } from 'react-native';
+import { Bot, User } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { cn } from '@/lib/utils';
 
-export type ChatRole = 'user' | 'agent'
+export type ChatRole = 'user' | 'agent';
 
 interface ChatBubbleProps extends Omit<ViewProps, 'children' | 'role'> {
   /** Message content */
-  content: string
+  content: string;
   /** Who sent the message */
-  sender: ChatRole
+  sender: ChatRole;
   /** Message timestamp */
-  timestamp?: Date
+  timestamp?: Date;
   /** Whether the message is being sent */
-  isPending?: boolean
+  isPending?: boolean;
 }
 
 /**
@@ -30,9 +30,9 @@ export function ChatBubble({
   className,
   ...props
 }: ChatBubbleProps) {
-  const isUser = sender === 'user'
-  const fadeAnim = useRef(new Animated.Value(0)).current
-  const slideAnim = useRef(new Animated.Value(isUser ? 12 : -12)).current
+  const isUser = sender === 'user';
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(isUser ? 12 : -12)).current;
 
   useEffect(() => {
     Animated.parallel([
@@ -48,23 +48,19 @@ export function ChatBubble({
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
-    ]).start()
-  }, [fadeAnim, slideAnim])
+    ]).start();
+  }, [fadeAnim, slideAnim]);
 
   const formattedTime = timestamp
     ? timestamp.toLocaleTimeString('en-US', {
         hour: 'numeric',
         minute: '2-digit',
       })
-    : undefined
+    : undefined;
 
   return (
     <Animated.View
-      className={cn(
-        'flex w-full',
-        isUser ? 'items-end' : 'items-start',
-        className
-      )}
+      className={cn('flex w-full', isUser ? 'items-end' : 'items-start', className)}
       style={{
         opacity: fadeAnim,
         transform: [{ translateX: slideAnim }],
@@ -72,19 +68,12 @@ export function ChatBubble({
       testID="chat-bubble"
       {...props}
     >
-      <View
-        className={cn(
-          'flex-row items-start gap-3',
-          isUser && 'flex-row-reverse'
-        )}
-      >
+      <View className={cn('flex-row items-start gap-3', isUser && 'flex-row-reverse')}>
         {/* Avatar indicator */}
         <View
           className={cn(
             'h-7 w-7 items-center justify-center rounded-full',
-            isUser
-              ? 'bg-primary'
-              : 'bg-secondary border-border/50 border'
+            isUser ? 'bg-primary' : 'bg-secondary border-border/50 border'
           )}
         >
           {isUser ? (
@@ -99,9 +88,7 @@ export function ChatBubble({
           <View
             className={cn(
               'rounded-2xl px-4 py-3',
-              isUser
-                ? 'bg-primary rounded-tr-sm'
-                : 'bg-card border-border/40 rounded-tl-sm border',
+              isUser ? 'bg-primary rounded-tr-sm' : 'bg-card border-border/40 rounded-tl-sm border',
               isPending && 'opacity-60'
             )}
             testID={`chat-bubble-${sender}`}
@@ -130,5 +117,5 @@ export function ChatBubble({
         </View>
       </View>
     </Animated.View>
-  )
+  );
 }

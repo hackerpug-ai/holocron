@@ -1,6 +1,6 @@
-"use node";
+'use node';
 
-import { jinaSearch, JinaError, type JinaSearchResult } from "../lib/jina";
+import { JinaError, type JinaSearchResult, jinaSearch } from '../lib/jina';
 
 export interface PlatformSearchArgs {
   query: string;
@@ -8,12 +8,7 @@ export interface PlatformSearchArgs {
   constraints?: string[];
 }
 
-export type PlatformSearchKind =
-  | "generalWeb"
-  | "review"
-  | "maps"
-  | "community"
-  | "ratings";
+export type PlatformSearchKind = 'generalWeb' | 'review' | 'maps' | 'community' | 'ratings';
 
 export interface PlatformSearchPlanItem {
   kind: PlatformSearchKind;
@@ -36,7 +31,7 @@ export interface ExecutePlatformSearchesOptions {
   signal?: AbortSignal;
   executeSearch?: (
     item: PlatformSearchPlanItem,
-    options: { apiKey: string; signal?: AbortSignal },
+    options: { apiKey: string; signal?: AbortSignal }
   ) => Promise<JinaSearchResult[]>;
 }
 
@@ -51,40 +46,39 @@ const PLATFORM_PATTERNS: ReadonlyArray<{
   buildQuery: (query: string, location?: string, modifiers?: string) => string;
 }> = [
   {
-    kind: "generalWeb",
+    kind: 'generalWeb',
     buildQuery: (query, location, modifiers) =>
-      compactQuery([query, location, "reviews", modifiers]),
+      compactQuery([query, location, 'reviews', modifiers]),
   },
   {
-    kind: "review",
-    site: "yelp.com",
+    kind: 'review',
+    site: 'yelp.com',
     buildQuery: (query, location, modifiers) =>
-      compactQuery([query, location, "reviews", modifiers]),
+      compactQuery([query, location, 'reviews', modifiers]),
   },
   {
-    kind: "maps",
-    site: "google.com",
-    buildQuery: (query, location, modifiers) =>
-      compactQuery([query, location, "maps", modifiers]),
+    kind: 'maps',
+    site: 'google.com',
+    buildQuery: (query, location, modifiers) => compactQuery([query, location, 'maps', modifiers]),
   },
   {
-    kind: "community",
-    site: "reddit.com",
+    kind: 'community',
+    site: 'reddit.com',
     buildQuery: (query, location, modifiers) =>
-      compactQuery([query, location, "recommendations", modifiers]),
+      compactQuery([query, location, 'recommendations', modifiers]),
   },
   {
-    kind: "ratings",
+    kind: 'ratings',
     buildQuery: (query, location, modifiers) =>
-      compactQuery([query, location, "ratings reviews best", modifiers]),
+      compactQuery([query, location, 'ratings reviews best', modifiers]),
   },
 ];
 
 function compactQuery(parts: Array<string | undefined>): string {
   return parts
-    .map((part) => (part ?? "").trim())
+    .map((part) => (part ?? '').trim())
     .filter(Boolean)
-    .join(" ");
+    .join(' ');
 }
 
 function normalizeConstraintTerms(constraints?: string[]): string | undefined {
@@ -95,12 +89,10 @@ function normalizeConstraintTerms(constraints?: string[]): string | undefined {
   return constraints
     .map((constraint) => constraint.trim())
     .filter(Boolean)
-    .join(" ");
+    .join(' ');
 }
 
-export function buildPlatformSearchPlan(
-  args: PlatformSearchArgs,
-): PlatformSearchPlanItem[] {
+export function buildPlatformSearchPlan(args: PlatformSearchArgs): PlatformSearchPlanItem[] {
   const modifiers = normalizeConstraintTerms(args.constraints);
 
   return PLATFORM_PATTERNS.map((pattern) => ({
@@ -114,13 +106,14 @@ export function buildPlatformSearchPlan(
 
 function normalizeSearchResult(
   result: JinaSearchResult,
-  sourcePlatform: PlatformSearchKind,
+  sourcePlatform: PlatformSearchKind
 ): DiscoverySource | null {
-  const url = typeof result.url === "string" && result.url
-    ? result.url
-    : typeof result.link === "string"
-      ? result.link
-      : "";
+  const url =
+    typeof result.url === 'string' && result.url
+      ? result.url
+      : typeof result.link === 'string'
+        ? result.link
+        : '';
 
   const canonicalUrl = canonicalizeUrl(url);
   if (!canonicalUrl) {
@@ -128,13 +121,12 @@ function normalizeSearchResult(
   }
 
   return {
-    title:
-      (typeof result.title === "string" && result.title.trim()) || canonicalUrl,
+    title: (typeof result.title === 'string' && result.title.trim()) || canonicalUrl,
     url,
     snippet: (
-      (typeof result.content === "string" && result.content) ||
-      (typeof result.description === "string" && result.description) ||
-      ""
+      (typeof result.content === 'string' && result.content) ||
+      (typeof result.description === 'string' && result.description) ||
+      ''
     ).slice(0, 200),
     sourcePlatform,
     provenance: [sourcePlatform],
@@ -144,26 +136,26 @@ function normalizeSearchResult(
 function canonicalizeUrl(url: string): string {
   try {
     const parsed = new URL(url);
-    parsed.hash = "";
+    parsed.hash = '';
 
     const retainedEntries = [...parsed.searchParams.entries()].filter(
-      ([key]) => !key.toLowerCase().startsWith("utm_"),
+      ([key]) => !key.toLowerCase().startsWith('utm_')
     );
-    parsed.search = "";
+    parsed.search = '';
     for (const [key, value] of retainedEntries) {
       parsed.searchParams.append(key, value);
     }
 
-    const pathname = parsed.pathname.replace(/\/+$/, "") || "/";
+    const pathname = parsed.pathname.replace(/\/+$/, '') || '/';
     return `${parsed.origin.toLowerCase()}${pathname}${parsed.search}`;
   } catch {
-    return url.trim().replace(/\/+$/, "").toLowerCase();
+    return url.trim().replace(/\/+$/, '').toLowerCase();
   }
 }
 
 function mergeDiscoverySource(
   existing: DiscoverySource,
-  incoming: DiscoverySource,
+  incoming: DiscoverySource
 ): DiscoverySource {
   const provenance = [...existing.provenance];
   for (const platform of incoming.provenance) {
@@ -183,7 +175,7 @@ function mergeDiscoverySource(
 
 async function defaultExecuteSearch(
   item: PlatformSearchPlanItem,
-  options: { apiKey: string; signal?: AbortSignal },
+  options: { apiKey: string; signal?: AbortSignal }
 ): Promise<JinaSearchResult[]> {
   return jinaSearch(item.query, {
     apiKey: options.apiKey,
@@ -196,7 +188,7 @@ async function defaultExecuteSearch(
 
 export async function executePlatformSearches(
   plan: PlatformSearchPlanItem[],
-  options: ExecutePlatformSearchesOptions = {},
+  options: ExecutePlatformSearchesOptions = {}
 ): Promise<DiscoverySource[]> {
   const apiKey = options.apiKey ?? process.env.JINA_API_KEY;
   if (!apiKey) {
@@ -218,7 +210,7 @@ export async function executePlatformSearches(
         }
         return [];
       }
-    }),
+    })
   );
 
   const deduplicated = new Map<string, DiscoverySource>();

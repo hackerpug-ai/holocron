@@ -1,11 +1,11 @@
-"use node";
+'use node';
 
-import { action } from "../_generated/server";
-import { v } from "convex/values";
-import { executeAgentTool } from "../chat/toolExecutor";
-import { api } from "../_generated/api";
-import type { ActionCtx } from "../_generated/server";
-import type { Id } from "../_generated/dataModel";
+import { v } from 'convex/values';
+import { api } from '../_generated/api';
+import type { Id } from '../_generated/dataModel';
+import type { ActionCtx } from '../_generated/server';
+import { action } from '../_generated/server';
+import { executeAgentTool } from '../chat/toolExecutor';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -14,7 +14,7 @@ import type { Id } from "../_generated/dataModel";
 type ExecuteToolArgs = {
   toolName: string;
   toolArgs: Record<string, any>;
-  conversationId: Id<"conversations">;
+  conversationId: Id<'conversations'>;
 };
 
 type VoiceToolResult = {
@@ -27,11 +27,7 @@ type VoiceToolResult = {
 // Fast-path tool set
 // ---------------------------------------------------------------------------
 
-const FAST_VOICE_TOOLS = new Set([
-  "search_knowledge_base",
-  "save_document",
-  "update_document",
-]);
+const FAST_VOICE_TOOLS = new Set(['search_knowledge_base', 'save_document', 'update_document']);
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -47,17 +43,17 @@ export function truncateForVoice(content: string, maxChars: number): string {
   // Try to cut at a sentence boundary
   const truncated = content.slice(0, maxChars);
   const lastSentenceEnd = Math.max(
-    truncated.lastIndexOf(". "),
-    truncated.lastIndexOf(".\n"),
-    truncated.lastIndexOf("! "),
-    truncated.lastIndexOf("? "),
+    truncated.lastIndexOf('. '),
+    truncated.lastIndexOf('.\n'),
+    truncated.lastIndexOf('! '),
+    truncated.lastIndexOf('? ')
   );
 
   if (lastSentenceEnd > maxChars * 0.5) {
     return truncated.slice(0, lastSentenceEnd + 1);
   }
 
-  return truncated + "...";
+  return truncated + '...';
 }
 
 // ---------------------------------------------------------------------------
@@ -68,48 +64,47 @@ async function executeVoiceFastTool(
   ctx: ActionCtx,
   toolName: string,
   args: Record<string, any>,
-  conversationId: Id<"conversations">,
+  conversationId: Id<'conversations'>
 ): Promise<VoiceToolResult> {
   try {
     switch (toolName) {
-      case "search_knowledge_base": {
-        const query = (args.query as string) ?? "";
-        const limit = typeof args.limit === "number" ? args.limit : 5;
+      case 'search_knowledge_base': {
+        const query = (args.query as string) ?? '';
+        const limit = typeof args.limit === 'number' ? args.limit : 5;
 
         if (!query) {
           return {
             success: true,
-            content: "Please provide a search query.",
+            content: 'Please provide a search query.',
             skipContinuation: false,
           };
         }
 
-        const searchResults: any[] = await ctx.runAction(
-          api.documents.search.hybridSearch,
-          { query, limit },
-        );
+        const searchResults: any[] = await ctx.runAction(api.documents.search.hybridSearch, {
+          query,
+          limit,
+        });
 
         // Post result card for chat UI (same format as toolActions.ts)
         const articleCards = (searchResults || []).map((doc: any) => ({
-          card_type: "article",
+          card_type: 'article',
           title: doc.title,
           category: doc.category,
           snippet: doc.content
-            ? doc.content.substring(0, 150) +
-              (doc.content.length > 150 ? "..." : "")
-            : "",
+            ? doc.content.substring(0, 150) + (doc.content.length > 150 ? '...' : '')
+            : '',
           document_id: doc._id,
           metadata: { relevance_score: doc.score },
         }));
 
         await ctx.runMutation(api.chatMessages.mutations.create, {
           conversationId,
-          role: "agent" as const,
-          content: `Found ${searchResults?.length || 0} article${(searchResults?.length || 0) === 1 ? "" : "s"} matching "${query}"`,
-          messageType: "result_card" as const,
+          role: 'agent' as const,
+          content: `Found ${searchResults?.length || 0} article${(searchResults?.length || 0) === 1 ? '' : 's'} matching "${query}"`,
+          messageType: 'result_card' as const,
           cardData: searchResults?.length
             ? articleCards
-            : { card_type: "no_results", message: `No articles found matching "${query}"` },
+            : { card_type: 'no_results', message: `No articles found matching "${query}"` },
         });
 
         if (!searchResults?.length) {
@@ -125,9 +120,9 @@ async function executeVoiceFastTool(
           .slice(0, 3)
           .map(
             (r: any, i: number) =>
-              `${i + 1}. "${r.title}"${r.content ? `: ${r.content.substring(0, 100)}` : ""}`,
+              `${i + 1}. "${r.title}"${r.content ? `: ${r.content.substring(0, 100)}` : ''}`
           )
-          .join(". ");
+          .join('. ');
 
         return {
           success: true,
@@ -136,31 +131,33 @@ async function executeVoiceFastTool(
         };
       }
 
-      case "save_document": {
+      case 'save_document': {
         const title = args.title as string;
         const content = args.content as string;
-        const category = (args.category as string) || "notes";
+        const category = (args.category as string) || 'notes';
 
         if (!title || !content) {
           return {
             success: false,
-            content: "Title and content are required.",
+            content: 'Title and content are required.',
             skipContinuation: false,
           };
         }
 
-        const result: any = await ctx.runAction(
-          api.documents.storage.createWithEmbedding,
-          { title, content, category, status: "complete" },
-        );
+        const result: any = await ctx.runAction(api.documents.storage.createWithEmbedding, {
+          title,
+          content,
+          category,
+          status: 'complete',
+        });
 
         await ctx.runMutation(api.chatMessages.mutations.create, {
           conversationId,
-          role: "agent" as const,
+          role: 'agent' as const,
           content: `Saved "${title}" to knowledge base`,
-          messageType: "result_card" as const,
+          messageType: 'result_card' as const,
           cardData: {
-            card_type: "document_saved",
+            card_type: 'document_saved',
             document_id: result.documentId,
             title,
             category,
@@ -174,7 +171,7 @@ async function executeVoiceFastTool(
         };
       }
 
-      case "update_document": {
+      case 'update_document': {
         const documentId = args.documentId as string;
         const title = args.title as string | undefined;
         const content = args.content as string | undefined;
@@ -183,7 +180,7 @@ async function executeVoiceFastTool(
         if (!documentId) {
           return {
             success: false,
-            content: "Document ID is required.",
+            content: 'Document ID is required.',
             skipContinuation: false,
           };
         }
@@ -195,7 +192,7 @@ async function executeVoiceFastTool(
         if (!currentDoc) {
           return {
             success: false,
-            content: "Document not found.",
+            content: 'Document not found.',
             skipContinuation: false,
           };
         }
@@ -219,11 +216,11 @@ async function executeVoiceFastTool(
 
         await ctx.runMutation(api.chatMessages.mutations.create, {
           conversationId,
-          role: "agent" as const,
+          role: 'agent' as const,
           content: `Updated "${currentDoc.title}" in knowledge base`,
-          messageType: "result_card" as const,
+          messageType: 'result_card' as const,
           cardData: {
-            card_type: "document_saved",
+            card_type: 'document_saved',
             document_id: documentId,
             title: title ?? currentDoc.title,
             category: category ?? currentDoc.category,
@@ -246,8 +243,7 @@ async function executeVoiceFastTool(
         };
     }
   } catch (error) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Unknown error";
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error(`[executeVoiceFastTool] ${toolName} ERROR:`, error);
     return {
       success: false,
@@ -268,28 +264,18 @@ async function executeVoiceFastTool(
  */
 export async function executeToolHandler(
   ctx: ActionCtx,
-  args: ExecuteToolArgs,
+  args: ExecuteToolArgs
 ): Promise<VoiceToolResult> {
   // Fast path: execute synchronously for voice
   if (FAST_VOICE_TOOLS.has(args.toolName)) {
-    return executeVoiceFastTool(
-      ctx,
-      args.toolName,
-      args.toolArgs,
-      args.conversationId,
-    );
+    return executeVoiceFastTool(ctx, args.toolName, args.toolArgs, args.conversationId);
   }
 
   // Existing path for all other tools
-  const result = await executeAgentTool(
-    ctx,
-    args.toolName,
-    args.toolArgs,
-    args.conversationId,
-  );
+  const result = await executeAgentTool(ctx, args.toolName, args.toolArgs, args.conversationId);
 
   return {
-    success: result.messageType !== "error",
+    success: result.messageType !== 'error',
     content: truncateForVoice(result.content, 1500),
     skipContinuation: result.skipContinuation ?? false,
   };
@@ -315,7 +301,7 @@ export const executeTool = action({
   args: {
     toolName: v.string(),
     toolArgs: v.any(),
-    conversationId: v.id("conversations"),
+    conversationId: v.id('conversations'),
   },
   returns: v.object({
     success: v.boolean(),

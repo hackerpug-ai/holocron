@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   RECOMMENDATION_SYNTHESIS_PROMPT,
   RecommendationSynthesisSchema,
@@ -17,7 +17,7 @@ describe('REC-002: RECOMMENDATION_SYNTHESIS_PROMPT', () => {
     });
   });
 
-  describe('AC-2: Prompt contains OMIT don\'t GUESS rule', () => {
+  describe("AC-2: Prompt contains OMIT don't GUESS rule", () => {
     it('should contain OMIT literal', () => {
       expect(RECOMMENDATION_SYNTHESIS_PROMPT).toContain('OMIT');
     });

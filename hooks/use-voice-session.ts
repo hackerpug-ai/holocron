@@ -14,28 +14,28 @@
  * NEVER exposes WebRTC internals.
  */
 
-import { useCallback, useEffect, useRef, useReducer, useState } from "react";
-import * as Haptics from "expo-haptics";
-import { useAction, useMutation, useConvex } from "convex/react";
-import { useRouter } from "expo-router";
-import { api } from "@/convex/_generated/api";
-import type { Id } from "@/convex/_generated/dataModel";
+import { useAction, useConvex, useMutation } from 'convex/react';
+import * as Haptics from 'expo-haptics';
+import { useRouter } from 'expo-router';
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
+import type { MediaStream } from 'react-native-webrtc-web-shim';
+import { api } from '@/convex/_generated/api';
+import type { Id } from '@/convex/_generated/dataModel';
+import { useVoiceResultBridge } from '@/hooks/use-voice-result-bridge';
 import {
-  voiceSessionReducer,
   initialVoiceSessionState,
   type VoiceSessionState,
-} from "@/hooks/use-voice-session-state";
-import { useVoiceResultBridge } from "@/hooks/use-voice-result-bridge";
-import { WebRTCConnection } from "@/lib/voice/webrtc-connection";
-import type { MediaStream } from "react-native-webrtc-web-shim";
-import { createEventHandler } from "@/lib/voice/event-handler";
-import { createTranscriptRecorder } from "@/lib/voice/transcript-recorder";
-import { createAudioRecorder, type AudioRecorder } from "@/lib/voice/audio-recorder";
-import { SessionTimeout, WarmConnection } from "@/lib/voice/session-timeout";
-import { createRetryManager } from "@/lib/voice/retry-manager";
-import { createVoiceErrorHandler } from "@/lib/voice/error-handler";
-import { getToolDefinitions } from "@/lib/voice/tool-definitions";
-import { dispatchFunctionCall, type DispatcherDeps } from "@/lib/voice/function-dispatcher";
+  voiceSessionReducer,
+} from '@/hooks/use-voice-session-state';
+import { type AudioRecorder, createAudioRecorder } from '@/lib/voice/audio-recorder';
+import { createVoiceErrorHandler } from '@/lib/voice/error-handler';
+import { createEventHandler } from '@/lib/voice/event-handler';
+import { type DispatcherDeps, dispatchFunctionCall } from '@/lib/voice/function-dispatcher';
+import { createRetryManager } from '@/lib/voice/retry-manager';
+import { SessionTimeout, WarmConnection } from '@/lib/voice/session-timeout';
+import { getToolDefinitions } from '@/lib/voice/tool-definitions';
+import { createTranscriptRecorder } from '@/lib/voice/transcript-recorder';
+import { WebRTCConnection } from '@/lib/voice/webrtc-connection';
 
 /**
  * Discard prewarm data this many ms before the OpenAI 60s token TTL expires.
@@ -67,11 +67,11 @@ interface PrewarmData {
  */
 function buildSessionUpdateEvent(instructions: string) {
   return {
-    type: "session.update",
+    type: 'session.update',
     session: {
       instructions,
       tools: getToolDefinitions(),
-      tool_choice: "auto",
+      tool_choice: 'auto',
     },
   };
 }
@@ -98,13 +98,8 @@ export interface UseVoiceSessionReturn {
   prewarm: () => Promise<void>;
 }
 
-export function useVoiceSession(
-  conversationId: Id<"conversations">
-): UseVoiceSessionReturn {
-  const [state, dispatch] = useReducer(
-    voiceSessionReducer,
-    initialVoiceSessionState
-  );
+export function useVoiceSession(conversationId: Id<'conversations'>): UseVoiceSessionReturn {
+  const [state, dispatch] = useReducer(voiceSessionReducer, initialVoiceSessionState);
 
   const createSession = useAction(api.voice.actions.createSession);
   const endSession = useMutation(api.voice.mutations.endSession);
@@ -116,10 +111,10 @@ export function useVoiceSession(
 
   const connectionRef = useRef<WebRTCConnection | null>(null);
   const sessionIdRef = useRef<string | null>(null);
-  const transcriptRef = useRef<string>("");
+  const transcriptRef = useRef<string>('');
   const retryMessageRef = useRef<string | null>(null);
   const ephemeralKeyRef = useRef<string | null>(null);
-  const instructionsRef = useRef<string>("");
+  const instructionsRef = useRef<string>('');
   /** Mirrors state.status so predicates can read it without stale closures. Updated each render. */
   const statusRef = useRef(state.status);
   statusRef.current = state.status;
@@ -144,10 +139,10 @@ export function useVoiceSession(
   }, []);
 
   const isSessionActive =
-    state.status === "listening" ||
-    state.status === "processing" ||
-    state.status === "speaking" ||
-    state.status === "muted";
+    state.status === 'listening' ||
+    state.status === 'processing' ||
+    state.status === 'speaking' ||
+    state.status === 'muted';
 
   useVoiceResultBridge(conversationId, isSessionActive, sendEventToOpenAI);
 
@@ -192,7 +187,7 @@ export function useVoiceSession(
         sessionIdRef.current = null;
         try {
           await endSession({
-            sessionId: sid as Id<"voiceSessions">,
+            sessionId: sid as Id<'voiceSessions'>,
           });
         } catch {
           // Best-effort — session may already be ended
@@ -208,7 +203,7 @@ export function useVoiceSession(
    * 2. Keep WebRTC connection warm for 5 minutes
    */
   const handleTimeout = useCallback(async () => {
-    dispatch({ type: "TIMEOUT" });
+    dispatch({ type: 'TIMEOUT' });
     await cleanup(true /* keepWarm */);
   }, [cleanup]);
 
@@ -236,7 +231,7 @@ export function useVoiceSession(
     data.connection.destroy();
 
     // End the Convex session fire-and-forget
-    endSession({ sessionId: data.sessionId as Id<"voiceSessions"> }).catch(() => {});
+    endSession({ sessionId: data.sessionId as Id<'voiceSessions'> }).catch(() => {});
   }, [endSession]);
 
   /**
@@ -251,10 +246,7 @@ export function useVoiceSession(
    */
   const prewarm = useCallback(async () => {
     // Guard: don't prewarm while a real session is live
-    if (
-      statusRef.current !== "idle" &&
-      statusRef.current !== "error"
-    ) {
+    if (statusRef.current !== 'idle' && statusRef.current !== 'error') {
       return;
     }
 
@@ -262,15 +254,12 @@ export function useVoiceSession(
     if (isPrewarmingRef.current) return;
 
     // Guard: prewarm data is still valid — no need to redo it
-    if (
-      prewarmDataRef.current !== null &&
-      Date.now() < prewarmDataRef.current.expiresAt
-    ) {
+    if (prewarmDataRef.current !== null && Date.now() < prewarmDataRef.current.expiresAt) {
       return;
     }
 
     isPrewarmingRef.current = true;
-    console.time("voice:prewarm");
+    console.time('voice:prewarm');
 
     const conn = new WebRTCConnection();
     try {
@@ -295,17 +284,17 @@ export function useVoiceSession(
 
       // Schedule auto-discard slightly before token expiry
       prewarmTimerRef.current = setTimeout(() => {
-        console.log("[voice] prewarm expired — discarding stale token");
+        console.log('[voice] prewarm expired — discarding stale token');
         prewarmTimerRef.current = null;
         discardPrewarm();
       }, PREWARM_TTL_MS);
 
-      console.timeEnd("voice:prewarm");
-      console.log("[voice] prewarm hit");
+      console.timeEnd('voice:prewarm');
+      console.log('[voice] prewarm hit');
     } catch {
       // Prewarm failures are silent — cold path is the fallback
       conn.destroy();
-      console.timeEnd("voice:prewarm");
+      console.timeEnd('voice:prewarm');
     } finally {
       isPrewarmingRef.current = false;
     }
@@ -313,16 +302,16 @@ export function useVoiceSession(
 
   const start = useCallback(async () => {
     // Guard against double-start
-    if (state.status !== "idle" && state.status !== "error") return;
+    if (state.status !== 'idle' && state.status !== 'error') return;
 
-    console.time("voice:cold-start");
-    dispatch({ type: "CONNECT", conversationId });
+    console.time('voice:cold-start');
+    dispatch({ type: 'CONNECT', conversationId });
 
     // Error handler provides user-friendly messages and resource cleanup.
     const errorHandler = createVoiceErrorHandler({
       onError: (voiceError) => {
         dispatch({
-          type: "ERROR",
+          type: 'ERROR',
           error: voiceError.userMessage,
           errorKind: voiceError.kind,
         });
@@ -336,7 +325,7 @@ export function useVoiceSession(
         if (sid) {
           sessionIdRef.current = null;
           try {
-            await endSession({ sessionId: sid as Id<"voiceSessions"> });
+            await endSession({ sessionId: sid as Id<'voiceSessions'> });
           } catch {
             // Best-effort cleanup
           }
@@ -355,7 +344,7 @@ export function useVoiceSession(
         const { sessionId, instructions } = await createSession({ conversationId });
         sessionIdRef.current = sessionId;
         instructionsRef.current = instructions;
-        dispatch({ type: "CONNECTED", sessionId });
+        dispatch({ type: 'CONNECTED', sessionId });
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
         // Send fresh session.update with server instructions on warm re-activation
@@ -374,8 +363,8 @@ export function useVoiceSession(
         sessionTimeoutRef.current.start();
       } catch (error) {
         connectionRef.current = null;
-        const message = error instanceof Error ? error.message : "Unknown connection error";
-        dispatch({ type: "ERROR", error: message });
+        const message = error instanceof Error ? error.message : 'Unknown connection error';
+        dispatch({ type: 'ERROR', error: message });
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       }
       return;
@@ -383,8 +372,7 @@ export function useVoiceSession(
 
     // Check prewarm data before creating a new connection
     const prewarmSnapshot = prewarmDataRef.current;
-    const usingPrewarm =
-      prewarmSnapshot !== null && Date.now() < prewarmSnapshot.expiresAt;
+    const usingPrewarm = prewarmSnapshot !== null && Date.now() < prewarmSnapshot.expiresAt;
 
     if (usingPrewarm && prewarmSnapshot !== null) {
       // Consume prewarm — cancel expiry timer and clear ref now so we own the data
@@ -395,25 +383,24 @@ export function useVoiceSession(
       prewarmDataRef.current = null;
     } else if (prewarmSnapshot !== null) {
       // Prewarm exists but is expired — discard it (discardPrewarm clears timer + ref)
-      console.log("[voice] prewarm miss (expired)");
+      console.log('[voice] prewarm miss (expired)');
       discardPrewarm();
     } else {
-      console.log("[voice] prewarm miss (none)");
+      console.log('[voice] prewarm miss (none)');
     }
 
     try {
       // Use prewarm connection if available, otherwise create fresh
-      const conn = usingPrewarm && prewarmSnapshot
-        ? prewarmSnapshot.connection
-        : new WebRTCConnection();
+      const conn =
+        usingPrewarm && prewarmSnapshot ? prewarmSnapshot.connection : new WebRTCConnection();
 
       // Wire transcript recorder for fire-and-forget persistence.
       // sessionId is set after Promise.all but before any events fire,
       // so we wrap recordTranscript to read sessionIdRef at call time.
       const transcriptRecorder = createTranscriptRecorder({
         recordTranscript: (args) =>
-          recordTranscript({ ...args, sessionId: sessionIdRef.current as Id<"voiceSessions"> }),
-        sessionId: "placeholder" as unknown as Id<"voiceSessions">,
+          recordTranscript({ ...args, sessionId: sessionIdRef.current as Id<'voiceSessions'> }),
+        sessionId: 'placeholder' as unknown as Id<'voiceSessions'>,
         conversationId,
       });
 
@@ -432,7 +419,7 @@ export function useVoiceSession(
             // US-017: user spoke — cancel any pending timeout (interrupt farewell)
             sessionTimeoutRef.current?.cancel();
             errorHandler.handleSuccess();
-            dispatch({ type: "START_LISTENING" });
+            dispatch({ type: 'START_LISTENING' });
           },
           onSpeechStopped: () => {
             // speech_stopped indicates user stopped speaking — model will process
@@ -445,8 +432,8 @@ export function useVoiceSession(
             transcriptRecorder.onAgentTranscript(transcript);
             // Accumulate transcript in state
             dispatch({
-              type: "ADD_TRANSCRIPT",
-              role: "agent" as const,
+              type: 'ADD_TRANSCRIPT',
+              role: 'agent' as const,
               content: transcript,
             });
           },
@@ -454,13 +441,13 @@ export function useVoiceSession(
             transcriptRecorder.onUserTranscript(transcript);
             // Accumulate transcript in state
             dispatch({
-              type: "ADD_TRANSCRIPT",
-              role: "user" as const,
+              type: 'ADD_TRANSCRIPT',
+              role: 'user' as const,
               content: transcript,
             });
           },
           onFunctionCall: async (fn) => {
-            dispatch({ type: "TOOL_START", toolName: fn.name });
+            dispatch({ type: 'TOOL_START', toolName: fn.name });
             try {
               const deps: DispatcherDeps = {
                 convex: {
@@ -470,7 +457,7 @@ export function useVoiceSession(
                 },
                 routerPush: (path) => router.push(path as never),
                 sendEvent: (event) => conn.sendEvent(event),
-                sessionId: sessionIdRef.current ?? "",
+                sessionId: sessionIdRef.current ?? '',
                 conversationId,
               };
               await dispatchFunctionCall(fn, deps);
@@ -478,14 +465,14 @@ export function useVoiceSession(
               // Function dispatch errors are handled internally by the dispatcher
               // which sends error results back to OpenAI
             } finally {
-              dispatch({ type: "TOOL_END" });
+              dispatch({ type: 'TOOL_END' });
             }
           },
           onError: (error) => {
             // Count consecutive mid-session errors; triggers cleanup after 3
             errorHandler.handleConsecutiveError();
             // Also dispatch immediate error state for single errors
-            dispatch({ type: "ERROR", error: error.message });
+            dispatch({ type: 'ERROR', error: error.message });
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
           },
         },
@@ -498,18 +485,18 @@ export function useVoiceSession(
           retryMessageRef.current = message;
         },
         onStateChange: (retryState) => {
-          if (retryState === "connecting") {
-            dispatch({ type: "CONNECT", conversationId });
-          } else if (retryState === "listening") {
+          if (retryState === 'connecting') {
+            dispatch({ type: 'CONNECT', conversationId });
+          } else if (retryState === 'listening') {
             retryMessageRef.current = null;
             if (sessionIdRef.current) {
-              dispatch({ type: "CONNECTED", sessionId: sessionIdRef.current });
+              dispatch({ type: 'CONNECTED', sessionId: sessionIdRef.current });
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
             }
-          } else if (retryState === "error") {
+          } else if (retryState === 'error') {
             dispatch({
-              type: "ERROR",
-              error: "No internet. Please check your connection.",
+              type: 'ERROR',
+              error: 'No internet. Please check your connection.',
             });
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
           }
@@ -526,7 +513,7 @@ export function useVoiceSession(
       const audioRecorder = createAudioRecorder({
         generateUploadUrl: () => generateAudioUploadUrl(),
         attachAudio: (args) => attachAudio(args),
-        sessionId: sessionIdRef.current as Id<"voiceSessions">,
+        sessionId: sessionIdRef.current as Id<'voiceSessions'>,
       });
       audioRecorderRef.current = audioRecorder;
 
@@ -563,13 +550,13 @@ export function useVoiceSession(
         },
       });
 
-      dispatch({ type: "SET_CONNECTING_PHASE", phase: "connecting_ai" });
+      dispatch({ type: 'SET_CONNECTING_PHASE', phase: 'connecting_ai' });
       let tokenResult: { ephemeralKey: string; sessionId: string; instructions: string };
       let mediaStream: MediaStream;
 
       if (usingPrewarm && prewarmSnapshot !== null) {
         // Prewarm hit: skip the expensive parallel fetch — data is already cached
-        console.log("[voice] prewarm hit");
+        console.log('[voice] prewarm hit');
         tokenResult = {
           ephemeralKey: prewarmSnapshot.ephemeralKey,
           sessionId: prewarmSnapshot.sessionId,
@@ -587,21 +574,17 @@ export function useVoiceSession(
           mediaStream = results[1];
         } catch (parallelError) {
           const errMsg =
-            parallelError instanceof Error
-              ? parallelError.message
-              : "Connection failed";
+            parallelError instanceof Error ? parallelError.message : 'Connection failed';
           // Detect microphone permission denial
           if (
-            errMsg.toLowerCase().includes("permission") ||
-            errMsg.toLowerCase().includes("notallowederror") ||
-            errMsg.toLowerCase().includes("not allowed")
+            errMsg.toLowerCase().includes('permission') ||
+            errMsg.toLowerCase().includes('notallowederror') ||
+            errMsg.toLowerCase().includes('not allowed')
           ) {
             errorHandler.handleMicrophonePermissionDenied();
           } else {
             errorHandler.handleTokenGenerationFailure(
-              parallelError instanceof Error
-                ? parallelError
-                : new Error("Connection failed")
+              parallelError instanceof Error ? parallelError : new Error('Connection failed')
             );
           }
           // Cross-cleanup: destroy conn to release any acquired media
@@ -611,7 +594,7 @@ export function useVoiceSession(
           if (sid) {
             sessionIdRef.current = null;
             try {
-              await endSession({ sessionId: sid as Id<"voiceSessions"> });
+              await endSession({ sessionId: sid as Id<'voiceSessions'> });
             } catch {
               // Best-effort cleanup
             }
@@ -625,25 +608,20 @@ export function useVoiceSession(
       ephemeralKeyRef.current = tokenResult.ephemeralKey;
 
       // SDP exchange with pre-acquired media
-      dispatch({ type: "SET_CONNECTING_PHASE", phase: "almost_ready" });
+      dispatch({ type: 'SET_CONNECTING_PHASE', phase: 'almost_ready' });
       try {
         await conn.connectWithMedia(tokenResult.ephemeralKey, mediaStream);
       } catch (connectError) {
-        const errMsg =
-          connectError instanceof Error
-            ? connectError.message
-            : "Connection failed";
+        const errMsg = connectError instanceof Error ? connectError.message : 'Connection failed';
         if (
-          errMsg.toLowerCase().includes("permission") ||
-          errMsg.toLowerCase().includes("notallowederror") ||
-          errMsg.toLowerCase().includes("not allowed")
+          errMsg.toLowerCase().includes('permission') ||
+          errMsg.toLowerCase().includes('notallowederror') ||
+          errMsg.toLowerCase().includes('not allowed')
         ) {
           errorHandler.handleMicrophonePermissionDenied();
         } else {
           errorHandler.handleTokenGenerationFailure(
-            connectError instanceof Error
-              ? connectError
-              : new Error("Connection failed")
+            connectError instanceof Error ? connectError : new Error('Connection failed')
           );
         }
         // End the Convex session since WebRTC failed after token was generated
@@ -651,7 +629,7 @@ export function useVoiceSession(
         if (sid) {
           sessionIdRef.current = null;
           try {
-            await endSession({ sessionId: sid as Id<"voiceSessions"> });
+            await endSession({ sessionId: sid as Id<'voiceSessions'> });
           } catch {
             // Best-effort cleanup
           }
@@ -660,13 +638,14 @@ export function useVoiceSession(
       }
 
       connectionRef.current = conn;
-      conn.startAudioLevelMonitoring(setAudioLevel, () =>
-        statusRef.current === "listening" || statusRef.current === "speaking"
+      conn.startAudioLevelMonitoring(
+        setAudioLevel,
+        () => statusRef.current === 'listening' || statusRef.current === 'speaking'
       );
 
       // Transition to LISTENING and start idle timeout
-      console.timeEnd("voice:cold-start");
-      dispatch({ type: "CONNECTED", sessionId: tokenResult.sessionId });
+      console.timeEnd('voice:cold-start');
+      dispatch({ type: 'CONNECTED', sessionId: tokenResult.sessionId });
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       sessionTimeoutRef.current.start();
     } catch (error) {
@@ -678,27 +657,37 @@ export function useVoiceSession(
       sessionTimeoutRef.current?.cancel();
 
       errorHandler.handleTokenGenerationFailure(
-        error instanceof Error ? error : new Error("Unknown connection error")
+        error instanceof Error ? error : new Error('Unknown connection error')
       );
 
       if (sessionIdRef.current) {
         const sid = sessionIdRef.current;
         sessionIdRef.current = null;
         try {
-          await endSession({ sessionId: sid as Id<"voiceSessions"> });
+          await endSession({ sessionId: sid as Id<'voiceSessions'> });
         } catch {
           // Best-effort cleanup
         }
       }
     }
-  }, [conversationId, createSession, discardPrewarm, endSession, generateAudioUploadUrl, attachAudio, handleTimeout, recordTranscript, state.status]);
+  }, [
+    conversationId,
+    createSession,
+    discardPrewarm,
+    endSession,
+    generateAudioUploadUrl,
+    attachAudio,
+    handleTimeout,
+    recordTranscript,
+    state.status,
+  ]);
 
   const stop = useCallback(async () => {
     // US-017: destroy warm connection on explicit stop (user intent to fully end)
     warmConnectionRef.current.destroy();
     isWarmRef.current = false;
     await cleanup(false /* cold close */);
-    dispatch({ type: "DISCONNECT" });
+    dispatch({ type: 'DISCONNECT' });
     // Kick off a fresh prewarm so the next tap is fast
     // Fire-and-forget — errors are silent (prewarm is best-effort)
     prewarm().catch(() => {});
@@ -732,17 +721,17 @@ export function useVoiceSession(
       if (sid) {
         sessionIdRef.current = null;
         // endSession is async but we can't await in cleanup — best effort
-        endSession({ sessionId: sid as Id<"voiceSessions"> }).catch(() => {});
+        endSession({ sessionId: sid as Id<'voiceSessions'> }).catch(() => {});
       }
     };
   }, [discardPrewarm, endSession]);
 
   const mute = useCallback(() => {
-    dispatch({ type: "MUTE" });
+    dispatch({ type: 'MUTE' });
   }, []);
 
   const unmute = useCallback(() => {
-    dispatch({ type: "UNMUTE" });
+    dispatch({ type: 'UNMUTE' });
   }, []);
 
   return {

@@ -11,16 +11,16 @@
  * - Works independently of chat model provider
  */
 
-"use node";
+'use node';
 
-import { createCohere } from "@ai-sdk/cohere";
+import { createCohere } from '@ai-sdk/cohere';
 
 /**
  * Cohere provider instance
  * Native Cohere SDK integration for embeddings
  */
 const cohere = createCohere({
-  apiKey: process.env.COHERE_API_KEY ?? "",
+  apiKey: process.env.COHERE_API_KEY ?? '',
 });
 
 /**
@@ -37,4 +37,4 @@ const cohere = createCohere({
  * });
  * ```
  */
-export const cohereEmbedding = cohere.embedding("embed-english-v3.0");
+export const cohereEmbedding = cohere.embedding('embed-english-v3.0');

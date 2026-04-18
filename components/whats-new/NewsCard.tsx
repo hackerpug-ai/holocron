@@ -5,27 +5,27 @@
  * Integrates with feedback system for user preferences.
  */
 
-import { useState } from 'react'
-import { Pressable, View, Image, ImageStyle, StyleSheet } from 'react-native'
-import { Text } from '@/components/ui/text'
-import { Card } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Newspaper, Calendar } from '@/components/ui/icons'
-import { useTheme } from '@/hooks/use-theme'
-import { FeedbackButtons, type FeedbackType } from '@/components/subscriptions/FeedbackButtons'
+import { useState } from 'react';
+import { Image, type ImageStyle, Pressable, StyleSheet, View } from 'react-native';
+import { FeedbackButtons, type FeedbackType } from '@/components/subscriptions/FeedbackButtons';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
+import { Calendar, Newspaper } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { useTheme } from '@/hooks/use-theme';
 
 export interface NewsCardProps {
-  title: string
-  summary?: string
-  imageUrl?: string
-  source?: string
-  publishedAt?: number
-  testID?: string
-  url?: string
-  onPress?: () => void
+  title: string;
+  summary?: string;
+  imageUrl?: string;
+  source?: string;
+  publishedAt?: number;
+  testID?: string;
+  url?: string;
+  onPress?: () => void;
   // Feedback props - uses 'up'/'down' to match Convex schema
-  feedback?: 'up' | 'down' | null
-  onFeedback?: (type: 'up' | 'down' | null) => void
+  feedback?: 'up' | 'down' | null;
+  onFeedback?: (type: 'up' | 'down' | null) => void;
 }
 
 /**
@@ -36,7 +36,7 @@ function formatDate(timestamp: number): string {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
-  })
+  });
 }
 
 export function NewsCard({
@@ -50,20 +50,21 @@ export function NewsCard({
   feedback,
   onFeedback,
 }: NewsCardProps) {
-  const { colors: themeColors } = useTheme()
-  const [imageError, setImageError] = useState(false)
-  const [imageLoading, setImageLoading] = useState(true)
+  const { colors: themeColors } = useTheme();
+  const [imageError, setImageError] = useState(false);
+  const [imageLoading, setImageLoading] = useState(true);
 
   // Convert between FeedbackButton types ('positive'/'negative') and mutation types ('up'/'down')
   const handleFeedback = (type: FeedbackType) => {
-    if (!onFeedback) return
+    if (!onFeedback) return;
 
     // Map 'positive' → 'up', 'negative' → 'down', null → null (remove feedback)
-    const mappedType: 'up' | 'down' | null = type === 'positive' ? 'up' : type === 'negative' ? 'down' : null
-    onFeedback(mappedType)
-  }
+    const mappedType: 'up' | 'down' | null =
+      type === 'positive' ? 'up' : type === 'negative' ? 'down' : null;
+    onFeedback(mappedType);
+  };
 
-  const hasMedia = imageUrl && !imageError
+  const hasMedia = imageUrl && !imageError;
 
   const cardContent = (
     <Card testID={testID} className="border-border bg-card overflow-hidden">
@@ -76,8 +77,8 @@ export function NewsCard({
             resizeMode="cover"
             onLoad={() => setImageLoading(false)}
             onError={() => {
-              setImageError(true)
-              setImageLoading(false)
+              setImageError(true);
+              setImageLoading(false);
             }}
             testID={`${testID}-image`}
             accessibilityLabel={`Image for ${title}`}
@@ -114,24 +115,17 @@ export function NewsCard({
           {publishedAt && (
             <View className="flex-row items-center gap-1">
               <Calendar size={12} color={themeColors.mutedForeground} />
-              <Text className="text-muted-foreground text-xs">
-                {formatDate(publishedAt)}
-              </Text>
+              <Text className="text-muted-foreground text-xs">{formatDate(publishedAt)}</Text>
             </View>
           )}
         </View>
 
         {/* Title */}
-        <Text className="text-foreground mb-2 text-base font-semibold leading-tight">
-          {title}
-        </Text>
+        <Text className="text-foreground mb-2 text-base font-semibold leading-tight">{title}</Text>
 
         {/* Summary */}
         {summary && (
-          <Text
-            className="text-muted-foreground text-sm leading-relaxed"
-            numberOfLines={3}
-          >
+          <Text className="text-muted-foreground text-sm leading-relaxed" numberOfLines={3}>
             {summary}
           </Text>
         )}
@@ -141,7 +135,9 @@ export function NewsCard({
           <View className="mt-3 flex-row items-center justify-end">
             <FeedbackButtons
               findingId={testID || 'news-card'}
-              currentFeedback={feedback === 'up' ? 'positive' : feedback === 'down' ? 'negative' : null}
+              currentFeedback={
+                feedback === 'up' ? 'positive' : feedback === 'down' ? 'negative' : null
+              }
               onFeedback={handleFeedback}
               testID={`${testID}-feedback`}
             />
@@ -149,7 +145,7 @@ export function NewsCard({
         )}
       </View>
     </Card>
-  )
+  );
 
   // Wrap in Pressable if onPress is provided
   if (onPress) {
@@ -163,10 +159,10 @@ export function NewsCard({
       >
         {cardContent}
       </Pressable>
-    )
+    );
   }
 
-  return cardContent
+  return cardContent;
 }
 
 const styles = StyleSheet.create({
@@ -179,4 +175,4 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-})
+});

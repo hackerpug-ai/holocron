@@ -5,7 +5,7 @@
  * signatures and follow the idempotent job creation pattern.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 /**
  * AC-1: New file created, convex/transcripts/queries.ts exists, File exports getTranscript function

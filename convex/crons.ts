@@ -1,6 +1,5 @@
-import { cronJobs } from "convex/server";
-import { internal } from "./_generated/api";
-import { makeFunctionReference } from "convex/server";
+import { cronJobs, makeFunctionReference } from 'convex/server';
+import { internal } from './_generated/api';
 
 /**
  * Convex Cron Jobs
@@ -12,31 +11,25 @@ import { makeFunctionReference } from "convex/server";
 
 // Function references for scheduled/internal functions that may not be
 // available in the generated API at type-check time.
-const backfillOrphanedEmbeddings = makeFunctionReference<
-  "action",
-  {},
-  any
->("documents/scheduled:backfillOrphanedEmbeddings");
+const backfillOrphanedEmbeddings = makeFunctionReference<'action', {}, any>(
+  'documents/scheduled:backfillOrphanedEmbeddings'
+);
 
 // Research and improvements embedding backfill (may not be in generated API yet)
-const backfillResearchEmbeddings = makeFunctionReference<
-  "action",
-  {},
-  any
->("migrations/backfill_research_embeddings:backfill");
+const backfillResearchEmbeddings = makeFunctionReference<'action', {}, any>(
+  'migrations/backfill_research_embeddings:backfill'
+);
 
-const backfillImprovementsEmbeddings = makeFunctionReference<
-  "action",
-  {},
-  any
->("migrations/backfill_improvements_embeddings:backfill");
+const backfillImprovementsEmbeddings = makeFunctionReference<'action', {}, any>(
+  'migrations/backfill_improvements_embeddings:backfill'
+);
 
 // Workflow-based daily report generation (replaces monolithic action)
 const startDailyReportWorkflow = makeFunctionReference<
-  "mutation",
+  'mutation',
   { days?: number; force?: boolean },
   any
->("whatsNew/workflow:startWorkflow");
+>('whatsNew/workflow:startWorkflow');
 
 const crons = cronJobs();
 
@@ -54,7 +47,7 @@ const crons = cronJobs();
  * @see supabase/functions/task-timeout-worker/index.ts (old implementation)
  */
 crons.interval(
-  "task-timeout-worker",
+  'task-timeout-worker',
   { hours: 1 }, // Run every hour
   internal.taskCrons.timeoutStuckTasks,
   { timeoutMinutes: 60 } // Tasks running longer than 60 minutes are marked as errored
@@ -73,7 +66,7 @@ crons.interval(
  * @see .holocron/supabase/functions/subscription-fetch/index.ts (old implementation)
  */
 crons.interval(
-  "subscription-monitor",
+  'subscription-monitor',
   { hours: 1 }, // Run every hour
   internal.subscriptions.internal.checkAllSubscriptions
 );
@@ -88,7 +81,7 @@ crons.interval(
  * - Uses Jina Reader to extract content
  */
 crons.interval(
-  "subscription-auto-research",
+  'subscription-auto-research',
   { hours: 2 },
   internal.subscriptions.internal.processQueuedContent
 );
@@ -107,7 +100,7 @@ crons.interval(
  * @see .spec/prd/subscription-feed-redesign/tasks/02-feed-building/FR-009.md
  */
 crons.interval(
-  "feed-builder",
+  'feed-builder',
   { hours: 2 }, // Run every 2 hours
   internal.feeds.internal.buildFeed,
   { timeoutMinutes: 10 } // Maximum execution time
@@ -124,7 +117,7 @@ crons.interval(
  * @see .spec/prd/subscription-feed-redesign/tasks/09-red-hat-remediation/FR-036.md
  */
 crons.daily(
-  "morning-digest",
+  'morning-digest',
   { hourUTC: 16, minuteUTC: 0 }, // 9 AM PST (16:00 UTC)
   internal.feeds.internal.createMorningDigest,
   {} as any
@@ -141,7 +134,7 @@ crons.daily(
  * This ensures all documents have embeddings for semantic search.
  */
 crons.interval(
-  "document-embedding-backfill",
+  'document-embedding-backfill',
   { hours: 1 }, // Run every hour
   backfillOrphanedEmbeddings
 );
@@ -154,11 +147,7 @@ crons.interval(
  * - Processes researchFindings and deepResearchIterations tables
  * - Ensures semantic search works for research content
  */
-crons.interval(
-  "research-embedding-backfill",
-  { hours: 2 },
-  backfillResearchEmbeddings
-);
+crons.interval('research-embedding-backfill', { hours: 2 }, backfillResearchEmbeddings);
 
 /**
  * Improvements Embedding Backfill
@@ -168,11 +157,7 @@ crons.interval(
  * - Processes improvementRequests table
  * - Ensures semantic search works for improvement requests
  */
-crons.interval(
-  "improvements-embedding-backfill",
-  { hours: 2 },
-  backfillImprovementsEmbeddings
-);
+crons.interval('improvements-embedding-backfill', { hours: 2 }, backfillImprovementsEmbeddings);
 
 /**
  * What's New Daily Report Generator
@@ -189,7 +174,7 @@ crons.interval(
  * - Phase 3: Synthesize markdown report (180s timeout)
  */
 crons.daily(
-  "whats-new-daily",
+  'whats-new-daily',
   { hourUTC: 13, minuteUTC: 0 }, // 6 AM PST
   startDailyReportWorkflow,
   {}
@@ -204,7 +189,7 @@ crons.daily(
  * - Jobs stuck in "running" for > 10 minutes are marked failed
  */
 crons.interval(
-  "audio-stuck-segment-cleanup",
+  'audio-stuck-segment-cleanup',
   { minutes: 5 },
   internal.audio.scheduled.timeoutStuckSegments
 );
@@ -220,7 +205,7 @@ crons.interval(
  * @see convex/audioTranscripts/scheduled.ts
  */
 crons.interval(
-  "audio-transcript-job-processor",
+  'audio-transcript-job-processor',
   { minutes: 2 },
   internal.audioTranscripts.scheduled.processPendingJobs
 );
@@ -235,7 +220,7 @@ crons.interval(
  * - Posts an error message so the user knows what happened
  */
 crons.interval(
-  "toolcall-timeout",
+  'toolcall-timeout',
   { minutes: 2 },
   internal.toolCalls.scheduled.timeoutStuckToolCalls
 );
@@ -247,7 +232,9 @@ crons.interval(
  * - Runs every 15 minutes
  * - Only affects sessions stuck in an in-progress state
  */
-crons.interval("assimilation-timeout", { minutes: 15 },
+crons.interval(
+  'assimilation-timeout',
+  { minutes: 15 },
   internal.assimilate.scheduled.timeoutStuckSessions
 );
 
@@ -262,7 +249,7 @@ crons.interval("assimilation-timeout", { minutes: 15 },
  * - Posts an error message so the user knows what happened
  */
 crons.interval(
-  "agent-plan-timeout",
+  'agent-plan-timeout',
   { minutes: 5 },
   internal.agentPlans.scheduled.timeoutStuckPlans
 );
@@ -279,7 +266,7 @@ crons.interval(
  * @see convex/voice/scheduled.ts
  */
 crons.interval(
-  "voice-session-timeout",
+  'voice-session-timeout',
   { minutes: 2 },
   internal.voice.scheduled.timeoutOrphanedSessions
 );
@@ -295,7 +282,7 @@ crons.interval(
  * @see convex/chat/telemetryMutations.ts
  */
 crons.daily(
-  "cleanup-agent-telemetry",
+  'cleanup-agent-telemetry',
   { hourUTC: 7, minuteUTC: 0 },
   internal.chat.telemetryMutations.deleteOldTelemetry,
   { olderThanMs: 90 * 24 * 60 * 60 * 1000 }

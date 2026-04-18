@@ -1,35 +1,42 @@
-import { Text } from '@/components/ui/text'
-import { NavTaskLoader } from '@/components/nav/NavTaskLoader'
-import { cn } from '@/lib/utils'
-import { useTheme } from '@/hooks/use-theme'
-import { BookOpen, PenSquare, Search, Settings } from '@/components/ui/icons'
-import { KeyboardAvoidingView, Platform, Pressable, TextInput, View, type ViewProps } from 'react-native'
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  TextInput,
+  View,
+  type ViewProps,
+} from 'react-native';
+import { NavTaskLoader } from '@/components/nav/NavTaskLoader';
+import { BookOpen, PenSquare, Search, Settings } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { useTheme } from '@/hooks/use-theme';
+import { cn } from '@/lib/utils';
 
 /** Navigation section item */
 export interface NavSection {
-  id: string
-  label: string
-  icon: React.ReactNode
-  onPress?: () => void
+  id: string;
+  label: string;
+  icon: React.ReactNode;
+  onPress?: () => void;
 }
 
 interface DrawerHeaderProps extends Omit<ViewProps, 'children'> {
   /** Current search query */
-  searchQuery?: string
+  searchQuery?: string;
   /** Callback when search query changes */
-  onSearchChange?: (_query: string) => void
+  onSearchChange?: (_query: string) => void;
   /** Callback when New Chat button is pressed */
-  onNewChatPress?: () => void
+  onNewChatPress?: () => void;
   /** Navigation sections to display before conversations */
-  sections?: NavSection[]
+  sections?: NavSection[];
   /** Whether there are active long-running tasks */
-  hasActiveTasks?: boolean
+  hasActiveTasks?: boolean;
 }
 
 const defaultSections: NavSection[] = [
   { id: 'articles', label: 'Articles', icon: <BookOpen size={20} className="text-foreground" /> },
   { id: 'settings', label: 'Settings', icon: <Settings size={20} className="text-foreground" /> },
-]
+];
 
 /**
  * DrawerHeader displays the top section of the navigation drawer.
@@ -45,17 +52,13 @@ export function DrawerHeader({
   className,
   ...props
 }: DrawerHeaderProps) {
-  const { colors: themeColors } = useTheme()
+  const { colors: themeColors } = useTheme();
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
     >
-      <View
-        className={cn('gap-1 px-3 pb-2 pt-3', className)}
-        testID="drawer-header"
-        {...props}
-      >
+      <View className={cn('gap-1 px-3 pb-2 pt-3', className)} testID="drawer-header" {...props}>
         {/* Search Bar + Compose Icon Row */}
         <View className="mb-2 flex-row items-center gap-2">
           {/* Search Input */}
@@ -106,5 +109,5 @@ export function DrawerHeader({
         </View>
       </View>
     </KeyboardAvoidingView>
-  )
+  );
 }

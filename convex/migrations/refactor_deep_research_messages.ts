@@ -14,14 +14,13 @@
  * Run this with: npx convex run migrations/refactor_deep_research_messages:migrate
  */
 
-import { internalMutation } from "../_generated/server";
+import { internalMutation } from '../_generated/server';
 
 export const migrate = internalMutation({
   args: {},
   handler: async (ctx) => {
-
     // Query all messages
-    const messages = await ctx.db.query("chatMessages").collect();
+    const messages = await ctx.db.query('chatMessages').collect();
 
     let migratedCount = 0;
     let skippedCount = 0;
@@ -29,10 +28,7 @@ export const migrate = internalMutation({
     for (const message of messages) {
       // Only migrate deep research messages
       const cd = message.cardData as Record<string, unknown> | undefined;
-      if (
-        message.messageType !== "result_card" ||
-        !cd?.card_type
-      ) {
+      if (message.messageType !== 'result_card' || !cd?.card_type) {
         skippedCount++;
         continue;
       }
@@ -40,17 +36,13 @@ export const migrate = internalMutation({
       const cardType = cd.card_type as string;
 
       // Only migrate deep research card types
-      if (
-        cardType !== "deep_research_loading" &&
-        cardType !== "deep_research_final"
-      ) {
+      if (cardType !== 'deep_research_loading' && cardType !== 'deep_research_final') {
         skippedCount++;
         continue;
       }
 
       // Map card_type to status (domain state)
-      const status =
-        cardType === "deep_research_loading" ? "in_progress" : "completed";
+      const status = cardType === 'deep_research_loading' ? 'in_progress' : 'completed';
 
       // Create new cardData without card_type
       const { card_type, ...restCardData } = cd;
@@ -64,10 +56,7 @@ export const migrate = internalMutation({
       });
 
       migratedCount++;
-      
     }
-
-    
 
     return {
       success: true,

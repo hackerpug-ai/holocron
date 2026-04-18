@@ -4,8 +4,8 @@
  * Queries for retrieving assimilation metadata and documents
  */
 
-import { internalQuery, query } from "../_generated/server";
-import { v } from "convex/values";
+import { v } from 'convex/values';
+import { internalQuery, query } from '../_generated/server';
 
 /**
  * Check if a repository has already been assimilated
@@ -17,21 +17,20 @@ export const checkExistingAssimilation = query({
     repositoryUrl: v.string(),
   },
   handler: async (ctx, { repositoryUrl }) => {
-
     // Search for existing assimilation by repository URL
     const metadata = await ctx.db
-      .query("assimilationMetadata")
-      .withIndex("by_repository", (q) => q.eq("repositoryName", repositoryUrl.split("/").pop() ?? ""))
+      .query('assimilationMetadata')
+      .withIndex('by_repository', (q) =>
+        q.eq('repositoryName', repositoryUrl.split('/').pop() ?? '')
+      )
       .first();
 
     if (!metadata) {
-      
       return null;
     }
 
     // Fetch the associated document
     const document = await ctx.db.get(metadata.documentId);
-
 
     return {
       metadata,
@@ -51,17 +50,16 @@ export const listAssimilations = query({
     minRating: v.optional(v.number()),
   },
   handler: async (ctx, { language, minRating }) => {
-
     let results: any[];
 
     // Apply language filter if provided
     if (language) {
       results = await ctx.db
-        .query("assimilationMetadata")
-        .withIndex("by_language", (q) => q.eq("primaryLanguage", language))
+        .query('assimilationMetadata')
+        .withIndex('by_language', (q) => q.eq('primaryLanguage', language))
         .collect();
     } else {
-      results = await ctx.db.query("assimilationMetadata").collect();
+      results = await ctx.db.query('assimilationMetadata').collect();
     }
 
     // Apply minRating filter if provided
@@ -71,7 +69,6 @@ export const listAssimilations = query({
 
     // Sort by sophistication rating descending
     results.sort((a, b) => b.sophisticationRating - a.sophisticationRating);
-
 
     // Fetch associated documents for each result
     const resultsWithDocuments = await Promise.all(
@@ -95,22 +92,19 @@ export const listAssimilations = query({
  */
 export const getAssimilationByDocumentId = query({
   args: {
-    documentId: v.id("documents"),
+    documentId: v.id('documents'),
   },
   handler: async (ctx, { documentId }) => {
-
     const metadata = await ctx.db
-      .query("assimilationMetadata")
-      .withIndex("by_document", (q) => q.eq("documentId", documentId))
+      .query('assimilationMetadata')
+      .withIndex('by_document', (q) => q.eq('documentId', documentId))
       .first();
 
     if (!metadata) {
-      
       return null;
     }
 
     const document = await ctx.db.get(metadata.documentId);
-
 
     return {
       metadata,
@@ -127,15 +121,15 @@ export const getAssimilationByDocumentId = query({
  */
 export const getAssimilationSession = query({
   args: {
-    sessionId: v.id("assimilationSessions"),
+    sessionId: v.id('assimilationSessions'),
   },
   handler: async (ctx, { sessionId }) => {
     const session = await ctx.db.get(sessionId);
     if (!session) return null;
 
     const iterations = await ctx.db
-      .query("assimilationIterations")
-      .withIndex("by_session", (q) => q.eq("sessionId", sessionId))
+      .query('assimilationIterations')
+      .withIndex('by_session', (q) => q.eq('sessionId', sessionId))
       .collect();
 
     return {
@@ -151,7 +145,7 @@ export const getAssimilationSession = query({
  */
 export const getAssimilationSessionStatus = query({
   args: {
-    sessionId: v.id("assimilationSessions"),
+    sessionId: v.id('assimilationSessions'),
   },
   handler: async (ctx, { sessionId }) => {
     const session = await ctx.db.get(sessionId);
@@ -189,12 +183,18 @@ export const getActiveSessionForRepo = internalQuery({
     repositoryUrl: v.string(),
   },
   handler: async (ctx, { repositoryUrl }) => {
-    const activeStatuses = ['pending_approval', 'planning', 'approved', 'in_progress', 'synthesizing'];
+    const activeStatuses = [
+      'pending_approval',
+      'planning',
+      'approved',
+      'in_progress',
+      'synthesizing',
+    ];
 
     // Query by repository URL, then filter for active status
     const sessions = await ctx.db
-      .query("assimilationSessions")
-      .withIndex("by_repositoryUrl", (q) => q.eq("repositoryUrl", repositoryUrl))
+      .query('assimilationSessions')
+      .withIndex('by_repositoryUrl', (q) => q.eq('repositoryUrl', repositoryUrl))
       .collect();
 
     return sessions.find((s) => activeStatuses.includes(s.status)) ?? null;
@@ -206,7 +206,7 @@ export const getActiveSessionForRepo = internalQuery({
  */
 export const getSessionInternal = internalQuery({
   args: {
-    sessionId: v.id("assimilationSessions"),
+    sessionId: v.id('assimilationSessions'),
   },
   handler: async (ctx, { sessionId }) => {
     return await ctx.db.get(sessionId);
@@ -222,8 +222,8 @@ export const getActiveSessionsByStatus = internalQuery({
   },
   handler: async (ctx, { status }) => {
     return await ctx.db
-      .query("assimilationSessions")
-      .withIndex("by_status", (q) => q.eq("status", status))
+      .query('assimilationSessions')
+      .withIndex('by_status', (q) => q.eq('status', status))
       .collect();
   },
 });
@@ -233,12 +233,12 @@ export const getActiveSessionsByStatus = internalQuery({
  */
 export const listIterations = internalQuery({
   args: {
-    sessionId: v.id("assimilationSessions"),
+    sessionId: v.id('assimilationSessions'),
   },
   handler: async (ctx, { sessionId }) => {
     const iterations = await ctx.db
-      .query("assimilationIterations")
-      .withIndex("by_session", (q) => q.eq("sessionId", sessionId))
+      .query('assimilationIterations')
+      .withIndex('by_session', (q) => q.eq('sessionId', sessionId))
       .collect();
 
     return iterations.sort((a, b) => a.iterationNumber - b.iterationNumber);

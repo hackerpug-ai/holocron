@@ -32,18 +32,18 @@ export const DOCUMENT_CATEGORIES = [
   'ai-roi',
   'flights',
   'creator-analysis',
-] as const
+] as const;
 
 /**
  * Type for valid document categories
  */
-export type DocumentCategory = (typeof DOCUMENT_CATEGORIES)[number]
+export type DocumentCategory = (typeof DOCUMENT_CATEGORIES)[number];
 
 /**
  * Check if a string is a valid document category
  */
 export function isValidCategory(value: string): value is DocumentCategory {
-  return DOCUMENT_CATEGORIES.includes(value as DocumentCategory)
+  return DOCUMENT_CATEGORIES.includes(value as DocumentCategory);
 }
 
 /**
@@ -51,7 +51,10 @@ export function isValidCategory(value: string): value is DocumentCategory {
  */
 export const CATEGORY_METADATA: Record<
   DocumentCategory,
-  { label: string; color: 'blue' | 'green' | 'purple' | 'orange' | 'pink' | 'yellow' | 'cyan' | 'red' | 'gray' }
+  {
+    label: string;
+    color: 'blue' | 'green' | 'purple' | 'orange' | 'pink' | 'yellow' | 'cyan' | 'red' | 'gray';
+  }
 > = {
   research: { label: 'Research', color: 'blue' },
   'deep-research': { label: 'Deep Research', color: 'purple' },
@@ -72,18 +75,18 @@ export const CATEGORY_METADATA: Record<
   'ai-roi': { label: 'AI ROI', color: 'blue' },
   flights: { label: 'Flights', color: 'cyan' },
   'creator-analysis': { label: 'Creator Analysis', color: 'purple' },
-}
+};
 
 /**
  * Default category when none is specified or when mapping fails
  */
-export const DEFAULT_CATEGORY: DocumentCategory = 'general'
+export const DEFAULT_CATEGORY: DocumentCategory = 'general';
 
 /**
  * Map any string to a valid category, falling back to default
  */
 export function mapToCategory(value: string | undefined | null): DocumentCategory {
-  if (!value) return DEFAULT_CATEGORY
-  if (isValidCategory(value)) return value
-  return DEFAULT_CATEGORY
+  if (!value) return DEFAULT_CATEGORY;
+  if (isValidCategory(value)) return value;
+  return DEFAULT_CATEGORY;
 }

@@ -1,16 +1,16 @@
-import { mutation } from "../_generated/server";
-import { v } from "convex/values";
+import { v } from 'convex/values';
+import { mutation } from '../_generated/server';
 
 const deepResearchSessionStatus = v.union(
-  v.literal("pending"),
-  v.literal("running"),
-  v.literal("in_progress"),
-  v.literal("in-progress"),
-  v.literal("completed"),
-  v.literal("cancelled"),
-  v.literal("error"),
-  v.literal("failed"),
-  v.literal("timeout")
+  v.literal('pending'),
+  v.literal('running'),
+  v.literal('in_progress'),
+  v.literal('in-progress'),
+  v.literal('completed'),
+  v.literal('cancelled'),
+  v.literal('error'),
+  v.literal('failed'),
+  v.literal('timeout')
 );
 
 /**
@@ -18,15 +18,15 @@ const deepResearchSessionStatus = v.union(
  */
 export const create = mutation({
   args: {
-    conversationId: v.id("conversations"),
-    taskId: v.optional(v.id("tasks")),
+    conversationId: v.id('conversations'),
+    taskId: v.optional(v.id('tasks')),
     topic: v.string(),
     maxIterations: v.optional(v.number()),
     status: deepResearchSessionStatus,
   },
   handler: async (ctx, args) => {
     const now = Date.now();
-    return await ctx.db.insert("deepResearchSessions", {
+    return await ctx.db.insert('deepResearchSessions', {
       ...args,
       createdAt: now,
       updatedAt: now,
@@ -39,8 +39,8 @@ export const create = mutation({
  */
 export const update = mutation({
   args: {
-    id: v.id("deepResearchSessions"),
-    taskId: v.optional(v.id("tasks")),
+    id: v.id('deepResearchSessions'),
+    taskId: v.optional(v.id('tasks')),
     maxIterations: v.optional(v.number()),
     status: v.optional(deepResearchSessionStatus),
     completedAt: v.optional(v.number()),
@@ -65,8 +65,8 @@ export const update = mutation({
  */
 export const insertFromMigration = mutation({
   args: {
-    conversationId: v.id("conversations"),
-    taskId: v.optional(v.id("tasks")),
+    conversationId: v.id('conversations'),
+    taskId: v.optional(v.id('tasks')),
     topic: v.string(),
     maxIterations: v.optional(v.number()),
     status: deepResearchSessionStatus,
@@ -75,7 +75,7 @@ export const insertFromMigration = mutation({
     completedAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    return await ctx.db.insert("deepResearchSessions", args);
+    return await ctx.db.insert('deepResearchSessions', args);
   },
 });
 
@@ -86,12 +86,10 @@ export const insertFromMigration = mutation({
 export const clearAll = mutation({
   args: {},
   handler: async (ctx) => {
-    if (process.env.ALLOW_CLEAR_ALL !== "true") {
-      throw new Error(
-        "clearAll is disabled. Set ALLOW_CLEAR_ALL=true to enable."
-      );
+    if (process.env.ALLOW_CLEAR_ALL !== 'true') {
+      throw new Error('clearAll is disabled. Set ALLOW_CLEAR_ALL=true to enable.');
     }
-    const sessions = await ctx.db.query("deepResearchSessions").collect();
+    const sessions = await ctx.db.query('deepResearchSessions').collect();
     for (const session of sessions) {
       await ctx.db.delete(session._id);
     }

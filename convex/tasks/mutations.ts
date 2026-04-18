@@ -1,5 +1,5 @@
-import { mutation } from "../_generated/server";
-import { v } from "convex/values";
+import { v } from 'convex/values';
+import { mutation } from '../_generated/server';
 
 // ============================================================
 // Task Management Mutations (US-054)
@@ -15,23 +15,23 @@ import { v } from "convex/values";
  */
 export const start = mutation({
   args: {
-    conversationId: v.optional(v.id("conversations")),
+    conversationId: v.optional(v.id('conversations')),
     taskType: v.union(
-      v.literal("deep-research"),
-      v.literal("research"),
-      v.literal("assimilate"),
-      v.literal("shop"),
-      v.literal("research-loop")
+      v.literal('deep-research'),
+      v.literal('research'),
+      v.literal('assimilate'),
+      v.literal('shop'),
+      v.literal('research-loop')
     ),
     config: v.optional(v.any()),
   },
   handler: async (ctx, { conversationId, taskType, config }) => {
     const now = Date.now();
 
-    const taskId = await ctx.db.insert("tasks", {
+    const taskId = await ctx.db.insert('tasks', {
       conversationId,
       taskType,
-      status: "pending",
+      status: 'pending',
       config,
       createdAt: now,
       updatedAt: now,
@@ -50,19 +50,19 @@ export const start = mutation({
  * AC-4: Running task -> Cancel task -> Status becomes cancelled
  */
 export const cancel = mutation({
-  args: { id: v.id("tasks") },
+  args: { id: v.id('tasks') },
   handler: async (ctx, { id }) => {
     const task = await ctx.db.get(id);
     if (!task) {
       throw new Error(`Task ${id} not found`);
     }
 
-    if (task.status === "completed" || task.status === "error") {
+    if (task.status === 'completed' || task.status === 'error') {
       throw new Error(`Cannot cancel task in ${task.status} state`);
     }
 
     await ctx.db.patch(id, {
-      status: "cancelled",
+      status: 'cancelled',
       updatedAt: Date.now(),
       completedAt: Date.now(),
     });
@@ -81,7 +81,7 @@ export const cancel = mutation({
  */
 export const updateProgress = mutation({
   args: {
-    id: v.id("tasks"),
+    id: v.id('tasks'),
     currentStep: v.optional(v.number()),
     totalSteps: v.optional(v.number()),
     progressMessage: v.optional(v.string()),
@@ -104,15 +104,15 @@ export const updateProgress = mutation({
  */
 export const updateStatus = mutation({
   args: {
-    id: v.id("tasks"),
+    id: v.id('tasks'),
     status: v.union(
-      v.literal("pending"),
-      v.literal("queued"),
-      v.literal("loading"),
-      v.literal("running"),
-      v.literal("completed"),
-      v.literal("error"),
-      v.literal("cancelled")
+      v.literal('pending'),
+      v.literal('queued'),
+      v.literal('loading'),
+      v.literal('running'),
+      v.literal('completed'),
+      v.literal('error'),
+      v.literal('cancelled')
     ),
   },
   handler: async (ctx, { id, status }) => {
@@ -122,10 +122,10 @@ export const updateStatus = mutation({
     };
 
     // Set timestamps for status transitions
-    if (status === "running") {
+    if (status === 'running') {
       updates.startedAt = Date.now();
     }
-    if (status === "completed" || status === "error" || status === "cancelled") {
+    if (status === 'completed' || status === 'error' || status === 'cancelled') {
       updates.completedAt = Date.now();
     }
 
@@ -140,12 +140,12 @@ export const updateStatus = mutation({
  */
 export const complete = mutation({
   args: {
-    id: v.id("tasks"),
+    id: v.id('tasks'),
     result: v.any(),
   },
   handler: async (ctx, { id, result }) => {
     await ctx.db.patch(id, {
-      status: "completed",
+      status: 'completed',
       result,
       completedAt: Date.now(),
       updatedAt: Date.now(),
@@ -160,13 +160,13 @@ export const complete = mutation({
  */
 export const fail = mutation({
   args: {
-    id: v.id("tasks"),
+    id: v.id('tasks'),
     errorMessage: v.string(),
     errorDetails: v.optional(v.any()),
   },
   handler: async (ctx, { id, errorMessage, errorDetails }) => {
     await ctx.db.patch(id, {
-      status: "error",
+      status: 'error',
       errorMessage,
       errorDetails,
       completedAt: Date.now(),
@@ -184,16 +184,16 @@ export const fail = mutation({
  */
 export const insertFromMigration = mutation({
   args: {
-    conversationId: v.optional(v.id("conversations")),
+    conversationId: v.optional(v.id('conversations')),
     taskType: v.string(),
     status: v.union(
-      v.literal("pending"),
-      v.literal("queued"),
-      v.literal("loading"),
-      v.literal("running"),
-      v.literal("completed"),
-      v.literal("error"),
-      v.literal("cancelled")
+      v.literal('pending'),
+      v.literal('queued'),
+      v.literal('loading'),
+      v.literal('running'),
+      v.literal('completed'),
+      v.literal('error'),
+      v.literal('cancelled')
     ),
     config: v.optional(v.any()),
     currentStep: v.optional(v.number()),
@@ -208,7 +208,7 @@ export const insertFromMigration = mutation({
     updatedAt: v.number(),
   },
   handler: async (ctx, args) => {
-    return await ctx.db.insert("tasks", args);
+    return await ctx.db.insert('tasks', args);
   },
 });
 
@@ -219,12 +219,10 @@ export const insertFromMigration = mutation({
 export const clearAll = mutation({
   args: {},
   handler: async (ctx) => {
-    if (process.env.ALLOW_CLEAR_ALL !== "true") {
-      throw new Error(
-        "clearAll is disabled. Set ALLOW_CLEAR_ALL=true to enable."
-      );
+    if (process.env.ALLOW_CLEAR_ALL !== 'true') {
+      throw new Error('clearAll is disabled. Set ALLOW_CLEAR_ALL=true to enable.');
     }
-    const tasks = await ctx.db.query("tasks").collect();
+    const tasks = await ctx.db.query('tasks').collect();
     for (const task of tasks) {
       await ctx.db.delete(task._id);
     }

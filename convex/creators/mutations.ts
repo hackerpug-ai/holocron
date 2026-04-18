@@ -1,9 +1,6 @@
-import { mutation } from "../_generated/server";
-import { v } from "convex/values";
-import {
-  createCreatorProfileValidator,
-  updateCreatorProfileValidator,
-} from "./validators";
+import { v } from 'convex/values';
+import { mutation } from '../_generated/server';
+import { createCreatorProfileValidator, updateCreatorProfileValidator } from './validators';
 
 /**
  * Create a new creator profile
@@ -13,19 +10,16 @@ export const create = mutation({
   handler: async (ctx, args) => {
     // Check if handle already exists
     // Scan index range and filter in-memory for exact handle match
-    const results = await ctx.db
-      .query("creatorProfiles")
-      .withIndex("by_handle")
-      .take(1);
+    const results = await ctx.db.query('creatorProfiles').withIndex('by_handle').take(1);
 
-    const existing = results.find(c => c.handle === args.handle);
+    const existing = results.find((c) => c.handle === args.handle);
 
     if (existing) {
       throw new Error(`Creator with handle "${args.handle}" already exists`);
     }
 
     const now = Date.now();
-    const profileId = await ctx.db.insert("creatorProfiles", {
+    const profileId = await ctx.db.insert('creatorProfiles', {
       name: args.name,
       handle: args.handle,
       canonicalType: args.canonicalType,
@@ -49,7 +43,7 @@ export const update = mutation({
   handler: async (ctx, args) => {
     const profile = await ctx.db.get(args.profileId);
     if (!profile) {
-      throw new Error("Creator profile not found");
+      throw new Error('Creator profile not found');
     }
 
     const updates: Record<string, unknown> = {
@@ -79,12 +73,12 @@ export const update = mutation({
  */
 export const remove = mutation({
   args: {
-    profileId: v.id("creatorProfiles"),
+    profileId: v.id('creatorProfiles'),
   },
   handler: async (ctx, args) => {
     const profile = await ctx.db.get(args.profileId);
     if (!profile) {
-      throw new Error("Creator profile not found");
+      throw new Error('Creator profile not found');
     }
 
     // Note: We don't cascade delete subscriptions

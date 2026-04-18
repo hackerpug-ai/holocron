@@ -3,6 +3,6 @@
  * Exports all queries and mutations
  */
 
-export * from "./queries";
-export * from "./mutations";
-export * from "./internal";
+export * from './internal';
+export * from './mutations';
+export * from './queries';

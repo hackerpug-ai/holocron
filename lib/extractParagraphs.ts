@@ -8,8 +8,8 @@
  */
 
 export interface FrontendParagraph {
-  index: number
-  text: string
+  index: number;
+  text: string;
 }
 
 /**
@@ -18,42 +18,42 @@ export interface FrontendParagraph {
  * and cleaned text (no hash — that's only needed server-side).
  */
 export function extractParagraphs(markdown: string): FrontendParagraph[] {
-  let text = markdown
+  let text = markdown;
 
   // Strip fenced code blocks
-  text = text.replace(/```[\s\S]*?```/g, '')
+  text = text.replace(/```[\s\S]*?```/g, '');
 
   // Strip inline images ![alt](url)
-  text = text.replace(/!\[([^\]]*)\]\([^)]*\)/g, '')
+  text = text.replace(/!\[([^\]]*)\]\([^)]*\)/g, '');
 
   // Strip HTML tags
-  text = text.replace(/<[^>]+>/g, '')
+  text = text.replace(/<[^>]+>/g, '');
 
   // Split on double newlines to get logical paragraphs
-  const rawBlocks = text.split(/\n{2,}/)
+  const rawBlocks = text.split(/\n{2,}/);
 
-  const segments: FrontendParagraph[] = []
-  let index = 0
+  const segments: FrontendParagraph[] = [];
+  let index = 0;
 
   for (const block of rawBlocks) {
-    const trimmed = block.trim()
-    if (!trimmed) continue
+    const trimmed = block.trim();
+    if (!trimmed) continue;
 
     // Heading lines become their own segment (for natural pacing)
     if (/^#{1,6}\s+/.test(trimmed)) {
-      const headingText = trimmed.replace(/^#{1,6}\s+/, '')
-      segments.push({ index, text: headingText })
-      index += 1
-      continue
+      const headingText = trimmed.replace(/^#{1,6}\s+/, '');
+      segments.push({ index, text: headingText });
+      index += 1;
+      continue;
     }
 
     // Regular paragraph — collapse internal newlines to spaces
-    const segmentText = trimmed.replace(/\n/g, ' ')
-    segments.push({ index, text: segmentText })
-    index += 1
+    const segmentText = trimmed.replace(/\n/g, ' ');
+    segments.push({ index, text: segmentText });
+    index += 1;
   }
 
-  return segments
+  return segments;
 }
 
 /**
@@ -61,5 +61,5 @@ export function extractParagraphs(markdown: string): FrontendParagraph[] {
  * extractParagraphs logic in convex/audio/actions.ts.
  */
 export function extractParagraphCount(markdown: string): number {
-  return extractParagraphs(markdown).length
+  return extractParagraphs(markdown).length;
 }

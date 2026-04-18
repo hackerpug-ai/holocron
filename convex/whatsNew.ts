@@ -1,9 +1,9 @@
-import { v } from "convex/values";
-import { query, mutation, action, internalAction } from "./_generated/server";
-import { internal, api } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
-import { embed } from "ai";
-import { cohereEmbedding } from "./lib/ai/embeddings_provider";
+import { embed } from 'ai';
+import { v } from 'convex/values';
+import { api, internal } from './_generated/api';
+import type { Id } from './_generated/dataModel';
+import { action, internalAction, mutation, query } from './_generated/server';
+import { cohereEmbedding } from './lib/ai/embeddings_provider';
 
 // ============================================================================
 // Queries
@@ -19,12 +19,12 @@ export const getRecentReports = query({
   },
   handler: async (ctx, args) => {
     const daysAgo = args.daysAgo ?? 3;
-    const cutoff = Date.now() - (daysAgo * 24 * 60 * 60 * 1000);
+    const cutoff = Date.now() - daysAgo * 24 * 60 * 60 * 1000;
 
     const reports = await ctx.db
-      .query("whatsNewReports")
-      .withIndex("by_created", (q) => q.gt("createdAt", cutoff))
-      .order("desc")
+      .query('whatsNewReports')
+      .withIndex('by_created', (q) => q.gt('createdAt', cutoff))
+      .order('desc')
       .take(5);
 
     return reports;
@@ -40,16 +40,13 @@ export const getRecentSubscriptionContent = query({
     daysAgo: v.number(), // 1-90 days
   },
   handler: async (ctx, args) => {
-    const cutoff = Date.now() - (args.daysAgo * 24 * 60 * 60 * 1000);
+    const cutoff = Date.now() - args.daysAgo * 24 * 60 * 60 * 1000;
 
     // Get all content from the period (order by discoveredAt desc)
-    const allContent = await ctx.db
-      .query("subscriptionContent")
-      .order("desc")
-      .collect();
+    const allContent = await ctx.db.query('subscriptionContent').order('desc').collect();
 
     // Filter by date and passed filter
-    const _filteredContent = allContent.filter(c => c.discoveredAt > cutoff && c.passedFilter);
+    const _filteredContent = allContent.filter((c) => c.discoveredAt > cutoff && c.passedFilter);
 
     // Fetch sources to get type info
     const contentWithSource = await Promise.all(
@@ -57,21 +54,21 @@ export const getRecentSubscriptionContent = query({
         const source = await ctx.db.get(content.sourceId);
         return {
           ...content,
-          sourceType: source?.sourceType ?? "unknown",
-          sourceIdentifier: source?.identifier ?? "",
-          sourceName: source?.name ?? "",
+          sourceType: source?.sourceType ?? 'unknown',
+          sourceIdentifier: source?.identifier ?? '',
+          sourceName: source?.name ?? '',
         };
       })
     );
 
     // Group by source type
     const grouped = {
-      youtube: contentWithSource.filter(c => c.sourceType === "youtube"),
-      newsletter: contentWithSource.filter(c => c.sourceType === "newsletter"),
-      changelog: contentWithSource.filter(c => c.sourceType === "changelog"),
-      reddit: contentWithSource.filter(c => c.sourceType === "reddit"),
-      ebay: contentWithSource.filter(c => c.sourceType === "ebay"),
-      "whats-new": contentWithSource.filter(c => c.sourceType === "whats-new"),
+      youtube: contentWithSource.filter((c) => c.sourceType === 'youtube'),
+      newsletter: contentWithSource.filter((c) => c.sourceType === 'newsletter'),
+      changelog: contentWithSource.filter((c) => c.sourceType === 'changelog'),
+      reddit: contentWithSource.filter((c) => c.sourceType === 'reddit'),
+      ebay: contentWithSource.filter((c) => c.sourceType === 'ebay'),
+      'whats-new': contentWithSource.filter((c) => c.sourceType === 'whats-new'),
     };
 
     return {
@@ -89,9 +86,9 @@ export const getLatestReport = query({
   args: {},
   handler: async (ctx) => {
     const report = await ctx.db
-      .query("whatsNewReports")
-      .withIndex("by_created")
-      .order("desc")
+      .query('whatsNewReports')
+      .withIndex('by_created')
+      .order('desc')
       .first();
 
     return report;
@@ -122,28 +119,32 @@ export const saveReportInternal = mutation({
     trendCount: v.number(),
     reportPath: v.string(),
     summaryJson: v.optional(v.any()),
-    findings: v.optional(v.array(v.object({
-      title: v.string(),
-      url: v.optional(v.string()),
-      source: v.string(),
-      score: v.optional(v.number()),
-      timestamp: v.optional(v.number()),
-      summary: v.optional(v.string()),
-      tags: v.optional(v.array(v.string())),
-      embedding: v.optional(v.array(v.float64())),
-    }))),
+    findings: v.optional(
+      v.array(
+        v.object({
+          title: v.string(),
+          url: v.optional(v.string()),
+          source: v.string(),
+          score: v.optional(v.number()),
+          timestamp: v.optional(v.number()),
+          summary: v.optional(v.string()),
+          tags: v.optional(v.array(v.string())),
+          embedding: v.optional(v.array(v.float64())),
+        })
+      )
+    ),
   },
   handler: async (ctx, args) => {
     const now = Date.now();
     const identifier = `whats-new-${new Date(args.periodStart).toISOString().split('T')[0]}`;
 
     // Create subscription source for this whats-new run
-    const sourceId = await ctx.db.insert("subscriptionSources", {
-      sourceType: "whats-new",
+    const sourceId = await ctx.db.insert('subscriptionSources', {
+      sourceType: 'whats-new',
       identifier,
       name: `What's New: ${new Date(args.periodStart).toLocaleDateString()} - ${new Date(args.periodEnd).toLocaleDateString()}`,
       url: args.reportPath,
-      fetchMethod: "api",
+      fetchMethod: 'api',
       configJson: {
         periodStart: args.periodStart,
         periodEnd: args.periodEnd,
@@ -160,7 +161,7 @@ export const saveReportInternal = mutation({
     // Insert individual findings as content items with embeddings
     if (args.findings && args.findings.length > 0) {
       for (const finding of args.findings) {
-        await ctx.db.insert("subscriptionContent", {
+        await ctx.db.insert('subscriptionContent', {
           sourceId,
           contentId: `${identifier}-${finding.title.substring(0, 50).replace(/[^a-zA-Z0-9]/g, '-')}`,
           title: finding.title,
@@ -174,7 +175,7 @@ export const saveReportInternal = mutation({
             tags: finding.tags,
           },
           passedFilter: true,
-          researchStatus: "researched" as const,
+          researchStatus: 'researched' as const,
           discoveredAt: finding.timestamp || now,
           researchedAt: now,
           inFeed: false,
@@ -183,7 +184,7 @@ export const saveReportInternal = mutation({
     }
 
     // Keep whatsNewReports table for lightweight summary/stats only
-    const reportId = await ctx.db.insert("whatsNewReports", {
+    const reportId = await ctx.db.insert('whatsNewReports', {
       periodStart: args.periodStart,
       periodEnd: args.periodEnd,
       days: args.days,
@@ -239,22 +240,26 @@ export const saveReportWithEmbeddings = internalAction({
     trendCount: v.number(),
     reportPath: v.string(),
     summaryJson: v.optional(v.any()),
-    findings: v.optional(v.array(v.object({
-      title: v.string(),
-      url: v.optional(v.string()),
-      source: v.string(),
-      score: v.optional(v.number()),
-      timestamp: v.optional(v.number()),
-      summary: v.optional(v.string()),
-      tags: v.optional(v.array(v.string())),
-      embedding: v.optional(v.array(v.float64())),
-    }))),
+    findings: v.optional(
+      v.array(
+        v.object({
+          title: v.string(),
+          url: v.optional(v.string()),
+          source: v.string(),
+          score: v.optional(v.number()),
+          timestamp: v.optional(v.number()),
+          summary: v.optional(v.string()),
+          tags: v.optional(v.array(v.string())),
+          embedding: v.optional(v.array(v.float64())),
+        })
+      )
+    ),
   },
-  handler: async (ctx, args): Promise<Id<"whatsNewReports">> => {
+  handler: async (ctx, args): Promise<Id<'whatsNewReports'>> => {
     // Generate embeddings for all findings in parallel
     const embeddings: number[][] = [];
     if (args.findings && args.findings.length > 0) {
-      const embeddingPromises = args.findings.map(finding =>
+      const embeddingPromises = args.findings.map((finding) =>
         generateFindingEmbedding(finding.title)
       );
       const generatedEmbeddings = await Promise.all(embeddingPromises);
@@ -303,18 +308,22 @@ export const saveReportWithEmbeddingsPublic = action({
     trendCount: v.number(),
     reportPath: v.string(),
     summaryJson: v.optional(v.any()),
-    findings: v.optional(v.array(v.object({
-      title: v.string(),
-      url: v.optional(v.string()),
-      source: v.string(),
-      score: v.optional(v.number()),
-      timestamp: v.optional(v.number()),
-      summary: v.optional(v.string()),
-      tags: v.optional(v.array(v.string())),
-      embedding: v.optional(v.array(v.float64())),
-    }))),
+    findings: v.optional(
+      v.array(
+        v.object({
+          title: v.string(),
+          url: v.optional(v.string()),
+          source: v.string(),
+          score: v.optional(v.number()),
+          timestamp: v.optional(v.number()),
+          summary: v.optional(v.string()),
+          tags: v.optional(v.array(v.string())),
+          embedding: v.optional(v.array(v.float64())),
+        })
+      )
+    ),
   },
-  handler: async (ctx, args): Promise<Id<"whatsNewReports">> => {
+  handler: async (ctx, args): Promise<Id<'whatsNewReports'>> => {
     // Delegate to the internal action
     return await ctx.runAction(internal.whatsNew.saveReportWithEmbeddings, args);
   },

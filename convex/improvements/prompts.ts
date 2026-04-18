@@ -57,26 +57,26 @@ type DedupCandidate = {
 export const buildUserPrompt = (
   description: string,
   candidates: DedupCandidate[],
-  userFeedback?: string,
+  userFeedback?: string
 ): string => {
   const candidatesSection =
     candidates.length === 0
-      ? "None found."
+      ? 'None found.'
       : candidates
           .map((c, i) => {
-            const title = c.title ?? "(no title)";
+            const title = c.title ?? '(no title)';
             const snippet =
               c.description != null && c.description.length > 0
-                ? c.description.slice(0, 200) + (c.description.length > 200 ? "..." : "")
-                : "(no description)";
+                ? c.description.slice(0, 200) + (c.description.length > 200 ? '...' : '')
+                : '(no description)';
             return `${i + 1}. ID: ${c._id}\n   Title: ${title}\n   Description: ${snippet}\n   Similarity score: ${c.score.toFixed(3)}`;
           })
-          .join("\n\n");
+          .join('\n\n');
 
   const feedbackSection =
     userFeedback != null && userFeedback.trim().length > 0
       ? `\n## User Feedback on Previous Classification\n\n${userFeedback.trim()}\n\nRe-evaluate your decision in light of this feedback.`
-      : "";
+      : '';
 
   return `## New Improvement Request
 

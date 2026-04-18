@@ -11,19 +11,19 @@
  * Check status: npx convex run migrations/backfill_chat_titles:status
  */
 
-import { action, internalQuery } from "../_generated/server";
-import { v } from "convex/values";
-import { internal } from "../_generated/api";
-import type { Id } from "../_generated/dataModel";
+import { v } from 'convex/values';
+import { internal } from '../_generated/api';
+import type { Id } from '../_generated/dataModel';
+import { action, internalQuery } from '../_generated/server';
 
 interface ConversationNeedingTitle {
-  _id: Id<"conversations">;
+  _id: Id<'conversations'>;
   title: string;
   titleSetByUser?: boolean;
 }
 
 interface BackfillResult {
-  status: "complete" | "partial";
+  status: 'complete' | 'partial';
   processed: number;
   scheduled: number;
   skipped: number;
@@ -39,16 +39,13 @@ interface BackfillResult {
 export const getConversationsNeedingTitles = internalQuery({
   args: {},
   handler: async (ctx): Promise<ConversationNeedingTitle[]> => {
-    const conversations = await ctx.db.query("conversations").collect();
+    const conversations = await ctx.db.query('conversations').collect();
 
     // Filter to conversations that need titles:
     // - Title is "New Chat" or empty/whitespace
     // - titleSetByUser is NOT true (respect user-set titles)
     return conversations.filter((conv) => {
-      const needsTitle =
-        !conv.title ||
-        conv.title.trim() === "" ||
-        conv.title === "New Chat";
+      const needsTitle = !conv.title || conv.title.trim() === '' || conv.title === 'New Chat';
       const notUserSet = conv.titleSetByUser !== true;
       return needsTitle && notUserSet;
     });
@@ -65,12 +62,7 @@ export const backfill = action({
     batchSize: v.optional(v.number()), // Process in batches to avoid timeouts (default: 10)
     dryRun: v.optional(v.boolean()), // Log what would be done without executing
   },
-  handler: async (
-    ctx,
-    { batchSize = 10, dryRun = false }
-  ): Promise<BackfillResult> => {
-    
-
+  handler: async (ctx, { batchSize = 10, dryRun = false }): Promise<BackfillResult> => {
     // Step 1: Find all conversations needing titles
     const allConversations = (await ctx.runQuery(
       internal.migrations.backfill_chat_titles.getConversationsNeedingTitles,
@@ -78,23 +70,22 @@ export const backfill = action({
     )) as ConversationNeedingTitle[];
 
     const totalConversations = allConversations.length;
-    
 
     if (totalConversations === 0) {
       return {
-        status: "complete",
+        status: 'complete',
         processed: 0,
         scheduled: 0,
         skipped: 0,
         errors: 0,
         remaining: 0,
-        message: "All conversations already have titles",
+        message: 'All conversations already have titles',
       };
     }
 
     // Step 2: Process in batches
     let scheduled = 0;
-    let skipped = 0;
+    const skipped = 0;
     let errors = 0;
     const processedConversationIds: string[] = [];
 
@@ -103,7 +94,6 @@ export const backfill = action({
 
       try {
         if (dryRun) {
-          
           scheduled++;
           processedConversationIds.push(conversation._id);
         } else {
@@ -114,7 +104,7 @@ export const backfill = action({
             (internal as any).chat.index.generateChatTitle,
             { conversationId: conversation._id }
           );
-          
+
           scheduled++;
           processedConversationIds.push(conversation._id);
         }
@@ -131,10 +121,10 @@ export const backfill = action({
 
     const message = dryRun
       ? `DRY RUN: Would generate titles for ${scheduled} conversations. Run again with dryRun: false to execute.`
-      : `Scheduled ${scheduled} title generations. ${remaining} conversations remaining.${remaining > 0 ? " Run again to process more." : ""}`;
+      : `Scheduled ${scheduled} title generations. ${remaining} conversations remaining.${remaining > 0 ? ' Run again to process more.' : ''}`;
 
     return {
-      status: remaining > 0 ? "partial" : "complete",
+      status: remaining > 0 ? 'partial' : 'complete',
       processed: Math.min(batchSize, totalConversations),
       scheduled,
       skipped,
@@ -164,9 +154,7 @@ export const status = action({
       {}
     )) as ConversationNeedingTitle[];
 
-    const sampleTitles = conversationsNeeding
-      .slice(0, 10)
-      .map((c) => `${c._id}: "${c.title}"`);
+    const sampleTitles = conversationsNeeding.slice(0, 10).map((c) => `${c._id}: "${c.title}"`);
 
     return {
       conversationsNeedingTitles: conversationsNeeding.length,

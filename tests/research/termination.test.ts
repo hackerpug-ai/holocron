@@ -5,16 +5,16 @@
  * when multiple conditions are met simultaneously.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  shouldContinueResearch,
-  DEFAULT_CRITERIA,
   createCostAwareCriteria,
-  createTimeAwareCriteria,
   createFastCriteria,
   createThoroughCriteria,
-  type TerminationCriteria,
+  createTimeAwareCriteria,
+  DEFAULT_CRITERIA,
   type LoopMetrics,
+  shouldContinueResearch,
+  type TerminationCriteria,
 } from '../../convex/research/termination';
 
 describe('Research Termination Logic', () => {

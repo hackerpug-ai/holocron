@@ -17,33 +17,33 @@
  * Uses Text from @/components/ui/text, theme tokens from useTheme().
  */
 
-import { useEffect, useRef } from 'react'
-import { FlatList, StyleSheet, View } from 'react-native'
+import { useEffect, useRef } from 'react';
+import { FlatList, StyleSheet, View } from 'react-native';
 import Animated, {
   FadeInDown,
-  useSharedValue,
   useAnimatedStyle,
+  useSharedValue,
   withRepeat,
   withTiming,
-} from 'react-native-reanimated'
-import { Text } from '@/components/ui/text'
-import { useTheme } from '@/hooks/use-theme'
+} from 'react-native-reanimated';
+import { Text } from '@/components/ui/text';
+import { useTheme } from '@/hooks/use-theme';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
 export interface TranscriptEntry {
-  id: string
-  speaker: 'user' | 'agent'
-  text: string
-  timestamp: string
-  isPartial?: boolean
+  id: string;
+  speaker: 'user' | 'agent';
+  text: string;
+  timestamp: string;
+  isPartial?: boolean;
 }
 
 export interface VoiceTranscriptFeedProps {
   /** Array of transcript entries to display */
-  transcript: TranscriptEntry[]
+  transcript: TranscriptEntry[];
   /** Optional testID for the root container */
-  testID?: string
+  testID?: string;
 }
 
 // ─── Sub-components ────────────────────────────────────────────────────────────
@@ -53,29 +53,17 @@ export interface VoiceTranscriptFeedProps {
  * Uses 500ms opacity cycle (250ms fade out, 250ms fade in) via Reanimated.
  */
 function BlinkingCursor({ color }: { color: string }) {
-  const opacity = useSharedValue(1)
+  const opacity = useSharedValue(1);
 
   useEffect(() => {
-    opacity.value = withRepeat(
-      withTiming(0, { duration: 250 }),
-      -1,
-      true
-    )
-  }, [])
+    opacity.value = withRepeat(withTiming(0, { duration: 250 }), -1, true);
+  }, []);
 
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
-  }))
+  }));
 
-  return (
-    <Animated.View
-      style={[
-        styles.cursor,
-        { backgroundColor: color },
-        animatedStyle,
-      ]}
-    />
-  )
+  return <Animated.View style={[styles.cursor, { backgroundColor: color }, animatedStyle]} />;
 }
 
 /**
@@ -88,13 +76,13 @@ function TranscriptEntryItem({
   radius,
   isLast,
 }: {
-  entry: TranscriptEntry
-  colors: ReturnType<typeof useTheme>['colors']
-  spacing: ReturnType<typeof useTheme>['spacing']
-  radius: ReturnType<typeof useTheme>['radius']
-  isLast: boolean
+  entry: TranscriptEntry;
+  colors: ReturnType<typeof useTheme>['colors'];
+  spacing: ReturnType<typeof useTheme>['spacing'];
+  radius: ReturnType<typeof useTheme>['radius'];
+  isLast: boolean;
 }) {
-  const isUser = entry.speaker === 'user'
+  const isUser = entry.speaker === 'user';
 
   return (
     <Animated.View entering={FadeInDown.duration(300)}>
@@ -163,7 +151,7 @@ function TranscriptEntryItem({
         </View>
       </View>
     </Animated.View>
-  )
+  );
 }
 
 // ─── Main Component ────────────────────────────────────────────────────────────
@@ -185,19 +173,19 @@ export function VoiceTranscriptFeed({
   transcript,
   testID = 'voice-transcript-feed',
 }: VoiceTranscriptFeedProps) {
-  const { colors, spacing, radius } = useTheme()
-  const flatListRef = useRef<FlatList<TranscriptEntry>>(null)
+  const { colors, spacing, radius } = useTheme();
+  const flatListRef = useRef<FlatList<TranscriptEntry>>(null);
 
   // Auto-scroll to bottom when new entries are added
   useEffect(() => {
     if (transcript.length > 0) {
       // Small delay to ensure layout is complete
       const timer = setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true })
-      }, 50)
-      return () => clearTimeout(timer)
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 50);
+      return () => clearTimeout(timer);
     }
-  }, [transcript])
+  }, [transcript]);
 
   const renderItem = ({ item, index }: { item: TranscriptEntry; index: number }) => (
     <TranscriptEntryItem
@@ -207,7 +195,7 @@ export function VoiceTranscriptFeed({
       radius={radius}
       isLast={index === transcript.length - 1}
     />
-  )
+  );
 
   return (
     <View
@@ -227,10 +215,7 @@ export function VoiceTranscriptFeed({
         keyExtractor={(item) => item.id}
         inverted={false}
         scrollEnabled={transcript.length > 0}
-        contentContainerStyle={[
-          styles.listContent,
-          transcript.length === 0 && styles.emptyList,
-        ]}
+        contentContainerStyle={[styles.listContent, transcript.length === 0 && styles.emptyList]}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Text variant="muted" className="text-sm" style={{ color: colors.mutedForeground }}>
@@ -240,7 +225,7 @@ export function VoiceTranscriptFeed({
         }
       />
     </View>
-  )
+  );
 }
 
 // ─── Styles ────────────────────────────────────────────────────────────────────
@@ -290,4 +275,4 @@ const styles = StyleSheet.create({
     height: 16, // ~14px font size + a bit
     marginLeft: 2,
   },
-})
+});

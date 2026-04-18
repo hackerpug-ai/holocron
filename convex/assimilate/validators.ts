@@ -14,7 +14,7 @@ export const ALL_DIMENSIONS = [
   'testing',
 ] as const;
 
-export type AssimilationDimension = typeof ALL_DIMENSIONS[number];
+export type AssimilationDimension = (typeof ALL_DIMENSIONS)[number];
 
 export type IterationDimension = AssimilationDimension | 'planning';
 
@@ -39,10 +39,10 @@ export type AssimilationProfile = 'fast' | 'standard' | 'thorough';
 
 export interface AssimilationTerminationCriteria {
   maxIterations: number;
-  minOverallCoverage: number;     // 0-100
+  minOverallCoverage: number; // 0-100
   maxCostUsd: number;
   maxDurationMs: number;
-  noveltyThreshold: number;       // 0-100, below = saturated
+  noveltyThreshold: number; // 0-100, below = saturated
 }
 
 // ── Dimension scores ─────────────────────────────────────────────────────────
@@ -78,22 +78,22 @@ export const PROFILE_CRITERIA: Record<AssimilationProfile, AssimilationTerminati
   fast: {
     maxIterations: 4,
     minOverallCoverage: 60,
-    maxCostUsd: 0.50,
-    maxDurationMs: 5 * 60 * 1000,   // 5 min
+    maxCostUsd: 0.5,
+    maxDurationMs: 5 * 60 * 1000, // 5 min
     noveltyThreshold: 20,
   },
   standard: {
     maxIterations: 7,
     minOverallCoverage: 75,
-    maxCostUsd: 2.00,
-    maxDurationMs: 15 * 60 * 1000,  // 15 min
+    maxCostUsd: 2.0,
+    maxDurationMs: 15 * 60 * 1000, // 15 min
     noveltyThreshold: 15,
   },
   thorough: {
     maxIterations: 12,
     minOverallCoverage: 90,
-    maxCostUsd: 5.00,
-    maxDurationMs: 30 * 60 * 1000,  // 30 min
+    maxCostUsd: 5.0,
+    maxDurationMs: 30 * 60 * 1000, // 30 min
     noveltyThreshold: 10,
   },
 };
@@ -102,11 +102,11 @@ export const PROFILE_CRITERIA: Record<AssimilationProfile, AssimilationTerminati
 
 /** Fixed dimension order for first pass (Phase 1) */
 export const DEFAULT_DIMENSION_SEQUENCE: AssimilationDimension[] = [
-  'dependencies',    // grounds tech stack knowledge
-  'architecture',    // structural understanding
-  'patterns',        // code conventions
-  'documentation',   // quality assessment
-  'testing',         // coverage/CI analysis
+  'dependencies', // grounds tech stack knowledge
+  'architecture', // structural understanding
+  'patterns', // code conventions
+  'documentation', // quality assessment
+  'testing', // coverage/CI analysis
 ];
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

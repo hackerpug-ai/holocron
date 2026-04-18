@@ -1,22 +1,22 @@
-import { Card, CardContent } from '@/components/ui/card'
-import { Text } from '@/components/ui/text'
-import { cn } from '@/lib/utils'
-import { type LucideIcon } from '@/components/ui/icons'
-import { View, type ViewProps } from 'react-native'
+import { View, type ViewProps } from 'react-native';
+import { Card, CardContent } from '@/components/ui/card';
+import type { LucideIcon } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { cn } from '@/lib/utils';
 
 interface StatCardProps extends Omit<ViewProps, 'children'> {
   /** Stat label */
-  label: string
+  label: string;
   /** Stat value (number or string) */
-  value: number | string
+  value: number | string;
   /** Optional icon to display */
-  icon?: LucideIcon
+  icon?: LucideIcon;
   /** Optional trend indicator (+5, -3, etc.) */
-  trend?: number
+  trend?: number;
   /** Whether the stat is loading */
-  loading?: boolean
+  loading?: boolean;
   /** Size variant */
-  size?: 'sm' | 'md' | 'lg'
+  size?: 'sm' | 'md' | 'lg';
 }
 
 /**
@@ -37,22 +37,21 @@ export function StatCard({
     sm: 'text-xl',
     md: 'text-2xl',
     lg: 'text-3xl',
-  }[size]
+  }[size];
 
   const iconSize = {
     sm: 16,
     md: 20,
     lg: 24,
-  }[size]
+  }[size];
 
   const paddingClass = {
     sm: 'py-3',
     md: 'py-4',
     lg: 'py-5',
-  }[size]
+  }[size];
 
-  const formattedValue =
-    typeof value === 'number' ? value.toLocaleString() : value
+  const formattedValue = typeof value === 'number' ? value.toLocaleString() : value;
 
   return (
     <Card className={cn(paddingClass, className)} testID="stat-card" {...props}>
@@ -65,9 +64,7 @@ export function StatCard({
             {loading ? (
               <View className="bg-muted h-7 w-16 animate-pulse rounded" />
             ) : (
-              <Text className={cn('text-foreground font-bold', valueSize)}>
-                {formattedValue}
-              </Text>
+              <Text className={cn('text-foreground font-bold', valueSize)}>{formattedValue}</Text>
             )}
             {!loading && trend !== undefined && (
               <Text
@@ -91,5 +88,5 @@ export function StatCard({
         )}
       </CardContent>
     </Card>
-  )
+  );
 }

@@ -1,4 +1,4 @@
-"use node";
+'use node';
 
 /**
  * Agent Plans: Execution Engine
@@ -10,28 +10,24 @@
  *   resumeAfterApproval() — resumes plan execution after a step is approved
  */
 
-import { internalAction } from "../_generated/server";
-import { internal, api } from "../_generated/api";
-import { v } from "convex/values";
-import { executeAgentTool } from "../chat/toolExecutor";
+import { v } from 'convex/values';
+import { api, internal } from '../_generated/api';
+import { internalAction } from '../_generated/server';
+import { executeAgentTool } from '../chat/toolExecutor';
 
 // ---------------------------------------------------------------------------
 // executePlanStep
 // ---------------------------------------------------------------------------
 
 export const executePlanStep = internalAction({
-  args: { planId: v.id("agentPlans") },
+  args: { planId: v.id('agentPlans') },
   handler: async (ctx, { planId }): Promise<void> => {
     // 1. Fetch the plan
     const plan = await ctx.runQuery(api.agentPlans.queries.get, { id: planId });
 
     // 2. Early exit conditions
     if (!plan) return;
-    if (
-      plan.status === "completed" ||
-      plan.status === "failed" ||
-      plan.status === "cancelled"
-    ) {
+    if (plan.status === 'completed' || plan.status === 'failed' || plan.status === 'cancelled') {
       return;
     }
 
@@ -44,7 +40,7 @@ export const executePlanStep = internalAction({
     // 4. Defense-in-depth guard: bail out early if step is already running or completed.
     // This prevents duplicate execution when two concurrent action calls race on the
     // same step (e.g. double-approval schedules resumeAfterApproval twice).
-    if (step && (step.status === "running" || step.status === "completed")) {
+    if (step && (step.status === 'running' || step.status === 'completed')) {
       return;
     }
 
@@ -52,43 +48,41 @@ export const executePlanStep = internalAction({
     if (!step) {
       await ctx.runMutation(internal.agentPlans.mutations.updatePlanStatus, {
         planId,
-        status: "completed",
+        status: 'completed',
         completedAt: Date.now(),
       });
-      await ctx.scheduler.runAfter(
-        0,
-        internal.chat.agent.continueAfterTool,
-        { conversationId: plan.conversationId },
-      );
+      await ctx.scheduler.runAfter(0, internal.chat.agent.continueAfterTool, {
+        conversationId: plan.conversationId,
+      });
       return;
     }
 
     // 6. Handle approval gate
-    if (step.requiresApproval && step.status === "pending") {
+    if (step.requiresApproval && step.status === 'pending') {
       await ctx.runMutation(internal.agentPlans.mutations.updateStepStatus, {
         planId,
         stepIndex: step.stepIndex,
-        status: "awaiting_approval",
+        status: 'awaiting_approval',
       });
       await ctx.runMutation(internal.agentPlans.mutations.updatePlanStatus, {
         planId,
-        status: "awaiting_approval",
+        status: 'awaiting_approval',
       });
       return;
     }
 
     // 7. Execute the step (pending without approval, or already approved)
-    if (step.status === "pending" || step.status === "approved") {
+    if (step.status === 'pending' || step.status === 'approved') {
       // Mark step and plan as running
       await ctx.runMutation(internal.agentPlans.mutations.updateStepStatus, {
         planId,
         stepIndex: step.stepIndex,
-        status: "running",
+        status: 'running',
         startedAt: Date.now(),
       });
       await ctx.runMutation(internal.agentPlans.mutations.updatePlanStatus, {
         planId,
-        status: "executing",
+        status: 'executing',
       });
 
       // Set agent busy
@@ -102,27 +96,22 @@ export const executePlanStep = internalAction({
           ctx,
           step.toolName,
           step.toolArgs,
-          plan.conversationId,
+          plan.conversationId
         );
 
         // Validate messageType against allowed chatMessages schema values
-        const allowedTypes = [
-          "text",
-          "result_card",
-          "error",
-          "progress",
-        ] as const;
+        const allowedTypes = ['text', 'result_card', 'error', 'progress'] as const;
         type AllowedType = (typeof allowedTypes)[number];
         const messageType: AllowedType = allowedTypes.includes(
-          agentResponse.messageType as AllowedType,
+          agentResponse.messageType as AllowedType
         )
           ? (agentResponse.messageType as AllowedType)
-          : "text";
+          : 'text';
 
         // Persist tool result as a chat message
         await ctx.runMutation(api.chatMessages.mutations.create, {
           conversationId: plan.conversationId,
-          role: "agent",
+          role: 'agent',
           content: agentResponse.content,
           messageType,
           cardData: agentResponse.cardData,
@@ -133,7 +122,7 @@ export const executePlanStep = internalAction({
         await ctx.runMutation(internal.agentPlans.mutations.updateStepStatus, {
           planId,
           stepIndex: step.stepIndex,
-          status: "completed",
+          status: 'completed',
           resultSummary,
           completedAt: Date.now(),
         });
@@ -150,25 +139,20 @@ export const executePlanStep = internalAction({
         });
 
         // Schedule next step
-        await ctx.scheduler.runAfter(
-          0,
-          internal.agentPlans.actions.executePlanStep,
-          { planId },
-        );
+        await ctx.scheduler.runAfter(0, internal.agentPlans.actions.executePlanStep, { planId });
       } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : "Step execution failed";
+        const errorMessage = error instanceof Error ? error.message : 'Step execution failed';
 
         await ctx.runMutation(internal.agentPlans.mutations.updateStepStatus, {
           planId,
           stepIndex: step.stepIndex,
-          status: "failed",
+          status: 'failed',
           errorMessage,
         });
 
         await ctx.runMutation(internal.agentPlans.mutations.updatePlanStatus, {
           planId,
-          status: "failed",
+          status: 'failed',
         });
 
         // Unset busy
@@ -180,17 +164,15 @@ export const executePlanStep = internalAction({
         // Post error to chat
         await ctx.runMutation(api.chatMessages.mutations.create, {
           conversationId: plan.conversationId,
-          role: "agent",
+          role: 'agent',
           content: `Plan step failed: ${errorMessage}`,
-          messageType: "error",
+          messageType: 'error',
         });
 
         // Let LLM acknowledge the failure
-        await ctx.scheduler.runAfter(
-          0,
-          internal.chat.agent.continueAfterTool,
-          { conversationId: plan.conversationId },
-        );
+        await ctx.scheduler.runAfter(0, internal.chat.agent.continueAfterTool, {
+          conversationId: plan.conversationId,
+        });
       }
     }
   },
@@ -201,12 +183,8 @@ export const executePlanStep = internalAction({
 // ---------------------------------------------------------------------------
 
 export const resumeAfterApproval = internalAction({
-  args: { planId: v.id("agentPlans") },
+  args: { planId: v.id('agentPlans') },
   handler: async (ctx, { planId }): Promise<void> => {
-    await ctx.scheduler.runAfter(
-      0,
-      internal.agentPlans.actions.executePlanStep,
-      { planId },
-    );
+    await ctx.scheduler.runAfter(0, internal.agentPlans.actions.executePlanStep, { planId });
   },
 });

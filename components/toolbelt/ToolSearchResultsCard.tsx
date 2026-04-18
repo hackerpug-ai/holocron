@@ -2,16 +2,16 @@
  * ToolSearchResultsCard - Display toolbelt search results
  */
 
-import { View } from 'react-native'
-import { Text } from '@/components/ui/text'
-import { Card } from '@/components/ui/card'
-import { Wrench, Search, Tag, Code } from '@/components/ui/icons'
-import { useTheme } from '@/hooks/use-theme'
-import type { ToolSearchResultsCardData } from '@/lib/types/chat'
+import { View } from 'react-native';
+import { Card } from '@/components/ui/card';
+import { Code, Search, Tag, Wrench } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { useTheme } from '@/hooks/use-theme';
+import type { ToolSearchResultsCardData } from '@/lib/types/chat';
 
 export interface ToolSearchResultsCardProps {
-  data: ToolSearchResultsCardData
-  testID?: string
+  data: ToolSearchResultsCardData;
+  testID?: string;
 }
 
 /**
@@ -20,19 +20,19 @@ export interface ToolSearchResultsCardProps {
 function getSourceIcon(sourceType: string) {
   switch (sourceType) {
     case 'documentation':
-      return '📚'
+      return '📚';
     case 'library':
-      return '📦'
+      return '📦';
     case 'framework':
-      return '🏗️'
+      return '🏗️';
     case 'tool':
-      return '🔧'
+      return '🔧';
     case 'api':
-      return '🔌'
+      return '🔌';
     case 'tutorial':
-      return '📖'
+      return '📖';
     default:
-      return '🛠️'
+      return '🛠️';
   }
 }
 
@@ -40,24 +40,19 @@ export function ToolSearchResultsCard({
   data,
   testID = 'tool-search-results-card',
 }: ToolSearchResultsCardProps) {
-  const { colors: themeColors } = useTheme()
+  const { colors: themeColors } = useTheme();
 
-  const { query, results } = data
+  const { query, results } = data;
 
   return (
     <View testID={testID} className="gap-2">
       {/* Header */}
       <Card className="border-border bg-card overflow-hidden">
-        <View
-          className="h-1"
-          style={{ backgroundColor: themeColors.primary }}
-        />
+        <View className="h-1" style={{ backgroundColor: themeColors.primary }} />
         <View className="p-4">
           <View className="flex-row items-center gap-2">
             <Wrench size={20} color={themeColors.primary} />
-            <Text className="text-foreground flex-1 text-lg font-bold">
-              Toolbelt Search
-            </Text>
+            <Text className="text-foreground flex-1 text-lg font-bold">Toolbelt Search</Text>
             <View className="rounded-full bg-muted px-2 py-1">
               <Text className="text-muted-foreground text-xs font-medium">
                 {results.length} results
@@ -66,20 +61,14 @@ export function ToolSearchResultsCard({
           </View>
           <View className="mt-2 flex-row items-center gap-2">
             <Search size={14} color={themeColors.mutedForeground} />
-            <Text className="text-muted-foreground text-sm">
-              "{query}"
-            </Text>
+            <Text className="text-muted-foreground text-sm">"{query}"</Text>
           </View>
         </View>
       </Card>
 
       {/* Result Items */}
       {results.map((tool, index) => (
-        <Card
-          key={tool.id}
-          testID={`${testID}-item-${index}`}
-          className="border-border bg-card"
-        >
+        <Card key={tool.id} testID={`${testID}-item-${index}`} className="border-border bg-card">
           <View className="p-3">
             {/* Title Row */}
             <View className="flex-row items-center gap-2">
@@ -97,10 +86,7 @@ export function ToolSearchResultsCard({
 
             {/* Description */}
             {tool.description && (
-              <Text
-                className="text-muted-foreground mt-2 text-sm"
-                numberOfLines={2}
-              >
+              <Text className="text-muted-foreground mt-2 text-sm" numberOfLines={2}>
                 {tool.description}
               </Text>
             )}
@@ -110,30 +96,21 @@ export function ToolSearchResultsCard({
               {/* Category */}
               <View className="flex-row items-center gap-1 rounded-full bg-muted px-2 py-0.5">
                 <Tag size={10} color={themeColors.mutedForeground} />
-                <Text className="text-muted-foreground text-xs">
-                  {tool.category}
-                </Text>
+                <Text className="text-muted-foreground text-xs">{tool.category}</Text>
               </View>
 
               {/* Language */}
               {tool.language && (
                 <View className="flex-row items-center gap-1 rounded-full bg-muted px-2 py-0.5">
                   <Code size={10} color={themeColors.mutedForeground} />
-                  <Text className="text-muted-foreground text-xs">
-                    {tool.language}
-                  </Text>
+                  <Text className="text-muted-foreground text-xs">{tool.language}</Text>
                 </View>
               )}
 
               {/* Tags */}
               {tool.tags?.slice(0, 2).map((tag) => (
-                <View
-                  key={tag}
-                  className="rounded-full bg-muted px-2 py-0.5"
-                >
-                  <Text className="text-muted-foreground text-xs">
-                    {tag}
-                  </Text>
+                <View key={tag} className="rounded-full bg-muted px-2 py-0.5">
+                  <Text className="text-muted-foreground text-xs">{tag}</Text>
                 </View>
               ))}
             </View>
@@ -156,5 +133,5 @@ export function ToolSearchResultsCard({
         </Card>
       )}
     </View>
-  )
+  );
 }

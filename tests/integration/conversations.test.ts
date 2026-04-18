@@ -4,15 +4,15 @@
  * Tests verify all conversation operations work via Convex with proper reactivity
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from 'vitest';
 
-describe("Conversation CRUD - Create", () => {
-  it("creates a new conversation with default title", async () => {
-    const { create } = await import("../../convex/conversations/mutations");
+describe('Conversation CRUD - Create', () => {
+  it('creates a new conversation with default title', async () => {
+    const { create } = await import('../../convex/conversations/mutations');
 
     // Verify create mutation exists and has correct signature
     expect(create).toBeTruthy();
-    expect(typeof create).toBe("function");
+    expect(typeof create).toBe('function');
 
     // The mutation should accept optional title and lastMessagePreview
     // Default title is "New Chat"
@@ -20,179 +20,179 @@ describe("Conversation CRUD - Create", () => {
     expect(args).toEqual({});
   });
 
-  it("creates a new conversation with custom title", async () => {
-    const { create } = await import("../../convex/conversations/mutations");
+  it('creates a new conversation with custom title', async () => {
+    const { create } = await import('../../convex/conversations/mutations');
 
     expect(create).toBeTruthy();
-    expect(typeof create).toBe("function");
+    expect(typeof create).toBe('function');
 
     // Verify we can pass custom title
-    const args = { title: "My Custom Conversation" };
-    expect(args.title).toBe("My Custom Conversation");
+    const args = { title: 'My Custom Conversation' };
+    expect(args.title).toBe('My Custom Conversation');
   });
 
-  it("creates conversation with lastMessagePreview", async () => {
-    const { create } = await import("../../convex/conversations/mutations");
+  it('creates conversation with lastMessagePreview', async () => {
+    const { create } = await import('../../convex/conversations/mutations');
 
     expect(create).toBeTruthy();
 
     const args = {
-      title: "Test Chat",
-      lastMessagePreview: "Hello, how are you?",
+      title: 'Test Chat',
+      lastMessagePreview: 'Hello, how are you?',
     };
-    expect(args.lastMessagePreview).toBe("Hello, how are you?");
+    expect(args.lastMessagePreview).toBe('Hello, how are you?');
   });
 });
 
-describe("Conversation CRUD - Read", () => {
-  it("lists all conversations", async () => {
-    const { list } = await import("../../convex/conversations/queries");
+describe('Conversation CRUD - Read', () => {
+  it('lists all conversations', async () => {
+    const { list } = await import('../../convex/conversations/queries');
 
     expect(list).toBeTruthy();
-    expect(typeof list).toBe("function");
+    expect(typeof list).toBe('function');
 
     // Verify list accepts optional limit parameter
     const args = { limit: 10 };
     expect(args.limit).toBe(10);
   });
 
-  it("gets a single conversation by id", async () => {
-    const { get } = await import("../../convex/conversations/queries");
+  it('gets a single conversation by id', async () => {
+    const { get } = await import('../../convex/conversations/queries');
 
     expect(get).toBeTruthy();
-    expect(typeof get).toBe("function");
+    expect(typeof get).toBe('function');
 
     // Verify get requires id parameter
-    const args = { id: "test-id" as any };
-    expect(args.id).toBe("test-id");
+    const args = { id: 'test-id' as any };
+    expect(args.id).toBe('test-id');
   });
 
-  it("returns count of conversations", async () => {
-    const { count } = await import("../../convex/conversations/queries");
+  it('returns count of conversations', async () => {
+    const { count } = await import('../../convex/conversations/queries');
 
     expect(count).toBeTruthy();
-    expect(typeof count).toBe("function");
+    expect(typeof count).toBe('function');
   });
 });
 
-describe("Conversation CRUD - Update", () => {
-  it("updates conversation title", async () => {
-    const { update } = await import("../../convex/conversations/mutations");
+describe('Conversation CRUD - Update', () => {
+  it('updates conversation title', async () => {
+    const { update } = await import('../../convex/conversations/mutations');
 
     expect(update).toBeTruthy();
-    expect(typeof update).toBe("function");
+    expect(typeof update).toBe('function');
 
     const args = {
-      id: "test-id" as any,
-      title: "Updated Title",
+      id: 'test-id' as any,
+      title: 'Updated Title',
     };
-    expect(args.title).toBe("Updated Title");
+    expect(args.title).toBe('Updated Title');
   });
 
-  it("updates conversation and marks title as user-set", async () => {
-    const { update } = await import("../../convex/conversations/mutations");
+  it('updates conversation and marks title as user-set', async () => {
+    const { update } = await import('../../convex/conversations/mutations');
 
     expect(update).toBeTruthy();
 
     const args = {
-      id: "test-id" as any,
-      title: "User Custom Title",
+      id: 'test-id' as any,
+      title: 'User Custom Title',
       titleSetByUser: true,
     };
     expect(args.titleSetByUser).toBe(true);
   });
 });
 
-describe("Conversation CRUD - Delete", () => {
-  it("deletes conversation", async () => {
-    const { remove } = await import("../../convex/conversations/mutations");
+describe('Conversation CRUD - Delete', () => {
+  it('deletes conversation', async () => {
+    const { remove } = await import('../../convex/conversations/mutations');
 
     expect(remove).toBeTruthy();
-    expect(typeof remove).toBe("function");
+    expect(typeof remove).toBe('function');
 
-    const args = { id: "test-id" as any };
-    expect(args.id).toBe("test-id");
+    const args = { id: 'test-id' as any };
+    expect(args.id).toBe('test-id');
   });
 
-  it("deletes conversation and cascades to chat messages", async () => {
-    const { remove } = await import("../../convex/conversations/mutations");
+  it('deletes conversation and cascades to chat messages', async () => {
+    const { remove } = await import('../../convex/conversations/mutations');
 
     expect(remove).toBeTruthy();
 
     // Verify remove mutation exists (cascade behavior is implemented in the mutation)
-    const args = { id: "test-id" as any };
-    expect(args).toHaveProperty("id");
+    const args = { id: 'test-id' as any };
+    expect(args).toHaveProperty('id');
   });
 });
 
-describe("Conversation CRUD - Touch (update timestamp)", () => {
-  it("updates conversation updatedAt timestamp", async () => {
-    const { touch } = await import("../../convex/conversations/mutations");
+describe('Conversation CRUD - Touch (update timestamp)', () => {
+  it('updates conversation updatedAt timestamp', async () => {
+    const { touch } = await import('../../convex/conversations/mutations');
 
     expect(touch).toBeTruthy();
-    expect(typeof touch).toBe("function");
+    expect(typeof touch).toBe('function');
 
-    const args = { id: "test-id" as any };
-    expect(args.id).toBe("test-id");
+    const args = { id: 'test-id' as any };
+    expect(args.id).toBe('test-id');
   });
 
-  it("updates lastMessagePreview when touching", async () => {
-    const { touch } = await import("../../convex/conversations/mutations");
+  it('updates lastMessagePreview when touching', async () => {
+    const { touch } = await import('../../convex/conversations/mutations');
 
     expect(touch).toBeTruthy();
 
     const args = {
-      id: "test-id" as any,
-      lastMessagePreview: "New preview text",
+      id: 'test-id' as any,
+      lastMessagePreview: 'New preview text',
     };
-    expect(args.lastMessagePreview).toBe("New preview text");
+    expect(args.lastMessagePreview).toBe('New preview text');
   });
 });
 
-describe("Conversation CRUD - Edge Cases", () => {
-  it("handles empty title", async () => {
-    const { create } = await import("../../convex/conversations/mutations");
+describe('Conversation CRUD - Edge Cases', () => {
+  it('handles empty title', async () => {
+    const { create } = await import('../../convex/conversations/mutations');
 
     expect(create).toBeTruthy();
 
     // Empty title is valid (will be stored as empty string)
-    const args = { title: "" };
-    expect(args.title).toBe("");
+    const args = { title: '' };
+    expect(args.title).toBe('');
   });
 
-  it("preserves conversation data across updates", async () => {
-    const { update } = await import("../../convex/conversations/mutations");
+  it('preserves conversation data across updates', async () => {
+    const { update } = await import('../../convex/conversations/mutations');
 
     expect(update).toBeTruthy();
 
     // Verify update only modifies specified fields
     const originalData = {
-      title: "Original",
-      lastMessagePreview: "Preview 1",
+      title: 'Original',
+      lastMessagePreview: 'Preview 1',
     };
 
     const updateArgs = {
-      id: "test-id" as any,
-      title: "Updated",
+      id: 'test-id' as any,
+      title: 'Updated',
     };
 
     // After update, title should change but lastMessagePreview should be preserved
-    expect(updateArgs.title).toBe("Updated");
-    expect(originalData.lastMessagePreview).toBe("Preview 1");
+    expect(updateArgs.title).toBe('Updated');
+    expect(originalData.lastMessagePreview).toBe('Preview 1');
   });
 });
 
-describe("Conversation CRUD - Module Exports", () => {
-  it("exports all queries from index", async () => {
-    const conversationsModule = await import("../../convex/conversations");
+describe('Conversation CRUD - Module Exports', () => {
+  it('exports all queries from index', async () => {
+    const conversationsModule = await import('../../convex/conversations');
 
     expect(conversationsModule.list).toBeTruthy();
     expect(conversationsModule.get).toBeTruthy();
     expect(conversationsModule.count).toBeTruthy();
   });
 
-  it("exports all mutations from index", async () => {
-    const conversationsModule = await import("../../convex/conversations");
+  it('exports all mutations from index', async () => {
+    const conversationsModule = await import('../../convex/conversations');
 
     expect(conversationsModule.create).toBeTruthy();
     expect(conversationsModule.update).toBeTruthy();
@@ -207,55 +207,43 @@ describe("Conversation CRUD - Module Exports", () => {
 // CLR-001 - Pending Intent State
 // ---------------------------------------------------------------------------
 
-describe("CLR-001 - Pending Intent Mutations", () => {
-  it("exports setPendingIntent internalMutation", async () => {
-    const { setPendingIntent } = await import(
-      "../../convex/conversations/mutations"
-    );
+describe('CLR-001 - Pending Intent Mutations', () => {
+  it('exports setPendingIntent internalMutation', async () => {
+    const { setPendingIntent } = await import('../../convex/conversations/mutations');
 
     expect(setPendingIntent).toBeTruthy();
-    expect(typeof setPendingIntent).toBe("function");
+    expect(typeof setPendingIntent).toBe('function');
   });
 
-  it("exports clearPendingIntent internalMutation", async () => {
-    const { clearPendingIntent } = await import(
-      "../../convex/conversations/mutations"
-    );
+  it('exports clearPendingIntent internalMutation', async () => {
+    const { clearPendingIntent } = await import('../../convex/conversations/mutations');
 
     expect(clearPendingIntent).toBeTruthy();
-    expect(typeof clearPendingIntent).toBe("function");
+    expect(typeof clearPendingIntent).toBe('function');
   });
 
-  it("exports isPendingExpired helper", async () => {
-    const { isPendingExpired } = await import(
-      "../../convex/conversations/mutations"
-    );
+  it('exports isPendingExpired helper', async () => {
+    const { isPendingExpired } = await import('../../convex/conversations/mutations');
 
     expect(isPendingExpired).toBeTruthy();
-    expect(typeof isPendingExpired).toBe("function");
+    expect(typeof isPendingExpired).toBe('function');
   });
 
-  it("isPendingExpired returns true for undefined pendingSince", async () => {
-    const { isPendingExpired } = await import(
-      "../../convex/conversations/mutations"
-    );
+  it('isPendingExpired returns true for undefined pendingSince', async () => {
+    const { isPendingExpired } = await import('../../convex/conversations/mutations');
 
     expect(isPendingExpired(undefined)).toBe(true);
   });
 
-  it("isPendingExpired returns false for recent pendingSince", async () => {
-    const { isPendingExpired } = await import(
-      "../../convex/conversations/mutations"
-    );
+  it('isPendingExpired returns false for recent pendingSince', async () => {
+    const { isPendingExpired } = await import('../../convex/conversations/mutations');
 
     // Just now should not be expired
     expect(isPendingExpired(Date.now())).toBe(false);
   });
 
-  it("isPendingExpired returns true for pendingSince older than 30 minutes", async () => {
-    const { isPendingExpired } = await import(
-      "../../convex/conversations/mutations"
-    );
+  it('isPendingExpired returns true for pendingSince older than 30 minutes', async () => {
+    const { isPendingExpired } = await import('../../convex/conversations/mutations');
 
     // 31 minutes ago should be expired
     const thirtyOneMinutesAgo = Date.now() - 31 * 60 * 1000;

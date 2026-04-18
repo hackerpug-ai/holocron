@@ -7,7 +7,7 @@
  * AC-4: getSection returns blockNotFound flag when blockIndex is out of range
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 describe('Task-142: documents.getSection', () => {
   /**

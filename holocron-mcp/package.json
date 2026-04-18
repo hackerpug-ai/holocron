@@ -13,21 +13,12 @@
     "dev": "bun run src/mastra/stdio.ts",
     "start": "bun run dist/mastra/stdio.js",
     "test": "vitest",
-    "type-check": "tsc --noEmit",
+    "type-check": "tsgo --noEmit",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "format": "biome format --write .",
     "check": "bun run lint && bun run type-check",
-    "prepare": "husky"
-  },
-  "lint-staged": {
-    "*.{js,ts,json,md}": [
-      "biome check --write --no-errors-on-unmatched",
-      "biome format --write --no-errors-on-unmatched"
-    ],
-    "*.{test,spec}.{ts,tsx}": [
-      "vitest --run --related"
-    ]
+    "prepare": "lefthook install"
   },
   "keywords": [
     "mcp",
@@ -47,8 +38,8 @@
   "devDependencies": {
     "@biomejs/biome": "^2.4.6",
     "@types/bun": "latest",
-    "husky": "^9.1.7",
-    "lint-staged": "^16.3.3",
+    "@typescript/native-preview": "7.0.0-dev.20260417.1",
+    "lefthook": "^2.1.6",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18"

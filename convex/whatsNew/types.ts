@@ -11,7 +11,7 @@ export interface Finding {
   title: string;
   url: string;
   source: string;
-  category: "discovery" | "release" | "trend" | "discussion";
+  category: 'discovery' | 'release' | 'trend' | 'discussion';
   score?: number;
   summary?: string;
   publishedAt?: string;
@@ -48,9 +48,9 @@ export interface FetchResult {
  * WorkflowPhase - Current phase of report generation workflow
  */
 export type WorkflowPhase =
-  | "pending"
-  | "fetching"
-  | "enriching"
-  | "synthesizing"
-  | "completed"
-  | "failed";
+  | 'pending'
+  | 'fetching'
+  | 'enriching'
+  | 'synthesizing'
+  | 'completed'
+  | 'failed';

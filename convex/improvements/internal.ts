@@ -1,5 +1,5 @@
-import { internalMutation } from "../_generated/server";
-import { v } from "convex/values";
+import { v } from 'convex/values';
+import { internalMutation } from '../_generated/server';
 
 /**
  * Apply the agent's analysis result to an improvement request.
@@ -8,17 +8,17 @@ import { v } from "convex/values";
  */
 export const updateFromAgent = internalMutation({
   args: {
-    requestId: v.id("improvementRequests"),
+    requestId: v.id('improvementRequests'),
     title: v.string(),
     summary: v.string(),
     agentDecision: v.object({
-      action: v.union(v.literal("create_new"), v.literal("merge")),
-      mergeTargetId: v.optional(v.id("improvementRequests")),
+      action: v.union(v.literal('create_new'), v.literal('merge')),
+      mergeTargetId: v.optional(v.id('improvementRequests')),
       confidence: v.number(),
       reasoning: v.string(),
       similarRequests: v.array(
         v.object({
-          id: v.id("improvementRequests"),
+          id: v.id('improvementRequests'),
           title: v.string(),
           similarity: v.number(),
         })
@@ -50,15 +50,12 @@ export const updateFromAgent = internalMutation({
  */
 export const executeMerge = internalMutation({
   args: {
-    sourceId: v.id("improvementRequests"),
-    targetId: v.id("improvementRequests"),
+    sourceId: v.id('improvementRequests'),
+    targetId: v.id('improvementRequests'),
     reason: v.string(),
   },
   handler: async (ctx, { sourceId, targetId, reason }) => {
-    const [source, target] = await Promise.all([
-      ctx.db.get(sourceId),
-      ctx.db.get(targetId),
-    ]);
+    const [source, target] = await Promise.all([ctx.db.get(sourceId), ctx.db.get(targetId)]);
 
     if (!source) {
       throw new Error(`Source improvement request ${sourceId} not found`);
@@ -77,7 +74,7 @@ export const executeMerge = internalMutation({
     // Mark source as closed (merged)
     await ctx.db.patch(sourceId, {
       mergedIntoId: targetId,
-      status: "closed" as const,
+      status: 'closed' as const,
       closedAt: now,
       closureReason: `Merged into ${targetId}: ${reason}`,
       updatedAt: now,
@@ -92,13 +89,11 @@ export const executeMerge = internalMutation({
 
     // Re-link all images from source to target
     const images = await ctx.db
-      .query("improvementImages")
-      .withIndex("by_request", (q) => q.eq("requestId", sourceId))
+      .query('improvementImages')
+      .withIndex('by_request', (q) => q.eq('requestId', sourceId))
       .collect();
 
-    await Promise.all(
-      images.map((image) => ctx.db.patch(image._id, { requestId: targetId }))
-    );
+    await Promise.all(images.map((image) => ctx.db.patch(image._id, { requestId: targetId })));
   },
 });
 
@@ -110,27 +105,25 @@ export const submitFromSpecialist = internalMutation({
   args: {
     description: v.string(),
     source: v.union(
-      v.literal("academic_specialist"),
-      v.literal("technical_specialist"),
-      v.literal("generalist_specialist"),
-      v.literal("product_finder"),
-      v.literal("service_finder")
+      v.literal('academic_specialist'),
+      v.literal('technical_specialist'),
+      v.literal('generalist_specialist'),
+      v.literal('product_finder'),
+      v.literal('service_finder')
     ),
   },
   handler: async (ctx, { description, source }) => {
     const now = Date.now();
 
-    const requestId = await ctx.db.insert("improvementRequests", {
+    const requestId = await ctx.db.insert('improvementRequests', {
       description,
       title: description.slice(0, 80),
-      status: "open",
+      status: 'open',
       sourceScreen: `specialist_${source}`,
       sourceComponent: source,
       createdAt: now,
       updatedAt: now,
     });
-
-    
 
     return requestId;
   },

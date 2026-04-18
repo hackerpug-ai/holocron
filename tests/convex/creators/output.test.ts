@@ -5,7 +5,7 @@
  * report from creator profile + video transcript data.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { formatCreatorReport } from '../../../convex/creators/output';
 
 const baseProfile = {
@@ -155,9 +155,7 @@ describe('AC-6: omit themes section when not provided', () => {
     const result = formatCreatorReport({
       profile: baseProfile,
       videos: baseVideos,
-      themes: [
-        { theme: 'Type Safety', videoCount: 3, explanation: 'Emphasized in every video' },
-      ],
+      themes: [{ theme: 'Type Safety', videoCount: 3, explanation: 'Emphasized in every video' }],
     });
     expect(result).toContain('Cross-Cutting Themes');
     expect(result).toContain('Type Safety');
@@ -204,7 +202,9 @@ describe('AC-7: catalog table truncation', () => {
     // Extract just the catalog section to check truncation there
     const catalogIdx = result.indexOf('## Video Catalog');
     const catalogSection = result.slice(catalogIdx);
-    expect(catalogSection).not.toContain('This is a very long takeaway that certainly exceeds thirty characters');
+    expect(catalogSection).not.toContain(
+      'This is a very long takeaway that certainly exceeds thirty characters'
+    );
     // Truncated prefix (30 chars) should appear
     expect(catalogSection).toContain('This is a very long takeaway …');
   });

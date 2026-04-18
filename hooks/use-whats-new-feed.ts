@@ -1,9 +1,9 @@
-import { useState } from "react";
-import { useAction, useQuery } from "convex/react";
-import { api } from "@/convex/_generated/api";
+import { useAction, useQuery } from 'convex/react';
+import { useState } from 'react';
+import { api } from '@/convex/_generated/api';
 
 interface UseWhatsNewFeedArgs {
-  category?: "discovery" | "release" | "trend" | "discussion";
+  category?: 'discovery' | 'release' | 'trend' | 'discussion';
 }
 
 export function useWhatsNewFeed(args: UseWhatsNewFeedArgs = {}) {

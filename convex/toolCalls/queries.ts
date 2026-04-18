@@ -1,11 +1,11 @@
-import { query } from "../_generated/server";
-import { v } from "convex/values";
+import { v } from 'convex/values';
+import { query } from '../_generated/server';
 
 /**
  * Get a single toolCall by ID
  */
 export const get = query({
-  args: { id: v.id("toolCalls") },
+  args: { id: v.id('toolCalls') },
   handler: async (ctx, { id }) => {
     return await ctx.db.get(id);
   },
@@ -15,13 +15,11 @@ export const get = query({
  * Get all toolCalls for a conversation
  */
 export const listByConversation = query({
-  args: { conversationId: v.id("conversations") },
+  args: { conversationId: v.id('conversations') },
   handler: async (ctx, { conversationId }) => {
     return await ctx.db
-      .query("toolCalls")
-      .withIndex("by_conversation", (q) =>
-        q.eq("conversationId", conversationId)
-      )
+      .query('toolCalls')
+      .withIndex('by_conversation', (q) => q.eq('conversationId', conversationId))
       .collect();
   },
 });
@@ -30,14 +28,12 @@ export const listByConversation = query({
  * Get all pending toolCalls for a conversation
  */
 export const getPending = query({
-  args: { conversationId: v.id("conversations") },
+  args: { conversationId: v.id('conversations') },
   handler: async (ctx, { conversationId }) => {
     return await ctx.db
-      .query("toolCalls")
-      .withIndex("by_conversation", (q) =>
-        q.eq("conversationId", conversationId)
-      )
-      .filter((q) => q.eq(q.field("status"), "pending"))
+      .query('toolCalls')
+      .withIndex('by_conversation', (q) => q.eq('conversationId', conversationId))
+      .filter((q) => q.eq(q.field('status'), 'pending'))
       .collect();
   },
 });

@@ -1,6 +1,6 @@
-import { useQuery } from 'convex/react'
-import { api } from '@/convex/_generated/api'
-import type { Doc, Id } from '@/convex/_generated/dataModel'
+import { useQuery } from 'convex/react';
+import { api } from '@/convex/_generated/api';
+import type { Doc, Id } from '@/convex/_generated/dataModel';
 
 /**
  * Hook for fetching a research session with its iterations from Convex.
@@ -30,13 +30,13 @@ export function useResearchSession(sessionId: Id<'researchSessions'> | null) {
   const session = useQuery(
     api.researchSessions.queries.get,
     sessionId ? { id: sessionId } : 'skip'
-  )
+  );
 
   return {
     session: session ?? undefined,
     isLoading: session === undefined,
     error: null, // Convex queries don't throw - they return undefined for missing data
-  }
+  };
 }
 
 /**
@@ -63,27 +63,31 @@ export function useDeepResearchSession(sessionId: Id<'deepResearchSessions'> | n
   const session = useQuery(
     api.research.queries.getDeepResearchSession,
     sessionId ? { sessionId } : 'skip'
-  )
+  );
 
   return {
     session: session ?? undefined,
     isLoading: session === undefined,
     error: null,
-  }
+  };
 }
 
 /**
  * Type guard to check if session is loading
  */
-export function isSessionLoading(session: Doc<'researchSessions'> | null | undefined): session is undefined {
-  return session === undefined
+export function isSessionLoading(
+  session: Doc<'researchSessions'> | null | undefined
+): session is undefined {
+  return session === undefined;
 }
 
 /**
  * Type guard to check if session exists
  */
-export function sessionExists(session: Doc<'researchSessions'> | null | undefined): session is Doc<'researchSessions'> {
-  return session !== undefined && session !== null
+export function sessionExists(
+  session: Doc<'researchSessions'> | null | undefined
+): session is Doc<'researchSessions'> {
+  return session !== undefined && session !== null;
 }
 
 /**
@@ -99,8 +103,8 @@ export function getSessionStatusLabel(status: string): string {
     failed: 'Research failed',
     cancelled: 'Research cancelled',
     running: 'Research in progress...',
-  }
-  return labels[status] || status
+  };
+  return labels[status] || status;
 }
 
 /**
@@ -108,7 +112,7 @@ export function getSessionStatusLabel(status: string): string {
  */
 export function calculateSessionProgress(session: Doc<'researchSessions'>): number {
   if (session.currentIteration && session.maxIterations) {
-    return (session.currentIteration / session.maxIterations) * 100
+    return (session.currentIteration / session.maxIterations) * 100;
   }
 
   const statusProgress: Record<string, number> = {
@@ -120,7 +124,7 @@ export function calculateSessionProgress(session: Doc<'researchSessions'>): numb
     failed: 0,
     cancelled: 0,
     running: 50,
-  }
+  };
 
-  return statusProgress[session.status] || 0
+  return statusProgress[session.status] || 0;
 }

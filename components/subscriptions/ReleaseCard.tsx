@@ -13,37 +13,37 @@
  * Falls back to source name when repositoryName is not provided.
  */
 
-import { View, Pressable, StyleSheet } from 'react-native'
-import { Text } from '@/components/ui/text'
-import { Button } from '@/components/ui/button'
-import { useTheme } from '@/hooks/use-theme'
-import { SummaryText } from './SummaryText'
-import { FeedbackButtons } from './FeedbackButtons'
-import { useQuery, useMutation } from 'convex/react'
-import { api } from '@/convex/_generated/api'
-import type { Id } from '@/convex/_generated/dataModel'
+import { useMutation, useQuery } from 'convex/react';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Button } from '@/components/ui/button';
+import { Text } from '@/components/ui/text';
+import { api } from '@/convex/_generated/api';
+import type { Id } from '@/convex/_generated/dataModel';
+import { useTheme } from '@/hooks/use-theme';
+import { FeedbackButtons } from './FeedbackButtons';
+import { SummaryText } from './SummaryText';
 
 export interface ReleaseCardProps {
   /** Version string (e.g., "v2.1.0", "1.0.0-beta") */
-  version: string
+  version: string;
   /** Release title */
-  title: string
+  title: string;
   /** Optional summary/description (truncated to 3 lines) */
-  summary?: string
+  summary?: string;
   /** Repository name (e.g., "facebook/react") */
-  repositoryName?: string
+  repositoryName?: string;
   /** Source name (fallback when repositoryName is not provided) */
-  source: string
+  source: string;
   /** Optional published timestamp (relative time display) */
-  publishedAt?: string
+  publishedAt?: string;
   /** Optional changelog URL */
-  changelogUrl?: string
+  changelogUrl?: string;
   /** Callback when card is pressed */
-  onPress?: () => void
+  onPress?: () => void;
   /** Test ID for testing */
-  testID?: string
+  testID?: string;
   /** Feed item ID for feedback functionality */
-  feedItemId?: Id<'feedItems'>
+  feedItemId?: Id<'feedItems'>;
 }
 
 /**
@@ -76,30 +76,30 @@ export function ReleaseCard({
   testID = 'release-card',
   feedItemId,
 }: ReleaseCardProps) {
-  const { colors, spacing, radius } = useTheme()
+  const { colors, spacing, radius } = useTheme();
 
   // Use repositoryName if provided, otherwise fall back to source
-  const displayName = repositoryName || source
+  const displayName = repositoryName || source;
 
   // Fetch feedback state if feedItemId is provided
   const feedbackData = useQuery(
     api.feeds.queries.getFeedItemFeedback,
     feedItemId ? { feedItemId } : 'skip'
-  )
-  const currentFeedback = feedbackData?.feedback ?? null
+  );
+  const currentFeedback = feedbackData?.feedback ?? null;
 
-  const submitFeedbackMutation = useMutation(api.feeds.mutations.submitFeedback)
+  const submitFeedbackMutation = useMutation(api.feeds.mutations.submitFeedback);
 
   const handleFeedback = (type: 'positive' | 'negative' | null) => {
-    if (!feedItemId) return
+    if (!feedItemId) return;
 
     // Map FeedbackButtons type to Convex type
     // Only submit if not null (deselecting)
     if (type !== null) {
-      const feedback = type === 'positive' ? 'up' : 'down'
-      submitFeedbackMutation({ feedItemId, feedback })
+      const feedback = type === 'positive' ? 'up' : 'down';
+      submitFeedbackMutation({ feedItemId, feedback });
     }
-  }
+  };
 
   return (
     <Pressable
@@ -133,10 +133,7 @@ export function ReleaseCard({
           ]}
           testID={`${testID}-version-badge`}
         >
-          <Text
-            style={{ color: colors.primaryForeground }}
-            className="text-xs font-semibold"
-          >
+          <Text style={{ color: colors.primaryForeground }} className="text-xs font-semibold">
             {version}
           </Text>
         </View>
@@ -165,7 +162,10 @@ export function ReleaseCard({
 
       {/* Content section */}
       <View
-        style={[styles.content, { paddingHorizontal: spacing.md, paddingBottom: spacing.md, gap: spacing.xs }]}
+        style={[
+          styles.content,
+          { paddingHorizontal: spacing.md, paddingBottom: spacing.md, gap: spacing.xs },
+        ]}
         testID={`${testID}-content`}
       >
         {/* Title */}
@@ -179,11 +179,7 @@ export function ReleaseCard({
         </Text>
 
         {/* Summary */}
-        <SummaryText
-          summary={summary}
-          title={title}
-          testID={`${testID}-summary`}
-        />
+        <SummaryText summary={summary} title={title} testID={`${testID}-summary`} />
 
         {/* Changelog button and feedback */}
         <View style={[styles.footerRow, { marginTop: spacing.xs }]}>
@@ -204,9 +200,11 @@ export function ReleaseCard({
             <FeedbackButtons
               findingId={feedItemId}
               currentFeedback={
-                currentFeedback === 'up' ? 'positive' :
-                currentFeedback === 'down' ? 'negative' :
-                null
+                currentFeedback === 'up'
+                  ? 'positive'
+                  : currentFeedback === 'down'
+                    ? 'negative'
+                    : null
               }
               onFeedback={handleFeedback}
               testID={`${testID}-feedback`}
@@ -215,7 +213,7 @@ export function ReleaseCard({
         </View>
       </View>
     </Pressable>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
@@ -244,4 +242,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-})
+});

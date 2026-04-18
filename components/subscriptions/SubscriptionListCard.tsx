@@ -2,17 +2,17 @@
  * SubscriptionListCard - List view for subscriptions
  */
 
-import { View, Pressable } from 'react-native'
-import { Text } from '@/components/ui/text'
-import { Card } from '@/components/ui/card'
-import { Bell, Rss, Calendar, Trash2 } from '@/components/ui/icons'
-import { useTheme } from '@/hooks/use-theme'
-import type { SubscriptionListCardData } from '@/lib/types/chat'
+import { Pressable, View } from 'react-native';
+import { Card } from '@/components/ui/card';
+import { Bell, Calendar, Rss, Trash2 } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { useTheme } from '@/hooks/use-theme';
+import type { SubscriptionListCardData } from '@/lib/types/chat';
 
 export interface SubscriptionListCardProps {
-  data: SubscriptionListCardData
-  testID?: string
-  onDeletePress?: (subscriptionId: string) => void
+  data: SubscriptionListCardData;
+  testID?: string;
+  onDeletePress?: (subscriptionId: string) => void;
 }
 
 /**
@@ -21,21 +21,21 @@ export interface SubscriptionListCardProps {
 function getTypeIcon(sourceType: string) {
   switch (sourceType) {
     case 'youtube':
-      return '📺'
+      return '📺';
     case 'reddit':
-      return '🔴'
+      return '🔴';
     case 'newsletter':
-      return '📧'
+      return '📧';
     case 'changelog':
-      return '📋'
+      return '📋';
     case 'ebay':
-      return '🛒'
+      return '🛒';
     case 'whats-new':
-      return '🆕'
+      return '🆕';
     case 'creator':
-      return '👤'
+      return '👤';
     default:
-      return '📡'
+      return '📡';
   }
 }
 
@@ -43,16 +43,16 @@ function getTypeIcon(sourceType: string) {
  * Format timestamp to relative date
  */
 function formatDate(timestamp: number): string {
-  const date = new Date(timestamp)
-  const now = new Date()
-  const diff = now.getTime() - date.getTime()
-  const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+  const date = new Date(timestamp);
+  const now = new Date();
+  const diff = now.getTime() - date.getTime();
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
 
-  if (days === 0) return 'Today'
-  if (days === 1) return 'Yesterday'
-  if (days < 7) return `${days} days ago`
-  if (days < 30) return `${Math.floor(days / 7)} weeks ago`
-  return date.toLocaleDateString()
+  if (days === 0) return 'Today';
+  if (days === 1) return 'Yesterday';
+  if (days < 7) return `${days} days ago`;
+  if (days < 30) return `${Math.floor(days / 7)} weeks ago`;
+  return date.toLocaleDateString();
 }
 
 export function SubscriptionListCard({
@@ -60,18 +60,15 @@ export function SubscriptionListCard({
   testID = 'subscription-list-card',
   onDeletePress,
 }: SubscriptionListCardProps) {
-  const { colors: themeColors } = useTheme()
+  const { colors: themeColors } = useTheme();
 
-  const { subscriptions, filter_type } = data
+  const { subscriptions, filter_type } = data;
 
   return (
     <View testID={testID} className="gap-2">
       {/* Header */}
       <Card className="border-border bg-card overflow-hidden">
-        <View
-          className="h-1"
-          style={{ backgroundColor: themeColors.primary }}
-        />
+        <View className="h-1" style={{ backgroundColor: themeColors.primary }} />
         <View className="p-4">
           <View className="flex-row items-center gap-2">
             <Bell size={20} color={themeColors.primary} />
@@ -89,11 +86,7 @@ export function SubscriptionListCard({
 
       {/* Subscription Items */}
       {subscriptions.map((sub, index) => (
-        <Card
-          key={sub.id}
-          testID={`${testID}-item-${index}`}
-          className="border-border bg-card"
-        >
+        <Card key={sub.id} testID={`${testID}-item-${index}`} className="border-border bg-card">
           <View className="flex-row items-center p-3">
             {/* Icon */}
             <Text className="mr-3 text-2xl">{getTypeIcon(sub.source_type)}</Text>
@@ -105,23 +98,17 @@ export function SubscriptionListCard({
               </Text>
               <View className="mt-1 flex-row items-center gap-2">
                 <Rss size={12} color={themeColors.mutedForeground} />
-                <Text className="text-muted-foreground text-xs">
-                  {sub.source_type}
-                </Text>
+                <Text className="text-muted-foreground text-xs">{sub.source_type}</Text>
                 <Text className="text-muted-foreground text-xs">•</Text>
                 <Calendar size={12} color={themeColors.mutedForeground} />
-                <Text className="text-muted-foreground text-xs">
-                  {formatDate(sub.created_at)}
-                </Text>
+                <Text className="text-muted-foreground text-xs">{formatDate(sub.created_at)}</Text>
               </View>
             </View>
 
             {/* Auto-research badge */}
             {sub.auto_research && (
               <View className="mr-2 rounded-full bg-success/20 px-2 py-1">
-                <Text className="text-xs font-medium text-success">
-                  Auto
-                </Text>
+                <Text className="text-xs font-medium text-success">Auto</Text>
               </View>
             )}
 
@@ -153,5 +140,5 @@ export function SubscriptionListCard({
         </Card>
       )}
     </View>
-  )
+  );
 }

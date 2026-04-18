@@ -1,5 +1,5 @@
-import { internalMutation } from "../_generated/server";
-import { v } from "convex/values";
+import { v } from 'convex/values';
+import { internalMutation } from '../_generated/server';
 
 /**
  * Create a new transcript job for a contentId (e.g., YouTube video ID).
@@ -18,23 +18,27 @@ export const createTranscriptJob = internalMutation({
   handler: async (ctx, args) => {
     // Check for existing job
     const existing = await ctx.db
-      .query("transcriptJobs")
-      .withIndex("by_content", (q) => q.eq("contentId", args.contentId))
+      .query('transcriptJobs')
+      .withIndex('by_content', (q) => q.eq('contentId', args.contentId))
       .first();
 
     if (existing) {
       // Return existing job if not terminal (pending, downloading, or transcribing)
-      if (existing.status === "pending" || existing.status === "downloading" || existing.status === "transcribing") {
+      if (
+        existing.status === 'pending' ||
+        existing.status === 'downloading' ||
+        existing.status === 'transcribing'
+      ) {
         return { jobId: existing._id, created: false };
       }
     }
 
     // Create new job
     const now = Date.now();
-    const jobId = await ctx.db.insert("transcriptJobs", {
+    const jobId = await ctx.db.insert('transcriptJobs', {
       contentId: args.contentId,
       sourceUrl: args.sourceUrl,
-      status: "pending",
+      status: 'pending',
       priority: args.priority ?? 5,
       retryCount: 0,
       createdAt: now,
@@ -51,18 +55,18 @@ export const createTranscriptJob = internalMutation({
  */
 export const updateJobStatus = internalMutation({
   args: {
-    jobId: v.id("transcriptJobs"),
+    jobId: v.id('transcriptJobs'),
     status: v.union(
-      v.literal("pending"),
-      v.literal("downloading"),
-      v.literal("transcribing"),
-      v.literal("completed"),
-      v.literal("failed"),
-      v.literal("no_captions")
+      v.literal('pending'),
+      v.literal('downloading'),
+      v.literal('transcribing'),
+      v.literal('completed'),
+      v.literal('failed'),
+      v.literal('no_captions')
     ),
     startedAt: v.optional(v.number()),
     completedAt: v.optional(v.number()),
-    transcriptId: v.optional(v.id("videoTranscripts")),
+    transcriptId: v.optional(v.id('videoTranscripts')),
     errorMessage: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -79,14 +83,17 @@ export const updateJobStatus = internalMutation({
     // Set startedAt if provided
     if (args.startedAt !== undefined) {
       updateData.startedAt = args.startedAt;
-    } else if ((args.status === "downloading" || args.status === "transcribing") && !job.startedAt) {
+    } else if (
+      (args.status === 'downloading' || args.status === 'transcribing') &&
+      !job.startedAt
+    ) {
       updateData.startedAt = now;
     }
 
     // Set completedAt if provided or on terminal status
     if (args.completedAt !== undefined) {
       updateData.completedAt = args.completedAt;
-    } else if (["completed", "failed", "no_captions"].includes(args.status)) {
+    } else if (['completed', 'failed', 'no_captions'].includes(args.status)) {
       updateData.completedAt = now;
     }
 
@@ -112,7 +119,7 @@ export const updateJobStatus = internalMutation({
  */
 export const markFailed = internalMutation({
   args: {
-    jobId: v.id("transcriptJobs"),
+    jobId: v.id('transcriptJobs'),
     errorMessage: v.string(),
   },
   handler: async (ctx, args) => {
@@ -123,7 +130,7 @@ export const markFailed = internalMutation({
 
     const now = Date.now();
     await ctx.db.patch(args.jobId, {
-      status: "failed",
+      status: 'failed',
       errorMessage: args.errorMessage,
       completedAt: now,
     });
@@ -140,9 +147,13 @@ export const storeTranscript = internalMutation({
     transcript: v.object({
       contentId: v.string(),
       sourceUrl: v.string(),
-      transcriptType: v.union(v.literal("api"), v.literal("node_fallback"), v.literal("jina_fallback")),
+      transcriptType: v.union(
+        v.literal('api'),
+        v.literal('node_fallback'),
+        v.literal('jina_fallback')
+      ),
       transcriptSource: v.string(),
-      storageId: v.id("_storage"),
+      storageId: v.id('_storage'),
       previewText: v.string(),
       wordCount: v.number(),
       generatedAt: v.number(),
@@ -150,7 +161,7 @@ export const storeTranscript = internalMutation({
   },
   handler: async (ctx, args) => {
     const now = Date.now();
-    const transcriptId = await ctx.db.insert("videoTranscripts", {
+    const transcriptId = await ctx.db.insert('videoTranscripts', {
       contentId: args.transcript.contentId,
       sourceUrl: args.transcript.sourceUrl,
       transcriptType: args.transcript.transcriptType,
@@ -172,7 +183,7 @@ export const storeTranscript = internalMutation({
  */
 export const scheduleRetry = internalMutation({
   args: {
-    jobId: v.id("transcriptJobs"),
+    jobId: v.id('transcriptJobs'),
     retryCount: v.number(),
     errorMessage: v.string(),
   },
@@ -185,7 +196,7 @@ export const scheduleRetry = internalMutation({
     await ctx.db.patch(args.jobId, {
       retryCount: args.retryCount,
       errorMessage: args.errorMessage,
-      status: "pending",
+      status: 'pending',
     });
 
     return { success: true };

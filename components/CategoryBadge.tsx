@@ -1,18 +1,18 @@
-import { Badge, type BadgeProps } from '@/components/ui/badge'
-import { Text } from '@/components/ui/text'
-import { cn } from '@/lib/utils'
-import type { DocumentCategory } from '@/convex/lib/categories'
+import { Badge, type BadgeProps } from '@/components/ui/badge';
+import { Text } from '@/components/ui/text';
+import type { DocumentCategory } from '@/convex/lib/categories';
+import { cn } from '@/lib/utils';
 
 // Re-export for backward compatibility
-export type CategoryType = DocumentCategory
+export type CategoryType = DocumentCategory;
 
 interface CategoryBadgeProps extends Omit<BadgeProps, 'variant'> {
   /** The category type to display */
-  category: CategoryType
+  category: CategoryType;
   /** Optional custom label (defaults to formatted category name) */
-  label?: string
+  label?: string;
   /** Size variant */
-  size?: 'sm' | 'md'
+  size?: 'sm' | 'md';
 }
 
 const categoryConfig: Record<CategoryType, { label: string; variant: BadgeProps['variant'] }> = {
@@ -35,7 +35,7 @@ const categoryConfig: Record<CategoryType, { label: string; variant: BadgeProps[
   'ai-roi': { label: 'AI ROI', variant: 'default' },
   flights: { label: 'Flights', variant: 'outline' },
   'creator-analysis': { label: 'Creator', variant: 'secondary' },
-}
+};
 
 /**
  * CategoryBadge displays article or research categories with semantic colors.
@@ -48,14 +48,14 @@ export function CategoryBadge({
   className,
   ...props
 }: CategoryBadgeProps) {
-  const config = categoryConfig[category]
+  const config = categoryConfig[category];
 
   // Return null for invalid categories
   if (!config) {
-    return null
+    return null;
   }
 
-  const displayLabel = label ?? config.label
+  const displayLabel = label ?? config.label;
 
   return (
     <Badge
@@ -66,5 +66,5 @@ export function CategoryBadge({
     >
       <Text className={cn('text-xs', size === 'sm' && 'text-[10px]')}>{displayLabel}</Text>
     </Badge>
-  )
+  );
 }

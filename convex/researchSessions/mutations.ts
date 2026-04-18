@@ -1,20 +1,20 @@
-import { mutation } from "../_generated/server";
-import { v } from "convex/values";
+import { v } from 'convex/values';
+import { mutation } from '../_generated/server';
 
 const researchSessionStatus = v.union(
-  v.literal("pending"),
-  v.literal("running"),
-  v.literal("in_progress"),
-  v.literal("searching"),
-  v.literal("analyzing"),
-  v.literal("synthesizing"),
-  v.literal("completed"),
-  v.literal("failed"),
-  v.literal("cancelled"),
-  v.literal("error"),
-  v.literal("paused"),
-  v.literal("pending_approval"),
-  v.literal("processing")
+  v.literal('pending'),
+  v.literal('running'),
+  v.literal('in_progress'),
+  v.literal('searching'),
+  v.literal('analyzing'),
+  v.literal('synthesizing'),
+  v.literal('completed'),
+  v.literal('failed'),
+  v.literal('cancelled'),
+  v.literal('error'),
+  v.literal('paused'),
+  v.literal('pending_approval'),
+  v.literal('processing')
 );
 
 /**
@@ -31,12 +31,12 @@ export const create = mutation({
     coverageScore: v.optional(v.number()),
     plan: v.optional(v.any()),
     findings: v.optional(v.any()),
-    documentId: v.optional(v.id("documents")),
+    documentId: v.optional(v.id('documents')),
     errorText: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const now = Date.now();
-    return await ctx.db.insert("researchSessions", {
+    return await ctx.db.insert('researchSessions', {
       ...args,
       createdAt: now,
       updatedAt: now,
@@ -49,13 +49,13 @@ export const create = mutation({
  */
 export const update = mutation({
   args: {
-    id: v.id("researchSessions"),
+    id: v.id('researchSessions'),
     status: v.optional(researchSessionStatus),
     currentIteration: v.optional(v.number()),
     coverageScore: v.optional(v.number()),
     plan: v.optional(v.any()),
     findings: v.optional(v.any()),
-    documentId: v.optional(v.id("documents")),
+    documentId: v.optional(v.id('documents')),
     errorText: v.optional(v.string()),
     completedAt: v.optional(v.number()),
   },
@@ -71,12 +71,14 @@ export const update = mutation({
     });
 
     // Notify on completion
-    if (updates.status === "completed") {
+    if (updates.status === 'completed') {
       const updated = await ctx.db.get(id);
-      await ctx.db.insert("notifications", {
-        type: "research_complete",
-        title: "Research Complete",
-        body: updated?.query ? `Research on "${updated.query}" has finished.` : "Your research session has finished.",
+      await ctx.db.insert('notifications', {
+        type: 'research_complete',
+        title: 'Research Complete',
+        body: updated?.query
+          ? `Research on "${updated.query}" has finished.`
+          : 'Your research session has finished.',
         route: updated?.documentId ? `/document/${updated.documentId}` : `/research/${id}`,
         referenceId: id,
         read: false,
@@ -102,16 +104,16 @@ export const insertFromMigration = mutation({
     coverageScore: v.optional(v.number()),
     plan: v.optional(v.any()),
     findings: v.optional(v.any()),
-    documentId: v.optional(v.id("documents")),
+    documentId: v.optional(v.id('documents')),
     errorText: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
     completedAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    return await ctx.db.insert("researchSessions", {
+    return await ctx.db.insert('researchSessions', {
       ...args,
-      researchType: args.researchType ?? "topic_research",
+      researchType: args.researchType ?? 'topic_research',
     });
   },
 });
@@ -123,12 +125,10 @@ export const insertFromMigration = mutation({
 export const clearAll = mutation({
   args: {},
   handler: async (ctx) => {
-    if (process.env.ALLOW_CLEAR_ALL !== "true") {
-      throw new Error(
-        "clearAll is disabled. Set ALLOW_CLEAR_ALL=true to enable."
-      );
+    if (process.env.ALLOW_CLEAR_ALL !== 'true') {
+      throw new Error('clearAll is disabled. Set ALLOW_CLEAR_ALL=true to enable.');
     }
-    const sessions = await ctx.db.query("researchSessions").collect();
+    const sessions = await ctx.db.query('researchSessions').collect();
     for (const session of sessions) {
       await ctx.db.delete(session._id);
     }

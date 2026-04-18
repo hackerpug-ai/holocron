@@ -21,17 +21,14 @@
  * @see convex/research/actions.ts - Research orchestrator
  */
 
-"use node";
+'use node';
 
-import { action, internalAction } from "../_generated/server";
-import { v } from "convex/values";
-import { api, internal } from "../_generated/api";
-import type { Id } from "../_generated/dataModel";
-import type { ActionCtx } from "../_generated/server";
-import {
-  executeParallelSearchWithRetry,
-  type ParallelSearchResult,
-} from "./search";
+import { v } from 'convex/values';
+import { api, internal } from '../_generated/api';
+import type { Id } from '../_generated/dataModel';
+import type { ActionCtx } from '../_generated/server';
+import { action, internalAction } from '../_generated/server';
+import { executeParallelSearchWithRetry, type ParallelSearchResult } from './search';
 
 // ============================================================================
 // Types
@@ -41,11 +38,11 @@ import {
  * Research track types - specialized domains for parallel research
  */
 export type ResearchTrack =
-  | "academic"    // Research papers, academic studies
-  | "business"    // Industry best practices, case studies
-  | "code"        // Implementation, API docs, code examples
-  | "news"        // Recent developments, trends
-  | "technical";  // Deep technical analysis, architecture
+  | 'academic' // Research papers, academic studies
+  | 'business' // Industry best practices, case studies
+  | 'code' // Implementation, API docs, code examples
+  | 'news' // Recent developments, trends
+  | 'technical'; // Deep technical analysis, architecture
 
 /**
  * Specialist agent types for domain-specific research
@@ -53,11 +50,11 @@ export type ResearchTrack =
  * US-IMP-011: Product/Service Finder Specialists
  */
 export type SpecialistType =
-  | "academic"       // Academic research specialist
-  | "technical"      // Technical research specialist
-  | "product_finder" // Product finder specialist
-  | "service_finder" // Service finder specialist
-  | "generalist";    // General research agent (fallback)
+  | 'academic' // Academic research specialist
+  | 'technical' // Technical research specialist
+  | 'product_finder' // Product finder specialist
+  | 'service_finder' // Service finder specialist
+  | 'generalist'; // General research agent (fallback)
 
 /**
  * Research track configuration
@@ -87,9 +84,9 @@ export interface TrackWorkerResult {
  * Aggregated dispatcher results
  */
 export interface DispatcherResult {
-  sessionId: Id<"deepResearchSessions">;
-  conversationId: Id<"conversations">;
-  status: "completed" | "partial" | "failed";
+  sessionId: Id<'deepResearchSessions'>;
+  conversationId: Id<'conversations'>;
+  status: 'completed' | 'partial' | 'failed';
   tracks: {
     total: number;
     completed: number;
@@ -120,47 +117,47 @@ const TRACK_PATTERNS: Record<
   { prefix: string; suffixes: string[]; priority: number }
 > = {
   academic: {
-    prefix: "",
+    prefix: '',
     suffixes: [
-      "research paper academic study",
-      "scholarly article peer-reviewed",
-      "academic research findings",
+      'research paper academic study',
+      'scholarly article peer-reviewed',
+      'academic research findings',
     ],
     priority: 1,
   },
   business: {
-    prefix: "",
+    prefix: '',
     suffixes: [
-      "industry best practices",
-      "business case study real-world application",
-      "enterprise implementation guide",
+      'industry best practices',
+      'business case study real-world application',
+      'enterprise implementation guide',
     ],
     priority: 2,
   },
   code: {
-    prefix: "",
+    prefix: '',
     suffixes: [
-      "implementation code example tutorial",
-      "API documentation reference",
-      "programming guide examples",
+      'implementation code example tutorial',
+      'API documentation reference',
+      'programming guide examples',
     ],
     priority: 3,
   },
   news: {
-    prefix: "",
+    prefix: '',
     suffixes: [
-      "latest developments trends 2024 2025",
-      "recent news announcements",
-      "current state industry updates",
+      'latest developments trends 2024 2025',
+      'recent news announcements',
+      'current state industry updates',
     ],
     priority: 4,
   },
   technical: {
-    prefix: "",
+    prefix: '',
     suffixes: [
-      "technical architecture design",
-      "performance optimization analysis",
-      "deep dive technical details",
+      'technical architecture design',
+      'performance optimization analysis',
+      'deep dive technical details',
     ],
     priority: 5,
   },
@@ -173,10 +170,7 @@ const TRACK_PATTERNS: Record<
  * @param baseTopic - Base research topic
  * @returns Array of track configurations
  */
-export function parsePlanIntoTracks(
-  plan: any,
-  baseTopic: string
-): TrackConfig[] {
+export function parsePlanIntoTracks(plan: any, baseTopic: string): TrackConfig[] {
   // If plan has explicit track assignments, use those
   if (plan?.tracks && Array.isArray(plan.tracks)) {
     return plan.tracks.map((track: any) => ({
@@ -190,7 +184,7 @@ export function parsePlanIntoTracks(
 
   // Otherwise, decompose topic into default tracks
   const tracks: TrackConfig[] = [];
-  const trackTypes: ResearchTrack[] = ["academic", "business", "code", "news"];
+  const trackTypes: ResearchTrack[] = ['academic', 'business', 'code', 'news'];
 
   for (const track of trackTypes) {
     const pattern = TRACK_PATTERNS[track];
@@ -219,34 +213,34 @@ export function selectTracksForTopic(topic: string): ResearchTrack[] {
 
   // Detect topic type for better track selection
   const isTechnical =
-    words.includes("implement") ||
-    words.includes("code") ||
-    words.includes("api") ||
-    words.includes("sdk") ||
-    words.includes("programming");
+    words.includes('implement') ||
+    words.includes('code') ||
+    words.includes('api') ||
+    words.includes('sdk') ||
+    words.includes('programming');
   const isBusiness =
-    words.includes("business") ||
-    words.includes("enterprise") ||
-    words.includes("company") ||
-    words.includes("startup");
+    words.includes('business') ||
+    words.includes('enterprise') ||
+    words.includes('company') ||
+    words.includes('startup');
   const isAcademic =
-    words.includes("research") ||
-    words.includes("study") ||
-    words.includes("paper") ||
-    words.includes("theory");
+    words.includes('research') ||
+    words.includes('study') ||
+    words.includes('paper') ||
+    words.includes('theory');
 
   if (isTechnical) {
-    return ["code", "technical", "business", "news"];
+    return ['code', 'technical', 'business', 'news'];
   }
   if (isBusiness) {
-    return ["business", "news", "academic", "code"];
+    return ['business', 'news', 'academic', 'code'];
   }
   if (isAcademic) {
-    return ["academic", "technical", "business", "news"];
+    return ['academic', 'technical', 'business', 'news'];
   }
 
   // Default balanced set
-  return ["academic", "business", "code", "news"];
+  return ['academic', 'business', 'code', 'news'];
 }
 
 /**
@@ -262,88 +256,83 @@ export function detectSpecialist(query: string): SpecialistType {
 
   // Academic keywords: research, paper, study, academic, journal, citation, peer-reviewed
   const isAcademic =
-    words.includes("academic") ||
-    words.includes("research") ||
-    words.includes("paper") ||
-    words.includes("study") ||
-    words.includes("scholarly") ||
-    words.includes("journal") ||
-    words.includes("citation") ||
-    words.includes("peer-reviewed") ||
-    words.includes("peer reviewed");
+    words.includes('academic') ||
+    words.includes('research') ||
+    words.includes('paper') ||
+    words.includes('study') ||
+    words.includes('scholarly') ||
+    words.includes('journal') ||
+    words.includes('citation') ||
+    words.includes('peer-reviewed') ||
+    words.includes('peer reviewed');
 
   // Technical keywords: implement, code, api, sdk, programming, technical, architecture
   const isTechnical =
-    words.includes("technical") ||
-    words.includes("implement") ||
-    words.includes("code") ||
-    words.includes("api") ||
-    words.includes("sdk") ||
-    words.includes("programming") ||
-    words.includes("architecture") ||
-    words.includes("development") ||
-    words.includes("engineering");
+    words.includes('technical') ||
+    words.includes('implement') ||
+    words.includes('code') ||
+    words.includes('api') ||
+    words.includes('sdk') ||
+    words.includes('programming') ||
+    words.includes('architecture') ||
+    words.includes('development') ||
+    words.includes('engineering');
 
   // Product keywords: buy, purchase, price, laptop, phone, product, best, comparison
   const isProduct =
-    words.includes("buy") ||
-    words.includes("purchase") ||
-    words.includes("price") ||
-    words.includes("laptop") ||
-    words.includes("phone") ||
-    words.includes("product") ||
-    words.includes("best") && (
-      words.includes("laptop") ||
-      words.includes("phone") ||
-      words.includes("camera") ||
-      words.includes("tablet") ||
-      words.includes("headphones") ||
-      words.includes("monitor") ||
-      words.includes("keyboard") ||
-      words.includes("mouse")
-    ) ||
-    words.includes("comparison") && (
-      words.includes("product") ||
-      words.includes("price") ||
-      words.includes("review")
-    );
+    words.includes('buy') ||
+    words.includes('purchase') ||
+    words.includes('price') ||
+    words.includes('laptop') ||
+    words.includes('phone') ||
+    words.includes('product') ||
+    (words.includes('best') &&
+      (words.includes('laptop') ||
+        words.includes('phone') ||
+        words.includes('camera') ||
+        words.includes('tablet') ||
+        words.includes('headphones') ||
+        words.includes('monitor') ||
+        words.includes('keyboard') ||
+        words.includes('mouse'))) ||
+    (words.includes('comparison') &&
+      (words.includes('product') || words.includes('price') || words.includes('review')));
 
   // Service keywords: service, plumber, contractor, cleaner, repair, near me
   const isService =
-    words.includes("service") ||
-    words.includes("plumber") ||
-    words.includes("contractor") ||
-    words.includes("cleaner") ||
-    words.includes("cleaning") ||
-    words.includes("repair") ||
-    words.includes("near me") ||
-    words.includes("nearby") ||
-    words.includes("provider") && (
-      words.includes("service") ||
-      words.includes("internet") ||
-      words.includes("hosting") ||
-      words.includes("consulting")
-    ) ||
-    words.includes("web design") ||
-    words.includes("landscaping") ||
-    words.includes("electrician");
+    words.includes('service') ||
+    words.includes('plumber') ||
+    words.includes('contractor') ||
+    words.includes('cleaner') ||
+    words.includes('cleaning') ||
+    words.includes('repair') ||
+    words.includes('near me') ||
+    words.includes('nearby') ||
+    (words.includes('provider') &&
+      (words.includes('service') ||
+        words.includes('internet') ||
+        words.includes('hosting') ||
+        words.includes('consulting'))) ||
+    words.includes('web design') ||
+    words.includes('landscaping') ||
+    words.includes('electrician');
 
   // Priority: academic > technical > product > service > generalist
   if (isAcademic) {
-    return "academic";
+    return 'academic';
   }
   if (isTechnical) {
-    return "technical";
+    return 'technical';
   }
   if (isProduct) {
-    return "product_finder";
+    return 'product_finder';
   }
   if (isService) {
-    return "service_finder";
+    return 'service_finder';
   }
 
   // Default to generalist for ambiguous queries
-  return "generalist";
+  return 'generalist';
 }
 
 // ============================================================================
@@ -357,27 +346,17 @@ export function detectSpecialist(query: string): SpecialistType {
  * @param config - Track configuration
  * @returns Worker result
  */
-async function executeTrackWorker(
-  ctx: ActionCtx,
-  config: TrackConfig
-): Promise<TrackWorkerResult> {
+async function executeTrackWorker(ctx: ActionCtx, config: TrackConfig): Promise<TrackWorkerResult> {
   const startTime = Date.now();
-  
 
   try {
-    const result = await executeParallelSearchWithRetry(
-      config.query,
-      {},
-      [],
-      {
-        maxRetries: config.maxRetries,
-        timeoutMs: 15000,
-        deduplicateResults: true,
-      }
-    );
+    const result = await executeParallelSearchWithRetry(config.query, {}, [], {
+      maxRetries: config.maxRetries,
+      timeoutMs: 15000,
+      deduplicateResults: true,
+    });
 
     const durationMs = Date.now() - startTime;
-    
 
     return {
       track: config.track,
@@ -389,12 +368,9 @@ async function executeTrackWorker(
     };
   } catch (error) {
     const durationMs = Date.now() - startTime;
-    const errorMessage =
-      error instanceof Error ? error.message : "Unknown error";
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
-    console.error(
-      `[executeTrackWorker] Failed track: ${config.track}, error: ${errorMessage}`
-    );
+    console.error(`[executeTrackWorker] Failed track: ${config.track}, error: ${errorMessage}`);
 
     return {
       track: config.track,
@@ -422,8 +398,6 @@ async function executeTrackWorkerWithRetry(
 
   // Retry failed tracks
   while (!result.success && config.retryCount < config.maxRetries) {
-    
-
     config.retryCount++;
     result = await executeTrackWorker(ctx, config);
   }
@@ -441,9 +415,7 @@ async function executeTrackWorkerWithRetry(
  * @param trackResults - Array of track worker results
  * @returns Aggregated findings
  */
-export function aggregateTrackResults(
-  trackResults: TrackWorkerResult[]
-): {
+export function aggregateTrackResults(trackResults: TrackWorkerResult[]): {
   summary: string;
   trackResults: Array<{
     track: ResearchTrack;
@@ -469,7 +441,7 @@ export function aggregateTrackResults(
   );
 
   // Build summary
-  let summary = `Research completed across ${successfulTracks.length} track${successfulTracks.length !== 1 ? "s" : ""}`;
+  let summary = `Research completed across ${successfulTracks.length} track${successfulTracks.length !== 1 ? 's' : ''}`;
   if (failedTracks.length > 0) {
     summary += ` (${failedTracks.length} failed)`;
   }
@@ -499,46 +471,41 @@ export function aggregateTrackResults(
  */
 export const executePlanBasedResearch = internalAction({
   args: {
-    conversationId: v.id("conversations"),
-    sessionId: v.id("deepResearchSessions"),
+    conversationId: v.id('conversations'),
+    sessionId: v.id('deepResearchSessions'),
     plan: v.any(),
     topic: v.string(),
   },
-  handler: async (
-    ctx,
-    { conversationId, sessionId, plan, topic }
-  ): Promise<DispatcherResult> => {
+  handler: async (ctx, { conversationId, sessionId, plan, topic }): Promise<DispatcherResult> => {
     const startTime = Date.now();
-    
 
     // Step 1: Parse plan into track assignments
     const tracks = parsePlanIntoTracks(plan, topic);
-    
 
     // Step 2: Update loading card with track assignments
-    const loadingCard = await ctx.runQuery(
-      api.chatMessages.queries.findLoadingCardBySession,
-      { conversationId, sessionId: sessionId.toString() }
-    );
+    const loadingCard = await ctx.runQuery(api.chatMessages.queries.findLoadingCardBySession, {
+      conversationId,
+      sessionId: sessionId.toString(),
+    });
 
     if (loadingCard) {
       await ctx.runMutation(api.chatMessages.mutations.update, {
         id: loadingCard._id,
         cardData: {
-          card_type: "deep_research_loading",
-          status: "in_progress",
+          card_type: 'deep_research_loading',
+          status: 'in_progress',
           session_id: sessionId,
           topic,
           steps: [
             {
-              id: "dispatch",
+              id: 'dispatch',
               label: `Dispatched ${tracks.length} research workers...`,
-              status: "completed",
+              status: 'completed',
             },
             {
-              id: "research",
+              id: 'research',
               label: `Researching ${tracks.length} tracks in parallel...`,
-              status: "in_progress",
+              status: 'in_progress',
             },
           ],
         },
@@ -546,24 +513,19 @@ export const executePlanBasedResearch = internalAction({
     }
 
     // Step 3: Execute all track workers in parallel
-    const workerPromises = tracks.map((config) =>
-      executeTrackWorkerWithRetry(ctx, config)
-    );
+    const workerPromises = tracks.map((config) => executeTrackWorkerWithRetry(ctx, config));
 
     // Use Promise.allSettled so one provider failure doesn't block others
     const settledResults = await Promise.allSettled(workerPromises);
     const trackResults = settledResults.map((result, index) => {
-      if (result.status === "fulfilled") {
+      if (result.status === 'fulfilled') {
         return result.value;
       }
       // Convert rejected promise into a failed TrackWorkerResult
       const config = tracks[index];
-      const errorMessage = result.reason instanceof Error
-        ? result.reason.message
-        : String(result.reason);
-      console.error(
-        `[executePlanBasedResearch] Track ${config.track} rejected: ${errorMessage}`
-      );
+      const errorMessage =
+        result.reason instanceof Error ? result.reason.message : String(result.reason);
+      console.error(`[executePlanBasedResearch] Track ${config.track} rejected: ${errorMessage}`);
       return {
         track: config.track,
         query: config.query,
@@ -578,8 +540,6 @@ export const executePlanBasedResearch = internalAction({
     const completedTracks = trackResults.filter((r) => r.success);
     const failedTracks = trackResults.filter((r) => !r.success);
 
-    
-
     const findings = aggregateTrackResults(trackResults);
 
     // Step 5: Update loading card with completion status
@@ -587,25 +547,25 @@ export const executePlanBasedResearch = internalAction({
       await ctx.runMutation(api.chatMessages.mutations.update, {
         id: loadingCard._id,
         cardData: {
-          card_type: "deep_research_loading",
-          status: "in_progress",
+          card_type: 'deep_research_loading',
+          status: 'in_progress',
           session_id: sessionId,
           topic,
           steps: [
             {
-              id: "dispatch",
+              id: 'dispatch',
               label: `Dispatched ${tracks.length} research workers`,
-              status: "completed",
+              status: 'completed',
             },
             {
-              id: "research",
+              id: 'research',
               label: `Researched ${completedTracks.length}/${tracks.length} tracks`,
-              status: "completed",
+              status: 'completed',
             },
             {
-              id: "aggregate",
-              label: "Aggregating findings...",
-              status: "in_progress",
+              id: 'aggregate',
+              label: 'Aggregating findings...',
+              status: 'in_progress',
             },
           ],
         },
@@ -620,27 +580,25 @@ export const executePlanBasedResearch = internalAction({
       feedback: `Completed ${completedTracks.length}/${tracks.length} research tracks`,
       findings: findings.summary,
       refinedQueries: failedTracks.map((f) => f.query),
-      status: "completed",
+      status: 'completed',
       summary: `Parallel track research: ${completedTracks.length} completed`,
     });
 
     // Step 7: Complete session
     await ctx.runMutation(api.research.mutations.completeDeepResearchSession, {
       sessionId,
-      status: completedTracks.length > 0 ? "completed" : "failed",
+      status: completedTracks.length > 0 ? 'completed' : 'failed',
     });
 
     const totalTime = Date.now() - startTime;
 
     // Determine overall status
-    const status: "completed" | "partial" | "failed" =
+    const status: 'completed' | 'partial' | 'failed' =
       completedTracks.length === tracks.length
-        ? "completed"
+        ? 'completed'
         : completedTracks.length > 0
-        ? "partial"
-        : "failed";
-
-    
+          ? 'partial'
+          : 'failed';
 
     return {
       sessionId,
@@ -665,47 +623,42 @@ export const executePlanBasedResearch = internalAction({
  */
 export const runPlanBasedResearch = action({
   args: {
-    conversationId: v.id("conversations"),
-    planId: v.id("executionPlans"),
+    conversationId: v.id('conversations'),
+    planId: v.id('executionPlans'),
     topic: v.string(),
   },
   handler: async (
     ctx,
     { conversationId, planId, topic }
   ): Promise<{
-    sessionId: Id<"deepResearchSessions">;
+    sessionId: Id<'deepResearchSessions'>;
     status: string;
   }> => {
-    
-
     // Fetch the approved plan
     const plan = await ctx.runQuery(api.plans.queries.get, {
       id: planId,
     });
 
-    if (!plan || plan.status !== "approved") {
-      throw new Error("Plan not found or not approved");
+    if (!plan || plan.status !== 'approved') {
+      throw new Error('Plan not found or not approved');
     }
 
     // Create deep research session
-    const sessionId = await ctx.runMutation(
-      api.research.mutations.createDeepResearchSession,
-      {
-        conversationId,
-        topic,
-        maxIterations: 1,
-      }
-    );
+    const sessionId = await ctx.runMutation(api.research.mutations.createDeepResearchSession, {
+      conversationId,
+      topic,
+      maxIterations: 1,
+    });
 
     // Post loading card
     await ctx.runMutation(api.chatMessages.mutations.create, {
       conversationId,
-      role: "agent",
+      role: 'agent',
       content: `Executing research plan: ${topic}`,
-      messageType: "result_card",
+      messageType: 'result_card',
       cardData: {
-        card_type: "deep_research_loading",
-        status: "in_progress",
+        card_type: 'deep_research_loading',
+        status: 'in_progress',
         session_id: sessionId,
         topic,
       },

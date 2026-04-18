@@ -6,19 +6,19 @@
  * Uses Reanimated FadeIn/FadeOut for smooth enter/exit transitions.
  */
 
-import { ActivityIndicator, StyleSheet, View } from 'react-native'
-import Animated, { FadeIn, FadeOut } from 'react-native-reanimated'
-import { Text } from '@/components/ui/text'
-import { useTheme } from '@/hooks/use-theme'
-import { TOOL_DISPLAY_NAMES } from '@/lib/voice/function-dispatcher'
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import { Text } from '@/components/ui/text';
+import { useTheme } from '@/hooks/use-theme';
+import { TOOL_DISPLAY_NAMES } from '@/lib/voice/function-dispatcher';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
 export interface VoiceToolActivityPillProps {
   /** When non-null, shows the pill with the display name for the active tool */
-  toolName: string | null
+  toolName: string | null;
   /** Optional testID for the root element */
-  testID?: string
+  testID?: string;
 }
 
 // ─── Component ─────────────────────────────────────────────────────────────────
@@ -27,13 +27,13 @@ export function VoiceToolActivityPill({
   toolName,
   testID = 'voice-tool-activity-pill',
 }: VoiceToolActivityPillProps) {
-  const { colors, spacing, radius } = useTheme()
+  const { colors, spacing, radius } = useTheme();
 
   if (!toolName) {
-    return null
+    return null;
   }
 
-  const displayName = TOOL_DISPLAY_NAMES[toolName] ?? toolName
+  const displayName = TOOL_DISPLAY_NAMES[toolName] ?? toolName;
 
   return (
     <Animated.View
@@ -66,7 +66,7 @@ export function VoiceToolActivityPill({
         </Text>
       </View>
     </Animated.View>
-  )
+  );
 }
 
 // ─── Styles ─────────────────────────────────────────────────────────────────────
@@ -80,4 +80,4 @@ const styles = StyleSheet.create({
   textWrapper: {
     flexShrink: 1,
   },
-})
+});

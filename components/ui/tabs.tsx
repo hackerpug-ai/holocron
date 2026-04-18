@@ -1,7 +1,7 @@
-import { TextClassContext } from '@/components/ui/text';
-import { cn } from '@/lib/utils';
 import * as TabsPrimitive from '@rn-primitives/tabs';
 import { Platform } from 'react-native';
+import { TextClassContext } from '@/components/ui/text';
+import { cn } from '@/lib/utils';
 
 function Tabs({
   className,
@@ -36,7 +36,8 @@ function TabsTrigger({
       value={cn(
         'text-foreground dark:text-muted-foreground text-sm font-medium',
         value === props.value && 'dark:text-foreground'
-      )}>
+      )}
+    >
       <TabsPrimitive.Trigger
         className={cn(
           'flex h-[calc(100%-1px)] flex-row items-center justify-center gap-1.5 rounded-md border border-transparent px-2 py-1 shadow-none shadow-black/5',

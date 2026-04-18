@@ -1,11 +1,11 @@
-import { query } from "../../_generated/server";
-import { v } from "convex/values";
+import { v } from 'convex/values';
+import { query } from '../../_generated/server';
 
 /**
  * Get a document by ID
  */
 export const get = query({
-  args: { id: v.id("documents") },
+  args: { id: v.id('documents') },
   handler: async (ctx, args) => {
     return await ctx.db.get(args.id);
   },
@@ -25,24 +25,21 @@ export const list = query({
     const { category, limit = 100 } = args;
 
     // Use withIndex to order by creation time descending
-    let query = ctx.db
-      .query("documents")
-      .withIndex("by_creationTime")
-      .order("desc");
+    let query = ctx.db.query('documents').withIndex('by_creationTime').order('desc');
 
     // Apply category filter if specified
     if (category) {
-      query = query.filter((q) => q.eq(q.field("category"), category));
+      query = query.filter((q) => q.eq(q.field('category'), category));
     }
 
     // Use take() to limit results
     const results = await query.take(limit);
 
     // Get total count using counters (BP-005)
-    const counterName = category ?? "total";
+    const counterName = category ?? 'total';
     const counter = await ctx.db
-      .query("documentCounters")
-      .withIndex("by_name", (q) => q.eq("name", counterName))
+      .query('documentCounters')
+      .withIndex('by_name', (q) => q.eq('name', counterName))
       .first();
 
     const totalCount = counter?.count ?? 0;
@@ -65,8 +62,8 @@ export const count = query({
   args: {},
   handler: async (ctx) => {
     const counter = await ctx.db
-      .query("documentCounters")
-      .withIndex("by_name", (q) => q.eq("name", "total"))
+      .query('documentCounters')
+      .withIndex('by_name', (q) => q.eq('name', 'total'))
       .first();
     return counter?.count ?? 0;
   },
@@ -85,16 +82,16 @@ export const countWithFilter = query({
     if (!category) {
       // Return total count
       const counter = await ctx.db
-        .query("documentCounters")
-        .withIndex("by_name", (q) => q.eq("name", "total"))
+        .query('documentCounters')
+        .withIndex('by_name', (q) => q.eq('name', 'total'))
         .first();
       return counter?.count ?? 0;
     }
 
     // Return category-specific count
     const counter = await ctx.db
-      .query("documentCounters")
-      .withIndex("by_name", (q) => q.eq("name", category))
+      .query('documentCounters')
+      .withIndex('by_name', (q) => q.eq('name', category))
       .first();
     return counter?.count ?? 0;
   },
@@ -107,8 +104,8 @@ export const getSampleWithEmbedding = query({
   args: {},
   handler: async (ctx) => {
     const documents = await ctx.db
-      .query("documents")
-      .filter((q) => q.neq(q.field("embedding"), undefined))
+      .query('documents')
+      .filter((q) => q.neq(q.field('embedding'), undefined))
       .first();
 
     if (!documents || !documents.embedding) {
@@ -132,13 +129,11 @@ export const countByCategory = query({
   args: {},
   handler: async (ctx) => {
     // Get all category counters
-    const counters = await ctx.db
-      .query("documentCounters")
-      .collect();
+    const counters = await ctx.db.query('documentCounters').collect();
 
     const counts: Record<string, number> = {};
     for (const counter of counters) {
-      if (counter.name !== "total" && counter.name !== "withoutEmbeddings") {
+      if (counter.name !== 'total' && counter.name !== 'withoutEmbeddings') {
         counts[counter.name] = counter.count;
       }
     }
@@ -161,8 +156,8 @@ export const vectorSearch = query({
   handler: async (ctx, { embedding, limit = 10, category }) => {
     // Get all documents that have embeddings
     let documents = await ctx.db
-      .query("documents")
-      .filter((q) => q.neq(q.field("embedding"), undefined))
+      .query('documents')
+      .filter((q) => q.neq(q.field('embedding'), undefined))
       .collect();
 
     // Apply category filter if specified
@@ -200,8 +195,8 @@ export const fullTextSearch = query({
   handler: async (ctx, { query: searchQuery, limit = 10, category }) => {
     // Use search index for efficient text search
     let results = await ctx.db
-      .query("documents")
-      .withSearchIndex("by_title_content", (q) => q.search("title", searchQuery))
+      .query('documents')
+      .withSearchIndex('by_title_content', (q) => q.search('title', searchQuery))
       .take(limit);
 
     // Apply category filter if specified
@@ -231,11 +226,11 @@ export const findDocumentsWithoutEmbeddings = query({
   },
   handler: async (ctx, { limit = 100 }) => {
     const documents = await ctx.db
-      .query("documents")
-      .filter((q) => q.eq(q.field("embedding"), undefined))
+      .query('documents')
+      .filter((q) => q.eq(q.field('embedding'), undefined))
       .take(limit);
 
-    return documents.map(doc => ({
+    return documents.map((doc) => ({
       _id: doc._id,
       title: doc.title,
       category: doc.category,
@@ -252,8 +247,8 @@ export const countDocumentsWithoutEmbeddings = query({
   args: {},
   handler: async (ctx) => {
     const counter = await ctx.db
-      .query("documentCounters")
-      .withIndex("by_name", (q) => q.eq("name", "withoutEmbeddings"))
+      .query('documentCounters')
+      .withIndex('by_name', (q) => q.eq('name', 'withoutEmbeddings'))
       .first();
     return counter?.count ?? 0;
   },
@@ -267,8 +262,8 @@ export const getByShareToken = query({
   args: { shareToken: v.string() },
   handler: async (ctx, { shareToken }) => {
     const doc = await ctx.db
-      .query("documents")
-      .withIndex("by_shareToken", (q) => q.eq("shareToken", shareToken))
+      .query('documents')
+      .withIndex('by_shareToken', (q) => q.eq('shareToken', shareToken))
       .first();
 
     if (!doc || doc.isPublic !== true) return null;
@@ -291,7 +286,7 @@ export const getByShareToken = query({
  */
 export const getSection = query({
   args: {
-    id: v.id("documents"),
+    id: v.id('documents'),
     blockIndex: v.optional(v.number()),
   },
   handler: async (ctx, { id, blockIndex }) => {

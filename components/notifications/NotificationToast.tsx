@@ -14,62 +14,59 @@
  * ```
  */
 
-import * as ToastPrimitive from '@rn-primitives/toast'
-import { AlertCircle, Bell, CheckCircle2 } from '@/components/ui/icons'
-import { Text } from '@/components/ui/text'
-import { cn } from '@/lib/utils'
-import { useRouter } from 'expo-router'
-import * as React from 'react'
-import { Pressable, StyleSheet, View } from 'react-native'
+import * as ToastPrimitive from '@rn-primitives/toast';
+import { useRouter } from 'expo-router';
+import * as React from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
   withTiming,
-} from 'react-native-reanimated'
-import {
-  Gesture,
-  GestureDetector,
-} from 'react-native-gesture-handler'
+} from 'react-native-reanimated';
+import { AlertCircle, Bell, CheckCircle2 } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { cn } from '@/lib/utils';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type NotificationType = 'research_complete' | 'research_failed' | 'system'
+export type NotificationType = 'research_complete' | 'research_failed' | 'system';
 
 export interface NotificationData {
-  _id: string
-  type: NotificationType
-  title: string
-  body: string
-  route: string
-  read: boolean
-  createdAt: number
+  _id: string;
+  type: NotificationType;
+  title: string;
+  body: string;
+  route: string;
+  read: boolean;
+  createdAt: number;
 }
 
 export interface NotificationToastProps {
   /** The notification to display */
-  notification: NotificationData
+  notification: NotificationData;
   /** Called when the toast should be hidden */
-  onDismiss: () => void
+  onDismiss: () => void;
   /** Called when the notification is tapped (after navigation) */
-  onMarkRead?: (id: string) => void
-  testID?: string
+  onMarkRead?: (id: string) => void;
+  testID?: string;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const SWIPE_DISMISS_THRESHOLD = 80
-const SWIPE_VELOCITY_THRESHOLD = 500
+const SWIPE_DISMISS_THRESHOLD = 80;
+const SWIPE_VELOCITY_THRESHOLD = 500;
 
 // ─── Icon per notification type ───────────────────────────────────────────────
 
 const TYPE_CONFIG: Record<
   NotificationType,
   {
-    Icon: typeof CheckCircle2
-    iconClass: string
-    accentClass: string
+    Icon: typeof CheckCircle2;
+    iconClass: string;
+    accentClass: string;
   }
 > = {
   research_complete: {
@@ -87,7 +84,7 @@ const TYPE_CONFIG: Record<
     iconClass: 'text-primary',
     accentClass: 'bg-primary',
   },
-}
+};
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -97,21 +94,21 @@ export function NotificationToast({
   onMarkRead,
   testID = 'notification-toast',
 }: NotificationToastProps) {
-  const router = useRouter()
-  const [open, setOpen] = React.useState(true)
+  const router = useRouter();
+  const [open, setOpen] = React.useState(true);
 
-  const config = TYPE_CONFIG[notification.type] ?? TYPE_CONFIG.system
-  const { Icon, iconClass, accentClass } = config
+  const config = TYPE_CONFIG[notification.type] ?? TYPE_CONFIG.system;
+  const { Icon, iconClass, accentClass } = config;
 
   // ── Animation values ──
-  const translateX = useSharedValue(0)
-  const opacity = useSharedValue(1)
+  const translateX = useSharedValue(0);
+  const opacity = useSharedValue(1);
 
   const dismiss = React.useCallback(() => {
     opacity.value = withTiming(0, { duration: 150 }, () => {
-      runOnJS(onDismiss)()
-    })
-  }, [opacity, onDismiss])
+      runOnJS(onDismiss)();
+    });
+  }, [opacity, onDismiss]);
 
   // ── Swipe-to-dismiss gesture (swipe left) ──
   const panGesture = Gesture.Pan()
@@ -119,45 +116,44 @@ export function NotificationToast({
     .onUpdate((e) => {
       // Only allow swipe left (negative x)
       if (e.translationX < 0) {
-        translateX.value = e.translationX
-        opacity.value = 1 + e.translationX / (SWIPE_DISMISS_THRESHOLD * 2)
+        translateX.value = e.translationX;
+        opacity.value = 1 + e.translationX / (SWIPE_DISMISS_THRESHOLD * 2);
       }
     })
     .onEnd((e) => {
       const shouldDismiss =
-        e.translationX < -SWIPE_DISMISS_THRESHOLD ||
-        e.velocityX < -SWIPE_VELOCITY_THRESHOLD
+        e.translationX < -SWIPE_DISMISS_THRESHOLD || e.velocityX < -SWIPE_VELOCITY_THRESHOLD;
       if (shouldDismiss) {
-        translateX.value = withTiming(-500, { duration: 200 })
-        runOnJS(dismiss)()
+        translateX.value = withTiming(-500, { duration: 200 });
+        runOnJS(dismiss)();
       } else {
-        translateX.value = withSpring(0)
-        opacity.value = withSpring(1)
+        translateX.value = withSpring(0);
+        opacity.value = withSpring(1);
       }
-    })
+    });
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: translateX.value }],
     opacity: opacity.value,
-  }))
+  }));
 
   // ── Tap handler ──
   const handleTap = React.useCallback(() => {
-    onMarkRead?.(notification._id)
-    const route = notification.route
-    setOpen(false)
-    onDismiss()
+    onMarkRead?.(notification._id);
+    const route = notification.route;
+    setOpen(false);
+    onDismiss();
     // Navigate after dismiss to avoid crash from routing while toast is mounted
     setTimeout(() => {
-      router.push(route as Parameters<typeof router.push>[0])
-    }, 0)
-  }, [notification._id, notification.route, onMarkRead, onDismiss, router])
+      router.push(route as Parameters<typeof router.push>[0]);
+    }, 0);
+  }, [notification._id, notification.route, onMarkRead, onDismiss, router]);
 
   return (
     <ToastPrimitive.Root
       open={open}
       onOpenChange={(val) => {
-        if (!val) dismiss()
+        if (!val) dismiss();
       }}
       type="foreground"
     >
@@ -223,7 +219,7 @@ export function NotificationToast({
         </Animated.View>
       </GestureDetector>
     </ToastPrimitive.Root>
-  )
+  );
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
@@ -235,4 +231,4 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 6,
   },
-})
+});

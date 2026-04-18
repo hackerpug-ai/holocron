@@ -1,6 +1,6 @@
-import { cn } from '@/lib/utils';
 import * as RadioGroupPrimitive from '@rn-primitives/radio-group';
 import { Platform } from 'react-native';
+import { cn } from '@/lib/utils';
 
 function RadioGroup({
   className,
@@ -23,7 +23,8 @@ function RadioGroupItem({
         props.disabled && 'opacity-50',
         className
       )}
-      {...props}>
+      {...props}
+    >
       <RadioGroupPrimitive.Indicator className="bg-primary size-2 rounded-full" />
     </RadioGroupPrimitive.Item>
   );

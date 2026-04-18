@@ -1,8 +1,8 @@
-import { useMarkdownParser } from './hooks/useMarkdownParser'
-import { useMarkdownRenderer, type MarkdownRendererConfig } from './hooks/useMarkdownRenderer'
-import type { ParserOptions } from './parsers'
-import * as React from 'react'
-import { ScrollView, View } from 'react-native'
+import * as React from 'react';
+import { ScrollView, View } from 'react-native';
+import { useMarkdownParser } from './hooks/useMarkdownParser';
+import { type MarkdownRendererConfig, useMarkdownRenderer } from './hooks/useMarkdownRenderer';
+import type { ParserOptions } from './parsers';
 
 /**
  * MarkdownView renders markdown content with virtualization for large documents
@@ -21,19 +21,19 @@ import { ScrollView, View } from 'react-native'
  */
 export interface MarkdownViewProps extends MarkdownRendererConfig {
   /** Markdown content to render */
-  content: string
+  content: string;
   /** Display variant */
-  variant?: 'full' | 'compact'
+  variant?: 'full' | 'compact';
   /** Parser options */
-  parserOptions?: ParserOptions
+  parserOptions?: ParserOptions;
   /** Optional test ID */
-  testID?: string
+  testID?: string;
   /** Optional class name (for web compatibility) */
-  className?: string
+  className?: string;
   /** When true, renders content without ScrollView (for nested ScrollView scenarios) */
-  contentOnly?: boolean
+  contentOnly?: boolean;
   /** Wrap each root-level child element (used for narration highlighting, copy, etc.) */
-  wrapRootChild?: (child: React.ReactNode, index: number, nodeType: string) => React.ReactNode
+  wrapRootChild?: (child: React.ReactNode, index: number, nodeType: string) => React.ReactNode;
 }
 
 export const MarkdownView = React.memo(
@@ -48,18 +48,27 @@ export const MarkdownView = React.memo(
     contentOnly = false,
     wrapRootChild,
   }: MarkdownViewProps) => {
-    const { ast } = useMarkdownParser(content, parserOptions)
-    const { render } = useMarkdownRenderer({ onLinkPress, renderers, testIDPrefix: testID, wrapRootChild })
+    const { ast } = useMarkdownParser(content, parserOptions);
+    const { render } = useMarkdownRenderer({
+      onLinkPress,
+      renderers,
+      testIDPrefix: testID,
+      wrapRootChild,
+    });
 
     if (!ast) {
-      return null
+      return null;
     }
 
-    const contentElement = render(ast)
+    const contentElement = render(ast);
 
     // Content-only mode: return just the rendered content without ScrollView wrapper
     if (contentOnly) {
-      return <View testID={testID} className={className}>{contentElement}</View>
+      return (
+        <View testID={testID} className={className}>
+          {contentElement}
+        </View>
+      );
     }
 
     // For now, use ScrollView for all content
@@ -77,7 +86,7 @@ export const MarkdownView = React.memo(
           {contentElement}
         </ScrollView>
       </View>
-    )
+    );
   }
-)
-MarkdownView.displayName = 'MarkdownView'
+);
+MarkdownView.displayName = 'MarkdownView';

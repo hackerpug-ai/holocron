@@ -1,5 +1,5 @@
-import { Text } from '@/components/ui/text'
-import { cn } from '@/lib/utils'
+import { Pressable, View, type ViewProps } from 'react-native';
+import type { LucideIcon } from '@/components/ui/icons';
 import {
   Code,
   Database,
@@ -8,27 +8,27 @@ import {
   Package,
   Terminal,
   Wrench,
-} from '@/components/ui/icons'
-import type { LucideIcon } from '@/components/ui/icons'
-import { Pressable, View, type ViewProps } from 'react-native'
+} from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { cn } from '@/lib/utils';
 
-export type ToolStatus = 'complete' | 'draft' | 'archived'
-export type ToolCategory = 'libraries' | 'cli' | 'framework' | 'service' | 'database' | 'tool'
-export type SourceType = 'github' | 'npm' | 'pypi' | 'website' | 'cargo' | 'go' | 'other'
+export type ToolStatus = 'complete' | 'draft' | 'archived';
+export type ToolCategory = 'libraries' | 'cli' | 'framework' | 'service' | 'database' | 'tool';
+export type SourceType = 'github' | 'npm' | 'pypi' | 'website' | 'cargo' | 'go' | 'other';
 
 export interface ToolCardProps extends Omit<ViewProps, 'children'> {
-  id: string
-  title: string
-  description?: string
-  content?: string
-  category: ToolCategory
-  sourceType: SourceType
-  sourceUrl?: string
-  status?: ToolStatus
-  language?: string
-  tags?: string[]
-  onPress?: () => void
-  compact?: boolean
+  id: string;
+  title: string;
+  description?: string;
+  content?: string;
+  category: ToolCategory;
+  sourceType: SourceType;
+  sourceUrl?: string;
+  status?: ToolStatus;
+  language?: string;
+  tags?: string[];
+  onPress?: () => void;
+  compact?: boolean;
 }
 
 const categoryMeta: Record<ToolCategory, { label: string; icon: LucideIcon; accent: string }> = {
@@ -38,7 +38,7 @@ const categoryMeta: Record<ToolCategory, { label: string; icon: LucideIcon; acce
   service: { label: 'Service', icon: Globe, accent: 'text-amber-400' },
   database: { label: 'Database', icon: Database, accent: 'text-rose-400' },
   tool: { label: 'Tool', icon: Wrench, accent: 'text-cyan-400' },
-}
+};
 
 const sourceLabels: Record<SourceType, string> = {
   github: 'GitHub',
@@ -48,13 +48,13 @@ const sourceLabels: Record<SourceType, string> = {
   cargo: 'Cargo',
   go: 'Go',
   other: 'Other',
-}
+};
 
 const statusIndicator: Record<ToolStatus, { color: string; label: string }> = {
   complete: { color: 'bg-emerald-500', label: 'Complete' },
   draft: { color: 'bg-amber-500', label: 'Draft' },
   archived: { color: 'bg-muted-foreground', label: 'Archived' },
-}
+};
 
 /**
  * ToolCard - distinctive card for toolbelt items with category-colored
@@ -76,9 +76,9 @@ export function ToolCard({
   className,
   ...props
 }: ToolCardProps) {
-  const meta = categoryMeta[category]
-  const CategoryIcon = meta.icon
-  const statusMeta = statusIndicator[status]
+  const meta = categoryMeta[category];
+  const CategoryIcon = meta.icon;
+  const statusMeta = statusIndicator[status];
 
   return (
     <Pressable
@@ -104,23 +104,22 @@ export function ToolCard({
         <View className="flex-1">
           <View className="flex-row items-center gap-2">
             <Text
-              className={cn('flex-1 font-semibold text-foreground', compact ? 'text-sm' : 'text-base')}
+              className={cn(
+                'flex-1 font-semibold text-foreground',
+                compact ? 'text-sm' : 'text-base'
+              )}
               numberOfLines={1}
             >
               {title}
             </Text>
             {/* Status dot */}
             <View className={cn('h-2 w-2 rounded-full', statusMeta.color)} />
-            {sourceUrl && (
-              <ExternalLink size={13} className="text-muted-foreground" />
-            )}
+            {sourceUrl && <ExternalLink size={13} className="text-muted-foreground" />}
           </View>
 
           {/* Source + language inline */}
           <View className="mt-0.5 flex-row items-center gap-1.5">
-            <Text className="text-xs text-muted-foreground">
-              {sourceLabels[sourceType]}
-            </Text>
+            <Text className="text-xs text-muted-foreground">{sourceLabels[sourceType]}</Text>
             {language && (
               <>
                 <Text className="text-xs text-muted-foreground/40">{'/'}</Text>
@@ -134,7 +133,8 @@ export function ToolCard({
       {/* Description */}
       {(description || content) && !compact && (
         <Text className="mt-2.5 pl-12 text-sm leading-5 text-muted-foreground" numberOfLines={2}>
-          {description || (content ? content.slice(0, 150) + (content.length > 150 ? '...' : '') : '')}
+          {description ||
+            (content ? content.slice(0, 150) + (content.length > 150 ? '...' : '') : '')}
         </Text>
       )}
 
@@ -154,5 +154,5 @@ export function ToolCard({
         </View>
       )}
     </Pressable>
-  )
+  );
 }

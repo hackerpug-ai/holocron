@@ -1,21 +1,21 @@
-import { remark } from 'remark'
-import remarkParse from 'remark-parse'
-import remarkGfm from 'remark-gfm'
-import type { Processor } from 'unified'
-import type { Root } from 'mdast'
-import { remarkCalloutPlugin } from './callout-plugin'
-import { sanitizeMarkdown } from '@/lib/sanitizeMarkdown'
+import type { Root } from 'mdast';
+import { remark } from 'remark';
+import remarkGfm from 'remark-gfm';
+import remarkParse from 'remark-parse';
+import type { Processor } from 'unified';
+import { sanitizeMarkdown } from '@/lib/sanitizeMarkdown';
+import { remarkCalloutPlugin } from './callout-plugin';
 
 /**
  * Parser options for markdown processing
  */
 export interface ParserOptions {
   /** Enable GitHub Flavored Markdown (tables, strikethrough, task lists) */
-  enableGfm?: boolean
+  enableGfm?: boolean;
   /** Enable custom callout syntax [!NOTE], [!WARNING], etc. */
-  enableCallouts?: boolean
+  enableCallouts?: boolean;
   /** Sanitize markdown content before parsing */
-  sanitize?: boolean
+  sanitize?: boolean;
 }
 
 /**
@@ -25,7 +25,7 @@ const DEFAULT_OPTIONS: ParserOptions = {
   enableGfm: true,
   enableCallouts: true,
   sanitize: true,
-}
+};
 
 /**
  * Parse markdown content into MDAST (Markdown Abstract Syntax Tree)
@@ -46,30 +46,30 @@ const DEFAULT_OPTIONS: ParserOptions = {
  * ```
  */
 export function parseMarkdown(markdown: string, options: ParserOptions = {}): Root {
-  const opts = { ...DEFAULT_OPTIONS, ...options }
+  const opts = { ...DEFAULT_OPTIONS, ...options };
 
   // Sanitize input if enabled
-  const content = opts.sanitize ? sanitizeMarkdown(markdown) : markdown
+  const content = opts.sanitize ? sanitizeMarkdown(markdown) : markdown;
 
   // Build the remark processor with proper typing
-  let processor = remark().use(remarkParse)
+  let processor = remark().use(remarkParse);
 
   // Add GFM support (tables, strikethrough, task lists)
   if (opts.enableGfm) {
-    processor = processor.use(remarkGfm) as Processor<any, any, any, any, any>
+    processor = processor.use(remarkGfm) as Processor<any, any, any, any, any>;
   }
 
   // Add custom callout plugin
   if (opts.enableCallouts) {
-    processor = processor.use(remarkCalloutPlugin) as Processor<any, any, any, any, any>
+    processor = processor.use(remarkCalloutPlugin) as Processor<any, any, any, any, any>;
   }
 
   // Parse the markdown
   try {
-    const tree = processor.parse(content)
-    return tree as Root
+    const tree = processor.parse(content);
+    return tree as Root;
   } catch (error) {
-    console.error('[parseMarkdown] Failed to parse markdown:', error)
+    console.error('[parseMarkdown] Failed to parse markdown:', error);
     // Return a minimal tree on error
     return {
       type: 'root',
@@ -84,7 +84,7 @@ export function parseMarkdown(markdown: string, options: ParserOptions = {}): Ro
           ],
         },
       ],
-    }
+    };
   }
 }
 
@@ -96,19 +96,19 @@ export function parseMarkdown(markdown: string, options: ParserOptions = {}): Ro
  * @returns Number of nodes in the tree
  */
 export function countNodes(tree: Root): number {
-  let count = 0
+  let count = 0;
 
   function traverse(node: any) {
-    count++
+    count++;
     if (node.children) {
       for (const child of node.children) {
-        traverse(child)
+        traverse(child);
       }
     }
   }
 
-  traverse(tree)
-  return count
+  traverse(tree);
+  return count;
 }
 
 /**
@@ -118,7 +118,7 @@ export function countNodes(tree: Root): number {
  * @returns Size in bytes
  */
 export function getContentSize(markdown: string): number {
-  return new Blob([markdown]).size
+  return new Blob([markdown]).size;
 }
 
 /**
@@ -130,12 +130,12 @@ export function getContentSize(markdown: string): number {
  * @returns true if virtualization is recommended
  */
 export function shouldVirtualize(markdown: string, tree: Root): boolean {
-  const size = getContentSize(markdown)
-  const nodes = countNodes(tree)
+  const size = getContentSize(markdown);
+  const nodes = countNodes(tree);
 
-  return size > 5000 || nodes > 100
+  return size > 5000 || nodes > 100;
 }
 
+export type { CalloutNode, CalloutType } from './callout-plugin';
 // Export types and plugin
-export { remarkCalloutPlugin }
-export type { CalloutNode, CalloutType } from './callout-plugin'
+export { remarkCalloutPlugin };

@@ -1,8 +1,8 @@
-import type { LogEntry, LogLevel, LoggerConfig } from './types';
-import { LOG_LEVEL_VALUES } from './types';
-import { sanitizeObject, sanitizeError } from './sanitizers';
-import { LogWriter } from './LogWriter';
 import { getPlatformString } from './config';
+import type { LogWriter } from './LogWriter';
+import { sanitizeError, sanitizeObject } from './sanitizers';
+import type { LogEntry, LoggerConfig, LogLevel } from './types';
+import { LOG_LEVEL_VALUES } from './types';
 
 /**
  * Category-specific Logger instance
@@ -14,12 +14,7 @@ export class Logger {
   private readonly platform: string;
   private readonly writer: LogWriter;
 
-  constructor(
-    category: string,
-    config: LoggerConfig,
-    sessionId: string,
-    writer: LogWriter,
-  ) {
+  constructor(category: string, config: LoggerConfig, sessionId: string, writer: LogWriter) {
     this.category = category;
     this.config = config;
     this.sessionId = sessionId;
@@ -45,7 +40,7 @@ export class Logger {
     message: string,
     context?: Record<string, unknown>,
     duration?: number,
-    error?: Error,
+    error?: Error
   ): LogEntry {
     const entry: LogEntry = {
       timestamp: new Date().toISOString(),
@@ -67,7 +62,7 @@ export class Logger {
     if (error) {
       const sanitizedError = sanitizeError(error);
       entry.error = {
-        name: sanitizedError.name as string || 'Error',
+        name: (sanitizedError.name as string) || 'Error',
         message: sanitizedError.message as string,
         stack: sanitizedError.stack as string | undefined,
       };
@@ -82,7 +77,8 @@ export class Logger {
   private async write(entry: LogEntry): Promise<void> {
     // Output to console in development
     if (__DEV__) {
-      const consoleMethod = entry.level === 'error' ? 'error' : entry.level === 'warn' ? 'warn' : 'log';
+      const consoleMethod =
+        entry.level === 'error' ? 'error' : entry.level === 'warn' ? 'warn' : 'log';
       const emoji = {
         debug: '🐛',
         info: 'ℹ️',
@@ -92,8 +88,10 @@ export class Logger {
 
       const contextStr = entry.context ? ` ${JSON.stringify(entry.context)}` : '';
       const durationStr = entry.duration ? ` (${entry.duration}ms)` : '';
-       
-      console[consoleMethod](`[${emoji} ${entry.category}]${entry.message}${durationStr}${contextStr}`);
+
+      console[consoleMethod](
+        `[${emoji} ${entry.category}]${entry.message}${durationStr}${contextStr}`
+      );
     }
 
     // Write to file
@@ -136,7 +134,7 @@ export class Logger {
   async error(
     message: string,
     error?: Error | unknown,
-    context?: Record<string, unknown>,
+    context?: Record<string, unknown>
   ): Promise<void> {
     if (!this.shouldLog('error')) return;
 
@@ -151,7 +149,7 @@ export class Logger {
   async logOperation<T>(
     operationName: string,
     fn: () => Promise<T> | T,
-    context?: Record<string, unknown>,
+    context?: Record<string, unknown>
   ): Promise<T> {
     const startTime = Date.now();
 

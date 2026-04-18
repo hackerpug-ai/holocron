@@ -6,17 +6,17 @@
  * from multiple queries, perform client-side scoring/reranking, and generate embeddings.
  */
 
-import { action } from "../_generated/server";
-import { v } from "convex/values";
-import { api } from "../_generated/api";
-import { embed } from "ai";
-import { cohereEmbedding } from "../lib/ai/embeddings_provider";
+import { embed } from 'ai';
+import { v } from 'convex/values';
+import { api } from '../_generated/api';
+import { action } from '../_generated/server';
+import { cohereEmbedding } from '../lib/ai/embeddings_provider';
 
 /**
  * "use node" directive - runs in Node.js environment (not V8 isolate)
  * Required for complex operations that don't fit in the V8 function model.
  */
-"use node";
+('use node');
 
 export const hybridSearch = action({
   args: {
@@ -39,10 +39,10 @@ export const hybridSearch = action({
 
     // Use native Convex vector search (action-level API) + FTS in parallel
     const [nativeVectorResults, ftsResults] = await Promise.all([
-      ctx.vectorSearch("documents", "by_embedding", {
+      ctx.vectorSearch('documents', 'by_embedding', {
         vector: embedding,
         limit: searchLimit,
-        ...(category ? { filter: (q: any) => q.eq("category", category) } : {}),
+        ...(category ? { filter: (q: any) => q.eq('category', category) } : {}),
       }),
       ctx.runQuery(api.documents.queries.fullTextSearch, {
         query,

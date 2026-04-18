@@ -4,26 +4,26 @@
  * CRUD operations for competitive analysis sessions, competitors, and features.
  */
 
-import { mutation } from "../_generated/server";
-import { v } from "convex/values";
-import type { Id } from "../_generated/dataModel";
+import { v } from 'convex/values';
+import type { Id } from '../_generated/dataModel';
+import { mutation } from '../_generated/server';
 import {
-  createSessionArgsValidator,
-  updateSessionArgsValidator,
   addCompetitorArgsValidator,
   addFeatureArgsValidator,
-} from "./validators";
+  createSessionArgsValidator,
+  updateSessionArgsValidator,
+} from './validators';
 
 /**
  * Create a new competitive analysis session with status "pending"
  */
 export const createSession = mutation({
   args: createSessionArgsValidator.fields,
-  handler: async (ctx, args): Promise<Id<"competitiveAnalysisSessions">> => {
+  handler: async (ctx, args): Promise<Id<'competitiveAnalysisSessions'>> => {
     const now = Date.now();
-    return await ctx.db.insert("competitiveAnalysisSessions", {
+    return await ctx.db.insert('competitiveAnalysisSessions', {
       market: args.market,
-      status: "pending",
+      status: 'pending',
       createdAt: now,
       updatedAt: now,
     });
@@ -54,10 +54,10 @@ export const updateSession = mutation({
  */
 export const completeSession = mutation({
   args: {
-    sessionId: v.id("competitiveAnalysisSessions"),
+    sessionId: v.id('competitiveAnalysisSessions'),
     marketVerdict: v.optional(v.string()),
     sourceCount: v.optional(v.number()),
-    documentId: v.optional(v.id("documents")),
+    documentId: v.optional(v.id('documents')),
     porterRivalry: v.optional(v.string()),
     porterNewEntrants: v.optional(v.string()),
     porterSubstitutes: v.optional(v.string()),
@@ -69,7 +69,7 @@ export const completeSession = mutation({
     const { sessionId, ...rest } = args;
 
     const patch: Record<string, unknown> = {
-      status: "completed",
+      status: 'completed',
       completedAt: now,
       updatedAt: now,
     };
@@ -89,12 +89,12 @@ export const completeSession = mutation({
  */
 export const failSession = mutation({
   args: {
-    sessionId: v.id("competitiveAnalysisSessions"),
+    sessionId: v.id('competitiveAnalysisSessions'),
     errorReason: v.string(),
   },
   handler: async (ctx, args): Promise<void> => {
     await ctx.db.patch(args.sessionId, {
-      status: "failed",
+      status: 'failed',
       errorReason: args.errorReason,
       updatedAt: Date.now(),
     });
@@ -106,9 +106,9 @@ export const failSession = mutation({
  */
 export const addCompetitor = mutation({
   args: addCompetitorArgsValidator.fields,
-  handler: async (ctx, args): Promise<Id<"competitiveAnalysisCompetitors">> => {
+  handler: async (ctx, args): Promise<Id<'competitiveAnalysisCompetitors'>> => {
     const { sessionId, ...competitorData } = args;
-    return await ctx.db.insert("competitiveAnalysisCompetitors", {
+    return await ctx.db.insert('competitiveAnalysisCompetitors', {
       sessionId,
       name: competitorData.name,
       focus: competitorData.focus,
@@ -127,8 +127,8 @@ export const addCompetitor = mutation({
  */
 export const addFeature = mutation({
   args: addFeatureArgsValidator.fields,
-  handler: async (ctx, args): Promise<Id<"competitiveAnalysisFeatures">> => {
-    return await ctx.db.insert("competitiveAnalysisFeatures", {
+  handler: async (ctx, args): Promise<Id<'competitiveAnalysisFeatures'>> => {
+    return await ctx.db.insert('competitiveAnalysisFeatures', {
       sessionId: args.sessionId,
       featureName: args.featureName,
       ourSupport: args.ourSupport,

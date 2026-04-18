@@ -9,16 +9,16 @@
  * Uses the Skeleton primitive (bg-accent animate-pulse) so shimmer
  * behaviour is inherited automatically.
  */
-import { View, StyleSheet } from 'react-native'
-import { Skeleton } from '@/components/ui/skeleton'
-import { useTheme } from '@/hooks/use-theme'
+import { StyleSheet, View } from 'react-native';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useTheme } from '@/hooks/use-theme';
 
 // ============================================================================
 // VARIANT: SOCIAL
 // ============================================================================
 
 function SocialSkeleton({ testID }: { testID?: string }) {
-  const { spacing, radius } = useTheme()
+  const { spacing, radius } = useTheme();
 
   return (
     <View
@@ -59,7 +59,7 @@ function SocialSkeleton({ testID }: { testID?: string }) {
         <Skeleton className="h-3 w-10 rounded" />
       </View>
     </View>
-  )
+  );
 }
 
 // ============================================================================
@@ -67,7 +67,7 @@ function SocialSkeleton({ testID }: { testID?: string }) {
 // ============================================================================
 
 function VideoSkeleton({ testID }: { testID?: string }) {
-  const { spacing, radius } = useTheme()
+  const { spacing, radius } = useTheme();
 
   return (
     <View
@@ -82,9 +82,7 @@ function VideoSkeleton({ testID }: { testID?: string }) {
       testID={testID}
     >
       {/* 16:9 thumbnail */}
-      <Skeleton
-        style={[styles.thumbnail, { borderRadius: radius.md }]}
-      />
+      <Skeleton style={[styles.thumbnail, { borderRadius: radius.md }]} />
 
       {/* Title lines */}
       <View style={[styles.stack, { gap: spacing.xs }]}>
@@ -99,7 +97,7 @@ function VideoSkeleton({ testID }: { testID?: string }) {
         <Skeleton className="h-3 w-14 rounded" />
       </View>
     </View>
-  )
+  );
 }
 
 // ============================================================================
@@ -107,7 +105,7 @@ function VideoSkeleton({ testID }: { testID?: string }) {
 // ============================================================================
 
 function BlogSkeleton({ testID }: { testID?: string }) {
-  const { spacing, radius } = useTheme()
+  const { spacing, radius } = useTheme();
 
   return (
     <View
@@ -141,7 +139,7 @@ function BlogSkeleton({ testID }: { testID?: string }) {
         <Skeleton className="h-3 w-14 rounded" />
       </View>
     </View>
-  )
+  );
 }
 
 // ============================================================================
@@ -150,9 +148,9 @@ function BlogSkeleton({ testID }: { testID?: string }) {
 
 export interface FeedItemSkeletonProps {
   /** Content-type variant to mimic. Defaults to 'blog'. */
-  variant?: 'social' | 'video' | 'blog'
+  variant?: 'social' | 'video' | 'blog';
   /** Optional testID for the root element */
-  testID?: string
+  testID?: string;
 }
 
 /**
@@ -168,16 +166,19 @@ export interface FeedItemSkeletonProps {
  * </>
  * ```
  */
-export function FeedItemSkeleton({ variant = 'blog', testID = 'feed-item-skeleton' }: FeedItemSkeletonProps) {
+export function FeedItemSkeleton({
+  variant = 'blog',
+  testID = 'feed-item-skeleton',
+}: FeedItemSkeletonProps) {
   if (variant === 'social') {
-    return <SocialSkeleton testID={testID} />
+    return <SocialSkeleton testID={testID} />;
   }
 
   if (variant === 'video') {
-    return <VideoSkeleton testID={testID} />
+    return <VideoSkeleton testID={testID} />;
   }
 
-  return <BlogSkeleton testID={testID} />
+  return <BlogSkeleton testID={testID} />;
 }
 
 // ============================================================================
@@ -205,4 +206,4 @@ const styles = StyleSheet.create({
     width: '100%',
     aspectRatio: 16 / 9,
   },
-})
+});

@@ -1,16 +1,16 @@
-import { useEffect } from 'react'
-import { View } from 'react-native'
+import { useEffect } from 'react';
+import { View } from 'react-native';
 import Animated, {
-  useSharedValue,
   useAnimatedStyle,
+  useSharedValue,
+  withDelay,
   withRepeat,
   withSequence,
   withTiming,
-  withDelay,
-} from 'react-native-reanimated'
+} from 'react-native-reanimated';
 
 export interface TypingIndicatorProps {
-  testID?: string
+  testID?: string;
 }
 
 export function TypingIndicator({ testID = 'typing-indicator' }: TypingIndicatorProps) {
@@ -22,34 +22,31 @@ export function TypingIndicator({ testID = 'typing-indicator' }: TypingIndicator
         <AnimatedDot delay={300} testID="typing-dot-3" />
       </View>
     </View>
-  )
+  );
 }
 
 interface AnimatedDotProps {
-  delay: number
-  testID?: string
+  delay: number;
+  testID?: string;
 }
 
 function AnimatedDot({ delay, testID }: AnimatedDotProps) {
-  const opacity = useSharedValue(0.3)
+  const opacity = useSharedValue(0.3);
 
   useEffect(() => {
     opacity.value = withDelay(
       delay,
       withRepeat(
-        withSequence(
-          withTiming(1, { duration: 400 }),
-          withTiming(0.3, { duration: 400 })
-        ),
+        withSequence(withTiming(1, { duration: 400 }), withTiming(0.3, { duration: 400 })),
         -1,
         false
       )
-    )
-  }, [delay])
+    );
+  }, [delay]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
-  }))
+  }));
 
   return (
     <Animated.View
@@ -57,5 +54,5 @@ function AnimatedDot({ delay, testID }: AnimatedDotProps) {
       className="w-2 h-2 rounded-full bg-primary/60"
       testID={testID}
     />
-  )
+  );
 }

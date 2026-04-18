@@ -10,11 +10,11 @@
  *   → completed (transcript stored) OR failed/no_captions (with retry logic)
  */
 
-"use node";
+'use node';
 
-import { internalAction } from "../_generated/server";
-import { v } from "convex/values";
-import { internal } from "../_generated/api";
+import { v } from 'convex/values';
+import { internal } from '../_generated/api';
+import { internalAction } from '../_generated/server';
 
 const STAGGER_MS = 5000; // 5 seconds between jobs (increased to avoid YouTube bot protection)
 const MAX_RETRIES = 3;
@@ -30,11 +30,8 @@ export const processPendingJobs = internalAction({
     const jobs = await ctx.runQuery(internal.transcripts.queries.listPendingJobs, {});
 
     if (jobs.length === 0) {
-      
       return;
     }
-
-    
 
     // Stagger jobs to avoid rate limits
     let staggerIndex = 0;
@@ -47,8 +44,6 @@ export const processPendingJobs = internalAction({
       );
       staggerIndex++;
     }
-
-    
   },
 });
 
@@ -58,7 +53,7 @@ export const processPendingJobs = internalAction({
  */
 export const processJob = internalAction({
   args: {
-    jobId: v.id("transcriptJobs"),
+    jobId: v.id('transcriptJobs'),
   },
   handler: async (ctx, args) => {
     // Fetch job
@@ -72,72 +67,59 @@ export const processJob = internalAction({
     }
 
     // Status guard: prevent re-processing of terminal states
-    const terminalStatuses = ["completed", "failed", "no_captions"];
+    const terminalStatuses = ['completed', 'failed', 'no_captions'];
     if (terminalStatuses.includes(job.status)) {
-      
       return;
     }
-
-    
 
     // Update status to "transcribing"
     await ctx.runMutation(internal.transcripts.mutations.updateJobStatus, {
       jobId: args.jobId,
-      status: "transcribing",
+      status: 'transcribing',
       startedAt: Date.now(),
     });
 
     try {
       // Fetch transcript with fallback (YouTube API → Jina Reader)
-      const result = await ctx.runAction(
-        internal.transcripts.service.fetchTranscriptWithFallback,
-        {
-          contentId: job.contentId,
-          sourceUrl: job.sourceUrl,
-        }
-      );
+      const result = await ctx.runAction(internal.transcripts.service.fetchTranscriptWithFallback, {
+        contentId: job.contentId,
+        sourceUrl: job.sourceUrl,
+      });
 
       if (result.success && result.transcript) {
         // Store transcript metadata
-        const transcriptId = await ctx.runMutation(
-          internal.transcripts.mutations.storeTranscript,
-          {
-            transcript: {
-              sourceUrl: result.transcript.sourceUrl,
-              contentId: result.transcript.contentId,
-              storageId: result.transcript.storageId as any, // Cast to Id<"_storage">
-              transcriptType: result.transcript.transcriptType,
-              transcriptSource: result.transcript.transcriptSource,
-              previewText: result.transcript.previewText,
-              wordCount: result.transcript.wordCount,
-              generatedAt: result.transcript.generatedAt,
-            },
-          }
-        );
+        const transcriptId = await ctx.runMutation(internal.transcripts.mutations.storeTranscript, {
+          transcript: {
+            sourceUrl: result.transcript.sourceUrl,
+            contentId: result.transcript.contentId,
+            storageId: result.transcript.storageId as any, // Cast to Id<"_storage">
+            transcriptType: result.transcript.transcriptType,
+            transcriptSource: result.transcript.transcriptSource,
+            previewText: result.transcript.previewText,
+            wordCount: result.transcript.wordCount,
+            generatedAt: result.transcript.generatedAt,
+          },
+        });
 
         // Update job as completed
         await ctx.runMutation(internal.transcripts.mutations.updateJobStatus, {
           jobId: args.jobId,
-          status: "completed",
+          status: 'completed',
           transcriptId,
           completedAt: Date.now(),
         });
-
-        
       } else {
         // No transcript available (not a failure, expected for some videos)
         await ctx.runMutation(internal.transcripts.mutations.updateJobStatus, {
           jobId: args.jobId,
-          status: "no_captions",
+          status: 'no_captions',
           errorMessage: result.error,
           completedAt: Date.now(),
         });
-
-        
       }
     } catch (error) {
       // Handle system errors (API down, network issues, etc.)
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error(`Transcript job failed for ${job.contentId}:`, errorMessage);
 
       // Calculate backoff for retry
@@ -145,7 +127,7 @@ export const processJob = internalAction({
 
       if (newRetryCount <= MAX_RETRIES) {
         // Schedule retry with exponential backoff
-        const backoffMs = Math.pow(2, job.retryCount) * 1000;
+        const backoffMs = 2 ** job.retryCount * 1000;
 
         await ctx.runMutation(internal.transcripts.mutations.scheduleRetry, {
           jobId: args.jobId,
@@ -153,23 +135,17 @@ export const processJob = internalAction({
           errorMessage,
         });
 
-        await ctx.scheduler.runAfter(
-          backoffMs,
-          internal.transcripts.scheduled.processJob,
-          { jobId: args.jobId }
-        );
-
-        
+        await ctx.scheduler.runAfter(backoffMs, internal.transcripts.scheduled.processJob, {
+          jobId: args.jobId,
+        });
       } else {
         // Max retries reached, mark as permanently failed
         await ctx.runMutation(internal.transcripts.mutations.updateJobStatus, {
           jobId: args.jobId,
-          status: "failed",
+          status: 'failed',
           errorMessage: `Max retries reached: ${errorMessage}`,
           completedAt: Date.now(),
         });
-
-        
       }
     }
   },

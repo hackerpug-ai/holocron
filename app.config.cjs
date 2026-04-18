@@ -25,8 +25,7 @@ module.exports = {
         ITSAppUsesNonExemptEncryption: false,
         NSMicrophoneUsageDescription:
           'Holocron needs microphone access for voice assistant conversations.',
-        NSCameraUsageDescription:
-          'Holocron needs camera access for future media features.',
+        NSCameraUsageDescription: 'Holocron needs camera access for future media features.',
         NSSpeechRecognitionUsageDescription:
           'Holocron uses speech recognition for voice assistant features.',
         CFBundleURLTypes: [
@@ -87,4 +86,4 @@ module.exports = {
       url: 'https://u.expo.dev/a580bd53-e7a9-4968-96c8-f6cf207a4abe',
     },
   },
-}
+};

@@ -7,22 +7,24 @@
  * Run via: npx convex run migrations/reembed_documents_1024:reembedAllDocuments
  */
 
-import { action } from "../_generated/server";
-import { api } from "../_generated/api";
-import { embed } from "ai";
-import { cohereEmbedding } from "../lib/ai/embeddings_provider";
+import { embed } from 'ai';
+import { api } from '../_generated/api';
+import { action } from '../_generated/server';
+import { cohereEmbedding } from '../lib/ai/embeddings_provider';
 
 export const reembedAllDocuments = action({
   args: {},
-  handler: async (ctx): Promise<{ total: number; success: number; errors: number; errorDetails: string[] }> => {
+  handler: async (
+    ctx
+  ): Promise<{ total: number; success: number; errors: number; errorDetails: string[] }> => {
     // Fetch all documents with embeddings
     const listResult = await ctx.runQuery(api.documents.queries.list, {});
     const documents: any[] = listResult?.documents ?? [];
 
     // Filter to only documents with embeddings
-    const documentsWithEmbeddings: any[] = documents.filter((doc: any) => doc.embedding !== undefined);
-
-    
+    const documentsWithEmbeddings: any[] = documents.filter(
+      (doc: any) => doc.embedding !== undefined
+    );
 
     let successCount = 0;
     let errorCount = 0;
@@ -66,7 +68,7 @@ Migration complete:
     `);
 
     if (errors.length > 0) {
-      console.error("Errors encountered:");
+      console.error('Errors encountered:');
       errors.forEach((err) => console.error(`  - ${err}`));
     }
 

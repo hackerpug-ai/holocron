@@ -1,28 +1,28 @@
-import type { Plugin } from 'unified'
-import type { Root, Parent, Paragraph, Text } from 'mdast'
-import { visit } from 'unist-util-visit'
+import type { Paragraph, Parent, Root, Text } from 'mdast';
+import type { Plugin } from 'unified';
+import { visit } from 'unist-util-visit';
 
 /**
  * Callout types that map to Alert component variants
  */
-export type CalloutType = 'NOTE' | 'TIP' | 'IMPORTANT' | 'WARNING' | 'CAUTION'
+export type CalloutType = 'NOTE' | 'TIP' | 'IMPORTANT' | 'WARNING' | 'CAUTION';
 
 /**
  * Callout node that extends MDAST
  */
 export interface CalloutNode extends Parent {
-  type: 'callout'
+  type: 'callout';
   data?: {
-    calloutType: CalloutType
-  }
-  children: Array<Text | Paragraph>
+    calloutType: CalloutType;
+  };
+  children: Array<Text | Paragraph>;
 }
 
 /**
  * Regex pattern to match callout syntax: [!TYPE]
  * Matches: [!NOTE], [!WARNING], [!TIP], [!IMPORTANT], [!CAUTION]
  */
-const CALLOUT_PATTERN = /^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*(.*)$/i
+const CALLOUT_PATTERN = /^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*(.*)$/i;
 
 /**
  * Determine Alert variant from callout type
@@ -30,7 +30,7 @@ const CALLOUT_PATTERN = /^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*(.*)$/i
  * - WARNING, CAUTION → destructive variant
  */
 export function getCalloutVariant(type: CalloutType): 'default' | 'destructive' {
-  return ['WARNING', 'CAUTION'].includes(type) ? 'destructive' : 'default'
+  return ['WARNING', 'CAUTION'].includes(type) ? 'destructive' : 'default';
 }
 
 /**
@@ -53,16 +53,16 @@ export function getCalloutVariant(type: CalloutType): 'default' | 'destructive' 
 export const remarkCalloutPlugin: Plugin<[], Root> = function remarkCalloutPlugin() {
   return function transformer(tree: Root): void {
     visit(tree, 'paragraph', (node: Paragraph, index, parent) => {
-      if (!parent || index === undefined) return
+      if (!parent || index === undefined) return;
 
-      const firstChild = node.children[0]
-      if (!firstChild || firstChild.type !== 'text') return
+      const firstChild = node.children[0];
+      if (!firstChild || firstChild.type !== 'text') return;
 
-      const match = firstChild.value.match(CALLOUT_PATTERN)
-      if (!match) return
+      const match = firstChild.value.match(CALLOUT_PATTERN);
+      if (!match) return;
 
-      const [, type, title] = match
-      const calloutType = type.toUpperCase() as CalloutType
+      const [, type, title] = match;
+      const calloutType = type.toUpperCase() as CalloutType;
 
       // Transform paragraph into callout node
       const calloutNode: CalloutNode = {
@@ -71,18 +71,18 @@ export const remarkCalloutPlugin: Plugin<[], Root> = function remarkCalloutPlugi
           calloutType,
         },
         children: [],
-      }
+      };
 
       // Add title text if present
       if (title) {
         calloutNode.children.push({
           type: 'text',
           value: title,
-        })
+        });
       }
 
       // Replace the paragraph with the callout node
-      parent.children[index] = calloutNode as any
-    })
-  }
-}
+      parent.children[index] = calloutNode as any;
+    });
+  };
+};

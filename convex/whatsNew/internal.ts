@@ -4,11 +4,11 @@
  * Internal functions for use by actions and cron jobs.
  */
 
-import { v } from "convex/values";
-import { internalQuery } from "../_generated/server";
+import { v } from 'convex/values';
+import { internalQuery } from '../_generated/server';
 
 // Re-export workflow functions for internal access
-export * from "./workflow";
+export * from './workflow';
 
 /**
  * Check if today's report already exists (internal)
@@ -28,13 +28,10 @@ export const getTodaysReport = internalQuery({
 
     // Find report created today
     const report = await ctx.db
-      .query("whatsNewReports")
-      .withIndex("by_created")
+      .query('whatsNewReports')
+      .withIndex('by_created')
       .filter((q) =>
-        q.and(
-          q.gte(q.field("createdAt"), todayStart),
-          q.lte(q.field("createdAt"), todayEnd)
-        )
+        q.and(q.gte(q.field('createdAt'), todayStart), q.lte(q.field('createdAt'), todayEnd))
       )
       .first();
 
@@ -50,11 +47,7 @@ export const getTodaysReport = internalQuery({
 export const getMostRecentReport = internalQuery({
   args: {},
   handler: async (ctx) => {
-    return await ctx.db
-      .query("whatsNewReports")
-      .withIndex("by_created")
-      .order("desc")
-      .first();
+    return await ctx.db.query('whatsNewReports').withIndex('by_created').order('desc').first();
   },
 });
 
@@ -68,9 +61,9 @@ export const getReportsForBackfill = internalQuery({
   args: { skip: v.optional(v.number()) },
   handler: async (ctx, { skip }) => {
     const reports = await ctx.db
-      .query("whatsNewReports")
-      .withIndex("by_created")
-      .order("desc")
+      .query('whatsNewReports')
+      .withIndex('by_created')
+      .order('desc')
       .collect();
 
     const start = skip ?? 0;

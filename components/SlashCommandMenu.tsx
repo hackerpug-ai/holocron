@@ -1,14 +1,14 @@
-import { Text } from '@/components/ui/text'
-import { cn } from '@/lib/utils'
-import { Pressable, ScrollView, View, type ViewProps } from 'react-native'
+import { Pressable, ScrollView, View, type ViewProps } from 'react-native';
+import { Text } from '@/components/ui/text';
+import { cn } from '@/lib/utils';
 
 export interface SlashCommand {
   /** Command name without the leading slash */
-  name: string
+  name: string;
   /** Brief description of what the command does */
-  description: string
+  description: string;
   /** Syntax hint (e.g., "<query>") */
-  syntax?: string
+  syntax?: string;
 }
 
 const DEFAULT_COMMANDS: SlashCommand[] = [
@@ -18,17 +18,17 @@ const DEFAULT_COMMANDS: SlashCommand[] = [
   { name: 'browse', description: 'Browse recent articles' },
   { name: 'stats', description: 'View knowledge base statistics' },
   { name: 'help', description: 'Show all available commands' },
-]
+];
 
 interface SlashCommandMenuProps extends Omit<ViewProps, 'children'> {
   /** Whether the menu is visible */
-  visible?: boolean
+  visible?: boolean;
   /** Available commands (defaults to standard set) */
-  commands?: SlashCommand[]
+  commands?: SlashCommand[];
   /** Filter string to narrow down commands */
-  filter?: string
+  filter?: string;
   /** Callback when a command is selected */
-  onSelect: (_command: SlashCommand) => void
+  onSelect: (_command: SlashCommand) => void;
 }
 
 /**
@@ -43,17 +43,17 @@ export function SlashCommandMenu({
   className,
   ...props
 }: SlashCommandMenuProps) {
-  if (!visible) return null
+  if (!visible) return null;
 
   // Filter commands based on input (after the /)
-  const filterText = filter.startsWith('/') ? filter.slice(1).toLowerCase() : filter.toLowerCase()
+  const filterText = filter.startsWith('/') ? filter.slice(1).toLowerCase() : filter.toLowerCase();
   const filteredCommands = commands.filter(
     (cmd) =>
       cmd.name.toLowerCase().includes(filterText) ||
       cmd.description.toLowerCase().includes(filterText)
-  )
+  );
 
-  if (filteredCommands.length === 0) return null
+  if (filteredCommands.length === 0) return null;
 
   return (
     <View
@@ -73,21 +73,15 @@ export function SlashCommandMenu({
             testID={`slash-command-${command.name}`}
           >
             <View className="flex-row items-center gap-2">
-              <Text className="text-primary font-mono text-sm font-semibold">
-                /{command.name}
-              </Text>
+              <Text className="text-primary font-mono text-sm font-semibold">/{command.name}</Text>
               {command.syntax && (
-                <Text className="text-muted-foreground font-mono text-xs">
-                  {command.syntax}
-                </Text>
+                <Text className="text-muted-foreground font-mono text-xs">{command.syntax}</Text>
               )}
             </View>
-            <Text className="text-muted-foreground mt-0.5 text-sm">
-              {command.description}
-            </Text>
+            <Text className="text-muted-foreground mt-0.5 text-sm">{command.description}</Text>
           </Pressable>
         ))}
       </ScrollView>
     </View>
-  )
+  );
 }

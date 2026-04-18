@@ -5,8 +5,8 @@
  * Tests for deleteOldTelemetry: 90-day TTL retention cleanup with batching.
  */
 
-import { describe, it, expect } from "vitest";
-import { computeCutoff, BATCH_SIZE, deleteOldTelemetryCore } from "./telemetryMutations";
+import { describe, expect, it } from 'vitest';
+import { BATCH_SIZE, computeCutoff, deleteOldTelemetryCore } from './telemetryMutations';
 
 /**
  * Creates a mock Convex context that simulates the agentTelemetry query chain.
@@ -15,7 +15,7 @@ import { computeCutoff, BATCH_SIZE, deleteOldTelemetryCore } from "./telemetryMu
 function createMockCtx(
   rows: Array<{ _id: string; createdAt: number; [key: string]: any }>,
   deletedIds: string[],
-  batchSizes: number[],
+  batchSizes: number[]
 ) {
   return {
     db: {
@@ -35,7 +35,7 @@ function createMockCtx(
             return {
               take: (n: number) => {
                 const remaining = rows.filter(
-                  (r) => r.createdAt < capturedCutoff && !deletedIds.includes(r._id),
+                  (r) => r.createdAt < capturedCutoff && !deletedIds.includes(r._id)
                 );
                 const batch = remaining.slice(0, n);
                 batchSizes.push(batch.length);
@@ -52,9 +52,9 @@ function createMockCtx(
   } as any;
 }
 
-describe("deleteOldTelemetry", () => {
-  describe("AC-1: deleteOldTelemetry removes only 90+ day rows", () => {
-    it("deleteOldTelemetry 90 day cutoff deletes only old rows", async () => {
+describe('deleteOldTelemetry', () => {
+  describe('AC-1: deleteOldTelemetry removes only 90+ day rows', () => {
+    it('deleteOldTelemetry 90 day cutoff deletes only old rows', async () => {
       const NOW = 1_700_000_000_000; // fixed "now" for deterministic tests
       const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -65,10 +65,10 @@ describe("deleteOldTelemetry", () => {
         createdAt: NOW - (180 - i * 20) * DAY_MS,
         conversationId: `conv_${i}`,
         messageId: `msg_${i}`,
-        intent: "test",
-        queryShape: "factual",
-        confidence: "high",
-        classificationSource: "regex" as const,
+        intent: 'test',
+        queryShape: 'factual',
+        confidence: 'high',
+        classificationSource: 'regex' as const,
         totalDurationMs: 100,
       }));
 
@@ -94,24 +94,24 @@ describe("deleteOldTelemetry", () => {
 
       // Should delete rows 0-4 (those older than 90 days)
       expect(deletedIds.length).toBe(5);
-      expect(deletedIds).toContain("id_0");
-      expect(deletedIds).toContain("id_1");
-      expect(deletedIds).toContain("id_2");
-      expect(deletedIds).toContain("id_3");
-      expect(deletedIds).toContain("id_4");
+      expect(deletedIds).toContain('id_0');
+      expect(deletedIds).toContain('id_1');
+      expect(deletedIds).toContain('id_2');
+      expect(deletedIds).toContain('id_3');
+      expect(deletedIds).toContain('id_4');
       // Should NOT delete rows 5-9 (those 80 days or newer)
-      expect(deletedIds).not.toContain("id_5");
-      expect(deletedIds).not.toContain("id_6");
-      expect(deletedIds).not.toContain("id_7");
-      expect(deletedIds).not.toContain("id_8");
-      expect(deletedIds).not.toContain("id_9");
+      expect(deletedIds).not.toContain('id_5');
+      expect(deletedIds).not.toContain('id_6');
+      expect(deletedIds).not.toContain('id_7');
+      expect(deletedIds).not.toContain('id_8');
+      expect(deletedIds).not.toContain('id_9');
 
       expect(result.deleted).toBe(5);
     });
   });
 
   describe("AC-3: Batch deletes don't exceed transaction limits", () => {
-    it("batches deletes in groups of at most 1000", async () => {
+    it('batches deletes in groups of at most 1000', async () => {
       const NOW = 1_700_000_000_000;
       const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -121,10 +121,10 @@ describe("deleteOldTelemetry", () => {
         createdAt: NOW - 100 * DAY_MS, // all 100 days old
         conversationId: `conv_${i}`,
         messageId: `msg_${i}`,
-        intent: "test",
-        queryShape: "factual",
-        confidence: "high",
-        classificationSource: "regex" as const,
+        intent: 'test',
+        queryShape: 'factual',
+        confidence: 'high',
+        classificationSource: 'regex' as const,
         totalDurationMs: 100,
       }));
 
@@ -149,8 +149,8 @@ describe("deleteOldTelemetry", () => {
     });
   });
 
-  describe("computeCutoff helper", () => {
-    it("computes correct cutoff from olderThanMs", () => {
+  describe('computeCutoff helper', () => {
+    it('computes correct cutoff from olderThanMs', () => {
       const NOW = 1_700_000_000_000;
       const DAY_MS = 24 * 60 * 60 * 1000;
       const cutoff = computeCutoff(90 * DAY_MS, NOW);

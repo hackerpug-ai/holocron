@@ -6,7 +6,7 @@ import type { LoggerConfig } from './types';
  */
 export async function performLogRotation(
   currentFilePath: string,
-  config: LoggerConfig,
+  config: LoggerConfig
 ): Promise<void> {
   try {
     // Read current file content
@@ -27,10 +27,7 @@ export async function performLogRotation(
 /**
  * Clean up old log files beyond maxFiles limit
  */
-export async function cleanupOldLogs(
-  currentFilePath: string,
-  config: LoggerConfig,
-): Promise<void> {
+export async function cleanupOldLogs(currentFilePath: string, config: LoggerConfig): Promise<void> {
   try {
     // Extract directory and file prefix
     const lastSlashIndex = currentFilePath.lastIndexOf('/');
@@ -42,8 +39,8 @@ export async function cleanupOldLogs(
 
     // Filter log files matching the pattern
     const logFiles = files
-      .filter(f => f.startsWith(filePrefix) && f.endsWith('.jsonl'))
-      .map(f => ({
+      .filter((f) => f.startsWith(filePrefix) && f.endsWith('.jsonl'))
+      .map((f) => ({
         name: f,
         path: `${directory}/${f}`,
         // Extract timestamp from filename (format: client-YYYY-MM-DD-timestamp.jsonl)
@@ -90,9 +87,9 @@ function extractTimestampFromFilename(filename: string): number {
 /**
  * Get all log file info for debugging
  */
-export async function getLogFiles(directory: string): Promise<
-  Array<{ name: string; path: string; size: number | undefined }>
-> {
+export async function getLogFiles(
+  directory: string
+): Promise<Array<{ name: string; path: string; size: number | undefined }>> {
   try {
     const files = await FileSystem.readDirectoryAsync(directory);
     const logFiles: Array<{ name: string; path: string; size: number | undefined }> = [];

@@ -9,8 +9,8 @@
  * Check status: npx convex run migrations/backfill_infeed:status
  */
 
-import { mutation } from "../_generated/server";
-import { v } from "convex/values";
+import { v } from 'convex/values';
+import { mutation } from '../_generated/server';
 
 /**
  * Backfill inFeed: false on subscriptionContent records missing the field
@@ -26,35 +26,29 @@ export const backfill = mutation({
     ctx,
     { batchSize = 200, dryRun = false }
   ): Promise<{
-    status: "complete" | "partial";
+    status: 'complete' | 'partial';
     patched: number;
     remaining: number;
     message: string;
   }> => {
-    
-
     // Take batchSize + 1 to detect whether more records exist beyond the batch
-    const sample = await ctx.db
-      .query("subscriptionContent")
-      .take(batchSize + 1);
+    const sample = await ctx.db.query('subscriptionContent').take(batchSize + 1);
 
     const missing = sample.filter((c) => c.inFeed === undefined);
     const batch = missing.slice(0, batchSize);
 
-    
-
     if (batch.length === 0) {
       return {
-        status: "complete",
+        status: 'complete',
         patched: 0,
         remaining: 0,
-        message: "All subscriptionContent records already have inFeed set",
+        message: 'All subscriptionContent records already have inFeed set',
       };
     }
 
     if (dryRun) {
       return {
-        status: missing.length > batchSize ? "partial" : "complete",
+        status: missing.length > batchSize ? 'partial' : 'complete',
         patched: 0,
         remaining: missing.length,
         message: `DRY RUN: Would patch ${batch.length} records. Run with dryRun: false to execute.`,
@@ -73,10 +67,8 @@ export const backfill = mutation({
       ? `Patched ${patched} records. More records may remain — run again to continue.`
       : `Patched ${patched} records. Migration complete.`;
 
-    
-
     return {
-      status: hasMore ? "partial" : "complete",
+      status: hasMore ? 'partial' : 'complete',
       patched,
       remaining: hasMore ? missing.length - batchSize : 0,
       message,
@@ -97,9 +89,7 @@ export const status = mutation({
     message: string;
   }> => {
     // Sample up to 1000 records to estimate scope
-    const sample = await ctx.db
-      .query("subscriptionContent")
-      .take(1000);
+    const sample = await ctx.db.query('subscriptionContent').take(1000);
 
     const missing = sample.filter((c) => c.inFeed === undefined);
 
@@ -108,7 +98,7 @@ export const status = mutation({
       missingInFeed: missing.length,
       message:
         missing.length === 0
-          ? "All sampled records have inFeed set"
+          ? 'All sampled records have inFeed set'
           : `${missing.length} of ${sample.length} sampled records are missing inFeed`,
     };
   },

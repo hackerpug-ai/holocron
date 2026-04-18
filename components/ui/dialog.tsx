@@ -1,12 +1,12 @@
-import { Icon } from '@/components/ui/icon';
-import { NativeOnlyAnimatedView } from '@/components/ui/native-only-animated-view';
-import { cn } from '@/lib/utils';
 import * as DialogPrimitive from '@rn-primitives/dialog';
-import { X } from '@/components/ui/icons';
 import * as React from 'react';
 import { Platform, Text, View, type ViewProps } from 'react-native';
 import { FadeIn, FadeOut } from 'react-native-reanimated';
 import { FullWindowOverlay as RNFullWindowOverlay } from 'react-native-screens';
+import { Icon } from '@/components/ui/icon';
+import { X } from '@/components/ui/icons';
+import { NativeOnlyAnimatedView } from '@/components/ui/native-only-animated-view';
+import { cn } from '@/lib/utils';
 
 const Dialog = DialogPrimitive.Root;
 
@@ -37,7 +37,8 @@ function DialogOverlay({
           className
         )}
         {...props}
-        asChild={Platform.OS !== 'web'}>
+        asChild={Platform.OS !== 'web'}
+      >
         <NativeOnlyAnimatedView entering={FadeIn.duration(200)} exiting={FadeOut.duration(150)}>
           <NativeOnlyAnimatedView entering={FadeIn.delay(50)} exiting={FadeOut.duration(150)}>
             <>{children}</>
@@ -67,7 +68,8 @@ function DialogContent({
             }),
             className
           )}
-          {...props}>
+          {...props}
+        >
           <>{children}</>
           <DialogPrimitive.Close
             className={cn(
@@ -76,7 +78,8 @@ function DialogContent({
                 web: 'ring-offset-background focus:ring-ring data-[state=open]:bg-accent transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-offset-2',
               })
             )}
-            hitSlop={12}>
+            hitSlop={12}
+          >
             <Icon
               as={X}
               className={cn('text-accent-foreground web:pointer-events-none size-4 shrink-0')}

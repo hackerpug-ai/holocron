@@ -1,26 +1,26 @@
-import { useEffect } from 'react'
+import { useEffect } from 'react';
 import Animated, {
-  useSharedValue,
+  cancelAnimation,
+  Easing,
   useAnimatedStyle,
+  useSharedValue,
   withRepeat,
   withTiming,
-  Easing,
-  cancelAnimation,
-} from 'react-native-reanimated'
-import Svg, { Circle } from 'react-native-svg'
+} from 'react-native-reanimated';
+import Svg, { Circle } from 'react-native-svg';
 
 // ─── Props ─────────────────────────────────────────────────────────────────────
 
 export interface SpinnerRingProps {
   /** Outer diameter of the ring (matches button size) */
-  size: number
+  size: number;
   /** Ring stroke width */
-  strokeWidth?: number
+  strokeWidth?: number;
   /** Whether the spinner is visible and animating */
-  active: boolean
+  active: boolean;
   /** Ring color — defaults to primary via className on parent */
-  color?: string
-  testID?: string
+  color?: string;
+  testID?: string;
 }
 
 // ─── Component ─────────────────────────────────────────────────────────────────
@@ -40,33 +40,33 @@ export function SpinnerRing({
   color = 'hsl(142, 71%, 45%)',
   testID = 'spinner-ring',
 }: SpinnerRingProps) {
-  const rotation = useSharedValue(0)
+  const rotation = useSharedValue(0);
 
   useEffect(() => {
     if (active) {
-      rotation.value = 0
+      rotation.value = 0;
       rotation.value = withRepeat(
         withTiming(360, { duration: 1100, easing: Easing.linear }),
         -1,
         false
-      )
+      );
     } else {
-      cancelAnimation(rotation)
-      rotation.value = 0
+      cancelAnimation(rotation);
+      rotation.value = 0;
     }
-  }, [active])
+  }, [active]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${rotation.value}deg` }],
-  }))
+  }));
 
-  if (!active) return null
+  if (!active) return null;
 
-  const radius = (size - strokeWidth) / 2
-  const circumference = 2 * Math.PI * radius
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
   // Arc length: ~30% of the circle
-  const arcLength = circumference * 0.3
-  const gapLength = circumference - arcLength
+  const arcLength = circumference * 0.3;
+  const gapLength = circumference - arcLength;
 
   return (
     <Animated.View
@@ -94,5 +94,5 @@ export function SpinnerRing({
         />
       </Svg>
     </Animated.View>
-  )
+  );
 }

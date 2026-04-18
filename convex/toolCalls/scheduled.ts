@@ -1,4 +1,4 @@
-import { internalMutation } from "../_generated/server";
+import { internalMutation } from '../_generated/server';
 
 /**
  * Tool-specific timeout thresholds.
@@ -36,8 +36,8 @@ export const timeoutStuckToolCalls = internalMutation({
 
     // Find all toolCalls in "approved" status (meaning execution started but never finished)
     const approvedCalls = await ctx.db
-      .query("toolCalls")
-      .withIndex("by_status", (q) => q.eq("status", "approved"))
+      .query('toolCalls')
+      .withIndex('by_status', (q) => q.eq('status', 'approved'))
       .collect();
 
     let timedOutCount = 0;
@@ -49,17 +49,17 @@ export const timeoutStuckToolCalls = internalMutation({
       if (elapsed > timeoutMs) {
         // Mark toolCall as timed out
         await ctx.db.patch(toolCall._id, {
-          status: "timed_out",
+          status: 'timed_out',
           error: `Tool execution timed out after ${Math.round(elapsed / 60000)} minutes`,
           resolvedAt: now,
         });
 
         // Post an error message to the conversation so the user sees what happened
-        await ctx.db.insert("chatMessages", {
+        await ctx.db.insert('chatMessages', {
           conversationId: toolCall.conversationId,
-          role: "agent",
+          role: 'agent',
           content: `The "${toolCall.toolDisplayName}" tool timed out. You can try again by sending your request once more.`,
-          messageType: "error",
+          messageType: 'error',
           createdAt: now,
         });
 
@@ -74,9 +74,7 @@ export const timeoutStuckToolCalls = internalMutation({
     }
 
     if (timedOutCount > 0) {
-      console.log(
-        `[timeoutStuckToolCalls] Timed out ${timedOutCount} stuck tool call(s)`
-      );
+      console.log(`[timeoutStuckToolCalls] Timed out ${timedOutCount} stuck tool call(s)`);
     }
   },
 });

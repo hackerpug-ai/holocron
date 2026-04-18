@@ -1,15 +1,15 @@
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { cn } from '@/lib/utils'
-import { AlertTriangle } from '@/components/ui/icons'
-import type { ViewProps } from 'react-native'
+import type { ViewProps } from 'react-native';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { AlertTriangle } from '@/components/ui/icons';
+import { cn } from '@/lib/utils';
 
 export interface ConcurrencyLimitAlertProps extends ViewProps {
   /** Number of active tasks currently running */
-  activeTaskCount?: number
+  activeTaskCount?: number;
   /** Maximum concurrent tasks allowed */
-  maxConcurrentTasks?: number
+  maxConcurrentTasks?: number;
   /** Optional className for styling */
-  className?: string
+  className?: string;
 }
 
 /**
@@ -38,12 +38,11 @@ export function ConcurrencyLimitAlert({
       icon={AlertTriangle}
       {...props}
     >
-      <AlertTitle className="text-foreground">
-        Too many active tasks
-      </AlertTitle>
+      <AlertTitle className="text-foreground">Too many active tasks</AlertTitle>
       <AlertDescription>
-        You have {activeTaskCount} task{activeTaskCount !== 1 ? 's' : ''} running. Please wait for {activeTaskCount !== 1 ? 'them' : 'it'} to complete before starting a new one.
+        You have {activeTaskCount} task{activeTaskCount !== 1 ? 's' : ''} running. Please wait for{' '}
+        {activeTaskCount !== 1 ? 'them' : 'it'} to complete before starting a new one.
       </AlertDescription>
     </Alert>
-  )
+  );
 }

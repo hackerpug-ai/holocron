@@ -9,8 +9,8 @@
  *   npx convex run migrations/cleanup_irrelevant_twitter_actions:cleanupIrrelevantTwitter (execute)
  */
 
-import { v } from "convex/values";
-import { internalMutation, internalQuery } from "../_generated/server";
+import { v } from 'convex/values';
+import { internalMutation, internalQuery } from '../_generated/server';
 
 // ============================================================================
 // Queries
@@ -19,7 +19,7 @@ import { internalMutation, internalQuery } from "../_generated/server";
 export const getTwitterContentWithDocuments = internalQuery({
   args: {},
   handler: async (ctx) => {
-    const allContent = await ctx.db.query("subscriptionContent").collect();
+    const allContent = await ctx.db.query('subscriptionContent').collect();
 
     const twitterContent: Array<{
       subscriptionContentId: string;
@@ -31,11 +31,11 @@ export const getTwitterContentWithDocuments = internalQuery({
       const meta = record.metadataJson as Record<string, unknown> | undefined;
       const platform = meta?.platform as string | undefined;
 
-      if (platform !== "twitter") continue;
+      if (platform !== 'twitter') continue;
 
       twitterContent.push({
         subscriptionContentId: record._id.toString(),
-        documentId: record.documentId?.toString() ?? "",
+        documentId: record.documentId?.toString() ?? '',
         title: record.title,
       });
     }
@@ -47,9 +47,9 @@ export const getTwitterContentWithDocuments = internalQuery({
 export const getTwitterPrefixedDocuments = internalQuery({
   args: {},
   handler: async (ctx) => {
-    const allDocs = await ctx.db.query("documents").collect();
+    const allDocs = await ctx.db.query('documents').collect();
     return allDocs
-      .filter((doc) => doc.title.startsWith("[TWITTER]"))
+      .filter((doc) => doc.title.startsWith('[TWITTER]'))
       .map((doc) => ({
         documentId: doc._id.toString(),
         title: doc.title,
@@ -64,12 +64,10 @@ export const getFeedItemsByContentIds = internalQuery({
     if (contentIds.length === 0) return [];
 
     const contentIdSet = new Set(contentIds);
-    const allFeedItems = await ctx.db.query("feedItems").collect();
+    const allFeedItems = await ctx.db.query('feedItems').collect();
 
     return allFeedItems
-      .filter((item) =>
-        item.itemIds?.some((id: any) => contentIdSet.has(id.toString()))
-      )
+      .filter((item) => item.itemIds?.some((id: any) => contentIdSet.has(id.toString())))
       .map((item) => item._id.toString());
   },
 });
@@ -91,26 +89,39 @@ export const deleteIrrelevantContent = internalMutation({
 
     for (const docId of documentIds) {
       try {
-        const id = ctx.db.normalizeId("documents", docId);
-        if (id) { await ctx.db.delete(id); deletedDocs++; }
-      } catch { /* already deleted */ }
+        const id = ctx.db.normalizeId('documents', docId);
+        if (id) {
+          await ctx.db.delete(id);
+          deletedDocs++;
+        }
+      } catch {
+        /* already deleted */
+      }
     }
 
     for (const contentId of subscriptionContentIds) {
       try {
-        const id = ctx.db.normalizeId("subscriptionContent", contentId);
-        if (id) { await ctx.db.delete(id); deletedContent++; }
-      } catch { /* already deleted */ }
+        const id = ctx.db.normalizeId('subscriptionContent', contentId);
+        if (id) {
+          await ctx.db.delete(id);
+          deletedContent++;
+        }
+      } catch {
+        /* already deleted */
+      }
     }
 
     for (const feedItemId of feedItemIds) {
       try {
-        const id = ctx.db.normalizeId("feedItems", feedItemId);
-        if (id) { await ctx.db.delete(id); deletedFeedItems++; }
-      } catch { /* already deleted */ }
+        const id = ctx.db.normalizeId('feedItems', feedItemId);
+        if (id) {
+          await ctx.db.delete(id);
+          deletedFeedItems++;
+        }
+      } catch {
+        /* already deleted */
+      }
     }
-
-    
 
     return { deletedDocs, deletedContent, deletedFeedItems };
   },

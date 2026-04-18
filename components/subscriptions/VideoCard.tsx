@@ -11,36 +11,36 @@
  * Handles missing thumbnails with fallback UI.
  */
 
-import { View, Pressable, StyleSheet } from 'react-native'
-import { Text } from '@/components/ui/text'
-import { Play } from '@/components/ui/icons'
-import { useTheme } from '@/hooks/use-theme'
-import { SummaryText } from './SummaryText'
-import { OptimizedImage } from '@/components/ui/OptimizedImage'
-import { FeedbackButtons } from './FeedbackButtons'
-import { useQuery, useMutation } from 'convex/react'
-import { api } from '@/convex/_generated/api'
-import type { Id } from '@/convex/_generated/dataModel'
+import { useMutation, useQuery } from 'convex/react';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Play } from '@/components/ui/icons';
+import { OptimizedImage } from '@/components/ui/OptimizedImage';
+import { Text } from '@/components/ui/text';
+import { api } from '@/convex/_generated/api';
+import type { Id } from '@/convex/_generated/dataModel';
+import { useTheme } from '@/hooks/use-theme';
+import { FeedbackButtons } from './FeedbackButtons';
+import { SummaryText } from './SummaryText';
 
 export interface VideoCardProps {
   /** URL to thumbnail image (16:9 aspect ratio) */
-  thumbnailUrl?: string
+  thumbnailUrl?: string;
   /** Duration string in format "MM:SS" or "H:MM:SS" */
-  duration?: string
+  duration?: string;
   /** Video title */
-  title: string
+  title: string;
   /** Optional summary text */
-  summary?: string
+  summary?: string;
   /** Source name (e.g., "YouTube", "Vimeo") */
-  source?: string
+  source?: string;
   /** Optional published timestamp (relative time display) */
-  publishedAt?: string
+  publishedAt?: string;
   /** Callback when card is pressed */
-  onPress?: () => void
+  onPress?: () => void;
   /** Test ID for testing */
-  testID?: string
+  testID?: string;
   /** Feed item ID for feedback functionality */
-  feedItemId?: Id<'feedItems'>
+  feedItemId?: Id<'feedItems'>;
 }
 
 /**
@@ -69,30 +69,30 @@ export function VideoCard({
   testID = 'video-card',
   feedItemId,
 }: VideoCardProps) {
-  const { colors, spacing, radius } = useTheme()
+  const { colors, spacing, radius } = useTheme();
 
   // Fetch feedback state if feedItemId is provided
   const feedbackData = useQuery(
     api.feeds.queries.getFeedItemFeedback,
     feedItemId ? { feedItemId } : 'skip'
-  )
-  const currentFeedback = feedbackData?.feedback ?? null
+  );
+  const currentFeedback = feedbackData?.feedback ?? null;
 
-  const submitFeedbackMutation = useMutation(api.feeds.mutations.submitFeedback)
+  const submitFeedbackMutation = useMutation(api.feeds.mutations.submitFeedback);
 
   const handleFeedback = (type: 'positive' | 'negative' | null) => {
-    if (!feedItemId) return
+    if (!feedItemId) return;
 
     // Map FeedbackButtons type to Convex type
     // Only submit if not null (deselecting)
     if (type !== null) {
-      const feedback = type === 'positive' ? 'up' : 'down'
-      submitFeedbackMutation({ feedItemId, feedback })
+      const feedback = type === 'positive' ? 'up' : 'down';
+      submitFeedbackMutation({ feedItemId, feedback });
     }
-  }
+  };
 
   // Build accessibility label for screen readers
-  const accessibilityLabel = `Video. ${title}${summary ? `. ${summary}` : ''}${source ? `. Source: ${source}` : ''}${duration ? `. Duration: ${duration}` : ''}${publishedAt ? `. ${publishedAt}` : ''}. Tap to watch.`
+  const accessibilityLabel = `Video. ${title}${summary ? `. ${summary}` : ''}${source ? `. Source: ${source}` : ''}${duration ? `. Duration: ${duration}` : ''}${publishedAt ? `. ${publishedAt}` : ''}. Tap to watch.`;
 
   return (
     <Pressable
@@ -114,10 +114,7 @@ export function VideoCard({
     >
       {/* Thumbnail container with 16:9 aspect ratio */}
       <View
-        style={[
-          styles.thumbnailContainer,
-          { borderRadius: radius.lg },
-        ]}
+        style={[styles.thumbnailContainer, { borderRadius: radius.lg }]}
         testID={`${testID}-thumbnail-container`}
       >
         {thumbnailUrl ? (
@@ -131,7 +128,6 @@ export function VideoCard({
               aspectRatio={16 / 9}
               borderRadius={radius.lg}
               testID={`${testID}-thumbnail`}
-              
             />
           </View>
         ) : (
@@ -166,10 +162,7 @@ export function VideoCard({
             ]}
             testID={`${testID}-duration`}
           >
-            <Text
-              style={{ color: colors.primary }}
-              className="text-xs font-semibold"
-            >
+            <Text style={{ color: colors.primary }} className="text-xs font-semibold">
               {duration}
             </Text>
           </View>
@@ -196,11 +189,7 @@ export function VideoCard({
         </Text>
 
         {/* Summary */}
-        <SummaryText
-          summary={summary}
-          title={title}
-          testID={`${testID}-summary`}
-        />
+        <SummaryText summary={summary} title={title} testID={`${testID}-summary`} />
 
         {/* Source and published date */}
         <View style={[styles.metaRow, { gap: spacing.sm }]}>
@@ -233,9 +222,11 @@ export function VideoCard({
             <FeedbackButtons
               findingId={feedItemId}
               currentFeedback={
-                currentFeedback === 'up' ? 'positive' :
-                currentFeedback === 'down' ? 'negative' :
-                null
+                currentFeedback === 'up'
+                  ? 'positive'
+                  : currentFeedback === 'down'
+                    ? 'negative'
+                    : null
               }
               onFeedback={handleFeedback}
               testID={`${testID}-feedback`}
@@ -244,7 +235,7 @@ export function VideoCard({
         </View>
       </View>
     </Pressable>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
@@ -298,4 +289,4 @@ const styles = StyleSheet.create({
     height: 4,
     borderRadius: 2,
   },
-})
+});

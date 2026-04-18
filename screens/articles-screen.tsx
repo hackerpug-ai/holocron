@@ -1,38 +1,38 @@
-import { ArticleCard } from "@/components/ArticleCard";
-import { ArticleCardSkeleton } from "@/components/ArticleCardSkeleton";
-import type { CategoryType } from "@/components/CategoryBadge";
-import { EmptyState } from "@/components/EmptyState";
-import { FilterChip } from "@/components/FilterChip";
-import { SearchInput } from "@/components/SearchInput";
-import { SectionHeader } from "@/components/SectionHeader";
-import { Skeleton } from "@/components/ui/skeleton";
-import { ImportButton } from "@/components/article/ImportButton";
-import { VALID_CATEGORIES } from "@/lib/category-mapping";
-import { cn } from "@/lib/utils";
-import { useState } from "react";
-import { ScrollView, View, type ViewProps } from "react-native";
+import { useState } from 'react';
+import { ScrollView, View, type ViewProps } from 'react-native';
+import { ArticleCard } from '@/components/ArticleCard';
+import { ArticleCardSkeleton } from '@/components/ArticleCardSkeleton';
+import { ImportButton } from '@/components/article/ImportButton';
+import type { CategoryType } from '@/components/CategoryBadge';
+import { EmptyState } from '@/components/EmptyState';
+import { FilterChip } from '@/components/FilterChip';
+import { SearchInput } from '@/components/SearchInput';
+import { SectionHeader } from '@/components/SectionHeader';
+import { Skeleton } from '@/components/ui/skeleton';
+import { VALID_CATEGORIES } from '@/lib/category-mapping';
+import { cn } from '@/lib/utils';
 
 /** Category display labels */
 const categoryLabels: Record<CategoryType, string> = {
-  research: "Research",
-  "deep-research": "Deep Research",
-  factual: "Factual",
-  academic: "Academic",
-  entity: "Entity",
-  url: "URL",
-  general: "General",
-  patterns: "Patterns",
-  business: "Business",
-  "technical-analysis": "Technical",
-  platforms: "Platforms",
-  libraries: "Libraries",
-  "claude-code-configuration": "Claude Config",
-  toolbelt: "Toolbelt",
-  "revenue-validation": "Revenue",
-  "competitive-analysis": "Competitive",
-  "ai-roi": "AI ROI",
-  flights: "Flights",
-  "creator-analysis": "Creator",
+  research: 'Research',
+  'deep-research': 'Deep Research',
+  factual: 'Factual',
+  academic: 'Academic',
+  entity: 'Entity',
+  url: 'URL',
+  general: 'General',
+  patterns: 'Patterns',
+  business: 'Business',
+  'technical-analysis': 'Technical',
+  platforms: 'Platforms',
+  libraries: 'Libraries',
+  'claude-code-configuration': 'Claude Config',
+  toolbelt: 'Toolbelt',
+  'revenue-validation': 'Revenue',
+  'competitive-analysis': 'Competitive',
+  'ai-roi': 'AI ROI',
+  flights: 'Flights',
+  'creator-analysis': 'Creator',
 };
 
 function getCategoryLabel(category: CategoryType): string {
@@ -48,7 +48,7 @@ interface Article {
   iterationCount?: number;
 }
 
-interface ArticlesScreenProps extends Omit<ViewProps, "children"> {
+interface ArticlesScreenProps extends Omit<ViewProps, 'children'> {
   /** Articles to display */
   articles?: Article[];
   /** Total count of articles (for display, may differ from articles.length due to pagination) */
@@ -90,7 +90,7 @@ export function ArticlesScreen({
   className,
   ...props
 }: ArticlesScreenProps) {
-  const [searchValue, setSearchValue] = useState("");
+  const [searchValue, setSearchValue] = useState('');
 
   const handleSearchChange = (query: string) => {
     setSearchValue(query);
@@ -98,8 +98,8 @@ export function ArticlesScreen({
   };
 
   const handleClear = () => {
-    setSearchValue("");
-    onSearch?.("");
+    setSearchValue('');
+    onSearch?.('');
   };
 
   const handleCategoryPress = (category: CategoryType) => {
@@ -119,18 +119,13 @@ export function ArticlesScreen({
 
   const hasResults = articles.length > 0;
   const isFiltering =
-    searchValue.length > 0 ||
-    (selectedCategory !== null && selectedCategory !== undefined);
+    searchValue.length > 0 || (selectedCategory !== null && selectedCategory !== undefined);
 
   // "All" is selected when no specific category is selected
   const isAllSelected = !selectedCategory;
 
   return (
-    <View
-      className={cn("flex-1 bg-background", className)}
-      testID="articles-screen"
-      {...props}
-    >
+    <View className={cn('flex-1 bg-background', className)} testID="articles-screen" {...props}>
       {/* Header Section with Search and Categories */}
       <View className="px-4 pb-4 pt-4">
         {/* Search and Import Row */}
@@ -217,7 +212,7 @@ export function ArticlesScreen({
           <>
             {/* Results Count Header */}
             <SectionHeader
-              title={`${isFiltering ? "Results" : "All Articles"} (${totalCount ?? articles.length})`}
+              title={`${isFiltering ? 'Results' : 'All Articles'} (${totalCount ?? articles.length})`}
               size="md"
               className="mb-3"
               testID="articles-count-header"
@@ -241,18 +236,18 @@ export function ArticlesScreen({
           </>
         ) : (
           <EmptyState
-            type={isFiltering ? "no-results" : "no-data"}
-            title={isFiltering ? "No articles found" : "No articles yet"}
+            type={isFiltering ? 'no-results' : 'no-data'}
+            title={isFiltering ? 'No articles found' : 'No articles yet'}
             description={
               isFiltering
                 ? "Try adjusting your search or filters to find what you're looking for."
-                : "Your knowledge base is empty. Add articles through chat or research."
+                : 'Your knowledge base is empty. Add articles through chat or research.'
             }
-            actionLabel={isFiltering ? "Clear filters" : undefined}
+            actionLabel={isFiltering ? 'Clear filters' : undefined}
             onActionPress={
               isFiltering
                 ? () => {
-                    setSearchValue("");
+                    setSearchValue('');
                     onCategoryChange?.(undefined);
                   }
                 : undefined

@@ -1,39 +1,39 @@
-import { Text } from '@/components/ui/text'
-import { Trash2 } from '@/components/ui/icons'
-import { cn } from '@/lib/utils'
-import { Pressable, View, type ViewProps } from 'react-native'
-import { useCallback } from 'react'
-import { useTheme } from '@/hooks/use-theme'
-import * as Haptics from 'expo-haptics'
+import * as Haptics from 'expo-haptics';
+import { useCallback } from 'react';
+import { Pressable, View, type ViewProps } from 'react-native';
 import Animated, {
-  useSharedValue,
   useAnimatedStyle,
-  withTiming,
-  withSpring,
+  useSharedValue,
   withSequence,
-} from 'react-native-reanimated'
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
+import { Trash2 } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { useTheme } from '@/hooks/use-theme';
+import { cn } from '@/lib/utils';
 
 interface ConversationRowProps extends Omit<ViewProps, 'children'> {
   /** Unique conversation ID */
-  id: string
+  id: string;
   /** Conversation title */
-  title: string
+  title: string;
   /** Preview of the last message */
-  lastMessage?: string
+  lastMessage?: string;
   /** When the last message was sent */
-  lastMessageAt?: Date
+  lastMessageAt?: Date;
   /** Whether this is the active conversation */
-  isActive?: boolean
+  isActive?: boolean;
   /** Whether the delete button is currently showing for this row */
-  isDeleteVisible?: boolean
+  isDeleteVisible?: boolean;
   /** Callback when row is pressed */
-  onPress?: () => void
+  onPress?: () => void;
   /** Callback when long-press triggers delete reveal */
-  onLongPress?: () => void
+  onLongPress?: () => void;
   /** Callback when delete button is tapped */
-  onDelete?: () => void
+  onDelete?: () => void;
   /** Callback to dismiss any visible delete button */
-  onDismissDelete?: () => void
+  onDismissDelete?: () => void;
 }
 
 /**
@@ -58,56 +58,54 @@ export function ConversationRow({
   className,
   ...props
 }: ConversationRowProps) {
-  const { colors: themeColors, typography, spacing } = useTheme()
-  const rowScale = useSharedValue(1)
-  const deleteOpacity = useSharedValue(isDeleteVisible ? 1 : 0)
-  const deleteScale = useSharedValue(isDeleteVisible ? 1 : 0.6)
+  const { colors: themeColors, typography, spacing } = useTheme();
+  const rowScale = useSharedValue(1);
+  const deleteOpacity = useSharedValue(isDeleteVisible ? 1 : 0);
+  const deleteScale = useSharedValue(isDeleteVisible ? 1 : 0.6);
 
-  const formattedTime = lastMessageAt
-    ? formatRelativeTime(lastMessageAt)
-    : undefined
+  const formattedTime = lastMessageAt ? formatRelativeTime(lastMessageAt) : undefined;
 
   // Animate delete button in/out when visibility changes
   if (isDeleteVisible) {
-    deleteOpacity.value = withSpring(1, { damping: 12, stiffness: 180 })
-    deleteScale.value = withSpring(1, { damping: 10, stiffness: 200 })
+    deleteOpacity.value = withSpring(1, { damping: 12, stiffness: 180 });
+    deleteScale.value = withSpring(1, { damping: 10, stiffness: 200 });
   } else {
-    deleteOpacity.value = withTiming(0, { duration: 150 })
-    deleteScale.value = withTiming(0.6, { duration: 150 })
+    deleteOpacity.value = withTiming(0, { duration: 150 });
+    deleteScale.value = withTiming(0.6, { duration: 150 });
   }
 
   const handleLongPress = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     // Subtle scale pulse
     rowScale.value = withSequence(
       withTiming(0.97, { duration: 100 }),
       withSpring(1, { damping: 15, stiffness: 200 })
-    )
-    onLongPress?.()
-  }, [onLongPress, rowScale])
+    );
+    onLongPress?.();
+  }, [onLongPress, rowScale]);
 
   const handlePress = useCallback(() => {
     if (isDeleteVisible) {
       // Tapping on a row with delete showing dismisses it
-      onDismissDelete?.()
+      onDismissDelete?.();
     } else {
-      onPress?.()
+      onPress?.();
     }
-  }, [isDeleteVisible, onPress, onDismissDelete])
+  }, [isDeleteVisible, onPress, onDismissDelete]);
 
   const handleDelete = useCallback(() => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
-    onDelete?.()
-  }, [onDelete])
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    onDelete?.();
+  }, [onDelete]);
 
   const rowAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: rowScale.value }],
-  }))
+  }));
 
   const deleteButtonAnimatedStyle = useAnimatedStyle(() => ({
     opacity: deleteOpacity.value,
     transform: [{ scale: deleteScale.value }],
-  }))
+  }));
 
   return (
     <View
@@ -128,7 +126,7 @@ export function ConversationRow({
           style={rowAnimatedStyle}
           className={cn(
             'flex-row items-center gap-3 rounded-lg px-3 py-3',
-            isActive ? 'bg-accent' : 'bg-background',
+            isActive ? 'bg-accent' : 'bg-background'
           )}
         >
           <View className="flex-1">
@@ -147,10 +145,7 @@ export function ConversationRow({
               )}
             </View>
             {lastMessage && (
-              <Text
-                className="text-muted-foreground mt-0.5 text-sm"
-                numberOfLines={1}
-              >
+              <Text className="text-muted-foreground mt-0.5 text-sm" numberOfLines={1}>
                 {lastMessage}
               </Text>
             )}
@@ -193,32 +188,40 @@ export function ConversationRow({
             testID="conversation-delete-button"
           >
             <Trash2 size={16} color="#fff" />
-            <Text style={{ color: '#fff', fontWeight: typography.label.fontWeight, fontSize: typography.caption.fontSize }}>Delete</Text>
+            <Text
+              style={{
+                color: '#fff',
+                fontWeight: typography.label.fontWeight,
+                fontSize: typography.caption.fontSize,
+              }}
+            >
+              Delete
+            </Text>
           </Pressable>
         </Animated.View>
       )}
     </View>
-  )
+  );
 }
 
 /**
  * Format a date as relative time (e.g., "2m", "1h", "Yesterday")
  */
 function formatRelativeTime(date: Date): string {
-  const now = new Date()
-  const diffMs = now.getTime() - date.getTime()
-  const diffMins = Math.floor(diffMs / (1000 * 60))
-  const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-  if (diffMins < 1) return 'Now'
-  if (diffMins < 60) return `${diffMins}m`
-  if (diffHours < 24) return `${diffHours}h`
-  if (diffDays === 1) return 'Yesterday'
-  if (diffDays < 7) return `${diffDays}d`
+  if (diffMins < 1) return 'Now';
+  if (diffMins < 60) return `${diffMins}m`;
+  if (diffHours < 24) return `${diffHours}h`;
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays < 7) return `${diffDays}d`;
 
   return date.toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
-  })
+  });
 }

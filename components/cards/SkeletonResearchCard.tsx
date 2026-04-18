@@ -1,16 +1,15 @@
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
-import { Text } from '@/components/ui/text'
-import { cn } from '@/lib/utils'
-import { ActivityIndicator, type ViewProps } from 'react-native'
-import { View } from 'react-native'
+import { ActivityIndicator, View, type ViewProps } from 'react-native';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Text } from '@/components/ui/text';
+import { cn } from '@/lib/utils';
 
 interface SkeletonResearchCardProps extends ViewProps {
   /** Optional custom loading message */
-  loadingMessage?: string
+  loadingMessage?: string;
   /** Number of skeleton lines to display (default: 3) */
-  lines?: number
+  lines?: number;
   /** Optional class name for custom styling */
-  className?: string
+  className?: string;
 }
 
 /**
@@ -25,18 +24,11 @@ export function SkeletonResearchCard({
   ...props
 }: SkeletonResearchCardProps) {
   return (
-    <Card
-      className={cn('border-border/50', className)}
-      testID="skeleton-research-card"
-      {...props}
-    >
+    <Card className={cn('border-border/50', className)} testID="skeleton-research-card" {...props}>
       <CardHeader className="pb-3">
         {/* Header with loading indicator and message */}
         <View className="flex-row items-center gap-3">
-          <ActivityIndicator
-            testID="skeleton-research-card-activity-indicator"
-            size="small"
-          />
+          <ActivityIndicator testID="skeleton-research-card-activity-indicator" size="small" />
           <Text className="text-muted-foreground text-sm">{loadingMessage}</Text>
         </View>
       </CardHeader>
@@ -56,5 +48,5 @@ export function SkeletonResearchCard({
         ))}
       </CardContent>
     </Card>
-  )
+  );
 }

@@ -1,6 +1,6 @@
 // Convex configuration file for Workflow components
-import workflow from "@convex-dev/workflow/convex.config";
-import { defineApp } from "convex/server";
+import workflow from '@convex-dev/workflow/convex.config';
+import { defineApp } from 'convex/server';
 
 const app = defineApp();
 app.use(workflow);

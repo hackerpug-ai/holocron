@@ -1,14 +1,14 @@
-import React from 'react'
-import { View } from 'react-native'
-import { Text } from '@/components/ui/text'
-import { ClarificationQuickReplyChip } from './ClarificationQuickReplyChip'
+import React from 'react';
+import { View } from 'react-native';
+import { Text } from '@/components/ui/text';
+import { ClarificationQuickReplyChip } from './ClarificationQuickReplyChip';
 
 export interface ClarificationMessageProps {
-  question: string
-  quickReplies?: string[]
-  answered?: boolean
-  userResponse?: string
-  onQuickReply?: (label: string) => void
+  question: string;
+  quickReplies?: string[];
+  answered?: boolean;
+  userResponse?: string;
+  onQuickReply?: (label: string) => void;
 }
 
 export function ClarificationMessage({
@@ -20,9 +20,7 @@ export function ClarificationMessage({
 }: ClarificationMessageProps) {
   return (
     <View testID="clarification-message" className="border-l-2 border-primary pl-3 py-2 my-2">
-      <Text className="text-xs uppercase tracking-wide text-primary mb-1">
-        Quick question
-      </Text>
+      <Text className="text-xs uppercase tracking-wide text-primary mb-1">Quick question</Text>
       <Text testID="clarification-question" className="text-base text-foreground">
         {question}
       </Text>
@@ -48,5 +46,5 @@ export function ClarificationMessage({
         </View>
       )}
     </View>
-  )
+  );
 }

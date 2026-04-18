@@ -5,14 +5,11 @@
  * instead uses ctx.db for persistent rate limit tracking.
  */
 
-import { describe, it, expect } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { describe, expect, it } from 'vitest';
 
-const RATE_LIMITER_PATH = path.resolve(
-  __dirname,
-  '../../convex/research/rateLimiter.ts'
-);
+const RATE_LIMITER_PATH = path.resolve(__dirname, '../../convex/research/rateLimiter.ts');
 
 function readRateLimiter(): string {
   return fs.readFileSync(RATE_LIMITER_PATH, 'utf-8');

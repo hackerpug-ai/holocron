@@ -1,37 +1,37 @@
-import { useState } from 'react'
-import { View, Pressable, ScrollView } from 'react-native'
-import { Text } from '@/components/ui/text'
-import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
-import { ChevronDown, ChevronUp, User } from '@/components/ui/icons'
-import { PlatformBadge, type PlatformType } from './PlatformBadge'
+import { useState } from 'react';
+import { Pressable, ScrollView, View } from 'react-native';
+import { Button } from '@/components/ui/button';
+import { ChevronDown, ChevronUp, User } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { cn } from '@/lib/utils';
+import { PlatformBadge, type PlatformType } from './PlatformBadge';
 
 export interface CreatorPlatformData {
-  handle: string
-  verified?: boolean
+  handle: string;
+  verified?: boolean;
 }
 
 export interface SubscriptionSuggestionData {
-  name: string
-  handle: string
-  bio?: string
-  avatarUrl?: string
+  name: string;
+  handle: string;
+  bio?: string;
+  avatarUrl?: string;
   platforms: {
-    youtube?: CreatorPlatformData
-    bluesky?: CreatorPlatformData
-    github?: CreatorPlatformData
-    website?: CreatorPlatformData | { url: string; verified?: boolean }
-  }
-  existingSubscriptions?: PlatformType[]
+    youtube?: CreatorPlatformData;
+    bluesky?: CreatorPlatformData;
+    github?: CreatorPlatformData;
+    website?: CreatorPlatformData | { url: string; verified?: boolean };
+  };
+  existingSubscriptions?: PlatformType[];
 }
 
 export interface SubscriptionSuggestionCardProps {
-  data: SubscriptionSuggestionData
-  onSubscribe?: (platforms: PlatformType[]) => void
-  onPlatformToggle?: (platform: PlatformType) => void
-  loading?: boolean
-  className?: string
-  testID?: string
+  data: SubscriptionSuggestionData;
+  onSubscribe?: (platforms: PlatformType[]) => void;
+  onPlatformToggle?: (platform: PlatformType) => void;
+  loading?: boolean;
+  className?: string;
+  testID?: string;
 }
 
 /**
@@ -49,71 +49,61 @@ export function SubscriptionSuggestionCard({
   loading = false,
   className,
 }: SubscriptionSuggestionCardProps) {
-  const [expanded, setExpanded] = useState(false)
-  const [selectedPlatforms, setSelectedPlatforms] = useState<Set<PlatformType>>(
-    new Set()
-  )
+  const [expanded, setExpanded] = useState(false);
+  const [selectedPlatforms, setSelectedPlatforms] = useState<Set<PlatformType>>(new Set());
 
-  const { name, handle, bio, avatarUrl, platforms, existingSubscriptions } =
-    data
+  const { name, handle, bio, avatarUrl, platforms, existingSubscriptions } = data;
 
   // Ensure existingSubscriptions is always an array
-  const subscribedPlatforms = existingSubscriptions ?? []
+  const subscribedPlatforms = existingSubscriptions ?? [];
 
   // Get all available platforms
   const availablePlatforms = Object.entries(platforms)
     .filter(([_, data]) => data !== undefined)
-    .map(([platform, _]) => platform as PlatformType)
+    .map(([platform, _]) => platform as PlatformType);
 
   // Check if all platforms are already subscribed
   const allSubscribed =
     availablePlatforms.length > 0 &&
-    availablePlatforms.every((p) => subscribedPlatforms.includes(p))
+    availablePlatforms.every((p) => subscribedPlatforms.includes(p));
 
   // Check if any platforms are available to subscribe to
   const canSubscribe =
     availablePlatforms.length > 0 &&
-    availablePlatforms.some((p) => !subscribedPlatforms.includes(p))
+    availablePlatforms.some((p) => !subscribedPlatforms.includes(p));
 
   // Handle subscribe all
   const handleSubscribeAll = () => {
-    const platformsToSubscribe = availablePlatforms.filter(
-      (p) => !subscribedPlatforms.includes(p)
-    )
-    onSubscribe?.(platformsToSubscribe)
-  }
+    const platformsToSubscribe = availablePlatforms.filter((p) => !subscribedPlatforms.includes(p));
+    onSubscribe?.(platformsToSubscribe);
+  };
 
   // Handle subscribe selected
   const handleSubscribeSelected = () => {
     const platformsToSubscribe = Array.from(selectedPlatforms).filter(
       (p) => !subscribedPlatforms.includes(p)
-    )
-    onSubscribe?.(platformsToSubscribe)
-  }
+    );
+    onSubscribe?.(platformsToSubscribe);
+  };
 
   // Handle platform toggle
   const handlePlatformPress = (platform: PlatformType) => {
-    const newSelected = new Set(selectedPlatforms)
+    const newSelected = new Set(selectedPlatforms);
     if (newSelected.has(platform)) {
-      newSelected.delete(platform)
+      newSelected.delete(platform);
     } else {
-      newSelected.add(platform)
+      newSelected.add(platform);
     }
-    setSelectedPlatforms(newSelected)
-    onPlatformToggle?.(platform)
-  }
+    setSelectedPlatforms(newSelected);
+    onPlatformToggle?.(platform);
+  };
 
   // Count available (non-subscribed) platforms
-  const availableCount = availablePlatforms.filter(
-    (p) => !subscribedPlatforms.includes(p)
-  ).length
+  const availableCount = availablePlatforms.filter((p) => !subscribedPlatforms.includes(p)).length;
 
   return (
     <View
-      className={cn(
-        'rounded-xl border border-border bg-card p-4',
-        className
-      )}
+      className={cn('rounded-xl border border-border bg-card p-4', className)}
       testID="subscription-suggestion-card"
     >
       {/* Header: Creator info + expand/collapse */}
@@ -134,14 +124,10 @@ export function SubscriptionSuggestionCard({
         {/* Creator info */}
         <View className="flex-1">
           <View className="flex-row items-center gap-2">
-            <Text className="text-base font-semibold text-foreground">
-              {name}
-            </Text>
+            <Text className="text-base font-semibold text-foreground">{name}</Text>
             {allSubscribed && (
               <View className="rounded-full bg-emerald-500/10 px-2 py-0.5">
-                <Text className="text-xs font-medium text-emerald-500">
-                  Subscribed
-                </Text>
+                <Text className="text-xs font-medium text-emerald-500">Subscribed</Text>
               </View>
             )}
           </View>
@@ -175,17 +161,17 @@ export function SubscriptionSuggestionCard({
             contentContainerClassName="gap-2"
           >
             {availablePlatforms.map((platform) => {
-              const platformData = platforms[platform]
-              if (!platformData) return null
+              const platformData = platforms[platform];
+              if (!platformData) return null;
 
-              const isSubscribed = subscribedPlatforms.includes(platform)
-              const isSelected = selectedPlatforms.has(platform)
+              const isSubscribed = subscribedPlatforms.includes(platform);
+              const isSelected = selectedPlatforms.has(platform);
 
               // Handle website platform which has 'url' instead of 'handle'
               const handle =
                 'url' in platformData
                   ? platformData.url
-                  : (platformData as CreatorPlatformData).handle
+                  : (platformData as CreatorPlatformData).handle;
 
               return (
                 <PlatformBadge
@@ -194,15 +180,10 @@ export function SubscriptionSuggestionCard({
                   handle={handle}
                   verified={platformData.verified}
                   selected={isSelected}
-                  onPress={
-                    isSubscribed ? undefined : () => handlePlatformPress(platform)
-                  }
-                  className={cn(
-                    'pressable-opacity',
-                    isSubscribed && 'opacity-50'
-                  )}
+                  onPress={isSubscribed ? undefined : () => handlePlatformPress(platform)}
+                  className={cn('pressable-opacity', isSubscribed && 'opacity-50')}
                 />
-              )
+              );
             })}
           </ScrollView>
 
@@ -263,5 +244,5 @@ export function SubscriptionSuggestionCard({
         </View>
       )}
     </View>
-  )
+  );
 }

@@ -1,37 +1,35 @@
-import { View } from 'react-native'
-import { Text } from '@/components/ui/text'
-import { cn } from '@/lib/utils'
+import { View } from 'react-native';
 import {
-  Youtube,
-  Twitter,
+  CheckCircle2,
   Github,
   Globe,
-  CheckCircle2,
-  XCircle,
   Loader2,
-} from '@/components/ui/icons'
+  Twitter,
+  XCircle,
+  Youtube,
+} from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { cn } from '@/lib/utils';
 
-export type PlatformType = 'youtube' | 'bluesky' | 'github' | 'website'
+export type PlatformType = 'youtube' | 'bluesky' | 'github' | 'website';
 
 export interface PlatformBadgeProps {
-  platform: PlatformType
-  handle: string
-  verified?: boolean
-  selected?: boolean
-  loading?: boolean
-  onPress?: () => void
-  className?: string
+  platform: PlatformType;
+  handle: string;
+  verified?: boolean;
+  selected?: boolean;
+  loading?: boolean;
+  onPress?: () => void;
+  className?: string;
 }
 
-const platformConfig: Record<
-  PlatformType,
-  { label: string; icon: typeof Youtube; color: string }
-> = {
-  youtube: { label: 'YouTube', icon: Youtube, color: 'text-red-500' },
-  bluesky: { label: 'Bluesky', icon: Twitter, color: 'text-blue-500' },
-  github: { label: 'GitHub', icon: Github, color: 'text-foreground' },
-  website: { label: 'Website', icon: Globe, color: 'text-emerald-500' },
-}
+const platformConfig: Record<PlatformType, { label: string; icon: typeof Youtube; color: string }> =
+  {
+    youtube: { label: 'YouTube', icon: Youtube, color: 'text-red-500' },
+    bluesky: { label: 'Bluesky', icon: Twitter, color: 'text-blue-500' },
+    github: { label: 'GitHub', icon: Github, color: 'text-foreground' },
+    website: { label: 'Website', icon: Globe, color: 'text-emerald-500' },
+  };
 
 /**
  * PlatformBadge - displays a platform with its handle and verification status
@@ -48,8 +46,8 @@ export function PlatformBadge({
   onPress,
   className,
 }: PlatformBadgeProps) {
-  const config = platformConfig[platform]
-  const PlatformIcon = config.icon
+  const config = platformConfig[platform];
+  const PlatformIcon = config.icon;
 
   return (
     <View
@@ -78,5 +76,5 @@ export function PlatformBadge({
         )
       ) : null}
     </View>
-  )
+  );
 }

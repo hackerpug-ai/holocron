@@ -2,16 +2,16 @@
  * ToolAddedCard - Confirmation after adding tool from URL
  */
 
-import { View, Pressable, Linking } from 'react-native'
-import { Text } from '@/components/ui/text'
-import { Card } from '@/components/ui/card'
-import { Check, ExternalLink, Tag } from '@/components/ui/icons'
-import { useTheme } from '@/hooks/use-theme'
-import type { ToolAddedCardData } from '@/lib/types/chat'
+import { Linking, Pressable, View } from 'react-native';
+import { Card } from '@/components/ui/card';
+import { Check, ExternalLink, Tag } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { useTheme } from '@/hooks/use-theme';
+import type { ToolAddedCardData } from '@/lib/types/chat';
 
 export interface ToolAddedCardProps {
-  data: ToolAddedCardData
-  testID?: string
+  data: ToolAddedCardData;
+  testID?: string;
 }
 
 /**
@@ -20,31 +20,28 @@ export interface ToolAddedCardProps {
 function getSourceIcon(sourceType: string) {
   switch (sourceType) {
     case 'documentation':
-      return '📚'
+      return '📚';
     case 'library':
-      return '📦'
+      return '📦';
     case 'framework':
-      return '🏗️'
+      return '🏗️';
     case 'tool':
-      return '🔧'
+      return '🔧';
     case 'api':
-      return '🔌'
+      return '🔌';
     case 'tutorial':
-      return '📖'
+      return '📖';
     default:
-      return '🛠️'
+      return '🛠️';
   }
 }
 
-export function ToolAddedCard({
-  data,
-  testID = 'tool-added-card',
-}: ToolAddedCardProps) {
-  const { colors: themeColors } = useTheme()
+export function ToolAddedCard({ data, testID = 'tool-added-card' }: ToolAddedCardProps) {
+  const { colors: themeColors } = useTheme();
 
   const handleOpenUrl = () => {
-    Linking.openURL(data.url)
-  }
+    Linking.openURL(data.url);
+  };
 
   return (
     <Card testID={testID} className="border-border bg-card overflow-hidden">
@@ -57,25 +54,18 @@ export function ToolAddedCard({
           <View className="rounded-full bg-success/20 p-1">
             <Check size={16} color={themeColors.success} />
           </View>
-          <Text className="text-foreground flex-1 text-lg font-bold">
-            Tool Added
-          </Text>
+          <Text className="text-foreground flex-1 text-lg font-bold">Tool Added</Text>
           <Text className="text-2xl">{getSourceIcon(data.source_type)}</Text>
         </View>
 
         {/* Tool info */}
         <View className="gap-2">
           {/* Title */}
-          <Text className="text-foreground text-base font-semibold">
-            {data.title}
-          </Text>
+          <Text className="text-foreground text-base font-semibold">{data.title}</Text>
 
           {/* Description */}
           {data.description && (
-            <Text
-              className="text-muted-foreground text-sm"
-              numberOfLines={3}
-            >
+            <Text className="text-muted-foreground text-sm" numberOfLines={3}>
               {data.description}
             </Text>
           )}
@@ -84,14 +74,10 @@ export function ToolAddedCard({
           <View className="mt-2 flex-row items-center gap-2">
             <View className="flex-row items-center gap-1 rounded-full bg-muted px-2.5 py-1">
               <Tag size={12} color={themeColors.mutedForeground} />
-              <Text className="text-muted-foreground text-xs font-medium">
-                {data.category}
-              </Text>
+              <Text className="text-muted-foreground text-xs font-medium">{data.category}</Text>
             </View>
             <View className="rounded-full bg-muted px-2.5 py-1">
-              <Text className="text-muted-foreground text-xs font-medium">
-                {data.source_type}
-              </Text>
+              <Text className="text-muted-foreground text-xs font-medium">{data.source_type}</Text>
             </View>
           </View>
 
@@ -112,5 +98,5 @@ export function ToolAddedCard({
         </View>
       </View>
     </Card>
-  )
+  );
 }

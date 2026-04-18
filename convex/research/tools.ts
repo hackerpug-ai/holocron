@@ -5,19 +5,19 @@
  * US-777: Search tools (exaSearchTool, jinaSearchTool, jinaReaderTool)
  */
 
-import { tool } from "ai";
-import { z } from "zod";
-import Exa from "exa-js";
-import { jinaSearch, jinaReader, JinaError } from "../lib/jina";
+import { tool } from 'ai';
+import Exa from 'exa-js';
+import { z } from 'zod';
+import { JinaError, jinaReader, jinaSearch } from '../lib/jina';
 
 /**
  * Research Plan Schema
  * Note: Production will use v from convex/values
  */
 export const ResearchPlanSchema = {
-  query: "string",
-  subtasks: "array",
-  maxIterations: "number",
+  query: 'string',
+  subtasks: 'array',
+  maxIterations: 'number',
 } as const;
 
 export type ResearchPlan = {
@@ -34,9 +34,9 @@ export type ResearchPlan = {
  * Subagent Search Result Schema
  */
 export const SubagentResultSchema = {
-  objective: "string",
-  findings: "string",
-  sources: "array",
+  objective: 'string',
+  findings: 'string',
+  sources: 'array',
 } as const;
 
 export type SubagentResult = {
@@ -57,7 +57,7 @@ export type SubagentResult = {
  */
 export async function planResearch(_query: string): Promise<ResearchPlan> {
   throw new Error(
-    "STUB_FUNCTION_REMOVED: planResearch is deprecated. Use runIterativeResearch which uses real LLM calls with search tools."
+    'STUB_FUNCTION_REMOVED: planResearch is deprecated. Use runIterativeResearch which uses real LLM calls with search tools.'
   );
 }
 
@@ -67,11 +67,9 @@ export async function planResearch(_query: string): Promise<ResearchPlan> {
  * @deprecated This stub is no longer used. The Iterative Research (runIterativeResearch) uses
  * real LLM calls via Vercel AI SDK generateText() with exaSearchTool/jinaSearchTool.
  */
-export async function executeSubagentSearch(
-  _objective: string,
-): Promise<SubagentResult> {
+export async function executeSubagentSearch(_objective: string): Promise<SubagentResult> {
   throw new Error(
-    "STUB_FUNCTION_REMOVED: executeSubagentSearch is deprecated. Use runIterativeResearch which uses real search tools (exaSearchTool, jinaSearchTool)."
+    'STUB_FUNCTION_REMOVED: executeSubagentSearch is deprecated. Use runIterativeResearch which uses real search tools (exaSearchTool, jinaSearchTool).'
   );
 }
 
@@ -81,11 +79,9 @@ export async function executeSubagentSearch(
  * @deprecated This stub is no longer used. The Iterative Research (runIterativeResearch) uses
  * real LLM calls via Vercel AI SDK generateText() for synthesis.
  */
-export async function synthesizeFindings(
-  _findings: SubagentResult[],
-): Promise<string> {
+export async function synthesizeFindings(_findings: SubagentResult[]): Promise<string> {
   throw new Error(
-    "STUB_FUNCTION_REMOVED: synthesizeFindings is deprecated. Use runIterativeResearch which uses real LLM synthesis."
+    'STUB_FUNCTION_REMOVED: synthesizeFindings is deprecated. Use runIterativeResearch which uses real LLM synthesis.'
   );
 }
 
@@ -96,10 +92,10 @@ export async function synthesizeFindings(
  * real LLM calls via Vercel AI SDK generateText() for coverage review.
  */
 export async function assessCoverage(
-  _synthesis: string,
+  _synthesis: string
 ): Promise<{ score: number; gaps: string[]; feedback: string }> {
   throw new Error(
-    "STUB_FUNCTION_REMOVED: assessCoverage is deprecated. Use runIterativeResearch which uses real LLM coverage review."
+    'STUB_FUNCTION_REMOVED: assessCoverage is deprecated. Use runIterativeResearch which uses real LLM coverage review.'
   );
 }
 
@@ -115,15 +111,15 @@ export async function assessCoverage(
  */
 export const exaSearchTool = tool({
   description:
-    "Search for technical content, academic papers, and research using Exa. " +
-    "Use this when you need high-quality technical or research content. " +
-    "Returns results with full content, scores, and metadata.",
+    'Search for technical content, academic papers, and research using Exa. ' +
+    'Use this when you need high-quality technical or research content. ' +
+    'Returns results with full content, scores, and metadata.',
   inputSchema: z.object({
-    query: z.string().describe("The search query"),
+    query: z.string().describe('The search query'),
   }),
   execute: async ({ query }: { query: string }) => {
     // Use default values since we removed optional parameters to fix schema conversion
-    const category = "any";
+    const category = 'any';
     try {
       const apiKey = process.env.EXA_API_KEY;
       if (!apiKey) {
@@ -131,35 +127,34 @@ export const exaSearchTool = tool({
         return {
           query,
           results: [],
-          error: "EXA_API_KEY not configured",
-          source: "exa",
+          error: 'EXA_API_KEY not configured',
+          source: 'exa',
         };
       }
 
       const numResults = 5;
-      
+
       const exa = new Exa(apiKey);
 
       const searchResults = await exa.searchAndContents(query, {
         numResults,
         useAutoprompt: true,
-        category: category === "any" ? undefined : category,
+        category: category === 'any' ? undefined : category,
       });
 
-const results = searchResults.results.map((result: any) => ({
-        title: result.title || "",
-        url: result.url || "",
-        content: (result.text || "").slice(0, 500),
+      const results = searchResults.results.map((result: any) => ({
+        title: result.title || '',
+        url: result.url || '',
+        content: (result.text || '').slice(0, 500),
         score: result.score || 0,
         publishedDate: result.publishedDate || null,
         author: result.author || null,
       }));
 
-      
       return {
         query,
         results,
-        source: "exa",
+        source: 'exa',
       };
     } catch (error) {
       console.error(`[exaSearchTool] Error:`, error);
@@ -167,7 +162,7 @@ const results = searchResults.results.map((result: any) => ({
         query,
         results: [],
         error: error instanceof Error ? error.message : String(error),
-        source: "exa",
+        source: 'exa',
       };
     }
   },
@@ -181,11 +176,11 @@ const results = searchResults.results.map((result: any) => ({
  */
 export const jinaSearchTool = tool({
   description:
-    "Search the web for general information using Jina. " +
-    "Use this for broad web queries and diverse information sources. " +
-    "Returns results with titles, URLs, content snippets, and domains.",
+    'Search the web for general information using Jina. ' +
+    'Use this for broad web queries and diverse information sources. ' +
+    'Returns results with titles, URLs, content snippets, and domains.',
   inputSchema: z.object({
-    query: z.string().describe("The search query"),
+    query: z.string().describe('The search query'),
   }),
   execute: async ({ query }: { query: string }) => {
     try {
@@ -195,33 +190,30 @@ export const jinaSearchTool = tool({
         return {
           query,
           results: [],
-          error: "JINA_API_KEY not configured",
-          source: "jina",
+          error: 'JINA_API_KEY not configured',
+          source: 'jina',
         };
       }
 
-      
       const startTime = Date.now();
       const searchResults = await jinaSearch(query, { apiKey, limit: 10 });
       const duration = Date.now() - startTime;
 
       console.log(
-        `[jinaSearchTool] Exit - Success with ${searchResults.length} results in ${duration}ms`,
+        `[jinaSearchTool] Exit - Success with ${searchResults.length} results in ${duration}ms`
       );
 
       const results = searchResults.map((result) => ({
-        title: result.title || "",
-        url: result.url || result.link || "",
-        content: (result.content || result.description || "").slice(0, 500),
-        domain: result.url || result.link
-          ? new URL(result.url || result.link || "").hostname
-          : "",
+        title: result.title || '',
+        url: result.url || result.link || '',
+        content: (result.content || result.description || '').slice(0, 500),
+        domain: result.url || result.link ? new URL(result.url || result.link || '').hostname : '',
       }));
 
       return {
         query,
         results,
-        source: "jina",
+        source: 'jina',
       };
     } catch (error) {
       console.error(`[jinaSearchTool] Error:`, error);
@@ -232,7 +224,7 @@ export const jinaSearchTool = tool({
           query,
           results: [],
           error: error.message,
-          source: "jina",
+          source: 'jina',
         };
       }
 
@@ -240,7 +232,7 @@ export const jinaSearchTool = tool({
         query,
         results: [],
         error: error instanceof Error ? error.message : String(error),
-        source: "jina",
+        source: 'jina',
       };
     }
   },
@@ -255,12 +247,12 @@ export const jinaSearchTool = tool({
  */
 export const jinaSiteSearchTool = tool({
   description:
-    "Search within a specific website using Jina. " +
-    "Use this when you need to find information on a particular domain or documentation site. " +
-    "Returns results filtered to the specified site with titles, URLs, and content snippets.",
+    'Search within a specific website using Jina. ' +
+    'Use this when you need to find information on a particular domain or documentation site. ' +
+    'Returns results filtered to the specified site with titles, URLs, and content snippets.',
   inputSchema: z.object({
-    query: z.string().describe("The search query"),
-    site: z.string().url().describe("The website to search within (e.g., https://jina.ai)"),
+    query: z.string().describe('The search query'),
+    site: z.string().url().describe('The website to search within (e.g., https://jina.ai)'),
   }),
   execute: async ({ query, site }: { query: string; site: string }) => {
     try {
@@ -271,8 +263,8 @@ export const jinaSiteSearchTool = tool({
           query,
           site,
           results: [],
-          error: "JINA_API_KEY not configured",
-          source: "jina-site",
+          error: 'JINA_API_KEY not configured',
+          source: 'jina-site',
         };
       }
 
@@ -285,23 +277,21 @@ export const jinaSiteSearchTool = tool({
       const duration = Date.now() - startTime;
 
       console.log(
-        `[jinaSiteSearchTool] Exit - Success with ${searchResults.length} results in ${duration}ms`,
+        `[jinaSiteSearchTool] Exit - Success with ${searchResults.length} results in ${duration}ms`
       );
 
       const results = searchResults.map((result) => ({
-        title: result.title || "",
-        url: result.url || result.link || "",
-        content: (result.content || result.description || "").slice(0, 500),
-        domain: result.url || result.link
-          ? new URL(result.url || result.link || "").hostname
-          : "",
+        title: result.title || '',
+        url: result.url || result.link || '',
+        content: (result.content || result.description || '').slice(0, 500),
+        domain: result.url || result.link ? new URL(result.url || result.link || '').hostname : '',
       }));
 
       return {
         query,
         site,
         results,
-        source: "jina-site",
+        source: 'jina-site',
       };
     } catch (error) {
       console.error(`[jinaSiteSearchTool] Error:`, error);
@@ -313,7 +303,7 @@ export const jinaSiteSearchTool = tool({
           site,
           results: [],
           error: error.message,
-          source: "jina-site",
+          source: 'jina-site',
         };
       }
 
@@ -322,7 +312,7 @@ export const jinaSiteSearchTool = tool({
         site,
         results: [],
         error: error instanceof Error ? error.message : String(error),
-        source: "jina-site",
+        source: 'jina-site',
       };
     }
   },
@@ -336,11 +326,11 @@ export const jinaSiteSearchTool = tool({
  */
 export const jinaReaderTool = tool({
   description:
-    "Extract full content from a URL in markdown format using Jina Reader. " +
-    "Use this when you need to read and analyze the full content of a specific webpage. " +
-    "Returns clean markdown text without ads or navigation.",
+    'Extract full content from a URL in markdown format using Jina Reader. ' +
+    'Use this when you need to read and analyze the full content of a specific webpage. ' +
+    'Returns clean markdown text without ads or navigation.',
   inputSchema: z.object({
-    url: z.string().url().describe("The URL to extract content from"),
+    url: z.string().url().describe('The URL to extract content from'),
   }),
   execute: async ({ url }: { url: string }) => {
     try {
@@ -349,28 +339,28 @@ export const jinaReaderTool = tool({
         console.error(`[jinaReaderTool] JINA_API_KEY not configured`);
         return {
           url,
-          content: "",
-          error: "JINA_API_KEY not configured",
-          source: "jina-reader",
+          content: '',
+          error: 'JINA_API_KEY not configured',
+          source: 'jina-reader',
         };
       }
 
       const startTime = Date.now();
       const content = await jinaReader(url, {
         apiKey,
-        returnFormat: "markdown",
+        returnFormat: 'markdown',
       });
       const duration = Date.now() - startTime;
 
       const truncatedContent = content.slice(0, 5000);
 
       console.log(
-        `[jinaReaderTool] Exit - Success with ${content.length} chars (truncated to ${truncatedContent.length}) in ${duration}ms`,
+        `[jinaReaderTool] Exit - Success with ${content.length} chars (truncated to ${truncatedContent.length}) in ${duration}ms`
       );
       return {
         url,
         content: truncatedContent,
-        source: "jina-reader",
+        source: 'jina-reader',
       };
     } catch (error) {
       console.error(`[jinaReaderTool] Error:`, error);
@@ -379,17 +369,17 @@ export const jinaReaderTool = tool({
       if (error instanceof JinaError) {
         return {
           url,
-          content: "",
+          content: '',
           error: error.message,
-          source: "jina-reader",
+          source: 'jina-reader',
         };
       }
 
       return {
         url,
-        content: "",
+        content: '',
         error: error instanceof Error ? error.message : String(error),
-        source: "jina-reader",
+        source: 'jina-reader',
       };
     }
   },

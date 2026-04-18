@@ -1,11 +1,11 @@
-import { query } from "../_generated/server";
-import { v } from "convex/values";
+import { v } from 'convex/values';
+import { query } from '../_generated/server';
 
 /**
  * Get a subscription source by ID
  */
 export const get = query({
-  args: { id: v.id("subscriptionSources") },
+  args: { id: v.id('subscriptionSources') },
   handler: async (ctx, args) => {
     return await ctx.db.get(args.id);
   },
@@ -18,14 +18,14 @@ export const list = query({
   args: {
     sourceType: v.optional(
       v.union(
-        v.literal("youtube"),
-        v.literal("newsletter"),
-        v.literal("changelog"),
-        v.literal("reddit"),
-        v.literal("ebay"),
-        v.literal("whats-new"),
-        v.literal("creator"),
-        v.literal("github")
+        v.literal('youtube'),
+        v.literal('newsletter'),
+        v.literal('changelog'),
+        v.literal('reddit'),
+        v.literal('ebay'),
+        v.literal('whats-new'),
+        v.literal('creator'),
+        v.literal('github')
       )
     ),
     autoResearchOnly: v.optional(v.boolean()),
@@ -37,16 +37,16 @@ export const list = query({
     let sources;
     if (autoResearchOnly) {
       sources = await ctx.db
-        .query("subscriptionSources")
-        .withIndex("by_auto_research", (q) => q.eq("autoResearch", true))
+        .query('subscriptionSources')
+        .withIndex('by_auto_research', (q) => q.eq('autoResearch', true))
         .take(limit);
     } else if (sourceType) {
       sources = await ctx.db
-        .query("subscriptionSources")
-        .withIndex("by_type", (q) => q.eq("sourceType", sourceType))
+        .query('subscriptionSources')
+        .withIndex('by_type', (q) => q.eq('sourceType', sourceType))
         .take(limit);
     } else {
-      sources = await ctx.db.query("subscriptionSources").take(limit);
+      sources = await ctx.db.query('subscriptionSources').take(limit);
     }
 
     return sources;
@@ -62,14 +62,14 @@ export const list = query({
  */
 export const getFilters = query({
   args: {
-    subscriptionId: v.optional(v.id("subscriptionSources")),
+    subscriptionId: v.optional(v.id('subscriptionSources')),
     sourceType: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const { subscriptionId, sourceType } = args;
 
     // Small table (<100 records expected) - full scan acceptable
-    const filters = await ctx.db.query("subscriptionFilters").collect();
+    const filters = await ctx.db.query('subscriptionFilters').collect();
 
     // Filter by source ID if provided
     let filtered = filters;
@@ -94,13 +94,13 @@ export const getFilters = query({
  */
 export const listContent = query({
   args: {
-    subscriptionId: v.id("subscriptionSources"),
+    subscriptionId: v.id('subscriptionSources'),
     researchStatus: v.optional(
       v.union(
-        v.literal("pending"),
-        v.literal("queued"),
-        v.literal("researched"),
-        v.literal("skipped")
+        v.literal('pending'),
+        v.literal('queued'),
+        v.literal('researched'),
+        v.literal('skipped')
       )
     ),
     limit: v.optional(v.number()),
@@ -111,14 +111,14 @@ export const listContent = query({
     let content;
     if (researchStatus) {
       content = await ctx.db
-        .query("subscriptionContent")
-        .withIndex("by_status", (q) => q.eq("researchStatus", researchStatus))
-        .filter((q) => q.eq(q.field("sourceId"), subscriptionId))
+        .query('subscriptionContent')
+        .withIndex('by_status', (q) => q.eq('researchStatus', researchStatus))
+        .filter((q) => q.eq(q.field('sourceId'), subscriptionId))
         .take(limit);
     } else {
       content = await ctx.db
-        .query("subscriptionContent")
-        .withIndex("by_source", (q) => q.eq("sourceId", subscriptionId))
+        .query('subscriptionContent')
+        .withIndex('by_source', (q) => q.eq('sourceId', subscriptionId))
         .take(limit);
     }
 
@@ -135,7 +135,7 @@ export const listContent = query({
 export const hasAnyContent = query({
   args: {},
   handler: async (ctx) => {
-    const first = await ctx.db.query("subscriptionContent").first();
+    const first = await ctx.db.query('subscriptionContent').first();
     return first !== null;
   },
 });
@@ -152,7 +152,7 @@ export const batchGetExistingContent = query({
   args: {},
   handler: async (ctx) => {
     // Full scan intentional - batch duplicate check needs all content
-    const allContent = await ctx.db.query("subscriptionContent").collect();
+    const allContent = await ctx.db.query('subscriptionContent').collect();
     const lookup = new Map<string, Set<string>>();
 
     for (const content of allContent) {
@@ -181,14 +181,14 @@ export const listGroupedByCreator = query({
   args: {
     sourceType: v.optional(
       v.union(
-        v.literal("youtube"),
-        v.literal("newsletter"),
-        v.literal("changelog"),
-        v.literal("reddit"),
-        v.literal("ebay"),
-        v.literal("whats-new"),
-        v.literal("creator"),
-        v.literal("github")
+        v.literal('youtube'),
+        v.literal('newsletter'),
+        v.literal('changelog'),
+        v.literal('reddit'),
+        v.literal('ebay'),
+        v.literal('whats-new'),
+        v.literal('creator'),
+        v.literal('github')
       )
     ),
     limit: v.optional(v.number()),
@@ -200,22 +200,25 @@ export const listGroupedByCreator = query({
     let subscriptions;
     if (sourceType) {
       subscriptions = await ctx.db
-        .query("subscriptionSources")
-        .withIndex("by_type", (q) => q.eq("sourceType", sourceType))
+        .query('subscriptionSources')
+        .withIndex('by_type', (q) => q.eq('sourceType', sourceType))
         .take(limit);
     } else {
-      subscriptions = await ctx.db.query("subscriptionSources").take(limit);
+      subscriptions = await ctx.db.query('subscriptionSources').take(limit);
     }
 
     // Group subscriptions by creatorProfileId or identifier
-    const groups = new Map<string, {
-      creatorProfileId: string | null;
-      name: string;
-      subscriptions: typeof subscriptions;
-      platformCount: number;
-      lastActivityAt: number;
-      avatarUrl?: string;
-    }>();
+    const groups = new Map<
+      string,
+      {
+        creatorProfileId: string | null;
+        name: string;
+        subscriptions: typeof subscriptions;
+        platformCount: number;
+        lastActivityAt: number;
+        avatarUrl?: string;
+      }
+    >();
 
     for (const subscription of subscriptions) {
       // Use the dedicated creatorProfileId field (proper Convex ID), not configJson
@@ -252,8 +255,8 @@ export const listGroupedByCreator = query({
 
     // Count documents for each group - use indexed query for efficiency
     const researchedContent = await ctx.db
-      .query("subscriptionContent")
-      .withIndex("by_status_document", (q) => q.eq("researchStatus", "researched"))
+      .query('subscriptionContent')
+      .withIndex('by_status_document', (q) => q.eq('researchStatus', 'researched'))
       .collect();
 
     const documentCounts = new Map<string, number>();
@@ -303,8 +306,8 @@ export const searchContent = query({
     }
 
     const results = await ctx.db
-      .query("subscriptionContent")
-      .withSearchIndex("by_title_search", (q) => q.search("title", query))
+      .query('subscriptionContent')
+      .withSearchIndex('by_title_search', (q) => q.search('title', query))
       .take(limit);
 
     return results.map((item) => ({
@@ -326,13 +329,13 @@ export const searchContent = query({
  */
 export const listContentWithDocuments = query({
   args: {
-    subscriptionIds: v.array(v.id("subscriptionSources")),
+    subscriptionIds: v.array(v.id('subscriptionSources')),
     researchStatus: v.optional(
       v.union(
-        v.literal("pending"),
-        v.literal("queued"),
-        v.literal("researched"),
-        v.literal("skipped")
+        v.literal('pending'),
+        v.literal('queued'),
+        v.literal('researched'),
+        v.literal('skipped')
       )
     ),
     limit: v.optional(v.number()),
@@ -344,20 +347,18 @@ export const listContentWithDocuments = query({
     let content;
     if (researchStatus) {
       content = await ctx.db
-        .query("subscriptionContent")
-        .withIndex("by_status", (q) => q.eq("researchStatus", researchStatus))
+        .query('subscriptionContent')
+        .withIndex('by_status', (q) => q.eq('researchStatus', researchStatus))
         .filter((q) =>
           q.and(
-            q.eq(q.field("sourceId"), subscriptionIds[0]),
+            q.eq(q.field('sourceId'), subscriptionIds[0])
             // Note: filtering by array of IDs requires multiple queries or a different index strategy
             // For now, we'll fetch and filter client-side for multiple IDs
           )
         )
         .take(limit);
     } else {
-      content = await ctx.db
-        .query("subscriptionContent")
-        .take(limit);
+      content = await ctx.db.query('subscriptionContent').take(limit);
     }
 
     // Filter by subscription IDs on the client side
@@ -368,9 +369,7 @@ export const listContentWithDocuments = query({
     // Join with documents
     const result = await Promise.all(
       filteredContent.map(async (contentItem) => {
-        const document = contentItem.documentId
-          ? await ctx.db.get(contentItem.documentId)
-          : null;
+        const document = contentItem.documentId ? await ctx.db.get(contentItem.documentId) : null;
         return {
           content: contentItem,
           document,

@@ -1,9 +1,4 @@
-import { Icon } from '@/components/ui/icon';
-import { NativeOnlyAnimatedView } from '@/components/ui/native-only-animated-view';
-import { TextClassContext } from '@/components/ui/text';
-import { cn } from '@/lib/utils';
 import * as ContextMenuPrimitive from '@rn-primitives/context-menu';
-import { Check, ChevronDown, ChevronRight, ChevronUp } from '@/components/ui/icons';
 import * as React from 'react';
 import {
   Platform,
@@ -16,6 +11,11 @@ import {
 } from 'react-native';
 import { FadeIn } from 'react-native-reanimated';
 import { FullWindowOverlay as RNFullWindowOverlay } from 'react-native-screens';
+import { Icon } from '@/components/ui/icon';
+import { Check, ChevronDown, ChevronRight, ChevronUp } from '@/components/ui/icons';
+import { NativeOnlyAnimatedView } from '@/components/ui/native-only-animated-view';
+import { TextClassContext } from '@/components/ui/text';
+import { cn } from '@/lib/utils';
 
 const ContextMenu = ContextMenuPrimitive.Root;
 const ContextMenuTrigger = ContextMenuPrimitive.Trigger;
@@ -42,7 +42,8 @@ function ContextMenuSubTrigger({
       value={cn(
         'text-sm select-none group-active:text-accent-foreground',
         open && 'text-accent-foreground'
-      )}>
+      )}
+    >
       <ContextMenuPrimitive.SubTrigger
         className={cn(
           'active:bg-accent group flex flex-row items-center rounded-sm px-2 py-2 sm:py-1.5',
@@ -52,7 +53,8 @@ function ContextMenuSubTrigger({
           open && cn('bg-accent', Platform.select({ native: 'mb-1' })),
           inset && 'pl-8'
         )}
-        {...props}>
+        {...props}
+      >
         <>{children}</>
         <Icon as={icon} className={cn('text-foreground ml-auto size-4 shrink-0', iconClassName)} />
       </ContextMenuPrimitive.SubTrigger>
@@ -94,20 +96,19 @@ function ContextMenuContent({
     overlayClassName?: string;
     portalHost?: string;
   }) {
+  const computedOverlayStyle =
+    Platform.OS === 'web'
+      ? (overlayStyle ?? undefined)
+      : overlayStyle
+        ? StyleSheet.flatten([StyleSheet.absoluteFill, overlayStyle as typeof StyleSheet.absoluteFill])
+        : StyleSheet.absoluteFill;
   return (
     <ContextMenuPrimitive.Portal hostName={portalHost}>
       <FullWindowOverlay>
         <ContextMenuPrimitive.Overlay
-          style={Platform.select({
-            web: overlayStyle ?? undefined,
-            native: overlayStyle
-              ? StyleSheet.flatten([
-                  StyleSheet.absoluteFill,
-                  overlayStyle as typeof StyleSheet.absoluteFill,
-                ])
-              : StyleSheet.absoluteFill,
-          })}
-          className={overlayClassName}>
+          style={computedOverlayStyle}
+          className={overlayClassName}
+        >
           <NativeOnlyAnimatedView entering={FadeIn}>
             <TextClassContext.Provider value="text-popover-foreground">
               <ContextMenuPrimitive.Content
@@ -148,7 +149,8 @@ function ContextMenuItem({
       value={cn(
         'select-none text-sm text-popover-foreground group-active:text-popover-foreground',
         variant === 'destructive' && 'text-destructive group-active:text-destructive'
-      )}>
+      )}
+    >
       <ContextMenuPrimitive.Item
         className={cn(
           'active:bg-accent group relative flex flex-row items-center gap-2 rounded-sm px-2 py-2 sm:py-1.5',
@@ -188,7 +190,8 @@ function ContextMenuCheckboxItem({
           props.disabled && 'opacity-50',
           className
         )}
-        {...props}>
+        {...props}
+      >
         <View className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
           <ContextMenuPrimitive.ItemIndicator>
             <Icon
@@ -225,7 +228,8 @@ function ContextMenuRadioItem({
           props.disabled && 'opacity-50',
           className
         )}
-        {...props}>
+        {...props}
+      >
         <View className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
           <ContextMenuPrimitive.ItemIndicator>
             <View className="bg-foreground h-2 w-2 rounded-full" />

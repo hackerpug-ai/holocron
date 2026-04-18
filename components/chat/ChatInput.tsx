@@ -1,65 +1,65 @@
-import { View, TextInput, Pressable, ScrollView, StyleSheet } from 'react-native'
-import { Text } from '@/components/ui/text'
-import { cn } from '@/lib/utils'
-import { useState, useMemo, useCallback, useEffect } from 'react'
-import { Send } from '@/components/ui/icons'
-import { useTheme } from '@/hooks/use-theme'
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import {
-  useMentions,
   replaceTriggerValues,
-  type TriggersConfig,
   type SuggestionsProvidedProps,
-} from 'react-native-controlled-mentions'
-import { VoiceMicButton } from '@/components/voice/VoiceMicButton'
-import type { VoiceState } from '@/hooks/use-voice-session-state'
-import { AssistantButton } from '@/components/chat/AssistantButton'
+  type TriggersConfig,
+  useMentions,
+} from 'react-native-controlled-mentions';
+import { AssistantButton } from '@/components/chat/AssistantButton';
+import { Send } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { VoiceMicButton } from '@/components/voice/VoiceMicButton';
+import { useTheme } from '@/hooks/use-theme';
+import type { VoiceState } from '@/hooks/use-voice-session-state';
+import { cn } from '@/lib/utils';
 
 export interface SlashCommand {
   /** Command name without the leading slash */
-  name: string
+  name: string;
   /** Brief description of what the command does */
-  description: string
+  description: string;
   /** Syntax hint (e.g., "<query>") */
-  syntax?: string
+  syntax?: string;
 }
 
 export interface ChatInputProps {
   /** Callback when user sends a message - receives trimmed content */
-  onSend?: ((_content: string) => void) | (() => void)
+  onSend?: ((_content: string) => void) | (() => void);
   /** Callback when slash command is selected from the menu */
-  onSelectCommand?: (_command: SlashCommand) => void
+  onSelectCommand?: (_command: SlashCommand) => void;
   /** Callback when slash button is tapped (alternative to typing /) */
-  onSlashButtonPress?: () => void
+  onSlashButtonPress?: () => void;
   /** Placeholder text for input */
-  placeholder?: string
+  placeholder?: string;
   /** Whether the input is disabled */
-  disabled?: boolean
+  disabled?: boolean;
   /** Default value for the input (uncontrolled mode) */
-  defaultValue?: string
+  defaultValue?: string;
   /** Controlled value prop (for backward compatibility) */
-  value?: string
+  value?: string;
   /** Controlled onChange prop (for backward compatibility) */
-  onChangeText?: (_text: string) => void
+  onChangeText?: (_text: string) => void;
   /** testID for the root element */
-  testID?: string
+  testID?: string;
   /** Available commands */
-  commands?: SlashCommand[]
+  commands?: SlashCommand[];
   /** Whether a plan is currently pending approval */
-  planPending?: boolean
+  planPending?: boolean;
   /** Custom placeholder when plan is pending */
-  planPendingPlaceholder?: string
+  planPendingPlaceholder?: string;
   /** Whether to show the voice button */
-  showVoiceButton?: boolean
+  showVoiceButton?: boolean;
   /** Current voice session state */
-  voiceState?: VoiceState
+  voiceState?: VoiceState;
   /** Callback when voice session should start */
-  onVoiceStart?: () => void
+  onVoiceStart?: () => void;
   /** Callback when voice session should stop */
-  onVoiceStop?: () => void
+  onVoiceStop?: () => void;
   /** Whether a warm WebRTC connection is available for fast re-activation */
-  isWarm?: boolean
+  isWarm?: boolean;
   /** Called on VoiceMicButton mount to pre-warm the connection */
-  onVoicePrewarm?: () => void
+  onVoicePrewarm?: () => void;
 }
 
 const DEFAULT_COMMANDS: SlashCommand[] = [
@@ -79,7 +79,7 @@ const DEFAULT_COMMANDS: SlashCommand[] = [
   { name: 'save', description: 'Save document to knowledge base', syntax: '<title> [category]' },
   { name: 'add-text', description: 'Import text from AI platforms', syntax: '<documentId> <text>' },
   { name: 'help', description: 'Show all available commands' },
-]
+];
 
 /**
  * Command suggestions component for the mentions input
@@ -90,20 +90,20 @@ function CommandSuggestions({
   commands,
 }: SuggestionsProvidedProps & { commands: SlashCommand[] }) {
   // Don't show if no keyword (triggers shows when user types "/")
-  if (keyword === undefined) return null
+  if (keyword === undefined) return null;
 
   // Filter commands based on keyword
-  const filterText = keyword.toLowerCase()
+  const filterText = keyword.toLowerCase();
   const filteredCommands = commands.filter(
     (cmd) =>
       cmd.name.toLowerCase().includes(filterText) ||
       cmd.description.toLowerCase().includes(filterText)
-  )
+  );
 
-  if (filteredCommands.length === 0) return null
+  if (filteredCommands.length === 0) return null;
 
   // Check for exact match - highlight it
-  const exactMatch = commands.find((cmd) => cmd.name.toLowerCase() === filterText)
+  const exactMatch = commands.find((cmd) => cmd.name.toLowerCase() === filterText);
 
   return (
     <View
@@ -112,7 +112,7 @@ function CommandSuggestions({
     >
       <ScrollView className="p-2" keyboardShouldPersistTaps="handled">
         {filteredCommands.map((command) => {
-          const isExactMatch = exactMatch?.name === command.name
+          const isExactMatch = exactMatch?.name === command.name;
 
           return (
             <Pressable
@@ -129,20 +129,16 @@ function CommandSuggestions({
                   /{command.name}
                 </Text>
                 {command.syntax && (
-                  <Text className="text-muted-foreground font-mono text-xs">
-                    {command.syntax}
-                  </Text>
+                  <Text className="text-muted-foreground font-mono text-xs">{command.syntax}</Text>
                 )}
               </View>
-              <Text className="text-muted-foreground mt-0.5 text-sm">
-                {command.description}
-              </Text>
+              <Text className="text-muted-foreground mt-0.5 text-sm">{command.description}</Text>
             </Pressable>
-          )
+          );
         })}
       </ScrollView>
     </View>
-  )
+  );
 }
 
 export function ChatInput({
@@ -165,17 +161,17 @@ export function ChatInput({
   isWarm = false,
   onVoicePrewarm,
 }: ChatInputProps) {
-  const { colors: themeColors, typography, spacing } = useTheme()
+  const { colors: themeColors, typography, spacing } = useTheme();
 
   // Generate styles based on typography tokens
-  const styles = useStyles(typography, spacing)
+  const styles = useStyles(typography, spacing);
 
   // Support both controlled and uncontrolled modes
-  const isControlled = controlledValue !== undefined && onChangeText !== undefined
-  const [internalValue, setInternalValue] = useState(defaultValue)
+  const isControlled = controlledValue !== undefined && onChangeText !== undefined;
+  const [internalValue, setInternalValue] = useState(defaultValue);
 
-  const value = isControlled ? controlledValue : internalValue
-  const setValue = isControlled ? onChangeText : setInternalValue
+  const value = isControlled ? controlledValue : internalValue;
+  const setValue = isControlled ? onChangeText : setInternalValue;
 
   // Triggers config for slash commands - memoized to prevent re-renders
   const triggersConfig: TriggersConfig<'command'> = useMemo(
@@ -191,108 +187,109 @@ export function ChatInput({
       },
     }),
     [themeColors.primary]
-  )
+  );
 
   const { textInputProps, triggers } = useMentions({
     value,
     onChange: setValue,
     triggersConfig,
-  })
+  });
 
-  const trimmedValue = value.trim()
-  const canSend = trimmedValue.length > 0 && !disabled && !planPending
-  const effectiveDisabled = disabled || planPending
-  const effectivePlaceholder = planPending ? planPendingPlaceholder : placeholder
+  const trimmedValue = value.trim();
+  const canSend = trimmedValue.length > 0 && !disabled && !planPending;
+  const effectiveDisabled = disabled || planPending;
+  const effectivePlaceholder = planPending ? planPendingPlaceholder : placeholder;
 
   // Track whether the wand button forced the command panel open
-  const [forceShowCommands, setForceShowCommands] = useState(false)
+  const [forceShowCommands, setForceShowCommands] = useState(false);
 
   // Show command panel when mentions trigger detects "/" OR when wand button toggled it
-  const mentionsActive = triggers.command.keyword !== undefined
-  const showCommandPanel = mentionsActive || forceShowCommands
+  const mentionsActive = triggers.command.keyword !== undefined;
+  const showCommandPanel = mentionsActive || forceShowCommands;
 
   // Dismiss forced panel when user starts typing
   useEffect(() => {
     if (forceShowCommands && value.length > 0) {
-      setForceShowCommands(false)
+      setForceShowCommands(false);
     }
-  }, [value, forceShowCommands])
+  }, [value, forceShowCommands]);
 
   // Auto-select command when user types the full command name
   useEffect(() => {
-    const keyword = triggers.command.keyword
-    if (keyword === undefined) return
+    const keyword = triggers.command.keyword;
+    if (keyword === undefined) return;
 
     // Check for exact match (case-insensitive)
-    const exactMatch = commands.find(
-      (cmd) => cmd.name.toLowerCase() === keyword.toLowerCase()
-    )
+    const exactMatch = commands.find((cmd) => cmd.name.toLowerCase() === keyword.toLowerCase());
 
     if (exactMatch) {
       // Auto-select the command - same as clicking it
-      triggers.command.onSelect({ id: exactMatch.name, name: exactMatch.name })
+      triggers.command.onSelect({ id: exactMatch.name, name: exactMatch.name });
       // Notify parent if callback provided
       if (onSelectCommand) {
-        onSelectCommand(exactMatch)
+        onSelectCommand(exactMatch);
       }
     }
-  }, [triggers.command.keyword, commands, triggers.command, onSelectCommand])
+  }, [triggers.command.keyword, commands, triggers.command, onSelectCommand]);
 
   // Handle command selection from suggestions
   const handleCommandSelect = useCallback(
     (suggestion: { id: string; name: string }) => {
-      setForceShowCommands(false)
+      setForceShowCommands(false);
 
       // Check if mentions system is active (user typed "/")
-      const mentionsActive = triggers.command.keyword !== undefined
+      const mentionsActive = triggers.command.keyword !== undefined;
 
       if (mentionsActive) {
         // Use the mentions system's onSelect (normal flow)
-        triggers.command.onSelect(suggestion)
+        triggers.command.onSelect(suggestion);
       } else {
         // Wand button forced panel - directly inject command as plain text
-        const commandText = `/${suggestion.name} `
-        setValue(commandText)
+        const commandText = `/${suggestion.name} `;
+        setValue(commandText);
       }
     },
     [triggers.command, setValue]
-  )
+  );
 
   // Handle wand button press - toggle command menu without injecting "/"
   const handleSlashButtonPress = () => {
     if (showCommandPanel) {
       // Already showing - dismiss it
-      setForceShowCommands(false)
+      setForceShowCommands(false);
     } else {
       // Show command menu without modifying the input text
-      setForceShowCommands(true)
+      setForceShowCommands(true);
     }
-    onSlashButtonPress?.()
-  }
+    onSlashButtonPress?.();
+  };
 
   const handleSend = () => {
     if (canSend && onSend) {
       // Convert mention-formatted text back to plain text
       // e.g., "{/}[search](search) query" → "/search query"
-      const plainText = replaceTriggerValues(trimmedValue, (mention) => `${mention.trigger}${mention.name}`)
+      const plainText = replaceTriggerValues(
+        trimmedValue,
+        (mention) => `${mention.trigger}${mention.name}`
+      );
 
       // Check if onSend expects an argument (new API) or not (old API)
       if (onSend.length > 0) {
         // New API: pass trimmed content
-        ;(onSend as (_content: string) => void)(plainText)
+        (onSend as (_content: string) => void)(plainText);
         // Clear input only in uncontrolled mode
         if (!isControlled) {
-          setValue('')
+          setValue('');
         }
       } else {
         // Old API: no arguments
-        ;(onSend as () => void)()
+        (onSend as () => void)();
       }
     }
-  }
+  };
 
   // Derive placeholder visibility - hide when there's content
-  const showPlaceholder = value.length === 0
+  const showPlaceholder = value.length === 0;
 
   return (
     <View testID={testID} className="relative">
@@ -316,10 +313,10 @@ export function ChatInput({
             {/* Placeholder - shown when input is empty */}
             {showPlaceholder && (
               <View pointerEvents="none" style={styles.placeholderContainer}>
-                <Text className={cn(
-                  'text-muted-foreground',
-                  planPending && 'text-warning/70'
-                )} style={styles.placeholder}>
+                <Text
+                  className={cn('text-muted-foreground', planPending && 'text-warning/70')}
+                  style={styles.placeholder}
+                >
                   {effectivePlaceholder}
                 </Text>
               </View>
@@ -374,32 +371,36 @@ export function ChatInput({
         )}
       </View>
     </View>
-  )
+  );
 }
 
 const useStyles = (typography: any, spacing: any) => {
-  return useMemo(() => StyleSheet.create({
-    textInput: {
-      fontSize: typography.body.fontSize,
-      lineHeight: 22,
-      paddingHorizontal: spacing.lg,
-      paddingRight: 48, // Extra padding for the slash button inside the input
-      paddingVertical: spacing.sm,
-      minHeight: 40,
-      maxHeight: 128,
-    },
-    placeholderContainer: {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      justifyContent: 'center',
-      paddingHorizontal: spacing.lg,
-      paddingRight: 48, // Match textInput right padding
-    },
-    placeholder: {
-      fontSize: typography.body.fontSize,
-    },
-  }), [typography])
-}
+  return useMemo(
+    () =>
+      StyleSheet.create({
+        textInput: {
+          fontSize: typography.body.fontSize,
+          lineHeight: 22,
+          paddingHorizontal: spacing.lg,
+          paddingRight: 48, // Extra padding for the slash button inside the input
+          paddingVertical: spacing.sm,
+          minHeight: 40,
+          maxHeight: 128,
+        },
+        placeholderContainer: {
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          justifyContent: 'center',
+          paddingHorizontal: spacing.lg,
+          paddingRight: 48, // Match textInput right padding
+        },
+        placeholder: {
+          fontSize: typography.body.fontSize,
+        },
+      }),
+    [typography]
+  );
+};

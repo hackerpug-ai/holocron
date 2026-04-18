@@ -6,7 +6,7 @@
  * with mocked ctx to avoid Convex runtime dependencies.
  */
 
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -18,34 +18,34 @@ afterEach(() => {
 // AC-1: Returns {ephemeralKey, expiresAt, sessionId} on success
 // ============================================================================
 
-describe("voice.createSession - AC-1: Returns token on success", () => {
-  it("createSession action is exported from convex/voice/actions.ts", async () => {
-    const { createSession } = await import("../../convex/voice/actions");
+describe('voice.createSession - AC-1: Returns token on success', () => {
+  it('createSession action is exported from convex/voice/actions.ts', async () => {
+    const { createSession } = await import('../../convex/voice/actions');
 
     expect(createSession).toBeTruthy();
-    expect(typeof createSession).toBe("function");
+    expect(typeof createSession).toBe('function');
   });
 
-  it("createSessionHandler returns ephemeralKey, expiresAt, sessionId on success", async () => {
-    process.env.OPENAI_API_KEY = "sk-test-key";
+  it('createSessionHandler returns ephemeralKey, expiresAt, sessionId on success', async () => {
+    process.env.OPENAI_API_KEY = 'sk-test-key';
 
     vi.stubGlobal(
-      "fetch",
+      'fetch',
       vi.fn().mockResolvedValue({
         ok: true,
         status: 200,
         json: () =>
           Promise.resolve({
-            value: "ek_abc123_testtoken",
+            value: 'ek_abc123_testtoken',
             expires_at: 1234567890,
           }),
-        text: () => Promise.resolve(""),
+        text: () => Promise.resolve(''),
       })
     );
 
-    const { createSessionHandler } = await import("../../convex/voice/actions");
+    const { createSessionHandler } = await import('../../convex/voice/actions');
 
-    const mockSessionId = "vs_newSession123";
+    const mockSessionId = 'vs_newSession123';
     const mockCtx = {
       runQuery: vi.fn().mockResolvedValue(null), // no active session
       runMutation: vi.fn().mockResolvedValue(mockSessionId),
@@ -53,14 +53,14 @@ describe("voice.createSession - AC-1: Returns token on success", () => {
 
     const result = await createSessionHandler(
       mockCtx as any,
-      { conversationId: "conv_abc" },
+      { conversationId: 'conv_abc' },
       {
-        activeSessionQuery: "mock-query-ref" as any,
-        createSessionMutation: "mock-mutation-ref" as any,
+        activeSessionQuery: 'mock-query-ref' as any,
+        createSessionMutation: 'mock-mutation-ref' as any,
       }
     );
 
-    expect(result.ephemeralKey).toBe("ek_abc123_testtoken");
+    expect(result.ephemeralKey).toBe('ek_abc123_testtoken');
     expect(result.expiresAt).toBe(1234567890);
     expect(result.sessionId).toBe(mockSessionId);
   });
@@ -70,29 +70,29 @@ describe("voice.createSession - AC-1: Returns token on success", () => {
 // AC-2: Auto-ends stale session instead of throwing when active session exists
 // ============================================================================
 
-describe("voice.createSession - AC-2: Stale session auto-end", () => {
-  it("createSessionHandler auto-ends stale session and proceeds to create new one", async () => {
-    process.env.OPENAI_API_KEY = "sk-test-key";
+describe('voice.createSession - AC-2: Stale session auto-end', () => {
+  it('createSessionHandler auto-ends stale session and proceeds to create new one', async () => {
+    process.env.OPENAI_API_KEY = 'sk-test-key';
 
     vi.stubGlobal(
-      "fetch",
+      'fetch',
       vi.fn().mockResolvedValue({
         ok: true,
         status: 200,
         json: () =>
           Promise.resolve({
-            value: "ek_abc123_testtoken",
+            value: 'ek_abc123_testtoken',
             expires_at: 1234567890,
           }),
-        text: () => Promise.resolve(""),
+        text: () => Promise.resolve(''),
       })
     );
 
-    const { createSessionHandler } = await import("../../convex/voice/actions");
+    const { createSessionHandler } = await import('../../convex/voice/actions');
 
     const mockActiveSession = {
-      _id: "vs_existing123",
-      conversationId: "conv_123",
+      _id: 'vs_existing123',
+      conversationId: 'conv_123',
       startedAt: Date.now() - 5000,
       completedAt: undefined,
       turnCount: 0,
@@ -100,7 +100,7 @@ describe("voice.createSession - AC-2: Stale session auto-end", () => {
       updatedAt: Date.now() - 5000,
     };
 
-    const mockNewSessionId = "vs_newSession456";
+    const mockNewSessionId = 'vs_newSession456';
     const mockCtx = {
       runQuery: vi.fn().mockResolvedValue(mockActiveSession),
       runMutation: vi.fn().mockResolvedValue(mockNewSessionId),
@@ -109,45 +109,45 @@ describe("voice.createSession - AC-2: Stale session auto-end", () => {
     // Should NOT throw — should auto-end the stale session and succeed
     const result = await createSessionHandler(
       mockCtx as any,
-      { conversationId: "conv_123" },
+      { conversationId: 'conv_123' },
       {
-        activeSessionQuery: "mock-query-ref" as any,
-        endSessionMutation: "mock-end-mutation-ref" as any,
-        createSessionMutation: "mock-create-mutation-ref" as any,
-        buildInstructionsQuery: "mock-instructions-ref" as any,
+        activeSessionQuery: 'mock-query-ref' as any,
+        endSessionMutation: 'mock-end-mutation-ref' as any,
+        createSessionMutation: 'mock-create-mutation-ref' as any,
+        buildInstructionsQuery: 'mock-instructions-ref' as any,
       }
     );
 
     // First mutation call should be the auto-end of stale session
-    expect(mockCtx.runMutation).toHaveBeenCalledWith("mock-end-mutation-ref", {
-      sessionId: "vs_existing123",
+    expect(mockCtx.runMutation).toHaveBeenCalledWith('mock-end-mutation-ref', {
+      sessionId: 'vs_existing123',
     });
 
     // Should still return a valid result with new session
-    expect(result.ephemeralKey).toBe("ek_abc123_testtoken");
+    expect(result.ephemeralKey).toBe('ek_abc123_testtoken');
     expect(result.sessionId).toBe(mockNewSessionId);
   });
 
-  it("createSessionHandler does not call endSession when no active session exists", async () => {
-    process.env.OPENAI_API_KEY = "sk-test-key";
+  it('createSessionHandler does not call endSession when no active session exists', async () => {
+    process.env.OPENAI_API_KEY = 'sk-test-key';
 
     vi.stubGlobal(
-      "fetch",
+      'fetch',
       vi.fn().mockResolvedValue({
         ok: true,
         status: 200,
         json: () =>
           Promise.resolve({
-            value: "ek_fresh_token",
+            value: 'ek_fresh_token',
             expires_at: 9999999999,
           }),
-        text: () => Promise.resolve(""),
+        text: () => Promise.resolve(''),
       })
     );
 
-    const { createSessionHandler } = await import("../../convex/voice/actions");
+    const { createSessionHandler } = await import('../../convex/voice/actions');
 
-    const mockSessionId = "vs_brand_new";
+    const mockSessionId = 'vs_brand_new';
     const mockCtx = {
       runQuery: vi.fn().mockResolvedValue(null), // no active session
       runMutation: vi.fn().mockResolvedValue(mockSessionId),
@@ -155,18 +155,18 @@ describe("voice.createSession - AC-2: Stale session auto-end", () => {
 
     await createSessionHandler(
       mockCtx as any,
-      { conversationId: "conv_fresh" },
+      { conversationId: 'conv_fresh' },
       {
-        activeSessionQuery: "mock-query-ref" as any,
-        endSessionMutation: "mock-end-mutation-ref" as any,
-        createSessionMutation: "mock-create-mutation-ref" as any,
-        buildInstructionsQuery: "mock-instructions-ref" as any,
+        activeSessionQuery: 'mock-query-ref' as any,
+        endSessionMutation: 'mock-end-mutation-ref' as any,
+        createSessionMutation: 'mock-create-mutation-ref' as any,
+        buildInstructionsQuery: 'mock-instructions-ref' as any,
       }
     );
 
     // endSession mutation should NOT have been called since there was no stale session
     expect(mockCtx.runMutation).not.toHaveBeenCalledWith(
-      "mock-end-mutation-ref",
+      'mock-end-mutation-ref',
       expect.anything()
     );
   });
@@ -176,12 +176,12 @@ describe("voice.createSession - AC-2: Stale session auto-end", () => {
 // AC-3: Throws descriptive error if OPENAI_API_KEY missing
 // ============================================================================
 
-describe("voice.createSession - AC-3: Missing API key error", () => {
-  it("createSessionHandler throws descriptive error when OPENAI_API_KEY is missing", async () => {
+describe('voice.createSession - AC-3: Missing API key error', () => {
+  it('createSessionHandler throws descriptive error when OPENAI_API_KEY is missing', async () => {
     // Ensure API key is not set
     delete process.env.OPENAI_API_KEY;
 
-    const { createSessionHandler } = await import("../../convex/voice/actions");
+    const { createSessionHandler } = await import('../../convex/voice/actions');
 
     const mockCtx = {
       runQuery: vi.fn().mockResolvedValue(null), // no active session
@@ -191,8 +191,8 @@ describe("voice.createSession - AC-3: Missing API key error", () => {
     await expect(
       createSessionHandler(
         mockCtx as any,
-        { conversationId: "conv_123" },
-        { activeSessionQuery: "mock-query-ref" as any }
+        { conversationId: 'conv_123' },
+        { activeSessionQuery: 'mock-query-ref' as any }
       )
     ).rejects.toThrow(/OPENAI_API_KEY/i);
 
@@ -205,20 +205,20 @@ describe("voice.createSession - AC-3: Missing API key error", () => {
 // AC-4: Non-200 OpenAI response throws error, no session record created
 // ============================================================================
 
-describe("voice.createSession - AC-4: Non-200 OpenAI response", () => {
-  it("createSessionHandler throws with status code context on non-200 and does not create session", async () => {
-    process.env.OPENAI_API_KEY = "sk-test-key";
+describe('voice.createSession - AC-4: Non-200 OpenAI response', () => {
+  it('createSessionHandler throws with status code context on non-200 and does not create session', async () => {
+    process.env.OPENAI_API_KEY = 'sk-test-key';
 
     vi.stubGlobal(
-      "fetch",
+      'fetch',
       vi.fn().mockResolvedValue({
         ok: false,
         status: 401,
-        text: () => Promise.resolve("Unauthorized"),
+        text: () => Promise.resolve('Unauthorized'),
       })
     );
 
-    const { createSessionHandler } = await import("../../convex/voice/actions");
+    const { createSessionHandler } = await import('../../convex/voice/actions');
 
     const mockCtx = {
       runQuery: vi.fn().mockResolvedValue(null), // no active session
@@ -228,10 +228,10 @@ describe("voice.createSession - AC-4: Non-200 OpenAI response", () => {
     await expect(
       createSessionHandler(
         mockCtx as any,
-        { conversationId: "conv_123" },
+        { conversationId: 'conv_123' },
         {
-          activeSessionQuery: "mock-query-ref" as any,
-          createSessionMutation: "mock-mutation-ref" as any,
+          activeSessionQuery: 'mock-query-ref' as any,
+          createSessionMutation: 'mock-mutation-ref' as any,
         }
       )
     ).rejects.toThrow(/401/);
@@ -245,13 +245,11 @@ describe("voice.createSession - AC-4: Non-200 OpenAI response", () => {
 // Internal mutation: internalCreateSession is exported
 // ============================================================================
 
-describe("voice.createSession - Internal mutation", () => {
-  it("internalCreateSession is exported from convex/voice/mutations.ts", async () => {
-    const { internalCreateSession } = await import(
-      "../../convex/voice/mutations"
-    );
+describe('voice.createSession - Internal mutation', () => {
+  it('internalCreateSession is exported from convex/voice/mutations.ts', async () => {
+    const { internalCreateSession } = await import('../../convex/voice/mutations');
 
     expect(internalCreateSession).toBeTruthy();
-    expect(typeof internalCreateSession).toBe("function");
+    expect(typeof internalCreateSession).toBe('function');
   });
 });

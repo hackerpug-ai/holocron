@@ -140,7 +140,7 @@ export function sanitize(input: string): string {
  */
 function isSensitiveKey(key: string): boolean {
   const lowerKey = key.toLowerCase().trim();
-  return SENSITIVE_KEYS.some(sensitive => lowerKey.includes(sensitive));
+  return SENSITIVE_KEYS.some((sensitive) => lowerKey.includes(sensitive));
 }
 
 /**
@@ -169,7 +169,7 @@ export function sanitizeObject<T>(obj: T, depth = 0, maxDepth = 10): T {
 
   // Handle arrays
   if (Array.isArray(obj)) {
-    return obj.map(item => sanitizeObject(item, depth + 1, maxDepth)) as T;
+    return obj.map((item) => sanitizeObject(item, depth + 1, maxDepth)) as T;
   }
 
   // Handle objects

@@ -7,7 +7,7 @@
  * Run with: npx convex run migrations/strip_platform_prefix:stripPlatformPrefixFromTitles
  */
 
-import { internalMutation } from "../_generated/server";
+import { internalMutation } from '../_generated/server';
 
 const PLATFORM_PREFIX = /^\[(TWITTER|YOUTUBE|GITHUB|BLUESKY)\]\s*/;
 
@@ -18,19 +18,17 @@ const PLATFORM_PREFIX = /^\[(TWITTER|YOUTUBE|GITHUB|BLUESKY)\]\s*/;
 export const stripPlatformPrefixFromTitles = internalMutation({
   args: {},
   handler: async (ctx): Promise<{ updated: number }> => {
-    const allContent = await ctx.db.query("subscriptionContent").collect();
+    const allContent = await ctx.db.query('subscriptionContent').collect();
 
     let updated = 0;
 
     for (const record of allContent) {
-      const strippedTitle = record.title.replace(PLATFORM_PREFIX, "");
+      const strippedTitle = record.title.replace(PLATFORM_PREFIX, '');
       if (strippedTitle !== record.title) {
         await ctx.db.patch(record._id, { title: strippedTitle });
         updated++;
       }
     }
-
-    
 
     return { updated };
   },

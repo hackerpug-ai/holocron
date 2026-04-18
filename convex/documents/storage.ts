@@ -3,17 +3,17 @@
  * These actions handle document creation and updates with vector embeddings
  */
 
-import { action } from "../_generated/server";
-import { v } from "convex/values";
-import { api } from "../_generated/api";
-import { embed } from "ai";
-import { cohereEmbedding } from "../lib/ai/embeddings_provider";
+import { embed } from 'ai';
+import { v } from 'convex/values';
+import { api } from '../_generated/api';
+import { action } from '../_generated/server';
+import { cohereEmbedding } from '../lib/ai/embeddings_provider';
 
 /**
  * "use node" directive - runs in Node.js environment (not V8 isolate)
  * Required for calling external APIs (Cohere embeddings)
  */
-"use node";
+('use node');
 
 /**
  * Generate an embedding for document content
@@ -46,7 +46,10 @@ export const createWithEmbedding = action({
     researchType: v.optional(v.string()),
     iterations: v.optional(v.number()),
   },
-  handler: async (ctx, args): Promise<{ documentId: any; embeddingDimensions: number; embeddingStatus: "completed" }> => {
+  handler: async (
+    ctx,
+    args
+  ): Promise<{ documentId: any; embeddingDimensions: number; embeddingStatus: 'completed' }> => {
     // Generate embedding for the document content
     const embedding = await generateDocumentEmbedding(args.content);
 
@@ -59,7 +62,7 @@ export const createWithEmbedding = action({
     return {
       documentId,
       embeddingDimensions: embedding.length,
-      embeddingStatus: "completed" as const,
+      embeddingStatus: 'completed' as const,
     };
   },
 });
@@ -69,7 +72,7 @@ export const createWithEmbedding = action({
  */
 export const updateWithEmbedding = action({
   args: {
-    id: v.id("documents"),
+    id: v.id('documents'),
     title: v.optional(v.string()),
     content: v.optional(v.string()),
     category: v.optional(v.string()),
@@ -81,7 +84,16 @@ export const updateWithEmbedding = action({
     researchType: v.optional(v.string()),
     iterations: v.optional(v.number()),
   },
-  handler: async (ctx, args): Promise<{ documentId: any; updated: boolean; embeddingRegenerated: boolean; embeddingDimensions: number | undefined; embeddingStatus: "completed" }> => {
+  handler: async (
+    ctx,
+    args
+  ): Promise<{
+    documentId: any;
+    updated: boolean;
+    embeddingRegenerated: boolean;
+    embeddingDimensions: number | undefined;
+    embeddingStatus: 'completed';
+  }> => {
     const { id, ...updates } = args;
 
     // Get the existing document to check if content changed
@@ -111,7 +123,7 @@ export const updateWithEmbedding = action({
       updated: true,
       embeddingRegenerated: contentChanged || embeddingMissing,
       embeddingDimensions: embedding?.length,
-      embeddingStatus: "completed" as const,
+      embeddingStatus: 'completed' as const,
     };
   },
 });

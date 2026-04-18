@@ -1,43 +1,44 @@
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
-import { Text } from '@/components/ui/text'
-import { cn } from '@/lib/utils'
-import { AlertCircle, CheckCircle2, ChevronDown, ChevronRight } from '@/components/ui/icons'
-import { useState } from 'react'
-import { Pressable, View, type ViewProps } from 'react-native'
+import { useState } from 'react';
+import { Pressable, View, type ViewProps } from 'react-native';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { AlertCircle, CheckCircle2, ChevronDown, ChevronRight } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { cn } from '@/lib/utils';
 
 interface IterationCardProps extends Omit<ViewProps, 'children'> {
   /** Iteration number */
-  iterationNumber: number
+  iterationNumber: number;
   /** Coverage score (1-5) */
-  coverageScore: number
+  coverageScore: number;
   /** Reviewer feedback identifying gaps */
-  feedback?: string
+  feedback?: string;
   /** Refined queries for next iteration */
-  refinedQueries?: string[]
+  refinedQueries?: string[];
   /** Whether this iteration is currently active */
-  isActive?: boolean
+  isActive?: boolean;
   /** Whether the iteration is complete */
-  isComplete?: boolean
+  isComplete?: boolean;
   /** Optional callback when card is pressed */
-  onPress?: () => void
+  onPress?: () => void;
   /** Whether the card is initially expanded */
-  defaultExpanded?: boolean
+  defaultExpanded?: boolean;
 }
 
 function ScoreBadge({ score }: { score: number }) {
-  const colorClass = {
-    1: 'bg-destructive/10 text-destructive',
-    2: 'bg-warning/10 text-warning',
-    3: 'bg-warning/10 text-warning',
-    4: 'bg-success/10 text-success',
-    5: 'bg-success/10 text-success',
-  }[score] ?? 'bg-muted text-muted-foreground'
+  const colorClass =
+    {
+      1: 'bg-destructive/10 text-destructive',
+      2: 'bg-warning/10 text-warning',
+      3: 'bg-warning/10 text-warning',
+      4: 'bg-success/10 text-success',
+      5: 'bg-success/10 text-success',
+    }[score] ?? 'bg-muted text-muted-foreground';
 
   return (
     <View className={cn('rounded-full px-2 py-0.5', colorClass)}>
       <Text className="text-xs font-semibold">{score}/5</Text>
     </View>
-  )
+  );
 }
 
 /**
@@ -56,24 +57,21 @@ export function IterationCard({
   className,
   ...props
 }: IterationCardProps) {
-  const [isExpanded, setIsExpanded] = useState(defaultExpanded)
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
 
-  const hasDetails = feedback || refinedQueries.length > 0
-  const ChevronIcon = isExpanded ? ChevronDown : ChevronRight
+  const hasDetails = feedback || refinedQueries.length > 0;
+  const ChevronIcon = isExpanded ? ChevronDown : ChevronRight;
 
   const handlePress = () => {
     if (hasDetails) {
-      setIsExpanded(!isExpanded)
+      setIsExpanded(!isExpanded);
     }
-    onPress?.()
-  }
+    onPress?.();
+  };
 
   return (
     <Card
-      className={cn(
-        isActive && 'border-primary',
-        className
-      )}
+      className={cn(isActive && 'border-primary', className)}
       testID="iteration-card"
       {...props}
     >
@@ -87,15 +85,11 @@ export function IterationCard({
             ) : (
               <AlertCircle size={18} className="text-muted-foreground" />
             )}
-            <Text className="text-foreground font-semibold">
-              Iteration {iterationNumber}
-            </Text>
+            <Text className="text-foreground font-semibold">Iteration {iterationNumber}</Text>
           </View>
           <View className="flex-row items-center gap-2">
             <ScoreBadge score={coverageScore} />
-            {hasDetails && (
-              <ChevronIcon size={16} className="text-muted-foreground" />
-            )}
+            {hasDetails && <ChevronIcon size={16} className="text-muted-foreground" />}
           </View>
         </CardHeader>
       </Pressable>
@@ -118,10 +112,7 @@ export function IterationCard({
               </Text>
               <View className="gap-1">
                 {refinedQueries.map((query, index) => (
-                  <View
-                    key={index}
-                    className="bg-muted rounded px-2 py-1"
-                  >
+                  <View key={index} className="bg-muted rounded px-2 py-1">
                     <Text className="text-foreground text-sm">{query}</Text>
                   </View>
                 ))}
@@ -131,5 +122,5 @@ export function IterationCard({
         </CardContent>
       )}
     </Card>
-  )
+  );
 }

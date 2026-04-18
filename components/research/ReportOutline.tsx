@@ -11,86 +11,86 @@
  * AC-4: Expand/collapse all buttons toggle all sections
  */
 
-import React, { useState } from 'react'
-import { View, Pressable, ScrollView } from 'react-native'
-import { ChevronDown, ChevronUp, Plus } from '@/components/ui/icons'
-import { Text } from '@/components/ui/text'
-import { cn } from '@/lib/utils'
+import React, { useState } from 'react';
+import { Pressable, ScrollView, View } from 'react-native';
+import { ChevronDown, ChevronUp, Plus } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { cn } from '@/lib/utils';
 
 export interface ReportOutlineProps {
   /** Markdown content to render as outline */
-  content: string
+  content: string;
   /** Optional test ID prefix */
-  testID?: string
+  testID?: string;
   /** Whether sections should be expanded by default */
-  defaultExpanded?: boolean
+  defaultExpanded?: boolean;
   /** Optional class name */
-  className?: string
+  className?: string;
 }
 
 /**
  * Parse markdown into outline structure
  */
 interface OutlineSection {
-  id: string
-  title: string
-  level: number
-  content: string
-  children: OutlineSection[]
+  id: string;
+  title: string;
+  level: number;
+  content: string;
+  children: OutlineSection[];
 }
 
 function parseMarkdownToOutline(markdown: string): OutlineSection[] {
-  const lines = markdown.split('\n')
-  const sections: OutlineSection[] = []
-  let currentSection: OutlineSection | null = null
-  let currentContent: string[] = []
+  const lines = markdown.split('\n');
+  const sections: OutlineSection[] = [];
+  let currentSection: OutlineSection | null = null;
+  let currentContent: string[] = [];
 
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]
+    const line = lines[i];
 
     // Check if this is a heading (## or ###)
-    const headingMatch = line.match(/^(#{2,3})\s+(.+)$/)
+    const headingMatch = line.match(/^(#{2,3})\s+(.+)$/);
     if (headingMatch) {
       // Save previous section if exists
       if (currentSection) {
-        currentSection.content = currentContent.join('\n').trim()
-        sections.push(currentSection)
+        currentSection.content = currentContent.join('\n').trim();
+        sections.push(currentSection);
       }
 
       // Start new section
-      const level = headingMatch[1].length
-      const title = headingMatch[2].trim()
+      const level = headingMatch[1].length;
+      const title = headingMatch[2].trim();
       currentSection = {
         id: `section-${sections.length + 1}`,
         title,
         level,
         content: '',
         children: [],
-      }
-      currentContent = []
+      };
+      currentContent = [];
     } else if (currentSection) {
       // Add content to current section
-      currentContent.push(line)
+      currentContent.push(line);
     }
   }
 
   // Save last section
   if (currentSection) {
-    currentSection.content = currentContent.join('\n').trim()
-    sections.push(currentSection)
+    currentSection.content = currentContent.join('\n').trim();
+    sections.push(currentSection);
   }
 
-  return sections
+  return sections;
 }
 
 /**
  * SectionHeader component for collapsible sections
  */
 interface SectionHeaderProps {
-  title: string
-  isExpanded: boolean
-  onToggle: () => void
-  testID?: string
+  title: string;
+  isExpanded: boolean;
+  onToggle: () => void;
+  testID?: string;
 }
 
 function SectionHeader({ title, isExpanded, onToggle, testID }: SectionHeaderProps) {
@@ -109,30 +109,28 @@ function SectionHeader({ title, isExpanded, onToggle, testID }: SectionHeaderPro
         <ChevronDown size={20} className="text-muted-foreground" />
       )}
     </Pressable>
-  )
+  );
 }
 
 /**
  * SectionContent component for section body
  */
 interface SectionContentProps {
-  content: string
-  isExpanded: boolean
-  testID?: string
+  content: string;
+  isExpanded: boolean;
+  testID?: string;
 }
 
 function SectionContent({ content, isExpanded, testID }: SectionContentProps) {
   if (!isExpanded || !content) {
-    return null
+    return null;
   }
 
   return (
     <View testID={testID} className="px-4 py-3 bg-card">
-      <Text className="text-foreground leading-relaxed">
-        {content}
-      </Text>
+      <Text className="text-foreground leading-relaxed">{content}</Text>
     </View>
-  )
+  );
 }
 
 /**
@@ -144,39 +142,37 @@ export function ReportOutline({
   defaultExpanded = false,
   className,
 }: ReportOutlineProps) {
-  const sections = parseMarkdownToOutline(content)
+  const sections = parseMarkdownToOutline(content);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
-    defaultExpanded ? new Set(sections.map(s => s.id)) : new Set()
-  )
+    defaultExpanded ? new Set(sections.map((s) => s.id)) : new Set()
+  );
 
   const toggleSection = (sectionId: string) => {
-    setExpandedSections(prev => {
-      const next = new Set(prev)
+    setExpandedSections((prev) => {
+      const next = new Set(prev);
       if (next.has(sectionId)) {
-        next.delete(sectionId)
+        next.delete(sectionId);
       } else {
-        next.add(sectionId)
+        next.add(sectionId);
       }
-      return next
-    })
-  }
+      return next;
+    });
+  };
 
   const expandAll = () => {
-    setExpandedSections(new Set(sections.map(s => s.id)))
-  }
+    setExpandedSections(new Set(sections.map((s) => s.id)));
+  };
 
   const collapseAll = () => {
-    setExpandedSections(new Set())
-  }
+    setExpandedSections(new Set());
+  };
 
   if (sections.length === 0) {
     return (
       <View testID={testID} className={cn('p-4', className)}>
-        <Text className="text-muted-foreground text-center">
-          No sections found in report
-        </Text>
+        <Text className="text-muted-foreground text-center">No sections found in report</Text>
       </View>
-    )
+    );
   }
 
   return (
@@ -206,8 +202,8 @@ export function ReportOutline({
       {/* Sections */}
       <ScrollView>
         {sections.map((section, index) => {
-          const sectionNumber = index + 1
-          const isExpanded = expandedSections.has(section.id)
+          const sectionNumber = index + 1;
+          const isExpanded = expandedSections.has(section.id);
 
           return (
             <View
@@ -227,9 +223,9 @@ export function ReportOutline({
                 testID={`${testID}-section-${sectionNumber}-content`}
               />
             </View>
-          )
+          );
         })}
       </ScrollView>
     </View>
-  )
+  );
 }

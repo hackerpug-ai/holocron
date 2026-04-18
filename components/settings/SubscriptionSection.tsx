@@ -1,16 +1,16 @@
-import { View, Pressable } from 'react-native'
-import { Text } from '@/components/ui/text'
-import { Bell, Settings, ChevronRight, FileText } from '@/components/ui/icons'
-import { cn } from '@/lib/utils'
-import { useQuery } from 'convex/react'
-import { api } from '@/convex/_generated/api'
-import { useState } from 'react'
-import { SubscriptionSettingsModal } from '@/components/subscriptions/SubscriptionSettingsModal'
-import { useRouter } from 'expo-router'
+import { useQuery } from 'convex/react';
+import { useRouter } from 'expo-router';
+import { useState } from 'react';
+import { Pressable, View } from 'react-native';
+import { SubscriptionSettingsModal } from '@/components/subscriptions/SubscriptionSettingsModal';
+import { Bell, ChevronRight, FileText, Settings } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { api } from '@/convex/_generated/api';
+import { cn } from '@/lib/utils';
 
 interface SubscriptionSectionProps {
-  className?: string
-  testID?: string
+  className?: string;
+  testID?: string;
 }
 
 /**
@@ -25,23 +25,25 @@ export function SubscriptionSection({
   className,
   testID = 'subscription-section',
 }: SubscriptionSectionProps) {
-  const router = useRouter()
-  const [settingsModalVisible, setSettingsModalVisible] = useState(false)
+  const router = useRouter();
+  const [settingsModalVisible, setSettingsModalVisible] = useState(false);
 
   // Fetch subscription counts
-  const groups = useQuery(api.subscriptions.queries.listGroupedByCreator, { limit: 100 })
+  const groups = useQuery(api.subscriptions.queries.listGroupedByCreator, { limit: 100 });
 
   // Calculate total subscriptions and document count
-  const totalSubscriptions = groups?.reduce((acc: number, group: any) => acc + group.subscriptions.length, 0) ?? 0
-  const totalDocuments = groups?.reduce((acc: number, group: any) => acc + group.documentCount, 0) ?? 0
+  const totalSubscriptions =
+    groups?.reduce((acc: number, group: any) => acc + group.subscriptions.length, 0) ?? 0;
+  const totalDocuments =
+    groups?.reduce((acc: number, group: any) => acc + group.documentCount, 0) ?? 0;
 
   const handleManageSubscriptions = () => {
-    router.push('/subscriptions')
-  }
+    router.push('/subscriptions');
+  };
 
   const handleOpenSettings = () => {
-    setSettingsModalVisible(true)
-  }
+    setSettingsModalVisible(true);
+  };
 
   return (
     <>
@@ -77,9 +79,7 @@ export function SubscriptionSection({
                   </Text>
                   {totalSubscriptions > 0 && (
                     <View className="rounded-full bg-primary/10 px-2 py-0.5">
-                      <Text className="text-xs font-medium text-primary">
-                        {totalSubscriptions}
-                      </Text>
+                      <Text className="text-xs font-medium text-primary">{totalSubscriptions}</Text>
                     </View>
                   )}
                 </View>
@@ -128,8 +128,8 @@ export function SubscriptionSection({
               </Text>
             </View>
             <Text variant="small" className="text-muted-foreground leading-relaxed">
-              Subscribe to YouTube channels, newsletters, and other content sources to have
-              them automatically tracked and researched.
+              Subscribe to YouTube channels, newsletters, and other content sources to have them
+              automatically tracked and researched.
             </Text>
           </View>
         )}
@@ -143,5 +143,5 @@ export function SubscriptionSection({
         testID={`${testID}-settings-modal`}
       />
     </>
-  )
+  );
 }

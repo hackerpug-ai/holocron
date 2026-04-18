@@ -4,7 +4,7 @@
  * Test file for task operations: start, get status, update progress, cancel
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 describe('US-054: Task Management', () => {
   /**
@@ -25,7 +25,13 @@ describe('US-054: Task Management', () => {
 
     it('should support all task types', async () => {
       // Verify all supported task types
-      const taskTypes = ['deep-research', 'research', 'assimilate', 'shop', 'research-loop'] as const;
+      const taskTypes = [
+        'deep-research',
+        'research',
+        'assimilate',
+        'shop',
+        'research-loop',
+      ] as const;
 
       const { api } = await import('../../convex/_generated/api');
       expect(api.tasks.index.start).toBeTruthy();

@@ -10,16 +10,16 @@
  * - claude-opus-4-6: Ultra/Opus tier - Premium reasoning model
  */
 
-"use node";
+'use node';
 
-import { createAnthropic } from "@ai-sdk/anthropic";
+import { createAnthropic } from '@ai-sdk/anthropic';
 
 /**
  * Anthropic provider instance
  * Native Anthropic SDK integration
  */
 export const anthropic = createAnthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY ?? "",
+  apiKey: process.env.ANTHROPIC_API_KEY ?? '',
 });
 
 /**
@@ -34,7 +34,7 @@ export const anthropic = createAnthropic({
  *
  * Model: claude-haiku-4-5-20251001 (replaces glm-4.5, gpt-5.4-mini, gpt-5.4-nano, gpt-4o-mini)
  */
-export const claudeFlash = () => anthropic("claude-haiku-4-5-20251001");
+export const claudeFlash = () => anthropic('claude-haiku-4-5-20251001');
 
 /**
  * Full chat model for synthesis and review (Pro/Sonnet tier)
@@ -48,7 +48,7 @@ export const claudeFlash = () => anthropic("claude-haiku-4-5-20251001");
  *
  * Model: claude-sonnet-4-6 (replaces glm-4.7, gpt-5.4)
  */
-export const claudePro = () => anthropic("claude-sonnet-4-6");
+export const claudePro = () => anthropic('claude-sonnet-4-6');
 
 /**
  * Ultra reasoning model for final synthesis (Ultra/Opus tier)
@@ -60,4 +60,4 @@ export const claudePro = () => anthropic("claude-sonnet-4-6");
  *
  * Model: claude-opus-4-6 (replaces glm-4.7 ultra tier)
  */
-export const claudeUltra = () => anthropic("claude-opus-4-6");
+export const claudeUltra = () => anthropic('claude-opus-4-6');

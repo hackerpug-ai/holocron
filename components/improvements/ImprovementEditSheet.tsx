@@ -8,6 +8,7 @@
  * - Timing: IN 300ms Easing.out(cubic), OUT 250ms Easing.in(cubic)
  */
 
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -18,38 +19,33 @@ import {
   StyleSheet,
   TextInput,
   View,
-} from 'react-native'
+} from 'react-native';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
   Easing,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
-} from 'react-native-reanimated'
-import {
-  Gesture,
-  GestureDetector,
-  GestureHandlerRootView,
-} from 'react-native-gesture-handler'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { useEffect, useState } from 'react'
-import { Text } from '@/components/ui/text'
-import { X } from '@/components/ui/icons'
-import { useTheme } from '@/hooks/use-theme'
+} from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { X } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { useTheme } from '@/hooks/use-theme';
 
 // ── Animation constants (mirrors ImprovementSubmitSheet) ──────────────────────
-const TIMING_IN = { duration: 300, easing: Easing.out(Easing.cubic) }
-const TIMING_OUT = { duration: 250, easing: Easing.in(Easing.cubic) }
-const DISMISS_THRESHOLD = 80
+const TIMING_IN = { duration: 300, easing: Easing.out(Easing.cubic) };
+const TIMING_OUT = { duration: 250, easing: Easing.in(Easing.cubic) };
+const DISMISS_THRESHOLD = 80;
 
 // ── Types ──────────────────────────────────────────────────────────────────
 export interface ImprovementEditSheetProps {
-  visible: boolean
-  onClose: () => void
-  onSave: (title: string, description: string) => Promise<void>
-  initialTitle: string
-  initialDescription: string
-  testID?: string
+  visible: boolean;
+  onClose: () => void;
+  onSave: (title: string, description: string) => Promise<void>;
+  initialTitle: string;
+  initialDescription: string;
+  testID?: string;
 }
 
 // ── Component ──────────────────────────────────────────────────────────────
@@ -61,83 +57,83 @@ export function ImprovementEditSheet({
   initialDescription,
   testID = 'improvement-edit-sheet',
 }: ImprovementEditSheetProps) {
-  const insets = useSafeAreaInsets()
-  const { colors, typography, spacing } = useTheme()
-  const styles = useStyles(typography, spacing)
+  const insets = useSafeAreaInsets();
+  const { colors, typography, spacing } = useTheme();
+  const styles = useStyles(typography, spacing);
 
   // ── Animation shared values ──────────────────────────────────────────────
-  const translateY = useSharedValue(600)
-  const backdropOpacity = useSharedValue(0)
+  const translateY = useSharedValue(600);
+  const backdropOpacity = useSharedValue(0);
 
   // ── Local state ──────────────────────────────────────────────────────────
-  const [title, setTitle] = useState(initialTitle)
-  const [description, setDescription] = useState(initialDescription)
-  const [isSaving, setIsSaving] = useState(false)
+  const [title, setTitle] = useState(initialTitle);
+  const [description, setDescription] = useState(initialDescription);
+  const [isSaving, setIsSaving] = useState(false);
 
   // ── Reset form on open ────────────────────────────────────────────────────
   useEffect(() => {
     if (visible) {
-      setTitle(initialTitle)
-      setDescription(initialDescription)
-      setIsSaving(false)
-      translateY.value = withTiming(0, TIMING_IN)
-      backdropOpacity.value = withTiming(1, TIMING_IN)
+      setTitle(initialTitle);
+      setDescription(initialDescription);
+      setIsSaving(false);
+      translateY.value = withTiming(0, TIMING_IN);
+      backdropOpacity.value = withTiming(1, TIMING_IN);
     } else {
-      translateY.value = withTiming(600, TIMING_OUT)
-      backdropOpacity.value = withTiming(0, TIMING_OUT)
+      translateY.value = withTiming(600, TIMING_OUT);
+      backdropOpacity.value = withTiming(0, TIMING_OUT);
     }
-  }, [visible, initialTitle, initialDescription, backdropOpacity, translateY])
+  }, [visible, initialTitle, initialDescription, backdropOpacity, translateY]);
 
   // ── Animated styles ───────────────────────────────────────────────────────
   const sheetStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: Math.max(translateY.value, 0) }],
-  }))
+  }));
 
   const backdropStyle = useAnimatedStyle(() => ({
     opacity: backdropOpacity.value,
-  }))
+  }));
 
   // ── Dismiss helpers ───────────────────────────────────────────────────────
   const animateOut = (callback: () => void) => {
-    translateY.value = withTiming(600, TIMING_OUT)
-    backdropOpacity.value = withTiming(0, TIMING_OUT)
-    setTimeout(callback, 250)
-  }
+    translateY.value = withTiming(600, TIMING_OUT);
+    backdropOpacity.value = withTiming(0, TIMING_OUT);
+    setTimeout(callback, 250);
+  };
 
-  const dismiss = () => animateOut(onClose)
+  const dismiss = () => animateOut(onClose);
 
   // ── Pan gesture (swipe-to-dismiss) ────────────────────────────────────────
   const panGesture = Gesture.Pan()
     .onUpdate((e) => {
       if (e.translationY > 0) {
-        translateY.value = e.translationY
+        translateY.value = e.translationY;
       }
     })
     .onEnd((e) => {
       if (e.translationY > DISMISS_THRESHOLD) {
-        translateY.value = withTiming(600, TIMING_OUT)
-        backdropOpacity.value = withTiming(0, TIMING_OUT)
-        runOnJS(onClose)()
+        translateY.value = withTiming(600, TIMING_OUT);
+        backdropOpacity.value = withTiming(0, TIMING_OUT);
+        runOnJS(onClose)();
       } else {
-        translateY.value = withTiming(0, TIMING_IN)
+        translateY.value = withTiming(0, TIMING_IN);
       }
-    })
+    });
 
   // ── Save handler ──────────────────────────────────────────────────────────
   const handleSave = async () => {
-    if (!title.trim() || !description.trim() || isSaving) return
-    setIsSaving(true)
+    if (!title.trim() || !description.trim() || isSaving) return;
+    setIsSaving(true);
 
     try {
-      await onSave(title.trim(), description.trim())
-      animateOut(onClose)
+      await onSave(title.trim(), description.trim());
+      animateOut(onClose);
     } catch {
       // If save fails, stay on edit state
-      setIsSaving(false)
+      setIsSaving(false);
     }
-  }
+  };
 
-  if (!visible) return null
+  if (!visible) return null;
 
   return (
     <Modal
@@ -149,14 +145,8 @@ export function ImprovementEditSheet({
     >
       <GestureHandlerRootView style={styles.flex}>
         {/* Backdrop */}
-        <Pressable
-          onPress={dismiss}
-          testID={`${testID}-backdrop`}
-          style={styles.flex}
-        >
-          <Animated.View
-            style={[backdropStyle, styles.flex, styles.backdrop]}
-          />
+        <Pressable onPress={dismiss} testID={`${testID}-backdrop`} style={styles.flex}>
+          <Animated.View style={[backdropStyle, styles.flex, styles.backdrop]} />
         </Pressable>
 
         {/* KAV wraps entire sheet so it moves up with keyboard */}
@@ -176,17 +166,13 @@ export function ImprovementEditSheet({
             >
               {/* Drag handle */}
               <View style={styles.handleRow}>
-                <View
-                  style={[styles.handle, { backgroundColor: colors.mutedForeground + '4D' }]}
-                />
+                <View style={[styles.handle, { backgroundColor: colors.mutedForeground + '4D' }]} />
               </View>
 
               {/* Header */}
               <View style={[styles.header, { borderBottomColor: colors.border }]}>
                 <View style={styles.flex}>
-                  <Text className="text-foreground text-base font-semibold">
-                    Edit Improvement
-                  </Text>
+                  <Text className="text-foreground text-base font-semibold">Edit Improvement</Text>
                 </View>
                 <Pressable
                   onPress={dismiss}
@@ -208,9 +194,7 @@ export function ImprovementEditSheet({
               >
                 {/* Title input */}
                 <View className="mb-4">
-                  <Text className="text-foreground text-sm font-medium mb-2">
-                    Title
-                  </Text>
+                  <Text className="text-foreground text-sm font-medium mb-2">Title</Text>
                   <View
                     className="rounded-lg border bg-background px-4 py-3"
                     style={{ borderColor: colors.input }}
@@ -229,9 +213,7 @@ export function ImprovementEditSheet({
 
                 {/* Description input */}
                 <View className="mb-4">
-                  <Text className="text-foreground text-sm font-medium mb-2">
-                    Description
-                  </Text>
+                  <Text className="text-foreground text-sm font-medium mb-2">Description</Text>
                   <View
                     className="rounded-lg border bg-background px-4 py-3"
                     style={{ borderColor: colors.input, minHeight: 120 }}
@@ -243,10 +225,7 @@ export function ImprovementEditSheet({
                       placeholder="Describe the improvement..."
                       placeholderTextColor={colors.mutedForeground}
                       multiline
-                      style={[
-                        styles.textInput,
-                        { color: colors.foreground, minHeight: 120 },
-                      ]}
+                      style={[styles.textInput, { color: colors.foreground, minHeight: 120 }]}
                       accessibilityLabel="Description input"
                     />
                   </View>
@@ -261,9 +240,7 @@ export function ImprovementEditSheet({
                     accessibilityRole="button"
                     accessibilityLabel="Cancel"
                   >
-                    <Text className="text-foreground text-sm font-semibold">
-                      Cancel
-                    </Text>
+                    <Text className="text-foreground text-sm font-semibold">Cancel</Text>
                   </Pressable>
 
                   <Pressable
@@ -282,9 +259,7 @@ export function ImprovementEditSheet({
                     {isSaving ? (
                       <ActivityIndicator size="small" color={colors.primaryForeground} />
                     ) : (
-                      <Text className="text-primary-foreground text-sm font-semibold">
-                        Save
-                      </Text>
+                      <Text className="text-primary-foreground text-sm font-semibold">Save</Text>
                     )}
                   </Pressable>
                 </View>
@@ -294,7 +269,7 @@ export function ImprovementEditSheet({
         </KeyboardAvoidingView>
       </GestureHandlerRootView>
     </Modal>
-  )
+  );
 }
 
 // ── Styles ─────────────────────────────────────────────────────────────────
@@ -359,5 +334,5 @@ const useStyles = (typography: any, _spacing: any) => {
     disabledButton: {
       opacity: 0.5,
     },
-  })
-}
+  });
+};

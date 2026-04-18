@@ -7,21 +7,21 @@
  * @vitest-environment jsdom
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { renderHook, act } from "@testing-library/react";
-import type { RealtimeEventCallbacks } from "@/lib/voice/types";
+import { act, renderHook } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { RealtimeEventCallbacks } from '@/lib/voice/types';
 
 // --- Mock expo-haptics (native module not available in test) ---
-vi.mock("expo-haptics", () => ({
+vi.mock('expo-haptics', () => ({
   impactAsync: vi.fn(),
   notificationAsync: vi.fn(),
-  ImpactFeedbackStyle: { Light: "Light", Medium: "Medium", Heavy: "Heavy" },
-  NotificationFeedbackType: { Success: "Success", Warning: "Warning", Error: "Error" },
+  ImpactFeedbackStyle: { Light: 'Light', Medium: 'Medium', Heavy: 'Heavy' },
+  NotificationFeedbackType: { Success: 'Success', Warning: 'Warning', Error: 'Error' },
 }));
 
 // --- Mock react-native (required for error-handler import) ---
-vi.mock("react-native", () => ({
-  Platform: { OS: "ios" },
+vi.mock('react-native', () => ({
+  Platform: { OS: 'ios' },
   Linking: {
     openURL: vi.fn(() => Promise.resolve()),
     openSettings: vi.fn(() => Promise.resolve()),
@@ -38,25 +38,25 @@ const mockConvexClient = {
   query: vi.fn(),
 };
 
-vi.mock("convex/react", () => ({
+vi.mock('convex/react', () => ({
   useAction: () => mockCreateSession,
   useMutation: () => mockEndSession,
   useConvex: () => mockConvexClient,
   useQuery: () => undefined,
 }));
 
-vi.mock("expo-router", () => ({
+vi.mock('expo-router', () => ({
   useRouter: () => ({ push: vi.fn() }),
 }));
 
-vi.mock("@/convex/_generated/api", () => ({
+vi.mock('@/convex/_generated/api', () => ({
   api: {
     voice: {
-      actions: { createSession: "createSession" },
-      mutations: { endSession: "endSession" },
+      actions: { createSession: 'createSession' },
+      mutations: { endSession: 'endSession' },
     },
     chatMessages: {
-      queries: { listByConversation: "listByConversation" },
+      queries: { listByConversation: 'listByConversation' },
     },
   },
 }));
@@ -85,7 +85,7 @@ function MockWebRTCConnection() {
   };
 }
 
-vi.mock("@/lib/voice/webrtc-connection", () => ({
+vi.mock('@/lib/voice/webrtc-connection', () => ({
   WebRTCConnection: MockWebRTCConnection,
 }));
 
@@ -93,37 +93,37 @@ vi.mock("@/lib/voice/webrtc-connection", () => ({
 let capturedCallbacks: RealtimeEventCallbacks = {};
 const mockEventHandlerFn = vi.fn();
 
-vi.mock("@/lib/voice/event-handler", () => ({
+vi.mock('@/lib/voice/event-handler', () => ({
   createEventHandler: vi.fn((cbs: RealtimeEventCallbacks) => {
     capturedCallbacks = cbs;
     return mockEventHandlerFn;
   }),
 }));
 
-vi.mock("@/lib/voice/tool-definitions", () => ({
+vi.mock('@/lib/voice/tool-definitions', () => ({
   getToolDefinitions: () => [],
 }));
 
-vi.mock("@/lib/voice/function-dispatcher", () => ({
+vi.mock('@/lib/voice/function-dispatcher', () => ({
   dispatchFunctionCall: vi.fn(),
   TOOL_DISPLAY_NAMES: {},
 }));
 
+import type { Id } from '@/convex/_generated/dataModel';
 // --- Import hook after mocks ---
-import { useVoiceSession } from "@/hooks/use-voice-session";
-import type { Id } from "@/convex/_generated/dataModel";
+import { useVoiceSession } from '@/hooks/use-voice-session';
 
-const CONV_ID = "conv-test-123" as Id<"conversations">;
+const CONV_ID = 'conv-test-123' as Id<'conversations'>;
 
-describe("US-008: useVoiceSession (renderHook)", () => {
+describe('US-008: useVoiceSession (renderHook)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     capturedCallbacks = {};
     mockCreateSession.mockResolvedValue({
-      ephemeralKey: "ek-test-123",
+      ephemeralKey: 'ek-test-123',
       expiresAt: Date.now() + 60000,
-      sessionId: "session-001",
-      instructions: "Test instructions",
+      sessionId: 'session-001',
+      instructions: 'Test instructions',
     });
     mockEndSession.mockResolvedValue(null);
     mockConnect.mockResolvedValue(undefined);
@@ -131,11 +131,11 @@ describe("US-008: useVoiceSession (renderHook)", () => {
     mockConnectWithMedia.mockResolvedValue(undefined);
   });
 
-  describe("AC-1: start() transitions IDLE -> CONNECTING -> LISTENING", () => {
-    it("creates session, connects WebRTC, and transitions to listening", async () => {
+  describe('AC-1: start() transitions IDLE -> CONNECTING -> LISTENING', () => {
+    it('creates session, connects WebRTC, and transitions to listening', async () => {
       const { result } = renderHook(() => useVoiceSession(CONV_ID));
 
-      expect(result.current.state.status).toBe("idle");
+      expect(result.current.state.status).toBe('idle');
 
       await act(async () => {
         await result.current.start();
@@ -148,17 +148,17 @@ describe("US-008: useVoiceSession (renderHook)", () => {
 
       // Verify WebRTC prepareMedia + connectWithMedia were called
       expect(mockPrepareMedia).toHaveBeenCalled();
-      expect(mockConnectWithMedia).toHaveBeenCalledWith("ek-test-123", mockMediaStream);
+      expect(mockConnectWithMedia).toHaveBeenCalledWith('ek-test-123', mockMediaStream);
 
       // Verify callbacks were wired
       expect(mockSetCallbacks).toHaveBeenCalled();
 
       // State should be listening after successful start
-      expect(result.current.state.status).toBe("listening");
-      expect(result.current.state.sessionId).toBe("session-001");
+      expect(result.current.state.status).toBe('listening');
+      expect(result.current.state.sessionId).toBe('session-001');
     });
 
-    it("does NOT send session.update on cold path (backend embeds config in /client_secrets)", async () => {
+    it('does NOT send session.update on cold path (backend embeds config in /client_secrets)', async () => {
       const { result } = renderHook(() => useVoiceSession(CONV_ID));
 
       await act(async () => {
@@ -172,8 +172,8 @@ describe("US-008: useVoiceSession (renderHook)", () => {
       // Simulate OpenAI sending session.created event
       act(() => {
         capturedCallbacks.onSessionCreated?.({
-          id: "sess_abc",
-          model: "gpt-realtime",
+          id: 'sess_abc',
+          model: 'gpt-realtime',
         });
       });
 
@@ -182,15 +182,15 @@ describe("US-008: useVoiceSession (renderHook)", () => {
     });
   });
 
-  describe("AC-2: stop() transitions to IDLE, destroys WebRTC, calls endSession", () => {
-    it("cleans up all resources and returns to idle", async () => {
+  describe('AC-2: stop() transitions to IDLE, destroys WebRTC, calls endSession', () => {
+    it('cleans up all resources and returns to idle', async () => {
       const { result } = renderHook(() => useVoiceSession(CONV_ID));
 
       // Start a session
       await act(async () => {
         await result.current.start();
       });
-      expect(result.current.state.status).toBe("listening");
+      expect(result.current.state.status).toBe('listening');
 
       // Stop the session
       await act(async () => {
@@ -202,24 +202,24 @@ describe("US-008: useVoiceSession (renderHook)", () => {
 
       // Convex session ended
       expect(mockEndSession).toHaveBeenCalledWith({
-        sessionId: "session-001",
+        sessionId: 'session-001',
       });
 
       // State back to idle
-      expect(result.current.state.status).toBe("idle");
+      expect(result.current.state.status).toBe('idle');
       expect(result.current.state.sessionId).toBeNull();
     });
   });
 
-  describe("AC-3: Component unmount cleans up resources", () => {
-    it("destroys WebRTC and calls endSession on unmount", async () => {
+  describe('AC-3: Component unmount cleans up resources', () => {
+    it('destroys WebRTC and calls endSession on unmount', async () => {
       const { result, unmount } = renderHook(() => useVoiceSession(CONV_ID));
 
       // Start a session
       await act(async () => {
         await result.current.start();
       });
-      expect(result.current.state.status).toBe("listening");
+      expect(result.current.state.status).toBe('listening');
 
       // Unmount the hook (simulates component unmount)
       unmount();
@@ -227,16 +227,14 @@ describe("US-008: useVoiceSession (renderHook)", () => {
       // Cleanup should have fired
       expect(mockDestroy).toHaveBeenCalled();
       expect(mockEndSession).toHaveBeenCalledWith({
-        sessionId: "session-001",
+        sessionId: 'session-001',
       });
     });
   });
 
-  describe("AC-4: Connection failure -> ERROR state", () => {
-    it("transitions to error when createSession fails (service unavailable message)", async () => {
-      mockCreateSession.mockRejectedValueOnce(
-        new Error("Auth token expired")
-      );
+  describe('AC-4: Connection failure -> ERROR state', () => {
+    it('transitions to error when createSession fails (service unavailable message)', async () => {
+      mockCreateSession.mockRejectedValueOnce(new Error('Auth token expired'));
 
       const { result } = renderHook(() => useVoiceSession(CONV_ID));
 
@@ -244,17 +242,13 @@ describe("US-008: useVoiceSession (renderHook)", () => {
         await result.current.start();
       });
 
-      expect(result.current.state.status).toBe("error");
+      expect(result.current.state.status).toBe('error');
       // US-016: user-friendly message, never expose raw API error details
-      expect(result.current.state.errorMessage).toBe(
-        "Voice assistant is currently unavailable"
-      );
+      expect(result.current.state.errorMessage).toBe('Voice assistant is currently unavailable');
     });
 
-    it("transitions to error when WebRTC connect fails (service unavailable message)", async () => {
-      mockConnectWithMedia.mockRejectedValueOnce(
-        new Error("SDP exchange failed: 401")
-      );
+    it('transitions to error when WebRTC connect fails (service unavailable message)', async () => {
+      mockConnectWithMedia.mockRejectedValueOnce(new Error('SDP exchange failed: 401'));
 
       const { result } = renderHook(() => useVoiceSession(CONV_ID));
 
@@ -262,19 +256,17 @@ describe("US-008: useVoiceSession (renderHook)", () => {
         await result.current.start();
       });
 
-      expect(result.current.state.status).toBe("error");
+      expect(result.current.state.status).toBe('error');
       // US-016: user-friendly message, never expose SDP/API details
-      expect(result.current.state.errorMessage).toBe(
-        "Voice assistant is currently unavailable"
-      );
+      expect(result.current.state.errorMessage).toBe('Voice assistant is currently unavailable');
       // Partial cleanup: end the Convex session
       expect(mockEndSession).toHaveBeenCalledWith({
-        sessionId: "session-001",
+        sessionId: 'session-001',
       });
     });
 
-    it("handles non-Error throws gracefully (service unavailable message)", async () => {
-      mockConnectWithMedia.mockRejectedValueOnce("string error");
+    it('handles non-Error throws gracefully (service unavailable message)', async () => {
+      mockConnectWithMedia.mockRejectedValueOnce('string error');
 
       const { result } = renderHook(() => useVoiceSession(CONV_ID));
 
@@ -282,22 +274,20 @@ describe("US-008: useVoiceSession (renderHook)", () => {
         await result.current.start();
       });
 
-      expect(result.current.state.status).toBe("error");
+      expect(result.current.state.status).toBe('error');
       // US-016: user-friendly message for connection failures
-      expect(result.current.state.errorMessage).toBe(
-        "Voice assistant is currently unavailable"
-      );
+      expect(result.current.state.errorMessage).toBe('Voice assistant is currently unavailable');
     });
   });
 
-  describe("event handler wiring", () => {
-    it("onSpeechStarted dispatches START_LISTENING (no-op from listening)", async () => {
+  describe('event handler wiring', () => {
+    it('onSpeechStarted dispatches START_LISTENING (no-op from listening)', async () => {
       const { result } = renderHook(() => useVoiceSession(CONV_ID));
 
       await act(async () => {
         await result.current.start();
       });
-      expect(result.current.state.status).toBe("listening");
+      expect(result.current.state.status).toBe('listening');
 
       // onSpeechStarted fires — but START_LISTENING from 'listening' is a no-op
       // in the state machine (only valid from speaking/processing)
@@ -305,10 +295,10 @@ describe("US-008: useVoiceSession (renderHook)", () => {
         capturedCallbacks.onSpeechStarted?.();
       });
       // State stays listening (no invalid transition)
-      expect(result.current.state.status).toBe("listening");
+      expect(result.current.state.status).toBe('listening');
     });
 
-    it("onError dispatches ERROR transition", async () => {
+    it('onError dispatches ERROR transition', async () => {
       const { result } = renderHook(() => useVoiceSession(CONV_ID));
 
       await act(async () => {
@@ -317,24 +307,24 @@ describe("US-008: useVoiceSession (renderHook)", () => {
 
       act(() => {
         capturedCallbacks.onError?.({
-          type: "rate_limit",
-          message: "Rate limit exceeded",
+          type: 'rate_limit',
+          message: 'Rate limit exceeded',
         });
       });
 
-      expect(result.current.state.status).toBe("error");
-      expect(result.current.state.errorMessage).toBe("Rate limit exceeded");
+      expect(result.current.state.status).toBe('error');
+      expect(result.current.state.errorMessage).toBe('Rate limit exceeded');
     });
   });
 
-  describe("guard against double-start", () => {
-    it("ignores start() when already connecting/listening", async () => {
+  describe('guard against double-start', () => {
+    it('ignores start() when already connecting/listening', async () => {
       const { result } = renderHook(() => useVoiceSession(CONV_ID));
 
       await act(async () => {
         await result.current.start();
       });
-      expect(result.current.state.status).toBe("listening");
+      expect(result.current.state.status).toBe('listening');
 
       // Calling start again should be a no-op
       mockCreateSession.mockClear();
@@ -342,25 +332,25 @@ describe("US-008: useVoiceSession (renderHook)", () => {
         await result.current.start();
       });
       expect(mockCreateSession).not.toHaveBeenCalled();
-      expect(result.current.state.status).toBe("listening");
+      expect(result.current.state.status).toBe('listening');
     });
   });
 
-  describe("return type", () => {
-    it("state type supports all VoiceState values", async () => {
+  describe('return type', () => {
+    it('state type supports all VoiceState values', async () => {
       const { result } = renderHook(() => useVoiceSession(CONV_ID));
 
       // TypeScript compilation of this test validates the return type
       // allows checking against all status values
       const status = result.current.state.status;
-      expect(
-        ["idle", "connecting", "listening", "processing", "speaking", "error"]
-      ).toContain(status);
+      expect(['idle', 'connecting', 'listening', 'processing', 'speaking', 'error']).toContain(
+        status
+      );
     });
   });
 
-  describe("#606: prewarm — pre-warm ephemeral key + mic on mount", () => {
-    it("prewarm() calls createSession + prepareMedia in the background", async () => {
+  describe('#606: prewarm — pre-warm ephemeral key + mic on mount', () => {
+    it('prewarm() calls createSession + prepareMedia in the background', async () => {
       const { result } = renderHook(() => useVoiceSession(CONV_ID));
 
       await act(async () => {
@@ -372,10 +362,10 @@ describe("US-008: useVoiceSession (renderHook)", () => {
       expect(mockPrepareMedia).toHaveBeenCalled();
 
       // Session should still be idle — prewarm doesn't activate
-      expect(result.current.state.status).toBe("idle");
+      expect(result.current.state.status).toBe('idle');
     });
 
-    it("prewarm hit: start() skips createSession + prepareMedia and goes straight to connectWithMedia", async () => {
+    it('prewarm hit: start() skips createSession + prepareMedia and goes straight to connectWithMedia', async () => {
       const { result } = renderHook(() => useVoiceSession(CONV_ID));
 
       // Step 1: prewarm
@@ -398,12 +388,12 @@ describe("US-008: useVoiceSession (renderHook)", () => {
       expect(mockPrepareMedia).not.toHaveBeenCalled();
 
       // But connectWithMedia IS called with the prewarmed key + stream
-      expect(mockConnectWithMedia).toHaveBeenCalledWith("ek-test-123", mockMediaStream);
+      expect(mockConnectWithMedia).toHaveBeenCalledWith('ek-test-123', mockMediaStream);
 
-      expect(result.current.state.status).toBe("listening");
+      expect(result.current.state.status).toBe('listening');
     });
 
-    it("prewarm miss (expired): start() falls back to cold path when prewarm token is stale", async () => {
+    it('prewarm miss (expired): start() falls back to cold path when prewarm token is stale', async () => {
       vi.useFakeTimers();
 
       const { result } = renderHook(() => useVoiceSession(CONV_ID));
@@ -431,12 +421,12 @@ describe("US-008: useVoiceSession (renderHook)", () => {
       expect(mockCreateSession).toHaveBeenCalledTimes(1);
       expect(mockPrepareMedia).toHaveBeenCalledTimes(1);
 
-      expect(result.current.state.status).toBe("listening");
+      expect(result.current.state.status).toBe('listening');
 
       vi.useRealTimers();
     });
 
-    it("prewarm miss (none): start() takes cold path when prewarm was never called", async () => {
+    it('prewarm miss (none): start() takes cold path when prewarm was never called', async () => {
       const { result } = renderHook(() => useVoiceSession(CONV_ID));
 
       // No prewarm() call — go straight to start()
@@ -448,14 +438,19 @@ describe("US-008: useVoiceSession (renderHook)", () => {
       expect(mockCreateSession).toHaveBeenCalledWith({ conversationId: CONV_ID });
       expect(mockPrepareMedia).toHaveBeenCalled();
 
-      expect(result.current.state.status).toBe("listening");
+      expect(result.current.state.status).toBe('listening');
     });
 
-    it("guards against concurrent prewarm calls (isPrewarming flag)", async () => {
+    it('guards against concurrent prewarm calls (isPrewarming flag)', async () => {
       // Make createSession hang so we can fire a second prewarm while the first is in flight
-      let resolveSession: (v: typeof mockCreateSession extends (...args: never[]) => Promise<infer R> ? R : never) => void;
+      let resolveSession: (
+        v: typeof mockCreateSession extends (...args: never[]) => Promise<infer R> ? R : never
+      ) => void;
       mockCreateSession.mockImplementationOnce(
-        () => new Promise((res) => { resolveSession = res as typeof resolveSession; })
+        () =>
+          new Promise((res) => {
+            resolveSession = res as typeof resolveSession;
+          })
       );
 
       const { result } = renderHook(() => useVoiceSession(CONV_ID));
@@ -464,17 +459,27 @@ describe("US-008: useVoiceSession (renderHook)", () => {
       let prewarm1Done = false;
       let prewarm2Done = false;
       act(() => {
-        result.current.prewarm().then(() => { prewarm1Done = true; }).catch(() => {});
-        result.current.prewarm().then(() => { prewarm2Done = true; }).catch(() => {});
+        result.current
+          .prewarm()
+          .then(() => {
+            prewarm1Done = true;
+          })
+          .catch(() => {});
+        result.current
+          .prewarm()
+          .then(() => {
+            prewarm2Done = true;
+          })
+          .catch(() => {});
       });
 
       // Resolve the hanging session
       await act(async () => {
         resolveSession!({
-          ephemeralKey: "ek-test-123",
+          ephemeralKey: 'ek-test-123',
           expiresAt: Date.now() + 60000,
-          sessionId: "session-001",
-          instructions: "Test instructions",
+          sessionId: 'session-001',
+          instructions: 'Test instructions',
         });
       });
 
@@ -483,7 +488,7 @@ describe("US-008: useVoiceSession (renderHook)", () => {
       expect(mockCreateSession).toHaveBeenCalledTimes(1);
     });
 
-    it("unmount cleans up prewarm data (stops tracks + calls endSession)", async () => {
+    it('unmount cleans up prewarm data (stops tracks + calls endSession)', async () => {
       const mockTrackStop = vi.fn();
       mockPrepareMedia.mockResolvedValueOnce({
         getTracks: () => [{ stop: mockTrackStop, kind: 'audio' }],
@@ -500,7 +505,7 @@ describe("US-008: useVoiceSession (renderHook)", () => {
 
       // Prewarm cleanup: track stopped + Convex session ended
       expect(mockTrackStop).toHaveBeenCalled();
-      expect(mockEndSession).toHaveBeenCalledWith({ sessionId: "session-001" });
+      expect(mockEndSession).toHaveBeenCalledWith({ sessionId: 'session-001' });
     });
   });
 });

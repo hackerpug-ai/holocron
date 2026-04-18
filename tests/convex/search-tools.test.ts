@@ -9,7 +9,7 @@
  * AI SDK tool() returns { description, inputSchema, execute }, not { parameters }.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 describe('US-777: Search Tools Implementation', () => {
   /**

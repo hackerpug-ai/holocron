@@ -1,5 +1,5 @@
-import { mutation, internalMutation } from "../_generated/server";
-import { v } from "convex/values";
+import { v } from 'convex/values';
+import { internalMutation, mutation } from '../_generated/server';
 
 /**
  * Create a new conversation
@@ -9,9 +9,9 @@ export const create = mutation({
     title: v.optional(v.string()),
     lastMessagePreview: v.optional(v.string()),
   },
-  handler: async (ctx, { title = "New Chat", lastMessagePreview }) => {
+  handler: async (ctx, { title = 'New Chat', lastMessagePreview }) => {
     const now = Date.now();
-    return await ctx.db.insert("conversations", {
+    return await ctx.db.insert('conversations', {
       title,
       lastMessagePreview,
       createdAt: now,
@@ -26,7 +26,7 @@ export const create = mutation({
  */
 export const update = mutation({
   args: {
-    id: v.id("conversations"),
+    id: v.id('conversations'),
     title: v.string(),
     titleSetByUser: v.optional(v.boolean()),
   },
@@ -52,13 +52,13 @@ export const update = mutation({
  */
 export const remove = mutation({
   args: {
-    id: v.id("conversations"),
+    id: v.id('conversations'),
   },
   handler: async (ctx, { id }) => {
     // Cascade delete all chat messages
     const messages = await ctx.db
-      .query("chatMessages")
-      .withIndex("by_conversation", (q) => q.eq("conversationId", id))
+      .query('chatMessages')
+      .withIndex('by_conversation', (q) => q.eq('conversationId', id))
       .collect();
 
     for (const msg of messages) {
@@ -81,7 +81,7 @@ export const insertFromMigration = mutation({
     updatedAt: v.number(),
   },
   handler: async (ctx, args) => {
-    return await ctx.db.insert("conversations", args);
+    return await ctx.db.insert('conversations', args);
   },
 });
 
@@ -90,7 +90,7 @@ export const insertFromMigration = mutation({
  */
 export const touch = mutation({
   args: {
-    id: v.id("conversations"),
+    id: v.id('conversations'),
     lastMessagePreview: v.optional(v.string()),
   },
   handler: async (ctx, { id, lastMessagePreview }) => {
@@ -115,12 +115,10 @@ export const touch = mutation({
 export const clearAll = mutation({
   args: {},
   handler: async (ctx) => {
-    if (process.env.ALLOW_CLEAR_ALL !== "true") {
-      throw new Error(
-        "clearAll is disabled. Set ALLOW_CLEAR_ALL=true to enable."
-      );
+    if (process.env.ALLOW_CLEAR_ALL !== 'true') {
+      throw new Error('clearAll is disabled. Set ALLOW_CLEAR_ALL=true to enable.');
     }
-    const conversations = await ctx.db.query("conversations").collect();
+    const conversations = await ctx.db.query('conversations').collect();
     for (const conversation of conversations) {
       await ctx.db.delete(conversation._id);
     }
@@ -145,7 +143,7 @@ export function isPendingExpired(pendingSince: number | undefined): boolean {
 
 export const setPendingIntent = internalMutation({
   args: {
-    conversationId: v.id("conversations"),
+    conversationId: v.id('conversations'),
     intent: v.string(),
     queryShape: v.string(),
   },
@@ -163,7 +161,7 @@ export const setPendingIntent = internalMutation({
 });
 
 export const clearPendingIntent = internalMutation({
-  args: { conversationId: v.id("conversations") },
+  args: { conversationId: v.id('conversations') },
   returns: v.null(),
   handler: async (ctx, { conversationId }) => {
     const conv = await ctx.db.get(conversationId);

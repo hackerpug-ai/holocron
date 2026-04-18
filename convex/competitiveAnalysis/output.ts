@@ -10,30 +10,26 @@
  *   White Space & Opportunities → Next Steps
  */
 
-import {
-  formatTable,
-  todayISO,
-} from "../lib/reportFormat";
-import type { Doc } from "../_generated/dataModel";
+import type { Doc } from '../_generated/dataModel';
+import { formatTable, todayISO } from '../lib/reportFormat';
 
-export type CompetitiveAnalysisSession = Doc<"competitiveAnalysisSessions">;
-export type CompetitiveAnalysisCompetitor =
-  Doc<"competitiveAnalysisCompetitors">;
-export type CompetitiveAnalysisFeature = Doc<"competitiveAnalysisFeatures">;
+export type CompetitiveAnalysisSession = Doc<'competitiveAnalysisSessions'>;
+export type CompetitiveAnalysisCompetitor = Doc<'competitiveAnalysisCompetitors'>;
+export type CompetitiveAnalysisFeature = Doc<'competitiveAnalysisFeatures'>;
 
 /**
  * Map "yes" | "partial" | "no" to display symbol
  */
 function supportSymbol(support: string): string {
   switch (support) {
-    case "yes":
-      return "✓";
-    case "partial":
-      return "~";
-    case "no":
-      return "✗";
+    case 'yes':
+      return '✓';
+    case 'partial':
+      return '~';
+    case 'no':
+      return '✗';
     default:
-      return "?";
+      return '?';
   }
 }
 
@@ -45,13 +41,8 @@ function formatMarketSnapshot(
   session: CompetitiveAnalysisSession,
   competitors: CompetitiveAnalysisCompetitor[]
 ): string {
-  const verdict = session.marketVerdict ?? "_Market analysis in progress._";
-  const lines = [
-    `## Market Snapshot`,
-    "",
-    verdict,
-    "",
-  ];
+  const verdict = session.marketVerdict ?? '_Market analysis in progress._';
+  const lines = [`## Market Snapshot`, '', verdict, ''];
 
   if (competitors.length > 0) {
     lines.push(`**Competitors Identified**: ${competitors.length}`);
@@ -60,7 +51,7 @@ function formatMarketSnapshot(
     lines.push(`**Sources Reviewed**: ${session.sourceCount}`);
   }
 
-  return lines.join("\n");
+  return lines.join('\n');
 }
 
 /**
@@ -71,52 +62,48 @@ function formatJobToBeDone(
   session: CompetitiveAnalysisSession,
   competitors: CompetitiveAnalysisCompetitor[]
 ): string {
-  const lines = [`## Job to Be Done`, ""];
+  const lines = [`## Job to Be Done`, ''];
 
   lines.push(`**Market**: ${session.market}`);
-  lines.push("");
+  lines.push('');
 
   // Derive common focus areas from competitors
-  const focusAreas = competitors
-    .map((c) => c.focus)
-    .filter((f): f is string => Boolean(f));
+  const focusAreas = competitors.map((c) => c.focus).filter((f): f is string => Boolean(f));
 
   if (focusAreas.length > 0) {
     const unique = [...new Set(focusAreas)];
-    lines.push(`**Common Problem Areas**: ${unique.join(", ")}`);
+    lines.push(`**Common Problem Areas**: ${unique.join(', ')}`);
   } else {
     lines.push(
       `_Customers in the **${session.market}** space are hiring solutions to solve core workflow challenges._`
     );
   }
 
-  return lines.join("\n");
+  return lines.join('\n');
 }
 
 /**
  * Format the Competitive Map section as a positioning table.
  * Features are shown in a separate ## Feature Comparison section.
  */
-function formatCompetitiveMap(
-  competitors: CompetitiveAnalysisCompetitor[]
-): string {
+function formatCompetitiveMap(competitors: CompetitiveAnalysisCompetitor[]): string {
   if (competitors.length === 0) {
     return `## Competitive Map\n\n_No competitor data available._`;
   }
 
-  const lines = [`## Competitive Map`, ""];
+  const lines = [`## Competitive Map`, ''];
 
-  const headers = ["Competitor", "Focus", "Funding", "Strength"];
+  const headers = ['Competitor', 'Focus', 'Funding', 'Strength'];
   const rows = competitors.map((c) => [
     c.name,
-    c.focus ?? "—",
-    c.funding ?? "—",
-    c.strengths && c.strengths.length > 0 ? c.strengths[0] : "—",
+    c.focus ?? '—',
+    c.funding ?? '—',
+    c.strengths && c.strengths.length > 0 ? c.strengths[0] : '—',
   ]);
 
   lines.push(formatTable(headers, rows, 25));
 
-  return lines.join("\n");
+  return lines.join('\n');
 }
 
 /**
@@ -127,42 +114,40 @@ function formatFeatureComparison(
   competitors: CompetitiveAnalysisCompetitor[],
   features: CompetitiveAnalysisFeature[]
 ): string {
-  if (features.length === 0) return "";
+  if (features.length === 0) return '';
 
-  const lines = [`## Feature Comparison`, ""];
+  const lines = [`## Feature Comparison`, ''];
 
   const competitorNames = competitors.map((c) => c.name);
-  const fHeaders = ["Feature", "Us", ...competitorNames];
+  const fHeaders = ['Feature', 'Us', ...competitorNames];
   const fRows = features.map((f) => {
     const competitorCells = competitorNames.map((name) => {
       const support =
-        typeof f.competitorSupport === "object" &&
+        typeof f.competitorSupport === 'object' &&
         f.competitorSupport !== null &&
         name in f.competitorSupport
           ? String((f.competitorSupport as Record<string, string>)[name])
-          : "?";
+          : '?';
       return supportSymbol(support);
     });
     return [f.featureName, supportSymbol(f.ourSupport), ...competitorCells];
   });
   lines.push(formatTable(fHeaders, fRows, 25));
-  lines.push("");
-  lines.push("✓ = yes, ~ = partial, ✗ = no");
+  lines.push('');
+  lines.push('✓ = yes, ~ = partial, ✗ = no');
 
-  return lines.join("\n");
+  return lines.join('\n');
 }
 
 /**
  * Format the Key Competitors section with full profiles.
  */
-function formatKeyCompetitors(
-  competitors: CompetitiveAnalysisCompetitor[]
-): string {
+function formatKeyCompetitors(competitors: CompetitiveAnalysisCompetitor[]): string {
   if (competitors.length === 0) {
     return `## Key Competitors\n\n_No competitor data available._`;
   }
 
-  const lines = [`## Key Competitors`, ""];
+  const lines = [`## Key Competitors`, ''];
 
   for (const competitor of competitors) {
     lines.push(`### ${competitor.name}`);
@@ -172,7 +157,7 @@ function formatKeyCompetitors(
     if (competitor.funding) metaParts.push(`**Funding**: ${competitor.funding}`);
     if (competitor.founded) metaParts.push(`**Founded**: ${competitor.founded}`);
     if (competitor.url) metaParts.push(`**URL**: ${competitor.url}`);
-    if (metaParts.length > 0) lines.push(metaParts.join(" | "));
+    if (metaParts.length > 0) lines.push(metaParts.join(' | '));
 
     if (competitor.strengths && competitor.strengths.length > 0) {
       lines.push(`**Strengths**:`);
@@ -184,10 +169,10 @@ function formatKeyCompetitors(
       competitor.weaknesses.forEach((w) => lines.push(`- ${w}`));
     }
 
-    lines.push("");
+    lines.push('');
   }
 
-  return lines.join("\n");
+  return lines.join('\n');
 }
 
 /**
@@ -198,47 +183,46 @@ function formatSubstitutes(
   session: CompetitiveAnalysisSession,
   competitors: CompetitiveAnalysisCompetitor[]
 ): string {
-  const lines = [`## Substitutes & Alternatives`, ""];
+  const lines = [`## Substitutes & Alternatives`, ''];
 
   if (session.porterSubstitutes) {
     lines.push(`**Substitute Threat**: ${session.porterSubstitutes}`);
-    lines.push("");
+    lines.push('');
   }
 
   if (competitors.length > 0) {
-    lines.push("Customers may also consider these alternatives:");
+    lines.push('Customers may also consider these alternatives:');
     competitors.forEach((c) => {
-      const focus = c.focus ? ` (${c.focus})` : "";
+      const focus = c.focus ? ` (${c.focus})` : '';
       lines.push(`- **${c.name}**${focus}`);
     });
   } else {
-    lines.push("_No substitute data available._");
+    lines.push('_No substitute data available._');
   }
 
-  return lines.join("\n");
+  return lines.join('\n');
 }
-
 
 /**
  * Format the Industry Forces (Porter's Five Forces) section.
  */
 function formatIndustryForces(session: CompetitiveAnalysisSession): string {
   const forces: Array<[string, string | undefined, string]> = [
-    ["Rivalry", session.porterRivalry, "Internal competition intensity"],
-    ["New Entrants", session.porterNewEntrants, "Barriers to entry"],
-    ["Substitutes", session.porterSubstitutes, "Alternative solutions"],
-    ["Buyer Power", session.porterBuyerPower, "Customer negotiating leverage"],
-    ["Supplier Power", session.porterSupplierPower, "Vendor/partner leverage"],
+    ['Rivalry', session.porterRivalry, 'Internal competition intensity'],
+    ['New Entrants', session.porterNewEntrants, 'Barriers to entry'],
+    ['Substitutes', session.porterSubstitutes, 'Alternative solutions'],
+    ['Buyer Power', session.porterBuyerPower, 'Customer negotiating leverage'],
+    ['Supplier Power', session.porterSupplierPower, 'Vendor/partner leverage'],
   ];
 
-  const lines = [`## Industry Forces (Porter's)`, ""];
+  const lines = [`## Industry Forces (Porter's)`, ''];
 
   forces.forEach(([label, rating, description]) => {
-    const ratingStr = rating ?? "_not rated_";
+    const ratingStr = rating ?? '_not rated_';
     lines.push(`- **${label}**: ${ratingStr} — ${description}`);
   });
 
-  return lines.join("\n");
+  return lines.join('\n');
 }
 
 /**
@@ -250,60 +234,54 @@ function formatWhiteSpace(
   features: CompetitiveAnalysisFeature[],
   competitors: CompetitiveAnalysisCompetitor[]
 ): string {
-  const lines = [`## White Space & Opportunities`, ""];
+  const lines = [`## White Space & Opportunities`, ''];
 
   // Features where we lead and no competitor matches
   const ourLeads = features.filter((f) => {
-    if (f.ourSupport !== "yes") return false;
-    if (
-      typeof f.competitorSupport !== "object" ||
-      f.competitorSupport === null
-    ) {
+    if (f.ourSupport !== 'yes') return false;
+    if (typeof f.competitorSupport !== 'object' || f.competitorSupport === null) {
       return true;
     }
     const vals = Object.values(f.competitorSupport as Record<string, string>);
-    return vals.every((v) => v !== "yes");
+    return vals.every((v) => v !== 'yes');
   });
 
   if (ourLeads.length > 0) {
-    lines.push("**Unique Differentiators** (we lead, competitors do not):");
+    lines.push('**Unique Differentiators** (we lead, competitors do not):');
     ourLeads.forEach((f) => lines.push(`- ${f.featureName}`));
-    lines.push("");
+    lines.push('');
   }
 
   // Features where no one (including us) has full support
   const gaps = features.filter((f) => {
-    if (f.ourSupport === "yes") return false;
-    if (
-      typeof f.competitorSupport !== "object" ||
-      f.competitorSupport === null
-    ) {
+    if (f.ourSupport === 'yes') return false;
+    if (typeof f.competitorSupport !== 'object' || f.competitorSupport === null) {
       return true;
     }
     const vals = Object.values(f.competitorSupport as Record<string, string>);
-    return vals.every((v) => v !== "yes");
+    return vals.every((v) => v !== 'yes');
   });
 
   if (gaps.length > 0) {
-    lines.push("**Unmet Needs** (no market leader exists):");
+    lines.push('**Unmet Needs** (no market leader exists):');
     gaps.forEach((f) => lines.push(`- ${f.featureName}`));
-    lines.push("");
+    lines.push('');
   }
 
   // Porter-based opportunities
-  if (session.porterNewEntrants === "HIGH") {
+  if (session.porterNewEntrants === 'HIGH') {
     lines.push(
-      "- Low barriers to entry — first-mover advantages are short-lived; focus on network effects or proprietary data moats"
+      '- Low barriers to entry — first-mover advantages are short-lived; focus on network effects or proprietary data moats'
     );
   }
-  if (session.porterBuyerPower === "HIGH") {
+  if (session.porterBuyerPower === 'HIGH') {
     lines.push(
-      "- High buyer power — opportunity to capture market with superior value-to-price ratio"
+      '- High buyer power — opportunity to capture market with superior value-to-price ratio'
     );
   }
-  if (session.porterRivalry === "LOW") {
+  if (session.porterRivalry === 'LOW') {
     lines.push(
-      "- Low rivalry — market is underdeveloped; opportunity to establish category leadership"
+      '- Low rivalry — market is underdeveloped; opportunity to establish category leadership'
     );
   }
 
@@ -324,13 +302,13 @@ function formatWhiteSpace(
     (c.weaknesses ?? []).map((w) => ({ competitor: c.name, weakness: w }))
   );
   if (competitorWeaknesses.length > 0) {
-    lines.push("**Competitor Weakness Opportunities**:");
+    lines.push('**Competitor Weakness Opportunities**:');
     competitorWeaknesses.forEach(({ competitor, weakness }) => {
       lines.push(`- ${competitor}: ${weakness}`);
     });
   }
 
-  return lines.join("\n");
+  return lines.join('\n');
 }
 
 /**
@@ -346,58 +324,46 @@ function formatNextSteps(
 
   // Feature gaps: features where we have "no" or "partial" but a competitor has "yes"
   const featureGaps = features.filter((f) => {
-    if (f.ourSupport === "yes") return false;
-    if (
-      typeof f.competitorSupport !== "object" ||
-      f.competitorSupport === null
-    ) {
+    if (f.ourSupport === 'yes') return false;
+    if (typeof f.competitorSupport !== 'object' || f.competitorSupport === null) {
       return false;
     }
     const vals = Object.values(f.competitorSupport as Record<string, string>);
-    return vals.some((v) => v === "yes");
+    return vals.some((v) => v === 'yes');
   });
 
   if (featureGaps.length > 0) {
-    const gapNames = featureGaps.map((f) => f.featureName).join(", ");
+    const gapNames = featureGaps.map((f) => f.featureName).join(', ');
     steps.push(`Close feature gaps where competitors lead: **${gapNames}**`);
   }
 
-  if (session.porterRivalry === "HIGH") {
+  if (session.porterRivalry === 'HIGH') {
     steps.push(
-      "Define clear differentiation strategy — high rivalry demands a compelling positioning story"
+      'Define clear differentiation strategy — high rivalry demands a compelling positioning story'
     );
   }
 
-  if (session.porterBuyerPower === "HIGH") {
-    steps.push(
-      "Build switching costs and value-add features to counter high buyer power"
-    );
+  if (session.porterBuyerPower === 'HIGH') {
+    steps.push('Build switching costs and value-add features to counter high buyer power');
   }
 
-  if (session.porterNewEntrants === "HIGH") {
-    steps.push(
-      "Invest in moats: network effects, proprietary data, or exclusive partnerships"
-    );
+  if (session.porterNewEntrants === 'HIGH') {
+    steps.push('Invest in moats: network effects, proprietary data, or exclusive partnerships');
   }
 
   // Unique strengths to market
   const ourLeads = features.filter((f) => {
-    if (f.ourSupport !== "yes") return false;
-    if (
-      typeof f.competitorSupport !== "object" ||
-      f.competitorSupport === null
-    ) {
+    if (f.ourSupport !== 'yes') return false;
+    if (typeof f.competitorSupport !== 'object' || f.competitorSupport === null) {
       return true;
     }
     const vals = Object.values(f.competitorSupport as Record<string, string>);
-    return vals.every((v) => v !== "yes");
+    return vals.every((v) => v !== 'yes');
   });
 
   if (ourLeads.length > 0) {
-    const leadNames = ourLeads.map((f) => f.featureName).join(", ");
-    steps.push(
-      `Amplify unique capabilities in go-to-market messaging: **${leadNames}**`
-    );
+    const leadNames = ourLeads.map((f) => f.featureName).join(', ');
+    steps.push(`Amplify unique capabilities in go-to-market messaging: **${leadNames}**`);
   }
 
   if (competitors.length > 0) {
@@ -412,10 +378,10 @@ function formatNextSteps(
     );
   }
 
-  const lines = [`## Next Steps`, ""];
+  const lines = [`## Next Steps`, ''];
   steps.forEach((step, i) => lines.push(`${i + 1}. ${step}`));
 
-  return lines.join("\n");
+  return lines.join('\n');
 }
 
 /**
@@ -431,8 +397,8 @@ export function formatCompetitiveAnalysisReport(
   competitors: CompetitiveAnalysisCompetitor[],
   features: CompetitiveAnalysisFeature[]
 ): string {
-  const verdict = session.marketVerdict ?? "Market analysis in progress.";
-  const sourcesStr = session.sourceCount ? String(session.sourceCount) : "—";
+  const verdict = session.marketVerdict ?? 'Market analysis in progress.';
+  const sourcesStr = session.sourceCount ? String(session.sourceCount) : '—';
 
   // Header matching COMPETITIVE_ANALYSIS_TEMPLATE
   const header =
@@ -445,24 +411,24 @@ export function formatCompetitiveAnalysisReport(
 
   const sections = [
     header,
-    "",
+    '',
     formatMarketSnapshot(session, competitors),
-    "",
+    '',
     formatJobToBeDone(session, competitors),
-    "",
+    '',
     formatCompetitiveMap(competitors),
-    "",
+    '',
     formatKeyCompetitors(competitors),
-    ...(featureComparison ? ["", featureComparison] : []),
-    "",
+    ...(featureComparison ? ['', featureComparison] : []),
+    '',
     formatSubstitutes(session, competitors),
-    "",
+    '',
     formatIndustryForces(session),
-    "",
+    '',
     formatWhiteSpace(session, features, competitors),
-    "",
+    '',
     formatNextSteps(session, features, competitors),
   ];
 
-  return sections.join("\n");
+  return sections.join('\n');
 }

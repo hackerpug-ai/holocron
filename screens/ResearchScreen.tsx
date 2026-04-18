@@ -1,50 +1,50 @@
-import { CategoryBadge, type CategoryType } from '@/components/CategoryBadge'
-import { EmptyState } from '@/components/EmptyState'
-import { ProgressIndicator } from '@/components/ProgressIndicator'
-import { SearchInput } from '@/components/SearchInput'
-import { SectionHeader } from '@/components/SectionHeader'
-import { Button } from '@/components/ui/button'
-import { Text } from '@/components/ui/text'
-import { cn } from '@/lib/utils'
-import { Lightbulb, Play, Sparkles } from '@/components/ui/icons'
-import { useState } from 'react'
-import { Pressable, ScrollView, View, type ViewProps } from 'react-native'
+import { useState } from 'react';
+import { Pressable, ScrollView, View, type ViewProps } from 'react-native';
+import { CategoryBadge, type CategoryType } from '@/components/CategoryBadge';
+import { EmptyState } from '@/components/EmptyState';
+import { ProgressIndicator } from '@/components/ProgressIndicator';
+import { SearchInput } from '@/components/SearchInput';
+import { SectionHeader } from '@/components/SectionHeader';
+import { Button } from '@/components/ui/button';
+import { Lightbulb, Play, Sparkles } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { cn } from '@/lib/utils';
 
-type ResearchType = 'quick' | 'deep' | 'factual'
-type ResearchPhase = 'searching' | 'analyzing' | 'synthesizing' | 'complete'
+type ResearchType = 'quick' | 'deep' | 'factual';
+type ResearchPhase = 'searching' | 'analyzing' | 'synthesizing' | 'complete';
 
 interface ActiveResearch {
-  query: string
-  type: ResearchType
-  phase: ResearchPhase
-  progress?: number
-  elapsedTime?: number
-  sources?: string[]
-  statusMessage?: string
+  query: string;
+  type: ResearchType;
+  phase: ResearchPhase;
+  progress?: number;
+  elapsedTime?: number;
+  sources?: string[];
+  statusMessage?: string;
 }
 
 interface RecentQuery {
-  id: string
-  query: string
-  category: CategoryType
-  timestamp: string
+  id: string;
+  query: string;
+  category: CategoryType;
+  timestamp: string;
 }
 
 interface ResearchScreenProps extends Omit<ViewProps, 'children'> {
   /** Currently active research session */
-  activeResearch?: ActiveResearch | null
+  activeResearch?: ActiveResearch | null;
   /** Recent queries for quick access */
-  recentQueries?: RecentQuery[]
+  recentQueries?: RecentQuery[];
   /** Whether to show the input in loading state */
-  loading?: boolean
+  loading?: boolean;
   /** Callback when research is initiated */
-  onStartResearch?: (_query: string, _type: ResearchType) => void
+  onStartResearch?: (_query: string, _type: ResearchType) => void;
   /** Callback when a recent query is pressed */
-  onRecentQueryPress?: (_query: RecentQuery) => void
+  onRecentQueryPress?: (_query: RecentQuery) => void;
   /** Callback when active research is cancelled */
-  onCancelResearch?: () => void
+  onCancelResearch?: () => void;
   /** Callback when active research completes and user wants to view results */
-  onViewResults?: () => void
+  onViewResults?: () => void;
 }
 
 const researchTypes: { type: ResearchType; label: string; description: string }[] = [
@@ -63,7 +63,7 @@ const researchTypes: { type: ResearchType; label: string; description: string }[
     label: 'Fact Check',
     description: 'Verify claims with citations',
   },
-]
+];
 
 /**
  * ResearchScreen allows users to initiate and monitor research sessions.
@@ -80,17 +80,17 @@ export function ResearchScreen({
   className,
   ...props
 }: ResearchScreenProps) {
-  const [query, setQuery] = useState('')
-  const [selectedType, setSelectedType] = useState<ResearchType>('quick')
+  const [query, setQuery] = useState('');
+  const [selectedType, setSelectedType] = useState<ResearchType>('quick');
 
   const handleStartResearch = () => {
     if (query.trim()) {
-      onStartResearch?.(query.trim(), selectedType)
+      onStartResearch?.(query.trim(), selectedType);
     }
-  }
+  };
 
-  const isResearchActive = activeResearch && activeResearch.phase !== 'complete'
-  const isResearchComplete = activeResearch?.phase === 'complete'
+  const isResearchActive = activeResearch && activeResearch.phase !== 'complete';
+  const isResearchComplete = activeResearch?.phase === 'complete';
 
   return (
     <ScrollView
@@ -240,5 +240,5 @@ export function ResearchScreen({
         )}
       </View>
     </ScrollView>
-  )
+  );
 }

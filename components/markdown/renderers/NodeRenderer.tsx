@@ -1,83 +1,83 @@
-import type { Content } from 'mdast'
-import {
+import type {
   Blockquote,
   Code,
-  List,
+  Content,
+  Emphasis,
   Heading,
+  InlineCode,
   Link,
+  List,
+  Text as MdastText,
   Paragraph,
   Strong,
-  Emphasis,
-  InlineCode,
-  Text as MdastText,
-  ThematicBreak,
   Table,
-} from 'mdast'
-import * as React from 'react'
-import { View } from 'react-native'
+  ThematicBreak,
+} from 'mdast';
+import * as React from 'react';
+import { View } from 'react-native';
 import {
   BlockquoteRenderer,
   HeadingRenderer,
-  ParagraphRenderer,
-  ListRenderer,
   ListItemRenderer,
+  ListRenderer,
+  ParagraphRenderer,
   ThematicBreakRenderer,
-} from './BlockElements'
+} from './BlockElements';
+import { CalloutRenderer } from './CalloutRenderer';
+import { CodeBlockRenderer } from './CodeBlock';
 import {
-  LinkRenderer,
   EmphasisRenderer,
-  StrongRenderer,
   InlineCodeRenderer,
+  LinkRenderer,
+  StrongRenderer,
   TextRenderer,
-} from './InlineElements'
-import { CodeBlockRenderer } from './CodeBlock'
-import { TableRenderer, TableRowRenderer, TableCellRenderer } from './TableRenderer'
-import { CalloutRenderer } from './CalloutRenderer'
+} from './InlineElements';
+import { TableCellRenderer, TableRenderer, TableRowRenderer } from './TableRenderer';
 
 /**
  * Type guard to check if node has children property
  */
 function isParent(node: Content): node is any {
-  return 'children' in node && Array.isArray((node as any).children)
+  return 'children' in node && Array.isArray((node as any).children);
 }
 
 /**
  * Props passed to all node renderers
  */
 export interface RendererProps {
-  node: any
-  children?: React.ReactNode
-  index?: number
-  parentOrdered?: boolean
-  onLinkPress?: (url: string) => void
-  testID?: string
+  node: any;
+  children?: React.ReactNode;
+  index?: number;
+  parentOrdered?: boolean;
+  onLinkPress?: (url: string) => void;
+  testID?: string;
 }
 
 /**
  * Custom renderers for overriding default node rendering
  */
 export interface CustomRenderers {
-  heading?: (props: RendererProps) => React.ReactNode
-  paragraph?: (props: RendererProps) => React.ReactNode
-  list?: (props: RendererProps) => React.ReactNode
-  listItem?: (props: RendererProps) => React.ReactNode
-  link?: (props: RendererProps) => React.ReactNode
-  emphasis?: (props: RendererProps) => React.ReactNode
-  strong?: (props: RendererProps) => React.ReactNode
-  inlineCode?: (props: RendererProps) => React.ReactNode
-  code?: (props: RendererProps) => React.ReactNode
-  thematicBreak?: (props: RendererProps) => React.ReactNode
-  table?: (props: RendererProps) => React.ReactNode
-  callout?: (props: RendererProps) => React.ReactNode
+  heading?: (props: RendererProps) => React.ReactNode;
+  paragraph?: (props: RendererProps) => React.ReactNode;
+  list?: (props: RendererProps) => React.ReactNode;
+  listItem?: (props: RendererProps) => React.ReactNode;
+  link?: (props: RendererProps) => React.ReactNode;
+  emphasis?: (props: RendererProps) => React.ReactNode;
+  strong?: (props: RendererProps) => React.ReactNode;
+  inlineCode?: (props: RendererProps) => React.ReactNode;
+  code?: (props: RendererProps) => React.ReactNode;
+  thematicBreak?: (props: RendererProps) => React.ReactNode;
+  table?: (props: RendererProps) => React.ReactNode;
+  callout?: (props: RendererProps) => React.ReactNode;
 }
 
 export interface NodeRendererProps {
-  node: Content
-  renderers?: CustomRenderers
-  onLinkPress?: (url: string) => void
-  testID?: string
-  index?: number
-  parentOrdered?: boolean
+  node: Content;
+  renderers?: CustomRenderers;
+  onLinkPress?: (url: string) => void;
+  testID?: string;
+  index?: number;
+  parentOrdered?: boolean;
 }
 
 /**
@@ -100,41 +100,31 @@ export const NodeRenderer = React.memo(
           />
         ))}
       </React.Fragment>
-    )
+    );
 
     // Custom renderers
     if (renderers) {
       switch (node.type as string) {
         case 'heading':
-          return renderers.heading ? (
-            renderers.heading({ node, children, testID })
-          ) : (
-            renderHeading(node as Heading, children, testID)
-          )
+          return renderers.heading
+            ? renderers.heading({ node, children, testID })
+            : renderHeading(node as Heading, children, testID);
         case 'paragraph':
-          return renderers.paragraph ? (
-            renderers.paragraph({ node, children, testID })
-          ) : (
-            renderParagraph(node as Paragraph, children, testID)
-          )
+          return renderers.paragraph
+            ? renderers.paragraph({ node, children, testID })
+            : renderParagraph(node as Paragraph, children, testID);
         case 'list':
-          return renderers.list ? (
-            renderers.list({ node, children, testID })
-          ) : (
-            renderList(node as List, children, testID)
-          )
+          return renderers.list
+            ? renderers.list({ node, children, testID })
+            : renderList(node as List, children, testID);
         case 'listItem':
-          return renderers.listItem ? (
-            renderers.listItem({ node, children, testID, index, parentOrdered })
-          ) : (
-            renderListItem(node, children, testID, index ?? 0, parentOrdered ?? false)
-          )
+          return renderers.listItem
+            ? renderers.listItem({ node, children, testID, index, parentOrdered })
+            : renderListItem(node, children, testID, index ?? 0, parentOrdered ?? false);
         case 'link':
-          return renderers.link ? (
-            renderers.link({ node, children, onLinkPress, testID })
-          ) : (
-            renderLink(node as Link, children, onLinkPress, testID)
-          )
+          return renderers.link
+            ? renderers.link({ node, children, onLinkPress, testID })
+            : renderLink(node as Link, children, onLinkPress, testID);
         case 'emphasis':
           return renderers.emphasis ? (
             renderers.emphasis({ node, children, testID })
@@ -142,7 +132,7 @@ export const NodeRenderer = React.memo(
             <EmphasisRenderer node={node as Emphasis} testID={testID}>
               {children}
             </EmphasisRenderer>
-          )
+          );
         case 'strong':
           return renderers.strong ? (
             renderers.strong({ node, children, testID })
@@ -150,7 +140,7 @@ export const NodeRenderer = React.memo(
             <StrongRenderer node={node as Strong} testID={testID}>
               {children}
             </StrongRenderer>
-          )
+          );
         case 'inlineCode':
           return renderers.inlineCode ? (
             renderers.inlineCode({ node, children: (node as InlineCode).value, testID })
@@ -158,124 +148,139 @@ export const NodeRenderer = React.memo(
             <InlineCodeRenderer node={node as InlineCode} testID={testID}>
               {(node as InlineCode).value}
             </InlineCodeRenderer>
-          )
+          );
         case 'code':
           return renderers.code ? (
             renderers.code({ node, children: (node as Code).value, testID })
           ) : (
             <CodeBlockRenderer node={node as Code} testID={testID} />
-          )
+          );
         case 'thematicBreak':
           return renderers.thematicBreak ? (
             renderers.thematicBreak({ node, testID })
           ) : (
             <ThematicBreakRenderer node={node as ThematicBreak} testID={testID} />
-          )
+          );
         case 'table':
-          return renderers.table ? (
-            renderers.table({ node, children, testID })
-          ) : (
-            renderTable(node as Table, children, testID)
-          )
+          return renderers.table
+            ? renderers.table({ node, children, testID })
+            : renderTable(node as Table, children, testID);
         case 'blockquote':
           return (
             <BlockquoteRenderer node={node as Blockquote} testID={testID}>
               {children}
             </BlockquoteRenderer>
-          )
+          );
         case 'callout':
           return renderers.callout ? (
             renderers.callout({ node, children, testID })
           ) : (
             <CalloutRenderer node={node as any} testID={testID} />
-          )
+          );
       }
     }
 
     // Default renderers - use string comparison for all node types including 'callout'
     switch (node.type as string) {
       case 'heading':
-        return renderHeading(node as Heading, children, testID)
+        return renderHeading(node as Heading, children, testID);
       case 'paragraph':
-        return renderParagraph(node as Paragraph, children, testID)
+        return renderParagraph(node as Paragraph, children, testID);
       case 'list':
-        return renderList(node as List, children, testID)
+        return renderList(node as List, children, testID);
       case 'listItem':
-        return renderListItem(node, children, testID, index ?? 0, parentOrdered ?? false)
+        return renderListItem(node, children, testID, index ?? 0, parentOrdered ?? false);
       case 'link':
-        return renderLink(node as Link, children, onLinkPress, testID)
+        return renderLink(node as Link, children, onLinkPress, testID);
       case 'emphasis':
         return (
           <EmphasisRenderer node={node as Emphasis} testID={testID}>
             {children}
           </EmphasisRenderer>
-        )
+        );
       case 'strong':
         return (
           <StrongRenderer node={node as Strong} testID={testID}>
             {children}
           </StrongRenderer>
-        )
+        );
       case 'inlineCode':
         return (
           <InlineCodeRenderer node={node as InlineCode} testID={testID}>
             {(node as InlineCode).value}
           </InlineCodeRenderer>
-        )
+        );
       case 'code':
-        return <CodeBlockRenderer node={node as Code} testID={testID} />
+        return <CodeBlockRenderer node={node as Code} testID={testID} />;
       case 'thematicBreak':
-        return <ThematicBreakRenderer node={node as ThematicBreak} testID={testID} />
+        return <ThematicBreakRenderer node={node as ThematicBreak} testID={testID} />;
       case 'text':
-        return <TextRenderer node={node as MdastText} testID={testID}>{(node as MdastText).value}</TextRenderer>
+        return (
+          <TextRenderer node={node as MdastText} testID={testID}>
+            {(node as MdastText).value}
+          </TextRenderer>
+        );
       case 'table':
-        return renderTable(node as Table, children, testID)
+        return renderTable(node as Table, children, testID);
       case 'tableRow':
-        return renderTableRow(node, children, testID)
+        return renderTableRow(node, children, testID);
       case 'tableCell':
-        return renderTableCell(node, children, testID, index)
+        return renderTableCell(node, children, testID, index);
       case 'blockquote':
         return (
           <BlockquoteRenderer node={node as Blockquote} testID={testID}>
             {children}
           </BlockquoteRenderer>
-        )
+        );
       case 'callout':
-        return <CalloutRenderer node={node as any} testID={testID} />
+        return <CalloutRenderer node={node as any} testID={testID} />;
       default:
-        return <View testID={testID}>{children}</View>
+        return <View testID={testID}>{children}</View>;
     }
   }
-)
-NodeRenderer.displayName = 'NodeRenderer'
+);
+NodeRenderer.displayName = 'NodeRenderer';
 
 // ============================================================================
 // HELPER RENDERERS
 // ============================================================================
 
 function renderHeading(node: Heading, children: React.ReactNode, testID?: string) {
-  return <HeadingRenderer node={node} testID={testID}>{children}</HeadingRenderer>
+  return (
+    <HeadingRenderer node={node} testID={testID}>
+      {children}
+    </HeadingRenderer>
+  );
 }
 
 function renderParagraph(node: Paragraph, children: React.ReactNode, testID?: string) {
-  return <ParagraphRenderer node={node} testID={testID}>{children}</ParagraphRenderer>
+  return (
+    <ParagraphRenderer node={node} testID={testID}>
+      {children}
+    </ParagraphRenderer>
+  );
 }
 
 function renderList(node: List, children: React.ReactNode, testID?: string) {
-  return <ListRenderer node={node} testID={testID}>{children}</ListRenderer>
+  return (
+    <ListRenderer node={node} testID={testID}>
+      {children}
+    </ListRenderer>
+  );
 }
 
-function renderListItem(node: any, children: React.ReactNode, testID?: string, index: number = 0, parentOrdered: boolean = false) {
+function renderListItem(
+  node: any,
+  children: React.ReactNode,
+  testID?: string,
+  index: number = 0,
+  parentOrdered: boolean = false
+) {
   return (
-    <ListItemRenderer
-      node={node}
-      index={index}
-      parentOrdered={parentOrdered}
-      testID={testID}
-    >
+    <ListItemRenderer node={node} index={index} parentOrdered={parentOrdered} testID={testID}>
       {children}
     </ListItemRenderer>
-  )
+  );
 }
 
 function renderLink(
@@ -288,19 +293,31 @@ function renderLink(
     <LinkRenderer node={node} onLinkPress={onLinkPress} testID={testID}>
       {children}
     </LinkRenderer>
-  )
+  );
 }
 
 function renderTable(node: Table, children: React.ReactNode, testID?: string) {
-  return <TableRenderer node={node} testID={testID}>{children}</TableRenderer>
+  return (
+    <TableRenderer node={node} testID={testID}>
+      {children}
+    </TableRenderer>
+  );
 }
 
 function renderTableRow(node: any, children: React.ReactNode, testID?: string) {
-  return <TableRowRenderer node={node} isHeader={node.isHeader} testID={testID}>{children}</TableRowRenderer>
+  return (
+    <TableRowRenderer node={node} isHeader={node.isHeader} testID={testID}>
+      {children}
+    </TableRowRenderer>
+  );
 }
 
 function renderTableCell(node: any, children: React.ReactNode, testID?: string, index?: number) {
-  return <TableCellRenderer node={node} isHeader={node.isHeader} columnIndex={index} testID={testID}>{children}</TableCellRenderer>
+  return (
+    <TableCellRenderer node={node} isHeader={node.isHeader} columnIndex={index} testID={testID}>
+      {children}
+    </TableCellRenderer>
+  );
 }
 
 // ============================================================================
@@ -312,12 +329,12 @@ function renderTableCell(node: any, children: React.ReactNode, testID?: string, 
  */
 function getNodeKey(node: Content, index: number): string {
   if (node.type === 'text') {
-    return `text-${index}-${String((node as MdastText).value).slice(0, 20)}`
+    return `text-${index}-${String((node as MdastText).value).slice(0, 20)}`;
   }
   if (node.type === 'heading') {
-    return `heading-${(node as Heading).depth}-${index}`
+    return `heading-${(node as Heading).depth}-${index}`;
   }
-  return `${node.type}-${index}`
+  return `${node.type}-${index}`;
 }
 
 /**
@@ -329,10 +346,10 @@ function getNodeKey(node: Content, index: number): string {
 export function processTable(tableNode: Table): Table {
   if (tableNode.children.length > 0) {
     // Mark first row as header
-    const firstRow = tableNode.children[0]
+    const firstRow = tableNode.children[0];
     if (firstRow.type === 'tableRow') {
-      (firstRow as any).isHeader = true
+      (firstRow as any).isHeader = true;
     }
   }
-  return tableNode
+  return tableNode;
 }

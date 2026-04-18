@@ -1,9 +1,9 @@
-import { ToolbeltScreen, type Tool } from '@/screens/toolbelt-screen'
-import { ScreenLayout } from '@/components/ui/screen-layout'
-import { useQuery } from 'convex/react'
-import { api } from '@/convex/_generated/api'
-import type { Doc } from '@/convex/_generated/dataModel'
-import { useRouter } from 'expo-router'
+import { useQuery } from 'convex/react';
+import { useRouter } from 'expo-router';
+import { ScreenLayout } from '@/components/ui/screen-layout';
+import { api } from '@/convex/_generated/api';
+import type { Doc } from '@/convex/_generated/dataModel';
+import { type Tool, ToolbeltScreen } from '@/screens/toolbelt-screen';
 
 /**
  * Toolbelt route - displays searchable, filterable list of tools
@@ -11,11 +11,11 @@ import { useRouter } from 'expo-router'
  * Inside (drawer) group so the navigation drawer remains accessible
  */
 export default function ToolbeltRoute() {
-  const router = useRouter()
+  const router = useRouter();
 
   // Fetch tools from Convex
-  const toolsData = useQuery(api.toolbelt.queries.list, { limit: 100 })
-  const isLoading = toolsData === undefined
+  const toolsData = useQuery(api.toolbelt.queries.list, { limit: 100 });
+  const isLoading = toolsData === undefined;
 
   // Map Convex documents to Tool interface
   const tools = (toolsData ?? []).map((tool: Doc<'toolbeltTools'>) => ({
@@ -35,21 +35,21 @@ export default function ToolbeltRoute() {
     time: tool.time,
     createdAt: tool.createdAt,
     updatedAt: tool.updatedAt,
-  }))
+  }));
 
   const handleToolPress = (tool: Tool) => {
     if (tool.sourceUrl) {
-      router.push(`/webview/${encodeURIComponent(tool.sourceUrl)}`)
+      router.push(`/webview/${encodeURIComponent(tool.sourceUrl)}`);
     }
-  }
+  };
 
   const handleBack = () => {
     if (router.canGoBack()) {
-      router.back()
+      router.back();
     } else {
-      router.navigate('/chat/new')
+      router.navigate('/chat/new');
     }
-  }
+  };
 
   return (
     <ScreenLayout
@@ -61,11 +61,7 @@ export default function ToolbeltRoute() {
       edges="bottom"
       testID="toolbelt-route-layout"
     >
-      <ToolbeltScreen
-        tools={tools}
-        isLoading={isLoading}
-        onToolPress={handleToolPress}
-      />
+      <ToolbeltScreen tools={tools} isLoading={isLoading} onToolPress={handleToolPress} />
     </ScreenLayout>
-  )
+  );
 }

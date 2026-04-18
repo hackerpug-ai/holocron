@@ -119,7 +119,7 @@ export const colors = {
     tableHeader: '#E8E4DE',
     tableBody: '#C9D1DD',
   },
-}
+};
 
 // Spacing scale (in pixels)
 export const spacing = {
@@ -131,18 +131,18 @@ export const spacing = {
   '2xl': 32,
   '3xl': 48,
   '4xl': 64,
-}
+};
 
 // Border radius tokens
 export const radius = {
   none: 0,
-  sm: 4,   // calc(var(--radius) - 4px)
-  md: 6,   // calc(var(--radius) - 2px)
-  lg: 8,   // var(--radius)
+  sm: 4, // calc(var(--radius) - 4px)
+  md: 6, // calc(var(--radius) - 2px)
+  lg: 8, // var(--radius)
   xl: 12,
   '2xl': 16,
   full: 9999,
-}
+};
 
 // Typography scale
 export const typography = {
@@ -155,8 +155,13 @@ export const typography = {
   body: { fontSize: 16, fontWeight: '400' as const, lineHeight: 1.6 },
   bodySmall: { fontSize: 14, fontWeight: '400' as const, lineHeight: 1.5 },
   caption: { fontSize: 12, fontWeight: '400' as const, lineHeight: 1.4 },
-  label: { fontSize: 11, fontWeight: '600' as const, lineHeight: 1.2, textTransform: 'uppercase' as const },
-}
+  label: {
+    fontSize: 11,
+    fontWeight: '600' as const,
+    lineHeight: 1.2,
+    textTransform: 'uppercase' as const,
+  },
+};
 
 // Export combined theme
 export const theme = {
@@ -164,6 +169,6 @@ export const theme = {
   spacing,
   radius,
   typography,
-}
+};
 
-export type Theme = typeof theme
+export type Theme = typeof theme;

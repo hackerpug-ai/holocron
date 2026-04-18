@@ -21,13 +21,15 @@ import { z } from 'zod';
  * Jina Search returns an array of search results with varying fields.
  * We use loose validation to handle API changes gracefully.
  */
-export const JinaSearchResultSchema = z.object({
-  title: z.string().optional(),
-  url: z.string().optional(),
-  content: z.string().optional(),
-  description: z.string().optional(),
-  link: z.string().optional(), // Alternative to 'url'
-}).passthrough(); // Allow extra fields
+export const JinaSearchResultSchema = z
+  .object({
+    title: z.string().optional(),
+    url: z.string().optional(),
+    content: z.string().optional(),
+    description: z.string().optional(),
+    link: z.string().optional(), // Alternative to 'url'
+  })
+  .passthrough(); // Allow extra fields
 
 export type JinaSearchResult = z.infer<typeof JinaSearchResultSchema>;
 
@@ -37,12 +39,14 @@ export type JinaSearchResult = z.infer<typeof JinaSearchResultSchema>;
  * Jina Reader returns text content. We validate minimally
  * to handle different response formats gracefully.
  */
-export const JinaReaderResultSchema = z.object({
-  content: z.string().optional(),
-  text: z.string().optional(), // Alternative field name
-  title: z.string().optional(),
-  url: z.string().optional(),
-}).passthrough(); // Allow extra fields
+export const JinaReaderResultSchema = z
+  .object({
+    content: z.string().optional(),
+    text: z.string().optional(), // Alternative field name
+    title: z.string().optional(),
+    url: z.string().optional(),
+  })
+  .passthrough(); // Allow extra fields
 
 export type JinaReaderResult = z.infer<typeof JinaReaderResultSchema>;
 
@@ -128,8 +132,8 @@ export async function jinaSearch(
     const searchUrl = `https://s.jina.ai/?q=${encodedQuery}`;
 
     const headers: Record<string, string> = {
-      'Authorization': `Bearer ${apiKey}`,
-      'Accept': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+      Accept: 'application/json',
     };
 
     // Add X-Site header for site-specific search (native Jina API feature)
@@ -147,20 +151,12 @@ export async function jinaSearch(
 
     // Handle rate limiting
     if (response.status === 429) {
-      throw new JinaError(
-        'Jina Search API rate limit exceeded',
-        'rate_limit',
-        429
-      );
+      throw new JinaError('Jina Search API rate limit exceeded', 'rate_limit', 429);
     }
 
     // Handle authentication errors
     if (response.status === 401 || response.status === 403) {
-      throw new JinaError(
-        'Invalid Jina API key',
-        'auth',
-        response.status
-      );
+      throw new JinaError('Invalid Jina API key', 'auth', response.status);
     }
 
     // Handle other HTTP errors
@@ -212,12 +208,7 @@ export async function jinaSearch(
 
     // Handle AbortError (timeout or cancellation)
     if (error instanceof Error && error.name === 'AbortError') {
-      throw new JinaError(
-        'Jina Search API request timed out',
-        'network',
-        undefined,
-        error
-      );
+      throw new JinaError('Jina Search API request timed out', 'network', undefined, error);
     }
 
     // Handle network errors
@@ -230,12 +221,7 @@ export async function jinaSearch(
       );
     }
 
-    throw new JinaError(
-      'Unknown error occurred in Jina Search API',
-      'unknown',
-      undefined,
-      error
-    );
+    throw new JinaError('Unknown error occurred in Jina Search API', 'unknown', undefined, error);
   }
 }
 
@@ -256,10 +242,7 @@ export async function jinaSearch(
  * });
  * ```
  */
-export async function jinaReader(
-  url: string,
-  options: JinaReaderOptions = {}
-): Promise<string> {
+export async function jinaReader(url: string, options: JinaReaderOptions = {}): Promise<string> {
   const { apiKey, timeout = 30000, signal, returnFormat = 'markdown' } = options;
 
   if (!apiKey) {
@@ -288,8 +271,8 @@ export async function jinaReader(
     const readerUrl = `https://r.jina.ai/${encodeURIComponent(url)}`;
 
     const headers: Record<string, string> = {
-      'Authorization': `Bearer ${apiKey}`,
-      'Accept': 'text/plain',
+      Authorization: `Bearer ${apiKey}`,
+      Accept: 'text/plain',
     };
 
     if (returnFormat !== 'markdown') {
@@ -306,20 +289,12 @@ export async function jinaReader(
 
     // Handle rate limiting
     if (response.status === 429) {
-      throw new JinaError(
-        'Jina Reader API rate limit exceeded',
-        'rate_limit',
-        429
-      );
+      throw new JinaError('Jina Reader API rate limit exceeded', 'rate_limit', 429);
     }
 
     // Handle authentication errors
     if (response.status === 401 || response.status === 403) {
-      throw new JinaError(
-        'Invalid Jina API key',
-        'auth',
-        response.status
-      );
+      throw new JinaError('Invalid Jina API key', 'auth', response.status);
     }
 
     // Handle not found or other errors gracefully
@@ -334,10 +309,7 @@ export async function jinaReader(
     const content = await response.text();
 
     if (!content || content.trim().length === 0) {
-      throw new JinaError(
-        'No content extracted from URL',
-        'validation'
-      );
+      throw new JinaError('No content extracted from URL', 'validation');
     }
 
     return content;
@@ -350,12 +322,7 @@ export async function jinaReader(
 
     // Handle AbortError (timeout or cancellation)
     if (error instanceof Error && error.name === 'AbortError') {
-      throw new JinaError(
-        'Jina Reader API request timed out',
-        'network',
-        undefined,
-        error
-      );
+      throw new JinaError('Jina Reader API request timed out', 'network', undefined, error);
     }
 
     // Handle network errors
@@ -368,12 +335,7 @@ export async function jinaReader(
       );
     }
 
-    throw new JinaError(
-      'Unknown error occurred in Jina Reader API',
-      'unknown',
-      undefined,
-      error
-    );
+    throw new JinaError('Unknown error occurred in Jina Reader API', 'unknown', undefined, error);
   }
 }
 

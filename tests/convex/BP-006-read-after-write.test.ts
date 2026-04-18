@@ -7,9 +7,9 @@
  * If ctx.db.patch doesn't throw, the write succeeded.
  */
 
-import { describe, it, expect } from 'vitest';
 import fs from 'fs';
 import path from 'path';
+import { describe, expect, it } from 'vitest';
 
 const MUTATIONS_FILE = path.join(__dirname, '../../convex/research/mutations.ts');
 
@@ -26,9 +26,10 @@ describe('BP-006: Delete Read-After-Write Calls', () => {
 
       // Look for the specific anti-pattern in updateDeepResearchSession
       // Lines 159-162: patch then get with "Verify" comment
-      const hasReadAfterWrite = mutationsContent.includes('await ctx.db.patch(sessionId, updates)') &&
-                                mutationsContent.includes('// Verify the update by reading back') &&
-                                mutationsContent.includes('const updatedSession = await ctx.db.get(sessionId)');
+      const hasReadAfterWrite =
+        mutationsContent.includes('await ctx.db.patch(sessionId, updates)') &&
+        mutationsContent.includes('// Verify the update by reading back') &&
+        mutationsContent.includes('const updatedSession = await ctx.db.get(sessionId)');
 
       // Currently this pattern EXISTS (test should fail before fix)
       expect(hasReadAfterWrite).toBe(false);
@@ -38,7 +39,8 @@ describe('BP-006: Delete Read-After-Write Calls', () => {
       const mutationsContent = fs.readFileSync(MUTATIONS_FILE, 'utf-8');
 
       // Look for specific anti-pattern: patch then "Verify" comment then get
-      const antiPattern = /ctx\.db\.patch\([^)]+\);\s*(\/\/\s*Verify|\/\/\s*Read)?\s*ctx\.db\.get\(/s;
+      const antiPattern =
+        /ctx\.db\.patch\([^)]+\);\s*(\/\/\s*Verify|\/\/\s*Read)?\s*ctx\.db\.get\(/s;
 
       const hasAntiPattern = antiPattern.test(mutationsContent);
 

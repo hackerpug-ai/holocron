@@ -7,15 +7,15 @@
  * Migration: US-060 - Direct entity watching pattern
  */
 
-import { useQuery } from 'convex/react'
-import { api } from '@/convex/_generated/api'
-import type { Id } from '@/convex/_generated/dataModel'
-import type { ChatMessage } from '@/components/chat/ChatThread'
+import { useQuery } from 'convex/react';
+import type { ChatMessage } from '@/components/chat/ChatThread';
+import { api } from '@/convex/_generated/api';
+import type { Id } from '@/convex/_generated/dataModel';
 
 interface UseChatHistoryReturn {
-  messages: ChatMessage[]
-  isLoading: boolean
-  error: Error | null
+  messages: ChatMessage[];
+  isLoading: boolean;
+  error: Error | null;
 }
 
 /**
@@ -47,7 +47,7 @@ export function useChatHistory(
           limit,
         }
       : 'skip'
-  )
+  );
 
   // Transform Convex Doc to ChatMessage format
   const messages: ChatMessage[] = (messagesData ?? []).map((msg: any) => {
@@ -60,14 +60,14 @@ export function useChatHistory(
       toolCallId: msg.toolCallId ?? null,
       voiceSessionId: msg.voiceSessionId ?? null,
       createdAt: new Date(msg.createdAt),
-    }
+    };
 
-    return transformed
-  })
+    return transformed;
+  });
 
   return {
     messages,
     isLoading: conversationId !== null && messagesData === undefined,
     error: null, // Convex queries don't throw - they return undefined
-  }
+  };
 }

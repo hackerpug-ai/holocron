@@ -4,10 +4,10 @@
  * These internal actions are called by cron jobs for periodic maintenance.
  */
 
-import { action } from "../_generated/server";
-import { internal } from "../_generated/api";
+import { internal } from '../_generated/api';
+import { action } from '../_generated/server';
 
-"use node";
+('use node');
 
 interface BackfillResult {
   success: boolean;
@@ -27,17 +27,26 @@ interface BackfillResult {
 export const backfillOrphanedEmbeddings = action({
   args: {},
   handler: async (ctx): Promise<BackfillResult> => {
-    const count = await ctx.runQuery((internal as any).documents.queries.countDocumentsWithoutEmbeddings, {});
+    const count = await ctx.runQuery(
+      (internal as any).documents.queries.countDocumentsWithoutEmbeddings,
+      {}
+    );
 
     if (count === 0) {
-      return { success: true, processed: 0, failed: 0, total: 0, message: "No orphaned embeddings" };
+      return {
+        success: true,
+        processed: 0,
+        failed: 0,
+        total: 0,
+        message: 'No orphaned embeddings',
+      };
     }
 
     // Process up to 50 per run to avoid timeouts
-    const result = await ctx.runAction(
+    const result = (await ctx.runAction(
       (internal as any).migrations.backfill_missing_embeddings.backfill,
       {}
-    ) as BackfillResult;
+    )) as BackfillResult;
 
     return result;
   },

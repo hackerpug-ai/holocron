@@ -1,10 +1,10 @@
-import { useState } from 'react'
-import { View, Pressable } from 'react-native'
-import { Text } from '@/components/ui/text'
-import { RecommendationItem } from './RecommendationItem'
-import { RecommendationSources } from './RecommendationSources'
-import { RecommendationActionSheet } from './RecommendationActionSheet'
-import type { RecommendationListCardProps, RecommendationItemData } from './types/recommendation'
+import { useState } from 'react';
+import { Pressable, View } from 'react-native';
+import { Text } from '@/components/ui/text';
+import { RecommendationActionSheet } from './RecommendationActionSheet';
+import { RecommendationItem } from './RecommendationItem';
+import { RecommendationSources } from './RecommendationSources';
+import type { RecommendationItemData, RecommendationListCardProps } from './types/recommendation';
 
 export function RecommendationListCard({
   data,
@@ -13,12 +13,12 @@ export function RecommendationListCard({
   onSaveRecommendation,
   testID,
 }: RecommendationListCardProps) {
-  const [activeItem, setActiveItem] = useState<RecommendationItemData | null>(null)
+  const [activeItem, setActiveItem] = useState<RecommendationItemData | null>(null);
 
   const handleSaveRecommendation = (item: RecommendationItemData) => {
-    onSaveRecommendation?.(item)
-    setActiveItem(null)
-  }
+    onSaveRecommendation?.(item);
+    setActiveItem(null);
+  };
 
   return (
     <View testID={testID || 'recommendation-list-card'} className="py-4">
@@ -72,5 +72,5 @@ export function RecommendationListCard({
         onSave={handleSaveRecommendation}
       />
     </View>
-  )
+  );
 }

@@ -13,16 +13,9 @@
  * - Theme-aware styling with semantic tokens
  */
 
-import { useState } from 'react'
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  View,
-} from 'react-native'
-import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
-import { Text } from '@/components/ui/text'
-import { cn } from '@/lib/utils'
+import { useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
+import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import {
   Check,
   ChevronDown,
@@ -32,12 +25,10 @@ import {
   ShoppingCart,
   Sparkles,
   X,
-} from '@/components/ui/icons'
-import type {
-  PlanStatus,
-  PlanStep,
-  PlanType,
-} from '@/lib/types/plan-cards'
+} from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import type { PlanStatus, PlanStep, PlanType } from '@/lib/types/plan-cards';
+import { cn } from '@/lib/utils';
 
 // ============================================================
 // Types
@@ -45,31 +36,31 @@ import type {
 
 export interface PlanConfirmationCardProps {
   /** Unique identifier for the plan */
-  planId: string
+  planId: string;
   /** Type of plan */
-  planType: PlanType
+  planType: PlanType;
   /** Plan title */
-  title: string
+  title: string;
   /** Plan description */
-  description?: string
+  description?: string;
   /** Current status of the plan */
-  status: PlanStatus
+  status: PlanStatus;
   /** Plan steps to execute */
-  steps: PlanStep[]
+  steps: PlanStep[];
   /** Estimated execution time in seconds */
-  estimatedTimeSeconds?: number
+  estimatedTimeSeconds?: number;
   /** Estimated cost in USD */
-  estimatedCostUsd?: number
+  estimatedCostUsd?: number;
   /** Additional metadata for display */
-  metadata?: Record<string, unknown>
+  metadata?: Record<string, unknown>;
   /** Callback when plan is approved */
-  onApprove?: () => void
+  onApprove?: () => void;
   /** Callback when plan is rejected (with optional feedback) */
-  onReject?: (feedback?: string) => void
+  onReject?: (feedback?: string) => void;
   /** Callback when plan is modified */
-  onModify?: () => void
+  onModify?: () => void;
   /** Test ID prefix for testing */
-  testID?: string
+  testID?: string;
 }
 
 // ============================================================
@@ -100,12 +91,9 @@ const PLAN_TYPE_CONFIG: Record<
     icon: Sparkles,
     className: 'text-primary',
   },
-}
+};
 
-const STATUS_BADGE: Record<
-  PlanStatus,
-  { label: string; className: string }
-> = {
+const STATUS_BADGE: Record<PlanStatus, { label: string; className: string }> = {
   created: {
     label: 'Created',
     className: 'bg-muted text-muted-foreground',
@@ -142,71 +130,50 @@ const STATUS_BADGE: Record<
     label: 'Rejected',
     className: 'bg-destructive/15 text-destructive',
   },
-}
+};
 
 // ============================================================
 // Sub-components
 // ============================================================
 
-function PlanTypeBadge({
-  planType,
-}: {
-  planType: PlanType
-}) {
-  const config = PLAN_TYPE_CONFIG[planType]
-  const Icon = config.icon
+function PlanTypeBadge({ planType }: { planType: PlanType }) {
+  const config = PLAN_TYPE_CONFIG[planType];
+  const Icon = config.icon;
 
   return (
     <View className="flex-row items-center gap-1.5">
       <Icon size={14} className={cn('shrink-0', config.className)} />
-      <Text className={cn('text-xs font-semibold', config.className)}>
-        {config.label}
-      </Text>
+      <Text className={cn('text-xs font-semibold', config.className)}>{config.label}</Text>
     </View>
-  )
+  );
 }
 
 function StatusBadge({ status }: { status: PlanStatus }) {
-  const config = STATUS_BADGE[status]
+  const config = STATUS_BADGE[status];
 
   return (
     <View className={cn('rounded-full px-2 py-0.5', config.className)}>
-      <Text className={cn('text-xs font-semibold', config.className)}>
-        {config.label}
-      </Text>
+      <Text className={cn('text-xs font-semibold', config.className)}>{config.label}</Text>
     </View>
-  )
+  );
 }
 
-function PlanStepItem({
-  step,
-  index,
-}: {
-  step: PlanStep
-  index: number
-}) {
-  const [expanded, setExpanded] = useState(false)
+function PlanStepItem({ step, index }: { step: PlanStep; index: number }) {
+  const [expanded, setExpanded] = useState(false);
 
   return (
-    <View
-      className="border-b border-border last:border-b-0 py-3"
-      testID={`plan-step-${index}`}
-    >
+    <View className="border-b border-border last:border-b-0 py-3" testID={`plan-step-${index}`}>
       <Pressable
         className="flex-row items-start gap-2"
         onPress={() => setExpanded(!expanded)}
         testID={`plan-step-${index}-toggle`}
       >
         <View className="w-6 h-6 rounded-full bg-muted items-center justify-center mt-0.5">
-          <Text className="text-xs font-semibold text-foreground">
-            {index + 1}
-          </Text>
+          <Text className="text-xs font-semibold text-foreground">{index + 1}</Text>
         </View>
 
         <View className="flex-1 gap-1">
-          <Text className="text-sm font-medium text-foreground">
-            {step.description}
-          </Text>
+          <Text className="text-sm font-medium text-foreground">{step.description}</Text>
 
           {step.requiresApproval ? (
             <View className="flex-row items-center gap-1">
@@ -216,9 +183,7 @@ function PlanStepItem({
           ) : null}
 
           {expanded && step.toolDisplayName ? (
-            <Text className="text-xs text-muted-foreground mt-1">
-              Tool: {step.toolDisplayName}
-            </Text>
+            <Text className="text-xs text-muted-foreground mt-1">Tool: {step.toolDisplayName}</Text>
           ) : null}
         </View>
 
@@ -229,7 +194,7 @@ function PlanStepItem({
         )}
       </Pressable>
     </View>
-  )
+  );
 }
 
 function MetadataRow({
@@ -237,18 +202,16 @@ function MetadataRow({
   value,
   testID,
 }: {
-  label: string
-  value: string | number
-  testID?: string
+  label: string;
+  value: string | number;
+  testID?: string;
 }) {
   return (
     <View className="flex-row items-center gap-2" testID={testID}>
-      <Text className="text-xs text-muted-foreground uppercase tracking-wide w-24">
-        {label}
-      </Text>
+      <Text className="text-xs text-muted-foreground uppercase tracking-wide w-24">{label}</Text>
       <Text className="text-sm text-foreground font-medium">{value}</Text>
     </View>
-  )
+  );
 }
 
 // ============================================================
@@ -276,31 +239,28 @@ export function PlanConfirmationCard({
   onModify,
   testID = 'plan-confirmation-card',
 }: PlanConfirmationCardProps) {
-  const [stepsExpanded, setStepsExpanded] = useState(true)
-  const [showFeedback, setShowFeedback] = useState(false)
-  const [feedbackText, setFeedbackText] = useState('')
+  const [stepsExpanded, setStepsExpanded] = useState(true);
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [feedbackText, setFeedbackText] = useState('');
 
-  const isPending = status === 'pending_approval'
-  const isExecuting = status === 'executing' || status === 'in_progress'
-  const isCompleted = status === 'completed'
-  const isRejected = status === 'rejected'
+  const isPending = status === 'pending_approval';
+  const isExecuting = status === 'executing' || status === 'in_progress';
+  const isCompleted = status === 'completed';
+  const isRejected = status === 'rejected';
 
   const handleRejectPress = () => {
     if (showFeedback) {
-      onReject?.(feedbackText.trim() || undefined)
-      setShowFeedback(false)
-      setFeedbackText('')
+      onReject?.(feedbackText.trim() || undefined);
+      setShowFeedback(false);
+      setFeedbackText('');
     } else {
-      setShowFeedback(true)
+      setShowFeedback(true);
     }
-  }
+  };
 
   return (
     <Card
-      className={cn(
-        'border',
-        isPending ? 'border-primary/50' : 'border-border'
-      )}
+      className={cn('border', isPending ? 'border-primary/50' : 'border-border')}
       testID={testID}
     >
       {/* ── Header ── */}
@@ -311,14 +271,10 @@ export function PlanConfirmationCard({
           <StatusBadge status={status} />
         </View>
 
-        <Text className="text-foreground font-semibold text-lg mt-2">
-          {title}
-        </Text>
+        <Text className="text-foreground font-semibold text-lg mt-2">{title}</Text>
 
         {description ? (
-          <Text className="text-muted-foreground text-sm mt-1">
-            {description}
-          </Text>
+          <Text className="text-muted-foreground text-sm mt-1">{description}</Text>
         ) : null}
 
         {/* Plan ID (for debugging) */}
@@ -330,9 +286,7 @@ export function PlanConfirmationCard({
       {/* ── Content ── */}
       <CardContent className="gap-4 pt-0">
         {/* Metadata section */}
-        {(estimatedTimeSeconds !== undefined ||
-          estimatedCostUsd !== undefined ||
-          metadata) && (
+        {(estimatedTimeSeconds !== undefined || estimatedCostUsd !== undefined || metadata) && (
           <View className="bg-muted/50 rounded-lg px-3 py-3 gap-2">
             <Text className="text-muted-foreground text-xs font-semibold uppercase tracking-wide mb-1">
               Plan Details
@@ -388,10 +342,7 @@ export function PlanConfirmationCard({
           </Pressable>
 
           {stepsExpanded ? (
-            <ScrollView
-              className="bg-muted/30 rounded-lg"
-              showsVerticalScrollIndicator={false}
-            >
+            <ScrollView className="bg-muted/30 rounded-lg" showsVerticalScrollIndicator={false}>
               {steps.map((step, index) => (
                 <PlanStepItem key={step.stepIndex} step={step} index={index} />
               ))}
@@ -403,9 +354,7 @@ export function PlanConfirmationCard({
         {isExecuting ? (
           <View className="flex-row items-center gap-2 py-1">
             <ActivityIndicator size="small" />
-            <Text className="text-muted-foreground text-sm">
-              Executing plan...
-            </Text>
+            <Text className="text-muted-foreground text-sm">Executing plan...</Text>
           </View>
         ) : null}
 
@@ -413,9 +362,7 @@ export function PlanConfirmationCard({
         {isCompleted ? (
           <View className="flex-row items-center gap-2 py-1">
             <Check size={16} className="text-success" />
-            <Text className="text-success text-sm font-medium">
-              Plan completed successfully
-            </Text>
+            <Text className="text-success text-sm font-medium">Plan completed successfully</Text>
           </View>
         ) : null}
 
@@ -451,9 +398,7 @@ export function PlanConfirmationCard({
             onPress={onApprove}
           >
             <Check size={15} className="text-primary-foreground" />
-            <Text className="text-primary-foreground text-sm font-semibold">
-              Approve
-            </Text>
+            <Text className="text-primary-foreground text-sm font-semibold">Approve</Text>
           </Pressable>
 
           {onModify ? (
@@ -463,9 +408,7 @@ export function PlanConfirmationCard({
               onPress={onModify}
             >
               <Pencil size={15} className="text-foreground" />
-              <Text className="text-foreground text-sm font-semibold">
-                Modify
-              </Text>
+              <Text className="text-foreground text-sm font-semibold">Modify</Text>
             </Pressable>
           ) : null}
 
@@ -482,5 +425,5 @@ export function PlanConfirmationCard({
         </CardFooter>
       ) : null}
     </Card>
-  )
+  );
 }

@@ -10,15 +10,15 @@
  * Status:   npx convex run migrations/normalize_card_data:status
  */
 
-import { mutation, query } from "../_generated/server";
-import { v } from "convex/values";
+import { v } from 'convex/values';
+import { mutation, query } from '../_generated/server';
 
 /**
  * Check how many array cardData documents exist
  */
 export const status = query({
   handler: async (ctx) => {
-    const messages = await ctx.db.query("chatMessages").collect();
+    const messages = await ctx.db.query('chatMessages').collect();
     let arrayCount = 0;
     let objectCount = 0;
     let nullCount = 0;
@@ -51,7 +51,7 @@ export const run = mutation({
     dryRun: v.optional(v.boolean()),
   },
   handler: async (ctx, { dryRun = false }) => {
-    const messages = await ctx.db.query("chatMessages").collect();
+    const messages = await ctx.db.query('chatMessages').collect();
     let migrated = 0;
     let skipped = 0;
     const migratedIds: string[] = [];
@@ -65,7 +65,7 @@ export const run = mutation({
       if (!dryRun) {
         await ctx.db.patch(m._id, {
           cardData: {
-            card_type: "search_results",
+            card_type: 'search_results',
             items: m.cardData,
           },
         });

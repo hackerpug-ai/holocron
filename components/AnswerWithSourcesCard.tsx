@@ -1,25 +1,25 @@
-import { Card, CardContent } from '@/components/ui/card'
-import { Text } from '@/components/ui/text'
-import { View } from 'react-native'
-import { cn } from '@/lib/utils'
+import { View } from 'react-native';
+import { Card, CardContent } from '@/components/ui/card';
+import { Text } from '@/components/ui/text';
+import { cn } from '@/lib/utils';
 
 export interface Source {
-  title: string
-  url: string
-  snippet: string
+  title: string;
+  url: string;
+  snippet: string;
 }
 
 export interface AnswerWithSourcesCardData {
-  card_type: 'answer_with_sources'
-  sources: Source[]
-  durationMs?: number
+  card_type: 'answer_with_sources';
+  sources: Source[];
+  durationMs?: number;
 }
 
 interface AnswerWithSourcesCardProps {
   /** Card data containing sources and metadata */
-  cardData: AnswerWithSourcesCardData
+  cardData: AnswerWithSourcesCardData;
   /** Optional className for custom styling */
-  className?: string
+  className?: string;
 }
 
 /**
@@ -32,7 +32,7 @@ interface AnswerWithSourcesCardProps {
  * - Source list with titles and snippets
  */
 export function AnswerWithSourcesCard({ cardData, className }: AnswerWithSourcesCardProps) {
-  const { sources, durationMs } = cardData
+  const { sources, durationMs } = cardData;
 
   const content = (
     <Card className={cn('border-border/50', className)}>
@@ -55,17 +55,11 @@ export function AnswerWithSourcesCard({ cardData, className }: AnswerWithSources
         {/* Sources list */}
         <View className="gap-2">
           {sources.map((source, index) => (
-            <View
-              key={index}
-              className="border-l-2 border-primary/50 pl-2 py-1 gap-0.5"
-            >
+            <View key={index} className="border-l-2 border-primary/50 pl-2 py-1 gap-0.5">
               <Text className="text-sm font-medium text-primary leading-tight">
                 [{index + 1}] {source.title}
               </Text>
-              <Text
-                className="text-xs text-muted-foreground leading-tight"
-                numberOfLines={2}
-              >
+              <Text className="text-xs text-muted-foreground leading-tight" numberOfLines={2}>
                 {source.snippet}
               </Text>
             </View>
@@ -73,7 +67,7 @@ export function AnswerWithSourcesCard({ cardData, className }: AnswerWithSources
         </View>
       </CardContent>
     </Card>
-  )
+  );
 
-  return content
+  return content;
 }

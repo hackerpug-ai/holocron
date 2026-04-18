@@ -1,8 +1,8 @@
-import { Icon } from '@/components/ui/icon';
-import { cn } from '@/lib/utils';
 import * as CheckboxPrimitive from '@rn-primitives/checkbox';
-import { Check } from '@/components/ui/icons';
 import { Platform } from 'react-native';
+import { Icon } from '@/components/ui/icon';
+import { Check } from '@/components/ui/icons';
+import { cn } from '@/lib/utils';
 
 const DEFAULT_HIT_SLOP = 24;
 
@@ -31,9 +31,11 @@ function Checkbox({
         className
       )}
       hitSlop={DEFAULT_HIT_SLOP}
-      {...props}>
+      {...props}
+    >
       <CheckboxPrimitive.Indicator
-        className={cn('bg-primary h-full w-full items-center justify-center', indicatorClassName)}>
+        className={cn('bg-primary h-full w-full items-center justify-center', indicatorClassName)}
+      >
         <Icon
           as={Check}
           size={12}

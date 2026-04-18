@@ -1,39 +1,39 @@
-import { CategoryBadge, type CategoryType } from '@/components/CategoryBadge'
-import { SectionHeader } from '@/components/SectionHeader'
-import { Text } from '@/components/ui/text'
-import { cn } from '@/lib/utils'
-import { Calendar, Clock, ExternalLink, Share2 } from '@/components/ui/icons'
-import { Pressable, ScrollView, View, type ViewProps } from 'react-native'
+import { Pressable, ScrollView, View, type ViewProps } from 'react-native';
+import { CategoryBadge, type CategoryType } from '@/components/CategoryBadge';
+import { SectionHeader } from '@/components/SectionHeader';
+import { Calendar, Clock, ExternalLink, Share2 } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { cn } from '@/lib/utils';
 
 interface ArticleMetadata {
-  source?: string
-  sourceUrl?: string
-  wordCount?: number
-  readingTime?: number
-  lastUpdated?: string
+  source?: string;
+  sourceUrl?: string;
+  wordCount?: number;
+  readingTime?: number;
+  lastUpdated?: string;
 }
 
 interface ArticleScreenProps extends Omit<ViewProps, 'children'> {
   /** Article title */
-  title: string
+  title: string;
   /** Article category */
-  category: CategoryType
+  category: CategoryType;
   /** Publication date (ISO string or Date) */
-  date: string | Date
+  date: string | Date;
   /** Full article content (markdown or plain text) */
-  content: string
+  content: string;
   /** Research iteration count (for deep research) */
-  iterationCount?: number
+  iterationCount?: number;
   /** Additional metadata */
-  metadata?: ArticleMetadata
+  metadata?: ArticleMetadata;
   /** Related topics/tags */
-  tags?: string[]
+  tags?: string[];
   /** Callback when share button is pressed */
-  onSharePress?: () => void
+  onSharePress?: () => void;
   /** Callback when source link is pressed */
-  onSourcePress?: () => void
+  onSourcePress?: () => void;
   /** Callback when a tag is pressed */
-  onTagPress?: (_tag: string) => void
+  onTagPress?: (_tag: string) => void;
 }
 
 /**
@@ -54,17 +54,17 @@ export function ArticleScreen({
   className,
   ...props
 }: ArticleScreenProps) {
-  const dateObj = typeof date === 'string' ? new Date(date) : date
+  const dateObj = typeof date === 'string' ? new Date(date) : date;
   const formattedDate = dateObj.toLocaleDateString('en-US', {
     weekday: 'long',
     month: 'long',
     day: 'numeric',
     year: 'numeric',
-  })
+  });
   const formattedTime = dateObj.toLocaleTimeString('en-US', {
     hour: 'numeric',
     minute: '2-digit',
-  })
+  });
 
   return (
     <ScrollView
@@ -79,9 +79,7 @@ export function ArticleScreen({
           <View className="flex-row items-center gap-2">
             <CategoryBadge category={category} />
             {iterationCount && iterationCount > 1 && (
-              <Text className="text-muted-foreground text-xs">
-                {iterationCount} iterations
-              </Text>
+              <Text className="text-muted-foreground text-xs">{iterationCount} iterations</Text>
             )}
           </View>
           {onSharePress && (
@@ -107,9 +105,7 @@ export function ArticleScreen({
             <Text className="text-muted-foreground text-sm">{formattedTime}</Text>
           </View>
           {metadata?.readingTime && (
-            <Text className="text-muted-foreground text-sm">
-              {metadata.readingTime} min read
-            </Text>
+            <Text className="text-muted-foreground text-sm">{metadata.readingTime} min read</Text>
           )}
         </View>
       </View>
@@ -124,7 +120,12 @@ export function ArticleScreen({
             testID="article-source-link"
           >
             <ExternalLink size={14} className="text-primary" />
-            <Text className={cn('text-sm', metadata.sourceUrl ? 'text-primary' : 'text-muted-foreground')}>
+            <Text
+              className={cn(
+                'text-sm',
+                metadata.sourceUrl ? 'text-primary' : 'text-muted-foreground'
+              )}
+            >
               {metadata.source}
             </Text>
           </Pressable>
@@ -173,5 +174,5 @@ export function ArticleScreen({
         </View>
       )}
     </ScrollView>
-  )
+  );
 }

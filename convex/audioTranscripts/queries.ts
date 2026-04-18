@@ -1,5 +1,5 @@
-import { internalQuery } from "../_generated/server";
-import { v } from "convex/values";
+import { v } from 'convex/values';
+import { internalQuery } from '../_generated/server';
 /**
  * List pending audio transcript jobs, sorted by priority (high first) then createdAt
  */
@@ -7,8 +7,8 @@ export const listPendingJobs = internalQuery({
   args: {},
   handler: async (ctx) => {
     const jobs = await ctx.db
-      .query("audioTranscriptJobs")
-      .withIndex("by_status", (q) => q.eq("status", "pending"))
+      .query('audioTranscriptJobs')
+      .withIndex('by_status', (q) => q.eq('status', 'pending'))
       .collect();
 
     // Sort by priority (descending) then createdAt (ascending)
@@ -26,7 +26,7 @@ export const listPendingJobs = internalQuery({
  */
 export const getJob = internalQuery({
   args: {
-    jobId: v.id("audioTranscriptJobs"),
+    jobId: v.id('audioTranscriptJobs'),
   },
   handler: async (ctx, args) => {
     return await ctx.db.get(args.jobId);
@@ -42,8 +42,8 @@ export const getTranscriptByContentId = internalQuery({
   },
   handler: async (ctx, args) => {
     const transcripts = await ctx.db
-      .query("audioTranscripts")
-      .withIndex("by_content_id", (q) => q.eq("contentId", args.contentId))
+      .query('audioTranscripts')
+      .withIndex('by_content_id', (q) => q.eq('contentId', args.contentId))
       .collect();
 
     return transcripts[0] || null;
@@ -59,8 +59,8 @@ export const getTranscriptBySourceUrl = internalQuery({
   },
   handler: async (ctx, args) => {
     const transcripts = await ctx.db
-      .query("audioTranscripts")
-      .withIndex("by_source_url", (q) => q.eq("sourceUrl", args.sourceUrl))
+      .query('audioTranscripts')
+      .withIndex('by_source_url', (q) => q.eq('sourceUrl', args.sourceUrl))
       .collect();
 
     return transcripts[0] || null;
@@ -73,7 +73,7 @@ export const getTranscriptBySourceUrl = internalQuery({
  */
 export const getTranscriptMetadata = internalQuery({
   args: {
-    transcriptId: v.id("audioTranscripts"),
+    transcriptId: v.id('audioTranscripts'),
   },
   handler: async (ctx, args) => {
     const transcript = await ctx.db.get(args.transcriptId);

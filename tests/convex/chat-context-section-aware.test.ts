@@ -16,7 +16,7 @@
  *       (the excerpt text is already in the message content field)
  */
 
-import { describe, it, expect, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 // DocumentContextCardData shape used by the system
 type DocumentContextCardData = {

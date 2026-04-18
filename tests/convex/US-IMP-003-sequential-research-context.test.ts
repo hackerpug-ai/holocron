@@ -4,7 +4,7 @@
  * Tests for session context tracking across sequential research queries
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 describe('US-IMP-003: Sequential Research Context', () => {
   /**

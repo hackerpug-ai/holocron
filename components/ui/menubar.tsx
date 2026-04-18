@@ -1,10 +1,5 @@
-import { Icon } from '@/components/ui/icon';
-import { NativeOnlyAnimatedView } from '@/components/ui/native-only-animated-view';
-import { TextClassContext } from '@/components/ui/text';
-import { cn } from '@/lib/utils';
 import * as MenubarPrimitive from '@rn-primitives/menubar';
 import { Portal } from '@rn-primitives/portal';
-import { Check, ChevronDown, ChevronRight, ChevronUp } from '@/components/ui/icons';
 import * as React from 'react';
 import {
   Platform,
@@ -18,6 +13,11 @@ import {
 } from 'react-native';
 import { FadeIn } from 'react-native-reanimated';
 import { FullWindowOverlay as RNFullWindowOverlay } from 'react-native-screens';
+import { Icon } from '@/components/ui/icon';
+import { Check, ChevronDown, ChevronRight, ChevronUp } from '@/components/ui/icons';
+import { NativeOnlyAnimatedView } from '@/components/ui/native-only-animated-view';
+import { TextClassContext } from '@/components/ui/text';
+import { cn } from '@/lib/utils';
 
 const MenubarMenu = MenubarPrimitive.Menu;
 
@@ -80,7 +80,8 @@ function MenubarTrigger({
       value={cn(
         'text-sm font-medium select-none group-active:text-accent-foreground',
         value === itemValue && 'text-accent-foreground'
-      )}>
+      )}
+    >
       <MenubarPrimitive.Trigger
         className={cn(
           'group flex items-center rounded-md px-2 py-1.5 sm:py-1',
@@ -115,7 +116,8 @@ function MenubarSubTrigger({
       value={cn(
         'text-sm select-none group-active:text-accent-foreground',
         open && 'text-accent-foreground'
-      )}>
+      )}
+    >
       <MenubarPrimitive.SubTrigger
         className={cn(
           'active:bg-accent group flex flex-row items-center rounded-sm px-2 py-2 sm:py-1.5',
@@ -125,7 +127,8 @@ function MenubarSubTrigger({
           open && 'bg-accent',
           inset && 'pl-8'
         )}
-        {...props}>
+        {...props}
+      >
         <>{children}</>
         <Icon as={icon} className={cn('text-foreground ml-auto size-4 shrink-0', iconClassName)} />
       </MenubarPrimitive.SubTrigger>
@@ -174,7 +177,8 @@ function MenubarContent({
         <NativeOnlyAnimatedView
           entering={FadeIn}
           style={StyleSheet.absoluteFill}
-          pointerEvents="box-none">
+          pointerEvents="box-none"
+        >
           <TextClassContext.Provider value="text-popover-foreground">
             <MenubarPrimitive.Content
               className={cn(
@@ -216,7 +220,8 @@ function MenubarItem({
       value={cn(
         'select-none text-sm text-popover-foreground group-active:text-popover-foreground',
         variant === 'destructive' && 'text-destructive group-active:text-destructive'
-      )}>
+      )}
+    >
       <MenubarPrimitive.Item
         className={cn(
           'active:bg-accent group relative flex flex-row items-center gap-2 rounded-sm px-2 py-2 sm:py-1.5',
@@ -256,7 +261,8 @@ function MenubarCheckboxItem({
           props.disabled && 'opacity-50',
           className
         )}
-        {...props}>
+        {...props}
+      >
         <View className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
           <MenubarPrimitive.ItemIndicator>
             <Icon
@@ -293,7 +299,8 @@ function MenubarRadioItem({
           props.disabled && 'opacity-50',
           className
         )}
-        {...props}>
+        {...props}
+      >
         <View className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
           <MenubarPrimitive.ItemIndicator>
             <View className="bg-foreground h-2 w-2 rounded-full" />

@@ -11,70 +11,66 @@
  * ```
  */
 
-import { api } from '@/convex/_generated/api'
-import { Bell } from '@/components/ui/icons'
-import { useMutation, useQuery } from 'convex/react'
-import * as React from 'react'
-import { Pressable } from 'react-native'
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-} from 'react-native-reanimated'
+import { useMutation, useQuery } from 'convex/react';
+import * as React from 'react';
+import { Pressable } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import { Bell } from '@/components/ui/icons';
+import { api } from '@/convex/_generated/api';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const DOT_TIMEOUT_MS = 10 * 60 * 1000 // 10 minutes
+const DOT_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface NotificationBellButtonProps {
-  onPress: () => void
-  testID?: string
+  onPress: () => void;
+  testID?: string;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function NotificationBellButton({ onPress, testID }: NotificationBellButtonProps) {
-  const lastSeen = useQuery(api.notifications.queries.getLastSeen) ?? 0
-  const hasNew = useQuery(api.notifications.queries.hasNewSince, { since: lastSeen })
-  const updateLastSeen = useMutation(api.notifications.mutations.updateLastSeen)
+  const lastSeen = useQuery(api.notifications.queries.getLastSeen) ?? 0;
+  const hasNew = useQuery(api.notifications.queries.hasNewSince, { since: lastSeen });
+  const updateLastSeen = useMutation(api.notifications.mutations.updateLastSeen);
 
-  const [showDot, setShowDot] = React.useState(false)
-  const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
-  const dotScale = useSharedValue(0)
+  const [showDot, setShowDot] = React.useState(false);
+  const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dotScale = useSharedValue(0);
 
   // When hasNew changes, manage dot visibility and 10-min auto-clear timer
   React.useEffect(() => {
     if (hasNew) {
-      setShowDot(true)
-      dotScale.value = withSpring(1, { damping: 12, stiffness: 200 })
+      setShowDot(true);
+      dotScale.value = withSpring(1, { damping: 12, stiffness: 200 });
 
       // Reset timer
-      if (timerRef.current) clearTimeout(timerRef.current)
+      if (timerRef.current) clearTimeout(timerRef.current);
       timerRef.current = setTimeout(() => {
-        setShowDot(false)
-        dotScale.value = withSpring(0)
-        updateLastSeen().catch(() => {})
-      }, DOT_TIMEOUT_MS)
+        setShowDot(false);
+        dotScale.value = withSpring(0);
+        updateLastSeen().catch(() => {});
+      }, DOT_TIMEOUT_MS);
     }
 
     return () => {
-      if (timerRef.current) clearTimeout(timerRef.current)
-    }
-  }, [hasNew])
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [hasNew]);
 
   const dotStyle = useAnimatedStyle(() => ({
     transform: [{ scale: dotScale.value }],
-  }))
+  }));
 
   const handlePress = () => {
-    setShowDot(false)
-    dotScale.value = withSpring(0)
-    if (timerRef.current) clearTimeout(timerRef.current)
-    updateLastSeen().catch(() => {})
-    onPress()
-  }
+    setShowDot(false);
+    dotScale.value = withSpring(0);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    updateLastSeen().catch(() => {});
+    onPress();
+  };
 
   return (
     <Pressable
@@ -104,5 +100,5 @@ export function NotificationBellButton({ onPress, testID }: NotificationBellButt
         />
       )}
     </Pressable>
-  )
+  );
 }

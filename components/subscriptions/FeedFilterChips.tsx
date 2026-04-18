@@ -1,21 +1,21 @@
-import { ScrollView, StyleSheet, View, Pressable } from 'react-native'
-import { Text } from '@/components/ui/text'
-import { useTheme } from '@/hooks/use-theme'
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from '@/components/ui/text';
+import { useTheme } from '@/hooks/use-theme';
 
-export type FeedCategory = 'all' | 'video' | 'articles' | 'social' | 'releases'
+export type FeedCategory = 'all' | 'video' | 'articles' | 'social' | 'releases';
 
 interface FeedFilterChipsProps {
   /** Currently selected category */
-  activeCategory: FeedCategory
+  activeCategory: FeedCategory;
   /** Callback when category is changed */
-  onCategoryChange: (category: FeedCategory) => void
+  onCategoryChange: (category: FeedCategory) => void;
   /** Count of items per category */
-  counts: Record<FeedCategory, number>
+  counts: Record<FeedCategory, number>;
   /** Test ID prefix for testing */
-  testID?: string
+  testID?: string;
 }
 
-const CATEGORY_ORDER: FeedCategory[] = ['all', 'video', 'articles', 'social', 'releases']
+const CATEGORY_ORDER: FeedCategory[] = ['all', 'video', 'articles', 'social', 'releases'];
 
 const CATEGORY_LABELS: Record<FeedCategory, string> = {
   all: 'All',
@@ -23,7 +23,7 @@ const CATEGORY_LABELS: Record<FeedCategory, string> = {
   articles: 'Articles',
   social: 'Social',
   releases: 'Releases',
-}
+};
 
 /**
  * FeedFilterChips displays horizontally scrollable category filter chips
@@ -35,7 +35,7 @@ export function FeedFilterChips({
   counts,
   testID = 'feed-filter-chips',
 }: FeedFilterChipsProps) {
-  const { colors, spacing, radius } = useTheme()
+  const { colors, spacing, radius } = useTheme();
 
   return (
     <View
@@ -59,9 +59,9 @@ export function FeedFilterChips({
         testID={`${testID}-scroll`}
       >
         {CATEGORY_ORDER.map((category) => {
-          const isActive = activeCategory === category
-          const count = counts[category]
-          const label = CATEGORY_LABELS[category]
+          const isActive = activeCategory === category;
+          const count = counts[category];
+          const label = CATEGORY_LABELS[category];
 
           return (
             <Pressable
@@ -94,11 +94,11 @@ export function FeedFilterChips({
                 {label} ({count})
               </Text>
             </Pressable>
-          )
+          );
         })}
       </ScrollView>
     </View>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
@@ -113,4 +113,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-})
+});

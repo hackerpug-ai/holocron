@@ -11,15 +11,15 @@
  * - Error handling (rate limits, auth, network, validation)
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  jinaSearch,
+  JinaError,
+  JinaReaderResultSchema,
+  JinaSearchResultSchema,
   jinaReader,
   jinaReaderBatch,
+  jinaSearch,
   jinaSearchAndRead,
-  JinaError,
-  JinaSearchResultSchema,
-  JinaReaderResultSchema,
 } from '../../../convex/lib/jina';
 
 describe('Jina Helper Module', () => {
@@ -308,9 +308,7 @@ describe('Jina Helper Module', () => {
 
       global.fetch = vi.fn().mockRejectedValue(abortError);
 
-      await expect(
-        jinaReader(testUrl, { apiKey: mockApiKey, timeout: 50 })
-      ).rejects.toMatchObject({
+      await expect(jinaReader(testUrl, { apiKey: mockApiKey, timeout: 50 })).rejects.toMatchObject({
         type: 'network',
         message: expect.stringContaining('timed out'),
       });
@@ -334,13 +332,10 @@ describe('Jina Helper Module', () => {
     ];
 
     it('should successfully read multiple URLs in parallel', async () => {
-      const mockContents = [
-        'Content 1',
-        'Content 2',
-        'Content 3',
-      ];
+      const mockContents = ['Content 1', 'Content 2', 'Content 3'];
 
-      global.fetch = vi.fn()
+      global.fetch = vi
+        .fn()
         .mockResolvedValueOnce({
           ok: true,
           status: 200,
@@ -366,7 +361,8 @@ describe('Jina Helper Module', () => {
     });
 
     it('should handle partial failures without throwing', async () => {
-      global.fetch = vi.fn()
+      global.fetch = vi
+        .fn()
         .mockResolvedValueOnce({
           ok: true,
           status: 200,
@@ -405,11 +401,7 @@ describe('Jina Helper Module', () => {
         { title: 'Result 3', url: 'https://example.com/3', content: 'Snippet 3' },
       ];
 
-      const mockReadContents = [
-        'Full content 1',
-        'Full content 2',
-        'Full content 3',
-      ];
+      const mockReadContents = ['Full content 1', 'Full content 2', 'Full content 3'];
 
       // Mock search call
       let callCount = 0;

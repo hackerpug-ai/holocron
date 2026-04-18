@@ -12,16 +12,13 @@
  * Also logs improvements to app/product based on technical findings.
  */
 
-"use node";
+'use node';
 
-import { internal } from "../../_generated/api";
-import type { ActionCtx } from "../../_generated/server";
-import { generateText } from "ai";
-import { claudeFlash } from "../../lib/ai/anthropic_provider";
-import {
-  executeParallelSearchWithRetry,
-  type ParallelSearchResult,
-} from "../search";
+import { generateText } from 'ai';
+import { internal } from '../../_generated/api';
+import type { ActionCtx } from '../../_generated/server';
+import { claudeFlash } from '../../lib/ai/anthropic_provider';
+import { executeParallelSearchWithRetry, type ParallelSearchResult } from '../search';
 
 // ============================================================================
 // Types
@@ -31,7 +28,7 @@ import {
  * Technical research report structure
  */
 export interface TechnicalReport {
-  specialist: "technical";
+  specialist: 'technical';
   query: string;
   findings: string;
   sources: Array<{
@@ -66,30 +63,21 @@ export async function executeTechnicalResearch(
   ctx: ActionCtx,
   query: string
 ): Promise<TechnicalReport> {
-
   // Enhance query with technical-specific terms
   const technicalQuery = `${query} implementation code example API documentation tutorial`;
 
   // Execute parallel search with retry
-  const searchResult = await executeParallelSearchWithRetry(
-    technicalQuery,
-    {},
-    [],
-    {
-      maxRetries: 2,
-      timeoutMs: 15000,
-      deduplicateResults: true,
-    }
-  );
-
-  
+  const searchResult = await executeParallelSearchWithRetry(technicalQuery, {}, [], {
+    maxRetries: 2,
+    timeoutMs: 15000,
+    deduplicateResults: true,
+  });
 
   // Generate technical report using LLM
   const technicalReport = await generateTechnicalReport(query, searchResult);
 
   // Log improvements if any product/app suggestions found
   await logImprovementsFromTechnicalResearch(ctx, query, technicalReport);
-
 
   return technicalReport;
 }
@@ -113,7 +101,7 @@ async function generateTechnicalReport(
   const report = JSON.parse(text.trim());
 
   return {
-    specialist: "technical",
+    specialist: 'technical',
     query,
     findings: report.findings,
     sources: searchResult.structuredResults.map((source) => ({
@@ -137,13 +125,10 @@ async function generateTechnicalReport(
 /**
  * Build prompt for technical report generation
  */
-function buildTechnicalPrompt(
-  query: string,
-  searchResult: ParallelSearchResult
-): string {
+function buildTechnicalPrompt(query: string, searchResult: ParallelSearchResult): string {
   const sourcesText = searchResult.structuredResults
     .map((s, i) => `Source ${i + 1}:\nTitle: ${s.title}\nURL: ${s.url}\nContent: ${s.content}`)
-    .join("\n\n");
+    .join('\n\n');
 
   return `You are a technical research specialist. Generate a technical implementation report based on the following sources.
 
@@ -198,12 +183,12 @@ async function logImprovementsFromTechnicalResearch(
 ): Promise<void> {
   // Check if findings suggest any improvements
   const improvementKeywords = [
-    "improve",
-    "enhancement",
-    "better",
-    "optimize",
-    "recommend",
-    "suggest",
+    'improve',
+    'enhancement',
+    'better',
+    'optimize',
+    'recommend',
+    'suggest',
   ];
 
   const hasImprovements = improvementKeywords.some((keyword) =>
@@ -233,20 +218,16 @@ If there are no specific improvement suggestions, return an empty array: []`;
     if (Array.isArray(suggestions) && suggestions.length > 0) {
       // Log each suggestion as an improvement
       for (const suggestion of suggestions) {
-        const description = typeof suggestion === "string" ? suggestion : JSON.stringify(suggestion);
+        const description =
+          typeof suggestion === 'string' ? suggestion : JSON.stringify(suggestion);
 
         await ctx.runMutation(internal.improvements.internal.submitFromSpecialist, {
           description: `[Technical Research] ${description}\n\nQuery: ${query}`,
-          source: "technical_specialist",
+          source: 'technical_specialist',
         });
       }
-
-      
     }
   } catch (error) {
-    console.error(
-      `[logImprovementsFromTechnicalResearch] Failed to log improvements:`,
-      error
-    );
+    console.error(`[logImprovementsFromTechnicalResearch] Failed to log improvements:`, error);
   }
 }

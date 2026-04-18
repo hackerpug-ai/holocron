@@ -3,17 +3,17 @@
  * These actions handle tool creation and updates with vector embeddings
  */
 
-import { action } from "../_generated/server";
-import { v } from "convex/values";
-import { api } from "../_generated/api";
-import { embed } from "ai";
-import { cohereEmbedding } from "../lib/ai/embeddings_provider";
+import { embed } from 'ai';
+import { v } from 'convex/values';
+import { api } from '../_generated/api';
+import { action } from '../_generated/server';
+import { cohereEmbedding } from '../lib/ai/embeddings_provider';
 
 /**
  * "use node" directive - runs in Node.js environment (not V8 isolate)
  * Required for calling external APIs (Cohere embeddings)
  */
-"use node";
+('use node');
 
 /**
  * Generate an embedding for tool content
@@ -26,15 +26,11 @@ async function generateToolEmbedding(
   useCases?: string[]
 ): Promise<number[]> {
   // Combine all relevant text for embedding
-  const textParts = [
-    title,
-    description,
-    content,
-    tags?.join(" "),
-    useCases?.join(" "),
-  ].filter(Boolean);
+  const textParts = [title, description, content, tags?.join(' '), useCases?.join(' ')].filter(
+    Boolean
+  );
 
-  const combinedText = textParts.join(" ").slice(0, 8000);
+  const combinedText = textParts.join(' ').slice(0, 8000);
 
   const { embedding } = await embed({
     model: cohereEmbedding,
@@ -53,27 +49,23 @@ export const createWithEmbedding = action({
     description: v.optional(v.string()),
     content: v.optional(v.string()),
     category: v.union(
-      v.literal("libraries"),
-      v.literal("cli"),
-      v.literal("framework"),
-      v.literal("service"),
-      v.literal("database"),
-      v.literal("tool")
+      v.literal('libraries'),
+      v.literal('cli'),
+      v.literal('framework'),
+      v.literal('service'),
+      v.literal('database'),
+      v.literal('tool')
     ),
-    status: v.optional(v.union(
-      v.literal("complete"),
-      v.literal("draft"),
-      v.literal("archived")
-    )),
+    status: v.optional(v.union(v.literal('complete'), v.literal('draft'), v.literal('archived'))),
     sourceUrl: v.optional(v.string()),
     sourceType: v.union(
-      v.literal("github"),
-      v.literal("npm"),
-      v.literal("pypi"),
-      v.literal("website"),
-      v.literal("cargo"),
-      v.literal("go"),
-      v.literal("other")
+      v.literal('github'),
+      v.literal('npm'),
+      v.literal('pypi'),
+      v.literal('website'),
+      v.literal('cargo'),
+      v.literal('go'),
+      v.literal('other')
     ),
     tags: v.optional(v.array(v.string())),
     useCases: v.optional(v.array(v.string())),
@@ -98,10 +90,10 @@ export const createWithEmbedding = action({
       embedding,
     });
 
-    const result: { toolId: string; embeddingDimensions: number; embeddingStatus: "completed" } = {
+    const result: { toolId: string; embeddingDimensions: number; embeddingStatus: 'completed' } = {
       toolId,
       embeddingDimensions: embedding.length,
-      embeddingStatus: "completed" as const,
+      embeddingStatus: 'completed' as const,
     };
     return result;
   },
@@ -112,33 +104,33 @@ export const createWithEmbedding = action({
  */
 export const updateWithEmbedding = action({
   args: {
-    id: v.id("toolbeltTools"),
+    id: v.id('toolbeltTools'),
     title: v.optional(v.string()),
     description: v.optional(v.string()),
     content: v.optional(v.string()),
-    category: v.optional(v.union(
-      v.literal("libraries"),
-      v.literal("cli"),
-      v.literal("framework"),
-      v.literal("service"),
-      v.literal("database"),
-      v.literal("tool")
-    )),
-    status: v.optional(v.union(
-      v.literal("complete"),
-      v.literal("draft"),
-      v.literal("archived")
-    )),
+    category: v.optional(
+      v.union(
+        v.literal('libraries'),
+        v.literal('cli'),
+        v.literal('framework'),
+        v.literal('service'),
+        v.literal('database'),
+        v.literal('tool')
+      )
+    ),
+    status: v.optional(v.union(v.literal('complete'), v.literal('draft'), v.literal('archived'))),
     sourceUrl: v.optional(v.string()),
-    sourceType: v.optional(v.union(
-      v.literal("github"),
-      v.literal("npm"),
-      v.literal("pypi"),
-      v.literal("website"),
-      v.literal("cargo"),
-      v.literal("go"),
-      v.literal("other")
-    )),
+    sourceType: v.optional(
+      v.union(
+        v.literal('github'),
+        v.literal('npm'),
+        v.literal('pypi'),
+        v.literal('website'),
+        v.literal('cargo'),
+        v.literal('go'),
+        v.literal('other')
+      )
+    ),
     tags: v.optional(v.array(v.string())),
     useCases: v.optional(v.array(v.string())),
     keywords: v.optional(v.array(v.string())),
@@ -150,19 +142,27 @@ export const updateWithEmbedding = action({
     const { id, ...updates } = args;
 
     // Get the existing tool to check if content changed
-    const existing: Record<string, any> | null = await ctx.runQuery(api.toolbelt.queries.get, { id });
+    const existing: Record<string, any> | null = await ctx.runQuery(api.toolbelt.queries.get, {
+      id,
+    });
     if (!existing) {
       throw new Error(`Tool ${id} not found`);
     }
 
     // Determine if we need to regenerate the embedding
     const titleChanged: boolean = updates.title !== undefined && updates.title !== existing.title;
-    const descChanged: boolean = updates.description !== undefined && updates.description !== existing.description;
-    const contentChanged: boolean = updates.content !== undefined && updates.content !== existing.content;
-    const tagsChanged: boolean = updates.tags !== undefined && JSON.stringify(updates.tags) !== JSON.stringify(existing.tags);
-    const useCasesChanged: boolean = updates.useCases !== undefined && JSON.stringify(updates.useCases) !== JSON.stringify(existing.useCases);
+    const descChanged: boolean =
+      updates.description !== undefined && updates.description !== existing.description;
+    const contentChanged: boolean =
+      updates.content !== undefined && updates.content !== existing.content;
+    const tagsChanged: boolean =
+      updates.tags !== undefined && JSON.stringify(updates.tags) !== JSON.stringify(existing.tags);
+    const useCasesChanged: boolean =
+      updates.useCases !== undefined &&
+      JSON.stringify(updates.useCases) !== JSON.stringify(existing.useCases);
 
-    const needsReembedding: boolean = titleChanged || descChanged || contentChanged || tagsChanged || useCasesChanged;
+    const needsReembedding: boolean =
+      titleChanged || descChanged || contentChanged || tagsChanged || useCasesChanged;
 
     // Only regenerate embedding if relevant content changed
     let embedding: number[] = existing.embedding;
@@ -183,12 +183,18 @@ export const updateWithEmbedding = action({
       embedding,
     });
 
-    const updateResult: { toolId: string; updated: boolean; embeddingRegenerated: boolean; embeddingDimensions: number | undefined; embeddingStatus: "completed" } = {
+    const updateResult: {
+      toolId: string;
+      updated: boolean;
+      embeddingRegenerated: boolean;
+      embeddingDimensions: number | undefined;
+      embeddingStatus: 'completed';
+    } = {
       toolId: id,
       updated: true,
       embeddingRegenerated: needsReembedding,
       embeddingDimensions: embedding?.length,
-      embeddingStatus: "completed" as const,
+      embeddingStatus: 'completed' as const,
     };
     return updateResult;
   },

@@ -1,9 +1,9 @@
-import { useEffect, useRef } from 'react'
-import { useQuery } from 'convex/react'
-import { api } from '@/convex/_generated/api'
-import type { Id } from '@/convex/_generated/dataModel'
+import { useQuery } from 'convex/react';
+import { useEffect, useRef } from 'react';
+import { api } from '@/convex/_generated/api';
+import type { Id } from '@/convex/_generated/dataModel';
 
-type SendEventFn = (event: Record<string, unknown>) => void
+type SendEventFn = (event: Record<string, unknown>) => void;
 
 /**
  * Bridges async tool results from Convex to the OpenAI Realtime voice session.
@@ -16,58 +16,56 @@ type SendEventFn = (event: Record<string, unknown>) => void
 export function useVoiceResultBridge(
   conversationId: Id<'conversations'> | null,
   isActive: boolean,
-  sendEvent: SendEventFn | null,
+  sendEvent: SendEventFn | null
 ): void {
   // Subscribe to the 3 most recent messages (newest first)
   const messages = useQuery(
     api.chatMessages.queries.listByConversation,
-    conversationId && isActive ? { conversationId, limit: 3 } : 'skip',
-  )
+    conversationId && isActive ? { conversationId, limit: 3 } : 'skip'
+  );
 
-  const lastSeenIdRef = useRef<string | null>(null)
-  const initializedRef = useRef(false)
+  const lastSeenIdRef = useRef<string | null>(null);
+  const initializedRef = useRef(false);
 
   useEffect(() => {
-    if (!messages || !messages.length || !isActive || !sendEvent) return
+    if (!messages || !messages.length || !isActive || !sendEvent) return;
 
-    const newest = messages[0] // desc order — index 0 is newest
-    if (!newest) return
+    const newest = messages[0]; // desc order — index 0 is newest
+    if (!newest) return;
 
     // First time we get data: record the current latest ID but don't inject.
     // This prevents speaking old results when the session starts.
     if (!initializedRef.current) {
-      lastSeenIdRef.current = newest._id
-      initializedRef.current = true
-      return
+      lastSeenIdRef.current = newest._id;
+      initializedRef.current = true;
+      return;
     }
 
     // Same message we already saw — nothing new
-    if (newest._id === lastSeenIdRef.current) return
+    if (newest._id === lastSeenIdRef.current) return;
 
     // Update tracking
-    lastSeenIdRef.current = newest._id
+    lastSeenIdRef.current = newest._id;
 
     // Only inject result_card or error messages from the agent
     if (
       newest.role !== 'agent' ||
       (newest.messageType !== 'result_card' && newest.messageType !== 'error')
     ) {
-      return
+      return;
     }
 
     // Skip messages younger than 3 seconds to avoid double-speaking fast-path
     // results that already returned via function_call_output. Async background
     // results take 10+ seconds so they will always pass this check.
-    const messageAge = Date.now() - newest.createdAt
+    const messageAge = Date.now() - newest.createdAt;
     if (messageAge < 3000) {
-      return
+      return;
     }
 
     // Truncate for voice — keep payloads reasonable
     const content =
-      newest.content.length > 1500
-        ? newest.content.slice(0, 1500) + '...'
-        : newest.content
+      newest.content.length > 1500 ? newest.content.slice(0, 1500) + '...' : newest.content;
 
     // Inject into OpenAI conversation
     sendEvent({
@@ -82,17 +80,17 @@ export function useVoiceResultBridge(
           },
         ],
       },
-    })
+    });
 
     // Trigger model to speak the result
-    sendEvent({ type: 'response.create' })
-  }, [messages, isActive, sendEvent])
+    sendEvent({ type: 'response.create' });
+  }, [messages, isActive, sendEvent]);
 
   // Reset initialization when session becomes inactive
   useEffect(() => {
     if (!isActive) {
-      initializedRef.current = false
-      lastSeenIdRef.current = null
+      initializedRef.current = false;
+      lastSeenIdRef.current = null;
     }
-  }, [isActive])
+  }, [isActive]);
 }

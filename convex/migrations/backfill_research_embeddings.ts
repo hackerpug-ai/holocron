@@ -8,13 +8,13 @@
  * - deepResearchIterations table
  */
 
-import { action, internalMutation } from "../_generated/server";
-import { api, internal } from "../_generated/api";
-import { v } from "convex/values";
-import { embed } from "ai";
-import { cohereEmbedding } from "../lib/ai/embeddings_provider";
+import { embed } from 'ai';
+import { v } from 'convex/values';
+import { api, internal } from '../_generated/api';
+import { action, internalMutation } from '../_generated/server';
+import { cohereEmbedding } from '../lib/ai/embeddings_provider';
 
-"use node";
+('use node');
 
 interface BackfillResult {
   success: boolean;
@@ -59,7 +59,7 @@ async function generateIterationEmbedding(findings: string): Promise<number[]> {
  */
 export const updateFindingEmbedding = internalMutation({
   args: {
-    findingId: v.id("researchFindings"),
+    findingId: v.id('researchFindings'),
     embedding: v.array(v.float64()),
   },
   handler: async (ctx, args) => {
@@ -78,7 +78,7 @@ export const updateFindingEmbedding = internalMutation({
  */
 export const updateIterationEmbedding = internalMutation({
   args: {
-    iterationId: v.id("deepResearchIterations"),
+    iterationId: v.id('deepResearchIterations'),
     embedding: v.array(v.float64()),
   },
   handler: async (ctx, args) => {
@@ -111,12 +111,12 @@ export const backfill = action({
 
     for (const session of sessions) {
       const iterations = await ctx.runQuery(api.research.queries.listDeepResearchIterations, {
-        sessionId: session._id
+        sessionId: session._id,
       });
       allIterations.push(...iterations);
 
       const findings = await ctx.runQuery(api.research.queries.getFindingsByConfidence, {
-        sessionId: session._id
+        sessionId: session._id,
       });
       allFindings.push(...findings);
     }
@@ -134,7 +134,7 @@ export const backfill = action({
         iterationsFailed: 0,
         totalFindings: 0,
         totalIterations: 0,
-        message: "No research records need embedding backfill"
+        message: 'No research records need embedding backfill',
       };
     }
 
@@ -162,17 +162,20 @@ export const backfill = action({
           const embedding = await generateFindingEmbedding(finding.claimText);
 
           // Update the finding with embedding using internal mutation
-          await ctx.runMutation(internal.migrations.backfill_research_embeddings.updateFindingEmbedding, {
-            findingId: finding._id,
-            embedding,
-          });
+          await ctx.runMutation(
+            internal.migrations.backfill_research_embeddings.updateFindingEmbedding,
+            {
+              findingId: finding._id,
+              embedding,
+            }
+          );
 
           return finding._id;
         })
       );
 
       for (const result of results) {
-        if (result.status === "fulfilled") {
+        if (result.status === 'fulfilled') {
           findingsProcessed++;
         } else {
           findingsFailed++;
@@ -194,20 +197,23 @@ export const backfill = action({
           }
 
           // Generate embedding (empty string is ok if no findings)
-          const embedding = await generateIterationEmbedding(iteration.findings ?? "");
+          const embedding = await generateIterationEmbedding(iteration.findings ?? '');
 
           // Update the iteration with embedding using internal mutation
-          await ctx.runMutation(internal.migrations.backfill_research_embeddings.updateIterationEmbedding, {
-            iterationId: iteration._id,
-            embedding,
-          });
+          await ctx.runMutation(
+            internal.migrations.backfill_research_embeddings.updateIterationEmbedding,
+            {
+              iterationId: iteration._id,
+              embedding,
+            }
+          );
 
           return iteration._id;
         })
       );
 
       for (const result of results) {
-        if (result.status === "fulfilled") {
+        if (result.status === 'fulfilled') {
           iterationsProcessed++;
         } else {
           iterationsFailed++;
@@ -235,7 +241,9 @@ export const backfill = action({
  */
 export const status = action({
   args: {},
-  handler: async (ctx): Promise<{
+  handler: async (
+    ctx
+  ): Promise<{
     findingsWithoutEmbeddings: number;
     iterationsWithoutEmbeddings: number;
     totalFindings: number;
@@ -252,12 +260,12 @@ export const status = action({
 
     for (const session of sessions) {
       const iterations = await ctx.runQuery(api.research.queries.listDeepResearchIterations, {
-        sessionId: session._id
+        sessionId: session._id,
       });
       allIterations.push(...iterations);
 
       const findings = await ctx.runQuery(api.research.queries.getFindingsByConfidence, {
-        sessionId: session._id
+        sessionId: session._id,
       });
       allFindings.push(...findings);
     }
@@ -270,8 +278,14 @@ export const status = action({
       iterationsWithoutEmbeddings: orphanIterations.length,
       totalFindings: allFindings.length,
       totalIterations: allIterations.length,
-      findingsPercentComplete: allFindings.length > 0 ? ((allFindings.length - orphanFindings.length) / allFindings.length) * 100 : 100,
-      iterationsPercentComplete: allIterations.length > 0 ? ((allIterations.length - orphanIterations.length) / allIterations.length) * 100 : 100,
+      findingsPercentComplete:
+        allFindings.length > 0
+          ? ((allFindings.length - orphanFindings.length) / allFindings.length) * 100
+          : 100,
+      iterationsPercentComplete:
+        allIterations.length > 0
+          ? ((allIterations.length - orphanIterations.length) / allIterations.length) * 100
+          : 100,
     };
   },
 });

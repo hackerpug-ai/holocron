@@ -1,62 +1,62 @@
-import { ArticleCard } from '@/components/ArticleCard'
-import { CategoryBadge, type CategoryType } from '@/components/CategoryBadge'
-import { IterationCard } from '@/components/IterationCard'
-import { SectionHeader } from '@/components/SectionHeader'
-import { Button } from '@/components/ui/button'
-import { Text } from '@/components/ui/text'
-import { cn } from '@/lib/utils'
-import { BookmarkPlus, Calendar, Clock, Share2 } from '@/components/ui/icons'
-import { Pressable, ScrollView, View, type ViewProps } from 'react-native'
+import { Pressable, ScrollView, View, type ViewProps } from 'react-native';
+import { ArticleCard } from '@/components/ArticleCard';
+import { CategoryBadge, type CategoryType } from '@/components/CategoryBadge';
+import { IterationCard } from '@/components/IterationCard';
+import { SectionHeader } from '@/components/SectionHeader';
+import { Button } from '@/components/ui/button';
+import { BookmarkPlus, Calendar, Clock, Share2 } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { cn } from '@/lib/utils';
 
 interface Iteration {
-  iterationNumber: number
-  coverageScore: number
-  feedback?: string
-  refinedQueries?: string[]
-  isComplete: boolean
+  iterationNumber: number;
+  coverageScore: number;
+  feedback?: string;
+  refinedQueries?: string[];
+  isComplete: boolean;
 }
 
 interface RelatedArticle {
-  id: string
-  title: string
-  category: CategoryType
-  date: string
-  snippet?: string
+  id: string;
+  title: string;
+  category: CategoryType;
+  date: string;
+  snippet?: string;
 }
 
 interface ResearchResultScreenProps extends Omit<ViewProps, 'children'> {
   /** Research query/title */
-  title: string
+  title: string;
   /** Research category */
-  category: CategoryType
+  category: CategoryType;
   /** Completion date */
-  date: string | Date
+  date: string | Date;
   /** Research findings/summary */
-  summary: string
+  summary: string;
   /** Total elapsed time in seconds */
-  elapsedTime: number
+  elapsedTime: number;
   /** Research iterations (for deep research) */
-  iterations?: Iteration[]
+  iterations?: Iteration[];
   /** Sources used */
-  sources?: string[]
+  sources?: string[];
   /** Related articles in the knowledge base */
-  relatedArticles?: RelatedArticle[]
+  relatedArticles?: RelatedArticle[];
   /** Callback when save button is pressed */
-  onSavePress?: () => void
+  onSavePress?: () => void;
   /** Callback when share button is pressed */
-  onSharePress?: () => void
+  onSharePress?: () => void;
   /** Callback when a related article is pressed */
-  onRelatedArticlePress?: (_article: RelatedArticle) => void
+  onRelatedArticlePress?: (_article: RelatedArticle) => void;
   /** Callback when start new research is pressed */
-  onNewResearchPress?: () => void
+  onNewResearchPress?: () => void;
 }
 
 function formatElapsedTime(seconds: number): string {
-  const mins = Math.floor(seconds / 60)
-  const secs = seconds % 60
-  if (mins === 0) return `${secs} seconds`
-  if (mins === 1) return `1 minute ${secs} seconds`
-  return `${mins} minutes ${secs} seconds`
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  if (mins === 0) return `${secs} seconds`;
+  if (mins === 1) return `1 minute ${secs} seconds`;
+  return `${mins} minutes ${secs} seconds`;
 }
 
 /**
@@ -79,20 +79,19 @@ export function ResearchResultScreen({
   className,
   ...props
 }: ResearchResultScreenProps) {
-  const dateObj = typeof date === 'string' ? new Date(date) : date
+  const dateObj = typeof date === 'string' ? new Date(date) : date;
   const formattedDate = dateObj.toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
-  })
+  });
   const formattedTime = dateObj.toLocaleTimeString('en-US', {
     hour: 'numeric',
     minute: '2-digit',
-  })
+  });
 
-  const finalScore = iterations.length > 0
-    ? iterations[iterations.length - 1].coverageScore
-    : undefined
+  const finalScore =
+    iterations.length > 0 ? iterations[iterations.length - 1].coverageScore : undefined;
 
   return (
     <ScrollView
@@ -107,15 +106,11 @@ export function ResearchResultScreen({
           <View className="flex-row items-center gap-2">
             <CategoryBadge category={category} />
             {iterations.length > 0 && (
-              <Text className="text-muted-foreground text-xs">
-                {iterations.length} iterations
-              </Text>
+              <Text className="text-muted-foreground text-xs">{iterations.length} iterations</Text>
             )}
             {finalScore !== undefined && (
               <View className="rounded-full bg-success/10 px-2 py-0.5">
-                <Text className="text-xs font-semibold text-success">
-                  Score: {finalScore}/5
-                </Text>
+                <Text className="text-xs font-semibold text-success">Score: {finalScore}/5</Text>
               </View>
             )}
           </View>
@@ -152,9 +147,7 @@ export function ResearchResultScreen({
           </View>
           <View className="flex-row items-center gap-1">
             <Clock size={14} className="text-muted-foreground" />
-            <Text className="text-muted-foreground text-sm">
-              {formatElapsedTime(elapsedTime)}
-            </Text>
+            <Text className="text-muted-foreground text-sm">{formatElapsedTime(elapsedTime)}</Text>
           </View>
         </View>
       </View>
@@ -191,10 +184,7 @@ export function ResearchResultScreen({
           <SectionHeader title={`Sources (${sources.length})`} size="md" className="mb-3" />
           <View className="flex-row flex-wrap gap-2">
             {sources.map((source, index) => (
-              <View
-                key={index}
-                className="rounded-full bg-muted px-3 py-1.5"
-              >
+              <View key={index} className="rounded-full bg-muted px-3 py-1.5">
                 <Text className="text-foreground text-sm">{source}</Text>
               </View>
             ))}
@@ -229,5 +219,5 @@ export function ResearchResultScreen({
         </Button>
       </View>
     </ScrollView>
-  )
+  );
 }

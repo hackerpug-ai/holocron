@@ -4,28 +4,24 @@
  * Base mutations for creating and updating execution plans.
  */
 
-import { mutation } from "../_generated/server";
-import { v } from "convex/values";
-import type { Id } from "../_generated/dataModel";
+import { v } from 'convex/values';
+import type { Id } from '../_generated/dataModel';
+import { mutation } from '../_generated/server';
 
 /**
  * Create a new execution plan
  */
 export const create = mutation({
   args: {
-    type: v.union(
-      v.literal("deep-research"),
-      v.literal("shop"),
-      v.literal("assimilation")
-    ),
+    type: v.union(v.literal('deep-research'), v.literal('shop'), v.literal('assimilation')),
     content: v.optional(v.any()),
     metadata: v.optional(v.any()),
   },
-  handler: async (ctx, args): Promise<Id<"executionPlans">> => {
+  handler: async (ctx, args): Promise<Id<'executionPlans'>> => {
     const now = Date.now();
-    const planId = await ctx.db.insert("executionPlans", {
+    const planId = await ctx.db.insert('executionPlans', {
       type: args.type,
-      status: "draft",
+      status: 'draft',
       content: args.content,
       metadata: args.metadata,
       createdAt: now,
@@ -40,7 +36,7 @@ export const create = mutation({
  */
 export const updateContent = mutation({
   args: {
-    planId: v.id("executionPlans"),
+    planId: v.id('executionPlans'),
     content: v.optional(v.any()),
     metadata: v.optional(v.any()),
   },
@@ -63,15 +59,15 @@ export const updateContent = mutation({
  */
 export const updateStatus = mutation({
   args: {
-    planId: v.id("executionPlans"),
+    planId: v.id('executionPlans'),
     status: v.union(
-      v.literal("draft"),
-      v.literal("pending"),
-      v.literal("approved"),
-      v.literal("rejected"),
-      v.literal("executing"),
-      v.literal("completed"),
-      v.literal("failed")
+      v.literal('draft'),
+      v.literal('pending'),
+      v.literal('approved'),
+      v.literal('rejected'),
+      v.literal('executing'),
+      v.literal('completed'),
+      v.literal('failed')
     ),
   },
   handler: async (ctx, args): Promise<void> => {
@@ -87,13 +83,13 @@ export const updateStatus = mutation({
  */
 export const deletePlan = mutation({
   args: {
-    planId: v.id("executionPlans"),
+    planId: v.id('executionPlans'),
   },
   handler: async (ctx, args): Promise<void> => {
     // Delete all approvals for this plan
     const approvals = await ctx.db
-      .query("planApprovals")
-      .withIndex("by_plan", (q) => q.eq("planId", args.planId))
+      .query('planApprovals')
+      .withIndex('by_plan', (q) => q.eq('planId', args.planId))
       .collect();
 
     for (const approval of approvals) {

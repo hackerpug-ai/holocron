@@ -1,4 +1,4 @@
-import { internalMutation } from "../_generated/server";
+import { internalMutation } from '../_generated/server';
 
 const TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 
@@ -25,38 +25,32 @@ export const timeoutStuckPlans = internalMutation({
     const now = Date.now();
 
     const executingPlans = await ctx.db
-      .query("agentPlans")
-      .withIndex("by_status", (q) => q.eq("status", "executing"))
+      .query('agentPlans')
+      .withIndex('by_status', (q) => q.eq('status', 'executing'))
       .collect();
 
-    const stuckPlans = executingPlans.filter(
-      (plan) => now - plan.updatedAt > TIMEOUT_MS
-    );
+    const stuckPlans = executingPlans.filter((plan) => now - plan.updatedAt > TIMEOUT_MS);
 
     let timedOutCount = 0;
 
     for (const plan of stuckPlans) {
       // Mark plan as failed
       await ctx.db.patch(plan._id, {
-        status: "failed",
+        status: 'failed',
         updatedAt: now,
       });
 
       // Mark all active steps as failed
       const steps = await ctx.db
-        .query("agentPlanSteps")
-        .withIndex("by_plan", (q) => q.eq("planId", plan._id))
+        .query('agentPlanSteps')
+        .withIndex('by_plan', (q) => q.eq('planId', plan._id))
         .collect();
 
       for (const step of steps) {
-        if (
-          ["pending", "running", "awaiting_approval", "approved"].includes(
-            step.status
-          )
-        ) {
+        if (['pending', 'running', 'awaiting_approval', 'approved'].includes(step.status)) {
           await ctx.db.patch(step._id, {
-            status: "failed",
-            errorMessage: "Plan timed out",
+            status: 'failed',
+            errorMessage: 'Plan timed out',
           });
         }
       }
@@ -68,11 +62,11 @@ export const timeoutStuckPlans = internalMutation({
       });
 
       // Post an error message to the conversation so the user sees what happened
-      await ctx.db.insert("chatMessages", {
+      await ctx.db.insert('chatMessages', {
         conversationId: plan.conversationId,
-        role: "agent",
+        role: 'agent',
         content: `The plan "${plan.title}" timed out after 30 minutes of inactivity.`,
-        messageType: "error",
+        messageType: 'error',
         createdAt: now,
       });
 
@@ -80,9 +74,7 @@ export const timeoutStuckPlans = internalMutation({
     }
 
     if (timedOutCount > 0) {
-      console.log(
-        `[timeoutStuckPlans] Timed out ${timedOutCount} stuck agent plan(s)`
-      );
+      console.log(`[timeoutStuckPlans] Timed out ${timedOutCount} stuck agent plan(s)`);
     }
   },
 });

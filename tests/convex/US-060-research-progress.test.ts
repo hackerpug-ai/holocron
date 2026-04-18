@@ -4,7 +4,7 @@
  * Test file for research progress tracking using Convex's reactive queries
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 describe('US-060: Research Progress Tracking', () => {
   /**

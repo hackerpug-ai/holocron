@@ -1,2 +1,2 @@
-export { PodcastTranscriptionLoadingCard } from "./PodcastTranscriptionLoadingCard";
-export { PodcastTranscriptionCompleteCard } from "./PodcastTranscriptionCompleteCard";
+export { PodcastTranscriptionCompleteCard } from './PodcastTranscriptionCompleteCard';
+export { PodcastTranscriptionLoadingCard } from './PodcastTranscriptionLoadingCard';

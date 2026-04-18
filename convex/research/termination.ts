@@ -90,10 +90,7 @@ export function shouldContinueResearch(
   }
 
   // Priority 2: Quality thresholds (desired outcome)
-  if (
-    metrics.coverage >= criteria.minCoverage &&
-    metrics.confidence >= criteria.minConfidence
-  ) {
+  if (metrics.coverage >= criteria.minCoverage && metrics.confidence >= criteria.minConfidence) {
     return {
       continue: false,
       reason: `Quality thresholds met (coverage: ${metrics.coverage}/${criteria.minCoverage}, confidence: ${metrics.confidence}%/${criteria.minConfidence}%)`,
@@ -111,10 +108,7 @@ export function shouldContinueResearch(
   }
 
   // Priority 4: Time limit (optional time constraint)
-  if (
-    criteria.maxDurationMs !== undefined &&
-    metrics.durationMs >= criteria.maxDurationMs
-  ) {
+  if (criteria.maxDurationMs !== undefined && metrics.durationMs >= criteria.maxDurationMs) {
     const durationMin = Math.round(metrics.durationMs / 60000);
     const limitMin = Math.round(criteria.maxDurationMs / 60000);
     return {

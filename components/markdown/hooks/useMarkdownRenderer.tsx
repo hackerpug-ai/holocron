@@ -1,21 +1,20 @@
-import { useMemo } from 'react'
-import React from 'react'
-import type { Root } from 'mdast'
-import { NodeRenderer } from '../renderers/NodeRenderer'
-import type { CustomRenderers } from '../renderers/NodeRenderer'
+import type { Root } from 'mdast';
+import React, { useMemo } from 'react';
+import type { CustomRenderers } from '../renderers/NodeRenderer';
+import { NodeRenderer } from '../renderers/NodeRenderer';
 
 /**
  * Configuration for markdown rendering
  */
 export interface MarkdownRendererConfig {
   /** Custom renderers for overriding default node rendering */
-  renderers?: CustomRenderers
+  renderers?: CustomRenderers;
   /** Callback when links are pressed */
-  onLinkPress?: (url: string) => void
+  onLinkPress?: (url: string) => void;
   /** Test ID prefix for all rendered elements */
-  testIDPrefix?: string
+  testIDPrefix?: string;
   /** Wrap each root-level child element (used for narration highlighting, copy, etc.) */
-  wrapRootChild?: (child: React.ReactNode, index: number, nodeType: string) => React.ReactNode
+  wrapRootChild?: (child: React.ReactNode, index: number, nodeType: string) => React.ReactNode;
 }
 
 /**
@@ -23,9 +22,9 @@ export interface MarkdownRendererConfig {
  */
 export interface UseMarkdownRendererResult {
   /** Render function that takes AST and returns React elements */
-  render: (ast: Root) => React.ReactNode
+  render: (ast: Root) => React.ReactNode;
   /** Configuration passed to the hook */
-  config: MarkdownRendererConfig
+  config: MarkdownRendererConfig;
 }
 
 /**
@@ -47,12 +46,12 @@ export interface UseMarkdownRendererResult {
 export function useMarkdownRenderer(
   config: MarkdownRendererConfig = {}
 ): UseMarkdownRendererResult {
-  const { renderers, onLinkPress, testIDPrefix, wrapRootChild } = config
+  const { renderers, onLinkPress, testIDPrefix, wrapRootChild } = config;
 
   const render = useMemo(() => {
     return (ast: Root) => {
       if (!ast || !ast.children || ast.children.length === 0) {
-        return null
+        return null;
       }
 
       return (
@@ -66,18 +65,22 @@ export function useMarkdownRenderer(
                 onLinkPress={onLinkPress}
                 testID={testIDPrefix ? `${testIDPrefix}-${index}` : undefined}
               />
-            )
-            return wrapRootChild
-              ? <React.Fragment key={`root-${index}`}>{wrapRootChild(element, index, child.type)}</React.Fragment>
-              : element
+            );
+            return wrapRootChild ? (
+              <React.Fragment key={`root-${index}`}>
+                {wrapRootChild(element, index, child.type)}
+              </React.Fragment>
+            ) : (
+              element
+            );
           })}
         </React.Fragment>
-      )
-    }
-  }, [renderers, onLinkPress, testIDPrefix, wrapRootChild])
+      );
+    };
+  }, [renderers, onLinkPress, testIDPrefix, wrapRootChild]);
 
   return {
     render,
     config,
-  }
+  };
 }

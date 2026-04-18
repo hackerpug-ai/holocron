@@ -13,11 +13,11 @@
  */
 
 import type {
+  AssimilationDimension,
   AssimilationTerminationCriteria,
   DimensionScores,
-  AssimilationDimension,
-} from "./validators";
-import { ALL_DIMENSIONS, calculateOverallCoverage } from "./validators";
+} from './validators';
+import { ALL_DIMENSIONS, calculateOverallCoverage } from './validators';
 
 // ── Metrics input ────────────────────────────────────────────────────────────
 
@@ -65,7 +65,10 @@ export function evaluateTermination(
   }
 
   if (metrics.costUsd >= criteria.maxCostUsd) {
-    return stop('cost_limit', `Cost limit reached ($${metrics.costUsd.toFixed(2)} >= $${criteria.maxCostUsd.toFixed(2)})`);
+    return stop(
+      'cost_limit',
+      `Cost limit reached ($${metrics.costUsd.toFixed(2)} >= $${criteria.maxCostUsd.toFixed(2)})`
+    );
   }
 
   if (metrics.durationMs >= criteria.maxDurationMs) {
@@ -80,9 +83,7 @@ export function evaluateTermination(
   }
 
   // Priority 3: Missing dimensions (score = 0)
-  const missingDims = ALL_DIMENSIONS.filter(
-    (d) => metrics.dimensionScores[d] === 0
-  );
+  const missingDims = ALL_DIMENSIONS.filter((d) => metrics.dimensionScores[d] === 0);
   if (missingDims.length > 0) {
     const target = missingDims[0];
     return continueWith('needs_dimension', target, `Dimension "${target}" not yet analyzed`);
@@ -92,9 +93,9 @@ export function evaluateTermination(
   const overallCoverage = calculateOverallCoverage(metrics.dimensionScores);
   if (overallCoverage < criteria.minOverallCoverage) {
     // Find the lowest-scoring non-saturated dimension
-    const improvableDims = ALL_DIMENSIONS
-      .filter((d) => !metrics.saturatedDimensions.includes(d))
-      .sort((a, b) => metrics.dimensionScores[a] - metrics.dimensionScores[b]);
+    const improvableDims = ALL_DIMENSIONS.filter(
+      (d) => !metrics.saturatedDimensions.includes(d)
+    ).sort((a, b) => metrics.dimensionScores[a] - metrics.dimensionScores[b]);
 
     if (improvableDims.length > 0) {
       const target = improvableDims[0];

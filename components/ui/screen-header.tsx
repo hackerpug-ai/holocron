@@ -1,29 +1,29 @@
-import { cn } from '@/lib/utils'
-import { ChevronLeft, Menu } from '@/components/ui/icons'
-import type { ReactNode } from 'react'
-import { Pressable, View, type ViewProps } from 'react-native'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { Text } from './text'
+import type { ReactNode } from 'react';
+import { Pressable, View, type ViewProps } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ChevronLeft, Menu } from '@/components/ui/icons';
+import { cn } from '@/lib/utils';
+import { Text } from './text';
 
 export interface ScreenHeaderProps extends Omit<ViewProps, 'children'> {
   /** Screen title */
-  title?: string
+  title?: string;
   /** Whether to show the back button */
-  showBack?: boolean
+  showBack?: boolean;
   /** Custom back button handler (defaults to router.back()) */
-  onBack?: () => void
+  onBack?: () => void;
   /** Whether to show the menu/drawer button */
-  showMenu?: boolean
+  showMenu?: boolean;
   /** Custom menu button handler */
-  onMenu?: () => void
+  onMenu?: () => void;
   /** Left side content (replaces back/menu buttons if provided) */
-  leftContent?: ReactNode
+  leftContent?: ReactNode;
   /** Right side content (action buttons, etc.) */
-  rightContent?: ReactNode
+  rightContent?: ReactNode;
   /** Whether to include top safe area inset */
-  safeAreaTop?: boolean
+  safeAreaTop?: boolean;
   /** Additional test ID */
-  testID?: string
+  testID?: string;
 }
 
 /**
@@ -66,7 +66,7 @@ export function ScreenHeader({
   testID = 'screen-header',
   ...props
 }: ScreenHeaderProps) {
-  const insets = useSafeAreaInsets()
+  const insets = useSafeAreaInsets();
 
   // Default left content based on props
   const resolvedLeftContent = leftContent ?? (
@@ -94,7 +94,7 @@ export function ScreenHeader({
         </Pressable>
       )}
     </>
-  )
+  );
 
   return (
     <View
@@ -105,9 +105,7 @@ export function ScreenHeader({
     >
       <View className="h-14 flex-row items-center justify-between px-2">
         {/* Left side - back/menu button or custom content */}
-        <View className="min-w-[48px] flex-row items-center">
-          {resolvedLeftContent}
-        </View>
+        <View className="min-w-[48px] flex-row items-center">{resolvedLeftContent}</View>
 
         {/* Center - title */}
         {title && (
@@ -124,12 +122,10 @@ export function ScreenHeader({
         )}
 
         {/* Right side - custom content */}
-        <View className="min-w-[48px] flex-row items-center justify-end">
-          {rightContent}
-        </View>
+        <View className="min-w-[48px] flex-row items-center justify-end">{rightContent}</View>
       </View>
     </View>
-  )
+  );
 }
 
-export default ScreenHeader
+export default ScreenHeader;

@@ -1,4 +1,4 @@
-import { v } from "convex/values";
+import { v } from 'convex/values';
 
 // Platform-specific validators
 export const youtubePlatformValidator = v.object({
@@ -39,14 +39,14 @@ export const platformsValidator = v.object({
 export const createCreatorProfileValidator = v.object({
   name: v.string(),
   handle: v.string(),
-  canonicalType: v.union(v.literal("person"), v.literal("organization")),
+  canonicalType: v.union(v.literal('person'), v.literal('organization')),
   platforms: platformsValidator,
   bio: v.optional(v.string()),
   avatarUrl: v.optional(v.string()),
 });
 
 export const updateCreatorProfileValidator = v.object({
-  profileId: v.id("creatorProfiles"),
+  profileId: v.id('creatorProfiles'),
   platforms: v.optional(platformsValidator),
   bio: v.optional(v.string()),
   avatarUrl: v.optional(v.string()),
@@ -61,32 +61,27 @@ export const searchCreatorsValidator = v.object({
 
 // Batch subscribe validators
 export const batchSubscribeValidator = v.object({
-  creatorProfileId: v.id("creatorProfiles"),
+  creatorProfileId: v.id('creatorProfiles'),
   platforms: v.array(
-    v.union(
-      v.literal("youtube"),
-      v.literal("bluesky"),
-      v.literal("github"),
-      v.literal("website")
-    )
+    v.union(v.literal('youtube'), v.literal('bluesky'), v.literal('github'), v.literal('website'))
   ),
   autoResearch: v.optional(v.boolean()),
 });
 
 // Subscription link validators
 export const generateLinkValidator = v.object({
-  creatorProfileId: v.optional(v.id("creatorProfiles")),
+  creatorProfileId: v.optional(v.id('creatorProfiles')),
   subscriptions: v.optional(
     v.array(
       v.object({
         sourceType: v.union(
-          v.literal("youtube"),
-          v.literal("newsletter"),
-          v.literal("changelog"),
-          v.literal("reddit"),
-          v.literal("ebay"),
-          v.literal("whats-new"),
-          v.literal("creator")
+          v.literal('youtube'),
+          v.literal('newsletter'),
+          v.literal('changelog'),
+          v.literal('reddit'),
+          v.literal('ebay'),
+          v.literal('whats-new'),
+          v.literal('creator')
         ),
         identifier: v.string(),
         name: v.string(),
@@ -122,11 +117,11 @@ export const discoverCreatorValidator = v.object({
 });
 
 export const verifyPlatformsValidator = v.object({
-  profileId: v.id("creatorProfiles"),
+  profileId: v.id('creatorProfiles'),
 });
 
 // Assimilation validators
 export const assimilateCreatorValidator = v.object({
-  profileId: v.id("creatorProfiles"),
+  profileId: v.id('creatorProfiles'),
   forceRegenerate: v.optional(v.boolean()),
 });

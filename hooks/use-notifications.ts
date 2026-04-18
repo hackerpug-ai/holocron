@@ -17,31 +17,31 @@
  * ```
  */
 
-import { api } from '@/convex/_generated/api'
-import type { Doc, Id } from '@/convex/_generated/dataModel'
-import { useMutation, useQuery } from 'convex/react'
-import type { NotificationData } from '@/components/notifications/NotificationToast'
+import { useMutation, useQuery } from 'convex/react';
+import type { NotificationData } from '@/components/notifications/NotificationToast';
+import { api } from '@/convex/_generated/api';
+import type { Doc, Id } from '@/convex/_generated/dataModel';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface UseNotificationsReturn {
   /** Unread notifications, most-recent first (up to 10) */
-  unread: NotificationData[]
+  unread: NotificationData[];
   /** Number of unread notifications */
-  unreadCount: number
+  unreadCount: number;
   /** Mark a single notification as read by ID */
-  markRead: (id: string) => Promise<void>
+  markRead: (id: string) => Promise<void>;
   /** Mark all unread notifications as read */
-  markAllRead: () => Promise<void>
+  markAllRead: () => Promise<void>;
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useNotifications(): UseNotificationsReturn {
-  const rawUnread = useQuery(api.notifications.queries.listUnread)
+  const rawUnread = useQuery(api.notifications.queries.listUnread);
 
-  const markReadMutation = useMutation(api.notifications.mutations.markRead)
-  const markAllReadMutation = useMutation(api.notifications.mutations.markAllRead)
+  const markReadMutation = useMutation(api.notifications.mutations.markRead);
+  const markAllReadMutation = useMutation(api.notifications.mutations.markAllRead);
 
   const unread: NotificationData[] = (rawUnread ?? []).map((n: Doc<'notifications'>) => ({
     _id: n._id,
@@ -51,20 +51,20 @@ export function useNotifications(): UseNotificationsReturn {
     route: n.route,
     read: n.read,
     createdAt: n.createdAt,
-  }))
+  }));
 
   const markRead = async (id: string): Promise<void> => {
-    await markReadMutation({ id: id as Id<'notifications'> })
-  }
+    await markReadMutation({ id: id as Id<'notifications'> });
+  };
 
   const markAllRead = async (): Promise<void> => {
-    await markAllReadMutation({})
-  }
+    await markAllReadMutation({});
+  };
 
   return {
     unread,
     unreadCount: unread.length,
     markRead,
     markAllRead,
-  }
+  };
 }

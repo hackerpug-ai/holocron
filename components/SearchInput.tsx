@@ -1,24 +1,32 @@
-import { Input } from '@/components/ui/input'
-import { cn } from '@/lib/utils'
-import { Search, X } from '@/components/ui/icons'
-import { useRef, useEffect, useCallback } from 'react'
-import { Pressable, View, type ViewProps, type TextInput, InteractionManager, KeyboardAvoidingView, Platform } from 'react-native'
+import { useCallback, useEffect, useRef } from 'react';
+import {
+  InteractionManager,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  type TextInput,
+  View,
+  type ViewProps,
+} from 'react-native';
+import { Search, X } from '@/components/ui/icons';
+import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 
 interface SearchInputProps extends Omit<ViewProps, 'children'> {
   /** Current search value */
-  value: string
+  value: string;
   /** Callback when value changes */
-  onChangeText: (_text: string) => void
+  onChangeText: (_text: string) => void;
   /** Placeholder text */
-  placeholder?: string
+  placeholder?: string;
   /** Callback when search is submitted */
-  onSubmit?: () => void
+  onSubmit?: () => void;
   /** Callback when clear button is pressed */
-  onClear?: () => void
+  onClear?: () => void;
   /** Whether the input is disabled */
-  disabled?: boolean
+  disabled?: boolean;
   /** Whether to auto-focus the input */
-  autoFocus?: boolean
+  autoFocus?: boolean;
 }
 
 /**
@@ -39,15 +47,15 @@ export function SearchInput({
   className,
   ...props
 }: SearchInputProps) {
-  const inputRef = useRef<TextInput>(null)
-  const wasFocusedRef = useRef(false)
-  const isRestoringFocusRef = useRef(false)
+  const inputRef = useRef<TextInput>(null);
+  const wasFocusedRef = useRef(false);
+  const isRestoringFocusRef = useRef(false);
 
   // Track focus state
   const handleFocus = useCallback(() => {
-    wasFocusedRef.current = true
-    isRestoringFocusRef.current = false
-  }, [])
+    wasFocusedRef.current = true;
+    isRestoringFocusRef.current = false;
+  }, []);
 
   const handleBlur = useCallback(() => {
     // Don't clear focus state if we're in the middle of restoring focus
@@ -56,34 +64,34 @@ export function SearchInput({
       // Small delay to check if focus is being restored
       setTimeout(() => {
         if (!isRestoringFocusRef.current) {
-          wasFocusedRef.current = false
+          wasFocusedRef.current = false;
         }
-      }, 50)
+      }, 50);
     }
-  }, [])
+  }, []);
 
   // Restore focus after re-render if it was previously focused
   useEffect(() => {
     if (wasFocusedRef.current && inputRef.current) {
-      isRestoringFocusRef.current = true
+      isRestoringFocusRef.current = true;
       // Use InteractionManager to wait for animations/transitions to complete
       // This is more reliable than requestAnimationFrame on React Native
       const handle = InteractionManager.runAfterInteractions(() => {
         if (inputRef.current && wasFocusedRef.current) {
-          inputRef.current.focus()
+          inputRef.current.focus();
         }
-        isRestoringFocusRef.current = false
-      })
-      return () => handle.cancel()
+        isRestoringFocusRef.current = false;
+      });
+      return () => handle.cancel();
     }
-  })
+  });
 
   const handleClear = () => {
-    onChangeText('')
-    onClear?.()
+    onChangeText('');
+    onClear?.();
     // Keep focus on input after clearing
-    inputRef.current?.focus()
-  }
+    inputRef.current?.focus();
+  };
 
   return (
     <KeyboardAvoidingView
@@ -108,10 +116,7 @@ export function SearchInput({
           onBlur={handleBlur}
           editable={!disabled}
           autoFocus={autoFocus}
-          className={cn(
-            'border-0 bg-transparent pl-10 pr-10',
-            disabled && 'opacity-50'
-          )}
+          className={cn('border-0 bg-transparent pl-10 pr-10', disabled && 'opacity-50')}
           testID="search-input"
           returnKeyType="search"
         />
@@ -127,5 +132,5 @@ export function SearchInput({
         )}
       </View>
     </KeyboardAvoidingView>
-  )
+  );
 }

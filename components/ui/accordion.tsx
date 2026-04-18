@@ -1,8 +1,4 @@
-import { Icon } from '@/components/ui/icon';
-import { TextClassContext } from '@/components/ui/text';
-import { cn } from '@/lib/utils';
 import * as AccordionPrimitive from '@rn-primitives/accordion';
-import { ChevronDown } from '@/components/ui/icons';
 import { Platform, Pressable, View } from 'react-native';
 import Animated, {
   FadeOutUp,
@@ -12,6 +8,10 @@ import Animated, {
   useDerivedValue,
   withTiming,
 } from 'react-native-reanimated';
+import { Icon } from '@/components/ui/icon';
+import { ChevronDown } from '@/components/ui/icons';
+import { TextClassContext } from '@/components/ui/text';
+import { cn } from '@/lib/utils';
 
 function Accordion({
   children,
@@ -22,7 +22,8 @@ function Accordion({
     <LayoutAnimationConfig skipEntering>
       <AccordionPrimitive.Root
         {...(props as AccordionPrimitive.RootProps)}
-        asChild={Platform.OS !== 'web'}>
+        asChild={Platform.OS !== 'web'}
+      >
         <Animated.View layout={LinearTransition.duration(200)}>{children}</Animated.View>
       </AccordionPrimitive.Root>
     </LayoutAnimationConfig>
@@ -44,10 +45,12 @@ function AccordionItem({
       )}
       value={value}
       asChild={Platform.OS !== 'web'}
-      {...props}>
+      {...props}
+    >
       <Animated.View
         className="native:overflow-hidden"
-        layout={Platform.select({ native: LinearTransition.duration(200) })}>
+        layout={Platform.select({ native: LinearTransition.duration(200) })}
+      >
         {children}
       </Animated.View>
     </AccordionPrimitive.Item>
@@ -78,10 +81,8 @@ function AccordionTrigger({
 
   return (
     <TextClassContext.Provider
-      value={cn(
-        'text-left text-sm font-medium',
-        Platform.select({ web: 'group-hover:underline' })
-      )}>
+      value={cn('text-left text-sm font-medium', Platform.select({ web: 'group-hover:underline' }))}
+    >
       <AccordionPrimitive.Header>
         <AccordionPrimitive.Trigger {...props} asChild>
           <Trigger
@@ -91,7 +92,8 @@ function AccordionTrigger({
                 web: 'focus-visible:border-ring focus-visible:ring-ring/50 flex flex-1 outline-none transition-all hover:underline focus-visible:ring-[3px] disabled:pointer-events-none [&[data-state=open]>svg]:rotate-180',
               }),
               className
-            )}>
+            )}
+          >
             <>{children}</>
             <Animated.View style={chevronStyle}>
               <Icon
@@ -127,10 +129,12 @@ function AccordionContent({
             web: isExpanded ? 'animate-accordion-down' : 'animate-accordion-up',
           })
         )}
-        {...props}>
+        {...props}
+      >
         <Animated.View
           exiting={Platform.select({ native: FadeOutUp.duration(200) })}
-          className={cn('pb-4', className)}>
+          className={cn('pb-4', className)}
+        >
           {children}
         </Animated.View>
       </AccordionPrimitive.Content>

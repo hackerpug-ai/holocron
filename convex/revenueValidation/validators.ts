@@ -5,47 +5,43 @@
  * revenueValidationEvidence, and revenueValidationCompetitors tables.
  */
 
-import { v } from "convex/values";
+import { v } from 'convex/values';
 
 // ── Status ────────────────────────────────────────────────────────────────────
 
 export const sessionStatusValidator = v.union(
-  v.literal("pending"),
-  v.literal("analyzing"),
-  v.literal("completed"),
-  v.literal("failed"),
+  v.literal('pending'),
+  v.literal('analyzing'),
+  v.literal('completed'),
+  v.literal('failed')
 );
 
 // ── Verdict ───────────────────────────────────────────────────────────────────
 
-export const verdictValidator = v.union(
-  v.literal("GO"),
-  v.literal("CAUTION"),
-  v.literal("NO-GO"),
-);
+export const verdictValidator = v.union(v.literal('GO'), v.literal('CAUTION'), v.literal('NO-GO'));
 
 // ── Confidence level ──────────────────────────────────────────────────────────
 
 export const confidenceLevelValidator = v.union(
-  v.literal("HIGH"),
-  v.literal("MEDIUM"),
-  v.literal("LOW"),
+  v.literal('HIGH'),
+  v.literal('MEDIUM'),
+  v.literal('LOW')
 );
 
 // ── DVF dimension ─────────────────────────────────────────────────────────────
 
 export const dimensionValidator = v.union(
-  v.literal("desirability"),
-  v.literal("viability"),
-  v.literal("feasibility"),
+  v.literal('desirability'),
+  v.literal('viability'),
+  v.literal('feasibility')
 );
 
 // ── Challenge status ──────────────────────────────────────────────────────────
 
 export const challengeStatusValidator = v.union(
-  v.literal("validated"),
-  v.literal("contested"),
-  v.literal("refuted"),
+  v.literal('validated'),
+  v.literal('contested'),
+  v.literal('refuted')
 );
 
 // ── Unit economics scenario ───────────────────────────────────────────────────
@@ -73,7 +69,7 @@ export const createSessionArgsValidator = v.object({
 // ── Session update args ───────────────────────────────────────────────────────
 
 export const updateSessionArgsValidator = v.object({
-  sessionId: v.id("revenueValidationSessions"),
+  sessionId: v.id('revenueValidationSessions'),
   status: v.optional(sessionStatusValidator),
   desirabilityScore: v.optional(v.number()),
   viabilityScore: v.optional(v.number()),
@@ -87,14 +83,14 @@ export const updateSessionArgsValidator = v.object({
   unitEconomics: v.optional(v.any()),
   executiveSummary: v.optional(v.string()),
   agentCount: v.optional(v.number()),
-  documentId: v.optional(v.id("documents")),
+  documentId: v.optional(v.id('documents')),
   errorReason: v.optional(v.string()),
 });
 
 // ── Evidence args ─────────────────────────────────────────────────────────────
 
 export const addEvidenceArgsValidator = v.object({
-  sessionId: v.id("revenueValidationSessions"),
+  sessionId: v.id('revenueValidationSessions'),
   claim: v.string(),
   tier: v.number(),
   sourceTitle: v.optional(v.string()),
@@ -106,7 +102,7 @@ export const addEvidenceArgsValidator = v.object({
 // ── Competitor args ───────────────────────────────────────────────────────────
 
 export const addCompetitorArgsValidator = v.object({
-  sessionId: v.id("revenueValidationSessions"),
+  sessionId: v.id('revenueValidationSessions'),
   name: v.string(),
   pricing: v.optional(v.string()),
   differentiator: v.optional(v.string()),

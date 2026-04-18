@@ -10,21 +10,21 @@
  * - Shadow for elevation
  */
 
-import { ActivityIndicator, StyleSheet, View } from 'react-native'
+import { useEffect } from 'react';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
   withTiming,
-} from 'react-native-reanimated'
-import { useEffect } from 'react'
-import { Text } from '@/components/ui/text'
-import { useTheme } from '@/hooks/use-theme'
+} from 'react-native-reanimated';
+import { Text } from '@/components/ui/text';
+import { useTheme } from '@/hooks/use-theme';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 export interface ImprovementProcessingIndicatorProps {
-  visible: boolean
-  testID?: string
+  visible: boolean;
+  testID?: string;
 }
 
 // ── Component ──────────────────────────────────────────────────────────────
@@ -32,30 +32,30 @@ export function ImprovementProcessingIndicator({
   visible,
   testID = 'improvement-processing-indicator',
 }: ImprovementProcessingIndicatorProps) {
-  const { colors } = useTheme()
+  const { colors } = useTheme();
 
   // ── Animation shared values ──────────────────────────────────────────────
-  const opacity = useSharedValue(0)
-  const scale = useSharedValue(0.9)
+  const opacity = useSharedValue(0);
+  const scale = useSharedValue(0.9);
 
   // ── Animate in/out on visibility change ───────────────────────────────────
   useEffect(() => {
     if (visible) {
-      opacity.value = withSpring(1, { damping: 12 })
-      scale.value = withSpring(1, { damping: 12 })
+      opacity.value = withSpring(1, { damping: 12 });
+      scale.value = withSpring(1, { damping: 12 });
     } else {
-      opacity.value = withTiming(0, { duration: 200 })
-      scale.value = withTiming(0.9, { duration: 200 })
+      opacity.value = withTiming(0, { duration: 200 });
+      scale.value = withTiming(0.9, { duration: 200 });
     }
-  }, [visible, opacity, scale])
+  }, [visible, opacity, scale]);
 
   // ── Animated styles ───────────────────────────────────────────────────────
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
     transform: [{ scale: scale.value }],
-  }))
+  }));
 
-  if (!visible) return null
+  if (!visible) return null;
 
   return (
     <View style={styles.fixedContainer} pointerEvents="none">
@@ -65,25 +65,19 @@ export function ImprovementProcessingIndicator({
         testID={testID}
       >
         {/* Left accent bar */}
-        <View
-          style={[styles.accentBar, { backgroundColor: colors.primary }]}
-        />
+        <View style={[styles.accentBar, { backgroundColor: colors.primary }]} />
 
         {/* Content */}
         <View style={styles.content}>
           <ActivityIndicator size="small" color={colors.primary} />
           <View className="ml-3 flex-1">
-            <Text className="text-foreground text-sm font-semibold">
-              Processing...
-            </Text>
-            <Text className="text-muted-foreground text-xs mt-0.5">
-              Analyzing your feedback
-            </Text>
+            <Text className="text-foreground text-sm font-semibold">Processing...</Text>
+            <Text className="text-muted-foreground text-xs mt-0.5">Analyzing your feedback</Text>
           </View>
         </View>
       </Animated.View>
     </View>
-  )
+  );
 }
 
 // ── Styles ─────────────────────────────────────────────────────────────────
@@ -113,4 +107,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 12,
   },
-})
+});

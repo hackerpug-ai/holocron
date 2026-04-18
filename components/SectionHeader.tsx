@@ -1,19 +1,19 @@
-import { Text } from '@/components/ui/text'
-import { cn } from '@/lib/utils'
-import { ChevronRight } from '@/components/ui/icons'
-import { Pressable, View, type ViewProps } from 'react-native'
+import { Pressable, View, type ViewProps } from 'react-native';
+import { ChevronRight } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { cn } from '@/lib/utils';
 
 interface SectionHeaderProps extends ViewProps {
   /** Section title text */
-  title: string
+  title: string;
   /** Optional action button label */
-  actionLabel?: string
+  actionLabel?: string;
   /** Callback when action button is pressed */
-  onActionPress?: () => void
+  onActionPress?: () => void;
   /** Whether to show chevron icon with action */
-  showChevron?: boolean
+  showChevron?: boolean;
   /** Size variant */
-  size?: 'sm' | 'md' | 'lg'
+  size?: 'sm' | 'md' | 'lg';
 }
 
 /**
@@ -33,7 +33,7 @@ export function SectionHeader({
     sm: 'text-sm font-medium',
     md: 'text-base font-semibold',
     lg: 'text-lg font-semibold',
-  }[size]
+  }[size];
 
   return (
     <View
@@ -53,5 +53,5 @@ export function SectionHeader({
         </Pressable>
       )}
     </View>
-  )
+  );
 }

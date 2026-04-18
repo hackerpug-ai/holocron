@@ -4,7 +4,7 @@
  * Test file for standard CRUD query operations
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 describe('US-761: Standard Queries', () => {
   /**

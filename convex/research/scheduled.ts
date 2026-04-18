@@ -8,29 +8,25 @@
  *   EXPAND (gpt-5.4-mini) → SEARCH (direct API) → DEEP READ (Jina) → SYNTHESIZE (gpt-5.4) → REVIEW (gpt-5.4)
  */
 
-"use node";
+'use node';
 
-import { internalAction } from "../_generated/server";
-import type { ActionCtx } from "../_generated/server";
-import { v } from "convex/values";
-import { api, internal } from "../_generated/api";
-import type { Id } from "../_generated/dataModel";
-import { generateText } from "ai";
-import { claudeFlash, claudePro } from "../lib/ai/anthropic_provider";
+import { generateText } from 'ai';
+import { v } from 'convex/values';
+import { api, internal } from '../_generated/api';
+import type { Id } from '../_generated/dataModel';
+import type { ActionCtx } from '../_generated/server';
+import { internalAction } from '../_generated/server';
+import { claudeFlash, claudePro } from '../lib/ai/anthropic_provider';
+import { stripMarkdownCodeBlock } from '../lib/json';
+import type { ResearchMode } from './intent';
+import { getVariantInstructions } from './mode_prompts';
+import { buildResearchContext, buildReviewPrompt, buildSynthesisPrompt } from './prompts';
 import {
   executeParallelSearchWithRetry,
   executeParallelUrlRead,
   generateDiverseQueries,
   type StructuredSearchResult,
-} from "./search";
-import {
-  buildResearchContext,
-  buildSynthesisPrompt,
-  buildReviewPrompt,
-} from "./prompts";
-import { stripMarkdownCodeBlock } from "../lib/json";
-import type { ResearchMode } from "./intent";
-import { getVariantInstructions } from "./mode_prompts";
+} from './search';
 
 /**
  * Generate a concise 3-6 word summary from research feedback and findings
@@ -63,28 +59,30 @@ function generateIterationSummary(
       // Limit to 6 words
       const words = extracted.split(/\s+/).slice(0, 6);
       if (words.length >= 2) {
-        return words.join(" ");
+        return words.join(' ');
       }
     }
   }
 
   // Fallback: Extract key nouns/verbs from first 50 chars of findings
   const findingsPreview = findings.slice(0, 100);
-  const keyPhrases = findingsPreview.match(/\b(?:found|discovered|revealed|shows|identifies|provides)\s+(.+?)(?:\n|$)/i);
+  const keyPhrases = findingsPreview.match(
+    /\b(?:found|discovered|revealed|shows|identifies|provides)\s+(.+?)(?:\n|$)/i
+  );
   if (keyPhrases && keyPhrases[1]) {
     const words = keyPhrases[1].trim().split(/\s+/).slice(0, 5);
     if (words.length >= 2) {
-      return `Found: ${words.join(" ")}`;
+      return `Found: ${words.join(' ')}`;
     }
   }
 
   // Final fallback: Score-based summary
   if (coverageScore >= 4) {
-    return "Strong coverage achieved";
+    return 'Strong coverage achieved';
   } else if (coverageScore >= 3) {
-    return "Good progress made";
+    return 'Good progress made';
   } else {
-    return "Exploring topic";
+    return 'Exploring topic';
   }
 }
 
@@ -101,17 +99,17 @@ async function updateLoadingCardSteps(
   topic: string,
   steps: Array<{ id: string; label: string; status: string; detail?: string }>
 ): Promise<void> {
-  const loadingCard = await ctx.runQuery(
-    api.chatMessages.queries.findLoadingCardBySession,
-    { conversationId: conversationId as Id<"conversations">, sessionId },
-  );
+  const loadingCard = await ctx.runQuery(api.chatMessages.queries.findLoadingCardBySession, {
+    conversationId: conversationId as Id<'conversations'>,
+    sessionId,
+  });
   if (!loadingCard) return;
 
   await ctx.runMutation(api.chatMessages.mutations.update, {
     id: loadingCard._id,
     cardData: {
-      card_type: "deep_research_loading",
-      status: "in_progress",
+      card_type: 'deep_research_loading',
+      status: 'in_progress',
       session_id: sessionId,
       topic,
       steps,
@@ -131,17 +129,19 @@ async function expandQueries(
   previousGaps: string[],
   previousSessions?: Array<{ topic: string; summary: string }>,
   mode?: ResearchMode,
-  count: number = 6,
+  count: number = 6
 ): Promise<Array<{ query: string; focus: string; rationale: string }>> {
-  const previousSessionsContext = previousSessions && previousSessions.length > 0
-    ? `\nPrevious research sessions in this conversation:\n${previousSessions.map((s, i) =>
-        `${i + 1}. "${s.topic}"\n   Key findings: ${s.summary.slice(0, 200)}...`
-      ).join("\n\n")}\n\nBuild upon these previous findings to provide comprehensive coverage.`
-    : "";
+  const previousSessionsContext =
+    previousSessions && previousSessions.length > 0
+      ? `\nPrevious research sessions in this conversation:\n${previousSessions
+          .map((s, i) => `${i + 1}. "${s.topic}"\n   Key findings: ${s.summary.slice(0, 200)}...`)
+          .join('\n\n')}\n\nBuild upon these previous findings to provide comprehensive coverage.`
+      : '';
 
-  const gapContext = previousGaps.length > 0
-    ? `\nPrevious research identified these gaps to address:\n${previousGaps.map((g, i) => `${i + 1}. ${g}`).join("\n")}\n\nPrioritize queries that fill these gaps.`
-    : "";
+  const gapContext =
+    previousGaps.length > 0
+      ? `\nPrevious research identified these gaps to address:\n${previousGaps.map((g, i) => `${i + 1}. ${g}`).join('\n')}\n\nPrioritize queries that fill these gaps.`
+      : '';
 
   const variantInstructions = mode
     ? getVariantInstructions(mode)
@@ -182,11 +182,13 @@ Be specific and targeted. Each query should uncover different information.`;
     }
     throw new Error(`Invalid variant count: ${variants.length}`);
   } catch (error) {
-    console.warn(`[expandQueries] LLM failed, using static fallback: ${error instanceof Error ? error.message : String(error)}`);
+    console.warn(
+      `[expandQueries] LLM failed, using static fallback: ${error instanceof Error ? error.message : String(error)}`
+    );
     return generateDiverseQueries(topic, previousGaps).map((q, i) => ({
       query: q,
       focus: `Angle ${i + 1}`,
-      rationale: "Static fallback",
+      rationale: 'Static fallback',
     }));
   }
 }
@@ -205,34 +207,27 @@ Be specific and targeted. Each query should uncover different information.`;
  */
 export const processDeepResearchIteration = internalAction({
   args: {
-    sessionId: v.id("deepResearchSessions"),
+    sessionId: v.id('deepResearchSessions'),
   },
   handler: async (ctx, { sessionId }) => {
-
     try {
       // Load session directly from database (actions need all fields)
-      const session = await ctx.runQuery(
-        api.research.queries.getDeepResearchSession,
-        {
-          sessionId,
-        },
-      );
+      const session = await ctx.runQuery(api.research.queries.getDeepResearchSession, {
+        sessionId,
+      });
 
       if (!session) {
         console.error(`[processIteration] Session not found: ${sessionId}`);
         return;
       }
 
-      if (session.status === "completed" || session.status === "cancelled") {
-        
+      if (session.status === 'completed' || session.status === 'cancelled') {
         return;
       }
 
       // Get current iteration from the session data
       const currentIteration = (session.iterations.length || 0) + 1;
       const maxIterations = session.maxIterations ?? 5;
-
-      
 
       // Build context from database
       const context = await buildResearchContext(ctx, sessionId);
@@ -241,15 +236,16 @@ export const processDeepResearchIteration = internalAction({
       const completedIterationSteps = context.previousIterations.map((iter: any, idx: number) => ({
         id: `iteration-${idx + 1}`,
         label: iter.summary || `Iteration ${idx + 1} complete`,
-        status: "completed" as const,
+        status: 'completed' as const,
       }));
 
       const researchMode = (session as any).researchMode as ResearchMode | undefined;
 
       // Get gaps from previous iterations for query refinement
-      const previousGaps = context.previousIterations.length > 0
-        ? context.previousIterations[context.previousIterations.length - 1].gaps
-        : [];
+      const previousGaps =
+        context.previousIterations.length > 0
+          ? context.previousIterations[context.previousIterations.length - 1].gaps
+          : [];
 
       // ─── PHASE 1: EXPAND QUERIES ───────────────────────────────────────
       await updateLoadingCardSteps(
@@ -262,9 +258,9 @@ export const processDeepResearchIteration = internalAction({
           {
             id: `expand-${currentIteration}`,
             label: `Iteration ${currentIteration}: Expanding search queries...`,
-            status: "in-progress",
+            status: 'in-progress',
           },
-        ],
+        ]
       );
 
       const queryVariants = await expandQueries(
@@ -272,10 +268,8 @@ export const processDeepResearchIteration = internalAction({
         previousGaps,
         context.previousSessions,
         researchMode,
-        6,
+        6
       );
-
-      
 
       // ─── PHASE 2: PARALLEL SEARCH ─────────────────────────────────────
       await updateLoadingCardSteps(
@@ -288,18 +282,18 @@ export const processDeepResearchIteration = internalAction({
           {
             id: `expand-${currentIteration}`,
             label: `Iteration ${currentIteration}: Generated ${queryVariants.length} search angles`,
-            status: "completed",
+            status: 'completed',
           },
           {
             id: `search-${currentIteration}`,
             label: `Iteration ${currentIteration}: Searching ${queryVariants.length} queries across multiple sources...`,
-            status: "in-progress",
+            status: 'in-progress',
           },
-        ],
+        ]
       );
 
       // Execute parallel searches for each query variant
-      const searchPromises = queryVariants.map(variant =>
+      const searchPromises = queryVariants.map((variant) =>
         executeParallelSearchWithRetry(variant.query, {}, previousGaps, {
           maxRetries: 2,
           timeoutMs: 15000,
@@ -314,7 +308,7 @@ export const processDeepResearchIteration = internalAction({
       const allStructuredResults: StructuredSearchResult[] = [];
       for (const result of searchResults) {
         for (const sr of result.structuredResults) {
-          const normalized = sr.url.toLowerCase().replace(/\/$/, "");
+          const normalized = sr.url.toLowerCase().replace(/\/$/, '');
           if (!seenUrls.has(normalized)) {
             seenUrls.add(normalized);
             allStructuredResults.push(sr);
@@ -324,13 +318,11 @@ export const processDeepResearchIteration = internalAction({
 
       // Combine findings text from all search results
       const searchFindings = searchResults
-        .map(r => r.findings)
-        .filter(f => f.length > 0)
-        .join("\n\n---\n\n");
+        .map((r) => r.findings)
+        .filter((f) => f.length > 0)
+        .join('\n\n---\n\n');
 
       searchResults.reduce((sum, r) => sum + r.toolCallCount, 0);
-
-      
 
       // ─── PHASE 3: DEEP READ TOP SOURCES ───────────────────────────────
       await updateLoadingCardSteps(
@@ -343,29 +335,29 @@ export const processDeepResearchIteration = internalAction({
           {
             id: `expand-${currentIteration}`,
             label: `Iteration ${currentIteration}: Generated ${queryVariants.length} search angles`,
-            status: "completed",
+            status: 'completed',
           },
           {
             id: `search-${currentIteration}`,
             label: `Iteration ${currentIteration}: Found ${allStructuredResults.length} unique sources`,
-            status: "completed",
+            status: 'completed',
           },
           {
             id: `read-${currentIteration}`,
             label: `Iteration ${currentIteration}: Reading top articles in depth...`,
-            status: "in-progress",
+            status: 'in-progress',
           },
-        ],
+        ]
       );
 
       // Sort by relevance score and take top 8 URLs for deep reading
       const topUrls = allStructuredResults
         .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
         .slice(0, 8)
-        .map(r => r.url)
-        .filter(url => url && url.startsWith("http"));
+        .map((r) => r.url)
+        .filter((url) => url && url.startsWith('http'));
 
-      let deepReadContent = "";
+      let deepReadContent = '';
       let deepReadCount = 0;
 
       if (topUrls.length > 0) {
@@ -375,14 +367,12 @@ export const processDeepResearchIteration = internalAction({
           maxContentLength: 10000,
         });
 
-        const successfulReads = readResults.filter(r => r.success && r.content.length > 100);
+        const successfulReads = readResults.filter((r) => r.success && r.content.length > 100);
         deepReadCount = successfulReads.length;
         deepReadContent = successfulReads
-          .map(r => `### ${r.title || "Source"}\nURL: ${r.url}\n\n${r.content}`)
-          .join("\n\n---\n\n");
+          .map((r) => `### ${r.title || 'Source'}\nURL: ${r.url}\n\n${r.content}`)
+          .join('\n\n---\n\n');
       }
-
-      
 
       // Combine search snippets + deep read content for synthesis
       const enrichedFindings = deepReadContent
@@ -400,24 +390,24 @@ export const processDeepResearchIteration = internalAction({
           {
             id: `expand-${currentIteration}`,
             label: `Iteration ${currentIteration}: Generated ${queryVariants.length} search angles`,
-            status: "completed",
+            status: 'completed',
           },
           {
             id: `search-${currentIteration}`,
             label: `Iteration ${currentIteration}: Found ${allStructuredResults.length} unique sources`,
-            status: "completed",
+            status: 'completed',
           },
           {
             id: `read-${currentIteration}`,
             label: `Iteration ${currentIteration}: Read ${deepReadCount} articles in depth`,
-            status: "completed",
+            status: 'completed',
           },
           {
             id: `synthesize-${currentIteration}`,
             label: `Iteration ${currentIteration}: Synthesizing ${allStructuredResults.length} sources + ${deepReadCount} articles...`,
-            status: "in-progress",
+            status: 'in-progress',
           },
-        ],
+        ]
       );
 
       const synthesisPrompt = buildSynthesisPrompt(context, enrichedFindings, researchMode);
@@ -426,7 +416,6 @@ export const processDeepResearchIteration = internalAction({
         prompt: synthesisPrompt,
       });
       const synthesis = synthesisResult.text;
-      
 
       // ─── PHASE 5: REVIEW ──────────────────────────────────────────────
       await updateLoadingCardSteps(
@@ -439,29 +428,29 @@ export const processDeepResearchIteration = internalAction({
           {
             id: `expand-${currentIteration}`,
             label: `Iteration ${currentIteration}: Generated ${queryVariants.length} search angles`,
-            status: "completed",
+            status: 'completed',
           },
           {
             id: `search-${currentIteration}`,
             label: `Iteration ${currentIteration}: Found ${allStructuredResults.length} unique sources`,
-            status: "completed",
+            status: 'completed',
           },
           {
             id: `read-${currentIteration}`,
             label: `Iteration ${currentIteration}: Read ${deepReadCount} articles in depth`,
-            status: "completed",
+            status: 'completed',
           },
           {
             id: `synthesize-${currentIteration}`,
             label: `Iteration ${currentIteration}: Synthesized findings`,
-            status: "completed",
+            status: 'completed',
           },
           {
             id: `review-${currentIteration}`,
             label: `Iteration ${currentIteration}: Reviewing coverage...`,
-            status: "in-progress",
+            status: 'in-progress',
           },
-        ],
+        ]
       );
       const reviewPrompt = buildReviewPrompt(context, synthesis);
       const reviewResult = await generateText({
@@ -484,13 +473,11 @@ export const processDeepResearchIteration = internalAction({
         console.error(`[processIteration] Failed to parse review JSON:`, error);
         review = {
           coverageScore: 3,
-          gaps: ["Unable to parse reviewer feedback"],
+          gaps: ['Unable to parse reviewer feedback'],
           feedback: reviewResult.text,
           shouldContinue: true,
         };
       }
-
-      
 
       // Generate a concise summary from the feedback (3-6 words)
       const summary = generateIterationSummary(review.feedback, synthesis, review.coverageScore);
@@ -506,50 +493,47 @@ export const processDeepResearchIteration = internalAction({
           {
             id: `expand-${currentIteration}`,
             label: `Iteration ${currentIteration}: Generated ${queryVariants.length} search angles`,
-            status: "completed",
+            status: 'completed',
           },
           {
             id: `search-${currentIteration}`,
             label: `Iteration ${currentIteration}: Found ${allStructuredResults.length} unique sources`,
-            status: "completed",
+            status: 'completed',
           },
           {
             id: `read-${currentIteration}`,
             label: `Iteration ${currentIteration}: Read ${deepReadCount} articles in depth`,
-            status: "completed",
+            status: 'completed',
           },
           {
             id: `synthesize-${currentIteration}`,
             label: `Iteration ${currentIteration}: Synthesized findings`,
-            status: "completed",
+            status: 'completed',
           },
           {
             id: `review-${currentIteration}`,
             label: `Iteration ${currentIteration}: Coverage score ${review.coverageScore}/5`,
-            status: "completed",
+            status: 'completed',
           },
           {
             id: `save-${currentIteration}`,
             label: `Saving iteration ${currentIteration} to knowledge base...`,
-            status: "in-progress",
+            status: 'in-progress',
           },
-        ],
+        ]
       );
 
       // Save iteration
-      await ctx.runMutation(
-        api.research.mutations.createDeepResearchIteration,
-        {
-          sessionId,
-          iterationNumber: currentIteration,
-          coverageScore: review.coverageScore,
-          feedback: review.feedback,
-          findings: synthesis,
-          refinedQueries: review.gaps,
-          status: "completed",
-          summary,
-        },
-      );
+      await ctx.runMutation(api.research.mutations.createDeepResearchIteration, {
+        sessionId,
+        iterationNumber: currentIteration,
+        coverageScore: review.coverageScore,
+        feedback: review.feedback,
+        findings: synthesis,
+        refinedQueries: review.gaps,
+        status: 'completed',
+        summary,
+      });
 
       // Mark iteration save as complete
       await updateLoadingCardSteps(
@@ -562,24 +546,23 @@ export const processDeepResearchIteration = internalAction({
           {
             id: `iteration-${currentIteration}`,
             label: summary || `Iteration ${currentIteration} — Coverage ${review.coverageScore}/5`,
-            status: "completed",
+            status: 'completed',
             detail: review.feedback || undefined,
           },
-        ],
+        ]
       );
 
       // Update session — keep original topic intact (query expansion handles gaps)
       await ctx.runMutation(api.research.mutations.updateDeepResearchSession, {
         sessionId,
-        status: "in_progress",
+        status: 'in_progress',
         currentIteration,
         refinedTopic: session.topic, // Keep original topic, don't mangle with gaps
         currentCoverageScore: review.coverageScore,
       });
 
       // Decide: schedule next OR complete
-      const shouldContinue =
-        review.coverageScore < 4 && currentIteration < maxIterations;
+      const shouldContinue = review.coverageScore < 4 && currentIteration < maxIterations;
 
       if (shouldContinue) {
         // Schedule next iteration to run after a short delay (1 second)
@@ -588,20 +571,19 @@ export const processDeepResearchIteration = internalAction({
           internal.research.scheduled.processDeepResearchIteration,
           {
             sessionId,
-          },
+          }
         );
       } else {
-        
-
         // Fetch all saved iterations to build the completed steps list
-        const allIterations = await ctx.runQuery(
-          api.research.queries.listDeepResearchIterations,
-          { sessionId },
-        );
+        const allIterations = await ctx.runQuery(api.research.queries.listDeepResearchIterations, {
+          sessionId,
+        });
         const allIterationSteps = allIterations.map((iter: any) => ({
           id: `iteration-${iter.iterationNumber}`,
-          label: iter.summary || `Iteration ${iter.iterationNumber} — Coverage ${iter.coverageScore || 0}/5`,
-          status: "completed" as const,
+          label:
+            iter.summary ||
+            `Iteration ${iter.iterationNumber} — Coverage ${iter.coverageScore || 0}/5`,
+          status: 'completed' as const,
           detail: iter.feedback || undefined,
         }));
 
@@ -614,34 +596,26 @@ export const processDeepResearchIteration = internalAction({
           [
             ...allIterationSteps,
             {
-              id: "save-final",
-              label: "Saving to knowledge base...",
-              status: "in-progress",
+              id: 'save-final',
+              label: 'Saving to knowledge base...',
+              status: 'in-progress',
             },
-          ],
+          ]
         );
 
         // Complete session (this triggers document creation)
-        await ctx.runMutation(
-          api.research.mutations.completeDeepResearchSession,
-          {
-            sessionId,
-            status: "completed",
-          },
-        );
+        await ctx.runMutation(api.research.mutations.completeDeepResearchSession, {
+          sessionId,
+          status: 'completed',
+        });
       }
-
-      
     } catch (error) {
       console.error(`[processIteration] ERROR:`, error);
       // Mark session as error
-      await ctx.runMutation(
-        api.research.mutations.completeDeepResearchSession,
-        {
-          sessionId,
-          status: "error",
-        },
-      );
+      await ctx.runMutation(api.research.mutations.completeDeepResearchSession, {
+        sessionId,
+        status: 'error',
+      });
       throw error;
     }
   },

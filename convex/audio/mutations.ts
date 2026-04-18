@@ -1,5 +1,5 @@
-import { internalMutation } from "../_generated/server";
-import { v } from "convex/values";
+import { v } from 'convex/values';
+import { internalMutation } from '../_generated/server';
 
 // ---------------------------------------------------------------------------
 // Job management
@@ -12,30 +12,28 @@ import { v } from "convex/values";
  */
 export const createJob = internalMutation({
   args: {
-    documentId: v.id("documents"),
+    documentId: v.id('documents'),
     voiceId: v.string(),
     totalSegments: v.number(),
   },
   handler: async (ctx, args) => {
     // Check for an existing active job (pending or running).
     const existingJobs = await ctx.db
-      .query("audioJobs")
-      .withIndex("by_document", (q) => q.eq("documentId", args.documentId))
+      .query('audioJobs')
+      .withIndex('by_document', (q) => q.eq('documentId', args.documentId))
       .collect();
 
-    const activeJob = existingJobs.find(
-      (j) => j.status === "pending" || j.status === "running"
-    );
+    const activeJob = existingJobs.find((j) => j.status === 'pending' || j.status === 'running');
 
     if (activeJob) {
       return activeJob._id;
     }
 
     const now = Date.now();
-    const jobId = await ctx.db.insert("audioJobs", {
+    const jobId = await ctx.db.insert('audioJobs', {
       documentId: args.documentId,
       voiceId: args.voiceId,
-      status: "pending",
+      status: 'pending',
       totalSegments: args.totalSegments,
       completedSegments: 0,
       failedSegments: 0,
@@ -60,9 +58,9 @@ export const createJob = internalMutation({
  */
 export const createSegments = internalMutation({
   args: {
-    documentId: v.id("documents"),
+    documentId: v.id('documents'),
     voiceId: v.string(),
-    jobId: v.optional(v.id("audioJobs")),
+    jobId: v.optional(v.id('audioJobs')),
     paragraphs: v.array(
       v.object({
         index: v.number(),
@@ -73,8 +71,8 @@ export const createSegments = internalMutation({
   handler: async (ctx, args) => {
     // Idempotency: return existing segment IDs if they match the requested paragraphs.
     const allExisting = await ctx.db
-      .query("audioSegments")
-      .withIndex("by_document", (q) => q.eq("documentId", args.documentId))
+      .query('audioSegments')
+      .withIndex('by_document', (q) => q.eq('documentId', args.documentId))
       .collect();
 
     if (allExisting.length > 0) {
@@ -89,9 +87,9 @@ export const createSegments = internalMutation({
           // Update jobId to the new job so progress tracking works correctly.
           const now = Date.now();
           for (const seg of sorted) {
-            if (seg.status === "failed" || seg.status === "pending") {
+            if (seg.status === 'failed' || seg.status === 'pending') {
               await ctx.db.patch(seg._id, {
-                status: "pending",
+                status: 'pending',
                 jobId: args.jobId,
                 errorMessage: undefined,
                 updatedAt: now,
@@ -107,15 +105,13 @@ export const createSegments = internalMutation({
 
           // Sync the job's completed count with already-completed segments
           if (args.jobId) {
-            const alreadyCompleted = sorted.filter(
-              (s) => s.status === "completed"
-            ).length;
+            const alreadyCompleted = sorted.filter((s) => s.status === 'completed').length;
             if (alreadyCompleted > 0) {
               const job = await ctx.db.get(args.jobId);
               if (job) {
                 await ctx.db.patch(args.jobId, {
                   completedSegments: alreadyCompleted,
-                  status: alreadyCompleted === sorted.length ? "completed" : "running",
+                  status: alreadyCompleted === sorted.length ? 'completed' : 'running',
                   failedSegments: 0,
                   updatedAt: now,
                 });
@@ -133,12 +129,12 @@ export const createSegments = internalMutation({
     const now = Date.now();
     const ids = await Promise.all(
       args.paragraphs.map((paragraph) =>
-        ctx.db.insert("audioSegments", {
+        ctx.db.insert('audioSegments', {
           documentId: args.documentId,
           voiceId: args.voiceId,
           paragraphIndex: paragraph.index,
           paragraphHash: paragraph.hash,
-          status: "pending",
+          status: 'pending',
           jobId: args.jobId,
           retryCount: 0,
           createdAt: now,
@@ -156,19 +152,19 @@ export const createSegments = internalMutation({
  */
 export const markGenerating = internalMutation({
   args: {
-    segmentId: v.id("audioSegments"),
+    segmentId: v.id('audioSegments'),
   },
   handler: async (ctx, args) => {
     const segment = await ctx.db.get(args.segmentId);
     if (!segment) return;
     await ctx.db.patch(args.segmentId, {
-      status: "generating",
+      status: 'generating',
       updatedAt: Date.now(),
     });
     if (segment.jobId) {
       const job = await ctx.db.get(segment.jobId);
-      if (job && job.status === "pending") {
-        await ctx.db.patch(segment.jobId, { status: "running", updatedAt: Date.now() });
+      if (job && job.status === 'pending') {
+        await ctx.db.patch(segment.jobId, { status: 'running', updatedAt: Date.now() });
       }
     }
   },
@@ -180,8 +176,8 @@ export const markGenerating = internalMutation({
  */
 export const completeSegment = internalMutation({
   args: {
-    segmentId: v.id("audioSegments"),
-    storageId: v.id("_storage"),
+    segmentId: v.id('audioSegments'),
+    storageId: v.id('_storage'),
     durationMs: v.number(),
   },
   handler: async (ctx, args) => {
@@ -189,7 +185,7 @@ export const completeSegment = internalMutation({
     if (!segment) return;
 
     await ctx.db.patch(args.segmentId, {
-      status: "completed",
+      status: 'completed',
       storageId: args.storageId,
       durationMs: args.durationMs,
       updatedAt: Date.now(),
@@ -202,11 +198,7 @@ export const completeSegment = internalMutation({
         const completedSegments = job.completedSegments + 1;
         const failedSegments = job.failedSegments;
         const allResolved = completedSegments + failedSegments === job.totalSegments;
-        const newStatus = allResolved
-          ? failedSegments > 0
-            ? "failed"
-            : "completed"
-          : job.status;
+        const newStatus = allResolved ? (failedSegments > 0 ? 'failed' : 'completed') : job.status;
 
         await ctx.db.patch(segment.jobId, {
           completedSegments,
@@ -215,11 +207,11 @@ export const completeSegment = internalMutation({
         });
 
         // Notify when all segments are done and job completed successfully
-        if (allResolved && newStatus === "completed") {
-          await ctx.db.insert("notifications", {
-            type: "audio_complete",
-            title: "Audio Ready",
-            body: "Audio generation for your document has finished.",
+        if (allResolved && newStatus === 'completed') {
+          await ctx.db.insert('notifications', {
+            type: 'audio_complete',
+            title: 'Audio Ready',
+            body: 'Audio generation for your document has finished.',
             route: `/document/${job.documentId}`,
             referenceId: job.documentId,
             read: false,
@@ -237,7 +229,7 @@ export const completeSegment = internalMutation({
  */
 export const failSegment = internalMutation({
   args: {
-    segmentId: v.id("audioSegments"),
+    segmentId: v.id('audioSegments'),
     errorMessage: v.string(),
   },
   handler: async (ctx, args) => {
@@ -245,7 +237,7 @@ export const failSegment = internalMutation({
     if (!segment) return;
 
     await ctx.db.patch(args.segmentId, {
-      status: "failed",
+      status: 'failed',
       errorMessage: args.errorMessage,
       updatedAt: Date.now(),
     });
@@ -257,11 +249,7 @@ export const failSegment = internalMutation({
         const completedSegments = job.completedSegments;
         const failedSegments = job.failedSegments + 1;
         const allResolved = completedSegments + failedSegments === job.totalSegments;
-        const newStatus = allResolved
-          ? failedSegments > 0
-            ? "failed"
-            : "completed"
-          : job.status;
+        const newStatus = allResolved ? (failedSegments > 0 ? 'failed' : 'completed') : job.status;
 
         await ctx.db.patch(segment.jobId, {
           failedSegments,
@@ -281,7 +269,7 @@ export const failSegment = internalMutation({
  */
 export const resetSegmentForRetry = internalMutation({
   args: {
-    segmentId: v.id("audioSegments"),
+    segmentId: v.id('audioSegments'),
   },
   handler: async (ctx, args) => {
     const segment = await ctx.db.get(args.segmentId);
@@ -293,7 +281,7 @@ export const resetSegmentForRetry = internalMutation({
     }
 
     await ctx.db.patch(args.segmentId, {
-      status: "pending",
+      status: 'pending',
       retryCount: currentRetryCount + 1,
       errorMessage: undefined,
       updatedAt: Date.now(),
@@ -305,7 +293,7 @@ export const resetSegmentForRetry = internalMutation({
       if (job) {
         await ctx.db.patch(segment.jobId, {
           failedSegments: Math.max(0, job.failedSegments - 1),
-          status: "running",
+          status: 'running',
           updatedAt: Date.now(),
         });
       }
@@ -322,13 +310,13 @@ export const resetSegmentForRetry = internalMutation({
  */
 export const deleteAllForDocument = internalMutation({
   args: {
-    documentId: v.id("documents"),
+    documentId: v.id('documents'),
   },
   handler: async (ctx, args) => {
     // Delete storage blobs and segment rows.
     const segments = await ctx.db
-      .query("audioSegments")
-      .withIndex("by_document", (q) => q.eq("documentId", args.documentId))
+      .query('audioSegments')
+      .withIndex('by_document', (q) => q.eq('documentId', args.documentId))
       .collect();
 
     await Promise.all(
@@ -342,8 +330,8 @@ export const deleteAllForDocument = internalMutation({
 
     // Delete any audio jobs associated with this document.
     const jobs = await ctx.db
-      .query("audioJobs")
-      .withIndex("by_document", (q) => q.eq("documentId", args.documentId))
+      .query('audioJobs')
+      .withIndex('by_document', (q) => q.eq('documentId', args.documentId))
       .collect();
 
     await Promise.all(jobs.map((job) => ctx.db.delete(job._id)));

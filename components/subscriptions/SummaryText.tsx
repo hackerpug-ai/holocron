@@ -10,26 +10,26 @@
  * Returns null when no summary is provided (cards show title-only).
  */
 
-import { useState } from 'react'
-import { Pressable, LayoutAnimation, Platform, UIManager } from 'react-native'
-import { Text } from '@/components/ui/text'
+import { useState } from 'react';
+import { LayoutAnimation, Platform, Pressable, UIManager } from 'react-native';
+import { Text } from '@/components/ui/text';
 
 // Enable LayoutAnimation for Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true)
+  UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
 export interface SummaryTextProps {
   /** Optional summary text to display */
-  summary?: string
+  summary?: string;
   /** Title fallback (used when summary is undefined) */
-  title: string
+  title: string;
   /** Maximum lines to show when collapsed */
-  maxLines?: number
+  maxLines?: number;
   /** Maximum character length before truncation */
-  maxLength?: number
+  maxLength?: number;
   /** Test ID for testing */
-  testID?: string
+  testID?: string;
 }
 
 /**
@@ -51,19 +51,19 @@ export function SummaryText({
   maxLength = 150,
   testID = 'card-summary',
 }: SummaryTextProps) {
-  const [isExpanded, setIsExpanded] = useState(false)
+  const [isExpanded, setIsExpanded] = useState(false);
 
   // Return null if no summary - card shows title-only
   if (!summary) {
-    return null
+    return null;
   }
 
-  const shouldTruncate = summary.length > maxLength && !isExpanded
+  const shouldTruncate = summary.length > maxLength && !isExpanded;
 
   const toggleExpand = () => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut)
-    setIsExpanded(!isExpanded)
-  }
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setIsExpanded(!isExpanded);
+  };
 
   return (
     <Pressable
@@ -90,5 +90,5 @@ export function SummaryText({
         </Text>
       )}
     </Pressable>
-  )
+  );
 }

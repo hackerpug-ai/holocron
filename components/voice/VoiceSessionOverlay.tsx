@@ -13,22 +13,30 @@
  * All colors, spacing, and radii use theme tokens via useTheme().
  */
 
-import { useEffect, useRef } from 'react'
-import { ActivityIndicator, Animated, Linking, Platform, Pressable, StyleSheet, View } from 'react-native'
-import { Text } from '@/components/ui/text'
-import { AlertCircle } from '@/components/ui/icons'
-import { useTheme } from '@/hooks/use-theme'
-import type { VoiceSessionState } from '@/hooks/use-voice-session-state'
+import { useEffect, useRef } from 'react';
+import {
+  ActivityIndicator,
+  Animated,
+  Linking,
+  Platform,
+  Pressable,
+  StyleSheet,
+  View,
+} from 'react-native';
+import { AlertCircle } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { useTheme } from '@/hooks/use-theme';
+import type { VoiceSessionState } from '@/hooks/use-voice-session-state';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
 export interface VoiceSessionOverlayProps {
   /** Current voice session state */
-  state: VoiceSessionState
+  state: VoiceSessionState;
   /** Called when user presses Retry in ERROR state */
-  onRetry?: () => void
+  onRetry?: () => void;
   /** Optional testID for the root container */
-  testID?: string
+  testID?: string;
 }
 
 /**
@@ -36,9 +44,9 @@ export interface VoiceSessionOverlayProps {
  */
 function openAppSettings(): void {
   if (Platform.OS === 'ios') {
-    Linking.openURL('app-settings:').catch(() => {})
+    Linking.openURL('app-settings:').catch(() => {});
   } else {
-    Linking.openSettings().catch(() => {})
+    Linking.openSettings().catch(() => {});
   }
 }
 
@@ -55,7 +63,7 @@ function ConnectingIndicator({ color }: { color: string }) {
         Connecting...
       </Text>
     </View>
-  )
+  );
 }
 
 /**
@@ -63,7 +71,7 @@ function ConnectingIndicator({ color }: { color: string }) {
  * Uses Animated API — no heavy computation on the main thread.
  */
 function ListeningIndicator({ color, radiusFull }: { color: string; radiusFull: number }) {
-  const pulseAnim = useRef(new Animated.Value(1)).current
+  const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     const pulse = Animated.loop(
@@ -79,10 +87,10 @@ function ListeningIndicator({ color, radiusFull }: { color: string; radiusFull: 
           useNativeDriver: true,
         }),
       ])
-    )
-    pulse.start()
-    return () => pulse.stop()
-  }, [pulseAnim])
+    );
+    pulse.start();
+    return () => pulse.stop();
+  }, [pulseAnim]);
 
   return (
     <View style={styles.indicatorContainer} testID="voice-overlay-listening-indicator">
@@ -100,7 +108,7 @@ function ListeningIndicator({ color, radiusFull }: { color: string; radiusFull: 
         Listening...
       </Text>
     </View>
-  )
+  );
 }
 
 /**
@@ -108,9 +116,9 @@ function ListeningIndicator({ color, radiusFull }: { color: string; radiusFull: 
  * Three bars animate with staggered timing for a wave effect.
  */
 function SpeakingIndicator({ color, radiusSm }: { color: string; radiusSm: number }) {
-  const bar1 = useRef(new Animated.Value(0.4)).current
-  const bar2 = useRef(new Animated.Value(0.4)).current
-  const bar3 = useRef(new Animated.Value(0.4)).current
+  const bar1 = useRef(new Animated.Value(0.4)).current;
+  const bar2 = useRef(new Animated.Value(0.4)).current;
+  const bar3 = useRef(new Animated.Value(0.4)).current;
 
   useEffect(() => {
     const createBarAnimation = (anim: Animated.Value, delay: number) =>
@@ -128,22 +136,22 @@ function SpeakingIndicator({ color, radiusSm }: { color: string; radiusSm: numbe
             useNativeDriver: true,
           }),
         ])
-      )
+      );
 
-    const anim1 = createBarAnimation(bar1, 0)
-    const anim2 = createBarAnimation(bar2, 150)
-    const anim3 = createBarAnimation(bar3, 300)
+    const anim1 = createBarAnimation(bar1, 0);
+    const anim2 = createBarAnimation(bar2, 150);
+    const anim3 = createBarAnimation(bar3, 300);
 
-    anim1.start()
-    anim2.start()
-    anim3.start()
+    anim1.start();
+    anim2.start();
+    anim3.start();
 
     return () => {
-      anim1.stop()
-      anim2.stop()
-      anim3.stop()
-    }
-  }, [bar1, bar2, bar3])
+      anim1.stop();
+      anim2.stop();
+      anim3.stop();
+    };
+  }, [bar1, bar2, bar3]);
 
   return (
     <View style={styles.indicatorContainer} testID="voice-overlay-speaking-indicator">
@@ -166,7 +174,7 @@ function SpeakingIndicator({ color, radiusSm }: { color: string; radiusSm: numbe
         Speaking...
       </Text>
     </View>
-  )
+  );
 }
 
 /**
@@ -180,7 +188,7 @@ function ProcessingIndicator({ color }: { color: string }) {
         Processing...
       </Text>
     </View>
-  )
+  );
 }
 
 /**
@@ -199,30 +207,33 @@ function ErrorIndicator({
   spacingXl,
   radiusLg,
 }: {
-  errorMessage: string | null
-  errorKind: 'service_unavailable' | 'permission_denied' | null
-  onRetry?: () => void
-  errorColor: string
-  primaryColor: string
-  surfaceColor: string
-  spacingSm: number
-  spacingLg: number
-  spacingXl: number
-  radiusLg: number
+  errorMessage: string | null;
+  errorKind: 'service_unavailable' | 'permission_denied' | null;
+  onRetry?: () => void;
+  errorColor: string;
+  primaryColor: string;
+  surfaceColor: string;
+  spacingSm: number;
+  spacingLg: number;
+  spacingXl: number;
+  radiusLg: number;
 }) {
   const settingsGuidance =
     errorKind === 'permission_denied'
       ? Platform.OS === 'ios'
         ? 'Go to Settings > Holocron > Microphone'
         : 'Go to Settings > Apps > Holocron > Permissions'
-      : null
+      : null;
 
   return (
     <View style={styles.indicatorContainer} testID="voice-overlay-error-indicator">
       <AlertCircle size={40} color={errorColor} />
       <Text
         className="text-base mt-3 text-center"
-        style={[styles.errorMessage, { color: errorColor, marginBottom: settingsGuidance ? spacingSm : spacingLg }]}
+        style={[
+          styles.errorMessage,
+          { color: errorColor, marginBottom: settingsGuidance ? spacingSm : spacingLg },
+        ]}
       >
         {errorMessage ?? 'An error occurred'}
       </Text>
@@ -252,10 +263,7 @@ function ErrorIndicator({
             },
           ]}
         >
-          <Text
-            className="text-sm font-semibold"
-            style={{ color: primaryColor }}
-          >
+          <Text className="text-sm font-semibold" style={{ color: primaryColor }}>
             Open Settings
           </Text>
         </Pressable>
@@ -277,17 +285,14 @@ function ErrorIndicator({
               },
             ]}
           >
-            <Text
-              className="text-sm font-semibold"
-              style={{ color: primaryColor }}
-            >
+            <Text className="text-sm font-semibold" style={{ color: primaryColor }}>
               Retry
             </Text>
           </Pressable>
         )
       )}
     </View>
-  )
+  );
 }
 
 // ─── Main Component ────────────────────────────────────────────────────────────
@@ -310,9 +315,9 @@ export function VoiceSessionOverlay({
   onRetry,
   testID = 'voice-session-overlay',
 }: VoiceSessionOverlayProps) {
-  const { colors, spacing, radius } = useTheme()
+  const { colors, spacing, radius } = useTheme();
 
-  if (state.status === 'idle') return null
+  if (state.status === 'idle') return null;
 
   return (
     <View
@@ -328,18 +333,14 @@ export function VoiceSessionOverlay({
       accessibilityLiveRegion="polite"
       accessibilityLabel={`Voice session: ${state.status}`}
     >
-      {state.status === 'connecting' && (
-        <ConnectingIndicator color={colors.primary} />
-      )}
+      {state.status === 'connecting' && <ConnectingIndicator color={colors.primary} />}
       {state.status === 'listening' && (
         <ListeningIndicator color={colors.primary} radiusFull={radius.full} />
       )}
       {state.status === 'speaking' && (
         <SpeakingIndicator color={colors.accentForeground} radiusSm={radius.sm} />
       )}
-      {state.status === 'processing' && (
-        <ProcessingIndicator color={colors.mutedForeground} />
-      )}
+      {state.status === 'processing' && <ProcessingIndicator color={colors.mutedForeground} />}
       {state.status === 'error' && (
         <ErrorIndicator
           errorMessage={state.errorMessage}
@@ -355,7 +356,7 @@ export function VoiceSessionOverlay({
         />
       )}
     </View>
-  )
+  );
 }
 
 // ─── Styles ────────────────────────────────────────────────────────────────────
@@ -371,18 +372,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   pulseDot: {
-    width: 24,  // fixed visual dimension (dot size)
+    width: 24, // fixed visual dimension (dot size)
     height: 24, // fixed visual dimension (dot size)
     // borderRadius applied inline via radius.full token
   },
   waveformContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,    // fixed visual gap between bars (no exact token: sm=8, xs=4)
+    gap: 6, // fixed visual gap between bars (no exact token: sm=8, xs=4)
     height: 40, // fixed visual dimension (waveform height)
   },
   waveformBar: {
-    width: 6,   // fixed visual dimension (bar width)
+    width: 6, // fixed visual dimension (bar width)
     height: 32, // fixed visual dimension (bar height)
     // borderRadius applied inline via radius.sm token
   },
@@ -395,4 +396,4 @@ const styles = StyleSheet.create({
     // paddingHorizontal, paddingVertical, borderRadius applied inline via tokens
     // paddingVertical uses spacing.sm token
   },
-})
+});

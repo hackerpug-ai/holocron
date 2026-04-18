@@ -13,7 +13,7 @@
  * ```
  */
 
-type LogLevel = "info" | "warn" | "error" | "debug";
+type LogLevel = 'info' | 'warn' | 'error' | 'debug';
 
 type LogContext = Record<string, unknown>;
 
@@ -24,11 +24,7 @@ type LogContext = Record<string, unknown>;
  * @param context - Additional context data
  * @param level - Log level (default: "info")
  */
-export function logEvent(
-  event: string,
-  context: LogContext = {},
-  level: LogLevel = "info"
-): void {
+export function logEvent(event: string, context: LogContext = {}, level: LogLevel = 'info'): void {
   const logEntry = {
     level,
     event,
@@ -39,15 +35,15 @@ export function logEvent(
   const output = JSON.stringify(logEntry);
 
   switch (level) {
-    case "error":
+    case 'error':
       console.error(output);
       break;
-    case "warn":
+    case 'warn':
       console.warn(output);
       break;
-    case "debug":
+    case 'debug':
       // Only log debug in non-production
-      if (process.env.NODE_ENV !== "production") {
+      if (process.env.NODE_ENV !== 'production') {
         console.debug(output);
       }
       break;
@@ -63,7 +59,7 @@ export function logEvent(
  * @param context - Additional context data (should include error details)
  */
 export function logError(event: string, context: LogContext = {}): void {
-  logEvent(event, context, "error");
+  logEvent(event, context, 'error');
 }
 
 /**
@@ -73,7 +69,7 @@ export function logError(event: string, context: LogContext = {}): void {
  * @param context - Additional context data
  */
 export function logWarning(event: string, context: LogContext = {}): void {
-  logEvent(event, context, "warn");
+  logEvent(event, context, 'warn');
 }
 
 /**
@@ -83,5 +79,5 @@ export function logWarning(event: string, context: LogContext = {}): void {
  * @param context - Additional context data
  */
 export function logDebug(event: string, context: LogContext = {}): void {
-  logEvent(event, context, "debug");
+  logEvent(event, context, 'debug');
 }

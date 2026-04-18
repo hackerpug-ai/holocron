@@ -5,7 +5,7 @@
  * returns no captions, and transcripts are stored with correct metadata.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 /**
  * AC-1: YouTube API no captions → Jina Reader called

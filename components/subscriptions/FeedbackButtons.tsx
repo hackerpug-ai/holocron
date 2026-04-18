@@ -10,24 +10,24 @@
  * - Full accessibility support
  */
 
-import React from 'react'
-import { View, Pressable } from 'react-native'
-import { ThumbsUp, ThumbsDown } from '@/components/ui/icons'
-import { useTheme } from '@/hooks/use-theme'
+import React from 'react';
+import { Pressable, View } from 'react-native';
+import { ThumbsDown, ThumbsUp } from '@/components/ui/icons';
+import { useTheme } from '@/hooks/use-theme';
 
-export type FeedbackType = 'positive' | 'negative' | null
+export type FeedbackType = 'positive' | 'negative' | null;
 
 export interface FeedbackButtonsProps {
   /** Unique identifier for the content item this feedback applies to */
-  findingId: string
+  findingId: string;
   /** Current feedback state (null = none selected) */
-  currentFeedback?: FeedbackType
+  currentFeedback?: FeedbackType;
   /** Callback when feedback state changes */
-  onFeedback: (type: FeedbackType) => void
+  onFeedback: (type: FeedbackType) => void;
   /** Optional test ID prefix */
-  testID?: string
+  testID?: string;
   /** Optional custom className for the container */
-  className?: string
+  className?: string;
 }
 
 /**
@@ -50,26 +50,22 @@ export function FeedbackButtons({
   testID = 'feedback-buttons',
   className = '',
 }: FeedbackButtonsProps) {
-  const { colors } = useTheme()
-  const isPositive = currentFeedback === 'positive'
-  const isNegative = currentFeedback === 'negative'
+  const { colors } = useTheme();
+  const isPositive = currentFeedback === 'positive';
+  const isNegative = currentFeedback === 'negative';
 
   const handleThumbsUp = () => {
     // Toggle: if already positive, deselect; otherwise select positive
-    onFeedback(isPositive ? null : 'positive')
-  }
+    onFeedback(isPositive ? null : 'positive');
+  };
 
   const handleThumbsDown = () => {
     // Toggle: if already negative, deselect; otherwise select negative
-    onFeedback(isNegative ? null : 'negative')
-  }
+    onFeedback(isNegative ? null : 'negative');
+  };
 
   return (
-    <View
-      className={`flex-row gap-2 ${className}`}
-      testID={testID}
-      accessible={false}
-    >
+    <View className={`flex-row gap-2 ${className}`} testID={testID} accessible={false}>
       <Pressable
         testID={`${testID}-thumbs-up`}
         onPress={handleThumbsUp}
@@ -108,10 +104,10 @@ export function FeedbackButtons({
         />
       </Pressable>
     </View>
-  )
+  );
 }
 
 /**
  * Memoized version for performance optimization in FlatList
  */
-export const FeedbackButtonsMemo = React.memo(FeedbackButtons)
+export const FeedbackButtonsMemo = React.memo(FeedbackButtons);

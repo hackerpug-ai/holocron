@@ -1,18 +1,18 @@
-import { Pressable } from 'react-native'
+import * as Haptics from 'expo-haptics';
+import { Pressable } from 'react-native';
 import Animated, {
-  useSharedValue,
   useAnimatedStyle,
+  useSharedValue,
   withSequence,
   withSpring,
-} from 'react-native-reanimated'
-import * as Haptics from 'expo-haptics'
-import { Mic, MicOff } from '@/components/ui/icons'
-import { cn } from '@/lib/utils'
+} from 'react-native-reanimated';
+import { Mic, MicOff } from '@/components/ui/icons';
+import { cn } from '@/lib/utils';
 
 export interface NarrationToggleButtonProps {
-  isActive: boolean
-  onPress: () => void
-  testID?: string
+  isActive: boolean;
+  onPress: () => void;
+  testID?: string;
 }
 
 /**
@@ -38,20 +38,17 @@ export function NarrationToggleButton({
   onPress,
   testID = 'narration-toggle-button',
 }: NarrationToggleButtonProps) {
-  const scale = useSharedValue(1)
+  const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
-  }))
+  }));
 
   const handlePress = () => {
-    scale.value = withSequence(
-      withSpring(1.25, { damping: 10 }),
-      withSpring(1.0, { damping: 14 })
-    )
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
-    onPress()
-  }
+    scale.value = withSequence(withSpring(1.25, { damping: 10 }), withSpring(1.0, { damping: 14 }));
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    onPress();
+  };
 
   return (
     <Pressable
@@ -74,5 +71,5 @@ export function NarrationToggleButton({
         )}
       </Animated.View>
     </Pressable>
-  )
+  );
 }

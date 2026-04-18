@@ -1,18 +1,18 @@
-import AsyncStorage from '@react-native-async-storage/async-storage'
-import type { PlaybackSpeed } from './useNarrationState'
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { PlaybackSpeed } from './useNarrationState';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface NarrationProgress {
-  activeParagraphIndex: number
-  playbackSpeed: PlaybackSpeed
-  lastUpdated: number
+  activeParagraphIndex: number;
+  playbackSpeed: PlaybackSpeed;
+  lastUpdated: number;
 }
 
 // ─── Storage Key ──────────────────────────────────────────────────────────────
 
 function storageKey(documentId: string): string {
-  return `narration-progress:${documentId}`
+  return `narration-progress:${documentId}`;
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -26,10 +26,7 @@ export async function saveNarrationProgress(
   progress: NarrationProgress
 ): Promise<void> {
   try {
-    await AsyncStorage.setItem(
-      storageKey(documentId),
-      JSON.stringify(progress)
-    )
+    await AsyncStorage.setItem(storageKey(documentId), JSON.stringify(progress));
   } catch {
     // Non-critical — silently ignore storage errors
   }
@@ -39,23 +36,18 @@ export async function saveNarrationProgress(
  * Load saved narration progress for a document.
  * Returns null if no progress was saved.
  */
-export async function loadNarrationProgress(
-  documentId: string
-): Promise<NarrationProgress | null> {
+export async function loadNarrationProgress(documentId: string): Promise<NarrationProgress | null> {
   try {
-    const raw = await AsyncStorage.getItem(storageKey(documentId))
-    if (!raw) return null
-    const parsed = JSON.parse(raw) as NarrationProgress
+    const raw = await AsyncStorage.getItem(storageKey(documentId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as NarrationProgress;
     // Validate shape
-    if (
-      typeof parsed.activeParagraphIndex !== 'number' ||
-      typeof parsed.lastUpdated !== 'number'
-    ) {
-      return null
+    if (typeof parsed.activeParagraphIndex !== 'number' || typeof parsed.lastUpdated !== 'number') {
+      return null;
     }
-    return parsed
+    return parsed;
   } catch {
-    return null
+    return null;
   }
 }
 
@@ -63,11 +55,9 @@ export async function loadNarrationProgress(
  * Clear saved narration progress for a document.
  * Called when narration completes (reaches the end).
  */
-export async function clearNarrationProgress(
-  documentId: string
-): Promise<void> {
+export async function clearNarrationProgress(documentId: string): Promise<void> {
   try {
-    await AsyncStorage.removeItem(storageKey(documentId))
+    await AsyncStorage.removeItem(storageKey(documentId));
   } catch {
     // Non-critical
   }

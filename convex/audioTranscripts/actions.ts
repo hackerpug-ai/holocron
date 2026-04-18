@@ -1,7 +1,7 @@
-import { action } from "../_generated/server";
-import { v } from "convex/values";
-import { internal } from "../_generated/api";
-import { detectPodcastPlatform, generateContentId } from "./internal";
+import { v } from 'convex/values';
+import { internal } from '../_generated/api';
+import { action } from '../_generated/server';
+import { detectPodcastPlatform, generateContentId } from './internal';
 
 interface CreatePodcastTranscriptJobResult {
   success: boolean;
@@ -9,7 +9,7 @@ interface CreatePodcastTranscriptJobResult {
   transcriptId?: string;
   jobId?: string;
   contentId: string;
-  platform?: "spotify" | "apple_podcasts" | "rss" | "direct_mp3";
+  platform?: 'spotify' | 'apple_podcasts' | 'rss' | 'direct_mp3';
   status?: string;
 }
 
@@ -26,15 +26,20 @@ export const createPodcastTranscriptJob = action({
     const platform = detectPodcastPlatform(args.url);
 
     if (!platform) {
-      throw new Error("Unsupported podcast URL. Please provide a Spotify, Apple Podcasts, RSS feed, or direct MP3 link.");
+      throw new Error(
+        'Unsupported podcast URL. Please provide a Spotify, Apple Podcasts, RSS feed, or direct MP3 link.'
+      );
     }
 
     const contentId = generateContentId(args.url);
 
     // Check if a transcript already exists for this URL
-    const existingTranscript = await ctx.runQuery(internal.audioTranscripts.queries.getTranscriptBySourceUrl, {
-      sourceUrl: args.url,
-    });
+    const existingTranscript = await ctx.runQuery(
+      internal.audioTranscripts.queries.getTranscriptBySourceUrl,
+      {
+        sourceUrl: args.url,
+      }
+    );
 
     if (existingTranscript) {
       return {
@@ -68,11 +73,7 @@ export const createPodcastTranscriptJob = action({
     });
 
     // Trigger job processing
-    await ctx.scheduler.runAfter(
-      0,
-      internal.audioTranscripts.scheduled.processPendingJobs,
-      {}
-    );
+    await ctx.scheduler.runAfter(0, internal.audioTranscripts.scheduled.processPendingJobs, {});
 
     return {
       success: true,
@@ -85,7 +86,7 @@ export const createPodcastTranscriptJob = action({
 });
 
 interface GetTranscriptStatusResult {
-  status: "completed" | "pending" | "downloading" | "transcribing" | "failed" | "not_found";
+  status: 'completed' | 'pending' | 'downloading' | 'transcribing' | 'failed' | 'not_found';
   transcriptId?: string;
   jobId?: string;
   previewText?: string;
@@ -105,13 +106,16 @@ export const getTranscriptStatus = action({
   },
   handler: async (ctx, args): Promise<GetTranscriptStatusResult> => {
     // Check for completed transcript
-    const transcript = await ctx.runQuery(internal.audioTranscripts.queries.getTranscriptByContentId, {
-      contentId: args.contentId,
-    });
+    const transcript = await ctx.runQuery(
+      internal.audioTranscripts.queries.getTranscriptByContentId,
+      {
+        contentId: args.contentId,
+      }
+    );
 
     if (transcript) {
       return {
-        status: "completed",
+        status: 'completed',
         transcriptId: transcript._id,
         previewText: transcript.previewText,
         wordCount: transcript.wordCount,
@@ -127,14 +131,14 @@ export const getTranscriptStatus = action({
 
     if (job) {
       return {
-        status: job.status as "pending" | "downloading" | "transcribing" | "failed",
+        status: job.status as 'pending' | 'downloading' | 'transcribing' | 'failed',
         jobId: job._id,
         errorMessage: job.errorMessage,
       };
     }
 
     return {
-      status: "not_found",
+      status: 'not_found',
     };
   },
 });
@@ -157,7 +161,7 @@ interface GetTranscriptTextResult {
  */
 export const getTranscriptText = action({
   args: {
-    transcriptId: v.id("audioTranscripts"),
+    transcriptId: v.id('audioTranscripts'),
   },
   handler: async (ctx, args): Promise<GetTranscriptTextResult> => {
     const transcript = await ctx.runQuery(internal.audioTranscripts.queries.getTranscriptMetadata, {
@@ -165,22 +169,25 @@ export const getTranscriptText = action({
     });
 
     if (!transcript) {
-      throw new Error("Transcript not found");
+      throw new Error('Transcript not found');
     }
 
     // Get storage ID from the document
-    const transcriptDoc = await ctx.runQuery(internal.audioTranscripts.queries.getTranscriptByContentId, {
-      contentId: transcript.contentId,
-    });
+    const transcriptDoc = await ctx.runQuery(
+      internal.audioTranscripts.queries.getTranscriptByContentId,
+      {
+        contentId: transcript.contentId,
+      }
+    );
 
     if (!transcriptDoc) {
-      throw new Error("Transcript document not found");
+      throw new Error('Transcript document not found');
     }
 
     // Access storage directly (only available in actions)
     const transcriptFile = await ctx.storage.get(transcriptDoc.storageId);
     if (!transcriptFile) {
-      throw new Error("Transcript file not found in storage");
+      throw new Error('Transcript file not found in storage');
     }
 
     const text = await transcriptFile.text();

@@ -1,18 +1,14 @@
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Text } from "@/components/ui/text";
-import { cn } from "@/lib/utils";
-import { Calendar, Clock, ChevronRight } from "@/components/ui/icons";
-import { Pressable, View, type ViewProps } from "react-native";
-import { CategoryBadge, type CategoryType } from "./CategoryBadge";
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-} from "react-native-reanimated";
-import { useTheme } from "@/hooks/use-theme";
-import { SummaryText } from "@/components/subscriptions/SummaryText";
+import { Pressable, View, type ViewProps } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import { SummaryText } from '@/components/subscriptions/SummaryText';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Calendar, ChevronRight, Clock } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { useTheme } from '@/hooks/use-theme';
+import { cn } from '@/lib/utils';
+import { CategoryBadge, type CategoryType } from './CategoryBadge';
 
-interface ArticleCardProps extends Omit<ViewProps, "children"> {
+interface ArticleCardProps extends Omit<ViewProps, 'children'> {
   /** Article title */
   title: string;
   /** Article category */
@@ -52,15 +48,15 @@ export function ArticleCard({
   const { colors } = useTheme();
   const pressed = useSharedValue(0);
 
-  const dateObj = typeof date === "string" ? new Date(date) : date;
-  const formattedDate = dateObj.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
+  const dateObj = typeof date === 'string' ? new Date(date) : date;
+  const formattedDate = dateObj.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
   });
-  const formattedTime = dateObj.toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
+  const formattedTime = dateObj.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
   });
 
   const animatedStyle = useAnimatedStyle(() => {
@@ -88,29 +84,22 @@ export function ArticleCard({
 
   const content = (
     <Card
-      className={cn(compact && "py-4", className)}
+      className={cn(compact && 'py-4', className)}
       testID="article-card"
       style={cardStyle}
       {...props}
     >
-      <CardHeader className={cn(compact && "pb-2")}>
+      <CardHeader className={cn(compact && 'pb-2')}>
         <View className="mb-2 flex-row items-center justify-between">
           <View className="flex-row items-center gap-2">
             <CategoryBadge category={category} size="sm" />
             {iterationCount && iterationCount > 1 && (
-              <Text className="text-muted-foreground text-xs">
-                {iterationCount} iterations
-              </Text>
+              <Text className="text-muted-foreground text-xs">{iterationCount} iterations</Text>
             )}
           </View>
           {onPress && <ChevronRight size={16} className="text-muted-foreground" />}
         </View>
-        <Text
-          className={cn(
-            "text-foreground font-semibold",
-            compact ? "text-base" : "text-lg",
-          )}
-        >
+        <Text className={cn('text-foreground font-semibold', compact ? 'text-base' : 'text-lg')}>
           {title}
         </Text>
       </CardHeader>
@@ -121,26 +110,18 @@ export function ArticleCard({
               {snippet}
             </Text>
           )}
-          <SummaryText
-            summary={summary}
-            title={title}
-            testID="article-card-summary"
-          />
+          <SummaryText summary={summary} title={title} testID="article-card-summary" />
         </CardContent>
       )}
-      <CardContent className={cn("pt-2", compact && "pt-0")}>
+      <CardContent className={cn('pt-2', compact && 'pt-0')}>
         <View className="flex-row items-center gap-3">
           <View className="flex-row items-center gap-1">
             <Calendar size={12} className="text-muted-foreground" />
-            <Text className="text-muted-foreground text-xs">
-              {formattedDate}
-            </Text>
+            <Text className="text-muted-foreground text-xs">{formattedDate}</Text>
           </View>
           <View className="flex-row items-center gap-1">
             <Clock size={12} className="text-muted-foreground" />
-            <Text className="text-muted-foreground text-xs">
-              {formattedTime}
-            </Text>
+            <Text className="text-muted-foreground text-xs">{formattedTime}</Text>
           </View>
         </View>
       </CardContent>
@@ -163,4 +144,3 @@ export function ArticleCard({
 
   return content;
 }
-

@@ -5,11 +5,11 @@
  * The card itself is pressable for navigation.
  */
 
-import { ImprovementRequestCard, type ImprovementRequestCardProps } from './ImprovementRequestCard'
+import { ImprovementRequestCard, type ImprovementRequestCardProps } from './ImprovementRequestCard';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 export interface ImprovementCardWithActionsProps extends ImprovementRequestCardProps {
-  onMenuPress?: () => void
+  onMenuPress?: () => void;
 }
 
 // ── Component ──────────────────────────────────────────────────────────────
@@ -18,11 +18,5 @@ export function ImprovementCardWithActions({
   testID,
   ...cardProps
 }: ImprovementCardWithActionsProps) {
-  return (
-    <ImprovementRequestCard
-      {...cardProps}
-      onMenuPress={onMenuPress}
-      testID={testID}
-    />
-  )
+  return <ImprovementRequestCard {...cardProps} onMenuPress={onMenuPress} testID={testID} />;
 }

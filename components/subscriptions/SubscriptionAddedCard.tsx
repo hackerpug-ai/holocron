@@ -2,16 +2,16 @@
  * SubscriptionAddedCard - Confirmation after adding a subscription
  */
 
-import { View } from 'react-native'
-import { Text } from '@/components/ui/text'
-import { Card } from '@/components/ui/card'
-import { Bell, Check, Rss } from '@/components/ui/icons'
-import { useTheme } from '@/hooks/use-theme'
-import type { SubscriptionAddedCardData } from '@/lib/types/chat'
+import { View } from 'react-native';
+import { Card } from '@/components/ui/card';
+import { Bell, Check, Rss } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { useTheme } from '@/hooks/use-theme';
+import type { SubscriptionAddedCardData } from '@/lib/types/chat';
 
 export interface SubscriptionAddedCardProps {
-  data: SubscriptionAddedCardData
-  testID?: string
+  data: SubscriptionAddedCardData;
+  testID?: string;
 }
 
 /**
@@ -20,21 +20,21 @@ export interface SubscriptionAddedCardProps {
 function getTypeIcon(sourceType: string) {
   switch (sourceType) {
     case 'youtube':
-      return '📺'
+      return '📺';
     case 'reddit':
-      return '🔴'
+      return '🔴';
     case 'newsletter':
-      return '📧'
+      return '📧';
     case 'changelog':
-      return '📋'
+      return '📋';
     case 'ebay':
-      return '🛒'
+      return '🛒';
     case 'whats-new':
-      return '🆕'
+      return '🆕';
     case 'creator':
-      return '👤'
+      return '👤';
     default:
-      return '📡'
+      return '📡';
   }
 }
 
@@ -42,7 +42,7 @@ export function SubscriptionAddedCard({
   data,
   testID = 'subscription-added-card',
 }: SubscriptionAddedCardProps) {
-  const { colors: themeColors } = useTheme()
+  const { colors: themeColors } = useTheme();
 
   return (
     <Card testID={testID} className="border-border bg-card overflow-hidden">
@@ -55,9 +55,7 @@ export function SubscriptionAddedCard({
           <View className="rounded-full bg-success/20 p-2">
             <Check size={16} color={themeColors.success} />
           </View>
-          <Text className="text-foreground flex-1 text-base font-semibold">
-            Subscription Added
-          </Text>
+          <Text className="text-foreground flex-1 text-base font-semibold">Subscription Added</Text>
           <Text className="text-2xl">{getTypeIcon(data.source_type)}</Text>
         </View>
 
@@ -65,9 +63,7 @@ export function SubscriptionAddedCard({
         <View className="gap-2">
           <View className="flex-row items-center gap-2">
             <Bell size={14} color={themeColors.mutedForeground} />
-            <Text className="text-foreground text-sm font-medium">
-              {data.name}
-            </Text>
+            <Text className="text-foreground text-sm font-medium">{data.name}</Text>
           </View>
 
           <View className="flex-row items-center gap-2">
@@ -86,5 +82,5 @@ export function SubscriptionAddedCard({
         </View>
       </View>
     </Card>
-  )
+  );
 }

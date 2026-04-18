@@ -4,14 +4,14 @@
  * Queries for retrieving execution plans and their approval status.
  */
 
-import { query } from "../_generated/server";
-import { v } from "convex/values";
+import { v } from 'convex/values';
+import { query } from '../_generated/server';
 
 /**
  * Get plan by ID
  */
 export const get = query({
-  args: { id: v.id("executionPlans") },
+  args: { id: v.id('executionPlans') },
   handler: async (ctx, { id }) => {
     return await ctx.db.get(id);
   },
@@ -21,7 +21,7 @@ export const get = query({
  * Get plan by ID (alias for compatibility)
  */
 export const getPlan = query({
-  args: { planId: v.id("executionPlans") },
+  args: { planId: v.id('executionPlans') },
   handler: async (ctx, { planId }) => {
     return await ctx.db.get(planId);
   },
@@ -34,8 +34,8 @@ export const getByStatus = query({
   args: { status: v.string() },
   handler: async (ctx, { status }) => {
     return await ctx.db
-      .query("executionPlans")
-      .withIndex("by_status", (q) => q.eq("status", status as any))
+      .query('executionPlans')
+      .withIndex('by_status', (q) => q.eq('status', status as any))
       .collect();
   },
 });
@@ -47,8 +47,8 @@ export const getByType = query({
   args: { type: v.string() },
   handler: async (ctx, { type }) => {
     return await ctx.db
-      .query("executionPlans")
-      .withIndex("by_type", (q) => q.eq("type", type as any))
+      .query('executionPlans')
+      .withIndex('by_type', (q) => q.eq('type', type as any))
       .collect();
   },
 });
@@ -63,10 +63,8 @@ export const getByStatusAndType = query({
   },
   handler: async (ctx, { status, type }) => {
     return await ctx.db
-      .query("executionPlans")
-      .withIndex("by_status_and_type", (q) =>
-        q.eq("status", status as any).eq("type", type as any)
-      )
+      .query('executionPlans')
+      .withIndex('by_status_and_type', (q) => q.eq('status', status as any).eq('type', type as any))
       .collect();
   },
 });
@@ -77,11 +75,7 @@ export const getByStatusAndType = query({
 export const getRecent = query({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, { limit = 10 }) => {
-    return await ctx.db
-      .query("executionPlans")
-      .withIndex("by_created")
-      .order("desc")
-      .take(limit);
+    return await ctx.db.query('executionPlans').withIndex('by_created').order('desc').take(limit);
   },
 });
 
@@ -89,11 +83,11 @@ export const getRecent = query({
  * Get approval record for a plan
  */
 export const getApproval = query({
-  args: { planId: v.id("executionPlans") },
+  args: { planId: v.id('executionPlans') },
   handler: async (ctx, { planId }) => {
     return await ctx.db
-      .query("planApprovals")
-      .withIndex("by_plan", (q) => q.eq("planId", planId))
+      .query('planApprovals')
+      .withIndex('by_plan', (q) => q.eq('planId', planId))
       .first();
   },
 });
@@ -105,8 +99,8 @@ export const getApprovalsByUser = query({
   args: { userId: v.string() },
   handler: async (ctx, { userId }) => {
     return await ctx.db
-      .query("planApprovals")
-      .withIndex("by_approved_by", (q) => q.eq("approvedBy", userId))
+      .query('planApprovals')
+      .withIndex('by_approved_by', (q) => q.eq('approvedBy', userId))
       .collect();
   },
 });
@@ -117,6 +111,6 @@ export const getApprovalsByUser = query({
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    return await ctx.db.query("executionPlans").collect();
+    return await ctx.db.query('executionPlans').collect();
   },
 });

@@ -3,6 +3,6 @@
  * Exports all queries, mutations, and workflow types
  */
 
-export * from "./queries";
-export * from "./mutations";
-export * from "./workflow";
+export * from './mutations';
+export * from './queries';
+export * from './workflow';

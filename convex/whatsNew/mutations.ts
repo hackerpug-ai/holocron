@@ -4,8 +4,8 @@
  * Mutations for creating and updating What's New reports.
  */
 
-import { v } from "convex/values";
-import { internalMutation } from "../_generated/server";
+import { v } from 'convex/values';
+import { internalMutation } from '../_generated/server';
 
 /**
  * Create a new What's New report (internal)
@@ -25,12 +25,12 @@ export const createReport = internalMutation({
     trendCount: v.number(),
     reportPath: v.string(),
     summaryJson: v.optional(v.any()),
-    documentId: v.optional(v.id("documents")),
+    documentId: v.optional(v.id('documents')),
     toolSuggestionsJson: v.optional(v.string()),
     findingsJson: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const reportId = await ctx.db.insert("whatsNewReports", {
+    const reportId = await ctx.db.insert('whatsNewReports', {
       ...args,
       createdAt: Date.now(),
     });
@@ -46,8 +46,8 @@ export const createReport = internalMutation({
  */
 export const linkDocument = internalMutation({
   args: {
-    reportId: v.id("whatsNewReports"),
-    documentId: v.id("documents"),
+    reportId: v.id('whatsNewReports'),
+    documentId: v.id('documents'),
   },
   handler: async (ctx, { reportId, documentId }) => {
     await ctx.db.patch(reportId, { documentId });
@@ -62,14 +62,17 @@ export const linkDocument = internalMutation({
  */
 export const updateReportFindings = internalMutation({
   args: {
-    reportId: v.id("whatsNewReports"),
+    reportId: v.id('whatsNewReports'),
     findingsJson: v.string(),
     findingsCount: v.number(),
     discoveryCount: v.number(),
     releaseCount: v.number(),
     trendCount: v.number(),
   },
-  handler: async (ctx, { reportId, findingsJson, findingsCount, discoveryCount, releaseCount, trendCount }) => {
+  handler: async (
+    ctx,
+    { reportId, findingsJson, findingsCount, discoveryCount, releaseCount, trendCount }
+  ) => {
     await ctx.db.patch(reportId, {
       findingsJson,
       findingsCount,

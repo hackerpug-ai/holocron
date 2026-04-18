@@ -1,5 +1,5 @@
-import { internalQuery } from "../_generated/server";
-import { v } from "convex/values";
+import { v } from 'convex/values';
+import { internalQuery } from '../_generated/server';
 
 const MAX_VOICE_EXCHANGES = 20;
 const MAX_CHARS_PER_EXCHANGE = 200;
@@ -51,27 +51,25 @@ For long-running tasks (deep research, repo analysis, shopping) say "I've starte
  */
 export const buildVoiceInstructions = internalQuery({
   args: {
-    conversationId: v.id("conversations"),
+    conversationId: v.id('conversations'),
   },
   returns: v.string(),
   handler: async (ctx, args) => {
     // Look up user's preferred voice language
-    const prefs = await ctx.db.query("userPreferences").first();
-    const language = prefs?.voiceLanguage ?? "English";
+    const prefs = await ctx.db.query('userPreferences').first();
+    const language = prefs?.voiceLanguage ?? 'English';
     const systemPrompt = `${BASE_VOICE_SYSTEM_PROMPT}\n\nAlways respond in ${language}.`;
 
     // Read last 20 chatMessages for this conversation, newest first
     const rawMessages = await ctx.db
-      .query("chatMessages")
-      .withIndex("by_conversation", (q) =>
-        q.eq("conversationId", args.conversationId)
-      )
-      .order("desc")
+      .query('chatMessages')
+      .withIndex('by_conversation', (q) => q.eq('conversationId', args.conversationId))
+      .order('desc')
       .take(MAX_VOICE_EXCHANGES * 2); // fetch extra to account for non-user/assistant messages
 
     // Filter to user/assistant exchanges only, take last MAX_VOICE_EXCHANGES
     const exchanges = rawMessages
-      .filter((m) => m.role === "user" || m.role === "agent")
+      .filter((m) => m.role === 'user' || m.role === 'agent')
       .slice(0, MAX_VOICE_EXCHANGES)
       .reverse(); // chronological order (oldest first)
 
@@ -84,13 +82,13 @@ export const buildVoiceInstructions = internalQuery({
     const truncatedExchanges = exchanges.map((msg) => {
       const truncated =
         msg.content.length > MAX_CHARS_PER_EXCHANGE
-          ? msg.content.slice(0, MAX_CHARS_PER_EXCHANGE) + "..."
+          ? msg.content.slice(0, MAX_CHARS_PER_EXCHANGE) + '...'
           : msg.content;
       return `${msg.role}: ${truncated}`;
     });
 
     // Combine system prompt with conversation history
-    const conversationHistory = truncatedExchanges.join("\n\n");
+    const conversationHistory = truncatedExchanges.join('\n\n');
     return `${systemPrompt}\n\nConversation history:\n\n${conversationHistory}`;
   },
 });

@@ -5,7 +5,7 @@
  * signatures and handles various scenarios (captions, no captions, errors).
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 /**
  * AC-1: New file created, convex/transcripts/internal.ts exists with fetchYouTubeTranscript export

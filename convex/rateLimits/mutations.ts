@@ -2,10 +2,10 @@
  * Rate limit mutations for synthesis providers
  */
 
-import { mutation } from "../_generated/server";
-import { v } from "convex/values";
-import { providerValidator, RATE_LIMITS } from "../synthesis/rateLimits";
-import type { RateLimitProvider } from "../synthesis/rateLimits";
+import { v } from 'convex/values';
+import { mutation } from '../_generated/server';
+import type { RateLimitProvider } from '../synthesis/rateLimits';
+import { providerValidator, RATE_LIMITS } from '../synthesis/rateLimits';
 
 /**
  * Initialize rate limit tracker for a provider
@@ -14,12 +14,12 @@ export const initializeTracker = mutation({
   args: {
     provider: providerValidator,
   },
-  returns: v.id("rateLimitTracking"),
+  returns: v.id('rateLimitTracking'),
   handler: async (ctx, args) => {
     // Check if tracker already exists
     const existing = await ctx.db
-      .query("rateLimitTracking")
-      .withIndex("by_provider", (q) => q.eq("provider", args.provider))
+      .query('rateLimitTracking')
+      .withIndex('by_provider', (q) => q.eq('provider', args.provider))
       .unique();
 
     if (existing) {
@@ -38,7 +38,7 @@ export const initializeTracker = mutation({
       quotaResetAt: number;
       concurrentRequests: number;
       maxConcurrent: number;
-      status: "available" | "throttled" | "exhausted";
+      status: 'available' | 'throttled' | 'exhausted';
       tokenBudget?: number;
       tokensUsed: number;
       createdAt: number;
@@ -50,18 +50,18 @@ export const initializeTracker = mutation({
       quotaResetAt: now + config.quotaResetWindow,
       concurrentRequests: 0,
       maxConcurrent: config.maxConcurrent,
-      status: "available",
+      status: 'available',
       tokensUsed: 0,
       createdAt: now,
       updatedAt: now,
     };
 
     // Add tokenBudget only for zai provider
-    if (args.provider === "zai") {
+    if (args.provider === 'zai') {
       trackerData.tokenBudget = RATE_LIMITS.zai.defaultTokenBudget;
     }
 
-    const id = await ctx.db.insert("rateLimitTracking", trackerData);
+    const id = await ctx.db.insert('rateLimitTracking', trackerData);
 
     return id;
   },
@@ -78,8 +78,8 @@ export const recordError = mutation({
   returns: v.boolean(),
   handler: async (ctx, args) => {
     const tracker = await ctx.db
-      .query("rateLimitTracking")
-      .withIndex("by_provider", (q) => q.eq("provider", args.provider))
+      .query('rateLimitTracking')
+      .withIndex('by_provider', (q) => q.eq('provider', args.provider))
       .unique();
 
     if (!tracker) {
@@ -90,7 +90,7 @@ export const recordError = mutation({
     await ctx.db.patch(tracker._id, {
       lastError: args.error,
       lastErrorTime: now,
-      status: "throttled",
+      status: 'throttled',
       updatedAt: now,
     });
 

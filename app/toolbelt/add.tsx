@@ -1,46 +1,51 @@
-import { useLocalSearchParams, useRouter } from 'expo-router'
-import { useMutation } from 'convex/react'
-import { api } from '@/convex/_generated/api'
-import { useEffect, useRef, useState } from 'react'
-import { ActivityIndicator, Pressable, View } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
-import { Text } from '@/components/ui/text'
-import { CheckCircle2, XCircle } from 'lucide-react-native'
-import { useTheme } from '@/hooks/use-theme'
+import { useMutation } from 'convex/react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { CheckCircle2, XCircle } from 'lucide-react-native';
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Pressable, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Text } from '@/components/ui/text';
+import { api } from '@/convex/_generated/api';
+import { useTheme } from '@/hooks/use-theme';
 
 type AddToolParams = {
-  title: string
-  description: string
-  category: string
-  sourceUrl: string
-  sourceType: string
-  language?: string
-  tags?: string
-  useCases?: string
-}
+  title: string;
+  description: string;
+  category: string;
+  sourceUrl: string;
+  sourceType: string;
+  language?: string;
+  tags?: string;
+  useCases?: string;
+};
 
 export default function ToolbeltAddScreen() {
-  const params = useLocalSearchParams<AddToolParams>()
-  const router = useRouter()
-  const { colors, spacing } = useTheme()
+  const params = useLocalSearchParams<AddToolParams>();
+  const router = useRouter();
+  const { colors, spacing } = useTheme();
 
-  const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
-  const [message, setMessage] = useState('')
-  const [toolTitle, setToolTitle] = useState('')
+  const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
+  const [message, setMessage] = useState('');
+  const [toolTitle, setToolTitle] = useState('');
 
-  const addTool = useMutation(api.toolbelt.mutations.addFromUrl)
-  const didRun = useRef(false)
+  const addTool = useMutation(api.toolbelt.mutations.addFromUrl);
+  const didRun = useRef(false);
 
   useEffect(() => {
-    if (didRun.current) return
-    didRun.current = true
+    if (didRun.current) return;
+    didRun.current = true;
 
     async function addToolFromParams() {
       try {
         // Validate required params
-        if (!params.title || !params.description || !params.category ||
-            !params.sourceUrl || !params.sourceType) {
-          throw new Error('Missing required parameters')
+        if (
+          !params.title ||
+          !params.description ||
+          !params.category ||
+          !params.sourceUrl ||
+          !params.sourceType
+        ) {
+          throw new Error('Missing required parameters');
         }
 
         const result = await addTool({
@@ -52,30 +57,27 @@ export default function ToolbeltAddScreen() {
           language: params.language,
           tags: params.tags,
           useCases: params.useCases,
-        })
+        });
 
-        setToolTitle(params.title)
+        setToolTitle(params.title);
 
         if (result.success) {
-          setStatus('success')
-          setMessage(result.isNew
-            ? 'Added to your toolbelt!'
-            : 'Already in your toolbelt'
-          )
+          setStatus('success');
+          setMessage(result.isNew ? 'Added to your toolbelt!' : 'Already in your toolbelt');
 
           // Auto-dismiss after 2 seconds
           setTimeout(() => {
-            router.back()
-          }, 2000)
+            router.back();
+          }, 2000);
         }
       } catch (error) {
-        setStatus('error')
-        setMessage(error instanceof Error ? error.message : 'Failed to add tool')
+        setStatus('error');
+        setMessage(error instanceof Error ? error.message : 'Failed to add tool');
       }
     }
 
-    addToolFromParams()
-  }, [])
+    addToolFromParams();
+  }, []);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>
@@ -94,49 +96,43 @@ export default function ToolbeltAddScreen() {
 
         {status === 'success' && (
           <View style={{ alignItems: 'center', gap: spacing.md }}>
-            <View style={{
-              width: 64,
-              height: 64,
-              borderRadius: 32,
-              backgroundColor: colors.success + '20',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}>
+            <View
+              style={{
+                width: 64,
+                height: 64,
+                borderRadius: 32,
+                backgroundColor: colors.success + '20',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
               <CheckCircle2 size={32} color={colors.success} />
             </View>
-            <Text className="text-foreground text-center text-xl font-semibold">
-              {toolTitle}
-            </Text>
-            <Text className="text-muted-foreground text-center">
-              {message}
-            </Text>
+            <Text className="text-foreground text-center text-xl font-semibold">{toolTitle}</Text>
+            <Text className="text-muted-foreground text-center">{message}</Text>
           </View>
         )}
 
         {status === 'error' && (
           <View style={{ alignItems: 'center', gap: spacing.md }}>
-            <View style={{
-              width: 64,
-              height: 64,
-              borderRadius: 32,
-              backgroundColor: colors.destructive + '20',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}>
+            <View
+              style={{
+                width: 64,
+                height: 64,
+                borderRadius: 32,
+                backgroundColor: colors.destructive + '20',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
               <XCircle size={32} color={colors.destructive} />
             </View>
-            <Text className="text-destructive text-center text-lg font-semibold">
-              Error
-            </Text>
-            <Text className="text-muted-foreground text-center">
-              {message}
-            </Text>
-            <Text className="text-muted-foreground text-sm">
-              Tap anywhere to close
-            </Text>
+            <Text className="text-destructive text-center text-lg font-semibold">Error</Text>
+            <Text className="text-muted-foreground text-center">{message}</Text>
+            <Text className="text-muted-foreground text-sm">Tap anywhere to close</Text>
           </View>
         )}
       </Pressable>
     </SafeAreaView>
-  )
+  );
 }

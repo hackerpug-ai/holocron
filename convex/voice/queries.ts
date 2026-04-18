@@ -1,6 +1,5 @@
-import { query } from "../_generated/server";
-import { internalQuery } from "../_generated/server";
-import { v } from "convex/values";
+import { v } from 'convex/values';
+import { internalQuery, query } from '../_generated/server';
 
 /**
  * Returns the active voice session for a conversation, or null if none exists.
@@ -11,13 +10,13 @@ import { v } from "convex/values";
  */
 export const getActiveSession = query({
   args: {
-    conversationId: v.id("conversations"),
+    conversationId: v.id('conversations'),
   },
   returns: v.union(
     v.object({
-      _id: v.id("voiceSessions"),
+      _id: v.id('voiceSessions'),
       _creationTime: v.number(),
-      conversationId: v.id("conversations"),
+      conversationId: v.id('conversations'),
       startedAt: v.number(),
       turnCount: v.number(),
       createdAt: v.number(),
@@ -25,21 +24,21 @@ export const getActiveSession = query({
       completedAt: v.optional(v.number()),
       totalDurationMs: v.optional(v.number()),
       errorMessage: v.optional(v.string()),
-      metadata: v.optional(v.object({
-        deviceType: v.string(),
-        platform: v.string(),
-        appVersion: v.string(),
-      })),
+      metadata: v.optional(
+        v.object({
+          deviceType: v.string(),
+          platform: v.string(),
+          appVersion: v.string(),
+        })
+      ),
     }),
     v.null()
   ),
   handler: async (ctx, args) => {
     const session = await ctx.db
-      .query("voiceSessions")
-      .withIndex("by_conversation", (q) =>
-        q.eq("conversationId", args.conversationId)
-      )
-      .filter((q) => q.eq(q.field("completedAt"), undefined))
+      .query('voiceSessions')
+      .withIndex('by_conversation', (q) => q.eq('conversationId', args.conversationId))
+      .filter((q) => q.eq(q.field('completedAt'), undefined))
       .first();
 
     return session ?? null;
@@ -55,8 +54,8 @@ export const getVoiceLanguage = query({
   args: {},
   returns: v.string(),
   handler: async (ctx) => {
-    const prefs = await ctx.db.query("userPreferences").first();
-    return prefs?.voiceLanguage ?? "English";
+    const prefs = await ctx.db.query('userPreferences').first();
+    return prefs?.voiceLanguage ?? 'English';
   },
 });
 
@@ -68,7 +67,7 @@ export const internalGetVoiceLanguage = internalQuery({
   args: {},
   returns: v.string(),
   handler: async (ctx) => {
-    const prefs = await ctx.db.query("userPreferences").first();
-    return prefs?.voiceLanguage ?? "English";
+    const prefs = await ctx.db.query('userPreferences').first();
+    return prefs?.voiceLanguage ?? 'English';
   },
 });

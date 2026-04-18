@@ -1,29 +1,28 @@
-import '../global.css'
+import '../global.css';
 
-import { Stack } from 'expo-router'
-import { StatusBar } from 'expo-status-bar'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { SafeAreaProvider } from 'react-native-safe-area-context'
-import { GestureHandlerRootView } from 'react-native-gesture-handler'
-import { ConvexProvider, ConvexReactClient } from 'convex/react'
-import { useEffect } from 'react'
-import { View, useColorScheme as useRNColorScheme } from 'react-native'
-import { useColorScheme } from '@/lib/useColorScheme'
-import { cn } from '@/lib/utils'
-import { NotificationToastProvider } from '@/components/notifications'
-import { usePushNotifications } from '@/hooks/use-push-notifications'
-import * as Linking from 'expo-linking'
-import { router } from 'expo-router'
-import { PortalHost } from '@rn-primitives/portal'
+import { PortalHost } from '@rn-primitives/portal';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ConvexProvider, ConvexReactClient } from 'convex/react';
+import * as Linking from 'expo-linking';
+import { router, Stack } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { useEffect } from 'react';
+import { useColorScheme as useRNColorScheme, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { NotificationToastProvider } from '@/components/notifications';
+import { usePushNotifications } from '@/hooks/use-push-notifications';
+import { useColorScheme } from '@/lib/useColorScheme';
+import { cn } from '@/lib/utils';
 
 // Validate required env vars at startup
-const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL
+const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL;
 if (!convexUrl) {
-  console.error('EXPO_PUBLIC_CONVEX_URL is not set. Check your .env file or EAS build config.')
+  console.error('EXPO_PUBLIC_CONVEX_URL is not set. Check your .env file or EAS build config.');
 }
 
 // Create a client for Convex
-const convex = new ConvexReactClient(convexUrl ?? 'https://placeholder.convex.cloud')
+const convex = new ConvexReactClient(convexUrl ?? 'https://placeholder.convex.cloud');
 
 // Create a client for React Query
 const queryClient = new QueryClient({
@@ -33,10 +32,10 @@ const queryClient = new QueryClient({
       staleTime: 0,
     },
   },
-})
+});
 
 // When STORYBOOK_ENABLED=true, render Storybook directly
-const STORYBOOK_ENABLED = process.env.EXPO_PUBLIC_STORYBOOK_ENABLED === 'true'
+const STORYBOOK_ENABLED = process.env.EXPO_PUBLIC_STORYBOOK_ENABLED === 'true';
 
 /**
  * Handle incoming deep links
@@ -44,18 +43,18 @@ const STORYBOOK_ENABLED = process.env.EXPO_PUBLIC_STORYBOOK_ENABLED === 'true'
  */
 function handleIncomingURL({ url }: { url: string }) {
   try {
-    const parsed = Linking.parse(url)
+    const parsed = Linking.parse(url);
 
     if (parsed.scheme === 'holocron') {
-      const params = parsed.queryParams as Record<string, string>
+      const params = parsed.queryParams as Record<string, string>;
 
       // Handle toolbelt/add deep links
       if (parsed.path === 'toolbelt/add') {
         router.push({
           pathname: '/toolbelt/add',
           params,
-        })
-        return
+        });
+        return;
       }
 
       // Handle subscriptions deep links (redirect to new locations)
@@ -64,8 +63,8 @@ function handleIncomingURL({ url }: { url: string }) {
         router.push({
           pathname: '/subscriptions/settings',
           params,
-        })
-        return
+        });
+        return;
       }
 
       if (parsed.path === 'subscriptions/feed') {
@@ -73,52 +72,52 @@ function handleIncomingURL({ url }: { url: string }) {
         router.push({
           pathname: '/subscriptions/social',
           params,
-        })
-        return
+        });
+        return;
       }
     }
   } catch (error) {
-    console.error('[RootLayout] Failed to handle URL:', error)
+    console.error('[RootLayout] Failed to handle URL:', error);
   }
 }
 
 /** Syncs the device color scheme to NativeWind so .dark CSS variables activate */
 function ThemeSync({ children }: { children: React.ReactNode }) {
-  const systemColorScheme = useRNColorScheme()
-  const { colorScheme, setColorScheme } = useColorScheme()
+  const systemColorScheme = useRNColorScheme();
+  const { colorScheme, setColorScheme } = useColorScheme();
 
   useEffect(() => {
-    const scheme = systemColorScheme === 'dark' ? 'dark' : 'light'
-    setColorScheme(scheme)
-  }, [systemColorScheme, setColorScheme])
+    const scheme = systemColorScheme === 'dark' ? 'dark' : 'light';
+    setColorScheme(scheme);
+  }, [systemColorScheme, setColorScheme]);
 
   return (
     <View className={cn(colorScheme === 'dark' ? 'dark' : '', 'flex-1')} style={{ flex: 1 }}>
       {children}
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
     </View>
-  )
+  );
 }
 
 export default function RootLayout() {
-  usePushNotifications()
+  usePushNotifications();
 
   // Handle deep linking for toolbelt add URLs
   useEffect(() => {
-    const subscription = Linking.addEventListener('url', handleIncomingURL)
+    const subscription = Linking.addEventListener('url', handleIncomingURL);
 
     // Handle initial URL (app opened from URL)
     Linking.getInitialURL().then((url) => {
-      if (url) handleIncomingURL({ url })
-    })
+      if (url) handleIncomingURL({ url });
+    });
 
-    return () => subscription.remove()
-  }, [])
+    return () => subscription.remove();
+  }, []);
 
   // Render Storybook UI directly, bypassing Expo Router
   if (STORYBOOK_ENABLED) {
-    const StorybookUI = require('../.rnstorybook').default
-    return <StorybookUI />
+    const StorybookUI = require('../.rnstorybook').default;
+    return <StorybookUI />;
   }
 
   return (
@@ -145,5 +144,5 @@ export default function RootLayout() {
         </SafeAreaProvider>
       </ConvexProvider>
     </GestureHandlerRootView>
-  )
+  );
 }

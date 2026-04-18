@@ -5,8 +5,8 @@
  * and provides stats for quality analysis.
  */
 
-import { query, internalMutation } from "../_generated/server";
-import { v } from "convex/values";
+import { v } from 'convex/values';
+import { internalMutation, query } from '../_generated/server';
 
 // ============================================================================
 // Internal Mutations (for logging)
@@ -28,7 +28,7 @@ export const logSummaryGeneration = internalMutation({
   handler: async (ctx, args) => {
     // Structured logging for quality monitoring
     console.log(
-      "[Summary Quality]",
+      '[Summary Quality]',
       JSON.stringify({
         timestamp: Date.now(),
         findingId: args.findingId,
@@ -56,7 +56,7 @@ export const flagSummary = internalMutation({
   handler: async (ctx, args) => {
     // Log flagged summary for manual review
     console.log(
-      "[Summary Flagged]",
+      '[Summary Flagged]',
       JSON.stringify({
         timestamp: Date.now(),
         findingId: args.findingId,
@@ -86,18 +86,15 @@ export const getSummaryStats = query({
     const limit = args.limit ?? 10;
 
     // Query recent reports
-    const reports = await ctx.db
-      .query("whatsNewReports")
-      .order("desc")
-      .take(limit);
+    const reports = await ctx.db.query('whatsNewReports').order('desc').take(limit);
 
     let totalFindings = 0;
     let withSummary = 0;
     let lengthSum = 0;
     const lengthDistribution: Record<string, number> = {
-      "80-120": 0,
-      "121-150": 0,
-      "151+": 0,
+      '80-120': 0,
+      '121-150': 0,
+      '151+': 0,
     };
 
     for (const report of reports) {
@@ -110,10 +107,7 @@ export const getSummaryStats = query({
 
         // Ensure findings is an array
         if (!Array.isArray(findings)) {
-          console.error(
-            "[Summary Quality] findingsJson is not an array for report:",
-            report._id
-          );
+          console.error('[Summary Quality] findingsJson is not an array for report:', report._id);
           continue;
         }
 
@@ -133,22 +127,21 @@ export const getSummaryStats = query({
 
             // Track length distribution
             if (len >= 80 && len <= 120) {
-              lengthDistribution["80-120"]++;
+              lengthDistribution['80-120']++;
             } else if (len >= 121 && len <= 150) {
-              lengthDistribution["121-150"]++;
+              lengthDistribution['121-150']++;
             } else if (len > 150) {
-              lengthDistribution["151+"]++;
+              lengthDistribution['151+']++;
             }
           }
         }
       } catch (error) {
         // Log malformed JSON but continue processing other reports
         console.error(
-          "[Summary Quality] Failed to parse findingsJson for report:",
+          '[Summary Quality] Failed to parse findingsJson for report:',
           report._id,
           error
         );
-        continue;
       }
     }
 

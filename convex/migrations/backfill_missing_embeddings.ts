@@ -4,14 +4,14 @@
  * Run with: npx convex run migrations/backfill_missing_embeddings:backfill
  */
 
-import { action } from "../_generated/server";
-import { api } from "../_generated/api";
-import type { Id } from "../_generated/dataModel";
+import { api } from '../_generated/api';
+import type { Id } from '../_generated/dataModel';
+import { action } from '../_generated/server';
 
-"use node";
+('use node');
 
 interface OrphanDoc {
-  _id: Id<"documents">;
+  _id: Id<'documents'>;
   title: string;
   category: string;
   createdAt?: number;
@@ -34,12 +34,18 @@ export const backfill = action({
   args: {},
   handler: async (ctx): Promise<BackfillResult> => {
     // Find documents without embeddings
-    const orphans = await ctx.runQuery(api.documents.queries.findDocumentsWithoutEmbeddings, {
+    const orphans = (await ctx.runQuery(api.documents.queries.findDocumentsWithoutEmbeddings, {
       limit: 1000,
-    }) as OrphanDoc[];
+    })) as OrphanDoc[];
 
     if (orphans.length === 0) {
-      return { success: true, processed: 0, failed: 0, total: 0, message: "No documents need embedding backfill" };
+      return {
+        success: true,
+        processed: 0,
+        failed: 0,
+        total: 0,
+        message: 'No documents need embedding backfill',
+      };
     }
 
     let processed = 0;
@@ -68,7 +74,7 @@ export const backfill = action({
       );
 
       for (const result of results) {
-        if (result.status === "fulfilled") {
+        if (result.status === 'fulfilled') {
           processed++;
         } else {
           failed++;
@@ -93,7 +99,9 @@ export const backfill = action({
  */
 export const status = action({
   args: {},
-  handler: async (ctx): Promise<{
+  handler: async (
+    ctx
+  ): Promise<{
     documentsWithoutEmbeddings: number;
     totalDocuments: number;
     percentComplete: number;

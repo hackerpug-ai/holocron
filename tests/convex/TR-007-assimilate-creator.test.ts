@@ -5,7 +5,7 @@
  * creates transcript jobs with priority=1, and handles idempotency.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 /**
  * AC-1: Creator profile exists: assimilateCreator called, fetches all channel videos

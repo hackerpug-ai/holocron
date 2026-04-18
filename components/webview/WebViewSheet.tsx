@@ -1,61 +1,43 @@
-import { useRef, useState } from 'react'
-import {
-  ActivityIndicator,
-  Dimensions,
-  Modal,
-  Pressable,
-  StyleSheet,
-  View,
-} from 'react-native'
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Dimensions, Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
+  Easing,
+  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
-  Easing,
-  runOnJS,
-} from 'react-native-reanimated'
-import {
-  Gesture,
-  GestureDetector,
-  GestureHandlerRootView,
-} from 'react-native-gesture-handler'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { useEffect } from 'react'
-import { Text } from '@/components/ui/text'
-import {
-  ChevronLeft,
-  ChevronRight,
-  Lock,
-  RefreshCw,
-  X,
-} from '@/components/ui/icons'
-import { useTheme } from '@/hooks/use-theme'
-import WebView, { type WebViewNavigation } from 'react-native-webview'
+} from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import WebView, { type WebViewNavigation } from 'react-native-webview';
+import { ChevronLeft, ChevronRight, Lock, RefreshCw, X } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { useTheme } from '@/hooks/use-theme';
 
-const SCREEN_HEIGHT = Dimensions.get('window').height
-const SHEET_HEIGHT = SCREEN_HEIGHT * 0.88
+const SCREEN_HEIGHT = Dimensions.get('window').height;
+const SHEET_HEIGHT = SCREEN_HEIGHT * 0.88;
 
-const TIMING_IN = { duration: 300, easing: Easing.out(Easing.cubic) }
-const TIMING_OUT = { duration: 250, easing: Easing.in(Easing.cubic) }
-const DISMISS_THRESHOLD = 120
+const TIMING_IN = { duration: 300, easing: Easing.out(Easing.cubic) };
+const TIMING_OUT = { duration: 250, easing: Easing.in(Easing.cubic) };
+const DISMISS_THRESHOLD = 120;
 
 function getDisplayUrl(url: string): { host: string; isSecure: boolean } {
   try {
-    const parsed = new URL(url)
+    const parsed = new URL(url);
     return {
       host: parsed.hostname.replace(/^www\./, ''),
       isSecure: parsed.protocol === 'https:',
-    }
+    };
   } catch {
-    return { host: url, isSecure: false }
+    return { host: url, isSecure: false };
   }
 }
 
 export interface WebViewSheetProps {
-  visible: boolean
-  url: string
-  onClose: () => void
-  testID?: string
+  visible: boolean;
+  url: string;
+  onClose: () => void;
+  testID?: string;
 }
 
 /**
@@ -68,77 +50,77 @@ export function WebViewSheet({
   onClose,
   testID = 'webview-sheet',
 }: WebViewSheetProps) {
-  const insets = useSafeAreaInsets()
-  const { colors, spacing, radius } = useTheme()
-  const webViewRef = useRef<WebView>(null)
+  const insets = useSafeAreaInsets();
+  const { colors, spacing, radius } = useTheme();
+  const webViewRef = useRef<WebView>(null);
 
-  const translateY = useSharedValue(SHEET_HEIGHT)
-  const backdropOpacity = useSharedValue(0)
+  const translateY = useSharedValue(SHEET_HEIGHT);
+  const backdropOpacity = useSharedValue(0);
 
   // WebView nav state
-  const [canGoBack, setCanGoBack] = useState(false)
-  const [canGoForward, setCanGoForward] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const [currentUrl, setCurrentUrl] = useState(url)
+  const [canGoBack, setCanGoBack] = useState(false);
+  const [canGoForward, setCanGoForward] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [currentUrl, setCurrentUrl] = useState(url);
 
-  const { host, isSecure } = getDisplayUrl(currentUrl)
+  const { host, isSecure } = getDisplayUrl(currentUrl);
 
   // Reset state when URL changes
   useEffect(() => {
-    setCurrentUrl(url)
-    setCanGoBack(false)
-    setCanGoForward(false)
-    setLoading(true)
-  }, [url])
+    setCurrentUrl(url);
+    setCanGoBack(false);
+    setCanGoForward(false);
+    setLoading(true);
+  }, [url]);
 
   useEffect(() => {
     if (visible) {
-      translateY.value = withTiming(0, TIMING_IN)
-      backdropOpacity.value = withTiming(1, TIMING_IN)
+      translateY.value = withTiming(0, TIMING_IN);
+      backdropOpacity.value = withTiming(1, TIMING_IN);
     } else {
-      translateY.value = withTiming(SHEET_HEIGHT, TIMING_OUT)
-      backdropOpacity.value = withTiming(0, TIMING_OUT)
+      translateY.value = withTiming(SHEET_HEIGHT, TIMING_OUT);
+      backdropOpacity.value = withTiming(0, TIMING_OUT);
     }
-  }, [visible])
+  }, [visible]);
 
   const sheetStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: Math.max(translateY.value, 0) }],
-  }))
+  }));
 
   const backdropStyle = useAnimatedStyle(() => ({
     opacity: backdropOpacity.value,
-  }))
+  }));
 
   const dismiss = () => {
-    translateY.value = withTiming(SHEET_HEIGHT, TIMING_OUT)
-    backdropOpacity.value = withTiming(0, TIMING_OUT)
+    translateY.value = withTiming(SHEET_HEIGHT, TIMING_OUT);
+    backdropOpacity.value = withTiming(0, TIMING_OUT);
     // Delay onClose so animation finishes
-    setTimeout(onClose, 250)
-  }
+    setTimeout(onClose, 250);
+  };
 
   const panGesture = Gesture.Pan()
     .onUpdate((e) => {
       if (e.translationY > 0) {
-        translateY.value = e.translationY
+        translateY.value = e.translationY;
       }
     })
     .onEnd((e) => {
       if (e.translationY > DISMISS_THRESHOLD) {
-        translateY.value = withTiming(SHEET_HEIGHT, TIMING_OUT)
-        backdropOpacity.value = withTiming(0, TIMING_OUT)
-        runOnJS(onClose)()
+        translateY.value = withTiming(SHEET_HEIGHT, TIMING_OUT);
+        backdropOpacity.value = withTiming(0, TIMING_OUT);
+        runOnJS(onClose)();
       } else {
-        translateY.value = withTiming(0, TIMING_IN)
+        translateY.value = withTiming(0, TIMING_IN);
       }
-    })
+    });
 
   const handleNavigationStateChange = (navState: WebViewNavigation) => {
-    setCanGoBack(navState.canGoBack)
-    setCanGoForward(navState.canGoForward)
-    setCurrentUrl(navState.url)
-  }
+    setCanGoBack(navState.canGoBack);
+    setCanGoForward(navState.canGoForward);
+    setCurrentUrl(navState.url);
+  };
 
-  if (!visible) return null
+  if (!visible) return null;
 
   return (
     <Modal
@@ -150,17 +132,8 @@ export function WebViewSheet({
     >
       <GestureHandlerRootView style={{ flex: 1 }}>
         {/* Backdrop */}
-        <Pressable
-          onPress={dismiss}
-          testID={`${testID}-backdrop`}
-          style={{ flex: 1 }}
-        >
-          <Animated.View
-            style={[
-              backdropStyle,
-              { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' },
-            ]}
-          />
+        <Pressable onPress={dismiss} testID={`${testID}-backdrop`} style={{ flex: 1 }}>
+          <Animated.View style={[backdropStyle, { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }]} />
         </Pressable>
 
         {/* Sheet */}
@@ -180,12 +153,7 @@ export function WebViewSheet({
           >
             {/* Drag handle */}
             <View style={styles.handleRow}>
-              <View
-                style={[
-                  styles.handle,
-                  { backgroundColor: colors.mutedForeground + '4D' },
-                ]}
-              />
+              <View style={[styles.handle, { backgroundColor: colors.mutedForeground + '4D' }]} />
             </View>
 
             {/* Toolbar */}
@@ -220,11 +188,7 @@ export function WebViewSheet({
                 ]}
               >
                 {isSecure && (
-                  <Lock
-                    size={12}
-                    className="text-muted-foreground"
-                    style={{ marginRight: 4 }}
-                  />
+                  <Lock size={12} className="text-muted-foreground" style={{ marginRight: 4 }} />
                 )}
                 <Text
                   variant="small"
@@ -285,15 +249,15 @@ export function WebViewSheet({
                 source={{ uri: url }}
                 onNavigationStateChange={handleNavigationStateChange}
                 onShouldStartLoadWithRequest={(request) => {
-                  const { url: reqUrl } = request
+                  const { url: reqUrl } = request;
                   if (
                     reqUrl.startsWith('twitter://') ||
                     reqUrl.startsWith('x://') ||
                     reqUrl.startsWith('intent://')
                   ) {
-                    return false
+                    return false;
                   }
-                  return true
+                  return true;
                 }}
                 onLoadStart={() => setLoading(true)}
                 onLoadEnd={() => setLoading(false)}
@@ -304,10 +268,7 @@ export function WebViewSheet({
                 startInLoadingState={false}
                 allowsBackForwardNavigationGestures={true}
                 onError={(syntheticEvent) => {
-                  console.error(
-                    '[WebViewSheet] Error loading URL:',
-                    syntheticEvent.nativeEvent
-                  )
+                  console.error('[WebViewSheet] Error loading URL:', syntheticEvent.nativeEvent);
                 }}
               />
             </View>
@@ -315,7 +276,7 @@ export function WebViewSheet({
         </GestureDetector>
       </GestureHandlerRootView>
     </Modal>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
@@ -364,4 +325,4 @@ const styles = StyleSheet.create({
   webViewContainer: {
     flex: 1,
   },
-})
+});

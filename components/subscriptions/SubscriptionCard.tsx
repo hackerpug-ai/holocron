@@ -1,21 +1,21 @@
-import { View, Pressable } from 'react-native'
-import { Text } from '@/components/ui/text'
-import { cn } from '@/lib/utils'
-import { PlatformBadge, type PlatformType } from './PlatformBadge'
-import { Switch } from '@/components/ui/switch'
-import { Trash2 } from '@/components/ui/icons'
-import { Button } from '@/components/ui/button'
-import type { Doc } from '@/convex/_generated/dataModel'
+import { Pressable, View } from 'react-native';
+import { Button } from '@/components/ui/button';
+import { Trash2 } from '@/components/ui/icons';
+import { Switch } from '@/components/ui/switch';
+import { Text } from '@/components/ui/text';
+import type { Doc } from '@/convex/_generated/dataModel';
+import { cn } from '@/lib/utils';
+import { PlatformBadge, type PlatformType } from './PlatformBadge';
 
-export type SubscriptionSource = Doc<'subscriptionSources'>
+export type SubscriptionSource = Doc<'subscriptionSources'>;
 
 export interface SubscriptionCardProps {
-  subscription: SubscriptionSource
-  selected?: boolean
-  onToggleAutoResearch?: (id: string) => void
-  onUnsubscribe?: (id: string) => void
-  onPress?: () => void
-  className?: string
+  subscription: SubscriptionSource;
+  selected?: boolean;
+  onToggleAutoResearch?: (id: string) => void;
+  onUnsubscribe?: (id: string) => void;
+  onPress?: () => void;
+  className?: string;
 }
 
 /**
@@ -32,24 +32,24 @@ export function SubscriptionCard({
   onPress,
   className,
 }: SubscriptionCardProps) {
-  const { _id: id, sourceType, identifier, name, autoResearch, createdAt } = subscription
+  const { _id: id, sourceType, identifier, name, autoResearch, createdAt } = subscription;
 
   // Format the subscription name/identifier
-  const displayName = name || identifier
+  const displayName = name || identifier;
 
   // Format timestamp
   const formatDate = (timestamp: number) => {
-    const date = new Date(timestamp)
-    const now = new Date()
-    const diffMs = now.getTime() - date.getTime()
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-    if (diffDays === 0) return 'Today'
-    if (diffDays === 1) return 'Yesterday'
-    if (diffDays < 7) return `${diffDays} days ago`
-    if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`
-    return date.toLocaleDateString()
-  }
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return `${diffDays} days ago`;
+    if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
+    return date.toLocaleDateString();
+  };
 
   return (
     <Pressable
@@ -95,9 +95,7 @@ export function SubscriptionCard({
                 {autoResearch ? 'Auto-research ON' : 'Manual only'}
               </Text>
             </View>
-            <Text className="text-xs text-muted-foreground">
-              Added {formatDate(createdAt)}
-            </Text>
+            <Text className="text-xs text-muted-foreground">Added {formatDate(createdAt)}</Text>
           </View>
         </View>
 
@@ -127,5 +125,5 @@ export function SubscriptionCard({
         </View>
       </View>
     </Pressable>
-  )
+  );
 }

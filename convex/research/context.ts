@@ -33,7 +33,7 @@ export function buildContextSummary(
   }>
 ): string {
   if (previousSessions.length === 0) {
-    return "";
+    return '';
   }
 
   const entries = previousSessions
@@ -42,7 +42,7 @@ export function buildContextSummary(
       const topic = session.topic;
       return `- ${topic}`;
     })
-    .join("\n");
+    .join('\n');
 
   return `Previous research in this conversation:\n${entries}`;
 }
@@ -53,9 +53,7 @@ export function buildContextSummary(
  * @param contextEntries - Current context entries
  * @returns Pruned context entries (max MAX_CONTEXT_ENTRIES)
  */
-export function pruneOldContext(
-  contextEntries: ResearchContextEntry[]
-): ResearchContextEntry[] {
+export function pruneOldContext(contextEntries: ResearchContextEntry[]): ResearchContextEntry[] {
   return contextEntries.slice(-MAX_CONTEXT_ENTRIES);
 }
 
@@ -79,10 +77,10 @@ export function extractRelevantFindings(session: {
     const iterationFindings = session.iterations
       .filter((it) => it.findings)
       .map((it) => it.findings)
-      .join("\n\n");
+      .join('\n\n');
 
-    return iterationFindings || "Research in progress...";
+    return iterationFindings || 'Research in progress...';
   }
 
-  return "";
+  return '';
 }

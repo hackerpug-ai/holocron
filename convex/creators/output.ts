@@ -11,7 +11,7 @@
  *            Learning Paths → Extended Research → Video Catalog
  */
 
-import { formatTable, todayISO } from "../lib/reportFormat";
+import { formatTable, todayISO } from '../lib/reportFormat';
 
 export type CreatorProfile = {
   name: string;
@@ -95,7 +95,7 @@ export type CreatorReportInput = {
  */
 function truncate(s: string, maxLen: number): string {
   if (s.length <= maxLen) return s;
-  return s.slice(0, maxLen - 1) + "…";
+  return s.slice(0, maxLen - 1) + '…';
 }
 
 /**
@@ -119,7 +119,7 @@ function formatExecutiveSummary(input: CreatorReportInput): string {
     profile.description ??
     `_No executive summary available for ${profile.name}._`;
 
-  return [`## Executive Summary`, "", body, ""].join("\n");
+  return [`## Executive Summary`, '', body, ''].join('\n');
 }
 
 /**
@@ -128,8 +128,8 @@ function formatExecutiveSummary(input: CreatorReportInput): string {
  */
 function formatCoreThesis(input: CreatorReportInput): string {
   const { coreThesis, profile } = input;
-  const thesis = coreThesis ?? profile.description ?? "";
-  return [`## Core Thesis`, thesis, ""].join("\n");
+  const thesis = coreThesis ?? profile.description ?? '';
+  return [`## Core Thesis`, thesis, ''].join('\n');
 }
 
 /**
@@ -147,8 +147,8 @@ function formatModuleBlock(
   const lines: string[] = [
     `### Module ${idx + 1}: ${mod.name}`,
     `**Overview**: ${mod.keyIdea} | **Videos**: ${modVideos.length}`,
-    "",
-    "#### Core Concepts",
+    '',
+    '#### Core Concepts',
   ];
 
   if (mod.coreConcepts && mod.coreConcepts.length > 0) {
@@ -156,7 +156,7 @@ function formatModuleBlock(
       const video = videoById.get(cc.videoId);
       const videoTitle = video?.title ?? cc.videoId;
       const url = video ? videoUrl(video) : `#${cc.videoId}`;
-      const quoteStr = cc.quote ? ` > "${cc.quote}"` : "";
+      const quoteStr = cc.quote ? ` > "${cc.quote}"` : '';
       lines.push(
         `${i + 1}. **${cc.concept}** ([${videoTitle}](${url})) - ${cc.explanation}${quoteStr}`
       );
@@ -164,16 +164,16 @@ function formatModuleBlock(
   } else {
     modVideos.forEach((v, i) => {
       const url = videoUrl(v);
-      const explanation = v.keyTakeaway ?? v.summary ?? "";
-      const quoteStr = v.quote ? ` > "${v.quote}"` : "";
+      const explanation = v.keyTakeaway ?? v.summary ?? '';
+      const quoteStr = v.quote ? ` > "${v.quote}"` : '';
       lines.push(
         `${i + 1}. **${v.topic ?? v.title}** ([${v.title}](${url})) - ${explanation}${quoteStr}`
       );
     });
   }
 
-  lines.push("");
-  lines.push("#### Actionable Takeaways");
+  lines.push('');
+  lines.push('#### Actionable Takeaways');
 
   if (mod.actionableTakeaways && mod.actionableTakeaways.length > 0) {
     mod.actionableTakeaways.forEach((t) => lines.push(`- ${t}`));
@@ -186,22 +186,17 @@ function formatModuleBlock(
     }
   }
 
-  lines.push("");
-  return lines.join("\n");
+  lines.push('');
+  return lines.join('\n');
 }
 
 /**
  * Format the Curriculum section with all modules.
  */
-function formatCurriculum(
-  modules: CreatorModule[],
-  videoById: Map<string, VideoSummary>
-): string {
-  const moduleBlocks = modules.map((mod, idx) =>
-    formatModuleBlock(mod, idx, videoById)
-  );
+function formatCurriculum(modules: CreatorModule[], videoById: Map<string, VideoSummary>): string {
+  const moduleBlocks = modules.map((mod, idx) => formatModuleBlock(mod, idx, videoById));
 
-  return [`## Curriculum`, "", ...moduleBlocks].join("\n");
+  return [`## Curriculum`, '', ...moduleBlocks].join('\n');
 }
 
 /**
@@ -212,48 +207,34 @@ function formatCrossCuttingThemes(
   themes: CreatorTheme[],
   videoById: Map<string, VideoSummary>
 ): string {
-  if (themes.length === 0) return "";
+  if (themes.length === 0) return '';
 
-  const lines = [`## Cross-Cutting Themes`, ""];
+  const lines = [`## Cross-Cutting Themes`, ''];
 
   themes.forEach((t) => {
     const moduleStr =
-      t.moduleNumbers && t.moduleNumbers.length > 0
-        ? t.moduleNumbers.join(",")
-        : "—";
+      t.moduleNumbers && t.moduleNumbers.length > 0 ? t.moduleNumbers.join(',') : '—';
 
     lines.push(`### Theme: ${t.theme}`);
-    lines.push(
-      `**Appears in**: Modules ${moduleStr} | **Synthesis**: ${t.explanation}`
-    );
-    lines.push("");
+    lines.push(`**Appears in**: Modules ${moduleStr} | **Synthesis**: ${t.explanation}`);
+    lines.push('');
 
     if (t.rows && t.rows.length > 0) {
       const tableRows = t.rows.map((row) => {
         const video = videoById.get(row.videoId);
         const videoTitle = video?.title ?? row.videoId;
         const url = video ? videoUrl(video) : `#${row.videoId}`;
-        return [
-          `[${videoTitle}](${url})`,
-          row.application,
-          row.quote ? `"${row.quote}"` : "",
-        ];
+        return [`[${videoTitle}](${url})`, row.application, row.quote ? `"${row.quote}"` : ''];
       });
-      lines.push(formatTable(["Video", "Application", "Quote"], tableRows, 35));
+      lines.push(formatTable(['Video', 'Application', 'Quote'], tableRows, 35));
     } else {
-      lines.push(
-        formatTable(
-          ["Video", "Application", "Quote"],
-          [["—", t.explanation, "—"]],
-          35
-        )
-      );
+      lines.push(formatTable(['Video', 'Application', 'Quote'], [['—', t.explanation, '—']], 35));
     }
 
-    lines.push("");
+    lines.push('');
   });
 
-  return lines.join("\n");
+  return lines.join('\n');
 }
 
 /**
@@ -264,7 +245,7 @@ function formatLearningPaths(
   modules: CreatorModule[],
   videoById: Map<string, VideoSummary>
 ): string {
-  if (modules.length < 3) return "";
+  if (modules.length < 3) return '';
 
   const firstVideoLink = (mod: CreatorModule): string => {
     const firstId = mod.videoIds[0];
@@ -275,17 +256,15 @@ function formatLearningPaths(
 
   const beginnerModules = modules.slice(0, 3);
   const advancedModules =
-    modules.length > 3
-      ? modules.slice(Math.floor(modules.length / 2))
-      : modules.slice(1);
+    modules.length > 3 ? modules.slice(Math.floor(modules.length / 2)) : modules.slice(1);
 
-  const beginnerPath = beginnerModules.map(firstVideoLink).join(" → ");
-  const advancedPath = advancedModules.map(firstVideoLink).join(" → ");
+  const beginnerPath = beginnerModules.map(firstVideoLink).join(' → ');
+  const advancedPath = advancedModules.map(firstVideoLink).join(' → ');
 
   const midStart = Math.floor(modules.length / 4);
   const midEnd = midStart + Math.min(3, Math.floor(modules.length / 2));
   const practicalModules = modules.slice(midStart, midEnd);
-  const practicalPath = practicalModules.map(firstVideoLink).join(" → ");
+  const practicalPath = practicalModules.map(firstVideoLink).join(' → ');
 
   const lines = [
     `## Learning Paths`,
@@ -297,8 +276,8 @@ function formatLearningPaths(
     lines.push(`**Practical**: ${practicalPath}`);
   }
 
-  lines.push("");
-  return lines.join("\n");
+  lines.push('');
+  return lines.join('\n');
 }
 
 /**
@@ -309,13 +288,9 @@ function formatExtendedResearch(
   topics: ExtendedResearchTopic[],
   videoById: Map<string, VideoSummary>
 ): string {
-  if (topics.length === 0) return "";
+  if (topics.length === 0) return '';
 
-  const lines = [
-    `## Extended Research`,
-    "Topics mentioned but not covered:",
-    "",
-  ];
+  const lines = [`## Extended Research`, 'Topics mentioned but not covered:', ''];
 
   topics.forEach((t) => {
     lines.push(`### ${t.topic}`);
@@ -331,10 +306,10 @@ function formatExtendedResearch(
 
     lines.push(`- **Why explore**: ${t.whyExplore}`);
     lines.push(`- **Search**: "${t.searchQuery}"`);
-    lines.push("");
+    lines.push('');
   });
 
-  return lines.join("\n");
+  return lines.join('\n');
 }
 
 /**
@@ -345,18 +320,14 @@ function formatVideoCatalog(videos: VideoSummary[]): string {
   const catalogRows = videos.map((v, i) => [
     String(i + 1),
     truncate(v.title, 25),
-    v.topic ?? "",
-    truncate(v.summary ?? v.keyTakeaway ?? "", 30),
+    v.topic ?? '',
+    truncate(v.summary ?? v.keyTakeaway ?? '', 30),
     `[Watch](${videoUrl(v)})`,
   ]);
 
-  const catalogTable = formatTable(
-    ["#", "Title", "Topic", "Summary", "Link"],
-    catalogRows,
-    30
-  );
+  const catalogTable = formatTable(['#', 'Title', 'Topic', 'Summary', 'Link'], catalogRows, 30);
 
-  return [`## Video Catalog`, "", catalogTable, ""].join("\n");
+  return [`## Video Catalog`, '', catalogTable, ''].join('\n');
 }
 
 /**
@@ -382,26 +353,22 @@ export function formatCreatorReport(input: CreatorReportInput): string {
       ? input.modules
       : [
           {
-            name: "All Content",
-            keyIdea: "Complete video library",
+            name: 'All Content',
+            keyIdea: 'Complete video library',
             videoIds: videos.map((v) => v.videoId),
           },
         ];
 
   // Build a lookup map: videoId → VideoSummary
-  const videoById = new Map<string, VideoSummary>(
-    videos.map((v) => [v.videoId, v])
-  );
+  const videoById = new Map<string, VideoSummary>(videos.map((v) => [v.videoId, v]));
 
   // Resolve domain for the title
-  const domain = input.domain ?? profile.platform ?? "Content";
+  const domain = input.domain ?? profile.platform ?? 'Content';
 
   // ── Header matching ASSIMILATE_CREATOR_TEMPLATE ──────────────────────────
   // # Crash Course: {Domain} by {Creator}
   // **Source**: [{Channel}]({url}) | **Videos**: {N} analyzed | **Date**: {date}
-  const sourceStr = profile.channelUrl
-    ? `[${profile.name}](${profile.channelUrl})`
-    : profile.name;
+  const sourceStr = profile.channelUrl ? `[${profile.name}](${profile.channelUrl})` : profile.name;
 
   const header =
     `# Crash Course: ${domain} by ${profile.name}\n\n` +
@@ -425,19 +392,14 @@ export function formatCreatorReport(input: CreatorReportInput): string {
     sectionParts.push(learningPathsSection);
   }
 
-  const extendedResearchSection = formatExtendedResearch(
-    extendedResearch ?? [],
-    videoById
-  );
+  const extendedResearchSection = formatExtendedResearch(extendedResearch ?? [], videoById);
   if (extendedResearchSection) {
     sectionParts.push(extendedResearchSection);
   }
 
   sectionParts.push(formatVideoCatalog(videos));
 
-  sectionParts.push(
-    `---\n*Assimilated by /assimilate-creator on ${todayISO()}*`
-  );
+  sectionParts.push(`---\n*Assimilated by /assimilate-creator on ${todayISO()}*`);
 
-  return sectionParts.join("\n");
+  return sectionParts.join('\n');
 }

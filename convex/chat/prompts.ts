@@ -177,4 +177,3 @@ User: "Save the 5 coaches you just listed"
 User: "Research stuff"
 → { "intent": "research", "queryShape": "ambiguous", "confidence": "high", "reasoning": "No topic specified", "directResponse": "I can dig into that — what would you like me to research?" }
 `;
-

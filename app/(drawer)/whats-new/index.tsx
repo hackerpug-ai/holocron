@@ -1,13 +1,13 @@
-import { useState } from 'react'
-import { View, ActivityIndicator } from 'react-native'
-import { Text } from '@/components/ui/text'
-import { useQuery } from 'convex/react'
-import { api } from '@/convex/_generated/api'
-import { NewsStream, type NewsItem } from '@/components/whats-new/NewsStream'
-import { useRouter } from 'expo-router'
-import { useTheme } from '@/hooks/use-theme'
-import { ScreenLayout } from '@/components/ui/screen-layout'
-import { WebViewSheet } from '@/components/webview/WebViewSheet'
+import { useQuery } from 'convex/react';
+import { useRouter } from 'expo-router';
+import { useState } from 'react';
+import { ActivityIndicator, View } from 'react-native';
+import { ScreenLayout } from '@/components/ui/screen-layout';
+import { Text } from '@/components/ui/text';
+import { WebViewSheet } from '@/components/webview/WebViewSheet';
+import { type NewsItem, NewsStream } from '@/components/whats-new/NewsStream';
+import { api } from '@/convex/_generated/api';
+import { useTheme } from '@/hooks/use-theme';
 
 /**
  * What's New Screen - Card-based stream layout
@@ -18,29 +18,29 @@ import { WebViewSheet } from '@/components/webview/WebViewSheet'
  * Route: /whats-new
  */
 export default function WhatsNewScreen() {
-  const router = useRouter()
-  const { colors: themeColors, spacing: semanticSpacing } = useTheme()
+  const router = useRouter();
+  const { colors: themeColors, spacing: semanticSpacing } = useTheme();
 
   // Fetch latest findings (individual articles)
-  const data = useQuery(api.whatsNew.queries.getLatestFindings, {})
-  const isLoading = data === undefined
-  const findings = data?.findings ?? []
+  const data = useQuery(api.whatsNew.queries.getLatestFindings, {});
+  const isLoading = data === undefined;
+  const findings = data?.findings ?? [];
 
-  const [webViewUrl, setWebViewUrl] = useState<string | null>(null)
+  const [webViewUrl, setWebViewUrl] = useState<string | null>(null);
 
   const handleCardPress = (_id: string, url: string | undefined) => {
     if (url) {
-      setWebViewUrl(url)
+      setWebViewUrl(url);
     }
-  }
+  };
 
   const handleBack = () => {
     if (router.canGoBack()) {
-      router.back()
+      router.back();
     } else {
-      router.navigate('/chat/new')
+      router.navigate('/chat/new');
     }
-  }
+  };
 
   // Transform findings to NewsItem format (individual articles with URLs)
   const newsItems: NewsItem[] = (findings ?? []).map((finding: any) => ({
@@ -50,7 +50,7 @@ export default function WhatsNewScreen() {
     source: finding.source,
     publishedAt: finding.publishedAt ? new Date(finding.publishedAt).getTime() : undefined,
     url: finding.url,
-  }))
+  }));
 
   if (isLoading) {
     return (
@@ -72,7 +72,7 @@ export default function WhatsNewScreen() {
           <Text className="text-muted-foreground mt-4">Loading What's New...</Text>
         </View>
       </ScreenLayout>
-    )
+    );
   }
 
   if (!findings || findings.length === 0) {
@@ -97,7 +97,7 @@ export default function WhatsNewScreen() {
           </Text>
         </View>
       </ScreenLayout>
-    )
+    );
   }
 
   return (
@@ -110,11 +110,7 @@ export default function WhatsNewScreen() {
       edges="bottom"
       testID="whats-new-layout"
     >
-      <NewsStream
-        items={newsItems}
-        onCardPress={handleCardPress}
-        testID="whats-new-stream"
-      />
+      <NewsStream items={newsItems} onCardPress={handleCardPress} testID="whats-new-stream" />
       <WebViewSheet
         visible={!!webViewUrl}
         url={webViewUrl ?? ''}
@@ -122,5 +118,5 @@ export default function WhatsNewScreen() {
         testID="whats-new-webview-sheet"
       />
     </ScreenLayout>
-  )
+  );
 }

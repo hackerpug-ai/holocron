@@ -5,8 +5,8 @@
  * These tests verify the API structure and return type expectations.
  */
 
-import { describe, it, expect } from 'vitest';
 import { v } from 'convex/values';
+import { describe, expect, it } from 'vitest';
 
 describe('US-786: Lazy Conversation Creation', () => {
   /**

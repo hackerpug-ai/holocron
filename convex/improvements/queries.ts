@@ -1,7 +1,7 @@
-import { query } from "../_generated/server";
-import { v } from "convex/values";
+import { v } from 'convex/values';
+import { query } from '../_generated/server';
 
-const STATUS_VALUES = v.union(v.literal("open"), v.literal("closed"));
+const STATUS_VALUES = v.union(v.literal('open'), v.literal('closed'));
 
 /**
  * List improvement requests, excluding merged ones.
@@ -21,15 +21,15 @@ export const list = query({
 
     if (status !== undefined) {
       results = await ctx.db
-        .query("improvementRequests")
-        .withIndex("by_status", (q) => q.eq("status", status))
-        .order("desc")
+        .query('improvementRequests')
+        .withIndex('by_status', (q) => q.eq('status', status))
+        .order('desc')
         .take(limit);
     } else {
       results = await ctx.db
-        .query("improvementRequests")
-        .withIndex("by_created")
-        .order("desc")
+        .query('improvementRequests')
+        .withIndex('by_created')
+        .order('desc')
         .take(limit);
     }
 
@@ -42,14 +42,14 @@ export const list = query({
  * Get a single improvement request by ID, including associated images with resolved URLs.
  */
 export const get = query({
-  args: { id: v.id("improvementRequests") },
+  args: { id: v.id('improvementRequests') },
   handler: async (ctx, args) => {
     const request = await ctx.db.get(args.id);
     if (!request) return null;
 
     const images = await ctx.db
-      .query("improvementImages")
-      .withIndex("by_request", (q) => q.eq("requestId", args.id))
+      .query('improvementImages')
+      .withIndex('by_request', (q) => q.eq('requestId', args.id))
       .collect();
 
     const imagesWithUrls = await Promise.all(
@@ -67,11 +67,11 @@ export const get = query({
  * Get all images for a given improvement request, with resolved storage URLs.
  */
 export const getImages = query({
-  args: { requestId: v.id("improvementRequests") },
+  args: { requestId: v.id('improvementRequests') },
   handler: async (ctx, args) => {
     const images = await ctx.db
-      .query("improvementImages")
-      .withIndex("by_request", (q) => q.eq("requestId", args.requestId))
+      .query('improvementImages')
+      .withIndex('by_request', (q) => q.eq('requestId', args.requestId))
       .collect();
 
     return Promise.all(
@@ -96,8 +96,8 @@ export const fullTextSearch = query({
     const { query: searchQuery, limit = 10 } = args;
 
     return ctx.db
-      .query("improvementRequests")
-      .withSearchIndex("by_title_search", (q) => q.search("title", searchQuery))
+      .query('improvementRequests')
+      .withSearchIndex('by_title_search', (q) => q.search('title', searchQuery))
       .take(limit);
   },
 });

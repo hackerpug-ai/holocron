@@ -1,16 +1,14 @@
-import { mutation } from "../_generated/server";
-import { makeFunctionReference } from "convex/server";
-import { v } from "convex/values";
+import { makeFunctionReference } from 'convex/server';
+import { v } from 'convex/values';
+import { mutation } from '../_generated/server';
 
 // The actions file does not exist yet; reference it explicitly so the scheduler
 // call can be wired at runtime without a generated-API type error.
-const processNewRequest = makeFunctionReference<
-  "action",
-  { requestId: string },
-  null
->("improvements/actions:processNewRequest");
+const processNewRequest = makeFunctionReference<'action', { requestId: string }, null>(
+  'improvements/actions:processNewRequest'
+);
 
-const STATUS_VALUES = v.union(v.literal("open"), v.literal("closed"));
+const STATUS_VALUES = v.union(v.literal('open'), v.literal('closed'));
 
 /**
  * Generate a short-lived upload URL for attaching images to improvement requests.
@@ -30,17 +28,17 @@ export const generateUploadUrl = mutation({
 export const submit = mutation({
   args: {
     description: v.string(),
-    storageId: v.optional(v.id("_storage")),
+    storageId: v.optional(v.id('_storage')),
     sourceScreen: v.string(),
     sourceComponent: v.optional(v.string()),
   },
   handler: async (ctx, { description, storageId, sourceScreen, sourceComponent }) => {
     const now = Date.now();
 
-    const requestId = await ctx.db.insert("improvementRequests", {
+    const requestId = await ctx.db.insert('improvementRequests', {
       description,
       title: description.slice(0, 80),
-      status: "open",
+      status: 'open',
       sourceScreen,
       sourceComponent,
       createdAt: now,
@@ -48,18 +46,14 @@ export const submit = mutation({
     });
 
     if (storageId !== undefined) {
-      await ctx.db.insert("improvementImages", {
+      await ctx.db.insert('improvementImages', {
         requestId,
         storageId,
         createdAt: now,
       });
     }
 
-    await ctx.scheduler.runAfter(
-      0,
-      processNewRequest,
-      { requestId }
-    );
+    await ctx.scheduler.runAfter(0, processNewRequest, { requestId });
 
     return requestId;
   },
@@ -73,7 +67,7 @@ export const submit = mutation({
  */
 export const setStatus = mutation({
   args: {
-    id: v.id("improvementRequests"),
+    id: v.id('improvementRequests'),
     status: STATUS_VALUES,
     reason: v.optional(v.string()),
     evidence: v.optional(v.array(v.string())),
@@ -90,7 +84,7 @@ export const setStatus = mutation({
       updatedAt: now,
     };
 
-    if (status === "closed") {
+    if (status === 'closed') {
       patch.closedAt = now;
       if (reason !== undefined) patch.closureReason = reason;
       if (evidence !== undefined) patch.closureEvidence = evidence;
@@ -113,7 +107,7 @@ export const setStatus = mutation({
  */
 export const update = mutation({
   args: {
-    id: v.id("improvementRequests"),
+    id: v.id('improvementRequests'),
     title: v.optional(v.string()),
     description: v.optional(v.string()),
   },
@@ -133,12 +127,12 @@ export const update = mutation({
  */
 export const addImage = mutation({
   args: {
-    requestId: v.id("improvementRequests"),
-    storageId: v.id("_storage"),
+    requestId: v.id('improvementRequests'),
+    storageId: v.id('_storage'),
     caption: v.optional(v.string()),
   },
   handler: async (ctx, { requestId, storageId, caption }) => {
-    const imageId = await ctx.db.insert("improvementImages", {
+    const imageId = await ctx.db.insert('improvementImages', {
       requestId,
       storageId,
       caption,
@@ -156,7 +150,7 @@ export const addImage = mutation({
  */
 export const remove = mutation({
   args: {
-    id: v.id("improvementRequests"),
+    id: v.id('improvementRequests'),
   },
   handler: async (ctx, { id }) => {
     const request = await ctx.db.get(id);
@@ -166,8 +160,8 @@ export const remove = mutation({
 
     // Delete associated images from storage
     const images = await ctx.db
-      .query("improvementImages")
-      .withIndex("by_request", (q) => q.eq("requestId", id))
+      .query('improvementImages')
+      .withIndex('by_request', (q) => q.eq('requestId', id))
       .collect();
 
     await Promise.all([
@@ -182,7 +176,7 @@ export const remove = mutation({
       await Promise.all(
         request.mergedFromIds.map((mergedId) =>
           ctx.db.patch(mergedId, {
-            status: "open" as const,
+            status: 'open' as const,
             mergedIntoId: undefined,
             closedAt: undefined,
             closureReason: undefined,

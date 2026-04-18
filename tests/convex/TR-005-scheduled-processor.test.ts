@@ -5,7 +5,7 @@
  * handles status transitions, stores transcripts, and implements retry logic.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 /**
  * AC-1: Pending job exists: Scheduled function runs, job status changes to "transcribing", startedAt set

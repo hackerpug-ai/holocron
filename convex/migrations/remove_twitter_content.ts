@@ -13,9 +13,9 @@
  *   npx convex run migrations/remove_twitter_content:execute     (delete)
  */
 
-import { v } from "convex/values";
-import { internalMutation, internalQuery } from "../_generated/server";
-import type { Id } from "../_generated/dataModel";
+import { v } from 'convex/values';
+import type { Id } from '../_generated/dataModel';
+import { internalMutation, internalQuery } from '../_generated/server';
 
 // ============================================================================
 // Helpers
@@ -28,32 +28,25 @@ function isTwitterContent(record: {
 }): boolean {
   const meta = record.metadataJson as Record<string, unknown> | undefined;
   const platform = meta?.platform as string | undefined;
-  if (platform === "twitter") return true;
+  if (platform === 'twitter') return true;
 
-  const url = record.url ?? "";
-  if (url.includes("twitter.com") || url.includes("x.com")) return true;
+  const url = record.url ?? '';
+  if (url.includes('twitter.com') || url.includes('x.com')) return true;
 
   return false;
 }
 
-function isTwitterOnlySource(source: {
-  configJson?: unknown;
-  url?: string;
-}): boolean {
+function isTwitterOnlySource(source: { configJson?: unknown; url?: string }): boolean {
   const config = source.configJson as Record<string, unknown> | undefined;
   const platforms = config?.platforms as Record<string, unknown> | undefined;
   if (!platforms) return false;
 
   // If the only platform configured is twitter, this is a twitter-only source
-  const nonTwitterPlatforms = Object.keys(platforms).filter(
-    (p) => p !== "twitter"
-  );
-  return nonTwitterPlatforms.length === 0 && "twitter" in platforms;
+  const nonTwitterPlatforms = Object.keys(platforms).filter((p) => p !== 'twitter');
+  return nonTwitterPlatforms.length === 0 && 'twitter' in platforms;
 }
 
-function hasTwitterPlatform(source: {
-  configJson?: unknown;
-}): boolean {
+function hasTwitterPlatform(source: { configJson?: unknown }): boolean {
   const config = source.configJson as Record<string, unknown> | undefined;
   const platforms = config?.platforms as Record<string, unknown> | undefined;
   return !!platforms?.twitter;
@@ -67,13 +60,13 @@ export const dryRun = internalQuery({
   args: {},
   handler: async (ctx) => {
     // Count twitter content
-    const allContent = await ctx.db.query("subscriptionContent").collect();
+    const allContent = await ctx.db.query('subscriptionContent').collect();
     const twitterContent = allContent.filter(isTwitterContent);
 
     // Count twitter-only sources
     const allSources = await ctx.db
-      .query("subscriptionSources")
-      .withIndex("by_type", (q) => q.eq("sourceType", "creator"))
+      .query('subscriptionSources')
+      .withIndex('by_type', (q) => q.eq('sourceType', 'creator'))
       .collect();
     const twitterOnlySources = allSources.filter(isTwitterOnlySource);
     const sourcesWithTwitter = allSources.filter(
@@ -81,13 +74,11 @@ export const dryRun = internalQuery({
     );
 
     // Count feed items referencing twitter content
-    const twitterContentIds = new Set(
-      twitterContent.map((c) => c._id.toString())
-    );
-    const allFeedItems = await ctx.db.query("feedItems").collect();
+    const twitterContentIds = new Set(twitterContent.map((c) => c._id.toString()));
+    const allFeedItems = await ctx.db.query('feedItems').collect();
     const affectedFeedItems = allFeedItems.filter((item) =>
       item.itemIds?.some((id: unknown) =>
-        twitterContentIds.has((id as Id<"subscriptionContent">).toString())
+        twitterContentIds.has((id as Id<'subscriptionContent'>).toString())
       )
     );
 
@@ -124,7 +115,7 @@ export const execute = internalMutation({
     let strippedSources = 0;
 
     // Step 1: Delete twitter subscriptionContent (in batches)
-    const allContent = await ctx.db.query("subscriptionContent").collect();
+    const allContent = await ctx.db.query('subscriptionContent').collect();
     const twitterContent = allContent.filter(isTwitterContent);
     const batch = twitterContent.slice(0, batchSize);
 
@@ -137,10 +128,10 @@ export const execute = internalMutation({
 
     // Step 2: Delete feedItems that reference deleted content
     if (deletedContentIds.size > 0) {
-      const allFeedItems = await ctx.db.query("feedItems").collect();
+      const allFeedItems = await ctx.db.query('feedItems').collect();
       for (const item of allFeedItems) {
         const hasDeletedContent = item.itemIds?.some((id: unknown) =>
-          deletedContentIds.has((id as Id<"subscriptionContent">).toString())
+          deletedContentIds.has((id as Id<'subscriptionContent'>).toString())
         );
         if (hasDeletedContent) {
           await ctx.db.delete(item._id);
@@ -151,8 +142,8 @@ export const execute = internalMutation({
 
     // Step 3: Delete twitter-only sources
     const allSources = await ctx.db
-      .query("subscriptionSources")
-      .withIndex("by_type", (q) => q.eq("sourceType", "creator"))
+      .query('subscriptionSources')
+      .withIndex('by_type', (q) => q.eq('sourceType', 'creator'))
       .collect();
 
     for (const source of allSources) {
@@ -167,7 +158,7 @@ export const execute = internalMutation({
         await ctx.db.patch(source._id, {
           configJson: { ...config, platforms },
           // If the URL was an x.com URL, clear it
-          ...(source.url?.includes("x.com") || source.url?.includes("twitter.com")
+          ...(source.url?.includes('x.com') || source.url?.includes('twitter.com')
             ? { url: undefined }
             : {}),
         });

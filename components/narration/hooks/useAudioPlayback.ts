@@ -1,36 +1,35 @@
-import { createAudioPlayer, setAudioModeAsync } from 'expo-audio'
-import type { AudioPlayer } from 'expo-audio'
-import type { AudioStatus } from 'expo-audio'
-import { useEffect, useRef, useState } from 'react'
-import { UseNarrationStateReturn } from './useNarrationState'
+import type { AudioPlayer, AudioStatus } from 'expo-audio';
+import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
+import { useEffect, useRef, useState } from 'react';
+import type { UseNarrationStateReturn } from './useNarrationState';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface AudioSegment {
-  _id: string | { toString(): string }
-  paragraphIndex: number
-  status: string
-  audioUrl: string | null
-  durationMs?: number | null
-  jobId?: unknown
+  _id: string | { toString(): string };
+  paragraphIndex: number;
+  status: string;
+  audioUrl: string | null;
+  durationMs?: number | null;
+  jobId?: unknown;
 }
 
 export interface AudioPlaybackMetadata {
-  title?: string
-  artist?: string
+  title?: string;
+  artist?: string;
 }
 
 export interface UseAudioPlaybackReturn {
-  isLoading: boolean
+  isLoading: boolean;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function releasePlayer(player: AudioPlayer | null): void {
-  if (!player) return
+  if (!player) return;
   try {
-    player.pause()
-    player.remove()
+    player.pause();
+    player.remove();
   } catch {
     // Player may already be released — safe to ignore
   }
@@ -57,23 +56,23 @@ export function useAudioPlayback(
 ): UseAudioPlaybackReturn {
   // ─── Stable refs for values read inside async/callback contexts ──────────
 
-  const narrationRef = useRef(narration)
+  const narrationRef = useRef(narration);
   useEffect(() => {
-    narrationRef.current = narration
-  })
+    narrationRef.current = narration;
+  });
 
-  const segmentsRef = useRef(segments)
+  const segmentsRef = useRef(segments);
   useEffect(() => {
-    segmentsRef.current = segments
-  })
+    segmentsRef.current = segments;
+  });
 
   // ─── Player instance state ──────────────────────────────────────────────
 
-  const playerRef = useRef<AudioPlayer | null>(null)
-  const loadedIndexRef = useRef<number>(-1)
-  const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const playerRef = useRef<AudioPlayer | null>(null);
+  const loadedIndexRef = useRef<number>(-1);
+  const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(false);
 
   // ─── Configure audio session on mount ─────────────────────────────────
 
@@ -82,39 +81,39 @@ export function useAudioPlayback(
       playsInSilentMode: true,
       shouldPlayInBackground: true,
       interruptionMode: 'doNotMix',
-    })
+    });
 
     return () => {
       // Clear lock screen controls on cleanup
-      const player = playerRef.current
+      const player = playerRef.current;
       if (player) {
         try {
-          player.clearLockScreenControls()
+          player.clearLockScreenControls();
         } catch {
           // Safe to ignore
         }
       }
-      releasePlayer(playerRef.current)
-      playerRef.current = null
-      loadedIndexRef.current = -1
-    }
-  }, [])
+      releasePlayer(playerRef.current);
+      playerRef.current = null;
+      loadedIndexRef.current = -1;
+    };
+  }, []);
 
   // ─── Load and play segment when active paragraph or play state changes ─────
 
   useEffect(() => {
-    const { status, activeParagraphIndex, playbackSpeed } = narration.state
+    const { status, activeParagraphIndex, playbackSpeed } = narration.state;
 
     // Only manage playback when the state machine is in an active state
     if (status !== 'playing' && status !== 'paused') {
-      return
+      return;
     }
 
     if (activeParagraphIndex < 0) {
-      return
+      return;
     }
 
-    const segment = segments.find(s => s.paragraphIndex === activeParagraphIndex)
+    const segment = segments.find((s) => s.paragraphIndex === activeParagraphIndex);
 
     // Segment not yet generated or URL not available — stop any currently
     // playing audio so the old segment doesn't keep playing while the
@@ -123,179 +122,179 @@ export function useAudioPlayback(
     if (!segment?.audioUrl) {
       // Stop and release the old player so stale audio doesn't continue
       if (loadedIndexRef.current !== activeParagraphIndex && playerRef.current) {
-        releasePlayer(playerRef.current)
-        playerRef.current = null
-        loadedIndexRef.current = -1
+        releasePlayer(playerRef.current);
+        playerRef.current = null;
+        loadedIndexRef.current = -1;
       }
-      setIsLoading(true)
-      return
+      setIsLoading(true);
+      return;
     }
 
-    const audioUrl = segment.audioUrl
-    const segmentDurationMs = segment.durationMs ?? null
+    const audioUrl = segment.audioUrl;
+    const segmentDurationMs = segment.durationMs ?? null;
 
     // Same segment already loaded: just play or pause without reloading
     if (loadedIndexRef.current === activeParagraphIndex && playerRef.current) {
       if (status === 'playing') {
-        playerRef.current.play()
+        playerRef.current.play();
       } else {
-        playerRef.current.pause()
+        playerRef.current.pause();
       }
-      return
+      return;
     }
 
     // New segment requested: release previous, then create the new player
-    let cancelled = false
-    const targetIndex = activeParagraphIndex
+    let cancelled = false;
+    const targetIndex = activeParagraphIndex;
 
     function loadAndPlay() {
-      setIsLoading(true)
+      setIsLoading(true);
 
-      const previous = playerRef.current
-      playerRef.current = null
-      loadedIndexRef.current = -1
-      releasePlayer(previous)
+      const previous = playerRef.current;
+      playerRef.current = null;
+      loadedIndexRef.current = -1;
+      releasePlayer(previous);
 
-      if (cancelled) return
+      if (cancelled) return;
 
       try {
-        const player = createAudioPlayer(audioUrl)
+        const player = createAudioPlayer(audioUrl);
 
         if (cancelled) {
-          releasePlayer(player)
-          return
+          releasePlayer(player);
+          return;
         }
 
-        player.shouldCorrectPitch = true
-        player.setPlaybackRate(playbackSpeed)
+        player.shouldCorrectPitch = true;
+        player.setPlaybackRate(playbackSpeed);
 
-        playerRef.current = player
-        loadedIndexRef.current = activeParagraphIndex
+        playerRef.current = player;
+        loadedIndexRef.current = activeParagraphIndex;
 
         // Enable lock screen controls with metadata for background playback
         // and CarPlay. iOS auto-surfaces these in Control Center and CarPlay.
-        const sectionLabel = `Section ${activeParagraphIndex + 1}`
+        const sectionLabel = `Section ${activeParagraphIndex + 1}`;
         player.setActiveForLockScreen(true, {
           title: metadata?.title ?? 'Narration',
           artist: sectionLabel,
-        })
+        });
 
         // Register playback status listener. Uses narrationRef so it always
         // sees the latest handlers and state without re-registering.
         player.addListener('playbackStatusUpdate', (playbackStatus: AudioStatus) => {
-          if (!playbackStatus.isLoaded) return
+          if (!playbackStatus.isLoaded) return;
 
           // Forward position ticks to the state machine for the progress bar
           if (playbackStatus.playing && playbackStatus.currentTime !== undefined) {
-            narrationRef.current.onTick(playbackStatus.currentTime)
+            narrationRef.current.onTick(playbackStatus.currentTime);
           }
 
           // Auto-advance when a segment finishes playing
           if (playbackStatus.didJustFinish) {
             // Guard: only auto-advance if still on the segment this listener was created for
-            if (narrationRef.current.state.activeParagraphIndex !== targetIndex) return
+            if (narrationRef.current.state.activeParagraphIndex !== targetIndex) return;
 
             // Clear the fallback timer — didJustFinish already handled the advance
             if (fallbackTimerRef.current !== null) {
-              clearTimeout(fallbackTimerRef.current)
-              fallbackTimerRef.current = null
+              clearTimeout(fallbackTimerRef.current);
+              fallbackTimerRef.current = null;
             }
 
             const { activeParagraphIndex: currentIndex, totalParagraphs } =
-              narrationRef.current.state
+              narrationRef.current.state;
 
-            const isLastSegment = currentIndex >= totalParagraphs - 1
+            const isLastSegment = currentIndex >= totalParagraphs - 1;
 
             if (isLastSegment) {
-              narrationRef.current.togglePlayPause()
+              narrationRef.current.togglePlayPause();
             } else {
-              narrationRef.current.skipNext()
+              narrationRef.current.skipNext();
             }
           }
-        })
+        });
 
         // Start playback once loaded if status is playing
         if (status === 'playing') {
-          player.play()
+          player.play();
 
           // Set a safety-net fallback timer in case didJustFinish is never fired
           // (e.g. due to an expo-audio bug or a race between player teardown and
           // the status listener). The delay is the segment duration adjusted for
           // playback speed, plus a 500 ms grace period.
           if (segmentDurationMs) {
-            const fallbackDelayMs = segmentDurationMs / playbackSpeed + 500
+            const fallbackDelayMs = segmentDurationMs / playbackSpeed + 500;
             if (fallbackTimerRef.current !== null) {
-              clearTimeout(fallbackTimerRef.current)
+              clearTimeout(fallbackTimerRef.current);
             }
             fallbackTimerRef.current = setTimeout(() => {
-              fallbackTimerRef.current = null
+              fallbackTimerRef.current = null;
 
               // Only act if we're still on the same paragraph and still playing
-              const current = narrationRef.current.state
-              if (current.activeParagraphIndex !== targetIndex) return
-              if (current.status !== 'playing') return
+              const current = narrationRef.current.state;
+              if (current.activeParagraphIndex !== targetIndex) return;
+              if (current.status !== 'playing') return;
 
               // Check whether the player appears to have stalled at the end
-              const currentPlayer = playerRef.current
-              if (!currentPlayer) return
+              const currentPlayer = playerRef.current;
+              if (!currentPlayer) return;
 
-              const isLastSegment = current.activeParagraphIndex >= current.totalParagraphs - 1
+              const isLastSegment = current.activeParagraphIndex >= current.totalParagraphs - 1;
               if (isLastSegment) {
-                narrationRef.current.togglePlayPause()
+                narrationRef.current.togglePlayPause();
               } else {
-                narrationRef.current.skipNext()
+                narrationRef.current.skipNext();
               }
-            }, fallbackDelayMs)
+            }, fallbackDelayMs);
           }
         }
       } catch {
         // Audio load failure is non-fatal; the UI reflects the current state
       } finally {
         if (!cancelled) {
-          setIsLoading(false)
+          setIsLoading(false);
         }
       }
     }
 
-    loadAndPlay()
+    loadAndPlay();
 
     return () => {
-      cancelled = true
+      cancelled = true;
       // Clear fallback timer when the effect re-runs (paragraph changed, user skipped, etc.)
       if (fallbackTimerRef.current !== null) {
-        clearTimeout(fallbackTimerRef.current)
-        fallbackTimerRef.current = null
+        clearTimeout(fallbackTimerRef.current);
+        fallbackTimerRef.current = null;
       }
-    }
-  }, [narration.state.status, narration.state.activeParagraphIndex, segments])
+    };
+  }, [narration.state.status, narration.state.activeParagraphIndex, segments]);
 
   // ─── Apply speed changes to the currently loaded player ───────────────────
 
   useEffect(() => {
-    const player = playerRef.current
-    if (!player) return
+    const player = playerRef.current;
+    if (!player) return;
 
-    player.setPlaybackRate(narration.state.playbackSpeed)
-  }, [narration.state.playbackSpeed])
+    player.setPlaybackRate(narration.state.playbackSpeed);
+  }, [narration.state.playbackSpeed]);
 
   // ─── Release player and clear lock screen on EXIT_MODE / REGENERATE ───────
 
   useEffect(() => {
-    const { status } = narration.state
+    const { status } = narration.state;
     if (status === 'idle' || status === 'generating') {
-      const player = playerRef.current
+      const player = playerRef.current;
       if (player) {
         try {
-          player.clearLockScreenControls()
+          player.clearLockScreenControls();
         } catch {
           // Safe to ignore
         }
       }
-      releasePlayer(playerRef.current)
-      playerRef.current = null
-      loadedIndexRef.current = -1
+      releasePlayer(playerRef.current);
+      playerRef.current = null;
+      loadedIndexRef.current = -1;
     }
-  }, [narration.state.status])
+  }, [narration.state.status]);
 
-  return { isLoading }
+  return { isLoading };
 }

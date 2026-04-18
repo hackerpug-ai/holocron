@@ -1,10 +1,10 @@
-import React from 'react'
-import { View } from 'react-native'
-import { Text } from '@/components/ui/text'
-import { useNetworkStatus } from '@/hooks/useNetworkStatus'
+import React from 'react';
+import { View } from 'react-native';
+import { Text } from '@/components/ui/text';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 
 interface OfflineBannerProps {
-  testID?: string
+  testID?: string;
 }
 
 /**
@@ -12,10 +12,10 @@ interface OfflineBannerProps {
  * Shows queued feedback count if there are pending items
  */
 export function OfflineBanner({ testID = 'offline-banner' }: OfflineBannerProps) {
-  const { isOffline } = useNetworkStatus()
+  const { isOffline } = useNetworkStatus();
 
   if (!isOffline) {
-    return null
+    return null;
   }
 
   return (
@@ -27,5 +27,5 @@ export function OfflineBanner({ testID = 'offline-banner' }: OfflineBannerProps)
         You're offline. Showing cached content.
       </Text>
     </View>
-  )
+  );
 }

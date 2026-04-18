@@ -13,7 +13,7 @@
  * These tests verify the API structure supports the required behaviors.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 describe('US-052: Chat Operations', () => {
   /**

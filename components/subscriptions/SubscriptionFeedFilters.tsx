@@ -1,22 +1,22 @@
-import { ScrollView, StyleSheet, View } from 'react-native'
-import { FilterChip } from '@/components/FilterChip'
-import { useTheme } from '@/hooks/use-theme'
+import { ScrollView, StyleSheet, View } from 'react-native';
+import { FilterChip } from '@/components/FilterChip';
+import { useTheme } from '@/hooks/use-theme';
 
 export interface FilterOption {
-  key: string
-  label: string
-  count: number
+  key: string;
+  label: string;
+  count: number;
 }
 
 interface SubscriptionFeedFiltersProps {
   /** Filter options to display (All is prepended automatically) */
-  options: FilterOption[]
+  options: FilterOption[];
   /** Currently selected filter key */
-  selectedFilter: string
+  selectedFilter: string;
   /** Callback when filter is changed */
-  onFilterChange: (filter: string) => void
+  onFilterChange: (filter: string) => void;
   /** Test ID prefix for testing */
-  testID?: string
+  testID?: string;
 }
 
 export function SubscriptionFeedFilters({
@@ -25,14 +25,11 @@ export function SubscriptionFeedFilters({
   onFilterChange,
   testID = 'feed-filters',
 }: SubscriptionFeedFiltersProps) {
-  const { spacing, colors } = useTheme()
+  const { spacing, colors } = useTheme();
 
   // "All" always prepended, sum of all option counts
-  const allCount = options.reduce((sum, opt) => sum + opt.count, 0)
-  const allOptions: FilterOption[] = [
-    { key: 'all', label: 'All', count: allCount },
-    ...options,
-  ]
+  const allCount = options.reduce((sum, opt) => sum + opt.count, 0);
+  const allOptions: FilterOption[] = [{ key: 'all', label: 'All', count: allCount }, ...options];
 
   return (
     <View
@@ -63,7 +60,7 @@ export function SubscriptionFeedFilters({
         ))}
       </ScrollView>
     </View>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
@@ -73,4 +70,4 @@ const styles = StyleSheet.create({
   scrollContent: {
     gap: 0,
   },
-})
+});

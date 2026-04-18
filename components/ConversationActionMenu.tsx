@@ -1,4 +1,5 @@
-import { Icon } from '@/components/ui/icon';
+import * as React from 'react';
+import { KeyboardAvoidingView, Platform, View } from 'react-native';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,11 +19,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Icon } from '@/components/ui/icon';
+import { Pencil, Trash2 } from '@/components/ui/icons';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
-import { Pencil, Trash2 } from '@/components/ui/icons';
-import * as React from 'react';
-import { KeyboardAvoidingView, Platform, View } from 'react-native';
 
 type ViewState = 'menu' | 'rename' | 'delete';
 
@@ -124,10 +124,7 @@ export function ConversationActionMenu({
     <>
       {/* Action Menu - shown via DropdownMenu-like popover */}
       {open && view === 'menu' && (
-        <MenuOverlay
-          onRename={handleRenameSelect}
-          onDelete={handleDeleteSelect}
-        />
+        <MenuOverlay onRename={handleRenameSelect} onDelete={handleDeleteSelect} />
       )}
 
       {/* Rename Dialog */}
@@ -174,7 +171,9 @@ export function ConversationActionMenu({
                 onPress={handleSaveRename}
                 disabled={isSaveDisabled}
                 accessibilityRole="button"
-                accessibilityLabel={isRenaming ? 'Saving conversation name' : 'Save conversation name'}
+                accessibilityLabel={
+                  isRenaming ? 'Saving conversation name' : 'Save conversation name'
+                }
                 accessibilityState={{ disabled: isSaveDisabled }}
               >
                 <Text>{isRenaming ? 'Saving...' : 'Save'}</Text>
@@ -190,8 +189,8 @@ export function ConversationActionMenu({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete conversation?</AlertDialogTitle>
             <AlertDialogDescription testID="delete-description">
-              This will permanently delete this conversation and all its messages.
-              This action cannot be undone.
+              This will permanently delete this conversation and all its messages. This action
+              cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -209,7 +208,9 @@ export function ConversationActionMenu({
               className="bg-destructive"
               disabled={isDeleting}
               accessibilityRole="button"
-              accessibilityLabel={isDeleting ? 'Deleting conversation' : 'Confirm delete conversation'}
+              accessibilityLabel={
+                isDeleting ? 'Deleting conversation' : 'Confirm delete conversation'
+              }
               accessibilityState={{ disabled: isDeleting }}
             >
               <Text className="text-white">{isDeleting ? 'Deleting...' : 'Delete'}</Text>
@@ -224,13 +225,7 @@ export function ConversationActionMenu({
 /**
  * MenuOverlay - A simple overlay menu with action buttons
  */
-function MenuOverlay({
-  onRename,
-  onDelete,
-}: {
-  onRename: () => void;
-  onDelete: () => void;
-}) {
+function MenuOverlay({ onRename, onDelete }: { onRename: () => void; onDelete: () => void }) {
   return (
     <View
       testID="action-menu-overlay"

@@ -1,17 +1,17 @@
-import { Pressable } from 'react-native'
-import { Plus } from 'lucide-react-native'
-import { useTheme } from '@/hooks/use-theme'
-import { cn } from '@/lib/utils'
+import { Plus } from 'lucide-react-native';
+import { Pressable } from 'react-native';
+import { useTheme } from '@/hooks/use-theme';
+import { cn } from '@/lib/utils';
 
 export interface ImportButtonProps {
   /** Callback when button is pressed */
-  onPress?: () => void
+  onPress?: () => void;
   /** Whether the button is disabled */
-  disabled?: boolean
+  disabled?: boolean;
   /** testID for testing */
-  testID?: string
+  testID?: string;
   /** Optional className for styling */
-  className?: string
+  className?: string;
 }
 
 /**
@@ -24,14 +24,18 @@ export function ImportButton({
   testID = 'import-button',
   className,
 }: ImportButtonProps) {
-  const { colors: themeColors } = useTheme()
+  const { colors: themeColors } = useTheme();
 
   return (
     <Pressable
       testID={testID}
       onPress={onPress}
       disabled={disabled}
-      className={cn('items-center justify-center rounded-full', disabled ? 'opacity-50' : '', className)}
+      className={cn(
+        'items-center justify-center rounded-full',
+        disabled ? 'opacity-50' : '',
+        className
+      )}
       style={({ pressed }) => ({
         backgroundColor: pressed
           ? themeColors.primary + 'cc' // 80% opacity
@@ -42,5 +46,5 @@ export function ImportButton({
     >
       <Plus size={20} color={themeColors.primaryForeground} strokeWidth={2.5} />
     </Pressable>
-  )
+  );
 }

@@ -1,5 +1,5 @@
-import { defineSchema, defineTable } from "convex/server";
-import { v } from "convex/values";
+import { defineSchema, defineTable } from 'convex/server';
+import { v } from 'convex/values';
 
 export default defineSchema({
   // Core tables
@@ -15,12 +15,12 @@ export default defineSchema({
     pendingSince: v.optional(v.number()), // epoch ms; used for 30-min expiry
     createdAt: v.number(),
     updatedAt: v.number(),
-  }).index("by_updated", ["updatedAt"]),
+  }).index('by_updated', ['updatedAt']),
 
   // Agent telemetry for intent classification (INT-001)
   agentTelemetry: defineTable({
-    conversationId: v.id("conversations"),
-    messageId: v.id("chatMessages"),
+    conversationId: v.id('conversations'),
+    messageId: v.id('chatMessages'),
     // Classification output
     intent: v.string(),
     queryShape: v.string(),
@@ -28,10 +28,10 @@ export default defineSchema({
     reasoning: v.optional(v.string()),
     // Source of classification
     classificationSource: v.union(
-      v.literal("regex"),
-      v.literal("llm"),
-      v.literal("fallback"),
-      v.literal("pending_rehydrate")
+      v.literal('regex'),
+      v.literal('llm'),
+      v.literal('fallback'),
+      v.literal('pending_rehydrate')
     ),
     // Optional diagnostic fields
     regexMatchPattern: v.optional(v.string()),
@@ -47,34 +47,34 @@ export default defineSchema({
     totalDurationMs: v.number(),
     createdAt: v.number(),
   })
-    .index("by_conversation", ["conversationId", "createdAt"])
-    .index("by_intent", ["intent", "createdAt"])
-    .index("by_queryShape", ["queryShape", "createdAt"])
-    .index("by_createdAt", ["createdAt"])
-    .index("by_source", ["classificationSource", "createdAt"]),
+    .index('by_conversation', ['conversationId', 'createdAt'])
+    .index('by_intent', ['intent', 'createdAt'])
+    .index('by_queryShape', ['queryShape', 'createdAt'])
+    .index('by_createdAt', ['createdAt'])
+    .index('by_source', ['classificationSource', 'createdAt']),
 
   chatMessages: defineTable({
-    conversationId: v.id("conversations"),
-    role: v.union(v.literal("user"), v.literal("agent"), v.literal("system")),
+    conversationId: v.id('conversations'),
+    role: v.union(v.literal('user'), v.literal('agent'), v.literal('system')),
     content: v.string(),
     messageType: v.union(
-      v.literal("text"),
-      v.literal("slash_command"),
-      v.literal("result_card"),
-      v.literal("progress"),
-      v.literal("error"),
-      v.literal("tool_approval"),
-      v.literal("agent_plan")
+      v.literal('text'),
+      v.literal('slash_command'),
+      v.literal('result_card'),
+      v.literal('progress'),
+      v.literal('error'),
+      v.literal('tool_approval'),
+      v.literal('agent_plan')
     ),
     cardData: v.optional(v.record(v.string(), v.any())), // Card payload — arrays migrated to { card_type: "search_results", items: [...] }
-    sessionId: v.optional(v.id("researchSessions")),
-    voiceSessionId: v.optional(v.id("voiceSessions")),
-    documentId: v.optional(v.id("documents")),
+    sessionId: v.optional(v.id('researchSessions')),
+    voiceSessionId: v.optional(v.id('voiceSessions')),
+    documentId: v.optional(v.id('documents')),
     deleted: v.optional(v.boolean()),
     toolCallId: v.optional(v.string()),
     reasoning: v.optional(v.string()), // AGENT-01: Store LLM reasoning for transparency
     createdAt: v.number(),
-  }).index("by_conversation", ["conversationId", "createdAt"]),
+  }).index('by_conversation', ['conversationId', 'createdAt']),
 
   documents: defineTable({
     title: v.string(),
@@ -92,12 +92,12 @@ export default defineSchema({
     isPublic: v.optional(v.boolean()),
     shareToken: v.optional(v.string()),
   })
-    .index("by_creationTime", ["createdAt"])
-    .index("by_shareToken", ["shareToken"])
-    .searchIndex("by_category", { searchField: "category" })
-    .searchIndex("by_title_content", { searchField: "title" })
-    .vectorIndex("by_embedding", {
-      vectorField: "embedding",
+    .index('by_creationTime', ['createdAt'])
+    .index('by_shareToken', ['shareToken'])
+    .searchIndex('by_category', { searchField: 'category' })
+    .searchIndex('by_title_content', { searchField: 'title' })
+    .vectorIndex('by_embedding', {
+      vectorField: 'embedding',
       dimensions: 1024,
     }),
 
@@ -105,8 +105,7 @@ export default defineSchema({
   documentCounters: defineTable({
     name: v.string(), // "total" | "withoutEmbeddings" | "{category}"
     count: v.number(),
-  })
-    .index("by_name", ["name"]),
+  }).index('by_name', ['name']),
 
   // Research tables
   researchSessions: defineTable({
@@ -114,129 +113,135 @@ export default defineSchema({
     researchType: v.string(),
     inputType: v.string(),
     status: v.union(
-      v.literal("pending"),
-      v.literal("running"),
-      v.literal("in_progress"),
-      v.literal("searching"),
-      v.literal("analyzing"),
-      v.literal("synthesizing"),
-      v.literal("completed"),
-      v.literal("failed"),
-      v.literal("cancelled"),
-      v.literal("error"),
-      v.literal("paused"),
-      v.literal("pending_approval"),
-      v.literal("processing")
+      v.literal('pending'),
+      v.literal('running'),
+      v.literal('in_progress'),
+      v.literal('searching'),
+      v.literal('analyzing'),
+      v.literal('synthesizing'),
+      v.literal('completed'),
+      v.literal('failed'),
+      v.literal('cancelled'),
+      v.literal('error'),
+      v.literal('paused'),
+      v.literal('pending_approval'),
+      v.literal('processing')
     ),
     maxIterations: v.optional(v.number()),
     currentIteration: v.optional(v.number()),
     coverageScore: v.optional(v.number()),
     plan: v.optional(v.record(v.string(), v.union(v.string(), v.number(), v.boolean(), v.null()))), // Complex JSON from execution plan (tracks, content, metadata)
     findings: v.optional(v.string()), // Synthesized findings text from iterations
-    documentId: v.optional(v.id("documents")),
+    documentId: v.optional(v.id('documents')),
     errorText: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
     completedAt: v.optional(v.number()),
   })
-    .index("by_status", ["status"])
-    .index("by_created", ["createdAt"]),
+    .index('by_status', ['status'])
+    .index('by_created', ['createdAt']),
 
   researchIterations: defineTable({
-    sessionId: v.id("researchSessions"),
+    sessionId: v.id('researchSessions'),
     iterationNumber: v.number(),
     findingsSummary: v.optional(v.string()),
-    sources: v.optional(v.array(v.record(v.string(), v.union(v.string(), v.number(), v.boolean(), v.null())))), // Array of source objects (url, title, snippet, etc.)
+    sources: v.optional(
+      v.array(v.record(v.string(), v.union(v.string(), v.number(), v.boolean(), v.null())))
+    ), // Array of source objects (url, title, snippet, etc.)
     reviewScore: v.optional(v.number()),
     reviewFeedback: v.optional(v.string()),
     reviewGaps: v.optional(v.array(v.string())), // Identified research gaps as string list
     refinedQueries: v.optional(v.array(v.string())), // Follow-up queries for next iteration
     createdAt: v.number(),
-  }).index("by_session", ["sessionId"]),
+  }).index('by_session', ['sessionId']),
 
   // Deep research tables
   deepResearchSessions: defineTable({
-    conversationId: v.id("conversations"),
-    taskId: v.optional(v.id("tasks")),
+    conversationId: v.id('conversations'),
+    taskId: v.optional(v.id('tasks')),
     topic: v.string(),
     researchType: v.optional(v.string()), // "deep" | "simple"
     researchMode: v.optional(v.string()), // "OVERVIEW" | "ACTIONABLE" | "COMPARATIVE" | "EXPLORATORY"
     maxIterations: v.optional(v.number()),
     status: v.union(
-      v.literal("pending"),
-      v.literal("processing"),
-      v.literal("running"),
-      v.literal("in_progress"),
-      v.literal("in-progress"),
-      v.literal("completed"),
-      v.literal("cancelled"),
-      v.literal("error"),
-      v.literal("failed"),
-      v.literal("timeout")
+      v.literal('pending'),
+      v.literal('processing'),
+      v.literal('running'),
+      v.literal('in_progress'),
+      v.literal('in-progress'),
+      v.literal('completed'),
+      v.literal('cancelled'),
+      v.literal('error'),
+      v.literal('failed'),
+      v.literal('timeout')
     ),
     currentIteration: v.optional(v.number()),
     refinedTopic: v.optional(v.string()),
     currentCoverageScore: v.optional(v.number()),
     // Confidence tracking
-    finalConfidenceSummary: v.optional(v.object({
-      highConfidenceCount: v.number(),
-      mediumConfidenceCount: v.number(),
-      lowConfidenceCount: v.number(),
-      averageConfidenceScore: v.number(),
-      claimsWithMultipleSources: v.number(),
-      totalClaims: v.number(),
-    })),
+    finalConfidenceSummary: v.optional(
+      v.object({
+        highConfidenceCount: v.number(),
+        mediumConfidenceCount: v.number(),
+        lowConfidenceCount: v.number(),
+        averageConfidenceScore: v.number(),
+        claimsWithMultipleSources: v.number(),
+        totalClaims: v.number(),
+      })
+    ),
     outputConfidenceFilter: v.optional(v.string()), // HIGH_ONLY | HIGH_MEDIUM | ALL
     errorReason: v.optional(v.string()), // timeout | unknown - populated when status is "error"
-    documentId: v.optional(v.id("documents")), // Link to generated document
+    documentId: v.optional(v.id('documents')), // Link to generated document
     createdAt: v.number(),
     updatedAt: v.number(),
     completedAt: v.optional(v.number()),
   })
-    .index("by_conversation", ["conversationId"])
-    .index("by_task", ["taskId"]),
+    .index('by_conversation', ['conversationId'])
+    .index('by_task', ['taskId']),
 
   deepResearchIterations: defineTable({
-    sessionId: v.id("deepResearchSessions"),
+    sessionId: v.id('deepResearchSessions'),
     iterationNumber: v.number(),
     coverageScore: v.optional(v.number()),
     feedback: v.optional(v.string()),
     findings: v.optional(v.string()),
     refinedQueries: v.optional(v.array(v.string())), // Follow-up queries for next iteration
     status: v.union(
-      v.literal("pending"),
-      v.literal("processing"),
-      v.literal("running"),
-      v.literal("in_progress"),
-      v.literal("in-progress"),
-      v.literal("completed"),
-      v.literal("failed"),
-      v.literal("error")
+      v.literal('pending'),
+      v.literal('processing'),
+      v.literal('running'),
+      v.literal('in_progress'),
+      v.literal('in-progress'),
+      v.literal('completed'),
+      v.literal('failed'),
+      v.literal('error')
     ),
     // Short human-readable summary of what was found (3-6 words)
     summary: v.optional(v.string()),
     // Confidence stats for this iteration
-    confidenceStats: v.optional(v.object({
-      highConfidenceCount: v.number(),
-      mediumConfidenceCount: v.number(),
-      lowConfidenceCount: v.number(),
-      averageConfidenceScore: v.number(),
-      claimsWithMultipleSources: v.number(),
-      totalClaims: v.number(),
-    })),
+    confidenceStats: v.optional(
+      v.object({
+        highConfidenceCount: v.number(),
+        mediumConfidenceCount: v.number(),
+        lowConfidenceCount: v.number(),
+        averageConfidenceScore: v.number(),
+        claimsWithMultipleSources: v.number(),
+        totalClaims: v.number(),
+      })
+    ),
     embedding: v.optional(v.array(v.float64())), // 1024 dimensions (Z.ai embedding-2/embedding-3)
     createdAt: v.number(),
   })
-    .index("by_session", ["sessionId"])
-    .vectorIndex("by_embedding", {
-      vectorField: "embedding",
+    .index('by_session', ['sessionId'])
+    .vectorIndex('by_embedding', {
+      vectorField: 'embedding',
       dimensions: 1024,
     }),
 
   // Research findings with per-claim confidence tracking
   researchFindings: defineTable({
-    sessionId: v.id("deepResearchSessions"),
-    iterationId: v.id("deepResearchIterations"),
+    sessionId: v.id('deepResearchSessions'),
+    iterationId: v.id('deepResearchIterations'),
     claimText: v.string(),
     claimCategory: v.optional(v.string()),
     // 5-factor confidence scores (0-100)
@@ -248,61 +253,69 @@ export default defineSchema({
     // Calculated confidence
     confidenceScore: v.number(),
     confidenceLevel: v.string(), // HIGH | MEDIUM | LOW
-    citationIds: v.array(v.id("citations")),
-    confidenceFactors: v.optional(v.object({
-      sourceCredibilityScore: v.number(), // 0-100
-      evidenceQualityScore: v.number(), // 0-100
-      corroborationScore: v.number(), // 0-100
-      recencyScore: v.number(), // 0-100
-      expertConsensusScore: v.number(), // 0-100
-    })), // Full 5-factor confidence scores for transparency
+    citationIds: v.array(v.id('citations')),
+    confidenceFactors: v.optional(
+      v.object({
+        sourceCredibilityScore: v.number(), // 0-100
+        evidenceQualityScore: v.number(), // 0-100
+        corroborationScore: v.number(), // 0-100
+        recencyScore: v.number(), // 0-100
+        expertConsensusScore: v.number(), // 0-100
+      })
+    ), // Full 5-factor confidence scores for transparency
     caveats: v.optional(v.array(v.string())), // MEDIUM confidence caveats
     warnings: v.optional(v.array(v.string())), // LOW confidence warnings
     embedding: v.optional(v.array(v.float64())), // 1024 dimensions (Z.ai embedding-2/embedding-3)
     createdAt: v.number(),
   })
-    .index("by_session", ["sessionId"])
-    .index("by_iteration", ["iterationId"])
-    .index("by_confidence", ["confidenceLevel"])
-    .vectorIndex("by_embedding", {
-      vectorField: "embedding",
+    .index('by_session', ['sessionId'])
+    .index('by_iteration', ['iterationId'])
+    .index('by_confidence', ['confidenceLevel'])
+    .vectorIndex('by_embedding', {
+      vectorField: 'embedding',
       dimensions: 1024,
     }),
 
   // Task management
   tasks: defineTable({
-    conversationId: v.optional(v.id("conversations")),
+    conversationId: v.optional(v.id('conversations')),
     taskType: v.string(),
     status: v.union(
-      v.literal("pending"),
-      v.literal("queued"),
-      v.literal("loading"),
-      v.literal("running"),
-      v.literal("completed"),
-      v.literal("error"),
-      v.literal("cancelled")
+      v.literal('pending'),
+      v.literal('queued'),
+      v.literal('loading'),
+      v.literal('running'),
+      v.literal('completed'),
+      v.literal('error'),
+      v.literal('cancelled')
     ),
-    config: v.optional(v.record(v.string(), v.union(v.string(), v.number(), v.boolean(), v.null()))), // Task-type-specific config (varies by taskType: deep-research, research, shop, etc.)
+    config: v.optional(
+      v.record(v.string(), v.union(v.string(), v.number(), v.boolean(), v.null()))
+    ), // Task-type-specific config (varies by taskType: deep-research, research, shop, etc.)
     currentStep: v.optional(v.number()),
     totalSteps: v.optional(v.number()),
     progressMessage: v.optional(v.string()),
-    result: v.optional(v.record(v.string(), v.union(v.string(), v.number(), v.boolean(), v.null()))), // Task-type-specific result (varies by taskType)
+    result: v.optional(
+      v.record(v.string(), v.union(v.string(), v.number(), v.boolean(), v.null()))
+    ), // Task-type-specific result (varies by taskType)
     errorMessage: v.optional(v.string()),
-    errorDetails: v.optional(v.record(v.string(), v.union(v.string(), v.number(), v.boolean(), v.null()))), // Error context (stack, cause, etc.)
+    errorDetails: v.optional(
+      v.record(v.string(), v.union(v.string(), v.number(), v.boolean(), v.null()))
+    ), // Error context (stack, cause, etc.)
     startedAt: v.optional(v.number()),
     completedAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
-    .index("by_conversation", ["conversationId"])
-    .index("by_status", ["status"])
-    .index("by_created", ["createdAt"]),
+    .index('by_conversation', ['conversationId'])
+    .index('by_status', ['status'])
+    .index('by_created', ['createdAt']),
 
   // Citations with extended credibility metadata
   citations: defineTable({
-    sessionId: v.optional(v.id("researchSessions")),
-    documentId: v.optional(v.id("documents")),
-    deepResearchSessionId: v.optional(v.id("deepResearchSessions")),
+    sessionId: v.optional(v.id('researchSessions')),
+    documentId: v.optional(v.id('documents')),
+    deepResearchSessionId: v.optional(v.id('deepResearchSessions')),
     sourceUrl: v.string(),
     sourceTitle: v.optional(v.string()),
     sourceDomain: v.optional(v.string()),
@@ -316,21 +329,21 @@ export default defineSchema({
     authorCredentials: v.optional(v.string()), // Description of author expertise
     retrievedAt: v.number(),
   })
-    .index("by_session", ["sessionId"])
-    .index("by_document", ["documentId"])
-    .index("by_deep_research_session", ["deepResearchSessionId"]),
+    .index('by_session', ['sessionId'])
+    .index('by_document', ['documentId'])
+    .index('by_deep_research_session', ['deepResearchSessionId']),
 
   // Subscription system
   subscriptionSources: defineTable({
     sourceType: v.union(
-      v.literal("youtube"),
-      v.literal("newsletter"),
-      v.literal("changelog"),
-      v.literal("reddit"),
-      v.literal("ebay"),
-      v.literal("whats-new"),
-      v.literal("creator"),
-      v.literal("github")
+      v.literal('youtube'),
+      v.literal('newsletter'),
+      v.literal('changelog'),
+      v.literal('reddit'),
+      v.literal('ebay'),
+      v.literal('whats-new'),
+      v.literal('creator'),
+      v.literal('github')
     ),
     identifier: v.string(), // @handle, r/subreddit, search query, etc.
     name: v.string(),
@@ -339,18 +352,18 @@ export default defineSchema({
     fetchMethod: v.string(), // rss, api, web_search
     configJson: v.optional(v.record(v.string(), v.any())), // Source-type-specific config (creatorProfileId, platform handles, tiers, etc.)
     autoResearch: v.boolean(),
-    creatorProfileId: v.optional(v.id("creatorProfiles")), // Link to creator profile (for multi-platform aggregation)
+    creatorProfileId: v.optional(v.id('creatorProfiles')), // Link to creator profile (for multi-platform aggregation)
     lastChecked: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
-    .index("by_type", ["sourceType"])
-    .index("by_identifier", ["identifier"])
-    .index("by_auto_research", ["autoResearch"])
-    .index("by_creator", ["creatorProfileId"]),
+    .index('by_type', ['sourceType'])
+    .index('by_identifier', ['identifier'])
+    .index('by_auto_research', ['autoResearch'])
+    .index('by_creator', ['creatorProfileId']),
 
   subscriptionContent: defineTable({
-    sourceId: v.id("subscriptionSources"),
+    sourceId: v.id('subscriptionSources'),
     contentId: v.string(), // video ID, post ID, item ID, etc.
     title: v.string(),
     url: v.optional(v.string()),
@@ -358,17 +371,17 @@ export default defineSchema({
     passedFilter: v.boolean(),
     filterReason: v.optional(v.string()),
     researchStatus: v.union(
-      v.literal("pending"),
-      v.literal("queued"),
-      v.literal("researched"),
-      v.literal("skipped")
+      v.literal('pending'),
+      v.literal('queued'),
+      v.literal('researched'),
+      v.literal('skipped')
     ),
     discoveredAt: v.number(),
     researchedAt: v.optional(v.number()),
-    documentId: v.optional(v.id("documents")), // Link to created document
+    documentId: v.optional(v.id('documents')), // Link to created document
     embedding: v.optional(v.array(v.float64())), // 1024 dimensions for semantic deduplication
     // Feed metadata fields (FR-002)
-    feedItemId: v.optional(v.id("feedItems")), // Link to aggregated feed item
+    feedItemId: v.optional(v.id('feedItems')), // Link to aggregated feed item
     inFeed: v.optional(v.boolean()), // Whether this content appears in the feed
     thumbnailUrl: v.optional(v.string()), // Content thumbnail/image URL
     duration: v.optional(v.number()), // Content duration in seconds
@@ -379,44 +392,40 @@ export default defineSchema({
     aiRelevanceScore: v.optional(v.number()), // 0-1 AI-scored relevance
     aiRelevanceReason: v.optional(v.string()), // Brief AI explanation
   })
-    .index("by_source", ["sourceId", "discoveredAt"])
-    .index("by_source_content", ["sourceId", "contentId"])
-    .index("by_status", ["researchStatus"])
-    .index("by_status_document", ["researchStatus", "documentId"])
-    .index("by_content_id", ["contentId"])
-    .index("by_inFeed_discoveredAt", ["inFeed", "discoveredAt"])
-    .vectorIndex("by_embedding", {
-      vectorField: "embedding",
+    .index('by_source', ['sourceId', 'discoveredAt'])
+    .index('by_source_content', ['sourceId', 'contentId'])
+    .index('by_status', ['researchStatus'])
+    .index('by_status_document', ['researchStatus', 'documentId'])
+    .index('by_content_id', ['contentId'])
+    .index('by_inFeed_discoveredAt', ['inFeed', 'discoveredAt'])
+    .vectorIndex('by_embedding', {
+      vectorField: 'embedding',
       dimensions: 1024,
     })
-    .searchIndex("by_title_search", { searchField: "title" }),
+    .searchIndex('by_title_search', { searchField: 'title' }),
 
   subscriptionFilters: defineTable({
-    sourceId: v.optional(v.id("subscriptionSources")), // null = type-level rule
+    sourceId: v.optional(v.id('subscriptionSources')), // null = type-level rule
     sourceType: v.optional(
       v.union(
-        v.literal("youtube"),
-        v.literal("newsletter"),
-        v.literal("changelog"),
-        v.literal("reddit"),
-        v.literal("ebay"),
-        v.literal("whats-new"),
-        v.literal("creator"),
-        v.literal("github")
+        v.literal('youtube'),
+        v.literal('newsletter'),
+        v.literal('changelog'),
+        v.literal('reddit'),
+        v.literal('ebay'),
+        v.literal('whats-new'),
+        v.literal('creator'),
+        v.literal('github')
       )
     ), // for type-level rules - matches subscriptionSources.sourceType
     ruleName: v.string(),
     ruleType: v.string(), // keyword_whitelist, keyword_blacklist, min_score, etc.
-    ruleValue: v.union(
-      v.string(),
-      v.number(),
-      v.array(v.string())
-    ), // Rule-type-specific value: string[] for keyword rules, number for min_score/max_age, string for other rule types
+    ruleValue: v.union(v.string(), v.number(), v.array(v.string())), // Rule-type-specific value: string[] for keyword rules, number for min_score/max_age, string for other rule types
     weight: v.number(),
     createdAt: v.number(),
   })
-    .index("by_source", ["sourceId"])
-    .index("by_type", ["sourceType"]),
+    .index('by_source', ['sourceId'])
+    .index('by_type', ['sourceType']),
 
   // Whats-new reports
   whatsNewReports: defineTable({
@@ -431,23 +440,23 @@ export default defineSchema({
     trendCount: v.number(),
     reportPath: v.string(), // Path to saved markdown report
     summaryJson: v.optional(v.record(v.string(), v.any())), // Structured summary data — shape evolves with report versions (discoveries, releases, top5, trends, etc.)
-    documentId: v.optional(v.id("documents")), // Link to full report document
+    documentId: v.optional(v.id('documents')), // Link to full report document
     toolSuggestionsJson: v.optional(v.string()), // JSON string of ToolSuggestion[] for one-click add
     findingsJson: v.optional(v.string()), // JSON string of Finding[] for card rendering
     createdAt: v.number(),
   })
-    .index("by_created", ["createdAt"])
-    .index("by_period", ["periodStart", "periodEnd"]),
+    .index('by_created', ['createdAt'])
+    .index('by_period', ['periodStart', 'periodEnd']),
 
   // What's New workflow orchestration - splits monolithic report generation into timeout-safe phases
   whatsNewWorkflows: defineTable({
     phase: v.union(
-      v.literal("pending"),
-      v.literal("fetching"),
-      v.literal("enriching"),
-      v.literal("synthesizing"),
-      v.literal("completed"),
-      v.literal("failed")
+      v.literal('pending'),
+      v.literal('fetching'),
+      v.literal('enriching'),
+      v.literal('synthesizing'),
+      v.literal('completed'),
+      v.literal('failed')
     ),
     days: v.number(),
     force: v.boolean(),
@@ -457,10 +466,10 @@ export default defineSchema({
     findingsCount: v.number(), // Number of findings after deduplication
     findingsJson: v.optional(v.string()), // JSON string of findings (evolves: raw → enriched)
     error: v.optional(v.string()), // Error message if failed
-    reportId: v.optional(v.id("whatsNewReports")), // Link to final report when complete
+    reportId: v.optional(v.id('whatsNewReports')), // Link to final report when complete
   })
-    .index("by_updated", ["updatedAt"])
-    .index("by_phase", ["phase"]),
+    .index('by_updated', ['updatedAt'])
+    .index('by_phase', ['phase']),
 
   // Toolbelt tools - Developer tools knowledge base
   toolbeltTools: defineTable({
@@ -471,29 +480,25 @@ export default defineSchema({
 
     // Category and status
     category: v.union(
-      v.literal("libraries"),
-      v.literal("cli"),
-      v.literal("framework"),
-      v.literal("service"),
-      v.literal("database"),
-      v.literal("tool")
+      v.literal('libraries'),
+      v.literal('cli'),
+      v.literal('framework'),
+      v.literal('service'),
+      v.literal('database'),
+      v.literal('tool')
     ),
-    status: v.union(
-      v.literal("complete"),
-      v.literal("draft"),
-      v.literal("archived")
-    ),
+    status: v.union(v.literal('complete'), v.literal('draft'), v.literal('archived')),
 
     // Source metadata
     sourceUrl: v.optional(v.string()),
     sourceType: v.union(
-      v.literal("github"),
-      v.literal("npm"),
-      v.literal("pypi"),
-      v.literal("website"),
-      v.literal("cargo"),
-      v.literal("go"),
-      v.literal("other")
+      v.literal('github'),
+      v.literal('npm'),
+      v.literal('pypi'),
+      v.literal('website'),
+      v.literal('cargo'),
+      v.literal('go'),
+      v.literal('other')
     ),
 
     // Toolbelt-specific metadata
@@ -503,8 +508,8 @@ export default defineSchema({
     language: v.optional(v.string()),
 
     // Timestamps (matching toolbelt frontmatter)
-    date: v.optional(v.string()),  // YYYY-MM-DD
-    time: v.optional(v.string()),  // HH:MM
+    date: v.optional(v.string()), // YYYY-MM-DD
+    time: v.optional(v.string()), // HH:MM
 
     // Vector embedding
     embedding: v.optional(v.array(v.float64())),
@@ -512,41 +517,41 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   })
-    .index("by_creationTime", ["createdAt"])
-    .index("by_category", ["category"])
-    .index("by_sourceType", ["sourceType"])
-    .index("by_sourceUrl", ["sourceUrl"])
-    .vectorIndex("by_embedding", {
-      vectorField: "embedding",
+    .index('by_creationTime', ['createdAt'])
+    .index('by_category', ['category'])
+    .index('by_sourceType', ['sourceType'])
+    .index('by_sourceUrl', ['sourceUrl'])
+    .vectorIndex('by_embedding', {
+      vectorField: 'embedding',
       dimensions: 1024,
     }),
 
   // Shop sessions - Product search sessions
   shopSessions: defineTable({
-    conversationId: v.optional(v.id("conversations")),
+    conversationId: v.optional(v.id('conversations')),
     query: v.string(),
     condition: v.optional(v.string()), // "new" | "used" | "any"
     priceMin: v.optional(v.number()),
     priceMax: v.optional(v.number()),
     retailers: v.optional(v.array(v.string())),
-    planId: v.optional(v.id("executionPlans")), // Link to execution plan
+    planId: v.optional(v.id('executionPlans')), // Link to execution plan
     verifiedOnly: v.optional(v.boolean()), // Filter for verified sellers only
     status: v.string(), // "pending" | "searching" | "completed" | "failed"
     totalListings: v.optional(v.number()),
-    bestDealId: v.optional(v.id("shopListings")),
+    bestDealId: v.optional(v.id('shopListings')),
     errorReason: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
     completedAt: v.optional(v.number()),
   })
-    .index("by_conversation", ["conversationId"])
-    .index("by_status", ["status"])
-    .index("by_created", ["createdAt"])
-    .index("by_plan", ["planId"]),
+    .index('by_conversation', ['conversationId'])
+    .index('by_status', ['status'])
+    .index('by_created', ['createdAt'])
+    .index('by_plan', ['planId']),
 
   // Shop listings - Individual product listings
   shopListings: defineTable({
-    sessionId: v.id("shopSessions"),
+    sessionId: v.id('shopSessions'),
     title: v.string(),
     price: v.number(), // In cents
     originalPrice: v.optional(v.number()),
@@ -567,47 +572,47 @@ export default defineSchema({
     isVerifiedSeller: v.optional(v.boolean()), // Platform-verified seller
     createdAt: v.number(),
   })
-    .index("by_session", ["sessionId"])
-    .index("by_session_deal_score", ["sessionId", "dealScore"])
-    .index("by_product_hash", ["productHash"])
-    .index("by_trust_tier", ["sessionId", "trustTier"]),
+    .index('by_session', ['sessionId'])
+    .index('by_session_deal_score', ['sessionId', 'dealScore'])
+    .index('by_product_hash', ['productHash'])
+    .index('by_trust_tier', ['sessionId', 'trustTier']),
 
   // Tool call approvals for human-in-the-loop tool execution
   toolCalls: defineTable({
-    conversationId: v.id("conversations"),
-    messageId: v.id("chatMessages"),
+    conversationId: v.id('conversations'),
+    messageId: v.id('chatMessages'),
     toolName: v.string(),
     toolDisplayName: v.string(),
     toolArgs: v.record(v.string(), v.any()), // Tool-specific arguments — shape varies per tool name
     reasoning: v.optional(v.string()),
     status: v.union(
-      v.literal("pending"),
-      v.literal("approved"),
-      v.literal("rejected"),
-      v.literal("completed"),
-      v.literal("failed"),
-      v.literal("timed_out")
+      v.literal('pending'),
+      v.literal('approved'),
+      v.literal('rejected'),
+      v.literal('completed'),
+      v.literal('failed'),
+      v.literal('timed_out')
     ),
-    resultMessageId: v.optional(v.id("chatMessages")),
+    resultMessageId: v.optional(v.id('chatMessages')),
     error: v.optional(v.string()),
     createdAt: v.number(),
     resolvedAt: v.optional(v.number()),
   })
-    .index("by_conversation", ["conversationId"])
-    .index("by_status", ["status"]),
+    .index('by_conversation', ['conversationId'])
+    .index('by_status', ['status']),
 
   // Agent plan tables
   agentPlans: defineTable({
-    conversationId: v.id("conversations"),
-    messageId: v.optional(v.id("chatMessages")),
+    conversationId: v.id('conversations'),
+    messageId: v.optional(v.id('chatMessages')),
     title: v.string(),
     status: v.union(
-      v.literal("created"),
-      v.literal("executing"),
-      v.literal("awaiting_approval"),
-      v.literal("completed"),
-      v.literal("failed"),
-      v.literal("cancelled")
+      v.literal('created'),
+      v.literal('executing'),
+      v.literal('awaiting_approval'),
+      v.literal('completed'),
+      v.literal('failed'),
+      v.literal('cancelled')
     ),
     currentStepIndex: v.number(),
     totalSteps: v.number(),
@@ -615,12 +620,12 @@ export default defineSchema({
     updatedAt: v.number(),
     completedAt: v.optional(v.number()),
   })
-    .index("by_conversation", ["conversationId"])
-    .index("by_status", ["status"])
-    .index("by_message", ["messageId"]),
+    .index('by_conversation', ['conversationId'])
+    .index('by_status', ['status'])
+    .index('by_message', ['messageId']),
 
   agentPlanSteps: defineTable({
-    planId: v.id("agentPlans"),
+    planId: v.id('agentPlans'),
     stepIndex: v.number(),
     toolName: v.string(),
     toolDisplayName: v.string(),
@@ -628,25 +633,24 @@ export default defineSchema({
     description: v.string(),
     requiresApproval: v.boolean(),
     status: v.union(
-      v.literal("pending"),
-      v.literal("running"),
-      v.literal("awaiting_approval"),
-      v.literal("approved"),
-      v.literal("completed"),
-      v.literal("skipped"),
-      v.literal("failed")
+      v.literal('pending'),
+      v.literal('running'),
+      v.literal('awaiting_approval'),
+      v.literal('approved'),
+      v.literal('completed'),
+      v.literal('skipped'),
+      v.literal('failed')
     ),
-    toolCallId: v.optional(v.id("toolCalls")),
+    toolCallId: v.optional(v.id('toolCalls')),
     resultSummary: v.optional(v.string()),
     errorMessage: v.optional(v.string()),
     startedAt: v.optional(v.number()),
     completedAt: v.optional(v.number()),
-  })
-    .index("by_plan", ["planId", "stepIndex"]),
+  }).index('by_plan', ['planId', 'stepIndex']),
 
   // Assimilation metadata for Borg-themed repository analysis
   assimilationMetadata: defineTable({
-    documentId: v.id("documents"),
+    documentId: v.id('documents'),
     repositoryUrl: v.string(),
     repositoryName: v.string(),
     primaryLanguage: v.optional(v.string()),
@@ -661,13 +665,13 @@ export default defineSchema({
     }),
     createdAt: v.number(),
   })
-    .index("by_document", ["documentId"])
-    .index("by_repository", ["repositoryName"])
-    .index("by_language", ["primaryLanguage"])
-    .index("by_rating", ["sophisticationRating"]),
+    .index('by_document', ['documentId'])
+    .index('by_repository', ['repositoryName'])
+    .index('by_language', ['primaryLanguage'])
+    .index('by_rating', ['sophisticationRating']),
 
   assimilationSessions: defineTable({
-    conversationId: v.optional(v.id("conversations")),
+    conversationId: v.optional(v.id('conversations')),
     repositoryUrl: v.string(),
     repositoryName: v.string(),
     profile: v.string(),
@@ -679,22 +683,30 @@ export default defineSchema({
     planFeedback: v.optional(v.string()),
     autoApprove: v.optional(v.boolean()),
     accumulatedNotes: v.optional(v.string()),
-    coveragePlan: v.optional(v.object({
-      dimensions: v.optional(v.array(v.object({
-        name: v.string(),
-        keyFiles: v.optional(v.array(v.string())),
-        description: v.optional(v.string()),
-      }))),
-    })), // Structured coverage plan with per-dimension key files
+    coveragePlan: v.optional(
+      v.object({
+        dimensions: v.optional(
+          v.array(
+            v.object({
+              name: v.string(),
+              keyFiles: v.optional(v.array(v.string())),
+              description: v.optional(v.string()),
+            })
+          )
+        ),
+      })
+    ), // Structured coverage plan with per-dimension key files
     nextDimension: v.optional(v.string()),
     failureConstraints: v.optional(v.array(v.string())),
-    dimensionScores: v.optional(v.object({
-      architecture: v.number(),
-      patterns: v.number(),
-      documentation: v.number(),
-      dependencies: v.number(),
-      testing: v.number(),
-    })),
+    dimensionScores: v.optional(
+      v.object({
+        architecture: v.number(),
+        patterns: v.number(),
+        documentation: v.number(),
+        dependencies: v.number(),
+        testing: v.number(),
+      })
+    ),
     terminationCriteria: v.object({
       maxIterations: v.number(),
       minOverallCoverage: v.number(),
@@ -705,21 +717,21 @@ export default defineSchema({
     steeringNote: v.optional(v.string()),
     estimatedCostUsd: v.optional(v.number()),
     startedAt: v.optional(v.number()),
-    documentId: v.optional(v.id("documents")),
-    metadataId: v.optional(v.id("assimilationMetadata")),
+    documentId: v.optional(v.id('documents')),
+    metadataId: v.optional(v.id('assimilationMetadata')),
     errorReason: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
     completedAt: v.optional(v.number()),
   })
-    .index("by_status", ["status"])
-    .index("by_repositoryUrl", ["repositoryUrl"])
-    .index("by_repositoryUrl_and_status", ["repositoryUrl", "status"])
-    .index("by_conversation", ["conversationId"])
-    .index("by_created", ["createdAt"]),
+    .index('by_status', ['status'])
+    .index('by_repositoryUrl', ['repositoryUrl'])
+    .index('by_repositoryUrl_and_status', ['repositoryUrl', 'status'])
+    .index('by_conversation', ['conversationId'])
+    .index('by_created', ['createdAt']),
 
   assimilationIterations: defineTable({
-    sessionId: v.id("assimilationSessions"),
+    sessionId: v.id('assimilationSessions'),
     iterationNumber: v.number(),
     dimension: v.string(),
     iterationType: v.string(),
@@ -729,45 +741,52 @@ export default defineSchema({
     dimensionCoverageScore: v.optional(v.number()),
     gapsIdentified: v.optional(v.array(v.string())),
     noveltyScore: v.optional(v.number()),
-    nextAction: v.optional(v.object({
-      shouldContinue: v.boolean(),
-      nextDimension: v.optional(v.string()),
-      reason: v.string(),
-      trigger: v.optional(v.string()),
-    })),
+    nextAction: v.optional(
+      v.object({
+        shouldContinue: v.boolean(),
+        nextDimension: v.optional(v.string()),
+        reason: v.string(),
+        trigger: v.optional(v.string()),
+      })
+    ),
     status: v.string(),
     durationMs: v.optional(v.number()),
     estimatedCostUsd: v.optional(v.number()),
     createdAt: v.number(),
   })
-    .index("by_session", ["sessionId"])
-    .index("by_session_and_dimension", ["sessionId", "dimension"]),
+    .index('by_session', ['sessionId'])
+    .index('by_session_and_dimension', ['sessionId', 'dimension']),
 
   audioSegments: defineTable({
-    documentId: v.id("documents"),
+    documentId: v.id('documents'),
     paragraphIndex: v.number(),
     paragraphHash: v.string(),
-    storageId: v.optional(v.id("_storage")),
-    status: v.union(v.literal("pending"), v.literal("generating"), v.literal("completed"), v.literal("failed")),
+    storageId: v.optional(v.id('_storage')),
+    status: v.union(
+      v.literal('pending'),
+      v.literal('generating'),
+      v.literal('completed'),
+      v.literal('failed')
+    ),
     errorMessage: v.optional(v.string()),
     voiceId: v.string(),
     durationMs: v.optional(v.number()),
-    jobId: v.optional(v.id("audioJobs")),
+    jobId: v.optional(v.id('audioJobs')),
     retryCount: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
-    .index("by_document", ["documentId", "paragraphIndex"])
-    .index("by_document_and_status", ["documentId", "status"]),
+    .index('by_document', ['documentId', 'paragraphIndex'])
+    .index('by_document_and_status', ['documentId', 'status']),
 
   audioJobs: defineTable({
-    documentId: v.id("documents"),
+    documentId: v.id('documents'),
     voiceId: v.string(),
     status: v.union(
-      v.literal("pending"),
-      v.literal("running"),
-      v.literal("completed"),
-      v.literal("failed")
+      v.literal('pending'),
+      v.literal('running'),
+      v.literal('completed'),
+      v.literal('failed')
     ),
     totalSegments: v.number(),
     completedSegments: v.number(),
@@ -776,16 +795,21 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   })
-    .index("by_document", ["documentId"])
-    .index("by_status", ["status"]),
+    .index('by_document', ['documentId'])
+    .index('by_status', ['status']),
 
   // Video transcripts storage (hybrid approach like audioSegments)
   videoTranscripts: defineTable({
     contentId: v.string(), // YouTube video ID
     sourceUrl: v.string(), // YouTube video URL
-    transcriptType: v.union(v.literal("api"), v.literal("generated"), v.literal("node_fallback"), v.literal("jina_fallback")),
+    transcriptType: v.union(
+      v.literal('api'),
+      v.literal('generated'),
+      v.literal('node_fallback'),
+      v.literal('jina_fallback')
+    ),
     transcriptSource: v.string(), // youtube_api, jina_reader_api
-    storageId: v.id("_storage"), // Full transcript in file storage
+    storageId: v.id('_storage'), // Full transcript in file storage
     previewText: v.string(), // First 500 chars for search/display
     wordCount: v.number(),
     durationMs: v.optional(v.number()),
@@ -794,33 +818,40 @@ export default defineSchema({
     generatedAt: v.number(),
     createdAt: v.number(),
   })
-    .index("by_content_id", ["contentId"])
-    .index("by_source_url", ["sourceUrl"]),
+    .index('by_content_id', ['contentId'])
+    .index('by_source_url', ['sourceUrl']),
 
   // Transcript generation jobs (follows audioJobs pattern)
   transcriptJobs: defineTable({
     contentId: v.string(),
     sourceUrl: v.string(),
-    status: v.union(v.literal("pending"), v.literal("downloading"), v.literal("transcribing"), v.literal("completed"), v.literal("failed"), v.literal("no_captions")),
+    status: v.union(
+      v.literal('pending'),
+      v.literal('downloading'),
+      v.literal('transcribing'),
+      v.literal('completed'),
+      v.literal('failed'),
+      v.literal('no_captions')
+    ),
     priority: v.number(), // 0-10, higher = sooner
     retryCount: v.number(),
     errorMessage: v.optional(v.string()),
-    transcriptId: v.optional(v.id("videoTranscripts")),
+    transcriptId: v.optional(v.id('videoTranscripts')),
     startedAt: v.optional(v.number()),
     completedAt: v.optional(v.number()),
     createdAt: v.number(),
   })
-    .index("by_status", ["status"])
-    .index("by_content", ["contentId"])
-    .index("by_priority", ["priority", "createdAt"]),
+    .index('by_status', ['status'])
+    .index('by_content', ['contentId'])
+    .index('by_priority', ['priority', 'createdAt']),
 
   // Audio transcripts (podcasts, voice notes, etc.)
   audioTranscripts: defineTable({
     contentId: v.string(), // Podcast episode ID, URL hash, or custom identifier
     sourceUrl: v.string(), // Original podcast URL (Spotify, Apple, RSS, mp3)
-    transcriptType: v.union(v.literal("deepgram_nova3"), v.literal("deepgram_nova2")),
+    transcriptType: v.union(v.literal('deepgram_nova3'), v.literal('deepgram_nova2')),
     transcriptSource: v.string(), // deepgram_api, etc.
-    storageId: v.id("_storage"), // Full transcript in file storage
+    storageId: v.id('_storage'), // Full transcript in file storage
     previewText: v.string(), // First 500 chars for search/display
     wordCount: v.number(),
     durationMs: v.optional(v.number()), // Audio duration
@@ -828,61 +859,79 @@ export default defineSchema({
     metadataJson: v.optional(
       v.object({
         speakers: v.optional(v.number()), // Number of speakers detected
-        platform: v.optional(v.union(v.literal("spotify"), v.literal("apple_podcasts"), v.literal("rss"), v.literal("direct_mp3"))),
+        platform: v.optional(
+          v.union(
+            v.literal('spotify'),
+            v.literal('apple_podcasts'),
+            v.literal('rss'),
+            v.literal('direct_mp3')
+          )
+        ),
         // Additional fields can be added as needed
       })
     ),
     generatedAt: v.number(),
     createdAt: v.number(),
   })
-    .index("by_content_id", ["contentId"])
-    .index("by_source_url", ["sourceUrl"]),
+    .index('by_content_id', ['contentId'])
+    .index('by_source_url', ['sourceUrl']),
 
   // Audio transcript generation jobs
   audioTranscriptJobs: defineTable({
     contentId: v.string(),
     sourceUrl: v.string(),
-    platform: v.union(v.literal("spotify"), v.literal("apple_podcasts"), v.literal("rss"), v.literal("direct_mp3")),
-    status: v.union(v.literal("pending"), v.literal("downloading"), v.literal("transcribing"), v.literal("completed"), v.literal("failed")),
+    platform: v.union(
+      v.literal('spotify'),
+      v.literal('apple_podcasts'),
+      v.literal('rss'),
+      v.literal('direct_mp3')
+    ),
+    status: v.union(
+      v.literal('pending'),
+      v.literal('downloading'),
+      v.literal('transcribing'),
+      v.literal('completed'),
+      v.literal('failed')
+    ),
     priority: v.number(), // 0-10, higher = sooner
     retryCount: v.number(),
     errorMessage: v.optional(v.string()),
-    transcriptId: v.optional(v.id("audioTranscripts")),
-    audioStorageId: v.optional(v.id("_storage")), // Temporary audio file storage
+    transcriptId: v.optional(v.id('audioTranscripts')),
+    audioStorageId: v.optional(v.id('_storage')), // Temporary audio file storage
     startedAt: v.optional(v.number()),
     completedAt: v.optional(v.number()),
     createdAt: v.number(),
   })
-    .index("by_status", ["status"])
-    .index("by_content", ["contentId"])
-    .index("by_priority", ["priority", "createdAt"]),
+    .index('by_status', ['status'])
+    .index('by_content', ['contentId'])
+    .index('by_priority', ['priority', 'createdAt']),
 
   // Notifications
   notifications: defineTable({
     type: v.union(
-      v.literal("research_complete"),
-      v.literal("research_failed"),
-      v.literal("audio_complete"),
-      v.literal("whats_new"),
-      v.literal("subscription_update"),
-      v.literal("assimilate_complete"),
-      v.literal("system"),
-      v.literal("feed_digest")
+      v.literal('research_complete'),
+      v.literal('research_failed'),
+      v.literal('audio_complete'),
+      v.literal('whats_new'),
+      v.literal('subscription_update'),
+      v.literal('assimilate_complete'),
+      v.literal('system'),
+      v.literal('feed_digest')
     ),
     title: v.string(),
     body: v.string(),
     route: v.string(),
     referenceId: v.optional(v.string()),
     read: v.boolean(),
-    importance: v.optional(v.union(v.literal("high"), v.literal("normal"))),
+    importance: v.optional(v.union(v.literal('high'), v.literal('normal'))),
     createdAt: v.number(),
     // Feed digest support (optional fields for backward compatibility)
-    feedItemIds: v.optional(v.array(v.id("feedItems"))),
+    feedItemIds: v.optional(v.array(v.id('feedItems'))),
     digestCount: v.optional(v.number()),
     digestSummary: v.optional(v.string()),
   })
-    .index("by_unread", ["read", "createdAt"])
-    .index("by_created", ["createdAt"]),
+    .index('by_unread', ['read', 'createdAt'])
+    .index('by_created', ['createdAt']),
 
   // User preferences (singleton)
   userPreferences: defineTable({
@@ -897,7 +946,7 @@ export default defineSchema({
     // Canonical identity
     name: v.string(), // Display name: "Anders Hejlsberg"
     handle: v.string(), // Primary handle: "ahejlsberg" (normalized, lowercase)
-    canonicalType: v.union(v.literal("person"), v.literal("organization")),
+    canonicalType: v.union(v.literal('person'), v.literal('organization')),
     // Platform presence (validated via APIs)
     platforms: v.object({
       youtube: v.optional(
@@ -938,27 +987,27 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   })
-    .index("by_handle", ["handle"])
-    .index("by_name", ["name"])
-    .searchIndex("by_name_search", { searchField: "name" }),
+    .index('by_handle', ['handle'])
+    .index('by_name', ['name'])
+    .searchIndex('by_name_search', { searchField: 'name' }),
 
   // Subscription links for shareable subscription URIs
   subscriptionLinks: defineTable({
     token: v.string(), // Short unique token (8 chars, base62)
-    creatorProfileId: v.optional(v.id("creatorProfiles")), // Link to profile OR
+    creatorProfileId: v.optional(v.id('creatorProfiles')), // Link to profile OR
     // Direct subscription data (if no profile)
     subscriptions: v.optional(
       v.array(
         v.object({
           sourceType: v.union(
-            v.literal("youtube"),
-            v.literal("newsletter"),
-            v.literal("changelog"),
-            v.literal("reddit"),
-            v.literal("ebay"),
-            v.literal("whats-new"),
-            v.literal("creator"),
-            v.literal("github")
+            v.literal('youtube'),
+            v.literal('newsletter'),
+            v.literal('changelog'),
+            v.literal('reddit'),
+            v.literal('ebay'),
+            v.literal('whats-new'),
+            v.literal('creator'),
+            v.literal('github')
           ),
           identifier: v.string(),
           name: v.string(),
@@ -973,8 +1022,8 @@ export default defineSchema({
     clickCount: v.number(), // Track usage
     createdAt: v.number(),
   })
-    .index("by_token", ["token"])
-    .index("by_profile", ["creatorProfileId"]),
+    .index('by_token', ['token'])
+    .index('by_profile', ['creatorProfileId']),
 
   // Feed items - Aggregated content grouped by creator
   feedItems: defineTable({
@@ -984,17 +1033,13 @@ export default defineSchema({
     title: v.string(),
     summary: v.optional(v.string()),
     // Content type union
-    contentType: v.union(
-      v.literal("video"),
-      v.literal("blog"),
-      v.literal("social")
-    ),
+    contentType: v.union(v.literal('video'), v.literal('blog'), v.literal('social')),
     // Aggregation metadata
     itemCount: v.number(), // Number of items in this group
-    itemIds: v.array(v.id("subscriptionContent")), // Linked content items
+    itemIds: v.array(v.id('subscriptionContent')), // Linked content items
     // Creator relationship (optional - may be unlinked)
-    creatorProfileId: v.optional(v.id("creatorProfiles")),
-    subscriptionIds: v.array(v.id("subscriptionSources")), // Source subscriptions
+    creatorProfileId: v.optional(v.id('creatorProfiles')),
+    subscriptionIds: v.array(v.id('subscriptionSources')), // Source subscriptions
     // Media
     thumbnailUrl: v.optional(v.string()),
     // Author info (for social/video cards)
@@ -1004,17 +1049,17 @@ export default defineSchema({
     viewed: v.boolean(),
     viewedAt: v.optional(v.number()),
     // User feedback
-    userFeedback: v.optional(v.union(v.literal("up"), v.literal("down"))),
+    userFeedback: v.optional(v.union(v.literal('up'), v.literal('down'))),
     userFeedbackAt: v.optional(v.number()),
     // Timestamps
     publishedAt: v.number(), // Earliest publishedAt in group
     discoveredAt: v.number(), // When this feed item was created
     createdAt: v.number(),
   })
-    .index("by_groupKey", ["groupKey"])
-    .index("by_viewed", ["viewed", "discoveredAt"])
-    .index("by_created", ["createdAt"])
-    .index("by_creator", ["creatorProfileId"]),
+    .index('by_groupKey', ['groupKey'])
+    .index('by_viewed', ['viewed', 'discoveredAt'])
+    .index('by_created', ['createdAt'])
+    .index('by_creator', ['creatorProfileId']),
 
   // Feed sessions - Track user reading sessions
   feedSessions: defineTable({
@@ -1027,8 +1072,8 @@ export default defineSchema({
     // Source tracking
     sessionSource: v.optional(v.string()), // "push", "direct", "cron_notification"
   })
-    .index("by_start", ["startTime"])
-    .index("by_period", ["startTime", "endTime"]),
+    .index('by_start', ['startTime'])
+    .index('by_period', ['startTime', 'endTime']),
 
   // Rate limit tracking for synthesis providers (Z.ai, YouTube, Jina)
   rateLimitTracking: defineTable({
@@ -1038,7 +1083,7 @@ export default defineSchema({
     quotaResetAt: v.number(), // Unix timestamp when quota resets
     concurrentRequests: v.number(), // Current active requests
     maxConcurrent: v.number(), // Max concurrent allowed
-    status: v.union(v.literal("available"), v.literal("throttled"), v.literal("exhausted")),
+    status: v.union(v.literal('available'), v.literal('throttled'), v.literal('exhausted')),
     lastError: v.optional(v.string()), // Last error message (429, etc.)
     lastErrorTime: v.optional(v.number()), // Unix timestamp of last error
     // Token budget tracking (Z.ai specific)
@@ -1047,8 +1092,8 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   })
-    .index("by_provider", ["provider"])
-    .index("by_status", ["status"]),
+    .index('by_provider', ['provider'])
+    .index('by_status', ['status']),
 
   // Feed settings - Singleton document for user feed preferences
   // Uses fixed ID "user_settings" for single-user app pattern
@@ -1057,7 +1102,7 @@ export default defineSchema({
     enableInAppNotifications: v.boolean(),
     showThumbnails: v.boolean(),
     autoPlayVideos: v.boolean(),
-    contentFilter: v.union(v.literal("all"), v.literal("videos-only"), v.literal("blogs-only")),
+    contentFilter: v.union(v.literal('all'), v.literal('videos-only'), v.literal('blogs-only')),
     updatedAt: v.number(),
   }),
 
@@ -1065,23 +1110,23 @@ export default defineSchema({
   executionPlans: defineTable({
     // Plan identification
     type: v.union(
-      v.literal("deep-research"),
-      v.literal("shop"),
-      v.literal("assimilation"),
-      v.literal("revenue-validation"),
-      v.literal("competitive-analysis"),
-      v.literal("ai-roi"),
-      v.literal("flights")
+      v.literal('deep-research'),
+      v.literal('shop'),
+      v.literal('assimilation'),
+      v.literal('revenue-validation'),
+      v.literal('competitive-analysis'),
+      v.literal('ai-roi'),
+      v.literal('flights')
     ),
     // Plan status workflow
     status: v.union(
-      v.literal("draft"),
-      v.literal("pending"),
-      v.literal("approved"),
-      v.literal("rejected"),
-      v.literal("executing"),
-      v.literal("completed"),
-      v.literal("failed")
+      v.literal('draft'),
+      v.literal('pending'),
+      v.literal('approved'),
+      v.literal('rejected'),
+      v.literal('executing'),
+      v.literal('completed'),
+      v.literal('failed')
     ),
     // Plan content (structured JSON)
     content: v.optional(v.record(v.string(), v.any())), // Plan-type-specific content (tracks, queries, config) — shape varies by type
@@ -1091,51 +1136,55 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   })
-    .index("by_status", ["status"])
-    .index("by_type", ["type"])
-    .index("by_created", ["createdAt"])
-    .index("by_status_and_type", ["status", "type"]),
+    .index('by_status', ['status'])
+    .index('by_type', ['type'])
+    .index('by_created', ['createdAt'])
+    .index('by_status_and_type', ['status', 'type']),
 
   // Plan approval tracking
   planApprovals: defineTable({
     // Link to execution plan
-    planId: v.id("executionPlans"),
+    planId: v.id('executionPlans'),
     // User who approved/rejected (for multi-user future-proofing)
     approvedBy: v.string(),
     // Approval timestamp
     approvedAt: v.number(),
     // Approval decision
-    decision: v.union(v.literal("approved"), v.literal("rejected")),
+    decision: v.union(v.literal('approved'), v.literal('rejected')),
     // Rejection reason (if rejected)
     rejectionReason: v.optional(v.string()),
     // Additional feedback
     feedback: v.optional(v.string()),
   })
-    .index("by_plan", ["planId"])
-    .index("by_approved_by", ["approvedBy"])
-    .index("by_decision", ["decision"]),
+    .index('by_plan', ['planId'])
+    .index('by_approved_by', ['approvedBy'])
+    .index('by_decision', ['decision']),
 
   // Improvement/bug reporting system
   improvementRequests: defineTable({
     description: v.string(),
     title: v.optional(v.string()),
     summary: v.optional(v.string()),
-    status: v.union(v.literal("open"), v.literal("closed")),
+    status: v.union(v.literal('open'), v.literal('closed')),
     sourceScreen: v.string(),
     sourceComponent: v.optional(v.string()),
-    agentDecision: v.optional(v.object({
-      action: v.union(v.literal("create_new"), v.literal("merge")),
-      mergeTargetId: v.optional(v.id("improvementRequests")),
-      confidence: v.number(),
-      reasoning: v.string(),
-      similarRequests: v.array(v.object({
-        id: v.id("improvementRequests"),
-        title: v.string(),
-        similarity: v.number(),
-      })),
-    })),
-    mergedIntoId: v.optional(v.id("improvementRequests")),
-    mergedFromIds: v.optional(v.array(v.id("improvementRequests"))),
+    agentDecision: v.optional(
+      v.object({
+        action: v.union(v.literal('create_new'), v.literal('merge')),
+        mergeTargetId: v.optional(v.id('improvementRequests')),
+        confidence: v.number(),
+        reasoning: v.string(),
+        similarRequests: v.array(
+          v.object({
+            id: v.id('improvementRequests'),
+            title: v.string(),
+            similarity: v.number(),
+          })
+        ),
+      })
+    ),
+    mergedIntoId: v.optional(v.id('improvementRequests')),
+    mergedFromIds: v.optional(v.array(v.id('improvementRequests'))),
     userFeedback: v.optional(v.string()),
     embedding: v.optional(v.array(v.float64())),
     // Closure metadata — set when status transitions to "closed"
@@ -1146,65 +1195,78 @@ export default defineSchema({
     updatedAt: v.number(),
     processedAt: v.optional(v.number()),
   })
-    .index("by_status", ["status"])
-    .index("by_created", ["createdAt"])
-    .index("by_mergedInto", ["mergedIntoId"])
-    .searchIndex("by_title_search", { searchField: "title", filterFields: ["status"] })
-    .vectorIndex("by_embedding", {
-      vectorField: "embedding",
+    .index('by_status', ['status'])
+    .index('by_created', ['createdAt'])
+    .index('by_mergedInto', ['mergedIntoId'])
+    .searchIndex('by_title_search', { searchField: 'title', filterFields: ['status'] })
+    .vectorIndex('by_embedding', {
+      vectorField: 'embedding',
       dimensions: 1024,
     }),
 
   improvementImages: defineTable({
-    requestId: v.id("improvementRequests"),
-    storageId: v.id("_storage"),
+    requestId: v.id('improvementRequests'),
+    storageId: v.id('_storage'),
     caption: v.optional(v.string()),
     createdAt: v.number(),
-  })
-    .index("by_request", ["requestId"]),
+  }).index('by_request', ['requestId']),
 
   // Voice assistant tables
   voiceSessions: defineTable({
-    conversationId: v.id("conversations"),
+    conversationId: v.id('conversations'),
     startedAt: v.number(),
     completedAt: v.optional(v.number()),
     turnCount: v.number(),
     totalDurationMs: v.optional(v.number()),
-    metadata: v.optional(v.object({
-      deviceType: v.string(),
-      platform: v.string(),
-      appVersion: v.string(),
-    })),
+    metadata: v.optional(
+      v.object({
+        deviceType: v.string(),
+        platform: v.string(),
+        appVersion: v.string(),
+      })
+    ),
     errorMessage: v.optional(v.string()),
-    audioStorageId: v.optional(v.id("_storage")),
+    audioStorageId: v.optional(v.id('_storage')),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
-    .index("by_conversation", ["conversationId"])
-    .index("by_started", ["startedAt"])
-    .index("by_created", ["createdAt"]),
+    .index('by_conversation', ['conversationId'])
+    .index('by_started', ['startedAt'])
+    .index('by_created', ['createdAt']),
 
   voiceCommands: defineTable({
-    sessionId: v.id("voiceSessions"),
+    sessionId: v.id('voiceSessions'),
     transcript: v.string(),
     intent: v.string(),
-    entities: v.array(v.object({
-      type: v.string(),
-      value: v.string(),
-      confidence: v.number(),
-    })),
+    entities: v.array(
+      v.object({
+        type: v.string(),
+        value: v.string(),
+        confidence: v.number(),
+      })
+    ),
     actionType: v.string(),
     actionParams: v.optional(v.record(v.string(), v.string())),
-    result: v.optional(v.object({
-      success: v.boolean(),
-      data: v.optional(v.union(v.string(), v.number(), v.boolean(), v.null(), v.array(v.string()), v.array(v.number()))), // Action-specific result data — shape varies by actionType (navigate, search, research, etc.)
-      error: v.optional(v.string()),
-    })),
+    result: v.optional(
+      v.object({
+        success: v.boolean(),
+        data: v.optional(
+          v.union(
+            v.string(),
+            v.number(),
+            v.boolean(),
+            v.null(),
+            v.array(v.string()),
+            v.array(v.number())
+          )
+        ), // Action-specific result data — shape varies by actionType (navigate, search, research, etc.)
+        error: v.optional(v.string()),
+      })
+    ),
     success: v.boolean(),
     createdAt: v.number(),
     updatedAt: v.number(),
-  })
-    .index("by_session", ["sessionId", "createdAt"]),
+  }).index('by_session', ['sessionId', 'createdAt']),
 
   // Revenue Validation sessions
   revenueValidationSessions: defineTable({
@@ -1223,25 +1285,48 @@ export default defineSchema({
     sam: v.optional(v.string()), // Serviceable Addressable Market
     som: v.optional(v.string()), // Serviceable Obtainable Market
     // Unit economics (stored as JSON for flexibility across scenarios)
-    unitEconomics: v.optional(v.object({
-      base: v.optional(v.object({ ltv: v.optional(v.string()), cac: v.optional(v.string()), ltvCacRatio: v.optional(v.string()), paybackMonths: v.optional(v.number()) })),
-      bull: v.optional(v.object({ ltv: v.optional(v.string()), cac: v.optional(v.string()), ltvCacRatio: v.optional(v.string()), paybackMonths: v.optional(v.number()) })),
-      bear: v.optional(v.object({ ltv: v.optional(v.string()), cac: v.optional(v.string()), ltvCacRatio: v.optional(v.string()), paybackMonths: v.optional(v.number()) })),
-    })), // { base: {ltv, cac, payback}, bull: {...}, bear: {...} }
+    unitEconomics: v.optional(
+      v.object({
+        base: v.optional(
+          v.object({
+            ltv: v.optional(v.string()),
+            cac: v.optional(v.string()),
+            ltvCacRatio: v.optional(v.string()),
+            paybackMonths: v.optional(v.number()),
+          })
+        ),
+        bull: v.optional(
+          v.object({
+            ltv: v.optional(v.string()),
+            cac: v.optional(v.string()),
+            ltvCacRatio: v.optional(v.string()),
+            paybackMonths: v.optional(v.number()),
+          })
+        ),
+        bear: v.optional(
+          v.object({
+            ltv: v.optional(v.string()),
+            cac: v.optional(v.string()),
+            ltvCacRatio: v.optional(v.string()),
+            paybackMonths: v.optional(v.number()),
+          })
+        ),
+      })
+    ), // { base: {ltv, cac, payback}, bull: {...}, bear: {...} }
     // Summary
     executiveSummary: v.optional(v.string()),
     agentCount: v.optional(v.number()),
-    documentId: v.optional(v.id("documents")),
+    documentId: v.optional(v.id('documents')),
     errorReason: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
     completedAt: v.optional(v.number()),
   })
-    .index("by_status", ["status"])
-    .index("by_created", ["createdAt"]),
+    .index('by_status', ['status'])
+    .index('by_created', ['createdAt']),
 
   revenueValidationEvidence: defineTable({
-    sessionId: v.id("revenueValidationSessions"),
+    sessionId: v.id('revenueValidationSessions'),
     claim: v.string(),
     tier: v.number(), // 1-4 (T1=primary data, T4=anecdotal)
     sourceTitle: v.optional(v.string()),
@@ -1250,18 +1335,17 @@ export default defineSchema({
     challengeStatus: v.optional(v.string()), // "validated" | "contested" | "refuted"
     createdAt: v.number(),
   })
-    .index("by_session", ["sessionId"])
-    .index("by_dimension", ["sessionId", "dimension"]),
+    .index('by_session', ['sessionId'])
+    .index('by_dimension', ['sessionId', 'dimension']),
 
   revenueValidationCompetitors: defineTable({
-    sessionId: v.id("revenueValidationSessions"),
+    sessionId: v.id('revenueValidationSessions'),
     name: v.string(),
     pricing: v.optional(v.string()),
     differentiator: v.optional(v.string()),
     url: v.optional(v.string()),
     createdAt: v.number(),
-  })
-    .index("by_session", ["sessionId"]),
+  }).index('by_session', ['sessionId']),
 
   // Competitive Analysis sessions
   competitiveAnalysisSessions: defineTable({
@@ -1276,17 +1360,17 @@ export default defineSchema({
     // Summary
     marketVerdict: v.optional(v.string()),
     sourceCount: v.optional(v.number()),
-    documentId: v.optional(v.id("documents")),
+    documentId: v.optional(v.id('documents')),
     errorReason: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
     completedAt: v.optional(v.number()),
   })
-    .index("by_status", ["status"])
-    .index("by_created", ["createdAt"]),
+    .index('by_status', ['status'])
+    .index('by_created', ['createdAt']),
 
   competitiveAnalysisCompetitors: defineTable({
-    sessionId: v.id("competitiveAnalysisSessions"),
+    sessionId: v.id('competitiveAnalysisSessions'),
     name: v.string(),
     focus: v.optional(v.string()),
     founded: v.optional(v.string()),
@@ -1295,17 +1379,15 @@ export default defineSchema({
     weaknesses: v.optional(v.array(v.string())),
     url: v.optional(v.string()),
     createdAt: v.number(),
-  })
-    .index("by_session", ["sessionId"]),
+  }).index('by_session', ['sessionId']),
 
   competitiveAnalysisFeatures: defineTable({
-    sessionId: v.id("competitiveAnalysisSessions"),
+    sessionId: v.id('competitiveAnalysisSessions'),
     featureName: v.string(),
     ourSupport: v.string(), // "yes" | "partial" | "no"
     competitorSupport: v.record(v.string(), v.string()), // Record<competitorName, "yes"|"partial"|"no">
     createdAt: v.number(),
-  })
-    .index("by_session", ["sessionId"]),
+  }).index('by_session', ['sessionId']),
 
   // AI ROI Analysis sessions
   aiRoiSessions: defineTable({
@@ -1316,17 +1398,17 @@ export default defineSchema({
     topOpportunityName: v.optional(v.string()),
     topOpportunitySavings: v.optional(v.string()), // Formatted e.g. "$150K/yr"
     topOpportunityConfidence: v.optional(v.string()), // "HIGH" | "MEDIUM" | "LOW"
-    documentId: v.optional(v.id("documents")),
+    documentId: v.optional(v.id('documents')),
     errorReason: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
     completedAt: v.optional(v.number()),
   })
-    .index("by_status", ["status"])
-    .index("by_created", ["createdAt"]),
+    .index('by_status', ['status'])
+    .index('by_created', ['createdAt']),
 
   aiRoiOpportunities: defineTable({
-    sessionId: v.id("aiRoiSessions"),
+    sessionId: v.id('aiRoiSessions'),
     rank: v.number(),
     name: v.string(),
     confidence: v.string(), // "HIGH" | "MEDIUM" | "LOW"
@@ -1344,12 +1426,12 @@ export default defineSchema({
     phase: v.optional(v.string()), // "quick-win" | "medium-term" | "strategic"
     createdAt: v.number(),
   })
-    .index("by_session", ["sessionId"])
-    .index("by_rank", ["sessionId", "rank"]),
+    .index('by_session', ['sessionId'])
+    .index('by_rank', ['sessionId', 'rank']),
 
   aiRoiEvidence: defineTable({
-    sessionId: v.id("aiRoiSessions"),
-    opportunityId: v.optional(v.id("aiRoiOpportunities")),
+    sessionId: v.id('aiRoiSessions'),
+    opportunityId: v.optional(v.id('aiRoiOpportunities')),
     claim: v.string(),
     tier: v.number(), // 1-5 (T5 excluded from base case)
     source: v.optional(v.string()),
@@ -1357,8 +1439,8 @@ export default defineSchema({
     challengeStatus: v.optional(v.string()), // "validated" | "contested"
     createdAt: v.number(),
   })
-    .index("by_session", ["sessionId"])
-    .index("by_opportunity", ["opportunityId"]),
+    .index('by_session', ['sessionId'])
+    .index('by_opportunity', ['opportunityId']),
 
   // Flights sessions
   flightsSessions: defineTable({
@@ -1375,17 +1457,17 @@ export default defineSchema({
     cheapestDay: v.optional(v.string()),
     shoulderSeason: v.optional(v.string()),
     bookBy: v.optional(v.string()),
-    documentId: v.optional(v.id("documents")),
+    documentId: v.optional(v.id('documents')),
     errorReason: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
     completedAt: v.optional(v.number()),
   })
-    .index("by_status", ["status"])
-    .index("by_created", ["createdAt"]),
+    .index('by_status', ['status'])
+    .index('by_created', ['createdAt']),
 
   flightsRoutes: defineTable({
-    sessionId: v.id("flightsSessions"),
+    sessionId: v.id('flightsSessions'),
     airline: v.string(),
     departDate: v.string(), // YYYY-MM-DD
     returnDate: v.optional(v.string()),
@@ -1396,11 +1478,11 @@ export default defineSchema({
     bookingUrl: v.optional(v.string()),
     createdAt: v.number(),
   })
-    .index("by_session", ["sessionId"])
-    .index("by_price", ["sessionId", "price"]),
+    .index('by_session', ['sessionId'])
+    .index('by_price', ['sessionId', 'price']),
 
   flightsPriceCalendar: defineTable({
-    sessionId: v.id("flightsSessions"),
+    sessionId: v.id('flightsSessions'),
     date: v.string(), // YYYY-MM-DD
     dayOfWeek: v.string(), // "Mon" | "Tue" | ...
     weekNumber: v.number(), // 1-5 within the month
@@ -1408,19 +1490,19 @@ export default defineSchema({
     isCheapest: v.boolean(),
     createdAt: v.number(),
   })
-    .index("by_session", ["sessionId"])
-    .index("by_date", ["sessionId", "date"]),
+    .index('by_session', ['sessionId'])
+    .index('by_date', ['sessionId', 'date']),
 
   // Multi-source text imports
   imports: defineTable({
-    documentId: v.id("documents"),
+    documentId: v.id('documents'),
     source: v.string(), // "chat", "manual", "chatgpt", "claude", "perplexity", etc.
     text: v.string(),
     importedAt: v.number(),
   })
-    .index("by_document", ["documentId"])
-    .index("by_source", ["source"])
-    .index("by_importedAt", ["importedAt"]),
+    .index('by_document', ['documentId'])
+    .index('by_source', ['source'])
+    .index('by_importedAt', ['importedAt']),
 
   // API rate limit events for sliding-window tracking (research/shop endpoints)
   // Each record represents one request; old records are cleaned up automatically
@@ -1428,7 +1510,6 @@ export default defineSchema({
     key: v.string(), // endpoint identifier: "exa", "jina", "jina-reader"
     timestamp: v.number(), // Unix timestamp (ms) when the request was made
   })
-    .index("by_key", ["key"])
-    .index("by_key_timestamp", ["key", "timestamp"]),
-
+    .index('by_key', ['key'])
+    .index('by_key_timestamp', ['key', 'timestamp']),
 });

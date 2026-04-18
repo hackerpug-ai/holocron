@@ -5,7 +5,7 @@
  * Each iteration gets a FRESH context with only distilled notes from prior iterations.
  */
 
-import type { DimensionScores, AssimilationDimension } from "./validators";
+import type { AssimilationDimension, DimensionScores } from './validators';
 
 // ── Planning Phase (Iteration 0) ─────────────────────────────────────────────
 
@@ -85,20 +85,20 @@ Analyze the "${dimension}" dimension of this repository in depth.
 
 ## Prior Findings (Distilled Notes)
 
-${accumulatedNotes || "No prior findings yet — this is the first analysis iteration."}
+${accumulatedNotes || 'No prior findings yet — this is the first analysis iteration.'}
 
 ## Current Dimension Scores
 
 ${Object.entries(dimensionScores)
-  .map(([d, s]) => `- ${d}: ${s}/100${d === dimension ? " ← CURRENT FOCUS" : ""}`)
-  .join("\n")}
+  .map(([d, s]) => `- ${d}: ${s}/100${d === dimension ? ' ← CURRENT FOCUS' : ''}`)
+  .join('\n')}
 
 ## Coverage Plan Context
 
-${typeof coveragePlan === "object" ? JSON.stringify(coveragePlan, null, 2) : "No coverage plan available."}`;
+${typeof coveragePlan === 'object' ? JSON.stringify(coveragePlan, null, 2) : 'No coverage plan available.'}`;
 
   if (failureConstraints.length > 0) {
-    prompt += `\n\n## Constraints (Avoid These)\n\n${failureConstraints.map((c) => `- ${c}`).join("\n")}`;
+    prompt += `\n\n## Constraints (Avoid These)\n\n${failureConstraints.map((c) => `- ${c}`).join('\n')}`;
   }
 
   if (steeringNote) {
@@ -115,7 +115,7 @@ Respond with a JSON object:
 {
   "findings": "Detailed markdown findings for the ${dimension} dimension (500-2000 words). Include specific file paths, code patterns, and observations.",
   "notesContribution": "Distilled 2-4 sentence summary of KEY new findings for future iterations (200-500 chars max). Focus on what's most important for understanding this repo.",
-  "dimensionCoverageScore": ${currentScore > 0 ? `{updated score 0-100, was ${currentScore}}` : "{new score 0-100}"},
+  "dimensionCoverageScore": ${currentScore > 0 ? `{updated score 0-100, was ${currentScore}}` : '{new score 0-100}'},
   "gaps": ["specific gap 1", "specific gap 2"],
   "summary": "3-6 word summary label"
 }`;
@@ -149,7 +149,7 @@ ${accumulatedNotes.slice(0, 2000)}
 
 ${Object.entries(dimensionScores)
   .map(([d, s]) => `- ${d}: ${s}/100`)
-  .join("\n")}
+  .join('\n')}
 
 ## Task
 
@@ -178,7 +178,7 @@ export function buildSynthesisPrompt(
 ): string {
   const findingsText = allFindings
     .map((f, i) => `### Iteration ${i + 1}\n\n${f}`)
-    .join("\n\n---\n\n");
+    .join('\n\n---\n\n');
 
   return `You are synthesizing the final assimilation report for "${repositoryName}".
 
@@ -194,7 +194,7 @@ ${accumulatedNotes}
 
 ${Object.entries(dimensionScores)
   .map(([d, s]) => `- ${d}: ${s}/100`)
-  .join("\n")}
+  .join('\n')}
 
 ## Task
 

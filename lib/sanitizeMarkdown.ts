@@ -16,35 +16,35 @@
  */
 export function sanitizeMarkdown(markdown: string): string {
   if (!markdown || typeof markdown !== 'string') {
-    return ''
+    return '';
   }
 
-  let sanitized = markdown
+  let sanitized = markdown;
 
   // Remove YAML frontmatter (must be at the start of content)
-  sanitized = sanitized.replace(/^---\s*\n[\s\S]*?\n---\s*\n+/, '')
+  sanitized = sanitized.replace(/^---\s*\n[\s\S]*?\n---\s*\n+/, '');
 
   // Remove script tags and their content
-  sanitized = sanitized.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+  sanitized = sanitized.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
 
   // Remove dangerous tags (iframe, object, embed, form)
-  sanitized = sanitized.replace(/<(iframe|object|embed|form)\b[^>]*>[\s\S]*?<\/\1>/gi, '')
-  sanitized = sanitized.replace(/<(iframe|object|embed|form)\b[^>]*\/?>/gi, '')
+  sanitized = sanitized.replace(/<(iframe|object|embed|form)\b[^>]*>[\s\S]*?<\/\1>/gi, '');
+  sanitized = sanitized.replace(/<(iframe|object|embed|form)\b[^>]*\/?>/gi, '');
 
   // Remove event handlers (onclick, onerror, onload, etc.)
-  sanitized = sanitized.replace(/\s+on\w+\s*=\s*["'][^"']*["']/gi, '')
-  sanitized = sanitized.replace(/\s+on\w+\s*=\s*[^\s>]+/gi, '')
+  sanitized = sanitized.replace(/\s+on\w+\s*=\s*["'][^"']*["']/gi, '');
+  sanitized = sanitized.replace(/\s+on\w+\s*=\s*[^\s>]+/gi, '');
 
   // Remove javascript: URLs
-  sanitized = sanitized.replace(/javascript\s*:/gi, '')
+  sanitized = sanitized.replace(/javascript\s*:/gi, '');
 
   // Remove data: URLs (can be used for XSS)
-  sanitized = sanitized.replace(/data\s*:\s*text\/html/gi, '')
+  sanitized = sanitized.replace(/data\s*:\s*text\/html/gi, '');
 
   // Remove vbscript: URLs
-  sanitized = sanitized.replace(/vbscript\s*:/gi, '')
+  sanitized = sanitized.replace(/vbscript\s*:/gi, '');
 
-  return sanitized
+  return sanitized;
 }
 
 /**
@@ -59,11 +59,11 @@ export function sanitizeMarkdown(markdown: string): string {
  */
 export function isValidUrl(url: string): boolean {
   try {
-    const parsed = new URL(url)
-    const allowedProtocols = ['http:', 'https:', 'mailto:']
-    return allowedProtocols.includes(parsed.protocol)
+    const parsed = new URL(url);
+    const allowedProtocols = ['http:', 'https:', 'mailto:'];
+    return allowedProtocols.includes(parsed.protocol);
   } catch {
     // Invalid URL
-    return false
+    return false;
   }
 }

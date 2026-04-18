@@ -24,7 +24,7 @@ export const ROUTES = {
     SUBSCRIPTIONS: '/subscriptions',
     SUBSCRIPTIONS_FEED: '/subscriptions/feed',
   },
-} as const
+} as const;
 
 /**
  * Legacy feed routes that should redirect to What's New
@@ -32,4 +32,4 @@ export const ROUTES = {
 export const LEGACY_FEED_ROUTES = [
   ROUTES.LEGACY.SUBSCRIPTIONS,
   ROUTES.LEGACY.SUBSCRIPTIONS_FEED,
-] as const
+] as const;

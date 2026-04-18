@@ -1,9 +1,9 @@
-import { Link, Stack } from 'expo-router'
-import { StyleSheet, View, Text, Pressable } from 'react-native'
-import { useTheme } from '@/hooks/use-theme'
+import { Link, Stack } from 'expo-router';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useTheme } from '@/hooks/use-theme';
 
 export default function NotFoundScreen() {
-  const { colors: themeColors, typography, spacing } = useTheme()
+  const { colors: themeColors, typography, spacing } = useTheme();
 
   const dynamicStyles = {
     headline: {
@@ -18,24 +18,39 @@ export default function NotFoundScreen() {
       fontSize: typography.label.fontSize,
       fontWeight: typography.label.fontWeight as any,
     },
-  }
+  };
 
   return (
     <>
       <Stack.Screen options={{ title: 'Oops!' }} />
       <View style={[styles.container, { padding: spacing.xl }]}>
         <Text style={[styles.headline, dynamicStyles.headline]}>Page not found</Text>
-        <Text style={[styles.subtitle, dynamicStyles.subtitle]}>
-          This screen doesn't exist.
-        </Text>
+        <Text style={[styles.subtitle, dynamicStyles.subtitle]}>This screen doesn't exist.</Text>
         <Link href="/" asChild>
-          <Pressable style={StyleSheet.flatten([styles.button, { backgroundColor: themeColors.primary, paddingVertical: spacing.md, paddingHorizontal: spacing.xl }])}>
-            <Text style={StyleSheet.flatten([styles.buttonText, dynamicStyles.buttonText, { color: themeColors.primaryForeground }])}>Go to home screen</Text>
+          <Pressable
+            style={StyleSheet.flatten([
+              styles.button,
+              {
+                backgroundColor: themeColors.primary,
+                paddingVertical: spacing.md,
+                paddingHorizontal: spacing.xl,
+              },
+            ])}
+          >
+            <Text
+              style={StyleSheet.flatten([
+                styles.buttonText,
+                dynamicStyles.buttonText,
+                { color: themeColors.primaryForeground },
+              ])}
+            >
+              Go to home screen
+            </Text>
           </Pressable>
         </Link>
       </View>
     </>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
@@ -62,4 +77,4 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-})
+});

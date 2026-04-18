@@ -1,4 +1,4 @@
-"use node";
+'use node';
 
 /**
  * ReAct Pattern Wrapper
@@ -18,7 +18,7 @@
  *      signal that the content is evidence from a tool, not model-generated text.
  */
 
-import { generateText } from "ai";
+import { generateText } from 'ai';
 
 /**
  * ReAct system prompt fragment.
@@ -57,14 +57,12 @@ export function withReActPrompt(systemPrompt: string): string {
  */
 export function transformObservations(messages: any[]): any[] {
   return messages.map((msg) => {
-    if (msg.role !== "assistant" || typeof msg.content !== "string") return msg;
+    if (msg.role !== 'assistant' || typeof msg.content !== 'string') return msg;
 
-    const match = msg.content.match(
-      /^\[I used the (.+?) tool[^\]]*\]\n\nResults:\n([\s\S]*)$/
-    );
+    const match = msg.content.match(/^\[I used the (.+?) tool[^\]]*\]\n\nResults:\n([\s\S]*)$/);
     if (!match) return msg;
 
-    const toolName = match[1].toLowerCase().replace(/\s+/g, "_");
+    const toolName = match[1].toLowerCase().replace(/\s+/g, '_');
     const resultContent = match[2];
     return { ...msg, content: `Observation (${toolName}):\n${resultContent}` };
   });
@@ -88,14 +86,14 @@ export async function generateTextWithReAct(
 
   // Inject ReAct instructions into the system prompt (string only; other formats pass through).
   const system =
-    typeof p["system"] === "string"
-      ? withReActPrompt(p["system"])
-      : (p["system"] ?? REACT_INSTRUCTIONS);
+    typeof p['system'] === 'string'
+      ? withReActPrompt(p['system'])
+      : (p['system'] ?? REACT_INSTRUCTIONS);
 
   // Transform tool-result messages to Observation format when a messages array is present.
-  const messages = Array.isArray(p["messages"])
-    ? transformObservations(p["messages"])
-    : p["messages"];
+  const messages = Array.isArray(p['messages'])
+    ? transformObservations(p['messages'])
+    : p['messages'];
 
   return generateText({ ...params, system, messages } as Parameters<typeof generateText>[0]);
 }

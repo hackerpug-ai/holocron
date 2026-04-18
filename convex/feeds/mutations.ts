@@ -4,9 +4,14 @@
  * Mutations for managing feed items and sessions
  */
 
-import { mutation } from "../_generated/server";
-import { v } from "convex/values";
-import { markViewedArgs, markAllViewedArgs, createDigestNotificationArgs, submitFeedbackArgs } from "./validators";
+import { v } from 'convex/values';
+import { mutation } from '../_generated/server';
+import {
+  createDigestNotificationArgs,
+  markAllViewedArgs,
+  markViewedArgs,
+  submitFeedbackArgs,
+} from './validators';
 
 /**
  * Mark feed items as viewed
@@ -46,8 +51,8 @@ export const markAllViewed = mutation({
 
     // Query all unviewed items using index
     const unviewedItems = await ctx.db
-      .query("feedItems")
-      .withIndex("by_viewed", (q) => q.eq("viewed", false))
+      .query('feedItems')
+      .withIndex('by_viewed', (q) => q.eq('viewed', false))
       .collect();
 
     // Update all unviewed items
@@ -72,11 +77,14 @@ export const markAllViewed = mutation({
  */
 export const createDigestNotification = mutation({
   args: createDigestNotificationArgs,
-  handler: async (ctx, _args): Promise<{ created: boolean; notificationId?: string; reason?: string }> => {
+  handler: async (
+    ctx,
+    _args
+  ): Promise<{ created: boolean; notificationId?: string; reason?: string }> => {
     // Get current user
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
-      throw new Error("Unauthorized: No user identity found");
+      throw new Error('Unauthorized: No user identity found');
     }
 
     // Get digest summary - directly import and call the query
@@ -86,10 +94,10 @@ export const createDigestNotification = mutation({
 
     // Fetch recent items
     const items = await ctx.db
-      .query("feedItems")
-      .withIndex("by_created")
-      .filter((q) => q.gte(q.field("discoveredAt"), since))
-      .order("desc")
+      .query('feedItems')
+      .withIndex('by_created')
+      .filter((q) => q.gte(q.field('discoveredAt'), since))
+      .order('desc')
       .take(limit);
 
     // Calculate counts by type
@@ -120,13 +128,12 @@ export const createDigestNotification = mutation({
 
     // Generate human-readable summary
     const parts: string[] = [];
-    if (counts.video > 0) parts.push(`${counts.video} video${counts.video > 1 ? "s" : ""}`);
-    if (counts.blog > 0) parts.push(`${counts.blog} blog${counts.blog > 1 ? "s" : ""}`);
-    if (counts.social > 0) parts.push(`${counts.social} social post${counts.social > 1 ? "s" : ""}`);
+    if (counts.video > 0) parts.push(`${counts.video} video${counts.video > 1 ? 's' : ''}`);
+    if (counts.blog > 0) parts.push(`${counts.blog} blog${counts.blog > 1 ? 's' : ''}`);
+    if (counts.social > 0)
+      parts.push(`${counts.social} social post${counts.social > 1 ? 's' : ''}`);
 
-    const summaryText = parts.length > 0
-      ? parts.join(", ")
-      : "No new content";
+    const summaryText = parts.length > 0 ? parts.join(', ') : 'No new content';
 
     const summary = {
       counts,
@@ -137,18 +144,18 @@ export const createDigestNotification = mutation({
 
     // Don't create notification if no unviewed items
     if (summary.counts.total === 0) {
-      return { created: false, reason: "No unviewed items" };
+      return { created: false, reason: 'No unviewed items' };
     }
 
     // Build digest message
     const message = buildDigestMessage(summary);
 
     // Create notification
-    const notificationId = await ctx.db.insert("notifications", {
-      type: "feed_digest",
+    const notificationId = await ctx.db.insert('notifications', {
+      type: 'feed_digest',
       title: `You have ${summary.counts.total} new items to explore`,
       body: message,
-      route: "/feed",
+      route: '/feed',
       read: false,
       createdAt: Date.now(),
       feedItemIds: summary.sampleItems.map((item: any) => item._id),
@@ -166,16 +173,16 @@ function buildDigestMessage(summary: any): string {
   const parts: string[] = [];
 
   if (counts.video > 0) {
-    parts.push(`${counts.video} video${counts.video > 1 ? "s" : ""}`);
+    parts.push(`${counts.video} video${counts.video > 1 ? 's' : ''}`);
   }
   if (counts.blog > 0) {
-    parts.push(`${counts.blog} blog${counts.blog > 1 ? "s" : ""}`);
+    parts.push(`${counts.blog} blog${counts.blog > 1 ? 's' : ''}`);
   }
   if (counts.social > 0) {
-    parts.push(`${counts.social} social post${counts.social > 1 ? "s" : ""}`);
+    parts.push(`${counts.social} social post${counts.social > 1 ? 's' : ''}`);
   }
 
-  const itemList = parts.join(", ");
+  const itemList = parts.join(', ');
   return `${counts.total} new feed items: ${itemList}`;
 }
 
@@ -191,13 +198,13 @@ export const updateFeedSettings = mutation({
     enableInAppNotifications: v.optional(v.boolean()),
     showThumbnails: v.optional(v.boolean()),
     autoPlayVideos: v.optional(v.boolean()),
-    contentFilter: v.optional(v.union(v.literal("all"), v.literal("videos-only"), v.literal("blogs-only"))),
+    contentFilter: v.optional(
+      v.union(v.literal('all'), v.literal('videos-only'), v.literal('blogs-only'))
+    ),
   },
   handler: async (ctx, args) => {
     // Check if settings document exists
-    const existingSettings = await ctx.db
-      .query("feedSettings")
-      .first();
+    const existingSettings = await ctx.db.query('feedSettings').first();
 
     // Build updated settings object
     const updatedSettings = {
@@ -205,7 +212,7 @@ export const updateFeedSettings = mutation({
       enableInAppNotifications: args.enableInAppNotifications ?? false,
       showThumbnails: args.showThumbnails ?? true,
       autoPlayVideos: args.autoPlayVideos ?? false,
-      contentFilter: args.contentFilter ?? "all" as const,
+      contentFilter: args.contentFilter ?? ('all' as const),
       updatedAt: Date.now(),
     };
 
@@ -214,7 +221,7 @@ export const updateFeedSettings = mutation({
       await ctx.db.patch(existingSettings._id, updatedSettings);
     } else {
       // Create new settings document
-      await ctx.db.insert("feedSettings", updatedSettings);
+      await ctx.db.insert('feedSettings', updatedSettings);
     }
 
     return { success: true, settings: updatedSettings };
@@ -230,14 +237,14 @@ export const updateFeedSettings = mutation({
  */
 export const openFeedItem = mutation({
   args: {
-    feedItemId: v.id("feedItems"),
+    feedItemId: v.id('feedItems'),
   },
   returns: v.union(v.string(), v.null()),
   handler: async (ctx, args) => {
     // Fetch the feed item
     const feedItem = await ctx.db.get(args.feedItemId);
     if (!feedItem) {
-      throw new Error("Feed item not found");
+      throw new Error('Feed item not found');
     }
 
     // Get the first linked content item (which has the URL)
@@ -264,12 +271,10 @@ export const backfillInFeedField = mutation({
   handler: async (ctx): Promise<{ updated: number }> => {
     // Get all subscriptionContent records where inFeed is undefined
     // Note: We need to fetch all and filter in-memory since we can't query for undefined directly
-    const allContent = await ctx.db
-      .query("subscriptionContent")
-      .collect();
+    const allContent = await ctx.db.query('subscriptionContent').collect();
 
     // Filter for records where inFeed is undefined
-    const contentWithoutFlag = allContent.filter(c => c.inFeed === undefined);
+    const contentWithoutFlag = allContent.filter((c) => c.inFeed === undefined);
 
     // Set inFeed: false on all
     for (const content of contentWithoutFlag) {
@@ -294,7 +299,7 @@ export const submitFeedback = mutation({
     // Verify the feed item exists
     const feedItem = await ctx.db.get(feedItemId);
     if (!feedItem) {
-      throw new Error("Feed item not found");
+      throw new Error('Feed item not found');
     }
 
     // Update the feed item with feedback

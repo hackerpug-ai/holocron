@@ -1,11 +1,11 @@
-import { v } from "convex/values";
+import { v } from 'convex/values';
 
 // Content type enum validator
 export const contentTypeEnum = v.union(
-  v.literal("video"),
-  v.literal("blog"),
-  v.literal("social"),
-  v.literal("mixed")
+  v.literal('video'),
+  v.literal('blog'),
+  v.literal('social'),
+  v.literal('mixed')
 );
 
 // Feed item fields validator
@@ -13,15 +13,11 @@ export const feedItemFields = {
   groupKey: v.string(),
   title: v.string(),
   summary: v.optional(v.string()),
-  contentType: v.union(
-    v.literal("video"),
-    v.literal("blog"),
-    v.literal("social")
-  ),
+  contentType: v.union(v.literal('video'), v.literal('blog'), v.literal('social')),
   itemCount: v.number(),
-  itemIds: v.array(v.id("subscriptionContent")),
-  creatorProfileId: v.optional(v.id("creatorProfiles")),
-  subscriptionIds: v.array(v.id("subscriptionSources")),
+  itemIds: v.array(v.id('subscriptionContent')),
+  creatorProfileId: v.optional(v.id('creatorProfiles')),
+  subscriptionIds: v.array(v.id('subscriptionSources')),
   thumbnailUrl: v.optional(v.string()),
   viewed: v.boolean(),
   viewedAt: v.optional(v.number()),
@@ -44,11 +40,11 @@ export const getFeedArgs = {
   limit: v.optional(v.number()),
   contentType: v.optional(contentTypeEnum),
   viewed: v.optional(v.boolean()),
-  creatorProfileId: v.optional(v.id("creatorProfiles")),
+  creatorProfileId: v.optional(v.id('creatorProfiles')),
 };
 
 export const getByCreatorArgs = {
-  creatorProfileId: v.id("creatorProfiles"),
+  creatorProfileId: v.id('creatorProfiles'),
   limit: v.optional(v.number()),
 };
 
@@ -63,7 +59,7 @@ export const getDigestSummaryArgs = {
 
 // Mutation argument validators
 export const markViewedArgs = {
-  feedItemIds: v.array(v.id("feedItems")),
+  feedItemIds: v.array(v.id('feedItems')),
   viewedAt: v.optional(v.number()),
 };
 
@@ -76,8 +72,8 @@ export const createDigestNotificationArgs = {
 };
 
 export const submitFeedbackArgs = {
-  feedItemId: v.id("feedItems"),
-  feedback: v.union(v.literal("up"), v.literal("down")),
+  feedItemId: v.id('feedItems'),
+  feedback: v.union(v.literal('up'), v.literal('down')),
 };
 
 // Feed settings validators
@@ -86,7 +82,7 @@ export const feedSettingsFields = {
   enableInAppNotifications: v.boolean(),
   showThumbnails: v.boolean(),
   autoPlayVideos: v.boolean(),
-  contentFilter: v.union(v.literal("all"), v.literal("videos-only"), v.literal("blogs-only")),
+  contentFilter: v.union(v.literal('all'), v.literal('videos-only'), v.literal('blogs-only')),
 };
 
 export const updateFeedSettingsArgs = {
@@ -94,5 +90,7 @@ export const updateFeedSettingsArgs = {
   enableInAppNotifications: v.optional(v.boolean()),
   showThumbnails: v.optional(v.boolean()),
   autoPlayVideos: v.optional(v.boolean()),
-  contentFilter: v.optional(v.union(v.literal("all"), v.literal("videos-only"), v.literal("blogs-only"))),
+  contentFilter: v.optional(
+    v.union(v.literal('all'), v.literal('videos-only'), v.literal('blogs-only'))
+  ),
 };

@@ -1,9 +1,4 @@
-import { ToolCard, type ToolCategory, type SourceType, type ToolStatus } from '@/components/ToolCard'
-import { Text } from '@/components/ui/text'
-import { cn } from '@/lib/utils'
-import { Input } from '@/components/ui/input'
-import { Filter, Package, Search, Terminal, Wrench } from '@/components/ui/icons'
-import { useMemo, useState } from 'react'
+import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -13,34 +8,44 @@ import {
   ScrollView,
   View,
   type ViewProps,
-} from 'react-native'
+} from 'react-native';
+import {
+  type SourceType,
+  ToolCard,
+  type ToolCategory,
+  type ToolStatus,
+} from '@/components/ToolCard';
+import { Filter, Package, Search, Terminal, Wrench } from '@/components/ui/icons';
+import { Input } from '@/components/ui/input';
+import { Text } from '@/components/ui/text';
+import { cn } from '@/lib/utils';
 
 // Types based on Convex schema
 export interface Tool {
-  _id: string
-  title: string
-  description?: string
-  content?: string
-  category: ToolCategory
-  status: ToolStatus
-  sourceUrl?: string
-  sourceType: SourceType
-  tags?: string[]
-  useCases?: string[]
-  keywords?: string[]
-  language?: string
-  date?: string
-  time?: string
-  createdAt: number
-  updatedAt: number
+  _id: string;
+  title: string;
+  description?: string;
+  content?: string;
+  category: ToolCategory;
+  status: ToolStatus;
+  sourceUrl?: string;
+  sourceType: SourceType;
+  tags?: string[];
+  useCases?: string[];
+  keywords?: string[];
+  language?: string;
+  date?: string;
+  time?: string;
+  createdAt: number;
+  updatedAt: number;
 }
 
 interface ToolbeltScreenProps extends Omit<ViewProps, 'children'> {
-  tools?: Tool[]
-  isLoading?: boolean
-  error?: Error | null
-  onToolPress?: (tool: Tool) => void
-  onRetry?: () => void
+  tools?: Tool[];
+  isLoading?: boolean;
+  error?: Error | null;
+  onToolPress?: (tool: Tool) => void;
+  onRetry?: () => void;
 }
 
 const categoryFilters: { value: ToolCategory | 'all'; label: string; icon?: typeof Package }[] = [
@@ -51,7 +56,7 @@ const categoryFilters: { value: ToolCategory | 'all'; label: string; icon?: type
   { value: 'service', label: 'Services' },
   { value: 'database', label: 'Databases' },
   { value: 'tool', label: 'Tools', icon: Wrench },
-]
+];
 
 /**
  * ToolbeltScreen displays a searchable, filterable collection of tools.
@@ -66,17 +71,17 @@ export function ToolbeltScreen({
   className,
   ...props
 }: ToolbeltScreenProps) {
-  const [searchQuery, setSearchQuery] = useState('')
-  const [selectedCategory, setSelectedCategory] = useState<ToolCategory | 'all'>('all')
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<ToolCategory | 'all'>('all');
 
   const filteredTools = useMemo(() => {
-    let result = tools
+    let result = tools;
 
     if (selectedCategory !== 'all') {
-      result = result.filter((tool) => tool.category === selectedCategory)
+      result = result.filter((tool) => tool.category === selectedCategory);
     }
 
-    const query = searchQuery.trim().toLowerCase()
+    const query = searchQuery.trim().toLowerCase();
     if (query) {
       result = result.filter((tool) => {
         return (
@@ -85,15 +90,15 @@ export function ToolbeltScreen({
           tool.tags?.some((tag) => tag.toLowerCase().includes(query)) ||
           tool.language?.toLowerCase().includes(query) ||
           tool.keywords?.some((kw) => kw.toLowerCase().includes(query))
-        )
-      })
+        );
+      });
     }
 
-    return result
-  }, [tools, searchQuery, selectedCategory])
+    return result;
+  }, [tools, searchQuery, selectedCategory]);
 
-  const toolCount = filteredTools.length
-  const totalCount = tools.length
+  const toolCount = filteredTools.length;
+  const totalCount = tools.length;
 
   const renderTool = ({ item }: { item: Tool }) => (
     <ToolCard
@@ -110,7 +115,7 @@ export function ToolbeltScreen({
       onPress={() => onToolPress?.(item)}
       className="mb-3"
     />
-  )
+  );
 
   const renderSearchAndFilters = () => (
     <View className="mb-4">
@@ -138,31 +143,27 @@ export function ToolbeltScreen({
         contentContainerStyle={{ gap: 8, paddingVertical: 12 }}
       >
         {categoryFilters.map(({ value, label }) => {
-          const isSelected = selectedCategory === value
+          const isSelected = selectedCategory === value;
           return (
             <Pressable
               key={value}
               onPress={() => setSelectedCategory(value)}
               className={cn(
                 'rounded-full px-4 py-1.5',
-                isSelected
-                  ? 'bg-primary'
-                  : 'border border-border bg-card'
+                isSelected ? 'bg-primary' : 'border border-border bg-card'
               )}
               testID={`category-filter-${value}`}
             >
               <Text
                 className={cn(
                   'text-sm font-medium',
-                  isSelected
-                    ? 'text-primary-foreground'
-                    : 'text-muted-foreground'
+                  isSelected ? 'text-primary-foreground' : 'text-muted-foreground'
                 )}
               >
                 {label}
               </Text>
             </Pressable>
-          )
+          );
         })}
       </ScrollView>
 
@@ -173,7 +174,7 @@ export function ToolbeltScreen({
         </Text>
       )}
     </View>
-  )
+  );
 
   const renderEmptyState = () => {
     if (isLoading) {
@@ -182,7 +183,7 @@ export function ToolbeltScreen({
           <ActivityIndicator size="large" />
           <Text className="mt-3 text-sm text-muted-foreground">Loading tools...</Text>
         </View>
-      )
+      );
     }
 
     if (error) {
@@ -195,7 +196,7 @@ export function ToolbeltScreen({
           <Text className="text-sm text-destructive">Failed to load tools</Text>
           <Text className="mt-1 text-xs text-muted-foreground">Tap to retry</Text>
         </Pressable>
-      )
+      );
     }
 
     // Filtered but no results
@@ -210,7 +211,7 @@ export function ToolbeltScreen({
             Try adjusting your search or filters
           </Text>
         </View>
-      )
+      );
     }
 
     // Empty collection - the main empty state
@@ -222,7 +223,8 @@ export function ToolbeltScreen({
         <Text className="text-lg font-semibold text-foreground">Your toolbelt is empty</Text>
         <Text className="mt-2 text-center text-sm leading-5 text-muted-foreground">
           Tools you save via Claude Code will appear here.{'\n'}
-          Use <Text className="font-mono text-xs text-primary">/toolbelt</Text> to save libraries, CLIs, and frameworks.
+          Use <Text className="font-mono text-xs text-primary">/toolbelt</Text> to save libraries,
+          CLIs, and frameworks.
         </Text>
 
         {/* Visual hint cards */}
@@ -244,8 +246,8 @@ export function ToolbeltScreen({
           />
         </View>
       </View>
-    )
-  }
+    );
+  };
 
   return (
     <KeyboardAvoidingView
@@ -253,11 +255,7 @@ export function ToolbeltScreen({
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       className="flex-1"
     >
-      <View
-        className={cn('flex-1 bg-background', className)}
-        testID="toolbelt-screen"
-        {...props}
-      >
+      <View className={cn('flex-1 bg-background', className)} testID="toolbelt-screen" {...props}>
         <FlatList
           data={filteredTools}
           renderItem={renderTool}
@@ -274,7 +272,7 @@ export function ToolbeltScreen({
         />
       </View>
     </KeyboardAvoidingView>
-  )
+  );
 }
 
 /** Small hint card for the empty state */
@@ -283,19 +281,17 @@ function HintCard({
   title,
   subtitle,
 }: {
-  icon: React.ReactNode
-  title: string
-  subtitle: string
+  icon: React.ReactNode;
+  title: string;
+  subtitle: string;
 }) {
   return (
     <View className="flex-row items-center gap-3 rounded-xl border border-border/50 bg-card/50 px-4 py-3">
-      <View className="h-8 w-8 items-center justify-center rounded-lg bg-muted">
-        {icon}
-      </View>
+      <View className="h-8 w-8 items-center justify-center rounded-lg bg-muted">{icon}</View>
       <View className="flex-1">
         <Text className="text-sm font-medium text-foreground">{title}</Text>
         <Text className="text-xs text-muted-foreground">{subtitle}</Text>
       </View>
     </View>
-  )
+  );
 }

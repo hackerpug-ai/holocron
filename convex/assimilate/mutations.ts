@@ -4,12 +4,17 @@
  * Creates and stores assimilation metadata for analyzed repositories
  */
 
-import { mutation, internalMutation } from "../_generated/server";
-import { makeFunctionReference } from "convex/server";
-import { v } from "convex/values";
-import { api, internal } from "../_generated/api";
-import type { Id } from "../_generated/dataModel";
-import { resolveProfile, isValidGitHubUrl, extractRepoName, INITIAL_DIMENSION_SCORES } from "./validators";
+import { makeFunctionReference } from 'convex/server';
+import { v } from 'convex/values';
+import { api, internal } from '../_generated/api';
+import type { Id } from '../_generated/dataModel';
+import { internalMutation, mutation } from '../_generated/server';
+import {
+  extractRepoName,
+  INITIAL_DIMENSION_SCORES,
+  isValidGitHubUrl,
+  resolveProfile,
+} from './validators';
 
 /**
  * Save assimilation results
@@ -56,32 +61,32 @@ export const saveAssimilation = mutation({
     const now = Date.now();
 
     // Step 1: Insert document entry
-    const documentId = await ctx.db.insert("documents", {
+    const documentId = await ctx.db.insert('documents', {
       title,
       content,
-      category: "assimilation",
+      category: 'assimilation',
       filePath,
       researchType,
       createdAt: now,
     });
 
     // Update document counters (BP-005)
-    await updateDocumentCountersInline(ctx, "assimilation", false, 1);
+    await updateDocumentCountersInline(ctx, 'assimilation', false, 1);
 
     // Schedule embedding generation for the new document
     await ctx.scheduler.runAfter(
       0,
-      makeFunctionReference<"action", { id: Id<"documents">; content: string }, any>(
-        "documents/storage:updateWithEmbedding",
+      makeFunctionReference<'action', { id: Id<'documents'>; content: string }, any>(
+        'documents/storage:updateWithEmbedding'
       ),
       {
         id: documentId,
         content,
-      },
+      }
     );
 
     // Step 2: Insert metadata entry
-    const metadataId = await ctx.db.insert("assimilationMetadata", {
+    const metadataId = await ctx.db.insert('assimilationMetadata', {
       documentId,
       repositoryUrl,
       repositoryName,
@@ -91,7 +96,6 @@ export const saveAssimilation = mutation({
       trackRatings,
       createdAt: now,
     });
-    
 
     return {
       documentId,
@@ -119,22 +123,22 @@ export const startAssimilationWithPlan = mutation({
   args: {
     repositoryUrl: v.string(),
     profile: v.optional(v.string()),
-    conversationId: v.optional(v.id("conversations")),
+    conversationId: v.optional(v.id('conversations')),
     maxIterations: v.optional(v.number()),
     autoApprove: v.optional(v.boolean()),
   },
   handler: async (
     ctx,
-    { repositoryUrl, profile = "standard", conversationId, maxIterations, autoApprove = false },
+    { repositoryUrl, profile = 'standard', conversationId, maxIterations, autoApprove = false }
   ): Promise<{
-    planId: Id<"executionPlans">;
+    planId: Id<'executionPlans'>;
     status: string;
   }> => {
-    
-
     // Validate URL
     if (!isValidGitHubUrl(repositoryUrl)) {
-      throw new Error(`Invalid GitHub URL: ${repositoryUrl}. Must be https://github.com/{owner}/{repo}`);
+      throw new Error(
+        `Invalid GitHub URL: ${repositoryUrl}. Must be https://github.com/{owner}/{repo}`
+      );
     }
 
     // Step 1: Generate assimilation plan
@@ -145,41 +149,41 @@ export const startAssimilationWithPlan = mutation({
       autoApprove,
       conversationId,
     });
-    
 
     // Step 2: Post plan confirmation card
-    
+
     const plan = await ctx.runQuery(api.plans.queries.get, { id: planId });
 
     await ctx.runMutation(api.chatMessages.mutations.create, {
-      conversationId: conversationId ?? (await ctx.runMutation(api.conversations.mutations.create, {
-        title: `Assimilate: ${plan?.content?.repositoryName || repositoryUrl}`,
-      })),
-      role: "agent" as const,
+      conversationId:
+        conversationId ??
+        (await ctx.runMutation(api.conversations.mutations.create, {
+          title: `Assimilate: ${plan?.content?.repositoryName || repositoryUrl}`,
+        })),
+      role: 'agent' as const,
       content: `Assimilation plan generated for: ${repositoryUrl}`,
-      messageType: "result_card" as const,
+      messageType: 'result_card' as const,
       cardData: {
-        card_type: "plan_confirmation",
+        card_type: 'plan_confirmation',
         plan_id: planId,
         plan_title: plan?.content?.title || `Assimilate: ${repositoryUrl}`,
-        plan_description: plan?.content?.description || "",
-        plan_type: "assimilation",
+        plan_description: plan?.content?.description || '',
+        plan_type: 'assimilation',
         repository_url: repositoryUrl,
-        repository_name: plan?.content?.repositoryName || "",
+        repository_name: plan?.content?.repositoryName || '',
         dimensions: plan?.content?.dimensions || [],
         estimated_steps: plan?.content?.estimatedSteps || 0,
         estimated_duration: plan?.content?.estimatedDurationMs || 0,
-        profile: plan?.content?.profile || "standard",
-        status: "pending",
+        profile: plan?.content?.profile || 'standard',
+        status: 'pending',
       },
     });
-    
 
     // Step 3: Return plan ID for approval
-    
+
     return {
       planId,
-      status: "pending_approval",
+      status: 'pending_approval',
     };
   },
 });
@@ -199,54 +203,50 @@ export const startAssimilationWithPlan = mutation({
  */
 export const executeApprovedAssimilationPlan = mutation({
   args: {
-    planId: v.id("executionPlans"),
+    planId: v.id('executionPlans'),
   },
-  handler: async (ctx, { planId }): Promise<{
-    sessionId: Id<"assimilationSessions">;
-    planId: Id<"executionPlans">;
+  handler: async (
+    ctx,
+    { planId }
+  ): Promise<{
+    sessionId: Id<'assimilationSessions'>;
+    planId: Id<'executionPlans'>;
     status: string;
   }> => {
-    
-
     // Step 1: Fetch and validate plan
-    
+
     const plan = await ctx.runQuery(api.plans.queries.get, { id: planId });
 
     if (!plan) {
       throw new Error(`Plan ${planId} not found`);
     }
 
-    if (plan.status !== "approved") {
-      throw new Error(
-        `Plan ${planId} is not approved (current status: ${plan.status})`,
-      );
+    if (plan.status !== 'approved') {
+      throw new Error(`Plan ${planId} is not approved (current status: ${plan.status})`);
     }
 
     const repositoryUrl = plan.metadata?.repositoryUrl as string;
-    const profile = plan.content?.profile as string || "standard";
-    const autoApprove = plan.content?.autoApprove as boolean || false;
-    const _maxIterations = plan.content?.maxIterations as number || 10;
-    const conversationId = plan.metadata?.conversationId as Id<"conversations"> | undefined;
-
-    
+    const profile = (plan.content?.profile as string) || 'standard';
+    const autoApprove = (plan.content?.autoApprove as boolean) || false;
+    const _maxIterations = (plan.content?.maxIterations as number) || 10;
+    const conversationId = plan.metadata?.conversationId as Id<'conversations'> | undefined;
 
     // Step 2: Update plan status to executing
-    
+
     await ctx.runMutation(api.plans.confirmation.startExecution, { planId });
 
     // Step 3: Create assimilation session
-    
 
     const now = Date.now();
     const criteria = resolveProfile(profile);
     const repoName = extractRepoName(repositoryUrl);
 
-    const sessionId = await ctx.db.insert("assimilationSessions", {
+    const sessionId = await ctx.db.insert('assimilationSessions', {
       conversationId,
       repositoryUrl,
       repositoryName: repoName,
       profile,
-      status: autoApprove ? "in_progress" : "pending_approval",
+      status: autoApprove ? 'in_progress' : 'pending_approval',
       currentIteration: 0,
       maxIterations: criteria.maxIterations,
       autoApprove,
@@ -261,15 +261,13 @@ export const executeApprovedAssimilationPlan = mutation({
       estimatedCostUsd: 0,
       // Link plan to session
       planContent: JSON.stringify(plan.content, null, 2),
-      planSummary: plan.content?.description || "",
+      planSummary: plan.content?.description || '',
       createdAt: now,
       updatedAt: now,
       startedAt: now,
     });
-    
 
     // Step 4: Schedule first iteration
-    
 
     if (autoApprove) {
       // Skip approval, start immediately
@@ -278,15 +276,12 @@ export const executeApprovedAssimilationPlan = mutation({
       });
     } else {
       // Wait for user approval (session is in pending_approval status)
-      
     }
-
-    
 
     return {
       sessionId,
       planId,
-      status: autoApprove ? "in_progress" : "pending_approval",
+      status: autoApprove ? 'in_progress' : 'pending_approval',
     };
   },
 });
@@ -301,20 +296,31 @@ export const startAssimilation = mutation({
   args: {
     repositoryUrl: v.string(),
     profile: v.optional(v.string()),
-    conversationId: v.optional(v.id("conversations")),
+    conversationId: v.optional(v.id('conversations')),
     autoApprove: v.optional(v.boolean()),
   },
-  handler: async (ctx, { repositoryUrl, profile = "standard", conversationId, autoApprove = false }) => {
+  handler: async (
+    ctx,
+    { repositoryUrl, profile = 'standard', conversationId, autoApprove = false }
+  ) => {
     // Validate URL
     if (!isValidGitHubUrl(repositoryUrl)) {
-      throw new Error(`Invalid GitHub URL: ${repositoryUrl}. Must be https://github.com/{owner}/{repo}`);
+      throw new Error(
+        `Invalid GitHub URL: ${repositoryUrl}. Must be https://github.com/{owner}/{repo}`
+      );
     }
 
     // Check for existing active session
-    const activeStatuses = ['pending_approval', 'planning', 'approved', 'in_progress', 'synthesizing'];
+    const activeStatuses = [
+      'pending_approval',
+      'planning',
+      'approved',
+      'in_progress',
+      'synthesizing',
+    ];
     const existingSessions = await ctx.db
-      .query("assimilationSessions")
-      .withIndex("by_repositoryUrl", (q) => q.eq("repositoryUrl", repositoryUrl))
+      .query('assimilationSessions')
+      .withIndex('by_repositoryUrl', (q) => q.eq('repositoryUrl', repositoryUrl))
       .collect();
 
     const activeSession = existingSessions.find((s) => activeStatuses.includes(s.status));
@@ -326,12 +332,12 @@ export const startAssimilation = mutation({
     const criteria = resolveProfile(profile);
     const repoName = extractRepoName(repositoryUrl);
 
-    const sessionId = await ctx.db.insert("assimilationSessions", {
+    const sessionId = await ctx.db.insert('assimilationSessions', {
       conversationId,
       repositoryUrl,
       repositoryName: repoName,
       profile,
-      status: "planning",
+      status: 'planning',
       currentIteration: 0,
       maxIterations: criteria.maxIterations,
       autoApprove,
@@ -348,7 +354,7 @@ export const startAssimilation = mutation({
       sessionId,
     });
 
-    return { sessionId, status: "planning", existing: false };
+    return { sessionId, status: 'planning', existing: false };
   },
 });
 
@@ -357,17 +363,17 @@ export const startAssimilation = mutation({
  */
 export const approveAssimilationPlan = mutation({
   args: {
-    sessionId: v.id("assimilationSessions"),
+    sessionId: v.id('assimilationSessions'),
   },
   handler: async (ctx, { sessionId }) => {
     const session = await ctx.db.get(sessionId);
-    if (!session) throw new Error("Session not found");
-    if (session.status !== "pending_approval") {
+    if (!session) throw new Error('Session not found');
+    if (session.status !== 'pending_approval') {
       throw new Error(`Cannot approve session in status: ${session.status}`);
     }
 
     await ctx.db.patch(sessionId, {
-      status: "in_progress",
+      status: 'in_progress',
       currentIteration: 1,
       updatedAt: Date.now(),
     });
@@ -386,20 +392,20 @@ export const approveAssimilationPlan = mutation({
  */
 export const rejectAssimilationPlan = mutation({
   args: {
-    sessionId: v.id("assimilationSessions"),
+    sessionId: v.id('assimilationSessions'),
     feedback: v.optional(v.string()),
   },
   handler: async (ctx, { sessionId, feedback }) => {
     const session = await ctx.db.get(sessionId);
-    if (!session) throw new Error("Session not found");
-    if (session.status !== "pending_approval") {
+    if (!session) throw new Error('Session not found');
+    if (session.status !== 'pending_approval') {
       throw new Error(`Cannot reject session in status: ${session.status}`);
     }
 
     if (feedback) {
       // Re-plan with feedback
       await ctx.db.patch(sessionId, {
-        status: "planning",
+        status: 'planning',
         planFeedback: feedback,
         currentIteration: 0,
         updatedAt: Date.now(),
@@ -412,7 +418,7 @@ export const rejectAssimilationPlan = mutation({
     } else {
       // Terminal rejection
       await ctx.db.patch(sessionId, {
-        status: "rejected",
+        status: 'rejected',
         updatedAt: Date.now(),
         completedAt: Date.now(),
       });
@@ -425,11 +431,11 @@ export const rejectAssimilationPlan = mutation({
  */
 export const cancelAssimilation = mutation({
   args: {
-    sessionId: v.id("assimilationSessions"),
+    sessionId: v.id('assimilationSessions'),
   },
   handler: async (ctx, { sessionId }) => {
     const session = await ctx.db.get(sessionId);
-    if (!session) throw new Error("Session not found");
+    if (!session) throw new Error('Session not found');
 
     const terminalStatuses = ['completed', 'failed', 'cancelled', 'rejected'];
     if (terminalStatuses.includes(session.status)) {
@@ -437,7 +443,7 @@ export const cancelAssimilation = mutation({
     }
 
     await ctx.db.patch(sessionId, {
-      status: "cancelled",
+      status: 'cancelled',
       updatedAt: Date.now(),
       completedAt: Date.now(),
     });
@@ -449,13 +455,13 @@ export const cancelAssimilation = mutation({
  */
 export const steerAssimilation = mutation({
   args: {
-    sessionId: v.id("assimilationSessions"),
+    sessionId: v.id('assimilationSessions'),
     note: v.string(),
   },
   handler: async (ctx, { sessionId, note }) => {
     const session = await ctx.db.get(sessionId);
-    if (!session) throw new Error("Session not found");
-    if (session.status !== "in_progress") {
+    if (!session) throw new Error('Session not found');
+    if (session.status !== 'in_progress') {
       throw new Error(`Cannot steer session in status: ${session.status}`);
     }
 
@@ -473,7 +479,7 @@ export const steerAssimilation = mutation({
  */
 export const createIteration = internalMutation({
   args: {
-    sessionId: v.id("assimilationSessions"),
+    sessionId: v.id('assimilationSessions'),
     iterationNumber: v.number(),
     dimension: v.string(),
     iterationType: v.string(),
@@ -483,18 +489,20 @@ export const createIteration = internalMutation({
     dimensionCoverageScore: v.optional(v.number()),
     gapsIdentified: v.optional(v.array(v.string())),
     noveltyScore: v.optional(v.number()),
-    nextAction: v.optional(v.object({
-      shouldContinue: v.boolean(),
-      nextDimension: v.optional(v.string()),
-      reason: v.string(),
-      trigger: v.optional(v.string()),
-    })),
+    nextAction: v.optional(
+      v.object({
+        shouldContinue: v.boolean(),
+        nextDimension: v.optional(v.string()),
+        reason: v.string(),
+        trigger: v.optional(v.string()),
+      })
+    ),
     status: v.string(),
     durationMs: v.optional(v.number()),
     estimatedCostUsd: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    return await ctx.db.insert("assimilationIterations", {
+    return await ctx.db.insert('assimilationIterations', {
       ...args,
       createdAt: Date.now(),
     });
@@ -506,19 +514,21 @@ export const createIteration = internalMutation({
  */
 export const updateSessionProgress = internalMutation({
   args: {
-    sessionId: v.id("assimilationSessions"),
+    sessionId: v.id('assimilationSessions'),
     status: v.optional(v.string()),
     currentIteration: v.optional(v.number()),
     accumulatedNotes: v.optional(v.string()),
     coveragePlan: v.optional(v.any()),
     nextDimension: v.optional(v.string()),
-    dimensionScores: v.optional(v.object({
-      architecture: v.number(),
-      patterns: v.number(),
-      documentation: v.number(),
-      dependencies: v.number(),
-      testing: v.number(),
-    })),
+    dimensionScores: v.optional(
+      v.object({
+        architecture: v.number(),
+        patterns: v.number(),
+        documentation: v.number(),
+        dependencies: v.number(),
+        testing: v.number(),
+      })
+    ),
     failureConstraints: v.optional(v.array(v.string())),
     estimatedCostUsd: v.optional(v.number()),
     planContent: v.optional(v.string()),
@@ -544,12 +554,12 @@ export const updateSessionProgress = internalMutation({
  */
 export const completeSession = internalMutation({
   args: {
-    sessionId: v.id("assimilationSessions"),
+    sessionId: v.id('assimilationSessions'),
     status: v.string(),
-    documentId: v.optional(v.id("documents")),
-    metadataId: v.optional(v.id("assimilationMetadata")),
+    documentId: v.optional(v.id('documents')),
+    metadataId: v.optional(v.id('assimilationMetadata')),
     errorReason: v.optional(v.string()),
-    planId: v.optional(v.id("executionPlans")),
+    planId: v.optional(v.id('executionPlans')),
   },
   handler: async (ctx, { sessionId, status, documentId, metadataId, errorReason, planId }) => {
     const patch: Record<string, unknown> = {
@@ -567,19 +577,15 @@ export const completeSession = internalMutation({
     if (planId) {
       try {
         const plan = await ctx.db.get(planId);
-        if (plan && plan.status === "executing") {
-          if (status === "completed") {
+        if (plan && plan.status === 'executing') {
+          if (status === 'completed') {
             await ctx.runMutation(api.plans.confirmation.completeExecution, { planId });
-            
-          } else if (status === "failed" || status === "cancelled") {
+          } else if (status === 'failed' || status === 'cancelled') {
             await ctx.runMutation(api.plans.confirmation.failExecution, { planId });
-            
           }
         }
       } catch (error) {
-        console.error(
-          `[completeSession] Failed to update plan status: ${error}`,
-        );
+        console.error(`[completeSession] Failed to update plan status: ${error}`);
       }
     }
   },
@@ -597,35 +603,35 @@ async function updateDocumentCountersInline(
 ) {
   // Update total counter
   const totalCounter = await ctx.db
-    .query("documentCounters")
-    .withIndex("by_name", (q: any) => q.eq("name", "total"))
+    .query('documentCounters')
+    .withIndex('by_name', (q: any) => q.eq('name', 'total'))
     .first();
 
   if (totalCounter) {
     await ctx.db.patch(totalCounter._id, { count: totalCounter.count + increment });
   } else {
-    await ctx.db.insert("documentCounters", { name: "total", count: increment });
+    await ctx.db.insert('documentCounters', { name: 'total', count: increment });
   }
 
   // Update category counter
   if (category) {
     const categoryCounter = await ctx.db
-      .query("documentCounters")
-      .withIndex("by_name", (q: any) => q.eq("name", category))
+      .query('documentCounters')
+      .withIndex('by_name', (q: any) => q.eq('name', category))
       .first();
 
     if (categoryCounter) {
       await ctx.db.patch(categoryCounter._id, { count: categoryCounter.count + increment });
     } else {
-      await ctx.db.insert("documentCounters", { name: category, count: increment });
+      await ctx.db.insert('documentCounters', { name: category, count: increment });
     }
   }
 
   // Update withoutEmbeddings counter
   if (!hasEmbedding) {
     const withoutEmbeddingsCounter = await ctx.db
-      .query("documentCounters")
-      .withIndex("by_name", (q: any) => q.eq("name", "withoutEmbeddings"))
+      .query('documentCounters')
+      .withIndex('by_name', (q: any) => q.eq('name', 'withoutEmbeddings'))
       .first();
 
     if (withoutEmbeddingsCounter) {
@@ -633,8 +639,8 @@ async function updateDocumentCountersInline(
         count: withoutEmbeddingsCounter.count + increment,
       });
     } else {
-      await ctx.db.insert("documentCounters", {
-        name: "withoutEmbeddings",
+      await ctx.db.insert('documentCounters', {
+        name: 'withoutEmbeddings',
         count: increment,
       });
     }

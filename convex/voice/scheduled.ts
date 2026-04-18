@@ -1,5 +1,5 @@
-import { internalMutation } from "../_generated/server";
-import { v } from "convex/values";
+import { v } from 'convex/values';
+import { internalMutation } from '../_generated/server';
 
 const SESSION_TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes
 
@@ -25,9 +25,9 @@ export const timeoutOrphanedSessions = internalMutation({
     // Query sessions by created timestamp to find old ones
     // Use by_created index to avoid a full table scan
     const oldSessions = await ctx.db
-      .query("voiceSessions")
-      .withIndex("by_created", (q) => q.lt("createdAt", cutoff))
-      .filter((q) => q.eq(q.field("completedAt"), undefined))
+      .query('voiceSessions')
+      .withIndex('by_created', (q) => q.lt('createdAt', cutoff))
+      .filter((q) => q.eq(q.field('completedAt'), undefined))
       .collect();
 
     let timedOutCount = 0;
@@ -35,7 +35,7 @@ export const timeoutOrphanedSessions = internalMutation({
     for (const session of oldSessions) {
       await ctx.db.patch(session._id, {
         completedAt: now,
-        errorMessage: "Session timed out",
+        errorMessage: 'Session timed out',
         updatedAt: now,
       });
       timedOutCount++;

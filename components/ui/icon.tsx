@@ -1,8 +1,8 @@
-import { cn } from '@/lib/utils';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { LucideIcon, LucideProps } from 'lucide-react-native';
 import { cssInterop } from 'nativewind';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { ComponentProps } from 'react';
+import { cn } from '@/lib/utils';
 
 // Lucide Icon Props
 type LucideIconProps = LucideProps & {
@@ -76,7 +76,8 @@ cssInterop(ExpoIconImpl, {
  */
 function Icon({ as: IconComponent, className, size = 14, ...props }: UnifiedIconProps) {
   // Check if it's a Lucide icon (has displayName indicating lucide-react-native)
-  const isLucide = 'displayName' in IconComponent && String(IconComponent.displayName).includes('lucide');
+  const isLucide =
+    'displayName' in IconComponent && String(IconComponent.displayName).includes('lucide');
 
   if (isLucide) {
     return (

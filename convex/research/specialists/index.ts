@@ -8,18 +8,18 @@
  */
 
 export {
-  executeAcademicResearch,
   type AcademicReport,
-} from "./academic";
-export {
-  executeTechnicalResearch,
-  type TechnicalReport,
-} from "./technical";
+  executeAcademicResearch,
+} from './academic';
 export {
   executeProductFinder,
   type ProductReport,
-} from "./product_finder";
+} from './product_finder';
 export {
   executeServiceFinder,
   type ServiceReport,
-} from "./service_finder";
+} from './service_finder';
+export {
+  executeTechnicalResearch,
+  type TechnicalReport,
+} from './technical';

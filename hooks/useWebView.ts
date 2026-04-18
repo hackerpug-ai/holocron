@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useState } from 'react';
 
 export interface WebViewState {
-  visible: boolean
-  url: string
+  visible: boolean;
+  url: string;
 }
 
 /**
@@ -47,19 +47,19 @@ export function useWebView() {
   const [webViewState, setWebViewState] = useState<WebViewState>({
     visible: false,
     url: '',
-  })
+  });
 
   const openUrl = (url: string) => {
-    setWebViewState({ visible: true, url })
-  }
+    setWebViewState({ visible: true, url });
+  };
 
   const closeWebView = () => {
-    setWebViewState({ visible: false, url: '' })
-  }
+    setWebViewState({ visible: false, url: '' });
+  };
 
   return {
     webViewState,
     openUrl,
     closeWebView,
-  }
+  };
 }

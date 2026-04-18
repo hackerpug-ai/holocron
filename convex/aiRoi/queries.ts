@@ -4,18 +4,18 @@
  * Read operations for aiRoiSessions, aiRoiOpportunities, and aiRoiEvidence.
  */
 
-import { query } from "../_generated/server";
-import { v } from "convex/values";
-import type { Doc } from "../_generated/dataModel";
+import { v } from 'convex/values';
+import type { Doc } from '../_generated/dataModel';
+import { query } from '../_generated/server';
 
 // ============================================================================
 // Types
 // ============================================================================
 
 export type AiRoiSessionWithDetails = {
-  session: Doc<"aiRoiSessions">;
-  opportunities: Doc<"aiRoiOpportunities">[];
-  evidence: Doc<"aiRoiEvidence">[];
+  session: Doc<'aiRoiSessions'>;
+  opportunities: Doc<'aiRoiOpportunities'>[];
+  evidence: Doc<'aiRoiEvidence'>[];
 };
 
 // ============================================================================
@@ -27,9 +27,9 @@ export type AiRoiSessionWithDetails = {
  */
 export const getSession = query({
   args: {
-    sessionId: v.id("aiRoiSessions"),
+    sessionId: v.id('aiRoiSessions'),
   },
-  handler: async (ctx, args): Promise<Doc<"aiRoiSessions"> | null> => {
+  handler: async (ctx, args): Promise<Doc<'aiRoiSessions'> | null> => {
     return await ctx.db.get(args.sessionId);
   },
 });
@@ -39,23 +39,23 @@ export const getSession = query({
  */
 export const getSessionWithDetails = query({
   args: {
-    sessionId: v.id("aiRoiSessions"),
+    sessionId: v.id('aiRoiSessions'),
   },
   handler: async (ctx, args): Promise<AiRoiSessionWithDetails | null> => {
     const session = await ctx.db.get(args.sessionId);
     if (!session) return null;
 
     const opportunities = await ctx.db
-      .query("aiRoiOpportunities")
-      .withIndex("by_rank", (q) => q.eq("sessionId", args.sessionId))
+      .query('aiRoiOpportunities')
+      .withIndex('by_rank', (q) => q.eq('sessionId', args.sessionId))
       .collect();
 
     // Sort by rank ascending
     opportunities.sort((a, b) => a.rank - b.rank);
 
     const evidence = await ctx.db
-      .query("aiRoiEvidence")
-      .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
+      .query('aiRoiEvidence')
+      .withIndex('by_session', (q) => q.eq('sessionId', args.sessionId))
       .collect();
 
     return { session, opportunities, evidence };
@@ -70,19 +70,15 @@ export const listSessions = query({
     limit: v.optional(v.number()),
     status: v.optional(v.string()),
   },
-  handler: async (ctx, args): Promise<Doc<"aiRoiSessions">[]> => {
+  handler: async (ctx, args): Promise<Doc<'aiRoiSessions'>[]> => {
     let q;
 
     if (args.status) {
-      q = ctx.db
-        .query("aiRoiSessions")
-        .withIndex("by_status", (q) => q.eq("status", args.status!));
+      q = ctx.db.query('aiRoiSessions').withIndex('by_status', (q) => q.eq('status', args.status!));
     } else {
-      q = ctx.db
-        .query("aiRoiSessions")
-        .withIndex("by_created");
+      q = ctx.db.query('aiRoiSessions').withIndex('by_created');
     }
 
-    return await q.order("desc").take(args.limit ?? 20);
+    return await q.order('desc').take(args.limit ?? 20);
   },
 });

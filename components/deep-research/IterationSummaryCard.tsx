@@ -1,24 +1,23 @@
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
-import { Text } from '@/components/ui/text'
-import { cn } from '@/lib/utils'
-import { useTheme } from '@/hooks/use-theme'
-import { AlertCircle, CheckCircle2, ChevronDown, ChevronRight, Zap } from '@/components/ui/icons'
-import { useState } from 'react'
-import { Pressable, View, type ViewProps } from 'react-native'
-import type { DeepResearchIteration } from '@/lib/types/deep-research'
+import { useState } from 'react';
+import { Pressable, View, type ViewProps } from 'react-native';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { AlertCircle, CheckCircle2, ChevronDown, ChevronRight, Zap } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { useTheme } from '@/hooks/use-theme';
+import type { DeepResearchIteration } from '@/lib/types/deep-research';
+import { cn } from '@/lib/utils';
 
 interface WorkerIndicatorProps {
   /** Worker index (1-based) */
-  workerId: number
+  workerId: number;
   /** Worker status */
-  status: 'idle' | 'active' | 'complete' | 'error'
+  status: 'idle' | 'active' | 'complete' | 'error';
   /** Optional worker task description */
-  task?: string
+  task?: string;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function WorkerIndicator({ workerId, status, task }: WorkerIndicatorProps) {
-
   const statusConfig = {
     idle: {
       bg: 'bg-muted',
@@ -40,9 +39,9 @@ function WorkerIndicator({ workerId, status, task }: WorkerIndicatorProps) {
       text: 'text-destructive',
       icon: <AlertCircle size={10} className="text-destructive" />,
     },
-  }
+  };
 
-  const config = statusConfig[status]
+  const config = statusConfig[status];
 
   return (
     <View
@@ -54,16 +53,14 @@ function WorkerIndicator({ workerId, status, task }: WorkerIndicatorProps) {
       testID={`worker-indicator-${workerId}`}
     >
       {config.icon}
-      <Text className={cn('text-xs font-medium', config.text)}>
-        W{workerId}
-      </Text>
+      <Text className={cn('text-xs font-medium', config.text)}>W{workerId}</Text>
     </View>
-  )
+  );
 }
 
 interface ParallelWorkersProps {
   /** Array of worker statuses (max 5 for GPT-5-mini) */
-  workers: Array<WorkerIndicatorProps>
+  workers: Array<WorkerIndicatorProps>;
 }
 
 function ParallelWorkers({ workers }: ParallelWorkersProps) {
@@ -73,26 +70,26 @@ function ParallelWorkers({ workers }: ParallelWorkersProps) {
         <WorkerIndicator key={worker.workerId} {...worker} />
       ))}
     </View>
-  )
+  );
 }
 
 interface CoverageVisualizationProps {
   /** Coverage score (0-100) */
-  score: number | null
+  score: number | null;
   /** Optional label */
-  label?: string
+  label?: string;
 }
 
 function CoverageVisualization({ score, label = 'Coverage' }: CoverageVisualizationProps) {
-  const displayScore = score ?? 0
+  const displayScore = score ?? 0;
 
   // Color coding based on coverage score
   const getScoreColor = (score: number) => {
-    if (score >= 80) return 'bg-success'
-    if (score >= 60) return 'bg-warning'
-    if (score >= 40) return 'bg-warning'
-    return 'bg-destructive'
-  }
+    if (score >= 80) return 'bg-success';
+    if (score >= 60) return 'bg-warning';
+    if (score >= 40) return 'bg-warning';
+    return 'bg-destructive';
+  };
 
   return (
     <View className="gap-1.5" testID="coverage-visualization">
@@ -109,16 +106,16 @@ function CoverageVisualization({ score, label = 'Coverage' }: CoverageVisualizat
         />
       </View>
     </View>
-  )
+  );
 }
 
 interface AgentCoordinationStatusProps {
   /** Number of active workers */
-  activeWorkers: number
+  activeWorkers: number;
   /** Total workers */
-  totalWorkers: number
+  totalWorkers: number;
   /** Coordination phase */
-  phase: 'idle' | 'distributing' | 'working' | 'aggregating' | 'complete'
+  phase: 'idle' | 'distributing' | 'working' | 'aggregating' | 'complete';
 }
 
 function AgentCoordinationStatus({
@@ -132,7 +129,7 @@ function AgentCoordinationStatus({
     working: `${activeWorkers}/${totalWorkers} workers active`,
     aggregating: 'Aggregating results',
     complete: 'Complete',
-  }
+  };
 
   const phaseColors = {
     idle: 'text-muted-foreground',
@@ -140,7 +137,7 @@ function AgentCoordinationStatus({
     working: 'text-info',
     aggregating: 'text-warning',
     complete: 'text-success',
-  }
+  };
 
   return (
     <View className="flex-row items-center gap-2" testID="agent-coordination-status">
@@ -154,26 +151,24 @@ function AgentCoordinationStatus({
           phase === 'idle' && 'bg-muted'
         )}
       />
-      <Text className={cn('text-xs font-medium', phaseColors[phase])}>
-        {phaseLabels[phase]}
-      </Text>
+      <Text className={cn('text-xs font-medium', phaseColors[phase])}>{phaseLabels[phase]}</Text>
     </View>
-  )
+  );
 }
 
 export interface IterationSummaryCardProps extends Omit<ViewProps, 'children'> {
   /** Iteration data */
-  iteration: DeepResearchIteration
+  iteration: DeepResearchIteration;
   /** Worker statuses for parallel processing */
-  workers?: Array<WorkerIndicatorProps>
+  workers?: Array<WorkerIndicatorProps>;
   /** Agent coordination phase */
-  coordinationPhase?: AgentCoordinationStatusProps['phase']
+  coordinationPhase?: AgentCoordinationStatusProps['phase'];
   /** Whether this iteration is currently active */
-  isActive?: boolean
+  isActive?: boolean;
   /** Optional callback when card is pressed */
-  onPress?: () => void
+  onPress?: () => void;
   /** Whether the card is initially expanded */
-  defaultExpanded?: boolean
+  defaultExpanded?: boolean;
 }
 
 /**
@@ -191,38 +186,34 @@ export function IterationSummaryCard({
   className,
   ...props
 }: IterationSummaryCardProps) {
-  const { colors } = useTheme()
-  const [isExpanded, setIsExpanded] = useState(defaultExpanded)
+  const { colors } = useTheme();
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
 
-  const hasDetails = iteration.findings || iteration.feedback || iteration.refinedQueries?.length
-  const ChevronIcon = isExpanded ? ChevronDown : ChevronRight
-  const isComplete = iteration.status === 'completed'
+  const hasDetails = iteration.findings || iteration.feedback || iteration.refinedQueries?.length;
+  const ChevronIcon = isExpanded ? ChevronDown : ChevronRight;
+  const isComplete = iteration.status === 'completed';
 
   const handlePress = () => {
     if (hasDetails) {
-      setIsExpanded(!isExpanded)
+      setIsExpanded(!isExpanded);
     }
-    onPress?.()
-  }
+    onPress?.();
+  };
 
   // Calculate worker stats
-  const activeWorkers = workers.filter((w) => w.status === 'active').length
-  const totalWorkers = workers.length
+  const activeWorkers = workers.filter((w) => w.status === 'active').length;
+  const totalWorkers = workers.length;
 
   // Truncate findings for preview (first 150 chars)
   const findingsPreview = iteration.findings
     ? iteration.findings.length > 150
       ? `${iteration.findings.slice(0, 150)}...`
       : iteration.findings
-    : null
+    : null;
 
   return (
     <Card
-      className={cn(
-        'transition-all',
-        isActive && 'border-primary shadow-md',
-        className
-      )}
+      className={cn('transition-all', isActive && 'border-primary shadow-md', className)}
       testID="iteration-summary-card"
       {...props}
     >
@@ -246,25 +237,17 @@ export function IterationSummaryCard({
                   Iteration {iteration.iterationNumber}
                 </Text>
                 <Text className="text-muted-foreground text-xs">
-                  {isComplete
-                    ? 'Completed'
-                    : isActive
-                    ? 'In Progress'
-                    : 'Pending'}
+                  {isComplete ? 'Completed' : isActive ? 'In Progress' : 'Pending'}
                 </Text>
               </View>
             </View>
-            {hasDetails && (
-              <ChevronIcon size={18} className="text-muted-foreground" />
-            )}
+            {hasDetails && <ChevronIcon size={18} className="text-muted-foreground" />}
           </View>
 
           {/* Parallel Workers Row */}
           {workers.length > 0 && (
             <View className="gap-2">
-              <Text className="text-muted-foreground text-xs font-medium">
-                GPT-5-mini Workers
-              </Text>
+              <Text className="text-muted-foreground text-xs font-medium">GPT-5-mini Workers</Text>
               <ParallelWorkers workers={workers} />
             </View>
           )}
@@ -289,9 +272,7 @@ export function IterationSummaryCard({
               <Text className="text-muted-foreground mb-1 text-xs uppercase tracking-wide">
                 Findings Preview
               </Text>
-              <Text className="text-foreground text-sm leading-relaxed">
-                {findingsPreview}
-              </Text>
+              <Text className="text-foreground text-sm leading-relaxed">{findingsPreview}</Text>
             </View>
           )}
         </CardHeader>
@@ -306,9 +287,7 @@ export function IterationSummaryCard({
               <Text className="text-muted-foreground mb-2 text-xs uppercase tracking-wide">
                 Research Findings
               </Text>
-              <Text className="text-foreground text-sm leading-relaxed">
-                {iteration.findings}
-              </Text>
+              <Text className="text-foreground text-sm leading-relaxed">{iteration.findings}</Text>
             </View>
           )}
 
@@ -334,16 +313,9 @@ export function IterationSummaryCard({
               </Text>
               <View className="gap-2">
                 {iteration.refinedQueries.map((query, index) => (
-                  <View
-                    key={index}
-                    className="bg-muted flex-row items-start gap-2 rounded-md p-2"
-                  >
-                    <Text className="text-primary text-xs font-semibold">
-                      {index + 1}.
-                    </Text>
-                    <Text className="text-foreground flex-1 text-sm">
-                      {query}
-                    </Text>
+                  <View key={index} className="bg-muted flex-row items-start gap-2 rounded-md p-2">
+                    <Text className="text-primary text-xs font-semibold">{index + 1}.</Text>
+                    <Text className="text-foreground flex-1 text-sm">{query}</Text>
                   </View>
                 ))}
               </View>
@@ -352,5 +324,5 @@ export function IterationSummaryCard({
         </CardContent>
       )}
     </Card>
-  )
+  );
 }

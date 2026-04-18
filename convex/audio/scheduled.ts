@@ -1,4 +1,4 @@
-import { internalMutation } from "../_generated/server";
+import { internalMutation } from '../_generated/server';
 
 const SEGMENT_TIMEOUT_MS = 180_000; // 3 minutes
 const JOB_TIMEOUT_MS = 600_000; // 10 minutes
@@ -22,24 +22,24 @@ export const timeoutStuckSegments = internalMutation({
 
     // Query all running jobs via the by_status index
     const runningJobs = await ctx.db
-      .query("audioJobs")
-      .withIndex("by_status", (q) => q.eq("status", "running"))
+      .query('audioJobs')
+      .withIndex('by_status', (q) => q.eq('status', 'running'))
       .collect();
 
     // For each running job, find and timeout stuck segments
     for (const job of runningJobs) {
       const generatingSegments = await ctx.db
-        .query("audioSegments")
-        .withIndex("by_document_and_status", (q) =>
-          q.eq("documentId", job.documentId).eq("status", "generating")
+        .query('audioSegments')
+        .withIndex('by_document_and_status', (q) =>
+          q.eq('documentId', job.documentId).eq('status', 'generating')
         )
         .collect();
 
       for (const segment of generatingSegments) {
         if (segment.updatedAt < segmentCutoff) {
           await ctx.db.patch(segment._id, {
-            status: "failed",
-            errorMessage: "Generation timed out",
+            status: 'failed',
+            errorMessage: 'Generation timed out',
             updatedAt: now,
           });
         }
@@ -48,8 +48,8 @@ export const timeoutStuckSegments = internalMutation({
       // Timeout the job itself if it has been running too long
       if (job.updatedAt < jobCutoff) {
         await ctx.db.patch(job._id, {
-          status: "failed",
-          errorMessage: "Job timed out",
+          status: 'failed',
+          errorMessage: 'Job timed out',
           updatedAt: now,
         });
       }
@@ -57,15 +57,15 @@ export const timeoutStuckSegments = internalMutation({
 
     // Also timeout pending jobs that never started
     const pendingJobs = await ctx.db
-      .query("audioJobs")
-      .withIndex("by_status", (q) => q.eq("status", "pending"))
+      .query('audioJobs')
+      .withIndex('by_status', (q) => q.eq('status', 'pending'))
       .collect();
 
     for (const job of pendingJobs) {
       if (job.updatedAt < jobCutoff) {
         await ctx.db.patch(job._id, {
-          status: "failed",
-          errorMessage: "Job timed out (never started)",
+          status: 'failed',
+          errorMessage: 'Job timed out (never started)',
           updatedAt: now,
         });
       }

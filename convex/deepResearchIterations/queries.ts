@@ -1,5 +1,5 @@
-import { query } from "../_generated/server";
-import { v } from "convex/values";
+import { v } from 'convex/values';
+import { query } from '../_generated/server';
 
 /**
  * Get deep research iteration count (for validation)
@@ -7,7 +7,7 @@ import { v } from "convex/values";
 export const count = query({
   args: {},
   handler: async (ctx) => {
-    const iterations = await ctx.db.query("deepResearchIterations").collect();
+    const iterations = await ctx.db.query('deepResearchIterations').collect();
     return iterations.length;
   },
 });
@@ -18,7 +18,7 @@ export const count = query({
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    return await ctx.db.query("deepResearchIterations").collect();
+    return await ctx.db.query('deepResearchIterations').collect();
   },
 });
 
@@ -27,7 +27,7 @@ export const list = query({
  */
 export const get = query({
   args: {
-    id: v.id("deepResearchIterations"),
+    id: v.id('deepResearchIterations'),
   },
   handler: async (ctx, { id }) => {
     const iteration = await ctx.db.get(id);

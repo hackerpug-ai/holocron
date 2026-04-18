@@ -3,46 +3,38 @@
  * This file ensures all documents functions are deployed by importing them
  */
 
-// Import all documents queries to ensure deployment
-export {
-  get,
-  list,
-  count,
-  countWithFilter,
-  getSampleWithEmbedding,
-  countByCategory,
-  vectorSearch,
-  fullTextSearch,
-  findDocumentsWithoutEmbeddings,
-  countDocumentsWithoutEmbeddings,
-  getByShareToken,
-  getSection,
-} from "./documents/queries";
-
 // Import all documents mutations to ensure deployment
 export {
+  appendText,
+  clearAll,
   create,
-  update,
-  remove,
   insertFromMigration,
   publishDocument,
+  remove,
   unpublishDocument,
-  clearAll,
-  appendText,
-} from "./documents/mutations";
-
-// Import documents actions to ensure deployment
+  update,
+} from './documents/mutations';
+// Import all documents queries to ensure deployment
 export {
-  hybridSearch,
-} from "./documents/search";
-
+  count,
+  countByCategory,
+  countDocumentsWithoutEmbeddings,
+  countWithFilter,
+  findDocumentsWithoutEmbeddings,
+  fullTextSearch,
+  get,
+  getByShareToken,
+  getSampleWithEmbedding,
+  getSection,
+  list,
+  vectorSearch,
+} from './documents/queries';
+// Import documents scheduled functions to ensure deployment
+export { backfillOrphanedEmbeddings } from './documents/scheduled';
+// Import documents actions to ensure deployment
+export { hybridSearch } from './documents/search';
 // Import documents storage actions to ensure deployment
 export {
   createWithEmbedding,
   updateWithEmbedding,
-} from "./documents/storage";
-
-// Import documents scheduled functions to ensure deployment
-export {
-  backfillOrphanedEmbeddings,
-} from "./documents/scheduled";
+} from './documents/storage';

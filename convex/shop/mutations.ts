@@ -4,9 +4,9 @@
  * Handles CRUD operations for shop sessions and listings.
  */
 
-import { mutation } from "../_generated/server";
-import { v } from "convex/values";
-import type { Id } from "../_generated/dataModel";
+import { v } from 'convex/values';
+import type { Id } from '../_generated/dataModel';
+import { mutation } from '../_generated/server';
 
 // ============================================================================
 // Planning Phase Mutations
@@ -20,18 +20,18 @@ import type { Id } from "../_generated/dataModel";
  */
 export const generateShopPlan = mutation({
   args: {
-    conversationId: v.optional(v.id("conversations")),
+    conversationId: v.optional(v.id('conversations')),
     query: v.string(),
     retailers: v.optional(v.array(v.string())),
     condition: v.optional(v.string()),
     priceMin: v.optional(v.number()),
     priceMax: v.optional(v.number()),
   },
-  handler: async (ctx, args): Promise<Id<"executionPlans">> => {
+  handler: async (ctx, args): Promise<Id<'executionPlans'>> => {
     const now = Date.now();
 
     // Default retailers if not provided
-    const DEFAULT_RETAILERS = ["eBay", "Amazon", "Craigslist"];
+    const DEFAULT_RETAILERS = ['eBay', 'Amazon', 'Craigslist'];
     const targetRetailers = args.retailers?.length ? args.retailers : DEFAULT_RETAILERS;
 
     // Build plan content
@@ -39,7 +39,7 @@ export const generateShopPlan = mutation({
       title: `Shop: ${args.query}`,
       description: `Find best deals for "${args.query}" across ${targetRetailers.length} retailers`,
       query: args.query,
-      condition: args.condition ?? "any",
+      condition: args.condition ?? 'any',
       priceRange: {
         min: args.priceMin,
         max: args.priceMax,
@@ -54,9 +54,9 @@ export const generateShopPlan = mutation({
     };
 
     // Create execution plan in draft status
-    const planId = await ctx.db.insert("executionPlans", {
-      type: "shop",
-      status: "draft",
+    const planId = await ctx.db.insert('executionPlans', {
+      type: 'shop',
+      status: 'draft',
       content,
       metadata: {
         conversationId: args.conversationId,
@@ -79,7 +79,7 @@ export const generateShopPlan = mutation({
  */
 export const requestShopPlanApproval = mutation({
   args: {
-    planId: v.id("executionPlans"),
+    planId: v.id('executionPlans'),
   },
   handler: async (ctx, { planId }): Promise<{ success: boolean; status: string }> => {
     const plan = await ctx.db.get(planId);
@@ -88,17 +88,17 @@ export const requestShopPlanApproval = mutation({
     }
 
     // Validate plan is in draft status
-    if (plan.status !== "draft") {
+    if (plan.status !== 'draft') {
       throw new Error(`Cannot request approval for plan in ${plan.status} status`);
     }
 
     // Update plan status to pending
     await ctx.db.patch(planId, {
-      status: "pending",
+      status: 'pending',
       updatedAt: Date.now(),
     });
 
-    return { success: true, status: "pending" };
+    return { success: true, status: 'pending' };
   },
 });
 
@@ -110,7 +110,7 @@ export const requestShopPlanApproval = mutation({
  */
 export const approveShopPlan = mutation({
   args: {
-    planId: v.id("executionPlans"),
+    planId: v.id('executionPlans'),
     userId: v.string(),
   },
   handler: async (ctx, { planId, userId }): Promise<{ success: boolean; status: string }> => {
@@ -120,25 +120,25 @@ export const approveShopPlan = mutation({
     }
 
     // Validate plan is in pending status
-    if (plan.status !== "pending") {
+    if (plan.status !== 'pending') {
       throw new Error(`Cannot approve plan in ${plan.status} status`);
     }
 
     // Create approval record
-    await ctx.db.insert("planApprovals", {
+    await ctx.db.insert('planApprovals', {
       planId,
       approvedBy: userId,
       approvedAt: Date.now(),
-      decision: "approved",
+      decision: 'approved',
     });
 
     // Update plan status to approved
     await ctx.db.patch(planId, {
-      status: "approved",
+      status: 'approved',
       updatedAt: Date.now(),
     });
 
-    return { success: true, status: "approved" };
+    return { success: true, status: 'approved' };
   },
 });
 
@@ -150,39 +150,42 @@ export const approveShopPlan = mutation({
  */
 export const rejectShopPlan = mutation({
   args: {
-    planId: v.id("executionPlans"),
+    planId: v.id('executionPlans'),
     userId: v.string(),
     rejectionReason: v.optional(v.string()),
     feedback: v.optional(v.string()),
   },
-  handler: async (ctx, { planId, userId, rejectionReason, feedback }): Promise<{ success: boolean; status: string }> => {
+  handler: async (
+    ctx,
+    { planId, userId, rejectionReason, feedback }
+  ): Promise<{ success: boolean; status: string }> => {
     const plan = await ctx.db.get(planId);
     if (!plan) {
       throw new Error(`Plan ${planId} not found`);
     }
 
     // Validate plan is in pending status
-    if (plan.status !== "pending") {
+    if (plan.status !== 'pending') {
       throw new Error(`Cannot reject plan in ${plan.status} status`);
     }
 
     // Create rejection record
-    await ctx.db.insert("planApprovals", {
+    await ctx.db.insert('planApprovals', {
       planId,
       approvedBy: userId,
       approvedAt: Date.now(),
-      decision: "rejected",
+      decision: 'rejected',
       rejectionReason,
       feedback,
     });
 
     // Update plan status to rejected
     await ctx.db.patch(planId, {
-      status: "rejected",
+      status: 'rejected',
       updatedAt: Date.now(),
     });
 
-    return { success: true, status: "rejected" };
+    return { success: true, status: 'rejected' };
   },
 });
 
@@ -194,15 +197,15 @@ export const rejectShopPlan = mutation({
  */
 export const updateShopPlanExecutionStatus = mutation({
   args: {
-    planId: v.id("executionPlans"),
+    planId: v.id('executionPlans'),
     status: v.union(
-      v.literal("draft"),
-      v.literal("pending"),
-      v.literal("approved"),
-      v.literal("rejected"),
-      v.literal("executing"),
-      v.literal("completed"),
-      v.literal("failed")
+      v.literal('draft'),
+      v.literal('pending'),
+      v.literal('approved'),
+      v.literal('rejected'),
+      v.literal('executing'),
+      v.literal('completed'),
+      v.literal('failed')
     ),
     currentStepIndex: v.optional(v.number()),
     errorMessage: v.optional(v.string()),
@@ -232,14 +235,14 @@ export const updateShopPlanExecutionStatus = mutation({
  */
 function getRetailerPriority(retailer: string): number {
   const priorities: Record<string, number> = {
-    "eBay": 1,
-    "Amazon": 2,
-    "Craigslist": 3,
-    "Newegg": 4,
-    "Best Buy": 5,
-    "B&H Photo": 6,
-    "Back Market": 7,
-    "Walmart": 8,
+    eBay: 1,
+    Amazon: 2,
+    Craigslist: 3,
+    Newegg: 4,
+    'Best Buy': 5,
+    'B&H Photo': 6,
+    'Back Market': 7,
+    Walmart: 8,
   };
   return priorities[retailer] ?? 99;
 }
@@ -264,18 +267,18 @@ function estimateShopDuration(retailerCount: number): number {
  */
 export const createShopSession = mutation({
   args: {
-    conversationId: v.optional(v.id("conversations")),
+    conversationId: v.optional(v.id('conversations')),
     query: v.string(),
     condition: v.optional(v.string()),
     priceMin: v.optional(v.number()),
     priceMax: v.optional(v.number()),
     retailers: v.optional(v.array(v.string())),
-    planId: v.optional(v.id("executionPlans")),
+    planId: v.optional(v.id('executionPlans')),
     verifiedOnly: v.optional(v.boolean()),
   },
-  handler: async (ctx, args): Promise<Id<"shopSessions">> => {
+  handler: async (ctx, args): Promise<Id<'shopSessions'>> => {
     const now = Date.now();
-    const sessionId = await ctx.db.insert("shopSessions", {
+    const sessionId = await ctx.db.insert('shopSessions', {
       conversationId: args.conversationId,
       query: args.query,
       condition: args.condition,
@@ -284,7 +287,7 @@ export const createShopSession = mutation({
       retailers: args.retailers,
       planId: args.planId,
       verifiedOnly: args.verifiedOnly,
-      status: "pending",
+      status: 'pending',
       createdAt: now,
       updatedAt: now,
     });
@@ -297,10 +300,10 @@ export const createShopSession = mutation({
  */
 export const updateShopSession = mutation({
   args: {
-    sessionId: v.id("shopSessions"),
+    sessionId: v.id('shopSessions'),
     status: v.optional(v.string()),
     totalListings: v.optional(v.number()),
-    bestDealId: v.optional(v.id("shopListings")),
+    bestDealId: v.optional(v.id('shopListings')),
     errorReason: v.optional(v.string()),
     completedAt: v.optional(v.number()),
   },
@@ -324,10 +327,10 @@ export const updateShopSession = mutation({
  */
 export const completeShopSession = mutation({
   args: {
-    sessionId: v.id("shopSessions"),
+    sessionId: v.id('shopSessions'),
     status: v.string(),
     totalListings: v.optional(v.number()),
-    bestDealId: v.optional(v.id("shopListings")),
+    bestDealId: v.optional(v.id('shopListings')),
     errorReason: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<void> => {
@@ -350,7 +353,7 @@ export const completeShopSession = mutation({
  */
 export const batchCreateListings = mutation({
   args: {
-    sessionId: v.id("shopSessions"),
+    sessionId: v.id('shopSessions'),
     listings: v.array(
       v.object({
         title: v.string(),
@@ -373,12 +376,12 @@ export const batchCreateListings = mutation({
       })
     ),
   },
-  handler: async (ctx, args): Promise<Id<"shopListings">[]> => {
+  handler: async (ctx, args): Promise<Id<'shopListings'>[]> => {
     const now = Date.now();
-    const listingIds: Id<"shopListings">[] = [];
+    const listingIds: Id<'shopListings'>[] = [];
 
     for (const listing of args.listings) {
-      const id = await ctx.db.insert("shopListings", {
+      const id = await ctx.db.insert('shopListings', {
         sessionId: args.sessionId,
         ...listing,
         createdAt: now,
@@ -395,7 +398,7 @@ export const batchCreateListings = mutation({
  */
 export const createListing = mutation({
   args: {
-    sessionId: v.id("shopSessions"),
+    sessionId: v.id('shopSessions'),
     title: v.string(),
     price: v.number(),
     originalPrice: v.optional(v.number()),
@@ -414,11 +417,11 @@ export const createListing = mutation({
     sellerTrustScore: v.optional(v.number()),
     isVerifiedSeller: v.optional(v.boolean()),
   },
-  handler: async (ctx, args): Promise<Id<"shopListings">> => {
+  handler: async (ctx, args): Promise<Id<'shopListings'>> => {
     const now = Date.now();
     const { sessionId, ...listingData } = args;
 
-    const listingId = await ctx.db.insert("shopListings", {
+    const listingId = await ctx.db.insert('shopListings', {
       sessionId,
       ...listingData,
       createdAt: now,
@@ -433,13 +436,13 @@ export const createListing = mutation({
  */
 export const deleteShopSession = mutation({
   args: {
-    sessionId: v.id("shopSessions"),
+    sessionId: v.id('shopSessions'),
   },
   handler: async (ctx, args): Promise<void> => {
     // Delete all listings for this session
     const listings = await ctx.db
-      .query("shopListings")
-      .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
+      .query('shopListings')
+      .withIndex('by_session', (q) => q.eq('sessionId', args.sessionId))
       .collect();
 
     for (const listing of listings) {

@@ -1,41 +1,41 @@
-import { ArticleCard } from '@/components/ArticleCard'
-import { type CategoryType } from '@/components/CategoryBadge'
-import { EmptyState } from '@/components/EmptyState'
-import { SectionHeader } from '@/components/SectionHeader'
-import { StatCard } from '@/components/StatCard'
-import { cn } from '@/lib/utils'
-import { BookOpen, FileText, Lightbulb, Search } from '@/components/ui/icons'
-import { ScrollView, View, type ViewProps } from 'react-native'
+import { ScrollView, View, type ViewProps } from 'react-native';
+import { ArticleCard } from '@/components/ArticleCard';
+import type { CategoryType } from '@/components/CategoryBadge';
+import { EmptyState } from '@/components/EmptyState';
+import { SectionHeader } from '@/components/SectionHeader';
+import { StatCard } from '@/components/StatCard';
+import { BookOpen, FileText, Lightbulb, Search } from '@/components/ui/icons';
+import { cn } from '@/lib/utils';
 
 interface Article {
-  id: string
-  title: string
-  category: CategoryType
-  date: string
-  snippet?: string
-  iterationCount?: number
+  id: string;
+  title: string;
+  category: CategoryType;
+  date: string;
+  snippet?: string;
+  iterationCount?: number;
 }
 
 interface Stats {
-  totalArticles: number
-  totalResearch: number
-  recentQueries: number
-  weeklyGrowth?: number
+  totalArticles: number;
+  totalResearch: number;
+  recentQueries: number;
+  weeklyGrowth?: number;
 }
 
 interface HomeScreenProps extends Omit<ViewProps, 'children'> {
   /** Stats to display */
-  stats?: Stats
+  stats?: Stats;
   /** Recent articles to display */
-  recentArticles?: Article[]
+  recentArticles?: Article[];
   /** Whether data is loading */
-  loading?: boolean
+  loading?: boolean;
   /** Callback when an article is pressed */
-  onArticlePress?: (_article: Article) => void
+  onArticlePress?: (_article: Article) => void;
   /** Callback when "View All" is pressed */
-  onViewAllPress?: () => void
+  onViewAllPress?: () => void;
   /** Callback when start research is pressed */
-  onStartResearchPress?: () => void
+  onStartResearchPress?: () => void;
 }
 
 /**
@@ -52,7 +52,7 @@ export function HomeScreen({
   className,
   ...props
 }: HomeScreenProps) {
-  const hasArticles = recentArticles.length > 0
+  const hasArticles = recentArticles.length > 0;
 
   return (
     <ScrollView
@@ -90,12 +90,7 @@ export function HomeScreen({
           />
         </View>
         <View className="min-w-[45%] flex-1">
-          <StatCard
-            label="Knowledge Base"
-            value="Active"
-            icon={BookOpen}
-            loading={loading}
-          />
+          <StatCard label="Knowledge Base" value="Active" icon={BookOpen} loading={loading} />
         </View>
       </View>
 
@@ -132,5 +127,5 @@ export function HomeScreen({
         />
       )}
     </ScrollView>
-  )
+  );
 }

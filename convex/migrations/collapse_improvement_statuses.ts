@@ -13,38 +13,38 @@
  *   npx convex run migrations/collapse_improvement_statuses:run
  */
 
-import { internalMutation } from "../_generated/server";
+import { internalMutation } from '../_generated/server';
 
 type OldStatus =
-  | "submitted"
-  | "processing"
-  | "pending_review"
-  | "approved"
-  | "done"
-  | "merged"
-  | "open"
-  | "closed";
+  | 'submitted'
+  | 'processing'
+  | 'pending_review'
+  | 'approved'
+  | 'done'
+  | 'merged'
+  | 'open'
+  | 'closed';
 
-function mapStatus(old: OldStatus): "open" | "closed" {
+function mapStatus(old: OldStatus): 'open' | 'closed' {
   switch (old) {
-    case "done":
-    case "merged":
-    case "closed":
-      return "closed";
-    case "submitted":
-    case "processing":
-    case "pending_review":
-    case "approved":
-    case "open":
+    case 'done':
+    case 'merged':
+    case 'closed':
+      return 'closed';
+    case 'submitted':
+    case 'processing':
+    case 'pending_review':
+    case 'approved':
+    case 'open':
     default:
-      return "open";
+      return 'open';
   }
 }
 
 export const run = internalMutation({
   args: {},
   handler: async (ctx) => {
-    const all = await ctx.db.query("improvementRequests").collect();
+    const all = await ctx.db.query('improvementRequests').collect();
 
     let migrated = 0;
     let skipped = 0;
@@ -56,8 +56,7 @@ export const run = internalMutation({
       const newStatus = mapStatus(oldStatus);
 
       const needsStatusUpdate = row.status !== newStatus;
-      const needsClosedAtBackfill =
-        newStatus === "closed" && row.closedAt === undefined;
+      const needsClosedAtBackfill = newStatus === 'closed' && row.closedAt === undefined;
 
       if (!needsStatusUpdate && !needsClosedAtBackfill) {
         skipped++;

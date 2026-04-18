@@ -3,16 +3,16 @@
  * Handles fallback logic between YouTube API and Jina Reader
  */
 
-import { internalAction } from "../_generated/server";
-import { internal } from "../_generated/api";
-import { v } from "convex/values";
-import type { Id } from "../_generated/dataModel";
+import { v } from 'convex/values';
+import { internal } from '../_generated/api';
+import type { Id } from '../_generated/dataModel';
+import { internalAction } from '../_generated/server';
 
 /**
  * "use node" directive - runs in Node.js environment (not V8 isolate)
  * Required for calling other internal actions
  */
-"use node";
+('use node');
 
 /**
  * Orchestrate transcript fetching with fallback
@@ -34,14 +34,17 @@ export const fetchTranscriptWithFallback = internalAction({
     contentId: v.string(),
     sourceUrl: v.string(),
   },
-  handler: async (ctx, args): Promise<{
+  handler: async (
+    ctx,
+    args
+  ): Promise<{
     success: boolean;
     transcript?: {
       contentId: string;
       sourceUrl: string;
-      transcriptType: "api" | "node_fallback" | "jina_fallback";
+      transcriptType: 'api' | 'node_fallback' | 'jina_fallback';
       transcriptSource: string;
-      storageId: Id<"_storage">;
+      storageId: Id<'_storage'>;
       previewText: string;
       wordCount: number;
       generatedAt: number;
@@ -56,11 +59,10 @@ export const fetchTranscriptWithFallback = internalAction({
     );
 
     if (youtubeResult.hasCaptions && youtubeResult.transcript) {
-      
       return {
         success: true,
         transcript: youtubeResult.transcript,
-        source: "youtube_api",
+        source: 'youtube_api',
       };
     }
 
@@ -70,25 +72,23 @@ export const fetchTranscriptWithFallback = internalAction({
       console.log(`YouTube API failed for ${args.contentId}: ${youtubeError}, trying Jina Reader`);
     }
 
-    const jinaResult = await ctx.runAction(
-      internal.transcripts.internal.fetchJinaTranscript,
-      { contentId: args.contentId }
-    );
+    const jinaResult = await ctx.runAction(internal.transcripts.internal.fetchJinaTranscript, {
+      contentId: args.contentId,
+    });
 
     if (jinaResult.hasTranscript && jinaResult.transcript) {
-      
       return {
         success: true,
         transcript: jinaResult.transcript,
-        source: "jina_reader_api",
+        source: 'jina_reader_api',
       };
     }
 
     // Both failed
-    
+
     return {
       success: false,
-      error: "No transcript available (tried YouTube API and Jina Reader)",
+      error: 'No transcript available (tried YouTube API and Jina Reader)',
     };
   },
 });

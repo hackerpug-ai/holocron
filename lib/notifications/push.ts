@@ -1,4 +1,4 @@
-import * as Notifications from 'expo-notifications'
+import * as Notifications from 'expo-notifications';
 
 /**
  * Schedule an immediate local push notification.
@@ -10,7 +10,7 @@ import * as Notifications from 'expo-notifications'
 export async function scheduleLocalNotification(
   title: string,
   body: string,
-  route: string,
+  route: string
 ): Promise<void> {
   await Notifications.scheduleNotificationAsync({
     content: {
@@ -19,5 +19,5 @@ export async function scheduleLocalNotification(
       data: { route },
     },
     trigger: null,
-  })
+  });
 }

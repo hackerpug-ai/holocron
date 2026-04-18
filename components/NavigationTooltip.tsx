@@ -1,12 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
-import { Pressable, StyleSheet, View } from 'react-native'
-import { useTheme } from '@/hooks/use-theme'
-import { Text } from '@/components/ui/text'
-import { Button } from '@/components/ui/button'
-import Animated, {
-  useAnimatedStyle,
-  withSpring,
-} from 'react-native-reanimated'
+import { useEffect, useRef, useState } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
+import Animated, { useAnimatedStyle, withSpring } from 'react-native-reanimated';
+import { Button } from '@/components/ui/button';
+import { Text } from '@/components/ui/text';
+import { useTheme } from '@/hooks/use-theme';
 
 /**
  * Navigation change tooltip
@@ -21,9 +18,9 @@ import Animated, {
  * - Server-side dismissal tracking
  */
 interface NavigationTooltipProps {
-  visible: boolean
-  onDismiss: () => void
-  testID?: string
+  visible: boolean;
+  onDismiss: () => void;
+  testID?: string;
 }
 
 export function NavigationTooltip({
@@ -31,34 +28,34 @@ export function NavigationTooltip({
   onDismiss,
   testID = 'navigation-tooltip',
 }: NavigationTooltipProps) {
-  const { colors: themeColors, spacing, radius, typography } = useTheme()
-  const [position, setPosition] = useState({ x: 0, y: 0 })
-  const tooltipRef = useRef<View>(null)
-  const [isAnimating, setIsAnimating] = useState(false)
+  const { colors: themeColors, spacing, radius, typography } = useTheme();
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const tooltipRef = useRef<View>(null);
+  const [isAnimating, setIsAnimating] = useState(false);
 
   // Position tooltip to point to drawer (left side of screen)
   useEffect(() => {
     if (visible && !isAnimating) {
-      setIsAnimating(true)
+      setIsAnimating(true);
       // Position on left side, pointing to drawer
       setPosition({
         x: spacing.lg,
         y: 120, // Below header area
-      })
+      });
     }
-  }, [visible, isAnimating, spacing])
+  }, [visible, isAnimating, spacing]);
 
   const handleDismiss = () => {
-    setIsAnimating(false)
+    setIsAnimating(false);
     // Small delay for exit animation
     setTimeout(() => {
-      onDismiss()
-    }, 200)
-  }
+      onDismiss();
+    }, 200);
+  };
 
   const handleBackdropPress = () => {
-    handleDismiss()
-  }
+    handleDismiss();
+  };
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [
@@ -79,10 +76,10 @@ export function NavigationTooltip({
       damping: 15,
       stiffness: 150,
     }),
-  }))
+  }));
 
   if (!visible && !isAnimating) {
-    return null
+    return null;
   }
 
   return (
@@ -158,7 +155,7 @@ export function NavigationTooltip({
         </View>
       </Animated.View>
     </>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
@@ -186,4 +183,4 @@ const styles = StyleSheet.create({
     borderLeftWidth: 0,
     transform: [{ rotate: '180deg' }],
   },
-})
+});

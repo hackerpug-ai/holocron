@@ -11,13 +11,13 @@
  * Strategy determines HOW to search; mode determines WHAT to produce.
  */
 
-"use node";
+'use node';
 
-import { generateText } from "ai";
-import { claudeFlash } from "../lib/ai/anthropic_provider";
-import { stripMarkdownCodeBlock } from "../lib/json";
+import { generateText } from 'ai';
+import { claudeFlash } from '../lib/ai/anthropic_provider';
+import { stripMarkdownCodeBlock } from '../lib/json';
 
-export type ResearchMode = "OVERVIEW" | "ACTIONABLE" | "COMPARATIVE" | "EXPLORATORY";
+export type ResearchMode = 'OVERVIEW' | 'ACTIONABLE' | 'COMPARATIVE' | 'EXPLORATORY';
 
 export interface IntentClassification {
   mode: ResearchMode;
@@ -32,7 +32,6 @@ export interface IntentClassification {
  * Latency: ~1-2s (runs concurrently with strategy selection).
  */
 export async function classifyResearchIntent(topic: string): Promise<IntentClassification> {
-
   try {
     const result = await generateText({
       model: claudeFlash(),
@@ -57,12 +56,11 @@ Return ONLY a JSON object:
     const parsed = JSON.parse(stripMarkdownCodeBlock(result.text)) as IntentClassification;
 
     // Validate mode is one of the expected values
-    const validModes: ResearchMode[] = ["OVERVIEW", "ACTIONABLE", "COMPARATIVE", "EXPLORATORY"];
+    const validModes: ResearchMode[] = ['OVERVIEW', 'ACTIONABLE', 'COMPARATIVE', 'EXPLORATORY'];
     if (!validModes.includes(parsed.mode)) {
       throw new Error(`Invalid mode: ${parsed.mode}`);
     }
 
-    
     return parsed;
   } catch (error) {
     console.warn(
@@ -81,72 +79,73 @@ function classifyResearchIntentHeuristic(topic: string): IntentClassification {
 
   // COMPARATIVE signals
   if (
-    lower.includes(" vs ") ||
-    lower.includes(" versus ") ||
-    lower.includes("compare ") ||
-    lower.includes("comparison") ||
-    lower.includes("which is better") ||
-    lower.includes("alternatives to") ||
-    lower.includes("pros and cons") ||
-    lower.includes("difference between")
+    lower.includes(' vs ') ||
+    lower.includes(' versus ') ||
+    lower.includes('compare ') ||
+    lower.includes('comparison') ||
+    lower.includes('which is better') ||
+    lower.includes('alternatives to') ||
+    lower.includes('pros and cons') ||
+    lower.includes('difference between')
   ) {
-    
     return {
-      mode: "COMPARATIVE",
-      reasoning: "Query contains comparison signals",
-      outputGuidance: "Focus on side-by-side analysis, trade-offs, decision criteria, and when to use each option.",
+      mode: 'COMPARATIVE',
+      reasoning: 'Query contains comparison signals',
+      outputGuidance:
+        'Focus on side-by-side analysis, trade-offs, decision criteria, and when to use each option.',
     };
   }
 
   // ACTIONABLE signals
   if (
-    lower.includes("how to ") ||
-    lower.includes("how do i ") ||
-    lower.includes("architect") ||
-    lower.includes("implement") ||
-    lower.includes("build ") ||
-    lower.includes("design ") ||
-    lower.includes("best way to") ||
-    lower.includes("configure") ||
-    lower.includes("set up") ||
-    lower.includes("create ") ||
-    lower.includes("make ") ||
-    lower.includes("step by step") ||
-    lower.includes("tutorial") ||
-    lower.includes("guide to")
+    lower.includes('how to ') ||
+    lower.includes('how do i ') ||
+    lower.includes('architect') ||
+    lower.includes('implement') ||
+    lower.includes('build ') ||
+    lower.includes('design ') ||
+    lower.includes('best way to') ||
+    lower.includes('configure') ||
+    lower.includes('set up') ||
+    lower.includes('create ') ||
+    lower.includes('make ') ||
+    lower.includes('step by step') ||
+    lower.includes('tutorial') ||
+    lower.includes('guide to')
   ) {
-    
     return {
-      mode: "ACTIONABLE",
-      reasoning: "Query contains implementation/how-to signals",
-      outputGuidance: "Focus on concrete patterns, code examples, architecture decisions, and step-by-step guidance.",
+      mode: 'ACTIONABLE',
+      reasoning: 'Query contains implementation/how-to signals',
+      outputGuidance:
+        'Focus on concrete patterns, code examples, architecture decisions, and step-by-step guidance.',
     };
   }
 
   // OVERVIEW signals
   if (
-    lower.includes("state of") ||
-    lower.includes("landscape") ||
-    lower.includes("trends in") ||
+    lower.includes('state of') ||
+    lower.includes('landscape') ||
+    lower.includes('trends in') ||
     lower.includes("what's happening") ||
-    lower.includes("overview of") ||
-    lower.includes("market") ||
-    lower.includes("industry") ||
-    lower.includes("current state") ||
-    lower.includes("future of")
+    lower.includes('overview of') ||
+    lower.includes('market') ||
+    lower.includes('industry') ||
+    lower.includes('current state') ||
+    lower.includes('future of')
   ) {
-    
     return {
-      mode: "OVERVIEW",
-      reasoning: "Query contains landscape/trends signals",
-      outputGuidance: "Focus on market context, key players, trends, trajectory, and relevant statistics.",
+      mode: 'OVERVIEW',
+      reasoning: 'Query contains landscape/trends signals',
+      outputGuidance:
+        'Focus on market context, key players, trends, trajectory, and relevant statistics.',
     };
   }
 
   // Default to EXPLORATORY
   return {
-    mode: "EXPLORATORY",
-    reasoning: "No strong signals for other modes; treating as open-ended exploration",
-    outputGuidance: "Focus on categorizing different approaches with pros/cons and when-to-use guidance.",
+    mode: 'EXPLORATORY',
+    reasoning: 'No strong signals for other modes; treating as open-ended exploration',
+    outputGuidance:
+      'Focus on categorizing different approaches with pros/cons and when-to-use guidance.',
   };
 }

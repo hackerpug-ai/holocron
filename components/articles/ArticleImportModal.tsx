@@ -1,25 +1,25 @@
-import { useState, useCallback } from 'react'
+import { useMutation, useQuery } from 'convex/react';
+import { useCallback, useState } from 'react';
 import {
-  View,
-  ScrollView,
   Pressable,
-  TextInput as RNTextInput,
   Modal as RNModal,
-} from 'react-native'
-import { Text } from '@/components/ui/text'
-import { useMutation, useQuery } from 'convex/react'
-import { api } from '@/convex/_generated/api'
-import { useTheme } from '@/hooks/use-theme'
+  TextInput as RNTextInput,
+  ScrollView,
+  View,
+} from 'react-native';
+import { Text } from '@/components/ui/text';
+import { api } from '@/convex/_generated/api';
+import { useTheme } from '@/hooks/use-theme';
 
 export interface ArticleImportModalProps {
   /** Whether the modal is visible */
-  visible: boolean
+  visible: boolean;
   /** Callback when modal is dismissed */
-  onDismiss: () => void
+  onDismiss: () => void;
   /** Callback when import is successful */
-  onSuccess?: () => void
+  onSuccess?: () => void;
   /** testID for testing */
-  testID?: string
+  testID?: string;
 }
 
 /**
@@ -32,46 +32,46 @@ export function ArticleImportModal({
   onSuccess,
   testID = 'article-import-modal',
 }: ArticleImportModalProps) {
-  const { colors: themeColors, typography } = useTheme()
-  const [selectedArticleId, setSelectedArticleId] = useState<string>('')
-  const [textToImport, setTextToImport] = useState<string>('')
-  const [isImporting, setIsImporting] = useState(false)
+  const { colors: themeColors, typography } = useTheme();
+  const [selectedArticleId, setSelectedArticleId] = useState<string>('');
+  const [textToImport, setTextToImport] = useState<string>('');
+  const [isImporting, setIsImporting] = useState(false);
 
   // Fetch all articles for the selector
-  const listResult = useQuery(api.documents.queries.list, {})
-  const articles = listResult?.documents ?? []
-  const createImport = useMutation(api.imports.mutations.createImport)
+  const listResult = useQuery(api.documents.queries.list, {});
+  const articles = listResult?.documents ?? [];
+  const createImport = useMutation(api.imports.mutations.createImport);
 
   const handleImport = useCallback(async () => {
     if (!selectedArticleId || !textToImport.trim()) {
-      return
+      return;
     }
 
-    setIsImporting(true)
+    setIsImporting(true);
     try {
       await createImport({
         documentId: selectedArticleId as any,
         source: 'manual', // User manually imported via modal
         text: textToImport.trim(),
-      })
+      });
 
       // Reset form
-      setTextToImport('')
-      setSelectedArticleId('')
+      setTextToImport('');
+      setSelectedArticleId('');
 
       // Notify success
-      onSuccess?.()
-      onDismiss()
+      onSuccess?.();
+      onDismiss();
     } catch (error) {
-      console.error('Import failed:', error)
+      console.error('Import failed:', error);
     } finally {
-      setIsImporting(false)
+      setIsImporting(false);
     }
-  }, [selectedArticleId, textToImport, createImport, onSuccess, onDismiss])
+  }, [selectedArticleId, textToImport, createImport, onSuccess, onDismiss]);
 
-  const canSubmit = selectedArticleId && textToImport.trim().length > 0 && !isImporting
+  const canSubmit = selectedArticleId && textToImport.trim().length > 0 && !isImporting;
 
-  if (!visible) return null
+  if (!visible) return null;
 
   return (
     <RNModal
@@ -187,7 +187,10 @@ export function ArticleImportModal({
                 opacity: isImporting ? 0.5 : 1,
               }}
             >
-              <Text className="text-center text-base font-semibold" style={{ color: themeColors.foreground }}>
+              <Text
+                className="text-center text-base font-semibold"
+                style={{ color: themeColors.foreground }}
+              >
                 Cancel
               </Text>
             </Pressable>
@@ -202,7 +205,10 @@ export function ArticleImportModal({
                 opacity: canSubmit ? 1 : 0.5,
               }}
             >
-              <Text className="text-center text-base font-semibold" style={{ color: themeColors.primaryForeground }}>
+              <Text
+                className="text-center text-base font-semibold"
+                style={{ color: themeColors.primaryForeground }}
+              >
                 {isImporting ? 'Importing...' : 'Import'}
               </Text>
             </Pressable>
@@ -210,5 +216,5 @@ export function ArticleImportModal({
         </View>
       </View>
     </RNModal>
-  )
+  );
 }

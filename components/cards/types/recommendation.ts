@@ -6,76 +6,76 @@
 
 // Source types
 export interface RecommendationSource {
-  name: string
-  type: 'article' | 'tool' | 'conversation' | 'document'
-  url?: string
+  name: string;
+  type: 'article' | 'tool' | 'conversation' | 'document';
+  url?: string;
 }
 
 // Contact types
 export interface RecommendationContact {
-  name: string
-  role: string
-  email?: string
-  phone?: string
-  location?: string
-  avatarUrl?: string
+  name: string;
+  role: string;
+  email?: string;
+  phone?: string;
+  location?: string;
+  avatarUrl?: string;
 }
 
 // Item data - THE CORE TYPE
 export interface RecommendationItemData {
-  id: string
-  title: string
-  subtitle: string
-  description: string
-  confidence: number
-  source: RecommendationSource
-  contacts: RecommendationContact[]
-  tags: string[]
-  url: string
+  id: string;
+  title: string;
+  subtitle: string;
+  description: string;
+  confidence: number;
+  source: RecommendationSource;
+  contacts: RecommendationContact[];
+  tags: string[];
+  url: string;
 }
 
 // Card data with LITERAL card_type
 export interface RecommendationListCardData {
-  card_type: 'recommendation_list'
-  items: RecommendationItemData[]
-  summary: string
-  title?: string
-  contextTag?: string
+  card_type: 'recommendation_list';
+  items: RecommendationItemData[];
+  summary: string;
+  title?: string;
+  contextTag?: string;
 }
 
 // Component props
 export interface RecommendationListCardProps {
-  data: RecommendationListCardData
-  onItemPress?: (item: RecommendationItemData) => void
-  onDismiss?: () => void
-  showSummary?: boolean
-  testID?: string
-  onSaveAllToKB?: (items: RecommendationItemData[]) => void
-  onSaveRecommendation?: (item: RecommendationItemData) => void
+  data: RecommendationListCardData;
+  onItemPress?: (item: RecommendationItemData) => void;
+  onDismiss?: () => void;
+  showSummary?: boolean;
+  testID?: string;
+  onSaveAllToKB?: (items: RecommendationItemData[]) => void;
+  onSaveRecommendation?: (item: RecommendationItemData) => void;
 }
 
 export interface RecommendationItemProps {
-  item: RecommendationItemData
-  index?: number
-  onLongPress?: (item: RecommendationItemData) => void
-  onLinkingFallback?: (url: string) => void
-  onPress?: (item: RecommendationItemData) => void
-  showConfidence?: boolean
-  testID?: string
+  item: RecommendationItemData;
+  index?: number;
+  onLongPress?: (item: RecommendationItemData) => void;
+  onLinkingFallback?: (url: string) => void;
+  onPress?: (item: RecommendationItemData) => void;
+  showConfidence?: boolean;
+  testID?: string;
 }
 
 export interface RecommendationSourcesProps {
-  sources: RecommendationSource[]
-  onSourcePress?: (source: RecommendationSource) => void
-  testID?: string
+  sources: RecommendationSource[];
+  onSourcePress?: (source: RecommendationSource) => void;
+  testID?: string;
 }
 
 export interface RecommendationActionSheetProps {
-  visible: boolean
-  onDismiss: () => void
-  item: RecommendationItemData | null
-  onSave?: (item: RecommendationItemData) => void
-  onShare?: (item: RecommendationItemData) => void
-  onOpenInBrowser?: (item: RecommendationItemData) => void
-  testID?: string
+  visible: boolean;
+  onDismiss: () => void;
+  item: RecommendationItemData | null;
+  onSave?: (item: RecommendationItemData) => void;
+  onShare?: (item: RecommendationItemData) => void;
+  onOpenInBrowser?: (item: RecommendationItemData) => void;
+  testID?: string;
 }

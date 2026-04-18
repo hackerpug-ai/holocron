@@ -5,26 +5,26 @@
  * Supports infinite scroll with onEndReached callback.
  */
 
-import { View, FlatList, StyleSheet, ListRenderItem } from 'react-native'
-import { NewsCard } from './NewsCard'
-import { useTheme } from '@/hooks/use-theme'
+import { FlatList, type ListRenderItem, StyleSheet, View } from 'react-native';
+import { useTheme } from '@/hooks/use-theme';
+import { NewsCard } from './NewsCard';
 
 export interface NewsItem {
-  id: string
-  title: string
-  summary?: string
-  imageUrl?: string
-  source?: string
-  publishedAt?: number
-  url?: string
+  id: string;
+  title: string;
+  summary?: string;
+  imageUrl?: string;
+  source?: string;
+  publishedAt?: number;
+  url?: string;
 }
 
 export interface NewsStreamProps {
-  items: NewsItem[]
-  onLoadMore?: () => void
-  isLoadingMore?: boolean
-  testID?: string
-  onCardPress?: (itemId: string, url?: string) => void
+  items: NewsItem[];
+  onLoadMore?: () => void;
+  isLoadingMore?: boolean;
+  testID?: string;
+  onCardPress?: (itemId: string, url?: string) => void;
 }
 
 /**
@@ -37,7 +37,7 @@ export function NewsStream({
   testID = 'news-stream',
   onCardPress,
 }: NewsStreamProps) {
-  const { spacing: semanticSpacing } = useTheme()
+  const { spacing: semanticSpacing } = useTheme();
 
   const renderItem: ListRenderItem<NewsItem> = ({ item, index }) => {
     return (
@@ -60,17 +60,20 @@ export function NewsStream({
           onPress={() => onCardPress?.(item.id, item.url)}
         />
       </View>
-    )
-  }
+    );
+  };
 
   const renderFooter = () => {
-    if (!isLoadingMore) return null
+    if (!isLoadingMore) return null;
     return (
-      <View style={[styles.footer, { padding: semanticSpacing.lg }]} testID={`${testID}-loading-more`}>
+      <View
+        style={[styles.footer, { padding: semanticSpacing.lg }]}
+        testID={`${testID}-loading-more`}
+      >
         <View className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
       </View>
-    )
-  }
+    );
+  };
 
   return (
     <FlatList
@@ -85,13 +88,10 @@ export function NewsStream({
         </View>
       }
       ListFooterComponent={renderFooter}
-      contentContainerStyle={[
-        styles.contentContainer,
-        { padding: semanticSpacing.md },
-      ]}
+      contentContainerStyle={[styles.contentContainer, { padding: semanticSpacing.md }]}
       testID={testID}
     />
-  )
+  );
 }
 
 const styles = StyleSheet.create({
@@ -107,4 +107,4 @@ const styles = StyleSheet.create({
   empty: {
     flex: 1,
   },
-})
+});

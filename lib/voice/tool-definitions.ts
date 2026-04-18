@@ -7,27 +7,27 @@
  */
 
 export type ToolParameterSchema = {
-  type: string
-  description: string
-  enum?: string[]
-  items?: ToolParameterSchema
-  properties?: Record<string, ToolParameterSchema>
-  required?: string[]
-  minItems?: number
-}
+  type: string;
+  description: string;
+  enum?: string[];
+  items?: ToolParameterSchema;
+  properties?: Record<string, ToolParameterSchema>;
+  required?: string[];
+  minItems?: number;
+};
 
 export type ToolParameters = {
-  type: 'object'
-  properties: Record<string, ToolParameterSchema>
-  required?: string[]
-}
+  type: 'object';
+  properties: Record<string, ToolParameterSchema>;
+  required?: string[];
+};
 
 export type ToolDefinition = {
-  type: 'function'
-  name: string
-  description: string
-  parameters: ToolParameters
-}
+  type: 'function';
+  name: string;
+  description: string;
+  parameters: ToolParameters;
+};
 
 const TOOL_DEFINITIONS: ToolDefinition[] = [
   // ── Knowledge Base ──────────────────────────────────────────────
@@ -127,8 +127,7 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   {
     type: 'function',
     name: 'quick_research',
-    description:
-      'Do a quick web research on a topic and return a concise summary with sources.',
+    description: 'Do a quick web research on a topic and return a concise summary with sources.',
     parameters: {
       type: 'object',
       properties: {
@@ -188,7 +187,16 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
         sourceType: {
           type: 'string',
           description: 'Type of content source',
-          enum: ['youtube', 'newsletter', 'changelog', 'reddit', 'ebay', 'whats-new', 'creator', 'github'],
+          enum: [
+            'youtube',
+            'newsletter',
+            'changelog',
+            'reddit',
+            'ebay',
+            'whats-new',
+            'creator',
+            'github',
+          ],
         },
         identifier: {
           type: 'string',
@@ -260,8 +268,7 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   {
     type: 'function',
     name: 'toolbelt_search',
-    description:
-      'Search the curated developer toolbelt for tools, libraries, and utilities.',
+    description: 'Search the curated developer toolbelt for tools, libraries, and utilities.',
     parameters: {
       type: 'object',
       properties: {
@@ -390,15 +397,15 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
       required: ['screen'],
     },
   },
-]
+];
 
-export const TOOL_NAMES = TOOL_DEFINITIONS.map((t) => t.name) as string[]
+export const TOOL_NAMES = TOOL_DEFINITIONS.map((t) => t.name) as string[];
 
 /**
  * Returns all tool definitions for OpenAI Realtime session.update.
  */
 export function getToolDefinitions(): ToolDefinition[] {
-  return TOOL_DEFINITIONS
+  return TOOL_DEFINITIONS;
 }
 
 /**
@@ -406,5 +413,5 @@ export function getToolDefinitions(): ToolDefinition[] {
  * Returns undefined if the name is not found.
  */
 export function getToolByName(name: string): ToolDefinition | undefined {
-  return TOOL_DEFINITIONS.find((t) => t.name === name)
+  return TOOL_DEFINITIONS.find((t) => t.name === name);
 }

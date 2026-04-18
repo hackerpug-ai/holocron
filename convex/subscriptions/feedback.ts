@@ -1,5 +1,5 @@
-import { mutation } from "../_generated/server";
-import { v } from "convex/values";
+import { v } from 'convex/values';
+import { mutation } from '../_generated/server';
 
 /**
  * Submit feedback for a feed item
@@ -13,8 +13,8 @@ import { v } from "convex/values";
  */
 export const submitFeedback = mutation({
   args: {
-    feedItemId: v.id("feedItems"),
-    feedbackType: v.union(v.literal("positive"), v.literal("negative")),
+    feedItemId: v.id('feedItems'),
+    feedbackType: v.union(v.literal('positive'), v.literal('negative')),
   },
   handler: async (ctx, args) => {
     const now = Date.now();
@@ -26,7 +26,7 @@ export const submitFeedback = mutation({
     }
 
     // Map positive/negative to up/down for the schema
-    const userFeedbackValue = args.feedbackType === "positive" ? "up" : "down";
+    const userFeedbackValue = args.feedbackType === 'positive' ? 'up' : 'down';
 
     // Update the feed item document with feedback
     await ctx.db.patch(args.feedItemId, {
@@ -45,7 +45,7 @@ export const submitFeedback = mutation({
  */
 export const removeFeedback = mutation({
   args: {
-    feedItemId: v.id("feedItems"),
+    feedItemId: v.id('feedItems'),
   },
   handler: async (ctx, args) => {
     // Check if feed item exists

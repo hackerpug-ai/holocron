@@ -1,34 +1,34 @@
-import { Pressable, Linking, Platform, View } from 'react-native'
-import { Text } from '@/components/ui/text'
-import type { RecommendationItemProps } from './types/recommendation'
+import { Linking, Platform, Pressable, View } from 'react-native';
+import { Text } from '@/components/ui/text';
+import type { RecommendationItemProps } from './types/recommendation';
 
 const openPhone = async (raw: string, fallback?: (url: string) => void) => {
-  const digits = raw.replace(/\D/g, '')
-  const url = `tel:${digits}`
+  const digits = raw.replace(/\D/g, '');
+  const url = `tel:${digits}`;
   if (await Linking.canOpenURL(url)) {
-    await Linking.openURL(url)
+    await Linking.openURL(url);
   } else {
-    fallback?.(url)
+    fallback?.(url);
   }
-}
+};
 
 const openMaps = async (location: string, fallback?: (url: string) => void) => {
-  const encoded = encodeURIComponent(location)
-  const url = Platform.OS === 'ios' ? `maps:?q=${encoded}` : `geo:0,0?q=${encoded}`
+  const encoded = encodeURIComponent(location);
+  const url = Platform.OS === 'ios' ? `maps:?q=${encoded}` : `geo:0,0?q=${encoded}`;
   if (await Linking.canOpenURL(url)) {
-    await Linking.openURL(url)
+    await Linking.openURL(url);
   } else {
-    fallback?.(url)
+    fallback?.(url);
   }
-}
+};
 
 const openWebsite = async (url: string, fallback?: (url: string) => void) => {
   if (await Linking.canOpenURL(url)) {
-    await Linking.openURL(url)
+    await Linking.openURL(url);
   } else {
-    fallback?.(url)
+    fallback?.(url);
   }
-}
+};
 
 export function RecommendationItem({
   item,
@@ -36,7 +36,7 @@ export function RecommendationItem({
   onLongPress,
   onLinkingFallback,
 }: RecommendationItemProps) {
-  const contact = item.contacts?.[0]
+  const contact = item.contacts?.[0];
 
   return (
     <Pressable
@@ -93,5 +93,5 @@ export function RecommendationItem({
         </View>
       )}
     </Pressable>
-  )
+  );
 }

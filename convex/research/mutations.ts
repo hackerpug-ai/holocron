@@ -4,32 +4,32 @@
  * Creates and updates deep research sessions and iterations
  */
 
-import { mutation, internalMutation } from "../_generated/server";
-import { v } from "convex/values";
-import { api, internal } from "../_generated/api";
+import { v } from 'convex/values';
+import { api, internal } from '../_generated/api';
+import { internalMutation, mutation } from '../_generated/server';
 
 const deepResearchSessionStatus = v.union(
-  v.literal("pending"),
-  v.literal("processing"),
-  v.literal("running"),
-  v.literal("in_progress"),
-  v.literal("in-progress"),
-  v.literal("completed"),
-  v.literal("cancelled"),
-  v.literal("error"),
-  v.literal("failed"),
-  v.literal("timeout")
+  v.literal('pending'),
+  v.literal('processing'),
+  v.literal('running'),
+  v.literal('in_progress'),
+  v.literal('in-progress'),
+  v.literal('completed'),
+  v.literal('cancelled'),
+  v.literal('error'),
+  v.literal('failed'),
+  v.literal('timeout')
 );
 
 const deepResearchIterationStatus = v.union(
-  v.literal("pending"),
-  v.literal("processing"),
-  v.literal("running"),
-  v.literal("in_progress"),
-  v.literal("in-progress"),
-  v.literal("completed"),
-  v.literal("failed"),
-  v.literal("error")
+  v.literal('pending'),
+  v.literal('processing'),
+  v.literal('running'),
+  v.literal('in_progress'),
+  v.literal('in-progress'),
+  v.literal('completed'),
+  v.literal('failed'),
+  v.literal('error')
 );
 
 /**
@@ -39,27 +39,29 @@ const deepResearchIterationStatus = v.union(
  */
 export const createDeepResearchSession = mutation({
   args: {
-    conversationId: v.id("conversations"),
+    conversationId: v.id('conversations'),
     topic: v.string(),
     maxIterations: v.optional(v.number()),
     researchType: v.optional(v.string()),
     researchMode: v.optional(v.string()),
   },
-  handler: async (ctx, { conversationId, topic, maxIterations = 5, researchType = "deep", researchMode }) => {
+  handler: async (
+    ctx,
+    { conversationId, topic, maxIterations = 5, researchType = 'deep', researchMode }
+  ) => {
     const now = Date.now();
 
-    const sessionId = await ctx.db.insert("deepResearchSessions", {
+    const sessionId = await ctx.db.insert('deepResearchSessions', {
       conversationId,
       topic,
       researchType,
       researchMode,
       maxIterations,
-      status: "pending",
+      status: 'pending',
       createdAt: now,
       updatedAt: now,
     });
 
-    
     return sessionId;
   },
 });
@@ -71,7 +73,7 @@ export const createDeepResearchSession = mutation({
  */
 export const createDeepResearchIteration = mutation({
   args: {
-    sessionId: v.id("deepResearchSessions"),
+    sessionId: v.id('deepResearchSessions'),
     iterationNumber: v.number(),
     coverageScore: v.optional(v.number()),
     feedback: v.optional(v.string()),
@@ -97,7 +99,7 @@ export const createDeepResearchIteration = mutation({
   ) => {
     const now = Date.now();
 
-    const iterationId = await ctx.db.insert("deepResearchIterations", {
+    const iterationId = await ctx.db.insert('deepResearchIterations', {
       sessionId,
       iterationNumber,
       coverageScore,
@@ -109,7 +111,6 @@ export const createDeepResearchIteration = mutation({
       embedding,
       createdAt: now,
     });
-
 
     // Update session status
     await ctx.db.patch(sessionId, {
@@ -128,13 +129,16 @@ export const createDeepResearchIteration = mutation({
  */
 export const updateDeepResearchSession = mutation({
   args: {
-    sessionId: v.id("deepResearchSessions"),
+    sessionId: v.id('deepResearchSessions'),
     status: deepResearchSessionStatus,
     currentIteration: v.optional(v.number()),
     refinedTopic: v.optional(v.string()),
     currentCoverageScore: v.optional(v.number()),
   },
-  handler: async (ctx, { sessionId, status, currentIteration, refinedTopic, currentCoverageScore }) => {
+  handler: async (
+    ctx,
+    { sessionId, status, currentIteration, refinedTopic, currentCoverageScore }
+  ) => {
     const now = Date.now();
 
     const updates: any = {
@@ -152,10 +156,8 @@ export const updateDeepResearchSession = mutation({
 
     if (currentCoverageScore !== undefined) {
       updates.currentCoverageScore = currentCoverageScore;
-      
     }
 
-    
     await ctx.db.patch(sessionId, updates);
 
     return { success: true };
@@ -169,16 +171,18 @@ export const updateDeepResearchSession = mutation({
  */
 export const completeDeepResearchSession = mutation({
   args: {
-    sessionId: v.id("deepResearchSessions"),
+    sessionId: v.id('deepResearchSessions'),
     status: deepResearchSessionStatus,
-    finalConfidenceSummary: v.optional(v.object({
-      highConfidenceCount: v.number(),
-      mediumConfidenceCount: v.number(),
-      lowConfidenceCount: v.number(),
-      averageConfidenceScore: v.number(),
-      claimsWithMultipleSources: v.number(),
-      totalClaims: v.number(),
-    })),
+    finalConfidenceSummary: v.optional(
+      v.object({
+        highConfidenceCount: v.number(),
+        mediumConfidenceCount: v.number(),
+        lowConfidenceCount: v.number(),
+        averageConfidenceScore: v.number(),
+        claimsWithMultipleSources: v.number(),
+        totalClaims: v.number(),
+      })
+    ),
     errorReason: v.optional(v.string()),
   },
   handler: async (ctx, { sessionId, status, finalConfidenceSummary, errorReason }) => {
@@ -195,7 +199,6 @@ export const completeDeepResearchSession = mutation({
 
     if (finalConfidenceSummary) {
       updates.finalConfidenceSummary = finalConfidenceSummary;
-
     }
 
     if (errorReason) {
@@ -204,13 +207,14 @@ export const completeDeepResearchSession = mutation({
 
     await ctx.db.patch(sessionId, updates);
 
-
     // Create notification for completion or error
-    if (status === "completed" && !errorReason) {
-      await ctx.db.insert("notifications", {
-        type: "research_complete",
-        title: "Research Complete",
-        body: session?.topic ? `Deep research on "${session.topic}" has finished.` : "Your deep research session has finished.",
+    if (status === 'completed' && !errorReason) {
+      await ctx.db.insert('notifications', {
+        type: 'research_complete',
+        title: 'Research Complete',
+        body: session?.topic
+          ? `Deep research on "${session.topic}" has finished.`
+          : 'Your deep research session has finished.',
         route: session?.documentId ? `/document/${session.documentId}` : `/research/${sessionId}`,
         referenceId: sessionId,
         read: false,
@@ -225,9 +229,9 @@ export const completeDeepResearchSession = mutation({
         });
       }
     } else if (errorReason) {
-      await ctx.db.insert("notifications", {
-        type: "research_failed",
-        title: "Research Failed",
+      await ctx.db.insert('notifications', {
+        type: 'research_failed',
+        title: 'Research Failed',
         body: errorReason,
         route: `/research/${sessionId}`,
         referenceId: sessionId,
@@ -245,8 +249,8 @@ export const completeDeepResearchSession = mutation({
  */
 export const createResearchFinding = mutation({
   args: {
-    sessionId: v.id("deepResearchSessions"),
-    iterationId: v.id("deepResearchIterations"),
+    sessionId: v.id('deepResearchSessions'),
+    iterationId: v.id('deepResearchIterations'),
     claimText: v.string(),
     claimCategory: v.optional(v.string()),
     sourceCredibilityScore: v.number(),
@@ -256,7 +260,7 @@ export const createResearchFinding = mutation({
     expertConsensusScore: v.number(),
     confidenceScore: v.number(),
     confidenceLevel: v.string(),
-    citationIds: v.array(v.id("citations")),
+    citationIds: v.array(v.id('citations')),
     confidenceFactors: v.optional(v.any()),
     caveats: v.optional(v.array(v.string())),
     warnings: v.optional(v.array(v.string())),
@@ -265,7 +269,7 @@ export const createResearchFinding = mutation({
   handler: async (ctx, args) => {
     const now = Date.now();
 
-    const findingId = await ctx.db.insert("researchFindings", {
+    const findingId = await ctx.db.insert('researchFindings', {
       sessionId: args.sessionId,
       iterationId: args.iterationId,
       claimText: args.claimText,
@@ -285,7 +289,6 @@ export const createResearchFinding = mutation({
       createdAt: now,
     });
 
-    
     return findingId;
   },
 });
@@ -297,7 +300,7 @@ export const createResearchFinding = mutation({
  */
 export const createCitationWithCredibility = mutation({
   args: {
-    deepResearchSessionId: v.id("deepResearchSessions"),
+    deepResearchSessionId: v.id('deepResearchSessions'),
     sourceUrl: v.string(),
     sourceTitle: v.optional(v.string()),
     sourceDomain: v.optional(v.string()),
@@ -322,7 +325,7 @@ export const createCitationWithCredibility = mutation({
       }
     }
 
-    const citationId = await ctx.db.insert("citations", {
+    const citationId = await ctx.db.insert('citations', {
       deepResearchSessionId: args.deepResearchSessionId,
       sourceUrl: args.sourceUrl,
       sourceTitle: args.sourceTitle,
@@ -337,7 +340,6 @@ export const createCitationWithCredibility = mutation({
       retrievedAt: now,
     });
 
-    
     return citationId;
   },
 });
@@ -349,7 +351,7 @@ export const createCitationWithCredibility = mutation({
  */
 export const updateIterationConfidenceStats = mutation({
   args: {
-    iterationId: v.id("deepResearchIterations"),
+    iterationId: v.id('deepResearchIterations'),
     confidenceStats: v.object({
       highConfidenceCount: v.number(),
       mediumConfidenceCount: v.number(),
@@ -360,12 +362,9 @@ export const updateIterationConfidenceStats = mutation({
     }),
   },
   handler: async (ctx, { iterationId, confidenceStats }) => {
-    
-
     await ctx.db.patch(iterationId, {
       confidenceStats,
     });
-
   },
 });
 
@@ -380,27 +379,27 @@ export const updateIterationConfidenceStats = mutation({
  */
 export const cancelResearchSession = mutation({
   args: {
-    sessionId: v.id("deepResearchSessions"),
+    sessionId: v.id('deepResearchSessions'),
   },
   handler: async (ctx, { sessionId }) => {
     const session = await ctx.db.get(sessionId);
     if (!session) throw new Error(`Session ${sessionId} not found`);
 
     // Only cancel if still in progress
-    const cancelableStatuses = ["pending", "in_progress", "running"];
+    const cancelableStatuses = ['pending', 'in_progress', 'running'];
     if (!cancelableStatuses.includes(session.status)) {
       return { alreadyDone: true, status: session.status };
     }
 
     const now = Date.now();
     await ctx.db.patch(sessionId, {
-      status: "cancelled",
+      status: 'cancelled',
       completedAt: now,
       updatedAt: now,
-      errorReason: "Cancelled by user",
+      errorReason: 'Cancelled by user',
     });
 
-    return { alreadyDone: false, status: "cancelled" };
+    return { alreadyDone: false, status: 'cancelled' };
   },
 });
 
@@ -410,20 +409,20 @@ export const cancelResearchSession = mutation({
  */
 export const retryResearchSession = mutation({
   args: {
-    sessionId: v.id("deepResearchSessions"),
+    sessionId: v.id('deepResearchSessions'),
   },
   handler: async (ctx, { sessionId }) => {
     const session = await ctx.db.get(sessionId);
     if (!session) throw new Error(`Session ${sessionId} not found`);
 
-    const retryableStatuses = ["error", "failed", "timeout"];
+    const retryableStatuses = ['error', 'failed', 'timeout'];
     if (!retryableStatuses.includes(session.status)) {
       return { alreadyDone: true, status: session.status };
     }
 
     const now = Date.now();
     await ctx.db.patch(sessionId, {
-      status: "pending",
+      status: 'pending',
       updatedAt: now,
       completedAt: undefined,
       errorReason: undefined,
@@ -437,18 +436,16 @@ export const retryResearchSession = mutation({
       topic: session.topic,
     });
 
-    return { alreadyDone: false, status: "pending" };
+    return { alreadyDone: false, status: 'pending' };
   },
 });
 
 export const updateDeepResearchSessionDocumentId = internalMutation({
   args: {
-    sessionId: v.id("deepResearchSessions"),
-    documentId: v.id("documents"),
+    sessionId: v.id('deepResearchSessions'),
+    documentId: v.id('documents'),
   },
   handler: async (ctx, { sessionId, documentId }) => {
-    
     await ctx.db.patch(sessionId, { documentId });
-    
   },
 });

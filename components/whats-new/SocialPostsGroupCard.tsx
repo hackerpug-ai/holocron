@@ -9,36 +9,31 @@
  * accents as left-border stripes, dense info layout.
  */
 
-import React from 'react'
-import { View, Pressable } from 'react-native'
-import { Text } from '@/components/ui/text'
-import { Card } from '@/components/ui/card'
-import {
-  MessageSquare,
-  ChevronRight,
-  TrendingUp,
-  Zap,
-} from '@/components/ui/icons'
-import { useTheme } from '@/hooks/use-theme'
+import React from 'react';
+import { Pressable, View } from 'react-native';
+import { Card } from '@/components/ui/card';
+import { ChevronRight, MessageSquare, TrendingUp, Zap } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { useTheme } from '@/hooks/use-theme';
 
 interface SocialFinding {
-  title: string
-  url: string
-  source: string
-  category: string
-  score?: number
-  publishedAt?: string
-  author?: string
-  engagementVelocity?: number
-  qualityScore?: number
-  upvotes?: number
-  commentCount?: number
+  title: string;
+  url: string;
+  source: string;
+  category: string;
+  score?: number;
+  publishedAt?: string;
+  author?: string;
+  engagementVelocity?: number;
+  qualityScore?: number;
+  upvotes?: number;
+  commentCount?: number;
 }
 
 export interface SocialPostsGroupCardProps {
-  findings: SocialFinding[]
-  onPress: () => void
-  testID?: string
+  findings: SocialFinding[];
+  onPress: () => void;
+  testID?: string;
 }
 
 // Platform brand colors for distinctive badges
@@ -50,30 +45,30 @@ const PLATFORM_COLORS: Record<string, string> = {
   'Dev.to': '#0A0A0A',
   'Twitter/X': '#1DA1F2',
   Other: '#64748B',
-}
+};
 
 /**
  * Group findings by platform and compute stats
  */
 function computePlatformStats(findings: SocialFinding[]) {
-  const platforms = new Map<string, { count: number; topScore: number }>()
+  const platforms = new Map<string, { count: number; topScore: number }>();
 
   for (const f of findings) {
     // Normalize source to platform name
-    let platform = 'Other'
-    if (f.source.startsWith('r/')) platform = 'Reddit'
-    else if (f.source.includes('Bluesky')) platform = 'Bluesky'
-    else if (f.source === 'Lobsters') platform = 'Lobsters'
-    else if (f.source === 'Dev.to') platform = 'Dev.to'
-    else if (f.source === 'Twitter/X') platform = 'Twitter/X'
+    let platform = 'Other';
+    if (f.source.startsWith('r/')) platform = 'Reddit';
+    else if (f.source.includes('Bluesky')) platform = 'Bluesky';
+    else if (f.source === 'Lobsters') platform = 'Lobsters';
+    else if (f.source === 'Dev.to') platform = 'Dev.to';
+    else if (f.source === 'Twitter/X') platform = 'Twitter/X';
 
-    const existing = platforms.get(platform) ?? { count: 0, topScore: 0 }
-    existing.count++
-    existing.topScore = Math.max(existing.topScore, f.score ?? 0)
-    platforms.set(platform, existing)
+    const existing = platforms.get(platform) ?? { count: 0, topScore: 0 };
+    existing.count++;
+    existing.topScore = Math.max(existing.topScore, f.score ?? 0);
+    platforms.set(platform, existing);
   }
 
-  return platforms
+  return platforms;
 }
 
 export const SocialPostsGroupCard = React.memo(function SocialPostsGroupCard({
@@ -81,19 +76,19 @@ export const SocialPostsGroupCard = React.memo(function SocialPostsGroupCard({
   onPress,
   testID = 'social-posts-group',
 }: SocialPostsGroupCardProps) {
-  const { colors: themeColors, isDark } = useTheme()
+  const { colors: themeColors, isDark } = useTheme();
 
-  if (findings.length === 0) return null
+  if (findings.length === 0) return null;
 
-  const platforms = computePlatformStats(findings)
-  const topPost = [...findings].sort((a, b) => (b.score ?? 0) - (a.score ?? 0))[0]
-  const totalEngagement = findings.reduce((sum, f) => sum + (f.upvotes ?? f.score ?? 0), 0)
+  const platforms = computePlatformStats(findings);
+  const topPost = [...findings].sort((a, b) => (b.score ?? 0) - (a.score ?? 0))[0];
+  const totalEngagement = findings.reduce((sum, f) => sum + (f.upvotes ?? f.score ?? 0), 0);
 
   // Build accessibility label for screen readers
   const platformList = Array.from(platforms.entries())
     .map(([platform, stats]) => `${stats.count} ${platform}`)
-    .join(', ')
-  const accessibilityLabel = `Community Pulse. ${findings.length} social posts from ${platformList}. Top post: ${topPost.title}. ${topPost.source}. View all discussions.`
+    .join(', ');
+  const accessibilityLabel = `Community Pulse. ${findings.length} social posts from ${platformList}. Top post: ${topPost.title}. ${topPost.source}. View all discussions.`;
 
   return (
     <Pressable
@@ -124,13 +119,9 @@ export const SocialPostsGroupCard = React.memo(function SocialPostsGroupCard({
               <View className="bg-muted rounded-full p-1.5">
                 <MessageSquare size={14} className="text-muted-foreground" />
               </View>
-              <Text className="text-foreground text-base font-semibold">
-                Community Pulse
-              </Text>
+              <Text className="text-foreground text-base font-semibold">Community Pulse</Text>
               <View className="bg-primary/15 rounded-full px-2 py-0.5">
-                <Text className="text-primary text-xs font-bold">
-                  {findings.length}
-                </Text>
+                <Text className="text-primary text-xs font-bold">{findings.length}</Text>
               </View>
             </View>
             <ChevronRight size={18} className="text-muted-foreground" />
@@ -158,7 +149,11 @@ export const SocialPostsGroupCard = React.memo(function SocialPostsGroupCard({
                 />
                 <Text
                   className="text-xs font-medium"
-                  style={{ color: isDark ? themeColors.foreground : PLATFORM_COLORS[platform] ?? '#64748B' }}
+                  style={{
+                    color: isDark
+                      ? themeColors.foreground
+                      : (PLATFORM_COLORS[platform] ?? '#64748B'),
+                  }}
                 >
                   {platform}
                 </Text>
@@ -201,12 +196,10 @@ export const SocialPostsGroupCard = React.memo(function SocialPostsGroupCard({
                 </View>
               )}
             </View>
-            <Text className="text-xs text-primary font-medium">
-              View all →
-            </Text>
+            <Text className="text-xs text-primary font-medium">View all →</Text>
           </View>
         </View>
       </Card>
     </Pressable>
-  )
-})
+  );
+});

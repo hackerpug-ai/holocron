@@ -1,11 +1,11 @@
-import { v } from "convex/values";
-import { internalAction, internalQuery, internalMutation } from "../_generated/server";
-import type { ActionCtx } from "../_generated/server";
-import type { Id } from "../_generated/dataModel";
-import { api, internal } from "../_generated/api";
-import { readUrlWithJina, readUrlWithJinaAndLinks } from "../research/search.js";
-import { embed } from "ai";
-import { cohereEmbedding } from "../lib/ai/embeddings_provider";
+import { embed } from 'ai';
+import { v } from 'convex/values';
+import { api, internal } from '../_generated/api';
+import type { Id } from '../_generated/dataModel';
+import type { ActionCtx } from '../_generated/server';
+import { internalAction, internalMutation, internalQuery } from '../_generated/server';
+import { cohereEmbedding } from '../lib/ai/embeddings_provider';
+import { readUrlWithJina, readUrlWithJinaAndLinks } from '../research/search.js';
 
 // ============================================================================
 // Embedding Generation Helpers
@@ -30,22 +30,22 @@ async function generateContentEmbedding(title: string): Promise<number[]> {
  * Generate embeddings in batch for multiple content items
  */
 async function generateEmbeddingsBatch(titles: string[]): Promise<number[][]> {
-  return await Promise.all(
-    titles.map(title => generateContentEmbedding(title))
-  );
+  return await Promise.all(titles.map((title) => generateContentEmbedding(title)));
 }
 
 // ============================================================================
 // RSS Parser Helper
 // ============================================================================
 
-async function parseRSSFeed(url: string): Promise<Array<{
-  title: string;
-  link: string;
-  published: string;
-}>> {
+async function parseRSSFeed(url: string): Promise<
+  Array<{
+    title: string;
+    link: string;
+    published: string;
+  }>
+> {
   const response = await fetch(url, {
-    headers: { "User-Agent": "Mozilla/5.0" },
+    headers: { 'User-Agent': 'Mozilla/5.0' },
   });
   if (!response.ok) {
     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -60,12 +60,14 @@ async function parseRSSFeed(url: string): Promise<Array<{
     const entry = match[0];
 
     const titleMatch = entry.match(/<title[^>]*>([\s\S]*?)<\/title>/);
-    const linkMatch = entry.match(/<link[^>]*>([\s\S]*?)<\/link>/) ||
-                      entry.match(/<link[^>]*href=['"]([^'"]*)['"]/) ||
-                      entry.match(/<id[^>]*>([\s\S]*?)<\/id>/);
-    const publishedMatch = entry.match(/<published[^>]*>([\s\S]*?)<\/published>/) ||
-                         entry.match(/<pubDate[^>]*>([\s\S]*?)<\/pubDate>/) ||
-                         entry.match(/<updated[^>]*>([\s\S]*?)<\/updated>/);
+    const linkMatch =
+      entry.match(/<link[^>]*>([\s\S]*?)<\/link>/) ||
+      entry.match(/<link[^>]*href=['"]([^'"]*)['"]/) ||
+      entry.match(/<id[^>]*>([\s\S]*?)<\/id>/);
+    const publishedMatch =
+      entry.match(/<published[^>]*>([\s\S]*?)<\/published>/) ||
+      entry.match(/<pubDate[^>]*>([\s\S]*?)<\/pubDate>/) ||
+      entry.match(/<updated[^>]*>([\s\S]*?)<\/updated>/);
 
     let title = titleMatch ? titleMatch[1].replace(/<[^>]*>/g, '').trim() : 'Unknown';
     // Handle CDATA
@@ -101,7 +103,7 @@ function calculateRelevancyScore(
 ): { score: number; reason: string } {
   const title = content.title.toLowerCase();
   let score = 0.5;
-  let reason = "neutral";
+  let reason = 'neutral';
 
   // Blacklist hard fails
   for (const rule of rules) {
@@ -116,7 +118,7 @@ function calculateRelevancyScore(
   }
 
   // Min score threshold
-  const minScoreRule = rules.find(r => r.ruleType === 'min_score');
+  const minScoreRule = rules.find((r) => r.ruleType === 'min_score');
   if (minScoreRule && content.redditScore !== undefined) {
     const minScore = parseFloat(minScoreRule.ruleValue);
     if (content.redditScore < minScore) {
@@ -125,7 +127,7 @@ function calculateRelevancyScore(
   }
 
   // Max age threshold
-  const maxAgeRule = rules.find(r => r.ruleType === 'max_age_hours');
+  const maxAgeRule = rules.find((r) => r.ruleType === 'max_age_hours');
   if (maxAgeRule && content.published) {
     const maxAge = parseFloat(maxAgeRule.ruleValue);
     const contentAge = (Date.now() - new Date(content.published).getTime()) / 3600000;
@@ -154,7 +156,6 @@ function calculateRelevancyScore(
 // AI Relevance Scoring
 // ============================================================================
 
-
 // ============================================================================
 // Source Fetchers
 // ============================================================================
@@ -167,15 +168,17 @@ async function fetchYouTube(
   source: any,
   filter: RelevancyRule[],
   existingIds: Set<string>
-): Promise<Array<{
-  sourceId: string;
-  contentId: string;
-  title: string;
-  url: string;
-  relevancyScore: number;
-  relevancyReason: string;
-  passedFilter: boolean;
-}>> {
+): Promise<
+  Array<{
+    sourceId: string;
+    contentId: string;
+    title: string;
+    url: string;
+    relevancyScore: number;
+    relevancyReason: string;
+    passedFilter: boolean;
+  }>
+> {
   const feedUrl = source.feedUrl;
   if (!feedUrl) return [];
 
@@ -194,7 +197,7 @@ async function fetchYouTube(
       title: entry.title,
       url: entry.link,
       relevancyScore: 0.7,
-      relevancyReason: "trusted_source",
+      relevancyReason: 'trusted_source',
       passedFilter: true,
     });
   }
@@ -225,7 +228,7 @@ async function fetchNewsletter(
       title: entry.title,
       url: entry.link,
       relevancyScore: 0.8,
-      relevancyReason: "trusted_newsletter",
+      relevancyReason: 'trusted_newsletter',
       passedFilter: true,
     });
   }
@@ -263,12 +266,26 @@ function isLikelyArticle(link: { url: string }, baseUrl: string): boolean {
 
     // Skip common non-article paths
     const skipPaths = [
-      '/about', '/contact', '/privacy', '/terms', '/login', '/signup',
-      '/tag/', '/category/', '/author/', '/page/', '/feed', '/rss',
-      '/search', '/subscribe', '/newsletter', '/podcast', '/events'
+      '/about',
+      '/contact',
+      '/privacy',
+      '/terms',
+      '/login',
+      '/signup',
+      '/tag/',
+      '/category/',
+      '/author/',
+      '/page/',
+      '/feed',
+      '/rss',
+      '/search',
+      '/subscribe',
+      '/newsletter',
+      '/podcast',
+      '/events',
     ];
     const pathname = url.pathname.toLowerCase();
-    if (skipPaths.some(p => pathname.includes(p))) return false;
+    if (skipPaths.some((p) => pathname.includes(p))) return false;
 
     // Must have path depth (not just homepage)
     const pathParts = url.pathname.split('/').filter(Boolean);
@@ -319,13 +336,13 @@ async function fetchBlog(
   }
 
   // Convert structured links to the format expected by isLikelyArticle
-  const links = homepage.links.map(link => ({
+  const links = homepage.links.map((link) => ({
     title: link.text,
-    url: link.url
+    url: link.url,
   }));
 
   // Filter to same-domain links likely to be articles
-  const articleLinks = links.filter(link => isLikelyArticle(link, url));
+  const articleLinks = links.filter((link) => isLikelyArticle(link, url));
 
   // Check each link against existing content (limit to first 10)
   const newItems: any[] = [];
@@ -356,7 +373,7 @@ async function fetchBlog(
       title: link.title,
       url: fullUrl,
       relevancyScore: Math.max(score, 0.7), // Boost since it's a trusted source
-      relevancyReason: reason === "neutral" ? "blog_article" : reason,
+      relevancyReason: reason === 'neutral' ? 'blog_article' : reason,
       passedFilter: true,
     });
   }
@@ -411,12 +428,14 @@ async function fetchChangelog(
   existingIds: Set<string>
 ): Promise<any[]> {
   const identifier = source.identifier;
-  const [owner, repo] = identifier.includes('/') ? identifier.split('/', 2) : ['anthropics', identifier];
+  const [owner, repo] = identifier.includes('/')
+    ? identifier.split('/', 2)
+    : ['anthropics', identifier];
 
   const apiUrl = `https://api.github.com/repos/${owner}/${repo}/releases?per_page=5`;
 
   const response = await fetch(apiUrl, {
-    headers: { "User-Agent": "Holocron-Subscription-Fetch" },
+    headers: { 'User-Agent': 'Holocron-Subscription-Fetch' },
   });
 
   if (!response.ok) return [];
@@ -438,7 +457,7 @@ async function fetchChangelog(
       title: release.name || tagOrId,
       url: release.html_url,
       relevancyScore: 0.8,
-      relevancyReason: "changelog_release",
+      relevancyReason: 'changelog_release',
       passedFilter: true,
     });
   }
@@ -458,11 +477,11 @@ async function fetchGitHub(
   filter: RelevancyRule[],
   existingIds: Set<string>
 ): Promise<any[]> {
-  const username = source.identifier.replace(/^https?:\/\/github\.com\//, "").replace(/\/$/, "");
+  const username = source.identifier.replace(/^https?:\/\/github\.com\//, '').replace(/\/$/, '');
   const apiUrl = `https://api.github.com/users/${username}/events/public?per_page=30`;
 
   const response = await fetch(apiUrl, {
-    headers: { "User-Agent": "Holocron-Subscription-Fetch" },
+    headers: { 'User-Agent': 'Holocron-Subscription-Fetch' },
   });
 
   if (!response.ok) return [];
@@ -473,20 +492,20 @@ async function fetchGitHub(
   for (const event of events) {
     // Focus on high-signal events
     const interestingTypes = new Set([
-      "CreateEvent",      // Repo/branch/tag created
-      "ReleaseEvent",     // Release published
-      "PublicEvent",      // Repo made public
-      "PushEvent",        // Commits pushed (high-volume, filter to defaults only)
-      "ForkEvent",        // Forked a repo
-      "WatchEvent",       // Starred a repo
+      'CreateEvent', // Repo/branch/tag created
+      'ReleaseEvent', // Release published
+      'PublicEvent', // Repo made public
+      'PushEvent', // Commits pushed (high-volume, filter to defaults only)
+      'ForkEvent', // Forked a repo
+      'WatchEvent', // Starred a repo
     ]);
 
     if (!interestingTypes.has(event.type)) continue;
 
     // Skip high-volume push events unless to default branch
-    if (event.type === "PushEvent") {
-      const ref = event.payload?.ref ?? "";
-      if (!ref.endsWith("/main") && !ref.endsWith("/master")) continue;
+    if (event.type === 'PushEvent') {
+      const ref = event.payload?.ref ?? '';
+      if (!ref.endsWith('/main') && !ref.endsWith('/master')) continue;
     }
 
     const contentId = event.id;
@@ -496,12 +515,12 @@ async function fetchGitHub(
     let url: string;
 
     switch (event.type) {
-      case "CreateEvent": {
-        const refType = event.payload?.ref_type ?? "repository";
-        if (refType === "repository") {
+      case 'CreateEvent': {
+        const refType = event.payload?.ref_type ?? 'repository';
+        if (refType === 'repository') {
           title = `Created repo: ${event.repo?.name}`;
           url = `https://github.com/${event.repo?.name}`;
-        } else if (refType === "tag") {
+        } else if (refType === 'tag') {
           title = `Tagged ${event.payload?.ref} in ${event.repo?.name}`;
           url = `https://github.com/${event.repo?.name}/releases/tag/${event.payload?.ref}`;
         } else {
@@ -509,23 +528,23 @@ async function fetchGitHub(
         }
         break;
       }
-      case "ReleaseEvent":
-        title = `Released ${event.payload?.release?.tag_name ?? "new version"} of ${event.repo?.name}`;
+      case 'ReleaseEvent':
+        title = `Released ${event.payload?.release?.tag_name ?? 'new version'} of ${event.repo?.name}`;
         url = event.payload?.release?.html_url ?? `https://github.com/${event.repo?.name}`;
         break;
-      case "PublicEvent":
+      case 'PublicEvent':
         title = `Made ${event.repo?.name} public`;
         url = `https://github.com/${event.repo?.name}`;
         break;
-      case "PushEvent":
+      case 'PushEvent':
         title = `Pushed to ${event.repo?.name} (${event.payload?.size ?? 0} commits)`;
         url = `https://github.com/${event.repo?.name}`;
         break;
-      case "ForkEvent":
+      case 'ForkEvent':
         title = `Forked ${event.repo?.name}`;
         url = event.payload?.forkee?.html_url ?? `https://github.com/${event.repo?.name}`;
         break;
-      case "WatchEvent":
+      case 'WatchEvent':
         title = `Starred ${event.repo?.name}`;
         url = `https://github.com/${event.repo?.name}`;
         break;
@@ -538,7 +557,7 @@ async function fetchGitHub(
       contentId,
       title,
       url,
-      relevancyScore: event.type === "ReleaseEvent" || event.type === "CreateEvent" ? 0.9 : 0.6,
+      relevancyScore: event.type === 'ReleaseEvent' || event.type === 'CreateEvent' ? 0.9 : 0.6,
       relevancyReason: `github_${event.type.toLowerCase()}`,
       passedFilter: true,
     });
@@ -562,12 +581,14 @@ interface CreatorConfig {
 /**
  * Fetch posts from Bluesky via AT Protocol
  */
-async function fetchBlueskyFeed(handle: string): Promise<Array<{
-  title: string;
-  link: string;
-  published: string;
-  platform: string;
-}>> {
+async function fetchBlueskyFeed(handle: string): Promise<
+  Array<{
+    title: string;
+    link: string;
+    published: string;
+    platform: string;
+  }>
+> {
   // Handle can be either a DID or a handle like "user.bsky.social"
   const actor = handle.includes('.') ? handle : `${handle}.bsky.social`;
 
@@ -575,7 +596,7 @@ async function fetchBlueskyFeed(handle: string): Promise<Array<{
     const response = await fetch(
       `https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=${encodeURIComponent(actor)}&limit=25`,
       {
-        headers: { "Accept": "application/json" },
+        headers: { Accept: 'application/json' },
       }
     );
 
@@ -621,12 +642,14 @@ async function fetchBlueskyFeed(handle: string): Promise<Array<{
 /**
  * Fetch videos from YouTube via RSS
  */
-async function fetchYouTubeCreatorRSS(handle: string): Promise<Array<{
-  title: string;
-  link: string;
-  published: string;
-  platform: string;
-}>> {
+async function fetchYouTubeCreatorRSS(handle: string): Promise<
+  Array<{
+    title: string;
+    link: string;
+    published: string;
+    platform: string;
+  }>
+> {
   // Clean up handle
   const cleanHandle = handle.replace(/^@/, '');
 
@@ -635,7 +658,7 @@ async function fetchYouTubeCreatorRSS(handle: string): Promise<Array<{
 
   try {
     const items = await parseRSSFeed(feedUrl);
-    return items.map(item => ({
+    return items.map((item) => ({
       ...item,
       platform: 'youtube',
     }));
@@ -649,17 +672,19 @@ async function fetchYouTubeCreatorRSS(handle: string): Promise<Array<{
 /**
  * Fetch public events from GitHub
  */
-async function fetchGitHubEvents(username: string): Promise<Array<{
-  title: string;
-  link: string;
-  published: string;
-  platform: string;
-}>> {
+async function fetchGitHubEvents(username: string): Promise<
+  Array<{
+    title: string;
+    link: string;
+    published: string;
+    platform: string;
+  }>
+> {
   try {
     const response = await fetch(
       `https://api.github.com/users/${username}/events/public?per_page=30`,
       {
-        headers: { "User-Agent": "Holocron-Subscription-Fetch" },
+        headers: { 'User-Agent': 'Holocron-Subscription-Fetch' },
       }
     );
 
@@ -755,12 +780,14 @@ async function fetchCreator(
   const allItems: any[] = [];
 
   // Fetch from each configured platform in parallel
-  const fetchPromises: Promise<Array<{
-    title: string;
-    link: string;
-    published: string;
-    platform: string;
-  }>>[] = [];
+  const fetchPromises: Promise<
+    Array<{
+      title: string;
+      link: string;
+      published: string;
+      platform: string;
+    }>
+  >[] = [];
 
   if (platforms.bluesky) {
     fetchPromises.push(fetchBlueskyFeed(platforms.bluesky));
@@ -835,8 +862,8 @@ export const getActiveSources = internalQuery({
   args: {},
   handler: async (ctx) => {
     const sources = await ctx.db
-      .query("subscriptionSources")
-      .withIndex("by_auto_research", (q) => q.eq("autoResearch", true))
+      .query('subscriptionSources')
+      .withIndex('by_auto_research', (q) => q.eq('autoResearch', true))
       .collect();
 
     return sources;
@@ -850,16 +877,12 @@ export const getActiveSources = internalQuery({
  */
 export const getCreatorAccountsByPlatform = internalQuery({
   args: {
-    platform: v.union(
-      v.literal("bluesky"),
-      v.literal("youtube"),
-      v.literal("github")
-    ),
+    platform: v.union(v.literal('bluesky'), v.literal('youtube'), v.literal('github')),
   },
   handler: async (ctx, args) => {
     const creators = await ctx.db
-      .query("subscriptionSources")
-      .withIndex("by_type", (q) => q.eq("sourceType", "creator"))
+      .query('subscriptionSources')
+      .withIndex('by_type', (q) => q.eq('sourceType', 'creator'))
       .collect();
 
     // Filter to creators that have the requested platform configured
@@ -881,14 +904,14 @@ export const getCreatorAccountsByPlatform = internalQuery({
 
 export const getContentBySourceAndId = internalQuery({
   args: {
-    sourceId: v.id("subscriptionSources"),
+    sourceId: v.id('subscriptionSources'),
     contentId: v.string(),
   },
   handler: async (ctx, args) => {
     const content = await ctx.db
-      .query("subscriptionContent")
-      .withIndex("by_source_content", (q) =>
-        q.eq("sourceId", args.sourceId).eq("contentId", args.contentId)
+      .query('subscriptionContent')
+      .withIndex('by_source_content', (q) =>
+        q.eq('sourceId', args.sourceId).eq('contentId', args.contentId)
       )
       .first();
 
@@ -898,28 +921,28 @@ export const getContentBySourceAndId = internalQuery({
 
 export const getFiltersForSource = internalQuery({
   args: {
-    sourceId: v.id("subscriptionSources"),
+    sourceId: v.id('subscriptionSources'),
     sourceType: v.union(
-      v.literal("youtube"),
-      v.literal("newsletter"),
-      v.literal("changelog"),
-      v.literal("reddit"),
-      v.literal("ebay"),
-      v.literal("whats-new"),
-      v.literal("creator"),
-      v.literal("github")
+      v.literal('youtube'),
+      v.literal('newsletter'),
+      v.literal('changelog'),
+      v.literal('reddit'),
+      v.literal('ebay'),
+      v.literal('whats-new'),
+      v.literal('creator'),
+      v.literal('github')
     ),
   },
   handler: async (ctx, args) => {
     const filters = await ctx.db
-      .query("subscriptionFilters")
-      .withIndex("by_source", (q) => q.eq("sourceId", args.sourceId))
+      .query('subscriptionFilters')
+      .withIndex('by_source', (q) => q.eq('sourceId', args.sourceId))
       .collect();
 
     // Also get global filters for this type
     const globalFilters = await ctx.db
-      .query("subscriptionFilters")
-      .withIndex("by_type", (q) => q.eq("sourceType", args.sourceType))
+      .query('subscriptionFilters')
+      .withIndex('by_type', (q) => q.eq('sourceType', args.sourceType))
       .collect();
 
     return [...filters, ...globalFilters];
@@ -932,9 +955,9 @@ export const getQueuedContent = internalQuery({
   },
   handler: async (ctx, args) => {
     return await ctx.db
-      .query("subscriptionContent")
-      .withIndex("by_status", (q) => q.eq("researchStatus", "queued"))
-      .order("asc") // Oldest first (FIFO)
+      .query('subscriptionContent')
+      .withIndex('by_status', (q) => q.eq('researchStatus', 'queued'))
+      .order('asc') // Oldest first (FIFO)
       .take(args.limit);
   },
 });
@@ -944,7 +967,7 @@ export const getQueuedContent = internalQuery({
  */
 export const patchCreatorConfig = internalMutation({
   args: {
-    id: v.id("subscriptionSources"),
+    id: v.id('subscriptionSources'),
     configJson: v.any(),
     url: v.optional(v.string()),
   },
@@ -957,7 +980,7 @@ export const patchCreatorConfig = internalMutation({
 
 export const getSource = internalQuery({
   args: {
-    id: v.id("subscriptionSources"),
+    id: v.id('subscriptionSources'),
   },
   handler: async (ctx, args) => {
     return await ctx.db.get(args.id);
@@ -969,15 +992,15 @@ export const getSource = internalQuery({
 // ============================================================================
 
 const SOURCE_TYPE_TO_CATEGORY: Record<string, string> = {
-  youtube: "video",
-  reddit: "social",
-  newsletter: "article",
-  changelog: "article",
-  blog: "article",
-  bluesky: "social",
-  ebay: "blog",
-  "whats-new": "article",
-  github: "social",
+  youtube: 'video',
+  reddit: 'social',
+  newsletter: 'article',
+  changelog: 'article',
+  blog: 'article',
+  bluesky: 'social',
+  ebay: 'blog',
+  'whats-new': 'article',
+  github: 'social',
 };
 
 /**
@@ -986,16 +1009,16 @@ const SOURCE_TYPE_TO_CATEGORY: Record<string, string> = {
  */
 function deriveCategoryFromUrl(url: string, sourceType: string): string {
   if (SOURCE_TYPE_TO_CATEGORY[sourceType]) return SOURCE_TYPE_TO_CATEGORY[sourceType];
-  if (url.includes("youtube.com") || url.includes("youtu.be")) return "video";
-  if (url.includes("reddit.com")) return "social";
-  if (url.includes("bsky.app") || url.includes("bluesky")) return "social";
-  if (sourceType === "creator") return "social";
-  return "article";
+  if (url.includes('youtube.com') || url.includes('youtu.be')) return 'video';
+  if (url.includes('reddit.com')) return 'social';
+  if (url.includes('bsky.app') || url.includes('bluesky')) return 'social';
+  if (sourceType === 'creator') return 'social';
+  return 'article';
 }
 
 export const insertContent = internalMutation({
   args: {
-    sourceId: v.id("subscriptionSources"),
+    sourceId: v.id('subscriptionSources'),
     contentId: v.string(),
     title: v.string(),
     url: v.string(),
@@ -1013,7 +1036,7 @@ export const insertContent = internalMutation({
   },
   handler: async (ctx, args) => {
     const now = Date.now();
-    const id = await ctx.db.insert("subscriptionContent", {
+    const id = await ctx.db.insert('subscriptionContent', {
       sourceId: args.sourceId,
       contentId: args.contentId,
       title: args.title,
@@ -1021,7 +1044,7 @@ export const insertContent = internalMutation({
       metadataJson: args.metadataJson,
       passedFilter: args.passedFilter,
       filterReason: args.passedFilter ? args.relevancyReason : undefined,
-      researchStatus: args.passedFilter ? "queued" : "skipped",
+      researchStatus: args.passedFilter ? 'queued' : 'skipped',
       discoveredAt: now,
       researchedAt: undefined,
       embedding: args.embedding,
@@ -1040,7 +1063,7 @@ export const insertContent = internalMutation({
 
 export const updateSourceLastChecked = internalMutation({
   args: {
-    sourceId: v.id("subscriptionSources"),
+    sourceId: v.id('subscriptionSources'),
     lastChecked: v.number(),
   },
   handler: async (ctx, args) => {
@@ -1050,13 +1073,13 @@ export const updateSourceLastChecked = internalMutation({
 
 export const updateContentResearchStatus = internalMutation({
   args: {
-    contentId: v.id("subscriptionContent"),
-    status: v.union(v.literal("researched"), v.literal("skipped")),
-    documentId: v.optional(v.id("documents")),
+    contentId: v.id('subscriptionContent'),
+    status: v.union(v.literal('researched'), v.literal('skipped')),
+    documentId: v.optional(v.id('documents')),
   },
   handler: async (ctx, args) => {
     const updates: {
-      researchStatus: "researched" | "skipped";
+      researchStatus: 'researched' | 'skipped';
       researchedAt: number;
       documentId?: typeof args.documentId;
     } = {
@@ -1088,7 +1111,7 @@ export const createDocumentFromContent = internalAction({
     researchType: v.optional(v.string()),
     filePath: v.optional(v.string()),
   },
-  handler: async (ctx, args): Promise<Id<"documents">> => {
+  handler: async (ctx, args): Promise<Id<'documents'>> => {
     // Use the documents module's action which handles embedding generation
     const result = await ctx.runAction(api.documents.storage.createWithEmbedding, {
       title: args.title,
@@ -1101,7 +1124,7 @@ export const createDocumentFromContent = internalAction({
       researchType: args.researchType,
     });
 
-    return result.documentId as Id<"documents">;
+    return result.documentId as Id<'documents'>;
   },
 });
 
@@ -1140,7 +1163,7 @@ async function processSingleSource(
   });
 
   // Map database filters to RelevancyRule format
-  const filters = dbFilters.map((f: typeof dbFilters[number]) => ({
+  const filters = dbFilters.map((f: (typeof dbFilters)[number]) => ({
     ruleName: f.ruleName,
     ruleType: f.ruleType,
     ruleValue: f.ruleValue,
@@ -1167,16 +1190,17 @@ async function processSingleSource(
   // AI relevance scoring for creator sources (runs in separate Node.js action)
   if (source.sourceType === 'creator' && items.length > 0) {
     const config = (source.configJson || {}) as Record<string, unknown>;
-    const topic = (config.topic as string) || (config.category as string) || "general tech";
+    const topic = (config.topic as string) || (config.category as string) || 'general tech';
     try {
       const aiScores = await ctx.runAction(
         internal.subscriptions.ai_scoring.scoreContentRelevance,
         {
           items: items.map((item: any) => ({
             title: item.title,
-            platform: (item.metadataJson as Record<string, unknown>)?.platform as string || "unknown",
+            platform:
+              ((item.metadataJson as Record<string, unknown>)?.platform as string) || 'unknown',
           })),
-          sourceName: source.name ?? source.identifier ?? "unknown",
+          sourceName: source.name ?? source.identifier ?? 'unknown',
           topic,
         }
       );
@@ -1187,8 +1211,10 @@ async function processSingleSource(
           items[i].aiRelevanceReason = aiScore.reason;
 
           // Stricter threshold for bluesky — most social posts are noise
-          const platform = ((items[i].metadataJson as Record<string, unknown>)?.platform as string || "").toLowerCase();
-          const threshold = (platform === 'bluesky') ? 0.5 : 0.3;
+          const platform = (
+            ((items[i].metadataJson as Record<string, unknown>)?.platform as string) || ''
+          ).toLowerCase();
+          const threshold = platform === 'bluesky' ? 0.5 : 0.3;
 
           if (aiScore.score < threshold) {
             items[i].passedFilter = false;
@@ -1196,12 +1222,12 @@ async function processSingleSource(
         }
       }
     } catch (err) {
-      console.warn("[checkAllSubscriptions] AI scoring failed, using keyword scores:", err);
+      console.warn('[checkAllSubscriptions] AI scoring failed, using keyword scores:', err);
     }
   }
 
   // Generate embeddings in batch for all items
-  const titles = items.map(item => item.title);
+  const titles = items.map((item) => item.title);
   const embeddings = await generateEmbeddingsBatch(titles);
 
   // Insert new items into database with embeddings
@@ -1209,7 +1235,9 @@ async function processSingleSource(
   for (let i = 0; i < items.length; i++) {
     const item = items[i];
     const meta = item.metadataJson as Record<string, unknown> | undefined;
-    const thumbnailUrl = (meta?.thumbnailUrl ?? meta?.thumbnail ?? meta?.image) as string | undefined;
+    const thumbnailUrl = (meta?.thumbnailUrl ?? meta?.thumbnail ?? meta?.image) as
+      | string
+      | undefined;
     const duration = meta?.duration as number | undefined;
     await ctx.runMutation(internal.subscriptions.internal.insertContent, {
       sourceId: item.sourceId,
@@ -1265,7 +1293,9 @@ async function processSingleSource(
  * Get the appropriate fetcher function for a given source type.
  * Returns null for unsupported source types.
  */
-function getSourceFetcher(sourceType: string): ((source: any, filters: any[], existingIds: Set<string>) => Promise<any[]>) | null {
+function getSourceFetcher(
+  sourceType: string
+): ((source: any, filters: any[], existingIds: Set<string>) => Promise<any[]>) | null {
   switch (sourceType) {
     case 'youtube':
       return fetchYouTube;
@@ -1292,7 +1322,9 @@ function getSourceFetcher(sourceType: string): ((source: any, filters: any[], ex
 
 export const checkAllSubscriptions = internalAction({
   args: {},
-  handler: async (ctx): Promise<{
+  handler: async (
+    ctx
+  ): Promise<{
     sourcesChecked: number;
     totalFetched: number;
     totalQueued: number;
@@ -1311,20 +1343,25 @@ export const checkAllSubscriptions = internalAction({
     const sources = await ctx.runQuery(internal.subscriptions.internal.getActiveSources);
 
     // Process all sources in parallel with error isolation
-    const processingPromises = sources.map(async (source: typeof sources[number]) => {
+    const processingPromises = sources.map(async (source: (typeof sources)[number]) => {
       try {
         // Special handling for newsletter sources (RSS vs blog scraping)
         if (source.sourceType === 'newsletter') {
           const sourceIdStr = source._id.toString();
-          const existingIds = new Set<string>((existingContentMap as Record<string, string[]>)[sourceIdStr] || []);
+          const existingIds = new Set<string>(
+            (existingContentMap as Record<string, string[]>)[sourceIdStr] || []
+          );
 
           // Get filters
-          const dbFilters = await ctx.runQuery(internal.subscriptions.internal.getFiltersForSource, {
-            sourceId: source._id,
-            sourceType: source.sourceType,
-          });
+          const dbFilters = await ctx.runQuery(
+            internal.subscriptions.internal.getFiltersForSource,
+            {
+              sourceId: source._id,
+              sourceType: source.sourceType,
+            }
+          );
 
-          const filters: RelevancyRule[] = dbFilters.map((f: typeof dbFilters[number]) => ({
+          const filters: RelevancyRule[] = dbFilters.map((f: (typeof dbFilters)[number]) => ({
             _id: f._id.toString(),
             sourceType: null,
             ruleName: f.ruleName,
@@ -1338,11 +1375,11 @@ export const checkAllSubscriptions = internalAction({
           const items = source.feedUrl
             ? await fetchNewsletter(source, filters, existingIds)
             : source.url
-            ? await fetchBlog(source, filters, existingIds)
-            : [];
+              ? await fetchBlog(source, filters, existingIds)
+              : [];
 
           // Generate embeddings in batch for all items
-          const titles = items.map(item => item.title);
+          const titles = items.map((item) => item.title);
           const embeddings = await generateEmbeddingsBatch(titles);
 
           // Insert items with embeddings
@@ -1350,7 +1387,9 @@ export const checkAllSubscriptions = internalAction({
           for (let i = 0; i < items.length; i++) {
             const item = items[i];
             const meta = item.metadataJson as Record<string, unknown> | undefined;
-            const thumbnailUrl = (meta?.thumbnailUrl ?? meta?.thumbnail ?? meta?.image) as string | undefined;
+            const thumbnailUrl = (meta?.thumbnailUrl ?? meta?.thumbnail ?? meta?.image) as
+              | string
+              | undefined;
             const duration = meta?.duration as number | undefined;
             await ctx.runMutation(internal.subscriptions.internal.insertContent, {
               sourceId: item.sourceId,
@@ -1414,11 +1453,20 @@ export const checkAllSubscriptions = internalAction({
     const results = await Promise.all(processingPromises);
 
     // Aggregate results
-    const totalFetched = results.reduce((sum: number, r: typeof results[number]) => sum + r.itemsFetched, 0);
-    const totalQueued = results.reduce((sum: number, r: typeof results[number]) => sum + r.itemsQueued, 0);
+    const totalFetched = results.reduce(
+      (sum: number, r: (typeof results)[number]) => sum + r.itemsFetched,
+      0
+    );
+    const totalQueued = results.reduce(
+      (sum: number, r: (typeof results)[number]) => sum + r.itemsQueued,
+      0
+    );
     const errors = results
-      .filter((r: typeof results[number]) => !r.success)
-      .map((r: typeof results[number]) => ({ source: r.identifier, error: r.error || 'Unknown error' }));
+      .filter((r: (typeof results)[number]) => !r.success)
+      .map((r: (typeof results)[number]) => ({
+        source: r.identifier,
+        error: r.error || 'Unknown error',
+      }));
 
     const durationMs = Date.now() - startTime;
 
@@ -1448,7 +1496,9 @@ export const checkAllSubscriptions = internalAction({
  */
 export const processQueuedContent = internalAction({
   args: {},
-  handler: async (ctx): Promise<{
+  handler: async (
+    ctx
+  ): Promise<{
     processed: number;
     succeeded: number;
     skipped: number;
@@ -1459,10 +1509,9 @@ export const processQueuedContent = internalAction({
     const SIMILARITY_THRESHOLD = 0.88; // High threshold to avoid false positives
 
     // Get queued content items
-    const queuedItems = await ctx.runQuery(
-      internal.subscriptions.internal.getQueuedContent,
-      { limit: BATCH_SIZE }
-    );
+    const queuedItems = await ctx.runQuery(internal.subscriptions.internal.getQueuedContent, {
+      limit: BATCH_SIZE,
+    });
 
     const results = {
       processed: queuedItems.length,
@@ -1476,16 +1525,16 @@ export const processQueuedContent = internalAction({
       try {
         // Skip if no URL
         if (!item.url) {
-          await ctx.runMutation(
-            internal.subscriptions.internal.updateContentResearchStatus,
-            { contentId: item._id, status: "skipped" }
-          );
+          await ctx.runMutation(internal.subscriptions.internal.updateContentResearchStatus, {
+            contentId: item._id,
+            status: 'skipped',
+          });
           continue;
         }
 
         // Check for semantic duplicates if embedding exists
         if (item.embedding) {
-          const similarDocs = await ctx.vectorSearch("documents", "by_embedding", {
+          const similarDocs = await ctx.vectorSearch('documents', 'by_embedding', {
             vector: item.embedding,
             limit: 3,
           });
@@ -1507,12 +1556,12 @@ export const processQueuedContent = internalAction({
             // Found duplicate, skip processing
             console.log(
               `[subscription-dedup] Skipping duplicate content: "${item.title}" ` +
-              `(similar to: "${duplicates[0].title}" similarity: ${duplicates[0].similarity.toFixed(3)})`
+                `(similar to: "${duplicates[0].title}" similarity: ${duplicates[0].similarity.toFixed(3)})`
             );
-            await ctx.runMutation(
-              internal.subscriptions.internal.updateContentResearchStatus,
-              { contentId: item._id, status: "skipped" }
-            );
+            await ctx.runMutation(internal.subscriptions.internal.updateContentResearchStatus, {
+              contentId: item._id,
+              status: 'skipped',
+            });
             results.skipped++;
             continue;
           }
@@ -1524,63 +1573,58 @@ export const processQueuedContent = internalAction({
         if (!content.success || !content.content) {
           results.errors.push({
             contentId: item._id.toString(),
-            error: content.error || "Failed to read content",
+            error: content.error || 'Failed to read content',
           });
           results.failed++;
           // Mark as skipped to prevent infinite retry
-          await ctx.runMutation(
-            internal.subscriptions.internal.updateContentResearchStatus,
-            { contentId: item._id, status: "skipped" }
-          );
+          await ctx.runMutation(internal.subscriptions.internal.updateContentResearchStatus, {
+            contentId: item._id,
+            status: 'skipped',
+          });
           continue;
         }
 
         // Get source info for categorization
-        const source = await ctx.runQuery(
-          internal.subscriptions.internal.getSource,
-          { id: item.sourceId }
-        );
+        const source = await ctx.runQuery(internal.subscriptions.internal.getSource, {
+          id: item.sourceId,
+        });
 
         // Determine category based on source type
         const categoryMap: Record<string, string> = {
-          youtube: "video",
-          newsletter: "article",
-          reddit: "discussion",
-          changelog: "release",
-          creator: "creator",
+          youtube: 'video',
+          newsletter: 'article',
+          reddit: 'discussion',
+          changelog: 'release',
+          creator: 'creator',
         };
-        const category = categoryMap[source?.sourceType || ""] || "article";
+        const category = categoryMap[source?.sourceType || ''] || 'article';
 
         // Create document with content and embedding
-        const result = await ctx.runAction(
-          api.documents.storage.createWithEmbedding,
-          {
-            title: item.title,
-            content: content.content,
-            category: category,
-            status: "complete",
-            date: new Date().toISOString().split("T")[0],
-            researchType: "subscription",
-            filePath: item.url, // Store source URL as filePath
-          }
-        );
+        const result = await ctx.runAction(api.documents.storage.createWithEmbedding, {
+          title: item.title,
+          content: content.content,
+          category: category,
+          status: 'complete',
+          date: new Date().toISOString().split('T')[0],
+          researchType: 'subscription',
+          filePath: item.url, // Store source URL as filePath
+        });
         const documentId = result.documentId;
 
         // Update content status with document link
-        await ctx.runMutation(
-          internal.subscriptions.internal.updateContentResearchStatus,
-          {
-            contentId: item._id,
-            status: "researched",
-            documentId: documentId,
-          }
-        );
+        await ctx.runMutation(internal.subscriptions.internal.updateContentResearchStatus, {
+          contentId: item._id,
+          status: 'researched',
+          documentId: documentId,
+        });
 
         // Notify that subscription content has been researched and saved as a document
         await ctx.runMutation(internal.notifications.internal.create, {
-          type: "subscription_update",
-          title: "Subscription Content Ready",
-          body: item.title ? `"${item.title}" has been saved to your library.` : "New subscription content has been saved to your library.",
+          type: 'subscription_update',
+          title: 'Subscription Content Ready',
+          body: item.title
+            ? `"${item.title}" has been saved to your library.`
+            : 'New subscription content has been saved to your library.',
           route: `/document/${documentId}`,
           referenceId: documentId,
         });
@@ -1594,10 +1638,10 @@ export const processQueuedContent = internalAction({
         results.failed++;
 
         // Mark as skipped to prevent infinite retry
-        await ctx.runMutation(
-          internal.subscriptions.internal.updateContentResearchStatus,
-          { contentId: item._id, status: "skipped" }
-        );
+        await ctx.runMutation(internal.subscriptions.internal.updateContentResearchStatus, {
+          contentId: item._id,
+          status: 'skipped',
+        });
       }
     }
 
@@ -1625,9 +1669,27 @@ export const processQueuedContent = internalAction({
  */
 const RECOMMENDED_CREATORS = [
   // Tier 4: Corporate Accounts (Bluesky only)
-  { name: "Anthropic", identifier: "AnthropicAI", tier: 4, platforms: { bluesky: "anthropic.bsky.social" }, category: "corporate" },
-  { name: "OpenAI", identifier: "OpenAI", tier: 4, platforms: { bluesky: "openai.bsky.social" }, category: "corporate" },
-  { name: "Cursor", identifier: "cursor_ai", tier: 4, platforms: { bluesky: "cursor.bsky.social" }, category: "corporate" },
+  {
+    name: 'Anthropic',
+    identifier: 'AnthropicAI',
+    tier: 4,
+    platforms: { bluesky: 'anthropic.bsky.social' },
+    category: 'corporate',
+  },
+  {
+    name: 'OpenAI',
+    identifier: 'OpenAI',
+    tier: 4,
+    platforms: { bluesky: 'openai.bsky.social' },
+    category: 'corporate',
+  },
+  {
+    name: 'Cursor',
+    identifier: 'cursor_ai',
+    tier: 4,
+    platforms: { bluesky: 'cursor.bsky.social' },
+    category: 'corporate',
+  },
 ];
 
 /**
@@ -1644,8 +1706,8 @@ export const seedCreatorAccounts = internalMutation({
     for (const creator of RECOMMENDED_CREATORS) {
       // Check if already exists
       const existing = await ctx.db
-        .query("subscriptionSources")
-        .withIndex("by_identifier", (q) => q.eq("identifier", creator.identifier))
+        .query('subscriptionSources')
+        .withIndex('by_identifier', (q) => q.eq('identifier', creator.identifier))
         .first();
 
       if (existing) {
@@ -1654,14 +1716,12 @@ export const seedCreatorAccounts = internalMutation({
       }
 
       const blueskyHandle = creator.platforms.bluesky;
-      await ctx.db.insert("subscriptionSources", {
-        sourceType: "creator",
+      await ctx.db.insert('subscriptionSources', {
+        sourceType: 'creator',
         identifier: creator.identifier,
         name: creator.name,
-        url: blueskyHandle
-          ? `https://bsky.app/profile/${blueskyHandle}`
-          : undefined,
-        fetchMethod: "jina",
+        url: blueskyHandle ? `https://bsky.app/profile/${blueskyHandle}` : undefined,
+        fetchMethod: 'jina',
         configJson: {
           platforms: creator.platforms,
           tier: creator.tier,
@@ -1689,33 +1749,159 @@ export const seedCreatorAccounts = internalMutation({
  * taste profile (practical builders, AI engineering, research distillation).
  */
 const YOUTUBE_CREATORS = [
-  { name: "Fireship", identifier: "fireship", tier: 1, platforms: { youtube: "UCsBjURrPoezykLs9EqgamOA" }, category: "rapid-explainers" },
-  { name: "ThePrimeagen", identifier: "ThePrimeagen", tier: 1, platforms: { youtube: "UC8ENHE5xdFSwx71u3fDH5Xw" }, category: "unfiltered-takes" },
-  { name: "Sentdex", identifier: "sentdex", tier: 1, platforms: { youtube: "UCfzlCWGWYyIQ0aLC5w48gBQ" }, category: "practical-ml" },
-  { name: "LangChain", identifier: "langchain-yt", tier: 2, platforms: { youtube: "UCC-lyoTfSrcJzA1ab3APAgw" }, category: "agent-tutorials" },
-  { name: "Yannic Kilcher", identifier: "yannic-kilcher", tier: 2, platforms: { youtube: "UCZHmQk67mSJgfCCTn7xBfew" }, category: "paper-reviews" },
-  { name: "All About AI", identifier: "all-about-ai", tier: 2, platforms: { youtube: "UCUyeluBRhGPCW4rPe_UvBZQ" }, category: "practical-coding" },
-  { name: "AI Jason", identifier: "ai-jason", tier: 2, platforms: { youtube: "UCaC_ojf4AH_SGjlbUbQBemg" }, category: "short-explainers" },
-  { name: "Matthew Berman", identifier: "matthew-berman", tier: 2, platforms: { youtube: "UCmN4MlruSQmHvaK1EfFBSqg" }, category: "tool-reviews" },
-  { name: "Umar Jamil", identifier: "umar-jamil", tier: 3, platforms: { youtube: "UC6gOFkvAM3GBn9MUi4ONAOA" }, category: "deep-technical" },
-  { name: "Dwarkesh Patel", identifier: "dwarkesh-patel", tier: 2, platforms: { youtube: "UC2LqM2ChFZHRUMGd142pF0Q" }, category: "intellectual-interviews" },
+  {
+    name: 'Fireship',
+    identifier: 'fireship',
+    tier: 1,
+    platforms: { youtube: 'UCsBjURrPoezykLs9EqgamOA' },
+    category: 'rapid-explainers',
+  },
+  {
+    name: 'ThePrimeagen',
+    identifier: 'ThePrimeagen',
+    tier: 1,
+    platforms: { youtube: 'UC8ENHE5xdFSwx71u3fDH5Xw' },
+    category: 'unfiltered-takes',
+  },
+  {
+    name: 'Sentdex',
+    identifier: 'sentdex',
+    tier: 1,
+    platforms: { youtube: 'UCfzlCWGWYyIQ0aLC5w48gBQ' },
+    category: 'practical-ml',
+  },
+  {
+    name: 'LangChain',
+    identifier: 'langchain-yt',
+    tier: 2,
+    platforms: { youtube: 'UCC-lyoTfSrcJzA1ab3APAgw' },
+    category: 'agent-tutorials',
+  },
+  {
+    name: 'Yannic Kilcher',
+    identifier: 'yannic-kilcher',
+    tier: 2,
+    platforms: { youtube: 'UCZHmQk67mSJgfCCTn7xBfew' },
+    category: 'paper-reviews',
+  },
+  {
+    name: 'All About AI',
+    identifier: 'all-about-ai',
+    tier: 2,
+    platforms: { youtube: 'UCUyeluBRhGPCW4rPe_UvBZQ' },
+    category: 'practical-coding',
+  },
+  {
+    name: 'AI Jason',
+    identifier: 'ai-jason',
+    tier: 2,
+    platforms: { youtube: 'UCaC_ojf4AH_SGjlbUbQBemg' },
+    category: 'short-explainers',
+  },
+  {
+    name: 'Matthew Berman',
+    identifier: 'matthew-berman',
+    tier: 2,
+    platforms: { youtube: 'UCmN4MlruSQmHvaK1EfFBSqg' },
+    category: 'tool-reviews',
+  },
+  {
+    name: 'Umar Jamil',
+    identifier: 'umar-jamil',
+    tier: 3,
+    platforms: { youtube: 'UC6gOFkvAM3GBn9MUi4ONAOA' },
+    category: 'deep-technical',
+  },
+  {
+    name: 'Dwarkesh Patel',
+    identifier: 'dwarkesh-patel',
+    tier: 2,
+    platforms: { youtube: 'UC2LqM2ChFZHRUMGd142pF0Q' },
+    category: 'intellectual-interviews',
+  },
 ];
 
 /**
  * Newsletter/RSS feeds to add as subscriptions.
  */
 const NEWSLETTER_FEEDS = [
-  { name: "Latent Space (swyx)", identifier: "latent-space-newsletter", feedUrl: "https://www.latent.space/feed", url: "https://www.latent.space", category: "ai-engineering" },
-  { name: "Interconnects (Nathan Lambert)", identifier: "interconnects-newsletter", feedUrl: "https://www.interconnects.ai/feed", url: "https://www.interconnects.ai", category: "rlhf-research" },
-  { name: "Import AI (Jack Clark)", identifier: "import-ai-newsletter", feedUrl: "https://importai.substack.com/feed", url: "https://importai.substack.com", category: "policy-research" },
-  { name: "TLDR AI", identifier: "tldr-ai-newsletter", feedUrl: "https://tldr.tech/ai/rss", url: "https://tldr.tech/ai", category: "daily-aggregator" },
-  { name: "PulseMCP", identifier: "pulsemcp-newsletter", feedUrl: "https://www.pulsemcp.com/feed", url: "https://www.pulsemcp.com", category: "mcp-ecosystem" },
-  { name: "Simon Willison's Blog", identifier: "simonwillison-blog", feedUrl: "https://simonwillison.net/atom/everything/", url: "https://simonwillison.net", category: "practical-ai" },
-  { name: "Ahead of AI (Sebastian Raschka)", identifier: "ahead-of-ai-newsletter", feedUrl: "https://magazine.sebastianraschka.com/feed", url: "https://magazine.sebastianraschka.com", category: "deep-technical-ml" },
-  { name: "AI Snake Oil (Arvind Narayanan)", identifier: "ai-snake-oil-newsletter", feedUrl: "https://www.aisnakeoil.com/feed", url: "https://www.aisnakeoil.com", category: "critical-analysis" },
-  { name: "Lilian Weng's Blog", identifier: "lilianweng-blog", feedUrl: "https://lilianweng.github.io/index.xml", url: "https://lilianweng.github.io", category: "research-deep-dives" },
-  { name: "Eugene Yan's Blog", identifier: "eugeneyan-blog", feedUrl: "https://eugeneyan.com/rss/", url: "https://eugeneyan.com", category: "production-ml" },
-  { name: "Gwern", identifier: "gwern-blog", feedUrl: "https://gwern.net/feed", url: "https://gwern.net", category: "ml-research-safety" },
+  {
+    name: 'Latent Space (swyx)',
+    identifier: 'latent-space-newsletter',
+    feedUrl: 'https://www.latent.space/feed',
+    url: 'https://www.latent.space',
+    category: 'ai-engineering',
+  },
+  {
+    name: 'Interconnects (Nathan Lambert)',
+    identifier: 'interconnects-newsletter',
+    feedUrl: 'https://www.interconnects.ai/feed',
+    url: 'https://www.interconnects.ai',
+    category: 'rlhf-research',
+  },
+  {
+    name: 'Import AI (Jack Clark)',
+    identifier: 'import-ai-newsletter',
+    feedUrl: 'https://importai.substack.com/feed',
+    url: 'https://importai.substack.com',
+    category: 'policy-research',
+  },
+  {
+    name: 'TLDR AI',
+    identifier: 'tldr-ai-newsletter',
+    feedUrl: 'https://tldr.tech/ai/rss',
+    url: 'https://tldr.tech/ai',
+    category: 'daily-aggregator',
+  },
+  {
+    name: 'PulseMCP',
+    identifier: 'pulsemcp-newsletter',
+    feedUrl: 'https://www.pulsemcp.com/feed',
+    url: 'https://www.pulsemcp.com',
+    category: 'mcp-ecosystem',
+  },
+  {
+    name: "Simon Willison's Blog",
+    identifier: 'simonwillison-blog',
+    feedUrl: 'https://simonwillison.net/atom/everything/',
+    url: 'https://simonwillison.net',
+    category: 'practical-ai',
+  },
+  {
+    name: 'Ahead of AI (Sebastian Raschka)',
+    identifier: 'ahead-of-ai-newsletter',
+    feedUrl: 'https://magazine.sebastianraschka.com/feed',
+    url: 'https://magazine.sebastianraschka.com',
+    category: 'deep-technical-ml',
+  },
+  {
+    name: 'AI Snake Oil (Arvind Narayanan)',
+    identifier: 'ai-snake-oil-newsletter',
+    feedUrl: 'https://www.aisnakeoil.com/feed',
+    url: 'https://www.aisnakeoil.com',
+    category: 'critical-analysis',
+  },
+  {
+    name: "Lilian Weng's Blog",
+    identifier: 'lilianweng-blog',
+    feedUrl: 'https://lilianweng.github.io/index.xml',
+    url: 'https://lilianweng.github.io',
+    category: 'research-deep-dives',
+  },
+  {
+    name: "Eugene Yan's Blog",
+    identifier: 'eugeneyan-blog',
+    feedUrl: 'https://eugeneyan.com/rss/',
+    url: 'https://eugeneyan.com',
+    category: 'production-ml',
+  },
+  {
+    name: 'Gwern',
+    identifier: 'gwern-blog',
+    feedUrl: 'https://gwern.net/feed',
+    url: 'https://gwern.net',
+    category: 'ml-research-safety',
+  },
 ];
 
 /**
@@ -1724,7 +1910,9 @@ const NEWSLETTER_FEEDS = [
  */
 export const seedExpandedRecommendations = internalMutation({
   args: {},
-  handler: async (ctx): Promise<{
+  handler: async (
+    ctx
+  ): Promise<{
     creators: { created: number; skipped: number };
     newsletters: { created: number; skipped: number };
   }> => {
@@ -1736,8 +1924,8 @@ export const seedExpandedRecommendations = internalMutation({
     const allCreators = [...YOUTUBE_CREATORS];
     for (const creator of allCreators) {
       const existing = await ctx.db
-        .query("subscriptionSources")
-        .withIndex("by_identifier", (q) => q.eq("identifier", creator.identifier))
+        .query('subscriptionSources')
+        .withIndex('by_identifier', (q) => q.eq('identifier', creator.identifier))
         .first();
 
       if (existing) {
@@ -1747,17 +1935,15 @@ export const seedExpandedRecommendations = internalMutation({
 
       const youtubeId = (creator.platforms as { youtube?: string }).youtube;
 
-      await ctx.db.insert("subscriptionSources", {
-        sourceType: "creator",
+      await ctx.db.insert('subscriptionSources', {
+        sourceType: 'creator',
         identifier: creator.identifier,
         name: creator.name,
-        url: youtubeId
-          ? `https://www.youtube.com/channel/${youtubeId}`
-          : undefined,
+        url: youtubeId ? `https://www.youtube.com/channel/${youtubeId}` : undefined,
         feedUrl: youtubeId
           ? `https://www.youtube.com/feeds/videos.xml?channel_id=${youtubeId}`
           : undefined,
-        fetchMethod: youtubeId ? "rss" : "jina",
+        fetchMethod: youtubeId ? 'rss' : 'jina',
         configJson: {
           platforms: creator.platforms,
           tier: creator.tier,
@@ -1774,8 +1960,8 @@ export const seedExpandedRecommendations = internalMutation({
     // Seed newsletter/RSS feeds
     for (const newsletter of NEWSLETTER_FEEDS) {
       const existing = await ctx.db
-        .query("subscriptionSources")
-        .withIndex("by_identifier", (q) => q.eq("identifier", newsletter.identifier))
+        .query('subscriptionSources')
+        .withIndex('by_identifier', (q) => q.eq('identifier', newsletter.identifier))
         .first();
 
       if (existing) {
@@ -1783,16 +1969,16 @@ export const seedExpandedRecommendations = internalMutation({
         continue;
       }
 
-      await ctx.db.insert("subscriptionSources", {
-        sourceType: "newsletter",
+      await ctx.db.insert('subscriptionSources', {
+        sourceType: 'newsletter',
         identifier: newsletter.identifier,
         name: newsletter.name,
         url: newsletter.url,
         feedUrl: newsletter.feedUrl,
-        fetchMethod: "rss",
+        fetchMethod: 'rss',
         configJson: {
           category: newsletter.category,
-          source: "deep-research-recommendation",
+          source: 'deep-research-recommendation',
         },
         autoResearch: true,
         createdAt: now,
@@ -1805,4 +1991,3 @@ export const seedExpandedRecommendations = internalMutation({
     return { creators: creatorsResult, newsletters: newslettersResult };
   },
 });
-

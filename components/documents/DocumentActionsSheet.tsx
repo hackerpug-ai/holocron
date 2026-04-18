@@ -1,38 +1,38 @@
-import { Modal, Pressable, View } from 'react-native'
+import * as Haptics from 'expo-haptics';
+import { useEffect } from 'react';
+import { Modal, Pressable, View } from 'react-native';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
+  Easing,
+  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
-  Easing,
-  runOnJS,
-} from 'react-native-reanimated'
-import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { useEffect } from 'react'
-import { Text } from '@/components/ui/text'
-import { Globe, Megaphone, MessageSquarePlus, Share2 } from '@/components/ui/icons'
-import * as Haptics from 'expo-haptics'
+} from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Globe, Megaphone, MessageSquarePlus, Share2 } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
 
 export interface DocumentActionsSheetProps {
-  visible: boolean
-  onClose: () => void
-  onListenPress: () => void
-  onSharePress: () => void
-  onAddToChatPress: () => void
-  isNarrationActive: boolean
-  isPublic?: boolean
-  testID?: string
+  visible: boolean;
+  onClose: () => void;
+  onListenPress: () => void;
+  onSharePress: () => void;
+  onAddToChatPress: () => void;
+  isNarrationActive: boolean;
+  isPublic?: boolean;
+  testID?: string;
 }
 
 const TIMING_CONFIG = {
   duration: 250,
   easing: Easing.out(Easing.cubic),
-}
+};
 
 const TIMING_OUT_CONFIG = {
   duration: 200,
   easing: Easing.in(Easing.cubic),
-}
+};
 
 /**
  * Bottom sheet with document actions: Listen (narration) and Share.
@@ -48,53 +48,53 @@ export function DocumentActionsSheet({
   isPublic = false,
   testID = 'document-actions-sheet',
 }: DocumentActionsSheetProps) {
-  const insets = useSafeAreaInsets()
-  const translateY = useSharedValue(300)
-  const backdropOpacity = useSharedValue(0)
+  const insets = useSafeAreaInsets();
+  const translateY = useSharedValue(300);
+  const backdropOpacity = useSharedValue(0);
 
   useEffect(() => {
     if (visible) {
-      translateY.value = withTiming(0, TIMING_CONFIG)
-      backdropOpacity.value = withTiming(1, TIMING_CONFIG)
+      translateY.value = withTiming(0, TIMING_CONFIG);
+      backdropOpacity.value = withTiming(1, TIMING_CONFIG);
     } else {
-      translateY.value = withTiming(300, TIMING_OUT_CONFIG)
-      backdropOpacity.value = withTiming(0, TIMING_OUT_CONFIG)
+      translateY.value = withTiming(300, TIMING_OUT_CONFIG);
+      backdropOpacity.value = withTiming(0, TIMING_OUT_CONFIG);
     }
-  }, [visible])
+  }, [visible]);
 
   const sheetStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: Math.max(translateY.value, 0) }],
-  }))
+  }));
 
   const backdropStyle = useAnimatedStyle(() => ({
     opacity: backdropOpacity.value,
-  }))
+  }));
 
-  const DISMISS_THRESHOLD = 80
+  const DISMISS_THRESHOLD = 80;
 
   const panGesture = Gesture.Pan()
     .onUpdate((e) => {
       if (e.translationY > 0) {
-        translateY.value = e.translationY
+        translateY.value = e.translationY;
       }
     })
     .onEnd((e) => {
       if (e.translationY > DISMISS_THRESHOLD) {
-        translateY.value = withTiming(300, TIMING_OUT_CONFIG)
-        backdropOpacity.value = withTiming(0, TIMING_OUT_CONFIG)
-        runOnJS(onClose)()
+        translateY.value = withTiming(300, TIMING_OUT_CONFIG);
+        backdropOpacity.value = withTiming(0, TIMING_OUT_CONFIG);
+        runOnJS(onClose)();
       } else {
-        translateY.value = withTiming(0, TIMING_CONFIG)
+        translateY.value = withTiming(0, TIMING_CONFIG);
       }
-    })
+    });
 
   const handleAction = (action: () => void) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-    onClose()
-    setTimeout(action, 200)
-  }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onClose();
+    setTimeout(action, 200);
+  };
 
-  if (!visible) return null
+  if (!visible) return null;
 
   return (
     <Modal
@@ -106,23 +106,14 @@ export function DocumentActionsSheet({
     >
       <GestureHandlerRootView style={{ flex: 1 }}>
         {/* Backdrop */}
-        <Pressable
-          onPress={onClose}
-          testID={`${testID}-backdrop`}
-          style={{ flex: 1 }}
-        >
-          <Animated.View
-            style={[backdropStyle, { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' }]}
-          />
+        <Pressable onPress={onClose} testID={`${testID}-backdrop`} style={{ flex: 1 }}>
+          <Animated.View style={[backdropStyle, { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' }]} />
         </Pressable>
 
         {/* Sheet */}
         <GestureDetector gesture={panGesture}>
           <Animated.View
-            style={[
-              sheetStyle,
-              { paddingBottom: insets.bottom + 16 },
-            ]}
+            style={[sheetStyle, { paddingBottom: insets.bottom + 16 }]}
             className="absolute bottom-0 left-0 right-0 rounded-t-2xl border-t border-border bg-card px-6 pt-4"
           >
             {/* Handle bar */}
@@ -136,15 +127,24 @@ export function DocumentActionsSheet({
               onPress={() => handleAction(onListenPress)}
               className="flex-row items-center gap-4 rounded-xl px-4 py-3.5 active:bg-muted"
             >
-              <View className={isNarrationActive ? 'rounded-full bg-primary/15 p-2' : 'rounded-full bg-muted p-2'}>
-                <Megaphone size={20} className={isNarrationActive ? 'text-primary' : 'text-foreground'} />
+              <View
+                className={
+                  isNarrationActive ? 'rounded-full bg-primary/15 p-2' : 'rounded-full bg-muted p-2'
+                }
+              >
+                <Megaphone
+                  size={20}
+                  className={isNarrationActive ? 'text-primary' : 'text-foreground'}
+                />
               </View>
               <View className="flex-1">
                 <Text className="text-foreground text-base font-medium">
                   {isNarrationActive ? 'Stop Listening' : 'Listen'}
                 </Text>
                 <Text className="text-muted-foreground text-sm">
-                  {isNarrationActive ? 'Exit audio narration mode' : 'Have this document read aloud'}
+                  {isNarrationActive
+                    ? 'Exit audio narration mode'
+                    : 'Have this document read aloud'}
                 </Text>
               </View>
             </Pressable>
@@ -159,9 +159,7 @@ export function DocumentActionsSheet({
                 <MessageSquarePlus size={20} className="text-primary" />
               </View>
               <View className="flex-1">
-                <Text className="text-foreground text-base font-medium">
-                  Add to Chat
-                </Text>
+                <Text className="text-foreground text-base font-medium">Add to Chat</Text>
                 <Text className="text-muted-foreground text-sm">
                   Discuss this document in a conversation
                 </Text>
@@ -174,7 +172,11 @@ export function DocumentActionsSheet({
               onPress={() => handleAction(onSharePress)}
               className="flex-row items-center gap-4 rounded-xl px-4 py-3.5 active:bg-muted"
             >
-              <View className={isPublic ? 'rounded-full bg-primary/15 p-2' : 'rounded-full bg-muted p-2'}>
+              <View
+                className={
+                  isPublic ? 'rounded-full bg-primary/15 p-2' : 'rounded-full bg-muted p-2'
+                }
+              >
                 {isPublic ? (
                   <Globe size={20} className="text-primary" />
                 ) : (
@@ -194,5 +196,5 @@ export function DocumentActionsSheet({
         </GestureDetector>
       </GestureHandlerRootView>
     </Modal>
-  )
+  );
 }

@@ -10,28 +10,31 @@
  * Target: ~15-25s total execution for simple queries
  */
 
-"use node";
+'use node';
 
-import { action } from "../_generated/server";
-import { v } from "convex/values";
-import { api } from "../_generated/api";
-import { generateText } from "ai";
-import { claudeFlash } from "../lib/ai/anthropic_provider";
+import { generateText } from 'ai';
+import { v } from 'convex/values';
+import { api } from '../_generated/api';
+import type { Id } from '../_generated/dataModel';
+import type { ActionCtx } from '../_generated/server';
+import { action } from '../_generated/server';
+import { claudeFlash } from '../lib/ai/anthropic_provider';
+import { stripMarkdownCodeBlock } from '../lib/json';
+import type { ResearchMode } from './intent';
 import {
-  executeParallelSearchWithRetry,
-} from "./search";
-import { stripMarkdownCodeBlock } from "../lib/json";
-import type { ResearchMode } from "./intent";
-import { getSynthesisInstructions, getSearchBudget, getDecompositionInstructions, buildFollowUpContext } from "./mode_prompts";
-import type { Id } from "../_generated/dataModel";
-import type { ActionCtx } from "../_generated/server";
+  buildFollowUpContext,
+  getDecompositionInstructions,
+  getSearchBudget,
+  getSynthesisInstructions,
+} from './mode_prompts';
+import { executeParallelSearchWithRetry } from './search';
 
 /**
  * Result type for parallel fan-out research
  */
 export interface ParallelFanOutResult {
-  sessionId: Id<"deepResearchSessions">;
-  conversationId: Id<"conversations">;
+  sessionId: Id<'deepResearchSessions'>;
+  conversationId: Id<'conversations'>;
   status: string;
   summary: string;
   confidence: string;
@@ -42,9 +45,9 @@ export interface ParallelFanOutResult {
  * Sub-question for LLM-driven query decomposition
  */
 export interface SubQuestion {
-  query: string;       // The actual search query
-  focus: string;       // What this sub-question targets
-  rationale: string;   // Why this angle matters
+  query: string; // The actual search query
+  focus: string; // What this sub-question targets
+  rationale: string; // Why this angle matters
   dependsOn: number[]; // Indices of sub-questions this depends on (future DAG support)
 }
 
@@ -55,7 +58,7 @@ export function decomposeIntoDomainsStatic(topic: string, mode?: ResearchMode): 
   const words = topic.toLowerCase();
 
   // Mode-specific decomposition takes priority over keyword detection
-  if (mode === "ACTIONABLE") {
+  if (mode === 'ACTIONABLE') {
     return [
       `${topic} implementation code example tutorial`,
       `${topic} architecture patterns design decisions`,
@@ -64,7 +67,7 @@ export function decomposeIntoDomainsStatic(topic: string, mode?: ResearchMode): 
     ];
   }
 
-  if (mode === "COMPARATIVE") {
+  if (mode === 'COMPARATIVE') {
     // Try to extract comparison subjects for better decomposition
     const parts = topic.split(/\s+vs\.?\s+|\s+compared?\s+to\s+/i);
     if (parts.length >= 2) {
@@ -83,7 +86,7 @@ export function decomposeIntoDomainsStatic(topic: string, mode?: ResearchMode): 
     ];
   }
 
-  if (mode === "OVERVIEW") {
+  if (mode === 'OVERVIEW') {
     return [
       `${topic} market landscape key players adoption`,
       `${topic} trends developments 2024 2025`,
@@ -92,7 +95,7 @@ export function decomposeIntoDomainsStatic(topic: string, mode?: ResearchMode): 
     ];
   }
 
-  if (mode === "EXPLORATORY") {
+  if (mode === 'EXPLORATORY') {
     return [
       `${topic} approaches methods techniques`,
       `${topic} use cases applications real-world`,
@@ -103,18 +106,14 @@ export function decomposeIntoDomainsStatic(topic: string, mode?: ResearchMode): 
 
   // Detect topic type for better decomposition
   const isTechnical =
-    words.includes("implement") ||
-    words.includes("code") ||
-    words.includes("api") ||
-    words.includes("sdk");
+    words.includes('implement') ||
+    words.includes('code') ||
+    words.includes('api') ||
+    words.includes('sdk');
   const isComparison =
-    words.includes("vs") ||
-    words.includes("compare") ||
-    words.includes("difference");
+    words.includes('vs') || words.includes('compare') || words.includes('difference');
   const isConceptual =
-    words.includes("what is") ||
-    words.includes("explain") ||
-    words.includes("how does");
+    words.includes('what is') || words.includes('explain') || words.includes('how does');
 
   if (isComparison) {
     // Extract comparison subjects
@@ -172,8 +171,6 @@ export async function decomposeIntoSubQuestions(
   mode?: ResearchMode,
   maxCount: number = 4
 ): Promise<SubQuestion[]> {
-  
-
   const modeInstructions = mode
     ? getDecompositionInstructions(mode)
     : `Generate sub-questions that cover different aspects:
@@ -221,26 +218,24 @@ Generate exactly ${maxCount} sub-questions.`;
     // Validate each sub-question has required fields
     for (const sq of parsed) {
       if (!sq.query || !sq.focus) {
-        throw new Error("Sub-question missing required fields");
+        throw new Error('Sub-question missing required fields');
       }
       if (!sq.dependsOn) sq.dependsOn = [];
-      if (!sq.rationale) sq.rationale = "";
+      if (!sq.rationale) sq.rationale = '';
     }
 
-    
     return parsed.slice(0, maxCount);
   } catch (error) {
     console.warn(
       `[decomposeIntoSubQuestions] LLM decomposition failed: ${error instanceof Error ? error.message : String(error)}`
     );
-    
 
     // Fall back to static decomposition, wrapping as SubQuestion[]
     const staticDomains = decomposeIntoDomainsStatic(topic, mode);
     return staticDomains.map((domain, i) => ({
       query: domain,
       focus: `Domain ${i + 1}`,
-      rationale: "Static fallback",
+      rationale: 'Static fallback',
       dependsOn: [],
     }));
   }
@@ -261,16 +256,14 @@ function buildFanOutSynthesisPrompt(
 ${r.findings}
 `
     )
-    .join("\n");
+    .join('\n');
 
-  const modeInstructions = mode
-    ? getSynthesisInstructions(mode)
-    : "";
+  const modeInstructions = mode ? getSynthesisInstructions(mode) : '';
 
   return `Synthesize the following parallel research results into a comprehensive response.
 
 Topic: ${topic}
-${modeInstructions ? `\n${modeInstructions}\n` : ""}
+${modeInstructions ? `\n${modeInstructions}\n` : ''}
 Research Results:
 ${resultsSection}
 
@@ -296,22 +289,22 @@ Return a JSON object:
  */
 async function updateFanOutLoadingCard(
   ctx: ActionCtx,
-  conversationId: Id<"conversations">,
-  sessionId: Id<"deepResearchSessions">,
+  conversationId: Id<'conversations'>,
+  sessionId: Id<'deepResearchSessions'>,
   topic: string,
   steps: Array<{ id: string; label: string; status: string; detail?: string }>
 ): Promise<void> {
-  const loadingCard = await ctx.runQuery(
-    api.chatMessages.queries.findLoadingCardBySession,
-    { conversationId, sessionId: sessionId.toString() },
-  );
+  const loadingCard = await ctx.runQuery(api.chatMessages.queries.findLoadingCardBySession, {
+    conversationId,
+    sessionId: sessionId.toString(),
+  });
   if (!loadingCard) return;
 
   await ctx.runMutation(api.chatMessages.mutations.update, {
     id: loadingCard._id,
     cardData: {
-      card_type: "deep_research_loading",
-      status: "in_progress",
+      card_type: 'deep_research_loading',
+      status: 'in_progress',
       session_id: sessionId,
       topic,
       steps,
@@ -332,13 +325,12 @@ async function updateFanOutLoadingCard(
  */
 export async function executeParallelFanOut(
   ctx: ActionCtx,
-  conversationId: Id<"conversations"> | undefined,
+  conversationId: Id<'conversations'> | undefined,
   topic: string,
   enableFollowUp: boolean = true,
   mode?: ResearchMode
 ): Promise<ParallelFanOutResult> {
   const startTime = Date.now();
-  
 
   // Step 1: Create conversation if needed
   const effectiveConversationId =
@@ -348,25 +340,22 @@ export async function executeParallelFanOut(
     }));
 
   // Step 2: Create session
-  const sessionId = await ctx.runMutation(
-    api.research.mutations.createDeepResearchSession,
-    {
-      conversationId: effectiveConversationId,
-      topic,
-      maxIterations: 1, // Fan-out is typically single-pass
-      researchMode: mode,
-    }
-  );
+  const sessionId = await ctx.runMutation(api.research.mutations.createDeepResearchSession, {
+    conversationId: effectiveConversationId,
+    topic,
+    maxIterations: 1, // Fan-out is typically single-pass
+    researchMode: mode,
+  });
 
   // Step 3: Post loading card
   await ctx.runMutation(api.chatMessages.mutations.create, {
     conversationId: effectiveConversationId,
-    role: "agent" as const,
+    role: 'agent' as const,
     content: `Quick research: ${topic}`,
-    messageType: "result_card" as const,
+    messageType: 'result_card' as const,
     cardData: {
-      card_type: "deep_research_loading",
-      status: "in_progress",
+      card_type: 'deep_research_loading',
+      status: 'in_progress',
       session_id: sessionId,
       topic,
     },
@@ -375,58 +364,51 @@ export async function executeParallelFanOut(
   // Step 4: Decompose into sub-questions
   const budget = getSearchBudget(mode);
   const subQuestions = await decomposeIntoSubQuestions(topic, mode, budget.primarySearchCount);
-  
 
   // Step 4b: Show "analyzing query" step now that we know the sub-question count
   await updateFanOutLoadingCard(ctx, effectiveConversationId, sessionId, topic, [
     {
-      id: "analyze",
+      id: 'analyze',
       label: `Analyzing query... Selected parallel fan-out strategy (${subQuestions.length} domains)`,
-      status: "completed",
+      status: 'completed',
     },
     {
-      id: "search",
+      id: 'search',
       label: `Searching ${subQuestions.length} domains in parallel...`,
-      status: "in-progress",
+      status: 'in-progress',
     },
   ]);
 
   // Step 5: Execute all sub-questions in parallel
   const domainSearches = subQuestions.map(async (subQuestion) => {
-    const result = await executeParallelSearchWithRetry(
-      subQuestion.query,
-      {},
-      [],
-      { maxRetries: budget.maxRetries, timeoutMs: budget.searchTimeoutMs, deduplicateResults: true }
-    );
+    const result = await executeParallelSearchWithRetry(subQuestion.query, {}, [], {
+      maxRetries: budget.maxRetries,
+      timeoutMs: budget.searchTimeoutMs,
+      deduplicateResults: true,
+    });
     return { domain: subQuestion.focus, ...result };
   });
 
   const domainResults = await Promise.all(domainSearches);
-  const totalResults = domainResults.reduce(
-    (sum, r) => sum + r.structuredResults.length,
-    0
-  );
+  const totalResults = domainResults.reduce((sum, r) => sum + r.structuredResults.length, 0);
   domainResults.reduce((sum, r) => sum + r.durationMs, 0);
-
-  
 
   // Step 5b: Update card — search done, synthesis starting
   await updateFanOutLoadingCard(ctx, effectiveConversationId, sessionId, topic, [
     {
-      id: "analyze",
+      id: 'analyze',
       label: `Analyzed query — parallel fan-out across ${subQuestions.length} domains`,
-      status: "completed",
+      status: 'completed',
     },
     {
-      id: "search",
+      id: 'search',
       label: `Searched ${totalResults} sources across ${subQuestions.length} domains`,
-      status: "completed",
+      status: 'completed',
     },
     {
-      id: "synthesize",
-      label: "Synthesizing findings from all domains...",
-      status: "in-progress",
+      id: 'synthesize',
+      label: 'Synthesizing findings from all domains...',
+      status: 'in-progress',
     },
   ]);
 
@@ -457,41 +439,37 @@ export async function executeParallelFanOut(
       summary: synthesisResult.text,
       keyFindings: [],
       gaps: [],
-      confidence: "MEDIUM",
+      confidence: 'MEDIUM',
     };
   }
-
-  
 
   // Step 6b: Update card — synthesis done, optionally show follow-up or save
   const postSynthesisSteps = [
     {
-      id: "analyze",
+      id: 'analyze',
       label: `Analyzed query — parallel fan-out across ${subQuestions.length} domains`,
-      status: "completed" as const,
+      status: 'completed' as const,
     },
     {
-      id: "search",
+      id: 'search',
       label: `Searched ${totalResults} sources across ${subQuestions.length} domains`,
-      status: "completed" as const,
+      status: 'completed' as const,
     },
     {
-      id: "synthesize",
+      id: 'synthesize',
       label: `Synthesized findings — confidence: ${synthesis.confidence}`,
-      status: "completed" as const,
+      status: 'completed' as const,
     },
   ];
 
   // Step 7: Optional follow-up for gaps (mini iterative research iteration)
-  if (enableFollowUp && synthesis.gaps.length > 0 && synthesis.confidence !== "HIGH") {
-    
-
+  if (enableFollowUp && synthesis.gaps.length > 0 && synthesis.confidence !== 'HIGH') {
     await updateFanOutLoadingCard(ctx, effectiveConversationId, sessionId, topic, [
       ...postSynthesisSteps,
       {
-        id: "followup",
-        label: `Filling ${synthesis.gaps.length} coverage gap${synthesis.gaps.length === 1 ? "" : "s"}...`,
-        status: "in-progress",
+        id: 'followup',
+        label: `Filling ${synthesis.gaps.length} coverage gap${synthesis.gaps.length === 1 ? '' : 's'}...`,
+        status: 'in-progress',
       },
     ]);
 
@@ -500,17 +478,20 @@ export async function executeParallelFanOut(
       topic,
       {},
       contextualGaps.slice(0, budget.followUpBudget),
-      { maxRetries: budget.maxRetries, timeoutMs: budget.followUpTimeoutMs, deduplicateResults: true }
+      {
+        maxRetries: budget.maxRetries,
+        timeoutMs: budget.followUpTimeoutMs,
+        deduplicateResults: true,
+      }
     );
 
     // Append follow-up findings to synthesis
     synthesis.summary += `\n\n## Additional Findings\n${followUpResult.findings}`;
-    
 
     postSynthesisSteps.push({
-      id: "followup",
-      label: `Filled ${synthesis.gaps.length} gap${synthesis.gaps.length === 1 ? "" : "s"} with ${followUpResult.structuredResults.length} additional sources`,
-      status: "completed" as const,
+      id: 'followup',
+      label: `Filled ${synthesis.gaps.length} gap${synthesis.gaps.length === 1 ? '' : 's'} with ${followUpResult.structuredResults.length} additional sources`,
+      status: 'completed' as const,
     });
   }
 
@@ -518,32 +499,33 @@ export async function executeParallelFanOut(
   await updateFanOutLoadingCard(ctx, effectiveConversationId, sessionId, topic, [
     ...postSynthesisSteps,
     {
-      id: "save",
-      label: "Saving to knowledge base...",
-      status: "in-progress",
+      id: 'save',
+      label: 'Saving to knowledge base...',
+      status: 'in-progress',
     },
   ]);
 
   // Step 8: Create iteration record
-  const summary = synthesis.keyFindings.length > 0
-    ? synthesis.keyFindings[0].slice(0, 50) // Use first key finding as summary
-    : `Fan-out search across ${subQuestions.length} domains`;
+  const summary =
+    synthesis.keyFindings.length > 0
+      ? synthesis.keyFindings[0].slice(0, 50) // Use first key finding as summary
+      : `Fan-out search across ${subQuestions.length} domains`;
 
   await ctx.runMutation(api.research.mutations.createDeepResearchIteration, {
     sessionId,
     iterationNumber: 1,
-    coverageScore: synthesis.confidence === "HIGH" ? 4 : synthesis.confidence === "MEDIUM" ? 3 : 2,
+    coverageScore: synthesis.confidence === 'HIGH' ? 4 : synthesis.confidence === 'MEDIUM' ? 3 : 2,
     feedback: `Fan-out research completed with ${totalResults} sources`,
     findings: synthesis.summary,
     refinedQueries: synthesis.gaps,
-    status: "completed",
+    status: 'completed',
     summary,
   });
 
   // Step 9: Complete session (triggers document creation and result card posting)
   await ctx.runMutation(api.research.mutations.completeDeepResearchSession, {
     sessionId,
-    status: "completed",
+    status: 'completed',
   });
 
   const totalTime = Date.now() - startTime;
@@ -555,7 +537,7 @@ export async function executeParallelFanOut(
   return {
     sessionId,
     conversationId: effectiveConversationId,
-    status: "completed",
+    status: 'completed',
     summary: synthesis.summary,
     confidence: synthesis.confidence,
     durationMs: totalTime,
@@ -574,12 +556,21 @@ export async function executeParallelFanOut(
  */
 export const runParallelFanOut = action({
   args: {
-    conversationId: v.optional(v.id("conversations")),
+    conversationId: v.optional(v.id('conversations')),
     topic: v.string(),
     enableFollowUp: v.optional(v.boolean()),
     researchMode: v.optional(v.string()),
   },
-  handler: async (ctx, { conversationId, topic, enableFollowUp = true, researchMode }): Promise<ParallelFanOutResult> => {
-    return executeParallelFanOut(ctx, conversationId, topic, enableFollowUp, researchMode as ResearchMode | undefined);
+  handler: async (
+    ctx,
+    { conversationId, topic, enableFollowUp = true, researchMode }
+  ): Promise<ParallelFanOutResult> => {
+    return executeParallelFanOut(
+      ctx,
+      conversationId,
+      topic,
+      enableFollowUp,
+      researchMode as ResearchMode | undefined
+    );
   },
 });

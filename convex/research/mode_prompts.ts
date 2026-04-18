@@ -8,7 +8,7 @@
  * 3. Report structure — how to organize the final output
  */
 
-import type { ResearchMode } from "./intent";
+import type { ResearchMode } from './intent';
 
 /**
  * Instructions for query variant / domain generation.
@@ -16,7 +16,7 @@ import type { ResearchMode } from "./intent";
  */
 export function getVariantInstructions(mode: ResearchMode): string {
   switch (mode) {
-    case "ACTIONABLE":
+    case 'ACTIONABLE':
       return `Each variant should focus on PRACTICAL IMPLEMENTATION:
 1. Implementation guides, tutorials, code examples, and architecture patterns
 2. Real-world case studies, production lessons learned, and common pitfalls
@@ -24,7 +24,7 @@ export function getVariantInstructions(mode: ResearchMode): string {
 
 Do NOT generate market overview, trend analysis, or industry landscape queries. The user wants to BUILD something, not read about market size.`;
 
-    case "OVERVIEW":
+    case 'OVERVIEW':
       return `Each variant should cover the LANDSCAPE:
 1. Market context, key players, major developments, and industry adoption
 2. Recent trends, emerging patterns, and future trajectory
@@ -32,7 +32,7 @@ Do NOT generate market overview, trend analysis, or industry landscape queries. 
 
 Focus on breadth over depth. Include market data, adoption metrics, and directional trends.`;
 
-    case "COMPARATIVE":
+    case 'COMPARATIVE':
       return `Each variant should support COMPARISON:
 1. Feature-by-feature comparison, capabilities, and limitations of each option
 2. Performance benchmarks, real-world trade-offs, and decision criteria
@@ -40,7 +40,7 @@ Focus on breadth over depth. Include market data, adoption metrics, and directio
 
 Each variant should cover all options being compared, not just one side.`;
 
-    case "EXPLORATORY":
+    case 'EXPLORATORY':
       return `Each variant should explore a DIFFERENT ANGLE:
 1. Technical/implementation perspective — how different approaches work
 2. Practical/applied perspective — real-world usage and case studies
@@ -56,16 +56,16 @@ Aim for breadth to discover diverse approaches before the user narrows down.`;
  */
 export function getSearchFocusInstructions(mode: ResearchMode): string {
   switch (mode) {
-    case "ACTIONABLE":
+    case 'ACTIONABLE':
       return `Focus searches on implementation guides, code examples, architecture documentation, and technical blog posts with working examples. Prioritize sources that show HOW to do something, not just WHAT exists. Official documentation, GitHub repos, and technical tutorials are highest value.`;
 
-    case "OVERVIEW":
+    case 'OVERVIEW':
       return `Focus searches on market reports, analyst commentary, industry news, trend analyses, and expert forecasts. Prioritize sources that show the big picture — adoption data, market size, key players, and directional trends.`;
 
-    case "COMPARATIVE":
+    case 'COMPARATIVE':
       return `Focus searches on comparison articles, benchmark reports, migration guides, and decision frameworks. Prioritize sources that evaluate multiple options side-by-side with concrete criteria.`;
 
-    case "EXPLORATORY":
+    case 'EXPLORATORY':
       return `Focus searches on diverse approaches, survey articles, categorization frameworks, and overview guides. Prioritize sources that catalog multiple methods or solutions with pros/cons for each.`;
   }
 }
@@ -75,7 +75,7 @@ export function getSearchFocusInstructions(mode: ResearchMode): string {
  */
 export function getSynthesisInstructions(mode: ResearchMode): string {
   switch (mode) {
-    case "ACTIONABLE":
+    case 'ACTIONABLE':
       return `SYNTHESIS MODE: ACTIONABLE
 
 Extract CONCRETE, IMPLEMENTABLE findings. For each finding:
@@ -87,7 +87,7 @@ Extract CONCRETE, IMPLEMENTABLE findings. For each finding:
 
 AVOID generic observations like market size, industry trends, or "X is growing in popularity". Every finding should be something the reader can ACT ON.`;
 
-    case "OVERVIEW":
+    case 'OVERVIEW':
       return `SYNTHESIS MODE: OVERVIEW
 
 Extract LANDSCAPE-LEVEL findings. For each finding:
@@ -98,7 +98,7 @@ Extract LANDSCAPE-LEVEL findings. For each finding:
 
 Statistics, forecasts, and market context are valuable here. Paint the big picture.`;
 
-    case "COMPARATIVE":
+    case 'COMPARATIVE':
       return `SYNTHESIS MODE: COMPARATIVE
 
 Extract EVALUATION-ORIENTED findings. For each finding:
@@ -109,7 +109,7 @@ Extract EVALUATION-ORIENTED findings. For each finding:
 
 Frame findings as decision-relevant information. Help the reader CHOOSE, not just learn.`;
 
-    case "EXPLORATORY":
+    case 'EXPLORATORY':
       return `SYNTHESIS MODE: EXPLORATORY
 
 Extract CATEGORIZED findings. For each finding:
@@ -128,7 +128,7 @@ Organize by approach category. Help the reader understand the SPACE of options b
  */
 export function getReportStructure(mode: ResearchMode): string {
   switch (mode) {
-    case "ACTIONABLE":
+    case 'ACTIONABLE':
       return `## Executive Summary
 Write 3-5 sentences that directly answer HOW to accomplish what was asked. Lead with the recommended approach.
 
@@ -158,7 +158,7 @@ Step-by-step guide to begin implementation:
 ## Sources
 Categorized source list with [Title](URL) format`;
 
-    case "OVERVIEW":
+    case 'OVERVIEW':
       return `## Executive Summary
 Write 3-5 sentences capturing the current state and trajectory. Include key numbers.
 
@@ -184,7 +184,7 @@ Where things are heading — emerging patterns, predictions, and signals.
 ## Sources
 Categorized source list with [Title](URL) format`;
 
-    case "COMPARATIVE":
+    case 'COMPARATIVE':
       return `## Executive Summary
 Write 3-5 sentences with a clear recommendation or decision framework. State the winner for specific contexts.
 
@@ -211,7 +211,7 @@ When to choose each option:
 ## Sources
 Categorized source list with [Title](URL) format`;
 
-    case "EXPLORATORY":
+    case 'EXPLORATORY':
       return `## Executive Summary
 Write 3-5 sentences summarizing the landscape of approaches discovered. Note which are most promising.
 
@@ -251,80 +251,80 @@ export function getFallbackVariants(
   mode: ResearchMode
 ): Array<{ query: string; focus: string; rationale: string }> {
   switch (mode) {
-    case "ACTIONABLE":
+    case 'ACTIONABLE':
       return [
         {
           query: `${topic} implementation guide tutorial example code`,
-          focus: "Implementation guidance",
-          rationale: "How-to and practical implementation",
+          focus: 'Implementation guidance',
+          rationale: 'How-to and practical implementation',
         },
         {
           query: `${topic} architecture patterns design decisions best practices`,
-          focus: "Architecture patterns",
-          rationale: "Design decisions and proven patterns",
+          focus: 'Architecture patterns',
+          rationale: 'Design decisions and proven patterns',
         },
         {
           query: `${topic} production case study lessons learned pitfalls`,
-          focus: "Real-world experience",
-          rationale: "Practical lessons from production use",
+          focus: 'Real-world experience',
+          rationale: 'Practical lessons from production use',
         },
       ];
 
-    case "OVERVIEW":
+    case 'OVERVIEW':
       return [
         {
           query: `${topic} market landscape key players adoption`,
-          focus: "Market landscape",
-          rationale: "Industry context and major players",
+          focus: 'Market landscape',
+          rationale: 'Industry context and major players',
         },
         {
           query: `${topic} trends developments 2024 2025`,
-          focus: "Recent trends",
-          rationale: "Latest developments and trajectory",
+          focus: 'Recent trends',
+          rationale: 'Latest developments and trajectory',
         },
         {
           query: `${topic} statistics data market size growth`,
-          focus: "Data and metrics",
-          rationale: "Quantitative market intelligence",
+          focus: 'Data and metrics',
+          rationale: 'Quantitative market intelligence',
         },
       ];
 
-    case "COMPARATIVE":
+    case 'COMPARATIVE':
       return [
         {
           query: `${topic} comparison benchmark features`,
-          focus: "Feature comparison",
-          rationale: "Side-by-side feature analysis",
+          focus: 'Feature comparison',
+          rationale: 'Side-by-side feature analysis',
         },
         {
           query: `${topic} pros cons trade-offs when to use`,
-          focus: "Trade-off analysis",
-          rationale: "Decision criteria and trade-offs",
+          focus: 'Trade-off analysis',
+          rationale: 'Decision criteria and trade-offs',
         },
         {
           query: `${topic} migration switching real-world experience`,
-          focus: "Practical experience",
-          rationale: "Real-world switching/adoption stories",
+          focus: 'Practical experience',
+          rationale: 'Real-world switching/adoption stories',
         },
       ];
 
-    case "EXPLORATORY":
+    case 'EXPLORATORY':
     default:
       return [
         {
           query: `${topic} approaches methods techniques`,
-          focus: "Approach discovery",
-          rationale: "Broad survey of available methods",
+          focus: 'Approach discovery',
+          rationale: 'Broad survey of available methods',
         },
         {
           query: `${topic} use cases applications real-world`,
-          focus: "Applications",
-          rationale: "How approaches are applied in practice",
+          focus: 'Applications',
+          rationale: 'How approaches are applied in practice',
         },
         {
           query: `${topic} evaluation criteria trade-offs limitations`,
-          focus: "Critical evaluation",
-          rationale: "Understanding limitations and trade-offs",
+          focus: 'Critical evaluation',
+          rationale: 'Understanding limitations and trade-offs',
         },
       ];
   }
@@ -335,18 +335,42 @@ export function getFallbackVariants(
  * Controls how many sub-questions to generate, timeouts, retries, and follow-up budget.
  */
 export interface SearchBudget {
-  primarySearchCount: number;   // How many sub-questions to generate
-  searchTimeoutMs: number;      // Per-search timeout
-  maxRetries: number;           // Per-search retry count
-  followUpBudget: number;       // Max follow-up searches (0 = disabled)
-  followUpTimeoutMs: number;    // Per-follow-up timeout
+  primarySearchCount: number; // How many sub-questions to generate
+  searchTimeoutMs: number; // Per-search timeout
+  maxRetries: number; // Per-search retry count
+  followUpBudget: number; // Max follow-up searches (0 = disabled)
+  followUpTimeoutMs: number; // Per-follow-up timeout
 }
 
 const SEARCH_BUDGETS: Record<ResearchMode, SearchBudget> = {
-  ACTIONABLE:  { primarySearchCount: 3, searchTimeoutMs: 12000, maxRetries: 2, followUpBudget: 1, followUpTimeoutMs: 15000 },
-  OVERVIEW:    { primarySearchCount: 5, searchTimeoutMs: 10000, maxRetries: 1, followUpBudget: 2, followUpTimeoutMs: 12000 },
-  COMPARATIVE: { primarySearchCount: 3, searchTimeoutMs: 12000, maxRetries: 2, followUpBudget: 1, followUpTimeoutMs: 15000 },
-  EXPLORATORY: { primarySearchCount: 4, searchTimeoutMs: 10000, maxRetries: 1, followUpBudget: 2, followUpTimeoutMs: 12000 },
+  ACTIONABLE: {
+    primarySearchCount: 3,
+    searchTimeoutMs: 12000,
+    maxRetries: 2,
+    followUpBudget: 1,
+    followUpTimeoutMs: 15000,
+  },
+  OVERVIEW: {
+    primarySearchCount: 5,
+    searchTimeoutMs: 10000,
+    maxRetries: 1,
+    followUpBudget: 2,
+    followUpTimeoutMs: 12000,
+  },
+  COMPARATIVE: {
+    primarySearchCount: 3,
+    searchTimeoutMs: 12000,
+    maxRetries: 2,
+    followUpBudget: 1,
+    followUpTimeoutMs: 15000,
+  },
+  EXPLORATORY: {
+    primarySearchCount: 4,
+    searchTimeoutMs: 10000,
+    maxRetries: 1,
+    followUpBudget: 2,
+    followUpTimeoutMs: 12000,
+  },
 };
 
 const DEFAULT_BUDGET: SearchBudget = {
@@ -371,7 +395,7 @@ export function getSearchBudget(mode?: ResearchMode): SearchBudget {
  */
 export function getDecompositionInstructions(mode: ResearchMode): string {
   switch (mode) {
-    case "ACTIONABLE":
+    case 'ACTIONABLE':
       return `Focus on IMPLEMENTATION sub-questions. Generate sub-questions that target:
 1. Tutorials, step-by-step guides, and code examples for building or configuring the thing
 2. Architecture patterns and design decisions used in real production systems
@@ -379,7 +403,7 @@ export function getDecompositionInstructions(mode: ResearchMode): string {
 
 Each sub-question should be a complete, standalone search query optimized for finding implementation guidance — not market overviews or trend analyses.`;
 
-    case "OVERVIEW":
+    case 'OVERVIEW':
       return `Focus on LANDSCAPE COVERAGE sub-questions. Generate sub-questions that target:
 1. Market context, key players, major developments, and industry adoption levels
 2. Recent trends, emerging patterns, and future outlook with concrete predictions
@@ -387,7 +411,7 @@ Each sub-question should be a complete, standalone search query optimized for fi
 
 Sub-questions should cover breadth across the topic — each one exploring a distinct slice of the landscape rather than drilling into implementation details.`;
 
-    case "COMPARATIVE":
+    case 'COMPARATIVE':
       return `Focus on EVALUATION sub-questions. Generate sub-questions that target:
 1. Feature sets, capabilities, and known limitations of each option being compared
 2. Performance benchmarks, real-world trade-offs, and head-to-head decision criteria
@@ -395,7 +419,7 @@ Sub-questions should cover breadth across the topic — each one exploring a dis
 
 If the topic names specific options to compare, extract those subjects and ensure sub-questions cover all sides. Each sub-question should yield information useful for making a choice.`;
 
-    case "EXPLORATORY":
+    case 'EXPLORATORY':
       return `Focus on DISCOVERY sub-questions. Generate sub-questions that target:
 1. Different approaches, methods, and solution categories that exist for the problem
 2. Real-world use cases and applications showing how each approach is used in practice
@@ -411,22 +435,19 @@ Aim for breadth across the solution space — each sub-question should illuminat
  * Enhances raw gap labels with a summary of already-found findings
  * so follow-up searches don't re-discover existing information.
  */
-export function buildFollowUpContext(
-  keyFindings: string[],
-  gaps: string[]
-): string[] {
+export function buildFollowUpContext(keyFindings: string[], gaps: string[]): string[] {
   if (gaps.length === 0) return [];
 
   // Summarize what's already known (truncate each finding, take top 3)
   const knownTopics = keyFindings
     .slice(0, 3)
-    .map(f => f.length > 60 ? f.slice(0, 57) + "..." : f)
-    .join(", ");
+    .map((f) => (f.length > 60 ? f.slice(0, 57) + '...' : f))
+    .join(', ');
 
   if (!knownTopics) return gaps;
 
   // Enhance each gap with context about what's already covered
-  return gaps.map(gap => {
+  return gaps.map((gap) => {
     const enhanced = `${gap} (excluding already covered: ${knownTopics})`;
     // Keep total under 200 chars for search query effectiveness
     return enhanced.length > 200 ? `${gap} (new information only)` : enhanced;

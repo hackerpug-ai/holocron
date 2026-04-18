@@ -8,29 +8,24 @@
  * @see convex/tasks/queries.ts - Task status queries
  */
 
-import { v } from "convex/values";
+import { v } from 'convex/values';
 
 /**
  * Task type identifiers
  */
-export type TaskType =
-  | "deep-research"
-  | "research"
-  | "assimilate"
-  | "shop"
-  | "research-loop";
+export type TaskType = 'deep-research' | 'research' | 'assimilate' | 'shop' | 'research-loop';
 
 /**
  * Task status identifiers
  */
 export type TaskStatus =
-  | "pending"
-  | "queued"
-  | "loading"
-  | "running"
-  | "completed"
-  | "error"
-  | "cancelled";
+  | 'pending'
+  | 'queued'
+  | 'loading'
+  | 'running'
+  | 'completed'
+  | 'error'
+  | 'cancelled';
 
 /**
  * Task configuration schema
@@ -52,12 +47,12 @@ export const taskResultSchema = v.object({
  * Check if a task status is active (still running)
  */
 export function isActiveTaskStatus(status: TaskStatus): boolean {
-  return ["pending", "queued", "loading", "running"].includes(status);
+  return ['pending', 'queued', 'loading', 'running'].includes(status);
 }
 
 /**
  * Check if a task status is terminal (completed)
  */
 export function isTerminalTaskStatus(status: TaskStatus): boolean {
-  return ["completed", "error", "cancelled"].includes(status);
+  return ['completed', 'error', 'cancelled'].includes(status);
 }

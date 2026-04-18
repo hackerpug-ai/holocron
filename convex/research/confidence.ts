@@ -9,7 +9,7 @@
  * - Expert Consensus (10%): Agreement among domain experts
  */
 
-import type { Id } from "../_generated/dataModel";
+import type { Id } from '../_generated/dataModel';
 
 /**
  * 5-factor confidence input structure
@@ -25,7 +25,7 @@ export interface ConfidenceFactors {
 /**
  * Confidence level enumeration
  */
-export type ConfidenceLevel = "HIGH" | "MEDIUM" | "LOW";
+export type ConfidenceLevel = 'HIGH' | 'MEDIUM' | 'LOW';
 
 /**
  * Full confidence result with metadata
@@ -98,22 +98,19 @@ export function calculateConfidenceScore(factors: ConfidenceFactors): number {
  * @param sourceCount - Number of independent sources
  * @returns Confidence level
  */
-export function determineConfidenceLevel(
-  score: number,
-  sourceCount: number
-): ConfidenceLevel {
+export function determineConfidenceLevel(score: number, sourceCount: number): ConfidenceLevel {
   // High confidence requires both high score AND multi-source requirement
   if (score >= 80 && sourceCount >= 3) {
-    return "HIGH";
+    return 'HIGH';
   }
   // Score alone in high range but insufficient sources = MEDIUM
   if (score >= 80 && sourceCount < 3) {
-    return "MEDIUM";
+    return 'MEDIUM';
   }
   if (score >= 50) {
-    return "MEDIUM";
+    return 'MEDIUM';
   }
-  return "LOW";
+  return 'LOW';
 }
 
 /**
@@ -125,37 +122,34 @@ export function determineConfidenceLevel(
  * @param sourceCount - Number of sources
  * @returns Array of caveat strings
  */
-export function generateCaveats(
-  factors: ConfidenceFactors,
-  sourceCount: number
-): string[] {
+export function generateCaveats(factors: ConfidenceFactors, sourceCount: number): string[] {
   const caveats: string[] = [];
 
   // Multi-source caveat
   if (sourceCount < 3) {
     caveats.push(
-      `Based on ${sourceCount} source${sourceCount === 1 ? "" : "s"}; additional sources would increase confidence`
+      `Based on ${sourceCount} source${sourceCount === 1 ? '' : 's'}; additional sources would increase confidence`
     );
   }
 
   // Source credibility caveat
   if (factors.sourceCredibilityScore < 70) {
-    caveats.push("Some sources have limited credibility or authority");
+    caveats.push('Some sources have limited credibility or authority');
   }
 
   // Evidence quality caveat
   if (factors.evidenceQualityScore < 70) {
-    caveats.push("Evidence is indirect or based on secondary sources");
+    caveats.push('Evidence is indirect or based on secondary sources');
   }
 
   // Recency caveat
   if (factors.recencyScore < 60) {
-    caveats.push("Information may be outdated; verify current state");
+    caveats.push('Information may be outdated; verify current state');
   }
 
   // Consensus caveat
   if (factors.expertConsensusScore < 60) {
-    caveats.push("Limited expert consensus on this topic");
+    caveats.push('Limited expert consensus on this topic');
   }
 
   return caveats;
@@ -170,40 +164,37 @@ export function generateCaveats(
  * @param sourceCount - Number of sources
  * @returns Array of warning strings
  */
-export function generateWarnings(
-  factors: ConfidenceFactors,
-  sourceCount: number
-): string[] {
+export function generateWarnings(factors: ConfidenceFactors, sourceCount: number): string[] {
   const warnings: string[] = [];
 
   // Single source warning
   if (sourceCount === 1) {
-    warnings.push("⚠️ Single source only - verify independently before relying on this");
+    warnings.push('⚠️ Single source only - verify independently before relying on this');
   }
 
   // No source warning
   if (sourceCount === 0) {
-    warnings.push("⚠️ No verifiable sources found - treat as unverified claim");
+    warnings.push('⚠️ No verifiable sources found - treat as unverified claim');
   }
 
   // Low credibility warning
   if (factors.sourceCredibilityScore < 40) {
-    warnings.push("⚠️ Sources have low credibility - exercise caution");
+    warnings.push('⚠️ Sources have low credibility - exercise caution');
   }
 
   // Anecdotal evidence warning
   if (factors.evidenceQualityScore < 30) {
-    warnings.push("⚠️ Evidence is primarily anecdotal or speculative");
+    warnings.push('⚠️ Evidence is primarily anecdotal or speculative');
   }
 
   // Outdated warning
   if (factors.recencyScore < 30) {
-    warnings.push("⚠️ Information may be significantly outdated");
+    warnings.push('⚠️ Information may be significantly outdated');
   }
 
   // Contradicting expert views
   if (factors.expertConsensusScore < 30) {
-    warnings.push("⚠️ Expert opinions on this topic are divided or unavailable");
+    warnings.push('⚠️ Expert opinions on this topic are divided or unavailable');
   }
 
   return warnings;
@@ -227,8 +218,8 @@ export function calculateFullConfidenceResult(
     score,
     level,
     factors,
-    caveats: level === "MEDIUM" ? generateCaveats(factors, sourceCount) : [],
-    warnings: level === "LOW" ? generateWarnings(factors, sourceCount) : [],
+    caveats: level === 'MEDIUM' ? generateCaveats(factors, sourceCount) : [],
+    warnings: level === 'LOW' ? generateWarnings(factors, sourceCount) : [],
     meetsMultiSourceRequirement: sourceCount >= 3,
   };
 }
@@ -313,7 +304,7 @@ export function aggregateConfidenceStats(
   findings: Array<{
     confidenceLevel: string;
     confidenceScore: number;
-    citationIds: Array<Id<"citations">>;
+    citationIds: Array<Id<'citations'>>;
   }>
 ): ConfidenceStats {
   const stats: ConfidenceStats = {
@@ -335,13 +326,13 @@ export function aggregateConfidenceStats(
     totalScore += finding.confidenceScore;
 
     switch (finding.confidenceLevel) {
-      case "HIGH":
+      case 'HIGH':
         stats.highConfidenceCount++;
         break;
-      case "MEDIUM":
+      case 'MEDIUM':
         stats.mediumConfidenceCount++;
         break;
-      case "LOW":
+      case 'LOW':
         stats.lowConfidenceCount++;
         break;
     }

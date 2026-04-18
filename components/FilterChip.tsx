@@ -1,8 +1,8 @@
-import { Text } from "@/components/ui/text";
-import { cn } from "@/lib/utils";
-import { Pressable, type PressableProps } from "react-native";
+import { Pressable, type PressableProps } from 'react-native';
+import { Text } from '@/components/ui/text';
+import { cn } from '@/lib/utils';
 
-interface FilterChipProps extends Omit<PressableProps, "children"> {
+interface FilterChipProps extends Omit<PressableProps, 'children'> {
   /** The label to display */
   label: string;
   /** Whether the chip is currently selected */
@@ -28,14 +28,14 @@ export function FilterChip({
     <Pressable
       className={cn(
         // Base styles
-        "rounded-full px-3 py-1.5 border",
+        'rounded-full px-3 py-1.5 border',
         // State: Unselected (default)
-        "bg-transparent border-border",
+        'bg-transparent border-border',
         // State: Selected
-        selected && "bg-primary border-primary",
+        selected && 'bg-primary border-primary',
         // State: Disabled
-        disabled && "opacity-50",
-        className,
+        disabled && 'opacity-50',
+        className
       )}
       disabled={disabled}
       testID={testID}
@@ -46,9 +46,9 @@ export function FilterChip({
     >
       <Text
         className={cn(
-          "text-xs font-medium",
+          'text-xs font-medium',
           // Text color based on selection state
-          selected ? "text-primary-foreground" : "text-muted-foreground",
+          selected ? 'text-primary-foreground' : 'text-muted-foreground'
         )}
       >
         {label}

@@ -69,7 +69,7 @@ class LoggerManager {
    * Flush all pending log writes
    */
   async flushAll(): Promise<void> {
-    const flushPromises = Array.from(this.loggers.values()).map(logger => logger.flush());
+    const flushPromises = Array.from(this.loggers.values()).map((logger) => logger.flush());
     await Promise.all(flushPromises);
   }
 

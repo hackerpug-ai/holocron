@@ -1,26 +1,26 @@
-import { Button } from '@/components/ui/button'
-import { Text } from '@/components/ui/text'
-import { cn } from '@/lib/utils'
-import { FileQuestion, Inbox, Search, type LucideIcon } from '@/components/ui/icons'
-import { View, type ViewProps } from 'react-native'
+import { View, type ViewProps } from 'react-native';
+import { Button } from '@/components/ui/button';
+import { FileQuestion, Inbox, type LucideIcon, Search } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { cn } from '@/lib/utils';
 
-type EmptyStateType = 'no-results' | 'no-data' | 'error' | 'custom'
+type EmptyStateType = 'no-results' | 'no-data' | 'error' | 'custom';
 
 interface EmptyStateProps extends ViewProps {
   /** Type of empty state to display */
-  type?: EmptyStateType
+  type?: EmptyStateType;
   /** Custom icon to display (overrides type default) */
-  icon?: LucideIcon
+  icon?: LucideIcon;
   /** Main title text */
-  title: string
+  title: string;
   /** Description text */
-  description?: string
+  description?: string;
   /** Action button label */
-  actionLabel?: string
+  actionLabel?: string;
   /** Callback when action button is pressed */
-  onActionPress?: () => void
+  onActionPress?: () => void;
   /** Size variant */
-  size?: 'sm' | 'md' | 'lg'
+  size?: 'sm' | 'md' | 'lg';
 }
 
 const defaultIcons: Record<EmptyStateType, LucideIcon> = {
@@ -28,13 +28,13 @@ const defaultIcons: Record<EmptyStateType, LucideIcon> = {
   'no-data': Inbox,
   error: FileQuestion,
   custom: Inbox,
-}
+};
 
 const iconSizes = {
   sm: 32,
   md: 48,
   lg: 64,
-}
+};
 
 /**
  * EmptyState displays a placeholder when no content is available.
@@ -51,14 +51,14 @@ export function EmptyState({
   className,
   ...props
 }: EmptyStateProps) {
-  const IconComponent = icon ?? defaultIcons[type]
-  const iconSize = iconSizes[size]
+  const IconComponent = icon ?? defaultIcons[type];
+  const iconSize = iconSizes[size];
 
   const paddingClass = {
     sm: 'py-6',
     md: 'py-10',
     lg: 'py-16',
-  }[size]
+  }[size];
 
   return (
     <View
@@ -90,5 +90,5 @@ export function EmptyState({
         </Button>
       )}
     </View>
-  )
+  );
 }

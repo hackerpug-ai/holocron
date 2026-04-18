@@ -7,35 +7,35 @@
  * - Debounced 150ms to prevent rapid double-start
  */
 
-import { useRef, useEffect } from 'react'
-import { Pressable, View } from 'react-native'
-import * as Haptics from 'expo-haptics'
+import * as Haptics from 'expo-haptics';
+import { useEffect, useRef } from 'react';
+import { Pressable, View } from 'react-native';
 import Animated, {
-  useSharedValue,
   useAnimatedStyle,
+  useSharedValue,
   withRepeat,
   withTiming,
-} from 'react-native-reanimated'
-import { cn } from '@/lib/utils'
-import { Mic, Square } from '@/components/ui/icons'
-import type { VoiceState } from '@/hooks/use-voice-session-state'
+} from 'react-native-reanimated';
+import { Mic, Square } from '@/components/ui/icons';
+import type { VoiceState } from '@/hooks/use-voice-session-state';
+import { cn } from '@/lib/utils';
 
 export interface VoiceMicButtonProps {
   /** Current voice session state */
-  voiceState: VoiceState
+  voiceState: VoiceState;
   /** Called when the button is pressed in IDLE state */
-  onStart: () => void
+  onStart: () => void;
   /** Called when the button is pressed in LISTENING or SPEAKING state */
-  onStop: () => void
+  onStop: () => void;
   /** Optional additional className for the outer Pressable */
-  className?: string
+  className?: string;
   /** When true and voiceState is idle, shows a pulsing warm connection indicator dot */
-  isWarm?: boolean
+  isWarm?: boolean;
   /**
    * Called on mount (empty-deps useEffect) to pre-warm the voice connection.
    * Optional — if not provided, no pre-warming is attempted.
    */
-  onPrewarm?: () => void
+  onPrewarm?: () => void;
 }
 
 /**
@@ -49,57 +49,61 @@ export interface VoiceMicButtonProps {
  * - processing → stop icon, enabled
  * - error      → mic icon, enabled (allows retry)
  */
-export function VoiceMicButton({ voiceState, onStart, onStop, className, isWarm = false, onPrewarm }: VoiceMicButtonProps) {
-  const lastPressTime = useRef<number>(0)
-  const DEBOUNCE_MS = 150
+export function VoiceMicButton({
+  voiceState,
+  onStart,
+  onStop,
+  className,
+  isWarm = false,
+  onPrewarm,
+}: VoiceMicButtonProps) {
+  const lastPressTime = useRef<number>(0);
+  const DEBOUNCE_MS = 150;
 
-  const isConnecting = voiceState === 'connecting'
-  const isActive = voiceState === 'listening' || voiceState === 'speaking' || voiceState === 'processing'
-  const showWarmDot = isWarm && voiceState === 'idle'
+  const isConnecting = voiceState === 'connecting';
+  const isActive =
+    voiceState === 'listening' || voiceState === 'speaking' || voiceState === 'processing';
+  const showWarmDot = isWarm && voiceState === 'idle';
 
-  const warmPulse = useSharedValue(1)
+  const warmPulse = useSharedValue(1);
 
   // Pre-warm the voice connection as soon as the mic button mounts.
   // onPrewarmRef lets us read the latest onPrewarm without it being a dep,
   // keeping the effect truly mount-only (runs once per button mount).
-  const onPrewarmRef = useRef(onPrewarm)
-  onPrewarmRef.current = onPrewarm
+  const onPrewarmRef = useRef(onPrewarm);
+  onPrewarmRef.current = onPrewarm;
   useEffect(() => {
-    onPrewarmRef.current?.()
-  }, [])
+    onPrewarmRef.current?.();
+  }, []);
 
   useEffect(() => {
     if (showWarmDot) {
-      warmPulse.value = withRepeat(
-        withTiming(0.5, { duration: 1000 }),
-        -1,
-        true
-      )
+      warmPulse.value = withRepeat(withTiming(0.5, { duration: 1000 }), -1, true);
     } else {
-      warmPulse.value = 1
+      warmPulse.value = 1;
     }
-  }, [showWarmDot, warmPulse])
+  }, [showWarmDot, warmPulse]);
 
   const warmDotStyle = useAnimatedStyle(() => ({
     opacity: warmPulse.value,
-  }))
+  }));
 
   function handlePress() {
-    if (isConnecting) return
+    if (isConnecting) return;
 
-    const now = Date.now()
-    if (now - lastPressTime.current < DEBOUNCE_MS) return
-    lastPressTime.current = now
+    const now = Date.now();
+    if (now - lastPressTime.current < DEBOUNCE_MS) return;
+    lastPressTime.current = now;
 
     if (isActive) {
-      onStop()
+      onStop();
     } else {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
-      onStart()
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      onStart();
     }
   }
 
-  const accessibilityLabel = isActive ? 'Stop voice session' : 'Start voice session'
+  const accessibilityLabel = isActive ? 'Stop voice session' : 'Start voice session';
 
   return (
     <Pressable
@@ -118,12 +122,12 @@ export function VoiceMicButton({ voiceState, onStart, onStop, className, isWarm 
             isConnecting
               ? 'bg-muted opacity-50'
               : isActive
-              ? pressed
-                ? 'bg-destructive/70'
-                : 'bg-destructive'
-              : pressed
-              ? 'bg-primary/70'
-              : 'bg-primary'
+                ? pressed
+                  ? 'bg-destructive/70'
+                  : 'bg-destructive'
+                : pressed
+                  ? 'bg-primary/70'
+                  : 'bg-primary'
           )}
         >
           {isActive ? (
@@ -141,5 +145,5 @@ export function VoiceMicButton({ voiceState, onStart, onStop, className, isWarm 
         </View>
       )}
     </Pressable>
-  )
+  );
 }

@@ -17,28 +17,32 @@
  * - Optional follow-up for gaps
  */
 
-"use node";
+'use node';
 
-import { action } from "../_generated/server";
-import { v } from "convex/values";
-import { api } from "../_generated/api";
-import { generateText } from "ai";
-import { claudeFlash, claudePro } from "../lib/ai/anthropic_provider";
+import { generateText } from 'ai';
+import { v } from 'convex/values';
+import { api } from '../_generated/api';
+import type { Id } from '../_generated/dataModel';
+import type { ActionCtx } from '../_generated/server';
+import { action } from '../_generated/server';
+import { claudeFlash, claudePro } from '../lib/ai/anthropic_provider';
+import { stripMarkdownCodeBlock } from '../lib/json';
+import type { ResearchMode } from './intent';
 import {
-  executeParallelSearchWithRetry,
-} from "./search";
-import { stripMarkdownCodeBlock } from "../lib/json";
-import type { ResearchMode } from "./intent";
-import { getVariantInstructions, getSynthesisInstructions, getFallbackVariants, getSearchBudget, buildFollowUpContext } from "./mode_prompts";
-import type { Id } from "../_generated/dataModel";
-import type { ActionCtx } from "../_generated/server";
+  buildFollowUpContext,
+  getFallbackVariants,
+  getSearchBudget,
+  getSynthesisInstructions,
+  getVariantInstructions,
+} from './mode_prompts';
+import { executeParallelSearchWithRetry } from './search';
 
 /**
  * Result type for parallel iteration research
  */
 export interface ParallelIterationResult {
-  sessionId: Id<"deepResearchSessions">;
-  conversationId: Id<"conversations">;
+  sessionId: Id<'deepResearchSessions'>;
+  conversationId: Id<'conversations'>;
   status: string;
   summary: string;
   confidence: string;
@@ -68,8 +72,6 @@ export async function generateQueryVariants(
   mode?: ResearchMode,
   maxCount: number = 3
 ): Promise<QueryVariant[]> {
-  
-
   const variantInstructions = mode
     ? getVariantInstructions(mode)
     : `Each variant should explore a different aspect:
@@ -99,7 +101,6 @@ Be specific and targeted. Each query should uncover different information.`;
       prompt,
     });
 
-    
     const variants = JSON.parse(stripMarkdownCodeBlock(result.text)) as QueryVariant[];
 
     if (!Array.isArray(variants) || variants.length < 2 || variants.length > maxCount + 1) {
@@ -111,7 +112,6 @@ Be specific and targeted. Each query should uncover different information.`;
     console.warn(
       `[generateQueryVariants] LLM generation failed: ${error instanceof Error ? error.message : String(error)}`
     );
-    
 
     // Fallback to mode-aware static variants
     if (mode) {
@@ -120,18 +120,18 @@ Be specific and targeted. Each query should uncover different information.`;
     return [
       {
         query: `${topic} implementation guide tutorial example`,
-        focus: "Technical implementation",
-        rationale: "Practical how-to information",
+        focus: 'Technical implementation',
+        rationale: 'Practical how-to information',
       },
       {
         query: `${topic} research papers academic study`,
-        focus: "Academic research",
-        rationale: "Scientific and theoretical foundations",
+        focus: 'Academic research',
+        rationale: 'Scientific and theoretical foundations',
       },
       {
         query: `${topic} best practices industry applications`,
-        focus: "Industry practice",
-        rationale: "Real-world usage and patterns",
+        focus: 'Industry practice',
+        rationale: 'Real-world usage and patterns',
       },
     ].slice(0, maxCount);
   }
@@ -161,16 +161,14 @@ Rationale: ${r.variant.rationale}
 ${r.findings}
 `
     )
-    .join("\n");
+    .join('\n');
 
-  const modeInstructions = mode
-    ? getSynthesisInstructions(mode)
-    : "";
+  const modeInstructions = mode ? getSynthesisInstructions(mode) : '';
 
   return `Synthesize the following parallel research results into a comprehensive response.
 
 Topic: ${topic}
-${modeInstructions ? `\n${modeInstructions}\n` : ""}
+${modeInstructions ? `\n${modeInstructions}\n` : ''}
 Research Results:
 ${resultsSection}
 
@@ -202,22 +200,22 @@ CONFIDENCE LEVELS:
  */
 async function updateIterationLoadingCard(
   ctx: ActionCtx,
-  conversationId: Id<"conversations">,
-  sessionId: Id<"deepResearchSessions">,
+  conversationId: Id<'conversations'>,
+  sessionId: Id<'deepResearchSessions'>,
   topic: string,
   steps: Array<{ id: string; label: string; status: string; detail?: string }>
 ): Promise<void> {
-  const loadingCard = await ctx.runQuery(
-    api.chatMessages.queries.findLoadingCardBySession,
-    { conversationId, sessionId: sessionId.toString() },
-  );
+  const loadingCard = await ctx.runQuery(api.chatMessages.queries.findLoadingCardBySession, {
+    conversationId,
+    sessionId: sessionId.toString(),
+  });
   if (!loadingCard) return;
 
   await ctx.runMutation(api.chatMessages.mutations.update, {
     id: loadingCard._id,
     cardData: {
-      card_type: "deep_research_loading",
-      status: "in_progress",
+      card_type: 'deep_research_loading',
+      status: 'in_progress',
       session_id: sessionId,
       topic,
       steps,
@@ -238,13 +236,12 @@ async function updateIterationLoadingCard(
  */
 export async function executeParallelIteration(
   ctx: ActionCtx,
-  conversationId: Id<"conversations"> | undefined,
+  conversationId: Id<'conversations'> | undefined,
   topic: string,
   enableFollowUp: boolean = true,
   mode?: ResearchMode
 ): Promise<ParallelIterationResult> {
   const startTime = Date.now();
-  
 
   // Step 1: Create conversation if needed
   const effectiveConversationId =
@@ -254,30 +251,25 @@ export async function executeParallelIteration(
     }));
 
   // Step 2: Create session with researchType: "parallel_iteration"
-  const sessionId = await ctx.runMutation(
-    api.research.mutations.createDeepResearchSession,
-    {
-      conversationId: effectiveConversationId,
-      topic,
-      maxIterations: 1, // Parallel iteration is typically single-pass
-      researchType: "parallel_iteration",
-      researchMode: mode,
-    }
-  );
-
-  
+  const sessionId = await ctx.runMutation(api.research.mutations.createDeepResearchSession, {
+    conversationId: effectiveConversationId,
+    topic,
+    maxIterations: 1, // Parallel iteration is typically single-pass
+    researchType: 'parallel_iteration',
+    researchMode: mode,
+  });
 
   const budget = getSearchBudget(mode);
 
   // Step 3: Post loading card
   await ctx.runMutation(api.chatMessages.mutations.create, {
     conversationId: effectiveConversationId,
-    role: "agent" as const,
+    role: 'agent' as const,
     content: `Parallel research: ${topic}`,
-    messageType: "result_card" as const,
+    messageType: 'result_card' as const,
     cardData: {
-      card_type: "deep_research_loading",
-      status: "in_progress",
+      card_type: 'deep_research_loading',
+      status: 'in_progress',
       session_id: sessionId,
       topic,
     },
@@ -288,65 +280,58 @@ export async function executeParallelIteration(
   // Show "analyzing" step while generating variants
   await updateIterationLoadingCard(ctx, effectiveConversationId, sessionId, topic, [
     {
-      id: "analyze",
-      label: "Analyzing query complexity... Generating search variants",
-      status: "in-progress",
+      id: 'analyze',
+      label: 'Analyzing query complexity... Generating search variants',
+      status: 'in-progress',
     },
   ]);
 
   const variants = await generateQueryVariants(topic, mode, budget.primarySearchCount);
-  
 
   // Show "searching" step now that we know how many variants we have
   await updateIterationLoadingCard(ctx, effectiveConversationId, sessionId, topic, [
     {
-      id: "analyze",
+      id: 'analyze',
       label: `Analyzing query complexity... Selected parallel iteration strategy (${variants.length} variants)`,
-      status: "completed",
+      status: 'completed',
     },
     {
-      id: "search",
+      id: 'search',
       label: `Searching ${variants.length} query variants in parallel...`,
-      status: "in-progress",
+      status: 'in-progress',
     },
   ]);
 
   // Step 5: Execute all variants in parallel
   const variantSearches = variants.map(async (variant) => {
-    const result = await executeParallelSearchWithRetry(
-      variant.query,
-      {},
-      [],
-      { maxRetries: budget.maxRetries, timeoutMs: budget.searchTimeoutMs, deduplicateResults: true }
-    );
+    const result = await executeParallelSearchWithRetry(variant.query, {}, [], {
+      maxRetries: budget.maxRetries,
+      timeoutMs: budget.searchTimeoutMs,
+      deduplicateResults: true,
+    });
     return { variant, ...result };
   });
 
   const variantResults = await Promise.all(variantSearches);
-  const totalResults = variantResults.reduce(
-    (sum, r) => sum + r.structuredResults.length,
-    0
-  );
+  const totalResults = variantResults.reduce((sum, r) => sum + r.structuredResults.length, 0);
   variantResults.reduce((sum, r) => sum + r.durationMs, 0);
-
-  
 
   // Step 5b: Update card — search done, synthesis starting
   await updateIterationLoadingCard(ctx, effectiveConversationId, sessionId, topic, [
     {
-      id: "analyze",
+      id: 'analyze',
       label: `Analyzed query — parallel iteration across ${variants.length} variants`,
-      status: "completed",
+      status: 'completed',
     },
     {
-      id: "search",
+      id: 'search',
       label: `Searched ${totalResults} sources across ${variants.length} variants`,
-      status: "completed",
+      status: 'completed',
     },
     {
-      id: "synthesize",
+      id: 'synthesize',
       label: `Synthesizing findings from ${totalResults} sources...`,
-      status: "in-progress",
+      status: 'in-progress',
     },
   ]);
 
@@ -380,41 +365,37 @@ export async function executeParallelIteration(
       summary: synthesisResult.text,
       keyFindings: [],
       gaps: [],
-      confidence: "MEDIUM",
+      confidence: 'MEDIUM',
     };
   }
-
-  
 
   // Build post-synthesis completed steps
   const postSynthesisSteps = [
     {
-      id: "analyze",
+      id: 'analyze',
       label: `Analyzed query — parallel iteration across ${variants.length} variants`,
-      status: "completed" as const,
+      status: 'completed' as const,
     },
     {
-      id: "search",
+      id: 'search',
       label: `Searched ${totalResults} sources across ${variants.length} variants`,
-      status: "completed" as const,
+      status: 'completed' as const,
     },
     {
-      id: "synthesize",
+      id: 'synthesize',
       label: `Synthesized findings — confidence: ${synthesis.confidence}`,
-      status: "completed" as const,
+      status: 'completed' as const,
     },
   ];
 
   // Step 7: Optional follow-up for gaps
-  if (enableFollowUp && synthesis.gaps.length > 0 && synthesis.confidence !== "HIGH") {
-    
-
+  if (enableFollowUp && synthesis.gaps.length > 0 && synthesis.confidence !== 'HIGH') {
     await updateIterationLoadingCard(ctx, effectiveConversationId, sessionId, topic, [
       ...postSynthesisSteps,
       {
-        id: "followup",
-        label: `Filling ${synthesis.gaps.length} coverage gap${synthesis.gaps.length === 1 ? "" : "s"}...`,
-        status: "in-progress",
+        id: 'followup',
+        label: `Filling ${synthesis.gaps.length} coverage gap${synthesis.gaps.length === 1 ? '' : 's'}...`,
+        status: 'in-progress',
       },
     ]);
 
@@ -423,17 +404,20 @@ export async function executeParallelIteration(
       topic,
       {},
       contextualGaps.slice(0, budget.followUpBudget),
-      { maxRetries: budget.maxRetries, timeoutMs: budget.followUpTimeoutMs, deduplicateResults: true }
+      {
+        maxRetries: budget.maxRetries,
+        timeoutMs: budget.followUpTimeoutMs,
+        deduplicateResults: true,
+      }
     );
 
     // Append follow-up findings to synthesis
     synthesis.summary += `\n\n## Additional Findings\n${followUpResult.findings}`;
-    
 
     postSynthesisSteps.push({
-      id: "followup",
-      label: `Filled ${synthesis.gaps.length} gap${synthesis.gaps.length === 1 ? "" : "s"} with ${followUpResult.structuredResults.length} additional sources`,
-      status: "completed" as const,
+      id: 'followup',
+      label: `Filled ${synthesis.gaps.length} gap${synthesis.gaps.length === 1 ? '' : 's'} with ${followUpResult.structuredResults.length} additional sources`,
+      status: 'completed' as const,
     });
   }
 
@@ -441,9 +425,9 @@ export async function executeParallelIteration(
   await updateIterationLoadingCard(ctx, effectiveConversationId, sessionId, topic, [
     ...postSynthesisSteps,
     {
-      id: "save",
-      label: "Saving to knowledge base...",
-      status: "in-progress",
+      id: 'save',
+      label: 'Saving to knowledge base...',
+      status: 'in-progress',
     },
   ]);
 
@@ -451,17 +435,17 @@ export async function executeParallelIteration(
   await ctx.runMutation(api.research.mutations.createDeepResearchIteration, {
     sessionId,
     iterationNumber: 1,
-    coverageScore: synthesis.confidence === "HIGH" ? 4 : synthesis.confidence === "MEDIUM" ? 3 : 2,
+    coverageScore: synthesis.confidence === 'HIGH' ? 4 : synthesis.confidence === 'MEDIUM' ? 3 : 2,
     feedback: `Parallel iteration completed with ${totalResults} sources across ${variants.length} query variants`,
     findings: synthesis.summary,
     refinedQueries: synthesis.gaps,
-    status: "completed",
+    status: 'completed',
   });
 
   // Step 9: Complete session (triggers document creation and result card posting)
   await ctx.runMutation(api.research.mutations.completeDeepResearchSession, {
     sessionId,
-    status: "completed",
+    status: 'completed',
   });
 
   const totalTime = Date.now() - startTime;
@@ -473,7 +457,7 @@ export async function executeParallelIteration(
   return {
     sessionId,
     conversationId: effectiveConversationId,
-    status: "completed",
+    status: 'completed',
     summary: synthesis.summary,
     confidence: synthesis.confidence,
     durationMs: totalTime,
@@ -492,12 +476,21 @@ export async function executeParallelIteration(
  */
 export const runParallelIteration = action({
   args: {
-    conversationId: v.optional(v.id("conversations")),
+    conversationId: v.optional(v.id('conversations')),
     topic: v.string(),
     enableFollowUp: v.optional(v.boolean()),
     researchMode: v.optional(v.string()),
   },
-  handler: async (ctx, { conversationId, topic, enableFollowUp = true, researchMode }): Promise<ParallelIterationResult> => {
-    return executeParallelIteration(ctx, conversationId, topic, enableFollowUp, researchMode as ResearchMode | undefined);
+  handler: async (
+    ctx,
+    { conversationId, topic, enableFollowUp = true, researchMode }
+  ): Promise<ParallelIterationResult> => {
+    return executeParallelIteration(
+      ctx,
+      conversationId,
+      topic,
+      enableFollowUp,
+      researchMode as ResearchMode | undefined
+    );
   },
 });

@@ -1,19 +1,19 @@
-import { Redirect, useLocalSearchParams, useRouter } from 'expo-router'
-import { ActivityIndicator, Pressable, View } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
-import { ArrowLeft } from '@/components/ui/icons'
-import { Text } from '@/components/ui/text'
-import { Button } from '@/components/ui/button'
-import { useDeepResearchSession } from '@/hooks/useResearchSession'
-import { useTheme } from '@/hooks/use-theme'
+import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useMemo } from 'react';
+import { ActivityIndicator, Pressable, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import {
-  DeepResearchDetailView,
   type Citation,
+  DeepResearchDetailView,
   type ResearchIteration,
-} from '@/components/deep-research/DeepResearchDetailView'
-import type { DeepResearchSessionWithIterations } from '@/lib/types/deep-research'
-import { useMemo } from 'react'
-import type { Id } from '@/convex/_generated/dataModel'
+} from '@/components/deep-research/DeepResearchDetailView';
+import { Button } from '@/components/ui/button';
+import { ArrowLeft } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import type { Id } from '@/convex/_generated/dataModel';
+import { useTheme } from '@/hooks/use-theme';
+import { useDeepResearchSession } from '@/hooks/useResearchSession';
+import type { DeepResearchSessionWithIterations } from '@/lib/types/deep-research';
 
 /**
  * Transform session data to DeepResearchDetailView format
@@ -22,7 +22,7 @@ import type { Id } from '@/convex/_generated/dataModel'
 function transformSessionToViewFormat(
   session: DeepResearchSessionWithIterations | null | undefined
 ) {
-  if (!session) return null
+  if (!session) return null;
 
   // Transform iterations to the view format (kept for backward compatibility)
   const iterations: ResearchIteration[] = (session.iterations ?? []).map((iter) => ({
@@ -33,16 +33,16 @@ function transformSessionToViewFormat(
     findings: iter.findings ? [iter.findings] : undefined,
     isActive: iter.status === 'running',
     isComplete: iter.status === 'completed',
-  }))
+  }));
 
   // Extract citations from document if available
-  const citations: Citation[] = []
+  const citations: Citation[] = [];
 
   // Determine confidence level
-  let confidence: 'HIGH' | 'MEDIUM' | 'LOW' = 'MEDIUM'
+  let confidence: 'HIGH' | 'MEDIUM' | 'LOW' = 'MEDIUM';
   if (iterations.length > 0) {
-    const lastScore = iterations[iterations.length - 1].coverageScore
-    confidence = lastScore >= 4 ? 'HIGH' : lastScore >= 3 ? 'MEDIUM' : 'LOW'
+    const lastScore = iterations[iterations.length - 1].coverageScore;
+    confidence = lastScore >= 4 ? 'HIGH' : lastScore >= 3 ? 'MEDIUM' : 'LOW';
   }
 
   return {
@@ -55,7 +55,7 @@ function transformSessionToViewFormat(
     savedToHolocron: !!session.documentId,
     confidence,
     sourcesCount: undefined, // Could be derived from iterations if needed
-  }
+  };
 }
 
 /**
@@ -69,33 +69,33 @@ function transformSessionToViewFormat(
  * Route: /research/[sessionId]
  */
 export default function ResearchDetailScreen() {
-  const { sessionId } = useLocalSearchParams<{ sessionId: string }>()
-  const router = useRouter()
-  const theme = useTheme()
-  const typedSessionId = sessionId ? (sessionId as Id<'deepResearchSessions'>) : null
-  const { session, isLoading, error } = useDeepResearchSession(typedSessionId)
+  const { sessionId } = useLocalSearchParams<{ sessionId: string }>();
+  const router = useRouter();
+  const theme = useTheme();
+  const typedSessionId = sessionId ? (sessionId as Id<'deepResearchSessions'>) : null;
+  const { session, isLoading, error } = useDeepResearchSession(typedSessionId);
 
   // If the research session has a saved document, redirect to the canonical document view
   // which has sharing, better rendering, and consistent UX
   if (session?.documentId) {
-    return <Redirect href={`/document/${session.documentId}`} />
+    return <Redirect href={`/document/${session.documentId}`} />;
   }
 
   // Derive view data directly from session query (no useState + useEffect sync)
-  const viewData = useMemo(() => transformSessionToViewFormat(session), [session])
+  const viewData = useMemo(() => transformSessionToViewFormat(session), [session]);
 
   const handleBack = () => {
     if (router.canGoBack()) {
-      router.back()
+      router.back();
     } else {
-      router.navigate('/chat/new')
+      router.navigate('/chat/new');
     }
-  }
+  };
 
   const handleCitationPress = (url: string) => {
-    const encodedUrl = encodeURIComponent(url)
-    router.push(`/webview/${encodedUrl}`)
-  }
+    const encodedUrl = encodeURIComponent(url);
+    router.push(`/webview/${encodedUrl}`);
+  };
 
   if (isLoading) {
     return (
@@ -115,7 +115,14 @@ export default function ResearchDetailScreen() {
           <Pressable onPress={handleBack} style={{ padding: theme.spacing.sm }}>
             <ArrowLeft size={24} color={theme.colors.foreground} />
           </Pressable>
-          <Text style={{ flex: 1, fontSize: theme.typography.h4.fontSize, fontWeight: theme.typography.h4.fontWeight, color: theme.colors.foreground }}>
+          <Text
+            style={{
+              flex: 1,
+              fontSize: theme.typography.h4.fontSize,
+              fontWeight: theme.typography.h4.fontWeight,
+              color: theme.colors.foreground,
+            }}
+          >
             Loading...
           </Text>
         </View>
@@ -126,7 +133,7 @@ export default function ResearchDetailScreen() {
           <Text className="text-muted-foreground mt-4">Loading research session...</Text>
         </View>
       </SafeAreaView>
-    )
+    );
   }
 
   if (error || !viewData) {
@@ -147,13 +154,27 @@ export default function ResearchDetailScreen() {
           <Pressable onPress={handleBack} style={{ padding: theme.spacing.sm }}>
             <ArrowLeft size={24} color={theme.colors.foreground} />
           </Pressable>
-          <Text style={{ flex: 1, fontSize: theme.typography.h4.fontSize, fontWeight: theme.typography.h4.fontWeight, color: theme.colors.foreground }}>
+          <Text
+            style={{
+              flex: 1,
+              fontSize: theme.typography.h4.fontSize,
+              fontWeight: theme.typography.h4.fontWeight,
+              color: theme.colors.foreground,
+            }}
+          >
             Error
           </Text>
         </View>
 
         {/* Error state */}
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: theme.spacing.xl }}>
+        <View
+          style={{
+            flex: 1,
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: theme.spacing.xl,
+          }}
+        >
           <Text className="text-destructive text-center text-lg mb-4">
             Research session not found
           </Text>
@@ -162,7 +183,7 @@ export default function ResearchDetailScreen() {
           </Button>
         </View>
       </SafeAreaView>
-    )
+    );
   }
 
   return (
@@ -172,5 +193,5 @@ export default function ResearchDetailScreen() {
       onCitationPress={handleCitationPress}
       testID="research-detail-view"
     />
-  )
+  );
 }

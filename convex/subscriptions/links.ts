@@ -1,9 +1,9 @@
-import { mutation, query } from "../_generated/server";
-import { v } from "convex/values";
+import { v } from 'convex/values';
+import { mutation, query } from '../_generated/server';
 
 // Generate short random token using nanoid-like approach
 function generateToken(length: number): string {
-  const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+  const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
   const result = [];
   const bytes = new Uint8Array(length);
   crypto.getRandomValues(bytes);
@@ -12,7 +12,7 @@ function generateToken(length: number): string {
     result.push(chars[bytes[i] % chars.length]);
   }
 
-  return result.join("");
+  return result.join('');
 }
 
 /**
@@ -21,19 +21,19 @@ function generateToken(length: number): string {
  */
 export const generateLink = mutation({
   args: {
-    creatorProfileId: v.optional(v.id("creatorProfiles")),
+    creatorProfileId: v.optional(v.id('creatorProfiles')),
     subscriptions: v.optional(
       v.array(
         v.object({
           sourceType: v.union(
-            v.literal("youtube"),
-            v.literal("newsletter"),
-            v.literal("changelog"),
-            v.literal("reddit"),
-            v.literal("ebay"),
-            v.literal("whats-new"),
-            v.literal("creator"),
-            v.literal("github")
+            v.literal('youtube'),
+            v.literal('newsletter'),
+            v.literal('changelog'),
+            v.literal('reddit'),
+            v.literal('ebay'),
+            v.literal('whats-new'),
+            v.literal('creator'),
+            v.literal('github')
           ),
           identifier: v.string(),
           name: v.string(),
@@ -48,7 +48,7 @@ export const generateLink = mutation({
   handler: async (ctx, args) => {
     // Must provide either creatorProfileId or subscriptions
     if (!args.creatorProfileId && !args.subscriptions) {
-      throw new Error("Must provide either creatorProfileId or subscriptions");
+      throw new Error('Must provide either creatorProfileId or subscriptions');
     }
 
     // Generate unique token
@@ -58,33 +58,27 @@ export const generateLink = mutation({
 
     // Check if token already exists (unlikely but possible)
     // Scan index range and filter in-memory for exact token match
-    const results = await ctx.db
-      .query("subscriptionLinks")
-      .withIndex("by_token")
-      .take(1);
+    const results = await ctx.db.query('subscriptionLinks').withIndex('by_token').take(1);
 
-    const existing = results.find(l => l.token === token);
+    const existing = results.find((l) => l.token === token);
 
     if (existing) {
       // Regenerate with different token (simple retry)
       const newToken = generateToken(8);
-      const newResults = await ctx.db
-        .query("subscriptionLinks")
-        .withIndex("by_token")
-        .take(1);
+      const newResults = await ctx.db.query('subscriptionLinks').withIndex('by_token').take(1);
 
-      const newExisting = newResults.find(l => l.token === newToken);
+      const newExisting = newResults.find((l) => l.token === newToken);
 
       if (newExisting) {
-        throw new Error("Unable to generate unique token");
+        throw new Error('Unable to generate unique token');
       }
 
       // Use new token
-      const linkId = await ctx.db.insert("subscriptionLinks", {
+      const linkId = await ctx.db.insert('subscriptionLinks', {
         token: newToken,
         creatorProfileId: args.creatorProfileId,
         subscriptions: args.subscriptions,
-        createdBy: "system",
+        createdBy: 'system',
         expiresAt,
         clickCount: 0,
         createdAt: now,
@@ -95,11 +89,11 @@ export const generateLink = mutation({
     }
 
     // Create subscription link
-    const linkId = await ctx.db.insert("subscriptionLinks", {
+    const linkId = await ctx.db.insert('subscriptionLinks', {
       token,
       creatorProfileId: args.creatorProfileId,
       subscriptions: args.subscriptions,
-      createdBy: "system", // TODO: Add user auth when implemented
+      createdBy: 'system', // TODO: Add user auth when implemented
       expiresAt,
       clickCount: 0,
       createdAt: now,
@@ -127,30 +121,27 @@ export const resolveLink = query({
   },
   handler: async (ctx, args) => {
     // Scan index range and filter in-memory for exact token match
-    const results = await ctx.db
-      .query("subscriptionLinks")
-      .withIndex("by_token")
-      .take(1);
+    const results = await ctx.db.query('subscriptionLinks').withIndex('by_token').take(1);
 
-    const link = results.find(l => l.token === args.token);
+    const link = results.find((l) => l.token === args.token);
 
     if (!link) {
-      throw new Error("Subscription link not found");
+      throw new Error('Subscription link not found');
     }
 
     // Check if expired
     if (link.expiresAt && link.expiresAt < Date.now()) {
-      throw new Error("Subscription link has expired");
+      throw new Error('Subscription link has expired');
     }
 
     // If link has creatorProfileId, fetch profile and build subscriptions
     let subscriptions = link.subscriptions;
-    let creatorProfile = undefined;
+    let creatorProfile;
 
     if (link.creatorProfileId) {
       const profile = await ctx.db.get(link.creatorProfileId);
       if (!profile) {
-        throw new Error("Creator profile not found");
+        throw new Error('Creator profile not found');
       }
 
       creatorProfile = {
@@ -162,11 +153,16 @@ export const resolveLink = query({
       if (!subscriptions) {
         subscriptions = [];
         for (const [platform, data] of Object.entries(profile.platforms)) {
-          if (data && typeof data === "object" && "verified" in data && (data as { verified?: boolean }).verified) {
+          if (
+            data &&
+            typeof data === 'object' &&
+            'verified' in data &&
+            (data as { verified?: boolean }).verified
+          ) {
             const platformData = data as { handle?: string; url?: string };
             const handle = platformData.handle ?? platformData.url ?? platform;
             subscriptions.push({
-              sourceType: "creator" as const,
+              sourceType: 'creator' as const,
               identifier: handle,
               name: `${profile.name} (${platform})`,
             });
@@ -194,20 +190,17 @@ export const subscribeFromLink = mutation({
   },
   handler: async (ctx, args) => {
     // Get the link directly - scan index range and filter in-memory
-    const results = await ctx.db
-      .query("subscriptionLinks")
-      .withIndex("by_token")
-      .take(1);
+    const results = await ctx.db.query('subscriptionLinks').withIndex('by_token').take(1);
 
-    const link = results.find(l => l.token === args.token);
+    const link = results.find((l) => l.token === args.token);
 
     if (!link) {
-      throw new Error("Subscription link not found");
+      throw new Error('Subscription link not found');
     }
 
     // Check if expired
     if (link.expiresAt && link.expiresAt < Date.now()) {
-      throw new Error("Subscription link has expired");
+      throw new Error('Subscription link has expired');
     }
 
     // If link has creatorProfileId, build subscriptions from profile
@@ -217,11 +210,16 @@ export const subscribeFromLink = mutation({
       if (profile) {
         subscriptions = [];
         for (const [platform, data] of Object.entries(profile.platforms)) {
-          if (data && typeof data === "object" && "verified" in data && (data as { verified?: boolean }).verified) {
+          if (
+            data &&
+            typeof data === 'object' &&
+            'verified' in data &&
+            (data as { verified?: boolean }).verified
+          ) {
             const platformData = data as { handle?: string; url?: string };
             const handle = platformData.handle ?? platformData.url ?? platform;
             subscriptions.push({
-              sourceType: "creator" as const,
+              sourceType: 'creator' as const,
               identifier: handle,
               name: `${profile.name} (${platform})`,
             });
@@ -231,7 +229,7 @@ export const subscribeFromLink = mutation({
     }
 
     // Build creator profile for response
-    let creatorProfile = undefined;
+    let creatorProfile;
     if (link.creatorProfileId) {
       const profile = await ctx.db.get(link.creatorProfileId);
       if (profile) {
@@ -254,25 +252,25 @@ export const subscribeFromLink = mutation({
         // Check if subscription already exists
         // Scan index range and filter in-memory for exact identifier match
         const subResults = await ctx.db
-          .query("subscriptionSources")
-          .withIndex("by_identifier")
+          .query('subscriptionSources')
+          .withIndex('by_identifier')
           .take(1);
 
-        const existing = subResults.find(s => s.identifier === sub.identifier);
+        const existing = subResults.find((s) => s.identifier === sub.identifier);
 
         if (existing) {
           failed.push({
             sourceType: sub.sourceType,
             identifier: sub.identifier,
-            error: "Subscription already exists",
+            error: 'Subscription already exists',
           });
           continue;
         }
 
         // Create subscription
-        const subscriptionId = await ctx.db.insert("subscriptionSources", {
+        const subscriptionId = await ctx.db.insert('subscriptionSources', {
           ...sub,
-          fetchMethod: "rss",
+          fetchMethod: 'rss',
           autoResearch,
           createdAt: now,
           updatedAt: now,
@@ -287,19 +285,16 @@ export const subscribeFromLink = mutation({
         failed.push({
           sourceType: sub.sourceType,
           identifier: sub.identifier,
-          error: error instanceof Error ? error.message : "Unknown error",
+          error: error instanceof Error ? error.message : 'Unknown error',
         });
       }
     }
 
     // Increment click count
     // Scan index range and filter in-memory for exact token match
-    const clickResults = await ctx.db
-      .query("subscriptionLinks")
-      .withIndex("by_token")
-      .take(1);
+    const clickResults = await ctx.db.query('subscriptionLinks').withIndex('by_token').take(1);
 
-    const linkRecord = clickResults.find(l => l.token === args.token);
+    const linkRecord = clickResults.find((l) => l.token === args.token);
 
     if (linkRecord) {
       await ctx.db.patch(linkRecord._id, {

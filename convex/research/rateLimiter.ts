@@ -10,20 +10,17 @@
  * - Jina Reader: 30 RPM (~0.5 per second)
  */
 
-import { internalMutation } from "../_generated/server";
-import { v } from "convex/values";
-import { internal } from "../_generated/api";
+import { v } from 'convex/values';
+import { internal } from '../_generated/api';
+import { internalMutation } from '../_generated/server';
 
 // ============================================================================
 // Rate limit configurations (requests per windowMs)
 // ============================================================================
 
-type RateLimitEndpoint = "exa" | "jina" | "jina-reader";
+type RateLimitEndpoint = 'exa' | 'jina' | 'jina-reader';
 
-const RATE_LIMIT_CONFIGS: Record<
-  RateLimitEndpoint,
-  { maxRequests: number; windowMs: number }
-> = {
+const RATE_LIMIT_CONFIGS: Record<RateLimitEndpoint, { maxRequests: number; windowMs: number }> = {
   exa: {
     maxRequests: 10,
     windowMs: 1000, // 10 per second
@@ -32,7 +29,7 @@ const RATE_LIMIT_CONFIGS: Record<
     maxRequests: 90,
     windowMs: 60_000, // 90 per minute (conservative for 100 RPM free tier)
   },
-  "jina-reader": {
+  'jina-reader': {
     maxRequests: 30,
     windowMs: 60_000, // 30 per minute
   },
@@ -45,11 +42,7 @@ const RATE_LIMIT_CONFIGS: Record<
 
 export const checkAndRecord = internalMutation({
   args: {
-    endpoint: v.union(
-      v.literal("exa"),
-      v.literal("jina"),
-      v.literal("jina-reader")
-    ),
+    endpoint: v.union(v.literal('exa'), v.literal('jina'), v.literal('jina-reader')),
   },
   returns: v.object({
     allowed: v.boolean(),
@@ -62,10 +55,8 @@ export const checkAndRecord = internalMutation({
 
     // Clean up old entries outside the sliding window
     const oldEntries = await ctx.db
-      .query("rateLimits")
-      .withIndex("by_key_timestamp", (q) =>
-        q.eq("key", args.endpoint).lt("timestamp", windowStart)
-      )
+      .query('rateLimits')
+      .withIndex('by_key_timestamp', (q) => q.eq('key', args.endpoint).lt('timestamp', windowStart))
       .collect();
 
     for (const entry of oldEntries) {
@@ -74,24 +65,19 @@ export const checkAndRecord = internalMutation({
 
     // Count requests in current window
     const currentEntries = await ctx.db
-      .query("rateLimits")
-      .withIndex("by_key", (q) => q.eq("key", args.endpoint))
+      .query('rateLimits')
+      .withIndex('by_key', (q) => q.eq('key', args.endpoint))
       .collect();
 
     if (currentEntries.length >= config.maxRequests) {
       // Find the oldest entry to calculate how long to wait
-      const oldest = currentEntries.reduce((min, e) =>
-        e.timestamp < min.timestamp ? e : min
-      );
-      const retryAfterMs = Math.max(
-        0,
-        oldest.timestamp + config.windowMs - now
-      );
+      const oldest = currentEntries.reduce((min, e) => (e.timestamp < min.timestamp ? e : min));
+      const retryAfterMs = Math.max(0, oldest.timestamp + config.windowMs - now);
       return { allowed: false, retryAfterMs };
     }
 
     // Record this request
-    await ctx.db.insert("rateLimits", {
+    await ctx.db.insert('rateLimits', {
       key: args.endpoint,
       timestamp: now,
     });
@@ -108,10 +94,7 @@ export const checkAndRecord = internalMutation({
 // ============================================================================
 
 type ActionCtxLike = {
-  runMutation: (
-    fn: unknown,
-    args: Record<string, unknown>
-  ) => Promise<unknown>;
+  runMutation: (fn: unknown, args: Record<string, unknown>) => Promise<unknown>;
 };
 
 /**
@@ -133,19 +116,16 @@ export async function withRateLimit<T>(
   maxRetries = 5
 ): Promise<T> {
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    const result = (await ctx.runMutation(
-      internal.research.rateLimiter.checkAndRecord,
-      { endpoint }
-    )) as { allowed: boolean; retryAfterMs: number };
+    const result = (await ctx.runMutation(internal.research.rateLimiter.checkAndRecord, {
+      endpoint,
+    })) as { allowed: boolean; retryAfterMs: number };
 
     if (result.allowed) {
       return fn();
     }
 
     if (attempt === maxRetries) {
-      console.warn(
-        `[RateLimiter] Rate limit exceeded for ${endpoint} after ${maxRetries} retries`
-      );
+      console.warn(`[RateLimiter] Rate limit exceeded for ${endpoint} after ${maxRetries} retries`);
       // Fall through and execute anyway to avoid blocking indefinitely
       return fn();
     }

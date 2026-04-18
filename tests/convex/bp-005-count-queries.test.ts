@@ -5,9 +5,9 @@
  * AC-2: Uses efficient counting (index or counter)
  */
 
-import { describe, it, expect, beforeAll } from 'vitest';
 import fs from 'fs';
 import path from 'path';
+import { beforeAll, describe, expect, it } from 'vitest';
 
 describe('BP-005: Efficient Count Queries', () => {
   const queriesFilePath = path.join(__dirname, '../../convex/documents/queries.ts');
@@ -27,7 +27,9 @@ describe('BP-005: Efficient Count Queries', () => {
     it('should not contain .collect().length in count queries', () => {
       // Check for the inefficient pattern in actual code (not comments)
       const lines = queriesContent.split('\n');
-      const codeLines = lines.filter(line => !line.trim().startsWith('//') && !line.trim().startsWith('*'));
+      const codeLines = lines.filter(
+        (line) => !line.trim().startsWith('//') && !line.trim().startsWith('*')
+      );
       const codeContent = codeLines.join('\n');
       const hasInefficientCount = /\.collect\(\)\.length/.test(codeContent);
       expect(hasInefficientCount).toBe(false);
@@ -35,7 +37,8 @@ describe('BP-005: Efficient Count Queries', () => {
 
     it('should not load entire table then count in JS', () => {
       // Check for patterns like: const docs = await ctx.db.query(...).collect(); return docs.length;
-      const inefficientPattern = /const\s+\w+\s*=\s*await\s+ctx\.db\.query\([^)]+\)\.collect\(\);[\s\S]*?return\s+\w+\.length/;
+      const inefficientPattern =
+        /const\s+\w+\s*=\s*await\s+ctx\.db\.query\([^)]+\)\.collect\(\);[\s\S]*?return\s+\w+\.length/;
       expect(inefficientPattern.test(queriesContent)).toBe(false);
     });
 
@@ -79,7 +82,9 @@ describe('BP-005: Efficient Count Queries', () => {
 
     it('should have countDocumentsWithoutEmbeddings using efficient pattern', () => {
       // Check that countDocumentsWithoutEmbeddings doesn't load all documents
-      const countWithoutEmbeddingsMatch = queriesContent.match(/export const countDocumentsWithoutEmbeddings[\s\S]*?\n}/);
+      const countWithoutEmbeddingsMatch = queriesContent.match(
+        /export const countDocumentsWithoutEmbeddings[\s\S]*?\n}/
+      );
       if (countWithoutEmbeddingsMatch) {
         const countWithoutEmbeddingsCode = countWithoutEmbeddingsMatch[0];
         // Should use filter().take() or counter, not collect()

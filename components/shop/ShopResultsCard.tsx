@@ -8,50 +8,47 @@
  * - Expandable/collapsible listing grid
  */
 
-import { View } from 'react-native'
-import { Text } from '@/components/ui/text'
-import { Card } from '@/components/ui/card'
-import { ShopListingCard } from './ShopListingCard'
-import {
-  ShoppingCart,
-  Clock,
-  Trophy,
-  Package,
-  TrendingUp,
-} from '@/components/ui/icons'
-import { useTheme } from '@/hooks/use-theme'
-import type { ShopListingCardData } from '@/lib/types/chat'
+import { View } from 'react-native';
+import { Card } from '@/components/ui/card';
+import { Clock, Package, ShoppingCart, TrendingUp, Trophy } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { useTheme } from '@/hooks/use-theme';
+import type { ShopListingCardData } from '@/lib/types/chat';
+import { ShopListingCard } from './ShopListingCard';
 
 export interface ShopResultsCardProps {
-  sessionId: string
-  query: string
-  totalListings: number
-  bestDealId?: string
-  listings: ShopListingCardData[]
-  status: 'searching' | 'completed' | 'failed'
-  durationMs?: number
-  testID?: string
-  onListingPress?: (listingId: string) => void
+  sessionId: string;
+  query: string;
+  totalListings: number;
+  bestDealId?: string;
+  listings: ShopListingCardData[];
+  status: 'searching' | 'completed' | 'failed';
+  durationMs?: number;
+  testID?: string;
+  onListingPress?: (listingId: string) => void;
 }
 
 /**
  * Format duration to human readable
  */
 function formatDuration(ms: number): string {
-  if (ms < 1000) return `${ms}ms`
-  return `${(ms / 1000).toFixed(1)}s`
+  if (ms < 1000) return `${ms}ms`;
+  return `${(ms / 1000).toFixed(1)}s`;
 }
 
 /**
  * Get the best deal listing
  */
-function getBestDeal(listings: ShopListingCardData[], bestDealId?: string): ShopListingCardData | null {
+function getBestDeal(
+  listings: ShopListingCardData[],
+  bestDealId?: string
+): ShopListingCardData | null {
   if (bestDealId) {
-    return listings.find(l => l.listing_id === bestDealId) || null
+    return listings.find((l) => l.listing_id === bestDealId) || null;
   }
   // Fallback to highest deal score
-  const sorted = [...listings].sort((a, b) => (b.deal_score || 0) - (a.deal_score || 0))
-  return sorted[0] || null
+  const sorted = [...listings].sort((a, b) => (b.deal_score || 0) - (a.deal_score || 0));
+  return sorted[0] || null;
 }
 
 export function ShopResultsCard({
@@ -65,31 +62,29 @@ export function ShopResultsCard({
   testID = 'shop-results-card',
   onListingPress,
 }: ShopResultsCardProps) {
-  const { colors: themeColors } = useTheme()
+  const { colors: themeColors } = useTheme();
 
-  const bestDeal = getBestDeal(listings, bestDealId)
+  const bestDeal = getBestDeal(listings, bestDealId);
 
   // Calculate savings summary
   const totalSavings = listings.reduce((sum, listing) => {
     if (listing.original_price && listing.original_price > listing.price) {
-      return sum + (listing.original_price - listing.price)
+      return sum + (listing.original_price - listing.price);
     }
-    return sum
-  }, 0)
+    return sum;
+  }, 0);
 
-  const avgDealScore = listings.length > 0
-    ? Math.round(listings.reduce((sum, l) => sum + (l.deal_score || 0), 0) / listings.length)
-    : 0
+  const avgDealScore =
+    listings.length > 0
+      ? Math.round(listings.reduce((sum, l) => sum + (l.deal_score || 0), 0) / listings.length)
+      : 0;
 
   return (
     <View testID={testID} className="gap-3">
       {/* Header Card */}
       <Card className="border-border bg-card overflow-hidden">
         {/* Top accent bar */}
-        <View
-          className="h-1"
-          style={{ backgroundColor: themeColors.primary }}
-        />
+        <View className="h-1" style={{ backgroundColor: themeColors.primary }} />
 
         {/* Main header content */}
         <View className="p-4">
@@ -102,9 +97,7 @@ export function ShopResultsCard({
             {status === 'completed' && durationMs && (
               <View className="flex-row items-center gap-1 rounded-full bg-muted px-2 py-1">
                 <Clock size={12} color={themeColors.mutedForeground} />
-                <Text className="text-muted-foreground text-xs">
-                  {formatDuration(durationMs)}
-                </Text>
+                <Text className="text-muted-foreground text-xs">{formatDuration(durationMs)}</Text>
               </View>
             )}
           </View>
@@ -114,9 +107,7 @@ export function ShopResultsCard({
             {/* Total Results */}
             <View className="flex-row items-center gap-1.5">
               <Package size={14} color={themeColors.mutedForeground} />
-              <Text className="text-foreground text-sm font-semibold">
-                {totalListings}
-              </Text>
+              <Text className="text-foreground text-sm font-semibold">{totalListings}</Text>
               <Text className="text-muted-foreground text-sm">
                 {totalListings === 1 ? 'listing' : 'listings'}
               </Text>
@@ -126,9 +117,7 @@ export function ShopResultsCard({
             {avgDealScore > 0 && (
               <View className="flex-row items-center gap-1.5">
                 <TrendingUp size={14} color={themeColors.primary} />
-                <Text className="text-foreground text-sm font-semibold">
-                  {avgDealScore}
-                </Text>
+                <Text className="text-foreground text-sm font-semibold">{avgDealScore}</Text>
                 <Text className="text-muted-foreground text-sm">avg score</Text>
               </View>
             )}
@@ -147,9 +136,7 @@ export function ShopResultsCard({
 
           {/* Best Deal Highlight */}
           {bestDeal && bestDeal.deal_score && bestDeal.deal_score >= 70 && (
-            <View
-              className="mt-3 rounded-lg p-3 bg-success/10"
-            >
+            <View className="mt-3 rounded-lg p-3 bg-success/10">
               <View className="flex-row items-center gap-2">
                 <View className="rounded-full bg-success/20 p-1.5">
                   <Trophy size={14} color={themeColors.success} />
@@ -213,5 +200,5 @@ export function ShopResultsCard({
         </Card>
       ) : null}
     </View>
-  )
+  );
 }

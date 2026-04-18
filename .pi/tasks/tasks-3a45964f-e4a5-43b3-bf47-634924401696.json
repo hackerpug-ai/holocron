@@ -263,9 +263,7 @@
         "agentType": "frontend-designer"
       },
       "blocks": [],
-      "blockedBy": [
-        "25"
-      ],
+      "blockedBy": ["25"],
       "createdAt": 1775140951968,
       "updatedAt": 1775142131005
     },
@@ -284,9 +282,7 @@
         "agentType": "frontend-designer"
       },
       "blocks": [],
-      "blockedBy": [
-        "25"
-      ],
+      "blockedBy": ["25"],
       "createdAt": 1775140951968,
       "updatedAt": 1775142131005
     },
@@ -474,17 +470,10 @@
         "effort": "90min",
         "file_path": "/Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-4-feedback/US-FB-001.md",
         "assignee": "frontend-designer",
-        "blocked_by": [
-          "Epic-2"
-        ],
+        "blocked_by": ["Epic-2"],
         "agentType": "frontend-designer"
       },
-      "blocks": [
-        "26",
-        "29",
-        "14",
-        "15"
-      ],
+      "blocks": ["26", "29", "14", "15"],
       "blockedBy": [],
       "createdAt": 1775142128658,
       "updatedAt": 1775142459768
@@ -502,18 +491,11 @@
         "effort": "90min",
         "file_path": "/Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-4-feedback/US-FB-002.md",
         "assignee": "convex-implementer",
-        "blocked_by": [
-          "US-FB-001"
-        ],
+        "blocked_by": ["US-FB-001"],
         "agentType": "convex-implementer"
       },
-      "blocks": [
-        "27",
-        "28"
-      ],
-      "blockedBy": [
-        "25"
-      ],
+      "blocks": ["27", "28"],
+      "blockedBy": ["25"],
       "createdAt": 1775142128659,
       "updatedAt": 1775142129966
     },
@@ -530,17 +512,11 @@
         "effort": "180min",
         "file_path": "/Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-4-feedback/US-FB-003.md",
         "assignee": "convex-implementer",
-        "blocked_by": [
-          "US-FB-002"
-        ],
+        "blocked_by": ["US-FB-002"],
         "agentType": "convex-implementer"
       },
-      "blocks": [
-        "30"
-      ],
-      "blockedBy": [
-        "26"
-      ],
+      "blocks": ["30"],
+      "blockedBy": ["26"],
       "createdAt": 1775142128659,
       "updatedAt": 1775142129967
     },
@@ -557,15 +533,11 @@
         "effort": "90min",
         "file_path": "/Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-4-feedback/US-FB-004.md",
         "assignee": "frontend-designer",
-        "blocked_by": [
-          "US-FB-002"
-        ],
+        "blocked_by": ["US-FB-002"],
         "agentType": "frontend-designer"
       },
       "blocks": [],
-      "blockedBy": [
-        "26"
-      ],
+      "blockedBy": ["26"],
       "createdAt": 1775142128660,
       "updatedAt": 1775142129966
     },
@@ -582,15 +554,11 @@
         "effort": "45min",
         "file_path": "/Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-4-feedback/US-FB-005.md",
         "assignee": "frontend-designer",
-        "blocked_by": [
-          "US-FB-001"
-        ],
+        "blocked_by": ["US-FB-001"],
         "agentType": "frontend-designer"
       },
       "blocks": [],
-      "blockedBy": [
-        "25"
-      ],
+      "blockedBy": ["25"],
       "createdAt": 1775142128660,
       "updatedAt": 1775142129967
     },
@@ -607,15 +575,11 @@
         "effort": "60min",
         "file_path": "/Users/justinrich/Projects/holocron/.spec/prd/subscriptions-redesign/tasks/epic-4-feedback/US-FB-006.md",
         "assignee": "convex-implementer",
-        "blocked_by": [
-          "US-FB-003"
-        ],
+        "blocked_by": ["US-FB-003"],
         "agentType": "convex-implementer"
       },
       "blocks": [],
-      "blockedBy": [
-        "27"
-      ],
+      "blockedBy": ["27"],
       "createdAt": 1775142128661,
       "updatedAt": 1775142129967
     }

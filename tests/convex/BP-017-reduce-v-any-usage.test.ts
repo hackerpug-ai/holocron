@@ -5,7 +5,7 @@
  * Goal: Replace v.any() with more specific types for better type safety.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import schema from '../../convex/schema';
 
 describe('BP-017: Reduce v.any() Usage', () => {

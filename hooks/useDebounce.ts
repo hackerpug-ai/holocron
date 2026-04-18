@@ -19,36 +19,33 @@
  * }, [searchQuery, debouncedSearch])
  * ```
  */
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react';
 
-export function useDebounce<T extends (...args: any[]) => any>(
-  fn: T,
-  delay: number
-): T {
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const fnRef = useRef(fn)
+export function useDebounce<T extends (...args: any[]) => any>(fn: T, delay: number): T {
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fnRef = useRef(fn);
 
   // Keep fn ref up to date without causing re-renders
   useEffect(() => {
-    fnRef.current = fn
-  }, [fn])
+    fnRef.current = fn;
+  }, [fn]);
 
   // Cleanup on unmount to prevent memory leaks
   useEffect(() => {
     return () => {
       if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current)
+        clearTimeout(timeoutRef.current);
       }
-    }
-  }, [])
+    };
+  }, []);
 
   return useCallback(
     ((...args: Parameters<T>) => {
       if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current)
+        clearTimeout(timeoutRef.current);
       }
-      timeoutRef.current = setTimeout(() => fnRef.current(...args), delay)
+      timeoutRef.current = setTimeout(() => fnRef.current(...args), delay);
     }) as T,
     [delay]
-  )
+  );
 }

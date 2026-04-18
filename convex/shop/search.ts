@@ -5,19 +5,22 @@
  * Follows the research/search.ts pattern.
  */
 
-"use node";
+'use node';
 
-import Exa from "exa-js";
-import { withRateLimit } from "../research/rateLimiter.js";
-import { createHash } from "node:crypto";
-import { jinaSearch, JinaError } from "../lib/jina.js";
+import { createHash } from 'node:crypto';
+import Exa from 'exa-js';
+import { JinaError, jinaSearch } from '../lib/jina.js';
+import { withRateLimit } from '../research/rateLimiter.js';
 
 /**
  * Minimal ctx shape required for rate limiting (subset of ActionCtx)
  */
-type RateLimitCtx = {
-  runMutation: (fn: unknown, args: Record<string, unknown>) => Promise<unknown>;
-} | null | undefined;
+type RateLimitCtx =
+  | {
+      runMutation: (fn: unknown, args: Record<string, unknown>) => Promise<unknown>;
+    }
+  | null
+  | undefined;
 
 // ============================================================================
 // Types
@@ -31,7 +34,7 @@ export type TrustTier = 1 | 2 | 3;
 /**
  * Warranty types
  */
-export type WarrantyType = "manufacturer" | "retailer" | "seller" | "none";
+export type WarrantyType = 'manufacturer' | 'retailer' | 'seller' | 'none';
 
 /**
  * Marketplace seller signals extracted from content
@@ -105,64 +108,64 @@ export interface ParallelShopSearchResult {
 
 export const RETAILERS: Record<string, RetailerConfig> = {
   amazon: {
-    name: "Amazon",
-    domain: "amazon.com",
+    name: 'Amazon',
+    domain: 'amazon.com',
     trustTier: 2,
     isAuthorized: false,
-    warrantyType: "seller",
+    warrantyType: 'seller',
     maxListingsPerSearch: 5,
   },
   ebay: {
-    name: "eBay",
-    domain: "ebay.com",
+    name: 'eBay',
+    domain: 'ebay.com',
     trustTier: 2,
     isAuthorized: false,
-    warrantyType: "seller",
+    warrantyType: 'seller',
     maxListingsPerSearch: 3,
   },
   newegg: {
-    name: "Newegg",
-    domain: "newegg.com",
+    name: 'Newegg',
+    domain: 'newegg.com',
     trustTier: 1,
     isAuthorized: true,
-    warrantyType: "retailer",
+    warrantyType: 'retailer',
     maxListingsPerSearch: 5,
   },
   bestbuy: {
-    name: "Best Buy",
-    domain: "bestbuy.com",
+    name: 'Best Buy',
+    domain: 'bestbuy.com',
     trustTier: 1,
     isAuthorized: true,
-    warrantyType: "manufacturer",
+    warrantyType: 'manufacturer',
     maxListingsPerSearch: 5,
   },
   bh: {
-    name: "B&H Photo",
-    domain: "bhphotovideo.com",
+    name: 'B&H Photo',
+    domain: 'bhphotovideo.com',
     trustTier: 1,
     isAuthorized: true,
-    warrantyType: "manufacturer",
+    warrantyType: 'manufacturer',
     maxListingsPerSearch: 5,
   },
   backmarket: {
-    name: "Back Market",
-    domain: "backmarket.com",
+    name: 'Back Market',
+    domain: 'backmarket.com',
     trustTier: 2,
     isAuthorized: false,
-    warrantyType: "retailer",
+    warrantyType: 'retailer',
     maxListingsPerSearch: 5,
   },
   walmart: {
-    name: "Walmart",
-    domain: "walmart.com",
+    name: 'Walmart',
+    domain: 'walmart.com',
     trustTier: 1,
     isAuthorized: true,
-    warrantyType: "retailer",
+    warrantyType: 'retailer',
     maxListingsPerSearch: 5,
   },
 };
 
-export const DEFAULT_RETAILERS = ["amazon", "ebay", "newegg", "bestbuy"];
+export const DEFAULT_RETAILERS = ['amazon', 'ebay', 'newegg', 'bestbuy'];
 
 // ============================================================================
 // Helper Functions
@@ -172,8 +175,8 @@ export const DEFAULT_RETAILERS = ["amazon", "ebay", "newegg", "bestbuy"];
  * Generate a hash for deduplication
  */
 export function generateProductHash(title: string, retailer: string): string {
-  const normalized = title.toLowerCase().replace(/[^a-z0-9]/g, "");
-  return createHash("md5").update(`${normalized}:${retailer}`).digest("hex");
+  const normalized = title.toLowerCase().replace(/[^a-z0-9]/g, '');
+  return createHash('md5').update(`${normalized}:${retailer}`).digest('hex');
 }
 
 /**
@@ -185,18 +188,18 @@ export function generateProductHash(title: string, retailer: string): string {
 export function parsePrice(text: string): { price: number; currency: string } | null {
   // Common price patterns
   const patterns = [
-    /\$([0-9,]+(?:\.[0-9]{2})?)/,           // $1,234.56
-    /USD\s*([0-9,]+(?:\.[0-9]{2})?)/i,      // USD 1234.56
+    /\$([0-9,]+(?:\.[0-9]{2})?)/, // $1,234.56
+    /USD\s*([0-9,]+(?:\.[0-9]{2})?)/i, // USD 1234.56
     /([0-9,]+(?:\.[0-9]{2})?)\s*(?:USD|dollars?)/i, // 1234.56 USD
   ];
 
   for (const pattern of patterns) {
     const match = text.match(pattern);
     if (match) {
-      const priceStr = match[1].replace(/,/g, "");
+      const priceStr = match[1].replace(/,/g, '');
       const price = Math.round(parseFloat(priceStr) * 100);
       if (!isNaN(price) && price > 0) {
-        return { price, currency: "USD" };
+        return { price, currency: 'USD' };
       }
     }
   }
@@ -210,20 +213,20 @@ export function parsePrice(text: string): { price: number; currency: string } | 
 export function parseCondition(text: string): string {
   const lowerText = text.toLowerCase();
 
-  if (lowerText.includes("refurbished") || lowerText.includes("renewed")) {
-    return "refurbished";
+  if (lowerText.includes('refurbished') || lowerText.includes('renewed')) {
+    return 'refurbished';
   }
-  if (lowerText.includes("used") || lowerText.includes("pre-owned")) {
-    return "used";
+  if (lowerText.includes('used') || lowerText.includes('pre-owned')) {
+    return 'used';
   }
-  if (lowerText.includes("open box") || lowerText.includes("open-box")) {
-    return "open_box";
+  if (lowerText.includes('open box') || lowerText.includes('open-box')) {
+    return 'open_box';
   }
-  if (lowerText.includes("like new")) {
-    return "like_new";
+  if (lowerText.includes('like new')) {
+    return 'like_new';
   }
 
-  return "new";
+  return 'new';
 }
 
 /**
@@ -232,15 +235,13 @@ export function parseCondition(text: string): string {
  * For eBay/Amazon results, extracts feedback count, positive %,
  * top rated status, return policy, and authenticity guarantees.
  */
-export function extractMarketplaceSellerSignals(
-  content: string
-): MarketplaceSellerSignals {
+export function extractMarketplaceSellerSignals(content: string): MarketplaceSellerSignals {
   const signals: MarketplaceSellerSignals = {};
 
   // Feedback count: "1,234 feedback" or "12345 ratings"
   const feedbackMatch = content.match(/(\d[\d,]*)\s*(?:feedback|ratings?)/i);
   if (feedbackMatch) {
-    signals.feedbackCount = parseInt(feedbackMatch[1].replace(/,/g, ""), 10);
+    signals.feedbackCount = parseInt(feedbackMatch[1].replace(/,/g, ''), 10);
   }
 
   // Positive percentage: "99.5% positive" or "98% positive feedback"
@@ -269,9 +270,7 @@ export function extractMarketplaceSellerSignals(
  *
  * Scores marketplace sellers based on extracted signals.
  */
-export function calculateSellerTrustScore(
-  signals: MarketplaceSellerSignals
-): number {
+export function calculateSellerTrustScore(signals: MarketplaceSellerSignals): number {
   // Ships from Amazon = max trust
   if (signals.isShippedFromAmazon) {
     return 100;
@@ -345,8 +344,7 @@ export function calculateDealScore(
 
   // Price discount bonus
   if (result.originalPrice && result.price) {
-    const discount =
-      ((result.originalPrice - result.price) / result.originalPrice) * 100;
+    const discount = ((result.originalPrice - result.price) / result.originalPrice) * 100;
     score += Math.min(discount, 30); // Up to 30 points for discount
   }
 
@@ -357,18 +355,18 @@ export function calculateDealScore(
 
   // Condition adjustments
   switch (result.condition) {
-    case "new":
+    case 'new':
       score += 5;
       break;
-    case "like_new":
+    case 'like_new':
       break;
-    case "refurbished":
+    case 'refurbished':
       score -= 5;
       break;
-    case "open_box":
+    case 'open_box':
       score -= 3;
       break;
-    case "used":
+    case 'used':
       score -= 10;
       break;
   }
@@ -387,14 +385,14 @@ export function calculateDealScore(
       else if (retailer.trustTier === 3) score -= 15;
 
       // Warranty bonus
-      if (retailer.warrantyType === "manufacturer") score += 3;
-      else if (retailer.warrantyType === "retailer") score += 1;
+      if (retailer.warrantyType === 'manufacturer') score += 3;
+      else if (retailer.warrantyType === 'retailer') score += 1;
 
       // Marketplace seller trust (tier 2 only): -5 to +5
       if (retailer.trustTier === 2 && sellerSignals) {
         const sellerScore = calculateSellerTrustScore(sellerSignals);
         // Scale 0-100 to -5 to +5
-        const trustAdjustment = ((sellerScore / 100) * 10) - 5;
+        const trustAdjustment = (sellerScore / 100) * 10 - 5;
         score += trustAdjustment;
       }
     }
@@ -417,8 +415,8 @@ function extractProductInfo(
   }
 
   // Extract title from first line or URL
-  const lines = content.split("\n").filter((l) => l.trim());
-  const title = lines[0]?.slice(0, 200) || url.split("/").pop() || "Unknown Product";
+  const lines = content.split('\n').filter((l) => l.trim());
+  const title = lines[0]?.slice(0, 200) || url.split('/').pop() || 'Unknown Product';
 
   return {
     retailer,
@@ -448,7 +446,7 @@ async function executeSearchWithRetry<T>(
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error("Search timeout")), timeoutMs);
+        setTimeout(() => reject(new Error('Search timeout')), timeoutMs);
       });
 
       const result = await Promise.race([searchFn(), timeoutPromise]);
@@ -461,7 +459,7 @@ async function executeSearchWithRetry<T>(
       );
 
       if (attempt < maxRetries) {
-        const backoffMs = Math.min(1000 * Math.pow(2, attempt), 5000);
+        const backoffMs = Math.min(1000 * 2 ** attempt, 5000);
         await new Promise((resolve) => setTimeout(resolve, backoffMs));
       }
     }
@@ -482,52 +480,48 @@ async function executeExaRetailerSearch(
 ): Promise<ShopSearchResult[]> {
   const apiKey = process.env.EXA_API_KEY;
   if (!apiKey) {
-    console.warn("[ShopSearch] EXA_API_KEY not configured");
+    console.warn('[ShopSearch] EXA_API_KEY not configured');
     return [];
   }
 
   const exa = new Exa(apiKey);
   const siteQuery = `${query} site:${retailer.domain}`;
 
-  const searchFn = async () => exa.searchAndContents(siteQuery, {
-    numResults: retailer.maxListingsPerSearch,
-    useAutoprompt: true,
-    text: { maxCharacters: 5000 },
-  });
-  const searchResults = ctx
-    ? await withRateLimit(ctx, "exa", searchFn)
-    : await searchFn();
+  const searchFn = async () =>
+    exa.searchAndContents(siteQuery, {
+      numResults: retailer.maxListingsPerSearch,
+      useAutoprompt: true,
+      text: { maxCharacters: 5000 },
+    });
+  const searchResults = ctx ? await withRateLimit(ctx, 'exa', searchFn) : await searchFn();
 
   const results: ShopSearchResult[] = [];
 
   for (const result of searchResults.results) {
-    const content = result.text || "";
-    const productInfo = extractProductInfo(content, result.url || "", retailer.name);
+    const content = result.text || '';
+    const productInfo = extractProductInfo(content, result.url || '', retailer.name);
 
     if (productInfo && productInfo.price) {
-      const sellerSignals = retailer.trustTier === 2
-        ? extractMarketplaceSellerSignals(content)
-        : undefined;
+      const sellerSignals =
+        retailer.trustTier === 2 ? extractMarketplaceSellerSignals(content) : undefined;
 
       const fullResult: ShopSearchResult = {
         retailer: retailer.name,
-        url: result.url || "",
-        title: result.title || productInfo.title || "Unknown",
+        url: result.url || '',
+        title: result.title || productInfo.title || 'Unknown',
         price: productInfo.price,
         originalPrice: productInfo.originalPrice,
-        currency: productInfo.currency || "USD",
-        condition: productInfo.condition || "new",
+        currency: productInfo.currency || 'USD',
+        condition: productInfo.condition || 'new',
         seller: productInfo.seller,
         sellerRating: productInfo.sellerRating,
         imageUrl: productInfo.imageUrl,
         inStock: productInfo.inStock,
-        productHash: generateProductHash(result.title || productInfo.title || "", retailer.name),
+        productHash: generateProductHash(result.title || productInfo.title || '', retailer.name),
         rawContent: productInfo.rawContent,
         dealScore: 0,
         trustTier: retailer.trustTier,
-        sellerTrustScore: sellerSignals
-          ? calculateSellerTrustScore(sellerSignals)
-          : undefined,
+        sellerTrustScore: sellerSignals ? calculateSellerTrustScore(sellerSignals) : undefined,
       };
 
       fullResult.dealScore = calculateDealScore(fullResult, retailerKey, sellerSignals);
@@ -549,7 +543,7 @@ async function executeJinaRetailerSearch(
 ): Promise<ShopSearchResult[]> {
   const apiKey = process.env.JINA_API_KEY;
   if (!apiKey) {
-    console.warn("[ShopSearch] JINA_API_KEY not configured");
+    console.warn('[ShopSearch] JINA_API_KEY not configured');
     return [];
   }
 
@@ -577,40 +571,35 @@ async function executeJinaRetailerSearch(
     }
   };
 
-  const searchResults = ctx
-    ? await withRateLimit(ctx, "jina", searchFn)
-    : await searchFn();
+  const searchResults = ctx ? await withRateLimit(ctx, 'jina', searchFn) : await searchFn();
 
   const results: ShopSearchResult[] = [];
 
   for (const result of searchResults) {
-    const content = result.content || result.description || "";
-    const productInfo = extractProductInfo(content, result.url || result.link || "", retailer.name);
+    const content = result.content || result.description || '';
+    const productInfo = extractProductInfo(content, result.url || result.link || '', retailer.name);
 
     if (productInfo && productInfo.price) {
-      const sellerSignals = retailer.trustTier === 2
-        ? extractMarketplaceSellerSignals(content)
-        : undefined;
+      const sellerSignals =
+        retailer.trustTier === 2 ? extractMarketplaceSellerSignals(content) : undefined;
 
       const fullResult: ShopSearchResult = {
         retailer: retailer.name,
-        url: result.url || result.link || "",
-        title: result.title || productInfo.title || "Unknown",
+        url: result.url || result.link || '',
+        title: result.title || productInfo.title || 'Unknown',
         price: productInfo.price,
         originalPrice: productInfo.originalPrice,
-        currency: productInfo.currency || "USD",
-        condition: productInfo.condition || "new",
+        currency: productInfo.currency || 'USD',
+        condition: productInfo.condition || 'new',
         seller: productInfo.seller,
         sellerRating: productInfo.sellerRating,
         imageUrl: productInfo.imageUrl,
         inStock: productInfo.inStock,
-        productHash: generateProductHash(result.title || productInfo.title || "", retailer.name),
+        productHash: generateProductHash(result.title || productInfo.title || '', retailer.name),
         rawContent: productInfo.rawContent,
         dealScore: 0,
         trustTier: retailer.trustTier,
-        sellerTrustScore: sellerSignals
-          ? calculateSellerTrustScore(sellerSignals)
-          : undefined,
+        sellerTrustScore: sellerSignals ? calculateSellerTrustScore(sellerSignals) : undefined,
       };
 
       fullResult.dealScore = calculateDealScore(fullResult, retailerKey, sellerSignals);
@@ -620,7 +609,6 @@ async function executeJinaRetailerSearch(
 
   return results.slice(0, retailer.maxListingsPerSearch);
 }
-
 
 /**
  * Deduplicate results by product hash
@@ -665,14 +653,10 @@ export async function executeParallelShopSearch(
   ctx?: RateLimitCtx
 ): Promise<ParallelShopSearchResult> {
   const startTime = Date.now();
-  const {
-    maxRetries = 2,
-    timeoutMs = 15000,
-    deduplicateResults: dedupe = true,
-  } = options;
+  const { maxRetries = 2, timeoutMs = 15000, deduplicateResults: dedupe = true } = options;
 
   console.log(
-    `[executeParallelShopSearch] Entry - query: "${query}", retailers: [${retailers.join(", ")}]`
+    `[executeParallelShopSearch] Entry - query: "${query}", retailers: [${retailers.join(', ')}]`
   );
 
   const errors: Array<{ retailer: string; error: string }> = [];
@@ -692,7 +676,8 @@ export async function executeParallelShopSearch(
         () => executeExaRetailerSearch(query, retailer, retailerKey, ctx),
         maxRetries,
         timeoutMs
-      ).then((results) => results || [])
+      )
+        .then((results) => results || [])
         .catch((error) => {
           errors.push({ retailer: retailer.name, error: String(error) });
           return [];
@@ -705,7 +690,8 @@ export async function executeParallelShopSearch(
         () => executeJinaRetailerSearch(query, retailer, retailerKey, ctx),
         maxRetries,
         timeoutMs
-      ).then((results) => results || [])
+      )
+        .then((results) => results || [])
         .catch((error) => {
           errors.push({ retailer: retailer.name, error: String(error) });
           return [];
@@ -713,25 +699,19 @@ export async function executeParallelShopSearch(
     );
   }
 
-  
-
   // Execute all searches in parallel
   const allResults = await Promise.all(searchPromises);
   let results = allResults.flat();
 
-  
-
   // Deduplicate
   if (dedupe) {
     results = deduplicateResults(results);
-    
   }
 
   // Sort by deal score
   results = sortByDealScore(results);
 
   const durationMs = Date.now() - startTime;
-  
 
   return {
     results,

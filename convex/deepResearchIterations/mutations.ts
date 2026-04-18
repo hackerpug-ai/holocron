@@ -1,23 +1,23 @@
-import { mutation } from "../_generated/server";
-import { v } from "convex/values";
+import { v } from 'convex/values';
+import { mutation } from '../_generated/server';
 
 /**
  * Create a new deep research iteration
  */
 const deepResearchIterationStatus = v.union(
-  v.literal("pending"),
-  v.literal("processing"),
-  v.literal("running"),
-  v.literal("in_progress"),
-  v.literal("in-progress"),
-  v.literal("completed"),
-  v.literal("failed"),
-  v.literal("error")
+  v.literal('pending'),
+  v.literal('processing'),
+  v.literal('running'),
+  v.literal('in_progress'),
+  v.literal('in-progress'),
+  v.literal('completed'),
+  v.literal('failed'),
+  v.literal('error')
 );
 
 export const create = mutation({
   args: {
-    sessionId: v.id("deepResearchSessions"),
+    sessionId: v.id('deepResearchSessions'),
     iterationNumber: v.number(),
     coverageScore: v.optional(v.number()),
     feedback: v.optional(v.string()),
@@ -26,7 +26,7 @@ export const create = mutation({
     status: deepResearchIterationStatus,
   },
   handler: async (ctx, args) => {
-    return await ctx.db.insert("deepResearchIterations", {
+    return await ctx.db.insert('deepResearchIterations', {
       ...args,
       createdAt: Date.now(),
     });
@@ -38,7 +38,7 @@ export const create = mutation({
  */
 export const update = mutation({
   args: {
-    id: v.id("deepResearchIterations"),
+    id: v.id('deepResearchIterations'),
     coverageScore: v.optional(v.number()),
     feedback: v.optional(v.string()),
     findings: v.optional(v.string()),
@@ -62,7 +62,7 @@ export const update = mutation({
  */
 export const insertFromMigration = mutation({
   args: {
-    sessionId: v.id("deepResearchSessions"),
+    sessionId: v.id('deepResearchSessions'),
     iterationNumber: v.number(),
     coverageScore: v.optional(v.number()),
     feedback: v.optional(v.string()),
@@ -72,7 +72,7 @@ export const insertFromMigration = mutation({
     createdAt: v.number(),
   },
   handler: async (ctx, args) => {
-    return await ctx.db.insert("deepResearchIterations", args);
+    return await ctx.db.insert('deepResearchIterations', args);
   },
 });
 
@@ -83,12 +83,10 @@ export const insertFromMigration = mutation({
 export const clearAll = mutation({
   args: {},
   handler: async (ctx) => {
-    if (process.env.ALLOW_CLEAR_ALL !== "true") {
-      throw new Error(
-        "clearAll is disabled. Set ALLOW_CLEAR_ALL=true to enable."
-      );
+    if (process.env.ALLOW_CLEAR_ALL !== 'true') {
+      throw new Error('clearAll is disabled. Set ALLOW_CLEAR_ALL=true to enable.');
     }
-    const iterations = await ctx.db.query("deepResearchIterations").collect();
+    const iterations = await ctx.db.query('deepResearchIterations').collect();
     for (const iteration of iterations) {
       await ctx.db.delete(iteration._id);
     }

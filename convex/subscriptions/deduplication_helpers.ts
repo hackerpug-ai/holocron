@@ -3,14 +3,14 @@
  * These run in V8 runtime and provide db access that actions need.
  */
 
-import { internalQuery, internalMutation } from "../_generated/server";
-import { v } from "convex/values";
+import { v } from 'convex/values';
+import { internalMutation, internalQuery } from '../_generated/server';
 
 /**
  * Get a document by ID, returning only fields needed for dedup comparison
  */
 export const getDocument = internalQuery({
-  args: { id: v.id("documents") },
+  args: { id: v.id('documents') },
   handler: async (ctx, { id }) => {
     const doc = await ctx.db.get(id);
     if (!doc) return null;
@@ -26,10 +26,10 @@ export const getDocument = internalQuery({
  * Get subscription content by ID if it's in queued status
  */
 export const getQueuedContent = internalQuery({
-  args: { id: v.id("subscriptionContent") },
+  args: { id: v.id('subscriptionContent') },
   handler: async (ctx, { id }) => {
     const content = await ctx.db.get(id);
-    if (!content || content.researchStatus !== "queued") return null;
+    if (!content || content.researchStatus !== 'queued') return null;
     return {
       _id: content._id as string,
       title: content.title,
@@ -43,7 +43,7 @@ export const getQueuedContent = internalQuery({
  */
 export const updateContentEmbedding = internalMutation({
   args: {
-    contentId: v.id("subscriptionContent"),
+    contentId: v.id('subscriptionContent'),
     embedding: v.array(v.float64()),
   },
   handler: async (ctx, { contentId, embedding }) => {

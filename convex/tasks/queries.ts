@@ -1,5 +1,5 @@
-import { query } from "../_generated/server";
-import { v } from "convex/values";
+import { v } from 'convex/values';
+import { query } from '../_generated/server';
 
 // ============================================================
 // Task Management Queries (US-054)
@@ -11,7 +11,7 @@ import { v } from "convex/values";
  * AC-2: Running task -> Query status -> Returns current progress
  */
 export const get = query({
-  args: { id: v.id("tasks") },
+  args: { id: v.id('tasks') },
   handler: async (ctx, { id }) => {
     return await ctx.db.get(id);
   },
@@ -26,14 +26,12 @@ export const get = query({
  * AC-2: Running task -> Query status -> Returns current progress
  */
 export const getByConversation = query({
-  args: { conversationId: v.id("conversations") },
+  args: { conversationId: v.id('conversations') },
   handler: async (ctx, { conversationId }) => {
     return await ctx.db
-      .query("tasks")
-      .withIndex("by_conversation", (q) =>
-        q.eq("conversationId", conversationId)
-      )
-      .order("desc")
+      .query('tasks')
+      .withIndex('by_conversation', (q) => q.eq('conversationId', conversationId))
+      .order('desc')
       .first();
   },
 });
@@ -44,21 +42,19 @@ export const getByConversation = query({
  * Returns tasks with non-terminal status (pending, queued, loading, running).
  */
 export const getActiveByConversation = query({
-  args: { conversationId: v.id("conversations") },
+  args: { conversationId: v.id('conversations') },
   handler: async (ctx, { conversationId }) => {
     const tasks = await ctx.db
-      .query("tasks")
-      .withIndex("by_conversation", (q) =>
-        q.eq("conversationId", conversationId)
-      )
+      .query('tasks')
+      .withIndex('by_conversation', (q) => q.eq('conversationId', conversationId))
       .collect();
 
     return tasks.filter(
       (task) =>
-        task.status === "pending" ||
-        task.status === "queued" ||
-        task.status === "loading" ||
-        task.status === "running"
+        task.status === 'pending' ||
+        task.status === 'queued' ||
+        task.status === 'loading' ||
+        task.status === 'running'
     );
   },
 });
@@ -69,19 +65,19 @@ export const getActiveByConversation = query({
 export const getByStatus = query({
   args: {
     status: v.union(
-      v.literal("pending"),
-      v.literal("queued"),
-      v.literal("loading"),
-      v.literal("running"),
-      v.literal("completed"),
-      v.literal("error"),
-      v.literal("cancelled")
+      v.literal('pending'),
+      v.literal('queued'),
+      v.literal('loading'),
+      v.literal('running'),
+      v.literal('completed'),
+      v.literal('error'),
+      v.literal('cancelled')
     ),
   },
   handler: async (ctx, { status }) => {
     return await ctx.db
-      .query("tasks")
-      .withIndex("by_status", (q) => q.eq("status", status))
+      .query('tasks')
+      .withIndex('by_status', (q) => q.eq('status', status))
       .collect();
   },
 });
@@ -92,7 +88,7 @@ export const getByStatus = query({
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    return await ctx.db.query("tasks").collect();
+    return await ctx.db.query('tasks').collect();
   },
 });
 
@@ -102,7 +98,7 @@ export const list = query({
 export const count = query({
   args: {},
   handler: async (ctx) => {
-    const tasks = await ctx.db.query("tasks").collect();
+    const tasks = await ctx.db.query('tasks').collect();
     return tasks.length;
   },
 });

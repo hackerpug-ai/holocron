@@ -1,21 +1,20 @@
-import { View, Pressable, ScrollView } from 'react-native'
-import { Text } from '@/components/ui/text'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { PlatformBadge } from './PlatformBadge'
-import { Switch } from '@/components/ui/switch'
-import { Trash2, FileText, Calendar } from '@/components/ui/icons'
-import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
-import type { CreatorGroup } from './types'
-import { useState } from 'react'
-import { Alert } from 'react-native'
+import { useState } from 'react';
+import { Alert, Pressable, ScrollView, View } from 'react-native';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import { Calendar, FileText, Trash2 } from '@/components/ui/icons';
+import { Switch } from '@/components/ui/switch';
+import { Text } from '@/components/ui/text';
+import { cn } from '@/lib/utils';
+import { PlatformBadge } from './PlatformBadge';
+import type { CreatorGroup } from './types';
 
 interface CreatorGroupCardProps {
-  group: CreatorGroup
-  onPress?: () => void
-  onUnsubscribe?: (subscriptionIds: string[]) => void
-  onToggleAutoResearch?: (subscriptionId: string, currentValue: boolean) => void
-  className?: string
+  group: CreatorGroup;
+  onPress?: () => void;
+  onUnsubscribe?: (subscriptionIds: string[]) => void;
+  onToggleAutoResearch?: (subscriptionId: string, currentValue: boolean) => void;
+  className?: string;
 }
 
 /**
@@ -31,15 +30,18 @@ function SourceTypeBadge({ sourceType }: { sourceType: string }) {
     'whats-new': { label: "What's New", color: 'text-green-500' },
     youtube: { label: 'YouTube', color: 'text-red-500' },
     creator: { label: 'Creator', color: 'text-indigo-500' },
-  }
+  };
 
-  const { label, color } = config[sourceType] || { label: sourceType, color: 'text-muted-foreground' }
+  const { label, color } = config[sourceType] || {
+    label: sourceType,
+    color: 'text-muted-foreground',
+  };
 
   return (
     <View className="flex-row items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1">
       <Text className={cn('text-xs font-medium', color)}>{label}</Text>
     </View>
-  )
+  );
 }
 
 /**
@@ -60,22 +62,22 @@ export function CreatorGroupCard({
   className,
 }: CreatorGroupCardProps) {
   const [autoResearch, setAutoResearch] = useState(
-    group.subscriptions.length > 0 ? group.subscriptions[0].autoResearch ?? false : false
-  )
+    group.subscriptions.length > 0 ? (group.subscriptions[0].autoResearch ?? false) : false
+  );
 
   // Format timestamp
   const formatDate = (timestamp: number) => {
-    const date = new Date(timestamp)
-    const now = new Date()
-    const diffMs = now.getTime() - date.getTime()
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-    if (diffDays === 0) return 'Today'
-    if (diffDays === 1) return 'Yesterday'
-    if (diffDays < 7) return `${diffDays} days ago`
-    if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`
-    return date.toLocaleDateString()
-  }
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return `${diffDays} days ago`;
+    if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
+    return date.toLocaleDateString();
+  };
 
   // Get initials for avatar fallback
   const getInitials = (name: string) => {
@@ -84,23 +86,23 @@ export function CreatorGroupCard({
       .map((word) => word[0])
       .join('')
       .toUpperCase()
-      .slice(0, 2)
-  }
+      .slice(0, 2);
+  };
 
   // Handle auto-research toggle - sync across all subscriptions
   const handleToggleAutoResearch = () => {
-    const newValue = !autoResearch
-    setAutoResearch(newValue)
+    const newValue = !autoResearch;
+    setAutoResearch(newValue);
 
     // Update all subscriptions in the group
     group.subscriptions.forEach((sub) => {
-      onToggleAutoResearch?.(sub._id.toString(), newValue)
-    })
-  }
+      onToggleAutoResearch?.(sub._id.toString(), newValue);
+    });
+  };
 
   // Handle unsubscribe with confirmation
   const handleUnsubscribe = () => {
-    const count = group.subscriptions.length
+    const count = group.subscriptions.length;
     Alert.alert(
       'Unsubscribe?',
       `Remove ${count} subscription${count > 1 ? 's' : ''} for ${group.name}?`,
@@ -109,17 +111,16 @@ export function CreatorGroupCard({
         {
           text: 'Unsubscribe',
           style: 'destructive',
-          onPress: () =>
-            onUnsubscribe?.(group.subscriptions.map((s) => s._id.toString())),
+          onPress: () => onUnsubscribe?.(group.subscriptions.map((s) => s._id.toString())),
         },
       ]
-    )
-  }
+    );
+  };
 
   // Extract platform information from subscriptions
   const platforms = group.subscriptions.map((sub) => {
-    const platform = sub.configJson?.platform as string | undefined
-    const sourceType = sub.sourceType
+    const platform = sub.configJson?.platform as string | undefined;
+    const sourceType = sub.sourceType;
 
     // If we have a platform from configJson, use it for PlatformBadge
     if (platform && ['youtube', 'bluesky', 'github', 'website'].includes(platform)) {
@@ -127,15 +128,15 @@ export function CreatorGroupCard({
         type: 'platform' as const,
         platform: platform as 'youtube' | 'bluesky' | 'github' | 'website',
         handle: sub.identifier,
-      }
+      };
     }
 
     // Otherwise use source type badge
     return {
       type: 'sourceType' as const,
       sourceType,
-    }
-  })
+    };
+  });
 
   return (
     <Pressable
@@ -182,15 +183,9 @@ export function CreatorGroupCard({
           >
             {platforms.map((item, index) => {
               if (item.type === 'platform') {
-                return (
-                  <PlatformBadge
-                    key={index}
-                    platform={item.platform}
-                    handle={item.handle}
-                  />
-                )
+                return <PlatformBadge key={index} platform={item.platform} handle={item.handle} />;
               }
-              return <SourceTypeBadge key={index} sourceType={item.sourceType} />
+              return <SourceTypeBadge key={index} sourceType={item.sourceType} />;
             })}
           </ScrollView>
 
@@ -233,5 +228,5 @@ export function CreatorGroupCard({
         </View>
       </View>
     </Pressable>
-  )
+  );
 }

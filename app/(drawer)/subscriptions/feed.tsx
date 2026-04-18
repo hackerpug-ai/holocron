@@ -8,8 +8,8 @@
  * - /subscriptions/feed: Feed view with filters and settings (this route)
  * - /subscriptions: Management view for adding/removing subscriptions (existing, unchanged)
  */
-import { SubscriptionFeedScreen } from '@/components/subscriptions/SubscriptionFeedScreen'
+import { SubscriptionFeedScreen } from '@/components/subscriptions/SubscriptionFeedScreen';
 
 export default function SubscriptionFeedRoute() {
-  return <SubscriptionFeedScreen />
+  return <SubscriptionFeedScreen />;
 }

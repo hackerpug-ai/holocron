@@ -2,23 +2,24 @@
  * Category mapping utilities for the app layer.
  * Re-exports shared category constants from convex/lib/categories.ts
  */
+
+import type { CategoryType } from '@/components/CategoryBadge';
 import {
   DOCUMENT_CATEGORIES,
   type DocumentCategory,
   isValidCategory,
   mapToCategory,
-} from '@/convex/lib/categories'
-import type { CategoryType } from '@/components/CategoryBadge'
+} from '@/convex/lib/categories';
 
 // Re-export for backward compatibility
-export const VALID_CATEGORIES: CategoryType[] = [...DOCUMENT_CATEGORIES]
+export const VALID_CATEGORIES: CategoryType[] = [...DOCUMENT_CATEGORIES];
 
 /**
  * Maps any document category string to a valid CategoryType.
  * Returns the category if valid, otherwise defaults to 'general'.
  */
 export function mapDocumentCategoryToCategoryType(docCategory: string): CategoryType {
-  return mapToCategory(docCategory) as CategoryType
+  return mapToCategory(docCategory) as CategoryType;
 }
 
 /**
@@ -28,16 +29,16 @@ export function mapDocumentCategoryToCategoryType(docCategory: string): Category
 export function mapCategoryTypeToDocumentCategory(
   categoryType: CategoryType | undefined | null
 ): string | undefined {
-  if (!categoryType) return undefined
-  return categoryType // CategoryType values ARE the document categories
+  if (!categoryType) return undefined;
+  return categoryType; // CategoryType values ARE the document categories
 }
 
 /**
  * Type guard to check if a string is a valid CategoryType
  */
 export function isValidCategoryType(value: string): value is CategoryType {
-  return isValidCategory(value)
+  return isValidCategory(value);
 }
 
 // Re-export types and utilities from shared module
-export { DOCUMENT_CATEGORIES, type DocumentCategory, isValidCategory, mapToCategory }
+export { DOCUMENT_CATEGORIES, type DocumentCategory, isValidCategory, mapToCategory };

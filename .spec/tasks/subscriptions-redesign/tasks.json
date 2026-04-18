@@ -81,10 +81,7 @@
     "agent_assignment": "react-native-implement",
     "estimate_minutes": 240,
     "dependencies": [],
-    "coding_standards": [
-      "brain/docs/REACT-RULES.md",
-      "brain/docs/vite-rules/README.md"
-    ]
+    "coding_standards": ["brain/docs/REACT-RULES.md", "brain/docs/vite-rules/README.md"]
   },
   {
     "id": "fr-1-2",
@@ -147,10 +144,7 @@
       "pattern_from_codebase": "Copy Voice Language section structure, update labels and navigation"
     },
     "verification": {
-      "gates": [
-        "pnpm tsc --noEmit",
-        "vitest run --reporter=verbose"
-      ],
+      "gates": ["pnpm tsc --noEmit", "vitest run --reporter=verbose"],
       "manual_checks": [
         "Open Settings and verify Subscriptions section appears",
         "Tap section and verify navigation to subscription management",
@@ -158,17 +152,12 @@
       ]
     },
     "guardrails": {
-      "WRITE_ALLOWED": [
-        "screens/settings-screen.tsx"
-      ]
+      "WRITE_ALLOWED": ["screens/settings-screen.tsx"]
     },
     "agent_assignment": "react-native-implement",
     "estimate_minutes": 120,
     "dependencies": ["fr-1-1"],
-    "coding_standards": [
-      "brain/docs/REACT-RULES.md",
-      "brain/docs/THEME-RULES.md"
-    ]
+    "coding_standards": ["brain/docs/REACT-RULES.md", "brain/docs/THEME-RULES.md"]
   },
   {
     "id": "fr-1-3",
@@ -232,10 +221,7 @@
       "pattern_from_codebase": "Follow existing modal/bottom sheet patterns in codebase"
     },
     "verification": {
-      "gates": [
-        "pnpm tsc --noEmit",
-        "vitest run --reporter=verbose"
-      ],
+      "gates": ["pnpm tsc --noEmit", "vitest run --reporter=verbose"],
       "manual_checks": [
         "Clear user preferences and verify tooltip appears",
         "Dismiss and verify tooltip doesn't reappear",
@@ -252,10 +238,7 @@
     "agent_assignment": "react-native-implement",
     "estimate_minutes": 180,
     "dependencies": ["fr-1-1"],
-    "coding_standards": [
-      "brain/docs/REACT-RULES.md",
-      "brain/docs/THEME-RULES.md"
-    ]
+    "coding_standards": ["brain/docs/REACT-RULES.md", "brain/docs/THEME-RULES.md"]
   },
   {
     "id": "fr-2-5",
@@ -319,10 +302,7 @@
       "pattern_from_codebase": "Follow WhatsNewFindingCard props interface pattern"
     },
     "verification": {
-      "gates": [
-        "pnpm tsc --noEmit",
-        "vitest run --reporter=verbose"
-      ],
+      "gates": ["pnpm tsc --noEmit", "vitest run --reporter=verbose"],
       "manual_checks": [
         "View Storybook stories for all variants",
         "Test with real data from whatsNew findings",
@@ -338,10 +318,7 @@
     "agent_assignment": "react-native-implement",
     "estimate_minutes": 240,
     "dependencies": [],
-    "coding_standards": [
-      "brain/docs/REACT-RULES.md",
-      "brain/docs/THEME-RULES.md"
-    ]
+    "coding_standards": ["brain/docs/REACT-RULES.md", "brain/docs/THEME-RULES.md"]
   },
   {
     "id": "fr-2-1",
@@ -396,9 +373,7 @@
       ]
     },
     "design": {
-      "mock_paths": [
-        "components/subscriptions/VideoCard.stories.tsx"
-      ],
+      "mock_paths": ["components/subscriptions/VideoCard.stories.tsx"],
       "ui_references": [
         "components/ArticleCard.tsx - Existing card pattern",
         "components/ui/skeleton.tsx - Loading skeleton"
@@ -407,10 +382,7 @@
       "pattern_from_codebase": "Follow ArticleCard structure and styling patterns"
     },
     "verification": {
-      "gates": [
-        "pnpm tsc --noEmit",
-        "vitest run --reporter=verbose"
-      ],
+      "gates": ["pnpm tsc --noEmit", "vitest run --reporter=verbose"],
       "manual_checks": [
         "View Storybook stories",
         "Test with and without thumbnail",
@@ -426,10 +398,7 @@
     "agent_assignment": "react-native-implement",
     "estimate_minutes": 480,
     "dependencies": [],
-    "coding_standards": [
-      "brain/docs/REACT-RULES.md",
-      "brain/docs/THEME-RULES.md"
-    ]
+    "coding_standards": ["brain/docs/REACT-RULES.md", "brain/docs/THEME-RULES.md"]
   },
   {
     "id": "fr-2-2",
@@ -484,9 +453,7 @@
       ]
     },
     "design": {
-      "mock_paths": [
-        "components/subscriptions/ArticleCard.stories.tsx"
-      ],
+      "mock_paths": ["components/subscriptions/ArticleCard.stories.tsx"],
       "ui_references": [
         "components/ArticleCard.tsx - Existing article card pattern",
         "components/ui/skeleton.tsx - Loading skeleton"
@@ -495,10 +462,7 @@
       "pattern_from_codebase": "Follow existing ArticleCard component pattern"
     },
     "verification": {
-      "gates": [
-        "pnpm tsc --noEmit",
-        "vitest run --reporter=verbose"
-      ],
+      "gates": ["pnpm tsc --noEmit", "vitest run --reporter=verbose"],
       "manual_checks": [
         "View Storybook stories",
         "Test with and without hero image",
@@ -514,10 +478,7 @@
     "agent_assignment": "react-native-implement",
     "estimate_minutes": 480,
     "dependencies": [],
-    "coding_standards": [
-      "brain/docs/REACT-RULES.md",
-      "brain/docs/THEME-RULES.md"
-    ]
+    "coding_standards": ["brain/docs/REACT-RULES.md", "brain/docs/THEME-RULES.md"]
   },
   {
     "id": "fr-2-3",
@@ -572,9 +533,7 @@
       ]
     },
     "design": {
-      "mock_paths": [
-        "components/subscriptions/SocialCard.stories.tsx"
-      ],
+      "mock_paths": ["components/subscriptions/SocialCard.stories.tsx"],
       "ui_references": [
         "components/ui/avatar.tsx - Avatar component",
         "components/subscriptions/FeedItemSkeleton.tsx - Social skeleton pattern"
@@ -583,10 +542,7 @@
       "pattern_from_codebase": "Follow FeedItemSkeleton social variant layout"
     },
     "verification": {
-      "gates": [
-        "pnpm tsc --noEmit",
-        "vitest run --reporter=verbose"
-      ],
+      "gates": ["pnpm tsc --noEmit", "vitest run --reporter=verbose"],
       "manual_checks": [
         "View Storybook stories",
         "Test with and without avatar",
@@ -602,10 +558,7 @@
     "agent_assignment": "react-native-implement",
     "estimate_minutes": 360,
     "dependencies": [],
-    "coding_standards": [
-      "brain/docs/REACT-RULES.md",
-      "brain/docs/THEME-RULES.md"
-    ]
+    "coding_standards": ["brain/docs/REACT-RULES.md", "brain/docs/THEME-RULES.md"]
   },
   {
     "id": "fr-2-4",
@@ -660,9 +613,7 @@
       ]
     },
     "design": {
-      "mock_paths": [
-        "components/subscriptions/ReleaseCard.stories.tsx"
-      ],
+      "mock_paths": ["components/subscriptions/ReleaseCard.stories.tsx"],
       "ui_references": [
         "components/ui/badge.tsx - Badge component",
         "components/ui/button.tsx - Button component"
@@ -671,10 +622,7 @@
       "pattern_from_codebase": "Follow WhatsNewFindingCard category badge pattern"
     },
     "verification": {
-      "gates": [
-        "pnpm tsc --noEmit",
-        "vitest run --reporter=verbose"
-      ],
+      "gates": ["pnpm tsc --noEmit", "vitest run --reporter=verbose"],
       "manual_checks": [
         "View Storybook stories",
         "Test button interaction",
@@ -690,10 +638,7 @@
     "agent_assignment": "react-native-implement",
     "estimate_minutes": 360,
     "dependencies": [],
-    "coding_standards": [
-      "brain/docs/REACT-RULES.md",
-      "brain/docs/THEME-RULES.md"
-    ]
+    "coding_standards": ["brain/docs/REACT-RULES.md", "brain/docs/THEME-RULES.md"]
   },
   {
     "id": "fr-3-1",
@@ -757,10 +702,7 @@
       "pattern_from_codebase": "Follow existing scoreFindingsQuality pattern for batch processing"
     },
     "verification": {
-      "gates": [
-        "pnpm tsc --noEmit",
-        "vitest run --reporter=verbose"
-      ],
+      "gates": ["pnpm tsc --noEmit", "vitest run --reporter=verbose"],
       "manual_checks": [
         "Trigger report generation and check summaries",
         "Verify summary quality and length",
@@ -768,17 +710,12 @@
       ]
     },
     "guardrails": {
-      "WRITE_ALLOWED": [
-        "convex/whatsNew/actions.ts",
-        "convex/whatsNew/llm.ts"
-      ]
+      "WRITE_ALLOWED": ["convex/whatsNew/actions.ts", "convex/whatsNew/llm.ts"]
     },
     "agent_assignment": "convex-backend",
     "estimate_minutes": 480,
     "dependencies": [],
-    "coding_standards": [
-      "CLAUDE.md"
-    ]
+    "coding_standards": ["CLAUDE.md"]
   },
   {
     "id": "fr-4-1",
@@ -833,9 +770,7 @@
       ]
     },
     "design": {
-      "mock_paths": [
-        "components/subscriptions/FeedbackButtons.stories.tsx"
-      ],
+      "mock_paths": ["components/subscriptions/FeedbackButtons.stories.tsx"],
       "ui_references": [
         "components/ui/button.tsx - Button component",
         "components/ui/icons.tsx - Thumbs up/down icons"
@@ -844,10 +779,7 @@
       "pattern_from_codebase": "Follow existing button and icon patterns"
     },
     "verification": {
-      "gates": [
-        "pnpm tsc --noEmit",
-        "vitest run --reporter=verbose"
-      ],
+      "gates": ["pnpm tsc --noEmit", "vitest run --reporter=verbose"],
       "manual_checks": [
         "View Storybook stories",
         "Test toggle behavior",
@@ -863,10 +795,7 @@
     "agent_assignment": "react-native-implement",
     "estimate_minutes": 240,
     "dependencies": [],
-    "coding_standards": [
-      "brain/docs/REACT-RULES.md",
-      "brain/docs/THEME-RULES.md"
-    ]
+    "coding_standards": ["brain/docs/REACT-RULES.md", "brain/docs/THEME-RULES.md"]
   },
   {
     "id": "fr-4-2",
@@ -930,10 +859,7 @@
       "pattern_from_codebase": "Copy existing table/index patterns from schema.ts"
     },
     "verification": {
-      "gates": [
-        "pnpm tsc --noEmit",
-        "npx convex dev --check"
-      ],
+      "gates": ["pnpm tsc --noEmit", "npx convex dev --check"],
       "manual_checks": [
         "Verify table creation in Convex dashboard",
         "Test mutations and queries manually",
@@ -951,9 +877,7 @@
     "agent_assignment": "convex-backend",
     "estimate_minutes": 360,
     "dependencies": [],
-    "coding_standards": [
-      "CLAUDE.md"
-    ]
+    "coding_standards": ["CLAUDE.md"]
   },
   {
     "id": "fr-4-1-integration",
@@ -1017,10 +941,7 @@
       "pattern_from_codebase": "Follow existing useMutation patterns in codebase"
     },
     "verification": {
-      "gates": [
-        "pnpm tsc --noEmit",
-        "vitest run --reporter=verbose"
-      ],
+      "gates": ["pnpm tsc --noEmit", "vitest run --reporter=verbose"],
       "manual_checks": [
         "Test feedback on all card variants",
         "Test optimistic updates",
@@ -1039,9 +960,7 @@
     "agent_assignment": "react-native-implement",
     "estimate_minutes": 240,
     "dependencies": ["fr-2-1", "fr-2-2", "fr-2-3", "fr-2-4", "fr-2-5", "fr-4-1", "fr-4-2"],
-    "coding_standards": [
-      "brain/docs/REACT-RULES.md"
-    ]
+    "coding_standards": ["brain/docs/REACT-RULES.md"]
   },
   {
     "id": "fr-6-1",
@@ -1105,10 +1024,7 @@
       "pattern_from_codebase": "Follow existing fetchReddit/fetchHackerNews patterns"
     },
     "verification": {
-      "gates": [
-        "pnpm tsc --noEmit",
-        "vitest run --reporter=verbose"
-      ],
+      "gates": ["pnpm tsc --noEmit", "vitest run --reporter=verbose"],
       "manual_checks": [
         "Generate report and check thumbnailUrl",
         "Test fallback images",
@@ -1116,17 +1032,12 @@
       ]
     },
     "guardrails": {
-      "WRITE_ALLOWED": [
-        "convex/whatsNew/actions.ts",
-        "convex/whatsNew/llm.ts"
-      ]
+      "WRITE_ALLOWED": ["convex/whatsNew/actions.ts", "convex/whatsNew/llm.ts"]
     },
     "agent_assignment": "convex-backend",
     "estimate_minutes": 480,
     "dependencies": [],
-    "coding_standards": [
-      "CLAUDE.md"
-    ]
+    "coding_standards": ["CLAUDE.md"]
   },
   {
     "id": "fr-6-2",
@@ -1191,10 +1102,7 @@
       "pattern_from_codebase": "Follow existing skeleton patterns in FeedItemSkeleton"
     },
     "verification": {
-      "gates": [
-        "pnpm tsc --noEmit",
-        "vitest run --reporter=verbose"
-      ],
+      "gates": ["pnpm tsc --noEmit", "vitest run --reporter=verbose"],
       "manual_checks": [
         "Test image loading on slow network",
         "Test error handling",
@@ -1212,8 +1120,6 @@
     "agent_assignment": "react-native-implement",
     "estimate_minutes": 360,
     "dependencies": ["fr-2-1", "fr-2-2", "fr-2-3", "fr-6-1"],
-    "coding_standards": [
-      "brain/docs/REACT-RULES.md"
-    ]
+    "coding_standards": ["brain/docs/REACT-RULES.md"]
   }
 ]

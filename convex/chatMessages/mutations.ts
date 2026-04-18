@@ -1,28 +1,28 @@
-import { mutation } from "../_generated/server";
-import { v } from "convex/values";
+import { v } from 'convex/values';
+import { mutation } from '../_generated/server';
 
 /**
  * Create a new chat message
  */
 export const create = mutation({
   args: {
-    conversationId: v.id("conversations"),
-    role: v.union(v.literal("user"), v.literal("agent"), v.literal("system")),
+    conversationId: v.id('conversations'),
+    role: v.union(v.literal('user'), v.literal('agent'), v.literal('system')),
     content: v.string(),
     messageType: v.union(
-      v.literal("text"),
-      v.literal("slash_command"),
-      v.literal("result_card"),
-      v.literal("progress"),
-      v.literal("error")
+      v.literal('text'),
+      v.literal('slash_command'),
+      v.literal('result_card'),
+      v.literal('progress'),
+      v.literal('error')
     ),
     cardData: v.optional(v.any()),
-    sessionId: v.optional(v.id("researchSessions")),
-    documentId: v.optional(v.id("documents")),
+    sessionId: v.optional(v.id('researchSessions')),
+    documentId: v.optional(v.id('documents')),
     createdAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    return await ctx.db.insert("chatMessages", {
+    return await ctx.db.insert('chatMessages', {
       ...args,
       createdAt: args.createdAt ?? Date.now(),
     });
@@ -34,20 +34,20 @@ export const create = mutation({
  */
 export const update = mutation({
   args: {
-    id: v.id("chatMessages"),
+    id: v.id('chatMessages'),
     content: v.optional(v.string()),
     messageType: v.optional(
       v.union(
-        v.literal("text"),
-        v.literal("slash_command"),
-        v.literal("result_card"),
-        v.literal("progress"),
-        v.literal("error")
+        v.literal('text'),
+        v.literal('slash_command'),
+        v.literal('result_card'),
+        v.literal('progress'),
+        v.literal('error')
       )
     ),
     cardData: v.optional(v.any()),
-    sessionId: v.optional(v.id("researchSessions")),
-    documentId: v.optional(v.id("documents")),
+    sessionId: v.optional(v.id('researchSessions')),
+    documentId: v.optional(v.id('documents')),
   },
   handler: async (ctx, { id, ...updates }) => {
     const existing = await ctx.db.get(id);
@@ -66,23 +66,23 @@ export const update = mutation({
  */
 export const insertFromMigration = mutation({
   args: {
-    conversationId: v.id("conversations"),
-    role: v.union(v.literal("user"), v.literal("agent"), v.literal("system")),
+    conversationId: v.id('conversations'),
+    role: v.union(v.literal('user'), v.literal('agent'), v.literal('system')),
     content: v.string(),
     messageType: v.union(
-      v.literal("text"),
-      v.literal("slash_command"),
-      v.literal("result_card"),
-      v.literal("progress"),
-      v.literal("error")
+      v.literal('text'),
+      v.literal('slash_command'),
+      v.literal('result_card'),
+      v.literal('progress'),
+      v.literal('error')
     ),
     cardData: v.optional(v.any()),
-    sessionId: v.optional(v.id("researchSessions")),
-    documentId: v.optional(v.id("documents")),
+    sessionId: v.optional(v.id('researchSessions')),
+    documentId: v.optional(v.id('documents')),
     createdAt: v.number(),
   },
   handler: async (ctx, args) => {
-    return await ctx.db.insert("chatMessages", args);
+    return await ctx.db.insert('chatMessages', args);
   },
 });
 
@@ -91,7 +91,7 @@ export const insertFromMigration = mutation({
  */
 export const softDelete = mutation({
   args: {
-    id: v.id("chatMessages"),
+    id: v.id('chatMessages'),
   },
   handler: async (ctx, { id }) => {
     const existing = await ctx.db.get(id);
@@ -109,12 +109,10 @@ export const softDelete = mutation({
 export const clearAll = mutation({
   args: {},
   handler: async (ctx) => {
-    if (process.env.ALLOW_CLEAR_ALL !== "true") {
-      throw new Error(
-        "clearAll is disabled. Set ALLOW_CLEAR_ALL=true to enable."
-      );
+    if (process.env.ALLOW_CLEAR_ALL !== 'true') {
+      throw new Error('clearAll is disabled. Set ALLOW_CLEAR_ALL=true to enable.');
     }
-    const messages = await ctx.db.query("chatMessages").collect();
+    const messages = await ctx.db.query('chatMessages').collect();
     for (const message of messages) {
       await ctx.db.delete(message._id);
     }

@@ -5,7 +5,7 @@
  * Covers schema fields and the scoring function integration.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { internal } from '../../convex/_generated/api';
 
 describe('AI Relevance Scoring for Creator Content', () => {

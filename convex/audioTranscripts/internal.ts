@@ -1,18 +1,24 @@
-"use node";
+'use node';
 
-import { jinaReader, JinaError } from "../lib/jina";
-
-import { ActionCtx } from "../_generated/server";
+import type { ActionCtx } from '../_generated/server';
+import { JinaError, jinaReader } from '../lib/jina';
 
 /**
  * Platform detection from URL
  */
-export function detectPodcastPlatform(url: string): "spotify" | "apple_podcasts" | "rss" | "direct_mp3" | null {
+export function detectPodcastPlatform(
+  url: string
+): 'spotify' | 'apple_podcasts' | 'rss' | 'direct_mp3' | null {
   const normalizedUrl = url.toLowerCase();
-  if (normalizedUrl.includes("spotify.com")) return "spotify";
-  if (normalizedUrl.includes("podcasts.apple.com")) return "apple_podcasts";
-  if (normalizedUrl.includes(".mp3") || normalizedUrl.includes("audio/mpeg")) return "direct_mp3";
-  if (normalizedUrl.includes("rss") || normalizedUrl.includes("feed") || normalizedUrl.includes("xml")) return "rss";
+  if (normalizedUrl.includes('spotify.com')) return 'spotify';
+  if (normalizedUrl.includes('podcasts.apple.com')) return 'apple_podcasts';
+  if (normalizedUrl.includes('.mp3') || normalizedUrl.includes('audio/mpeg')) return 'direct_mp3';
+  if (
+    normalizedUrl.includes('rss') ||
+    normalizedUrl.includes('feed') ||
+    normalizedUrl.includes('xml')
+  )
+    return 'rss';
   return null;
 }
 
@@ -21,7 +27,7 @@ export function detectPodcastPlatform(url: string): "spotify" | "apple_podcasts"
  */
 export function generateContentId(url: string): string {
   // Create a hash-like ID from the URL
-  const hash = Buffer.from(url).toString("base64").replace(/[+/=]/g, "").slice(0, 16);
+  const hash = Buffer.from(url).toString('base64').replace(/[+/=]/g, '').slice(0, 16);
   return `podcast_${hash}`;
 }
 
@@ -55,7 +61,7 @@ export async function extractSpotifyAudioUrl(url: string): Promise<string | null
 
     return null;
   } catch (error) {
-    console.error("Failed to extract Spotify audio URL:", error);
+    console.error('Failed to extract Spotify audio URL:', error);
     return null;
   }
 }
@@ -67,7 +73,7 @@ export async function extractApplePodcastsAudioUrl(url: string): Promise<string 
   try {
     const apiKey = process.env.JINA_API_KEY;
     if (!apiKey) {
-      console.error("JINA_API_KEY not configured");
+      console.error('JINA_API_KEY not configured');
       return null;
     }
 
@@ -80,7 +86,7 @@ export async function extractApplePodcastsAudioUrl(url: string): Promise<string 
     if (error instanceof JinaError) {
       console.error(`Jina Reader error (${error.type}):`, error.message);
     } else {
-      console.error("Failed to extract Apple Podcasts audio URL:", error);
+      console.error('Failed to extract Apple Podcasts audio URL:', error);
     }
     return null;
   }
@@ -114,22 +120,22 @@ export async function transcribeWithDeepgram(
   apiKey: string
 ): Promise<{ text: string; language: string; duration: number; speakers?: number }> {
   // Create a Blob from the ArrayBuffer, then wrap in File
-  const audioBlob = new Blob([audioBuffer], { type: "audio/mp3" });
-  const audioFile = new File([audioBlob], "audio.mp3", { type: "audio/mp3" });
+  const audioBlob = new Blob([audioBuffer], { type: 'audio/mp3' });
+  const audioFile = new File([audioBlob], 'audio.mp3', { type: 'audio/mp3' });
 
   const formData = new FormData();
-  formData.append("audio", audioFile);
-  formData.append("model", "nova-3");
-  formData.append("smart_format", "true");
-  formData.append("diarize", "true"); // Speaker diarization
-  formData.append("utterances", "true"); // Split by speaker turns
-  formData.append("punctuate", "true"); // Add punctuation
-  formData.append("paragraphs", "true"); // Group into paragraphs
+  formData.append('audio', audioFile);
+  formData.append('model', 'nova-3');
+  formData.append('smart_format', 'true');
+  formData.append('diarize', 'true'); // Speaker diarization
+  formData.append('utterances', 'true'); // Split by speaker turns
+  formData.append('punctuate', 'true'); // Add punctuation
+  formData.append('paragraphs', 'true'); // Group into paragraphs
 
-  const response = await fetch("https://api.deepgram.com/v1/listen", {
-    method: "POST",
+  const response = await fetch('https://api.deepgram.com/v1/listen', {
+    method: 'POST',
     headers: {
-      "Authorization": `Token ${apiKey}`,
+      Authorization: `Token ${apiKey}`,
     },
     body: formData,
   });
@@ -146,24 +152,24 @@ export async function transcribeWithDeepgram(
     // Combine utterances into full transcript with speaker labels
     const transcript = result.results.utterances
       .map((u: any) => `[Speaker ${u.speaker}]: ${u.transcript}`)
-      .join("\n\n");
+      .join('\n\n');
 
     const uniqueSpeakers = new Set(result.results.utterances.map((u: any) => u.speaker));
 
     return {
       text: transcript,
-      language: result.results.channels?.[0]?.detected_language || "en",
+      language: result.results.channels?.[0]?.detected_language || 'en',
       duration: result.metadata?.duration || 0,
       speakers: uniqueSpeakers.size,
     };
   }
 
   // Fallback: no utterances, use the full transcript
-  const transcript = result.results?.channels?.[0]?.alternatives?.[0]?.transcript || "";
+  const transcript = result.results?.channels?.[0]?.alternatives?.[0]?.transcript || '';
 
   return {
     text: transcript,
-    language: result.results?.channels?.[0]?.detected_language || "en",
+    language: result.results?.channels?.[0]?.detected_language || 'en',
     duration: result.metadata?.duration || 0,
     speakers: 1,
   };

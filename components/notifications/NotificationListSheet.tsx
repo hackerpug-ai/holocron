@@ -10,9 +10,19 @@
  * Follows the same modal/animation pattern as ImprovementSubmitSheet.
  */
 
-import { api } from '@/convex/_generated/api'
-import type { Id } from '@/convex/_generated/dataModel'
-import { Text } from '@/components/ui/text'
+import { useMutation, useQuery } from 'convex/react';
+import { useRouter } from 'expo-router';
+import * as React from 'react';
+import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
+import Animated, {
+  Easing,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   AlertCircle,
   Bell,
@@ -22,31 +32,17 @@ import {
   Rss,
   Sparkles,
   X,
-} from '@/components/ui/icons'
-import { useTheme } from '@/hooks/use-theme'
-import { useMutation, useQuery } from 'convex/react'
-import { useRouter } from 'expo-router'
-import * as React from 'react'
-import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native'
-import Animated, {
-  Easing,
-  runOnJS,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from 'react-native-reanimated'
-import {
-  Gesture,
-  GestureDetector,
-  GestureHandlerRootView,
-} from 'react-native-gesture-handler'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
+} from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { api } from '@/convex/_generated/api';
+import type { Id } from '@/convex/_generated/dataModel';
+import { useTheme } from '@/hooks/use-theme';
 
 // ─── Animation constants ────────────────────────────────────────────────────
 
-const TIMING_IN = { duration: 300, easing: Easing.out(Easing.cubic) }
-const TIMING_OUT = { duration: 250, easing: Easing.in(Easing.cubic) }
-const DISMISS_THRESHOLD = 80
+const TIMING_IN = { duration: 300, easing: Easing.out(Easing.cubic) };
+const TIMING_OUT = { duration: 250, easing: Easing.in(Easing.cubic) };
+const DISMISS_THRESHOLD = 80;
 
 // ─── Type config for notification icons ──────────────────────────────────────
 
@@ -58,13 +54,13 @@ type NotificationType =
   | 'subscription_update'
   | 'assimilate_complete'
   | 'system'
-  | 'feed_digest'
+  | 'feed_digest';
 
 const TYPE_CONFIG: Record<
   NotificationType,
   {
-    Icon: typeof CheckCircle2
-    iconClass: string
+    Icon: typeof CheckCircle2;
+    iconClass: string;
   }
 > = {
   research_complete: { Icon: CheckCircle2, iconClass: 'text-success' },
@@ -75,48 +71,48 @@ const TYPE_CONFIG: Record<
   assimilate_complete: { Icon: CheckCircle2, iconClass: 'text-success' },
   system: { Icon: Bell, iconClass: 'text-primary' },
   feed_digest: { Icon: Newspaper, iconClass: 'text-primary' },
-}
+};
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export interface NotificationListSheetProps {
-  visible: boolean
-  onClose: () => void
-  testID?: string
+  visible: boolean;
+  onClose: () => void;
+  testID?: string;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function getDateGroup(timestamp: number): string {
-  const now = new Date()
+  const now = new Date();
 
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
-  const yesterdayStart = todayStart - 86400000
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const yesterdayStart = todayStart - 86400000;
 
-  if (timestamp >= todayStart) return 'Today'
-  if (timestamp >= yesterdayStart) return 'Yesterday'
-  return 'Older'
+  if (timestamp >= todayStart) return 'Today';
+  if (timestamp >= yesterdayStart) return 'Yesterday';
+  return 'Older';
 }
 
 function formatRelativeTime(timestamp: number): string {
-  const diff = Date.now() - timestamp
-  const minutes = Math.floor(diff / 60000)
-  if (minutes < 1) return 'Just now'
-  if (minutes < 60) return `${minutes}m ago`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}h ago`
-  const days = Math.floor(hours / 24)
-  return `${days}d ago`
+  const diff = Date.now() - timestamp;
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 1) return 'Just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
 }
 
 interface GroupedNotification {
-  _id: string
-  type: string
-  title: string
-  body: string
-  route: string
-  read: boolean
-  createdAt: number
+  _id: string;
+  type: string;
+  title: string;
+  body: string;
+  route: string;
+  read: boolean;
+  createdAt: number;
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -126,98 +122,96 @@ export function NotificationListSheet({
   onClose,
   testID = 'notification-list-sheet',
 }: NotificationListSheetProps) {
-  const insets = useSafeAreaInsets()
-  const { colors } = useTheme()
-  const router = useRouter()
+  const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
+  const router = useRouter();
 
   // ── Convex data ──
-  const notifications = useQuery(api.notifications.queries.listRecent, { limit: 20 })
-  const markRead = useMutation(api.notifications.mutations.markRead)
-  const markAllRead = useMutation(api.notifications.mutations.markAllRead)
+  const notifications = useQuery(api.notifications.queries.listRecent, { limit: 20 });
+  const markRead = useMutation(api.notifications.mutations.markRead);
+  const markAllRead = useMutation(api.notifications.mutations.markAllRead);
 
   // ── Animation shared values ──
-  const translateY = useSharedValue(600)
-  const backdropOpacity = useSharedValue(0)
+  const translateY = useSharedValue(600);
+  const backdropOpacity = useSharedValue(0);
 
   React.useEffect(() => {
     if (visible) {
-      translateY.value = withTiming(0, TIMING_IN)
-      backdropOpacity.value = withTiming(1, TIMING_IN)
+      translateY.value = withTiming(0, TIMING_IN);
+      backdropOpacity.value = withTiming(1, TIMING_IN);
     } else {
-      translateY.value = withTiming(600, TIMING_OUT)
-      backdropOpacity.value = withTiming(0, TIMING_OUT)
+      translateY.value = withTiming(600, TIMING_OUT);
+      backdropOpacity.value = withTiming(0, TIMING_OUT);
     }
-  }, [visible, backdropOpacity, translateY])
+  }, [visible, backdropOpacity, translateY]);
 
   const sheetStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: Math.max(translateY.value, 0) }],
-  }))
+  }));
 
   const backdropStyle = useAnimatedStyle(() => ({
     opacity: backdropOpacity.value,
-  }))
+  }));
 
   const dismiss = () => {
-    translateY.value = withTiming(600, TIMING_OUT)
-    backdropOpacity.value = withTiming(0, TIMING_OUT)
-    setTimeout(onClose, 250)
-  }
+    translateY.value = withTiming(600, TIMING_OUT);
+    backdropOpacity.value = withTiming(0, TIMING_OUT);
+    setTimeout(onClose, 250);
+  };
 
   // ── Pan gesture ──
   const panGesture = Gesture.Pan()
     .onUpdate((e) => {
       if (e.translationY > 0) {
-        translateY.value = e.translationY
+        translateY.value = e.translationY;
       }
     })
     .onEnd((e) => {
       if (e.translationY > DISMISS_THRESHOLD) {
-        translateY.value = withTiming(600, TIMING_OUT)
-        backdropOpacity.value = withTiming(0, TIMING_OUT)
-        runOnJS(onClose)()
+        translateY.value = withTiming(600, TIMING_OUT);
+        backdropOpacity.value = withTiming(0, TIMING_OUT);
+        runOnJS(onClose)();
       } else {
-        translateY.value = withTiming(0, TIMING_IN)
+        translateY.value = withTiming(0, TIMING_IN);
       }
-    })
+    });
 
   // ── Handlers ──
   const handleItemPress = (item: GroupedNotification) => {
     if (!item.read) {
-      markRead({ id: item._id as Id<'notifications'> }).catch(() => {})
+      markRead({ id: item._id as Id<'notifications'> }).catch(() => {});
     }
     // Close modal first, navigate after animation completes to avoid crash
-    translateY.value = withTiming(600, TIMING_OUT)
-    backdropOpacity.value = withTiming(0, TIMING_OUT)
+    translateY.value = withTiming(600, TIMING_OUT);
+    backdropOpacity.value = withTiming(0, TIMING_OUT);
     setTimeout(() => {
-      onClose()
-      router.push(item.route as Parameters<typeof router.push>[0])
-    }, 250)
-  }
+      onClose();
+      router.push(item.route as Parameters<typeof router.push>[0]);
+    }, 250);
+  };
 
   const handleMarkAllRead = () => {
-    markAllRead().catch(() => {})
-  }
+    markAllRead().catch(() => {});
+  };
 
   // ── Group notifications ──
   const groups = React.useMemo(() => {
-    if (!notifications) return []
-    const groupMap = new Map<string, GroupedNotification[]>()
-    const order = ['Today', 'Yesterday', 'Older']
+    if (!notifications) return [];
+    const groupMap = new Map<string, GroupedNotification[]>();
+    const order = ['Today', 'Yesterday', 'Older'];
 
     for (const n of notifications) {
-      const group = getDateGroup(n.createdAt)
-      if (!groupMap.has(group)) groupMap.set(group, [])
-      groupMap.get(group)!.push(n as GroupedNotification)
+      const group = getDateGroup(n.createdAt);
+      if (!groupMap.has(group)) groupMap.set(group, []);
+      groupMap.get(group)!.push(n as GroupedNotification);
     }
 
-    return order
-      .filter((g) => groupMap.has(g))
-      .map((g) => ({ label: g, items: groupMap.get(g)! }))
-  }, [notifications])
+    return order.filter((g) => groupMap.has(g)).map((g) => ({ label: g, items: groupMap.get(g)! }));
+  }, [notifications]);
 
-  const hasUnread = notifications?.some((n: any) => !n.read) ?? false
+  const hasUnread = notifications?.some((n: any) => !n.read) ?? false;
 
-  if (!visible) return null
+  if (!visible) return null;
 
   return (
     <Modal
@@ -229,11 +223,7 @@ export function NotificationListSheet({
     >
       <GestureHandlerRootView style={styles.flex}>
         {/* Backdrop */}
-        <Pressable
-          onPress={dismiss}
-          testID={`${testID}-backdrop`}
-          style={styles.flex}
-        >
+        <Pressable onPress={dismiss} testID={`${testID}-backdrop`} style={styles.flex}>
           <Animated.View style={[backdropStyle, styles.flex, styles.backdrop]} />
         </Pressable>
 
@@ -248,16 +238,12 @@ export function NotificationListSheet({
           >
             {/* Drag handle */}
             <View style={styles.handleRow}>
-              <View
-                style={[styles.handle, { backgroundColor: colors.mutedForeground + '4D' }]}
-              />
+              <View style={[styles.handle, { backgroundColor: colors.mutedForeground + '4D' }]} />
             </View>
 
             {/* Header */}
             <View style={[styles.header, { borderBottomColor: colors.border }]}>
-              <Text className="text-foreground text-base font-semibold">
-                Notifications
-              </Text>
+              <Text className="text-foreground text-base font-semibold">Notifications</Text>
               <View className="flex-row items-center gap-2">
                 {hasUnread && (
                   <Pressable
@@ -292,9 +278,7 @@ export function NotificationListSheet({
               {(!notifications || notifications.length === 0) && (
                 <View style={styles.emptyState}>
                   <Bell size={32} className="text-muted-foreground" />
-                  <Text className="text-muted-foreground mt-3 text-sm">
-                    No notifications yet
-                  </Text>
+                  <Text className="text-muted-foreground mt-3 text-sm">No notifications yet</Text>
                 </View>
               )}
 
@@ -306,9 +290,8 @@ export function NotificationListSheet({
                   </Text>
 
                   {group.items.map((item) => {
-                    const config =
-                      TYPE_CONFIG[item.type as NotificationType] ?? TYPE_CONFIG.system
-                    const { Icon, iconClass } = config
+                    const config = TYPE_CONFIG[item.type as NotificationType] ?? TYPE_CONFIG.system;
+                    const { Icon, iconClass } = config;
 
                     return (
                       <Pressable
@@ -350,7 +333,7 @@ export function NotificationListSheet({
                           />
                         )}
                       </Pressable>
-                    )
+                    );
                   })}
                 </View>
               ))}
@@ -359,7 +342,7 @@ export function NotificationListSheet({
         </GestureDetector>
       </GestureHandlerRootView>
     </Modal>
-  )
+  );
 }
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
@@ -413,4 +396,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 48,
   },
-})
+});

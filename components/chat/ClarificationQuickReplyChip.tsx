@@ -1,12 +1,12 @@
-import React from 'react'
-import { Pressable } from 'react-native'
-import { Text } from '@/components/ui/text'
+import React from 'react';
+import { Pressable } from 'react-native';
+import { Text } from '@/components/ui/text';
 
 export interface ClarificationQuickReplyChipProps {
-  label: string
-  index: number
-  onQuickReply: (label: string) => void
-  disabled?: boolean
+  label: string;
+  index: number;
+  onQuickReply: (label: string) => void;
+  disabled?: boolean;
 }
 
 export function ClarificationQuickReplyChip({
@@ -20,7 +20,7 @@ export function ClarificationQuickReplyChip({
       testID={`quick-reply-chip-${index}`}
       onPress={() => {
         if (!disabled) {
-          onQuickReply(label)
+          onQuickReply(label);
         }
       }}
       accessibilityState={{ disabled }}
@@ -28,5 +28,5 @@ export function ClarificationQuickReplyChip({
     >
       <Text className="text-sm text-primary">{label}</Text>
     </Pressable>
-  )
+  );
 }

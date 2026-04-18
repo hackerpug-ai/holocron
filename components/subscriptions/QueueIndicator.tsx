@@ -1,10 +1,10 @@
-import React from 'react'
-import { View } from 'react-native'
-import { Text } from '@/components/ui/text'
+import React from 'react';
+import { View } from 'react-native';
+import { Text } from '@/components/ui/text';
 
 interface QueueIndicatorProps {
-  count: number
-  testID?: string
+  count: number;
+  testID?: string;
 }
 
 /**
@@ -12,7 +12,7 @@ interface QueueIndicatorProps {
  */
 export function QueueIndicator({ count, testID = 'queue-indicator' }: QueueIndicatorProps) {
   if (count === 0) {
-    return null
+    return null;
   }
 
   return (
@@ -24,5 +24,5 @@ export function QueueIndicator({ count, testID = 'queue-indicator' }: QueueIndic
         {count} feedback {count === 1 ? 'item' : 'items'} queued
       </Text>
     </View>
-  )
+  );
 }

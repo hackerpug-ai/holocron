@@ -7,10 +7,14 @@
  * - buildReviewPrompt: Coverage assessment
  */
 
-import type { Id } from "../_generated/dataModel";
-import type { GenericActionCtx } from "convex/server";
-import type { ResearchMode } from "./intent";
-import { getSearchFocusInstructions, getSynthesisInstructions, getReportStructure } from "./mode_prompts";
+import type { GenericActionCtx } from 'convex/server';
+import type { Id } from '../_generated/dataModel';
+import type { ResearchMode } from './intent';
+import {
+  getReportStructure,
+  getSearchFocusInstructions,
+  getSynthesisInstructions,
+} from './mode_prompts';
 
 /**
  * Research context structure
@@ -39,27 +43,20 @@ export interface ResearchContext {
  */
 export async function buildResearchContext(
   ctx: GenericActionCtx<any>,
-  sessionId: Id<"deepResearchSessions">
+  sessionId: Id<'deepResearchSessions'>
 ): Promise<ResearchContext> {
-  const { api } = await import("../_generated/api");
+  const { api } = await import('../_generated/api');
 
-  const session = await ctx.runQuery(
-    api.research.queries.getDeepResearchSession,
-    { sessionId }
-  );
+  const session = await ctx.runQuery(api.research.queries.getDeepResearchSession, { sessionId });
 
   if (!session) {
     console.error(`[buildResearchContext] Session not found: ${sessionId}`);
     throw new Error(`Session ${sessionId} not found`);
   }
 
-  
-
-  const iterations = await ctx.runQuery(
-    api.research.queries.listDeepResearchIterations,
-    { sessionId }
-  );
-
+  const iterations = await ctx.runQuery(api.research.queries.listDeepResearchIterations, {
+    sessionId,
+  });
 
   // Fetch previous sessions from the same conversation for context
   let previousSessions: Array<{
@@ -69,10 +66,9 @@ export async function buildResearchContext(
   }> = [];
 
   if (session.conversationId) {
-    const completedSessions = await ctx.runQuery(
-      api.research.queries.getByConversation,
-      { conversationId: session.conversationId as Id<"conversations"> }
-    );
+    const completedSessions = await ctx.runQuery(api.research.queries.getByConversation, {
+      conversationId: session.conversationId as Id<'conversations'>,
+    });
 
     // Filter out the current session and limit to last 5
     previousSessions = completedSessions
@@ -83,14 +79,13 @@ export async function buildResearchContext(
         topic: s.topic,
         summary: `Previous research on: ${s.topic}`,
       }));
-
   }
 
   const context = {
     topic: session.topic,
     previousIterations: iterations.map((it: any) => ({
       iteration: it.iterationNumber,
-      findings: it.findings ?? "",
+      findings: it.findings ?? '',
       coverageScore: it.coverageScore ?? 0,
       gaps: (it.refinedQueries as string[]) ?? [],
     })),
@@ -109,38 +104,45 @@ export async function buildResearchContext(
  */
 export function buildSearchPrompt(
   topic: string,
-  previousIterations: ResearchContext["previousIterations"],
-  previousSessions?: ResearchContext["previousSessions"],
+  previousIterations: ResearchContext['previousIterations'],
+  previousSessions?: ResearchContext['previousSessions'],
   mode?: ResearchMode
 ): string {
-
-  const previousSessionsSection = previousSessions && previousSessions.length > 0
-    ? `
+  const previousSessionsSection =
+    previousSessions && previousSessions.length > 0
+      ? `
 Previous Research Sessions in Conversation:
-${previousSessions.map((session, idx) =>
-  `${idx + 1}. "${session.topic}"
+${previousSessions
+  .map(
+    (session, idx) =>
+      `${idx + 1}. "${session.topic}"
 ${session.summary}`
-).join("\n\n")}
+  )
+  .join('\n\n')}
 
 Build upon these previous findings to provide a comprehensive answer.
 `
-    : "";
+      : '';
 
-  const iterationContextSection = previousIterations.length > 0
-    ? `
+  const iterationContextSection =
+    previousIterations.length > 0
+      ? `
 Current Session Progress (${previousIterations.length} iterations):
-${previousIterations.map(it =>
-  `Iteration ${it.iteration} (score: ${it.coverageScore}/5):
+${previousIterations
+  .map(
+    (it) =>
+      `Iteration ${it.iteration} (score: ${it.coverageScore}/5):
 ${it.findings}
-Gaps identified: ${it.gaps.join(", ")}`
-).join("\n\n")}
+Gaps identified: ${it.gaps.join(', ')}`
+  )
+  .join('\n\n')}
 
 Focus on NEW information that complements previous research.
 `
-    : "";
+      : '';
 
   const contextSection = previousSessionsSection + iterationContextSection;
-  const searchFocus = mode ? `\nSEARCH FOCUS:\n${getSearchFocusInstructions(mode)}\n` : "";
+  const searchFocus = mode ? `\nSEARCH FOCUS:\n${getSearchFocusInstructions(mode)}\n` : '';
 
   const prompt = `Research the following topic: "${topic}"
 
@@ -193,25 +195,25 @@ export function buildSynthesisPrompt(
   searchFindings: string,
   mode?: ResearchMode
 ): string {
-
-  const previousContext = context.previousIterations.length > 0
-    ? `
+  const previousContext =
+    context.previousIterations.length > 0
+      ? `
 Previous Research (${context.previousIterations.length} iterations):
-${context.previousIterations.map(it =>
-  `Iteration ${it.iteration}: ${it.findings}`
-).join("\n\n")}
+${context.previousIterations.map((it) => `Iteration ${it.iteration}: ${it.findings}`).join('\n\n')}
 
 Build on this foundation - do NOT simply repeat what was already found.
 `
-    : "";
+      : '';
 
-  const modeGuidance = mode ? `\n${getSynthesisInstructions(mode)}\n` : "";
+  const modeGuidance = mode ? `\n${getSynthesisInstructions(mode)}\n` : '';
 
   // Truncate findings to avoid context window overflow with deep-read content
   const MAX_FINDINGS_LENGTH = 80000;
-  const truncatedFindings = searchFindings.length > MAX_FINDINGS_LENGTH
-    ? searchFindings.slice(0, MAX_FINDINGS_LENGTH) + "\n\n[Truncated - additional sources available]"
-    : searchFindings;
+  const truncatedFindings =
+    searchFindings.length > MAX_FINDINGS_LENGTH
+      ? searchFindings.slice(0, MAX_FINDINGS_LENGTH) +
+        '\n\n[Truncated - additional sources available]'
+      : searchFindings;
 
   const prompt = `Synthesize research findings into a structured JSON format with confidence scoring.
 
@@ -298,11 +300,7 @@ IMPORTANT:
  * Generates prompt for coverage assessment including confidence analysis.
  * Reviewer evaluates cumulative research quality and confidence distribution.
  */
-export function buildReviewPrompt(
-  context: ResearchContext,
-  synthesis: string
-): string {
-
+export function buildReviewPrompt(context: ResearchContext, synthesis: string): string {
   const prompt = `Review the following research synthesis and assess its coverage and confidence quality.
 
 Research Synthesis:
@@ -369,23 +367,28 @@ export function buildFinalSynthesisPrompt(
   }>,
   mode?: ResearchMode
 ): string {
-
   const iterationContent = iterations
-    .filter(it => it.findings)
-    .map(it => `### Iteration ${it.iterationNumber}${it.summary ? `: ${it.summary}` : ''}
+    .filter((it) => it.findings)
+    .map(
+      (it) => `### Iteration ${it.iterationNumber}${it.summary ? `: ${it.summary}` : ''}
 Coverage Score: ${it.coverageScore ?? 'N/A'}/5
 
-${it.findings}`)
+${it.findings}`
+    )
     .join('\n\n---\n\n');
 
   // Calculate overall confidence from coverage scores
-  const avgCoverage = iterations.reduce((sum, it) => sum + (it.coverageScore ?? 0), 0) / iterations.length;
-  const overallConfidence = avgCoverage >= 4 ? "HIGH" : avgCoverage >= 3 ? "MEDIUM" : "LOW";
+  const avgCoverage =
+    iterations.reduce((sum, it) => sum + (it.coverageScore ?? 0), 0) / iterations.length;
+  const overallConfidence = avgCoverage >= 4 ? 'HIGH' : avgCoverage >= 3 ? 'MEDIUM' : 'LOW';
   const totalSources = iterations.length; // Approximate source count
 
   // Generate tags from topic
-  const topicWords = topic.toLowerCase().split(/\s+/).filter(w => w.length > 3);
-  const tags = topicWords.slice(0, 5).join(", ");
+  const topicWords = topic
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((w) => w.length > 3);
+  const tags = topicWords.slice(0, 5).join(', ');
 
   const reportStructure = mode
     ? getReportStructure(mode)
@@ -434,7 +437,7 @@ Identify:
 - Conflicting information that needs resolution
 - Suggested follow-up research topics`;
 
-  const modeLabel = mode ? ` [${mode}]` : "";
+  const modeLabel = mode ? ` [${mode}]` : '';
 
   const prompt = `Synthesize the following research iterations into a comprehensive, well-structured markdown report.
 
@@ -519,26 +522,24 @@ export function buildSinglePassSynthesisPrompt(
   searchSnippets: string,
   mode?: ResearchMode
 ): string {
-  
-
   // Build URL content sections
   const urlContentSections = urlContents
     .filter((u) => u.content.length > 100) // Only include substantial content
     .map(
       (u, i) => `
-### Source ${i + 1}: ${u.title || "Untitled"}
+### Source ${i + 1}: ${u.title || 'Untitled'}
 URL: ${u.url}
 
 ${u.content}
 `
     )
-    .join("\n---\n");
+    .join('\n---\n');
 
   const hasFullContent = urlContents.filter((u) => u.content.length > 100).length > 0;
 
   // Generate current date for frontmatter
   const now = new Date();
-  const dateStr = now.toISOString().split("T")[0];
+  const dateStr = now.toISOString().split('T')[0];
   const timeStr = now.toTimeString().slice(0, 5);
 
   // Generate tags from topic
@@ -546,7 +547,7 @@ ${u.content}
     .toLowerCase()
     .split(/\s+/)
     .filter((w) => w.length > 3);
-  const tags = topicWords.slice(0, 5).join(", ");
+  const tags = topicWords.slice(0, 5).join(', ');
 
   const reportBody = mode
     ? getReportStructure(mode)
@@ -574,15 +575,19 @@ List all sources used in the research:
 1. [Title](URL) - Brief description of what it contributed
 2. [Title](URL) - Brief description`;
 
-  const modeLabel = mode ? ` [${mode}]` : "";
-  const modeGuidance = mode ? `\n${getSynthesisInstructions(mode)}\n` : "";
+  const modeLabel = mode ? ` [${mode}]` : '';
+  const modeGuidance = mode ? `\n${getSynthesisInstructions(mode)}\n` : '';
 
   const prompt = `You are a research synthesis expert. Synthesize the following research materials into a comprehensive markdown report.
 
 **Research Topic:** ${topic}
 ${modeGuidance}
-${hasFullContent ? `## Full Source Content
-${urlContentSections}` : ""}
+${
+  hasFullContent
+    ? `## Full Source Content
+${urlContentSections}`
+    : ''
+}
 
 ## Search Result Snippets
 ${searchSnippets}
@@ -629,7 +634,6 @@ Summarize overall confidence:
 - Target 600-1200 words for the full report
 - Do NOT use code blocks around the output`;
 
-
   return prompt;
 }
 
@@ -649,13 +653,17 @@ export function buildGapReasoningPrompt(
   topic: string,
   gaps: string[],
   keyFindings: string[],
-  iteration: number,
+  iteration: number
 ): string {
-  const findingsText = keyFindings.length > 0
-    ? keyFindings.slice(0, 5).map((f, i) => `${i + 1}. ${f}`).join("\n")
-    : "(no findings yet)";
+  const findingsText =
+    keyFindings.length > 0
+      ? keyFindings
+          .slice(0, 5)
+          .map((f, i) => `${i + 1}. ${f}`)
+          .join('\n')
+      : '(no findings yet)';
 
-  const gapsText = gaps.map((g, i) => `${i + 1}. ${g}`).join("\n");
+  const gapsText = gaps.map((g, i) => `${i + 1}. ${g}`).join('\n');
 
   return `You are refining a research query based on what was found and what is still missing.
 

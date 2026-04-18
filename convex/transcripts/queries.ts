@@ -1,5 +1,5 @@
-import { internalQuery } from "../_generated/server";
-import { v } from "convex/values";
+import { v } from 'convex/values';
+import { internalQuery } from '../_generated/server';
 
 /**
  * Get a transcript by contentId (e.g., YouTube video ID).
@@ -11,8 +11,8 @@ export const getTranscript = internalQuery({
   },
   handler: async (ctx, args) => {
     const transcript = await ctx.db
-      .query("videoTranscripts")
-      .withIndex("by_content_id", (q) => q.eq("contentId", args.contentId))
+      .query('videoTranscripts')
+      .withIndex('by_content_id', (q) => q.eq('contentId', args.contentId))
       .first();
 
     if (!transcript) {
@@ -44,8 +44,8 @@ export const listPendingJobs = internalQuery({
   args: {},
   handler: async (ctx) => {
     const pendingJobs = await ctx.db
-      .query("transcriptJobs")
-      .withIndex("by_status", (q) => q.eq("status", "pending"))
+      .query('transcriptJobs')
+      .withIndex('by_status', (q) => q.eq('status', 'pending'))
       .collect();
 
     // Sort by priority (descending, so higher priority first) then createdAt (ascending)
@@ -63,7 +63,7 @@ export const listPendingJobs = internalQuery({
  */
 export const getJob = internalQuery({
   args: {
-    jobId: v.id("transcriptJobs"),
+    jobId: v.id('transcriptJobs'),
   },
   handler: async (ctx, args) => {
     const job = await ctx.db.get(args.jobId);

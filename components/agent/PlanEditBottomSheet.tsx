@@ -14,46 +14,46 @@
  * - Theme-aware styling
  */
 
-import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native'
+import * as Haptics from 'expo-haptics';
+import { useEffect, useState } from 'react';
+import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
+  Easing,
+  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
-  Easing,
-  runOnJS,
-} from 'react-native-reanimated'
-import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { useEffect, useState } from 'react'
-import { Text } from '@/components/ui/text'
-import { Check, X } from '@/components/ui/icons'
-import { useTheme } from '@/hooks/use-theme'
-import * as Haptics from 'expo-haptics'
+} from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Check, X } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { useTheme } from '@/hooks/use-theme';
 
-const TIMING_IN = { duration: 300, easing: Easing.out(Easing.cubic) }
-const TIMING_OUT = { duration: 250, easing: Easing.in(Easing.cubic) }
-const DISMISS_THRESHOLD = 100
-const MAX_CHARS = 5000
+const TIMING_IN = { duration: 300, easing: Easing.out(Easing.cubic) };
+const TIMING_OUT = { duration: 250, easing: Easing.in(Easing.cubic) };
+const DISMISS_THRESHOLD = 100;
+const MAX_CHARS = 5000;
 
 export interface PlanEditBottomSheetProps {
   /** Whether the sheet is visible */
-  visible: boolean
+  visible: boolean;
   /** Called when the sheet is dismissed without saving */
-  onClose: () => void
+  onClose: () => void;
   /** Called when save is pressed with the edited text */
-  onSave: (editedText: string) => void
+  onSave: (editedText: string) => void;
   /** Initial text content for the editor */
-  initialText?: string
+  initialText?: string;
   /** Optional title for the sheet */
-  title?: string
+  title?: string;
   /** Optional placeholder text */
-  placeholder?: string
+  placeholder?: string;
   /** Maximum character count (default: 5000) */
-  maxChars?: number
+  maxChars?: number;
   /** Optional validation function */
-  validate?: (text: string) => boolean | string
+  validate?: (text: string) => boolean | string;
   /** Test ID prefix for testing */
-  testID?: string
+  testID?: string;
 }
 
 /**
@@ -84,101 +84,101 @@ export function PlanEditBottomSheet({
   validate,
   testID = 'plan-edit-bottom-sheet',
 }: PlanEditBottomSheetProps) {
-  const insets = useSafeAreaInsets()
-  const { colors } = useTheme()
-  const translateY = useSharedValue(400)
-  const backdropOpacity = useSharedValue(0)
+  const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
+  const translateY = useSharedValue(400);
+  const backdropOpacity = useSharedValue(0);
 
-  const [editedText, setEditedText] = useState(initialText)
-  const [validationError, setValidationError] = useState<string | null>(null)
+  const [editedText, setEditedText] = useState(initialText);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   // Reset text when initialText changes and sheet is not visible
   useEffect(() => {
     if (!visible) {
-      setEditedText(initialText)
-      setValidationError(null)
+      setEditedText(initialText);
+      setValidationError(null);
     }
-  }, [initialText, visible])
+  }, [initialText, visible]);
 
   useEffect(() => {
     if (visible) {
-      translateY.value = withTiming(0, TIMING_IN)
-      backdropOpacity.value = withTiming(1, TIMING_IN)
-      setEditedText(initialText)
-      setValidationError(null)
+      translateY.value = withTiming(0, TIMING_IN);
+      backdropOpacity.value = withTiming(1, TIMING_IN);
+      setEditedText(initialText);
+      setValidationError(null);
     } else {
-      translateY.value = withTiming(400, TIMING_OUT)
-      backdropOpacity.value = withTiming(0, TIMING_OUT)
+      translateY.value = withTiming(400, TIMING_OUT);
+      backdropOpacity.value = withTiming(0, TIMING_OUT);
     }
-  }, [visible])
+  }, [visible]);
 
   const sheetStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: Math.max(translateY.value, 0) }],
-  }))
+  }));
 
   const backdropStyle = useAnimatedStyle(() => ({
     opacity: backdropOpacity.value,
-  }))
+  }));
 
   const dismiss = () => {
-    translateY.value = withTiming(400, TIMING_OUT)
-    backdropOpacity.value = withTiming(0, TIMING_OUT)
-    setTimeout(onClose, 250)
-  }
+    translateY.value = withTiming(400, TIMING_OUT);
+    backdropOpacity.value = withTiming(0, TIMING_OUT);
+    setTimeout(onClose, 250);
+  };
 
   const panGesture = Gesture.Pan()
     .onUpdate((e) => {
       if (e.translationY > 0) {
-        translateY.value = e.translationY
+        translateY.value = e.translationY;
       }
     })
     .onEnd((e) => {
       if (e.translationY > DISMISS_THRESHOLD) {
-        translateY.value = withTiming(400, TIMING_OUT)
-        backdropOpacity.value = withTiming(0, TIMING_OUT)
-        runOnJS(onClose)()
+        translateY.value = withTiming(400, TIMING_OUT);
+        backdropOpacity.value = withTiming(0, TIMING_OUT);
+        runOnJS(onClose)();
       } else {
-        translateY.value = withTiming(0, TIMING_IN)
+        translateY.value = withTiming(0, TIMING_IN);
       }
-    })
+    });
 
   const handleSave = () => {
     // Validate if validator provided
     if (validate) {
-      const result = validate(editedText)
+      const result = validate(editedText);
       if (result !== true) {
-        setValidationError(typeof result === 'string' ? result : 'Invalid input')
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
-        return
+        setValidationError(typeof result === 'string' ? result : 'Invalid input');
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        return;
       }
     }
 
     // Check if text is empty
     if (!editedText.trim()) {
-      setValidationError('Plan cannot be empty')
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
-      return
+      setValidationError('Plan cannot be empty');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      return;
     }
 
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
-    translateY.value = withTiming(400, TIMING_OUT)
-    backdropOpacity.value = withTiming(0, TIMING_OUT)
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    translateY.value = withTiming(400, TIMING_OUT);
+    backdropOpacity.value = withTiming(0, TIMING_OUT);
     setTimeout(() => {
-      onClose()
-      onSave(editedText)
-    }, 250)
-  }
+      onClose();
+      onSave(editedText);
+    }, 250);
+  };
 
   const handleCancel = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-    dismiss()
-  }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    dismiss();
+  };
 
-  const charCount = editedText.length
-  const isAtLimit = charCount >= maxChars
-  const canSave = editedText.trim().length > 0 && !validationError
+  const charCount = editedText.length;
+  const isAtLimit = charCount >= maxChars;
+  const canSave = editedText.trim().length > 0 && !validationError;
 
-  if (!visible) return null
+  if (!visible) return null;
 
   return (
     <Modal
@@ -190,14 +190,8 @@ export function PlanEditBottomSheet({
     >
       <GestureHandlerRootView style={{ flex: 1 }}>
         {/* Backdrop */}
-        <Pressable
-          onPress={dismiss}
-          testID={`${testID}-backdrop`}
-          style={{ flex: 1 }}
-        >
-          <Animated.View
-            style={[backdropStyle, { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }]}
-          />
+        <Pressable onPress={dismiss} testID={`${testID}-backdrop`} style={{ flex: 1 }}>
+          <Animated.View style={[backdropStyle, { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }]} />
         </Pressable>
 
         {/* Sheet */}
@@ -214,20 +208,14 @@ export function PlanEditBottomSheet({
           >
             {/* Drag handle */}
             <View style={styles.handleRow}>
-              <View
-                style={[styles.handle, { backgroundColor: colors.mutedForeground + '4D' }]}
-              />
+              <View style={[styles.handle, { backgroundColor: colors.mutedForeground + '4D' }]} />
             </View>
 
             {/* Header */}
             <View style={[styles.header, { borderBottomColor: colors.border }]}>
               <View className="flex-1">
-                <Text className="text-foreground text-base font-semibold">
-                  {title}
-                </Text>
-                <Text className="text-muted-foreground text-sm mt-0.5">
-                  Edit your plan below
-                </Text>
+                <Text className="text-foreground text-base font-semibold">{title}</Text>
+                <Text className="text-muted-foreground text-sm mt-0.5">Edit your plan below</Text>
               </View>
 
               <Pressable
@@ -294,9 +282,7 @@ export function PlanEditBottomSheet({
             </ScrollView>
 
             {/* Footer with action buttons */}
-            <View
-              style={[styles.footer, { borderTopColor: colors.border }]}
-            >
+            <View style={[styles.footer, { borderTopColor: colors.border }]}>
               <View className="flex-row gap-3">
                 <Pressable
                   testID={`${testID}-cancel-button`}
@@ -327,7 +313,7 @@ export function PlanEditBottomSheet({
         </GestureDetector>
       </GestureHandlerRootView>
     </Modal>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
@@ -385,9 +371,9 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
-})
+});
 
 // Helper function for className conditional
 function cn(...classes: (string | undefined | null | false)[]) {
-  return classes.filter(Boolean).join(' ')
+  return classes.filter(Boolean).join(' ');
 }

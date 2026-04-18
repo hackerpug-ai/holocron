@@ -1,68 +1,68 @@
-import { ConversationRow } from '@/components/ConversationRow'
-import { ConversationActionMenu } from '@/components/ConversationActionMenu'
-import { DrawerHeader, type NavSection } from '@/components/DrawerHeader'
-import { Text } from '@/components/ui/text'
-import { cn } from '@/lib/utils'
-import { BookOpen, Lightbulb, Newspaper, Settings, Wrench } from '@/components/ui/icons'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { FlatList, Pressable, View, type ViewProps } from 'react-native'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import type { Conversation } from '@/lib/types/conversations'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { FlatList, Pressable, View, type ViewProps } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ConversationActionMenu } from '@/components/ConversationActionMenu';
+import { ConversationRow } from '@/components/ConversationRow';
+import { DrawerHeader, type NavSection } from '@/components/DrawerHeader';
+import { BookOpen, Lightbulb, Newspaper, Settings, Wrench } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import type { Conversation } from '@/lib/types/conversations';
+import { cn } from '@/lib/utils';
 
 // Re-export Conversation type for convenience
-export type { Conversation }
+export type { Conversation };
 
-const DISMISS_DELAY = 4000 // auto-dismiss delete button after 4s
+const DISMISS_DELAY = 4000; // auto-dismiss delete button after 4s
 
 interface DrawerContentProps extends Omit<ViewProps, 'children'> {
   /** List of conversations */
-  conversations?: Conversation[]
+  conversations?: Conversation[];
   /** ID of the currently active conversation */
-  activeConversationId?: string
+  activeConversationId?: string;
   /** Current search query */
-  searchQuery?: string
+  searchQuery?: string;
   /** Callback when search query changes */
-  onSearchChange?: (_query: string) => void
+  onSearchChange?: (_query: string) => void;
   /** Callback when Articles link is pressed */
-  onArticlesPress?: () => void
+  onArticlesPress?: () => void;
   /** Callback when Subscriptions link is pressed */
-  onSubscriptionsPress?: () => void
+  onSubscriptionsPress?: () => void;
   /** Callback when What's New link is pressed */
-  onWhatsNewPress?: () => void
+  onWhatsNewPress?: () => void;
   /** Callback when Toolbelt link is pressed */
-  onToolbeltPress?: () => void
+  onToolbeltPress?: () => void;
   /** Callback when Improvements link is pressed */
-  onImprovementsPress?: () => void
+  onImprovementsPress?: () => void;
   /** Callback when Settings is pressed */
-  onSettingsPress?: () => void
+  onSettingsPress?: () => void;
   /** Callback when New Chat is pressed */
-  onNewChatPress?: () => void
+  onNewChatPress?: () => void;
   /** Callback when a conversation is selected */
-  onConversationPress?: (_conversation: Conversation) => void
+  onConversationPress?: (_conversation: Conversation) => void;
   /** Callback when a conversation delete is triggered */
-  onConversationDelete?: (_conversation: Conversation) => void
+  onConversationDelete?: (_conversation: Conversation) => void;
   /** Loading state for conversation fetch */
-  isLoading?: boolean
+  isLoading?: boolean;
   /** Error state for conversation fetch */
-  error?: Error | null
+  error?: Error | null;
   /** Callback to retry fetching conversations */
-  onRetry?: () => void
+  onRetry?: () => void;
   /** Whether the action menu is open */
-  actionMenuOpen?: boolean
+  actionMenuOpen?: boolean;
   /** Title of the conversation for the action menu */
-  actionMenuConversationTitle?: string
+  actionMenuConversationTitle?: string;
   /** Callback when action menu open state changes */
-  onActionMenuOpenChange?: (_open: boolean) => void
+  onActionMenuOpenChange?: (_open: boolean) => void;
   /** Callback when rename is confirmed */
-  onRename?: (_newTitle: string) => void
+  onRename?: (_newTitle: string) => void;
   /** Callback when delete is confirmed from action menu */
-  onDelete?: () => void
+  onDelete?: () => void;
   /** Whether a rename operation is in progress */
-  isRenaming?: boolean
+  isRenaming?: boolean;
   /** Whether a delete operation is in progress */
-  isDeleting?: boolean
+  isDeleting?: boolean;
   /** Whether there are active long-running tasks */
-  hasActiveTasks?: boolean
+  hasActiveTasks?: boolean;
 }
 
 /**
@@ -101,63 +101,87 @@ export function DrawerContent({
   className,
   ...props
 }: DrawerContentProps) {
-  const insets = useSafeAreaInsets()
+  const insets = useSafeAreaInsets();
 
   // Track which conversation row is showing its delete button (only one at a time)
-  const [deleteVisibleId, setDeleteVisibleId] = useState<string | null>(null)
-  const dismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [deleteVisibleId, setDeleteVisibleId] = useState<string | null>(null);
+  const dismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearDismissTimer = useCallback(() => {
     if (dismissTimer.current) {
-      clearTimeout(dismissTimer.current)
-      dismissTimer.current = null
+      clearTimeout(dismissTimer.current);
+      dismissTimer.current = null;
     }
-  }, [])
+  }, []);
 
   // Auto-dismiss after delay
   useEffect(() => {
     if (deleteVisibleId) {
-      clearDismissTimer()
+      clearDismissTimer();
       dismissTimer.current = setTimeout(() => {
-        setDeleteVisibleId(null)
-      }, DISMISS_DELAY)
+        setDeleteVisibleId(null);
+      }, DISMISS_DELAY);
     }
-    return clearDismissTimer
-  }, [deleteVisibleId, clearDismissTimer])
+    return clearDismissTimer;
+  }, [deleteVisibleId, clearDismissTimer]);
 
   const handleRowLongPress = useCallback((conversationId: string) => {
     // If the same row is long-pressed again, dismiss it
     // Otherwise, show the new one (auto-hides previous)
-    setDeleteVisibleId((prev) => (prev === conversationId ? null : conversationId))
-  }, [])
+    setDeleteVisibleId((prev) => (prev === conversationId ? null : conversationId));
+  }, []);
 
   const handleDismissDelete = useCallback(() => {
-    clearDismissTimer()
-    setDeleteVisibleId(null)
-  }, [clearDismissTimer])
+    clearDismissTimer();
+    setDeleteVisibleId(null);
+  }, [clearDismissTimer]);
 
   const sections: NavSection[] = [
-    { id: 'articles', label: 'Articles', icon: <BookOpen size={20} className="text-foreground" />, onPress: onArticlesPress },
-    { id: 'whats-new', label: "What's New", icon: <Newspaper size={20} className="text-foreground" />, onPress: onWhatsNewPress },
-    { id: 'toolbelt', label: 'Toolbelt', icon: <Wrench size={20} className="text-foreground" />, onPress: onToolbeltPress },
-    { id: 'improvements', label: 'Improvements', icon: <Lightbulb size={20} className="text-foreground" />, onPress: onImprovementsPress },
-    { id: 'settings', label: 'Settings', icon: <Settings size={20} className="text-foreground" />, onPress: onSettingsPress },
-  ]
+    {
+      id: 'articles',
+      label: 'Articles',
+      icon: <BookOpen size={20} className="text-foreground" />,
+      onPress: onArticlesPress,
+    },
+    {
+      id: 'whats-new',
+      label: "What's New",
+      icon: <Newspaper size={20} className="text-foreground" />,
+      onPress: onWhatsNewPress,
+    },
+    {
+      id: 'toolbelt',
+      label: 'Toolbelt',
+      icon: <Wrench size={20} className="text-foreground" />,
+      onPress: onToolbeltPress,
+    },
+    {
+      id: 'improvements',
+      label: 'Improvements',
+      icon: <Lightbulb size={20} className="text-foreground" />,
+      onPress: onImprovementsPress,
+    },
+    {
+      id: 'settings',
+      label: 'Settings',
+      icon: <Settings size={20} className="text-foreground" />,
+      onPress: onSettingsPress,
+    },
+  ];
 
   // Filter conversations based on search query (case-insensitive)
   const filteredConversations = useMemo(() => {
-    const trimmedQuery = searchQuery.trim().toLowerCase()
+    const trimmedQuery = searchQuery.trim().toLowerCase();
     if (!trimmedQuery) {
-      return conversations
+      return conversations;
     }
-    return conversations.filter((c) =>
-      c.title.toLowerCase().includes(trimmedQuery)
-    )
-  }, [conversations, searchQuery])
+    return conversations.filter((c) => c.title.toLowerCase().includes(trimmedQuery));
+  }, [conversations, searchQuery]);
 
   // Track if we're showing filtered (no results) vs empty (no conversations)
-  const isSearchActive = searchQuery.trim().length > 0
-  const hasNoSearchResults = isSearchActive && filteredConversations.length === 0 && conversations.length > 0
+  const isSearchActive = searchQuery.trim().length > 0;
+  const hasNoSearchResults =
+    isSearchActive && filteredConversations.length === 0 && conversations.length > 0;
 
   const renderConversation = ({ item }: { item: Conversation }) => (
     <ConversationRow
@@ -168,17 +192,21 @@ export function DrawerContent({
       isActive={item.id === activeConversationId}
       isDeleteVisible={deleteVisibleId === item.id}
       onPress={() => {
-        handleDismissDelete()
-        onConversationPress?.(item)
+        handleDismissDelete();
+        onConversationPress?.(item);
       }}
       onLongPress={() => handleRowLongPress(item.id)}
-      onDelete={onConversationDelete ? () => {
-        handleDismissDelete()
-        onConversationDelete(item)
-      } : undefined}
+      onDelete={
+        onConversationDelete
+          ? () => {
+              handleDismissDelete();
+              onConversationDelete(item);
+            }
+          : undefined
+      }
       onDismissDelete={handleDismissDelete}
     />
-  )
+  );
 
   const renderListEmptyComponent = () => {
     if (isLoading) {
@@ -186,7 +214,7 @@ export function DrawerContent({
         <View className="items-center py-8" testID="drawer-content-loading">
           <Text className="text-muted-foreground text-sm">Loading conversations...</Text>
         </View>
-      )
+      );
     }
 
     if (error) {
@@ -202,7 +230,7 @@ export function DrawerContent({
           <Text className="text-destructive text-sm">Failed to load conversations</Text>
           <Text className="text-muted-foreground mt-1 text-xs">Tap to retry</Text>
         </Pressable>
-      )
+      );
     }
 
     // Show "no results" when searching with no matches
@@ -210,29 +238,21 @@ export function DrawerContent({
       return (
         <View className="items-center py-8" testID="drawer-content-no-results">
           <Text className="text-muted-foreground text-sm">No conversations found</Text>
-          <Text className="text-muted-foreground mt-1 text-xs">
-            Try a different search term
-          </Text>
+          <Text className="text-muted-foreground mt-1 text-xs">Try a different search term</Text>
         </View>
-      )
+      );
     }
 
     return (
       <View className="items-center py-8" testID="drawer-content-empty">
         <Text className="text-muted-foreground text-sm">No conversations yet</Text>
-        <Text className="text-muted-foreground mt-1 text-xs">
-          Tap the compose icon to start
-        </Text>
+        <Text className="text-muted-foreground mt-1 text-xs">Tap the compose icon to start</Text>
       </View>
-    )
-  }
+    );
+  };
 
   return (
-    <View
-      className={cn('bg-background flex-1', className)}
-      testID="drawer-content"
-      {...props}
-    >
+    <View className={cn('bg-background flex-1', className)} testID="drawer-content" {...props}>
       {/* Header with Search + Compose + Sections */}
       <DrawerHeader
         searchQuery={searchQuery}
@@ -271,5 +291,5 @@ export function DrawerContent({
         isDeleting={isDeleting}
       />
     </View>
-  )
+  );
 }

@@ -10,18 +10,21 @@
  * - Full URL content reading via Jina Reader
  */
 
-"use node";
+'use node';
 
-import Exa from "exa-js";
-import { withRateLimit } from "./rateLimiter.js";
-import { jinaSearch, JinaError } from "../lib/jina.js";
+import Exa from 'exa-js';
+import { JinaError, jinaSearch } from '../lib/jina.js';
+import { withRateLimit } from './rateLimiter.js';
 
 /**
  * Minimal ctx shape required for rate limiting (subset of ActionCtx)
  */
-type RateLimitCtx = {
-  runMutation: (fn: unknown, args: Record<string, unknown>) => Promise<unknown>;
-} | null | undefined;
+type RateLimitCtx =
+  | {
+      runMutation: (fn: unknown, args: Record<string, unknown>) => Promise<unknown>;
+    }
+  | null
+  | undefined;
 
 /**
  * Result from reading a single URL
@@ -29,7 +32,7 @@ type RateLimitCtx = {
 export interface UrlReadResult {
   url: string;
   title?: string;
-  content: string;  // Up to 10k chars
+  content: string; // Up to 10k chars
   success: boolean;
   error?: string;
 }
@@ -76,9 +79,9 @@ export async function readUrlWithJina(
   if (!apiKey) {
     return {
       url,
-      content: "",
+      content: '',
       success: false,
-      error: "JINA_API_KEY not configured",
+      error: 'JINA_API_KEY not configured',
     };
   }
 
@@ -89,25 +92,24 @@ export async function readUrlWithJina(
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-    const fetchFn = async () => fetch(readerUrl, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        Accept: "text/plain",
-        "X-Return-Format": "text",
-      },
-      signal: controller.signal,
-    });
-    const response = ctx
-      ? await withRateLimit(ctx, "jina-reader", fetchFn)
-      : await fetchFn();
+    const fetchFn = async () =>
+      fetch(readerUrl, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          Accept: 'text/plain',
+          'X-Return-Format': 'text',
+        },
+        signal: controller.signal,
+      });
+    const response = ctx ? await withRateLimit(ctx, 'jina-reader', fetchFn) : await fetchFn();
 
     clearTimeout(timeoutId);
 
     if (!response.ok) {
       return {
         url,
-        content: "",
+        content: '',
         success: false,
         error: `HTTP ${response.status}: ${response.statusText}`,
       };
@@ -117,10 +119,10 @@ export async function readUrlWithJina(
 
     // Extract title from first line if it looks like a title
     let title: string | undefined;
-    const lines = fullContent.split("\n");
-    if (lines.length > 0 && lines[0].startsWith("# ")) {
+    const lines = fullContent.split('\n');
+    if (lines.length > 0 && lines[0].startsWith('# ')) {
       title = lines[0].substring(2).trim();
-    } else if (lines.length > 0 && lines[0].startsWith("Title: ")) {
+    } else if (lines.length > 0 && lines[0].startsWith('Title: ')) {
       title = lines[0].substring(7).trim();
     }
 
@@ -134,16 +136,14 @@ export async function readUrlWithJina(
       success: true,
     };
   } catch (error) {
-    const errorMessage =
-      error instanceof Error ? error.message : String(error);
-    const isTimeout =
-      errorMessage.includes("abort") || errorMessage.includes("timeout");
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const isTimeout = errorMessage.includes('abort') || errorMessage.includes('timeout');
 
     return {
       url,
-      content: "",
+      content: '',
       success: false,
-      error: isTimeout ? "Jina Reader timeout reading URL" : `Jina Reader: ${errorMessage}`,
+      error: isTimeout ? 'Jina Reader timeout reading URL' : `Jina Reader: ${errorMessage}`,
     };
   }
 }
@@ -168,10 +168,10 @@ export async function readUrlWithJinaAndLinks(
   if (!apiKey) {
     return {
       url,
-      content: "",
+      content: '',
       links: [],
       success: false,
-      error: "JINA_API_KEY not configured",
+      error: 'JINA_API_KEY not configured',
     };
   }
 
@@ -182,25 +182,24 @@ export async function readUrlWithJinaAndLinks(
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-    const fetchFn = async () => fetch(readerUrl, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        Accept: "application/json",
-        "X-With-Links-Summary": "true",
-      },
-      signal: controller.signal,
-    });
-    const response = ctx
-      ? await withRateLimit(ctx, "jina-reader", fetchFn)
-      : await fetchFn();
+    const fetchFn = async () =>
+      fetch(readerUrl, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          Accept: 'application/json',
+          'X-With-Links-Summary': 'true',
+        },
+        signal: controller.signal,
+      });
+    const response = ctx ? await withRateLimit(ctx, 'jina-reader', fetchFn) : await fetchFn();
 
     clearTimeout(timeoutId);
 
     if (!response.ok) {
       return {
         url,
-        content: "",
+        content: '',
         links: [],
         success: false,
         error: `HTTP ${response.status}: ${response.statusText}`,
@@ -210,7 +209,7 @@ export async function readUrlWithJinaAndLinks(
     const data = await response.json();
 
     // Extract content
-    const fullContent = data.data?.content || data.content || "";
+    const fullContent = data.data?.content || data.content || '';
     const content = fullContent.slice(0, maxContentLength);
 
     // Extract title
@@ -225,16 +224,18 @@ export async function readUrlWithJinaAndLinks(
     if (Array.isArray(linksData)) {
       // Links as array of objects: [{ text, url }, ...]
       rawLinks = linksData;
-    } else if (linksData && typeof linksData === "object") {
+    } else if (linksData && typeof linksData === 'object') {
       // Links as object map: { anchorText: url, ... }
       // Convert to array format
       rawLinks = Object.entries(linksData).map(([text, url]) => ({ text, url }));
     }
 
-    const links: ExtractedLink[] = rawLinks.map((link: any) => ({
-      text: link.text || link.anchorText || link.title || "",
-      url: link.url || link.href || "",
-    })).filter((link: ExtractedLink) => link.url);
+    const links: ExtractedLink[] = rawLinks
+      .map((link: any) => ({
+        text: link.text || link.anchorText || link.title || '',
+        url: link.url || link.href || '',
+      }))
+      .filter((link: ExtractedLink) => link.url);
 
     return {
       url,
@@ -244,17 +245,15 @@ export async function readUrlWithJinaAndLinks(
       success: true,
     };
   } catch (error) {
-    const errorMessage =
-      error instanceof Error ? error.message : String(error);
-    const isTimeout =
-      errorMessage.includes("abort") || errorMessage.includes("timeout");
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const isTimeout = errorMessage.includes('abort') || errorMessage.includes('timeout');
 
     return {
       url,
-      content: "",
+      content: '',
       links: [],
       success: false,
-      error: isTimeout ? "Jina Reader timeout reading URL" : `Jina Reader: ${errorMessage}`,
+      error: isTimeout ? 'Jina Reader timeout reading URL' : `Jina Reader: ${errorMessage}`,
     };
   }
 }
@@ -274,13 +273,7 @@ export async function executeParallelUrlRead(
   options: ParallelUrlReadOptions = {},
   ctx?: RateLimitCtx
 ): Promise<UrlReadResult[]> {
-  const {
-    maxConcurrent = 5,
-    timeoutMs = 15000,
-    maxContentLength = 10000,
-  } = options;
-
-  
+  const { maxConcurrent = 5, timeoutMs = 15000, maxContentLength = 10000 } = options;
 
   if (urls.length === 0) {
     return [];
@@ -293,8 +286,6 @@ export async function executeParallelUrlRead(
   for (let i = 0; i < urls.length; i += maxConcurrent) {
     batches.push(urls.slice(i, i + maxConcurrent));
   }
-
-  
 
   for (let i = 0; i < batches.length; i++) {
     const batch = batches[i];
@@ -313,7 +304,6 @@ export async function executeParallelUrlRead(
       await new Promise((resolve) => setTimeout(resolve, 200));
     }
   }
-
 
   return results;
 }
@@ -359,10 +349,7 @@ export interface ParallelSearchResult {
  * 3. Tutorial/how-to focused
  * 4. Gap-focused (based on previous gaps)
  */
-export function generateDiverseQueries(
-  topic: string,
-  previousGaps: string[] = []
-): string[] {
+export function generateDiverseQueries(topic: string, previousGaps: string[] = []): string[] {
   const queries: string[] = [];
 
   // Academic/research query
@@ -394,7 +381,7 @@ async function executeSearchWithRetry(
   searchFn: (signal?: AbortSignal) => Promise<StructuredSearchResult[]>,
   maxRetries: number,
   timeoutMs: number,
-  provider: string = "unknown"
+  provider: string = 'unknown'
 ): Promise<StructuredSearchResult[]> {
   let lastError: Error | undefined;
 
@@ -423,7 +410,7 @@ async function executeSearchWithRetry(
 
       // Exponential backoff before retry
       if (attempt < maxRetries) {
-        const backoffMs = Math.min(1000 * Math.pow(2, attempt), 5000);
+        const backoffMs = Math.min(1000 * 2 ** attempt, 5000);
         await new Promise((resolve) => setTimeout(resolve, backoffMs));
       }
     } finally {
@@ -442,29 +429,32 @@ async function executeSearchWithRetry(
 /**
  * Execute Exa search for a query
  */
-async function executeExaSearch(query: string, ctx?: RateLimitCtx, _signal?: AbortSignal): Promise<StructuredSearchResult[]> {
+async function executeExaSearch(
+  query: string,
+  ctx?: RateLimitCtx,
+  _signal?: AbortSignal
+): Promise<StructuredSearchResult[]> {
   const apiKey = process.env.EXA_API_KEY;
   if (!apiKey) {
-    console.warn("[executeExaSearch] EXA_API_KEY not configured");
+    console.warn('[executeExaSearch] EXA_API_KEY not configured');
     return [];
   }
 
   const exa = new Exa(apiKey);
 
   // Apply rate limiting (10 QPS)
-  const searchFn = async () => exa.searchAndContents(query, {
-    numResults: 8,
-    useAutoprompt: true,
-  });
-  const searchResults = ctx
-    ? await withRateLimit(ctx, 'exa', searchFn)
-    : await searchFn();
+  const searchFn = async () =>
+    exa.searchAndContents(query, {
+      numResults: 8,
+      useAutoprompt: true,
+    });
+  const searchResults = ctx ? await withRateLimit(ctx, 'exa', searchFn) : await searchFn();
 
   return searchResults.results.map((result: any) => ({
-    source: "exa",
-    url: result.url || "",
-    title: result.title || "",
-    content: (result.text || "").slice(0, 500),
+    source: 'exa',
+    url: result.url || '',
+    title: result.title || '',
+    content: (result.text || '').slice(0, 500),
     score: result.score || 0,
     publishedDate: result.publishedDate || undefined,
     author: result.author || undefined,
@@ -474,31 +464,34 @@ async function executeExaSearch(query: string, ctx?: RateLimitCtx, _signal?: Abo
 /**
  * Execute Jina search for a query using jinaSearch helper
  */
-async function executeJinaSearch(query: string, ctx?: RateLimitCtx, signal?: AbortSignal): Promise<StructuredSearchResult[]> {
+async function executeJinaSearch(
+  query: string,
+  ctx?: RateLimitCtx,
+  signal?: AbortSignal
+): Promise<StructuredSearchResult[]> {
   const apiKey = process.env.JINA_API_KEY;
   if (!apiKey) {
-    console.warn("[executeJinaSearch] JINA_API_KEY not configured");
+    console.warn('[executeJinaSearch] JINA_API_KEY not configured');
     return [];
   }
 
   try {
     // Apply rate limiting (100 RPM for free tier)
-    const fetchFn = async () => jinaSearch(query, {
-      apiKey,
-      timeout: 30000,
-      signal,
-      limit: 10,
-    });
+    const fetchFn = async () =>
+      jinaSearch(query, {
+        apiKey,
+        timeout: 30000,
+        signal,
+        limit: 10,
+      });
 
-    const results = ctx
-      ? await withRateLimit(ctx, 'jina', fetchFn)
-      : await fetchFn();
+    const results = ctx ? await withRateLimit(ctx, 'jina', fetchFn) : await fetchFn();
 
     return results.map((result) => ({
-      source: "jina",
-      url: result.url || result.link || "",
-      title: result.title || "",
-      content: (result.content || result.description || "").slice(0, 500),
+      source: 'jina',
+      url: result.url || result.link || '',
+      title: result.title || '',
+      content: (result.content || result.description || '').slice(0, 500),
       score: undefined,
     }));
   } catch (error) {
@@ -516,15 +509,13 @@ async function executeJinaSearch(query: string, ctx?: RateLimitCtx, signal?: Abo
 /**
  * Deduplicate results by URL
  */
-function deduplicateByUrl(
-  results: StructuredSearchResult[]
-): StructuredSearchResult[] {
+function deduplicateByUrl(results: StructuredSearchResult[]): StructuredSearchResult[] {
   const seen = new Set<string>();
   const deduplicated: StructuredSearchResult[] = [];
 
   for (const result of results) {
     // Normalize URL for comparison
-    const normalizedUrl = result.url.toLowerCase().replace(/\/$/, "");
+    const normalizedUrl = result.url.toLowerCase().replace(/\/$/, '');
     if (!seen.has(normalizedUrl) && normalizedUrl) {
       seen.add(normalizedUrl);
       deduplicated.push(result);
@@ -539,9 +530,7 @@ function deduplicateByUrl(
  *
  * Priority: exa (academic) > jina (general)
  */
-function sortByRelevance(
-  results: StructuredSearchResult[]
-): StructuredSearchResult[] {
+function sortByRelevance(results: StructuredSearchResult[]): StructuredSearchResult[] {
   return results.sort((a, b) => {
     // First sort by score if available
     if (a.score !== undefined && b.score !== undefined) {
@@ -566,18 +555,18 @@ function sortByRelevance(
  */
 function formatFindings(results: StructuredSearchResult[]): string {
   if (results.length === 0) {
-    return "No search results found.";
+    return 'No search results found.';
   }
 
   const formattedResults = results.map((result, index) => {
-    return `[${index + 1}] **${result.title || "Untitled"}**
+    return `[${index + 1}] **${result.title || 'Untitled'}**
 Source: ${result.source}
 URL: ${result.url}
 ${result.content}
 `;
   });
 
-  return `Found ${results.length} relevant sources:\n\n${formattedResults.join("\n")}`;
+  return `Found ${results.length} relevant sources:\n\n${formattedResults.join('\n')}`;
 }
 
 /**
@@ -601,25 +590,26 @@ export async function executeParallelSearchWithRetry(
   ctx?: RateLimitCtx
 ): Promise<ParallelSearchResult> {
   const startTime = Date.now();
-  const {
-    maxRetries = 2,
-    timeoutMs = 30000,
-    deduplicateResults = true,
-  } = options;
-
-  
+  const { maxRetries = 2, timeoutMs = 30000, deduplicateResults = true } = options;
 
   // Generate diverse queries
   const queries = generateDiverseQueries(topic, previousGaps);
-  
 
   // Execute all searches in parallel with provider attribution
   const searchPromises = queries.flatMap((query) => [
-    executeSearchWithRetry((signal) => executeExaSearch(query, ctx, signal), maxRetries, timeoutMs, "Exa"),
-    executeSearchWithRetry((signal) => executeJinaSearch(query, ctx, signal), maxRetries, timeoutMs, "Jina"),
+    executeSearchWithRetry(
+      (signal) => executeExaSearch(query, ctx, signal),
+      maxRetries,
+      timeoutMs,
+      'Exa'
+    ),
+    executeSearchWithRetry(
+      (signal) => executeJinaSearch(query, ctx, signal),
+      maxRetries,
+      timeoutMs,
+      'Jina'
+    ),
   ]);
-
-  
 
   // Use Promise.allSettled for resilient execution
   const settledResults = await Promise.allSettled(searchPromises);
@@ -629,18 +619,15 @@ export async function executeParallelSearchWithRetry(
   let toolCallCount = 0;
 
   for (const result of settledResults) {
-    if (result.status === "fulfilled" && result.value.length > 0) {
+    if (result.status === 'fulfilled' && result.value.length > 0) {
       allResults.push(...result.value);
       toolCallCount++;
     }
   }
 
-  
-
   // Deduplicate
   if (deduplicateResults) {
     allResults = deduplicateByUrl(allResults);
-    
   }
 
   // Sort by relevance
@@ -650,7 +637,6 @@ export async function executeParallelSearchWithRetry(
   const findings = formatFindings(allResults);
 
   const durationMs = Date.now() - startTime;
-  
 
   return {
     findings,

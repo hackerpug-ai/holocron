@@ -5,38 +5,31 @@
  * Follows the ToolApprovalCard pattern: header + status + content + actions.
  */
 
-import { useState } from 'react'
-import { Pressable, TextInput, View } from 'react-native'
-import { useMutation } from 'convex/react'
-import { api } from '@/convex/_generated/api'
-import type { Id } from '@/convex/_generated/dataModel'
-import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
-import { Text } from '@/components/ui/text'
-import { cn } from '@/lib/utils'
-import {
-  ArrowRight,
-  Check,
-  CheckCircle2,
-  GitFork,
-  X,
-  XCircle,
-} from '@/components/ui/icons'
+import { useMutation } from 'convex/react';
+import { useState } from 'react';
+import { Pressable, TextInput, View } from 'react-native';
+import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
+import { ArrowRight, Check, CheckCircle2, GitFork, X, XCircle } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { api } from '@/convex/_generated/api';
+import type { Id } from '@/convex/_generated/dataModel';
+import { cn } from '@/lib/utils';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface AssimilationPlanCardProps {
-  sessionId: string
-  repositoryName: string
-  repositoryUrl: string
-  profile: string
-  planSummary: string
-  status: 'pending_approval' | 'approved' | 'rejected' | 'in_progress' | 'completed'
-  dimensionScores?: Record<string, number>
-  currentIteration?: number
-  maxIterations?: number
-  onApprove?: () => void
-  onReject?: (feedback?: string) => void
-  onViewPlan?: () => void
+  sessionId: string;
+  repositoryName: string;
+  repositoryUrl: string;
+  profile: string;
+  planSummary: string;
+  status: 'pending_approval' | 'approved' | 'rejected' | 'in_progress' | 'completed';
+  dimensionScores?: Record<string, number>;
+  currentIteration?: number;
+  maxIterations?: number;
+  onApprove?: () => void;
+  onReject?: (feedback?: string) => void;
+  onViewPlan?: () => void;
 }
 
 // ── Dimensions ────────────────────────────────────────────────────────────────
@@ -47,7 +40,7 @@ const DIMENSIONS = [
   { key: 'documentation', label: 'Documentation' },
   { key: 'dependencies', label: 'Dependencies' },
   { key: 'testing', label: 'Testing' },
-] as const
+] as const;
 
 // ── Status badge ──────────────────────────────────────────────────────────────
 
@@ -75,17 +68,15 @@ const STATUS_BADGE: Record<
     label: 'Rejected',
     className: 'bg-destructive/15 text-destructive',
   },
-}
+};
 
 function StatusBadge({ status }: { status: AssimilationPlanCardProps['status'] }) {
-  const config = STATUS_BADGE[status]
+  const config = STATUS_BADGE[status];
   return (
     <View className={cn('rounded-full px-2 py-0.5', config.className)}>
-      <Text className={cn('text-xs font-semibold', config.className)}>
-        {config.label}
-      </Text>
+      <Text className={cn('text-xs font-semibold', config.className)}>{config.label}</Text>
     </View>
-  )
+  );
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
@@ -104,29 +95,26 @@ export function AssimilationPlanCard({
   onReject,
   onViewPlan,
 }: AssimilationPlanCardProps) {
-  const [showFeedback, setShowFeedback] = useState(false)
-  const [feedbackText, setFeedbackText] = useState('')
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [feedbackText, setFeedbackText] = useState('');
 
-  const isPending = status === 'pending_approval'
-  const isRejected = status === 'rejected'
-  const isCompleted = status === 'completed'
+  const isPending = status === 'pending_approval';
+  const isRejected = status === 'rejected';
+  const isCompleted = status === 'completed';
 
   const handleRejectPress = () => {
     if (showFeedback) {
-      onReject?.(feedbackText.trim() || undefined)
-      setShowFeedback(false)
-      setFeedbackText('')
+      onReject?.(feedbackText.trim() || undefined);
+      setShowFeedback(false);
+      setFeedbackText('');
     } else {
-      setShowFeedback(true)
+      setShowFeedback(true);
     }
-  }
+  };
 
   return (
     <Card
-      className={cn(
-        'border',
-        isPending ? 'border-primary/50' : 'border-border'
-      )}
+      className={cn('border', isPending ? 'border-primary/50' : 'border-border')}
       testID="assimilation-plan-card"
     >
       {/* ── Header ── */}
@@ -134,9 +122,7 @@ export function AssimilationPlanCard({
         <View className="flex-row items-center gap-2">
           <GitFork size={16} className="text-muted-foreground shrink-0" />
           <View className="flex-1">
-            <Text className="text-muted-foreground text-xs">
-              Assimilation Plan
-            </Text>
+            <Text className="text-muted-foreground text-xs">Assimilation Plan</Text>
             <Text className="text-foreground font-semibold" numberOfLines={1}>
               {repositoryName}
             </Text>
@@ -161,8 +147,8 @@ export function AssimilationPlanCard({
             Coverage Dimensions
           </Text>
           {DIMENSIONS.map(({ key, label }) => {
-            const score = dimensionScores?.[key]
-            const hasScore = score !== undefined && score > 0
+            const score = dimensionScores?.[key];
+            const hasScore = score !== undefined && score > 0;
 
             return (
               <View key={key} className="flex-row items-center gap-2 py-0.5">
@@ -180,12 +166,10 @@ export function AssimilationPlanCard({
                   {label}
                 </Text>
                 {hasScore && (
-                  <Text className="text-xs text-muted-foreground font-mono">
-                    {score}
-                  </Text>
+                  <Text className="text-xs text-muted-foreground font-mono">{score}</Text>
                 )}
               </View>
-            )
+            );
           })}
         </View>
 
@@ -225,9 +209,7 @@ export function AssimilationPlanCard({
         {isCompleted ? (
           <View className="flex-row items-center gap-2 py-1">
             <CheckCircle2 size={16} className="text-success" />
-            <Text className="text-success text-sm font-medium">
-              Assimilation complete
-            </Text>
+            <Text className="text-success text-sm font-medium">Assimilation complete</Text>
           </View>
         ) : null}
 
@@ -249,9 +231,7 @@ export function AssimilationPlanCard({
             onPress={onApprove}
           >
             <Check size={15} className="text-primary-foreground" />
-            <Text className="text-primary-foreground text-sm font-semibold">
-              Approve
-            </Text>
+            <Text className="text-primary-foreground text-sm font-semibold">Approve</Text>
           </Pressable>
 
           <Pressable
@@ -267,7 +247,7 @@ export function AssimilationPlanCard({
         </CardFooter>
       ) : null}
     </Card>
-  )
+  );
 }
 
 // ── Convex-wired wrapper ───────────────────────────────────────────────────────
@@ -275,7 +255,7 @@ export function AssimilationPlanCard({
 export type AssimilationPlanCardWithConvexProps = Omit<
   AssimilationPlanCardProps,
   'onApprove' | 'onReject'
->
+>;
 
 /**
  * AssimilationPlanCardWithConvex wires the AssimilationPlanCard to Convex
@@ -285,16 +265,14 @@ export function AssimilationPlanCardWithConvex({
   sessionId,
   ...props
 }: AssimilationPlanCardWithConvexProps) {
-  const approve = useMutation(api.assimilate.mutations.approveAssimilationPlan)
-  const reject = useMutation(api.assimilate.mutations.rejectAssimilationPlan)
+  const approve = useMutation(api.assimilate.mutations.approveAssimilationPlan);
+  const reject = useMutation(api.assimilate.mutations.rejectAssimilationPlan);
 
   return (
     <AssimilationPlanCard
       {...props}
       sessionId={sessionId}
-      onApprove={() =>
-        approve({ sessionId: sessionId as Id<'assimilationSessions'> })
-      }
+      onApprove={() => approve({ sessionId: sessionId as Id<'assimilationSessions'> })}
       onReject={(feedback) =>
         reject({
           sessionId: sessionId as Id<'assimilationSessions'>,
@@ -302,5 +280,5 @@ export function AssimilationPlanCardWithConvex({
         })
       }
     />
-  )
+  );
 }

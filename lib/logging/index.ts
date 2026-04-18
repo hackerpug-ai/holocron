@@ -10,20 +10,16 @@
  * ```
  */
 
-// Type definitions
-export type { LogLevel, LogEntry, LoggerConfig, SanitizationPattern } from './types';
-
-// Core logger class
-export { Logger } from './Logger';
-
 // Configuration
 export { defaultConfig, getPlatformString, isValidLogLevel, parseLogLevel } from './config';
 
-// Sanitization
-export { sanitize, sanitizeObject, sanitizeError, getSanitizationPatterns } from './sanitizers';
-
+// Core logger class
+export { Logger } from './Logger';
+// Log rotation
+export { cleanupOldLogs, getLogFiles, performLogRotation } from './LogRotation';
 // File writer
 export { LogWriter } from './LogWriter';
-
-// Log rotation
-export { performLogRotation, cleanupOldLogs, getLogFiles } from './LogRotation';
+// Sanitization
+export { getSanitizationPatterns, sanitize, sanitizeError, sanitizeObject } from './sanitizers';
+// Type definitions
+export type { LogEntry, LoggerConfig, LogLevel, SanitizationPattern } from './types';

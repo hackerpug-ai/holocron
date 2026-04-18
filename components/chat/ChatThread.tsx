@@ -1,50 +1,57 @@
-import { View, FlatList, ActivityIndicator, Pressable, useWindowDimensions } from 'react-native'
-import { Text } from '@/components/ui/text'
-import { useRef, useEffect, useCallback, useState } from 'react'
-import { useRouter } from 'expo-router'
-import type { MessageRole, MessageType } from '@/lib/types/conversations'
-import { MessageBubble } from './MessageBubble'
-import { TypingIndicator } from './TypingIndicator'
-import { MessageActionsSheet } from './MessageActionsSheet'
-import { AgentActivityIndicator } from './AgentActivityIndicator'
-import { useAgentActivity } from '@/hooks/use-agent-activity'
-import * as Haptics from 'expo-haptics'
+import * as Haptics from 'expo-haptics';
+import { useRouter } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, FlatList, Pressable, useWindowDimensions, View } from 'react-native';
+import { Text } from '@/components/ui/text';
+import { useAgentActivity } from '@/hooks/use-agent-activity';
+import type { MessageRole, MessageType } from '@/lib/types/conversations';
+import { AgentActivityIndicator } from './AgentActivityIndicator';
+import { MessageActionsSheet } from './MessageActionsSheet';
+import { MessageBubble } from './MessageBubble';
+import { TypingIndicator } from './TypingIndicator';
 
 export interface ChatMessage {
-  id: string
-  role: MessageRole
-  content: string
-  message_type?: MessageType
-  card_data?: Record<string, unknown> | null
-  toolCallId?: string | null
-  voiceSessionId?: string | null
-  createdAt: Date
+  id: string;
+  role: MessageRole;
+  content: string;
+  message_type?: MessageType;
+  card_data?: Record<string, unknown> | null;
+  toolCallId?: string | null;
+  voiceSessionId?: string | null;
+  createdAt: Date;
 }
 
 export interface ChatThreadProps {
-  messages: ChatMessage[]
-  showTypingIndicator?: boolean
+  messages: ChatMessage[];
+  showTypingIndicator?: boolean;
   /** Initial loading state - shows subtle inline loader */
-  isLoading?: boolean
+  isLoading?: boolean;
   /** Safe area top inset to apply as padding */
-  safeAreaTop?: number
-  testID?: string
+  safeAreaTop?: number;
+  testID?: string;
   /** Callback when a final result card is pressed - navigate to research detail */
-  onFinalResultPress?: (sessionId: string) => void
+  onFinalResultPress?: (sessionId: string) => void;
   /** Callback when a What's New report card is pressed - navigate to report detail */
-  onWhatsNewReportPress?: (reportId: string) => void
+  onWhatsNewReportPress?: (reportId: string) => void;
   /** Callback when a message is deleted */
-  onDeleteMessage?: (messageId: string) => void
+  onDeleteMessage?: (messageId: string) => void;
   /** ID of the message currently being streamed - shows cursor, suppresses typing indicator */
-  streamingMessageId?: string | null
+  streamingMessageId?: string | null;
   /** Navigate to a document with optional highlight at a specific block */
-  onDocumentContextNavigate?: (documentId: string, blockIndex?: number) => void
+  onDocumentContextNavigate?: (documentId: string, blockIndex?: number) => void;
   /** Callback when a single recommendation is saved to KB */
-  onSaveRecommendation?: (item: { id: string; title: string; description?: string; url?: string }) => void
+  onSaveRecommendation?: (item: {
+    id: string;
+    title: string;
+    description?: string;
+    url?: string;
+  }) => void;
   /** Callback when all recommendations in a list are saved to KB */
-  onSaveRecommendationList?: (items: { id: string; title: string; description?: string; url?: string }[]) => void
+  onSaveRecommendationList?: (
+    items: { id: string; title: string; description?: string; url?: string }[]
+  ) => void;
   /** Callback when a clarification quick reply is tapped - sends message as user */
-  onSendMessage?: (text: string) => void
+  onSendMessage?: (text: string) => void;
 }
 
 export function ChatThread({
@@ -62,66 +69,72 @@ export function ChatThread({
   onSaveRecommendationList,
   onSendMessage,
 }: ChatThreadProps) {
-  const { width: _screenWidth } = useWindowDimensions()
+  const { width: _screenWidth } = useWindowDimensions();
 
   // Bottom sheet state for message actions
-  const [actionSheetVisible, setActionSheetVisible] = useState(false)
-  const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null)
-  const [selectedMessageContent, setSelectedMessageContent] = useState<string | null>(null)
+  const [actionSheetVisible, setActionSheetVisible] = useState(false);
+  const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
+  const [selectedMessageContent, setSelectedMessageContent] = useState<string | null>(null);
 
   // Check if the most recent message has an active research loading card
   // If so, suppress the typing indicator to avoid showing double loaders
-  const hasActiveResearchCard = messages.length > 0 && (() => {
-    const lastMessage = messages[0] // FlatList is inverted, so [0] is newest
-    if (lastMessage?.message_type === 'result_card' && lastMessage?.card_data) {
-      const cardType = lastMessage.card_data.card_type
-      const status = lastMessage.card_data.status
-      // Active research card is one that's loading (not completed)
-      return cardType === 'deep_research_loading' && status !== 'completed'
-    }
-    return false
-  })()
+  const hasActiveResearchCard =
+    messages.length > 0 &&
+    (() => {
+      const lastMessage = messages[0]; // FlatList is inverted, so [0] is newest
+      if (lastMessage?.message_type === 'result_card' && lastMessage?.card_data) {
+        const cardType = lastMessage.card_data.card_type;
+        const status = lastMessage.card_data.status;
+        // Active research card is one that's loading (not completed)
+        return cardType === 'deep_research_loading' && status !== 'completed';
+      }
+      return false;
+    })();
 
-  const effectiveShowTypingIndicator = showTypingIndicator && !hasActiveResearchCard && !streamingMessageId
-  const flatListRef = useRef<FlatList>(null)
-  const router = useRouter()
+  const effectiveShowTypingIndicator =
+    showTypingIndicator && !hasActiveResearchCard && !streamingMessageId;
+  const flatListRef = useRef<FlatList>(null);
+  const router = useRouter();
 
   // Subscribe to agent activity for phase-aware indicator
-  const { phase, toolName } = useAgentActivity({ threadId: undefined })
-  const aaiActive = phase !== 'idle'
+  const { phase, toolName } = useAgentActivity({ threadId: undefined });
+  const aaiActive = phase !== 'idle';
 
   // Auto-scroll to bottom when new messages are added or typing indicator appears
   // Note: FlatList is inverted, so offset 0 is the visual bottom (newest messages)
   useEffect(() => {
     if (messages.length > 0 || effectiveShowTypingIndicator) {
-      flatListRef.current?.scrollToOffset({ offset: 0, animated: true })
+      flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
     }
-  }, [messages.length, effectiveShowTypingIndicator])
+  }, [messages.length, effectiveShowTypingIndicator]);
 
   // Handle card press - navigate to document screen
-  const handleCardPress = useCallback((documentId: string) => {
-    router.push(`/document/${documentId}`)
-  }, [router])
+  const handleCardPress = useCallback(
+    (documentId: string) => {
+      router.push(`/document/${documentId}`);
+    },
+    [router]
+  );
 
   const handleMessageLongPress = useCallback((messageId: string, content: string) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
-    setSelectedMessageId(messageId)
-    setSelectedMessageContent(content)
-    setActionSheetVisible(true)
-  }, [])
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setSelectedMessageId(messageId);
+    setSelectedMessageContent(content);
+    setActionSheetVisible(true);
+  }, []);
 
   const handleDeleteFromSheet = useCallback(() => {
     if (selectedMessageId && onDeleteMessage) {
-      onDeleteMessage(selectedMessageId)
+      onDeleteMessage(selectedMessageId);
     }
-    setSelectedMessageId(null)
-  }, [selectedMessageId, onDeleteMessage])
+    setSelectedMessageId(null);
+  }, [selectedMessageId, onDeleteMessage]);
 
   const handleSheetClose = useCallback(() => {
-    setActionSheetVisible(false)
-    setSelectedMessageId(null)
-    setSelectedMessageContent(null)
-  }, [])
+    setActionSheetVisible(false);
+    setSelectedMessageId(null);
+    setSelectedMessageContent(null);
+  }, []);
 
   const renderMessage = ({ item }: { item: ChatMessage }) => (
     <Pressable
@@ -148,7 +161,7 @@ export function ChatThread({
         onSendMessage={onSendMessage}
       />
     </Pressable>
-  )
+  );
 
   const renderEmptyState = () => {
     // While loading, show nothing (seamless UI) - or a very subtle indicator
@@ -161,7 +174,7 @@ export function ChatThread({
         >
           <ActivityIndicator size="small" className="text-muted-foreground opacity-50" />
         </View>
-      )
+      );
     }
 
     // Truly empty - show helpful message
@@ -177,8 +190,8 @@ export function ChatThread({
           Start a conversation to see messages here
         </Text>
       </View>
-    )
-  }
+    );
+  };
 
   const renderTypingIndicator = () => {
     if (aaiActive) {
@@ -186,11 +199,11 @@ export function ChatThread({
         <View className="my-1 px-4 items-start">
           <AgentActivityIndicator phase={phase} toolName={toolName} />
         </View>
-      )
+      );
     }
-    if (!effectiveShowTypingIndicator) return null
-    return <TypingIndicator />
-  }
+    if (!effectiveShowTypingIndicator) return null;
+    return <TypingIndicator />;
+  };
 
   return (
     <View className="flex-1" testID={testID}>
@@ -217,5 +230,5 @@ export function ChatThread({
         messageContent={selectedMessageContent}
       />
     </View>
-  )
+  );
 }

@@ -4,7 +4,7 @@
  * Stubs allow tsc to pass before packages are available.
  */
 
-declare module "react-native-webrtc-web-shim" {
+declare module 'react-native-webrtc-web-shim' {
   export const mediaDevices: {
     getUserMedia(constraints: { audio: boolean }): Promise<unknown>;
   };
@@ -32,7 +32,7 @@ declare module "react-native-webrtc-web-shim" {
   }
 }
 
-declare module "react-native-incall-manager" {
+declare module 'react-native-incall-manager' {
   const InCallManager: {
     start(options: { media: string }): void;
     stop(): void;

@@ -1,5 +1,5 @@
-import { internalMutation, mutation } from "../_generated/server";
-import { v } from "convex/values";
+import { v } from 'convex/values';
+import { internalMutation, mutation } from '../_generated/server';
 
 /**
  * Internal mutation to create a voiceSession record.
@@ -8,13 +8,13 @@ import { v } from "convex/values";
  */
 export const internalCreateSession = internalMutation({
   args: {
-    conversationId: v.id("conversations"),
+    conversationId: v.id('conversations'),
     startedAt: v.number(),
   },
-  returns: v.id("voiceSessions"),
+  returns: v.id('voiceSessions'),
   handler: async (ctx, args) => {
     const now = Date.now();
-    const sessionId = await ctx.db.insert("voiceSessions", {
+    const sessionId = await ctx.db.insert('voiceSessions', {
       conversationId: args.conversationId,
       startedAt: args.startedAt,
       turnCount: 0,
@@ -31,12 +31,12 @@ export const internalCreateSession = internalMutation({
  * Throws if the session has already been completed.
  */
 export const endSession = mutation({
-  args: { sessionId: v.id("voiceSessions") },
+  args: { sessionId: v.id('voiceSessions') },
   returns: v.null(),
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
-    if (!session) throw new Error("Session not found");
-    if (session.completedAt) throw new Error("Session already ended");
+    if (!session) throw new Error('Session not found');
+    if (session.completedAt) throw new Error('Session already ended');
     const now = Date.now();
     await ctx.db.patch(args.sessionId, {
       completedAt: now,
@@ -53,23 +53,23 @@ export const endSession = mutation({
  */
 export const recordTranscript = mutation({
   args: {
-    sessionId: v.id("voiceSessions"),
-    conversationId: v.id("conversations"),
-    role: v.union(v.literal("user"), v.literal("agent")),
+    sessionId: v.id('voiceSessions'),
+    conversationId: v.id('conversations'),
+    role: v.union(v.literal('user'), v.literal('agent')),
     content: v.string(),
   },
-  returns: v.id("chatMessages"),
+  returns: v.id('chatMessages'),
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
-    if (!session) throw new Error("Session not found");
+    if (!session) throw new Error('Session not found');
 
     const now = Date.now();
 
-    const messageId = await ctx.db.insert("chatMessages", {
+    const messageId = await ctx.db.insert('chatMessages', {
       conversationId: args.conversationId,
       role: args.role,
       content: args.content,
-      messageType: "text",
+      messageType: 'text',
       voiceSessionId: args.sessionId,
       createdAt: now,
     });
@@ -89,7 +89,7 @@ export const recordTranscript = mutation({
  */
 export const recordCommand = mutation({
   args: {
-    sessionId: v.id("voiceSessions"),
+    sessionId: v.id('voiceSessions'),
     transcript: v.string(),
     intent: v.string(),
     actionType: v.string(),
@@ -112,14 +112,14 @@ export const recordCommand = mutation({
       })
     ),
   },
-  returns: v.id("voiceCommands"),
+  returns: v.id('voiceCommands'),
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
-    if (!session) throw new Error("Session not found");
+    if (!session) throw new Error('Session not found');
 
     const now = Date.now();
 
-    const commandId = await ctx.db.insert("voiceCommands", {
+    const commandId = await ctx.db.insert('voiceCommands', {
       sessionId: args.sessionId,
       transcript: args.transcript,
       intent: args.intent,
@@ -143,7 +143,7 @@ export const recordCommand = mutation({
  * Safe to call on an already-completed session — returns null without patching.
  */
 export const internalEndSession = internalMutation({
-  args: { sessionId: v.id("voiceSessions") },
+  args: { sessionId: v.id('voiceSessions') },
   returns: v.null(),
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
@@ -152,7 +152,7 @@ export const internalEndSession = internalMutation({
     await ctx.db.patch(args.sessionId, {
       completedAt: now,
       totalDurationMs: now - session.startedAt,
-      errorMessage: "Replaced by new session",
+      errorMessage: 'Replaced by new session',
       updatedAt: now,
     });
     return null;
@@ -176,13 +176,13 @@ export const generateAudioUploadUrl = mutation({
  */
 export const attachAudio = mutation({
   args: {
-    sessionId: v.id("voiceSessions"),
-    storageId: v.id("_storage"),
+    sessionId: v.id('voiceSessions'),
+    storageId: v.id('_storage'),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
-    if (!session) throw new Error("Session not found");
+    if (!session) throw new Error('Session not found');
 
     await ctx.db.patch(args.sessionId, {
       audioStorageId: args.storageId,
@@ -200,12 +200,12 @@ export const setVoiceLanguage = mutation({
   args: { language: v.string() },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const prefs = await ctx.db.query("userPreferences").first();
+    const prefs = await ctx.db.query('userPreferences').first();
     const now = Date.now();
     if (prefs) {
       await ctx.db.patch(prefs._id, { voiceLanguage: args.language, updatedAt: now });
     } else {
-      await ctx.db.insert("userPreferences", { voiceLanguage: args.language, updatedAt: now });
+      await ctx.db.insert('userPreferences', { voiceLanguage: args.language, updatedAt: now });
     }
     return null;
   },

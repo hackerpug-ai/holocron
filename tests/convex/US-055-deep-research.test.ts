@@ -9,7 +9,7 @@
  * These tests verify the current research API structure and the deprecated stubs.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 describe('US-055: Deep Research Workflow', () => {
   /**
@@ -28,9 +28,7 @@ describe('US-055: Deep Research Workflow', () => {
 
     it('should export deprecated planResearch stub that throws', async () => {
       const { planResearch } = await import('../../convex/research/tools');
-      await expect(planResearch('test query')).rejects.toThrow(
-        /STUB_FUNCTION_REMOVED/
-      );
+      await expect(planResearch('test query')).rejects.toThrow(/STUB_FUNCTION_REMOVED/);
     });
   });
 
@@ -39,28 +37,20 @@ describe('US-055: Deep Research Workflow', () => {
    */
   describe('AC-2: Deprecated stub functions', () => {
     it('should throw from executeSubagentSearch with deprecation message', async () => {
-      const { executeSubagentSearch } = await import(
-        '../../convex/research/tools'
+      const { executeSubagentSearch } = await import('../../convex/research/tools');
+      await expect(executeSubagentSearch('test objective')).rejects.toThrow(
+        /STUB_FUNCTION_REMOVED/
       );
-      await expect(
-        executeSubagentSearch('test objective')
-      ).rejects.toThrow(/STUB_FUNCTION_REMOVED/);
     });
 
     it('should throw from synthesizeFindings with deprecation message', async () => {
-      const { synthesizeFindings } = await import(
-        '../../convex/research/tools'
-      );
-      await expect(synthesizeFindings([])).rejects.toThrow(
-        /STUB_FUNCTION_REMOVED/
-      );
+      const { synthesizeFindings } = await import('../../convex/research/tools');
+      await expect(synthesizeFindings([])).rejects.toThrow(/STUB_FUNCTION_REMOVED/);
     });
 
     it('should throw from assessCoverage with deprecation message', async () => {
       const { assessCoverage } = await import('../../convex/research/tools');
-      await expect(assessCoverage('test synthesis')).rejects.toThrow(
-        /STUB_FUNCTION_REMOVED/
-      );
+      await expect(assessCoverage('test synthesis')).rejects.toThrow(/STUB_FUNCTION_REMOVED/);
     });
   });
 

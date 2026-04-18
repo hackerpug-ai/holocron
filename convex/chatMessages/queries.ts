@@ -1,5 +1,5 @@
-import { query } from "../_generated/server";
-import { v } from "convex/values";
+import { v } from 'convex/values';
+import { query } from '../_generated/server';
 
 /**
  * Get chat message count (for validation)
@@ -7,7 +7,7 @@ import { v } from "convex/values";
 export const count = query({
   args: {},
   handler: async (ctx) => {
-    const messages = await ctx.db.query("chatMessages").collect();
+    const messages = await ctx.db.query('chatMessages').collect();
     return messages.length;
   },
 });
@@ -18,17 +18,15 @@ export const count = query({
  */
 export const listByConversation = query({
   args: {
-    conversationId: v.id("conversations"),
+    conversationId: v.id('conversations'),
     limit: v.optional(v.number()),
   },
   handler: async (ctx, { conversationId, limit = 50 }) => {
     const messages = await ctx.db
-      .query("chatMessages")
-      .withIndex("by_conversation", (q) =>
-        q.eq("conversationId", conversationId)
-      )
-      .order("desc")
-      .filter((q) => q.neq(q.field("deleted"), true))
+      .query('chatMessages')
+      .withIndex('by_conversation', (q) => q.eq('conversationId', conversationId))
+      .order('desc')
+      .filter((q) => q.neq(q.field('deleted'), true))
       .take(limit);
 
     // Return in descending order (newest first) for inverted FlatList
@@ -41,16 +39,16 @@ export const listByConversation = query({
  */
 export const list = query({
   args: {
-    conversationId: v.optional(v.id("conversations")),
+    conversationId: v.optional(v.id('conversations')),
   },
   handler: async (ctx, { conversationId }) => {
     if (conversationId) {
       return await ctx.db
-        .query("chatMessages")
-        .withIndex("by_conversation", (q) => q.eq("conversationId", conversationId))
+        .query('chatMessages')
+        .withIndex('by_conversation', (q) => q.eq('conversationId', conversationId))
         .collect();
     }
-    return await ctx.db.query("chatMessages").collect();
+    return await ctx.db.query('chatMessages').collect();
   },
 });
 
@@ -59,7 +57,7 @@ export const list = query({
  */
 export const get = query({
   args: {
-    id: v.id("chatMessages"),
+    id: v.id('chatMessages'),
   },
   handler: async (ctx, { id }) => {
     const message = await ctx.db.get(id);
@@ -75,23 +73,20 @@ export const get = query({
  */
 export const findLoadingCardBySession = query({
   args: {
-    conversationId: v.id("conversations"),
+    conversationId: v.id('conversations'),
     sessionId: v.string(),
   },
   handler: async (ctx, { conversationId, sessionId }) => {
     const messages = await ctx.db
-      .query("chatMessages")
-      .withIndex("by_conversation", (q) => q.eq("conversationId", conversationId))
-      .filter((q) => q.eq(q.field("messageType"), "result_card"))
+      .query('chatMessages')
+      .withIndex('by_conversation', (q) => q.eq('conversationId', conversationId))
+      .filter((q) => q.eq(q.field('messageType'), 'result_card'))
       .collect();
 
     // Find the message with matching session_id and card_type
     const loadingCard = messages.find((msg) => {
       const cardData = msg.cardData as Record<string, unknown> | undefined;
-      return (
-        cardData?.card_type === "deep_research_loading" &&
-        cardData?.session_id === sessionId
-      );
+      return cardData?.card_type === 'deep_research_loading' && cardData?.session_id === sessionId;
     });
 
     return loadingCard ?? null;

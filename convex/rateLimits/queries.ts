@@ -2,9 +2,9 @@
  * Rate limit queries for synthesis providers
  */
 
-import { query } from "../_generated/server";
-import { v } from "convex/values";
-import { providerValidator } from "../synthesis/rateLimits";
+import { v } from 'convex/values';
+import { query } from '../_generated/server';
+import { providerValidator } from '../synthesis/rateLimits';
 
 /**
  * Get rate limit status for a provider
@@ -16,7 +16,7 @@ export const getStatus = query({
   },
   returns: v.object({
     provider: v.string(),
-    status: v.union(v.literal("available"), v.literal("throttled"), v.literal("exhausted")),
+    status: v.union(v.literal('available'), v.literal('throttled'), v.literal('exhausted')),
     quota: v.object({
       limit: v.number(),
       used: v.number(),
@@ -31,15 +31,15 @@ export const getStatus = query({
   }),
   handler: async (ctx, args) => {
     const tracker = await ctx.db
-      .query("rateLimitTracking")
-      .withIndex("by_provider", (q) => q.eq("provider", args.provider))
+      .query('rateLimitTracking')
+      .withIndex('by_provider', (q) => q.eq('provider', args.provider))
       .unique();
 
     if (!tracker) {
       // Return default status for new provider
       return {
         provider: args.provider,
-        status: "available" as const,
+        status: 'available' as const,
         quota: {
           limit: -1, // Unknown until initialized
           used: 0,
@@ -59,7 +59,8 @@ export const getStatus = query({
       quota: {
         limit: tracker.quotaLimit,
         used: tracker.quotaUsed,
-        remaining: tracker.quotaLimit === -1 ? -1 : Math.max(0, tracker.quotaLimit - tracker.quotaUsed),
+        remaining:
+          tracker.quotaLimit === -1 ? -1 : Math.max(0, tracker.quotaLimit - tracker.quotaUsed),
         resetsAt: tracker.quotaResetAt,
       },
       concurrent: {
@@ -79,7 +80,7 @@ export const listAll = query({
   returns: v.array(
     v.object({
       provider: v.string(),
-      status: v.union(v.literal("available"), v.literal("throttled"), v.literal("exhausted")),
+      status: v.union(v.literal('available'), v.literal('throttled'), v.literal('exhausted')),
       quotaLimit: v.number(),
       quotaUsed: v.number(),
       concurrentRequests: v.number(),
@@ -88,7 +89,7 @@ export const listAll = query({
     })
   ),
   handler: async (ctx) => {
-    const trackers = await ctx.db.query("rateLimitTracking").collect();
+    const trackers = await ctx.db.query('rateLimitTracking').collect();
 
     return trackers.map((t) => ({
       provider: t.provider,

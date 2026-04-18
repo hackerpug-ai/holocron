@@ -1,31 +1,27 @@
-import { Text } from '@/components/ui/text'
-import { cn } from '@/lib/utils'
-import { Bot } from '@/components/ui/icons'
-import { useEffect, useRef } from 'react'
-import { Animated, Easing, View, type ViewProps } from 'react-native'
+import { useEffect, useRef } from 'react';
+import { Animated, Easing, View, type ViewProps } from 'react-native';
+import { Bot } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { cn } from '@/lib/utils';
 
 interface TypingIndicatorProps extends Omit<ViewProps, 'children'> {
   /** Whether the indicator is visible */
-  visible?: boolean
+  visible?: boolean;
 }
 
 /**
  * TypingIndicator shows an elegant pulsing animation to indicate the agent is processing.
  * Features a breathing glow effect and subtle dot wave.
  */
-export function TypingIndicator({
-  visible = true,
-  className,
-  ...props
-}: TypingIndicatorProps) {
-  const dot1 = useRef(new Animated.Value(0)).current
-  const dot2 = useRef(new Animated.Value(0)).current
-  const dot3 = useRef(new Animated.Value(0)).current
-  const containerFade = useRef(new Animated.Value(0)).current
-  const pulseAnim = useRef(new Animated.Value(0.6)).current
+export function TypingIndicator({ visible = true, className, ...props }: TypingIndicatorProps) {
+  const dot1 = useRef(new Animated.Value(0)).current;
+  const dot2 = useRef(new Animated.Value(0)).current;
+  const dot3 = useRef(new Animated.Value(0)).current;
+  const containerFade = useRef(new Animated.Value(0)).current;
+  const pulseAnim = useRef(new Animated.Value(0.6)).current;
 
   useEffect(() => {
-    if (!visible) return
+    if (!visible) return;
 
     // Fade in container
     Animated.timing(containerFade, {
@@ -33,7 +29,7 @@ export function TypingIndicator({
       duration: 200,
       easing: Easing.out(Easing.ease),
       useNativeDriver: true,
-    }).start()
+    }).start();
 
     // Subtle pulse for the avatar
     const pulseLoop = Animated.loop(
@@ -51,8 +47,8 @@ export function TypingIndicator({
           useNativeDriver: true,
         }),
       ])
-    )
-    pulseLoop.start()
+    );
+    pulseLoop.start();
 
     // Dot wave animation - smoother, more organic
     const createDotAnimation = (dot: Animated.Value, delay: number) => {
@@ -72,26 +68,26 @@ export function TypingIndicator({
             useNativeDriver: true,
           }),
         ])
-      )
-    }
+      );
+    };
 
-    const animation1 = createDotAnimation(dot1, 0)
-    const animation2 = createDotAnimation(dot2, 200)
-    const animation3 = createDotAnimation(dot3, 400)
+    const animation1 = createDotAnimation(dot1, 0);
+    const animation2 = createDotAnimation(dot2, 200);
+    const animation3 = createDotAnimation(dot3, 400);
 
-    animation1.start()
-    animation2.start()
-    animation3.start()
+    animation1.start();
+    animation2.start();
+    animation3.start();
 
     return () => {
-      pulseLoop.stop()
-      animation1.stop()
-      animation2.stop()
-      animation3.stop()
-    }
-  }, [visible, dot1, dot2, dot3, containerFade, pulseAnim])
+      pulseLoop.stop();
+      animation1.stop();
+      animation2.stop();
+      animation3.stop();
+    };
+  }, [visible, dot1, dot2, dot3, containerFade, pulseAnim]);
 
-  if (!visible) return null
+  if (!visible) return null;
 
   const dotStyle = (animatedValue: Animated.Value) => ({
     opacity: animatedValue.interpolate({
@@ -106,7 +102,7 @@ export function TypingIndicator({
         }),
       },
     ],
-  })
+  });
 
   return (
     <Animated.View
@@ -143,10 +139,8 @@ export function TypingIndicator({
           />
         </View>
 
-        <Text className="text-muted-foreground/50 pl-1 text-[11px] tracking-wide">
-          Thinking...
-        </Text>
+        <Text className="text-muted-foreground/50 pl-1 text-[11px] tracking-wide">Thinking...</Text>
       </View>
     </Animated.View>
-  )
+  );
 }

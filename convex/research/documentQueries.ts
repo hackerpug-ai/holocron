@@ -4,34 +4,32 @@
  * These queries are called by the createResearchDocument action
  */
 
-import { internalQuery } from "../_generated/server";
-import { v } from "convex/values";
-import type { Doc } from "../_generated/dataModel";
+import { v } from 'convex/values';
+import type { Doc } from '../_generated/dataModel';
+import { internalQuery } from '../_generated/server';
 
 /** Finding with citations for document creation */
-export type FindingWithCitations = Doc<"researchFindings"> & {
-  citations: Array<Doc<"citations"> | null>;
+export type FindingWithCitations = Doc<'researchFindings'> & {
+  citations: Array<Doc<'citations'> | null>;
 };
 
 /** Iteration with confidence stats for document creation */
-export type IterationWithStats = Doc<"deepResearchIterations">;
+export type IterationWithStats = Doc<'deepResearchIterations'>;
 
 /**
  * Internal query: Get all findings with citations for document creation
  */
 export const getFindingsForDocument = internalQuery({
-  args: { sessionId: v.id("deepResearchSessions") },
+  args: { sessionId: v.id('deepResearchSessions') },
   handler: async (ctx, { sessionId }): Promise<FindingWithCitations[]> => {
     const findings = await ctx.db
-      .query("researchFindings")
-      .withIndex("by_session", (q) => q.eq("sessionId", sessionId))
+      .query('researchFindings')
+      .withIndex('by_session', (q) => q.eq('sessionId', sessionId))
       .collect();
 
     const findingsWithCitations = await Promise.all(
       findings.map(async (finding) => {
-        const citations = await Promise.all(
-          finding.citationIds.map((id) => ctx.db.get(id))
-        );
+        const citations = await Promise.all(finding.citationIds.map((id) => ctx.db.get(id)));
         return { ...finding, citations: citations.filter(Boolean) } as FindingWithCitations;
       })
     );
@@ -46,12 +44,12 @@ export const getFindingsForDocument = internalQuery({
  * This formats iteration data into findings for document generation.
  */
 export const getIterationsForDocument = internalQuery({
-  args: { sessionId: v.id("deepResearchSessions") },
+  args: { sessionId: v.id('deepResearchSessions') },
   handler: async (ctx, { sessionId }): Promise<IterationWithStats[]> => {
     const iterations = await ctx.db
-      .query("deepResearchIterations")
-      .withIndex("by_session", (q) => q.eq("sessionId", sessionId))
-      .order("asc")
+      .query('deepResearchIterations')
+      .withIndex('by_session', (q) => q.eq('sessionId', sessionId))
+      .order('asc')
       .collect();
 
     return iterations;
@@ -62,7 +60,7 @@ export const getIterationsForDocument = internalQuery({
  * Internal query: Get session for document creation
  */
 export const getSessionForDocument = internalQuery({
-  args: { sessionId: v.id("deepResearchSessions") },
+  args: { sessionId: v.id('deepResearchSessions') },
   handler: async (ctx, { sessionId }) => {
     return await ctx.db.get(sessionId);
   },
@@ -77,12 +75,12 @@ export const getSessionsNeedingDocuments = internalQuery({
   args: {},
   handler: async (ctx) => {
     const sessions = await ctx.db
-      .query("deepResearchSessions")
-      .withIndex("by_conversation") // Use available index, will filter in memory
+      .query('deepResearchSessions')
+      .withIndex('by_conversation') // Use available index, will filter in memory
       .collect();
 
     const sessionsNeedingDocuments = sessions.filter(
-      (session) => session.status === "completed" && !session.documentId
+      (session) => session.status === 'completed' && !session.documentId
     );
 
     return sessionsNeedingDocuments;

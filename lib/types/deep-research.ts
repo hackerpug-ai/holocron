@@ -11,10 +11,15 @@
 // ============================================================
 
 /** Session status for deep research sessions */
-export type DeepResearchSessionStatus = 'pending' | 'running' | 'paused' | 'completed' | 'cancelled'
+export type DeepResearchSessionStatus =
+  | 'pending'
+  | 'running'
+  | 'paused'
+  | 'completed'
+  | 'cancelled';
 
 /** Iteration status for individual research iterations */
-export type DeepResearchIterationStatus = 'pending' | 'running' | 'completed'
+export type DeepResearchIterationStatus = 'pending' | 'running' | 'completed';
 
 // ============================================================
 // Deep Research Session Types
@@ -22,13 +27,13 @@ export type DeepResearchIterationStatus = 'pending' | 'running' | 'completed'
 
 /** Raw row type from database deep_research_sessions table (snake_case, string dates) */
 export interface DeepResearchSessionRow {
-  id: string
-  conversation_id: string | null
-  topic: string
-  max_iterations: number
-  status: DeepResearchSessionStatus
-  created_at: string
-  updated_at: string
+  id: string;
+  conversation_id: string | null;
+  topic: string;
+  max_iterations: number;
+  status: DeepResearchSessionStatus;
+  created_at: string;
+  updated_at: string;
 }
 
 /**
@@ -37,31 +42,31 @@ export interface DeepResearchSessionRow {
  * Note: timestamps are numbers (ms since epoch) for Convex compatibility
  */
 export interface DeepResearchSession {
-  id: string
-  conversationId: string | null
-  topic: string
-  maxIterations: number
-  status: DeepResearchSessionStatus
-  createdAt: number
-  updatedAt: number
+  id: string;
+  conversationId: string | null;
+  topic: string;
+  maxIterations: number;
+  status: DeepResearchSessionStatus;
+  createdAt: number;
+  updatedAt: number;
 }
 
 /** Insert type - fields with defaults are optional */
 export interface DeepResearchSessionInsert {
-  id?: string
-  conversation_id?: string | null
-  topic: string
-  max_iterations?: number
-  status?: DeepResearchSessionStatus
+  id?: string;
+  conversation_id?: string | null;
+  topic: string;
+  max_iterations?: number;
+  status?: DeepResearchSessionStatus;
 }
 
 /** Update type - all fields optional */
 export interface DeepResearchSessionUpdate {
-  conversation_id?: string | null
-  topic?: string
-  max_iterations?: number
-  status?: DeepResearchSessionStatus
-  updated_at?: string
+  conversation_id?: string | null;
+  topic?: string;
+  max_iterations?: number;
+  status?: DeepResearchSessionStatus;
+  updated_at?: string;
 }
 
 // ============================================================
@@ -70,16 +75,16 @@ export interface DeepResearchSessionUpdate {
 
 /** Raw row type from database deep_research_iterations table (snake_case, string dates) */
 export interface DeepResearchIterationRow {
-  id: string
-  session_id: string
-  iteration_number: number
-  coverage_score: number | null
-  feedback: string | null
-  refined_queries: unknown | null // JSONB array stored as unknown
-  findings: string | null
-  status: DeepResearchIterationStatus
-  created_at: string
-  updated_at: string
+  id: string;
+  session_id: string;
+  iteration_number: number;
+  coverage_score: number | null;
+  feedback: string | null;
+  refined_queries: unknown | null; // JSONB array stored as unknown
+  findings: string | null;
+  status: DeepResearchIterationStatus;
+  created_at: string;
+  updated_at: string;
 }
 
 /**
@@ -88,39 +93,39 @@ export interface DeepResearchIterationRow {
  * Note: timestamps are numbers (ms since epoch) for Convex compatibility
  */
 export interface DeepResearchIteration {
-  id: string
-  sessionId: string
-  iterationNumber: number
-  coverageScore: number | null
-  feedback: string | null
-  refinedQueries: string[] | null // Properly typed as string array
-  findings: string | null
-  status: DeepResearchIterationStatus
-  createdAt: number
-  updatedAt: number
+  id: string;
+  sessionId: string;
+  iterationNumber: number;
+  coverageScore: number | null;
+  feedback: string | null;
+  refinedQueries: string[] | null; // Properly typed as string array
+  findings: string | null;
+  status: DeepResearchIterationStatus;
+  createdAt: number;
+  updatedAt: number;
 }
 
 /** Insert type - fields with defaults are optional */
 export interface DeepResearchIterationInsert {
-  id?: string
-  session_id: string
-  iteration_number: number
-  coverage_score?: number | null
-  feedback?: string | null
-  refined_queries?: string[] | null
-  findings?: string | null
-  status?: DeepResearchIterationStatus
+  id?: string;
+  session_id: string;
+  iteration_number: number;
+  coverage_score?: number | null;
+  feedback?: string | null;
+  refined_queries?: string[] | null;
+  findings?: string | null;
+  status?: DeepResearchIterationStatus;
 }
 
 /** Update type - all fields optional */
 export interface DeepResearchIterationUpdate {
-  iteration_number?: number
-  coverage_score?: number | null
-  feedback?: string | null
-  refined_queries?: string[] | null
-  findings?: string | null
-  status?: DeepResearchIterationStatus
-  updated_at?: string
+  iteration_number?: number;
+  coverage_score?: number | null;
+  feedback?: string | null;
+  refined_queries?: string[] | null;
+  findings?: string | null;
+  status?: DeepResearchIterationStatus;
+  updated_at?: string;
 }
 
 // ============================================================
@@ -129,37 +134,37 @@ export interface DeepResearchIterationUpdate {
 
 /** Session with its iterations (for detail views) */
 export interface DeepResearchSessionWithIterations extends DeepResearchSession {
-  iterations: DeepResearchIteration[]
+  iterations: DeepResearchIteration[];
   /** Synthesized report from the documents table (LLM-generated) */
-  report?: string
+  report?: string;
   /** Document ID linking to the holocron document */
-  documentId?: string | null
+  documentId?: string | null;
   /** Citations extracted from research findings */
   citations?: Array<{
-    id: number
-    title: string
-    url?: string
-  }>
+    id: number;
+    title: string;
+    url?: string;
+  }>;
 }
 
 /** Summary card data for displaying session in list */
 export interface DeepResearchSessionSummary {
-  id: string
-  topic: string
-  status: DeepResearchSessionStatus
-  lastIterationCompleted: number | null
-  coverageScore: number | null
-  createdAt: number
+  id: string;
+  topic: string;
+  status: DeepResearchSessionStatus;
+  lastIterationCompleted: number | null;
+  coverageScore: number | null;
+  createdAt: number;
 }
 
 /** Progress tracking for active sessions */
 export interface DeepResearchProgress {
-  sessionId: string
-  currentIteration: number
-  maxIterations: number
-  estimatedRemaining: number
-  coverageScore: number | null
-  status: DeepResearchSessionStatus
+  sessionId: string;
+  currentIteration: number;
+  maxIterations: number;
+  estimatedRemaining: number;
+  coverageScore: number | null;
+  status: DeepResearchSessionStatus;
 }
 
 // ============================================================
@@ -168,39 +173,39 @@ export interface DeepResearchProgress {
 
 /** Card data for deep research confirmation message */
 export interface DeepResearchConfirmationCard {
-  card_type: 'deep_research_confirmation'
-  session_id: string
-  topic: string
-  max_iterations: number
+  card_type: 'deep_research_confirmation';
+  session_id: string;
+  topic: string;
+  max_iterations: number;
 }
 
 /** Card data for iteration progress message */
 export interface IterationCard {
-  card_type: 'iteration'
-  session_id: string
-  iteration_number: number
-  coverage_score: number | null
-  feedback: string | null
-  findings: string | null
-  estimated_remaining: number
+  card_type: 'iteration';
+  session_id: string;
+  iteration_number: number;
+  coverage_score: number | null;
+  feedback: string | null;
+  findings: string | null;
+  estimated_remaining: number;
 }
 
 /** Card data for final research result message */
 export interface FinalResultCard {
-  card_type: 'final_result'
-  session_id: string
-  topic: string
-  total_iterations: number
-  final_coverage_score: number
-  findings_summary: string
+  card_type: 'final_result';
+  session_id: string;
+  topic: string;
+  total_iterations: number;
+  final_coverage_score: number;
+  findings_summary: string;
 }
 
 /** Card data for simple research result message */
 export interface SimpleResearchResultCard {
-  card_type: 'simple_research_result'
-  session_id: string
-  topic: string
-  summary: string
-  confidence: 'HIGH' | 'MEDIUM' | 'LOW'
-  duration_ms: number
+  card_type: 'simple_research_result';
+  session_id: string;
+  topic: string;
+  summary: string;
+  confidence: 'HIGH' | 'MEDIUM' | 'LOW';
+  duration_ms: number;
 }

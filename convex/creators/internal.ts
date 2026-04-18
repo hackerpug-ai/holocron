@@ -1,5 +1,5 @@
-import { internalAction } from "../_generated/server";
-import { v } from "convex/values";
+import { v } from 'convex/values';
+import { internalAction } from '../_generated/server';
 
 // Handle normalization patterns
 const YOUTUBE_HANDLE_REGEX = /^[a-zA-Z0-9_-]{3,30}$/;
@@ -16,16 +16,16 @@ export const normalizeHandle = internalAction({
   },
   handler: async (_, args) => {
     const { platform, handle } = args;
-    const normalized = handle.trim().toLowerCase().replace(/^@/, "");
+    const normalized = handle.trim().toLowerCase().replace(/^@/, '');
 
     const valid = (() => {
       switch (platform) {
-        case "youtube":
+        case 'youtube':
           return YOUTUBE_HANDLE_REGEX.test(normalized);
-        case "bluesky":
+        case 'bluesky':
           // Bluesky handles must include domain
           return BLUESKY_HANDLE_REGEX.test(normalized);
-        case "github":
+        case 'github':
           return GITHUB_HANDLE_REGEX.test(normalized);
         default:
           return normalized.length > 0;
@@ -50,11 +50,11 @@ export const lookupYouTubeChannel = internalAction({
   handler: async (_, args) => {
     const apiKey = process.env.YOUTUBE_API_KEY;
     if (!apiKey) {
-      console.warn("YOUTUBE_API_KEY not set, returning unverified");
+      console.warn('YOUTUBE_API_KEY not set, returning unverified');
       return {
         handle: args.handle,
         verified: false,
-        error: "YouTube API key not configured",
+        error: 'YouTube API key not configured',
       };
     }
 
@@ -68,7 +68,7 @@ export const lookupYouTubeChannel = internalAction({
           return {
             handle: args.handle,
             verified: false,
-            error: "Channel not found",
+            error: 'Channel not found',
           };
         }
         throw new Error(`YouTube API error: ${response.status}`);
@@ -80,7 +80,7 @@ export const lookupYouTubeChannel = internalAction({
         return {
           handle: args.handle,
           verified: false,
-          error: "Channel not found",
+          error: 'Channel not found',
         };
       }
 
@@ -95,11 +95,11 @@ export const lookupYouTubeChannel = internalAction({
         thumbnails: channel.snippet.thumbnails,
       };
     } catch (error) {
-      console.error("YouTube lookup error:", error);
+      console.error('YouTube lookup error:', error);
       return {
         handle: args.handle,
         verified: false,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
   },
@@ -124,7 +124,7 @@ export const lookupBlueskyUser = internalAction({
           return {
             handle: args.handle,
             verified: false,
-            error: "Profile not found or invalid handle",
+            error: 'Profile not found or invalid handle',
           };
         }
         throw new Error(`Bluesky API error: ${response.status}`);
@@ -142,11 +142,11 @@ export const lookupBlueskyUser = internalAction({
         avatar: data.avatar,
       };
     } catch (error) {
-      console.error("Bluesky lookup error:", error);
+      console.error('Bluesky lookup error:', error);
       return {
         handle: args.handle,
         verified: false,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
   },
@@ -162,7 +162,7 @@ export const lookupGitHubUser = internalAction({
   handler: async (_, args) => {
     const token = process.env.GITHUB_TOKEN;
     const headers: Record<string, string> = {
-      Accept: "application/vnd.github.v3+json",
+      Accept: 'application/vnd.github.v3+json',
     };
 
     if (token) {
@@ -170,24 +170,21 @@ export const lookupGitHubUser = internalAction({
     }
 
     try {
-      const response = await fetch(
-        `https://api.github.com/users/${args.handle}`,
-        { headers }
-      );
+      const response = await fetch(`https://api.github.com/users/${args.handle}`, { headers });
 
       if (!response.ok) {
         if (response.status === 404) {
           return {
             handle: args.handle,
             verified: false,
-            error: "User not found",
+            error: 'User not found',
           };
         }
         if (response.status === 403) {
           return {
             handle: args.handle,
             verified: false,
-            error: "GitHub API rate limit exceeded",
+            error: 'GitHub API rate limit exceeded',
           };
         }
         throw new Error(`GitHub API error: ${response.status}`);
@@ -206,11 +203,11 @@ export const lookupGitHubUser = internalAction({
         type: data.type, // User or Organization
       };
     } catch (error) {
-      console.error("GitHub lookup error:", error);
+      console.error('GitHub lookup error:', error);
       return {
         handle: args.handle,
         verified: false,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
   },
@@ -227,11 +224,11 @@ export const validateWebsiteUrl = internalAction({
     try {
       // Basic URL validation
       let url = args.url;
-      if (!url.startsWith("http://") && !url.startsWith("https://")) {
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
         url = `https://${url}`;
       }
 
-      const response = await fetch(url, { method: "HEAD", redirect: "follow" });
+      const response = await fetch(url, { method: 'HEAD', redirect: 'follow' });
 
       return {
         url,
@@ -240,11 +237,11 @@ export const validateWebsiteUrl = internalAction({
         error: response.ok ? undefined : `HTTP ${response.status}`,
       };
     } catch (error) {
-      console.error("Website validation error:", error);
+      console.error('Website validation error:', error);
       return {
         url: args.url,
         validated: false,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
   },

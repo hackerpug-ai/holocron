@@ -1,4 +1,4 @@
-"use node";
+'use node';
 
 /**
  * Improvement Request AI Agent Pipeline
@@ -13,52 +13,51 @@
  * Status stays "open" throughout — no review gate. Merge decisions are auto-applied.
  */
 
-import { internalAction } from "../_generated/server";
-import { internal } from "../_generated/api";
-import { makeFunctionReference } from "convex/server";
-import { v } from "convex/values";
-import { generateText, embed } from "ai";
-import { claudeFlash } from "../lib/ai/anthropic_provider";
-import { cohereEmbedding } from "../lib/ai/embeddings_provider";
-import { DEDUP_SYSTEM_PROMPT, buildUserPrompt } from "./prompts";
-import type { Id } from "../_generated/dataModel";
+import { embed, generateText } from 'ai';
+import { makeFunctionReference } from 'convex/server';
+import { v } from 'convex/values';
+import { internal } from '../_generated/api';
+import type { Id } from '../_generated/dataModel';
+import { internalAction } from '../_generated/server';
+import { claudeFlash } from '../lib/ai/anthropic_provider';
+import { cohereEmbedding } from '../lib/ai/embeddings_provider';
+import { buildUserPrompt, DEDUP_SYSTEM_PROMPT } from './prompts';
 
 // Use makeFunctionReference to avoid dependency on the generated API not yet
 // including improvements/actions (which would create a circular import at
 // type-generation time).
 const improvementsSearchFindSimilar = makeFunctionReference<
-  "action",
+  'action',
   {
     description: string;
     embedding?: number[];
     limit?: number;
   },
   Array<{
-    _id: Id<"improvementRequests">;
+    _id: Id<'improvementRequests'>;
     description: string;
     title?: string;
     status: string;
-    mergedIntoId?: Id<"improvementRequests">;
+    mergedIntoId?: Id<'improvementRequests'>;
     score: number;
     [key: string]: unknown;
   }>
->("improvements/search:findSimilar");
+>('improvements/search:findSimilar');
 
 const improvementsQueriesGet = makeFunctionReference<
-  "query",
-  { id: Id<"improvementRequests"> },
-  | {
-      _id: Id<"improvementRequests">;
-      description: string;
-      title?: string;
-      summary?: string;
-      status: string;
-      userFeedback?: string;
-      mergedIntoId?: Id<"improvementRequests">;
-      [key: string]: unknown;
-    }
-  | null
->("improvements/queries:get");
+  'query',
+  { id: Id<'improvementRequests'> },
+  {
+    _id: Id<'improvementRequests'>;
+    description: string;
+    title?: string;
+    summary?: string;
+    status: string;
+    userFeedback?: string;
+    mergedIntoId?: Id<'improvementRequests'>;
+    [key: string]: unknown;
+  } | null
+>('improvements/queries:get');
 
 /**
  * processNewRequest
@@ -68,7 +67,7 @@ const improvementsQueriesGet = makeFunctionReference<
  */
 export const processNewRequest = internalAction({
   args: {
-    requestId: v.id("improvementRequests"),
+    requestId: v.id('improvementRequests'),
   },
   handler: async (ctx, { requestId }): Promise<void> => {
     try {
@@ -88,14 +87,11 @@ export const processNewRequest = internalAction({
       });
 
       // Step 4: Find similar existing requests (pass embedding to avoid double-embedding)
-      const similarResults = await ctx.runAction(
-        improvementsSearchFindSimilar,
-        {
-          description: request.description,
-          embedding,
-          limit: 10,
-        }
-      );
+      const similarResults = await ctx.runAction(improvementsSearchFindSimilar, {
+        description: request.description,
+        embedding,
+        limit: 10,
+      });
 
       // Step 5: Filter candidates — exclude self, exclude merged, take top 3
       const candidates = similarResults
@@ -114,13 +110,13 @@ export const processNewRequest = internalAction({
             description: c.description,
             score: c.score,
           })),
-          request.userFeedback as string | undefined,
+          request.userFeedback as string | undefined
         ),
       });
 
       // Step 7: Parse JSON decision — fallback to create_new on parse failure
       type AgentDecisionRaw = {
-        action: "create_new" | "merge";
+        action: 'create_new' | 'merge';
         mergeTargetId?: string;
         confidence: number;
         reasoning: string;
@@ -133,13 +129,13 @@ export const processNewRequest = internalAction({
         decision = JSON.parse(result.text) as AgentDecisionRaw;
       } catch {
         console.warn(
-          "[improvements/actions] Failed to parse LLM response as JSON, falling back to create_new. Raw:",
-          result.text.slice(0, 500),
+          '[improvements/actions] Failed to parse LLM response as JSON, falling back to create_new. Raw:',
+          result.text.slice(0, 500)
         );
         decision = {
-          action: "create_new",
+          action: 'create_new',
           confidence: 0,
-          reasoning: "LLM response could not be parsed as JSON",
+          reasoning: 'LLM response could not be parsed as JSON',
           title: request.description.slice(0, 60),
           summary: request.description.slice(0, 200),
         };
@@ -153,14 +149,14 @@ export const processNewRequest = internalAction({
         agentDecision: {
           action: decision.action,
           mergeTargetId:
-            decision.action === "merge" && decision.mergeTargetId
-              ? (decision.mergeTargetId as Id<"improvementRequests">)
+            decision.action === 'merge' && decision.mergeTargetId
+              ? (decision.mergeTargetId as Id<'improvementRequests'>)
               : undefined,
           confidence: decision.confidence,
           reasoning: decision.reasoning,
           similarRequests: candidates.map((c) => ({
-            id: c._id as Id<"improvementRequests">,
-            title: c.title ?? "(no title)",
+            id: c._id as Id<'improvementRequests'>,
+            title: c.title ?? '(no title)',
             similarity: c.score,
           })),
         },
@@ -169,23 +165,20 @@ export const processNewRequest = internalAction({
 
       // Step 9: Execute merge if the agent decided to merge
       if (
-        decision.action === "merge" &&
+        decision.action === 'merge' &&
         decision.mergeTargetId != null &&
         decision.mergeTargetId.length > 0
       ) {
         await ctx.runMutation(internal.improvements.internal.executeMerge, {
           sourceId: requestId,
-          targetId: decision.mergeTargetId as Id<"improvementRequests">,
+          targetId: decision.mergeTargetId as Id<'improvementRequests'>,
           reason: decision.reasoning,
         });
       }
     } catch (error) {
       // On any failure, log — the request stays "open" regardless of agent outcome.
-      const message =
-        error instanceof Error ? error.message : String(error);
-      console.error(
-        `[improvements/actions] processNewRequest failed for ${requestId}: ${message}`,
-      );
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`[improvements/actions] processNewRequest failed for ${requestId}: ${message}`);
     }
   },
 });

@@ -1,28 +1,20 @@
-import { Text } from '@/components/ui/text'
-import { useTheme } from '@/hooks/use-theme'
-import { ChevronLeft, ChevronRight, Lock, RefreshCw, X } from '@/components/ui/icons'
-import { useRef, useState } from 'react'
-import {
-  ActivityIndicator,
-  Pressable,
-  StyleSheet,
-  View,
-  type ViewProps,
-} from 'react-native'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import WebView, {
-  type WebViewNavigation,
-} from 'react-native-webview'
+import { useRef, useState } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, View, type ViewProps } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import WebView, { type WebViewNavigation } from 'react-native-webview';
+import { ChevronLeft, ChevronRight, Lock, RefreshCw, X } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { useTheme } from '@/hooks/use-theme';
 
 interface WebViewScreenProps extends Omit<ViewProps, 'children'> {
   /** Initial URL to load */
-  url: string
+  url: string;
   /** Callback when close button is pressed */
-  onClose: () => void
+  onClose: () => void;
   /** Optional custom title (defaults to page title from WebView) */
-  title?: string
+  title?: string;
   /** Optional test ID */
-  testID?: string
+  testID?: string;
 }
 
 /**
@@ -30,13 +22,13 @@ interface WebViewScreenProps extends Omit<ViewProps, 'children'> {
  */
 function getDisplayUrl(url: string): { host: string; isSecure: boolean } {
   try {
-    const parsed = new URL(url)
+    const parsed = new URL(url);
     return {
       host: parsed.hostname.replace(/^www\./, ''),
       isSecure: parsed.protocol === 'https:',
-    }
+    };
   } catch {
-    return { host: url, isSecure: false }
+    return { host: url, isSecure: false };
   }
 }
 
@@ -68,33 +60,33 @@ export function WebViewScreen({
   style,
   ...props
 }: WebViewScreenProps) {
-  const theme = useTheme()
-  const insets = useSafeAreaInsets()
-  const webViewRef = useRef<WebView>(null)
+  const theme = useTheme();
+  const insets = useSafeAreaInsets();
+  const webViewRef = useRef<WebView>(null);
 
   // State
-  const [canGoBack, setCanGoBack] = useState(false)
-  const [canGoForward, setCanGoForward] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const [currentUrl, setCurrentUrl] = useState(url)
+  const [canGoBack, setCanGoBack] = useState(false);
+  const [canGoForward, setCanGoForward] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [currentUrl, setCurrentUrl] = useState(url);
 
   // Derived state
-  const { host, isSecure } = getDisplayUrl(currentUrl)
+  const { host, isSecure } = getDisplayUrl(currentUrl);
 
   // Navigation handlers
-  const handleGoBack = () => webViewRef.current?.goBack()
-  const handleGoForward = () => webViewRef.current?.goForward()
-  const handleRefresh = () => webViewRef.current?.reload()
+  const handleGoBack = () => webViewRef.current?.goBack();
+  const handleGoForward = () => webViewRef.current?.goForward();
+  const handleRefresh = () => webViewRef.current?.reload();
 
   // WebView event handlers
   const handleNavigationStateChange = (navState: WebViewNavigation) => {
-    setCanGoBack(navState.canGoBack)
-    setCanGoForward(navState.canGoForward)
-    setCurrentUrl(navState.url)
-  }
+    setCanGoBack(navState.canGoBack);
+    setCanGoForward(navState.canGoForward);
+    setCurrentUrl(navState.url);
+  };
 
-  const handleLoadStart = () => setLoading(true)
-  const handleLoadEnd = () => setLoading(false)
+  const handleLoadStart = () => setLoading(true);
+  const handleLoadEnd = () => setLoading(false);
 
   return (
     <View
@@ -134,9 +126,7 @@ export function WebViewScreen({
             },
           ]}
         >
-          {isSecure && (
-            <Lock size={12} className="text-muted-foreground" style={styles.lockIcon} />
-          )}
+          {isSecure && <Lock size={12} className="text-muted-foreground" style={styles.lockIcon} />}
           <Text
             variant="small"
             className="text-foreground"
@@ -210,15 +200,15 @@ export function WebViewScreen({
           startInLoadingState={false}
           // Handle errors gracefully
           onError={(syntheticEvent) => {
-            const { nativeEvent } = syntheticEvent
-            console.error('[WebViewScreen] Error loading URL:', nativeEvent)
+            const { nativeEvent } = syntheticEvent;
+            console.error('[WebViewScreen] Error loading URL:', nativeEvent);
           }}
           // iOS specific - enables swipe back/forward gestures
           allowsBackForwardNavigationGestures={true}
         />
       </View>
     </View>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
@@ -260,4 +250,4 @@ const styles = StyleSheet.create({
   webViewContainer: {
     flex: 1,
   },
-})
+});

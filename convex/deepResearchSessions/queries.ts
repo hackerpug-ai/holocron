@@ -1,5 +1,5 @@
-import { query } from "../_generated/server";
-import { v } from "convex/values";
+import { v } from 'convex/values';
+import { query } from '../_generated/server';
 
 /**
  * Get deep research session count (for validation)
@@ -7,7 +7,7 @@ import { v } from "convex/values";
 export const count = query({
   args: {},
   handler: async (ctx) => {
-    const sessions = await ctx.db.query("deepResearchSessions").collect();
+    const sessions = await ctx.db.query('deepResearchSessions').collect();
     return sessions.length;
   },
 });
@@ -18,7 +18,7 @@ export const count = query({
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    return await ctx.db.query("deepResearchSessions").collect();
+    return await ctx.db.query('deepResearchSessions').collect();
   },
 });
 
@@ -29,7 +29,7 @@ export const list = query({
  * Convex will automatically push updates to the client when the session changes
  */
 export const get = query({
-  args: { id: v.id("deepResearchSessions") },
+  args: { id: v.id('deepResearchSessions') },
   handler: async (ctx, { id }) => {
     const session = await ctx.db.get(id);
     if (!session) {
@@ -38,8 +38,8 @@ export const get = query({
 
     // Fetch iterations for this session
     const iterations = await ctx.db
-      .query("deepResearchIterations")
-      .withIndex("by_session", (q) => q.eq("sessionId", id))
+      .query('deepResearchIterations')
+      .withIndex('by_session', (q) => q.eq('sessionId', id))
       .collect();
 
     return {

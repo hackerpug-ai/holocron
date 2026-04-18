@@ -1,16 +1,16 @@
-"use node";
+'use node';
 
-import { action } from "../_generated/server";
-import { v } from "convex/values";
-import { api } from "../_generated/api";
-import { detectPodcastPlatform } from "../audioTranscripts/internal";
+import { v } from 'convex/values';
+import { api } from '../_generated/api';
+import { action } from '../_generated/server';
+import { detectPodcastPlatform } from '../audioTranscripts/internal';
 
 interface HandlePodcastUrlResult {
   success: boolean;
   error?: string;
   jobId?: string;
   contentId?: string;
-  platform?: "spotify" | "apple_podcasts" | "rss" | "direct_mp3";
+  platform?: 'spotify' | 'apple_podcasts' | 'rss' | 'direct_mp3';
 }
 
 /**
@@ -19,7 +19,7 @@ interface HandlePodcastUrlResult {
  */
 export const handlePodcastUrl = action({
   args: {
-    conversationId: v.id("conversations"),
+    conversationId: v.id('conversations'),
     url: v.string(),
   },
   handler: async (ctx, args): Promise<HandlePodcastUrlResult> => {
@@ -29,14 +29,15 @@ export const handlePodcastUrl = action({
       // Post error card
       await ctx.runMutation(api.chatMessages.mutations.create, {
         conversationId: args.conversationId,
-        role: "agent",
-        content: "Unsupported podcast URL. Please provide a Spotify, Apple Podcasts, RSS feed, or direct MP3 link.",
-        messageType: "error",
+        role: 'agent',
+        content:
+          'Unsupported podcast URL. Please provide a Spotify, Apple Podcasts, RSS feed, or direct MP3 link.',
+        messageType: 'error',
       });
 
       return {
         success: false,
-        error: "Unsupported podcast URL",
+        error: 'Unsupported podcast URL',
       };
     }
 
@@ -48,7 +49,7 @@ export const handlePodcastUrl = action({
       });
 
       if (!result.success) {
-        throw new Error("Failed to create transcript job");
+        throw new Error('Failed to create transcript job');
       }
 
       // Post appropriate card based on whether job already existed
@@ -57,11 +58,11 @@ export const handlePodcastUrl = action({
           // Transcript already exists, post document card
           await ctx.runMutation(api.chatMessages.mutations.create, {
             conversationId: args.conversationId,
-            role: "agent",
-            content: "This podcast has already been transcribed.",
-            messageType: "result_card",
+            role: 'agent',
+            content: 'This podcast has already been transcribed.',
+            messageType: 'result_card',
             cardData: {
-              card_type: "podcast_transcription_complete",
+              card_type: 'podcast_transcription_complete',
               transcript_id: result.transcriptId,
             },
           });
@@ -69,11 +70,11 @@ export const handlePodcastUrl = action({
           // Job already in progress
           await ctx.runMutation(api.chatMessages.mutations.create, {
             conversationId: args.conversationId,
-            role: "agent",
-            content: "Podcast transcription is already in progress.",
-            messageType: "result_card",
+            role: 'agent',
+            content: 'Podcast transcription is already in progress.',
+            messageType: 'result_card',
             cardData: {
-              card_type: "podcast_transcription_loading",
+              card_type: 'podcast_transcription_loading',
               content_id: result.contentId,
               platform,
               url: args.url,
@@ -84,11 +85,11 @@ export const handlePodcastUrl = action({
         // New job created, post loading card
         await ctx.runMutation(api.chatMessages.mutations.create, {
           conversationId: args.conversationId,
-          role: "agent",
-          content: "Starting podcast transcription...",
-          messageType: "result_card",
+          role: 'agent',
+          content: 'Starting podcast transcription...',
+          messageType: 'result_card',
           cardData: {
-            card_type: "podcast_transcription_loading",
+            card_type: 'podcast_transcription_loading',
             content_id: result.contentId,
             platform,
             url: args.url,
@@ -103,13 +104,13 @@ export const handlePodcastUrl = action({
         platform,
       };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
       await ctx.runMutation(api.chatMessages.mutations.create, {
         conversationId: args.conversationId,
-        role: "agent",
+        role: 'agent',
         content: `Failed to start podcast transcription: ${errorMessage}`,
-        messageType: "error",
+        messageType: 'error',
       });
 
       return {
@@ -133,7 +134,7 @@ interface CheckPodcastTranscriptStatusResult {
  */
 export const checkPodcastTranscriptStatus = action({
   args: {
-    conversationId: v.id("conversations"),
+    conversationId: v.id('conversations'),
     contentId: v.string(),
   },
   handler: async (ctx, args): Promise<CheckPodcastTranscriptStatusResult> => {
@@ -141,15 +142,15 @@ export const checkPodcastTranscriptStatus = action({
       contentId: args.contentId,
     });
 
-    if (status.status === "completed" && status.transcriptId) {
+    if (status.status === 'completed' && status.transcriptId) {
       // Post completion card
       await ctx.runMutation(api.chatMessages.mutations.create, {
         conversationId: args.conversationId,
-        role: "agent",
-        content: "Podcast transcription complete!",
-        messageType: "result_card",
+        role: 'agent',
+        content: 'Podcast transcription complete!',
+        messageType: 'result_card',
         cardData: {
-          card_type: "podcast_transcription_complete",
+          card_type: 'podcast_transcription_complete',
           transcript_id: status.transcriptId,
           content_id: args.contentId,
           preview_text: status.previewText,
@@ -167,13 +168,13 @@ export const checkPodcastTranscriptStatus = action({
       };
     }
 
-    if (status.status === "failed") {
+    if (status.status === 'failed') {
       // Post error card
       await ctx.runMutation(api.chatMessages.mutations.create, {
         conversationId: args.conversationId,
-        role: "agent",
-        content: `Podcast transcription failed: ${status.errorMessage || "Unknown error"}`,
-        messageType: "error",
+        role: 'agent',
+        content: `Podcast transcription failed: ${status.errorMessage || 'Unknown error'}`,
+        messageType: 'error',
       });
 
       return {

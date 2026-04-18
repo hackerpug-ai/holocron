@@ -2,39 +2,34 @@
  * WhatsNewLoadingCard - Loading state while generating briefing
  */
 
-import { View, ActivityIndicator } from 'react-native'
-import { Text } from '@/components/ui/text'
-import { Card } from '@/components/ui/card'
-import { Newspaper } from '@/components/ui/icons'
-import { useTheme } from '@/hooks/use-theme'
-import type { WhatsNewLoadingCardData } from '@/lib/types/chat'
+import { ActivityIndicator, View } from 'react-native';
+import { Card } from '@/components/ui/card';
+import { Newspaper } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { useTheme } from '@/hooks/use-theme';
+import type { WhatsNewLoadingCardData } from '@/lib/types/chat';
 
 export interface WhatsNewLoadingCardProps {
-  data: WhatsNewLoadingCardData
-  testID?: string
+  data: WhatsNewLoadingCardData;
+  testID?: string;
 }
 
 export function WhatsNewLoadingCard({
   data,
   testID = 'whats-new-loading-card',
 }: WhatsNewLoadingCardProps) {
-  const { colors: themeColors } = useTheme()
+  const { colors: themeColors } = useTheme();
 
   return (
     <Card testID={testID} className="border-border bg-card overflow-hidden">
       {/* Animated accent bar */}
-      <View
-        className="h-1"
-        style={{ backgroundColor: themeColors.primary }}
-      />
+      <View className="h-1" style={{ backgroundColor: themeColors.primary }} />
 
       <View className="p-4">
         {/* Header */}
         <View className="mb-3 flex-row items-center gap-2">
           <Newspaper size={20} color={themeColors.primary} />
-          <Text className="text-foreground flex-1 text-lg font-bold">
-            What's New in AI
-          </Text>
+          <Text className="text-foreground flex-1 text-lg font-bold">What's New in AI</Text>
         </View>
 
         {/* Loading state */}
@@ -49,5 +44,5 @@ export function WhatsNewLoadingCard({
         </View>
       </View>
     </Card>
-  )
+  );
 }

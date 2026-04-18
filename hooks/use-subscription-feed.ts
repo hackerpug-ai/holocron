@@ -1,11 +1,11 @@
-import { useState } from "react";
-import { useQuery } from "convex/react";
-import { api } from "@/convex/_generated/api";
-import type { Doc } from "@/convex/_generated/dataModel";
+import { useQuery } from 'convex/react';
+import { useState } from 'react';
+import { api } from '@/convex/_generated/api';
+import type { Doc } from '@/convex/_generated/dataModel';
 
 interface UseSubscriptionFeedArgs {
   limit?: number;
-  contentType?: "video" | "blog" | "social";
+  contentType?: 'video' | 'blog' | 'social';
   viewed?: boolean;
   searchQuery?: string;
 }
@@ -22,18 +22,21 @@ export function useSubscriptionFeed({
   // When contentType is "mixed" (frontend concept), don't filter
   const queryContentType = contentType;
 
-  const feedItems = useQuery(
-    api.feeds.queries.getFeed,
-    { limit: currentLimit, contentType: queryContentType, viewed }
-  );
+  const feedItems = useQuery(api.feeds.queries.getFeed, {
+    limit: currentLimit,
+    contentType: queryContentType,
+    viewed,
+  });
 
   // Client-side search filtering
-  const filteredItems = searchQuery && feedItems
-    ? feedItems.filter((item: Doc<"feedItems">) =>
-        (item.title?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
-        item.summary?.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : feedItems;
+  const filteredItems =
+    searchQuery && feedItems
+      ? feedItems.filter(
+          (item: Doc<'feedItems'>) =>
+            (item.title?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+            item.summary?.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+      : feedItems;
 
   // Determine if there are more items to load
   const hasMore = (filteredItems?.length ?? 0) >= limit;

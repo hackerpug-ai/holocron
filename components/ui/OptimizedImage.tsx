@@ -9,30 +9,31 @@
  * - Memory-efficient with automatic cleanup
  */
 
-import React, { useState } from 'react'
-import { View, StyleSheet, Animated, ViewStyle } from 'react-native'
-import { Image } from 'expo-image'
-import { Skeleton } from './skeleton'
+import { Image } from 'expo-image';
+import type React from 'react';
+import { useState } from 'react';
+import { Animated, StyleSheet, View, type ViewStyle } from 'react-native';
+import { Skeleton } from './skeleton';
 
 export interface OptimizedImageProps {
   /** Image URI or require() source */
-  source: string | number | { uri: string }
+  source: string | number | { uri: string };
   /** Image resize mode */
-  resizeMode?: 'contain' | 'cover' | 'stretch' | 'center'
+  resizeMode?: 'contain' | 'cover' | 'stretch' | 'center';
   /** Optional style for the container */
-  style?: ViewStyle
+  style?: ViewStyle;
   /** Optional width (defaults to 100%) */
-  width?: number | string
+  width?: number | string;
   /** Optional height (required if not using aspectRatio) */
-  height?: number | string
+  height?: number | string;
   /** Aspect ratio (width/height) - alternative to fixed height */
-  aspectRatio?: number
+  aspectRatio?: number;
   /** Border radius */
-  borderRadius?: number
+  borderRadius?: number;
   /** Optional test ID */
-  testID?: string
+  testID?: string;
   /** Fallback component to show on error */
-  fallback?: React.ReactNode
+  fallback?: React.ReactNode;
 }
 
 /**
@@ -59,43 +60,43 @@ export function OptimizedImage({
   testID = 'optimized-image',
   fallback,
 }: OptimizedImageProps) {
-  const [isLoading, setIsLoading] = useState(true)
-  const [hasError, setHasError] = useState(false)
-  const [opacity] = useState(new Animated.Value(0))
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
+  const [opacity] = useState(new Animated.Value(0));
 
   const handleLoad = () => {
-    setIsLoading(false)
+    setIsLoading(false);
     // Fade in animation
     Animated.timing(opacity, {
       toValue: 1,
       duration: 300,
       useNativeDriver: true,
-    }).start()
-  }
+    }).start();
+  };
 
   const handleError = () => {
-    setIsLoading(false)
-    setHasError(true)
-  }
+    setIsLoading(false);
+    setHasError(true);
+  };
 
   // Map resizeMode to Image resizeMode
-  const imageResizeMode = resizeMode === 'center' ? 'center' : resizeMode
+  const imageResizeMode = resizeMode === 'center' ? 'center' : resizeMode;
 
   const containerStyle: ViewStyle = {
     width: typeof width === 'number' ? width : undefined,
-    height: aspectRatio ? undefined : (typeof height === 'number' ? height : undefined),
+    height: aspectRatio ? undefined : typeof height === 'number' ? height : undefined,
     aspectRatio: aspectRatio ?? undefined,
     borderRadius: typeof borderRadius === 'number' ? borderRadius : undefined,
     overflow: 'hidden' as const,
     backgroundColor: 'transparent',
-  }
+  };
 
   if (hasError && fallback) {
     return (
       <View style={[containerStyle, style]} testID={testID}>
         {fallback}
       </View>
-    )
+    );
   }
 
   return (
@@ -123,9 +124,17 @@ export function OptimizedImage({
         pointerEvents="none"
       >
         <Image
-          source={typeof source === 'string' ? source : (typeof source === 'number' ? source : source.uri)}
+          source={
+            typeof source === 'string' ? source : typeof source === 'number' ? source : source.uri
+          }
           cachePolicy="memory"
-          recyclingKey={typeof source === 'string' ? source : (typeof source === 'number' ? String(source) : source.uri)}
+          recyclingKey={
+            typeof source === 'string'
+              ? source
+              : typeof source === 'number'
+                ? String(source)
+                : source.uri
+          }
           resizeMode={imageResizeMode}
           onLoad={handleLoad}
           onError={handleError}
@@ -138,5 +147,5 @@ export function OptimizedImage({
         />
       </Animated.View>
     </View>
-  )
+  );
 }

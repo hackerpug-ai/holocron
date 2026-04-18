@@ -5,7 +5,7 @@
  * videos are discovered via the subscription system.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 /**
  * AC-1: New YouTube video discovered: fetchYouTube() processes video, transcript job created

@@ -1,5 +1,5 @@
-import { query } from "../_generated/server";
-import { v } from "convex/values";
+import { v } from 'convex/values';
+import { query } from '../_generated/server';
 
 /**
  * Get feed items with pagination and filtering
@@ -9,15 +9,9 @@ import { v } from "convex/values";
 export const getFeed = query({
   args: {
     limit: v.optional(v.number()),
-    contentType: v.optional(
-      v.union(
-        v.literal("video"),
-        v.literal("blog"),
-        v.literal("social")
-      )
-    ),
+    contentType: v.optional(v.union(v.literal('video'), v.literal('blog'), v.literal('social'))),
     viewed: v.optional(v.boolean()),
-    creatorProfileId: v.optional(v.id("creatorProfiles")),
+    creatorProfileId: v.optional(v.id('creatorProfiles')),
   },
   handler: async (ctx, args) => {
     const limit = args.limit ?? 50;
@@ -26,21 +20,19 @@ export const getFeed = query({
     if (args.creatorProfileId) {
       // Use by_creator index when filtering by creator
       const items = await ctx.db
-        .query("feedItems")
-        .withIndex("by_creator", (q) =>
-          q.eq("creatorProfileId", args.creatorProfileId!)
-        )
+        .query('feedItems')
+        .withIndex('by_creator', (q) => q.eq('creatorProfileId', args.creatorProfileId!))
         .filter((q) => {
           // Apply additional filters
-          if (args.contentType && !q.eq(q.field("contentType"), args.contentType)) {
+          if (args.contentType && !q.eq(q.field('contentType'), args.contentType)) {
             return false;
           }
-          if (args.viewed !== undefined && !q.eq(q.field("viewed"), args.viewed)) {
+          if (args.viewed !== undefined && !q.eq(q.field('viewed'), args.viewed)) {
             return false;
           }
           return true;
         })
-        .order("desc")
+        .order('desc')
         .take(limit);
 
       return items;
@@ -49,30 +41,28 @@ export const getFeed = query({
     if (args.viewed !== undefined) {
       // Use by_viewed index for unviewed/viewed filtering
       const items = await ctx.db
-        .query("feedItems")
-        .withIndex("by_viewed", (q) =>
-          q.eq("viewed", args.viewed!)
-        )
+        .query('feedItems')
+        .withIndex('by_viewed', (q) => q.eq('viewed', args.viewed!))
         .filter((q) => {
-          if (args.contentType && !q.eq(q.field("contentType"), args.contentType)) {
+          if (args.contentType && !q.eq(q.field('contentType'), args.contentType)) {
             return false;
           }
           return true;
         })
-        .order("desc")
+        .order('desc')
         .take(limit);
 
       return items;
     }
 
     // Default: use by_created index
-    let query = ctx.db.query("feedItems").withIndex("by_created");
+    let query = ctx.db.query('feedItems').withIndex('by_created');
 
     if (args.contentType) {
-      query = query.filter((q) => q.eq(q.field("contentType"), args.contentType));
+      query = query.filter((q) => q.eq(q.field('contentType'), args.contentType));
     }
 
-    const items = await query.order("desc").take(limit);
+    const items = await query.order('desc').take(limit);
     return items;
   },
 });
@@ -84,7 +74,7 @@ export const getFeed = query({
  */
 export const getByCreator = query({
   args: {
-    creatorProfileId: v.id("creatorProfiles"),
+    creatorProfileId: v.id('creatorProfiles'),
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
@@ -92,11 +82,9 @@ export const getByCreator = query({
 
     // Use by_creator index for optimal performance
     const items = await ctx.db
-      .query("feedItems")
-      .withIndex("by_creator", (q) =>
-        q.eq("creatorProfileId", args.creatorProfileId)
-      )
-      .order("desc")
+      .query('feedItems')
+      .withIndex('by_creator', (q) => q.eq('creatorProfileId', args.creatorProfileId))
+      .order('desc')
       .take(limit);
 
     return items;
@@ -110,18 +98,16 @@ export const getByCreator = query({
  */
 export const getUnviewedCount = query({
   args: {
-    creatorProfileId: v.optional(v.id("creatorProfiles")),
+    creatorProfileId: v.optional(v.id('creatorProfiles')),
   },
   handler: async (ctx, args) => {
     // Use by_viewed index for counting unviewed items
     if (args.creatorProfileId) {
       // Count unviewed for specific creator using by_creator index
       const items = await ctx.db
-        .query("feedItems")
-        .withIndex("by_creator", (q) =>
-          q.eq("creatorProfileId", args.creatorProfileId)
-        )
-        .filter((q) => q.eq(q.field("viewed"), false))
+        .query('feedItems')
+        .withIndex('by_creator', (q) => q.eq('creatorProfileId', args.creatorProfileId))
+        .filter((q) => q.eq(q.field('viewed'), false))
         .collect();
 
       return items.length;
@@ -129,10 +115,8 @@ export const getUnviewedCount = query({
 
     // Count all unviewed items
     const items = await ctx.db
-      .query("feedItems")
-      .withIndex("by_viewed", (q) =>
-        q.eq("viewed", false)
-      )
+      .query('feedItems')
+      .withIndex('by_viewed', (q) => q.eq('viewed', false))
       .collect();
 
     return items.length;
@@ -150,15 +134,15 @@ export const getDigestSummary = query({
     limit: v.optional(v.number()), // Max items to analyze (default 100)
   },
   handler: async (ctx, args) => {
-    const since = args.since ?? (Date.now() - 24 * 60 * 60 * 1000); // Default 24h
+    const since = args.since ?? Date.now() - 24 * 60 * 60 * 1000; // Default 24h
     const limit = args.limit ?? 100;
 
     // Fetch recent items
     const items = await ctx.db
-      .query("feedItems")
-      .withIndex("by_created")
-      .filter((q) => q.gte(q.field("discoveredAt"), since))
-      .order("desc")
+      .query('feedItems')
+      .withIndex('by_created')
+      .filter((q) => q.gte(q.field('discoveredAt'), since))
+      .order('desc')
       .take(limit);
 
     // Calculate counts by type
@@ -191,11 +175,10 @@ export const getDigestSummary = query({
     const parts: string[] = [];
     if (counts.video > 0) parts.push(`${counts.video} video${counts.video > 1 ? 's' : ''}`);
     if (counts.blog > 0) parts.push(`${counts.blog} blog${counts.blog > 1 ? 's' : ''}`);
-    if (counts.social > 0) parts.push(`${counts.social} social post${counts.social > 1 ? 's' : ''}`);
+    if (counts.social > 0)
+      parts.push(`${counts.social} social post${counts.social > 1 ? 's' : ''}`);
 
-    const summary = parts.length > 0
-      ? parts.join(", ")
-      : "No new content";
+    const summary = parts.length > 0 ? parts.join(', ') : 'No new content';
 
     return {
       counts,
@@ -217,9 +200,7 @@ export const getFeedSettings = query({
   args: {},
   handler: async (ctx, _args) => {
     // Try to fetch existing settings
-    const settings = await ctx.db
-      .query("feedSettings")
-      .first();
+    const settings = await ctx.db.query('feedSettings').first();
 
     // Return saved settings or defaults
     if (settings) {
@@ -238,7 +219,7 @@ export const getFeedSettings = query({
       enableInAppNotifications: false,
       showThumbnails: true,
       autoPlayVideos: false,
-      contentFilter: "all" as const,
+      contentFilter: 'all' as const,
     };
   },
 });
@@ -249,7 +230,7 @@ export const getFeedSettings = query({
  */
 export const getFeedItemUrl = query({
   args: {
-    feedItemId: v.id("feedItems"),
+    feedItemId: v.id('feedItems'),
   },
   handler: async (ctx, args) => {
     const feedItem = await ctx.db.get(args.feedItemId);
@@ -271,7 +252,7 @@ export const getFeedItemUrl = query({
  */
 export const getFeedItemFeedback = query({
   args: {
-    feedItemId: v.id("feedItems"),
+    feedItemId: v.id('feedItems'),
   },
   handler: async (ctx, args) => {
     const item = await ctx.db.get(args.feedItemId);

@@ -9,15 +9,13 @@
  * If you need a new icon, add the import here and it will automatically
  * get cssInterop applied via the `icons` array + loop below.
  */
-import { cssInterop } from 'nativewind'
 
 import {
   AlertCircle,
   AlertTriangle,
-  Ban,
-  Circle,
   ArrowLeft,
   ArrowRight,
+  Ban,
   BarChart3,
   Bell,
   BookmarkPlus,
@@ -30,6 +28,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronUp,
+  Circle,
   Clock,
   Code,
   Database,
@@ -44,6 +43,7 @@ import {
   FolderOpen,
   Gauge,
   GitFork,
+  Github,
   GitMerge,
   Globe,
   Hash,
@@ -85,26 +85,26 @@ import {
   Star,
   Sun,
   Tag,
+  Terminal,
   ThumbsDown,
   ThumbsUp,
   Trash2,
   TrendingDown,
   TrendingUp,
   Trophy,
+  Twitter,
   User,
   WandSparkles,
-  Terminal,
   Wrench,
   X,
   XCircle,
   Youtube,
-  Twitter,
-  Github,
   Zap,
-} from 'lucide-react-native'
+} from 'lucide-react-native';
+import { cssInterop } from 'nativewind';
 
 // Re-export type-only imports consumers need
-export type { LucideIcon, LucideProps } from 'lucide-react-native'
+export type { LucideIcon, LucideProps } from 'lucide-react-native';
 
 // ── Apply cssInterop to every icon ──────────────────────────────────────
 // Maps: className  → style  (NativeWind)
@@ -200,7 +200,7 @@ const icons = [
   Twitter,
   Github,
   Zap,
-] as const
+] as const;
 
 for (const icon of icons) {
   cssInterop(icon, {
@@ -212,17 +212,16 @@ for (const icon of icons) {
         width: 'size',
       },
     },
-  })
+  });
 }
 
 // ── Re-export every icon (same names, now themed) ───────────────────────
 export {
   AlertCircle,
   AlertTriangle,
-  Ban,
-  Circle,
   ArrowLeft,
   ArrowRight,
+  Ban,
   BarChart3,
   Bell,
   BookmarkPlus,
@@ -235,6 +234,7 @@ export {
   ChevronLeft,
   ChevronRight,
   ChevronUp,
+  Circle,
   Clock,
   Code,
   Database,
@@ -249,6 +249,7 @@ export {
   FolderOpen,
   Gauge,
   GitFork,
+  Github,
   GitMerge,
   Globe,
   Hash,
@@ -290,20 +291,19 @@ export {
   Star,
   Sun,
   Tag,
+  Terminal,
   ThumbsDown,
   ThumbsUp,
   Trash2,
   TrendingDown,
   TrendingUp,
   Trophy,
+  Twitter,
   User,
   WandSparkles,
-  Terminal,
   Wrench,
   X,
   XCircle,
   Youtube,
-  Twitter,
-  Github,
   Zap,
-}
+};

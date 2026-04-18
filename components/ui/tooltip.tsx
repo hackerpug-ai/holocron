@@ -1,11 +1,11 @@
-import { NativeOnlyAnimatedView } from '@/components/ui/native-only-animated-view';
-import { TextClassContext } from '@/components/ui/text';
-import { cn } from '@/lib/utils';
 import * as TooltipPrimitive from '@rn-primitives/tooltip';
 import * as React from 'react';
 import { Platform, StyleSheet } from 'react-native';
 import { FadeInDown, FadeInUp, FadeOut } from 'react-native-reanimated';
 import { FullWindowOverlay as RNFullWindowOverlay } from 'react-native-screens';
+import { NativeOnlyAnimatedView } from '@/components/ui/native-only-animated-view';
+import { TextClassContext } from '@/components/ui/text';
+import { cn } from '@/lib/utils';
 
 const Tooltip = TooltipPrimitive.Root;
 
@@ -33,7 +33,8 @@ function TooltipContent({
                 ? FadeInDown.withInitialValues({ transform: [{ translateY: 3 }] }).duration(150)
                 : FadeInUp.withInitialValues({ transform: [{ translateY: -5 }] })
             }
-            exiting={FadeOut}>
+            exiting={FadeOut}
+          >
             <TextClassContext.Provider value="text-xs text-primary-foreground">
               <TooltipPrimitive.Content
                 sideOffset={sideOffset}

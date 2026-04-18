@@ -11,12 +11,12 @@
  * - Exposes both internalAction and public action
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { findRecommendationsAction, findRecommendations, findRecommendationsCore } from './actions';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  RecommendationSynthesisSchema,
   RECOMMENDATION_SYNTHESIS_PROMPT,
+  RecommendationSynthesisSchema,
 } from '../chat/specialistPrompts';
+import { findRecommendations, findRecommendationsAction, findRecommendationsCore } from './actions';
 import { RECOMMENDATION_TOTAL_TIMEOUT_MS } from './platformSearch';
 
 // Mock fetch globally
@@ -31,7 +31,7 @@ vi.mock('ai', () => ({
 const PLATFORM_SEARCH_COUNT = 5;
 
 function mockPlatformSearches(
-  searchResults: Array<Array<{ title: string; url: string; description: string }>>,
+  searchResults: Array<Array<{ title: string; url: string; description: string }>>
 ) {
   expect(searchResults).toHaveLength(PLATFORM_SEARCH_COUNT);
   for (const data of searchResults) {
@@ -52,7 +52,7 @@ function mockReaderResponses(contents: string[]) {
 }
 
 function mockEnrichmentSearches(
-  searchResults: Array<Array<{ title: string; url: string; description: string }>>,
+  searchResults: Array<Array<{ title: string; url: string; description: string }>>
 ) {
   for (const data of searchResults) {
     mockFetch.mockResolvedValueOnce({
@@ -161,7 +161,9 @@ describe('REC-003: findRecommendationsAction', () => {
       expect(RECOMMENDATION_SYNTHESIS_PROMPT).toContain('"reviewCount": number_or_omit');
       expect(RECOMMENDATION_SYNTHESIS_PROMPT).toContain('"platformLinks": [');
       expect(RECOMMENDATION_SYNTHESIS_PROMPT).toContain('"sourcePlatform": "string_or_omit"');
-      expect(RECOMMENDATION_SYNTHESIS_PROMPT).toContain('reviewCount, platformLinks, and sourcePlatform');
+      expect(RECOMMENDATION_SYNTHESIS_PROMPT).toContain(
+        'reviewCount, platformLinks, and sourcePlatform'
+      );
       expect(RECOMMENDATION_SYNTHESIS_PROMPT).toContain('OMIT unsupported optional fields');
       expect(RECOMMENDATION_SYNTHESIS_PROMPT).toContain('never fabricate');
     });
@@ -177,20 +179,44 @@ describe('REC-003: findRecommendationsAction', () => {
     it('findRecommendations happy path', async () => {
       mockPlatformSearches([
         [
-          { title: 'Autism Career Coach', url: 'https://example.com/coach1', description: 'Specialized career coaching for autism' },
-          { title: 'SF Career Services', url: 'https://example.com/coach2', description: 'San Francisco-based career support' },
+          {
+            title: 'Autism Career Coach',
+            url: 'https://example.com/coach1',
+            description: 'Specialized career coaching for autism',
+          },
+          {
+            title: 'SF Career Services',
+            url: 'https://example.com/coach2',
+            description: 'San Francisco-based career support',
+          },
         ],
         [
-          { title: 'Autism Career Coach Yelp', url: 'https://example.com/coach1?utm_source=yelp', description: 'Same provider from review platform' },
+          {
+            title: 'Autism Career Coach Yelp',
+            url: 'https://example.com/coach1?utm_source=yelp',
+            description: 'Same provider from review platform',
+          },
         ],
         [
-          { title: 'Neurodiversity Works', url: 'https://example.com/coach3', description: 'Neurodiverse job placement' },
+          {
+            title: 'Neurodiversity Works',
+            url: 'https://example.com/coach3',
+            description: 'Neurodiverse job placement',
+          },
         ],
         [
-          { title: 'Community Pick', url: 'https://example.com/coach4', description: 'Community-vetted recommendation' },
+          {
+            title: 'Community Pick',
+            url: 'https://example.com/coach4',
+            description: 'Community-vetted recommendation',
+          },
         ],
         [
-          { title: 'Ratings Roundup', url: 'https://example.com/coach5', description: 'Best rated provider summary' },
+          {
+            title: 'Ratings Roundup',
+            url: 'https://example.com/coach5',
+            description: 'Best rated provider summary',
+          },
         ],
       ]);
       mockReaderResponses([
@@ -244,7 +270,10 @@ describe('REC-003: findRecommendationsAction', () => {
         }) as any,
       } as any);
 
-      const result = await findRecommendationsCore({ query: 'career coaches for autism in SF', count: 5 });
+      const result = await findRecommendationsCore({
+        query: 'career coaches for autism in SF',
+        count: 5,
+      });
 
       expect(result).toHaveProperty('items');
       expect(result).toHaveProperty('sources');
@@ -282,7 +311,13 @@ describe('REC-003: findRecommendationsAction', () => {
       ]);
       mockReaderResponses(['Coach synthesis content']);
       mockEnrichmentSearches([
-        [{ title: 'Coach Two profile', url: 'https://www.google.com/maps/place/coach-two', description: 'Rated 4.7 stars with 121 reviews' }],
+        [
+          {
+            title: 'Coach Two profile',
+            url: 'https://www.google.com/maps/place/coach-two',
+            description: 'Rated 4.7 stars with 121 reviews',
+          },
+        ],
         [],
         [],
       ]);
@@ -313,7 +348,9 @@ describe('REC-003: findRecommendationsAction', () => {
               whyRecommended: 'No links yet',
             },
           ],
-          sources: [{ title: 'Coach One', url: 'https://example.com/coach1', snippet: 'Primary source' }],
+          sources: [
+            { title: 'Coach One', url: 'https://example.com/coach1', snippet: 'Primary source' },
+          ],
           query: 'career coach query',
           durationMs: 500,
         }),
@@ -384,10 +421,15 @@ describe('REC-003: findRecommendationsAction', () => {
     it('returns fallback on abort-shaped discovery failure', async () => {
       const startTime = Date.now();
 
-      mockFetch.mockImplementationOnce(() => Promise.reject(new DOMException('The operation was aborted', 'AbortError')));
+      mockFetch.mockImplementationOnce(() =>
+        Promise.reject(new DOMException('The operation was aborted', 'AbortError'))
+      );
       mockPlatformSearches([[], [], [], [], []]);
 
-      const result = await findRecommendationsCore({ query: 'career coaches for autism in SF', count: 5 });
+      const result = await findRecommendationsCore({
+        query: 'career coaches for autism in SF',
+        count: 5,
+      });
       const duration = Date.now() - startTime;
 
       expect(duration).toBeLessThan(1000);
@@ -400,19 +442,21 @@ describe('REC-003: findRecommendationsAction', () => {
     it('returns fallback when abort occurs during second-pass enrichment', async () => {
       const realSetTimeout = global.setTimeout;
       let abortMainTimer: (() => void) | null = null;
-      const setTimeoutSpy = vi
-        .spyOn(global, 'setTimeout')
-        .mockImplementation(((handler: TimerHandler, timeout?: number, ...args: any[]) => {
-          if (timeout === RECOMMENDATION_TOTAL_TIMEOUT_MS) {
-            abortMainTimer = () => {
-              if (typeof handler === 'function') {
-                handler(...args);
-              }
-            };
-            return 1 as any;
-          }
-          return realSetTimeout(handler as any, timeout as any, ...args);
-        }) as any);
+      const setTimeoutSpy = vi.spyOn(global, 'setTimeout').mockImplementation(((
+        handler: TimerHandler,
+        timeout?: number,
+        ...args: any[]
+      ) => {
+        if (timeout === RECOMMENDATION_TOTAL_TIMEOUT_MS) {
+          abortMainTimer = () => {
+            if (typeof handler === 'function') {
+              handler(...args);
+            }
+          };
+          return 1 as any;
+        }
+        return realSetTimeout(handler as any, timeout as any, ...args);
+      }) as any);
 
       mockPlatformSearches([
         [{ title: 'Coach Timeout', url: 'https://example.com/timeout', description: 'Test' }],
@@ -433,7 +477,9 @@ describe('REC-003: findRecommendationsAction', () => {
               whyRecommended: 'No platform links yet',
             },
           ],
-          sources: [{ title: 'Coach Timeout', url: 'https://example.com/timeout', snippet: 'Test' }],
+          sources: [
+            { title: 'Coach Timeout', url: 'https://example.com/timeout', snippet: 'Test' },
+          ],
           query: 'career coach timeout',
           durationMs: 1000,
         }),
@@ -492,7 +538,10 @@ describe('REC-003: findRecommendationsAction', () => {
         }) as any,
       } as any);
 
-      const result = await findRecommendationsCore({ query: 'career coaches for autism in SF', count: 5 });
+      const result = await findRecommendationsCore({
+        query: 'career coaches for autism in SF',
+        count: 5,
+      });
 
       expect(result).toHaveProperty('items');
     });
@@ -521,7 +570,10 @@ describe('REC-003: findRecommendationsAction', () => {
         text: 'This is not valid JSON',
       } as any);
 
-      const result = await findRecommendationsCore({ query: 'career coaches for autism in SF', count: 5 });
+      const result = await findRecommendationsCore({
+        query: 'career coaches for autism in SF',
+        count: 5,
+      });
 
       // Returns graceful empty
       expect(result).toHaveProperty('items');
@@ -541,7 +593,13 @@ describe('REC-003: findRecommendationsAction', () => {
   describe('AC-6: Fewer-than-count returns what was found', () => {
     it('returns 1 item when only 1 provider found', async () => {
       mockPlatformSearches([
-        [{ title: 'Rare Specialist', url: 'https://example.com/rare', description: 'Only one found' }],
+        [
+          {
+            title: 'Rare Specialist',
+            url: 'https://example.com/rare',
+            description: 'Only one found',
+          },
+        ],
         [],
         [],
         [],
@@ -552,14 +610,29 @@ describe('REC-003: findRecommendationsAction', () => {
       const { generateText } = await import('ai');
       vi.mocked(generateText).mockResolvedValueOnce({
         text: JSON.stringify({
-          items: [{ name: 'Rare Specialist', description: 'Only one found', whyRecommended: 'Best match available' }],
-          sources: [{ title: 'Rare Specialist', url: 'https://example.com/rare', snippet: 'Only one found' }],
+          items: [
+            {
+              name: 'Rare Specialist',
+              description: 'Only one found',
+              whyRecommended: 'Best match available',
+            },
+          ],
+          sources: [
+            {
+              title: 'Rare Specialist',
+              url: 'https://example.com/rare',
+              snippet: 'Only one found',
+            },
+          ],
           query: 'ultra niche niche niche query',
           durationMs: 1000,
         }),
       } as any);
 
-      const result = await findRecommendationsCore({ query: 'ultra niche niche niche query', count: 5 });
+      const result = await findRecommendationsCore({
+        query: 'ultra niche niche niche query',
+        count: 5,
+      });
 
       // Must return the 1 item — NOT empty
       expect(result.items.length).toBe(1);
@@ -631,10 +704,10 @@ describe('REC-003: findRecommendationsAction', () => {
 
       await findRecommendationsCore({ query: 'test diagnostic', count: 3 });
 
-      const logCalls = logSpy.mock.calls.map(c => c[0] as string);
+      const logCalls = logSpy.mock.calls.map((c) => c[0] as string);
 
       // Must have at least one [findRec] prefixed log
-      expect(logCalls.some(m => m.includes('[findRec]'))).toBe(true);
+      expect(logCalls.some((m) => m.includes('[findRec]'))).toBe(true);
 
       logSpy.mockRestore();
     });

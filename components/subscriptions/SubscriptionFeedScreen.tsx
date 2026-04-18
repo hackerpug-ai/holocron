@@ -6,31 +6,27 @@
  *
  * Uses FlatList for performance with pull-to-refresh in default mode.
  */
-import React, { useState, useMemo } from 'react'
-import {
-  ActivityIndicator,
-  FlatList,
-  RefreshControl,
-  View,
-} from 'react-native'
-import { useRouter } from 'expo-router'
-import { useQuery } from 'convex/react'
-import { api } from '@/convex/_generated/api'
-import { Text } from '@/components/ui/text'
-import { useTheme } from '@/hooks/use-theme'
-import { useWhatsNewFeed } from '@/hooks/use-whats-new-feed'
-import { useWebView } from '@/hooks/useWebView'
-import { SearchInput } from '@/components/SearchInput'
-import { SubscriptionFeedFilters } from '@/components/subscriptions/SubscriptionFeedFilters'
-import { FeedItemSkeleton } from '@/components/subscriptions/FeedItemSkeleton'
-import { FeedSkeleton } from '@/components/subscriptions/FeedSkeleton'
-import { WebViewSheet } from '@/components/webview/WebViewSheet'
-import { WhatsNewFindingCard } from '@/components/whats-new/WhatsNewFindingCard'
-import { SocialPostsGroupCard } from '@/components/whats-new/SocialPostsGroupCard'
-import { SearchContentCard } from '@/components/subscriptions/SearchContentCard'
-import { OfflineBanner } from '@/components/subscriptions/OfflineBanner'
-import { QueueIndicator } from '@/components/subscriptions/QueueIndicator'
-import { useOfflineQueue } from '@/hooks/useOfflineQueue'
+
+import { useQuery } from 'convex/react';
+import { useRouter } from 'expo-router';
+import React, { useMemo, useState } from 'react';
+import { ActivityIndicator, FlatList, RefreshControl, View } from 'react-native';
+import { SearchInput } from '@/components/SearchInput';
+import { FeedItemSkeleton } from '@/components/subscriptions/FeedItemSkeleton';
+import { FeedSkeleton } from '@/components/subscriptions/FeedSkeleton';
+import { OfflineBanner } from '@/components/subscriptions/OfflineBanner';
+import { QueueIndicator } from '@/components/subscriptions/QueueIndicator';
+import { SearchContentCard } from '@/components/subscriptions/SearchContentCard';
+import { SubscriptionFeedFilters } from '@/components/subscriptions/SubscriptionFeedFilters';
+import { Text } from '@/components/ui/text';
+import { WebViewSheet } from '@/components/webview/WebViewSheet';
+import { SocialPostsGroupCard } from '@/components/whats-new/SocialPostsGroupCard';
+import { WhatsNewFindingCard } from '@/components/whats-new/WhatsNewFindingCard';
+import { api } from '@/convex/_generated/api';
+import { useTheme } from '@/hooks/use-theme';
+import { useWhatsNewFeed } from '@/hooks/use-whats-new-feed';
+import { useOfflineQueue } from '@/hooks/useOfflineQueue';
+import { useWebView } from '@/hooks/useWebView';
 
 /** Check if a finding is from a social/community source */
 function isSocialSource(source: string): boolean {
@@ -40,121 +36,110 @@ function isSocialSource(source: string): boolean {
     source === 'Lobsters' ||
     source === 'Dev.to' ||
     source === 'Twitter/X'
-  )
+  );
 }
 
 interface SubscriptionFeedScreenProps {
-  testID?: string
+  testID?: string;
 }
 
 function formatRelativeTime(timestamp: number): string {
-  const now = Date.now()
-  const diff = now - timestamp
-  const minutes = Math.floor(diff / 60000)
-  const hours = Math.floor(minutes / 60)
-  const days = Math.floor(hours / 24)
+  const now = Date.now();
+  const diff = now - timestamp;
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
 
-  if (days > 0) return `${days}d ago`
-  if (hours > 0) return `${hours}h ago`
-  if (minutes > 0) return `${minutes}m ago`
-  return 'just now'
+  if (days > 0) return `${days}d ago`;
+  if (hours > 0) return `${hours}h ago`;
+  if (minutes > 0) return `${minutes}m ago`;
+  return 'just now';
 }
 
 /**
  * Maps the selectedCategory filter key to the hook's category argument.
  */
-function toCategoryArg(
-  key: string
-): 'discovery' | 'release' | 'trend' | 'discussion' | undefined {
-  if (
-    key === 'discovery' ||
-    key === 'release' ||
-    key === 'trend' ||
-    key === 'discussion'
-  ) {
-    return key
+function toCategoryArg(key: string): 'discovery' | 'release' | 'trend' | 'discussion' | undefined {
+  if (key === 'discovery' || key === 'release' || key === 'trend' || key === 'discussion') {
+    return key;
   }
-  return undefined
+  return undefined;
 }
 
 export function SubscriptionFeedScreen({
   testID = 'subscription-feed',
 }: SubscriptionFeedScreenProps) {
-  const { spacing } = useTheme()
-  const router = useRouter()
-  const { webViewState, openUrl, closeWebView } = useWebView()
+  const { spacing } = useTheme();
+  const router = useRouter();
+  const { webViewState, openUrl, closeWebView } = useWebView();
 
   // Offline support
-  const { queueLength } = useOfflineQueue()
+  const { queueLength } = useOfflineQueue();
 
   // Search state
-  const [searchText, setSearchText] = useState('')
-  const [selectedCategory, setSelectedCategory] = useState<string>('all')
+  const [searchText, setSearchText] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
   // What's New feed (default mode)
   const { findings, report, isLoading, isRefreshing, refresh } = useWhatsNewFeed({
     category: toCategoryArg(selectedCategory),
-  })
+  });
 
   // Separate social posts from non-social findings
   // Social posts get grouped into a single card; non-social show individually
   const { nonSocialFindings, socialFindings } = useMemo(() => {
     // When filtering to "discussion" category, show all individually (user explicitly asked)
     if (selectedCategory === 'discussion') {
-      return { nonSocialFindings: findings, socialFindings: [] }
+      return { nonSocialFindings: findings, socialFindings: [] };
     }
-    const social: typeof findings = []
-    const nonSocial: typeof findings = []
+    const social: typeof findings = [];
+    const nonSocial: typeof findings = [];
     for (const f of findings) {
       if (isSocialSource(f.source)) {
-        social.push(f)
+        social.push(f);
       } else {
-        nonSocial.push(f)
+        nonSocial.push(f);
       }
     }
-    return { nonSocialFindings: nonSocial, socialFindings: social }
-  }, [findings, selectedCategory])
+    return { nonSocialFindings: nonSocial, socialFindings: social };
+  }, [findings, selectedCategory]);
 
   // Search query — only active when 2+ chars entered
-  const isSearching = searchText.length >= 2
-  const searchArgs = isSearching ? { query: searchText } : ('skip' as const)
-  const searchResults = useQuery(
-    api.subscriptions.queries.searchContent,
-    searchArgs
-  )
+  const isSearching = searchText.length >= 2;
+  const searchArgs = isSearching ? { query: searchText } : ('skip' as const);
+  const searchResults = useQuery(api.subscriptions.queries.searchContent, searchArgs);
 
   const handleSearchChange = (query: string) => {
-    setSearchText(query)
-  }
+    setSearchText(query);
+  };
 
   const handleClearSearch = () => {
-    setSearchText('')
-  }
+    setSearchText('');
+  };
 
   // Filter chip options derived from latest report counts
-  const discussionCount =
-    report
-      ? Math.max(
-          0,
-          (report.findingsCount ?? 0) -
-            (report.discoveryCount ?? 0) -
-            (report.releaseCount ?? 0) -
-            (report.trendCount ?? 0)
-        )
-      : 0
+  const discussionCount = report
+    ? Math.max(
+        0,
+        (report.findingsCount ?? 0) -
+          (report.discoveryCount ?? 0) -
+          (report.releaseCount ?? 0) -
+          (report.trendCount ?? 0)
+      )
+    : 0;
 
   const filterOptions = [
     { key: 'discovery', label: 'Discoveries', count: report?.discoveryCount ?? 0 },
     { key: 'release', label: 'Releases', count: report?.releaseCount ?? 0 },
     { key: 'trend', label: 'Trends', count: report?.trendCount ?? 0 },
     { key: 'discussion', label: 'Discussions', count: discussionCount },
-  ]
+  ];
 
   // ---- Render helpers ----
 
   const renderSearchResults = () => {
-    const results = searchResults ?? []
-    const isLoadingSearch = isSearching && searchResults === undefined
+    const results = searchResults ?? [];
+    const isLoadingSearch = isSearching && searchResults === undefined;
 
     if (isLoadingSearch) {
       return (
@@ -162,7 +147,7 @@ export function SubscriptionFeedScreen({
           <FeedItemSkeleton variant="blog" testID={`${testID}-search-skeleton-0`} />
           <FeedItemSkeleton variant="blog" testID={`${testID}-search-skeleton-1`} />
         </View>
-      )
+      );
     }
 
     if (results.length === 0 && isSearching) {
@@ -178,7 +163,7 @@ export function SubscriptionFeedScreen({
             Try a different search term
           </Text>
         </View>
-      )
+      );
     }
 
     return (
@@ -198,8 +183,8 @@ export function SubscriptionFeedScreen({
           />
         ))}
       </View>
-    )
-  }
+    );
+  };
 
   // Search mode
   if (isSearching) {
@@ -219,9 +204,7 @@ export function SubscriptionFeedScreen({
           </View>
 
           {/* Search Results */}
-          <View className="flex-1 px-4">
-            {renderSearchResults()}
-          </View>
+          <View className="flex-1 px-4">{renderSearchResults()}</View>
         </View>
 
         <WebViewSheet
@@ -231,7 +214,7 @@ export function SubscriptionFeedScreen({
           testID={`${testID}-webview`}
         />
       </>
-    )
+    );
   }
 
   // Default mode: What's New feed
@@ -243,13 +226,15 @@ export function SubscriptionFeedScreen({
         testID={testID}
         data={nonSocialFindings}
         keyExtractor={(item) => item.url}
-        contentContainerStyle={{ flexGrow: 1, paddingHorizontal: spacing.lg, paddingTop: spacing.md }}
+        contentContainerStyle={{
+          flexGrow: 1,
+          paddingHorizontal: spacing.lg,
+          paddingTop: spacing.md,
+        }}
         accessibilityRole="list"
         accessibilityLabel="Content feed"
         accessibilityValue={{ text: `${nonSocialFindings.length} items` }}
-        refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={refresh} />
-        }
+        refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={refresh} />}
         // Performance optimizations for 60fps scrolling
         removeClippedSubviews={true}
         maxToRenderPerBatch={10}
@@ -279,7 +264,8 @@ export function SubscriptionFeedScreen({
               <View className="py-2 mt-3" testID={`${testID}-meta-banner`}>
                 <Text variant="muted" className="text-xs text-muted-foreground">
                   {`${report.findingsCount ?? 0} findings from ${
-                    (report.summaryJson as { sources?: unknown[] } | undefined)?.sources?.length ?? 0
+                    (report.summaryJson as { sources?: unknown[] } | undefined)?.sources?.length ??
+                    0
                   } sources · Generated ${formatRelativeTime(report.createdAt)}`}
                 </Text>
               </View>
@@ -364,5 +350,5 @@ export function SubscriptionFeedScreen({
         testID={`${testID}-webview`}
       />
     </>
-  )
+  );
 }

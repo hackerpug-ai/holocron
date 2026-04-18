@@ -1,8 +1,8 @@
-import React from "react";
-import { View, Pressable } from "react-native";
-import { Text } from "@/components/ui/text";
-import { useRouter } from "expo-router";
-import { ChevronRight } from "lucide-react-native";
+import { useRouter } from 'expo-router';
+import { ChevronRight } from 'lucide-react-native';
+import React from 'react';
+import { Pressable, View } from 'react-native';
+import { Text } from '@/components/ui/text';
 
 interface PodcastTranscriptionCompleteCardProps {
   transcript_id: string;
@@ -33,7 +33,7 @@ export function PodcastTranscriptionCompleteCard({
   const router = useRouter();
 
   const formatDuration = () => {
-    if (!duration_ms) return "Unknown duration";
+    if (!duration_ms) return 'Unknown duration';
     const minutes = Math.floor(duration_ms / 60000);
     const seconds = Math.floor((duration_ms % 60000) / 1000);
     return `${minutes}m ${seconds}s`;
@@ -77,32 +77,26 @@ export function PodcastTranscriptionCompleteCard({
 
           {duration_ms && (
             <View className="mr-4 mb-1">
-              <Text className="text-xs text-on-surface-variant">
-                {formatDuration()}
-              </Text>
+              <Text className="text-xs text-on-surface-variant">{formatDuration()}</Text>
             </View>
           )}
 
           {metadata?.speakers && (
             <View className="mr-4 mb-1">
               <Text className="text-xs text-on-surface-variant">
-                {metadata.speakers} speaker{metadata.speakers > 1 ? "s" : ""}
+                {metadata.speakers} speaker{metadata.speakers > 1 ? 's' : ''}
               </Text>
             </View>
           )}
 
           {language && (
             <View className="mr-4 mb-1">
-              <Text className="text-xs text-on-surface-variant">
-                {language.toUpperCase()}
-              </Text>
+              <Text className="text-xs text-on-surface-variant">{language.toUpperCase()}</Text>
             </View>
           )}
         </View>
 
-        <Text className="text-xs font-semibold text-primary">
-          Tap to view full transcript →
-        </Text>
+        <Text className="text-xs font-semibold text-primary">Tap to view full transcript →</Text>
       </View>
     </Pressable>
   );

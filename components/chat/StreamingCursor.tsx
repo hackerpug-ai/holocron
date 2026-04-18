@@ -1,12 +1,12 @@
-import { useEffect } from 'react'
+import { useEffect } from 'react';
 import Animated, {
-  useSharedValue,
+  Easing,
   useAnimatedStyle,
+  useSharedValue,
   withRepeat,
   withTiming,
-  Easing,
-} from 'react-native-reanimated'
-import { Text } from '@/components/ui/text'
+} from 'react-native-reanimated';
+import { Text } from '@/components/ui/text';
 
 /**
  * StreamingCursor renders a blinking "|" character to indicate that an
@@ -14,23 +14,23 @@ import { Text } from '@/components/ui/text'
  * end of a message bubble's text content.
  */
 export function StreamingCursor() {
-  const opacity = useSharedValue(1)
+  const opacity = useSharedValue(1);
 
   useEffect(() => {
     opacity.value = withRepeat(
       withTiming(0, { duration: 530, easing: Easing.inOut(Easing.ease) }),
       -1,
       true
-    )
-  }, [])
+    );
+  }, []);
 
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
-  }))
+  }));
 
   return (
     <Animated.View style={animatedStyle} testID="streaming-cursor">
       <Text className="text-foreground">|</Text>
     </Animated.View>
-  )
+  );
 }

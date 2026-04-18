@@ -7,31 +7,31 @@
  * - Progress message updates
  */
 
-import { View, StyleSheet } from 'react-native'
-import { Text } from '@/components/ui/text'
-import { Card } from '@/components/ui/card'
-import { Search, Loader2 } from '@/components/ui/icons'
-import { useTheme } from '@/hooks/use-theme'
+import { useEffect } from 'react';
+import { StyleSheet, View } from 'react-native';
 import Animated, {
+  Easing,
   useAnimatedStyle,
-  withRepeat,
-  withTiming,
-  withSequence,
   useSharedValue,
   withDelay,
-  Easing,
-} from 'react-native-reanimated'
-import { useEffect } from 'react'
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
+import { Card } from '@/components/ui/card';
+import { Loader2, Search } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { useTheme } from '@/hooks/use-theme';
 
 export interface ShopLoadingCardProps {
-  sessionId: string
-  query: string
-  message?: string
-  testID?: string
+  sessionId: string;
+  query: string;
+  message?: string;
+  testID?: string;
 }
 
 // Retailer names for the scanning animation
-const RETAILERS = ['Amazon', 'eBay', 'Walmart', 'Target', 'Best Buy', 'Newegg']
+const RETAILERS = ['Amazon', 'eBay', 'Walmart', 'Target', 'Best Buy', 'Newegg'];
 
 export function ShopLoadingCard({
   sessionId: _sessionId,
@@ -39,12 +39,12 @@ export function ShopLoadingCard({
   message = 'Searching for deals...',
   testID = 'shop-loading-card',
 }: ShopLoadingCardProps) {
-  const { colors: themeColors } = useTheme()
+  const { colors: themeColors } = useTheme();
 
   // Animated values
-  const rotation = useSharedValue(0)
-  const pulse = useSharedValue(1)
-  const scanLine = useSharedValue(0)
+  const rotation = useSharedValue(0);
+  const pulse = useSharedValue(1);
+  const scanLine = useSharedValue(0);
 
   useEffect(() => {
     // Continuous rotation for the loader
@@ -52,7 +52,7 @@ export function ShopLoadingCard({
       withTiming(360, { duration: 1500, easing: Easing.linear }),
       -1,
       false
-    )
+    );
 
     // Pulsing effect for the background
     pulse.value = withRepeat(
@@ -62,40 +62,36 @@ export function ShopLoadingCard({
       ),
       -1,
       true
-    )
+    );
 
     // Scanning line animation
     scanLine.value = withRepeat(
       withTiming(1, { duration: 2000, easing: Easing.linear }),
       -1,
       false
-    )
-  }, [rotation, pulse, scanLine])
+    );
+  }, [rotation, pulse, scanLine]);
 
   const rotationStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${rotation.value}deg` }],
-  }))
+  }));
 
   const pulseStyle = useAnimatedStyle(() => ({
     transform: [{ scale: pulse.value }],
     opacity: 0.5 + (pulse.value - 1) * 5,
-  }))
+  }));
 
   const scanLineStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: scanLine.value * 60 }],
     opacity: 1 - scanLine.value * 0.5,
-  }))
+  }));
 
   return (
     <Card testID={testID} className="border-border bg-card overflow-hidden">
       {/* Animated top accent */}
       <View className="relative h-1 overflow-hidden" style={{ backgroundColor: themeColors.muted }}>
         <Animated.View
-          style={[
-            styles.scanBar,
-            { backgroundColor: themeColors.primary },
-            scanLineStyle,
-          ]}
+          style={[styles.scanBar, { backgroundColor: themeColors.primary }, scanLineStyle]}
         />
       </View>
 
@@ -145,13 +141,11 @@ export function ShopLoadingCard({
           <Animated.View style={rotationStyle}>
             <Loader2 size={14} color={themeColors.mutedForeground} />
           </Animated.View>
-          <Text className="text-muted-foreground text-xs">
-            Finding the best deals for you...
-          </Text>
+          <Text className="text-muted-foreground text-xs">Finding the best deals for you...</Text>
         </View>
       </View>
     </Card>
-  )
+  );
 }
 
 /**
@@ -162,11 +156,11 @@ function RetailerPill({
   delay,
   themeColors,
 }: {
-  name: string
-  delay: number
-  themeColors: { secondary: string; [key: string]: string }
+  name: string;
+  delay: number;
+  themeColors: { secondary: string; [key: string]: string };
 }) {
-  const opacity = useSharedValue(0.4)
+  const opacity = useSharedValue(0.4);
 
   useEffect(() => {
     opacity.value = withDelay(
@@ -179,24 +173,21 @@ function RetailerPill({
         -1,
         true
       )
-    )
-  }, [delay, opacity])
+    );
+  }, [delay, opacity]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
-  }))
+  }));
 
   return (
     <Animated.View
-      style={[
-        animatedStyle,
-        { backgroundColor: themeColors.secondary },
-      ]}
+      style={[animatedStyle, { backgroundColor: themeColors.secondary }]}
       className="rounded-full px-2.5 py-1"
     >
       <Text className="text-secondary-foreground text-xs font-medium">{name}</Text>
     </Animated.View>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
@@ -206,4 +197,4 @@ const styles = StyleSheet.create({
     right: 0,
     height: 2,
   },
-})
+});

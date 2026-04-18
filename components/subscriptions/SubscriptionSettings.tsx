@@ -7,36 +7,32 @@
  * - Personalization options
  */
 
-import React from 'react'
-import { View, ScrollView, StyleSheet, type ViewStyle } from 'react-native'
-import { Text } from '@/components/ui/text'
-import { Switch } from '@/components/ui/switch'
-import { useMutation } from 'convex/react'
-import { api } from '@/convex/_generated/api'
+import { useMutation } from 'convex/react';
+import React from 'react';
+import { ScrollView, StyleSheet, View, type ViewStyle } from 'react-native';
+import { Switch } from '@/components/ui/switch';
+import { Text } from '@/components/ui/text';
+import { api } from '@/convex/_generated/api';
 
 export interface SubscriptionSettingsProps {
   /** Optional test ID for testing */
-  testID?: string
+  testID?: string;
 }
 
 export function SubscriptionSettings({
   testID = 'subscription-settings',
 }: SubscriptionSettingsProps) {
   // Mutation to update preferences (reserved for future use)
-  useMutation(api.subscriptions.feedback.submitFeedback)
+  useMutation(api.subscriptions.feedback.submitFeedback);
 
   const handlePreferenceChange = async (key: string, value: boolean) => {
     // In a real implementation, this would update user preferences
     // For now, we're just showing the UI structure
-    console.log(`Preference ${key} changed to ${value}`)
-  }
+    console.log(`Preference ${key} changed to ${value}`);
+  };
 
   return (
-    <ScrollView
-      style={styles.container}
-      testID={testID}
-      contentContainerStyle={styles.content}
-    >
+    <ScrollView style={styles.container} testID={testID} contentContainerStyle={styles.content}>
       <Text variant="h4" style={styles.sectionTitle} testID={`${testID}-ranking-title`}>
         Content Ranking
       </Text>
@@ -87,7 +83,7 @@ export function SubscriptionSettings({
         />
       </View>
     </ScrollView>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
@@ -117,9 +113,9 @@ const styles = StyleSheet.create({
     opacity: 0.7,
     fontSize: 12,
   },
-})
+});
 
 /**
  * Memoized version for performance optimization
  */
-export const SubscriptionSettingsMemo = React.memo(SubscriptionSettings)
+export const SubscriptionSettingsMemo = React.memo(SubscriptionSettings);

@@ -8,28 +8,34 @@
  * - Perform client-side scoring and reranking
  */
 
-"use node";
+'use node';
 
-import { action } from "../_generated/server";
-import { makeFunctionReference } from "convex/server";
-import { v } from "convex/values";
-import { embed } from "ai";
-import { cohereEmbedding } from "../lib/ai/embeddings_provider";
-import type { Id } from "../_generated/dataModel";
+import { embed } from 'ai';
+import { makeFunctionReference } from 'convex/server';
+import { v } from 'convex/values';
+import type { Id } from '../_generated/dataModel';
+import { action } from '../_generated/server';
+import { cohereEmbedding } from '../lib/ai/embeddings_provider';
 
 // Direct function references avoid the regenerated-api requirement for new modules.
 const improvementsQueriesFullTextSearch = makeFunctionReference<
-  "query",
+  'query',
   { query: string; limit?: number },
-  Array<{ _id: Id<"improvementRequests">; [key: string]: unknown }>
->("improvements/queries:fullTextSearch");
+  Array<{ _id: Id<'improvementRequests'>; [key: string]: unknown }>
+>('improvements/queries:fullTextSearch');
 
 const improvementsQueriesGet = makeFunctionReference<
-  "query",
-  { id: Id<"improvementRequests"> },
-  | ({ _id: Id<"improvementRequests">; status: string; mergedIntoId?: Id<"improvementRequests">; title?: string; description: string; [key: string]: unknown })
-  | null
->("improvements/queries:get");
+  'query',
+  { id: Id<'improvementRequests'> },
+  {
+    _id: Id<'improvementRequests'>;
+    status: string;
+    mergedIntoId?: Id<'improvementRequests'>;
+    title?: string;
+    description: string;
+    [key: string]: unknown;
+  } | null
+>('improvements/queries:get');
 
 export const findSimilar = action({
   args: {
@@ -51,7 +57,7 @@ export const findSimilar = action({
 
     // Run vector search and FTS in parallel
     const [vectorResults, ftsResults] = await Promise.all([
-      ctx.vectorSearch("improvementRequests", "by_embedding", {
+      ctx.vectorSearch('improvementRequests', 'by_embedding', {
         vector: embedding,
         limit: searchLimit,
       }),
@@ -63,7 +69,7 @@ export const findSimilar = action({
 
     // Fetch full documents for vector results (they only return _id + _score)
     const vectorDocs = await Promise.all(
-      vectorResults.map(async (result: { _id: Id<"improvementRequests">; _score: number }) => {
+      vectorResults.map(async (result: { _id: Id<'improvementRequests'>; _score: number }) => {
         const doc = await ctx.runQuery(improvementsQueriesGet, {
           id: result._id,
         });
@@ -88,13 +94,11 @@ export const findSimilar = action({
     const resultMap = new Map<string, any>();
 
     // Score vector results - normalize to 0-1 range
-    const maxVectorScore =
-      hydratedVectorResults.length > 0 ? hydratedVectorResults[0].score : 1;
+    const maxVectorScore = hydratedVectorResults.length > 0 ? hydratedVectorResults[0].score : 1;
 
     for (const doc of hydratedVectorResults) {
       const id = doc._id.toString();
-      const normalizedScore =
-        maxVectorScore > 0 ? doc.score / maxVectorScore : 0;
+      const normalizedScore = maxVectorScore > 0 ? doc.score / maxVectorScore : 0;
       const weightedScore = normalizedScore * VECTOR_WEIGHT;
       resultScore.set(id, (resultScore.get(id) || 0) + weightedScore);
       resultMap.set(id, doc);
@@ -105,8 +109,7 @@ export const findSimilar = action({
     for (let i = 0; i < ftsResults.length; i++) {
       const doc = ftsResults[i];
       const id = doc._id.toString();
-      const positionalScore =
-        ftsResults.length > 0 ? 1 - i / ftsResults.length : 0;
+      const positionalScore = ftsResults.length > 0 ? 1 - i / ftsResults.length : 0;
       const weightedScore = positionalScore * FTS_WEIGHT;
       resultScore.set(id, (resultScore.get(id) || 0) + weightedScore);
       if (!resultMap.has(id)) {

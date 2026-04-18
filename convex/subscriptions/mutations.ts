@@ -1,5 +1,5 @@
-import { mutation } from "../_generated/server";
-import { v } from "convex/values";
+import { v } from 'convex/values';
+import { mutation } from '../_generated/server';
 
 /**
  * Add a new subscription source
@@ -7,14 +7,14 @@ import { v } from "convex/values";
 export const add = mutation({
   args: {
     sourceType: v.union(
-      v.literal("youtube"),
-      v.literal("newsletter"),
-      v.literal("changelog"),
-      v.literal("reddit"),
-      v.literal("ebay"),
-      v.literal("whats-new"),
-      v.literal("creator"),
-      v.literal("github")
+      v.literal('youtube'),
+      v.literal('newsletter'),
+      v.literal('changelog'),
+      v.literal('reddit'),
+      v.literal('ebay'),
+      v.literal('whats-new'),
+      v.literal('creator'),
+      v.literal('github')
     ),
     identifier: v.string(),
     name: v.string(),
@@ -29,17 +29,17 @@ export const add = mutation({
 
     // Check if subscription already exists
     const existing = await ctx.db
-      .query("subscriptionSources")
-      .withIndex("by_identifier", (q) => q.eq("identifier", args.identifier))
+      .query('subscriptionSources')
+      .withIndex('by_identifier', (q) => q.eq('identifier', args.identifier))
       .first();
 
     if (existing) {
       throw new Error(`Subscription with identifier "${args.identifier}" already exists`);
     }
 
-    const id = await ctx.db.insert("subscriptionSources", {
+    const id = await ctx.db.insert('subscriptionSources', {
       ...args,
-      fetchMethod: args.fetchMethod ?? "rss",
+      fetchMethod: args.fetchMethod ?? 'rss',
       autoResearch: args.autoResearch ?? true,
       createdAt: now,
       updatedAt: now,
@@ -54,7 +54,7 @@ export const add = mutation({
  */
 export const remove = mutation({
   args: {
-    subscriptionId: v.id("subscriptionSources"),
+    subscriptionId: v.id('subscriptionSources'),
   },
   handler: async (ctx, args) => {
     const subscription = await ctx.db.get(args.subscriptionId);
@@ -64,8 +64,8 @@ export const remove = mutation({
 
     // Delete all associated content
     const content = await ctx.db
-      .query("subscriptionContent")
-      .withIndex("by_source", (q) => q.eq("sourceId", args.subscriptionId))
+      .query('subscriptionContent')
+      .withIndex('by_source', (q) => q.eq('sourceId', args.subscriptionId))
       .collect();
 
     for (const item of content) {
@@ -74,8 +74,8 @@ export const remove = mutation({
 
     // Delete all associated filters
     const filters = await ctx.db
-      .query("subscriptionFilters")
-      .withIndex("by_source", (q) => q.eq("sourceId", args.subscriptionId))
+      .query('subscriptionFilters')
+      .withIndex('by_source', (q) => q.eq('sourceId', args.subscriptionId))
       .collect();
 
     for (const filter of filters) {
@@ -94,7 +94,7 @@ export const remove = mutation({
  */
 export const update = mutation({
   args: {
-    id: v.id("subscriptionSources"),
+    id: v.id('subscriptionSources'),
     autoResearch: v.optional(v.boolean()),
     name: v.optional(v.string()),
     url: v.optional(v.string()),
@@ -124,26 +124,22 @@ export const update = mutation({
  */
 export const setFilter = mutation({
   args: {
-    sourceId: v.optional(v.id("subscriptionSources")),
+    sourceId: v.optional(v.id('subscriptionSources')),
     sourceType: v.optional(
       v.union(
-        v.literal("youtube"),
-        v.literal("newsletter"),
-        v.literal("changelog"),
-        v.literal("reddit"),
-        v.literal("ebay"),
-        v.literal("whats-new"),
-        v.literal("creator"),
-        v.literal("github")
+        v.literal('youtube'),
+        v.literal('newsletter'),
+        v.literal('changelog'),
+        v.literal('reddit'),
+        v.literal('ebay'),
+        v.literal('whats-new'),
+        v.literal('creator'),
+        v.literal('github')
       )
     ),
     ruleName: v.string(),
     ruleType: v.string(),
-    ruleValue: v.union(
-      v.string(),
-      v.number(),
-      v.array(v.string())
-    ),
+    ruleValue: v.union(v.string(), v.number(), v.array(v.string())),
     weight: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
@@ -151,7 +147,7 @@ export const setFilter = mutation({
     const { sourceId, sourceType, ruleName, ruleType, ruleValue, weight = 1.0 } = args;
 
     // Check if filter already exists
-    const existingFilters = await ctx.db.query("subscriptionFilters").collect();
+    const existingFilters = await ctx.db.query('subscriptionFilters').collect();
 
     const existing = existingFilters.find(
       (f) =>
@@ -171,7 +167,7 @@ export const setFilter = mutation({
     }
 
     // Create new filter
-    const id = await ctx.db.insert("subscriptionFilters", {
+    const id = await ctx.db.insert('subscriptionFilters', {
       sourceId,
       sourceType,
       ruleName,
@@ -191,14 +187,9 @@ export const setFilter = mutation({
  */
 export const batchSubscribe = mutation({
   args: {
-    creatorProfileId: v.id("creatorProfiles"),
+    creatorProfileId: v.id('creatorProfiles'),
     platforms: v.array(
-      v.union(
-        v.literal("youtube"),
-        v.literal("bluesky"),
-        v.literal("github"),
-        v.literal("website")
-      )
+      v.union(v.literal('youtube'), v.literal('bluesky'), v.literal('github'), v.literal('website'))
     ),
     autoResearch: v.optional(v.boolean()),
   },
@@ -206,7 +197,7 @@ export const batchSubscribe = mutation({
     // Get the creator profile
     const profile = await ctx.db.get(args.creatorProfileId);
     if (!profile) {
-      throw new Error("Creator profile not found");
+      throw new Error('Creator profile not found');
     }
 
     const created: Array<{ subscriptionId: string; platform: string; identifier: string }> = [];
@@ -217,16 +208,18 @@ export const batchSubscribe = mutation({
     // Helper function to get platform URL
     const getPlatformUrl = (platform: string, handle: string): string => {
       switch (platform) {
-        case "youtube":
+        case 'youtube':
           return `https://youtube.com/@${handle}`;
-        case "bluesky":
-          return handle.includes(".") ? `https://bsky.app/profile/${handle}` : `https://bsky.app/profile/${handle}.bsky.social`;
-        case "github":
+        case 'bluesky':
+          return handle.includes('.')
+            ? `https://bsky.app/profile/${handle}`
+            : `https://bsky.app/profile/${handle}.bsky.social`;
+        case 'github':
           return `https://github.com/${handle}`;
-        case "website":
-          return handle.startsWith("http") ? handle : `https://${handle}`;
+        case 'website':
+          return handle.startsWith('http') ? handle : `https://${handle}`;
         default:
-          return "";
+          return '';
       }
     };
 
@@ -235,39 +228,39 @@ export const batchSubscribe = mutation({
       try {
         const platformData = profile.platforms[platform as keyof typeof profile.platforms];
         if (!platformData) {
-          failed.push({ platform, error: "Platform not found in profile" });
+          failed.push({ platform, error: 'Platform not found in profile' });
           continue;
         }
 
         // Only subscribe to verified platforms
-        if ("verified" in platformData && !platformData.verified) {
-          failed.push({ platform, error: "Platform not verified" });
+        if ('verified' in platformData && !platformData.verified) {
+          failed.push({ platform, error: 'Platform not verified' });
           continue;
         }
 
-        const handle = "handle" in platformData ? platformData.handle : platformData.url;
+        const handle = 'handle' in platformData ? platformData.handle : platformData.url;
 
         // Check if subscription already exists
         // Scan index range and filter in-memory for exact identifier match
         const results = await ctx.db
-          .query("subscriptionSources")
-          .withIndex("by_identifier")
+          .query('subscriptionSources')
+          .withIndex('by_identifier')
           .take(1);
 
-        const existing = results.find(s => s.identifier === handle);
+        const existing = results.find((s) => s.identifier === handle);
 
         if (existing) {
-          failed.push({ platform, error: "Subscription already exists" });
+          failed.push({ platform, error: 'Subscription already exists' });
           continue;
         }
 
         // Create subscription — batch subscribe always creates "creator" source type
-        const subscriptionId = await ctx.db.insert("subscriptionSources", {
-          sourceType: "creator" as const,
+        const subscriptionId = await ctx.db.insert('subscriptionSources', {
+          sourceType: 'creator' as const,
           identifier: handle,
           name: `${profile.name} (${platform})`,
           url: getPlatformUrl(platform, handle),
-          fetchMethod: "rss",
+          fetchMethod: 'rss',
           configJson: { platform }, // Store platform in configJson, not creatorProfileId
           creatorProfileId: args.creatorProfileId, // Use dedicated field for proper ID reference
           autoResearch,
@@ -283,7 +276,7 @@ export const batchSubscribe = mutation({
       } catch (error) {
         failed.push({
           platform,
-          error: error instanceof Error ? error.message : "Unknown error",
+          error: error instanceof Error ? error.message : 'Unknown error',
         });
       }
     }
@@ -298,16 +291,17 @@ export const batchSubscribe = mutation({
  */
 export const bulkRemove = mutation({
   args: {
-    subscriptionIds: v.array(v.id("subscriptionSources")),
+    subscriptionIds: v.array(v.id('subscriptionSources')),
   },
   handler: async (ctx, args) => {
-    const deleted: Array<{ subscriptionId: string; contentCount: number; filterCount: number }> = [];
+    const deleted: Array<{ subscriptionId: string; contentCount: number; filterCount: number }> =
+      [];
 
     for (const subscriptionId of args.subscriptionIds) {
       // Delete all associated content
       const content = await ctx.db
-        .query("subscriptionContent")
-        .withIndex("by_source", (q) => q.eq("sourceId", subscriptionId))
+        .query('subscriptionContent')
+        .withIndex('by_source', (q) => q.eq('sourceId', subscriptionId))
         .collect();
 
       for (const item of content) {
@@ -316,7 +310,7 @@ export const bulkRemove = mutation({
 
       // Delete all associated filters
       const filters = await ctx.db
-        .query("subscriptionFilters")
+        .query('subscriptionFilters')
         .collect()
         .then((allFilters) =>
           allFilters.filter((f) => f.sourceId?.toString() === subscriptionId.toString())

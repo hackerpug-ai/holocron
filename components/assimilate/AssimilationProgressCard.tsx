@@ -7,27 +7,27 @@
  * Borg-themed: purple/green color scheme.
  */
 
-import { Card, CardContent } from '@/components/ui/card'
-import { Text } from '@/components/ui/text'
-import { cn } from '@/lib/utils'
-import { Loader2, CheckCircle2, XCircle } from '@/components/ui/icons'
-import type { ViewProps } from 'react-native'
-import { View, Animated, Easing, Pressable } from 'react-native'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef } from 'react';
+import type { ViewProps } from 'react-native';
+import { Animated, Easing, Pressable, View } from 'react-native';
+import { Card, CardContent } from '@/components/ui/card';
+import { CheckCircle2, Loader2, XCircle } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { cn } from '@/lib/utils';
 
 export interface AssimilationProgressCardProps extends Omit<ViewProps, 'children'> {
-  sessionId: string
-  repositoryName: string
-  profile: string
-  status: 'in_progress' | 'synthesizing' | 'completed' | 'failed'
-  currentIteration: number
-  maxIterations: number
-  dimensionScores: Record<string, number>
-  currentDimension?: string
-  estimatedCostUsd?: number
-  documentId?: string
-  onPress?: () => void
-  className?: string
+  sessionId: string;
+  repositoryName: string;
+  profile: string;
+  status: 'in_progress' | 'synthesizing' | 'completed' | 'failed';
+  currentIteration: number;
+  maxIterations: number;
+  dimensionScores: Record<string, number>;
+  currentDimension?: string;
+  estimatedCostUsd?: number;
+  documentId?: string;
+  onPress?: () => void;
+  className?: string;
 }
 
 const DIMENSIONS = [
@@ -36,13 +36,13 @@ const DIMENSIONS = [
   { key: 'patterns', label: 'Patterns' },
   { key: 'documentation', label: 'Documentation' },
   { key: 'testing', label: 'Testing' },
-] as const
+] as const;
 
 const PROFILE_BADGE = {
   fast: { label: 'FAST', className: 'bg-yellow-500/20 text-yellow-500' },
   standard: { label: 'STANDARD', className: 'bg-purple-500/20 text-purple-500' },
   thorough: { label: 'THOROUGH', className: 'bg-cyan-500/20 text-cyan-500' },
-} as const
+} as const;
 
 export function AssimilationProgressCard({
   repositoryName,
@@ -57,12 +57,12 @@ export function AssimilationProgressCard({
   className,
   ...props
 }: AssimilationProgressCardProps) {
-  const isComplete = status === 'completed'
-  const isFailed = status === 'failed'
-  const isSynthesizing = status === 'synthesizing'
+  const isComplete = status === 'completed';
+  const isFailed = status === 'failed';
+  const isSynthesizing = status === 'synthesizing';
 
-  const pulseAnim = useRef(new Animated.Value(0)).current
-  const rotateAnim = useRef(new Animated.Value(0)).current
+  const pulseAnim = useRef(new Animated.Value(0)).current;
+  const rotateAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (!isComplete && !isFailed) {
@@ -81,7 +81,7 @@ export function AssimilationProgressCard({
             useNativeDriver: false,
           }),
         ])
-      ).start()
+      ).start();
 
       Animated.loop(
         Animated.timing(rotateAnim, {
@@ -90,22 +90,22 @@ export function AssimilationProgressCard({
           easing: Easing.linear,
           useNativeDriver: true,
         })
-      ).start()
+      ).start();
     }
-  }, [pulseAnim, rotateAnim, isComplete, isFailed])
+  }, [pulseAnim, rotateAnim, isComplete, isFailed]);
 
   const borderOpacity = pulseAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [0.6, 1],
-  })
+  });
 
   const rotation = rotateAnim.interpolate({
     inputRange: [0, 1],
     outputRange: ['0deg', '360deg'],
-  })
+  });
 
   const profileConfig =
-    PROFILE_BADGE[profile as keyof typeof PROFILE_BADGE] ?? PROFILE_BADGE.standard
+    PROFILE_BADGE[profile as keyof typeof PROFILE_BADGE] ?? PROFILE_BADGE.standard;
 
   return (
     <Animated.View style={{ opacity: isComplete || isFailed ? 1 : borderOpacity }}>
@@ -113,7 +113,11 @@ export function AssimilationProgressCard({
         <Card
           className={cn(
             'border bg-gradient-to-r from-background to-muted/10 w-full overflow-hidden',
-            isComplete ? 'border-success/40' : isFailed ? 'border-destructive/40' : 'border-purple-500/40',
+            isComplete
+              ? 'border-success/40'
+              : isFailed
+                ? 'border-destructive/40'
+                : 'border-purple-500/40',
             className
           )}
           testID="assimilation-progress-card"
@@ -123,7 +127,9 @@ export function AssimilationProgressCard({
             {/* Profile badge + ASSIMILATE label */}
             <View className="flex-row items-center gap-2 mb-2">
               <View className={cn('px-1.5 py-0.5 rounded', profileConfig.className)}>
-                <Text className={cn('text-[10px] font-bold tracking-wider', profileConfig.className)}>
+                <Text
+                  className={cn('text-[10px] font-bold tracking-wider', profileConfig.className)}
+                >
                   {profileConfig.label}
                 </Text>
               </View>
@@ -175,9 +181,9 @@ export function AssimilationProgressCard({
             {/* Dimension progress */}
             <View className="mt-3 ml-7 gap-1.5">
               {DIMENSIONS.map(({ key, label }) => {
-                const score = dimensionScores[key] ?? 0
-                const isCurrent = currentDimension === key && !isComplete && !isFailed
-                const isDone = score > 0
+                const score = dimensionScores[key] ?? 0;
+                const isCurrent = currentDimension === key && !isComplete && !isFailed;
+                const isDone = score > 0;
 
                 return (
                   <View key={key} className="flex-row items-center gap-2">
@@ -203,12 +209,10 @@ export function AssimilationProgressCard({
                       {label}
                     </Text>
                     {isDone && (
-                      <Text className="text-xs text-muted-foreground font-mono">
-                        {score}
-                      </Text>
+                      <Text className="text-xs text-muted-foreground font-mono">{score}</Text>
                     )}
                   </View>
-                )
+                );
               })}
             </View>
 
@@ -224,14 +228,12 @@ export function AssimilationProgressCard({
             {/* Complete hint */}
             {isComplete && onPress && (
               <View className="mt-2 ml-7">
-                <Text className="text-muted-foreground text-xs">
-                  Tap to view findings →
-                </Text>
+                <Text className="text-muted-foreground text-xs">Tap to view findings →</Text>
               </View>
             )}
           </CardContent>
         </Card>
       </Pressable>
     </Animated.View>
-  )
+  );
 }

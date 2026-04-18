@@ -6,16 +6,16 @@
  * cannot be defined in Node.js ("use node") files.
  */
 
-import { internalMutation, internalQuery, mutation } from "../_generated/server";
-import { v } from "convex/values";
-import { buildConversationContext } from "./context";
+import { v } from 'convex/values';
+import { internalMutation, internalQuery, mutation } from '../_generated/server';
+import { buildConversationContext } from './context';
 
 /**
  * Set agentBusy flag on a conversation
  */
 export const setAgentBusy = internalMutation({
   args: {
-    conversationId: v.id("conversations"),
+    conversationId: v.id('conversations'),
     busy: v.boolean(),
   },
   handler: async (ctx, { conversationId, busy }) => {
@@ -32,17 +32,17 @@ export const setAgentBusy = internalMutation({
  */
 export const createToolApprovalMessage = internalMutation({
   args: {
-    conversationId: v.id("conversations"),
+    conversationId: v.id('conversations'),
     content: v.string(),
     cardData: v.optional(v.any()),
     toolCallId: v.optional(v.string()),
   },
   handler: async (ctx, { conversationId, content, cardData, toolCallId }) => {
-    return await ctx.db.insert("chatMessages", {
+    return await ctx.db.insert('chatMessages', {
       conversationId,
-      role: "agent",
+      role: 'agent',
       content,
-      messageType: "tool_approval",
+      messageType: 'tool_approval',
       cardData,
       toolCallId,
       createdAt: Date.now(),
@@ -55,7 +55,7 @@ export const createToolApprovalMessage = internalMutation({
  */
 export const linkToolCallToMessage = internalMutation({
   args: {
-    messageId: v.id("chatMessages"),
+    messageId: v.id('chatMessages'),
     toolCallId: v.string(),
   },
   handler: async (ctx, { messageId, toolCallId }) => {
@@ -68,7 +68,7 @@ export const linkToolCallToMessage = internalMutation({
  * Use this to force-unlock a conversation that is stuck in a busy state.
  */
 export const cancelAgent = mutation({
-  args: { conversationId: v.id("conversations") },
+  args: { conversationId: v.id('conversations') },
   handler: async (ctx, args) => {
     await ctx.db.patch(args.conversationId, {
       agentBusy: false,
@@ -83,7 +83,7 @@ export const cancelAgent = mutation({
  */
 export const buildContext = internalQuery({
   args: {
-    conversationId: v.id("conversations"),
+    conversationId: v.id('conversations'),
   },
   handler: async (ctx, { conversationId }) => {
     return await buildConversationContext(ctx.db, conversationId);
@@ -96,7 +96,7 @@ export const buildContext = internalQuery({
  */
 export const getConversation = internalQuery({
   args: {
-    conversationId: v.id("conversations"),
+    conversationId: v.id('conversations'),
   },
   handler: async (ctx, { conversationId }) => {
     return await ctx.db.get(conversationId);
@@ -115,17 +115,15 @@ export const getConversation = internalQuery({
  */
 export const getLastToolResultWithSpecialist = internalQuery({
   args: {
-    conversationId: v.id("conversations"),
+    conversationId: v.id('conversations'),
   },
   handler: async (ctx, { conversationId }) => {
     // Find the most recent result_card message
     const messages = await ctx.db
-      .query("chatMessages")
-      .withIndex("by_conversation", (q) =>
-        q.eq("conversationId", conversationId)
-      )
-      .order("desc")
-      .filter((q) => q.eq(q.field("messageType"), "result_card"))
+      .query('chatMessages')
+      .withIndex('by_conversation', (q) => q.eq('conversationId', conversationId))
+      .order('desc')
+      .filter((q) => q.eq(q.field('messageType'), 'result_card'))
       .first();
 
     if (!messages) {
@@ -136,11 +134,9 @@ export const getLastToolResultWithSpecialist = internalQuery({
     // then read the specialist_name from the tool_approval message.
     // The toolCalls table has resultMessageId pointing to the result_card.
     const toolCall = await ctx.db
-      .query("toolCalls")
-      .withIndex("by_conversation", (q) =>
-        q.eq("conversationId", conversationId)
-      )
-      .filter((q) => q.eq(q.field("resultMessageId"), messages._id))
+      .query('toolCalls')
+      .withIndex('by_conversation', (q) => q.eq('conversationId', conversationId))
+      .filter((q) => q.eq(q.field('resultMessageId'), messages._id))
       .first();
 
     if (!toolCall) {
@@ -154,10 +150,9 @@ export const getLastToolResultWithSpecialist = internalQuery({
     // Read the tool_approval message (linked via toolCall.messageId)
     const approvalMessage = await ctx.db.get(toolCall.messageId);
     const specialistName: string | null =
-      typeof (approvalMessage?.cardData as Record<string, unknown> | undefined)
-        ?.specialist_name === "string"
-        ? (approvalMessage?.cardData as Record<string, unknown>)
-            .specialist_name as string
+      typeof (approvalMessage?.cardData as Record<string, unknown> | undefined)?.specialist_name ===
+      'string'
+        ? ((approvalMessage?.cardData as Record<string, unknown>).specialist_name as string)
         : null;
 
     return {
@@ -175,16 +170,14 @@ export const getLastToolResultWithSpecialist = internalQuery({
  */
 export const listRecentClassifications = internalQuery({
   args: {
-    conversationId: v.id("conversations"),
+    conversationId: v.id('conversations'),
     limit: v.number(),
   },
   handler: async (ctx, { conversationId, limit }) => {
     const records = await ctx.db
-      .query("agentTelemetry")
-      .withIndex("by_conversation", (q) =>
-        q.eq("conversationId", conversationId)
-      )
-      .order("desc")
+      .query('agentTelemetry')
+      .withIndex('by_conversation', (q) => q.eq('conversationId', conversationId))
+      .order('desc')
       .take(limit);
     // Return in chronological order (oldest first) for depth counting
     return records.reverse();

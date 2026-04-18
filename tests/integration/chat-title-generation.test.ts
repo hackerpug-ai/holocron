@@ -17,10 +17,10 @@
  * - AC-6: Update conversation title
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from 'vitest';
 
-describe("Chat Title Generation - Placeholder", () => {
-  it("should have behavioral tests implemented", () => {
+describe('Chat Title Generation - Placeholder', () => {
+  it('should have behavioral tests implemented', () => {
     // Placeholder test until behavioral tests are implemented
     expect(true).toBe(true);
   });

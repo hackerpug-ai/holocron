@@ -1,9 +1,9 @@
-import { Pressable, View } from 'react-native'
-import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
-import { Text } from '@/components/ui/text'
-import { cn } from '@/lib/utils'
-import { Check, Sparkles, X } from '@/components/ui/icons'
-import { PlanStepRow, type PlanStepRowProps } from './PlanStepRow'
+import { Pressable, View } from 'react-native';
+import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
+import { Check, Sparkles, X } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { cn } from '@/lib/utils';
+import { PlanStepRow, type PlanStepRowProps } from './PlanStepRow';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -13,11 +13,11 @@ export type PlanStatus =
   | 'awaiting_approval'
   | 'completed'
   | 'failed'
-  | 'cancelled'
+  | 'cancelled';
 
 export interface AgentPlanCardProps {
-  title: string
-  status: PlanStatus
+  title: string;
+  status: PlanStatus;
   steps: Array<
     Pick<
       PlanStepRowProps,
@@ -29,11 +29,11 @@ export interface AgentPlanCardProps {
       | 'resultSummary'
       | 'errorMessage'
     >
-  >
-  currentStepIndex?: number
-  onApproveStep?: (stepIndex: number) => void
-  onRejectStep?: (stepIndex: number) => void
-  onCancelPlan?: () => void
+  >;
+  currentStepIndex?: number;
+  onApproveStep?: (stepIndex: number) => void;
+  onRejectStep?: (stepIndex: number) => void;
+  onCancelPlan?: () => void;
 }
 
 // ── Status badge ─────────────────────────────────────────────────────────────
@@ -63,17 +63,15 @@ const STATUS_BADGE: Record<PlanStatus, { label: string; className: string }> = {
     label: 'Cancelled',
     className: 'bg-muted text-muted-foreground',
   },
-}
+};
 
 function PlanStatusBadge({ status }: { status: PlanStatus }) {
-  const config = STATUS_BADGE[status]
+  const config = STATUS_BADGE[status];
   return (
     <View className={cn('rounded-full px-2 py-0.5', config.className)}>
-      <Text className={cn('text-xs font-semibold', config.className)}>
-        {config.label}
-      </Text>
+      <Text className={cn('text-xs font-semibold', config.className)}>{config.label}</Text>
     </View>
-  )
+  );
 }
 
 // ── Main component ──────────────────────────────────────────────────────────
@@ -85,17 +83,14 @@ export function AgentPlanCard({
   onApproveStep,
   onRejectStep,
 }: AgentPlanCardProps) {
-  const isAwaitingApproval = status === 'awaiting_approval'
+  const isAwaitingApproval = status === 'awaiting_approval';
   const awaitingStep = isAwaitingApproval
     ? steps.find((s) => s.status === 'awaiting_approval')
-    : undefined
+    : undefined;
 
   return (
     <Card
-      className={cn(
-        'border',
-        isAwaitingApproval ? 'border-primary/50' : 'border-border'
-      )}
+      className={cn('border', isAwaitingApproval ? 'border-primary/50' : 'border-border')}
       testID="agent-plan-card"
     >
       {/* ── Header ── */}
@@ -107,9 +102,7 @@ export function AgentPlanCard({
           </View>
           <PlanStatusBadge status={status} />
         </View>
-        <Text className="text-foreground font-semibold text-sm mt-1">
-          {title}
-        </Text>
+        <Text className="text-foreground font-semibold text-sm mt-1">{title}</Text>
       </CardHeader>
 
       {/* ── Steps ── */}
@@ -128,9 +121,7 @@ export function AgentPlanCard({
             onPress={() => onApproveStep?.(awaitingStep.stepIndex)}
           >
             <Check size={15} className="text-primary-foreground" />
-            <Text className="text-primary-foreground text-sm font-semibold">
-              Approve
-            </Text>
+            <Text className="text-primary-foreground text-sm font-semibold">Approve</Text>
           </Pressable>
 
           <Pressable
@@ -144,5 +135,5 @@ export function AgentPlanCard({
         </CardFooter>
       ) : null}
     </Card>
-  )
+  );
 }

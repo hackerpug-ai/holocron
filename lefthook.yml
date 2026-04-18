@@ -1,0 +1,14 @@
+pre-commit:
+  parallel: true
+  commands:
+    root-lint:
+      glob: "*.{ts,tsx,js,jsx,json}"
+      run: pnpm biome check --write --no-errors-on-unmatched {staged_files}
+    root-typecheck:
+      run: pnpm tsgo --noEmit
+    root-test:
+      run: pnpm test
+    mcp-lint:
+      glob: "holocron-mcp/**/*.{ts,js,json}"
+      root: holocron-mcp
+      run: biome check --write --no-errors-on-unmatched {staged_files}

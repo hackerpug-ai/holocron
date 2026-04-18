@@ -7,8 +7,8 @@
  * AC-4: deleteOldTelemetry removes rows older than cutoff
  */
 
-import { describe, it, expect, vi } from 'vitest';
 import type { Mock } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 // Mock DB for testing
 type MockInsert = Mock & {
@@ -66,18 +66,21 @@ describe('telemetryMutations', () => {
       await (recordTriage as any)(mockCtx, args);
 
       // Verify db.insert was called with correct table and all fields
-      expect(mockDb.insert).toHaveBeenCalledWith('agentTelemetry', expect.objectContaining({
-        conversationId: 'conv123',
-        messageId: 'msg456',
-        intent: 'research',
-        queryShape: 'comprehensive',
-        confidence: 'high',
-        classificationSource: 'llm',
-        reasoning: 'User wants to research something',
-        rawLlmResponse: expect.stringContaining('research'),
-        totalDurationMs: 150,
-        createdAt: expect.any(Number),
-      }));
+      expect(mockDb.insert).toHaveBeenCalledWith(
+        'agentTelemetry',
+        expect.objectContaining({
+          conversationId: 'conv123',
+          messageId: 'msg456',
+          intent: 'research',
+          queryShape: 'comprehensive',
+          confidence: 'high',
+          classificationSource: 'llm',
+          reasoning: 'User wants to research something',
+          rawLlmResponse: expect.stringContaining('research'),
+          totalDurationMs: 150,
+          createdAt: expect.any(Number),
+        })
+      );
     });
   });
 
@@ -144,12 +147,7 @@ describe('telemetryMutations', () => {
     it('should accept all valid classificationSource values', async () => {
       const { recordTriage } = await import('../../convex/chat/telemetryMutations');
 
-      const validSources = [
-        'triage_agent',
-        'heuristic',
-        'manual_override',
-        'cached',
-      ] as const;
+      const validSources = ['triage_agent', 'heuristic', 'manual_override', 'cached'] as const;
 
       for (const source of validSources) {
         mockDb.insert.mockClear();
@@ -169,9 +167,12 @@ describe('telemetryMutations', () => {
 
         await (recordTriage as any)(mockCtx, args);
 
-        expect(mockDb.insert).toHaveBeenCalledWith('agentTelemetry', expect.objectContaining({
-          classificationSource: source,
-        }));
+        expect(mockDb.insert).toHaveBeenCalledWith(
+          'agentTelemetry',
+          expect.objectContaining({
+            classificationSource: source,
+          })
+        );
       }
     });
   });

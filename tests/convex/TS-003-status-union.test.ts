@@ -5,9 +5,9 @@
  * in researchSessions, deepResearchSessions, deepResearchIterations, and tasks.
  */
 
-import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { join } from 'path';
+import { describe, expect, it } from 'vitest';
 
 const schemaPath = join(process.cwd(), 'convex', 'schema.ts');
 const schemaContent = readFileSync(schemaPath, 'utf-8');
@@ -48,9 +48,7 @@ describe('TS-003: Status fields use v.union(v.literal(...))', () => {
    * AC-3: tasks status uses v.union(v.literal(...))
    */
   it('tasks status uses v.union(v.literal(...))', () => {
-    const tasksMatch = schemaContent.match(
-      /\btasks:\s*defineTable\(\{[\s\S]*?\}\)/
-    );
+    const tasksMatch = schemaContent.match(/\btasks:\s*defineTable\(\{[\s\S]*?\}\)/);
     expect(tasksMatch).not.toBeNull();
 
     const tableBlock = tasksMatch![0];

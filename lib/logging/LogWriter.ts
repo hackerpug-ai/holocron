@@ -1,6 +1,6 @@
 import * as FileSystem from 'expo-file-system/legacy';
-import type { LogEntry, LoggerConfig } from './types';
 import { performLogRotation } from './LogRotation';
+import type { LogEntry, LoggerConfig } from './types';
 
 /**
  * Get document directory safely
@@ -53,7 +53,6 @@ export class LogWriter {
         await FileSystem.makeDirectoryAsync(dirPath, { intermediates: true });
       }
     } catch (error) {
-       
       console.error('Failed to create log directory:', error);
     }
   }

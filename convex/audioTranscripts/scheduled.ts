@@ -10,17 +10,17 @@
  *   → completed (transcript stored) OR failed (with retry logic)
  */
 
-"use node";
+'use node';
 
-import { internalAction } from "../_generated/server";
-import { v } from "convex/values";
-import { internal } from "../_generated/api";
+import { v } from 'convex/values';
+import { internal } from '../_generated/api';
+import { internalAction } from '../_generated/server';
 import {
-  extractSpotifyAudioUrl,
-  extractApplePodcastsAudioUrl,
   downloadAndStoreAudio,
+  extractApplePodcastsAudioUrl,
+  extractSpotifyAudioUrl,
   transcribeWithDeepgram,
-} from "./internal";
+} from './internal';
 
 const STAGGER_MS = 5000; // 5 seconds between jobs
 const MAX_RETRIES = 3;
@@ -56,7 +56,7 @@ export const processPendingJobs = internalAction({
  */
 export const processJob = internalAction({
   args: {
-    jobId: v.id("audioTranscriptJobs"),
+    jobId: v.id('audioTranscriptJobs'),
   },
   handler: async (ctx, args) => {
     const job = await ctx.runQuery(internal.audioTranscripts.queries.getJob, {
@@ -69,7 +69,7 @@ export const processJob = internalAction({
     }
 
     // Status guard: prevent re-processing of terminal states
-    const terminalStatuses = ["completed", "failed"];
+    const terminalStatuses = ['completed', 'failed'];
     if (terminalStatuses.includes(job.status)) {
       return;
     }
@@ -77,7 +77,7 @@ export const processJob = internalAction({
     // Update status to "downloading"
     await ctx.runMutation(internal.audioTranscripts.mutations.updateJobStatus, {
       jobId: args.jobId,
-      status: "downloading",
+      status: 'downloading',
       startedAt: Date.now(),
     });
 
@@ -86,40 +86,37 @@ export const processJob = internalAction({
       let audioUrl: string | null = null;
 
       switch (job.platform) {
-        case "spotify":
+        case 'spotify':
           audioUrl = await extractSpotifyAudioUrl(job.sourceUrl);
           break;
-        case "apple_podcasts":
+        case 'apple_podcasts':
           audioUrl = await extractApplePodcastsAudioUrl(job.sourceUrl);
           break;
-        case "rss":
-        case "direct_mp3":
+        case 'rss':
+        case 'direct_mp3':
           audioUrl = job.sourceUrl; // Direct audio URL
           break;
       }
 
       if (!audioUrl) {
-        throw new Error("Failed to extract audio URL");
+        throw new Error('Failed to extract audio URL');
       }
 
       // Download audio
-      const { storageId: audioStorageId, sizeBytes } = await downloadAndStoreAudio(
-        ctx,
-        audioUrl
-      );
+      const { storageId: audioStorageId, sizeBytes } = await downloadAndStoreAudio(ctx, audioUrl);
 
       console.log(`Audio downloaded: ${sizeBytes} bytes for ${job.contentId}`);
 
       await ctx.runMutation(internal.audioTranscripts.mutations.updateJobStatus, {
         jobId: args.jobId,
-        status: "transcribing",
+        status: 'transcribing',
         audioStorageId: audioStorageId as any, // Cast to satisfy type checker
       });
 
       // Retrieve audio from storage for transcription
       const audioFile = await ctx.storage.get(audioStorageId);
       if (!audioFile) {
-        throw new Error("Audio file not found in storage");
+        throw new Error('Audio file not found in storage');
       }
 
       const audioBuffer = await audioFile.arrayBuffer();
@@ -127,12 +124,17 @@ export const processJob = internalAction({
       // Transcribe with Deepgram
       const apiKey = process.env.DEEPGRAM_API_KEY;
       if (!apiKey) {
-        throw new Error("DEEPGRAM_API_KEY not set");
+        throw new Error('DEEPGRAM_API_KEY not set');
       }
 
       console.log(`Starting Deepgram transcription for ${job.contentId}`);
-      const { text, language, duration, speakers } = await transcribeWithDeepgram(audioBuffer, apiKey);
-      console.log(`Deepgram transcription complete: ${text.split(/\s+/).length} words, ${speakers} speakers`);
+      const { text, language, duration, speakers } = await transcribeWithDeepgram(
+        audioBuffer,
+        apiKey
+      );
+      console.log(
+        `Deepgram transcription complete: ${text.split(/\s+/).length} words, ${speakers} speakers`
+      );
 
       // Store transcript
       const transcriptTextBytes = new TextEncoder().encode(text);
@@ -142,21 +144,24 @@ export const processJob = internalAction({
       );
       const transcriptStorageId = await ctx.storage.store(transcriptArrayBuffer as any); // Type assertion for Convex storage
 
-      const transcriptId = await ctx.runMutation(internal.audioTranscripts.mutations.storeTranscript, {
-        transcript: {
-          sourceUrl: job.sourceUrl,
-          contentId: job.contentId,
-          storageId: transcriptStorageId,
-          previewText: text.slice(0, 500),
-          wordCount: text.split(/\s+/).length,
-          durationMs: Math.round(duration * 1000),
-          language,
-          transcriptType: "deepgram_nova3",
-          transcriptSource: "deepgram_api",
-          generatedAt: Date.now(),
-          metadataJson: { speakers, platform: job.platform },
-        },
-      });
+      const transcriptId = await ctx.runMutation(
+        internal.audioTranscripts.mutations.storeTranscript,
+        {
+          transcript: {
+            sourceUrl: job.sourceUrl,
+            contentId: job.contentId,
+            storageId: transcriptStorageId,
+            previewText: text.slice(0, 500),
+            wordCount: text.split(/\s+/).length,
+            durationMs: Math.round(duration * 1000),
+            language,
+            transcriptType: 'deepgram_nova3',
+            transcriptSource: 'deepgram_api',
+            generatedAt: Date.now(),
+            metadataJson: { speakers, platform: job.platform },
+          },
+        }
+      );
 
       // Clean up audio file
       await ctx.storage.delete(audioStorageId);
@@ -165,16 +170,15 @@ export const processJob = internalAction({
       // Update job as completed
       await ctx.runMutation(internal.audioTranscripts.mutations.updateJobStatus, {
         jobId: args.jobId,
-        status: "completed",
+        status: 'completed',
         transcriptId,
         completedAt: Date.now(),
       });
 
       console.log(`Audio transcript job completed for ${job.contentId}`);
-
     } catch (error) {
       // Handle system errors (API down, network issues, etc.)
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error(`Audio transcript job failed for ${job.contentId}:`, errorMessage);
 
       // Calculate backoff for retry
@@ -182,7 +186,7 @@ export const processJob = internalAction({
 
       if (newRetryCount <= MAX_RETRIES) {
         // Schedule retry with exponential backoff
-        const backoffMs = Math.pow(2, job.retryCount) * 1000;
+        const backoffMs = 2 ** job.retryCount * 1000;
 
         await ctx.runMutation(internal.audioTranscripts.mutations.scheduleRetry, {
           jobId: args.jobId,
@@ -190,13 +194,13 @@ export const processJob = internalAction({
           errorMessage,
         });
 
-        await ctx.scheduler.runAfter(
-          backoffMs,
-          internal.audioTranscripts.scheduled.processJob,
-          { jobId: args.jobId }
-        );
+        await ctx.scheduler.runAfter(backoffMs, internal.audioTranscripts.scheduled.processJob, {
+          jobId: args.jobId,
+        });
 
-        console.log(`Scheduled retry ${newRetryCount}/${MAX_RETRIES} for ${job.contentId} in ${backoffMs}ms`);
+        console.log(
+          `Scheduled retry ${newRetryCount}/${MAX_RETRIES} for ${job.contentId} in ${backoffMs}ms`
+        );
       } else {
         // Max retries reached, mark as permanently failed
         // First update the error message, then mark as failed
@@ -208,7 +212,7 @@ export const processJob = internalAction({
 
         await ctx.runMutation(internal.audioTranscripts.mutations.updateJobStatus, {
           jobId: args.jobId,
-          status: "failed",
+          status: 'failed',
           completedAt: Date.now(),
         });
 

@@ -7,12 +7,12 @@
  * - improvementRequests table
  */
 
-import { action } from "../_generated/server";
-import { internal } from "../_generated/api";
-import { embed } from "ai";
-import { cohereEmbedding } from "../lib/ai/embeddings_provider";
+import { embed } from 'ai';
+import { internal } from '../_generated/api';
+import { action } from '../_generated/server';
+import { cohereEmbedding } from '../lib/ai/embeddings_provider';
 
-"use node";
+('use node');
 
 interface BackfillResult {
   success: boolean;
@@ -55,7 +55,7 @@ export const backfill = action({
         processed: 0,
         failed: 0,
         total: 0,
-        message: "No improvement requests need embedding backfill"
+        message: 'No improvement requests need embedding backfill',
       };
     }
 
@@ -75,12 +75,12 @@ export const backfill = action({
           // Update the request with embedding using the internal mutation
           await ctx.runMutation(internal.improvements.internal.updateFromAgent, {
             requestId: request._id,
-            title: request.title || "",
-            summary: request.description || "",
+            title: request.title || '',
+            summary: request.description || '',
             agentDecision: {
-              action: "create_new",
+              action: 'create_new',
               confidence: 0.8,
-              reasoning: "Backfilled embedding",
+              reasoning: 'Backfilled embedding',
               similarRequests: [],
             },
             embedding,
@@ -91,7 +91,7 @@ export const backfill = action({
       );
 
       for (const result of results) {
-        if (result.status === "fulfilled") {
+        if (result.status === 'fulfilled') {
           processed++;
         } else {
           failed++;
@@ -116,7 +116,9 @@ export const backfill = action({
  */
 export const status = action({
   args: {},
-  handler: async (ctx): Promise<{
+  handler: async (
+    ctx
+  ): Promise<{
     requestsWithoutEmbeddings: number;
     totalRequests: number;
     percentComplete: number;
@@ -127,7 +129,10 @@ export const status = action({
     return {
       requestsWithoutEmbeddings: orphans.length,
       totalRequests: allRequests.length,
-      percentComplete: allRequests.length > 0 ? ((allRequests.length - orphans.length) / allRequests.length) * 100 : 100,
+      percentComplete:
+        allRequests.length > 0
+          ? ((allRequests.length - orphans.length) / allRequests.length) * 100
+          : 100,
     };
   },
 });

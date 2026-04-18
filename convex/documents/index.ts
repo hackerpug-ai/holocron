@@ -3,7 +3,7 @@
  * Exports all queries, mutations, and search actions
  */
 
-export * from "./queries";
-export * from "./mutations";
-export * from "./search";
-export * from "./storage";
+export * from './mutations';
+export * from './queries';
+export * from './search';
+export * from './storage';

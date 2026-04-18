@@ -8,18 +8,18 @@
  * This module uses OAuth2 for downloads when available.
  */
 
-import { internalAction } from "../_generated/server";
-import { internal } from "../_generated/api";
-import { v } from "convex/values";
-import type { Id } from "../_generated/dataModel";
-import { fetchNodeTranscript } from "./nodeTranscript";
-import { jinaReader, JinaError } from "../lib/jina";
+import { v } from 'convex/values';
+import { internal } from '../_generated/api';
+import type { Id } from '../_generated/dataModel';
+import { internalAction } from '../_generated/server';
+import { JinaError, jinaReader } from '../lib/jina';
+import { fetchNodeTranscript } from './nodeTranscript';
 
 /**
  * "use node" directive - runs in Node.js environment (not V8 isolate)
  * Required for calling external APIs (YouTube Data API v3, Jina Reader)
  */
-"use node";
+('use node');
 
 /**
  * Rate limiter for YouTube API calls to prevent bot protection
@@ -39,8 +39,8 @@ class YouTubeRateLimiter {
 
     if (timeSinceLastRequest < this.minDelayMs) {
       const waitTime = this.minDelayMs - timeSinceLastRequest;
-      
-      await new Promise(resolve => setTimeout(resolve, waitTime));
+
+      await new Promise((resolve) => setTimeout(resolve, waitTime));
     }
 
     this.lastRequestTime = Date.now();
@@ -57,9 +57,9 @@ const jinaRateLimiter = new YouTubeRateLimiter(2000); // 2 seconds minimum betwe
 interface TranscriptMetadata {
   contentId: string;
   sourceUrl: string;
-  transcriptType: "api" | "node_fallback" | "jina_fallback";
+  transcriptType: 'api' | 'node_fallback' | 'jina_fallback';
   transcriptSource: string;
-  storageId: Id<"_storage">;
+  storageId: Id<'_storage'>;
   previewText: string;
   wordCount: number;
   generatedAt: number;
@@ -122,17 +122,17 @@ export const fetchYouTubeTranscript = internalAction({
   handler: async (ctx, args): Promise<FetchTranscriptResult> => {
     const apiKey = process.env.YOUTUBE_API_KEY;
     if (!apiKey) {
-      console.warn("YOUTUBE_API_KEY not set, cannot fetch transcript");
+      console.warn('YOUTUBE_API_KEY not set, cannot fetch transcript');
       return {
         hasCaptions: false,
-        error: "YouTube API key not configured",
+        error: 'YouTube API key not configured',
       };
     }
 
     try {
       // Step 1: List captions for video (API key works for listing)
       await rateLimiter.waitIfNeeded();
-      
+
       const captionsResponse = await fetch(
         `https://www.googleapis.com/youtube/v3/captions?part=snippet&videoId=${args.contentId}&key=${apiKey}`
       );
@@ -142,14 +142,14 @@ export const fetchYouTubeTranscript = internalAction({
         if (captionsResponse.status === 404) {
           return {
             hasCaptions: false,
-            error: "Video not found",
+            error: 'Video not found',
           };
         }
         // Handle rate limit (429)
         if (captionsResponse.status === 429) {
           return {
             hasCaptions: false,
-            error: "API rate limit exceeded",
+            error: 'API rate limit exceeded',
           };
         }
         throw new Error(`YouTube API error: ${captionsResponse.status}`);
@@ -159,31 +159,28 @@ export const fetchYouTubeTranscript = internalAction({
 
       // Check if captions are available
       if (!captionsData.items || captionsData.items.length === 0) {
-        
         return {
           hasCaptions: false,
           transcript: null,
         };
       }
 
-
       // Step 2: Try OAuth2 download first
       let accessToken: string | null = null;
       try {
         accessToken = await ctx.runAction(internal.transcripts.oauth.getAccessToken, {});
-      } catch {// Silently ignore OAuth2 errors
-
-        
+      } catch {
+        // Silently ignore OAuth2 errors
       }
 
       const captionTrack = captionsData.items[0];
       let transcriptText: string | null = null;
-      let transcriptSource = "youtube_api_oauth2";
+      let transcriptSource = 'youtube_api_oauth2';
 
       if (accessToken) {
         // Try OAuth2 download (required by YouTube for caption downloads)
         await rateLimiter.waitIfNeeded();
-        
+
         const oauthUrl = `https://www.googleapis.com/youtube/v3/captions/${captionTrack.id}`;
         const oauthResponse = await fetch(oauthUrl, {
           headers: {
@@ -193,15 +190,17 @@ export const fetchYouTubeTranscript = internalAction({
 
         if (oauthResponse.ok) {
           transcriptText = await oauthResponse.text();
-          console.log(`[YouTube] ✅ Transcript downloaded via OAuth2 (${transcriptText.length} chars)`);
-        } else {// No OAuth2 access token available
+          console.log(
+            `[YouTube] ✅ Transcript downloaded via OAuth2 (${transcriptText.length} chars)`
+          );
+        } else {
+          // No OAuth2 access token available
 
           console.warn(`[YouTube] OAuth2 download failed: ${oauthResponse.status}`);
           // Don't give up yet, try API key (might work for some public videos)
         }
-      } else {// No OAuth2 access token available
-
-        
+      } else {
+        // No OAuth2 access token available
       }
 
       // Step 3: Try API key download (may work for some public videos)
@@ -212,9 +211,12 @@ export const fetchYouTubeTranscript = internalAction({
 
         if (apiResponse.ok) {
           transcriptText = await apiResponse.text();
-          transcriptSource = "youtube_api";
-          console.log(`[YouTube] ✅ Transcript downloaded via API key (${transcriptText.length} chars)`);
-        } else {// No OAuth2 access token available
+          transcriptSource = 'youtube_api';
+          console.log(
+            `[YouTube] ✅ Transcript downloaded via API key (${transcriptText.length} chars)`
+          );
+        } else {
+          // No OAuth2 access token available
 
           console.warn(`[YouTube] API key download failed: ${apiResponse.status}`);
         }
@@ -222,24 +224,23 @@ export const fetchYouTubeTranscript = internalAction({
 
       // Step 4: If both YouTube methods fail, try Node.js youtube-transcript package
       if (!transcriptText) {
-        
-
         const nodeResult = await fetchNodeTranscript(args.contentId);
 
         if (nodeResult.success && nodeResult.transcript) {
-          
-          const blob = new Blob([nodeResult.transcript], { type: "text/plain" });
+          const blob = new Blob([nodeResult.transcript], { type: 'text/plain' });
           const storageId = await ctx.storage.store(blob);
           const previewText = nodeResult.transcript.slice(0, 500);
-          const wordCount = nodeResult.metadata?.wordCount || nodeResult.transcript.split(/\s+/).filter(w => w.length > 0).length;
+          const wordCount =
+            nodeResult.metadata?.wordCount ||
+            nodeResult.transcript.split(/\s+/).filter((w) => w.length > 0).length;
 
           return {
             hasCaptions: true,
             transcript: {
               contentId: args.contentId,
               sourceUrl: `https://www.youtube.com/watch?v=${args.contentId}`,
-              transcriptType: "node_fallback" as const,
-              transcriptSource: "youtube_transcript_nodejs",
+              transcriptType: 'node_fallback' as const,
+              transcriptSource: 'youtube_transcript_nodejs',
               storageId,
               previewText,
               wordCount,
@@ -248,16 +249,12 @@ export const fetchYouTubeTranscript = internalAction({
           };
         }
 
-        
-
         // Step 5: If Node.js method also fails, fall back to Jina Reader
-        const jinaResult = await ctx.runAction(
-          internal.transcripts.internal.fetchJinaTranscript,
-          { contentId: args.contentId }
-        );
+        const jinaResult = await ctx.runAction(internal.transcripts.internal.fetchJinaTranscript, {
+          contentId: args.contentId,
+        });
 
         if (jinaResult.hasTranscript) {
-          
           return {
             hasCaptions: true,
             transcript: jinaResult.transcript,
@@ -266,23 +263,24 @@ export const fetchYouTubeTranscript = internalAction({
 
         return {
           hasCaptions: false,
-          error: "Failed to download transcript via YouTube API (OAuth2/API key), Node.js youtube-transcript, or Jina Reader",
+          error:
+            'Failed to download transcript via YouTube API (OAuth2/API key), Node.js youtube-transcript, or Jina Reader',
         };
       }
 
       // Step 5: Store and return transcript
-      const blob = new Blob([transcriptText], { type: "text/plain" });
+      const blob = new Blob([transcriptText], { type: 'text/plain' });
       const storageId = await ctx.storage.store(blob);
 
       const previewText = transcriptText.slice(0, 500);
-      const wordCount = transcriptText.split(/\s+/).filter(w => w.length > 0).length;
+      const wordCount = transcriptText.split(/\s+/).filter((w) => w.length > 0).length;
 
       return {
         hasCaptions: true,
         transcript: {
           contentId: args.contentId,
           sourceUrl: `https://www.youtube.com/watch?v=${args.contentId}`,
-          transcriptType: "api" as const,
+          transcriptType: 'api' as const,
           transcriptSource,
           storageId,
           previewText,
@@ -291,10 +289,10 @@ export const fetchYouTubeTranscript = internalAction({
         },
       };
     } catch (error) {
-      console.error("YouTube transcript fetch error:", error);
+      console.error('YouTube transcript fetch error:', error);
       return {
         hasCaptions: false,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
   },
@@ -362,7 +360,7 @@ export const fetchJinaTranscript = internalAction({
       if (!apiKey) {
         return {
           hasTranscript: false,
-          error: "JINA_API_KEY not configured",
+          error: 'JINA_API_KEY not configured',
         };
       }
 
@@ -374,25 +372,25 @@ export const fetchJinaTranscript = internalAction({
       if (!transcriptText || transcriptText.length < 100) {
         return {
           hasTranscript: false,
-          error: "No transcript content found in page",
+          error: 'No transcript content found in page',
         };
       }
 
       // Store in file storage
-      const blob = new Blob([transcriptText], { type: "text/plain" });
+      const blob = new Blob([transcriptText], { type: 'text/plain' });
       const storageId = await ctx.storage.store(blob);
 
       // Extract metadata
       const previewText = transcriptText.slice(0, 500);
-      const wordCount = transcriptText.split(/\s+/).filter(w => w.length > 0).length;
+      const wordCount = transcriptText.split(/\s+/).filter((w) => w.length > 0).length;
 
       return {
         hasTranscript: true,
         transcript: {
           contentId: args.contentId,
           sourceUrl: url,
-          transcriptType: "jina_fallback" as const,
-          transcriptSource: "jina_reader_api",
+          transcriptType: 'jina_fallback' as const,
+          transcriptSource: 'jina_reader_api',
           storageId,
           previewText,
           wordCount,
@@ -405,7 +403,7 @@ export const fetchJinaTranscript = internalAction({
         if (error.type === 'rate_limit') {
           return {
             hasTranscript: false,
-            error: "Jina Reader rate limit exceeded",
+            error: 'Jina Reader rate limit exceeded',
           };
         }
         return {
@@ -414,10 +412,10 @@ export const fetchJinaTranscript = internalAction({
         };
       }
 
-      console.error("Jina Reader transcript error:", error);
+      console.error('Jina Reader transcript error:', error);
       return {
         hasTranscript: false,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
   },

@@ -1,32 +1,32 @@
-import { cn } from '@/lib/utils'
-import { Trash2 } from '@/components/ui/icons'
-import * as Haptics from 'expo-haptics'
+import * as Haptics from 'expo-haptics';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Pressable, StyleSheet, View, type ViewProps } from 'react-native';
 import Animated, {
-  useSharedValue,
   useAnimatedStyle,
-  withTiming,
-  withSpring,
+  useSharedValue,
   withSequence,
-} from 'react-native-reanimated'
-import { StyleSheet, View, Pressable, type ViewProps } from 'react-native'
-import { Text } from '@/components/ui/text'
-import { useCallback, useState, useRef, useEffect } from 'react'
-import { useTheme } from '@/hooks/use-theme'
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
+import { Trash2 } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { useTheme } from '@/hooks/use-theme';
+import { cn } from '@/lib/utils';
 
-const COLLAPSE_DURATION = 250
-const DISMISS_DELAY = 4000 // auto-dismiss delete button after 4s
+const COLLAPSE_DURATION = 250;
+const DISMISS_DELAY = 4000; // auto-dismiss delete button after 4s
 
 interface SwipeableRowProps extends Omit<ViewProps, 'children'> {
   /** Content to render inside the row */
-  children: React.ReactNode
+  children: React.ReactNode;
   /** Callback when delete is triggered */
-  onDelete: () => void
+  onDelete: () => void;
   /** @deprecated No longer used - kept for API compat */
-  deleteThreshold?: number
+  deleteThreshold?: number;
   /** Whether long-press is disabled */
-  disabled?: boolean
+  disabled?: boolean;
   /** Screen width for animations */
-  screenWidth: number
+  screenWidth: number;
 }
 
 /**
@@ -46,85 +46,81 @@ export function SwipeableRow({
   className,
   ...props
 }: SwipeableRowProps) {
-  const { colors: themeColors, spacing } = useTheme()
-  const [showDelete, setShowDelete] = useState(false)
-  const dismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const { colors: themeColors, spacing } = useTheme();
+  const [showDelete, setShowDelete] = useState(false);
+  const dismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Animation values
-  const height = useSharedValue(-1)
-  const deleteOpacity = useSharedValue(0)
-  const deleteScale = useSharedValue(0.6)
-  const rowScale = useSharedValue(1)
-  const isDeleting = useSharedValue(false)
+  const height = useSharedValue(-1);
+  const deleteOpacity = useSharedValue(0);
+  const deleteScale = useSharedValue(0.6);
+  const rowScale = useSharedValue(1);
+  const isDeleting = useSharedValue(false);
 
   const clearDismissTimer = useCallback(() => {
     if (dismissTimer.current) {
-      clearTimeout(dismissTimer.current)
-      dismissTimer.current = null
+      clearTimeout(dismissTimer.current);
+      dismissTimer.current = null;
     }
-  }, [])
+  }, []);
 
   // Auto-dismiss after delay
   useEffect(() => {
     if (showDelete) {
-      clearDismissTimer()
+      clearDismissTimer();
       dismissTimer.current = setTimeout(() => {
-        handleDismiss()
-      }, DISMISS_DELAY)
+        handleDismiss();
+      }, DISMISS_DELAY);
     }
-    return clearDismissTimer
-  }, [showDelete, clearDismissTimer])
+    return clearDismissTimer;
+  }, [showDelete, clearDismissTimer]);
 
   const handleLongPress = useCallback(() => {
-    if (disabled || isDeleting.value) return
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+    if (disabled || isDeleting.value) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     // Subtle scale pulse on the row
     rowScale.value = withSequence(
       withTiming(0.97, { duration: 100 }),
       withSpring(1, { damping: 15, stiffness: 200 })
-    )
+    );
     // Reveal delete button
-    deleteOpacity.value = withSpring(1, { damping: 12, stiffness: 180 })
-    deleteScale.value = withSpring(1, { damping: 10, stiffness: 200 })
-    setShowDelete(true)
-  }, [disabled, isDeleting, rowScale, deleteOpacity, deleteScale])
+    deleteOpacity.value = withSpring(1, { damping: 12, stiffness: 180 });
+    deleteScale.value = withSpring(1, { damping: 10, stiffness: 200 });
+    setShowDelete(true);
+  }, [disabled, isDeleting, rowScale, deleteOpacity, deleteScale]);
 
   const handleDismiss = useCallback(() => {
-    if (isDeleting.value) return
-    clearDismissTimer()
-    deleteOpacity.value = withTiming(0, { duration: 150 })
-    deleteScale.value = withTiming(0.6, { duration: 150 })
+    if (isDeleting.value) return;
+    clearDismissTimer();
+    deleteOpacity.value = withTiming(0, { duration: 150 });
+    deleteScale.value = withTiming(0.6, { duration: 150 });
     // Delay state change so animation plays
-    setTimeout(() => setShowDelete(false), 160)
-  }, [isDeleting, clearDismissTimer, deleteOpacity, deleteScale])
+    setTimeout(() => setShowDelete(false), 160);
+  }, [isDeleting, clearDismissTimer, deleteOpacity, deleteScale]);
 
   const handleDelete = useCallback(() => {
-    if (isDeleting.value) return
-    isDeleting.value = true
-    clearDismissTimer()
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+    if (isDeleting.value) return;
+    isDeleting.value = true;
+    clearDismissTimer();
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     // Collapse animation
-    height.value = withTiming(0, { duration: COLLAPSE_DURATION })
-    onDelete()
-  }, [isDeleting, clearDismissTimer, height, onDelete])
+    height.value = withTiming(0, { duration: COLLAPSE_DURATION });
+    onDelete();
+  }, [isDeleting, clearDismissTimer, height, onDelete]);
 
   const rowAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: rowScale.value }],
     height: height.value >= 0 ? height.value : undefined,
     opacity: height.value >= 0 && height.value < 10 ? withTiming(0, { duration: 100 }) : 1,
-  }))
+  }));
 
   const deleteButtonAnimatedStyle = useAnimatedStyle(() => ({
     opacity: deleteOpacity.value,
     transform: [{ scale: deleteScale.value }],
-  }))
+  }));
 
   return (
-    <View
-      className={cn('relative overflow-hidden', className)}
-      style={styles.container}
-      {...props}
-    >
+    <View className={cn('relative overflow-hidden', className)} style={styles.container} {...props}>
       {/* Row content with long-press */}
       <Pressable
         onLongPress={handleLongPress}
@@ -132,9 +128,7 @@ export function SwipeableRow({
         disabled={disabled}
         onPress={showDelete ? handleDismiss : undefined}
       >
-        <Animated.View style={[styles.content, rowAnimatedStyle]}>
-          {children}
-        </Animated.View>
+        <Animated.View style={[styles.content, rowAnimatedStyle]}>{children}</Animated.View>
       </Pressable>
 
       {/* Delete button overlay - anchored to right side */}
@@ -142,7 +136,15 @@ export function SwipeableRow({
         <Animated.View style={[styles.deleteOverlay, deleteButtonAnimatedStyle]}>
           <Pressable
             onPress={handleDelete}
-            style={[styles.deleteButton, { backgroundColor: themeColors.destructive, gap: spacing.sm, paddingHorizontal: spacing.lg, paddingVertical: spacing.md }]}
+            style={[
+              styles.deleteButton,
+              {
+                backgroundColor: themeColors.destructive,
+                gap: spacing.sm,
+                paddingHorizontal: spacing.lg,
+                paddingVertical: spacing.md,
+              },
+            ]}
             testID="message-delete-button"
           >
             <Trash2 size={18} color="#fff" />
@@ -151,7 +153,7 @@ export function SwipeableRow({
         </Animated.View>
       )}
     </View>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
@@ -185,4 +187,4 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 14,
   },
-})
+});

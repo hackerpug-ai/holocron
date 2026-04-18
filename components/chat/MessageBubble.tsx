@@ -1,84 +1,94 @@
-import { View, Pressable, Linking, ScrollView } from 'react-native'
-import { Text } from '@/components/ui/text'
-import { MarkdownText } from '@/components/markdown'
-import { cn } from '@/lib/utils'
-import type { MessageRole, MessageType } from '@/lib/types/conversations'
-import { formatTimestamp } from '@/lib/formatTimestamp'
-import { ResultCard, type ResultCardData, type CardType } from '@/components/ui/result-card'
-import { Mic } from '@/components/ui/icons'
-import { DeepResearchLoadingCard } from '@/components/deep-research/DeepResearchLoadingCard'
-import { AssimilationCard } from '@/components/AssimilationCard'
-import { ShopResultsCard, ShopLoadingCard } from '@/components/shop'
+import { useMutation, useQuery } from 'convex/react';
+import { useRouter } from 'expo-router';
+import { Linking, Pressable, ScrollView, View } from 'react-native';
+import { AssimilationCard } from '@/components/AssimilationCard';
+import { AgentPlanCardWithConvex } from '@/components/agent/AgentPlanCardWithConvex';
+import { ToolApprovalCardWithConvex } from '@/components/agent/ToolApprovalCard';
+import { AssimilationPlanCardWithConvex } from '@/components/assimilate/AssimilationPlanCard';
+import { AssimilationProgressCard } from '@/components/assimilate/AssimilationProgressCard';
+import { StreamingCursor } from '@/components/chat/StreamingCursor';
+import { DeepResearchLoadingCard } from '@/components/deep-research/DeepResearchLoadingCard';
+import { DocumentContextCard, DocumentSavedCard } from '@/components/documents';
+import { MarkdownText } from '@/components/markdown';
+import {
+  PodcastTranscriptionCompleteCard,
+  PodcastTranscriptionLoadingCard,
+} from '@/components/podcast';
+import { ShopLoadingCard, ShopResultsCard } from '@/components/shop';
 import {
   SubscriptionAddedCard,
   SubscriptionListCard,
-  SubscriptionSuggestionCard,
   SubscriptionProgressCard,
-} from '@/components/subscriptions'
-import { WhatsNewReportCard, WhatsNewLoadingCard } from '@/components/whats-new'
-import { ToolSearchResultsCard, ToolAddingCard, ToolAddedCard } from '@/components/toolbelt'
-import { DocumentSavedCard, DocumentContextCard } from '@/components/documents'
-import { ToolApprovalCardWithConvex } from '@/components/agent/ToolApprovalCard'
-import { AgentPlanCardWithConvex } from '@/components/agent/AgentPlanCardWithConvex'
-import { AssimilationPlanCardWithConvex } from '@/components/assimilate/AssimilationPlanCard'
-import { AssimilationProgressCard } from '@/components/assimilate/AssimilationProgressCard'
-import { PodcastTranscriptionLoadingCard, PodcastTranscriptionCompleteCard } from '@/components/podcast'
-import { useRouter } from 'expo-router'
-import { StreamingCursor } from '@/components/chat/StreamingCursor'
-import { useQuery, useMutation } from 'convex/react'
-import { api } from '@/convex/_generated/api'
-import type { Id } from '@/convex/_generated/dataModel'
+  SubscriptionSuggestionCard,
+} from '@/components/subscriptions';
+import { ToolAddedCard, ToolAddingCard, ToolSearchResultsCard } from '@/components/toolbelt';
+import { Mic } from '@/components/ui/icons';
+import { type CardType, ResultCard, type ResultCardData } from '@/components/ui/result-card';
+import { Text } from '@/components/ui/text';
+import { WhatsNewLoadingCard, WhatsNewReportCard } from '@/components/whats-new';
+import { api } from '@/convex/_generated/api';
+import type { Id } from '@/convex/_generated/dataModel';
+import { formatTimestamp } from '@/lib/formatTimestamp';
 import type {
+  DocumentContextCardData,
+  DocumentSavedCardData,
   ShopListingCardData,
   SubscriptionAddedCardData,
   SubscriptionListCardData,
-  WhatsNewReportCardData,
-  WhatsNewLoadingCardData,
-  ToolSearchResultsCardData,
-  ToolAddingCardData,
   ToolAddedCardData,
-  DocumentSavedCardData,
-  DocumentContextCardData,
-} from '@/lib/types/chat'
+  ToolAddingCardData,
+  ToolSearchResultsCardData,
+  WhatsNewLoadingCardData,
+  WhatsNewReportCardData,
+} from '@/lib/types/chat';
+import type { MessageRole, MessageType } from '@/lib/types/conversations';
+import { cn } from '@/lib/utils';
 
 // Human-readable status labels for research sessions
 const STATUS_LABELS: Record<string, string> = {
-  'pending': 'Starting research...',
-  'in_progress': 'Researching...',
-  'running': 'Running iteration...',
-  'completed': 'Complete',
-  'error': 'Error occurred',
-  'cancelled': 'Cancelled',
-}
+  pending: 'Starting research...',
+  in_progress: 'Researching...',
+  running: 'Running iteration...',
+  completed: 'Complete',
+  error: 'Error occurred',
+  cancelled: 'Cancelled',
+};
 
 export interface MessageBubbleProps {
-  role: MessageRole
-  content: string
-  message_type?: MessageType
-  card_data?: Record<string, unknown> | null
-  toolCallId?: string | null
-  voiceSessionId?: string | null
-  isStreaming?: boolean
-  createdAt?: Date
-  showTimestamp?: boolean
-  testID?: string
-  onCardPress?: (documentId: string) => void
-  onFinalResultPress?: (sessionId: string) => void
-  onWhatsNewReportPress?: (reportId: string) => void
+  role: MessageRole;
+  content: string;
+  message_type?: MessageType;
+  card_data?: Record<string, unknown> | null;
+  toolCallId?: string | null;
+  voiceSessionId?: string | null;
+  isStreaming?: boolean;
+  createdAt?: Date;
+  showTimestamp?: boolean;
+  testID?: string;
+  onCardPress?: (documentId: string) => void;
+  onFinalResultPress?: (sessionId: string) => void;
+  onWhatsNewReportPress?: (reportId: string) => void;
   /** Navigate to a document with optional highlight at a specific block */
-  onDocumentContextNavigate?: (documentId: string, blockIndex?: number) => void
-  loadingCardId?: string | null
-  cardError?: string | null
+  onDocumentContextNavigate?: (documentId: string, blockIndex?: number) => void;
+  loadingCardId?: string | null;
+  cardError?: string | null;
   /** Callback to delete this message from the chat */
-  onDeleteMessage?: (messageId: string) => void
+  onDeleteMessage?: (messageId: string) => void;
   /** ID of this message, used with onDeleteMessage */
-  messageId?: string
+  messageId?: string;
   /** Callback when a single recommendation is saved to KB */
-  onSaveRecommendation?: (item: { id: string; title: string; description?: string; url?: string }) => void
+  onSaveRecommendation?: (item: {
+    id: string;
+    title: string;
+    description?: string;
+    url?: string;
+  }) => void;
   /** Callback when all recommendations in a list are saved to KB */
-  onSaveRecommendationList?: (items: { id: string; title: string; description?: string; url?: string }[]) => void
+  onSaveRecommendationList?: (
+    items: { id: string; title: string; description?: string; url?: string }[]
+  ) => void;
   /** Callback when a clarification quick reply is tapped */
-  onSendMessage?: (text: string) => void
+  onSendMessage?: (text: string) => void;
 }
 
 export function MessageBubble({
@@ -104,20 +114,15 @@ export function MessageBubble({
   onSaveRecommendationList,
   onSendMessage,
 }: MessageBubbleProps) {
-  const isUser = role === 'user'
-  const isSystem = role === 'system'
-  const router = useRouter()
+  const isUser = role === 'user';
+  const isSystem = role === 'system';
+  const router = useRouter();
 
   // Handle agent_plan messages - render live plan card
   if (message_type === 'agent_plan' && card_data?.plan_id) {
     return (
-      <View
-        className={cn('my-1 px-4')}
-        testID="agent-plan-bubble"
-      >
-        <AgentPlanCardWithConvex
-          planId={card_data.plan_id as string}
-        />
+      <View className={cn('my-1 px-4')} testID="agent-plan-bubble">
+        <AgentPlanCardWithConvex planId={card_data.plan_id as string} />
         {showTimestamp && createdAt && (
           <Text
             variant="small"
@@ -128,16 +133,13 @@ export function MessageBubble({
           </Text>
         )}
       </View>
-    )
+    );
   }
 
   // Handle tool_approval messages - render live tool approval card
   if (message_type === 'tool_approval' && toolCallId) {
     return (
-      <View
-        className={cn('my-1 px-4')}
-        testID={testID}
-      >
+      <View className={cn('my-1 px-4')} testID={testID}>
         <ToolApprovalBubble
           toolCallId={toolCallId as Id<'toolCalls'>}
           cardData={card_data ?? undefined}
@@ -152,36 +154,47 @@ export function MessageBubble({
           </Text>
         )}
       </View>
-    )
+    );
   }
 
   // Handle result_card messages - render specialized cards
   if (message_type === 'result_card' && card_data) {
     // Suppress iteration cards entirely - they're consolidated in DeepResearchLoadingCard
-    const cardType = card_data.card_type as string
+    const cardType = card_data.card_type as string;
     if (cardType === 'deep_research_iteration') {
-      return null
+      return null;
     }
 
     // Render result cards for assistant messages, and document_context cards for any role
     // (users can add documents to chat which should render as cards, not text bubbles)
-    const isDocumentContext = cardType === 'document_context'
+    const isDocumentContext = cardType === 'document_context';
     if (!isUser || isDocumentContext) {
-      const cardContent = renderResultCard(card_data, message_type, testID, onCardPress, onFinalResultPress, onWhatsNewReportPress, loadingCardId, cardError, onDocumentContextNavigate, router, onDeleteMessage, messageId, onSaveRecommendation, onSaveRecommendationList, onSendMessage)
+      const cardContent = renderResultCard(
+        card_data,
+        message_type,
+        testID,
+        onCardPress,
+        onFinalResultPress,
+        onWhatsNewReportPress,
+        loadingCardId,
+        cardError,
+        onDocumentContextNavigate,
+        router,
+        onDeleteMessage,
+        messageId,
+        onSaveRecommendation,
+        onSaveRecommendationList,
+        onSendMessage
+      );
 
       // If renderResultCard returns null, suppress the entire message
       if (cardContent === null) {
-        return null
+        return null;
       }
 
       return (
-        <View
-          className={cn('my-1 px-4')}
-          testID={testID}
-        >
-          <View className="w-full">
-            {cardContent}
-          </View>
+        <View className={cn('my-1 px-4')} testID={testID}>
+          <View className="w-full">{cardContent}</View>
           {showTimestamp && createdAt && (
             <Text
               variant="small"
@@ -192,7 +205,7 @@ export function MessageBubble({
             </Text>
           )}
         </View>
-      )
+      );
     }
   }
 
@@ -208,31 +221,15 @@ export function MessageBubble({
     >
       {/* User messages: Keep bubble style */}
       {isUser ? (
-        <View
-          className={cn(
-            'rounded-lg p-3',
-            'bg-primary max-w-[75%]'
-          )}
-        >
-          <Text
-            variant="default"
-            className="text-primary-foreground"
-          >
+        <View className={cn('rounded-lg p-3', 'bg-primary max-w-[75%]')}>
+          <Text variant="default" className="text-primary-foreground">
             {content}
           </Text>
         </View>
       ) : isSystem ? (
         /* System messages: Keep centered bubble style */
-        <View
-          className={cn(
-            'rounded-lg p-3',
-            'bg-muted max-w-[80%]'
-          )}
-        >
-          <Text
-            variant="small"
-            className="text-muted-foreground"
-          >
+        <View className={cn('rounded-lg p-3', 'bg-muted max-w-[80%]')}>
+          <Text variant="small" className="text-muted-foreground">
             {content}
           </Text>
         </View>
@@ -256,9 +253,7 @@ export function MessageBubble({
             !isUser && !isSystem && 'self-start'
           )}
         >
-          {voiceSessionId && (
-            <Mic size={12} className="text-muted-foreground" />
-          )}
+          {voiceSessionId && <Mic size={12} className="text-muted-foreground" />}
           <Text
             variant="small"
             className="text-muted-foreground text-xs"
@@ -269,7 +264,7 @@ export function MessageBubble({
         </View>
       )}
     </View>
-  )
+  );
 }
 
 /**
@@ -280,12 +275,12 @@ function ToolApprovalBubble({
   toolCallId,
   cardData,
 }: {
-  toolCallId: Id<'toolCalls'>
-  cardData?: Record<string, unknown>
+  toolCallId: Id<'toolCalls'>;
+  cardData?: Record<string, unknown>;
 }) {
-  const toolCall = useQuery(api.toolCalls.queries.get, { id: toolCallId })
+  const toolCall = useQuery(api.toolCalls.queries.get, { id: toolCallId });
 
-  if (!toolCall) return null
+  if (!toolCall) return null;
 
   return (
     <ToolApprovalCardWithConvex
@@ -294,9 +289,17 @@ function ToolApprovalBubble({
       toolDisplayName={toolCall.toolDisplayName}
       parameters={(toolCall.toolArgs as Record<string, unknown>) ?? {}}
       reasoning={cardData?.reasoning as string | undefined}
-      status={toolCall.status as 'pending' | 'approved' | 'rejected' | 'executing' | 'completed' | 'timed_out'}
+      status={
+        toolCall.status as
+          | 'pending'
+          | 'approved'
+          | 'rejected'
+          | 'executing'
+          | 'completed'
+          | 'timed_out'
+      }
     />
-  )
+  );
 }
 
 /**
@@ -312,34 +315,33 @@ function DeepResearchLoadingCardWithPolling({
   onFinalResultPress,
   onDocumentContextNavigate,
 }: {
-  sessionId: string
-  topic: string
-  researchType?: 'quick' | 'deep'
-  testID: string
-  onFinalResultPress?: (sessionId: string) => void
-  onDocumentContextNavigate?: (documentId: string, blockIndex?: number) => void
+  sessionId: string;
+  topic: string;
+  researchType?: 'quick' | 'deep';
+  testID: string;
+  onFinalResultPress?: (sessionId: string) => void;
+  onDocumentContextNavigate?: (documentId: string, blockIndex?: number) => void;
 }) {
   // Poll session status for real-time updates
-  const session = useQuery(
-    api.research.queries.getDeepResearchSession,
-    { sessionId: sessionId as Id<"deepResearchSessions"> }
-  )
-  const cancelSession = useMutation(api.research.mutations.cancelResearchSession)
-  const retrySession = useMutation(api.research.mutations.retryResearchSession)
+  const session = useQuery(api.research.queries.getDeepResearchSession, {
+    sessionId: sessionId as Id<'deepResearchSessions'>,
+  });
+  const cancelSession = useMutation(api.research.mutations.cancelResearchSession);
+  const retrySession = useMutation(api.research.mutations.retryResearchSession);
 
   // Check if session is complete, cancelled, or errored
-  const isComplete = session?.status === 'completed'
-  const isCancelled = session?.status === 'cancelled'
-  const statusStr = session?.status as string | undefined
-  const isError = statusStr === 'error' || statusStr === 'failed' || statusStr === 'timeout'
+  const isComplete = session?.status === 'completed';
+  const isCancelled = session?.status === 'cancelled';
+  const statusStr = session?.status as string | undefined;
+  const isError = statusStr === 'error' || statusStr === 'failed' || statusStr === 'timeout';
 
   const handleCancel = () => {
-    cancelSession({ sessionId: sessionId as Id<"deepResearchSessions"> })
-  }
+    cancelSession({ sessionId: sessionId as Id<'deepResearchSessions'> });
+  };
 
   const handleRetry = () => {
-    retrySession({ sessionId: sessionId as Id<"deepResearchSessions"> })
-  }
+    retrySession({ sessionId: sessionId as Id<'deepResearchSessions'> });
+  };
 
   // When research is complete and has a document, render as a DocumentContextCard
   if (isComplete && session?.documentId) {
@@ -351,12 +353,16 @@ function DeepResearchLoadingCardWithPolling({
           title: topic || 'Research Complete',
           category: 'research',
           scope: 'full',
-          excerpt: session.report?.replace(/^---[\s\S]*?---\n*/, '').replace(/[#*_`>[\]]/g, '').trim().slice(0, 120),
+          excerpt: session.report
+            ?.replace(/^---[\s\S]*?---\n*/, '')
+            .replace(/[#*_`>[\]]/g, '')
+            .trim()
+            .slice(0, 120),
         }}
         onNavigateToDocument={onDocumentContextNavigate}
         testID={`${testID}-document`}
       />
-    )
+    );
   }
 
   return (
@@ -373,7 +379,7 @@ function DeepResearchLoadingCardWithPolling({
       onRetry={handleRetry}
       testID={testID}
     />
-  )
+  );
 }
 
 /**
@@ -393,23 +399,31 @@ function renderResultCard(
   router?: ReturnType<typeof useRouter>,
   onDeleteMessage?: (messageId: string) => void,
   messageId?: string,
-  onSaveRecommendation?: (item: { id: string; title: string; description?: string; url?: string }) => void,
-  onSaveRecommendationList?: (items: { id: string; title: string; description?: string; url?: string }[]) => void,
-  onSendMessage?: (text: string) => void,
+  onSaveRecommendation?: (item: {
+    id: string;
+    title: string;
+    description?: string;
+    url?: string;
+  }) => void,
+  onSaveRecommendationList?: (
+    items: { id: string; title: string; description?: string; url?: string }[]
+  ) => void,
+  onSendMessage?: (text: string) => void
 ) {
   // Check if card_data contains multiple search results (array or wrapped)
-  const isSearchResults = Array.isArray(card_data) ||
-    (card_data.card_type === 'search_results' && Array.isArray(card_data.items))
+  const isSearchResults =
+    Array.isArray(card_data) ||
+    (card_data.card_type === 'search_results' && Array.isArray(card_data.items));
   if (isSearchResults) {
     const items = Array.isArray(card_data)
       ? card_data
-      : (card_data.items as Record<string, unknown>[])
+      : (card_data.items as Record<string, unknown>[]);
     return (
       <View className="gap-2">
         {items.map((card, index) => {
-          const cardType = (card.card_type as CardType) || 'article'
-          const documentId = card.document_id as string | undefined
-          const isLoading = loadingCardId != null && documentId === loadingCardId
+          const cardType = (card.card_type as CardType) || 'article';
+          const documentId = card.document_id as string | undefined;
+          const isLoading = loadingCardId != null && documentId === loadingCardId;
 
           return (
             <ResultCard
@@ -421,18 +435,43 @@ function renderResultCard(
               loading={isLoading}
               error={isLoading ? undefined : (cardError ?? undefined)}
             />
-          )
+          );
         })}
       </View>
-    )
+    );
   }
 
   // Single card - cast through unknown to satisfy TypeScript discriminated union
-  const cardType = card_data.card_type as CardType | 'deep_research_loading' | 'deep_research_iteration' | 'deep_research_confirmation' | 'final_result' | 'assimilation' | 'assimilation_plan' | 'assimilation_progress' | 'shop_results' | 'shop_loading' | 'subscription_added' | 'subscription_list' | 'subscription_suggestion' | 'subscription_progress' | 'whats_new_report' | 'whats_new_loading' | 'tool_search_results' | 'tool_adding' | 'tool_added' | 'document_saved' | 'document_context' | 'document_full' | 'clarification' | 'podcast_transcription_loading' | 'podcast_transcription_complete'
+  const cardType = card_data.card_type as
+    | CardType
+    | 'deep_research_loading'
+    | 'deep_research_iteration'
+    | 'deep_research_confirmation'
+    | 'final_result'
+    | 'assimilation'
+    | 'assimilation_plan'
+    | 'assimilation_progress'
+    | 'shop_results'
+    | 'shop_loading'
+    | 'subscription_added'
+    | 'subscription_list'
+    | 'subscription_suggestion'
+    | 'subscription_progress'
+    | 'whats_new_report'
+    | 'whats_new_loading'
+    | 'tool_search_results'
+    | 'tool_adding'
+    | 'tool_added'
+    | 'document_saved'
+    | 'document_context'
+    | 'document_full'
+    | 'clarification'
+    | 'podcast_transcription_loading'
+    | 'podcast_transcription_complete';
 
   // Handle shop results card
   if (cardType === 'shop_results') {
-    const listings = (card_data.listings as ShopListingCardData[]) || []
+    const listings = (card_data.listings as ShopListingCardData[]) || [];
     return (
       <ShopResultsCard
         sessionId={(card_data.session_id as string) || ''}
@@ -444,7 +483,7 @@ function renderResultCard(
         durationMs={card_data.duration_ms as number | undefined}
         testID={`${testID}-shop-results`}
       />
-    )
+    );
   }
 
   // Handle shop loading card
@@ -456,7 +495,7 @@ function renderResultCard(
         message={card_data.message as string | undefined}
         testID={`${testID}-shop-loading`}
       />
-    )
+    );
   }
 
   // Handle subscription added card
@@ -466,7 +505,7 @@ function renderResultCard(
         data={card_data as unknown as SubscriptionAddedCardData}
         testID={`${testID}-subscription-added`}
       />
-    )
+    );
   }
 
   // Handle subscription list card
@@ -476,7 +515,7 @@ function renderResultCard(
         data={card_data as unknown as SubscriptionListCardData}
         testID={`${testID}-subscription-list`}
       />
-    )
+    );
   }
 
   // Handle subscription suggestion card
@@ -486,21 +525,17 @@ function renderResultCard(
         data={card_data as any}
         testID={`${testID}-subscription-suggestion`}
       />
-    )
+    );
   }
 
   // Handle subscription progress card
   if (cardType === 'subscription_progress') {
-    return (
-      <SubscriptionProgressCard
-        {...(card_data as any)}
-      />
-    )
+    return <SubscriptionProgressCard {...(card_data as any)} />;
   }
 
   // Handle clarification card
   if (cardType === 'clarification') {
-    const { ClarificationMessage } = require('./ClarificationMessage')
+    const { ClarificationMessage } = require('./ClarificationMessage');
     return (
       <ClarificationMessage
         question={(card_data.question as string) || ''}
@@ -509,24 +544,21 @@ function renderResultCard(
         userResponse={card_data.userResponse as string | undefined}
         onQuickReply={(label: string) => onSendMessage?.(label)}
       />
-    )
+    );
   }
 
   // Handle what's new report card
   if (cardType === 'whats_new_report') {
-    const reportData = card_data as unknown as WhatsNewReportCardData
+    const reportData = card_data as unknown as WhatsNewReportCardData;
     return (
       <Pressable
         onPress={() => onWhatsNewReportPress?.(reportData.report_id)}
         className="active:opacity-80 w-full"
         testID={`${testID}-whats-new-report-pressable`}
       >
-        <WhatsNewReportCard
-          data={reportData}
-          testID={`${testID}-whats-new-report`}
-        />
+        <WhatsNewReportCard data={reportData} testID={`${testID}-whats-new-report`} />
       </Pressable>
-    )
+    );
   }
 
   // Handle what's new loading card
@@ -536,7 +568,7 @@ function renderResultCard(
         data={card_data as unknown as WhatsNewLoadingCardData}
         testID={`${testID}-whats-new-loading`}
       />
-    )
+    );
   }
 
   // Handle tool search results card
@@ -546,7 +578,7 @@ function renderResultCard(
         data={card_data as unknown as ToolSearchResultsCardData}
         testID={`${testID}-tool-search-results`}
       />
-    )
+    );
   }
 
   // Handle tool adding card (loading state)
@@ -556,7 +588,7 @@ function renderResultCard(
         data={card_data as unknown as ToolAddingCardData}
         testID={`${testID}-tool-adding`}
       />
-    )
+    );
   }
 
   // Handle tool added card (confirmation)
@@ -566,7 +598,7 @@ function renderResultCard(
         data={card_data as unknown as ToolAddedCardData}
         testID={`${testID}-tool-added`}
       />
-    )
+    );
   }
 
   // Handle document saved card
@@ -576,13 +608,13 @@ function renderResultCard(
         data={card_data as unknown as DocumentSavedCardData}
         testID={`${testID}-document-saved`}
       />
-    )
+    );
   }
 
   // Handle document context card (added from document viewer)
   if (cardType === 'document_context') {
-    const contextData = card_data as unknown as DocumentContextCardData
-    const isExcerpt = contextData.scope === 'excerpt'
+    const contextData = card_data as unknown as DocumentContextCardData;
+    const isExcerpt = contextData.scope === 'excerpt';
 
     // For full doc: wrap in Pressable to navigate directly
     // For excerpts: the card manages its own reader sheet internally
@@ -600,7 +632,7 @@ function renderResultCard(
             testID={`${testID}-document-context`}
           />
         </Pressable>
-      )
+      );
     }
 
     return (
@@ -610,12 +642,18 @@ function renderResultCard(
         onDeleteFromChat={messageId ? () => onDeleteMessage?.(messageId) : undefined}
         testID={`${testID}-document-context`}
       />
-    )
+    );
   }
 
   // Handle document_full card
   if (cardType === 'document_full') {
-    const docData = card_data as unknown as { document_id: string; title: string; category?: string; content: string; metadata?: { date?: string } }
+    const docData = card_data as unknown as {
+      document_id: string;
+      title: string;
+      category?: string;
+      content: string;
+      metadata?: { date?: string };
+    };
     return (
       <Pressable
         onPress={() => onCardPress?.(docData.document_id)}
@@ -623,18 +661,12 @@ function renderResultCard(
         testID={`${testID}-document-full-pressable`}
       >
         <View className="bg-card border border-border rounded-lg p-4">
-          <Text className="text-lg font-semibold text-foreground mb-2">
-            {docData.title}
-          </Text>
+          <Text className="text-lg font-semibold text-foreground mb-2">{docData.title}</Text>
           {docData.category && (
-            <Text className="text-sm text-muted-foreground mb-2">
-              Category: {docData.category}
-            </Text>
+            <Text className="text-sm text-muted-foreground mb-2">Category: {docData.category}</Text>
           )}
           <ScrollView className="max-h-64">
-            <Text className="text-sm text-foreground">
-              {docData.content}
-            </Text>
+            <Text className="text-sm text-foreground">{docData.content}</Text>
           </ScrollView>
           {docData.metadata?.date && (
             <Text className="text-xs text-muted-foreground mt-2">
@@ -643,16 +675,16 @@ function renderResultCard(
           )}
         </View>
       </Pressable>
-    )
+    );
   }
 
   // Handle deep research loading card - check card_type and status
   if (cardType === 'deep_research_loading') {
-    const topic = (card_data.topic as string) ?? (card_data.query as string) ?? ''
-    const sessionId = (card_data.session_id as string) ?? ''
+    const topic = (card_data.topic as string) ?? (card_data.query as string) ?? '';
+    const sessionId = (card_data.session_id as string) ?? '';
     // Determine research type from card_data.research_type field
     // 'simple' maps to 'quick', anything else (including undefined) maps to 'deep'
-    const researchType: 'quick' | 'deep' = card_data.research_type === 'simple' ? 'quick' : 'deep'
+    const researchType: 'quick' | 'deep' = card_data.research_type === 'simple' ? 'quick' : 'deep';
 
     // Show polling card - renders loading while in progress, DocumentContextCard when complete
     if (sessionId) {
@@ -665,7 +697,7 @@ function renderResultCard(
           onFinalResultPress={onFinalResultPress}
           onDocumentContextNavigate={onDocumentContextNavigate}
         />
-      )
+      );
     }
   }
 
@@ -675,13 +707,13 @@ function renderResultCard(
   if (cardType === 'deep_research_iteration') {
     // Return null to suppress individual iteration cards
     // They are consolidated in the DeepResearchLoadingCard via polling
-    return null
+    return null;
   }
 
   // Handle deep research completion - render as DocumentContextCard
   if (message_type === 'result_card' && card_data.status === 'completed') {
-    const topic = (card_data.topic as string) ?? (card_data.query as string) ?? ''
-    const documentId = (card_data.document_id as string) ?? ''
+    const topic = (card_data.topic as string) ?? (card_data.query as string) ?? '';
+    const documentId = (card_data.document_id as string) ?? '';
 
     if (documentId) {
       return (
@@ -697,7 +729,7 @@ function renderResultCard(
           onNavigateToDocument={onDocumentContextNavigate}
           testID={`${testID}-document-context`}
         />
-      )
+      );
     }
   }
 
@@ -711,13 +743,13 @@ function renderResultCard(
         onFinalResultPress={onFinalResultPress}
         onDocumentContextNavigate={onDocumentContextNavigate}
       />
-    )
+    );
   }
 
   // Handle final result card - render as DocumentContextCard
   if (cardType === 'final_result') {
-    const documentId = (card_data.document_id as string) ?? ''
-    const topic = (card_data.topic as string) ?? 'Research Complete'
+    const documentId = (card_data.document_id as string) ?? '';
+    const topic = (card_data.topic as string) ?? 'Research Complete';
 
     if (documentId) {
       return (
@@ -733,7 +765,7 @@ function renderResultCard(
           onNavigateToDocument={onDocumentContextNavigate}
           testID={`${testID}-document-context`}
         />
-      )
+      );
     }
   }
 
@@ -746,13 +778,20 @@ function renderResultCard(
         repositoryUrl={card_data.repository_url as string}
         profile={card_data.profile as string}
         planSummary={card_data.plan_summary as string}
-        status={card_data.status as 'pending_approval' | 'approved' | 'rejected' | 'in_progress' | 'completed'}
+        status={
+          card_data.status as
+            | 'pending_approval'
+            | 'approved'
+            | 'rejected'
+            | 'in_progress'
+            | 'completed'
+        }
         dimensionScores={card_data.dimension_scores as Record<string, number>}
         currentIteration={card_data.current_iteration as number}
         maxIterations={card_data.max_iterations as number}
         onViewPlan={() => router?.push(`/assimilate/${card_data.session_id as string}`)}
       />
-    )
+    );
   }
 
   // Handle assimilation progress card - display live iteration progress
@@ -769,24 +808,28 @@ function renderResultCard(
         currentDimension={card_data.current_dimension as string}
         estimatedCostUsd={card_data.estimated_cost_usd as number}
         documentId={card_data.document_id as string}
-        onPress={card_data.document_id ? () => router?.push(`/document/${card_data.document_id as string}`) : undefined}
+        onPress={
+          card_data.document_id
+            ? () => router?.push(`/document/${card_data.document_id as string}`)
+            : undefined
+        }
       />
-    )
+    );
   }
 
   // Handle recommendation list card
   if ((card_data.card_type as string) === 'recommendation_list') {
-    const { RecommendationListCard } = require('@/components/cards/RecommendationListCard')
+    const { RecommendationListCard } = require('@/components/cards/RecommendationListCard');
     const typeData = card_data as {
-      card_type: 'recommendation_list'
+      card_type: 'recommendation_list';
       items: Array<{
-        id: string
-        title: string
-        description?: string
-        url?: string
-      }>
-      summary?: string
-    }
+        id: string;
+        title: string;
+        description?: string;
+        url?: string;
+      }>;
+      summary?: string;
+    };
     return (
       <RecommendationListCard
         data={typeData}
@@ -794,30 +837,30 @@ function renderResultCard(
         onSaveAllToKB={onSaveRecommendationList}
         onSaveRecommendation={onSaveRecommendation}
       />
-    )
+    );
   }
 
   // Handle assimilation card - display Borg-themed repository analysis
   if (cardType === 'assimilation') {
-    const documentId = card_data.document_id as Id<'documents'>
-    const repositoryName = (card_data.repository_name as string) ?? ''
-    const repositoryUrl = (card_data.repository_url as string) ?? ''
-    const primaryLanguage = (card_data.primary_language as string) ?? undefined
-    const stars = (card_data.stars as number) ?? undefined
-    const sophisticationRating = (card_data.sophistication_rating as number) ?? 3
+    const documentId = card_data.document_id as Id<'documents'>;
+    const repositoryName = (card_data.repository_name as string) ?? '';
+    const repositoryUrl = (card_data.repository_url as string) ?? '';
+    const primaryLanguage = (card_data.primary_language as string) ?? undefined;
+    const stars = (card_data.stars as number) ?? undefined;
+    const sophisticationRating = (card_data.sophistication_rating as number) ?? 3;
     const trackRatings = (card_data.track_ratings as {
-      architecture: number
-      patterns: number
-      documentation: number
-      dependencies: number
-      testing: number
+      architecture: number;
+      patterns: number;
+      documentation: number;
+      dependencies: number;
+      testing: number;
     }) ?? {
       architecture: 3,
       patterns: 3,
       documentation: 3,
       dependencies: 3,
       testing: 3,
-    }
+    };
 
     return (
       <AssimilationCard
@@ -834,7 +877,7 @@ function renderResultCard(
         date={(card_data.date as string) ?? undefined}
         onPress={() => handleCardPress(card_data, onCardPress)}
       />
-    )
+    );
   }
 
   // Handle podcast transcription loading card
@@ -847,11 +890,11 @@ function renderResultCard(
         onTranscriptComplete={(transcriptId) => {
           // When complete, navigate to document view
           if (onDocumentContextNavigate) {
-            onDocumentContextNavigate(transcriptId)
+            onDocumentContextNavigate(transcriptId);
           }
         }}
       />
-    )
+    );
   }
 
   // Handle podcast transcription complete card
@@ -863,16 +906,20 @@ function renderResultCard(
         word_count={card_data.word_count as number | undefined}
         duration_ms={card_data.duration_ms as number | undefined}
         language={card_data.language as string | undefined}
-        metadata={card_data.metadata as {
-          speakers?: number
-          platform?: string
-        } | undefined}
+        metadata={
+          card_data.metadata as
+            | {
+                speakers?: number;
+                platform?: string;
+              }
+            | undefined
+        }
       />
-    )
+    );
   }
 
-  const documentId = card_data.document_id as string | undefined
-  const isLoading = loadingCardId != null && documentId === loadingCardId
+  const documentId = card_data.document_id as string | undefined;
+  const isLoading = loadingCardId != null && documentId === loadingCardId;
 
   return (
     <ResultCard
@@ -883,7 +930,7 @@ function renderResultCard(
       loading={isLoading}
       error={isLoading ? undefined : (cardError ?? undefined)}
     />
-  )
+  );
 }
 
 /**
@@ -895,8 +942,8 @@ function handleCardPress(
   onCardPress?: (documentId: string) => void
 ) {
   // Extract document_id from card_data (string type - Convex ID)
-  const documentId = card_data.document_id as string | undefined
+  const documentId = card_data.document_id as string | undefined;
   if (documentId !== undefined && onCardPress) {
-    onCardPress(documentId)
+    onCardPress(documentId);
   }
 }

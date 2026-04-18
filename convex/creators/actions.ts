@@ -2,13 +2,13 @@
 // Authorization and rate limiting skipped for personal use.
 // See CLAUDE.md: "this is a personal app that will NEVER be published"
 
-import { action } from "../_generated/server";
-import { internal, api } from "../_generated/api";
+import { api, internal } from '../_generated/api';
+import { action } from '../_generated/server';
 import {
+  assimilateCreatorValidator,
   discoverCreatorValidator,
   verifyPlatformsValidator,
-  assimilateCreatorValidator,
-} from "./validators";
+} from './validators';
 
 /**
  * Discover a creator by looking up their platforms
@@ -22,7 +22,7 @@ export const discover = action({
     // Normalize handle from name
     const handle = name
       .toLowerCase()
-      .replace(/[^a-z0-9]/g, "")
+      .replace(/[^a-z0-9]/g, '')
       .substring(0, 30);
 
     const platforms: Record<string, any> = {};
@@ -37,12 +37,9 @@ export const discover = action({
       lookups.push(
         (async () => {
           try {
-            const result = await ctx.runAction(
-              internal.creators.internal.lookupYouTubeChannel,
-              {
-                handle: platformHints?.youtube || handle,
-              }
-            );
+            const result = await ctx.runAction(internal.creators.internal.lookupYouTubeChannel, {
+              handle: platformHints?.youtube || handle,
+            });
             if (result.verified) {
               platforms.youtube = {
                 handle: result.handle,
@@ -52,12 +49,10 @@ export const discover = action({
               };
               totalVerified++;
             } else {
-              errors.push(`YouTube: ${result.error || "Not found"}`);
+              errors.push(`YouTube: ${result.error || 'Not found'}`);
             }
           } catch (error) {
-            errors.push(
-              `YouTube: ${error instanceof Error ? error.message : "Unknown error"}`
-            );
+            errors.push(`YouTube: ${error instanceof Error ? error.message : 'Unknown error'}`);
           }
         })()
       );
@@ -69,10 +64,9 @@ export const discover = action({
         (async () => {
           try {
             const blueskyHandle = platformHints?.bluesky || `${handle}.bsky.social`;
-            const result = await ctx.runAction(
-              internal.creators.internal.lookupBlueskyUser,
-              { handle: blueskyHandle }
-            );
+            const result = await ctx.runAction(internal.creators.internal.lookupBlueskyUser, {
+              handle: blueskyHandle,
+            });
             if (result.verified) {
               platforms.bluesky = {
                 handle: result.handle,
@@ -82,12 +76,10 @@ export const discover = action({
               };
               totalVerified++;
             } else {
-              errors.push(`Bluesky: ${result.error || "Not found"}`);
+              errors.push(`Bluesky: ${result.error || 'Not found'}`);
             }
           } catch (error) {
-            errors.push(
-              `Bluesky: ${error instanceof Error ? error.message : "Unknown error"}`
-            );
+            errors.push(`Bluesky: ${error instanceof Error ? error.message : 'Unknown error'}`);
           }
         })()
       );
@@ -98,10 +90,9 @@ export const discover = action({
       lookups.push(
         (async () => {
           try {
-            const result = await ctx.runAction(
-              internal.creators.internal.lookupGitHubUser,
-              { handle: platformHints?.github || handle }
-            );
+            const result = await ctx.runAction(internal.creators.internal.lookupGitHubUser, {
+              handle: platformHints?.github || handle,
+            });
             if (result.verified) {
               platforms.github = {
                 handle: result.handle,
@@ -111,12 +102,10 @@ export const discover = action({
               };
               totalVerified++;
             } else {
-              errors.push(`GitHub: ${result.error || "Not found"}`);
+              errors.push(`GitHub: ${result.error || 'Not found'}`);
             }
           } catch (error) {
-            errors.push(
-              `GitHub: ${error instanceof Error ? error.message : "Unknown error"}`
-            );
+            errors.push(`GitHub: ${error instanceof Error ? error.message : 'Unknown error'}`);
           }
         })()
       );
@@ -126,14 +115,11 @@ export const discover = action({
     await Promise.all(lookups);
 
     // Calculate confidence based on verified platforms
-    const confidence = Math.min(
-      100,
-      Math.round((totalVerified / 4) * 100)
-    );
+    const confidence = Math.min(100, Math.round((totalVerified / 4) * 100));
 
     // Determine canonical type from GitHub result if available
-    const canonicalType: "person" | "organization" =
-      platforms.github?.type === "Organization" ? "organization" : "person";
+    const canonicalType: 'person' | 'organization' =
+      platforms.github?.type === 'Organization' ? 'organization' : 'person';
 
     // Build profile object
     const profile = {
@@ -161,13 +147,12 @@ export const verifyPlatforms = action({
   args: verifyPlatformsValidator,
   handler: async (ctx, args) => {
     // First, get the current profile via query
-    const profileResult = await ctx.runQuery(
-      api.creators.queries.get,
-      { profileId: args.profileId }
-    );
+    const profileResult = await ctx.runQuery(api.creators.queries.get, {
+      profileId: args.profileId,
+    });
 
     if (!profileResult.creator) {
-      throw new Error("Creator profile not found");
+      throw new Error('Creator profile not found');
     }
 
     const profile = profileResult.creator;
@@ -181,22 +166,21 @@ export const verifyPlatforms = action({
       lookups.push(
         (async () => {
           try {
-            const result = await ctx.runAction(
-              internal.creators.internal.lookupYouTubeChannel,
-              { handle: profile.platforms.youtube!.handle }
-            );
+            const result = await ctx.runAction(internal.creators.internal.lookupYouTubeChannel, {
+              handle: profile.platforms.youtube!.handle,
+            });
             if (result.verified) {
-              verified.push("youtube");
+              verified.push('youtube');
             } else {
               failed.push({
-                platform: "youtube",
-                error: result.error || "Verification failed",
+                platform: 'youtube',
+                error: result.error || 'Verification failed',
               });
             }
           } catch (error) {
             failed.push({
-              platform: "youtube",
-              error: error instanceof Error ? error.message : "Unknown error",
+              platform: 'youtube',
+              error: error instanceof Error ? error.message : 'Unknown error',
             });
           }
         })()
@@ -207,22 +191,21 @@ export const verifyPlatforms = action({
       lookups.push(
         (async () => {
           try {
-            const result = await ctx.runAction(
-              internal.creators.internal.lookupBlueskyUser,
-              { handle: profile.platforms.bluesky!.handle }
-            );
+            const result = await ctx.runAction(internal.creators.internal.lookupBlueskyUser, {
+              handle: profile.platforms.bluesky!.handle,
+            });
             if (result.verified) {
-              verified.push("bluesky");
+              verified.push('bluesky');
             } else {
               failed.push({
-                platform: "bluesky",
-                error: result.error || "Verification failed",
+                platform: 'bluesky',
+                error: result.error || 'Verification failed',
               });
             }
           } catch (error) {
             failed.push({
-              platform: "bluesky",
-              error: error instanceof Error ? error.message : "Unknown error",
+              platform: 'bluesky',
+              error: error instanceof Error ? error.message : 'Unknown error',
             });
           }
         })()
@@ -233,22 +216,21 @@ export const verifyPlatforms = action({
       lookups.push(
         (async () => {
           try {
-            const result = await ctx.runAction(
-              internal.creators.internal.lookupGitHubUser,
-              { handle: profile.platforms.github!.handle }
-            );
+            const result = await ctx.runAction(internal.creators.internal.lookupGitHubUser, {
+              handle: profile.platforms.github!.handle,
+            });
             if (result.verified) {
-              verified.push("github");
+              verified.push('github');
             } else {
               failed.push({
-                platform: "github",
-                error: result.error || "Verification failed",
+                platform: 'github',
+                error: result.error || 'Verification failed',
               });
             }
           } catch (error) {
             failed.push({
-              platform: "github",
-              error: error instanceof Error ? error.message : "Unknown error",
+              platform: 'github',
+              error: error instanceof Error ? error.message : 'Unknown error',
             });
           }
         })()
@@ -259,22 +241,21 @@ export const verifyPlatforms = action({
       lookups.push(
         (async () => {
           try {
-            const result = await ctx.runAction(
-              internal.creators.internal.validateWebsiteUrl,
-              { url: profile.platforms.website!.url }
-            );
+            const result = await ctx.runAction(internal.creators.internal.validateWebsiteUrl, {
+              url: profile.platforms.website!.url,
+            });
             if (result.validated) {
-              verified.push("website");
+              verified.push('website');
             } else {
               failed.push({
-                platform: "website",
-                error: result.error || "Verification failed",
+                platform: 'website',
+                error: result.error || 'Verification failed',
               });
             }
           } catch (error) {
             failed.push({
-              platform: "website",
-              error: error instanceof Error ? error.message : "Unknown error",
+              platform: 'website',
+              error: error instanceof Error ? error.message : 'Unknown error',
             });
           }
         })()
@@ -284,13 +265,10 @@ export const verifyPlatforms = action({
     await Promise.all(lookups);
 
     // Update lastVerifiedAt timestamp via mutation
-    await ctx.runMutation(
-      api.creators.mutations.update,
-      {
-        profileId: args.profileId,
-        platforms: profile.platforms, // Keep existing platforms
-      }
-    );
+    await ctx.runMutation(api.creators.mutations.update, {
+      profileId: args.profileId,
+      platforms: profile.platforms, // Keep existing platforms
+    });
 
     return {
       verified,
@@ -312,20 +290,17 @@ export const assimilateCreator = action({
     const { profileId, forceRegenerate = false } = args;
 
     // Get the creator profile
-    const profileResult = await ctx.runQuery(
-      api.creators.queries.get,
-      { profileId }
-    );
+    const profileResult = await ctx.runQuery(api.creators.queries.get, { profileId });
 
     if (!profileResult.creator) {
       return {
         success: false,
-        error: "Creator profile not found",
+        error: 'Creator profile not found',
         documentId: null,
         videosFound: 0,
         transcriptsCreated: 0,
         transcriptsSkipped: 0,
-        status: "failed",
+        status: 'failed',
       };
     }
 
@@ -335,12 +310,12 @@ export const assimilateCreator = action({
     if (!profile.platforms.youtube || !profile.platforms.youtube.channelId) {
       return {
         success: false,
-        error: "Creator profile does not have a verified YouTube channel",
+        error: 'Creator profile does not have a verified YouTube channel',
         documentId: profileId,
         videosFound: 0,
         transcriptsCreated: 0,
         transcriptsSkipped: 0,
-        status: "failed",
+        status: 'failed',
       };
     }
 
@@ -348,12 +323,12 @@ export const assimilateCreator = action({
     if (!apiKey) {
       return {
         success: false,
-        error: "YouTube API key not configured",
+        error: 'YouTube API key not configured',
         documentId: profileId,
         videosFound: 0,
         transcriptsCreated: 0,
         transcriptsSkipped: 0,
-        status: "failed",
+        status: 'failed',
       };
     }
 
@@ -361,20 +336,20 @@ export const assimilateCreator = action({
       // Fetch all videos from the channel using YouTube Data API v3
       const channelId = profile.platforms.youtube.channelId;
       const videos: Array<{ videoId: string; title: string; url: string }> = [];
-      let nextPageToken: string | undefined = undefined;
+      let nextPageToken: string | undefined;
 
       do {
         const searchParams = new URLSearchParams({
-          part: "snippet",
+          part: 'snippet',
           channelId: channelId,
-          maxResults: "50",
-          order: "date",
-          type: "video",
+          maxResults: '50',
+          order: 'date',
+          type: 'video',
           key: apiKey,
         });
 
         if (nextPageToken) {
-          searchParams.append("pageToken", nextPageToken);
+          searchParams.append('pageToken', nextPageToken);
         }
 
         const response = await fetch(
@@ -385,12 +360,12 @@ export const assimilateCreator = action({
           if (response.status === 403) {
             return {
               success: false,
-              error: "YouTube API quota exceeded or access denied",
+              error: 'YouTube API quota exceeded or access denied',
               documentId: profileId,
               videosFound: 0,
               transcriptsCreated: 0,
               transcriptsSkipped: 0,
-              status: "failed",
+              status: 'failed',
             };
           }
           throw new Error(`YouTube API error: ${response.status}`);
@@ -400,7 +375,7 @@ export const assimilateCreator = action({
 
         if (data.items) {
           for (const item of data.items) {
-            if (item.id.kind === "youtube#video") {
+            if (item.id.kind === 'youtube#video') {
               videos.push({
                 videoId: item.id.videoId,
                 title: item.snippet.title,
@@ -419,10 +394,9 @@ export const assimilateCreator = action({
 
       for (const video of videos) {
         // Check if transcript already exists
-        const existingTranscript = await ctx.runQuery(
-          internal.transcripts.queries.getTranscript,
-          { contentId: video.videoId }
-        );
+        const existingTranscript = await ctx.runQuery(internal.transcripts.queries.getTranscript, {
+          contentId: video.videoId,
+        });
 
         if (existingTranscript && !forceRegenerate) {
           transcriptsSkipped++;
@@ -445,10 +419,10 @@ export const assimilateCreator = action({
         videosFound: videos.length,
         transcriptsCreated,
         transcriptsSkipped,
-        status: "completed",
+        status: 'completed',
       };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       return {
         success: false,
         error: errorMessage,
@@ -456,7 +430,7 @@ export const assimilateCreator = action({
         videosFound: 0,
         transcriptsCreated: 0,
         transcriptsSkipped: 0,
-        status: "failed",
+        status: 'failed',
       };
     }
   },

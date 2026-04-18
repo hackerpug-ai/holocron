@@ -5,7 +5,7 @@
  * for aiRoiSessions, aiRoiOpportunities, and aiRoiEvidence.
  */
 
-import { v } from "convex/values";
+import { v } from 'convex/values';
 
 // ============================================================================
 // Session Validators
@@ -17,21 +17,21 @@ import { v } from "convex/values";
  */
 export const createSessionArgs = v.object({
   company: v.string(),
-  documentId: v.optional(v.id("documents")),
+  documentId: v.optional(v.id('documents')),
 });
 
 /**
  * Validator for updating an AI ROI session's mutable fields.
  */
 export const updateSessionArgs = v.object({
-  sessionId: v.id("aiRoiSessions"),
+  sessionId: v.id('aiRoiSessions'),
   status: v.optional(v.string()),
   executiveSummary: v.optional(v.string()),
   sourceCount: v.optional(v.number()),
   topOpportunityName: v.optional(v.string()),
   topOpportunitySavings: v.optional(v.string()),
   topOpportunityConfidence: v.optional(v.string()),
-  documentId: v.optional(v.id("documents")),
+  documentId: v.optional(v.id('documents')),
   errorReason: v.optional(v.string()),
 });
 
@@ -39,20 +39,20 @@ export const updateSessionArgs = v.object({
  * Validator for completing a session with summary data.
  */
 export const completeSessionArgs = v.object({
-  sessionId: v.id("aiRoiSessions"),
+  sessionId: v.id('aiRoiSessions'),
   executiveSummary: v.optional(v.string()),
   sourceCount: v.optional(v.number()),
   topOpportunityName: v.optional(v.string()),
   topOpportunitySavings: v.optional(v.string()),
   topOpportunityConfidence: v.optional(v.string()),
-  documentId: v.optional(v.id("documents")),
+  documentId: v.optional(v.id('documents')),
 });
 
 /**
  * Validator for failing a session with an error reason.
  */
 export const failSessionArgs = v.object({
-  sessionId: v.id("aiRoiSessions"),
+  sessionId: v.id('aiRoiSessions'),
   errorReason: v.string(),
 });
 
@@ -64,7 +64,7 @@ export const failSessionArgs = v.object({
  * Validator for adding a ranked opportunity to a session.
  */
 export const addOpportunityArgs = v.object({
-  sessionId: v.id("aiRoiSessions"),
+  sessionId: v.id('aiRoiSessions'),
   rank: v.number(),
   name: v.string(),
   confidence: v.string(), // "HIGH" | "MEDIUM" | "LOW"
@@ -88,8 +88,8 @@ export const addOpportunityArgs = v.object({
  * Validator for adding an evidence row to a session.
  */
 export const addEvidenceArgs = v.object({
-  sessionId: v.id("aiRoiSessions"),
-  opportunityId: v.optional(v.id("aiRoiOpportunities")),
+  sessionId: v.id('aiRoiSessions'),
+  opportunityId: v.optional(v.id('aiRoiOpportunities')),
   claim: v.string(),
   tier: v.number(), // 1-5
   source: v.optional(v.string()),

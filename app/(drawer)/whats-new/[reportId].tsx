@@ -1,20 +1,20 @@
-import { useLocalSearchParams, useRouter } from 'expo-router'
-import { ActivityIndicator, Pressable, View } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
-import { ArrowLeft } from '@/components/ui/icons'
-import { Text } from '@/components/ui/text'
-import { Button } from '@/components/ui/button'
-import { useQuery } from 'convex/react'
-import { api } from '@/convex/_generated/api'
-import { useTheme } from '@/hooks/use-theme'
+import { useQuery } from 'convex/react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useMemo, useState } from 'react';
+import { ActivityIndicator, Pressable, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   DeepResearchDetailView,
   type DeepResearchSession,
-} from '@/components/deep-research/DeepResearchDetailView'
-import { useMemo, useState } from 'react'
-import type { Id } from '@/convex/_generated/dataModel'
-import { WebViewSheet } from '@/components/webview/WebViewSheet'
-import { NavigationTooltip } from '@/components/whats-new/NavigationTooltip'
+} from '@/components/deep-research/DeepResearchDetailView';
+import { Button } from '@/components/ui/button';
+import { ArrowLeft } from '@/components/ui/icons';
+import { Text } from '@/components/ui/text';
+import { WebViewSheet } from '@/components/webview/WebViewSheet';
+import { NavigationTooltip } from '@/components/whats-new/NavigationTooltip';
+import { api } from '@/convex/_generated/api';
+import type { Id } from '@/convex/_generated/dataModel';
+import { useTheme } from '@/hooks/use-theme';
 
 /**
  * Format date period for title
@@ -23,36 +23,39 @@ function formatPeriod(periodStart: number, periodEnd: number): string {
   const start = new Date(periodStart).toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
-  })
+  });
   const end = new Date(periodEnd).toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
-  })
-  return `${start} - ${end}`
+  });
+  return `${start} - ${end}`;
 }
 
 /**
  * Transform What's New report to DeepResearchSession format
  */
 function transformReportToSession(
-  reportData: {
-    report: {
-      _id: Id<'whatsNewReports'>
-      periodStart: number
-      periodEnd: number
-      days: number
-      findingsCount: number
-      documentId?: Id<'documents'>
-      createdAt: number
-    }
-    content: string | null
-    generatedAt: number
-  } | null | undefined
+  reportData:
+    | {
+        report: {
+          _id: Id<'whatsNewReports'>;
+          periodStart: number;
+          periodEnd: number;
+          days: number;
+          findingsCount: number;
+          documentId?: Id<'documents'>;
+          createdAt: number;
+        };
+        content: string | null;
+        generatedAt: number;
+      }
+    | null
+    | undefined
 ): DeepResearchSession | null {
-  if (!reportData) return null
+  if (!reportData) return null;
 
-  const { report, content } = reportData
+  const { report, content } = reportData;
 
   return {
     id: report._id,
@@ -64,7 +67,7 @@ function transformReportToSession(
     savedToHolocron: !!report.documentId,
     confidence: 'HIGH', // Curated content
     sourcesCount: report.findingsCount,
-  }
+  };
 }
 
 /**
@@ -75,31 +78,31 @@ function transformReportToSession(
  * Route: /whats-new/[reportId]
  */
 export default function WhatsNewDetailScreen() {
-  const { reportId } = useLocalSearchParams<{ reportId: string }>()
-  const router = useRouter()
-  const theme = useTheme()
+  const { reportId } = useLocalSearchParams<{ reportId: string }>();
+  const router = useRouter();
+  const theme = useTheme();
 
   const reportData = useQuery(
     api.whatsNew.queries.getReportById,
     reportId ? { reportId: reportId as Id<'whatsNewReports'> } : 'skip'
-  )
+  );
 
-  const isLoading = reportData === undefined
-  const session = useMemo(() => transformReportToSession(reportData), [reportData])
+  const isLoading = reportData === undefined;
+  const session = useMemo(() => transformReportToSession(reportData), [reportData]);
 
   const handleBack = () => {
     if (router.canGoBack()) {
-      router.back()
+      router.back();
     } else {
-      router.navigate('/chat/new')
+      router.navigate('/chat/new');
     }
-  }
+  };
 
-  const [webViewUrl, setWebViewUrl] = useState<string | null>(null)
+  const [webViewUrl, setWebViewUrl] = useState<string | null>(null);
 
   const handleCitationPress = (url: string) => {
-    setWebViewUrl(url)
-  }
+    setWebViewUrl(url);
+  };
 
   if (isLoading) {
     return (
@@ -118,7 +121,14 @@ export default function WhatsNewDetailScreen() {
           <Pressable onPress={handleBack} style={{ padding: theme.spacing.sm }}>
             <ArrowLeft size={24} color={theme.colors.foreground} />
           </Pressable>
-          <Text style={{ flex: 1, fontSize: theme.typography.h4.fontSize, fontWeight: theme.typography.h4.fontWeight, color: theme.colors.foreground }}>
+          <Text
+            style={{
+              flex: 1,
+              fontSize: theme.typography.h4.fontSize,
+              fontWeight: theme.typography.h4.fontWeight,
+              color: theme.colors.foreground,
+            }}
+          >
             Loading...
           </Text>
         </View>
@@ -128,7 +138,7 @@ export default function WhatsNewDetailScreen() {
           <Text className="text-muted-foreground mt-4">Loading report...</Text>
         </View>
       </SafeAreaView>
-    )
+    );
   }
 
   if (!session) {
@@ -148,21 +158,33 @@ export default function WhatsNewDetailScreen() {
           <Pressable onPress={handleBack} style={{ padding: theme.spacing.sm }}>
             <ArrowLeft size={24} color={theme.colors.foreground} />
           </Pressable>
-          <Text style={{ flex: 1, fontSize: theme.typography.h4.fontSize, fontWeight: theme.typography.h4.fontWeight, color: theme.colors.foreground }}>
+          <Text
+            style={{
+              flex: 1,
+              fontSize: theme.typography.h4.fontSize,
+              fontWeight: theme.typography.h4.fontWeight,
+              color: theme.colors.foreground,
+            }}
+          >
             Error
           </Text>
         </View>
 
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: theme.spacing.xl }}>
-          <Text className="text-destructive text-center text-lg mb-4">
-            Report not found
-          </Text>
+        <View
+          style={{
+            flex: 1,
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: theme.spacing.xl,
+          }}
+        >
+          <Text className="text-destructive text-center text-lg mb-4">Report not found</Text>
           <Button onPress={handleBack}>
             <Text>Go Back</Text>
           </Button>
         </View>
       </SafeAreaView>
-    )
+    );
   }
 
   return (
@@ -181,5 +203,5 @@ export default function WhatsNewDetailScreen() {
       />
       <NavigationTooltip />
     </>
-  )
+  );
 }

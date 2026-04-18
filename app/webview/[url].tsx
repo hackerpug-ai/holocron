@@ -1,5 +1,5 @@
-import { WebViewScreen } from '@/screens/WebViewScreen'
-import { useLocalSearchParams, useRouter } from 'expo-router'
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { WebViewScreen } from '@/screens/WebViewScreen';
 
 /**
  * WebView route screen that displays web content in a full-screen browser.
@@ -14,11 +14,11 @@ import { useLocalSearchParams, useRouter } from 'expo-router'
  * ```
  */
 export default function WebViewRoute() {
-  const router = useRouter()
-  const params = useLocalSearchParams<{ url: string }>()
+  const router = useRouter();
+  const params = useLocalSearchParams<{ url: string }>();
 
   // Decode the URL from the route parameter
-  const url = params.url ? decodeURIComponent(params.url) : 'about:blank'
+  const url = params.url ? decodeURIComponent(params.url) : 'about:blank';
 
-  return <WebViewScreen url={url} onClose={() => router.back()} />
+  return <WebViewScreen url={url} onClose={() => router.back()} />;
 }

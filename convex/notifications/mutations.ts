@@ -1,5 +1,5 @@
-import { v } from "convex/values";
-import { mutation } from "../_generated/server";
+import { v } from 'convex/values';
+import { mutation } from '../_generated/server';
 
 // ============================================================
 // Notifications Mutations
@@ -11,7 +11,7 @@ import { mutation } from "../_generated/server";
  * Sets read:true on the given notification by ID.
  */
 export const markRead = mutation({
-  args: { id: v.id("notifications") },
+  args: { id: v.id('notifications') },
   handler: async (ctx, { id }) => {
     await ctx.db.patch(id, { read: true });
 
@@ -28,8 +28,8 @@ export const markAllRead = mutation({
   args: {},
   handler: async (ctx) => {
     const unread = await ctx.db
-      .query("notifications")
-      .withIndex("by_unread", (q) => q.eq("read", false))
+      .query('notifications')
+      .withIndex('by_unread', (q) => q.eq('read', false))
       .collect();
 
     for (const notification of unread) {
@@ -49,12 +49,12 @@ export const markAllRead = mutation({
 export const updateLastSeen = mutation({
   args: {},
   handler: async (ctx) => {
-    const prefs = await ctx.db.query("userPreferences").first();
+    const prefs = await ctx.db.query('userPreferences').first();
     const now = Date.now();
     if (prefs) {
       await ctx.db.patch(prefs._id, { notificationsLastSeenAt: now, updatedAt: now });
     } else {
-      await ctx.db.insert("userPreferences", { notificationsLastSeenAt: now, updatedAt: now });
+      await ctx.db.insert('userPreferences', { notificationsLastSeenAt: now, updatedAt: now });
     }
     return now;
   },
@@ -69,12 +69,12 @@ export const updateLastSeen = mutation({
 export const markNavTooltipSeen = mutation({
   args: {},
   handler: async (ctx) => {
-    const prefs = await ctx.db.query("userPreferences").first();
+    const prefs = await ctx.db.query('userPreferences').first();
     const now = Date.now();
     if (prefs) {
       await ctx.db.patch(prefs._id, { hasSeenNavTooltip: true, updatedAt: now });
     } else {
-      await ctx.db.insert("userPreferences", { hasSeenNavTooltip: true, updatedAt: now });
+      await ctx.db.insert('userPreferences', { hasSeenNavTooltip: true, updatedAt: now });
     }
     return { success: true };
   },

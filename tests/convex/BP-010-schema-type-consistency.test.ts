@@ -5,7 +5,7 @@
  * This prevents type mismatches that could cause runtime validation errors.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import schema from '../../convex/schema';
 
 describe('BP-010: Schema Type Consistency', () => {
@@ -37,12 +37,21 @@ describe('BP-010: Schema Type Consistency', () => {
 
     it('should include all source type literals in both tables', () => {
       // The expected source types that should be supported
-      const expectedLiterals = ["youtube", "newsletter", "changelog", "reddit", "ebay", "whats-new", "creator", "github"];
+      const expectedLiterals = [
+        'youtube',
+        'newsletter',
+        'changelog',
+        'reddit',
+        'ebay',
+        'whats-new',
+        'creator',
+        'github',
+      ];
 
       // Verify the expected types are defined
-      expect(expectedLiterals).toContain("youtube");
-      expect(expectedLiterals).toContain("github");
-      expect(expectedLiterals).toContain("reddit");
+      expect(expectedLiterals).toContain('youtube');
+      expect(expectedLiterals).toContain('github');
+      expect(expectedLiterals).toContain('reddit');
 
       // The test ensures type consistency - both fields should accept the same values
       // This prevents validation errors when creating filters for specific source types
