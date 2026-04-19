@@ -66,7 +66,7 @@ export const createResearchDocument = internalAction({
         caveats: f.caveats ?? [],
         warnings: f.warnings ?? [],
         citations: f.citations.filter(Boolean).map((c) => ({
-          url: c!.sourceUrl,
+          url: c?.sourceUrl ?? '',
           title: c?.sourceTitle ?? undefined,
           domain: c?.sourceDomain ?? undefined,
         })),
