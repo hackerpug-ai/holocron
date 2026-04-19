@@ -77,7 +77,7 @@ function formatOpportunityEvidence(oppEvidence: Doc<'aiRoiEvidence'>[]): string 
     return `${i + 1}. ${linked} (${tierLabel}): ${e.claim}`;
   });
 
-  return '**ROI Evidence**\n' + lines.join('\n');
+  return `**ROI Evidence**\n${lines.join('\n')}`;
 }
 
 /**
@@ -172,7 +172,7 @@ function formatEvidenceTable(evidence: Doc<'aiRoiEvidence'>[]): string {
     .map((e, i) => {
       const title = e.source ?? '—';
       const tier = `T${e.tier}`;
-      const claim = e.claim.length > 50 ? e.claim.slice(0, 49) + '…' : e.claim;
+      const claim = e.claim.length > 50 ? `${e.claim.slice(0, 49)}…` : e.claim;
       const url = e.sourceUrl ?? '—';
       return `| ${i + 1} | ${title} | ${tier} | ${claim} | — | ${url} |`;
     })
@@ -196,7 +196,7 @@ function formatAdversarialReview(evidence: Doc<'aiRoiEvidence'>[]): string {
 
   const rows = reviewed
     .map((e) => {
-      const claim = e.claim.length > 40 ? e.claim.slice(0, 39) + '…' : e.claim;
+      const claim = e.claim.length > 40 ? `${e.claim.slice(0, 39)}…` : e.claim;
       const verdict =
         e.challengeStatus === 'validated'
           ? 'PASS'

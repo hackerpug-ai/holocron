@@ -53,7 +53,7 @@ export function truncateForVoice(content: string, maxChars: number): string {
     return truncated.slice(0, lastSentenceEnd + 1);
   }
 
-  return truncated + '...';
+  return `${truncated}...`;
 }
 
 // ---------------------------------------------------------------------------

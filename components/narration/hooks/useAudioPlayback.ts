@@ -266,7 +266,13 @@ export function useAudioPlayback(
         fallbackTimerRef.current = null;
       }
     };
-  }, [narration.state.status, narration.state.activeParagraphIndex, segments]);
+  }, [
+    narration.state.status,
+    narration.state.activeParagraphIndex,
+    segments,
+    metadata?.title,
+    narration.state,
+  ]);
 
   // ─── Apply speed changes to the currently loaded player ───────────────────
 
@@ -294,7 +300,7 @@ export function useAudioPlayback(
       playerRef.current = null;
       loadedIndexRef.current = -1;
     }
-  }, [narration.state.status]);
+  }, [narration.state.status, narration.state]);
 
   return { isLoading };
 }

@@ -99,7 +99,7 @@ export default function ArticlesRoute() {
             title: doc.title,
             category: mapDocumentCategoryToCategoryType(doc.category),
             date: doc.createdAt ? new Date(doc.createdAt).toISOString() : new Date().toISOString(),
-            snippet: doc.content?.slice(0, 200) + '...',
+            snippet: `${doc.content?.slice(0, 200)}...`,
             iterationCount: doc.iterations,
           })
         );
@@ -128,7 +128,7 @@ export default function ArticlesRoute() {
     if (searchQuery.trim()) {
       performSearch(searchQuery);
     }
-  }, [convexCategory, performSearch, searchQuery]);
+  }, [performSearch, searchQuery]);
 
   // Determine which data source to use
   const isLoading = listResult === undefined;
@@ -147,7 +147,7 @@ export default function ArticlesRoute() {
       if (!dateString && doc.createdAt) {
         try {
           const date = new Date(doc.createdAt);
-          if (!isNaN(date.getTime())) {
+          if (!Number.isNaN(date.getTime())) {
             dateString = date.toISOString();
           } else {
             dateString = new Date().toISOString();
@@ -165,7 +165,7 @@ export default function ArticlesRoute() {
         title: doc.title,
         category,
         date: dateString ?? new Date().toISOString(),
-        snippet: doc.content ? doc.content.slice(0, 200) + '...' : undefined,
+        snippet: doc.content ? `${doc.content.slice(0, 200)}...` : undefined,
         iterationCount: doc.iterations,
       };
     });

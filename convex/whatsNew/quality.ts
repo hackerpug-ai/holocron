@@ -25,7 +25,7 @@ export const logSummaryGeneration = internalMutation({
     summaryLength: v.optional(v.number()),
     error: v.optional(v.string()),
   },
-  handler: async (ctx, args) => {
+  handler: async (_ctx, args) => {
     // Structured logging for quality monitoring
     console.log(
       '[Summary Quality]',
@@ -53,7 +53,7 @@ export const flagSummary = internalMutation({
     findingId: v.string(),
     reason: v.string(),
   },
-  handler: async (ctx, args) => {
+  handler: async (_ctx, args) => {
     // Log flagged summary for manual review
     console.log(
       '[Summary Flagged]',

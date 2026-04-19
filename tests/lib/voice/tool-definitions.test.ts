@@ -28,9 +28,9 @@ describe('toolDefinitions', () => {
     const searchTool = tools.find((t) => t.name === 'search_knowledge_base');
 
     expect(searchTool).toBeTruthy();
-    expect(searchTool!.parameters.properties).toHaveProperty('query');
+    expect(searchTool?.parameters.properties).toHaveProperty('query');
 
-    const queryParam = searchTool!.parameters.properties.query as {
+    const queryParam = searchTool?.parameters.properties.query as {
       type: string;
       description: string;
     };
@@ -38,7 +38,7 @@ describe('toolDefinitions', () => {
     expect(typeof queryParam.description).toBe('string');
     expect(queryParam.description.length).toBeGreaterThan(0);
 
-    expect(searchTool!.parameters.required).toContain('query');
+    expect(searchTool?.parameters.required).toContain('query');
   });
 
   // AC-3: Combined size of all tool definitions with instructions is under 16,384 tokens

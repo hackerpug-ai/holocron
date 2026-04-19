@@ -166,7 +166,7 @@ export function ImprovementEditSheet({
             >
               {/* Drag handle */}
               <View style={styles.handleRow}>
-                <View style={[styles.handle, { backgroundColor: colors.mutedForeground + '4D' }]} />
+                <View style={[styles.handle, { backgroundColor: `${colors.mutedForeground}4D` }]} />
               </View>
 
               {/* Header */}

@@ -1,7 +1,7 @@
 'use node';
 
+import { createHash } from 'node:crypto';
 import { v } from 'convex/values';
-import { createHash } from 'crypto';
 import { ElevenLabsClient } from 'elevenlabs';
 import { api, internal } from '../_generated/api';
 import { action, internalAction } from '../_generated/server';

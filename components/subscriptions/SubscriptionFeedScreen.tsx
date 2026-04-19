@@ -9,7 +9,7 @@
 
 import { useQuery } from 'convex/react';
 import { useRouter } from 'expo-router';
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, RefreshControl, View } from 'react-native';
 import { SearchInput } from '@/components/SearchInput';
 import { FeedItemSkeleton } from '@/components/subscriptions/FeedItemSkeleton';

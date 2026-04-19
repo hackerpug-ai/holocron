@@ -55,7 +55,7 @@ function ContextMenuSubTrigger({
         )}
         {...props}
       >
-        <>{children}</>
+        {children}
         <Icon as={icon} className={cn('text-foreground ml-auto size-4 shrink-0', iconClassName)} />
       </ContextMenuPrimitive.SubTrigger>
     </TextClassContext.Provider>
@@ -100,15 +100,15 @@ function ContextMenuContent({
     Platform.OS === 'web'
       ? (overlayStyle ?? undefined)
       : overlayStyle
-        ? StyleSheet.flatten([StyleSheet.absoluteFill, overlayStyle as typeof StyleSheet.absoluteFill])
+        ? StyleSheet.flatten([
+            StyleSheet.absoluteFill,
+            overlayStyle as typeof StyleSheet.absoluteFill,
+          ])
         : StyleSheet.absoluteFill;
   return (
     <ContextMenuPrimitive.Portal hostName={portalHost}>
       <FullWindowOverlay>
-        <ContextMenuPrimitive.Overlay
-          style={computedOverlayStyle}
-          className={overlayClassName}
-        >
+        <ContextMenuPrimitive.Overlay style={computedOverlayStyle} className={overlayClassName}>
           <NativeOnlyAnimatedView entering={FadeIn}>
             <TextClassContext.Provider value="text-popover-foreground">
               <ContextMenuPrimitive.Content
@@ -203,7 +203,7 @@ function ContextMenuCheckboxItem({
             />
           </ContextMenuPrimitive.ItemIndicator>
         </View>
-        <>{children}</>
+        {children}
       </ContextMenuPrimitive.CheckboxItem>
     </TextClassContext.Provider>
   );
@@ -235,7 +235,7 @@ function ContextMenuRadioItem({
             <View className="bg-foreground h-2 w-2 rounded-full" />
           </ContextMenuPrimitive.ItemIndicator>
         </View>
-        <>{children}</>
+        {children}
       </ContextMenuPrimitive.RadioItem>
     </TextClassContext.Provider>
   );

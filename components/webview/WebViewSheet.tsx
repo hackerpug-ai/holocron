@@ -81,7 +81,7 @@ export function WebViewSheet({
       translateY.value = withTiming(SHEET_HEIGHT, TIMING_OUT);
       backdropOpacity.value = withTiming(0, TIMING_OUT);
     }
-  }, [visible]);
+  }, [visible, translateY, backdropOpacity]);
 
   const sheetStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: Math.max(translateY.value, 0) }],
@@ -153,7 +153,7 @@ export function WebViewSheet({
           >
             {/* Drag handle */}
             <View style={styles.handleRow}>
-              <View style={[styles.handle, { backgroundColor: colors.mutedForeground + '4D' }]} />
+              <View style={[styles.handle, { backgroundColor: `${colors.mutedForeground}4D` }]} />
             </View>
 
             {/* Toolbar */}

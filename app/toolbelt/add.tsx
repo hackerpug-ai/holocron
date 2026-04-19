@@ -77,7 +77,18 @@ export default function ToolbeltAddScreen() {
     }
 
     addToolFromParams();
-  }, []);
+  }, [
+    router.back,
+    params.useCases,
+    params.sourceUrl,
+    params.title,
+    params.sourceType,
+    params.category,
+    params.tags,
+    params.language,
+    params.description,
+    addTool,
+  ]);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>
@@ -101,7 +112,7 @@ export default function ToolbeltAddScreen() {
                 width: 64,
                 height: 64,
                 borderRadius: 32,
-                backgroundColor: colors.success + '20',
+                backgroundColor: `${colors.success}20`,
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
@@ -120,7 +131,7 @@ export default function ToolbeltAddScreen() {
                 width: 64,
                 height: 64,
                 borderRadius: 32,
-                backgroundColor: colors.destructive + '20',
+                backgroundColor: `${colors.destructive}20`,
                 alignItems: 'center',
                 justifyContent: 'center',
               }}

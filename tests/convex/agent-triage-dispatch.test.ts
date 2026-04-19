@@ -39,7 +39,7 @@ describe('AC-3: INTENT_TO_SPECIALIST maps all intent categories', () => {
     }
 
     // conversation maps to null (handled directly by triage)
-    expect(INTENT_TO_SPECIALIST['conversation']).toBeNull();
+    expect(INTENT_TO_SPECIALIST.conversation).toBeNull();
 
     // All others map to a SpecialistName string
     const nonConversationKeys = expectedKeys.filter((k) => k !== 'conversation');

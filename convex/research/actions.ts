@@ -1272,7 +1272,7 @@ export async function executeSinglePassResearch(
     conversationId: effectiveConversationId,
     status: 'completed',
     strategy: 'single_pass',
-    summary: report.substring(0, 500) + '...',
+    summary: `${report.substring(0, 500)}...`,
     confidence,
     sourcesRead: successfulReads.length,
     durationMs: totalTime,
@@ -1425,7 +1425,7 @@ export const answerQuestionAction = internalAction({
     query: v.string(),
     sources: v.optional(v.number()),
   },
-  handler: async (ctx, { query, sources = 5 }) => {
+  handler: async (_ctx, { query, sources = 5 }) => {
     const numSources = Math.min(sources, 10); // Cap at 10
     const startTime = Date.now();
 

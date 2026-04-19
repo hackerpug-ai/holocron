@@ -19,7 +19,7 @@ describe('BP-017: Reduce v.any() Usage', () => {
   describe('AC-1: v.any() count reduction', () => {
     it('should have less than 10 v.any() occurrences in schema', () => {
       // Read the schema file and count v.any() occurrences
-      const fs = require('fs');
+      const fs = require('node:fs');
       const schemaContent = fs.readFileSync('./convex/schema.ts', 'utf-8');
       const matches = schemaContent.match(/v\.any\(\)/g);
 

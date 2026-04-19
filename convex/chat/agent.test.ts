@@ -69,7 +69,7 @@ describe('queryShape hint injection', () => {
         ambiguous: null,
       };
 
-      const hint = shapeHints['recommendation'];
+      const hint = shapeHints.recommendation;
       expect(hint).toContain('Use find_recommendations');
     });
   });
@@ -84,7 +84,7 @@ describe('queryShape hint injection', () => {
         ambiguous: null,
       };
 
-      const hint = shapeHints['factual'];
+      const hint = shapeHints.factual;
       expect(hint).toBeNull();
     });
 
@@ -97,7 +97,7 @@ describe('queryShape hint injection', () => {
         ambiguous: null,
       };
 
-      const hint = shapeHints['exploratory'];
+      const hint = shapeHints.exploratory;
       expect(hint).toBeNull();
     });
 
@@ -110,7 +110,7 @@ describe('queryShape hint injection', () => {
         ambiguous: null,
       };
 
-      const hint = shapeHints['ambiguous'];
+      const hint = shapeHints.ambiguous;
       expect(hint).toBeNull();
     });
   });
@@ -125,7 +125,7 @@ describe('queryShape hint injection', () => {
         ambiguous: null,
       };
 
-      const hint = shapeHints['comprehensive'];
+      const hint = shapeHints.comprehensive;
       expect(hint).toContain('Use deep_research');
     });
   });

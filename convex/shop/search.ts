@@ -198,7 +198,7 @@ export function parsePrice(text: string): { price: number; currency: string } | 
     if (match) {
       const priceStr = match[1].replace(/,/g, '');
       const price = Math.round(parseFloat(priceStr) * 100);
-      if (!isNaN(price) && price > 0) {
+      if (!Number.isNaN(price) && price > 0) {
         return { price, currency: 'USD' };
       }
     }
@@ -501,7 +501,7 @@ async function executeExaRetailerSearch(
     const content = result.text || '';
     const productInfo = extractProductInfo(content, result.url || '', retailer.name);
 
-    if (productInfo && productInfo.price) {
+    if (productInfo?.price) {
       const sellerSignals =
         retailer.trustTier === 2 ? extractMarketplaceSellerSignals(content) : undefined;
 
@@ -579,7 +579,7 @@ async function executeJinaRetailerSearch(
     const content = result.content || result.description || '';
     const productInfo = extractProductInfo(content, result.url || result.link || '', retailer.name);
 
-    if (productInfo && productInfo.price) {
+    if (productInfo?.price) {
       const sellerSignals =
         retailer.trustTier === 2 ? extractMarketplaceSellerSignals(content) : undefined;
 

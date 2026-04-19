@@ -244,7 +244,17 @@ export function VoiceAgentOrb({
       default:
         break;
     }
-  }, [status, audioLevel, connectingPhase]);
+  }, [
+    status,
+    audioLevel,
+    connectingPhase,
+    rotation,
+    glowOpacity,
+    shake,
+    pulseScale,
+    pulseOpacity,
+    coreScale,
+  ]);
 
   return (
     <View

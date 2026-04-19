@@ -769,7 +769,7 @@ Respond with ONLY the summary text, no additional formatting.`;
 
     // Enforce length limit
     if (summary && summary.length > 150) {
-      const truncated = summary.slice(0, 147) + '...';
+      const truncated = `${summary.slice(0, 147)}...`;
       // Log success with truncated length
 
       return truncated;

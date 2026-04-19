@@ -54,7 +54,7 @@ export function SpinnerRing({
       cancelAnimation(rotation);
       rotation.value = 0;
     }
-  }, [active]);
+  }, [active, rotation]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${rotation.value}deg` }],

@@ -515,7 +515,7 @@ export const generateChatTitle = action({
       .join('\n\n');
 
     // Helper: truncate title to max 50 chars
-    const truncate = (t: string) => (t.length > 50 ? t.slice(0, 47) + '...' : t);
+    const truncate = (t: string) => (t.length > 50 ? `${t.slice(0, 47)}...` : t);
 
     // Helper: derive a fallback title from the first user message
     const fallbackTitle = (): string => {
@@ -531,7 +531,7 @@ export const generateChatTitle = action({
       if (cleaned.length <= 50) return cleaned;
       const cut = cleaned.slice(0, 47);
       const lastSpace = cut.lastIndexOf(' ');
-      return (lastSpace > 20 ? cut.slice(0, lastSpace) : cut) + '...';
+      return `${lastSpace > 20 ? cut.slice(0, lastSpace) : cut}...`;
     };
 
     // 4. Try AI title generation with inline retries
@@ -645,7 +645,7 @@ export const send = action({
     );
 
     // 3. Update conversation metadata
-    const preview = content.length > 100 ? content.slice(0, 97) + '...' : content;
+    const preview = content.length > 100 ? `${content.slice(0, 97)}...` : content;
     await ctx.runMutation(api.conversations.mutations.touch, {
       id: finalConversationId,
       lastMessagePreview: preview,
@@ -895,7 +895,7 @@ export const send = action({
         try {
           const reportData = await ctx.runQuery(api.whatsNew.queries.getLatestReport, {});
 
-          if (!reportData || !reportData.report) {
+          if (!reportData?.report) {
             // No report exists, trigger generation
             ctx.scheduler.runAfter(0, api.whatsNew.actions.generate, { days });
             agentResponse = {

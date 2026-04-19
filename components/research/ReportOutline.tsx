@@ -11,7 +11,7 @@
  * AC-4: Expand/collapse all buttons toggle all sections
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { ChevronDown, ChevronUp, Plus } from '@/components/ui/icons';
 import { Text } from '@/components/ui/text';

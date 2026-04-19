@@ -160,7 +160,7 @@ export const batchGetExistingContent = query({
       if (!lookup.has(sourceIdStr)) {
         lookup.set(sourceIdStr, new Set());
       }
-      lookup.get(sourceIdStr)!.add(content.contentId);
+      lookup.get(sourceIdStr)?.add(content.contentId);
     }
 
     // Convert Map to object for serialization

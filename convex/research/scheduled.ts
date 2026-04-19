@@ -54,7 +54,7 @@ function generateIterationSummary(
 
   for (const pattern of patterns) {
     const match = firstSentence.match(pattern);
-    if (match && match[1]) {
+    if (match?.[1]) {
       const extracted = match[1].trim();
       // Limit to 6 words
       const words = extracted.split(/\s+/).slice(0, 6);
@@ -69,7 +69,7 @@ function generateIterationSummary(
   const keyPhrases = findingsPreview.match(
     /\b(?:found|discovered|revealed|shows|identifies|provides)\s+(.+?)(?:\n|$)/i
   );
-  if (keyPhrases && keyPhrases[1]) {
+  if (keyPhrases?.[1]) {
     const words = keyPhrases[1].trim().split(/\s+/).slice(0, 5);
     if (words.length >= 2) {
       return `Found: ${words.join(' ')}`;
@@ -355,7 +355,7 @@ export const processDeepResearchIteration = internalAction({
         .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
         .slice(0, 8)
         .map((r) => r.url)
-        .filter((url) => url && url.startsWith('http'));
+        .filter((url) => url?.startsWith('http'));
 
       let deepReadContent = '';
       let deepReadCount = 0;

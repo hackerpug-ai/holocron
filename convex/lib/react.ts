@@ -86,14 +86,10 @@ export async function generateTextWithReAct(
 
   // Inject ReAct instructions into the system prompt (string only; other formats pass through).
   const system =
-    typeof p['system'] === 'string'
-      ? withReActPrompt(p['system'])
-      : (p['system'] ?? REACT_INSTRUCTIONS);
+    typeof p.system === 'string' ? withReActPrompt(p.system) : (p.system ?? REACT_INSTRUCTIONS);
 
   // Transform tool-result messages to Observation format when a messages array is present.
-  const messages = Array.isArray(p['messages'])
-    ? transformObservations(p['messages'])
-    : p['messages'];
+  const messages = Array.isArray(p.messages) ? transformObservations(p.messages) : p.messages;
 
   return generateText({ ...params, system, messages } as Parameters<typeof generateText>[0]);
 }

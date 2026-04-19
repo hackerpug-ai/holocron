@@ -142,7 +142,7 @@ export function useMarkdownParser(
         contentSize: markdown.length,
       };
     }
-  }, [markdown, JSON.stringify(options), isEmpty]);
+  }, [markdown, isEmpty, options]);
 }
 
 /**

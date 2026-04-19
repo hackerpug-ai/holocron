@@ -46,7 +46,7 @@ export const createImport = mutation({
     }
 
     // Append text to document
-    const updatedContent = doc.content + '\n\n' + args.text;
+    const updatedContent = `${doc.content}\n\n${args.text}`;
     await ctx.db.patch(args.documentId, {
       content: updatedContent,
     });

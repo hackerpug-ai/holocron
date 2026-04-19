@@ -3,7 +3,7 @@ pre-commit:
   commands:
     root-lint:
       glob: "*.{ts,tsx,js,jsx,json}"
-      run: pnpm biome check --write --no-errors-on-unmatched {staged_files}
+      run: pnpm biome check --write --no-errors-on-unmatched --diagnostic-level=error {staged_files}
     root-typecheck:
       run: pnpm tsgo --noEmit
     root-test:
@@ -11,4 +11,4 @@ pre-commit:
     mcp-lint:
       glob: "holocron-mcp/**/*.{ts,js,json}"
       root: holocron-mcp
-      run: biome check --write --no-errors-on-unmatched {staged_files}
+      run: pnpm biome check --write --no-errors-on-unmatched --diagnostic-level=error {staged_files}

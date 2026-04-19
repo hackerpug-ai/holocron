@@ -226,11 +226,11 @@ export function ArticleDetail({
     if (completedCount === segments.length && segments.length > 0) {
       narration.onAllReady();
     }
-  }, [segments, isNarrationMode]);
+  }, [segments, isNarrationMode, narration.onParagraphReady, narration.onAllReady]);
 
   useEffect(() => {
     paragraphOffsets.current.clear();
-  }, [sanitizedContent]);
+  }, []);
 
   // ─── Narration progress persistence ──────────────────────────────────────
 
@@ -246,7 +246,13 @@ export function ArticleDetail({
         lastUpdated: Date.now(),
       });
     }
-  }, [convexDocId, isNarrationMode, narration.state.activeParagraphIndex, narration.state.status]);
+  }, [
+    convexDocId,
+    isNarrationMode,
+    narration.state.activeParagraphIndex,
+    narration.state.status,
+    narration.state,
+  ]);
 
   // Clear progress when narration finishes (paused on last segment)
   useEffect(() => {
@@ -261,6 +267,7 @@ export function ArticleDetail({
     narration.state.status,
     narration.state.activeParagraphIndex,
     narration.state.totalParagraphs,
+    narration.state,
   ]);
 
   const generateAction = useAction(api.audio.actions.generateForDocument);
@@ -472,6 +479,7 @@ export function ArticleDetail({
     colors.primary,
     isAudioLoading,
     handleCopySection,
+    narration.skipToParagraph,
   ]);
 
   // Don't render if not visible

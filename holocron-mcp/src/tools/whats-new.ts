@@ -57,7 +57,7 @@ export async function getWhatsNewReport(
 ): Promise<WhatsNewOutput | null> {
   // If force refresh is requested, trigger generation first
   if (input.forceRefresh) {
-    console.log("[getWhatsNewReport] Force refresh requested, triggering generation...");
+    console.error("[getWhatsNewReport] Force refresh requested, triggering generation...");
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await client.action("whatsNew/actions:generate" as any, {

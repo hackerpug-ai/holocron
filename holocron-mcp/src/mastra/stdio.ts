@@ -13,6 +13,9 @@ import { subscriptionManager } from "../streaming/subscription-manager.ts";
 
 // Setup file logging
 const LOG_FILE = resolve("/tmp/holocron-mcp.log");
+const SHOULD_LOG_TO_STDERR =
+  process.env.HOLOCRON_MCP_DEBUG === "1" || process.env.LOG_LEVEL === "debug";
+
 function log(message: string) {
   const timestamp = new Date().toISOString();
   const logLine = `[${timestamp}] ${message}\n`;
@@ -21,7 +24,9 @@ function log(message: string) {
   } catch (e) {
     console.error("Failed to write to log file:", e);
   }
-  console.error(message);
+  if (SHOULD_LOG_TO_STDERR) {
+    console.error(message);
+  }
 }
 
 log("=== Holocron MCP Server Starting ===");

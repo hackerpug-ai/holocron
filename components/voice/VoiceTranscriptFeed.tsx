@@ -57,7 +57,7 @@ function BlinkingCursor({ color }: { color: string }) {
 
   useEffect(() => {
     opacity.value = withRepeat(withTiming(0, { duration: 250 }), -1, true);
-  }, []);
+  }, [opacity]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,

@@ -84,22 +84,6 @@ export class LogWriter {
   }
 
   /**
-   * Write a single line to the log file
-   */
-  private async writeLine(line: string): Promise<void> {
-    await this.ensureLogDirectory();
-    this.updateFilePathIfNeeded();
-
-    // Append to file
-    await FileSystem.writeAsStringAsync(this.currentFilePath, line + '\n', {
-      append: true,
-    });
-
-    // Check if rotation is needed
-    await this.checkRotationNeeded();
-  }
-
-  /**
    * Flush the write queue
    */
   private async flushQueue(): Promise<void> {
@@ -118,7 +102,7 @@ export class LogWriter {
       await this.ensureLogDirectory();
       this.updateFilePathIfNeeded();
 
-      const batchContent = entriesToFlush.join('\n') + '\n';
+      const batchContent = `${entriesToFlush.join('\n')}\n`;
       await FileSystem.writeAsStringAsync(this.currentFilePath, batchContent, {
         append: true,
       });

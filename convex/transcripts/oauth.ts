@@ -117,7 +117,7 @@ async function getServiceAccountToken(): Promise<string | null> {
 
   try {
     // Import Node.js crypto module (only available with "use node")
-    const crypto = await import('crypto');
+    const crypto = await import('node:crypto');
 
     // Parse service account credentials from environment variable
     const credentials: ServiceAccountCredentials = JSON.parse(credentialsJson);

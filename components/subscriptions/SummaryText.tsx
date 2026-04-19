@@ -77,7 +77,7 @@ export function SummaryText({
         numberOfLines={isExpanded ? undefined : maxLines}
         testID={`${testID}-text`}
       >
-        {shouldTruncate ? summary.slice(0, maxLength) + '...' : summary}
+        {shouldTruncate ? `${summary.slice(0, maxLength)}...` : summary}
       </Text>
       {summary.length > maxLength && (
         <Text

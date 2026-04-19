@@ -60,7 +60,7 @@ export function DocumentActionsSheet({
       translateY.value = withTiming(300, TIMING_OUT_CONFIG);
       backdropOpacity.value = withTiming(0, TIMING_OUT_CONFIG);
     }
-  }, [visible]);
+  }, [visible, translateY, backdropOpacity]);
 
   const sheetStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: Math.max(translateY.value, 0) }],

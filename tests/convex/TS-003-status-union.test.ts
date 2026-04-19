@@ -5,8 +5,8 @@
  * in researchSessions, deepResearchSessions, deepResearchIterations, and tasks.
  */
 
-import { readFileSync } from 'fs';
-import { join } from 'path';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const schemaPath = join(process.cwd(), 'convex', 'schema.ts');
@@ -23,7 +23,7 @@ describe('TS-003: Status fields use v.union(v.literal(...))', () => {
     );
     expect(researchSessionsMatch).not.toBeNull();
 
-    const tableBlock = researchSessionsMatch![0];
+    const tableBlock = researchSessionsMatch?.[0];
     // status field must use v.union with v.literal
     expect(tableBlock).toMatch(/status:\s*v\.union\(\s*v\.literal\(/);
     // status field must NOT be plain v.string()
@@ -39,7 +39,7 @@ describe('TS-003: Status fields use v.union(v.literal(...))', () => {
     );
     expect(deepResearchSessionsMatch).not.toBeNull();
 
-    const tableBlock = deepResearchSessionsMatch![0];
+    const tableBlock = deepResearchSessionsMatch?.[0];
     expect(tableBlock).toMatch(/status:\s*v\.union\(\s*v\.literal\(/);
     expect(tableBlock).not.toMatch(/status:\s*v\.string\(\)/);
   });
@@ -51,7 +51,7 @@ describe('TS-003: Status fields use v.union(v.literal(...))', () => {
     const tasksMatch = schemaContent.match(/\btasks:\s*defineTable\(\{[\s\S]*?\}\)/);
     expect(tasksMatch).not.toBeNull();
 
-    const tableBlock = tasksMatch![0];
+    const tableBlock = tasksMatch?.[0];
     expect(tableBlock).toMatch(/status:\s*v\.union\(\s*v\.literal\(/);
     expect(tableBlock).not.toMatch(/status:\s*v\.string\(\)/);
   });
@@ -67,7 +67,7 @@ describe('TS-003: Status fields use v.union(v.literal(...))', () => {
     );
     expect(deepResearchIterationsMatch).not.toBeNull();
 
-    const tableBlock = deepResearchIterationsMatch![0];
+    const tableBlock = deepResearchIterationsMatch?.[0];
     expect(tableBlock).toMatch(/status:\s*v\.union\(\s*v\.literal\(/);
     expect(tableBlock).not.toMatch(/status:\s*v\.string\(\)/);
   });
@@ -78,6 +78,6 @@ describe('TS-003: Status fields use v.union(v.literal(...))', () => {
   it('schema has at least 4 status fields using v.union', () => {
     const unionStatusMatches = schemaContent.match(/status:\s*v\.union\(\s*v\.literal\(/g);
     expect(unionStatusMatches).not.toBeNull();
-    expect(unionStatusMatches!.length).toBeGreaterThanOrEqual(4);
+    expect(unionStatusMatches?.length).toBeGreaterThanOrEqual(4);
   });
 });

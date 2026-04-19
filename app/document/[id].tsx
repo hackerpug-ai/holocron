@@ -161,7 +161,7 @@ export default function DocumentRoute() {
           narration.exitNarrationMode();
         }
       };
-    }, [narration.isNarrationMode])
+    }, [narration.isNarrationMode, narration.exitNarrationMode])
   );
 
   // Subscribe to audio segments only when in narration mode
@@ -203,7 +203,7 @@ export default function DocumentRoute() {
     if (audioJob && completedCount === audioJob.totalSegments && audioJob.totalSegments > 0) {
       narration.onAllReady();
     }
-  }, [segments, isNarrationMode, audioJob]);
+  }, [segments, isNarrationMode, audioJob, narration.onAllReady, narration.onParagraphReady]);
 
   // ─── Narration progress persistence ──────────────────────────────────────
 
@@ -219,7 +219,13 @@ export default function DocumentRoute() {
         lastUpdated: Date.now(),
       });
     }
-  }, [documentId, isNarrationMode, narration.state.activeParagraphIndex, narration.state.status]);
+  }, [
+    documentId,
+    isNarrationMode,
+    narration.state.activeParagraphIndex,
+    narration.state.status,
+    narration.state,
+  ]);
 
   // Clear progress when narration finishes (paused on last segment)
   useEffect(() => {
@@ -234,13 +240,14 @@ export default function DocumentRoute() {
     narration.state.status,
     narration.state.activeParagraphIndex,
     narration.state.totalParagraphs,
+    narration.state,
   ]);
 
   useEffect(() => {
     paragraphOffsets.current.clear();
     headingOffsets.current.clear();
     blockOffsets.current.clear();
-  }, [sanitizedContent]);
+  }, []);
 
   // Scroll to highlighted block after layout and fade highlight
   useEffect(() => {
@@ -263,7 +270,10 @@ export default function DocumentRoute() {
       clearTimeout(scrollTimer);
       clearTimeout(clearTimer);
     };
-  }, [highlightedBlock]);
+  }, [
+    highlightedBlock, // Start highlight flash: hold bright for 1.5s, then fade out over 1s
+    highlightOpacity,
+  ]);
 
   const generateAction = useAction(api.audio.actions.generateForDocument);
   const regenerateAction = useAction(api.audio.actions.regenerateForDocument);
@@ -618,6 +628,7 @@ export default function DocumentRoute() {
     highlightedBlock,
     highlightOpacity,
     textSelectionVisible,
+    narration.skipToParagraph,
   ]);
 
   // Auto-scroll to active paragraph (with fallback for unmapped indices)

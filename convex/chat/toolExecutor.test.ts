@@ -69,7 +69,7 @@ describe('REC-005: find_recommendations tool executor wiring', () => {
       const conversationId = 'test-conversation' as Id<'conversations'>;
 
       let capturedArgs: any = null;
-      mockCtx.runAction = async (fn: any, args: any) => {
+      mockCtx.runAction = async (_fn: any, args: any) => {
         capturedArgs = args;
         return {
           items: [

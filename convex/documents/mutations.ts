@@ -246,7 +246,7 @@ export const appendText = mutation({
     }
 
     // Append text with double newline separator
-    const updatedContent = doc.content + '\n\n' + args.text;
+    const updatedContent = `${doc.content}\n\n${args.text}`;
 
     await ctx.db.patch(args.documentId, {
       content: updatedContent,

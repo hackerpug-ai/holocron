@@ -49,7 +49,7 @@ function trustLabel(trustTier?: number): string {
 
 /** Truncate a string to a maximum length, appending "…" if needed */
 function truncate(s: string, max: number): string {
-  return s.length > max ? s.slice(0, max - 1) + '\u2026' : s;
+  return s.length > max ? `${s.slice(0, max - 1)}\u2026` : s;
 }
 
 /** True when condition string indicates a new product */
@@ -140,7 +140,7 @@ function buildRecommendations(
     );
   }
 
-  return lines.join('\n') + '\n';
+  return `${lines.join('\n')}\n`;
 }
 
 const NOTES_SECTION =

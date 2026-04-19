@@ -89,7 +89,7 @@ export class WebRTCConnection {
       // Handle remote audio track from OpenAI
       this.pc.addEventListener('track', (ev: unknown) => {
         const e = ev as { streams?: MediaStream[] };
-        if (e.streams && e.streams[0]) {
+        if (e.streams?.[0]) {
           this.callbacks.onTrack?.(e.streams[0]);
         }
       });

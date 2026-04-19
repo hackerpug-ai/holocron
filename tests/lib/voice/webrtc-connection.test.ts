@@ -145,7 +145,7 @@ describe('WebRTCConnection', () => {
 
       // Simulate remote track event
       expect(trackEventHandler).not.toBeNull();
-      trackEventHandler!({ streams: [mockRemoteStream] });
+      trackEventHandler?.({ streams: [mockRemoteStream] });
 
       expect(onTrack).toHaveBeenCalledWith(mockRemoteStream);
     });
@@ -215,7 +215,7 @@ describe('WebRTCConnection', () => {
 
       // Simulate incoming message
       expect(dcMessageHandler).not.toBeNull();
-      dcMessageHandler!({
+      dcMessageHandler?.({
         data: JSON.stringify({ type: 'session.created', session: {} }),
       });
 
@@ -232,7 +232,7 @@ describe('WebRTCConnection', () => {
       await connection.connect('ek_test_token');
 
       // Should not throw
-      dcMessageHandler!({ data: 'not-json{{{' });
+      dcMessageHandler?.({ data: 'not-json{{{' });
       expect(onEvent).not.toHaveBeenCalled();
     });
   });

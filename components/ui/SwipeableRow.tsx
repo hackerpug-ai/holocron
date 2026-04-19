@@ -64,6 +64,15 @@ export function SwipeableRow({
     }
   }, []);
 
+  const handleDismiss = useCallback(() => {
+    if (isDeleting.value) return;
+    clearDismissTimer();
+    deleteOpacity.value = withTiming(0, { duration: 150 });
+    deleteScale.value = withTiming(0.6, { duration: 150 });
+    // Delay state change so animation plays
+    setTimeout(() => setShowDelete(false), 160);
+  }, [isDeleting, clearDismissTimer, deleteOpacity, deleteScale]);
+
   // Auto-dismiss after delay
   useEffect(() => {
     if (showDelete) {
@@ -73,7 +82,7 @@ export function SwipeableRow({
       }, DISMISS_DELAY);
     }
     return clearDismissTimer;
-  }, [showDelete, clearDismissTimer]);
+  }, [showDelete, clearDismissTimer, handleDismiss]);
 
   const handleLongPress = useCallback(() => {
     if (disabled || isDeleting.value) return;
@@ -88,15 +97,6 @@ export function SwipeableRow({
     deleteScale.value = withSpring(1, { damping: 10, stiffness: 200 });
     setShowDelete(true);
   }, [disabled, isDeleting, rowScale, deleteOpacity, deleteScale]);
-
-  const handleDismiss = useCallback(() => {
-    if (isDeleting.value) return;
-    clearDismissTimer();
-    deleteOpacity.value = withTiming(0, { duration: 150 });
-    deleteScale.value = withTiming(0.6, { duration: 150 });
-    // Delay state change so animation plays
-    setTimeout(() => setShowDelete(false), 160);
-  }, [isDeleting, clearDismissTimer, deleteOpacity, deleteScale]);
 
   const handleDelete = useCallback(() => {
     if (isDeleting.value) return;

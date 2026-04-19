@@ -58,7 +58,7 @@ export function NotificationBellButton({ onPress, testID }: NotificationBellButt
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [hasNew]);
+  }, [hasNew, updateLastSeen, dotScale]);
 
   const dotStyle = useAnimatedStyle(() => ({
     transform: [{ scale: dotScale.value }],

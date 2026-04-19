@@ -67,8 +67,8 @@ export const createResearchDocument = internalAction({
         warnings: f.warnings ?? [],
         citations: f.citations.filter(Boolean).map((c) => ({
           url: c!.sourceUrl,
-          title: c!.sourceTitle ?? undefined,
-          domain: c!.sourceDomain ?? undefined,
+          title: c?.sourceTitle ?? undefined,
+          domain: c?.sourceDomain ?? undefined,
         })),
         sourceCount: f.citationIds.length,
       }));
@@ -202,7 +202,7 @@ export const createResearchDocument = internalAction({
     if (findingMatches) {
       findingMatches.slice(0, 5).forEach((match) => {
         const claimMatch = match.match(/### \d+\.\s+[\s\S]*?\n([\s\S]*?)\n\*\*Sources\*\*/);
-        if (claimMatch && claimMatch[1]) {
+        if (claimMatch?.[1]) {
           // Extract just the first line or two of the finding
           const claim = claimMatch[1].trim().split('\n')[0].slice(0, 100);
           keyFindings.push(claim);
@@ -225,7 +225,7 @@ export const createResearchDocument = internalAction({
         session_id: sessionId,
         document_id: result.documentId,
         topic: session.topic,
-        preview: content.slice(0, 500) + '...',
+        preview: `${content.slice(0, 500)}...`,
         full_markdown: content,
         coverage_score: coverageScore,
         iterations_completed: session.currentIteration ?? 1,

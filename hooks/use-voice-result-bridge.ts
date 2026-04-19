@@ -28,7 +28,7 @@ export function useVoiceResultBridge(
   const initializedRef = useRef(false);
 
   useEffect(() => {
-    if (!messages || !messages.length || !isActive || !sendEvent) return;
+    if (!messages?.length || !isActive || !sendEvent) return;
 
     const newest = messages[0]; // desc order — index 0 is newest
     if (!newest) return;
@@ -65,7 +65,7 @@ export function useVoiceResultBridge(
 
     // Truncate for voice — keep payloads reasonable
     const content =
-      newest.content.length > 1500 ? newest.content.slice(0, 1500) + '...' : newest.content;
+      newest.content.length > 1500 ? `${newest.content.slice(0, 1500)}...` : newest.content;
 
     // Inject into OpenAI conversation
     sendEvent({

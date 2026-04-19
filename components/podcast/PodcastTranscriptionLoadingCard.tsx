@@ -1,5 +1,5 @@
 import { useAction } from 'convex/react';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { api } from '@/convex/_generated/api';

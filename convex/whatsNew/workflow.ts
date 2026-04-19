@@ -252,7 +252,7 @@ export const enrichPhase = internalAction({
 
     // Get workflow with findings
     const workflow = await ctx.runQuery(internal.whatsNew.workflow.getWorkflow, { workflowId });
-    if (!workflow || !workflow.findingsJson) {
+    if (!workflow?.findingsJson) {
       throw new Error(`Workflow ${workflowId} has no findings`);
     }
 
@@ -414,7 +414,7 @@ export const synthesizePhase = internalAction({
 
     // Get workflow with enriched findings
     const workflow = await ctx.runQuery(internal.whatsNew.workflow.getWorkflow, { workflowId });
-    if (!workflow || !workflow.findingsJson) {
+    if (!workflow?.findingsJson) {
       throw new Error(`Workflow ${workflowId} has no enriched findings`);
     }
 

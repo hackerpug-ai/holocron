@@ -14,7 +14,7 @@
  * - Timing: IN 300ms Easing.out(cubic), OUT 250ms Easing.in(cubic)
  */
 
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
@@ -173,7 +173,7 @@ export function ImprovementActionBottomSheet({
             >
               {/* Drag handle */}
               <View style={styles.handleRow}>
-                <View style={[styles.handle, { backgroundColor: colors.mutedForeground + '4D' }]} />
+                <View style={[styles.handle, { backgroundColor: `${colors.mutedForeground}4D` }]} />
               </View>
 
               {/* Menu options */}

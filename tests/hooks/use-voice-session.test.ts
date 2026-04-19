@@ -475,7 +475,7 @@ describe('US-008: useVoiceSession (renderHook)', () => {
 
       // Resolve the hanging session
       await act(async () => {
-        resolveSession!({
+        resolveSession?.({
           ephemeralKey: 'ek-test-123',
           expiresAt: Date.now() + 60000,
           sessionId: 'session-001',

@@ -42,7 +42,7 @@ function AnimatedDot({ delay, testID }: AnimatedDotProps) {
         false
       )
     );
-  }, [delay]);
+  }, [delay, opacity]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,

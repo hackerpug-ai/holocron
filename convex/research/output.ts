@@ -99,7 +99,6 @@ export function formatFindingsWithConfidence(
         (f) => f.confidenceLevel === 'HIGH' || f.confidenceLevel === 'MEDIUM'
       );
       break;
-    case 'ALL':
     default:
       break;
   }

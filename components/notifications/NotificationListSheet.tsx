@@ -203,7 +203,7 @@ export function NotificationListSheet({
     for (const n of notifications) {
       const group = getDateGroup(n.createdAt);
       if (!groupMap.has(group)) groupMap.set(group, []);
-      groupMap.get(group)!.push(n as GroupedNotification);
+      groupMap.get(group)?.push(n as GroupedNotification);
     }
 
     return order.filter((g) => groupMap.has(g)).map((g) => ({ label: g, items: groupMap.get(g)! }));
@@ -238,7 +238,7 @@ export function NotificationListSheet({
           >
             {/* Drag handle */}
             <View style={styles.handleRow}>
-              <View style={[styles.handle, { backgroundColor: colors.mutedForeground + '4D' }]} />
+              <View style={[styles.handle, { backgroundColor: `${colors.mutedForeground}4D` }]} />
             </View>
 
             {/* Header */}

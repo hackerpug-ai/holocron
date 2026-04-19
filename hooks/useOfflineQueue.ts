@@ -111,7 +111,7 @@ export function useOfflineQueue() {
     } finally {
       setIsFlushing(false);
     }
-  }, [isOnline, isFlushing, getQueue]);
+  }, [isOnline, isFlushing, getQueue, submitFeedback]);
 
   /**
    * Auto-flush queue when coming back online
@@ -149,6 +149,17 @@ export function useOfflineQueue() {
   }, []);
 
   /**
+   * Clear the feed cache
+   */
+  const clearCache = useCallback(async () => {
+    try {
+      await AsyncStorage.removeItem(CACHE_KEY);
+    } catch (error) {
+      console.error('Failed to clear cache:', error);
+    }
+  }, []);
+
+  /**
    * Get cached feed items if still valid
    */
   const getCachedFeedItems = useCallback(async (): Promise<CachedFeedItem[] | null> => {
@@ -172,18 +183,7 @@ export function useOfflineQueue() {
       console.error('Failed to get cached feed items:', error);
       return null;
     }
-  }, []);
-
-  /**
-   * Clear the feed cache
-   */
-  const clearCache = useCallback(async () => {
-    try {
-      await AsyncStorage.removeItem(CACHE_KEY);
-    } catch (error) {
-      console.error('Failed to clear cache:', error);
-    }
-  }, []);
+  }, [clearCache]);
 
   return {
     queueFeedback,

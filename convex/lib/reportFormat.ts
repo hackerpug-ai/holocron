@@ -122,7 +122,7 @@ export function scoreToConfidenceLevel(score: number): 'HIGH' | 'MEDIUM' | 'LOW'
  * @param maxColWidth - Maximum column width before truncation (default 30)
  */
 export function formatTable(headers: string[], rows: string[][], maxColWidth = 30): string {
-  const truncate = (s: string, max: number) => (s.length > max ? s.slice(0, max - 1) + '…' : s);
+  const truncate = (s: string, max: number) => (s.length > max ? `${s.slice(0, max - 1)}…` : s);
 
   // Calculate column widths
   const colWidths = headers.map((h, i) => {

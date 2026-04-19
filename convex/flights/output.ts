@@ -85,7 +85,7 @@ function buildWeekRows(priceCalendar: FlightsPriceCalendarEntry[]): WeekRow[] {
         days: new Map(),
       });
     }
-    weekMap.get(entry.weekNumber)!.days.set(entry.dayOfWeek, entry);
+    weekMap.get(entry.weekNumber)?.days.set(entry.dayOfWeek, entry);
   }
 
   return Array.from(weekMap.values()).sort((a, b) => a.weekNumber - b.weekNumber);

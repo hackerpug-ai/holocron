@@ -48,7 +48,7 @@ export function capFindingsPerSource(findings: Finding[], maxPerSource: number):
     if (!bySource.has(baseSource)) {
       bySource.set(baseSource, []);
     }
-    bySource.get(baseSource)!.push(finding);
+    bySource.get(baseSource)?.push(finding);
   }
 
   const capped: Finding[] = [];
@@ -107,7 +107,7 @@ export function populatePerFindingCorroboration(findings: Finding[]): void {
     if (!byUrl.has(normalizedUrl)) {
       byUrl.set(normalizedUrl, []);
     }
-    byUrl.get(normalizedUrl)!.push(finding);
+    byUrl.get(normalizedUrl)?.push(finding);
   }
 
   // Count corroboration for each finding
@@ -116,7 +116,7 @@ export function populatePerFindingCorroboration(findings: Finding[]): void {
       .toLowerCase()
       .replace(/\/$/, '')
       .replace(/^https?:\/\//, '');
-    finding.corroboration = byUrl.get(normalizedUrl)!.length;
+    finding.corroboration = byUrl.get(normalizedUrl)?.length;
   }
 }
 

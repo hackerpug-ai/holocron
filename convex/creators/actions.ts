@@ -167,7 +167,7 @@ export const verifyPlatforms = action({
         (async () => {
           try {
             const result = await ctx.runAction(internal.creators.internal.lookupYouTubeChannel, {
-              handle: profile.platforms.youtube!.handle,
+              handle: profile.platforms.youtube!.handle!,
             });
             if (result.verified) {
               verified.push('youtube');
@@ -192,7 +192,7 @@ export const verifyPlatforms = action({
         (async () => {
           try {
             const result = await ctx.runAction(internal.creators.internal.lookupBlueskyUser, {
-              handle: profile.platforms.bluesky!.handle,
+              handle: profile.platforms.bluesky!.handle!,
             });
             if (result.verified) {
               verified.push('bluesky');
@@ -217,7 +217,7 @@ export const verifyPlatforms = action({
         (async () => {
           try {
             const result = await ctx.runAction(internal.creators.internal.lookupGitHubUser, {
-              handle: profile.platforms.github!.handle,
+              handle: profile.platforms.github!.handle!,
             });
             if (result.verified) {
               verified.push('github');
@@ -242,7 +242,7 @@ export const verifyPlatforms = action({
         (async () => {
           try {
             const result = await ctx.runAction(internal.creators.internal.validateWebsiteUrl, {
-              url: profile.platforms.website!.url,
+              url: profile.platforms.website!.url!,
             });
             if (result.validated) {
               verified.push('website');
@@ -307,7 +307,7 @@ export const assimilateCreator = action({
     const profile = profileResult.creator;
 
     // Check if profile has YouTube platform
-    if (!profile.platforms.youtube || !profile.platforms.youtube.channelId) {
+    if (!profile.platforms.youtube?.channelId) {
       return {
         success: false,
         error: 'Creator profile does not have a verified YouTube channel',

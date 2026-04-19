@@ -95,7 +95,7 @@ export function DocumentContextCard({
   const isTruncated = data.excerpt && data.excerpt.length > EXCERPT_INLINE_LIMIT;
   const displayText = data.excerpt
     ? isTruncated
-      ? data.excerpt.slice(0, EXCERPT_INLINE_LIMIT).trimEnd() + '...'
+      ? `${data.excerpt.slice(0, EXCERPT_INLINE_LIMIT).trimEnd()}...`
       : data.excerpt
     : null;
 

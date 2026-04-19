@@ -237,7 +237,7 @@ export async function fetchHackerNews(days: number): Promise<FetchResult> {
     ];
 
     for (const story of stories) {
-      if (!story || !story.title || !story.url) continue;
+      if (!story?.title || !story.url) continue;
 
       // Filter by date
       const storyDate = new Date(story.time * 1000);
@@ -530,7 +530,7 @@ export async function fetchBluesky(
           if (publishedDate < cutoffDate) continue;
 
           const text = post.record.text || '';
-          const title = text.length > 100 ? text.substring(0, 100) + '...' : text;
+          const title = text.length > 100 ? `${text.substring(0, 100)}...` : text;
 
           const uri = post.uri;
           const parts = uri.split('/');
@@ -785,7 +785,7 @@ export function capFindingsPerSource(findings: Finding[], maxPerSource: number):
     if (!bySource.has(baseSource)) {
       bySource.set(baseSource, []);
     }
-    bySource.get(baseSource)!.push(finding);
+    bySource.get(baseSource)?.push(finding);
   }
 
   const capped: Finding[] = [];

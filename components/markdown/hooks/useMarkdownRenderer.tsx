@@ -50,7 +50,7 @@ export function useMarkdownRenderer(
 
   const render = useMemo(() => {
     return (ast: Root) => {
-      if (!ast || !ast.children || ast.children.length === 0) {
+      if (!ast?.children || ast.children.length === 0) {
         return null;
       }
 

@@ -31,11 +31,6 @@ function mapStatus(old: OldStatus): 'open' | 'closed' {
     case 'merged':
     case 'closed':
       return 'closed';
-    case 'submitted':
-    case 'processing':
-    case 'pending_review':
-    case 'approved':
-    case 'open':
     default:
       return 'open';
   }

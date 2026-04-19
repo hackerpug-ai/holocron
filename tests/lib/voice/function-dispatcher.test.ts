@@ -78,7 +78,7 @@ describe('server-side tool dispatch', () => {
     // Must send conversation.item.create with correct call_id
     const itemCreate = getItemCreateCall(deps.sendEvent as ReturnType<typeof vi.fn>);
     expect(itemCreate).toBeTruthy();
-    const item = itemCreate!.item as Record<string, unknown>;
+    const item = itemCreate?.item as Record<string, unknown>;
     expect(item.call_id).toBe('call_search1');
     expect(item.type).toBe('function_call_output');
 
@@ -90,7 +90,7 @@ describe('server-side tool dispatch', () => {
     // Must send response.create after
     const responseCreate = getResponseCreateCall(deps.sendEvent as ReturnType<typeof vi.fn>);
     expect(responseCreate).toBeTruthy();
-    expect(responseCreate!.type).toBe('response.create');
+    expect(responseCreate?.type).toBe('response.create');
   });
 
   it('uses call_id from callId field, not item.id', async () => {
@@ -99,7 +99,7 @@ describe('server-side tool dispatch', () => {
     await dispatchFunctionCall(fn, deps);
 
     const itemCreate = getItemCreateCall(deps.sendEvent as ReturnType<typeof vi.fn>);
-    const item = itemCreate!.item as Record<string, unknown>;
+    const item = itemCreate?.item as Record<string, unknown>;
     expect(item.call_id).toBe('call_CORRECT');
   });
 
@@ -131,7 +131,7 @@ describe('server-side tool dispatch', () => {
     });
 
     const itemCreate = getItemCreateCall(deps.sendEvent as ReturnType<typeof vi.fn>);
-    const item = itemCreate!.item as Record<string, unknown>;
+    const item = itemCreate?.item as Record<string, unknown>;
     const output = JSON.parse(item.output as string) as { success: boolean };
     expect(output.success).toBe(true);
   });
@@ -168,7 +168,7 @@ describe('dispatch navigate_app', () => {
     expect(deps.convex.runAction).not.toHaveBeenCalled();
 
     const itemCreate = getItemCreateCall(deps.sendEvent as ReturnType<typeof vi.fn>);
-    const item = itemCreate!.item as Record<string, unknown>;
+    const item = itemCreate?.item as Record<string, unknown>;
     expect(item.call_id).toBe('call_nav1');
 
     const output = JSON.parse(item.output as string) as {
@@ -219,7 +219,7 @@ describe('dispatch error handling', () => {
     // Must send error result, not throw — error must be user-friendly
     const itemCreate = getItemCreateCall(deps.sendEvent as ReturnType<typeof vi.fn>);
     expect(itemCreate).toBeTruthy();
-    const item = itemCreate!.item as Record<string, unknown>;
+    const item = itemCreate?.item as Record<string, unknown>;
     const output = JSON.parse(item.output as string) as { success: boolean; error: string };
     expect(output.success).toBe(false);
     expect(output.error).not.toContain('Convex search failed');
@@ -263,7 +263,7 @@ describe('transient retry', () => {
     // Should have called the action twice (initial + retry)
     expect(deps.convex.runAction).toHaveBeenCalledTimes(2);
     const itemCreate = getItemCreateCall(deps.sendEvent as ReturnType<typeof vi.fn>);
-    const item = itemCreate!.item as Record<string, unknown>;
+    const item = itemCreate?.item as Record<string, unknown>;
     const output = JSON.parse(item.output as string) as { success: boolean };
     expect(output.success).toBe(true);
   });
@@ -285,7 +285,7 @@ describe('transient retry', () => {
     expect(deps.convex.runAction).toHaveBeenCalledTimes(2);
 
     const itemCreate = getItemCreateCall(deps.sendEvent as ReturnType<typeof vi.fn>);
-    const item = itemCreate!.item as Record<string, unknown>;
+    const item = itemCreate?.item as Record<string, unknown>;
     const output = JSON.parse(item.output as string) as { success: boolean; error: string };
     expect(output.success).toBe(false);
     expect(output.error).not.toContain('network timeout');
@@ -313,7 +313,7 @@ describe('permanent error', () => {
     expect(deps.convex.runAction).toHaveBeenCalledTimes(1);
 
     const itemCreate = getItemCreateCall(deps.sendEvent as ReturnType<typeof vi.fn>);
-    const item = itemCreate!.item as Record<string, unknown>;
+    const item = itemCreate?.item as Record<string, unknown>;
     const output = JSON.parse(item.output as string) as { success: boolean; error: string };
     expect(output.success).toBe(false);
     expect(output.error).not.toContain('404');
@@ -360,7 +360,7 @@ describe('rate limit', () => {
     expect(deps.convex.runAction).toHaveBeenCalledTimes(1);
 
     const itemCreate = getItemCreateCall(deps.sendEvent as ReturnType<typeof vi.fn>);
-    const item = itemCreate!.item as Record<string, unknown>;
+    const item = itemCreate?.item as Record<string, unknown>;
     const output = JSON.parse(item.output as string) as { success: boolean; error: string };
     expect(output.success).toBe(false);
     expect(output.error).toBe('Too many requests. Try again in a moment.');

@@ -110,7 +110,7 @@ export function PlanEditBottomSheet({
       translateY.value = withTiming(400, TIMING_OUT);
       backdropOpacity.value = withTiming(0, TIMING_OUT);
     }
-  }, [visible]);
+  }, [visible, translateY, initialText, backdropOpacity]);
 
   const sheetStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: Math.max(translateY.value, 0) }],
@@ -208,7 +208,7 @@ export function PlanEditBottomSheet({
           >
             {/* Drag handle */}
             <View style={styles.handleRow}>
-              <View style={[styles.handle, { backgroundColor: colors.mutedForeground + '4D' }]} />
+              <View style={[styles.handle, { backgroundColor: `${colors.mutedForeground}4D` }]} />
             </View>
 
             {/* Header */}

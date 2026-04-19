@@ -82,7 +82,7 @@ export const buildVoiceInstructions = internalQuery({
     const truncatedExchanges = exchanges.map((msg) => {
       const truncated =
         msg.content.length > MAX_CHARS_PER_EXCHANGE
-          ? msg.content.slice(0, MAX_CHARS_PER_EXCHANGE) + '...'
+          ? `${msg.content.slice(0, MAX_CHARS_PER_EXCHANGE)}...`
           : msg.content;
       return `${msg.role}: ${truncated}`;
     });

@@ -108,7 +108,7 @@ export const getSampleWithEmbedding = query({
       .filter((q) => q.neq(q.field('embedding'), undefined))
       .first();
 
-    if (!documents || !documents.embedding) {
+    if (!documents?.embedding) {
       return null;
     }
 

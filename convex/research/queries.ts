@@ -179,7 +179,6 @@ export const getFindingsByConfidence = query({
           (f) => f.confidenceLevel === 'HIGH' || f.confidenceLevel === 'MEDIUM'
         );
         break;
-      case 'ALL':
       default:
         // No filter - return all
         break;

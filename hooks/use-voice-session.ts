@@ -680,6 +680,10 @@ export function useVoiceSession(conversationId: Id<'conversations'>): UseVoiceSe
     handleTimeout,
     recordTranscript,
     state.status,
+    router.push,
+    convex.query,
+    convex.mutation,
+    convex.action,
   ]);
 
   const stop = useCallback(async () => {

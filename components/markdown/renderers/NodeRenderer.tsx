@@ -86,21 +86,19 @@ export interface NodeRendererProps {
  */
 export const NodeRenderer = React.memo(
   ({ node, renderers, onLinkPress, testID, index, parentOrdered }: NodeRendererProps) => {
-    const children = isParent(node) && (
-      <React.Fragment>
-        {(node as any).children.map((child: any, childIndex: number) => (
-          <NodeRenderer
-            key={getNodeKey(child, childIndex)}
-            node={child}
-            renderers={renderers}
-            onLinkPress={onLinkPress}
-            testID={testID ? `${testID}-${childIndex}` : undefined}
-            index={childIndex}
-            parentOrdered={node.type === 'list' ? ((node as any).ordered ?? false) : undefined}
-          />
-        ))}
-      </React.Fragment>
-    );
+    const children =
+      isParent(node) &&
+      (node as any).children.map((child: any, childIndex: number) => (
+        <NodeRenderer
+          key={getNodeKey(child, childIndex)}
+          node={child}
+          renderers={renderers}
+          onLinkPress={onLinkPress}
+          testID={testID ? `${testID}-${childIndex}` : undefined}
+          index={childIndex}
+          parentOrdered={node.type === 'list' ? ((node as any).ordered ?? false) : undefined}
+        />
+      ));
 
     // Custom renderers
     if (renderers) {

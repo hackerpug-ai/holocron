@@ -279,7 +279,7 @@ describe('Migration Validation - AC-3: Embedding Dimensions', () => {
 
     expect(embeddingCheck).toBeTruthy();
     if (embeddingCheck?.status === 'FAIL') {
-      const invalidCount = parseInt(embeddingCheck.actual as string);
+      const invalidCount = parseInt(embeddingCheck.actual as string, 10);
       expect(invalidCount).toEqual(0);
     }
   });

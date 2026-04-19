@@ -12,8 +12,8 @@ import type {
 describe('REC-UI-001: Recommendation types contract', () => {
   describe('AC-1: Types file exists and compiles', () => {
     it('should have the types file exist on disk', async () => {
-      const fs = await import('fs');
-      const path = await import('path');
+      const fs = await import('node:fs');
+      const path = await import('node:path');
 
       const filePath = path.join(process.cwd(), 'components/cards/types/recommendation.ts');
       expect(fs.existsSync(filePath)).toBe(true);
@@ -93,8 +93,8 @@ describe('REC-UI-001: Recommendation types contract', () => {
 
   describe('AC-4: No paper imports', () => {
     it('should not import from react-native-paper', async () => {
-      const fs = await import('fs');
-      const path = await import('path');
+      const fs = await import('node:fs');
+      const path = await import('node:path');
 
       const filePath = path.join(process.cwd(), 'components/cards/types/recommendation.ts');
       const content = fs.readFileSync(filePath, 'utf-8');
@@ -105,8 +105,8 @@ describe('REC-UI-001: Recommendation types contract', () => {
     });
 
     it('should not contain any `any` type in exports', async () => {
-      const fs = await import('fs');
-      const path = await import('path');
+      const fs = await import('node:fs');
+      const path = await import('node:path');
 
       const filePath = path.join(process.cwd(), 'components/cards/types/recommendation.ts');
       const content = fs.readFileSync(filePath, 'utf-8');

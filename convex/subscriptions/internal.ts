@@ -166,7 +166,7 @@ function calculateRelevancyScore(
  */
 async function fetchYouTube(
   source: any,
-  filter: RelevancyRule[],
+  _filter: RelevancyRule[],
   existingIds: Set<string>
 ): Promise<
   Array<{
@@ -207,7 +207,7 @@ async function fetchYouTube(
 
 async function fetchNewsletter(
   source: any,
-  filter: RelevancyRule[],
+  _filter: RelevancyRule[],
   existingIds: Set<string>
 ): Promise<any[]> {
   const feedUrl = source.feedUrl;
@@ -424,7 +424,7 @@ async function fetchReddit(
 
 async function fetchChangelog(
   source: any,
-  filter: RelevancyRule[],
+  _filter: RelevancyRule[],
   existingIds: Set<string>
 ): Promise<any[]> {
   const identifier = source.identifier;
@@ -474,7 +474,7 @@ async function fetchChangelog(
  */
 async function fetchGitHub(
   source: any,
-  filter: RelevancyRule[],
+  _filter: RelevancyRule[],
   existingIds: Set<string>
 ): Promise<any[]> {
   const username = source.identifier.replace(/^https?:\/\/github\.com\//, '').replace(/\/$/, '');
@@ -616,7 +616,7 @@ async function fetchBlueskyFeed(handle: string): Promise<
 
       // Extract text from post record
       const text = post.record?.text || '';
-      const title = text.length > 100 ? text.substring(0, 100) + '...' : text;
+      const title = text.length > 100 ? `${text.substring(0, 100)}...` : text;
 
       // Build the post URL
       const uri = post.uri; // at://did:plc:xxx/app.bsky.feed.post/xxx
@@ -894,7 +894,7 @@ export const getCreatorAccountsByPlatform = internalQuery({
       .map((c) => {
         const config = (c.configJson as CreatorConfig) || {};
         return {
-          handle: config.platforms![args.platform]!,
+          handle: config.platforms?.[args.platform] ?? '',
           name: c.name,
           tier: (c.configJson as any)?.tier || 3,
         };

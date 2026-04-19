@@ -106,9 +106,9 @@ describe('US-777: Search Tools Implementation', () => {
       expect(tools.jinaReaderTool.execute).toBeTruthy();
 
       // Execute functions should be async functions
-      expect(tools.exaSearchTool.execute!.constructor.name).toBe('AsyncFunction');
-      expect(tools.jinaSearchTool.execute!.constructor.name).toBe('AsyncFunction');
-      expect(tools.jinaReaderTool.execute!.constructor.name).toBe('AsyncFunction');
+      expect(tools.exaSearchTool.execute?.constructor.name).toBe('AsyncFunction');
+      expect(tools.jinaSearchTool.execute?.constructor.name).toBe('AsyncFunction');
+      expect(tools.jinaReaderTool.execute?.constructor.name).toBe('AsyncFunction');
     });
   });
 });

@@ -307,8 +307,6 @@ export function getFallbackVariants(
           rationale: 'Real-world switching/adoption stories',
         },
       ];
-
-    case 'EXPLORATORY':
     default:
       return [
         {
@@ -441,7 +439,7 @@ export function buildFollowUpContext(keyFindings: string[], gaps: string[]): str
   // Summarize what's already known (truncate each finding, take top 3)
   const knownTopics = keyFindings
     .slice(0, 3)
-    .map((f) => (f.length > 60 ? f.slice(0, 57) + '...' : f))
+    .map((f) => (f.length > 60 ? `${f.slice(0, 57)}...` : f))
     .join(', ');
 
   if (!knownTopics) return gaps;

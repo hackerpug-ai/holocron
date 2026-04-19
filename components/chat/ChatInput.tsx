@@ -401,6 +401,6 @@ const useStyles = (typography: any, spacing: any) => {
           fontSize: typography.body.fontSize,
         },
       }),
-    [typography]
+    [typography, spacing.sm, spacing.lg]
   );
 };

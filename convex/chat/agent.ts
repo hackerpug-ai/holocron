@@ -82,7 +82,7 @@ export async function detectRefinement(
   // Step 2: Check for a prior tool result with a specialist name
   const toolResultInfo = await getLastToolResult();
 
-  if (!toolResultInfo || !toolResultInfo.hasResult || !toolResultInfo.specialistName) {
+  if (!toolResultInfo?.hasResult || !toolResultInfo.specialistName) {
     return { shouldInherit: false };
   }
 
@@ -315,7 +315,7 @@ async function callLlmAndHandleResponse(
   // Read the conversation document to check for fresh pending state.
   const conv = await ctx.runQuery(internal.chat.agentMutations.getConversation, { conversationId });
 
-  if (conv && conv.pendingIntent && !isPendingExpired(conv.pendingSince)) {
+  if (conv?.pendingIntent && !isPendingExpired(conv.pendingSince)) {
     // Prepend a system message so triage sees the original context
     const pendingPreamble =
       `The user is mid-request. Their original intent was ${conv.pendingIntent} ` +

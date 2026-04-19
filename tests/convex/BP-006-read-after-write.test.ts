@@ -7,8 +7,8 @@
  * If ctx.db.patch doesn't throw, the write succeeded.
  */
 
-import fs from 'fs';
-import path from 'path';
+import fs from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const MUTATIONS_FILE = path.join(__dirname, '../../convex/research/mutations.ts');

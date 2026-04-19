@@ -174,7 +174,7 @@ export function selectRetailersForQuery(query: string): string[] {
  * @returns Worker result
  */
 async function executeRetailerWorker(
-  ctx: ActionCtx,
+  _ctx: ActionCtx,
   assignment: RetailerAssignment
 ): Promise<RetailerWorkerResult> {
   const startTime = Date.now();

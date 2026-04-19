@@ -82,14 +82,12 @@ const PLATFORM_PATTERNS: ReadonlyArray<{
   {
     kind: 'productExpert',
     site: 'thewirecutter.com',
-    buildQuery: (query, _location, modifiers) =>
-      compactQuery([query, 'review best', modifiers]),
+    buildQuery: (query, _location, modifiers) => compactQuery([query, 'review best', modifiers]),
   },
   {
     kind: 'productRatings',
     site: 'rtings.com',
-    buildQuery: (query, _location, modifiers) =>
-      compactQuery([query, 'review ratings', modifiers]),
+    buildQuery: (query, _location, modifiers) => compactQuery([query, 'review ratings', modifiers]),
   },
 ];
 

@@ -451,7 +451,7 @@ async function executeWhatsNew(ctx: ActionCtx, args: Record<string, any>): Promi
   try {
     const reportData: any = await ctx.runQuery(api.whatsNew.queries.getLatestReport, {});
 
-    if (!reportData || !reportData.report) {
+    if (!reportData?.report) {
       ctx.scheduler.runAfter(0, api.whatsNew.actions.generate, { days });
 
       return {
@@ -886,7 +886,8 @@ export async function executeAgentTool(
                 if (it.description) parts.push(`— ${it.description}`);
                 if (it.whyRecommended) parts.push(`(${it.whyRecommended})`);
                 if (it.rating != null) parts.push(`${it.rating}★`);
-                if (it.reviewCount != null) parts.push(`${it.reviewCount.toLocaleString()} reviews`);
+                if (it.reviewCount != null)
+                  parts.push(`${it.reviewCount.toLocaleString()} reviews`);
                 if (it.sourceEvidence?.length) parts.push(`[${it.sourceEvidence.length} sources]`);
                 const url = it.websiteUrl || it.contact?.url;
                 if (url) parts.push(`<${url}>`);

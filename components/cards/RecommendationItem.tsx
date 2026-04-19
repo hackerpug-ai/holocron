@@ -104,7 +104,7 @@ export function RecommendationItem({
       )}
 
       {/* Rating row */}
-      {(item.tags && item.tags.length > 0) && (
+      {item.tags && item.tags.length > 0 && (
         <View className="flex-row flex-wrap gap-1.5 mt-2">
           {item.tags.map((tag) => (
             <View key={tag} className="px-2 py-0.5 rounded bg-muted">
@@ -118,9 +118,7 @@ export function RecommendationItem({
       {item.sourceScore != null && item.sourceScore > 0 && (
         <View className="flex-row items-center gap-1.5 mt-1.5">
           <View className="w-1.5 h-1.5 rounded-full bg-green-500" />
-          <Text className="text-xs text-muted-foreground">
-            Source score: {item.sourceScore}
-          </Text>
+          <Text className="text-xs text-muted-foreground">Source score: {item.sourceScore}</Text>
         </View>
       )}
 
@@ -164,12 +162,12 @@ export function RecommendationItem({
             className="flex-row items-center gap-1"
           >
             <Text className="text-xs font-medium text-primary">
-              {evidenceExpanded ? '▾' : '▸'} Research Sources ({item.sourceEvidence!.length})
+              {evidenceExpanded ? '▾' : '▸'} Research Sources ({item.sourceEvidence?.length})
             </Text>
           </Pressable>
           {evidenceExpanded && (
             <View className="mt-2 pl-1">
-              {item.sourceEvidence!.map((entry, ei) => (
+              {item.sourceEvidence?.map((entry, ei) => (
                 <EvidenceEntry
                   key={`${entry.source}-${ei}`}
                   entry={entry}

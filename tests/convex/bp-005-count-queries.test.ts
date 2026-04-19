@@ -5,8 +5,8 @@
  * AC-2: Uses efficient counting (index or counter)
  */
 
-import fs from 'fs';
-import path from 'path';
+import fs from 'node:fs';
+import path from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 describe('BP-005: Efficient Count Queries', () => {

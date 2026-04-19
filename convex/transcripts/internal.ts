@@ -314,7 +314,7 @@ function extractTranscriptFromContent(content: string): string | null {
 
   for (const pattern of transcriptPatterns) {
     const match = content.match(pattern);
-    if (match && match[1] && match[1].length > 100) {
+    if (match?.[1] && match[1].length > 100) {
       return match[1].trim();
     }
   }

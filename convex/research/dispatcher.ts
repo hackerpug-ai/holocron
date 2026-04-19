@@ -346,7 +346,10 @@ export function detectSpecialist(query: string): SpecialistType {
  * @param config - Track configuration
  * @returns Worker result
  */
-async function executeTrackWorker(ctx: ActionCtx, config: TrackConfig): Promise<TrackWorkerResult> {
+async function executeTrackWorker(
+  _ctx: ActionCtx,
+  config: TrackConfig
+): Promise<TrackWorkerResult> {
   const startTime = Date.now();
 
   try {
@@ -430,13 +433,13 @@ export function aggregateTrackResults(trackResults: TrackWorkerResult[]): {
   // Build track-specific results
   const results = successfulTracks.map((result) => ({
     track: result.track,
-    findings: result.results!.findings,
-    sourceCount: result.results!.structuredResults.length,
+    findings: result.results?.findings ?? '',
+    sourceCount: result.results?.structuredResults?.length ?? 0,
   }));
 
   // Count total sources
   const aggregatedSources = successfulTracks.reduce(
-    (sum, r) => sum + r.results!.structuredResults.length,
+    (sum, r) => sum + (r.results?.structuredResults?.length ?? 0),
     0
   );
 

@@ -113,7 +113,7 @@ export async function buildConversationContext(
     if (topics.length > 0) {
       let summaryText = `Earlier in this conversation, topics included: ${topics.join(', ')}`;
       if (summaryText.length > 500) {
-        summaryText = summaryText.slice(0, 497) + '...';
+        summaryText = `${summaryText.slice(0, 497)}...`;
       }
       conversationSummary = { role: 'system', content: summaryText };
     }
@@ -185,7 +185,7 @@ export async function buildConversationContext(
       if (document) {
         const truncatedContent =
           document.content.length > MAX_DOCUMENT_CONTEXT_CHARS
-            ? document.content.slice(0, MAX_DOCUMENT_CONTEXT_CHARS) + '...'
+            ? `${document.content.slice(0, MAX_DOCUMENT_CONTEXT_CHARS)}...`
             : document.content;
         documentContextParts.push(
           `--- Document: ${document.title} (ID: ${documentId}) ---\n${truncatedContent}`

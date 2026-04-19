@@ -67,7 +67,6 @@ export const getShopListings = query({
           return a.price - b.price;
         case 'dealScore':
           return (b.dealScore || 0) - (a.dealScore || 0);
-        case 'createdAt':
         default:
           return b.createdAt - a.createdAt;
       }
@@ -115,7 +114,6 @@ export const getShopListingsByStringId = query({
             return a.price - b.price;
           case 'dealScore':
             return (b.dealScore || 0) - (a.dealScore || 0);
-          case 'createdAt':
           default:
             return b.createdAt - a.createdAt;
         }

@@ -38,7 +38,7 @@ export function ImportButton({
       )}
       style={({ pressed }) => ({
         backgroundColor: pressed
-          ? themeColors.primary + 'cc' // 80% opacity
+          ? `${themeColors.primary}cc` // 80% opacity
           : themeColors.primary,
         width: 36,
         height: 36,

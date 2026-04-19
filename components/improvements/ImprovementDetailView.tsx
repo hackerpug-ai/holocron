@@ -1,4 +1,3 @@
-import * as React from 'react';
 import { Image, Pressable, ScrollView, View } from 'react-native';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Bot, CheckCircle2, Circle, GitFork, Sparkles } from '@/components/ui/icons';

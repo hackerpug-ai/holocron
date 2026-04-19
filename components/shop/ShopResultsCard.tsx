@@ -135,7 +135,7 @@ export function ShopResultsCard({
           </View>
 
           {/* Best Deal Highlight */}
-          {bestDeal && bestDeal.deal_score && bestDeal.deal_score >= 70 && (
+          {bestDeal?.deal_score && bestDeal.deal_score >= 70 && (
             <View className="mt-3 rounded-lg p-3 bg-success/10">
               <View className="flex-row items-center gap-2">
                 <View className="rounded-full bg-success/20 p-1.5">
