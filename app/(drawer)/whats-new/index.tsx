@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
-import { SubscriptionFeedScreen } from '@/components/subscriptions/SubscriptionFeedScreen';
 import { ScreenLayout } from '@/components/ui/screen-layout';
+import { NewsfeedScreen } from '@/components/whats-new/NewsfeedScreen';
 
 /**
  * What's New Screen
@@ -31,7 +31,7 @@ export default function WhatsNewScreen() {
       edges="bottom"
       testID="whats-new-layout"
     >
-      <SubscriptionFeedScreen testID="whats-new-feed" />
+      <NewsfeedScreen testID="whats-new-feed" />
     </ScreenLayout>
   );
 }
