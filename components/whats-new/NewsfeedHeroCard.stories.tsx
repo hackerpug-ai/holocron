@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react'
 import { View } from 'react-native'
 import { NewsfeedHeroCard } from './NewsfeedHeroCard'
 
-const meta: Meta<typeof NewsfeedHeroCard> = {
+const meta = {
   title: 'Components/NewsfeedHeroCard',
   component: NewsfeedHeroCard,
   parameters: {
@@ -65,7 +65,7 @@ const meta: Meta<typeof NewsfeedHeroCard> = {
       </View>
     ),
   ],
-}
+} satisfies Meta<typeof NewsfeedHeroCard>
 
 export default meta
 type Story = StoryObj<typeof NewsfeedHeroCard>

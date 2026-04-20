@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react'
 import { View } from 'react-native'
 import { NewsfeedFilterBar, type NewsfeedFilterBarOption } from './NewsfeedFilterBar'
 
-const meta: Meta<typeof NewsfeedFilterBar> = {
+const meta = {
   title: 'Components/NewsfeedFilterBar',
   component: NewsfeedFilterBar,
   parameters: {
@@ -43,7 +43,7 @@ const meta: Meta<typeof NewsfeedFilterBar> = {
       </View>
     ),
   ],
-}
+} satisfies Meta<typeof NewsfeedFilterBar>
 
 export default meta
 type Story = StoryObj<typeof NewsfeedFilterBar>
