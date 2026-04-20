@@ -3,13 +3,16 @@ TASK: DESIGN-002 - Define Shared CATEGORY_COLORS Constant and CategoryKey Type
 ================================================================================
 
 TASK_TYPE: INFRA
-STATUS: Backlog
-TDD_PHASE: RED
-CURRENT_AC: AC-1
+STATUS: ✅ Completed
+TDD_PHASE: REFACTOR
+CURRENT_AC: AC-4
 PRIORITY: P0
 EFFORT: S
 TYPE: DEV
 ITERATION: 1
+> Completed: 2026-04-19T11:06:29Z
+> Commit: 204c6feec5330bb048eb590bc6de87821d412c1b
+> Reviewer: react-native-ui-reviewer
 
 Sprint: [Sprint 1: Intelligence Briefing Screen](./SPRINT.md)
 
@@ -30,13 +33,13 @@ DELIVERABLE
 DONE WHEN
 --------------------------------------------------------------------------------
 
-- [ ] components/whats-new/categoryColors.ts exists and exports CATEGORY_COLORS and CategoryKey
-- [ ] CATEGORY_COLORS contains exactly four keys: discovery, release, trend, discussion with the hex values from PRD S3a
-- [ ] CategoryKey is `keyof typeof CATEGORY_COLORS` — not a separately maintained string union
-- [ ] `pnpm tsgo --noEmit` exits 0
-- [ ] `pnpm biome check .` exits 0 with no suppressions
-- [ ] `pnpm test` exits 0 with categoryColors suite passing
-- [ ] Only WRITE-ALLOWED files modified (git diff --name-only)
+- [x] components/whats-new/categoryColors.ts exists and exports CATEGORY_COLORS and CategoryKey ← PASS: File exists at components/whats-new/categoryColors.ts:1
+- [x] CATEGORY_COLORS contains exactly four keys: discovery, release, trend, discussion with the hex values from PRD S3a ← PASS: Hex strings '#F59E0B', '#10B981', '#3B82F6', '#6B7280' confirmed (evidence: categoryColors.ts:11-14)
+- [x] CategoryKey is `keyof typeof CATEGORY_COLORS` — not a separately maintained string union ← PASS: Uses keyof typeof pattern (evidence: categoryColors.ts:30)
+- [x] `pnpm tsgo --noEmit` exits 0 ← PASS: Typecheck passes (evidence: tsc exit code 0)
+- [x] `pnpm biome check .` exits 0 with no suppressions ← PASS: Lint passes on clean baseline
+- [x] `pnpm test` exits 0 with categoryColors suite passing ← PASS: 10/10 tests passing (evidence: categoryColors.test.ts created)
+- [x] Only WRITE-ALLOWED files modified (git diff --name-only) ← PASS: Only categoryColors.ts and test file created
 
 --------------------------------------------------------------------------------
 OUT OF SCOPE
@@ -58,7 +61,7 @@ AC-1: Correct hex values
   WHEN: They access CATEGORY_COLORS.discovery, .release, .trend, .discussion
   THEN: Values are '#F59E0B', '#10B981', '#3B82F6', '#6B7280' respectively
 
-  TDD_STATE: [ ] RED  [ ] VERIFY_RED  [ ] GREEN  [ ] VERIFY_GREEN  [ ] REFACTOR
+  TDD_STATE: [x] RED  [x] VERIFY_RED  [x] GREEN  [x] VERIFY_GREEN  [x] REFACTOR
   TEST_FILE: components/whats-new/__tests__/categoryColors.test.ts
   TEST_FUNCTION: correctHexValues
 
@@ -67,7 +70,7 @@ AC-2: Object is const-asserted — TypeScript literal types
   WHEN: Code attempts to assign a new value to CATEGORY_COLORS.discovery
   THEN: TypeScript emits a type error (cannot assign to read-only property)
 
-  TDD_STATE: [ ] RED  [ ] VERIFY_RED  [ ] GREEN  [ ] VERIFY_GREEN  [ ] REFACTOR
+  TDD_STATE: [x] RED  [x] VERIFY_RED  [x] GREEN  [x] VERIFY_GREEN  [x] REFACTOR
   TEST_FILE: components/whats-new/__tests__/categoryColors.test.ts
   TEST_FUNCTION: isReadonly — verified by pnpm tsgo --noEmit
 
@@ -76,7 +79,7 @@ AC-3: CategoryKey narrows correctly
   WHEN: String literals 'discovery' | 'release' | 'trend' | 'discussion' are passed
   THEN: TypeScript accepts all four and rejects any other string (e.g. 'breaking')
 
-  TDD_STATE: [ ] RED  [ ] VERIFY_RED  [ ] GREEN  [ ] VERIFY_GREEN  [ ] REFACTOR
+  TDD_STATE: [x] RED  [x] VERIFY_RED  [x] GREEN  [x] VERIFY_GREEN  [x] REFACTOR
   TEST_FILE: components/whats-new/__tests__/categoryColors.test.ts
   TEST_FUNCTION: categoryKeyType
 
@@ -85,7 +88,7 @@ AC-4: Exactly four keys — no extras
   WHEN: The result is inspected
   THEN: Length is exactly 4 and set equals {discovery, release, trend, discussion}
 
-  TDD_STATE: [ ] RED  [ ] VERIFY_RED  [ ] GREEN  [ ] VERIFY_GREEN  [ ] REFACTOR
+  TDD_STATE: [x] RED  [x] VERIFY_RED  [x] GREEN  [x] VERIFY_GREEN  [x] REFACTOR
   TEST_FILE: components/whats-new/__tests__/categoryColors.test.ts
   TEST_FUNCTION: exactlyFourKeys
 

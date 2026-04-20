@@ -108,39 +108,27 @@ describe('NewsfeedHeader', () => {
   });
 
   /**
-   * DESIGN-003 AC-1: Freshness dot has infinite pulse loop
-   * TDD_STATE: [✓] RED  [✓] VERIFY_RED  [✓] GREEN  [ ] VERIFY_GREEN  [ ] REFACTOR
+   * DESIGN-003 (revised): Freshness dot is static, not animated
+   * Pulse removed per user feedback — color alone conveys freshness.
    */
-  it('pulseAnimationLoopsInfinitely', () => {
+  it('freshnessDotIsStaticNotAnimated', () => {
     const source = readComponent();
 
-    // Should use Animated.loop for infinite animation
-    expect(source).toContain('Animated.loop');
-    expect(source).toContain('Animated.sequence');
+    // Should NOT use Animated API
+    expect(source).not.toContain('Animated.loop');
+    expect(source).not.toContain('Animated.timing');
 
-    // Should have opacity animation constants
-    expect(source).toContain('PULSE_DURATION');
-    expect(source).toContain('OPACITY_MIN');
-    expect(source).toContain('OPACITY_MAX');
-  });
+    // Should NOT have animation constants
+    expect(source).not.toContain('PULSE_DURATION');
+    expect(source).not.toContain('OPACITY_MIN');
 
-  /**
-   * DESIGN-003 AC-2: Animation uses native driver
-   * TDD_STATE: [✓] RED  [✓] VERIFY_RED  [✓] GREEN  [ ] VERIFY_GREEN  [ ] REFACTOR
-   */
-  it('animationUsesNativeDriver', () => {
-    const source = readComponent();
-
-    // Should use useNativeDriver for performance
-    expect(source).toContain('useNativeDriver: true');
-
-    // Should use native Animated API
-    expect(source).toContain('Animated.timing');
+    // Should NOT use useEffect for animation
+    expect(source).not.toContain('useEffect');
+    expect(source).not.toContain('useRef');
   });
 
   /**
    * DESIGN-003 AC-3: testID and accessibilityLabel preserved
-   * TDD_STATE: [✓] RED  [✓] VERIFY_RED  [✓] GREEN  [ ] VERIFY_GREEN  [ ] REFACTOR
    */
   it('preservesTestIdAndAccessibility', () => {
     const source = readComponent();
@@ -154,34 +142,15 @@ describe('NewsfeedHeader', () => {
   });
 
   /**
-   * DESIGN-003 AC-4: Animation cleans up on unmount
-   * TDD_STATE: [✓] RED  [✓] VERIFY_RED  [✓] GREEN  [ ] VERIFY_GREEN  [ ] REFACTOR
+   * DESIGN-003: Freshness dot uses plain View (not Animated.View)
    */
-  it('animationCleansUpOnUnmount', () => {
+  it('freshnessDotUsesPlainView', () => {
     const source = readComponent();
 
-    // Should use useEffect with cleanup
-    expect(source).toContain('useEffect');
-    expect(source).toContain('animation.start()');
-    expect(source).toContain('return () => animation.stop()');
-  });
+    // Should use plain View, not Animated.View
+    expect(source).not.toContain('Animated.View');
 
-  /**
-   * DESIGN-003 AC-5: Pulse timing is subtle
-   * TDD_STATE: [✓] RED  [✓] VERIFY_RED  [✓] GREEN  [ ] VERIFY_GREEN  [ ] REFACTOR
-   */
-  it('pulseTimingIsSubtle', () => {
-    const source = readComponent();
-
-    // Should have 750ms duration for each half-cycle (1500ms total)
-    expect(source).toContain('PULSE_DURATION = 750');
-
-    // Should use Easing.inOut for smooth animation
-    expect(source).toContain('Easing.inOut');
-    expect(source).toContain('Easing.ease');
-
-    // Should animate between 0.4 and 1.0 opacity
-    expect(source).toContain('OPACITY_MIN = 0.4');
-    expect(source).toContain('OPACITY_MAX = 1.0');
+    // Should render dot with static style (backgroundColor, no opacity animation)
+    expect(source).toContain('style={{ backgroundColor: freshColor }}');
   });
 });

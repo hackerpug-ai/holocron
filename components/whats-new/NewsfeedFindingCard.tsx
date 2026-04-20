@@ -89,7 +89,10 @@ function NewsfeedFindingCardComponent({
             </Text>
 
             <View className="flex-row items-center gap-2">
-              <ScoreDots score={score} />
+              <View className="flex-row items-center gap-1">
+                <Text className="text-xs text-muted-foreground">Signal</Text>
+                <ScoreDots score={score} />
+              </View>
               {publishedAt && (
                 <Text className="text-xs text-muted-foreground" testID={`${testID}-time`}>
                   {formatRelativeTime(publishedAt)}

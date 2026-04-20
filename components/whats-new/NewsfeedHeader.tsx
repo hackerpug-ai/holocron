@@ -7,8 +7,8 @@
  * @see .spec/prd/newsfeed-redesign/tasks/sprint-01-intelligence-briefing-screen/NEWSFEED-001-create-newsfeed-header-component.md
  */
 
-import React, { useEffect, useRef } from 'react';
-import { Animated, Easing, View } from 'react-native';
+import React from 'react';
+import { View } from 'react-native';
 import { Text } from '@/components/ui/text';
 
 const FRESHNESS_COLORS = {
@@ -54,36 +54,7 @@ interface NewsfeedHeaderProps {
   } | null;
 }
 
-// Animation constants for freshness dot pulse
-const PULSE_DURATION = 750; // ms per half-cycle (1500ms total)
-const OPACITY_MIN = 0.4;
-const OPACITY_MAX = 1.0;
-
 function NewsfeedHeaderComponent({ report }: NewsfeedHeaderProps) {
-  // Animation setup for freshness dot pulse
-  const pulseAnim = useRef(new Animated.Value(OPACITY_MIN)).current;
-
-  useEffect(() => {
-    const animation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: OPACITY_MAX,
-          duration: PULSE_DURATION,
-          useNativeDriver: true,
-          easing: Easing.inOut(Easing.ease),
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: OPACITY_MIN,
-          duration: PULSE_DURATION,
-          useNativeDriver: true,
-          easing: Easing.inOut(Easing.ease),
-        }),
-      ])
-    );
-    animation.start();
-    return () => animation.stop();
-  }, [pulseAnim]);
-
   if (!report) {
     return <View testID="newsfeed-header" />;
   }
@@ -98,14 +69,11 @@ function NewsfeedHeaderComponent({ report }: NewsfeedHeaderProps) {
     <View testID="newsfeed-header" className="flex-col gap-2 px-4 pt-4 pb-2">
       {/* Date and freshness row */}
       <View className="flex-row items-center gap-2">
-        {/* Freshness dot with pulse animation */}
-        <Animated.View
+        {/* Freshness dot — color indicates report age */}
+        <View
           testID="newsfeed-header-freshness-dot"
           className="h-2 w-2 rounded-full"
-          style={{
-            backgroundColor: freshColor,
-            opacity: pulseAnim,
-          }}
+          style={{ backgroundColor: freshColor }}
           accessibilityLabel={`Report freshness: ${
             freshColor === FRESHNESS_COLORS.fresh
               ? 'recent'

@@ -5,6 +5,7 @@
  * with existing hooks for a complete What's New experience.
  */
 
+import { useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import { FlatList, RefreshControl, View } from 'react-native';
 import { FeedSkeleton } from '@/components/subscriptions/FeedSkeleton';
@@ -46,6 +47,7 @@ interface NewsfeedScreenProps {
 export const NewsfeedScreen = React.memo(function NewsfeedScreen({
   testID = 'newsfeed-screen',
 }: NewsfeedScreenProps) {
+  const router = useRouter();
   const [selectedCategory, setSelectedCategory] = useState('all');
   const { findings, report, isLoading, isRefreshing, refresh } = useWhatsNewFeed({
     category: toCategoryArg(selectedCategory),
@@ -145,7 +147,7 @@ export const NewsfeedScreen = React.memo(function NewsfeedScreen({
                 <View className="mt-4">
                   <SocialPostsGroupCard
                     findings={socialFindings}
-                    onPress={() => {}}
+                    onPress={() => router.push('/whats-new/social')}
                     testID={`${testID}-social-group`}
                   />
                 </View>
