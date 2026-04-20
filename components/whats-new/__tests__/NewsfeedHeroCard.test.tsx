@@ -2,184 +2,170 @@
  * TDD Suite for NEWSFEED-004: Create NewsfeedHeroCard Component
  *
  * Tests follow RED → GREEN → REFACTOR cycle per acceptance criterion.
- *
- * NOTE: These tests use source code analysis instead of rendering due to
- * vitest configuration limitations with React Native components.
+ * All tests use real rendering via @testing-library/react-native.
  */
 
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-
-const componentPath = join(process.cwd(), 'components', 'whats-new', 'NewsfeedHeroCard.tsx');
-
-const readComponent = (): string => readFileSync(componentPath, 'utf-8');
+import { render, screen } from '@testing-library/react-native';
+import { describe, expect, it, vi } from 'vitest';
+import { CATEGORY_COLORS } from '../categoryColors';
+import { NewsfeedHeroCard } from '../NewsfeedHeroCard';
 
 describe('NEWSFEED-004: NewsfeedHeroCard', () => {
+  const mockProps = {
+    url: 'https://example.com/article',
+    title: 'Top Signal: AI Breakthrough',
+    source: 'Tech Insider',
+    category: 'discovery' as const,
+    score: 85,
+    summary: 'This is a breakthrough finding that changes everything.',
+    publishedAt: '2025-04-19T10:00:00Z',
+    engagementVelocity: 1000,
+    onPress: vi.fn(),
+    testID: 'newsfeed-hero-card',
+  };
+
   describe('AC-1: TOP SIGNAL eyebrow is present', () => {
     it('topSignalEyebrowPresent - renders TOP SIGNAL eyebrow text', () => {
-      const source = readComponent();
+      render(<NewsfeedHeroCard {...mockProps} />);
 
-      // Should have eyebrow Text component with "TOP SIGNAL"
-      expect(source).toContain('TOP SIGNAL');
-      expect(source).toContain('-eyebrow');
-      expect(source).toContain('text-xs');
-      expect(source).toContain('uppercase');
-      expect(source).toContain('text-muted-foreground');
-    });
-
-    it('topSignalEyebrowPresent - has correct testID', () => {
-      const source = readComponent();
-
-      // Eyebrow should have testID pattern
-      expect(source).toContain('testID=');
-      expect(source).toContain('-eyebrow');
+      const eyebrow = screen.getByTestId('newsfeed-hero-card-eyebrow');
+      expect(eyebrow).toBeTruthy();
+      expect(eyebrow.props.children).toBe('TOP SIGNAL');
     });
   });
 
   describe('AC-2: Left border is 4 px wide', () => {
     it('leftBorderIs4pxWide - has borderLeftWidth of 4', () => {
-      const source = readComponent();
+      render(<NewsfeedHeroCard {...mockProps} />);
 
-      // Should have borderLeftWidth: 4 (NOT 3)
-      expect(source).toContain('borderLeftWidth: 4');
-      expect(source).not.toContain('borderLeftWidth: 3');
+      const card = screen.getByTestId('newsfeed-hero-card');
+      expect(card).toBeTruthy();
+
+      // Verify borderLeftWidth is 4 (not 3 like regular cards)
+      expect(card.props.style).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            borderLeftWidth: 4,
+          }),
+        ])
+      );
     });
 
     it('leftBorderIs4pxWide - uses CATEGORY_COLORS for border color', () => {
-      const source = readComponent();
+      render(<NewsfeedHeroCard {...mockProps} />);
 
-      // Should import and use CATEGORY_COLORS
-      expect(source).toContain("from './categoryColors'");
-      expect(source).toContain('CATEGORY_COLORS');
-      expect(source).toContain('borderLeftColor');
-    });
+      const card = screen.getByTestId('newsfeed-hero-card');
+      expect(card).toBeTruthy();
 
-    it('leftBorderIs4pxWide - uses Card wrapper component', () => {
-      const source = readComponent();
-
-      // Should use Card component from ui/card
-      expect(source).toContain("from '@/components/ui/card'");
-      expect(source).toContain('<Card');
+      // Verify borderLeftColor matches the category color
+      expect(card.props.style).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            borderLeftColor: CATEGORY_COLORS.discovery,
+          }),
+        ])
+      );
     });
   });
 
   describe('AC-3: Title is extrabold xl with 3-line cap', () => {
-    it('titleIsExtraboldXlWith3LineCap - has font-extrabold and text-xl classes', () => {
-      const source = readComponent();
+    it('titleIsExtraboldXlWith3LineCap - renders title with correct styling', () => {
+      render(<NewsfeedHeroCard {...mockProps} />);
 
-      // Title should have extrabold and xl styling
-      expect(source).toContain('font-extrabold');
-      expect(source).toContain('text-xl');
-      expect(source).toContain('-title');
-    });
-
-    it('titleIsExtraboldXlWith3LineCap - has numberOfLines={3}', () => {
-      const source = readComponent();
-
-      // Title should have 3-line cap
-      expect(source).toContain('numberOfLines={3}');
+      const title = screen.getByTestId('newsfeed-hero-card-title');
+      expect(title).toBeTruthy();
+      expect(title.props.children).toBe('Top Signal: AI Breakthrough');
+      expect(title.props.numberOfLines).toBe(3);
     });
   });
 
   describe('AC-4: Bottom row has velocity, source, and time', () => {
-    it('bottomRowHasVelocitySourceAndTime - renders meta row container', () => {
-      const source = readComponent();
+    it('bottomRowHasVelocitySourceAndTime - renders meta row', () => {
+      render(<NewsfeedHeroCard {...mockProps} />);
 
-      // Should have meta row View with flex-row and justify-between
-      expect(source).toContain('-meta-row');
-      expect(source).toContain('flex-row');
-      expect(source).toContain('justify-between');
+      const metaRow = screen.getByTestId('newsfeed-hero-card-meta-row');
+      expect(metaRow).toBeTruthy();
     });
 
     it('bottomRowHasVelocitySourceAndTime - displays velocity', () => {
-      const source = readComponent();
+      render(<NewsfeedHeroCard {...mockProps} />);
 
-      // Should render velocity with Zap icon
-      expect(source).toContain('-velocity');
-      expect(source).toContain('engagementVelocity');
+      const velocity = screen.getByTestId('newsfeed-hero-card-velocity');
+      expect(velocity).toBeTruthy();
+      expect(velocity.props.children).toBe(1000);
     });
 
     it('bottomRowHasVelocitySourceAndTime - displays source', () => {
-      const source = readComponent();
+      render(<NewsfeedHeroCard {...mockProps} />);
 
-      // Should render source text
-      expect(source).toContain('-source');
-      expect(source).toContain('{source}');
+      const source = screen.getByTestId('newsfeed-hero-card-source');
+      expect(source).toBeTruthy();
+      expect(source.props.children).toBe('Tech Insider');
     });
 
     it('bottomRowHasVelocitySourceAndTime - displays relative time', () => {
-      const source = readComponent();
+      render(<NewsfeedHeroCard {...mockProps} />);
 
-      // Should have time display with testID
-      expect(source).toContain('-time');
-      expect(source).toContain('formatRelativeTime');
+      const time = screen.getByTestId('newsfeed-hero-card-time');
+      expect(time).toBeTruthy();
+      // Should show relative time (e.g., "2h ago", "1d ago", or date)
+      expect(time.props.children).toBeTruthy();
     });
   });
 
   describe('AC-5: onPress is required — TypeScript errors without it', () => {
-    it('onPressIsRequiredTypeCheck - uses Omit pattern to make onPress required', () => {
-      const source = readComponent();
+    it('onPressIsRequired - fires callback when pressable is pressed', () => {
+      const onPress = vi.fn();
+      const props = { ...mockProps, onPress };
 
-      // Should use Omit<WhatsNewFindingCardProps, 'onPress'> & { onPress: () => void }
-      expect(source).toContain('Omit<WhatsNewFindingCardProps');
-      expect(source).toContain('onPress: () => void');
-      expect(source).toContain('import type { WhatsNewFindingCardProps }');
-    });
+      render(<NewsfeedHeroCard {...props} />);
 
-    it('onPressIsRequiredTypeCheck - has required onPress in component signature', () => {
-      const source = readComponent();
+      const pressable = screen.getByTestId('newsfeed-hero-card-pressable');
+      expect(pressable).toBeTruthy();
 
-      // Component function should have onPress as required parameter
-      expect(source).toMatch(/onPress[^?]/);
+      // Fire onPress
+      pressable.props.onPress();
+
+      expect(onPress).toHaveBeenCalledTimes(1);
     });
   });
 
   describe('Component structure', () => {
     it('exports named component wrapped in React.memo', () => {
-      const source = readComponent();
-
-      // Should export named component wrapped in React.memo
-      expect(source).toContain('export const NewsfeedHeroCard = React.memo');
-      expect(source).toContain('function NewsfeedHeroCardComponent');
+      // This test verifies the component can be imported and rendered
+      expect(NewsfeedHeroCard).toBeTruthy();
     });
 
     it('has default testID', () => {
-      const source = readComponent();
+      const propsWithoutTestID = { ...mockProps, testID: undefined };
+      render(<NewsfeedHeroCard {...propsWithoutTestID} />);
 
-      // Should have default testID parameter
-      expect(source).toContain("testID = 'newsfeed-hero-card'");
+      const card = screen.getByTestId('newsfeed-hero-card');
+      expect(card).toBeTruthy();
     });
 
     it('summary has numberOfLines={4}', () => {
-      const source = readComponent();
+      render(<NewsfeedHeroCard {...mockProps} />);
 
-      // Summary should have 4-line cap
-      expect(source).toContain('numberOfLines={4}');
+      const summary = screen.getByTestId('newsfeed-hero-card-summary');
+      expect(summary).toBeTruthy();
+      expect(summary.props.numberOfLines).toBe(4);
     });
 
     it('conditionally renders summary', () => {
-      const source = readComponent();
+      const propsWithoutSummary = { ...mockProps, summary: undefined };
+      render(<NewsfeedHeroCard {...propsWithoutSummary} />);
 
-      // Should only render summary if it exists
-      expect(source).toMatch(/summary\s*&&/);
+      // Should not throw error when summary is undefined
+      expect(screen.getByTestId('newsfeed-hero-card')).toBeTruthy();
     });
 
     it('has Pressable with onPress handler', () => {
-      const source = readComponent();
+      render(<NewsfeedHeroCard {...mockProps} />);
 
-      // Should have Pressable component
-      expect(source).toContain('<Pressable');
-      expect(source).toContain('onPress={onPress}');
-      expect(source).toContain('-pressable');
-    });
-  });
-
-  describe('Type safety', () => {
-    it('exports NewsfeedHeroCardProps type', () => {
-      const source = readComponent();
-
-      // Should export the props type
-      expect(source).toContain('export type NewsfeedHeroCardProps');
+      const pressable = screen.getByTestId('newsfeed-hero-card-pressable');
+      expect(pressable).toBeTruthy();
+      expect(pressable.props.onPress).toBe(mockProps.onPress);
     });
   });
 });

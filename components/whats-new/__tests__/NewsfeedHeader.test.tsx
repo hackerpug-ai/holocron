@@ -2,17 +2,12 @@
  * TDD Suite: NEWSFEED-001 - NewsfeedHeader Component
  *
  * Tests follow RED → GREEN → REFACTOR cycle per acceptance criterion.
- *
- * NOTE: These tests use source code analysis instead of rendering due to
- * vitest configuration limitations with React Native components.
+ * All tests use real rendering via @testing-library/react-native.
  */
 
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-
-const componentPath = join(process.cwd(), 'components', 'whats-new', 'NewsfeedHeader.tsx');
-
-const readComponent = (): string => readFileSync(componentPath, 'utf-8');
+import { render, screen } from '@testing-library/react-native';
+import { describe, expect, it, vi } from 'vitest';
+import { NewsfeedHeader } from '../NewsfeedHeader';
 
 describe('NewsfeedHeader', () => {
   /**
@@ -20,15 +15,10 @@ describe('NewsfeedHeader', () => {
    * TDD_STATE: [✓] RED  [✓] VERIFY_RED  [✓] GREEN  [ ] VERIFY_GREEN  [ ] REFACTOR
    */
   it('nullReportRendersWithoutCrash', () => {
-    const source = readComponent();
+    render(<NewsfeedHeader report={null} />);
 
-    // Component should handle null report with early return
-    expect(source).toContain('if (!report)');
-    expect(source).toContain('testID="newsfeed-header"');
-
-    // Should export named component wrapped in React.memo
-    expect(source).toContain('export const NewsfeedHeader = React.memo');
-    expect(source).toContain("from '@/components/ui/text'");
+    const header = screen.getByTestId('newsfeed-header');
+    expect(header).toBeTruthy();
   });
 
   /**
@@ -36,17 +26,16 @@ describe('NewsfeedHeader', () => {
    * TDD_STATE: [✓] RED  [✓] VERIFY_RED  [✓] GREEN  [ ] VERIFY_GREEN  [ ] REFACTOR
    */
   it('dateFormattedCorrectly', () => {
-    const source = readComponent();
+    const report = {
+      createdAt: 1745078400000, // 2025-04-19
+      findingsCount: 12,
+    };
 
-    // Should have date formatting function
-    expect(source).toContain('function formatDate');
-    expect(source).toContain('toLocaleDateString');
-    expect(source).toContain('weekday:');
-    expect(source).toContain('month:');
-    expect(source).toContain('day:');
+    render(<NewsfeedHeader report={report} />);
 
-    // Should render date element with correct testID
-    expect(source).toContain('testID="newsfeed-header-date"');
+    const dateEl = screen.getByTestId('newsfeed-header-date');
+    expect(dateEl).toBeTruthy();
+    expect(dateEl.props.children).toMatch(/Sat, Apr \d+/i);
   });
 
   /**
@@ -54,20 +43,18 @@ describe('NewsfeedHeader', () => {
    * TDD_STATE: [✓] RED  [✓] VERIFY_RED  [✓] GREEN  [ ] VERIFY_GREEN  [ ] REFACTOR
    */
   it('freshnessDotGreenWhenRecent', () => {
-    const source = readComponent();
+    const report = {
+      createdAt: Date.now() - 7200000, // 2 hours ago
+      findingsCount: 5,
+    };
 
-    // Should have freshness color constants
-    expect(source).toContain('#22C55E'); // Green for fresh
-    expect(source).toContain('#F59E0B'); // Amber for aging
-    expect(source).toContain('#EF4444'); // Red for stale
+    render(<NewsfeedHeader report={report} />);
 
-    // Should have freshness color calculation function
-    expect(source).toContain('function freshnessColor');
-    expect(source).toContain('ageHours < 6');
-    expect(source).toContain('ageHours < 24');
-
-    // Should render freshness dot with testID
-    expect(source).toContain('testID="newsfeed-header-freshness-dot"');
+    const dot = screen.getByTestId('newsfeed-header-freshness-dot');
+    expect(dot).toBeTruthy();
+    expect(dot.props.style).toMatchObject(
+      expect.arrayContaining([expect.objectContaining({ backgroundColor: '#22C55E' })])
+    );
   });
 
   /**
@@ -75,12 +62,18 @@ describe('NewsfeedHeader', () => {
    * TDD_STATE: [✓] RED  [✓] VERIFY_RED  [✓] GREEN  [ ] VERIFY_GREEN  [ ] REFACTOR
    */
   it('freshnessDotAmberWhenAged', () => {
-    const source = readComponent();
+    const report = {
+      createdAt: Date.now() - 28800000, // 8 hours ago
+      findingsCount: 5,
+    };
 
-    // Freshness color function should handle aging state (6-24 hours)
-    expect(source).toContain('ageHours < 6');
-    expect(source).toContain('ageHours < 24');
-    expect(source).toContain('return FRESHNESS_COLORS.aging');
+    render(<NewsfeedHeader report={report} />);
+
+    const dot = screen.getByTestId('newsfeed-header-freshness-dot');
+    expect(dot).toBeTruthy();
+    expect(dot.props.style).toMatchObject(
+      expect.arrayContaining([expect.objectContaining({ backgroundColor: '#F59E0B' })])
+    );
   });
 
   /**
@@ -88,22 +81,18 @@ describe('NewsfeedHeader', () => {
    * TDD_STATE: [✓] RED  [✓] VERIFY_RED  [✓] GREEN  [ ] VERIFY_GREEN  [ ] REFACTOR
    */
   it('statsLineShowsCorrectCounts', () => {
-    const source = readComponent();
+    const report = {
+      createdAt: Date.now() - 3600000, // 1 hour ago
+      findingsCount: 12,
+      summaryJson: { sources: [{ url: 'https://example.com' }] },
+    };
 
-    // Should have relative time formatting
-    expect(source).toContain('function formatRelativeTime');
-    expect(source).toContain('days > 0');
-    expect(source).toContain('hours > 0');
-    expect(source).toContain('minutes > 0');
+    render(<NewsfeedHeader report={report} />);
 
-    // Should extract source count from summaryJson
-    expect(source).toContain('summaryJson');
-    expect(source).toContain('sources?.length');
-
-    // Should render stats line with correct testID
-    expect(source).toContain('testID="newsfeed-header-stats"');
-    expect(source).toContain('findingsCount');
-    expect(source).toContain('sources');
-    expect(source).toContain('Generated');
+    const stats = screen.getByTestId('newsfeed-header-stats');
+    expect(stats).toBeTruthy();
+    expect(stats.props.children).toContain('12 findings');
+    expect(stats.props.children).toContain('1 sources');
+    expect(stats.props.children).toContain('Generated');
   });
 });

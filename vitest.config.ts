@@ -1,7 +1,9 @@
 import path from 'node:path';
 import { defineConfig } from 'vitest/config';
+import { reactNative } from 'vitest-native';
 
 export default defineConfig({
+  plugins: [reactNative()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, '.'),
@@ -9,7 +11,6 @@ export default defineConfig({
   },
   test: {
     globals: true,
-    environment: 'node',
     include: [
       'tests/**/*.{test,spec}.{js,ts,tsx}',
       'convex/**/*.{test,spec}.{js,ts,tsx}',
