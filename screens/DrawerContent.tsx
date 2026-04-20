@@ -63,6 +63,8 @@ interface DrawerContentProps extends Omit<ViewProps, 'children'> {
   isDeleting?: boolean;
   /** Whether there are active long-running tasks */
   hasActiveTasks?: boolean;
+  /** Whether a server-side search is in progress */
+  isSearching?: boolean;
 }
 
 /**
@@ -98,6 +100,7 @@ export function DrawerContent({
   isRenaming = false,
   isDeleting = false,
   hasActiveTasks = false,
+  isSearching = false,
   className,
   ...props
 }: DrawerContentProps) {
@@ -169,13 +172,17 @@ export function DrawerContent({
     },
   ];
 
-  // Filter conversations based on search query (case-insensitive)
+  // Filter conversations based on search query (case-insensitive, title + lastMessage)
   const filteredConversations = useMemo(() => {
     const trimmedQuery = searchQuery.trim().toLowerCase();
     if (!trimmedQuery) {
       return conversations;
     }
-    return conversations.filter((c) => c.title.toLowerCase().includes(trimmedQuery));
+    return conversations.filter(
+      (c) =>
+        c.title.toLowerCase().includes(trimmedQuery) ||
+        (c.lastMessage && c.lastMessage.toLowerCase().includes(trimmedQuery))
+    );
   }, [conversations, searchQuery]);
 
   // Track if we're showing filtered (no results) vs empty (no conversations)
@@ -213,6 +220,14 @@ export function DrawerContent({
       return (
         <View className="items-center py-8" testID="drawer-content-loading">
           <Text className="text-muted-foreground text-sm">Loading conversations...</Text>
+        </View>
+      );
+    }
+
+    if (isSearching) {
+      return (
+        <View className="items-center py-8" testID="drawer-content-searching">
+          <Text className="text-muted-foreground text-sm">Searching conversations...</Text>
         </View>
       );
     }

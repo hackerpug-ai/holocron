@@ -2,7 +2,7 @@ import { useDrawerStatus } from '@react-navigation/drawer';
 import { useMutation, useQuery } from 'convex/react';
 import { useRouter } from 'expo-router';
 import { Drawer } from 'expo-router/drawer';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/button';
@@ -27,8 +27,28 @@ function CustomDrawerContent() {
     title: string;
   } | null>(null);
 
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => setDebouncedQuery(searchQuery), 300);
+    return () => {
+      if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    };
+  }, [searchQuery]);
+
   // Direct Convex useQuery for conversations list
   const conversations = useQuery(api.conversations.index.list, { limit: 50 }) ?? [];
+
+  // Server-side search (triggers when debounced query > 2 chars)
+  const searchEnabled = debouncedQuery.trim().length > 2;
+  const searchResults = useQuery(
+    api.conversations.search.search,
+    searchEnabled ? { query: debouncedQuery.trim() } : 'skip'
+  );
 
   // Active conversation tracking (local state)
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
@@ -137,8 +157,16 @@ function CustomDrawerContent() {
     router.push('/improvements');
   };
 
+  // Choose which conversations to display
+  const conversationsToMap = useMemo(() => {
+    if (searchEnabled && searchResults !== undefined) {
+      return searchResults as Doc<'conversations'>[];
+    }
+    return conversations as Doc<'conversations'>[];
+  }, [conversations, searchResults, searchEnabled]);
+
   // Map Convex documents to Conversation interface
-  const mappedConversations: Conversation[] = conversations.map((c: Doc<'conversations'>) => ({
+  const mappedConversations: Conversation[] = conversationsToMap.map((c: Doc<'conversations'>) => ({
     id: c._id,
     title: c.title,
     lastMessage: c.lastMessagePreview,
@@ -151,6 +179,9 @@ function CustomDrawerContent() {
     <DrawerContent
       conversations={mappedConversations}
       activeConversationId={activeConversationId ?? undefined}
+      searchQuery={searchQuery}
+      onSearchChange={setSearchQuery}
+      isSearching={searchEnabled && searchResults === undefined}
       isLoading={false}
       isRenaming={isRenaming}
       isDeleting={isDeleting}

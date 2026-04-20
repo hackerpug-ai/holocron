@@ -63,6 +63,7 @@ import type * as competitiveAnalysis_validators from "../competitiveAnalysis/val
 import type * as conversations_index from "../conversations/index.js";
 import type * as conversations_mutations from "../conversations/mutations.js";
 import type * as conversations_queries from "../conversations/queries.js";
+import type * as conversations_search from "../conversations/search.js";
 import type * as creators_actions from "../creators/actions.js";
 import type * as creators_index from "../creators/index.js";
 import type * as creators_internal from "../creators/internal.js";
@@ -300,6 +301,7 @@ declare const fullApi: ApiFromModules<{
   "conversations/index": typeof conversations_index;
   "conversations/mutations": typeof conversations_mutations;
   "conversations/queries": typeof conversations_queries;
+  "conversations/search": typeof conversations_search;
   "creators/actions": typeof creators_actions;
   "creators/index": typeof creators_index;
   "creators/internal": typeof creators_internal;

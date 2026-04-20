@@ -15,7 +15,8 @@ export default defineSchema({
     pendingSince: v.optional(v.number()), // epoch ms; used for 30-min expiry
     createdAt: v.number(),
     updatedAt: v.number(),
-  }).index('by_updated', ['updatedAt']),
+  }).index('by_updated', ['updatedAt'])
+    .searchIndex('search_title', { searchField: 'title' }),
 
   // Agent telemetry for intent classification (INT-001)
   agentTelemetry: defineTable({
@@ -74,7 +75,8 @@ export default defineSchema({
     toolCallId: v.optional(v.string()),
     reasoning: v.optional(v.string()), // AGENT-01: Store LLM reasoning for transparency
     createdAt: v.number(),
-  }).index('by_conversation', ['conversationId', 'createdAt']),
+  }).index('by_conversation', ['conversationId', 'createdAt'])
+    .searchIndex('search_content', { searchField: 'content' }),
 
   documents: defineTable({
     title: v.string(),
