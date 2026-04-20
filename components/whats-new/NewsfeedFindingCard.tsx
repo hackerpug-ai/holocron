@@ -29,7 +29,7 @@ function formatRelativeTime(dateStr: string): string {
 }
 
 function ScoreDots({ score }: { score?: number }) {
-  const filled = score !== undefined ? Math.round((score / 100) * 5) : 0;
+  const filled = score != null ? Math.min(5, Math.max(0, Math.round((score / 10) * 5))) : 0;
   return (
     <Text className="text-xs text-muted-foreground" testID="newsfeed-finding-card-score-dots">
       {'●'.repeat(filled)}

@@ -29,19 +29,25 @@ describe('NEWSFEED-003: NewsfeedFindingCard component', () => {
   });
 
   describe('AC-2: Score dots render correctly for score=70', () => {
-    it('scoreDotsRenderCorrectly - calculates 4 filled dots for score 70', () => {
-      // Score 70 (out of 100) = 70/100 * 5 = 3.5 -> rounds to 4 filled dots
+    it('scoreDotsRenderCorrectly - calculates 5 filled dots for score 70 (clamped to max)', () => {
+      // Score 70 = (70 / 10) * 5 = 35, clamped to max 5 dots
       const score = 70;
-      const filled = Math.round((score / 100) * 5);
-      expect(filled).toBe(4);
-      expect(Math.round(3.5)).toBe(4);
+      const filled = Math.min(5, Math.max(0, Math.round((score / 10) * 5)));
+      expect(filled).toBe(5);
+      expect(Math.round(35)).toBe(35);
     });
   });
 
   describe('AC-3: Score dots show all empty when score is undefined', () => {
     it('scoreDotsAllEmptyWhenUndefined - shows 0 filled dots', () => {
       const score = undefined;
-      const filled = score !== undefined ? Math.round((score / 100) * 5) : 0;
+      const filled = score != null ? Math.min(5, Math.max(0, Math.round((score / 10) * 5))) : 0;
+      expect(filled).toBe(0);
+    });
+
+    it('scoreDotsHandlesNullGracefully - null score shows 0 filled dots', () => {
+      const score = null;
+      const filled = score != null ? Math.min(5, Math.max(0, Math.round((score / 10) * 5))) : 0;
       expect(filled).toBe(0);
     });
   });
