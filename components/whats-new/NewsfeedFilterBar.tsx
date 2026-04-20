@@ -40,17 +40,23 @@ export const NewsfeedFilterBar = React.memo(
         }}
         accessibilityRole="radio"
         accessibilityState={{ selected: selected === 'all' }}
-        className={cn(
-          'rounded-full px-3 py-1.5 flex-row items-center gap-1.5',
-          selected === 'all'
-            ? 'bg-primary text-primary-foreground'
-            : 'bg-muted text-muted-foreground'
-        )}
       >
-        <Text className="text-sm font-medium">ALL</Text>
-        <View testID="filter-pill-all-count">
-          <Text className="text-xs font-bold">{totalCount}</Text>
-        </View>
+        {({ pressed }) => (
+          <View
+            className={cn(
+              'rounded-full px-3 py-1.5 flex-row items-center gap-1.5',
+              selected === 'all'
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-muted text-muted-foreground',
+              pressed && 'opacity-70'
+            )}
+          >
+            <Text className="text-sm font-medium">ALL</Text>
+            <View testID="filter-pill-all-count">
+              <Text className="text-xs font-bold">{totalCount}</Text>
+            </View>
+          </View>
+        )}
       </Pressable>
     );
 
@@ -78,21 +84,29 @@ export const NewsfeedFilterBar = React.memo(
               }}
               accessibilityRole="radio"
               accessibilityState={{ selected: isActive }}
-              className={cn(
-                'rounded-full px-3 py-1.5 flex-row items-center gap-1.5',
-                isActive ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
-              )}
             >
-              {Icon && (
-                <Icon
-                  size={14}
-                  className={isActive ? 'text-primary-foreground' : 'text-muted-foreground'}
-                />
+              {({ pressed }) => (
+                <View
+                  className={cn(
+                    'rounded-full px-3 py-1.5 flex-row items-center gap-1.5',
+                    isActive
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted text-muted-foreground',
+                    pressed && 'opacity-70'
+                  )}
+                >
+                  {Icon && (
+                    <Icon
+                      size={14}
+                      className={isActive ? 'text-primary-foreground' : 'text-muted-foreground'}
+                    />
+                  )}
+                  <Text className="text-sm font-medium">{option.label}</Text>
+                  <View testID={`filter-pill-${option.key}-count`}>
+                    <Text className="text-xs font-bold">{option.count}</Text>
+                  </View>
+                </View>
               )}
-              <Text className="text-sm font-medium">{option.label}</Text>
-              <View testID={`filter-pill-${option.key}-count`}>
-                <Text className="text-xs font-bold">{option.count}</Text>
-              </View>
             </Pressable>
           );
         })}

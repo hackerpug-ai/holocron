@@ -15,11 +15,13 @@ import { Zap } from '@/components/ui/icons';
 import { Card } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { CATEGORY_COLORS } from './categoryColors';
+import { SkeletonCard } from './SkeletonCard';
 import type { WhatsNewFindingCardProps } from './WhatsNewFindingCard';
 
 // onPress is required on HeroCard (override the optional from base props)
 export type NewsfeedHeroCardProps = Omit<WhatsNewFindingCardProps, 'onPress'> & {
   onPress: () => void;
+  isLoading?: boolean;
 };
 
 function formatRelativeTime(dateStr: string): string {
@@ -45,7 +47,11 @@ function NewsfeedHeroCardComponent({
   engagementVelocity,
   testID = 'newsfeed-hero-card',
   onPress,
+  isLoading,
 }: NewsfeedHeroCardProps) {
+  if (isLoading) {
+    return <SkeletonCard testID="newsfeed-hero-card-skeleton" variant="hero" />;
+  }
   return (
     <Card
       testID={testID}

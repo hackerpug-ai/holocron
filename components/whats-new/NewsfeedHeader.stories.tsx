@@ -9,7 +9,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'Editorial date-and-stats header for Intelligence Briefing. Displays report date, color-coded freshness dot, finding count, source count, and relative generation time.',
+          'Editorial date-and-stats header for Intelligence Briefing. Displays report date, color-coded freshness dot with breathing pulse animation, finding count, source count, and relative generation time. The freshness dot animates with a subtle pulse (opacity 0.4-1.0, 1500ms cycle) to draw attention to report recency.',
       },
     },
   },
@@ -51,7 +51,7 @@ export const Fresh: Story = {
   parameters: {
     docs: {
       description: {
-        story: 'Fresh report (< 6 hours old) with green freshness dot.',
+        story: 'Fresh report (< 6 hours old) with green freshness dot and subtle pulse animation.',
       },
     },
   },
@@ -157,7 +157,7 @@ export const FreshnessStates: Story = {
   parameters: {
     docs: {
       description: {
-        story: 'Shows all freshness states side-by-side for comparison.',
+        story: 'Shows all freshness states side-by-side for comparison. Observe the breathing pulse animation on each freshness dot - all dots pulse regardless of freshness state to draw attention to report recency.',
       },
     },
   },

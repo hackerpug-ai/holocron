@@ -84,3 +84,4 @@ PHASE*.md
 *.old
 *.tmp
 *~
+.claude/worktrees/

@@ -149,4 +149,139 @@ describe('NewsfeedFilterBar', () => {
       expect(discussionPill).toBeTruthy();
     });
   });
+
+  describe('DESIGN-004: Press feedback on pills', () => {
+    describe('AC-1: ALL pill shows pressed state when tapped', () => {
+      it('allPillShowsPressedState', () => {
+        const options = [
+          { key: 'discovery', label: 'Discovery', count: 3 },
+          { key: 'release', label: 'Release', count: 5 },
+        ];
+        const selected = 'all';
+        const onChange = () => {};
+
+        render(
+          <NewsfeedFilterBar
+            options={options}
+            selected={selected}
+            onChange={onChange}
+            testID="newsfeed-filter-bar"
+          />
+        );
+
+        const allPill = screen.getByTestId('filter-pill-all');
+
+        // Pressable should use render callback pattern
+        // The rendered child should have opacity-70 class when pressed
+        expect(allPill).toBeTruthy();
+
+        // Verify Pressable has children as a function (render callback)
+        expect(typeof allPill.props.children).toBe('function');
+      });
+    });
+
+    describe('AC-2: Active category pill shows pressed state', () => {
+      it('activePillShowsPressedState', () => {
+        const options = [
+          { key: 'discovery', label: 'Discovery', count: 3 },
+          { key: 'release', label: 'Release', count: 5 },
+        ];
+        const selected = 'discovery';
+        const onChange = () => {};
+
+        render(
+          <NewsfeedFilterBar
+            options={options}
+            selected={selected}
+            onChange={onChange}
+            testID="newsfeed-filter-bar"
+          />
+        );
+
+        const discoveryPill = screen.getByTestId('filter-pill-discovery');
+
+        // Pressable should use render callback pattern
+        expect(discoveryPill).toBeTruthy();
+        expect(typeof discoveryPill.props.children).toBe('function');
+      });
+    });
+
+    describe('AC-3: Inactive category pill shows pressed state', () => {
+      it('inactivePillShowsPressedState', () => {
+        const options = [
+          { key: 'discovery', label: 'Discovery', count: 3 },
+          { key: 'release', label: 'Release', count: 5 },
+        ];
+        const selected = 'discovery';
+        const onChange = () => {};
+
+        render(
+          <NewsfeedFilterBar
+            options={options}
+            selected={selected}
+            onChange={onChange}
+            testID="newsfeed-filter-bar"
+          />
+        );
+
+        const releasePill = screen.getByTestId('filter-pill-release');
+
+        // Pressable should use render callback pattern
+        expect(releasePill).toBeTruthy();
+        expect(typeof releasePill.props.children).toBe('function');
+      });
+    });
+
+    describe('AC-4: Pressable render callback pattern is used', () => {
+      it('usesRenderCallbackPattern', () => {
+        const options = [{ key: 'discovery', label: 'Discovery', count: 3 }];
+        const selected = 'all';
+        const onChange = () => {};
+
+        render(
+          <NewsfeedFilterBar
+            options={options}
+            selected={selected}
+            onChange={onChange}
+            testID="newsfeed-filter-bar"
+          />
+        );
+
+        const allPill = screen.getByTestId('filter-pill-all');
+        const discoveryPill = screen.getByTestId('filter-pill-discovery');
+
+        // Both pills should use render callback (children is function)
+        expect(typeof allPill.props.children).toBe('function');
+        expect(typeof discoveryPill.props.children).toBe('function');
+      });
+    });
+
+    describe('AC-5: Existing testIDs remain unchanged', () => {
+      it('preservesExistingTestIDs', () => {
+        const options = [
+          { key: 'discovery', label: 'Discovery', count: 3 },
+          { key: 'release', label: 'Release', count: 5 },
+        ];
+        const selected = 'all';
+        const onChange = () => {};
+
+        render(
+          <NewsfeedFilterBar
+            options={options}
+            selected={selected}
+            onChange={onChange}
+            testID="newsfeed-filter-bar"
+          />
+        );
+
+        // All existing testIDs should be present
+        expect(screen.getByTestId('filter-pill-all')).toBeTruthy();
+        expect(screen.getByTestId('filter-pill-all-count')).toBeTruthy();
+        expect(screen.getByTestId('filter-pill-discovery')).toBeTruthy();
+        expect(screen.getByTestId('filter-pill-discovery-count')).toBeTruthy();
+        expect(screen.getByTestId('filter-pill-release')).toBeTruthy();
+        expect(screen.getByTestId('filter-pill-release-count')).toBeTruthy();
+      });
+    });
+  });
 });

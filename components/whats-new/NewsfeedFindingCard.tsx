@@ -14,6 +14,7 @@ import React from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { CATEGORY_COLORS } from './categoryColors';
+import { SkeletonCard } from './SkeletonCard';
 import type { WhatsNewFindingCardProps } from './WhatsNewFindingCard';
 
 function formatRelativeTime(dateStr: string): string {
@@ -28,13 +29,30 @@ function formatRelativeTime(dateStr: string): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+function getScoreTier(score: number | undefined): {
+  colorClass: string;
+  tierLabel: string;
+} {
+  if (score == null) return { colorClass: 'text-muted-foreground', tierLabel: 'not available' };
+  if (score >= 80) return { colorClass: 'text-success', tierLabel: 'high quality' };
+  if (score >= 50) return { colorClass: 'text-warning', tierLabel: 'medium quality' };
+  return { colorClass: 'text-destructive', tierLabel: 'low quality' };
+}
+
 function ScoreDots({ score }: { score?: number }) {
   const filled = score != null ? Math.min(5, Math.max(0, Math.round((score / 10) * 5))) : 0;
+  const { colorClass, tierLabel } = getScoreTier(score);
+  const a11yLabel = score != null ? `Score: ${score}, ${tierLabel}` : 'Score not available';
+
   return (
-    <Text className="text-xs text-muted-foreground" testID="newsfeed-finding-card-score-dots">
-      {'●'.repeat(filled)}
-      {'○'.repeat(5 - filled)}
-    </Text>
+    <View
+      testID="newsfeed-finding-card-score-dots"
+      accessibilityLabel={a11yLabel}
+      className="flex-row items-center"
+    >
+      <Text className={`text-xs ${colorClass}`}>{'●'.repeat(filled)}</Text>
+      <Text className="text-xs text-muted-foreground">{'○'.repeat(5 - filled)}</Text>
+    </View>
   );
 }
 
@@ -48,7 +66,15 @@ function NewsfeedFindingCardComponent({
   engagementVelocity,
   testID = 'newsfeed-finding-card',
   onPress,
-}: WhatsNewFindingCardProps) {
+  isLoading,
+}: WhatsNewFindingCardProps & { isLoading?: boolean }) {
+  if (isLoading) {
+    return (
+      <View style={styles.container}>
+        <SkeletonCard testID="newsfeed-finding-card-skeleton" variant="finding" />
+      </View>
+    );
+  }
   return (
     <View
       testID={testID}

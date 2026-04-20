@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react'
 import { View } from 'react-native'
+import { within, waitFor } from '@storybook/testing-library'
 import { NewsfeedFilterBar, type NewsfeedFilterBarOption } from './NewsfeedFilterBar'
 
 const meta = {
@@ -194,5 +195,33 @@ export const SingleCategory: Story = {
         story: 'Single category available (minimal state).',
       },
     },
+  },
+}
+
+export const PressFeedback: Story = {
+  args: {
+    options: [
+      { key: 'discovery', label: 'Discovery', count: 5 },
+      { key: 'release', label: 'Release', count: 3 },
+      { key: 'trend', label: 'Trend', count: 2 },
+      { key: 'discussion', label: 'Discussion', count: 1 },
+    ],
+    selected: 'all',
+  },
+  parameters: {
+    docs: {
+      description: {
+        story: 'Showcases press feedback on pills. When pressed, pills show opacity-70 for immediate tactile visual feedback.',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    // This story showcases the press feedback - the visual dimming when pressing pills
+    // The actual press feedback is best experienced interactively in Storybook
+    await waitFor(() => {
+      const allPill = canvas.getByTestId('filter-pill-all')
+      expect(allPill).toBeTruthy()
+    })
   },
 }

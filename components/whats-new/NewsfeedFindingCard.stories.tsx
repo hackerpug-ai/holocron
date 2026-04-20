@@ -314,6 +314,59 @@ export const NoEngagementVelocity: Story = {
   },
 }
 
+export const ScoreColorTiers: Story = {
+  render: () => {
+    const findings = [
+      {
+        title: 'High-quality finding with exceptional score',
+        source: 'Research Journal',
+        category: 'discovery' as const,
+        score: 92,
+        summary: 'This finding demonstrates exceptional quality and reliability.',
+        publishedAt: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
+      },
+      {
+        title: 'Medium-quality finding with moderate score',
+        source: 'Tech Blog',
+        category: 'release' as const,
+        score: 65,
+        summary: 'This finding shows moderate quality with room for improvement.',
+        publishedAt: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
+      },
+      {
+        title: 'Low-quality finding with poor score',
+        source: 'News Site',
+        category: 'trend' as const,
+        score: 35,
+        summary: 'This finding has limited reliability and should be verified.',
+        publishedAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
+      },
+      {
+        title: 'Finding without score',
+        source: 'Community Forum',
+        category: 'discussion' as const,
+        summary: 'This finding has not been scored yet.',
+        publishedAt: new Date(Date.now() - 7 * 60 * 60 * 1000).toISOString(),
+      },
+    ]
+
+    return (
+      <View className="gap-0">
+        {findings.map((finding, index) => (
+          <NewsfeedFindingCard key={index} {...finding} />
+        ))}
+      </View>
+    )
+  },
+  parameters: {
+    docs: {
+      description: {
+        story: 'Shows all score color tiers: high (green/success), medium (amber/warning), low (red/destructive), and no score (muted).',
+      },
+    },
+  },
+}
+
 export const LongTitle: Story = {
   args: {
     title: 'Comprehensive guide to understanding advanced React performance optimization techniques including memoization, code splitting, lazy loading, and efficient state management strategies for large-scale applications',

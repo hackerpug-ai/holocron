@@ -168,4 +168,64 @@ describe('NEWSFEED-004: NewsfeedHeroCard', () => {
       expect(pressable.props.onPress).toBe(mockProps.onPress);
     });
   });
+
+  describe('DESIGN-005: Skeleton loading states', () => {
+    describe('AC-1: Skeleton renders when isLoading=true', () => {
+      it('skeletonRendersWhenLoading - renders skeleton card when isLoading is true', () => {
+        const props = { ...mockProps, isLoading: true };
+
+        render(<NewsfeedHeroCard {...props} />);
+
+        const skeleton = screen.getByTestId('newsfeed-hero-card-skeleton');
+        expect(skeleton).toBeTruthy();
+        expect(skeleton.props.accessibilityLabel).toBe('Loading content');
+      });
+
+      it('skeletonHasCorrectStyles - skeleton has muted left border and card background', () => {
+        const props = { ...mockProps, isLoading: true };
+
+        render(<NewsfeedHeroCard {...props} />);
+
+        const skeleton = screen.getByTestId('newsfeed-hero-card-skeleton');
+        expect(skeleton).toBeTruthy();
+
+        // Verify skeleton has the correct className for hero card
+        expect(skeleton.props.className).toContain('border-l-4');
+        expect(skeleton.props.className).toContain('border-l-muted');
+        expect(skeleton.props.className).toContain('bg-card');
+      });
+    });
+
+    describe('AC-2: Normal card renders when isLoading=false or undefined', () => {
+      it('normalCardRendersWhenNotLoading - renders normal card when isLoading is false', () => {
+        const props = { ...mockProps, isLoading: false };
+
+        render(<NewsfeedHeroCard {...props} />);
+
+        const card = screen.getByTestId('newsfeed-hero-card');
+        expect(card).toBeTruthy();
+
+        const skeleton = screen.queryByTestId('newsfeed-hero-card-skeleton');
+        expect(skeleton).toBeNull();
+      });
+
+      it('normalCardRendersWhenLoadingUndefined - renders normal card when isLoading is undefined', () => {
+        render(<NewsfeedHeroCard {...mockProps} />);
+
+        const card = screen.getByTestId('newsfeed-hero-card');
+        expect(card).toBeTruthy();
+
+        const skeleton = screen.queryByTestId('newsfeed-hero-card-skeleton');
+        expect(skeleton).toBeNull();
+      });
+
+      it('normalCardShowsContent - renders TOP SIGNAL eyebrow, title, and source when not loading', () => {
+        render(<NewsfeedHeroCard {...mockProps} />);
+
+        expect(screen.getByText('TOP SIGNAL')).toBeTruthy();
+        expect(screen.getByText('Top Signal: AI Breakthrough')).toBeTruthy();
+        expect(screen.getByText('Tech Insider')).toBeTruthy();
+      });
+    });
+  });
 });
