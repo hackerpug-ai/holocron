@@ -747,27 +747,11 @@ function renderResultCard(
     );
   }
 
-  // Handle deep research result card — created by createResearchDocument after session completes
+  // Suppress deep_research_result — the deep_research_loading card already polls
+  // session status and transforms into a DocumentContextCard on completion.
+  // createResearchDocument also posts this message, creating a duplicate.
   if (cardType === 'deep_research_result') {
-    const documentId = (card_data.document_id as string) ?? '';
-    const topic = (card_data.topic as string) ?? 'Research Complete';
-
-    if (documentId) {
-      return (
-        <DocumentContextCard
-          data={{
-            card_type: 'document_context',
-            document_id: documentId,
-            title: topic,
-            category: 'research',
-            scope: 'full',
-            excerpt: ((card_data.key_findings as string[]) ?? []).join('\n'),
-          }}
-          onNavigateToDocument={onDocumentContextNavigate}
-          testID={`${testID}-document-context`}
-        />
-      );
-    }
+    return null;
   }
 
   // Handle final result card - render as DocumentContextCard
