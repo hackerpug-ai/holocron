@@ -209,6 +209,11 @@ export function ArticleDetail({
       isNarrationMode && convexDocId ? { documentId: convexDocId } : 'skip'
     ) ?? [];
 
+  const audioJob = useQuery(
+    api.audio.queries.getJob,
+    isNarrationMode && convexDocId ? { documentId: convexDocId } : 'skip'
+  );
+
   const { isLoading: isAudioLoading } = useAudioPlayback(segments, narration, {
     title: article.title,
   });
@@ -223,10 +228,10 @@ export function ArticleDetail({
       0
     );
     narration.onParagraphReady(completedCount, totalDuration / 1000);
-    if (completedCount === segments.length && segments.length > 0) {
+    if (audioJob && completedCount === audioJob.totalSegments && audioJob.totalSegments > 0) {
       narration.onAllReady();
     }
-  }, [segments, isNarrationMode, narration.onParagraphReady, narration.onAllReady]);
+  }, [segments, isNarrationMode, audioJob, narration.onAllReady, narration.onParagraphReady]);
 
   useEffect(() => {
     paragraphOffsets.current.clear();
@@ -272,6 +277,7 @@ export function ArticleDetail({
 
   const generateAction = useAction(api.audio.actions.generateForDocument);
   const regenerateAction = useAction(api.audio.actions.regenerateForDocument);
+  const retryFailedAction = useAction(api.audio.actions.retryFailedSegments);
 
   // Handle link press with URL validation - opens in in-app WebView
   const handleLinkPress = (url: string): boolean => {
@@ -356,10 +362,7 @@ export function ArticleDetail({
     narration.enterNarrationMode();
     if (convexDocId) {
       try {
-        const result = await generateAction({ documentId: convexDocId });
-        if (result.segmentCount > 0) {
-          narration.onAllReady();
-        }
+        await generateAction({ documentId: convexDocId });
         // Restore saved progress if available
         const saved = await loadNarrationProgress(convexDocId);
         if (
@@ -655,8 +658,13 @@ export function ArticleDetail({
           <NarrationControlBar
             narration={narration}
             isVisible={isNarrationMode}
+            isSegmentLoading={isAudioLoading}
             onRegenerate={() => {
               if (convexDocId) regenerateAction({ documentId: convexDocId });
+            }}
+            audioJob={audioJob}
+            onRetryFailed={() => {
+              if (convexDocId) retryFailedAction({ documentId: convexDocId });
             }}
           />
 

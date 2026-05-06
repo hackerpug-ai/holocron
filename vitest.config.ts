@@ -17,6 +17,7 @@ export default defineConfig({
       'hooks/**/*.{test,spec}.{js,ts}',
       'components/**/*.{test,spec}.{js,ts,tsx}',
     ],
+    setupFiles: ['tests/setup/react-native.ts'],
     exclude: ['node_modules', 'dist', '.expo'],
   },
 });
