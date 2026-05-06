@@ -467,7 +467,8 @@ function renderResultCard(
     | 'document_full'
     | 'clarification'
     | 'podcast_transcription_loading'
-    | 'podcast_transcription_complete';
+    | 'podcast_transcription_complete'
+    | 'deep_research_result';
 
   // Handle shop results card
   if (cardType === 'shop_results') {
@@ -744,6 +745,29 @@ function renderResultCard(
         onDocumentContextNavigate={onDocumentContextNavigate}
       />
     );
+  }
+
+  // Handle deep research result card — created by createResearchDocument after session completes
+  if (cardType === 'deep_research_result') {
+    const documentId = (card_data.document_id as string) ?? '';
+    const topic = (card_data.topic as string) ?? 'Research Complete';
+
+    if (documentId) {
+      return (
+        <DocumentContextCard
+          data={{
+            card_type: 'document_context',
+            document_id: documentId,
+            title: topic,
+            category: 'research',
+            scope: 'full',
+            excerpt: ((card_data.key_findings as string[]) ?? []).join('\n'),
+          }}
+          onNavigateToDocument={onDocumentContextNavigate}
+          testID={`${testID}-document-context`}
+        />
+      );
+    }
   }
 
   // Handle final result card - render as DocumentContextCard
