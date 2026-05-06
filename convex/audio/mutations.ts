@@ -215,6 +215,7 @@ export const completeSegment = internalMutation({
             route: `/document/${job.documentId}`,
             referenceId: job.documentId,
             read: false,
+            importance: 'normal',
             createdAt: Date.now(),
           });
         }

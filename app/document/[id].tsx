@@ -32,7 +32,7 @@ import { DocumentActionsSheet } from '@/components/documents/DocumentActionsShee
 import { TextSelectionSheet } from '@/components/documents/TextSelectionSheet';
 import { MarkdownView } from '@/components/markdown/MarkdownView';
 import { parseMarkdown } from '@/components/markdown/parsers';
-import { useAudioPlayback } from '@/components/narration/hooks/useAudioPlayback';
+import { type AudioSegment, useAudioPlayback } from '@/components/narration/hooks/useAudioPlayback';
 import {
   clearNarrationProgress,
   loadNarrationProgress,
@@ -177,18 +177,34 @@ export default function DocumentRoute() {
     isNarrationMode && documentId ? { documentId } : 'skip'
   );
 
-  const audioSegments: import('@/components/narration/hooks/useAudioPlayback').AudioSegment[] =
-    segments.map((s: any) => ({
+  const audioSegments: AudioSegment[] = segments.map(
+    (s: {
+      _id: AudioSegment['_id'];
+      paragraphIndex: number;
+      status: string;
+      audioUrl: string | null;
+      durationMs?: number | null;
+    }) => ({
       _id: s._id,
       paragraphIndex: s.paragraphIndex,
       status: s.status,
       audioUrl: s.audioUrl,
       durationMs: s.durationMs ?? undefined,
-    }));
+    })
+  );
 
-  const { isLoading: isSegmentLoading } = useAudioPlayback(audioSegments, narration, {
+  const { isLoading: isAudioPlayerLoading } = useAudioPlayback(audioSegments, narration, {
     title: document?.title ?? 'Narration',
   });
+  const activeAudioSegment = audioSegments.find(
+    (segment) => segment.paragraphIndex === narration.state.activeParagraphIndex
+  );
+  const isActiveSegmentWaitingForAudio =
+    isNarrationMode &&
+    narration.state.activeParagraphIndex >= 0 &&
+    (narration.state.status === 'playing' || narration.state.status === 'paused') &&
+    !activeAudioSegment?.audioUrl;
+  const isSegmentLoading = isAudioPlayerLoading || isActiveSegmentWaitingForAudio;
 
   useEffect(() => {
     if (!isNarrationMode || segments.length === 0) return;
@@ -365,7 +381,7 @@ export default function DocumentRoute() {
     }
     if (generatingRef.current) return;
     generatingRef.current = true;
-    narration.enterNarrationMode();
+    narration.enterNarrationMode(0);
     if (documentId) {
       try {
         await generateAction({ documentId });
@@ -373,7 +389,7 @@ export default function DocumentRoute() {
         const saved = await loadNarrationProgress(documentId);
         if (
           saved &&
-          saved.activeParagraphIndex > 0 &&
+          saved.activeParagraphIndex >= 0 &&
           saved.activeParagraphIndex < paragraphCount
         ) {
           narration.skipToParagraph(saved.activeParagraphIndex);
@@ -424,14 +440,13 @@ export default function DocumentRoute() {
     if (narrationIndex === undefined) return;
 
     if (!isNarrationMode) {
-      // Enter narration mode and skip to the selected paragraph
+      // Enter narration mode at the selected paragraph before generation finishes.
       if (generatingRef.current) return;
       generatingRef.current = true;
-      narration.enterNarrationMode();
+      narration.enterNarrationMode(narrationIndex);
       if (documentId) {
         try {
           await generateAction({ documentId });
-          narration.skipToParagraph(narrationIndex);
         } catch (err) {
           console.error('[Narration] Generation failed:', err);
           Alert.alert('Narration Error', 'Failed to generate audio. Please try again.');

@@ -26,7 +26,7 @@ export interface NarrationState {
 // ─── Actions ──────────────────────────────────────────────────────────────────
 
 type NarrationAction =
-  | { type: 'ENTER_MODE'; totalParagraphs: number }
+  | { type: 'ENTER_MODE'; totalParagraphs: number; startParagraphIndex: number }
   | { type: 'EXIT_MODE' }
   | { type: 'PARAGRAPH_READY'; generatedCount: number; totalTimeSeconds?: number }
   | { type: 'ALL_READY' }
@@ -49,17 +49,29 @@ const INITIAL_STATE: NarrationState = {
   playbackSpeed: 1,
 };
 
+function clampParagraphIndex(index: number, totalParagraphs: number): number {
+  if (totalParagraphs <= 0) return -1;
+  if (!Number.isFinite(index)) return 0;
+  return Math.min(Math.max(Math.trunc(index), 0), totalParagraphs - 1);
+}
+
 // ─── Reducer ──────────────────────────────────────────────────────────────────
 
 function narrationReducer(state: NarrationState, action: NarrationAction): NarrationState {
   switch (action.type) {
-    case 'ENTER_MODE':
+    case 'ENTER_MODE': {
+      const activeParagraphIndex = clampParagraphIndex(
+        action.startParagraphIndex,
+        action.totalParagraphs
+      );
       return {
         ...INITIAL_STATE,
-        status: 'generating',
+        status: activeParagraphIndex >= 0 ? 'playing' : 'generating',
+        activeParagraphIndex,
         totalParagraphs: action.totalParagraphs,
         playbackSpeed: state.playbackSpeed,
       };
+    }
 
     case 'EXIT_MODE':
       return { ...INITIAL_STATE };
@@ -137,7 +149,7 @@ export interface UseNarrationStateReturn {
   state: NarrationState;
   /** true when status is anything other than 'idle' */
   isNarrationMode: boolean;
-  enterNarrationMode: () => void;
+  enterNarrationMode: (startParagraphIndex?: number) => void;
   exitNarrationMode: () => void;
   /** PLAY if status is 'paused' or 'ready', PAUSE if status is 'playing' */
   togglePlayPause: () => void;
@@ -160,8 +172,8 @@ export function useNarrationState(totalParagraphs: number): UseNarrationStateRet
 
   const isNarrationMode = state.status !== 'idle';
 
-  const enterNarrationMode = () => {
-    dispatch({ type: 'ENTER_MODE', totalParagraphs });
+  const enterNarrationMode = (startParagraphIndex = 0) => {
+    dispatch({ type: 'ENTER_MODE', totalParagraphs, startParagraphIndex });
   };
 
   const exitNarrationMode = () => {

@@ -12,7 +12,7 @@ import { internalMutation } from '../_generated/server';
  */
 const IMPORTANCE_MAP: Record<string, 'high' | 'normal'> = {
   research_complete: 'high',
-  audio_complete: 'high',
+  audio_complete: 'normal',
   assimilate_complete: 'high',
   research_failed: 'normal',
   whats_new: 'normal',

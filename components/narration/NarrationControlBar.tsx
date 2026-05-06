@@ -82,10 +82,9 @@ export function NarrationControlBar({
   } = state;
 
   const isPlaying = status === 'playing';
-  const isPaused = status === 'paused';
 
-  // Spinner ring only when user has pressed play and we're waiting for audio
-  const showSpinnerRing = (isPlaying || isPaused) && isSegmentLoading;
+  const showSpinnerRing = isSegmentLoading;
+  const showPlayIcon = !isPlaying || showSpinnerRing;
 
   const canSkipPrev = activeParagraphIndex > 0;
   const canSkipNext = activeParagraphIndex < totalParagraphs - 1;
@@ -113,6 +112,11 @@ export function NarrationControlBar({
 
   const handleSpeedPress = () => {
     narration.setSpeed(nextSpeed(playbackSpeed));
+  };
+
+  const handlePlayPausePress = () => {
+    if (isSegmentLoading) return;
+    narration.togglePlayPause();
   };
 
   // ── Display paragraph index (1-based, min 1 when active) ──────────────────
@@ -166,15 +170,22 @@ export function NarrationControlBar({
             />
             <Pressable
               testID="narration-play-pause"
-              onPress={narration.togglePlayPause}
+              onPress={handlePlayPausePress}
+              disabled={isSegmentLoading}
               accessibilityRole="button"
-              accessibilityLabel={isPlaying ? 'Pause narration' : 'Play narration'}
+              accessibilityLabel={
+                isSegmentLoading
+                  ? 'Narration audio loading'
+                  : isPlaying
+                    ? 'Pause narration'
+                    : 'Play narration'
+              }
               className="h-[52px] w-[52px] items-center justify-center rounded-full bg-primary"
             >
-              {isPlaying ? (
-                <Pause size={24} className="text-primary-foreground" />
-              ) : (
+              {showPlayIcon ? (
                 <Play size={24} className="text-primary-foreground" />
+              ) : (
+                <Pause size={24} className="text-primary-foreground" />
               )}
             </Pressable>
           </View>

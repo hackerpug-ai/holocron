@@ -31,11 +31,7 @@ import { type NotificationData, NotificationToast } from './NotificationToast';
 const AUTO_DISMISS_MS = 4000;
 
 /** Notification types that warrant a full toast (user-initiated async completions) */
-const HIGH_IMPORTANCE_TYPES = new Set([
-  'research_complete',
-  'audio_complete',
-  'assimilate_complete',
-]);
+const HIGH_IMPORTANCE_TYPES = new Set(['research_complete', 'assimilate_complete']);
 
 // ─── Component ────────────────────────────────────────────────────────────────
 

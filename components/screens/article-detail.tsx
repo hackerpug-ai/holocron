@@ -214,9 +214,19 @@ export function ArticleDetail({
     isNarrationMode && convexDocId ? { documentId: convexDocId } : 'skip'
   );
 
-  const { isLoading: isAudioLoading } = useAudioPlayback(segments, narration, {
+  const { isLoading: isAudioPlayerLoading } = useAudioPlayback(segments, narration, {
     title: article.title,
   });
+  const activeAudioSegment = segments.find(
+    (segment: { paragraphIndex: number }) =>
+      segment.paragraphIndex === narration.state.activeParagraphIndex
+  );
+  const isActiveSegmentWaitingForAudio =
+    isNarrationMode &&
+    narration.state.activeParagraphIndex >= 0 &&
+    (narration.state.status === 'playing' || narration.state.status === 'paused') &&
+    !activeAudioSegment?.audioUrl;
+  const isAudioLoading = isAudioPlayerLoading || isActiveSegmentWaitingForAudio;
 
   useEffect(() => {
     if (!isNarrationMode || segments.length === 0) return;
@@ -359,7 +369,7 @@ export function ArticleDetail({
       narration.exitNarrationMode();
       return;
     }
-    narration.enterNarrationMode();
+    narration.enterNarrationMode(0);
     if (convexDocId) {
       try {
         await generateAction({ documentId: convexDocId });
@@ -367,7 +377,7 @@ export function ArticleDetail({
         const saved = await loadNarrationProgress(convexDocId);
         if (
           saved &&
-          saved.activeParagraphIndex > 0 &&
+          saved.activeParagraphIndex >= 0 &&
           saved.activeParagraphIndex < paragraphCount
         ) {
           narration.skipToParagraph(saved.activeParagraphIndex);
