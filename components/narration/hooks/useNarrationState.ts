@@ -1,4 +1,4 @@
-import { useReducer } from 'react';
+import { useCallback, useReducer } from 'react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -32,8 +32,11 @@ type NarrationAction =
   | { type: 'ALL_READY' }
   | { type: 'PLAY' }
   | { type: 'PAUSE' }
+  | { type: 'TOGGLE_PLAY_PAUSE' }
   | { type: 'TICK'; currentTimeSeconds: number }
   | { type: 'SKIP_TO'; paragraphIndex: number }
+  | { type: 'SKIP_PREVIOUS' }
+  | { type: 'SKIP_NEXT' }
   | { type: 'SET_SPEED'; speed: PlaybackSpeed }
   | { type: 'REGENERATE' };
 
@@ -108,6 +111,24 @@ function narrationReducer(state: NarrationState, action: NarrationAction): Narra
     case 'PAUSE':
       return { ...state, status: 'paused' };
 
+    case 'TOGGLE_PLAY_PAUSE':
+      if (state.status === 'playing') {
+        return { ...state, status: 'paused' };
+      }
+      if (
+        state.status === 'paused' ||
+        state.status === 'ready' ||
+        state.status === 'partially_ready' ||
+        state.status === 'generating'
+      ) {
+        return {
+          ...state,
+          status: 'playing',
+          activeParagraphIndex: state.activeParagraphIndex === -1 ? 0 : state.activeParagraphIndex,
+        };
+      }
+      return state;
+
     case 'TICK':
       return { ...state, currentTimeSeconds: action.currentTimeSeconds };
 
@@ -124,6 +145,34 @@ function narrationReducer(state: NarrationState, action: NarrationAction): Narra
         currentTimeSeconds: 0,
       };
     }
+
+    case 'SKIP_PREVIOUS':
+      return {
+        ...state,
+        status:
+          state.status === 'playing' ||
+          state.status === 'paused' ||
+          state.status === 'ready' ||
+          state.status === 'partially_ready'
+            ? 'playing'
+            : state.status,
+        activeParagraphIndex: Math.max(0, state.activeParagraphIndex - 1),
+        currentTimeSeconds: 0,
+      };
+
+    case 'SKIP_NEXT':
+      return {
+        ...state,
+        status:
+          state.status === 'playing' ||
+          state.status === 'paused' ||
+          state.status === 'ready' ||
+          state.status === 'partially_ready'
+            ? 'playing'
+            : state.status,
+        activeParagraphIndex: Math.min(state.totalParagraphs - 1, state.activeParagraphIndex + 1),
+        currentTimeSeconds: 0,
+      };
 
     case 'SET_SPEED':
       return { ...state, playbackSpeed: action.speed };
@@ -172,60 +221,52 @@ export function useNarrationState(totalParagraphs: number): UseNarrationStateRet
 
   const isNarrationMode = state.status !== 'idle';
 
-  const enterNarrationMode = (startParagraphIndex = 0) => {
-    dispatch({ type: 'ENTER_MODE', totalParagraphs, startParagraphIndex });
-  };
+  const enterNarrationMode = useCallback(
+    (startParagraphIndex = 0) => {
+      dispatch({ type: 'ENTER_MODE', totalParagraphs, startParagraphIndex });
+    },
+    [totalParagraphs]
+  );
 
-  const exitNarrationMode = () => {
+  const exitNarrationMode = useCallback(() => {
     dispatch({ type: 'EXIT_MODE' });
-  };
+  }, []);
 
-  const togglePlayPause = () => {
-    if (state.status === 'playing') {
-      dispatch({ type: 'PAUSE' });
-    } else if (
-      state.status === 'paused' ||
-      state.status === 'ready' ||
-      state.status === 'partially_ready' ||
-      state.status === 'generating'
-    ) {
-      dispatch({ type: 'PLAY' });
-    }
-  };
+  const togglePlayPause = useCallback(() => {
+    dispatch({ type: 'TOGGLE_PLAY_PAUSE' });
+  }, []);
 
-  const skipToParagraph = (index: number) => {
+  const skipToParagraph = useCallback((index: number) => {
     dispatch({ type: 'SKIP_TO', paragraphIndex: index });
-  };
+  }, []);
 
-  const skipPrevious = () => {
-    const next = Math.max(0, state.activeParagraphIndex - 1);
-    dispatch({ type: 'SKIP_TO', paragraphIndex: next });
-  };
+  const skipPrevious = useCallback(() => {
+    dispatch({ type: 'SKIP_PREVIOUS' });
+  }, []);
 
-  const skipNext = () => {
-    const next = Math.min(state.totalParagraphs - 1, state.activeParagraphIndex + 1);
-    dispatch({ type: 'SKIP_TO', paragraphIndex: next });
-  };
+  const skipNext = useCallback(() => {
+    dispatch({ type: 'SKIP_NEXT' });
+  }, []);
 
-  const setSpeed = (speed: PlaybackSpeed) => {
+  const setSpeed = useCallback((speed: PlaybackSpeed) => {
     dispatch({ type: 'SET_SPEED', speed });
-  };
+  }, []);
 
-  const regenerate = () => {
+  const regenerate = useCallback(() => {
     dispatch({ type: 'REGENERATE' });
-  };
+  }, []);
 
-  const onParagraphReady = (generatedCount: number, totalTimeSeconds?: number) => {
+  const onParagraphReady = useCallback((generatedCount: number, totalTimeSeconds?: number) => {
     dispatch({ type: 'PARAGRAPH_READY', generatedCount, totalTimeSeconds });
-  };
+  }, []);
 
-  const onAllReady = () => {
+  const onAllReady = useCallback(() => {
     dispatch({ type: 'ALL_READY' });
-  };
+  }, []);
 
-  const onTick = (currentTimeSeconds: number) => {
+  const onTick = useCallback((currentTimeSeconds: number) => {
     dispatch({ type: 'TICK', currentTimeSeconds });
-  };
+  }, []);
 
   return {
     state,

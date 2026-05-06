@@ -28,4 +28,36 @@ describe('useNarrationState', () => {
     expect(result.current.state.status).toBe('playing');
     expect(result.current.state.activeParagraphIndex).toBe(3);
   });
+
+  it('keeps action function identities stable across narration state changes', () => {
+    const { result } = renderHook(() => useNarrationState(3));
+    const firstExitNarrationMode = result.current.exitNarrationMode;
+    const firstSkipNext = result.current.skipNext;
+    const firstOnParagraphReady = result.current.onParagraphReady;
+
+    act(() => {
+      result.current.enterNarrationMode(1);
+    });
+
+    expect(result.current.exitNarrationMode).toBe(firstExitNarrationMode);
+    expect(result.current.skipNext).toBe(firstSkipNext);
+    expect(result.current.onParagraphReady).toBe(firstOnParagraphReady);
+  });
+
+  it('keeps skip controls using the latest active paragraph', () => {
+    const { result } = renderHook(() => useNarrationState(3));
+
+    act(() => {
+      result.current.enterNarrationMode(1);
+    });
+    act(() => {
+      result.current.skipNext();
+    });
+    expect(result.current.state.activeParagraphIndex).toBe(2);
+
+    act(() => {
+      result.current.skipPrevious();
+    });
+    expect(result.current.state.activeParagraphIndex).toBe(1);
+  });
 });
