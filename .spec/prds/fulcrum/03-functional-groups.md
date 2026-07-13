@@ -27,13 +27,17 @@ Fulcrum decomposes into four functional groups, sequenced so each builds on the 
 
 ## Dependency Order (drives PR/sprint sequencing)
 
+> **v2.0.0 sequencing note.** Fulcrum is hard-sequenced after [`mk6-migration`](../mk6-migration/README.md), which delivers the **local-inference substrate** (role router + fleet). The LIS *group* therefore shrinks to the research-specific role mapping + degradation + telemetry that *configure* the platform router; it is no longer a standalone "build the substrate" sprint. Internal build order post-mk6: **LED (ledger/gate) → CYC (cycle engine) → GATE (missions/human gate)**, with the LIS config landing alongside LED (the gate's ASSAY and the cycle's GENERATE both need the role mapping).
+
 ```
-LIS (local inference)  ──►  LED (ledger + gate)  ──►  CYC (cycle engine)  ──►  GATE (missions + human gate)
-   the mandate               the deterministic         binds the two:          makes it steerable
-   ships first               spine to commit into       agents in, code out     and safe to run 24/7
+[mk6 platform: substrate + router + Postgres + embedder]  ──►  LED  ──►  CYC  ──►  GATE   (+ LIS config alongside LED)
+                                                              the          binds       makes it steerable
+                                                              deterministic the two:    and safe to run 24/7
+                                                              spine        agents in,
+                                                                           code out
 ```
 
-- **LIS first**: nothing runs research locally until the substrate exists; it is independently demonstrable (a real local round-trip through both model roles).
+- **LIS inherited, configured alongside LED**: the local-inference *substrate* is delivered by mk6 (no Fulcrum sprint to build it). The Fulcrum LIS work — the research role mapping (divergent/convergent), degradation policy, and per-cycle telemetry that configure the platform router — lands alongside LED, since both the gate's ASSAY and the cycle's GENERATE need the role mapping. It is independently demonstrable as a real local round-trip through both model roles.
 - **LED before CYC**: the cycle's COMMIT phase writes into the ledger and its ASSAY phase calls the gate — the deterministic core must exist first and be testable in isolation.
 - **CYC before GATE surfaces**: briefs and verdicts operate on real cycle output; the loop must produce committed cycles before the gate has anything to show or steer.
 - **GATE throughout**: mission config seeds even the first cycle, so a minimal mission loader lands early; the richer gate surfaces (briefs, dossiers, verdict flow) follow the first committed cycles.

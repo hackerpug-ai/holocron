@@ -1,33 +1,32 @@
 ---
 stability: FEATURE_SPEC
-last_validated: 2026-07-12
-prd_version: 1.0.0
+last_validated: 2026-07-13
+prd_version: 2.0.0
 scope_posture: full
 ---
 
 # Scope
 
-**Scope Posture:** Full feature. Fulcrum is scoped as a complete, polished autoresearch-loop subsystem inside holocron — **the loops only**. Everything holocron already provides (retrieval tools, document storage, embeddings, the app shell) is reused, not rebuilt.
+**Scope Posture:** Full feature. Fulcrum is scoped as a complete, polished autoresearch-loop subsystem inside holocron — **the loops only**. Everything the MK-VI platform provides (the Postgres substrate, the local role router, the local Qwen3 embedder, the Mastra workflow runtime, the retrieval tools, document storage, the app shell) is inherited, not rebuilt. **Hard dependency:** Fulcrum is sequenced after [`mk6-migration`](../mk6-migration/README.md) and presumes that platform is live.
 
 ## In Scope
 
 ### Local Inference Substrate (LIS)
-- An OpenAI-compatible model provider that points research LLM calls at **local** endpoints (LiteLLM router / LM Studio / Mac-mini `llama-server`), replacing the cloud `claudeFlash()` factory for all Fulcrum cycle work.
+- A research-specific **role configuration on the mk6 role router** (`divergent`/`convergent`/`judge`/`embed`/`rerank`) that points Fulcrum's cycle LLM calls at **local** endpoints (the fleet's LiteLLM router / `llama-server`), replacing the cloud `claudeFlash()` factory for all Fulcrum cycle work. The router, endpoints, and fleet are owned by mk6; Fulcrum contributes the research role mapping + the per-mission config.
 - Two research model **roles** — divergent (fast generation, query planning) and convergent (precise claim extraction, scoring, challenge) — mapped onto locally-served models, with the mapping declared in config, not hardcoded.
-- The **tailnet reachability** architecture: a tailnet-resident inference worker that Convex dispatches cycle work to (dev = laptop; prod = Mac mini), because Convex's own runtime cannot reach local endpoints.
 - **Degradation**: when the fleet (or a mini) is unreachable, the loop drops to a defined reduced mode and surfaces it — never silently falls back to a cloud model without the operator opting in.
 - Per-cycle inference **telemetry** (tokens, wall time, endpoint, model role) recorded on every cycle.
 
 ### Cycle Loop Engine (CYC)
 - A fixed-budget cycle with six phases: **SENSE** (one novel retrieval), **GENERATE** (refine/mutate a candidate), **ASSAY** (extract claims → gate → score), **CHALLENGE** (a *different* model attempts refutation), **MAP** (niche placement / retire), **COMMIT** (one durable transaction).
-- Perpetual scheduling via Convex crons + the workflow component: the loop wakes, selects one work item, runs one cycle, sleeps.
+- Perpetual scheduling via the **mk6 Mastra workflow runtime + platform scheduler**: the loop wakes, selects one work item, runs one cycle, sleeps. (The platform's scheduler replaces the v1.0.x Convex-cron + workflow-component design.)
 - **Diverge/converge** cadence: alternate discovery cycles (new candidates in under-covered territory) with deepening cycles (more evidence on leaders, kill the weakest).
 - A **work-item selector** that picks the next cycle target by rule (thinnest-evidenced leader, oldest open challenge, least-covered discovery cell), not by the operator.
 - Explicit cycle **budget** (wall-clock + token caps) and circuit breakers; a budget-exceeded cycle records an explicit outcome, never a silent non-commit.
 - Evolution of the existing `convex/research/` phase logic (search, synthesize, review, termination) into this engine — reusing what fits, replacing LLM-confidence termination with the evidence gate.
 
 ### Evidence Ledger & Gate (LED)
-- A local `bun:sqlite` **append-only evidence ledger** (reusing the parked Prospector core, ADR-001): evidence objects, claims, claim↔evidence bindings, scores, lineage, cycle log.
+- An append-only **Postgres** evidence ledger on the mk6 substrate (reusing the Prospector v1.1 schema/logic, ADR-004): evidence objects, claims, claim↔evidence bindings, scores, lineage, cycle log.
 - A deterministic **claim-admission predicate**: a claim is admitted only with ≥1 bound evidence at/above a grade floor, within a recency window, on a classified source; unknown-domain evidence keeps the claim provisional.
 - **Provenance-based independence**: syndicated/near-duplicate content across domains collapses to one source; a source can't solely support two components of the same candidate; self-sourced (holocron's own prior output) evidence never counts as independent corroboration.
 - Deterministic **scoring**: per component, `f = mean of top-3 admitted-claim grades` (saturating — volume can't buy score); total = Σ wᵢ·(f_supportᵢ − 2·f_refuteᵢ); disconfirmation weighted double; **absent evidence scores UNKNOWN, never "survived challenge."**
@@ -43,7 +42,7 @@ scope_posture: full
 
 ## Out of Scope
 
-- **Self-hosted Convex on the Mac minis** — the production north star for "all research local," but a separate infrastructure initiative. Fulcrum is designed to move onto it without redesign; the dev/MVP runs the tailnet worker against cloud-hosted Convex. `[DEFERRED: separate PRD]`
+- **The platform itself (Mastra + Postgres + local fleet + role router + Qwen3 embedder)** — delivered by the predecessor [`mk6-migration`](../mk6-migration/README.md) PRD. Fulcrum inherits it; it does not build it. The v1.0.x "self-hosted Convex on the Mac minis" north star is **satisfied differently** by mk6's big-bang cutover to Mastra + Postgres (not self-hosted Convex). `[DELIVERED BY: mk6-migration PRD]`
 - **A dedicated in-app Fulcrum UI** (leaderboard, lineage graph, verdict console in the React Native app). MVP surfaces are generated Markdown briefs/dossiers (in-repo + stored to holocron) plus a minimal verdict entry point. Rich UI is a follow-on. `[DEFERRED: separate PRD]`
 - **Embedding-based near-duplicate provenance clustering** — MVP uses exact content-hash provenance; semantic near-dup clustering is a later hardening.
 - **Verdict-calibrated automatic weight fitting** — weights are human-edited at the weekly gate in MVP; regression-fit recalibration is later.
@@ -54,4 +53,4 @@ scope_posture: full
 
 ## Scope Posture Note
 
-This is one shippable initiative under the ONE-PRD-=-ONE-Project rule, sequenced as PRs (local inference first, then the ledger/gate, then the loop engine, then missions/gate surfaces). If the self-hosted-Convex migration or the in-app UI is pulled forward, each splits into its own PRD.
+This is one shippable initiative under the ONE-PRD-=-ONE-Project rule, **hard-sequenced after `mk6-migration`** (the platform must be live before any Fulcrum sprint starts) and internally sequenced as PRs: the ledger/gate (LED) first — the deterministic spine — then the loop engine (CYC) that commits into it, then the missions/gate surfaces (GATE). The local-inference substrate (LIS) is no longer a Fulcrum sprint; it is inherited from mk6, leaving only the research-specific role mapping + degradation + telemetry inside this initiative. If the in-app Fulcrum UI is pulled forward, it splits into its own PRD (it is now near-free, since the ledger is Zero-reactive Postgres).

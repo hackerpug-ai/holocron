@@ -6,6 +6,8 @@ prd_version: 1.0.0
 
 # E2E Harness Constitution
 
+> **⚠️ Re-platform pending (v2.0.0, 2026-07-13).** The "Fulcrum Worker (Bun, tailnet)" surface below is replaced by **"Fulcrum mission template (Mastra workflow)"** per [`mk6-migration`](../../mk6-migration/README.md) + [ADR-006](./00-architecture-decisions.md). The **determinism seam** (fixture the model signal, assert gate OUTCOMES, not prose) and the spike-gate discipline carry forward unchanged — re-provision the harness against the mk6 test rig.
+
 ## Framework
 
 - **Convex functions** (Gate, ledger mutations, selector, verdict machine): `convex-test` + Vitest against a real Convex test instance — no mocked DB.

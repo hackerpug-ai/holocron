@@ -6,6 +6,8 @@ prd_version: 1.0.0
 
 # Technical Risks
 
+> **⚠️ Partially current (v2.0.0, 2026-07-13).** Sequenced after [`mk6-migration`](../../mk6-migration/README.md). **R2 (tailnet reachability) and R11 (1024-dim local embedder) are RETIRED by mk6** — the backend runs on the mini and the fleet serves Qwen3-Embedding. The remaining risks (extraction quality, scoring determinism, fleet economics, reward-gaming) carry forward; re-rank after the platform is live.
+
 Carried forward from the red-team of the design (`idea-factory/ideas/autoresearch-loop/02-strategy.md` §6) and specialized to the holocron/local-inference build.
 
 | # | Risk | Severity | Mitigation (in this PRD) |

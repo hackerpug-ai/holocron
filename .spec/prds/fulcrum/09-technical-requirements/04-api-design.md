@@ -6,6 +6,8 @@ prd_version: 1.0.0
 
 # API Design
 
+> **⚠️ Re-platform pending (v2.0.0, 2026-07-13).** "Per ADR-001 the loop is local … thin Convex publish surface" below is superseded by [`mk6-migration`](../../mk6-migration/README.md) + [ADR-006](./00-architecture-decisions.md) — the surface is now a **Mastra mission-template API** on the Mission Engine, not a local CLI + Convex publish hop. The pure Gate-module contract carries forward unchanged. Re-derive before consuming.
+
 Per ADR-001 the loop is local; the surface is (a) the local ledger module + CLI (the Prospector `prospect` interface), (b) the pure Gate module, and (c) a thin Convex publish surface. No public HTTP API in scope.
 
 ## Local — Missions & Gate (the `prospect` CLI / ledger module, SQLite-backed)

@@ -6,6 +6,8 @@ prd_version: 1.0.1
 
 # Data Schema
 
+> **⚠️ Re-platform pending (v2.0.0, 2026-07-13).** The opening sentence below ("Per ADR-001 … LOCAL `bun:sqlite`") is **superseded by [ADR-004](./00-architecture-decisions.md)** — the ledger is now **Postgres append-only tables on the mk6 substrate** (Prospector v1.1 schema/logic reused; storage engine swapped SQLite → Postgres). The entity model, relationships, and invariants below carry forward; the DDL must be re-derived as Postgres against the mk6 substrate schema.
+
 **Per ADR-001, the loop's ledger of record is a LOCAL `bun:sqlite` database** — the Prospector v1.1 schema (`idea-factory/.spec/prospector/blueprint-schema-ledger-v1.1.md`, already implemented to 31/37 ACs on branch `task/prospector-schema`). The tables below are that **local SQLite** schema, reused, not Convex tables. Holocron/Convex receives only *published findings* (ADR-002). Two schemas, one direction of flow: **local ledger → published documents.**
 
 ## A. Local ledger (bun:sqlite — source of truth, reused from Prospector)

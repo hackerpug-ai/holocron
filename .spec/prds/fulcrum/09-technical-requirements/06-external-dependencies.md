@@ -6,6 +6,8 @@ prd_version: 1.0.0
 
 # External Dependencies
 
+> **⚠️ Re-platform pending (v2.0.0, 2026-07-13).** The dependency list below still names **Convex** and **Cohere** — both retired by [`mk6-migration`](../../mk6-migration/README.md) (swap Convex → Mastra/Postgres; Cohere → local Qwen3-Embedding per [ADR-005](./00-architecture-decisions.md)). The local fleet + retrieval tools (Exa/Jina) carry forward via the platform. Re-derive before consuming.
+
 Fulcrum adds almost no new dependencies — it reuses holocron's stack and the existing local fleet. The novelty is *configuration and topology*, not new libraries.
 
 ## Already in holocron (reused)

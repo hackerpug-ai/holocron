@@ -6,6 +6,8 @@ prd_version: 1.0.0
 
 # System Components
 
+> **⚠️ Re-platform pending (v2.0.0, 2026-07-13).** The "worker↔Convex reachability boundary" below is retired by [`mk6-migration`](../../mk6-migration/README.md) — Fulcrum is a mission template on the Mission Engine, not a sidecar worker calling back to Convex (see [ADR-006](./00-architecture-decisions.md)). Component identities and the pure-Gate module largely carry forward; the dispatch/publish components collapse onto the platform. Re-derive before consuming.
+
 | # | Component | Runtime | Role | Evolves / New |
 |---|-----------|---------|------|---------------|
 | 1 | **Local Inference Provider** | Worker (tailnet) | OpenAI-compatible AI SDK provider (`@ai-sdk/openai` `createOpenAI({ baseURL })`) targeting the LiteLLM router / `llama-server`; resolves role→model; enforces ASSAY≠CHALLENGE | New (`fulcrum/inference`) |

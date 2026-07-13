@@ -1,14 +1,29 @@
 ---
 title: Fulcrum — Autonomous Research Loop
-version: 1.0.1
+version: 2.0.0
 scope_posture: full
 pr_sequencing: true
 source: file
+depends_on: mk6-migration
 ---
 
 # Fulcrum — Autonomous Research Loop — PRD
 
-A perpetual, evidence-gated research loop that runs on **local inference** and feeds the holocron knowledge base — turning holocron's on-demand research into a continuous engine that nominates high-conviction findings for a human gate. Scope: **only the autoresearch loops**.
+A perpetual, evidence-gated research loop that runs as a **standing mission template on the MK-VI platform** (Mastra + Postgres + local fleet) and feeds the holocron knowledge base — turning holocron's on-demand research into a continuous engine that nominates high-conviction findings for a human gate. Scope: **only the autoresearch loop mission**.
+
+## Dependencies & Sequencing
+
+**Fulcrum is hard-sequenced AFTER [`mk6-migration`](../mk6-migration/README.md).** It cannot start until the MK-VI platform is live.
+
+| Dependency | Delivered by mk6 | Fulcrum inherits (does not build) |
+|---|---|---|
+| **Platform runtime** | Mastra (Bun) + Postgres on the mini; Mission Engine + mission-template model | The workflow runtime Fulcrum's cycle runs as; the generalized `SENSE→GENERATE→ASSAY→CHALLENGE→MAP→COMMIT` template |
+| **Local inference** | Role router (`divergent`/`convergent`/`judge`/`embed`/`rerank`) → local fleet | The substrate; Fulcrum adds only the *research* role mapping, degradation policy, telemetry |
+| **Ledger store** | Postgres append-only tables on the substrate | The durable store (was `bun:sqlite` in v1.0.x — see [ADR-004](./09-technical-requirements/00-architecture-decisions.md)) |
+| **Embeddings** | Local Qwen3-Embedding 1024-dim; Cohere dropped | The publish/embed path (was Cohere in v1.0.x — see [ADR-005](./09-technical-requirements/00-architecture-decisions.md)) |
+| **App sync** | Zero (Rocicorp) over Postgres | Zero-reactive ledger/run state → the deferred in-app UI is now near-free |
+
+**Net effect:** the v1.0.x sidecar tailnet worker, the `bun:sqlite` ledger, and the Cohere embed hop are all deleted from the design — Fulcrum collapses into "just another mission template" on the platform (see [ADR-006](./09-technical-requirements/00-architecture-decisions.md)). Internal PR order (post-mk6): **LED (ledger/gate) → CYC (loop engine) → GATE (missions/human gate)**. The LIS group shrinks to research-specific router config + degradation + telemetry.
 
 ## PR Sequencing
 
@@ -22,9 +37,10 @@ Full convention: `~/Projects/brain/docs/PR-SEQUENCING.md`.
 
 | Field | Value |
 |-------|-------|
-| Version | 1.0.1 |
+| Version | 2.0.0 |
 | Scope Posture | Full feature (default) |
 | PR Sequencing | Enabled |
+| Depends on | [`mk6-migration`](../mk6-migration/README.md) (hard predecessor — platform must be live) |
 | Created | 2026-07-12 |
 | Last Updated | 2026-07-13 |
 | Home | idea-factory `ideas/autoresearch-loop/` (strategy + MVP); holocron is the build target |
@@ -42,7 +58,7 @@ Full convention: `~/Projects/brain/docs/PR-SEQUENCING.md`.
 | [06-uc-led.md](./06-uc-led.md) | UC-LED-01..06 — Evidence Ledger & Gate | FEATURE_SPEC |
 | [07-uc-gate.md](./07-uc-gate.md) | UC-GATE-01..05 — Missions & Human Gate | FEATURE_SPEC |
 | [08-team-contributions.md](./08-team-contributions.md) | Phase contributions | - |
-| [09-technical-requirements/00-architecture-decisions.md](./09-technical-requirements/00-architecture-decisions.md) | **ADRs** — local ledger of record, embedding contract, reuse strategy (v1.0.1) | CONSTITUTION |
+| [09-technical-requirements/00-architecture-decisions.md](./09-technical-requirements/00-architecture-decisions.md) | **ADRs** — v2.0.0 re-platform: ADR-001/002 SUPERSEDED, ADR-003 AFFIRMED, ADR-004/005/006 added (Postgres ledger, local Qwen3 embedder, mission-template-not-sidecar) | CONSTITUTION |
 | [09-technical-requirements/](./09-technical-requirements/README.md) | Technical specifications (folder) | CONSTITUTION |
 | [10-e2e-testing-criteria.md](./10-e2e-testing-criteria.md) | Per-UC test criteria | TEST_SPEC |
 
@@ -53,9 +69,9 @@ Full convention: `~/Projects/brain/docs/PR-SEQUENCING.md`.
 | Functional Groups | 4 |
 | Use Cases | 22 |
 | Test Criteria | 80 (across 22 UCs) |
-| System Components | 9 (all local except the publish target) |
-| Data Entities | ~16 local SQLite ledger tables (reused Prospector core) + `documents` publish |
-| Local model roles | 2 (divergent + convergent) |
+| System Components | 9 (re-derive against mk6 — banner pending) |
+| Data Entities | ~16 Postgres append-only ledger tables on the mk6 substrate (reused Prospector schema/logic) + `documents` publish |
+| Local model roles | 2 (divergent + convergent) on the mk6 role router |
 
 ## Version History
 
@@ -63,11 +79,13 @@ Full convention: `~/Projects/brain/docs/PR-SEQUENCING.md`.
 |---------|------|---------|---------|
 | 1.0.0 | 2026-07-12 | Initial PRD | New initiative |
 | 1.0.1 | 2026-07-13 | Added ADRs and conformed the technical requirements after a holocron-codebase mapping pass: **ledger of record is local `bun:sqlite`** (reusing the parked Prospector core), not Convex tables; Convex is publish/search only; flagged the **Cohere 1024-dim embedding** coupling; documented reuse of holocron's research *design* (not execution). Product scope (groups/UCs/ACs) unchanged. | Architecture verification |
+| 2.0.0 | 2026-07-13 | **Sequenced after `mk6-migration`** and re-platformed onto the Mastra + Postgres + local-fleet platform: **ADR-001 (SQLite ledger) SUPERSEDED → Postgres append-only tables (ADR-004)**; **ADR-002 (Cohere) SUPERSEDED → local Qwen3-Embedding (ADR-005)**; **ADR-003 AFFIRMED**; **ADR-006 added** (mission template, not sidecar worker). Overview/scope reframed to "standing mission template on the mk6 platform." TR detail sections 01–09 marked `⚠️ Re-platform pending` for a follow-on re-derive. **Product scope (groups/UCs/ACs/e2e criteria) unchanged.** MAJOR bump — CONSTITUTION-layer ADRs changed. | Sequencing after mk6-migration |
 
 ## Next Steps
 
-- `/review-red-hat` — adversarial review of this PRD (out-of-band).
-- `/kb-sprint-plan` — build the implementation roadmap. Every sprint's human testing gate draws [human-gate] criteria from [10-e2e-testing-criteria.md](./10-e2e-testing-criteria.md).
+- `/kb-prd-plan --edit .spec/prds/fulcrum` — re-derive the TR detail sections (01–09) against the live mk6 platform when ready; they currently carry `⚠️ Re-platform pending` banners.
+- `/review-red-hat .spec/prds/fulcrum` — adversarial review of this re-platformed PRD (out-of-band).
+- `/kb-sprint-plan .spec/prds/fulcrum` — build the implementation roadmap **only after `mk6-migration` is live**. Every sprint's human testing gate draws `[human-gate]` criteria from [10-e2e-testing-criteria.md](./10-e2e-testing-criteria.md).
 
 ## Provenance
 

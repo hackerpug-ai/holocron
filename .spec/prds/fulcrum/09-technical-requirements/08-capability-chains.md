@@ -6,6 +6,8 @@ prd_version: 1.0.0
 
 # Capability Chains
 
+> **⚠️ Re-platform pending (v2.0.0, 2026-07-13).** The dispatch and publish chains below cross boundaries that [`mk6-migration`](../../mk6-migration/README.md) collapses onto the platform (no Convex dispatch hop, no HTTPS publish hop — see [ADR-006](./00-architecture-decisions.md)). The inference, evidence/gate, and commit chains carry forward; their hops shorten. Re-derive chain boundaries against the live mk6 topology.
+
 Boundary-crossing promises that must hold end-to-end. Each names the trigger, the ordered hops, the boundary contracts, failure modes, real-service proof, and the owning specialist.
 
 ## CAP-COMMIT-01 — A cycle commits to the local ledger exactly once, kill-9-safe (ADR-001)

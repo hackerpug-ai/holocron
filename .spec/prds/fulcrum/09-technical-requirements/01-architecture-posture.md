@@ -6,6 +6,8 @@ prd_version: 1.0.0
 
 # Architecture Posture
 
+> **⚠️ Re-platform pending (v2.0.0, 2026-07-13).** Fulcrum is now sequenced after [`mk6-migration`](../../mk6-migration/README.md). **Stance #1 (tailnet worker) and stance #5 (local SQLite ledger) are contradicted by [ADR-004 / ADR-006](./00-architecture-decisions.md)** — the backend runs on the mini, so there is no cloud runtime to escape and no sidecar worker; the ledger is Postgres append-only tables. Stances #2 (deterministic seam), #3 (two model roles), #4 (evolve not fork), and #6 (human done-bit) carry forward unchanged. Re-derive this file against the live mk6 platform before consuming it.
+
 Six architectural stances govern Fulcrum. They are load-bearing; a change here is an architecture review, not a feature edit.
 
 ## 1. Local inference is a first-class requirement, resolved by a tailnet worker

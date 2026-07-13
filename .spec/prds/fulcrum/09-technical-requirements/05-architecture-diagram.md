@@ -6,6 +6,8 @@ prd_version: 1.0.1
 
 # Architecture Diagram
 
+> **⚠️ Re-platform pending (v2.0.0, 2026-07-13).** The diagram below is drawn around the v1.0.x "local loop + local ledger + Convex publish target" topology (ADR-001). Per [ADR-004 / ADR-006](./00-architecture-decisions.md) and [`mk6-migration`](../../mk6-migration/README.md), redraw against the mk6 topology (RN app ↔ Zero ↔ Postgres ↔ Mastra Mission Engine ↔ local fleet; no sidecar worker, no Convex publish hop). The two defining seams (deterministic gate, append-only commit) carry forward.
+
 ## Cycle data flow (MVP: local loop + local ledger; Convex is a publish target — ADR-001)
 
 ```

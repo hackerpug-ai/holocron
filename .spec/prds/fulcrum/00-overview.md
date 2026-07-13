@@ -1,10 +1,12 @@
 ---
 stability: PRODUCT_CONTEXT
-last_validated: 2026-07-12
-prd_version: 1.0.0
+last_validated: 2026-07-13
+prd_version: 2.0.0
 ---
 
 # Fulcrum — Autonomous Research Loop
+
+> **Sequenced after MK-VI (v2.0.0).** This initiative is a hard successor to the [MK-VI Platform Migration](../mk6-migration/README.md) (Convex → Mastra + Postgres on the mini). Fulcrum does **not** build its own inference substrate, ledger, or embedder — it plugs into the platform mk6 delivers as a standing **mission template**. The product *behavior* described below is unchanged from v1.0.1; what changes is *where it runs* (the platform, not a sidecar worker) and *what it owns* (the mission logic, not the substrate). See [ADR-004 / ADR-005 / ADR-006](./09-technical-requirements/00-architecture-decisions.md).
 
 ## Product Description
 
@@ -25,11 +27,15 @@ Fulcrum is the holocron-native realization of the `idea-factory/ideas/autoresear
 
 Fulcrum adds four capabilities to holocron, and nothing else (scope is the loops only):
 
-1. **A local-inference substrate** — all research model calls route to local endpoints through an OpenAI-compatible provider: in **dev**, the laptop's LiteLLM router; in **production**, the Mac minis on the tailnet. This is the initiative's defining constraint and its first sprint. It directly advances the standing goal of *migrating holocron's research off cloud models onto owned Apple-Silicon inference*.
+1. **A research-specific inference configuration on the mk6 substrate** — all research model calls route to local endpoints through the role router mk6 delivers (`divergent`/`convergent`/`judge`/`embed`/`rerank`), mapped onto locally-served models. Fulcrum contributes the *research* role mapping (divergent generation, convergent claim-extraction/challenge), the degradation policy, and per-cycle telemetry that configure the platform router for this mission — it does not rebuild the substrate. This is the initiative's defining constraint and it is satisfied by inheriting the mk6 platform.
 2. **A perpetual, evidence-gated cycle engine** — a fixed-budget cycle (SENSE → GENERATE → ASSAY → CHALLENGE → MAP → COMMIT) that evolves the existing `convex/research/` loop, alternates divergent discovery with convergent deepening, and runs unattended on a schedule.
 3. **An evidence ledger and deterministic gate** — the anti-reward-hacking core. Claims enter the ledger only with cited, independent, recency-checked evidence; scores are computed by code (top-3-grade mean, disconfirmation weighted double, syndication deduped, sparsity scored as UNKNOWN). This **replaces** the LLM-confidence termination with a metric the model cannot narrate its way past.
 4. **Missions and a human gate** — standing research goals (starting with *development ideas with revenue potential*) that the operator steers by editing one contract, plus a daily brief, per-candidate dossiers with full evidence chains, and verdicts (kill / advance / redirect / boost) that are the only way a candidate advances.
 
-## The Local-Inference Mandate (why this is a holocron initiative, not an idea-factory script)
+## Sequencing on the MK-VI platform (why this is a holocron mission template, not an idea-factory script)
 
-The idea-factory MVP imagined a standalone Bun CLI. Building Fulcrum **in holocron** is a deliberate choice: holocron already owns the durable store (Convex tables for `deepResearchSessions`, `documents`), the retrieval tools (Exa/Jina via the AI SDK), the MCP server, and the app surface. What holocron lacks — and what this initiative delivers — is (a) the evidence-gated loop and (b) **local inference for all research**. The architectural crux is that Convex actions run in a cloud runtime that **cannot reach tailnet-local inference**; Fulcrum resolves this with a tailnet-resident inference worker in dev, on the explicit path toward self-hosted Convex on the Mac minis in production — the concrete meaning of "migrate holocron to the minis and run all research locally."
+The idea-factory MVP imagined a standalone Bun CLI. Fulcrum was first drawn into holocron (v1.0.x) because holocron already owned the durable store, the retrieval tools, the MCP server, and the app surface — and because the one thing holocron lacked was an evidence-gated loop running on local inference. That v1.0.x design hit a hard wall: **Convex actions run in a cloud runtime that cannot reach tailnet-local inference**, so Fulcrum worked around it with a separate tailnet-resident worker, a local `bun:sqlite` ledger, and Cohere embeddings for publish (the retired ADR-001 / ADR-002).
+
+The MK-VI Platform Migration removes that wall. mk6 moves the entire backend onto the mini — Mastra (Bun) + Postgres, co-located with the local inference fleet, the RN app resyncing via Zero. With the backend running *where the inference runs*, the workaround collapses: no cloud runtime to escape, no sidecar worker, no split ledger, no cloud embedder. Fulcrum becomes a **standing mission template** on the platform's Mission Engine — the generalized `SENSE→GENERATE→ASSAY→CHALLENGE→MAP→COMMIT` cycle mk6 delivers — owning only its *mission logic* (the research role mapping, the evidence gate, the scoring, the missions, the human gate). What holocron's MK-VI platform provides and Fulcrum inherits: the durable Postgres ledger substrate, the local role router, the local Qwen3 embedder, the Mastra workflow runtime, the Zero-reactive app surface. The previously-deferred in-app Fulcrum UI becomes near-free, because the ledger is now Zero-reactive Postgres rather than a mirrored SQLite sidecar.
+
+This is why Fulcrum is **sequenced after, not parallel to, mk6**: it cannot be built until the platform exists. The v1.0.x PRD's north star ("self-hosted Convex on the Mac minis so the publish hop becomes local") is delivered — differently — by mk6's big-bang cutover to Mastra + Postgres.
