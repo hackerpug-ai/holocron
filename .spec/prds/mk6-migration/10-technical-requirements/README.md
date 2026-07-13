@@ -1,7 +1,7 @@
 ---
 stability: CONSTITUTION
 last_validated: 2026-07-13
-prd_version: 2.0.0
+prd_version: 3.0.0
 ---
 
 # Technical Requirements — MK-VI Platform Migration
@@ -19,7 +19,7 @@ Backend platform migration off Convex to Mastra (Bun) + Postgres on the tailnet 
 | 05 | [05-architecture-diagram.md](./05-architecture-diagram.md) | Tailnet topology diagram | CONSTITUTION |
 | 06 | [06-external-dependencies.md](./06-external-dependencies.md) | Added / kept / removed dependencies + docs URLs | CONSTITUTION |
 | 07 | [07-ui-infrastructure.md](./07-ui-infrastructure.md) | Client data-layer swap (Convex hooks → Zero); no new UI | CONSTITUTION |
-| 08 | [08-technical-risks.md](./08-technical-risks.md) | Consolidated risk register (R1–R18) | CONSTITUTION |
+| 08 | [08-technical-risks.md](./08-technical-risks.md) | Consolidated risk register (R1–R19) | CONSTITUTION |
 | 09 | [09-capability-chains.md](./09-capability-chains.md) | Boundary-crossing chains (ETL, cutover, embed, inference, sync, public egress) | CONSTITUTION |
 | 10 | [10-e2e-testing.md](./10-e2e-testing.md) | E2E harness constitution (real Postgres + Mastra + fleet; determinism seam; spike gate) | CONSTITUTION |
 | 11 | [11-runtime-contracts.md](./11-runtime-contracts.md) | Compatibility lock, Mission Template DSL, fleet roles, queue effects, evals, and guardrail outcomes | CONSTITUTION |
@@ -42,3 +42,4 @@ Backend platform migration off Convex to Mastra (Bun) + Postgres on the tailnet 
 |---------|------|---------|
 | 1.0.0 | 2026-07-13 | Initial technical requirements. |
 | 2.0.0 | 2026-07-13 | Added runtime, migration-artifact, and consistency contracts from the red-hat review. |
+| 3.0.0 | 2026-07-13 | Added AP-9 (standing remote-backup posture), component C-19 (Backup Service), CAP-BAK-01, risk R19, and remote-bucket/backup-tool dependencies for ongoing disaster recovery independent of the migration cutover. |

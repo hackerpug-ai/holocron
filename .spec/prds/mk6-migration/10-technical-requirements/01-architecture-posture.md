@@ -1,7 +1,7 @@
 ---
 stability: CONSTITUTION
 last_validated: 2026-07-13
-prd_version: 2.0.0
+prd_version: 3.0.0
 ---
 
 # Architecture Posture
@@ -39,3 +39,7 @@ Per project rule (`RULES.md`): this is a personal, never-published, single-user 
 ## AP-8 — Behavior-preserving migration
 
 This is a platform swap, not a redesign. The app's screens and the 44 MCP tool semantics stay behaviorally identical; only the runtime beneath them changes. New capability (chunked retrieval, streaming, evals, the evidence graph) is additive and does not alter existing surface contracts. Existing share links must survive byte-compatibly.
+
+## AP-9 — Local durability requires remote durability
+
+The tailnet mini is the platform's only compute and storage, which means a local hardware failure — a dead drive, theft, fire — is a total-loss event unless a copy of the data exists somewhere else. Backup to a remote, off-mini object-storage bucket (continuous Postgres WAL archiving + base backups, plus a scheduled blob mirror) is therefore a **standing platform capability** (UC-PLAT-06), not a one-time migration-cutover artifact. It runs for the life of the system, independent of and after Convex decommission, is periodically drilled with a real restore, and alerts on its own failure rather than waiting to be discovered missing when it's needed. This is deliberately narrower than live failover: AP-7's tailnet-only trust posture stands, and this buys restore-ability, not automatic redundancy or a second live node (see the corresponding Out of Scope entry).

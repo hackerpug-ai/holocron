@@ -1,6 +1,6 @@
 ---
 title: MK-VI Platform Migration (Convex → Mastra + Postgres)
-version: 2.0.0
+version: 3.0.0
 scope_posture: full
 pr_sequencing: true
 ---
@@ -21,7 +21,7 @@ Full convention: [`~/Projects/brain/docs/PR-SEQUENCING.md`](~/Projects/brain/doc
 
 | Field | Value |
 |-------|-------|
-| Version | 2.0.0 |
+| Version | 3.0.0 |
 | Scope Posture | Full feature (default) |
 | PR Sequencing | Enabled |
 | Created | 2026-07-13 |
@@ -36,6 +36,7 @@ Full convention: [`~/Projects/brain/docs/PR-SEQUENCING.md`](~/Projects/brain/doc
 | Embeddings | **Re-embed locally** (Qwen3-Embedding, 1024-dim); drop Cohere |
 | Cutover | **Big-bang** (parallel build → ETL → flip → delete Convex) |
 | Storage engine | **Postgres only — no SQLite** (fulcrum's ledger → Postgres append-only tables) |
+| Disaster recovery | **Standing remote backup** (Postgres WAL/base backups + blob mirror to an off-mini bucket, R2 primary) — not just a migration-cutover safety net |
 
 ## Document Index
 
@@ -45,24 +46,24 @@ Full convention: [`~/Projects/brain/docs/PR-SEQUENCING.md`](~/Projects/brain/doc
 | [01-scope.md](./01-scope.md) | In / out of scope | FEATURE_SPEC |
 | [02-roles.md](./02-roles.md) | Operator, User, Agent Client, System, Public Reader | PRODUCT_CONTEXT |
 | [03-functional-groups.md](./03-functional-groups.md) | PLAT · DATA · SVC · INFER · SYNC | FEATURE_SPEC |
-| [04-uc-plat.md](./04-uc-plat.md) | UC-PLAT-01…05 (Platform Foundation) | FEATURE_SPEC |
+| [04-uc-plat.md](./04-uc-plat.md) | UC-PLAT-01…06 (Platform Foundation) | FEATURE_SPEC |
 | [05-uc-data.md](./05-uc-data.md) | UC-DATA-01…05 (Data Layer & ETL) | FEATURE_SPEC |
 | [06-uc-svc.md](./06-uc-svc.md) | UC-SVC-01…05 (Services & Mission Engine) | FEATURE_SPEC |
 | [07-uc-infer.md](./07-uc-infer.md) | UC-INFER-01…05 (Local Inference & Research) | FEATURE_SPEC |
 | [08-uc-sync.md](./08-uc-sync.md) | UC-SYNC-01…05 (Sync, Cutover & Decommission) | FEATURE_SPEC |
 | [09-team-contributions.md](./09-team-contributions.md) | Specialist scoping phases + decisions | - |
 | [10-technical-requirements/](./10-technical-requirements/README.md) | Architecture, runtime, migration-contract, and verification requirements (folder) | CONSTITUTION |
-| [11-e2e-testing-criteria.md](./11-e2e-testing-criteria.md) | 100 per-UC test criteria (real Postgres + Mastra + fleet) | TEST_SPEC |
+| [11-e2e-testing-criteria.md](./11-e2e-testing-criteria.md) | 105 per-UC test criteria (real Postgres + Mastra + fleet) | TEST_SPEC |
 
 ## Quick Stats
 
 | Metric | Value |
 |--------|-------|
 | Functional Groups | 5 |
-| Use Cases | 25 |
-| System Components | 18 |
-| Capability Chains | 6 |
-| Test Criteria | 100 (AC coverage 100%) |
+| Use Cases | 26 |
+| System Components | 19 |
+| Capability Chains | 7 |
+| Test Criteria | 105 (AC coverage 100%) |
 | Convex surface removed | 246 files · 60 tables · 16 crons · 44 MCP tools · ~105 app hook sites |
 
 ## Notes
@@ -76,6 +77,7 @@ Full convention: [`~/Projects/brain/docs/PR-SEQUENCING.md`](~/Projects/brain/doc
 |---------|------|---------|---------|
 | 1.0.0 | 2026-07-13 | Initial PRD — Convex→Mastra+Postgres migration, 5 groups / 25 UCs / 90 criteria. | New initiative |
 | 2.0.0 | 2026-07-13 | Red-hat remediation: runtime and migration contracts, read-only rollbackable soak, complete asset lifecycle, explicit Zero/SSE contracts, and 100 acceptance criteria. | Red-hat review integration |
+| 3.0.0 | 2026-07-13 | Added UC-PLAT-06 — standing remote backup & disaster recovery (continuous off-mini Postgres WAL/base-backup + blob mirror, failure alerting, periodic real restore drill to fresh hardware), independent of and outlasting the migration cutover. 26 UCs / 105 criteria. | Customer update — remote bucket/DB backup requirement |
 
 ## Next Steps
 

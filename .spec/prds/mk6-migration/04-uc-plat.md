@@ -1,7 +1,7 @@
 ---
 stability: FEATURE_SPEC
 last_validated: 2026-07-13
-prd_version: 2.0.0
+prd_version: 3.0.0
 functional_group: PLAT
 ---
 
@@ -14,6 +14,7 @@ functional_group: PLAT
 | UC-PLAT-03 | Scheduler & durable queue | Replace all 16 Convex crons + `scheduler.runAfter` chaining with Mastra `schedule` + a Postgres-backed leased queue. |
 | UC-PLAT-04 | Observability, budget ledger & evals | Langfuse + OTel tracing, inference telemetry, the escape-hatch budget ledger, and local-judge eval scorers. |
 | UC-PLAT-05 | Deployment & dev/prod parity | Run the stack headless on the mini via launchd; mirror it on the laptop for dev; consolidate secrets/config. |
+| UC-PLAT-06 | Remote backup & disaster recovery | Continuous off-mini Postgres + blob backup with failure alerting and a periodic real restore drill, standing for the life of the system — independent of the migration cutover. |
 
 ---
 
@@ -72,3 +73,16 @@ The platform runs headless on the mini via launchd; the identical stack runs on 
 - ☐ Operator can bring the full stack (Postgres, Mastra, scheduler, zero-cache) up and down on the mini with one command each.
 - ☐ Operator can run the identical stack on the laptop for dev against the same config contract as the mini.
 - ☐ System can resolve all configuration from a single consolidated secrets source, with zero Convex env aliases (`EXPO_PUBLIC_CONVEX_URL`, `HOLOCRON_URL`, deploy keys, etc.) remaining in any surface.
+
+---
+
+## UC-PLAT-06: Remote backup & disaster recovery
+
+The mini is the platform's only compute and storage, so a local hardware failure — a dead drive, theft, fire — is a total-loss event unless a copy exists somewhere else. Continuous Postgres WAL archiving plus scheduled base backups, and a scheduled blob-storage mirror, run to an off-mini, encrypted, remote object-storage bucket as a **standing** capability that keeps running for the life of the system — independent of, and outlasting, the migration cutover's own one-time restore drill (which exercises this same capability as its final gate).
+
+**Acceptance Criteria**
+- ☐ System can continuously archive Postgres WAL segments and take scheduled full/incremental base backups to an off-mini, encrypted, remote object-storage bucket, verified against a real bucket under real Postgres write traffic with no gap in WAL continuity.
+- ☐ Operator can restore Postgres to a specific point in time from the remote backup alone, verified by a real restore producing a queryable database whose row counts and evidence-ledger chain match the pre-failure state.
+- ☐ System can mirror blob storage (MP3 narration, file objects) to the remote bucket on a schedule, verified by SHA-256 parity between every local and remote object.
+- ☐ Operator can be alerted within a defined window when a scheduled backup fails, falls behind its WAL-continuity target, or goes overdue, verified by inducing a backup failure and observing the alert fire without relying on a human checking a dashboard.
+- ☐ Operator can restore the full system (Postgres + blob storage) onto a freshly provisioned machine using only the remote backup, with zero dependency on the original mini surviving, verified by a real fire-drill restore to a separate machine.

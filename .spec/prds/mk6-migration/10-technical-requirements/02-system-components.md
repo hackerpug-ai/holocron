@@ -1,7 +1,7 @@
 ---
 stability: CONSTITUTION
 last_validated: 2026-07-13
-prd_version: 2.0.0
+prd_version: 3.0.0
 ---
 
 # System Components
@@ -28,5 +28,6 @@ The entire backend is one Bun process (`new Mastra({...})`) fronted by Hono, plu
 | C-16 | **zero-cache** | Zero's replication service: tails a Postgres logical-replication slot over `zero_pub` and syncs the reactive subset to the RN client. | Service (on mini) |
 | C-17 | **Local Fleet + LiteLLM** | The existing Qwen fleet (`divergent`=35B-A3B, `convergent`=27B) + the new `embed`/`rerank`/`judge` routes, behind LiteLLM `:4545`. Consumed as-is. | External (tailnet) |
 | C-18 | **RN App (Expo)** | The mobile client, rewritten from Convex hooks to Zero reactive hooks + SSE. Screens unchanged; data layer swapped. | Client |
+| C-19 | **Backup Service** (pgBackRest + restic) | Continuous Postgres WAL archiving + scheduled base backups and a scheduled blob mirror to an off-mini remote bucket; emits heartbeat/failure telemetry and drives the periodic restore drill. Standing, not migration-only. | Module + Service (remote bucket) |
 
 **Removed vs today:** the Convex cloud backend (60 tables, 233 modules, 16 crons, the Workflow component, the `/article/` httpAction), the `convex/browser` MCP proxy + its 62 stringly-typed refs + 373-line Zod dup, the Cohere embedder, and the two dead Python/CLI clients.

@@ -1,7 +1,7 @@
 ---
 stability: FEATURE_SPEC
 last_validated: 2026-07-13
-prd_version: 2.0.0
+prd_version: 3.0.0
 scope_posture: full
 ---
 
@@ -19,6 +19,7 @@ scope_posture: full
 - **Deployment**: launchd/service definitions to run Postgres + Mastra headless on the mini; dev-on-laptop, prod-on-mini parity.
 - **Observability**: Langfuse (self-host) + OTel tracing, an inference-telemetry stream, and the escape-hatch **budget ledger**.
 - A **runtime compatibility lock** and fleet-role manifest that fail closed when the real Bun/Mastra/Postgres/fleet combination is not proven compatible.
+- **Remote backup & disaster recovery**: continuous Postgres WAL archiving + scheduled base backups, plus a scheduled blob-storage mirror, to an off-mini remote object-storage bucket — a **standing operational capability** (not just the migration-cutover safety net) so a local hardware failure, theft, or destruction of the mini does not cause data loss, with failure/overdue alerting and a periodic real restore drill proving recoverability onto fresh hardware.
 
 ### Data (DATA)
 - **Postgres schema** for all current domains (the 60 Convex tables), collapsing known duplication (the four business pipelines → one; the two research systems → one).
@@ -56,6 +57,7 @@ scope_posture: full
 - **App-store publication / release engineering** beyond the existing EAS build channels.
 - **New product features or UI redesigns.** Screens and MCP tool semantics stay behaviorally identical; only the data/compute layer changes.
 - **Self-hosting Convex.** Considered and rejected — the goal is to leave Convex, not relocate it. `[DEFERRED: rejected]`
+- **Live failover / a hot standby second node.** This migration delivers backup + restore-ability, not active-active redundancy or automatic failover to a second live node. `[DEFERRED: future hardening]`
 - **The later MK-VI phases** — the 6-tool Gatekeeper meta-surface, nightly consolidation, the morning-briefing podcast, fleet-transcript ingestion, Sith-mode. `[DEFERRED: separate PRD — MK-VI Phase 2+]`
 - **Fleet hardware/topology changes** (exo RDMA pooling, a third mini). The fleet is consumed as-is.
 - **Voice-assistant re-platforming** beyond porting its data layer; OpenAI Realtime stays as an optional premium path.

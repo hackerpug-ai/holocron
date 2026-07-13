@@ -1,7 +1,7 @@
 ---
 stability: CONSTITUTION
 last_validated: 2026-07-13
-prd_version: 2.0.0
+prd_version: 3.0.0
 ---
 
 # Technical Risks
@@ -28,3 +28,4 @@ Consolidated from all three specialist reports plus the Operator decisions. Orde
 | R16 | **"Dev deployment IS production" + no recovery proof.** Deletion is irreversible; the export archive cannot restore post-flip data. | Low-Med | Encrypted off-mini Postgres base backup + continuous WAL/PITR, blob manifest backup, isolated restore environment, and fresh restore drill before deletion; first enabled Postgres write is the data-plane point of no return. |
 | R17 | **Carrying forward a live stub.** `convex/db/agentActivity.ts` returns `null`. | Low | Implement for real on the new engine; do not port the stub silently. |
 | R18 | **Chunking blowup** on pathological 50K-char docs. | Low | Cap chunk size/count (~512 tok / 64 overlap); ~15–40K passages estimated; resumable job; contextual-header generation deferrable. |
+| R19 | **Standing disaster-recovery gap after decommission.** Once Convex is deleted, the mini's Postgres + blob store are the ONLY copy of the data; a drive failure, theft, or fire causes unrecoverable loss with no fallback path — and a silently-failing backup job is worse than none (false confidence). Distinct from R16: R16 is the one-time migration-cutover deletion gate; this is the forever-after operating risk once that gate has passed. | High | **UC-PLAT-06**: continuous off-mini WAL archiving + scheduled base backups (pgBackRest → R2) + scheduled blob mirror (restic) + failure/overdue alerting + a periodic real restore drill to fresh hardware — standing for the life of the system, not a one-time migration artifact. |

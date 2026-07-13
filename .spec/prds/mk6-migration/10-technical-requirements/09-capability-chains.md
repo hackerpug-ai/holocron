@@ -1,7 +1,7 @@
 ---
 stability: CONSTITUTION
 last_validated: 2026-07-13
-prd_version: 2.0.0
+prd_version: 3.0.0
 ---
 
 # Capability Chains
@@ -27,7 +27,7 @@ Boundary-crossing sequences (migrate, sync, publish, provision, replay, bill/bud
 - **Boundary contracts:** end-to-end pass across app reads, all 44 MCP tools, `/article/`, every cron; all production write paths visibly return `migration_read_only` during soak; `grep -ri convex` clean post-decommission.
 - **Failure modes:** Sev-1 gate failure in read-only soak → re-point data plane to Convex via config + pinned build with zero accepted post-export production writes. After the first accepted Postgres write → restore Postgres/blob evidence; never claim Convex rollback.
 - **Idempotency:** the read-only flip is config-reversible; write enablement records the data-plane point of no return; deletion is a separate irreversible source-destruction action.
-- **Real-service proof:** the human-testing gate runs the full cold-boot journey against real Postgres + Mastra + fleet; the final deletion gate includes a fresh isolated restore journey.
+- **Real-service proof:** the human-testing gate runs the full cold-boot journey against real Postgres + Mastra + fleet; the final deletion gate includes a fresh isolated restore journey exercising CAP-BAK-01, the standing backup capability that keeps running after Convex decommission.
 - **Owner:** `integrator` (merge/verify) + Operator (the irreversible step).
 
 ## CAP-EMB-01 — Local re-embedding pass
@@ -59,6 +59,17 @@ Boundary-crossing sequences (migrate, sync, publish, provision, replay, bill/bud
 - **Failure modes:** slot lag / big snapshot (monitor); DDL → publication upkeep; client offline → replay on reconnect.
 - **Real-service proof:** real replication slot + real zero-cache; an UPDATE propagates end-to-end.
 - **Owner:** `mastra-implementer` + `react-native-ui-implementer`.
+
+## CAP-BAK-01 — Continuous remote backup & disaster recovery
+
+- **Promise:** Postgres (WAL + base backups) and blob storage are continuously mirrored to a remote, off-mini object-storage bucket, with a periodically proven restore path to fresh hardware, so a local device failure causes no data loss beyond a bounded RPO — for the life of the system, not just during the migration window.
+- **Trigger:** continuous WAL archiving on every Postgres commit; a scheduled full/incremental base-backup job; a scheduled blob-mirror job; a periodic (e.g. monthly) restore-drill mission.
+- **Hops:** Postgres WAL segments → pgBackRest archive-push → encrypted repo on the remote bucket (R2) → scheduled full/incremental base backups → same repo; blob store → restic snapshot → remote bucket (separate prefix, encrypted) → each job emits an OTel span + a last-success heartbeat → on failure/overdue, an alert fires (webhook/push notification) independent of a human checking a dashboard.
+- **Boundary contracts:** WAL continuity has no gap across the retention window; base backup + WAL together restore to any point within retention; blob mirror content hash matches source for every object; a fresh, isolated restore (no access to the original mini) produces a working Postgres + blob store within a defined RTO; a missed/failed backup alerts within a defined window.
+- **Failure modes:** WAL archiving falls behind (disk pressure/network blip) → alert + backlog catch-up, never a silent gap; bucket credential expiry/rotation failure → alert, not silent failure; a restore drill reveals corruption or drift → escalate as Sev-1 before relying on the chain further.
+- **Idempotency:** backup jobs are safe to re-run/resume (pgBackRest tracks already-archived WAL segments; the blob mirror is content-hash-checked so re-sync of unchanged objects is a no-op).
+- **Real-service proof:** a real fresh-hardware (or fresh VM) restore drill, from the real remote bucket, producing a queryable Postgres with expected row counts and a blob fetch that byte-matches — run periodically, not only once at migration cutover.
+- **Owner:** `mastra-implementer` (backup job + heartbeat/alerting) + `devops-engineer` (bucket provisioning, credentials, retention policy) + Operator (the periodic drill).
 
 ## CAP-PUB-01 — Public share-link egress
 

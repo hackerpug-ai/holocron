@@ -1,7 +1,7 @@
 ---
 stability: TEST_SPEC
 last_validated: 2026-07-13
-prd_version: 2.0.0
+prd_version: 3.0.0
 ---
 
 # E2E / Human Testing Criteria — MK-VI Platform Migration
@@ -49,6 +49,15 @@ Per-UC criteria. **Type tags:** `[integration-test]` (real service), `[e2e-autom
 | T-PLAT-017 | Config from one source, no Convex env | AC-3 | build-gate | repo | grep finds zero Convex env aliases; config resolves |
 | T-PLAT-019 | Maestro iOS development-build reference flow | AC-1, AC-2 | e2e-automated | named iOS Simulator, Expo dev build, dedicated test namespace | cold boot completes the proven reference flow and emits screenshot/JUnit/log/video evidence |
 | T-PLAT-020 | PRD consistency contract is green | cross-PRD | build-gate | PRD, contract-artifact inventory | documented counts/dates/links equal authoritative files; future protocol/date drift or unmapped manifest surface fails |
+
+### UC-PLAT-06: Remote backup & disaster recovery
+| # | Criterion | AC | Type | Setup | Pass/Fail |
+|---|-----------|----|------|-------|-----------|
+| T-PLAT-021 | Continuous WAL archiving + scheduled base backups to remote bucket | AC-1 | integration-test | Postgres + pgBackRest + real bucket | WAL continuity unbroken under real write traffic; base backups land in the bucket |
+| T-PLAT-022 | Point-in-time restore from remote backup alone | AC-2 | integration-test | real bucket + fresh Postgres | restored DB row counts + evidence-ledger chain match pre-failure state |
+| T-PLAT-023 | Blob mirror to remote bucket, hash-verified | AC-3 | integration-test | blob store + real bucket | every local/remote object SHA-256 matches |
+| T-PLAT-024 | Backup failure/overdue alert fires | AC-4 | integration-test | backup job + alerting | induced failure triggers alert within the defined window, no human polling required |
+| T-PLAT-025 | Full system restore to fresh hardware, no original-device dependency | AC-5 | human-gate | fresh machine/VM + real bucket | fire-drill restore produces working Postgres + blobs with zero access to the original mini |
 
 ## DATA — Data Layer & ETL Migration
 
@@ -222,11 +231,11 @@ Per-UC criteria. **Type tags:** `[integration-test]` (real service), `[e2e-autom
 
 | Type | Count |
 |------|-------|
-| integration-test | 63 |
+| integration-test | 67 |
 | build-gate | 15 |
 | e2e-automated | 12 |
-| human-gate | 8 |
+| human-gate | 9 |
 | api-contract | 2 |
-| **Total criteria** | **100** |
+| **Total criteria** | **105** |
 
 Every AC in every UC is covered by ≥1 criterion. Integration criteria run against real Postgres + Mastra + fleet per the harness constitution; the RN e2e lane and the ETL/parity gates are provisioned as leading INFRA work.
