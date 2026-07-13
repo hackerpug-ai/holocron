@@ -12,9 +12,10 @@ Constitution layer for the Fulcrum autoresearch loop. Section index below.
 
 | # | File | Topic | Stability |
 |---|------|-------|-----------|
-| 01 | [01-architecture-posture.md](./01-architecture-posture.md) | The six load-bearing stances (local-inference-first, deterministic/agentic seam, role map, evolve-not-fork, append-only Convex, human done-bit) | CONSTITUTION |
+| 00 | [00-architecture-decisions.md](./00-architecture-decisions.md) | **ADRs** (added v1.0.1 after the holocron mapping pass): local ledger of record, 1024-dim embedding contract, reuse-design-not-execution | CONSTITUTION |
+| 01 | [01-architecture-posture.md](./01-architecture-posture.md) | The six load-bearing stances (local-inference-first, deterministic/agentic seam, role map, evolve-not-fork, **local SQLite ledger**, human done-bit) | CONSTITUTION |
 | 02 | [02-system-components.md](./02-system-components.md) | The 9 components + the worker↔Convex reachability boundary | CONSTITUTION |
-| 03 | [03-data-schema.md](./03-data-schema.md) | The `fulcrum*` Convex tables (append-only ledger) + invariants | CONSTITUTION |
+| 03 | [03-data-schema.md](./03-data-schema.md) | The local `bun:sqlite` ledger (reused Prospector schema) + the Convex publish surface + invariants | CONSTITUTION |
 | 04 | [04-api-design.md](./04-api-design.md) | Convex function surface, worker dispatch contract, pure Gate module | CONSTITUTION |
 | 05 | [05-architecture-diagram.md](./05-architecture-diagram.md) | Cycle data flow + the two defining seams | CONSTITUTION |
 | 06 | [06-external-dependencies.md](./06-external-dependencies.md) | Reused holocron stack + local fleet + config surface | CONSTITUTION |

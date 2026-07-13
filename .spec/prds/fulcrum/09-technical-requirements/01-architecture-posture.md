@@ -12,8 +12,8 @@ Six architectural stances govern Fulcrum. They are load-bearing; a change here i
 
 All Fulcrum cycle inference runs on **local** Apple-Silicon models, never cloud, unless the operator explicitly enables a fallback. The binding constraint: holocron's research today runs `generateText({ model: claudeFlash() })` **inside Convex actions**, and Convex's runtime cannot reach tailnet-local endpoints (LiteLLM `laptop:4545`, `inference1/2:8000`). Therefore the inference-bearing phases of a cycle execute in a **tailnet-resident worker process** (dev: the M5 Max laptop; prod: a Mac mini) that holds the local-model connection and reads/writes durable state through the Convex client. Convex remains the durable store, scheduler, and app surface; it dispatches cycle work to the worker and receives committed results.
 
-- **MVP**: worker on the tailnet + **cloud-hosted Convex** (durable state in Convex cloud, inference on the worker's local endpoints).
-- **North star (out of scope, non-breaking)**: **self-hosted Convex on the Mac minis**, at which point actions themselves reach local inference and the worker/Convex split can collapse. Fulcrum is designed so this migration requires no redesign — it is the literal meaning of "migrate holocron to the minis and run all research locally."
+- **MVP**: the worker owns the loop **and its durable ledger, locally** (see stance #5 / ADR-001); **cloud-hosted Convex is the publish + search substrate**, receiving only published findings over HTTPS.
+- **North star (out of scope, non-breaking)**: **self-hosted Convex on the Mac minis**, at which point Convex is itself tailnet-resident, the local ledger and Convex co-locate, and the publish hop becomes local. Fulcrum is designed so this migration requires no redesign — it is the literal meaning of "migrate holocron to the minis and run all research locally."
 
 ## 2. The deterministic/agentic seam is absolute
 
@@ -27,9 +27,9 @@ The cycle needs a **divergent** role (fast generation, query planning, mutation)
 
 Fulcrum reuses holocron's existing research machinery wherever it fits: the retrieval tools (`convex/research/tools.ts` — Exa/Jina via the AI SDK), embeddings, the phase decomposition (search/synthesize/review in `scheduled.ts`), and the extracted `termination.ts` criteria. It **replaces** the termination's LLM-confidence exit with the evidence gate, and **adds** the perpetual scheduler, the ledger, the local-inference substrate, and the human gate. The existing on-demand path (`startSmartResearch`) is untouched and runs alongside.
 
-## 5. Durable, append-only, idempotent state in Convex
+## 5. Durable, append-only, idempotent state in a LOCAL SQLite ledger (ADR-001)
 
-The ledger (evidence, claims, scores, lineage, cycles, verdicts, touches) is **append-only** in Convex — corrections are new rows, never mutations of history — so the audit trail and re-scoring are trivially correct. Every cycle commits under an **idempotency key** so a worker restart or redispatch collapses to one committed cycle. A cycle either commits all its effects or none (one logical transaction); a budget-exceeded or failed cycle still writes an explicit cycle-log row.
+The ledger (evidence, claims, scores, lineage, cycles, verdicts, touches) is a **local `bun:sqlite` database** — the Prospector v1.1 schema, already implemented to 31/37 ACs on branch `task/prospector-schema`. It is **append-only** (SQLite UPDATE/DELETE-blocking triggers give DB-level immutability Convex cannot), and every cycle commits under an **idempotency key** with WAL durability, so a kill-9 leaves at most the in-flight cycle and never a partial commit. This is the loop's source of truth; Convex holds only *published findings* (a projection). The reason the ledger is local, not Convex: local inference forces an on-machine process (stance #1), and Convex action time-limits suit "schedule next cycle," not a long-lived worker — so co-locating the ledger with the inference is both necessary and free (it reuses working code).
 
 ## 6. The human gate owns the done-bit; the loop never self-certifies
 

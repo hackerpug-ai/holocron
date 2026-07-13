@@ -8,15 +8,15 @@ prd_version: 1.0.0
 
 Boundary-crossing promises that must hold end-to-end. Each names the trigger, the ordered hops, the boundary contracts, failure modes, real-service proof, and the owning specialist.
 
-## CAP-DISPATCH-01 — Convex dispatches a cycle to the tailnet worker and receives an exactly-once commit
+## CAP-COMMIT-01 — A cycle commits to the local ledger exactly once, kill-9-safe (ADR-001)
 
-- **Promise**: a scheduled cycle runs on the tailnet worker and its effects land in the ledger exactly once, even across worker/backend restarts.
-- **Trigger**: `fulcrum.scheduler.tick` enqueues a work item.
-- **Hops**: Scheduler → `fulcrumWorkQueue` row (pending) → Worker `queue.lease` (leased, `cycleKey` assigned) → Worker runs phases → Worker `cycle.commit(idempotencyKey=cycleKey)` → Ledger append.
-- **Boundary contracts**: lease has a TTL; commit is unique on `idempotencyKey` and returns the stored result on replay; an expired lease is re-dispatched.
-- **Failure modes**: worker dies mid-cycle (lease expires → re-dispatch; no partial commit); double-dispatch (idempotency collapses to one); Convex unreachable from worker (worker retries with backoff, cycle stays leased).
-- **Real-service proof**: SIGKILL the worker between ASSAY and COMMIT against a real Convex dev deployment; reopen; assert exactly one committed cycle and no orphan evidence/claims.
-- **Owner**: `convex-planner` / `convex-implementer` (queue + commit), `pi-agent-implementer` (worker loop).
+- **Promise**: a cycle's effects land in the local SQLite ledger exactly once and atomically, even if the worker is killed mid-cycle.
+- **Trigger**: the worker's own loop selects a work item and derives its `cycleKey`.
+- **Hops**: `selector.next` (SQLite query) → run phases → `cycle.commit(idempotencyKey=cycleKey)` → single SQLite transaction appending evidence/claims/score/lineage/cycle row.
+- **Boundary contracts**: commit is unique on `idempotencyKey` and returns the stored `resultJson` on replay; WAL + `synchronous=NORMAL` make committed frames survive process death; a budget-exceeded/failed cycle still writes an explicit cycle row.
+- **Failure modes**: worker killed mid-cycle (WAL either has the commit frame or doesn't — never partial; the item is re-selected and re-run under the same key → one commit); double-run (idempotency collapses to one).
+- **Real-service proof**: the Prospector SIGKILL durability test (AC-36) — spawn the worker, SIGKILL between ASSAY and COMMIT, reopen the SQLite file, assert all-or-nothing across all ledger tables, 20 iterations. This is the parked work's remaining AC, completed here.
+- **Owner**: `pi-agent-implementer` (worker loop); ledger/gate reused from the Prospector core (`bun-implementer` completes the remaining ACs).
 
 ## CAP-INFER-01 — A cycle phase runs on local inference through the role map
 
@@ -51,9 +51,9 @@ Boundary-crossing promises that must hold end-to-end. Each names the trigger, th
 ## CAP-GATE-01 — An operator verdict transitions state under the invariants
 
 - **Promise**: verdicts move candidates only within the rules (cited kill, WIP=1, probe-gated validation) and feed calibration.
-- **Trigger**: `fulcrum.gate.verdict`.
+- **Trigger**: `prospect verdict` (local, against the SQLite ledger).
 - **Hops**: verdict → invariant checks (cited-claim exists / WIP slot free / probe recorded) → stage transition + verdict row + touch row → (on kill) closeout claim.
-- **Boundary contracts**: uncited kill rejected; second active-build advance rejected; `→validated` without a `fulcrumProbes` row rejected.
+- **Boundary contracts**: uncited kill rejected; second active-build advance rejected; `→validated` without a `probes` row rejected.
 - **Failure modes**: attempted uncited kill (rejected); WIP violation (rejected); premature validation (rejected).
-- **Real-service proof**: exercise each rejection against a real deployment and confirm the state does not change; confirm a valid advance transitions and writes a touch.
-- **Owner**: `convex-implementer` / `convex-reviewer`.
+- **Real-service proof**: exercise each rejection against a real SQLite ledger and confirm state does not change; confirm a valid advance transitions and writes a touch.
+- **Owner**: `bun-implementer` (ledger reused from Prospector) / `pi-agent-reviewer`.

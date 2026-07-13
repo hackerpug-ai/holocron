@@ -12,7 +12,7 @@ This PRD was synthesized by the orchestrator applying product-manager, Convex-en
 
 - **The reachability finding** (direct from code): research inference runs `generateText({ model: claudeFlash() })` inside Convex actions, which cannot reach tailnet-local endpoints — so a tailnet-resident worker holds the local-model connection and Convex holds durable truth, joined by a durable idempotent queue. Self-hosted-Convex-on-mini is the non-breaking north star.
 - **Evolve, not fork**: reuse `convex/research/` retrieval tools, embeddings, and phase decomposition; **remove** the `termination.ts` LLM-confidence exit in favor of the deterministic gate; leave the on-demand `startSmartResearch` path intact.
-- **Ledger**: append-only `fulcrum*` Convex tables modeled on the `idea-factory/.spec/prospector/blueprint-schema-ledger-v1.1.md` (SQLite→Convex mapping), with idempotent cycle commit.
+- **Ledger** (revised in v1.0.1 → ADR-001): the loop's ledger of record is a **local `bun:sqlite`** database — the `idea-factory/.spec/prospector/blueprint-schema-ledger-v1.1.md` schema, already implemented to 31/37 ACs — reused, not re-built as Convex tables. Convex receives only published findings.
 
 ## Phase 3 — Local inference (fleet-specialist lens)
 

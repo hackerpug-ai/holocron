@@ -18,14 +18,23 @@ Fulcrum adds almost no new dependencies — it reuses holocron's stack and the e
 | `@ai-sdk/openai` | ^3.0.41 | **The local-inference path** — `createOpenAI({ baseURL })` → LiteLLM/`llama-server` | https://sdk.vercel.ai/providers/ai-sdk-providers/openai |
 | `@ai-sdk/anthropic` | ^3.0.69 | Only the opt-in cloud fallback (off by default) | https://sdk.vercel.ai/providers/ai-sdk-providers/anthropic |
 | Exa / Jina search tools | (repo, `convex/research/tools.ts`) | SENSE retrieval against real sources | https://exa.ai · https://jina.ai |
-| holocron embeddings + `documents` | (repo) | Publishing/searching findings | — |
+| holocron embeddings (Cohere `embed-english-v3.0`, **1024-dim**) + `documents` | (repo) | Publishing/searching findings — every holocron vector index is hard-coded to 1024 dims (ADR-002 / R11) | — |
+
+## Reused code (the ledger + gate already exist)
+
+| Source | State | Reused as |
+|--------|-------|-----------|
+| Prospector ledger core — `idea-factory` branch `task/prospector-schema` | 31/37 ACs green; blueprint `idea-factory/.spec/prospector/blueprint-schema-ledger-v1.1.md` | **Fulcrum's local `bun:sqlite` ledger + Evidence Gate** (ADR-001). The remaining ACs (judgment scoring, rescore, niche/closeout, touches, SIGKILL durability) complete here. |
+| holocron `convex/research/` design + `.spec/research-loop-improvement-plan.md` | working / unimplemented spec | Cycle-engine **design** input (ADR-003), re-implemented locally |
+| `holocron-mcp/src/tools/storage.ts` + `convex/client.ts` | working | The **publish-to-holocron template** (Convex client → `documents/storage:createWithEmbedding`) |
 
 ## New (small)
 
 | Dependency | Version | Used by | Docs |
 |-----------|---------|---------|------|
+| `bun:sqlite` | Bun built-in | The local ledger of record (ADR-001) | https://bun.sh/docs/api/sqlite |
 | `tldts` | latest | eTLD+1 registrable-domain extraction for the tier lookup + provenance independence | https://github.com/remusao/tldts |
-| Convex client (in the Bun worker) | matches repo | Worker↔Convex dispatch/commit | https://docs.convex.dev/client/javascript |
+| Convex client (`convex/browser`, in the worker) | matches repo | Publish findings to `documents` (the only cross-machine hop) | https://docs.convex.dev/client/javascript |
 
 ## Local infrastructure (owned; already running for coding)
 

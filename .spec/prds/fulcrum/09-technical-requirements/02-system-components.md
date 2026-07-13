@@ -12,13 +12,13 @@ prd_version: 1.0.0
 | 2 | **Fulcrum Worker** | Bun process, tailnet-resident (dev: laptop; prod: mini) | Pulls dispatched cycle work, runs the inference-bearing phases against local endpoints, calls the Gate, commits results via the Convex client; reports fleet health | New (sibling to / extension of `holocron-mcp`) |
 | 3 | **Cycle Orchestrator** | Convex (actions + workflow) | Drives one cycle through SENSE→GENERATE→ASSAY→CHALLENGE→MAP→COMMIT; coordinates worker dispatch and Gate calls; enforces per-cycle budget | Evolves `convex/research/dispatcher.ts` + `scheduled.ts` |
 | 4 | **Work-Item Selector** | Convex (query, deterministic) | Chooses the next cycle target by the expected-value rule over ledger state; enforces the challenge-starvation floor | New (`convex/fulcrum/selector.ts`) |
-| 5 | **Evidence Gate** | Pure TS module (callable from worker + Convex) | Grading, admission predicate, provenance independence, verbatim-quote check, saturating disconfirmation-weighted scoring; **no model calls** | New (`convex/fulcrum/gate/`); replaces `termination.ts` LLM-confidence exit |
-| 6 | **Evidence Ledger** | Convex (tables + append-only mutations) | Durable, append-only storage for evidence, claims, bindings, scores, lineage, cycles, verdicts, touches; idempotent commit | New tables; findings publish into existing `documents` |
-| 7 | **Mission Registry** | Convex (tables + queries) | Versioned mission contracts (components, weights, tier ladder, scope, source rules, cells, cadence, WIP, ceiling); seed import | New (`convex/fulcrum/missions.ts`) |
-| 8 | **Scheduler & Breakers** | Convex (crons + workflow + state) | Wakes the loop on cadence, holds daily budget + circuit-breaker + degradation-ceiling state, drops to sense-only on ceiling trip | Evolves `convex/crons.ts` + the whatsNew workflow pattern |
-| 9 | **Brief/Dossier Generator** | Convex (query/action) → Markdown | Renders the daily brief and per-candidate dossiers deterministically from the ledger; stores to `documents` + writes repo Markdown | New (`convex/fulcrum/reports.ts`) |
+| 5 | **Evidence Gate** | Pure TS module (in the worker) | Grading, admission predicate, provenance independence, verbatim-quote check, saturating disconfirmation-weighted scoring; **no model calls** | Reused from Prospector (`gate/`); replaces the LLM-confidence exit |
+| 6 | **Evidence Ledger** | **Local `bun:sqlite`** (in the worker) | Durable, append-only ledger (evidence, claims, bindings, scores, lineage, cycles, verdicts, touches); idempotent commit; kill-9 all-or-nothing (ADR-001) | **Reused from Prospector** — branch `task/prospector-schema`, 31/37 ACs green |
+| 7 | **Mission Registry** | Local SQLite (`missions*` tables) | Versioned mission contracts (components, weights, tier ladder, scope, source rules, cells, cadence, WIP, ceiling); seed import | Reused from Prospector |
+| 8 | **Scheduler & Breakers** | The worker's own loop (local) | Wakes on cadence, holds daily budget + circuit-breaker + degradation-ceiling state, drops to sense-only on ceiling trip; an optional Convex cron can also nudge the worker | New (in the worker); does NOT rely on Convex's durable-workflow layer (barely adopted in holocron) |
+| 9 | **Brief/Dossier Generator + Holocron Publisher** | Worker → Markdown + Convex client | Renders brief/dossiers deterministically from the local ledger to Markdown; publishes findings to Convex `documents` via `createWithEmbedding` (Cohere 1024-dim, ADR-002); optional `fulcrumRuns` projection | New; publish template is `holocron-mcp/src/tools/storage.ts` |
 
-*(Nine components; the Gate and Ledger are the deterministic spine, the Worker and Provider are the local-inference substrate, the rest orchestrate and surface.)*
+*(Nine components, all running in the local worker except the publish target. The Gate and Ledger are the deterministic spine — both reused from the parked Prospector core. The Worker and Provider are the local-inference substrate. Convex is downstream of COMMIT, not upstream of it.)*
 
 ## Component Interactions (happy path, one cycle)
 
@@ -29,6 +29,6 @@ prd_version: 1.0.0
 5. **Cycle Orchestrator** performs MAP (niche placement) and COMMIT — one idempotent, append-only transaction into the **Evidence Ledger** (evidence, claims, score, lineage, cycle-log row with telemetry).
 6. **Brief/Dossier Generator** reflects the change on next brief generation; **Scheduler** updates budget/breaker state.
 
-## The reachability boundary (the one hard interaction)
+## The one boundary that crosses the machine edge
 
-The **Worker↔Convex** boundary is the crux. The Worker lives on the tailnet (can reach local inference); Convex holds durable truth (can't reach local inference). Work flows Convex→Worker via a durable dispatch (a `fulcrumWorkQueue` row the worker leases, or a Convex→worker trigger), and results flow Worker→Convex via the Convex client under an idempotency key. This is exactly the seam that self-hosted-Convex-on-mini later removes.
+Under ADR-001 the loop is self-contained on the machine: selection, cycle, gate, and commit all run locally against the SQLite ledger — **no per-cycle network dependency**. The only boundary that leaves the machine is **publish**: after COMMIT, the Brief/Dossier Generator pushes a candidate's finding to Convex `documents` over HTTPS (idempotent upsert), and optionally mirrors leaderboard state to `fulcrumRuns` for the app. If Convex is unreachable, the finding queues and the loop keeps running. This is the seam self-hosted-Convex-on-mini later shortens to a local call — but nothing about the loop depends on it being remote.

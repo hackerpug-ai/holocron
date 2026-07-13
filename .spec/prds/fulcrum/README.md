@@ -1,6 +1,6 @@
 ---
 title: Fulcrum — Autonomous Research Loop
-version: 1.0.0
+version: 1.0.1
 scope_posture: full
 pr_sequencing: true
 source: file
@@ -22,11 +22,11 @@ Full convention: `~/Projects/brain/docs/PR-SEQUENCING.md`.
 
 | Field | Value |
 |-------|-------|
-| Version | 1.0.0 |
+| Version | 1.0.1 |
 | Scope Posture | Full feature (default) |
 | PR Sequencing | Enabled |
 | Created | 2026-07-12 |
-| Last Updated | 2026-07-12 |
+| Last Updated | 2026-07-13 |
 | Home | idea-factory `ideas/autoresearch-loop/` (strategy + MVP); holocron is the build target |
 
 ## Document Index
@@ -42,6 +42,7 @@ Full convention: `~/Projects/brain/docs/PR-SEQUENCING.md`.
 | [06-uc-led.md](./06-uc-led.md) | UC-LED-01..06 — Evidence Ledger & Gate | FEATURE_SPEC |
 | [07-uc-gate.md](./07-uc-gate.md) | UC-GATE-01..05 — Missions & Human Gate | FEATURE_SPEC |
 | [08-team-contributions.md](./08-team-contributions.md) | Phase contributions | - |
+| [09-technical-requirements/00-architecture-decisions.md](./09-technical-requirements/00-architecture-decisions.md) | **ADRs** — local ledger of record, embedding contract, reuse strategy (v1.0.1) | CONSTITUTION |
 | [09-technical-requirements/](./09-technical-requirements/README.md) | Technical specifications (folder) | CONSTITUTION |
 | [10-e2e-testing-criteria.md](./10-e2e-testing-criteria.md) | Per-UC test criteria | TEST_SPEC |
 
@@ -52,8 +53,8 @@ Full convention: `~/Projects/brain/docs/PR-SEQUENCING.md`.
 | Functional Groups | 4 |
 | Use Cases | 22 |
 | Test Criteria | 80 (across 22 UCs) |
-| System Components | 9 |
-| Data Entities | ~16 new `fulcrum*` Convex tables (append-only ledger) |
+| System Components | 9 (all local except the publish target) |
+| Data Entities | ~16 local SQLite ledger tables (reused Prospector core) + `documents` publish |
 | Local model roles | 2 (divergent + convergent) |
 
 ## Version History
@@ -61,6 +62,7 @@ Full convention: `~/Projects/brain/docs/PR-SEQUENCING.md`.
 | Version | Date | Changes | Trigger |
 |---------|------|---------|---------|
 | 1.0.0 | 2026-07-12 | Initial PRD | New initiative |
+| 1.0.1 | 2026-07-13 | Added ADRs and conformed the technical requirements after a holocron-codebase mapping pass: **ledger of record is local `bun:sqlite`** (reusing the parked Prospector core), not Convex tables; Convex is publish/search only; flagged the **Cohere 1024-dim embedding** coupling; documented reuse of holocron's research *design* (not execution). Product scope (groups/UCs/ACs) unchanged. | Architecture verification |
 
 ## Next Steps
 

@@ -6,50 +6,59 @@ prd_version: 1.0.0
 
 # API Design
 
-Fulcrum's surface is (a) Convex functions (queries/mutations/actions/workflow), (b) the Worker's dispatch contract, and (c) the pure Gate module. No public HTTP API in scope. Signatures below are the contract; Convex validators (`v.*`) enforce argument shapes.
+Per ADR-001 the loop is local; the surface is (a) the local ledger module + CLI (the Prospector `prospect` interface), (b) the pure Gate module, and (c) a thin Convex publish surface. No public HTTP API in scope.
 
-## Convex — Missions & Gate (mutations/queries)
+## Local — Missions & Gate (the `prospect` CLI / ledger module, SQLite-backed)
+
+Reused from the Prospector core; these operate directly on the local SQLite ledger.
+
+| Command / function | Contract |
+|--------------------|----------|
+| `prospect mission create` | `{ rootQuestion, type, contract }` → `missionId` (writes `missions` + contract version) |
+| `prospect mission publish-contract` | `{ missionId, contract }` → `{ version }` (append-only; sets active; triggers re-score) |
+| `prospect mission publish-tiers` | `{ missionId, domains[] }` → `{ version }` |
+| `prospect mission seed` | `{ missionId, seeds[] }` → `{ candidateIds[] }` |
+| `prospect verdict` | `{ candidateId, verdict, citedClaimId?, kind }` → enforces WIP=1, probe-gate, cited-kill; writes verdict + touch |
+| `prospect probe` | `{ candidateId, kind, result }` → `probeId` |
+| `prospect judge` | `{ candidateId, component, value, rationale }` → judgment score |
+| `prospect ack` | `{ missionId, briefId }` → writes an explicit touch (resets ceiling) |
+| `prospect brief` | `{ missionId }` → Markdown brief (repo file) + triggers publish of movers |
+| `prospect dossier` | `{ candidateId }` → Markdown dossier with full evidence chain |
+
+## Local — Loop internals (in the worker)
+
+| Function | Contract |
+|----------|----------|
+| `scheduler.tick()` | the worker's own loop: checks budget/breaker/ceiling/fleet; selects a work item |
+| `selector.next(missionId)` | → `{ workItemType, workItemId, phase }` by the EVoI rule (+ starvation floor), a SQLite query |
+| `cycle.commit(idempotencyKey, {...})` | one append-only SQLite transaction (evidence, claims, score, lineage, cycle row); replay-safe via unique `idempotencyKey`; kill-9 all-or-nothing |
+| `fleet.report({endpoint, role, state})` | updates the local `fleet_health` table |
+
+## Convex — publish surface (the only cross-machine calls)
 
 | Function | Kind | Contract |
 |----------|------|----------|
-| `fulcrum.missions.create` | mutation | `{ rootQuestion, type, contract }` → `missionId` |
-| `fulcrum.missions.publishContractVersion` | mutation | `{ missionId, contract }` → `{ version }` (append-only; sets active; triggers re-score) |
-| `fulcrum.missions.publishDomainTiers` | mutation | `{ missionId, domains[] }` → `{ version }` |
-| `fulcrum.missions.seed` | mutation | `{ missionId, seeds[] }` → `{ candidateIds[] }` |
-| `fulcrum.gate.verdict` | mutation | `{ missionId, candidateId, verdict, citedClaimId?, kind }` → enforces WIP=1, probe-gate, cited-kill; writes verdict + touch |
-| `fulcrum.gate.recordProbe` | mutation | `{ missionId, candidateId, kind, result }` → `probeId` |
-| `fulcrum.gate.judge` | mutation | `{ missionId, candidateId, component, value, rationale }` → judgment score |
-| `fulcrum.gate.ackBrief` | mutation | `{ missionId, briefId }` → writes an explicit touch (resets ceiling) |
-| `fulcrum.reports.brief` | query→action | `{ missionId }` → Markdown brief (also stored to `documents`) |
-| `fulcrum.reports.dossier` | query→action | `{ candidateId }` → Markdown dossier with full evidence chain |
+| `documents/storage:createWithEmbedding` (existing) | action | `{ title, content, category, source:'fulcrum', candidateRef }` → publishes a finding (Cohere 1024-dim embed, idempotent upsert) |
+| `fulcrum/runs:upsertProjection` (new, optional) | mutation | `{ missionId, leaderboard[] }` → thin read-only projection for the app |
 
-## Convex — Loop internals (internal functions, not operator-facing)
+## Worker — main loop (Bun)
 
-| Function | Kind | Contract |
-|----------|------|----------|
-| `fulcrum.scheduler.tick` | cron→workflow | wakes the loop; checks budget/breaker/ceiling; enqueues a work item |
-| `fulcrum.selector.next` | internalQuery | `{ missionId }` → `{ workItemType, workItemId, phase }` by the EVoI rule (+ starvation floor) |
-| `fulcrum.queue.lease` | internalMutation | worker leases the next `fulcrumWorkQueue` row → `{ cycleKey, payload }` |
-| `fulcrum.cycle.commit` | internalMutation | `{ idempotencyKey, evidence[], claims[], score, lineage[], cycleLog }` → one append-only transaction; replay-safe |
-| `fulcrum.fleet.report` | internalMutation | `{ endpoint, role, state }` → updates `fulcrumFleetHealth` |
-
-## Worker — dispatch contract (Bun, tailnet)
-
-The worker is a long-running Bun process using the Convex client. It does not expose HTTP; it *pulls* work.
+Fully local; the only network calls are retrieval (SENSE) and publish (post-COMMIT).
 
 ```
 loop:
-  item = convex.mutation(fulcrum.queue.lease, { workerId })   // durable lease; empty → sleep
-  if !item: sleep(pollIntervalMs); continue
-  fleet = checkLocalEndpoints()                               // health of laptop:4545 / mini:8000
-  convex.mutation(fulcrum.fleet.report, fleet)
-  if fleet.offline && !fallbackEnabled: convex.mutation(markSenseOnly); continue
-  result = runCyclePhases(item, provider, gate)               // SENSE/GENERATE/ASSAY/CHALLENGE local inference + Gate
-  convex.mutation(fulcrum.cycle.commit, { idempotencyKey: item.cycleKey, ...result })  // replay-safe
+  if budgetExhausted() || breakerOpen() || ceilingTripped(): sleepOrSenseOnly(); continue
+  fleet = checkLocalEndpoints(); ledger.fleet.report(fleet)    // laptop:4545 / mini:8000
+  if fleet.offline && !fallbackEnabled: senseOnly(); continue
+  item = ledger.selector.next(missionId)                       // local SQLite query
+  cycleKey = idempotencyKeyFor(item)
+  result = runCyclePhases(item, provider, gate)                // local inference + local Gate
+  ledger.cycle.commit(cycleKey, result)                        // local SQLite, replay-safe, kill-9 safe
+  publishIfMaterial(result) -> convex documents (queues if Convex down)
 ```
 
-- **Idempotency**: `cycleKey` is assigned at lease time and stable across re-leases; `fulcrum.cycle.commit` short-circuits to the stored `resultJson` if the key already committed.
-- **Crash-safety**: a lease has an expiry; an unfinished lease is re-dispatched; the commit's uniqueness on `idempotencyKey` guarantees exactly-once effect.
+- **Idempotency & crash-safety**: `cycleKey` is derived deterministically per work item; `cycle.commit` is unique on it and returns the stored result on replay. A kill-9 mid-cycle leaves at most the in-flight cycle and never a partial commit (the Prospector SIGKILL durability guarantee).
+- **No Convex dependency in the hot loop**: selection, cycle, gate, and commit are all local; Convex is touched only to publish a finished finding, and a publish failure queues without stalling the loop.
 
 ## Local Inference Provider (worker-side)
 
@@ -70,4 +79,4 @@ provenanceSweep(candidateClaims): demotions[]                                   
 computeScore(claims, judgments, contract): { score, disconfirmationTotal, components[] }  // top-3 mean, ×m, UNKNOWN
 ```
 
-The Gate is imported by both the Worker (to decide admission before proposing a commit) and Convex (to recompute on re-score) — one implementation, identical results, callable from either runtime.
+The Gate runs entirely in the worker against the local ledger — admission at ASSAY time and deterministic recompute on re-score. One implementation, identical results; no model, no network. (Reused verbatim from the Prospector core.)

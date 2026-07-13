@@ -27,7 +27,7 @@ scope_posture: full
 - Evolution of the existing `convex/research/` phase logic (search, synthesize, review, termination) into this engine — reusing what fits, replacing LLM-confidence termination with the evidence gate.
 
 ### Evidence Ledger & Gate (LED)
-- New/extended Convex tables forming an **append-only evidence ledger**: evidence objects, claims, claim↔evidence bindings, scores, lineage, cycle log.
+- A local `bun:sqlite` **append-only evidence ledger** (reusing the parked Prospector core, ADR-001): evidence objects, claims, claim↔evidence bindings, scores, lineage, cycle log.
 - A deterministic **claim-admission predicate**: a claim is admitted only with ≥1 bound evidence at/above a grade floor, within a recency window, on a classified source; unknown-domain evidence keeps the claim provisional.
 - **Provenance-based independence**: syndicated/near-duplicate content across domains collapses to one source; a source can't solely support two components of the same candidate; self-sourced (holocron's own prior output) evidence never counts as independent corroboration.
 - Deterministic **scoring**: per component, `f = mean of top-3 admitted-claim grades` (saturating — volume can't buy score); total = Σ wᵢ·(f_supportᵢ − 2·f_refuteᵢ); disconfirmation weighted double; **absent evidence scores UNKNOWN, never "survived challenge."**
