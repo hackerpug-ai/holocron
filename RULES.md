@@ -13,18 +13,24 @@ When dispatching subagents for planning, review, or implementation, prefer these
 | `mcp-planner` | MCP server planning | TypeScript MCP server design: SDK choice, transport, tool/resource/prompt surface, auth, Zod schemas, semver strategy |
 | `mcp-implementer` | MCP server implementation | Tool/resource/prompt handlers, transport wiring, `isError` patterns, stdio-safe logging, TDD (RED → GREEN → REFACTOR) |
 | `mcp-reviewer` | MCP server review | Protocol compliance, Zod rigor, OAuth 2.1 + PKCE enforcement, path traversal, stdio logging audit, TDD evidence |
-| `convex-planner` | Convex backend planning | Convex schemas, API endpoints, migration strategies for backend data storage and API flows |
-| `convex-implementer` | Convex backend implementation | Queries, mutations, actions, migrations using validator-first patterns and TDD |
-| `convex-reviewer` | Convex backend review | API design, data integrity, migration safety, validator correctness |
-| `pi-agent-planner` | Agentic/AI logic planning | Extensions, tools, workflows, event handlers using pi coding-agent SDK patterns |
-| `pi-agent-implementer` | Agentic/AI logic implementation | TypeScript code for pi SDK extensions, tools, workflows |
-| `pi-agent-reviewer` | Agentic/AI logic review | Pi SDK best practices, TypeScript quality standards |
+| `mastra-planner` | **Backend + agent platform planning (MK-VI target)** | Mastra server architecture, mission-engine workflows, agents/tools/processors, Postgres+Drizzle data layer, local-fleet wiring, MCP rehost. **Primary backend/agentic planner post-migration.** |
+| `mastra-implementer` | Backend + agent platform implementation | Mastra agents, tools, workflows, processors, memory; Hono services; Postgres/Drizzle; TDD against a REAL Mastra server + REAL Postgres + REAL fleet |
+| `mastra-reviewer` | Backend + agent platform review | Agent/tool/workflow correctness, mission-engine determinism seams, stub detection, tripwire coverage, TDD evidence |
+| `mastra-evals-implementer` | Evals + observability | Datasets, scorers, CI eval gating, live eval, drift tracking (Langfuse + local judge) — the detective-controls layer |
+| `convex-planner` | Convex backend planning *(legacy — migration source only)* | Understanding the Convex system being migrated OFF; schema/API archaeology for the MK-VI ETL. NOT for new backend work. |
+| `convex-implementer` | Convex backend implementation *(legacy — migration source only)* | Read-side extraction for the ETL; freezing Convex during cutover. NOT for new features. |
+| `convex-reviewer` | Convex backend review *(legacy — migration source only)* | Verifying the Convex export/ETL captured everything. NOT for new backend work. |
+| `pi-agent-planner` | *(superseded by `mastra-planner`)* | Retained for reference; use `mastra-planner` for agentic logic. |
+| `pi-agent-implementer` | *(superseded by `mastra-implementer`)* | Retained for reference; use `mastra-implementer`. |
+| `pi-agent-reviewer` | *(superseded by `mastra-reviewer`)* | Retained for reference; use `mastra-reviewer`. |
 | `react-native-ui-planner` | Frontend state/network planning | Expo, react-native-paper, mobile-specific state and data fetching patterns |
-| `react-native-ui-implementer` | Frontend state/network implementation | React Native components, state management, Convex hooks, navigation using TDD with Expo |
+| `react-native-ui-implementer` | Frontend state/network implementation | React Native components, state management, **Zero (Rocicorp) reactive hooks** (Convex hooks only during migration), navigation using TDD with Expo |
 | `react-native-ui-reviewer` | Frontend state/network review | Theme compliance, accessibility, state patterns, TDD quality with Expo |
 | `frontend-designer` | Rendered frontend / visual presentation | Layout, styling, animations ONLY — not for logic or state management |
 
 **Dispatch priority**: Always check this table first. Only fall back to generic `general-purpose` agents when no domain expert matches the task.
+
+**MK-VI platform shift (2026-07-13):** Holocron is migrating off Convex to a **Mastra (Bun) + Postgres** platform running on the tailnet mini, with the RN app syncing via **Zero (Rocicorp)** and all reasoning on the **local inference fleet** (LiteLLM `:4545`, Claude API as a budgeted escape hatch only). The `mastra-*` suite are the platform experts for all new backend and agentic work; `convex-*` and `pi-agent-*` are retained only as migration-source / reference roles until Convex is fully decommissioned. This migration is scoped in `.spec/prds/mk6-migration/` and **precedes and contains** `.spec/prds/fulcrum/` (fulcrum becomes the first mission template on the new engine).
 
 ## Codex Runtime Overrides
 
