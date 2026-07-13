@@ -1,7 +1,7 @@
 ---
 stability: FEATURE_SPEC
 last_validated: 2026-07-13
-prd_version: 1.0.0
+prd_version: 2.0.0
 ---
 
 # Functional Groups

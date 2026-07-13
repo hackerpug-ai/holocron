@@ -1,7 +1,7 @@
 ---
 stability: CONSTITUTION
 last_validated: 2026-07-13
-prd_version: 1.0.0
+prd_version: 2.0.0
 ---
 
 # Data Schema
@@ -13,12 +13,12 @@ Postgres (Drizzle ORM), `pgvector` + native FTS. `uuidv7` primary keys everywher
 | Group | Key tables | Notes |
 |-------|-----------|-------|
 | `chat` | conversations, chat_messages, tool_calls, agent_plans, agent_plan_steps, agent_telemetry | 1:1 with Convex |
-| `documents` | **documents**, **sources**★, **passages**★, imports, citations | passages carry the vectors; documents stays vector-free (Zero-syncable) |
+| `documents` | **documents**, imports, citations | documents is vector-free and Zero-syncable metadata; it links to the canonical corpus below |
 | `research` | research_sessions, research_iterations, research_findings | **MERGE 5→3** (smart + deep unified via a `system` discriminator) |
 | `analysis` | **analysis_sessions**, **analysis_items**, **analysis_evidence** | **MERGE 12→3** — the four business pipelines collapse into one trio (`kind` enum + `payload jsonb`) |
 | `subscriptions` | subscription_sources/content/filters/links, creator_profiles, feed_items, feed_sessions | 1:1 |
 | `media` | audio_segments, audio_jobs, video_transcripts, transcript_jobs, audio_transcripts, audio_transcript_jobs, **file_objects**★ | file_objects replaces Convex `_storage` |
-| `evidence` (fulcrum) | **sources, passages, claims, entities, relations, beliefs** | bi-temporal; empty at cutover; the ledger |
+| `evidence` (fulcrum) | **sources, passages, claims, entities, relations, beliefs** | one canonical physical corpus and bi-temporal ledger; empty of fulcrum-specific rows at cutover |
 | others | whats_new_*, toolbelt_tools, shop_*, assimilation_*, plans/tasks, improvements_*, voice_*, notifications, **app_settings**★, rate_limit_state | app_settings merges userPreferences+feedSettings |
 
 ★ = new. **Dropped:** `documentCounters` (Postgres `count(*)`), the per-request `rateLimits` event log (→ in-process token bucket).
@@ -28,9 +28,9 @@ Postgres (Drizzle ORM), `pgvector` + native FTS. `uuidv7` primary keys everywher
 `sources → passages → claims → entities → relations → beliefs`, layered over `documents`:
 
 - **`relations`** is the polymorphic edge table; `supports`/`contradicts`/`refines`/`derived_from`/`about` are `relation_type` values. **Bi-temporal**: `valid_from/valid_to` (world-truth window) + `tx_from/tx_to` (system-knowledge window). "Current" = `tx_to IS NULL` (partial index).
-- **`beliefs`** are append-only with supersession: revising inserts a new row and stamps the prior row's `tx_to` (never UPDATE-in-place) → full audit + "what did we believe as-of X".
-- **Immutability enforced at the DB** (triggers / `REVOKE UPDATE, DELETE`); `sources.content_hash` unique (exact dedup); idempotency keys on cycle commits.
-- Internal docs become `sources (self_sourced)`; their retrieval chunks *are* the `passages` used for hybrid search — the evidence graph reads through the same indexes.
+- **`beliefs`** are append-only with supersession. Direct DML is denied; the authorized temporal-revision transaction locks the expected current row, sets only its `tx_to`, inserts the successor, and records actor/run/idempotency metadata. It rejects stale or concurrent revisions, preserving “what did we believe as-of X”.
+- **Immutability enforced at the DB** (direct `REVOKE UPDATE, DELETE` plus a narrowly scoped revision function); `sources.content_hash` unique (exact dedup); idempotency keys on cycle commits.
+- `sources(id, source_kind, document_id nullable FK, content_hash, …)` and `passages(id, source_id FK, …)` are the only physical source/passage relations. Internal docs become `sources (self_sourced)`; their retrieval chunks are the same `passages` used for hybrid search and claim evidence.
 
 ## Vectors & search
 
@@ -47,6 +47,6 @@ Zero's `zero_pub` publication includes only the **reactive UI subset** (conversa
 
 ## ETL (`_id` → uuidv7)
 
-Whole-graph `convex_id_map(old_id, new_id, table)` built for *all* rows before any load, so FKs resolve regardless of order; `new_id = uuidv7` seeded by `_creationTime` to preserve ordering; nullable indexed `legacy_convex_id` kept through soak. FK-dependency-ordered load; status vocab canonicalized (`in-progress`→`in_progress`); vectors **regenerated, never copied** (model + dims change). See the migration/ETL detail in the DATA use cases and risks.
+Whole-graph `convex_id_map(old_id, new_id, table)` built for *all* rows before any load, so FKs resolve regardless of order; `new_id = uuidv7` seeded by `_creationTime` to preserve ordering; nullable indexed `legacy_convex_id` kept through the read-only soak. FK-dependency-ordered load; status vocab canonicalized (`in-progress`→`in_progress`); vectors **regenerated, never copied** (model + dims change). The source catalog supplies the target/disposition and expected-count formula for every field/object; see the migration-contract artifact requirements and DATA use cases.
 
 *Full field-level schema is produced at implementation time by `mastra-planner` → Drizzle; this section fixes the shape and the invariants.*

@@ -1,7 +1,7 @@
 ---
 stability: FEATURE_SPEC
 last_validated: 2026-07-13
-prd_version: 1.0.0
+prd_version: 2.0.0
 functional_group: SVC
 ---
 
@@ -19,11 +19,11 @@ functional_group: SVC
 
 ## UC-SVC-01: Mission Engine
 
-A mission is a declarative template (Postgres row + Zod: goal, trigger, stage graph, tool grants, model-role bindings, budgets, gate rubric, human-gate, output contract) instantiated as a Mastra workflow run with durable Postgres state — surviving process death and resuming from the last committed step.
+A mission is a declarative template (Postgres row + Zod: goal, trigger, stage graph, tool grants, model-role bindings, budgets, gate rubric, human-gate, output contract) instantiated as a Mastra workflow run with durable Postgres state — surviving process death and resuming from the last committed step. Its stage graph is a closed, versioned DSL resolved only through the code-owned executor/schema registry.
 
 **Acceptance Criteria**
-- ☐ System can run a mission end-to-end from a declarative contract row and produce the contract's typed output, verified against real Postgres on a live Mastra server.
-- ☐ System can resume a killed mission run (SIGKILL mid-run) from its last committed step, losing at most the in-flight step, with state rehydrated from Postgres.
+- ☐ System can run a mission end-to-end from a declarative contract row and produce the contract's typed output, verified against real Postgres on a live Mastra server with all stage/compiler/executor versions recorded.
+- ☐ System can reject unknown or incompatible stage versions before run creation and resume a killed mission run (SIGKILL mid-run) with its pinned compatible executor from the last committed step, losing at most the in-flight step.
 - ☐ System can guarantee a cycle COMMIT is all-or-nothing (one transaction) with idempotency-key replay returning the stored result, verified by a kill-9 mid-commit test producing no partial rows.
 - ☐ System can enforce per-run budgets (wall-ms, tokens, cost, max-steps) and record an explicit `budget_exceeded` outcome on breach (never a silent non-commit).
 
@@ -43,25 +43,26 @@ Research, deepResearch, whatsNew, assimilate, shop, subscriptions, and the four 
 
 ## UC-SVC-03: Chat redesign
 
-The chat loop (triage on `divergent` → 10 specialists as sub-agents → native in-SDK agentic tool use replacing the 23-case switch + `scheduler.runAfter` chaining) streams real tokens over SSE while persisting durable message rows that Zero pushes reactively — preserving the app's reactive-row UX and adding true token streaming.
+The chat loop (triage on `divergent` → 10 specialists as sub-agents → native in-SDK agentic tool use replacing the 23-case switch + `scheduler.runAfter` chaining) streams real tokens over resumable SSE while persisting durable message rows that Zero pushes reactively. A request id maps idempotently to one immutable chat run; monotonic persisted event sequences replay after a cursor or `Last-Event-ID`, and the durable message is authoritative after reconciliation.
 
 **Acceptance Criteria**
-- ☐ User can send a chat message and receive a streamed token response over SSE from a specialist agent running on the local fleet.
+- ☐ User can send an idempotent chat request and receive a sequenced streamed token response over SSE from a specialist agent running on the local fleet.
 - ☐ System can run the agentic tool loop natively (bounded by `maxSteps` + budget + tripwire) with no manual `scheduler.runAfter` chaining and no fixed 23-case tool switch.
-- ☐ User can reconnect mid-response and see the durable assistant message continue from Postgres via Zero (streaming survives disconnect).
-- ☐ System can route triage and each specialist to its bound fleet role (fast `divergent` router, appropriate specialist model) with least-privilege tool grants.
+- ☐ User can reconnect before or after a persisted delta, replay only unobserved sequenced events, suppress duplicate/out-of-order events, and see final durable text exactly once through Zero.
+- ☐ System can route triage and each specialist to its bound fleet role (fast `divergent` router, appropriate specialist model) with least-privilege tool grants and emit a typed terminal `blocked` outcome without unsafe persistence or tool dispatch when a processor/tripwire fires.
 
 ---
 
 ## UC-SVC-04: MCP rehost & public endpoint
 
-The existing 44-tool `@mastra/mcp` gateway stops proxying Convex and calls in-process Mastra tools — stateless per the 2026-07-28 MCP revision, with the duplicate Zod validation layer deleted. The public `/article/{shareToken}` endpoint is re-hosted on Hono with the markdown→HTML converter ported verbatim so existing share links survive.
+The existing 44-tool `@mastra/mcp` gateway stops proxying Convex and calls in-process Mastra tools, with manifest-backed stdio and Streamable HTTP behavior pinned to MCP 2025-11-25 and the duplicate Zod validation layer deleted. The public `/article/{shareToken}` endpoint is re-hosted on Hono with the markdown→HTML converter ported verbatim so existing share links survive.
 
 **Acceptance Criteria**
-- ☐ Agent Client can invoke all 44 registered MCP tools and receive Postgres-backed results identical in shape to the Convex era, with the gateway making zero Convex calls.
-- ☐ System can serve the MCP gateway statelessly (streamable HTTP, no server→client sampling) with zero `"module:fn" as any` Convex references remaining in `holocron-mcp/src/`.
-- ☐ Public Reader can open a `/article/{shareToken}` link and receive the same HTML the Convex endpoint produced, verified byte-comparable on a sample document.
+- ☐ Agent Client can invoke all 44 registered MCP tools and receive manifest-backed Postgres results with preserved success/error/default/order/pagination behavior and zero Convex calls.
+- ☐ System can serve the MCP gateway through both existing stdio and Streamable HTTP entries with declared auth, cancellation, idempotency, origin validation, and no server→client sampling; zero `"module:fn" as any` Convex references remain in `holocron-mcp/src/`.
+- ☐ Public Reader can open a `/article/{shareToken}` link and receive byte-comparable representative HTML; linked assets are reachable only through the article-scoped capability route and become unavailable after unshare/revocation.
 - ☐ A reviewer can confirm the 373-line duplicate Zod validation layer is gone (tools carry their schemas from the shared registry).
+- ☐ System can prove the MCP compatibility manifest covers every registered tool and both transports with frozen success/error fixtures and replay/idempotency tests for mutation tools.
 
 ---
 

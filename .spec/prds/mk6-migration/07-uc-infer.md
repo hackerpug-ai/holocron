@@ -1,7 +1,7 @@
 ---
 stability: FEATURE_SPEC
 last_validated: 2026-07-13
-prd_version: 1.0.0
+prd_version: 2.0.0
 functional_group: INFER
 ---
 
@@ -19,12 +19,13 @@ functional_group: INFER
 
 ## UC-INFER-01: Role router & local-first
 
-A `resolveModel(role, {allowEscape})` router maps `divergent`/`convergent`/`judge`/`embed`/`rerank` to fleet endpoints via `@ai-sdk/openai-compatible` over LiteLLM (`:4545`). Every one of the former 83 cloud call sites names a role, never a provider, so local-first is structural rather than per-call discipline.
+A `resolveModel(role, {allowEscape})` router maps `divergent`/`convergent`/`judge`/`embed`/`rerank` to the versioned Fleet Role Manifest via `@ai-sdk/openai-compatible` over LiteLLM (`:4545`). Every one of the former 83 cloud call sites names a role, never a provider, so local-first is structural rather than per-call discipline.
 
 **Acceptance Criteria**
 - ☐ System can route every reasoning call through the role router to a local fleet endpoint with zero cloud calls on the default path, verified by fleet request logs plus a network assertion that no Anthropic request occurs unless a step declares escape.
 - ☐ A reviewer can confirm no call site references a provider directly (all name a role); the former `claudeFlash/claudePro/claudeUltra` factories are gone.
 - ☐ System can resolve the `divergent` and `convergent` roles to their respective fleet models (fast 35B-A3B vs precise 27B) and route each pipeline step to its bound role.
+- ☐ System can reject startup or run creation when the Fleet Role Manifest lacks a required model, capability, timeout/concurrency policy, or declared degraded mode.
 
 ---
 
@@ -47,7 +48,7 @@ Extraction produces schema-valid output via `response_format` json_schema → ba
 **Acceptance Criteria**
 - ☐ System can produce schema-valid structured extraction from a local model, repairing a malformed generation through a bounded loop and failing explicitly past the cap (never silently accepting), verified against the real fleet.
 - ☐ System can probe each role endpoint at boot for json_schema support and select the appropriate structuring strategy.
-- ☐ A reviewer can confirm every extraction call site validates against a Zod schema with a capped retry, and that a persistently-malformed generation surfaces as an explicit error.
+- ☐ A reviewer can confirm every extraction call site validates against a Zod schema with a capped retry, and that a persistently-malformed generation or processor/tripwire block surfaces as an explicit typed terminal outcome with no unsafe commit.
 
 ---
 

@@ -1,7 +1,7 @@
 ---
 stability: CONSTITUTION
 last_validated: 2026-07-13
-prd_version: 1.0.0
+prd_version: 2.0.0
 ---
 
 # Capability Chains
@@ -10,24 +10,24 @@ Boundary-crossing sequences (migrate, sync, publish, provision, replay, bill/bud
 
 ## CAP-MIG-01 — One-time Convex→Postgres ETL
 
-- **Promise:** every Convex row + blob lands in Postgres with referential integrity and regenerated vectors, exactly once.
+- **Promise:** every legacy relation and retained object lands in Postgres/blob storage with source-catalog-derived reconciliation, referential integrity, and regenerated vectors.
 - **Trigger:** Operator runs the ETL after freezing Convex writes.
-- **Hops:** `convex export` (snapshot) → stage as jsonb → whole-graph `_id`→uuidv7 map → FK-ordered load (status normalized) → **regenerate** vectors via the fleet → blobs → content-addressed store → validation gates.
-- **Boundary contracts:** row-count parity per table (merges summed); all FK constraints enforced + NULL-FK audit = 0; jsonb deep-equal sample; status CHECK = 0 violations; blob byte parity; vector dim/non-null/norm.
+- **Hops:** durable write fence + cron/queue drain + quiet interval + export watermark → `convex export` snapshot → stage as jsonb → whole-graph `_id`→uuidv7 map → FK-ordered load (status normalized) → **regenerate** vectors via the fleet → every retained blob → content-addressed store → catalog reconciliation gates.
+- **Boundary contracts:** source catalog has an approved disposition for every table/field/object; expected target formulas have zero unexplained variance; all FK constraints enforced + NULL-FK audit = 0; jsonb deep-equal sample; status CHECK = 0 violations; blob hash/length/MIME parity; vector dim/non-null/norm.
 - **Failure modes:** partial load (idempotent re-run from immutable archive); missed mapping (fail-closed FK); vector regen failure (resumable `WHERE embedding IS NULL`).
 - **Idempotency:** re-runnable from the archive; `convex_id_map` stable.
-- **Real-service proof:** run against a real `convex export` into real Postgres + real fleet; parity report green.
+- **Real-service proof:** run against a real `convex export` into real Postgres + real fleet; source-catalog reconciliation and asset manifest green.
 - **Owner:** `mastra-implementer` + `red-test-generator` (gates); `convex-reviewer` verifies export completeness.
 
 ## CAP-CUT-01 — Big-bang flip & decommission
 
-- **Promise:** the app + MCP serve entirely from the new backend, then Convex is removed, with a rollback path intact until the point of no return.
+- **Promise:** the app + MCP serve entirely from the new backend in a rollbackable read-only soak, then enable Postgres writes at the data-plane point of no return; Convex is removed only after recovery proof.
 - **Trigger:** Operator executes the cutover after the new stack passes integration.
-- **Hops:** parallel build (Convex untouched) → freeze → ETL (CAP-MIG-01) → flip app (Zero) + MCP (Postgres client) → real-service verification gates → soak → **delete Convex deployment** (point of no return) → delete code/deps/dead clients.
-- **Boundary contracts:** end-to-end pass across app, all 44 MCP tools, `/article/`, every cron; `grep -ri convex` clean post-decommission.
-- **Failure modes:** Sev-1 gate failure in soak → re-point data plane to Convex via config + pinned build (zero committed-data loss, writes were frozen).
-- **Idempotency:** the flip is config-reversible pre-deletion; deletion is irreversible by design.
-- **Real-service proof:** the human-testing gate runs the full cold-boot journey against real Postgres + Mastra + fleet.
+- **Hops:** parallel build (Convex untouched) → durable freeze + drain → ETL (CAP-MIG-01) → flip app (Zero) + MCP (Postgres client) → read-only real-service verification → rollbackable soak → enable production writes (**data-plane point of no return**) → fresh restore drill → delete Convex deployment → delete code/deps/dead clients.
+- **Boundary contracts:** end-to-end pass across app reads, all 44 MCP tools, `/article/`, every cron; all production write paths visibly return `migration_read_only` during soak; `grep -ri convex` clean post-decommission.
+- **Failure modes:** Sev-1 gate failure in read-only soak → re-point data plane to Convex via config + pinned build with zero accepted post-export production writes. After the first accepted Postgres write → restore Postgres/blob evidence; never claim Convex rollback.
+- **Idempotency:** the read-only flip is config-reversible; write enablement records the data-plane point of no return; deletion is a separate irreversible source-destruction action.
+- **Real-service proof:** the human-testing gate runs the full cold-boot journey against real Postgres + Mastra + fleet; the final deletion gate includes a fresh isolated restore journey.
 - **Owner:** `integrator` (merge/verify) + Operator (the irreversible step).
 
 ## CAP-EMB-01 — Local re-embedding pass
@@ -52,10 +52,10 @@ Boundary-crossing sequences (migrate, sync, publish, provision, replay, bill/bud
 
 ## CAP-SYNC-01 — Zero reactive sync
 
-- **Promise:** a committed Postgres change on a published table reaches a subscribed RN client within a sync tick; vectors never cross to the client.
+- **Promise:** a committed Postgres change on a published table reaches a subscribed RN client at p95 within 5 seconds on a healthy tailnet; vectors never cross to the client.
 - **Trigger:** any write to a `zero_pub` table.
 - **Hops:** write → logical replication slot → zero-cache → client SQLite/IndexedDB → reactive hook re-render.
-- **Boundary contracts:** published subset only (vectors/passages excluded); single-column uuid PK replica identity; propagation within N seconds.
+- **Boundary contracts:** published subset only (vectors/passages excluded); single-column uuid PK replica identity; propagation p95 ≤ 5 seconds on a healthy tailnet.
 - **Failure modes:** slot lag / big snapshot (monitor); DDL → publication upkeep; client offline → replay on reconnect.
 - **Real-service proof:** real replication slot + real zero-cache; an UPDATE propagates end-to-end.
 - **Owner:** `mastra-implementer` + `react-native-ui-implementer`.

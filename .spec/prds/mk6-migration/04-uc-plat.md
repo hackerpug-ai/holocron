@@ -1,7 +1,7 @@
 ---
 stability: FEATURE_SPEC
 last_validated: 2026-07-13
-prd_version: 1.0.0
+prd_version: 2.0.0
 functional_group: PLAT
 ---
 
@@ -25,29 +25,29 @@ A single Postgres 18 instance with `pgvector` and native full-text search is the
 - ☐ Operator can start a Postgres instance with the `vector` extension enabled on the mini and reach it over Tailscale from the laptop.
 - ☐ System can apply every Drizzle migration cleanly against the real Postgres, producing all domain tables plus the evidence-graph substrate with their btree/GIN/HNSW indexes.
 - ☐ Operator can confirm logical replication is ready for zero-cache (`wal_level=logical`, a `zero_pub` publication over the reactive subset only, single-column uuid PK replica identity on every published table).
-- ☐ System can reject `UPDATE` and `DELETE` on the append-only evidence/ledger tables at the database level (verified by an attempted mutation failing).
+- ☐ System can reject direct `UPDATE` and `DELETE` on append-only evidence/ledger tables at the database level while allowing only the authorized temporal-revision transaction to close a predecessor and insert its successor atomically.
 
 ---
 
 ## UC-PLAT-02: Stand up the Mastra service
 
-One Mastra service — agents, a single shared tool/Zod registry, workflows, and processors — fronted by a Hono HTTP + SSE surface, runs on the mini and is the sole backend. The tailnet ACL is the only auth.
+One Mastra service — agents, a single shared tool/Zod registry, workflows, and processors — fronted by a Hono HTTP + SSE surface, runs on the mini and is the sole backend. Tailscale provides network reachability; scoped API keys authorize application, MCP, and control-plane operations.
 
 **Acceptance Criteria**
 - ☐ System can boot the Mastra service on the mini and answer a health check over Tailscale.
 - ☐ System can register every tool from one shared Zod schema set (no duplicate validation layer) reachable identically by agents, workflows, and the MCP gateway.
-- ☐ Agent Client can reach the Hono API surface over Tailscale with the tailnet ACL as the only access control (no RLS, no app-level auth).
-- ☐ System can resolve any model role through the role router to a live fleet endpoint from within the running service.
+- ☐ Agent Client can reach the Hono API surface over Tailscale only with its scoped API key; an unkeyed tailnet request cannot invoke MCP, verdict, or steering mutations (no RLS or multi-tenant model is introduced).
+- ☐ System can resolve every required model role through the versioned Fleet Role Manifest to a live fleet endpoint from within the running service and fail closed when a declared capability is absent.
 
 ---
 
 ## UC-PLAT-03: Scheduler & durable queue
 
-A scheduler (Mastra native `schedule`) plus a Postgres-backed leased queue (graphile-worker or pg-boss) replaces all 16 Convex crons and the `scheduler.runAfter` chaining, surviving process restart with exactly-once semantics.
+A scheduler (Mastra native `schedule`) plus a Postgres-backed leased queue (graphile-worker or pg-boss) replaces all 16 Convex crons and the `scheduler.runAfter` chaining, with at-least-once execution and exactly-once observable effects.
 
 **Acceptance Criteria**
 - ☐ System can run all 16 migrated scheduled jobs on the mini, each observably performing its former Convex-era side-effect (timeout sweeps, subscription fetch, feed build, morning digest, whats-new daily, embedding backfill, telemetry cleanup) against real Postgres.
-- ☐ System can enqueue and lease durable work exactly-once (`FOR UPDATE SKIP LOCKED`) with retry/backoff and a dead-letter path, verified by a kill-9 mid-job followed by clean resumption with no duplicate side-effect.
+- ☐ System can enqueue and lease durable work with retry/backoff and a dead-letter path, using an outbox/inbox, fencing, and stable idempotency keys so a kill-9 at every commit/dispatch boundary produces one observable side effect.
 - ☐ System can prioritize interactive work over background missions on the shared queue (interactive chat/research ahead of standing/fulcrum jobs).
 
 ---
@@ -59,7 +59,8 @@ Langfuse (self-hosted) + OTel tracing, an inference-telemetry stream, the escape
 **Acceptance Criteria**
 - ☐ System can emit an OTel trace for every mission run and agent call to a self-hosted Langfuse, viewable per run.
 - ☐ System can record inference telemetry (tokens, wall-ms, endpoint, role) to Postgres for every model call.
-- ☐ System can score a mission output with a local judge model against a rubric and persist the score for longitudinal drift tracking.
+- ☐ System can score a mission output with a local judge model against a versioned rubric/dataset baseline and persist the score for longitudinal drift tracking.
+- ☐ System can block a CI lane when a deterministic invariant or configured eval threshold regresses, with a deliberately bad fixture proving the gate.
 
 ---
 

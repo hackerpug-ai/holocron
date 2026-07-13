@@ -1,7 +1,7 @@
 ---
 stability: CONSTITUTION
 last_validated: 2026-07-13
-prd_version: 1.0.0
+prd_version: 2.0.0
 ---
 
 # E2E Harness Constitution
@@ -13,9 +13,9 @@ The human-testing-gate substrate. Today the app has **no device e2e** and the ba
 | Surface | Framework | Status |
 |---------|-----------|--------|
 | Mastra service | **Vitest integration** booting a REAL Bun Mastra server + REAL Postgres + REAL fleet | PROVISION (extend existing `vitest.config.ts` + `tests/integration/`) |
-| MCP server | Vitest spawning the REAL stdio server, exercising all 44 tools against REAL Postgres, asserting parity vs a Convex snapshot | PROVISION |
-| Data / ETL | Vitest gates against REAL Postgres + pgvector + fleet (row-count parity, FK integrity, jsonb round-trip, vector sanity, search parity/uplift, blob integrity) | PROVISION |
-| RN mobile app | **Maestro or Detox** (or metro-MCP-scripted journeys) driving the REAL app against the REAL Mastra/Zero backend | PROVISION (none today) |
+| MCP server | Vitest spawning the REAL stdio server and Streamable HTTP mount, exercising all 44 manifest-backed contracts against REAL Postgres | PROVISION |
+| Data / ETL | Vitest gates against REAL Postgres + pgvector + fleet (catalog reconciliation, FK integrity, jsonb round-trip, vector sanity, search parity/uplift, blob integrity) | PROVISION |
+| RN mobile app | **Maestro on a named iOS Simulator with an Expo development build** driving the REAL app against the REAL Mastra/Zero backend | PROVISION (none today) |
 | Public `/article/` | HTTP integration test byte-comparing rendered HTML | PROVISION |
 
 ## The determinism seam
@@ -31,11 +31,11 @@ No mocked Postgres, no mocked fleet, no mocked Mastra. The "REAL Postgres + REAL
 
 ## Proven-reference-flow gate (the spike)
 
-Before the deep build, one end-to-end flow must be proven green on the real harness: **cold-boot → app opens → send a chat message → specialist runs on the fleet → tool call hits Postgres → durable message syncs to the app via Zero.** If that reference flow can't be proven, the harness is incomplete and feature sprints do not start.
+Before the deep build, one end-to-end flow must be proven green on the real harness: **cold-boot → app opens → send a chat message → specialist runs on the fleet → tool call hits Postgres → durable message syncs to the app via Zero.** It runs on a named iPhone simulator and Expo development build, with tailnet DNS/TLS configured, a dedicated nonproduction Postgres/Zero namespace, deterministic seed/reset, stable journey `testID`s, and screenshot/JUnit/log/video artifacts. If that reference flow can't be proven, the harness is incomplete and feature sprints do not start.
 
 ## CI lanes
 
 - **fast:** unit/pure (evidence gate, RRF fusion, chunker, id-remap) — every commit.
 - **integration:** real Postgres + Mastra + fleet — pre-merge.
-- **e2e:** RN app journeys + full cutover cold-boot — pre-sprint-gate.
+- **e2e:** Maestro RN journeys + full cutover cold-boot — pre-sprint-gate; runs from the declared macOS runner host against the dedicated nonproduction namespace.
 - **flake policy:** quarantine + fix within the sprint; no silent retries masking nondeterminism.

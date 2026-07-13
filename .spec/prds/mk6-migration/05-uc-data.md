@@ -1,7 +1,7 @@
 ---
 stability: FEATURE_SPEC
 last_validated: 2026-07-13
-prd_version: 1.0.0
+prd_version: 2.0.0
 functional_group: DATA
 ---
 
@@ -19,24 +19,25 @@ functional_group: DATA
 
 ## UC-DATA-01: Postgres domain schema
 
-A Drizzle/Postgres schema replaces all 60 Convex tables, consolidating the four near-identical business pipelines (12 tables → `analysis_sessions`/`analysis_items`/`analysis_evidence`), the two overlapping research systems (5 → 3 with a `system` discriminator), and dropping Convex-only crutches (`documentCounters`). Polymorphic columns become typed `jsonb`; timestamps become `timestamptz`; status vocab is normalized behind CHECK constraints + shared Zod enums.
+A Drizzle/Postgres schema replaces all 60 Convex tables, consolidating the four near-identical business pipelines (12 tables → `analysis_sessions`/`analysis_items`/`analysis_evidence`), the two overlapping research systems (5 → 3 with a `system` discriminator), and dropping Convex-only crutches (`documentCounters`). Polymorphic columns become typed `jsonb`; timestamps become `timestamptz`; status vocab is normalized behind CHECK constraints + shared Zod enums. The machine-readable source catalog is the approved mapping for every legacy table, field, and storage reference.
 
 **Acceptance Criteria**
 - ☐ System can materialize the full schema (all domain groups + merges) against real Postgres via Drizzle migrations with zero errors.
 - ☐ System can store every polymorphic payload (cardData, configJson, metadataJson, plan, result) as typed `jsonb` and read it back with structural equality through the Drizzle/Zod types.
 - ☐ System can enforce normalized status vocab (`in-progress`→`in_progress`, unified research/job states) via CHECK constraints, rejecting any out-of-vocabulary value.
 - ☐ A reviewer can confirm the four business pipelines resolve to one `analysis_*` table trio and the two research systems to one `research_*` trio (no duplicated per-domain shells remain).
+- ☐ System can prove every legacy table, field, and storage reference has one approved `preserve`, `merge`, `drop`, `regenerate`, or `archive` disposition in the source catalog, with no unmapped loss.
 
 ---
 
 ## UC-DATA-02: Evidence-graph substrate
 
-The `sources → passages → claims → entities → relations → beliefs` substrate exists now — shape-complete, constraint-valid, and empty of fulcrum data — with bi-temporal validity (valid-time + transaction-time), supports/contradicts edges, and append-only supersession. It layers over the existing `documents` corpus so the evidence graph reads through the same hybrid-search indexes.
+The `sources → passages → claims → entities → relations → beliefs` substrate exists now — shape-complete, constraint-valid, and empty of fulcrum data — with bi-temporal validity (valid-time + transaction-time), supports/contradicts edges, and append-only supersession. `sources` and `passages` are the one canonical physical corpus shared by documents and the evidence graph; `documents` is a Zero-published metadata relation, not a second chunk store.
 
 **Acceptance Criteria**
 - ☐ System can insert a claim plus two contradicting evidence passages and query the current belief as-of a given transaction time against real Postgres.
-- ☐ System can revise a belief by inserting a new row and stamping the prior row's `tx_to` (never updating in place), preserving the full audit chain.
-- ☐ System can register an internal holocron document as a `source` (self-sourced) whose retrieval chunks are the same `passages` rows used for search.
+- ☐ System can revise a belief only through the authorized temporal-revision transaction, which atomically closes the prior row's `tx_to`, inserts a successor, rejects stale concurrent revisions, and preserves the full audit chain.
+- ☐ System can register an internal holocron document as a canonical `source` (self-sourced) whose retrieval chunks are the same canonical `passages` rows used for search and as claim evidence.
 - ☐ A reviewer can confirm `supports`/`contradicts` are edges on the bi-temporal `relations` table and that a claim's net support is computable from validity-windowed edges.
 
 ---
@@ -66,10 +67,11 @@ Hybrid search runs as one Postgres round-trip: pgvector HNSW KNN + `websearch_to
 
 ## UC-DATA-05: Big-bang ETL & file storage
 
-A one-time ETL (`convex export` → stage → whole-graph `_id`→uuidv7 remap → FK-ordered load → vector regeneration → validation gates) migrates all data with referential integrity, and MP3 narration blobs + share tokens move off Convex file storage onto content-addressed blob storage on the mini served by Hono (with HTTP Range support).
+A one-time ETL (`convex export` → stage → whole-graph `_id`→uuidv7 remap → FK-ordered load → vector regeneration → validation gates) migrates all data with referential integrity. Every retained Convex-storage object—not only narration MP3s—moves to content-addressed blob storage on the mini with a legacy-ID, owner/link, SHA-256, byte-length, MIME-type, and retention/disposition manifest. New image and voice uploads use authoritative Hono upload-init/finalize commands, not Zero mutators.
 
 **Acceptance Criteria**
-- ☐ System can load a full `convex export` into Postgres with per-table row-count parity (every target table equals its source count; merges summed correctly), verified against a real export.
+- ☐ System can load a full `convex export` into Postgres with source-catalog-derived reconciliation (source count, expected target formula, approved merge/drop/regenerate exceptions, samples/checksums), verified against a real export with zero unexplained variance.
 - ☐ System can remap every Convex `_id` to a uuidv7 and resolve 100% of foreign keys with zero orphans, verified by applying all FK constraints plus a NULL-FK audit returning zero.
-- ☐ System can serve every migrated MP3 narration blob over HTTP with correct byte-size and a 206 Partial Content response to a Range request from the real blob store.
+- ☐ System can resolve every retained legacy object or an approved exception, verify its SHA-256/byte length/MIME type on readback, and serve migrated media with correct Range behavior from the real blob store.
 - ☐ System can re-run the entire ETL idempotently from the immutable export archive without duplicating rows or blobs.
+- ☐ User can upload and finalize an improvement image and a voice artifact through the Hono upload lifecycle, with hash verification, idempotent attach, and no orphan object/row pair.

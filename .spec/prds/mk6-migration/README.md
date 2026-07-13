@@ -1,6 +1,6 @@
 ---
 title: MK-VI Platform Migration (Convex → Mastra + Postgres)
-version: 1.0.0
+version: 2.0.0
 scope_posture: full
 pr_sequencing: true
 ---
@@ -21,7 +21,7 @@ Full convention: [`~/Projects/brain/docs/PR-SEQUENCING.md`](~/Projects/brain/doc
 
 | Field | Value |
 |-------|-------|
-| Version | 1.0.0 |
+| Version | 2.0.0 |
 | Scope Posture | Full feature (default) |
 | PR Sequencing | Enabled |
 | Created | 2026-07-13 |
@@ -51,8 +51,8 @@ Full convention: [`~/Projects/brain/docs/PR-SEQUENCING.md`](~/Projects/brain/doc
 | [07-uc-infer.md](./07-uc-infer.md) | UC-INFER-01…05 (Local Inference & Research) | FEATURE_SPEC |
 | [08-uc-sync.md](./08-uc-sync.md) | UC-SYNC-01…05 (Sync, Cutover & Decommission) | FEATURE_SPEC |
 | [09-team-contributions.md](./09-team-contributions.md) | Specialist scoping phases + decisions | - |
-| [10-technical-requirements/](./10-technical-requirements/README.md) | Architecture posture, components, data schema, API, diagram, deps, UI, risks, capability chains, e2e harness (folder) | CONSTITUTION |
-| [11-e2e-testing-criteria.md](./11-e2e-testing-criteria.md) | 80 per-UC test criteria (real Postgres + Mastra + fleet) | TEST_SPEC |
+| [10-technical-requirements/](./10-technical-requirements/README.md) | Architecture, runtime, migration-contract, and verification requirements (folder) | CONSTITUTION |
+| [11-e2e-testing-criteria.md](./11-e2e-testing-criteria.md) | 100 per-UC test criteria (real Postgres + Mastra + fleet) | TEST_SPEC |
 
 ## Quick Stats
 
@@ -62,7 +62,7 @@ Full convention: [`~/Projects/brain/docs/PR-SEQUENCING.md`](~/Projects/brain/doc
 | Use Cases | 25 |
 | System Components | 18 |
 | Capability Chains | 6 |
-| Test Criteria | 90 (AC coverage 100%) |
+| Test Criteria | 100 (AC coverage 100%) |
 | Convex surface removed | 246 files · 60 tables · 16 crons · 44 MCP tools · ~105 app hook sites |
 
 ## Notes
@@ -74,10 +74,11 @@ Full convention: [`~/Projects/brain/docs/PR-SEQUENCING.md`](~/Projects/brain/doc
 
 | Version | Date | Changes | Trigger |
 |---------|------|---------|---------|
-| 1.0.0 | 2026-07-13 | Initial PRD — Convex→Mastra+Postgres migration, 5 groups / 25 UCs / 80 criteria. | New initiative |
+| 1.0.0 | 2026-07-13 | Initial PRD — Convex→Mastra+Postgres migration, 5 groups / 25 UCs / 90 criteria. | New initiative |
+| 2.0.0 | 2026-07-13 | Red-hat remediation: runtime and migration contracts, read-only rollbackable soak, complete asset lifecycle, explicit Zero/SSE contracts, and 100 acceptance criteria. | Red-hat review integration |
 
 ## Next Steps
 
 - `/review-red-hat .spec/prds/mk6-migration` — adversarial multi-agent review before building.
-- `/kb-sprint-plan .spec/prds/mk6-migration` — build the sprint roadmap (leading INFRA sprint: provision the real Postgres+Mastra+fleet harness + RN e2e; then PLAT → DATA → SVC/INFER → SYNC). Every sprint's human-testing gate draws `[human-gate]` criteria from [11-e2e-testing-criteria.md](./11-e2e-testing-criteria.md).
+- `/kb-sprint-plan .spec/prds/mk6-migration` — build the sprint roadmap only after the leading INFRA sprint proves the runtime compatibility lock and Maestro reference flow, then produces the migration-contract artifacts before PLAT → DATA → SVC/INFER → SYNC. Every sprint's human-testing gate draws `[human-gate]` criteria from [11-e2e-testing-criteria.md](./11-e2e-testing-criteria.md).
 - `/kb-prd-plan --feedback "…"` — integrate any changes.

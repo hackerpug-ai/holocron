@@ -1,7 +1,7 @@
 ---
 stability: CONSTITUTION
 last_validated: 2026-07-13
-prd_version: 1.0.0
+prd_version: 2.0.0
 ---
 
 # Architecture Posture
@@ -10,7 +10,7 @@ The load-bearing stances for the MK-VI platform migration. These are the decisio
 
 ## AP-1 — One store on the metal: Postgres only, no SQLite
 
-**Postgres, self-hosted on the tailnet mini, is the single source of truth and the single durable ledger.** There is no second store. Fulcrum's ledger does **not** retain the parked `bun:sqlite` Prospector database — it moves wholesale to **Postgres append-only tables** whose immutability is enforced at the database level (triggers / `REVOKE UPDATE, DELETE`, unique `content_hash` / idempotency keys). Postgres transactions give the same kill-9 all-or-nothing commit and immutability the SQLite ledger promised, in one store, with no split-brain and no cross-store reconciliation. This is the Operator's explicit decision and it supersedes the data-layer recommendation to keep SQLite as a write spine.
+**Postgres, self-hosted on the tailnet mini, is the single source of truth and the single durable ledger.** There is no second store. Fulcrum's ledger does **not** retain the parked `bun:sqlite` Prospector database — it moves wholesale to **Postgres append-only tables** whose direct `UPDATE`/`DELETE` access is denied to application roles. The sole temporal-revision transaction may lock the expected-current belief, set only its `tx_to`, insert its successor, and record actor/run/idempotency metadata atomically; all other direct mutation is rejected. Postgres transactions give the same kill-9 all-or-nothing commit and immutability the SQLite ledger promised, in one store, with no split-brain and no cross-store reconciliation. This is the Operator's explicit decision and it supersedes the data-layer recommendation to keep SQLite as a write spine.
 
 ## AP-2 — Mastra on the mini deletes the constraint that shaped fulcrum
 
@@ -28,13 +28,13 @@ Every reasoning call names a **role** (`divergent`/`convergent`/`judge`/`embed`/
 
 Every agentic pipeline (chat, research, whatsNew, assimilate, shop, subscriptions, the four business pipelines, and later fulcrum) is an instance of one **Mission Engine** — a declarative template compiled to a durable, resumable Mastra workflow with Postgres run-state. There are no per-domain copy-pasted modules. This is what lets 246 backend files and 60 tables collapse.
 
-## AP-6 — Big-bang cutover, but never dark
+## AP-6 — Big-bang cutover, rollbackable only while read-only
 
-The cutover is decisive: build in parallel, freeze, one-time ETL, flip, verify, delete Convex. But the Convex deployment stays live and deletable through a soak window (the rollback path), and its deletion is the single explicit point of no return, taken only after real-service gates pass.
+The cutover is decisive: build in parallel, durably freeze Convex writes, one-time ETL, flip, verify, enable writes, then delete Convex. The flipped stack first enters a **rollbackable read-only soak**: app, MCP, upload, scheduled-job, and mission-commit writes return a documented `migration_read_only` outcome. During that window Convex remains the rollback target because no post-export production writes exist. The **first accepted production write on Postgres** is the data-plane point of no return; subsequent recovery is Postgres/blob restore, not Convex rollback. Convex deletion is a later source-destruction step gated on fresh recovery evidence.
 
 ## AP-7 — The tailnet is the security boundary
 
-Per project rule (`RULES.md`): this is a personal, never-published, single-user app. **No RLS, no multi-tenant isolation, no app-level auth.** Tailscale ACLs + API keys are the entire trust boundary. The one exception is the public `/article/{shareToken}` endpoint — the single unauthenticated egress — which must be explicitly and narrowly exposed (Tailscale Funnel / reverse proxy) while everything else stays tailnet-only.
+Per project rule (`RULES.md`): this is a personal, never-published, single-user app. **No RLS and no multi-tenant isolation.** Tailscale ACLs plus scoped API keys are the trust boundary: health/readiness is tailnet-only; `/api/*`, `/blobs/:id`, and `/mcp` require tailnet reachability plus their declared key scope. The one exception is the public `/article/{shareToken}` endpoint and its article-scoped asset route, which are explicitly and narrowly exposed while everything else stays tailnet-only.
 
 ## AP-8 — Behavior-preserving migration
 
