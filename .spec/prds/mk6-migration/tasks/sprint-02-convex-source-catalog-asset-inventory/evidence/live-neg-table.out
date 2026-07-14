@@ -1,0 +1,71 @@
+# catalog:verify
+tables: 59/60 approved
+storage refs: 6/6 approved
+fields: 785/785 mapped
+export tables unaccounted: 1
+
+agentPlanSteps: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+agentPlans: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+agentTelemetry: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+aiRoiEvidence: disposition=merge formula=count(source) owner=platform-data approval=APR-MIG-MERGE-BUSINESS-12-3
+aiRoiOpportunities: disposition=merge formula=count(source) owner=platform-data approval=APR-MIG-MERGE-BUSINESS-12-3
+aiRoiSessions: disposition=merge formula=count(source) owner=platform-data approval=APR-MIG-MERGE-BUSINESS-12-3
+assimilationIterations: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+assimilationMetadata: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+assimilationSessions: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+audioJobs: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+audioSegments: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+audioTranscriptJobs: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+audioTranscripts: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+chatMessages: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+citations: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+competitiveAnalysisCompetitors: disposition=merge formula=count(source) owner=platform-data approval=APR-MIG-MERGE-BUSINESS-12-3
+competitiveAnalysisFeatures: disposition=merge formula=count(source) owner=platform-data approval=APR-MIG-MERGE-BUSINESS-12-3
+competitiveAnalysisSessions: disposition=merge formula=count(source) owner=platform-data approval=APR-MIG-MERGE-BUSINESS-12-3
+conversations: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+creatorProfiles: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+deepResearchIterations: disposition=merge formula=count(source) owner=platform-data approval=APR-MIG-MERGE-RESEARCH-5-3
+deepResearchSessions: disposition=merge formula=count(source) owner=platform-data approval=APR-MIG-MERGE-RESEARCH-5-3
+documentCounters: disposition=drop formula=0 owner=platform-data approval=APR-MIG-DROP-DOC-COUNTERS-001
+documents: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+executionPlans: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+feedItems: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+feedSessions: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+feedSettings: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+flightsPriceCalendar: disposition=merge formula=count(source) owner=platform-data approval=APR-MIG-MERGE-BUSINESS-12-3
+flightsRoutes: disposition=merge formula=count(source) owner=platform-data approval=APR-MIG-MERGE-BUSINESS-12-3
+flightsSessions: disposition=merge formula=count(source) owner=platform-data approval=APR-MIG-MERGE-BUSINESS-12-3
+imports: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+improvementImages: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+improvementRequests: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+notifications: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+planApprovals: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+rateLimitTracking: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+rateLimits: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+researchFindings: disposition=merge formula=count(source) owner=platform-data approval=APR-MIG-MERGE-RESEARCH-5-3
+researchIterations: disposition=merge formula=count(source) owner=platform-data approval=APR-MIG-MERGE-RESEARCH-5-3
+researchSessions: disposition=merge formula=count(source) owner=platform-data approval=APR-MIG-MERGE-RESEARCH-5-3
+revenueValidationCompetitors: disposition=merge formula=count(source) owner=platform-data approval=APR-MIG-MERGE-BUSINESS-12-3
+revenueValidationEvidence: disposition=merge formula=count(source) owner=platform-data approval=APR-MIG-MERGE-BUSINESS-12-3
+revenueValidationSessions: disposition=merge formula=count(source) owner=platform-data approval=APR-MIG-MERGE-BUSINESS-12-3
+shopListings: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+shopSessions: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+subscriptionContent: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+subscriptionFilters: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+subscriptionLinks: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+subscriptionSources: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+tasks: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+toolCalls: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+toolbeltTools: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+transcriptJobs: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+userPreferences: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+videoTranscripts: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+voiceSessions: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+whatsNewReports: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+whatsNewWorkflows: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+
+## issues
+- unmapped table: voiceCommands
+
+FAIL: 59/60 tables approved; 1 export tables unaccounted
+unmapped table: voiceCommands

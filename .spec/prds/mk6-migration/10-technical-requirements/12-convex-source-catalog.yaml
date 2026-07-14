@@ -26,6 +26,94 @@ system_exclusions:
     reason: Blob store walked via storage_refs asset inventory; not a domain table
     approval: APR-MIG-SYS-EXCL-003
     owner: platform-data
+  - name: _components
+    disposition: archive
+    reason: Convex component sub-deployments (agent/workflow); not holocron domain tables
+    approval: APR-MIG-SYS-EXCL-004
+    owner: platform-data
+  # Live-export residue (2026-07-14 snapshot): empty tables present in deployment export
+  # but absent from convex/schema.ts holocron surface (0 rows each). Versioned drop so
+  # catalog:verify fails closed if they later gain data without a catalog entry upgrade.
+  - name: favorite_roads
+    disposition: drop
+    reason: Empty live-export residue; not in holocron schema.ts (0 rows)
+    approval: APR-MIG-DROP-ORPHAN-EMPTY-001
+    owner: platform-data
+  - name: org_memberships
+    disposition: drop
+    reason: Empty live-export residue; not in holocron schema.ts (0 rows)
+    approval: APR-MIG-DROP-ORPHAN-EMPTY-001
+    owner: platform-data
+  - name: orgs
+    disposition: drop
+    reason: Empty live-export residue; not in holocron schema.ts (0 rows)
+    approval: APR-MIG-DROP-ORPHAN-EMPTY-001
+    owner: platform-data
+  - name: osm_import_jobs
+    disposition: drop
+    reason: Empty live-export residue; not in holocron schema.ts (0 rows)
+    approval: APR-MIG-DROP-ORPHAN-EMPTY-001
+    owner: platform-data
+  - name: osm_nodes
+    disposition: drop
+    reason: Empty live-export residue; not in holocron schema.ts (0 rows)
+    approval: APR-MIG-DROP-ORPHAN-EMPTY-001
+    owner: platform-data
+  - name: osm_ways
+    disposition: drop
+    reason: Empty live-export residue; not in holocron schema.ts (0 rows)
+    approval: APR-MIG-DROP-ORPHAN-EMPTY-001
+    owner: platform-data
+  - name: performance
+    disposition: drop
+    reason: Empty live-export residue; not in holocron schema.ts (0 rows)
+    approval: APR-MIG-DROP-ORPHAN-EMPTY-001
+    owner: platform-data
+  - name: plan_usage
+    disposition: drop
+    reason: Empty live-export residue; not in holocron schema.ts (0 rows)
+    approval: APR-MIG-DROP-ORPHAN-EMPTY-001
+    owner: platform-data
+  - name: planning_sessions
+    disposition: drop
+    reason: Empty live-export residue; not in holocron schema.ts (0 rows)
+    approval: APR-MIG-DROP-ORPHAN-EMPTY-001
+    owner: platform-data
+  - name: route_enrichments
+    disposition: drop
+    reason: Empty live-export residue; not in holocron schema.ts (0 rows)
+    approval: APR-MIG-DROP-ORPHAN-EMPTY-001
+    owner: platform-data
+  - name: route_plans
+    disposition: drop
+    reason: Empty live-export residue; not in holocron schema.ts (0 rows)
+    approval: APR-MIG-DROP-ORPHAN-EMPTY-001
+    owner: platform-data
+  - name: saved_routes
+    disposition: drop
+    reason: Empty live-export residue; not in holocron schema.ts (0 rows)
+    approval: APR-MIG-DROP-ORPHAN-EMPTY-001
+    owner: platform-data
+  - name: session_messages
+    disposition: drop
+    reason: Empty live-export residue; not in holocron schema.ts (0 rows)
+    approval: APR-MIG-DROP-ORPHAN-EMPTY-001
+    owner: platform-data
+  - name: trip_plans
+    disposition: drop
+    reason: Empty live-export residue; not in holocron schema.ts (0 rows)
+    approval: APR-MIG-DROP-ORPHAN-EMPTY-001
+    owner: platform-data
+  - name: users
+    disposition: drop
+    reason: Empty live-export residue; not in holocron schema.ts (0 rows)
+    approval: APR-MIG-DROP-ORPHAN-EMPTY-001
+    owner: platform-data
+  - name: waypoints
+    disposition: drop
+    reason: Empty live-export residue; not in holocron schema.ts (0 rows)
+    approval: APR-MIG-DROP-ORPHAN-EMPTY-001
+    owner: platform-data
 
 merges:
   business:

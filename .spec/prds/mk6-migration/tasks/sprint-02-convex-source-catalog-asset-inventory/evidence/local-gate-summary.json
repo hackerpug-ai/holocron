@@ -8,5 +8,10 @@
   "missing_storage_fails": true,
   "variance_fails": true,
   "vitest_ok": true,
-  "live_export_ok": false
+  "live_export_ok": true,
+  "live_verify_ok": true,
+  "live_reconcile_ok": true,
+  "live_assets_ok": true,
+  "live_neg_fails": true,
+  "live_sha_sample_ok": true
 }

@@ -1,29 +1,33 @@
 {
   "sprint": "sprint-02-convex-source-catalog-asset-inventory",
   "runner": "grok-implementation-stage",
-  "cycle_start": "2026-07-14T14:40:00Z",
-  "completed_at": "2026-07-14T15:00:00Z",
-  "verdict": "blocked",
-  "reason": "Live convex export unavailable (TypeError: fetch failed). Fixture-backed steps all pass; gate requires real export per SPRINT.md.",
+  "cycle_start": "2026-07-14T15:11:10Z",
+  "completed_at": "2026-07-14T15:12:48Z",
+  "verdict": "pass",
+  "reason": "Real convex export (include-file-storage) succeeded; holo catalog:* gates pass on live export with 60/60 approved, 0 unaccounted, unexplained_variance=0, retained assets SHA match, negative control fails closed.",
   "steps_total": 6,
   "steps_executed": 6,
   "steps_passed": 6,
   "steps_failed": 0,
-  "steps_blocked_live": 6,
-  "export_surface": "fixture:services/platform/tests/fixtures/export-sample",
+  "export_surface": "live:/tmp/sprint02-live-export-9759/export-dir",
   "live_export": {
-    "status": "failed",
-    "error": "TypeError: fetch failed after 6 retries during Creating snapshot export",
+    "status": "success",
+    "include_file_storage": true,
+    "zip_bytes": 520366272,
+    "deployment_host": "acrobatic-echidna-253.convex.cloud",
+    "export_tables_user": 76,
+    "storage_files": 1192,
+    "dns_workaround": "temporary Node dns.lookup\u2192resolve4 preload for *.convex.cloud (macOS getaddrinfo ENOTFOUND); not product code",
     "substituted": false
   },
   "steps": [
     {
       "id": 1,
-      "command": "bun services/platform/src/cli/holo.ts catalog:verify --export services/platform/tests/fixtures/export-sample",
+      "command": "bun services/platform/src/cli/holo.ts catalog:verify --export $CONVEX_EXPORT_DIR",
       "executed": true,
       "result": "pass",
-      "surface": "fixture",
-      "notes": "60/60 tables approved; 6/6 storage refs; 0 export tables unaccounted"
+      "surface": "live",
+      "notes": "60/60 tables approved; 6/6 storage refs; 0 export tables unaccounted (16 empty orphan tables + _components versioned as system_exclusions)"
     },
     {
       "id": 2,
@@ -31,31 +35,31 @@
       "executed": true,
       "result": "pass",
       "surface": "catalog",
-      "notes": "all fields + 6 storage refs with owner+approval; audioTranscriptJobs.audioStorageId drop; documentCounters drop"
+      "notes": "797 fields + 6 storage refs dispositioned with owner+approval"
     },
     {
       "id": 3,
-      "command": "bun services/platform/src/cli/holo.ts catalog:verify --catalog services/platform/tests/fixtures/catalog-missing-voiceCommands.yaml --export services/platform/tests/fixtures/export-sample",
+      "command": "bun services/platform/src/cli/holo.ts catalog:verify --catalog /tmp/catalog-missing-voiceCommands-live.yaml --export $CONVEX_EXPORT_DIR",
       "executed": true,
       "result": "pass",
-      "surface": "fixture-negative",
+      "surface": "live-negative",
       "notes": "exit 1; unmapped table: voiceCommands; 59/60"
     },
     {
       "id": 4,
-      "command": "bun services/platform/src/cli/holo.ts catalog:reconcile --dry-run --export services/platform/tests/fixtures/export-sample",
+      "command": "bun services/platform/src/cli/holo.ts catalog:reconcile --dry-run --export $CONVEX_EXPORT_DIR",
       "executed": true,
       "result": "pass",
-      "surface": "fixture",
-      "notes": "unexplained_variance: 0; approved merges + documentCounters drop listed"
+      "surface": "live",
+      "notes": "unexplained_variance: 0; approved merges + documentCounters drop (source=57)"
     },
     {
       "id": 5,
-      "command": "bun services/platform/src/cli/holo.ts catalog:assets --export services/platform/tests/fixtures/export-sample",
+      "command": "bun services/platform/src/cli/holo.ts catalog:assets --export $CONVEX_EXPORT_DIR",
       "executed": true,
       "result": "pass",
-      "surface": "fixture",
-      "notes": "5 retained objects; sha256 matches disk; temp audioTranscriptJobs blob excluded"
+      "surface": "live",
+      "notes": "retained_objects: 1192 === storage files 1192; audioSegments sample SHA-256 matches disk"
     },
     {
       "id": 6,
@@ -63,14 +67,17 @@
       "executed": true,
       "result": "pass",
       "surface": "catalog",
-      "notes": "business 12→3 analysis_*; research 5→3 system discriminator; per_domain_shell_targets: 0"
+      "notes": "business 12\u21923 analysis_*; research 5\u21923 system discriminator; per_domain_shell_targets: 0"
     }
   ],
   "ui_driver": "none",
   "logs": {
-    "local_gates": ".tmp/sprint-02-convex-source-catalog-asset-inventory/local-gates.log",
-    "local_gate_summary": ".tmp/sprint-02-convex-source-catalog-asset-inventory/local-gate-summary.json",
-    "gate_results_local": ".tmp/sprint-02-convex-source-catalog-asset-inventory/gate-results-local.json",
+    "live_gates": ".tmp/sprint-02-convex-source-catalog-asset-inventory/live-gates.log",
+    "live_verify": ".tmp/sprint-02-convex-source-catalog-asset-inventory/live-verify.out",
+    "live_reconcile": ".tmp/sprint-02-convex-source-catalog-asset-inventory/live-reconcile.out",
+    "live_assets": ".tmp/sprint-02-convex-source-catalog-asset-inventory/live-assets.out",
+    "live_sha_sample": ".tmp/sprint-02-convex-source-catalog-asset-inventory/live-sha-sample.txt",
+    "live_export_meta": ".tmp/sprint-02-convex-source-catalog-asset-inventory/live-export-meta.txt",
     "catalog4_verdict": ".tmp/sprint-02-convex-source-catalog-asset-inventory/catalog-4-verdict.json"
   }
 }

@@ -1,0 +1,72 @@
+# catalog:reconcile
+
+agentPlans: source=0 expected=0 variance=0 disposition=preserve
+agentPlanSteps: source=0 expected=0 variance=0 disposition=preserve
+agentTelemetry: source=0 expected=0 variance=0 disposition=preserve
+aiRoiEvidence: source=0 expected=0 variance=0 disposition=merge approved_exception
+aiRoiOpportunities: source=0 expected=0 variance=0 disposition=merge approved_exception
+aiRoiSessions: source=0 expected=0 variance=0 disposition=merge approved_exception
+assimilationIterations: source=1 expected=1 variance=0 disposition=preserve
+assimilationMetadata: source=0 expected=0 variance=0 disposition=preserve
+assimilationSessions: source=1 expected=1 variance=0 disposition=preserve
+audioJobs: source=40 expected=40 variance=0 disposition=preserve
+audioSegments: source=1056 expected=1056 variance=0 disposition=preserve
+audioTranscriptJobs: source=0 expected=0 variance=0 disposition=preserve
+audioTranscripts: source=0 expected=0 variance=0 disposition=preserve
+chatMessages: source=1100 expected=1100 variance=0 disposition=preserve
+citations: source=115 expected=115 variance=0 disposition=preserve
+competitiveAnalysisCompetitors: source=0 expected=0 variance=0 disposition=merge approved_exception
+competitiveAnalysisFeatures: source=0 expected=0 variance=0 disposition=merge approved_exception
+competitiveAnalysisSessions: source=0 expected=0 variance=0 disposition=merge approved_exception
+conversations: source=101 expected=101 variance=0 disposition=preserve
+creatorProfiles: source=1 expected=1 variance=0 disposition=preserve
+deepResearchIterations: source=259 expected=259 variance=0 disposition=merge approved_exception
+deepResearchSessions: source=127 expected=127 variance=0 disposition=merge approved_exception
+documentCounters: source=57 expected=0 variance=0 disposition=drop approved_exception
+documents: source=1411 expected=1411 variance=0 disposition=preserve
+executionPlans: source=0 expected=0 variance=0 disposition=preserve
+feedItems: source=356 expected=356 variance=0 disposition=preserve
+feedSessions: source=0 expected=0 variance=0 disposition=preserve
+feedSettings: source=0 expected=0 variance=0 disposition=preserve
+flightsPriceCalendar: source=0 expected=0 variance=0 disposition=merge approved_exception
+flightsRoutes: source=0 expected=0 variance=0 disposition=merge approved_exception
+flightsSessions: source=0 expected=0 variance=0 disposition=merge approved_exception
+imports: source=0 expected=0 variance=0 disposition=preserve
+improvementImages: source=0 expected=0 variance=0 disposition=preserve
+improvementRequests: source=33 expected=33 variance=0 disposition=preserve
+notifications: source=586 expected=586 variance=0 disposition=preserve
+planApprovals: source=0 expected=0 variance=0 disposition=preserve
+rateLimits: source=0 expected=0 variance=0 disposition=preserve
+rateLimitTracking: source=0 expected=0 variance=0 disposition=preserve
+researchFindings: source=49 expected=49 variance=0 disposition=merge approved_exception
+researchIterations: source=0 expected=0 variance=0 disposition=merge approved_exception
+researchSessions: source=12 expected=12 variance=0 disposition=merge approved_exception
+revenueValidationCompetitors: source=0 expected=0 variance=0 disposition=merge approved_exception
+revenueValidationEvidence: source=0 expected=0 variance=0 disposition=merge approved_exception
+revenueValidationSessions: source=0 expected=0 variance=0 disposition=merge approved_exception
+shopListings: source=399 expected=399 variance=0 disposition=preserve
+shopSessions: source=53 expected=53 variance=0 disposition=preserve
+subscriptionContent: source=348 expected=348 variance=0 disposition=preserve
+subscriptionFilters: source=0 expected=0 variance=0 disposition=preserve
+subscriptionLinks: source=0 expected=0 variance=0 disposition=preserve
+subscriptionSources: source=44 expected=44 variance=0 disposition=preserve
+tasks: source=2 expected=2 variance=0 disposition=preserve
+toolbeltTools: source=7 expected=7 variance=0 disposition=preserve
+toolCalls: source=150 expected=150 variance=0 disposition=preserve
+transcriptJobs: source=103 expected=103 variance=0 disposition=preserve
+userPreferences: source=1 expected=1 variance=0 disposition=preserve
+videoTranscripts: source=91 expected=91 variance=0 disposition=preserve
+voiceCommands: source=0 expected=0 variance=0 disposition=preserve
+voiceSessions: source=211 expected=211 variance=0 disposition=preserve
+whatsNewReports: source=116 expected=116 variance=0 disposition=preserve
+whatsNewWorkflows: source=98 expected=98 variance=0 disposition=preserve
+
+## approved exceptions
+- [merge] business 12→3 analysis_*: sources=revenueValidationSessions,competitiveAnalysisSessions,aiRoiSessions,flightsSessions,revenueValidationCompetitors,competitiveAnalysisCompetitors,competitiveAnalysisFeatures,aiRoiOpportunities,flightsRoutes,flightsPriceCalendar,revenueValidationEvidence,aiRoiEvidence targets=analysis_sessions,analysis_items,analysis_evidence approval=APR-MIG-MERGE-BUSINESS-12-3
+- [merge] research 5→3 research_*: sources=researchSessions,deepResearchSessions,researchIterations,deepResearchIterations,researchFindings targets=research_sessions,research_iterations,research_findings approval=APR-MIG-MERGE-RESEARCH-5-3
+- [drop] documentCounters: disposition=drop approval=APR-MIG-DROP-DOC-COUNTERS-001 source_count=57 expected_target=0
+
+analysis_sessions expected=0
+research_sessions expected=139
+unexplained_variance: 0
+status: OK

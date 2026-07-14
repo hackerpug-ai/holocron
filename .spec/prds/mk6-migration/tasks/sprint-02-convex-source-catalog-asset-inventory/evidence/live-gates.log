@@ -1,0 +1,24 @@
+=== live-verify ===
+rc=0
+=== live-coverage ===
+rc=0
+=== live-merges ===
+rc=0
+=== live-reconcile ===
+rc=0
+=== live-assets ===
+rc=0
+=== live-neg-table ===
+rc=1
+=== fixture-verify ===
+rc=0
+=== fixture-reconcile ===
+rc=0
+=== fixture-assets ===
+rc=0
+=== fixture-neg ===
+rc=1
+=== fixture-var ===
+rc=1
+=== vitest ===
+rc=0
