@@ -29,7 +29,7 @@ This roadmap is a **consolidation** of proposals from the project's dispatched p
 | 2 | — | [Sprint 02: Convex Source Catalog and Asset Inventory](#sprint-02-convex-source-catalog-and-asset-inventory) | `holo catalog:verify` — 60/60 tables + every object have approved dispositions | 5 | — | 🟠 In flight | `mk6-source-catalog` | — |
 | 3 | — | [Sprint 03: MCP Compatibility Manifest and Frozen Fixtures](#sprint-03-mcp-compatibility-manifest-and-frozen-fixtures) | `holo mcp:verify-manifest` — 44/44 tools with frozen fixtures, both transports | 5 | 1 | 🟠 In flight | `mk6-mcp-manifest` | — |
 | 4 | — | [Sprint 04: Provision Postgres and Domain Schema](#sprint-04-provision-postgres-and-domain-schema) | `holo db:migrate` clean on real PG 18; ≥55 tables, indexes, replication ready | 6 | 1, 2 | 🟠 In flight | `mk6-postgres-schema` | — |
-| 5 | — | [Sprint 05: Mastra Service and Scoped-Key Auth](#sprint-05-mastra-service-and-scoped-key-auth) | Unkeyed mutation → 401; correctly-scoped key → 200 on the running service | 5 | 1, 4 | 🔵 Planned | `mk6-mastra-service` | — |
+| 5 | — | [Sprint 05: Mastra Service and Scoped-Key Auth](#sprint-05-mastra-service-and-scoped-key-auth) | Unkeyed mutation → 401; correctly-scoped key → 200 on the running service | 5 | 1, 4 | 🟠 In flight | `mk6-mastra-service` | — |
 | 6 | — | [Sprint 06: Headless Deployment and Dev/Prod Parity](#sprint-06-headless-deployment-and-devprod-parity) | `holo stack up` — Postgres/Mastra/scheduler/zero-cache healthy in 60s | 6 | 4, 5 | 🔵 Planned | `mk6-deployment` | — |
 | 7 | — | [Sprint 07: Evidence-Graph Substrate and Ledger Immutability](#sprint-07-evidence-graph-substrate-and-ledger-immutability) | Direct DML on `beliefs` rejected; authorized temporal revision atomic | 5 | 4 | 🔵 Planned | `mk6-evidence-ledger` | — |
 | 8 | — | [Sprint 08: Role Router, Local-First and Degraded Modes](#sprint-08-role-router-local-first-and-degraded-modes) | Normal mission routes every call to the fleet; zero Anthropic on default path | 5 | 1, 5 | 🔵 Planned | `mk6-inference-router` | — |
@@ -293,7 +293,7 @@ The `Milestone` cell links to the GitHub Milestone titled `sprint-{NN}`; sprints
 
 **Sequence:** 5
 **Timeline:** Phase 1 — Platform Foundation
-**Status:** 🔵 Planned
+**Status:** 🟠 In flight
 **Proposed by:** mastra-planner
 **Milestone:** — (`sprint-05`)
 **Branch:** `mk6-mastra-service`
@@ -321,6 +321,13 @@ The `Milestone` cell links to the GitHub Milestone titled `sprint-{NN}`; sprints
 | service-3 | Scoped API-key middleware (RN/MCP/control scopes) + fleet resolution wired in | mastra-implementer | 210 min |
 | service-4 | RED tests: unkeyed→401, wrong-scope→403, keyed→200, shared-schema identity, /health | red-test-generator | 120 min |
 | service-5 | Review auth boundary + registry singularity | mastra-reviewer | 90 min |
+
+**Next Sprint Tasks:** *(expanded by kb-sprint-tasks-plan on 2026-07-14 — SPRINT.md + 5 task files at [`tasks/sprint-05-mastra-service-and-scoped-key-auth/`](tasks/sprint-05-mastra-service-and-scoped-key-auth/); avg 100/115, 0 fakeable scenarios)*
+- service-1-mastra-composition-root-hono-health.md
+- service-2-shared-tool-zod-schema-registry.md
+- service-3-scoped-key-middleware-and-fleet-resolution.md
+- service-4-red-tests-unkeyed-wrong-scope-keyed-shared-schema-health.md
+- service-5-review-auth-boundary-and-registry-singularity.md
 
 #### Dependencies
 
