@@ -1,0 +1,81 @@
+/**
+ * documents group — documents (vector-free), imports, citations
+ * Vectors live on passages (Zero publication split cleanliness).
+ */
+
+import { sql } from 'drizzle-orm';
+import { boolean, check, integer, pgTable, text } from 'drizzle-orm/pg-core';
+import {
+  createdAtColumn,
+  idColumn,
+  legacyConvexIdColumn,
+  legacyConvexIdIndex,
+  timestamptz,
+  typedJsonb,
+} from '../columns';
+import { documentStatusValues, sqlInList } from '../enums';
+
+export const documents = pgTable(
+  'documents',
+  {
+    id: idColumn(),
+    legacyConvexId: legacyConvexIdColumn(),
+    title: text('title'),
+    content: text('content'),
+    category: text('category'),
+    filePath: text('file_path'),
+    fileType: text('file_type'),
+    status: text('status').notNull().default('draft'),
+    date: text('date'),
+    time: text('time'),
+    researchType: text('research_type'),
+    iterations: integer('iterations'),
+    // NOTE: embedding intentionally omitted — vectors live on passages (Zero split).
+    isPublic: boolean('is_public').default(false),
+    shareToken: text('share_token'),
+    createdAt: createdAtColumn(),
+  },
+  (t) => [
+    legacyConvexIdIndex('documents', t.legacyConvexId),
+    check('documents_status_check', sql`status IN (${sql.raw(sqlInList(documentStatusValues))})`),
+  ]
+);
+
+export const imports = pgTable(
+  'imports',
+  {
+    id: idColumn(),
+    legacyConvexId: legacyConvexIdColumn(),
+    documentId: text('document_id'),
+    source: text('source'),
+    text: text('text'),
+    importedAt: timestamptz('imported_at'),
+    createdAt: createdAtColumn(),
+  },
+  (t) => [legacyConvexIdIndex('imports', t.legacyConvexId)]
+);
+
+export const citations = pgTable(
+  'citations',
+  {
+    id: idColumn(),
+    legacyConvexId: legacyConvexIdColumn(),
+    sessionId: text('session_id'),
+    documentId: text('document_id'),
+    deepResearchSessionId: text('deep_research_session_id'),
+    sourceUrl: text('source_url'),
+    sourceTitle: text('source_title'),
+    sourceDomain: text('source_domain'),
+    claimText: text('claim_text'),
+    claimMarker: text('claim_marker'),
+    sourceType: text('source_type'),
+    credibilityScore: integer('credibility_score'),
+    evidenceType: text('evidence_type'),
+    publishedDate: text('published_date'),
+    authorCredentials: text('author_credentials'),
+    retrievedAt: timestamptz('retrieved_at'),
+    metadataJson: typedJsonb('metadata_json'),
+    createdAt: createdAtColumn(),
+  },
+  (t) => [legacyConvexIdIndex('citations', t.legacyConvexId)]
+);

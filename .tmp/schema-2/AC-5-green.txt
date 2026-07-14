@@ -1,0 +1,13 @@
+# catalog:coverage (AC-5)
+fields_mapped: 797
+storage_refs: 6/6
+status: OK
+
+# catalog:verify (AC-5 disposition completeness)
+tables: 60/60 approved
+storage refs: 6/6 approved
+fields: 797/797 mapped
+export tables unaccounted: 0
+status: OK
+
+All 60 legacy catalog tables dispositioned; every field mapped; storage refs covered.
