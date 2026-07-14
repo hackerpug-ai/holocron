@@ -1,0 +1,13 @@
+{
+  "representative_example": true,
+  "idempotency_key": ["id", "status"],
+  "stored_result": "status",
+  "first_call_result": {
+    "id": "kg_imp_001",
+    "status": "closed"
+  },
+  "second_call_result": {
+    "id": "kg_imp_001",
+    "status": "closed"
+  }
+}

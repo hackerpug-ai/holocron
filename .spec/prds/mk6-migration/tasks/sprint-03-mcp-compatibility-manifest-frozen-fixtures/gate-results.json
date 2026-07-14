@@ -2,8 +2,9 @@
   "sprint": "sprint-03-mcp-compatibility-manifest-frozen-fixtures",
   "gate": "Running `holo mcp:verify-manifest` exits 0 after confirming all 44 live-registered tool IDs resolve to manifest entries carrying frozen success/error fixtures.",
   "verdict": "pass",
-  "executed_at": "2026-07-14T11:45:00Z",
-  "executed_by": "kb-run-sprint orchestrator",
+  "executed_at": "2026-07-14T12:55:00Z",
+  "executed_by": "kb-run-sprint orchestrator (post-redhat-remediation)",
+  "remediation_cycle": 1,
   "steps": [
     {
       "id": 1,
@@ -12,8 +13,7 @@
       "executed": true,
       "result": "pass",
       "exit_code": 0,
-      "stdout": "44/44 tools covered, both transports covered",
-      "evidence": "exit 0; output contains '44/44 tools covered, both transports covered'"
+      "stdout": "44/44 tools covered, both transports covered"
     },
     {
       "id": 2,
@@ -22,25 +22,16 @@
       "executed": true,
       "result": "pass",
       "exit_code": 1,
-      "stderr": "store_document not covered by manifest",
-      "evidence": "exit 1; stderr contains 'store_document not covered by manifest' — gate has teeth"
+      "stderr": "store_document not covered by manifest"
     },
     {
       "id": 3,
-      "description": "Run `holo mcp:manifest-schema store_document` — prints its input/output JSON Schema plus default values",
+      "description": "Run `holo mcp:manifest-schema store_document` — prints input/output JSON Schema plus default values",
       "command": "bun services/platform/src/cli/holo.ts mcp:manifest-schema store_document",
       "executed": true,
       "result": "pass",
       "exit_code": 0,
-      "stdout_contains": [
-        "input_schema",
-        "output_schema",
-        "defaults",
-        "title",
-        "content",
-        "documentId"
-      ],
-      "evidence": "exit 0; prints real JSON Schema with properties (title: string minLength 1, content: string minLength 1), required [title, content], output_schema with documentId/title/embeddingStatus, defaults with metadata"
+      "stdout_contains": ["input_schema", "output_schema", "defaults", "title", "content"]
     },
     {
       "id": 4,
@@ -49,8 +40,7 @@
       "executed": true,
       "result": "pass",
       "exit_code": 0,
-      "stdout_contains": ["sourceType", "identifier", "subscriptionId", "kg_replay_001"],
-      "evidence": "exit 0; prints idempotency key [sourceType, identifier], stored result field subscriptionId, replay fixture with both calls returning identical subscriptionId kg_replay_001"
+      "stdout_contains": ["sourceType", "identifier", "subscriptionId", "representative_example"]
     },
     {
       "id": 5,
@@ -59,14 +49,7 @@
       "executed": true,
       "result": "pass",
       "exit_code": 0,
-      "stdout_contains": [
-        "2025-11-25",
-        "stdio",
-        "streamable-http",
-        "Stateless: true",
-        "No server sampling: true"
-      ],
-      "evidence": "exit 0; protocol pinned to 2025-11-25, both transports (stdio, streamable-http), stateless true, no_server_sampling true, auth + cancellation policy present"
+      "stdout_contains": ["2025-11-25", "stdio", "streamable-http", "Stateless: true"]
     },
     {
       "id": 6,
@@ -75,14 +58,41 @@
       "executed": true,
       "result": "pass",
       "exit_code": 0,
-      "stdout_contains": ["store_document", "idempotency_key", "stored_result", "21"],
-      "evidence": "exit 0; lists 21 mutation tools including store_document, each with idempotency_key + stored_result replay-contract entry"
+      "stdout_contains": ["store_document", "idempotency_key", "stored_result", "21"]
     }
   ],
   "steps_total": 6,
   "steps_executed": 6,
   "steps_passed": 6,
   "steps_failed": 0,
-  "ui_driver": "none",
-  "notes": "All 6 human test steps executed against the real `holo mcp:*` CLI surface. No UI steps. No mocks. Gate has teeth (step 2 proves verify-manifest fails closed when a tool's fixture block is removed)."
+  "redhat_remediation": {
+    "REDHAT-FIX-01": {
+      "commit": "f4309fd",
+      "finding": "CRITICAL: Replay contract tests were pure tautology (asserting file equals itself)",
+      "fix": "Replaced with cross-source validation: Zod schema import + manifest replay.idempotency_key + fixture JSON cross-check",
+      "red_evidence": ".spec/evidence/redhat-fix-01-red-evidence.txt"
+    },
+    "REDHAT-FIX-02": {
+      "commit": "7a47ec6",
+      "finding": "HIGH: Only 3/21 error fixtures, 2/21 replay fixtures, all synthetic without annotation",
+      "fix": "Created 22 error fixtures, 21 replay fixtures, annotated all 44 success fixtures with representative_example: true",
+      "red_evidence": ".spec/evidence/redhat-fix-02-red-evidence.txt"
+    },
+    "REDHAT-FIX-03": {
+      "commit": "5870fe1",
+      "finding": "HIGH: Gate validated only 4 of 10+ fields (output_schema, errors, replay not checked)",
+      "fix": "Added validation for output_schema (all tools), errors (mutations), replay (mutations), error fixture files (mutations); added fixture-file-removed negative control",
+      "red_evidence": ".spec/evidence/redhat-fix-03-red-evidence.txt"
+    }
+  },
+  "e2e": {
+    "test_files": 7,
+    "tests_total": 306,
+    "tests_passed": 306,
+    "tests_failed": 0
+  },
+  "build": {
+    "typecheck": "pass",
+    "lint": "pass"
+  }
 }

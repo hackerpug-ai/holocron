@@ -29,6 +29,7 @@ interface CliArgs {
   exportDir: string | null;
   catalogPath: string;
   manifestPath: string;
+  fixturesDir: string | null;
   protocol: boolean;
   json: boolean;
   dryRun: boolean;
@@ -56,6 +57,7 @@ Options:
   --export <dir>        Path to unzipped convex export (or $CONVEX_EXPORT_DIR)
   --catalog <file>      Path to 12-convex-source-catalog.yaml
   --manifest <file>     Path to 14-mcp-compatibility-manifest.yaml (mcp:* commands)
+  --fixtures-dir <dir>  Path to fixtures directory (mcp:verify-manifest, overrides default)
   --protocol            (mcp:verify-manifest) print protocol pin summary
   --json                Emit JSON instead of text
   --dry-run             (catalog:reconcile) dry-run mode (default)
@@ -70,6 +72,7 @@ function parseArgs(argv: string[]): CliArgs {
     exportDir: process.env.CONVEX_EXPORT_DIR ?? null,
     catalogPath: defaultCatalogPath(),
     manifestPath: defaultManifestPath(),
+    fixturesDir: null,
     protocol: false,
     json: false,
     dryRun: true,
@@ -92,12 +95,16 @@ function parseArgs(argv: string[]): CliArgs {
       args.catalogPath = resolve(argv[++i] ?? args.catalogPath);
     } else if (a === '--manifest') {
       args.manifestPath = resolve(argv[++i] ?? args.manifestPath);
+    } else if (a === '--fixtures-dir') {
+      args.fixturesDir = resolve(argv[++i] ?? '');
     } else if (a.startsWith('--export=')) {
       args.exportDir = a.slice('--export='.length);
     } else if (a.startsWith('--catalog=')) {
       args.catalogPath = resolve(a.slice('--catalog='.length));
     } else if (a.startsWith('--manifest=')) {
       args.manifestPath = resolve(a.slice('--manifest='.length));
+    } else if (a.startsWith('--fixtures-dir=')) {
+      args.fixturesDir = resolve(a.slice('--fixtures-dir='.length));
     } else if (a.startsWith('-')) {
       console.error(`unknown flag: ${a}`);
       process.exit(2);
@@ -220,7 +227,8 @@ async function main(): Promise<void> {
         }
         process.exit(protoReport.ok ? 0 : 1);
       }
-      const fixturesDir = resolve(process.cwd(), 'services/platform/tests/fixtures/mcp-manifest');
+      const fixturesDir =
+        args.fixturesDir ?? resolve(process.cwd(), 'services/platform/tests/fixtures/mcp-manifest');
       const report = buildManifestVerifyReport(manifest, {
         manifestPath: args.manifestPath,
         fixturesDir,

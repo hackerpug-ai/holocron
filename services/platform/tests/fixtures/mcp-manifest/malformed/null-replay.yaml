@@ -1,0 +1,52 @@
+# Malformed manifest: replay is null for mutation tool store_document
+# Used by mcp-verify-manifest-field-validation.test.ts
+protocol: "2025-11-25"
+transports:
+  - stdio
+  - streamable-http
+stateless: true
+no_server_sampling: true
+auth_policy:
+  stdio:
+    trust_boundary: "Local process"
+  streamable_http:
+    type: "api-key"
+    header: "Authorization"
+    scheme: "bearer"
+    origin_validation: true
+cancellation_policy:
+  posture: "cooperative"
+  supported: true
+tools:
+  - id: store_document
+    input_schema:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+        content:
+          type: string
+          minLength: 1
+        metadata:
+          type: object
+          additionalProperties: true
+      required: [title, content]
+    output_schema:
+      type: object
+      properties:
+        documentId: { type: string }
+        title: { type: string }
+    defaults:
+      metadata: {}
+    errors:
+      - code: VALIDATION_ERROR
+        description: "Title or content empty"
+      - code: EMBEDDING_FAILED
+        description: "Embedding generation failed"
+    pagination: null
+    side_effects: "INSERTS documents row + generates embedding"
+    idempotency: "Not natively idempotent"
+    replay: null
+    transports: [stdio, streamable-http]
+    fixtures: null

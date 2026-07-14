@@ -1,0 +1,9 @@
+{
+  "representative_example": true,
+  "code": "VALIDATION_ERROR",
+  "message": "ruleName must not be empty and at least one of sourceId or sourceType must be provided",
+  "details": {
+    "field": "ruleName",
+    "constraint": "minLength: 1"
+  }
+}

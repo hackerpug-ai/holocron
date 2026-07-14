@@ -1,0 +1,13 @@
+{
+  "representative_example": true,
+  "idempotency_key": ["toolId"],
+  "stored_result": "deleted",
+  "first_call_result": {
+    "deleted": true,
+    "toolId": "kg_tool_001"
+  },
+  "second_call_result": {
+    "deleted": true,
+    "toolId": "kg_tool_001"
+  }
+}

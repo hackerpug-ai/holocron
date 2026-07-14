@@ -1,0 +1,9 @@
+{
+  "representative_example": true,
+  "code": "VALIDATION_ERROR",
+  "message": "Title or content empty after Zod validation",
+  "details": {
+    "field": "title",
+    "constraint": "minLength: 1"
+  }
+}

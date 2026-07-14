@@ -1,4 +1,5 @@
 {
+  "representative_example": true,
   "subscriptions": [
     {
       "_id": "kg_sub_001",

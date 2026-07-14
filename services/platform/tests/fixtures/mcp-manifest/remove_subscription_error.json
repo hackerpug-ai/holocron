@@ -1,0 +1,8 @@
+{
+  "representative_example": true,
+  "code": "NOT_FOUND",
+  "message": "Subscription ID does not exist",
+  "details": {
+    "subscriptionId": "kg_sub_missing_001"
+  }
+}

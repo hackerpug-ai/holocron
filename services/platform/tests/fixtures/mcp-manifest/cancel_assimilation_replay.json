@@ -1,0 +1,13 @@
+{
+  "representative_example": true,
+  "idempotency_key": ["sessionId"],
+  "stored_result": "cancelled",
+  "first_call_result": {
+    "cancelled": true,
+    "sessionId": "kg_assim_001"
+  },
+  "second_call_result": {
+    "cancelled": true,
+    "sessionId": "kg_assim_001"
+  }
+}

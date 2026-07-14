@@ -1,0 +1,61 @@
+{
+  "representative_example": true,
+  "idempotency_key": ["query", "condition", "priceMin", "priceMax"],
+  "stored_result": "sessionId",
+  "first_call_result": {
+    "sessionId": "kg_shop_001",
+    "status": "completed",
+    "totalListings": 3,
+    "bestDeal": {
+      "title": "USB-C Hub 7-in-1",
+      "price": 29.99,
+      "retailer": "amazon",
+      "url": "https://amazon.com/dp/B0XXXXX",
+      "dealScore": 0.88
+    },
+    "listings": [
+      {
+        "title": "USB-C Hub 7-in-1",
+        "price": 29.99,
+        "priceFormatted": "$29.99",
+        "retailer": "amazon",
+        "condition": "new",
+        "url": "https://amazon.com/dp/B0XXXXX",
+        "dealScore": 0.88,
+        "trustTier": 1,
+        "sellerTrustScore": 95,
+        "isVerifiedSeller": true,
+        "trustLabel": "Verified Seller"
+      }
+    ],
+    "durationMs": 5234
+  },
+  "second_call_result": {
+    "sessionId": "kg_shop_001",
+    "status": "completed",
+    "totalListings": 3,
+    "bestDeal": {
+      "title": "USB-C Hub 7-in-1",
+      "price": 29.99,
+      "retailer": "amazon",
+      "url": "https://amazon.com/dp/B0XXXXX",
+      "dealScore": 0.88
+    },
+    "listings": [
+      {
+        "title": "USB-C Hub 7-in-1",
+        "price": 29.99,
+        "priceFormatted": "$29.99",
+        "retailer": "amazon",
+        "condition": "new",
+        "url": "https://amazon.com/dp/B0XXXXX",
+        "dealScore": 0.88,
+        "trustTier": 1,
+        "sellerTrustScore": 95,
+        "isVerifiedSeller": true,
+        "trustLabel": "Verified Seller"
+      }
+    ],
+    "durationMs": 5234
+  }
+}

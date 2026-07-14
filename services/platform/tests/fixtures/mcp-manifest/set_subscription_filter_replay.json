@@ -1,0 +1,19 @@
+{
+  "representative_example": true,
+  "idempotency_key": ["sourceId", "ruleName"],
+  "stored_result": "filterId",
+  "first_call_result": {
+    "filterId": "kg_filter_001",
+    "ruleName": "keyword_whitelist",
+    "ruleType": "whitelist",
+    "ruleValue": "AI,ML",
+    "weight": 1
+  },
+  "second_call_result": {
+    "filterId": "kg_filter_001",
+    "ruleName": "keyword_whitelist",
+    "ruleType": "whitelist",
+    "ruleValue": "AI,ML",
+    "weight": 1
+  }
+}

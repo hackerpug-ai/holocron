@@ -1,0 +1,9 @@
+{
+  "representative_example": true,
+  "code": "VALIDATION_ERROR",
+  "message": "items array is empty or missing description",
+  "details": {
+    "field": "items",
+    "constraint": "minItems: 1"
+  }
+}

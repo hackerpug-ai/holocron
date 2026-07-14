@@ -1,4 +1,5 @@
 {
+  "representative_example": true,
   "idempotency_key": ["sourceType", "identifier"],
   "stored_result": "subscriptionId",
   "first_call_result": {

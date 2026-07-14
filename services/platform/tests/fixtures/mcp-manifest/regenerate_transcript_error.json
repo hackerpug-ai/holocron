@@ -1,0 +1,8 @@
+{
+  "representative_example": true,
+  "code": "NOT_FOUND",
+  "message": "Content not found — no video with the given contentId exists",
+  "details": {
+    "contentId": "vid_missing_001"
+  }
+}

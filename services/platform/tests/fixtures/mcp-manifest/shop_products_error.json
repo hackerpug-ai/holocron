@@ -1,0 +1,9 @@
+{
+  "representative_example": true,
+  "code": "VALIDATION_ERROR",
+  "message": "Query must not be empty",
+  "details": {
+    "field": "query",
+    "constraint": "minLength: 1"
+  }
+}

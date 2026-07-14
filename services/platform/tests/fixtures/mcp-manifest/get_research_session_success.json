@@ -1,4 +1,5 @@
 {
+  "representative_example": true,
   "_id": "kg_rs_001",
   "sessionId": "kg_research_001",
   "topic": "MCP protocol compatibility",

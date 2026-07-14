@@ -1,0 +1,9 @@
+{
+  "representative_example": true,
+  "code": "CONFLICT",
+  "message": "Session is already completed, failed, cancelled, or rejected",
+  "details": {
+    "sessionId": "kg_assim_001",
+    "currentStatus": "completed"
+  }
+}

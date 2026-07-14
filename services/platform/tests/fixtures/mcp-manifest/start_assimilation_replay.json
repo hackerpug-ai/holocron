@@ -1,0 +1,15 @@
+{
+  "representative_example": true,
+  "idempotency_key": ["repositoryUrl"],
+  "stored_result": "sessionId",
+  "first_call_result": {
+    "sessionId": "kg_assim_001",
+    "status": "planning",
+    "existing": false
+  },
+  "second_call_result": {
+    "sessionId": "kg_assim_001",
+    "status": "planning",
+    "existing": false
+  }
+}

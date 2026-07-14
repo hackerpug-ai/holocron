@@ -1,5 +1,6 @@
 [
   {
+    "representative_example": true,
     "name": "Jane Doe",
     "recommendation": "Senior ML Engineer at Acme Corp",
     "contact": {

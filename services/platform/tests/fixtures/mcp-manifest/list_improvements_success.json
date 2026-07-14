@@ -1,5 +1,6 @@
 [
   {
+    "representative_example": true,
     "_id": "kg_imp_001",
     "description": "Add keyboard shortcuts to search",
     "status": "open",

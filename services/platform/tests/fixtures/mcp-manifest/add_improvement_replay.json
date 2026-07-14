@@ -1,0 +1,13 @@
+{
+  "representative_example": true,
+  "idempotency_key": ["items"],
+  "stored_result": "ids",
+  "first_call_result": {
+    "created": 1,
+    "ids": ["kg_imp_new_001"]
+  },
+  "second_call_result": {
+    "created": 1,
+    "ids": ["kg_imp_new_001"]
+  }
+}

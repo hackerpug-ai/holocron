@@ -21,7 +21,11 @@ export interface ManifestIssue {
     | 'not_registered'
     | 'fixtures_missing'
     | 'input_schema_null'
-    | 'transports_null';
+    | 'transports_null'
+    | 'output_schema_null'
+    | 'errors_empty_mutation'
+    | 'replay_null_mutation'
+    | 'error_fixture_missing';
   message: string;
 }
 
@@ -64,11 +68,33 @@ export function buildVerifyReport(
         message: `${toolId} input_schema is null`,
       });
     }
+    if (entry.output_schema == null) {
+      issues.push({
+        tool_id: toolId,
+        kind: 'output_schema_null',
+        message: `Tool ${toolId}: output_schema is null — required for all tools`,
+      });
+    }
     if (entry.transports == null || entry.transports.length === 0) {
       issues.push({
         tool_id: toolId,
         kind: 'transports_null',
         message: `${toolId} transports not declared`,
+      });
+    }
+    const isMutation = entry.side_effects != null && entry.side_effects !== '';
+    if (isMutation && (!entry.errors || entry.errors.length === 0)) {
+      issues.push({
+        tool_id: toolId,
+        kind: 'errors_empty_mutation',
+        message: `Tool ${toolId}: errors array is empty — required for mutation tools`,
+      });
+    }
+    if (isMutation && entry.replay == null) {
+      issues.push({
+        tool_id: toolId,
+        kind: 'replay_null_mutation',
+        message: `Tool ${toolId}: replay is null — required for mutation tools`,
       });
     }
     const fixturePath = resolve(opts.fixturesDir, `${toolId}_success.json`);
@@ -78,6 +104,16 @@ export function buildVerifyReport(
         kind: 'fixtures_missing',
         message: `${toolId} fixtures missing`,
       });
+    }
+    if (isMutation) {
+      const errorFixturePath = resolve(opts.fixturesDir, `${toolId}_error.json`);
+      if (!existsSync(errorFixturePath)) {
+        issues.push({
+          tool_id: toolId,
+          kind: 'error_fixture_missing',
+          message: `Tool ${toolId}: error fixture file missing`,
+        });
+      }
     }
   }
 
@@ -107,8 +143,18 @@ export function buildVerifyReport(
     const entry = manifestMap.get(id);
     if (!entry) return false;
     if (entry.input_schema == null) return false;
+    if (entry.output_schema == null) return false;
+    if (entry.transports == null || entry.transports.length === 0) return false;
+    const isMutation = entry.side_effects != null && entry.side_effects !== '';
+    if (isMutation && (!entry.errors || entry.errors.length === 0)) return false;
+    if (isMutation && entry.replay == null) return false;
     const fixturePath = resolve(opts.fixturesDir, `${id}_success.json`);
-    return existsSync(fixturePath);
+    if (!existsSync(fixturePath)) return false;
+    if (isMutation) {
+      const errorFixturePath = resolve(opts.fixturesDir, `${id}_error.json`);
+      if (!existsSync(errorFixturePath)) return false;
+    }
+    return true;
   }).length;
 
   return {

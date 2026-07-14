@@ -1,0 +1,44 @@
+REDHAT-FIX-03 RED EVIDENCE
+============================
+Date: 2026-07-14
+Task: REDHAT-FIX-03 — Gate must validate all required contract fields
+
+GAP DESCRIPTION
+---------------
+The current `buildVerifyReport` in verify-manifest.ts only checks:
+  1. Entry exists in manifest (not_in_manifest)
+  2. input_schema != null (input_schema_null)
+  3. transports non-null and non-empty (transports_null)
+  4. {toolId}_success.json file exists (fixtures_missing)
+
+It does NOT check:
+  - output_schema != null (for ALL tools)
+  - errors.length > 0 (for mutation tools — side_effects != null)
+  - replay != null (for mutation tools)
+  - error fixture file exists (for mutation tools)
+
+REPRODUCTION
+------------
+Created a copy of the real manifest with get_research_session.output_schema set to null:
+
+  cp .spec/prds/mk6-migration/10-technical-requirements/14-mcp-compatibility-manifest.yaml \
+     /tmp/redhat-fix03-full-null-output.yaml
+  # (python script surgically replaced output_schema block with "output_schema: null")
+
+Ran the gate:
+
+  $ bun services/platform/src/cli/holo.ts mcp:verify-manifest \
+      --manifest /tmp/redhat-fix03-full-null-output.yaml
+
+RESULT (BEFORE FIX):
+  44/44 tools covered, both transports covered
+  EXIT CODE: 0
+
+The gate reported "44/44 tools covered" and exited 0, despite
+get_research_session having output_schema: null. This means a tool
+with no output schema passes the completeness gate — a contract gap.
+
+EXPECTED BEHAVIOR (AFTER FIX):
+  The gate should exit non-zero and report:
+    "Tool get_research_session: output_schema is null — required for all tools"
+  And get_research_session should NOT be counted in tools_covered.

@@ -1,4 +1,5 @@
 {
+  "representative_example": true,
   "filterId": "kg_filter_001",
   "ruleName": "keyword_whitelist",
   "ruleType": "whitelist",

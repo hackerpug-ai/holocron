@@ -1,0 +1,23 @@
+{
+  "representative_example": true,
+  "idempotency_key": ["subscriptionId"],
+  "stored_result": "deleted",
+  "first_call_result": {
+    "deleted": true,
+    "subscription": {
+      "_id": "kg_sub_001",
+      "sourceType": "youtube",
+      "identifier": "@creator_handle",
+      "name": "Creator Channel"
+    }
+  },
+  "second_call_result": {
+    "deleted": true,
+    "subscription": {
+      "_id": "kg_sub_001",
+      "sourceType": "youtube",
+      "identifier": "@creator_handle",
+      "name": "Creator Channel"
+    }
+  }
+}
