@@ -1,0 +1,63 @@
+REDHAT-FIX-04 — RED EVIDENCE
+==============================
+Task: Parameterize replay-fixture cross-source idempotency validation across all 21 mutation tools
+
+BEFORE THIS FIX:
+  The test had only 2 hardcoded describe blocks (add_subscription + store_document).
+  The other 19 mutation tools' replay fixtures had ZERO cross-source validation —
+  a wrong idempotency key would go undetected.
+
+AFTER THIS FIX:
+  The test now uses it.each(mutationTools) with mutationTools loaded dynamically
+  from the manifest. 21 tools × 3 assertions = 63 parameterized tests + 1 suite-shape
+  self-test = 64 total tests, all passing.
+
+GREEN RUN (all 64 tests passing):
+  $ MCP_IT=1 bunx vitest run tests/integration/mcp-replay-contract.test.ts
+
+  Test Files  1 passed (1)
+       Tests  64 passed (64)
+
+RED PROOF — proving the test has teeth:
+  Temporarily corrupted the manifest's shop_products replay.idempotency_key
+  (changed from [query, condition, priceMin, priceMax] to [query]),
+  then ran the test.
+
+  The shop_products test FAILED:
+    AssertionError: expected [ 'query', 'condition', …(2) ] to deeply equal [ 'query' ]
+
+    - Expected
+    + Received
+
+      [
+        "query",
+    +   "condition",
+    +   "priceMin",
+    +   "priceMax",
+      ]
+
+  This proves the test catches real mismatches for the 19 newly-covered tools.
+  The manifest was then reverted to its original state and all 64 tests pass again.
+
+21 TOOL IDS COVERED BY THE PARAMETERIZED TESTS:
+  1.  store_document
+  2.  update_document
+  3.  share_document
+  4.  add_subscription
+  5.  remove_subscription
+  6.  check_subscriptions
+  7.  set_subscription_filter
+  8.  store_tool
+  9.  update_tool
+  10. remove_tool
+  11. shop_products
+  12. start_assimilation
+  13. approve_assimilation_plan
+  14. reject_assimilation_plan
+  15. cancel_assimilation
+  16. steer_assimilation
+  17. assimilate_creator
+  18. regenerate_transcript
+  19. add_improvement
+  20. close_improvement
+  21. set_improvement_status

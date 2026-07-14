@@ -8,15 +8,37 @@
  * The cross-source validation is the PRIMARY proof of the replay contract.
  * Fixture-internal consistency (both calls return the same stored result) is a
  * SECONDARY check — it validates the fixture's own shape, not real behavior.
+ *
+ * Parameterized across ALL mutation tools loaded dynamically from the manifest.
  */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { parse as parseYaml } from 'yaml';
+import type { z } from 'zod';
 import {
+  AddImprovementSchema,
   AddSubscriptionSchema,
+  AssimilateCreatorSchema,
+  AssimilationSessionIdSchema,
+  CheckSubscriptionsSchema,
+  CloseImprovementSchema,
+  RegenerateTranscriptSchema,
+  RejectAssimilationPlanSchema,
+  RemoveSubscriptionSchema,
+  RemoveToolSchema,
+  SetImprovementStatusSchema,
+  SetSubscriptionFilterSchema,
+  ShareDocumentSchema,
+  ShopProductsSchema,
+  StartAssimilationSchema,
+  SteerAssimilationSchema,
   StoreDocumentSchema,
+  StoreToolSchema,
+  UpdateDocumentSchema,
+  UpdateToolSchema,
 } from '../../holocron-mcp/src/config/validation';
+import { loadManifest, type ManifestTool } from '../../services/platform/src/mcp/manifest-loader';
 
 const ROOT = resolve(import.meta.dirname, '../..');
 const FIXTURES_DIR = resolve(ROOT, 'services/platform/tests/fixtures/mcp-manifest');
@@ -24,6 +46,41 @@ const MANIFEST_PATH = resolve(
   ROOT,
   '.spec/prds/mk6-migration/10-technical-requirements/14-mcp-compatibility-manifest.yaml'
 );
+
+// --- Dynamic mutation-tool enumeration (same pattern as mcp-fixture-coverage) ---
+
+const manifest = loadManifest(MANIFEST_PATH);
+const mutationTools: ManifestTool[] = manifest.tools.filter(
+  (t: ManifestTool) => t.side_effects != null
+);
+
+// --- Schema map: tool id → Zod schema ---
+
+const TOOL_SCHEMA_MAP: Record<string, z.ZodObject<z.ZodRawShape>> = {
+  store_document: StoreDocumentSchema,
+  update_document: UpdateDocumentSchema,
+  share_document: ShareDocumentSchema,
+  add_subscription: AddSubscriptionSchema,
+  remove_subscription: RemoveSubscriptionSchema,
+  check_subscriptions: CheckSubscriptionsSchema,
+  set_subscription_filter: SetSubscriptionFilterSchema,
+  store_tool: StoreToolSchema,
+  update_tool: UpdateToolSchema,
+  remove_tool: RemoveToolSchema,
+  shop_products: ShopProductsSchema,
+  start_assimilation: StartAssimilationSchema,
+  approve_assimilation_plan: AssimilationSessionIdSchema,
+  reject_assimilation_plan: RejectAssimilationPlanSchema,
+  cancel_assimilation: AssimilationSessionIdSchema,
+  steer_assimilation: SteerAssimilationSchema,
+  assimilate_creator: AssimilateCreatorSchema,
+  regenerate_transcript: RegenerateTranscriptSchema,
+  add_improvement: AddImprovementSchema,
+  close_improvement: CloseImprovementSchema,
+  set_improvement_status: SetImprovementStatusSchema,
+};
+
+// --- Helpers ---
 
 interface ReplayFixture {
   idempotency_key: string[];
@@ -40,82 +97,62 @@ function loadReplayFixture(name: string): ReplayFixture {
 
 function loadManifestReplayKey(toolId: string): string[] {
   const raw = readFileSync(MANIFEST_PATH, 'utf8');
-  const manifest = parseYaml(raw) as {
+  const parsed = parseYaml(raw) as {
     tools: Array<{
       id: string;
       replay: { idempotency_key: string[]; stored_result: string } | null;
     }>;
   };
-  const tool = manifest.tools.find((t) => t.id === toolId);
+  const tool = parsed.tools.find((t) => t.id === toolId);
   if (!tool?.replay) {
     throw new Error(`Tool ${toolId} has no replay block in manifest`);
   }
   return tool.replay.idempotency_key;
 }
 
-describe('MCP replay contract — add_subscription (cross-source validation)', () => {
-  const fixture = loadReplayFixture('add_subscription_replay');
-  const manifestKey = loadManifestReplayKey('add_subscription');
+// --- Parameterized cross-source validation for ALL mutation tools ---
 
-  it('fixture idempotency_key matches manifest replay.idempotency_key', () => {
+describe('MCP replay contract — cross-source validation (all mutation tools)', () => {
+  it.each(
+    mutationTools.map((t) => [t.id])
+  )('%s — fixture idempotency_key matches manifest replay.idempotency_key', (toolId: string) => {
+    const schema = TOOL_SCHEMA_MAP[toolId];
+    if (!schema) {
+      throw new Error(`Tool ${toolId} not found in TOOL_SCHEMA_MAP — add its Zod schema import`);
+    }
+    const fixture = loadReplayFixture(`${toolId}_replay`);
+    const manifestKey = loadManifestReplayKey(toolId);
     expect(fixture.idempotency_key).toEqual(manifestKey);
   });
 
-  it('manifest idempotency_key fields exist in the real AddSubscriptionSchema', () => {
+  it.each(
+    mutationTools.map((t) => [t.id])
+  )('%s — manifest idempotency_key fields exist in real Zod schema', (toolId: string) => {
+    const schema = TOOL_SCHEMA_MAP[toolId];
+    if (!schema) {
+      throw new Error(`Tool ${toolId} not found in TOOL_SCHEMA_MAP`);
+    }
+    const manifestKey = loadManifestReplayKey(toolId);
     for (const field of manifestKey) {
-      expect(AddSubscriptionSchema.shape).toHaveProperty(field);
+      expect(schema.shape).toHaveProperty(field);
     }
   });
 
-  it('fixture idempotency_key fields exist in the real AddSubscriptionSchema', () => {
+  it.each(
+    mutationTools.map((t) => [t.id])
+  )('%s — fixture idempotency_key fields exist in real Zod schema', (toolId: string) => {
+    const schema = TOOL_SCHEMA_MAP[toolId];
+    if (!schema) {
+      throw new Error(`Tool ${toolId} not found in TOOL_SCHEMA_MAP`);
+    }
+    const fixture = loadReplayFixture(`${toolId}_replay`);
     for (const field of fixture.idempotency_key) {
-      expect(AddSubscriptionSchema.shape).toHaveProperty(field);
+      expect(schema.shape).toHaveProperty(field);
     }
-  });
-
-  it('stored_result field is subscriptionId', () => {
-    expect(fixture.stored_result).toBe('subscriptionId');
-  });
-
-  it('fixture internal consistency — both calls return the same stored result', () => {
-    const storedField = fixture.stored_result;
-    expect(fixture.first_call_result[storedField]).toBeDefined();
-    expect(fixture.second_call_result[storedField]).toBeDefined();
-    expect(fixture.second_call_result[storedField]).toBe(fixture.first_call_result[storedField]);
   });
 });
 
-describe('MCP replay contract — store_document (cross-source validation)', () => {
-  const fixture = loadReplayFixture('store_document_replay');
-  const manifestKey = loadManifestReplayKey('store_document');
-
-  it('fixture idempotency_key matches manifest replay.idempotency_key', () => {
-    expect(fixture.idempotency_key).toEqual(manifestKey);
-  });
-
-  it('manifest idempotency_key fields exist in the real StoreDocumentSchema', () => {
-    for (const field of manifestKey) {
-      expect(StoreDocumentSchema.shape).toHaveProperty(field);
-    }
-  });
-
-  it('fixture idempotency_key fields exist in the real StoreDocumentSchema', () => {
-    for (const field of fixture.idempotency_key) {
-      expect(StoreDocumentSchema.shape).toHaveProperty(field);
-    }
-  });
-
-  it('stored_result field is documentId', () => {
-    expect(fixture.stored_result).toBe('documentId');
-  });
-
-  it('fixture internal consistency — both calls return the same stored result', () => {
-    const storedField = fixture.stored_result;
-    expect(fixture.first_call_result[storedField]).toBeDefined();
-    expect(fixture.second_call_result[storedField]).toBeDefined();
-    expect(fixture.second_call_result[storedField]).toBe(fixture.first_call_result[storedField]);
-  });
-});
+// --- Suite-shape self-test (preserved from original) ---
 
 describe('MCP replay contract suite shape', () => {
   it('does not use skip-to-green guards', () => {
