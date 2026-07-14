@@ -33,7 +33,7 @@ TASK: schema-1 — Provision Postgres 18 + pgvector + FTS + wal_level=logical, r
 ================================================================================
 
 TASK_TYPE:  INFRA
-STATUS:     Backlog
+STATUS:     Completed
 PRIORITY:   P0
 EFFORT:     L  (180 min)
 AGENT:      implementer=mastra-implementer | reviewer=mastra-reviewer
@@ -69,9 +69,9 @@ Postgres 18 responds to connections over Tailscale, pgvector is installed, wal_l
 --------------------------------------------------------------------------------
 DONE WHEN
 --------------------------------------------------------------------------------
-- [ ] AC-1 (PRIMARY): Postgres 18 running on mini, reachable over Tailscale
-- [ ] AC-2: pgvector extension installed and verified
-- [ ] AC-3: wal_level=logical configured for Zero replication
+- [x] AC-1 (PRIMARY): Postgres 18 running on mini, reachable over Tailscale
+- [x] AC-2: pgvector extension installed and verified
+- [x] AC-3: wal_level=logical configured for Zero replication
 - [ ] `pnpm biome check .` clean + `pnpm tsgo --noEmit` clean (only SCOPE.writeAllowed files modified)
 
 --------------------------------------------------------------------------------
