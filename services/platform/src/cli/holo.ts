@@ -4,7 +4,8 @@
  * Sprint 02: catalog:verify | catalog:coverage | catalog:merges | catalog:reconcile | catalog:assets
  * Sprint 03: mcp:verify-manifest | mcp:manifest-schema | mcp:manifest-replay | mcp:list-mutations
  * Sprint 04: compat:spike [--json] [--print-trace]
- * Sprint 04 schema-1: db:status | db:migrate | db:push (stubs until schema-2+)
+ * Sprint 04 schema-1: db:status
+ * Sprint 04 schema-2: db:migrate | db:probe | db:verify | db:push
  */
 import { resolve } from 'node:path';
 
@@ -49,6 +50,9 @@ interface CliArgs {
   dryRun: boolean;
   printTrace: boolean;
   help: boolean;
+  jsonbColumn: string | null;
+  statusProbe: boolean;
+  mergesVerify: boolean;
 }
 
 function printHelp(): void {
@@ -68,9 +72,11 @@ Usage:
   mcp:manifest-replay   Print a tool's idempotency key + stored result from the manifest
   mcp:list-mutations    List all mutation tools (non-null side_effects)
   compat:spike          Run 5-cell compatibility matrix (agent+tool+workflow+MCP+OTel)
-  db:status             Show Postgres connection facts (schema-1 scaffolding)
-  db:migrate            Apply Drizzle migrations (not implemented yet — schema-2+)
-  db:push               Push Drizzle schema (not implemented yet — schema-2+)
+  db:status             Show Postgres connection facts
+  db:migrate            Apply Drizzle migrations against DATABASE_URL (≥55 tables)
+  db:probe              Live probes: --jsonb cardData | --status
+  db:verify             Live verify: --merges (analysis/research trios)
+  db:push               Push Drizzle schema (dev convenience; prefer db:migrate)
 
 Options:
   --export <dir>        Path to unzipped convex export (or $CONVEX_EXPORT_DIR)
@@ -78,6 +84,9 @@ Options:
   --manifest <file>     Path to 14-mcp-compatibility-manifest.yaml (mcp:* commands)
   --fixtures-dir <dir>  Path to fixtures directory (mcp:verify-manifest, overrides default)
   --protocol            (mcp:verify-manifest) print protocol pin summary
+  --jsonb <column>      (db:probe) polymorphic jsonb round-trip column (e.g. cardData)
+  --status              (db:probe) status CHECK constraint probe
+  --merges              (db:verify) assert analysis/research merge collapse
   --json                Emit JSON instead of text
   --print-trace         (compat:spike) emit OTel trace details
   --dry-run             (catalog:reconcile) dry-run mode (default)
@@ -98,6 +107,9 @@ function parseArgs(argv: string[]): CliArgs {
     dryRun: true,
     printTrace: false,
     help: false,
+    jsonbColumn: null,
+    statusProbe: false,
+    mergesVerify: false,
   };
   const positional: string[] = [];
   for (let i = 0; i < argv.length; i++) {
@@ -112,6 +124,14 @@ function parseArgs(argv: string[]): CliArgs {
       args.protocol = true;
     } else if (a === '--print-trace') {
       args.printTrace = true;
+    } else if (a === '--status') {
+      args.statusProbe = true;
+    } else if (a === '--merges') {
+      args.mergesVerify = true;
+    } else if (a === '--jsonb') {
+      args.jsonbColumn = argv[++i] ?? null;
+    } else if (a.startsWith('--jsonb=')) {
+      args.jsonbColumn = a.slice('--jsonb='.length);
     } else if (a === '--export') {
       args.exportDir = argv[++i] ?? null;
     } else if (a === '--catalog') {
@@ -369,18 +389,29 @@ async function main(): Promise<void> {
       break;
     }
     case 'db:status': {
-      const { postgresConnectionFacts, resolveDatabaseUrl } = await import('../db/index.ts');
+      const { postgresConnectionFacts, resolveDatabaseUrl, countPublicTables } = await import(
+        '../db/index.ts'
+      );
       const url = resolveDatabaseUrl({ preferHolocron: true });
+      let tableCount: number | null = null;
+      let tableCountError: string | null = null;
+      try {
+        tableCount = await countPublicTables(url);
+      } catch (err) {
+        tableCountError = err instanceof Error ? err.message : String(err);
+      }
       const payload = {
-        ok: true,
+        ok: tableCountError === null,
         databaseUrl: url,
         facts: postgresConnectionFacts,
-        note: 'Instance provisioned by schema-1; Drizzle migrations not applied yet (schema-2+). See docs/postgres-provisioning.md.',
+        tableCount,
+        tableCountError,
+        note: 'schema-2 domain migrations via holo db:migrate. See docs/postgres-provisioning.md.',
       };
       if (args.json) {
         console.log(JSON.stringify(payload, null, 2));
       } else {
-        console.log('holo db:status — Postgres connection facts (schema-1)');
+        console.log('holo db:status — Postgres connection facts');
         console.log(`  DATABASE_URL:     ${url}`);
         console.log(`  engine:           ${postgresConnectionFacts.engine}`);
         console.log(`  required major:   ${postgresConnectionFacts.majorVersionRequired}`);
@@ -389,18 +420,107 @@ async function main(): Promise<void> {
         console.log(`  wal_level:        ${postgresConnectionFacts.walLevelRequired} (required)`);
         console.log(`  extensions:       vector + native FTS`);
         console.log(`  auth:             ${postgresConnectionFacts.authModel}`);
+        console.log(`  public tables:    ${tableCount ?? `error: ${tableCountError}`}`);
         console.log(`  docs:             ${postgresConnectionFacts.provisioningDoc}`);
         console.log(`  note:             ${payload.note}`);
       }
-      process.exit(0);
+      process.exit(payload.ok ? 0 : 1);
       break;
     }
-    case 'db:migrate':
-    case 'db:push': {
-      // Honest stubs: do NOT fake migration success (schema-2+ owns real migrate/push).
-      const msg = `${args.command} is not implemented yet (schema-1 scaffolding only). Postgres 18 is provisioned; Drizzle migrations land in schema-2+. See docs/postgres-provisioning.md.`;
+    case 'db:migrate': {
+      const { applyMigrations } = await import('../db/index.ts');
+      const result = await applyMigrations();
       if (args.json) {
-        console.log(JSON.stringify({ ok: false, command: args.command, error: msg }, null, 2));
+        console.log(JSON.stringify(result, null, 2));
+      } else {
+        console.log('holo db:migrate — apply Drizzle domain migrations');
+        for (const m of result.messages) console.log(`  ${m}`);
+        console.log(`  migrations applied: ${result.migrationsApplied.length}`);
+        console.log(`  already applied:    ${result.alreadyApplied.length}`);
+        console.log(`  tables created:     ${result.tableCount}`);
+        console.log(
+          `  domain tables:      ${result.domainTablesPresent}/${result.domainTablesPresent + result.missingTables.length}`
+        );
+        if (result.errors.length) {
+          console.log('  errors:');
+          for (const e of result.errors) console.log(`    - ${e}`);
+        } else {
+          console.log('  0 errors');
+        }
+        console.log(result.ok ? '  status: OK' : '  status: FAIL');
+      }
+      process.exit(result.ok ? 0 : 1);
+      break;
+    }
+    case 'db:probe': {
+      const { probeJsonbCardData, probeStatusCheck } = await import('../db/index.ts');
+      if (args.jsonbColumn) {
+        if (args.jsonbColumn !== 'cardData' && args.jsonbColumn !== 'card_data') {
+          console.error(
+            `error: db:probe --jsonb currently supports cardData (got ${args.jsonbColumn})`
+          );
+          process.exit(2);
+        }
+        const result = await probeJsonbCardData();
+        if (args.json) {
+          console.log(JSON.stringify(result, null, 2));
+        } else {
+          console.log('holo db:probe --jsonb cardData');
+          for (const m of result.messages) console.log(`  ${m}`);
+          console.log(`  table: ${result.table}`);
+          console.log(`  column: card_data`);
+          console.log(`  structural equality: ${result.structuralEquality}`);
+          console.log(`  payload matches: ${result.structuralEquality}`);
+          if (result.errors.length) {
+            for (const e of result.errors) console.error(`  error: ${e}`);
+          }
+          console.log(result.ok ? '  status: OK' : '  status: FAIL');
+        }
+        process.exit(result.ok ? 0 : 1);
+      }
+      if (args.statusProbe) {
+        const result = await probeStatusCheck();
+        if (args.json) {
+          console.log(JSON.stringify(result, null, 2));
+        } else {
+          console.log('holo db:probe --status');
+          for (const m of result.messages) console.log(`  ${m}`);
+          if (result.errors.length) {
+            for (const e of result.errors) console.error(`  error: ${e}`);
+          }
+          console.log(result.ok ? '  status: OK' : '  status: FAIL');
+        }
+        process.exit(result.ok ? 0 : 1);
+      }
+      console.error('error: db:probe requires --jsonb <column> or --status');
+      process.exit(2);
+      break;
+    }
+    case 'db:verify': {
+      if (!args.mergesVerify) {
+        console.error('error: db:verify requires --merges');
+        process.exit(2);
+      }
+      const { verifyMerges } = await import('../db/index.ts');
+      const result = await verifyMerges();
+      if (args.json) {
+        console.log(JSON.stringify(result, null, 2));
+      } else {
+        console.log('holo db:verify --merges');
+        for (const m of result.messages) console.log(`  ${m}`);
+        if (result.errors.length) {
+          for (const e of result.errors) console.error(`  error: ${e}`);
+        }
+        console.log(result.ok ? '  status: OK' : '  status: FAIL');
+      }
+      process.exit(result.ok ? 0 : 1);
+      break;
+    }
+    case 'db:push': {
+      const msg =
+        'db:push is intentionally not the primary path — use `holo db:migrate` to apply versioned SQL migrations.';
+      if (args.json) {
+        console.log(JSON.stringify({ ok: false, command: 'db:push', error: msg }, null, 2));
       } else {
         console.error(msg);
       }

@@ -1,48 +1,19 @@
 /**
- * Drizzle schema home (schema-1 scaffolding).
+ * Platform DB — connection defaults, schema, migrate/probe/verify surfaces.
  *
- * Postgres 18 is provisioned and reachable (see docs/postgres-provisioning.md).
- * Table schemas and migrations land in later schema-* tasks — this module only
- * centralizes connection defaults so platform code has one import path.
- *
- * NEVER invent success for migrate/push here; real migration is a later task.
+ * Postgres 18 + pgvector is provisioned (schema-1). Domain tables + migrations
+ * are owned by schema-2 (this module).
  */
 
-/** Default admin URL (matches mastra.ts fallback host/port). Override via env. */
-export const DEFAULT_DATABASE_URL = 'postgres://127.0.0.1:5432/postgres';
-
-/** Preferred app database once Drizzle owns the schema. */
-export const DEFAULT_HOLOCRON_DATABASE_URL = 'postgres://127.0.0.1:5432/holocron';
-
-/**
- * Resolve the connection string for platform DB work.
- * Prefer DATABASE_URL; fall back to the holocron DB when requested.
- */
-export function resolveDatabaseUrl(options?: { preferHolocron?: boolean }): string {
-  if (process.env.DATABASE_URL) {
-    return process.env.DATABASE_URL;
-  }
-  return options?.preferHolocron ? DEFAULT_HOLOCRON_DATABASE_URL : DEFAULT_DATABASE_URL;
-}
-
-/**
- * Connection facts for operators / later Drizzle clients.
- * Host/port match the live provisioned instance (loopback view).
- * Tailscale host is documented in docs/postgres-provisioning.md.
- */
-export const postgresConnectionFacts = {
-  engine: 'postgresql',
-  majorVersionRequired: 18,
-  port: 5432,
-  databases: {
-    admin: 'postgres',
-    app: 'holocron',
-  },
-  extensions: {
-    vector: 'pgvector (CREATE EXTENSION vector)',
-    fts: 'native (to_tsvector / tsquery)',
-  },
-  walLevelRequired: 'logical',
-  authModel: 'single-user-tailnet-trust',
-  provisioningDoc: 'docs/postgres-provisioning.md',
-} as const;
+export { createDb, createSql, withDb } from './client';
+export {
+  DEFAULT_DATABASE_URL,
+  DEFAULT_HOLOCRON_DATABASE_URL,
+  postgresConnectionFacts,
+  resolveDatabaseUrl,
+} from './connection';
+export * from './enums';
+export { applyMigrations, countPublicTables, MIGRATIONS_DIR } from './migrate';
+export { probeJsonbCardData, probeStatusCheck } from './probe';
+export { ANALYSIS_TRIO, DOMAIN_TABLE_NAMES, RESEARCH_TRIO, schema } from './schema';
+export { verifyMerges } from './verify';
