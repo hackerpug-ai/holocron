@@ -1,0 +1,32 @@
+=== AC-2 RED: DROP tasks_status_check then probe (expect fail) ===
+dropped tasks_status_check
+unexpected reject while CHECK dropped: 811 |     }
+812 |   )
+813 |   Error.captureStackTrace(error, notSupported)
+814 |   return error
+815 | }
+          ^
+PostgresError: column "probe" does not exist
+ severity_local: "ERROR",
+   severity: "ERROR",
+   position: "65",
+       file: "parse_relation.c",
+    routine: "errorMissingColumn",
+       code: "42703"
+
+      at ErrorResponse (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/schema-5/services/platform/node_modules/postgres/src/errors.js:815:5)
+
+{
+  "ok": false,
+  "rejectedInvalid": false,
+  "acceptedValid": true,
+  "errors": [
+    "invalid status 'in-progress' was accepted (CHECK missing?)"
+  ],
+  "messages": [
+    "zod rejects 'in-progress': true",
+    "zod accepts 'in_progress': true",
+    "'in_progress' accepted: true"
+  ]
+}
+restored tasks_status_check
