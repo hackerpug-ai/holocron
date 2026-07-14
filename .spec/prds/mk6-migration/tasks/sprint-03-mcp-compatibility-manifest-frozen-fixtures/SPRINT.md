@@ -3,7 +3,7 @@ sprint: 3
 title: MCP Compatibility Manifest and Frozen Fixtures
 sequence: 3
 timeline: Phase 0 — Leading INFRA
-status: In Progress
+status: Completed
 prd: ../../README.md
 capability_coverage: [CAP-CUT-01]
 ---
