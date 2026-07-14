@@ -6,6 +6,7 @@
  * Sprint 04: compat:spike [--json] [--print-trace]
  * Sprint 04 schema-1: db:status
  * Sprint 04 schema-2: db:migrate | db:probe | db:verify | db:push
+ * Sprint 04 schema-4: repl:status
  */
 import { resolve } from 'node:path';
 
@@ -78,6 +79,7 @@ Usage:
   db:probe              Live probes: --jsonb cardData | --status
   db:verify             Live verify: --merges | --indexes
   db:push               Push Drizzle schema (dev convenience; prefer db:migrate)
+  repl:status           CAP-SYNC-01: wal_level + zero_pub membership + replica identity
 
 Options:
   --export <dir>        Path to unzipped convex export (or $CONVEX_EXPORT_DIR)
@@ -545,6 +547,17 @@ async function main(): Promise<void> {
         console.error(msg);
       }
       process.exit(2);
+      break;
+    }
+    case 'repl:status': {
+      const { getReplStatus, formatReplStatusText } = await import('../db/index.ts');
+      const result = await getReplStatus();
+      if (args.json) {
+        console.log(JSON.stringify(result, null, 2));
+      } else {
+        console.log(formatReplStatusText(result));
+      }
+      process.exit(result.ok ? 0 : 1);
       break;
     }
     default:
