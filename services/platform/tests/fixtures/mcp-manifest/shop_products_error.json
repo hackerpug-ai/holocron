@@ -1,9 +1,9 @@
 {
   "representative_example": true,
-  "code": "VALIDATION_ERROR",
-  "message": "Query must not be empty",
+  "code": "INTERNAL_SERVER_ERROR",
+  "message": "Convex startShopSearch action failed unexpectedly",
   "details": {
-    "field": "query",
-    "constraint": "minLength: 1"
+    "action": "startShopSearch",
+    "step": "retailer_fetch"
   }
 }

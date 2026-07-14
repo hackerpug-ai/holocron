@@ -2,9 +2,9 @@
   "sprint": "sprint-03-mcp-compatibility-manifest-frozen-fixtures",
   "gate": "Running `holo mcp:verify-manifest` exits 0 after confirming all 44 live-registered tool IDs resolve to manifest entries carrying frozen success/error fixtures.",
   "verdict": "pass",
-  "executed_at": "2026-07-14T12:55:00Z",
-  "executed_by": "kb-run-sprint orchestrator (post-redhat-remediation)",
-  "remediation_cycle": 1,
+  "executed_at": "2026-07-14T13:35:00Z",
+  "executed_by": "kb-run-sprint orchestrator (post-redhat-remediation-cycle-2)",
+  "remediation_cycle": 2,
   "steps": [
     {
       "id": 1,
@@ -83,12 +83,24 @@
       "finding": "HIGH: Gate validated only 4 of 10+ fields (output_schema, errors, replay not checked)",
       "fix": "Added validation for output_schema (all tools), errors (mutations), replay (mutations), error fixture files (mutations); added fixture-file-removed negative control",
       "red_evidence": ".spec/evidence/redhat-fix-03-red-evidence.txt"
+    },
+    "REDHAT-FIX-04": {
+      "commit": "5e58754",
+      "finding": "HIGH: 19 of 21 mutation replay fixtures had ZERO cross-source idempotency validation",
+      "fix": "Parameterized replay-contract test with it.each(mutationTools) covering all 21 tools x 3 assertions (fixture vs manifest vs Zod schema); fail-closed TOOL_SCHEMA_MAP guard",
+      "red_evidence": ".spec/evidence/redhat-fix-04-red-evidence.txt"
+    },
+    "REDHAT-FIX-05": {
+      "commit": "3b15ba0",
+      "finding": "HIGH: shop_products error fixture code VALIDATION_ERROR not in manifest catalog [INTERNAL_SERVER_ERROR, TIMEOUT]; 0 tests cross-check fixture codes vs manifest",
+      "fix": "Added parameterized error-code-catalog validation for all 21 mutation tools; fixed 6 mismatched error fixture codes (shop_products, add_subscription, check_subscriptions, start_assimilation, cancel_assimilation, regenerate_transcript)",
+      "red_evidence": ".spec/evidence/redhat-fix-05-red-evidence.txt"
     }
   },
   "e2e": {
     "test_files": 7,
-    "tests_total": 306,
-    "tests_passed": 306,
+    "tests_total": 380,
+    "tests_passed": 380,
     "tests_failed": 0
   },
   "build": {

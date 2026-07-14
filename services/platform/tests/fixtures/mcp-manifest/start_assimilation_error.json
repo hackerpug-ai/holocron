@@ -1,6 +1,6 @@
 {
   "representative_example": true,
-  "code": "BAD_REQUEST",
+  "code": "VALIDATION_ERROR",
   "message": "Invalid repository URL — must be a GitHub URL (https://github.com/{owner}/{repo})",
   "details": {
     "field": "repositoryUrl",
