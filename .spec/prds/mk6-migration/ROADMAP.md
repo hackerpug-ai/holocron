@@ -28,7 +28,7 @@ This roadmap is a **consolidation** of proposals from the project's dispatched p
 | 1 | — | [Sprint 01: Mastra Compatibility Lock and Fleet Role Manifest](#sprint-01-mastra-compatibility-lock-and-fleet-role-manifest) | `holo compat:spike` green 5-cell matrix on real Postgres; fleet manifest resolves | 5 | — | 🟠 In flight | `mk6-compat-lock` | — |
 | 2 | — | [Sprint 02: Convex Source Catalog and Asset Inventory](#sprint-02-convex-source-catalog-and-asset-inventory) | `holo catalog:verify` — 60/60 tables + every object have approved dispositions | 5 | — | 🟠 In flight | `mk6-source-catalog` | — |
 | 3 | — | [Sprint 03: MCP Compatibility Manifest and Frozen Fixtures](#sprint-03-mcp-compatibility-manifest-and-frozen-fixtures) | `holo mcp:verify-manifest` — 44/44 tools with frozen fixtures, both transports | 5 | 1 | 🟠 In flight | `mk6-mcp-manifest` | — |
-| 4 | — | [Sprint 04: Provision Postgres and Domain Schema](#sprint-04-provision-postgres-and-domain-schema) | `holo db:migrate` clean on real PG 18; ≥55 tables, indexes, replication ready | 6 | 1, 2 | 🔵 Planned | `mk6-postgres-schema` | — |
+| 4 | — | [Sprint 04: Provision Postgres and Domain Schema](#sprint-04-provision-postgres-and-domain-schema) | `holo db:migrate` clean on real PG 18; ≥55 tables, indexes, replication ready | 6 | 1, 2 | 🟠 In flight | `mk6-postgres-schema` | — |
 | 5 | — | [Sprint 05: Mastra Service and Scoped-Key Auth](#sprint-05-mastra-service-and-scoped-key-auth) | Unkeyed mutation → 401; correctly-scoped key → 200 on the running service | 5 | 1, 4 | 🔵 Planned | `mk6-mastra-service` | — |
 | 6 | — | [Sprint 06: Headless Deployment and Dev/Prod Parity](#sprint-06-headless-deployment-and-devprod-parity) | `holo stack up` — Postgres/Mastra/scheduler/zero-cache healthy in 60s | 6 | 4, 5 | 🔵 Planned | `mk6-deployment` | — |
 | 7 | — | [Sprint 07: Evidence-Graph Substrate and Ledger Immutability](#sprint-07-evidence-graph-substrate-and-ledger-immutability) | Direct DML on `beliefs` rejected; authorized temporal revision atomic | 5 | 4 | 🔵 Planned | `mk6-evidence-ledger` | — |
@@ -231,7 +231,7 @@ The `Milestone` cell links to the GitHub Milestone titled `sprint-{NN}`; sprints
 
 **Sequence:** 4
 **Timeline:** Phase 1 — Platform Foundation
-**Status:** 🔵 Planned
+**Status:** 🟠 In flight
 **Proposed by:** mastra-planner
 **Milestone:** — (`sprint-04`)
 **Branch:** `mk6-postgres-schema`
@@ -259,6 +259,14 @@ The `Milestone` cell links to the GitHub Milestone titled `sprint-{NN}`; sprints
 | schema-4 | Logical replication + zero_pub publication (reactive subset, vectors excluded) + replica identity | mastra-implementer | 150 min |
 | schema-5 | RED tests: 0-error migrate, status CHECK, jsonb round-trip, merges collapsed, replication readiness | red-test-generator | 150 min |
 | schema-6 | Review schema vs source catalog + Zero split | mastra-reviewer | 90 min |
+
+**Next Sprint Tasks:** *(expanded by kb-sprint-tasks-plan on 2026-07-14 — SPRINT.md + 6 task files at [`tasks/sprint-04-provision-postgres-and-domain-schema/`](tasks/sprint-04-provision-postgres-and-domain-schema/); avg 100/115, 0 fakeable scenarios)*
+- schema-1-provision-postgres-pgvector-fts-wal.md
+- schema-2-drizzle-domain-schema-55-tables.md
+- schema-3-hnsw-gin-btree-indexes-search-vector.md
+- schema-4-logical-replication-zero-pub-publication.md
+- schema-5-red-tests-negative-controls.md
+- schema-6-review-schema-vs-source-catalog-zero-split.md
 
 #### Dependencies
 
