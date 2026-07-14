@@ -1,4 +1,5 @@
 {
+  "representative_example": true,
   "code": "NOT_FOUND",
   "data": {
     "documentId": "invalid_id"

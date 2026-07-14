@@ -1,0 +1,8 @@
+{
+  "representative_example": true,
+  "code": "NOT_FOUND",
+  "message": "Creator profile does not exist",
+  "details": {
+    "profileId": "kg_creator_missing_001"
+  }
+}

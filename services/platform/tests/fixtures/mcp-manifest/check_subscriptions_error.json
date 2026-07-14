@@ -1,0 +1,9 @@
+{
+  "representative_example": true,
+  "code": "BAD_REQUEST",
+  "message": "Invalid sourceType — must be one of: youtube, newsletter, changelog, reddit, ebay, whats-new",
+  "details": {
+    "field": "sourceType",
+    "provided": "invalid_type"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "representative_example": true,
+  "idempotency_key": ["documentId"],
+  "stored_result": "documentId",
+  "first_call_result": {
+    "documentId": "kg_doc_store_001",
+    "updated": true,
+    "embeddingStatus": "completed",
+    "embeddingRegenerated": true,
+    "embeddingDimensions": 1536
+  },
+  "second_call_result": {
+    "documentId": "kg_doc_store_001",
+    "updated": true,
+    "embeddingStatus": "completed",
+    "embeddingRegenerated": true,
+    "embeddingDimensions": 1536
+  }
+}

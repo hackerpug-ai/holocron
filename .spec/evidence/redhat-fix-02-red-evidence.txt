@@ -1,0 +1,22 @@
+REDHAT-FIX-02 RED Evidence — Pre-fix fixture coverage
+=====================================================
+Error fixtures: 3/21 mutation tools covered (14%)
+  - add_subscription_not_found.json
+  - get_document_not_found.json
+  - store_document_validation_error.json
+
+Replay fixtures: 2/21 mutation tools covered (10%)
+  - add_subscription_replay.json
+  - store_document_replay.json
+
+Missing error fixtures for 18 mutation tools:
+  update_document, share_document, remove_subscription, check_subscriptions,
+  set_subscription_filter, store_tool, update_tool, remove_tool, shop_products,
+  start_assimilation, approve_assimilation_plan, reject_assimilation_plan,
+  cancel_assimilation, steer_assimilation, assimilate_creator,
+  regenerate_transcript, add_improvement, close_improvement,
+  set_improvement_status
+
+Additionally, none of the 44+ fixture files contain `representative_example: true`,
+meaning all synthetic placeholder data (kg_doc_store_001, B0XXXXX, etc.) is
+unannotated and indistinguishable from live-captured data.

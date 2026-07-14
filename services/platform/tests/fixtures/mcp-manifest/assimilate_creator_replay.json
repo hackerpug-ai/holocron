@@ -1,0 +1,23 @@
+{
+  "representative_example": true,
+  "idempotency_key": ["profileId", "forceRegenerate"],
+  "stored_result": "transcriptsCreated",
+  "first_call_result": {
+    "success": true,
+    "documentId": "kg_doc_creator_001",
+    "videosFound": 10,
+    "transcriptsCreated": 8,
+    "transcriptsSkipped": 2,
+    "status": "completed",
+    "error": null
+  },
+  "second_call_result": {
+    "success": true,
+    "documentId": "kg_doc_creator_001",
+    "videosFound": 10,
+    "transcriptsCreated": 8,
+    "transcriptsSkipped": 2,
+    "status": "completed",
+    "error": null
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "representative_example": true,
+  "idempotency_key": ["sessionId", "feedback"],
+  "stored_result": "rejected",
+  "first_call_result": {
+    "rejected": true,
+    "sessionId": "kg_assim_001",
+    "replanning": false
+  },
+  "second_call_result": {
+    "rejected": true,
+    "sessionId": "kg_assim_001",
+    "replanning": false
+  }
+}

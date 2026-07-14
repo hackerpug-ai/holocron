@@ -1,4 +1,5 @@
 {
+  "representative_example": true,
   "session": {
     "_id": "kg_shop_session_001",
     "sessionId": "kg_shop_001",

@@ -1,4 +1,5 @@
 {
+  "representative_example": true,
   "documentId": "kg_doc_store_001",
   "updated": true,
   "embeddingStatus": "completed",

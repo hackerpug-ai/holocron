@@ -1,0 +1,8 @@
+{
+  "representative_example": true,
+  "code": "NOT_FOUND",
+  "message": "Session does not exist",
+  "details": {
+    "sessionId": "kg_assim_missing_001"
+  }
+}

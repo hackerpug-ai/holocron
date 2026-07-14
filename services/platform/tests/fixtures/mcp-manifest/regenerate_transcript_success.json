@@ -1,4 +1,5 @@
 {
+  "representative_example": true,
   "success": true,
   "data": {
     "jobId": "kg_job_001",

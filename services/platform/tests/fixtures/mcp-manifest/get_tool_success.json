@@ -1,4 +1,5 @@
 {
+  "representative_example": true,
   "_id": "kg_tool_001",
   "title": "Convex CLI",
   "description": "Command-line interface for Convex",

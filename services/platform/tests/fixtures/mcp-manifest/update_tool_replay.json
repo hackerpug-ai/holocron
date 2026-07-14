@@ -1,0 +1,19 @@
+{
+  "representative_example": true,
+  "idempotency_key": ["toolId"],
+  "stored_result": "toolId",
+  "first_call_result": {
+    "toolId": "kg_tool_001",
+    "updated": true,
+    "embeddingStatus": "completed",
+    "embeddingRegenerated": true,
+    "embeddingDimensions": 1536
+  },
+  "second_call_result": {
+    "toolId": "kg_tool_001",
+    "updated": true,
+    "embeddingStatus": "completed",
+    "embeddingRegenerated": true,
+    "embeddingDimensions": 1536
+  }
+}
