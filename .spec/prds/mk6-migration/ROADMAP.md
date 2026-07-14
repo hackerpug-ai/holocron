@@ -27,7 +27,7 @@ This roadmap is a **consolidation** of proposals from the project's dispatched p
 |---|-----------|--------|------|-------|--------------|--------|--------|----|
 | 1 | — | [Sprint 01: Mastra Compatibility Lock and Fleet Role Manifest](#sprint-01-mastra-compatibility-lock-and-fleet-role-manifest) | `holo compat:spike` green 5-cell matrix on real Postgres; fleet manifest resolves | 5 | — | 🟠 In flight | `mk6-compat-lock` | — |
 | 2 | — | [Sprint 02: Convex Source Catalog and Asset Inventory](#sprint-02-convex-source-catalog-and-asset-inventory) | `holo catalog:verify` — 60/60 tables + every object have approved dispositions | 5 | — | 🟠 In flight | `mk6-source-catalog` | — |
-| 3 | — | [Sprint 03: MCP Compatibility Manifest and Frozen Fixtures](#sprint-03-mcp-compatibility-manifest-and-frozen-fixtures) | `holo mcp:verify-manifest` — 44/44 tools with frozen fixtures, both transports | 5 | 1 | 🔵 Planned | `mk6-mcp-manifest` | — |
+| 3 | — | [Sprint 03: MCP Compatibility Manifest and Frozen Fixtures](#sprint-03-mcp-compatibility-manifest-and-frozen-fixtures) | `holo mcp:verify-manifest` — 44/44 tools with frozen fixtures, both transports | 5 | 1 | 🟠 In flight | `mk6-mcp-manifest` | — |
 | 4 | — | [Sprint 04: Provision Postgres and Domain Schema](#sprint-04-provision-postgres-and-domain-schema) | `holo db:migrate` clean on real PG 18; ≥55 tables, indexes, replication ready | 6 | 1, 2 | 🔵 Planned | `mk6-postgres-schema` | — |
 | 5 | — | [Sprint 05: Mastra Service and Scoped-Key Auth](#sprint-05-mastra-service-and-scoped-key-auth) | Unkeyed mutation → 401; correctly-scoped key → 200 on the running service | 5 | 1, 4 | 🔵 Planned | `mk6-mastra-service` | — |
 | 6 | — | [Sprint 06: Headless Deployment and Dev/Prod Parity](#sprint-06-headless-deployment-and-devprod-parity) | `holo stack up` — Postgres/Mastra/scheduler/zero-cache healthy in 60s | 6 | 4, 5 | 🔵 Planned | `mk6-deployment` | — |
@@ -177,7 +177,7 @@ The `Milestone` cell links to the GitHub Milestone titled `sprint-{NN}`; sprints
 
 **Sequence:** 3
 **Timeline:** Phase 0 — Leading INFRA
-**Status:** 🔵 Planned
+**Status:** 🟠 In flight
 **Proposed by:** mcp-planner
 **Milestone:** — (`sprint-03`)
 **Branch:** `mk6-mcp-manifest`
@@ -204,6 +204,13 @@ The `Milestone` cell links to the GitHub Milestone titled `sprint-{NN}`; sprints
 | mcp-manifest-03 | Freeze success/error/mutation-replay fixtures for all 44 tools from current behavior | red-test-generator | 180 min |
 | mcp-manifest-04 | Build `holo mcp:verify-manifest` completeness gate + operator inspection commands | mcp-implementer | 120 min |
 | mcp-manifest-05 | Review manifest protocol compliance; prove the completeness gate is un-fakeable | mcp-reviewer | 75 min |
+
+**Next Sprint Tasks:** *(expanded by kb-sprint-tasks-plan on 2026-07-14 — SPRINT.md + 5 task files at [`tasks/sprint-03-mcp-compatibility-manifest-frozen-fixtures/`](tasks/sprint-03-mcp-compatibility-manifest-frozen-fixtures/))*
+- mcp-manifest-01-author-mcp-manifest-header.md
+- mcp-manifest-02-populate-per-tool-contracts.md
+- mcp-manifest-03-freeze-fixtures-replay-contracts.md
+- mcp-manifest-04-verify-manifest-completeness-gate.md
+- mcp-manifest-05-review-protocol-compliance-unfakeable-gate.md
 
 #### Dependencies
 
