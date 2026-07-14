@@ -10,7 +10,8 @@
  * reported green while the disconnect is present.
  */
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -77,6 +78,32 @@ describe('MCP manifest negative controls (RED teeth)', () => {
     expect(out).toMatch(/fake_tool/);
   });
 
+  it('fixture-file-removed control: verify-manifest exits non-zero naming store_document when its success fixture is deleted', () => {
+    // would fail if verify-manifest exited 0 while a tool's success fixture file is missing
+    // (that would make the gate fakeable — you could delete a fixture and the gate would not notice)
+    // DISTINCT from manifest-entry-removed: here the manifest entry is intact but the fixture FILE is gone
+    const tmpDir = mkdtempSync(resolve(tmpdir(), 'holocron-fixtures-'));
+    try {
+      cpSync(FIXTURES_DIR, tmpDir, { recursive: true });
+      const fixtureFile = resolve(tmpDir, 'store_document_success.json');
+      rmSync(fixtureFile, { force: true });
+      expect(existsSync(fixtureFile), 'fixture must be deleted for test').toBe(false);
+      const r = runHolo([
+        'mcp:verify-manifest',
+        '--manifest',
+        MANIFEST,
+        '--fixtures-dir',
+        tmpDir,
+      ]);
+      const out = `${r.stdout}\n${r.stderr}`;
+      expect(r.status, out).not.toBe(0);
+      expect(out).toMatch(/store_document/);
+      expect(out).toMatch(/fixtures missing/);
+    } finally {
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
   it('protocol pin: verify-manifest --protocol reports 2025-11-25', () => {
     // would fail if verify-manifest did not pin or report the MCP protocol version
     const r = runHolo(['mcp:verify-manifest', '--manifest', MANIFEST, '--protocol']);
@@ -117,12 +144,14 @@ describe('MCP manifest negative control suite shape', () => {
       /would fail if verify-manifest exited 0 while an orphan tool entry exists/
     );
     expect(self).toMatch(
+      /would fail if verify-manifest exited 0 while a tool's success fixture file is missing/
+    );
+    expect(self).toMatch(
       /would fail if verify-manifest did not pin or report the MCP protocol version/
     );
   });
 
   it('frozen fixture directory has exactly 44 success fixtures', () => {
-    const { readdirSync } = require('node:fs') as typeof import('node:fs');
     const files = readdirSync(FIXTURES_DIR).filter((f: string) => f.endsWith('_success.json'));
     expect(files.length, `expected 44 success fixtures, got ${files.length}`).toBe(44);
   });
