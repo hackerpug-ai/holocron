@@ -163,15 +163,35 @@ lsof -nP -iTCP:5432 -sTCP:LISTEN
 
 Logs: `brew services info postgresql@18` / macOS launchd log for `homebrew.mxcl.postgresql@18`.
 
-## What this task does **not** do
+## Logical replication — `zero_pub` (schema-4 / CAP-SYNC-01)
 
-- No Drizzle migrations yet (schema-2+).
-- No Zero sync client wiring.
+Domain migrations create publication **`zero_pub`** over the reactive UI subset only
+(conversations, chat_messages, tool_calls, agent_plans, tasks, documents metadata,
+research/mission progress, notifications, feed_items, subscriptions display,
+improvements, audio jobs/segments, whats_new, analysis/shop/assimilation sessions,
+app_settings). **Excluded:** every `vector`/`tsvector` column, the passages/evidence
+fulcrum (sources/passages/claims/entities/relations/beliefs), citations, telemetry,
+rate-limit, and server-only ETL (`convex_id_map`).
+
+Every published table has a single-column uuid PK and `REPLICA IDENTITY DEFAULT`.
+
+```bash
+export DATABASE_URL='postgres://justinrich@127.0.0.1:5432/holocron'
+bun services/platform/src/cli/holo.ts db:migrate
+bun services/platform/src/cli/holo.ts repl:status
+# MUST: wal_level: logical · zero_pub present · REPLICA IDENTITY: DEFAULT · no passages/sources
+psql "$DATABASE_URL" -c "SELECT * FROM pg_publication;"
+psql "$DATABASE_URL" -c "SELECT * FROM pg_publication_tables WHERE pubname='zero_pub';"
+```
+
+## What provisioning alone does **not** do
+
+- No Zero sync client / zero-cache wiring (later sprint).
 - No production secrets vault / password auth (tailnet trust only, AP-7).
 - Does not claim a mini hostname that is offline — host is **provisional laptop**.
 
 ## Follow-ups
 
 1. When mini is online: install the same stack there, update Tailscale IP / `listen_addresses` / this doc.
-2. schema-2+: Drizzle schema under `services/platform/src/db/`, `holo db:migrate`, etc.
-3. Optionally re-link `brew link postgresql@18` so default `psql` is 18 (currently PG16 may still own `/opt/homebrew/bin/psql`).
+2. Optionally re-link `brew link postgresql@18` so default `psql` is 18 (currently PG16 may still own `/opt/homebrew/bin/psql`).
+3. Wire zero-cache + RN client against `zero_pub` (CAP-SYNC-01 e2e).

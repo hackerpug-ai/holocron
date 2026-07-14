@@ -5,7 +5,7 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1784072592723,
+      "when": 1784077000000,
       "tag": "0000_groovy_stellaris",
       "breakpoints": true
     },
@@ -14,6 +14,13 @@
       "version": "7",
       "when": 1784079000000,
       "tag": "0001_schema3_indexes_search_vector",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784079500000,
+      "tag": "0002_zero_pub",
       "breakpoints": true
     }
   ]

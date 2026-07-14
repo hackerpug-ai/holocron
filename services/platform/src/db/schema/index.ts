@@ -10,6 +10,7 @@ export * from './media';
 export * from './others';
 export * from './research';
 export * from './subscriptions';
+export * from './zero-pub';
 
 import * as analysis from './analysis';
 import * as chat from './chat';
