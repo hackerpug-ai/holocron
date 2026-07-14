@@ -1,0 +1,20 @@
+{
+  "_id": "kg_assim_session_001",
+  "status": "running",
+  "profile": "standard",
+  "repositoryName": "get-convex/convex",
+  "repositoryUrl": "https://github.com/get-convex/convex",
+  "currentIteration": 2,
+  "maxIterations": 5,
+  "dimensionScores": {
+    "architecture": 0.8,
+    "testing": 0.6
+  },
+  "estimatedCostUsd": 0.42,
+  "planSummary": "Analyze repo architecture and testing patterns",
+  "planContent": "1. Clone repo\n2. Analyze structure\n3. Score dimensions",
+  "documentId": "kg_doc_assim_001",
+  "errorReason": null,
+  "createdAt": 1720915200000,
+  "completedAt": 0
+}

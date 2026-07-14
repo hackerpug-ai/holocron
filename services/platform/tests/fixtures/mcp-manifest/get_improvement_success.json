@@ -1,0 +1,9 @@
+{
+  "_id": "kg_imp_001",
+  "description": "Add keyboard shortcuts to search",
+  "status": "open",
+  "sourceScreen": "search",
+  "closedReason": null,
+  "closedAt": 0,
+  "createdAt": 1720915200000
+}

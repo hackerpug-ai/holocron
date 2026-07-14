@@ -1,0 +1,10 @@
+{
+  "success": true,
+  "data": {
+    "jobId": "kg_job_001",
+    "created": true,
+    "contentId": "vid_abc123",
+    "message": "Transcript job created"
+  },
+  "error": null
+}

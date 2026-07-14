@@ -1,0 +1,20 @@
+{
+  "results": [
+    {
+      "_id": "kg_tool_001",
+      "title": "Convex CLI",
+      "description": "Command-line interface for Convex",
+      "content": "The Convex CLI provides...",
+      "sourceUrl": "https://github.com/get-convex/convex",
+      "sourceType": "github",
+      "category": "cli",
+      "status": "complete",
+      "tags": ["cli", "convex"],
+      "score": 0.91,
+      "createdAt": 1720915200000,
+      "updatedAt": 1720915200000
+    }
+  ],
+  "totalResults": 1,
+  "searchMethod": "hybrid"
+}

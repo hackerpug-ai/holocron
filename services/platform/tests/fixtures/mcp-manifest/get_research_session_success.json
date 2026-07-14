@@ -1,0 +1,20 @@
+{
+  "_id": "kg_rs_001",
+  "sessionId": "kg_research_001",
+  "topic": "MCP protocol compatibility",
+  "status": "completed",
+  "iterations": [
+    {
+      "iteration": 1,
+      "findings": ["Finding one"],
+      "confidence": 0.85
+    }
+  ],
+  "confidenceStats": {
+    "overall": 0.85,
+    "high": 2,
+    "medium": 1,
+    "low": 0
+  },
+  "createdAt": 1720915200000
+}

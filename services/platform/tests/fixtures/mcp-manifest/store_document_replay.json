@@ -1,0 +1,16 @@
+{
+  "idempotency_key": ["title", "content"],
+  "stored_result": "documentId",
+  "first_call_result": {
+    "documentId": "kg_replay_002",
+    "title": "Replay Document",
+    "embeddingStatus": "completed",
+    "embeddingDimensions": 1536
+  },
+  "second_call_result": {
+    "documentId": "kg_replay_002",
+    "title": "Replay Document",
+    "embeddingStatus": "completed",
+    "embeddingDimensions": 1536
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "results": [
+    {
+      "_id": "kg_doc_001",
+      "title": "MCP Protocol Guide",
+      "score": 1.5,
+      "content": "The Model Context Protocol..."
+    }
+  ],
+  "totalResults": 1
+}

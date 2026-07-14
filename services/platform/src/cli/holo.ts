@@ -2,20 +2,34 @@
 /**
  * holo — operator CLI for MK-VI migration tooling.
  * Sprint 02: catalog:verify | catalog:coverage | catalog:merges | catalog:reconcile | catalog:assets
+ * Sprint 03: mcp:verify-manifest | mcp:manifest-schema | mcp:manifest-replay | mcp:list-mutations
  */
 import { resolve } from 'node:path';
 import { buildAssetInventory, formatAssetsText } from '../catalog/assets';
-import { defaultCatalogPath, loadCatalog } from '../catalog/catalog-loader';
+import { defaultCatalogPath, loadCatalog, type SourceCatalog } from '../catalog/catalog-loader';
 import { buildCoverageReport, formatCoverageText } from '../catalog/coverage';
 import { readExport } from '../catalog/export-reader';
 import { buildMergesReport, formatMergesText } from '../catalog/merges';
 import { buildReconcileReport, formatReconcileText } from '../catalog/reconcile';
 import { buildVerifyReport, formatVerifyText } from '../catalog/verify';
+import { buildMutationsReport, formatMutationsText } from '../mcp/list-mutations';
+import { defaultManifestPath, loadManifest } from '../mcp/manifest-loader';
+import { buildReplayReport, formatReplayText } from '../mcp/manifest-replay';
+import { buildSchemaReport, formatSchemaText } from '../mcp/manifest-schema';
+import {
+  buildVerifyReport as buildManifestVerifyReport,
+  buildProtocolReport,
+  formatVerifyText as formatManifestVerifyText,
+  formatProtocolText,
+} from '../mcp/verify-manifest';
 
 interface CliArgs {
   command: string;
+  positional: string[];
   exportDir: string | null;
   catalogPath: string;
+  manifestPath: string;
+  protocol: boolean;
   json: boolean;
   dryRun: boolean;
   help: boolean;
@@ -27,27 +41,36 @@ function printHelp(): void {
 Usage:
   bun services/platform/src/cli/holo.ts <command> [options]
 
-Commands:
-  catalog:verify      Coverage build-gate (60/60 tables + fields + storage refs)
-  catalog:coverage    Per-field + per-storage-ref mapping with owner/approval
-  catalog:merges      Business 12→3 + research 5→3 collapse proof
-  catalog:reconcile   Per-table source vs expected-target; unexplained variance
-  catalog:assets      Per-object retained storage inventory (sha256/bytes/mime)
+  Commands:
+  catalog:verify        Coverage build-gate (60/60 tables + fields + storage refs)
+  catalog:coverage      Per-field + per-storage-ref mapping with owner/approval
+  catalog:merges        Business 12→3 + research 5→3 collapse proof
+  catalog:reconcile     Per-table source vs expected-target; unexplained variance
+  catalog:assets        Per-object retained storage inventory (sha256/bytes/mime)
+  mcp:verify-manifest   44/44 tool completeness gate (manifest ↔ live registry cross-check)
+  mcp:manifest-schema   Print a tool's input/output schema + defaults from the manifest
+  mcp:manifest-replay   Print a tool's idempotency key + stored result from the manifest
+  mcp:list-mutations    List all mutation tools (non-null side_effects)
 
 Options:
-  --export <dir>      Path to unzipped convex export (or $CONVEX_EXPORT_DIR)
-  --catalog <file>    Path to 12-convex-source-catalog.yaml
-  --json              Emit JSON instead of text
-  --dry-run           (catalog:reconcile) dry-run mode (default)
-  -h, --help          Show help
+  --export <dir>        Path to unzipped convex export (or $CONVEX_EXPORT_DIR)
+  --catalog <file>      Path to 12-convex-source-catalog.yaml
+  --manifest <file>     Path to 14-mcp-compatibility-manifest.yaml (mcp:* commands)
+  --protocol            (mcp:verify-manifest) print protocol pin summary
+  --json                Emit JSON instead of text
+  --dry-run             (catalog:reconcile) dry-run mode (default)
+  -h, --help            Show help
 `);
 }
 
 function parseArgs(argv: string[]): CliArgs {
   const args: CliArgs = {
     command: '',
+    positional: [],
     exportDir: process.env.CONVEX_EXPORT_DIR ?? null,
     catalogPath: defaultCatalogPath(),
+    manifestPath: defaultManifestPath(),
+    protocol: false,
     json: false,
     dryRun: true,
     help: false,
@@ -61,14 +84,20 @@ function parseArgs(argv: string[]): CliArgs {
       args.json = true;
     } else if (a === '--dry-run') {
       args.dryRun = true;
+    } else if (a === '--protocol') {
+      args.protocol = true;
     } else if (a === '--export') {
       args.exportDir = argv[++i] ?? null;
     } else if (a === '--catalog') {
       args.catalogPath = resolve(argv[++i] ?? args.catalogPath);
+    } else if (a === '--manifest') {
+      args.manifestPath = resolve(argv[++i] ?? args.manifestPath);
     } else if (a.startsWith('--export=')) {
       args.exportDir = a.slice('--export='.length);
     } else if (a.startsWith('--catalog=')) {
       args.catalogPath = resolve(a.slice('--catalog='.length));
+    } else if (a.startsWith('--manifest=')) {
+      args.manifestPath = resolve(a.slice('--manifest='.length));
     } else if (a.startsWith('-')) {
       console.error(`unknown flag: ${a}`);
       process.exit(2);
@@ -77,6 +106,7 @@ function parseArgs(argv: string[]): CliArgs {
     }
   }
   args.command = positional[0] ?? '';
+  args.positional = positional;
   return args;
 }
 
@@ -95,7 +125,12 @@ async function main(): Promise<void> {
     process.exit(args.help ? 0 : 2);
   }
 
-  const catalog = loadCatalog(args.catalogPath);
+  const isMcpCommand = args.command.startsWith('mcp:');
+  const catalog: SourceCatalog | null = isMcpCommand ? null : loadCatalog(args.catalogPath);
+
+  // For catalog commands, catalog is guaranteed non-null (loaded above when !isMcpCommand).
+  // TypeScript needs the assertion because the switch is flat.
+  const cat = catalog as SourceCatalog;
 
   switch (args.command) {
     case 'catalog:verify': {
@@ -104,7 +139,7 @@ async function main(): Promise<void> {
       const exp = args.exportDir ? readExport(requireExport(args.exportDir)) : null;
       // When no export provided, still run catalog-only checks (tables/fields/storage).
       // Human gate and integration tests always pass --export.
-      const report = buildVerifyReport(catalog, exp);
+      const report = buildVerifyReport(cat, exp);
       if (args.json) {
         console.log(JSON.stringify(report, null, 2));
       } else {
@@ -120,7 +155,7 @@ async function main(): Promise<void> {
       break;
     }
     case 'catalog:coverage': {
-      const report = buildCoverageReport(catalog);
+      const report = buildCoverageReport(cat);
       if (args.json) {
         console.log(JSON.stringify(report, null, 2));
       } else {
@@ -135,7 +170,7 @@ async function main(): Promise<void> {
       break;
     }
     case 'catalog:merges': {
-      const report = buildMergesReport(catalog);
+      const report = buildMergesReport(cat);
       if (args.json) {
         console.log(JSON.stringify(report, null, 2));
       } else {
@@ -147,7 +182,7 @@ async function main(): Promise<void> {
     case 'catalog:reconcile': {
       const exportDir = requireExport(args.exportDir);
       const exp = readExport(exportDir);
-      const report = buildReconcileReport(catalog, exp);
+      const report = buildReconcileReport(cat, exp);
       if (args.json) {
         console.log(JSON.stringify(report, null, 2));
       } else {
@@ -166,13 +201,97 @@ async function main(): Promise<void> {
     case 'catalog:assets': {
       const exportDir = requireExport(args.exportDir);
       const exp = readExport(exportDir);
-      const inv = buildAssetInventory(catalog, exp);
+      const inv = buildAssetInventory(cat, exp);
       if (args.json) {
         console.log(JSON.stringify(inv, null, 2));
       } else {
         console.log(formatAssetsText(inv));
       }
       process.exit(inv.ok ? 0 : 1);
+      break;
+    }
+    case 'mcp:verify-manifest': {
+      const manifest = loadManifest(args.manifestPath);
+      if (args.protocol) {
+        const protoReport = buildProtocolReport(manifest);
+        console.log(formatProtocolText(protoReport));
+        if (!protoReport.ok) {
+          console.error('protocol coverage incomplete');
+        }
+        process.exit(protoReport.ok ? 0 : 1);
+      }
+      const fixturesDir = resolve(process.cwd(), 'services/platform/tests/fixtures/mcp-manifest');
+      const report = buildManifestVerifyReport(manifest, {
+        manifestPath: args.manifestPath,
+        fixturesDir,
+      });
+      if (args.json) {
+        console.log(JSON.stringify(report, null, 2));
+      } else {
+        console.log(formatManifestVerifyText(report));
+      }
+      if (!report.ok) {
+        for (const issue of report.issues) {
+          console.error(issue.message);
+        }
+      }
+      process.exit(report.ok ? 0 : 1);
+      break;
+    }
+    case 'mcp:manifest-schema': {
+      const toolId = args.positional[1];
+      if (!toolId) {
+        console.error('error: mcp:manifest-schema requires a tool ID argument');
+        process.exit(2);
+      }
+      const manifest = loadManifest(args.manifestPath);
+      const report = buildSchemaReport(manifest, toolId);
+      if (!report.found) {
+        console.error(`tool not found: ${toolId}`);
+        process.exit(1);
+      }
+      if (args.json) {
+        console.log(JSON.stringify(report, null, 2));
+      } else {
+        console.log(formatSchemaText(report));
+      }
+      process.exit(0);
+      break;
+    }
+    case 'mcp:manifest-replay': {
+      const toolId = args.positional[1];
+      if (!toolId) {
+        console.error('error: mcp:manifest-replay requires a tool ID argument');
+        process.exit(2);
+      }
+      const manifest = loadManifest(args.manifestPath);
+      const fixturesDir = resolve(process.cwd(), 'services/platform/tests/fixtures/mcp-manifest');
+      const report = buildReplayReport(manifest, toolId, fixturesDir);
+      if (!report.found) {
+        console.error(`tool not found: ${toolId}`);
+        process.exit(1);
+      }
+      if (!report.has_replay) {
+        console.error(`no replay contract for: ${toolId}`);
+        process.exit(1);
+      }
+      if (args.json) {
+        console.log(JSON.stringify(report, null, 2));
+      } else {
+        console.log(formatReplayText(report));
+      }
+      process.exit(0);
+      break;
+    }
+    case 'mcp:list-mutations': {
+      const manifest = loadManifest(args.manifestPath);
+      const report = buildMutationsReport(manifest);
+      if (args.json) {
+        console.log(JSON.stringify(report, null, 2));
+      } else {
+        console.log(formatMutationsText(report));
+      }
+      process.exit(0);
       break;
     }
     default:

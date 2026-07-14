@@ -1,0 +1,18 @@
+{
+  "idempotency_key": ["sourceType", "identifier"],
+  "stored_result": "subscriptionId",
+  "first_call_result": {
+    "subscriptionId": "kg_replay_001",
+    "sourceType": "youtube",
+    "identifier": "@replay_creator",
+    "name": "Replay Creator",
+    "createdAt": 1720915200000
+  },
+  "second_call_result": {
+    "subscriptionId": "kg_replay_001",
+    "sourceType": "youtube",
+    "identifier": "@replay_creator",
+    "name": "Replay Creator",
+    "createdAt": 1720915200000
+  }
+}

@@ -1,0 +1,2357 @@
+# Negative-control: fake_tool entry added (for orphan-entry control)
+protocol: 2025-11-25
+transports:
+  - stdio
+  - streamable-http
+stateless: true
+no_server_sampling: true
+auth_policy:
+  stdio:
+    trust_boundary: Local process — credentials injected via environment variables (CONVEX_URL, CONVEX_DEPLOYMENT, API
+      keys). No additional auth layer.
+  streamable_http:
+    type: api-key
+    header: Authorization
+    scheme: bearer
+    origin_validation: true
+    allowed_origins: null
+    rate_limit: null
+cancellation_policy:
+  posture: cooperative
+  description: >
+    Clients may send cancellation notifications per MCP 2025-11-25. The server aborts in-flight tool execution when a
+    cancellation is received. Long-running operations (assimilation sessions, transcript jobs) are dispatched to Convex
+    and are not directly cancellable via the MCP transport — the client must use the cancel_assimilation tool for those
+    workflows.
+  supported: true
+tools:
+  - id: get_research_session
+    input_schema:
+      type: object
+      properties:
+        sessionId:
+          type: string
+          minLength: 1
+      required:
+        - sessionId
+    output_schema:
+      type: object
+      nullable: true
+      description: ResearchSession or null if not found
+      properties:
+        _id:
+          type: string
+        sessionId:
+          type: string
+        topic:
+          type: string
+        status:
+          type: string
+        iterations:
+          type: array
+    defaults: {}
+    errors:
+      - code: NOT_FOUND
+        description: Session does not exist — returns null
+      - code: INTERNAL_SERVER_ERROR
+        description: Convex query failed
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports:
+      - stdio
+      - streamable-http
+    fixtures: null
+  - id: search_research
+    input_schema:
+      type: object
+      properties:
+        query:
+          type: string
+          minLength: 1
+        limit:
+          type: integer
+          minimum: 1
+      required:
+        - query
+    output_schema:
+      type: object
+      properties:
+        sessions:
+          type: array
+          items:
+            type: object
+            properties:
+              sessionId:
+                type: string
+              topic:
+                type: string
+              relevanceScore:
+                type: number
+              status:
+                type: string
+              createdAt:
+                type: number
+        totalResults:
+          type: integer
+    defaults:
+      limit: 10
+    errors:
+      - code: INTERNAL_SERVER_ERROR
+        description: Convex query failed
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports:
+      - stdio
+      - streamable-http
+    fixtures: null
+  - id: search_fts
+    input_schema:
+      type: object
+      properties:
+        query:
+          type: string
+          minLength: 1
+        limit:
+          type: integer
+          minimum: 1
+      required:
+        - query
+    output_schema:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            type: object
+            properties:
+              _id:
+                type: string
+              title:
+                type: string
+              score:
+                type: number
+              content:
+                type: string
+        totalResults:
+          type: integer
+    defaults:
+      limit: 20
+    errors:
+      - code: INTERNAL_SERVER_ERROR
+        description: Convex FTS5 query failed
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports:
+      - stdio
+      - streamable-http
+    fixtures: null
+  - id: search_vector
+    input_schema:
+      type: object
+      properties:
+        embedding:
+          type: array
+          items:
+            type: number
+        limit:
+          type: integer
+          minimum: 1
+      required:
+        - embedding
+    output_schema:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            type: object
+            properties:
+              _id:
+                type: string
+              title:
+                type: string
+              score:
+                type: number
+              content:
+                type: string
+        totalResults:
+          type: integer
+    defaults:
+      limit: 20
+    errors:
+      - code: VALIDATION_ERROR
+        description: Embedding dimension mismatch
+      - code: INTERNAL_SERVER_ERROR
+        description: Convex vector search failed
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports:
+      - stdio
+      - streamable-http
+    fixtures: null
+  - id: hybrid_search
+    input_schema:
+      type: object
+      properties:
+        query:
+          type: string
+          minLength: 1
+        limit:
+          type: integer
+          minimum: 1
+      required:
+        - query
+    output_schema:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            type: object
+            properties:
+              _id:
+                type: string
+              title:
+                type: string
+              score:
+                type: number
+              content:
+                type: string
+        totalResults:
+          type: integer
+        searchMethod:
+          type: string
+          enum:
+            - hybrid
+            - fts_only
+            - vector_only
+    defaults:
+      limit: 20
+    errors:
+      - code: INTERNAL_SERVER_ERROR
+        description: Both hybrid and FTS fallback failed
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports:
+      - stdio
+      - streamable-http
+    fixtures: null
+  - id: store_document
+    input_schema:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+        content:
+          type: string
+          minLength: 1
+        metadata:
+          type: object
+          additionalProperties: true
+      required:
+        - title
+        - content
+    output_schema:
+      type: object
+      properties:
+        documentId:
+          type: string
+        title:
+          type: string
+        embeddingStatus:
+          type: string
+          enum:
+            - pending
+            - completed
+            - failed
+        embeddingDimensions:
+          type: integer
+    defaults:
+      metadata: {}
+      metadata.category: general
+      metadata.date: auto (today's ISO date)
+    errors:
+      - code: VALIDATION_ERROR
+        description: Title or content empty after Zod validation
+      - code: EMBEDDING_FAILED
+        description: OpenAI embedding generation failed
+      - code: INTERNAL_SERVER_ERROR
+        description: Convex createWithEmbedding mutation failed
+    pagination: null
+    side_effects: INSERTS documents row + generates embedding via OpenAI (documents/storage:createWithEmbedding action)
+    idempotency: Not natively idempotent — duplicate (title + content) creates a new row. De-dup must be caller-side.
+    replay:
+      idempotency_key:
+        - title
+        - content
+      stored_result: documentId
+    transports:
+      - stdio
+      - streamable-http
+    fixtures: null
+  - id: update_document
+    input_schema:
+      type: object
+      properties:
+        documentId:
+          type: string
+          minLength: 1
+        title:
+          type: string
+          minLength: 1
+        content:
+          type: string
+          minLength: 1
+        metadata:
+          type: object
+          additionalProperties: true
+      required:
+        - documentId
+    output_schema:
+      type: object
+      properties:
+        documentId:
+          type: string
+        updated:
+          type: boolean
+        embeddingStatus:
+          type: string
+          enum:
+            - pending
+            - completed
+            - failed
+        embeddingRegenerated:
+          type: boolean
+        embeddingDimensions:
+          type: integer
+    defaults: {}
+    errors:
+      - code: NOT_FOUND
+        description: Document ID does not exist
+      - code: VALIDATION_ERROR
+        description: No updatable fields provided (title/content/metadata all absent)
+      - code: EMBEDDING_FAILED
+        description: Re-embedding generation failed
+      - code: INTERNAL_SERVER_ERROR
+        description: Convex updateWithEmbedding mutation failed
+    pagination: null
+    side_effects: UPDATES documents row + regenerates embedding if title/content changed
+      (documents/storage:updateWithEmbedding action)
+    idempotency: Idempotent by documentId — repeating the same update with identical fields yields the same result.
+    replay:
+      idempotency_key:
+        - documentId
+      stored_result: documentId
+    transports:
+      - stdio
+      - streamable-http
+    fixtures: null
+  - id: share_document
+    input_schema:
+      type: object
+      properties:
+        documentId:
+          type: string
+          minLength: 1
+        isPublic:
+          type: boolean
+      required:
+        - documentId
+        - isPublic
+    output_schema:
+      type: object
+      properties:
+        documentId:
+          type: string
+        isPublic:
+          type: boolean
+        shareToken:
+          type: string
+        shareUrl:
+          type: string
+    defaults: {}
+    errors:
+      - code: NOT_FOUND
+        description: Document ID does not exist
+      - code: INTERNAL_SERVER_ERROR
+        description: Convex publishDocument/unpublishDocument mutation failed
+    pagination: null
+    side_effects: UPDATES documents row (isPublic flag) + creates or removes shareToken (documents/mutations:publishDocument
+      or :unpublishDocument)
+    idempotency: Idempotent by (documentId, isPublic) — publishing an already-published doc or unpublishing an
+      already-private doc is a safe no-op.
+    replay:
+      idempotency_key:
+        - documentId
+        - isPublic
+      stored_result: shareToken
+    transports:
+      - stdio
+      - streamable-http
+    fixtures: null
+  - id: get_document
+    input_schema:
+      type: object
+      properties:
+        documentId:
+          type: string
+          minLength: 1
+      required:
+        - documentId
+    output_schema:
+      type: object
+      nullable: true
+      description: Document or null. If documentId contains ':', queries by Convex ID; otherwise by title.
+    defaults: {}
+    errors:
+      - code: NOT_FOUND
+        description: Document does not exist — returns null
+      - code: INTERNAL_SERVER_ERROR
+        description: Convex query failed
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports:
+      - stdio
+      - streamable-http
+    fixtures: null
+  - id: list_documents
+    input_schema:
+      type: object
+      properties:
+        limit:
+          type: integer
+          minimum: 1
+        cursor:
+          type: string
+      required: []
+    output_schema:
+      type: object
+      properties:
+        documents:
+          type: array
+          items:
+            type: object
+        nextCursor:
+          type: string
+          nullable: true
+        hasMore:
+          type: boolean
+    defaults:
+      limit: 50
+    errors:
+      - code: INTERNAL_SERVER_ERROR
+        description: Convex query failed
+    pagination:
+      type: cursor
+      limit_default: 50
+      limit_max: 1000
+      ordering_field: _creationTime
+      ordering_direction: desc
+      cursor_field: cursor
+      has_more_field: hasMore
+      next_cursor_field: nextCursor
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports:
+      - stdio
+      - streamable-http
+    fixtures: null
+  - id: add_subscription
+    input_schema:
+      type: object
+      properties:
+        sourceType:
+          type: string
+          enum:
+            - youtube
+            - newsletter
+            - changelog
+            - reddit
+            - ebay
+            - whats-new
+            - github
+        identifier:
+          type: string
+          minLength: 1
+        name:
+          type: string
+          minLength: 1
+        url:
+          type: string
+          format: uri
+        feedUrl:
+          type: string
+          format: uri
+      required:
+        - sourceType
+        - identifier
+        - name
+    output_schema:
+      type: object
+      properties:
+        subscriptionId:
+          type: string
+        sourceType:
+          type: string
+        identifier:
+          type: string
+        name:
+          type: string
+        createdAt:
+          type: number
+    defaults: {}
+    errors:
+      - code: VALIDATION_ERROR
+        description: Missing required fields or invalid sourceType
+      - code: DUPLICATE_SUBSCRIPTION
+        description: Subscription with same sourceType + identifier already exists
+      - code: INTERNAL_SERVER_ERROR
+        description: Convex add mutation failed
+    pagination: null
+    side_effects: INSERTS subscriptions row (subscriptions/mutations:add)
+    idempotency: Semi-idempotent by (sourceType, identifier) — Convex backend deduplicates existing subscriptions with the same key.
+    replay:
+      idempotency_key:
+        - sourceType
+        - identifier
+      stored_result: subscriptionId
+    transports:
+      - stdio
+      - streamable-http
+    fixtures: null
+  - id: remove_subscription
+    input_schema:
+      type: object
+      properties:
+        subscriptionId:
+          type: string
+          minLength: 1
+      required:
+        - subscriptionId
+    output_schema:
+      type: object
+      properties:
+        deleted:
+          type: boolean
+        subscription:
+          type: object
+          properties:
+            _id:
+              type: string
+            sourceType:
+              type: string
+            identifier:
+              type: string
+            name:
+              type: string
+    defaults: {}
+    errors:
+      - code: NOT_FOUND
+        description: Subscription ID does not exist
+      - code: INTERNAL_SERVER_ERROR
+        description: Convex remove mutation failed
+    pagination: null
+    side_effects: DELETES subscriptions row (subscriptions/mutations:remove)
+    idempotency: Idempotent by subscriptionId — deleting an already-deleted subscription returns NOT_FOUND.
+    replay:
+      idempotency_key:
+        - subscriptionId
+      stored_result: deleted
+    transports:
+      - stdio
+      - streamable-http
+    fixtures: null
+  - id: list_subscriptions
+    input_schema:
+      type: object
+      properties:
+        sourceType:
+          type: string
+          enum:
+            - youtube
+            - newsletter
+            - changelog
+            - reddit
+            - ebay
+            - whats-new
+        autoResearchOnly:
+          type: boolean
+        limit:
+          type: integer
+          minimum: 1
+      required: []
+    output_schema:
+      type: object
+      properties:
+        subscriptions:
+          type: array
+          items:
+            type: object
+            properties:
+              _id:
+                type: string
+              sourceType:
+                type: string
+              identifier:
+                type: string
+              name:
+                type: string
+              autoResearch:
+                type: boolean
+              lastChecked:
+                type: number
+              createdAt:
+                type: number
+    defaults:
+      limit: 100
+    errors:
+      - code: INTERNAL_SERVER_ERROR
+        description: Convex query failed
+    pagination:
+      type: limit-only
+      limit_default: 100
+      limit_max: 1000
+      ordering_field: createdAt
+      ordering_direction: desc
+      cursor_field: null
+      has_more_field: null
+      next_cursor_field: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports:
+      - stdio
+      - streamable-http
+    fixtures: null
+  - id: check_subscriptions
+    input_schema:
+      type: object
+      properties:
+        sourceType:
+          type: string
+          enum:
+            - youtube
+            - newsletter
+            - changelog
+            - reddit
+            - ebay
+            - whats-new
+      required: []
+    output_schema:
+      type: object
+      properties:
+        sourcesChecked:
+          type: integer
+        totalFetched:
+          type: integer
+        totalQueued:
+          type: integer
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              source:
+                type: string
+              error:
+                type: string
+    defaults:
+      sourceType: null
+    errors:
+      - code: INTERNAL_SERVER_ERROR
+        description: Convex check action failed
+      - code: FETCH_ERROR
+        description: One or more source feeds failed to fetch (partial — errors array in response)
+    pagination: null
+    side_effects: READS external source feeds, INSERTS subscriptionContent rows, QUEUES discovered items for research
+      (subscriptions/actions:check)
+    idempotency: Not idempotent — re-running may create duplicate subscriptionContent rows for items that changed since last check.
+    replay:
+      idempotency_key:
+        - sourceType
+      stored_result: totalQueued
+    transports:
+      - stdio
+      - streamable-http
+    fixtures: null
+  - id: get_subscription_content
+    input_schema:
+      type: object
+      properties:
+        subscriptionId:
+          type: string
+          minLength: 1
+        researchStatus:
+          type: string
+          enum:
+            - pending
+            - queued
+            - researched
+            - skipped
+        limit:
+          type: integer
+          minimum: 1
+      required:
+        - subscriptionId
+    output_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+            properties:
+              _id:
+                type: string
+              sourceId:
+                type: string
+              contentId:
+                type: string
+              title:
+                type: string
+              url:
+                type: string
+              researchStatus:
+                type: string
+              passedFilter:
+                type: boolean
+              filterReason:
+                type: string
+              discoveredAt:
+                type: number
+    defaults:
+      limit: 100
+    errors:
+      - code: NOT_FOUND
+        description: Subscription ID does not exist
+      - code: INTERNAL_SERVER_ERROR
+        description: Convex query failed
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports:
+      - stdio
+      - streamable-http
+    fixtures: null
+  - id: set_subscription_filter
+    input_schema:
+      type: object
+      properties:
+        sourceId:
+          type: string
+        sourceType:
+          type: string
+        ruleName:
+          type: string
+          minLength: 1
+        ruleType:
+          type: string
+          minLength: 1
+        ruleValue: {}
+        weight:
+          type: number
+      required:
+        - ruleName
+        - ruleType
+        - ruleValue
+    output_schema:
+      type: object
+      properties:
+        filterId:
+          type: string
+        ruleName:
+          type: string
+        ruleType:
+          type: string
+        ruleValue: {}
+        weight:
+          type: number
+    defaults: {}
+    errors:
+      - code: VALIDATION_ERROR
+        description: Neither sourceId nor sourceType provided
+      - code: INTERNAL_SERVER_ERROR
+        description: Convex setFilter mutation failed
+    pagination: null
+    side_effects: UPSERTS subscriptionFilters row (subscriptions/mutations:setFilter)
+    idempotency: Idempotent by (sourceId|sourceType, ruleName) — same filter rule upserts the existing row.
+    replay:
+      idempotency_key:
+        - sourceId
+        - ruleName
+      stored_result: filterId
+    transports:
+      - stdio
+      - streamable-http
+    fixtures: null
+  - id: get_subscription_filters
+    input_schema:
+      type: object
+      properties:
+        subscriptionId:
+          type: string
+        sourceType:
+          type: string
+      required: []
+    output_schema:
+      type: object
+      properties:
+        filters:
+          type: array
+          items:
+            type: object
+            properties:
+              _id:
+                type: string
+              sourceId:
+                type: string
+              sourceType:
+                type: string
+              ruleName:
+                type: string
+              ruleType:
+                type: string
+              ruleValue: {}
+              weight:
+                type: number
+    defaults: {}
+    errors:
+      - code: INTERNAL_SERVER_ERROR
+        description: Convex query failed
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports:
+      - stdio
+      - streamable-http
+    fixtures: null
+  - id: store_tool
+    input_schema:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+        description:
+          type: string
+        content:
+          type: string
+        sourceUrl:
+          type: string
+          format: uri
+        sourceType:
+          type: string
+          enum:
+            - github
+            - npm
+            - pypi
+            - website
+            - cargo
+            - go
+            - other
+        category:
+          type: string
+          enum:
+            - libraries
+            - cli
+            - framework
+            - service
+            - database
+            - tool
+        status:
+          type: string
+          enum:
+            - complete
+            - draft
+            - archived
+        tags:
+          type: array
+          items:
+            type: string
+        useCases:
+          type: array
+          items:
+            type: string
+        keywords:
+          type: array
+          items:
+            type: string
+        language:
+          type: string
+        date:
+          type: string
+        time:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+      required:
+        - title
+        - sourceType
+        - category
+    output_schema:
+      type: object
+      properties:
+        toolId:
+          type: string
+        title:
+          type: string
+        embeddingStatus:
+          type: string
+          enum:
+            - completed
+            - pending
+            - failed
+        embeddingDimensions:
+          type: integer
+    defaults:
+      status: draft
+      description: null
+      content: null
+    errors:
+      - code: VALIDATION_ERROR
+        description: Missing required fields (title, sourceType, category)
+      - code: EMBEDDING_FAILED
+        description: Embedding generation failed
+      - code: INTERNAL_SERVER_ERROR
+        description: Convex createWithEmbedding action failed
+    pagination: null
+    side_effects: INSERTS tools row + generates embedding (toolbelt/storage:createWithEmbedding action)
+    idempotency: Not natively idempotent — duplicate (title, sourceType) creates a new row.
+    replay:
+      idempotency_key:
+        - title
+        - sourceType
+        - category
+      stored_result: toolId
+    transports:
+      - stdio
+      - streamable-http
+    fixtures: null
+  - id: search_tools
+    input_schema:
+      type: object
+      properties:
+        query:
+          type: string
+          minLength: 1
+        limit:
+          type: integer
+          minimum: 1
+        category:
+          type: string
+      required:
+        - query
+    output_schema:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            type: object
+            properties:
+              _id:
+                type: string
+              title:
+                type: string
+              description:
+                type: string
+              content:
+                type: string
+              sourceUrl:
+                type: string
+              sourceType:
+                type: string
+              category:
+                type: string
+              status:
+                type: string
+              tags:
+                type: array
+                items:
+                  type: string
+              score:
+                type: number
+              createdAt:
+                type: number
+              updatedAt:
+                type: number
+        totalResults:
+          type: integer
+        searchMethod:
+          type: string
+          enum:
+            - hybrid
+            - fts_only
+            - vector_only
+    defaults:
+      limit: 10
+      category: null
+    errors:
+      - code: INTERNAL_SERVER_ERROR
+        description: Convex hybridSearch action failed
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports:
+      - stdio
+      - streamable-http
+    fixtures: null
+  - id: get_tool
+    input_schema:
+      type: object
+      properties:
+        toolId:
+          type: string
+          minLength: 1
+      required:
+        - toolId
+    output_schema:
+      type: object
+      nullable: true
+      description: Tool record or null if not found
+    defaults: {}
+    errors:
+      - code: NOT_FOUND
+        description: Tool does not exist — returns null
+      - code: INTERNAL_SERVER_ERROR
+        description: Convex query failed
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports:
+      - stdio
+      - streamable-http
+    fixtures: null
+  - id: list_tools
+    input_schema:
+      type: object
+      properties:
+        limit:
+          type: integer
+          minimum: 1
+        category:
+          type: string
+        status:
+          type: string
+        sourceType:
+          type: string
+      required: []
+    output_schema:
+      type: object
+      properties:
+        tools:
+          type: array
+          items:
+            type: object
+            properties:
+              _id:
+                type: string
+              title:
+                type: string
+              sourceType:
+                type: string
+              category:
+                type: string
+              status:
+                type: string
+              createdAt:
+                type: number
+              updatedAt:
+                type: number
+        total:
+          type: integer
+    defaults:
+      limit: 50
+      category: null
+      status: null
+      sourceType: null
+    errors:
+      - code: INTERNAL_SERVER_ERROR
+        description: Convex query failed
+    pagination:
+      type: limit-only
+      limit_default: 50
+      limit_max: 1000
+      ordering_field: createdAt
+      ordering_direction: desc
+      cursor_field: null
+      has_more_field: null
+      next_cursor_field: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports:
+      - stdio
+      - streamable-http
+    fixtures: null
+  - id: update_tool
+    input_schema:
+      type: object
+      properties:
+        toolId:
+          type: string
+          minLength: 1
+        title:
+          type: string
+          minLength: 1
+        description:
+          type: string
+        content:
+          type: string
+        sourceUrl:
+          type: string
+          format: uri
+        sourceType:
+          type: string
+          enum:
+            - github
+            - npm
+            - pypi
+            - website
+            - cargo
+            - go
+            - other
+        category:
+          type: string
+          enum:
+            - libraries
+            - cli
+            - framework
+            - service
+            - database
+            - tool
+        status:
+          type: string
+          enum:
+            - complete
+            - draft
+            - archived
+        tags:
+          type: array
+          items:
+            type: string
+        useCases:
+          type: array
+          items:
+            type: string
+        keywords:
+          type: array
+          items:
+            type: string
+        language:
+          type: string
+        date:
+          type: string
+        time:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+      required:
+        - toolId
+    output_schema:
+      type: object
+      properties:
+        toolId:
+          type: string
+        updated:
+          type: boolean
+        embeddingStatus:
+          type: string
+          enum:
+            - completed
+            - pending
+            - failed
+        embeddingRegenerated:
+          type: boolean
+        embeddingDimensions:
+          type: integer
+    defaults: {}
+    errors:
+      - code: NOT_FOUND
+        description: Tool ID does not exist
+      - code: VALIDATION_ERROR
+        description: No updatable fields provided
+      - code: EMBEDDING_FAILED
+        description: Re-embedding generation failed
+      - code: INTERNAL_SERVER_ERROR
+        description: Convex updateWithEmbedding action failed
+    pagination: null
+    side_effects: UPDATES tools row + regenerates embedding if title/content/description changed
+      (toolbelt/storage:updateWithEmbedding action)
+    idempotency: Idempotent by toolId — repeating the same update yields the same result.
+    replay:
+      idempotency_key:
+        - toolId
+      stored_result: toolId
+    transports:
+      - stdio
+      - streamable-http
+    fixtures: null
+  - id: remove_tool
+    input_schema:
+      type: object
+      properties:
+        toolId:
+          type: string
+          minLength: 1
+      required:
+        - toolId
+    output_schema:
+      type: object
+      properties:
+        deleted:
+          type: boolean
+        toolId:
+          type: string
+    defaults: {}
+    errors:
+      - code: NOT_FOUND
+        description: Tool ID does not exist
+      - code: INTERNAL_SERVER_ERROR
+        description: Convex remove mutation failed
+    pagination: null
+    side_effects: DELETES tools row (toolbelt/mutations:remove)
+    idempotency: Idempotent by toolId — deleting an already-deleted tool returns NOT_FOUND.
+    replay:
+      idempotency_key:
+        - toolId
+      stored_result: deleted
+    transports:
+      - stdio
+      - streamable-http
+    fixtures: null
+  - id: shop_products
+    input_schema:
+      type: object
+      properties:
+        query:
+          type: string
+          minLength: 1
+        retailers:
+          type: array
+          items:
+            type: string
+        condition:
+          type: string
+          enum:
+            - new
+            - used
+            - any
+        priceMin:
+          type: number
+        priceMax:
+          type: number
+        verifiedOnly:
+          type: boolean
+      required:
+        - query
+    output_schema:
+      type: object
+      properties:
+        sessionId:
+          type: string
+        status:
+          type: string
+        totalListings:
+          type: integer
+        bestDeal:
+          type: object
+          properties:
+            title:
+              type: string
+            price:
+              type: number
+            retailer:
+              type: string
+            url:
+              type: string
+            dealScore:
+              type: number
+        listings:
+          type: array
+          items:
+            type: object
+            properties:
+              title:
+                type: string
+              price:
+                type: number
+              priceFormatted:
+                type: string
+              retailer:
+                type: string
+              condition:
+                type: string
+              url:
+                type: string
+              dealScore:
+                type: number
+              trustTier:
+                type: integer
+              sellerTrustScore:
+                type: number
+              isVerifiedSeller:
+                type: boolean
+              trustLabel:
+                type: string
+                enum:
+                  - Authorized
+                  - Verified Seller
+                  - Unverified
+        durationMs:
+          type: number
+        error:
+          type: string
+    defaults:
+      retailers: null
+      condition: null
+      priceMin: null
+      priceMax: null
+      verifiedOnly: null
+    errors:
+      - code: INTERNAL_SERVER_ERROR
+        description: Convex startShopSearch action failed
+      - code: TIMEOUT
+        description: Retailer search timed out (partial results may be returned)
+    pagination: null
+    side_effects: CREATES shopSessions row + INSERTS shopListings rows from retailer API calls (shop/index:startShopSearch action)
+    idempotency: Not idempotent — same query creates a new search session each time.
+    replay:
+      idempotency_key:
+        - query
+        - condition
+        - priceMin
+        - priceMax
+      stored_result: sessionId
+    transports:
+      - stdio
+      - streamable-http
+    fixtures: null
+  - id: get_shop_session
+    input_schema:
+      type: object
+      properties:
+        sessionId:
+          type: string
+          minLength: 1
+      required:
+        - sessionId
+    output_schema:
+      type: object
+      properties:
+        session:
+          type: object
+          nullable: true
+          properties:
+            _id:
+              type: string
+            sessionId:
+              type: string
+            status:
+              type: string
+            query:
+              type: string
+            totalListings:
+              type: integer
+            createdAt:
+              type: number
+    defaults: {}
+    errors:
+      - code: NOT_FOUND
+        description: Session does not exist — returns null
+      - code: INTERNAL_SERVER_ERROR
+        description: Convex query failed
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports:
+      - stdio
+      - streamable-http
+    fixtures: null
+  - id: get_shop_listings
+    input_schema:
+      type: object
+      properties:
+        sessionId:
+          type: string
+          minLength: 1
+        limit:
+          type: integer
+          minimum: 1
+        excludeDuplicates:
+          type: boolean
+        sortBy:
+          type: string
+          enum:
+            - price
+            - dealScore
+            - createdAt
+      required:
+        - sessionId
+    output_schema:
+      type: object
+      properties:
+        listings:
+          type: array
+          items:
+            type: object
+            properties:
+              _id:
+                type: string
+              title:
+                type: string
+              price:
+                type: number
+              retailer:
+                type: string
+              condition:
+                type: string
+              url:
+                type: string
+              dealScore:
+                type: number
+              isDuplicate:
+                type: boolean
+    defaults:
+      limit: null
+      excludeDuplicates: true
+      sortBy: dealScore
+    errors:
+      - code: NOT_FOUND
+        description: Session does not exist
+      - code: INTERNAL_SERVER_ERROR
+        description: Convex query failed
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports:
+      - stdio
+      - streamable-http
+    fixtures: null
+  - id: get_whats_new_report
+    input_schema:
+      type: object
+      properties:
+        forceRefresh:
+          type: boolean
+          description: Force generate a new report (expensive)
+      required: []
+    output_schema:
+      type: object
+      nullable: true
+      properties:
+        content:
+          type: string
+          nullable: true
+        generatedAt:
+          type: number
+        isFromToday:
+          type: boolean
+        stats:
+          type: object
+          properties:
+            findingsCount:
+              type: integer
+            discoveryCount:
+              type: integer
+            releaseCount:
+              type: integer
+            trendCount:
+              type: integer
+        report:
+          type: object
+          properties:
+            _id:
+              type: string
+            periodStart:
+              type: number
+            periodEnd:
+              type: number
+            days:
+              type: integer
+            createdAt:
+              type: number
+    defaults:
+      forceRefresh: false
+    errors:
+      - code: NOT_FOUND
+        description: No report available — returns null
+      - code: INTERNAL_SERVER_ERROR
+        description: Convex query or generation failed
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports:
+      - stdio
+      - streamable-http
+    fixtures: null
+  - id: list_whats_new_reports
+    input_schema:
+      type: object
+      properties:
+        limit:
+          type: integer
+          minimum: 1
+      required: []
+    output_schema:
+      type: array
+      items:
+        type: object
+        properties:
+          _id:
+            type: string
+          periodStart:
+            type: number
+          periodEnd:
+            type: number
+          days:
+            type: integer
+          findingsCount:
+            type: integer
+          hasDocument:
+            type: boolean
+          createdAt:
+            type: number
+    defaults:
+      limit: 10
+    errors:
+      - code: INTERNAL_SERVER_ERROR
+        description: Convex query failed
+    pagination:
+      type: limit-only
+      limit_default: 10
+      limit_max: 100
+      ordering_field: createdAt
+      ordering_direction: desc
+      cursor_field: null
+      has_more_field: null
+      next_cursor_field: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports:
+      - stdio
+      - streamable-http
+    fixtures: null
+  - id: start_assimilation
+    input_schema:
+      type: object
+      properties:
+        repositoryUrl:
+          type: string
+          minLength: 1
+          description: GitHub repository URL (https://github.com/{owner}/{repo})
+        profile:
+          type: string
+          enum:
+            - fast
+            - standard
+            - thorough
+          description: Analysis depth profile
+        autoApprove:
+          type: boolean
+          description: Automatically approve plan without human review
+      required:
+        - repositoryUrl
+    output_schema:
+      type: object
+      properties:
+        sessionId:
+          type: string
+        status:
+          type: string
+        existing:
+          type: boolean
+    defaults:
+      profile: null
+      autoApprove: false
+    errors:
+      - code: VALIDATION_ERROR
+        description: Invalid repository URL
+      - code: INTERNAL_SERVER_ERROR
+        description: Convex startAssimilation mutation failed
+    pagination: null
+    side_effects: CREATES assimilationSessions row + dispatches planning phase (assimilate/mutations:startAssimilation)
+    idempotency: Semi-idempotent by repositoryUrl — Convex backend returns existing session if one is already in progress
+      for the same repo.
+    replay:
+      idempotency_key:
+        - repositoryUrl
+      stored_result: sessionId
+    transports:
+      - stdio
+      - streamable-http
+    fixtures: null
+  - id: approve_assimilation_plan
+    input_schema:
+      type: object
+      properties:
+        sessionId:
+          type: string
+          minLength: 1
+          description: Assimilation session ID
+      required:
+        - sessionId
+    output_schema:
+      type: object
+      properties:
+        approved:
+          type: boolean
+          const: true
+        sessionId:
+          type: string
+    defaults: {}
+    errors:
+      - code: NOT_FOUND
+        description: Session does not exist
+      - code: INVALID_STATE
+        description: Session is not in pending_approval status
+      - code: INTERNAL_SERVER_ERROR
+        description: Convex approveAssimilationPlan mutation failed
+    pagination: null
+    side_effects: UPDATES assimilationSessions status pending_approval → running (assimilate/mutations:approveAssimilationPlan)
+    idempotency: Idempotent by sessionId — approving an already-approved session is a safe no-op or returns INVALID_STATE.
+    replay:
+      idempotency_key:
+        - sessionId
+      stored_result: approved
+    transports:
+      - stdio
+      - streamable-http
+    fixtures: null
+  - id: reject_assimilation_plan
+    input_schema:
+      type: object
+      properties:
+        sessionId:
+          type: string
+          minLength: 1
+          description: Assimilation session ID
+        feedback:
+          type: string
+          description: Optional feedback to trigger re-planning
+      required:
+        - sessionId
+    output_schema:
+      type: object
+      properties:
+        rejected:
+          type: boolean
+          const: true
+        sessionId:
+          type: string
+        replanning:
+          type: boolean
+    defaults:
+      feedback: null
+    errors:
+      - code: NOT_FOUND
+        description: Session does not exist
+      - code: INVALID_STATE
+        description: Session is not in pending_approval status
+      - code: INTERNAL_SERVER_ERROR
+        description: Convex rejectAssimilationPlan mutation failed
+    pagination: null
+    side_effects: UPDATES assimilationSessions status pending_approval → rejected (no feedback) or → planning (with feedback
+      for re-plan) (assimilate/mutations:rejectAssimilationPlan)
+    idempotency: Idempotent by (sessionId, feedback) — rejecting with same feedback is a safe no-op.
+    replay:
+      idempotency_key:
+        - sessionId
+        - feedback
+      stored_result: rejected
+    transports:
+      - stdio
+      - streamable-http
+    fixtures: null
+  - id: get_assimilation_status
+    input_schema:
+      type: object
+      properties:
+        sessionId:
+          type: string
+          minLength: 1
+          description: Assimilation session ID
+      required:
+        - sessionId
+    output_schema:
+      type: object
+      nullable: true
+      properties:
+        _id:
+          type: string
+        status:
+          type: string
+        profile:
+          type: string
+        repositoryName:
+          type: string
+        repositoryUrl:
+          type: string
+        currentIteration:
+          type: integer
+        maxIterations:
+          type: integer
+        dimensionScores:
+          type: object
+          additionalProperties:
+            type: number
+        estimatedCostUsd:
+          type: number
+        planSummary:
+          type: string
+        planContent:
+          type: string
+        documentId:
+          type: string
+        errorReason:
+          type: string
+        createdAt:
+          type: number
+        completedAt:
+          type: number
+    defaults: {}
+    errors:
+      - code: NOT_FOUND
+        description: Session does not exist — returns null
+      - code: INTERNAL_SERVER_ERROR
+        description: Convex query failed
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports:
+      - stdio
+      - streamable-http
+    fixtures: null
+  - id: cancel_assimilation
+    input_schema:
+      type: object
+      properties:
+        sessionId:
+          type: string
+          minLength: 1
+          description: Assimilation session ID
+      required:
+        - sessionId
+    output_schema:
+      type: object
+      properties:
+        cancelled:
+          type: boolean
+          const: true
+        sessionId:
+          type: string
+    defaults: {}
+    errors:
+      - code: NOT_FOUND
+        description: Session does not exist
+      - code: INVALID_STATE
+        description: Session is already completed, failed, cancelled, or rejected
+      - code: INTERNAL_SERVER_ERROR
+        description: Convex cancelAssimilation mutation failed
+    pagination: null
+    side_effects: UPDATES assimilationSessions status → cancelled (assimilate/mutations:cancelAssimilation)
+    idempotency: Idempotent by sessionId — cancelling an already-cancelled session returns INVALID_STATE.
+    replay:
+      idempotency_key:
+        - sessionId
+      stored_result: cancelled
+    transports:
+      - stdio
+      - streamable-http
+    fixtures: null
+  - id: steer_assimilation
+    input_schema:
+      type: object
+      properties:
+        sessionId:
+          type: string
+          minLength: 1
+          description: Assimilation session ID
+        note:
+          type: string
+          minLength: 1
+          description: Steering note to inject for the next iteration
+      required:
+        - sessionId
+        - note
+    output_schema:
+      type: object
+      properties:
+        steered:
+          type: boolean
+          const: true
+        sessionId:
+          type: string
+    defaults: {}
+    errors:
+      - code: NOT_FOUND
+        description: Session does not exist
+      - code: INVALID_STATE
+        description: Session is not in an active state
+      - code: INTERNAL_SERVER_ERROR
+        description: Convex steerAssimilation mutation failed
+    pagination: null
+    side_effects: APPENDS steering note to assimilationSessions steeringNotes array (assimilate/mutations:steerAssimilation)
+    idempotency: Not idempotent — each call appends a new steering note. Replay dedup by (sessionId, note, timestamp).
+    replay:
+      idempotency_key:
+        - sessionId
+        - note
+      stored_result: steered
+    transports:
+      - stdio
+      - streamable-http
+    fixtures: null
+  - id: assimilate_creator
+    input_schema:
+      type: object
+      properties:
+        profileId:
+          type: string
+          minLength: 1
+          description: Creator profile ID (Convex ID)
+        forceRegenerate:
+          type: boolean
+          description: Re-transcribe videos that already have transcripts
+      required:
+        - profileId
+    output_schema:
+      type: object
+      properties:
+        success:
+          type: boolean
+        documentId:
+          type: string
+          nullable: true
+        videosFound:
+          type: integer
+        transcriptsCreated:
+          type: integer
+        transcriptsSkipped:
+          type: integer
+        status:
+          type: string
+        error:
+          type: string
+    defaults:
+      forceRegenerate: false
+    errors:
+      - code: NOT_FOUND
+        description: Creator profile does not exist (returned as success:false, not thrown)
+      - code: INTERNAL_SERVER_ERROR
+        description: Convex assimilateCreator action failed (returned as success:false, not thrown)
+    pagination: null
+    side_effects: READS creator YouTube channel, CREATES videoTranscripts rows + transcript jobs (creators/actions:assimilateCreator)
+    idempotency: Idempotent by profileId when forceRegenerate=false — existing transcripts are skipped. With
+      forceRegenerate=true, re-creates all transcript jobs.
+    replay:
+      idempotency_key:
+        - profileId
+        - forceRegenerate
+      stored_result: transcriptsCreated
+    transports:
+      - stdio
+      - streamable-http
+    fixtures: null
+  - id: get_creator_transcripts
+    input_schema:
+      type: object
+      properties:
+        profileId:
+          type: string
+          minLength: 1
+          description: Creator profile ID (Convex ID)
+        limit:
+          type: integer
+          minimum: 1
+          description: Maximum number of transcripts to return
+      required:
+        - profileId
+    output_schema:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            profileId:
+              type: string
+            creatorHandle:
+              type: string
+            transcriptCount:
+              type: integer
+            transcripts:
+              type: array
+              items:
+                type: object
+                properties:
+                  contentId:
+                    type: string
+                  sourceUrl:
+                    type: string
+                  transcriptSource:
+                    type: string
+                  previewText:
+                    type: string
+                  wordCount:
+                    type: integer
+                  generatedAt:
+                    type: number
+        error:
+          type: string
+    defaults:
+      limit: null
+    errors:
+      - code: NOT_FOUND
+        description: Creator profile not found (returned as success:false)
+      - code: INTERNAL_SERVER_ERROR
+        description: Query failed (returned as success:false)
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports:
+      - stdio
+      - streamable-http
+    fixtures: null
+  - id: regenerate_transcript
+    input_schema:
+      type: object
+      properties:
+        contentId:
+          type: string
+          minLength: 1
+          description: YouTube video ID
+        sourceUrl:
+          type: string
+          format: uri
+          description: YouTube video URL (optional, will be generated if not provided)
+        priority:
+          type: integer
+          minimum: 0
+          maximum: 10
+          description: "Job priority (0-10, default: 5)"
+      required:
+        - contentId
+    output_schema:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            jobId:
+              type: string
+            created:
+              type: boolean
+            contentId:
+              type: string
+            message:
+              type: string
+        error:
+          type: string
+    defaults:
+      sourceUrl: auto-generated from contentId (https://www.youtube.com/watch?v={contentId})
+      priority: 5
+    errors:
+      - code: INTERNAL_SERVER_ERROR
+        description: Convex createTranscriptJob mutation failed (returned as success:false)
+    pagination: null
+    side_effects: CREATES transcriptJobs row (transcripts/mutations:createTranscriptJob)
+    idempotency: Idempotent by contentId — returns created:false if a job already exists for the same contentId.
+    replay:
+      idempotency_key:
+        - contentId
+      stored_result: jobId
+    transports:
+      - stdio
+      - streamable-http
+    fixtures: null
+  - id: search_improvements
+    input_schema:
+      type: object
+      properties:
+        query:
+          type: string
+          minLength: 1
+          description: Search query for finding similar improvements
+        limit:
+          type: integer
+          minimum: 1
+          description: Max results (default 5)
+      required:
+        - query
+    output_schema:
+      type: array
+      description: Array of similar improvement requests ranked by relevance
+      items:
+        type: object
+        properties:
+          _id:
+            type: string
+          description:
+            type: string
+          status:
+            type: string
+          score:
+            type: number
+    defaults:
+      limit: 5
+    errors:
+      - code: INTERNAL_SERVER_ERROR
+        description: Convex findSimilar action failed
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports:
+      - stdio
+      - streamable-http
+    fixtures: null
+  - id: get_improvement
+    input_schema:
+      type: object
+      properties:
+        id:
+          type: string
+          minLength: 1
+          description: Improvement request ID
+      required:
+        - id
+    output_schema:
+      type: object
+      nullable: true
+      properties:
+        _id:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+        sourceScreen:
+          type: string
+        closedReason:
+          type: string
+        closedAt:
+          type: number
+        createdAt:
+          type: number
+    defaults: {}
+    errors:
+      - code: NOT_FOUND
+        description: Improvement does not exist — returns null
+      - code: INTERNAL_SERVER_ERROR
+        description: Convex query failed
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports:
+      - stdio
+      - streamable-http
+    fixtures: null
+  - id: list_improvements
+    input_schema:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+            - open
+            - closed
+          description: Filter by status. Omit to list all non-merged items.
+        limit:
+          type: integer
+          minimum: 1
+          description: Max results (default 20)
+      required: []
+    output_schema:
+      type: array
+      items:
+        type: object
+        properties:
+          _id:
+            type: string
+          description:
+            type: string
+          status:
+            type: string
+          sourceScreen:
+            type: string
+          createdAt:
+            type: number
+    defaults:
+      limit: 20
+      status: null
+    errors:
+      - code: INTERNAL_SERVER_ERROR
+        description: Convex query failed
+    pagination:
+      type: limit-only
+      limit_default: 20
+      limit_max: 1000
+      ordering_field: createdAt
+      ordering_direction: desc
+      cursor_field: null
+      has_more_field: null
+      next_cursor_field: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports:
+      - stdio
+      - streamable-http
+    fixtures: null
+  - id: add_improvement
+    input_schema:
+      type: object
+      properties:
+        items:
+          type: array
+          minItems: 1
+          description: One or more improvements to submit
+          items:
+            type: object
+            properties:
+              description:
+                type: string
+                minLength: 1
+                description: Description of the improvement
+              sourceScreen:
+                type: string
+                description: Screen where improvement was identified
+            required:
+              - description
+      required:
+        - items
+    output_schema:
+      type: object
+      properties:
+        created:
+          type: integer
+        ids:
+          type: array
+          items:
+            type: string
+    defaults:
+      items[].sourceScreen: mcp
+    errors:
+      - code: VALIDATION_ERROR
+        description: items array is empty or missing description
+      - code: INTERNAL_SERVER_ERROR
+        description: Convex submit mutation failed
+    pagination: null
+    side_effects: INSERTS improvements rows (improvements/mutations:submit) — one per item
+    idempotency: Not natively idempotent — duplicate submissions create new rows. No content-based dedup.
+    replay:
+      idempotency_key:
+        - items
+      stored_result: ids
+    transports:
+      - stdio
+      - streamable-http
+    fixtures: null
+  - id: close_improvement
+    input_schema:
+      type: object
+      properties:
+        id:
+          type: string
+          minLength: 1
+          description: Improvement request ID to close
+        reason:
+          type: string
+          description: Why this improvement is being closed
+        evidence:
+          type: array
+          items:
+            type: string
+          description: File paths, PR links, or commit hashes proving completion
+      required:
+        - id
+    output_schema:
+      type: object
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+          const: closed
+    defaults:
+      reason: null
+      evidence: null
+    errors:
+      - code: NOT_FOUND
+        description: Improvement ID does not exist
+      - code: INTERNAL_SERVER_ERROR
+        description: Convex setStatus mutation failed
+    pagination: null
+    side_effects: "UPDATES improvements row: status → closed + sets closedReason, evidence, closedAt
+      (improvements/mutations:setStatus)"
+    idempotency: Idempotent by id — closing an already-closed improvement is a safe no-op.
+    replay:
+      idempotency_key:
+        - id
+      stored_result: status
+    transports:
+      - stdio
+      - streamable-http
+    fixtures: null
+  - id: set_improvement_status
+    input_schema:
+      type: object
+      properties:
+        id:
+          type: string
+          minLength: 1
+          description: Improvement request ID
+        status:
+          type: string
+          enum:
+            - open
+            - closed
+          description: Target status
+        reason:
+          type: string
+          description: Reason when closing (ignored when reopening)
+        evidence:
+          type: array
+          items:
+            type: string
+          description: Evidence when closing (ignored when reopening)
+      required:
+        - id
+        - status
+    output_schema:
+      type: object
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+          enum:
+            - open
+            - closed
+    defaults:
+      reason: null
+      evidence: null
+    errors:
+      - code: NOT_FOUND
+        description: Improvement ID does not exist
+      - code: INTERNAL_SERVER_ERROR
+        description: Convex setStatus mutation failed
+    pagination: null
+    side_effects: "UPDATES improvements row: status → open|closed. When reopening, clears closure metadata (reason,
+      evidence, closedAt) (improvements/mutations:setStatus)"
+    idempotency: Idempotent by (id, status) — setting the same status is a safe no-op.
+    replay:
+      idempotency_key:
+        - id
+        - status
+      stored_result: status
+    transports:
+      - stdio
+      - streamable-http
+    fixtures: null
+  - id: findRecommendations
+    input_schema:
+      type: object
+      properties:
+        query:
+          type: string
+          minLength: 1
+          description: The recommendation request
+        count:
+          type: integer
+          minimum: 3
+          maximum: 7
+          description: Number of recommendations (3-7, default 5)
+        location:
+          type: string
+          description: Geographic constraint
+        constraints:
+          type: array
+          items:
+            type: string
+          description: Additional constraints
+      required:
+        - query
+    output_schema:
+      type: array
+      description: Inline recommendation results with contact details
+      items:
+        type: object
+        properties:
+          name:
+            type: string
+          recommendation:
+            type: string
+          contact:
+            type: object
+    defaults:
+      count: 5
+      location: null
+      constraints: null
+    errors:
+      - code: INTERNAL_SERVER_ERROR
+        description: Convex findRecommendations action failed
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports:
+      - stdio
+      - streamable-http
+    fixtures: null
+  - id: fake_tool
+    input_schema:
+      type: object
+      properties:
+        fake:
+          type: string
+      required:
+        - fake
+    output_schema:
+      type: object
+      properties:
+        fake:
+          type: string
+    defaults: {}
+    errors:
+      - code: FAKE_ERROR
+        description: This tool does not exist in the MCP server
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports:
+      - stdio
+      - streamable-http
+    fixtures: null

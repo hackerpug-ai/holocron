@@ -1,0 +1,11 @@
+{
+  "_id": "kg_doc_001",
+  "title": "MCP Protocol Guide",
+  "content": "The Model Context Protocol defines...",
+  "metadata": {
+    "category": "general",
+    "date": "2026-07-14"
+  },
+  "isPublic": false,
+  "createdAt": 1720915200000
+}

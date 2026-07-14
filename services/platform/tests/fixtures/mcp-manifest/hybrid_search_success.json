@@ -1,0 +1,12 @@
+{
+  "results": [
+    {
+      "_id": "kg_doc_003",
+      "title": "Hybrid Search Best Practices",
+      "score": 0.94,
+      "content": "Combining FTS and vector..."
+    }
+  ],
+  "totalResults": 1,
+  "searchMethod": "hybrid"
+}

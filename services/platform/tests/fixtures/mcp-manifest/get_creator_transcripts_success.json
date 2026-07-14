@@ -1,0 +1,19 @@
+{
+  "success": true,
+  "data": {
+    "profileId": "kg_creator_001",
+    "creatorHandle": "@creator_handle",
+    "transcriptCount": 2,
+    "transcripts": [
+      {
+        "contentId": "vid_abc123",
+        "sourceUrl": "https://www.youtube.com/watch?v=vid_abc123",
+        "transcriptSource": "youtube_api",
+        "previewText": "In this video we discuss...",
+        "wordCount": 1500,
+        "generatedAt": 1720915200000
+      }
+    ]
+  },
+  "error": null
+}
