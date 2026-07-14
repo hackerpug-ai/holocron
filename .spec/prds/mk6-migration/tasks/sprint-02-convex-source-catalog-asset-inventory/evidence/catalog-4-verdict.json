@@ -17,11 +17,7 @@
     "zip_bytes": 520366272,
     "user_tables": 76,
     "storage_files": 1192,
-    "system_dirs": [
-      "_components",
-      "_storage",
-      "_tables"
-    ],
+    "system_dirs": ["_components", "_storage", "_tables"],
     "orphan_empty_tables_versioned_drop": [
       "favorite_roads",
       "org_memberships",
