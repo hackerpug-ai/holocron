@@ -35,7 +35,7 @@ TASK: schema-2 — Drizzle domain schema — all domains → ~55 tables with mer
 ================================================================================
 
 TASK_TYPE:  CONFIG
-STATUS:     Backlog
+STATUS:     Completed
 PRIORITY:   P0
 EFFORT:     L  (360 min)
 AGENT:      implementer=mastra-implementer | reviewer=mastra-reviewer
@@ -80,11 +80,11 @@ Drizzle migrations apply against real Postgres with 0 errors creating all ~55 ta
 --------------------------------------------------------------------------------
 DONE WHEN
 --------------------------------------------------------------------------------
-- [ ] AC-1 (PRIMARY): All ~55 domain tables materialize via Drizzle migrate with 0 errors
-- [ ] AC-2: Polymorphic jsonb columns round-trip with structural equality
-- [ ] AC-3: Status CHECK constraint rejects out-of-vocabulary values
-- [ ] AC-4: Business 12→3 and research 5→3 merges collapsed to trios
-- [ ] AC-5: Every legacy surface has an approved source-catalog disposition
+- [x] AC-1 (PRIMARY): All ~55 domain tables materialize via Drizzle migrate with 0 errors
+- [x] AC-2: Polymorphic jsonb columns round-trip with structural equality
+- [x] AC-3: Status CHECK constraint rejects out-of-vocabulary values
+- [x] AC-4: Business 12→3 and research 5→3 merges collapsed to trios
+- [x] AC-5: Every legacy surface has an approved source-catalog disposition
 - [ ] `pnpm biome check .` clean + `pnpm tsgo --noEmit` clean (only SCOPE.writeAllowed files modified)
 
 --------------------------------------------------------------------------------
