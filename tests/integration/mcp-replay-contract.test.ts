@@ -56,7 +56,7 @@ const mutationTools: ManifestTool[] = manifest.tools.filter(
 
 // --- Schema map: tool id → Zod schema ---
 
-const TOOL_SCHEMA_MAP: Record<string, z.ZodObject<z.ZodRawShape>> = {
+const TOOL_SCHEMA_MAP: Record<string, { shape: Record<string, unknown> }> = {
   store_document: StoreDocumentSchema,
   update_document: UpdateDocumentSchema,
   share_document: ShareDocumentSchema,
