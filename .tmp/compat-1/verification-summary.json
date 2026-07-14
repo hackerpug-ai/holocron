@@ -1,0 +1,59 @@
+{
+  "task_id": "compat-1",
+  "status": "GREEN",
+  "ac_results": {
+    "AC-1": {
+      "description": "Green five-cell smoke matrix under Bun vs real Postgres + live fleet",
+      "status": "PASS",
+      "evidence": ".tmp/compat-1/ac-1-green.txt",
+      "cells": {
+        "agent": "green",
+        "tool": "green",
+        "workflow": "green",
+        "mcp": "green",
+        "otel": "green"
+      }
+    },
+    "AC-2": {
+      "description": "OTel span persisted to Postgres (otelSpans >= 1)",
+      "status": "PASS",
+      "otelSpans": 3
+    },
+    "AC-3": {
+      "description": "Workflow reaches success on Postgres + MCP round-trips a tool",
+      "status": "PASS",
+      "workflowStatus": "success",
+      "mcpTools": 1
+    },
+    "AC-4": {
+      "description": "Postgres-down => spike exits non-zero, storage cells red",
+      "status": "PASS",
+      "evidence": ".tmp/compat-1/ac-4-pg-down.txt",
+      "exitCode": 1,
+      "workflowCell": "red",
+      "otelCell": "red"
+    },
+    "AC-5": {
+      "description": "Agent cell hits live fleet with zero cloud requests",
+      "status": "PASS",
+      "cloudRequests": 0,
+      "agentText": "non-empty"
+    }
+  },
+  "versions": {
+    "@mastra/core": "1.50.1",
+    "@mastra/mcp": "1.13.1",
+    "@mastra/pg": "1.15.1",
+    "@mastra/observability": "1.16.0",
+    "@ai-sdk/openai-compatible": "3.0.10",
+    "ai": "7.0.28",
+    "zod": "4.4.3"
+  },
+  "runtime": {
+    "bun": "1.2.19",
+    "postgres": "16.14",
+    "fleet": "http://127.0.0.1:4545/v1 (LiteLLM, model: compat-spike -> MLX Qwen2.5-Coder-7B)"
+  },
+  "typecheck": "PASS",
+  "lint": "PASS"
+}

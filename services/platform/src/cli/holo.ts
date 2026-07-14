@@ -3,8 +3,21 @@
  * holo — operator CLI for MK-VI migration tooling.
  * Sprint 02: catalog:verify | catalog:coverage | catalog:merges | catalog:reconcile | catalog:assets
  * Sprint 03: mcp:verify-manifest | mcp:manifest-schema | mcp:manifest-replay | mcp:list-mutations
+ * Sprint 04: compat:spike [--json] [--print-trace]
  */
 import { resolve } from 'node:path';
+
+// Suppress unhandled storage errors for the PG-down negative control
+// (PostgresStore logs these asynchronously; they must not crash the spike)
+process.on('unhandledRejection', (reason) => {
+  const msg = reason instanceof Error ? reason.message : String(reason);
+  if (msg.includes('ECONNREFUSED') || msg.includes('MASTRA_STORAGE')) {
+    // Expected during PG-down negative control — swallow
+    return;
+  }
+  console.error('Unhandled rejection:', msg);
+});
+
 import { buildAssetInventory, formatAssetsText } from '../catalog/assets';
 import { defaultCatalogPath, loadCatalog, type SourceCatalog } from '../catalog/catalog-loader';
 import { buildCoverageReport, formatCoverageText } from '../catalog/coverage';
@@ -33,6 +46,7 @@ interface CliArgs {
   protocol: boolean;
   json: boolean;
   dryRun: boolean;
+  printTrace: boolean;
   help: boolean;
 }
 
@@ -52,6 +66,7 @@ Usage:
   mcp:manifest-schema   Print a tool's input/output schema + defaults from the manifest
   mcp:manifest-replay   Print a tool's idempotency key + stored result from the manifest
   mcp:list-mutations    List all mutation tools (non-null side_effects)
+  compat:spike          Run 5-cell compatibility matrix (agent+tool+workflow+MCP+OTel)
 
 Options:
   --export <dir>        Path to unzipped convex export (or $CONVEX_EXPORT_DIR)
@@ -60,6 +75,7 @@ Options:
   --fixtures-dir <dir>  Path to fixtures directory (mcp:verify-manifest, overrides default)
   --protocol            (mcp:verify-manifest) print protocol pin summary
   --json                Emit JSON instead of text
+  --print-trace         (compat:spike) emit OTel trace details
   --dry-run             (catalog:reconcile) dry-run mode (default)
   -h, --help            Show help
 `);
@@ -76,6 +92,7 @@ function parseArgs(argv: string[]): CliArgs {
     protocol: false,
     json: false,
     dryRun: true,
+    printTrace: false,
     help: false,
   };
   const positional: string[] = [];
@@ -89,6 +106,8 @@ function parseArgs(argv: string[]): CliArgs {
       args.dryRun = true;
     } else if (a === '--protocol') {
       args.protocol = true;
+    } else if (a === '--print-trace') {
+      args.printTrace = true;
     } else if (a === '--export') {
       args.exportDir = argv[++i] ?? null;
     } else if (a === '--catalog') {
@@ -300,6 +319,49 @@ async function main(): Promise<void> {
         console.log(formatMutationsText(report));
       }
       process.exit(0);
+      break;
+    }
+    case 'compat:spike': {
+      const { runSpike, formatMatrix, formatJson } = await import('../compat/spike.ts');
+
+      // Suppress unhandled storage errors when PG is down (negative control)
+      const origExit = process.exit;
+
+      let result: Awaited<ReturnType<typeof runSpike>>;
+      try {
+        result = await runSpike();
+      } catch {
+        // If runSpike itself throws (e.g., unhandled storage error),
+        // produce a fail-closed result
+        result = {
+          ok: false,
+          runtime: {
+            bun: (globalThis as unknown as { Bun?: { version: string } }).Bun?.version ?? 'unknown',
+          },
+          cells: {
+            agent: { status: 'red' },
+            tool: { status: 'red' },
+            workflow: { status: 'red', detail: 'storage init failed' },
+            mcp: { status: 'red' },
+            otel: { status: 'red', detail: 'storage init failed' },
+          },
+          versions: {},
+          cloudRequests: 0,
+        };
+      }
+
+      if (args.json) {
+        console.log(formatJson(result));
+      } else {
+        console.log(formatMatrix(result));
+        if (args.printTrace && result.traceId) {
+          console.log(`\n  --- OTel Trace ---`);
+          console.log(`  traceId: ${result.traceId}`);
+          console.log(`  spans:   ${result.otelSpans ?? 0}`);
+        }
+      }
+
+      origExit.call(process, result.ok ? 0 : 1);
       break;
     }
     default:

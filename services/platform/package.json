@@ -10,6 +10,13 @@
     "typescript": "^5"
   },
   "dependencies": {
-    "yaml": "^2.9.0"
+    "@ai-sdk/openai-compatible": "3.0.10",
+    "@mastra/core": "1.50.1",
+    "@mastra/mcp": "1.13.1",
+    "@mastra/observability": "1.16.0",
+    "@mastra/pg": "1.15.1",
+    "ai": "7.0.28",
+    "yaml": "2.9.0",
+    "zod": "4.4.3"
   }
 }

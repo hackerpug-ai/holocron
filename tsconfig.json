@@ -15,6 +15,7 @@
     "holocron-mcp.backup/**/*",
     "holocron-general-mcp.old/**/*",
     "scripts/**/*",
+    "services/platform/**/*",
     "**/*.stories.tsx",
     ".rnstorybook/**/*",
     "convex/creators/**/*",
