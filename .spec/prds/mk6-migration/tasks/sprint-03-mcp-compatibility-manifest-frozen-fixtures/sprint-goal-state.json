@@ -1,0 +1,48 @@
+{
+  "sprint": "sprint-03-mcp-compatibility-manifest-frozen-fixtures",
+  "goal": "GATE-GOAL: holo mcp:verify-manifest exits 0 confirming all 44 live-registered tool IDs resolve to manifest entries carrying frozen success/error fixtures, the completeness gate fails closed when coverage is incomplete, and mutation tools carry replay contracts",
+  "condition_text": "All tasks complete + gate PASS + E2E PASS + human-test PASS",
+  "tasks": {
+    "mcp-manifest-01": { "status": "completed", "commit": "16c13e8" },
+    "mcp-manifest-02": { "status": "completed", "commit": "7d4bed8" },
+    "mcp-manifest-03": { "status": "completed", "commit": "a89a217" },
+    "mcp-manifest-04": { "status": "completed", "commit": "0e20444" },
+    "mcp-manifest-05": { "status": "completed", "commit": "4cf59bc" }
+  },
+  "gate": {
+    "verdict": "pass",
+    "steps_total": 6,
+    "steps_executed": 6,
+    "steps_passed": 6,
+    "steps_failed": 0,
+    "gate_results_file": "gate-results.json"
+  },
+  "e2e": {
+    "verdict": "pass",
+    "test_files": 3,
+    "tests_total": 27,
+    "tests_passed": 27,
+    "tests_failed": 0,
+    "test_suites": [
+      "tests/integration/mcp-verify-manifest.test.ts",
+      "tests/integration/mcp-manifest-negative-controls.test.ts",
+      "tests/integration/mcp-replay-contract.test.ts"
+    ]
+  },
+  "build": {
+    "typecheck": "pass",
+    "lint": "pass"
+  },
+  "redhat": {
+    "verdict": "APPROVED",
+    "evidence_file": "evidence/review-verdict.md"
+  },
+  "human_test": {
+    "verdict": "pass",
+    "steps_executed": 6,
+    "steps_passed": 6,
+    "gate_results_file": "gate-results.json"
+  },
+  "met": true,
+  "met_condition": "5-layer AND: tasks complete + gate PASS + E2E PASS + build PASS + human-test PASS"
+}
