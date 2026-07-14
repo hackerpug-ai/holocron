@@ -1,0 +1,11 @@
+# AC-3 GREEN — wal_level=logical
+# host=100.123.216.92 port=5432 user=postgres
+# command: SHOW wal_level;
+# captured: 2026-07-14T22:56:15Z
+
+ wal_level 
+-----------
+ logical
+(1 row)
+
+exit=0
