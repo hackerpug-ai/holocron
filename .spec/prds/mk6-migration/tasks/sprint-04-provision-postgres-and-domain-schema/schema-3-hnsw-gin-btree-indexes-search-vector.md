@@ -32,7 +32,7 @@ TASK: schema-3 — HNSW + GIN + btree indexes incl. generated search_vector tsve
 ================================================================================
 
 TASK_TYPE:  INFRA
-STATUS:     Backlog
+STATUS:     Completed
 PRIORITY:   P0
 EFFORT:     M  (150 min)
 AGENT:      implementer=mastra-implementer | reviewer=mastra-reviewer
@@ -72,9 +72,9 @@ holo db:verify --indexes confirms every declared index exists with correct type 
 --------------------------------------------------------------------------------
 DONE WHEN
 --------------------------------------------------------------------------------
-- [ ] AC-1 (PRIMARY): passages HNSW index with vector_cosine_ops exists
-- [ ] AC-2: 5 inline HNSW columns have indexes
-- [ ] AC-3: Generated search_vector tsvector + GIN indexes exist
+- [x] AC-1 (PRIMARY): passages HNSW index with vector_cosine_ops exists
+- [x] AC-2: 5 inline HNSW columns have indexes
+- [x] AC-3: Generated search_vector tsvector + GIN indexes exist
 - [ ] `pnpm biome check .` clean + `pnpm tsgo --noEmit` clean (only SCOPE.writeAllowed files modified)
 
 --------------------------------------------------------------------------------

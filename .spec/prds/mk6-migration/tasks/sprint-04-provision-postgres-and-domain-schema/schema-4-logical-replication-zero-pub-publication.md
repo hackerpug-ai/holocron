@@ -32,7 +32,7 @@ TASK: schema-4 — Logical replication + zero_pub publication (reactive subset, 
 ================================================================================
 
 TASK_TYPE:  INFRA
-STATUS:     Backlog
+STATUS:     Completed
 PRIORITY:   P0
 EFFORT:     M  (150 min)
 AGENT:      implementer=mastra-implementer | reviewer=mastra-reviewer
@@ -79,9 +79,9 @@ holo repl:status confirms wal_level=logical, zero_pub covers reactive subset onl
 --------------------------------------------------------------------------------
 DONE WHEN
 --------------------------------------------------------------------------------
-- [ ] AC-1 (PRIMARY): wal_level=logical configured
-- [ ] AC-2: zero_pub publication covers reactive subset only (vectors/passages/evidence excluded)
-- [ ] AC-3: Every published table has single-column uuid PK replica identity
+- [x] AC-1 (PRIMARY): wal_level=logical configured
+- [x] AC-2: zero_pub publication covers reactive subset only (vectors/passages/evidence excluded)
+- [x] AC-3: Every published table has single-column uuid PK replica identity
 - [ ] `pnpm biome check .` clean + `pnpm tsgo --noEmit` clean (only SCOPE.writeAllowed files modified)
 
 --------------------------------------------------------------------------------
