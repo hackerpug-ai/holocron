@@ -1,0 +1,47 @@
+REDHAT-FIX-05 RED EVIDENCE — Error Code Catalog Mismatches
+==========================================================
+Captured: 2026-07-14, before any fixes applied.
+
+METHOD: For each mutation tool (side_effects != null), read the manifest's
+errors[] array to get valid codes, then read the fixture's "code" field
+and verify membership.
+
+MANIFEST: .spec/prds/mk6-migration/10-technical-requirements/14-mcp-compatibility-manifest.yaml
+FIXTURES: services/platform/tests/fixtures/mcp-manifest/*_error.json
+
+MISMATCHES FOUND (6 of 21 mutation tools):
+
+1. shop_products
+   - Fixture code: VALIDATION_ERROR
+   - Manifest errors: [INTERNAL_SERVER_ERROR, TIMEOUT]
+   - VALIDATION_ERROR is NOT in the manifest catalog
+
+2. add_subscription
+   - Fixture code: NOT_FOUND
+   - Manifest errors: [VALIDATION_ERROR, DUPLICATE_SUBSCRIPTION, INTERNAL_SERVER_ERROR]
+   - NOT_FOUND is NOT in the manifest catalog
+
+3. check_subscriptions
+   - Fixture code: BAD_REQUEST
+   - Manifest errors: [INTERNAL_SERVER_ERROR, FETCH_ERROR]
+   - BAD_REQUEST is NOT in the manifest catalog
+
+4. start_assimilation
+   - Fixture code: BAD_REQUEST
+   - Manifest errors: [VALIDATION_ERROR, INTERNAL_SERVER_ERROR]
+   - BAD_REQUEST is NOT in the manifest catalog
+
+5. cancel_assimilation
+   - Fixture code: CONFLICT
+   - Manifest errors: [NOT_FOUND, INVALID_STATE, INTERNAL_SERVER_ERROR]
+   - CONFLICT is NOT in the manifest catalog
+
+6. regenerate_transcript
+   - Fixture code: NOT_FOUND
+   - Manifest errors: [INTERNAL_SERVER_ERROR]
+   - NOT_FOUND is NOT in the manifest catalog
+
+CURRENT TEST STATUS:
+   - All 306 tests pass (including 5 in mcp-fixture-coverage.test.ts)
+   - No existing test cross-checks fixture error codes against the manifest catalog
+   - This mismatch survives all current tests

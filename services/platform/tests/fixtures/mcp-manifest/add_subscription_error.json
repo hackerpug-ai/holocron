@@ -1,8 +1,9 @@
 {
   "representative_example": true,
-  "code": "NOT_FOUND",
-  "message": "Subscription not found",
+  "code": "DUPLICATE_SUBSCRIPTION",
+  "message": "Subscription with same sourceType + identifier already exists",
   "details": {
-    "subscriptionId": "kg_sub_missing_001"
+    "sourceType": "youtube",
+    "identifier": "existing_channel_001"
   }
 }

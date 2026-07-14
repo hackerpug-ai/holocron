@@ -1,6 +1,6 @@
 {
   "representative_example": true,
-  "code": "CONFLICT",
+  "code": "INVALID_STATE",
   "message": "Session is already completed, failed, cancelled, or rejected",
   "details": {
     "sessionId": "kg_assim_001",

@@ -7,7 +7,7 @@
  *
  * Run: MCP_IT=1 bunx vitest run tests/integration/mcp-fixture-coverage.test.ts
  */
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { loadManifest, type ManifestTool } from '../../services/platform/src/mcp/manifest-loader';
@@ -76,5 +76,21 @@ describe('MCP fixture coverage — mutation tool count', () => {
   it('manifest declares at least 21 mutation tools', () => {
     // would fail if mutation tools were removed from the manifest
     expect(mutationTools.length).toBeGreaterThanOrEqual(21);
+  });
+});
+
+describe('MCP fixture coverage — error code catalog validation', () => {
+  it.each(
+    mutationTools.map((t) => [t.id, t.errors.map((e) => e.code)])
+  )('%s — error fixture code exists in manifest errors catalog', (toolId: string, manifestErrorCodes: string[]) => {
+    const fixturePath = resolve(FIXTURES_DIR, `${toolId}_error.json`);
+    const fixture = JSON.parse(readFileSync(fixturePath, 'utf8')) as {
+      code: string;
+      message: string;
+    };
+    expect(
+      manifestErrorCodes,
+      `Tool ${toolId}: fixture code '${fixture.code}' is not in manifest catalog [${manifestErrorCodes.join(', ')}]`
+    ).toContain(fixture.code);
   });
 });

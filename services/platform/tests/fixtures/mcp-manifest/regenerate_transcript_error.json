@@ -1,8 +1,9 @@
 {
   "representative_example": true,
-  "code": "NOT_FOUND",
-  "message": "Content not found — no video with the given contentId exists",
+  "code": "INTERNAL_SERVER_ERROR",
+  "message": "Convex createTranscriptJob mutation failed unexpectedly",
   "details": {
-    "contentId": "vid_missing_001"
+    "contentId": "vid_missing_001",
+    "action": "createTranscriptJob"
   }
 }

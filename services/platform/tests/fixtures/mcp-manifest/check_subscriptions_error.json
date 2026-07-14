@@ -1,9 +1,12 @@
 {
   "representative_example": true,
-  "code": "BAD_REQUEST",
-  "message": "Invalid sourceType — must be one of: youtube, newsletter, changelog, reddit, ebay, whats-new",
+  "code": "FETCH_ERROR",
+  "message": "One or more source feeds failed to fetch",
   "details": {
-    "field": "sourceType",
-    "provided": "invalid_type"
+    "failedSources": ["youtube", "reddit"],
+    "errors": [
+      { "source": "youtube", "error": "Connection timed out" },
+      { "source": "reddit", "error": "HTTP 429 Too Many Requests" }
+    ]
   }
 }
