@@ -26,7 +26,7 @@ This roadmap is a **consolidation** of proposals from the project's dispatched p
 | # | Milestone | Sprint | Gate | Tasks | Dependencies | Status | Branch | PR |
 |---|-----------|--------|------|-------|--------------|--------|--------|----|
 | 1 | — | [Sprint 01: Mastra Compatibility Lock and Fleet Role Manifest](#sprint-01-mastra-compatibility-lock-and-fleet-role-manifest) | `holo compat:spike` green 5-cell matrix on real Postgres; fleet manifest resolves | 5 | — | 🟠 In flight | `mk6-compat-lock` | — |
-| 2 | — | [Sprint 02: Convex Source Catalog and Asset Inventory](#sprint-02-convex-source-catalog-and-asset-inventory) | `holo catalog:verify` — 60/60 tables + every object have approved dispositions | 5 | — | 🔵 Planned | `mk6-source-catalog` | — |
+| 2 | — | [Sprint 02: Convex Source Catalog and Asset Inventory](#sprint-02-convex-source-catalog-and-asset-inventory) | `holo catalog:verify` — 60/60 tables + every object have approved dispositions | 5 | — | 🟠 In flight | `mk6-source-catalog` | — |
 | 3 | — | [Sprint 03: MCP Compatibility Manifest and Frozen Fixtures](#sprint-03-mcp-compatibility-manifest-and-frozen-fixtures) | `holo mcp:verify-manifest` — 44/44 tools with frozen fixtures, both transports | 5 | 1 | 🔵 Planned | `mk6-mcp-manifest` | — |
 | 4 | — | [Sprint 04: Provision Postgres and Domain Schema](#sprint-04-provision-postgres-and-domain-schema) | `holo db:migrate` clean on real PG 18; ≥55 tables, indexes, replication ready | 6 | 1, 2 | 🔵 Planned | `mk6-postgres-schema` | — |
 | 5 | — | [Sprint 05: Mastra Service and Scoped-Key Auth](#sprint-05-mastra-service-and-scoped-key-auth) | Unkeyed mutation → 401; correctly-scoped key → 200 on the running service | 5 | 1, 4 | 🔵 Planned | `mk6-mastra-service` | — |
@@ -122,7 +122,7 @@ The `Milestone` cell links to the GitHub Milestone titled `sprint-{NN}`; sprints
 
 **Sequence:** 2
 **Timeline:** Phase 0 — Leading INFRA
-**Status:** 🔵 Planned
+**Status:** 🟠 In flight
 **Proposed by:** mastra-planner
 **Milestone:** — (`sprint-02`)
 **Branch:** `mk6-source-catalog`
@@ -149,6 +149,13 @@ The `Milestone` cell links to the GitHub Milestone titled `sprint-{NN}`; sprints
 | catalog-3 | `holo catalog:verify` coverage tool + build-gate | mastra-implementer | 120 min |
 | catalog-4 | Verify export completeness against the real convex export | convex-reviewer | 150 min |
 | catalog-5 | RED tests: unmapped-table fails, deleted-entry fails, variance≠0 fails | red-test-generator | 90 min |
+
+**Next Sprint Tasks:** *(expanded by kb-sprint-tasks-plan on 2026-07-14 — SPRINT.md + 5 task files at [`tasks/sprint-02-convex-source-catalog-asset-inventory/`](tasks/sprint-02-convex-source-catalog-asset-inventory/))*
+- catalog-1-author-source-catalog-yaml.md
+- catalog-2-asset-inventory-reconciliation-report.md
+- catalog-3-catalog-verify-coverage-gate.md
+- catalog-4-verify-export-completeness.md
+- catalog-5-red-tests-negative-controls.md
 
 #### Dependencies
 
