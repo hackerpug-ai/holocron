@@ -1,0 +1,15 @@
+{
+  "content": [
+    {
+      "_id": "kg_sc_001",
+      "sourceId": "kg_sub_001",
+      "contentId": "vid_abc123",
+      "title": "New Video Title",
+      "url": "https://www.youtube.com/watch?v=vid_abc123",
+      "researchStatus": "researched",
+      "passedFilter": true,
+      "filterReason": "passed",
+      "discoveredAt": 1720915200000
+    }
+  ]
+}

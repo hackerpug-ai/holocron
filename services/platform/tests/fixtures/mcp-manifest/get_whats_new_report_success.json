@@ -1,0 +1,18 @@
+{
+  "content": "## AI Software Engineering News\n\n- OpenAI released GPT-5...",
+  "generatedAt": 1720915200000,
+  "isFromToday": true,
+  "stats": {
+    "findingsCount": 12,
+    "discoveryCount": 5,
+    "releaseCount": 3,
+    "trendCount": 2
+  },
+  "report": {
+    "_id": "kg_wn_001",
+    "periodStart": 1720828800000,
+    "periodEnd": 1720915200000,
+    "days": 1,
+    "createdAt": 1720915200000
+  }
+}

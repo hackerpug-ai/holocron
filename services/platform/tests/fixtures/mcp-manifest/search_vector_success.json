@@ -1,0 +1,11 @@
+{
+  "results": [
+    {
+      "_id": "kg_doc_002",
+      "title": "Vector Search Primer",
+      "score": 0.88,
+      "content": "Vector embeddings enable..."
+    }
+  ],
+  "totalResults": 1
+}

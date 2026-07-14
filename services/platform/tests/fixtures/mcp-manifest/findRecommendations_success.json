@@ -1,0 +1,10 @@
+[
+  {
+    "name": "Jane Doe",
+    "recommendation": "Senior ML Engineer at Acme Corp",
+    "contact": {
+      "email": "jane@example.com",
+      "linkedin": "https://linkedin.com/in/janedoe"
+    }
+  }
+]

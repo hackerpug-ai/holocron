@@ -1,0 +1,10 @@
+{
+  "session": {
+    "_id": "kg_shop_session_001",
+    "sessionId": "kg_shop_001",
+    "status": "completed",
+    "query": "USB-C hub",
+    "totalListings": 3,
+    "createdAt": 1720915200000
+  }
+}

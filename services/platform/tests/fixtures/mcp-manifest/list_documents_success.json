@@ -1,0 +1,11 @@
+{
+  "documents": [
+    {
+      "_id": "kg_doc_001",
+      "title": "MCP Protocol Guide",
+      "content": "The Model Context Protocol defines..."
+    }
+  ],
+  "nextCursor": null,
+  "hasMore": false
+}

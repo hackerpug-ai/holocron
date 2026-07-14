@@ -1,0 +1,14 @@
+{
+  "tools": [
+    {
+      "_id": "kg_tool_001",
+      "title": "Convex CLI",
+      "sourceType": "github",
+      "category": "cli",
+      "status": "complete",
+      "createdAt": 1720915200000,
+      "updatedAt": 1720915200000
+    }
+  ],
+  "total": 1
+}

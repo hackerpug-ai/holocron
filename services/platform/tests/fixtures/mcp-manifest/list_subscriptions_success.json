@@ -1,0 +1,13 @@
+{
+  "subscriptions": [
+    {
+      "_id": "kg_sub_001",
+      "sourceType": "youtube",
+      "identifier": "@creator_handle",
+      "name": "Creator Channel",
+      "autoResearch": false,
+      "lastChecked": 1720915200000,
+      "createdAt": 1720800000000
+    }
+  ]
+}

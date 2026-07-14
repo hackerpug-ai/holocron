@@ -1,0 +1,14 @@
+{
+  "listings": [
+    {
+      "_id": "kg_listing_001",
+      "title": "USB-C Hub 7-in-1",
+      "price": 29.99,
+      "retailer": "amazon",
+      "condition": "new",
+      "url": "https://amazon.com/dp/B0XXXXX",
+      "dealScore": 0.88,
+      "isDuplicate": false
+    }
+  ]
+}
