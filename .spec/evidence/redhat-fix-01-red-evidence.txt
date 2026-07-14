@@ -1,0 +1,74 @@
+REDHAT-FIX-01 — RED EVIDENCE: Tautological Replay Fixture Assertions
+=====================================================================
+
+DATE: 2025-07-14
+TASK: Replace tautological replay fixture assertions with behavioral cross-source validation
+
+1. PROBLEM: THE CURRENT TEST IS TAUTOLOGICAL
+--------------------------------------------
+
+The current test file `tests/integration/mcp-replay-contract.test.ts` reads a single
+static JSON file and asserts that two values FROM THE SAME FILE are equal:
+
+    // From the OLD test (lines 45-53):
+    it('both calls return the same subscriptionId', () => {
+      const first = fixture.first_call_result.subscriptionId;
+      const second = fixture.second_call_result.subscriptionId;
+      expect(first).toBeDefined();
+      expect(second).toBeDefined();
+      expect(second).toBe(first);
+    });
+
+Both `first` and `second` come from the SAME hand-authored JSON file:
+
+    // From add_subscription_replay.json:
+    "first_call_result": {
+      "subscriptionId": "kg_replay_001",   // <-- hand-authored
+      ...
+    },
+    "second_call_result": {
+      "subscriptionId": "kg_replay_001",   // <-- same hand-authored value
+      ...
+    }
+
+This proves ONLY that the fixture author typed the same string twice.
+It does NOT prove:
+  - That the real tool has any idempotency mechanism
+  - That the idempotency key fields match the manifest
+  - That the idempotency key fields exist in the real Zod schema
+  - That two real calls with the same inputs would return the same result
+
+2. THE OLD TEST CANNOT FAIL ON A REAL REGRESSION
+-------------------------------------------------
+
+If someone removed the dedup logic from add_subscription entirely, the old test would
+STILL PASS because it only checks a static JSON file. The test has zero behavioral teeth.
+
+3. THE OLD TEST DOES NOT IMPORT REAL CODE
+------------------------------------------
+
+The old test imports only:
+  - node:fs, node:path (to read the JSON file)
+  - vitest (for test framework)
+
+It NEVER imports:
+  - The real Zod validation schemas (holocron-mcp/src/config/validation.ts)
+  - The manifest YAML
+  - Any real tool implementation
+
+4. WHAT THE FIX DOES
+---------------------
+
+The rewritten test cross-validates idempotency across THREE independent sources:
+
+  Source 1: Replay fixture JSON (idempotency_key field)
+  Source 2: Manifest YAML (replay.idempotency_key for the tool)
+  Source 3: Real Zod schema (actual input fields that form the dedup key)
+
+The test asserts:
+  a. fixture.idempotency_key === manifest replay.idempotency_key (cross-source match)
+  b. Every idempotency key field EXISTS in the real Zod schema shape (code-level proof)
+  c. Fixture internal consistency (secondary check, NOT the sole assertion)
+
+This means if someone changes the idempotency key in the manifest without updating
+the fixture, or removes a field from the Zod schema, the test will FAIL.

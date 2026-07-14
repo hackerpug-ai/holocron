@@ -1,20 +1,29 @@
 /**
  * Replay contract tests for MCP tools with idempotency keys.
- * Reads frozen replay fixtures and asserts the idempotency contract:
- *   - The idempotency key fields match the manifest's replay.idempotency_key
- *   - Two calls with the same key return the same stored_result value
+ * Cross-validates the idempotency contract across THREE independent sources:
+ *   1. The replay fixture JSON — its idempotency_key field
+ *   2. The manifest YAML — replay.idempotency_key for the tool
+ *   3. The real Zod schema — actual input fields that form the dedup key
  *
- * These tests are RED right now because the replay fixtures freeze the
- * contract that mcp-manifest-04's verify-manifest will enforce. The fixture
- * files exist on disk, so the file-reading assertions pass, but the contract
- * enforcement (verify-manifest checking replay blocks) is not yet implemented.
+ * The cross-source validation is the PRIMARY proof of the replay contract.
+ * Fixture-internal consistency (both calls return the same stored result) is a
+ * SECONDARY check — it validates the fixture's own shape, not real behavior.
  */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { parse as parseYaml } from 'yaml';
+import {
+  AddSubscriptionSchema,
+  StoreDocumentSchema,
+} from '../../holocron-mcp/src/config/validation';
 
 const ROOT = resolve(import.meta.dirname, '../..');
 const FIXTURES_DIR = resolve(ROOT, 'services/platform/tests/fixtures/mcp-manifest');
+const MANIFEST_PATH = resolve(
+  ROOT,
+  '.spec/prds/mk6-migration/10-technical-requirements/14-mcp-compatibility-manifest.yaml'
+);
 
 interface ReplayFixture {
   idempotency_key: string[];
@@ -29,61 +38,82 @@ function loadReplayFixture(name: string): ReplayFixture {
   return JSON.parse(raw) as ReplayFixture;
 }
 
-describe('MCP replay contract — add_subscription', () => {
-  const fixture = loadReplayFixture('add_subscription_replay');
+function loadManifestReplayKey(toolId: string): string[] {
+  const raw = readFileSync(MANIFEST_PATH, 'utf8');
+  const manifest = parseYaml(raw) as {
+    tools: Array<{
+      id: string;
+      replay: { idempotency_key: string[]; stored_result: string } | null;
+    }>;
+  };
+  const tool = manifest.tools.find((t) => t.id === toolId);
+  if (!tool?.replay) {
+    throw new Error(`Tool ${toolId} has no replay block in manifest`);
+  }
+  return tool.replay.idempotency_key;
+}
 
-  it('idempotency key is [sourceType, identifier]', () => {
-    // would fail if the replay contract changed its idempotency key
-    expect(fixture.idempotency_key).toEqual(['sourceType', 'identifier']);
+describe('MCP replay contract — add_subscription (cross-source validation)', () => {
+  const fixture = loadReplayFixture('add_subscription_replay');
+  const manifestKey = loadManifestReplayKey('add_subscription');
+
+  it('fixture idempotency_key matches manifest replay.idempotency_key', () => {
+    expect(fixture.idempotency_key).toEqual(manifestKey);
+  });
+
+  it('manifest idempotency_key fields exist in the real AddSubscriptionSchema', () => {
+    for (const field of manifestKey) {
+      expect(AddSubscriptionSchema.shape).toHaveProperty(field);
+    }
+  });
+
+  it('fixture idempotency_key fields exist in the real AddSubscriptionSchema', () => {
+    for (const field of fixture.idempotency_key) {
+      expect(AddSubscriptionSchema.shape).toHaveProperty(field);
+    }
   });
 
   it('stored_result field is subscriptionId', () => {
-    // would fail if the replay contract stopped returning subscriptionId as the stored result
     expect(fixture.stored_result).toBe('subscriptionId');
   });
 
-  it('both calls return the same subscriptionId', () => {
-    // would fail if the second call returned a different subscriptionId
-    // (that would break the idempotency/replay guarantee)
-    const first = fixture.first_call_result.subscriptionId;
-    const second = fixture.second_call_result.subscriptionId;
-    expect(first).toBeDefined();
-    expect(second).toBeDefined();
-    expect(second).toBe(first);
-  });
-
-  it('both calls return identical full result objects', () => {
-    // would fail if the second call returned a structurally different result
-    expect(fixture.second_call_result).toEqual(fixture.first_call_result);
+  it('fixture internal consistency — both calls return the same stored result', () => {
+    const storedField = fixture.stored_result;
+    expect(fixture.first_call_result[storedField]).toBeDefined();
+    expect(fixture.second_call_result[storedField]).toBeDefined();
+    expect(fixture.second_call_result[storedField]).toBe(fixture.first_call_result[storedField]);
   });
 });
 
-describe('MCP replay contract — store_document', () => {
+describe('MCP replay contract — store_document (cross-source validation)', () => {
   const fixture = loadReplayFixture('store_document_replay');
+  const manifestKey = loadManifestReplayKey('store_document');
 
-  it('idempotency key is [title, content]', () => {
-    // would fail if the replay contract changed its idempotency key
-    expect(fixture.idempotency_key).toEqual(['title', 'content']);
+  it('fixture idempotency_key matches manifest replay.idempotency_key', () => {
+    expect(fixture.idempotency_key).toEqual(manifestKey);
+  });
+
+  it('manifest idempotency_key fields exist in the real StoreDocumentSchema', () => {
+    for (const field of manifestKey) {
+      expect(StoreDocumentSchema.shape).toHaveProperty(field);
+    }
+  });
+
+  it('fixture idempotency_key fields exist in the real StoreDocumentSchema', () => {
+    for (const field of fixture.idempotency_key) {
+      expect(StoreDocumentSchema.shape).toHaveProperty(field);
+    }
   });
 
   it('stored_result field is documentId', () => {
-    // would fail if the replay contract stopped returning documentId as the stored result
     expect(fixture.stored_result).toBe('documentId');
   });
 
-  it('both calls return the same documentId', () => {
-    // would fail if the second call returned a different documentId
-    // (that would break the idempotency/replay guarantee)
-    const first = fixture.first_call_result.documentId;
-    const second = fixture.second_call_result.documentId;
-    expect(first).toBeDefined();
-    expect(second).toBeDefined();
-    expect(second).toBe(first);
-  });
-
-  it('both calls return identical full result objects', () => {
-    // would fail if the second call returned a structurally different result
-    expect(fixture.second_call_result).toEqual(fixture.first_call_result);
+  it('fixture internal consistency — both calls return the same stored result', () => {
+    const storedField = fixture.stored_result;
+    expect(fixture.first_call_result[storedField]).toBeDefined();
+    expect(fixture.second_call_result[storedField]).toBeDefined();
+    expect(fixture.second_call_result[storedField]).toBe(fixture.first_call_result[storedField]);
   });
 });
 
