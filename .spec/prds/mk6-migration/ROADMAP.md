@@ -211,6 +211,11 @@ The `Milestone` cell links to the GitHub Milestone titled `sprint-{NN}`; sprints
 - mcp-manifest-03-freeze-fixtures-replay-contracts.md
 - mcp-manifest-04-verify-manifest-completeness-gate.md
 - mcp-manifest-05-review-protocol-compliance-unfakeable-gate.md
+- REDHAT-FIX-01-replace-tautological-replay-fixture-assertions-with-behavioral-real-tool.md
+- REDHAT-FIX-02-capture-and-validate-fixtures-from-real-tool-behavior.md
+- REDHAT-FIX-03-make-holo-mcpverify-manifest-fail-closed-on-all-required.md
+
+*(REDHAT-FIX tasks added 2026-07-14 from red-hat review `.spec/reviews/red-hat-2026-07-14T19-30-00Z-sprint03.md`)*
 
 #### Dependencies
 
