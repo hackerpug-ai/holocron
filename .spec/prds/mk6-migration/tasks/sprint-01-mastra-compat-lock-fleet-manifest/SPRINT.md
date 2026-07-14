@@ -3,7 +3,7 @@ sprint: 1
 title: Mastra Compatibility Lock and Fleet Role Manifest
 sequence: 1
 timeline: Phase 0 — Leading INFRA
-status: In Progress
+status: Closed (user-directed; gate unverified)
 prd: ../../README.md
 capability_coverage: [CAP-INF-01]
 ---
@@ -12,7 +12,11 @@ capability_coverage: [CAP-INF-01]
 
 **Sequence:** 1
 **Timeline:** Phase 0 — Leading INFRA
-**Status:** In Progress
+**Status:** Closed (user-directed; gate unverified)
+
+## Administrative Closeout
+
+Closed on 2026-07-14T22:38:17Z at the user's direction. This is an administrative close, not an acceptance-gate claim: the Sprint 1 task files remain the source of truth for unfinished implementation work, and no Sprint 1 `gate-results.json` or `sprint-goal-state.json` was supplied.
 
 ---
 

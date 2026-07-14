@@ -13,7 +13,7 @@ pr_sequencing: true
 
 **Sprints:** 31
 **Total Tasks:** 165
-**Current Sprint:** 1 — Mastra Compatibility Lock and Fleet Role Manifest (Planned)
+**Current Sprint:** 1 — Mastra Compatibility Lock and Fleet Role Manifest (closed administratively; gate unverified)
 
 A complete, decisive migration of holocron off Convex — cloud database and all services — onto a Mastra (Bun) + Postgres platform on the tailnet mini, with the RN app resyncing via Zero and all reasoning on the local inference fleet. Sequencing follows the PRD mandate: a **leading INFRA phase** (runtime compatibility lock + real-service e2e harness + machine-readable migration-contract artifacts) gates all feature work, then **PLAT → DATA → SVC/INFER → SYNC**, with the **big-bang cutover, rollback, and Convex decommission last**. Standing remote backup & disaster recovery (CAP-BAK-01) runs in parallel and outlasts the cutover.
 
@@ -25,7 +25,7 @@ This roadmap is a **consolidation** of proposals from the project's dispatched p
 
 | # | Milestone | Sprint | Gate | Tasks | Dependencies | Status | Branch | PR |
 |---|-----------|--------|------|-------|--------------|--------|--------|----|
-| 1 | — | [Sprint 01: Mastra Compatibility Lock and Fleet Role Manifest](#sprint-01-mastra-compatibility-lock-and-fleet-role-manifest) | `holo compat:spike` green 5-cell matrix on real Postgres; fleet manifest resolves | 5 | — | 🟠 In flight | `mk6-compat-lock` | — |
+| 1 | — | [Sprint 01: Mastra Compatibility Lock and Fleet Role Manifest](#sprint-01-mastra-compatibility-lock-and-fleet-role-manifest) | `holo compat:spike` green 5-cell matrix on real Postgres; fleet manifest resolves | 5 | — | ⚪ Closed (user-directed; gate unverified) | `mk6-compat-lock` | — |
 | 2 | — | [Sprint 02: Convex Source Catalog and Asset Inventory](#sprint-02-convex-source-catalog-and-asset-inventory) | `holo catalog:verify` — 60/60 tables + every object have approved dispositions | 5 | — | 🟠 In flight | `mk6-source-catalog` | — |
 | 3 | — | [Sprint 03: MCP Compatibility Manifest and Frozen Fixtures](#sprint-03-mcp-compatibility-manifest-and-frozen-fixtures) | `holo mcp:verify-manifest` — 44/44 tools with frozen fixtures, both transports | 5 | 1 | 🟠 In flight | `mk6-mcp-manifest` | — |
 | 4 | — | [Sprint 04: Provision Postgres and Domain Schema](#sprint-04-provision-postgres-and-domain-schema) | `holo db:migrate` clean on real PG 18; ≥55 tables, indexes, replication ready | 6 | 1, 2 | 🟠 In flight | `mk6-postgres-schema` | — |
@@ -67,7 +67,7 @@ The `Milestone` cell links to the GitHub Milestone titled `sprint-{NN}`; sprints
 
 **Sequence:** 1
 **Timeline:** Phase 0 — Leading INFRA
-**Status:** 🟠 In flight
+**Status:** ⚪ Closed (user-directed; gate unverified)
 **Proposed by:** mastra-planner
 **Milestone:** — (`sprint-01`)
 **Branch:** `mk6-compat-lock`
@@ -76,6 +76,8 @@ The `Milestone` cell links to the GitHub Milestone titled `sprint-{NN}`; sprints
 #### Human Testing Gate
 
 **Gate:** Running `holo compat:spike` on the pinned lockfile against a real Postgres exits 0 with a green five-cell smoke matrix (agent, tool, workflow, MCP transport, OTel trace) and prints every pinned Bun/@mastra/@ai-sdk/Zod version with its release date.
+
+**Closeout note:** Administrative close requested by the user on 2026-07-14. This status does not assert that the documented gate passed; the Sprint 1 task files retain the unverified acceptance state.
 
 **Test Steps:**
 1. Run `holo compat:spike` on the pinned lockfile against a running Postgres — exits 0, prints a green 5-cell matrix.
@@ -1629,4 +1631,3 @@ The `Milestone` cell links to the GitHub Milestone titled `sprint-{NN}`; sprints
 - **Leading INFRA.** Sprints 1–3 (runtime lock + source-catalog + MCP manifest) and 13/20 (real-service harness + reference flow) are the leading INFRA that gates feature closure per the E2E Harness Constitution. The client-data-contract (Sprint 21) is the SYNC-side leading artifact; it lands after the live Zero/Hono surfaces so its `--targets` check is real.
 - **Capability chains.** All 7 chains trace to sprint tasks with owners + proof gates: CAP-MIG-01 (2, 14, 29) · CAP-CUT-01 (19, 20, 24, 26, 29, 30, 31) · CAP-EMB-01 (6, 10, 14) · CAP-INF-01 (1, 5, 8, 9, 12, 17, 18, 23) · CAP-SYNC-01 (4, 20, 21, 24, 25, 26) · CAP-BAK-01 (27, 28, 31) · CAP-PUB-01 (16, 24).
 - **Test-step normalization.** Sprint 31's decommission gate/step 1 is rendered as the operator wrapper command (`holo verify:no-convex`) the sprint's own tasks build, rather than a raw `grep` invocation, matching the wrapper convention used across the roadmap and the TEST-STEPS field guide.
-

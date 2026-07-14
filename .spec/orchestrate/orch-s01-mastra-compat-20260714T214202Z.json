@@ -1,0 +1,14 @@
+{
+  "run_id": "orch-s01-mastra-compat-20260714T214202Z",
+  "project": "/Users/justinrich/Projects/holocron",
+  "workspace": "workspace:4",
+  "sprint": "/Users/justinrich/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-01-mastra-compat-lock-fleet-manifest",
+  "cycle": 0,
+  "max_cycles": 3,
+  "status": "closed",
+  "created_ts": 1784065322,
+  "updated_at": "2026-07-14T22:38:17Z",
+  "orch_worktree": "/Users/justinrich/Projects/holocron",
+  "integration_branch": "main",
+  "surfaces": []
+}
