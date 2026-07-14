@@ -1,0 +1,13 @@
+{
+  "_id": "jcompetitsample0001",
+  "_creationTime": 1700000000000.0,
+  "sessionId": "jrefsessionId0001",
+  "name": "sample-competitiveAnalysisCompetitors-name",
+  "focus": "sample-focus",
+  "founded": "sample-founded",
+  "funding": "sample-funding",
+  "strengths": "sample-strengths",
+  "weaknesses": "sample-weaknesses",
+  "url": "sample-url",
+  "createdAt": 1700000000000
+}

@@ -1,0 +1,16 @@
+{
+  "_id": "jsubscripsample0001",
+  "_creationTime": 1700000000000.0,
+  "sourceType": "sample-sourceType",
+  "identifier": "sample-identifier",
+  "name": "sample-subscriptionSources-name",
+  "url": "sample-url",
+  "feedUrl": "sample-feedUrl",
+  "fetchMethod": "sample-fetchMethod",
+  "configJson": {},
+  "autoResearch": false,
+  "creatorProfileId": "jrefcreatorProfi0001",
+  "lastChecked": 1700000000000,
+  "createdAt": 1700000000000,
+  "updatedAt": 1700000000000
+}

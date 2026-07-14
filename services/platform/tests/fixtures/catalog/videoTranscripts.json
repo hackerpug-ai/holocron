@@ -1,0 +1,16 @@
+{
+  "_id": "jvideoTrasample0001",
+  "_creationTime": 1700000000000.0,
+  "contentId": "jrefcontentId0001",
+  "sourceUrl": "sample-sourceUrl",
+  "transcriptType": "sample-transcriptType",
+  "transcriptSource": "sample-transcriptSource",
+  "storageId": "jrefstorageId0001",
+  "previewText": "sample-previewText",
+  "wordCount": 1,
+  "durationMs": 1,
+  "language": "sample-language",
+  "metadataJson": {},
+  "generatedAt": 1700000000000,
+  "createdAt": 1700000000000
+}

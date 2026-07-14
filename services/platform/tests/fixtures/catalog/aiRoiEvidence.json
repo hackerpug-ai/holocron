@@ -1,0 +1,12 @@
+{
+  "_id": "jaiRoiEvisample0001",
+  "_creationTime": 1700000000000.0,
+  "sessionId": "jrefsessionId0001",
+  "opportunityId": "jrefopportunityI0001",
+  "claim": "sample-claim",
+  "tier": "sample-tier",
+  "source": "sample-source",
+  "sourceUrl": "sample-sourceUrl",
+  "challengeStatus": "sample-challengeStatus",
+  "createdAt": 1700000000000
+}

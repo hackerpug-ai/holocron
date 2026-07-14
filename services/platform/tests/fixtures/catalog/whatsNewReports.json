@@ -1,0 +1,19 @@
+{
+  "_id": "jwhatsNewsample0001",
+  "_creationTime": 1700000000000.0,
+  "periodStart": "sample-periodStart",
+  "periodEnd": "sample-periodEnd",
+  "days": "sample-days",
+  "focus": "sample-focus",
+  "discoveryOnly": false,
+  "findingsCount": 1,
+  "discoveryCount": 1,
+  "releaseCount": 1,
+  "trendCount": 1,
+  "reportPath": "sample-reportPath",
+  "summaryJson": {},
+  "documentId": "jrefdocumentId0001",
+  "toolSuggestionsJson": {},
+  "findingsJson": {},
+  "createdAt": 1700000000000
+}

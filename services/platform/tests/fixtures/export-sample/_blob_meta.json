@@ -1,0 +1,32 @@
+{
+  "storage_audioSegments_storageId": {
+    "sha256": "b83a399a380a78fd0f0a1f579ba9eb1b263a4a1cc56afa15c86ce7518b56e918",
+    "bytes": 41,
+    "ref": "audioSegments.storageId"
+  },
+  "storage_videoTranscripts_storageId": {
+    "sha256": "b2d5d94bfad06d2ebe8e9a7e7ed3399fd4d449e1e05a6a24e0fa4058ef0af4f6",
+    "bytes": 44,
+    "ref": "videoTranscripts.storageId"
+  },
+  "storage_audioTranscripts_storageId": {
+    "sha256": "41216b3009af4a842f729e0a4b247d79084a96b019e2a77142fc8e9212f7afa0",
+    "bytes": 44,
+    "ref": "audioTranscripts.storageId"
+  },
+  "storage_improvementImages_storageId": {
+    "sha256": "4507c4d9a191a2abc390dbcb4309e96a73a573662c6b04d427d773a25c35a5e2",
+    "bytes": 45,
+    "ref": "improvementImages.storageId"
+  },
+  "storage_voiceSessions_audioStorageId": {
+    "sha256": "20ffd8b7ecc8047d5ceb0e89c33df0840a73f77f4bd6f2a83008de4934014057",
+    "bytes": 46,
+    "ref": "voiceSessions.audioStorageId"
+  },
+  "storage_audioTranscriptJobs_audioStorageId": {
+    "sha256": "7b9371c370613e00af37c705a2480ce6254f0d801fe99ee8ae2c34333d2c5abe",
+    "bytes": 52,
+    "ref": "audioTranscriptJobs.audioStorageId"
+  }
+}

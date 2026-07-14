@@ -1,0 +1,12 @@
+{
+  "verify_fixture_ok": true,
+  "coverage_ok": true,
+  "merges_ok": true,
+  "reconcile_fixture_ok": true,
+  "assets_fixture_ok": true,
+  "missing_table_fails": true,
+  "missing_storage_fails": true,
+  "variance_fails": true,
+  "vitest_ok": true,
+  "live_export_ok": false
+}

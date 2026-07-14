@@ -1,0 +1,12 @@
+{
+  "_id": "jrevenueVsample0001",
+  "_creationTime": 1700000000000.0,
+  "sessionId": "jrefsessionId0001",
+  "claim": "sample-claim",
+  "tier": "sample-tier",
+  "sourceTitle": "sample-sourceTitle",
+  "sourceUrl": "sample-sourceUrl",
+  "dimension": "sample-dimension",
+  "challengeStatus": "sample-challengeStatus",
+  "createdAt": 1700000000000
+}

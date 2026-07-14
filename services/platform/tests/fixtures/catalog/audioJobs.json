@@ -1,0 +1,13 @@
+{
+  "_id": "jaudioJobsample0001",
+  "_creationTime": 1700000000000.0,
+  "documentId": "jrefdocumentId0001",
+  "voiceId": "jrefvoiceId0001",
+  "status": "completed",
+  "totalSegments": 1,
+  "completedSegments": 1,
+  "failedSegments": 1,
+  "errorMessage": "sample-errorMessage",
+  "createdAt": 1700000000000,
+  "updatedAt": 1700000000000
+}

@@ -1,0 +1,11 @@
+{
+  "_id": "jsubscripsample0001",
+  "_creationTime": 1700000000000.0,
+  "token": "sample-token",
+  "creatorProfileId": "jrefcreatorProfi0001",
+  "subscriptions": {},
+  "createdBy": "sample-createdBy",
+  "expiresAt": 1700000000000,
+  "clickCount": 1,
+  "createdAt": 1700000000000
+}

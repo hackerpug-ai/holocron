@@ -1,0 +1,14 @@
+{
+  "_id": "jflightsRsample0001",
+  "_creationTime": 1700000000000.0,
+  "sessionId": "jrefsessionId0001",
+  "airline": "sample-airline",
+  "departDate": "sample-departDate",
+  "returnDate": "sample-returnDate",
+  "price": 1,
+  "stops": 1,
+  "duration": "sample-duration",
+  "isBestDeal": false,
+  "bookingUrl": "sample-bookingUrl",
+  "createdAt": 1700000000000
+}

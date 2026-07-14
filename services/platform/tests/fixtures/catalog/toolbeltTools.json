@@ -1,0 +1,20 @@
+{
+  "_id": "jtoolbeltsample0001",
+  "_creationTime": 1700000000000.0,
+  "title": "sample-toolbeltTools-title",
+  "description": "sample-toolbeltTools-description",
+  "content": "sample-toolbeltTools-content",
+  "category": "sample-category",
+  "status": "completed",
+  "sourceUrl": "sample-sourceUrl",
+  "sourceType": "sample-sourceType",
+  "tags": "sample-tags",
+  "useCases": "sample-useCases",
+  "keywords": "sample-keywords",
+  "language": "sample-language",
+  "date": "sample-date",
+  "time": "sample-time",
+  "embedding": [0.1, 0.2, 0.3],
+  "createdAt": 1700000000000,
+  "updatedAt": 1700000000000
+}

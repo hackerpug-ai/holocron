@@ -1,0 +1,13 @@
+{
+  "_id": "jcreatorPsample0001",
+  "_creationTime": 1700000000000.0,
+  "name": "sample-creatorProfiles-name",
+  "handle": "sample-handle",
+  "canonicalType": "sample-canonicalType",
+  "platforms": {},
+  "bio": "sample-bio",
+  "avatarUrl": "sample-avatarUrl",
+  "lastVerifiedAt": 1700000000000,
+  "createdAt": 1700000000000,
+  "updatedAt": 1700000000000
+}

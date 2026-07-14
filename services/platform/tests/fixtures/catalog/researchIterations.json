@@ -1,0 +1,13 @@
+{
+  "_id": "jresearchsample0001",
+  "_creationTime": 1700000000000.0,
+  "sessionId": "jrefsessionId0001",
+  "iterationNumber": 1,
+  "findingsSummary": "sample-findingsSummary",
+  "sources": "sample-sources",
+  "reviewScore": "sample-reviewScore",
+  "reviewFeedback": "sample-reviewFeedback",
+  "reviewGaps": "sample-reviewGaps",
+  "refinedQueries": "sample-refinedQueries",
+  "createdAt": 1700000000000
+}

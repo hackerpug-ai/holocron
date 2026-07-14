@@ -1,0 +1,194 @@
+=== catalog:verify (fixture export) ===
+# catalog:verify
+tables: 60/60 approved
+storage refs: 6/6 approved
+fields: 797/797 mapped
+export tables unaccounted: 0
+
+agentPlanSteps: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+agentPlans: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+agentTelemetry: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+aiRoiEvidence: disposition=merge formula=count(source) owner=platform-data approval=APR-MIG-MERGE-BUSINESS-12-3
+aiRoiOpportunities: disposition=merge formula=count(source) owner=platform-data approval=APR-MIG-MERGE-BUSINESS-12-3
+aiRoiSessions: disposition=merge formula=count(source) owner=platform-data approval=APR-MIG-MERGE-BUSINESS-12-3
+assimilationIterations: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+assimilationMetadata: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+assimilationSessions: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+audioJobs: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+audioSegments: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+audioTranscriptJobs: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+audioTranscripts: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+chatMessages: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+citations: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+competitiveAnalysisCompetitors: disposition=merge formula=count(source) owner=platform-data approval=APR-MIG-MERGE-BUSINESS-12-3
+competitiveAnalysisFeatures: disposition=merge formula=count(source) owner=platform-data approval=APR-MIG-MERGE-BUSINESS-12-3
+competitiveAnalysisSessions: disposition=merge formula=count(source) owner=platform-data approval=APR-MIG-MERGE-BUSINESS-12-3
+conversations: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+creatorProfiles: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+deepResearchIterations: disposition=merge formula=count(source) owner=platform-data approval=APR-MIG-MERGE-RESEARCH-5-3
+deepResearchSessions: disposition=merge formula=count(source) owner=platform-data approval=APR-MIG-MERGE-RESEARCH-5-3
+documentCounters: disposition=drop formula=0 owner=platform-data approval=APR-MIG-DROP-DOC-COUNTERS-001
+documents: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+executionPlans: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+feedItems: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+feedSessions: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+feedSettings: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+flightsPriceCalendar: disposition=merge formula=count(source) owner=platform-data approval=APR-MIG-MERGE-BUSINESS-12-3
+flightsRoutes: disposition=merge formula=count(source) owner=platform-data approval=APR-MIG-MERGE-BUSINESS-12-3
+flightsSessions: disposition=merge formula=count(source) owner=platform-data approval=APR-MIG-MERGE-BUSINESS-12-3
+imports: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+improvementImages: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+improvementRequests: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+notifications: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+planApprovals: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+rateLimitTracking: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+rateLimits: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+researchFindings: disposition=merge formula=count(source) owner=platform-data approval=APR-MIG-MERGE-RESEARCH-5-3
+researchIterations: disposition=merge formula=count(source) owner=platform-data approval=APR-MIG-MERGE-RESEARCH-5-3
+researchSessions: disposition=merge formula=count(source) owner=platform-data approval=APR-MIG-MERGE-RESEARCH-5-3
+revenueValidationCompetitors: disposition=merge formula=count(source) owner=platform-data approval=APR-MIG-MERGE-BUSINESS-12-3
+revenueValidationEvidence: disposition=merge formula=count(source) owner=platform-data approval=APR-MIG-MERGE-BUSINESS-12-3
+revenueValidationSessions: disposition=merge formula=count(source) owner=platform-data approval=APR-MIG-MERGE-BUSINESS-12-3
+shopListings: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+shopSessions: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+subscriptionContent: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+subscriptionFilters: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+subscriptionLinks: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+subscriptionSources: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+tasks: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+toolCalls: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+toolbeltTools: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+transcriptJobs: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+userPreferences: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+videoTranscripts: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+voiceCommands: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+voiceSessions: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+whatsNewReports: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+whatsNewWorkflows: disposition=preserve formula=count(source) owner=platform-data approval=APR-MIG-2026-S02-001
+
+60/60 tables approved
+0 export tables unaccounted
+exit:0
+
+=== catalog:coverage ===
+whatsNewReports.focus → preserve owner=platform-data approval=APR-MIG-2026-S02-001
+whatsNewReports.periodEnd → preserve owner=platform-data approval=APR-MIG-2026-S02-001
+whatsNewReports.periodStart → preserve owner=platform-data approval=APR-MIG-2026-S02-001
+whatsNewReports.releaseCount → preserve owner=platform-data approval=APR-MIG-2026-S02-001
+whatsNewReports.reportPath → preserve owner=platform-data approval=APR-MIG-2026-S02-001
+whatsNewReports.summaryJson → preserve owner=platform-data approval=APR-MIG-2026-S02-001
+whatsNewReports.toolSuggestionsJson → preserve owner=platform-data approval=APR-MIG-2026-S02-001
+whatsNewReports.trendCount → preserve owner=platform-data approval=APR-MIG-2026-S02-001
+whatsNewWorkflows._creationTime → preserve owner=platform-data approval=APR-MIG-2026-S02-001
+whatsNewWorkflows._id → preserve owner=platform-data approval=APR-MIG-2026-S02-001
+whatsNewWorkflows.completedAt → preserve owner=platform-data approval=APR-MIG-2026-S02-001
+whatsNewWorkflows.days → preserve owner=platform-data approval=APR-MIG-2026-S02-001
+whatsNewWorkflows.error → preserve owner=platform-data approval=APR-MIG-2026-S02-001
+whatsNewWorkflows.findingsCount → preserve owner=platform-data approval=APR-MIG-2026-S02-001
+whatsNewWorkflows.findingsJson → preserve owner=platform-data approval=APR-MIG-2026-S02-001
+whatsNewWorkflows.force → preserve owner=platform-data approval=APR-MIG-2026-S02-001
+whatsNewWorkflows.phase → preserve owner=platform-data approval=APR-MIG-2026-S02-001
+whatsNewWorkflows.reportId → preserve owner=platform-data approval=APR-MIG-2026-S02-001
+whatsNewWorkflows.startedAt → preserve owner=platform-data approval=APR-MIG-2026-S02-001
+whatsNewWorkflows.updatedAt → preserve owner=platform-data approval=APR-MIG-2026-S02-001
+
+## storage_refs
+audioSegments.storageId → preserve owner=platform-data approval=APR-MIG-STORAGE-001 target=content_addressed_blobs
+audioTranscriptJobs.audioStorageId → drop owner=platform-data approval=APR-MIG-DROP-TEMP-AUDIO-001 target=null
+audioTranscripts.storageId → preserve owner=platform-data approval=APR-MIG-STORAGE-003 target=content_addressed_blobs
+improvementImages.storageId → preserve owner=platform-data approval=APR-MIG-STORAGE-004 target=content_addressed_blobs
+videoTranscripts.storageId → preserve owner=platform-data approval=APR-MIG-STORAGE-002 target=content_addressed_blobs
+voiceSessions.audioStorageId → preserve owner=platform-data approval=APR-MIG-STORAGE-005 target=content_addressed_blobs
+
+status: OK
+exit:0
+
+=== catalog:merges ===
+# catalog:merges
+business: 12 → 3 (analysis_sessions, analysis_items, analysis_evidence)
+research: 5 → 3 (system discriminator)
+per_domain_shell_targets: 0
+
+## business sources → targets
+- revenueValidationSessions
+- competitiveAnalysisSessions
+- aiRoiSessions
+- flightsSessions
+- revenueValidationCompetitors
+- competitiveAnalysisCompetitors
+- competitiveAnalysisFeatures
+- aiRoiOpportunities
+- flightsRoutes
+- flightsPriceCalendar
+- revenueValidationEvidence
+- aiRoiEvidence
+targets: analysis_sessions, analysis_items, analysis_evidence
+discriminators: {"analysis_sessions":"type","analysis_items":"kind","analysis_evidence":"kind"}
+
+## research sources → targets
+- researchSessions
+- deepResearchSessions
+- researchIterations
+- deepResearchIterations
+- researchFindings
+targets: research_sessions, research_iterations, research_findings
+discriminators: {"research_sessions":"system","research_iterations":"system","research_findings":"system"}
+
+status: OK
+exit:0
+
+=== catalog:reconcile --dry-run ===
+shopSessions: source=1 expected=1 variance=0 disposition=preserve
+subscriptionContent: source=1 expected=1 variance=0 disposition=preserve
+subscriptionFilters: source=1 expected=1 variance=0 disposition=preserve
+subscriptionLinks: source=1 expected=1 variance=0 disposition=preserve
+subscriptionSources: source=1 expected=1 variance=0 disposition=preserve
+tasks: source=1 expected=1 variance=0 disposition=preserve
+toolbeltTools: source=1 expected=1 variance=0 disposition=preserve
+toolCalls: source=1 expected=1 variance=0 disposition=preserve
+transcriptJobs: source=1 expected=1 variance=0 disposition=preserve
+userPreferences: source=1 expected=1 variance=0 disposition=preserve
+videoTranscripts: source=1 expected=1 variance=0 disposition=preserve
+voiceCommands: source=2 expected=2 variance=0 disposition=preserve
+voiceSessions: source=1 expected=1 variance=0 disposition=preserve
+whatsNewReports: source=1 expected=1 variance=0 disposition=preserve
+whatsNewWorkflows: source=1 expected=1 variance=0 disposition=preserve
+
+## approved exceptions
+- [merge] business 12→3 analysis_*: sources=revenueValidationSessions,competitiveAnalysisSessions,aiRoiSessions,flightsSessions,revenueValidationCompetitors,competitiveAnalysisCompetitors,competitiveAnalysisFeatures,aiRoiOpportunities,flightsRoutes,flightsPriceCalendar,revenueValidationEvidence,aiRoiEvidence targets=analysis_sessions,analysis_items,analysis_evidence approval=APR-MIG-MERGE-BUSINESS-12-3
+- [merge] research 5→3 research_*: sources=researchSessions,deepResearchSessions,researchIterations,deepResearchIterations,researchFindings targets=research_sessions,research_iterations,research_findings approval=APR-MIG-MERGE-RESEARCH-5-3
+- [drop] documentCounters: disposition=drop approval=APR-MIG-DROP-DOC-COUNTERS-001 source_count=2 expected_target=0
+
+analysis_sessions expected=7
+research_sessions expected=4
+unexplained_variance: 0
+status: OK
+exit:0
+
+=== catalog:assets ===
+# catalog:assets
+retained_objects: 5
+dropped_storage_refs: audioTranscriptJobs.audioStorageId
+
+storage_audioSegments_storageId sha256=b83a399a380a78fd0f0a1f579ba9eb1b263a4a1cc56afa15c86ce7518b56e918 bytes=41 mime=text/plain target=cas://sha256/b83a399a380a78fd0f0a1f579ba9eb1b263a4a1cc56afa15c86ce7518b56e918 disposition=preserve ref=audioSegments.storageId
+storage_audioTranscripts_storageId sha256=41216b3009af4a842f729e0a4b247d79084a96b019e2a77142fc8e9212f7afa0 bytes=44 mime=text/plain target=cas://sha256/41216b3009af4a842f729e0a4b247d79084a96b019e2a77142fc8e9212f7afa0 disposition=preserve ref=audioTranscripts.storageId
+storage_improvementImages_storageId sha256=4507c4d9a191a2abc390dbcb4309e96a73a573662c6b04d427d773a25c35a5e2 bytes=45 mime=text/plain target=cas://sha256/4507c4d9a191a2abc390dbcb4309e96a73a573662c6b04d427d773a25c35a5e2 disposition=preserve ref=improvementImages.storageId
+storage_videoTranscripts_storageId sha256=b2d5d94bfad06d2ebe8e9a7e7ed3399fd4d449e1e05a6a24e0fa4058ef0af4f6 bytes=44 mime=text/plain target=cas://sha256/b2d5d94bfad06d2ebe8e9a7e7ed3399fd4d449e1e05a6a24e0fa4058ef0af4f6 disposition=preserve ref=videoTranscripts.storageId
+storage_voiceSessions_audioStorageId sha256=20ffd8b7ecc8047d5ceb0e89c33df0840a73f77f4bd6f2a83008de4934014057 bytes=46 mime=text/plain target=cas://sha256/20ffd8b7ecc8047d5ceb0e89c33df0840a73f77f4bd6f2a83008de4934014057 disposition=preserve ref=voiceSessions.audioStorageId
+exit:0
+
+=== negative: missing voiceCommands ===
+exit:1
+/tmp/neg-table.out:tables: 59/60 approved
+/tmp/neg-table.out:- unmapped table: voiceCommands
+/tmp/neg-table.out:FAIL: 59/60 tables approved; 1 export tables unaccounted
+/tmp/neg-table.err:unmapped table: voiceCommands
+
+=== negative: variance ===
+exit:1
+/tmp/neg-var.out:orphanExportTable: source=3 expected=0 variance=3 (unexplained) disposition=unmapped
+/tmp/neg-var.out:## unapproved / unexplained
+/tmp/neg-var.out:- [unmapped_export_table] orphanExportTable: export table orphanExportTable has 3 rows with no catalog entry (unexplained)
+/tmp/neg-var.out:unexplained_variance: 3
+/tmp/neg-var.out:status: FAIL
+/tmp/neg-var.err:orphanExportTable: expected=0 actual=3 variance=3 (unexplained)

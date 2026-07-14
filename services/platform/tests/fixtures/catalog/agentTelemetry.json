@@ -1,0 +1,20 @@
+{
+  "_id": "jagentTelsample0001",
+  "_creationTime": 1700000000000.0,
+  "conversationId": "jrefconversation0001",
+  "messageId": "jrefmessageId0001",
+  "intent": "sample-intent",
+  "queryShape": "sample-queryShape",
+  "confidence": "sample-confidence",
+  "reasoning": "sample-reasoning",
+  "classificationSource": "sample-classificationSource",
+  "regexMatchPattern": "sample-regexMatchPattern",
+  "rawLlmResponse": "sample-rawLlmResponse",
+  "llmDurationMs": "sample-llmDurationMs",
+  "specialistUsed": "sample-specialistUsed",
+  "toolsCalled": {},
+  "ambiguousIntents": {},
+  "clarificationQuestion": "sample-clarificationQuestion",
+  "totalDurationMs": 1,
+  "createdAt": 1700000000000
+}

@@ -1,0 +1,18 @@
+{
+  "_id": "jcompetitsample0001",
+  "_creationTime": 1700000000000.0,
+  "market": "sample-market",
+  "status": "completed",
+  "porterRivalry": "sample-porterRivalry",
+  "porterNewEntrants": "sample-porterNewEntrants",
+  "porterSubstitutes": "sample-porterSubstitutes",
+  "porterBuyerPower": "sample-porterBuyerPower",
+  "porterSupplierPower": "sample-porterSupplierPower",
+  "marketVerdict": "sample-marketVerdict",
+  "sourceCount": 1,
+  "documentId": "jrefdocumentId0001",
+  "errorReason": "sample-errorReason",
+  "createdAt": 1700000000000,
+  "updatedAt": 1700000000000,
+  "completedAt": 1700000000000
+}

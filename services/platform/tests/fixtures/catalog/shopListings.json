@@ -1,0 +1,23 @@
+{
+  "_id": "jshopListsample0001",
+  "_creationTime": 1700000000000.0,
+  "sessionId": "jrefsessionId0001",
+  "title": "sample-shopListings-title",
+  "price": 1,
+  "originalPrice": "sample-originalPrice",
+  "currency": "sample-currency",
+  "condition": "sample-condition",
+  "retailer": "sample-retailer",
+  "seller": "sample-seller",
+  "sellerRating": "sample-sellerRating",
+  "url": "sample-url",
+  "imageUrl": "sample-imageUrl",
+  "inStock": false,
+  "productHash": "sample-productHash",
+  "isDuplicate": false,
+  "dealScore": "sample-dealScore",
+  "trustTier": "sample-trustTier",
+  "sellerTrustScore": "sample-sellerTrustScore",
+  "isVerifiedSeller": false,
+  "createdAt": 1700000000000
+}

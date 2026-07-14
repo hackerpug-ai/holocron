@@ -1,0 +1,22 @@
+{
+  "sprint_id": "sprint-02-convex-source-catalog-asset-inventory",
+  "sprint_path": ".spec/prds/mk6-migration/tasks/sprint-02-convex-source-catalog-asset-inventory",
+  "branch": "integration/orch-s02-source-catalog-20260714T051200Z",
+  "updated_at": "2026-07-14T15:00:00Z",
+  "goal": "GATE-GOAL: ACHIEVED when real convex export + committed catalog prove 60/60 approved dispositions, zero unmapped surfaces, zero unexplained variance, and retained asset integrity",
+  "met": false,
+  "status": "NOT-MET",
+  "gate": "blocked",
+  "e2e": "partial",
+  "human_test": {
+    "verdict": "blocked",
+    "steps_executed": 6,
+    "steps_total": 6,
+    "steps_passed": 6,
+    "surface": "fixture-only",
+    "live_export": false
+  },
+  "reason": "Local catalog stack + fixture gates are green (21/21 tests). Live `npx convex export` failed (TypeError: fetch failed ×6 retries); catalog-4 and full human testing gate remain blocked. No live-export evidence was fabricated.",
+  "evidence_dir": ".tmp/sprint-02-convex-source-catalog-asset-inventory/",
+  "gate_results": ".spec/prds/mk6-migration/tasks/sprint-02-convex-source-catalog-asset-inventory/gate-results.json"
+}

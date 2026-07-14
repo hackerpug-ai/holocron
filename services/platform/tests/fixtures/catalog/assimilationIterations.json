@@ -1,0 +1,19 @@
+{
+  "_id": "jassimilasample0001",
+  "_creationTime": 1700000000000.0,
+  "sessionId": "jrefsessionId0001",
+  "iterationNumber": 1,
+  "dimension": "sample-dimension",
+  "iterationType": "sample-iterationType",
+  "findings": {},
+  "notesContribution": "sample-notesContribution",
+  "summary": "sample-assimilationIterations-summary",
+  "dimensionCoverageScore": "sample-dimensionCoverageScore",
+  "gapsIdentified": "sample-gapsIdentified",
+  "noveltyScore": "sample-noveltyScore",
+  "nextAction": "sample-nextAction",
+  "status": "completed",
+  "durationMs": 1,
+  "estimatedCostUsd": "sample-estimatedCostUsd",
+  "createdAt": 1700000000000
+}

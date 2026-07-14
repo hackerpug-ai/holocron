@@ -1,0 +1,18 @@
+{
+  "_id": "jcitationsample0001",
+  "_creationTime": 1700000000000.0,
+  "sessionId": "jrefsessionId0001",
+  "documentId": "jrefdocumentId0001",
+  "deepResearchSessionId": "jrefdeepResearch0001",
+  "sourceUrl": "sample-sourceUrl",
+  "sourceTitle": "sample-sourceTitle",
+  "sourceDomain": "sample-sourceDomain",
+  "claimText": "sample-claimText",
+  "claimMarker": "sample-claimMarker",
+  "sourceType": "sample-sourceType",
+  "credibilityScore": "sample-credibilityScore",
+  "evidenceType": "sample-evidenceType",
+  "publishedDate": "sample-publishedDate",
+  "authorCredentials": "sample-authorCredentials",
+  "retrievedAt": 1700000000000
+}

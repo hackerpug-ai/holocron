@@ -1,0 +1,12 @@
+{
+  "_id": "jassimilasample0001",
+  "_creationTime": 1700000000000.0,
+  "documentId": "jrefdocumentId0001",
+  "repositoryUrl": "sample-repositoryUrl",
+  "repositoryName": "sample-repositoryName",
+  "primaryLanguage": "sample-primaryLanguage",
+  "stars": 1,
+  "sophisticationRating": "sample-sophisticationRating",
+  "trackRatings": {},
+  "createdAt": 1700000000000
+}

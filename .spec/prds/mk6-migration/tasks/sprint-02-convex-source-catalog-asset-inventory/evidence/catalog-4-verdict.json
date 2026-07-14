@@ -1,0 +1,35 @@
+{
+  "task_id": "catalog-4",
+  "title": "Verify export completeness against the real convex export",
+  "approved": false,
+  "blocking_findings": [
+    {
+      "id": "LIVE-EXPORT-UNAVAILABLE",
+      "severity": "critical",
+      "summary": "Real `npx convex export` could not be completed; catalog-4 AC-1..AC-3 require a live deployment snapshot and cannot be closed on fixture evidence alone.",
+      "evidence": [
+        "npx convex export --include-file-storage --path $CONVEX_EXPORT_ZIP with CONVEX_DEPLOYMENT sourced from project .env → TypeError: fetch failed after 6 retries during 'Creating snapshot export'",
+        "npx convex export --path $CONVEX_EXPORT_ZIP (no file storage) → same TypeError: fetch failed after 6 retries",
+        "https://api.convex.dev returned HTTP 308; https://www.convex.dev returned HTTP 200 (network not fully down)",
+        "npx convex data probe hung multi-minute with zero output and was terminated per operator instruction — no table listing obtained"
+      ]
+    }
+  ],
+  "evidence_reproduced": [
+    "Fixture export-sample: catalog:verify → 60/60 tables approved, 6/6 storage refs, 0 unaccounted (NOT a live export)",
+    "Fixture export-sample: catalog:reconcile → unexplained_variance: 0 with approved business 12→3, research 5→3, documentCounters drop",
+    "Fixture export-sample: catalog:assets → 5 retained objects; SHA-256 matches on-disk bytes for sampled blob; temporary audioTranscriptJobs blob excluded",
+    "Negative control: missing voiceCommands entry → verify exit 1, unmapped table named",
+    "Negative control: export-variance orphanExportTable → reconcile exit 1, variance=3 (unexplained)",
+    "Live export: FAILED (fetch failed) — not fabricated, not substituted"
+  ],
+  "live_export": {
+    "status": "failed",
+    "include_file_storage_attempt": "failed",
+    "documents_only_attempt": "failed",
+    "error": "TypeError: fetch failed",
+    "retries": 6,
+    "convex_data_probe": "terminated-hung-no-output"
+  },
+  "verdict": "NEEDS_FIXES / BLOCKED — re-run catalog-4 after live convex export succeeds"
+}
