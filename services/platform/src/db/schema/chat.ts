@@ -3,7 +3,15 @@
  */
 
 import { sql } from 'drizzle-orm';
-import { boolean, check, doublePrecision, integer, pgTable, text } from 'drizzle-orm/pg-core';
+import {
+  boolean,
+  check,
+  doublePrecision,
+  index,
+  integer,
+  pgTable,
+  text,
+} from 'drizzle-orm/pg-core';
 import {
   createdAtColumn,
   idColumn,
@@ -53,7 +61,10 @@ export const chatMessages = pgTable(
     reasoning: text('reasoning'),
     createdAt: createdAtColumn(),
   },
-  (t) => [legacyConvexIdIndex('chat_messages', t.legacyConvexId)]
+  (t) => [
+    legacyConvexIdIndex('chat_messages', t.legacyConvexId),
+    index('chat_messages_conversation_id_idx').on(t.conversationId),
+  ]
 );
 
 export const toolCalls = pgTable(

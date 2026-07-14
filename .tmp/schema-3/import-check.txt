@@ -1,0 +1,3 @@
+tables 57
+hnsw 6
+fts 8

@@ -1,0 +1,51 @@
+holo db:verify --indexes
+  no IVFFlat indexes
+  passages_embedding_hnsw: access method: hnsw; vector_cosine_ops; table=passages
+  research_findings_embedding_hnsw: access method: hnsw; vector_cosine_ops; table=research_findings
+  research_iterations_embedding_hnsw: access method: hnsw; vector_cosine_ops; table=research_iterations
+  subscription_content_embedding_hnsw: access method: hnsw; vector_cosine_ops; table=subscription_content
+  toolbelt_tools_embedding_hnsw: access method: hnsw; vector_cosine_ops; table=toolbelt_tools
+  improvement_requests_embedding_hnsw: access method: hnsw; vector_cosine_ops; table=improvement_requests
+  HNSW indexes found: 6/6
+  documents.search_vector: generated: true; type=tsvector
+  documents_search_vector_gin: gin index exists
+  sources.search_vector: generated: true; type=tsvector
+  sources_search_vector_gin: gin index exists
+  passages.search_vector: generated: true; type=tsvector
+  passages_search_vector_gin: gin index exists
+  claims.search_vector: generated: true; type=tsvector
+  claims_search_vector_gin: gin index exists
+  toolbelt_tools.search_vector: generated: true; type=tsvector
+  toolbelt_tools_search_vector_gin: gin index exists
+  research_findings.search_vector: generated: true; type=tsvector
+  research_findings_search_vector_gin: gin index exists
+  subscription_content.search_vector: generated: true; type=tsvector
+  subscription_content_search_vector_gin: gin index exists
+  improvement_requests.search_vector: generated: true; type=tsvector
+  improvement_requests_search_vector_gin: gin index exists
+  passages_source_id_idx: access method: btree
+  passages_document_id_idx: access method: btree
+  sources_document_id_idx: access method: btree
+  claims_source_id_idx: access method: btree
+  claims_passage_id_idx: access method: btree
+  relations_current_idx: access method: btree
+  beliefs_current_idx: access method: btree
+  chat_messages_conversation_id_idx: access method: btree
+  research_iterations_session_id_idx: access method: btree
+  research_findings_session_id_idx: access method: btree
+  subscription_content_source_id_idx: access method: btree
+  documents_status_idx: access method: btree
+  documents_category_idx: access method: btree
+  tasks_conversation_id_idx: access method: btree
+  notifications_created_at_idx: access method: btree
+  all HNSW/GIN/btree indexes found
+  passages_embedding_hnsw
+  research_findings_embedding_hnsw
+  research_iterations_embedding_hnsw
+  subscription_content_embedding_hnsw
+  toolbelt_tools_embedding_hnsw
+  improvement_requests_embedding_hnsw
+  documents_search_vector_gin
+  sources_search_vector_gin
+  status: OK
+exit:0

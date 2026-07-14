@@ -9,6 +9,7 @@ import {
   boolean,
   check,
   doublePrecision,
+  index,
   integer,
   pgTable,
   text,
@@ -16,13 +17,17 @@ import {
 } from 'drizzle-orm/pg-core';
 import {
   createdAtColumn,
+  hnswEmbeddingIndex,
   idColumn,
   legacyConvexIdColumn,
   legacyConvexIdIndex,
+  searchVectorColumn,
+  searchVectorGinIndex,
   timestamptz,
   typedJsonb,
   updatedAtColumn,
   vector,
+  weightedSearchVectorSql,
 } from '../columns';
 import { lifecycleStatusValues, sqlInList, workStatusValues } from '../enums';
 
@@ -93,9 +98,12 @@ export const toolbeltTools = pgTable(
     embedding: vector('embedding', { dimensions: 1024 }),
     createdAt: createdAtColumn(),
     updatedAt: updatedAtColumn(),
+    searchVector: searchVectorColumn(weightedSearchVectorSql('title', 'description', 'content')),
   },
   (t) => [
     legacyConvexIdIndex('toolbelt_tools', t.legacyConvexId),
+    hnswEmbeddingIndex('toolbelt_tools_embedding_hnsw', t.embedding),
+    searchVectorGinIndex('toolbelt_tools_search_vector_gin', t.searchVector),
     check(
       'toolbelt_tools_status_check',
       sql`status IN (${sql.raw(sqlInList(lifecycleStatusValues))})`
@@ -274,6 +282,7 @@ export const tasks = pgTable(
   },
   (t) => [
     legacyConvexIdIndex('tasks', t.legacyConvexId),
+    index('tasks_conversation_id_idx').on(t.conversationId),
     check('tasks_status_check', sql`status IN (${sql.raw(sqlInList(workStatusValues))})`),
   ]
 );
@@ -335,9 +344,12 @@ export const improvementRequests = pgTable(
     createdAt: createdAtColumn(),
     updatedAt: updatedAtColumn(),
     processedAt: timestamptz('processed_at'),
+    searchVector: searchVectorColumn(weightedSearchVectorSql('title', 'description', 'summary')),
   },
   (t) => [
     legacyConvexIdIndex('improvement_requests', t.legacyConvexId),
+    hnswEmbeddingIndex('improvement_requests_embedding_hnsw', t.embedding),
+    searchVectorGinIndex('improvement_requests_search_vector_gin', t.searchVector),
     check(
       'improvement_requests_status_check',
       sql`status IN (${sql.raw(sqlInList(lifecycleStatusValues))})`
@@ -416,7 +428,10 @@ export const notifications = pgTable(
     digestSummary: text('digest_summary'),
     createdAt: createdAtColumn(),
   },
-  (t) => [legacyConvexIdIndex('notifications', t.legacyConvexId)]
+  (t) => [
+    legacyConvexIdIndex('notifications', t.legacyConvexId),
+    index('notifications_created_at_idx').on(t.createdAt),
+  ]
 );
 
 // ── settings ───────────────────────────────────────────────────────────────

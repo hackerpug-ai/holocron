@@ -53,6 +53,7 @@ interface CliArgs {
   jsonbColumn: string | null;
   statusProbe: boolean;
   mergesVerify: boolean;
+  indexesVerify: boolean;
 }
 
 function printHelp(): void {
@@ -75,7 +76,7 @@ Usage:
   db:status             Show Postgres connection facts
   db:migrate            Apply Drizzle migrations against DATABASE_URL (≥55 tables)
   db:probe              Live probes: --jsonb cardData | --status
-  db:verify             Live verify: --merges (analysis/research trios)
+  db:verify             Live verify: --merges | --indexes
   db:push               Push Drizzle schema (dev convenience; prefer db:migrate)
 
 Options:
@@ -87,6 +88,7 @@ Options:
   --jsonb <column>      (db:probe) polymorphic jsonb round-trip column (e.g. cardData)
   --status              (db:probe) status CHECK constraint probe
   --merges              (db:verify) assert analysis/research merge collapse
+  --indexes             (db:verify) assert HNSW/GIN/btree indexes + search_vector
   --json                Emit JSON instead of text
   --print-trace         (compat:spike) emit OTel trace details
   --dry-run             (catalog:reconcile) dry-run mode (default)
@@ -110,6 +112,7 @@ function parseArgs(argv: string[]): CliArgs {
     jsonbColumn: null,
     statusProbe: false,
     mergesVerify: false,
+    indexesVerify: false,
   };
   const positional: string[] = [];
   for (let i = 0; i < argv.length; i++) {
@@ -128,6 +131,8 @@ function parseArgs(argv: string[]): CliArgs {
       args.statusProbe = true;
     } else if (a === '--merges') {
       args.mergesVerify = true;
+    } else if (a === '--indexes') {
+      args.indexesVerify = true;
     } else if (a === '--jsonb') {
       args.jsonbColumn = argv[++i] ?? null;
     } else if (a.startsWith('--jsonb=')) {
@@ -497,9 +502,24 @@ async function main(): Promise<void> {
       break;
     }
     case 'db:verify': {
-      if (!args.mergesVerify) {
-        console.error('error: db:verify requires --merges');
+      if (!args.mergesVerify && !args.indexesVerify) {
+        console.error('error: db:verify requires --merges or --indexes');
         process.exit(2);
+      }
+      if (args.indexesVerify) {
+        const { verifyIndexes } = await import('../db/index.ts');
+        const result = await verifyIndexes();
+        if (args.json) {
+          console.log(JSON.stringify(result, null, 2));
+        } else {
+          console.log('holo db:verify --indexes');
+          for (const m of result.messages) console.log(`  ${m}`);
+          if (result.errors.length) {
+            for (const e of result.errors) console.error(`  error: ${e}`);
+          }
+          console.log(result.ok ? '  status: OK' : '  status: FAIL');
+        }
+        process.exit(result.ok ? 0 : 1);
       }
       const { verifyMerges } = await import('../db/index.ts');
       const result = await verifyMerges();

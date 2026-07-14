@@ -5,16 +5,20 @@
  */
 
 import { sql } from 'drizzle-orm';
-import { check, doublePrecision, integer, pgTable, text } from 'drizzle-orm/pg-core';
+import { check, doublePrecision, index, integer, pgTable, text } from 'drizzle-orm/pg-core';
 import {
   createdAtColumn,
+  hnswEmbeddingIndex,
   idColumn,
   legacyConvexIdColumn,
   legacyConvexIdIndex,
+  searchVectorColumn,
+  searchVectorGinIndex,
   timestamptz,
   typedJsonb,
   updatedAtColumn,
   vector,
+  weightedSearchVectorSql,
 } from '../columns';
 import { lifecycleStatusValues, researchSystemValues, sqlInList } from '../enums';
 
@@ -83,12 +87,13 @@ export const researchIterations = pgTable(
     reviewGaps: typedJsonb('review_gaps'),
     refinedQueries: typedJsonb('refined_queries'),
     confidenceStats: typedJsonb('confidence_stats'),
-    /** Embedding column present for schema-3 HNSW; not indexed here. */
     embedding: vector('embedding', { dimensions: 1024 }),
     createdAt: createdAtColumn(),
   },
   (t) => [
     legacyConvexIdIndex('research_iterations', t.legacyConvexId),
+    hnswEmbeddingIndex('research_iterations_embedding_hnsw', t.embedding),
+    index('research_iterations_session_id_idx').on(t.sessionId),
     check(
       'research_iterations_system_check',
       sql`system IN (${sql.raw(sqlInList(researchSystemValues))})`
@@ -123,9 +128,13 @@ export const researchFindings = pgTable(
     warnings: typedJsonb('warnings'),
     embedding: vector('embedding', { dimensions: 1024 }),
     createdAt: createdAtColumn(),
+    searchVector: searchVectorColumn(weightedSearchVectorSql('claim_text')),
   },
   (t) => [
     legacyConvexIdIndex('research_findings', t.legacyConvexId),
+    hnswEmbeddingIndex('research_findings_embedding_hnsw', t.embedding),
+    index('research_findings_session_id_idx').on(t.sessionId),
+    searchVectorGinIndex('research_findings_search_vector_gin', t.searchVector),
     check(
       'research_findings_system_check',
       sql`system IN (${sql.raw(sqlInList(researchSystemValues))})`
