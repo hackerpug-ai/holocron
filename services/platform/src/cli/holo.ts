@@ -4,6 +4,7 @@
  * Sprint 02: catalog:verify | catalog:coverage | catalog:merges | catalog:reconcile | catalog:assets
  * Sprint 03: mcp:verify-manifest | mcp:manifest-schema | mcp:manifest-replay | mcp:list-mutations
  * Sprint 04: compat:spike [--json] [--print-trace]
+ * Sprint 04 schema-1: db:status | db:migrate | db:push (stubs until schema-2+)
  */
 import { resolve } from 'node:path';
 
@@ -67,6 +68,9 @@ Usage:
   mcp:manifest-replay   Print a tool's idempotency key + stored result from the manifest
   mcp:list-mutations    List all mutation tools (non-null side_effects)
   compat:spike          Run 5-cell compatibility matrix (agent+tool+workflow+MCP+OTel)
+  db:status             Show Postgres connection facts (schema-1 scaffolding)
+  db:migrate            Apply Drizzle migrations (not implemented yet — schema-2+)
+  db:push               Push Drizzle schema (not implemented yet — schema-2+)
 
 Options:
   --export <dir>        Path to unzipped convex export (or $CONVEX_EXPORT_DIR)
@@ -362,6 +366,45 @@ async function main(): Promise<void> {
       }
 
       origExit.call(process, result.ok ? 0 : 1);
+      break;
+    }
+    case 'db:status': {
+      const { postgresConnectionFacts, resolveDatabaseUrl } = await import('../db/index.ts');
+      const url = resolveDatabaseUrl({ preferHolocron: true });
+      const payload = {
+        ok: true,
+        databaseUrl: url,
+        facts: postgresConnectionFacts,
+        note: 'Instance provisioned by schema-1; Drizzle migrations not applied yet (schema-2+). See docs/postgres-provisioning.md.',
+      };
+      if (args.json) {
+        console.log(JSON.stringify(payload, null, 2));
+      } else {
+        console.log('holo db:status — Postgres connection facts (schema-1)');
+        console.log(`  DATABASE_URL:     ${url}`);
+        console.log(`  engine:           ${postgresConnectionFacts.engine}`);
+        console.log(`  required major:   ${postgresConnectionFacts.majorVersionRequired}`);
+        console.log(`  port:             ${postgresConnectionFacts.port}`);
+        console.log(`  app database:     ${postgresConnectionFacts.databases.app}`);
+        console.log(`  wal_level:        ${postgresConnectionFacts.walLevelRequired} (required)`);
+        console.log(`  extensions:       vector + native FTS`);
+        console.log(`  auth:             ${postgresConnectionFacts.authModel}`);
+        console.log(`  docs:             ${postgresConnectionFacts.provisioningDoc}`);
+        console.log(`  note:             ${payload.note}`);
+      }
+      process.exit(0);
+      break;
+    }
+    case 'db:migrate':
+    case 'db:push': {
+      // Honest stubs: do NOT fake migration success (schema-2+ owns real migrate/push).
+      const msg = `${args.command} is not implemented yet (schema-1 scaffolding only). Postgres 18 is provisioned; Drizzle migrations land in schema-2+. See docs/postgres-provisioning.md.`;
+      if (args.json) {
+        console.log(JSON.stringify({ ok: false, command: args.command, error: msg }, null, 2));
+      } else {
+        console.error(msg);
+      }
+      process.exit(2);
       break;
     }
     default:

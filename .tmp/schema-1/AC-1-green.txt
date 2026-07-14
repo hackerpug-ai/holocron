@@ -1,0 +1,11 @@
+# AC-1 GREEN — Postgres 18 over Tailscale
+# host=100.123.216.92 port=5432 user=postgres
+# command: /opt/homebrew/opt/postgresql@18/bin/psql -h 100.123.216.92 -p 5432 -U postgres -d postgres -c 'SELECT version();'
+# captured: 2026-07-14T22:56:14Z
+
+                                                             version                                                             
+---------------------------------------------------------------------------------------------------------------------------------
+ PostgreSQL 18.4 (Homebrew) on aarch64-apple-darwin25.4.0, compiled by Apple clang version 21.0.0 (clang-2100.0.123.102), 64-bit
+(1 row)
+
+exit=0
