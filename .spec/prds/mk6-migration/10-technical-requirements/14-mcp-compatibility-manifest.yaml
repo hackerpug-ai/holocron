@@ -1,0 +1,575 @@
+# MCP Compatibility Manifest — Holocron MCP Server
+# Sprint-03 / mcp-manifest-01: Header + 44-tool skeleton
+# Per-tool schemas, defaults, errors, pagination, fixtures, etc. are populated by mcp-manifest-02.
+#
+# Source of truth for tool IDs: holocron-mcp/src/mastra/stdio.ts (createTool calls, lines 139-789)
+
+protocol: "2025-11-25"
+
+transports:
+  - stdio
+  - streamable-http
+
+stateless: true
+no_server_sampling: true
+
+auth_policy:
+  stdio:
+    trust_boundary: "Local process — credentials injected via environment variables (CONVEX_URL, CONVEX_DEPLOYMENT, API keys). No additional auth layer."
+  streamable_http:
+    type: "api-key"
+    header: "Authorization"
+    scheme: "bearer"
+    origin_validation: true
+    allowed_origins: null  # mcp-manifest-02 to populate
+    rate_limit: null       # mcp-manifest-02 to populate
+
+cancellation_policy:
+  posture: "cooperative"
+  description: >
+    Clients may send cancellation notifications per MCP 2025-11-25.
+    The server aborts in-flight tool execution when a cancellation is received.
+    Long-running operations (assimilation sessions, transcript jobs) are dispatched
+    to Convex and are not directly cancellable via the MCP transport — the client
+    must use the cancel_assimilation tool for those workflows.
+  supported: true
+
+tools:
+  # ── Research Session ──────────────────────────────────────────
+  - id: get_research_session
+    input_schema: null
+    output_schema: null
+    defaults: null
+    errors: null
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports: null
+    fixtures: null
+
+  - id: search_research
+    input_schema: null
+    output_schema: null
+    defaults: null
+    errors: null
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports: null
+    fixtures: null
+
+  # ── Search ────────────────────────────────────────────────────
+  - id: search_fts
+    input_schema: null
+    output_schema: null
+    defaults: null
+    errors: null
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports: null
+    fixtures: null
+
+  - id: search_vector
+    input_schema: null
+    output_schema: null
+    defaults: null
+    errors: null
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports: null
+    fixtures: null
+
+  - id: hybrid_search
+    input_schema: null
+    output_schema: null
+    defaults: null
+    errors: null
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports: null
+    fixtures: null
+
+  # ── Documents ─────────────────────────────────────────────────
+  - id: store_document
+    input_schema: null
+    output_schema: null
+    defaults: null
+    errors: null
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports: null
+    fixtures: null
+
+  - id: update_document
+    input_schema: null
+    output_schema: null
+    defaults: null
+    errors: null
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports: null
+    fixtures: null
+
+  - id: share_document
+    input_schema: null
+    output_schema: null
+    defaults: null
+    errors: null
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports: null
+    fixtures: null
+
+  - id: get_document
+    input_schema: null
+    output_schema: null
+    defaults: null
+    errors: null
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports: null
+    fixtures: null
+
+  - id: list_documents
+    input_schema: null
+    output_schema: null
+    defaults: null
+    errors: null
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports: null
+    fixtures: null
+
+  # ── Subscriptions ─────────────────────────────────────────────
+  - id: add_subscription
+    input_schema: null
+    output_schema: null
+    defaults: null
+    errors: null
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports: null
+    fixtures: null
+
+  - id: remove_subscription
+    input_schema: null
+    output_schema: null
+    defaults: null
+    errors: null
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports: null
+    fixtures: null
+
+  - id: list_subscriptions
+    input_schema: null
+    output_schema: null
+    defaults: null
+    errors: null
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports: null
+    fixtures: null
+
+  - id: check_subscriptions
+    input_schema: null
+    output_schema: null
+    defaults: null
+    errors: null
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports: null
+    fixtures: null
+
+  - id: get_subscription_content
+    input_schema: null
+    output_schema: null
+    defaults: null
+    errors: null
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports: null
+    fixtures: null
+
+  - id: set_subscription_filter
+    input_schema: null
+    output_schema: null
+    defaults: null
+    errors: null
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports: null
+    fixtures: null
+
+  - id: get_subscription_filters
+    input_schema: null
+    output_schema: null
+    defaults: null
+    errors: null
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports: null
+    fixtures: null
+
+  # ── Toolbelt ──────────────────────────────────────────────────
+  - id: store_tool
+    input_schema: null
+    output_schema: null
+    defaults: null
+    errors: null
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports: null
+    fixtures: null
+
+  - id: search_tools
+    input_schema: null
+    output_schema: null
+    defaults: null
+    errors: null
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports: null
+    fixtures: null
+
+  - id: get_tool
+    input_schema: null
+    output_schema: null
+    defaults: null
+    errors: null
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports: null
+    fixtures: null
+
+  - id: list_tools
+    input_schema: null
+    output_schema: null
+    defaults: null
+    errors: null
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports: null
+    fixtures: null
+
+  - id: update_tool
+    input_schema: null
+    output_schema: null
+    defaults: null
+    errors: null
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports: null
+    fixtures: null
+
+  - id: remove_tool
+    input_schema: null
+    output_schema: null
+    defaults: null
+    errors: null
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports: null
+    fixtures: null
+
+  # ── Shop ──────────────────────────────────────────────────────
+  - id: shop_products
+    input_schema: null
+    output_schema: null
+    defaults: null
+    errors: null
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports: null
+    fixtures: null
+
+  - id: get_shop_session
+    input_schema: null
+    output_schema: null
+    defaults: null
+    errors: null
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports: null
+    fixtures: null
+
+  - id: get_shop_listings
+    input_schema: null
+    output_schema: null
+    defaults: null
+    errors: null
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports: null
+    fixtures: null
+
+  # ── What's New ────────────────────────────────────────────────
+  - id: get_whats_new_report
+    input_schema: null
+    output_schema: null
+    defaults: null
+    errors: null
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports: null
+    fixtures: null
+
+  - id: list_whats_new_reports
+    input_schema: null
+    output_schema: null
+    defaults: null
+    errors: null
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports: null
+    fixtures: null
+
+  # ── Assimilation ──────────────────────────────────────────────
+  - id: start_assimilation
+    input_schema: null
+    output_schema: null
+    defaults: null
+    errors: null
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports: null
+    fixtures: null
+
+  - id: approve_assimilation_plan
+    input_schema: null
+    output_schema: null
+    defaults: null
+    errors: null
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports: null
+    fixtures: null
+
+  - id: reject_assimilation_plan
+    input_schema: null
+    output_schema: null
+    defaults: null
+    errors: null
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports: null
+    fixtures: null
+
+  - id: get_assimilation_status
+    input_schema: null
+    output_schema: null
+    defaults: null
+    errors: null
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports: null
+    fixtures: null
+
+  - id: cancel_assimilation
+    input_schema: null
+    output_schema: null
+    defaults: null
+    errors: null
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports: null
+    fixtures: null
+
+  - id: steer_assimilation
+    input_schema: null
+    output_schema: null
+    defaults: null
+    errors: null
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports: null
+    fixtures: null
+
+  # ── Creator Management ────────────────────────────────────────
+  - id: assimilate_creator
+    input_schema: null
+    output_schema: null
+    defaults: null
+    errors: null
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports: null
+    fixtures: null
+
+  - id: get_creator_transcripts
+    input_schema: null
+    output_schema: null
+    defaults: null
+    errors: null
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports: null
+    fixtures: null
+
+  - id: regenerate_transcript
+    input_schema: null
+    output_schema: null
+    defaults: null
+    errors: null
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports: null
+    fixtures: null
+
+  # ── Improvement Requests ──────────────────────────────────────
+  - id: search_improvements
+    input_schema: null
+    output_schema: null
+    defaults: null
+    errors: null
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports: null
+    fixtures: null
+
+  - id: get_improvement
+    input_schema: null
+    output_schema: null
+    defaults: null
+    errors: null
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports: null
+    fixtures: null
+
+  - id: list_improvements
+    input_schema: null
+    output_schema: null
+    defaults: null
+    errors: null
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports: null
+    fixtures: null
+
+  - id: add_improvement
+    input_schema: null
+    output_schema: null
+    defaults: null
+    errors: null
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports: null
+    fixtures: null
+
+  - id: close_improvement
+    input_schema: null
+    output_schema: null
+    defaults: null
+    errors: null
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports: null
+    fixtures: null
+
+  - id: set_improvement_status
+    input_schema: null
+    output_schema: null
+    defaults: null
+    errors: null
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports: null
+    fixtures: null
+
+  # ── Recommendations ───────────────────────────────────────────
+  - id: findRecommendations
+    input_schema: null
+    output_schema: null
+    defaults: null
+    errors: null
+    pagination: null
+    side_effects: null
+    idempotency: null
+    replay: null
+    transports: null
+    fixtures: null
