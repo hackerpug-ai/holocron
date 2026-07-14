@@ -1,16 +1,20 @@
 /**
  * subscriptions group — sources/content/filters/links, creator_profiles, feed_*
  */
-import { boolean, doublePrecision, integer, pgTable, text } from 'drizzle-orm/pg-core';
+import { boolean, doublePrecision, index, integer, pgTable, text } from 'drizzle-orm/pg-core';
 import {
   createdAtColumn,
+  hnswEmbeddingIndex,
   idColumn,
   legacyConvexIdColumn,
   legacyConvexIdIndex,
+  searchVectorColumn,
+  searchVectorGinIndex,
   timestamptz,
   typedJsonb,
   updatedAtColumn,
   vector,
+  weightedSearchVectorSql,
 } from '../columns';
 
 export const creatorProfiles = pgTable(
@@ -81,8 +85,14 @@ export const subscriptionContent = pgTable(
     aiRelevanceScore: doublePrecision('ai_relevance_score'),
     aiRelevanceReason: text('ai_relevance_reason'),
     createdAt: createdAtColumn(),
+    searchVector: searchVectorColumn(weightedSearchVectorSql('title')),
   },
-  (t) => [legacyConvexIdIndex('subscription_content', t.legacyConvexId)]
+  (t) => [
+    legacyConvexIdIndex('subscription_content', t.legacyConvexId),
+    hnswEmbeddingIndex('subscription_content_embedding_hnsw', t.embedding),
+    index('subscription_content_source_id_idx').on(t.sourceId),
+    searchVectorGinIndex('subscription_content_search_vector_gin', t.searchVector),
+  ]
 );
 
 export const subscriptionFilters = pgTable(

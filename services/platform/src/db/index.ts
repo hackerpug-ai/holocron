@@ -13,7 +13,12 @@ export {
   resolveDatabaseUrl,
 } from './connection';
 export * from './enums';
+export {
+  COVERING_BTREE_INDEXES,
+  FTS_SEARCH_VECTOR_TARGETS,
+  HNSW_INDEXES,
+} from './indexes';
 export { applyMigrations, countPublicTables, MIGRATIONS_DIR } from './migrate';
 export { probeJsonbCardData, probeStatusCheck } from './probe';
 export { ANALYSIS_TRIO, DOMAIN_TABLE_NAMES, RESEARCH_TRIO, schema } from './schema';
-export { verifyMerges } from './verify';
+export { verifyIndexes, verifyMerges } from './verify';

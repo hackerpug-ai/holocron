@@ -1,17 +1,21 @@
 /**
  * documents group — documents (vector-free), imports, citations
  * Vectors live on passages (Zero publication split cleanliness).
+ * FTS via generated search_vector + GIN (schema-3).
  */
 
 import { sql } from 'drizzle-orm';
-import { boolean, check, integer, pgTable, text } from 'drizzle-orm/pg-core';
+import { boolean, check, index, integer, pgTable, text } from 'drizzle-orm/pg-core';
 import {
   createdAtColumn,
   idColumn,
   legacyConvexIdColumn,
   legacyConvexIdIndex,
+  searchVectorColumn,
+  searchVectorGinIndex,
   timestamptz,
   typedJsonb,
+  weightedSearchVectorSql,
 } from '../columns';
 import { documentStatusValues, sqlInList } from '../enums';
 
@@ -34,9 +38,13 @@ export const documents = pgTable(
     isPublic: boolean('is_public').default(false),
     shareToken: text('share_token'),
     createdAt: createdAtColumn(),
+    searchVector: searchVectorColumn(weightedSearchVectorSql('title', 'content')),
   },
   (t) => [
     legacyConvexIdIndex('documents', t.legacyConvexId),
+    index('documents_status_idx').on(t.status),
+    index('documents_category_idx').on(t.category),
+    searchVectorGinIndex('documents_search_vector_gin', t.searchVector),
     check('documents_status_check', sql`status IN (${sql.raw(sqlInList(documentStatusValues))})`),
   ]
 );

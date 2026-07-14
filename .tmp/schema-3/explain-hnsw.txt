@@ -1,0 +1,29 @@
+INSERT 0 1
+                  id                  
+--------------------------------------
+ 019f630b-a251-7158-822c-f5540ea8e79f
+(1 row)
+
+INSERT 0 1
+SET
+                                                                  QUERY PLAN                                                                   
+-----------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=9.93..11.65 rows=10 width=24) (actual time=0.029..0.030 rows=1.00 loops=1)
+   Buffers: shared hit=11
+   InitPlan 1
+     ->  Limit  (cost=0.00..0.05 rows=1 width=32) (actual time=0.004..0.004 rows=1.00 loops=1)
+           Buffers: shared hit=1
+           ->  Seq Scan on passages passages_1  (cost=0.00..12.50 rows=249 width=32) (actual time=0.004..0.004 rows=1.00 loops=1)
+                 Disabled: true
+                 Filter: (embedding IS NOT NULL)
+                 Buffers: shared hit=1
+   ->  Index Scan using passages_embedding_hnsw on passages  (cost=9.88..53.00 rows=250 width=24) (actual time=0.029..0.029 rows=1.00 loops=1)
+         Order By: (embedding <=> (InitPlan 1).col1)
+         Index Searches: 1
+         Buffers: shared hit=11
+ Planning:
+   Buffers: shared hit=68
+ Planning Time: 0.311 ms
+ Execution Time: 0.077 ms
+(17 rows)
+

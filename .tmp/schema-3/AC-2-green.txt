@@ -1,0 +1,25 @@
+=== AC-2: 5 inline HNSW ===
+4:  research_findings_embedding_hnsw: access method: hnsw; vector_cosine_ops; table=research_findings
+5:  research_iterations_embedding_hnsw: access method: hnsw; vector_cosine_ops; table=research_iterations
+6:  subscription_content_embedding_hnsw: access method: hnsw; vector_cosine_ops; table=subscription_content
+7:  toolbelt_tools_embedding_hnsw: access method: hnsw; vector_cosine_ops; table=toolbelt_tools
+8:  improvement_requests_embedding_hnsw: access method: hnsw; vector_cosine_ops; table=improvement_requests
+9:  HNSW indexes found: 6/6
+37:  documents_status_idx: access method: btree
+43:  research_findings_embedding_hnsw
+44:  research_iterations_embedding_hnsw
+45:  subscription_content_embedding_hnsw
+46:  toolbelt_tools_embedding_hnsw
+47:  improvement_requests_embedding_hnsw
+50:  status: OK
+
+               relname               | amname 
+-------------------------------------+--------
+ improvement_requests_embedding_hnsw | hnsw
+ passages_embedding_hnsw             | hnsw
+ research_findings_embedding_hnsw    | hnsw
+ research_iterations_embedding_hnsw  | hnsw
+ subscription_content_embedding_hnsw | hnsw
+ toolbelt_tools_embedding_hnsw       | hnsw
+(6 rows)
+

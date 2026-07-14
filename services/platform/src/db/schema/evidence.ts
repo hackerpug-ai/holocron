@@ -5,15 +5,27 @@
  */
 
 import { sql } from 'drizzle-orm';
-import { check, doublePrecision, integer, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
+import {
+  check,
+  doublePrecision,
+  index,
+  integer,
+  pgTable,
+  text,
+  uniqueIndex,
+} from 'drizzle-orm/pg-core';
 import {
   createdAtColumn,
+  hnswEmbeddingIndex,
   idColumn,
   legacyConvexIdColumn,
   legacyConvexIdIndex,
+  searchVectorColumn,
+  searchVectorGinIndex,
   timestamptz,
   typedJsonb,
   vector,
+  weightedSearchVectorSql,
 } from '../columns';
 import { relationTypeValues, sourceKindValues, sqlInList } from '../enums';
 
@@ -30,10 +42,13 @@ export const sources = pgTable(
     url: text('url'),
     metadataJson: typedJsonb('metadata_json'),
     createdAt: createdAtColumn(),
+    searchVector: searchVectorColumn(weightedSearchVectorSql('title', 'url')),
   },
   (t) => [
     legacyConvexIdIndex('sources', t.legacyConvexId),
     uniqueIndex('sources_content_hash_uidx').on(t.contentHash),
+    index('sources_document_id_idx').on(t.documentId),
+    searchVectorGinIndex('sources_search_vector_gin', t.searchVector),
     check('sources_kind_check', sql`source_kind IN (${sql.raw(sqlInList(sourceKindValues))})`),
   ]
 );
@@ -49,12 +64,19 @@ export const passages = pgTable(
     text: text('text').notNull(),
     tokenCount: integer('token_count'),
     situatingHeader: text('situating_header'),
-    /** Qwen3-Embedding vector(1024); HNSW in schema-3 */
+    /** Qwen3-Embedding vector(1024); HNSW cosine */
     embedding: vector('embedding', { dimensions: 1024 }),
     metadataJson: typedJsonb('metadata_json'),
     createdAt: createdAtColumn(),
+    searchVector: searchVectorColumn(weightedSearchVectorSql('text', 'situating_header')),
   },
-  (t) => [legacyConvexIdIndex('passages', t.legacyConvexId)]
+  (t) => [
+    legacyConvexIdIndex('passages', t.legacyConvexId),
+    hnswEmbeddingIndex('passages_embedding_hnsw', t.embedding),
+    index('passages_source_id_idx').on(t.sourceId),
+    index('passages_document_id_idx').on(t.documentId),
+    searchVectorGinIndex('passages_search_vector_gin', t.searchVector),
+  ]
 );
 
 export const claims = pgTable(
@@ -69,8 +91,14 @@ export const claims = pgTable(
     confidence: doublePrecision('confidence'),
     metadataJson: typedJsonb('metadata_json'),
     createdAt: createdAtColumn(),
+    searchVector: searchVectorColumn(weightedSearchVectorSql('claim_text')),
   },
-  (t) => [legacyConvexIdIndex('claims', t.legacyConvexId)]
+  (t) => [
+    legacyConvexIdIndex('claims', t.legacyConvexId),
+    index('claims_source_id_idx').on(t.sourceId),
+    index('claims_passage_id_idx').on(t.passageId),
+    searchVectorGinIndex('claims_search_vector_gin', t.searchVector),
+  ]
 );
 
 export const entities = pgTable(
@@ -109,6 +137,9 @@ export const relations = pgTable(
   },
   (t) => [
     legacyConvexIdIndex('relations', t.legacyConvexId),
+    index('relations_current_idx')
+      .on(t.relationType, t.subjectId, t.objectId)
+      .where(sql`${t.txTo} IS NULL`),
     check(
       'relations_type_check',
       sql`relation_type IN (${sql.raw(sqlInList(relationTypeValues))})`
@@ -136,5 +167,8 @@ export const beliefs = pgTable(
     metadataJson: typedJsonb('metadata_json'),
     createdAt: createdAtColumn(),
   },
-  (t) => [legacyConvexIdIndex('beliefs', t.legacyConvexId)]
+  (t) => [
+    legacyConvexIdIndex('beliefs', t.legacyConvexId),
+    index('beliefs_current_idx').on(t.claimId).where(sql`${t.txTo} IS NULL`),
+  ]
 );

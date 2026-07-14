@@ -8,6 +8,13 @@
       "when": 1784072592723,
       "tag": "0000_groovy_stellaris",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1784079000000,
+      "tag": "0001_schema3_indexes_search_vector",
+      "breakpoints": true
     }
   ]
 }
