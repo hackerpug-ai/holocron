@@ -1,5 +1,5 @@
 import { v } from 'convex/values';
-import { internalMutation } from '../_generated/server';
+import { internalMutation, mutation } from '../_generated/server';
 
 /**
  * Create a new transcript job for a contentId (e.g., YouTube video ID).
@@ -34,6 +34,46 @@ export const createTranscriptJob = internalMutation({
     }
 
     // Create new job
+    const now = Date.now();
+    const jobId = await ctx.db.insert('transcriptJobs', {
+      contentId: args.contentId,
+      sourceUrl: args.sourceUrl,
+      status: 'pending',
+      priority: args.priority ?? 5,
+      retryCount: 0,
+      createdAt: now,
+    });
+
+    return { jobId, created: true };
+  },
+});
+
+/**
+ * Public mutation wrapper for external clients (MCP server).
+ * Delegates to the same logic as the internal createTranscriptJob.
+ */
+export const createTranscriptJobPublic = mutation({
+  args: {
+    contentId: v.string(),
+    sourceUrl: v.string(),
+    priority: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query('transcriptJobs')
+      .withIndex('by_content', (q) => q.eq('contentId', args.contentId))
+      .first();
+
+    if (existing) {
+      if (
+        existing.status === 'pending' ||
+        existing.status === 'downloading' ||
+        existing.status === 'transcribing'
+      ) {
+        return { jobId: existing._id, created: false };
+      }
+    }
+
     const now = Date.now();
     const jobId = await ctx.db.insert('transcriptJobs', {
       contentId: args.contentId,

@@ -6,6 +6,7 @@
 // Public exports
 export const getTranscript = require('./queries').getTranscript;
 export const createTranscriptJob = require('./mutations').createTranscriptJob;
+export const createTranscriptJobPublic = require('./mutations').createTranscriptJobPublic;
 export const updateJobStatus = require('./mutations').updateJobStatus;
 export const markFailed = require('./mutations').markFailed;
 export const fetchTranscriptWithFallback = require('./service').fetchTranscriptWithFallback;

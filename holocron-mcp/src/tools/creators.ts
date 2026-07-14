@@ -433,7 +433,7 @@ export async function regenerateTranscript(
       jobId: string;
       created: boolean;
       // biome-ignore lint/suspicious/noExplicitAny: Dynamic Convex function reference
-    }>("transcripts/mutations:createTranscriptJob" as any, {
+    }>("transcripts/mutations:createTranscriptJobPublic" as any, {
       contentId: input.contentId,
       sourceUrl,
       priority: input.priority ?? 5,
