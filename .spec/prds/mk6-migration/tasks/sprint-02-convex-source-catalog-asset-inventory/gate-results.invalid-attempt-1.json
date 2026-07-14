@@ -1,0 +1,75 @@
+{
+  "sprint": "sprint-02-convex-source-catalog-asset-inventory",
+  "run_id": "2026-07-14T09:15:00Z",
+  "verdict": "pass",
+  "steps_total": 6,
+  "steps_executed": 6,
+  "steps_passed": 6,
+  "ui_driver": "none",
+  "exec_surface": "surface:53 (F13EBF29-A0F4-4FF2-B68B-581C1272EE4F)",
+  "qa_surface_id": "E9A60651-C9D8-4F75-8D3F-71B8D091FE93",
+  "qa_session_id": "opencode-qa-sprint-02",
+  "verified": null,
+  "steps": [
+    {
+      "n": 1,
+      "text": "Run holo catalog:verify against a real convex export — reports 60/60 tables each with an approved disposition.",
+      "type": "terminal",
+      "method": "real-cli",
+      "executed": true,
+      "result": "pass",
+      "evidence": "tables: 60/60 approved; 0 export tables unaccounted",
+      "log": "/tmp/holocron-gate-sprint-02-convex-source-catalog-asset-inventory/step1.log"
+    },
+    {
+      "n": 2,
+      "text": "Run holo catalog:coverage — every field and storage reference maps to preserve/merge/drop/regenerate/archive with owner+approval.",
+      "type": "terminal",
+      "method": "real-cli",
+      "executed": true,
+      "result": "pass",
+      "evidence": "fields_mapped: 797; storage_refs: 6/6",
+      "log": "/tmp/holocron-gate-sprint-02-convex-source-catalog-asset-inventory/step2.log"
+    },
+    {
+      "n": 3,
+      "text": "Delete one table's entry and re-run holo catalog:verify — exits non-zero naming the unmapped table.",
+      "type": "terminal",
+      "method": "real-cli",
+      "executed": true,
+      "result": "pass",
+      "evidence": "exit 1; unmapped table: voiceCommands; FAIL: 59/60 tables approved; 1 export tables unaccounted",
+      "log": "/tmp/holocron-gate-sprint-02-convex-source-catalog-asset-inventory/step3.log"
+    },
+    {
+      "n": 4,
+      "text": "Run holo catalog:reconcile --dry-run — prints per-table expected-target count formulas and approved exceptions.",
+      "type": "terminal",
+      "method": "real-cli",
+      "executed": true,
+      "result": "pass",
+      "evidence": "All tables variance=0; no unexplained rows",
+      "log": "/tmp/holocron-gate-sprint-02-convex-source-catalog-asset-inventory/step4.log"
+    },
+    {
+      "n": 5,
+      "text": "Run holo catalog:assets — lists every retained storage object with legacy-ID, SHA-256, byte-length, MIME, target, disposition.",
+      "type": "terminal",
+      "method": "real-cli",
+      "executed": true,
+      "result": "pass",
+      "evidence": "retained_objects: 1192; each with sha256=, bytes=, mime=, target=cas://, disposition=preserve",
+      "log": "/tmp/holocron-gate-sprint-02-convex-source-catalog-asset-inventory/step5.log"
+    },
+    {
+      "n": 6,
+      "text": "Run holo catalog:merges — reports business 12→3 and research 5→3 collapses with no per-domain shells in the targets.",
+      "type": "terminal",
+      "method": "real-cli",
+      "executed": true,
+      "result": "pass",
+      "evidence": "business: 12 → 3; research: 5 → 3; per_domain_shell_targets: 0; status: OK",
+      "log": "/tmp/holocron-gate-sprint-02-convex-source-catalog-asset-inventory/step6.log"
+    }
+  ]
+}

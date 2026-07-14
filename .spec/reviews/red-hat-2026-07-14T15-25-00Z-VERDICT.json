@@ -1,0 +1,26 @@
+{
+  "review_id": "red-hat-2026-07-14T15-25-00Z",
+  "target": "sprint-02-convex-source-catalog-asset-inventory",
+  "head_commit": "541ae2f8104d63f2b17dab50fa243744ed21ac2e",
+  "reviewers": ["convex-reviewer", "mastra-reviewer"],
+  "verdict": "APPROVED",
+  "blocking_findings": [],
+  "ac_items_total": 24,
+  "ac_items_pass": 24,
+  "ac_items_fail": 0,
+  "ac_items_partial": 0,
+  "stub_findings": 0,
+  "skip_guards": 0,
+  "gate_pre_check": {
+    "executability": "PASS",
+    "evidence_fresh": true,
+    "evidence_verdict": "pass",
+    "steps_executed": 6,
+    "steps_total": 6,
+    "auto_findings": 0
+  },
+  "medium_findings": 5,
+  "low_findings": 5,
+  "report_path": ".spec/reviews/red-hat-2026-07-14T15-25-00Z.md",
+  "generated_at": "2026-07-14T15:25:00Z"
+}

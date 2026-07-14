@@ -1,0 +1,10 @@
+{
+  "_id": "jplanApprsample0001",
+  "_creationTime": 1700000000000.0,
+  "planId": "jrefplanId0001",
+  "approvedBy": "sample-approvedBy",
+  "approvedAt": 1700000000000,
+  "decision": "sample-decision",
+  "rejectionReason": "sample-rejectionReason",
+  "feedback": "sample-feedback"
+}

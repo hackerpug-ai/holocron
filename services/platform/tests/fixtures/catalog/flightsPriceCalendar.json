@@ -1,0 +1,11 @@
+{
+  "_id": "jflightsPsample0001",
+  "_creationTime": 1700000000000.0,
+  "sessionId": "jrefsessionId0001",
+  "date": "sample-date",
+  "dayOfWeek": "sample-dayOfWeek",
+  "weekNumber": 1,
+  "price": 1,
+  "isCheapest": false,
+  "createdAt": 1700000000000
+}

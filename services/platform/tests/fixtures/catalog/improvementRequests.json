@@ -1,0 +1,21 @@
+{
+  "_id": "jimprovemsample0001",
+  "_creationTime": 1700000000000.0,
+  "description": "sample-improvementRequests-description",
+  "title": "sample-improvementRequests-title",
+  "summary": "sample-improvementRequests-summary",
+  "status": "completed",
+  "sourceScreen": "sample-sourceScreen",
+  "sourceComponent": "sample-sourceComponent",
+  "agentDecision": "sample-agentDecision",
+  "mergedIntoId": "jrefmergedIntoId0001",
+  "mergedFromIds": {},
+  "userFeedback": "sample-userFeedback",
+  "embedding": [0.1, 0.2, 0.3],
+  "closureReason": "sample-closureReason",
+  "closureEvidence": "sample-closureEvidence",
+  "closedAt": 1700000000000,
+  "createdAt": 1700000000000,
+  "updatedAt": 1700000000000,
+  "processedAt": 1700000000000
+}

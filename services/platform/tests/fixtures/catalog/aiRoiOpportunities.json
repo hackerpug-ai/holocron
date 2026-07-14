@@ -1,0 +1,19 @@
+{
+  "_id": "jaiRoiOppsample0001",
+  "_creationTime": 1700000000000.0,
+  "sessionId": "jrefsessionId0001",
+  "rank": 1,
+  "name": "sample-aiRoiOpportunities-name",
+  "confidence": "sample-confidence",
+  "currentProcess": "sample-currentProcess",
+  "proposedAutomation": "sample-proposedAutomation",
+  "currentTimePerWeek": "sample-currentTimePerWeek",
+  "automatedTimePerWeek": "sample-automatedTimePerWeek",
+  "currentCostPerYear": "sample-currentCostPerYear",
+  "automatedCostPerYear": "sample-automatedCostPerYear",
+  "savingsPerYear": "sample-savingsPerYear",
+  "errorRateBefore": "sample-errorRateBefore",
+  "errorRateAfter": "sample-errorRateAfter",
+  "phase": "sample-phase",
+  "createdAt": 1700000000000
+}

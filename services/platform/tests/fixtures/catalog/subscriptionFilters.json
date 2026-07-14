@@ -1,0 +1,11 @@
+{
+  "_id": "jsubscripsample0001",
+  "_creationTime": 1700000000000.0,
+  "sourceId": "jrefsourceId0001",
+  "sourceType": "sample-sourceType",
+  "ruleName": "sample-ruleName",
+  "ruleType": "sample-ruleType",
+  "ruleValue": "sample-ruleValue",
+  "weight": "sample-weight",
+  "createdAt": 1700000000000
+}

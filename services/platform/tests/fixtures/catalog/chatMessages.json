@@ -1,0 +1,16 @@
+{
+  "_id": "jchatMesssample0001",
+  "_creationTime": 1700000000000.0,
+  "conversationId": "jrefconversation0001",
+  "role": "sample-role",
+  "content": "sample-chatMessages-content",
+  "messageType": "sample-messageType",
+  "cardData": "sample-cardData",
+  "sessionId": "jrefsessionId0001",
+  "voiceSessionId": "jrefvoiceSession0001",
+  "documentId": "jrefdocumentId0001",
+  "deleted": false,
+  "toolCallId": "jreftoolCallId0001",
+  "reasoning": "sample-reasoning",
+  "createdAt": 1700000000000
+}

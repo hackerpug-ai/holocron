@@ -1,0 +1,9 @@
+{
+  "_id": "jcompetitsample0001",
+  "_creationTime": 1700000000000.0,
+  "sessionId": "jrefsessionId0001",
+  "featureName": "sample-featureName",
+  "ourSupport": "sample-ourSupport",
+  "competitorSupport": {},
+  "createdAt": 1700000000000
+}

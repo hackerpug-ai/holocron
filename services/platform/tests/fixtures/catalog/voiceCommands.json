@@ -1,0 +1,14 @@
+{
+  "_id": "jvoiceComsample0001",
+  "_creationTime": 1700000000000.0,
+  "sessionId": "jrefsessionId0001",
+  "transcript": "sample-transcript",
+  "intent": "sample-intent",
+  "entities": "sample-entities",
+  "actionType": "sample-actionType",
+  "actionParams": "sample-actionParams",
+  "result": {},
+  "success": false,
+  "createdAt": 1700000000000,
+  "updatedAt": 1700000000000
+}

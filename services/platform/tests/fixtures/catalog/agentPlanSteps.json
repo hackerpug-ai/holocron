@@ -1,0 +1,17 @@
+{
+  "_id": "jagentPlasample0001",
+  "_creationTime": 1700000000000.0,
+  "planId": "jrefplanId0001",
+  "stepIndex": "sample-stepIndex",
+  "toolName": "sample-toolName",
+  "toolDisplayName": "sample-toolDisplayName",
+  "toolArgs": "sample-toolArgs",
+  "description": "sample-agentPlanSteps-description",
+  "requiresApproval": false,
+  "status": "completed",
+  "toolCallId": "jreftoolCallId0001",
+  "resultSummary": "sample-resultSummary",
+  "errorMessage": "sample-errorMessage",
+  "startedAt": 1700000000000,
+  "completedAt": 1700000000000
+}

@@ -1,0 +1,17 @@
+{
+  "_id": "jrateLimisample0001",
+  "_creationTime": 1700000000000.0,
+  "provider": "sample-provider",
+  "quotaLimit": 1,
+  "quotaUsed": 1,
+  "quotaResetAt": 1700000000000,
+  "concurrentRequests": 1,
+  "maxConcurrent": 1,
+  "status": "completed",
+  "lastError": "sample-lastError",
+  "lastErrorTime": 1700000000000,
+  "tokenBudget": 1,
+  "tokensUsed": 1,
+  "createdAt": 1700000000000,
+  "updatedAt": 1700000000000
+}

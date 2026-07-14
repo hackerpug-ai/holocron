@@ -1,0 +1,21 @@
+{
+  "_id": "jdeepResesample0001",
+  "_creationTime": 1700000000000.0,
+  "conversationId": "jrefconversation0001",
+  "taskId": "jreftaskId0001",
+  "topic": "sample-deepResearchSessions-topic",
+  "researchType": "sample-researchType",
+  "researchMode": "sample-researchMode",
+  "maxIterations": 1,
+  "status": "completed",
+  "currentIteration": 1,
+  "refinedTopic": "sample-refinedTopic",
+  "currentCoverageScore": "sample-currentCoverageScore",
+  "finalConfidenceSummary": "sample-finalConfidenceSummary",
+  "outputConfidenceFilter": "sample-outputConfidenceFilter",
+  "errorReason": "sample-errorReason",
+  "documentId": "jrefdocumentId0001",
+  "createdAt": 1700000000000,
+  "updatedAt": 1700000000000,
+  "completedAt": 1700000000000
+}

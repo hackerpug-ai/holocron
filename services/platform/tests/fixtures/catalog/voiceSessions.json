@@ -1,0 +1,14 @@
+{
+  "_id": "jvoiceSessample0001",
+  "_creationTime": 1700000000000.0,
+  "conversationId": "jrefconversation0001",
+  "startedAt": 1700000000000,
+  "completedAt": 1700000000000,
+  "turnCount": 1,
+  "totalDurationMs": 1,
+  "metadata": {},
+  "errorMessage": "sample-errorMessage",
+  "audioStorageId": "jrefaudioStorage0001",
+  "createdAt": 1700000000000,
+  "updatedAt": 1700000000000
+}

@@ -1,0 +1,10 @@
+{
+  "_id": "jfeedSettsample0001",
+  "_creationTime": 1700000000000.0,
+  "enablePushNotifications": false,
+  "enableInAppNotifications": false,
+  "showThumbnails": false,
+  "autoPlayVideos": false,
+  "contentFilter": "sample-contentFilter",
+  "updatedAt": 1700000000000
+}

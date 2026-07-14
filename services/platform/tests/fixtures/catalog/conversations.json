@@ -1,0 +1,14 @@
+{
+  "_id": "jconversasample0001",
+  "_creationTime": 1700000000000.0,
+  "title": "sample-conversations-title",
+  "titleSetByUser": false,
+  "lastMessagePreview": "sample-lastMessagePreview",
+  "agentBusy": false,
+  "agentBusySince": "sample-agentBusySince",
+  "pendingIntent": "sample-pendingIntent",
+  "pendingQueryShape": "sample-pendingQueryShape",
+  "pendingSince": "sample-pendingSince",
+  "createdAt": 1700000000000,
+  "updatedAt": 1700000000000
+}

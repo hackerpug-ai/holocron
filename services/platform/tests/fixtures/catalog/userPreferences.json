@@ -1,0 +1,8 @@
+{
+  "_id": "juserPrefsample0001",
+  "_creationTime": 1700000000000.0,
+  "notificationsLastSeenAt": 1700000000000,
+  "voiceLanguage": "sample-voiceLanguage",
+  "hasSeenNavTooltip": false,
+  "updatedAt": 1700000000000
+}

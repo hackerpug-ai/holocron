@@ -20,7 +20,7 @@ TASK: catalog-4 — Verify export completeness against the real convex export
 ================================================================================
 
 TASK_TYPE:  FEATURE  (real-export verification)
-STATUS:     Backlog
+STATUS:     Complete
 PRIORITY:   P0
 EFFORT:     M  (150 min)
 AGENT:      implementer=convex-reviewer | reviewer=convex-reviewer
@@ -53,11 +53,11 @@ A structured verdict recording that a REAL `convex export --include-file-storage
 --------------------------------------------------------------------------------
 DONE WHEN
 --------------------------------------------------------------------------------
-- [ ] AC-1 (PRIMARY): real `convex export` produced; `catalog:verify --export` reports 60/60 approved + 0 export tables unaccounted (incl. `_storage`/system tables)
-- [ ] AC-2: `catalog:reconcile --export` reports zero unexplained variance across all tables; merge sums correct
-- [ ] AC-3: asset inventory count === export `_storage/` retained-file count; a sampled SHA-256 matches recomputed readback; temporary objects excluded with a drop disposition
-- [ ] AC-4 (negative control): removing one entry flips `catalog:verify --export` non-zero naming the table; no `*.skip` on the drift controls
-- [ ] structured verdict emitted with a reproduced-evidence list (export table count, `_storage` object count, variance=0, drift non-zero)
+- [x] AC-1 (PRIMARY): real `convex export` produced; `catalog:verify --export` reports 60/60 approved + 0 export tables unaccounted (incl. `_storage`/system tables)
+- [x] AC-2: `catalog:reconcile --export` reports zero unexplained variance across all tables; merge sums correct
+- [x] AC-3: asset inventory count === export `_storage/` retained-file count; a sampled SHA-256 matches recomputed readback; temporary objects excluded with a drop disposition
+- [x] AC-4 (negative control): removing one entry flips `catalog:verify --export` non-zero naming the table; no `*.skip` on the drift controls
+- [x] structured verdict emitted with a reproduced-evidence list (export table count, `_storage` object count, variance=0, drift non-zero)
 
 --------------------------------------------------------------------------------
 ACCEPTANCE CRITERIA

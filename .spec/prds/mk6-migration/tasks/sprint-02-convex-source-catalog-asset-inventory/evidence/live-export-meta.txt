@@ -1,0 +1,5 @@
+export_dir=/tmp/sprint02-live-export-9759/export-dir
+export_zip_bytes= 520366272
+dns_note=macOS getaddrinfo ENOTFOUND for *.convex.cloud; used temporary Node dns.lookup→resolve4 preload under /tmp (not product code)
+export_timestamp=2026-07-14T15:05:40Z..2026-07-14T15:09:03Z
+deployment_host=acrobatic-echidna-253.convex.cloud

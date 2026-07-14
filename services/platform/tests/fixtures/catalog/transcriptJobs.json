@@ -1,0 +1,14 @@
+{
+  "_id": "jtranscrisample0001",
+  "_creationTime": 1700000000000.0,
+  "contentId": "jrefcontentId0001",
+  "sourceUrl": "sample-sourceUrl",
+  "status": "completed",
+  "priority": 1,
+  "retryCount": 1,
+  "errorMessage": "sample-errorMessage",
+  "transcriptId": "jreftranscriptId0001",
+  "startedAt": 1700000000000,
+  "completedAt": 1700000000000,
+  "createdAt": 1700000000000
+}

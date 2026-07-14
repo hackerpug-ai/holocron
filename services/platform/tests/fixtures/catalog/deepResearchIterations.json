@@ -1,0 +1,15 @@
+{
+  "_id": "jdeepResesample0001",
+  "_creationTime": 1700000000000.0,
+  "sessionId": "jrefsessionId0001",
+  "iterationNumber": 1,
+  "coverageScore": "sample-coverageScore",
+  "feedback": "sample-feedback",
+  "findings": {},
+  "refinedQueries": "sample-refinedQueries",
+  "status": "completed",
+  "summary": "sample-deepResearchIterations-summary",
+  "confidenceStats": "sample-confidenceStats",
+  "embedding": [0.1, 0.2, 0.3],
+  "createdAt": 1700000000000
+}

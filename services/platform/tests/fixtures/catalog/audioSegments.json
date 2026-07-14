@@ -1,0 +1,16 @@
+{
+  "_id": "jaudioSegsample0001",
+  "_creationTime": 1700000000000.0,
+  "documentId": "jrefdocumentId0001",
+  "paragraphIndex": 1,
+  "paragraphHash": "sample-paragraphHash",
+  "storageId": "jrefstorageId0001",
+  "status": "completed",
+  "errorMessage": "sample-errorMessage",
+  "voiceId": "jrefvoiceId0001",
+  "durationMs": 1,
+  "jobId": "jrefjobId0001",
+  "retryCount": 1,
+  "createdAt": 1700000000000,
+  "updatedAt": 1700000000000
+}

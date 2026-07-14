@@ -1,0 +1,15 @@
+{
+  "_id": "jnotificasample0001",
+  "_creationTime": 1700000000000.0,
+  "type": "sample-type",
+  "title": "sample-notifications-title",
+  "body": "sample-body",
+  "route": "sample-route",
+  "referenceId": "jrefreferenceId0001",
+  "read": false,
+  "importance": "sample-importance",
+  "createdAt": 1700000000000,
+  "feedItemIds": {},
+  "digestCount": 1,
+  "digestSummary": "sample-digestSummary"
+}

@@ -1,0 +1,10 @@
+{
+  "_id": "jexecutiosample0001",
+  "_creationTime": 1700000000000.0,
+  "type": "sample-type",
+  "status": "completed",
+  "content": "sample-executionPlans-content",
+  "metadata": {},
+  "createdAt": 1700000000000,
+  "updatedAt": 1700000000000
+}

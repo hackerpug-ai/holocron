@@ -1,0 +1,15 @@
+{
+  "_id": "jtoolCallsample0001",
+  "_creationTime": 1700000000000.0,
+  "conversationId": "jrefconversation0001",
+  "messageId": "jrefmessageId0001",
+  "toolName": "sample-toolName",
+  "toolDisplayName": "sample-toolDisplayName",
+  "toolArgs": "sample-toolArgs",
+  "reasoning": "sample-reasoning",
+  "status": "completed",
+  "resultMessageId": "jrefresultMessag0001",
+  "error": "sample-error",
+  "createdAt": 1700000000000,
+  "resolvedAt": "sample-resolvedAt"
+}

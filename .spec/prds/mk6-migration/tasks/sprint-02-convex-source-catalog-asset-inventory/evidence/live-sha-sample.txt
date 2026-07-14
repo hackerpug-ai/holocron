@@ -1,0 +1,10 @@
+storage_id_prefix kg27g4gs4tfzzs88hrpm9n9vg583g33c
+matches ['kg27g4gs4tfzzs88hrpm9n9vg583g33c.mpga']
+inv_line_found True
+legacy_id kg27g4gs4tfzzs88hrpm9n9vg583g33c.mpga
+disk_sha256 96d209eb4c32929ad03e2b5e045fdd79ea2ea06842d5f133bf28119e62e61da1
+inventory_sha256 96d209eb4c32929ad03e2b5e045fdd79ea2ea06842d5f133bf28119e62e61da1
+match True
+bytes 634924
+source_ref_table audioSegments
+AC-3_SHA_SAMPLE_OK

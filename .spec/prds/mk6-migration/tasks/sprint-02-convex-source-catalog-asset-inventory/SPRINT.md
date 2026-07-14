@@ -3,7 +3,7 @@ sprint: 2
 title: Convex Source Catalog and Asset Inventory
 sequence: 2
 timeline: Phase 0 — Leading INFRA
-status: In Progress
+status: Complete
 prd: ../../README.md
 capability_coverage: [CAP-MIG-01]
 ---
@@ -12,7 +12,7 @@ capability_coverage: [CAP-MIG-01]
 
 **Sequence:** 2
 **Timeline:** Phase 0 — Leading INFRA
-**Status:** In Progress
+**Status:** Complete
 
 ---
 

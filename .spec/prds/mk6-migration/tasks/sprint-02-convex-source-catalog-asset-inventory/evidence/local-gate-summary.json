@@ -1,0 +1,17 @@
+{
+  "verify_fixture_ok": true,
+  "coverage_ok": true,
+  "merges_ok": true,
+  "reconcile_fixture_ok": true,
+  "assets_fixture_ok": true,
+  "missing_table_fails": true,
+  "missing_storage_fails": true,
+  "variance_fails": true,
+  "vitest_ok": true,
+  "live_export_ok": true,
+  "live_verify_ok": true,
+  "live_reconcile_ok": true,
+  "live_assets_ok": true,
+  "live_neg_fails": true,
+  "live_sha_sample_ok": true
+}

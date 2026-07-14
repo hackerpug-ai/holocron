@@ -1,0 +1,22 @@
+{
+  "_id": "jfeedItemsample0001",
+  "_creationTime": 1700000000000.0,
+  "groupKey": "sample-groupKey",
+  "title": "sample-feedItems-title",
+  "summary": "sample-feedItems-summary",
+  "contentType": "sample-contentType",
+  "itemCount": 1,
+  "itemIds": {},
+  "creatorProfileId": "jrefcreatorProfi0001",
+  "subscriptionIds": "sample-subscriptionIds",
+  "thumbnailUrl": "sample-thumbnailUrl",
+  "authorHandle": "sample-authorHandle",
+  "creatorName": "sample-creatorName",
+  "viewed": false,
+  "viewedAt": 1700000000000,
+  "userFeedback": "sample-userFeedback",
+  "userFeedbackAt": 1700000000000,
+  "publishedAt": 1700000000000,
+  "discoveredAt": 1700000000000,
+  "createdAt": 1700000000000
+}

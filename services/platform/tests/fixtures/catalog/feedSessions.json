@@ -1,0 +1,9 @@
+{
+  "_id": "jfeedSesssample0001",
+  "_creationTime": 1700000000000.0,
+  "startTime": "sample-startTime",
+  "endTime": "sample-endTime",
+  "itemsViewed": "sample-itemsViewed",
+  "itemsConsumed": "sample-itemsConsumed",
+  "sessionSource": "sample-sessionSource"
+}

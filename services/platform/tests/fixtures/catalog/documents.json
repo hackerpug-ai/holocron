@@ -1,0 +1,18 @@
+{
+  "_id": "jdocumentsample0001",
+  "_creationTime": 1700000000000.0,
+  "title": "sample-documents-title",
+  "content": "sample-documents-content",
+  "category": "sample-category",
+  "filePath": "sample-filePath",
+  "fileType": "sample-fileType",
+  "status": "completed",
+  "date": "sample-date",
+  "time": "sample-time",
+  "researchType": "sample-researchType",
+  "iterations": "sample-iterations",
+  "embedding": [0.1, 0.2, 0.3],
+  "createdAt": 1700000000000,
+  "isPublic": false,
+  "shareToken": "sample-shareToken"
+}

@@ -1,0 +1,21 @@
+{
+  "_id": "jresearchsample0001",
+  "_creationTime": 1700000000000.0,
+  "sessionId": "jrefsessionId0001",
+  "iterationId": "jrefiterationId0001",
+  "claimText": "sample-claimText",
+  "claimCategory": "sample-claimCategory",
+  "sourceCredibilityScore": "sample-sourceCredibilityScore",
+  "evidenceQualityScore": "sample-evidenceQualityScore",
+  "corroborationScore": "sample-corroborationScore",
+  "recencyScore": "sample-recencyScore",
+  "expertConsensusScore": "sample-expertConsensusScore",
+  "confidenceScore": "sample-confidenceScore",
+  "confidenceLevel": "sample-confidenceLevel",
+  "citationIds": "sample-citationIds",
+  "confidenceFactors": "sample-confidenceFactors",
+  "caveats": "sample-caveats",
+  "warnings": "sample-warnings",
+  "embedding": [0.1, 0.2, 0.3],
+  "createdAt": 1700000000000
+}

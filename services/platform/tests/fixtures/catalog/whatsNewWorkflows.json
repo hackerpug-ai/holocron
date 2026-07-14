@@ -1,0 +1,14 @@
+{
+  "_id": "jwhatsNewsample0001",
+  "_creationTime": 1700000000000.0,
+  "phase": "sample-phase",
+  "days": "sample-days",
+  "force": false,
+  "startedAt": 1700000000000,
+  "updatedAt": 1700000000000,
+  "completedAt": 1700000000000,
+  "findingsCount": 1,
+  "findingsJson": {},
+  "error": "sample-error",
+  "reportId": "jrefreportId0001"
+}

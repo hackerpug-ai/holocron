@@ -1,0 +1,19 @@
+{
+  "_id": "jshopSesssample0001",
+  "_creationTime": 1700000000000.0,
+  "conversationId": "jrefconversation0001",
+  "query": "sample-shopSessions-query",
+  "condition": "sample-condition",
+  "priceMin": 1,
+  "priceMax": 1,
+  "retailers": "sample-retailers",
+  "planId": "jrefplanId0001",
+  "verifiedOnly": false,
+  "status": "completed",
+  "totalListings": "sample-totalListings",
+  "bestDealId": "jrefbestDealId0001",
+  "errorReason": "sample-errorReason",
+  "createdAt": 1700000000000,
+  "updatedAt": 1700000000000,
+  "completedAt": 1700000000000
+}

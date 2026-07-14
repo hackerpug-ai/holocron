@@ -1,0 +1,50 @@
+{
+  "task_id": "catalog-4",
+  "title": "Verify export completeness against the real convex export",
+  "approved": true,
+  "blocking_findings": [],
+  "evidence_reproduced": [
+    "REAL npx convex export --include-file-storage \u2192 zip 520366272 bytes; unzipped 76 user tables + _storage(1192) + _tables + _components",
+    "catalog:verify --export live \u2192 exit 0, 60/60 tables approved, 6/6 storage refs, 0 export tables unaccounted",
+    "catalog:reconcile --export live \u2192 exit 0, unexplained_variance: 0; documentCounters drop source=57 approved; research_sessions expected=139",
+    "catalog:assets --export live \u2192 retained_objects=1192 === find _storage -type f; sample audioSegments blob SHA-256 matches disk readback",
+    "drift control: catalog missing voiceCommands \u2192 verify exit 1 naming voiceCommands",
+    "Fixture regression still green: 21/21 vitest; fixture verify/reconcile/assets pass; neg/var fail closed"
+  ],
+  "live_export": {
+    "status": "success",
+    "include_file_storage_attempt": "success",
+    "zip_bytes": 520366272,
+    "user_tables": 76,
+    "storage_files": 1192,
+    "system_dirs": ["_components", "_storage", "_tables"],
+    "orphan_empty_tables_versioned_drop": [
+      "favorite_roads",
+      "org_memberships",
+      "orgs",
+      "osm_import_jobs",
+      "osm_nodes",
+      "osm_ways",
+      "performance",
+      "plan_usage",
+      "planning_sessions",
+      "route_enrichments",
+      "route_plans",
+      "saved_routes",
+      "session_messages",
+      "trip_plans",
+      "users",
+      "waypoints"
+    ],
+    "dns_note": "macOS getaddrinfo ENOTFOUND for *.convex.cloud; temporary Node preload used for export only"
+  },
+  "sha_sample": {
+    "legacy_id": "kg27g4gs4tfzzs88hrpm9n9vg583g33c.mpga",
+    "disk_sha256": "96d209eb4c32929ad03e2b5e045fdd79ea2ea06842d5f133bf28119e62e61da1",
+    "inventory_sha256": "96d209eb4c32929ad03e2b5e045fdd79ea2ea06842d5f133bf28119e62e61da1",
+    "match": true,
+    "bytes": 634924,
+    "source_table": "audioSegments"
+  },
+  "verdict": "APPROVED \u2014 real-export completeness + reconcile + assets + drift teeth reproduced"
+}

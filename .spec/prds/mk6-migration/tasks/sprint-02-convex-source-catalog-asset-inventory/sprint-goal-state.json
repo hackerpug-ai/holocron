@@ -1,0 +1,23 @@
+{
+  "sprint_id": "sprint-02-convex-source-catalog-asset-inventory",
+  "sprint_path": ".spec/prds/mk6-migration/tasks/sprint-02-convex-source-catalog-asset-inventory",
+  "branch": "integration/orch-s02-source-catalog-20260714T051200Z",
+  "updated_at": "2026-07-14T15:12:48Z",
+  "goal": "GATE-GOAL: ACHIEVED when real convex export + committed catalog prove 60/60 approved dispositions, zero unmapped surfaces, zero unexplained variance, and retained asset integrity",
+  "met": true,
+  "status": "ACHIEVED",
+  "gate": "pass",
+  "e2e": "pass",
+  "human_test": {
+    "verdict": "pass",
+    "steps_executed": 6,
+    "steps_total": 6,
+    "steps_passed": 6,
+    "surface": "live-export",
+    "live_export": true
+  },
+  "reason": "Live npx convex export --include-file-storage succeeded (520MB). catalog:verify 60/60 + 0 unaccounted; reconcile unexplained_variance=0; assets retained=1192 with SHA sample match; negative control fails closed on voiceCommands. Catalog system_exclusions updated for _components + 16 empty orphan export tables.",
+  "evidence_dir": ".tmp/sprint-02-convex-source-catalog-asset-inventory/",
+  "gate_results": ".spec/prds/mk6-migration/tasks/sprint-02-convex-source-catalog-asset-inventory/gate-results.json",
+  "head_commit_note": "post-live-export verification cycle"
+}
