@@ -1,6 +1,6 @@
 {
   "sprint": "sprint-02-convex-source-catalog-asset-inventory",
-  "run_id": "2026-07-14T09:30:00Z",
+  "run_id": "2026-07-14T09:22:00Z",
   "verdict": "pass",
   "steps_total": 6,
   "steps_executed": 6,
@@ -9,7 +9,7 @@
   "exec_surface": "surface:56 (0EBA23E1-64E1-4FE5-B85F-D1C037728A44)",
   "qa_surface_id": "E9A60651-C9D8-4F75-8D3F-71B8D091FE93",
   "qa_session_id": "ses_09ebd72bcffeJdyhBGwKwT3yMq",
-  "verified": true,
+  "verified": null,
   "steps": [
     {
       "n": 1,
@@ -48,7 +48,7 @@
       "method": "real-cli",
       "executed": true,
       "result": "pass",
-      "evidence": "All tables variance=0; unexplained_variance: 0; exit 0",
+      "evidence": "All tables variance=0; unexplained_variance: 0; no unexplained rows; exit 0",
       "log": "/tmp/holocron-gate-sprint-02-convex-source-catalog-asset-inventory/step4.log"
     },
     {
