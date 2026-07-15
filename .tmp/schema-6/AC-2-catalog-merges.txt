@@ -1,0 +1,31 @@
+# catalog:merges
+business: 12 → 3 (analysis_sessions, analysis_items, analysis_evidence)
+research: 5 → 3 (system discriminator)
+per_domain_shell_targets: 0
+
+## business sources → targets
+- revenueValidationSessions
+- competitiveAnalysisSessions
+- aiRoiSessions
+- flightsSessions
+- revenueValidationCompetitors
+- competitiveAnalysisCompetitors
+- competitiveAnalysisFeatures
+- aiRoiOpportunities
+- flightsRoutes
+- flightsPriceCalendar
+- revenueValidationEvidence
+- aiRoiEvidence
+targets: analysis_sessions, analysis_items, analysis_evidence
+discriminators: {"analysis_sessions":"type","analysis_items":"kind","analysis_evidence":"kind"}
+
+## research sources → targets
+- researchSessions
+- deepResearchSessions
+- researchIterations
+- deepResearchIterations
+- researchFindings
+targets: research_sessions, research_iterations, research_findings
+discriminators: {"research_sessions":"system","research_iterations":"system","research_findings":"system"}
+
+status: OK

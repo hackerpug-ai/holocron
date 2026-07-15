@@ -1,0 +1,49 @@
+ pubname  | puballtables 
+----------+--------------
+ zero_pub | f
+(1 row)
+
+ schemaname |        tablename        
+------------+-------------------------
+ public     | agent_plan_steps
+ public     | agent_plans
+ public     | analysis_items
+ public     | analysis_sessions
+ public     | app_settings
+ public     | assimilation_iterations
+ public     | assimilation_metadata
+ public     | assimilation_sessions
+ public     | audio_jobs
+ public     | audio_segments
+ public     | chat_messages
+ public     | conversations
+ public     | creator_profiles
+ public     | documents
+ public     | execution_plans
+ public     | feed_items
+ public     | feed_sessions
+ public     | improvement_images
+ public     | improvement_requests
+ public     | notifications
+ public     | plan_approvals
+ public     | research_findings
+ public     | research_iterations
+ public     | research_sessions
+ public     | shop_listings
+ public     | shop_sessions
+ public     | subscription_content
+ public     | subscription_filters
+ public     | subscription_links
+ public     | subscription_sources
+ public     | tasks
+ public     | tool_calls
+ public     | whats_new_reports
+ public     | whats_new_workflows
+(34 rows)
+
+
+# forbidden members check
+ tablename 
+-----------
+(0 rows)
+

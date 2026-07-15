@@ -1,0 +1,13 @@
+     tablename     | exists_in_public | in_zero_pub 
+-------------------+------------------+-------------
+ agent_telemetry   | t                | f
+ analysis_evidence | t                | f
+ beliefs           | t                | f
+ citations         | t                | f
+ claims            | t                | f
+ entities          | t                | f
+ passages          | t                | f
+ relations         | t                | f
+ sources           | t                | f
+(9 rows)
+

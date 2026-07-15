@@ -1,0 +1,30 @@
+# grep sqlite in services/platform/src/db/
+(no matches)
+
+# grep better-sqlite / libsql in schema path
+(no matches)
+
+# pg_policies (must be 0 rows)
+ schemaname | tablename | policyname | permissive | roles | cmd | qual | with_check 
+------------+-----------+------------+------------+-------+-----+------+------------
+(0 rows)
+
+
+# pg_policies count
+pg_policies_count=0
+
+# schemas (must be public-only for domain)
+ nspname 
+---------
+ public
+(1 row)
+
+
+# RLS enabled flags on public tables
+ relname | rls_enabled | rls_forced 
+---------+-------------+------------
+(0 rows)
+
+
+# all public base tables count
+public_base_tables=58
