@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  holocron-postgres — Postgres 18 (Homebrew postgresql@18)
+  Label: holocron-postgres
+  Binary: @PG_BIN@/postgres  PGDATA: @PGDATA@
+  Install: scripts/install-launchd.sh (or copy to ~/Library/LaunchAgents after substitution)
+-->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>holocron-postgres</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>@PG_BIN@/postgres</string>
+		<string>-D</string>
+		<string>@PGDATA@</string>
+	</array>
+	<key>WorkingDirectory</key>
+	<string>@PGDATA@</string>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>LC_ALL</key>
+		<string>en_US.UTF-8</string>
+		<key>PATH</key>
+		<string>@PG_BIN@:/usr/bin:/bin:/usr/sbin:/sbin</string>
+		<key>HOME</key>
+		<string>@HOME@</string>
+	</dict>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>KeepAlive</key>
+	<true/>
+	<key>ThrottleInterval</key>
+	<integer>5</integer>
+	<key>ProcessType</key>
+	<string>Background</string>
+	<key>StandardOutPath</key>
+	<string>@HOME@/Library/Logs/holocron/postgres.out.log</string>
+	<key>StandardErrorPath</key>
+	<string>@HOME@/Library/Logs/holocron/postgres.err.log</string>
+</dict>
+</plist>
