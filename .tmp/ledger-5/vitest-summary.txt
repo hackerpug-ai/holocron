@@ -1,0 +1,21 @@
+# ledger-5 independent re-verification (PLATFORM_IT=1)
+
+## Core AC suite re-run (this session)
+PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron pnpm vitest run \
+  immutability-dml-rejected, atomic-revision, concurrent-reject, idempotency,
+  cli-revise, probe-rejection, evidence-asof-transaction, evidence-asof-chain,
+  evidence-net-support
+
+Result:
+  Test Files  9 passed (9)
+  Tests       11 passed (11)
+  Duration    ~2.2s
+
+Live Postgres:
+  holocron_app: SELECT+INSERT only on beliefs (UPDATE/DELETE denied 42501)
+  revise_belief: SECURITY DEFINER=true, owner=holocron_owner
+  belief_as_of / belief_net_support: present STABLE SQL functions
+  beliefs_one_open_per_claim_uidx + beliefs_idempotency_key_uidx present
+  INSERT closed history as holocron_app: ALLOWED (residual MEDIUM)
+
+Verdict: APPROVED — AC-1..AC-5 PASS

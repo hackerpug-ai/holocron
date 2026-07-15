@@ -1,0 +1,43 @@
+=== migration line anchors ===
+services/platform/src/db/migrations/0003_evidence_one_open_belief.sql:5:CREATE UNIQUE INDEX IF NOT EXISTS "beliefs_one_open_per_claim_uidx"
+services/platform/src/db/migrations/0004_beliefs_immutability_revise.sql:1:-- ledger-2: DB-enforced immutability on beliefs + temporal-revision SECURITY DEFINER
+services/platform/src/db/migrations/0004_beliefs_immutability_revise.sql:39:REVOKE ALL ON TABLE beliefs FROM PUBLIC;
+services/platform/src/db/migrations/0004_beliefs_immutability_revise.sql:43:REVOKE ALL ON TABLE beliefs FROM holocron_app;
+services/platform/src/db/migrations/0004_beliefs_immutability_revise.sql:46:GRANT SELECT, INSERT ON TABLE beliefs TO holocron_app;
+services/platform/src/db/migrations/0004_beliefs_immutability_revise.sql:49:-- Privileged role only: UPDATE + DELETE (owner path for SECURITY DEFINER).
+services/platform/src/db/migrations/0004_beliefs_immutability_revise.sql:72:CREATE UNIQUE INDEX IF NOT EXISTS "beliefs_idempotency_key_uidx"
+services/platform/src/db/migrations/0004_beliefs_immutability_revise.sql:89:SECURITY DEFINER
+services/platform/src/db/migrations/0004_beliefs_immutability_revise.sql:125:  FOR UPDATE;
+services/platform/src/db/migrations/0004_beliefs_immutability_revise.sql:145:      'REVISE_STALE_CONCURRENT: belief % is already closed (tx_to set)',
+services/platform/src/db/migrations/0004_beliefs_immutability_revise.sql:158:      'REVISE_STALE_CONCURRENT: belief % closed concurrently',
+services/platform/src/db/migrations/0004_beliefs_immutability_revise.sql:198:) OWNER TO holocron_owner;
+=== 0005 anchors ===
+3:-- belief_as_of(claim_id, as_of):
+4:--   tx_from <= as_of AND (tx_to IS NULL OR tx_to > as_of)
+5:--   AND (valid_from IS NULL OR valid_from <= as_of)
+6:--   AND (valid_to IS NULL OR valid_to > as_of)
+8:-- belief_net_support(claim_id, as_of):
+9:--   SUM(+1 supports, -1 contradicts) on open edges (tx_to IS NULL)
+10:--   with valid_from <= as_of AND (valid_to IS NULL OR valid_to > as_of)
+12:CREATE OR REPLACE FUNCTION belief_as_of(
+22:    AND b.tx_from <= p_as_of
+24:    AND (b.valid_from IS NULL OR b.valid_from <= p_as_of)
+25:    AND (b.valid_to IS NULL OR b.valid_to > p_as_of)
+26:  ORDER BY b.tx_from DESC
+31:CREATE OR REPLACE FUNCTION belief_net_support(
+40:      WHEN 'supports' THEN 1
+41:      WHEN 'contradicts' THEN -1
+47:    AND r.relation_type IN ('supports', 'contradicts')
+49:    AND r.valid_from IS NOT NULL
+50:    AND r.valid_from <= p_as_of
+51:    AND (r.valid_to IS NULL OR r.valid_to > p_as_of);
+55:REVOKE ALL ON FUNCTION belief_as_of(text, timestamptz) FROM PUBLIC;
+58:GRANT EXECUTE ON FUNCTION belief_as_of(text, timestamptz) TO PUBLIC;
+61:REVOKE ALL ON FUNCTION belief_net_support(text, timestamptz) FROM PUBLIC;
+64:GRANT EXECUTE ON FUNCTION belief_net_support(text, timestamptz) TO PUBLIC;
+70:    EXECUTE 'GRANT EXECUTE ON FUNCTION belief_as_of(text, timestamptz) TO holocron_app';
+71:    EXECUTE 'GRANT EXECUTE ON FUNCTION belief_net_support(text, timestamptz) TO holocron_app';
+74:    EXECUTE 'GRANT EXECUTE ON FUNCTION belief_as_of(text, timestamptz) TO holocron_owner';
+75:    EXECUTE 'GRANT EXECUTE ON FUNCTION belief_net_support(text, timestamptz) TO holocron_owner';
+=== app has no UPDATE outside migration ===
+(none)

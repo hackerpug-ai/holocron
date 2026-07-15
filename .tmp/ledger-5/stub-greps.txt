@@ -1,0 +1,115 @@
+=== STUB GREPS AC-5 ===
+--- fake success execute ---
+--- TODO/FIXME in execute ---
+--- vi.mock @mastra / db ---
+tests/lib/voice/webrtc-connection.test.ts:44:vi.mock('react-native-webrtc-web-shim', () => ({
+tests/lib/voice/webrtc-connection.test.ts:55:vi.mock('react-native-incall-manager', () => ({
+tests/lib/voice/webrtc-connection.test.ts:63:vi.mock('expo-audio', () => ({
+tests/lib/voice/error-handler.test.ts:15:vi.mock('react-native', () => ({
+tests/setup/react-native.ts:4:vi.mock('react-native', async () => {
+tests/setup/react-native.ts:40:vi.mock('react-native-svg', () => {
+tests/setup/react-native.ts:72:vi.mock('expo-router', () => ({
+tests/setup/react-native.ts:99:vi.mock('nativewind', () => ({
+tests/setup/react-native.ts:109:vi.mock('@rn-primitives/slot', () => {
+tests/setup/react-native.ts:130:vi.mock('@/components/ui/icons', () => ({
+tests/hooks/use-voice-session.test.ts:15:vi.mock('expo-haptics', () => ({
+tests/hooks/use-voice-session.test.ts:23:vi.mock('react-native', () => ({
+tests/hooks/use-voice-session.test.ts:41:vi.mock('convex/react', () => ({
+tests/hooks/use-voice-session.test.ts:48:vi.mock('expo-router', () => ({
+tests/hooks/use-voice-session.test.ts:52:vi.mock('@/convex/_generated/api', () => ({
+tests/hooks/use-voice-session.test.ts:88:vi.mock('@/lib/voice/webrtc-connection', () => ({
+tests/hooks/use-voice-session.test.ts:96:vi.mock('@/lib/voice/event-handler', () => ({
+tests/hooks/use-voice-session.test.ts:103:vi.mock('@/lib/voice/tool-definitions', () => ({
+tests/hooks/use-voice-session.test.ts:107:vi.mock('@/lib/voice/function-dispatcher', () => ({
+tests/integration/whats-new-summary-generation.test.ts:11:vi.mock('ai', () => ({
+tests/integration/whats-new-summary-generation.test.ts:16:vi.mock('../../convex/lib/ai/zai_provider', () => ({
+--- z.any schemas ---
+--- skipped tests ---
+--- not implemented / stub / fake ---
+--- app-layer UPDATE/DELETE on beliefs ---
+tests/integration/service/immutability-probe-rejection.test.ts:42:      const raw = `UPDATE beliefs SET statement = 'hacked' WHERE id = '${beliefId}'`;
+tests/integration/service/RED/immutability-dml-rejection.RED.test.ts:32:  itLive('UPDATE beliefs SET statement raises ERROR 42501 and changes 0 rows', async () => {
+tests/integration/service/RED/immutability-dml-rejection.RED.test.ts:46:            UPDATE beliefs
+tests/integration/service/RED/immutability-dml-rejection.RED.test.ts:100:  itLive('DELETE FROM beliefs raises ERROR 42501 and leaves the row', async () => {
+tests/integration/service/RED/immutability-dml-rejection.RED.test.ts:113:          await sql`DELETE FROM beliefs WHERE id = ${b.id}::uuid`;
+tests/integration/service/immutability-dml-rejected.test.ts:60:            UPDATE beliefs SET statement = 'changed' WHERE id = ${beliefId}::uuid
+tests/integration/service/immutability-dml-rejected.test.ts:69:          await appSql`DELETE FROM beliefs WHERE id = ${beliefId}::uuid`;
+services/platform/src/db/migrations/0004_beliefs_immutability_revise.sql:150:  UPDATE beliefs
+--- direct UPDATE beliefs outside revise_belief ---
+services/platform/src/db/migrations/0004_beliefs_immutability_revise.sql:150:  UPDATE beliefs
+services/platform/src/db/migrations/0004_beliefs_immutability_revise.sql:151:  SET tx_to = v_now
+--- revise_belief call sites ---
+services/platform/src/cli/holo.ts:121:  evidence:revise <id>      Temporal revise via SECURITY DEFINER revise_belief(...)
+services/platform/src/cli/holo.ts:1051:      const { reviseBelief } = await import('../db/evidence/index.ts');
+services/platform/src/cli/holo.ts:1052:      const result = await reviseBelief({
+services/platform/src/cli/holo.ts:1065:        console.log('holo evidence:revise — SECURITY DEFINER revise_belief(...)');
+services/platform/src/db/evidence/index.ts:24:  reviseBelief,
+services/platform/src/db/evidence/revise.ts:2: * evidence:revise — call SECURITY DEFINER revise_belief(...) on real Postgres.
+services/platform/src/db/evidence/revise.ts:33: * Call public.revise_belief(...) and return the successor belief id.
+services/platform/src/db/evidence/revise.ts:35:export async function reviseBelief(input: ReviseBeliefInput): Promise<ReviseBeliefResult> {
+services/platform/src/db/evidence/revise.ts:45:    const rows = await sql<{ revise_belief: string }[]>`
+services/platform/src/db/evidence/revise.ts:46:      SELECT revise_belief(
+services/platform/src/db/evidence/revise.ts:55:      )::text AS revise_belief
+services/platform/src/db/evidence/revise.ts:57:    const successorId = rows[0]?.revise_belief ?? null;
+services/platform/src/db/evidence/revise.ts:59:      errors.push('revise_belief returned no id');
+tests/integration/service/immutability-concurrent-reject.test.ts:2: * AC-3 / TC-3: Stale concurrent revise_belief is rejected.
+tests/integration/service/immutability-concurrent-reject.test.ts:30:      const { reviseBelief } = await import('../../../services/platform/src/db/evidence/index');
+tests/integration/service/immutability-concurrent-reject.test.ts:42:      const t1 = await reviseBelief({
+tests/integration/service/immutability-concurrent-reject.test.ts:52:      const t2 = await reviseBelief({
+tests/integration/service/immutability-cli-revise.test.ts:2: * AC-5 / TC-5: holo evidence:revise calls revise_belief and prints successor id.
+tests/integration/service/immutability-cli-revise.test.ts:25:describe('AC-5: CLI evidence:revise calls revise_belief', () => {
+services/platform/src/db/evidence/roles.ts:3: * holocron_app: SELECT/INSERT on beliefs; EXECUTE revise_belief; no UPDATE/DELETE.
+services/platform/src/db/evidence/roles.ts:4: * holocron_owner: UPDATE/DELETE + SECURITY DEFINER owner of revise_belief.
+tests/integration/service/immutability-idempotency.test.ts:30:      const { reviseBelief } = await import('../../../services/platform/src/db/evidence/index');
+tests/integration/service/immutability-idempotency.test.ts:41:      const first = await reviseBelief({
+tests/integration/service/immutability-idempotency.test.ts:51:      const second = await reviseBelief({
+tests/integration/service/immutability-atomic-revision.test.ts:2: * AC-2 / TC-2: revise_belief closes predecessor and inserts successor atomically.
+tests/integration/service/immutability-atomic-revision.test.ts:5: * - revise_belief stub/empty or not SECURITY DEFINER
+tests/integration/service/immutability-atomic-revision.test.ts:22:describe('AC-2: revise_belief atomic supersession', () => {
+tests/integration/service/immutability-atomic-revision.test.ts:31:      const { reviseBelief } = await import('../../../services/platform/src/db/evidence/index');
+tests/integration/service/immutability-atomic-revision.test.ts:50:        const result = await reviseBelief({
+services/platform/src/db/migrations/0004_beliefs_immutability_revise.sql:5:-- (b) revise_belief(...) atomically closes the open predecessor (tx_to) and inserts
+services/platform/src/db/migrations/0004_beliefs_immutability_revise.sql:77:-- ── revise_belief: atomic temporal supersession ──────────────────────────────
+services/platform/src/db/migrations/0004_beliefs_immutability_revise.sql:78:CREATE OR REPLACE FUNCTION revise_belief(
+services/platform/src/db/migrations/0004_beliefs_immutability_revise.sql:196:ALTER FUNCTION revise_belief(
+services/platform/src/db/migrations/0004_beliefs_immutability_revise.sql:202:REVOKE ALL ON FUNCTION revise_belief(
+services/platform/src/db/migrations/0004_beliefs_immutability_revise.sql:207:GRANT EXECUTE ON FUNCTION revise_belief(
+services/platform/src/db/migrations/0004_beliefs_immutability_revise.sql:212:GRANT EXECUTE ON FUNCTION revise_belief(
+services/platform/src/db/migrations/0004_beliefs_immutability_revise.sql:229:      'GRANT EXECUTE ON FUNCTION revise_belief(uuid, text, text, text, text, double precision, timestamptz, timestamptz) TO %I',
+tests/integration/service/RED/immutability-concurrent-reject.RED.test.ts:3: * Stale concurrent revise_belief on the same open belief is rejected.
+tests/integration/service/RED/immutability-concurrent-reject.RED.test.ts:6: * WHEN two clients race revise_belief(B1.id) with distinct idempotency keys
+tests/integration/service/RED/immutability-concurrent-reject.RED.test.ts:9: * RED against current base: revise_belief missing / no stale detection → fails.
+tests/integration/service/RED/immutability-concurrent-reject.RED.test.ts:33:    'second revise_belief on already-closed predecessor raises; only one successor',
+tests/integration/service/RED/immutability-concurrent-reject.RED.test.ts:54:              SELECT revise_belief(
+tests/integration/service/RED/immutability-concurrent-reject.RED.test.ts:75:              SELECT revise_belief(
+tests/integration/service/RED/immutability-concurrent-reject.RED.test.ts:150:    'true race: two concurrent revise_belief calls yield one success and one rejection',
+tests/integration/service/RED/immutability-concurrent-reject.RED.test.ts:178:                SELECT revise_belief(
+tests/integration/service/RED/immutability-atomic-revision.RED.test.ts:3: * revise_belief(...) SECURITY DEFINER atomically closes predecessor and inserts successor.
+tests/integration/service/RED/immutability-atomic-revision.RED.test.ts:5: * RED against current base: revise_belief does not exist → assertions fail.
+tests/integration/service/RED/immutability-atomic-revision.RED.test.ts:8: *   revise_belief(p_belief_id, p_actor, p_run_id, p_idempotency_key,
+tests/integration/service/RED/immutability-atomic-revision.RED.test.ts:26:describe('AC-2 / TC-2: atomic supersession via revise_belief', () => {
+tests/integration/service/RED/immutability-atomic-revision.RED.test.ts:32:  itLive('pg_proc contains revise_belief SECURITY DEFINER function', async () => {
+--- SECURITY DEFINER ---
+services/platform/src/db/migrations/0000_groovy_stellaris.sql:540:	"idempotency_key" text,
+services/platform/src/db/migrations/meta/0000_snapshot.json:3635:        "idempotency_key": {
+services/platform/src/db/migrations/meta/0000_snapshot.json:3636:          "name": "idempotency_key",
+services/platform/src/db/migrations/0004_beliefs_immutability_revise.sql:1:-- ledger-2: DB-enforced immutability on beliefs + temporal-revision SECURITY DEFINER
+services/platform/src/db/migrations/0004_beliefs_immutability_revise.sql:6:--     exactly one successor (supersedes_id, actor, run_id, idempotency_key).
+services/platform/src/db/migrations/0004_beliefs_immutability_revise.sql:7:-- (c) Partial unique index on idempotency_key enables safe replay.
+services/platform/src/db/migrations/0004_beliefs_immutability_revise.sql:49:-- Privileged role only: UPDATE + DELETE (owner path for SECURITY DEFINER).
+services/platform/src/db/migrations/0004_beliefs_immutability_revise.sql:72:CREATE UNIQUE INDEX IF NOT EXISTS "beliefs_idempotency_key_uidx"
+services/platform/src/db/migrations/0004_beliefs_immutability_revise.sql:73:  ON "beliefs" ("idempotency_key")
+services/platform/src/db/migrations/0004_beliefs_immutability_revise.sql:74:  WHERE "idempotency_key" IS NOT NULL;
+services/platform/src/db/migrations/0004_beliefs_immutability_revise.sql:82:  p_idempotency_key text,
+services/platform/src/db/migrations/0004_beliefs_immutability_revise.sql:89:SECURITY DEFINER
+services/platform/src/db/migrations/0004_beliefs_immutability_revise.sql:109:  IF p_idempotency_key IS NOT NULL THEN
+services/platform/src/db/migrations/0004_beliefs_immutability_revise.sql:112:    WHERE idempotency_key = p_idempotency_key
+services/platform/src/db/migrations/0004_beliefs_immutability_revise.sql:121:         valid_from, valid_to, tx_from, tx_to, actor, run_id, idempotency_key
+services/platform/src/db/migrations/0004_beliefs_immutability_revise.sql:125:  FOR UPDATE;
+services/platform/src/db/migrations/0004_beliefs_immutability_revise.sql:132:  -- Re-check idempotency after lock (concurrent same-key race).
+services/platform/src/db/migrations/0004_beliefs_immutability_revise.sql:133:  IF p_idempotency_key IS NOT NULL THEN
+services/platform/src/db/migrations/0004_beliefs_immutability_revise.sql:136:    WHERE idempotency_key = p_idempotency_key
+services/platform/src/db/migrations/0004_beliefs_immutability_revise.sql:145:      'REVISE_STALE_CONCURRENT: belief % is already closed (tx_to set)',
+services/platform/src/db/migrations/0004_beliefs_immutability_revise.sql:158:      'REVISE_STALE_CONCURRENT: belief % closed concurrently',
+services/platform/src/db/migrations/0004_beliefs_immutability_revise.sql:174:    idempotency_key
+services/platform/src/db/migrations/0004_beliefs_immutability_revise.sql:186:    p_idempotency_key
