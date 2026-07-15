@@ -12,6 +12,7 @@
  * Sprint 05 service-3: manifest:resolve
  * Sprint 06 D01-04: secrets doctor | secrets:doctor | verify-no-convex-env
  * Sprint 06 D01-03: stack up | stack down | stack status | stack:up | stack:down | stack:status
+ * Sprint 07 ledger-1: evidence:seed
  */
 import { resolve } from 'node:path';
 
@@ -101,6 +102,7 @@ Usage:
   stack status              Honest health (postgres/mastra/scheduler/zero_cache/embed)
   stack:up | stack:down | stack:status
                             Colon-form aliases for stack commands
+  evidence:seed             Seed claim + 2 contradicting passages + supports/contradicts relations
 
 Options:
   --export <dir>        Path to unzipped convex export (or $CONVEX_EXPORT_DIR)
@@ -904,6 +906,30 @@ async function main(): Promise<void> {
         console.log(result.text);
       }
       process.exit(result.exitCode);
+      break;
+    }
+    case 'evidence:seed': {
+      const { seedEvidence } = await import('../db/evidence/index.ts');
+      const result = await seedEvidence();
+      if (args.json) {
+        console.log(JSON.stringify(result, null, 2));
+      } else {
+        console.log('holo evidence:seed — claim + two contradicting passages + relations');
+        for (const m of result.messages) console.log(`  ${m}`);
+        if (result.sourceId) console.log(`  sourceId:    ${result.sourceId}`);
+        if (result.claimId) console.log(`  claimId:     ${result.claimId}`);
+        if (result.passageIds.length) console.log(`  passageIds:  ${result.passageIds.join(', ')}`);
+        if (result.relationIds.length)
+          console.log(`  relationIds: ${result.relationIds.join(', ')}`);
+        console.log(
+          `  counts: sources=${result.counts.sources} passages=${result.counts.passages} claims=${result.counts.claims} relations=${result.counts.relations}`
+        );
+        if (result.errors.length) {
+          for (const e of result.errors) console.error(`  error: ${e}`);
+        }
+        console.log(result.ok ? '  status: OK' : '  status: FAIL');
+      }
+      process.exit(result.ok ? 0 : 1);
       break;
     }
     default:

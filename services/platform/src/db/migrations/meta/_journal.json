@@ -22,6 +22,13 @@
       "when": 1784079500000,
       "tag": "0002_zero_pub",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1784080000000,
+      "tag": "0003_evidence_one_open_belief",
+      "breakpoints": true
     }
   ]
 }
