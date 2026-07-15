@@ -23,6 +23,7 @@ import {
   killResidualStackProcesses,
 } from './launchd.ts';
 import {
+  probeEmbed,
   probeLaunchdRunning,
   probeMastra,
   probePostgres,
@@ -37,12 +38,15 @@ export type StackStatusReport = {
   mastra: ServiceState;
   scheduler: ServiceState;
   zero_cache: ServiceState;
+  /** Fleet embed-route health (CAP-EMB-01 ops visibility) — real HTTP probe. */
+  embed: ServiceState;
   /** Nested form for operators / tooling. */
   services: {
     postgres: ServiceState;
     mastra: ServiceState;
     scheduler: ServiceState;
     zerocache: ServiceState;
+    embed: ServiceState;
   };
   mode: 'launchd' | 'direct';
   elapsed_ms?: number;
@@ -50,6 +54,7 @@ export type StackStatusReport = {
   probes: {
     postgres: string;
     mastra: string;
+    embed: string;
     launchd_postgres?: string;
     launchd_mastra?: string;
   };
@@ -106,29 +111,35 @@ function buildStatus(
 ): StackStatusReport {
   const pg = probePostgres(cfg);
   const mastra = probeMastra(cfg);
+  const embed = probeEmbed(cfg);
   const scheduler = probeSchedulerState(cfg);
   const zeroCache = probeZeroCacheState(cfg);
 
   const postgresState: ServiceState = pg.ok ? 'healthy' : 'unhealthy';
   const mastraState: ServiceState = mastra.ok ? 'healthy' : 'unhealthy';
+  const embedState: ServiceState = embed.ok ? 'healthy' : 'unhealthy';
 
   const report: StackStatusReport = {
+    // stack up still gates on postgres+mastra only; embed is ops-visibility (CAP-EMB-01)
     ok: postgresState === 'healthy' && mastraState === 'healthy',
     postgres: postgresState,
     mastra: mastraState,
     scheduler,
     zero_cache: zeroCache,
+    embed: embedState,
     services: {
       postgres: postgresState,
       mastra: mastraState,
       scheduler,
       zerocache: zeroCache,
+      embed: embedState,
     },
     mode,
     messages,
     probes: {
       postgres: pg.detail,
       mastra: mastra.detail,
+      embed: embed.detail,
     },
   };
 
@@ -147,6 +158,7 @@ export function formatStatusText(report: StackStatusReport): string {
   lines.push(`  mastra:      ${report.mastra}`);
   lines.push(`  scheduler:   ${report.scheduler}`);
   lines.push(`  zero_cache:  ${report.zero_cache}`);
+  lines.push(`  embed:       ${report.embed}`);
   lines.push(`  mode:        ${report.mode}`);
   if (report.elapsed_ms !== undefined) {
     lines.push(`  elapsed_ms:  ${report.elapsed_ms}`);

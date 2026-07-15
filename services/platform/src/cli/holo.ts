@@ -98,7 +98,7 @@ Usage:
   verify-no-convex-env      T-PLAT-017 build gate: fail if Convex env aliases remain
   stack up                  Launch Postgres + Mastra (launchd) and wait healthy (≤60s)
   stack down                Stop stack services; zero orphaned holocron PIDs
-  stack status              Honest health (postgres/mastra/scheduler/zero_cache)
+  stack status              Honest health (postgres/mastra/scheduler/zero_cache/embed)
   stack:up | stack:down | stack:status
                             Colon-form aliases for stack commands
 
