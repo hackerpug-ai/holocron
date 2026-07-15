@@ -31,7 +31,7 @@ This roadmap is a **consolidation** of proposals from the project's dispatched p
 | 4 | — | [Sprint 04: Provision Postgres and Domain Schema](#sprint-04-provision-postgres-and-domain-schema) | `holo db:migrate` clean on real PG 18; ≥55 tables, indexes, replication ready | 6 | 1, 2 | ✅ Completed | `mk6-postgres-schema` | — |
 | 5 | — | [Sprint 05: Mastra Service and Scoped-Key Auth](#sprint-05-mastra-service-and-scoped-key-auth) | Unkeyed mutation → 401; correctly-scoped key → 200 on the running service | 5 | 1, 4 | ✅ Completed | `mk6-mastra-service` | — |
 | 6 | — | [Sprint 06: Headless Deployment and Dev/Prod Parity](#sprint-06-headless-deployment-and-devprod-parity) | `holo stack up` — Postgres/Mastra/scheduler/zero-cache healthy in 60s | 6 | 4, 5 | 🟠 In Progress | `mk6-deployment` | — |
-| 7 | — | [Sprint 07: Evidence-Graph Substrate and Ledger Immutability](#sprint-07-evidence-graph-substrate-and-ledger-immutability) | Direct DML on `beliefs` rejected; authorized temporal revision atomic | 5 | 4 | 🟠 In Progress | `mk6-evidence-ledger` | — |
+| 7 | — | [Sprint 07: Evidence-Graph Substrate and Ledger Immutability](#sprint-07-evidence-graph-substrate-and-ledger-immutability) | Direct DML on `beliefs` rejected; authorized temporal revision atomic | 5 | 4 | ✅ Completed | `mk6-evidence-ledger` | — |
 | 8 | — | [Sprint 08: Role Router, Local-First and Degraded Modes](#sprint-08-role-router-local-first-and-degraded-modes) | Normal mission routes every call to the fleet; zero Anthropic on default path | 5 | 1, 5 | 🔵 Planned | `mk6-inference-router` | — |
 | 9 | — | [Sprint 09: Structured Output on Local Models](#sprint-09-structured-output-on-local-models) | `holo extract` repairs or fails explicitly past cap — never silently accepts | 4 | 8 | 🔵 Planned | `mk6-structured-output` | — |
 | 10 | — | [Sprint 10: Local Re-embedding and Hybrid RRF Search](#sprint-10-local-re-embedding-and-hybrid-rrf-search) | Past-8K span retrievable via one-round-trip pgvector+FTS RRF fusion | 5 | 1, 4 | 🔵 Planned | `mk6-local-search` | — |
@@ -408,7 +408,7 @@ The `Milestone` cell links to the GitHub Milestone titled `sprint-{NN}`; sprints
 
 **Sequence:** 7
 **Timeline:** Phase 1 — Platform Foundation
-**Status:** 🟠 In Progress
+**Status:** ✅ Completed
 **Proposed by:** mastra-planner
 **Milestone:** — (`sprint-07`)
 **Branch:** `mk6-evidence-ledger`

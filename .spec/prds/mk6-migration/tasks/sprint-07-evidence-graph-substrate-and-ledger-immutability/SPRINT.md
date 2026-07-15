@@ -3,7 +3,7 @@ sprint: 7
 title: Evidence-Graph Substrate and Ledger Immutability
 sequence: 7
 timeline: Phase 1 — Platform Foundation
-status: Planned
+status: Complete
 prd: ../../README.md
 capability_coverage: []
 ---
@@ -12,9 +12,10 @@ capability_coverage: []
 
 **Sequence:** 7
 **Timeline:** Phase 1 — Platform Foundation
-**Status:** 🔵 Planned
+**Status:** ✅ Complete
 **Proposed by:** mastra-planner
 **Branch:** `mk6-evidence-ledger`
+**Closed:** 2026-07-15 — acceptance gate passed and independently re-verified
 
 ---
 
