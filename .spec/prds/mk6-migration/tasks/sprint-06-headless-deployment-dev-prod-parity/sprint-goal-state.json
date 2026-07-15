@@ -1,8 +1,8 @@
 {
   "sprint_id": "sprint-06-headless-deployment-dev-prod-parity",
-  "updated_at": "2026-07-15T16:07:41.201210+00:00",
+  "updated_at": "2026-07-15T16:08:00.675910+00:00",
   "protected_branch": "main",
-  "main_tip": "b6e3441bd00d44c3b85460c3d12696ed2939ce8a",
+  "main_tip": "602fe352ac734c0f864d259682ae76b5f074b6fe",
   "tasks": {
     "all_completed": true,
     "total": 7,
@@ -100,5 +100,6 @@
     "fix_commit": "ad2bfc39231399f50c7853f23eeffe1c5b88a0b2",
     "advisory_count": 6
   },
-  "met": true
+  "met": true,
+  "goal_complete_sentinel": "GATE-GOAL: ACHIEVED"
 }
