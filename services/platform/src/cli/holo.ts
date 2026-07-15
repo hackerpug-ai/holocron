@@ -11,6 +11,7 @@
  * Sprint 05 service-2: registry:list | registry:probe | verify:identity | verify:no-dup-validation
  * Sprint 05 service-3: manifest:resolve
  * Sprint 06 D01-04: secrets doctor | secrets:doctor | verify-no-convex-env
+ * Sprint 06 D01-03: stack up | stack down | stack status | stack:up | stack:down | stack:status
  */
 import { resolve } from 'node:path';
 
@@ -95,6 +96,11 @@ Usage:
   secrets doctor            Resolve required keys from consolidated secrets (env + secrets.yaml)
   secrets:doctor            Alias for secrets doctor
   verify-no-convex-env      T-PLAT-017 build gate: fail if Convex env aliases remain
+  stack up                  Launch Postgres + Mastra (launchd) and wait healthy (≤60s)
+  stack down                Stop stack services; zero orphaned holocron PIDs
+  stack status              Honest health (postgres/mastra/scheduler/zero_cache)
+  stack:up | stack:down | stack:status
+                            Colon-form aliases for stack commands
 
 Options:
   --export <dir>        Path to unzipped convex export (or $CONVEX_EXPORT_DIR)
@@ -843,6 +849,61 @@ async function main(): Promise<void> {
         console.log(formatVerifyNoConvexEnvText(report));
       }
       process.exit(report.ok ? 0 : 1);
+      break;
+    }
+    case 'stack': {
+      // Space form: `holo stack up|down|status` (D01-03 + RED harness)
+      const sub = args.positional[1];
+      if (sub !== 'up' && sub !== 'down' && sub !== 'status') {
+        console.error(
+          sub
+            ? `unknown command: stack ${sub}`
+            : 'error: stack requires a subcommand (up|down|status)'
+        );
+        console.error('Usage: holo stack up | holo stack down | holo stack status [--json]');
+        process.exit(2);
+      }
+      const { stackUp, stackDown, stackStatus } = await import('../stack/index.ts');
+      const result = sub === 'up' ? stackUp() : sub === 'down' ? stackDown() : stackStatus();
+      if (args.json) {
+        console.log(JSON.stringify(result.report, null, 2));
+      } else {
+        console.log(result.text);
+      }
+      process.exit(result.exitCode);
+      break;
+    }
+    case 'stack:up': {
+      const { stackUp } = await import('../stack/index.ts');
+      const result = stackUp();
+      if (args.json) {
+        console.log(JSON.stringify(result.report, null, 2));
+      } else {
+        console.log(result.text);
+      }
+      process.exit(result.exitCode);
+      break;
+    }
+    case 'stack:down': {
+      const { stackDown } = await import('../stack/index.ts');
+      const result = stackDown();
+      if (args.json) {
+        console.log(JSON.stringify(result.report, null, 2));
+      } else {
+        console.log(result.text);
+      }
+      process.exit(result.exitCode);
+      break;
+    }
+    case 'stack:status': {
+      const { stackStatus } = await import('../stack/index.ts');
+      const result = stackStatus();
+      if (args.json) {
+        console.log(JSON.stringify(result.report, null, 2));
+      } else {
+        console.log(result.text);
+      }
+      process.exit(result.exitCode);
       break;
     }
     default:

@@ -153,6 +153,40 @@ describe('AC-1: stack supervisor lifecycle (real holo CLI + real probes)', () =>
         health.status,
         'Mastra /health must not succeed after stack down (would mean orphaned process)'
       ).not.toBe(0);
+
+      // AC-2: Postgres must NOT accept connections after stack down (hard probe)
+      const pgCandidates = [
+        ['pg_isready', ['-h', '127.0.0.1', '-p', '5432'] as string[]],
+        [
+          '/opt/homebrew/opt/postgresql@18/bin/pg_isready',
+          ['-h', '127.0.0.1', '-p', '5432'] as string[],
+        ],
+        [
+          '/usr/local/opt/postgresql@18/bin/pg_isready',
+          ['-h', '127.0.0.1', '-p', '5432'] as string[],
+        ],
+      ] as const;
+      let pgProbed = false;
+      for (const [bin, args] of pgCandidates) {
+        const pg = runCmd(bin, [...args]);
+        if (pg.status === null && /ENOENT|not found/i.test(pg.combined)) {
+          continue;
+        }
+        pgProbed = true;
+        expect(
+          pg.status,
+          `pg_isready must fail (nonzero) after stack down; got ${pg.status}: ${pg.combined}`
+        ).not.toBe(0);
+        break;
+      }
+      if (!pgProbed) {
+        // Fallback: stack status must report postgres unhealthy/down (not healthy)
+        const status = runStack('status');
+        expect(status.combined.toLowerCase()).toMatch(
+          /postgres[^\n]*(unhealthy|down|not.?ready|pending)/
+        );
+        expect(status.combined.toLowerCase()).not.toMatch(/postgres[^\n]*healthy/);
+      }
     },
     90_000
   );
