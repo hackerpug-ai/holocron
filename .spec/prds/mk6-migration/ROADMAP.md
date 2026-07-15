@@ -32,7 +32,7 @@ This roadmap is a **consolidation** of proposals from the project's dispatched p
 | 5 | — | [Sprint 05: Mastra Service and Scoped-Key Auth](#sprint-05-mastra-service-and-scoped-key-auth) | Unkeyed mutation → 401; correctly-scoped key → 200 on the running service | 5 | 1, 4 | ✅ Completed | `mk6-mastra-service` | — |
 | 6 | — | [Sprint 06: Headless Deployment and Dev/Prod Parity](#sprint-06-headless-deployment-and-devprod-parity) | `holo stack up` — Postgres/Mastra/scheduler/zero-cache healthy in 60s | 6 | 4, 5 | 🟠 In Progress | `mk6-deployment` | — |
 | 7 | — | [Sprint 07: Evidence-Graph Substrate and Ledger Immutability](#sprint-07-evidence-graph-substrate-and-ledger-immutability) | Direct DML on `beliefs` rejected; authorized temporal revision atomic | 5 | 4 | ✅ Completed | `mk6-evidence-ledger` | — |
-| 8 | — | [Sprint 08: Role Router, Local-First and Degraded Modes](#sprint-08-role-router-local-first-and-degraded-modes) | Normal mission routes every call to the fleet; zero Anthropic on default path | 5 | 1, 5 | 🔵 Planned | `mk6-inference-router` | — |
+| 8 | — | [Sprint 08: Role Router, Local-First and Degraded Modes](#sprint-08-role-router-local-first-and-degraded-modes) | Normal mission routes every call to the fleet; zero Anthropic on default path | 5 | 1, 5 | 🟠 In Progress | `mk6-inference-router` | — |
 | 9 | — | [Sprint 09: Structured Output on Local Models](#sprint-09-structured-output-on-local-models) | `holo extract` repairs or fails explicitly past cap — never silently accepts | 4 | 8 | 🔵 Planned | `mk6-structured-output` | — |
 | 10 | — | [Sprint 10: Local Re-embedding and Hybrid RRF Search](#sprint-10-local-re-embedding-and-hybrid-rrf-search) | Past-8K span retrievable via one-round-trip pgvector+FTS RRF fusion | 5 | 1, 4 | 🔵 Planned | `mk6-local-search` | — |
 | 11 | — | [Sprint 11: Scheduler and Durable Queue](#sprint-11-scheduler-and-durable-queue) | kill-9 at each boundary → exactly one observable effect + dedupe record | 5 | 1, 4, 5 | 🔵 Planned | `mk6-scheduler-queue` | — |
@@ -464,7 +464,7 @@ The `Milestone` cell links to the GitHub Milestone titled `sprint-{NN}`; sprints
 
 **Sequence:** 8
 **Timeline:** Phase 2 — Inference and Data
-**Status:** 🔵 Planned
+**Status:** 🟠 In Progress
 **Proposed by:** mastra-planner
 **Milestone:** — (`sprint-08`)
 **Branch:** `mk6-inference-router`
@@ -492,6 +492,13 @@ The `Milestone` cell links to the GitHub Milestone titled `sprint-{NN}`; sprints
 | infer-3 | Degraded-mode controller (fleet-down → defined reduced mode, auto-resume) | mastra-implementer | 180 min |
 | infer-4 | RED tests: zero-Anthropic default path, over-budget escape blocked, degraded-not-cloud | red-test-generator | 180 min |
 | infer-5 | Review local-first structural integrity + escape leakage | mastra-reviewer | 90 min |
+
+**Next Sprint Tasks:** *(expanded by kb-sprint-tasks-plan on 2026-07-15 — SPRINT.md + 5 task files at [`tasks/sprint-08-role-router-local-first-and-degraded-modes/`](tasks/sprint-08-role-router-local-first-and-degraded-modes/); avg ~115/115, 0 fakeable/CRITICAL scenarios — `validate_scenario` clean on every behavioral AC, independently re-verified on the rendered files. Topological order: infer-1 → infer-2 ∥ infer-3 → infer-4 → infer-5.)*
+- infer-1-resolve-model-router-default-deny-claude-escape.md
+- infer-2-budget-ledger-deterministic-escape-pre-check-telemetry.md
+- infer-3-degraded-mode-controller-fleet-down-auto-resume.md
+- infer-4-red-tests-zero-anthropic-over-budget-blocked-degraded-not-cloud.md
+- infer-5-review-local-first-structural-integrity-escape-leakage.md
 
 #### Dependencies
 
