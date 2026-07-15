@@ -37,7 +37,7 @@ TASK: D01-04 — Consolidated secrets source + Convex-env-alias removal + `holo 
 ================================================================================
 
 TASK_TYPE:  FEATURE
-STATUS:     Backlog
+STATUS:     Completed
 PRIORITY:   P0
 EFFORT:     M  (150 min)
 AGENT:      implementer=devops-engineer | reviewer=code-reviewer
@@ -83,10 +83,10 @@ Consolidated secrets config exists at services/platform/config/secrets.yaml (git
 --------------------------------------------------------------------------------
 DONE WHEN
 --------------------------------------------------------------------------------
-- [ ] AC-1 (PRIMARY): Consolidated secrets source resolves all required config keys
-- [ ] AC-2 (PRIMARY): Convex env aliases removed from all repo surfaces
-- [ ] AC-3 (PRIMARY): holo verify-no-convex-env command greps and fails if aliases found
-- [ ] AC-4: Consolidated secrets config is gitignored and never committed
+- [x] AC-1 (PRIMARY): Consolidated secrets source resolves all required config keys
+- [x] AC-2 (PRIMARY): Convex env aliases removed from all repo surfaces
+- [x] AC-3 (PRIMARY): holo verify-no-convex-env command greps and fails if aliases found
+- [x] AC-4: Consolidated secrets config is gitignored and never committed
 - [ ] `pnpm tsgo --noEmit` clean + `pnpm biome check .` clean (only SCOPE.writeAllowed files modified)
 
 --------------------------------------------------------------------------------
