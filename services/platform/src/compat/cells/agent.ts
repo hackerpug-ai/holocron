@@ -10,6 +10,7 @@
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import { Agent } from '@mastra/core/agent';
 import type { Mastra } from '@mastra/core/mastra';
+import { assertNoTripwire, TripwireError } from '../../mastra/tripwire.ts';
 import { FLEET_KEY, FLEET_URL } from '../../mastra.ts';
 
 export interface AgentCellResult {
@@ -17,6 +18,12 @@ export interface AgentCellResult {
   text?: string;
   cloudRequests: number;
   error?: string;
+  /** Present when a processor tripwire blocked the generate call. */
+  tripwire?: {
+    reason: string;
+    processorId: string;
+    retry?: boolean;
+  };
 }
 
 /**
@@ -89,6 +96,26 @@ export async function runAgentCell(mastra: Mastra): Promise<AgentCellResult> {
     const { result, cloudRequests } = await withCloudRequestTracking(() =>
       agent.generate('Say "compatibility spike green" and nothing else.')
     );
+
+    // Fail closed on guardrail tripwire — never treat blocked generate as success.
+    // assertNoTripwire checks result.tripwire (+ finishReason === 'other').
+    try {
+      assertNoTripwire(result);
+    } catch (err) {
+      if (err instanceof TripwireError) {
+        return {
+          ok: false,
+          cloudRequests,
+          error: err.message,
+          tripwire: {
+            reason: err.tripwire.reason,
+            processorId: err.tripwire.processorId,
+            retry: err.tripwire.retry,
+          },
+        };
+      }
+      throw err;
+    }
 
     const text = result.text;
     if (!text || text.trim().length === 0) {
