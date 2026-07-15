@@ -1,0 +1,104 @@
+{
+  "sprint_id": "sprint-06-headless-deployment-dev-prod-parity",
+  "updated_at": "2026-07-15T16:07:41.201210+00:00",
+  "protected_branch": "main",
+  "main_tip": "b6e3441bd00d44c3b85460c3d12696ed2939ce8a",
+  "tasks": {
+    "all_completed": true,
+    "total": 7,
+    "completed": 7,
+    "ids": [
+      "D01-01",
+      "D01-02",
+      "D01-03",
+      "D01-04",
+      "D01-05",
+      "D01-06",
+      "REDHAT-FIX-RH-1"
+    ]
+  },
+  "gate": {
+    "overall": "PASS",
+    "source": ".spec/prds/mk6-migration/tasks/sprint-06-headless-deployment-dev-prod-parity/gate-results.json",
+    "run_id": "2026-07-15T16:07:40Z",
+    "steps": [
+      {
+        "n": 1,
+        "text": "Run holo stack up on the mini \u2014 Postgres, Mastra, scheduler, zero-cache healthy within 60s",
+        "run_mode": "AUTO",
+        "result": "PASS",
+        "evidence": "/tmp/holocron-gate-sprint-06-headless-deployment-dev-prod-parity/step1.log"
+      },
+      {
+        "n": 2,
+        "text": "Run holo stack down on the mini \u2014 all four processes exit clean, zero orphaned PIDs",
+        "run_mode": "AUTO",
+        "result": "PASS",
+        "evidence": "/tmp/holocron-gate-sprint-06-headless-deployment-dev-prod-parity/step2.log"
+      },
+      {
+        "n": 3,
+        "text": "Run holo stack up on the laptop \u2014 identical health result under the same config contract",
+        "run_mode": "AUTO",
+        "result": "PASS",
+        "evidence": "/tmp/holocron-gate-sprint-06-headless-deployment-dev-prod-parity/step3.log"
+      },
+      {
+        "n": 4,
+        "text": "Run holo secrets doctor \u2014 every config value resolves, zero missing keys reported",
+        "run_mode": "AUTO",
+        "result": "PASS",
+        "evidence": "/tmp/holocron-gate-sprint-06-headless-deployment-dev-prod-parity/step4.log"
+      },
+      {
+        "n": 5,
+        "text": "Run holo verify-no-convex-env \u2014 zero Convex env aliases found across the repo",
+        "run_mode": "AUTO",
+        "result": "PASS",
+        "evidence": "/tmp/holocron-gate-sprint-06-headless-deployment-dev-prod-parity/step5.log"
+      },
+      {
+        "n": 6,
+        "text": "Kill Mastra mid-run, rerun holo stack up \u2014 service restarts, reports healthy, no manual cleanup",
+        "run_mode": "AUTO",
+        "result": "PASS",
+        "evidence": "/tmp/holocron-gate-sprint-06-headless-deployment-dev-prod-parity/step6.log"
+      }
+    ]
+  },
+  "e2e": {
+    "overall": "PASS",
+    "framework": "headless-service",
+    "source": ".tmp/sprint-06-headless-deployment-dev-prod-parity/e2e-verification.json",
+    "suite": "services/platform/src/cli/__tests__ PLATFORM_IT",
+    "suite_result": "stack/dev-parity/secrets/embed + RH-1 secrets runtime green; Bearer HOLO_KEY_RN HTTP 200"
+  },
+  "build": {
+    "overall": "PASS",
+    "source": ".tmp/sprint-06-headless-deployment-dev-prod-parity/build-verification.json"
+  },
+  "integration": {
+    "trunk_consolidated": true,
+    "orphans": [],
+    "stranded_tasks": []
+  },
+  "human_test": {
+    "verdict": "pass",
+    "steps_total": 6,
+    "steps_executed": 6,
+    "steps_passed": 6,
+    "source": ".spec/prds/mk6-migration/tasks/sprint-06-headless-deployment-dev-prod-parity/gate-results.json",
+    "verification": ".spec/prds/mk6-migration/tasks/sprint-06-headless-deployment-dev-prod-parity/gate-verification.json",
+    "verified": true,
+    "run_id": "2026-07-15T16:07:40Z"
+  },
+  "redhat": {
+    "status": "closed",
+    "blocking_findings": 0,
+    "report": ".spec/prds/mk6-migration/tasks/sprint-06-headless-deployment-dev-prod-parity/REDHAT-CLOSEOUT.md",
+    "fix_landed": "REDHAT-FIX-RH-1",
+    "fix_commit": "ad2bfc39231399f50c7853f23eeffe1c5b88a0b2",
+    "advisory_count": 6
+  },
+  "met": true
+}

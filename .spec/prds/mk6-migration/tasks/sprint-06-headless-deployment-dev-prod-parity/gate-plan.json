@@ -1,0 +1,79 @@
+{
+  "sprint": "sprint-06-headless-deployment-dev-prod-parity",
+  "planned_at": "2026-07-15T15:50:36Z",
+  "planned_steps": 6,
+  "steps": [
+    {
+      "n": 1,
+      "text": "Run holo stack up on the mini \u2014 Postgres, Mastra, scheduler, zero-cache healthy within 60s",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "start=$(python3 -c 'import time;print(int(time.time()*1000))'); out=$(bun services/platform/src/cli/holo.ts stack up 2>&1); ec=$?; end=$(python3 -c 'import time;print(int(time.time()*1000))'); echo \"$out\"; echo EXIT_$ec; echo ELAPSED_MS=$((end-start)); test $ec -eq 0 && test $((end-start)) -le 60000 && echo \"$out\" | grep -i postgres | grep -iq healthy && echo \"$out\" | grep -i mastra | grep -iq healthy && echo STACK_UP_OK",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "STACK_UP_OK"
+      }
+    },
+    {
+      "n": 2,
+      "text": "Run holo stack down on the mini \u2014 all four processes exit clean, zero orphaned PIDs",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "out=$(bun services/platform/src/cli/holo.ts stack down 2>&1); ec=$?; echo \"$out\"; echo EXIT_$ec; test $ec -eq 0 || exit $ec; sleep 1; remaining=$(launchctl list 2>/dev/null | awk '/holocron-(postgres|mastra|zerocache|scheduler)/{print}' || true); echo \"REMAINING=$remaining\"; test -z \"$remaining\" && echo STACK_DOWN_OK",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "STACK_DOWN_OK"
+      }
+    },
+    {
+      "n": 3,
+      "text": "Run holo stack up on the laptop \u2014 identical health result under the same config contract",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "out=$(bun services/platform/src/cli/holo.ts stack up 2>&1); ec=$?; echo \"$out\"; echo EXIT_$ec; test $ec -eq 0 || exit $ec; st=$(bun services/platform/src/cli/holo.ts stack status 2>&1); echo \"$st\"; echo \"$st\" | grep -i postgres | grep -iq healthy && echo \"$st\" | grep -i mastra | grep -iq healthy && echo \"$st\" | grep -i embed | grep -iq healthy && echo LAPTOP_STACK_UP_OK",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "LAPTOP_STACK_UP_OK"
+      }
+    },
+    {
+      "n": 4,
+      "text": "Run holo secrets doctor \u2014 every config value resolves, zero missing keys reported",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "out=$(bun services/platform/src/cli/holo.ts secrets doctor 2>&1); ec=$?; echo \"$out\"; echo EXIT_$ec; test $ec -eq 0 && echo \"$out\" | grep -Eiq 'keys absent:[[:space:]]*0' && echo \"$out\" | grep -Eiq 'status:[[:space:]]*OK' && echo SECRETS_DOCTOR_OK",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "SECRETS_DOCTOR_OK"
+      }
+    },
+    {
+      "n": 5,
+      "text": "Run holo verify-no-convex-env \u2014 zero Convex env aliases found across the repo",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "out=$(bun services/platform/src/cli/holo.ts verify-no-convex-env 2>&1); ec=$?; echo \"$out\"; echo EXIT_$ec; test $ec -eq 0 && echo \"$out\" | grep -iq 'zero Convex env aliases found' && echo VERIFY_NO_CONVEX_OK",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "VERIFY_NO_CONVEX_OK"
+      }
+    },
+    {
+      "n": 6,
+      "text": "Kill Mastra mid-run, rerun holo stack up \u2014 service restarts, reports healthy, no manual cleanup",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "launchctl kill SIGTERM gui/$(id -u)/holocron-mastra 2>/dev/null || launchctl stop gui/$(id -u)/holocron-mastra 2>/dev/null || true; sleep 2; out=$(bun services/platform/src/cli/holo.ts stack up 2>&1); ec=$?; echo \"$out\"; echo EXIT_$ec; test $ec -eq 0 || exit $ec; st=$(bun services/platform/src/cli/holo.ts stack status 2>&1); echo \"$st\"; echo \"$st\" | grep -i mastra | grep -iq healthy && echo MASTRA_RESTART_OK",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "MASTRA_RESTART_OK"
+      }
+    }
+  ]
+}

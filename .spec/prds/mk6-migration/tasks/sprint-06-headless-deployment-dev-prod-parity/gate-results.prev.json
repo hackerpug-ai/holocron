@@ -1,0 +1,80 @@
+{
+  "sprint": "sprint-06-headless-deployment-dev-prod-parity",
+  "run_id": "2026-07-15T15:51:05Z",
+  "verdict": "pass",
+  "steps_total": 6,
+  "steps_executed": 6,
+  "steps_passed": 6,
+  "ui_driver": "none",
+  "exec_surface": "surface:250 (DDECA093-BE9E-4D24-8C53-663BCE003DF9)",
+  "qa_surface_id": "9CC747D6-3F9C-46E7-897E-8D4DEF5AB0E1",
+  "runner": "cmux-exec-step",
+  "steps": [
+    {
+      "n": 1,
+      "text": "Run holo stack up on the mini \u2014 Postgres, Mastra, scheduler, zero-cache healthy within 60s",
+      "type": "terminal",
+      "method": "real-cli",
+      "executed": true,
+      "result": "pass",
+      "evidence": "STACK_UP_OK",
+      "log": "/tmp/holocron-gate-sprint-06-headless-deployment-dev-prod-parity/step1.log",
+      "cmd_sha": "5f82702885bb5ce8355e6d24c11e6c8e8320f050343757c4e0b18f8e560bc001"
+    },
+    {
+      "n": 2,
+      "text": "Run holo stack down on the mini \u2014 all four processes exit clean, zero orphaned PIDs",
+      "type": "terminal",
+      "method": "real-cli",
+      "executed": true,
+      "result": "pass",
+      "evidence": "STACK_DOWN_OK",
+      "log": "/tmp/holocron-gate-sprint-06-headless-deployment-dev-prod-parity/step2.log",
+      "cmd_sha": "dbef6b521320269e145d709326141e5f6289f97947fcf7d655d19e96be6e96aa"
+    },
+    {
+      "n": 3,
+      "text": "Run holo stack up on the laptop \u2014 identical health result under the same config contract",
+      "type": "terminal",
+      "method": "real-cli",
+      "executed": true,
+      "result": "pass",
+      "evidence": "LAPTOP_STACK_UP_OK",
+      "log": "/tmp/holocron-gate-sprint-06-headless-deployment-dev-prod-parity/step3.log",
+      "cmd_sha": "a52ac54850d2bb141bc8d6bd6a2734e52ff31545a58a85dfb12fc0188683c9f4"
+    },
+    {
+      "n": 4,
+      "text": "Run holo secrets doctor \u2014 every config value resolves, zero missing keys reported",
+      "type": "terminal",
+      "method": "real-cli",
+      "executed": true,
+      "result": "pass",
+      "evidence": "SECRETS_DOCTOR_OK",
+      "log": "/tmp/holocron-gate-sprint-06-headless-deployment-dev-prod-parity/step4.log",
+      "cmd_sha": "9f7c423b483551a90d5ed070ea6a2fe171ca2572bcd6c3598a349a02b502f007"
+    },
+    {
+      "n": 5,
+      "text": "Run holo verify-no-convex-env \u2014 zero Convex env aliases found across the repo",
+      "type": "terminal",
+      "method": "real-cli",
+      "executed": true,
+      "result": "pass",
+      "evidence": "VERIFY_NO_CONVEX_OK",
+      "log": "/tmp/holocron-gate-sprint-06-headless-deployment-dev-prod-parity/step5.log",
+      "cmd_sha": "77ca486d05a3e0bb8f1a840ef0f46dabe510de46b41c516b9d9e5df1b7564213"
+    },
+    {
+      "n": 6,
+      "text": "Kill Mastra mid-run, rerun holo stack up \u2014 service restarts, reports healthy, no manual cleanup",
+      "type": "terminal",
+      "method": "real-cli",
+      "executed": true,
+      "result": "pass",
+      "evidence": "MASTRA_RESTART_OK",
+      "log": "/tmp/holocron-gate-sprint-06-headless-deployment-dev-prod-parity/step6.log",
+      "cmd_sha": "8889954c222f5d45e26768b242f96f5767795ce3f77a137f091ee429b4cfa300"
+    }
+  ]
+}

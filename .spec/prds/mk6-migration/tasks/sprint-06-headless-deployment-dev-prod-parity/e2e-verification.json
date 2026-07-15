@@ -1,0 +1,35 @@
+{
+  "sprint_id": "sprint-06-headless-deployment-dev-prod-parity",
+  "overall": "PASS",
+  "framework": "headless-service",
+  "suite": "services/platform/src/cli/__tests__ PLATFORM_IT",
+  "suite_result": "stack/dev-parity/secrets/embed + RH-1 secrets runtime green; Bearer HOLO_KEY_RN HTTP 200",
+  "written_at_commit": "b6e3441bd00d44c3b85460c3d12696ed2939ce8a",
+  "cycle": 1,
+  "steps": [
+    {
+      "n": 1,
+      "result": "PASS"
+    },
+    {
+      "n": 2,
+      "result": "PASS"
+    },
+    {
+      "n": 3,
+      "result": "PASS"
+    },
+    {
+      "n": 4,
+      "result": "PASS"
+    },
+    {
+      "n": 5,
+      "result": "PASS"
+    },
+    {
+      "n": 6,
+      "result": "PASS"
+    }
+  ]
+}
