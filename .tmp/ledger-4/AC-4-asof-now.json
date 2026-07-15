@@ -1,0 +1,9 @@
+{
+  "status": 2,
+  "stdout": "",
+  "stderr": "unknown flag: --claim-id\n",
+  "beliefId": null,
+  "statement": null,
+  "b1Id": "019f673d-9834-719d-a997-9a2867fdeb99",
+  "b2Id": "019f673d-9835-700e-bd86-806c6de277cc"
+}

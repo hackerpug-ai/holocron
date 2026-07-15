@@ -1,0 +1,21 @@
+{
+  "ac": "AC-2",
+  "tc": "TC-2",
+  "b1Id": "019f673d-97ba-7ed6-be32-19ea8aa1520d",
+  "successorId": "019f673d-97c1-7921-827e-ff8447e9a686",
+  "reviseError": null,
+  "must_observe": {
+    "revise_belief succeeds (no error)": true,
+    "returns B2.id": true,
+    "B1.tx_to IS NOT NULL": true,
+    "B2.supersedes_id = B1.id": true,
+    "B2.tx_from IS NOT NULL": true,
+    "B2.tx_to IS NULL": true,
+    "exactly 1 open belief": true,
+    "exactly 1 closed belief": true,
+    "B2.statement = new statement": true,
+    "B2.actor = op-1": true,
+    "B2.run_id = run-123": true,
+    "B2.idempotency_key = key-abc": true
+  }
+}

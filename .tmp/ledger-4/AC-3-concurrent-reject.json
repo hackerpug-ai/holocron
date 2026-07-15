@@ -1,0 +1,33 @@
+{
+  "ac": "AC-3",
+  "tc": "TC-3",
+  "b1Id": "019f673d-96fb-7bf4-86ca-a3e00465972f",
+  "t1Id": "019f673d-9702-725e-97c5-d9179eeffeb3",
+  "t1Error": null,
+  "t2Id": null,
+  "t2Error": {
+    "code": "P0001",
+    "message": "REVISE_STALE_CONCURRENT: belief 019f673d-96fb-7bf4-86ca-a3e00465972f is already closed (tx_to set)"
+  },
+  "openBeliefs": [
+    {
+      "id": "019f673d-9702-725e-97c5-d9179eeffeb3",
+      "supersedes_id": "019f673d-96fb-7bf4-86ca-a3e00465972f",
+      "statement": "statement-from-t1"
+    }
+  ],
+  "successorCount": 1,
+  "predecessorTxTo": "2026-07-15 13:25:17.440556-06",
+  "must_observe": {
+    "T1 succeeds": true,
+    "T2 raises exception": true,
+    "exactly 1 open belief": true,
+    "exactly 1 successor of B1": true,
+    "B1.tx_to set": true
+  },
+  "must_not_observe": {
+    "bothSucceeded": false,
+    "twoOpen": false,
+    "twoSuccessors": false
+  }
+}

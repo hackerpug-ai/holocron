@@ -1,0 +1,15 @@
+{
+  "ac": "AC-1",
+  "tc": "TC-1",
+  "operation": "DELETE",
+  "must_observe": {
+    "DELETE raises SQLSTATE 42501": false,
+    "deleteCode": null,
+    "deleteMessage": "",
+    "belief row still present COUNT=1": false
+  },
+  "must_not_observe": {
+    "deleteSucceeded": true,
+    "remainingCount": 0
+  }
+}

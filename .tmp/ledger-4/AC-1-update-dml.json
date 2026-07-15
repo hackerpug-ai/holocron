@@ -1,0 +1,16 @@
+{
+  "ac": "AC-1",
+  "tc": "TC-1",
+  "operation": "UPDATE",
+  "must_observe": {
+    "UPDATE raises SQLSTATE 42501": false,
+    "updateCode": null,
+    "updateMessage": "",
+    "row statement unchanged": false,
+    "COUNT WHERE statement = changed = 0": false
+  },
+  "must_not_observe": {
+    "updateSucceeded": true,
+    "statementAfter": "changed-by-direct-dml"
+  }
+}
