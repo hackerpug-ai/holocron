@@ -1,26 +1,26 @@
 {
   "sprint": "sprint-05-mastra-service-and-scoped-key-auth",
-  "run_id": "2026-07-15T03:05:25Z",
-  "verdict": "fail",
+  "run_id": "2026-07-15T03:05:58Z",
+  "verdict": "pass",
   "steps_total": 7,
   "steps_executed": 7,
-  "steps_passed": 6,
+  "steps_passed": 7,
   "ui_driver": "none",
   "exec_surface": "orchestrator-real-shell",
   "runner": "python-exec-step-equivalent",
   "steps": [
     {
       "n": 1,
-      "text": "Run holo service:up on the mini and curl /health \u2014 returns 200 with DB/fleet/queue readiness",
+      "text": "Run holo service:up / curl /health \u2014 200 with DB/fleet/queue readiness",
       "type": "api",
       "executed": true,
       "result": "pass",
-      "evidence": "{\"status\":\"ok\",\"db\":{\"ready\":true,\"latency_ms\":6},\"fleet\":{\"ready\":true,\"endpoint\":\"http://127.0.0.1:4545\",\"latency_ms\":2},\"queue\":{\"ready\":true,\"latency_ms\":1}} | HTTP_200 | HEALTH_OK",
+      "evidence": "body={\"status\":\"ok\",\"db\":{\"ready\":true,\"latency_ms\":5},\"fleet\":{\"ready\":true,\"endpoint\":\"http://127.0.0.1:4545\",\"latency_ms\":2},\"queue\":{\"ready\":true,\"latency_ms\":1}} | HTTP_200 | HEALTH_OK",
       "log": "/tmp/holocron-gate-sprint-05-mastra-service-and-scoped-key-auth/step1.log"
     },
     {
       "n": 2,
-      "text": "curl -X POST /api/missions/x/steer with no key \u2014 returns 401",
+      "text": "curl POST /api/missions/x/steer with no key \u2014 401",
       "type": "api",
       "executed": true,
       "result": "pass",
@@ -29,7 +29,7 @@
     },
     {
       "n": 3,
-      "text": "Repeat with correctly-scoped RN key \u2014 returns 200",
+      "text": "curl with correctly-scoped RN key \u2014 200",
       "type": "api",
       "executed": true,
       "result": "pass",
@@ -38,7 +38,7 @@
     },
     {
       "n": 4,
-      "text": "curl an MCP mutation with the RN key (wrong scope) \u2014 returns 403",
+      "text": "curl MCP mutation with RN key (wrong scope) \u2014 403",
       "type": "api",
       "executed": true,
       "result": "pass",
@@ -47,16 +47,16 @@
     },
     {
       "n": 5,
-      "text": "Run holo registry:probe searchTool \u2014 same Zod schema resolves for agent/workflow/MCP",
+      "text": "holo registry:probe searchTool \u2014 same Zod schema for agent/workflow/MCP",
       "type": "terminal",
       "executed": true,
-      "result": "fail",
-      "evidence": "    return _default_decoder.decode(s) |   File \"/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/json/decoder.py\", line 337, in decode |     obj, end = self.raw_decode(s, idx=_w(s, 0).end()) |   File \"/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/json/decoder.py\", line 355, in raw_decode |     raise JSONDecodeError(\"Expecting value\", s, err.value) from None | json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)",
+      "result": "pass",
+      "evidence": "      \"searchMethod\" |     ], |     \"schemaRef\": \"shared\" |   } | } | PROBE_OK",
       "log": "/tmp/holocron-gate-sprint-05-mastra-service-and-scoped-key-auth/step5.log"
     },
     {
       "n": 6,
-      "text": "Run holo verify:no-dup-validation \u2014 reports the duplicate validation layer absent",
+      "text": "holo verify:no-dup-validation \u2014 duplicates absent",
       "type": "terminal",
       "executed": true,
       "result": "pass",
@@ -65,7 +65,7 @@
     },
     {
       "n": 7,
-      "text": "Run holo manifest:resolve divergent from inside the running service \u2014 returns live fleet endpoint",
+      "text": "holo manifest:resolve divergent \u2014 live fleet endpoint",
       "type": "terminal",
       "executed": true,
       "result": "pass",
@@ -73,6 +73,5 @@
       "log": "/tmp/holocron-gate-sprint-05-mastra-service-and-scoped-key-auth/step7.log"
     }
   ],
-  "evidence_dir": "/tmp/holocron-gate-sprint-05-mastra-service-and-scoped-key-auth",
-  "service_log": "/tmp/holocron-gate-sprint-05-mastra-service-and-scoped-key-auth/service.log"
+  "evidence_dir": "/tmp/holocron-gate-sprint-05-mastra-service-and-scoped-key-auth"
 }

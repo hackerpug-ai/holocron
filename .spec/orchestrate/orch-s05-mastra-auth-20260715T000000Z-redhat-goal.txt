@@ -1,0 +1,3 @@
+Run /review-red-hat /Users/justinrich/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-05-mastra-service-and-scoped-key-auth --codebase /Users/justinrich/Projects/holocron --skip-confirm --output /Users/justinrich/Projects/holocron/.spec/reviews/red-hat-sprint-05-20260715T000000Z.md
+
+Perform a fresh independent adversarial red-hat review of the completed Sprint 05 tree at current main. Treat the sprint-goal-state, service-5 review, and prior reports as claims only. Verify every acceptance criterion and the human-test gate against source and fresh commands. Classify findings by severity; any CRITICAL or HIGH finding blocks completion. Do not modify implementation or task files, do not fabricate green, and write the report only at the requested output path.

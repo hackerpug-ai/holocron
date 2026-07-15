@@ -1,76 +1,97 @@
 {
   "sprint": "sprint-05-mastra-service-and-scoped-key-auth",
-  "run_id": "2026-07-15T03:05:58Z",
+  "run_id": "2026-07-15T03:30:00Z",
   "verdict": "pass",
   "steps_total": 7,
   "steps_executed": 7,
   "steps_passed": 7,
   "ui_driver": "none",
-  "exec_surface": "orchestrator-real-shell",
-  "runner": "python-exec-step-equivalent",
+  "exec_surface": "surface:259 (F5F568C1-6ED2-4B03-9463-434D1B34C178)",
+  "qa_surface_id": "BD099342-E3B6-464D-85AE-758EFCFD99EA",
   "steps": [
     {
       "n": 1,
-      "text": "Run holo service:up / curl /health \u2014 200 with DB/fleet/queue readiness",
+      "text": "Run holo service:up / curl /health — 200 with DB/fleet/queue readiness",
       "type": "api",
+      "method": "real-api",
       "executed": true,
       "result": "pass",
-      "evidence": "body={\"status\":\"ok\",\"db\":{\"ready\":true,\"latency_ms\":5},\"fleet\":{\"ready\":true,\"endpoint\":\"http://127.0.0.1:4545\",\"latency_ms\":2},\"queue\":{\"ready\":true,\"latency_ms\":1}} | HTTP_200 | HEALTH_OK",
-      "log": "/tmp/holocron-gate-sprint-05-mastra-service-and-scoped-key-auth/step1.log"
+      "evidence": "body={\"status\":\"ok\",\"db\":{\"ready\":true,\"latency_ms\":240},\"fleet\":{\"ready\":true,\"endpoint\":\"http://127.0.0.1:4545\",\"latency_ms\":4},\"queue\":{\"ready\":true,\"latency_ms\":1}} | HTTP_200 | HEALTH_OK",
+      "log": "/tmp/holocron-gate-sprint-05-mastra-service-and-scoped-key-auth/step1.log",
+      "cmd_sha": "20224515b1fdb8d5d28c8ae817ae34564711b09d12d424e404a6735fcdb6f1c3",
+      "duration_ms": 1080
     },
     {
       "n": 2,
-      "text": "curl POST /api/missions/x/steer with no key \u2014 401",
+      "text": "curl POST /api/missions/x/steer with no key — 401",
       "type": "api",
+      "method": "real-api",
       "executed": true,
       "result": "pass",
       "evidence": "body={\"error\":\"unauthorized\",\"message\":\"missing or invalid Authorization Bearer token\"} | HTTP_401",
-      "log": "/tmp/holocron-gate-sprint-05-mastra-service-and-scoped-key-auth/step2.log"
+      "log": "/tmp/holocron-gate-sprint-05-mastra-service-and-scoped-key-auth/step2.log",
+      "cmd_sha": "d387de22559b0dd4030df16edd227d9adb4fa5d1330c341d23d256b9195ef50f",
+      "duration_ms": 1062
     },
     {
       "n": 3,
-      "text": "curl with correctly-scoped RN key \u2014 200",
+      "text": "curl with correctly-scoped RN key — 200",
       "type": "api",
+      "method": "real-api",
       "executed": true,
       "result": "pass",
-      "evidence": "body={\"ok\":true,\"route\":\"POST /api/missions/:id/steer\",\"id\":\"x\",\"scope\":\"rn\",\"note\":\"placeholder \u2014 steering lands later\"} | HTTP_200",
-      "log": "/tmp/holocron-gate-sprint-05-mastra-service-and-scoped-key-auth/step3.log"
+      "evidence": "body={\"ok\":true,\"route\":\"POST /api/missions/:id/steer\",\"id\":\"x\",\"scope\":\"rn\",\"note\":\"placeholder — steering lands later\"} | HTTP_200",
+      "log": "/tmp/holocron-gate-sprint-05-mastra-service-and-scoped-key-auth/step3.log",
+      "cmd_sha": "d20f2ea3437a9177dce67bf13d3bbf4e63f4fefab2b4c44b0116be0b4f039f84",
+      "duration_ms": 1068
     },
     {
       "n": 4,
-      "text": "curl MCP mutation with RN key (wrong scope) \u2014 403",
+      "text": "curl MCP mutation with RN key (wrong scope) — 403",
       "type": "api",
+      "method": "real-api",
       "executed": true,
       "result": "pass",
       "evidence": "body={\"error\":\"forbidden\",\"message\":\"scope 'rn' is not allowed for /mcp\",\"scope\":\"rn\"} | HTTP_403",
-      "log": "/tmp/holocron-gate-sprint-05-mastra-service-and-scoped-key-auth/step4.log"
+      "log": "/tmp/holocron-gate-sprint-05-mastra-service-and-scoped-key-auth/step4.log",
+      "cmd_sha": "e2fc761db0281e35e58a1802f59df798a5b5e9e488007158da5b9424e4dd1176",
+      "duration_ms": 1065
     },
     {
       "n": 5,
-      "text": "holo registry:probe searchTool \u2014 same Zod schema for agent/workflow/MCP",
+      "text": "holo registry:probe searchTool — same Zod schema for agent/workflow/MCP",
       "type": "terminal",
+      "method": "real-cli",
       "executed": true,
       "result": "pass",
-      "evidence": "      \"searchMethod\" |     ], |     \"schemaRef\": \"shared\" |   } | } | PROBE_OK",
-      "log": "/tmp/holocron-gate-sprint-05-mastra-service-and-scoped-key-auth/step5.log"
+      "evidence": "resolvedId: search_tools | consumer.agent: inputSame=true | consumer.workflow: inputSame=true | consumer.mcp: inputSame=true | schemaRef: shared | PROBE_OK",
+      "log": "/tmp/holocron-gate-sprint-05-mastra-service-and-scoped-key-auth/step5.log",
+      "cmd_sha": "528230d6eda2fe5a3ce9769eac8ac22304f768f598ffbcfd832764267a25592a",
+      "duration_ms": 1079
     },
     {
       "n": 6,
-      "text": "holo verify:no-dup-validation \u2014 duplicates absent",
+      "text": "holo verify:no-dup-validation — duplicates absent",
       "type": "terminal",
+      "method": "real-cli",
       "executed": true,
       "result": "pass",
-      "evidence": "  \"sites\": [], |   \"scannedCount\": 20 | } | NO_DUP_OK |  | holo verify:no-dup-validation duplicates:0 OK",
-      "log": "/tmp/holocron-gate-sprint-05-mastra-service-and-scoped-key-auth/step6.log"
+      "evidence": "duplicates:0 | scannedCount:20 | sites:[] | NO_DUP_OK",
+      "log": "/tmp/holocron-gate-sprint-05-mastra-service-and-scoped-key-auth/step6.log",
+      "cmd_sha": "384b746aaf5e1b6ba616ca05d58a007f622b377a8e63c868443490ea0bebf4e0",
+      "duration_ms": 1098
     },
     {
       "n": 7,
-      "text": "holo manifest:resolve divergent \u2014 live fleet endpoint",
+      "text": "holo manifest:resolve divergent — live fleet endpoint",
       "type": "terminal",
+      "method": "real-cli",
       "executed": true,
       "result": "pass",
-      "evidence": "  \"structuredOutput\": true, |   \"degradationAction\": \"surface-unavailable\", |   \"healthy\": true, |   \"baseURL\": \"http://127.0.0.1:4545/v1\" | } | RESOLVE_OK http://127.0.0.1:4545",
-      "log": "/tmp/holocron-gate-sprint-05-mastra-service-and-scoped-key-auth/step7.log"
+      "evidence": "endpoint:http://127.0.0.1:4545 | healthy:true | litellmModelId:implementer | RESOLVE_OK http://127.0.0.1:4545",
+      "log": "/tmp/holocron-gate-sprint-05-mastra-service-and-scoped-key-auth/step7.log",
+      "cmd_sha": "123631d17df6b0bd5c1f342022752ef2c8da199764a459dc1adae9ba635b6bd0",
+      "duration_ms": 1060
     }
   ],
   "evidence_dir": "/tmp/holocron-gate-sprint-05-mastra-service-and-scoped-key-auth"

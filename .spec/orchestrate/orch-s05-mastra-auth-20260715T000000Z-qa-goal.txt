@@ -1,0 +1,3 @@
+Run /kb-run-human-tests /Users/justinrich/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-05-mastra-service-and-scoped-key-auth
+
+Execute every literal human-test step against the real Sprint 05 service environment. Produce a fresh gate-results.json with all steps executed and a real verdict. Do not hand-write, copy, or fabricate gate results; if any step fails, report the actual failure and stop as blocked or fail for remediation.

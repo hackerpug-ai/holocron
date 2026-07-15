@@ -1,0 +1,2 @@
+{"ts":"2026-07-15T03:46:39Z","event":"reap","surface_ref":"surface:254","surface_id":"BD099342-E3B6-464D-85AE-758EFCFD99EA","role":"qa","artifact":".spec/prds/mk6-migration/tasks/sprint-05-mastra-service-and-scoped-key-auth/gate-results.json","verdict":"pass","action":"reaped"}
+{"ts":"2026-07-15T03:46:39Z","event":"reap","surface_ref":"surface:232","surface_id":"66B90113-6868-40AF-B310-C4AD8A66EFFF","role":"run","artifact":".spec/prds/mk6-migration/tasks/sprint-05-mastra-service-and-scoped-key-auth/sprint-goal-state.json","verdict":"goal:complete","action":"reaped"}
