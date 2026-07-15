@@ -75,9 +75,9 @@ An Agent Client reaches the Hono API surface over Tailscale only with its scoped
 --------------------------------------------------------------------------------
 DONE WHEN
 --------------------------------------------------------------------------------
-- [ ] AC-1 (PRIMARY): scoped-key middleware enforces three scopes (401/403/200)
-- [ ] AC-2: `resolveModel` wired to the Fleet Role Manifest; unknown/unreachable roles fail closed
-- [ ] AC-3: control scope limited to verdict/steer routes
+- [x] AC-1 (PRIMARY): scoped-key middleware enforces three scopes (401/403/200)
+- [x] AC-2: `resolveModel` wired to the Fleet Role Manifest; unknown/unreachable roles fail closed
+- [x] AC-3: control scope limited to verdict/steer routes
 - [ ] `pnpm tsgo --noEmit` clean + `pnpm biome check .` clean (only SCOPE.writeAllowed files modified)
 
 --------------------------------------------------------------------------------

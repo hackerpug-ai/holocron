@@ -1,0 +1,91 @@
+{
+  "sprint": "sprint-05-mastra-service-and-scoped-key-auth",
+  "planned_at": "2026-07-15T03:05:58Z",
+  "planned_steps": 7,
+  "steps": [
+    {
+      "n": 1,
+      "text": "Run holo service:up / curl /health \u2014 200 with DB/fleet/queue readiness",
+      "type": "api",
+      "method": "real-api",
+      "literal_cmd": "code=$(curl -s -o /tmp/g5-s1.json -w \"%{http_code}\" http://127.0.0.1:4111/health); echo body=$(cat /tmp/g5-s1.json); echo HTTP_$code; test \"$code\" = \"200\" && python3 -c \"import json; d=json.load(open('/tmp/g5-s1.json')); assert d['status']=='ok' and d['db']['ready'] and d['fleet']['ready'] and d['queue']['ready']; print('HEALTH_OK')\"",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "HEALTH_OK"
+      }
+    },
+    {
+      "n": 2,
+      "text": "curl POST /api/missions/x/steer with no key \u2014 401",
+      "type": "api",
+      "method": "real-api",
+      "literal_cmd": "code=$(curl -s -o /tmp/g5-s2.json -w \"%{http_code}\" -X POST http://127.0.0.1:4111/api/missions/x/steer); echo body=$(cat /tmp/g5-s2.json); echo HTTP_$code; test \"$code\" = \"401\"",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "HTTP_401"
+      }
+    },
+    {
+      "n": 3,
+      "text": "curl with correctly-scoped RN key \u2014 200",
+      "type": "api",
+      "method": "real-api",
+      "literal_cmd": "code=$(curl -s -o /tmp/g5-s3.json -w \"%{http_code}\" -X POST -H \"Authorization: Bearer rn-test\" http://127.0.0.1:4111/api/missions/x/steer); echo body=$(cat /tmp/g5-s3.json); echo HTTP_$code; test \"$code\" = \"200\"",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "HTTP_200"
+      }
+    },
+    {
+      "n": 4,
+      "text": "curl MCP mutation with RN key (wrong scope) \u2014 403",
+      "type": "api",
+      "method": "real-api",
+      "literal_cmd": "code=$(curl -s -o /tmp/g5-s4.json -w \"%{http_code}\" -X POST -H \"Authorization: Bearer rn-test\" http://127.0.0.1:4111/mcp); echo body=$(cat /tmp/g5-s4.json); echo HTTP_$code; test \"$code\" = \"403\"",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "HTTP_403"
+      }
+    },
+    {
+      "n": 5,
+      "text": "holo registry:probe searchTool \u2014 same Zod schema for agent/workflow/MCP",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "out=$(bun services/platform/src/cli/holo.ts registry:probe searchTool 2>&1); echo \"$out\"; echo \"$out\" | grep -q \"resolvedId: search_tools\" && echo \"$out\" | grep -q \"consumer.agent: inputSame=true\" && echo \"$out\" | grep -q \"consumer.workflow: inputSame=true\" && echo \"$out\" | grep -q \"consumer.mcp: inputSame=true\" && echo PROBE_OK",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "PROBE_OK"
+      }
+    },
+    {
+      "n": 6,
+      "text": "holo verify:no-dup-validation \u2014 duplicates absent",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "bun services/platform/src/cli/holo.ts verify:no-dup-validation > /tmp/g5-s6.json 2>/tmp/g5-s6.err; cat /tmp/g5-s6.json; cat /tmp/g5-s6.err >&2 || true; python3 -c \"import json; d=json.load(open('/tmp/g5-s6.json')); assert d.get('duplicates')==0; print('NO_DUP_OK')\"",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "NO_DUP_OK"
+      }
+    },
+    {
+      "n": 7,
+      "text": "holo manifest:resolve divergent \u2014 live fleet endpoint",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "bun services/platform/src/cli/holo.ts manifest:resolve divergent > /tmp/g5-s7.json 2>/tmp/g5-s7.err; cat /tmp/g5-s7.json; cat /tmp/g5-s7.err >&2 || true; python3 -c \"import json; d=json.load(open('/tmp/g5-s7.json')); assert ':4545' in str(d.get('endpoint','')); print('RESOLVE_OK', d['endpoint'])\"",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "RESOLVE_OK"
+      }
+    }
+  ]
+}

@@ -3,7 +3,7 @@ sprint: 5
 title: Mastra Service and Scoped-Key Auth
 sequence: 5
 timeline: Phase 1 — Platform Foundation
-status: In Progress
+status: Completed
 prd: ../../README.md
 capability_coverage: [CAP-INF-01]
 ---
@@ -12,7 +12,7 @@ capability_coverage: [CAP-INF-01]
 
 **Sequence:** 5
 **Timeline:** Phase 1 — Platform Foundation
-**Status:** In Progress
+**Status:** ✅ Completed — GATE-GOAL: ACHIEVED
 **Proposed by:** mastra-planner
 **Branch:** `mk6-mastra-service`
 

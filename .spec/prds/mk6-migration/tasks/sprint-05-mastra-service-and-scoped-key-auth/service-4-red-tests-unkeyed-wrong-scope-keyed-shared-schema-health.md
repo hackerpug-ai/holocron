@@ -66,11 +66,11 @@ Five integration tests exist that each FAIL (RED) against service-1/2/3's absent
 --------------------------------------------------------------------------------
 DONE WHEN
 --------------------------------------------------------------------------------
-- [ ] AC-1: unkeyed-401 RED test fails before middleware, passes after (asserts HTTP 401)
-- [ ] AC-2: wrong-scope-403 RED test fails before scope check, passes after (asserts HTTP 403)
-- [ ] AC-3: keyed-200 RED test fails with stubbed validation, passes with real (asserts HTTP 200)
-- [ ] AC-4: schema-identity RED test fails with duplicates, passes without (asserts `===` identity)
-- [ ] AC-5: health-readiness RED test fails with stubbed probes, passes with real (asserts the 3 readiness booleans)
+- [x] AC-1: unkeyed-401 RED test fails before middleware, passes after (asserts HTTP 401)
+- [x] AC-2: wrong-scope-403 RED test fails before scope check, passes after (asserts HTTP 403)
+- [x] AC-3: keyed-200 RED test fails with stubbed validation, passes with real (asserts HTTP 200)
+- [x] AC-4: schema-identity RED test fails with duplicates, passes without (asserts `===` identity)
+- [x] AC-5: health-readiness RED test fails with stubbed probes, passes with real (asserts the 3 readiness booleans)
 - [ ] `pnpm tsgo --noEmit` clean + `pnpm biome check tests/integration/` clean (only SCOPE.writeAllowed files modified)
 
 --------------------------------------------------------------------------------

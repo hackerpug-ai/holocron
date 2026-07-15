@@ -1,0 +1,77 @@
+{
+  "sprint": "sprint-05-mastra-service-and-scoped-key-auth",
+  "run_id": "2026-07-15T03:05:58Z",
+  "verdict": "pass",
+  "steps_total": 7,
+  "steps_executed": 7,
+  "steps_passed": 7,
+  "ui_driver": "none",
+  "exec_surface": "orchestrator-real-shell",
+  "runner": "python-exec-step-equivalent",
+  "steps": [
+    {
+      "n": 1,
+      "text": "Run holo service:up / curl /health \u2014 200 with DB/fleet/queue readiness",
+      "type": "api",
+      "executed": true,
+      "result": "pass",
+      "evidence": "body={\"status\":\"ok\",\"db\":{\"ready\":true,\"latency_ms\":5},\"fleet\":{\"ready\":true,\"endpoint\":\"http://127.0.0.1:4545\",\"latency_ms\":2},\"queue\":{\"ready\":true,\"latency_ms\":1}} | HTTP_200 | HEALTH_OK",
+      "log": "/tmp/holocron-gate-sprint-05-mastra-service-and-scoped-key-auth/step1.log"
+    },
+    {
+      "n": 2,
+      "text": "curl POST /api/missions/x/steer with no key \u2014 401",
+      "type": "api",
+      "executed": true,
+      "result": "pass",
+      "evidence": "body={\"error\":\"unauthorized\",\"message\":\"missing or invalid Authorization Bearer token\"} | HTTP_401",
+      "log": "/tmp/holocron-gate-sprint-05-mastra-service-and-scoped-key-auth/step2.log"
+    },
+    {
+      "n": 3,
+      "text": "curl with correctly-scoped RN key \u2014 200",
+      "type": "api",
+      "executed": true,
+      "result": "pass",
+      "evidence": "body={\"ok\":true,\"route\":\"POST /api/missions/:id/steer\",\"id\":\"x\",\"scope\":\"rn\",\"note\":\"placeholder \u2014 steering lands later\"} | HTTP_200",
+      "log": "/tmp/holocron-gate-sprint-05-mastra-service-and-scoped-key-auth/step3.log"
+    },
+    {
+      "n": 4,
+      "text": "curl MCP mutation with RN key (wrong scope) \u2014 403",
+      "type": "api",
+      "executed": true,
+      "result": "pass",
+      "evidence": "body={\"error\":\"forbidden\",\"message\":\"scope 'rn' is not allowed for /mcp\",\"scope\":\"rn\"} | HTTP_403",
+      "log": "/tmp/holocron-gate-sprint-05-mastra-service-and-scoped-key-auth/step4.log"
+    },
+    {
+      "n": 5,
+      "text": "holo registry:probe searchTool \u2014 same Zod schema for agent/workflow/MCP",
+      "type": "terminal",
+      "executed": true,
+      "result": "pass",
+      "evidence": "      \"searchMethod\" |     ], |     \"schemaRef\": \"shared\" |   } | } | PROBE_OK",
+      "log": "/tmp/holocron-gate-sprint-05-mastra-service-and-scoped-key-auth/step5.log"
+    },
+    {
+      "n": 6,
+      "text": "holo verify:no-dup-validation \u2014 duplicates absent",
+      "type": "terminal",
+      "executed": true,
+      "result": "pass",
+      "evidence": "  \"sites\": [], |   \"scannedCount\": 20 | } | NO_DUP_OK |  | holo verify:no-dup-validation duplicates:0 OK",
+      "log": "/tmp/holocron-gate-sprint-05-mastra-service-and-scoped-key-auth/step6.log"
+    },
+    {
+      "n": 7,
+      "text": "holo manifest:resolve divergent \u2014 live fleet endpoint",
+      "type": "terminal",
+      "executed": true,
+      "result": "pass",
+      "evidence": "  \"structuredOutput\": true, |   \"degradationAction\": \"surface-unavailable\", |   \"healthy\": true, |   \"baseURL\": \"http://127.0.0.1:4545/v1\" | } | RESOLVE_OK http://127.0.0.1:4545",
+      "log": "/tmp/holocron-gate-sprint-05-mastra-service-and-scoped-key-auth/step7.log"
+    }
+  ],
+  "evidence_dir": "/tmp/holocron-gate-sprint-05-mastra-service-and-scoped-key-auth"
+}

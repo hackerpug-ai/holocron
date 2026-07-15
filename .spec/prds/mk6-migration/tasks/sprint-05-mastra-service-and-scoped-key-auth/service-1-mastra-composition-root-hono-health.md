@@ -69,9 +69,9 @@ The single Mastra/Bun service boots against Sprint 04's Postgres via `@mastra/pg
 --------------------------------------------------------------------------------
 DONE WHEN
 --------------------------------------------------------------------------------
-- [ ] AC-1 (PRIMARY): Mastra composition root boots against Postgres on :4111
-- [ ] AC-2: `/health` proves real DB/fleet/queue readiness (flips when a dependency stops)
-- [ ] AC-3: `holo service:up` boots the service
+- [x] AC-1 (PRIMARY): Mastra composition root boots against Postgres on :4111
+- [x] AC-2: `/health` proves real DB/fleet/queue readiness (flips when a dependency stops)
+- [x] AC-3: `holo service:up` boots the service
 - [ ] `pnpm tsgo --noEmit` clean + `pnpm biome check .` clean (only SCOPE.writeAllowed files modified)
 
 --------------------------------------------------------------------------------

@@ -71,9 +71,9 @@ Every tool is registered ONCE with a Zod `inputSchema`/`outputSchema` in `servic
 --------------------------------------------------------------------------------
 DONE WHEN
 --------------------------------------------------------------------------------
-- [ ] AC-1 (PRIMARY): shared tool registry with Zod schemas; `getToolSchema` returns the schema instance
-- [ ] AC-2: agents, workflows, and MCP consume the SAME schema instance (`===`)
-- [ ] AC-3: zero duplicate validation layer (`holo verify:no-dup-validation` → duplicates 0)
+- [x] AC-1 (PRIMARY): shared tool registry with Zod schemas; `getToolSchema` returns the schema instance
+- [x] AC-2: agents, workflows, and MCP consume the SAME schema instance (`===`)
+- [x] AC-3: zero duplicate validation layer (`holo verify:no-dup-validation` → duplicates 0)
 - [ ] `pnpm tsgo --noEmit` clean + `pnpm biome check .` clean (only SCOPE.writeAllowed files modified)
 
 --------------------------------------------------------------------------------

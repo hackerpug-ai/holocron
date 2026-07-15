@@ -1,0 +1,53 @@
+{
+  "sprint_id": "sprint-05-mastra-service-and-scoped-key-auth",
+  "updated_at": "2026-07-15T03:06:34.750393+00:00",
+  "protected_branch": "main",
+  "main_tip": "aa846386128f0ce954ff80965d35d78a61dedb1b",
+  "layers": {
+    "tasks": {
+      "complete": true,
+      "total": 6,
+      "completed": 6,
+      "detail": {
+        "service-1": "completed",
+        "service-2": "completed",
+        "service-3": "completed",
+        "service-4": "completed",
+        "service-5": "completed",
+        "service-5-FIX-tripwire": "completed"
+      }
+    },
+    "gate": {
+      "verdict": "PASS",
+      "note": "document gate extracted; human-test is separate layer"
+    },
+    "e2e": {
+      "verdict": "PASS",
+      "framework": "headless-service",
+      "steps_covered": 7
+    },
+    "build": {
+      "typecheck": "pass",
+      "lint": "pass_with_warnings"
+    },
+    "human_test": {
+      "verdict": "pass",
+      "steps_total": 7,
+      "steps_executed": 7,
+      "steps_passed": 7,
+      "verified": true,
+      "run_id": "2026-07-15T03:05:58Z"
+    },
+    "trunk": {
+      "consolidated": true,
+      "orphan_task_branches": []
+    },
+    "redhat": {
+      "status": "closeout_clean",
+      "high_findings_open": 0
+    }
+  },
+  "met": true,
+  "state": "GATE-GOAL: ACHIEVED",
+  "condition_text": "All tasks AC-satisfied + E2E PASS + human-test gate-results verdict:pass verified + trunk consolidated"
+}

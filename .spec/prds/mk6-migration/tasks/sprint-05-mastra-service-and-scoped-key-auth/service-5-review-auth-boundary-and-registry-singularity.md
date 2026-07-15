@@ -73,9 +73,9 @@ A review report at `.spec/reviews/sprint-05-mastra-service-review.md` that adver
 --------------------------------------------------------------------------------
 DONE WHEN
 --------------------------------------------------------------------------------
-- [ ] AC-1 (PRIMARY): auth boundary enforcement validated (401/403/200 with curl evidence)
-- [ ] AC-2: registry singularity validated (grep audit, 0 duplicates)
-- [ ] AC-3: tripwire coverage validated at agent/stream call sites (grep)
+- [x] AC-1 (PRIMARY): auth boundary enforcement validated (401/403/200 with curl evidence)
+- [x] AC-2: registry singularity validated (grep audit, 0 duplicates)
+- [x] AC-3: tripwire coverage validated at agent/stream call sites (grep)
 - [ ] the review report carries a verdict line and exists at the scoped path
 
 --------------------------------------------------------------------------------
