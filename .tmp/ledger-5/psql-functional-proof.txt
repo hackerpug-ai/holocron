@@ -1,0 +1,89 @@
+BEGIN
+                b1_id                 
+--------------------------------------
+ 019f674c-6fca-767a-a9c6-e8e19ceba836
+(1 row)
+
+INSERT 0 1
+COMMIT
+COMMIT
+=== B1 id ===
+                  b1                  
+--------------------------------------
+ 019f674c-6fca-767a-a9c6-e8e19ceba836
+(1 row)
+
+=== SET ROLE holocron_app; UPDATE should fail 42501 ===
+SET
+ current_user 
+--------------
+ holocron_app
+(1 row)
+
+RESET
+=== revise_belief as holocron_app ===
+SET
+                  b2                  
+--------------------------------------
+ 019f674c-6fd6-7a99-98ed-e26a04b8bd6d
+(1 row)
+
+RESET
+=== chain state ===
+                  id                  | statement  |            supersedes_id             |           tx_from            |            tx_to             |    actor     |    idempotency_key    
+--------------------------------------+------------+--------------------------------------+------------------------------+------------------------------+--------------+-----------------------
+ 019f674c-6fca-767a-a9c6-e8e19ceba836 | B1 initial |                                      | 2023-12-31 17:00:00-07       | 2026-07-15 13:41:30.45318-06 | review       | 
+ 019f674c-6fd6-7a99-98ed-e26a04b8bd6d | B2 revised | 019f674c-6fca-767a-a9c6-e8e19ceba836 | 2026-07-15 13:41:30.45318-06 |                              | actor-review | idem-review-ledger5-1
+(2 rows)
+
+=== stale concurrent ===
+SET
+DO
+RESET
+=== idempotency replay ===
+SET
+              replay_id               
+--------------------------------------
+ 019f674c-6fd6-7a99-98ed-e26a04b8bd6d
+(1 row)
+
+             original_b2              
+--------------------------------------
+ 019f674c-6fd6-7a99-98ed-e26a04b8bd6d
+(1 row)
+
+RESET
+=== belief_as_of ===
+ statement  
+------------
+ B1 initial
+(1 row)
+
+ statement  
+------------
+ B1 initial
+(1 row)
+
+ statement  
+------------
+ B2 revised
+(1 row)
+
+=== net-support fixture ===
+INSERT 0 1
+INSERT 0 3
+ net_apr 
+---------
+       0
+(1 row)
+
+ net_aug 
+---------
+       0
+(1 row)
+
+ net_feb 
+---------
+       1
+(1 row)
+

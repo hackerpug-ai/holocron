@@ -1,0 +1,30 @@
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.worktrees/ledger-5
+
+ ✓ tests/integration/service/evidence-asof-transaction.test.ts (1 test) 1782ms
+     ✓ evidence:belief --as-of between B1 and B2 returns B1 not B2/B3  1238ms
+ ✓ tests/integration/service/immutability-idempotency.test.ts (1 test) 1894ms
+     ✓ second revise with same idempotency key returns R1.id  1280ms
+ ✓ tests/integration/service/evidence-validity-windows.test.ts (1 test) 2003ms
+     ✓ supports edge returned at 2024-03-01 and excluded at 2024-07-01  1355ms
+ ✓ tests/integration/service/immutability-atomic-revision.test.ts (1 test) 2070ms
+     ✓ closes B1 and inserts B2 with supersedes_id = B1.id  1514ms
+ ✓ tests/integration/service/immutability-probe-rejection.test.ts (1 test) 2407ms
+     ✓ exits non-zero with ERROR 42501 and leaves statement unchanged  1752ms
+ ✓ tests/integration/service/immutability-concurrent-reject.test.ts (1 test) 2512ms
+     ✓ second revise after B1 closed raises REVISE_STALE_CONCURRENT  1837ms
+ ✓ tests/integration/service/immutability-dml-rejected.test.ts (1 test) 2583ms
+     ✓ UPDATE and DELETE as holocron_app raise SQLSTATE 42501  1917ms
+ ✓ tests/integration/service/immutability-cli-revise.test.ts (1 test) 2711ms
+     ✓ exits 0 and prints successor UUID + actor/run metadata  1715ms
+ ✓ tests/integration/service/evidence-asof-chain.test.ts (2 tests) 2888ms
+     ✓ full chain B1→B2→B3→B4: each as-of returns the correct belief  1052ms
+     ✓ evidence:belief --as-of now returns current open belief  1288ms
+ ✓ tests/integration/service/evidence-net-support.test.ts (2 tests) 2982ms
+     ✓ as-of 2024-04-01 net-support = 0 (R1 +1, R2 -1, R3 excluded)  1734ms
+     ✓ as-of 2024-08-01: R1 expired; R2 short window expired → R3 only (+1)  704ms
+
+ Test Files  10 passed (10)
+      Tests  12 passed (12)
+   Start at  13:42:07
+   Duration  3.28s (transform 1.23s, setup 1.58s, import 262ms, tests 23.83s, environment 0ms)
+
