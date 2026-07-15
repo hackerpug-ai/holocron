@@ -33,7 +33,7 @@ TASK: schema-5 — RED tests: 0-error migrate, status CHECK, jsonb round-trip, m
 ================================================================================
 
 TASK_TYPE:  TEST
-STATUS:     Backlog
+STATUS:     Completed
 PRIORITY:   P0
 EFFORT:     M  (150 min)
 AGENT:      implementer=red-test-generator | reviewer=mastra-reviewer
@@ -77,11 +77,11 @@ DB_IT=1 pnpm vitest run <path> shows RED tests failing against the absent/broken
 --------------------------------------------------------------------------------
 DONE WHEN
 --------------------------------------------------------------------------------
-- [ ] AC-1 (PRIMARY): RED test: 0-error migrate against real Postgres
-- [ ] AC-2: RED test: status CHECK rejects invalid/accepts valid
-- [ ] AC-3: RED test: jsonb round-trip with structural equality
-- [ ] AC-4: RED test: merges collapsed to trios
-- [ ] AC-5: RED test: replication readiness
+- [x] AC-1 (PRIMARY): RED test: 0-error migrate against real Postgres
+- [x] AC-2: RED test: status CHECK rejects invalid/accepts valid
+- [x] AC-3: RED test: jsonb round-trip with structural equality
+- [x] AC-4: RED test: merges collapsed to trios
+- [x] AC-5: RED test: replication readiness
 - [ ] `pnpm biome check .` clean + `pnpm tsgo --noEmit` clean (only SCOPE.writeAllowed files modified)
 
 --------------------------------------------------------------------------------
