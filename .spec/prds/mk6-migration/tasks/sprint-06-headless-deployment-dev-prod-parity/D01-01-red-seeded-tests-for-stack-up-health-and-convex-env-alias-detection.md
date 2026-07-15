@@ -34,7 +34,7 @@ TASK: D01-01 — RED: seeded tests for stack-up health and Convex-env-alias dete
 ================================================================================
 
 TASK_TYPE:  FEATURE
-STATUS:     Backlog
+STATUS:     Completed
 PRIORITY:   P0
 EFFORT:     S  (60 min)
 AGENT:      implementer=red-test-generator | reviewer=code-reviewer
@@ -78,10 +78,10 @@ The RED test suite fails for every behavioral AC (stack up/down/status, secrets 
 --------------------------------------------------------------------------------
 DONE WHEN
 --------------------------------------------------------------------------------
-- [ ] AC-1 (PRIMARY): RED suite for stack supervisor lifecycle (up/down/status) with real health probes
-- [ ] AC-2 (PRIMARY): RED suite for consolidated secrets and Convex-env-alias detection
-- [ ] AC-3 (PRIMARY): RED suite for laptop dev-parity stack boot under same config contract
-- [ ] AC-4 (PRIMARY): RED suite for launchd service definitions and fleet embed-route health integration
+- [x] AC-1 (PRIMARY): RED suite for stack supervisor lifecycle (up/down/status) with real health probes
+- [x] AC-2 (PRIMARY): RED suite for consolidated secrets and Convex-env-alias detection
+- [x] AC-3 (PRIMARY): RED suite for laptop dev-parity stack boot under same config contract
+- [x] AC-4 (PRIMARY): RED suite for launchd service definitions and fleet embed-route health integration
 - [ ] `pnpm tsgo --noEmit` clean + `pnpm biome check .` clean (only SCOPE.writeAllowed files modified)
 
 --------------------------------------------------------------------------------
