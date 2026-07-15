@@ -2,6 +2,8 @@
  * Consolidated platform config — secrets loader + Convex-env build gate.
  */
 export {
+  type ApplySecretsResult,
+  applyConsolidatedSecretsToEnv,
   type DoctorReport,
   defaultSecretsExamplePath,
   defaultSecretsPath,

@@ -147,6 +147,66 @@ export function loadConsolidatedSecrets(options?: {
   return out;
 }
 
+export type ApplySecretsResult = {
+  /** Keys written into env from secrets file (were unset/empty). */
+  applied: string[];
+  /** Keys left untouched because env already had a non-empty value. */
+  skipped: string[];
+  /** Absolute path of the secrets file consulted. */
+  secretsPath: string;
+  fileExists: boolean;
+};
+
+/**
+ * Overlay consolidated secrets into process.env (or a provided env bag).
+ *
+ * Contract (RH-1 / D01-04):
+ *   - env wins over file — never overwrite non-empty existing keys
+ *   - fills missing REQUIRED_SECRET_KEYS (+ any extra flat keys from the file)
+ *   - safe for launchd clean env: picks up gitignored secrets.yaml at process
+ *     boot without writing secret values into 0644 LaunchAgent plists
+ *
+ * Call once at Mastra process start (startService / service:up) BEFORE
+ * scoped-key middleware captures keys from process.env.
+ */
+export function applyConsolidatedSecretsToEnv(options?: {
+  secretsPath?: string;
+  env?: NodeJS.ProcessEnv;
+  /** Limit to these keys; default = REQUIRED_SECRET_KEYS ∪ file keys. */
+  keys?: readonly string[];
+}): ApplySecretsResult {
+  const secretsPath = options?.secretsPath ?? defaultSecretsPath();
+  const env = options?.env ?? process.env;
+  const fileExists = existsSync(secretsPath);
+  const fileMap = fileExists ? loadSecretsFile(secretsPath) : {};
+
+  const keySet = new Set<string>();
+  if (options?.keys) {
+    for (const k of options.keys) keySet.add(k);
+  } else {
+    for (const k of REQUIRED_SECRET_KEYS) keySet.add(k);
+    for (const k of Object.keys(fileMap)) keySet.add(k);
+  }
+
+  const applied: string[] = [];
+  const skipped: string[] = [];
+
+  for (const key of keySet) {
+    const existing = coerceString(env[key]);
+    if (existing !== undefined) {
+      skipped.push(key);
+      continue;
+    }
+    const fromFile = coerceString(fileMap[key]);
+    if (fromFile !== undefined) {
+      env[key] = fromFile;
+      applied.push(key);
+    }
+  }
+
+  return { applied, skipped, secretsPath, fileExists };
+}
+
 /**
  * Doctor: verify every required key resolves. Never prints secret values.
  */
