@@ -8,7 +8,7 @@
   "max_cycles": 3,
   "max_recover": 2,
   "implement": "kb-run-sprint",
-  "stage_overrides": {"run": "grok:grok-4.5"},
+  "stage_overrides": { "run": "grok:grok-4.5" },
   "surfaces": [
     {
       "surface_ref": "surface:193",
