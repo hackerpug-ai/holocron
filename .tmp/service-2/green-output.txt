@@ -1,0 +1,17 @@
+bun test v1.2.19 (aad3abea)
+
+src/tools/__tests__/registry.test.ts:
+(pass) AC-1: shared tool registry with Zod schemas > exports getToolSchema / listTools from registry.ts [126.41ms]
+(pass) AC-1: shared tool registry with Zod schemas > lists ≥44 registered tools each with inputSchema + outputSchema [0.32ms]
+(pass) AC-1: shared tool registry with Zod schemas > getToolSchema("search") / hybrid_search / search_fts returns a schema with ≥1 input property [0.52ms]
+(pass) AC-1: shared tool registry with Zod schemas > getToolSchema rejects unknown tool ids [0.08ms]
+(pass) AC-2: agent / workflow / MCP share the SAME Zod instance (===) > consumer path helpers return identical schema refs for search [0.06ms]
+(pass) AC-2: agent / workflow / MCP share the SAME Zod instance (===) > identity holds for every registered tool id [0.11ms]
+(pass) AC-3: no duplicate Zod validation outside the shared registry > services/platform/src/mcp/ has zero Zod .parse / .safeParse call sites [0.69ms]
+(pass) AC-3: no duplicate Zod validation outside the shared registry > tools/ tree only allows parse sites inside registry.ts (or explicit validate helpers) [0.89ms]
+(pass) AC-3: no duplicate Zod validation outside the shared registry > auditNoDupValidation reports duplicates:0 [1.18ms]
+
+ 9 pass
+ 0 fail
+ 642 expect() calls
+Ran 9 tests across 1 file. [141.00ms]
