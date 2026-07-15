@@ -85,3 +85,5 @@ PHASE*.md
 *.tmp
 *~
 .claude/worktrees/
+.tmp/
+.kb-run-sprint/
