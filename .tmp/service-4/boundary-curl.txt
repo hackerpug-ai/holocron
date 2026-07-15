@@ -1,0 +1,33 @@
+=== controlled boundary evidence (real HTTP, not mocks) ===
+unkeyed POST /api/missions → 401
+{"error":"unauthorized","message":"missing or invalid Authorization Bearer token"}
+mcp key POST /api/missions → 403
+{"error":"forbidden","message":"scope 'mcp' is not allowed for /api/missions","scope":"mcp"}
+rn key POST /api/missions → 200
+{"ok":true,"route":"POST /api/missions","scope":"rn","note":"placeholder — mission engine lands in Sprint 15"}
+GET /health → 200
+{"status":"ok","db":{"ready":true,"latency_ms":8},"fleet":{"ready":true,"endpoint":"http://127.0.0.1:4545","latency_ms":8},"queue":{"ready":true,"latency_ms":1}}
+=== holo verify:identity search ===
+{
+  "toolId": "search",
+  "resolvedId": "hybrid_search",
+  "identity": true,
+  "consumers": 3,
+  "uniqueInstances": 1
+}
+=== suite green summary ===
+
+ RUN  v4.1.0 /Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-4
+
+ ✓ tests/integration/service/unkeyed-401.test.ts (4 tests) 302ms
+ ✓ tests/integration/service/wrong-scope-403.test.ts (4 tests) 309ms
+ ✓ tests/integration/service/keyed-200.test.ts (5 tests) 589ms
+ ✓ tests/integration/service/health-readiness.test.ts (3 tests) 590ms
+ ✓ tests/integration/service/schema-identity.test.ts (4 tests) 884ms
+     ✓ in-process registry helpers share === schema refs across consumers  318ms
+
+ Test Files  5 passed (5)
+      Tests  20 passed (20)
+   Start at  20:43:51
+   Duration  1.08s (transform 337ms, setup 578ms, import 82ms, tests 2.67s, environment 0ms)
+
