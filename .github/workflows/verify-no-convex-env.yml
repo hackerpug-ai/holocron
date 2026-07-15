@@ -1,0 +1,38 @@
+# T-PLAT-017 build gate: fail CI if banned Convex env aliases remain.
+# Scans app/, holocron-mcp/, services/platform/ via holo verify-no-convex-env.
+name: verify-no-convex-env
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  verify-no-convex-env:
+    name: T-PLAT-017 no Convex env aliases
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: "1.2.19"
+
+      - name: Install ripgrep
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ripgrep
+
+      - name: Install platform package dependencies
+        # holo.ts loads catalog/mcp modules at import time; yaml is required.
+        working-directory: services/platform
+        run: bun install
+
+      - name: Run T-PLAT-017 verify-no-convex-env
+        run: bun services/platform/src/cli/holo.ts verify-no-convex-env

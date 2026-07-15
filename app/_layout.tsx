@@ -15,14 +15,17 @@ import { usePushNotifications } from '@/hooks/use-push-notifications';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { cn } from '@/lib/utils';
 
-// Validate required env vars at startup
-const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL;
-if (!convexUrl) {
-  console.error('EXPO_PUBLIC_CONVEX_URL is not set. Check your .env file or EAS build config.');
+// Platform base URL (consolidated secrets → EXPO_PUBLIC_PLATFORM_URL).
+// Legacy Convex client remains until Zero/platform data plane lands (T-PLAT-017).
+const platformUrl = process.env.EXPO_PUBLIC_PLATFORM_URL;
+if (!platformUrl) {
+  console.error(
+    'EXPO_PUBLIC_PLATFORM_URL is not set. Copy services/platform/config/secrets.example.yaml → secrets.yaml or set EAS env.'
+  );
 }
 
-// Create a client for Convex
-const convex = new ConvexReactClient(convexUrl ?? 'https://placeholder.convex.cloud');
+// Create a client for the platform-backed data plane (Convex SDK transitional)
+const convex = new ConvexReactClient(platformUrl ?? 'http://127.0.0.1:4111');
 
 // Create a client for React Query
 const queryClient = new QueryClient({

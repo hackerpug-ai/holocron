@@ -10,6 +10,7 @@
  * Sprint 05 service-1: service:up
  * Sprint 05 service-2: registry:list | registry:probe | verify:identity | verify:no-dup-validation
  * Sprint 05 service-3: manifest:resolve
+ * Sprint 06 D01-04: secrets doctor | secrets:doctor | verify-no-convex-env
  */
 import { resolve } from 'node:path';
 
@@ -91,6 +92,9 @@ Usage:
   verify:identity <id>  Prove agent/workflow/MCP share the same Zod instance (===)
   verify:no-dup-validation  Audit zero Zod .parse/.safeParse outside the shared registry
   manifest:resolve <role>  Resolve a Fleet Role Manifest role to a live :4545 endpoint
+  secrets doctor            Resolve required keys from consolidated secrets (env + secrets.yaml)
+  secrets:doctor            Alias for secrets doctor
+  verify-no-convex-env      T-PLAT-017 build gate: fail if Convex env aliases remain
 
 Options:
   --export <dir>        Path to unzipped convex export (or $CONVEX_EXPORT_DIR)
@@ -794,6 +798,51 @@ async function main(): Promise<void> {
         console.error(JSON.stringify(payload, null, 2));
         process.exit(1);
       }
+      break;
+    }
+    case 'secrets': {
+      // Space form: `holo secrets doctor` (D01-04 verify gate + RED harness)
+      const sub = args.positional[1];
+      if (sub !== 'doctor') {
+        console.error(
+          sub ? `unknown command: secrets ${sub}` : 'error: secrets requires a subcommand (doctor)'
+        );
+        console.error('Usage: holo secrets doctor');
+        process.exit(2);
+      }
+      const { runSecretsDoctor, formatDoctorText } = await import('../config/secrets.ts');
+      const report = runSecretsDoctor();
+      if (args.json) {
+        console.log(JSON.stringify(report, null, 2));
+      } else {
+        console.log(formatDoctorText(report));
+      }
+      process.exit(report.ok ? 0 : 1);
+      break;
+    }
+    case 'secrets:doctor': {
+      // Colon form alias for operators used to catalog:verify style commands
+      const { runSecretsDoctor, formatDoctorText } = await import('../config/secrets.ts');
+      const report = runSecretsDoctor();
+      if (args.json) {
+        console.log(JSON.stringify(report, null, 2));
+      } else {
+        console.log(formatDoctorText(report));
+      }
+      process.exit(report.ok ? 0 : 1);
+      break;
+    }
+    case 'verify-no-convex-env': {
+      const { verifyNoConvexEnv, formatVerifyNoConvexEnvText } = await import(
+        '../config/verify-no-convex-env.ts'
+      );
+      const report = verifyNoConvexEnv();
+      if (args.json) {
+        console.log(JSON.stringify(report, null, 2));
+      } else {
+        console.log(formatVerifyNoConvexEnvText(report));
+      }
+      process.exit(report.ok ? 0 : 1);
       break;
     }
     default:

@@ -138,7 +138,7 @@ export async function shareDocument(
       id: input.documentId as any,
     });
 
-    const siteUrl = process.env.CONVEX_SITE_URL || process.env.HOLOCRON_SITE_URL || "";
+    const siteUrl = process.env.PLATFORM_SITE_URL || process.env.EXPO_PUBLIC_PLATFORM_SITE_URL || "";
     const shareUrl = siteUrl ? `${siteUrl}/article/${result.shareToken}` : undefined;
 
     return {

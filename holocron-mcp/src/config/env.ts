@@ -2,9 +2,13 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { z } from "zod";
 
+/**
+ * MCP env — reads PLATFORM_URL (and related) from process env / .env files.
+ * Do not reintroduce legacy Convex deployment env aliases (T-PLAT-017).
+ */
 const EnvSchema = z.object({
-  CONVEX_URL: z.string().url(),
-  CONVEX_DEPLOY_KEY: z.string().optional(),
+  PLATFORM_URL: z.string().url(),
+  HOLO_DEPLOY_KEY: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
 });
@@ -23,15 +27,13 @@ function normalizeEnvValue(value: string | undefined): string | undefined {
 
 export function loadEnv(): Env {
   const KEYS_TO_MERGE = [
-    "HOLOCRON_URL", // Convex deployment URL
-    "HOLOCRON_DEPLOY_KEY", // Convex admin/deploy key
+    "PLATFORM_URL", // Platform / MCP backend base URL (consolidated secrets)
+    "PLATFORM_SITE_URL", // Public site URL for HTTP share links
+    "HOLO_DEPLOY_KEY", // Optional deploy/admin key
     "HOLOCRON_OPENAI_API_KEY", // OpenAI API key (holocron-namespaced)
-    "HOLOCRON_SITE_URL", // Convex site URL for HTTP actions
-    "CONVEX_URL", // Direct Convex URL override
-    "EXPO_PUBLIC_CONVEX_URL", // Holocron app env fallback
-    "CONVEX_SITE_URL", // Direct Convex site URL override
     "OPENAI_API_KEY", // OpenAI API key (standard name)
     "EXPO_PUBLIC_OPENAI_API_KEY", // Holocron app env fallback
+    "EXPO_PUBLIC_PLATFORM_URL", // App-public platform URL fallback
     "LOG_LEVEL",
   ] as const;
 
@@ -91,18 +93,50 @@ export function loadEnv(): Env {
   loadEnvFile(envPath);
   loadEnvFile(envLocalPath);
 
+  // Also try consolidated secrets.yaml (flat KEY: value) if present
+  const secretsCandidates = [
+    join(projectRoot, "services/platform/config/secrets.yaml"),
+    resolve(projectRoot, "../services/platform/config/secrets.yaml"),
+    resolve(projectRoot, "services/platform/config/secrets.yaml"),
+  ];
+  for (const secretsPath of secretsCandidates) {
+    if (!existsSync(secretsPath)) continue;
+    const contents = readFileSync(secretsPath, "utf8");
+    for (const rawLine of contents.split(/\r?\n/)) {
+      const line = rawLine.trim();
+      if (!line || line.startsWith("#")) continue;
+      const separatorIndex = line.indexOf(":");
+      if (separatorIndex === -1) continue;
+      const key = line.slice(0, separatorIndex).trim();
+      if (!KEYS_TO_MERGE.includes(key as (typeof KEYS_TO_MERGE)[number]) && key !== "PLATFORM_URL")
+        continue;
+      if (process.env[key] !== undefined) continue;
+      let value = line.slice(separatorIndex + 1).trim();
+      if (
+        (value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'"))
+      ) {
+        value = value.slice(1, -1);
+      }
+      const normalizedValue = normalizeEnvValue(value);
+      if (normalizedValue !== undefined) {
+        process.env[key] = normalizedValue;
+      }
+    }
+    break;
+  }
+
   const envWithFallback = {
     ...process.env,
-    CONVEX_DEPLOY_KEY: normalizeEnvValue(process.env.HOLOCRON_DEPLOY_KEY) || "",
+    HOLO_DEPLOY_KEY: normalizeEnvValue(process.env.HOLO_DEPLOY_KEY) || "",
     OPENAI_API_KEY:
       normalizeEnvValue(process.env.HOLOCRON_OPENAI_API_KEY) ||
       normalizeEnvValue(process.env.OPENAI_API_KEY) ||
       normalizeEnvValue(process.env.EXPO_PUBLIC_OPENAI_API_KEY) ||
       "",
-    CONVEX_URL:
-      normalizeEnvValue(process.env.HOLOCRON_URL) ||
-      normalizeEnvValue(process.env.CONVEX_URL) ||
-      normalizeEnvValue(process.env.EXPO_PUBLIC_CONVEX_URL) ||
+    PLATFORM_URL:
+      normalizeEnvValue(process.env.PLATFORM_URL) ||
+      normalizeEnvValue(process.env.EXPO_PUBLIC_PLATFORM_URL) ||
       "",
   };
 
@@ -114,7 +148,7 @@ export function loadEnv(): Env {
     console.error(`Checked .env at: ${envPath}`);
     console.error(`Checked .env.local at: ${envLocalPath}`);
     console.error(
-      `Available CONVEX vars: CONVEX_URL=${process.env.CONVEX_URL}, EXPO_PUBLIC_CONVEX_URL=${process.env.EXPO_PUBLIC_CONVEX_URL}`
+      `Available platform vars: PLATFORM_URL=${process.env.PLATFORM_URL}, EXPO_PUBLIC_PLATFORM_URL=${process.env.EXPO_PUBLIC_PLATFORM_URL}`
     );
     process.exit(1);
   }

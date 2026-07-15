@@ -27,6 +27,7 @@
     "deploy:ios": "pnpm exec eas build --platform ios --profile production --auto-submit",
     "deploy:android": "pnpm exec eas build --platform android --profile production",
     "validate": "npx tsx scripts/validate-migration.ts",
+    "verify:no-convex-env": "bun services/platform/src/cli/holo.ts verify-no-convex-env",
     "start:storybook": "STORYBOOK_ENABLED=true EXPO_PUBLIC_STORYBOOK_ENABLED=true expo start --dev-client --clear",
     "start:storybook:ios": "STORYBOOK_ENABLED=true EXPO_PUBLIC_STORYBOOK_ENABLED=true expo start --dev-client --ios --clear",
     "start:storybook:android": "STORYBOOK_ENABLED=true EXPO_PUBLIC_STORYBOOK_ENABLED=true expo start --dev-client --android --clear",

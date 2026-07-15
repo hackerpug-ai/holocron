@@ -10,7 +10,8 @@ export class HolocronConvexClient {
   private client: ConvexClient;
 
   constructor() {
-    this.client = new ConvexClient(env.CONVEX_URL);
+    // PLATFORM_URL from consolidated secrets (T-PLAT-017)
+    this.client = new ConvexClient(env.PLATFORM_URL);
   }
 
   /**
