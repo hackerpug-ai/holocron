@@ -148,43 +148,63 @@ export function ensureServiceLoaded(
   return { ...boot, restarted: true };
 }
 
-/** Best-effort kill residual processes matching holocron stack patterns. */
+function pidsMatching(pattern: string): string[] {
+  const r = run('pgrep', ['-f', pattern], { timeoutMs: 5_000 });
+  if (r.status !== 0) return [];
+  return r.stdout
+    .split('\n')
+    .map((s) => s.trim())
+    .filter((s) => /^\d+$/.test(s));
+}
+
+function signalPids(
+  signal: 'TERM' | 'KILL',
+  pids: string[],
+  label: string,
+  messages: string[]
+): void {
+  for (const pid of pids) {
+    run('kill', [`-${signal}`, pid]);
+    messages.push(`SIG${signal} ${label} pid ${pid}`);
+  }
+}
+
+/**
+ * Best-effort kill residual processes matching holocron stack patterns.
+ * Postgres: SIGTERM → wait → SIGKILL (PGDATA-scoped only).
+ * Mastra: same escalation for holo.ts service:up processes.
+ */
 export function killResidualStackProcesses(cfg: StackConfig): string[] {
   const messages: string[] = [];
-  // Mastra: bun …/holo.ts service:up
-  const pgrepMastra = run('pgrep', ['-f', 'holo\\.ts service:up'], { timeoutMs: 5_000 });
-  if (pgrepMastra.status === 0) {
-    for (const pid of pgrepMastra.stdout
-      .split('\n')
-      .map((s) => s.trim())
-      .filter(Boolean)) {
-      run('kill', ['-TERM', pid]);
-      messages.push(`SIGTERM mastra-like pid ${pid}`);
-    }
-  }
-  // After short wait, SIGKILL stubborn ones
-  spawnSync('sleep', ['0.5']);
-  const still = run('pgrep', ['-f', 'holo\\.ts service:up'], { timeoutMs: 5_000 });
-  if (still.status === 0) {
-    for (const pid of still.stdout
-      .split('\n')
-      .map((s) => s.trim())
-      .filter(Boolean)) {
-      run('kill', ['-KILL', pid]);
-      messages.push(`SIGKILL mastra-like pid ${pid}`);
+  // Prefer clean pg_ctl stop for holocron PGDATA when available
+  const pgCtl = resolve(cfg.pgBin, 'pg_ctl');
+  if (existsSync(pgCtl) && existsSync(cfg.pgData)) {
+    const stop = run(pgCtl, ['-D', cfg.pgData, 'stop', '-m', 'fast', '-t', '5'], {
+      timeoutMs: 15_000,
+    });
+    if (stop.status === 0) {
+      messages.push(`pg_ctl stop -m fast (PGDATA=${cfg.pgData})`);
+    } else if (stop.combined.trim()) {
+      messages.push(`pg_ctl stop: ${stop.combined.trim().slice(0, 120)}`);
     }
   }
 
+  // Mastra: bun …/holo.ts service:up
+  const mastraPattern = 'holo\\.ts service:up';
+  signalPids('TERM', pidsMatching(mastraPattern), 'mastra-like', messages);
   // Postgres owned by holocron PGDATA only — avoid killing unrelated clusters
-  const pgrepPg = run('pgrep', ['-f', `postgres.*-D.*${cfg.pgData}`], { timeoutMs: 5_000 });
-  if (pgrepPg.status === 0) {
-    for (const pid of pgrepPg.stdout
-      .split('\n')
-      .map((s) => s.trim())
-      .filter(Boolean)) {
-      run('kill', ['-TERM', pid]);
-      messages.push(`SIGTERM postgres pid ${pid} (PGDATA=${cfg.pgData})`);
-    }
+  // Escape path for pgrep -f (basic regex): treat as fixed substring of cmdline
+  const pgPattern = `postgres.*-D[[:space:]]*${cfg.pgData.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`;
+  signalPids('TERM', pidsMatching(pgPattern), `postgres (PGDATA=${cfg.pgData})`, messages);
+
+  // After short wait, SIGKILL stubborn ones
+  spawnSync('sleep', ['0.5']);
+  signalPids('KILL', pidsMatching(mastraPattern), 'mastra-like', messages);
+  signalPids('KILL', pidsMatching(pgPattern), `postgres (PGDATA=${cfg.pgData})`, messages);
+
+  // Brief wait so port/state settles after SIGKILL
+  if (pidsMatching(pgPattern).length > 0 || pidsMatching(mastraPattern).length > 0) {
+    spawnSync('sleep', ['0.3']);
   }
   return messages;
 }

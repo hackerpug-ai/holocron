@@ -397,8 +397,41 @@ export function stackUp(options?: { cfg?: StackConfig; timeoutMs?: number }): St
   };
 }
 
+function holocronLaunchdOrphans(): string[] {
+  const list = spawnSync('launchctl', ['list'], { encoding: 'utf8', timeout: 10_000 });
+  return (list.stdout ?? '')
+    .split('\n')
+    .filter((l) => /holocron-(postgres|mastra|zerocache)/i.test(l))
+    .filter((l) => {
+      const pid = l.trim().split(/\s+/)[0];
+      return pid !== undefined && /^\d+$/.test(pid) && Number(pid) > 0;
+    });
+}
+
+/**
+ * True when stack is fully down: no holocron launchd PIDs, Mastra /health fails,
+ * and Postgres does not accept connections (pg_isready must fail).
+ */
+function stackIsFullyDown(cfg: StackConfig): {
+  down: boolean;
+  orphans: string[];
+  mastraUp: boolean;
+  postgresUp: boolean;
+} {
+  const orphans = holocronLaunchdOrphans();
+  const mastraUp = probeMastra(cfg).ok;
+  const postgresUp = probePostgres(cfg).ok;
+  return {
+    down: orphans.length === 0 && !mastraUp && !postgresUp,
+    orphans,
+    mastraUp,
+    postgresUp,
+  };
+}
+
 /**
  * stack down — bootout launchd units / kill direct processes; zero orphaned holocron PIDs.
+ * Fails closed until Postgres is down (pg_isready fails), Mastra is down, and no holocron PIDs.
  */
 export function stackDown(options?: { cfg?: StackConfig; timeoutMs?: number }): StackCommandResult {
   const cfg = options?.cfg ?? loadStackConfig();
@@ -409,6 +442,13 @@ export function stackDown(options?: { cfg?: StackConfig; timeoutMs?: number }): 
   const mode: 'launchd' | 'direct' = useLaunchd ? 'launchd' : 'direct';
 
   if (mode === 'launchd') {
+    // Stop brew-managed postgresql so it cannot KeepAlive-race holocron PGDATA
+    spawnSync('brew', ['services', 'stop', 'postgresql@18'], {
+      encoding: 'utf8',
+      timeout: 15_000,
+    });
+    messages.push('brew services stop postgresql@18 (best-effort)');
+
     for (const label of [
       LAUNCHD_LABELS.mastra,
       LAUNCHD_LABELS.postgres,
@@ -423,49 +463,44 @@ export function stackDown(options?: { cfg?: StackConfig; timeoutMs?: number }): 
     messages.push(...stopDirect(cfg));
   }
 
-  // Wait until mastra is down (and launchd PIDs cleared)
+  // Wait until postgres readiness fails, mastra is down, and launchd PIDs cleared
   const deadline = started + timeoutMs;
   while (Date.now() < deadline) {
-    const mastraUp = probeMastra(cfg).ok;
-    const list = spawnSync('launchctl', ['list'], { encoding: 'utf8', timeout: 10_000 });
-    const holocronRunning = (list.stdout ?? '')
-      .split('\n')
-      .filter((l) => /holocron-(postgres|mastra|zerocache)/i.test(l))
-      .some((l) => {
-        const pid = l.trim().split(/\s+/)[0];
-        return pid !== undefined && /^\d+$/.test(pid) && Number(pid) > 0;
-      });
-    if (!mastraUp && !holocronRunning) break;
-    // Re-kill residuals if still up
+    const state = stackIsFullyDown(cfg);
+    if (state.down) break;
+
+    if (mode === 'launchd') {
+      // Re-bootout if KeepAlive / race re-listed agents with PIDs
+      if (state.orphans.length > 0 || state.postgresUp) {
+        bootoutLabel(cfg, LAUNCHD_LABELS.postgres);
+        bootoutLabel(cfg, LAUNCHD_LABELS.mastra);
+      }
+    }
+    // Residual kill: SIGTERM then SIGKILL for postgres + mastra
     killResidualStackProcesses(cfg);
     sleepSync(300);
   }
 
-  // Final residual sweep
+  // Final residual sweep + settle
   messages.push(...killResidualStackProcesses(cfg));
+  sleepSync(200);
 
   const report = buildStatus(cfg, mode, messages);
   report.elapsed_ms = Date.now() - started;
-  // After down, "ok" means clean shutdown succeeded (services intentionally down)
-  const list = spawnSync('launchctl', ['list'], { encoding: 'utf8', timeout: 10_000 });
-  const orphans = (list.stdout ?? '')
-    .split('\n')
-    .filter((l) => /holocron-(postgres|mastra|zerocache)/i.test(l))
-    .filter((l) => {
-      const pid = l.trim().split(/\s+/)[0];
-      return pid !== undefined && /^\d+$/.test(pid) && Number(pid) > 0;
-    });
-  const mastraStillUp = probeMastra(cfg).ok;
-  report.ok = orphans.length === 0 && !mastraStillUp;
+  // After down, "ok" means clean shutdown: no orphans, mastra down, postgres NOT accepting
+  const final = stackIsFullyDown(cfg);
+  report.ok = final.down;
   if (!report.ok) {
     report.messages.push(
-      `clean shutdown incomplete: orphans=${orphans.length} mastra_up=${mastraStillUp}`
+      `clean shutdown incomplete: orphans=${final.orphans.length} mastra_up=${final.mastraUp} postgres_up=${final.postgresUp}`
     );
   } else {
-    report.messages.push('clean shutdown: zero holocron PIDs, mastra down');
+    report.messages.push(
+      'clean shutdown: zero holocron PIDs, mastra down, postgres not accepting connections'
+    );
   }
 
-  // stack down exits 0 on clean stop; nonzero if orphans remain
+  // stack down exits 0 on clean stop; nonzero if anything still up
   return {
     ok: report.ok,
     exitCode: report.ok ? 0 : 1,
