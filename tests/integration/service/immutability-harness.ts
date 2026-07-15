@@ -41,14 +41,20 @@ export function writeImmutabilityArtifact(name: string, body: unknown): string {
   return path;
 }
 
-/** Seed open belief under advisory lock; returns belief id. */
+/** Seed open belief via SECURITY DEFINER as holocron_app; returns belief id. */
 export async function seedBeliefForTest(options?: {
   claimId?: string;
   statement?: string;
+  /** When true (default), connect as holocron_app to prove DEFINER path under app role. */
+  asAppRole?: boolean;
 }): Promise<{ beliefId: string; claimId: string; statement: string }> {
-  const { seedOpenBelief } = await import('../../../services/platform/src/db/evidence/index');
+  const { seedOpenBelief, toAppRoleDatabaseUrl } = await import(
+    '../../../services/platform/src/db/evidence/index'
+  );
+  const asApp = options?.asAppRole !== false;
+  const databaseUrl = asApp ? toAppRoleDatabaseUrl(DEFAULT_DATABASE_URL) : DEFAULT_DATABASE_URL;
   const seeded = await seedOpenBelief({
-    databaseUrl: DEFAULT_DATABASE_URL,
+    databaseUrl,
     claimId: options?.claimId,
     statement: options?.statement,
   });

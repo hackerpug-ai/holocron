@@ -43,6 +43,13 @@
       "when": 1784082000000,
       "tag": "0005_belief_asof_net_support",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1784083000000,
+      "tag": "0006_beliefs_insert_authenticity",
+      "breakpoints": true
     }
   ]
 }

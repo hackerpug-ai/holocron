@@ -1,0 +1,19 @@
+REDHAT-FIX-H1 RED — closed INSERT as holocron_app succeeded before 0006_*
+
+Captured live against holocron DB with migrations 0000–0005 only:
+
+  session_user = holocron_app
+  has_table_privilege(holocron_app, beliefs, INSERT) = true
+
+  INSERT INTO beliefs (claim_id, statement, confidence, tx_from, tx_to, actor)
+  VALUES ('forged-h1-red', 'FORGED-ASOF-HIJACK-RED', 0.99,
+          now() - interval '1 day', now() - interval '1 hour', 'forger')
+  RETURNING id, (tx_to IS NOT NULL) AS closed;
+
+  → INSERT 0 1, closed=t, forged_count=1
+
+This is the as-of audit-forgery path (H1). GREEN requires migration 0006_* to
+REVOKE INSERT from holocron_app and route open seeds through seed_open_belief
+SECURITY DEFINER (owner holocron_owner, forces tx_to IS NULL).
+
+Full probe transcript: .tmp/REDHAT-FIX-H1/closed-insert-red-success.txt
