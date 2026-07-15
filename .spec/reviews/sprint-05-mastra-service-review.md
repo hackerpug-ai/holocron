@@ -1,19 +1,23 @@
-# Mastra Review — Sprint 05 / service-5
+# Mastra Review — Sprint 05 / service-5 (RE-REVIEW after tripwire FIX)
 
 **Task**: service-5 — Review auth boundary + registry singularity  
-**Reviewer**: mastra-reviewer (adversarial)  
-**Date (UTC)**: 2026-07-15T02:52:50Z  
+**Reviewer**: mastra-reviewer (adversarial re-review)  
+**Date (UTC)**: 2026-07-15T03:02:05Z  
 **Worktree**: `/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-5`  
 **Branch**: `task/service-5`  
-**Base HEAD reviewed**: `8ac414d20a6aab1cd98471137bf52cf7c028769d` (`Merge task/service-4 into main`)  
-**Scope of review**: service-1..4 implementations under `services/platform/src/**` + integration suite under `tests/integration/service/**` (read-only; no implementation edits)
+**HEAD reviewed**: `8f080fa75bf78de43ed345553a6f18125c6254ad` (`chore: sync main into service-5 for re-review after tripwire FIX`)  
+**Tripwire FIX commit**: `2e8eaa8bc2dc32f88183c5c87f4ce17322862bd3` (`service-5-FIX: Mastra tripwire handling at agent/stream call sites`)  
+**FIX merge on main**: `42630ed` (`Merge task/service-5-FIX-tripwire into main`)  
+**Scope of review**: service-1..4 implementations + service-5-FIX tripwire under `services/platform/src/**` + integration suite under `tests/integration/service/**` (read-only; no implementation edits)
+
+**Prior verdict**: NEEDS_FIXES (AC-3 tripwire only) — report at same path, superseded by this re-review.
 
 ---
 
-## Verdict: NEEDS_FIXES
+## Verdict: APPROVED
 
-**Primary gate (auth 401/403/200) and registry singularity PASS with live curl + CLI evidence.**  
-**AC-3 tripwire coverage FAILS** — composition root registers `agents: {}` / `workflows: {}`; the only `agent.generate()` call site (compat spike) has **zero** `result.tripwire` / stream-chunk tripwire handling. Per task CRITICAL CONSTRAINTS and AC-3 MUST_OBSERVE, this review **cannot APPROVED** until tripwire is wired at every agent/stream call site (or production agents are registered with tripwire handling and proven by grep).
+**All three ACs pass with live curl, CLI, and grep evidence captured in this session.**  
+AC-3 was the sole prior blocker; FIX landed helpers (`assertNoTripwire`, `handleStreamChunk`, `assertNoTripwireInStream`) and wired the only production `agent.generate()` call site. Grep now shows ≥1 `result.tripwire` and ≥1 stream `chunk.type === 'tripwire'` hits.
 
 ---
 
@@ -22,13 +26,13 @@
 | Check | Result | Evidence |
 |-------|--------|----------|
 | AC-1 Auth boundary unkeyed→401 / wrong-scope→403 / keyed→200 | **PASS** | Live curl (embedded below) |
-| AC-2 Registry singularity (0 dup Zod parse outside shared registry audit roots) | **PASS** | `holo verify:no-dup-validation` → `duplicates:0`; rg audit |
-| AC-3 Tripwire at agent/stream call sites | **FAIL** | `rg tripwire` → 0 hits; `agents: {}` in composition root |
-| `/health` real probes (not static) | **PASS** | Live 200 with latency; dead `DATABASE_URL` → 503 + `db.ready:false` |
+| AC-2 Registry singularity (0 dup Zod parse outside shared registry audit roots) | **PASS** | `holo verify:no-dup-validation` → `duplicates:0`; identity true |
+| AC-3 Tripwire at agent/stream call sites | **PASS** | `result.tripwire` hits: **6**; stream `chunk.type === 'tripwire'` hits: **4**; sole generate site calls `assertNoTripwire` |
+| `/health` real probes (not static) | **PASS** | Live 200 with varying latency; dead DB → 503 + `db.ready:false` |
 | `resolveModel` fail-closed | **PASS** | unknown role → `UNKNOWN_ROLE`; dead endpoint → `RoleUnavailableError` |
-| AP-7 NO RLS / NO multi-tenant | **PASS** | Explicit comment; all `isRLSEnabled: false`; no tenant policies |
-| TDD evidence service-1..4 | **PASS with notes** | Commits + `.tmp/service-{1..4}/` RED/GREEN artifacts; classic RED mostly pre-impl module-miss rather than pure assertion RED |
+| AP-7 NO RLS / NO multi-tenant | **PASS** | Explicit AP-7 comment; no `isRLSEnabled: true` |
 | Stub / mock of `@mastra` / `z.any()` / skipped tests | **PASS** | Grep clean on production paths |
+| Tripwire pure-logic suite | **PASS** | `bun test src/mastra/__tests__/tripwire.test.ts` → **8 pass / 0 fail** |
 
 ---
 
@@ -53,7 +57,7 @@ Listening on :4111
   mastra:  single composition root (agents/workflows deferred to later tasks)
 ```
 
-### Curl evidence (real HTTP against booted process)
+### Curl evidence (real HTTP against booted process — re-captured 2026-07-15T03:01Z)
 
 #### 401 — unkeyed `GET /api/missions`
 
@@ -66,12 +70,8 @@ curl -sS -w "\nHTTP %{http_code}\n" http://127.0.0.1:4111/api/missions
 HTTP 401
 ```
 
-Raw headers (second capture):
-
 ```
 HTTP/1.1 401 Unauthorized
-Content-Type: application/json
-{"error":"unauthorized","message":"missing or invalid Authorization Bearer token"}
 ```
 
 #### 403 — wrong-scope (`mcp-test` on `/api/missions`)
@@ -89,8 +89,6 @@ HTTP 403
 
 ```
 HTTP/1.1 403 Forbidden
-Content-Type: application/json
-{"error":"forbidden","message":"scope 'mcp' is not allowed for /api/missions","scope":"mcp"}
 ```
 
 #### 200 — correct-scope (`rn-test` on `/api/missions`)
@@ -108,8 +106,6 @@ HTTP 200
 
 ```
 HTTP/1.1 200 OK
-Content-Type: application/json
-{"ok":true,"route":"GET /api/missions","scope":"rn","missions":[],"note":"placeholder — mission list lands later"}
 ```
 
 ### Additional scope matrix (same boot, same keys)
@@ -118,7 +114,7 @@ Content-Type: application/json
 |---------|----------|----------|
 | unkeyed `POST /api/missions` | 401 | 401 |
 | unknown key `Bearer wrong-key` → `GET /api/missions` | 401 | 401 |
-| RN → `POST /mcp` | 403 | 403 `scope 'rn' is not allowed for /mcp` |
+| RN → `POST /mcp` | 403 | 403 |
 | MCP → `POST /mcp` | 200 | 200 `scope":"mcp"` |
 | CONTROL → `GET /api/missions` | 403 | 403 |
 | CONTROL → `POST /api/missions/m1/steer` | 200 | 200 `scope":"control"` |
@@ -126,9 +122,9 @@ Content-Type: application/json
 
 ### Implementation anchors
 
-- Middleware: `services/platform/src/http/middleware/scoped-key.ts` — unkeyed → 401 (L128–134), unknown key → 401 (L137–138), wrong scope → 403 (L141–149), `/health` exempt (L97–99).
-- App wiring: `services/platform/src/http/hono-app.ts` L42–43 `app.use('*', createScopedKeyMiddleware(keys))`.
-- Placeholder mission/MCP handlers return 200 **only after** middleware authorizes (auth surface under test; mission engine deferred to later sprints — not a stub of the middleware itself).
+- Middleware: `services/platform/src/http/middleware/scoped-key.ts` — unkeyed → 401, unknown key → 401, wrong scope → 403, `/health` exempt.
+- App wiring: `services/platform/src/http/hono-app.ts` — `app.use('*', createScopedKeyMiddleware(keys))`.
+- Placeholder mission/MCP handlers return 200 **only after** middleware authorizes (auth surface under test; mission engine deferred).
 
 **AC-1 satisfied.**
 
@@ -136,7 +132,7 @@ Content-Type: application/json
 
 ## AC-2 — Registry singularity — PASS
 
-### Official CLI audit
+### Official CLI audit (re-run this session)
 
 ```bash
 bun services/platform/src/cli/holo.ts verify:no-dup-validation
@@ -175,10 +171,8 @@ holo verify:identity search identity:true OK
 
 ### Grep audit (task roots: `mcp/` + `tools/`, exclude registry + tests)
 
-Audit function (`auditNoDupValidation` in `tools/registry.ts`) intentionally scans **only** `services/platform/src/mcp` and `services/platform/src/tools` (excluding `registry.ts` and `__tests__`) for Zod-style `.parse(` / `.safeParse(`.
-
 ```bash
-rg -n '(?<![A-Za-z0-9_])\.(safeParse|parse)\s*\(' \
+rg --pcre2 -n '(?<![A-Za-z0-9_])\.(safeParse|parse)\s*\(' \
   services/platform/src/mcp services/platform/src/tools \
   --glob '!**/*test*' --glob '!**/registry.ts'
 ```
@@ -189,101 +183,123 @@ rg -n '(?<![A-Za-z0-9_])\.(safeParse|parse)\s*\(' \
 
 → **0 lines** under the singularity roots. Matches AC-2 MUST_OBSERVE.
 
-### Full-tree `.parse` / `.safeParse` context (honest inventory — not all are tool-validation dups)
-
-```bash
-rg -n '\.parse|\.safeParse' services/platform/src/ \
-  --glob '!**/*test*' --glob '!**/migrations/meta/**'
-```
-
-| Site | Classification |
-|------|----------------|
-| `tools/registry.ts` comments + audit scanner | Allowed registry (meta) |
-| `fleet/manifest.ts:65` `JSON.parse` | Non-Zod JSON load |
-| `fleet/manifest.ts:71` `FleetRoleManifestSchema.safeParse` | Fleet manifest config validation (outside tool registry roots) |
-| `db/probe.ts` `JSON.parse` + lifecycle enum `safeParse` | DB probe tooling (outside tool registry roots) |
-| `mcp/manifest-replay.ts` `JSON.parse` | Fixture JSON load |
-| `catalog/export-reader.ts` `JSON.parse` | NDJSON row parse |
-| `compat/cells/tool.ts:53` `outputSchema.parse` | Compat spike self-check (outside audit roots) |
-
-**No second Zod validation layer on agent/workflow/MCP tool I/O in `mcp/` or `tools/`.** Singularity holds for the shared tool registry contract (T-PLAT-006).
-
 **AC-2 satisfied.**
 
 ---
 
-## AC-3 — Tripwire coverage at agent/stream call sites — FAIL
+## AC-3 — Tripwire coverage at agent/stream call sites — PASS (FIXED)
 
-### Grep evidence (honest)
+### Prior FAIL (superseded)
+
+Previous review at HEAD `8ac414d` found **zero** `tripwire` hits and the sole `agent.generate()` call site in `compat/cells/agent.ts` ignored `result.tripwire`. That blocked APPROVED.
+
+### FIX landed (`2e8eaa8`)
+
+| File | Role |
+|------|------|
+| `services/platform/src/mastra/tripwire.ts` | `assertNoTripwire`, `handleStreamChunk`, `assertNoTripwireInStream`, `TripwireError` |
+| `services/platform/src/compat/cells/agent.ts` | sole production generate site → `assertNoTripwire(result)` fail-closed |
+| `services/platform/src/mastra/__tests__/tripwire.test.ts` | pure-logic suite (UNIT_TEST_JUSTIFIED for helpers) |
+
+### Grep evidence (re-run this session — MUST_OBSERVE)
 
 ```bash
 rg -n 'result\.tripwire' services/platform/src/
-# (no matches)
+# COUNT: 6 hits (non-test production + docs in helper)
+```
 
-rg -n 'tripwire' services/platform/src/
-# (no matches)
+Key production hits:
 
+```
+services/platform/src/mastra/tripwire.ts:5:  * - generate: `result.tripwire` + often `finishReason === 'other'`
+services/platform/src/mastra/tripwire.ts:75: * (`result.tripwire` present, or `finishReason === 'other'` without a payload).
+services/platform/src/mastra/tripwire.ts:79:  if (result.tripwire) {
+services/platform/src/mastra/tripwire.ts:80:    throw new TripwireError(normalizeTripwire(result.tripwire));
+services/platform/src/compat/cells/agent.ts:101:    // assertNoTripwire checks result.tripwire (+ finishReason === 'other').
+```
+
+```bash
 rg -n "chunk\.type\s*===\s*['\"]tripwire['\"]" services/platform/src/
-# (no matches)
-
-rg -n '\.generate\(|\.stream\(|fullStream' services/platform/src/
+# COUNT: 4 hits
 ```
 
 ```
-services/platform/src/compat/cells/agent.ts:6: * Calls agent.generate() and asserts non-empty text.
-services/platform/src/compat/cells/agent.ts:90:      agent.generate('Say "compatibility spike green" and nothing else.')
+services/platform/src/mastra/tripwire.ts:6: * - stream:   `chunk.type === 'tripwire'` with payload
+services/platform/src/mastra/tripwire.ts:111:  if (chunk.type === 'tripwire') {
+services/platform/src/mastra/__tests__/tripwire.test.ts:63:  it('detects chunk.type === "tripwire" ...
+services/platform/src/mastra/__tests__/tripwire.test.ts:109:  it('throws TripwireError on chunk.type === "tripwire" ...
 ```
 
-### Composition root reality
-
-`services/platform/src/index.ts`:
-
-```ts
-agents: {},
-workflows: {},
-// ...
-console.log(`  mastra:  single composition root (agents/workflows deferred to later tasks)`);
+```bash
+rg -c 'tripwire' services/platform/src/
+# total tripwire lines across src: 65
 ```
 
-Boot log confirms: **agents/workflows deferred to later tasks**.
+### Call-site coverage (every generate/stream)
 
-### Only agent call site (compat spike)
+```bash
+rg -n '\.generate\(|\.stream\(|fullStream' services/platform/src/ --glob '!**/*test*'
+```
 
-`services/platform/src/compat/cells/agent.ts:90` — `agent.generate(...)` then reads `result.text` **without** checking `result.tripwire` or `finishReason === 'other'`. No `stream` / `fullStream` handlers exist in the platform service.
+| Site | Handling |
+|------|----------|
+| `compat/cells/agent.ts:97` `agent.generate(...)` | **PASS** — `assertNoTripwire(result)` at L103; on `TripwireError` returns `ok: false` + tripwire payload (never success) |
+| `mastra/tripwire.ts` stream helpers | **PASS** — `handleStreamChunk` branches on `chunk.type === 'tripwire'`; `assertNoTripwireInStream` consumes fullStream fail-closed |
+| Other `.stream(` production call sites | **none** in platform src |
+
+Composition root still has `agents: {}` / `workflows: {}` (deferred product agents). That is **not** an AC-3 failure when the only live call site is covered and reusable stream/generate helpers exist for future agents.
+
+### Helper behavior (code review + unit suite)
+
+`assertNoTripwire` (L78–90 `tripwire.ts`):
+
+1. Throws `TripwireError` when `result.tripwire` present  
+2. Defense in depth: `finishReason === 'other'` without tripwire payload → still fail closed  
+
+`handleStreamChunk` (L110–129): returns `{ action: 'tripwire', tripwire: {...} }` on stream tripwire chunks.
+
+```bash
+cd services/platform && bun test src/mastra/__tests__/tripwire.test.ts
+# 8 pass, 0 fail, 20 expect() calls
+```
 
 ### AC-3 evaluation
 
 | MUST_OBSERVE | Observed |
 |--------------|----------|
-| `grep 'result.tripwire'` ≥1 hit at agent call sites | **0 hits** |
-| `grep tripwire` ≥1 hit in stream handlers | **0 hits** |
+| `grep 'result.tripwire'` ≥1 hit at agent call sites | **6 hits** including generate path + call site wiring |
+| `grep tripwire` / stream `chunk.type === 'tripwire'` ≥1 | **4 hits** for stream pattern; helpers + tests |
 
-**AC-3 not satisfied.** This is not rationalized away as “out of scope” for the review — the task AC requires tripwire evidence. Honest note: production agents are not registered yet (Sprint 05 composition root deliberately empty). **Follow-up (blocking for APPROVED):** when the first production agent/workflow is registered, wire Mastra 1.x tripwire handling at **every** `generate`/`stream` call site and re-run this review AC-3 greps.
+**AC-3 satisfied.**
 
 ---
 
 ## `/health` real probe validation — PASS (not static)
 
-### Live (Postgres accepting, fleet :4545 up)
+### Live (Postgres accepting, fleet :4545 up) — re-captured
 
 ```bash
 curl -sS -w "\nHTTP %{http_code}\n" http://127.0.0.1:4111/health
 ```
 
 ```
-{"status":"ok","db":{"ready":true,"latency_ms":12},"fleet":{"ready":true,"endpoint":"http://127.0.0.1:4545","latency_ms":9},"queue":{"ready":true,"latency_ms":1}}
+{"status":"ok","db":{"ready":true,"latency_ms":11},"fleet":{"ready":true,"endpoint":"http://127.0.0.1:4545","latency_ms":8},"queue":{"ready":true,"latency_ms":1}}
 HTTP 200
 ```
 
-- `latency_ms` fields are positive and vary across calls (not a hardcoded body).
-- Implementation: `services/platform/src/http/health.ts` — real `SELECT 1` via `postgres`, real `fetch` to fleet `/v1/models`, real `serviceQueue.isReady()`.
+Second call (latencies vary — not a hardcoded body):
 
-### Negative control — dead `DATABASE_URL` (no Postgres stop required; equivalent fail-closed probe)
+```
+{"status":"ok","db":{"ready":true,"latency_ms":7},"fleet":{"ready":true,"endpoint":"http://127.0.0.1:4545","latency_ms":2},"queue":{"ready":true,"latency_ms":1}}
+```
+
+### Negative control — dead `DATABASE_URL` on :4112
 
 ```bash
 export DATABASE_URL=postgres://127.0.0.1:59999/holocron_dead
+export PORT=4112
 bun run services/platform/src/index.ts
-curl -sS -w "\nHTTP %{http_code}\n" http://127.0.0.1:4111/health
+curl -sS -w "\nHTTP %{http_code}\n" http://127.0.0.1:4112/health
 ```
 
 ```
@@ -342,6 +358,7 @@ exit: 0
 
 ```ts
 await resolveModel("divergent", { endpointOverride: "http://127.0.0.1:1" });
+// services/platform/src/inference/resolve-model.ts
 ```
 
 ```json
@@ -351,8 +368,6 @@ await resolveModel("divergent", { endpointOverride: "http://127.0.0.1:1" });
   "message": "fleet role 'divergent' unreachable at http://127.0.0.1:1 (degradation=surface-unavailable): health probe failed at http://127.0.0.1:1/v1/models: Unable to connect. Is the computer able to access the url?"
 }
 ```
-
-Cloud endpoint belt-and-suspenders present in `resolve-model.ts` (refuses `api.openai.com` / `api.anthropic.com` / Google generative language).
 
 ---
 
@@ -369,11 +384,11 @@ rg -n '"isRLSEnabled": true' services/platform/src/
 # (no isRLSEnabled:true)
 ```
 
-All Drizzle snapshot tables report `"isRLSEnabled": false`. Trust boundary is Tailscale + scoped keys (RN / MCP / control), matching `01-architecture-posture.md` AP-7.
+Trust boundary is Tailscale + scoped keys (RN / MCP / control). **AP-7 satisfied.**
 
 ---
 
-## Stub-detection (SUPREME RULE) — PASS on core auth/registry/health/resolve paths
+## Stub-detection (SUPREME RULE) — PASS on core auth/registry/health/resolve/tripwire paths
 
 | Pattern | Result |
 |---------|--------|
@@ -382,27 +397,10 @@ All Drizzle snapshot tables report `"isRLSEnabled": false`. Trust boundary is Ta
 | `inputSchema: z.any()` / `outputSchema: z.any()` | no matches |
 | `.skip` / `.todo` / `xit` / `xtest` / `xdescribe` in platform tests | no matches |
 
-**Notes (not SUPREME RULE failures for this sprint’s auth/registry gates):**
+**Notes (not SUPREME RULE failures for this sprint’s gates):**
 
-- Mission list / MCP Streamable handlers are **auth-surface placeholders** that only run after middleware — documented as Sprint 15+ product surfaces. Middleware itself is real.
-- Compat spike `agent.generate` lacks tripwire (covered under AC-3 FAIL above).
-
----
-
-## TDD evidence summary (service-1 .. service-4)
-
-| Task | Commit | RED evidence | GREEN evidence |
-|------|--------|--------------|----------------|
-| **service-1** | `f6d9ed4` composition root + `/health` | Prior health stub concerns superseded by live probes; `.tmp/service-1/AC-2-green.txt` records dead-port 503 control | `.tmp/service-1/AC-1-green.txt`, `AC-2-green.txt`, `AC-3-green.txt`, live health above |
-| **service-2** | `36c3ef8` shared Zod registry | `.tmp/service-2/red-output.txt` — 7 fail / 2 pass (`Cannot find module '../registry.ts'` before impl) | `.tmp/service-2/green-output.txt`, `cli-gates.txt` (`duplicates:0`, `identity=true`, 44 tools); live `verify:identity` + `verify:no-dup-validation` above |
-| **service-3** | `96e4883` scoped-key + resolveModel | `.tmp/service-3/red-output.txt` — suite fails pre-impl (module/package resolution against missing middleware stack) | `.tmp/service-3/green-output.txt` — **23 pass / 0 fail**; curl transcript 401/200/403 matrix; live curls + resolveModel above |
-| **service-4** | `ff1723c` integration RED suite on wire | Documented in `.tmp/service-4/negative-control-notes.md` — controlled RED inside suite (mismatched keys → 401; dead DB → 503); classic pre-impl RED carried by service-2/3 artifacts | `.tmp/service-4/green-output.txt` — **20/20** vitest pass; `.tmp/service-4/boundary-curl.txt` |
-
-### TDD honesty notes (MEDIUM, non-blocking for AC-1/2 product gates)
-
-1. **service-2/3 RED runs** primarily failed with **module-not-found / package-not-found**, not with soft-pass on wrong HTTP codes. That still forces RED→GREEN once modules exist, but pure behavioral RED (assert 401, get 200) is stronger and is what the **service-4 integration suite** provides on the live process.
-2. **service-4** landed as a GREEN suite against already-merged service-1..3, with **in-suite negative controls** proving non-stubbed keys and DB probes rather than a chronological RED commit before middleware. Acceptable when combined with service-3 RED/GREEN + live curl in this review; not ideal textbook TDD chronology.
-3. **No separate RED commit on `main` for service-4 before GREEN** — single commit `ff1723c` includes suite + evidence.
+- Mission list / MCP Streamable handlers remain **auth-surface placeholders** after middleware — documented deferral to later sprints.
+- Tripwire unit tests are pure-logic (no I/O) and justified for the helper module; production wiring is the call-site `assertNoTripwire` after real `agent.generate` shape.
 
 ---
 
@@ -410,7 +408,7 @@ All Drizzle snapshot tables report `"isRLSEnabled": false`. Trust boundary is Ta
 
 | Planner expectation | Shipped | Severity |
 |---------------------|---------|----------|
-| Agents/workflows with Mastra 1.x tripwire (AC-3 fixture) | Empty `agents`/`workflows` on composition root; tripwire absent | **HIGH → drives NEEDS_FIXES** |
+| Agents/workflows with Mastra 1.x tripwire (AC-3) | Helpers + sole generate site wired; composition root still empty agents/workflows | **Resolved for AC-3** (call-site coverage + reusable stream path) |
 | Shared tool registry + identity | 44 tools, `===` identity, `duplicates:0` | Aligned |
 | Scoped-key RN/MCP/control | Implemented + proven on wire | Aligned |
 | Real `/health` probes | Implemented + proven | Aligned |
@@ -423,18 +421,18 @@ All Drizzle snapshot tables report `"isRLSEnabled": false`. Trust boundary is Ta
 
 ### HIGH (must fix before APPROVED)
 
-1. **[services/platform/src/** — tripwire]** Zero `result.tripwire` / stream tripwire handling. Only call site `compat/cells/agent.ts:90` ignores tripwire. Composition root `agents: {}`. **AC-3 FAIL.** Register agents/workflows with Mastra 1.x tripwire handling at every call site, or add a thin adapter that enforces tripwire checks before any agent is exposed on the service.
+*(none — prior HIGH AC-3 tripwire resolved by `2e8eaa8`)*
 
-### MEDIUM (fix soon)
+### MEDIUM (fix soon — non-blocking for this sprint’s ACs)
 
-2. **TDD chronology** — service-4 did not land a pure pre-impl RED commit; RED was module-miss + in-suite negatives. Prefer future sprints keep RED commits that assert wrong HTTP/status before GREEN.
-3. **compat spike agent** — when next touched, add `if (result.tripwire) …` even for spike cells so the only existing call site is 1.x-correct.
-4. **Mission/MCP placeholders** — fine for Sprint 05 auth surface; ensure Sprint 15+ does not ship product logic that still returns static `{ ok: true }` without real mission/MCP work (SUPREME RULE when those features claim complete).
+1. **TDD chronology** — service-4 did not land a pure pre-impl RED commit; RED was module-miss + in-suite negatives. Prefer future sprints keep RED commits that assert wrong HTTP/status before GREEN.
+2. **Mission/MCP placeholders** — fine for Sprint 05 auth surface; ensure later sprints do not ship product logic that still returns static `{ ok: true }` without real mission/MCP work (SUPREME RULE when those features claim complete).
+3. **Empty composition-root agents/workflows** — when first production agent is registered, reuse `assertNoTripwire` / `assertNoTripwireInStream` at **every** new call site (lint gate recommended: files calling `.generate(`/`.stream(` must import tripwire helpers).
 
 ### LOW (track)
 
-5. `fleet/manifest.ts` Zod `safeParse` and `db/probe.ts` enum `safeParse` sit outside tool-registry audit roots by design — document in operator docs so future greps of whole `src/` do not false-alarm singularity.
-6. Boot log still names observability service `compat-spike` in `mastra.ts` createObservability — naming leftover from Sprint 04.
+4. `fleet/manifest.ts` Zod `safeParse` and `db/probe.ts` enum `safeParse` sit outside tool-registry audit roots by design — document so whole-tree greps do not false-alarm singularity.
+5. Boot observability serviceName still `compat-spike` in `mastra.ts` — naming leftover from Sprint 04.
 
 ---
 
@@ -442,14 +440,16 @@ All Drizzle snapshot tables report `"isRLSEnabled": false`. Trust boundary is Ta
 
 | Kind | Detail |
 |------|--------|
-| Live server boot | `bun run services/platform/src/index.ts` on :4111 with `HOLO_KEY_*` + `DATABASE_URL` |
-| Curl 401/403/200 | Embedded in AC-1 section (this report) |
-| Health live + dead DB | Embedded in health section |
-| CLI | `verify:no-dup-validation`, `verify:identity search`, `manifest:resolve divergent|nonexistent` |
+| Live server boot | `bun run services/platform/src/index.ts` on :4111 with `HOLO_KEY_*` + `DATABASE_URL=postgres://127.0.0.1:5432/holocron` |
+| Curl 401/403/200 | Embedded in AC-1 section (re-captured this re-review) |
+| Health live + dead DB | Live 200 on :4111; dead DB 503 on :4112 |
+| CLI | `verify:no-dup-validation`, `verify:identity search`, `manifest:resolve divergent\|nonexistent` |
 | resolveModel dead endpoint | `RoleUnavailableError` / `ROLE_UNAVAILABLE` |
-| Prior sprint artifacts | `.tmp/service-{1,2,3,4}/` on tree |
+| Tripwire greps | `result.tripwire` ≥1 (6); stream tripwire ≥1 (4) |
+| Tripwire unit suite | 8/8 pass |
+| FIX commit | `2e8eaa8` + merge `42630ed` on main, synced to worktree as `8f080fa` |
 | Studio screenshot | N/A (HTTP control plane; curl is the verification surface) |
-| Server teardown | Process killed after probes; port 4111 freed |
+| Server teardown | Processes on :4111 and :4112 terminated after probes |
 
 ---
 
@@ -457,19 +457,20 @@ All Drizzle snapshot tables report `"isRLSEnabled": false`. Trust boundary is Ta
 
 - [x] **AC-1 (PRIMARY)**: auth boundary 401/403/200 with curl evidence  
 - [x] **AC-2**: registry singularity (`duplicates:0`, identity true, grep 0 in audit roots)  
-- [ ] **AC-3**: tripwire coverage at agent/stream call sites — **0 hits; FAIL**  
+- [x] **AC-3**: tripwire coverage at agent/stream call sites — **≥1 result.tripwire + ≥1 stream tripwire; PASS**  
 - [x] Report exists with explicit **Verdict:** line  
 
 ---
 
-## Recommended remediation (for a follow-up task, not this review branch)
+## Change from prior review
 
-1. When first production agent is registered on `createMastra()`, wrap every `generate`/`stream` with tripwire handling (Mastra 1.x):
-   - `generate` → check `result.tripwire` (+ `finishReason === 'other'`)
-   - `stream` → handle `chunk.type === 'tripwire'` on `fullStream`
-2. Add a unit/integration assertion or lint gate: `rg tripwire` must hit every file that calls `.generate(`/`.stream(`.
-3. Re-run service-5 review → target **Verdict: APPROVED**.
+| Item | Prior (NEEDS_FIXES) | This re-review |
+|------|---------------------|----------------|
+| AC-3 greps | 0 hits | 6 `result.tripwire` + 4 stream tripwire |
+| generate call site | ignored tripwire | `assertNoTripwire(result)` fail-closed |
+| stream handlers | none | `handleStreamChunk` + `assertNoTripwireInStream` |
+| Verdict | NEEDS_FIXES | **APPROVED** |
 
 ---
 
-*End of adversarial review. No production code modified. Server processes terminated after evidence capture.*
+*End of adversarial re-review. No production code modified. Server processes terminated after evidence capture.*
