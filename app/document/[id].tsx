@@ -57,9 +57,9 @@ import { computeNarrationMap, extractTextFromNode, findNearestOffset } from '@/l
 import { isValidUrl, sanitizeMarkdown } from '@/lib/sanitizeMarkdown';
 import { extractTextFromMdast, slugify } from '@/lib/slugify';
 
-const CONVEX_SITE_URL =
-  process.env.EXPO_PUBLIC_CONVEX_SITE_URL ??
-  (process.env.EXPO_PUBLIC_CONVEX_URL ?? '').replace('.convex.cloud', '.convex.site');
+// Public site URL for share links (consolidated secrets → EXPO_PUBLIC_PLATFORM_SITE_URL)
+const PLATFORM_SITE_URL =
+  process.env.EXPO_PUBLIC_PLATFORM_SITE_URL ?? process.env.EXPO_PUBLIC_PLATFORM_URL ?? '';
 
 /**
  * Canonical document viewer route.
@@ -321,10 +321,10 @@ export default function DocumentRoute() {
   const getShareUrl = async (): Promise<string | null> => {
     if (!document) return null;
     if (document.isPublic && document.shareToken) {
-      return `${CONVEX_SITE_URL}/article/${document.shareToken}`;
+      return `${PLATFORM_SITE_URL}/article/${document.shareToken}`;
     }
     const result = await publish({ id: id as Id<'documents'> });
-    return `${CONVEX_SITE_URL}/article/${result.shareToken}`;
+    return `${PLATFORM_SITE_URL}/article/${result.shareToken}`;
   };
 
   const handleShare = async () => {

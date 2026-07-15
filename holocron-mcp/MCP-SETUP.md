@@ -15,8 +15,8 @@ The Holocron MCP server is configured in `~/.claude/settings.json` under the `mc
       "args": ["dist/stdio.js"],
       "cwd": "/Users/justinrich/Projects/holocron/holocron-mcp",
       "env": {
-        "HOLOCRON_URL": "https://acrobatic-echidna-253.convex.cloud",
-        "HOLOCRON_DEPLOY_KEY": "dev:acrobatic-echidna-253|...",
+        "PLATFORM_URL": "http://127.0.0.1:4111",
+        "HOLO_DEPLOY_KEY": "optional-local-dev-key",
         "HOLOCRON_OPENAI_API_KEY": "sk-proj-..."
       }
     }
@@ -80,9 +80,9 @@ Test the server without Claude Code:
 ```bash
 cd /Users/justinrich/Projects/holocron/holocron-mcp
 
-# Set environment variables
-export HOLOCRON_URL="https://acrobatic-echidna-253.convex.cloud"
-export HOLOCRON_DEPLOY_KEY="dev:acrobatic-echidna-253|..."
+# Set environment variables (or copy services/platform/config/secrets.example.yaml → secrets.yaml)
+export PLATFORM_URL="http://127.0.0.1:4111"
+export HOLO_DEPLOY_KEY="optional-local-dev-key"
 export HOLOCRON_OPENAI_API_KEY="sk-proj-..."
 
 # Run server

@@ -1,0 +1,212 @@
+/**
+ * Consolidated secrets source for Holocron platform config.
+ *
+ * Resolution order (STRICTLY one source contract):
+ *   1. process.env (operator / CI / launchd inject)
+ *   2. services/platform/config/secrets.yaml (gitignored local file)
+ *
+ * Never hardcode secrets in code. Real secrets.yaml is gitignored;
+ * secrets.example.yaml is the committed schema.
+ */
+import { existsSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { parse as parseYaml } from 'yaml';
+
+/** Keys that `holo secrets doctor` must resolve (AC-1 / TC-1 / TC-6). */
+export const REQUIRED_SECRET_KEYS = [
+  'DATABASE_URL',
+  'MASTRA_API_KEY',
+  'TAILSCALE_AUTH_KEY',
+  'FLEET_URL',
+  'FLEET_KEY',
+  'HOLO_PORT',
+  'PLATFORM_URL',
+  'HOLO_KEY_RN',
+  'HOLO_KEY_MCP',
+  'HOLO_KEY_CONTROL',
+] as const;
+
+export type RequiredSecretKey = (typeof REQUIRED_SECRET_KEYS)[number];
+
+export type SecretsMap = Record<string, string>;
+
+export type SecretResolution = {
+  key: string;
+  status: 'resolved' | 'missing';
+  source: 'env' | 'file' | null;
+  /** Never log real values from doctor — only presence. */
+  present: boolean;
+};
+
+export type DoctorReport = {
+  ok: boolean;
+  secretsPath: string;
+  fileExists: boolean;
+  resolutions: SecretResolution[];
+  missing: string[];
+  resolvedCount: number;
+};
+
+/** Walk up from this module to the repo root that contains services/platform. */
+export function resolveRepoRoot(fromDir = import.meta.dirname): string {
+  const parts = fromDir.split('/');
+  const idx = parts.lastIndexOf('services');
+  if (idx > 0) return parts.slice(0, idx).join('/');
+  // Fallback: cwd when invoked outside the package layout
+  return process.cwd();
+}
+
+export function defaultSecretsPath(repoRoot = resolveRepoRoot()): string {
+  return resolve(repoRoot, 'services/platform/config/secrets.yaml');
+}
+
+export function defaultSecretsExamplePath(repoRoot = resolveRepoRoot()): string {
+  return resolve(repoRoot, 'services/platform/config/secrets.example.yaml');
+}
+
+function coerceString(value: unknown): string | undefined {
+  if (value === null || value === undefined) return undefined;
+  if (typeof value === 'string') {
+    const t = value.trim();
+    return t.length > 0 ? t : undefined;
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  return undefined;
+}
+
+/**
+ * Load flat key→string map from secrets.yaml.
+ * Nested objects are not supported (flat contract only).
+ */
+export function loadSecretsFile(path: string): SecretsMap {
+  if (!existsSync(path)) return {};
+  const raw = readFileSync(path, 'utf8');
+  const parsed = parseYaml(raw) as unknown;
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error(`secrets file must be a flat YAML mapping: ${path}`);
+  }
+  const out: SecretsMap = {};
+  for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+    const s = coerceString(v);
+    if (s !== undefined) out[k] = s;
+  }
+  return out;
+}
+
+/**
+ * Resolve a single key: env wins, then secrets file.
+ */
+export function resolveSecret(
+  key: string,
+  options?: { fileMap?: SecretsMap; env?: NodeJS.ProcessEnv }
+): SecretResolution {
+  const env = options?.env ?? process.env;
+  const fromEnv = coerceString(env[key]);
+  if (fromEnv !== undefined) {
+    return { key, status: 'resolved', source: 'env', present: true };
+  }
+  const fileMap = options?.fileMap;
+  if (fileMap && coerceString(fileMap[key]) !== undefined) {
+    return { key, status: 'resolved', source: 'file', present: true };
+  }
+  return { key, status: 'missing', source: null, present: false };
+}
+
+/**
+ * Get the resolved string value (env > file). Returns undefined if missing.
+ */
+export function getSecretValue(
+  key: string,
+  options?: { secretsPath?: string; env?: NodeJS.ProcessEnv }
+): string | undefined {
+  const env = options?.env ?? process.env;
+  const fromEnv = coerceString(env[key]);
+  if (fromEnv !== undefined) return fromEnv;
+  const path = options?.secretsPath ?? defaultSecretsPath();
+  const fileMap = loadSecretsFile(path);
+  return coerceString(fileMap[key]);
+}
+
+/**
+ * Load all secrets into a map (file then overlay env).
+ */
+export function loadConsolidatedSecrets(options?: {
+  secretsPath?: string;
+  env?: NodeJS.ProcessEnv;
+}): SecretsMap {
+  const path = options?.secretsPath ?? defaultSecretsPath();
+  const env = options?.env ?? process.env;
+  const fileMap = loadSecretsFile(path);
+  const out: SecretsMap = { ...fileMap };
+  for (const [k, v] of Object.entries(env)) {
+    const s = coerceString(v);
+    if (s !== undefined) out[k] = s;
+  }
+  return out;
+}
+
+/**
+ * Doctor: verify every required key resolves. Never prints secret values.
+ */
+export function runSecretsDoctor(options?: {
+  secretsPath?: string;
+  env?: NodeJS.ProcessEnv;
+  requiredKeys?: readonly string[];
+}): DoctorReport {
+  const secretsPath = options?.secretsPath ?? defaultSecretsPath();
+  const env = options?.env ?? process.env;
+  const required = options?.requiredKeys ?? REQUIRED_SECRET_KEYS;
+  const fileExists = existsSync(secretsPath);
+  const fileMap = fileExists ? loadSecretsFile(secretsPath) : {};
+  const resolutions: SecretResolution[] = required.map((key) =>
+    resolveSecret(key, { fileMap, env })
+  );
+  const missing = resolutions.filter((r) => r.status === 'missing').map((r) => r.key);
+  const resolvedCount = resolutions.filter((r) => r.status === 'resolved').length;
+  return {
+    ok: missing.length === 0,
+    secretsPath,
+    fileExists,
+    resolutions,
+    missing,
+    resolvedCount,
+  };
+}
+
+export function formatDoctorText(report: DoctorReport): string {
+  const lines: string[] = [];
+  lines.push('holo secrets doctor — consolidated secrets resolution');
+  lines.push(`  secrets file: ${report.secretsPath}`);
+  lines.push(`  file exists:  ${report.fileExists ? 'yes' : 'no'}`);
+  lines.push('');
+  for (const r of report.resolutions) {
+    if (r.status === 'resolved') {
+      // AC-1: print `DATABASE_URL: resolved` (source annotation is optional)
+      lines.push(`${r.key}: resolved`);
+    } else {
+      // Only emitted on fail path; success path must not match /MISSING|missing key/i
+      lines.push(`${r.key}: NOT SET`);
+    }
+  }
+  lines.push('');
+  lines.push(`  keys resolved: ${report.resolvedCount}`);
+  lines.push(`  keys absent:   ${report.missing.length}`);
+  if (report.missing.length > 0) {
+    lines.push(`  absent keys: ${report.missing.join(', ')}`);
+  }
+  lines.push(report.ok ? '  status: OK' : '  status: FAIL');
+  return lines.join('\n');
+}
+
+/**
+ * Ensure config directory layout for docs/tooling.
+ */
+export function secretsConfigDir(repoRoot = resolveRepoRoot()): string {
+  return resolve(repoRoot, 'services/platform/config');
+}
+
+export function secretsGitignorePath(repoRoot = resolveRepoRoot()): string {
+  return resolve(secretsConfigDir(repoRoot), '.gitignore');
+}

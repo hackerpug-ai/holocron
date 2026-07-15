@@ -34,9 +34,9 @@ log(`Node version: ${process.version}`);
 log(`Process argv: ${JSON.stringify(process.argv)}`);
 log(`Working directory: ${process.cwd()}`);
 log(`Environment variables:`);
-log(`  HOLOCRON_URL: ${process.env.HOLOCRON_URL || "NOT SET"}`);
+log(`  PLATFORM_URL: ${process.env.PLATFORM_URL || "NOT SET"}`);
 log(
-  `  HOLOCRON_DEPLOY_KEY: ${process.env.HOLOCRON_DEPLOY_KEY ? `SET (length: ${process.env.HOLOCRON_DEPLOY_KEY.length})` : "NOT SET"}`
+  `  HOLO_DEPLOY_KEY: ${process.env.HOLO_DEPLOY_KEY ? `SET (length: ${process.env.HOLO_DEPLOY_KEY.length})` : "NOT SET"}`
 );
 log(
   `  HOLOCRON_OPENAI_API_KEY: ${process.env.HOLOCRON_OPENAI_API_KEY ? `SET (length: ${process.env.HOLOCRON_OPENAI_API_KEY.length})` : "NOT SET"}`
@@ -877,7 +877,7 @@ process.on("unhandledRejection", (reason, promise) => {
  */
 log("[Holocron MCP] Starting server...");
 log(`[Holocron MCP] Tools registered: 43`);
-log(`[Holocron MCP] Convex URL: ${process.env.CONVEX_URL || process.env.HOLOCRON_URL}`);
+log(`[Holocron MCP] Platform URL: ${process.env.PLATFORM_URL || "NOT SET"}`);
 
 try {
   log("Attempting to start stdio transport...");
