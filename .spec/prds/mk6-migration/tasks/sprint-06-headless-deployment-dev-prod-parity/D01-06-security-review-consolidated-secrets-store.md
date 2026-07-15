@@ -35,7 +35,7 @@ TASK: D01-06 — Security review: consolidated secrets store
 ================================================================================
 
 TASK_TYPE:  REVIEW
-STATUS:     Backlog
+STATUS:     Completed
 PRIORITY:   P0
 EFFORT:     S  (60 min)
 AGENT:      implementer=security-reviewer | reviewer=security-reviewer
@@ -78,11 +78,11 @@ Security review completes with finding log documenting what was checked (secrets
 --------------------------------------------------------------------------------
 DONE WHEN
 --------------------------------------------------------------------------------
-- [ ] AC-1 (PRIMARY): Review validates secrets are gitignored and never committed
-- [ ] AC-2 (PRIMARY): Review validates secrets are not hardcoded in source code
-- [ ] AC-3 (PRIMARY): Review validates secrets are loaded into process env securely
-- [ ] AC-4 (PRIMARY): Review validates config-hygiene design (single-source) NOT multi-tenant isolation
-- [ ] AC-5 (PRIMARY): Review produces finding log with APPROVED or NEEDS_FIXES
+- [x] AC-1 (PRIMARY): Review validates secrets are gitignored and never committed
+- [x] AC-2 (PRIMARY): Review validates secrets are not hardcoded in source code
+- [x] AC-3 (PRIMARY): Review validates secrets are loaded into process env securely
+- [x] AC-4 (PRIMARY): Review validates config-hygiene design (single-source) NOT multi-tenant isolation
+- [x] AC-5 (PRIMARY): Review produces finding log with APPROVED or NEEDS_FIXES
 - [ ] `pnpm tsgo --noEmit` clean + `pnpm biome check .` clean (only SCOPE.writeAllowed files modified)
 
 --------------------------------------------------------------------------------
