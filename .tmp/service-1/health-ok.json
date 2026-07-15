@@ -1,0 +1,1 @@
+{"status":"ok","db":{"ready":true,"latency_ms":9},"fleet":{"ready":true,"endpoint":"http://127.0.0.1:4545","latency_ms":3},"queue":{"ready":true,"latency_ms":1}}

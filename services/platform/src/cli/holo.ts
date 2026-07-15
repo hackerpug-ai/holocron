@@ -7,6 +7,7 @@
  * Sprint 04 schema-1: db:status
  * Sprint 04 schema-2: db:migrate | db:probe | db:verify | db:push
  * Sprint 04 schema-4: repl:status
+ * Sprint 05 service-1: service:up
  */
 import { resolve } from 'node:path';
 
@@ -80,6 +81,7 @@ Usage:
   db:verify             Live verify: --merges | --indexes
   db:push               Push Drizzle schema (dev convenience; prefer db:migrate)
   repl:status           CAP-SYNC-01: wal_level + zero_pub membership + replica identity
+  service:up            Boot Mastra composition root + Hono on :4111 (PORT/HOLO_PORT)
 
 Options:
   --export <dir>        Path to unzipped convex export (or $CONVEX_EXPORT_DIR)
@@ -182,10 +184,11 @@ async function main(): Promise<void> {
     process.exit(args.help ? 0 : 2);
   }
 
-  const isMcpCommand = args.command.startsWith('mcp:');
-  const catalog: SourceCatalog | null = isMcpCommand ? null : loadCatalog(args.catalogPath);
+  // Only catalog:* needs the source catalog; service/db/mcp/compat skip the load.
+  const needsCatalog = args.command.startsWith('catalog:');
+  const catalog: SourceCatalog | null = needsCatalog ? loadCatalog(args.catalogPath) : null;
 
-  // For catalog commands, catalog is guaranteed non-null (loaded above when !isMcpCommand).
+  // For catalog commands, catalog is guaranteed non-null (loaded above when needsCatalog).
   // TypeScript needs the assertion because the switch is flat.
   const cat = catalog as SourceCatalog;
 
@@ -558,6 +561,23 @@ async function main(): Promise<void> {
         console.log(formatReplStatusText(result));
       }
       process.exit(result.ok ? 0 : 1);
+      break;
+    }
+    case 'service:up': {
+      const { startService, resolvePort, DEFAULT_PORT } = await import('../index.ts');
+      const port = resolvePort();
+      // AC-3: exact banner string uses :4111 default; include resolved port when overridden.
+      if (port === DEFAULT_PORT) {
+        console.log('Starting Mastra service on :4111');
+      } else {
+        console.log(`Starting Mastra service on :${port}`);
+      }
+      // startService also logs Starting/Listening; pass log:false for Starting to avoid dup,
+      // but AC requires both "Starting Mastra service on :4111" and a "Listening" line — keep Listening.
+      await startService({ port, log: false });
+      console.log(`Listening on :${port}`);
+      // Keep process alive (Hono/Bun.serve owns the event loop).
+      await new Promise<void>(() => {});
       break;
     }
     default:
