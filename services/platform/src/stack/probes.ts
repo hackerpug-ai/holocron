@@ -3,6 +3,8 @@
  */
 import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
+import type { FleetRole } from '../fleet/manifest.schema.ts';
+import { getFleetManifest, getRoleEntry } from '../fleet/manifest.ts';
 import type { StackConfig } from './config.ts';
 import { LAUNCHD_LABELS } from './config.ts';
 
@@ -38,6 +40,123 @@ function run(
     stdout,
     stderr,
     combined: `${stdout}\n${stderr}`,
+  };
+}
+
+/** Strip trailing slash and optional /v1 so probe path can be appended cleanly. */
+function normalizeEndpointBase(endpoint: string): string {
+  return endpoint.replace(/\/$/, '').replace(/\/v1$/i, '');
+}
+
+/**
+ * Build the fleet embed health URL + contract from the Fleet Role Manifest.
+ * Contract (path/method/timeoutMs/expectStatus) is read from the embed role —
+ * never hardcoded here.
+ */
+export function resolveEmbedHealthProbe(options?: {
+  manifestPath?: string;
+  endpointOverride?: string;
+}): {
+  url: string;
+  method: 'GET' | 'HEAD';
+  timeoutMs: number;
+  expectStatus: number;
+  endpoint: string;
+  path: string;
+} {
+  const manifest = getFleetManifest(options?.manifestPath);
+  const role: FleetRole = getRoleEntry(manifest, 'embed');
+  const endpoint = normalizeEndpointBase(options?.endpointOverride ?? role.endpoint);
+  const path = role.healthProbe.path.startsWith('/')
+    ? role.healthProbe.path
+    : `/${role.healthProbe.path}`;
+  return {
+    url: `${endpoint}${path}`,
+    method: role.healthProbe.method,
+    timeoutMs: role.healthProbe.timeoutMs,
+    expectStatus: role.healthProbe.expectStatus ?? 200,
+    endpoint,
+    path,
+  };
+}
+
+/**
+ * Real HTTP probe of fleet embed-route health using Fleet Role Manifest
+ * healthProbe contract (CAP-EMB-01 ops visibility). Fail-fast on timeout.
+ */
+export function probeEmbed(cfg?: StackConfig, options?: { manifestPath?: string }): ProbeResult {
+  void cfg;
+  let contract: ReturnType<typeof resolveEmbedHealthProbe>;
+  try {
+    contract = resolveEmbedHealthProbe({ manifestPath: options?.manifestPath });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return {
+      ok: false,
+      detail: `embed healthProbe contract unavailable: ${msg}`,
+      exitCode: 1,
+    };
+  }
+
+  // curl max-time is whole seconds; ceil so sub-second contracts still fail closed.
+  const maxTimeSec = Math.max(1, Math.ceil(contract.timeoutMs / 1000));
+  // spawnSync timeout slightly above curl so curl's --max-time wins for fail-fast.
+  const spawnTimeoutMs = contract.timeoutMs + 1500;
+
+  const r = run(
+    'curl',
+    [
+      '-sS',
+      '-o',
+      '/dev/null',
+      '-w',
+      '%{http_code}',
+      '--max-time',
+      String(maxTimeSec),
+      '-X',
+      contract.method,
+      '-H',
+      'accept: application/json',
+      contract.url,
+    ],
+    { timeoutMs: spawnTimeoutMs }
+  );
+
+  const httpCodeRaw = r.stdout.trim();
+  const httpCode = Number(httpCodeRaw);
+  const timedOut =
+    r.status === null ||
+    /timed?\s*out|operation timed out|curl: \(28\)/i.test(r.combined) ||
+    (r.status !== 0 && httpCodeRaw === '000');
+
+  if (timedOut) {
+    return {
+      ok: false,
+      detail: `embed probe timeout after ${contract.timeoutMs}ms at ${contract.url}`,
+      exitCode: r.status ?? 28,
+    };
+  }
+
+  if (!Number.isFinite(httpCode) || httpCode === 0) {
+    return {
+      ok: false,
+      detail: `embed probe failed at ${contract.url}: ${r.combined.trim().slice(0, 200) || 'unreachable'}`,
+      exitCode: r.status,
+    };
+  }
+
+  if (httpCode !== contract.expectStatus) {
+    return {
+      ok: false,
+      detail: `embed probe HTTP ${httpCode} (expected ${contract.expectStatus}) at ${contract.url}`,
+      exitCode: r.status ?? 1,
+    };
+  }
+
+  return {
+    ok: true,
+    detail: `embed healthy HTTP ${httpCode} ${contract.method} ${contract.url}`,
+    exitCode: 0,
   };
 }
 

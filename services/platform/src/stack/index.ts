@@ -10,6 +10,7 @@ export {
 } from './config.ts';
 
 export type { ServiceState } from './probes.ts';
+export { probeEmbed, resolveEmbedHealthProbe } from './probes.ts';
 
 export {
   formatStatusText,
