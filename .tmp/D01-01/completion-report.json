@@ -1,0 +1,40 @@
+{
+  "status": "completed",
+  "task_id": "D01-01",
+  "commit_sha": "11853b518fe88318001013048a9cd77216b8a949",
+  "branch": "task/D01-01",
+  "worktree": "/Users/inference1/Projects/holocron/.worktrees/D01-01",
+  "requirements": [
+    {
+      "id": "AC-1",
+      "satisfied": true,
+      "evidence": ".tmp/D01-01/AC-1-red-against-start.txt"
+    },
+    {
+      "id": "AC-2",
+      "satisfied": true,
+      "evidence": ".tmp/D01-01/AC-2-red-against-start.txt"
+    },
+    {
+      "id": "AC-3",
+      "satisfied": true,
+      "evidence": ".tmp/D01-01/AC-3-red-against-start.txt"
+    },
+    {
+      "id": "AC-4",
+      "satisfied": true,
+      "evidence": ".tmp/D01-01/AC-4-red-against-start.txt"
+    }
+  ],
+  "red_evidence": ".tmp/D01-01/red-output.txt",
+  "files_written": [
+    "services/platform/src/cli/__tests__/stack-supervisor.test.ts",
+    "services/platform/src/cli/__tests__/secrets-hygiene.test.ts",
+    "services/platform/src/cli/__tests__/dev-parity.test.ts",
+    "services/platform/src/cli/__tests__/launchd-and-embed-health.test.ts",
+    "services/platform/src/cli/__tests__/fixtures/harness.ts",
+    "vitest.config.ts"
+  ],
+  "blocker_classification": "none",
+  "notes": "satisfied=true means RED tests exist and fail for absent behavior. Suite: 17 failed / 0 passed under PLATFORM_IT=1. GREEN deferred to D01-02..05. vitest.config.ts include path required so CLI __tests__ are discoverable."
+}
