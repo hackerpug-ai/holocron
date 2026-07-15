@@ -45,9 +45,9 @@
       "breakpoints": true
     },
     {
-      "idx": 6,
+      "idx": 7,
       "version": "7",
-      "when": 1784083000000,
+      "when": 1784084000000,
       "tag": "0007_app_role_seed_operability_grants",
       "breakpoints": true
     }
