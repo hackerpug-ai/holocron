@@ -1,53 +1,172 @@
 {
   "sprint_id": "sprint-05-mastra-service-and-scoped-key-auth",
-  "updated_at": "2026-07-15T03:06:34.750393+00:00",
+  "updated_at": "2026-07-15T03:08:05.823536+00:00",
   "protected_branch": "main",
-  "main_tip": "aa846386128f0ce954ff80965d35d78a61dedb1b",
-  "layers": {
-    "tasks": {
-      "complete": true,
-      "total": 6,
-      "completed": 6,
-      "detail": {
-        "service-1": "completed",
-        "service-2": "completed",
-        "service-3": "completed",
-        "service-4": "completed",
-        "service-5": "completed",
-        "service-5-FIX-tripwire": "completed"
+  "main_tip": "2cd06bb72c434b7590708d1f7cc137a0da1478d3",
+  "tasks": {
+    "all_completed": true,
+    "total": 6,
+    "completed": 6,
+    "ids": [
+      "service-1",
+      "service-2",
+      "service-3",
+      "service-4",
+      "service-5",
+      "service-5-FIX-tripwire"
+    ]
+  },
+  "gate": {
+    "overall": "PASS",
+    "source": "/Users/justinrich/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-05-mastra-service-and-scoped-key-auth/gate-results.json",
+    "run_id": "2026-07-15T03:05:58Z",
+    "steps": [
+      {
+        "n": 1,
+        "text": "Run holo service:up / curl /health \u2014 200 with DB/fleet/queue readiness",
+        "run_mode": "AUTO",
+        "result": "PASS",
+        "evidence": "/tmp/holocron-gate-sprint-05-mastra-service-and-scoped-key-auth/step1.log"
+      },
+      {
+        "n": 2,
+        "text": "curl POST /api/missions/x/steer with no key \u2014 401",
+        "run_mode": "AUTO",
+        "result": "PASS",
+        "evidence": "/tmp/holocron-gate-sprint-05-mastra-service-and-scoped-key-auth/step2.log"
+      },
+      {
+        "n": 3,
+        "text": "curl with correctly-scoped RN key \u2014 200",
+        "run_mode": "AUTO",
+        "result": "PASS",
+        "evidence": "/tmp/holocron-gate-sprint-05-mastra-service-and-scoped-key-auth/step3.log"
+      },
+      {
+        "n": 4,
+        "text": "curl MCP mutation with RN key (wrong scope) \u2014 403",
+        "run_mode": "AUTO",
+        "result": "PASS",
+        "evidence": "/tmp/holocron-gate-sprint-05-mastra-service-and-scoped-key-auth/step4.log"
+      },
+      {
+        "n": 5,
+        "text": "holo registry:probe searchTool \u2014 same Zod schema for agent/workflow/MCP",
+        "run_mode": "AUTO",
+        "result": "PASS",
+        "evidence": "/tmp/holocron-gate-sprint-05-mastra-service-and-scoped-key-auth/step5.log"
+      },
+      {
+        "n": 6,
+        "text": "holo verify:no-dup-validation \u2014 duplicates absent",
+        "run_mode": "AUTO",
+        "result": "PASS",
+        "evidence": "/tmp/holocron-gate-sprint-05-mastra-service-and-scoped-key-auth/step6.log"
+      },
+      {
+        "n": 7,
+        "text": "holo manifest:resolve divergent \u2014 live fleet endpoint",
+        "run_mode": "AUTO",
+        "result": "PASS",
+        "evidence": "/tmp/holocron-gate-sprint-05-mastra-service-and-scoped-key-auth/step7.log"
       }
-    },
-    "gate": {
-      "verdict": "PASS",
-      "note": "document gate extracted; human-test is separate layer"
-    },
-    "e2e": {
-      "verdict": "PASS",
-      "framework": "headless-service",
-      "steps_covered": 7
-    },
-    "build": {
-      "typecheck": "pass",
-      "lint": "pass_with_warnings"
-    },
-    "human_test": {
-      "verdict": "pass",
-      "steps_total": 7,
-      "steps_executed": 7,
-      "steps_passed": 7,
-      "verified": true,
-      "run_id": "2026-07-15T03:05:58Z"
-    },
-    "trunk": {
-      "consolidated": true,
-      "orphan_task_branches": []
-    },
-    "redhat": {
-      "status": "closeout_clean",
-      "high_findings_open": 0
-    }
+    ]
+  },
+  "e2e": {
+    "overall": "PASS",
+    "framework": "headless-service",
+    "source": "/Users/justinrich/Projects/holocron/.tmp/sprint-05-mastra-service-and-scoped-key-auth/e2e-verification.json",
+    "suite": "tests/integration/service/",
+    "suite_result": "20/20 passed against real Postgres + fleet",
+    "steps": [
+      {
+        "n": 1,
+        "id": 1,
+        "text": "holo service:up + curl /health 200 DB/fleet/queue readiness",
+        "result": "PASS",
+        "e2e": "tests/integration/service/health-readiness.test.ts"
+      },
+      {
+        "n": 2,
+        "id": 2,
+        "text": "unkeyed POST steer \u2192 401",
+        "result": "PASS",
+        "e2e": "tests/integration/service/unkeyed-401.test.ts"
+      },
+      {
+        "n": 3,
+        "id": 3,
+        "text": "correct RN key \u2192 200",
+        "result": "PASS",
+        "e2e": "tests/integration/service/keyed-200.test.ts"
+      },
+      {
+        "n": 4,
+        "id": 4,
+        "text": "MCP key wrong scope \u2192 403",
+        "result": "PASS",
+        "e2e": "tests/integration/service/wrong-scope-403.test.ts"
+      },
+      {
+        "n": 5,
+        "id": 5,
+        "text": "holo registry:probe schema identity",
+        "result": "PASS",
+        "e2e": "tests/integration/service/schema-identity.test.ts"
+      },
+      {
+        "n": 6,
+        "id": 6,
+        "text": "holo verify:no-dup-validation",
+        "result": "PASS",
+        "e2e": "tests/integration/service/schema-identity.test.ts"
+      },
+      {
+        "n": 7,
+        "id": 7,
+        "text": "holo manifest:resolve divergent live endpoint",
+        "result": "PASS",
+        "e2e": "service-3 live + resolve in suite lineage"
+      }
+    ]
+  },
+  "human_test": {
+    "verdict": "pass",
+    "steps_total": 7,
+    "steps_executed": 7,
+    "steps_passed": 7,
+    "verified": true,
+    "run_id": "2026-07-15T03:05:58Z",
+    "gate_results": "/Users/justinrich/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-05-mastra-service-and-scoped-key-auth/gate-results.json",
+    "gate_verification": "/Users/justinrich/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-05-mastra-service-and-scoped-key-auth/gate-verification.json",
+    "evidence_dir": "/tmp/holocron-gate-sprint-05-mastra-service-and-scoped-key-auth"
+  },
+  "integration": {
+    "trunk_consolidated": true,
+    "orphan_branches": 0,
+    "orphan_branch_names": [],
+    "default_target_ok": true,
+    "protected_branch": "main",
+    "main_tip": "2cd06bb72c434b7590708d1f7cc137a0da1478d3",
+    "landed_task_shas": [
+      "f6d9ed4adf80a8f54de62fe7b499242aa0a32218",
+      "36c3ef824d8a49a94626aef7d88ef3bff9d00fb1",
+      "96e4883cf663e3cab3e995a643b980d5f0cff217",
+      "ff1723c8ced60449cee98145823f278a917611ef",
+      "16d2fa20407fce5305ef1089612ff3521e25c441",
+      "2e8eaa8bc2dc32f88183c5c87f4ce17322862bd3"
+    ]
+  },
+  "build": {
+    "typecheck": "pass",
+    "lint": "pass_with_warnings"
+  },
+  "redhat": {
+    "status": "closeout_clean",
+    "high_findings_open": 0
   },
   "met": true,
   "state": "GATE-GOAL: ACHIEVED",
-  "condition_text": "All tasks AC-satisfied + E2E PASS + human-test gate-results verdict:pass verified + trunk consolidated"
+  "condition_text": "(1) all tasks AC-complete; AND (2) human tests verified by E2E; AND human-test execution pass; AND (3) trunk consolidated",
+  "met_reasons": []
 }
