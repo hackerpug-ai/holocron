@@ -343,7 +343,10 @@ No stubs; no mocks of Postgres in this surface; enforcement is not app-layer-onl
 
 1. `GRANT EXECUTE ... TO PUBLIC` on `belief_as_of` / `belief_net_support` after `REVOKE FROM PUBLIC` (`0005_...sql:55-64`) re-opens execute broadly — fine for read-only STABLE helpers, inconsistent least-privilege style.  
 2. Drizzle schema `beliefs` still only declares non-unique `beliefs_current_idx` (`schema/evidence.ts:172`); uniqueness of one-open lives only in SQL migration `0003` — schema drift vs DB is documentation risk for future `drizzle-kit push`.  
-3. Net-support requires `valid_from IS NOT NULL` (stricter than belief as-of NULL handling) — intentional per SQL comments; document for operators seeding edges.
+3. Net-support requires `valid_from IS NOT NULL` (stricter than belief as-of NULL handling) — intentional per SQL comments; document for operators seeding edges.  
+4. **Plan migration id drift**: ledger-2 blueprint said `0003_*` immutability; shipped as `0004_beliefs_immutability_revise.sql` (0003 is one-open unique index). Functional content matches; naming only.  
+5. **Concurrent IT is sequential stale, not dual-session race**: `immutability-concurrent-reject.test.ts` calls T1 then T2 serially after close. Function body still has `FOR UPDATE` + `ROW_COUNT` (live catalog `has_for_update=t`); GREEN proves closed-predecessor reject, not simultaneous lock contention.  
+6. **Net-support ignores relation transaction-time history**: filter is `r.tx_to IS NULL` only (current edges), not `tx_from <= as_of AND (tx_to IS NULL OR tx_to > as_of)`. Validity window is correct (AC-4); historical relation graphs closed via tx supersession would be invisible.
 
 ---
 
@@ -351,12 +354,13 @@ No stubs; no mocks of Postgres in this surface; enforcement is not app-layer-onl
 
 | Evidence | Path / result |
 |----------|----------------|
-| Privilege + function catalog | `.tmp/ledger-5/psql-privilege-inspection.txt` |
+| Privilege + function catalog | `.tmp/ledger-5/psql-privilege-inspection.txt`, `.tmp/ledger-5/postgres-privilege-probe.txt` |
 | Functional revise / stale / idem / as-of / net | `.tmp/ledger-5/psql-functional-proof.txt` |
-| Bypass probes (INVOKER, double-open, history insert) | `.tmp/ledger-5/psql-bypass-probes.txt` |
-| Stub greps | `.tmp/ledger-5/stub-greps.txt`, `.tmp/ledger-5/extra-greps.txt` |
+| Bypass probes (INVOKER, double-open, history insert) | `.tmp/ledger-5/psql-bypass-probes.txt`, `.tmp/ledger-5/residual-insert-probe.txt` |
+| Stub greps | `.tmp/ledger-5/stub-greps.txt`, `.tmp/ledger-5/extra-greps.txt`, `.tmp/ledger-5/stub-grep-results.txt` |
 | Line anchors | `.tmp/ledger-5/line-anchors.txt` |
-| PLATFORM_IT vitest (12/12 pass) | `.tmp/ledger-5/vitest-immutability-asof.txt` |
+| PLATFORM_IT vitest (12/12 initial; 9/9 core re-run) | `.tmp/ledger-5/vitest-immutability-asof.txt`, `.tmp/ledger-5/vitest-immutability-asof.out` |
+| Prior GREEN artifacts index | `.tmp/ledger-5/prior-artifact-index.txt` (ledger-2/3 AC green files present) |
 
 Commands of record:
 
@@ -365,13 +369,26 @@ Commands of record:
 psql "$DATABASE_URL" -c "SELECT has_table_privilege('holocron_app','beliefs','UPDATE')"  # f
 psql "$DATABASE_URL" -c "SELECT prosecdef FROM pg_proc WHERE proname='revise_belief'"       # t
 
-# IT
+# IT (full surface)
 PLATFORM_IT=1 pnpm exec vitest run \
   tests/integration/service/immutability-*.test.ts \
   tests/integration/service/evidence-asof-*.test.ts \
   tests/integration/service/evidence-net-support.test.ts \
   tests/integration/service/evidence-validity-windows.test.ts
 # → Test Files  10 passed | Tests  12 passed
+
+# IT (independent re-verification, core AC suite)
+PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron pnpm vitest run \
+  tests/integration/service/immutability-dml-rejected.test.ts \
+  tests/integration/service/immutability-atomic-revision.test.ts \
+  tests/integration/service/immutability-concurrent-reject.test.ts \
+  tests/integration/service/immutability-idempotency.test.ts \
+  tests/integration/service/immutability-cli-revise.test.ts \
+  tests/integration/service/immutability-probe-rejection.test.ts \
+  tests/integration/service/evidence-asof-transaction.test.ts \
+  tests/integration/service/evidence-asof-chain.test.ts \
+  tests/integration/service/evidence-net-support.test.ts
+# → Test Files  9 passed | Tests  11 passed
 ```
 
 ---
@@ -386,9 +403,10 @@ Compared to sprint-07 ledger-2/3/4 task blueprints and ledger-5 contract:
 | SECURITY DEFINER `revise_belief` | Yes, owner `holocron_owner` | None |
 | SELECT FOR UPDATE + stale reject | Yes | None |
 | Idempotency key unique + replay | Yes | None |
-| As-of both tx + validity | Yes (`0005` + CLI) | None |
-| Net-support SQL validity filter | Yes | None |
+| As-of both tx + validity | Yes (`0005` + CLI) | None (single `as_of` arg applied to both axes) |
+| Net-support SQL validity filter | Yes | None (tx-history on edges not filtered; LOW) |
 | Real Postgres IT under PLATFORM_IT | Yes (GREEN + RED suites present) | None |
+| Migration id `0003_*` for immutability | Shipped as `0004_*` | LOW naming only |
 | Corpus unification (passages FK) | `0003` uuid FK | Out of ledger-5 AC scope; noted present |
 
 Silent schema note only: unique one-open index is migration-only (not mirrored in Drizzle table builder) — LOW, not AC fail.

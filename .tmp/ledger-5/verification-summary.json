@@ -10,16 +10,22 @@
   },
   "vitest": {
     "platform_it": true,
-    "files_passed": 10,
-    "tests_passed": 12,
-    "artifact": ".tmp/ledger-5/vitest-immutability-asof.txt"
+    "files_passed_initial": 10,
+    "tests_passed_initial": 12,
+    "files_passed_reverify": 9,
+    "tests_passed_reverify": 11,
+    "artifact": ".tmp/ledger-5/vitest-immutability-asof.txt",
+    "artifact_reverify": ".tmp/ledger-5/vitest-immutability-asof.out"
   },
   "psql_artifacts": [
     "psql-privilege-inspection.txt",
     "psql-functional-proof.txt",
-    "psql-bypass-probes.txt"
+    "psql-bypass-probes.txt",
+    "postgres-privilege-probe.txt",
+    "residual-insert-probe.txt"
   ],
   "findings_path": ".spec/prds/mk6-migration/tasks/sprint-07-evidence-graph-substrate-and-ledger-immutability/review-findings.md",
   "high_findings": 0,
-  "medium_findings": 4
+  "medium_findings": 4,
+  "low_findings": 6
 }
