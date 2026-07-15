@@ -1,8 +1,22 @@
+export { probeRawSql, type RawProbeResult } from './probe-raw';
 export {
   getBeliefsOneOpenIndexInfo,
   getCanonicalCorpusShape,
   queryRelationValidityWindows,
 } from './queries';
+export {
+  type ReviseBeliefInput,
+  type ReviseBeliefResult,
+  reviseBelief,
+  type SeedOpenBeliefInput,
+  type SeedOpenBeliefResult,
+  seedOpenBelief,
+} from './revise';
+export {
+  HOLOCRON_APP_ROLE,
+  HOLOCRON_OWNER_ROLE,
+  toAppRoleDatabaseUrl,
+} from './roles';
 export {
   type EvidenceSeedResult,
   SEED_CLAIM_TEXT,

@@ -13,6 +13,7 @@
  * Sprint 06 D01-04: secrets doctor | secrets:doctor | verify-no-convex-env
  * Sprint 06 D01-03: stack up | stack down | stack status | stack:up | stack:down | stack:status
  * Sprint 07 ledger-1: evidence:seed
+ * Sprint 07 ledger-2: evidence:revise | db:probe --raw
  */
 import { resolve } from 'node:path';
 
@@ -63,6 +64,16 @@ interface CliArgs {
   indexesVerify: boolean;
   /** registry:probe --for=agent,workflow,mcp */
   forConsumers: string | null;
+  /** db:probe --raw "<SQL>" */
+  rawSql: string | null;
+  /** evidence:revise flags */
+  actor: string | null;
+  runId: string | null;
+  idempotencyKey: string | null;
+  statement: string | null;
+  confidence: string | null;
+  validFrom: string | null;
+  validTo: string | null;
 }
 
 function printHelp(): void {
@@ -84,7 +95,7 @@ Usage:
   compat:spike          Run 5-cell compatibility matrix (agent+tool+workflow+MCP+OTel)
   db:status             Show Postgres connection facts
   db:migrate            Apply Drizzle migrations against DATABASE_URL (≥55 tables)
-  db:probe              Live probes: --jsonb cardData | --status
+  db:probe              Live probes: --jsonb cardData | --status | --raw "<SQL>"
   db:verify             Live verify: --merges | --indexes
   db:push               Push Drizzle schema (dev convenience; prefer db:migrate)
   repl:status           CAP-SYNC-01: wal_level + zero_pub membership + replica identity
@@ -103,6 +114,7 @@ Usage:
   stack:up | stack:down | stack:status
                             Colon-form aliases for stack commands
   evidence:seed             Seed claim + 2 contradicting passages + supports/contradicts relations
+  evidence:revise <id>      Temporal revise via SECURITY DEFINER revise_belief(...)
 
 Options:
   --export <dir>        Path to unzipped convex export (or $CONVEX_EXPORT_DIR)
@@ -112,9 +124,17 @@ Options:
   --protocol            (mcp:verify-manifest) print protocol pin summary
   --jsonb <column>      (db:probe) polymorphic jsonb round-trip column (e.g. cardData)
   --status              (db:probe) status CHECK constraint probe
+  --raw <sql>           (db:probe) execute SQL as holocron_app (permission probes)
   --merges              (db:verify) assert analysis/research merge collapse
   --indexes             (db:verify) assert HNSW/GIN/btree indexes + search_vector
   --for <consumers>     (registry:probe) comma list: agent,workflow,mcp
+  --actor <name>        (evidence:revise) actor recorded on successor
+  --run-id <id>         (evidence:revise) run id recorded on successor
+  --idempotency-key <k> (evidence:revise) idempotency key (replay-safe)
+  --statement <text>    (evidence:revise) new belief statement
+  --confidence <n>      (evidence:revise) new confidence (0..1)
+  --valid-from <ts>     (evidence:revise) optional valid_from timestamptz
+  --valid-to <ts>       (evidence:revise) optional valid_to timestamptz
   --json                Emit JSON instead of text
   --print-trace         (compat:spike) emit OTel trace details
   --dry-run             (catalog:reconcile) dry-run mode (default)
@@ -140,6 +160,14 @@ function parseArgs(argv: string[]): CliArgs {
     mergesVerify: false,
     indexesVerify: false,
     forConsumers: null,
+    rawSql: null,
+    actor: null,
+    runId: null,
+    idempotencyKey: null,
+    statement: null,
+    confidence: null,
+    validFrom: null,
+    validTo: null,
   };
   const positional: string[] = [];
   for (let i = 0; i < argv.length; i++) {
@@ -164,6 +192,38 @@ function parseArgs(argv: string[]): CliArgs {
       args.jsonbColumn = argv[++i] ?? null;
     } else if (a.startsWith('--jsonb=')) {
       args.jsonbColumn = a.slice('--jsonb='.length);
+    } else if (a === '--raw') {
+      args.rawSql = argv[++i] ?? null;
+    } else if (a.startsWith('--raw=')) {
+      args.rawSql = a.slice('--raw='.length);
+    } else if (a === '--actor') {
+      args.actor = argv[++i] ?? null;
+    } else if (a.startsWith('--actor=')) {
+      args.actor = a.slice('--actor='.length);
+    } else if (a === '--run-id') {
+      args.runId = argv[++i] ?? null;
+    } else if (a.startsWith('--run-id=')) {
+      args.runId = a.slice('--run-id='.length);
+    } else if (a === '--idempotency-key') {
+      args.idempotencyKey = argv[++i] ?? null;
+    } else if (a.startsWith('--idempotency-key=')) {
+      args.idempotencyKey = a.slice('--idempotency-key='.length);
+    } else if (a === '--statement') {
+      args.statement = argv[++i] ?? null;
+    } else if (a.startsWith('--statement=')) {
+      args.statement = a.slice('--statement='.length);
+    } else if (a === '--confidence') {
+      args.confidence = argv[++i] ?? null;
+    } else if (a.startsWith('--confidence=')) {
+      args.confidence = a.slice('--confidence='.length);
+    } else if (a === '--valid-from') {
+      args.validFrom = argv[++i] ?? null;
+    } else if (a.startsWith('--valid-from=')) {
+      args.validFrom = a.slice('--valid-from='.length);
+    } else if (a === '--valid-to') {
+      args.validTo = argv[++i] ?? null;
+    } else if (a.startsWith('--valid-to=')) {
+      args.validTo = a.slice('--valid-to='.length);
     } else if (a === '--for') {
       args.forConsumers = argv[++i] ?? null;
     } else if (a.startsWith('--for=')) {
@@ -490,6 +550,21 @@ async function main(): Promise<void> {
       break;
     }
     case 'db:probe': {
+      if (args.rawSql) {
+        const { probeRawSql } = await import('../db/evidence/index.ts');
+        const result = await probeRawSql(args.rawSql);
+        if (args.json) {
+          console.log(JSON.stringify(result, null, 2));
+        } else {
+          console.log('holo db:probe --raw');
+          console.log(result.report);
+          if (result.permissionDenied) {
+            console.log('  must_observe: ERROR 42501 permission denied');
+          }
+          console.log(result.ok ? '  status: OK' : '  status: FAIL');
+        }
+        process.exit(result.ok ? 0 : 1);
+      }
       const { probeJsonbCardData, probeStatusCheck } = await import('../db/index.ts');
       if (args.jsonbColumn) {
         if (args.jsonbColumn !== 'cardData' && args.jsonbColumn !== 'card_data') {
@@ -529,7 +604,7 @@ async function main(): Promise<void> {
         }
         process.exit(result.ok ? 0 : 1);
       }
-      console.error('error: db:probe requires --jsonb <column> or --status');
+      console.error('error: db:probe requires --jsonb <column>, --status, or --raw <sql>');
       process.exit(2);
       break;
     }
@@ -924,6 +999,58 @@ async function main(): Promise<void> {
         console.log(
           `  counts: sources=${result.counts.sources} passages=${result.counts.passages} claims=${result.counts.claims} relations=${result.counts.relations}`
         );
+        if (result.errors.length) {
+          for (const e of result.errors) console.error(`  error: ${e}`);
+        }
+        console.log(result.ok ? '  status: OK' : '  status: FAIL');
+      }
+      process.exit(result.ok ? 0 : 1);
+      break;
+    }
+    case 'evidence:revise': {
+      const beliefId = args.positional[1];
+      if (!beliefId) {
+        console.error(
+          'error: evidence:revise requires <belief-id> --actor --run-id --idempotency-key --statement'
+        );
+        process.exit(2);
+      }
+      if (!args.actor || !args.runId || !args.idempotencyKey || !args.statement) {
+        console.error(
+          'error: evidence:revise requires --actor, --run-id, --idempotency-key, and --statement'
+        );
+        process.exit(2);
+      }
+      let confidence: number | null = null;
+      if (args.confidence !== null && args.confidence !== undefined && args.confidence !== '') {
+        confidence = Number(args.confidence);
+        if (Number.isNaN(confidence)) {
+          console.error(`error: --confidence must be a number (got ${args.confidence})`);
+          process.exit(2);
+        }
+      }
+      const { reviseBelief } = await import('../db/evidence/index.ts');
+      const result = await reviseBelief({
+        beliefId,
+        actor: args.actor,
+        runId: args.runId,
+        idempotencyKey: args.idempotencyKey,
+        statement: args.statement,
+        confidence,
+        validFrom: args.validFrom,
+        validTo: args.validTo,
+      });
+      if (args.json) {
+        console.log(JSON.stringify(result, null, 2));
+      } else {
+        console.log('holo evidence:revise — SECURITY DEFINER revise_belief(...)');
+        for (const m of result.messages) console.log(`  ${m}`);
+        if (result.successorId) {
+          console.log(`  successorId: ${result.successorId}`);
+        }
+        console.log(`  actor:       ${result.actor}`);
+        console.log(`  runId:       ${result.runId}`);
+        console.log(`  idempotencyKey: ${result.idempotencyKey}`);
         if (result.errors.length) {
           for (const e of result.errors) console.error(`  error: ${e}`);
         }
