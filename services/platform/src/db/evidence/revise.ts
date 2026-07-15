@@ -112,6 +112,9 @@ export interface SeedOpenBeliefInput {
   statement?: string;
   confidence?: number;
   actor?: string;
+  runId?: string | null;
+  validFrom?: string | null;
+  validTo?: string | null;
   databaseUrl?: string;
 }
 
@@ -123,7 +126,10 @@ export interface SeedOpenBeliefResult {
   errors: string[];
 }
 
-/** Insert a single open belief (tx_to IS NULL) for immutability / revise tests. */
+/**
+ * Insert a single open belief (tx_to IS NULL) via SECURITY DEFINER seed_open_belief.
+ * holocron_app has no raw INSERT on beliefs after 0006; this is the authorized path.
+ */
 export async function seedOpenBelief(input?: SeedOpenBeliefInput): Promise<SeedOpenBeliefResult> {
   const databaseUrl = input?.databaseUrl ?? resolveDatabaseUrl({ preferHolocron: true });
   const sql = createSql(databaseUrl);
@@ -131,20 +137,22 @@ export async function seedOpenBelief(input?: SeedOpenBeliefInput): Promise<SeedO
   const statement = input?.statement ?? 'Initial open belief for ledger-2';
   const confidence = input?.confidence ?? 0.5;
   const actor = input?.actor ?? 'seed';
+  const runId = input?.runId ?? null;
+  const validFrom = input?.validFrom ?? null;
+  const validTo = input?.validTo ?? null;
   const errors: string[] = [];
 
   try {
     const rows = await sql<{ id: string }[]>`
-      INSERT INTO beliefs (claim_id, statement, confidence, tx_from, tx_to, actor)
-      VALUES (
+      SELECT seed_open_belief(
         ${claimId},
         ${statement},
         ${confidence},
-        now(),
-        NULL,
-        ${actor}
-      )
-      RETURNING id::text AS id
+        ${actor},
+        ${runId},
+        ${validFrom}::timestamptz,
+        ${validTo}::timestamptz
+      )::text AS id
     `;
     const beliefId = rows[0]?.id ?? null;
     return {
@@ -152,7 +160,7 @@ export async function seedOpenBelief(input?: SeedOpenBeliefInput): Promise<SeedO
       beliefId,
       claimId,
       statement,
-      errors: beliefId ? errors : ['failed to insert open belief'],
+      errors: beliefId ? errors : ['failed to seed open belief via seed_open_belief'],
     };
   } catch (err) {
     errors.push(err instanceof Error ? err.message : String(err));

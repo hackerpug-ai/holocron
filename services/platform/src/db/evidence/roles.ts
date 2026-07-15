@@ -1,7 +1,8 @@
 /**
- * Application vs privileged DB roles for beliefs immutability (ledger-2).
- * holocron_app: SELECT/INSERT on beliefs; EXECUTE revise_belief; no UPDATE/DELETE.
- * holocron_owner: UPDATE/DELETE + SECURITY DEFINER owner of revise_belief.
+ * Application vs privileged DB roles for beliefs immutability (ledger-2 / H1).
+ * holocron_app: SELECT on beliefs; EXECUTE seed_open_belief + revise_belief;
+ *   no INSERT/UPDATE/DELETE (closed-history INSERT forgery path closed by 0006).
+ * holocron_owner: INSERT/UPDATE/DELETE + SECURITY DEFINER owner of seed_open_belief + revise_belief.
  */
 export const HOLOCRON_APP_ROLE = 'holocron_app';
 export const HOLOCRON_OWNER_ROLE = 'holocron_owner';
