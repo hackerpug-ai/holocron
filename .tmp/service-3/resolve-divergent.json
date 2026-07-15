@@ -1,0 +1,13 @@
+{
+  "role": "divergent",
+  "endpoint": "http://127.0.0.1:4545",
+  "litellmModelId": "implementer",
+  "modelRevision": "qwen3.6-35b-a3b-mtp-q8_k_xl",
+  "contextLimit": 32768,
+  "concurrency": 4,
+  "timeoutMs": 120000,
+  "structuredOutput": true,
+  "degradationAction": "surface-unavailable",
+  "healthy": true,
+  "baseURL": "http://127.0.0.1:4545/v1"
+}

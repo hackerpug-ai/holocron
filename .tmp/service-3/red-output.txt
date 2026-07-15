@@ -1,0 +1,293 @@
+bun test v1.2.19 (aad3abea)
+
+services/platform/src/http/middleware/__tests__/scoped-key.test.ts:
+
+# Unhandled error between tests
+-------------------------------
+error: Cannot find package 'hono' from '/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/hono-app.ts'
+-------------------------------
+
+35 | ): Promise<Response> {
+36 |   const headers: Record<string, string> = {
+37 |     'content-type': 'application/json',
+38 |     ...(key ? bearer(key) : {}),
+39 |   };
+40 |   return app.request(path, { method, headers, body: method === 'GET' ? undefined : '{}' });
+              ^
+TypeError: undefined is not an object (evaluating 'app.request')
+      at call (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:40:10)
+      at call (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:31:3)
+      at <anonymous> (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:52:23)
+      at <anonymous> (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:51:49)
+(fail) AC-1: scoped-key middleware enforces three scopes (401/403/200) > unkeyed POST /api/missions/x/steer → 401 [0.14ms]
+35 | ): Promise<Response> {
+36 |   const headers: Record<string, string> = {
+37 |     'content-type': 'application/json',
+38 |     ...(key ? bearer(key) : {}),
+39 |   };
+40 |   return app.request(path, { method, headers, body: method === 'GET' ? undefined : '{}' });
+              ^
+TypeError: undefined is not an object (evaluating 'app.request')
+      at call (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:40:10)
+      at call (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:31:3)
+      at <anonymous> (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:57:23)
+      at <anonymous> (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:56:41)
+(fail) AC-1: scoped-key middleware enforces three scopes (401/403/200) > unkeyed POST /api/missions → 401 [0.05ms]
+35 | ): Promise<Response> {
+36 |   const headers: Record<string, string> = {
+37 |     'content-type': 'application/json',
+38 |     ...(key ? bearer(key) : {}),
+39 |   };
+40 |   return app.request(path, { method, headers, body: method === 'GET' ? undefined : '{}' });
+              ^
+TypeError: undefined is not an object (evaluating 'app.request')
+      at call (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:40:10)
+      at call (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:31:3)
+      at <anonymous> (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:62:23)
+      at <anonymous> (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:61:32)
+(fail) AC-1: scoped-key middleware enforces three scopes (401/403/200) > unkeyed POST /mcp → 401 [0.02ms]
+35 | ): Promise<Response> {
+36 |   const headers: Record<string, string> = {
+37 |     'content-type': 'application/json',
+38 |     ...(key ? bearer(key) : {}),
+39 |   };
+40 |   return app.request(path, { method, headers, body: method === 'GET' ? undefined : '{}' });
+              ^
+TypeError: undefined is not an object (evaluating 'app.request')
+      at call (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:40:10)
+      at call (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:31:3)
+      at <anonymous> (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:67:23)
+      at <anonymous> (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:66:40)
+(fail) AC-1: scoped-key middleware enforces three scopes (401/403/200) > RN_KEY POST /api/missions → 200 [0.01ms]
+35 | ): Promise<Response> {
+36 |   const headers: Record<string, string> = {
+37 |     'content-type': 'application/json',
+38 |     ...(key ? bearer(key) : {}),
+39 |   };
+40 |   return app.request(path, { method, headers, body: method === 'GET' ? undefined : '{}' });
+              ^
+TypeError: undefined is not an object (evaluating 'app.request')
+      at call (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:40:10)
+      at call (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:31:3)
+      at <anonymous> (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:72:23)
+      at <anonymous> (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:71:48)
+(fail) AC-1: scoped-key middleware enforces three scopes (401/403/200) > RN_KEY POST /api/missions/x/steer → 200 [0.02ms]
+35 | ): Promise<Response> {
+36 |   const headers: Record<string, string> = {
+37 |     'content-type': 'application/json',
+38 |     ...(key ? bearer(key) : {}),
+39 |   };
+40 |   return app.request(path, { method, headers, body: method === 'GET' ? undefined : '{}' });
+              ^
+TypeError: undefined is not an object (evaluating 'app.request')
+      at call (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:40:10)
+      at call (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:31:3)
+      at <anonymous> (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:77:23)
+      at <anonymous> (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:76:55)
+(fail) AC-1: scoped-key middleware enforces three scopes (401/403/200) > MCP_KEY POST /api/missions → 403 (wrong scope) [0.03ms]
+35 | ): Promise<Response> {
+36 |   const headers: Record<string, string> = {
+37 |     'content-type': 'application/json',
+38 |     ...(key ? bearer(key) : {}),
+39 |   };
+40 |   return app.request(path, { method, headers, body: method === 'GET' ? undefined : '{}' });
+              ^
+TypeError: undefined is not an object (evaluating 'app.request')
+      at call (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:40:10)
+      at call (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:31:3)
+      at <anonymous> (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:82:23)
+      at <anonymous> (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:81:32)
+(fail) AC-1: scoped-key middleware enforces three scopes (401/403/200) > MCP_KEY POST /mcp → 200 [0.03ms]
+35 | ): Promise<Response> {
+36 |   const headers: Record<string, string> = {
+37 |     'content-type': 'application/json',
+38 |     ...(key ? bearer(key) : {}),
+39 |   };
+40 |   return app.request(path, { method, headers, body: method === 'GET' ? undefined : '{}' });
+              ^
+TypeError: undefined is not an object (evaluating 'app.request')
+      at call (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:40:10)
+      at call (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:31:3)
+      at <anonymous> (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:87:23)
+      at <anonymous> (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:86:56)
+(fail) AC-1: scoped-key middleware enforces three scopes (401/403/200) > CONTROL_KEY POST /api/missions/x/verdicts → 200 [0.01ms]
+35 | ): Promise<Response> {
+36 |   const headers: Record<string, string> = {
+37 |     'content-type': 'application/json',
+38 |     ...(key ? bearer(key) : {}),
+39 |   };
+40 |   return app.request(path, { method, headers, body: method === 'GET' ? undefined : '{}' });
+              ^
+TypeError: undefined is not an object (evaluating 'app.request')
+      at call (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:40:10)
+      at call (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:31:3)
+      at <anonymous> (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:92:23)
+      at <anonymous> (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:91:53)
+(fail) AC-1: scoped-key middleware enforces three scopes (401/403/200) > RN_KEY POST /mcp → 403 (RN cannot call /mcp) [0.02ms]
+35 | ): Promise<Response> {
+36 |   const headers: Record<string, string> = {
+37 |     'content-type': 'application/json',
+38 |     ...(key ? bearer(key) : {}),
+39 |   };
+40 |   return app.request(path, { method, headers, body: method === 'GET' ? undefined : '{}' });
+              ^
+TypeError: undefined is not an object (evaluating 'app.request')
+      at call (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:40:10)
+      at call (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:31:3)
+      at <anonymous> (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:97:23)
+      at <anonymous> (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:96:63)
+(fail) AC-1: scoped-key middleware enforces three scopes (401/403/200) > GET /health remains unauthenticated (no key required) [0.03ms]
+35 | ): Promise<Response> {
+36 |   const headers: Record<string, string> = {
+37 |     'content-type': 'application/json',
+38 |     ...(key ? bearer(key) : {}),
+39 |   };
+40 |   return app.request(path, { method, headers, body: method === 'GET' ? undefined : '{}' });
+              ^
+TypeError: undefined is not an object (evaluating 'app.request')
+      at call (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:40:10)
+      at call (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:31:3)
+      at <anonymous> (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:103:23)
+      at <anonymous> (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:102:26)
+(fail) AC-1: scoped-key middleware enforces three scopes (401/403/200) > unknown key → 401 [0.03ms]
+35 | ): Promise<Response> {
+36 |   const headers: Record<string, string> = {
+37 |     'content-type': 'application/json',
+38 |     ...(key ? bearer(key) : {}),
+39 |   };
+40 |   return app.request(path, { method, headers, body: method === 'GET' ? undefined : '{}' });
+              ^
+TypeError: undefined is not an object (evaluating 'app.request')
+      at call (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:40:10)
+      at call (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:31:3)
+      at <anonymous> (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:117:23)
+      at <anonymous> (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:116:56)
+(fail) AC-3: control scope limited to verdict/steer routes > CONTROL_KEY POST /api/missions/x/verdicts → 200 [0.03ms]
+35 | ): Promise<Response> {
+36 |   const headers: Record<string, string> = {
+37 |     'content-type': 'application/json',
+38 |     ...(key ? bearer(key) : {}),
+39 |   };
+40 |   return app.request(path, { method, headers, body: method === 'GET' ? undefined : '{}' });
+              ^
+TypeError: undefined is not an object (evaluating 'app.request')
+      at call (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:40:10)
+      at call (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:31:3)
+      at <anonymous> (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:122:23)
+      at <anonymous> (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:121:53)
+(fail) AC-3: control scope limited to verdict/steer routes > CONTROL_KEY POST /api/missions/x/steer → 200 [0.02ms]
+35 | ): Promise<Response> {
+36 |   const headers: Record<string, string> = {
+37 |     'content-type': 'application/json',
+38 |     ...(key ? bearer(key) : {}),
+39 |   };
+40 |   return app.request(path, { method, headers, body: method === 'GET' ? undefined : '{}' });
+              ^
+TypeError: undefined is not an object (evaluating 'app.request')
+      at call (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:40:10)
+      at call (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:31:3)
+      at <anonymous> (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:127:23)
+      at <anonymous> (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:126:44)
+(fail) AC-3: control scope limited to verdict/steer routes > CONTROL_KEY GET /api/missions → 403 [0.01ms]
+35 | ): Promise<Response> {
+36 |   const headers: Record<string, string> = {
+37 |     'content-type': 'application/json',
+38 |     ...(key ? bearer(key) : {}),
+39 |   };
+40 |   return app.request(path, { method, headers, body: method === 'GET' ? undefined : '{}' });
+              ^
+TypeError: undefined is not an object (evaluating 'app.request')
+      at call (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:40:10)
+      at call (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:31:3)
+      at <anonymous> (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:132:23)
+      at <anonymous> (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:131:45)
+(fail) AC-3: control scope limited to verdict/steer routes > CONTROL_KEY POST /api/missions → 403 [0.01ms]
+35 | ): Promise<Response> {
+36 |   const headers: Record<string, string> = {
+37 |     'content-type': 'application/json',
+38 |     ...(key ? bearer(key) : {}),
+39 |   };
+40 |   return app.request(path, { method, headers, body: method === 'GET' ? undefined : '{}' });
+              ^
+TypeError: undefined is not an object (evaluating 'app.request')
+      at call (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:40:10)
+      at call (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:31:3)
+      at <anonymous> (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:137:23)
+      at <anonymous> (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:136:36)
+(fail) AC-3: control scope limited to verdict/steer routes > CONTROL_KEY POST /mcp → 403 [0.03ms]
+error: Cannot find module '../../../inference/resolve-model.ts' from '/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts'
+(fail) AC-2: resolveModel wired to Fleet Role Manifest (fail-closed) > exports resolveModel from inference/resolve-model [0.02ms]
+error: Cannot find module '../../../inference/resolve-model.ts' from '/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts'
+(fail) AC-2: resolveModel wired to Fleet Role Manifest (fail-closed) > resolveModel("divergent") returns live :4545 endpoint [0.01ms]
+error: Cannot find module '../../../inference/resolve-model.ts' from '/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts'
+(fail) AC-2: resolveModel wired to Fleet Role Manifest (fail-closed) > resolveModel("convergent") returns a :4545 endpoint [0.02ms]
+error: Cannot find module '../../../inference/resolve-model.ts' from '/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts'
+(fail) AC-2: resolveModel wired to Fleet Role Manifest (fail-closed) > resolveModel("nonexistent") fails closed (throws) [0.02ms]
+error: Cannot find module '../../../inference/resolve-model.ts' from '/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts'
+(fail) AC-2: resolveModel wired to Fleet Role Manifest (fail-closed) > resolveModel fails closed when fleet endpoint is unreachable [0.02ms]
+208 |     const [stdout, stderr, code] = await Promise.all([
+209 |       new Response(proc.stdout).text(),
+210 |       new Response(proc.stderr).text(),
+211 |       proc.exited,
+212 |     ]);
+213 |     expect(code, `stderr=${stderr} stdout=${stdout}`).toBe(0);
+                                                            ^
+error: stderr=unknown command: manifest:resolve
+ stdout=holo — holocron operator CLI
+
+Usage:
+  bun services/platform/src/cli/holo.ts <command> [options]
+
+  Commands:
+  catalog:verify        Coverage build-gate (60/60 tables + fields + storage refs)
+  catalog:coverage      Per-field + per-storage-ref mapping with owner/approval
+  catalog:merges        Business 12→3 + research 5→3 collapse proof
+  catalog:reconcile     Per-table source vs expected-target; unexplained variance
+  catalog:assets        Per-object retained storage inventory (sha256/bytes/mime)
+  mcp:verify-manifest   44/44 tool completeness gate (manifest ↔ live registry cross-check)
+  mcp:manifest-schema   Print a tool's input/output schema + defaults from the manifest
+  mcp:manifest-replay   Print a tool's idempotency key + stored result from the manifest
+  mcp:list-mutations    List all mutation tools (non-null side_effects)
+  compat:spike          Run 5-cell compatibility matrix (agent+tool+workflow+MCP+OTel)
+  db:status             Show Postgres connection facts
+  db:migrate            Apply Drizzle migrations against DATABASE_URL (≥55 tables)
+  db:probe              Live probes: --jsonb cardData | --status
+  db:verify             Live verify: --merges | --indexes
+  db:push               Push Drizzle schema (dev convenience; prefer db:migrate)
+  repl:status           CAP-SYNC-01: wal_level + zero_pub membership + replica identity
+  service:up            Boot Mastra composition root + Hono on :4111 (PORT/HOLO_PORT)
+  registry:list         List shared tool registry (≥44 tools with Zod schemas)
+  registry:probe <id>   Probe a tool's Zod input/output schema (aliases: search, searchTool)
+  verify:identity <id>  Prove agent/workflow/MCP share the same Zod instance (===)
+  verify:no-dup-validation  Audit zero Zod .parse/.safeParse outside the shared registry
+
+Options:
+  --export <dir>        Path to unzipped convex export (or $CONVEX_EXPORT_DIR)
+  --catalog <file>      Path to 12-convex-source-catalog.yaml
+  --manifest <file>     Path to 14-mcp-compatibility-manifest.yaml (mcp:* commands)
+  --fixtures-dir <dir>  Path to fixtures directory (mcp:verify-manifest, overrides default)
+  --protocol            (mcp:verify-manifest) print protocol pin summary
+  --jsonb <column>      (db:probe) polymorphic jsonb round-trip column (e.g. cardData)
+  --status              (db:probe) status CHECK constraint probe
+  --merges              (db:verify) assert analysis/research merge collapse
+  --indexes             (db:verify) assert HNSW/GIN/btree indexes + search_vector
+  --for <consumers>     (registry:probe) comma list: agent,workflow,mcp
+  --json                Emit JSON instead of text
+  --print-trace         (compat:spike) emit OTel trace details
+  --dry-run             (catalog:reconcile) dry-run mode (default)
+  -h, --help            Show help
+
+
+
+Expected: 0
+Received: 2
+
+      at <anonymous> (/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-3/services/platform/src/http/middleware/__tests__/scoped-key.test.ts:213:55)
+(fail) CLI manifest:resolve (integration via subprocess) > holo manifest:resolve divergent prints :4545 endpoint and exits 0 [49.91ms]
+(pass) CLI manifest:resolve (integration via subprocess) > holo manifest:resolve nonexistent exits nonzero [27.43ms]
+
+ 1 pass
+ 22 fail
+ 1 error
+ 3 expect() calls
+Ran 23 tests across 1 file. [93.00ms]
