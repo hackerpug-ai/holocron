@@ -11,6 +11,7 @@
  */
 
 import { Mastra } from '@mastra/core/mastra';
+import { applyConsolidatedSecretsToEnv } from './config/secrets.ts';
 import { serviceQueue } from './http/health.ts';
 import { createHonoApp } from './http/hono-app.ts';
 import { createObservability, createStorage, DATABASE_URL } from './mastra.ts';
@@ -78,6 +79,12 @@ export async function startService(options?: {
   /** When true (default), log Starting/Listening lines to stdout. */
   log?: boolean;
 }): Promise<ServiceHandle> {
+  // RH-1: launchd injects only DATABASE_URL/PORT/FLEET_URL/HOLO_ROOT — not
+  // HOLO_KEY_* / MASTRA_API_KEY / FLEET_KEY. Overlay missing keys from
+  // consolidated secrets (env wins) BEFORE scoped-key middleware reads env.
+  // Never write secret values into 0644 LaunchAgent plists.
+  applyConsolidatedSecretsToEnv();
+
   const port = options?.port ?? resolvePort();
   const log = options?.log !== false;
 
