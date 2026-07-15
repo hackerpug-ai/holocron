@@ -1,0 +1,14 @@
+{
+  "task": "REDHAT-FIX-H3",
+  "phase": "GREEN",
+  "seed_ok": true,
+  "claimId": "019f677b-adda-7510-97a8-bba9fdf420a4",
+  "beliefId": "019f677b-ade3-7083-95dd-90d8dd64a2d1",
+  "sessionRole": "holocron_app",
+  "actor": "evidence:seed",
+  "statement": "Quarterly revenue grew year-over-year.",
+  "belief_asof_ok": true,
+  "netSupport": -1,
+  "passageIds_length": 2,
+  "relationIds_length": 2
+}

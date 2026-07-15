@@ -40,14 +40,8 @@ describe('AC-1: product evidence helpers connect as holocron_app', () => {
     async () => {
       await withEvidenceLock(async () => {
         const { createSql } = await import('../../../services/platform/src/db/client');
-        const {
-          HOLOCRON_APP_ROLE,
-          getBeliefAsOf,
-          registerDoc,
-          reviseBelief,
-          seedEvidence,
-          seedOpenBelief,
-        } = await import('../../../services/platform/src/db/evidence/index');
+        const { HOLOCRON_APP_ROLE, getBeliefAsOf, registerDoc, reviseBelief, seedEvidence } =
+          await import('../../../services/platform/src/db/evidence/index');
 
         // Contrast: owner connection is NOT holocron_app.
         const ownerSql = createSql(DEFAULT_DATABASE_URL);
@@ -66,22 +60,15 @@ describe('AC-1: product evidence helpers connect as holocron_app', () => {
           note: 'owner URL session is not holocron_app (product must not share this role)',
         });
 
-        // Product seed (default pool — no explicit databaseUrl).
+        // Product seed (default pool — no explicit databaseUrl) also creates open belief (H3).
         const seed = await seedEvidence();
         expect(seed.sessionRole).toBe(HOLOCRON_APP_ROLE);
         expect(seed.messages.some((m) => m === `current_user: ${HOLOCRON_APP_ROLE}`)).toBe(true);
-
-        // Open belief for revise (owner fixture seed when product INSERT may be restricted).
-        const open = await seedOpenBelief({
-          databaseUrl: DEFAULT_DATABASE_URL,
-          claimId: seed.claimId ?? `claim-role-bind-${Date.now()}`,
-          statement: 'role-bind-open-belief',
-        });
-        expect(open.ok).toBe(true);
-        expect(open.beliefId).toBeTruthy();
+        expect(seed.beliefId).toBeTruthy();
+        expect(seed.claimId).toBeTruthy();
 
         const revise = await reviseBelief({
-          beliefId: open.beliefId as string,
+          beliefId: seed.beliefId as string,
           actor: 'role-bind-ac1',
           runId: `run-ac1-${Date.now()}`,
           idempotencyKey: `idem-ac1-${Date.now()}`,
@@ -92,7 +79,7 @@ describe('AC-1: product evidence helpers connect as holocron_app', () => {
         expect(revise.messages.some((m) => m === `current_user: ${HOLOCRON_APP_ROLE}`)).toBe(true);
 
         const belief = await getBeliefAsOf({
-          claimId: open.claimId,
+          claimId: seed.claimId as string,
           asOf: 'now',
         });
         expect(belief.sessionRole).toBe(HOLOCRON_APP_ROLE);

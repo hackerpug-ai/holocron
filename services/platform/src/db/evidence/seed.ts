@@ -1,6 +1,7 @@
 /**
- * evidence:seed — insert a claim with two contradicting passages + supports/contradicts relations.
- * Used by `holo evidence:seed` and PLATFORM_IT integration tests (ledger-1 / UC-DATA-02).
+ * evidence:seed — insert a claim with two contradicting passages + supports/contradicts relations
+ * and exactly one open belief for the claim via seed_open_belief (DEFINER; H1/H2 product path).
+ * Used by `holo evidence:seed` and PLATFORM_IT integration tests (ledger-1 / UC-DATA-02 / HT-1→HT-2).
  */
 import { createSql, type Sql } from '../client';
 import { resolveProductDatabaseUrl } from './roles';
@@ -10,6 +11,8 @@ export interface EvidenceSeedResult {
   sourceId: string | null;
   passageIds: string[];
   claimId: string | null;
+  /** Open belief created for claimId via seed_open_belief (product path; HT-1→HT-2). */
+  beliefId: string | null;
   relationIds: string[];
   /** Session role observed on the product connection (must be holocron_app). */
   sessionRole: string | null;
@@ -29,6 +32,10 @@ const SUPPORTS_TEXT =
 const CONTRADICTS_TEXT =
   'Ledger seed CONTRADICTS: The quarterly revenue declined 3% year-over-year according to the earnings call.';
 const CLAIM_TEXT = 'Quarterly revenue grew year-over-year.';
+/** Product actor for the seed open belief — never gate-setup. */
+const BELIEF_ACTOR = 'evidence:seed';
+/** Claim confidence mirrored onto the seed open belief. */
+const SEED_CONFIDENCE = 0.55;
 
 async function countTable(
   sql: Sql,
@@ -48,7 +55,8 @@ async function countTable(
 
 /**
  * Insert 1 source, 2 contradictory passages, 1 claim, 2 relations (supports + contradicts)
- * with bi-temporal validity windows on the relation edges.
+ * with bi-temporal validity windows on the relation edges, plus exactly one open belief
+ * for the claim via SECURITY DEFINER seed_open_belief (authorized under holocron_app).
  */
 export async function seedEvidence(options?: {
   databaseUrl?: string;
@@ -61,6 +69,7 @@ export async function seedEvidence(options?: {
 
   let sourceId: string | null = null;
   let claimId: string | null = null;
+  let beliefId: string | null = null;
   let sessionRole: string | null = null;
   const passageIds: string[] = [];
   const relationIds: string[] = [];
@@ -128,7 +137,7 @@ export async function seedEvidence(options?: {
         ${pSupport},
         ${CLAIM_TEXT},
         'financial',
-        0.55,
+        ${SEED_CONFIDENCE},
         ${sql.json({ task: 'ledger-1', linkedPassages: [pSupport, pContradict] })}
       )
       RETURNING id::text AS id
@@ -191,6 +200,37 @@ export async function seedEvidence(options?: {
     relationIds.push(rSupport, rContradict);
     messages.push(`relations inserted: supports=${rSupport}, contradicts=${rContradict}`);
 
+    // HT-1→HT-2: open belief for claim via DEFINER seed_open_belief (not raw INSERT; not gate-setup).
+    // holocron_app has EXECUTE on seed_open_belief and no INSERT on beliefs after 0006.
+    const beliefRows = await sql<{ id: string }[]>`
+      SELECT seed_open_belief(
+        ${claimId},
+        ${CLAIM_TEXT},
+        ${SEED_CONFIDENCE},
+        ${BELIEF_ACTOR},
+        ${null},
+        ${null}::timestamptz,
+        ${null}::timestamptz
+      )::text AS id
+    `;
+    beliefId = beliefRows[0]?.id ?? null;
+    if (!beliefId) {
+      errors.push('failed to seed open belief via seed_open_belief');
+      return {
+        ok: false,
+        sourceId,
+        passageIds,
+        claimId,
+        beliefId: null,
+        relationIds,
+        sessionRole,
+        counts: { sources: 0, passages: 0, claims: 0, relations: 0, openRelations: 0 },
+        messages,
+        errors,
+      };
+    }
+    messages.push(`belief inserted (open): ${beliefId} actor=${BELIEF_ACTOR}`);
+
     const sources = await countTable(sql, 'sources');
     const passages = await countTable(sql, 'passages');
     const claims = await countTable(sql, 'claims');
@@ -212,6 +252,7 @@ export async function seedEvidence(options?: {
       errors.length === 0 &&
       sourceId !== null &&
       claimId !== null &&
+      beliefId !== null &&
       passageIds.length === 2 &&
       relationIds.length === 2 &&
       openRelations >= 2;
@@ -225,6 +266,7 @@ export async function seedEvidence(options?: {
       sourceId,
       passageIds,
       claimId,
+      beliefId,
       relationIds,
       sessionRole,
       counts: { sources, passages, claims, relations, openRelations },
@@ -239,6 +281,7 @@ export async function seedEvidence(options?: {
       sourceId,
       passageIds,
       claimId,
+      beliefId,
       relationIds,
       sessionRole,
       counts: { sources: 0, passages: 0, claims: 0, relations: 0, openRelations: 0 },
@@ -260,6 +303,7 @@ function emptyFail(
     sourceId: null,
     passageIds: [],
     claimId: null,
+    beliefId: null,
     relationIds: [],
     sessionRole,
     counts: { sources: 0, passages: 0, claims: 0, relations: 0, openRelations: 0 },
@@ -271,3 +315,4 @@ function emptyFail(
 export const SEED_SUPPORTS_TEXT = SUPPORTS_TEXT;
 export const SEED_CONTRADICTS_TEXT = CONTRADICTS_TEXT;
 export const SEED_CLAIM_TEXT = CLAIM_TEXT;
+export const SEED_BELIEF_ACTOR = BELIEF_ACTOR;

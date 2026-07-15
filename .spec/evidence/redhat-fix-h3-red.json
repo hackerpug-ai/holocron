@@ -1,0 +1,17 @@
+{
+  "task": "REDHAT-FIX-H3",
+  "phase": "RED",
+  "seed_ok": true,
+  "seed_has_beliefId_key": false,
+  "seed_beliefId": null,
+  "claimId": "019f677a-198d-7bf2-91b1-7181694d65d1",
+  "belief_ok": false,
+  "belief_errors": [
+    "no belief for claim_id=019f677a-198d-7bf2-91b1-7181694d65d1 as-of 2026-07-15T20:31:23.162Z"
+  ],
+  "belief_beliefId": null,
+  "must_observe_red": {
+    "seed succeeds without beliefId": true,
+    "belief as-of fails with no belief": true
+  }
+}

@@ -117,7 +117,7 @@ Usage:
   stack status              Honest health (postgres/mastra/scheduler/zero_cache/embed)
   stack:up | stack:down | stack:status
                             Colon-form aliases for stack commands
-  evidence:seed             Seed claim + 2 contradicting passages + supports/contradicts relations
+  evidence:seed             Seed claim + 2 contradicting passages + relations + open belief
   evidence:revise <id>      Temporal revise via SECURITY DEFINER revise_belief(...)
   evidence:belief           As-of belief + net-support for a claim (--claim-id, --as-of)
   evidence:register-doc <id>
@@ -1008,10 +1008,13 @@ async function main(): Promise<void> {
       if (args.json) {
         console.log(JSON.stringify(result, null, 2));
       } else {
-        console.log('holo evidence:seed — claim + two contradicting passages + relations');
+        console.log(
+          'holo evidence:seed — claim + two contradicting passages + relations + open belief'
+        );
         for (const m of result.messages) console.log(`  ${m}`);
         if (result.sourceId) console.log(`  sourceId:    ${result.sourceId}`);
         if (result.claimId) console.log(`  claimId:     ${result.claimId}`);
+        if (result.beliefId) console.log(`  beliefId:    ${result.beliefId}`);
         if (result.passageIds.length) console.log(`  passageIds:  ${result.passageIds.join(', ')}`);
         if (result.relationIds.length)
           console.log(`  relationIds: ${result.relationIds.join(', ')}`);
