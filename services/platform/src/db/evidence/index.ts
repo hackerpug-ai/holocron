@@ -1,9 +1,23 @@
+export {
+  type BeliefAsOfResult,
+  type BeliefRow,
+  computeNetSupport,
+  getBeliefAsOf,
+  type NetSupportResult,
+  resolveAsOfTimestamp,
+} from './belief-asof';
 export { probeRawSql, type RawProbeResult } from './probe-raw';
 export {
   getBeliefsOneOpenIndexInfo,
   getCanonicalCorpusShape,
   queryRelationValidityWindows,
 } from './queries';
+export {
+  HOLOCRON_INTERNAL_ALIAS,
+  HOLOCRON_INTERNAL_SOURCE_KIND,
+  type RegisterDocResult,
+  registerDoc,
+} from './register-doc';
 export {
   type ReviseBeliefInput,
   type ReviseBeliefResult,

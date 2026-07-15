@@ -14,6 +14,7 @@
  * Sprint 06 D01-03: stack up | stack down | stack status | stack:up | stack:down | stack:status
  * Sprint 07 ledger-1: evidence:seed
  * Sprint 07 ledger-2: evidence:revise | db:probe --raw
+ * Sprint 07 ledger-3: evidence:belief --as-of | evidence:register-doc
  */
 import { resolve } from 'node:path';
 
@@ -74,6 +75,9 @@ interface CliArgs {
   confidence: string | null;
   validFrom: string | null;
   validTo: string | null;
+  /** evidence:belief flags */
+  claimId: string | null;
+  asOf: string | null;
 }
 
 function printHelp(): void {
@@ -115,6 +119,9 @@ Usage:
                             Colon-form aliases for stack commands
   evidence:seed             Seed claim + 2 contradicting passages + supports/contradicts relations
   evidence:revise <id>      Temporal revise via SECURITY DEFINER revise_belief(...)
+  evidence:belief           As-of belief + net-support for a claim (--claim-id, --as-of)
+  evidence:register-doc <id>
+                            Register internal doc as self-sourced source (reuse passages)
 
 Options:
   --export <dir>        Path to unzipped convex export (or $CONVEX_EXPORT_DIR)
@@ -135,6 +142,8 @@ Options:
   --confidence <n>      (evidence:revise) new confidence (0..1)
   --valid-from <ts>     (evidence:revise) optional valid_from timestamptz
   --valid-to <ts>       (evidence:revise) optional valid_to timestamptz
+  --claim-id <id>       (evidence:belief) claim id to query
+  --as-of <ts|now>      (evidence:belief) transaction-time as-of (default: now)
   --json                Emit JSON instead of text
   --print-trace         (compat:spike) emit OTel trace details
   --dry-run             (catalog:reconcile) dry-run mode (default)
@@ -168,6 +177,8 @@ function parseArgs(argv: string[]): CliArgs {
     confidence: null,
     validFrom: null,
     validTo: null,
+    claimId: null,
+    asOf: null,
   };
   const positional: string[] = [];
   for (let i = 0; i < argv.length; i++) {
@@ -224,6 +235,14 @@ function parseArgs(argv: string[]): CliArgs {
       args.validTo = argv[++i] ?? null;
     } else if (a.startsWith('--valid-to=')) {
       args.validTo = a.slice('--valid-to='.length);
+    } else if (a === '--claim-id') {
+      args.claimId = argv[++i] ?? null;
+    } else if (a.startsWith('--claim-id=')) {
+      args.claimId = a.slice('--claim-id='.length);
+    } else if (a === '--as-of') {
+      args.asOf = argv[++i] ?? null;
+    } else if (a.startsWith('--as-of=')) {
+      args.asOf = a.slice('--as-of='.length);
     } else if (a === '--for') {
       args.forConsumers = argv[++i] ?? null;
     } else if (a.startsWith('--for=')) {
@@ -1051,6 +1070,82 @@ async function main(): Promise<void> {
         console.log(`  actor:       ${result.actor}`);
         console.log(`  runId:       ${result.runId}`);
         console.log(`  idempotencyKey: ${result.idempotencyKey}`);
+        if (result.errors.length) {
+          for (const e of result.errors) console.error(`  error: ${e}`);
+        }
+        console.log(result.ok ? '  status: OK' : '  status: FAIL');
+      }
+      process.exit(result.ok ? 0 : 1);
+      break;
+    }
+    case 'evidence:belief': {
+      const claimId = args.claimId ?? args.positional[1] ?? null;
+      if (!claimId) {
+        console.error('error: evidence:belief requires --claim-id <id>');
+        process.exit(2);
+      }
+      const { getBeliefAsOf } = await import('../db/evidence/index.ts');
+      const result = await getBeliefAsOf({
+        claimId,
+        asOf: args.asOf ?? 'now',
+      });
+      // Shape for RED / Studio: top-level beliefId|id|statement|netSupport + nested belief.
+      const payload = {
+        ok: result.ok,
+        claimId: result.claimId,
+        asOf: result.asOf,
+        asOfResolved: result.asOfResolved,
+        beliefId: result.beliefId,
+        id: result.id,
+        statement: result.statement,
+        confidence: result.confidence,
+        netSupport: result.netSupport,
+        net_support: result.netSupport,
+        belief: result.belief,
+        messages: result.messages,
+        errors: result.errors,
+      };
+      if (args.json) {
+        console.log(JSON.stringify(payload, null, 2));
+      } else {
+        console.log('holo evidence:belief — as-of belief + net-support');
+        console.log(`  claimId:     ${result.claimId}`);
+        console.log(`  asOf:        ${result.asOf} (resolved ${result.asOfResolved})`);
+        if (result.beliefId) console.log(`  beliefId:    ${result.beliefId}`);
+        if (result.statement) console.log(`  statement:   ${result.statement}`);
+        if (result.confidence != null) console.log(`  confidence:  ${result.confidence}`);
+        console.log(`  netSupport:  ${result.netSupport}`);
+        for (const m of result.messages) console.log(`  ${m}`);
+        if (result.errors.length) {
+          for (const e of result.errors) console.error(`  error: ${e}`);
+        }
+        console.log(result.ok ? '  status: OK' : '  status: FAIL');
+      }
+      // Exit 0 when belief resolved; still emit netSupport on failure for CLI consumers.
+      process.exit(result.ok ? 0 : 1);
+      break;
+    }
+    case 'evidence:register-doc': {
+      const documentId = args.positional[1];
+      if (!documentId) {
+        console.error('error: evidence:register-doc requires <document-id>');
+        process.exit(2);
+      }
+      const { registerDoc } = await import('../db/evidence/index.ts');
+      const result = await registerDoc({ documentId });
+      if (args.json) {
+        console.log(JSON.stringify(result, null, 2));
+      } else {
+        console.log('holo evidence:register-doc — self-sourced (holocron_internal) source');
+        console.log(`  documentId:   ${result.documentId}`);
+        if (result.sourceId) console.log(`  sourceId:     ${result.sourceId}`);
+        console.log(`  sourceKind:   ${result.sourceKind} (alias ${result.sourceKindAlias})`);
+        console.log(`  passageIds:   ${result.passageIds.join(', ') || '(none)'}`);
+        console.log(
+          `  passages:     before=${result.passageCountBefore} after=${result.passageCountAfter} created=${result.passagesCreated}`
+        );
+        console.log(`  reusedSource: ${result.reusedExistingSource}`);
+        for (const m of result.messages) console.log(`  ${m}`);
         if (result.errors.length) {
           for (const e of result.errors) console.error(`  error: ${e}`);
         }
