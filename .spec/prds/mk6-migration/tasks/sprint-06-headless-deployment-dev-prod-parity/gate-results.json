@@ -1,18 +1,19 @@
 {
   "sprint": "sprint-06-headless-deployment-dev-prod-parity",
-  "run_id": "2026-07-15T16:07:40Z",
+  "run_id": "2026-07-15T16:16:21Z",
   "verdict": "pass",
   "steps_total": 6,
   "steps_executed": 6,
   "steps_passed": 6,
   "ui_driver": "none",
-  "exec_surface": "surface:252 (9C20C2ED-954A-4C16-ADA9-7C7A01F924EF)",
-  "qa_surface_id": "",
+  "exec_surface": "surface:257 (6E3C9FAF-F68D-4351-A958-AECB4F7C0FD2)",
+  "qa_surface_id": "CB1C26A0-65AB-4B59-921E-ABA9528AF841",
+  "qa_session_id": "019f668f-6ce2-7d12-b7b5-1e3848934665",
   "runner": "cmux-exec-step",
   "steps": [
     {
       "n": 1,
-      "text": "Run holo stack up on the mini \u2014 Postgres, Mastra, scheduler, zero-cache healthy within 60s",
+      "text": "Run holo stack up on the mini — Postgres, Mastra, scheduler, zero-cache healthy within 60s",
       "type": "terminal",
       "method": "real-cli",
       "executed": true,
@@ -23,7 +24,7 @@
     },
     {
       "n": 2,
-      "text": "Run holo stack down on the mini \u2014 all four processes exit clean, zero orphaned PIDs",
+      "text": "Run holo stack down on the mini — all four processes exit clean, zero orphaned PIDs",
       "type": "terminal",
       "method": "real-cli",
       "executed": true,
@@ -34,7 +35,7 @@
     },
     {
       "n": 3,
-      "text": "Run holo stack up on the laptop \u2014 identical health result under the same config contract",
+      "text": "Run holo stack up on the laptop — identical health result under the same config contract",
       "type": "terminal",
       "method": "real-cli",
       "executed": true,
@@ -45,7 +46,7 @@
     },
     {
       "n": 4,
-      "text": "Run holo secrets doctor \u2014 every config value resolves, zero missing keys reported",
+      "text": "Run holo secrets doctor — every config value resolves, zero missing keys reported",
       "type": "terminal",
       "method": "real-cli",
       "executed": true,
@@ -56,7 +57,7 @@
     },
     {
       "n": 5,
-      "text": "Run holo verify-no-convex-env \u2014 zero Convex env aliases found across the repo",
+      "text": "Run holo verify-no-convex-env — zero Convex env aliases found across the repo",
       "type": "terminal",
       "method": "real-cli",
       "executed": true,
@@ -67,7 +68,7 @@
     },
     {
       "n": 6,
-      "text": "Kill Mastra mid-run, rerun holo stack up \u2014 service restarts, reports healthy, no manual cleanup",
+      "text": "Kill Mastra mid-run, rerun holo stack up — service restarts, reports healthy, no manual cleanup",
       "type": "terminal",
       "method": "real-cli",
       "executed": true,
@@ -76,5 +77,6 @@
       "log": "/tmp/holocron-gate-sprint-06-headless-deployment-dev-prod-parity/step6.log",
       "cmd_sha": "8889954c222f5d45e26768b242f96f5767795ce3f77a137f091ee429b4cfa300"
     }
-  ]
+  ],
+  "verified": true
 }

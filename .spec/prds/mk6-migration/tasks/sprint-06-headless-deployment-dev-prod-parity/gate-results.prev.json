@@ -1,13 +1,13 @@
 {
   "sprint": "sprint-06-headless-deployment-dev-prod-parity",
-  "run_id": "2026-07-15T15:51:05Z",
+  "run_id": "2026-07-15T16:07:40Z",
   "verdict": "pass",
   "steps_total": 6,
   "steps_executed": 6,
   "steps_passed": 6,
   "ui_driver": "none",
-  "exec_surface": "surface:250 (DDECA093-BE9E-4D24-8C53-663BCE003DF9)",
-  "qa_surface_id": "9CC747D6-3F9C-46E7-897E-8D4DEF5AB0E1",
+  "exec_surface": "surface:252 (9C20C2ED-954A-4C16-ADA9-7C7A01F924EF)",
+  "qa_surface_id": "",
   "runner": "cmux-exec-step",
   "steps": [
     {

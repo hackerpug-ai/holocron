@@ -1,26 +1,18 @@
 {
   "sprint_id": "sprint-06-headless-deployment-dev-prod-parity",
-  "updated_at": "2026-07-15T16:08:00.675910+00:00",
+  "updated_at": "2026-07-15T16:22:32.000Z",
   "protected_branch": "main",
   "main_tip": "602fe352ac734c0f864d259682ae76b5f074b6fe",
   "tasks": {
     "all_completed": true,
     "total": 7,
     "completed": 7,
-    "ids": [
-      "D01-01",
-      "D01-02",
-      "D01-03",
-      "D01-04",
-      "D01-05",
-      "D01-06",
-      "REDHAT-FIX-RH-1"
-    ]
+    "ids": ["D01-01", "D01-02", "D01-03", "D01-04", "D01-05", "D01-06", "REDHAT-FIX-RH-1"]
   },
   "gate": {
     "overall": "PASS",
     "source": ".spec/prds/mk6-migration/tasks/sprint-06-headless-deployment-dev-prod-parity/gate-results.json",
-    "run_id": "2026-07-15T16:07:40Z",
+    "run_id": "2026-07-15T16:16:21Z",
     "steps": [
       {
         "n": 1,
@@ -90,7 +82,7 @@
     "source": ".spec/prds/mk6-migration/tasks/sprint-06-headless-deployment-dev-prod-parity/gate-results.json",
     "verification": ".spec/prds/mk6-migration/tasks/sprint-06-headless-deployment-dev-prod-parity/gate-verification.json",
     "verified": true,
-    "run_id": "2026-07-15T16:07:40Z"
+    "run_id": "2026-07-15T16:16:21Z"
   },
   "redhat": {
     "status": "closed",
