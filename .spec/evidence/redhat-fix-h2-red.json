@@ -1,0 +1,28 @@
+{
+  "task": "REDHAT-FIX-H2",
+  "capturedAt": "2026-07-15T20:20:07.356Z",
+  "note": "RED: product helpers resolveDatabaseUrl returns owner URL; UPDATE privilege true — ledger REVOKE only visible via probe-raw",
+  "product_path": {
+    "resolved_without_app_rewrite": true,
+    "current_user": "inference1",
+    "can_update": true,
+    "can_delete": true,
+    "app_sources_insert": false,
+    "app_passages_insert": false,
+    "app_claims_insert": false,
+    "app_relations_insert": false,
+    "update_on_false_where_succeeded": true,
+    "update_sqlstate": null
+  },
+  "probe_raw_style_app_path": {
+    "current_user": "holocron_app",
+    "can_update": false,
+    "can_delete": false
+  },
+  "must_observe_red": {
+    "product_current_user_is_not_holocron_app": true,
+    "product_can_update_beliefs": true,
+    "product_can_delete_beliefs": true,
+    "app_role_lacks_seed_inserts": true
+  }
+}

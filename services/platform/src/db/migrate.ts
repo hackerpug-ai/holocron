@@ -6,7 +6,7 @@ import { readdir, readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createSql, type Sql } from './client';
-import { resolveDatabaseUrl } from './index';
+import { resolveOwnerDatabaseUrl } from './connection';
 import { DOMAIN_TABLE_NAMES } from './schema';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -45,7 +45,8 @@ async function listMigrationFiles(): Promise<string[]> {
 }
 
 export async function applyMigrations(options?: { databaseUrl?: string }): Promise<MigrateResult> {
-  const databaseUrl = options?.databaseUrl ?? resolveDatabaseUrl({ preferHolocron: true });
+  // Admin/migrate path: owner URL only (never forced to holocron_app).
+  const databaseUrl = options?.databaseUrl ?? resolveOwnerDatabaseUrl({ preferHolocron: true });
   const sql = createSql(databaseUrl);
   const migrationsApplied: string[] = [];
   const alreadyApplied: string[] = [];
@@ -53,6 +54,12 @@ export async function applyMigrations(options?: { databaseUrl?: string }): Promi
   const messages: string[] = [];
 
   try {
+    // Prove admin escape hatch: session must not be forced to holocron_app.
+    const who = await sql<{ current_user: string }[]>`SELECT current_user::text`;
+    const sessionUser = who[0]?.current_user ?? '';
+    messages.push(`current_user: ${sessionUser}`);
+    messages.push('role_mode: owner/admin');
+
     // Ensure vector extension exists (schema-1 should have done this; fail-closed if missing).
     await sql`CREATE EXTENSION IF NOT EXISTS vector`;
     messages.push('extension vector: ok');

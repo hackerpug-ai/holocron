@@ -2,7 +2,7 @@
  * Bi-temporal query helpers for the evidence-graph substrate (relations / beliefs).
  */
 import { createSql } from '../client';
-import { resolveDatabaseUrl } from '../connection';
+import { resolveProductDatabaseUrl } from './roles';
 
 export interface ValidityWindowQueryResult {
   coveredCount: number;
@@ -26,7 +26,7 @@ export async function queryRelationValidityWindows(options: {
   uncoveredAsOf: string;
   databaseUrl?: string;
 }): Promise<ValidityWindowQueryResult> {
-  const databaseUrl = options.databaseUrl ?? resolveDatabaseUrl({ preferHolocron: true });
+  const databaseUrl = options.databaseUrl ?? resolveProductDatabaseUrl({ preferHolocron: true });
   const sql = createSql(databaseUrl);
   try {
     const covered = await sql<{ count: string }[]>`
@@ -92,7 +92,7 @@ export interface OpenBeliefIndexInfo {
 export async function getBeliefsOneOpenIndexInfo(options?: {
   databaseUrl?: string;
 }): Promise<OpenBeliefIndexInfo> {
-  const databaseUrl = options?.databaseUrl ?? resolveDatabaseUrl({ preferHolocron: true });
+  const databaseUrl = options?.databaseUrl ?? resolveProductDatabaseUrl({ preferHolocron: true });
   const sql = createSql(databaseUrl);
   try {
     const rows = await sql<{ indexname: string; indexdef: string }[]>`
@@ -126,7 +126,7 @@ export interface CanonicalCorpusShape {
 export async function getCanonicalCorpusShape(options?: {
   databaseUrl?: string;
 }): Promise<CanonicalCorpusShape> {
-  const databaseUrl = options?.databaseUrl ?? resolveDatabaseUrl({ preferHolocron: true });
+  const databaseUrl = options?.databaseUrl ?? resolveProductDatabaseUrl({ preferHolocron: true });
   const sql = createSql(databaseUrl);
   try {
     const sources = await sql<{ count: string }[]>`

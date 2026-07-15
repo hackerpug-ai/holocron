@@ -3,7 +3,7 @@
  * Used by `holo evidence:seed` and PLATFORM_IT integration tests (ledger-1 / UC-DATA-02).
  */
 import { createSql, type Sql } from '../client';
-import { resolveDatabaseUrl } from '../connection';
+import { resolveProductDatabaseUrl } from './roles';
 
 export interface EvidenceSeedResult {
   ok: boolean;
@@ -11,6 +11,8 @@ export interface EvidenceSeedResult {
   passageIds: string[];
   claimId: string | null;
   relationIds: string[];
+  /** Session role observed on the product connection (must be holocron_app). */
+  sessionRole: string | null;
   counts: {
     sources: number;
     passages: number;
@@ -51,17 +53,23 @@ async function countTable(
 export async function seedEvidence(options?: {
   databaseUrl?: string;
 }): Promise<EvidenceSeedResult> {
-  const databaseUrl = options?.databaseUrl ?? resolveDatabaseUrl({ preferHolocron: true });
+  // Product path: bind to holocron_app unless caller supplies an explicit URL override.
+  const databaseUrl = options?.databaseUrl ?? resolveProductDatabaseUrl({ preferHolocron: true });
   const sql = createSql(databaseUrl);
   const messages: string[] = [];
   const errors: string[] = [];
 
   let sourceId: string | null = null;
   let claimId: string | null = null;
+  let sessionRole: string | null = null;
   const passageIds: string[] = [];
   const relationIds: string[] = [];
 
   try {
+    const who = await sql<{ current_user: string }[]>`SELECT current_user::text`;
+    sessionRole = who[0]?.current_user ?? null;
+    messages.push(`current_user: ${sessionRole ?? ''}`);
+
     const contentHash = `ledger-1-evidence-seed-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
     const sourceRows = await sql<{ id: string }[]>`
@@ -78,7 +86,7 @@ export async function seedEvidence(options?: {
     sourceId = sourceRows[0]?.id ?? null;
     if (!sourceId) {
       errors.push('failed to insert source');
-      return emptyFail(errors, messages);
+      return emptyFail(errors, messages, sessionRole);
     }
     messages.push(`source inserted: ${sourceId}`);
 
@@ -108,7 +116,7 @@ export async function seedEvidence(options?: {
     const pContradict = contradictPassage[0]?.id;
     if (!pSupport || !pContradict) {
       errors.push('failed to insert passages');
-      return emptyFail(errors, messages);
+      return emptyFail(errors, messages, sessionRole);
     }
     passageIds.push(pSupport, pContradict);
     messages.push(`passages inserted: ${pSupport}, ${pContradict}`);
@@ -128,7 +136,7 @@ export async function seedEvidence(options?: {
     claimId = claimRows[0]?.id ?? null;
     if (!claimId) {
       errors.push('failed to insert claim');
-      return emptyFail(errors, messages);
+      return emptyFail(errors, messages, sessionRole);
     }
     messages.push(`claim inserted: ${claimId}`);
 
@@ -178,7 +186,7 @@ export async function seedEvidence(options?: {
     const rContradict = contradictsRel[0]?.id;
     if (!rSupport || !rContradict) {
       errors.push('failed to insert relations');
-      return emptyFail(errors, messages);
+      return emptyFail(errors, messages, sessionRole);
     }
     relationIds.push(rSupport, rContradict);
     messages.push(`relations inserted: supports=${rSupport}, contradicts=${rContradict}`);
@@ -218,6 +226,7 @@ export async function seedEvidence(options?: {
       passageIds,
       claimId,
       relationIds,
+      sessionRole,
       counts: { sources, passages, claims, relations, openRelations },
       messages,
       errors,
@@ -231,6 +240,7 @@ export async function seedEvidence(options?: {
       passageIds,
       claimId,
       relationIds,
+      sessionRole,
       counts: { sources: 0, passages: 0, claims: 0, relations: 0, openRelations: 0 },
       messages,
       errors,
@@ -240,13 +250,18 @@ export async function seedEvidence(options?: {
   }
 }
 
-function emptyFail(errors: string[], messages: string[]): EvidenceSeedResult {
+function emptyFail(
+  errors: string[],
+  messages: string[],
+  sessionRole: string | null = null
+): EvidenceSeedResult {
   return {
     ok: false,
     sourceId: null,
     passageIds: [],
     claimId: null,
     relationIds: [],
+    sessionRole,
     counts: { sources: 0, passages: 0, claims: 0, relations: 0, openRelations: 0 },
     messages,
     errors,

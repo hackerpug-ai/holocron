@@ -13,7 +13,7 @@
  *   AND tx_to IS NULL
  */
 import { createSql } from '../client';
-import { resolveDatabaseUrl } from '../connection';
+import { resolveProductDatabaseUrl } from './roles';
 
 export interface BeliefRow {
   id: string;
@@ -42,6 +42,8 @@ export interface BeliefAsOfResult {
   statement: string | null;
   confidence: number | null;
   netSupport: number;
+  /** Session role observed on the product connection (must be holocron_app). */
+  sessionRole: string | null;
   messages: string[];
   errors: string[];
 }
@@ -65,7 +67,8 @@ export async function getBeliefAsOf(options: {
   /** When false, skip net-support (default true). */
   includeNetSupport?: boolean;
 }): Promise<BeliefAsOfResult> {
-  const databaseUrl = options.databaseUrl ?? resolveDatabaseUrl({ preferHolocron: true });
+  // Product path: bind to holocron_app unless caller supplies an explicit URL override.
+  const databaseUrl = options.databaseUrl ?? resolveProductDatabaseUrl({ preferHolocron: true });
   const sql = createSql(databaseUrl);
   const claimId = options.claimId;
   const asOfInput = options.asOf ?? 'now';
@@ -73,8 +76,13 @@ export async function getBeliefAsOf(options: {
   const messages: string[] = [];
   const errors: string[] = [];
   const includeNetSupport = options.includeNetSupport !== false;
+  let sessionRole: string | null = null;
 
   try {
+    const who = await sql<{ current_user: string }[]>`SELECT current_user::text`;
+    sessionRole = who[0]?.current_user ?? null;
+    messages.push(`current_user: ${sessionRole ?? ''}`);
+
     // Prefer SQL function when present (migration 0005); fall back to inline as-of.
     let belief: BeliefRow | null = null;
     try {
@@ -192,6 +200,7 @@ export async function getBeliefAsOf(options: {
       statement: belief?.statement ?? null,
       confidence: belief?.confidence ?? null,
       netSupport,
+      sessionRole,
       messages,
       errors,
     };
@@ -209,6 +218,7 @@ export async function getBeliefAsOf(options: {
       statement: null,
       confidence: null,
       netSupport: 0,
+      sessionRole,
       messages,
       errors,
     };
@@ -238,7 +248,7 @@ export async function computeNetSupport(options: {
   sql?: ReturnType<typeof createSql>;
 }): Promise<NetSupportResult> {
   const ownSql = !options.sql;
-  const databaseUrl = options.databaseUrl ?? resolveDatabaseUrl({ preferHolocron: true });
+  const databaseUrl = options.databaseUrl ?? resolveProductDatabaseUrl({ preferHolocron: true });
   const sql = options.sql ?? createSql(databaseUrl);
   const claimId = options.claimId;
   const asOf = resolveAsOfTimestamp(options.asOf);

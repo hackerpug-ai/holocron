@@ -29,6 +29,7 @@ export {
 export {
   HOLOCRON_APP_ROLE,
   HOLOCRON_OWNER_ROLE,
+  resolveProductDatabaseUrl,
   toAppRoleDatabaseUrl,
 } from './roles';
 export {

@@ -2,7 +2,7 @@
  * evidence:revise — call SECURITY DEFINER revise_belief(...) on real Postgres.
  */
 import { createSql } from '../client';
-import { resolveDatabaseUrl } from '../connection';
+import { resolveProductDatabaseUrl } from './roles';
 
 export interface ReviseBeliefInput {
   beliefId: string;
@@ -25,6 +25,8 @@ export interface ReviseBeliefResult {
   idempotencyKey: string;
   statement: string;
   confidence: number | null;
+  /** Session role observed on the product connection (must be holocron_app). */
+  sessionRole: string | null;
   messages: string[];
   errors: string[];
 }
@@ -33,15 +35,21 @@ export interface ReviseBeliefResult {
  * Call public.revise_belief(...) and return the successor belief id.
  */
 export async function reviseBelief(input: ReviseBeliefInput): Promise<ReviseBeliefResult> {
-  const databaseUrl = input.databaseUrl ?? resolveDatabaseUrl({ preferHolocron: true });
+  // Product path: bind to holocron_app unless caller supplies an explicit URL override.
+  const databaseUrl = input.databaseUrl ?? resolveProductDatabaseUrl({ preferHolocron: true });
   const sql = createSql(databaseUrl);
   const messages: string[] = [];
   const errors: string[] = [];
   const confidence = input.confidence ?? null;
   const validFrom = input.validFrom ?? null;
   const validTo = input.validTo ?? null;
+  let sessionRole: string | null = null;
 
   try {
+    const who = await sql<{ current_user: string }[]>`SELECT current_user::text`;
+    sessionRole = who[0]?.current_user ?? null;
+    messages.push(`current_user: ${sessionRole ?? ''}`);
+
     const rows = await sql<{ revise_belief: string }[]>`
       SELECT revise_belief(
         ${input.beliefId}::uuid,
@@ -66,6 +74,7 @@ export async function reviseBelief(input: ReviseBeliefInput): Promise<ReviseBeli
         idempotencyKey: input.idempotencyKey,
         statement: input.statement,
         confidence,
+        sessionRole,
         messages,
         errors,
       };
@@ -84,6 +93,7 @@ export async function reviseBelief(input: ReviseBeliefInput): Promise<ReviseBeli
       idempotencyKey: input.idempotencyKey,
       statement: input.statement,
       confidence,
+      sessionRole,
       messages,
       errors,
     };
@@ -99,6 +109,7 @@ export async function reviseBelief(input: ReviseBeliefInput): Promise<ReviseBeli
       idempotencyKey: input.idempotencyKey,
       statement: input.statement,
       confidence,
+      sessionRole,
       messages,
       errors,
     };
@@ -129,9 +140,11 @@ export interface SeedOpenBeliefResult {
 /**
  * Insert a single open belief (tx_to IS NULL) via SECURITY DEFINER seed_open_belief.
  * holocron_app has no raw INSERT on beliefs after 0006; this is the authorized path.
+ * Product default connection is holocron_app (resolveProductDatabaseUrl / H2).
  */
 export async function seedOpenBelief(input?: SeedOpenBeliefInput): Promise<SeedOpenBeliefResult> {
-  const databaseUrl = input?.databaseUrl ?? resolveDatabaseUrl({ preferHolocron: true });
+  // Product default is holocron_app; tests may pass owner URL for privileged fixture seeding.
+  const databaseUrl = input?.databaseUrl ?? resolveProductDatabaseUrl({ preferHolocron: true });
   const sql = createSql(databaseUrl);
   const claimId = input?.claimId ?? `claim-ledger-2-${Date.now()}`;
   const statement = input?.statement ?? 'Initial open belief for ledger-2';

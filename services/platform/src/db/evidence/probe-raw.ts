@@ -3,8 +3,7 @@
  * Used to demonstrate ERROR 42501 on direct UPDATE/DELETE of beliefs.
  */
 import { createSql } from '../client';
-import { resolveDatabaseUrl } from '../connection';
-import { HOLOCRON_APP_ROLE, toAppRoleDatabaseUrl } from './roles';
+import { HOLOCRON_APP_ROLE, resolveProductDatabaseUrl, toAppRoleDatabaseUrl } from './roles';
 
 export interface RawProbeResult {
   ok: boolean;
@@ -27,8 +26,10 @@ export async function probeRawSql(
   sqlText: string,
   options?: { databaseUrl?: string }
 ): Promise<RawProbeResult> {
-  const baseUrl = options?.databaseUrl ?? resolveDatabaseUrl({ preferHolocron: true });
-  const appUrl = toAppRoleDatabaseUrl(baseUrl);
+  // Always bind to holocron_app: explicit URL is still rewritten (least-privilege probe).
+  const appUrl = options?.databaseUrl
+    ? toAppRoleDatabaseUrl(options.databaseUrl)
+    : resolveProductDatabaseUrl({ preferHolocron: true });
   const sql = createSql(appUrl);
   const messages: string[] = [];
   const errors: string[] = [];

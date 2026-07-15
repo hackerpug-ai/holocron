@@ -1,0 +1,23 @@
+{
+  "task": "REDHAT-FIX-H2",
+  "capturedAt": "2026-07-15T20:23:39.420Z",
+  "product_path": {
+    "current_user": "holocron_app",
+    "can_update": false,
+    "can_delete": false,
+    "product_url_user": "holocron_app"
+  },
+  "seed": {
+    "ok": true,
+    "sessionRole": "holocron_app",
+    "claimId": "019f6773-0693-77b9-bf32-3e35e6524b11",
+    "passageIds": 2
+  },
+  "owner_url_not_app": true,
+  "must_observe_green": {
+    "product_current_user_is_holocron_app": true,
+    "product_cannot_update": true,
+    "product_cannot_delete": true,
+    "seed_ok_as_app": true
+  }
+}
