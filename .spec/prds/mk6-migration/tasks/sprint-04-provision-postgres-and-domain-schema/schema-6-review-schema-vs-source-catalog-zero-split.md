@@ -35,7 +35,7 @@ TASK: schema-6 — Review schema vs source catalog + Zero split
 ================================================================================
 
 TASK_TYPE:  REVIEW
-STATUS:     Backlog
+STATUS:     Completed
 PRIORITY:   P0
 EFFORT:     S  (90 min)
 AGENT:      reviewer=mastra-reviewer
@@ -82,11 +82,11 @@ Reviewer runs all verification gates against real Postgres + source catalog, emi
 --------------------------------------------------------------------------------
 DONE WHEN
 --------------------------------------------------------------------------------
-- [ ] AC-1 (PRIMARY): Every table/field/storage ref has approved catalog disposition
-- [ ] AC-2: Business 12->3 and research 5->3 merges collapsed
-- [ ] AC-3: Canonical corpus has exactly one sources + one passages relation
-- [ ] AC-4: Zero split excludes vectors/passages/evidence/citations/telemetry
-- [ ] AC-5: AP-1 no-SQLite and AP-7 no-RLS honored
+- [x] AC-1 (PRIMARY): Every table/field/storage ref has approved catalog disposition
+- [x] AC-2: Business 12->3 and research 5->3 merges collapsed
+- [x] AC-3: Canonical corpus has exactly one sources + one passages relation
+- [x] AC-4: Zero split excludes vectors/passages/evidence/citations/telemetry
+- [x] AC-5: AP-1 no-SQLite and AP-7 no-RLS honored
 - [ ] `pnpm biome check .` clean + `pnpm tsgo --noEmit` clean (only SCOPE.writeAllowed files modified)
 
 --------------------------------------------------------------------------------
