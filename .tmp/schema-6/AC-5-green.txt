@@ -1,0 +1,18 @@
+sqlite refs in services/platform/src/db:
+NONE
+
+ pg_policies_count 
+-------------------
+                 0
+(1 row)
+
+ nspname 
+---------
+ public
+(1 row)
+
+ rls_enabled_tables 
+--------------------
+                  0
+(1 row)
+
