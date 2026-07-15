@@ -51,10 +51,10 @@ OUTCOME
 --------------------------------------------------------------------------------
 DONE WHEN
 --------------------------------------------------------------------------------
-- [ ] AC-1 (PRIMARY): `catalog:verify` on real export + complete catalog ⇒ exit 0, 60/60 tables + 6/6 storage refs + every field approved
-- [ ] AC-2: `catalog:coverage` prints per-field + per-storage-ref mapping each with a non-empty owner + approval
-- [ ] AC-3: `catalog:merges` shows business 12→3 + research 5→3 with zero surviving per-domain shell targets
-- [ ] AC-4: a deleted table entry / missing storage-ref disposition ⇒ `catalog:verify` exits non-zero naming that exact surface
+- [x] AC-1 (PRIMARY): `catalog:verify` on real export + complete catalog ⇒ exit 0, 60/60 tables + 6/6 storage refs + every field approved
+- [x] AC-2: `catalog:coverage` prints per-field + per-storage-ref mapping each with a non-empty owner + approval
+- [x] AC-3: `catalog:merges` shows business 12→3 + research 5→3 with zero surviving per-domain shell targets
+- [x] AC-4: a deleted table entry / missing storage-ref disposition ⇒ `catalog:verify` exits non-zero naming that exact surface
 - [ ] catalog-5's `tests/integration/catalog-negative-controls.test.ts` unmapped-table + deleted-entry controls go GREEN against this implementation
 - [ ] `pnpm tsgo --noEmit` clean + `pnpm biome check .` clean; only SCOPE.writeAllowed files modified
 
@@ -128,7 +128,7 @@ Must pass: one integration test per AC driving the real `holo catalog:*` surface
 --------------------------------------------------------------------------------
 DEPENDENCIES
 --------------------------------------------------------------------------------
-Depends on: catalog-1 (the committed catalog), catalog-5 (the RED-first negative-control suite + fixtures this turns green), catalog-2 (the shared `export-reader.ts`/`catalog-loader.ts` this imports) · Blocks: catalog-4 (review)
+Depends on: catalog-1 (the committed catalog), catalog-5 (the RED-first negative-control suite + fixtures this turns green), catalog-2 (the shared `export-reader.ts`/`catalog-loader.ts` this imports) · Blocks: catalog-4 (real-export review of the verify/coverage/merges gate)
 
 <!-- REQUIREMENT-CONTRACT v1 -->
 <!--

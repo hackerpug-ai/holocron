@@ -1,0 +1,30 @@
+{
+  "F71852AF-515C-4DDF-9BDE-BABE608A6DD8": {
+    "sig": "1| ded2a134-f6db-423e-8e11-4b96503df03f.jsonl:2516413597",
+    "progress_ts": 1784006088
+  },
+  "BC378DFF-7434-478E-9B5E-AF2DF3A66DE1": {
+    "sig": "0|",
+    "progress_ts": 1784039049
+  },
+  "DA00D297-11DD-408E-9C99-77B19C007DFC": {
+    "sig": "0|",
+    "progress_ts": 1784039682
+  },
+  "5FE7F17B-DBD6-476F-92FE-807E3855CDC0": {
+    "sig": "1| sprint-goal-state.json:222444026",
+    "progress_ts": 1784041037
+  },
+  "5C19D941-573E-4AC8-B099-141DB35F7EAD": {
+    "sig": "1| sprint-goal-state.json:2524353304",
+    "progress_ts": 1784041968
+  },
+  "6141B529-01C7-4479-9C37-CC1D8C25BF47": {
+    "sig": "13| red-hat-2026-03-23-audio-narration.md:120703471 red-hat-2026-03-23.md:3408127781 red-hat-2026-03-27.md:1126127241 red-hat-2026-04-19-sprint01.md:3915450660 red-hat-2026-07-13T20-51-08Z.md:3225087629 red-hat-20260301.md:818768599 red-hat-epic-1-20250301.md:794298529 red-hat-epic-4-20260302.md:3058547471 red-hat-epic-4-loop-20260303.md:1616472443 red-hat-epic-5-20260303-loop2.md:1496504107 red-hat-epic-5-20260303.md:2257909476 red-hat-hiring-manager-2026-04-06.md:2781278480 red-hat-prd-audit-2026-04-02.md:3353975780",
+    "progress_ts": 1784042160
+  },
+  "E9A60651-C9D8-4F75-8D3F-71B8D091FE93": {
+    "sig": "1| gate-verification.json:1112437116",
+    "progress_ts": 1784044764
+  }
+}

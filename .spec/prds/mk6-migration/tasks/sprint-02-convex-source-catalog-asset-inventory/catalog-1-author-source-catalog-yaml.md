@@ -52,10 +52,10 @@ The committed `.spec/prds/mk6-migration/10-technical-requirements/12-convex-sour
 --------------------------------------------------------------------------------
 DONE WHEN
 --------------------------------------------------------------------------------
-- [ ] AC-1 (PRIMARY): `catalog:verify --export` against a real `convex export` reports 60/60 tables approved, each with a disposition + computable expected-target formula + owner + approval
-- [ ] AC-2: `catalog:merges` proves business 12→3 (`analysis_*`) + research 5→3 (`research_*`), exactly 3+3 targets, no per-domain shells
-- [ ] AC-3: every field + all 6 storage refs carry a disposition; `audioTranscriptJobs.audioStorageId` + `documentCounters` are `drop` with versioned approvals
-- [ ] AC-4 (negative control): deleting/blanking any single entry flips `catalog:verify` non-zero, naming the unmapped table (the 60/60 has teeth)
+- [x] AC-1 (PRIMARY): `catalog:verify --export` against a real `convex export` reports 60/60 tables approved, each with a disposition + computable expected-target formula + owner + approval
+- [x] AC-2: `catalog:merges` proves business 12→3 (`analysis_*`) + research 5→3 (`research_*`), exactly 3+3 targets, no per-domain shells
+- [x] AC-3: every field + all 6 storage refs carry a disposition; `audioTranscriptJobs.audioStorageId` + `documentCounters` are `drop` with versioned approvals
+- [x] AC-4 (negative control): deleting/blanking any single entry flips `catalog:verify` non-zero, naming the unmapped table (the 60/60 has teeth)
 - [ ] catalog-5 RED suite goes green: `pnpm vitest run tests/integration/catalog-coverage.test.ts` → Exit 0
 - [ ] `pnpm biome check .` clean (+ `pnpm tsgo --noEmit` clean if any TS fixture touched); only SCOPE.writeAllowed files modified
 
@@ -133,7 +133,7 @@ Must pass: catalog parses under the entry-shape schema; 60/60 tables + every fie
 --------------------------------------------------------------------------------
 DEPENDENCIES
 --------------------------------------------------------------------------------
-Depends on: (none — this is the foundational contract artifact every other task reads; dep-order proposed by convex-planner) · Blocks: catalog-2 (asset generator reads the storage dispositions), catalog-3 (verify/coverage gate validates against this catalog), catalog-4 (real-export completeness verification), catalog-5 (RED test fixtures derive from this catalog's shape)
+Depends on: none (foundational contract artifact every other task reads; the sole ready root — its "How to verify" exercises the later gate/RED tooling, but that is verification convenience, NOT a build dependency) · Blocks: catalog-2 (asset generator reads the storage dispositions), catalog-3 (verify/coverage gate validates against this catalog), catalog-4 (real-export completeness verification), catalog-5 (RED test fixtures derive from this catalog's shape)
 
 <!-- REQUIREMENT-CONTRACT v1 -->
 <!--

@@ -51,10 +51,10 @@ The negative-control suite passes only against the real, completed `holo catalog
 --------------------------------------------------------------------------------
 DONE WHEN
 --------------------------------------------------------------------------------
-- [ ] AC-1 (PRIMARY): deleted/unmapped-table control has teeth (verify exits non-zero naming the table)
-- [ ] AC-2: removed field/storage-ref disposition control has teeth (coverage/verify blocks naming the surface)
-- [ ] AC-3: variance≠0 control has teeth (reconcile exits non-zero naming the table + numeric variance)
-- [ ] AC-4: suite green on the up state (real catalog + fixture export + built surface), RED on the absent/broken start, no `*.skip` guards
+- [x] AC-1 (PRIMARY): deleted/unmapped-table control has teeth (verify exits non-zero naming the table)
+- [x] AC-2: removed field/storage-ref disposition control has teeth (coverage/verify blocks naming the surface)
+- [x] AC-3: variance≠0 control has teeth (reconcile exits non-zero naming the table + numeric variance)
+- [x] AC-4: suite green on the up state (real catalog + fixture export + built surface), RED on the absent/broken start, no `*.skip` guards
 - [ ] frozen fixtures created (real fixture export, tampered catalog copies, variance export) and committed
 - [ ] `pnpm biome check .` clean; only test + fixture files modified (no `services/platform/src`)
 
@@ -126,7 +126,7 @@ Must pass: each control asserts a concrete failure signature (named table/field/
 --------------------------------------------------------------------------------
 DEPENDENCIES
 --------------------------------------------------------------------------------
-Depends on: catalog-1 (the committed catalog the tampered copies derive from) · Blocks: catalog-2 (variance control), catalog-3 (unmapped/deleted + missing-storage controls) — RED-first bead: these controls exist and fail before catalog-2/catalog-3 turn them green
+Depends on: catalog-1 (the committed catalog the tampered copies derive from) · Blocks: catalog-2 (variance control it turns green), catalog-3 (unmapped/deleted + missing-storage controls it turns green), catalog-4 (the RED export-completeness controls the reviewer greps for `*.skip`) — RED-first bead: these controls exist and fail before catalog-2/catalog-3 turn them green
 
 <!-- REQUIREMENT-CONTRACT v1 -->
 <!--

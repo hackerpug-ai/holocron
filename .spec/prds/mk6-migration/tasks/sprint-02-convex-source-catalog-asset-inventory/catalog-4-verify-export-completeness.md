@@ -130,7 +130,7 @@ REVIEW (verdict shape)
 --------------------------------------------------------------------------------
 DEPENDENCIES
 --------------------------------------------------------------------------------
-Depends on: catalog-1 (the committed catalog), catalog-2 (asset inventory + reconciliation report), catalog-3 (the `holo catalog:*` tool), catalog-5 (the RED suite) · Blocks: (Sprint 2 gate)
+Depends on: catalog-1 (the committed catalog), catalog-2 (asset inventory + reconciliation report), catalog-3 (the `holo catalog:*` verify/coverage/merges tool), catalog-5 (the RED negative-control suite it greps for skip guards) · Blocks: (Sprint 2 gate)
 
 <!-- REQUIREMENT-CONTRACT v1 -->
 <!--

@@ -52,10 +52,10 @@ OUTCOME
 --------------------------------------------------------------------------------
 DONE WHEN
 --------------------------------------------------------------------------------
-- [ ] AC-1 (PRIMARY): `catalog:reconcile --dry-run` on real export + catalog ⇒ per-table counts/formulas printed, unexplained_variance=0, exit 0
-- [ ] AC-2: `catalog:assets` emits one integrity row per storage object with a SHA-256 that matches sha256(bytes)
-- [ ] AC-3: approved merge (business 12→3, research 5→3) + drop/regenerate exceptions fold into the formula and are NOT counted as variance
-- [ ] AC-4: a real count that diverges from the formula with no approved exception ⇒ reconcile exits non-zero naming the table + numeric variance
+- [x] AC-1 (PRIMARY): `catalog:reconcile --dry-run` on real export + catalog ⇒ per-table counts/formulas printed, unexplained_variance=0, exit 0
+- [x] AC-2: `catalog:assets` emits one integrity row per storage object with a SHA-256 that matches sha256(bytes)
+- [x] AC-3: approved merge (business 12→3, research 5→3) + drop/regenerate exceptions fold into the formula and are NOT counted as variance
+- [x] AC-4: a real count that diverges from the formula with no approved exception ⇒ reconcile exits non-zero naming the table + numeric variance
 - [ ] catalog-5's `tests/integration/catalog-negative-controls.test.ts` variance control goes GREEN against this implementation
 - [ ] `pnpm tsgo --noEmit` clean + `pnpm biome check .` clean; only SCOPE.writeAllowed files modified
 
@@ -131,7 +131,7 @@ Must pass: one integration test per AC driving the real `holo catalog:*` surface
 --------------------------------------------------------------------------------
 DEPENDENCIES
 --------------------------------------------------------------------------------
-Depends on: catalog-1 (the committed catalog shape/entries + authoritative storage dispositions), catalog-5 (the RED-first negative-control suite + frozen fixtures this turns green) · Blocks: catalog-3 (consumes the shared `export-reader.ts`/`catalog-loader.ts`), catalog-4 (review against a real export)
+Depends on: catalog-1 (the committed catalog shape/entries + authoritative storage dispositions), catalog-5 (the RED-first negative-control suite + frozen fixtures this turns green) · Blocks: catalog-3 (consumes the shared `export-reader.ts`/`catalog-loader.ts` this authors), catalog-4 (real-export review of the asset inventory + reconciliation)
 
 <!-- REQUIREMENT-CONTRACT v1 -->
 <!--
