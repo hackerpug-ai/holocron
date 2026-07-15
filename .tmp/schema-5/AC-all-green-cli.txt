@@ -1,0 +1,86 @@
+=== holo db:migrate ===
+holo db:migrate — apply Drizzle domain migrations
+  extension vector: ok
+  skip (already applied): 0000_groovy_stellaris.sql
+  skip (already applied): 0001_schema3_indexes_search_vector.sql
+  skip (already applied): 0002_zero_pub.sql
+  migrations applied: 0
+  already applied:    3
+  tables created:     57
+  domain tables:      57/57
+  0 errors
+  status: OK
+=== holo db:probe --status ===
+holo db:probe --status
+  zod rejects 'in-progress': true
+  zod accepts 'in_progress': true
+  'in-progress' rejected by CHECK: true
+  constraint violation error: new row for relation "tasks" violates check constraint "tasks_status_check"
+  'in_progress' accepted: true
+  status: OK
+=== holo db:probe --jsonb cardData ===
+holo db:probe --jsonb cardData
+  pg type: jsonb/jsonb
+  payload matches: true
+  structural equality: true
+  table: chat_messages
+  column: card_data
+  structural equality: true
+  payload matches: true
+  status: OK
+=== holo db:verify --merges ===
+holo db:verify --merges
+  analysis tables: analysis_evidence, analysis_items, analysis_sessions
+  research tables: research_findings, research_iterations, research_sessions
+  per-domain shells found: 0
+  analysis_sessions.type: true
+  analysis_items.kind: true
+  analysis_evidence.kind: true
+  research_*.system: true
+  analysis_sessions, analysis_items, analysis_evidence
+  research_sessions, research_iterations, research_findings
+  no per-domain shells
+  status: OK
+=== holo repl:status ===
+holo repl:status — CAP-SYNC-01 zero_pub / logical replication
+  DATABASE_URL:     postgres://justinrich@127.0.0.1:5432/holocron
+  wal_level:        logical
+  publication:      zero_pub (present)
+  published tables: 34
+  --- zero_pub membership ---
+  `agent_plan_steps`  REPLICA IDENTITY: DEFAULT  |  single-column PK: uuid  |  columns: 16 (no vector/embedding)  [OK]
+  `agent_plans`  REPLICA IDENTITY: DEFAULT  |  single-column PK: uuid  |  columns: 11 (no vector/embedding)  [OK]
+  `analysis_items`  REPLICA IDENTITY: DEFAULT  |  single-column PK: uuid  |  columns: 10 (no vector/embedding)  [OK]
+  `analysis_sessions`  REPLICA IDENTITY: DEFAULT  |  single-column PK: uuid  |  columns: 22 (no vector/embedding)  [OK]
+  `app_settings`  REPLICA IDENTITY: DEFAULT  |  single-column PK: uuid  |  columns: 6 (no vector/embedding)  [OK]
+  `assimilation_iterations`  REPLICA IDENTITY: DEFAULT  |  single-column PK: uuid  |  columns: 17 (no vector/embedding)  [OK]
+  `assimilation_metadata`  REPLICA IDENTITY: DEFAULT  |  single-column PK: uuid  |  columns: 10 (no vector/embedding)  [OK]
+  `assimilation_sessions`  REPLICA IDENTITY: DEFAULT  |  single-column PK: uuid  |  columns: 28 (no vector/embedding)  [OK]
+  `audio_jobs`  REPLICA IDENTITY: DEFAULT  |  single-column PK: uuid  |  columns: 11 (no vector/embedding)  [OK]
+  `audio_segments`  REPLICA IDENTITY: DEFAULT  |  single-column PK: uuid  |  columns: 15 (no vector/embedding)  [OK]
+  `chat_messages`  REPLICA IDENTITY: DEFAULT  |  single-column PK: uuid  |  columns: 14 (no vector/embedding)  [OK]
+  `conversations`  REPLICA IDENTITY: DEFAULT  |  single-column PK: uuid  |  columns: 12 (no vector/embedding)  [OK]
+  `creator_profiles`  REPLICA IDENTITY: DEFAULT  |  single-column PK: uuid  |  columns: 11 (no vector/embedding)  [OK]
+  `documents`  REPLICA IDENTITY: DEFAULT  |  single-column PK: uuid  |  columns: 15 (no vector/embedding)  [OK]
+  `execution_plans`  REPLICA IDENTITY: DEFAULT  |  single-column PK: uuid  |  columns: 8 (no vector/embedding)  [OK]
+  `feed_items`  REPLICA IDENTITY: DEFAULT  |  single-column PK: uuid  |  columns: 20 (no vector/embedding)  [OK]
+  `feed_sessions`  REPLICA IDENTITY: DEFAULT  |  single-column PK: uuid  |  columns: 8 (no vector/embedding)  [OK]
+  `improvement_images`  REPLICA IDENTITY: DEFAULT  |  single-column PK: uuid  |  columns: 7 (no vector/embedding)  [OK]
+  `improvement_requests`  REPLICA IDENTITY: DEFAULT  |  single-column PK: uuid  |  columns: 18 (no vector/embedding)  [OK]
+  `notifications`  REPLICA IDENTITY: DEFAULT  |  single-column PK: uuid  |  columns: 13 (no vector/embedding)  [OK]
+  `plan_approvals`  REPLICA IDENTITY: DEFAULT  |  single-column PK: uuid  |  columns: 9 (no vector/embedding)  [OK]
+  `research_findings`  REPLICA IDENTITY: DEFAULT  |  single-column PK: uuid  |  columns: 19 (no vector/embedding)  [OK]
+  `research_iterations`  REPLICA IDENTITY: DEFAULT  |  single-column PK: uuid  |  columns: 18 (no vector/embedding)  [OK]
+  `research_sessions`  REPLICA IDENTITY: DEFAULT  |  single-column PK: uuid  |  columns: 26 (no vector/embedding)  [OK]
+  `shop_listings`  REPLICA IDENTITY: DEFAULT  |  single-column PK: uuid  |  columns: 21 (no vector/embedding)  [OK]
+  `shop_sessions`  REPLICA IDENTITY: DEFAULT  |  single-column PK: uuid  |  columns: 17 (no vector/embedding)  [OK]
+  `subscription_content`  REPLICA IDENTITY: DEFAULT  |  single-column PK: uuid  |  columns: 24 (no vector/embedding)  [OK]
+  `subscription_filters`  REPLICA IDENTITY: DEFAULT  |  single-column PK: uuid  |  columns: 9 (no vector/embedding)  [OK]
+  `subscription_links`  REPLICA IDENTITY: DEFAULT  |  single-column PK: uuid  |  columns: 9 (no vector/embedding)  [OK]
+  `subscription_sources`  REPLICA IDENTITY: DEFAULT  |  single-column PK: uuid  |  columns: 14 (no vector/embedding)  [OK]
+  `tasks`  REPLICA IDENTITY: DEFAULT  |  single-column PK: uuid  |  columns: 16 (no vector/embedding)  [OK]
+  `tool_calls`  REPLICA IDENTITY: DEFAULT  |  single-column PK: uuid  |  columns: 13 (no vector/embedding)  [OK]
+  `whats_new_reports`  REPLICA IDENTITY: DEFAULT  |  single-column PK: uuid  |  columns: 17 (no vector/embedding)  [OK]
+  `whats_new_workflows`  REPLICA IDENTITY: DEFAULT  |  single-column PK: uuid  |  columns: 13 (no vector/embedding)  [OK]
+  0 errors
+  status: OK
