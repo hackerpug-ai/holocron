@@ -29,6 +29,13 @@
       "when": 1784080000000,
       "tag": "0003_evidence_one_open_belief",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1784081000000,
+      "tag": "0004_beliefs_immutability_revise",
+      "breakpoints": true
     }
   ]
 }
