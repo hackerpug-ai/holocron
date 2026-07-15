@@ -1,0 +1,35 @@
+{
+  "sprint_id": "sprint-04-provision-postgres-and-domain-schema",
+  "updated_at": "2026-07-15T00:05:38.976244+00:00",
+  "tasks": {
+    "total": 6,
+    "completed": 6,
+    "all_complete": true
+  },
+  "gate": {
+    "verdict": "pass",
+    "pass": true
+  },
+  "e2e": {
+    "verdict": "PASS",
+    "pass": true
+  },
+  "build": {
+    "typecheck": "pass",
+    "lint": "pass_with_warnings",
+    "pass": true
+  },
+  "trunk": {
+    "consolidated": true,
+    "orphans": []
+  },
+  "human_test": {
+    "verdict": "pass",
+    "steps_executed": 6,
+    "steps_total": 6,
+    "steps_passed": 6,
+    "run_id": "2026-07-15T00:05:37Z",
+    "verified": true
+  },
+  "met": true
+}

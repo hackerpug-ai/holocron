@@ -1,0 +1,12 @@
+holo db:verify --merges
+  analysis tables: analysis_evidence, analysis_items, analysis_sessions
+  research tables: research_findings, research_iterations, research_sessions
+  per-domain shells found: 0
+  analysis_sessions.type: true
+  analysis_items.kind: true
+  analysis_evidence.kind: true
+  research_*.system: true
+  analysis_sessions, analysis_items, analysis_evidence
+  research_sessions, research_iterations, research_findings
+  no per-domain shells
+  status: OK

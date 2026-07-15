@@ -1,0 +1,41 @@
+{
+  "sprint": "sprint-04-provision-postgres-and-domain-schema",
+  "framework": "headless-service",
+  "verdict": "PASS",
+  "steps_covered": 6,
+  "steps_total": 6,
+  "manual_only": 0,
+  "coverage": [
+    {
+      "step": 1,
+      "e2e": "services/platform/tests/integration/db-migrate.test.ts",
+      "status": "pass"
+    },
+    {
+      "step": 2,
+      "e2e": "services/platform/tests/integration + holo db:verify --indexes",
+      "status": "pass"
+    },
+    {
+      "step": 3,
+      "e2e": "services/platform/tests/integration/merges-collapsed.test.ts",
+      "status": "pass"
+    },
+    {
+      "step": 4,
+      "e2e": "services/platform/tests/integration/jsonb-roundtrip.test.ts",
+      "status": "pass"
+    },
+    {
+      "step": 5,
+      "e2e": "services/platform/tests/integration/status-check.test.ts",
+      "status": "pass"
+    },
+    {
+      "step": 6,
+      "e2e": "services/platform/tests/integration/replication-ready.test.ts",
+      "status": "pass"
+    }
+  ],
+  "suite_result": "15 pass / 0 fail (DB_IT=1 bun test tests/integration/)"
+}

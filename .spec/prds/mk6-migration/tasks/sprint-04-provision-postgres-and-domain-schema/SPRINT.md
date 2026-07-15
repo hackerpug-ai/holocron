@@ -3,7 +3,7 @@ sprint: 4
 title: Provision Postgres and Domain Schema
 sequence: 4
 timeline: Phase 1 — Platform Foundation
-status: In Progress
+status: Completed
 prd: ../../README.md
 capability_coverage: [CAP-SYNC-01]
 ---
@@ -12,7 +12,7 @@ capability_coverage: [CAP-SYNC-01]
 
 **Sequence:** 4
 **Timeline:** Phase 1 — Platform Foundation
-**Status:** In Progress
+**Status:** Completed
 **Proposed by:** mastra-planner
 **Branch:** `mk6-postgres-schema`
 

@@ -1,0 +1,85 @@
+{
+  "sprint": "sprint-04-provision-postgres-and-domain-schema",
+  "planned_at": "2026-07-15T00:05:37Z",
+  "planned_steps": 6,
+  "steps": [
+    {
+      "n": 1,
+      "text": "Run holo db:migrate against a fresh Postgres 18 \u2014 applies all migrations, reports 0 errors and \u226555 tables created.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "DATABASE_URL=postgres://justinrich@127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts db:migrate",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "0 errors|tables created:\\s*5[5-9]|status: OK",
+        "expect_not_log_regex": "\\bERROR\\b|migration failed|status: FAIL"
+      }
+    },
+    {
+      "n": 2,
+      "text": "Run holo db:verify --indexes \u2014 every declared btree/GIN/HNSW index exists on its table.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "DATABASE_URL=postgres://justinrich@127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts db:verify --indexes",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "status: OK|HNSW indexes found: 6/6|no IVFFlat",
+        "expect_not_log_regex": "\\bERROR\\b|migration failed|status: FAIL"
+      }
+    },
+    {
+      "n": 3,
+      "text": "Run holo db:verify --merges \u2014 reports one analysis_* trio and one research_* trio, no per-domain shells.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "DATABASE_URL=postgres://justinrich@127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts db:verify --merges",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "no per-domain shells|status: OK|analysis_sessions",
+        "expect_not_log_regex": "\\bERROR\\b|migration failed|status: FAIL"
+      }
+    },
+    {
+      "n": 4,
+      "text": "Run holo db:probe --jsonb cardData \u2014 writes and reads a polymorphic payload back with structural equality.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "DATABASE_URL=postgres://justinrich@127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts db:probe --jsonb cardData",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "structural equality: true|status: OK",
+        "expect_not_log_regex": "\\bERROR\\b|migration failed|status: FAIL"
+      }
+    },
+    {
+      "n": 5,
+      "text": "Insert status in-progress via holo db:probe --status \u2014 rejected by CHECK; insert in_progress \u2014 accepted.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "DATABASE_URL=postgres://justinrich@127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts db:probe --status",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "rejected by CHECK: true|accepted: true|status: OK",
+        "expect_not_log_regex": "\\bERROR\\b|migration failed|status: FAIL"
+      }
+    },
+    {
+      "n": 6,
+      "text": "Run holo repl:status \u2014 wal_level=logical, zero_pub covers the reactive subset only, uuid PK replica identity confirmed.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "DATABASE_URL=postgres://justinrich@127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts repl:status",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "wal_level:\\s*logical|status: OK|zero_pub",
+        "expect_not_log_regex": "\\bERROR\\b|migration failed|status: FAIL"
+      }
+    }
+  ]
+}
