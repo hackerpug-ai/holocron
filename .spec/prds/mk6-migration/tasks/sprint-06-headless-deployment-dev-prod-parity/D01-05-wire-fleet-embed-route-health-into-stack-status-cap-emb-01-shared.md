@@ -36,7 +36,7 @@ TASK: D01-05 — Wire fleet embed-route health into stack status (CAP-EMB-01 sha
 ================================================================================
 
 TASK_TYPE:  FEATURE
-STATUS:     Backlog
+STATUS:     Completed
 PRIORITY:   P0
 EFFORT:     S  (60 min)
 AGENT:      implementer=devops-engineer | reviewer=code-reviewer
@@ -78,10 +78,10 @@ holo stack status includes embed-route health; probes real :4545/v1/models endpo
 --------------------------------------------------------------------------------
 DONE WHEN
 --------------------------------------------------------------------------------
-- [ ] AC-1 (PRIMARY): holo stack status includes fleet embed-route health from real HTTP probe
-- [ ] AC-2 (PRIMARY): embed health uses Fleet Role Manifest healthProbe contract correctly
-- [ ] AC-3: embed health outputs in both JSON and human-readable formats
-- [ ] `pnpm tsgo --noEmit` clean + `pnpm biome check .` clean (only SCOPE.writeAllowed files modified)
+- [x] AC-1 (PRIMARY): holo stack status includes fleet embed-route health from real HTTP probe
+- [x] AC-2 (PRIMARY): embed health uses Fleet Role Manifest healthProbe contract correctly
+- [x] AC-3: embed health outputs in both JSON and human-readable formats
+- [x] `pnpm tsgo --noEmit` clean + `pnpm biome check .` clean (only SCOPE.writeAllowed files modified)
 
 --------------------------------------------------------------------------------
 ACCEPTANCE CRITERIA (TDD beads — RED before GREEN, proven by real services)
@@ -90,7 +90,7 @@ AC-1 [PRIMARY] holo stack status includes fleet embed-route health from real HTT
   GIVEN Fleet is running at :4545; Fleet Role Manifest has embed role with healthProbe.path=/v1/models
   WHEN  operator runs holo stack status
   THEN  Stack status probes :4545/v1/models using healthProbe contract (GET, expectStatus=200, timeoutMs=3000); includes embed: healthy in output; if fleet down, reports embed: unhealthy; probe is real HTTP GET (not mocked); healthProbe contract read from manifest (not hardcoded)
-  TEST_TIER: integration · VERIFICATION_SERVICE: fleet-embed-route · TDD_STATE: red
+  TEST_TIER: integration · VERIFICATION_SERVICE: fleet-embed-route · TDD_STATE: green
   SCENARIO — start_ref: fleet_running_at_4545 · evidence: stdout
     NEGATIVE_CONTROL: would fail if probe stubbed (always healthy); fleet endpoint absent (not running); health hardcoded (static); exit code 0 with fleet down (false pass)
     MUST_OBSERVE: fleet running: `holo stack status | grep 'embed.*healthy'` exits code 0; fleet running: `curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:4545/v1/models` prints 200; stop fleet: kill fleet process (kill -9 <fleet-pid>); fleet down: `holo stack status | grep 'embed.*unhealthy'` exits code 0; fleet down: `curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:4545/v1/models` prints (0) or ≠ 200
@@ -100,7 +100,7 @@ AC-2 [PRIMARY] embed health uses Fleet Role Manifest healthProbe contract correc
   GIVEN Fleet Role Manifest has embed role with healthProbe.path=/v1/models, healthProbe.expectStatus=200, healthProbe.timeoutMs=3000
   WHEN  operator runs holo stack status
   THEN  Health probe uses manifest contract: GET /v1/models (not /embed), expects status 200, times out after 3000ms; contract read from services/platform/fleet/manifest.json (not hardcoded); if manifest changes, probe respects new values
-  TEST_TIER: integration · VERIFICATION_SERVICE: fleet-embed-route · TDD_STATE: red
+  TEST_TIER: integration · VERIFICATION_SERVICE: fleet-embed-route · TDD_STATE: green
   SCENARIO — start_ref: fleet_role_manifest_exists · evidence: stdout
     NEGATIVE_CONTROL: would fail if path hardcoded (not read from manifest); manifest absent (deleted); probe uses wrong path (stubbed); exit code 0 with wrong path (false pass)
     MUST_OBSERVE: `jq -r '.roles[] | select(.name=="embed") | .healthProbe.path' services/platform/fleet/manifest.json` prints `/v1/models`; `jq -r '.roles[] | select(.name=="embed") | .healthProbe.port' services/platform/fleet/manifest.json` prints `4545`; stack status probes http://127.0.0.1:4545/v1/models (manifest path); change manifest path to /v1/health; stack status probes http://127.0.0.1:4545/v1/health (uses manifest path)
@@ -110,7 +110,7 @@ AC-3 embed health outputs in both JSON and human-readable formats (flow_ref CAP-
   GIVEN stack status includes embed health from AC-1
   WHEN  operator runs holo stack status with and without --json
   THEN  Default (no --json) outputs human-readable text with embed: healthy; --json outputs valid JSON with embed: healthy; both formats include embed health alongside postgres/mastra/scheduler/zerocache
-  TEST_TIER: integration · VERIFICATION_SERVICE: fleet-embed-route · TDD_STATE: red
+  TEST_TIER: integration · VERIFICATION_SERVICE: fleet-embed-route · TDD_STATE: green
   SCENARIO — start_ref: fleet_running_at_4545 · evidence: stdout
     NEGATIVE_CONTROL: would fail if --json outputs invalid JSON (malformed); embed key omitted (absent); JSON and human outputs disagree (inconsistent); exit code 0 with missing key (false pass)
     MUST_OBSERVE: `holo stack status --json | jq .` exits code 0 (valid JSON); `holo stack status --json | jq -r .embed` prints `healthy`; `holo stack status --json | jq -r .postgres` prints `healthy`; `holo stack status --json | jq -r .mastra` prints `healthy`; `holo stack status | grep embed` exits code 0 (embed in human output); `holo stack status | grep 'embed.*healthy'` exits code 0 (healthy in human output); both outputs agree on embed status (JSON healthy == human healthy)
