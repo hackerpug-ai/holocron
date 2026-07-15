@@ -1,0 +1,45 @@
+ section |    rolname     | rolsuper | rolcanlogin 
+---------+----------------+----------+-------------
+ roles   | holocron_app   | false    | true
+ roles   | holocron_owner | false    | false
+(2 rows)
+
+    section     |    grantee     | privilege_type | c3 
+----------------+----------------+----------------+----
+ beliefs_grants | holocron_app   | INSERT         | 
+ beliefs_grants | holocron_app   | SELECT         | 
+ beliefs_grants | holocron_owner | DELETE         | 
+ beliefs_grants | holocron_owner | INSERT         | 
+ beliefs_grants | holocron_owner | SELECT         | 
+ beliefs_grants | holocron_owner | UPDATE         | 
+ beliefs_grants | inference1     | DELETE         | 
+ beliefs_grants | inference1     | INSERT         | 
+ beliefs_grants | inference1     | REFERENCES     | 
+ beliefs_grants | inference1     | SELECT         | 
+ beliefs_grants | inference1     | TRIGGER        | 
+ beliefs_grants | inference1     | TRUNCATE       | 
+ beliefs_grants | inference1     | UPDATE         | 
+(13 rows)
+
+    section    |    proname    | security_definer |     owner      
+---------------+---------------+------------------+----------------
+ revise_belief | revise_belief | true             | holocron_owner
+(1 row)
+
+    section    | has_for_update | has_stale | has_idempotency 
+---------------+----------------+-----------+-----------------
+ fn_body_flags | true           | true      | true
+(1 row)
+
+ section  |      proname       | prosecdef | pg_get_userbyid 
+----------+--------------------+-----------+-----------------
+ asof_fns | belief_as_of       | false     | inference1
+ asof_fns | belief_net_support | false     | inference1
+(2 rows)
+
+ section |            indexname            |                                                               indexdef                                                               | ?column? 
+---------+---------------------------------+--------------------------------------------------------------------------------------------------------------------------------------+----------
+ indexes | beliefs_one_open_per_claim_uidx | CREATE UNIQUE INDEX beliefs_one_open_per_claim_uidx ON public.beliefs USING btree (claim_id) WHERE (tx_to IS NULL)                   | 
+ indexes | beliefs_idempotency_key_uidx    | CREATE UNIQUE INDEX beliefs_idempotency_key_uidx ON public.beliefs USING btree (idempotency_key) WHERE (idempotency_key IS NOT NULL) | 
+(2 rows)
+

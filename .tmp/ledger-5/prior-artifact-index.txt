@@ -1,0 +1,37 @@
+.tmp/ledger-2/:
+total 160
+drwxr-xr-x@ 22 inference1  staff  704 Jul 15 13:42 .
+drwxr-xr-x@ 23 inference1  staff  736 Jul 15 13:42 ..
+-rw-r--r--@  1 inference1  staff  312 Jul 15 13:44 AC-1-green.txt
+-rw-r--r--@  1 inference1  staff  168 Jul 15 13:44 AC-1-red-against-start.txt
+-rw-r--r--@  1 inference1  staff  100 Jul 15 13:44 AC-1-seeded-belief.json
+-rw-r--r--@  1 inference1  staff  341 Jul 15 13:44 AC-2-green.txt
+-rw-r--r--@  1 inference1  staff  105 Jul 15 13:44 AC-2-red-against-start.txt
+-rw-r--r--@  1 inference1  staff  148 Jul 15 13:44 AC-2-seeded-belief.json
+-rw-r--r--@  1 inference1  staff  331 Jul 15 13:44 AC-3-green.txt
+-rw-r--r--@  1 inference1  staff  147 Jul 15 13:44 AC-3-red-against-start.txt
+-rw-r--r--@  1 inference1  staff   98 Jul 15 13:44 AC-3-seeded-belief.json
+-rw-r--r--@  1 inference1  staff  289 Jul 15 13:44 AC-4-green.txt
+-rw-r--r--@  1 inference1  staff  141 Jul 15 13:44 AC-4-red-against-start.txt
+-rw-r--r--@  1 inference1  staff  137 Jul 15 13:44 AC-4-seeded-belief.json
+-rw-r--r--@  1 inference1  staff  516 Jul 15 13:44 AC-5-cli-stdout.txt
+-rw-r--r--@  1 inference1  staff  187 Jul 15 13:44 AC-5-green.txt
+-rw-r--r--@  1 inference1  staff  141 Jul 15 13:44 AC-5-red-against-start.txt
+-rw-r--r--@  1 inference1  staff  132 Jul 15 13:44 AC-5-seeded-belief.json
+-rw-r--r--@  1 inference1  staff  385 Jul 15 13:44 AC-6-cli-stdout.txt
+-rw-r--r--@  1 inference1  staff  602 Jul 15 13:44 AC-6-green.txt
+-rw-r--r--@  1 inference1  staff  165 Jul 15 13:44 AC-6-red-against-start.txt
+-rw-r--r--@  1 inference1  staff   94 Jul 15 13:44 AC-6-seeded-belief.json
+
+.tmp/ledger-3/:
+total 64
+drwxr-xr-x@ 10 inference1  staff   320 Jul 15 13:42 .
+drwxr-xr-x@ 23 inference1  staff   736 Jul 15 13:42 ..
+-rw-r--r--@  1 inference1  staff  1224 Jul 15 13:44 AC-1-green.json
+-rw-r--r--@  1 inference1  staff   292 Jul 15 13:44 AC-1-red-against-start.json
+-rw-r--r--@  1 inference1  staff   110 Jul 15 13:44 AC-2-green-aug.json
+-rw-r--r--@  1 inference1  staff   157 Jul 15 13:44 AC-2-green.json
+-rw-r--r--@  1 inference1  staff   185 Jul 15 13:44 AC-2-red-against-start.json
+-rw-r--r--@  1 inference1  staff   188 Jul 15 13:44 AC-4-green-asof-now.json
+-rw-r--r--@  1 inference1  staff  1768 Jul 15 13:44 AC-4-green-full-chain.json
+-rw-r--r--@  1 inference1  staff   312 Jul 15 13:44 AC-4-red-against-start.json
