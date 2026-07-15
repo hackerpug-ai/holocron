@@ -40,13 +40,8 @@ describe('AC-1: product evidence helpers connect as holocron_app', () => {
     async () => {
       await withEvidenceLock(async () => {
         const { createSql } = await import('../../../services/platform/src/db/client');
-        const {
-          HOLOCRON_APP_ROLE,
-          getBeliefAsOf,
-          registerDoc,
-          reviseBelief,
-          seedEvidence,
-        } = await import('../../../services/platform/src/db/evidence/index');
+        const { HOLOCRON_APP_ROLE, getBeliefAsOf, registerDoc, reviseBelief, seedEvidence } =
+          await import('../../../services/platform/src/db/evidence/index');
 
         // Contrast: owner connection is NOT holocron_app.
         const ownerSql = createSql(DEFAULT_DATABASE_URL);

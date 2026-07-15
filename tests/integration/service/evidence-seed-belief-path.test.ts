@@ -81,11 +81,9 @@ describe('REDHAT-FIX-H3: product seed creates open belief (HT-1→HT-2)', () => 
         const beliefId = seedPayload.beliefId as string;
 
         const { createSql } = await import('../../../services/platform/src/db/client');
-        const {
-          HOLOCRON_APP_ROLE,
-          SEED_CLAIM_TEXT,
-          SEED_BELIEF_ACTOR,
-        } = await import('../../../services/platform/src/db/evidence/index');
+        const { HOLOCRON_APP_ROLE, SEED_CLAIM_TEXT, SEED_BELIEF_ACTOR } = await import(
+          '../../../services/platform/src/db/evidence/index'
+        );
 
         const sql = createSql(DEFAULT_DATABASE_URL);
         try {
