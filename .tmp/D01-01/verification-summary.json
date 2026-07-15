@@ -1,12 +1,12 @@
 {
   "task_id": "D01-01",
-  "timestamp": "2026-07-15T14:54:25Z",
+  "timestamp": "2026-07-15T14:54:36Z",
   "commit_sha": "c0822fbcd96f8af5fd6fa108826f5ace4a6ca9a2",
   "typecheck": {
     "exit_code": 0
   },
   "lint": {
-    "exit_code": 1,
+    "exit_code": 0,
     "warnings": 0
   },
   "pre_existing_issues": false,
@@ -44,5 +44,16 @@
   ],
   "red_evidence": {
     "required": false
-  }
+  },
+  "status": "RED",
+  "red_seed_commit": "e550ff214eecb2342bb99adecf21457ec967accb",
+  "suite_exit": 1,
+  "tests_failed": 17,
+  "tests_passed": 0,
+  "green_deferred_to": [
+    "D01-02",
+    "D01-03",
+    "D01-04",
+    "D01-05"
+  ]
 }
