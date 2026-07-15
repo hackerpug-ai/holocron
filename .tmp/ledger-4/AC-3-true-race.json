@@ -1,0 +1,17 @@
+{
+  "a": {
+    "id": "019f673d-98b5-74b6-b6fa-24138976920d",
+    "error": null
+  },
+  "b": {
+    "id": null,
+    "error": {
+      "code": "P0001",
+      "message": "REVISE_STALE_CONCURRENT: belief 019f673d-98a0-7644-a50b-5ea04f6d0a42 is already closed (tx_to set)"
+    }
+  },
+  "successCount": 1,
+  "failureCount": 1,
+  "openCount": 1,
+  "successorCount": 1
+}

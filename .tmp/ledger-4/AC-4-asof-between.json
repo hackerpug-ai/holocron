@@ -1,0 +1,24 @@
+{
+  "ac": "AC-4",
+  "tc": "TC-4",
+  "claimId": "claim-asof-chain-1",
+  "b1Id": "019f673d-9694-7dc2-8a1b-e724fa4dca9e",
+  "b2Id": "019f673d-9696-7d50-8d4c-987d03bdd707",
+  "asOf": "2024-02-01T00:00:00Z",
+  "cli": {
+    "status": 2,
+    "stdout": "",
+    "stderr": "unknown flag: --claim-id\n"
+  },
+  "parseError": "no JSON object in stdout:\n",
+  "payload": null,
+  "must_observe": {
+    "CLI exit 0": false,
+    "returns B1 id": false,
+    "returns B1 statement": false
+  },
+  "must_not_observe": {
+    "returns B2 id": false,
+    "returns B2 statement": false
+  }
+}

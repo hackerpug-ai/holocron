@@ -1,0 +1,24 @@
+{
+  "ac": "AC-5",
+  "tc": "TC-5",
+  "objectId": "019f673d-9752-7020-8244-57c5f2b1cfc3",
+  "asOf": "2024-04-01T00:00:00Z",
+  "cli": {
+    "status": 2,
+    "stdout": "",
+    "stderr": "unknown flag: --claim-id\n",
+    "netSupport": null
+  },
+  "sql": {
+    "net": null,
+    "error": "function belief_net_support(unknown, timestamp with time zone) does not exist"
+  },
+  "must_observe": {
+    "net-support = 0": false
+  },
+  "must_not_observe": {
+    "net-support missing": true,
+    "net-support counts R3 (+1 without window filter) => 1": false,
+    "net-support = +2 (all supports, no contradicts)": false
+  }
+}
