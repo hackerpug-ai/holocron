@@ -9,6 +9,7 @@
  * Sprint 04 schema-4: repl:status
  * Sprint 05 service-1: service:up
  * Sprint 05 service-2: registry:list | registry:probe | verify:identity | verify:no-dup-validation
+ * Sprint 05 service-3: manifest:resolve
  */
 import { resolve } from 'node:path';
 
@@ -89,6 +90,7 @@ Usage:
   registry:probe <id>   Probe a tool's Zod input/output schema (aliases: search, searchTool)
   verify:identity <id>  Prove agent/workflow/MCP share the same Zod instance (===)
   verify:no-dup-validation  Audit zero Zod .parse/.safeParse outside the shared registry
+  manifest:resolve <role>  Resolve a Fleet Role Manifest role to a live :4545 endpoint
 
 Options:
   --export <dir>        Path to unzipped convex export (or $CONVEX_EXPORT_DIR)
@@ -757,6 +759,41 @@ async function main(): Promise<void> {
         );
       }
       process.exit(payload.ok ? 0 : 1);
+      break;
+    }
+    case 'manifest:resolve': {
+      const role = args.positional[1];
+      if (!role) {
+        console.error(
+          'error: manifest:resolve requires a role (e.g. divergent, convergent, judge, embed, rerank)'
+        );
+        process.exit(2);
+      }
+      const { resolveModel, UnknownFleetRoleError, RoleUnavailableError } = await import(
+        '../inference/resolve-model.ts'
+      );
+      try {
+        const resolved = await resolveModel(role);
+        // Always JSON so `holo manifest:resolve divergent | jq '.endpoint'` works (AC gate).
+        console.log(JSON.stringify(resolved, null, 2));
+        process.exit(0);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        const code =
+          err instanceof UnknownFleetRoleError
+            ? 'UNKNOWN_ROLE'
+            : err instanceof RoleUnavailableError
+              ? 'ROLE_UNAVAILABLE'
+              : 'RESOLVE_FAILED';
+        const payload = {
+          ok: false,
+          error: code,
+          role,
+          message: msg,
+        };
+        console.error(JSON.stringify(payload, null, 2));
+        process.exit(1);
+      }
       break;
     }
     default:
