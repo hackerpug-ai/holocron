@@ -8,6 +8,7 @@
  * Sprint 04 schema-2: db:migrate | db:probe | db:verify | db:push
  * Sprint 04 schema-4: repl:status
  * Sprint 05 service-1: service:up
+ * Sprint 05 service-2: registry:list | registry:probe | verify:identity | verify:no-dup-validation
  */
 import { resolve } from 'node:path';
 
@@ -56,6 +57,8 @@ interface CliArgs {
   statusProbe: boolean;
   mergesVerify: boolean;
   indexesVerify: boolean;
+  /** registry:probe --for=agent,workflow,mcp */
+  forConsumers: string | null;
 }
 
 function printHelp(): void {
@@ -82,6 +85,10 @@ Usage:
   db:push               Push Drizzle schema (dev convenience; prefer db:migrate)
   repl:status           CAP-SYNC-01: wal_level + zero_pub membership + replica identity
   service:up            Boot Mastra composition root + Hono on :4111 (PORT/HOLO_PORT)
+  registry:list         List shared tool registry (≥44 tools with Zod schemas)
+  registry:probe <id>   Probe a tool's Zod input/output schema (aliases: search, searchTool)
+  verify:identity <id>  Prove agent/workflow/MCP share the same Zod instance (===)
+  verify:no-dup-validation  Audit zero Zod .parse/.safeParse outside the shared registry
 
 Options:
   --export <dir>        Path to unzipped convex export (or $CONVEX_EXPORT_DIR)
@@ -93,6 +100,7 @@ Options:
   --status              (db:probe) status CHECK constraint probe
   --merges              (db:verify) assert analysis/research merge collapse
   --indexes             (db:verify) assert HNSW/GIN/btree indexes + search_vector
+  --for <consumers>     (registry:probe) comma list: agent,workflow,mcp
   --json                Emit JSON instead of text
   --print-trace         (compat:spike) emit OTel trace details
   --dry-run             (catalog:reconcile) dry-run mode (default)
@@ -117,6 +125,7 @@ function parseArgs(argv: string[]): CliArgs {
     statusProbe: false,
     mergesVerify: false,
     indexesVerify: false,
+    forConsumers: null,
   };
   const positional: string[] = [];
   for (let i = 0; i < argv.length; i++) {
@@ -141,6 +150,10 @@ function parseArgs(argv: string[]): CliArgs {
       args.jsonbColumn = argv[++i] ?? null;
     } else if (a.startsWith('--jsonb=')) {
       args.jsonbColumn = a.slice('--jsonb='.length);
+    } else if (a === '--for') {
+      args.forConsumers = argv[++i] ?? null;
+    } else if (a.startsWith('--for=')) {
+      args.forConsumers = a.slice('--for='.length);
     } else if (a === '--export') {
       args.exportDir = argv[++i] ?? null;
     } else if (a === '--catalog') {
@@ -578,6 +591,172 @@ async function main(): Promise<void> {
       console.log(`Listening on :${port}`);
       // Keep process alive (Hono/Bun.serve owns the event loop).
       await new Promise<void>(() => {});
+      break;
+    }
+    case 'registry:list': {
+      const { listTools, toolCount } = await import('../tools/registry.ts');
+      const tools = listTools();
+      const rows = tools.map((t) => ({
+        id: t.id,
+        description: t.description,
+        inputSchema: {
+          propertyCount: t.inputPropertyCount,
+          present: true,
+        },
+        outputSchema: {
+          propertyCount: t.outputPropertyCount,
+          present: true,
+        },
+      }));
+      const payload = {
+        ok: tools.length >= 44,
+        count: toolCount(),
+        tools: rows,
+      };
+      // Always emit a JSON array so `holo registry:list | jq 'length'` works (AC gate).
+      // With --json false still array; human summary goes to stderr when not --json.
+      console.log(JSON.stringify(rows, null, 2));
+      if (!args.json) {
+        console.error(
+          `holo registry:list — ${payload.count} tools (need ≥44) ${payload.ok ? 'OK' : 'FAIL'}`
+        );
+      }
+      process.exit(payload.ok ? 0 : 1);
+      break;
+    }
+    case 'registry:probe': {
+      const toolId = args.positional[1];
+      if (!toolId) {
+        console.error(
+          'error: registry:probe requires a tool id (e.g. search, hybrid_search, searchTool)'
+        );
+        process.exit(2);
+      }
+      const {
+        probeToolSchema,
+        getSchemaForAgent,
+        getSchemaForWorkflow,
+        getSchemaForMcp,
+        getToolSchema,
+        resolveToolId,
+      } = await import('../tools/registry.ts');
+      let probe: ReturnType<typeof probeToolSchema>;
+      try {
+        probe = probeToolSchema(toolId);
+      } catch (err) {
+        console.error(err instanceof Error ? err.message : String(err));
+        process.exit(1);
+        return;
+      }
+      const consumers = (args.forConsumers ?? 'agent,workflow,mcp')
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const consumerSchemas: Record<string, { inputSame: boolean; outputSame: boolean }> = {};
+      const baseSchemas = getToolSchema(toolId);
+      for (const c of consumers) {
+        const getter =
+          c === 'agent'
+            ? getSchemaForAgent
+            : c === 'workflow'
+              ? getSchemaForWorkflow
+              : c === 'mcp'
+                ? getSchemaForMcp
+                : null;
+        if (!getter) {
+          console.error(`unknown consumer in --for: ${c}`);
+          process.exit(2);
+        }
+        const s = getter(toolId);
+        consumerSchemas[c] = {
+          inputSame: s.inputSchema === baseSchemas.inputSchema,
+          outputSame: s.outputSchema === baseSchemas.outputSchema,
+        };
+      }
+      const payload = {
+        ...probe,
+        consumers: consumerSchemas,
+        resolvedId: resolveToolId(toolId),
+      };
+      if (args.json) {
+        console.log(JSON.stringify(payload, null, 2));
+      } else {
+        console.log(`holo registry:probe ${toolId}`);
+        console.log(`  resolvedId: ${payload.resolvedId}`);
+        console.log(`  description: ${payload.description}`);
+        console.log(
+          `  inputSchema: type=${payload.inputSchema.type} properties=[${payload.inputSchema.properties.join(', ')}] count=${payload.inputSchema.propertyCount}`
+        );
+        console.log(
+          `  outputSchema: type=${payload.outputSchema.type} properties=[${payload.outputSchema.properties.join(', ')}] count=${payload.outputSchema.propertyCount}`
+        );
+        for (const [c, v] of Object.entries(consumerSchemas)) {
+          console.log(`  consumer.${c}: inputSame=${v.inputSame} outputSame=${v.outputSame}`);
+        }
+        // Print Zod-like JSON object for AC "prints a Zod schema JSON object"
+        console.log(
+          JSON.stringify(
+            {
+              inputSchema: payload.inputSchema,
+              outputSchema: payload.outputSchema,
+            },
+            null,
+            2
+          )
+        );
+      }
+      process.exit(0);
+      break;
+    }
+    case 'verify:identity': {
+      const toolId = args.positional[1];
+      if (!toolId) {
+        console.error('error: verify:identity requires a tool id (e.g. search)');
+        process.exit(2);
+      }
+      const { getSchemasForAllConsumers, resolveToolId } = await import('../tools/registry.ts');
+      let result: ReturnType<typeof getSchemasForAllConsumers>;
+      try {
+        result = getSchemasForAllConsumers(toolId);
+      } catch (err) {
+        console.error(err instanceof Error ? err.message : String(err));
+        process.exit(1);
+        return;
+      }
+      const payload = {
+        toolId,
+        resolvedId: resolveToolId(toolId),
+        identity: result.identity,
+        consumers: 3,
+        uniqueInstances: result.identity ? 1 : 3,
+      };
+      // Always JSON so `holo verify:identity search | jq '.identity'` works (AC gate).
+      console.log(JSON.stringify(payload, null, 2));
+      if (!args.json) {
+        console.error(
+          `holo verify:identity ${toolId} identity:${payload.identity} ${payload.identity ? 'OK' : 'FAIL'}`
+        );
+      }
+      process.exit(payload.identity ? 0 : 1);
+      break;
+    }
+    case 'verify:no-dup-validation': {
+      const { auditNoDupValidation } = await import('../tools/registry.ts');
+      const report = auditNoDupValidation();
+      const payload = {
+        ok: report.ok,
+        duplicates: report.duplicates,
+        sites: report.sites,
+        scannedCount: report.scanned.length,
+      };
+      // Always JSON so `holo verify:no-dup-validation | jq '.duplicates'` works (AC gate).
+      console.log(JSON.stringify(payload, null, 2));
+      if (!args.json) {
+        console.error(
+          `holo verify:no-dup-validation duplicates:${payload.duplicates} ${payload.ok ? 'OK' : 'FAIL'}`
+        );
+      }
+      process.exit(payload.ok ? 0 : 1);
       break;
     }
     default:

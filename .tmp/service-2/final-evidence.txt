@@ -1,0 +1,71 @@
+=== RED lineage: tests failed before registry.ts existed ===
+bun test v1.2.19 (aad3abea)
+
+src/tools/__tests__/registry.test.ts:
+error: Cannot find module '../registry.ts' from '/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-2/services/platform/src/tools/__tests__/registry.test.ts'
+(fail) AC-1: shared tool registry with Zod schemas > exports getToolSchema / listTools from registry.ts [0.70ms]
+error: Cannot find module '../registry.ts' from '/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-2/services/platform/src/tools/__tests__/registry.test.ts'
+(fail) AC-1: shared tool registry with Zod schemas > lists ≥44 registered tools each with inputSchema + outputSchema [0.03ms]
+error: Cannot find module '../registry.ts' from '/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-2/services/platform/src/tools/__tests__/registry.test.ts'
+(fail) AC-1: shared tool registry with Zod schemas > getToolSchema("search") / hybrid_search / search_fts returns a schema with ≥1 input property [0.02ms]
+error: Cannot find module '../registry.ts' from '/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-2/services/platform/src/tools/__tests__/registry.test.ts'
+(fail) AC-1: shared tool registry with Zod schemas > getToolSchema rejects unknown tool ids [0.07ms]
+error: Cannot find module '../registry.ts' from '/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-2/services/platform/src/tools/__tests__/registry.test.ts'
+(fail) AC-2: agent / workflow / MCP share the SAME Zod instance (===) > consumer path helpers return identical schema refs for search [0.09ms]
+error: Cannot find module '../registry.ts' from '/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-2/services/platform/src/tools/__tests__/registry.test.ts'
+(fail) AC-2: agent / workflow / MCP share the SAME Zod instance (===) > identity holds for every registered tool id [0.05ms]
+(pass) AC-3: no duplicate Zod validation outside the shared registry > services/platform/src/mcp/ has zero Zod .parse / .safeParse call sites [0.60ms]
+(pass) AC-3: no duplicate Zod validation outside the shared registry > tools/ tree only allows parse sites inside registry.ts (or explicit validate helpers) [0.03ms]
+error: Cannot find module '../registry.ts' from '/Users/justinrich/Projects/holocron/.kb-run-sprint/worktrees/service-2/services/platform/src/tools/__tests__/registry.test.ts'
+(fail) AC-3: no duplicate Zod validation outside the shared registry > auditNoDupValidation reports duplicates:0 [0.12ms]
+
+
+=== GREEN tests ===
+bun test v1.2.19 (aad3abea)
+
+src/tools/__tests__/registry.test.ts:
+(pass) AC-1: shared tool registry with Zod schemas > exports getToolSchema / listTools from registry.ts [142.92ms]
+(pass) AC-1: shared tool registry with Zod schemas > lists ≥44 registered tools each with inputSchema + outputSchema [0.35ms]
+(pass) AC-1: shared tool registry with Zod schemas > getToolSchema("search") / hybrid_search / search_fts returns a schema with ≥1 input property [0.52ms]
+(pass) AC-1: shared tool registry with Zod schemas > getToolSchema rejects unknown tool ids [0.07ms]
+(pass) AC-2: agent / workflow / MCP share the SAME Zod instance (===) > consumer path helpers return identical schema refs for search [0.10ms]
+(pass) AC-2: agent / workflow / MCP share the SAME Zod instance (===) > identity holds for every registered tool id [0.13ms]
+(pass) AC-3: no duplicate Zod validation outside the shared registry > services/platform/src/mcp/ has zero Zod .parse / .safeParse call sites [0.64ms]
+(pass) AC-3: no duplicate Zod validation outside the shared registry > tools/ tree only allows parse sites inside registry.ts (or explicit validate helpers) [0.93ms]
+(pass) AC-3: no duplicate Zod validation outside the shared registry > auditNoDupValidation reports duplicates:0 [1.24ms]
+
+ 9 pass
+ 0 fail
+ 642 expect() calls
+Ran 9 tests across 1 file. [164.00ms]
+
+=== CLI gates ===
+registry:list length=44
+holo registry:probe search
+  resolvedId: hybrid_search
+  description: Intelligent hybrid search combining keyword and semantic search
+  inputSchema: type=object properties=[query, limit] count=2
+  outputSchema: type=object properties=[results, totalResults, searchMethod] count=3
+  consumer.agent: inputSame=true outputSame=true
+  consumer.workflow: inputSame=true outputSame=true
+  consumer.mcp: inputSame=true outputSame=true
+{
+  "inputSchema": {
+    "type": "object",
+    "propertyCount": 2,
+    "properties": [
+      "query",
+      "limit"
+{
+  "toolId": "search",
+  "resolvedId": "hybrid_search",
+  "identity": true,
+  "consumers": 3,
+  "uniqueInstances": 1
+}
+{
+  "ok": true,
+  "duplicates": 0,
+  "sites": [],
+  "scannedCount": 20
+}
