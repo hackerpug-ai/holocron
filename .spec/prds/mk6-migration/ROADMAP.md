@@ -13,7 +13,7 @@ pr_sequencing: true
 
 **Sprints:** 31
 **Total Tasks:** 165
-**Current Sprint:** 1 — Mastra Compatibility Lock and Fleet Role Manifest (closed administratively; gate unverified)
+**Current Sprint:** 4 — Provision Postgres and Domain Schema (sprints 1–3 closed)
 
 A complete, decisive migration of holocron off Convex — cloud database and all services — onto a Mastra (Bun) + Postgres platform on the tailnet mini, with the RN app resyncing via Zero and all reasoning on the local inference fleet. Sequencing follows the PRD mandate: a **leading INFRA phase** (runtime compatibility lock + real-service e2e harness + machine-readable migration-contract artifacts) gates all feature work, then **PLAT → DATA → SVC/INFER → SYNC**, with the **big-bang cutover, rollback, and Convex decommission last**. Standing remote backup & disaster recovery (CAP-BAK-01) runs in parallel and outlasts the cutover.
 
@@ -26,8 +26,8 @@ This roadmap is a **consolidation** of proposals from the project's dispatched p
 | # | Milestone | Sprint | Gate | Tasks | Dependencies | Status | Branch | PR |
 |---|-----------|--------|------|-------|--------------|--------|--------|----|
 | 1 | — | [Sprint 01: Mastra Compatibility Lock and Fleet Role Manifest](#sprint-01-mastra-compatibility-lock-and-fleet-role-manifest) | `holo compat:spike` green 5-cell matrix on real Postgres; fleet manifest resolves | 5 | — | ⚪ Closed (user-directed; gate unverified) | `mk6-compat-lock` | — |
-| 2 | — | [Sprint 02: Convex Source Catalog and Asset Inventory](#sprint-02-convex-source-catalog-and-asset-inventory) | `holo catalog:verify` — 60/60 tables + every object have approved dispositions | 5 | — | 🟠 In flight | `mk6-source-catalog` | — |
-| 3 | — | [Sprint 03: MCP Compatibility Manifest and Frozen Fixtures](#sprint-03-mcp-compatibility-manifest-and-frozen-fixtures) | `holo mcp:verify-manifest` — 44/44 tools with frozen fixtures, both transports | 5 | 1 | 🟠 In flight | `mk6-mcp-manifest` | — |
+| 2 | — | [Sprint 02: Convex Source Catalog and Asset Inventory](#sprint-02-convex-source-catalog-and-asset-inventory) | `holo catalog:verify` — 60/60 tables + every object have approved dispositions | 5 | — | ✅ Completed | `mk6-source-catalog` | [`cf93b3b`](https://github.com/hackerpug-ai/holocron-client/commit/cf93b3b) |
+| 3 | — | [Sprint 03: MCP Compatibility Manifest and Frozen Fixtures](#sprint-03-mcp-compatibility-manifest-and-frozen-fixtures) | `holo mcp:verify-manifest` — 44/44 tools with frozen fixtures, both transports | 5 | 1 | ✅ Completed | `mk6-mcp-manifest` | [`63500b5`](https://github.com/hackerpug-ai/holocron-client/commit/63500b5) |
 | 4 | — | [Sprint 04: Provision Postgres and Domain Schema](#sprint-04-provision-postgres-and-domain-schema) | `holo db:migrate` clean on real PG 18; ≥55 tables, indexes, replication ready | 6 | 1, 2 | 🟠 In flight | `mk6-postgres-schema` | — |
 | 5 | — | [Sprint 05: Mastra Service and Scoped-Key Auth](#sprint-05-mastra-service-and-scoped-key-auth) | Unkeyed mutation → 401; correctly-scoped key → 200 on the running service | 5 | 1, 4 | 🟠 In flight | `mk6-mastra-service` | — |
 | 6 | — | [Sprint 06: Headless Deployment and Dev/Prod Parity](#sprint-06-headless-deployment-and-devprod-parity) | `holo stack up` — Postgres/Mastra/scheduler/zero-cache healthy in 60s | 6 | 4, 5 | 🔵 Planned | `mk6-deployment` | — |
@@ -124,11 +124,11 @@ The `Milestone` cell links to the GitHub Milestone titled `sprint-{NN}`; sprints
 
 **Sequence:** 2
 **Timeline:** Phase 0 — Leading INFRA
-**Status:** 🟠 In flight
+**Status:** ✅ Completed
 **Proposed by:** mastra-planner
 **Milestone:** — (`sprint-02`)
 **Branch:** `mk6-source-catalog`
-**PR:** —
+**PR:** merged via orchestration — [`cf93b3b`](https://github.com/hackerpug-ai/holocron-client/commit/cf93b3b) (no GitHub PR; `.spec` sprint executed via orchestration merge)
 
 #### Human Testing Gate
 
@@ -179,11 +179,11 @@ The `Milestone` cell links to the GitHub Milestone titled `sprint-{NN}`; sprints
 
 **Sequence:** 3
 **Timeline:** Phase 0 — Leading INFRA
-**Status:** 🟠 In flight
+**Status:** ✅ Completed
 **Proposed by:** mcp-planner
 **Milestone:** — (`sprint-03`)
 **Branch:** `mk6-mcp-manifest`
-**PR:** —
+**PR:** merged via direct-to-main commits — terminal [`63500b5`](https://github.com/hackerpug-ai/holocron-client/commit/63500b5) (no GitHub PR; `.spec` sprint executed via orchestration)
 
 #### Human Testing Gate
 

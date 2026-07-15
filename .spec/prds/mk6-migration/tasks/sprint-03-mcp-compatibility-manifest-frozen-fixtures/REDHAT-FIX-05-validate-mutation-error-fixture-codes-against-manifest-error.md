@@ -55,9 +55,9 @@ Every mutation tool's {tool_id}_error.json fixture has a code field that exists 
 --------------------------------------------------------------------------------
 DONE WHEN
 --------------------------------------------------------------------------------
-- [ ] AC-1 (PRIMARY): Parameterized test validates all 21 mutation tool error fixture codes against manifest catalogs
-- [ ] AC-2: shop_products_error.json fixture fixed (code → INTERNAL_SERVER_ERROR with consistent message)
-- [ ] AC-3: RED evidence — test catches the shop_products mismatch before the fix
+- [x] AC-1 (PRIMARY): Parameterized test validates all 21 mutation tool error fixture codes against manifest catalogs
+- [x] AC-2: shop_products_error.json fixture fixed (code → INTERNAL_SERVER_ERROR with consistent message)
+- [x] AC-3: RED evidence — test catches the shop_products mismatch before the fix
 - [ ] MCP_IT=1 pnpm vitest run tests/integration/mcp-fixture-coverage.test.ts passes (exit 0, all tests including 21 new error-code-catalog cases)
 - [ ] pnpm tsgo --noEmit passes (exit 0)
 - [ ] pnpm biome check . passes (exit 0)

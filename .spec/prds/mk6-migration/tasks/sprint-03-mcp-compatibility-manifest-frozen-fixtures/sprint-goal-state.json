@@ -8,11 +8,31 @@
     "mcp-manifest-03": { "status": "completed", "commit": "a89a217" },
     "mcp-manifest-04": { "status": "completed", "commit": "0e20444" },
     "mcp-manifest-05": { "status": "completed", "commit": "4cf59bc" },
-    "REDHAT-FIX-01": { "status": "completed", "commit": "f4309fd", "finding": "CRITICAL: tautological replay tests" },
-    "REDHAT-FIX-02": { "status": "completed", "commit": "7a47ec6", "finding": "HIGH: 3/21 error fixtures, synthetic data unannotated" },
-    "REDHAT-FIX-03": { "status": "completed", "commit": "5870fe1", "finding": "HIGH: gate validated only 4 of 10+ fields" },
-    "REDHAT-FIX-04": { "status": "completed", "commit": "5e58754", "finding": "HIGH: 19/21 replay fixtures had zero cross-source validation" },
-    "REDHAT-FIX-05": { "status": "completed", "commit": "3b15ba0", "finding": "HIGH: 0 tests cross-checked fixture error codes vs manifest catalog; 6 mismatches found and fixed" }
+    "REDHAT-FIX-01": {
+      "status": "completed",
+      "commit": "f4309fd",
+      "finding": "CRITICAL: tautological replay tests"
+    },
+    "REDHAT-FIX-02": {
+      "status": "completed",
+      "commit": "7a47ec6",
+      "finding": "HIGH: 3/21 error fixtures, synthetic data unannotated"
+    },
+    "REDHAT-FIX-03": {
+      "status": "completed",
+      "commit": "5870fe1",
+      "finding": "HIGH: gate validated only 4 of 10+ fields"
+    },
+    "REDHAT-FIX-04": {
+      "status": "completed",
+      "commit": "5e58754",
+      "finding": "HIGH: 19/21 replay fixtures had zero cross-source validation"
+    },
+    "REDHAT-FIX-05": {
+      "status": "completed",
+      "commit": "3b15ba0",
+      "finding": "HIGH: 0 tests cross-checked fixture error codes vs manifest catalog; 6 mismatches found and fixed"
+    }
   },
   "gate": {
     "verdict": "pass",

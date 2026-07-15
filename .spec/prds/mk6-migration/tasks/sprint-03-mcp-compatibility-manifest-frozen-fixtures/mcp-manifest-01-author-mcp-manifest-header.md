@@ -54,10 +54,10 @@ The committed `14-mcp-compatibility-manifest.yaml` carries the protocol pin (202
 --------------------------------------------------------------------------------
 DONE WHEN
 --------------------------------------------------------------------------------
-- [ ] AC-1 (PRIMARY): `mcp:verify-manifest` against the live registry ⇒ exit 0, "44/44 tools, both transports covered"
-- [ ] AC-2: manifest header pins protocol 2025-11-25, declares stdio + Streamable HTTP, stateless/no-server-sampling, auth/cancellation policy
-- [ ] AC-3: every one of the 44 registered tool IDs has a skeleton entry with matching `id` (no invented tools, no missing tools)
-- [ ] AC-4: mcp-manifest-02 can populate per-tool schemas/fixtures into each skeleton entry without re-creating the structure
+- [x] AC-1 (PRIMARY): `mcp:verify-manifest` against the live registry ⇒ exit 0, "44/44 tools, both transports covered"
+- [x] AC-2: manifest header pins protocol 2025-11-25, declares stdio + Streamable HTTP, stateless/no-server-sampling, auth/cancellation policy
+- [x] AC-3: every one of the 44 registered tool IDs has a skeleton entry with matching `id` (no invented tools, no missing tools)
+- [x] AC-4: mcp-manifest-02 can populate per-tool schemas/fixtures into each skeleton entry without re-creating the structure
 - [ ] `pnpm biome check .` clean (+ `pnpm tsgo --noEmit` clean if any TS fixture touched); only SCOPE.writeAllowed files modified
 
 --------------------------------------------------------------------------------

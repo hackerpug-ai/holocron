@@ -58,11 +58,11 @@ All 21 mutation tools have both success and error fixture files, all mutation to
 --------------------------------------------------------------------------------
 DONE WHEN
 --------------------------------------------------------------------------------
-- [ ] AC-1 (PRIMARY): Error fixtures exist for all 21 mutation tools
-- [ ] AC-2: Replay fixtures exist for all mutation tools with replay blocks
-- [ ] AC-3: No fixture contains unmarked placeholder data
-- [ ] AC-4: Error fixtures match real MCP error response schema
-- [ ] AC-5: RED evidence: fixture suite has insufficient coverage before expansion
+- [x] AC-1 (PRIMARY): Error fixtures exist for all 21 mutation tools
+- [x] AC-2: Replay fixtures exist for all mutation tools with replay blocks
+- [x] AC-3: No fixture contains unmarked placeholder data
+- [x] AC-4: Error fixtures match real MCP error response schema
+- [x] AC-5: RED evidence: fixture suite has insufficient coverage before expansion
 - [ ] MCP_IT=1 pnpm vitest run tests/integration/mcp-fixture-coverage.test.ts passes (exit 0, all 21 mutation tools have error fixtures)
 - [ ] ls services/platform/tests/fixtures/mcp-manifest/*_error.json | wc -l passes (>= 21)
 - [ ] ls services/platform/tests/fixtures/mcp-manifest/*_replay.json | wc -l passes (>= number of manifest entries with replay blocks)

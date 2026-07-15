@@ -55,10 +55,10 @@ The replay-contract integration test invokes a real MCP mutation tool (or cross-
 --------------------------------------------------------------------------------
 DONE WHEN
 --------------------------------------------------------------------------------
-- [ ] AC-1 (PRIMARY): Replay test invokes real tool or cross-validates against manifest + schema
-- [ ] AC-2: Real de-duplication is proven, not file-internal consistency
-- [ ] AC-3: Tautological assertion pattern fully eliminated
-- [ ] AC-4: RED evidence: test fails against pre-fix tautological code
+- [x] AC-1 (PRIMARY): Replay test invokes real tool or cross-validates against manifest + schema
+- [x] AC-2: Real de-duplication is proven, not file-internal consistency
+- [x] AC-3: Tautological assertion pattern fully eliminated
+- [x] AC-4: RED evidence: test fails against pre-fix tautological code
 - [ ] MCP_IT=1 pnpm vitest run tests/integration/mcp-replay-contract.test.ts passes (exit 0, no tautological assertions)
 - [ ] pnpm tsgo --noEmit passes (exit 0)
 - [ ] pnpm biome check tests/integration/mcp-replay-contract.test.ts passes (exit 0)

@@ -54,10 +54,10 @@ The reviewer produces an APPROVED verdict with evidence that: (a) the manifest p
 --------------------------------------------------------------------------------
 DONE WHEN
 --------------------------------------------------------------------------------
-- [ ] AC-1 (PRIMARY): reviewer reproduces the fixture-missing negative control (verify-manifest exits non-zero naming the tool)
-- [ ] AC-2: reviewer reproduces the orphan-entry negative control (verify-manifest exits non-zero naming the orphan)
-- [ ] AC-3: reviewer confirms protocol 2025-11-25 + both transports + stateless/no-server-sampling + origin/API-key posture
-- [ ] AC-4: reviewer confirms all 44 tools have manifest entries + frozen fixtures + replay contracts (mutations)
+- [x] AC-1 (PRIMARY): reviewer reproduces the fixture-missing negative control (verify-manifest exits non-zero naming the tool)
+- [x] AC-2: reviewer reproduces the orphan-entry negative control (verify-manifest exits non-zero naming the orphan)
+- [x] AC-3: reviewer confirms protocol 2025-11-25 + both transports + stateless/no-server-sampling + origin/API-key posture
+- [x] AC-4: reviewer confirms all 44 tools have manifest entries + frozen fixtures + replay contracts (mutations)
 - [ ] review verdict recorded (APPROVED or NEEDS_FIXES) in an evidence/ artifact
 - [ ] NO production/test/yaml source modified (review reproduces, does not modify)
 

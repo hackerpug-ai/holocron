@@ -12,7 +12,7 @@ capability_coverage: [CAP-CUT-01]
 
 **Sequence:** 3
 **Timeline:** Phase 0 — Leading INFRA
-**Status:** In Progress
+**Status:** Completed
 **Proposed by:** mcp-planner
 **Branch:** `mk6-mcp-manifest`
 

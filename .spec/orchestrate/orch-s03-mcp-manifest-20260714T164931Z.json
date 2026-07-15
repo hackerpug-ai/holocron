@@ -1,0 +1,121 @@
+{
+  "run_id": "orch-s03-mcp-manifest-20260714T164931Z",
+  "project": "/Users/justinrich/Projects/holocron",
+  "workspace": "workspace:4",
+  "sprint": "/Users/justinrich/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-03-mcp-compatibility-manifest-frozen-fixtures",
+  "cycle": 2,
+  "max_cycles": 3,
+  "status": "complete",
+  "dependency_override": {
+    "dependency": "Sprint 01",
+    "source": "user-confirmed",
+    "note": "The roadmap and prior orchestrator registry retained stale in-flight markers."
+  },
+  "surfaces": [
+    {
+      "surface_ref": "surface:78",
+      "surface_id": "B196CEBA-28D5-4720-9FDA-60A280DB1B6D",
+      "origin": "adopted",
+      "spawner": null,
+      "driver": "orch-self",
+      "role": "orch-self",
+      "sprint": "",
+      "cwd": "/Users/justinrich/Projects/holocron",
+      "harness": "codex",
+      "model": "unknown",
+      "provider": "openai",
+      "session_id": "",
+      "commands_or_skills": [],
+      "base_prompt_excerpt": "unknown",
+      "base_prompt_sha256": "",
+      "goal": {
+        "text": "orchestrate Sprint 3",
+        "verification": { "kind": "none", "signal": "", "status": "needs-human" }
+      },
+      "active": true,
+      "status": "self",
+      "cycle": 0,
+      "state_label": "cyc0/3",
+      "last_verdict_artifact": "",
+      "last_observed_ts": 1784047836,
+      "nudge_count": 0,
+      "recover_count": 0
+    },
+    {
+      "surface_ref": "surface:87",
+      "surface_id": "CDC1C8DE-C50E-421B-8C0F-557A465C8D7C",
+      "origin": "spawned",
+      "spawner": "spawn-stage.sh",
+      "driver": "orch",
+      "role": "run",
+      "sprint": "/Users/justinrich/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-03-mcp-compatibility-manifest-frozen-fixtures",
+      "cwd": "/Users/justinrich/Projects/holocron",
+      "harness": "opencode",
+      "model": "zai-coding-plan/glm-5.1",
+      "provider": "zai-coding-plan",
+      "session_id": "",
+      "commands_or_skills": ["/kb-run-sprint"],
+      "base_prompt_excerpt": "unknown",
+      "base_prompt_sha256": "",
+      "goal": {
+        "text": "Independent cycle-two review approved; fresh QA passed against main at 63500b5.",
+        "verification": {
+          "kind": "sentinel_grep",
+          "signal": "sprint-goal-state.json:goal:complete",
+          "status": "derived"
+        }
+      },
+      "active": false,
+      "status": "complete",
+      "cycle": 2,
+      "state_label": "complete",
+      "last_verdict_artifact": "",
+      "last_observed_ts": 1784061000,
+      "nudge_count": 2,
+      "recover_count": 0,
+      "watch_glob": "/Users/justinrich/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-03-mcp-compatibility-manifest-frozen-fixtures/sprint-goal-state.json",
+      "verdict_kind": "grep",
+      "verdict_grep": "goal:complete",
+      "blocked_grep": "goal:blocked",
+      "baseline_count": 0
+    },
+    {
+      "surface_ref": "surface:163",
+      "surface_id": "926FD73C-D1A5-48A1-B14F-11B4CBDE64DD",
+      "origin": "spawned",
+      "spawner": "spawn-stage.sh",
+      "driver": "orch",
+      "role": "qa",
+      "sprint": "/Users/justinrich/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-03-mcp-compatibility-manifest-frozen-fixtures",
+      "cwd": "/Users/justinrich/Projects/holocron",
+      "harness": "claude-code",
+      "model": "opus",
+      "provider": "anthropic",
+      "session_id": "e2ee2a82-dfa5-4d89-ada4-8c0e51938158",
+      "commands_or_skills": ["/kb-run-human-tests"],
+      "base_prompt_excerpt": "Fresh independent QA at main 63500b5; Claude fallback",
+      "base_prompt_sha256": "",
+      "goal": {
+        "text": "Run fresh human-test gate and emit verified evidence",
+        "verification": {
+          "kind": "gate_result",
+          "signal": "gate-results.json",
+          "status": "derived"
+        }
+      },
+      "active": false,
+      "status": "complete",
+      "cycle": 2,
+      "state_label": "complete",
+      "last_verdict_artifact": "/Users/justinrich/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-03-mcp-compatibility-manifest-frozen-fixtures/gate-results.json",
+      "last_observed_ts": 1784061000,
+      "nudge_count": 1,
+      "recover_count": 0,
+      "watch_glob": "/Users/justinrich/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-03-mcp-compatibility-manifest-frozen-fixtures/gate-results.json",
+      "verdict_kind": "grep",
+      "verdict_grep": "\"verdict\"[[:space:]]*:[[:space:]]*\"(pass|fail|blocked)\"",
+      "blocked_grep": "\"verdict\"[[:space:]]*:[[:space:]]*\"blocked\"",
+      "baseline_count": 0
+    }
+  ]
+}

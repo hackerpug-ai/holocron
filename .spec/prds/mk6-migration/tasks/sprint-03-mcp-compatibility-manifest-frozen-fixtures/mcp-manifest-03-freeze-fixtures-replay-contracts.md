@@ -55,10 +55,10 @@ The negative-control suite passes only against the real, completed `holo mcp:ver
 --------------------------------------------------------------------------------
 DONE WHEN
 --------------------------------------------------------------------------------
-- [ ] AC-1 (PRIMARY): fixture-missing control has teeth (remove a fixture block → verify-manifest exits non-zero naming the tool)
-- [ ] AC-2: replay contract control has teeth (re-invoke add_subscription with the same idempotency key → returns the stored subscriptionId; same for store_document)
-- [ ] AC-3: all 44 tools have frozen success fixtures; mutation tools have error fixtures; all controls pass against up-state fixtures
-- [ ] AC-4: suite GREEN against the up-state (real verify-manifest + fixtures), RED against the absent/broken start, NO `*.skip` guards
+- [x] AC-1 (PRIMARY): fixture-missing control has teeth (remove a fixture block → verify-manifest exits non-zero naming the tool)
+- [x] AC-2: replay contract control has teeth (re-invoke add_subscription with the same idempotency key → returns the stored subscriptionId; same for store_document)
+- [x] AC-3: all 44 tools have frozen success fixtures; mutation tools have error fixtures; all controls pass against up-state fixtures
+- [x] AC-4: suite GREEN against the up-state (real verify-manifest + fixtures), RED against the absent/broken start, NO `*.skip` guards
 - [ ] frozen fixtures created (44 success fixtures + mutation error/replay fixtures) and committed
 - [ ] `pnpm biome check .` clean; only test + fixture files modified (no `services/platform/src`)
 

@@ -53,10 +53,10 @@ OUTCOME
 --------------------------------------------------------------------------------
 DONE WHEN
 --------------------------------------------------------------------------------
-- [ ] AC-1 (PRIMARY): `mcp:verify-manifest` on the live registry + complete manifest ⇒ exit 0, 44/44 tools covered + both transports
-- [ ] AC-2: `mcp:verify-manifest --protocol` ⇒ protocol 2025-11-25, both transports (stdio + Streamable HTTP)
-- [ ] AC-3: a registered tool with no manifest entry ⇒ `mcp:verify-manifest` exits non-zero naming the uncovered tool
-- [ ] AC-4: a manifest entry with no registered tool ⇒ `mcp:verify-manifest` exits non-zero naming the orphan entry
+- [x] AC-1 (PRIMARY): `mcp:verify-manifest` on the live registry + complete manifest ⇒ exit 0, 44/44 tools covered + both transports
+- [x] AC-2: `mcp:verify-manifest --protocol` ⇒ protocol 2025-11-25, both transports (stdio + Streamable HTTP)
+- [x] AC-3: a registered tool with no manifest entry ⇒ `mcp:verify-manifest` exits non-zero naming the uncovered tool
+- [x] AC-4: a manifest entry with no registered tool ⇒ `mcp:verify-manifest` exits non-zero naming the orphan entry
 - [ ] `mcp:manifest-schema <tool>` prints input/output JSON Schema + defaults; `mcp:manifest-replay <tool>` returns frozen idempotency key + stored result; `mcp:list-mutations` lists all mutations with replay contracts
 - [ ] mcp-manifest-03's fixture-missing control goes GREEN against this implementation
 - [ ] `pnpm tsgo --noEmit` clean + `pnpm biome check .` clean; only SCOPE.writeAllowed files modified

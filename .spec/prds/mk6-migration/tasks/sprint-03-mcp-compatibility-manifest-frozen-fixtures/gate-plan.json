@@ -1,0 +1,82 @@
+{
+  "sprint": "sprint-03-mcp-compatibility-manifest-frozen-fixtures",
+  "planned_at": "2026-07-14T20:49:17Z",
+  "planned_steps": 6,
+  "note": "6 documented terminal CLI steps from SPRINT.md Human Test Deliverable / Human Testing Gate; zero UI steps. Step 2 is the negative control: the store_document success fixture block is removed live, the bare verify-manifest is re-run (must exit 1 naming the tool), then the fixture is restored.",
+  "steps": [
+    {
+      "n": 1,
+      "text": "Run holo mcp:verify-manifest — exits 0 reporting 44/44 tools, both transports covered",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "bun services/platform/src/cli/holo.ts mcp:verify-manifest",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "44/44 tools covered, both transports covered",
+        "expect_not_log_regex": "Issues:"
+      }
+    },
+    {
+      "n": 2,
+      "text": "Remove one tool fixture block, re-run holo mcp:verify-manifest — exits 1 naming the uncovered tool",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "bun services/platform/src/cli/holo.ts mcp:verify-manifest",
+      "setup": "rm services/platform/tests/fixtures/mcp-manifest/store_document_success.json (backed up; restored after)",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 1,
+        "expect_log_regex": "store_document fixtures missing"
+      }
+    },
+    {
+      "n": 3,
+      "text": "Run holo mcp:manifest-schema store_document — prints input/output JSON Schema plus default values",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "bun services/platform/src/cli/holo.ts mcp:manifest-schema store_document",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "--- defaults ---"
+      }
+    },
+    {
+      "n": 4,
+      "text": "Run holo mcp:manifest-replay add_subscription — returns frozen idempotency key and stored replay result",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "bun services/platform/src/cli/holo.ts mcp:manifest-replay add_subscription",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "Idempotency key: \\[.+\\]"
+      }
+    },
+    {
+      "n": 5,
+      "text": "Run holo mcp:verify-manifest --protocol — reports pinned MCP protocol 2025-11-25 for both transports",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "bun services/platform/src/cli/holo.ts mcp:verify-manifest --protocol",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "Protocol: 2025-11-25"
+      }
+    },
+    {
+      "n": 6,
+      "text": "Run holo mcp:list-mutations — lists mutating tools including store_document, each with a replay-contract entry",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "bun services/platform/src/cli/holo.ts mcp:list-mutations",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "store_document"
+      }
+    }
+  ]
+}

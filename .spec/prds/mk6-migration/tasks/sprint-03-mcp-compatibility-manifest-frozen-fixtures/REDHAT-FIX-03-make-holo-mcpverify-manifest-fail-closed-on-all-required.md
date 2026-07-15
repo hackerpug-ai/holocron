@@ -59,12 +59,12 @@ The verify-manifest gate rejects any manifest entry missing output_schema, any m
 --------------------------------------------------------------------------------
 DONE WHEN
 --------------------------------------------------------------------------------
-- [ ] AC-1 (PRIMARY): Gate rejects manifest entries with null output_schema
-- [ ] AC-2: Gate rejects mutation tools with empty errors array
-- [ ] AC-3: Gate rejects mutation tools with null replay
-- [ ] AC-4: Negative control: fixture-file-removed triggers fixtures_missing branch
-- [ ] AC-5: Gate passes on valid complete manifest (no regression)
-- [ ] AC-6: RED evidence: gate passes with null output_schema before fix
+- [x] AC-1 (PRIMARY): Gate rejects manifest entries with null output_schema
+- [x] AC-2: Gate rejects mutation tools with empty errors array
+- [x] AC-3: Gate rejects mutation tools with null replay
+- [x] AC-4: Negative control: fixture-file-removed triggers fixtures_missing branch
+- [x] AC-5: Gate passes on valid complete manifest (no regression)
+- [x] AC-6: RED evidence: gate passes with null output_schema before fix
 - [ ] MCP_IT=1 pnpm vitest run tests/integration/mcp-verify-manifest-field-validation.test.ts passes (exit 0, all field validation tests pass)
 - [ ] MCP_IT=1 pnpm vitest run tests/integration/mcp-manifest-negative-controls.test.ts passes (exit 0, fixture-file-removed test triggers fixtures_missing)
 - [ ] MCP_IT=1 pnpm vitest run tests/integration/mcp-verify-manifest.test.ts passes (exit 0, no regression on valid manifest)

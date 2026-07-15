@@ -56,8 +56,8 @@ All 21 mutation tools have parameterized cross-source validation proving fixture
 --------------------------------------------------------------------------------
 DONE WHEN
 --------------------------------------------------------------------------------
-- [ ] AC-1 (PRIMARY): All 21 mutation tools have parameterized cross-source validation (fixture ↔ manifest ↔ Zod schema)
-- [ ] AC-2: RED evidence proves the parameterized test has teeth for the 19 newly-covered tools
+- [x] AC-1 (PRIMARY): All 21 mutation tools have parameterized cross-source validation (fixture ↔ manifest ↔ Zod schema)
+- [x] AC-2: RED evidence proves the parameterized test has teeth for the 19 newly-covered tools
 - [ ] MCP_IT=1 pnpm vitest run tests/integration/mcp-replay-contract.test.ts passes (≥64 test cases, zero failures)
 - [ ] pnpm tsgo --noEmit passes (exit 0)
 - [ ] pnpm biome check . passes (exit 0)

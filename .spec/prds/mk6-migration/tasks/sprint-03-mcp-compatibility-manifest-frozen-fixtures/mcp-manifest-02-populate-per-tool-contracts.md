@@ -55,11 +55,11 @@ The committed `14-mcp-compatibility-manifest.yaml` carries all 44 tools fully po
 --------------------------------------------------------------------------------
 DONE WHEN
 --------------------------------------------------------------------------------
-- [ ] AC-1 (PRIMARY): every tool has input_schema (JSON Schema from real Zod) + output_schema + defaults
-- [ ] AC-2: list tools (list_documents, list_subscriptions, list_tools, list_improvements, list_whats_new_reports) document pagination: cursor/limit/ordering
-- [ ] AC-3: mutation tools document side_effects + idempotency keys; `holo mcp:list-mutations` lists all mutations with replay contracts
-- [ ] AC-4: all tools declare supported transports; `verify-manifest --protocol` shows both transports covered
-- [ ] AC-5: error codes documented from real implementations; mcp-manifest-03 can freeze success/error fixtures against these contracts
+- [x] AC-1 (PRIMARY): every tool has input_schema (JSON Schema from real Zod) + output_schema + defaults
+- [x] AC-2: list tools (list_documents, list_subscriptions, list_tools, list_improvements, list_whats_new_reports) document pagination: cursor/limit/ordering
+- [x] AC-3: mutation tools document side_effects + idempotency keys; `holo mcp:list-mutations` lists all mutations with replay contracts
+- [x] AC-4: all tools declare supported transports; `verify-manifest --protocol` shows both transports covered
+- [x] AC-5: error codes documented from real implementations; mcp-manifest-03 can freeze success/error fixtures against these contracts
 - [ ] `pnpm biome check .` clean (+ `pnpm tsgo --noEmit` clean if any TS touched); only SCOPE.writeAllowed files modified
 
 --------------------------------------------------------------------------------

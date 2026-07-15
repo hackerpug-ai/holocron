@@ -1,110 +1,80 @@
 {
   "sprint": "sprint-03-mcp-compatibility-manifest-frozen-fixtures",
   "gate": "Running `holo mcp:verify-manifest` exits 0 after confirming all 44 live-registered tool IDs resolve to manifest entries carrying frozen success/error fixtures.",
+  "run_id": "2026-07-14T20:49:17Z",
+  "git_commit": "63500b583ad1e1acd781618367976b66819e26cf",
   "verdict": "pass",
-  "executed_at": "2026-07-14T13:35:00Z",
-  "executed_by": "kb-run-sprint orchestrator (post-redhat-remediation-cycle-2)",
-  "remediation_cycle": 2,
-  "steps": [
-    {
-      "id": 1,
-      "description": "Run `holo mcp:verify-manifest` — exits 0 reporting '44/44 tools, both transports covered'",
-      "command": "bun services/platform/src/cli/holo.ts mcp:verify-manifest",
-      "executed": true,
-      "result": "pass",
-      "exit_code": 0,
-      "stdout": "44/44 tools covered, both transports covered"
-    },
-    {
-      "id": 2,
-      "description": "Remove one tool's fixture block, re-run `holo mcp:verify-manifest` — exits 1 naming the uncovered tool",
-      "command": "bun services/platform/src/cli/holo.ts mcp:verify-manifest --manifest services/platform/tests/fixtures/mcp-manifest/manifest-missing-store_document.yaml",
-      "executed": true,
-      "result": "pass",
-      "exit_code": 1,
-      "stderr": "store_document not covered by manifest"
-    },
-    {
-      "id": 3,
-      "description": "Run `holo mcp:manifest-schema store_document` — prints input/output JSON Schema plus default values",
-      "command": "bun services/platform/src/cli/holo.ts mcp:manifest-schema store_document",
-      "executed": true,
-      "result": "pass",
-      "exit_code": 0,
-      "stdout_contains": ["input_schema", "output_schema", "defaults", "title", "content"]
-    },
-    {
-      "id": 4,
-      "description": "Run `holo mcp:manifest-replay add_subscription` — returns the frozen idempotency key and stored replay result",
-      "command": "bun services/platform/src/cli/holo.ts mcp:manifest-replay add_subscription",
-      "executed": true,
-      "result": "pass",
-      "exit_code": 0,
-      "stdout_contains": ["sourceType", "identifier", "subscriptionId", "representative_example"]
-    },
-    {
-      "id": 5,
-      "description": "Run `holo mcp:verify-manifest --protocol` — reports pinned MCP protocol 2025-11-25 for both transports",
-      "command": "bun services/platform/src/cli/holo.ts mcp:verify-manifest --protocol",
-      "executed": true,
-      "result": "pass",
-      "exit_code": 0,
-      "stdout_contains": ["2025-11-25", "stdio", "streamable-http", "Stateless: true"]
-    },
-    {
-      "id": 6,
-      "description": "Run `holo mcp:list-mutations` — lists the mutating tools including `store_document`, each with a replay-contract entry",
-      "command": "bun services/platform/src/cli/holo.ts mcp:list-mutations",
-      "executed": true,
-      "result": "pass",
-      "exit_code": 0,
-      "stdout_contains": ["store_document", "idempotency_key", "stored_result", "21"]
-    }
-  ],
+  "executed_by": "kb-run-human-tests (independent QA gate, cmux exec pane)",
+  "runner_note": "Steps executed via a locally-corrected exec-step runner (exec-step-fixed.sh): the upstream exec-step.sh masks non-zero exit codes as 0 in an interactive zsh pane (process-substitution + job-control resets $?), empirically proven (exit 7 recorded as 0). The fix uses a real pipe + pipestatus so true exit codes are captured. Product behavior is unchanged and unstubbed; only the exit-capture in the QA harness was corrected. See GATE-RESULTS.md > Harness Finding.",
+  "ui_driver": "none",
+  "exec_surface": "surface:167 (F2A2040A-EF92-4C03-B52F-56E71863889A)",
+  "qa_surface_id": "926FD73C-D1A5-48A1-B14F-11B4CBDE64DD",
+  "qa_session_id": "e2ee2a82-dfa5-4d89-ada4-8c0e51938158",
   "steps_total": 6,
   "steps_executed": 6,
   "steps_passed": 6,
-  "steps_failed": 0,
-  "redhat_remediation": {
-    "REDHAT-FIX-01": {
-      "commit": "f4309fd",
-      "finding": "CRITICAL: Replay contract tests were pure tautology (asserting file equals itself)",
-      "fix": "Replaced with cross-source validation: Zod schema import + manifest replay.idempotency_key + fixture JSON cross-check",
-      "red_evidence": ".spec/evidence/redhat-fix-01-red-evidence.txt"
+  "steps": [
+    {
+      "n": 1,
+      "text": "Run holo mcp:verify-manifest — exits 0 reporting 44/44 tools, both transports covered",
+      "type": "terminal",
+      "executed": true,
+      "result": "pass",
+      "evidence": "exit 0; stdout \"44/44 tools covered, both transports covered\"; no Issues block",
+      "log": "/tmp/holocron-gate-sprint-03-mcp-compatibility-manifest-frozen-fixtures/step1.log"
     },
-    "REDHAT-FIX-02": {
-      "commit": "7a47ec6",
-      "finding": "HIGH: Only 3/21 error fixtures, 2/21 replay fixtures, all synthetic without annotation",
-      "fix": "Created 22 error fixtures, 21 replay fixtures, annotated all 44 success fixtures with representative_example: true",
-      "red_evidence": ".spec/evidence/redhat-fix-02-red-evidence.txt"
+    {
+      "n": 2,
+      "text": "Remove one tool fixture block, re-run holo mcp:verify-manifest — exits 1 naming the uncovered tool",
+      "type": "terminal",
+      "executed": true,
+      "result": "pass",
+      "evidence": "removed real store_document_success.json fixture, bare re-run exited 1: \"43/44 tools covered\" + \"store_document fixtures missing\"; fixture restored git-clean",
+      "log": "/tmp/holocron-gate-sprint-03-mcp-compatibility-manifest-frozen-fixtures/step2.log"
     },
-    "REDHAT-FIX-03": {
-      "commit": "5870fe1",
-      "finding": "HIGH: Gate validated only 4 of 10+ fields (output_schema, errors, replay not checked)",
-      "fix": "Added validation for output_schema (all tools), errors (mutations), replay (mutations), error fixture files (mutations); added fixture-file-removed negative control",
-      "red_evidence": ".spec/evidence/redhat-fix-03-red-evidence.txt"
+    {
+      "n": 3,
+      "text": "Run holo mcp:manifest-schema store_document — prints input/output JSON Schema plus default values",
+      "type": "terminal",
+      "executed": true,
+      "result": "pass",
+      "evidence": "exit 0; printed input_schema (title/content required, metadata), output_schema (documentId/embeddingStatus/...), and defaults (metadata.category=general, metadata.date=auto)",
+      "log": "/tmp/holocron-gate-sprint-03-mcp-compatibility-manifest-frozen-fixtures/step3.log"
     },
-    "REDHAT-FIX-04": {
-      "commit": "5e58754",
-      "finding": "HIGH: 19 of 21 mutation replay fixtures had ZERO cross-source idempotency validation",
-      "fix": "Parameterized replay-contract test with it.each(mutationTools) covering all 21 tools x 3 assertions (fixture vs manifest vs Zod schema); fail-closed TOOL_SCHEMA_MAP guard",
-      "red_evidence": ".spec/evidence/redhat-fix-04-red-evidence.txt"
+    {
+      "n": 4,
+      "text": "Run holo mcp:manifest-replay add_subscription — returns frozen idempotency key and stored replay result",
+      "type": "terminal",
+      "executed": true,
+      "result": "pass",
+      "evidence": "exit 0; Idempotency key [\"sourceType\",\"identifier\"]; Stored result field subscriptionId; frozen replay fixture (kg_replay_001, representative_example:true) printed",
+      "log": "/tmp/holocron-gate-sprint-03-mcp-compatibility-manifest-frozen-fixtures/step4.log"
     },
-    "REDHAT-FIX-05": {
-      "commit": "3b15ba0",
-      "finding": "HIGH: shop_products error fixture code VALIDATION_ERROR not in manifest catalog [INTERNAL_SERVER_ERROR, TIMEOUT]; 0 tests cross-check fixture codes vs manifest",
-      "fix": "Added parameterized error-code-catalog validation for all 21 mutation tools; fixed 6 mismatched error fixture codes (shop_products, add_subscription, check_subscriptions, start_assimilation, cancel_assimilation, regenerate_transcript)",
-      "red_evidence": ".spec/evidence/redhat-fix-05-red-evidence.txt"
+    {
+      "n": 5,
+      "text": "Run holo mcp:verify-manifest --protocol — reports pinned MCP protocol 2025-11-25 for both transports",
+      "type": "terminal",
+      "executed": true,
+      "result": "pass",
+      "evidence": "exit 0; Protocol 2025-11-25; Transports stdio, streamable-http; Stateless true; No server sampling true",
+      "log": "/tmp/holocron-gate-sprint-03-mcp-compatibility-manifest-frozen-fixtures/step5.log"
+    },
+    {
+      "n": 6,
+      "text": "Run holo mcp:list-mutations — lists mutating tools including store_document, each with a replay-contract entry",
+      "type": "terminal",
+      "executed": true,
+      "result": "pass",
+      "evidence": "exit 0; Mutation tools (21): incl. store_document (idempotency_key [\"title\",\"content\"], stored_result documentId); every entry has idempotency_key + stored_result",
+      "log": "/tmp/holocron-gate-sprint-03-mcp-compatibility-manifest-frozen-fixtures/step6.log"
     }
-  },
-  "e2e": {
-    "test_files": 7,
-    "tests_total": 380,
-    "tests_passed": 380,
-    "tests_failed": 0
-  },
-  "build": {
-    "typecheck": "pass",
-    "lint": "pass"
+  ],
+  "verified": true,
+  "verification": {
+    "recomputed_verdict": "pass",
+    "steps_recomputed": 6,
+    "steps_planned": 6,
+    "discrepancies": 0,
+    "proof": "gate-verification.json"
   }
 }
