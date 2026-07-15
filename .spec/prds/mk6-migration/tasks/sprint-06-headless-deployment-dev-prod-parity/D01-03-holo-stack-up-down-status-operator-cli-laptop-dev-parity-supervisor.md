@@ -37,7 +37,7 @@ TASK: D01-03 — `holo stack up/down/status` operator CLI + laptop dev-parity su
 ================================================================================
 
 TASK_TYPE:  FEATURE
-STATUS:     Backlog
+STATUS:     Completed
 PRIORITY:   P0
 EFFORT:     M  (180 min)
 AGENT:      implementer=devops-engineer | reviewer=code-reviewer
@@ -84,11 +84,11 @@ holo stack up launches and verifies health of Postgres, Mastra, zero-cache (if c
 --------------------------------------------------------------------------------
 DONE WHEN
 --------------------------------------------------------------------------------
-- [ ] AC-1 (PRIMARY): holo stack up orchestrates services with real health probes within 60 seconds
-- [ ] AC-2 (PRIMARY): holo stack down exits all services cleanly with zero orphaned PIDs
-- [ ] AC-3 (PRIMARY): holo stack status reports honest health for all services
-- [ ] AC-4 (PRIMARY): laptop dev-parity: same holo stack command works under portable config contract
-- [ ] AC-5 (PRIMARY): kill Mastra mid-run and holo stack up restarts it to healthy with no manual cleanup
+- [x] AC-1 (PRIMARY): holo stack up orchestrates services with real health probes within 60 seconds
+- [x] AC-2 (PRIMARY): holo stack down exits all services cleanly with zero orphaned PIDs
+- [x] AC-3 (PRIMARY): holo stack status reports honest health for all services
+- [x] AC-4 (PRIMARY): laptop dev-parity: same holo stack command works under portable config contract
+- [x] AC-5 (PRIMARY): kill Mastra mid-run and holo stack up restarts it to healthy with no manual cleanup
 - [ ] `pnpm tsgo --noEmit` clean + `pnpm biome check .` clean (only SCOPE.writeAllowed files modified)
 
 --------------------------------------------------------------------------------
