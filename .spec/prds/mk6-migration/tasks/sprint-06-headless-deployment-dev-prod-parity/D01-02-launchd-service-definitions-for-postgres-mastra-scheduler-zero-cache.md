@@ -36,7 +36,7 @@ TASK: D01-02 — launchd service definitions for Postgres/Mastra/scheduler/zero-
 ================================================================================
 
 TASK_TYPE:  INFRA
-STATUS:     Backlog
+STATUS:     Completed
 PRIORITY:   P0
 EFFORT:     M  (150 min)
 AGENT:      implementer=devops-engineer | reviewer=code-reviewer
@@ -83,9 +83,9 @@ Four launchd plist files exist at ~/Library/LaunchAgents/holocron-{postgres,mast
 --------------------------------------------------------------------------------
 DONE WHEN
 --------------------------------------------------------------------------------
-- [ ] AC-1 (PRIMARY): launchd plist files exist for all four services with correct paths and keepalive
-- [ ] AC-2 (PRIMARY): launchd units load successfully and services start with real process verification
-- [ ] AC-3: zero-cache plist integrates with Sprint-04 zero_pub publication OR is honestly disabled
+- [x] AC-1 (PRIMARY): launchd plist files exist for all four services with correct paths and keepalive
+- [x] AC-2 (PRIMARY): launchd units load successfully and services start with real process verification
+- [x] AC-3: zero-cache plist integrates with Sprint-04 zero_pub publication OR is honestly disabled
 - [ ] `pnpm tsgo --noEmit` clean + `pnpm biome check .` clean (only SCOPE.writeAllowed files modified)
 
 --------------------------------------------------------------------------------
