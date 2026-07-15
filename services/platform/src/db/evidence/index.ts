@@ -34,6 +34,7 @@ export {
 } from './roles';
 export {
   type EvidenceSeedResult,
+  SEED_BELIEF_ACTOR,
   SEED_CLAIM_TEXT,
   SEED_CONTRADICTS_TEXT,
   SEED_SUPPORTS_TEXT,

@@ -39,7 +39,7 @@ describe('AC-4: product operability under holocron_app', () => {
   itLive('seed tables + revise_belief succeed; beliefs UPDATE/DELETE still false', async () => {
     await withEvidenceLock(async () => {
       const { createSql } = await import('../../../services/platform/src/db/client');
-      const { HOLOCRON_APP_ROLE, reviseBelief, seedEvidence, seedOpenBelief } = await import(
+      const { HOLOCRON_APP_ROLE, reviseBelief, seedEvidence } = await import(
         '../../../services/platform/src/db/evidence/index'
       );
 
@@ -47,20 +47,14 @@ describe('AC-4: product operability under holocron_app', () => {
       expect(seed.ok, seed.errors.join('; ')).toBe(true);
       expect(seed.sessionRole).toBe(HOLOCRON_APP_ROLE);
       expect(seed.claimId).toMatch(UUID_RE);
+      expect(seed.beliefId).toMatch(UUID_RE);
       expect(seed.passageIds).toHaveLength(2);
       expect(seed.errors.some((e) => /42501|permission denied/i.test(e))).toBe(false);
 
-      // Open belief for revise: owner fixture (H1 may revoke app INSERT on beliefs).
-      const open = await seedOpenBelief({
-        databaseUrl: DEFAULT_DATABASE_URL,
-        claimId: seed.claimId as string,
-        statement: 'operability-open-belief',
-      });
-      expect(open.ok).toBe(true);
-      expect(open.beliefId).toMatch(UUID_RE);
-
+      // Product seed already creates the open belief via seed_open_belief (H3).
+      // Revise that belief under holocron_app (one-open-per-claim unique index).
       const revise = await reviseBelief({
-        beliefId: open.beliefId as string,
+        beliefId: seed.beliefId as string,
         actor: 'role-bind-ac4',
         runId: `run-ac4-${Date.now()}`,
         idempotencyKey: `idem-ac4-${Date.now()}`,

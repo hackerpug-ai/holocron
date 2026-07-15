@@ -68,6 +68,7 @@ describe('AC-1: evidence:seed inserts claim + two contradicting passages + relat
           ok?: boolean;
           sourceId?: string;
           claimId?: string;
+          beliefId?: string;
           passageIds?: string[];
           relationIds?: string[];
           counts?: Record<string, number>;
@@ -75,6 +76,8 @@ describe('AC-1: evidence:seed inserts claim + two contradicting passages + relat
         expect(payload.ok).toBe(true);
         expect(payload.sourceId).toBeTruthy();
         expect(payload.claimId).toBeTruthy();
+        // REDHAT-FIX-H3: product seed leaves an open belief for HT-1→HT-2 continuity
+        expect(payload.beliefId).toBeTruthy();
         expect(payload.passageIds).toHaveLength(2);
         expect(payload.relationIds).toHaveLength(2);
 
@@ -104,6 +107,12 @@ describe('AC-1: evidence:seed inserts claim + two contradicting passages + relat
               AND tx_from IS NOT NULL
               AND tx_to IS NULL
           `;
+          const openBeliefs = await sql<{ count: string }[]>`
+            SELECT count(*)::text AS count
+            FROM beliefs
+            WHERE claim_id = ${payload.claimId as string}
+              AND tx_to IS NULL
+          `;
           const stances = await sql<{ relation_type: string; text: string }[]>`
             SELECT r.relation_type, p.text
             FROM relations r
@@ -122,6 +131,8 @@ describe('AC-1: evidence:seed inserts claim + two contradicting passages + relat
             'open supports/contradicts with tx_from IS NOT NULL AND tx_to IS NULL': Number(
               openSc[0]?.count ?? 0
             ),
+            'open beliefs for claim': Number(openBeliefs[0]?.count ?? 0),
+            beliefId: payload.beliefId,
             stances: stances.map((s) => ({
               relationType: s.relation_type,
               textPreview: s.text.slice(0, 80),
@@ -142,6 +153,7 @@ describe('AC-1: evidence:seed inserts claim + two contradicting passages + relat
           expect(
             must_observe['open supports/contradicts with tx_from IS NOT NULL AND tx_to IS NULL']
           ).toBe(2);
+          expect(must_observe['open beliefs for claim']).toBe(1);
           expect(stances.some((s) => s.relation_type === 'supports')).toBe(true);
           expect(stances.some((s) => s.relation_type === 'contradicts')).toBe(true);
           expect(stances.some((s) => /SUPPORTS|grew 12%/i.test(s.text))).toBe(true);
