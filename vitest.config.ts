@@ -16,6 +16,8 @@ export default defineConfig({
       'convex/**/*.{test,spec}.{js,ts,tsx}',
       'hooks/**/*.{test,spec}.{js,ts}',
       'components/**/*.{test,spec}.{js,ts,tsx}',
+      // Sprint 06 — stack supervisor / secrets / launchd RED+GREEN suite (D01-01+)
+      'services/platform/src/cli/__tests__/**/*.{test,spec}.ts',
     ],
     setupFiles: ['tests/setup/react-native.ts'],
     exclude: ['node_modules', 'dist', '.expo'],

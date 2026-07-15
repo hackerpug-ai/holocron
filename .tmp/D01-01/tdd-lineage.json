@@ -1,0 +1,26 @@
+{
+  "task_id": "D01-01",
+  "tdd_mode": "red_first",
+  "phase": "red_seed",
+  "red_sha": "11853b518fe88318001013048a9cd77216b8a949",
+  "green_sha": null,
+  "note": "RED-seed only. green deferred to D01-02 (launchd), D01-03 (stack up/down/status + dev-parity), D01-04 (secrets + verify-no-convex-env), D01-05 (embed health in stack status).",
+  "suite": {
+    "command": "PLATFORM_IT=1 pnpm vitest run services/platform/src/cli/__tests__/stack-supervisor.test.ts services/platform/src/cli/__tests__/secrets-hygiene.test.ts services/platform/src/cli/__tests__/dev-parity.test.ts services/platform/src/cli/__tests__/launchd-and-embed-health.test.ts",
+    "pre_impl_exit": 1,
+    "tests_failed": 17,
+    "tests_passed": 0,
+    "files": [
+      "services/platform/src/cli/__tests__/stack-supervisor.test.ts",
+      "services/platform/src/cli/__tests__/secrets-hygiene.test.ts",
+      "services/platform/src/cli/__tests__/dev-parity.test.ts",
+      "services/platform/src/cli/__tests__/launchd-and-embed-health.test.ts"
+    ]
+  },
+  "failure_reasons": {
+    "AC-1": "unknown command: stack (holo stack up/down/status absent)",
+    "AC-2": "unknown command: secrets / verify-no-convex-env; secrets.yaml config absent",
+    "AC-3": "services/platform/config absent; holo stack up absent under laptop DATABASE_URL",
+    "AC-4": "holocron-*.plist absent under ~/Library/LaunchAgents; stack status lacks embed health"
+  }
+}
