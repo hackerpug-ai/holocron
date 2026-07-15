@@ -12,6 +12,7 @@ export {
   DEFAULT_HOLOCRON_DATABASE_URL,
   postgresConnectionFacts,
   resolveDatabaseUrl,
+  resolveOwnerDatabaseUrl,
 } from './connection';
 export * from './enums';
 export {

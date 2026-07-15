@@ -1,8 +1,10 @@
 /**
  * Application vs privileged DB roles for beliefs immutability (ledger-2).
- * holocron_app: SELECT/INSERT on beliefs; EXECUTE revise_belief; no UPDATE/DELETE.
- * holocron_owner: UPDATE/DELETE + SECURITY DEFINER owner of revise_belief.
+ * holocron_app: SELECT (+ seed-table INSERT); EXECUTE revise_belief; no UPDATE/DELETE on beliefs.
+ * holocron_owner: UPDATE/DELETE + SECURITY DEFINER owner of revise_belief / seed_open_belief.
  */
+import { resolveDatabaseUrl } from '../connection';
+
 export const HOLOCRON_APP_ROLE = 'holocron_app';
 export const HOLOCRON_OWNER_ROLE = 'holocron_owner';
 
@@ -29,4 +31,14 @@ export function toAppRoleDatabaseUrl(databaseUrl: string): string {
     }
     return databaseUrl;
   }
+}
+
+/**
+ * Default product/CLI evidence connection: raw DATABASE_URL rewritten to holocron_app.
+ * Use for seed / revise / belief as-of / register-doc / probe-raw product paths.
+ * Admin/migrate must NOT use this — call resolveOwnerDatabaseUrl / resolveDatabaseUrl.
+ */
+export function resolveProductDatabaseUrl(options?: { preferHolocron?: boolean }): string {
+  const base = resolveDatabaseUrl(options === undefined ? { preferHolocron: true } : options);
+  return toAppRoleDatabaseUrl(base);
 }

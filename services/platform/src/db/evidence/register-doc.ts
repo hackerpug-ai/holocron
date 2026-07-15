@@ -8,7 +8,7 @@
  * T-DATA-007 / T-DATA-022 / UC-DATA-02.
  */
 import { createSql } from '../client';
-import { resolveDatabaseUrl } from '../connection';
+import { resolveProductDatabaseUrl } from './roles';
 
 /** Schema-legal source_kind for internal holocron documents. */
 export const HOLOCRON_INTERNAL_SOURCE_KIND = 'self_sourced' as const;
@@ -28,6 +28,8 @@ export interface RegisterDocResult {
   passageCountAfter: number;
   passagesCreated: number;
   reusedExistingSource: boolean;
+  /** Session role observed on the product connection (must be holocron_app). */
+  sessionRole: string | null;
   messages: string[];
   errors: string[];
 }
@@ -41,11 +43,13 @@ export async function registerDoc(options: {
   databaseUrl?: string;
   title?: string | null;
 }): Promise<RegisterDocResult> {
-  const databaseUrl = options.databaseUrl ?? resolveDatabaseUrl({ preferHolocron: true });
+  // Product path: bind to holocron_app unless caller supplies an explicit URL override.
+  const databaseUrl = options.databaseUrl ?? resolveProductDatabaseUrl({ preferHolocron: true });
   const sql = createSql(databaseUrl);
   const documentId = options.documentId.trim();
   const messages: string[] = [];
   const errors: string[] = [];
+  let sessionRole: string | null = null;
 
   if (!documentId) {
     return {
@@ -59,12 +63,17 @@ export async function registerDoc(options: {
       passageCountAfter: 0,
       passagesCreated: 0,
       reusedExistingSource: false,
+      sessionRole: null,
       messages,
       errors: ['documentId is required'],
     };
   }
 
   try {
+    const who = await sql<{ current_user: string }[]>`SELECT current_user::text`;
+    sessionRole = who[0]?.current_user ?? null;
+    messages.push(`current_user: ${sessionRole ?? ''}`);
+
     const beforeRows = await sql<{ count: string }[]>`
       SELECT count(*)::text AS count FROM passages
     `;
@@ -94,6 +103,7 @@ export async function registerDoc(options: {
         passageCountAfter: passageCountBefore,
         passagesCreated: 0,
         reusedExistingSource: false,
+        sessionRole,
         messages,
         errors,
       };
@@ -162,6 +172,7 @@ export async function registerDoc(options: {
           passageCountAfter: passageCountBefore,
           passagesCreated: 0,
           reusedExistingSource: false,
+          sessionRole,
           messages,
           errors,
         };
@@ -223,6 +234,7 @@ export async function registerDoc(options: {
       passageCountAfter,
       passagesCreated,
       reusedExistingSource,
+      sessionRole,
       messages,
       errors,
     };
@@ -240,6 +252,7 @@ export async function registerDoc(options: {
       passageCountAfter: 0,
       passagesCreated: 0,
       reusedExistingSource: false,
+      sessionRole,
       messages,
       errors,
     };

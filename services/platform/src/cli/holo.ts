@@ -1101,6 +1101,8 @@ async function main(): Promise<void> {
         confidence: result.confidence,
         netSupport: result.netSupport,
         net_support: result.netSupport,
+        sessionRole: result.sessionRole,
+        current_user: result.sessionRole,
         belief: result.belief,
         messages: result.messages,
         errors: result.errors,

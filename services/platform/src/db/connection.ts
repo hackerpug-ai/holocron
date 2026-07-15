@@ -11,12 +11,28 @@ export const DEFAULT_HOLOCRON_DATABASE_URL = 'postgres://127.0.0.1:5432/holocron
 /**
  * Resolve the connection string for platform DB work.
  * Prefer DATABASE_URL; fall back to the holocron DB when requested.
+ *
+ * This returns the raw/owner URL (no role rewrite). Product evidence paths
+ * MUST use resolveProductDatabaseUrl (roles.ts) so sessions run as holocron_app.
+ * Migrate/admin MUST use resolveOwnerDatabaseUrl (or this raw helper).
  */
 export function resolveDatabaseUrl(options?: { preferHolocron?: boolean }): string {
   if (process.env.DATABASE_URL) {
     return process.env.DATABASE_URL;
   }
   return options?.preferHolocron ? DEFAULT_HOLOCRON_DATABASE_URL : DEFAULT_DATABASE_URL;
+}
+
+/**
+ * Owner/admin connection string for migrate, provisioning, and maintenance.
+ * Prefer DATABASE_URL_OWNER when set; otherwise raw DATABASE_URL / defaults.
+ * Never rewrites username to holocron_app.
+ */
+export function resolveOwnerDatabaseUrl(options?: { preferHolocron?: boolean }): string {
+  if (process.env.DATABASE_URL_OWNER) {
+    return process.env.DATABASE_URL_OWNER;
+  }
+  return resolveDatabaseUrl(options);
 }
 
 /**
