@@ -1,0 +1,79 @@
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-orchestrate/worktrees/task-redhat-fix-h4
+
+ ❯ tests/integration/service/infer-degraded-durable-escape.test.ts (5 tests | 3 failed) 1010ms
+     × AC-1: DB degraded + process flag false → runBudgetedEscape refuses; anthropicHits:0 519ms
+     × AC-2: resolveModel(allowEscape) under DB-only degraded throws; anthropicHits:0 126ms
+     × AC-3: shared helper is DB-aware choke for both escape APIs 17ms
+     ✓ AC-4: DB + process normal restores within-budget escape operability 146ms
+     ✓ AC-5: red/green multi-process evidence under redhat-fix-h4* 70ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/integration/service/infer-degraded-durable-escape.test.ts > REDHAT-FIX-H4: durable Postgres degraded gate (multi-process) > AC-1: DB degraded + process flag false → runBudgetedEscape refuses; anthropicHits:0
+AssertionError: ANTHROPIC_API_KEY required for runBudgetedEscape: expected 'ANTHROPIC_API_KEY required for runBud…' to match /degraded|never-cloud/i
+
+- Expected:
+/degraded|never-cloud/i
+
++ Received:
+"ANTHROPIC_API_KEY required for runBudgetedEscape"
+
+ ❯ tests/integration/service/infer-degraded-durable-escape.test.ts:327:44
+    325|
+    326|         expect(refused, JSON.stringify(evidence)).toBe(true);
+    327|         expect(errorMessage, errorMessage).toMatch(/degraded|never-clo…
+       |                                            ^
+    328|         expect(
+    329|           errorName === 'RoleUnavailableError' ||
+ ❯ withBudgetLock tests/integration/service/infer-degraded-durable-escape.test.ts:201:12
+ ❯ tests/integration/service/infer-degraded-durable-escape.test.ts:250:7
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  tests/integration/service/infer-degraded-durable-escape.test.ts > REDHAT-FIX-H4: durable Postgres degraded gate (multi-process) > AC-2: resolveModel(allowEscape) under DB-only degraded throws; anthropicHits:0
+AssertionError: {"ac":"AC-2","processFlag":false,"dbDegraded":true,"dbState":"fail-closed","refused":false,"errorName":"","errorMessage":"","anthropicHits":0,"anthropicCount":0,"unexpected":{"role":"divergent","endpoint":"https://api.anthropic.com","litellmModelId":"claude-haiku-4-5-20251001","modelRevision":"escape:claude-haiku-4-5-20251001","contextLimit":32768,"concurrency":1,"timeoutMs":120000,"structuredOutput":true,"degradationAction":"fail-closed","healthy":true,"baseURL":"https://api.anthropic.com/v1","provider":"anthropic","allowEscape":true,"budget":{"ok":true,"ceilingUsd":10,"spentUsd":0,"remainingUsd":10,"estimatedCostUsd":0.05}},"networkRows":[]}: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/integration/service/infer-degraded-durable-escape.test.ts:395:51
+    393|         writeEvidence('AC-2-resolveModel-db-degraded-refuse.json', evi…
+    394|
+    395|         expect(refused, JSON.stringify(evidence)).toBe(true);
+       |                                                   ^
+    396|         expect(errorMessage).toMatch(/degraded|never-cloud|ROLE_UNAVAI…
+    397|         expect(anthropicHits, JSON.stringify(rows)).toBe(0);
+ ❯ withBudgetLock tests/integration/service/infer-degraded-durable-escape.test.ts:201:12
+ ❯ tests/integration/service/infer-degraded-durable-escape.test.ts:346:7
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  tests/integration/service/infer-degraded-durable-escape.test.ts > REDHAT-FIX-H4: durable Postgres degraded gate (multi-process) > AC-3: shared helper is DB-aware choke for both escape APIs
+AssertionError: escape-degraded-guard must SELECT durable degraded_mode (not process-only): expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/integration/service/infer-degraded-durable-escape.test.ts:426:7
+    424|       helperReadsDb,
+    425|       'escape-degraded-guard must SELECT durable degraded_mode (not pr…
+    426|     ).toBe(true);
+       |       ^
+    427|
+    428|     // Both production paths must reference the shared helper (not a s…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 2 passed (5)
+   Start at  22:20:45
+   Duration  1.29s (transform 159ms, setup 144ms, import 43ms, tests 1.01s, environment 0ms)
+

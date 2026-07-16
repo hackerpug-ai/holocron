@@ -511,7 +511,8 @@ export async function runBudgetedEscape(
 
   // Shared never-cloud choke (same helper as resolveModel allowEscape) — BEFORE
   // budget audit traffic, Anthropic SDK construction, or generateText.
-  assertEscapeNotDegraded(role);
+  // H4: async — also SELECTs durable Postgres degraded_mode (fail closed on DB error).
+  await assertEscapeNotDegraded(role);
 
   await assertBudget(
     {
