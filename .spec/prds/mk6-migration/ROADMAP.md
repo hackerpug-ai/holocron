@@ -547,6 +547,12 @@ The `Milestone` cell links to the GitHub Milestone titled `sprint-{NN}`; sprints
 | struct-3 | RED tests: malformed→repair→valid, always-malformed→explicit-fail, tripwire→blocked | red-test-generator | 150 min |
 | struct-4 | Review extraction safety | mastra-reviewer | 75 min |
 
+**Next Sprint Tasks:** *(expanded by kb-sprint-tasks-plan on 2026-07-16 — SPRINT.md + 4 task files at [`tasks/sprint-09-structured-output-on-local-models/`](tasks/sprint-09-structured-output-on-local-models/); avg ~108/115, 0 CRITICAL / 0 HIGH fakeable scenarios — `validate_scenario` clean on every behavioral AC, independently re-verified on the rendered files. Topological order: struct-3 (RED suite, written first) → struct-1 ∥ struct-2 → struct-4. Status remains 🔵 Planned — expanded and ready for `/kb-run-sprint`, not yet executing.)*
+- struct-1-structured-output-pipeline-bounded-repair-explicit-fail.md
+- struct-2-boot-time-capability-probe-typed-terminals.md
+- struct-3-red-tests-repair-explicit-fail-tripwire-blocked.md
+- struct-4-review-extraction-safety.md
+
 #### Dependencies
 
 - Blocks: Sprint 17, Sprint 22
