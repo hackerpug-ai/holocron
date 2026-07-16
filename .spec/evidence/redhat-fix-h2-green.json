@@ -1,7 +1,7 @@
 {
   "task": "REDHAT-FIX-H2",
   "kind": "green_honest_inventory",
-  "capturedAt": "2026-07-16T04:44:54.973Z",
+  "capturedAt": "2026-07-16T06:59:04.046Z",
   "inventory_pass": true,
   "unmapped_steps_count": 0,
   "mapped_steps_count": 7,
@@ -11,14 +11,7 @@
     "ok": true,
     "reason": "honest",
     "details": [
-      "HUMAN-GATE.md forbids greenwash pass on non-executable docs",
-      "cli step step-1: ok",
-      "honest suite-labeled step step-2: ok",
-      "cli step step-3: ok",
-      "cli step step-4: ok",
-      "cli step step-5: ok",
-      "honest suite-labeled step step-6: ok",
-      "cli step step-7: ok"
+      "HUMAN-GATE.md forbids greenwash pass on non-executable docs"
     ]
   },
   "mapping": [

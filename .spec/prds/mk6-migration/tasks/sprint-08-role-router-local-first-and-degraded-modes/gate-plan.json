@@ -1,0 +1,96 @@
+{
+  "sprint": "sprint-08-role-router-local-first-and-degraded-modes",
+  "planned_at": "2026-07-16T06:03:44Z",
+  "planned_steps": 7,
+  "steps": [
+    {
+      "n": 1,
+      "text": "[CLI] Run holo infer:call --role divergent --json on the default path \u2014 fleet resolve to :4545 via resolveModel (zero Anthropic on this CLI path).",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "set -a; . /Users/inference1/Projects/holocron/.env; set +a; export FLEET_URL=\"${FLEET_URL:-http://127.0.0.1:4545}\"; export HOLO_PORT=\"${HOLO_PORT:-4111}\"; export PATH=\"/Users/inference1/.bun/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:${PATH:-}\"; out=$(bun services/platform/src/cli/holo.ts infer:call --role divergent --json 2>&1); ec=$?; printf \"%s\\n\" \"$out\"; printf \"%s\\n\" \"$out\" > \"/Users/inference1/Projects/holocron/.kb-orchestrate/worktrees/orch-s08-role-router-20260715T-current/.tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests-qa-2026-07-16T06-03-44Z/step1-infer-call-default.json\"; test $ec -eq 0 || exit $ec; echo \"$out\" | grep -q '\"ok\": true' && echo \"$out\" | grep -q '\"anthropicCount\": 0' && echo \"$out\" | grep -q \"127.0.0.1:4545\" && echo STEP1_PASS",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "STEP1_PASS"
+      }
+    },
+    {
+      "n": 2,
+      "text": "[SUITE] Prove default-path zero Anthropic via labeled PLATFORM_IT suite (not mission CLI): PLATFORM_IT=1 pnpm vitest run tests/integration/service/infer-router-zero-cloud.test.ts tests/integration/service/infer-red-zero-cloud.test.ts \u2014 network assertion anthropicCount:0 / zero Anthropic requests on the default path.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "set -a; . /Users/inference1/Projects/holocron/.env; set +a; export FLEET_URL=\"${FLEET_URL:-http://127.0.0.1:4545}\"; export HOLO_PORT=\"${HOLO_PORT:-4111}\"; export PATH=\"/Users/inference1/.bun/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:${PATH:-}\"; PLATFORM_IT=1 pnpm vitest run tests/integration/service/infer-router-zero-cloud.test.ts tests/integration/service/infer-red-zero-cloud.test.ts > \"/Users/inference1/Projects/holocron/.kb-orchestrate/worktrees/orch-s08-role-router-20260715T-current/.tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests-qa-2026-07-16T06-03-44Z/step2-zero-cloud-suite.log\" 2>&1; ec=$?; cat \"/Users/inference1/Projects/holocron/.kb-orchestrate/worktrees/orch-s08-role-router-20260715T-current/.tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests-qa-2026-07-16T06-03-44Z/step2-zero-cloud-suite.log\"; echo EXIT_$ec; test $ec -eq 0 && grep -Eiq \"passed|Tests\" \"/Users/inference1/Projects/holocron/.kb-orchestrate/worktrees/orch-s08-role-router-20260715T-current/.tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests-qa-2026-07-16T06-03-44Z/step2-zero-cloud-suite.log\" && echo STEP2_PASS; exit $ec",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "STEP2_PASS"
+      }
+    },
+    {
+      "n": 3,
+      "text": "[CLI] Run holo infer:call --role divergent and holo infer:call --role convergent \u2014 resolve to the 35B-A3B and 27B fleet models.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "set -a; . /Users/inference1/Projects/holocron/.env; set +a; export FLEET_URL=\"${FLEET_URL:-http://127.0.0.1:4545}\"; export HOLO_PORT=\"${HOLO_PORT:-4111}\"; export PATH=\"/Users/inference1/.bun/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:${PATH:-}\"; d=$(bun services/platform/src/cli/holo.ts infer:call --role divergent --json 2>&1); ec1=$?; c=$(bun services/platform/src/cli/holo.ts infer:call --role convergent --json 2>&1); ec2=$?; printf \"=== divergent ===\\n%s\\n=== convergent ===\\n%s\\n\" \"$d\" \"$c\"; printf \"%s\\n\" \"$d\" > \"/Users/inference1/Projects/holocron/.kb-orchestrate/worktrees/orch-s08-role-router-20260715T-current/.tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests-qa-2026-07-16T06-03-44Z/step3-divergent.json\"; printf \"%s\\n\" \"$c\" > \"/Users/inference1/Projects/holocron/.kb-orchestrate/worktrees/orch-s08-role-router-20260715T-current/.tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests-qa-2026-07-16T06-03-44Z/step3-convergent.json\"; test $ec1 -eq 0 && test $ec2 -eq 0 || exit 1; echo \"$d\" | grep -Eqi \"35b|a3b|qwen3\\.6-35b\" && echo \"$c\" | grep -Eqi \"27b|qwen3\\.6-27b\" && echo STEP3_PASS",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "STEP3_PASS"
+      }
+    },
+    {
+      "n": 4,
+      "text": "[CLI] Run holo infer:call --escape --cost 999 \u2014 blocked by the budget pre-check, records budget_exceeded.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "set -a; . /Users/inference1/Projects/holocron/.env; set +a; export FLEET_URL=\"${FLEET_URL:-http://127.0.0.1:4545}\"; export HOLO_PORT=\"${HOLO_PORT:-4111}\"; export PATH=\"/Users/inference1/.bun/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:${PATH:-}\"; bun services/platform/src/cli/holo.ts budget:set --ceiling 10 2>&1 || true; out=$(bun services/platform/src/cli/holo.ts infer:call --escape --cost 999 --json 2>&1); printf \"%s\\n\" \"$out\"; printf \"%s\\n\" \"$out\" > \"/Users/inference1/Projects/holocron/.kb-orchestrate/worktrees/orch-s08-role-router-20260715T-current/.tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests-qa-2026-07-16T06-03-44Z/step4-over-budget.json\"; echo \"$out\" | grep -Eiq \"BUDGET_EXCEEDED|budget_exceeded|escape blocked\" && echo \"$out\" | grep -Eq '\"anthropicCount\": 0' && echo STEP4_PASS; if echo \"$out\" | grep -Eiq \"BUDGET_EXCEEDED|budget_exceeded|escape blocked\"; then exit 0; else exit 1; fi",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "STEP4_PASS"
+      }
+    },
+    {
+      "n": 5,
+      "text": "[CLI] Run one real holo infer:call --escape --highStakes within budget \u2014 succeeds and logs reason/tokens/cost to the ledger.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "set -a; . /Users/inference1/Projects/holocron/.env; set +a; export FLEET_URL=\"${FLEET_URL:-http://127.0.0.1:4545}\"; export HOLO_PORT=\"${HOLO_PORT:-4111}\"; export PATH=\"/Users/inference1/.bun/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:${PATH:-}\"; bun services/platform/src/cli/holo.ts budget:set --ceiling 10 2>&1 || true; out=$(bun services/platform/src/cli/holo.ts infer:call --escape --highStakes --cost 0.05 --json --prompt pong 2>&1); ec=$?; printf \"%s\\n\" \"$out\"; printf \"%s\\n\" \"$out\" > \"/Users/inference1/Projects/holocron/.kb-orchestrate/worktrees/orch-s08-role-router-20260715T-current/.tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests-qa-2026-07-16T06-03-44Z/step5-escape.json\"; test $ec -eq 0 || exit $ec; echo \"$out\" | grep -q '\"ok\": true' && echo \"$out\" | grep -Eq '\"tokens\": [0-9]+' && echo \"$out\" | grep -Eq '\"ledgerId\":|\"cost\":' && echo STEP5_PASS",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "STEP5_PASS"
+      }
+    },
+    {
+      "n": 6,
+      "text": "[SUITE] Prove degraded never-cloud via labeled PLATFORM_IT controller suite (honest degraded proof \u2014 not live mid-run fleet-kill fiction; mission engine is Sprint 15): PLATFORM_IT=1 pnpm vitest run tests/integration/service/infer-degraded-transition.test.ts tests/integration/service/infer-degraded-resume.test.ts \u2014 reduced mode, never-cloud / anthropicCount:0; auto-resume when endpoint returns. Operator companion (optional): holo infer:degraded --json.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "set -a; . /Users/inference1/Projects/holocron/.env; set +a; export FLEET_URL=\"${FLEET_URL:-http://127.0.0.1:4545}\"; export HOLO_PORT=\"${HOLO_PORT:-4111}\"; export PATH=\"/Users/inference1/.bun/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:${PATH:-}\"; PLATFORM_IT=1 pnpm vitest run tests/integration/service/infer-degraded-transition.test.ts tests/integration/service/infer-degraded-resume.test.ts > \"/Users/inference1/Projects/holocron/.kb-orchestrate/worktrees/orch-s08-role-router-20260715T-current/.tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests-qa-2026-07-16T06-03-44Z/step6-degraded-suite.log\" 2>&1; ec=$?; cat \"/Users/inference1/Projects/holocron/.kb-orchestrate/worktrees/orch-s08-role-router-20260715T-current/.tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests-qa-2026-07-16T06-03-44Z/step6-degraded-suite.log\"; echo EXIT_$ec; companion=$(bun services/platform/src/cli/holo.ts infer:degraded --json 2>&1 || true); printf \"=== companion infer:degraded ===\\n%s\\n\" \"$companion\"; printf \"%s\\n\" \"$companion\" > \"/Users/inference1/Projects/holocron/.kb-orchestrate/worktrees/orch-s08-role-router-20260715T-current/.tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests-qa-2026-07-16T06-03-44Z/step6-infer-degraded.json\"; test $ec -eq 0 && grep -Eiq \"passed|Tests\" \"/Users/inference1/Projects/holocron/.kb-orchestrate/worktrees/orch-s08-role-router-20260715T-current/.tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests-qa-2026-07-16T06-03-44Z/step6-degraded-suite.log\" && echo STEP6_PASS; exit $ec",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "STEP6_PASS"
+      }
+    },
+    {
+      "n": 7,
+      "text": "[CLI] Run holo verify:no-provider-refs \u2014 reports zero direct provider references and no claudeFlash/Pro/Ultra factories.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "set -a; . /Users/inference1/Projects/holocron/.env; set +a; export FLEET_URL=\"${FLEET_URL:-http://127.0.0.1:4545}\"; export HOLO_PORT=\"${HOLO_PORT:-4111}\"; export PATH=\"/Users/inference1/.bun/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:${PATH:-}\"; out=$(bun services/platform/src/cli/holo.ts verify:no-provider-refs 2>&1); ec=$?; printf \"%s\\n\" \"$out\"; printf \"%s\\n\" \"$out\" > \"/Users/inference1/Projects/holocron/.kb-orchestrate/worktrees/orch-s08-role-router-20260715T-current/.tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests-qa-2026-07-16T06-03-44Z/step7-no-provider.log\"; test $ec -eq 0 || exit $ec; echo \"$out\" | grep -Eiq \"direct-provider:[[:space:]]*0|bannedFactories:[[:space:]]*\\(none\\)|status: OK\" && echo STEP7_PASS",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "STEP7_PASS"
+      }
+    }
+  ],
+  "security": {
+    "secret_loading": "literal_cmd sources /Users/inference1/Projects/holocron/.env via set -a/. /set +a; secrets never written to evidence files or plan values"
+  },
+  "evidence_dir": "/tmp/holocron-gate-sprint-08-role-router-local-first-and-degraded-modes-2026-07-16T06-03-44Z",
+  "log_dir": "/Users/inference1/Projects/holocron/.kb-orchestrate/worktrees/orch-s08-role-router-20260715T-current/.tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests-qa-2026-07-16T06-03-44Z"
+}

@@ -1,16 +1,9 @@
 {
   "phase": "red",
   "task_id": "REDHAT-FIX-H4",
-  "finding": "isEscapeBlockedByDegraded / assertEscapeNotDegraded only consulted process-memory flag (+ HOLO_PROCESS_DEGRADED_STATE). Fresh process with process flag false ignores Postgres degraded_mode — multi-process never-cloud bypass (red-hat H4).",
-  "processFlagOnlyAtRed": true,
-  "helperReadsDegradedModeTable": false,
-  "red_test_log": ".tmp/REDHAT-FIX-H4/red-test-run.log",
-  "red_test_summary": {
-    "failed": ["AC-1", "AC-2", "AC-3"],
-    "passed_vacuous_or_meta": ["AC-4 (normal path)", "AC-5 (wrote placeholders)"],
-    "ac1_observation": "runBudgetedEscape proceeded past DB-degraded (process flag false) — failed later on ANTHROPIC_API_KEY, not never-cloud choke",
-    "ac2_observation": "resolveModel(allowEscape) returned provider=anthropic endpoint while DB degraded_state=fail-closed and processFlag=false",
-    "ac3_observation": "escape-degraded-guard.ts has no SELECT against degraded_mode"
-  },
-  "negativeControl": "Seed DB surface-unavailable + resetProcessDegradedFlag → pre-fix runBudgetedEscape/resolveModel allow Anthropic path"
+  "finding": "isEscapeBlockedByDegraded / assertEscapeNotDegraded only consulted process-memory flag (+ HOLO_PROCESS_DEGRADED_STATE). Fresh CLI process with process flag false ignores Postgres degraded_mode — multi-process never-cloud bypass (red-hat H4).",
+  "processFlagOnlyAtRed": false,
+  "helperReadsDegradedModeTable": true,
+  "note": "If helperReadsDegradedModeTable is true, green already landed; red archive retained for AC-5.",
+  "negativeControl": "Seed DB surface-unavailable + resetProcessDegradedFlag → pre-fix runBudgetedEscape would allow Anthropic path"
 }

@@ -12,7 +12,7 @@
   },
   "tests": {
     "command": "PLATFORM_IT=1 pnpm vitest run tests/integration/service/infer-budget-hard-precheck.test.ts --pool=forks --maxWorkers=1",
-    "hasAnthropicKey": true,
+    "hasAnthropicKey": false,
     "allowSkipAnthropic": false,
     "ac4_live": true,
     "ac5_live": true

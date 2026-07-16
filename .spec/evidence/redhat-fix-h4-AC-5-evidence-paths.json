@@ -1,6 +1,6 @@
 {
-  "redPath": "/Users/inference1/Projects/holocron/.kb-orchestrate/worktrees/task-redhat-fix-h4/.tmp/REDHAT-FIX-H4/red-multiprocess-process-only-gap.json",
-  "greenPath": "/Users/inference1/Projects/holocron/.kb-orchestrate/worktrees/task-redhat-fix-h4/.tmp/REDHAT-FIX-H4/green-durable-refuse-anthropic-zero.json",
+  "redPath": "/Users/inference1/Projects/holocron/.kb-orchestrate/worktrees/orch-s08-role-router-20260715T-current/.tmp/REDHAT-FIX-H4/red-multiprocess-process-only-gap.json",
+  "greenPath": "/Users/inference1/Projects/holocron/.kb-orchestrate/worktrees/orch-s08-role-router-20260715T-current/.tmp/REDHAT-FIX-H4/green-durable-refuse-anthropic-zero.json",
   "redExists": true,
   "greenExists": true,
   "anthropicCount": 0,

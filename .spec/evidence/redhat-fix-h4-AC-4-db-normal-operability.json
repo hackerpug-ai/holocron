@@ -1,0 +1,10 @@
+{
+  "ac": "AC-4",
+  "processFlag": false,
+  "dbState": "normal",
+  "degradedRefuse": false,
+  "degradedMsg": "",
+  "ledgerId": "019f6941-1a42-77bb-824e-6b428f057f89",
+  "anthropicHostContacted": true,
+  "tokens": 21
+}

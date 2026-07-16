@@ -7,17 +7,30 @@
     "done": 10
   },
   "gate": {
-    "verdict": "PASS"
+    "verdict": "FAIL",
+    "source": "fresh human gate 2026-07-16T06:03:44Z",
+    "note": "step5 Overloaded; not a pass"
   },
   "e2e": {
     "verdict": "PASS"
   },
   "human_test": {
-    "verdict": "pass",
+    "verdict": "fail",
     "steps_executed": 7,
-    "steps_passed": 7,
+    "steps_passed": 6,
     "steps_total": 7,
-    "gate_results": ".spec/prds/mk6-migration/tasks/sprint-08-role-router-local-first-and-degraded-modes/gate-results.json"
+    "failed_steps": [
+      5
+    ],
+    "failure_summary": "step5 live escape: Anthropic Overloaded (ESCAPE_FAILED, anthropicCount=3); no STEP5_PASS",
+    "run_id": "2026-07-16T06:03:44Z",
+    "evidence_dir": "/tmp/holocron-gate-sprint-08-role-router-local-first-and-degraded-modes-2026-07-16T06-03-44Z",
+    "log_dir": "/Users/inference1/Projects/holocron/.kb-orchestrate/worktrees/orch-s08-role-router-20260715T-current/.tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests-qa-2026-07-16T06-03-44Z",
+    "gate_results": ".spec/prds/mk6-migration/tasks/sprint-08-role-router-local-first-and-degraded-modes/gate-results.json",
+    "gate_verification": ".spec/prds/mk6-migration/tasks/sprint-08-role-router-local-first-and-degraded-modes/gate-verification.json",
+    "verified": false,
+    "finalized_at": "2026-07-16T06:09:03Z",
+    "do_not_claim_pass": true
   },
   "integration": {
     "trunk_consolidated": true,
@@ -27,8 +40,8 @@
   "build": {
     "verdict": "PASS"
   },
-  "met": true,
-  "completed_at": "2026-07-16T04:51:57.716821+00:00",
+  "met": false,
+  "completed_at": null,
   "redhat_cycle": 2,
   "redhat_fixes_landed": [
     "H1",
@@ -39,5 +52,7 @@
   ],
   "redhat_cycles_declared": 3,
   "redhat_converged": true,
-  "redhat_verdict": "CLEAN"
+  "redhat_verdict": "CLEAN",
+  "human_gate_blocked_at": "2026-07-16T06:09:03Z",
+  "human_gate_block_reason": "step5 AC-3 live Anthropic escape failed: Overloaded"
 }

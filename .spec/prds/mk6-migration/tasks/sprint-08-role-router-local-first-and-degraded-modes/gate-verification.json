@@ -1,7 +1,1 @@
-{
-  "sprint_id": "sprint-08-role-router-local-first-and-degraded-modes",
-  "verdict": "PASS",
-  "source": "human-tests-cycle2",
-  "head": "c4ea92fc606e5c3745f51e57bbc8b48d0ead2b7e",
-  "completed_at": "2026-07-16T04:49:39.148892+00:00"
-}
+{"verified":true,"claimed_verdict":"pass","recomputed_verdict":"pass","steps_planned":7,"steps_recomputed":7,"discrepancies":[]}

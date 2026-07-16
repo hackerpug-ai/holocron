@@ -1,100 +1,113 @@
 {
-  "sprint_id": "sprint-08-role-router-local-first-and-degraded-modes",
+  "sprint": "sprint-08-role-router-local-first-and-degraded-modes",
+  "run_id": "holocron-gate-sprint-08-role-router-local-first-and-degraded-modes-2026-07-16T06-54-17Z",
   "verdict": "pass",
-  "cycle_start": "2026-07-16T04:49:10Z",
-  "completed_at": "2026-07-16T04:49:39.148892+00:00",
-  "runner": "kb-run-sprint-orchestrator",
-  "ui_driver": "none",
   "steps_total": 7,
   "steps_executed": 7,
   "steps_passed": 7,
+  "ui_driver": "none",
+  "exec_surface": "surface:336 (D08904F0-AE19-487E-9A97-5A6A2E19A1B0)",
+  "qa_surface_id": "B82B1B73-2370-4D9E-B995-7ACACA579E12",
+  "runner": "surface:336 (D08904F0-AE19-487E-9A97-5A6A2E19A1B0)",
+  "evidence_dir": "/tmp/holocron-gate-sprint-08-role-router-local-first-and-degraded-modes-2026-07-16T06-54-17Z",
+  "log_dir": "/Users/inference1/Projects/holocron/.kb-orchestrate/worktrees/orch-s08-role-router-20260715T-current/.tmp/sprint-08-role-router-local-first-and-degraded-modes/holocron-gate-sprint-08-role-router-local-first-and-degraded-modes-2026-07-16T06-54-17Z",
+  "adapter": "/Users/inference1/Projects/holocron/.kb-orchestrate/worktrees/orch-s08-role-router-20260715T-current/.tmp/sprint-08-role-router-local-first-and-degraded-modes/exec-step-long-safe.sh",
+  "security": {
+    "secret_loading": ".env sourced by path in process memory only",
+    "anthropic_key_file_created": false
+  },
   "steps": [
     {
-      "id": "step-1",
-      "name": "CLI default infer:call --role divergent",
-      "command": "bun services/platform/src/cli/holo.ts infer:call --role divergent --json",
+      "n": 1,
+      "text": "[CLI] Run holo infer:call --role divergent --json on the default path — fleet resolve to :4545 via resolveModel (zero Anthropic on this CLI path).",
+      "type": "terminal",
+      "method": "real-cli",
       "executed": true,
       "result": "pass",
-      "log": ".tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests-cycle2/step1-infer-call-default.json",
-      "surface": "cli"
+      "evidence": "exit=0 dur_ms=1069",
+      "log": "/tmp/holocron-gate-sprint-08-role-router-local-first-and-degraded-modes-2026-07-16T06-54-17Z/step1.log",
+      "cmd_sha": "6aa61248a1f1f3e20202902280c5a796a4c43d78b68873f32c16c1fb22c6430a",
+      "duration_ms": 1069
     },
     {
-      "id": "step-2",
-      "name": "SUITE zero Anthropic default path",
-      "command": "PLATFORM_IT=1 vitest infer-router-zero-cloud + infer-red-zero-cloud",
+      "n": 2,
+      "text": "[SUITE] Prove default-path zero Anthropic via labeled PLATFORM_IT suite (not mission CLI): PLATFORM_IT=1 pnpm vitest run tests/integration/service/infer-router-zero-cloud.test.ts tests/integration/service/infer-red-zero-cloud.test.ts — network assertion anthropicCount:0 / zero Anthropic requests on the default path.",
+      "type": "terminal",
+      "method": "real-cli",
       "executed": true,
       "result": "pass",
-      "log": ".tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests-cycle2/step2-zero-cloud-suite.log",
-      "surface": "suite"
+      "evidence": "exit=0 dur_ms=2879",
+      "log": "/tmp/holocron-gate-sprint-08-role-router-local-first-and-degraded-modes-2026-07-16T06-54-17Z/step2.log",
+      "cmd_sha": "9d36db55cb52769ea5e2f53e2b7a334da1e0b998ace8f592632203b8c84568bc",
+      "duration_ms": 2879
     },
     {
-      "id": "step-3",
-      "name": "CLI divergent+convergent fleet resolve",
-      "command": "bun ... infer:call --role divergent|convergent --json",
+      "n": 3,
+      "text": "[CLI] Run holo infer:call --role divergent and holo infer:call --role convergent — resolve to the 35B-A3B and 27B fleet models.",
+      "type": "terminal",
+      "method": "real-cli",
       "executed": true,
       "result": "pass",
-      "log": ".tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests-cycle2/step3-divergent.json",
-      "surface": "cli",
-      "detail": {
-        "divergent_ok": true,
-        "convergent_ok": true,
-        "divergent_model": "qwen3.6-35b-a3b-mtp-q8_k_xl",
-        "convergent_model": "qwen3.6-27b-mtp-q8_0"
-      }
+      "evidence": "exit=0 dur_ms=2862",
+      "log": "/tmp/holocron-gate-sprint-08-role-router-local-first-and-degraded-modes-2026-07-16T06-54-17Z/step3.log",
+      "cmd_sha": "793aa88980f3a1c9247158ac4d01b6d7bba7b79083e3c4e503e649dd90403f14",
+      "duration_ms": 2862
     },
     {
-      "id": "step-4",
-      "name": "CLI escape --cost 999 blocked",
-      "command": "bun ... infer:call --escape --cost 999 --json",
+      "n": 4,
+      "text": "[CLI] Run holo infer:call --escape --cost 999 — blocked by the budget pre-check, records budget_exceeded.",
+      "type": "terminal",
+      "method": "real-cli",
       "executed": true,
       "result": "pass",
-      "log": ".tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests-cycle2/step4-over-budget.json",
-      "surface": "cli",
-      "detail": {
-        "error": "BUDGET_EXCEEDED",
-        "anthropicCount": 0,
-        "message": "escape blocked: BUDGET_EXCEEDED (ceiling=10 spent=9.5 estimated=999)"
-      }
+      "evidence": "exit=0 dur_ms=1869",
+      "log": "/tmp/holocron-gate-sprint-08-role-router-local-first-and-degraded-modes-2026-07-16T06-54-17Z/step4.log",
+      "cmd_sha": "0580d6017b247c41c9f79a925123e53f090554e6ba5a364c06b4c3cfdefb9046",
+      "duration_ms": 1869
     },
     {
-      "id": "step-5",
-      "name": "CLI real escape within budget ledger",
-      "command": "bun ... infer:call --escape --highStakes --cost 0.05 --json",
+      "n": 5,
+      "text": "[CLI] Run one real holo infer:call --escape --highStakes within budget — succeeds and logs reason/tokens/cost to the ledger.",
+      "type": "terminal",
+      "method": "real-cli",
       "executed": true,
       "result": "pass",
-      "log": ".tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests-cycle2/step5-escape.json",
-      "surface": "cli",
-      "detail": {
-        "tokens": 21,
-        "cost": 4.1e-05,
-        "ledgerId": "019f6941-e4b6-7d33-a489-eadd7b43f79f",
-        "anthropicHostContacted": true
-      }
+      "evidence": "exit=0 dur_ms=2860",
+      "log": "/tmp/holocron-gate-sprint-08-role-router-local-first-and-degraded-modes-2026-07-16T06-54-17Z/step5.log",
+      "cmd_sha": "9eb9be093a2dd7c1e7c8a9826af3c11d65f0b21283a0313216c0efae38cc8fd6",
+      "duration_ms": 2860
     },
     {
-      "id": "step-6",
-      "name": "SUITE degraded never-cloud + resume",
-      "command": "PLATFORM_IT=1 vitest infer-degraded-transition + resume",
+      "n": 6,
+      "text": "[SUITE] Prove degraded never-cloud via labeled PLATFORM_IT controller suite (honest degraded proof — not live mid-run fleet-kill fiction; mission engine is Sprint 15): PLATFORM_IT=1 pnpm vitest run tests/integration/service/infer-degraded-transition.test.ts tests/integration/service/infer-degraded-resume.test.ts — reduced mode, never-cloud / anthropicCount:0; auto-resume when endpoint returns. Operator companion (optional): holo infer:degraded --json.",
+      "type": "terminal",
+      "method": "real-cli",
       "executed": true,
       "result": "pass",
-      "log": ".tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests-cycle2/step6-degraded-suite.log",
-      "surface": "suite"
+      "evidence": "exit=0 dur_ms=3782",
+      "log": "/tmp/holocron-gate-sprint-08-role-router-local-first-and-degraded-modes-2026-07-16T06-54-17Z/step6.log",
+      "cmd_sha": "d200073f72231499063c3679a79941405afb2e9ffcbbb0bd95dcdee5cd215f0f",
+      "duration_ms": 3782
     },
     {
-      "id": "step-7",
-      "name": "CLI verify:no-provider-refs",
-      "command": "bun services/platform/src/cli/holo.ts verify:no-provider-refs",
+      "n": 7,
+      "text": "[CLI] Run holo verify:no-provider-refs — reports zero direct provider references and no claudeFlash/Pro/Ultra factories.",
+      "type": "terminal",
+      "method": "real-cli",
       "executed": true,
       "result": "pass",
-      "log": ".tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests-cycle2/step7-no-provider.log",
-      "surface": "cli"
+      "evidence": "exit=0 dur_ms=2836",
+      "log": "/tmp/holocron-gate-sprint-08-role-router-local-first-and-degraded-modes-2026-07-16T06-54-17Z/step7.log",
+      "cmd_sha": "8ce20d8d171c973ad76532adcaf4dbc5461b6a40aaac46eca33b311f3499a8c1",
+      "duration_ms": 2836
     }
   ],
-  "logs_dir": ".tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests-cycle2",
+  "verified": true,
   "honesty": {
     "mission_cli_documented": false,
     "suite_steps_labeled": true,
-    "source": "HUMAN-GATE.md + REDHAT-FIX-H2"
-  },
-  "head": "c4ea92fc606e5c3745f51e57bbc8b48d0ead2b7e"
+    "inventory": "PLATFORM_IT=1 pnpm vitest run tests/integration/service/infer-gate-honesty-inventory.test.ts",
+    "inventory_result": "pass",
+    "inventory_log": ".tmp/sprint-08-role-router-local-first-and-degraded-modes/infer-gate-honesty-inventory-2026-07-16T07-00-00Z.log"
+  }
 }
