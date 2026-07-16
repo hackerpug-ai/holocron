@@ -26,7 +26,17 @@ import { PLATFORM_IT, REPO_ROOT } from './harness';
 import { installNetworkCapture } from './infer-network-capture';
 import { loadResolveModel } from './infer-resolve-loader';
 
-const itLive = PLATFORM_IT ? it : it.skip;
+// Local fleet structured generation ≈ 27s/call; the boot probe hits all roles
+// sequentially, so live tests need a long timeout (the 5s default only fits a single fast call).
+const FLEET_TIMEOUT = 420000;
+const itLive = (
+  name: string,
+  fn: () => Promise<unknown> | void,
+  timeout: number = FLEET_TIMEOUT
+) => {
+  if (PLATFORM_IT) it(name, fn, timeout);
+  else it.skip(name, fn);
+};
 const EVIDENCE_DIR = resolve(REPO_ROOT, '.tmp/struct-3');
 
 function writeArtifact(name: string, body: unknown): string {

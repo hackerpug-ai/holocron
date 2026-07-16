@@ -19,6 +19,7 @@
  * Sprint 08 infer-2: budget:status | budget:set
  * Sprint 08 infer-3: infer:degraded (status / poll) + DegradedModeController on fleet-down
  * Sprint 09 struct-1: extract --schema <name> --input <text>
+ * Sprint 09 struct-2: probe:capabilities
  */
 import { resolve } from 'node:path';
 import { z } from 'zod';
@@ -96,6 +97,8 @@ interface CliArgs {
   /** extract flags */
   schema: string | null;
   input: string | null;
+  /** probe:capabilities flags */
+  timeout: string | null;
 }
 
 function printHelp(): void {
@@ -148,6 +151,7 @@ Usage:
   budget:set                Set escape budget ceiling (--ceiling <usd>)
   extract                   Extract structured data with Zod validation --schema <name> --input <text>
   extract:status <id>       Query extraction status (placeholder)
+  probe:capabilities        Probe all fleet roles for json_schema structured-output support
 
 Options:
   --export <dir>        Path to unzipped convex export (or $CONVEX_EXPORT_DIR)
@@ -180,6 +184,7 @@ Options:
   --ceiling <usd>       (budget:set) escape budget ceiling in USD
   --schema <name>       (extract) schema name: simple|nested|tripwire
   --input <text>        (extract) input text or file path
+  --timeout <ms>        (probe:capabilities) timeout per role probe in ms (default 45000)
   --poll                (infer:degraded) run one real health probe (may auto-resume)
   --json                Emit JSON instead of text
   --print-trace         (compat:spike) emit OTel trace details
@@ -225,6 +230,7 @@ function parseArgs(argv: string[]): CliArgs {
     ceiling: null,
     schema: null,
     input: null,
+    timeout: null,
   };
   const positional: string[] = [];
   for (let i = 0; i < argv.length; i++) {
@@ -322,6 +328,10 @@ function parseArgs(argv: string[]): CliArgs {
       args.input = argv[++i] ?? null;
     } else if (a.startsWith('--input=')) {
       args.input = a.slice('--input='.length);
+    } else if (a === '--timeout') {
+      args.timeout = argv[++i] ?? null;
+    } else if (a.startsWith('--timeout=')) {
+      args.timeout = a.slice('--timeout='.length);
     } else if (a === '--for') {
       args.forConsumers = argv[++i] ?? null;
     } else if (a.startsWith('--for=')) {
@@ -1844,6 +1854,68 @@ async function main(): Promise<void> {
         console.log(`  status: NOT_IMPLEMENTED`);
       }
       process.exit(1);
+      break;
+    }
+    case 'probe:capabilities': {
+      // Sprint 09 struct-2: probe all fleet roles for json_schema support
+      const { probeCapabilities } = await import('../inference/capability-probe.ts');
+
+      // Optional role filter (positional arg or --role)
+      const roleFilter = args.role ?? args.positional[1] ?? null;
+
+      // Parse timeout if provided
+      let timeoutMs = 45_000; // Default 45s
+      if (args.timeout !== null && args.timeout !== undefined && args.timeout !== '') {
+        timeoutMs = Number(args.timeout);
+        if (Number.isNaN(timeoutMs) || timeoutMs <= 0) {
+          console.error(`error: --timeout must be a positive number (got ${args.timeout})`);
+          process.exit(2);
+        }
+      }
+
+      try {
+        const capabilities = await probeCapabilities(roleFilter ?? undefined, {
+          manifestPath: args.manifestPath,
+          timeoutMs,
+        });
+
+        if (args.json) {
+          console.log(JSON.stringify({ ok: true, capabilities }, null, 2));
+        } else {
+          console.log('holo probe:capabilities — per-role json_schema support');
+          console.log(`  timeout: ${timeoutMs}ms per role`);
+          if (roleFilter) {
+            console.log(`  role filter: ${roleFilter}`);
+          }
+          console.log('');
+          for (const [role, cap] of Object.entries(capabilities)) {
+            console.log(`  ${role}:`);
+            console.log(`    supportsJsonSchema: ${cap.supportsJsonSchema}`);
+            console.log(`    mode: ${cap.mode}`);
+            console.log(`    endpoint: ${cap.endpoint}`);
+            console.log(`    litellmModelId: ${cap.litellmModelId}`);
+            if (cap.error) {
+              console.log(`    error: ${cap.error}`);
+            }
+          }
+          console.log('');
+          const constrainedCount = Object.values(capabilities).filter(
+            (c) => c.mode === 'constrained'
+          ).length;
+          const repairCount = Object.values(capabilities).filter((c) => c.mode === 'repair').length;
+          console.log(`  summary: ${constrainedCount} constrained, ${repairCount} repair`);
+          console.log('  status: OK');
+        }
+        process.exit(0);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (args.json) {
+          console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+        } else {
+          console.error(`holo probe:capabilities failed: ${msg}`);
+        }
+        process.exit(1);
+      }
       break;
     }
     default:
