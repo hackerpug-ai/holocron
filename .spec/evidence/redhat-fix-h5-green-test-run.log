@@ -1,0 +1,13 @@
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-orchestrate/worktrees/task-redhat-fix-h5
+
+ ✓ tests/integration/service/infer-budget-hard-precheck.test.ts (6 tests) 2507ms
+     ✓ AC-1: estimatedCostUsd=0 refused; anthropicHits:0; no escape spend row  549ms
+     ✓ AC-4: logEscape failure after generateText fails closed (no undercount success)  794ms
+     ✓ AC-5: estimatedCostUsd=0.05 still meters escape with pre-check audit  688ms
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  22:36:50
+   Duration  2.77s (transform 142ms, setup 122ms, import 40ms, tests 2.51s, environment 0ms)
+

@@ -1,0 +1,6 @@
+{
+  "thrown": "budget ledger write failed after successful escape (spend may be unmetered): h5-ac4 injected ledger write failure",
+  "successPayload": null,
+  "anthropicCount": 1,
+  "note": "fail-closed: no clean success after ledger write failure"
+}

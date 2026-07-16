@@ -1,0 +1,29 @@
+{
+  "task": "REDHAT-FIX-H5",
+  "phase": "green",
+  "title": "Hard budget pre-check: reject zero estimate, transactional reserve, consistent ceiling, fail-closed ledger",
+  "ac": {
+    "AC-1": "PASS — estimatedCostUsd<=0 → BUDGET_INVALID_ESTIMATE; anthropicHits:0; CLI --cost 0 refused",
+    "AC-2": "PASS — concurrent reserve:true estimates serialize under SELECT FOR UPDATE; success_count===1",
+    "AC-3": "PASS — getBudgetStatus.effectiveCeiling === checkBudget.ceilingUsd; ceilingSource env|db",
+    "AC-4": "PASS — live generateText + injected logEscape failure → BudgetLedgerWriteError (fail-closed)",
+    "AC-5": "PASS — live estimatedCostUsd=0.05 meters escape with pre-check audit + cost>0",
+    "AC-6": "PASS — redhat-fix-h5* red + green evidence artifacts present"
+  },
+  "tests": {
+    "command": "PLATFORM_IT=1 pnpm vitest run tests/integration/service/infer-budget-hard-precheck.test.ts --pool=forks --maxWorkers=1",
+    "hasAnthropicKey": true,
+    "allowSkipAnthropic": false,
+    "ac4_live": true,
+    "ac5_live": true
+  },
+  "invariants": {
+    "reject_zero_estimate": true,
+    "transactional_reserve": true,
+    "consistent_ceiling_source": true,
+    "fail_closed_post_escape_ledger": true,
+    "pre_check_audit_preserved": true,
+    "honest_estimate_live": true,
+    "h1_h4_assertEscapeNotDegraded_preserved": true
+  }
+}

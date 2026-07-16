@@ -1,0 +1,34 @@
+{
+  "status": {
+    "spent": 0,
+    "ceiling": 999,
+    "remaining": 999,
+    "escapeCount": 0,
+    "dbCeiling": 1,
+    "effectiveCeiling": 999,
+    "ceilingSource": "env",
+    "reserved": 0
+  },
+  "check": {
+    "ok": true,
+    "ceilingUsd": 999,
+    "spentUsd": 0,
+    "remainingUsd": 999,
+    "estimatedCostUsd": 0.05,
+    "ceilingSource": "env"
+  },
+  "cliPayload": {
+    "ok": true,
+    "spent": 0,
+    "ceiling": 999,
+    "remaining": 999,
+    "escapeCount": 0,
+    "dbCeiling": 1,
+    "effectiveCeiling": 999,
+    "ceilingSource": "env",
+    "reserved": 0
+  },
+  "gateCeiling": 999,
+  "statusEffective": 999,
+  "cliEffective": 999
+}
