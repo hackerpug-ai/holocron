@@ -1,25 +1,48 @@
 {
   "sprint_id": "sprint-08-role-router-local-first-and-degraded-modes",
   "verdict": "pass",
+  "honesty_remediated": true,
+  "honesty_task": "REDHAT-FIX-H2",
+  "honesty_procedure": ".spec/prds/mk6-migration/tasks/sprint-08-role-router-local-first-and-degraded-modes/HUMAN-GATE.md",
+  "prior_greenwash_archive": ".spec/evidence/redhat-fix-h2-red.json",
   "cycle_start": "2026-07-16T03:39:04Z",
-  "completed_at": "2026-07-16T03:39:09.028922+00:00",
-  "runner": "kb-run-sprint-orchestrator",
+  "completed_at": "2026-07-16T04:30:00.000000+00:00",
+  "runner": "kb-run-sprint-orchestrator+REDHAT-FIX-H2",
   "ui_driver": "none",
-  "steps_total": 6,
-  "steps_executed": 6,
-  "steps_passed": 6,
+  "steps_total": 7,
+  "steps_executed": 7,
+  "steps_passed": 7,
+  "note": "REDHAT-FIX-H2: steps rewritten to real operator surface (infer:call / labeled PLATFORM_IT suite / verify:no-provider-refs). Mission CLI is Sprint 15. Suite steps are explicitly labeled suite — never greenwashed as mission. Prior greenwash archived under .spec/evidence/redhat-fix-h2-red.json.",
   "steps": [
     {
-      "id": "step-1-2",
-      "name": "Fleet mission/router default path zero Anthropic",
-      "command": "PLATFORM_IT=1 pnpm vitest run infer-router-zero-cloud + infer-red-zero-cloud",
+      "id": "step-1",
+      "name": "[CLI] infer:call default path divergent via resolveModel",
+      "kind": "cli",
+      "label": "CLI",
+      "command": "bun holo infer:call --role divergent --json",
       "executed": true,
       "result": "pass",
-      "log": ".tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests/step1-2-zero-cloud.log"
+      "log": ".tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests/step1-infer-call-divergent.log"
+    },
+    {
+      "id": "step-2",
+      "name": "[SUITE] PLATFORM_IT default-path zero Anthropic (not mission CLI)",
+      "kind": "suite",
+      "label": "SUITE",
+      "command": "PLATFORM_IT=1 pnpm vitest run tests/integration/service/infer-router-zero-cloud.test.ts tests/integration/service/infer-red-zero-cloud.test.ts",
+      "executed": true,
+      "result": "pass",
+      "log": ".tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests/step2-zero-cloud-suite.log",
+      "detail": {
+        "suite_not_mission": true,
+        "anthropicCount": 0
+      }
     },
     {
       "id": "step-3",
-      "name": "infer:call --role divergent/convergent resolve fleet models",
+      "name": "[CLI] infer:call --role divergent/convergent resolve fleet models",
+      "kind": "cli",
+      "label": "CLI",
       "command": "bun holo infer:call --role divergent|convergent --json",
       "executed": true,
       "result": "pass",
@@ -31,7 +54,9 @@
     },
     {
       "id": "step-4",
-      "name": "infer:call --escape --cost 999 blocked",
+      "name": "[CLI] infer:call --escape --cost 999 blocked",
+      "kind": "cli",
+      "label": "CLI",
       "command": "bun holo infer:call --escape --cost 999 --json",
       "executed": true,
       "result": "pass",
@@ -39,27 +64,39 @@
     },
     {
       "id": "step-5",
-      "name": "real infer:call --escape --highStakes within budget logs ledger",
+      "name": "[CLI] real infer:call --escape --highStakes within budget logs ledger",
+      "kind": "cli",
+      "label": "CLI",
       "command": "bun holo infer:call --escape --highStakes --cost 0.05 --json",
       "executed": true,
       "result": "pass",
       "log": ".tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests/step5-escape.log",
       "detail": {
         "tokens": 21,
-        "cost": 4.1e-05
+        "cost": 4.1e-5
       }
     },
     {
       "id": "step-6",
-      "name": "fleet-down degrades then resumes (never cloud)",
-      "command": "PLATFORM_IT=1 vitest infer-degraded-transition + resume",
+      "name": "[SUITE] degraded never-cloud controller suite (not mid-run mission fleet kill)",
+      "kind": "suite",
+      "label": "SUITE",
+      "command": "PLATFORM_IT=1 pnpm vitest run tests/integration/service/infer-degraded-transition.test.ts tests/integration/service/infer-degraded-resume.test.ts",
       "executed": true,
       "result": "pass",
-      "log": ".tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests/step6-degraded.log"
+      "log": ".tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests/step6-degraded-suite.log",
+      "detail": {
+        "suite_not_mission": true,
+        "never_cloud": true,
+        "anthropicCount": 0,
+        "honest_degraded_proof": "controller suite + optional holo infer:degraded"
+      }
     },
     {
       "id": "step-7",
-      "name": "holo verify:no-provider-refs",
+      "name": "[CLI] holo verify:no-provider-refs",
+      "kind": "cli",
+      "label": "CLI",
       "command": "bun holo verify:no-provider-refs",
       "executed": true,
       "result": "pass",
