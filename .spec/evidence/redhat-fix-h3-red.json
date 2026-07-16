@@ -1,17 +1,31 @@
 {
   "task": "REDHAT-FIX-H3",
   "phase": "RED",
-  "seed_ok": true,
-  "seed_has_beliefId_key": false,
-  "seed_beliefId": null,
-  "claimId": "019f677a-198d-7bf2-91b1-7181694d65d1",
-  "belief_ok": false,
-  "belief_errors": [
-    "no belief for claim_id=019f677a-198d-7bf2-91b1-7181694d65d1 as-of 2026-07-15T20:31:23.162Z"
+  "finding": "H3 seam-only structural claim",
+  "createFleetChatModel_all_mentions": [
+    {
+      "file": "services/platform/src/inference/resolve-model.ts",
+      "line": 221,
+      "text": "export function createFleetChatModel("
+    },
+    {
+      "file": "services/platform/src/inference/resolve-model.ts",
+      "line": 227,
+      "text": "`createFleetChatModel requires provider=fleet (got ${resolved.provider}) \u2014 use Anthropic SDK on escape path`"
+    }
   ],
-  "belief_beliefId": null,
+  "production_createFleetChatModel_callers": 0,
+  "production_call_sites": [],
+  "agent_hardcodes_FLEET_URL": true,
+  "agent_uses_resolveModel": false,
+  "agent_uses_createFleetChatModel": false,
+  "agent_snippet_indicators": {
+    "has_createOpenAICompatible": true,
+    "has_compat_spike": true,
+    "has_FLEET_URL": true
+  },
   "must_observe_red": {
-    "seed succeeds without beliefId": true,
-    "belief as-of fails with no belief": true
+    "production_createFleetChatModel_callers === 0": true,
+    "agent hardcodes FLEET_URL + createOpenAICompatible + compat-spike": true
   }
 }

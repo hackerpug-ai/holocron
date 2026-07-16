@@ -1,17 +1,24 @@
 /**
  * Cell 1 — Agent
  *
- * Boots one Mastra Agent bound to the live fleet via
- * @ai-sdk/openai-compatible at http://127.0.0.1:4545/v1.
+ * Boots one Mastra Agent bound to the live fleet via the role router:
+ *   resolveModel(role) → createFleetChatModel(resolved) → Agent({ model })
+ *
+ * Structural local-first (REDHAT-FIX-H3): no hard-coded FLEET_URL + compat-spike.
  * Calls agent.generate() and asserts non-empty text.
- * Zero cloud requests (no api.openai.com / api.anthropic.com).
+ * Zero cloud requests (no api.openai.com / api.anthropic.com) on the default path.
  */
 
-import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import { Agent } from '@mastra/core/agent';
 import type { Mastra } from '@mastra/core/mastra';
+import {
+  createFleetChatModel,
+  type ResolvedModel,
+  type ResolveModelOptions,
+  resolveModel,
+} from '../../inference/resolve-model.ts';
 import { assertNoTripwire, TripwireError } from '../../mastra/tripwire.ts';
-import { FLEET_KEY, FLEET_URL } from '../../mastra.ts';
+import { FLEET_KEY } from '../../mastra.ts';
 
 export interface AgentCellResult {
   ok: boolean;
@@ -25,6 +32,22 @@ export interface AgentCellResult {
     retry?: boolean;
   };
 }
+
+export type CreateFleetAgentOptions = {
+  /** Fleet Role Manifest role (default: divergent). */
+  role?: string;
+  /** Forwarded to resolveModel (allowEscape defaults false). */
+  resolveOptions?: ResolveModelOptions;
+  /** Agent id/name (default: compat-agent). */
+  agentId?: string;
+  /** Fleet API key for OpenAI-compatible client. */
+  apiKey?: string;
+};
+
+export type FleetAgentBundle = {
+  agent: Agent;
+  resolved: ResolvedModel;
+};
 
 /**
  * Network assertion: count outbound requests to known cloud providers.
@@ -67,25 +90,43 @@ function withCloudRequestTracking<T>(fn: () => Promise<T>): {
 }
 
 /**
- * Create the fleet-bound agent. Registered on the Mastra instance
- * by the spike orchestrator so observability spans are captured.
+ * Structural factory: resolve a fleet role, build chat model via createFleetChatModel,
+ * return Agent + ResolvedModel. Fail-closed on unknown/unreachable roles (no Anthropic).
  */
-export function createFleetAgent(): Agent {
-  const provider = createOpenAICompatible({
-    name: 'holocron-fleet',
-    baseURL: FLEET_URL,
-    apiKey: FLEET_KEY,
+export async function createFleetAgentWithResolved(
+  options: CreateFleetAgentOptions = {}
+): Promise<FleetAgentBundle> {
+  const role = options.role ?? 'divergent';
+  const resolved = await resolveModel(role, {
+    allowEscape: false,
+    ...options.resolveOptions,
   });
 
-  const fleetModel = provider.chatModel('compat-spike');
+  // createFleetChatModel refuses non-fleet provider — escape remains Anthropic SDK path.
+  const fleetModel = createFleetChatModel(resolved, {
+    apiKey: options.apiKey ?? FLEET_KEY,
+    name: 'holocron-fleet',
+  });
 
-  return new Agent({
-    id: 'compat-agent',
-    name: 'compat-agent',
+  const id = options.agentId ?? 'compat-agent';
+  const agent = new Agent({
+    id,
+    name: id,
     model: fleetModel,
     instructions:
       'You are a compatibility test agent. Respond concisely. Always reply with at least one word.',
   });
+
+  return { agent, resolved };
+}
+
+/**
+ * Create the fleet-bound agent via resolveModel + createFleetChatModel.
+ * Registered on the Mastra instance by the spike orchestrator so observability spans are captured.
+ */
+export async function createFleetAgent(options: CreateFleetAgentOptions = {}): Promise<Agent> {
+  const { agent } = await createFleetAgentWithResolved(options);
+  return agent;
 }
 
 export async function runAgentCell(mastra: Mastra): Promise<AgentCellResult> {

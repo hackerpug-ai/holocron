@@ -56,7 +56,8 @@ export async function runSpike(): Promise<SpikeResult> {
   try {
     const storage = createStorage();
     const observability = createObservability();
-    const agent = createFleetAgent();
+    // Structural local-first: await resolveModel(role) → createFleetChatModel
+    const agent = await createFleetAgent({ role: 'divergent' });
     mastra = new Mastra({
       storage,
       observability,
