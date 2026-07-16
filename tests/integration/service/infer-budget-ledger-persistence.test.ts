@@ -104,9 +104,14 @@ describe('AC-1: budget_ledger persists escape records (real Postgres)', () => {
         expect(names).toContain('cost');
         expect(names).toContain('timestamp');
         expect(names).toEqual(expect.arrayContaining(['run_id', 'step_id']));
+        // Migration 0009: allow_escape for pre-check / escape audit (infer-5 AC-2)
+        expect(names).toContain('allow_escape');
+        expect(names).toContain('check_type');
 
         const reason = cols.find((c) => c.column_name === 'reason');
         expect(reason?.data_type).toBe('text');
+        const allowEscape = cols.find((c) => c.column_name === 'allow_escape');
+        expect(allowEscape?.data_type).toBe('boolean');
 
         writeArtifact('AC-1-schema.json', { columns: cols });
       } finally {

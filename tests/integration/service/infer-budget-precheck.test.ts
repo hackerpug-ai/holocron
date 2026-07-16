@@ -1,10 +1,12 @@
 /**
- * AC-2 / TC-2..3 (infer-2): checkBudget() blocks over-budget escapes before Anthropic fires.
+ * AC-2 / TC-2..3 (infer-2 + infer-5 gap): checkBudget() blocks over-budget escapes
+ * before Anthropic fires AND writes budget_ledger pre-check audit rows.
  *
  * NEGATIVE CONTROL (would fail if):
  * - checkBudget() stubbed to always return true so over-budget calls proceed
  * - Pre-check skipped so allowEscape=true bypasses budget
  * - Network capture mocked so shows no API call but real call occurred
+ * - checkBudget never INSERTS check_type='pre-check' (infer-5 AC-2)
  *
  * Run:
  *   PLATFORM_IT=1 pnpm vitest run tests/integration/service/infer-budget-precheck.test.ts
@@ -42,8 +44,10 @@ async function loadBudgetLedger() {
     checkBudget: (req: {
       estimatedCostUsd: number;
       reason?: string;
+      role?: string;
       runId?: string;
       stepId?: string;
+      allowEscape?: boolean;
     }) => Promise<{ ok: boolean; code?: string; spentUsd: number; ceilingUsd: number }>;
     setBudgetCeiling: (ceilingUsd: number) => Promise<{ ceiling: number }>;
     logEscape: (req: {
@@ -53,6 +57,8 @@ async function loadBudgetLedger() {
       runId?: string;
       stepId?: string;
       checkType?: string;
+      role?: string;
+      allowEscape?: boolean;
     }) => Promise<{ id: string }>;
     resetBudgetLedgerForTests: () => Promise<void>;
   }>;
@@ -124,8 +130,10 @@ describe('AC-2: checkBudget pre-check blocks over-budget before Anthropic', () =
           const over = await checkBudget({
             estimatedCostUsd: 2,
             reason: 'ac2-over-budget',
+            role: 'divergent',
             runId: 'ac2',
             stepId: 'over',
+            allowEscape: true,
           });
           expect(over.ok).toBe(false);
           expect(over.spentUsd).toBe(9);
@@ -134,11 +142,73 @@ describe('AC-2: checkBudget pre-check blocks over-budget before Anthropic', () =
           const within = await checkBudget({
             estimatedCostUsd: 1,
             reason: 'ac2-within-budget',
+            role: 'divergent',
             runId: 'ac2',
             stepId: 'within',
+            allowEscape: true,
           });
           expect(within.ok).toBe(true);
           expect(within.spentUsd).toBe(9);
+
+          // infer-5 AC-2: every checkBudget must INSERT check_type='pre-check' audit rows
+          const sql = await loadSql();
+          try {
+            const preCheckCount = (await sql`
+              SELECT count(*)::int AS n
+              FROM budget_ledger
+              WHERE check_type = 'pre-check'
+            `) as Array<{ n: number }>;
+            expect(
+              Number(preCheckCount[0]?.n ?? 0),
+              'COUNT(check_type=pre-check) must be >= 1 after checkBudget'
+            ).toBeGreaterThanOrEqual(1);
+
+            const preCheckRows = (await sql`
+              SELECT reason, tokens, cost, role, allow_escape, check_type, step_id
+              FROM budget_ledger
+              WHERE check_type = 'pre-check'
+              ORDER BY "timestamp" ASC
+            `) as Array<{
+              reason: string;
+              tokens: number;
+              cost: number;
+              role: string | null;
+              allow_escape: boolean | null;
+              check_type: string;
+              step_id: string | null;
+            }>;
+
+            // At least over + within audits (tokens=0, cost=0)
+            expect(preCheckRows.length).toBeGreaterThanOrEqual(2);
+            for (const row of preCheckRows) {
+              expect(Number(row.tokens)).toBe(0);
+              expect(Number(row.cost)).toBe(0);
+              expect(row.check_type).toBe('pre-check');
+            }
+
+            const divergentEscape = preCheckRows.find(
+              (r) => r.role === 'divergent' && r.allow_escape === true
+            );
+            expect(
+              divergentEscape,
+              'pre-check row with role=divergent and allow_escape=true required'
+            ).toBeTruthy();
+            expect(divergentEscape?.reason).toMatch(/BUDGET_(OK|EXCEEDED|NOT_CONFIGURED)/);
+
+            // Spent must remain $9 — pre-check audit cost=0 must not inflate spend
+            const spentAfter = (await sql`
+              SELECT COALESCE(SUM(cost), 0)::float8 AS spent FROM budget_ledger
+            `) as Array<{ spent: number }>;
+            expect(Number(spentAfter[0]?.spent)).toBe(9);
+
+            writeArtifact('AC-2-precheck-rows.json', {
+              preCheckCount: Number(preCheckCount[0]?.n ?? 0),
+              preCheckRows,
+              spentAfter: Number(spentAfter[0]?.spent),
+            });
+          } finally {
+            await sql.end({ timeout: 5 });
+          }
 
           // Over-budget resolveModel must not contact Anthropic
           const { resolveModel, BudgetExceededError } = await loadResolveModel();

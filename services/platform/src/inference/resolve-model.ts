@@ -276,13 +276,14 @@ export async function resolveModel(
       throw err;
     }
 
-    // Budget pre-check BEFORE any Anthropic network traffic
+    // Budget pre-check BEFORE any Anthropic network traffic (audits check_type='pre-check')
     const budget = await assertBudget({
       estimatedCostUsd: options.estimatedCostUsd ?? 0.01,
       reason: options.reason,
       role,
       runId: options.runId,
       stepId: options.stepId,
+      allowEscape: true,
     });
 
     let escapeProbeStatus: number | undefined;
