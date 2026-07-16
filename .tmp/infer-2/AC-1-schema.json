@@ -1,0 +1,48 @@
+{
+  "columns": [
+    {
+      "column_name": "id",
+      "data_type": "uuid"
+    },
+    {
+      "column_name": "reason",
+      "data_type": "text"
+    },
+    {
+      "column_name": "tokens",
+      "data_type": "integer"
+    },
+    {
+      "column_name": "cost",
+      "data_type": "double precision"
+    },
+    {
+      "column_name": "timestamp",
+      "data_type": "timestamp with time zone"
+    },
+    {
+      "column_name": "run_id",
+      "data_type": "text"
+    },
+    {
+      "column_name": "step_id",
+      "data_type": "text"
+    },
+    {
+      "column_name": "role",
+      "data_type": "text"
+    },
+    {
+      "column_name": "model_id",
+      "data_type": "text"
+    },
+    {
+      "column_name": "check_type",
+      "data_type": "text"
+    },
+    {
+      "column_name": "created_at",
+      "data_type": "timestamp with time zone"
+    }
+  ]
+}

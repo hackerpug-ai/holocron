@@ -1,0 +1,11 @@
+{
+  "setOut": "holo budget:set — escape budget ceiling updated\n  ceiling:   50\n  spent:     15\n  remaining: 35\n  status: OK\n\n",
+  "statusPayload": {
+    "ok": true,
+    "spent": 15,
+    "ceiling": 50,
+    "remaining": 35,
+    "escapeCount": 3
+  },
+  "dbCeiling": 50
+}

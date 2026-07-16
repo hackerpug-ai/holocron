@@ -18,6 +18,8 @@ import { BUN_BIN, DEFAULT_DATABASE_URL, HOLO_CLI, PLATFORM_IT, REPO_ROOT } from 
 import { installNetworkCapture } from './infer-network-capture';
 
 const hasAnthropicKey = Boolean(process.env.ANTHROPIC_API_KEY?.trim());
+/** Local-dev only: allow PLATFORM_IT suite to pass without a live Anthropic key. Harvest must NOT set this. */
+const allowSkipAnthropic = process.env.ALLOW_SKIP_ANTHROPIC === '1';
 const itLive = PLATFORM_IT ? it : it.skip;
 const itAnthropic = PLATFORM_IT && hasAnthropicKey ? it : it.skip;
 const EVIDENCE_DIR = resolve(REPO_ROOT, '.tmp/infer-2');
@@ -95,15 +97,27 @@ describe('AC-3: logEscape after real Anthropic escape', () => {
     }
   });
 
-  itLive('documents ANTHROPIC_API_KEY presence for AC-3 gate', () => {
-    writeArtifact('AC-3-key-presence.json', {
-      hasAnthropicKey,
-      note: hasAnthropicKey
-        ? 'real Anthropic path will run'
-        : 'ANTHROPIC_API_KEY unset — runBudgetedEscape integration skipped (dispatch: when key present)',
-    });
-    expect(true).toBe(true);
-  });
+  itLive(
+    'ANTHROPIC_API_KEY required under PLATFORM_IT (fail closed without ALLOW_SKIP_ANTHROPIC)',
+    () => {
+      writeArtifact('AC-3-key-presence.json', {
+        hasAnthropicKey,
+        allowSkipAnthropic,
+        platformIt: PLATFORM_IT,
+        note: hasAnthropicKey
+          ? 'real Anthropic path will run'
+          : allowSkipAnthropic
+            ? 'ALLOW_SKIP_ANTHROPIC=1 — local-dev skip of live Anthropic path (not for harvest)'
+            : 'ANTHROPIC_API_KEY unset — FAIL CLOSED under PLATFORM_IT=1',
+      });
+      // Fail closed by default: harvest cannot greenwash a missing key.
+      // Opt-out only via ALLOW_SKIP_ANTHROPIC=1 for local work without Anthropic.
+      expect(
+        hasAnthropicKey || allowSkipAnthropic,
+        'AC-3 fail-closed: set ANTHROPIC_API_KEY for live escape telemetry, or ALLOW_SKIP_ANTHROPIC=1 for local-dev only'
+      ).toBe(true);
+    }
+  );
 
   itAnthropic(
     'runBudgetedEscape logs reason/tokens/cost and contacts api.anthropic.com',
@@ -167,6 +181,96 @@ describe('AC-3: logEscape after real Anthropic escape', () => {
           }
         } finally {
           capture.restore();
+        }
+      });
+    },
+    120_000
+  );
+
+  itAnthropic(
+    'holo infer:call --escape runs runBudgetedEscape (ledger tokens/cost + anthropic host)',
+    async () => {
+      await withBudgetLock(async () => {
+        process.env.HOLO_ESCAPE_BUDGET_USD = process.env.HOLO_ESCAPE_BUDGET_USD || '10';
+        const ledger = await loadBudgetLedger();
+        await ledger.resetBudgetLedgerForTests();
+        await ledger.setBudgetCeiling(10);
+
+        const runId = `ac3-cli-escape-${Date.now()}`;
+        const cli = spawnSync(
+          BUN_BIN,
+          [
+            HOLO_CLI,
+            'infer:call',
+            '--escape',
+            '--cost',
+            '0.05',
+            '--reason',
+            'ac3-cli-budgeted-escape',
+            '--run-id',
+            runId,
+            '--prompt',
+            'Reply with exactly the single word: pong',
+            '--json',
+          ],
+          {
+            cwd: REPO_ROOT,
+            encoding: 'utf8',
+            env: {
+              ...process.env,
+              DATABASE_URL: DEFAULT_DATABASE_URL,
+              HOLO_ESCAPE_BUDGET_USD: '10',
+            },
+            timeout: 120_000,
+          }
+        );
+        const out = `${cli.stdout ?? ''}\n${cli.stderr ?? ''}`;
+        expect(cli.status, out).toBe(0);
+
+        let payload: {
+          ok?: boolean;
+          mode?: string;
+          escape?: {
+            tokens?: number;
+            cost?: number;
+            ledgerId?: string;
+            text?: string;
+          };
+          networkCapture?: { anthropicCount?: number };
+        } = {};
+        try {
+          payload = JSON.parse(cli.stdout ?? '{}') as typeof payload;
+        } catch {
+          // fall through to string assertions
+        }
+
+        expect(payload.ok ?? /"ok"\s*:\s*true/.test(out)).toBeTruthy();
+        expect(payload.mode ?? out).toMatch(/runBudgetedEscape|budgeted-escape/i);
+        expect(Number(payload.escape?.tokens ?? 0)).toBeGreaterThan(0);
+        expect(Number(payload.escape?.cost ?? 0)).toBeGreaterThan(0);
+        expect(payload.escape?.ledgerId).toBeTruthy();
+        expect(payload.networkCapture?.anthropicCount ?? 0).toBeGreaterThanOrEqual(1);
+
+        const sql = await loadSql();
+        try {
+          const rows = (await sql`
+            SELECT reason, tokens, cost, run_id
+            FROM budget_ledger
+            WHERE run_id = ${runId}
+          `) as Array<{ reason: string; tokens: number; cost: number; run_id: string }>;
+          expect(rows.length).toBe(1);
+          expect(Number(rows[0]?.tokens)).toBeGreaterThan(0);
+          expect(Number(rows[0]?.cost)).toBeGreaterThan(0);
+          expect(rows[0]?.reason).toBe('ac3-cli-budgeted-escape');
+
+          writeArtifact('AC-3-cli-escape-telemetry.json', {
+            status: cli.status,
+            payload,
+            rows,
+            outPreview: out.slice(0, 2000),
+          });
+        } finally {
+          await sql.end({ timeout: 5 });
         }
       });
     },

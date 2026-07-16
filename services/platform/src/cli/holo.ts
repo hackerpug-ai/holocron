@@ -86,6 +86,8 @@ interface CliArgs {
   highStakes: boolean;
   cost: string | null;
   reason: string | null;
+  /** infer:call --escape: optional prompt for runBudgetedEscape */
+  prompt: string | null;
   /** budget:set --ceiling */
   ceiling: string | null;
 }
@@ -132,7 +134,8 @@ Usage:
   evidence:belief           As-of belief + net-support for a claim (--claim-id, --as-of)
   evidence:register-doc <id>
                             Register internal doc as self-sourced source (reuse passages)
-  infer:call                Resolve a fleet role (or budgeted Claude escape) via resolveModel
+  infer:call                Resolve a fleet role; --escape runs budgeted Claude escape
+                            (checkBudget → @ai-sdk/anthropic generateText → logEscape)
   verify:no-provider-refs   Audit platform src for banned claudeFlash/Pro/Ultra factories
   budget:status             Show escape budget spent / remaining / ceiling (real Postgres)
   budget:set                Set escape budget ceiling (--ceiling <usd>)
@@ -159,10 +162,12 @@ Options:
   --claim-id <id>       (evidence:belief) claim id to query
   --as-of <ts|now>      (evidence:belief) transaction-time as-of (default: now)
   --role <role>         (infer:call) fleet role: divergent|convergent|judge|embed|rerank
-  --escape              (infer:call) allowEscape=true (budgeted Claude escape)
+  --escape              (infer:call) budgeted Claude escape via runBudgetedEscape
   --highStakes          (infer:call) alias for --escape (high-stakes step)
   --cost <usd>          (infer:call) estimated escape cost USD for budget pre-check
   --reason <text>       (infer:call) escape reason for audit trail
+  --prompt <text>       (infer:call --escape) prompt for real Anthropic generateText
+  --run-id <id>         (infer:call --escape / evidence:revise) run id for ledger
   --ceiling <usd>       (budget:set) escape budget ceiling in USD
   --json                Emit JSON instead of text
   --print-trace         (compat:spike) emit OTel trace details
@@ -204,6 +209,7 @@ function parseArgs(argv: string[]): CliArgs {
     highStakes: false,
     cost: null,
     reason: null,
+    prompt: null,
     ceiling: null,
   };
   const positional: string[] = [];
@@ -286,6 +292,10 @@ function parseArgs(argv: string[]): CliArgs {
       args.reason = argv[++i] ?? null;
     } else if (a.startsWith('--reason=')) {
       args.reason = a.slice('--reason='.length);
+    } else if (a === '--prompt') {
+      args.prompt = argv[++i] ?? null;
+    } else if (a.startsWith('--prompt=')) {
+      args.prompt = a.slice('--prompt='.length);
     } else if (a === '--ceiling') {
       args.ceiling = argv[++i] ?? null;
     } else if (a.startsWith('--ceiling=')) {
@@ -1207,7 +1217,7 @@ async function main(): Promise<void> {
       break;
     }
     case 'infer:call': {
-      // Sprint 08: resolveModel(role,{allowEscape}) via operator CLI
+      // Sprint 08: fleet → resolveModel; --escape → runBudgetedEscape (full metered path)
       const role =
         args.role ?? args.positional[1] ?? (args.escape || args.highStakes ? 'divergent' : null);
       if (!role) {
@@ -1226,7 +1236,7 @@ async function main(): Promise<void> {
         }
       }
 
-      // Real network capture around resolveModel (not a mocked always-zero counter)
+      // Real network capture (not a mocked always-zero counter)
       type CapRow = { host: string; url: string; method: string; at: number };
       const captureRows: CapRow[] = [];
       const origFetch = globalThis.fetch;
@@ -1255,84 +1265,192 @@ async function main(): Promise<void> {
         return origFetch(input as RequestInfo, init as RequestInit);
       }) as typeof globalThis.fetch;
 
-      const { resolveModel, UnknownFleetRoleError, RoleUnavailableError, BudgetExceededError } =
-        await import('../inference/resolve-model.ts');
+      const anthropicHits = () =>
+        captureRows.filter(
+          (r) => r.host.includes('api.anthropic.com') || r.url.includes('api.anthropic.com')
+        ).length;
+      const fleetHits = () =>
+        captureRows.filter((r) => r.url.includes(':4545') || r.host.includes('127.0.0.1')).length;
 
       try {
-        const resolved = await resolveModel(role, {
-          allowEscape,
-          highStakes: args.highStakes,
-          estimatedCostUsd,
-          reason: args.reason ?? (allowEscape ? 'holo-infer-call-escape' : 'holo-infer-call'),
-        });
-        const anthropicCount = captureRows.filter(
-          (r) => r.host.includes('api.anthropic.com') || r.url.includes('api.anthropic.com')
-        ).length;
-        const fleetCount = captureRows.filter(
-          (r) => r.url.includes(':4545') || r.host.includes('127.0.0.1')
-        ).length;
-        const payload = {
-          ok: true,
-          allowEscape,
-          role,
-          resolved,
-          networkCapture: {
-            anthropicCount,
-            fleetCount,
-            rows: captureRows,
-          },
-        };
-        if (args.json) {
-          console.log(JSON.stringify(payload, null, 2));
-        } else {
-          console.log('holo infer:call — resolveModel(role, { allowEscape })');
-          console.log(`  role:            ${resolved.role}`);
-          console.log(`  allowEscape:     ${allowEscape}`);
-          console.log(`  provider:        ${resolved.provider}`);
-          console.log(`  endpoint:        ${resolved.endpoint}`);
-          console.log(`  baseURL:         ${resolved.baseURL}`);
-          console.log(`  litellmModelId:  ${resolved.litellmModelId}`);
-          console.log(`  modelRevision:   ${resolved.modelRevision}`);
-          console.log(`  degradation:     ${resolved.degradationAction}`);
-          console.log(
-            `  networkCapture:  anthropic=${anthropicCount} fleet=${fleetCount} total=${captureRows.length}`
+        if (allowEscape) {
+          // Full escape path: checkBudget → real generateText → logEscape (NOT resolve-only probe)
+          const { runBudgetedEscape, BudgetExceededError } = await import(
+            '../inference/budget-ledger.ts'
           );
-          console.log('  status: OK');
-        }
-        process.exit(0);
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        const code =
-          err instanceof UnknownFleetRoleError
-            ? 'UNKNOWN_FLEET_ROLE'
-            : err instanceof RoleUnavailableError
-              ? 'ROLE_UNAVAILABLE'
-              : err instanceof BudgetExceededError
+          const reason = args.reason ?? 'holo-infer-call-escape';
+          const prompt =
+            args.prompt ?? args.statement ?? 'Reply with exactly the single word: pong';
+          try {
+            const escapeResult = await runBudgetedEscape({
+              prompt,
+              reason,
+              estimatedCostUsd,
+              runId: args.runId ?? undefined,
+              stepId: 'holo-infer-call',
+              role,
+            });
+            const anthropicCount = anthropicHits();
+            const fleetCount = fleetHits();
+            const payload = {
+              ok: true,
+              mode: 'runBudgetedEscape',
+              allowEscape: true,
+              role,
+              escape: {
+                text: escapeResult.text,
+                tokens: escapeResult.tokens,
+                cost: escapeResult.cost,
+                ledgerId: escapeResult.ledgerId,
+                modelId: escapeResult.modelId,
+                inputTokens: escapeResult.inputTokens,
+                outputTokens: escapeResult.outputTokens,
+                anthropicHostContacted: escapeResult.anthropicHostContacted,
+                reason,
+              },
+              // Surface endpoint for callers/tests that match on api.anthropic.com
+              resolved: {
+                role,
+                provider: 'anthropic' as const,
+                endpoint: 'https://api.anthropic.com',
+                baseURL: 'https://api.anthropic.com/v1',
+                litellmModelId: escapeResult.modelId,
+                modelRevision: `escape:${escapeResult.modelId}`,
+                allowEscape: true,
+              },
+              networkCapture: {
+                anthropicCount,
+                fleetCount,
+                rows: captureRows,
+              },
+            };
+            if (args.json) {
+              console.log(JSON.stringify(payload, null, 2));
+            } else {
+              console.log('holo infer:call — runBudgetedEscape (budgeted Claude escape)');
+              console.log(`  role:            ${role}`);
+              console.log(`  mode:            runBudgetedEscape`);
+              console.log(`  modelId:         ${escapeResult.modelId}`);
+              console.log(`  tokens:          ${escapeResult.tokens}`);
+              console.log(`  cost:            ${escapeResult.cost}`);
+              console.log(`  ledgerId:        ${escapeResult.ledgerId}`);
+              console.log(`  reason:          ${reason}`);
+              console.log(`  text:            ${escapeResult.text.slice(0, 200)}`);
+              console.log(
+                `  networkCapture:  anthropic=${anthropicCount} fleet=${fleetCount} total=${captureRows.length}`
+              );
+              console.log('  status: OK');
+            }
+            process.exit(0);
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            const code =
+              err instanceof BudgetExceededError
                 ? err.code
-                : 'RESOLVE_FAILED';
-        const anthropicCount = captureRows.filter(
-          (r) => r.host.includes('api.anthropic.com') || r.url.includes('api.anthropic.com')
-        ).length;
-        const payload = {
-          ok: false,
-          error: code,
-          role,
-          allowEscape,
-          message: msg,
-          networkCapture: {
-            anthropicCount,
-            fleetCount: captureRows.filter((r) => r.url.includes(':4545')).length,
-            rows: captureRows,
-          },
-        };
-        if (args.json) {
-          console.error(JSON.stringify(payload, null, 2));
-        } else {
-          console.error(`holo infer:call failed: ${code}`);
-          console.error(`  ${msg}`);
-          console.error(`  networkCapture.anthropicCount=${anthropicCount}`);
+                : /ANTHROPIC_API_KEY/i.test(msg)
+                  ? 'ANTHROPIC_API_KEY_REQUIRED'
+                  : 'ESCAPE_FAILED';
+            const anthropicCount = anthropicHits();
+            const payload = {
+              ok: false,
+              mode: 'runBudgetedEscape',
+              error: code,
+              role,
+              allowEscape: true,
+              message: msg,
+              networkCapture: {
+                anthropicCount,
+                fleetCount: fleetHits(),
+                rows: captureRows,
+              },
+            };
+            if (args.json) {
+              console.error(JSON.stringify(payload, null, 2));
+            } else {
+              console.error(`holo infer:call failed: ${code}`);
+              console.error(`  ${msg}`);
+              console.error(`  networkCapture.anthropicCount=${anthropicCount}`);
+            }
+            process.exit(1);
+          }
         }
-        process.exit(1);
+
+        // Default path: fleet resolveModel (no Anthropic)
+        const { resolveModel, UnknownFleetRoleError, RoleUnavailableError, BudgetExceededError } =
+          await import('../inference/resolve-model.ts');
+
+        try {
+          const resolved = await resolveModel(role, {
+            allowEscape: false,
+            highStakes: false,
+            estimatedCostUsd,
+            reason: args.reason ?? 'holo-infer-call',
+          });
+          const anthropicCount = anthropicHits();
+          const fleetCount = fleetHits();
+          const payload = {
+            ok: true,
+            mode: 'resolveModel',
+            allowEscape: false,
+            role,
+            resolved,
+            networkCapture: {
+              anthropicCount,
+              fleetCount,
+              rows: captureRows,
+            },
+          };
+          if (args.json) {
+            console.log(JSON.stringify(payload, null, 2));
+          } else {
+            console.log('holo infer:call — resolveModel(role, { allowEscape: false })');
+            console.log(`  role:            ${resolved.role}`);
+            console.log(`  allowEscape:     false`);
+            console.log(`  provider:        ${resolved.provider}`);
+            console.log(`  endpoint:        ${resolved.endpoint}`);
+            console.log(`  baseURL:         ${resolved.baseURL}`);
+            console.log(`  litellmModelId:  ${resolved.litellmModelId}`);
+            console.log(`  modelRevision:   ${resolved.modelRevision}`);
+            console.log(`  degradation:     ${resolved.degradationAction}`);
+            console.log(
+              `  networkCapture:  anthropic=${anthropicCount} fleet=${fleetCount} total=${captureRows.length}`
+            );
+            console.log('  status: OK');
+          }
+          process.exit(0);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          const code =
+            err instanceof UnknownFleetRoleError
+              ? 'UNKNOWN_FLEET_ROLE'
+              : err instanceof RoleUnavailableError
+                ? 'ROLE_UNAVAILABLE'
+                : err instanceof BudgetExceededError
+                  ? err.code
+                  : 'RESOLVE_FAILED';
+          const anthropicCount = anthropicHits();
+          const payload = {
+            ok: false,
+            mode: 'resolveModel',
+            error: code,
+            role,
+            allowEscape: false,
+            message: msg,
+            networkCapture: {
+              anthropicCount,
+              fleetCount: fleetHits(),
+              rows: captureRows,
+            },
+          };
+          if (args.json) {
+            console.error(JSON.stringify(payload, null, 2));
+          } else {
+            console.error(`holo infer:call failed: ${code}`);
+            console.error(`  ${msg}`);
+            console.error(`  networkCapture.anthropicCount=${anthropicCount}`);
+          }
+          process.exit(1);
+        }
       } finally {
         globalThis.fetch = origFetch;
       }

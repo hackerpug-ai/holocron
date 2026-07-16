@@ -1,0 +1,22 @@
+{
+  "inserted": {
+    "id": "019f685a-3156-7d6d-b463-2dc741123b4d",
+    "reason": "ac1-persistence-probe",
+    "tokens": 128,
+    "cost": 0.0042,
+    "runId": "ac1-run-1784162169123",
+    "stepId": "ac1-step",
+    "timestamp": "2026-07-16T00:36:09.164Z"
+  },
+  "rows": [
+    {
+      "id": "019f685a-3156-7d6d-b463-2dc741123b4d",
+      "reason": "ac1-persistence-probe",
+      "tokens": 128,
+      "cost": 0.0042,
+      "run_id": "ac1-run-1784162169123",
+      "step_id": "ac1-step",
+      "timestamp": "2026-07-16T00:36:09.164Z"
+    }
+  ]
+}

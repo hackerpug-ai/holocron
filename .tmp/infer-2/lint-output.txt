@@ -1,0 +1,5 @@
+=== biome check (scope: infer-2 files) ===
+Checked 4 files in 17ms. No fixes applied.
+scoped_lint_exit=0
+
+=== note: monorepo-wide pnpm lint has pre-existing errors outside scope (not introduced by infer-2) ===

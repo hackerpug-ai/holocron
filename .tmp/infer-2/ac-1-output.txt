@@ -1,0 +1,11 @@
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-orchestrate/worktrees/task-infer-2-budget
+
+ ✓ tests/integration/service/infer-budget-ledger-persistence.test.ts (2 tests) 584ms
+     ✓ budget_ledger table exists with reason text column  383ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  18:36:08
+   Duration  837ms (transform 141ms, setup 139ms, import 10ms, tests 584ms, environment 0ms)
+

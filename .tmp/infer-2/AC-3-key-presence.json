@@ -1,0 +1,8 @@
+{
+  "hasAnthropicKey": false,
+  "allowSkipAnthropic": false,
+  "platformIt": true,
+  "note": "ANTHROPIC_API_KEY unset — FAIL CLOSED under PLATFORM_IT=1",
+  "suite_exit_code_without_key": 1,
+  "suite_exit_code_with_ALLOW_SKIP_ANTHROPIC": 0
+}

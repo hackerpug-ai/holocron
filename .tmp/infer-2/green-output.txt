@@ -1,0 +1,5 @@
+AC-1: PASS (ledger persistence)
+AC-2: PASS (precheck blocks over-budget)
+AC-3: FAIL CLOSED without ANTHROPIC_API_KEY (wiring complete; live generate pending key)
+AC-4: PASS (budget CLI)
+CLI: infer:call --escape → runBudgetedEscape mode proven
