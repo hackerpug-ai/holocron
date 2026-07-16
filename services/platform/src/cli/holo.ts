@@ -295,6 +295,14 @@ function parseArgs(argv: string[]): CliArgs {
       args.reason = argv[++i] ?? null;
     } else if (a.startsWith('--reason=')) {
       args.reason = a.slice('--reason='.length);
+    } else if (a === '--prompt') {
+      args.prompt = argv[++i] ?? null;
+    } else if (a.startsWith('--prompt=')) {
+      args.prompt = a.slice('--prompt='.length);
+    } else if (a === '--ceiling') {
+      args.ceiling = argv[++i] ?? null;
+    } else if (a.startsWith('--ceiling=')) {
+      args.ceiling = a.slice('--ceiling='.length);
     } else if (a === '--for') {
       args.forConsumers = argv[++i] ?? null;
     } else if (a.startsWith('--for=')) {
