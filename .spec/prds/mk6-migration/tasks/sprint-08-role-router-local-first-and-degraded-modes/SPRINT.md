@@ -3,7 +3,7 @@ sprint: 8
 title: Role Router, Local-First and Degraded Modes
 sequence: 8
 timeline: Phase 2 — Inference and Data
-status: In Progress
+status: Complete
 prd: ../../README.md
 capability_coverage: [CAP-INF-01]
 ---
@@ -12,7 +12,7 @@ capability_coverage: [CAP-INF-01]
 
 **Sequence:** 8
 **Timeline:** Phase 2 — Inference and Data
-**Status:** 🟠 In Progress
+**Status:** ✅ Complete
 **Proposed by:** mastra-planner
 **Branch:** `mk6-inference-router`
 **Opened:** 2026-07-15 — expanded by /kb-sprint-tasks-plan

@@ -88,3 +88,8 @@ PHASE*.md
 .tmp/
 .kb-run-sprint/
 .kb-orchestrate/
+
+# kb-run-human-tests gate artifacts
+.gate-videos/
+# NOTE: .gate-evidence/ step logs (.log/.exit/.assertion.json) ARE committed on purpose —
+# verify-gate-evidence.sh recomputes the gate verdict from them at close time, so they must persist.
