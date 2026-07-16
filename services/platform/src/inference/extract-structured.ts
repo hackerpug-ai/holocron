@@ -18,6 +18,19 @@ import { z } from 'zod';
 import { createFleetChatModel, type ResolvedModel, resolveModel } from './resolve-model';
 
 /**
+ * Robust ZodError detection. `instanceof z.ZodError` can miss an error thrown by a
+ * schema built with a different zod instance (a classic split-zod pitfall), which
+ * would let a validation failure leak past the repair cap as a raw ZodError instead
+ * of the typed ExtractionFailedError. Detect by shape as well.
+ */
+function isZodError(err: unknown): err is z.ZodError {
+  return (
+    err instanceof z.ZodError ||
+    (err instanceof Error && err.name === 'ZodError' && Array.isArray((err as z.ZodError).issues))
+  );
+}
+
+/**
  * Maximum repair attempts before failing explicitly.
  * Tests verify this cap is respected.
  */
@@ -124,9 +137,14 @@ export async function extractStructured<T extends z.ZodType>(
       // Build a prompt that explicitly requests JSON output
       const jsonPrompt = `${input}\n\nRespond with a valid JSON object matching this schema:\n${JSON.stringify(schema.shape, null, 2)}\n\nOutput ONLY the JSON object, no additional text.`;
 
+      // Bound each fleet call so a stalling endpoint (the local fleet can stall on
+      // rapid sequential calls) can never hang extraction: a timeout aborts the call,
+      // it is counted as a failed attempt, and the bounded repair loop proceeds.
+      const CALL_TIMEOUT_MS = 45_000;
       const result = await generateText({
         model: fleetModel,
         prompt: jsonPrompt,
+        abortSignal: AbortSignal.timeout(CALL_TIMEOUT_MS),
       });
 
       // Parse the JSON response
@@ -152,12 +170,32 @@ export async function extractStructured<T extends z.ZodType>(
         continue;
       }
 
-      // ZOD-VALIDATE BEFORE RETURN (the invariant)
-      const validated = schema.parse(jsonResponse);
+      // ZOD-VALIDATE BEFORE RETURN (the invariant).
+      // Isolate validation failures in their own handler so a ZodError is ALWAYS
+      // treated as a repair-loop failure (captured + continue) and NEVER leaks raw
+      // past the cap — the typed ExtractionFailedError after exhaustion is the only
+      // failure surface. Robust to zod instance splits via isZodError().
+      let validated: z.infer<T>;
+      try {
+        validated = schema.parse(jsonResponse);
+      } catch (validationErr) {
+        const ze = isZodError(validationErr)
+          ? validationErr
+          : new z.ZodError([
+              {
+                code: z.ZodIssueCode.custom,
+                path: [],
+                message:
+                  validationErr instanceof Error ? validationErr.message : String(validationErr),
+              },
+            ]);
+        schemaErrors.push({ attempt, error: ze });
+        continue;
+      }
       return validated;
     } catch (err) {
-      // Capture Zod validation errors
-      if (err instanceof z.ZodError) {
+      // Capture Zod validation errors (robust to zod instance splits)
+      if (isZodError(err)) {
         schemaErrors.push({ attempt, error: err });
         // Continue to next repair attempt
         continue;
@@ -172,19 +210,29 @@ export async function extractStructured<T extends z.ZodType>(
         });
       }
 
-      // Handle other AI SDK errors (e.g., network, provider errors)
-      if (err instanceof Error) {
-        // If it's a retryable error, continue to next attempt
-        if (err.message.includes('timeout') || err.message.includes('network')) {
-          if (attempt < MAX_REPAIR_ATTEMPTS) {
-            continue;
-          }
-        }
-        // Re-throw non-retryable errors
-        throw err;
+      // Retryable fleet errors (timeout / abort / network). Record and continue to
+      // the next repair attempt; the for-loop bound guarantees termination, and
+      // exhaustion throws the typed ExtractionFailedError (never a raw timeout).
+      if (
+        err instanceof Error &&
+        /timeout|timed out|abort|aborted|network|econnreset|socket hangup|fetch failed/i.test(
+          err.message
+        )
+      ) {
+        schemaErrors.push({
+          attempt,
+          error: new z.ZodError([
+            {
+              code: z.ZodIssueCode.custom,
+              path: [],
+              message: `fleet call failed (${err.name}): ${err.message.slice(0, 200)}`,
+            },
+          ]),
+        });
+        continue;
       }
 
-      // Unknown error type - re-throw
+      // Re-throw non-retryable errors (e.g. UnknownFleetRoleError, RoleUnavailableError)
       throw err;
     }
   }

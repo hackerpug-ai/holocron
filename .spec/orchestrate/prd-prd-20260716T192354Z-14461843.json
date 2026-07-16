@@ -68,13 +68,13 @@
     "source_run_id": null
   },
   "roadmap": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/ROADMAP.md",
-  "roadmap_sha256": "850a9d0175972129ef18f914fbade99bab11e397602142dbd4ad75d14679b743",
+  "roadmap_sha256": "014c6088ab7f9a16735a79146d4fba2e135581a0b894f06b9757cece98d14225",
   "run_id": "prd-20260716T192354Z-14461843",
   "schema_version": 1,
   "specialist_override_display": "",
   "specialist_override_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   "state": "/Users/inference1/.config/brain/kb-run-prd-state/prd-20260716T192354Z-14461843.json",
-  "status": "starting",
+  "status": "running",
   "status_sync": {
     "last_synced_at": null,
     "pending_transaction": null,
@@ -82,5 +82,5 @@
     "snapshot_sha256": null,
     "tracker_parity": "unknown"
   },
-  "updated_at": "2026-07-16T19:23:54Z"
+  "updated_at": "2026-07-16T21:32:11Z"
 }
