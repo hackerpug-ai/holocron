@@ -87,3 +87,4 @@ PHASE*.md
 .claude/worktrees/
 .tmp/
 .kb-run-sprint/
+.kb-orchestrate/

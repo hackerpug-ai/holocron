@@ -38,7 +38,7 @@ TASK: ledger-4 — RED tests: direct DML rejected, atomic supersession, stale-co
 ================================================================================
 
 TASK_TYPE:  QA
-STATUS:     Backlog
+STATUS:     Completed
 PRIORITY:   P0
 EFFORT:     M  (180 min)
 AGENT:      implementer=red-test-generator | reviewer=mastra-reviewer
@@ -79,11 +79,11 @@ All RED tests committed and failing; running suite shows failures; tests documen
 --------------------------------------------------------------------------------
 DONE WHEN
 --------------------------------------------------------------------------------
-- [ ] AC-1: Direct DML rejection tests written and failing (flow_ref T-PLAT-004, T-DATA-006)
-- [ ] AC-2: Atomic supersession tests written and failing (flow_ref T-DATA-006)
-- [ ] AC-3: Stale-concurrent rejection tests written and failing (flow_ref T-DATA-006)
-- [ ] AC-4: As-of chain tests written and failing (flow_ref T-DATA-005)
-- [ ] AC-5: Net-support tests written and failing (flow_ref T-DATA-008)
+- [x] AC-1: Direct DML rejection tests written and failing (flow_ref T-PLAT-004, T-DATA-006)
+- [x] AC-2: Atomic supersession tests written and failing (flow_ref T-DATA-006)
+- [x] AC-3: Stale-concurrent rejection tests written and failing (flow_ref T-DATA-006)
+- [x] AC-4: As-of chain tests written and failing (flow_ref T-DATA-005)
+- [x] AC-5: Net-support tests written and failing (flow_ref T-DATA-008)
 - [ ] `PLATFORM_IT=1 pnpm vitest run` green + `pnpm tsgo --noEmit` clean + `pnpm biome check .` clean (only SCOPE.writeAllowed files modified)
 
 --------------------------------------------------------------------------------

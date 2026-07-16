@@ -37,7 +37,7 @@ TASK: ledger-1 — Evidence-graph substrate audit + seed command (bi-temporal re
 ================================================================================
 
 TASK_TYPE:  INFRA
-STATUS:     Backlog
+STATUS:     Completed
 PRIORITY:   P0
 EFFORT:     M  (300 min)
 AGENT:      implementer=mastra-implementer | reviewer=mastra-reviewer
@@ -71,10 +71,10 @@ The evidence:seed command inserts a claim with two contradicting passages; query
 --------------------------------------------------------------------------------
 DONE WHEN
 --------------------------------------------------------------------------------
-- [ ] AC-1: Seed command inserts claim + two contradicting passages + relations (flow_ref T-DATA-005)
-- [ ] AC-2: Partial unique index enforces one open belief per claim (flow_ref T-DATA-006)
-- [ ] AC-3: Relations supports/contradicts edges carry validity windows (flow_ref T-DATA-008)
-- [ ] AC-4: Canonical-corpus shape intact (one passages, one sources table) (flow_ref T-PLAT-004, T-DATA-022)
+- [x] AC-1: Seed command inserts claim + two contradicting passages + relations (flow_ref T-DATA-005)
+- [x] AC-2: Partial unique index enforces one open belief per claim (flow_ref T-DATA-006)
+- [x] AC-3: Relations supports/contradicts edges carry validity windows (flow_ref T-DATA-008)
+- [x] AC-4: Canonical-corpus shape intact (one passages, one sources table) (flow_ref T-PLAT-004, T-DATA-022)
 - [ ] `PLATFORM_IT=1 pnpm vitest run` green + `pnpm tsgo --noEmit` clean + `pnpm biome check .` clean (only SCOPE.writeAllowed files modified)
 
 --------------------------------------------------------------------------------

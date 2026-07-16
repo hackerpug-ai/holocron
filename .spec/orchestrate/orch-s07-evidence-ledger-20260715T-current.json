@@ -1,0 +1,58 @@
+{
+  "run_id": "orch-s07-evidence-ledger-20260715T-current",
+  "status": "complete",
+  "project": "/Users/inference1/Projects/holocron",
+  "sprint": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-07-evidence-graph-substrate-and-ledger-immutability",
+  "workspace": "workspace:13",
+  "cycle": 1,
+  "max_cycles": 3,
+  "implement": "kb-run-sprint",
+  "stage_overrides": {
+    "run": "grok:grok-4.5",
+    "review": "grok:grok-4.5",
+    "plan": "grok:grok-4.5",
+    "qa": "grok:grok-4.5"
+  },
+  "surfaces": [
+    {
+      "surface_ref": "surface:227",
+      "surface_id": "1DD77F68-BBBE-4C24-9D1A-9060DF00A9DD",
+      "origin": "adopted",
+      "spawner": null,
+      "driver": "orch-self",
+      "role": "orch-self",
+      "sprint": null,
+      "cwd": "/Users/inference1/Projects/holocron",
+      "harness": "codex",
+      "model": "unknown",
+      "provider": "openai",
+      "session_id": "",
+      "commands_or_skills": [],
+      "base_prompt_excerpt": "unknown",
+      "base_prompt_sha256": "",
+      "goal": {
+        "text": "Orchestrate Sprint 7",
+        "verification": {
+          "kind": "none",
+          "signal": "",
+          "status": "needs-human"
+        }
+      },
+      "active": true,
+      "focused": true,
+      "status": "self",
+      "cycle": 1,
+      "state_label": "orchestrating",
+      "last_verdict_artifact": null,
+      "last_observed_ts": "2026-07-15T20:10:00Z",
+      "nudge_count": 0,
+      "recover_count": 0,
+      "watch_glob": "",
+      "verdict_kind": "none",
+      "verdict_grep": "",
+      "blocked_grep": "",
+      "baseline_count": 0,
+      "reaped": false
+    }
+  ]
+}

@@ -1,0 +1,1 @@
+{"after_state":"starting","at":"2026-07-16T19:23:54Z","before_state":"none","detail":"acquired per-roadmap lock and initialized parent state","event":"init","evidence":["/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/ROADMAP.md"],"phase":"after","run_id":"prd-20260716T192354Z-14461843","sprint":null,"surface_id":null}

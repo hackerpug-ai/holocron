@@ -41,7 +41,7 @@ TASK: REDHAT-FIX-H2 — Bind the default runtime/CLI database pool to the least-
 ================================================================================
 
 TASK_TYPE:  FEATURE
-STATUS:     Backlog
+STATUS:     Completed
 PRIORITY:   P0
 EFFORT:     M  (150 min)
 AGENT:      implementer=mastra-implementer | reviewer=mastra-reviewer
@@ -87,11 +87,11 @@ BOUNDARY CONTRACTS
 --------------------------------------------------------------------------------
 DONE WHEN
 --------------------------------------------------------------------------------
-- [ ] AC-1: Product evidence helpers connect as holocron_app (PRIMARY)
-- [ ] AC-2: Default product client cannot UPDATE/DELETE beliefs
-- [ ] AC-3: Migrate/admin retains owner URL and still works
-- [ ] AC-4: Product operability under app role (seed tables + revise EXECUTE)
-- [ ] AC-5: CLI product commands inherit app-role binding
+- [x] AC-1: Product evidence helpers connect as holocron_app (PRIMARY)
+- [x] AC-2: Default product client cannot UPDATE/DELETE beliefs
+- [x] AC-3: Migrate/admin retains owner URL and still works
+- [x] AC-4: Product operability under app role (seed tables + revise EXECUTE)
+- [x] AC-5: CLI product commands inherit app-role binding
 - [ ] `PLATFORM_IT=1` integration suite green + `pnpm tsgo --noEmit` clean + `pnpm biome check .` clean (only SCOPE.writeAllowed files modified)
 
 --------------------------------------------------------------------------------

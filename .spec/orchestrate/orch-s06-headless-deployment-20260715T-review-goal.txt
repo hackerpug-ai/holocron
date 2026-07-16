@@ -1,0 +1,3 @@
+/review-red-hat /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-06-headless-deployment-dev-prod-parity
+
+Independently review the completed Sprint 6 implementation on main. Read the full sprint/task contracts and inspect the landed tree, fresh gate/e2e/build evidence, and the RH-1 remediation. Produce a fresh .spec/reviews/red-hat-*.md report for this run. Severity gate: any CRITICAL or HIGH finding blocks completion; MEDIUM/LOW are advisory. Do not modify product code.

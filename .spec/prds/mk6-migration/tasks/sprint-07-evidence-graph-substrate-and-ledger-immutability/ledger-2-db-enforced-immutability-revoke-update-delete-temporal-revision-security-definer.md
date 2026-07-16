@@ -39,7 +39,7 @@ TASK: ledger-2 — DB-enforced immutability: REVOKE UPDATE/DELETE + temporal-rev
 ================================================================================
 
 TASK_TYPE:  INFRA
-STATUS:     Backlog
+STATUS:     Completed
 PRIORITY:   P0
 EFFORT:     M  (240 min)
 AGENT:      implementer=mastra-implementer | reviewer=mastra-reviewer
@@ -80,12 +80,12 @@ Direct UPDATE/DELETE on beliefs via app role raises permission denied ERROR 4250
 --------------------------------------------------------------------------------
 DONE WHEN
 --------------------------------------------------------------------------------
-- [ ] AC-1: App role cannot directly UPDATE or DELETE beliefs (flow_ref T-PLAT-004, T-DATA-006)
-- [ ] AC-2: Authorized revise closes predecessor and inserts successor atomically (flow_ref T-DATA-006)
-- [ ] AC-3: Stale concurrent revision is rejected (flow_ref T-DATA-006)
-- [ ] AC-4: IdempotencyKey replay returns existing revision (flow_ref T-DATA-006)
-- [ ] AC-5: CLI command evidence:revise calls function correctly (flow_ref T-DATA-006)
-- [ ] AC-6: db:probe --raw demonstrates direct DML rejection (flow_ref T-PLAT-004)
+- [x] AC-1: App role cannot directly UPDATE or DELETE beliefs (flow_ref T-PLAT-004, T-DATA-006)
+- [x] AC-2: Authorized revise closes predecessor and inserts successor atomically (flow_ref T-DATA-006)
+- [x] AC-3: Stale concurrent revision is rejected (flow_ref T-DATA-006)
+- [x] AC-4: IdempotencyKey replay returns existing revision (flow_ref T-DATA-006)
+- [x] AC-5: CLI command evidence:revise calls function correctly (flow_ref T-DATA-006)
+- [x] AC-6: db:probe --raw demonstrates direct DML rejection (flow_ref T-PLAT-004)
 - [ ] `PLATFORM_IT=1 pnpm vitest run` green + `pnpm tsgo --noEmit` clean + `pnpm biome check .` clean (only SCOPE.writeAllowed files modified)
 
 --------------------------------------------------------------------------------

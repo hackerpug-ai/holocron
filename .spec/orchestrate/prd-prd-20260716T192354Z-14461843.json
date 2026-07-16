@@ -1,0 +1,86 @@
+{
+  "audit": "/Users/inference1/.config/brain/kb-run-prd-state/prd-20260716T192354Z-14461843-audit.jsonl",
+  "audit_mirror": "/Users/inference1/Projects/holocron/.spec/orchestrate/prd-prd-20260716T192354Z-14461843-audit.jsonl",
+  "block_governor": {
+    "attempt": 0,
+    "class": null,
+    "fingerprint": null,
+    "first_seen_at": null,
+    "fresh_conductor_used": false,
+    "last_progress_sha256": null,
+    "last_seen_at": null,
+    "max_unblock": 2,
+    "reason": null,
+    "trajectory": []
+  },
+  "cleanup": {
+    "child_surfaces_remaining": [],
+    "conductor_cleanup": "pending",
+    "last_result": null
+  },
+  "closeout": {
+    "authorization": null,
+    "evaluation": null,
+    "request": null,
+    "verified_at": null
+  },
+  "created_at": "2026-07-16T19:23:54Z",
+  "current_sprint": null,
+  "cycles": {
+    "qa": 0,
+    "replan": 0,
+    "steer": 0,
+    "unblock": 0
+  },
+  "goal": {
+    "active": true,
+    "command": "/goal kt /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/ROADMAP.md"
+  },
+  "invocation_display": "/kb-run-prd /Users/inference1/Projects/holocron/.spec/prds/mk6-migration",
+  "kind": "kb-run-prd-state",
+  "lock": {
+    "directory": "/Users/inference1/.config/brain/kb-run-prd-state/023bba14cb360cda5e058b6e308a32a57412920ab58bae9125a87e83d18b6116.lock",
+    "key": "023bba14cb360cda5e058b6e308a32a57412920ab58bae9125a87e83d18b6116"
+  },
+  "lookahead_sprint": null,
+  "mirror": "/Users/inference1/Projects/holocron/.spec/orchestrate/prd-prd-20260716T192354Z-14461843.json",
+  "orchestrator_runtime": {
+    "credit_fallback": {
+      "harness": "opencode",
+      "model": "zai-coding-plan/glm-5.2",
+      "reasoning_effort": "max"
+    },
+    "default": {
+      "harness": "codex",
+      "model": "gpt-5.6-luna",
+      "reasoning_effort": "xhigh"
+    },
+    "fallback_evidence": null
+  },
+  "parent_session_id": "6d5ad4fd-7e97-4249-89b9-8a2fe37d9d80",
+  "parent_surface_id": "1DD77F68-BBBE-4C24-9D1A-9060DF00A9DD",
+  "project": "/Users/inference1/Projects/holocron",
+  "resume": {
+    "accepted_at": null,
+    "adoption_request": null,
+    "mode": "fresh",
+    "phase": null,
+    "source_run_id": null
+  },
+  "roadmap": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/ROADMAP.md",
+  "roadmap_sha256": "850a9d0175972129ef18f914fbade99bab11e397602142dbd4ad75d14679b743",
+  "run_id": "prd-20260716T192354Z-14461843",
+  "schema_version": 1,
+  "specialist_override_display": "",
+  "specialist_override_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "state": "/Users/inference1/.config/brain/kb-run-prd-state/prd-20260716T192354Z-14461843.json",
+  "status": "starting",
+  "status_sync": {
+    "last_synced_at": null,
+    "pending_transaction": null,
+    "snapshot": null,
+    "snapshot_sha256": null,
+    "tracker_parity": "unknown"
+  },
+  "updated_at": "2026-07-16T19:23:54Z"
+}

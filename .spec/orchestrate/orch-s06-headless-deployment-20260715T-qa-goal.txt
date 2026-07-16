@@ -1,0 +1,3 @@
+Run /kb-run-human-tests /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-06-headless-deployment-dev-prod-parity.
+
+This is the mandatory independent QA stage for Sprint 6. Execute every documented Human Testing Gate step through the cmux execution surface and real e2e driver; do not hand-write or copy gate-results.json. Produce a fresh gate-results.json with verdict pass or fail, complete step logs, the real runner and ui_driver provenance, and qa_session_id bound to this QA surface. If any step fails or is not executable, report the failure and leave a truthful failing verdict.

@@ -1,0 +1,8 @@
+Run Sprint 08 QA retry 3 after retry 2 was aborted for unsafe secret handling.
+
+Sprint folder:
+/Users/inference1/Projects/holocron/.kb-orchestrate/worktrees/orch-s08-role-router-20260715T-current/.spec/prds/mk6-migration/tasks/sprint-08-role-router-local-first-and-degraded-modes
+
+Security requirement: NEVER copy, write, serialize, echo, interpolate, or log any secret value. Do not create an anthropic.key file, temp key file, JSON key field, or command-line key. Do not read the value for display. Load /Users/inference1/Projects/holocron/.env directly in the shell process that executes the gate commands (for example, make gate.env source the .env path with allexport enabled); the gate commands already source gate.env. Verify presence only by a boolean/key-name check. The .env file itself must remain unchanged.
+
+Run a fresh /kb-run-human-tests QA attempt with fresh per-step logs, archive existing gate-results.json and gate-verification.json, and ensure local services/database are healthy. Execute every literal HUMAN-GATE.md / SPRINT.md step plus required inventory/gate/e2e verification. Do not reuse any prior evidence directory, do not hand-write/copy a verdict, and do not modify product code. The required Anthropic escape step must use the runtime environment loaded from .env; ZAI remains a harness option but cannot replace required Anthropic evidence. Only accept a fresh provenance-valid gate-results.json pass that survives assert-gate-verdict.sh and verify-gate-evidence.sh. If anything fails, preserve the real failure and leave the sprint unfinished.

@@ -1,0 +1,64 @@
+{
+  "candidates": [],
+  "child_run_id": null,
+  "conductor_surface_id": null,
+  "decision": "CLEAN_TERMINAL",
+  "detail": "terminal registries still own live surfaces",
+  "evidence": {
+    "child_candidates": [
+      {
+        "close_authority": null,
+        "compliant_runtime": true,
+        "conductor_alive": true,
+        "conductor_surface_id": "1DD77F68-BBBE-4C24-9D1A-9060DF00A9DD",
+        "parent_run_id": null,
+        "registry_path": "/Users/inference1/.config/brain/kb-orchestrate-state/orch-s07-evidence-ledger-20260715T-current.json",
+        "run_id": "orch-s07-evidence-ledger-20260715T-current",
+        "run_stage_surface_ids": [],
+        "status": "complete",
+        "terminal": true
+      },
+      {
+        "close_authority": null,
+        "compliant_runtime": false,
+        "conductor_alive": false,
+        "conductor_surface_id": "74BBFC02-3C06-4F78-8512-A3CF91FC0905",
+        "parent_run_id": null,
+        "registry_path": "/Users/inference1/.config/brain/kb-orchestrate-state/sprint-03-tasks-20260706T024139Z.json",
+        "run_id": "sprint-03-tasks-20260706T024139Z",
+        "run_stage_surface_ids": [],
+        "status": "running",
+        "terminal": false
+      },
+      {
+        "close_authority": null,
+        "compliant_runtime": false,
+        "conductor_alive": false,
+        "conductor_surface_id": "3DDC5296-1046-4F26-BD7B-879C606BD614",
+        "parent_run_id": null,
+        "registry_path": "/Users/inference1/.config/brain/kb-orchestrate-state/v3-sprint-04-tasks-20260705T235142Z.json",
+        "run_id": "v3-sprint-04-tasks-20260705T235142Z",
+        "run_stage_surface_ids": [],
+        "status": "complete",
+        "terminal": true
+      }
+    ],
+    "live_surface_count": 42,
+    "observed_at": "2026-07-16T19:15:07Z",
+    "parent_candidates": [],
+    "project": "/Users/inference1/Projects/holocron",
+    "roadmap": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/ROADMAP.md",
+    "sprint": null
+  },
+  "observed_at": "2026-07-16T19:15:07Z",
+  "ok": true,
+  "parent_run_id": null,
+  "phase": null,
+  "registry_path": null,
+  "remaining_surfaces": [
+    "1DD77F68-BBBE-4C24-9D1A-9060DF00A9DD"
+  ],
+  "resume_mode": null,
+  "run_stage_surface_id": null,
+  "state_path": null
+}

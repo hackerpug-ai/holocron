@@ -39,7 +39,7 @@ TASK: ledger-3 — Canonical corpus unification + net-support / as-of computatio
 ================================================================================
 
 TASK_TYPE:  INFRA
-STATUS:     Backlog
+STATUS:     Completed
 PRIORITY:   P0
 EFFORT:     M  (210 min)
 AGENT:      implementer=mastra-implementer | reviewer=mastra-reviewer
@@ -80,10 +80,10 @@ holo evidence:belief --as-of returns historical belief; net-support computed fro
 --------------------------------------------------------------------------------
 DONE WHEN
 --------------------------------------------------------------------------------
-- [ ] AC-1: As-of query returns historical belief state (flow_ref T-DATA-005)
-- [ ] AC-2: Net-support computed from validity-windowed relations (flow_ref T-DATA-008)
-- [ ] AC-3: Register internal doc as self-sourced source (flow_ref T-DATA-007, T-DATA-022)
-- [ ] AC-4: As-of query preserves full audit chain (flow_ref T-DATA-005)
+- [x] AC-1: As-of query returns historical belief state (flow_ref T-DATA-005)
+- [x] AC-2: Net-support computed from validity-windowed relations (flow_ref T-DATA-008)
+- [x] AC-3: Register internal doc as self-sourced source (flow_ref T-DATA-007, T-DATA-022)
+- [x] AC-4: As-of query preserves full audit chain (flow_ref T-DATA-005)
 - [ ] `PLATFORM_IT=1 pnpm vitest run` green + `pnpm tsgo --noEmit` clean + `pnpm biome check .` clean (only SCOPE.writeAllowed files modified)
 
 --------------------------------------------------------------------------------

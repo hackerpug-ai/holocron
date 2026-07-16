@@ -1,0 +1,198 @@
+{
+  "sprint_id": "sprint-07-evidence-graph-substrate-and-ledger-immutability",
+  "updated_at": "2026-07-15T20:39:32Z",
+  "protected_branch": "main",
+  "main_sha": "b4ac1603fbe17673afbc442ae034a86d449b9c0f",
+  "tasks": {
+    "all_completed": true,
+    "total": 8,
+    "completed": 8,
+    "ids": [
+      "ledger-1",
+      "ledger-2",
+      "ledger-3",
+      "ledger-4",
+      "ledger-5",
+      "REDHAT-FIX-H1",
+      "REDHAT-FIX-H2",
+      "REDHAT-FIX-H3"
+    ]
+  },
+  "gate": {
+    "overall": "PASS",
+    "steps": [
+      {
+        "id": "HT-1",
+        "run_mode": "AUTO",
+        "result": "PASS",
+        "text": "Run holo evidence:seed \u2014 inserts a claim with two contradicting passages.",
+        "evidence": "/tmp/holocron-gate-sprint-07-evidence-graph-substrate-and-ledger-immutability-post-redhat/step1.log"
+      },
+      {
+        "id": "HT-2",
+        "run_mode": "AUTO",
+        "result": "PASS",
+        "text": "Run holo evidence:belief --as-of now \u2014 returns the net current belief from validity-windowed edges.",
+        "evidence": "/tmp/holocron-gate-sprint-07-evidence-graph-substrate-and-ledger-immutability-post-redhat/step2.log"
+      },
+      {
+        "id": "HT-3",
+        "run_mode": "AUTO",
+        "result": "PASS",
+        "text": "Run holo db:probe --raw UPDATE beliefs SET ... \u2014 raises a permission error (direct DML denied).",
+        "evidence": "/tmp/holocron-gate-sprint-07-evidence-graph-substrate-and-ledger-immutability-post-redhat/step3.log"
+      },
+      {
+        "id": "HT-4",
+        "run_mode": "AUTO",
+        "result": "PASS",
+        "text": "Run holo evidence:revise <belief> --actor op \u2014 closes prior tx_to, inserts one successor, records actor/run/idempotency.",
+        "evidence": "/tmp/holocron-gate-sprint-07-evidence-graph-substrate-and-ledger-immutability-post-redhat/step4.log"
+      },
+      {
+        "id": "HT-5",
+        "run_mode": "AUTO",
+        "result": "PASS",
+        "text": "Fire two concurrent holo evidence:revise on the same row \u2014 exactly one commits, the stale one is rejected.",
+        "evidence": "/tmp/holocron-gate-sprint-07-evidence-graph-substrate-and-ledger-immutability-post-redhat/step5.log"
+      },
+      {
+        "id": "HT-6",
+        "run_mode": "AUTO",
+        "result": "PASS",
+        "text": "Run holo evidence:belief --as-of <earlier-tx> \u2014 still returns the pre-revision belief (audit chain intact).",
+        "evidence": "/tmp/holocron-gate-sprint-07-evidence-graph-substrate-and-ledger-immutability-post-redhat/step6.log"
+      },
+      {
+        "id": "HT-7",
+        "run_mode": "AUTO",
+        "result": "PASS",
+        "text": "Run holo evidence:register-doc <id> \u2014 retrieval chunks are the same canonical passages rows (no duplicate corpus).",
+        "evidence": "/tmp/holocron-gate-sprint-07-evidence-graph-substrate-and-ledger-immutability-post-redhat/step7.log"
+      }
+    ]
+  },
+  "e2e": {
+    "overall": "PASS",
+    "framework": "headless-service",
+    "exit_code": 0,
+    "files": 20,
+    "tests": 24,
+    "log": "/tmp/holocron-gate-sprint-07-evidence-graph-substrate-and-ledger-immutability-post-redhat/e2e-platform-it.log",
+    "steps": [
+      {
+        "id": "HT-1",
+        "human_step": 1,
+        "result": "PASS"
+      },
+      {
+        "id": "HT-2",
+        "human_step": 2,
+        "result": "PASS"
+      },
+      {
+        "id": "HT-3",
+        "human_step": 3,
+        "result": "PASS"
+      },
+      {
+        "id": "HT-4",
+        "human_step": 4,
+        "result": "PASS"
+      },
+      {
+        "id": "HT-5",
+        "human_step": 5,
+        "result": "PASS"
+      },
+      {
+        "id": "HT-6",
+        "human_step": 6,
+        "result": "PASS"
+      },
+      {
+        "id": "HT-7",
+        "human_step": 7,
+        "result": "PASS"
+      }
+    ]
+  },
+  "build": {
+    "overall": "PASS",
+    "typecheck": {
+      "exit_code": 0
+    },
+    "lint": {
+      "exit_code": 0
+    },
+    "migrate": {
+      "exit_code": 0
+    },
+    "log_dir": "/tmp/holocron-gate-sprint-07-evidence-graph-substrate-and-ledger-immutability-post-redhat"
+  },
+  "redhat": {
+    "overall": "PASS",
+    "source": "REDHAT-FIX-H1/H2/H3 implemented, reviewed APPROVED, landed",
+    "critical_findings": [],
+    "high_findings": [],
+    "tasks": {
+      "REDHAT-FIX-H1": "completed",
+      "REDHAT-FIX-H2": "completed",
+      "REDHAT-FIX-H3": "completed"
+    },
+    "commits": {
+      "ledger-1": "09de4be83b0d2e2f64ab73dd84e33504e4f7a5ee",
+      "ledger-2": "da25c22d06b9d99fada4e8cf2faa1e76da538b81",
+      "ledger-3": "7f6067c3c8dd5a04de6320a543ddfa86a0a03aa2",
+      "ledger-4": "278f98c1e56351968bda28f8387bcfdfe2424b86",
+      "ledger-5": "c10219c6ba959dade8757130fe198f2b604abd64",
+      "REDHAT-FIX-H1": "1e7907b241c30a070dc9fdbcecc6023768a96db7",
+      "REDHAT-FIX-H2": "63c0dfbd359cacfe56d8e78540a041d9009eeb91",
+      "REDHAT-FIX-H3": "ff90444c04c2b4ca00494e111b1d7a739163bb03"
+    }
+  },
+  "trunk": {
+    "protected_branch": "main",
+    "head": "b4ac1603fbe17673afbc442ae034a86d449b9c0f",
+    "orphan_branches": [],
+    "completed_tasks_landed": true,
+    "task_shas": {
+      "ledger-1": "09de4be83b0d2e2f64ab73dd84e33504e4f7a5ee",
+      "ledger-2": "da25c22d06b9d99fada4e8cf2faa1e76da538b81",
+      "ledger-3": "7f6067c3c8dd5a04de6320a543ddfa86a0a03aa2",
+      "ledger-4": "278f98c1e56351968bda28f8387bcfdfe2424b86",
+      "ledger-5": "c10219c6ba959dade8757130fe198f2b604abd64",
+      "REDHAT-FIX-H1": "1e7907b241c30a070dc9fdbcecc6023768a96db7",
+      "REDHAT-FIX-H2": "63c0dfbd359cacfe56d8e78540a041d9009eeb91",
+      "REDHAT-FIX-H3": "ff90444c04c2b4ca00494e111b1d7a739163bb03"
+    }
+  },
+  "human_test": {
+    "verdict": "pass",
+    "steps_total": 7,
+    "steps_executed": 7,
+    "steps_passed": 7,
+    "run_id": "2026-07-15T20:38:16Z",
+    "cycle_start": "2026-07-15T20:38:16Z",
+    "gate_results_path": ".spec/prds/mk6-migration/tasks/sprint-07-evidence-graph-substrate-and-ledger-immutability/gate-results.json",
+    "gate_verification_path": ".spec/prds/mk6-migration/tasks/sprint-07-evidence-graph-substrate-and-ledger-immutability/gate-verification.json",
+    "evidence_dir": "/tmp/holocron-gate-sprint-07-evidence-graph-substrate-and-ledger-immutability-post-redhat",
+    "verified": true,
+    "recomputed_verdict": "pass",
+    "scaffold_free_seed_belief": true
+  },
+  "goal": {
+    "condition": "all ledger + REDHAT-FIX tasks complete; build/e2e/human_test/trunk pass",
+    "met": true
+  },
+  "provenance": {
+    "human_test": "exec-step.sh tmux real holo; H3 product seed returns beliefId; no gate-setup scaffold; verify-gate-evidence verified:true",
+    "remediation": "H1 closed-INSERT authenticity; H2 app-role pool bind; H3 seed\u2192belief product path"
+  },
+  "reconfirm": {
+    "at": "2026-07-15T20:39:32Z",
+    "platform_it": "PASS",
+    "scaffold_free_ht1_ht2_smoke": "PASS",
+    "main": "b4ac1603fbe17673afbc442ae034a86d449b9c0f"
+  }
+}

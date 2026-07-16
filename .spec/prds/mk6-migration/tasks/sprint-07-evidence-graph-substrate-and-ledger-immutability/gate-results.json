@@ -1,0 +1,87 @@
+{
+  "sprint": "sprint-07-evidence-graph-substrate-and-ledger-immutability",
+  "run_id": "2026-07-15T20:51:49Z",
+  "verdict": "pass",
+  "steps_total": 7,
+  "steps_executed": 7,
+  "steps_passed": 7,
+  "ui_driver": "none",
+  "exec_surface": "surface:269 (A283A7EA-DD08-4340-AF76-0C3E86379CA9)",
+  "runner": "cmux:A283A7EA-DD08-4340-AF76-0C3E86379CA9",
+  "qa_surface_id": "F5D222E6-79B0-4678-8844-56E8A3B474CF",
+  "cycle_start": "2026-07-15T20:51:49Z",
+  "main_sha": "b4ac1603fbe17673afbc442ae034a86d449b9c0f",
+  "evidence_dir": "/tmp/holocron-gate-sprint-07-evidence-graph-substrate-and-ledger-immutability-fresh",
+  "steps": [
+    {
+      "n": 1,
+      "text": "Run holo evidence:seed \u2014 inserts a claim with two contradicting passages.",
+      "type": "terminal",
+      "executed": true,
+      "result": "pass",
+      "evidence": "exit=0",
+      "log": "/tmp/holocron-gate-sprint-07-evidence-graph-substrate-and-ledger-immutability-fresh/step1.log",
+      "exit_code": 0
+    },
+    {
+      "n": 2,
+      "text": "Run holo evidence:belief --as-of now \u2014 returns the net current belief from validity-windowed edges.",
+      "type": "terminal",
+      "executed": true,
+      "result": "pass",
+      "evidence": "exit=0",
+      "log": "/tmp/holocron-gate-sprint-07-evidence-graph-substrate-and-ledger-immutability-fresh/step2.log",
+      "exit_code": 0
+    },
+    {
+      "n": 3,
+      "text": "Run holo db:probe --raw UPDATE beliefs SET ... \u2014 raises a permission error (direct DML denied).",
+      "type": "terminal",
+      "executed": true,
+      "result": "pass",
+      "evidence": "exit=0",
+      "log": "/tmp/holocron-gate-sprint-07-evidence-graph-substrate-and-ledger-immutability-fresh/step3.log",
+      "exit_code": 0
+    },
+    {
+      "n": 4,
+      "text": "Run holo evidence:revise <belief> --actor op \u2014 closes prior tx_to, inserts one successor, records actor/run/idempotency.",
+      "type": "terminal",
+      "executed": true,
+      "result": "pass",
+      "evidence": "exit=0",
+      "log": "/tmp/holocron-gate-sprint-07-evidence-graph-substrate-and-ledger-immutability-fresh/step4.log",
+      "exit_code": 0
+    },
+    {
+      "n": 5,
+      "text": "Fire two concurrent holo evidence:revise on the same row \u2014 exactly one commits, the stale one is rejected.",
+      "type": "terminal",
+      "executed": true,
+      "result": "pass",
+      "evidence": "exit=0",
+      "log": "/tmp/holocron-gate-sprint-07-evidence-graph-substrate-and-ledger-immutability-fresh/step5.log",
+      "exit_code": 0
+    },
+    {
+      "n": 6,
+      "text": "Run holo evidence:belief --as-of <earlier-tx> \u2014 still returns the pre-revision belief (audit chain intact).",
+      "type": "terminal",
+      "executed": true,
+      "result": "pass",
+      "evidence": "exit=0",
+      "log": "/tmp/holocron-gate-sprint-07-evidence-graph-substrate-and-ledger-immutability-fresh/step6.log",
+      "exit_code": 0
+    },
+    {
+      "n": 7,
+      "text": "Run holo evidence:register-doc <id> \u2014 retrieval chunks are the same canonical passages rows (no duplicate corpus).",
+      "type": "terminal",
+      "executed": true,
+      "result": "pass",
+      "evidence": "exit=0",
+      "log": "/tmp/holocron-gate-sprint-07-evidence-graph-substrate-and-ledger-immutability-fresh/step7.log",
+      "exit_code": 0
+    }
+  ]
+}

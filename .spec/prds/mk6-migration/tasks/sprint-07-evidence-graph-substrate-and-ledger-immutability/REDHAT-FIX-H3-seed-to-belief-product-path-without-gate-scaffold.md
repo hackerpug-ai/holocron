@@ -40,7 +40,7 @@ TASK: REDHAT-FIX-H3 — Make the documented evidence seed-to-belief human path p
 ================================================================================
 
 TASK_TYPE:  FEATURE
-STATUS:     Backlog
+STATUS:     Completed
 PRIORITY:   P0
 EFFORT:     S  (120 min)
 AGENT:      implementer=mastra-implementer | reviewer=mastra-reviewer
@@ -84,11 +84,11 @@ BOUNDARY CONTRACTS
 --------------------------------------------------------------------------------
 DONE WHEN
 --------------------------------------------------------------------------------
-- [ ] AC-1: evidence:seed creates an open belief for the seeded claim (PRIMARY)
-- [ ] AC-2: HT-1→HT-2 continuous: evidence:belief --as-of now succeeds without scaffold
-- [ ] AC-3: Product actor/statement — no gate-setup scaffold
-- [ ] AC-4: Authorized write path under H1/H2 constraints
-- [ ] AC-5: Seed still preserves dual contradicting passages + relations + net-support
+- [x] AC-1: evidence:seed creates an open belief for the seeded claim (PRIMARY)
+- [x] AC-2: HT-1→HT-2 continuous: evidence:belief --as-of now succeeds without scaffold
+- [x] AC-3: Product actor/statement — no gate-setup scaffold
+- [x] AC-4: Authorized write path under H1/H2 constraints
+- [x] AC-5: Seed still preserves dual contradicting passages + relations + net-support
 - [ ] `PLATFORM_IT=1` integration suite green + `pnpm tsgo --noEmit` clean + `pnpm biome check .` clean (only SCOPE.writeAllowed files modified)
 
 --------------------------------------------------------------------------------

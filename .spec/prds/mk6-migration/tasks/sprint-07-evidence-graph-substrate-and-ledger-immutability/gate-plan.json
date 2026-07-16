@@ -1,0 +1,98 @@
+{
+  "sprint": "sprint-07-evidence-graph-substrate-and-ledger-immutability",
+  "planned_at": "2026-07-15T20:51:49Z",
+  "planned_steps": 7,
+  "steps": [
+    {
+      "n": 1,
+      "text": "Run holo evidence:seed \u2014 inserts a claim with two contradicting passages.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "bun services/platform/src/cli/holo.ts evidence:seed --json",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "beliefId",
+        "expect_not_log_regex": ""
+      }
+    },
+    {
+      "n": 2,
+      "text": "Run holo evidence:belief --as-of now \u2014 returns the net current belief from validity-windowed edges.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "bun services/platform/src/cli/holo.ts evidence:belief --claim-id 019f678a-6327-7436-9f3e-9a8d5a32e402 --as-of now --json",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "beliefId",
+        "expect_not_log_regex": "no belief for claim"
+      }
+    },
+    {
+      "n": 3,
+      "text": "Run holo db:probe --raw UPDATE beliefs SET ... \u2014 raises a permission error (direct DML denied).",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "bun services/platform/src/cli/holo.ts db:probe --raw \"UPDATE beliefs SET statement = 'gate-probe-should-fail' WHERE id = '019f678a-6331-78c7-a114-89ade56f3c3d'\"",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "42501|permission denied",
+        "expect_not_log_regex": ""
+      }
+    },
+    {
+      "n": 4,
+      "text": "Run holo evidence:revise <belief> --actor op \u2014 closes prior tx_to, inserts one successor, records actor/run/idempotency.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "bun services/platform/src/cli/holo.ts evidence:revise 019f678a-6331-78c7-a114-89ade56f3c3d --actor op --run-id r1 --idempotency-key k1784148555 --statement 'gate-revised-statement' --confidence 0.9 --json",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "successorId",
+        "expect_not_log_regex": ""
+      }
+    },
+    {
+      "n": 5,
+      "text": "Fire two concurrent holo evidence:revise on the same row \u2014 exactly one commits, the stale one is rejected.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "bash /tmp/holocron-gate-sprint-07-evidence-graph-substrate-and-ledger-immutability-fresh/step5-concurrent-revise.sh",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "open_count=1",
+        "expect_not_log_regex": ""
+      }
+    },
+    {
+      "n": 6,
+      "text": "Run holo evidence:belief --as-of <earlier-tx> \u2014 still returns the pre-revision belief (audit chain intact).",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "bun services/platform/src/cli/holo.ts evidence:belief --claim-id 019f678a-6327-7436-9f3e-9a8d5a32e402 --as-of 2026-07-15T20:49:13.000000Z --json",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "beliefId|Quarterly revenue",
+        "expect_not_log_regex": "no belief for claim"
+      }
+    },
+    {
+      "n": 7,
+      "text": "Run holo evidence:register-doc <id> \u2014 retrieval chunks are the same canonical passages rows (no duplicate corpus).",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "bun services/platform/src/cli/holo.ts evidence:register-doc gate-doc-019f678a-6327-7436-9f3e-9a8d5a32e402 --json",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "ok.: true|passagesCreated.: 0|self_sourced",
+        "expect_not_log_regex": "no passages found"
+      }
+    }
+  ]
+}

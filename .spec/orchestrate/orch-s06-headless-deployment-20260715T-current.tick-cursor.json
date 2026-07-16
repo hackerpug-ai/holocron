@@ -1,0 +1,22 @@
+{
+  "B519FC2E-9E09-40C3-ACEA-ACC3F126BF85": {
+    "sig": "0|",
+    "progress_ts": 1784129437
+  },
+  "175CD789-4A86-41CF-B594-70942DE30F49": {
+    "sig": "0|",
+    "progress_ts": 1784127200
+  },
+  "9CC747D6-3F9C-46E7-897E-8D4DEF5AB0E1": {
+    "sig": "1| sprint-goal-state.json:2447277791",
+    "progress_ts": 1784131759
+  },
+  "6202B15A-6D4D-4CDC-9526-3D6FDF0F62A5": {
+    "sig": "19| red-hat-2026-03-23-audio-narration.md:120703471 red-hat-2026-03-23.md:3408127781 red-hat-2026-03-27.md:1126127241 red-hat-2026-04-19-sprint01.md:3915450660 red-hat-2026-07-13T20-51-08Z.md:3225087629 red-hat-2026-07-14T15-25-00Z.md:1145301952 red-hat-2026-07-14T19-07-45Z-sprint03-postremediation.md:1366929535 red-hat-2026-07-14T19-30-00Z-sprint03.md:662799750 red-hat-2026-07-14T20-01-59Z-sprint03-cycle2.md:2251084315 red-hat-20260301.md:818768599 red-hat-20260715-001311.md:908914909 red-hat-epic-1-20250301.md:794298529 red-hat-epic-4-20260302.md:3058547471 red-hat-epic-4-loop-20260303.md:1616472443 red-hat-epic-5-20260303-loop2.md:1496504107 red-hat-epic-5-20260303.md:2257909476 red-hat-hiring-manager-2026-04-06.md:2781278480 red-hat-prd-audit-2026-04-02.md:3353975780 red-hat-sprint-05-20260715T000000Z.md:290658643",
+    "progress_ts": 1784131886
+  },
+  "CB1C26A0-65AB-4B59-921E-ABA9528AF841": {
+    "sig": "1| gate-results.json:273394164",
+    "progress_ts": 1784132277
+  }
+}

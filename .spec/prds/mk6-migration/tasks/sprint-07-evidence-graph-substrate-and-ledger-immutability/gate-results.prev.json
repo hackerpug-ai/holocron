@@ -1,0 +1,88 @@
+{
+  "sprint": "sprint-07-evidence-graph-substrate-and-ledger-immutability",
+  "run_id": "2026-07-15T20:38:16Z",
+  "verdict": "pass",
+  "steps_total": 7,
+  "steps_executed": 7,
+  "steps_passed": 7,
+  "ui_driver": "none",
+  "exec_surface": "tmux:holocron-gate-s07-rh",
+  "runner": "tmux:holocron-gate-s07-rh",
+  "cycle_start": "2026-07-15T20:38:16Z",
+  "main_sha": "b4ac1603fbe17673afbc442ae034a86d449b9c0f",
+  "evidence_dir": "/tmp/holocron-gate-sprint-07-evidence-graph-substrate-and-ledger-immutability-post-redhat",
+  "steps": [
+    {
+      "n": 1,
+      "text": "Run holo evidence:seed \u2014 inserts a claim with two contradicting passages.",
+      "type": "terminal",
+      "executed": true,
+      "result": "pass",
+      "evidence": "exit=0",
+      "log": "/tmp/holocron-gate-sprint-07-evidence-graph-substrate-and-ledger-immutability-post-redhat/step1.log",
+      "exit_code": 0
+    },
+    {
+      "n": 2,
+      "text": "Run holo evidence:belief --as-of now \u2014 returns the net current belief from validity-windowed edges.",
+      "type": "terminal",
+      "executed": true,
+      "result": "pass",
+      "evidence": "exit=0",
+      "log": "/tmp/holocron-gate-sprint-07-evidence-graph-substrate-and-ledger-immutability-post-redhat/step2.log",
+      "exit_code": 0
+    },
+    {
+      "n": 3,
+      "text": "Run holo db:probe --raw UPDATE beliefs SET ... \u2014 raises a permission error (direct DML denied).",
+      "type": "terminal",
+      "executed": true,
+      "result": "pass",
+      "evidence": "exit=1",
+      "log": "/tmp/holocron-gate-sprint-07-evidence-graph-substrate-and-ledger-immutability-post-redhat/step3.log",
+      "exit_code": 1
+    },
+    {
+      "n": 4,
+      "text": "Run holo evidence:revise <belief> --actor op \u2014 closes prior tx_to, inserts one successor, records actor/run/idempotency.",
+      "type": "terminal",
+      "executed": true,
+      "result": "pass",
+      "evidence": "exit=0",
+      "log": "/tmp/holocron-gate-sprint-07-evidence-graph-substrate-and-ledger-immutability-post-redhat/step4.log",
+      "exit_code": 0
+    },
+    {
+      "n": 5,
+      "text": "Fire two concurrent holo evidence:revise on the same row \u2014 exactly one commits, the stale one is rejected.",
+      "type": "terminal",
+      "executed": true,
+      "result": "pass",
+      "evidence": "exit=0",
+      "log": "/tmp/holocron-gate-sprint-07-evidence-graph-substrate-and-ledger-immutability-post-redhat/step5.log",
+      "exit_code": 0
+    },
+    {
+      "n": 6,
+      "text": "Run holo evidence:belief --as-of <earlier-tx> \u2014 still returns the pre-revision belief (audit chain intact).",
+      "type": "terminal",
+      "executed": true,
+      "result": "pass",
+      "evidence": "exit=0",
+      "log": "/tmp/holocron-gate-sprint-07-evidence-graph-substrate-and-ledger-immutability-post-redhat/step6.log",
+      "exit_code": 0
+    },
+    {
+      "n": 7,
+      "text": "Run holo evidence:register-doc <id> \u2014 retrieval chunks are the same canonical passages rows (no duplicate corpus).",
+      "type": "terminal",
+      "executed": true,
+      "result": "pass",
+      "evidence": "exit=0",
+      "log": "/tmp/holocron-gate-sprint-07-evidence-graph-substrate-and-ledger-immutability-post-redhat/step7.log",
+      "exit_code": 0
+    }
+  ],
+  "post_redhat_remediation": true,
+  "scaffold_free_ht1_ht2": true
+}

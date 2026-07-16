@@ -1,0 +1,45 @@
+{
+  "overall": "PASS",
+  "framework": "headless-service",
+  "exit_code": 0,
+  "files": 20,
+  "tests": 24,
+  "log": "/tmp/holocron-gate-sprint-07-evidence-graph-substrate-and-ledger-immutability-post-redhat/e2e-platform-it.log",
+  "steps": [
+    {
+      "id": "HT-1",
+      "human_step": 1,
+      "result": "PASS"
+    },
+    {
+      "id": "HT-2",
+      "human_step": 2,
+      "result": "PASS"
+    },
+    {
+      "id": "HT-3",
+      "human_step": 3,
+      "result": "PASS"
+    },
+    {
+      "id": "HT-4",
+      "human_step": 4,
+      "result": "PASS"
+    },
+    {
+      "id": "HT-5",
+      "human_step": 5,
+      "result": "PASS"
+    },
+    {
+      "id": "HT-6",
+      "human_step": 6,
+      "result": "PASS"
+    },
+    {
+      "id": "HT-7",
+      "human_step": 7,
+      "result": "PASS"
+    }
+  ]
+}

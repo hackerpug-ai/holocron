@@ -1,21 +1,14 @@
 {
   "task": "REDHAT-FIX-H3",
   "phase": "GREEN",
-  "production_createFleetChatModel_callers": 1,
-  "call_sites": [
-    {
-      "file": "services/platform/src/compat/cells/agent.ts",
-      "line": 106,
-      "text": "const fleetModel = createFleetChatModel(resolved, {"
-    }
-  ],
-  "agent_path_calls": 1,
-  "anthropicCount": 0,
-  "fleetHits": 2,
-  "structural": true,
-  "must_observe_green": {
-    "production_createFleetChatModel_callers >= 1": true,
-    "anthropicCount:0": true,
-    "fleetHits >= 1 when generate captured": true
-  }
+  "seed_ok": true,
+  "claimId": "019f6785-84ab-7c10-9e8e-addd16b1f86f",
+  "beliefId": "019f6785-84b3-785c-a19e-141afc5d84c8",
+  "sessionRole": "holocron_app",
+  "actor": "evidence:seed",
+  "statement": "Quarterly revenue grew year-over-year.",
+  "belief_asof_ok": true,
+  "netSupport": -1,
+  "passageIds_length": 2,
+  "relationIds_length": 2
 }

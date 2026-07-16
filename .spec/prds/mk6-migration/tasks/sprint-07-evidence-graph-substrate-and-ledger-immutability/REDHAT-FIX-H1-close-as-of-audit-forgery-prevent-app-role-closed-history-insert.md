@@ -41,7 +41,7 @@ TASK: REDHAT-FIX-H1 — Close the as-of audit-forgery path by preventing app-rol
 ================================================================================
 
 TASK_TYPE:  FEATURE
-STATUS:     Backlog
+STATUS:     Completed
 PRIORITY:   P0
 EFFORT:     S  (120 min)
 AGENT:      implementer=mastra-implementer | reviewer=mastra-reviewer
@@ -87,11 +87,11 @@ BOUNDARY CONTRACTS
 --------------------------------------------------------------------------------
 DONE WHEN
 --------------------------------------------------------------------------------
-- [ ] AC-1: App role cannot INSERT closed historical beliefs (PRIMARY)
-- [ ] AC-2: Authorized open-belief seed succeeds via SECURITY DEFINER
-- [ ] AC-3: revise_belief still atomically supersedes after insert lockdown
-- [ ] AC-4: belief_as_of cannot return app-forged mid-window closed history
-- [ ] AC-5: Privilege catalog matches authenticity posture
+- [x] AC-1: App role cannot INSERT closed historical beliefs (PRIMARY)
+- [x] AC-2: Authorized open-belief seed succeeds via SECURITY DEFINER
+- [x] AC-3: revise_belief still atomically supersedes after insert lockdown
+- [x] AC-4: belief_as_of cannot return app-forged mid-window closed history
+- [x] AC-5: Privilege catalog matches authenticity posture
 - [ ] `PLATFORM_IT=1` integration suite green + `pnpm tsgo --noEmit` clean + `pnpm biome check .` clean (only SCOPE.writeAllowed files modified)
 
 --------------------------------------------------------------------------------
