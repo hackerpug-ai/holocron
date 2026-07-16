@@ -30,9 +30,7 @@
       "model": "grok-4.5",
       "provider": "xai",
       "session_id": "",
-      "commands_or_skills": [
-        "/kb-run-sprint"
-      ],
+      "commands_or_skills": ["/kb-run-sprint"],
       "base_prompt_excerpt": "Run /kb-run-sprint Sprint 08 until GATE-GOAL: ACHIEVED",
       "base_prompt_sha256": "",
       "goal": {
@@ -72,9 +70,7 @@
       "model": "grok-4.5",
       "provider": "xai",
       "session_id": "",
-      "commands_or_skills": [
-        "/review-red-hat"
-      ],
+      "commands_or_skills": ["/review-red-hat"],
       "base_prompt_excerpt": "Independent Sprint 8 red-hat review; no product-code changes",
       "base_prompt_sha256": "",
       "goal": {
@@ -114,9 +110,7 @@
       "model": "grok-4.5",
       "provider": "xai",
       "session_id": "",
-      "commands_or_skills": [
-        "/kb-sprint-tasks-plan"
-      ],
+      "commands_or_skills": ["/kb-sprint-tasks-plan"],
       "base_prompt_excerpt": "Expand red-hat HIGH findings H1-H5 into first-class remediation task files",
       "base_prompt_sha256": "",
       "goal": {
@@ -156,9 +150,7 @@
       "model": "grok-4.5",
       "provider": "xai",
       "session_id": "",
-      "commands_or_skills": [
-        "/kb-run-sprint --redhat-only 3"
-      ],
+      "commands_or_skills": ["/kb-run-sprint --redhat-only 3"],
       "base_prompt_excerpt": "Sprint 8 red-hat-only remediation recovery H1-H5",
       "base_prompt_sha256": "",
       "goal": {
@@ -198,9 +190,7 @@
       "model": "grok-4.5",
       "provider": "xai",
       "session_id": "019f6947-f172-79b2-b717-0e9c188e2624",
-      "commands_or_skills": [
-        "/review-red-hat"
-      ],
+      "commands_or_skills": ["/review-red-hat"],
       "base_prompt_excerpt": "Fresh independent Sprint 8 red-hat review after H1-H5 remediation",
       "base_prompt_sha256": "",
       "goal": {
@@ -239,9 +229,7 @@
       "model": "grok-4.5",
       "provider": "xai",
       "session_id": "",
-      "commands_or_skills": [
-        "/kb-run-human-tests"
-      ],
+      "commands_or_skills": ["/kb-run-human-tests"],
       "base_prompt_excerpt": "Fresh QA gate: execute every documented Sprint 08 human-test step with provenance",
       "base_prompt_sha256": "",
       "goal": {
@@ -281,9 +269,7 @@
       "model": "grok-4.5",
       "provider": "xai",
       "session_id": "",
-      "commands_or_skills": [
-        "/kb-run-human-tests"
-      ],
+      "commands_or_skills": ["/kb-run-human-tests"],
       "base_prompt_excerpt": "QA retry 1: fresh per-step logs after evidence-missing invalid verdict",
       "base_prompt_sha256": "",
       "goal": {
@@ -323,9 +309,7 @@
       "model": "grok-4.5",
       "provider": "xai",
       "session_id": "",
-      "commands_or_skills": [
-        "/kb-run-human-tests"
-      ],
+      "commands_or_skills": ["/kb-run-human-tests"],
       "base_prompt_excerpt": "QA retry 2: source project env in memory, fresh services and per-step evidence",
       "base_prompt_sha256": "",
       "goal": {
@@ -365,9 +349,7 @@
       "model": "grok-4.5",
       "provider": "xai",
       "session_id": "",
-      "commands_or_skills": [
-        "/kb-run-human-tests"
-      ],
+      "commands_or_skills": ["/kb-run-human-tests"],
       "base_prompt_excerpt": "QA retry 3: direct process env source, never serialize secrets, fresh evidence",
       "base_prompt_sha256": "",
       "goal": {
@@ -407,9 +389,7 @@
       "model": "grok-4.5",
       "provider": "xai",
       "session_id": "",
-      "commands_or_skills": [
-        "/kb-run-human-tests"
-      ],
+      "commands_or_skills": ["/kb-run-human-tests"],
       "base_prompt_excerpt": "QA retry 4: fresh gate with runner submission recovery",
       "base_prompt_sha256": "",
       "goal": {
@@ -449,9 +429,7 @@
       "model": "grok-4.5",
       "provider": "xai",
       "session_id": "",
-      "commands_or_skills": [
-        "/kb-run-human-tests"
-      ],
+      "commands_or_skills": ["/kb-run-human-tests"],
       "base_prompt_excerpt": "QA retry 5: long-command-safe fresh gate",
       "base_prompt_sha256": "",
       "goal": {
@@ -491,9 +469,7 @@
       "model": "grok-4.5",
       "provider": "xai",
       "session_id": "",
-      "commands_or_skills": [
-        "/kb-run-human-tests"
-      ],
+      "commands_or_skills": ["/kb-run-human-tests"],
       "base_prompt_excerpt": "QA retry 6: supported Anthropic escape model",
       "base_prompt_sha256": "",
       "goal": {
@@ -533,9 +509,7 @@
       "model": "grok-4.5",
       "provider": "xai",
       "session_id": "",
-      "commands_or_skills": [
-        "/kb-run-human-tests"
-      ],
+      "commands_or_skills": ["/kb-run-human-tests"],
       "base_prompt_excerpt": "QA retry 6 pointer: read full goal from disk",
       "base_prompt_sha256": "",
       "goal": {
@@ -575,9 +549,7 @@
       "model": "grok-4.5",
       "provider": "xai",
       "session_id": "",
-      "commands_or_skills": [
-        "/kb-run-human-tests"
-      ],
+      "commands_or_skills": ["/kb-run-human-tests"],
       "base_prompt_excerpt": "QA retry 6 no-web wrapper: supported Anthropic escape model",
       "base_prompt_sha256": "",
       "goal": {
@@ -617,9 +589,7 @@
       "model": "grok-4.5",
       "provider": "xai",
       "session_id": "",
-      "commands_or_skills": [
-        "/kb-run-human-tests"
-      ],
+      "commands_or_skills": ["/kb-run-human-tests"],
       "base_prompt_excerpt": "QA retry 6 pointer with hooks disabled",
       "base_prompt_sha256": "",
       "goal": {
@@ -698,10 +668,7 @@
       "model": "glm-5.2",
       "provider": "anthropic",
       "session_id": "5d737b6c-69ef-4417-8f5d-0682641b53b0",
-      "commands_or_skills": [
-        "/kb-sprint-tasks-plan",
-        "/model"
-      ],
+      "commands_or_skills": ["/kb-sprint-tasks-plan", "/model"],
       "base_prompt_excerpt": "<local-command-caveat>",
       "base_prompt_sha256": "8a1bf3d3e00ac5504b425995c64042cab4111783ecb6c6a385d3bd583552df99",
       "goal": {

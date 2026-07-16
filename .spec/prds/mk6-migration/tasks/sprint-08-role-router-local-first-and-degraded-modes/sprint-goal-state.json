@@ -11,13 +11,13 @@
     "source": ".spec/prds/mk6-migration/tasks/sprint-08-role-router-local-first-and-degraded-modes/gate-results.json",
     "run_id": "holocron-gate-sprint-08-role-router-local-first-and-degraded-modes-2026-07-16T06-54-17Z",
     "steps": [
-      {"n": 1, "result": "pass", "run_mode": "terminal"},
-      {"n": 2, "result": "pass", "run_mode": "terminal"},
-      {"n": 3, "result": "pass", "run_mode": "terminal"},
-      {"n": 4, "result": "pass", "run_mode": "terminal"},
-      {"n": 5, "result": "pass", "run_mode": "terminal"},
-      {"n": 6, "result": "pass", "run_mode": "terminal"},
-      {"n": 7, "result": "pass", "run_mode": "terminal"}
+      { "n": 1, "result": "pass", "run_mode": "terminal" },
+      { "n": 2, "result": "pass", "run_mode": "terminal" },
+      { "n": 3, "result": "pass", "run_mode": "terminal" },
+      { "n": 4, "result": "pass", "run_mode": "terminal" },
+      { "n": 5, "result": "pass", "run_mode": "terminal" },
+      { "n": 6, "result": "pass", "run_mode": "terminal" },
+      { "n": 7, "result": "pass", "run_mode": "terminal" }
     ]
   },
   "e2e": {
