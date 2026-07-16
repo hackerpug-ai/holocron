@@ -3,8 +3,8 @@
   "condition_text": "All tasks complete AND gate PASS AND E2E PASS AND human_test verdict pass AND trunk consolidated",
   "tasks": {
     "complete": true,
-    "total": 5,
-    "done": 5
+    "total": 10,
+    "done": 10
   },
   "gate": {
     "verdict": "PASS"
@@ -14,25 +14,27 @@
   },
   "human_test": {
     "verdict": "pass",
-    "honesty_remediated": true,
-    "honesty_task": "REDHAT-FIX-H2",
-    "operator_surface": "infer:call + labeled PLATFORM_IT suite + verify:no-provider-refs (no mission CLI)",
     "steps_executed": 7,
     "steps_passed": 7,
     "steps_total": 7,
-    "gate_results": ".spec/prds/mk6-migration/tasks/sprint-08-role-router-local-first-and-degraded-modes/gate-results.json",
-    "procedure": ".spec/prds/mk6-migration/tasks/sprint-08-role-router-local-first-and-degraded-modes/HUMAN-GATE.md"
+    "gate_results": ".spec/prds/mk6-migration/tasks/sprint-08-role-router-local-first-and-degraded-modes/gate-results.json"
   },
   "integration": {
     "trunk_consolidated": true,
     "protected_branch": "integration/orch-s08-role-router-20260715T-current",
-    "head": "19ad7fd"
+    "head": "c4ea92fc606e5c3745f51e57bbc8b48d0ead2b7e"
   },
   "build": {
     "verdict": "PASS"
   },
   "met": true,
-  "honesty_note": "REDHAT-FIX-H2 rewrote non-executable mission/mid-run steps to runnable infer:call + labeled suite; inventory must pass before met remains true.",
-  "completed_at": "2026-07-16T04:30:00.000000+00:00",
-  "ac3_evidence": ".tmp/infer-2/AC-3-escape-telemetry.json"
+  "completed_at": "2026-07-16T04:49:39.148892+00:00",
+  "redhat_cycle": 1,
+  "redhat_fixes_landed": [
+    "H1",
+    "H2",
+    "H3",
+    "H4",
+    "H5"
+  ]
 }

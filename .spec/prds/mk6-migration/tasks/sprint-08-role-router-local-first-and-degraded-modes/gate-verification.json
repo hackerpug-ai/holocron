@@ -1,14 +1,7 @@
 {
   "sprint_id": "sprint-08-role-router-local-first-and-degraded-modes",
-  "verdict": "pass",
-  "honesty_remediated": true,
-  "honesty_task": "REDHAT-FIX-H2",
-  "gate_results": ".spec/prds/mk6-migration/tasks/sprint-08-role-router-local-first-and-degraded-modes/gate-results.json",
-  "human_gate_procedure": ".spec/prds/mk6-migration/tasks/sprint-08-role-router-local-first-and-degraded-modes/HUMAN-GATE.md",
-  "honesty_inventory": "PLATFORM_IT=1 pnpm vitest run tests/integration/service/infer-gate-honesty-inventory.test.ts",
-  "prior_greenwash_archive": ".spec/evidence/redhat-fix-h2-red.json",
-  "steps_passed": 7,
-  "steps_total": 7,
-  "note": "Steps match rewritten SPRINT.md operator surface (infer:call / labeled suite / verify). Mission is Sprint 15.",
-  "completed_at": "2026-07-16T04:30:00.000000+00:00"
+  "verdict": "PASS",
+  "source": "human-tests-cycle2",
+  "head": "c4ea92fc606e5c3745f51e57bbc8b48d0ead2b7e",
+  "completed_at": "2026-07-16T04:49:39.148892+00:00"
 }

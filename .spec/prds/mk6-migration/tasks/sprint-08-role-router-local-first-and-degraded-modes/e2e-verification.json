@@ -1,10 +1,11 @@
 {
   "sprint_id": "sprint-08-role-router-local-first-and-degraded-modes",
-  "verdict": "pass",
+  "verdict": "PASS",
   "framework": "headless-service",
-  "command": "PLATFORM_IT=1 pnpm vitest run tests/integration/service/infer-*.test.ts",
-  "result": "Test Files 15 passed / Tests 47 passed",
-  "log": ".tmp/sprint-08-role-router-local-first-and-degraded-modes/e2e-infer-suite.txt",
-  "completed_at": "2026-07-16T03:39:32.334625+00:00",
-  "commit": "dbd7dc59e54ff35cfcec746b93ac1688bc3e4a64"
+  "command": "PLATFORM_IT=1 pnpm vitest run tests/integration/service/infer-*.test.ts --pool=forks --maxWorkers=1",
+  "tests_passed": 78,
+  "test_files_passed": 20,
+  "log": ".tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests-cycle2/e2e-infer-suite.log",
+  "head": "c4ea92fc606e5c3745f51e57bbc8b48d0ead2b7e",
+  "completed_at": "2026-07-16T04:49:39.148892+00:00"
 }

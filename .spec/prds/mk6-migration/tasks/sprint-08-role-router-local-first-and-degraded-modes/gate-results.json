@@ -1,107 +1,100 @@
 {
   "sprint_id": "sprint-08-role-router-local-first-and-degraded-modes",
   "verdict": "pass",
-  "honesty_remediated": true,
-  "honesty_task": "REDHAT-FIX-H2",
-  "honesty_procedure": ".spec/prds/mk6-migration/tasks/sprint-08-role-router-local-first-and-degraded-modes/HUMAN-GATE.md",
-  "prior_greenwash_archive": ".spec/evidence/redhat-fix-h2-red.json",
-  "cycle_start": "2026-07-16T03:39:04Z",
-  "completed_at": "2026-07-16T04:30:00.000000+00:00",
-  "runner": "kb-run-sprint-orchestrator+REDHAT-FIX-H2",
+  "cycle_start": "2026-07-16T04:49:10Z",
+  "completed_at": "2026-07-16T04:49:39.148892+00:00",
+  "runner": "kb-run-sprint-orchestrator",
   "ui_driver": "none",
   "steps_total": 7,
   "steps_executed": 7,
   "steps_passed": 7,
-  "note": "REDHAT-FIX-H2: steps rewritten to real operator surface (infer:call / labeled PLATFORM_IT suite / verify:no-provider-refs). Mission CLI is Sprint 15. Suite steps are explicitly labeled suite — never greenwashed as mission. Prior greenwash archived under .spec/evidence/redhat-fix-h2-red.json.",
   "steps": [
     {
       "id": "step-1",
-      "name": "[CLI] infer:call default path divergent via resolveModel",
-      "kind": "cli",
-      "label": "CLI",
-      "command": "bun holo infer:call --role divergent --json",
+      "name": "CLI default infer:call --role divergent",
+      "command": "bun services/platform/src/cli/holo.ts infer:call --role divergent --json",
       "executed": true,
       "result": "pass",
-      "log": ".tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests/step1-infer-call-divergent.log"
+      "log": ".tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests-cycle2/step1-infer-call-default.json",
+      "surface": "cli"
     },
     {
       "id": "step-2",
-      "name": "[SUITE] PLATFORM_IT default-path zero Anthropic (not mission CLI)",
-      "kind": "suite",
-      "label": "SUITE",
-      "command": "PLATFORM_IT=1 pnpm vitest run tests/integration/service/infer-router-zero-cloud.test.ts tests/integration/service/infer-red-zero-cloud.test.ts",
+      "name": "SUITE zero Anthropic default path",
+      "command": "PLATFORM_IT=1 vitest infer-router-zero-cloud + infer-red-zero-cloud",
       "executed": true,
       "result": "pass",
-      "log": ".tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests/step2-zero-cloud-suite.log",
-      "detail": {
-        "suite_not_mission": true,
-        "anthropicCount": 0
-      }
+      "log": ".tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests-cycle2/step2-zero-cloud-suite.log",
+      "surface": "suite"
     },
     {
       "id": "step-3",
-      "name": "[CLI] infer:call --role divergent/convergent resolve fleet models",
-      "kind": "cli",
-      "label": "CLI",
-      "command": "bun holo infer:call --role divergent|convergent --json",
+      "name": "CLI divergent+convergent fleet resolve",
+      "command": "bun ... infer:call --role divergent|convergent --json",
       "executed": true,
       "result": "pass",
-      "log": ".tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests/step3-divergent.log",
+      "log": ".tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests-cycle2/step3-divergent.json",
+      "surface": "cli",
       "detail": {
         "divergent_ok": true,
-        "convergent_ok": true
+        "convergent_ok": true,
+        "divergent_model": "qwen3.6-35b-a3b-mtp-q8_k_xl",
+        "convergent_model": "qwen3.6-27b-mtp-q8_0"
       }
     },
     {
       "id": "step-4",
-      "name": "[CLI] infer:call --escape --cost 999 blocked",
-      "kind": "cli",
-      "label": "CLI",
-      "command": "bun holo infer:call --escape --cost 999 --json",
+      "name": "CLI escape --cost 999 blocked",
+      "command": "bun ... infer:call --escape --cost 999 --json",
       "executed": true,
       "result": "pass",
-      "log": ".tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests/step4-over-budget.log"
+      "log": ".tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests-cycle2/step4-over-budget.json",
+      "surface": "cli",
+      "detail": {
+        "error": "BUDGET_EXCEEDED",
+        "anthropicCount": 0,
+        "message": "escape blocked: BUDGET_EXCEEDED (ceiling=10 spent=9.5 estimated=999)"
+      }
     },
     {
       "id": "step-5",
-      "name": "[CLI] real infer:call --escape --highStakes within budget logs ledger",
-      "kind": "cli",
-      "label": "CLI",
-      "command": "bun holo infer:call --escape --highStakes --cost 0.05 --json",
+      "name": "CLI real escape within budget ledger",
+      "command": "bun ... infer:call --escape --highStakes --cost 0.05 --json",
       "executed": true,
       "result": "pass",
-      "log": ".tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests/step5-escape.log",
+      "log": ".tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests-cycle2/step5-escape.json",
+      "surface": "cli",
       "detail": {
         "tokens": 21,
-        "cost": 4.1e-5
+        "cost": 4.1e-05,
+        "ledgerId": "019f6941-e4b6-7d33-a489-eadd7b43f79f",
+        "anthropicHostContacted": true
       }
     },
     {
       "id": "step-6",
-      "name": "[SUITE] degraded never-cloud controller suite (not mid-run mission fleet kill)",
-      "kind": "suite",
-      "label": "SUITE",
-      "command": "PLATFORM_IT=1 pnpm vitest run tests/integration/service/infer-degraded-transition.test.ts tests/integration/service/infer-degraded-resume.test.ts",
+      "name": "SUITE degraded never-cloud + resume",
+      "command": "PLATFORM_IT=1 vitest infer-degraded-transition + resume",
       "executed": true,
       "result": "pass",
-      "log": ".tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests/step6-degraded-suite.log",
-      "detail": {
-        "suite_not_mission": true,
-        "never_cloud": true,
-        "anthropicCount": 0,
-        "honest_degraded_proof": "controller suite + optional holo infer:degraded"
-      }
+      "log": ".tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests-cycle2/step6-degraded-suite.log",
+      "surface": "suite"
     },
     {
       "id": "step-7",
-      "name": "[CLI] holo verify:no-provider-refs",
-      "kind": "cli",
-      "label": "CLI",
-      "command": "bun holo verify:no-provider-refs",
+      "name": "CLI verify:no-provider-refs",
+      "command": "bun services/platform/src/cli/holo.ts verify:no-provider-refs",
       "executed": true,
       "result": "pass",
-      "log": ".tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests/step7-no-provider.log"
+      "log": ".tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests-cycle2/step7-no-provider.log",
+      "surface": "cli"
     }
   ],
-  "logs_dir": ".tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests"
+  "logs_dir": ".tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests-cycle2",
+  "honesty": {
+    "mission_cli_documented": false,
+    "suite_steps_labeled": true,
+    "source": "HUMAN-GATE.md + REDHAT-FIX-H2"
+  },
+  "head": "c4ea92fc606e5c3745f51e57bbc8b48d0ead2b7e"
 }
