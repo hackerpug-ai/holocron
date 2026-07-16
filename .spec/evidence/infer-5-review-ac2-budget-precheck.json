@@ -1,0 +1,85 @@
+{
+  "ac": "AC-2",
+  "title": "Escape path has budget pre-check",
+  "satisfied": true,
+  "head_sha": "3e0568d093ca9cf8c2f0f8dcf0f383259a1d5693",
+  "reviewed_at": "2026-07-16T03:37:00Z",
+  "prior_finding_closed": {
+    "finding": "HIGH: checkBudget did not persist pre-check rows (COUNT(pre-check)=0)",
+    "fix": "c85651405b4ddc433d666e709fc65989776d0d75 fix(infer-2): audit checkBudget pre-check rows for infer-5 AC-2",
+    "merge": "3e0568d093ca9cf8c2f0f8dcf0f383259a1d5693",
+    "migration": "services/platform/src/db/migrations/0009_budget_ledger_allow_escape.sql"
+  },
+  "database": "postgres://127.0.0.1:5432/holocron",
+  "queries": [
+    {
+      "sql": "SELECT COUNT(*) FROM budget_ledger WHERE check_type = 'pre-check'",
+      "result": 2,
+      "must_observe": "count >= 1"
+    },
+    {
+      "sql": "SELECT COALESCE(SUM(cost),0)::float8 AS spent FROM budget_ledger",
+      "result": 4.1e-05,
+      "must_observe": "spent > 0"
+    },
+    {
+      "sql": "SELECT COUNT(*) FROM budget_ledger WHERE role = 'divergent' AND allow_escape = true",
+      "result": 3,
+      "must_observe": "record with role divergent and allowEscape=true"
+    },
+    {
+      "sql": "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='budget_ledger' AND column_name='allow_escape'",
+      "result": { "column_name": "allow_escape", "data_type": "boolean" }
+    }
+  ],
+  "precheck_rows_observed": [
+    {
+      "check_type": "pre-check",
+      "role": "divergent",
+      "allow_escape": true,
+      "cost": 0,
+      "reason": "BUDGET_OK: infer-5-review-reverify-precheck"
+    },
+    {
+      "check_type": "pre-check",
+      "role": "divergent",
+      "allow_escape": true,
+      "cost": 0,
+      "reason": "BUDGET_OK: ac3-cli-budgeted-escape"
+    }
+  ],
+  "live_seed": {
+    "action": "PLATFORM_IT=1 bun checkBudget({ estimatedCostUsd:0.001, reason:'infer-5-review-reverify-precheck', role:'divergent', allowEscape:true })",
+    "result": {
+      "ok": true,
+      "ceilingUsd": 10,
+      "spentUsd": 0.000041,
+      "remainingUsd": 9.999959,
+      "estimatedCostUsd": 0.001
+    },
+    "note": "Inserts audit row check_type=pre-check cost=0 without inflating spent"
+  },
+  "holo_budget_status": {
+    "cmd": "bun services/platform/src/cli/holo.ts budget:status --json",
+    "exit": 0,
+    "stdout": {
+      "ok": true,
+      "spent": 0.000041,
+      "ceiling": 10,
+      "remaining": 9.999959,
+      "escapeCount": 1
+    },
+    "must_observe": "spent > 0"
+  },
+  "source_review": {
+    "file": "services/platform/src/inference/budget-ledger.ts",
+    "recordPreCheckAudit": "lines 326-347 — INSERT via logEscape with checkType='pre-check', tokens=0, cost=0, allowEscape default true, role default divergent",
+    "checkBudget": "lines 358-439 — always audits when ledgerReachable; fail-closed if audit INSERT fails",
+    "resolveModel_escape": "services/platform/src/inference/resolve-model.ts:279-287 assertBudget before Anthropic probe"
+  },
+  "must_not_observe": {
+    "precheck_count_zero": false,
+    "spent_zero": false,
+    "missing_allow_escape_true": false
+  }
+}

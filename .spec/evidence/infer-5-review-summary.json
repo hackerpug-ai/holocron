@@ -1,0 +1,55 @@
+{
+  "task_id": "infer-5",
+  "title": "Review local-first structural integrity + escape leakage",
+  "agent": "mastra-reviewer",
+  "reviewed_at": "2026-07-16T03:37:00Z",
+  "head_sha": "3e0568d093ca9cf8c2f0f8dcf0f383259a1d5693",
+  "branch": "task/infer-5-review",
+  "prior_high_finding": {
+    "id": "pre-check-audit-missing",
+    "status": "CLOSED",
+    "fix_commit": "c85651405b4ddc433d666e709fc65989776d0d75",
+    "merge_commit": "3e0568d093ca9cf8c2f0f8dcf0f383259a1d5693",
+    "fix_summary": "checkBudget now INSERTs budget_ledger rows with check_type='pre-check' (cost=0); migration 0009 adds allow_escape boolean"
+  },
+  "verdict": "APPROVED",
+  "blocker_classification": "none",
+  "requirements": [
+    {
+      "id": "AC-1",
+      "satisfied": true,
+      "evidence": "grep -rE 'stub|mock|fake' services/platform/src/inference/resolve-model.ts → 0 matches; holo verify:no-provider-refs exit 0, direct-provider: 0, status: OK (scannedFiles=95)"
+    },
+    {
+      "id": "AC-2",
+      "satisfied": true,
+      "evidence": "SELECT COUNT(*) FROM budget_ledger WHERE check_type='pre-check' → 2 (≥1); live checkBudget seeded pre-check with role=divergent allow_escape=true cost=0; holo budget:status spent=0.000041 (>0), ceiling=10, escapes=1; allow_escape column present via migration 0009"
+    },
+    {
+      "id": "AC-3",
+      "satisfied": true,
+      "evidence": "Live DegradedModeController: fleet-down → degraded_state=surface-unavailable, allowCloud=false; escape temptation while degraded → outcome=surfaced allowCloud=false; after forceNormal → degraded_state=normal resume_state=normal; no Postgres network_capture table (process-level capture in RED tests asserts countForHost('api.anthropic.com')===0)"
+    },
+    {
+      "id": "AC-4",
+      "satisfied": true,
+      "evidence": "grep mock.*network.*capture over infer-red-*.test.ts → 0 matches; api.anthropic.com literal count=12 across three RED files; assertions include expect(capture.countForHost('api.anthropic.com')).toBe(0)"
+    }
+  ],
+  "stub_detection": {
+    "resolve_model_stub_mock_fake_count": 0,
+    "vi_mock_mastra_in_infer_red": 0,
+    "z_any_in_inference": 0,
+    "skipped_tests_in_infer_red": 0,
+    "checkBudget_static_true": false,
+    "notes": "ok:true returns in resolve-model are from real health/escape probe success paths only (probeRoleHealth / probeAnthropicEscape after live fetch)"
+  },
+  "artifacts": [
+    ".spec/evidence/infer-5-review-summary.json",
+    ".spec/evidence/infer-5-review-ac1-router-no-stub.json",
+    ".spec/evidence/infer-5-review-ac2-budget-precheck.json",
+    ".spec/evidence/infer-5-review-ac3-degraded-no-cloud.json",
+    ".spec/evidence/infer-5-review-ac4-network-assertions.json",
+    ".tmp/infer-5/"
+  ]
+}

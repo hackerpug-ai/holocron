@@ -1,0 +1,37 @@
+{
+  "ac": "AC-1",
+  "title": "Router never reaches cloud via stub",
+  "satisfied": true,
+  "head_sha": "3e0568d093ca9cf8c2f0f8dcf0f383259a1d5693",
+  "reviewed_at": "2026-07-16T03:37:00Z",
+  "commands": [
+    {
+      "cmd": "grep -rE 'stub|mock|fake' services/platform/src/inference/resolve-model.ts | wc -l",
+      "exit": 0,
+      "stdout": "0",
+      "must_observe": "grep match count equals 0"
+    },
+    {
+      "cmd": "bun services/platform/src/cli/holo.ts verify:no-provider-refs",
+      "exit": 0,
+      "stdout": "holo verify:no-provider-refs — banned claudeFlash/claudePro/claudeUltra factories\n  scanRoot:            .../services/platform/src\n  scannedFiles:        95\n  direct-provider:     0\n  bannedFactories:     (none)\n  status: OK",
+      "must_observe": [
+        "exit code equals 0",
+        "direct-provider: 0",
+        "status: OK",
+        "no claudeFlash/claudePro/claudeUltra factory refs"
+      ]
+    }
+  ],
+  "source_review": {
+    "file": "services/platform/src/inference/resolve-model.ts",
+    "default_path": "fleet only; isCloudEndpoint refused when allowEscape=false (lines 334-365)",
+    "escape_path": "allowEscape=true only; assertBudget pre-check then probeAnthropicEscape (lines 256-318)",
+    "degraded_guard": "isProcessInDegradedMode() throws RoleUnavailableError before Anthropic (lines 258-267)"
+  },
+  "must_not_observe": {
+    "stub_present": false,
+    "verify_nonzero_exit": false,
+    "direct_provider_refs": false
+  }
+}

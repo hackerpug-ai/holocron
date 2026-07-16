@@ -1,0 +1,44 @@
+{
+  "ac": "AC-4",
+  "title": "Network assertions un-fakeable",
+  "satisfied": true,
+  "head_sha": "3e0568d093ca9cf8c2f0f8dcf0f383259a1d5693",
+  "reviewed_at": "2026-07-16T03:37:00Z",
+  "commands": [
+    {
+      "cmd": "grep -r 'mock.*network.*capture' tests/integration/service/infer-red-*.test.ts | wc -l",
+      "exit": 0,
+      "stdout": "0",
+      "must_observe": "match count equals 0"
+    },
+    {
+      "cmd": "grep -r 'api.anthropic.com' tests/integration/service/infer-red-*.test.ts | wc -l",
+      "exit": 0,
+      "stdout": "12",
+      "must_observe": "literal count >= 1"
+    }
+  ],
+  "files": [
+    "tests/integration/service/infer-red-zero-cloud.test.ts",
+    "tests/integration/service/infer-red-over-budget.test.ts",
+    "tests/integration/service/infer-red-degraded-no-cloud.test.ts"
+  ],
+  "assertions_with_literal_and_zero_count": [
+    "tests/integration/service/infer-red-degraded-no-cloud.test.ts:159 expect(capture.countForHost('api.anthropic.com')).toBe(0)",
+    "tests/integration/service/infer-red-zero-cloud.test.ts:71 expect(capture.countForHost('api.anthropic.com')).toBe(0)",
+    "tests/integration/service/infer-red-zero-cloud.test.ts:111 expect(capture.countForHost('api.anthropic.com')).toBe(0)",
+    "tests/integration/service/infer-red-zero-cloud.test.ts:141 expect(capture.countForHost('api.anthropic.com')).toBe(0)",
+    "tests/integration/service/infer-red-over-budget.test.ts:178 expect(capture.countForHost('api.anthropic.com')).toBe(0)"
+  ],
+  "mock_scan": {
+    "vi_mock": 0,
+    "jest_mock": 0,
+    "mock_network_capture_regex": 0,
+    "note": "Comments document negative controls (what would fail if mocked) — not actual mocks"
+  },
+  "must_not_observe": {
+    "mock_network_capture_present": false,
+    "missing_api_anthropic_literal": false,
+    "only_port_4545_without_host_literal": false
+  }
+}
