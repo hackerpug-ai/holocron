@@ -16,6 +16,7 @@
  * Sprint 07 ledger-2: evidence:revise | db:probe --raw
  * Sprint 07 ledger-3: evidence:belief --as-of | evidence:register-doc
  * Sprint 08 infer-1: infer:call | verify:no-provider-refs
+ * Sprint 08 infer-3: infer:degraded (status / poll) + DegradedModeController on fleet-down
  */
 import { resolve } from 'node:path';
 
@@ -130,6 +131,7 @@ Usage:
   evidence:register-doc <id>
                             Register internal doc as self-sourced source (reuse passages)
   infer:call                Resolve a fleet role (or budgeted Claude escape) via resolveModel
+  infer:degraded            Show / poll degraded-mode state (fleet-down reduced mode)
   verify:no-provider-refs   Audit platform src for banned claudeFlash/Pro/Ultra factories
 
 Options:
@@ -153,11 +155,12 @@ Options:
   --valid-to <ts>       (evidence:revise) optional valid_to timestamptz
   --claim-id <id>       (evidence:belief) claim id to query
   --as-of <ts|now>      (evidence:belief) transaction-time as-of (default: now)
-  --role <role>         (infer:call) fleet role: divergent|convergent|judge|embed|rerank
+  --role <role>         (infer:call|infer:degraded) fleet role: divergent|convergent|judge|embed|rerank
   --escape              (infer:call) allowEscape=true (budgeted Claude escape)
   --highStakes          (infer:call) alias for --escape (high-stakes step)
   --cost <usd>          (infer:call) estimated escape cost USD for budget pre-check
   --reason <text>       (infer:call) escape reason for audit trail
+  --poll                (infer:degraded) run one real health probe (may auto-resume)
   --json                Emit JSON instead of text
   --print-trace         (compat:spike) emit OTel trace details
   --dry-run             (catalog:reconcile) dry-run mode (default)
@@ -1244,11 +1247,18 @@ async function main(): Promise<void> {
         return origFetch(input as RequestInfo, init as RequestInit);
       }) as typeof globalThis.fetch;
 
-      const { resolveModel, UnknownFleetRoleError, RoleUnavailableError, BudgetExceededError } =
-        await import('../inference/resolve-model.ts');
+      const { UnknownFleetRoleError, RoleUnavailableError, BudgetExceededError } = await import(
+        '../inference/resolve-model.ts'
+      );
+      const { DegradedModeController } = await import('../inference/degraded-mode-controller.ts');
+      const controller = new DegradedModeController({
+        databaseUrl: process.env.DATABASE_URL,
+        role: typeof role === 'string' ? role : 'divergent',
+      });
 
       try {
-        const resolved = await resolveModel(role, {
+        await controller.init();
+        const result = await controller.resolveRole(role, {
           allowEscape,
           highStakes: args.highStakes,
           estimatedCostUsd,
@@ -1260,35 +1270,68 @@ async function main(): Promise<void> {
         const fleetCount = captureRows.filter(
           (r) => r.url.includes(':4545') || r.host.includes('127.0.0.1')
         ).length;
+
+        if (result.ok) {
+          const resolved = result.resolved;
+          const payload = {
+            ok: true,
+            allowEscape,
+            role,
+            resolved,
+            degradedState: controller.getState(),
+            networkCapture: {
+              anthropicCount,
+              fleetCount,
+              rows: captureRows,
+            },
+          };
+          if (args.json) {
+            console.log(JSON.stringify(payload, null, 2));
+          } else {
+            console.log('holo infer:call — resolveModel(role, { allowEscape })');
+            console.log(`  role:            ${resolved.role}`);
+            console.log(`  allowEscape:     ${allowEscape}`);
+            console.log(`  provider:        ${resolved.provider}`);
+            console.log(`  endpoint:        ${resolved.endpoint}`);
+            console.log(`  baseURL:         ${resolved.baseURL}`);
+            console.log(`  litellmModelId:  ${resolved.litellmModelId}`);
+            console.log(`  modelRevision:   ${resolved.modelRevision}`);
+            console.log(`  degradation:     ${resolved.degradationAction}`);
+            console.log(`  degraded-state:  ${controller.getState()['degraded-state']}`);
+            console.log(
+              `  networkCapture:  anthropic=${anthropicCount} fleet=${fleetCount} total=${captureRows.length}`
+            );
+            console.log('  status: OK');
+          }
+          process.exit(0);
+        }
+
+        // Fleet-down: degradation already executed + surfaced by controller
         const payload = {
-          ok: true,
-          allowEscape,
+          ok: false,
+          error: 'ROLE_UNAVAILABLE',
           role,
-          resolved,
+          allowEscape,
+          message: result.degradation.message,
+          degradation: result.degradation,
+          degradedState: controller.getState(),
           networkCapture: {
             anthropicCount,
-            fleetCount,
+            fleetCount: captureRows.filter((r) => r.url.includes(':4545')).length,
             rows: captureRows,
           },
         };
         if (args.json) {
-          console.log(JSON.stringify(payload, null, 2));
+          console.error(JSON.stringify(payload, null, 2));
         } else {
-          console.log('holo infer:call — resolveModel(role, { allowEscape })');
-          console.log(`  role:            ${resolved.role}`);
-          console.log(`  allowEscape:     ${allowEscape}`);
-          console.log(`  provider:        ${resolved.provider}`);
-          console.log(`  endpoint:        ${resolved.endpoint}`);
-          console.log(`  baseURL:         ${resolved.baseURL}`);
-          console.log(`  litellmModelId:  ${resolved.litellmModelId}`);
-          console.log(`  modelRevision:   ${resolved.modelRevision}`);
-          console.log(`  degradation:     ${resolved.degradationAction}`);
-          console.log(
-            `  networkCapture:  anthropic=${anthropicCount} fleet=${fleetCount} total=${captureRows.length}`
-          );
-          console.log('  status: OK');
+          console.error(`holo infer:call degraded: ROLE_UNAVAILABLE`);
+          console.error(`  ${result.degradation.message}`);
+          console.error(`  degraded-state: ${result.degradation['degraded-state']}`);
+          console.error(`  degradationAction: ${result.degradation.degradationAction}`);
+          console.error(`  networkCapture.anthropicCount=${anthropicCount}`);
         }
-        process.exit(0);
+        // Exit 1 for unavailability, but never silent cloud
+        process.exit(1);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         const code =
@@ -1323,7 +1366,74 @@ async function main(): Promise<void> {
         }
         process.exit(1);
       } finally {
+        await controller.close().catch(() => undefined);
         globalThis.fetch = origFetch;
+      }
+      break;
+    }
+    case 'infer:degraded': {
+      // Sprint 08 infer-3: operator visibility into degraded-mode + optional health poll
+      const { DegradedModeController } = await import('../inference/degraded-mode-controller.ts');
+      const role = args.role ?? 'divergent';
+      const controller = new DegradedModeController({
+        databaseUrl: process.env.DATABASE_URL,
+        role,
+      });
+      try {
+        await controller.init();
+        let poll: { ok: boolean; resumed: boolean; endpoint?: string } | null = null;
+        const wantPoll =
+          args.positional.includes('poll') ||
+          process.argv.includes('--poll') ||
+          args.positional[1] === 'poll';
+        if (wantPoll) {
+          poll = await controller.pollOnce();
+        }
+        const state = controller.getState();
+        const payload = {
+          ok: true,
+          'degraded-state': state['degraded-state'],
+          'resume-state': state['resume-state'],
+          message: state.message,
+          degradationAction: state.degradationAction,
+          role: state.role ?? role,
+          endpoint: state.endpoint,
+          missionMode: state.missionMode,
+          extractionState: state.extractionState,
+          lastProbeAt: state.lastProbeAt,
+          lastProbeOk: state.lastProbeOk,
+          poll,
+        };
+        if (args.json) {
+          console.log(JSON.stringify(payload, null, 2));
+        } else {
+          console.log('holo infer:degraded — DegradedModeController status');
+          console.log(`  degraded-state:   ${state['degraded-state']}`);
+          console.log(`  resume-state:     ${state['resume-state']}`);
+          console.log(`  message:          ${state.message ?? '(none)'}`);
+          console.log(`  degradationAction:${state.degradationAction ?? '(none)'}`);
+          console.log(`  role:             ${state.role ?? role}`);
+          console.log(`  endpoint:         ${state.endpoint ?? '(none)'}`);
+          console.log(`  missionMode:      ${state.missionMode}`);
+          console.log(`  extractionState:  ${state.extractionState}`);
+          if (poll) {
+            console.log(`  poll.ok:          ${poll.ok}`);
+            console.log(`  poll.resumed:     ${poll.resumed}`);
+            console.log(`  poll.endpoint:    ${poll.endpoint ?? '(none)'}`);
+          }
+          console.log('  status: OK');
+        }
+        process.exit(0);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (args.json) {
+          console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+        } else {
+          console.error(`holo infer:degraded failed: ${msg}`);
+        }
+        process.exit(1);
+      } finally {
+        await controller.close().catch(() => undefined);
       }
       break;
     }

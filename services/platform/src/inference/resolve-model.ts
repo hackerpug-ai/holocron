@@ -19,6 +19,7 @@ import {
   BudgetExceededError,
   checkBudget,
 } from './budget-ledger';
+import { isProcessInDegradedMode } from './degraded-process-flag';
 
 export type ResolveModelOptions = {
   /** Override manifest path (tests / CLI). */
@@ -253,6 +254,17 @@ export async function resolveModel(
 
   // ── Escape path (explicit only) ──────────────────────────────────────────
   if (allowEscape) {
+    // Never-cloud during fleet degraded mode (infer-3). Process flag is set by
+    // DegradedModeController — refuse escape BEFORE any Anthropic traffic.
+    if (isProcessInDegradedMode()) {
+      throw new RoleUnavailableError(
+        role,
+        ANTHROPIC_ENDPOINT,
+        'fail-closed',
+        'degraded mode active — Claude escape refused (never-cloud; local fleet only)'
+      );
+    }
+
     // Role must still be a known fleet role (escape is per-step, not free-form).
     const manifest = options.manifest ?? getFleetManifest(options.manifestPath);
     let entry: FleetRole;
