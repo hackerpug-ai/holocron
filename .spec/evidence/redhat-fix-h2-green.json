@@ -1,7 +1,7 @@
 {
   "task": "REDHAT-FIX-H2",
   "kind": "green_honest_inventory",
-  "capturedAt": "2026-07-16T04:43:36.916Z",
+  "capturedAt": "2026-07-16T04:44:54.973Z",
   "inventory_pass": true,
   "unmapped_steps_count": 0,
   "mapped_steps_count": 7,
@@ -27,7 +27,9 @@
       "mapped": true,
       "kind": "cli",
       "reason": "holo CLI case(s) present",
-      "holoCommands": ["infer:call"],
+      "holoCommands": [
+        "infer:call"
+      ],
       "suiteCommands": []
     },
     {
@@ -45,7 +47,9 @@
       "mapped": true,
       "kind": "cli",
       "reason": "holo CLI case(s) present",
-      "holoCommands": ["infer:call"],
+      "holoCommands": [
+        "infer:call"
+      ],
       "suiteCommands": []
     },
     {
@@ -53,7 +57,9 @@
       "mapped": true,
       "kind": "cli",
       "reason": "holo CLI case(s) present",
-      "holoCommands": ["infer:call"],
+      "holoCommands": [
+        "infer:call"
+      ],
       "suiteCommands": []
     },
     {
@@ -61,7 +67,9 @@
       "mapped": true,
       "kind": "cli",
       "reason": "holo CLI case(s) present",
-      "holoCommands": ["infer:call"],
+      "holoCommands": [
+        "infer:call"
+      ],
       "suiteCommands": []
     },
     {
@@ -69,7 +77,9 @@
       "mapped": true,
       "kind": "mixed",
       "reason": "holo CLI case(s) present",
-      "holoCommands": ["infer:degraded"],
+      "holoCommands": [
+        "infer:degraded"
+      ],
       "suiteCommands": [
         "PLATFORM_IT=1 pnpm vitest run tests/integration/service/infer-degraded-transition.test.ts tests/integration/service/infer-degraded-resume.test.ts"
       ]
@@ -79,7 +89,9 @@
       "mapped": true,
       "kind": "cli",
       "reason": "holo CLI case(s) present",
-      "holoCommands": ["verify:no-provider-refs"],
+      "holoCommands": [
+        "verify:no-provider-refs"
+      ],
       "suiteCommands": []
     }
   ],
