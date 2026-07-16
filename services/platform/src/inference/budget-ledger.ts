@@ -15,6 +15,7 @@
 
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { generateText } from 'ai';
+import { getSecretValue } from '../config/secrets.ts';
 import { createSql, type Sql } from '../db/client';
 import { resolveDatabaseUrl } from '../db/connection';
 
@@ -445,7 +446,7 @@ export async function runBudgetedEscape(
     env
   );
 
-  const apiKey = request.apiKey ?? env.ANTHROPIC_API_KEY;
+  const apiKey = request.apiKey ?? env.ANTHROPIC_API_KEY ?? getSecretValue('ANTHROPIC_API_KEY');
   if (!apiKey || apiKey.trim() === '') {
     throw new Error('ANTHROPIC_API_KEY required for runBudgetedEscape');
   }

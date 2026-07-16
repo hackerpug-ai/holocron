@@ -14,10 +14,26 @@ import { spawnSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
+import {
+  applyConsolidatedSecretsToEnv,
+  getSecretValue,
+} from '../../../services/platform/src/config/secrets';
 import { BUN_BIN, DEFAULT_DATABASE_URL, HOLO_CLI, PLATFORM_IT, REPO_ROOT } from './harness';
 import { installNetworkCapture } from './infer-network-capture';
 
-const hasAnthropicKey = Boolean(process.env.ANTHROPIC_API_KEY?.trim());
+function ensureAnthropicKeyFromSecrets(): boolean {
+  // Prefer env; fill from gitignored secrets.yaml via consolidated loader (never log value).
+  applyConsolidatedSecretsToEnv();
+  const fromEnv = process.env.ANTHROPIC_API_KEY?.trim();
+  if (fromEnv) return true;
+  const fromFile = getSecretValue('ANTHROPIC_API_KEY');
+  if (fromFile?.trim()) {
+    process.env.ANTHROPIC_API_KEY = fromFile.trim();
+    return true;
+  }
+  return false;
+}
+const hasAnthropicKey = ensureAnthropicKeyFromSecrets();
 /** Local-dev only: allow PLATFORM_IT suite to pass without a live Anthropic key. Harvest must NOT set this. */
 const allowSkipAnthropic = process.env.ALLOW_SKIP_ANTHROPIC === '1';
 const itLive = PLATFORM_IT ? it : it.skip;
