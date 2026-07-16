@@ -28,5 +28,6 @@
   },
   "anthropicCount": 0,
   "anthropicHits": 0,
-  "escapeSpendRows": 0
+  "escapeSpendRows": 0,
+  "preCheckCount": 2
 }

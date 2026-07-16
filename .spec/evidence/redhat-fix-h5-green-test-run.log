@@ -1,27 +1,13 @@
 
  RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-orchestrate/worktrees/task-redhat-fix-h5
 
- ✓ tests/integration/service/infer-escape-telemetry.test.ts (3 tests | 2 skipped) 169ms
- ✓ tests/integration/service/infer-budget-precheck.test.ts (1 test) 936ms
-     ✓ checkBudget($2) false; checkBudget($1) true; no Anthropic network on over-budget  743ms
- ✓ tests/integration/service/infer-budget-ledger-persistence.test.ts (2 tests) 1749ms
-     ✓ budget_ledger table exists with reason text column  766ms
-     ✓ logEscape INSERT writes 1 row with cost > 0  784ms
- ✓ tests/integration/service/infer-red-over-budget.test.ts (3 tests) 2493ms
-     ✓ checkBudget is defined (not no-budget-ledger RED state)  323ms
-     ✓ over-budget resolveModel(allowEscape=true) blocked; anthropicCount=0  1147ms
-     ✓ CLI infer:call --escape --cost over budget: non-zero + zero Anthropic  829ms
- ✓ tests/integration/service/infer-budget-cli.test.ts (4 tests) 2671ms
-     ✓ budget:status shows total spent containing 15  1027ms
-     ✓ budget:set --ceiling 50 updates Postgres ceiling  911ms
-     ✓ budget:status effectiveCeiling matches env override used by gate  501ms
- ✓ tests/integration/service/infer-budget-hard-precheck.test.ts (6 tests | 2 skipped) 2865ms
-     ✓ AC-1: estimatedCostUsd=0 refused; anthropicHits:0; no escape spend row  1298ms
-     ✓ AC-2: concurrent mutually exclusive estimates → at most one success  770ms
-     ✓ AC-3: getBudgetStatus effectiveCeiling matches checkBudget ceilingUsd  628ms
+ ✓ tests/integration/service/infer-budget-hard-precheck.test.ts (6 tests) 2507ms
+     ✓ AC-1: estimatedCostUsd=0 refused; anthropicHits:0; no escape spend row  549ms
+     ✓ AC-4: logEscape failure after generateText fails closed (no undercount success)  794ms
+     ✓ AC-5: estimatedCostUsd=0.05 still meters escape with pre-check audit  688ms
 
- Test Files  6 passed (6)
-      Tests  15 passed | 4 skipped (19)
-   Start at  22:29:54
-   Duration  3.18s (transform 738ms, setup 912ms, import 220ms, tests 10.88s, environment 0ms)
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  22:36:50
+   Duration  2.77s (transform 142ms, setup 122ms, import 40ms, tests 2.51s, environment 0ms)
 

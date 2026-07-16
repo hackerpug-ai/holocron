@@ -1,0 +1,24 @@
+{
+  "pre": {
+    "ok": true,
+    "ceilingUsd": 10,
+    "spentUsd": 0,
+    "remainingUsd": 10,
+    "estimatedCostUsd": 0.05,
+    "ceilingSource": "env"
+  },
+  "result": {
+    "cost": 0.000041,
+    "ledgerId": "019f6936-959d-7473-99f1-5ebd5c600a7e",
+    "tokens": 21
+  },
+  "preCheckCount": 2,
+  "escapeRows": [
+    {
+      "id": "019f6936-959d-7473-99f1-5ebd5c600a7e",
+      "cost": 0.000041,
+      "tokens": 21
+    }
+  ],
+  "anthropicCount": 1
+}
