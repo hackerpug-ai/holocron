@@ -18,8 +18,10 @@
  * Sprint 08 infer-1: infer:call | verify:no-provider-refs
  * Sprint 08 infer-2: budget:status | budget:set
  * Sprint 08 infer-3: infer:degraded (status / poll) + DegradedModeController on fleet-down
+ * Sprint 09 struct-1: extract --schema <name> --input <text>
  */
 import { resolve } from 'node:path';
+import { z } from 'zod';
 
 // Suppress unhandled storage errors for the PG-down negative control
 // (PostgresStore logs these asynchronously; they must not crash the spike)
@@ -91,6 +93,9 @@ interface CliArgs {
   prompt: string | null;
   /** budget:set --ceiling */
   ceiling: string | null;
+  /** extract flags */
+  schema: string | null;
+  input: string | null;
 }
 
 function printHelp(): void {
@@ -141,6 +146,8 @@ Usage:
   verify:no-provider-refs   Audit platform src for banned claudeFlash/Pro/Ultra factories
   budget:status             Show escape budget spent / remaining / ceiling (real Postgres)
   budget:set                Set escape budget ceiling (--ceiling <usd>)
+  extract                   Extract structured data with Zod validation --schema <name> --input <text>
+  extract:status <id>       Query extraction status (placeholder)
 
 Options:
   --export <dir>        Path to unzipped convex export (or $CONVEX_EXPORT_DIR)
@@ -171,6 +178,8 @@ Options:
   --prompt <text>       (infer:call --escape) prompt for real Anthropic generateText
   --run-id <id>         (infer:call --escape / evidence:revise) run id for ledger
   --ceiling <usd>       (budget:set) escape budget ceiling in USD
+  --schema <name>       (extract) schema name: simple|nested|tripwire
+  --input <text>        (extract) input text or file path
   --poll                (infer:degraded) run one real health probe (may auto-resume)
   --json                Emit JSON instead of text
   --print-trace         (compat:spike) emit OTel trace details
@@ -214,6 +223,8 @@ function parseArgs(argv: string[]): CliArgs {
     reason: null,
     prompt: null,
     ceiling: null,
+    schema: null,
+    input: null,
   };
   const positional: string[] = [];
   for (let i = 0; i < argv.length; i++) {
@@ -303,6 +314,14 @@ function parseArgs(argv: string[]): CliArgs {
       args.ceiling = argv[++i] ?? null;
     } else if (a.startsWith('--ceiling=')) {
       args.ceiling = a.slice('--ceiling='.length);
+    } else if (a === '--schema') {
+      args.schema = argv[++i] ?? null;
+    } else if (a.startsWith('--schema=')) {
+      args.schema = a.slice('--schema='.length);
+    } else if (a === '--input') {
+      args.input = argv[++i] ?? null;
+    } else if (a.startsWith('--input=')) {
+      args.input = a.slice('--input='.length);
     } else if (a === '--for') {
       args.forConsumers = argv[++i] ?? null;
     } else if (a.startsWith('--for=')) {
@@ -1668,6 +1687,163 @@ async function main(): Promise<void> {
         }
         process.exit(1);
       }
+      break;
+    }
+    case 'extract': {
+      // Sprint 09 struct-1: extract --schema <Foo> --input <good|path>
+      const schemaName = args.schema ?? args.positional[1] ?? null;
+      const inputArg = args.input ?? args.positional[2] ?? null;
+      const role = args.role ?? 'divergent';
+
+      if (!schemaName) {
+        console.error('error: extract requires --schema <name> (e.g., simple, nested)');
+        process.exit(2);
+      }
+      if (!inputArg) {
+        console.error('error: extract requires --input <text or path>');
+        process.exit(2);
+      }
+
+      const { extractStructured, ExtractionFailedError, BlockedError } = await import(
+        '../inference/extract-structured.ts'
+      );
+
+      // Define schemas based on schema name
+      const schemas = {
+        simple: z.object({
+          title: z.string(),
+          count: z.number(),
+          tags: z.array(z.string()),
+        }),
+        nested: z.object({
+          article: z.object({
+            headline: z.string(),
+            wordCount: z.number(),
+            keywords: z.array(z.string()),
+          }),
+          metadata: z.object({
+            author: z.string(),
+            publishedAt: z.string(),
+          }),
+        }),
+        tripwire: z.object({
+          summary: z.string(),
+          sentiment: z.string(),
+        }),
+      };
+
+      const schema = schemas[schemaName as keyof typeof schemas];
+      if (!schema) {
+        console.error(
+          `error: unknown schema '${schemaName}' (available: simple, nested, tripwire)`
+        );
+        process.exit(2);
+      }
+
+      // Resolve input - if it looks like a path, try to read it
+      let input = inputArg;
+      if (inputArg.startsWith('<path=') || inputArg.endsWith('.txt') || inputArg.includes('/')) {
+        try {
+          const { readFile } = await import('node:fs/promises');
+          const path = inputArg.replace('<path=', '').replace('>', '');
+          input = await readFile(path, 'utf-8');
+        } catch (err) {
+          console.error(`error: failed to read input from path: ${inputArg}`);
+          console.error(`  ${err instanceof Error ? err.message : String(err)}`);
+          process.exit(2);
+        }
+      }
+
+      try {
+        const result = await extractStructured(schema, input, role);
+        if (args.json) {
+          console.log(JSON.stringify({ ok: true, result, schema: schemaName, role }, null, 2));
+        } else {
+          console.log('holo extract — structured extraction');
+          console.log(`  schema:  ${schemaName}`);
+          console.log(`  role:    ${role}`);
+          console.log(`  result:`);
+          console.log(JSON.stringify(result, null, 2));
+          console.log('  status: OK');
+        }
+        process.exit(0);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        const code =
+          err instanceof ExtractionFailedError
+            ? err.code
+            : err instanceof BlockedError
+              ? err.code
+              : err instanceof UnknownFleetRoleError
+                ? 'UNKNOWN_FLEET_ROLE'
+                : err instanceof RoleUnavailableError
+                  ? 'ROLE_UNAVAILABLE'
+                  : 'EXTRACTION_FAILED';
+
+        if (args.json) {
+          console.error(
+            JSON.stringify({
+              ok: false,
+              error: code,
+              schema: schemaName,
+              role,
+              message: msg,
+              ...(err instanceof ExtractionFailedError && {
+                attempts: err.attempts,
+                lastParseError: err.lastParseError.message,
+                schemaErrors: err.schemaErrors.map((e) => ({
+                  attempt: e.attempt,
+                  error: e.error.message,
+                })),
+              }),
+              ...(err instanceof BlockedError && {
+                reason: err.reason,
+                processorId: err.processorId,
+                tripwirePayload: err.tripwirePayload,
+              }),
+            })
+          );
+        } else {
+          console.error(`holo extract failed: ${code}`);
+          console.error(`  ${msg}`);
+          if (err instanceof ExtractionFailedError) {
+            console.error(`  attempts: ${err.attempts}`);
+          }
+          if (err instanceof BlockedError) {
+            console.error(`  reason: ${err.reason}`);
+            console.error(`  processorId: ${err.processorId}`);
+          }
+        }
+        process.exit(1);
+      }
+      break;
+    }
+    case 'extract:status': {
+      // Sprint 09 struct-1: extract:status <id>
+      const extractionId = args.positional[1] ?? null;
+
+      if (!extractionId) {
+        console.error('error: extract:status requires an extraction ID');
+        process.exit(2);
+      }
+
+      // This is a placeholder for future implementation
+      // For now, return a not-implemented response
+      const payload = {
+        ok: false,
+        error: 'NOT_IMPLEMENTED',
+        extractionId,
+        message: 'extraction status tracking is not yet implemented',
+      };
+
+      if (args.json) {
+        console.log(JSON.stringify(payload, null, 2));
+      } else {
+        console.log('holo extract:status — extraction status');
+        console.log(`  extractionId: ${extractionId}`);
+        console.log(`  status: NOT_IMPLEMENTED`);
+      }
+      process.exit(1);
       break;
     }
     default:
