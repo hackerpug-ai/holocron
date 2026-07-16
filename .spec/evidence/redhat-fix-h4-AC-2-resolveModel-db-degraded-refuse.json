@@ -1,0 +1,13 @@
+{
+  "ac": "AC-2",
+  "processFlag": false,
+  "dbDegraded": true,
+  "dbState": "fail-closed",
+  "refused": true,
+  "errorName": "RoleUnavailableError",
+  "errorMessage": "fleet role 'divergent' unreachable at https://api.anthropic.com (degradation=fail-closed): degraded mode active — Claude escape refused (never-cloud; local fleet only)",
+  "anthropicHits": 0,
+  "anthropicCount": 0,
+  "unexpected": null,
+  "networkRows": []
+}

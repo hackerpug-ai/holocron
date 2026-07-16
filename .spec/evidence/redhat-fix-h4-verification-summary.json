@@ -1,0 +1,22 @@
+{
+  "task_id": "REDHAT-FIX-H4",
+  "status": "green",
+  "tests": {
+    "command": "PLATFORM_IT=1 pnpm vitest run tests/integration/service/infer-degraded-durable-escape.test.ts tests/integration/service/infer-escape-degraded-choke.test.ts tests/integration/service/infer-red-degraded-no-cloud.test.ts",
+    "exit": 0,
+    "passed": 15,
+    "failed": 0
+  },
+  "typecheck": { "command": "pnpm tsgo --noEmit", "exit": 0 },
+  "biome_scoped": {
+    "command": "pnpm biome check <writeAllowed inference + test files>",
+    "exit": 0
+  },
+  "acs": {
+    "AC-1": "DB degraded + processFlag false → EscapeDegradedRefusedError; anthropicCount:0",
+    "AC-2": "resolveModel(allowEscape) throws RoleUnavailableError; anthropicHits:0",
+    "AC-3": "assertEscapeNotDegraded SELECTs degraded_mode; both APIs share choke",
+    "AC-4": "DB+process normal: choke allows (operability; full Anthropic path if key present)",
+    "AC-5": "redhat-fix-h4* red/green evidence with processFlag:false dbDegraded:true anthropicCount:0"
+  }
+}

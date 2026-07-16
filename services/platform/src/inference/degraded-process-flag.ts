@@ -1,6 +1,11 @@
 /**
  * Process-level degraded flag shared by DegradedModeController and resolveModel.
  * Kept in a tiny module to avoid circular imports between controller ↔ resolve-model.
+ *
+ * NOTE (REDHAT-FIX-H4): process memory alone is NOT sufficient for multi-process /
+ * fresh CLI escape gating. Escape paths MUST also consult durable Postgres
+ * degraded_mode via escape-degraded-guard (assertEscapeNotDegraded) — never rely
+ * solely on this module for never-cloud.
  */
 
 export type ProcessDegradedState =

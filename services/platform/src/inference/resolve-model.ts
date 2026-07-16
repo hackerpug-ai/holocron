@@ -255,10 +255,11 @@ export async function resolveModel(
 
   // ── Escape path (explicit only) ──────────────────────────────────────────
   if (allowEscape) {
-    // Never-cloud during fleet degraded mode (infer-3 / REDHAT-FIX-H1).
+    // Never-cloud during fleet degraded mode (infer-3 / REDHAT-FIX-H1 + H4).
     // Shared choke with runBudgetedEscape — refuse BEFORE any Anthropic traffic.
+    // H4: async durable Postgres degraded_mode read (process flag OR DB non-normal).
     try {
-      assertEscapeNotDegraded(role);
+      await assertEscapeNotDegraded(role);
     } catch (err) {
       if (err instanceof EscapeDegradedRefusedError) {
         throw new RoleUnavailableError(role, ANTHROPIC_ENDPOINT, 'fail-closed', err.message);

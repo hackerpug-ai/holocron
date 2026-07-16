@@ -99,15 +99,20 @@ async function loadDegradedFlag() {
 }
 
 async function loadEscapeGuard() {
-  // Shared choke surface (NEW in H1). RED: module/export may be missing.
+  // Shared choke surface (NEW in H1; H4 makes helpers async + durable DB).
   const path = ['../../../services/platform/src/inference', 'escape-degraded-guard'].join('/');
   return import(path) as Promise<{
-    assertEscapeNotDegraded?: (role?: string) => void;
-    isEscapeBlockedByDegraded?: () => boolean;
+    assertEscapeNotDegraded?: (role?: string) => void | Promise<void>;
+    isEscapeBlockedByDegraded?: () => boolean | Promise<boolean>;
+    isProcessEscapeBlocked?: () => boolean;
     EscapeDegradedRefusedError?: new (role?: string) => Error & { code?: string; name: string };
     ESCAPE_DEGRADED_REFUSED_CODE?: string;
     ESCAPE_NEVER_CLOUD_MESSAGE?: string;
   }>;
+}
+
+async function maybeAwait<T>(value: T | Promise<T>): Promise<T> {
+  return await value;
 }
 
 async function loadSql() {
@@ -390,10 +395,22 @@ describe('REDHAT-FIX-H1: escape never-cloud single choke', () => {
     flag.setProcessDegradedState('surface-unavailable');
     try {
       if (typeof guard.isEscapeBlockedByDegraded === 'function') {
-        expect(guard.isEscapeBlockedByDegraded()).toBe(true);
+        const blocked = await maybeAwait(
+          guard.isEscapeBlockedByDegraded() as boolean | Promise<boolean>
+        );
+        expect(blocked).toBe(true);
       }
       if (typeof guard.assertEscapeNotDegraded === 'function') {
-        expect(() => guard.assertEscapeNotDegraded?.('divergent')).toThrow(/degraded|never-cloud/i);
+        let threw = false;
+        let msg = '';
+        try {
+          await maybeAwait(guard.assertEscapeNotDegraded?.('divergent') as void | Promise<void>);
+        } catch (err) {
+          threw = true;
+          msg = err instanceof Error ? err.message : String(err);
+        }
+        expect(threw).toBe(true);
+        expect(msg).toMatch(/degraded|never-cloud/i);
       }
 
       // Dual-entry behavioral: resolveModel(allowEscape) + runBudgetedEscape both refuse
@@ -550,14 +567,35 @@ describe('REDHAT-FIX-H1: escape never-cloud single choke', () => {
     flag.resetProcessDegradedFlag();
     expect(flag.isProcessInDegradedMode()).toBe(false);
 
-    // Helper must allow when not degraded
+    // H4: ensure durable DB is normal so process-clear is not masked by leftover degraded_mode
+    try {
+      const sql = await loadSql();
+      try {
+        await sql`
+          UPDATE degraded_mode
+          SET degraded_state = 'normal', resume_state = 'normal', message = null, updated_at = now()
+          WHERE id = 'global'
+        `;
+      } finally {
+        await sql.end({ timeout: 5 });
+      }
+    } catch {
+      // table may not exist yet in pure unit envs
+    }
+
+    // Helper must allow when not degraded (process + durable normal)
     try {
       const guard = await loadEscapeGuard();
       if (typeof guard.isEscapeBlockedByDegraded === 'function') {
-        expect(guard.isEscapeBlockedByDegraded()).toBe(false);
+        const blocked = await maybeAwait(
+          guard.isEscapeBlockedByDegraded() as boolean | Promise<boolean>
+        );
+        expect(blocked).toBe(false);
       }
       if (typeof guard.assertEscapeNotDegraded === 'function') {
-        expect(() => guard.assertEscapeNotDegraded?.('divergent')).not.toThrow();
+        await expect(
+          maybeAwait(guard.assertEscapeNotDegraded?.('divergent') as void | Promise<void>)
+        ).resolves.toBeUndefined();
       }
     } catch {
       // RED: guard may not exist yet

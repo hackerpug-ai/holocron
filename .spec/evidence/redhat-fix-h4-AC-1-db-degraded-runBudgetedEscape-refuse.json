@@ -1,0 +1,16 @@
+{
+  "ac": "AC-1",
+  "processFlag": false,
+  "processFlagAtCall": false,
+  "dbDegraded": true,
+  "dbState": "surface-unavailable",
+  "budgetWouldAllow": true,
+  "refused": true,
+  "errorName": "EscapeDegradedRefusedError",
+  "errorCode": "ESCAPE_DEGRADED_REFUSED",
+  "errorMessage": "degraded mode active — Claude escape refused (never-cloud; local fleet only)",
+  "anthropicCount": 0,
+  "anthropicHits": 0,
+  "unexpectedSuccess": null,
+  "networkRows": []
+}

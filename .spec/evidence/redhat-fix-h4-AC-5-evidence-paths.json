@@ -1,0 +1,9 @@
+{
+  "redPath": "/Users/inference1/Projects/holocron/.kb-orchestrate/worktrees/task-redhat-fix-h4/.tmp/REDHAT-FIX-H4/red-multiprocess-process-only-gap.json",
+  "greenPath": "/Users/inference1/Projects/holocron/.kb-orchestrate/worktrees/task-redhat-fix-h4/.tmp/REDHAT-FIX-H4/green-durable-refuse-anthropic-zero.json",
+  "redExists": true,
+  "greenExists": true,
+  "anthropicCount": 0,
+  "processFlag": false,
+  "dbDegraded": true
+}

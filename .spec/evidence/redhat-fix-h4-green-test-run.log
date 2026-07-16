@@ -1,0 +1,32 @@
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-orchestrate/worktrees/task-redhat-fix-h4
+
+stdout | tests/integration/service/infer-red-degraded-no-cloud.test.ts > infer-4 AC-3: degraded mode never falls back to cloud (real capture) > degraded surface-unavailable: zero Anthropic; surface/queue only; allowCloud=false
+Local fleet unavailable — running in reduced mode
+degraded-state=surface-unavailable degradationAction=surface-unavailable role=divergent endpoint=http://127.0.0.1:1
+
+stdout | tests/integration/service/infer-red-degraded-no-cloud.test.ts > infer-4 AC-3: degraded mode never falls back to cloud (real capture) > degraded surface-unavailable: zero Anthropic; surface/queue only; allowCloud=false
+Local fleet unavailable — running in reduced mode
+
+stdout | tests/integration/service/infer-red-degraded-no-cloud.test.ts > infer-4 AC-3: degraded mode never falls back to cloud (real capture) > degraded surface-unavailable: zero Anthropic; surface/queue only; allowCloud=false
+Local fleet unavailable — running in reduced mode
+
+stdout | tests/integration/service/infer-red-degraded-no-cloud.test.ts > infer-4 AC-3: degraded mode never falls back to cloud (real capture) > degraded surface-unavailable: zero Anthropic; surface/queue only; allowCloud=false
+Local fleet unavailable — running in reduced mode
+
+stdout | tests/integration/service/infer-red-degraded-no-cloud.test.ts > infer-4 AC-3: degraded mode never falls back to cloud (real capture) > message contains Local fleet unavailable; anthropicCount stays 0
+Local fleet unavailable — running in reduced mode
+degraded-state=surface-unavailable degradationAction=surface-unavailable role=divergent endpoint=http://127.0.0.1:1
+
+ ✓ tests/integration/service/infer-red-degraded-no-cloud.test.ts (4 tests) 475ms
+     ✓ DegradedModeController is defined (not no-controller RED state)  383ms
+ ✓ tests/integration/service/infer-escape-degraded-choke.test.ts (6 tests) 699ms
+     ✓ AC-1: runBudgetedEscape under process degraded refuses with anthropicHits===0  435ms
+ ✓ tests/integration/service/infer-degraded-durable-escape.test.ts (5 tests) 994ms
+     ✓ AC-1: DB degraded + process flag false → runBudgetedEscape refuses; anthropicHits:0  494ms
+
+ Test Files  3 passed (3)
+      Tests  15 passed (15)
+   Start at  22:21:43
+   Duration  1.25s (transform 329ms, setup 350ms, import 102ms, tests 2.17s, environment 0ms)
+
