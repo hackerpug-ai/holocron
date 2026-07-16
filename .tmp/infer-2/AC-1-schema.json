@@ -43,6 +43,10 @@
     {
       "column_name": "created_at",
       "data_type": "timestamp with time zone"
+    },
+    {
+      "column_name": "allow_escape",
+      "data_type": "boolean"
     }
   ]
 }

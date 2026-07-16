@@ -1,1 +1,7 @@
-{"valid":true,"verdict":"pass","steps_executed":7,"steps_total":7,"session_check":"skipped(no-surface-id)"}
+{
+  "valid": true,
+  "verdict": "pass",
+  "steps_executed": 7,
+  "steps_total": 7,
+  "session_check": "skipped(no-surface-id)"
+}

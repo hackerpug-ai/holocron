@@ -19,9 +19,7 @@
     "steps_executed": 7,
     "steps_passed": 6,
     "steps_total": 7,
-    "failed_steps": [
-      5
-    ],
+    "failed_steps": [5],
     "failure_summary": "step5 live escape: Anthropic Overloaded (ESCAPE_FAILED, anthropicCount=3); no STEP5_PASS",
     "run_id": "2026-07-16T06:03:44Z",
     "evidence_dir": "/tmp/holocron-gate-sprint-08-role-router-local-first-and-degraded-modes-2026-07-16T06-03-44Z",
@@ -43,13 +41,7 @@
   "met": false,
   "completed_at": null,
   "redhat_cycle": 2,
-  "redhat_fixes_landed": [
-    "H1",
-    "H2",
-    "H3",
-    "H4",
-    "H5"
-  ],
+  "redhat_fixes_landed": ["H1", "H2", "H3", "H4", "H5"],
   "redhat_cycles_declared": 3,
   "redhat_converged": true,
   "redhat_verdict": "CLEAN",

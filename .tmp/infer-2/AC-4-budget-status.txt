@@ -1,7 +1,11 @@
 holo budget:status — Claude escape budget ledger
-  spent:     15
-  ceiling:   10
-  remaining: 0
-  escapes:   3
+  spent:             15
+  ceiling:           10
+  effectiveCeiling:  10
+  dbCeiling:         10
+  ceilingSource:     db
+  reserved:          0
+  remaining:         0
+  escapes:           3
   status: OK
 
