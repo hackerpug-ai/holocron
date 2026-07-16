@@ -1875,7 +1875,6 @@ async function main(): Promise<void> {
 
       try {
         const capabilities = await probeCapabilities(roleFilter ?? undefined, {
-          manifestPath: args.manifestPath,
           timeoutMs,
         });
 

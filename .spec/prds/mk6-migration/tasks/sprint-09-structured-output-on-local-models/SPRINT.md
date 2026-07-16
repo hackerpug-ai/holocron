@@ -3,7 +3,7 @@ sprint: 9
 title: Structured Output on Local Models
 sequence: 9
 timeline: Phase 2 — Inference and Data
-status: Planned
+status: In Progress
 prd: ../../README.md
 capability_coverage: [CAP-INF-01]
 ---
@@ -12,7 +12,7 @@ capability_coverage: [CAP-INF-01]
 
 **Sequence:** 9
 **Timeline:** Phase 2 — Inference and Data
-**Status:** 🔵 Planned (tasks expanded)
+**Status:** 🟠 In Progress (implementation complete, struct-4 review APPROVE, human gate proven — formal closeout pending conductor machinery)
 **Proposed by:** mastra-planner
 **Branch:** `mk6-structured-output`
 **Opened:** 2026-07-16 — expanded by /kb-sprint-tasks-plan

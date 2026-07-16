@@ -1,0 +1,14 @@
+{
+  "ok": true,
+  "result": {
+    "title": "Structured Output Ships",
+    "count": 1,
+    "tags": [
+      "json",
+      "schema",
+      "local-model"
+    ]
+  },
+  "schema": "simple",
+  "role": "divergent"
+}

@@ -1,0 +1,10 @@
+{
+  "ok": true,
+  "capabilities": {
+    "role": "divergent",
+    "supportsJsonSchema": true,
+    "mode": "constrained",
+    "endpoint": "http://127.0.0.1:4545",
+    "litellmModelId": "implementer"
+  }
+}
