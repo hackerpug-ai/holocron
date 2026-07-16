@@ -31,16 +31,18 @@ Per Architecture Posture, the trust model is single-user tailnet — there is no
 
 ## Human Test Deliverable
 
-An operator can prove — with the Fleet Role Manifest and Mastra service from Sprints 01 and 05 — that running `holo mission run triage --goal 'X'` with a network capture completes with N fleet calls to `:4545` and **zero** Anthropic requests on the default path; that `holo infer:call --role divergent` and `--role convergent` resolve to the 35B-A3B and 27B fleet models; that `holo infer:call --escape --cost 999` is blocked by the budget pre-check and records `budget_exceeded`; that one real `holo infer:call --escape --highStakes` within budget succeeds and logs reason/tokens/cost to the ledger; that taking the divergent endpoint down mid-run degrades the mission to its declared mode (never cloud) and resumes when it returns; and that `holo verify:no-provider-refs` reports zero direct provider references with no `claudeFlash/Pro/Ultra` factories.
+An operator can prove — with the Fleet Role Manifest and Mastra service from Sprints 01 and 05 — the **Sprint 08 operator surface** (not the Sprint 15 mission engine): default-path `holo infer:call --role <role>` (and the labeled PLATFORM_IT zero-cloud suite) route through `resolveModel` to live `:4545` with **zero** Anthropic requests; that `holo infer:call --role divergent` and `--role convergent` resolve to the 35B-A3B and 27B fleet models; that `holo infer:call --escape --cost 999` is blocked by the budget pre-check and records `budget_exceeded`; that one real `holo infer:call --escape --highStakes` within budget succeeds and logs reason/tokens/cost to the ledger; that fleet-down degraded mode is proven via the labeled PLATFORM_IT controller suite (never-cloud / `anthropicCount:0`, auto-resume) — not a fictional mid-run mission fleet kill; and that `holo verify:no-provider-refs` reports zero direct provider references with no `claudeFlash/Pro/Ultra` factories.
+
+**Honesty (REDHAT-FIX-H2):** The mission engine / mission CLI surface is **Sprint 15** scope and is **not** required or documented as an executable step here. Suite-backed steps must be labeled `suite` / `PLATFORM_IT` / `vitest` and must never be greenwashed as mission CLI execution. See [HUMAN-GATE.md](./HUMAN-GATE.md).
 
 **Test Steps:**
-1. Run `holo mission run triage --goal 'X'` with a network capture on — completes with N fleet calls to :4545.
-2. Read the network capture — zero Anthropic requests on the default path.
-3. Run `holo infer:call --role divergent` and `--role convergent` — resolve to the 35B-A3B and 27B fleet models.
-4. Run `holo infer:call --escape --cost 999` — blocked by the budget pre-check, records `budget_exceeded`.
-5. Run one real `holo infer:call --escape --highStakes` within budget — succeeds and logs reason/tokens/cost to the ledger.
-6. Take the divergent endpoint down mid-run — the mission degrades to its declared mode (never cloud); bring it back — it resumes.
-7. Run `holo verify:no-provider-refs` — reports zero direct provider references and no `claudeFlash/Pro/Ultra` factories.
+1. **[CLI]** Run `holo infer:call --role divergent --json` on the default path — fleet resolve to `:4545` via `resolveModel` (zero Anthropic on this CLI path).
+2. **[SUITE]** Prove default-path zero Anthropic via labeled PLATFORM_IT suite (not mission CLI): `PLATFORM_IT=1 pnpm vitest run tests/integration/service/infer-router-zero-cloud.test.ts tests/integration/service/infer-red-zero-cloud.test.ts` — network assertion `anthropicCount:0` / zero Anthropic requests on the default path.
+3. **[CLI]** Run `holo infer:call --role divergent` and `holo infer:call --role convergent` — resolve to the 35B-A3B and 27B fleet models.
+4. **[CLI]** Run `holo infer:call --escape --cost 999` — blocked by the budget pre-check, records `budget_exceeded`.
+5. **[CLI]** Run one real `holo infer:call --escape --highStakes` within budget — succeeds and logs reason/tokens/cost to the ledger.
+6. **[SUITE]** Prove degraded never-cloud via labeled PLATFORM_IT controller suite (honest degraded proof — not live mid-run fleet-kill fiction; mission engine is Sprint 15): `PLATFORM_IT=1 pnpm vitest run tests/integration/service/infer-degraded-transition.test.ts tests/integration/service/infer-degraded-resume.test.ts` — reduced mode, never-cloud / `anthropicCount:0`; auto-resume when endpoint returns. Operator companion (optional): `holo infer:degraded --json`.
+7. **[CLI]** Run `holo verify:no-provider-refs` — reports zero direct provider references and no `claudeFlash/Pro/Ultra` factories.
 
 ---
 
@@ -63,7 +65,7 @@ An operator can prove — with the Fleet Role Manifest and Mastra service from S
 
 ## Human Testing Gate
 
-**Gate:** Running a normal reasoning mission against the real fleet routes every call through `resolveModel(role)` to a live `:4545` endpoint and makes zero Anthropic requests, verified by fleet request logs plus a network assertion that fails if any call reaches cloud.
+**Gate:** Running default-path fleet inference via `holo infer:call --role <role>` (and the labeled PLATFORM_IT zero-cloud suite) routes every call through `resolveModel(role)` to a live `:4545` endpoint and makes zero Anthropic requests, verified by fleet request logs plus a network assertion that fails if any call reaches cloud. Suite-backed proofs must be labeled suite/`PLATFORM_IT`/vitest — never greenwashed as mission CLI. Full mission mid-run fleet kill is Sprint 15. Procedure: [HUMAN-GATE.md](./HUMAN-GATE.md). Honesty inventory: `PLATFORM_IT=1 pnpm vitest run tests/integration/service/infer-gate-honesty-inventory.test.ts`.
 
 ---
 

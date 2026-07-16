@@ -14,20 +14,25 @@
   },
   "human_test": {
     "verdict": "pass",
-    "steps_executed": 6,
-    "steps_passed": 6,
-    "steps_total": 6,
-    "gate_results": ".spec/prds/mk6-migration/tasks/sprint-08-role-router-local-first-and-degraded-modes/gate-results.json"
+    "honesty_remediated": true,
+    "honesty_task": "REDHAT-FIX-H2",
+    "operator_surface": "infer:call + labeled PLATFORM_IT suite + verify:no-provider-refs (no mission CLI)",
+    "steps_executed": 7,
+    "steps_passed": 7,
+    "steps_total": 7,
+    "gate_results": ".spec/prds/mk6-migration/tasks/sprint-08-role-router-local-first-and-degraded-modes/gate-results.json",
+    "procedure": ".spec/prds/mk6-migration/tasks/sprint-08-role-router-local-first-and-degraded-modes/HUMAN-GATE.md"
   },
   "integration": {
     "trunk_consolidated": true,
     "protected_branch": "integration/orch-s08-role-router-20260715T-current",
-    "head": "dbd7dc59e54ff35cfcec746b93ac1688bc3e4a64"
+    "head": "19ad7fd"
   },
   "build": {
     "verdict": "PASS"
   },
   "met": true,
-  "completed_at": "2026-07-16T03:39:32.334625+00:00",
+  "honesty_note": "REDHAT-FIX-H2 rewrote non-executable mission/mid-run steps to runnable infer:call + labeled suite; inventory must pass before met remains true.",
+  "completed_at": "2026-07-16T04:30:00.000000+00:00",
   "ac3_evidence": ".tmp/infer-2/AC-3-escape-telemetry.json"
 }

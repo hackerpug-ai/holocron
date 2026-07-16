@@ -1,28 +1,106 @@
 {
   "task": "REDHAT-FIX-H2",
-  "capturedAt": "2026-07-15T20:20:07.356Z",
-  "note": "RED: product helpers resolveDatabaseUrl returns owner URL; UPDATE privilege true — ledger REVOKE only visible via probe-raw",
-  "product_path": {
-    "resolved_without_app_rewrite": true,
-    "current_user": "inference1",
-    "can_update": true,
-    "can_delete": true,
-    "app_sources_insert": false,
-    "app_passages_insert": false,
-    "app_claims_insert": false,
-    "app_relations_insert": false,
-    "update_on_false_where_succeeded": true,
-    "update_sqlstate": null
+  "kind": "red_greenwash_snapshot",
+  "capturedAt": "2026-07-16T04:40:40.661901Z",
+  "finding": "H2 \u2014 Human gate greenwash (mission / mid-run fiction)",
+  "source_review": ".spec/reviews/red-hat-2026-07-16T03-47-51Z-sprint08.md",
+  "greenwash": {
+    "sprint_documented_mission_cli": true,
+    "sprint_mid_run_fleet_kill_fiction": true,
+    "gate_results_verdict": "pass",
+    "step_1_2": {
+      "id": "step-1-2",
+      "name": "Fleet mission/router default path zero Anthropic",
+      "command": "PLATFORM_IT=1 pnpm vitest run infer-router-zero-cloud + infer-red-zero-cloud",
+      "executed": true,
+      "result": "pass",
+      "log": ".tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests/step1-2-zero-cloud.log"
+    },
+    "step_6": {
+      "id": "step-6",
+      "name": "fleet-down degrades then resumes (never cloud)",
+      "command": "PLATFORM_IT=1 vitest infer-degraded-transition + resume",
+      "executed": true,
+      "result": "pass",
+      "log": ".tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests/step6-degraded.log"
+    },
+    "issue": "SPRINT.md documented non-executable holo mission run triage and mid-run mission fleet kill; gate-results substituted vitest for those steps while still verdict:pass"
   },
-  "probe_raw_style_app_path": {
-    "current_user": "holocron_app",
-    "can_update": false,
-    "can_delete": false
+  "historical_human_steps_excerpt": "## Human Test Deliverable\n\nAn operator can prove \u2014 with the Fleet Role Manifest and Mastra service from Sprints 01 and 05 \u2014 that running `holo mission run triage --goal 'X'` with a network capture completes with N fleet calls to `:4545` and **zero** Anthropic requests on the default path; that `holo infer:call --role divergent` and `--role convergent` resolve to the 35B-A3B and 27B fleet models; that `holo infer:call --escape --cost 999` is blocked by the budget pre-check and records `budget_exceeded`; that one real `holo infer:call --escape --highStakes` within budget succeeds and logs reason/tokens/cost to the ledger; that taking the divergent endpoint down mid-run degrades the mission to its declared mode (never cloud) and resumes when it returns; and that `holo verify:no-provider-refs` reports zero direct provider references with no `claudeFlash/Pro/Ultra` factories.\n\n**Test Steps:**\n1. Run `holo mission run triage --goal 'X'` with a network capture on \u2014 completes with N fleet calls to :4545.\n2. Read the network capture \u2014 zero Anthropic requests on the default path.\n3. Run `holo infer:call --role divergent` and `--role convergent` \u2014 resolve to the 35B-A3B and 27B fleet models.\n4. Run `holo infer:call --escape --cost 999` \u2014 blocked by the budget pre-check, records `budget_exceeded`.\n5. Run one real `holo infer:call --escape --highStakes` within budget \u2014 succeeds and logs reason/tokens/cost to the ledger.\n6. Take the divergent endpoint down mid-run \u2014 the mission degrades to its declared mode (never cloud); bring it back \u2014 it resumes.\n7. Run `holo verify:no-provider-refs` \u2014 reports zero direct provider references and no `claudeFlash/Pro/Ultra` factories.\n\n---",
+  "prior_gate_results": {
+    "sprint_id": "sprint-08-role-router-local-first-and-degraded-modes",
+    "verdict": "pass",
+    "cycle_start": "2026-07-16T03:39:04Z",
+    "completed_at": "2026-07-16T03:39:09.028922+00:00",
+    "runner": "kb-run-sprint-orchestrator",
+    "ui_driver": "none",
+    "steps_total": 6,
+    "steps_executed": 6,
+    "steps_passed": 6,
+    "steps": [
+      {
+        "id": "step-1-2",
+        "name": "Fleet mission/router default path zero Anthropic",
+        "command": "PLATFORM_IT=1 pnpm vitest run infer-router-zero-cloud + infer-red-zero-cloud",
+        "executed": true,
+        "result": "pass",
+        "log": ".tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests/step1-2-zero-cloud.log"
+      },
+      {
+        "id": "step-3",
+        "name": "infer:call --role divergent/convergent resolve fleet models",
+        "command": "bun holo infer:call --role divergent|convergent --json",
+        "executed": true,
+        "result": "pass",
+        "log": ".tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests/step3-divergent.log",
+        "detail": {
+          "divergent_ok": true,
+          "convergent_ok": true
+        }
+      },
+      {
+        "id": "step-4",
+        "name": "infer:call --escape --cost 999 blocked",
+        "command": "bun holo infer:call --escape --cost 999 --json",
+        "executed": true,
+        "result": "pass",
+        "log": ".tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests/step4-over-budget.log"
+      },
+      {
+        "id": "step-5",
+        "name": "real infer:call --escape --highStakes within budget logs ledger",
+        "command": "bun holo infer:call --escape --highStakes --cost 0.05 --json",
+        "executed": true,
+        "result": "pass",
+        "log": ".tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests/step5-escape.log",
+        "detail": {
+          "tokens": 21,
+          "cost": 4.1e-5
+        }
+      },
+      {
+        "id": "step-6",
+        "name": "fleet-down degrades then resumes (never cloud)",
+        "command": "PLATFORM_IT=1 vitest infer-degraded-transition + resume",
+        "executed": true,
+        "result": "pass",
+        "log": ".tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests/step6-degraded.log"
+      },
+      {
+        "id": "step-7",
+        "name": "holo verify:no-provider-refs",
+        "command": "bun holo verify:no-provider-refs",
+        "executed": true,
+        "result": "pass",
+        "log": ".tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests/step7-no-provider.log"
+      }
+    ],
+    "logs_dir": ".tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests"
   },
   "must_observe_red": {
-    "product_current_user_is_not_holocron_app": true,
-    "product_can_update_beliefs": true,
-    "product_can_delete_beliefs": true,
-    "app_role_lacks_seed_inserts": true
+    "mission_cli_in_sprint_human_steps": true,
+    "step_1_2_command_is_vitest": true,
+    "step_6_command_is_vitest": true,
+    "verdict_was_pass_despite_substitution": true
   }
 }
