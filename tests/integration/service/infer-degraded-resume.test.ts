@@ -33,7 +33,7 @@ async function loadDegraded() {
       opts?: Record<string, unknown>
     ) => {
       init: () => Promise<void>;
-      close: () => Promise<void>;
+      close: (opts?: { resetToNormal?: boolean }) => Promise<void>;
       getState: () => {
         'degraded-state': string;
         'resume-state': string;
@@ -72,7 +72,7 @@ describe('AC-2: Health-probe polling detects endpoint return and auto-resumes', 
   afterEach(async () => {
     if (controller) {
       controller.stopPolling?.();
-      await controller.close().catch(() => undefined);
+      await controller.close({ resetToNormal: true }).catch(() => undefined);
       controller = null;
     }
   });

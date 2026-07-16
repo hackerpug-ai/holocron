@@ -34,7 +34,7 @@ async function loadDegraded() {
       opts?: Record<string, unknown>
     ) => {
       init: () => Promise<void>;
-      close: () => Promise<void>;
+      close: (opts?: { resetToNormal?: boolean }) => Promise<void>;
       getState: () => { 'degraded-state': string; message: string | null };
       resolveRole: (
         role: string,
@@ -76,7 +76,7 @@ describe('AC-3: Degraded mode never silently falls back to cloud', () => {
 
   afterEach(async () => {
     if (controller) {
-      await controller.close().catch(() => undefined);
+      await controller.close({ resetToNormal: true }).catch(() => undefined);
       controller = null;
     }
   });

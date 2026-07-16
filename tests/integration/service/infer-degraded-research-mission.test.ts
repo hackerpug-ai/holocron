@@ -33,7 +33,7 @@ async function loadDegraded() {
       opts?: Record<string, unknown>
     ) => {
       init: () => Promise<void>;
-      close: () => Promise<void>;
+      close: (opts?: { resetToNormal?: boolean }) => Promise<void>;
       getState: () => { 'degraded-state': string };
       startResearchMission: (missionId: string) => Promise<{
         missionId: string;
@@ -93,7 +93,7 @@ describe('AC-4: Research mission degrades to sense-only with retry-queue', () =>
 
   afterEach(async () => {
     if (controller) {
-      await controller.close().catch(() => undefined);
+      await controller.close({ resetToNormal: true }).catch(() => undefined);
       controller = null;
     }
   });
