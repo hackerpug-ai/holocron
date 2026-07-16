@@ -1,0 +1,19 @@
+commit c85651405b4ddc433d666e709fc65989776d0d75
+Author: inference1 <inference1@inference1.local>
+Date:   Wed Jul 15 21:34:34 2026 -0600
+
+    fix(infer-2): audit checkBudget pre-check rows for infer-5 AC-2
+    
+    Insert budget_ledger rows with check_type='pre-check' (tokens=0,cost=0)
+    on every Postgres-backed checkBudget, including fail paths. Add migration
+    0009 allow_escape boolean so role=divergent + allow_escape=true is queryable.
+    Update AC-1/2/3 integration tests to assert pre-check audit rows.
+
+ .../migrations/0009_budget_ledger_allow_escape.sql |  19 ++++
+ .../platform/src/db/migrations/meta/_journal.json  |   7 ++
+ services/platform/src/inference/budget-ledger.ts   | 112 +++++++++++++++++----
+ services/platform/src/inference/resolve-model.ts   |   3 +-
+ .../infer-budget-ledger-persistence.test.ts        |   5 +
+ .../service/infer-budget-precheck.test.ts          |  72 ++++++++++++-
+ .../service/infer-escape-telemetry.test.ts         |  38 ++++++-
+ 7 files changed, 230 insertions(+), 26 deletions(-)

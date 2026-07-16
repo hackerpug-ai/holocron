@@ -1,0 +1,7 @@
+ check_type |   role    | allow_escape |  cost   |                   reason                    
+------------+-----------+--------------+---------+---------------------------------------------
+ pre-check  | divergent | t            |       0 | BUDGET_OK: infer-5-review-reverify-precheck
+ escape     | divergent | t            | 4.1e-05 | ac3-cli-budgeted-escape
+ pre-check  | divergent | t            |       0 | BUDGET_OK: ac3-cli-budgeted-escape
+(3 rows)
+

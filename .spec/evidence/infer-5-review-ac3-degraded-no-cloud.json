@@ -1,0 +1,64 @@
+{
+  "ac": "AC-3",
+  "title": "Degraded mode never falls back to cloud",
+  "satisfied": true,
+  "head_sha": "3e0568d093ca9cf8c2f0f8dcf0f383259a1d5693",
+  "reviewed_at": "2026-07-16T03:37:00Z",
+  "database": "postgres://127.0.0.1:5432/holocron",
+  "interpretation": {
+    "fleet_down": "degraded_state must be surface-unavailable; resume_state tracks degradation until health probe/operator resume",
+    "after_resume": "resume_state (and degraded_state) must return to normal — must NOT stay surface-unavailable",
+    "never_cloud": "allowCloud always false; escape temptation while degraded surfaces/queues only"
+  },
+  "live_controller_run": {
+    "cmd": "DegradedModeController.resolveRole('divergent', { endpointOverride: 'http://127.0.0.1:1' }) then attemptReasoning(allowEscape:true) then forceNormal()",
+    "fleet_down_db": [
+      {
+        "degraded_state": "surface-unavailable",
+        "resume_state": "surface-unavailable",
+        "message": "Local fleet unavailable — running in reduced mode"
+      }
+    ],
+    "degradation": {
+      "allowCloud": false,
+      "degraded-state": "surface-unavailable",
+      "message": "Local fleet unavailable — running in reduced mode",
+      "degradationAction": "surface-unavailable"
+    },
+    "escape_temptation": {
+      "outcome": "surfaced",
+      "message": "Local fleet unavailable — running in reduced mode",
+      "allowCloud": false
+    },
+    "after_resume_db": [
+      {
+        "degraded_state": "normal",
+        "resume_state": "normal"
+      }
+    ]
+  },
+  "network_capture": {
+    "postgres_table_exists": false,
+    "note": "No public.network_capture relation. Un-fakeable capture is process-level installNetworkCapture() used by infer-red-*.test.ts with expect(capture.countForHost('api.anthropic.com')).toBe(0).",
+    "anthropic_host_count_during_live_degraded_run": 0,
+    "red_test_file": "tests/integration/service/infer-red-degraded-no-cloud.test.ts"
+  },
+  "source_review": {
+    "file": "services/platform/src/inference/degraded-mode-controller.ts",
+    "allowCloud_always_false": "all DegradationResult / AttemptReasoningResult set allowCloud: false (8 occurrences)",
+    "strips_escape_while_degraded": "resolveRole lines 390-395 force allowEscape=false highStakes=false when degraded-state !== normal",
+    "refuses_cloud_default_path": "lines 407-417 throw if isCloudEndpoint or provider===anthropic without explicit escape",
+    "resume_clears_state": "pollOnce / forceNormal set degraded-state=normal and resume-state=normal"
+  },
+  "must_observe": {
+    "degraded_state_surface_unavailable_during_fleet_down": true,
+    "resume_state_normal_after_resume": true,
+    "allowCloud_false": true,
+    "anthropic_requests_zero_during_degraded": true
+  },
+  "must_not_observe": {
+    "degraded_stays_normal_during_fleet_down": false,
+    "resume_stuck_surface_unavailable": false,
+    "cloud_fallback": false
+  }
+}

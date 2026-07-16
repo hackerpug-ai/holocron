@@ -1,0 +1,7 @@
+holo verify:no-provider-refs — banned claudeFlash/claudePro/claudeUltra factories
+  scanRoot:            /Users/inference1/Projects/holocron/.kb-orchestrate/worktrees/task-infer-5-review/services/platform/src
+  scannedFiles:        95
+  direct-provider:     0
+  bannedFactories:     (none)
+  status: OK
+exit=0

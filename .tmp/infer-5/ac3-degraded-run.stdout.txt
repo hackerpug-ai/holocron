@@ -1,0 +1,32 @@
+Local fleet unavailable — running in reduced mode
+degraded-state=surface-unavailable degradationAction=surface-unavailable role=divergent endpoint=http://127.0.0.1:1
+Local fleet unavailable — running in reduced mode
+{
+  "fleet_down_db": [
+    {
+      "degraded_state": "surface-unavailable",
+      "resume_state": "surface-unavailable",
+      "message": "Local fleet unavailable — running in reduced mode"
+    }
+  ],
+  "degradation": {
+    "allowCloud": false,
+    "degraded-state": "surface-unavailable",
+    "message": "Local fleet unavailable — running in reduced mode",
+    "degradationAction": "surface-unavailable"
+  },
+  "escape_temptation": {
+    "outcome": "surfaced",
+    "message": "Local fleet unavailable — running in reduced mode",
+    "allowCloud": false
+  },
+  "after_resume_db": [
+    {
+      "degraded_state": "normal",
+      "resume_state": "normal"
+    }
+  ],
+  "network_capture_table_exists": false,
+  "anthropic_host_count_during_degraded": 0,
+  "note": "network_capture is process-level installNetworkCapture in RED tests, not a Postgres table"
+}
