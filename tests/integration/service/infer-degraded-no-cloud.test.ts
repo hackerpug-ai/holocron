@@ -189,4 +189,53 @@ describe('AC-3: Degraded mode never silently falls back to cloud', () => {
       capture.restore();
     }
   });
+
+  /** REDHAT-FIX-H1: process-flag degraded blocks runBudgetedEscape (shared choke). */
+  itLive('H1: process degraded blocks runBudgetedEscape with zero Anthropic', async () => {
+    const capture = installNetworkCapture();
+    try {
+      const flagPath = ['../../../services/platform/src/inference', 'degraded-process-flag'].join(
+        '/'
+      );
+      const ledgerPath = ['../../../services/platform/src/inference', 'budget-ledger'].join('/');
+      const flag = (await import(flagPath)) as {
+        setProcessDegradedState: (s: string) => void;
+        resetProcessDegradedFlag: () => void;
+      };
+      const ledger = (await import(ledgerPath)) as {
+        runBudgetedEscape: (req: {
+          prompt: string;
+          reason: string;
+          estimatedCostUsd?: number;
+          role?: string;
+        }) => Promise<unknown>;
+      };
+      flag.setProcessDegradedState('surface-unavailable');
+      let refused = false;
+      let message = '';
+      try {
+        await ledger.runBudgetedEscape({
+          prompt: 'pong',
+          reason: 'infer-3-h1-escape-choke',
+          estimatedCostUsd: 0.05,
+          role: 'divergent',
+        });
+      } catch (err) {
+        refused = true;
+        message = err instanceof Error ? err.message : String(err);
+      } finally {
+        flag.resetProcessDegradedFlag();
+      }
+      expect(refused).toBe(true);
+      expect(message).toMatch(/degraded|never-cloud/i);
+      expect(capture.anthropicCount()).toBe(0);
+      writeArtifact('H1-runBudgetedEscape-degraded.json', {
+        refused,
+        message,
+        anthropicCount: capture.anthropicCount(),
+      });
+    } finally {
+      capture.restore();
+    }
+  });
 });

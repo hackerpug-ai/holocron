@@ -212,4 +212,65 @@ describe('infer-4 AC-3: degraded mode never falls back to cloud (real capture)',
       capture.restore();
     }
   });
+
+  /**
+   * REDHAT-FIX-H1 extension: runBudgetedEscape must share never-cloud choke
+   * while process degraded (not resolveModel-only).
+   */
+  itLive(
+    'H1: runBudgetedEscape under process degraded refuses with anthropicCount===0',
+    async () => {
+      const capture = installNetworkCapture();
+      try {
+        const flagPath = ['../../../services/platform/src/inference', 'degraded-process-flag'].join(
+          '/'
+        );
+        const ledgerPath = ['../../../services/platform/src/inference', 'budget-ledger'].join('/');
+        const flag = (await import(flagPath)) as {
+          setProcessDegradedState: (s: string) => void;
+          resetProcessDegradedFlag: () => void;
+          isProcessInDegradedMode: () => boolean;
+        };
+        const ledger = (await import(ledgerPath)) as {
+          runBudgetedEscape: (req: {
+            prompt: string;
+            reason: string;
+            estimatedCostUsd?: number;
+            role?: string;
+          }) => Promise<unknown>;
+        };
+
+        flag.setProcessDegradedState('surface-unavailable');
+        expect(flag.isProcessInDegradedMode()).toBe(true);
+
+        let refused = false;
+        let message = '';
+        try {
+          await ledger.runBudgetedEscape({
+            prompt: 'pong',
+            reason: 'infer-4-h1-runBudgetedEscape-degraded',
+            estimatedCostUsd: 0.05,
+            role: 'divergent',
+          });
+        } catch (err) {
+          refused = true;
+          message = err instanceof Error ? err.message : String(err);
+        } finally {
+          flag.resetProcessDegradedFlag();
+        }
+
+        expect(refused).toBe(true);
+        expect(message).toMatch(/degraded|never-cloud/i);
+        expect(capture.anthropicCount()).toBe(0);
+
+        writeArtifact('H1-runBudgetedEscape-degraded-refuse.json', {
+          refused,
+          message,
+          anthropicCount: capture.anthropicCount(),
+        });
+      } finally {
+        capture.restore();
+      }
+    }
+  );
 });

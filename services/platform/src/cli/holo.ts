@@ -1280,10 +1280,15 @@ async function main(): Promise<void> {
           const { runBudgetedEscape, BudgetExceededError } = await import(
             '../inference/budget-ledger.ts'
           );
+          const { EscapeDegradedRefusedError, ESCAPE_DEGRADED_REFUSED_CODE } = await import(
+            '../inference/escape-degraded-guard.ts'
+          );
           const reason = args.reason ?? 'holo-infer-call-escape';
           const prompt =
             args.prompt ?? args.statement ?? 'Reply with exactly the single word: pong';
           try {
+            // Shared never-cloud choke lives inside runBudgetedEscape (assertEscapeNotDegraded).
+            // CLI must NOT invent a parallel Anthropic entry point.
             const escapeResult = await runBudgetedEscape({
               prompt,
               reason,
@@ -1346,11 +1351,15 @@ async function main(): Promise<void> {
           } catch (err) {
             const msg = err instanceof Error ? err.message : String(err);
             const code =
-              err instanceof BudgetExceededError
+              err instanceof EscapeDegradedRefusedError
                 ? err.code
-                : /ANTHROPIC_API_KEY/i.test(msg)
-                  ? 'ANTHROPIC_API_KEY_REQUIRED'
-                  : 'ESCAPE_FAILED';
+                : err instanceof BudgetExceededError
+                  ? err.code
+                  : /degraded|never-cloud/i.test(msg)
+                    ? ESCAPE_DEGRADED_REFUSED_CODE
+                    : /ANTHROPIC_API_KEY/i.test(msg)
+                      ? 'ANTHROPIC_API_KEY_REQUIRED'
+                      : 'ESCAPE_FAILED';
             const anthropicCount = anthropicHits();
             const payload = {
               ok: false,

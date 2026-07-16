@@ -18,6 +18,7 @@ import { generateText } from 'ai';
 import { getSecretValue } from '../config/secrets.ts';
 import { createSql, type Sql } from '../db/client';
 import { resolveDatabaseUrl } from '../db/connection';
+import { assertEscapeNotDegraded } from './escape-degraded-guard.ts';
 
 /** Default escape model id (kept local to avoid circular import with resolve-model). */
 const DEFAULT_ESCAPE_MODEL_ID = 'claude-haiku-4-5-20251001';
@@ -497,8 +498,8 @@ export type RunBudgetedEscapeResult = {
 };
 
 /**
- * Full escape path: checkBudget → real @ai-sdk/anthropic generateText → logEscape.
- * NEVER contacts Anthropic when checkBudget fails.
+ * Full escape path: assertEscapeNotDegraded → checkBudget → real Anthropic generateText → logEscape.
+ * NEVER contacts Anthropic when process/shared degraded (REDHAT-FIX-H1) or checkBudget fails.
  */
 export async function runBudgetedEscape(
   request: RunBudgetedEscapeRequest
@@ -506,12 +507,17 @@ export async function runBudgetedEscape(
   const env = request.env ?? process.env;
   const modelId = request.modelId ?? env.HOLO_ESCAPE_MODEL ?? DEFAULT_ESCAPE_MODEL_ID;
   const estimatedCostUsd = request.estimatedCostUsd ?? 0.05;
+  const role = request.role ?? 'divergent';
+
+  // Shared never-cloud choke (same helper as resolveModel allowEscape) — BEFORE
+  // budget audit traffic, Anthropic SDK construction, or generateText.
+  assertEscapeNotDegraded(role);
 
   await assertBudget(
     {
       estimatedCostUsd,
       reason: request.reason,
-      role: request.role ?? 'divergent',
+      role,
       runId: request.runId,
       stepId: request.stepId,
       allowEscape: true,
@@ -548,7 +554,7 @@ export async function runBudgetedEscape(
       cost,
       runId: request.runId,
       stepId: request.stepId,
-      role: request.role ?? 'divergent',
+      role,
       modelId,
       checkType: 'escape',
       allowEscape: true,

@@ -1,0 +1,14 @@
+{
+  "phase": "red",
+  "task_id": "REDHAT-FIX-H1",
+  "finding": "runBudgetedEscape has ZERO degraded checks while resolveModel(allowEscape) refuses via isProcessInDegradedMode \u2014 dual-path never-cloud bypass",
+  "resolveModelHasDegradedGuard": true,
+  "runBudgetedEscapeHasDegradedGuard": false,
+  "runBudgetedEscapeBodyPreview": "export async function runBudgetedEscape(\n  request: RunBudgetedEscapeRequest\n): Promise<RunBudgetedEscapeResult> {\n  const env = request.env ?? process.env;\n  const modelId = request.modelId ?? env.HOLO_ESCAPE_MODEL ?? DEFAULT_ESCAPE_MODEL_ID;\n  const estimatedCostUsd = request.estimatedCostUsd ?? 0.05;\n\n  await assertBudget(\n    {\n      estimatedCostUsd,\n      reason: request.reason,\n      role: request.role ?? 'divergent',\n      runId: request.runId,\n      stepId: request.stepId,\n      allowEscape: true,\n    },\n    env\n  );\n\n  const apiKey = request.apiKey ?? env.ANTHROPIC_API_KEY ?? getSecretValue('ANTHROPIC_API_KEY');\n  if (!apiKey || apiKey.trim() === '') {\n    throw new Error('ANTHROPI",
+  "red_test_log": ".tmp/REDHAT-FIX-H1/red-test-run.log",
+  "red_test_summary": {
+    "failed": ["AC-1", "AC-2", "AC-3"],
+    "passed_vacuous_or_meta": ["AC-5 (wrote placeholders)", "CLI route sanity", "AC-4 cross-check"],
+    "ac1_observation": "runBudgetedEscape proceeded past process degraded (no choke) \u2014 failed later on key or would hit Anthropic"
+  }
+}
