@@ -136,4 +136,58 @@ describe('AC-4: holo infer:call role + escape flags', () => {
     // Live role tests above prove registration.
     expect(out.length).toBeGreaterThan(0);
   });
+
+  /**
+   * REDHAT-FIX-H1: CLI --escape under process degraded (env force for subprocess)
+   * must refuse never-cloud via shared runBudgetedEscape choke — zero Anthropic.
+   */
+  itLive('H1: infer:call --escape while degraded refuses with anthropicCount===0', () => {
+    const result = spawnSync(
+      BUN_BIN,
+      [HOLO_CLI, 'infer:call', '--escape', '--json', '--cost', '0.05', '--role', 'divergent'],
+      {
+        cwd: REPO_ROOT,
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          DATABASE_URL: DEFAULT_DATABASE_URL,
+          HOLO_ESCAPE_BUDGET_USD: '10',
+          HOLO_PROCESS_DEGRADED_STATE: 'surface-unavailable',
+        },
+      }
+    );
+    const stdout = result.stdout ?? '';
+    const stderr = result.stderr ?? '';
+    const out = `${stdout}\n${stderr}`;
+    let payload: {
+      ok?: boolean;
+      mode?: string;
+      error?: string;
+      message?: string;
+      networkCapture?: { anthropicCount?: number };
+    } = {};
+    try {
+      payload = JSON.parse(stdout || stderr) as typeof payload;
+    } catch {
+      try {
+        payload = JSON.parse(stderr) as typeof payload;
+      } catch {
+        // text
+      }
+    }
+
+    expect(result.status, out).not.toBe(0);
+    expect(payload.ok).toBe(false);
+    expect(`${payload.message ?? ''}\n${payload.error ?? ''}\n${out}`).toMatch(
+      /degraded|never-cloud|ESCAPE_DEGRADED/i
+    );
+    expect(payload.mode).toBe('runBudgetedEscape');
+    expect(payload.networkCapture?.anthropicCount ?? 1).toBe(0);
+
+    writeInferArtifact('H1-cli-escape-degraded-refuse.json', {
+      status: result.status,
+      payload,
+      anthropicCount: payload.networkCapture?.anthropicCount ?? null,
+    });
+  });
 });

@@ -20,7 +20,7 @@ import {
   BudgetExceededError,
   checkBudget,
 } from './budget-ledger';
-import { isProcessInDegradedMode } from './degraded-process-flag';
+import { assertEscapeNotDegraded, EscapeDegradedRefusedError } from './escape-degraded-guard';
 
 export type ResolveModelOptions = {
   /** Override manifest path (tests / CLI). */
@@ -255,15 +255,15 @@ export async function resolveModel(
 
   // ── Escape path (explicit only) ──────────────────────────────────────────
   if (allowEscape) {
-    // Never-cloud during fleet degraded mode (infer-3). Process flag is set by
-    // DegradedModeController — refuse escape BEFORE any Anthropic traffic.
-    if (isProcessInDegradedMode()) {
-      throw new RoleUnavailableError(
-        role,
-        ANTHROPIC_ENDPOINT,
-        'fail-closed',
-        'degraded mode active — Claude escape refused (never-cloud; local fleet only)'
-      );
+    // Never-cloud during fleet degraded mode (infer-3 / REDHAT-FIX-H1).
+    // Shared choke with runBudgetedEscape — refuse BEFORE any Anthropic traffic.
+    try {
+      assertEscapeNotDegraded(role);
+    } catch (err) {
+      if (err instanceof EscapeDegradedRefusedError) {
+        throw new RoleUnavailableError(role, ANTHROPIC_ENDPOINT, 'fail-closed', err.message);
+      }
+      throw err;
     }
 
     // Role must still be a known fleet role (escape is per-step, not free-form).

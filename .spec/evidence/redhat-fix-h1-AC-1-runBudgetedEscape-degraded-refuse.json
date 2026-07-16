@@ -1,0 +1,13 @@
+{
+  "ac": "AC-1",
+  "processDegradedAtCall": true,
+  "budgetWouldAllow": true,
+  "refused": true,
+  "errorName": "EscapeDegradedRefusedError",
+  "errorCode": "ESCAPE_DEGRADED_REFUSED",
+  "errorMessage": "degraded mode active — Claude escape refused (never-cloud; local fleet only)",
+  "anthropicCount": 0,
+  "anthropicHits": 0,
+  "unexpectedSuccess": null,
+  "networkRows": []
+}

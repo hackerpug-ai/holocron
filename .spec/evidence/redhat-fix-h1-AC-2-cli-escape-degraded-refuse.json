@@ -1,0 +1,19 @@
+{
+  "ac": "AC-2",
+  "status": 1,
+  "payload": {
+    "ok": false,
+    "mode": "runBudgetedEscape",
+    "error": "ESCAPE_DEGRADED_REFUSED",
+    "role": "divergent",
+    "allowEscape": true,
+    "message": "degraded mode active — Claude escape refused (never-cloud; local fleet only)",
+    "networkCapture": {
+      "anthropicCount": 0,
+      "fleetCount": 0,
+      "rows": []
+    }
+  },
+  "anthropicHits": 0,
+  "refuseLiteralPreview": "degraded mode active — Claude escape refused (never-cloud; local fleet only)\nESCAPE_DEGRADED_REFUSED\n\n{\n  \"ok\": false,\n  \"mode\": \"runBudgetedEscape\",\n  \"error\": \"ESCAPE_DEGRADED_REFUSED\",\n  \"role\": \"divergent\",\n  \"allowEscape\": true,\n  \"message\": \"degraded mode active — Claude escape refused (never-cloud; local fleet only)\",\n  \"networkCapture\": {\n    \"anthropicCount\": 0,\n    \"fleetCount\": 0,\n    \"rows\": []\n  }\n}\n"
+}
