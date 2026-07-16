@@ -1238,6 +1238,24 @@ async function main(): Promise<void> {
           process.exit(2);
         }
       }
+      // REDHAT-FIX-H5: real escapes must reject non-positive estimates before Anthropic.
+      if (allowEscape && !(Number.isFinite(estimatedCostUsd) && estimatedCostUsd > 0)) {
+        const msg =
+          'BUDGET_INVALID_ESTIMATE: --cost must be > 0 for escape (non-positive estimate refused)';
+        if (args.json) {
+          console.error(
+            JSON.stringify({
+              ok: false,
+              code: 'BUDGET_INVALID_ESTIMATE',
+              error: msg,
+              estimatedCostUsd,
+            })
+          );
+        } else {
+          console.error(`error: ${msg}`);
+        }
+        process.exit(2);
+      }
 
       type CapRow = { host: string; url: string; method: string; at: number };
       const captureRows: CapRow[] = [];
@@ -1277,7 +1295,7 @@ async function main(): Promise<void> {
       try {
         if (allowEscape) {
           // Full escape path: checkBudget → real generateText → logEscape (NOT resolve-only probe)
-          const { runBudgetedEscape, BudgetExceededError } = await import(
+          const { runBudgetedEscape, BudgetExceededError, BudgetLedgerWriteError } = await import(
             '../inference/budget-ledger.ts'
           );
           const { EscapeDegradedRefusedError, ESCAPE_DEGRADED_REFUSED_CODE } = await import(
@@ -1355,11 +1373,13 @@ async function main(): Promise<void> {
                 ? err.code
                 : err instanceof BudgetExceededError
                   ? err.code
-                  : /degraded|never-cloud/i.test(msg)
-                    ? ESCAPE_DEGRADED_REFUSED_CODE
-                    : /ANTHROPIC_API_KEY/i.test(msg)
-                      ? 'ANTHROPIC_API_KEY_REQUIRED'
-                      : 'ESCAPE_FAILED';
+                  : err instanceof BudgetLedgerWriteError
+                    ? err.code
+                    : /degraded|never-cloud/i.test(msg)
+                      ? ESCAPE_DEGRADED_REFUSED_CODE
+                      : /ANTHROPIC_API_KEY/i.test(msg)
+                        ? 'ANTHROPIC_API_KEY_REQUIRED'
+                        : 'ESCAPE_FAILED';
             const anthropicCount = anthropicHits();
             const payload = {
               ok: false,
@@ -1592,10 +1612,14 @@ async function main(): Promise<void> {
           console.log(JSON.stringify({ ok: true, ...status }, null, 2));
         } else {
           console.log('holo budget:status — Claude escape budget ledger');
-          console.log(`  spent:     ${status.spent}`);
-          console.log(`  ceiling:   ${status.ceiling}`);
-          console.log(`  remaining: ${status.remaining}`);
-          console.log(`  escapes:   ${status.escapeCount}`);
+          console.log(`  spent:             ${status.spent}`);
+          console.log(`  ceiling:           ${status.ceiling}`);
+          console.log(`  effectiveCeiling:  ${status.effectiveCeiling}`);
+          console.log(`  dbCeiling:         ${status.dbCeiling}`);
+          console.log(`  ceilingSource:     ${status.ceilingSource}`);
+          console.log(`  reserved:          ${status.reserved}`);
+          console.log(`  remaining:         ${status.remaining}`);
+          console.log(`  escapes:           ${status.escapeCount}`);
           console.log('  status: OK');
         }
         process.exit(0);

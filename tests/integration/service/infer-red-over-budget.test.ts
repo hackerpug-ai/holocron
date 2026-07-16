@@ -79,11 +79,12 @@ async function loadSql() {
 async function withBudgetLock<T>(fn: () => Promise<T>): Promise<T> {
   const sql = await loadSql();
   try {
-    await sql`SELECT pg_advisory_lock(hashtext('infer-4-budget-ledger'))`;
+    // Share lock with infer-2 / H5 budget suites (same Postgres ledger).
+    await sql`SELECT pg_advisory_lock(hashtext('infer-2-budget-ledger'))`;
     return await fn();
   } finally {
     try {
-      await sql`SELECT pg_advisory_unlock(hashtext('infer-4-budget-ledger'))`;
+      await sql`SELECT pg_advisory_unlock(hashtext('infer-2-budget-ledger'))`;
     } finally {
       await sql.end({ timeout: 5 });
     }

@@ -1,0 +1,27 @@
+{
+  "task": "REDHAT-FIX-H5",
+  "phase": "green",
+  "title": "Hard budget pre-check: reject zero estimate, transactional reserve, consistent ceiling, fail-closed ledger",
+  "ac": {
+    "AC-1": "PASS — estimatedCostUsd<=0 → BUDGET_INVALID_ESTIMATE; anthropicHits:0; CLI --cost 0 refused",
+    "AC-2": "PASS — concurrent reserve:true estimates serialize under SELECT FOR UPDATE; success_count===1",
+    "AC-3": "PASS — getBudgetStatus.effectiveCeiling === checkBudget.ceilingUsd; ceilingSource env|db",
+    "AC-4": "SKIPPED (no ANTHROPIC_API_KEY) — fail-closed BudgetLedgerWriteError path implemented + test hook; live inject requires key",
+    "AC-5": "SKIPPED (no ANTHROPIC_API_KEY) — honest 0.05 path preserved in code; pre-check audit still written for checkBudget",
+    "AC-6": "PASS — redhat-fix-h5* red + green evidence artifacts present"
+  },
+  "tests": {
+    "command": "PLATFORM_IT=1 ALLOW_SKIP_ANTHROPIC=1 pnpm vitest run tests/integration/service/infer-budget-hard-precheck.test.ts tests/integration/service/infer-budget-precheck.test.ts tests/integration/service/infer-budget-cli.test.ts tests/integration/service/infer-budget-ledger-persistence.test.ts tests/integration/service/infer-red-over-budget.test.ts tests/integration/service/infer-escape-telemetry.test.ts",
+    "result": "15 passed | 4 skipped (AC-4/AC-5 + telemetry live paths without Anthropic key)",
+    "typecheck": "pnpm tsgo --noEmit → exit 0",
+    "lint": "pnpm biome check (scoped) → exit 0"
+  },
+  "invariants": {
+    "reject_zero_estimate": true,
+    "transactional_reserve": true,
+    "consistent_ceiling_source": true,
+    "fail_closed_post_escape_ledger": true,
+    "pre_check_audit_preserved": true,
+    "h1_h4_assertEscapeNotDegraded_preserved": true
+  }
+}

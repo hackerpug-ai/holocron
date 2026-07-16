@@ -1,0 +1,15 @@
+{
+  "phase": "red",
+  "finding": "H5 soft/gameable budget",
+  "gameability": [
+    "estimatedCostUsd=0 coerced to pass when remaining>0 (soft gate)",
+    "no SELECT FOR UPDATE — concurrent TOCTOU double-spend of remaining",
+    "HOLO_ESCAPE_BUDGET_USD overrides checkBudget while budget:status reports DB-only ceiling",
+    "post-generateText logEscape failure can undercount spend if not fail-closed"
+  ],
+  "would_observe_before_fix": {
+    "estimatedCostUsd_0": "ok:true when remaining tiny but positive",
+    "anthropicHits_on_cost_0": "possible via CLI --cost 0",
+    "concurrent_reserve": "success_count===2 possible without lock"
+  }
+}

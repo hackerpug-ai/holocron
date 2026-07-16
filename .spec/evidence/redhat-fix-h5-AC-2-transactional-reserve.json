@@ -1,0 +1,25 @@
+{
+  "a": {
+    "ok": true,
+    "ceilingUsd": 0.1,
+    "spentUsd": 0,
+    "remainingUsd": 0.1,
+    "estimatedCostUsd": 0.08,
+    "reservationId": "019f6930-3c81-7e90-bd06-1ac2be27822c",
+    "ceilingSource": "db"
+  },
+  "b": {
+    "ok": false,
+    "code": "BUDGET_EXCEEDED",
+    "ceilingUsd": 0.1,
+    "spentUsd": 0.08,
+    "remainingUsd": 0.020000000000000004,
+    "estimatedCostUsd": 0.08,
+    "reason": "escape would exceed budget by $0.0600",
+    "ceilingSource": "db"
+  },
+  "success_count": 1,
+  "reserved_rows": 1,
+  "committed": 0.08,
+  "ceiling": 0.1
+}

@@ -154,4 +154,28 @@ describe('AC-4: holo budget:* CLI', () => {
     expect(help.out).toMatch(/budget:status/);
     expect(help.out).toMatch(/budget:set/);
   });
+
+  // REDHAT-FIX-H5 AC-3: status discloses effective ceiling when env overrides DB
+  itLive('budget:status effectiveCeiling matches env override used by gate', async () => {
+    await withBudgetLock(async () => {
+      const ledger = await loadBudgetLedger();
+      await ledger.resetBudgetLedgerForTests();
+      await ledger.setBudgetCeiling(1);
+
+      const status = runHolo(['budget:status', '--json'], {
+        HOLO_ESCAPE_BUDGET_USD: '999',
+      });
+      expect(status.status, status.out).toBe(0);
+      const payload = JSON.parse(status.stdout) as {
+        ceiling?: number;
+        effectiveCeiling?: number;
+        dbCeiling?: number;
+        ceilingSource?: string;
+      };
+      expect(Number(payload.effectiveCeiling ?? payload.ceiling)).toBe(999);
+      expect(Number(payload.dbCeiling)).toBe(1);
+      expect(payload.ceilingSource).toBe('env');
+      writeArtifact('AC-H5-budget-status-effective-ceiling.json', payload);
+    });
+  });
 });

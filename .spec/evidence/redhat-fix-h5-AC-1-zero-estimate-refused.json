@@ -1,0 +1,32 @@
+{
+  "phase": "green",
+  "zero": {
+    "ok": false,
+    "code": "BUDGET_INVALID_ESTIMATE",
+    "ceilingUsd": 0.1,
+    "spentUsd": 0.09,
+    "remainingUsd": 0.010000000000000009,
+    "estimatedCostUsd": 0,
+    "reason": "BUDGET_INVALID_ESTIMATE: estimatedCostUsd must be > 0 for real escapes (non-positive estimate refused)",
+    "ceilingSource": "db"
+  },
+  "neg": {
+    "ok": false,
+    "code": "BUDGET_INVALID_ESTIMATE",
+    "ceilingUsd": 0.1,
+    "spentUsd": 0.09,
+    "remainingUsd": 0.010000000000000009,
+    "estimatedCostUsd": -1,
+    "reason": "BUDGET_INVALID_ESTIMATE: estimatedCostUsd must be > 0 for real escapes (non-positive estimate refused)",
+    "ceilingSource": "db"
+  },
+  "runBlocked": true,
+  "runCode": "BUDGET_INVALID_ESTIMATE",
+  "cli": {
+    "status": 2,
+    "out": "\n{\"ok\":false,\"code\":\"BUDGET_INVALID_ESTIMATE\",\"error\":\"BUDGET_INVALID_ESTIMATE: --cost must be > 0 for escape (non-positive estimate refused)\",\"estimatedCostUsd\":0}\n"
+  },
+  "anthropicCount": 0,
+  "anthropicHits": 0,
+  "escapeSpendRows": 0
+}

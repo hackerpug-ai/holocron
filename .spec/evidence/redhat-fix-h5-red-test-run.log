@@ -1,0 +1,82 @@
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-orchestrate/worktrees/task-redhat-fix-h5
+
+ ❯ tests/integration/service/infer-budget-hard-precheck.test.ts (6 tests | 3 failed | 2 skipped) 1002ms
+     × AC-1: estimatedCostUsd=0 refused; anthropicHits:0; no escape spend row 553ms
+     × AC-2: concurrent mutually exclusive estimates → at most one success 181ms
+     × AC-3: getBudgetStatus effectiveCeiling matches checkBudget ceilingUsd 124ms
+     ↓ AC-4: logEscape failure after generateText fails closed (no undercount success)
+     ↓ AC-5: estimatedCostUsd=0.05 still meters escape with pre-check audit
+     ✓ AC-6: redhat-fix-h5* red/green evidence artifacts exist 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/integration/service/infer-budget-hard-precheck.test.ts > REDHAT-FIX-H5: hard budget pre-check > AC-1: estimatedCostUsd=0 refused; anthropicHits:0; no escape spend row
+AssertionError: zero estimate must not pass soft gate: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/integration/service/infer-budget-hard-precheck.test.ts:220:68
+    218|           });
+    219|
+    220|           expect(zero.ok, 'zero estimate must not pass soft gate').toB…
+       |                                                                    ^
+    221|           expect(zero.code).toBe('BUDGET_INVALID_ESTIMATE');
+    222|           expect(zero.reason ?? '').toMatch(/invalid|non-positive|must…
+ ❯ withBudgetLock tests/integration/service/infer-budget-hard-precheck.test.ts:157:12
+ ❯ tests/integration/service/infer-budget-hard-precheck.test.ts:194:7
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  tests/integration/service/infer-budget-hard-precheck.test.ts > REDHAT-FIX-H5: hard budget pre-check > AC-2: concurrent mutually exclusive estimates → at most one success
+AssertionError: at most one concurrent reserve may succeed: expected 2 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 2
+
+ ❯ tests/integration/service/infer-budget-hard-precheck.test.ts:343:80
+    341|         const successes = [a, b].filter((r) => r.ok);
+    342|         const failures = [a, b].filter((r) => !r.ok);
+    343|         expect(successes.length, 'at most one concurrent reserve may s…
+       |                                                                                ^
+    344|         expect(failures.length).toBe(1);
+    345|         expect(failures[0]?.code).toBe('BUDGET_EXCEEDED');
+ ❯ withBudgetLock tests/integration/service/infer-budget-hard-precheck.test.ts:157:12
+ ❯ tests/integration/service/infer-budget-hard-precheck.test.ts:313:7
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  tests/integration/service/infer-budget-hard-precheck.test.ts > REDHAT-FIX-H5: hard budget pre-check > AC-3: getBudgetStatus effectiveCeiling matches checkBudget ceilingUsd
+AssertionError: expected 1 to be 999 // Object.is equality
+
+- Expected
++ Received
+
+- 999
++ 1
+
+ ❯ tests/integration/service/infer-budget-hard-precheck.test.ts:416:33
+    414|         // Gate and status must agree on the effective ceiling used fo…
+    415|         const statusEffective = Number(status.effectiveCeiling ?? stat…
+    416|         expect(statusEffective).toBe(check.ceilingUsd);
+       |                                 ^
+    417|         expect(statusEffective).toBeGreaterThan(0);
+    418|         // Must disclose source when env overrides DB
+ ❯ withBudgetLock tests/integration/service/infer-budget-hard-precheck.test.ts:157:12
+ ❯ tests/integration/service/infer-budget-hard-precheck.test.ts:396:7
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 1 passed | 2 skipped (6)
+   Start at  22:27:12
+   Duration  1.28s (transform 144ms, setup 136ms, import 41ms, tests 1.00s, environment 0ms)
+
