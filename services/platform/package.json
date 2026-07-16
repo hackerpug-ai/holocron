@@ -10,6 +10,7 @@
     "typescript": "^5"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.69",
     "@ai-sdk/openai-compatible": "3.0.10",
     "@mastra/core": "1.50.1",
     "@mastra/mcp": "1.13.1",

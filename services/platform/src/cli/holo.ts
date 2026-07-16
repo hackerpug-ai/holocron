@@ -16,6 +16,7 @@
  * Sprint 07 ledger-2: evidence:revise | db:probe --raw
  * Sprint 07 ledger-3: evidence:belief --as-of | evidence:register-doc
  * Sprint 08 infer-1: infer:call | verify:no-provider-refs
+ * Sprint 08 infer-2: budget:status | budget:set
  */
 import { resolve } from 'node:path';
 
@@ -85,6 +86,8 @@ interface CliArgs {
   highStakes: boolean;
   cost: string | null;
   reason: string | null;
+  /** budget:set --ceiling */
+  ceiling: string | null;
 }
 
 function printHelp(): void {
@@ -131,6 +134,8 @@ Usage:
                             Register internal doc as self-sourced source (reuse passages)
   infer:call                Resolve a fleet role (or budgeted Claude escape) via resolveModel
   verify:no-provider-refs   Audit platform src for banned claudeFlash/Pro/Ultra factories
+  budget:status             Show escape budget spent / remaining / ceiling (real Postgres)
+  budget:set                Set escape budget ceiling (--ceiling <usd>)
 
 Options:
   --export <dir>        Path to unzipped convex export (or $CONVEX_EXPORT_DIR)
@@ -158,6 +163,7 @@ Options:
   --highStakes          (infer:call) alias for --escape (high-stakes step)
   --cost <usd>          (infer:call) estimated escape cost USD for budget pre-check
   --reason <text>       (infer:call) escape reason for audit trail
+  --ceiling <usd>       (budget:set) escape budget ceiling in USD
   --json                Emit JSON instead of text
   --print-trace         (compat:spike) emit OTel trace details
   --dry-run             (catalog:reconcile) dry-run mode (default)
@@ -198,6 +204,7 @@ function parseArgs(argv: string[]): CliArgs {
     highStakes: false,
     cost: null,
     reason: null,
+    ceiling: null,
   };
   const positional: string[] = [];
   for (let i = 0; i < argv.length; i++) {
@@ -279,6 +286,10 @@ function parseArgs(argv: string[]): CliArgs {
       args.reason = argv[++i] ?? null;
     } else if (a.startsWith('--reason=')) {
       args.reason = a.slice('--reason='.length);
+    } else if (a === '--ceiling') {
+      args.ceiling = argv[++i] ?? null;
+    } else if (a.startsWith('--ceiling=')) {
+      args.ceiling = a.slice('--ceiling='.length);
     } else if (a === '--for') {
       args.forConsumers = argv[++i] ?? null;
     } else if (a.startsWith('--for=')) {
@@ -1338,6 +1349,68 @@ async function main(): Promise<void> {
         console.log(formatNoProviderRefsText(report));
       }
       process.exit(report.ok ? 0 : 1);
+      break;
+    }
+    case 'budget:status': {
+      const { getBudgetStatus } = await import('../inference/budget-ledger.ts');
+      try {
+        const status = await getBudgetStatus();
+        if (args.json) {
+          console.log(JSON.stringify({ ok: true, ...status }, null, 2));
+        } else {
+          console.log('holo budget:status — Claude escape budget ledger');
+          console.log(`  spent:     ${status.spent}`);
+          console.log(`  ceiling:   ${status.ceiling}`);
+          console.log(`  remaining: ${status.remaining}`);
+          console.log(`  escapes:   ${status.escapeCount}`);
+          console.log('  status: OK');
+        }
+        process.exit(0);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (args.json) {
+          console.error(JSON.stringify({ ok: false, error: msg }));
+        } else {
+          console.error(`holo budget:status failed: ${msg}`);
+        }
+        process.exit(1);
+      }
+      break;
+    }
+    case 'budget:set': {
+      const raw = args.ceiling ?? args.positional[1] ?? null;
+      if (raw === null || raw === '') {
+        console.error('error: budget:set requires --ceiling <usd>');
+        process.exit(2);
+      }
+      const ceiling = Number(raw);
+      if (!Number.isFinite(ceiling) || ceiling < 0) {
+        console.error(`error: --ceiling must be a non-negative number (got ${raw})`);
+        process.exit(2);
+      }
+      const { setBudgetCeiling, getBudgetStatus } = await import('../inference/budget-ledger.ts');
+      try {
+        const updated = await setBudgetCeiling(ceiling);
+        const status = await getBudgetStatus();
+        if (args.json) {
+          console.log(JSON.stringify({ ok: true, ceiling: updated.ceiling, status }, null, 2));
+        } else {
+          console.log('holo budget:set — escape budget ceiling updated');
+          console.log(`  ceiling:   ${updated.ceiling}`);
+          console.log(`  spent:     ${status.spent}`);
+          console.log(`  remaining: ${status.remaining}`);
+          console.log('  status: OK');
+        }
+        process.exit(0);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (args.json) {
+          console.error(JSON.stringify({ ok: false, error: msg }));
+        } else {
+          console.error(`holo budget:set failed: ${msg}`);
+        }
+        process.exit(1);
+      }
       break;
     }
     default:
