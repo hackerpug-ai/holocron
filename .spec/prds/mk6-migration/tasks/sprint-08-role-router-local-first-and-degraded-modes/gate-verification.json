@@ -1,0 +1,9 @@
+{
+  "sprint_id": "sprint-08-role-router-local-first-and-degraded-modes",
+  "verdict": "pass",
+  "gate_results": ".spec/prds/mk6-migration/tasks/sprint-08-role-router-local-first-and-degraded-modes/gate-results.json",
+  "steps_passed": 6,
+  "steps_total": 6,
+  "completed_at": "2026-07-16T03:39:32.334625+00:00",
+  "commit": "dbd7dc59e54ff35cfcec746b93ac1688bc3e4a64"
+}

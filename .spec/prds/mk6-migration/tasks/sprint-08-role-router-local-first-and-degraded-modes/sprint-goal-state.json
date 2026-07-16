@@ -1,0 +1,33 @@
+{
+  "sprint_id": "sprint-08-role-router-local-first-and-degraded-modes",
+  "condition_text": "All tasks complete AND gate PASS AND E2E PASS AND human_test verdict pass AND trunk consolidated",
+  "tasks": {
+    "complete": true,
+    "total": 5,
+    "done": 5
+  },
+  "gate": {
+    "verdict": "PASS"
+  },
+  "e2e": {
+    "verdict": "PASS"
+  },
+  "human_test": {
+    "verdict": "pass",
+    "steps_executed": 6,
+    "steps_passed": 6,
+    "steps_total": 6,
+    "gate_results": ".spec/prds/mk6-migration/tasks/sprint-08-role-router-local-first-and-degraded-modes/gate-results.json"
+  },
+  "integration": {
+    "trunk_consolidated": true,
+    "protected_branch": "integration/orch-s08-role-router-20260715T-current",
+    "head": "dbd7dc59e54ff35cfcec746b93ac1688bc3e4a64"
+  },
+  "build": {
+    "verdict": "PASS"
+  },
+  "met": true,
+  "completed_at": "2026-07-16T03:39:32.334625+00:00",
+  "ac3_evidence": ".tmp/infer-2/AC-3-escape-telemetry.json"
+}

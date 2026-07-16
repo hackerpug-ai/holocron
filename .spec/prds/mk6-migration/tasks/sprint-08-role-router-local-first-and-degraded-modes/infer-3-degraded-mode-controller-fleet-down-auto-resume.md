@@ -48,7 +48,7 @@ TASK: infer-3 — Degraded-mode controller (fleet-down → defined reduced mode,
 ================================================================================
 
 TASK_TYPE:  FEATURE
-STATUS:     Backlog
+STATUS:     Completed
 PRIORITY:   P0
 EFFORT:     M  (180 min)
 AGENT:      mastra-implementer

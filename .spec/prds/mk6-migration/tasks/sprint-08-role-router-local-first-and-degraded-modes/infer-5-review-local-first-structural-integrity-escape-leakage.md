@@ -48,7 +48,7 @@ TASK: infer-5 — Review local-first structural integrity + escape leakage
 ================================================================================
 
 TASK_TYPE:  FEATURE
-STATUS:     Backlog
+STATUS:     Completed
 PRIORITY:   P0
 EFFORT:     M  (90 min)
 AGENT:      mastra-reviewer

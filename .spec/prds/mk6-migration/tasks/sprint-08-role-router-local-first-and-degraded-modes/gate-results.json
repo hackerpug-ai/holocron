@@ -1,0 +1,70 @@
+{
+  "sprint_id": "sprint-08-role-router-local-first-and-degraded-modes",
+  "verdict": "pass",
+  "cycle_start": "2026-07-16T03:39:04Z",
+  "completed_at": "2026-07-16T03:39:09.028922+00:00",
+  "runner": "kb-run-sprint-orchestrator",
+  "ui_driver": "none",
+  "steps_total": 6,
+  "steps_executed": 6,
+  "steps_passed": 6,
+  "steps": [
+    {
+      "id": "step-1-2",
+      "name": "Fleet mission/router default path zero Anthropic",
+      "command": "PLATFORM_IT=1 pnpm vitest run infer-router-zero-cloud + infer-red-zero-cloud",
+      "executed": true,
+      "result": "pass",
+      "log": ".tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests/step1-2-zero-cloud.log"
+    },
+    {
+      "id": "step-3",
+      "name": "infer:call --role divergent/convergent resolve fleet models",
+      "command": "bun holo infer:call --role divergent|convergent --json",
+      "executed": true,
+      "result": "pass",
+      "log": ".tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests/step3-divergent.log",
+      "detail": {
+        "divergent_ok": true,
+        "convergent_ok": true
+      }
+    },
+    {
+      "id": "step-4",
+      "name": "infer:call --escape --cost 999 blocked",
+      "command": "bun holo infer:call --escape --cost 999 --json",
+      "executed": true,
+      "result": "pass",
+      "log": ".tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests/step4-over-budget.log"
+    },
+    {
+      "id": "step-5",
+      "name": "real infer:call --escape --highStakes within budget logs ledger",
+      "command": "bun holo infer:call --escape --highStakes --cost 0.05 --json",
+      "executed": true,
+      "result": "pass",
+      "log": ".tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests/step5-escape.log",
+      "detail": {
+        "tokens": 21,
+        "cost": 4.1e-05
+      }
+    },
+    {
+      "id": "step-6",
+      "name": "fleet-down degrades then resumes (never cloud)",
+      "command": "PLATFORM_IT=1 vitest infer-degraded-transition + resume",
+      "executed": true,
+      "result": "pass",
+      "log": ".tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests/step6-degraded.log"
+    },
+    {
+      "id": "step-7",
+      "name": "holo verify:no-provider-refs",
+      "command": "bun holo verify:no-provider-refs",
+      "executed": true,
+      "result": "pass",
+      "log": ".tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests/step7-no-provider.log"
+    }
+  ],
+  "logs_dir": ".tmp/sprint-08-role-router-local-first-and-degraded-modes/human-tests"
+}

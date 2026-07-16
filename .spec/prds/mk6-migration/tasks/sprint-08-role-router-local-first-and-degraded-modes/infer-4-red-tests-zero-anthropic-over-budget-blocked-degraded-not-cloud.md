@@ -46,7 +46,7 @@ TASK: infer-4 — RED tests: zero-Anthropic default path, over-budget escape blo
 ================================================================================
 
 TASK_TYPE:  FEATURE
-STATUS:     Backlog
+STATUS:     Completed
 PRIORITY:   P0
 EFFORT:     M  (180 min)
 AGENT:      red-test-generator

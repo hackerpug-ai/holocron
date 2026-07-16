@@ -44,7 +44,7 @@ TASK: infer-2 — Budget ledger + deterministic escape pre-check + per-escape te
 ================================================================================
 
 TASK_TYPE:  FEATURE
-STATUS:     Backlog
+STATUS:     Completed
 PRIORITY:   P0
 EFFORT:     M  (210 min)
 AGENT:      mastra-implementer
