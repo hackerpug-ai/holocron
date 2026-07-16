@@ -64,6 +64,13 @@
       "when": 1784085000000,
       "tag": "0008_budget_ledger",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1784086000000,
+      "tag": "0009_budget_ledger_allow_escape",
+      "breakpoints": true
     }
   ]
 }

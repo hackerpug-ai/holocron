@@ -163,16 +163,20 @@ describe('AC-3: logEscape after real Anthropic escape', () => {
 
           const sql = await loadSql();
           try {
+            // Escape spend row (checkBudget also writes a cost=0 pre-check audit row)
             const rows = (await sql`
-              SELECT reason, tokens, cost, run_id, step_id
+              SELECT reason, tokens, cost, run_id, step_id, check_type, role, allow_escape
               FROM budget_ledger
-              WHERE run_id = ${runId}
+              WHERE run_id = ${runId} AND check_type = 'escape'
             `) as Array<{
               reason: string;
               tokens: number;
               cost: number;
               run_id: string;
               step_id: string;
+              check_type: string;
+              role: string | null;
+              allow_escape: boolean | null;
             }>;
             expect(rows.length).toBe(1);
             expect(Number(rows[0]?.cost)).toBeGreaterThan(0);
@@ -180,6 +184,15 @@ describe('AC-3: logEscape after real Anthropic escape', () => {
             expect(Number(rows[0]?.tokens)).toBe(result.tokens);
             expect(Number(rows[0]?.cost)).toBeCloseTo(result.cost, 6);
             expect(rows[0]?.reason).toBe('ac3-budgeted-escape');
+            expect(rows[0]?.role).toBe('divergent');
+            expect(rows[0]?.allow_escape).toBe(true);
+
+            const preChecks = (await sql`
+              SELECT count(*)::int AS n
+              FROM budget_ledger
+              WHERE run_id = ${runId} AND check_type = 'pre-check'
+            `) as Array<{ n: number }>;
+            expect(Number(preChecks[0]?.n ?? 0)).toBeGreaterThanOrEqual(1);
 
             writeArtifact('AC-3-escape-telemetry.json', {
               result: {
@@ -189,6 +202,7 @@ describe('AC-3: logEscape after real Anthropic escape', () => {
                 textPreview: result.text.slice(0, 80),
               },
               rows,
+              preCheckCount: Number(preChecks[0]?.n ?? 0),
               anthropicCount: capture.anthropicCount(),
               networkRows: capture.snapshot(),
             });
@@ -270,19 +284,33 @@ describe('AC-3: logEscape after real Anthropic escape', () => {
         const sql = await loadSql();
         try {
           const rows = (await sql`
-            SELECT reason, tokens, cost, run_id
+            SELECT reason, tokens, cost, run_id, check_type
             FROM budget_ledger
-            WHERE run_id = ${runId}
-          `) as Array<{ reason: string; tokens: number; cost: number; run_id: string }>;
+            WHERE run_id = ${runId} AND check_type = 'escape'
+          `) as Array<{
+            reason: string;
+            tokens: number;
+            cost: number;
+            run_id: string;
+            check_type: string;
+          }>;
           expect(rows.length).toBe(1);
           expect(Number(rows[0]?.tokens)).toBeGreaterThan(0);
           expect(Number(rows[0]?.cost)).toBeGreaterThan(0);
           expect(rows[0]?.reason).toBe('ac3-cli-budgeted-escape');
 
+          const preChecks = (await sql`
+            SELECT count(*)::int AS n
+            FROM budget_ledger
+            WHERE run_id = ${runId} AND check_type = 'pre-check'
+          `) as Array<{ n: number }>;
+          expect(Number(preChecks[0]?.n ?? 0)).toBeGreaterThanOrEqual(1);
+
           writeArtifact('AC-3-cli-escape-telemetry.json', {
             status: cli.status,
             payload,
             rows,
+            preCheckCount: Number(preChecks[0]?.n ?? 0),
             outPreview: out.slice(0, 2000),
           });
         } finally {

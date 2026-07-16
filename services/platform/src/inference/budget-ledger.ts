@@ -27,9 +27,15 @@ export type BudgetCheckRequest = {
   estimatedCostUsd: number;
   /** Optional operator/reason string for audit. */
   reason?: string;
+  /** Fleet role requesting escape (default: divergent for pre-check audit). */
   role?: string;
   runId?: string;
   stepId?: string;
+  /**
+   * Echo of allowEscape for pre-check audit rows.
+   * Defaults to true — checkBudget is only used on the escape path.
+   */
+  allowEscape?: boolean;
 };
 
 export type BudgetCheckResult =
@@ -59,6 +65,8 @@ export type LogEscapeRequest = {
   role?: string;
   modelId?: string;
   checkType?: string;
+  /** Whether the request path allowed Claude escape (audit / escape rows). */
+  allowEscape?: boolean;
   timestamp?: Date;
 };
 
@@ -168,8 +176,14 @@ export async function getSpentUsd(env: NodeJS.ProcessEnv = process.env): Promise
  */
 export async function getBudgetStatus(env: NodeJS.ProcessEnv = process.env): Promise<BudgetStatus> {
   return withLedgerSql(async (sql) => {
+    // Pre-check audit rows (cost=0, check_type='pre-check') must not inflate escapeCount.
     const spentRows = await sql<{ spent: string | number; n: number }[]>`
-      SELECT COALESCE(SUM(cost), 0)::float8 AS spent, count(*)::int AS n FROM budget_ledger
+      SELECT
+        COALESCE(SUM(cost), 0)::float8 AS spent,
+        count(*) FILTER (
+          WHERE COALESCE(check_type, 'escape') IS DISTINCT FROM 'pre-check'
+        )::int AS n
+      FROM budget_ledger
     `;
     const ceilRows = await sql<{ ceiling: number }[]>`
       SELECT ceiling FROM budget_ceiling WHERE id = 1 LIMIT 1
@@ -208,8 +222,11 @@ export async function setBudgetCeiling(
 }
 
 /**
- * Persist a successful escape (or seed) to budget_ledger.
- * NEVER call for blocked over-budget attempts.
+ * Persist a budget_ledger row (escape spend, seed, or pre-check audit).
+ *
+ * Escape spend: check_type='escape', tokens/cost from real Anthropic usage.
+ * Pre-check audit: check_type='pre-check', tokens=0, cost=0 (does not affect spent).
+ * Seed rows: check_type='seed' for test isolation only.
  */
 export async function logEscape(
   request: LogEscapeRequest,
@@ -224,6 +241,7 @@ export async function logEscape(
 
   return withLedgerSql(async (sql) => {
     const ts = request.timestamp ?? new Date();
+    const allowEscape = request.allowEscape === undefined ? null : request.allowEscape === true;
     const rows = await sql<
       {
         id: string;
@@ -236,7 +254,7 @@ export async function logEscape(
       }[]
     >`
       INSERT INTO budget_ledger (
-        reason, tokens, cost, "timestamp", run_id, step_id, role, model_id, check_type
+        reason, tokens, cost, "timestamp", run_id, step_id, role, model_id, check_type, allow_escape
       )
       VALUES (
         ${request.reason},
@@ -247,7 +265,8 @@ export async function logEscape(
         ${request.stepId ?? null},
         ${request.role ?? null},
         ${request.modelId ?? null},
-        ${request.checkType ?? 'escape'}
+        ${request.checkType ?? 'escape'},
+        ${allowEscape}
       )
       RETURNING id::text, reason, tokens, cost, run_id, step_id, "timestamp"
     `;
@@ -285,6 +304,7 @@ export async function recordEscapeSpend(
       role: meta?.role,
       modelId: meta?.modelId,
       checkType: meta?.checkType ?? 'escape',
+      allowEscape: meta?.allowEscape ?? true,
     },
     env
   );
@@ -300,9 +320,40 @@ export async function resetBudgetLedgerForTests(
 }
 
 /**
+ * Write a pre-check audit row (tokens=0, cost=0, check_type='pre-check').
+ * Cost stays 0 so SUM(cost) / spent is unaffected — this is audit, not spend.
+ */
+async function recordPreCheckAudit(
+  request: BudgetCheckRequest,
+  result: BudgetCheckResult,
+  env: NodeJS.ProcessEnv
+): Promise<void> {
+  const passFailCode = result.ok ? 'BUDGET_OK' : result.code;
+  const detail = result.ok ? request.reason?.trim() || 'within-budget' : result.reason;
+  await logEscape(
+    {
+      reason: `${passFailCode}: ${detail}`,
+      tokens: 0,
+      cost: 0,
+      runId: request.runId,
+      stepId: request.stepId,
+      role: request.role ?? 'divergent',
+      checkType: 'pre-check',
+      // Escape-path pre-check always records allowEscape (default true).
+      allowEscape: request.allowEscape !== false,
+    },
+    env
+  );
+}
+
+/**
  * Deterministic pre-check before any Anthropic escape request.
  * Fail closed when budget is not configured or would be exceeded.
  * Reads spent from real Postgres budget_ledger.
+ *
+ * On every Postgres-backed check, INSERTS a budget_ledger audit row with
+ * check_type='pre-check', tokens=0, cost=0, reason=pass/fail code, role
+ * (default divergent), allow_escape=true — required by infer-5 AC-2.
  */
 export async function checkBudget(
   request: BudgetCheckRequest,
@@ -315,9 +366,11 @@ export async function checkBudget(
 
   let ceilingUsd = 0;
   let spentUsd = 0;
+  let ledgerReachable = false;
   try {
     ceilingUsd = await getEscapeBudgetCeilingUsdAsync(env);
     spentUsd = await getSpentUsd(env);
+    ledgerReachable = true;
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     return {
@@ -333,8 +386,9 @@ export async function checkBudget(
 
   const remainingUsd = Math.max(0, ceilingUsd - spentUsd);
 
+  let result: BudgetCheckResult;
   if (ceilingUsd <= 0) {
-    return {
+    result = {
       ok: false,
       code: 'BUDGET_NOT_CONFIGURED',
       ceilingUsd,
@@ -344,10 +398,8 @@ export async function checkBudget(
       reason:
         'escape budget not configured — set HOLO_ESCAPE_BUDGET_USD > 0 or holo budget:set --ceiling',
     };
-  }
-
-  if (spentUsd + estimatedCostUsd > ceilingUsd) {
-    return {
+  } else if (spentUsd + estimatedCostUsd > ceilingUsd) {
+    result = {
       ok: false,
       code: 'BUDGET_EXCEEDED',
       ceilingUsd,
@@ -356,15 +408,35 @@ export async function checkBudget(
       estimatedCostUsd,
       reason: `escape would exceed budget by $${(spentUsd + estimatedCostUsd - ceilingUsd).toFixed(4)}`,
     };
+  } else {
+    result = {
+      ok: true,
+      ceilingUsd,
+      spentUsd,
+      remainingUsd,
+      estimatedCostUsd,
+    };
   }
 
-  return {
-    ok: true,
-    ceilingUsd,
-    spentUsd,
-    remainingUsd,
-    estimatedCostUsd,
-  };
+  // Audit every Postgres-backed pre-check (pass and fail). Fail closed if audit INSERT fails.
+  if (ledgerReachable) {
+    try {
+      await recordPreCheckAudit(request, result, env);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return {
+        ok: false,
+        code: 'BUDGET_LEDGER_UNAVAILABLE',
+        ceilingUsd,
+        spentUsd,
+        remainingUsd: 0,
+        estimatedCostUsd,
+        reason: `budget pre-check audit insert failed: ${msg}`,
+      };
+    }
+  }
+
+  return result;
 }
 
 /**
@@ -439,9 +511,10 @@ export async function runBudgetedEscape(
     {
       estimatedCostUsd,
       reason: request.reason,
-      role: request.role,
+      role: request.role ?? 'divergent',
       runId: request.runId,
       stepId: request.stepId,
+      allowEscape: true,
     },
     env
   );
@@ -475,9 +548,10 @@ export async function runBudgetedEscape(
       cost,
       runId: request.runId,
       stepId: request.stepId,
-      role: request.role,
+      role: request.role ?? 'divergent',
       modelId,
       checkType: 'escape',
+      allowEscape: true,
     },
     env
   );
