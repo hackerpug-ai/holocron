@@ -1,0 +1,35 @@
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-orchestrate/worktrees/task-infer-2-budget
+
+ ❯ tests/integration/service/infer-escape-telemetry.test.ts (3 tests | 1 failed | 2 skipped) 111ms
+     × ANTHROPIC_API_KEY required under PLATFORM_IT (fail closed without ALLOW_SKIP_ANTHROPIC) 4ms
+     ↓ runBudgetedEscape logs reason/tokens/cost and contacts api.anthropic.com
+     ↓ holo infer:call --escape runs runBudgetedEscape (ledger tokens/cost + anthropic host)
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/integration/service/infer-escape-telemetry.test.ts > AC-3: logEscape after real Anthropic escape > ANTHROPIC_API_KEY required under PLATFORM_IT (fail closed without ALLOW_SKIP_ANTHROPIC)
+AssertionError: AC-3 fail-closed: set ANTHROPIC_API_KEY for live escape telemetry, or ALLOW_SKIP_ANTHROPIC=1 for local-dev only: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/integration/service/infer-escape-telemetry.test.ts:118:9
+    116|         hasAnthropicKey || allowSkipAnthropic,
+    117|         'AC-3 fail-closed: set ANTHROPIC_API_KEY for live escape telem…
+    118|       ).toBe(true);
+       |         ^
+    119|     }
+    120|   );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 2 skipped (3)
+   Start at  18:36:11
+   Duration  333ms (transform 72ms, setup 112ms, import 13ms, tests 111ms, environment 0ms)
+

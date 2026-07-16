@@ -1,0 +1,10 @@
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-orchestrate/worktrees/task-infer-2-budget
+
+ ✓ tests/integration/service/infer-escape-telemetry.test.ts (3 tests | 2 skipped) 110ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 2 skipped (3)
+   Start at  18:36:14
+   Duration  326ms (transform 70ms, setup 109ms, import 13ms, tests 110ms, environment 0ms)
+

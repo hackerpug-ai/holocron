@@ -6,8 +6,9 @@
  *   ZERO Anthropic. Cloud endpoints refused even if misconfigured in the manifest.
  *
  * Escape path (allowEscape=true):
- *   Budget pre-check (budget-ledger) → real probe to api.anthropic.com → return Anthropic endpoint.
- *   Never the default. infer-2 owns durable ledger metering.
+ *   Budget pre-check (Postgres budget_ledger via checkBudget) → real probe to api.anthropic.com
+ *   → return Anthropic endpoint. Never the default.
+ *   After a successful Anthropic generate, call logEscape()/runBudgetedEscape() to meter spend.
  */
 
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';

@@ -1,0 +1,6 @@
+{
+  "hasAnthropicKey": false,
+  "allowSkipAnthropic": false,
+  "platformIt": true,
+  "note": "ANTHROPIC_API_KEY unset — FAIL CLOSED under PLATFORM_IT=1"
+}

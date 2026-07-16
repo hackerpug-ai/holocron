@@ -16,6 +16,7 @@
  * Sprint 07 ledger-2: evidence:revise | db:probe --raw
  * Sprint 07 ledger-3: evidence:belief --as-of | evidence:register-doc
  * Sprint 08 infer-1: infer:call | verify:no-provider-refs
+ * Sprint 08 infer-2: budget:status | budget:set
  * Sprint 08 infer-3: infer:degraded (status / poll) + DegradedModeController on fleet-down
  */
 import { resolve } from 'node:path';
@@ -86,6 +87,10 @@ interface CliArgs {
   highStakes: boolean;
   cost: string | null;
   reason: string | null;
+  /** infer:call --escape: optional prompt for runBudgetedEscape */
+  prompt: string | null;
+  /** budget:set --ceiling */
+  ceiling: string | null;
 }
 
 function printHelp(): void {
@@ -130,9 +135,12 @@ Usage:
   evidence:belief           As-of belief + net-support for a claim (--claim-id, --as-of)
   evidence:register-doc <id>
                             Register internal doc as self-sourced source (reuse passages)
-  infer:call                Resolve a fleet role (or budgeted Claude escape) via resolveModel
+  infer:call                Resolve fleet role; --escape runs budgeted Claude escape
+                            (checkBudget → generateText → logEscape); fleet-down → degraded
   infer:degraded            Show / poll degraded-mode state (fleet-down reduced mode)
   verify:no-provider-refs   Audit platform src for banned claudeFlash/Pro/Ultra factories
+  budget:status             Show escape budget spent / remaining / ceiling (real Postgres)
+  budget:set                Set escape budget ceiling (--ceiling <usd>)
 
 Options:
   --export <dir>        Path to unzipped convex export (or $CONVEX_EXPORT_DIR)
@@ -156,10 +164,13 @@ Options:
   --claim-id <id>       (evidence:belief) claim id to query
   --as-of <ts|now>      (evidence:belief) transaction-time as-of (default: now)
   --role <role>         (infer:call|infer:degraded) fleet role: divergent|convergent|judge|embed|rerank
-  --escape              (infer:call) allowEscape=true (budgeted Claude escape)
+  --escape              (infer:call) budgeted Claude escape via runBudgetedEscape
   --highStakes          (infer:call) alias for --escape (high-stakes step)
   --cost <usd>          (infer:call) estimated escape cost USD for budget pre-check
   --reason <text>       (infer:call) escape reason for audit trail
+  --prompt <text>       (infer:call --escape) prompt for real Anthropic generateText
+  --run-id <id>         (infer:call --escape / evidence:revise) run id for ledger
+  --ceiling <usd>       (budget:set) escape budget ceiling in USD
   --poll                (infer:degraded) run one real health probe (may auto-resume)
   --json                Emit JSON instead of text
   --print-trace         (compat:spike) emit OTel trace details
@@ -201,6 +212,8 @@ function parseArgs(argv: string[]): CliArgs {
     highStakes: false,
     cost: null,
     reason: null,
+    prompt: null,
+    ceiling: null,
   };
   const positional: string[] = [];
   for (let i = 0; i < argv.length; i++) {
@@ -1199,7 +1212,7 @@ async function main(): Promise<void> {
       break;
     }
     case 'infer:call': {
-      // Sprint 08: resolveModel(role,{allowEscape}) via operator CLI
+      // Sprint 08: --escape → runBudgetedEscape; default → DegradedModeController + resolveModel
       const role =
         args.role ?? args.positional[1] ?? (args.escape || args.highStakes ? 'divergent' : null);
       if (!role) {
@@ -1218,7 +1231,6 @@ async function main(): Promise<void> {
         }
       }
 
-      // Real network capture around resolveModel (not a mocked always-zero counter)
       type CapRow = { host: string; url: string; method: string; at: number };
       const captureRows: CapRow[] = [];
       const origFetch = globalThis.fetch;
@@ -1247,126 +1259,231 @@ async function main(): Promise<void> {
         return origFetch(input as RequestInfo, init as RequestInit);
       }) as typeof globalThis.fetch;
 
-      const { UnknownFleetRoleError, RoleUnavailableError, BudgetExceededError } = await import(
-        '../inference/resolve-model.ts'
-      );
-      const { DegradedModeController } = await import('../inference/degraded-mode-controller.ts');
-      const controller = new DegradedModeController({
-        databaseUrl: process.env.DATABASE_URL,
-        role: typeof role === 'string' ? role : 'divergent',
-      });
-
-      try {
-        await controller.init();
-        const result = await controller.resolveRole(role, {
-          allowEscape,
-          highStakes: args.highStakes,
-          estimatedCostUsd,
-          reason: args.reason ?? (allowEscape ? 'holo-infer-call-escape' : 'holo-infer-call'),
-        });
-        const anthropicCount = captureRows.filter(
+      const anthropicHits = () =>
+        captureRows.filter(
           (r) => r.host.includes('api.anthropic.com') || r.url.includes('api.anthropic.com')
         ).length;
-        const fleetCount = captureRows.filter(
-          (r) => r.url.includes(':4545') || r.host.includes('127.0.0.1')
-        ).length;
+      const fleetHits = () =>
+        captureRows.filter((r) => r.url.includes(':4545') || r.host.includes('127.0.0.1')).length;
 
-        if (result.ok) {
-          const resolved = result.resolved;
+      try {
+        if (allowEscape) {
+          // Full escape path: checkBudget → real generateText → logEscape (NOT resolve-only probe)
+          const { runBudgetedEscape, BudgetExceededError } = await import(
+            '../inference/budget-ledger.ts'
+          );
+          const reason = args.reason ?? 'holo-infer-call-escape';
+          const prompt =
+            args.prompt ?? args.statement ?? 'Reply with exactly the single word: pong';
+          try {
+            const escapeResult = await runBudgetedEscape({
+              prompt,
+              reason,
+              estimatedCostUsd,
+              runId: args.runId ?? undefined,
+              stepId: 'holo-infer-call',
+              role,
+            });
+            const anthropicCount = anthropicHits();
+            const fleetCount = fleetHits();
+            const payload = {
+              ok: true,
+              mode: 'runBudgetedEscape',
+              allowEscape: true,
+              role,
+              escape: {
+                text: escapeResult.text,
+                tokens: escapeResult.tokens,
+                cost: escapeResult.cost,
+                ledgerId: escapeResult.ledgerId,
+                modelId: escapeResult.modelId,
+                inputTokens: escapeResult.inputTokens,
+                outputTokens: escapeResult.outputTokens,
+                anthropicHostContacted: escapeResult.anthropicHostContacted,
+                reason,
+              },
+              resolved: {
+                role,
+                provider: 'anthropic' as const,
+                endpoint: 'https://api.anthropic.com',
+                baseURL: 'https://api.anthropic.com/v1',
+                litellmModelId: escapeResult.modelId,
+                modelRevision: `escape:${escapeResult.modelId}`,
+                allowEscape: true,
+              },
+              networkCapture: {
+                anthropicCount,
+                fleetCount,
+                rows: captureRows,
+              },
+            };
+            if (args.json) {
+              console.log(JSON.stringify(payload, null, 2));
+            } else {
+              console.log('holo infer:call — runBudgetedEscape (budgeted Claude escape)');
+              console.log(`  role:            ${role}`);
+              console.log(`  mode:            runBudgetedEscape`);
+              console.log(`  modelId:         ${escapeResult.modelId}`);
+              console.log(`  tokens:          ${escapeResult.tokens}`);
+              console.log(`  cost:            ${escapeResult.cost}`);
+              console.log(`  ledgerId:        ${escapeResult.ledgerId}`);
+              console.log(`  reason:          ${reason}`);
+              console.log(`  text:            ${escapeResult.text.slice(0, 200)}`);
+              console.log(
+                `  networkCapture:  anthropic=${anthropicCount} fleet=${fleetCount} total=${captureRows.length}`
+              );
+              console.log('  status: OK');
+            }
+            process.exit(0);
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            const code =
+              err instanceof BudgetExceededError
+                ? err.code
+                : /ANTHROPIC_API_KEY/i.test(msg)
+                  ? 'ANTHROPIC_API_KEY_REQUIRED'
+                  : 'ESCAPE_FAILED';
+            const anthropicCount = anthropicHits();
+            const payload = {
+              ok: false,
+              mode: 'runBudgetedEscape',
+              error: code,
+              role,
+              allowEscape: true,
+              message: msg,
+              networkCapture: {
+                anthropicCount,
+                fleetCount: fleetHits(),
+                rows: captureRows,
+              },
+            };
+            if (args.json) {
+              console.error(JSON.stringify(payload, null, 2));
+            } else {
+              console.error(`holo infer:call failed: ${code}`);
+              console.error(`  ${msg}`);
+              console.error(`  networkCapture.anthropicCount=${anthropicCount}`);
+            }
+            process.exit(1);
+          }
+        }
+
+        // Default path: DegradedModeController (fleet resolve + degrade-on-unavailable)
+        const { UnknownFleetRoleError, RoleUnavailableError, BudgetExceededError } = await import(
+          '../inference/resolve-model.ts'
+        );
+        const { DegradedModeController } = await import('../inference/degraded-mode-controller.ts');
+        const controller = new DegradedModeController({
+          databaseUrl: process.env.DATABASE_URL,
+          role: typeof role === 'string' ? role : 'divergent',
+        });
+
+        try {
+          await controller.init();
+          const result = await controller.resolveRole(role, {
+            allowEscape: false,
+            highStakes: false,
+            estimatedCostUsd,
+            reason: args.reason ?? 'holo-infer-call',
+          });
+          const anthropicCount = anthropicHits();
+          const fleetCount = fleetHits();
+
+          if (result.ok) {
+            const resolved = result.resolved;
+            const payload = {
+              ok: true,
+              mode: 'resolveModel',
+              allowEscape: false,
+              role,
+              resolved,
+              degradedState: controller.getState(),
+              networkCapture: {
+                anthropicCount,
+                fleetCount,
+                rows: captureRows,
+              },
+            };
+            if (args.json) {
+              console.log(JSON.stringify(payload, null, 2));
+            } else {
+              console.log('holo infer:call — resolveModel(role, { allowEscape: false })');
+              console.log(`  role:            ${resolved.role}`);
+              console.log(`  allowEscape:     false`);
+              console.log(`  provider:        ${resolved.provider}`);
+              console.log(`  endpoint:        ${resolved.endpoint}`);
+              console.log(`  baseURL:         ${resolved.baseURL}`);
+              console.log(`  litellmModelId:  ${resolved.litellmModelId}`);
+              console.log(`  modelRevision:   ${resolved.modelRevision}`);
+              console.log(`  degradation:     ${resolved.degradationAction}`);
+              console.log(`  degraded-state:  ${controller.getState()['degraded-state']}`);
+              console.log(
+                `  networkCapture:  anthropic=${anthropicCount} fleet=${fleetCount} total=${captureRows.length}`
+              );
+              console.log('  status: OK');
+            }
+            process.exit(0);
+          }
+
           const payload = {
-            ok: true,
-            allowEscape,
+            ok: false,
+            error: 'ROLE_UNAVAILABLE',
             role,
-            resolved,
+            allowEscape: false,
+            message: result.degradation.message,
+            degradation: result.degradation,
             degradedState: controller.getState(),
             networkCapture: {
               anthropicCount,
-              fleetCount,
+              fleetCount: captureRows.filter((r) => r.url.includes(':4545')).length,
               rows: captureRows,
             },
           };
           if (args.json) {
-            console.log(JSON.stringify(payload, null, 2));
+            console.error(JSON.stringify(payload, null, 2));
           } else {
-            console.log('holo infer:call — resolveModel(role, { allowEscape })');
-            console.log(`  role:            ${resolved.role}`);
-            console.log(`  allowEscape:     ${allowEscape}`);
-            console.log(`  provider:        ${resolved.provider}`);
-            console.log(`  endpoint:        ${resolved.endpoint}`);
-            console.log(`  baseURL:         ${resolved.baseURL}`);
-            console.log(`  litellmModelId:  ${resolved.litellmModelId}`);
-            console.log(`  modelRevision:   ${resolved.modelRevision}`);
-            console.log(`  degradation:     ${resolved.degradationAction}`);
-            console.log(`  degraded-state:  ${controller.getState()['degraded-state']}`);
-            console.log(
-              `  networkCapture:  anthropic=${anthropicCount} fleet=${fleetCount} total=${captureRows.length}`
-            );
-            console.log('  status: OK');
+            console.error(`holo infer:call degraded: ROLE_UNAVAILABLE`);
+            console.error(`  ${result.degradation.message}`);
+            console.error(`  degraded-state: ${result.degradation['degraded-state']}`);
+            console.error(`  degradationAction: ${result.degradation.degradationAction}`);
+            console.error(`  networkCapture.anthropicCount=${anthropicCount}`);
           }
-          process.exit(0);
+          process.exit(1);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          const code =
+            err instanceof UnknownFleetRoleError
+              ? 'UNKNOWN_FLEET_ROLE'
+              : err instanceof RoleUnavailableError
+                ? 'ROLE_UNAVAILABLE'
+                : err instanceof BudgetExceededError
+                  ? err.code
+                  : 'RESOLVE_FAILED';
+          const anthropicCount = anthropicHits();
+          const payload = {
+            ok: false,
+            error: code,
+            role,
+            allowEscape: false,
+            message: msg,
+            networkCapture: {
+              anthropicCount,
+              fleetCount: fleetHits(),
+              rows: captureRows,
+            },
+          };
+          if (args.json) {
+            console.error(JSON.stringify(payload, null, 2));
+          } else {
+            console.error(`holo infer:call failed: ${code}`);
+            console.error(`  ${msg}`);
+            console.error(`  networkCapture.anthropicCount=${anthropicCount}`);
+          }
+          process.exit(1);
+        } finally {
+          await controller.close().catch(() => undefined);
         }
-
-        // Fleet-down: degradation already executed + surfaced by controller
-        const payload = {
-          ok: false,
-          error: 'ROLE_UNAVAILABLE',
-          role,
-          allowEscape,
-          message: result.degradation.message,
-          degradation: result.degradation,
-          degradedState: controller.getState(),
-          networkCapture: {
-            anthropicCount,
-            fleetCount: captureRows.filter((r) => r.url.includes(':4545')).length,
-            rows: captureRows,
-          },
-        };
-        if (args.json) {
-          console.error(JSON.stringify(payload, null, 2));
-        } else {
-          console.error(`holo infer:call degraded: ROLE_UNAVAILABLE`);
-          console.error(`  ${result.degradation.message}`);
-          console.error(`  degraded-state: ${result.degradation['degraded-state']}`);
-          console.error(`  degradationAction: ${result.degradation.degradationAction}`);
-          console.error(`  networkCapture.anthropicCount=${anthropicCount}`);
-        }
-        // Exit 1 for unavailability, but never silent cloud
-        process.exit(1);
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        const code =
-          err instanceof UnknownFleetRoleError
-            ? 'UNKNOWN_FLEET_ROLE'
-            : err instanceof RoleUnavailableError
-              ? 'ROLE_UNAVAILABLE'
-              : err instanceof BudgetExceededError
-                ? err.code
-                : 'RESOLVE_FAILED';
-        const anthropicCount = captureRows.filter(
-          (r) => r.host.includes('api.anthropic.com') || r.url.includes('api.anthropic.com')
-        ).length;
-        const payload = {
-          ok: false,
-          error: code,
-          role,
-          allowEscape,
-          message: msg,
-          networkCapture: {
-            anthropicCount,
-            fleetCount: captureRows.filter((r) => r.url.includes(':4545')).length,
-            rows: captureRows,
-          },
-        };
-        if (args.json) {
-          console.error(JSON.stringify(payload, null, 2));
-        } else {
-          console.error(`holo infer:call failed: ${code}`);
-          console.error(`  ${msg}`);
-          console.error(`  networkCapture.anthropicCount=${anthropicCount}`);
-        }
-        process.exit(1);
       } finally {
-        await controller.close().catch(() => undefined);
         globalThis.fetch = origFetch;
       }
       break;
@@ -1448,6 +1565,68 @@ async function main(): Promise<void> {
         console.log(formatNoProviderRefsText(report));
       }
       process.exit(report.ok ? 0 : 1);
+      break;
+    }
+    case 'budget:status': {
+      const { getBudgetStatus } = await import('../inference/budget-ledger.ts');
+      try {
+        const status = await getBudgetStatus();
+        if (args.json) {
+          console.log(JSON.stringify({ ok: true, ...status }, null, 2));
+        } else {
+          console.log('holo budget:status — Claude escape budget ledger');
+          console.log(`  spent:     ${status.spent}`);
+          console.log(`  ceiling:   ${status.ceiling}`);
+          console.log(`  remaining: ${status.remaining}`);
+          console.log(`  escapes:   ${status.escapeCount}`);
+          console.log('  status: OK');
+        }
+        process.exit(0);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (args.json) {
+          console.error(JSON.stringify({ ok: false, error: msg }));
+        } else {
+          console.error(`holo budget:status failed: ${msg}`);
+        }
+        process.exit(1);
+      }
+      break;
+    }
+    case 'budget:set': {
+      const raw = args.ceiling ?? args.positional[1] ?? null;
+      if (raw === null || raw === '') {
+        console.error('error: budget:set requires --ceiling <usd>');
+        process.exit(2);
+      }
+      const ceiling = Number(raw);
+      if (!Number.isFinite(ceiling) || ceiling < 0) {
+        console.error(`error: --ceiling must be a non-negative number (got ${raw})`);
+        process.exit(2);
+      }
+      const { setBudgetCeiling, getBudgetStatus } = await import('../inference/budget-ledger.ts');
+      try {
+        const updated = await setBudgetCeiling(ceiling);
+        const status = await getBudgetStatus();
+        if (args.json) {
+          console.log(JSON.stringify({ ok: true, ceiling: updated.ceiling, status }, null, 2));
+        } else {
+          console.log('holo budget:set — escape budget ceiling updated');
+          console.log(`  ceiling:   ${updated.ceiling}`);
+          console.log(`  spent:     ${status.spent}`);
+          console.log(`  remaining: ${status.remaining}`);
+          console.log('  status: OK');
+        }
+        process.exit(0);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (args.json) {
+          console.error(JSON.stringify({ ok: false, error: msg }));
+        } else {
+          console.error(`holo budget:set failed: ${msg}`);
+        }
+        process.exit(1);
+      }
       break;
     }
     default:

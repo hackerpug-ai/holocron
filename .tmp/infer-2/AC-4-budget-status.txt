@@ -1,0 +1,7 @@
+holo budget:status — Claude escape budget ledger
+  spent:     15
+  ceiling:   10
+  remaining: 0
+  escapes:   3
+  status: OK
+

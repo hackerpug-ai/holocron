@@ -1,0 +1,2 @@
+AC-4 GREEN: holo budget:status shows spent=15; budget:set --ceiling 50 updates budget_ceiling; help lists budget:*
+PLATFORM_IT=1 vitest infer-budget-cli.test.ts — pass

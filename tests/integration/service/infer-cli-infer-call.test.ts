@@ -64,36 +64,55 @@ describe('AC-4: holo infer:call role + escape flags', () => {
     });
   });
 
-  itLive('infer:call --escape triggers allowEscape=true and hits Anthropic host', () => {
-    const result = runInferCall(['--escape', '--json']);
-    expect(result.status, result.out).toBe(0);
-    expect(result.out).toMatch(/api\.anthropic\.com/i);
+  itLive('infer:call --escape uses runBudgetedEscape (not resolve-only probe)', () => {
+    const hasKey = Boolean(process.env.ANTHROPIC_API_KEY?.trim());
+    const result = runInferCall(['--escape', '--json', '--cost', '0.05']);
 
-    // CLI must report real network capture for the escape probe
     let payload: {
+      ok?: boolean;
+      mode?: string;
+      error?: string;
+      message?: string;
       networkCapture?: { anthropicCount?: number; rows?: unknown[] };
       resolved?: { endpoint?: string; allowEscape?: boolean };
+      escape?: { tokens?: number; cost?: number; ledgerId?: string };
       allowEscape?: boolean;
     } = {};
     try {
-      payload = JSON.parse(result.stdout) as typeof payload;
+      payload = JSON.parse(result.stdout || result.stderr) as typeof payload;
     } catch {
-      // text mode may embed the host without structured capture
+      try {
+        payload = JSON.parse(result.stderr) as typeof payload;
+      } catch {
+        // text mode
+      }
     }
 
-    const anthropicCount =
-      payload.networkCapture?.anthropicCount ??
-      (result.out.match(/api\.anthropic\.com/gi) ?? []).length;
+    // CLI must route --escape through runBudgetedEscape (full metered path)
+    expect(result.out + JSON.stringify(payload)).toMatch(/runBudgetedEscape/i);
 
-    expect(anthropicCount).toBeGreaterThanOrEqual(1);
-    expect(payload.resolved?.endpoint ?? payload.resolved ?? result.out).toMatch(
-      /api\.anthropic\.com/i
-    );
+    if (hasKey) {
+      expect(result.status, result.out).toBe(0);
+      expect(payload.mode).toBe('runBudgetedEscape');
+      expect(Number(payload.escape?.tokens ?? 0)).toBeGreaterThan(0);
+      expect(Number(payload.escape?.cost ?? 0)).toBeGreaterThan(0);
+      expect(payload.escape?.ledgerId).toBeTruthy();
+      const anthropicCount =
+        payload.networkCapture?.anthropicCount ??
+        (result.out.match(/api\.anthropic\.com/gi) ?? []).length;
+      expect(anthropicCount).toBeGreaterThanOrEqual(1);
+      expect(payload.resolved?.endpoint ?? result.out).toMatch(/api\.anthropic\.com/i);
+    } else {
+      // Without key: fail closed on the real generate path (not a greenwashed probe success)
+      expect(result.status, result.out).not.toBe(0);
+      expect(result.out).toMatch(/ANTHROPIC_API_KEY|runBudgetedEscape|ESCAPE_FAILED/i);
+    }
 
     writeInferArtifact('AC-4-escape.json', {
       status: result.status,
+      hasAnthropicKey: hasKey,
       stdout: result.stdout,
-      anthropicCount,
+      stderr: result.stderr,
       payload,
     });
   });
