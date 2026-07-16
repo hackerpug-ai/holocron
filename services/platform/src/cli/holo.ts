@@ -1858,7 +1858,7 @@ async function main(): Promise<void> {
     }
     case 'probe:capabilities': {
       // Sprint 09 struct-2: probe all fleet roles for json_schema support
-      const { probeCapabilities } = await import('../inference/capability-probe.ts');
+      const { probeCapabilities } = await import('../inference/probe-capability.ts');
 
       // Optional role filter (positional arg or --role)
       const roleFilter = args.role ?? args.positional[1] ?? null;
