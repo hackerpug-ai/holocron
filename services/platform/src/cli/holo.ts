@@ -15,6 +15,7 @@
  * Sprint 07 ledger-1: evidence:seed
  * Sprint 07 ledger-2: evidence:revise | db:probe --raw
  * Sprint 07 ledger-3: evidence:belief --as-of | evidence:register-doc
+ * Sprint 08 infer-1: infer:call | verify:no-provider-refs
  */
 import { resolve } from 'node:path';
 
@@ -78,6 +79,12 @@ interface CliArgs {
   /** evidence:belief flags */
   claimId: string | null;
   asOf: string | null;
+  /** infer:call flags */
+  role: string | null;
+  escape: boolean;
+  highStakes: boolean;
+  cost: string | null;
+  reason: string | null;
 }
 
 function printHelp(): void {
@@ -122,6 +129,8 @@ Usage:
   evidence:belief           As-of belief + net-support for a claim (--claim-id, --as-of)
   evidence:register-doc <id>
                             Register internal doc as self-sourced source (reuse passages)
+  infer:call                Resolve a fleet role (or budgeted Claude escape) via resolveModel
+  verify:no-provider-refs   Audit platform src for banned claudeFlash/Pro/Ultra factories
 
 Options:
   --export <dir>        Path to unzipped convex export (or $CONVEX_EXPORT_DIR)
@@ -144,6 +153,11 @@ Options:
   --valid-to <ts>       (evidence:revise) optional valid_to timestamptz
   --claim-id <id>       (evidence:belief) claim id to query
   --as-of <ts|now>      (evidence:belief) transaction-time as-of (default: now)
+  --role <role>         (infer:call) fleet role: divergent|convergent|judge|embed|rerank
+  --escape              (infer:call) allowEscape=true (budgeted Claude escape)
+  --highStakes          (infer:call) alias for --escape (high-stakes step)
+  --cost <usd>          (infer:call) estimated escape cost USD for budget pre-check
+  --reason <text>       (infer:call) escape reason for audit trail
   --json                Emit JSON instead of text
   --print-trace         (compat:spike) emit OTel trace details
   --dry-run             (catalog:reconcile) dry-run mode (default)
@@ -179,6 +193,11 @@ function parseArgs(argv: string[]): CliArgs {
     validTo: null,
     claimId: null,
     asOf: null,
+    role: null,
+    escape: false,
+    highStakes: false,
+    cost: null,
+    reason: null,
   };
   const positional: string[] = [];
   for (let i = 0; i < argv.length; i++) {
@@ -243,6 +262,23 @@ function parseArgs(argv: string[]): CliArgs {
       args.asOf = argv[++i] ?? null;
     } else if (a.startsWith('--as-of=')) {
       args.asOf = a.slice('--as-of='.length);
+    } else if (a === '--role') {
+      args.role = argv[++i] ?? null;
+    } else if (a.startsWith('--role=')) {
+      args.role = a.slice('--role='.length);
+    } else if (a === '--escape') {
+      args.escape = true;
+    } else if (a === '--highStakes' || a === '--high-stakes') {
+      args.highStakes = true;
+      args.escape = true;
+    } else if (a === '--cost') {
+      args.cost = argv[++i] ?? null;
+    } else if (a.startsWith('--cost=')) {
+      args.cost = a.slice('--cost='.length);
+    } else if (a === '--reason') {
+      args.reason = argv[++i] ?? null;
+    } else if (a.startsWith('--reason=')) {
+      args.reason = a.slice('--reason='.length);
     } else if (a === '--for') {
       args.forConsumers = argv[++i] ?? null;
     } else if (a.startsWith('--for=')) {
@@ -1157,6 +1193,151 @@ async function main(): Promise<void> {
         console.log(result.ok ? '  status: OK' : '  status: FAIL');
       }
       process.exit(result.ok ? 0 : 1);
+      break;
+    }
+    case 'infer:call': {
+      // Sprint 08: resolveModel(role,{allowEscape}) via operator CLI
+      const role =
+        args.role ?? args.positional[1] ?? (args.escape || args.highStakes ? 'divergent' : null);
+      if (!role) {
+        console.error(
+          'error: infer:call requires --role <role> (or --escape / --highStakes which defaults role=divergent)'
+        );
+        process.exit(2);
+      }
+      const allowEscape = args.escape || args.highStakes;
+      let estimatedCostUsd = 0.01;
+      if (args.cost !== null && args.cost !== undefined && args.cost !== '') {
+        estimatedCostUsd = Number(args.cost);
+        if (Number.isNaN(estimatedCostUsd)) {
+          console.error(`error: --cost must be a number (got ${args.cost})`);
+          process.exit(2);
+        }
+      }
+
+      // Real network capture around resolveModel (not a mocked always-zero counter)
+      type CapRow = { host: string; url: string; method: string; at: number };
+      const captureRows: CapRow[] = [];
+      const origFetch = globalThis.fetch;
+      globalThis.fetch = (async (
+        input: Parameters<typeof origFetch>[0],
+        init?: Parameters<typeof origFetch>[1]
+      ) => {
+        const url =
+          typeof input === 'string'
+            ? input
+            : input instanceof URL
+              ? input.href
+              : ((input as { url?: string }).url ?? String(input));
+        let host = '';
+        try {
+          host = new URL(url).host;
+        } catch {
+          host = '';
+        }
+        captureRows.push({
+          host,
+          url,
+          method: String(init?.method ?? 'GET').toUpperCase(),
+          at: Date.now(),
+        });
+        return origFetch(input as RequestInfo, init as RequestInit);
+      }) as typeof globalThis.fetch;
+
+      const { resolveModel, UnknownFleetRoleError, RoleUnavailableError, BudgetExceededError } =
+        await import('../inference/resolve-model.ts');
+
+      try {
+        const resolved = await resolveModel(role, {
+          allowEscape,
+          highStakes: args.highStakes,
+          estimatedCostUsd,
+          reason: args.reason ?? (allowEscape ? 'holo-infer-call-escape' : 'holo-infer-call'),
+        });
+        const anthropicCount = captureRows.filter(
+          (r) => r.host.includes('api.anthropic.com') || r.url.includes('api.anthropic.com')
+        ).length;
+        const fleetCount = captureRows.filter(
+          (r) => r.url.includes(':4545') || r.host.includes('127.0.0.1')
+        ).length;
+        const payload = {
+          ok: true,
+          allowEscape,
+          role,
+          resolved,
+          networkCapture: {
+            anthropicCount,
+            fleetCount,
+            rows: captureRows,
+          },
+        };
+        if (args.json) {
+          console.log(JSON.stringify(payload, null, 2));
+        } else {
+          console.log('holo infer:call — resolveModel(role, { allowEscape })');
+          console.log(`  role:            ${resolved.role}`);
+          console.log(`  allowEscape:     ${allowEscape}`);
+          console.log(`  provider:        ${resolved.provider}`);
+          console.log(`  endpoint:        ${resolved.endpoint}`);
+          console.log(`  baseURL:         ${resolved.baseURL}`);
+          console.log(`  litellmModelId:  ${resolved.litellmModelId}`);
+          console.log(`  modelRevision:   ${resolved.modelRevision}`);
+          console.log(`  degradation:     ${resolved.degradationAction}`);
+          console.log(
+            `  networkCapture:  anthropic=${anthropicCount} fleet=${fleetCount} total=${captureRows.length}`
+          );
+          console.log('  status: OK');
+        }
+        process.exit(0);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        const code =
+          err instanceof UnknownFleetRoleError
+            ? 'UNKNOWN_FLEET_ROLE'
+            : err instanceof RoleUnavailableError
+              ? 'ROLE_UNAVAILABLE'
+              : err instanceof BudgetExceededError
+                ? err.code
+                : 'RESOLVE_FAILED';
+        const anthropicCount = captureRows.filter(
+          (r) => r.host.includes('api.anthropic.com') || r.url.includes('api.anthropic.com')
+        ).length;
+        const payload = {
+          ok: false,
+          error: code,
+          role,
+          allowEscape,
+          message: msg,
+          networkCapture: {
+            anthropicCount,
+            fleetCount: captureRows.filter((r) => r.url.includes(':4545')).length,
+            rows: captureRows,
+          },
+        };
+        if (args.json) {
+          console.error(JSON.stringify(payload, null, 2));
+        } else {
+          console.error(`holo infer:call failed: ${code}`);
+          console.error(`  ${msg}`);
+          console.error(`  networkCapture.anthropicCount=${anthropicCount}`);
+        }
+        process.exit(1);
+      } finally {
+        globalThis.fetch = origFetch;
+      }
+      break;
+    }
+    case 'verify:no-provider-refs': {
+      const { verifyNoProviderRefs, formatNoProviderRefsText } = await import(
+        '../inference/verify-no-provider-refs.ts'
+      );
+      const report = verifyNoProviderRefs();
+      if (args.json) {
+        console.log(JSON.stringify(report, null, 2));
+      } else {
+        console.log(formatNoProviderRefsText(report));
+      }
+      process.exit(report.ok ? 0 : 1);
       break;
     }
     default:
