@@ -55,9 +55,7 @@
   "parent_run_id": null,
   "phase": null,
   "registry_path": null,
-  "remaining_surfaces": [
-    "1DD77F68-BBBE-4C24-9D1A-9060DF00A9DD"
-  ],
+  "remaining_surfaces": ["1DD77F68-BBBE-4C24-9D1A-9060DF00A9DD"],
   "resume_mode": null,
   "run_stage_surface_id": null,
   "state_path": null

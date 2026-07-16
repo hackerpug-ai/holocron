@@ -32,7 +32,7 @@
       "base_prompt_sha256": "",
       "goal": {
         "text": "Orchestrate Sprint 6",
-        "verification": {"kind": "none", "signal": "", "status": "needs-human"}
+        "verification": { "kind": "none", "signal": "", "status": "needs-human" }
       },
       "active": true,
       "focused": true,
@@ -55,7 +55,7 @@
       "origin": "adopted",
       "spawner": null,
       "driver": "human",
-    "role": "human",
+      "role": "human",
       "sprint": null,
       "cwd": "/Users/inference1/Projects/holocron",
       "harness": "claude-code",
@@ -67,11 +67,11 @@
       "base_prompt_sha256": "",
       "goal": {
         "text": "Human-led recommendations for updating the MK6 migration PRD for this device as a knowledge hub",
-        "verification": {"kind": "none", "signal": "", "status": "needs-human"}
+        "verification": { "kind": "none", "signal": "", "status": "needs-human" }
       },
       "active": true,
       "focused": true,
-    "status": "observe-only",
+      "status": "observe-only",
       "cycle": 0,
       "state_label": "observe-only",
       "last_verdict_artifact": null,

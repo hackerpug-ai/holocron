@@ -33,7 +33,14 @@
       "commands_or_skills": ["/kb-run-sprint"],
       "base_prompt_excerpt": "Run /kb-run-sprint Sprint 08 until GATE-GOAL: ACHIEVED",
       "base_prompt_sha256": "",
-      "goal": {"text": "Run /kb-run-sprint Sprint 08 until GATE-GOAL: ACHIEVED", "verification": {"kind": "artifact_exists", "signal": "sprint-goal-state.json:goal:complete", "status": "derived"}},
+      "goal": {
+        "text": "Run /kb-run-sprint Sprint 08 until GATE-GOAL: ACHIEVED",
+        "verification": {
+          "kind": "artifact_exists",
+          "signal": "sprint-goal-state.json:goal:complete",
+          "status": "derived"
+        }
+      },
       "active": false,
       "focused": false,
       "status": "complete",
@@ -66,7 +73,14 @@
       "commands_or_skills": ["/review-red-hat"],
       "base_prompt_excerpt": "Independent Sprint 8 red-hat review; no product-code changes",
       "base_prompt_sha256": "",
-      "goal": {"text": "Produce a fresh red-hat report with explicit severity verdict", "verification": {"kind": "artifact_exists", "signal": ".spec/reviews/red-hat-*.md", "status": "derived"}},
+      "goal": {
+        "text": "Produce a fresh red-hat report with explicit severity verdict",
+        "verification": {
+          "kind": "artifact_exists",
+          "signal": ".spec/reviews/red-hat-*.md",
+          "status": "derived"
+        }
+      },
       "active": false,
       "focused": false,
       "status": "complete",
@@ -99,7 +113,14 @@
       "commands_or_skills": ["/kb-sprint-tasks-plan"],
       "base_prompt_excerpt": "Expand red-hat HIGH findings H1-H5 into first-class remediation task files",
       "base_prompt_sha256": "",
-      "goal": {"text": "Write REDHAT-FIX-H1..H5 task artifacts", "verification": {"kind": "artifact_exists", "signal": "REDHAT-FIX-*.md", "status": "derived"}},
+      "goal": {
+        "text": "Write REDHAT-FIX-H1..H5 task artifacts",
+        "verification": {
+          "kind": "artifact_exists",
+          "signal": "REDHAT-FIX-*.md",
+          "status": "derived"
+        }
+      },
       "active": false,
       "focused": false,
       "status": "complete",
@@ -132,7 +153,14 @@
       "commands_or_skills": ["/kb-run-sprint --redhat-only 3"],
       "base_prompt_excerpt": "Sprint 8 red-hat-only remediation recovery H1-H5",
       "base_prompt_sha256": "",
-      "goal": {"text": "Implement red-hat H1-H5 fixes and re-run gates", "verification": {"kind": "artifact_exists", "signal": "recovery completion marker", "status": "derived"}},
+      "goal": {
+        "text": "Implement red-hat H1-H5 fixes and re-run gates",
+        "verification": {
+          "kind": "artifact_exists",
+          "signal": "recovery completion marker",
+          "status": "derived"
+        }
+      },
       "active": false,
       "focused": false,
       "status": "complete",
@@ -165,7 +193,14 @@
       "commands_or_skills": ["/review-red-hat"],
       "base_prompt_excerpt": "Fresh independent Sprint 8 red-hat review after H1-H5 remediation",
       "base_prompt_sha256": "",
-      "goal": {"text": "Produce a fresh CLEAN or BLOCKED red-hat report for Sprint 8", "verification": {"kind": "artifact_exists", "signal": ".spec/reviews/red-hat-*.md", "status": "derived"}},
+      "goal": {
+        "text": "Produce a fresh CLEAN or BLOCKED red-hat report for Sprint 8",
+        "verification": {
+          "kind": "artifact_exists",
+          "signal": ".spec/reviews/red-hat-*.md",
+          "status": "derived"
+        }
+      },
       "active": false,
       "focused": false,
       "status": "complete",
@@ -197,7 +232,10 @@
       "commands_or_skills": ["/kb-run-human-tests"],
       "base_prompt_excerpt": "Fresh QA gate: execute every documented Sprint 08 human-test step with provenance",
       "base_prompt_sha256": "",
-      "goal": {"text": "Produce a fresh provenance-valid gate-results.json pass or real fail", "verification": {"kind": "grep", "signal": "verdict pass", "status": "derived"}},
+      "goal": {
+        "text": "Produce a fresh provenance-valid gate-results.json pass or real fail",
+        "verification": { "kind": "grep", "signal": "verdict pass", "status": "derived" }
+      },
       "active": false,
       "focused": false,
       "status": "complete",
@@ -230,7 +268,10 @@
       "commands_or_skills": ["/kb-run-human-tests"],
       "base_prompt_excerpt": "QA retry 1: fresh per-step logs after evidence-missing invalid verdict",
       "base_prompt_sha256": "",
-      "goal": {"text": "Produce a fresh provenance-valid gate-results.json pass or real fail", "verification": {"kind": "grep", "signal": "verdict pass", "status": "derived"}},
+      "goal": {
+        "text": "Produce a fresh provenance-valid gate-results.json pass or real fail",
+        "verification": { "kind": "grep", "signal": "verdict pass", "status": "derived" }
+      },
       "active": false,
       "focused": false,
       "status": "complete",
@@ -263,7 +304,10 @@
       "commands_or_skills": ["/kb-run-human-tests"],
       "base_prompt_excerpt": "QA retry 2: source project env in memory, fresh services and per-step evidence",
       "base_prompt_sha256": "",
-      "goal": {"text": "Produce a fresh provenance-valid gate-results.json pass or real fail", "verification": {"kind": "grep", "signal": "verdict pass", "status": "derived"}},
+      "goal": {
+        "text": "Produce a fresh provenance-valid gate-results.json pass or real fail",
+        "verification": { "kind": "grep", "signal": "verdict pass", "status": "derived" }
+      },
       "active": false,
       "focused": false,
       "status": "complete",
@@ -296,7 +340,10 @@
       "commands_or_skills": ["/kb-run-human-tests"],
       "base_prompt_excerpt": "QA retry 3: direct process env source, never serialize secrets, fresh evidence",
       "base_prompt_sha256": "",
-      "goal": {"text": "Produce a fresh provenance-valid gate-results.json pass or real fail", "verification": {"kind": "grep", "signal": "verdict pass", "status": "derived"}},
+      "goal": {
+        "text": "Produce a fresh provenance-valid gate-results.json pass or real fail",
+        "verification": { "kind": "grep", "signal": "verdict pass", "status": "derived" }
+      },
       "active": false,
       "focused": false,
       "status": "complete",
@@ -329,7 +376,10 @@
       "commands_or_skills": ["/kb-run-human-tests"],
       "base_prompt_excerpt": "QA retry 4: fresh gate with runner submission recovery",
       "base_prompt_sha256": "",
-      "goal": {"text": "Produce a fresh provenance-valid gate-results.json pass or real fail", "verification": {"kind": "grep", "signal": "verdict pass", "status": "derived"}},
+      "goal": {
+        "text": "Produce a fresh provenance-valid gate-results.json pass or real fail",
+        "verification": { "kind": "grep", "signal": "verdict pass", "status": "derived" }
+      },
       "active": false,
       "focused": false,
       "status": "complete",
@@ -362,7 +412,10 @@
       "commands_or_skills": ["/kb-run-human-tests"],
       "base_prompt_excerpt": "QA retry 5: long-command-safe fresh gate",
       "base_prompt_sha256": "",
-      "goal": {"text": "Produce a fresh provenance-valid gate-results.json pass or real fail", "verification": {"kind": "grep", "signal": "verdict pass", "status": "derived"}},
+      "goal": {
+        "text": "Produce a fresh provenance-valid gate-results.json pass or real fail",
+        "verification": { "kind": "grep", "signal": "verdict pass", "status": "derived" }
+      },
       "active": false,
       "focused": false,
       "status": "complete",
@@ -395,7 +448,10 @@
       "commands_or_skills": ["/kb-run-human-tests"],
       "base_prompt_excerpt": "QA retry 6: supported Anthropic escape model",
       "base_prompt_sha256": "",
-      "goal": {"text": "Produce a fresh provenance-valid gate-results.json pass or real fail", "verification": {"kind": "grep", "signal": "verdict pass", "status": "derived"}},
+      "goal": {
+        "text": "Produce a fresh provenance-valid gate-results.json pass or real fail",
+        "verification": { "kind": "grep", "signal": "verdict pass", "status": "derived" }
+      },
       "active": false,
       "focused": false,
       "status": "complete",
@@ -428,7 +484,10 @@
       "commands_or_skills": ["/kb-run-human-tests"],
       "base_prompt_excerpt": "QA retry 6 pointer: read full goal from disk",
       "base_prompt_sha256": "",
-      "goal": {"text": "Produce a fresh provenance-valid gate-results.json pass or real fail", "verification": {"kind": "grep", "signal": "verdict pass", "status": "derived"}},
+      "goal": {
+        "text": "Produce a fresh provenance-valid gate-results.json pass or real fail",
+        "verification": { "kind": "grep", "signal": "verdict pass", "status": "derived" }
+      },
       "active": false,
       "focused": false,
       "status": "complete",
@@ -461,7 +520,10 @@
       "commands_or_skills": ["/kb-run-human-tests"],
       "base_prompt_excerpt": "QA retry 6 no-web wrapper: supported Anthropic escape model",
       "base_prompt_sha256": "",
-      "goal": {"text": "Produce a fresh provenance-valid gate-results.json pass or real fail", "verification": {"kind": "grep", "signal": "verdict pass", "status": "derived"}},
+      "goal": {
+        "text": "Produce a fresh provenance-valid gate-results.json pass or real fail",
+        "verification": { "kind": "grep", "signal": "verdict pass", "status": "derived" }
+      },
       "active": false,
       "focused": false,
       "status": "complete",
@@ -494,7 +556,10 @@
       "commands_or_skills": ["/kb-run-human-tests"],
       "base_prompt_excerpt": "QA retry 6 pointer with hooks disabled",
       "base_prompt_sha256": "",
-      "goal": {"text": "Produce a fresh provenance-valid gate-results.json pass or real fail", "verification": {"kind": "grep", "signal": "verdict pass", "status": "derived"}},
+      "goal": {
+        "text": "Produce a fresh provenance-valid gate-results.json pass or real fail",
+        "verification": { "kind": "grep", "signal": "verdict pass", "status": "derived" }
+      },
       "active": false,
       "focused": false,
       "status": "complete",
@@ -526,7 +591,10 @@
       "commands_or_skills": [],
       "base_prompt_excerpt": "unknown",
       "base_prompt_sha256": "",
-      "goal": {"text": "Orchestrate Sprint 8", "verification": {"kind": "none", "signal": "", "status": "needs-human"}},
+      "goal": {
+        "text": "Orchestrate Sprint 8",
+        "verification": { "kind": "none", "signal": "", "status": "needs-human" }
+      },
       "active": true,
       "focused": true,
       "status": "self",
@@ -559,7 +627,10 @@
       "commands_or_skills": ["/kb-sprint-tasks-plan", "/model"],
       "base_prompt_excerpt": "<local-command-caveat>",
       "base_prompt_sha256": "8a1bf3d3e00ac5504b425995c64042cab4111783ecb6c6a385d3bd583552df99",
-      "goal": {"text": "✳ Claude Code", "verification": {"kind": "none", "signal": "", "status": "needs-human"}},
+      "goal": {
+        "text": "✳ Claude Code",
+        "verification": { "kind": "none", "signal": "", "status": "needs-human" }
+      },
       "active": false,
       "focused": false,
       "status": "needs-human",
