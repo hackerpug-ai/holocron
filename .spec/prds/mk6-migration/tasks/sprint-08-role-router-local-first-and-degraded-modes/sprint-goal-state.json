@@ -22,13 +22,13 @@
   "integration": {
     "trunk_consolidated": true,
     "protected_branch": "integration/orch-s08-role-router-20260715T-current",
-    "head": "8e316b8e63700d65a0d949b5f6a108686249fb91"
+    "head": "fe68b62baba37c97f0502f03027998514b227477"
   },
   "build": {
     "verdict": "PASS"
   },
   "met": true,
-  "completed_at": "2026-07-16T04:51:43.309997+00:00",
+  "completed_at": "2026-07-16T04:51:57.716821+00:00",
   "redhat_cycle": 2,
   "redhat_fixes_landed": [
     "H1",
