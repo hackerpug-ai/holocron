@@ -49,6 +49,9 @@ export type JobRunResult = {
   effect_id: string | null;
   fence_token: string | null;
   ok: boolean;
+  /** Normalized failure diagnostic (null on success). Surfaces the reason a job
+   * did not fire so `holo jobs:run-all` never silently drops a failed job. */
+  error: string | null;
 };
 
 /**
@@ -113,8 +116,12 @@ export async function runJob(
       effect_id: ack.effectId ?? rows[0]?.id ?? null,
       fence_token: ack.fenceToken,
       ok: true,
+      error: null,
     };
-  } catch {
+  } catch (err) {
+    // REDHAT-FIX-H1: surface the failure reason instead of swallowing it, so
+    // `holo jobs:run-all` reports which job failed and why (never a silent drop).
+    const error = err instanceof Error ? err.message : String(err);
     return {
       name: job.name,
       run_key: runKey,
@@ -123,6 +130,7 @@ export async function runJob(
       effect_id: null,
       fence_token: null,
       ok: false,
+      error,
     };
   } finally {
     await sql.end({ timeout: 5 });
@@ -146,6 +154,13 @@ export async function runAllJobs(opts: { databaseUrl?: string } = {}): Promise<R
     runs.push(await runJob(job, { databaseUrl: url, runId }));
   }
   const jobs_fired = runs.filter((r) => r.ok).length;
+  // REDHAT-FIX-H1: log each failure reason to stderr so an operator running
+  // `holo jobs:run-all` sees which job failed and why (never a silent drop).
+  for (const r of runs) {
+    if (!r.ok && r.error) {
+      console.error(`[jobs:run-all] job "${r.name}" FAILED: ${r.error}`);
+    }
+  }
 
   const sql = createSql(url);
   let side_effect_rows = 0;
