@@ -8,6 +8,7 @@ export * from './documents';
 export * from './evidence';
 export * from './media';
 export * from './others';
+export * from './outbox';
 export * from './queue';
 export * from './research';
 export * from './subscriptions';
@@ -19,6 +20,7 @@ import * as documents from './documents';
 import * as evidence from './evidence';
 import * as media from './media';
 import * as others from './others';
+import * as outbox from './outbox';
 import * as queue from './queue';
 import * as research from './research';
 import * as subscriptions from './subscriptions';
@@ -33,6 +35,7 @@ export const schema = {
   ...media,
   ...evidence,
   ...others,
+  ...outbox,
   ...queue,
 };
 

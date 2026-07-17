@@ -2396,6 +2396,55 @@ async function main(): Promise<void> {
       process.exit(exitCode);
       break;
     }
+    case 'queue:audit': {
+      // queue-2 AC-2: durable-effect audit trail (outbox + inbox + fencing).
+      const key = args.positional[1];
+      if (!key) {
+        console.error('error: queue:audit requires <key> (idempotency key)');
+        process.exit(2);
+      }
+      const { auditEffect } = await import('../queue/durable-effect.ts');
+      const result = await auditEffect({ key });
+      if (args.json) {
+        // Top-level count fields (effect_count/outbox_count/inbox_dedupe_count)
+        // + fencing_token — the contract the queue-4 RED audit + operators read.
+        console.log(
+          JSON.stringify(
+            {
+              key: result.key,
+              effect_count: result.counts.effects,
+              outbox_count: result.counts.outbox,
+              inbox_dedupe_count: result.counts.inbox,
+              fencing_token: result.fenceToken,
+              outbox: result.outbox,
+              effect: result.effect,
+              inbox: result.inbox,
+              counts: result.counts,
+              fenceToken: result.fenceToken,
+            },
+            null,
+            2
+          )
+        );
+      } else {
+        console.log('holo queue:audit — durable-effect trail');
+        console.log(`  key=${result.key}`);
+        console.log(
+          `  outbox: count=${result.counts.outbox} status=${result.outbox.status ?? '—'}`
+        );
+        console.log(`  effect: count=${result.counts.effects} id=${result.effect.id ?? '—'}`);
+        console.log(`  inbox:  count=${result.counts.inbox} outcome=${result.inbox.outcome ?? '—'}`);
+        console.log(`  fence_token: ${result.fenceToken ?? '—'}`);
+        const ok =
+          result.counts.outbox === 1 &&
+          result.counts.effects === 1 &&
+          result.counts.inbox === 1 &&
+          Boolean(result.fenceToken);
+        console.log(ok ? '  status: OK' : '  status: INCOMPLETE');
+      }
+      process.exit(result.counts.outbox >= 1 && result.counts.inbox >= 1 ? 0 : 1);
+      break;
+    }
     default:
       console.error(`unknown command: ${args.command}`);
       printHelp();
