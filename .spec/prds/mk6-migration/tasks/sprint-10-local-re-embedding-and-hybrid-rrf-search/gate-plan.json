@@ -1,0 +1,91 @@
+{
+  "sprint": "sprint-10-local-re-embedding-and-hybrid-rrf-search",
+  "planned_at": "20260717T170458Z",
+  "planned_steps": 7,
+  "steps": [
+    {
+      "n": 1,
+      "text": "Run holo embed:run against the real :4545 embed route \u2014 every non-empty doc gets \u22651 passage, all vectors 1024-dim non-null.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "bun services/platform/src/cli/holo.ts embed:run --json",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "\"ok\"\\s*:\\s*true"
+      }
+    },
+    {
+      "n": 2,
+      "text": "Run holo embed:verify \u2014 zero passages carry a null or wrong-dimension vector; norms are ~unit.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "bun services/platform/src/cli/holo.ts embed:verify --json",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "\"nullEmbeddings\"\\s*:\\s*0"
+      }
+    },
+    {
+      "n": 3,
+      "text": "Seed a golden doc with the answer past char-8000 and run holo search span query \u2014 the doc ranks in top-k.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "bun services/platform/src/cli/holo.ts search 'how to combine vector and keyword rankings in one database query' --json",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "Local Re-embedding & RRF Design"
+      }
+    },
+    {
+      "n": 4,
+      "text": "Run holo search --explain \u2014 shows pgvector KNN + FTS fused with RRF in one round-trip.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "bun services/platform/src/cli/holo.ts search 'how to combine vector and keyword rankings in one database query' --explain --json",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "reciprocal_rank_fusion"
+      }
+    },
+    {
+      "n": 5,
+      "text": "Run holo search:recall --golden set.json \u2014 new recall \u2265 the recorded Convex hybridSearch baseline.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "bun services/platform/src/cli/holo.ts search:recall --golden .tmp/GATE-FIX-holo-search-cli/set.json",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "recall new=\\d+ baseline=\\d+"
+      }
+    },
+    {
+      "n": 6,
+      "text": "Re-run holo embed:run, interrupt it, and resume \u2014 no duplicate passages (WHERE embedding IS NULL, SKIP LOCKED).",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "bun services/platform/src/cli/holo.ts embed:run --json && bun services/platform/src/cli/holo.ts embed:run --json",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "\"processed\"\\s*:\\s*0"
+      }
+    },
+    {
+      "n": 7,
+      "text": "Run holo search --surface research_findings \u2014 inline-HNSW semantic search returns results with no Cohere/cloud call.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "bun services/platform/src/cli/holo.ts search --surface research_findings 'MLX prefill' --json",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "hnsw:research_findings"
+      }
+    }
+  ]
+}

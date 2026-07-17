@@ -1,0 +1,76 @@
+{
+  "sprint_id": "sprint-10-local-re-embedding-and-hybrid-rrf-search",
+  "updated_at": "2026-07-17T17:06:18.147530+00:00",
+  "tasks": {
+    "complete": true,
+    "total": 6,
+    "completed": 6,
+    "ids": {
+      "search-1": "completed",
+      "search-2": "completed",
+      "search-3": "completed",
+      "search-4": "completed",
+      "search-5": "completed",
+      "GATE-FIX-holo-search-cli": "completed"
+    }
+  },
+  "gate": {
+    "verdict": "PASS"
+  },
+  "e2e": {
+    "sprint": "sprint-10-local-re-embedding-and-hybrid-rrf-search",
+    "framework": "headless-service",
+    "verdict": "PASS",
+    "steps_total": 7,
+    "steps_covered": 7,
+    "steps_passed": 7,
+    "boundary": "REAL Postgres + REAL fleet :4545 qwen3-embedding"
+  },
+  "build": {
+    "verdict": "PASS",
+    "typecheck_exit": 0,
+    "lint_exit": 0
+  },
+  "redhat": {
+    "mode": "closeout",
+    "verdict": "CLEAN",
+    "cycles": 1,
+    "high_confidence_findings": [],
+    "medium_advisory": [
+      {
+        "id": "ADV-1",
+        "confidence": "MEDIUM",
+        "summary": "legacy scripts/benchmark-search.ts still Convex-oriented"
+      },
+      {
+        "id": "ADV-2",
+        "confidence": "MEDIUM",
+        "summary": "embed-run AC-4 mid-batch injection intermittent once under load"
+      }
+    ]
+  },
+  "human_test": {
+    "verdict": "pass",
+    "steps_total": 7,
+    "steps_executed": 7,
+    "steps_passed": 7,
+    "run_id": "20260717T170458Z",
+    "verified": true
+  },
+  "integration": {
+    "trunk_consolidated": true,
+    "orphans": []
+  },
+  "status_files": {
+    "parity": true
+  },
+  "layers": {
+    "tasks": true,
+    "gate": true,
+    "e2e": true,
+    "human_test": true,
+    "integration": true,
+    "status_files": true
+  },
+  "met": true
+}

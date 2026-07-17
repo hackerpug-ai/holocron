@@ -1,0 +1,27 @@
+@@GATE-META step=7 cmd_sha=3b98742f91a3827b344dc1ba33e0d46329f4ff86a97bcbc329e8954a591bfad1@@
+@@GATE-CMD@@ bun services/platform/src/cli/holo.ts search --surface research_findings 'MLX prefill' --json
+@@GATE-START@@ 2026-07-17T17:05:00Z
+{
+  "ok": true,
+  "query": "MLX prefill",
+  "surface": "research_findings",
+  "limit": 10,
+  "results": [
+    {
+      "_id": "019f7109-a698-7596-8b62-557d7f2b5f46",
+      "content": "MLX prefill-tuned Qwen3 embedding server on Apple Silicon",
+      "score": 0.753518462181177,
+      "claim_text": "MLX prefill-tuned Qwen3 embedding server on Apple Silicon"
+    }
+  ],
+  "totalResults": 1,
+  "searchMethod": "hnsw:research_findings",
+  "allowedSurfaces": [
+    "research_findings",
+    "research_iterations",
+    "subscription_content",
+    "toolbelt_tools",
+    "improvement_requests"
+  ]
+}
+@@GATE-EXIT=0@@

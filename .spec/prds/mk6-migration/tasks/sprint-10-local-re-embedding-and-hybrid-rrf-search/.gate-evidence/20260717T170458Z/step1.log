@@ -1,0 +1,9 @@
+@@GATE-META step=1 cmd_sha=290dfde39590da1026b65176b3158e5177c565dacd85299e0e320ac7d5e36f8d@@
+@@GATE-CMD@@ bun services/platform/src/cli/holo.ts embed:run --json
+@@GATE-START@@ 2026-07-17T17:04:58Z
+{
+  "ok": true,
+  "processed": 0,
+  "remainingNull": 0
+}
+@@GATE-EXIT=0@@

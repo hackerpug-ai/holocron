@@ -1,0 +1,64 @@
+@@GATE-META step=4 cmd_sha=d8e207e92adc5971c68c876f4cbd1d02a6d73ca4c7d789c2dc53b4e81da8b988@@
+@@GATE-CMD@@ bun services/platform/src/cli/holo.ts search 'how to combine vector and keyword rankings in one database query' --explain --json
+@@GATE-START@@ 2026-07-17T17:04:59Z
+{
+  "ok": true,
+  "query": "how to combine vector and keyword rankings in one database query",
+  "limit": 10,
+  "searchMethod": "rrf",
+  "totalResults": 2,
+  "results": [
+    {
+      "_id": "019f7109-1f66-7b3f-aae0-e12abd50f646",
+      "title": "Local Re-embedding & RRF Design",
+      "content": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAZZZ_RELEVANT_SPAN_AT_8400_ZZZ This section covers reciprocal rank fusion with k=60 constant in a single CTE round-trip. Combining vector similarity with keyword rankings inside one database query is the design. ",
+      "score": 0.03278688524590164,
+      "rrf_score": 0.03278688524590164,
+      "passage_id": "019f7109-a80b-7df2-8105-9b3bd713bb88",
+      "document_id": "doc_search3_golden_past_8k"
+    },
+    {
+      "_id": "019f7109-a87e-76f5-8f4c-869a9ba23692",
+      "title": "search-3 semantic-only seed",
+      "content": "Coniferous resin densifies after prolonged arid midsummer conditions across alpine stands.",
+      "score": 0.014925373134328358,
+      "rrf_score": 0.014925373134328358,
+      "passage_id": "019f7109-a895-78fc-af93-542052de4c81",
+      "document_id": "doc_search3_semantic_only"
+    }
+  ],
+  "explain": {
+    "fusion": {
+      "method": "reciprocal_rank_fusion",
+      "k": 60,
+      "formula": "COALESCE(1.0/(60+vec_rank),0) + COALESCE(1.0/(60+fts_rank),0)",
+      "legs": [
+        "pgvector_hnsw",
+        "fts"
+      ],
+      "roundTrips": 1,
+      "note": "Single CTE FULL OUTER JOIN — never 0.7/0.3 normalize-by-max"
+    },
+    "resultScores": [
+      {
+        "rank": 1,
+        "_id": "019f7109-1f66-7b3f-aae0-e12abd50f646",
+        "title": "Local Re-embedding & RRF Design",
+        "score": 0.03278688524590164,
+        "rrf_score": 0.03278688524590164,
+        "passage_id": "019f7109-a80b-7df2-8105-9b3bd713bb88",
+        "document_id": "doc_search3_golden_past_8k"
+      },
+      {
+        "rank": 2,
+        "_id": "019f7109-a87e-76f5-8f4c-869a9ba23692",
+        "title": "search-3 semantic-only seed",
+        "score": 0.014925373134328358,
+        "rrf_score": 0.014925373134328358,
+        "passage_id": "019f7109-a895-78fc-af93-542052de4c81",
+        "document_id": "doc_search3_semantic_only"
+      }
+    ]
+  }
+}
+@@GATE-EXIT=0@@

@@ -1,0 +1,26 @@
+{
+  "sprint": "sprint-10-local-re-embedding-and-hybrid-rrf-search",
+  "framework": "headless-service",
+  "verdict": "PASS",
+  "steps_total": 7,
+  "steps_covered": 7,
+  "steps_passed": 7,
+  "coverage": [
+    { "step": 1, "coverage": "holo embed:run CLI + embed-run.test.ts", "status": "pass" },
+    { "step": 2, "coverage": "holo embed:verify CLI", "status": "pass" },
+    { "step": 3, "coverage": "holo search CLI + rrf-search.test.ts AC-1", "status": "pass" },
+    { "step": 4, "coverage": "holo search --explain CLI", "status": "pass" },
+    { "step": 5, "coverage": "holo search:recall + search-recall.test.ts", "status": "pass" },
+    {
+      "step": 6,
+      "coverage": "double embed:run CLI + embed-run idempotency AC-2/3",
+      "status": "pass"
+    },
+    {
+      "step": 7,
+      "coverage": "holo search --surface + inline-surfaces-search.test.ts",
+      "status": "pass"
+    }
+  ],
+  "boundary": "REAL Postgres + REAL fleet :4545 qwen3-embedding"
+}
