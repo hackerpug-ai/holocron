@@ -2468,6 +2468,7 @@ async function main(): Promise<void> {
                 category: r.category,
                 lane: r.lane,
                 ok: r.ok,
+                error: r.error,
               })),
             },
             null,
@@ -2483,6 +2484,9 @@ async function main(): Promise<void> {
           console.log(
             `  ${r.ok ? '✓' : '✗'} ${r.category.padEnd(9)} ${r.lane.padEnd(12)} ${r.name}`
           );
+          if (!r.ok && r.error) {
+            console.log(`      ↳ error: ${r.error}`);
+          }
         }
         console.log(result.jobs_fired === result.jobs_total ? '  status: OK' : '  status: FAIL');
       }
