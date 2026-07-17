@@ -1,0 +1,18 @@
+{
+  "ac": "AC-3",
+  "tc": "TC-3",
+  "loadError": "Cannot find module 'file:///Users/inference1/Projects/holocron/.worktrees/queue-4/services/platform/src/queue/priority.ts' imported from /Users/inference1/Projects/holocron/.worktrees/queue-4/tests/integration/service/RED/queue-red-harness.ts",
+  "background": null,
+  "interactive": null,
+  "dequeue_order": [],
+  "dequeued": [],
+  "must_observe": {
+    "priority API loads": false,
+    "dequeue_order[0] === \"interactive\"": false,
+    "two jobs dequeued": false
+  },
+  "must_not_observe": {
+    "background first": false,
+    "empty dequeue": true
+  }
+}

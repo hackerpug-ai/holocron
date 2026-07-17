@@ -1,0 +1,66 @@
+{
+  "task_id": "queue-4",
+  "timestamp": "2026-07-17T19:04:28Z",
+  "commit_sha": "38c45346e5eb7e50b530ffea97cd5d275409b75b",
+  "typecheck": {
+    "exit_code": 0
+  },
+  "lint": {
+    "exit_code": 0,
+    "warnings": 0
+  },
+  "pre_existing_issues": false,
+  "requirement_results": [
+    {
+      "id": "AC-1",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron HOLO_KEY_RN=rn-test HOLO_KEY_MCP=mcp-test HOLO_KEY_CONTROL=ctl-test pnpm vitest run tests/integration/service/RED/queue-durable.RED.test.ts",
+      "exit_code": 1,
+      "output_file": ".tmp/queue-4/ac-1-output.txt"
+    },
+    {
+      "id": "AC-2",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron HOLO_KEY_RN=rn-test HOLO_KEY_MCP=mcp-test HOLO_KEY_CONTROL=ctl-test bun services/platform/src/cli/holo.ts jobs:run-all",
+      "exit_code": 2,
+      "output_file": ".tmp/queue-4/ac-2-output.txt"
+    },
+    {
+      "id": "AC-3",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron HOLO_KEY_RN=rn-test HOLO_KEY_MCP=mcp-test HOLO_KEY_CONTROL=ctl-test pnpm vitest run tests/integration/service/RED/queue-priority.RED.test.ts",
+      "exit_code": 1,
+      "output_file": ".tmp/queue-4/ac-3-output.txt"
+    },
+    {
+      "id": "AC-4",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron HOLO_KEY_RN=rn-test HOLO_KEY_MCP=mcp-test HOLO_KEY_CONTROL=ctl-test pnpm vitest run tests/integration/service/RED/queue-dlq.RED.test.ts",
+      "exit_code": 1,
+      "output_file": ".tmp/queue-4/ac-4-output.txt"
+    },
+    {
+      "id": "TC-1",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron HOLO_KEY_RN=rn-test HOLO_KEY_MCP=mcp-test HOLO_KEY_CONTROL=ctl-test pnpm vitest run tests/integration/service/RED/queue-durable.RED.test.ts",
+      "exit_code": 1,
+      "output_file": ".tmp/queue-4/tc-1-output.txt"
+    },
+    {
+      "id": "TC-2",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron HOLO_KEY_RN=rn-test HOLO_KEY_MCP=mcp-test HOLO_KEY_CONTROL=ctl-test bun services/platform/src/cli/holo.ts jobs:run-all",
+      "exit_code": 2,
+      "output_file": ".tmp/queue-4/tc-2-output.txt"
+    },
+    {
+      "id": "TC-3",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron HOLO_KEY_RN=rn-test HOLO_KEY_MCP=mcp-test HOLO_KEY_CONTROL=ctl-test pnpm vitest run tests/integration/service/RED/queue-priority.RED.test.ts",
+      "exit_code": 1,
+      "output_file": ".tmp/queue-4/tc-3-output.txt"
+    },
+    {
+      "id": "TC-4",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron HOLO_KEY_RN=rn-test HOLO_KEY_MCP=mcp-test HOLO_KEY_CONTROL=ctl-test pnpm vitest run tests/integration/service/RED/queue-dlq.RED.test.ts",
+      "exit_code": 1,
+      "output_file": ".tmp/queue-4/tc-4-output.txt"
+    }
+  ],
+  "red_evidence": {
+    "required": false
+  }
+}

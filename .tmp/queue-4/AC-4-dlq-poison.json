@@ -1,0 +1,34 @@
+{
+  "ac": "AC-4",
+  "tc": "TC-4",
+  "key": "red-poison-1",
+  "max_attempts": 3,
+  "loadError": "Cannot find module 'file:///Users/inference1/Projects/holocron/.worktrees/queue-4/services/platform/src/queue/dlq.ts' imported from /Users/inference1/Projects/holocron/.worktrees/queue-4/tests/integration/service/RED/queue-red-harness.ts",
+  "runResult": null,
+  "dbState": {
+    "dlq_count": 0,
+    "job_status": null,
+    "tables": {
+      "queue_dlq": false,
+      "dead_letter": false,
+      "dead_letter_queue": false,
+      "job_dlq": false,
+      "queue_jobs": false,
+      "jobs": false,
+      "durable_jobs": false,
+      "pgboss.job": false
+    },
+    "errors": []
+  },
+  "dlq_count": 0,
+  "job_status": null,
+  "must_observe": {
+    "DLQ API loads": false,
+    "dlq_count === 1": false,
+    "job.status === \"dead_letter\"": false
+  },
+  "must_not_observe": {
+    "silent drop (dlq_count === 0)": true,
+    "unbounded retry (no terminal status)": true
+  }
+}

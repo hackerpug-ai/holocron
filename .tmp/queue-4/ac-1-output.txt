@@ -1,0 +1,457 @@
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.worktrees/queue-4
+
+ ❯ tests/integration/service/RED/queue-durable.RED.test.ts (6 tests | 6 failed) 1020ms
+     × kill-9 before commit: effect_count === 1, outbox_count === 1, inbox_dedupe_count === 1 375ms
+     × kill-9 after commit before enqueue: effect_count === 1, outbox_count === 1, inbox_dedupe_count === 1 94ms
+     × kill-9 after dispatch before ack: effect_count === 1, outbox_count === 1, inbox_dedupe_count === 1 99ms
+     × queue:audit <key> exposes outbox, inbox dedupe, and fencing token 74ms
+     × jobs:list reports 16 migrated jobs (7/4/1/3→1/1 split) 71ms
+     × jobs:run-all fires jobs_fired === 16 with side_effect_rows >= 16 88ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/integration/service/RED/queue-durable.RED.test.ts > AC-1 / TC-1: kill-9 boundaries exactly-once + outbox/inbox dedupe > kill-9 before commit: effect_count === 1, outbox_count === 1, inbox_dedupe_count === 1
+AssertionError: before-commit: effect_count === 1 (loadError=Cannot find module 'file:///Users/inference1/Projects/holocron/.worktrees/queue-4/services/platform/src/queue/durable-effect.ts' imported from /Users/inference1/Projects/holocron/.worktrees/queue-4/tests/integration/service/RED/queue-red-harness.ts): expected +0 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 0
+
+ ❯ assertExactlyOnce tests/integration/service/RED/queue-durable.RED.test.ts:152:88
+    150|   // Contract assertions — RED fails here on mainline (missing durable…
+    151|   // Count asserts first so failure output always carries effect_count…
+    152|   expect(effect_count, `${label}: effect_count === 1 (loadError=${resu…
+       |                                                                                        ^
+    153|   expect(outbox_count, `${label}: outbox_count === 1`).toBe(1);
+    154|   expect(inbox_dedupe_count, `${label}: inbox_dedupe_count === 1`).toB…
+ ❯ tests/integration/service/RED/queue-durable.RED.test.ts:172:9
+ ❯ withQueueLock tests/integration/service/RED/queue-red-harness.ts:164:12
+ ❯ tests/integration/service/RED/queue-durable.RED.test.ts:170:7
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯
+
+ FAIL  tests/integration/service/RED/queue-durable.RED.test.ts > AC-1 / TC-1: kill-9 boundaries exactly-once + outbox/inbox dedupe > kill-9 after commit before enqueue: effect_count === 1, outbox_count === 1, inbox_dedupe_count === 1
+AssertionError: after-commit-before-enqueue: effect_count === 1 (loadError=Cannot find module 'file:///Users/inference1/Projects/holocron/.worktrees/queue-4/services/platform/src/queue/durable-effect.ts' imported from /Users/inference1/Projects/holocron/.worktrees/queue-4/tests/integration/service/RED/queue-red-harness.ts): expected +0 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 0
+
+ ❯ assertExactlyOnce tests/integration/service/RED/queue-durable.RED.test.ts:152:88
+    150|   // Contract assertions — RED fails here on mainline (missing durable…
+    151|   // Count asserts first so failure output always carries effect_count…
+    152|   expect(effect_count, `${label}: effect_count === 1 (loadError=${resu…
+       |                                                                                        ^
+    153|   expect(outbox_count, `${label}: outbox_count === 1`).toBe(1);
+    154|   expect(inbox_dedupe_count, `${label}: inbox_dedupe_count === 1`).toB…
+ ❯ tests/integration/service/RED/queue-durable.RED.test.ts:182:9
+ ❯ withQueueLock tests/integration/service/RED/queue-red-harness.ts:164:12
+ ❯ tests/integration/service/RED/queue-durable.RED.test.ts:180:7
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/6]⎯
+
+ FAIL  tests/integration/service/RED/queue-durable.RED.test.ts > AC-1 / TC-1: kill-9 boundaries exactly-once + outbox/inbox dedupe > kill-9 after dispatch before ack: effect_count === 1, outbox_count === 1, inbox_dedupe_count === 1
+AssertionError: after-dispatch-before-ack: effect_count === 1 (loadError=Cannot find module 'file:///Users/inference1/Projects/holocron/.worktrees/queue-4/services/platform/src/queue/durable-effect.ts' imported from /Users/inference1/Projects/holocron/.worktrees/queue-4/tests/integration/service/RED/queue-red-harness.ts): expected +0 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 0
+
+ ❯ assertExactlyOnce tests/integration/service/RED/queue-durable.RED.test.ts:152:88
+    150|   // Contract assertions — RED fails here on mainline (missing durable…
+    151|   // Count asserts first so failure output always carries effect_count…
+    152|   expect(effect_count, `${label}: effect_count === 1 (loadError=${resu…
+       |                                                                                        ^
+    153|   expect(outbox_count, `${label}: outbox_count === 1`).toBe(1);
+    154|   expect(inbox_dedupe_count, `${label}: inbox_dedupe_count === 1`).toB…
+ ❯ tests/integration/service/RED/queue-durable.RED.test.ts:192:9
+ ❯ withQueueLock tests/integration/service/RED/queue-red-harness.ts:164:12
+ ❯ tests/integration/service/RED/queue-durable.RED.test.ts:190:7
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/6]⎯
+
+ FAIL  tests/integration/service/RED/queue-durable.RED.test.ts > AC-1 / TC-1: kill-9 boundaries exactly-once + outbox/inbox dedupe > queue:audit <key> exposes outbox, inbox dedupe, and fencing token
+AssertionError: queue:audit must exit 0:
+holo — holocron operator CLI
+
+Usage:
+  bun services/platform/src/cli/holo.ts <command> [options]
+
+  Commands:
+  catalog:verify        Coverage build-gate (60/60 tables + fields + storage refs)
+  catalog:coverage      Per-field + per-storage-ref mapping with owner/approval
+  catalog:merges        Business 12→3 + research 5→3 collapse proof
+  catalog:reconcile     Per-table source vs expected-target; unexplained variance
+  catalog:assets        Per-object retained storage inventory (sha256/bytes/mime)
+  mcp:verify-manifest   44/44 tool completeness gate (manifest ↔ live registry cross-check)
+  mcp:manifest-schema   Print a tool's input/output schema + defaults from the manifest
+  mcp:manifest-replay   Print a tool's idempotency key + stored result from the manifest
+  mcp:list-mutations    List all mutation tools (non-null side_effects)
+  compat:spike          Run 5-cell compatibility matrix (agent+tool+workflow+MCP+OTel)
+  db:status             Show Postgres connection facts
+  db:migrate            Apply Drizzle migrations against DATABASE_URL (≥55 tables)
+  db:probe              Live probes: --jsonb cardData | --status | --raw "<SQL>"
+  db:verify             Live verify: --merges | --indexes
+  db:push               Push Drizzle schema (dev convenience; prefer db:migrate)
+  repl:status           CAP-SYNC-01: wal_level + zero_pub membership + replica identity
+  service:up            Boot Mastra composition root + Hono on :4111 (PORT/HOLO_PORT)
+  registry:list         List shared tool registry (≥44 tools with Zod schemas)
+  registry:probe <id>   Probe a tool's Zod input/output schema (aliases: search, searchTool)
+  verify:identity <id>  Prove agent/workflow/MCP share the same Zod instance (===)
+  verify:no-dup-validation  Audit zero Zod .parse/.safeParse outside the shared registry
+  manifest:resolve <role>  Resolve a Fleet Role Manifest role to a live :4545 endpoint
+  secrets doctor            Resolve required keys from consolidated secrets (env + secrets.yaml)
+  secrets:doctor            Alias for secrets doctor
+  verify-no-convex-env      T-PLAT-017 build gate: fail if Convex env aliases remain
+  stack up                  Launch Postgres + Mastra (launchd) and wait healthy (≤60s)
+  stack down                Stop stack services; zero orphaned holocron PIDs
+  stack status              Honest health (postgres/mastra/scheduler/zero_cache/embed)
+  stack:up | stack:down | stack:status
+                            Colon-form aliases for stack commands
+  evidence:seed             Seed claim + 2 contradicting passages + relations + open belief
+  evidence:revise <id>      Temporal revise via SECURITY DEFINER revise_belief(...)
+  evidence:belief           As-of belief + net-support for a claim (--claim-id, --as-of)
+  evidence:register-doc <id>
+                            Register internal doc as self-sourced source (reuse passages)
+  infer:call                Resolve fleet role; --escape runs budgeted Claude escape
+                            (checkBudget → generateText → logEscape); fleet-down → degraded
+  infer:degraded            Show / poll degraded-mode state (fleet-down reduced mode)
+  verify:no-provider-refs   Audit platform src for banned claudeFlash/Pro/Ultra factories
+  budget:status             Show escape budget spent / remaining / ceiling (real Postgres)
+  budget:set                Set escape budget ceiling (--ceiling <usd>)
+  extract                   Extract structured data with Zod validation --schema <name> --input <text>
+   extract:status <id>       Query extraction status by id (pending|success|extraction_failed|blocked)
+  probe:capabilities        Probe all fleet roles for json_schema structured-output support
+  embed:run                 Idempotent re-embed: WHERE embedding IS NULL … SKIP LOCKED (document mode)
+  embed:verify              Report NULL / wrong-dimension passage embedding counts (expect 1024)
+  search <query>            RRF hybrid search (pgvector HNSW + FTS, one round-trip)
+  search:recall             Recall@k vs baseline from --golden set.json
+
+Options:
+  --export <dir>        Path to unzipped convex export (or $CONVEX_EXPORT_DIR)
+  --catalog <file>      Path to 12-convex-source-catalog.yaml
+  --manifest <file>     Path to 14-mcp-compatibility-manifest.yaml (mcp:* commands)
+  --fixtures-dir <dir>  Path to fixtures directory (mcp:verify-manifest, overrides default)
+  --protocol            (mcp:verify-manifest) print protocol pin summary
+  --jsonb <column>      (db:probe) polymorphic jsonb round-trip column (e.g. cardData)
+  --status              (db:probe) status CHECK constraint probe
+  --raw <sql>           (db:probe) execute SQL as holocron_app (permission probes)
+  --merges              (db:verify) assert analysis/research merge collapse
+  --indexes             (db:verify) assert HNSW/GIN/btree indexes + search_vector
+  --for <consumers>     (registry:probe) comma list: agent,workflow,mcp
+  --actor <name>        (evidence:revise) actor recorded on successor
+  --run-id <id>         (evidence:revise) run id recorded on successor
+  --idempotency-key <k> (evidence:revise) idempotency key (replay-safe)
+  --statement <text>    (evidence:revise) new belief statement
+  --confidence <n>      (evidence:revise) new confidence (0..1)
+  --valid-from <ts>     (evidence:revise) optional valid_from timestamptz
+  --valid-to <ts>       (evidence:revise) optional valid_to timestamptz
+  --claim-id <id>       (evidence:belief) claim id to query
+  --as-of <ts|now>      (evidence:belief) transaction-time as-of (default: now)
+  --role <role>         (infer:call|infer:degraded) fleet role: divergent|convergent|judge|embed|rerank
+  --escape              (infer:call) budgeted Claude escape via runBudgetedEscape
+  --highStakes          (infer:call) alias for --escape (high-stakes step)
+  --cost <usd>          (infer:call) estimated escape cost USD for budget pre-check
+  --reason <text>       (infer:call) escape reason for audit trail
+  --prompt <text>       (infer:call --escape) prompt for real Anthropic generateText
+  --run-id <id>         (infer:call --escape / evidence:revise) run id for ledger
+  --ceiling <usd>       (budget:set) escape budget ceiling in USD
+  --schema <name>       (extract) schema name: simple|nested|tripwire
+  --input <text>        (extract) input text or file path
+  --fixture <name>      (extract) documented fixture entry point (mutually exclusive with --schema/--input)
+                        good | malformed-once | always-malformed | tripwire
+  --timeout <ms>        (probe:capabilities) timeout per role probe in ms (default 45000)
+  --poll                (infer:degraded) run one real health probe (may auto-resume)
+  --explain             (search) include RRF fusion explain payload (method, k, legs, scores)
+  --surface <name>      (search) inline-HNSW surface KNN (research_findings|research_iterations|
+                        subscription_content|toolbelt_tools|improvement_requests)
+  --golden <path>       (search:recall) golden set JSON for recall@k evaluation
+  --limit <n>           (search|search:recall) max results / k (default 10)
+  --json                Emit JSON instead of text
+  --print-trace         (compat:spike) emit OTel trace details
+  --dry-run             (catalog:reconcile) dry-run mode (default)
+  -h, --help            Show help
+
+
+unknown command: queue:audit
+: expected 2 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 2
+
+ ❯ tests/integration/service/RED/queue-durable.RED.test.ts:236:62
+    234|       });
+    235|
+    236|       expect(cli.status, `queue:audit must exit 0:\n${out}`).toBe(0);
+       |                                                              ^
+    237|       expect(parseError, `queue:audit stdout must be JSON: ${parseErro…
+    238|       expect(effect_count, 'effect_count === 1').toBe(1);
+ ❯ withQueueLock tests/integration/service/RED/queue-red-harness.ts:164:18
+ ❯ tests/integration/service/RED/queue-durable.RED.test.ts:198:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/6]⎯
+
+ FAIL  tests/integration/service/RED/queue-durable.RED.test.ts > AC-2 / TC-2: all-16-fire jobs:run-all inventory > jobs:list reports 16 migrated jobs (7/4/1/3→1/1 split)
+AssertionError: jobs:list must exit 0:
+holo — holocron operator CLI
+
+Usage:
+  bun services/platform/src/cli/holo.ts <command> [options]
+
+  Commands:
+  catalog:verify        Coverage build-gate (60/60 tables + fields + storage refs)
+  catalog:coverage      Per-field + per-storage-ref mapping with owner/approval
+  catalog:merges        Business 12→3 + research 5→3 collapse proof
+  catalog:reconcile     Per-table source vs expected-target; unexplained variance
+  catalog:assets        Per-object retained storage inventory (sha256/bytes/mime)
+  mcp:verify-manifest   44/44 tool completeness gate (manifest ↔ live registry cross-check)
+  mcp:manifest-schema   Print a tool's input/output schema + defaults from the manifest
+  mcp:manifest-replay   Print a tool's idempotency key + stored result from the manifest
+  mcp:list-mutations    List all mutation tools (non-null side_effects)
+  compat:spike          Run 5-cell compatibility matrix (agent+tool+workflow+MCP+OTel)
+  db:status             Show Postgres connection facts
+  db:migrate            Apply Drizzle migrations against DATABASE_URL (≥55 tables)
+  db:probe              Live probes: --jsonb cardData | --status | --raw "<SQL>"
+  db:verify             Live verify: --merges | --indexes
+  db:push               Push Drizzle schema (dev convenience; prefer db:migrate)
+  repl:status           CAP-SYNC-01: wal_level + zero_pub membership + replica identity
+  service:up            Boot Mastra composition root + Hono on :4111 (PORT/HOLO_PORT)
+  registry:list         List shared tool registry (≥44 tools with Zod schemas)
+  registry:probe <id>   Probe a tool's Zod input/output schema (aliases: search, searchTool)
+  verify:identity <id>  Prove agent/workflow/MCP share the same Zod instance (===)
+  verify:no-dup-validation  Audit zero Zod .parse/.safeParse outside the shared registry
+  manifest:resolve <role>  Resolve a Fleet Role Manifest role to a live :4545 endpoint
+  secrets doctor            Resolve required keys from consolidated secrets (env + secrets.yaml)
+  secrets:doctor            Alias for secrets doctor
+  verify-no-convex-env      T-PLAT-017 build gate: fail if Convex env aliases remain
+  stack up                  Launch Postgres + Mastra (launchd) and wait healthy (≤60s)
+  stack down                Stop stack services; zero orphaned holocron PIDs
+  stack status              Honest health (postgres/mastra/scheduler/zero_cache/embed)
+  stack:up | stack:down | stack:status
+                            Colon-form aliases for stack commands
+  evidence:seed             Seed claim + 2 contradicting passages + relations + open belief
+  evidence:revise <id>      Temporal revise via SECURITY DEFINER revise_belief(...)
+  evidence:belief           As-of belief + net-support for a claim (--claim-id, --as-of)
+  evidence:register-doc <id>
+                            Register internal doc as self-sourced source (reuse passages)
+  infer:call                Resolve fleet role; --escape runs budgeted Claude escape
+                            (checkBudget → generateText → logEscape); fleet-down → degraded
+  infer:degraded            Show / poll degraded-mode state (fleet-down reduced mode)
+  verify:no-provider-refs   Audit platform src for banned claudeFlash/Pro/Ultra factories
+  budget:status             Show escape budget spent / remaining / ceiling (real Postgres)
+  budget:set                Set escape budget ceiling (--ceiling <usd>)
+  extract                   Extract structured data with Zod validation --schema <name> --input <text>
+   extract:status <id>       Query extraction status by id (pending|success|extraction_failed|blocked)
+  probe:capabilities        Probe all fleet roles for json_schema structured-output support
+  embed:run                 Idempotent re-embed: WHERE embedding IS NULL … SKIP LOCKED (document mode)
+  embed:verify              Report NULL / wrong-dimension passage embedding counts (expect 1024)
+  search <query>            RRF hybrid search (pgvector HNSW + FTS, one round-trip)
+  search:recall             Recall@k vs baseline from --golden set.json
+
+Options:
+  --export <dir>        Path to unzipped convex export (or $CONVEX_EXPORT_DIR)
+  --catalog <file>      Path to 12-convex-source-catalog.yaml
+  --manifest <file>     Path to 14-mcp-compatibility-manifest.yaml (mcp:* commands)
+  --fixtures-dir <dir>  Path to fixtures directory (mcp:verify-manifest, overrides default)
+  --protocol            (mcp:verify-manifest) print protocol pin summary
+  --jsonb <column>      (db:probe) polymorphic jsonb round-trip column (e.g. cardData)
+  --status              (db:probe) status CHECK constraint probe
+  --raw <sql>           (db:probe) execute SQL as holocron_app (permission probes)
+  --merges              (db:verify) assert analysis/research merge collapse
+  --indexes             (db:verify) assert HNSW/GIN/btree indexes + search_vector
+  --for <consumers>     (registry:probe) comma list: agent,workflow,mcp
+  --actor <name>        (evidence:revise) actor recorded on successor
+  --run-id <id>         (evidence:revise) run id recorded on successor
+  --idempotency-key <k> (evidence:revise) idempotency key (replay-safe)
+  --statement <text>    (evidence:revise) new belief statement
+  --confidence <n>      (evidence:revise) new confidence (0..1)
+  --valid-from <ts>     (evidence:revise) optional valid_from timestamptz
+  --valid-to <ts>       (evidence:revise) optional valid_to timestamptz
+  --claim-id <id>       (evidence:belief) claim id to query
+  --as-of <ts|now>      (evidence:belief) transaction-time as-of (default: now)
+  --role <role>         (infer:call|infer:degraded) fleet role: divergent|convergent|judge|embed|rerank
+  --escape              (infer:call) budgeted Claude escape via runBudgetedEscape
+  --highStakes          (infer:call) alias for --escape (high-stakes step)
+  --cost <usd>          (infer:call) estimated escape cost USD for budget pre-check
+  --reason <text>       (infer:call) escape reason for audit trail
+  --prompt <text>       (infer:call --escape) prompt for real Anthropic generateText
+  --run-id <id>         (infer:call --escape / evidence:revise) run id for ledger
+  --ceiling <usd>       (budget:set) escape budget ceiling in USD
+  --schema <name>       (extract) schema name: simple|nested|tripwire
+  --input <text>        (extract) input text or file path
+  --fixture <name>      (extract) documented fixture entry point (mutually exclusive with --schema/--input)
+                        good | malformed-once | always-malformed | tripwire
+  --timeout <ms>        (probe:capabilities) timeout per role probe in ms (default 45000)
+  --poll                (infer:degraded) run one real health probe (may auto-resume)
+  --explain             (search) include RRF fusion explain payload (method, k, legs, scores)
+  --surface <name>      (search) inline-HNSW surface KNN (research_findings|research_iterations|
+                        subscription_content|toolbelt_tools|improvement_requests)
+  --golden <path>       (search:recall) golden set JSON for recall@k evaluation
+  --limit <n>           (search|search:recall) max results / k (default 10)
+  --json                Emit JSON instead of text
+  --print-trace         (compat:spike) emit OTel trace details
+  --dry-run             (catalog:reconcile) dry-run mode (default)
+  -h, --help            Show help
+
+
+unknown command: jobs:list
+: expected 2 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 2
+
+ ❯ tests/integration/service/RED/queue-durable.RED.test.ts:303:61
+    301|       });
+    302|
+    303|       expect(list.status, `jobs:list must exit 0:\n${out}`).toBe(0);
+       |                                                             ^
+    304|       expect(parseError, `jobs:list stdout must be JSON: ${parseError}…
+    305|       expect(jobs_listed, 'jobs_listed === 16').toBe(EXPECTED_JOB_COUN…
+ ❯ withQueueLock tests/integration/service/RED/queue-red-harness.ts:164:18
+ ❯ tests/integration/service/RED/queue-durable.RED.test.ts:253:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/6]⎯
+
+ FAIL  tests/integration/service/RED/queue-durable.RED.test.ts > AC-2 / TC-2: all-16-fire jobs:run-all inventory > jobs:run-all fires jobs_fired === 16 with side_effect_rows >= 16
+AssertionError: jobs:run-all must exit 0:
+holo — holocron operator CLI
+
+Usage:
+  bun services/platform/src/cli/holo.ts <command> [options]
+
+  Commands:
+  catalog:verify        Coverage build-gate (60/60 tables + fields + storage refs)
+  catalog:coverage      Per-field + per-storage-ref mapping with owner/approval
+  catalog:merges        Business 12→3 + research 5→3 collapse proof
+  catalog:reconcile     Per-table source vs expected-target; unexplained variance
+  catalog:assets        Per-object retained storage inventory (sha256/bytes/mime)
+  mcp:verify-manifest   44/44 tool completeness gate (manifest ↔ live registry cross-check)
+  mcp:manifest-schema   Print a tool's input/output schema + defaults from the manifest
+  mcp:manifest-replay   Print a tool's idempotency key + stored result from the manifest
+  mcp:list-mutations    List all mutation tools (non-null side_effects)
+  compat:spike          Run 5-cell compatibility matrix (agent+tool+workflow+MCP+OTel)
+  db:status             Show Postgres connection facts
+  db:migrate            Apply Drizzle migrations against DATABASE_URL (≥55 tables)
+  db:probe              Live probes: --jsonb cardData | --status | --raw "<SQL>"
+  db:verify             Live verify: --merges | --indexes
+  db:push               Push Drizzle schema (dev convenience; prefer db:migrate)
+  repl:status           CAP-SYNC-01: wal_level + zero_pub membership + replica identity
+  service:up            Boot Mastra composition root + Hono on :4111 (PORT/HOLO_PORT)
+  registry:list         List shared tool registry (≥44 tools with Zod schemas)
+  registry:probe <id>   Probe a tool's Zod input/output schema (aliases: search, searchTool)
+  verify:identity <id>  Prove agent/workflow/MCP share the same Zod instance (===)
+  verify:no-dup-validation  Audit zero Zod .parse/.safeParse outside the shared registry
+  manifest:resolve <role>  Resolve a Fleet Role Manifest role to a live :4545 endpoint
+  secrets doctor            Resolve required keys from consolidated secrets (env + secrets.yaml)
+  secrets:doctor            Alias for secrets doctor
+  verify-no-convex-env      T-PLAT-017 build gate: fail if Convex env aliases remain
+  stack up                  Launch Postgres + Mastra (launchd) and wait healthy (≤60s)
+  stack down                Stop stack services; zero orphaned holocron PIDs
+  stack status              Honest health (postgres/mastra/scheduler/zero_cache/embed)
+  stack:up | stack:down | stack:status
+                            Colon-form aliases for stack commands
+  evidence:seed             Seed claim + 2 contradicting passages + relations + open belief
+  evidence:revise <id>      Temporal revise via SECURITY DEFINER revise_belief(...)
+  evidence:belief           As-of belief + net-support for a claim (--claim-id, --as-of)
+  evidence:register-doc <id>
+                            Register internal doc as self-sourced source (reuse passages)
+  infer:call                Resolve fleet role; --escape runs budgeted Claude escape
+                            (checkBudget → generateText → logEscape); fleet-down → degraded
+  infer:degraded            Show / poll degraded-mode state (fleet-down reduced mode)
+  verify:no-provider-refs   Audit platform src for banned claudeFlash/Pro/Ultra factories
+  budget:status             Show escape budget spent / remaining / ceiling (real Postgres)
+  budget:set                Set escape budget ceiling (--ceiling <usd>)
+  extract                   Extract structured data with Zod validation --schema <name> --input <text>
+   extract:status <id>       Query extraction status by id (pending|success|extraction_failed|blocked)
+  probe:capabilities        Probe all fleet roles for json_schema structured-output support
+  embed:run                 Idempotent re-embed: WHERE embedding IS NULL … SKIP LOCKED (document mode)
+  embed:verify              Report NULL / wrong-dimension passage embedding counts (expect 1024)
+  search <query>            RRF hybrid search (pgvector HNSW + FTS, one round-trip)
+  search:recall             Recall@k vs baseline from --golden set.json
+
+Options:
+  --export <dir>        Path to unzipped convex export (or $CONVEX_EXPORT_DIR)
+  --catalog <file>      Path to 12-convex-source-catalog.yaml
+  --manifest <file>     Path to 14-mcp-compatibility-manifest.yaml (mcp:* commands)
+  --fixtures-dir <dir>  Path to fixtures directory (mcp:verify-manifest, overrides default)
+  --protocol            (mcp:verify-manifest) print protocol pin summary
+  --jsonb <column>      (db:probe) polymorphic jsonb round-trip column (e.g. cardData)
+  --status              (db:probe) status CHECK constraint probe
+  --raw <sql>           (db:probe) execute SQL as holocron_app (permission probes)
+  --merges              (db:verify) assert analysis/research merge collapse
+  --indexes             (db:verify) assert HNSW/GIN/btree indexes + search_vector
+  --for <consumers>     (registry:probe) comma list: agent,workflow,mcp
+  --actor <name>        (evidence:revise) actor recorded on successor
+  --run-id <id>         (evidence:revise) run id recorded on successor
+  --idempotency-key <k> (evidence:revise) idempotency key (replay-safe)
+  --statement <text>    (evidence:revise) new belief statement
+  --confidence <n>      (evidence:revise) new confidence (0..1)
+  --valid-from <ts>     (evidence:revise) optional valid_from timestamptz
+  --valid-to <ts>       (evidence:revise) optional valid_to timestamptz
+  --claim-id <id>       (evidence:belief) claim id to query
+  --as-of <ts|now>      (evidence:belief) transaction-time as-of (default: now)
+  --role <role>         (infer:call|infer:degraded) fleet role: divergent|convergent|judge|embed|rerank
+  --escape              (infer:call) budgeted Claude escape via runBudgetedEscape
+  --highStakes          (infer:call) alias for --escape (high-stakes step)
+  --cost <usd>          (infer:call) estimated escape cost USD for budget pre-check
+  --reason <text>       (infer:call) escape reason for audit trail
+  --prompt <text>       (infer:call --escape) prompt for real Anthropic generateText
+  --run-id <id>         (infer:call --escape / evidence:revise) run id for ledger
+  --ceiling <usd>       (budget:set) escape budget ceiling in USD
+  --schema <name>       (extract) schema name: simple|nested|tripwire
+  --input <text>        (extract) input text or file path
+  --fixture <name>      (extract) documented fixture entry point (mutually exclusive with --schema/--input)
+                        good | malformed-once | always-malformed | tripwire
+  --timeout <ms>        (probe:capabilities) timeout per role probe in ms (default 45000)
+  --poll                (infer:degraded) run one real health probe (may auto-resume)
+  --explain             (search) include RRF fusion explain payload (method, k, legs, scores)
+  --surface <name>      (search) inline-HNSW surface KNN (research_findings|research_iterations|
+                        subscription_content|toolbelt_tools|improvement_requests)
+  --golden <path>       (search:recall) golden set JSON for recall@k evaluation
+  --limit <n>           (search|search:recall) max results / k (default 10)
+  --json                Emit JSON instead of text
+  --print-trace         (compat:spike) emit OTel trace details
+  --dry-run             (catalog:reconcile) dry-run mode (default)
+  -h, --help            Show help
+
+
+unknown command: jobs:run-all
+: expected 2 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 2
+
+ ❯ tests/integration/service/RED/queue-durable.RED.test.ts:372:63
+    370|       });
+    371|
+    372|       expect(run.status, `jobs:run-all must exit 0:\n${out}`).toBe(0);
+       |                                                               ^
+    373|       expect(parseError, `jobs:run-all stdout must be JSON: ${parseErr…
+    374|       expect(jobs_fired, 'jobs_fired === 16').toBe(EXPECTED_JOB_COUNT);
+ ❯ withQueueLock tests/integration/service/RED/queue-red-harness.ts:164:12
+ ❯ tests/integration/service/RED/queue-durable.RED.test.ts:311:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/6]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  6 failed (6)
+   Start at  13:04:19
+   Duration  1.24s (transform 127ms, setup 107ms, import 21ms, tests 1.02s, environment 0ms)
+
