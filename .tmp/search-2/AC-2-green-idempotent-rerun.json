@@ -1,0 +1,12 @@
+{
+  "second": {
+    "processed": 0,
+    "remainingNull": 0
+  },
+  "afterSecond": {
+    "count": 3,
+    "nulls": 0,
+    "dim1024": 3,
+    "dupes": 0
+  }
+}

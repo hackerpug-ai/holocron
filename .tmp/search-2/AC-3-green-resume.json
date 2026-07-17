@@ -1,0 +1,13 @@
+{
+  "resume": {
+    "processed": 2,
+    "remainingNull": 0
+  },
+  "afterResume": {
+    "count": 3,
+    "nulls": 0,
+    "dim1024": 3,
+    "dupes": 0
+  },
+  "ordinal0Unchanged": true
+}
