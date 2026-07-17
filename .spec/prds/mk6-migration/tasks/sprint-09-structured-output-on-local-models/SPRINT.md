@@ -3,7 +3,7 @@ sprint: 9
 title: Structured Output on Local Models
 sequence: 9
 timeline: Phase 2 — Inference and Data
-status: In Progress
+status: Completed
 prd: ../../README.md
 capability_coverage: [CAP-INF-01]
 ---
@@ -12,9 +12,9 @@ capability_coverage: [CAP-INF-01]
 
 **Sequence:** 9
 **Timeline:** Phase 2 — Inference and Data
-**Status:** In Progress
-> Progress: cycle 2 remediation opened for 1 CRITICAL + 3 HIGH findings · updated 2026-07-17T05:40:00Z
-> Status-Note: Fresh independent review at `.spec/reviews/red-hat-2026-07-17T05-33-47Z.md` supersedes the earlier approval; closure remains blocked until C2-H1 through C2-H4 are implemented, independently re-reviewed, and freshly QA-verified.
+**Status:** Completed
+> Progress: 4/4 tasks + cycle-1 REDHAT-FIX + cycle-2 C2-H1..H4 remediated · updated 2026-07-17T07:02:00Z
+> Status-Note: Independent red-hat 2026-07-17T05-33-47Z H1-H4 closed; fresh human gate 6/6 pass; 44/44 PLATFORM_IT GREEN; met:true
 **Proposed by:** mastra-planner
 **Branch:** `mk6-structured-output`
 **Opened:** 2026-07-16 — expanded by /kb-sprint-tasks-plan

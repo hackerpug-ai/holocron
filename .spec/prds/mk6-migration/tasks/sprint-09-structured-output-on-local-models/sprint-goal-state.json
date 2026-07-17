@@ -1,13 +1,13 @@
 {
   "sprint": "sprint-09-structured-output-on-local-models",
   "goal": "Given a local fleet model and a Zod extraction schema, holo extract either repairs a malformed generation to a schema-valid object or fails explicitly past its retry cap with a typed terminal outcome \u2014 never silently accepting invalid output.",
-  "met": false,
-  "timestamp": "2026-07-17T05:45:00Z",
-  "runner": "kb-run-sprint (grok / cycle-2 redhat remediation)",
+  "met": true,
+  "timestamp": "2026-07-17T07:02:00Z",
+  "runner": "kb-run-sprint (grok cycle-2 complete)",
   "tasks": {
     "total": 4,
     "completed": 4,
-    "open": 4,
+    "open": 0,
     "details": [
       {
         "id": "struct-1",
@@ -95,51 +95,77 @@
         "title": "Probe distinguishes constrained and repair via real generateObject",
         "commit": "fe88010",
         "severity": "HIGH"
-      }
-    ],
-    "cycle2_open": [
+      },
       {
         "id": "REDHAT-FIX-C2-H1",
-        "title": "Redact sensitive tripwire matches from persisted status and CLI error payloads",
-        "status": "pending",
-        "severity": "CRITICAL",
-        "source": ".spec/reviews/red-hat-2026-07-17T05-33-47Z.md#H1"
+        "title": "Redact sensitive tripwire matches",
+        "commit": "8022d26",
+        "severity": "CRITICAL"
       },
       {
         "id": "REDHAT-FIX-C2-H2",
-        "title": "Prove the output-side tripwire with clean input and deterministic sensitive model output",
-        "status": "pending",
-        "severity": "HIGH",
-        "source": ".spec/reviews/red-hat-2026-07-17T05-33-47Z.md#H2"
+        "title": "Prove output-side tripwire",
+        "commit": "99295d3",
+        "severity": "HIGH"
       },
       {
         "id": "REDHAT-FIX-C2-H3",
-        "title": "Make malformed-once deterministically enter repair and assert the successful repair attempt count",
-        "status": "pending",
-        "severity": "HIGH",
-        "source": ".spec/reviews/red-hat-2026-07-17T05-33-47Z.md#H3"
+        "title": "Deterministic repair attempts",
+        "commit": "4ceceaf",
+        "severity": "HIGH"
       },
       {
         "id": "REDHAT-FIX-C2-H4",
-        "title": "Make the extract-status gate step self-contained and reproducible from a clean checkout",
-        "status": "pending",
+        "title": "Self-contained extract:status gate step",
+        "commit": "96fef8c",
+        "severity": "HIGH"
+      }
+    ],
+    "cycle2_open": [],
+    "cycle2_completed": [
+      {
+        "id": "REDHAT-FIX-C2-H1",
+        "title": "Redact sensitive tripwire matches",
+        "commit": "8022d26",
+        "severity": "CRITICAL",
+        "review": "APPROVED"
+      },
+      {
+        "id": "REDHAT-FIX-C2-H2",
+        "title": "Prove output-side tripwire",
+        "commit": "99295d3",
         "severity": "HIGH",
-        "source": ".spec/reviews/red-hat-2026-07-17T05-33-47Z.md#H4"
+        "review": "APPROVED"
+      },
+      {
+        "id": "REDHAT-FIX-C2-H3",
+        "title": "Deterministic repair attempts",
+        "commit": "4ceceaf",
+        "severity": "HIGH",
+        "review": "APPROVED"
+      },
+      {
+        "id": "REDHAT-FIX-C2-H4",
+        "title": "Self-contained extract:status gate step",
+        "commit": "96fef8c",
+        "severity": "HIGH",
+        "review": "APPROVED"
       }
     ]
   },
   "gate": {
-    "verdict": "stale_pending_c2",
-    "evidence_dir": ".gate-evidence/kb-run-sprint-2026-07-17T05-30-00Z",
+    "verdict": "pass",
+    "evidence_dir": ".gate-evidence/kb-run-sprint-2026-07-17T06-50-17Z",
     "steps_total": 6,
     "steps_passed": 6,
-    "steps_deferred": 0
+    "steps_deferred": 0,
+    "note": "Fresh human gate after C2-H1..H4; step5 self-contained; step6 output_sensitive_data_detected with redacted patterns"
   },
   "e2e": {
     "framework": "vitest (PLATFORM_IT=1)",
     "verification_service": "litellm-fleet (:4545)",
-    "tests_total": 38,
-    "tests_passed": 38,
+    "tests_total": 44,
+    "tests_passed": 44,
     "tests_failed": 0,
     "zero_cloud": true,
     "files": [
@@ -155,8 +181,13 @@
       },
       {
         "file": "struct-tripwire-blocked.test.ts",
-        "tests": 8,
-        "passed": 8
+        "tests": 9,
+        "passed": 9
+      },
+      {
+        "file": "struct-output-tripwire-blocked.test.ts",
+        "tests": 3,
+        "passed": 3
       },
       {
         "file": "struct-boot-probe.test.ts",
@@ -167,49 +198,55 @@
         "file": "struct-fixture-cli.test.ts",
         "tests": 8,
         "passed": 8
+      },
+      {
+        "file": "struct-extract-status.test.ts",
+        "tests": 2,
+        "passed": 2
       }
     ]
   },
   "build": {
     "typecheck": "pass (tsgo --noEmit exit 0)",
-    "lint": "pass (biome check \u2014 sprint files clean, 0 errors)"
+    "lint": "pass (biome check \u2014 sprint files clean)"
   },
   "human_test": {
-    "verdict": "stale_pending_c2",
-    "gate_results": ".gate-evidence/kb-run-sprint-2026-07-17T05-30-00Z/gate-results.json",
-    "freshness": "2026-07-17T05:30:00Z",
+    "verdict": "pass",
+    "gate_results": ".spec/prds/mk6-migration/tasks/sprint-09-structured-output-on-local-models/gate-results.json",
+    "freshness": "2026-07-17T06:50:17Z",
     "steps_executed": 6,
     "steps_total": 6,
     "steps_passed": 6,
-    "steps_deferred": 0
+    "steps_deferred": 0,
+    "assert_human_test_verdict": "exit 0 valid:true 6/6"
   },
   "red_hat": {
-    "verdict": "NEEDS-REVISION",
+    "verdict": "REMEDIATED",
     "report": ".spec/reviews/red-hat-2026-07-17T05-33-47Z.md",
     "cycle": 2,
-    "critical_open": 1,
-    "high_open": 3,
-    "open_findings": [
-      "H1",
-      "H2",
-      "H3",
-      "H4"
+    "critical_remediated": 1,
+    "high_remediated": 3,
+    "open_findings": [],
+    "remediation_commits": [
+      "8022d26",
+      "99295d3",
+      "4ceceaf",
+      "96fef8c"
     ],
-    "prior_cycle1_report": ".spec/reviews/red-hat-2026-07-17T04-30-00Z.md",
-    "note": "Independent review supersedes prior APPROVED closeout. met=false until C2-H1..H4 land, re-review, and fresh human-test gate pass."
+    "note": "H1-H4 from independent review closed via REDHAT-FIX-C2-*; each independently re-reviewed APPROVED"
   },
   "status_files": {
-    "parity": false,
-    "audit": "cycle-2 remediation open; 4 C2 REDHAT-FIX tasks pending",
-    "sprint_lifecycle": "in_progress",
-    "roadmap_updated": true
+    "parity": true,
+    "audit": "4/4 original + 4/4 C2 REDHAT-FIX completed",
+    "sprint_lifecycle": "completed",
+    "roadmap_updated": false
   },
   "met_layers": {
-    "tasks_complete": false,
-    "gate_pass": false,
-    "e2e_pass": false,
-    "build_pass": false,
-    "human_test_pass": false,
-    "status_files_parity": false
+    "tasks_complete": true,
+    "gate_pass": true,
+    "e2e_pass": true,
+    "build_pass": true,
+    "human_test_pass": true,
+    "status_files_parity": true
   }
 }

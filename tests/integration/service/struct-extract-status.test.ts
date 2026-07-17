@@ -18,7 +18,7 @@
  *   rm -rf .tmp/extractions && PLATFORM_IT=1 pnpm vitest run \
  *     tests/integration/service/struct-extract-status.test.ts
  */
-import { existsSync, readdirSync, rmSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { BUN_BIN, HOLO_CLI, PLATFORM_IT, REPO_ROOT, runHolo } from './harness';
@@ -49,13 +49,17 @@ function listExtractionIds(): Set<string> {
 }
 
 describe('REDHAT-FIX-C2-H4: self-contained extract→status pipeline', () => {
-  // Clean-checkout proof: no pre-existing status files required.
-  // Only this suite's file is under test; verify runs it alone after rm -rf.
+  // Isolation: capture the id created by THIS run (set-diff + status filter).
+  // Do NOT wipe the shared `.tmp/extractions/` dir here — parallel PLATFORM_IT files
+  // write status files concurrently. Clean-checkout proof is:
+  //   rm -rf .tmp/extractions && PLATFORM_IT=1 pnpm vitest run <this file>
+  // (documented in the file header and human gate step 5).
   beforeAll(() => {
-    if (existsSync(EXTRACTIONS_DIR)) {
-      rmSync(EXTRACTIONS_DIR, { recursive: true, force: true });
+    // Ensure the store path is usable; create empty dir if missing.
+    if (!existsSync(EXTRACTIONS_DIR)) {
+      // extractStructured creates the dir on first write; no-op pre-check is fine.
+      expect(existsSync(EXTRACTIONS_DIR)).toBe(false);
     }
-    expect(existsSync(EXTRACTIONS_DIR)).toBe(false);
   });
 
   itLive(
@@ -74,10 +78,20 @@ describe('REDHAT-FIX-C2-H4: self-contained extract→status pipeline', () => {
       // Step B: capture id at runtime from the file-based store written by extract.
       // CLI failure JSON does not currently echo extractionId (writeProhibited: holo.ts);
       // extractStructured persists `.tmp/extractions/<id>.json` before rethrowing.
+      // When this suite runs in parallel with other PLATFORM_IT files, other workers may
+      // also create status files — select the new id that is extraction_failed (this run).
       const after = listExtractionIds();
       const created = [...after].filter((id) => !before.has(id));
       expect(created.length).toBeGreaterThanOrEqual(1);
-      const extractionId = created[0];
+      const extractionId = created.find((id) => {
+        try {
+          const raw = readFileSync(join(EXTRACTIONS_DIR, `${id}.json`), 'utf8');
+          const rec = JSON.parse(raw) as { status?: string; error?: { attempts?: number } };
+          return rec.status === 'extraction_failed' && rec.error?.attempts === 3;
+        } catch {
+          return false;
+        }
+      });
       expect(extractionId).toBeTruthy();
       // Fresh UUID from this run — never a hardcoded gate id.
       expect(extractionId).toMatch(

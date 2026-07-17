@@ -1,0 +1,15 @@
+{
+  "ok": true,
+  "extractionId": "f1317353-ca23-4270-af5f-7d9b78f0dd6c",
+  "result": {
+    "title": "The Model Returns Bad JSON Once, Then Good Data",
+    "count": 2,
+    "tags": [
+      "retry",
+      "success"
+    ]
+  },
+  "schema": "malformed-once",
+  "role": "divergent"
+}
+EXIT_CODE=0

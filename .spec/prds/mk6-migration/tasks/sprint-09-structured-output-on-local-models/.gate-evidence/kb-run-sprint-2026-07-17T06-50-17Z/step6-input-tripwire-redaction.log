@@ -1,0 +1,2 @@
+{"ok":false,"error":"BLOCKED","schema":"tripwire","role":"divergent","message":"extraction blocked: sensitive_data_detected (processor=pii-filter)","reason":"sensitive_data_detected","processorId":"pii-filter","tripwirePayload":{"reason":"sensitive_data_detected","processorId":"pii-filter","details":"Detected 1 sensitive data pattern(s) of kind SSN in input (values redacted)","patterns":["SSN"]}}
+EXIT_CODE=0

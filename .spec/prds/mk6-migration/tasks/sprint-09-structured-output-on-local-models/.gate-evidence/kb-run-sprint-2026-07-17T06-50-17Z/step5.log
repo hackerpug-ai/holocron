@@ -1,0 +1,17 @@
+CAPTURED_ID=953fc434-1ec2-4551-a8e9-d4c293f41224
+{
+  "ok": true,
+  "id": "953fc434-1ec2-4551-a8e9-d4c293f41224",
+  "status": "extraction_failed",
+  "role": "divergent",
+  "startedAt": "2026-07-17T06:52:57.001Z",
+  "endedAt": "2026-07-17T06:53:31.181Z",
+  "committed": false,
+  "error": {
+    "code": "EXTRACTION_FAILED",
+    "message": "extraction failed after 3 attempts: [\n  {\n    \"code\": \"custom\",\n    \"path\": [],\n    \"message\": \"generateObject rejected output (AI_NoObjectGeneratedError): No object generated: response did not match schema.\"\n  }\n]",
+    "attempts": 3,
+    "lastParseError": "[\n  {\n    \"code\": \"custom\",\n    \"path\": [],\n    \"message\": \"generateObject rejected output (AI_NoObjectGeneratedError): No object generated: response did not match schema.\"\n  }\n]"
+  }
+}
+EXIT_CODE=0

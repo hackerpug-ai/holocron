@@ -1,0 +1,88 @@
+{
+  "sprint": "sprint-09-structured-output-on-local-models",
+  "run_id": "2026-07-17T06:50:17Z",
+  "verdict": "pass",
+  "timestamp": "2026-07-17T06:55:12Z",
+  "runner": "kb-run-sprint (grok cycle-2 human-test)",
+  "ui_driver": "none",
+  "exec_surface": "in-session-bash (holo CLI against live fleet :4545)",
+  "steps_total": 6,
+  "steps_executed": 6,
+  "steps_passed": 6,
+  "steps_deferred": 0,
+  "gate": "Given a local fleet model and a Zod extraction schema, holo extract either repairs a malformed generation to a schema-valid object or fails explicitly past its retry cap with a typed terminal outcome \u2014 never silently accepting invalid output.",
+  "steps": [
+    {
+      "n": 1,
+      "text": "holo probe:capabilities",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "bun services/platform/src/cli/holo.ts probe:capabilities --json",
+      "executed": true,
+      "result": "pass",
+      "evidence": "supportsJsonSchema + mode per role",
+      "log": ".spec/prds/mk6-migration/tasks/sprint-09-structured-output-on-local-models/.gate-evidence/kb-run-sprint-2026-07-17T06-50-17Z/step1.log"
+    },
+    {
+      "n": 2,
+      "text": "holo extract --fixture good",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "bun services/platform/src/cli/holo.ts extract --fixture good --json",
+      "executed": true,
+      "result": "pass",
+      "evidence": "ok:true Zod-valid object",
+      "log": ".spec/prds/mk6-migration/tasks/sprint-09-structured-output-on-local-models/.gate-evidence/kb-run-sprint-2026-07-17T06-50-17Z/step2.log"
+    },
+    {
+      "n": 3,
+      "text": "holo extract --fixture malformed-once",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "bun services/platform/src/cli/holo.ts extract --fixture malformed-once --json",
+      "executed": true,
+      "result": "pass",
+      "evidence": "ok:true after repair",
+      "log": ".spec/prds/mk6-migration/tasks/sprint-09-structured-output-on-local-models/.gate-evidence/kb-run-sprint-2026-07-17T06-50-17Z/step3.log"
+    },
+    {
+      "n": 4,
+      "text": "holo extract --fixture always-malformed",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "bun services/platform/src/cli/holo.ts extract --fixture always-malformed --json",
+      "executed": true,
+      "result": "pass",
+      "evidence": "EXTRACTION_FAILED attempts:3",
+      "log": ".spec/prds/mk6-migration/tasks/sprint-09-structured-output-on-local-models/.gate-evidence/kb-run-sprint-2026-07-17T06-50-17Z/step4.log"
+    },
+    {
+      "n": 5,
+      "text": "self-contained extract\u2192status",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "extract always-malformed then extract:status ",
+      "executed": true,
+      "result": "pass",
+      "evidence": "status:extraction_failed committed:false",
+      "log": ".spec/prds/mk6-migration/tasks/sprint-09-structured-output-on-local-models/.gate-evidence/kb-run-sprint-2026-07-17T06-50-17Z/step5.log"
+    },
+    {
+      "n": 6,
+      "text": "output tripwire",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "bun services/platform/src/cli/holo.ts extract --fixture output-tripwire --json",
+      "executed": true,
+      "result": "pass",
+      "evidence": "BLOCKED reason:output_sensitive_data_detected patterns redacted",
+      "log": ".spec/prds/mk6-migration/tasks/sprint-09-structured-output-on-local-models/.gate-evidence/kb-run-sprint-2026-07-17T06-50-17Z/step6.log"
+    }
+  ],
+  "cycle2_remediation": {
+    "H1": "step6 patterns are kind labels SSN not raw digits",
+    "H2": "step6 uses output-tripwire fixture reason output_sensitive_data_detected",
+    "H3": "step3 malformed-once yields valid object via deterministic repair",
+    "H4": "step5 self-contained pipeline with runtime CAPTURED_ID"
+  }
+}
