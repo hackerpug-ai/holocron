@@ -34,33 +34,33 @@
     "last_result": null
   },
   "closeout": {
-    "authorization": "/Users/inference1/.config/brain/kb-run-prd-state/prd-20260716T192354Z-14461843-sprint09-close-authorization.json",
-    "evaluation": "/Users/inference1/.config/brain/kb-run-prd-state/prd-20260716T192354Z-14461843-sprint09-close-evaluation-5.json",
-    "request": "/Users/inference1/.config/brain/kb-orchestrate-state/orch-s09-structured-output-20260717T024012Z.close-request.json",
-    "verified_at": "2026-07-17T08:58:05Z"
+    "authorization": null,
+    "evaluation": null,
+    "request": null,
+    "verified_at": null
   },
   "conductor_watch": {
-    "anchor_epoch": 1784278695,
+    "anchor_epoch": 1784304795,
     "first_conductor_deadline_seconds": 600,
     "planning_surface_id": null
   },
   "created_at": "2026-07-16T19:23:54Z",
   "current_sprint": {
-    "child_registry": "/Users/inference1/.config/brain/kb-orchestrate-state/orch-s09-structured-output-20260717T024012Z.json",
-    "child_run_id": "orch-s09-structured-output-20260717T024012Z",
+    "child_registry": "/Users/inference1/.config/brain/kb-orchestrate-state/orch-s10-local-re-embedding-20260717T153837Z.json",
+    "child_run_id": "orch-s10-local-re-embedding-20260717T153837Z",
     "close_request": null,
     "conductor_harness": "codex",
     "conductor_model": "gpt-5.6-luna",
     "conductor_reasoning_effort": "xhigh",
-    "conductor_surface_id": "F59BA711-F6C1-4C1B-98BA-7EFD3F3AC1CA",
-    "name": "Sprint 09: Structured Output on Local Models",
-    "number": 9,
-    "path": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-09-structured-output-on-local-models"
+    "conductor_surface_id": "D9933E96-E83F-42CF-8603-DD2EB9B40C84",
+    "name": "Sprint 10: Local Re-embedding and Hybrid RRF Search",
+    "number": 10,
+    "path": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-10-local-re-embedding-and-hybrid-rrf-search"
   },
   "cycles": {
     "qa": 0,
     "replan": 0,
-    "steer": 0,
+    "steer": 1,
     "unblock": 0
   },
   "goal": {
@@ -121,8 +121,8 @@
       "tier": 1
     }
   },
-  "parent_session_id": "4e359298-0950-48e3-8655-c9a278c2b430",
-  "parent_surface_id": "7C1AE16F-97E3-4157-93CB-0B8E243AE391",
+  "parent_session_id": "d4002ff6-89e1-4079-a17e-9eff5f63f52d",
+  "parent_surface_id": "5E5540E6-AA56-468A-ABB9-DA88563EA92C",
   "project": "/Users/inference1/Projects/holocron",
   "resume": {
     "accepted_at": null,
@@ -132,13 +132,13 @@
     "source_run_id": "prd-20260716T192354Z-14461843"
   },
   "roadmap": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/ROADMAP.md",
-  "roadmap_sha256": "78d88bec86c30214d691fe04103693afe21037bda627a774f3da5b4b4c1e6549",
+  "roadmap_sha256": "2d046a2047293929540603a2079cc5f78e2e4a4f70de372b8696efe59754c049",
   "run_id": "prd-20260716T192354Z-14461843",
   "schema_version": 1,
   "specialist_override_display": "",
   "specialist_override_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   "state": "/Users/inference1/.config/brain/kb-run-prd-state/prd-20260716T192354Z-14461843.json",
-  "status": "rotating",
+  "status": "auditing",
   "status_sync": {
     "last_synced_at": null,
     "pending_transaction": null,
@@ -146,5 +146,5 @@
     "snapshot_sha256": null,
     "tracker_parity": "unknown"
   },
-  "updated_at": "2026-07-17T08:58:15Z"
+  "updated_at": "2026-07-17T17:49:02Z"
 }
