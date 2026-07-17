@@ -31,31 +31,31 @@
   "cleanup": {
     "child_surfaces_remaining": [],
     "conductor_cleanup": "verified",
-    "last_result": "run-terminal-then-conductor-reaped"
+    "last_result": "sprint11-conductor-reaped"
   },
   "closeout": {
-    "authorization": "/Users/inference1/.config/brain/kb-run-prd-state/prd-20260716T192354Z-14461843-sprint10-close-authorization.json",
-    "evaluation": "/Users/inference1/.config/brain/kb-run-prd-state/prd-20260716T192354Z-14461843-sprint10-close-evaluation-final.json",
-    "request": "/Users/inference1/.config/brain/kb-orchestrate-state/orch-s10-local-re-embedding-20260717T153837Z.close-request.json",
-    "verified_at": "2026-07-17T18:08:00Z"
+    "authorization": "/Users/inference1/.config/brain/kb-run-prd-state/prd-20260716T192354Z-14461843-sprint11-close-authorization.json",
+    "evaluation": "/Users/inference1/.config/brain/kb-run-prd-state/prd-20260716T192354Z-14461843-sprint11-close-evaluation-final.json",
+    "request": "/Users/inference1/.config/brain/kb-orchestrate-state/orch-s11-scheduler-queue-20260717T185349Z.close-request.json",
+    "verified_at": "2026-07-17T22:04:00Z"
   },
   "conductor_watch": {
-    "anchor_epoch": 1784314166,
+    "anchor_epoch": 1784329163,
     "first_conductor_deadline_seconds": 600,
     "planning_surface_id": null
   },
   "created_at": "2026-07-16T19:23:54Z",
   "current_sprint": {
-    "child_registry": "/Users/inference1/.config/brain/kb-orchestrate-state/orch-s11-scheduler-queue-20260717T185349Z.json",
-    "child_run_id": "orch-s11-scheduler-queue-20260717T185349Z",
+    "child_registry": "/Users/inference1/.config/brain/kb-orchestrate-state/orch-s12-observability-telemetry-20260717T225923Z.json",
+    "child_run_id": "orch-s12-observability-telemetry-20260717T225923Z",
     "close_request": null,
     "conductor_harness": "codex",
     "conductor_model": "gpt-5.6-luna",
     "conductor_reasoning_effort": "xhigh",
-    "conductor_surface_id": "CDEE5E9B-CBC0-48BF-9BF6-D4E5CE2463B2",
-    "name": "Sprint 11: Scheduler and Durable Queue",
-    "number": 11,
-    "path": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue"
+    "conductor_surface_id": "BC99372D-8CA8-41E4-BE17-A51318F6A33A",
+    "name": "Sprint 12: Observability, Telemetry and Eval Gate",
+    "number": 12,
+    "path": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-12-observability-telemetry-and-eval-gate"
   },
   "cycles": {
     "qa": 0,
@@ -132,7 +132,7 @@
     "source_run_id": "prd-20260716T192354Z-14461843"
   },
   "roadmap": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/ROADMAP.md",
-  "roadmap_sha256": "f46f1f2d24ef1f18b0dc35cdf774b3531b734cd9e3b62a11e3faa2cb30578b2a",
+  "roadmap_sha256": "f18bbd27d56700a22e5a2afd0bba7d6967757e392403cf79229e3f8c3cc8c803",
   "run_id": "prd-20260716T192354Z-14461843",
   "schema_version": 1,
   "specialist_override_display": "",
@@ -146,5 +146,5 @@
     "snapshot_sha256": null,
     "tracker_parity": "unknown"
   },
-  "updated_at": "2026-07-17T21:45:46Z"
+  "updated_at": "2026-07-17T23:10:57Z"
 }
