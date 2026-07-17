@@ -1,0 +1,26 @@
+# RED evidence (captured by search-4 before search-1 implementation)
+# Source: .tmp/search-4/red-output.txt
+# Command: PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/embed-helper.test.ts
+#
+# RED signatures observed:
+#   ReferenceError: embed is not defined
+#   ReferenceError: chunkDocument is not defined
+#
+# Full transcript excerpt from search-4:
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.worktrees/search-4
+
+ ❯ services/platform/tests/integration/embed-helper.test.ts (2 tests | 2 failed) 7ms
+     × embed produces 1024-dim vector 5ms
+     × chunkDocument preserves past-8K marker span 1ms
+
+ FAIL  services/platform/tests/integration/embed-helper.test.ts > search-4 AC-1: embed helper 1024-dim vectors (RED) > embed produces 1024-dim vector
+ReferenceError: embed is not defined
+
+ FAIL  services/platform/tests/integration/embed-helper.test.ts > search-4 AC-1: embed helper 1024-dim vectors (RED) > chunkDocument preserves past-8K marker span
+ReferenceError: chunkDocument is not defined
+
+# Implementation landed (search-1):
+#   services/platform/src/inference/embed.ts
+#   services/platform/src/inference/chunk.ts
+# GREEN requires re-run with live fleet at :4545 (shell unavailable in implementer session).

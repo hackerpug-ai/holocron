@@ -1,0 +1,13 @@
+{
+  "docLength": 10049,
+  "passageCount": 6,
+  "markerSurvived": true,
+  "maxTokenCount": 512,
+  "firstHeader": "Document: Embedding Guide | Passage 1/6",
+  "must_observe": {
+    "passages.length >= 2": true,
+    "marker preserved": true,
+    "tokenCount <= 512": true,
+    "header includes title": true
+  }
+}
