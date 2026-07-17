@@ -6,8 +6,8 @@ timeline: Phase 2 — Inference and Data
 status: Planned
 prd: ../../README.md
 capability_coverage: [CAP-EMB-01]
-planned_from_roadmap_sha: 014c6088ab7f9a16735a79146d4fba2e135581a0b894f06b9757cece98d14225
-planned_from_source_sha: 13f93dc53c8516efd93368a9f0c0627aeb3af6f6
+planned_from_roadmap_sha: 893fae6081cf9ff33a64f62ac414c3ac4326afe44f2839290499da1ff0810325
+planned_from_source_sha: 4ff64f53597047cff97400f9dbbab07df0793a75
 planned_at: 2026-07-17T02:47:04Z
 ---
 
