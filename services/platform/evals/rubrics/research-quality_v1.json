@@ -1,0 +1,37 @@
+{
+  "id": "research-quality",
+  "version": "research-quality_v1",
+  "promptVersion": "research-quality_v1",
+  "scorerId": "research-quality",
+  "scorerVersion": "research-quality_v1",
+  "scale": { "min": 0, "max": 1 },
+  "judgeInstructions": "You are a strict research-quality evaluator for Holocron. Score only what is present in the response. Never invent missing citations. Return structured JSON only.",
+  "criteria": [
+    {
+      "id": "grounding",
+      "weight": 0.3,
+      "description": "Claims are specific, evidence-linked, and avoid unfounded certainty."
+    },
+    {
+      "id": "citations",
+      "weight": 0.25,
+      "description": "Includes explicit source markers (numbered citations and/or URLs/DOIs)."
+    },
+    {
+      "id": "structure",
+      "weight": 0.2,
+      "description": "Organized findings with clear takeaways suitable for operator review."
+    },
+    {
+      "id": "completeness",
+      "weight": 0.15,
+      "description": "Covers benefits, limitations/safety, and a bottom-line judgment."
+    },
+    {
+      "id": "calibration",
+      "weight": 0.1,
+      "description": "Acknowledges uncertainty and does not overclaim beyond the evidence."
+    }
+  ],
+  "scoringGuidance": "Score 0.0–1.0 using these bands:\n- >=0.85: Thorough, structured research brief with numbered citations AND a Sources section, covers benefits + limitations/safety + bottom line, calibrates uncertainty. Treat fixture/example DOI or URL placeholders as valid citation format when markers are present — do not heavily penalize synthetic example links in evaluation fixtures.\n- 0.8–0.84: Strong research brief meeting all structural criteria with minor gaps.\n- 0.4–0.7: Partial but serious answer missing citations or major sections.\n- <0.4: Flippant, unsourced, empty, or clearly non-research output.\nA high-quality structured brief with [n] citations and a Sources list MUST score >=0.8 even if URLs look like examples."
+}

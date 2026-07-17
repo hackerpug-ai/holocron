@@ -5,6 +5,7 @@
 export * from './analysis';
 export * from './chat';
 export * from './documents';
+export * from './evals';
 export * from './evidence';
 export * from './inference';
 export * from './media';
@@ -18,6 +19,7 @@ export * from './zero-pub';
 import * as analysis from './analysis';
 import * as chat from './chat';
 import * as documents from './documents';
+import * as evals from './evals';
 import * as evidence from './evidence';
 import * as inference from './inference';
 import * as media from './media';
@@ -40,6 +42,7 @@ export const schema = {
   ...outbox,
   ...queue,
   ...inference,
+  ...evals,
 };
 
 /** Ordered list of expected physical table names (≥55). */
