@@ -1,8 +1,9 @@
 # obs-3 — Eval scorers + versioned datasets/baselines per specialist/retrieval/gate + judge versions
-> Status: Backlog
+> Status: ✅ Completed
+> Commit: 6dd9aca0e8dd9a89d0fb074db12ad8ccc732eba0
+> Completed: 2026-07-17T23:47:57Z
 > Sprint: [Sprint 12 — Observability, Telemetry and Eval Gate](../SPRINT.md)
 > Agent: mastra-evals-implementer
-> Reviewer: mastra-reviewer
 > Estimate: 300 min
 > Type: FEATURE
 > Priority: P0
