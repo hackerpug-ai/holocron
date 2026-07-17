@@ -7,7 +7,7 @@
  * RED-pinned exports: enqueue, dequeue, resetPriorityLanes (optional).
  */
 import { randomUUID } from 'node:crypto';
-import { LANE_PRIORITY, type JobLane } from './backend.ts';
+import { type JobLane, LANE_PRIORITY } from './backend.ts';
 import { withQueueSql } from './schema.ts';
 
 export type PriorityJob = {

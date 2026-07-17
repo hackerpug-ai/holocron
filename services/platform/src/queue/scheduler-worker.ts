@@ -10,8 +10,7 @@
  */
 import { startQueueBackend, stopQueueBackend } from './backend.ts';
 
-const databaseUrl =
-  process.env.DATABASE_URL ?? 'postgres://127.0.0.1:5432/holocron';
+const databaseUrl = process.env.DATABASE_URL ?? 'postgres://127.0.0.1:5432/holocron';
 
 async function main(): Promise<void> {
   console.log('[holocron-scheduler] starting queue backend…');

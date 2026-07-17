@@ -38,9 +38,7 @@ export const queueJobs = pgTable(
     completedAt: timestamptz('completed_at'),
   },
   (t) => [
-    uniqueIndex('queue_jobs_key_uidx')
-      .on(t.key)
-      .where(sql`${t.key} IS NOT NULL`),
+    uniqueIndex('queue_jobs_key_uidx').on(t.key).where(sql`${t.key} IS NOT NULL`),
     index('queue_jobs_dequeue_idx').on(t.status, t.priority, t.availableAt, t.createdAt),
     index('queue_jobs_lane_status_idx').on(t.lane, t.status),
     check('queue_jobs_lane_check', sql`${t.lane} IN ('interactive', 'background')`),
@@ -87,9 +85,6 @@ export const queueBackendMeta = pgTable(
   },
   (t) => [
     check('queue_backend_meta_singleton', sql`${t.id} = 1`),
-    check(
-      'queue_backend_meta_backend_check',
-      sql`${t.backend} IN ('pg-boss', 'graphile-worker')`
-    ),
+    check('queue_backend_meta_backend_check', sql`${t.backend} IN ('pg-boss', 'graphile-worker')`),
   ]
 );

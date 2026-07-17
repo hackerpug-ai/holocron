@@ -4,11 +4,7 @@ declare module 'pg-boss' {
     constructor(options: string | Record<string, unknown>);
     start(): Promise<unknown>;
     stop(options?: { graceful?: boolean; timeout?: number }): Promise<unknown>;
-    send(
-      name: string,
-      data?: unknown,
-      options?: Record<string, unknown>
-    ): Promise<string | null>;
+    send(name: string, data?: unknown, options?: Record<string, unknown>): Promise<string | null>;
     fetch(name: string): Promise<unknown>;
   }
 }

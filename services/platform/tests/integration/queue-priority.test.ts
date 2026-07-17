@@ -9,8 +9,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 
 const PLATFORM_IT = Boolean(process.env.PLATFORM_IT);
-const DATABASE_URL =
-  process.env.DATABASE_URL ?? 'postgres://127.0.0.1:5432/holocron';
+const DATABASE_URL = process.env.DATABASE_URL ?? 'postgres://127.0.0.1:5432/holocron';
 const itLive = PLATFORM_IT ? it : it.skip;
 
 describe('AC-1: priority lanes — interactive before background', () => {
@@ -30,11 +29,7 @@ describe('AC-1: priority lanes — interactive before background', () => {
   itLive(
     'mixed queue: dequeue_order[0] === "interactive" with priority + fence_token',
     async () => {
-      const {
-        enqueue,
-        dequeue,
-        resetPriorityLanes,
-      } = await import('../../src/queue/priority.ts');
+      const { enqueue, dequeue, resetPriorityLanes } = await import('../../src/queue/priority.ts');
 
       await resetPriorityLanes(DATABASE_URL);
 

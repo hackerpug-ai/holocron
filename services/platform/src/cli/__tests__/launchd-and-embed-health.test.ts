@@ -69,25 +69,28 @@ describe('AC-4: launchd units + fleet embed-route health (real launchd + real CL
     }
   });
 
-  itLive('scheduler plist wires real worker (not /usr/bin/true) and stays Disabled until enabled', () => {
-    // Prefer template in repo when installed agent may lag reinstall.
-    const installed = plistPath('holocron-scheduler.plist');
-    const template = resolve(
-      process.env.HOLO_ROOT ?? process.cwd(),
-      'services/platform/deploy/launchd/holocron-scheduler.plist'
-    );
-    const path = existsSync(template) ? template : installed;
-    expect(existsSync(path), 'holocron-scheduler.plist must exist').toBe(true);
+  itLive(
+    'scheduler plist wires real worker (not /usr/bin/true) and stays Disabled until enabled',
+    () => {
+      // Prefer template in repo when installed agent may lag reinstall.
+      const installed = plistPath('holocron-scheduler.plist');
+      const template = resolve(
+        process.env.HOLO_ROOT ?? process.cwd(),
+        'services/platform/deploy/launchd/holocron-scheduler.plist'
+      );
+      const path = existsSync(template) ? template : installed;
+      expect(existsSync(path), 'holocron-scheduler.plist must exist').toBe(true);
 
-    const body = readFileSync(path, 'utf8');
-    expect(body, 'must wire scheduler-worker.ts').toMatch(/scheduler-worker/);
-    expect(body, 'must NOT be /usr/bin/true placeholder').not.toMatch(/\/usr\/bin\/true/);
-    // install-launchd.sh still requires Disabled=true (operator enable gate)
-    const disabled =
-      /<key>\s*Disabled\s*<\/key>\s*<true\s*\/>/i.test(body) ||
-      /Disabled\s*=>\s*1/.test(runCmd('plutil', ['-p', path]).combined);
-    expect(disabled, 'scheduler plist keeps Disabled=true until operator enables').toBe(true);
-  });
+      const body = readFileSync(path, 'utf8');
+      expect(body, 'must wire scheduler-worker.ts').toMatch(/scheduler-worker/);
+      expect(body, 'must NOT be /usr/bin/true placeholder').not.toMatch(/\/usr\/bin\/true/);
+      // install-launchd.sh still requires Disabled=true (operator enable gate)
+      const disabled =
+        /<key>\s*Disabled\s*<\/key>\s*<true\s*\/>/i.test(body) ||
+        /Disabled\s*=>\s*1/.test(runCmd('plutil', ['-p', path]).combined);
+      expect(disabled, 'scheduler plist keeps Disabled=true until operator enables').toBe(true);
+    }
+  );
 
   itLive(
     'holo stack status surfaces fleet embed-route health (CAP-EMB-01 ops visibility)',

@@ -5,32 +5,32 @@ export {
   getActiveBackend,
   getPgBossInstance,
   isProcessQueueReady,
+  type JobLane,
   LANE_PRIORITY,
   probeQueueBackend,
+  type QueueBackendName,
+  type QueueBackendStatus,
   setProcessQueueReady,
   startQueueBackend,
   stopQueueBackend,
-  type JobLane,
-  type QueueBackendName,
-  type QueueBackendStatus,
 } from './backend.ts';
 
 export {
   getJob,
+  type JobRow,
   resetDlq,
   runUntilTerminal,
-  seedPoisonJob,
-  type JobRow,
   type SeedPoisonResult,
+  seedPoisonJob,
   type TerminalResult,
 } from './dlq.ts';
 
 export {
   dequeue,
-  enqueue,
-  resetPriorityLanes,
   type EnqueueInput,
+  enqueue,
   type PriorityJob,
+  resetPriorityLanes,
 } from './priority.ts';
 
 export {

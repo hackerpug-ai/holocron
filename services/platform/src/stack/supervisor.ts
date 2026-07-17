@@ -213,9 +213,7 @@ export function formatStatusText(report: StackStatusReport): string {
   );
   lines.push(`  zero_cache:  ${report.zero_cache}`);
   lines.push(`  embed:       ${report.embed}`);
-  lines.push(
-    `  queue:       backend=${report.queue.backend} ready=${report.queue.ready}`
-  );
+  lines.push(`  queue:       backend=${report.queue.backend} ready=${report.queue.ready}`);
   lines.push(`  mode:        ${report.mode}`);
   if (report.elapsed_ms !== undefined) {
     lines.push(`  elapsed_ms:  ${report.elapsed_ms}`);

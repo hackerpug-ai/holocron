@@ -260,10 +260,7 @@ export async function resetDlq(databaseUrl?: string): Promise<void> {
   });
 }
 
-export async function getJob(
-  key: string,
-  databaseUrl?: string
-): Promise<JobRow | null> {
+export async function getJob(key: string, databaseUrl?: string): Promise<JobRow | null> {
   return withQueueSql(databaseUrl, async (sql) => {
     const rows = await sql<{ status: string; attempts: number }[]>`
       SELECT status, attempts FROM queue_jobs WHERE key = ${key} LIMIT 1

@@ -86,10 +86,7 @@ async function tryGraphileWorker(databaseUrl: string): Promise<{ ok: boolean; de
  * the external worker package is missing (schema still real Postgres).
  */
 export async function startQueueBackend(databaseUrl?: string): Promise<QueueBackendStatus> {
-  const url =
-    databaseUrl ??
-    process.env.DATABASE_URL ??
-    'postgres://127.0.0.1:5432/holocron';
+  const url = databaseUrl ?? process.env.DATABASE_URL ?? 'postgres://127.0.0.1:5432/holocron';
 
   const sql = createSql(url);
   try {
@@ -188,10 +185,7 @@ export async function stopQueueBackend(): Promise<void> {
  * Never hardcodes ready:true without a DB round-trip.
  */
 export async function probeQueueBackend(databaseUrl?: string): Promise<QueueBackendStatus> {
-  const url =
-    databaseUrl ??
-    process.env.DATABASE_URL ??
-    'postgres://127.0.0.1:5432/holocron';
+  const url = databaseUrl ?? process.env.DATABASE_URL ?? 'postgres://127.0.0.1:5432/holocron';
   const start = performance.now();
   const sql = createSql(url);
   try {

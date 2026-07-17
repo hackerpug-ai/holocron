@@ -10,10 +10,10 @@ import { DATABASE_URL } from '../mastra.ts';
 import {
   isProcessQueueReady,
   probeQueueBackend,
+  type QueueBackendName,
   setProcessQueueReady,
   startQueueBackend,
   stopQueueBackend,
-  type QueueBackendName,
 } from '../queue/backend.ts';
 
 /** Fleet base as required by AC-2 (no /v1 suffix on the reported endpoint). */
@@ -64,10 +64,7 @@ export class PostgresQueue {
     this.#started = true;
     setProcessQueueReady(true);
     void this.start().catch((err) => {
-      console.error(
-        '[queue] start failed:',
-        err instanceof Error ? err.message : String(err)
-      );
+      console.error('[queue] start failed:', err instanceof Error ? err.message : String(err));
       this.#started = false;
       setProcessQueueReady(false);
     });

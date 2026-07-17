@@ -95,9 +95,7 @@ describe('AC-1: stack supervisor lifecycle (real holo CLI + real probes)', () =>
         /\/usr\/bin\/true/
       );
       // Queue backend must be pg-boss or graphile-worker (never process-local)
-      expect(text, 'queue backend must be real').toMatch(
-        /queue[^\n]*(pg-boss|graphile-worker)/
-      );
+      expect(text, 'queue backend must be real').toMatch(/queue[^\n]*(pg-boss|graphile-worker)/);
 
       // zero-cache: healthy if launched OR honest disabled/not_implemented — never silent absence
       expect(text, 'zero-cache must appear with honest state').toMatch(

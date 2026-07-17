@@ -9,8 +9,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 
 const PLATFORM_IT = Boolean(process.env.PLATFORM_IT);
-const DATABASE_URL =
-  process.env.DATABASE_URL ?? 'postgres://127.0.0.1:5432/holocron';
+const DATABASE_URL = process.env.DATABASE_URL ?? 'postgres://127.0.0.1:5432/holocron';
 const itLive = PLATFORM_IT ? it : it.skip;
 
 const POISON_KEY = 'it-poison-1';
