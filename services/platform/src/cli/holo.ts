@@ -2433,7 +2433,9 @@ async function main(): Promise<void> {
           `  outbox: count=${result.counts.outbox} status=${result.outbox.status ?? '—'}`
         );
         console.log(`  effect: count=${result.counts.effects} id=${result.effect.id ?? '—'}`);
-        console.log(`  inbox:  count=${result.counts.inbox} outcome=${result.inbox.outcome ?? '—'}`);
+        console.log(
+          `  inbox:  count=${result.counts.inbox} outcome=${result.inbox.outcome ?? '—'}`
+        );
         console.log(`  fence_token: ${result.fenceToken ?? '—'}`);
         const ok =
           result.counts.outbox === 1 &&

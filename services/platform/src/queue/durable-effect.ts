@@ -185,9 +185,11 @@ export async function dispatchAndAck(opts: {
         const applied = inserted.length > 0;
         const effectRow = applied
           ? { id: inserted[0]!.id }
-          : (await tx<{ id: string }[]>`
+          : (
+              await tx<{ id: string }[]>`
               SELECT id::text AS id FROM queue_effects WHERE key = ${opts.key} LIMIT 1
-            `)[0]!;
+            `
+            )[0]!;
         await tx`
           INSERT INTO queue_inbox (key, outbox_id, effect_id, fence_token, outcome)
           VALUES (
@@ -277,18 +279,14 @@ export async function auditEffect(opts: {
         effects: Number(c?.e ?? 0),
         inbox: Number(c?.i ?? 0),
       },
-      fenceToken:
-        effect[0]?.fence_token ?? outbox[0]?.fence_token ?? inbox[0]?.fence_token ?? null,
+      fenceToken: effect[0]?.fence_token ?? outbox[0]?.fence_token ?? inbox[0]?.fence_token ?? null,
     };
   } finally {
     await sql.end({ timeout: 5 });
   }
 }
 
-export async function resetDurable(opts: {
-  key: string;
-  databaseUrl?: string;
-}): Promise<void> {
+export async function resetDurable(opts: { key: string; databaseUrl?: string }): Promise<void> {
   const url = opts.databaseUrl ?? DEFAULT_URL();
   const sql = createSql(url);
   try {
@@ -337,7 +335,11 @@ export async function runDurableEffectBoundary(opts: {
     // Enqueue commits.
     await beginEffect({ key: opts.key, name: 'durable-effect', payload, databaseUrl: url });
     if (opts.boundary === 'after-dispatch-before-ack') {
-      await dispatchAndAck({ key: opts.key, databaseUrl: url, crashAt: 'after-dispatch-before-ack' });
+      await dispatchAndAck({
+        key: opts.key,
+        databaseUrl: url,
+        crashAt: 'after-dispatch-before-ack',
+      });
     } else if (opts.boundary === 'none') {
       await dispatchAndAck({ key: opts.key, databaseUrl: url });
     }

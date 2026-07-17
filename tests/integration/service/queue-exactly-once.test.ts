@@ -42,9 +42,9 @@ const ALL_BOUNDARIES: Boundary[] = [
 ];
 
 // TC-2/TC-3 pass --boundary=<x>; vitest ignores unknown flags, so read argv.
-const boundaryArg = (process.argv.find((a) => a.startsWith('--boundary=')) ?? '').split(
-  '='
-)[1] as Boundary | undefined;
+const boundaryArg = (process.argv.find((a) => a.startsWith('--boundary=')) ?? '').split('=')[1] as
+  | Boundary
+  | undefined;
 const SELECTED: Boundary[] = boundaryArg ? [boundaryArg] : ALL_BOUNDARIES;
 
 const NAME = 'durable-effect';
@@ -144,9 +144,7 @@ describe('AC-1: exactly-once observable effects survive kill-9 at every boundary
         expect(audit.counts.effects, `[${b}] must NOT be two`).not.toBe(2);
 
         expect(audit.outbox.status, `[${b}] outbox acked`).toBe('acked');
-        expect(audit.inbox.outcome, `[${b}] inbox outcome present`).toMatch(
-          /^(applied|deduped)$/
-        );
+        expect(audit.inbox.outcome, `[${b}] inbox outcome present`).toMatch(/^(applied|deduped)$/);
       },
       30_000
     );
