@@ -1,0 +1,23 @@
+@@GATE-META step=step6 cmd_sha=b23e1acd1513012288013cc75a86d3971846c0d95a741271ea149f37b3013692@@
++ DATABASE_URL=postgres://127.0.0.1:5432/holocron bun .spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/.gate-evidence/drivers/drive-dlq.ts
+{
+  "driver": "drive-dlq",
+  "database_url": "postgres://127.0.0.1:5432/holocron",
+  "seeded": {
+    "id": "019f71ce-c2e5-7522-bc00-85b82c469831",
+    "key": "gate-poison-1",
+    "max_attempts": 3
+  },
+  "terminal": {
+    "status": "dead_letter",
+    "attempts": 3,
+    "dlq_count": 1
+  },
+  "job_after": {
+    "status": "dead_letter",
+    "attempts": 3
+  },
+  "dead_lettered": true,
+  "contract": "status === \"dead_letter\" AND dlq_count >= 1 (never silently dropped)"
+}
+@@GATE-EXIT=0@@

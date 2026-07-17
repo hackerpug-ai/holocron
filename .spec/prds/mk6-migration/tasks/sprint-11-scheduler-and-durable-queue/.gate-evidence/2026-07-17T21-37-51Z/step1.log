@@ -1,0 +1,139 @@
+@@GATE-META step=step1 cmd_sha=8f2be7eb263990644ac723729c601b5811580610c6600bc0886bb7727c45c5f9@@
++ DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts jobs:run-all --json
+{
+  "jobs_fired": 16,
+  "jobs_total": 16,
+  "side_effect_rows": 100,
+  "run_id": "0020cd2b-ff8b-44e6-a96a-8285307cdd6b",
+  "runs": [
+    {
+      "name": "task-timeout-worker",
+      "run_key": "job:task-timeout-worker:0020cd2b-ff8b-44e6-a96a-8285307cdd6b",
+      "category": "janitor",
+      "lane": "interactive",
+      "ok": true,
+      "error": null
+    },
+    {
+      "name": "audio-stuck-segment-cleanup",
+      "run_key": "job:audio-stuck-segment-cleanup:0020cd2b-ff8b-44e6-a96a-8285307cdd6b",
+      "category": "janitor",
+      "lane": "background",
+      "ok": true,
+      "error": null
+    },
+    {
+      "name": "toolcall-timeout",
+      "run_key": "job:toolcall-timeout:0020cd2b-ff8b-44e6-a96a-8285307cdd6b",
+      "category": "janitor",
+      "lane": "interactive",
+      "ok": true,
+      "error": null
+    },
+    {
+      "name": "assimilation-timeout",
+      "run_key": "job:assimilation-timeout:0020cd2b-ff8b-44e6-a96a-8285307cdd6b",
+      "category": "janitor",
+      "lane": "background",
+      "ok": true,
+      "error": null
+    },
+    {
+      "name": "agent-plan-timeout",
+      "run_key": "job:agent-plan-timeout:0020cd2b-ff8b-44e6-a96a-8285307cdd6b",
+      "category": "janitor",
+      "lane": "interactive",
+      "ok": true,
+      "error": null
+    },
+    {
+      "name": "voice-session-timeout",
+      "run_key": "job:voice-session-timeout:0020cd2b-ff8b-44e6-a96a-8285307cdd6b",
+      "category": "janitor",
+      "lane": "interactive",
+      "ok": true,
+      "error": null
+    },
+    {
+      "name": "cleanup-agent-telemetry",
+      "run_key": "job:cleanup-agent-telemetry:0020cd2b-ff8b-44e6-a96a-8285307cdd6b",
+      "category": "janitor",
+      "lane": "background",
+      "ok": true,
+      "error": null
+    },
+    {
+      "name": "subscription-monitor",
+      "run_key": "job:subscription-monitor:0020cd2b-ff8b-44e6-a96a-8285307cdd6b",
+      "category": "workflow",
+      "lane": "background",
+      "ok": true,
+      "error": null
+    },
+    {
+      "name": "subscription-auto-research",
+      "run_key": "job:subscription-auto-research:0020cd2b-ff8b-44e6-a96a-8285307cdd6b",
+      "category": "workflow",
+      "lane": "background",
+      "ok": true,
+      "error": null
+    },
+    {
+      "name": "feed-builder",
+      "run_key": "job:feed-builder:0020cd2b-ff8b-44e6-a96a-8285307cdd6b",
+      "category": "workflow",
+      "lane": "background",
+      "ok": true,
+      "error": null
+    },
+    {
+      "name": "whats-new-daily",
+      "run_key": "job:whats-new-daily:0020cd2b-ff8b-44e6-a96a-8285307cdd6b",
+      "category": "workflow",
+      "lane": "background",
+      "ok": true,
+      "error": null
+    },
+    {
+      "name": "audio-transcript-job-processor",
+      "run_key": "job:audio-transcript-job-processor:0020cd2b-ff8b-44e6-a96a-8285307cdd6b",
+      "category": "consumer",
+      "lane": "interactive",
+      "ok": true,
+      "error": null
+    },
+    {
+      "name": "document-embedding-backfill",
+      "run_key": "job:document-embedding-backfill:0020cd2b-ff8b-44e6-a96a-8285307cdd6b",
+      "category": "backfill",
+      "lane": "background",
+      "ok": true,
+      "error": null
+    },
+    {
+      "name": "research-embedding-backfill",
+      "run_key": "job:research-embedding-backfill:0020cd2b-ff8b-44e6-a96a-8285307cdd6b",
+      "category": "backfill",
+      "lane": "background",
+      "ok": true,
+      "error": null
+    },
+    {
+      "name": "improvements-embedding-backfill",
+      "run_key": "job:improvements-embedding-backfill:0020cd2b-ff8b-44e6-a96a-8285307cdd6b",
+      "category": "backfill",
+      "lane": "background",
+      "ok": true,
+      "error": null
+    },
+    {
+      "name": "morning-digest",
+      "run_key": "job:morning-digest:0020cd2b-ff8b-44e6-a96a-8285307cdd6b",
+      "category": "digest",
+      "lane": "background",
+      "ok": true,
+      "error": null
+    }
+  ]
+}
+@@GATE-EXIT=0@@

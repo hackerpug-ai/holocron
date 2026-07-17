@@ -1,18 +1,50 @@
 {
   "ac": "AC-3",
   "tc": "TC-3",
-  "loadError": "Cannot find module 'file:///Users/inference1/Projects/holocron/.worktrees/queue-4/services/platform/src/queue/priority.ts' imported from /Users/inference1/Projects/holocron/.worktrees/queue-4/tests/integration/service/RED/queue-red-harness.ts",
-  "background": null,
-  "interactive": null,
-  "dequeue_order": [],
-  "dequeued": [],
+  "loadError": null,
+  "background": {
+    "id": "019f71b5-a98a-7708-ac3f-0acecd437f33",
+    "lane": "background",
+    "name": "background-mission-seed",
+    "priority": 10,
+    "status": "pending"
+  },
+  "interactive": {
+    "id": "019f71b5-a9be-7a90-8070-35bd66f0f649",
+    "lane": "interactive",
+    "name": "interactive-chat-seed",
+    "priority": 100,
+    "status": "pending"
+  },
+  "dequeue_order": [
+    "interactive",
+    "background"
+  ],
+  "dequeued": [
+    {
+      "id": "019f71b5-a9be-7a90-8070-35bd66f0f649",
+      "lane": "interactive",
+      "name": "interactive-chat-seed",
+      "priority": 100,
+      "fence_token": "fence-608c9f8b-907f-4ba2-842d-af2f9a7efc6a",
+      "status": "leased"
+    },
+    {
+      "id": "019f71b5-a98a-7708-ac3f-0acecd437f33",
+      "lane": "background",
+      "name": "background-mission-seed",
+      "priority": 10,
+      "fence_token": "fence-b7808fbd-c541-4551-9008-73d203a4622b",
+      "status": "leased"
+    }
+  ],
   "must_observe": {
-    "priority API loads": false,
-    "dequeue_order[0] === \"interactive\"": false,
-    "two jobs dequeued": false
+    "priority API loads": true,
+    "dequeue_order[0] === \"interactive\"": true,
+    "two jobs dequeued": true
   },
   "must_not_observe": {
     "background first": false,
-    "empty dequeue": true
+    "empty dequeue": false
   }
 }

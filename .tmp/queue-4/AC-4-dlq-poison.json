@@ -3,7 +3,7 @@
   "tc": "TC-4",
   "key": "red-poison-1",
   "max_attempts": 3,
-  "loadError": "Cannot find module 'file:///Users/inference1/Projects/holocron/.worktrees/queue-4/services/platform/src/queue/dlq.ts' imported from /Users/inference1/Projects/holocron/.worktrees/queue-4/tests/integration/service/RED/queue-red-harness.ts",
+  "loadError": "runUntilTerminal: job key=red-poison-1 not found",
   "runResult": null,
   "dbState": {
     "dlq_count": 0,
@@ -13,12 +13,16 @@
       "dead_letter": false,
       "dead_letter_queue": false,
       "job_dlq": false,
-      "queue_jobs": false,
+      "queue_jobs": true,
       "jobs": false,
       "durable_jobs": false,
-      "pgboss.job": false
+      "pgboss.job": true
     },
-    "errors": []
+    "errors": [
+      "queue_dlq: column \"idempotency_key\" does not exist",
+      "queue_jobs: column \"idempotency_key\" does not exist",
+      "pgboss.job: column \"status\" does not exist"
+    ]
   },
   "dlq_count": 0,
   "job_status": null,

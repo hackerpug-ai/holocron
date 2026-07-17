@@ -1,0 +1,45 @@
+@@GATE-META step=step5 cmd_sha=cb80de65aad76bbe80e076af2c3e0c437c9d4644132dace615b4efc0b94110d5@@
++ DATABASE_URL=postgres://127.0.0.1:5432/holocron bun .spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/.gate-evidence/drivers/drive-priority.ts
+{
+  "driver": "drive-priority",
+  "database_url": "postgres://127.0.0.1:5432/holocron",
+  "seeded": {
+    "background": {
+      "id": "019f71ce-a992-70f0-ba96-d925a976010c",
+      "lane": "background",
+      "name": "background-mission",
+      "priority": 10,
+      "status": "pending"
+    },
+    "interactive": {
+      "id": "019f71ce-a9a8-799f-bc66-0bfe86f729e6",
+      "lane": "interactive",
+      "name": "interactive-chat",
+      "priority": 100,
+      "status": "pending"
+    }
+  },
+  "dequeue_order": [
+    "interactive",
+    "background"
+  ],
+  "first_dequeue": {
+    "id": "019f71ce-a9a8-799f-bc66-0bfe86f729e6",
+    "lane": "interactive",
+    "name": "interactive-chat",
+    "priority": 100,
+    "fence_token": "fence-8bbe7942-e578-41fe-8dfd-638f539a5b78",
+    "status": "leased"
+  },
+  "second_dequeue": {
+    "id": "019f71ce-a992-70f0-ba96-d925a976010c",
+    "lane": "background",
+    "name": "background-mission",
+    "priority": 10,
+    "fence_token": "fence-9ab488a0-e11b-4be3-9947-6a6986c56f85",
+    "status": "leased"
+  },
+  "interactive_first": true,
+  "contract": "dequeue_order[0] === \"interactive\""
+}
+@@GATE-EXIT=0@@

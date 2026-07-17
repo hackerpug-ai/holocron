@@ -1,0 +1,123 @@
+@@GATE-META step=step1 cmd_sha=af247917db46b67ac1821756e0c1bb0d348b4bb6d1aa3d86215a9f7107840c4d@@
++ DATABASE_URL=postgres://127.0.0.1:5432/holocron HOLO_KEY_RN=rn-test HOLO_KEY_MCP=mcp-test HOLO_KEY_CONTROL=ctl-test bun services/platform/src/cli/holo.ts jobs:run-all --json
+{
+  "jobs_fired": 16,
+  "jobs_total": 16,
+  "side_effect_rows": 80,
+  "run_id": "a261155e-9f7a-4b6d-8c8b-fd89bf5256bc",
+  "runs": [
+    {
+      "name": "task-timeout-worker",
+      "run_key": "job:task-timeout-worker:a261155e-9f7a-4b6d-8c8b-fd89bf5256bc",
+      "category": "janitor",
+      "lane": "interactive",
+      "ok": true
+    },
+    {
+      "name": "audio-stuck-segment-cleanup",
+      "run_key": "job:audio-stuck-segment-cleanup:a261155e-9f7a-4b6d-8c8b-fd89bf5256bc",
+      "category": "janitor",
+      "lane": "background",
+      "ok": true
+    },
+    {
+      "name": "toolcall-timeout",
+      "run_key": "job:toolcall-timeout:a261155e-9f7a-4b6d-8c8b-fd89bf5256bc",
+      "category": "janitor",
+      "lane": "interactive",
+      "ok": true
+    },
+    {
+      "name": "assimilation-timeout",
+      "run_key": "job:assimilation-timeout:a261155e-9f7a-4b6d-8c8b-fd89bf5256bc",
+      "category": "janitor",
+      "lane": "background",
+      "ok": true
+    },
+    {
+      "name": "agent-plan-timeout",
+      "run_key": "job:agent-plan-timeout:a261155e-9f7a-4b6d-8c8b-fd89bf5256bc",
+      "category": "janitor",
+      "lane": "interactive",
+      "ok": true
+    },
+    {
+      "name": "voice-session-timeout",
+      "run_key": "job:voice-session-timeout:a261155e-9f7a-4b6d-8c8b-fd89bf5256bc",
+      "category": "janitor",
+      "lane": "interactive",
+      "ok": true
+    },
+    {
+      "name": "cleanup-agent-telemetry",
+      "run_key": "job:cleanup-agent-telemetry:a261155e-9f7a-4b6d-8c8b-fd89bf5256bc",
+      "category": "janitor",
+      "lane": "background",
+      "ok": true
+    },
+    {
+      "name": "subscription-monitor",
+      "run_key": "job:subscription-monitor:a261155e-9f7a-4b6d-8c8b-fd89bf5256bc",
+      "category": "workflow",
+      "lane": "background",
+      "ok": true
+    },
+    {
+      "name": "subscription-auto-research",
+      "run_key": "job:subscription-auto-research:a261155e-9f7a-4b6d-8c8b-fd89bf5256bc",
+      "category": "workflow",
+      "lane": "background",
+      "ok": true
+    },
+    {
+      "name": "feed-builder",
+      "run_key": "job:feed-builder:a261155e-9f7a-4b6d-8c8b-fd89bf5256bc",
+      "category": "workflow",
+      "lane": "background",
+      "ok": true
+    },
+    {
+      "name": "whats-new-daily",
+      "run_key": "job:whats-new-daily:a261155e-9f7a-4b6d-8c8b-fd89bf5256bc",
+      "category": "workflow",
+      "lane": "background",
+      "ok": true
+    },
+    {
+      "name": "audio-transcript-job-processor",
+      "run_key": "job:audio-transcript-job-processor:a261155e-9f7a-4b6d-8c8b-fd89bf5256bc",
+      "category": "consumer",
+      "lane": "interactive",
+      "ok": true
+    },
+    {
+      "name": "document-embedding-backfill",
+      "run_key": "job:document-embedding-backfill:a261155e-9f7a-4b6d-8c8b-fd89bf5256bc",
+      "category": "backfill",
+      "lane": "background",
+      "ok": true
+    },
+    {
+      "name": "research-embedding-backfill",
+      "run_key": "job:research-embedding-backfill:a261155e-9f7a-4b6d-8c8b-fd89bf5256bc",
+      "category": "backfill",
+      "lane": "background",
+      "ok": true
+    },
+    {
+      "name": "improvements-embedding-backfill",
+      "run_key": "job:improvements-embedding-backfill:a261155e-9f7a-4b6d-8c8b-fd89bf5256bc",
+      "category": "backfill",
+      "lane": "background",
+      "ok": true
+    },
+    {
+      "name": "morning-digest",
+      "run_key": "job:morning-digest:a261155e-9f7a-4b6d-8c8b-fd89bf5256bc",
+      "category": "digest",
+      "lane": "background",
+      "ok": true
+    }
+  ]
+}
+@@GATE-EXIT=0@@

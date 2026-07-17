@@ -1,0 +1,126 @@
+{
+  "sprint": "sprint-11-scheduler-and-durable-queue",
+  "run_id": "2026-07-17T20-35-05Z",
+  "verdict": "blocked",
+  "blocked_reason": "production-invocation-not-documented: 4 of 7 gate steps (kill-9 boundaries #2/#3, interactive-priority #5, poison/DLQ #6) have NO holo operator CLI surface — only the production library API (services/platform/src/queue/{durable-effect,priority,dlq}.ts). The functional contract is PROVEN via composed library harnesses (exactly-once across all 3 kill-9 boundaries; interactive-before-background priority; poison job -> dead_letter with dlq_count=1) preserved in .gate-evidence/2026-07-17T20-35-05Z/composed/. Per HUMAN-TESTING-GATE-VERIFICATION.md a composed harness records wiring_gap and the operator gate cannot be machine-certified 'pass'. The 3 real-cli steps (jobs:run-all, queue:audit, jobs:list) genuinely pass against real Postgres.",
+  "verified": true,
+  "steps_total": 7,
+  "steps_executed": 3,
+  "steps_passed": 3,
+  "ui_driver": "none",
+  "exec_surface": "surface:189 (3B86281D-7B4C-4BB0-933E-A367C6414C41) — cmux split beside qa surface 09EED288-D83B-4787-A7B8-54E433F56BEB",
+  "qa_surface_id": "09EED288-D83B-4787-A7B8-54E433F56BEB",
+  "qa_session_id": "",
+  "steps": [
+    {
+      "n": 1,
+      "text": "Run holo jobs:run-all — all 16 migrated jobs fire; each former Convex side-effect is observed in Postgres.",
+      "type": "terminal",
+      "method": "real-cli",
+      "executed": true,
+      "result": "pass",
+      "evidence": "jobs_fired=16, jobs_total=16, side_effect_rows=80, all runs ok=True",
+      "log": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/.gate-evidence/2026-07-17T20-35-05Z/step1.log"
+    },
+    {
+      "n": 2,
+      "text": "Enqueue a seeded effect and kill-9 before commit, then re-run — produces exactly one effect (no partial).",
+      "type": "terminal",
+      "method": "wiring_gap",
+      "executed": false,
+      "result": "wiring_gap",
+      "evidence": "NO holo operator CLI exists for this action (only the production library API at services/platform/src/queue/{durable-effect,priority,dlq}.ts). composed harness drove runDurableEffectBoundary(boundary='before-commit') then recovery('none'): crash_pass effects=0 -> recovery_pass effects=1, exactly_one=True. Functional proof preserved at composed/composed-step2.log",
+      "composed_proof_log": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/.gate-evidence/2026-07-17T20-35-05Z/composed/composed-step2.log",
+      "failure": {
+        "expected": "a documented operator CLI invocation (e.g. `holo queue:enqueue`, `holo queue:kill-at <boundary>`, `holo queue:dequeue`, `holo queue:force-dlq`) that an operator can run without writing code",
+        "actual": "no such operator CLI exists; the action is only reachable via the library API. Composed harness PROVED the functional contract holds (composed harness drove runDurableEffectBoundary(boundary='before-commit') then recovery('none'): crash_pass effects=0 ->...).",
+        "evidence_pointer": "composed/composed-step2.log (functional proof); absence of step2.log (no operator command was run — it does not exist)",
+        "root_cause_hypothesis": "HYPOTHESIS: Sprint 11 implemented the queue runtime + library API but did not surface operator subcommands for enqueue/dequeue/kill-boundary/poison-seed in holo.ts (only jobs:list, jobs:run-all, queue:audit were added).",
+        "remedy_suggestion": "HYPOTHESIS: add holo subcommands (queue:enqueue, queue:kill-at <boundary>, queue:dequeue, queue:force-dlq <key>) OR document the operator path; then re-run the gate for a machine pass.",
+        "remedy_file_guess": "HYPOTHESIS: services/platform/src/cli/holo.ts:~2399 (beside the existing jobs:/queue: cases)"
+      }
+    },
+    {
+      "n": 3,
+      "text": "Kill-9 after commit/before enqueue, then after dispatch/before ack — still exactly one observable effect.",
+      "type": "terminal",
+      "method": "wiring_gap",
+      "executed": false,
+      "result": "wiring_gap",
+      "evidence": "NO holo operator CLI exists for this action (only the production library API at services/platform/src/queue/{durable-effect,priority,dlq}.ts). composed harness drove after-commit-before-enqueue + after-dispatch-before-ack boundaries: all_exactly_one=True. Functional proof preserved at composed/composed-step3.log",
+      "composed_proof_log": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/.gate-evidence/2026-07-17T20-35-05Z/composed/composed-step3.log",
+      "failure": {
+        "expected": "a documented operator CLI invocation (e.g. `holo queue:enqueue`, `holo queue:kill-at <boundary>`, `holo queue:dequeue`, `holo queue:force-dlq`) that an operator can run without writing code",
+        "actual": "no such operator CLI exists; the action is only reachable via the library API. Composed harness PROVED the functional contract holds (composed harness drove after-commit-before-enqueue + after-dispatch-before-ack boundaries: all_exactly_one=True...).",
+        "evidence_pointer": "composed/composed-step3.log (functional proof); absence of step3.log (no operator command was run — it does not exist)",
+        "root_cause_hypothesis": "HYPOTHESIS: Sprint 11 implemented the queue runtime + library API but did not surface operator subcommands for enqueue/dequeue/kill-boundary/poison-seed in holo.ts (only jobs:list, jobs:run-all, queue:audit were added).",
+        "remedy_suggestion": "HYPOTHESIS: add holo subcommands (queue:enqueue, queue:kill-at <boundary>, queue:dequeue, queue:force-dlq <key>) OR document the operator path; then re-run the gate for a machine pass.",
+        "remedy_file_guess": "HYPOTHESIS: services/platform/src/cli/holo.ts:~2399 (beside the existing jobs:/queue: cases)"
+      }
+    },
+    {
+      "n": 4,
+      "text": "Run holo queue:audit <key> — shows one outbox entry, one inbox dedupe outcome, fencing token recorded.",
+      "type": "terminal",
+      "method": "real-cli",
+      "executed": true,
+      "result": "pass",
+      "evidence": "effect_count=1, outbox_count=1, inbox_dedupe_count=1, fencing_token=present",
+      "log": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/.gate-evidence/2026-07-17T20-35-05Z/step4.log"
+    },
+    {
+      "n": 5,
+      "text": "Load a background mission + an interactive chat job, then dequeue — the interactive job dequeues first.",
+      "type": "terminal",
+      "method": "wiring_gap",
+      "executed": false,
+      "result": "wiring_gap",
+      "evidence": "NO holo operator CLI exists for this action (only the production library API at services/platform/src/queue/{durable-effect,priority,dlq}.ts). composed harness drove enqueue(background)+enqueue(interactive)+dequeue x2: dequeue_order=['interactive', 'background'], interactive_first=True. Functional proof preserved at composed/composed-step5.log",
+      "composed_proof_log": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/.gate-evidence/2026-07-17T20-35-05Z/composed/composed-step5.log",
+      "failure": {
+        "expected": "a documented operator CLI invocation (e.g. `holo queue:enqueue`, `holo queue:kill-at <boundary>`, `holo queue:dequeue`, `holo queue:force-dlq`) that an operator can run without writing code",
+        "actual": "no such operator CLI exists; the action is only reachable via the library API. Composed harness PROVED the functional contract holds (composed harness drove enqueue(background)+enqueue(interactive)+dequeue x2: dequeue_order=['interactive', 'background'],...).",
+        "evidence_pointer": "composed/composed-step5.log (functional proof); absence of step5.log (no operator command was run — it does not exist)",
+        "root_cause_hypothesis": "HYPOTHESIS: Sprint 11 implemented the queue runtime + library API but did not surface operator subcommands for enqueue/dequeue/kill-boundary/poison-seed in holo.ts (only jobs:list, jobs:run-all, queue:audit were added).",
+        "remedy_suggestion": "HYPOTHESIS: add holo subcommands (queue:enqueue, queue:kill-at <boundary>, queue:dequeue, queue:force-dlq <key>) OR document the operator path; then re-run the gate for a machine pass.",
+        "remedy_file_guess": "HYPOTHESIS: services/platform/src/cli/holo.ts:~2399 (beside the existing jobs:/queue: cases)"
+      }
+    },
+    {
+      "n": 6,
+      "text": "Force a job to fail past retries — it lands in the dead-letter path, not silently dropped.",
+      "type": "terminal",
+      "method": "wiring_gap",
+      "executed": false,
+      "result": "wiring_gap",
+      "evidence": "NO holo operator CLI exists for this action (only the production library API at services/platform/src/queue/{durable-effect,priority,dlq}.ts). composed harness drove seedPoisonJob(max_attempts=3)+runUntilTerminal: status=dead_letter, attempts=3, dlq_count=1, dead_lettered=True. Functional proof preserved at composed/composed-step6.log",
+      "composed_proof_log": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/.gate-evidence/2026-07-17T20-35-05Z/composed/composed-step6.log",
+      "failure": {
+        "expected": "a documented operator CLI invocation (e.g. `holo queue:enqueue`, `holo queue:kill-at <boundary>`, `holo queue:dequeue`, `holo queue:force-dlq`) that an operator can run without writing code",
+        "actual": "no such operator CLI exists; the action is only reachable via the library API. Composed harness PROVED the functional contract holds (composed harness drove seedPoisonJob(max_attempts=3)+runUntilTerminal: status=dead_letter, attempts=3, dlq_count=1, dead...).",
+        "evidence_pointer": "composed/composed-step6.log (functional proof); absence of step6.log (no operator command was run — it does not exist)",
+        "root_cause_hypothesis": "HYPOTHESIS: Sprint 11 implemented the queue runtime + library API but did not surface operator subcommands for enqueue/dequeue/kill-boundary/poison-seed in holo.ts (only jobs:list, jobs:run-all, queue:audit were added).",
+        "remedy_suggestion": "HYPOTHESIS: add holo subcommands (queue:enqueue, queue:kill-at <boundary>, queue:dequeue, queue:force-dlq <key>) OR document the operator path; then re-run the gate for a machine pass.",
+        "remedy_file_guess": "HYPOTHESIS: services/platform/src/cli/holo.ts:~2399 (beside the existing jobs:/queue: cases)"
+      }
+    },
+    {
+      "n": 7,
+      "text": "Run holo jobs:list — the 16 map to 7 janitor sweeps + 4 workflows + 1 consumer + 3→1 backfill + 1 digest.",
+      "type": "terminal",
+      "method": "real-cli",
+      "executed": true,
+      "result": "pass",
+      "evidence": "count=16, split={'janitor': 7, 'workflow': 4, 'consumer': 1, 'backfill': 3, 'digest': 1}",
+      "log": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/.gate-evidence/2026-07-17T20-35-05Z/step7.log"
+    }
+  ],
+  "provenance": {
+    "runner_kind": "cmux-exec-pane",
+    "runner_surface_uuid": "3B86281D-7B4C-4BB0-933E-A367C6414C41",
+    "qa_surface_id": "09EED288-D83B-4787-A7B8-54E433F56BEB",
+    "evidence_dir": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/.gate-evidence/2026-07-17T20-35-05Z",
+    "env_prefix": "DATABASE_URL=postgres://127.0.0.1:5432/holocron HOLO_KEY_RN=rn-test HOLO_KEY_MCP=mcp-test HOLO_KEY_CONTROL=ctl-test",
+    "generated_by": "kb-run-human-tests (real cmux exec pane + composed library harnesses; no wholesale test suite)"
+  }
+}

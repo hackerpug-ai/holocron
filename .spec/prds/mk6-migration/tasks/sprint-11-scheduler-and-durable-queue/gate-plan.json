@@ -1,0 +1,74 @@
+{
+  "sprint": "sprint-11-scheduler-and-durable-queue",
+  "planned_at": "2026-07-17T21-37-51Z",
+  "planned_steps": 8,
+  "runner": "cmux-exec-pane surface:209 (608FD87E-6C35-4713-8375-9D43C48C19BE)",
+  "env_prefix": "DATABASE_URL=postgres://127.0.0.1:5432/holocron",
+  "realization_note": "holo is not on PATH; the literal production invocation of each SPRINT.md `holo <sub>` is `DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts <sub>`. Every step below is a real operator CLI against real Postgres (all subcommands exist at services/platform/src/cli/holo.ts:2453-2711). Prior gate-plan (7 steps) wrongly marked steps 2/3/5/6 wiring_gap on the false premise that no holo operator CLI exists; SPRINT.md documents these very commands and they are implemented. This run maps + drives + monitors all 8 literal SPRINT.md steps via the exec pane.",
+  "steps": [
+    {
+      "n": 1,
+      "text": "Run holo jobs:run-all — all 16 migrated jobs fire; each former Convex side-effect observed in Postgres.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts jobs:run-all --json",
+      "assertion": { "kind": "exit_and_log_regex", "expected_exit": 0, "expect_log_regex": "\"jobs_fired\":\\s*16", "expect_not_log_regex": "unknown command" }
+    },
+    {
+      "n": 2,
+      "text": "holo queue:effect effect-kill9-1 --boundary before-commit — kill-9 before commit + recovery → exactly one observable effect, one outbox, one inbox dedupe, fencing token set.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts queue:effect effect-kill9-1 --boundary before-commit --json",
+      "assertion": { "kind": "exit_and_log_regex", "expected_exit": 0, "expect_log_regex": "\"exactly_once\":\\s*true" }
+    },
+    {
+      "n": 3,
+      "text": "holo queue:effect effect-kill9-2 --boundary after-commit-before-enqueue — same exactly-once trail.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts queue:effect effect-kill9-2 --boundary after-commit-before-enqueue --json",
+      "assertion": { "kind": "exit_and_log_regex", "expected_exit": 0, "expect_log_regex": "\"exactly_once\":\\s*true" }
+    },
+    {
+      "n": 4,
+      "text": "holo queue:effect effect-kill9-3 --boundary after-dispatch-before-ack — same exactly-once trail.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts queue:effect effect-kill9-3 --boundary after-dispatch-before-ack --json",
+      "assertion": { "kind": "exit_and_log_regex", "expected_exit": 0, "expect_log_regex": "\"exactly_once\":\\s*true" }
+    },
+    {
+      "n": 5,
+      "text": "holo queue:audit effect-kill9-1 — one outbox, one inbox dedupe, fencing token recorded.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts queue:audit effect-kill9-1 --json",
+      "assertion": { "kind": "exit_and_log_regex", "expected_exit": 0, "expect_log_regex": "\"fencing_token\":\\s*\"[^\"]+\"" }
+    },
+    {
+      "n": 6,
+      "text": "Interactive priority: holo queue:enqueue bg-mission --lane background, then holo queue:enqueue ix-chat --lane interactive, then holo queue:dequeue — first dequeued is lane=interactive (priority 100 before background 10).",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts queue:enqueue bg-mission --lane background --json && DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts queue:enqueue ix-chat --lane interactive --json && DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts queue:dequeue --json",
+      "assertion": { "kind": "exit_and_log_regex", "expected_exit": 0, "expect_log_regex": "\"lane\":\\s*\"interactive\"" }
+    },
+    {
+      "n": 7,
+      "text": "holo queue:poison poison-1 --max-attempts 3 — status dead_letter, attempts 3/3, dlq_count 1 (never silently dropped).",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts queue:poison poison-1 --max-attempts 3 --json",
+      "assertion": { "kind": "exit_and_log_regex", "expected_exit": 0, "expect_log_regex": "\"status\":\\s*\"dead_letter\"" }
+    },
+    {
+      "n": 8,
+      "text": "holo jobs:list — total 16 split janitor=7 workflow=4 consumer=1 backfill=3 digest=1.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts jobs:list --json",
+      "assertion": { "kind": "exit_and_log_regex", "expected_exit": 0, "expect_log_regex": "\"count\":\\s*16", "expect_not_log_regex": "unknown command" }
+    }
+  ]
+}

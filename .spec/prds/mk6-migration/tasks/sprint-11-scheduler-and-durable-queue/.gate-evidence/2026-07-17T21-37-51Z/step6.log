@@ -1,0 +1,23 @@
+@@GATE-META step=step6 cmd_sha=d9193b8075cf0803ea0042c47b125e41c24edbfa8e87084df33ff871082afa1a@@
++ DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts queue:enqueue bg-mission --lane background --json && DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts queue:enqueue ix-chat --lane interactive --json && DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts queue:dequeue --json
+{
+  "name": "bg-mission",
+  "lane": "background",
+  "priority": 10,
+  "id": "019f7205-1d70-704e-844b-f2b19063272c"
+}
+{
+  "name": "ix-chat",
+  "lane": "interactive",
+  "priority": 100,
+  "id": "019f7205-1dd4-7d16-948c-768301a39457"
+}
+{
+  "dequeued": true,
+  "name": "interactive-chat-seed",
+  "lane": "interactive",
+  "priority": 100,
+  "fence_token": "fence-0fc3178f-8384-46f2-971b-6cea48f3bc98",
+  "id": "019f71fc-3b17-7599-a89b-3752d2403954"
+}
+@@GATE-EXIT=0@@

@@ -1,0 +1,78 @@
+{
+  "run_id": "sprint-11-closeout-20260717T223000Z",
+  "sprint": "sprint-11-scheduler-and-durable-queue",
+  "schema_version": 1,
+  "goal": "complete",
+  "met": true,
+  "generated_by": "PARENT RECONCILE_TASKS closeout — composed from real artifacts (no hand-authored verdicts); every field cites its source below. The canonical skill does not ship a standalone goal-state writer script, so this surface composed the state from the conductor's verified QA artifacts + sync-status projection.",
+  "layers": {
+    "tasks_complete": {
+      "value": true,
+      "detail": "5/5 tasks completed via sync-status.py task --phase completed (queue-1/2/3/5 this cycle; queue-4 preserved). audit parity=true.",
+      "source": "sync-status.py audit → parity:true, completed:5/5"
+    },
+    "gate": {
+      "value": true,
+      "verdict": "pass",
+      "steps_total": 8,
+      "steps_executed": 8,
+      "steps_passed": 8,
+      "ui_driver": "none",
+      "detail": "All 8 documented human-gate steps are real-cli holo invocations (D7-compliant; no test-suite wholesale).",
+      "source": ".spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/gate-results.json"
+    },
+    "e2e": {
+      "value": true,
+      "detail": "Sprint-11 integration suite green (queue-priority, queue-dlq, queue-exactly-once, jobs-priority, jobs-run-error) against real Postgres.",
+      "source": "pnpm vitest run --no-file-parallelism … → 9/9 passed"
+    },
+    "human_test": {
+      "value": true,
+      "verdict": "pass",
+      "steps_executed": 8,
+      "steps_passed": 8,
+      "verified": true,
+      "recomputed_verdict": "pass",
+      "discrepancies": 0,
+      "detail": "Conductor QA surface ran /kb-run-human-tests; verdict survived deterministic recompute.",
+      "source": "gate-results.json (verdict:pass, verified:true) + gate-verification.json (verified:true, recomputed_verdict:pass, discrepancies:[])"
+    },
+    "trunk_consolidated": {
+      "value": true,
+      "prime": "main",
+      "detail": "All sprint-11 implementation + GATE-FIX + REDHAT-FIX-H1 commits are ancestors of main.",
+      "commits_on_main": ["745fd6c", "c427c4e", "723c599", "ba4e307", "bfa3896", "175315e", "cd6ddc0", "1b1ce94", "79f8b58", "f3e579c"],
+      "merges": ["30821d3 (queue-1+2)", "0b5f521 (queue-3 base)", "3411522 (gate-fix)", "131fd67 (redhat-h1 code)", "67c6244 (redhat-h1 sprint-row)"],
+      "source": "git merge-base --is-ancestor <sha> main → true for all"
+    },
+    "status_files": {
+      "value": true,
+      "parity": true,
+      "lifecycle": "completed",
+      "source": "sync-status.py audit"
+    }
+  },
+  "integration": {
+    "default_target_ok": true,
+    "note": "Default verification target (real Postgres on 127.0.0.1:5432, migrations 0010-0012 applied) is healthy; operator CLI + integration tests pass against it."
+  },
+  "review": {
+    "verdict": "APPROVED",
+    "queue_5": "adversarial durable-effect contract review APPROVED",
+    "red_hat_closeout": ".spec/reviews/red-hat-2026-07-17T21-18-13Z-sprint11-closeout.md",
+    "redhat_fix_h1": "landed (79f8b58) — jobs-runner surfaces failure reason"
+  },
+  "provenance": {
+    "gate_results": ".spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/gate-results.json",
+    "gate_verification": ".spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/gate-verification.json",
+    "gate_plan": ".spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/gate-plan.json",
+    "gate_evidence_dir": ".spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/.gate-evidence/",
+    "sync_status_audit": "sync-status.py audit → parity:true, completed:5/5, lifecycle:completed",
+    "conductor_qa_surface_preserved": "497F9980-D83A-4E7D-B2C3-BAEF507F6F81 (not reaped)"
+  },
+  "forbidden_respected": [
+    "gate-results.json was produced by the conductor QA surface, not this implementer",
+    "gate-verification.json was produced by verify-gate-evidence.sh, not hand-authored",
+    "no gate evidence logs hand-authored"
+  ]
+}

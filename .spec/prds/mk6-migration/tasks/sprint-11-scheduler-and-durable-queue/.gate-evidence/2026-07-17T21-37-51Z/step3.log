@@ -1,0 +1,14 @@
+@@GATE-META step=step3 cmd_sha=d374c955e57ad9428824ccc69bdf9f5a79b3f96a337c6f0b2c7e8b21bb85ad81@@
++ DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts queue:effect effect-kill9-2 --boundary after-commit-before-enqueue --json
+{
+  "key": "effect-kill9-2",
+  "boundary": "after-commit-before-enqueue",
+  "effect_count": 1,
+  "outbox_count": 1,
+  "inbox_dedupe_count": 1,
+  "fencing_token": "fence-8d6701de-2d57-432d-a48e-23623134c8c4",
+  "outbox_status": "acked",
+  "inbox_outcome": "applied",
+  "exactly_once": true
+}
+@@GATE-EXIT=0@@

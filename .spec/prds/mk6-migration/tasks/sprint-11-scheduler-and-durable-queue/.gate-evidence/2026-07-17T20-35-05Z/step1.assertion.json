@@ -1,0 +1,6 @@
+{
+  "kind": "exit_and_log_regex",
+  "expected_exit": 0,
+  "expect_log_regex": "\"jobs_fired\":\\s*16",
+  "expect_not_log_regex": "unknown command"
+}

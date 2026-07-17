@@ -1,0 +1,11 @@
+@@GATE-META step=step7 cmd_sha=a35ac2b2ba876fc9256739a2e78f0744f7723b0fbf5280562213648686ea31ec@@
++ DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts queue:poison poison-1 --max-attempts 3 --json
+{
+  "key": "poison-1",
+  "status": "dead_letter",
+  "attempts": 3,
+  "dlq_count": 1,
+  "max_attempts": 3,
+  "dead_letter": true
+}
+@@GATE-EXIT=0@@

@@ -1,0 +1,29 @@
+@@GATE-META step=step5 cmd_sha=8eda804274ab8de7d7446c7315ea981398919477fd92e1f8f77e784a1b86d1d6@@
++ DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts queue:audit effect-kill9-1 --json
+{
+  "key": "effect-kill9-1",
+  "effect_count": 1,
+  "outbox_count": 1,
+  "inbox_dedupe_count": 1,
+  "fencing_token": "fence-9b44d019-e26d-46df-824b-e5157f5cc610",
+  "outbox": {
+    "status": "acked",
+    "fenceToken": "fence-7defe2f8-2e02-404e-b088-c3a7ee4d3506",
+    "effectId": "019f7205-0b8d-7aa7-bb90-a8373caeb12f"
+  },
+  "effect": {
+    "id": "019f7205-0b8d-7aa7-bb90-a8373caeb12f",
+    "fenceToken": "fence-9b44d019-e26d-46df-824b-e5157f5cc610"
+  },
+  "inbox": {
+    "outcome": "applied",
+    "fenceToken": "fence-9b44d019-e26d-46df-824b-e5157f5cc610"
+  },
+  "counts": {
+    "outbox": 1,
+    "effects": 1,
+    "inbox": 1
+  },
+  "fenceToken": "fence-9b44d019-e26d-46df-824b-e5157f5cc610"
+}
+@@GATE-EXIT=0@@

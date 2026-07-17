@@ -1,0 +1,29 @@
+@@GATE-META step=step4 cmd_sha=90b6e72c9722719ef0368e9f59551d45b2b023df09c7ed797c32c262b98fa4b0@@
++ DATABASE_URL=postgres://127.0.0.1:5432/holocron HOLO_KEY_RN=rn-test HOLO_KEY_MCP=mcp-test HOLO_KEY_CONTROL=ctl-test bun services/platform/src/cli/holo.ts queue:audit gate-kill9-after-dispatch-before-ack --json
+{
+  "key": "gate-kill9-after-dispatch-before-ack",
+  "effect_count": 1,
+  "outbox_count": 1,
+  "inbox_dedupe_count": 1,
+  "fencing_token": "fence-e4f2b2ed-0dce-4cd6-bc27-13977a8d5ece",
+  "outbox": {
+    "status": "acked",
+    "fenceToken": "fence-9cab635c-55f6-4e29-901e-1d9230e20bf7",
+    "effectId": "019f71ce-63b6-73c3-8a29-0156252a4325"
+  },
+  "effect": {
+    "id": "019f71ce-63b6-73c3-8a29-0156252a4325",
+    "fenceToken": "fence-e4f2b2ed-0dce-4cd6-bc27-13977a8d5ece"
+  },
+  "inbox": {
+    "outcome": "applied",
+    "fenceToken": "fence-e4f2b2ed-0dce-4cd6-bc27-13977a8d5ece"
+  },
+  "counts": {
+    "outbox": 1,
+    "effects": 1,
+    "inbox": 1
+  },
+  "fenceToken": "fence-e4f2b2ed-0dce-4cd6-bc27-13977a8d5ece"
+}
+@@GATE-EXIT=0@@

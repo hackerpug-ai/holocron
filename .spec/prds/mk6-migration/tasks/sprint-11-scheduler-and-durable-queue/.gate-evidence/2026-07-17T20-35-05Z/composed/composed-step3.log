@@ -1,0 +1,49 @@
+@@GATE-META step=step3 cmd_sha=30c40d3fb926b661cb8b3cedb5b99c60f1c44cbd30aab8fe85346593309f6129@@
++ DATABASE_URL=postgres://127.0.0.1:5432/holocron bun .spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/.gate-evidence/drivers/drive-boundaries.ts after-commit-before-enqueue after-dispatch-before-ack
+{
+  "driver": "drive-boundaries",
+  "database_url": "postgres://127.0.0.1:5432/holocron",
+  "boundaries_requested": [
+    "after-commit-before-enqueue",
+    "after-dispatch-before-ack"
+  ],
+  "final_audit_contract": "effect_count===1 AND outbox_count===1 AND inbox_dedupe_count===1 AND fencing_token present, for EACH boundary key",
+  "all_exactly_one": true,
+  "results": [
+    {
+      "boundary": "after-commit-before-enqueue",
+      "key": "gate-kill9-after-commit-before-enqueue",
+      "crash_pass": {
+        "effect_count": 0,
+        "outbox_count": 1,
+        "inbox_dedupe_count": 0,
+        "fencing_token": "fence-240ed6ad-3589-4ea8-95d6-0eed2bd2b6a8"
+      },
+      "recovery_pass": {
+        "effect_count": 1,
+        "outbox_count": 1,
+        "inbox_dedupe_count": 1,
+        "fencing_token": "fence-95cfd43b-4386-47ff-be71-197663d98587"
+      },
+      "exactly_one": true
+    },
+    {
+      "boundary": "after-dispatch-before-ack",
+      "key": "gate-kill9-after-dispatch-before-ack",
+      "crash_pass": {
+        "effect_count": 0,
+        "outbox_count": 1,
+        "inbox_dedupe_count": 0,
+        "fencing_token": "fence-9cab635c-55f6-4e29-901e-1d9230e20bf7"
+      },
+      "recovery_pass": {
+        "effect_count": 1,
+        "outbox_count": 1,
+        "inbox_dedupe_count": 1,
+        "fencing_token": "fence-e4f2b2ed-0dce-4cd6-bc27-13977a8d5ece"
+      },
+      "exactly_one": true
+    }
+  ]
+}
+@@GATE-EXIT=0@@

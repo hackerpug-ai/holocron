@@ -1,0 +1,31 @@
+@@GATE-META step=step2 cmd_sha=723593cb2032cc97c3e3a1b843dba3615aedf470962ba36ec98998ea9c18b209@@
++ DATABASE_URL=postgres://127.0.0.1:5432/holocron bun .spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/.gate-evidence/drivers/drive-boundaries.ts before-commit
+{
+  "driver": "drive-boundaries",
+  "database_url": "postgres://127.0.0.1:5432/holocron",
+  "boundaries_requested": [
+    "before-commit"
+  ],
+  "final_audit_contract": "effect_count===1 AND outbox_count===1 AND inbox_dedupe_count===1 AND fencing_token present, for EACH boundary key",
+  "all_exactly_one": true,
+  "results": [
+    {
+      "boundary": "before-commit",
+      "key": "gate-kill9-before-commit",
+      "crash_pass": {
+        "effect_count": 0,
+        "outbox_count": 0,
+        "inbox_dedupe_count": 0,
+        "fencing_token": null
+      },
+      "recovery_pass": {
+        "effect_count": 1,
+        "outbox_count": 1,
+        "inbox_dedupe_count": 1,
+        "fencing_token": "fence-b41a89d5-4d47-434e-aecc-82330be309dc"
+      },
+      "exactly_one": true
+    }
+  ]
+}
+@@GATE-EXIT=0@@

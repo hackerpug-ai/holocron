@@ -1,0 +1,244 @@
+{
+  "audit": "/Users/inference1/Projects/holocron/.spec/orchestrate/orch-s11-scheduler-queue-20260717T185349Z-audit.jsonl",
+  "close_authority": "prd-20260716T192354Z-14461843",
+  "close_request": "/Users/inference1/.config/brain/kb-orchestrate-state/orch-s11-scheduler-queue-20260717T185349Z.close-request.json",
+  "conductor_surface_id": "CDEE5E9B-CBC0-48BF-9BF6-D4E5CE2463B2",
+  "created_at": "2026-07-17T18:53:49Z",
+  "cycle": 2,
+  "failover_history": [
+    {
+      "at": "2026-07-17T19:46:13Z",
+      "from": {
+        "harness": "grok",
+        "model": "grok-4.5",
+        "surface_id": "28ECB416-59CC-4704-B351-0293858E8F61"
+      },
+      "reason": "parent-process-deviation: no durable artifact; no logs since 19:19; surface-health in_window=false",
+      "to": {
+        "harness": "opencode",
+        "model": "zai-coding-plan/glm-5.2"
+      },
+      "trigger": "stall-wedge"
+    }
+  ],
+  "hands_off": [
+    "📋 PRD*"
+  ],
+  "invocation": "/kb-orchestrate /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue --parent-run-id prd-20260716T192354Z-14461843 --close-authority prd-20260716T192354Z-14461843 --roadmap /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/ROADMAP.md",
+  "last_observed_ts": "2026-07-17T21:44:13Z",
+  "max_cycles": 3,
+  "max_recover": 2,
+  "mirror": "/Users/inference1/Projects/holocron/.spec/orchestrate/orch-s11-scheduler-queue-20260717T185349Z.json",
+  "parent_run_id": "prd-20260716T192354Z-14461843",
+  "project": "/Users/inference1/Projects/holocron",
+  "qa_surface_id": "497F9980-D83A-4E7D-B2C3-BAEF507F6F81",
+  "review_artifact": "/Users/inference1/Projects/holocron/.spec/reviews/red-hat-20260717T213125Z.md",
+  "review_surface_id": null,
+  "roadmap": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/ROADMAP.md",
+  "roadmap_sha256": "868ed3074e5b91870d1d099c4e2cae2d291d3b3ee3428620b01eac9d580f4460",
+  "run_id": "orch-s11-scheduler-queue-20260717T185349Z",
+  "schema_version": 1,
+  "sequential": true,
+  "snapshot_sha256": "0cf59213ecf55c8b88419721f50cf6576529c095edffac9c8edc31841eac0fcc",
+  "sprint": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue",
+  "stage_overrides": {},
+  "stall_window": 600,
+  "status": "awaiting-close",
+  "surfaces": [
+    {
+      "active": false,
+      "base_prompt_excerpt": "<command-message>kb-run-prd</command-message>\n<command-name>/kb-run-prd</command-name>\n<command-args>/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/ROADMAP.md</command-args>",
+      "base_prompt_sha256": "bfb7d33e02586a7d2360369f5f01b66bdb223ab8876dbba738ecff239a0daa4d",
+      "baseline_count": 0,
+      "blocked_grep": "",
+      "commands_or_skills": [
+        "/kb-run-prd"
+      ],
+      "created_at": null,
+      "cwd": "/Users/inference1/Projects/holocron",
+      "cycle": 0,
+      "driver": "human",
+      "focused": false,
+      "goal": {
+        "text": "complete /kb-run-prd parent",
+        "verification": {
+          "kind": "artifact_exists",
+          "signal": "kb-run-prd-state/*.json",
+          "status": "human-confirmed"
+        }
+      },
+      "harness": "claude-code",
+      "last_observed_ts": "2026-07-17T19:01:11Z",
+      "last_verdict_artifact": null,
+      "model": "claude-sonnet-5",
+      "nudge_count": 0,
+      "origin": "adopted",
+      "pid": "22612",
+      "provider": "anthropic",
+      "recover_count": 0,
+      "role": "adopted",
+      "session_id": "d4002ff6-89e1-4079-a17e-9eff5f63f52d",
+      "spawned_at": null,
+      "spawner": null,
+      "sprint": null,
+      "state_label": "parent-human",
+      "status": "observe-only",
+      "surface_id": "5E5540E6-AA56-468A-ABB9-DA88563EA92C",
+      "surface_ref": "surface:164",
+      "title": "📋 PRD mk6-migrat · s11 10/31 · gpt-5.6-luna",
+      "tty": "ttys000",
+      "verdict_grep": "",
+      "verdict_kind": "none",
+      "watch_glob": ""
+    },
+    {
+      "active": false,
+      "base_prompt_excerpt": "unknown",
+      "base_prompt_sha256": "",
+      "baseline_count": 0,
+      "blocked_grep": "",
+      "commands_or_skills": [],
+      "created_at": null,
+      "cwd": "/Users/inference1/Projects/holocron",
+      "cycle": 0,
+      "driver": "orch-self",
+      "focused": false,
+      "goal": {
+        "text": "/kb-orchestrate /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue --parent-run-id prd-20260716T192354Z-14461843 --close-authority prd-20260716T192354Z-14461843 --roadmap /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/ROADMAP.md",
+        "verification": {
+          "kind": "none",
+          "signal": "",
+          "status": "needs-human"
+        }
+      },
+      "harness": "codex",
+      "last_observed_ts": "2026-07-17T19:01:11Z",
+      "last_verdict_artifact": null,
+      "model": "unknown",
+      "nudge_count": 0,
+      "origin": "adopted",
+      "pid": "93633",
+      "provider": "openai",
+      "recover_count": 0,
+      "role": "orch-self",
+      "session_id": "",
+      "spawned_at": null,
+      "spawner": null,
+      "sprint": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue",
+      "state_label": "orchestrating",
+      "status": "self",
+      "surface_id": "CDEE5E9B-CBC0-48BF-9BF6-D4E5CE2463B2",
+      "surface_ref": "surface:177",
+      "title": "🎛️ ORCH s11 · starting · gpt-5.6-luna",
+      "tty": "ttys001",
+      "verdict_grep": "",
+      "verdict_kind": "none",
+      "watch_glob": ""
+    },
+    {
+      "active": true,
+      "base_prompt_excerpt": "Run the exact queued recovery packet first: bash /Users/inference1/Projects/holocron/.tmp/queue-1/RECOVER.sh . After that re-arm and continue /kb-run-sprint /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue until GATE-GOAL: ACHIEVED. Preserve the real implementation and tests, run the recovery checks for real, commit with hooks intact, and never hand-write sprint-goal-state.json or gate evidence.",
+      "base_prompt_sha256": "",
+      "baseline_count": 0,
+      "blocked_grep": "goal:blocked",
+      "commands_or_skills": [
+        "/kb-run-sprint"
+      ],
+      "cwd": "/Users/inference1/Projects/holocron",
+      "cycle": 0,
+      "driver": "orch",
+      "failover": {
+        "at": "2026-07-17T19:46:13Z",
+        "from": {
+          "harness": "grok",
+          "model": "grok-4.5",
+          "surface_id": "28ECB416-59CC-4704-B351-0293858E8F61"
+        },
+        "trigger": "stall-wedge"
+      },
+      "focused": false,
+      "goal": {
+        "text": "Run the exact queued recovery packet first: bash /Users/inference1/Projects/holocron/.tmp/queue-1/RECOVER.sh . After that re-arm and continue /kb-run-sprint /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue until GATE-GOAL: ACHIEVED. Preserve the real implementation and tests, run the recovery checks for real, commit with hooks intact, and never hand-write sprint-goal-state.json or gate evidence.",
+        "verification": {
+          "kind": "sentinel_grep",
+          "signal": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/sprint-goal-state.json:goal:complete",
+          "status": "derived"
+        }
+      },
+      "harness": "opencode",
+      "last_observed_ts": "2026-07-17T21:27:35Z",
+      "last_verdict_artifact": null,
+      "model": "zai-coding-plan/glm-5.2",
+      "nudge_count": 0,
+      "origin": "spawned",
+      "pid": "30436",
+      "provider": "zai-coding-plan",
+      "recover_count": 1,
+      "role": "run",
+      "session_id": "ses_08e62140bffew9QWh5Te55OuCr",
+      "spawner": "spawn-stage.sh",
+      "sprint": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue",
+      "state_label": "QA r2 pass; awaiting parent close",
+      "status": "running",
+      "surface_id": "CB54C827-A972-419C-BA8D-F0535B283DF9",
+      "surface_ref": "surface:181",
+      "title": "🏃 RUN s11 · RECOVER r1 · glm-5.2",
+      "tty": "ttys003",
+      "verdict_grep": "__handoff_consumed__",
+      "verdict_kind": "grep",
+      "watch_glob": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/sprint-goal-state.json"
+    },
+    {
+      "active": true,
+      "base_prompt_excerpt": "Fresh real kb-run-human-tests after REDHAT-FIX-H1 and clean independent review",
+      "base_prompt_sha256": "",
+      "baseline_count": 0,
+      "blocked_grep": "\"verdict\"[[:space:]]*:[[:space:]]*\"blocked\"",
+      "commands_or_skills": [
+        "/kb-run-human-tests"
+      ],
+      "created_at": "2026-07-17T21:35:42Z",
+      "cwd": "/Users/inference1/Projects/holocron",
+      "cycle": 2,
+      "driver": "orch",
+      "focused": false,
+      "goal": {
+        "text": "Run the real /kb-run-human-tests for /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue now",
+        "verification": {
+          "kind": "exists",
+          "signal": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/gate-results.json",
+          "status": "derived"
+        }
+      },
+      "harness": "opencode",
+      "last_observed_ts": "2026-07-17T21:35:42Z",
+      "last_verdict_artifact": null,
+      "model": "zai-coding-plan/glm-5.2",
+      "nudge_count": 0,
+      "origin": "spawned",
+      "pid": "21477",
+      "provider": "zai-coding-plan",
+      "qa_role": "human-testing-gate",
+      "recover_count": 0,
+      "role": "qa",
+      "session_id": "ses_08dfed80bffe67idzeYiDCSyA1",
+      "spawned_at": "2026-07-17T21:35:42Z",
+      "spawner": "spawn-stage.sh",
+      "sprint": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue",
+      "state_label": "QA r2 pass; awaiting parent close",
+      "status": "running",
+      "surface_id": "497F9980-D83A-4E7D-B2C3-BAEF507F6F81",
+      "surface_ref": "surface:206",
+      "title": "✅ QA s11 · r2 · glm-5.2",
+      "tty": "ttys010",
+      "verdict_grep": "__qa_exists_unused__",
+      "verdict_kind": "exists",
+      "watch_glob": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/gate-results.json"
+    }
+  ],
+  "terminal_cleanup_ready": false,
+  "tick": 30,
+  "updated_at": "2026-07-17T21:44:13Z",
+  "workspace": "workspace:12",
+  "workspace_id": "840054AA-6FC9-4014-B79B-7171350E293A"
+}

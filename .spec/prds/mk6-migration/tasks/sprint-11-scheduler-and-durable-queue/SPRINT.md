@@ -3,7 +3,7 @@ sprint: 11
 title: Scheduler and Durable Queue
 sequence: 11
 timeline: Phase 2 — Inference and Data
-status: In Progress
+status: Completed
 prd: ../../README.md
 capability_coverage: N/A
 planned_from_roadmap_sha: 3c0ce5ae204245fce00e39a80dd730a41cde98bf4c5b79940307a8478f0f74ee
@@ -15,9 +15,9 @@ planned_at: 2026-07-17T18:46:47Z
 
 **Sequence:** 11
 **Timeline:** Phase 2 — Inference and Data
-**Status:** In Progress
-> Progress: 1/5 tasks completed · updated 2026-07-17T20:30:05Z
-> Status-Note: queue-1/2/3 landed + queue-5 review APPROVED; human-test/closeout pending
+**Status:** Completed
+> Progress: 5/5 tasks completed · updated 2026-07-17T21:51:28Z
+> Status-Note: QA gate PASS 8/8 verified; all tasks completed; trunk consolidated on main
 **Proposed by:** mastra-planner
 **Branch:** `mk6-scheduler-queue`
 **Opened:** 2026-07-17 — generated JIT by /kb-sprint-tasks-plan

@@ -1,0 +1,5 @@
+{
+  "kind": "exit_and_log_regex",
+  "expected_exit": 0,
+  "expect_log_regex": "\"dead_lettered\":\\s*true[\\s\\S]*\"status\":\\s*\"dead_letter\""
+}

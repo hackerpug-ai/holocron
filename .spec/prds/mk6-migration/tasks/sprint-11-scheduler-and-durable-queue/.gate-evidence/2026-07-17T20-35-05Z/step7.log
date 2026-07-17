@@ -1,0 +1,111 @@
+@@GATE-META step=step7 cmd_sha=5f729bd0f6dfc1be58847c4e7bbd03e9c049f630562dea5c6559b52c8c978cee@@
++ DATABASE_URL=postgres://127.0.0.1:5432/holocron HOLO_KEY_RN=rn-test HOLO_KEY_MCP=mcp-test HOLO_KEY_CONTROL=ctl-test bun services/platform/src/cli/holo.ts jobs:list --json
+{
+  "count": 16,
+  "split": {
+    "janitor": 7,
+    "workflow": 4,
+    "consumer": 1,
+    "backfill": 3,
+    "digest": 1
+  },
+  "jobs": [
+    {
+      "name": "task-timeout-worker",
+      "category": "janitor",
+      "lane": "interactive",
+      "schedule": "interval 1h"
+    },
+    {
+      "name": "audio-stuck-segment-cleanup",
+      "category": "janitor",
+      "lane": "background",
+      "schedule": "interval 5m"
+    },
+    {
+      "name": "toolcall-timeout",
+      "category": "janitor",
+      "lane": "interactive",
+      "schedule": "interval 2m"
+    },
+    {
+      "name": "assimilation-timeout",
+      "category": "janitor",
+      "lane": "background",
+      "schedule": "interval 15m"
+    },
+    {
+      "name": "agent-plan-timeout",
+      "category": "janitor",
+      "lane": "interactive",
+      "schedule": "interval 5m"
+    },
+    {
+      "name": "voice-session-timeout",
+      "category": "janitor",
+      "lane": "interactive",
+      "schedule": "interval 2m"
+    },
+    {
+      "name": "cleanup-agent-telemetry",
+      "category": "janitor",
+      "lane": "background",
+      "schedule": "daily 07:00 UTC"
+    },
+    {
+      "name": "subscription-monitor",
+      "category": "workflow",
+      "lane": "background",
+      "schedule": "interval 1h"
+    },
+    {
+      "name": "subscription-auto-research",
+      "category": "workflow",
+      "lane": "background",
+      "schedule": "interval 2h"
+    },
+    {
+      "name": "feed-builder",
+      "category": "workflow",
+      "lane": "background",
+      "schedule": "interval 2h"
+    },
+    {
+      "name": "whats-new-daily",
+      "category": "workflow",
+      "lane": "background",
+      "schedule": "daily 13:00 UTC"
+    },
+    {
+      "name": "audio-transcript-job-processor",
+      "category": "consumer",
+      "lane": "interactive",
+      "schedule": "interval 2m"
+    },
+    {
+      "name": "document-embedding-backfill",
+      "category": "backfill",
+      "lane": "background",
+      "schedule": "interval 1h"
+    },
+    {
+      "name": "research-embedding-backfill",
+      "category": "backfill",
+      "lane": "background",
+      "schedule": "interval 2h"
+    },
+    {
+      "name": "improvements-embedding-backfill",
+      "category": "backfill",
+      "lane": "background",
+      "schedule": "interval 2h"
+    },
+    {
+      "name": "morning-digest",
+      "category": "digest",
+      "lane": "background",
+      "schedule": "daily 16:00 UTC"
+    }
+  ]
+}
+@@GATE-EXIT=0@@
