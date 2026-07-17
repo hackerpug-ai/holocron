@@ -94,6 +94,8 @@ async function ensureOutboxSchema(sql: Sql): Promise<void> {
   await sql.unsafe(ENSURE_SQL);
 }
 
+export { ensureOutboxSchema };
+
 // ---------------------------------------------------------------------------
 // Low-level API
 // ---------------------------------------------------------------------------
