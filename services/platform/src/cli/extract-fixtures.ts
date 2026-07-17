@@ -15,6 +15,7 @@ import {
   alwaysMalformedInput,
   goodInput,
   malformedOnceInput,
+  malformedOnceSchema,
   simpleSchema,
   tripwireInput,
   tripwireSchema,
@@ -42,7 +43,9 @@ export const FIXTURES: Record<FixtureName, ExtractFixture> = {
     description: 'good input — returns a Zod-valid object on the first attempt',
   },
   'malformed-once': {
-    schema: simpleSchema,
+    // REDHAT-FIX-C2-H3: schema-side fail-once refine forces deterministic repair
+    // (prompt-based simpleSchema was non-deterministic — model may succeed first try).
+    schema: malformedOnceSchema,
     input: malformedOnceInput,
     description: 'bounded repair loop yields a Zod-valid object',
   },
