@@ -1,8 +1,12 @@
 {
   "sprint_id": "sprint-10-local-re-embedding-and-hybrid-rrf-search",
-  "updated_at": "2026-07-17T17:06:18.147530+00:00",
+  "updated_at": "2026-07-17T17:12:03.618916+00:00",
+  "reconciled_at": "2026-07-17T17:12:03.618916+00:00",
+  "protected_branch": "main",
+  "main_tip": "d41909904dc380de8151835ccabb634e24c1c13c",
   "tasks": {
     "complete": true,
+    "all_completed": true,
     "total": 6,
     "completed": 6,
     "ids": {
@@ -12,10 +16,20 @@
       "search-4": "completed",
       "search-5": "completed",
       "GATE-FIX-holo-search-cli": "completed"
+    },
+    "landed_shas": {
+      "search-1": "3fab2c569d159853e432ab85a7dba043d04be499",
+      "search-2": "a31876b15232a739d540f248bc395f95fe820dc2",
+      "search-3": "afc581577b395578f08bf18af4540955f8ee02a4",
+      "search-4": "6fb7fb390d31d9b5025142c14eb6fcfe82f32c33",
+      "search-5": "cbc8eb1a7502f5127f1f5253f12bff4fe118d854",
+      "GATE-FIX-holo-search-cli": "323b2e3bc72e65786fb0146b6fd0bec0c91fa4b8"
     }
   },
   "gate": {
-    "verdict": "PASS"
+    "verdict": "PASS",
+    "source": ".spec/prds/mk6-migration/tasks/sprint-10-local-re-embedding-and-hybrid-rrf-search/gate-results.json",
+    "run_id": "20260717T170458Z"
   },
   "e2e": {
     "sprint": "sprint-10-local-re-embedding-and-hybrid-rrf-search",
@@ -55,11 +69,14 @@
     "steps_executed": 7,
     "steps_passed": 7,
     "run_id": "20260717T170458Z",
-    "verified": true
+    "verified": true,
+    "source": ".spec/prds/mk6-migration/tasks/sprint-10-local-re-embedding-and-hybrid-rrf-search/gate-results.json",
+    "verification": ".spec/prds/mk6-migration/tasks/sprint-10-local-re-embedding-and-hybrid-rrf-search/gate-verification.json"
   },
   "integration": {
     "trunk_consolidated": true,
-    "orphans": []
+    "orphans": [],
+    "stranded_tasks": []
   },
   "status_files": {
     "parity": true
@@ -72,5 +89,22 @@
     "integration": true,
     "status_files": true
   },
-  "met": true
+  "met": true,
+  "goal:complete": true,
+  "goal_complete_sentinel": "[goal:complete]",
+  "state": "GATE-GOAL: ACHIEVED",
+  "condition_text": "all tasks AC-complete AND human tests 7/7 verified AND E2E PASS AND trunk consolidated AND status parity",
+  "reconciliation": {
+    "assert_human_test_verdict": "valid:true",
+    "verify_gate_evidence": {
+      "verified": true,
+      "claimed_verdict": "pass",
+      "recomputed_verdict": "pass",
+      "steps_planned": 7,
+      "steps_recomputed": 7,
+      "discrepancies": []
+    },
+    "product_on_main": true,
+    "open_sprint_work": false
+  }
 }

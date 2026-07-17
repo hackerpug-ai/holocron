@@ -1,8 +1,1 @@
-{
-  "verified": true,
-  "claimed_verdict": "pass",
-  "recomputed_verdict": "pass",
-  "steps_planned": 7,
-  "steps_recomputed": 7,
-  "discrepancies": []
-}
+{"verified":true,"claimed_verdict":"pass","recomputed_verdict":"pass","steps_planned":7,"steps_recomputed":7,"discrepancies":[]}
