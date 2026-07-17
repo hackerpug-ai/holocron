@@ -1,0 +1,37 @@
+harvest-evidence: task=queue-4 manifest=.tmp/queue-4/verify-manifest.json
+  typecheck: (not specified)
+  lint: (not specified)
+  requirements: 8
+  [AC-1] PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron HOLO_KEY_RN=rn-test HOLO_KEY_MCP=mcp-test HOLO_KEY_CONTROL=ctl-test pnpm vitest run tests/integration/service/RED/queue-durable.RED.test.ts
+  [AC-2] PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron HOLO_KEY_RN=rn-test HOLO_KEY_MCP=mcp-test HOLO_KEY_CONTROL=ctl-test bun services/platform/src/cli/holo.ts jobs:run-all
+  [AC-3] PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron HOLO_KEY_RN=rn-test HOLO_KEY_MCP=mcp-test HOLO_KEY_CONTROL=ctl-test pnpm vitest run tests/integration/service/RED/queue-priority.RED.test.ts
+  [AC-4] PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron HOLO_KEY_RN=rn-test HOLO_KEY_MCP=mcp-test HOLO_KEY_CONTROL=ctl-test pnpm vitest run tests/integration/service/RED/queue-dlq.RED.test.ts
+  [TC-1] PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron HOLO_KEY_RN=rn-test HOLO_KEY_MCP=mcp-test HOLO_KEY_CONTROL=ctl-test pnpm vitest run tests/integration/service/RED/queue-durable.RED.test.ts
+  [TC-2] PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron HOLO_KEY_RN=rn-test HOLO_KEY_MCP=mcp-test HOLO_KEY_CONTROL=ctl-test bun services/platform/src/cli/holo.ts jobs:run-all
+  [TC-3] PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron HOLO_KEY_RN=rn-test HOLO_KEY_MCP=mcp-test HOLO_KEY_CONTROL=ctl-test pnpm vitest run tests/integration/service/RED/queue-priority.RED.test.ts
+  [TC-4] PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron HOLO_KEY_RN=rn-test HOLO_KEY_MCP=mcp-test HOLO_KEY_CONTROL=ctl-test pnpm vitest run tests/integration/service/RED/queue-dlq.RED.test.ts
+
+harvest-evidence: done
+  task:       queue-4
+  commit:     38c45346
+  typecheck:  exit=0
+  lint:       exit=0 warnings=0
+  evidence:   0 pass, 8 fail (of 8 requirements)
+  output:     .tmp/queue-4/verification-summary.json
+
+  ⚠️  Failed requirements:
+    AC-1: exit=1 — PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocro
+    AC-2: exit=2 — PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocro
+    AC-3: exit=1 — PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocro
+    AC-4: exit=1 — PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocro
+    TC-1: exit=1 — PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocro
+    TC-2: exit=2 — PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocro
+    TC-3: exit=1 — PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocro
+    TC-4: exit=1 — PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocro
+
+  Manual files still needed (if applicable):
+    .tmp/queue-4/red-output.txt                 (if requires_red_evidence)
+    .tmp/queue-4/{AC}-red-against-start.txt     (if requires_seeded_evidence)
+    .tmp/queue-4/{AC}-green.txt                 (if requires_seeded_evidence)
+    .tmp/queue-4/{AC}-seeded-artifact.*          (if requires_seeded_evidence)
+    .tmp/queue-4/pre-existing-issues.md         (if pre-existing failures)
