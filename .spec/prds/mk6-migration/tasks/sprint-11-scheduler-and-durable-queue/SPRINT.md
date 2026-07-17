@@ -16,8 +16,8 @@ planned_at: 2026-07-17T18:46:47Z
 **Sequence:** 11
 **Timeline:** Phase 2 — Inference and Data
 **Status:** In Progress
-> Progress: 1/5 tasks completed · updated 2026-07-17T19:06:04Z
-> Status-Note: queue-4 completed
+> Progress: 1/5 tasks completed · updated 2026-07-17T20:30:05Z
+> Status-Note: queue-1/2/3 landed + queue-5 review APPROVED; human-test/closeout pending
 **Proposed by:** mastra-planner
 **Branch:** `mk6-scheduler-queue`
 **Opened:** 2026-07-17 — generated JIT by /kb-sprint-tasks-plan
@@ -36,13 +36,17 @@ An operator can seed a durable effect and exercise the scheduler against real Po
 
 ## Test Deliverable
 
-1. Run `holo jobs:run-all` — all 16 migrated jobs fire; each former Convex side-effect is observed in Postgres.
-2. Enqueue a seeded effect and kill-9 before commit, then re-run — produces exactly one effect (no partial).
-3. Kill-9 after commit/before enqueue, then after dispatch/before ack — still exactly one observable effect.
-4. Run `holo queue:audit <key>` — shows one outbox entry, one inbox dedupe outcome, fencing token recorded.
-5. Load a background mission + an interactive chat job, then dequeue — the interactive job dequeues first.
-6. Force a job to fail past retries — it lands in the dead-letter path, not silently dropped.
-7. Run `holo jobs:list` — the 16 map to 7 janitor sweeps + 4 workflows + 1 consumer + 3→1 backfill + 1 digest.
+Each step is a real documented `holo` operator invocation (no test suite). Run with
+`DATABASE_URL=postgres://127.0.0.1:5432/holocron`.
+
+1. Run `holo jobs:run-all` — observe `jobs_fired: 16/16` and `side_effect_rows >= 16` (all 16 migrated jobs fire; each former Convex side-effect observed in Postgres).
+2. Kill-9 before commit + recovery: run `holo queue:effect effect-kill9-1 --boundary before-commit` — observe `effect_count: 1`, `outbox_count: 1`, `inbox_dedupe_count: 1`, `fencing_token` set, `exactly_once: true`.
+3. Kill-9 after commit/before enqueue: run `holo queue:effect effect-kill9-2 --boundary after-commit-before-enqueue` — same exactly-once trail.
+4. Kill-9 after dispatch/before ack: run `holo queue:effect effect-kill9-3 --boundary after-dispatch-before-ack` — same exactly-once trail.
+5. Run `holo queue:audit effect-kill9-1` — observe `outbox_count: 1`, `inbox_dedupe_count: 1`, `fencing_token` set.
+6. Interactive priority: run `holo queue:enqueue bg-mission --lane background`, then `holo queue:enqueue ix-chat --lane interactive`, then `holo queue:dequeue` — observe the first dequeued `lane=interactive` (priority 100 before background priority 10).
+7. Poison to DLQ: run `holo queue:poison poison-1 --max-attempts 3` — observe `status: dead_letter`, `attempts: 3/3`, `dlq_count: 1` (never silently dropped).
+8. Run `holo jobs:list` — observe `total: 16` split `janitor=7 workflow=4 consumer=1 backfill=3 digest=1`.
 
 ## Tasks
 
@@ -53,6 +57,11 @@ An operator can seed a durable effect and exercise the scheduler against real Po
 | queue-3 | Migrate all 16 crons to the new scheduler/queue with observable side-effects + priority lanes | mastra-implementer | 300 min |
 | queue-4 | RED tests: kill-9 at commit/dispatch/ack → exactly-once + dedupe, all-16-fire, priority, DLQ | red-test-generator | 210 min |
 | queue-5 | Review durable-effect contract | mastra-reviewer | 90 min |
+| GATE-FIX-001 | Add documented production CLI coverage for seeded-effect kill/recovery at the before-commit boundary | mastra-implementer | 90 min |
+| GATE-FIX-002 | Add documented production CLI coverage for after-commit/before-enqueue and after-dispatch/before-ack recovery | mastra-implementer | 90 min |
+| GATE-FIX-003 | Add documented production CLI coverage for interactive-over-background dequeue priority | mastra-implementer | 60 min |
+| GATE-FIX-004 | Add documented production CLI coverage for poison retry exhaustion and dead-letter inspection | mastra-implementer | 60 min |
+| GATE-FIX-005 | Make queue audit output satisfy the one-outbox/one-inbox/fencing-token gate evidence contract | mastra-implementer | 45 min |
 
 ## Source Coverage
 
