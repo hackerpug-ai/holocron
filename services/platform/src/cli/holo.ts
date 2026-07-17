@@ -108,6 +108,12 @@ interface CliArgs {
   surface: string | null;
   golden: string | null;
   limit: string | null;
+  /** queue:enqueue --lane <interactive|background> */
+  lane: string | null;
+  /** queue:effect --boundary <before-commit|after-commit-before-enqueue|after-dispatch-before-ack> */
+  boundary: string | null;
+  /** queue:poison --max-attempts <n> */
+  maxAttempts: string | null;
 }
 
 function printHelp(): void {
@@ -256,6 +262,9 @@ function parseArgs(argv: string[]): CliArgs {
     surface: null,
     golden: null,
     limit: null,
+    lane: null,
+    boundary: null,
+    maxAttempts: null,
   };
   const positional: string[] = [];
   for (let i = 0; i < argv.length; i++) {
@@ -278,6 +287,18 @@ function parseArgs(argv: string[]): CliArgs {
       args.limit = argv[++i] ?? null;
     } else if (a.startsWith('--limit=')) {
       args.limit = a.slice('--limit='.length);
+    } else if (a === '--lane') {
+      args.lane = argv[++i] ?? null;
+    } else if (a.startsWith('--lane=')) {
+      args.lane = a.slice('--lane='.length);
+    } else if (a === '--boundary') {
+      args.boundary = argv[++i] ?? null;
+    } else if (a.startsWith('--boundary=')) {
+      args.boundary = a.slice('--boundary='.length);
+    } else if (a === '--max-attempts') {
+      args.maxAttempts = argv[++i] ?? null;
+    } else if (a.startsWith('--max-attempts=')) {
+      args.maxAttempts = a.slice('--max-attempts='.length);
     } else if (a === '--dry-run') {
       args.dryRun = true;
     } else if (a === '--protocol') {
@@ -2468,6 +2489,192 @@ async function main(): Promise<void> {
       process.exit(result.jobs_fired === result.jobs_total ? 0 : 1);
       break;
     }
+    case 'queue:effect': {
+      // queue-2 operator gate: durable-effect kill-9 boundary + recovery re-run,
+      // then print the auditable exactly-once trail. Real production invocation.
+      //   holo queue:effect <key> --boundary before-commit
+      //   holo queue:effect <key> --boundary after-commit-before-enqueue
+      //   holo queue:effect <key> --boundary after-dispatch-before-ack
+      const key = args.positional[1];
+      if (!key) {
+        console.error('error: queue:effect requires <key>');
+        process.exit(2);
+      }
+      const boundary = (args.boundary ?? 'before-commit') as
+        | 'before-commit'
+        | 'after-commit-before-enqueue'
+        | 'after-dispatch-before-ack';
+      const { runDurableEffectBoundary, resetDurable, auditEffect } = await import(
+        '../queue/durable-effect.ts'
+      );
+      await resetDurable({ key });
+      // Pass 1: kill at the boundary (real Postgres tx rollback = SIGKILL).
+      await runDurableEffectBoundary({
+        key,
+        payload: { n: 1 },
+        boundary,
+      });
+      // Pass 2: recovery re-run of the SAME key, no kill — must not double-apply.
+      await runDurableEffectBoundary({
+        key,
+        payload: { n: 1 },
+        boundary: 'none',
+      });
+      const audit = await auditEffect({ key });
+      if (args.json) {
+        console.log(
+          JSON.stringify(
+            {
+              key,
+              boundary,
+              effect_count: audit.counts.effects,
+              outbox_count: audit.counts.outbox,
+              inbox_dedupe_count: audit.counts.inbox,
+              fencing_token: audit.fenceToken,
+              outbox_status: audit.outbox.status,
+              inbox_outcome: audit.inbox.outcome,
+              exactly_once: audit.counts.effects === 1,
+            },
+            null,
+            2
+          )
+        );
+      } else {
+        console.log(`holo queue:effect — kill-9 boundary ${boundary} + recovery`);
+        console.log(`  key=${key}`);
+        console.log(`  effect_count: ${audit.counts.effects}`);
+        console.log(`  outbox_count: ${audit.counts.outbox}`);
+        console.log(`  inbox_dedupe_count: ${audit.counts.inbox}`);
+        console.log(`  fencing_token: ${audit.fenceToken ?? '—'}`);
+        console.log(`  outbox_status: ${audit.outbox.status ?? '—'}`);
+        console.log(`  inbox_outcome: ${audit.inbox.outcome ?? '—'}`);
+        const ok =
+          audit.counts.effects === 1 &&
+          audit.counts.outbox === 1 &&
+          audit.counts.inbox === 1 &&
+          Boolean(audit.fenceToken);
+        console.log(ok ? '  exactly_once: true' : '  exactly_once: false');
+        console.log(ok ? '  status: OK' : '  status: FAIL');
+      }
+      process.exit(
+        audit.counts.effects === 1 &&
+          audit.counts.outbox === 1 &&
+          audit.counts.inbox === 1 &&
+          audit.fenceToken
+          ? 0
+          : 1
+      );
+      break;
+    }
+    case 'queue:enqueue': {
+      // queue-1/queue-3 operator gate: enqueue a job into the leased priority queue.
+      //   holo queue:enqueue <name> --lane interactive|background
+      const name = args.positional[1];
+      if (!name) {
+        console.error('error: queue:enqueue requires <name>');
+        process.exit(2);
+      }
+      const lane = args.lane === 'interactive' ? 'interactive' : 'background';
+      const { enqueue } = await import('../queue/priority.ts');
+      const job = await enqueue({ name, lane, databaseUrl: undefined });
+      if (args.json) {
+        console.log(
+          JSON.stringify(
+            { name: job.name, lane: job.lane, priority: job.priority, id: job.id },
+            null,
+            2
+          )
+        );
+      } else {
+        console.log(`holo queue:enqueue — leased priority queue`);
+        console.log(`  name=${job.name} lane=${job.lane} priority=${job.priority} id=${job.id}`);
+        console.log('  status: OK');
+      }
+      process.exit(0);
+      break;
+    }
+    case 'queue:dequeue': {
+      // queue-1/queue-3 operator gate: dequeue next job (interactive wins).
+      //   holo queue:dequeue
+      const { dequeue } = await import('../queue/priority.ts');
+      const job = await dequeue();
+      if (!job) {
+        if (args.json) {
+          console.log(JSON.stringify({ dequeued: false, lane: null }));
+        } else {
+          console.log('holo queue:dequeue — queue empty');
+        }
+        process.exit(0);
+      }
+      if (args.json) {
+        console.log(
+          JSON.stringify(
+            {
+              dequeued: true,
+              name: job.name,
+              lane: job.lane,
+              priority: job.priority,
+              fence_token: job.fence_token,
+              id: job.id,
+            },
+            null,
+            2
+          )
+        );
+      } else {
+        console.log(`holo queue:dequeue — leased priority queue`);
+        console.log(
+          `  lane=${job.lane} priority=${job.priority} name=${job.name} fence_token=${job.fence_token ?? '—'} id=${job.id}`
+        );
+        console.log('  status: OK');
+      }
+      process.exit(0);
+      break;
+    }
+    case 'queue:poison': {
+      // queue-1 operator gate: seed a poison job and drive it to the dead-letter path.
+      //   holo queue:poison <key> --max-attempts 3
+      const key = args.positional[1];
+      if (!key) {
+        console.error('error: queue:poison requires <key>');
+        process.exit(2);
+      }
+      const maxAttempts = Math.max(1, Number(args.maxAttempts ?? '3') || 3);
+      const { seedPoisonJob, runUntilTerminal, resetDlq, getJob } = await import(
+        '../queue/dlq.ts'
+      );
+      await resetDlq();
+      await seedPoisonJob({ key, maxAttempts });
+      const result = await runUntilTerminal({ key });
+      const job = await getJob(key);
+      if (args.json) {
+        console.log(
+          JSON.stringify(
+            {
+              key,
+              status: result.status,
+              attempts: result.attempts,
+              dlq_count: result.dlq_count,
+              max_attempts: maxAttempts,
+              dead_letter: result.status === 'dead_letter',
+            },
+            null,
+            2
+          )
+        );
+      } else {
+        console.log(`holo queue:poison — retry/backoff to dead-letter`);
+        console.log(`  key=${key}`);
+        console.log(`  status: ${result.status}`);
+        console.log(`  attempts: ${result.attempts}/${maxAttempts}`);
+        console.log(`  dlq_count: ${result.dlq_count}`);
+        console.log(`  dead_letter: ${result.status === 'dead_letter'}`);
+        console.log(result.status === 'dead_letter' ? '  status: OK' : '  status: FAIL');
+      }
+      void job;
+      process.exit(result.status === 'dead_letter' && result.dlq_count >= 1 ? 0 : 1);
+      break;
+    }
     case 'queue:audit': {
       // queue-2 AC-2: durable-effect audit trail (outbox + inbox + fencing).
       const key = args.positional[1];
@@ -2501,14 +2708,12 @@ async function main(): Promise<void> {
       } else {
         console.log('holo queue:audit — durable-effect trail');
         console.log(`  key=${result.key}`);
+        console.log(`  outbox_count: ${result.counts.outbox} (status=${result.outbox.status ?? '—'})`);
+        console.log(`  effect_count: ${result.counts.effects} (id=${result.effect.id ?? '—'})`);
         console.log(
-          `  outbox: count=${result.counts.outbox} status=${result.outbox.status ?? '—'}`
+          `  inbox_dedupe_count: ${result.counts.inbox} (outcome=${result.inbox.outcome ?? '—'})`
         );
-        console.log(`  effect: count=${result.counts.effects} id=${result.effect.id ?? '—'}`);
-        console.log(
-          `  inbox:  count=${result.counts.inbox} outcome=${result.inbox.outcome ?? '—'}`
-        );
-        console.log(`  fence_token: ${result.fenceToken ?? '—'}`);
+        console.log(`  fencing_token: ${result.fenceToken ?? '—'}`);
         const ok =
           result.counts.outbox === 1 &&
           result.counts.effects === 1 &&
