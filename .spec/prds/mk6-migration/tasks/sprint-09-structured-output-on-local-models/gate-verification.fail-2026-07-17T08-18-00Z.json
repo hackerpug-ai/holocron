@@ -1,1 +1,8 @@
-{"verified":true,"claimed_verdict":"fail","recomputed_verdict":"fail","steps_planned":6,"steps_recomputed":6,"discrepancies":[]}
+{
+  "verified": true,
+  "claimed_verdict": "fail",
+  "recomputed_verdict": "fail",
+  "steps_planned": 6,
+  "steps_recomputed": 6,
+  "discrepancies": []
+}
