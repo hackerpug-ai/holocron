@@ -97,6 +97,8 @@ interface CliArgs {
   /** extract flags */
   schema: string | null;
   input: string | null;
+  /** extract --fixture <name> (mutually exclusive with --schema/--input) */
+  fixture: string | null;
   /** probe:capabilities flags */
   timeout: string | null;
 }
@@ -184,6 +186,8 @@ Options:
   --ceiling <usd>       (budget:set) escape budget ceiling in USD
   --schema <name>       (extract) schema name: simple|nested|tripwire
   --input <text>        (extract) input text or file path
+  --fixture <name>      (extract) documented fixture entry point (mutually exclusive with --schema/--input)
+                        good | malformed-once | always-malformed | tripwire
   --timeout <ms>        (probe:capabilities) timeout per role probe in ms (default 45000)
   --poll                (infer:degraded) run one real health probe (may auto-resume)
   --json                Emit JSON instead of text
@@ -230,6 +234,7 @@ function parseArgs(argv: string[]): CliArgs {
     ceiling: null,
     schema: null,
     input: null,
+    fixture: null,
     timeout: null,
   };
   const positional: string[] = [];
@@ -328,6 +333,10 @@ function parseArgs(argv: string[]): CliArgs {
       args.input = argv[++i] ?? null;
     } else if (a.startsWith('--input=')) {
       args.input = a.slice('--input='.length);
+    } else if (a === '--fixture') {
+      args.fixture = argv[++i] ?? null;
+    } else if (a.startsWith('--fixture=')) {
+      args.fixture = a.slice('--fixture='.length);
     } else if (a === '--timeout') {
       args.timeout = argv[++i] ?? null;
     } else if (a.startsWith('--timeout=')) {
@@ -1701,67 +1710,101 @@ async function main(): Promise<void> {
     }
     case 'extract': {
       // Sprint 09 struct-1: extract --schema <Foo> --input <good|path>
-      const schemaName = args.schema ?? args.positional[1] ?? null;
-      const inputArg = args.input ?? args.positional[2] ?? null;
+      // REDHAT-FIX-G-STEP3-4: extract --fixture <name> for documented gate steps 3-4.
       const role = args.role ?? 'divergent';
-
-      if (!schemaName) {
-        console.error('error: extract requires --schema <name> (e.g., simple, nested)');
-        process.exit(2);
-      }
-      if (!inputArg) {
-        console.error('error: extract requires --input <text or path>');
-        process.exit(2);
-      }
 
       const { extractStructured, ExtractionFailedError, BlockedError } = await import(
         '../inference/extract-structured.ts'
       );
 
-      // Define schemas based on schema name
-      const schemas = {
-        simple: z.object({
-          title: z.string(),
-          count: z.number(),
-          tags: z.array(z.string()),
-        }),
-        nested: z.object({
-          article: z.object({
-            headline: z.string(),
-            wordCount: z.number(),
-            keywords: z.array(z.string()),
-          }),
-          metadata: z.object({
-            author: z.string(),
-            publishedAt: z.string(),
-          }),
-        }),
-        tripwire: z.object({
-          summary: z.string(),
-          sentiment: z.string(),
-        }),
-      };
+      // Resolve the effective (schema, input, label) from EITHER --fixture OR
+      // --schema/--input. --fixture is mutually exclusive with --schema/--input
+      // (a fixture fully determines both schema and input).
+      let schema: z.ZodType;
+      let input: string;
+      let schemaLabel: string;
 
-      const schema = schemas[schemaName as keyof typeof schemas];
-      if (!schema) {
-        console.error(
-          `error: unknown schema '${schemaName}' (available: simple, nested, tripwire)`
-        );
-        process.exit(2);
-      }
-
-      // Resolve input - if it looks like a path, try to read it
-      let input = inputArg;
-      if (inputArg.startsWith('<path=') || inputArg.endsWith('.txt') || inputArg.includes('/')) {
-        try {
-          const { readFile } = await import('node:fs/promises');
-          const path = inputArg.replace('<path=', '').replace('>', '');
-          input = await readFile(path, 'utf-8');
-        } catch (err) {
-          console.error(`error: failed to read input from path: ${inputArg}`);
-          console.error(`  ${err instanceof Error ? err.message : String(err)}`);
+      if (args.fixture) {
+        if (args.schema !== null || args.input !== null) {
+          console.error('error: --fixture is mutually exclusive with --schema/--input');
           process.exit(2);
         }
+        const { getFixture, FIXTURE_NAMES } = await import('./extract-fixtures.js');
+        const fixture = getFixture(args.fixture);
+        if (!fixture) {
+          console.error(
+            `error: unknown fixture '${args.fixture}' (available: ${FIXTURE_NAMES.join(', ')})`
+          );
+          process.exit(2);
+        }
+        // Same extractStructured pipeline as --schema/--input; only the inputs differ.
+        schema = fixture.schema;
+        input = fixture.input;
+        schemaLabel = args.fixture;
+      } else {
+        const schemaName = args.schema ?? args.positional[1] ?? null;
+        const inputArg = args.input ?? args.positional[2] ?? null;
+
+        if (!schemaName) {
+          console.error(
+            'error: extract requires --schema <name> (e.g., simple, nested) or --fixture <name>'
+          );
+          process.exit(2);
+        }
+        if (!inputArg) {
+          console.error('error: extract requires --input <text or path>');
+          process.exit(2);
+        }
+
+        // Define schemas based on schema name
+        const schemas = {
+          simple: z.object({
+            title: z.string(),
+            count: z.number(),
+            tags: z.array(z.string()),
+          }),
+          nested: z.object({
+            article: z.object({
+              headline: z.string(),
+              wordCount: z.number(),
+              keywords: z.array(z.string()),
+            }),
+            metadata: z.object({
+              author: z.string(),
+              publishedAt: z.string(),
+            }),
+          }),
+          tripwire: z.object({
+            summary: z.string(),
+            sentiment: z.string(),
+          }),
+        };
+
+        const namedSchema = schemas[schemaName as keyof typeof schemas];
+        if (!namedSchema) {
+          console.error(
+            `error: unknown schema '${schemaName}' (available: simple, nested, tripwire)`
+          );
+          process.exit(2);
+        }
+
+        // Resolve input - if it looks like a path, try to read it
+        let resolvedInput = inputArg;
+        if (inputArg.startsWith('<path=') || inputArg.endsWith('.txt') || inputArg.includes('/')) {
+          try {
+            const { readFile } = await import('node:fs/promises');
+            const path = inputArg.replace('<path=', '').replace('>', '');
+            resolvedInput = await readFile(path, 'utf-8');
+          } catch (err) {
+            console.error(`error: failed to read input from path: ${inputArg}`);
+            console.error(`  ${err instanceof Error ? err.message : String(err)}`);
+            process.exit(2);
+          }
+        }
+
+        schema = namedSchema;
+        input = resolvedInput;
+        schemaLabel = schemaName;
       }
 
       try {
@@ -1771,12 +1814,12 @@ async function main(): Promise<void> {
         const result = await extractStructured(schema, input, role, extractionId);
         if (args.json) {
           console.log(
-            JSON.stringify({ ok: true, extractionId, result, schema: schemaName, role }, null, 2)
+            JSON.stringify({ ok: true, extractionId, result, schema: schemaLabel, role }, null, 2)
           );
         } else {
           console.log('holo extract — structured extraction');
           console.log(`  extractionId: ${extractionId}`);
-          console.log(`  schema:  ${schemaName}`);
+          console.log(`  schema:  ${schemaLabel}`);
           console.log(`  role:    ${role}`);
           console.log(`  result:`);
           console.log(JSON.stringify(result, null, 2));
@@ -1801,7 +1844,7 @@ async function main(): Promise<void> {
             JSON.stringify({
               ok: false,
               error: code,
-              schema: schemaName,
+              schema: schemaLabel,
               role,
               message: msg,
               ...(err instanceof ExtractionFailedError && {
