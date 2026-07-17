@@ -31,6 +31,8 @@ export default defineConfig({
       'services/platform/tests/integration/inference-telemetry.test.ts',
       // Sprint 12 — observability / Langfuse per-run traces (obs-1)
       'services/platform/tests/integration/observability-traces.test.ts',
+      // Sprint 12 — versioned eval scorers / datasets / baselines / drift (obs-3)
+      'services/platform/tests/integration/evals-versioning.test.ts',
     ],
     setupFiles: ['tests/setup/react-native.ts'],
     exclude: ['node_modules', 'dist', '.expo'],
