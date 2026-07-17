@@ -1,0 +1,10 @@
+{
+  "queryLength": 1024,
+  "docLength": 1024,
+  "cosineDistance": 0.01787577871575885,
+  "identical": false,
+  "must_observe": {
+    "docResult.length === 1024": true,
+    "cosineDistance > 0.0001": true
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "length": 1024,
+  "sample": [
+    -0.018454452976584435,
+    0.007589453365653753,
+    -0.008029810152947903,
+    -0.10144000500440598
+  ],
+  "nonZero": true,
+  "must_observe": {
+    "result.length === 1024": true,
+    "Number.isFinite(result[0])": true,
+    "result.some(v => v !== 0)": true
+  }
+}
