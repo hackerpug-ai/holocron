@@ -117,7 +117,10 @@ async function waitForTrace(
 function parseJsonStdout(stdout: string): Record<string, unknown> {
   const trimmed = stdout.trim();
   // Prefer last JSON object in stdout (CLI may log progress lines first).
-  const lines = trimmed.split('\n').map((l) => l.trim()).filter(Boolean);
+  const lines = trimmed
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean);
   for (let i = lines.length - 1; i >= 0; i--) {
     const line = lines[i]!;
     if (line.startsWith('{') || line.startsWith('[')) {
@@ -231,7 +234,8 @@ describe('obs-1 observability traces → self-hosted Langfuse', () => {
       writeEvidence('ac2-langfuse-trace.json', trace);
       expect(trace).not.toBeNull();
 
-      const observations = (trace!.observations as Array<Record<string, unknown>> | undefined) ?? [];
+      const observations =
+        (trace!.observations as Array<Record<string, unknown>> | undefined) ?? [];
       // Also fetch observations endpoint if embedded list is empty.
       let children = observations;
       if (children.length === 0) {
@@ -285,7 +289,7 @@ describe('obs-1 observability traces → self-hosted Langfuse', () => {
   );
 
   itLive(
-    "AC-3/TC-3: export failure when Langfuse endpoint is unavailable (LANGFUSE_EXPORT_FAILED)",
+    'AC-3/TC-3: export failure when Langfuse endpoint is unavailable (LANGFUSE_EXPORT_FAILED)',
     async () => {
       // Point at a dead local port — Postgres + fleet remain available.
       const deadUrl = 'http://127.0.0.1:3999';

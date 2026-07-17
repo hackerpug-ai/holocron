@@ -22,6 +22,7 @@
  * Sprint 09 struct-2: probe:capabilities
  * Sprint 10 search-2: embed:run | embed:verify
  * Sprint 10 GATE-FIX: search | search --explain | search --surface | search:recall
+ * Sprint 12 obs-1: mission run research --goal <text> [--json]
  */
 import { resolve } from 'node:path';
 import { z } from 'zod';
@@ -114,6 +115,8 @@ interface CliArgs {
   boundary: string | null;
   /** queue:poison --max-attempts <n> */
   maxAttempts: string | null;
+  /** mission run research --goal <text> */
+  goal: string | null;
 }
 
 function printHelp(): void {
@@ -172,6 +175,8 @@ Usage:
   embed:verify              Report NULL / wrong-dimension passage embedding counts (expect 1024)
   search <query>            RRF hybrid search (pgvector HNSW + FTS, one round-trip)
   search:recall             Recall@k vs baseline from --golden set.json
+  mission run research      Run a research mission with per-run Langfuse trace export
+                            (requires --goal; flushes OTel → self-hosted Langfuse)
 
 Options:
   --export <dir>        Path to unzipped convex export (or $CONVEX_EXPORT_DIR)
@@ -213,6 +218,7 @@ Options:
                         subscription_content|toolbelt_tools|improvement_requests)
   --golden <path>       (search:recall) golden set JSON for recall@k evaluation
   --limit <n>           (search|search:recall|telemetry:tail) max results / rows (default 10 / 100)
+  --goal <text>         (mission run research) research mission goal (required)
   --json                Emit JSON instead of text
   --print-trace         (compat:spike) emit OTel trace details
   --dry-run             (catalog:reconcile) dry-run mode (default)
@@ -266,6 +272,7 @@ function parseArgs(argv: string[]): CliArgs {
     lane: null,
     boundary: null,
     maxAttempts: null,
+    goal: null,
   };
   const positional: string[] = [];
   for (let i = 0; i < argv.length; i++) {
@@ -274,6 +281,10 @@ function parseArgs(argv: string[]): CliArgs {
       args.help = true;
     } else if (a === '--json') {
       args.json = true;
+    } else if (a === '--goal') {
+      args.goal = argv[++i] ?? null;
+    } else if (a.startsWith('--goal=')) {
+      args.goal = a.slice('--goal='.length);
     } else if (a === '--explain') {
       args.explain = true;
     } else if (a === '--surface') {
@@ -2793,6 +2804,85 @@ async function main(): Promise<void> {
         console.log(ok ? '  status: OK' : '  status: INCOMPLETE');
       }
       process.exit(result.counts.outbox >= 1 && result.counts.inbox >= 1 ? 0 : 1);
+      break;
+    }
+    case 'mission': {
+      // obs-1: holo mission run research --goal '...' [--json]
+      const sub = args.positional[1];
+      const kind = args.positional[2];
+      if (sub !== 'run' || kind !== 'research') {
+        console.error(
+          sub
+            ? `unknown command: mission ${sub}${kind ? ` ${kind}` : ''}`
+            : 'error: mission requires subcommand (run research)'
+        );
+        console.error("Usage: holo mission run research --goal '<text>' [--json]");
+        process.exit(2);
+      }
+      const goal = args.goal ?? args.prompt;
+      if (!goal || goal.trim().length === 0) {
+        console.error('error: mission run research requires --goal <text>');
+        process.exit(2);
+      }
+
+      const { runResearchMission } = await import('../observability/mission-research.ts');
+      const { LANGFUSE_EXPORT_FAILED, LangfuseExportError } = await import(
+        '../observability/langfuse-exporter.ts'
+      );
+
+      try {
+        const result = await runResearchMission({
+          goal,
+          role: args.role ?? 'divergent',
+          runId: args.runId ?? undefined,
+          throwOnExportFailure: true,
+        });
+        if (args.json) {
+          console.log(JSON.stringify(result, null, 2));
+        } else {
+          console.log('holo mission run research — Langfuse per-run trace');
+          console.log(`  runId:        ${result.runId}`);
+          console.log(`  traceId:      ${result.traceId ?? '—'}`);
+          console.log(`  serviceName:  ${result.serviceName}`);
+          console.log(`  role:         ${result.role}`);
+          console.log(`  langfuseOk:   ${result.langfuseExportOk}`);
+          console.log(`  text:         ${(result.text ?? '').slice(0, 200)}`);
+          console.log(
+            result.ok ? '  status: OK' : `  status: FAIL (${result.errorCode ?? 'error'})`
+          );
+        }
+        process.exit(result.ok ? 0 : 1);
+      } catch (err) {
+        const missionResult =
+          err && typeof err === 'object' && 'missionResult' in err
+            ? (err as { missionResult: Record<string, unknown> }).missionResult
+            : null;
+        const code =
+          err instanceof LangfuseExportError
+            ? LANGFUSE_EXPORT_FAILED
+            : ((missionResult?.errorCode as string | undefined) ?? 'MISSION_FAILED');
+        const message = err instanceof Error ? err.message : String(err);
+        const payload = missionResult ?? {
+          ok: false,
+          langfuseExportOk: false,
+          errorCode: code,
+          error: message,
+          serviceName: 'holocron-platform',
+          traceId: null,
+        };
+        if (args.json) {
+          console.log(JSON.stringify(payload, null, 2));
+        } else {
+          console.error(`error code: ${code}`);
+          console.error(message);
+          console.error('green Langfuse verdict: false');
+        }
+        // Always surface the contract code on stderr for non-JSON greppability.
+        if (code === LANGFUSE_EXPORT_FAILED) {
+          console.error(`error code: ${LANGFUSE_EXPORT_FAILED}`);
+        }
+        process.exit(1);
+      }
       break;
     }
     default:
