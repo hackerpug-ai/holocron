@@ -21,6 +21,7 @@
  * Sprint 09 struct-1: extract --schema <name> --input <text>
  * Sprint 09 struct-2: probe:capabilities
  * Sprint 10 search-2: embed:run | embed:verify
+ * Sprint 10 GATE-FIX: search | search --explain | search --surface | search:recall
  */
 import { resolve } from 'node:path';
 import { z } from 'zod';
@@ -102,6 +103,11 @@ interface CliArgs {
   fixture: string | null;
   /** probe:capabilities flags */
   timeout: string | null;
+  /** search flags */
+  explain: boolean;
+  surface: string | null;
+  golden: string | null;
+  limit: string | null;
 }
 
 function printHelp(): void {
@@ -157,6 +163,8 @@ Usage:
   probe:capabilities        Probe all fleet roles for json_schema structured-output support
   embed:run                 Idempotent re-embed: WHERE embedding IS NULL … SKIP LOCKED (document mode)
   embed:verify              Report NULL / wrong-dimension passage embedding counts (expect 1024)
+  search <query>            RRF hybrid search (pgvector HNSW + FTS, one round-trip)
+  search:recall             Recall@k vs baseline from --golden set.json
 
 Options:
   --export <dir>        Path to unzipped convex export (or $CONVEX_EXPORT_DIR)
@@ -193,6 +201,11 @@ Options:
                         good | malformed-once | always-malformed | tripwire
   --timeout <ms>        (probe:capabilities) timeout per role probe in ms (default 45000)
   --poll                (infer:degraded) run one real health probe (may auto-resume)
+  --explain             (search) include RRF fusion explain payload (method, k, legs, scores)
+  --surface <name>      (search) inline-HNSW surface KNN (research_findings|research_iterations|
+                        subscription_content|toolbelt_tools|improvement_requests)
+  --golden <path>       (search:recall) golden set JSON for recall@k evaluation
+  --limit <n>           (search|search:recall) max results / k (default 10)
   --json                Emit JSON instead of text
   --print-trace         (compat:spike) emit OTel trace details
   --dry-run             (catalog:reconcile) dry-run mode (default)
@@ -239,6 +252,10 @@ function parseArgs(argv: string[]): CliArgs {
     input: null,
     fixture: null,
     timeout: null,
+    explain: false,
+    surface: null,
+    golden: null,
+    limit: null,
   };
   const positional: string[] = [];
   for (let i = 0; i < argv.length; i++) {
@@ -247,6 +264,20 @@ function parseArgs(argv: string[]): CliArgs {
       args.help = true;
     } else if (a === '--json') {
       args.json = true;
+    } else if (a === '--explain') {
+      args.explain = true;
+    } else if (a === '--surface') {
+      args.surface = argv[++i] ?? null;
+    } else if (a.startsWith('--surface=')) {
+      args.surface = a.slice('--surface='.length);
+    } else if (a === '--golden') {
+      args.golden = argv[++i] ?? null;
+    } else if (a.startsWith('--golden=')) {
+      args.golden = a.slice('--golden='.length);
+    } else if (a === '--limit') {
+      args.limit = argv[++i] ?? null;
+    } else if (a.startsWith('--limit=')) {
+      args.limit = a.slice('--limit='.length);
     } else if (a === '--dry-run') {
       args.dryRun = true;
     } else if (a === '--protocol') {
@@ -2073,6 +2104,296 @@ async function main(): Promise<void> {
         }
         process.exit(1);
       }
+      break;
+    }
+    case 'search': {
+      // GATE-FIX: human-gate RRF hybrid / surface KNN search against real Postgres + fleet embed.
+      const query = args.positional.slice(1).join(' ').trim();
+      if (!query) {
+        console.error(
+          'error: search requires a query (e.g. holo search "how to combine vector and keyword rankings")'
+        );
+        process.exit(2);
+      }
+      const limit = Math.max(1, Number.parseInt(args.limit ?? '10', 10) || 10);
+      const { createDb, createSql } = await import('../db/client.ts');
+      const sql = createSql();
+      let exitCode = 0;
+      try {
+        const db = createDb(sql);
+        if (args.surface) {
+          const { searchSurface, INLINE_HNSW_SURFACES } = await import('../search/index.ts');
+          const out = await searchSurface(db, sql, args.surface, { query, limit });
+          const payload = {
+            ok: true,
+            query,
+            surface: args.surface,
+            limit,
+            ...out,
+            allowedSurfaces: INLINE_HNSW_SURFACES,
+          };
+          if (args.json) {
+            console.log(JSON.stringify(payload, null, 2));
+          } else {
+            console.log(`holo search --surface ${args.surface}`);
+            console.log(`  query:        ${query}`);
+            console.log(`  searchMethod: ${out.searchMethod}`);
+            console.log(`  totalResults: ${out.totalResults}`);
+            if (out.results.length === 0) {
+              console.log('  (no results)');
+            } else {
+              for (let i = 0; i < out.results.length; i++) {
+                const r = out.results[i]!;
+                const score =
+                  typeof r.score === 'number' ? r.score.toFixed(6) : String(r.score ?? '');
+                const title = (r.title ?? r.claim_text ?? r.content ?? '').toString().slice(0, 80);
+                console.log(
+                  `  ${String(i + 1).padStart(2)}  score=${score}  id=${r._id}  ${title}`
+                );
+              }
+            }
+          }
+        } else {
+          const { rrfHybridSearch, RRF_K } = await import('../search/index.ts');
+          const out = await rrfHybridSearch(db, sql, { query, limit });
+          const explain = args.explain
+            ? {
+                fusion: {
+                  method: 'reciprocal_rank_fusion',
+                  k: RRF_K,
+                  formula: `COALESCE(1.0/(${RRF_K}+vec_rank),0) + COALESCE(1.0/(${RRF_K}+fts_rank),0)`,
+                  legs: ['pgvector_hnsw', 'fts'],
+                  roundTrips: 1,
+                  note: 'Single CTE FULL OUTER JOIN — never 0.7/0.3 normalize-by-max',
+                },
+                resultScores: out.results.map((r, i) => ({
+                  rank: i + 1,
+                  _id: r._id,
+                  title: r.title,
+                  score: r.score,
+                  rrf_score: r.rrf_score ?? r.score,
+                  passage_id: r.passage_id,
+                  document_id: r.document_id,
+                })),
+              }
+            : undefined;
+          const payload = {
+            ok: true,
+            query,
+            limit,
+            searchMethod: out.searchMethod,
+            totalResults: out.totalResults,
+            results: out.results,
+            ...(explain ? { explain } : {}),
+          };
+          if (args.json) {
+            console.log(JSON.stringify(payload, null, 2));
+          } else {
+            console.log('holo search — RRF hybrid (pgvector HNSW + FTS)');
+            console.log(`  query:        ${query}`);
+            console.log(`  searchMethod: ${out.searchMethod}`);
+            console.log(`  totalResults: ${out.totalResults}`);
+            if (args.explain) {
+              console.log(`  fusion:       reciprocal_rank_fusion k=${RRF_K} (one round-trip)`);
+              console.log(
+                `  formula:      COALESCE(1.0/(${RRF_K}+vec_rank),0) + COALESCE(1.0/(${RRF_K}+fts_rank),0)`
+              );
+              console.log('  legs:         pgvector_hnsw + fts');
+            }
+            if (out.results.length === 0) {
+              console.log('  (no results)');
+            } else {
+              for (let i = 0; i < out.results.length; i++) {
+                const r = out.results[i]!;
+                const score =
+                  typeof r.score === 'number' ? r.score.toFixed(6) : String(r.score ?? '');
+                const title = (r.title ?? r.content ?? '').toString().slice(0, 80);
+                const rrf =
+                  r.rrf_score != null && typeof r.rrf_score === 'number'
+                    ? ` rrf=${r.rrf_score.toFixed(6)}`
+                    : '';
+                console.log(
+                  `  ${String(i + 1).padStart(2)}  score=${score}${rrf}  id=${r._id}  ${title}`
+                );
+              }
+            }
+          }
+        }
+      } catch (err) {
+        exitCode = 1;
+        const msg = err instanceof Error ? err.message : String(err);
+        if (args.json) {
+          console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+        } else {
+          console.error(`holo search failed: ${msg}`);
+        }
+      } finally {
+        await sql.end({ timeout: 5 }).catch(() => {});
+      }
+      process.exit(exitCode);
+      break;
+    }
+    case 'search:recall': {
+      // GATE-FIX: load golden set, run RRF per query, print recall new=X baseline=Y.
+      if (!args.golden) {
+        console.error(
+          'error: search:recall requires --golden <path> (JSON golden set with queries + expected matches)'
+        );
+        process.exit(2);
+      }
+      const goldenPath = resolve(args.golden);
+      const { readFileSync } = await import('node:fs');
+      let goldenRaw: unknown;
+      try {
+        goldenRaw = JSON.parse(readFileSync(goldenPath, 'utf8'));
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error(`error: failed to load golden set ${goldenPath}: ${msg}`);
+        process.exit(2);
+      }
+
+      type GoldenQuery = {
+        query: string;
+        expected_ids?: string[];
+        expected_titles?: string[];
+        expected_content_contains?: string[];
+        relevant_ids?: string[];
+        relevant_titles?: string[];
+      };
+      type GoldenSet = {
+        baseline?: number;
+        recall_baseline?: number;
+        k?: number;
+        queries?: GoldenQuery[];
+        items?: GoldenQuery[];
+      };
+
+      const golden = (goldenRaw ?? {}) as GoldenSet;
+      const queries: GoldenQuery[] = (golden.queries ?? golden.items ?? []).filter(
+        (q) => typeof q?.query === 'string' && q.query.trim().length > 0
+      );
+      if (queries.length === 0) {
+        console.error(
+          'error: golden set must include a non-empty queries[] (or items[]) array with {query, expected_*}'
+        );
+        process.exit(2);
+      }
+
+      const envBaseline = process.env.RECALL_BASELINE;
+      const baselineRaw =
+        envBaseline ??
+        (golden.baseline != null ? String(golden.baseline) : null) ??
+        (golden.recall_baseline != null ? String(golden.recall_baseline) : null) ??
+        '1';
+      const baseline = Number(baselineRaw);
+      if (!Number.isFinite(baseline)) {
+        console.error(`error: invalid baseline (RECALL_BASELINE / file field): ${baselineRaw}`);
+        process.exit(2);
+      }
+
+      const k = Math.max(
+        1,
+        Number.parseInt(args.limit ?? (golden.k != null ? String(golden.k) : '10'), 10) || 10
+      );
+
+      const { createDb, createSql } = await import('../db/client.ts');
+      const { rrfHybridSearch } = await import('../search/index.ts');
+      const sql = createSql();
+      let exitCode = 1;
+      try {
+        const db = createDb(sql);
+        const perQuery: Array<{
+          query: string;
+          hit: boolean;
+          topIds: string[];
+          topTitles: string[];
+        }> = [];
+        let hits = 0;
+
+        for (const gq of queries) {
+          const out = await rrfHybridSearch(db, sql, { query: gq.query, limit: k });
+          const top = out.results.slice(0, k);
+          const topIds = top.map((r) => r._id).filter(Boolean);
+          const topTitles = top
+            .map((r) => r.title)
+            .filter((t): t is string => typeof t === 'string' && t.length > 0);
+
+          const expectedIds = [...(gq.expected_ids ?? []), ...(gq.relevant_ids ?? [])];
+          const expectedTitles = [...(gq.expected_titles ?? []), ...(gq.relevant_titles ?? [])];
+          const expectedContent = gq.expected_content_contains ?? [];
+
+          const idHit = expectedIds.length > 0 && top.some((r) => expectedIds.includes(r._id));
+          const titleHit =
+            expectedTitles.length > 0 &&
+            top.some((r) => typeof r.title === 'string' && expectedTitles.includes(r.title));
+          const contentHit =
+            expectedContent.length > 0 &&
+            top.some(
+              (r) =>
+                typeof r.content === 'string' &&
+                expectedContent.some((needle) => r.content!.includes(needle))
+            );
+
+          // If no expected criteria provided, treat non-empty top-k as a hit (smoke).
+          const noCriteria =
+            expectedIds.length === 0 && expectedTitles.length === 0 && expectedContent.length === 0;
+          const hit = noCriteria ? top.length > 0 : idHit || titleHit || contentHit;
+          if (hit) hits += 1;
+          perQuery.push({ query: gq.query, hit, topIds, topTitles });
+        }
+
+        const recall = hits / queries.length;
+        // Baseline may be absolute hit-count (e.g. 1) or a fraction (e.g. 0.8).
+        // Fractions are in (0,1); integers / values >1 are hit-counts.
+        const baselineIsFraction = baseline > 0 && baseline < 1;
+        const ok = baselineIsFraction ? recall + 1e-12 >= baseline : hits >= baseline;
+        const newDisplay = Number.isInteger(recall) ? String(recall) : recall.toFixed(4);
+        const baselineDisplay = String(baseline);
+        const line = `recall new=${newDisplay} baseline=${baselineDisplay}`;
+
+        const payload = {
+          ok,
+          recall,
+          new: recall,
+          baseline,
+          hits,
+          total: queries.length,
+          k,
+          golden: goldenPath,
+          searchMethod: 'rrf' as const,
+          perQuery,
+          line,
+        };
+
+        if (args.json) {
+          console.log(JSON.stringify(payload, null, 2));
+          // Gate scripts also look for the exact figure line.
+          console.error(line);
+        } else {
+          console.log('holo search:recall — RRF recall@k vs baseline');
+          console.log(`  golden:   ${goldenPath}`);
+          console.log(`  k:        ${k}`);
+          console.log(`  queries:  ${queries.length}`);
+          console.log(`  hits:     ${hits}`);
+          for (const pq of perQuery) {
+            console.log(`    ${pq.hit ? 'HIT ' : 'MISS'}  ${pq.query.slice(0, 80)}`);
+          }
+          console.log(line);
+          console.log(ok ? '  status: OK' : '  status: FAIL');
+        }
+        exitCode = ok ? 0 : 1;
+      } catch (err) {
+        exitCode = 1;
+        const msg = err instanceof Error ? err.message : String(err);
+        if (args.json) {
+          console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+        } else {
+          console.error(`holo search:recall failed: ${msg}`);
+        }
+      } finally {
+        await sql.end({ timeout: 5 }).catch(() => {});
+      }
+      process.exit(exitCode);
       break;
     }
     default:

@@ -1,0 +1,23 @@
+{
+  "ok": true,
+  "query": "MLX prefill",
+  "surface": "research_findings",
+  "limit": 10,
+  "results": [
+    {
+      "_id": "019f7100-0626-7da6-acbc-8f4742453fee",
+      "content": "MLX prefill-tuned Qwen3 embedding server on Apple Silicon",
+      "score": 0.753518462181177,
+      "claim_text": "MLX prefill-tuned Qwen3 embedding server on Apple Silicon"
+    }
+  ],
+  "totalResults": 1,
+  "searchMethod": "hnsw:research_findings",
+  "allowedSurfaces": [
+    "research_findings",
+    "research_iterations",
+    "subscription_content",
+    "toolbelt_tools",
+    "improvement_requests"
+  ]
+}
