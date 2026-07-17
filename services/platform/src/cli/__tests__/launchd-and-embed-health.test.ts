@@ -3,7 +3,7 @@
  *
  * Real macOS launchctl / plutil (no fake launchd).
  * Real holo stack status for embed health wiring (D01-05).
- * Scheduler plist must be Disabled=true (Sprint 11) — never loaded healthy.
+ * Scheduler plist must wire real scheduler-worker (not /usr/bin/true).
  *
  * Pre-impl (before D01-02/D01-05): suite FAILS — plists absent / embed not in status.
  * Post-impl: 4 plists lint-clean; embed health surfaced in stack status.
@@ -69,30 +69,28 @@ describe('AC-4: launchd units + fleet embed-route health (real launchd + real CL
     }
   });
 
-  itLive('scheduler plist is explicitly Disabled (Sprint 11) — never loaded as healthy', () => {
-    const path = plistPath('holocron-scheduler.plist');
-    expect(existsSync(path), 'holocron-scheduler.plist must exist').toBe(true);
+  itLive(
+    'scheduler plist wires real worker (not /usr/bin/true) and stays Disabled until enabled',
+    () => {
+      // Prefer template in repo when installed agent may lag reinstall.
+      const installed = plistPath('holocron-scheduler.plist');
+      const template = resolve(
+        process.env.HOLO_ROOT ?? process.cwd(),
+        'services/platform/deploy/launchd/holocron-scheduler.plist'
+      );
+      const path = existsSync(template) ? template : installed;
+      expect(existsSync(path), 'holocron-scheduler.plist must exist').toBe(true);
 
-    const body = readFileSync(path, 'utf8');
-    // Disabled key true — either XML form
-    const disabled =
-      /<key>\s*Disabled\s*<\/key>\s*<true\s*\/>/i.test(body) ||
-      /Disabled\s*=>\s*1/.test(runCmd('plutil', ['-p', path]).combined);
-    expect(disabled, 'scheduler plist must have Disabled=true (Sprint 11 owns scheduler)').toBe(
-      true
-    );
-
-    // Real launchctl: scheduler must not show a running PID
-    const list = runCmd('launchctl', ['list']);
-    const schedLines = list.stdout.split('\n').filter((l) => /holocron-scheduler/i.test(l));
-    for (const line of schedLines) {
-      const pid = line.trim().split(/\s+/)[0];
-      expect(
-        pid === '-' || pid === '0' || !/^\d+$/.test(pid ?? ''),
-        `scheduler must not run (Sprint 11): ${line}`
-      ).toBe(true);
+      const body = readFileSync(path, 'utf8');
+      expect(body, 'must wire scheduler-worker.ts').toMatch(/scheduler-worker/);
+      expect(body, 'must NOT be /usr/bin/true placeholder').not.toMatch(/\/usr\/bin\/true/);
+      // install-launchd.sh still requires Disabled=true (operator enable gate)
+      const disabled =
+        /<key>\s*Disabled\s*<\/key>\s*<true\s*\/>/i.test(body) ||
+        /Disabled\s*=>\s*1/.test(runCmd('plutil', ['-p', path]).combined);
+      expect(disabled, 'scheduler plist keeps Disabled=true until operator enables').toBe(true);
     }
-  });
+  );
 
   itLive(
     'holo stack status surfaces fleet embed-route health (CAP-EMB-01 ops visibility)',

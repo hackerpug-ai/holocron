@@ -6,7 +6,7 @@ Four LaunchAgent definitions for the MK-VI headless stack:
 |-------|---------|--------------------|-----------|
 | `holocron-postgres` | Postgres 18 (`postgresql@18`) | yes | true |
 | `holocron-mastra` | Mastra via `bun …/holo.ts service:up` | yes | true |
-| `holocron-scheduler` | Perpetual scheduler (C-7) | **no** (Sprint 11) | false |
+| `holocron-scheduler` | Leased-queue worker (`scheduler-worker.ts`, pg-boss preferred) | **no** (Disabled until operator enables) | false |
 | `holocron-zerocache` | Zero-cache / `zero_pub` consumer | **no** (Sprint 20) | false |
 
 Templates live in this directory with `@PLACEHOLDER@` tokens. Installed agents
@@ -40,7 +40,8 @@ Environment overrides:
 UID_NUM=$(id -u)
 launchctl bootstrap "gui/${UID_NUM}" ~/Library/LaunchAgents/holocron-postgres.plist
 launchctl bootstrap "gui/${UID_NUM}" ~/Library/LaunchAgents/holocron-mastra.plist
-# scheduler + zerocache are Disabled=true — do not bootstrap until owners enable them
+# scheduler unit is Disabled=true but ProgramArguments is the real worker
+# zerocache remains Disabled=true until Sprint 20
 
 launchctl print "gui/${UID_NUM}/holocron-postgres"
 launchctl print "gui/${UID_NUM}/holocron-mastra"
@@ -51,10 +52,13 @@ launchctl bootout "gui/${UID_NUM}/holocron-postgres"
 launchctl bootout "gui/${UID_NUM}/holocron-mastra"
 ```
 
-## Honest disabled slots
+## Honest slots
 
-- **Scheduler** — Sprint 11 owns the real program. Plist ships with
-  `<key>Disabled</key><true/>` so it never runs accidentally.
+- **Scheduler** — Sprint 11 leased-queue worker (`bun …/scheduler-worker.ts`).
+  Real ProgramArguments (never `/usr/bin/true`); unit remains `Disabled=true`
+  until operators enable it. Stack status reports `placeholder=false` and
+  `queue.backend` of `pg-boss` (or `graphile-worker` fallback) from live
+  Postgres probes.
 - **Zero-cache** — Sprint 04 already has publication `zero_pub` on Postgres;
   zero-cache binary wiring is a later sprint (Sprint 20 / CAP-SYNC-01 e2e).
   Plist is **Disabled=true** with documentation; it must never report healthy
@@ -77,6 +81,8 @@ test -f ~/Library/LaunchAgents/holocron-mastra.plist
 test -f ~/Library/LaunchAgents/holocron-scheduler.plist
 test -f ~/Library/LaunchAgents/holocron-zerocache.plist
 plutil -lint ~/Library/LaunchAgents/holocron-*.plist
+grep -E 'scheduler-worker' ~/Library/LaunchAgents/holocron-scheduler.plist
+! grep -q '/usr/bin/true' ~/Library/LaunchAgents/holocron-scheduler.plist
 grep -A2 '<key>Disabled</key>' ~/Library/LaunchAgents/holocron-scheduler.plist | grep true
 grep -c 'Sprint 20' ~/Library/LaunchAgents/holocron-zerocache.plist
 /opt/homebrew/opt/postgresql@18/bin/pg_isready -h 127.0.0.1 -p 5432

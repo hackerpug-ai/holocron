@@ -2,8 +2,8 @@
  * Mastra composition root — the sole backend process (AP-1 / C-2).
  *
  * Boots exactly ONE `new Mastra({...})` against @mastra/pg PostgresStore,
- * starts the process-local queue adapter, and serves Hono HTTP/SSE on :4111
- * (PORT / HOLO_PORT override).
+ * starts the Postgres-backed queue (pg-boss preferred), and serves Hono
+ * HTTP/SSE on :4111 (PORT / HOLO_PORT override).
  *
  * Usage:
  *   bun run services/platform/src/index.ts
@@ -92,8 +92,10 @@ export async function startService(options?: {
     console.log(`Starting Mastra service on :${port}`);
   }
 
-  // Queue adapter starts with the process — probeQueue() reads isReady().
-  serviceQueue.start();
+  // Postgres-backed queue (pg-boss preferred) — probeQueue() measures live state.
+  serviceQueue.startSync();
+  // Await full backend start so /health queue.ready is honest on first probe.
+  await serviceQueue.start();
 
   const mastra = createMastra();
   const app = createHonoApp();
@@ -111,11 +113,12 @@ export async function startService(options?: {
     console.log(`Listening on :${port}`);
     console.log(`  health:  http://127.0.0.1:${port}/health`);
     console.log(`  storage: PostgresStore → ${DATABASE_URL}`);
+    console.log(`  queue:   backend=${serviceQueue.getBackend()} (Postgres leased queue)`);
     console.log(`  mastra:  single composition root (agents/workflows deferred to later tasks)`);
   }
 
   const stop = async () => {
-    serviceQueue.stop();
+    await serviceQueue.stop();
     server.stop(true);
   };
 

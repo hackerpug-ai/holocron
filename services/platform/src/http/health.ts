@@ -1,20 +1,27 @@
 /**
  * GET /health — live readiness probes for Postgres, fleet :4545, and queue.
  *
- * Never returns a static 200: every field is measured against a real dependency
- * (or a process-local queue adapter with a flipable isReady()).
+ * Never returns a static 200: every field is measured against a real dependency.
+ * Queue readiness is Postgres-backed (pg-boss preferred / graphile-worker fallback).
  */
 
 import postgres from 'postgres';
 import { DATABASE_URL } from '../mastra.ts';
+import {
+  isProcessQueueReady,
+  probeQueueBackend,
+  type QueueBackendName,
+  setProcessQueueReady,
+  startQueueBackend,
+  stopQueueBackend,
+} from '../queue/backend.ts';
 
 /** Fleet base as required by AC-2 (no /v1 suffix on the reported endpoint). */
 export const DEFAULT_FLEET_ENDPOINT = 'http://127.0.0.1:4545';
 
 /**
- * Process-local queue adapter (Sprint 05 does not yet wire graphile-worker/pg-boss).
- * isReady() is a real flipable check — started with the service, stoppable for probes.
- * Do not hardcode ready:true; always call isReady().
+ * @deprecated Process-local adapter kept for type-compat only.
+ * Production path is PostgresQueue / serviceQueue (Postgres-backed).
  */
 export class ProcessLocalQueue {
   #started = false;
@@ -32,13 +39,66 @@ export class ProcessLocalQueue {
   }
 }
 
+/**
+ * Postgres-backed queue adapter. start() kicks the preferred backend (pg-boss)
+ * and marks process readiness; probeQueue always re-checks live Postgres state.
+ */
+export class PostgresQueue {
+  #started = false;
+  #backend: QueueBackendName = 'pg-boss';
+  #databaseUrl: string;
+
+  constructor(databaseUrl = DATABASE_URL) {
+    this.#databaseUrl = databaseUrl;
+  }
+
+  async start(): Promise<void> {
+    const status = await startQueueBackend(this.#databaseUrl);
+    this.#started = status.ready;
+    this.#backend = status.backend;
+    setProcessQueueReady(status.ready);
+  }
+
+  /** Sync start shim for composition root (fire-and-forget with process flag). */
+  startSync(): void {
+    this.#started = true;
+    setProcessQueueReady(true);
+    void this.start().catch((err) => {
+      console.error('[queue] start failed:', err instanceof Error ? err.message : String(err));
+      this.#started = false;
+      setProcessQueueReady(false);
+    });
+  }
+
+  async stop(): Promise<void> {
+    await stopQueueBackend();
+    this.#started = false;
+    setProcessQueueReady(false);
+  }
+
+  stopSync(): void {
+    this.#started = false;
+    setProcessQueueReady(false);
+    void stopQueueBackend();
+  }
+
+  isReady(): boolean {
+    return this.#started || isProcessQueueReady();
+  }
+
+  getBackend(): QueueBackendName {
+    return this.#backend;
+  }
+}
+
 /** Singleton queue for this process — started by the composition root. */
-export const serviceQueue = new ProcessLocalQueue();
+export const serviceQueue = new PostgresQueue();
 
 export type ProbeResult = {
   ready: boolean;
   latency_ms: number;
   error?: string;
+  backend?: QueueBackendName;
 };
 
 export type FleetProbeResult = ProbeResult & {
@@ -123,19 +183,42 @@ export async function probeFleet(
   }
 }
 
+export type QueueLike = {
+  isReady(): boolean;
+};
+
 /**
- * Probe the process-local queue adapter. Real isReady() call — flips if stop()'d.
+ * Probe the Postgres-backed queue. Measures live backend readiness via
+ * queue_backend_meta / lease tables — never a static ready:true.
  */
-export async function probeQueue(queue: ProcessLocalQueue = serviceQueue): Promise<ProbeResult> {
+export async function probeQueue(
+  queue: QueueLike = serviceQueue,
+  databaseUrl?: string
+): Promise<ProbeResult> {
   const start = performance.now();
-  // Tiny await so this stays async-symmetric with the other probes and measures >0ms.
-  await Promise.resolve();
-  const ready = queue.isReady();
-  return {
-    ready,
-    latency_ms: elapsedMs(start),
-    ...(ready ? {} : { error: 'queue not started' }),
-  };
+  try {
+    const backend = await probeQueueBackend(databaseUrl ?? DATABASE_URL);
+    // Process adapter must also be started (composition root startSync).
+    const processReady = queue.isReady();
+    const ready = backend.ready && processReady;
+    return {
+      ready,
+      latency_ms: elapsedMs(start),
+      backend: backend.backend,
+      ...(ready
+        ? {}
+        : {
+            error: backend.error ?? (processReady ? backend.detail : 'queue not started'),
+          }),
+    };
+  } catch (err) {
+    const error = err instanceof Error ? err.message : String(err);
+    return {
+      ready: false,
+      latency_ms: elapsedMs(start),
+      error,
+    };
+  }
 }
 
 /**
@@ -147,12 +230,12 @@ export async function probeQueue(queue: ProcessLocalQueue = serviceQueue): Promi
 export async function runHealthCheck(options?: {
   databaseUrl?: string;
   fleetEndpoint?: string;
-  queue?: ProcessLocalQueue;
+  queue?: QueueLike;
 }): Promise<HealthResponse> {
   const [db, fleet, queue] = await Promise.all([
     probeDb(options?.databaseUrl),
     probeFleet(options?.fleetEndpoint),
-    probeQueue(options?.queue),
+    probeQueue(options?.queue, options?.databaseUrl),
   ]);
 
   const allReady = db.ready && fleet.ready && queue.ready;
@@ -168,6 +251,7 @@ export async function runHealthCheck(options?: {
     queue: {
       ready: queue.ready,
       latency_ms: queue.latency_ms,
+      ...(queue.backend ? { backend: queue.backend } : {}),
       ...(queue.error ? { error: queue.error } : {}),
     },
   };

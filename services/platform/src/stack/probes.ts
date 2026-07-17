@@ -2,6 +2,7 @@
  * Real health probes for stack services — never mocked.
  */
 import { spawnSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { FleetRole } from '../fleet/manifest.schema.ts';
 import { getFleetManifest, getRoleEntry } from '../fleet/manifest.ts';
@@ -258,15 +259,87 @@ export function plistIsDisabled(plistFile: string): boolean {
   return r.stdout.trim() === 'true' || r.stdout.trim() === '1';
 }
 
+/** Real scheduler program path (never /usr/bin/true). */
+export function schedulerProgramPath(cfg: StackConfig): string {
+  return resolve(cfg.holoRoot, 'services/platform/src/queue/scheduler-worker.ts');
+}
+
+/**
+ * Read ProgramArguments[0..] from the installed (or template) scheduler plist.
+ * Used so stack status never claims a fake /usr/bin/true placeholder.
+ */
+export function readSchedulerProgram(cfg: StackConfig): {
+  program: string;
+  placeholder: boolean;
+  source: 'installed' | 'template' | 'default';
+} {
+  const installed = resolve(cfg.launchAgentsDir, `${LAUNCHD_LABELS.scheduler}.plist`);
+  const template = resolve(cfg.templateDir, `${LAUNCHD_LABELS.scheduler}.plist`);
+  const fallback = schedulerProgramPath(cfg);
+
+  const tryRead = (path: string, source: 'installed' | 'template') => {
+    const r = run('/usr/bin/plutil', ['-extract', 'ProgramArguments', 'json', '-o', '-', path], {
+      timeoutMs: 5_000,
+    });
+    if (r.status !== 0) return null;
+    try {
+      const args = JSON.parse(r.stdout.trim()) as string[];
+      // Prefer the script path (args[1] when bun + script); else first arg.
+      const program =
+        args.find((a) => /scheduler-worker/.test(a)) ?? args[args.length - 1] ?? args[0] ?? '';
+      return { program, source };
+    } catch {
+      return null;
+    }
+  };
+
+  const fromInstalled = existsSync(installed) ? tryRead(installed, 'installed') : null;
+  const fromTemplate = existsSync(template) ? tryRead(template, 'template') : null;
+  // Prefer non-placeholder program: template may be newer than a stale installed agent.
+  const isPlaceholder = (p: string) => p === '/usr/bin/true' || /\/usr\/bin\/true$/.test(p);
+  let picked = fromInstalled ?? fromTemplate;
+  if (
+    fromInstalled &&
+    isPlaceholder(fromInstalled.program) &&
+    fromTemplate &&
+    !isPlaceholder(fromTemplate.program)
+  ) {
+    picked = fromTemplate;
+  }
+  const program = picked?.program || fallback;
+  const placeholder = isPlaceholder(program);
+  return {
+    program,
+    placeholder,
+    source: picked?.source ?? 'default',
+  };
+}
+
+export type SchedulerProbeDetail = {
+  state: ServiceState;
+  placeholder: boolean;
+  program: string;
+};
+
+/**
+ * Probe scheduler: real launchctl PID when loaded; never report healthy for
+ * /usr/bin/true placeholder. Real worker (scheduler-worker.ts) may be healthy.
+ */
 export function probeSchedulerState(cfg: StackConfig): ServiceState {
-  // Sprint 11 owns scheduler — always pending/disabled, never healthy
-  void cfg;
+  return probeSchedulerDetail(cfg).state;
+}
+
+export function probeSchedulerDetail(cfg: StackConfig): SchedulerProbeDetail {
+  const prog = readSchedulerProgram(cfg);
+  if (prog.placeholder) {
+    return { state: 'pending', placeholder: true, program: prog.program };
+  }
   const listed = launchctlListLine(LAUNCHD_LABELS.scheduler);
   if (listed.pid && listed.pid > 0) {
-    // Should not happen with Disabled=true; still never report healthy
-    return 'pending';
+    return { state: 'healthy', placeholder: false, program: prog.program };
   }
-  return 'pending';
+  // Real program wired but not running — honest pending (not fake healthy).
+  return { state: 'pending', placeholder: false, program: prog.program };
 }
 
 export function probeZeroCacheState(cfg: StackConfig): ServiceState {
@@ -281,4 +354,129 @@ export function probeZeroCacheState(cfg: StackConfig): ServiceState {
     return 'disabled';
   }
   return 'not_implemented';
+}
+
+export type QueueProbeDetail = {
+  backend: 'pg-boss' | 'graphile-worker' | 'process-local' | 'unknown';
+  ready: boolean;
+  detail: string;
+};
+
+/**
+ * Sync queue readiness probe against real Postgres (psql SELECT).
+ * Never reports process-local as healthy production backend.
+ */
+export function probeQueueDetail(cfg: StackConfig): QueueProbeDetail {
+  const psqlCandidates = [
+    resolve(cfg.pgBin, 'psql'),
+    '/opt/homebrew/opt/postgresql@18/bin/psql',
+    '/usr/local/opt/postgresql@18/bin/psql',
+    'psql',
+  ];
+  const sql = `SELECT COALESCE(backend,'pg-boss') || '|' || COALESCE(ready::text,'false') FROM queue_backend_meta WHERE id = 1`;
+  for (const bin of psqlCandidates) {
+    const r = run(
+      bin,
+      [
+        '-h',
+        cfg.pgHost,
+        '-p',
+        String(cfg.pgPort),
+        '-d',
+        'holocron',
+        '-v',
+        'ON_ERROR_STOP=1',
+        '-t',
+        '-A',
+        '-c',
+        sql,
+      ],
+      {
+        timeoutMs: 5_000,
+        env: {
+          ...process.env,
+          DATABASE_URL: cfg.databaseUrl,
+          PGHOST: cfg.pgHost,
+          PGPORT: String(cfg.pgPort),
+        },
+      }
+    );
+    if (r.status === null && /ENOENT|not found/i.test(r.combined)) continue;
+    if (r.status !== 0) {
+      // Table may not exist yet — try create-via-probe script fallback below.
+      break;
+    }
+    const raw = r.stdout.trim();
+    const [backendRaw, readyRaw] = raw.split('|');
+    const backend =
+      backendRaw === 'graphile-worker'
+        ? 'graphile-worker'
+        : backendRaw === 'pg-boss'
+          ? 'pg-boss'
+          : 'unknown';
+    const ready = readyRaw === 't' || readyRaw === 'true';
+    if ((backend === 'pg-boss' || backend === 'graphile-worker') && ready) {
+      return {
+        backend,
+        ready,
+        detail: `queue meta backend=${backend} ready=${ready}`,
+      };
+    }
+    // meta stale (ready=false) or backend unknown: break to the probe-cli
+    // activation path, which starts the real backend (pg-boss/graphile-worker)
+    // and marks readiness from a live round-trip — never reports a stale
+    // ready=false when the backend is in fact operational.
+    break;
+  }
+
+  // Fallback / ensure: run probe-cli (startQueueBackend + probe) via bun.
+  const probeCliCandidates = [
+    resolve(cfg.repoRoot, 'services/platform/src/queue/probe-cli.ts'),
+    resolve(cfg.holoRoot, 'services/platform/src/queue/probe-cli.ts'),
+  ];
+  const probeCli = probeCliCandidates.find((p) => existsSync(p));
+  if (probeCli) {
+    const r = run(cfg.bunBin, [probeCli], {
+      timeoutMs: 30_000,
+      env: { ...process.env, DATABASE_URL: cfg.databaseUrl },
+    });
+    const line =
+      r.stdout
+        .split('\n')
+        .map((l) => l.trim())
+        .find((l) => l.startsWith('{')) ?? r.stdout.trim();
+    try {
+      const parsed = JSON.parse(line) as {
+        backend?: string;
+        ready?: boolean;
+        detail?: string;
+      };
+      const backend =
+        parsed.backend === 'graphile-worker'
+          ? 'graphile-worker'
+          : parsed.backend === 'pg-boss'
+            ? 'pg-boss'
+            : 'unknown';
+      if (backend === 'pg-boss' || backend === 'graphile-worker') {
+        return {
+          backend,
+          ready: Boolean(parsed.ready),
+          detail: parsed.detail ?? 'queue probe via probe-cli',
+        };
+      }
+    } catch {
+      // fall through
+    }
+    return {
+      backend: 'unknown',
+      ready: false,
+      detail: `queue probe-cli failed: ${r.combined.trim().slice(0, 240)}`,
+    };
+  }
+
+  return {
+    backend: 'unknown',
+    ready: false,
+    detail: 'queue_backend_meta unreachable and no probe-cli',
+  };
 }

@@ -75,7 +75,7 @@ describe('AC-1: stack supervisor lifecycle (real holo CLI + real probes)', () =>
   );
 
   itLive(
-    'holo stack status reports postgres+mastra healthy, scheduler pending (never fake-healthy)',
+    'holo stack status reports postgres+mastra healthy, real queue backend, scheduler not placeholder',
     () => {
       // Ensure stack is up first so status has something real to probe
       const up = runStack('up');
@@ -89,13 +89,13 @@ describe('AC-1: stack supervisor lifecycle (real holo CLI + real probes)', () =>
       expect(text, 'postgres must report healthy').toMatch(/postgres[^\n]*healthy/);
       expect(text, 'mastra must report healthy').toMatch(/mastra[^\n]*healthy/);
 
-      // STRICT: scheduler is Sprint 11 — pending/disabled only, never healthy
-      expect(text, 'scheduler must be pending or disabled').toMatch(
-        /scheduler[^\n]*(pending|disabled|not_implemented|skipped)/
+      // Sprint 11: scheduler is real (placeholder=false); state may be pending or healthy
+      expect(text, 'scheduler line present').toMatch(/scheduler/);
+      expect(text, 'scheduler must not be /usr/bin/true placeholder').not.toMatch(
+        /\/usr\/bin\/true/
       );
-      expect(text, 'scheduler must NEVER report healthy (Sprint 11 owns it)').not.toMatch(
-        /scheduler[^\n]*healthy/
-      );
+      // Queue backend must be pg-boss or graphile-worker (never process-local)
+      expect(text, 'queue backend must be real').toMatch(/queue[^\n]*(pg-boss|graphile-worker)/);
 
       // zero-cache: healthy if launched OR honest disabled/not_implemented — never silent absence
       expect(text, 'zero-cache must appear with honest state').toMatch(
@@ -111,10 +111,20 @@ describe('AC-1: stack supervisor lifecycle (real holo CLI + real probes)', () =>
         // Prefer structured parse when available
         try {
           const parsed = JSON.parse(body.slice(body.indexOf('{'))) as Record<string, unknown>;
-          const sched = String(parsed.scheduler ?? parsed.Scheduler ?? '').toLowerCase();
-          if (sched) {
-            expect(sched).toMatch(/pending|disabled|not_implemented|skipped/);
-            expect(sched).not.toMatch(/healthy|up|running/);
+          const sched = parsed.scheduler as
+            | string
+            | { state?: string; placeholder?: boolean; program?: string }
+            | undefined;
+          if (sched && typeof sched === 'object') {
+            expect(sched.placeholder, 'scheduler.placeholder must be false').toBe(false);
+            expect(String(sched.program ?? ''), 'must not be /usr/bin/true').not.toMatch(
+              /\/usr\/bin\/true/
+            );
+          }
+          const queue = parsed.queue as { backend?: string; ready?: boolean } | undefined;
+          if (queue) {
+            expect(queue.backend).toMatch(/pg-boss|graphile-worker/);
+            expect(queue.backend).not.toBe('process-local');
           }
         } catch {
           // human+json hybrid is ok if grep surface above already passed
