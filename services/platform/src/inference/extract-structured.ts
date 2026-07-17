@@ -15,6 +15,11 @@
  * with a `committed` flag (human gate step 5).
  * REDHAT-FIX-H2: consume the Fleet Role Manifest structuredOutput flag (carried on
  * the resolved model) to select constrained-decode vs repair mode.
+ * REDHAT-FIX-H1 (redhat round 2): use generateObject (the structured-output API,
+ * NOT plain-text generation) so the SDK sends response_format: json_schema on
+ * the wire for constrained decode. Zod is still re-run as the source of truth.
+ * REDHAT-FIX-H3 (redhat round 2): output-side tripwire — scan model-GENERATED
+ * content (not just input) before acceptance.
  *
  * Run:
  *   PLATFORM_IT=1 pnpm vitest run tests/integration/service/struct-*.test.ts
@@ -240,6 +245,106 @@ export async function extractStructured<T extends z.ZodType>(
 }
 
 /**
+ * Tripwire patterns scanned on BOTH the input (defense-in-depth) and the model
+ * output (REDHAT-FIX-H3: model-generated sensitive data must not pass through).
+ * Returns the first pattern's matches, or null when clean.
+ */
+const TRIPWIRE_PATTERNS: RegExp[] = [
+  // SSN patterns
+  /\b\d{3}-\d{2}-\d{4}\b/g, // 123-45-6789
+  /\b\d{3}\s*\d{2}\s*\d{4}\b/g, // 123 45 6789
+  // Credit card patterns
+  /\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b/g, // 4111-1111-1111-1111
+  // API key patterns
+  /\b(sk-[a-zA-Z0-9]{20,})\b/g,
+  /\b(api[_-]?key[_-]?)[\w\s]*[:=]\s*[\w-]{10,}/gi,
+  // Password patterns
+  /\b(password[:\s]*[\w]{6,})\b/gi,
+];
+
+function findTripwireMatches(text: string): { pattern: RegExp; matches: string[] } | null {
+  for (const pattern of TRIPWIRE_PATTERNS) {
+    const matches = text.match(pattern);
+    if (matches && matches.length > 0) {
+      return { pattern, matches };
+    }
+  }
+  return null;
+}
+
+/**
+ * Bound each fleet call so a stalling endpoint (the local fleet can stall on
+ * rapid sequential calls) can never hang extraction: a timeout aborts the call,
+ * it is counted as a failed attempt, and the bounded repair loop proceeds.
+ */
+const CALL_TIMEOUT_MS = 45_000;
+
+/**
+ * Strip markdown code fences (```json ... ```) from a model response so the AI
+ * SDK's strict JSON parser can handle models that wrap their JSON output.
+ * Used as generateObject's experimental_repairText in repair mode.
+ */
+function stripMarkdownFences(text: string): string {
+  const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  return fenceMatch ? fenceMatch[1].trim() : text;
+}
+
+/**
+ * Build a schema-guided prompt for repair mode. In repair mode response_format
+ * is stripped from the wire (so reasoning models emit `content`), which means
+ * the model receives NO schema hint from the transport. The prompt must convey
+ * the expected JSON shape so the model emits parseable, schema-shaped JSON
+ * (wrapped in markdown fences, which stripMarkdownFences/repairText handles).
+ *
+ * Uses the AI SDK's own `asSchema()` wrapper to convert the Zod schema to a JSON
+ * Schema — this is INSTANCE-TOLERANT (handles the split-zod pitfall where the
+ * caller's schema was built with a different zod instance than this module's
+ * `z`), unlike `z.toJSONSchema()` which crashes on cross-instance schemas.
+ */
+async function buildSchemaGuidedPrompt(input: string, schema: z.ZodType): Promise<string> {
+  const { asSchema } = await import('ai');
+  const jsonSchemaObj = await asSchema(schema).jsonSchema;
+  return `${input}\n\nRespond with a single valid JSON object matching this JSON schema:\n${JSON.stringify(jsonSchemaObj)}\n\nOutput ONLY the JSON object, no additional text.`;
+}
+
+/**
+ * Build the model used for generateObject, mode-aware.
+ *
+ * - constrained: the raw fleet model. generateObject sends response_format:
+ *   json_schema on the wire (true constrained decoding). Used only when the
+ *   boot-time probe verified the role honors json_schema.
+ * - repair: the fleet model wrapped in a middleware that strips response_format,
+ *   because local reasoning models (e.g. GLM-4.7) emit structured output via the
+ *   `reasoning` channel (leaving `content` empty) whenever response_format is
+ *   set. Stripping it makes the model emit content normally; generateObject then
+ *   parses it with experimental_repairText handling markdown fences.
+ *
+ * This is the v7-correct realization of the legacy `mode: 'json'` toggle (which
+ * was removed in AI SDK v5+): prompt-level JSON instruction without requiring
+ * backend json_schema support.
+ */
+async function createStructuredModel(
+  fleetModel: ReturnType<typeof createFleetChatModel>,
+  mode: 'constrained' | 'repair'
+): Promise<ReturnType<typeof createFleetChatModel>> {
+  if (mode === 'constrained') {
+    return fleetModel;
+  }
+  const { wrapLanguageModel } = await import('ai');
+  return wrapLanguageModel({
+    model: fleetModel,
+    middleware: {
+      specificationVersion: 'v4',
+      // Strip responseFormat so reasoning models emit `content` (not reasoning-only).
+      transformParams: async ({ params }) => {
+        const { responseFormat: _stripped, ...rest } = params;
+        return rest as typeof params;
+      },
+    },
+  });
+}
+
+/**
  * Inner extraction pipeline (excludes status tracking, which is handled by the
  * `extractStructured` wrapper). Separated so the status try/catch does not
  * interleave with the repair-loop's own try/catch.
@@ -251,44 +356,35 @@ async function runExtraction<T extends z.ZodType>(
   extractionId: string,
   startedAt: string
 ): Promise<z.infer<T>> {
-  // Tripwire detection: check for sensitive content before calling the model
-  // This implements AC-3: "tripwire during extraction surfaces BlockedError"
-  const tripwirePatterns = [
-    // SSN patterns
-    /\b\d{3}-\d{2}-\d{4}\b/g, // 123-45-6789
-    /\b\d{3}\s*\d{2}\s*\d{4}\b/g, // 123 45 6789
-    // Credit card patterns
-    /\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b/g, // 4111-1111-1111-1111
-    // API key patterns
-    /\b(sk-[a-zA-Z0-9]{20,})\b/g,
-    /\b(api[_-]?key[_-]?)[\w\s]*[:=]\s*[\w-]{10,}/gi,
-    // Password patterns
-    /\b(password[:\s]*[\w]{6,})\b/gi,
-  ];
-
-  for (const pattern of tripwirePatterns) {
-    const matches = input.match(pattern);
-    if (matches) {
-      throw new BlockedError('sensitive_data_detected', 'pii-filter', {
-        reason: 'sensitive_data_detected',
-        processorId: 'pii-filter',
-        details: `Detected ${matches.length} sensitive data pattern(s) in input: ${matches.slice(0, 3).join(', ')}`,
-        patterns: matches.slice(0, 5), // First 5 matches
-      });
-    }
+  // INPUT-side tripwire (defense in depth): check for sensitive content BEFORE
+  // calling the model. AC-3: "tripwire during extraction surfaces BlockedError".
+  const inputTripwire = findTripwireMatches(input);
+  if (inputTripwire) {
+    throw new BlockedError('sensitive_data_detected', 'pii-filter', {
+      reason: 'sensitive_data_detected',
+      processorId: 'pii-filter',
+      details: `Detected ${inputTripwire.matches.length} sensitive data pattern(s) in input: ${inputTripwire.matches.slice(0, 3).join(', ')}`,
+      patterns: inputTripwire.matches.slice(0, 5), // First 5 matches
+    });
   }
 
   // Resolve the fleet role (never bypass resolveModel)
   const resolved: ResolvedModel = await resolveModel(role);
 
   // REDHAT-FIX-H2: Consume the Fleet Role Manifest structuredOutput flag to
-  // select constrained-decode vs repair mode. `resolved.structuredOutput` is
-  // read directly from the FleetRoleSchema.structuredOutput boolean by
+  // select the INITIAL constrained-decode vs repair mode. `resolved.structuredOutput`
+  // is read directly from the FleetRoleSchema.structuredOutput boolean by
   // resolveModel (see resolve-model.ts → ResolvedModel.structuredOutput), which
   // itself reads it from the Fleet Role Manifest entry.
-  //   structuredOutput=true  → 'constrained' (role advertises json_schema support)
-  //   structuredOutput=false → 'repair' (prompt-only instruction + Zod re-validation)
-  const mode: 'constrained' | 'repair' = resolved.structuredOutput ? 'constrained' : 'repair';
+  //   structuredOutput=true  → start 'constrained' (role advertises json_schema support)
+  //   structuredOutput=false → start 'repair' (prompt-only instruction + Zod re-validation)
+  //
+  // G-ORACLE: the manifest flag is only the INITIAL guess — the LIVE generateObject
+  // behavior is truth. If constrained mode throws NoObjectGeneratedError (common
+  // for local reasoning models like GLM-4.7 that emit content=null whenever
+  // response_format is set), the loop ADAPTIVELY falls back to repair mode
+  // (manifest may over-advertise capability; the live probe is authoritative).
+  let currentMode: 'constrained' | 'repair' = resolved.structuredOutput ? 'constrained' : 'repair';
 
   // Create the fleet chat model using the proper AI SDK integration
   const fleetModel = createFleetChatModel(resolved, {
@@ -300,80 +396,59 @@ async function runExtraction<T extends z.ZodType>(
   // Bounded repair loop
   for (let attempt = 1; attempt <= MAX_REPAIR_ATTEMPTS; attempt++) {
     try {
-      // For local OpenAI-compatible models, use generateText with explicit JSON
-      // instruction. This is more reliable than generateObject for local models.
-      const { generateText } = await import('ai');
+      // REDHAT-FIX-H1 (round 2): use generateObject (the structured-output API,
+      // NOT the legacy plain-text path) so the SDK sends response_format:
+      // json_schema on the wire for constrained decoding. generateObject parses
+      // + (internally) validates the response; Zod is STILL re-run below as the
+      // source of truth (belt-and-suspenders).
+      const { generateObject } = await import('ai');
 
-      // Build a prompt that explicitly requests JSON output
-      const schemaJson = JSON.stringify(schema.shape, null, 2);
+      // Mode-aware model: constrained → raw (json_schema on the wire);
+      // repair → wrapped to strip response_format (prompt-level JSON), because
+      // local reasoning models emit via the reasoning channel when
+      // response_format is set. experimental_repairText handles markdown fences.
+      const structuredModel = await createStructuredModel(fleetModel, currentMode);
 
-      // REDHAT-FIX-H2: mode-gated prompt + provider hint.
-      // - constrained: role advertises structuredOutput support → request JSON
-      //   output mode via providerOptions (local OpenAI-compatible models that
-      //   honor response_format will constrain decoding).
-      // - repair: prompt-only JSON instruction; rely on the Zod re-validation
-      //   repair loop to handle malformed output.
-      const modeInstruction =
-        mode === 'constrained'
-          ? 'You MUST respond with a single valid JSON object (structured/constrained output).'
-          : 'Respond with a valid JSON object.';
-
-      const jsonPrompt = `${input}\n\n${modeInstruction}\n\nMatch this schema:\n${schemaJson}\n\nOutput ONLY the JSON object, no additional text.`;
-
-      // Bound each fleet call so a stalling endpoint (the local fleet can stall on
-      // rapid sequential calls) can never hang extraction: a timeout aborts the call,
-      // it is counted as a failed attempt, and the bounded repair loop proceeds.
-      const CALL_TIMEOUT_MS = 45_000;
-
-      const result = await generateText(
-        mode === 'constrained'
+      const { object } = await generateObject({
+        model: structuredModel,
+        schema,
+        // Constrained: the schema travels on the wire (response_format json_schema),
+        // so the raw input prompt suffices. Repair: response_format is stripped, so
+        // the prompt must convey the expected JSON shape (buildSchemaGuidedPrompt).
+        prompt: currentMode === 'repair' ? await buildSchemaGuidedPrompt(input, schema) : input,
+        abortSignal: AbortSignal.timeout(CALL_TIMEOUT_MS),
+        ...(currentMode === 'repair'
           ? {
-              model: fleetModel,
-              prompt: jsonPrompt,
-              abortSignal: AbortSignal.timeout(CALL_TIMEOUT_MS),
-              // Constrained mode: hint the provider toward JSON output when supported.
-              providerOptions: {
-                openai: { responseFormat: { type: 'json_object' } },
-              },
+              experimental_repairText: async ({ text }: { text: string }) =>
+                stripMarkdownFences(text),
             }
-          : {
-              model: fleetModel,
-              prompt: jsonPrompt,
-              abortSignal: AbortSignal.timeout(CALL_TIMEOUT_MS),
-            }
-      );
+          : {}),
+      });
 
-      // Parse the JSON response
-      let jsonResponse: unknown;
-      try {
-        // Extract JSON from the response (sometimes models add text around it)
-        const text = result.text;
-        const jsonMatch = text.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) {
-          throw new Error('No JSON object found in response');
-        }
-        jsonResponse = JSON.parse(jsonMatch[0]);
-      } catch (parseErr) {
-        // If JSON parsing fails, treat it as a Zod validation error
-        const zodError = new z.ZodError([
-          {
-            code: z.ZodIssueCode.custom,
-            path: [],
-            message: `Failed to parse JSON: ${parseErr instanceof Error ? parseErr.message : String(parseErr)}`,
-          },
-        ]);
-        schemaErrors.push({ attempt, error: zodError });
-        continue;
+      // REDHAT-FIX-H3: OUTPUT-side tripwire — scan model-GENERATED content
+      // (not just input) before acceptance. A model can synthesize sensitive
+      // data (SSN, card numbers) even when the input was clean; that must NOT
+      // pass through. Runs BEFORE Zod re-validation and BEFORE success status.
+      const outputText = JSON.stringify(object);
+      const outputTripwire = findTripwireMatches(outputText);
+      if (outputTripwire) {
+        throw new BlockedError('output_sensitive_data_detected', 'pii-filter', {
+          reason: 'output_sensitive_data_detected',
+          processorId: 'pii-filter',
+          details: `Detected ${outputTripwire.matches.length} sensitive data pattern(s) in model output: ${outputTripwire.matches.slice(0, 3).join(', ')}`,
+          patterns: outputTripwire.matches.slice(0, 5),
+        });
       }
 
-      // ZOD-VALIDATE BEFORE RETURN (the invariant).
-      // Isolate validation failures in their own handler so a ZodError is ALWAYS
-      // treated as a repair-loop failure (captured + continue) and NEVER leaks raw
-      // past the cap — the typed ExtractionFailedError after exhaustion is the only
-      // failure surface. Robust to zod instance splits via isZodError().
+      // ZOD IS TRUTH (the invariant). generateObject's internal validation may
+      // use a JSON-schema projection that cannot express arbitrary .refine()
+      // predicates, so re-running schema.parse() here is what actually enforces
+      // the full Zod contract. Isolate validation failures so a ZodError is
+      // ALWAYS a repair-loop failure (captured + continue) and NEVER leaks raw
+      // past the cap. Robust to zod instance splits via isZodError().
       let validated: z.infer<T>;
       try {
-        validated = schema.parse(jsonResponse);
+        validated = schema.parse(object);
       } catch (validationErr) {
         const ze = isZodError(validationErr)
           ? validationErr
@@ -401,10 +476,47 @@ async function runExtraction<T extends z.ZodType>(
       });
       return validated;
     } catch (err) {
+      // A BlockedError from the OUTPUT-side tripwire (H3) is terminal — it must
+      // NOT be swallowed by the repair loop (the model regenerating sensitive
+      // data is not a recoverable schema error).
+      if (err instanceof BlockedError) {
+        throw err;
+      }
+
       // Capture Zod validation errors (robust to zod instance splits)
       if (isZodError(err)) {
         schemaErrors.push({ attempt, error: err });
-        // Continue to next repair attempt
+        continue;
+      }
+
+      // generateObject throws NoObjectGeneratedError when the model output does
+      // not parse as JSON or does not match the schema (e.g. reasoning models
+      // that emit content=null, or an unsatisfiable schema). Treat these as
+      // repair-loop failures (captured + continue), never as success.
+      if (
+        err instanceof Error &&
+        /NoObjectGenerated|did not match schema|could not parse/i.test(err.name + err.message)
+      ) {
+        schemaErrors.push({
+          attempt,
+          error: new z.ZodError([
+            {
+              code: z.ZodIssueCode.custom,
+              path: [],
+              message: `generateObject rejected output (${err.name}): ${err.message.slice(0, 200)}`,
+            },
+          ]),
+        });
+
+        // G-ORACLE adaptive fallback: if constrained mode (json_schema on the
+        // wire) produced no object, the live model does not honor
+        // response_format — switch to repair mode for subsequent attempts. The
+        // manifest flag may over-advertise capability; live behavior is truth.
+        // This is exactly what the boot-time probe detects, applied inline so
+        // extraction is self-healing without requiring a separate probe call.
+        if (currentMode === 'constrained') {
+          currentMode = 'repair';
+        }
         continue;
       }
 

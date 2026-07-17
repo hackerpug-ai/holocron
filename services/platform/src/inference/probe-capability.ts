@@ -1,15 +1,19 @@
 /**
  * probeCapabilities — boot-time per-role capability probe for structured output.
  *
- * Probes each Fleet Role Manifest role endpoint with a REAL generateText call
- * using an explicit JSON instruction (never a /health proxy or static cache) to
- * record per-role json_schema structured-output support, and selects
+ * Probes each Fleet Role Manifest role endpoint with a REAL generateObject call
+ * (response_format: json_schema on the wire — never a /health proxy or static
+ * cache) to record per-role json_schema structured-output support, and selects
  * constrained-decode vs repair-loop mode.
  *
- * Uses generateText rather than generateObject because local OpenAI-compatible
- * models respond more reliably to prompt-level JSON instructions; the probe
- * validates the parsed text against a small Zod schema to detect whether the
- * role honors structured output.
+ * Uses generateObject (the REAL structured-output mechanism that extractStructured
+ * relies on): if the role honors json_schema the call returns a parsed object;
+ * if not (e.g. reasoning models that emit content=null), generateObject throws
+ * NoObjectGeneratedError and the role is marked `repair`.
+ *
+ * G-ORACLE: the probe result is cross-checked against the manifest's
+ * `structuredOutput` flag — if the manifest declares `structuredOutput: false`
+ * the role is marked repair regardless (the manifest is authoritative).
  *
  * Sprint 09 struct-2: Boot-time probe → per-role capability map → mode selection.
  *
@@ -63,14 +67,19 @@ const PROBE_SCHEMA = z.object({
 });
 
 /**
- * Run a real generateText call (with explicit JSON instruction) against a
- * resolved fleet role to test json_schema constrained decode support.
+ * Run a real generateObject call against a resolved fleet role to test
+ * json_schema constrained decode support.
  *
- * This is the core probe: it makes a REAL fleet call using generateText (not
- * generateObject — generateText with a prompt-level JSON instruction is more
- * reliable for local OpenAI-compatible models) with a simple schema and checks
- * if the model honors json_schema (constrained decode) or if we need the
- * repair loop (repair mode).
+ * This is the core probe: it makes a REAL fleet call using generateObject (the
+ * same mechanism extractStructured uses) with a simple schema. If the role
+ * honors json_schema, generateObject returns a parsed object → supportsJsonSchema
+ * is true. If the role cannot honor json_schema (e.g. reasoning models that emit
+ * content=null whenever response_format is set), generateObject throws
+ * NoObjectGeneratedError → supportsJsonSchema is false → repair mode.
+ *
+ * This is the REAL probe: it detects whether the backend can actually handle
+ * structured-output requests on the wire, not merely whether the model can emit
+ * JSON-ish text.
  *
  * @param resolved - Resolved fleet model
  * @param options - Probe options
@@ -85,49 +94,37 @@ async function probeJsonSchemaSupport(
     apiKey: process.env.FLEET_KEY ?? 'sk-none',
   });
 
-  // Use generateText with explicit JSON instruction (more reliable for local models)
-  const { generateText } = await import('ai');
+  // Use generateObject with a real schema — this sends response_format:
+  // json_schema on the wire. A role that honors it returns a parsed object;
+  // a role that does not throws (NoObjectGeneratedError / schema mismatch).
+  const { generateObject } = await import('ai');
 
-  const prompt = `Reply with a valid JSON object matching this schema:
-{
-  "success": true,
-  "message": "probe successful"
-}
-
-Output ONLY the JSON object, no additional text.`;
+  const prompt = 'Return a JSON object with success=true and message="probe successful".';
 
   const timeoutMs = options.timeoutMs ?? 45_000;
 
   try {
-    const result = await generateText({
+    await generateObject({
       model: fleetModel,
+      schema: PROBE_SCHEMA,
       prompt,
       abortSignal: AbortSignal.timeout(timeoutMs),
     });
-
-    // Parse and validate against the probe schema
-    let jsonResponse: unknown;
-    try {
-      const text = result.text;
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        return false; // No JSON found → repair mode
-      }
-      jsonResponse = JSON.parse(jsonMatch[0]);
-    } catch {
-      return false; // JSON parse failed → repair mode
-    }
-
-    // Validate against schema
-    const validated = PROBE_SCHEMA.safeParse(jsonResponse);
-    return validated.success;
+    return true; // generateObject succeeded → role honors json_schema
   } catch {
-    return false; // Call failed or timed out → repair mode
+    return false; // generateObject failed → repair mode
   }
 }
 
 /**
  * Probe a single role for json_schema structured-output support.
+ *
+ * G-ORACLE: the probe result is cross-checked against the manifest's
+ * `structuredOutput` flag (carried on the resolved model). The manifest is
+ * authoritative: if `resolved.structuredOutput === false` the role is marked
+ * repair regardless of the live probe (the manifest declares this role does
+ * not support structured output). If the manifest says true AND the live
+ * generateObject probe succeeds → constrained.
  *
  * @param role - Fleet role to probe
  * @param options - Probe options
@@ -145,9 +142,17 @@ export async function probeRoleCapability(
       skipHealth: false,
     });
 
-    // Probe json_schema support with a REAL generateText call (not generateObject —
-    // generateText with explicit JSON instruction is more reliable for local models)
-    const supportsJsonSchema = await probeJsonSchemaSupport(resolved, options);
+    // Probe json_schema support with a REAL generateObject call (the same
+    // mechanism extractStructured uses). A role that honors json_schema returns
+    // a parsed object; a role that does not throws NoObjectGeneratedError.
+    const liveSupportsJsonSchema = await probeJsonSchemaSupport(resolved, options);
+
+    // G-ORACLE: the manifest's structuredOutput flag is authoritative. If the
+    // manifest declares structuredOutput=false, force repair mode regardless of
+    // the live probe (the manifest is the declared contract). Constrained mode
+    // requires BOTH manifest=true AND a successful live generateObject probe.
+    const supportsJsonSchema =
+      resolved.structuredOutput === true && liveSupportsJsonSchema === true;
 
     // Select mode based on capability
     const mode: 'constrained' | 'repair' = supportsJsonSchema ? 'constrained' : 'repair';
@@ -177,9 +182,8 @@ export async function probeRoleCapability(
  * Probe all Fleet Role Manifest roles for json_schema structured-output support.
  *
  * This is the boot-time probe: it tests each role endpoint with a REAL
- * generateText call (not generateObject — generateText with a prompt-level
- * JSON instruction is more reliable for local OpenAI-compatible models; never a
- * /health proxy or static cache) and records per-role capability.
+ * generateObject call (never a /health proxy or static cache) and records
+ * per-role capability.
  *
  * The output is used by struct-1's extractStructured to select constrained-decode
  * vs repair-loop mode per role.
