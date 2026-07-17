@@ -132,6 +132,31 @@ describe('struct-3 AC-3: tripwire→BlockedError with no tool dispatch (RED)', (
           /blocked|tripwire|unsafe|filtered/i
         );
 
+        // REDHAT-FIX-C2-H1: BlockedError payload carries kind labels, never raw
+        // matched values (SSN/CC/api-key/password). Detection still fires.
+        const blocked = caught as {
+          reason: string;
+          processorId: string;
+          tripwirePayload: {
+            reason: string;
+            processorId: string;
+            details?: string;
+            patterns?: string[];
+          };
+        };
+        expect(blocked.reason).toBe('sensitive_data_detected');
+        expect(blocked.processorId).toBe('pii-filter');
+        expect(blocked.tripwirePayload.reason).toBe('sensitive_data_detected');
+        expect(blocked.tripwirePayload.processorId).toBe('pii-filter');
+        expect(blocked.tripwirePayload.patterns).toEqual(
+          expect.arrayContaining([expect.stringMatching(/^(SSN|CREDIT_CARD|API_KEY|PASSWORD)$/)])
+        );
+        const payloadJson = JSON.stringify(blocked.tripwirePayload);
+        expect(payloadJson).not.toMatch(/123-45-6789/);
+        expect(payloadJson).not.toMatch(/4111-1111-1111-1111/);
+        expect(blocked.tripwirePayload.details ?? '').toMatch(/redacted|kind/i);
+        expect(blocked.tripwirePayload.details ?? '').not.toMatch(/123-45-6789/);
+
         // REDHAT-FIX-H6: REAL no-dispatch verification via the file-based
         // extraction status store (.tmp/extractions/<id>.json). The tripwire
         // blocked extraction, so NO committed row exists — status is 'blocked',
@@ -139,26 +164,31 @@ describe('struct-3 AC-3: tripwire→BlockedError with no tool dispatch (RED)', (
         // verification will be done in GREEN state.").
         const status = await extractMod.getExtractionStatus(extractionId);
         expect(status, 'extraction status record must exist after block').not.toBeNull();
-        expect(status!.status).toBe('blocked');
-        expect(status!.committed, 'NO committed/dispatched row — the block invariant').toBe(false);
-        expect(status!.blockedReason, 'blockedReason must be set').toBeTruthy();
+        expect(status?.status).toBe('blocked');
+        expect(status?.committed, 'NO committed/dispatched row — the block invariant').toBe(false);
+        expect(status?.blockedReason, 'blockedReason must be set').toBe('sensitive_data_detected');
+
+        // REDHAT-FIX-C2-H1: persisted status must not echo raw matches
+        const statusJson = JSON.stringify(status);
+        expect(statusJson).not.toMatch(/123-45-6789/);
+        expect(statusJson).not.toMatch(/4111-1111-1111-1111/);
 
         writeArtifact('AC-3-green-blocked-emitted.json', {
           error:
             caught instanceof Error
               ? { name: caught.name, message: caught.message }
               : String(caught),
-          tripwirePayload,
+          tripwirePayload: blocked.tripwirePayload,
           fleetCount: capture.fleetCount(),
           anthropicCount: capture.anthropicCount(),
           extractionId,
           status: status ?? undefined,
           noDispatchVerified: status?.committed === false,
+          redacted: true,
         });
       }
 
-      // Must have real fleet traffic
-      expect(capture.fleetCount()).toBeGreaterThanOrEqual(1);
+      // Input tripwire fires BEFORE any fleet call (block must not require fleet).
       expect(capture.anthropicCount()).toBe(0);
     } finally {
       capture.restore();
@@ -203,12 +233,7 @@ describe('struct-3 AC-3: tripwire→BlockedError with no tool dispatch (RED)', (
     const extractionId = randomUUID();
     let caught: unknown;
     try {
-      await extractMod.extractStructured(
-        tripwireSchema,
-        tripwireInput,
-        'divergent',
-        extractionId
-      );
+      await extractMod.extractStructured(tripwireSchema, tripwireInput, 'divergent', extractionId);
       expect('should have thrown BlockedError').toBe('thrown');
     } catch (err) {
       caught = err;
@@ -225,14 +250,83 @@ describe('struct-3 AC-3: tripwire→BlockedError with no tool dispatch (RED)', (
     // never dispatched — committed === false and status === 'blocked'.
     const status = await extractMod.getExtractionStatus(extractionId);
     expect(status, 'extraction status record must exist').not.toBeNull();
-    expect(status!.status).toBe('blocked');
-    expect(status!.committed, 'no committed/dispatched row after block').toBe(false);
-    expect(status!.blockedReason, 'blockedReason must be set').toBeTruthy();
+    expect(status?.status).toBe('blocked');
+    expect(status?.committed, 'no committed/dispatched row after block').toBe(false);
+    expect(status?.blockedReason, 'blockedReason must be set').toBeTruthy();
 
     writeArtifact('AC-3-green-no-dispatch-verified.json', {
       extractionId,
       status,
       noDispatchVerified: status?.committed === false,
+    });
+  });
+
+  /**
+   * REDHAT-FIX-C2-H1: tripwire BlockedError serializes kind labels + count only.
+   * Raw fixture literals (123-45-6789, 4111-1111-1111-1111) must never appear in
+   * tripwirePayload or the persisted .tmp/extractions/<id>.json status file.
+   */
+  itLive('REDHAT-FIX-C2-H1: BlockedError/status payloads redact raw match values', async () => {
+    const extractMod = await loadExtractStructured();
+    const extractionId = randomUUID();
+    let caught: unknown;
+    try {
+      await extractMod.extractStructured(tripwireSchema, tripwireInput, 'divergent', extractionId);
+      expect('should have thrown BlockedError').toBe('thrown');
+    } catch (err) {
+      caught = err;
+      if (err instanceof ReferenceError) throw err;
+    }
+
+    expect(caught).toBeInstanceOf(extractMod.BlockedError);
+    const blocked = caught as {
+      reason: string;
+      processorId: string;
+      tripwirePayload: {
+        reason: string;
+        processorId: string;
+        details?: string;
+        patterns?: string[];
+      };
+    };
+
+    // Reasons + processor preserved (never-silently-accept invariant)
+    expect(blocked.reason).toBe('sensitive_data_detected');
+    expect(blocked.processorId).toBe('pii-filter');
+    expect(blocked.tripwirePayload.reason).toBe('sensitive_data_detected');
+    expect(blocked.tripwirePayload.processorId).toBe('pii-filter');
+
+    // patterns: kind labels only (e.g. ['SSN']), never raw capture groups
+    const kindLabels = blocked.tripwirePayload.patterns ?? [];
+    expect(Array.isArray(kindLabels)).toBe(true);
+    expect(kindLabels.length).toBeGreaterThan(0);
+    for (const p of kindLabels) {
+      expect(p).toMatch(/^(SSN|CREDIT_CARD|API_KEY|PASSWORD)$/);
+    }
+
+    // details: count + kind + redacted marker — no raw SSN/CC
+    expect(blocked.tripwirePayload.details).toMatch(/of kind SSN|redacted/i);
+    expect(blocked.tripwirePayload.details).toMatch(/\d+\s+sensitive data pattern/i);
+
+    const payloadJson = JSON.stringify(blocked.tripwirePayload);
+    expect(payloadJson).not.toContain('123-45-6789');
+    expect(payloadJson).not.toContain('4111-1111-1111-1111');
+
+    const status = await extractMod.getExtractionStatus(extractionId);
+    expect(status).not.toBeNull();
+    expect(status?.status).toBe('blocked');
+    expect(status?.committed).toBe(false);
+    expect(status?.blockedReason).toBe('sensitive_data_detected');
+
+    const statusJson = JSON.stringify(status);
+    expect(statusJson).not.toContain('123-45-6789');
+    expect(statusJson).not.toContain('4111-1111-1111-1111');
+
+    writeArtifact('AC-C2-H1-redacted-payload.json', {
+      extractionId,
+      tripwirePayload: blocked.tripwirePayload,
+      status,
+      rawSsnAbsent: !payloadJson.includes('123-45-6789') && !statusJson.includes('123-45-6789'),
     });
   });
 

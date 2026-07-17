@@ -248,6 +248,10 @@ export async function extractStructured<T extends z.ZodType>(
  * Tripwire patterns scanned on BOTH the input (defense-in-depth) and the model
  * output (REDHAT-FIX-H3: model-generated sensitive data must not pass through).
  * Returns the first pattern's matches, or null when clean.
+ *
+ * REDHAT-FIX-C2-H1: PATTERN_KINDS is parallel to TRIPWIRE_PATTERNS. Detection
+ * still matches raw text internally; only SERIALIZED BlockedError payloads use
+ * kind labels (never raw capture groups like "123-45-6789").
  */
 const TRIPWIRE_PATTERNS: RegExp[] = [
   // SSN patterns
@@ -262,14 +266,50 @@ const TRIPWIRE_PATTERNS: RegExp[] = [
   /\b(password[:\s]*[\w]{6,})\b/gi,
 ];
 
-function findTripwireMatches(text: string): { pattern: RegExp; matches: string[] } | null {
-  for (const pattern of TRIPWIRE_PATTERNS) {
+/** Parallel to TRIPWIRE_PATTERNS — stable kind labels for redacted payloads. */
+const PATTERN_KINDS = ['SSN', 'SSN', 'CREDIT_CARD', 'API_KEY', 'API_KEY', 'PASSWORD'] as const;
+type PatternKind = (typeof PATTERN_KINDS)[number];
+
+/**
+ * Scan text for the first matching tripwire pattern.
+ * Internally retains raw matches for detection correctness; callers MUST NOT
+ * serialize `matches` into status/CLI payloads — use `kind` + `count` only.
+ */
+function findTripwireMatches(
+  text: string
+): { kind: PatternKind; count: number; matches: string[] } | null {
+  for (let i = 0; i < TRIPWIRE_PATTERNS.length; i++) {
+    const pattern = TRIPWIRE_PATTERNS[i];
+    const kind = PATTERN_KINDS[i];
+    if (pattern === undefined || kind === undefined) continue;
     const matches = text.match(pattern);
     if (matches && matches.length > 0) {
-      return { pattern, matches };
+      return { kind, count: matches.length, matches };
     }
   }
   return null;
+}
+
+/**
+ * Build a redacted tripwire payload for BlockedError (REDHAT-FIX-C2-H1).
+ * Emits count + pattern-kind labels only — never raw matched values.
+ */
+function redactedTripwirePayload(
+  reason: string,
+  surface: 'input' | 'model output',
+  hit: { kind: PatternKind; count: number }
+): {
+  reason: string;
+  processorId: string;
+  details: string;
+  patterns: PatternKind[];
+} {
+  return {
+    reason,
+    processorId: 'pii-filter',
+    details: `Detected ${hit.count} sensitive data pattern(s) of kind ${hit.kind} in ${surface} (values redacted)`,
+    patterns: [hit.kind],
+  };
 }
 
 /**
@@ -358,14 +398,14 @@ async function runExtraction<T extends z.ZodType>(
 ): Promise<z.infer<T>> {
   // INPUT-side tripwire (defense in depth): check for sensitive content BEFORE
   // calling the model. AC-3: "tripwire during extraction surfaces BlockedError".
+  // REDHAT-FIX-C2-H1: serialize count + kind labels only — never raw matches.
   const inputTripwire = findTripwireMatches(input);
   if (inputTripwire) {
-    throw new BlockedError('sensitive_data_detected', 'pii-filter', {
-      reason: 'sensitive_data_detected',
-      processorId: 'pii-filter',
-      details: `Detected ${inputTripwire.matches.length} sensitive data pattern(s) in input: ${inputTripwire.matches.slice(0, 3).join(', ')}`,
-      patterns: inputTripwire.matches.slice(0, 5), // First 5 matches
-    });
+    throw new BlockedError(
+      'sensitive_data_detected',
+      'pii-filter',
+      redactedTripwirePayload('sensitive_data_detected', 'input', inputTripwire)
+    );
   }
 
   // Resolve the fleet role (never bypass resolveModel)
@@ -429,15 +469,15 @@ async function runExtraction<T extends z.ZodType>(
       // (not just input) before acceptance. A model can synthesize sensitive
       // data (SSN, card numbers) even when the input was clean; that must NOT
       // pass through. Runs BEFORE Zod re-validation and BEFORE success status.
+      // REDHAT-FIX-C2-H1: serialize count + kind labels only — never raw matches.
       const outputText = JSON.stringify(object);
       const outputTripwire = findTripwireMatches(outputText);
       if (outputTripwire) {
-        throw new BlockedError('output_sensitive_data_detected', 'pii-filter', {
-          reason: 'output_sensitive_data_detected',
-          processorId: 'pii-filter',
-          details: `Detected ${outputTripwire.matches.length} sensitive data pattern(s) in model output: ${outputTripwire.matches.slice(0, 3).join(', ')}`,
-          patterns: outputTripwire.matches.slice(0, 5),
-        });
+        throw new BlockedError(
+          'output_sensitive_data_detected',
+          'pii-filter',
+          redactedTripwirePayload('output_sensitive_data_detected', 'model output', outputTripwire)
+        );
       }
 
       // ZOD IS TRUTH (the invariant). generateObject's internal validation may
