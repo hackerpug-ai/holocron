@@ -1,8 +1,9 @@
 # obs-2 — Inference telemetry stream (tokens/wall-ms/endpoint/role) → Postgres per call
-> Status: Backlog
+> Status: ✅ Completed
+> Commit: 9b1f59c890152860582259dfd8eaa0c7075a263d
+> Completed: 2026-07-17T23:30:39Z
 > Sprint: [Sprint 12 — Observability, Telemetry and Eval Gate](../SPRINT.md)
 > Agent: mastra-evals-implementer
-> Reviewer: mastra-reviewer
 > Estimate: 150 min
 > Type: FEATURE
 > Priority: P0

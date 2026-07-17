@@ -1,8 +1,9 @@
 # obs-1 — Observability wiring — OTel exporter → self-hosted Langfuse (per-run traces)
-> Status: Backlog
+> Status: ✅ Completed
+> Commit: c480acce19f5e29a4ad32ee84bb77973fec4e9e4
+> Completed: 2026-07-17T23:30:39Z
 > Sprint: [Sprint 12 — Observability, Telemetry and Eval Gate](../SPRINT.md)
 > Agent: mastra-evals-implementer
-> Reviewer: mastra-reviewer
 > Estimate: 210 min
 > Type: FEATURE
 > Priority: P0
