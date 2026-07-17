@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { existsSync } from 'node:fs';
 /**
  * QA PRECONDITION SEED — Sprint 10 Human Testing Gate.
  *
@@ -15,14 +16,16 @@
  * Idempotent on content_hash; safe to re-run.
  */
 import { resolve } from 'node:path';
-import { existsSync } from 'node:fs';
+
 // Walk up to find project root (directory containing package.json)
 let ROOT = import.meta.dir;
 for (let i = 0; i < 10; i++) {
   if (existsSync(resolve(ROOT, 'package.json'))) break;
   ROOT = resolve(ROOT, '..');
 }
-const { resolveDatabaseUrl } = await import(resolve(ROOT, 'services/platform/src/db/connection.ts'));
+const { resolveDatabaseUrl } = await import(
+  resolve(ROOT, 'services/platform/src/db/connection.ts')
+);
 const { createSql } = await import(resolve(ROOT, 'services/platform/src/db/client.ts'));
 
 const MARKER = 'ZZZ_RELEVANT_SPAN_AT_8400_ZZZ';
@@ -47,9 +50,7 @@ function buildPast8kDocument(): string {
 }
 
 async function loadChunkDocument() {
-  const mod = await import(
-    resolve(ROOT, 'services/platform/src/inference/chunk.ts')
-  );
+  const mod = await import(resolve(ROOT, 'services/platform/src/inference/chunk.ts'));
   if (typeof mod.chunkDocument !== 'function') {
     throw new Error('chunkDocument is not defined');
   }
@@ -98,7 +99,9 @@ async function main() {
     overlap: 64,
   });
   const markerChunks = chunks.filter((c: { text: string }) => c.text.includes(MARKER));
-  console.log(`Golden doc: ${goldenDoc.length} chars → ${chunks.length} chunks (${markerChunks.length} with marker)`);
+  console.log(
+    `Golden doc: ${goldenDoc.length} chars → ${chunks.length} chunks (${markerChunks.length} with marker)`
+  );
 
   // Insert passages with NULL embedding (embed:run will fill them)
   for (const chunk of chunks) {
