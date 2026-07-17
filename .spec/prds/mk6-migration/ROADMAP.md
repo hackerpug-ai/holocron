@@ -602,6 +602,13 @@ The `Milestone` cell links to the GitHub Milestone titled `sprint-{NN}`; sprints
 | search-4 | RED tests: 0 null/wrong-dim vectors, past-8K retrieval, recall≥baseline, idempotent re-embed | red-test-generator | 180 min |
 | search-5 | Review embedding + search parity | mastra-reviewer | 90 min |
 
+**Next Sprint Tasks:** *(expanded by kb-sprint-tasks-plan on 2026-07-17 — SPRINT.md + 5 task files at [`tasks/sprint-10-local-re-embedding-and-hybrid-rrf-search/`](tasks/sprint-10-local-re-embedding-and-hybrid-rrf-search/); avg ~108/115, 0 fakeable scenarios — `validate_scenario` clean on every behavioral AC. Topological order: search-4 (RED suite, written first) → search-1 ∥ search-2 → search-3 → search-5. Status remains 🔵 Planned — expanded and ready for `/kb-run-sprint`, not yet executing.)*
+- search-4-red-tests-0-nullwrong-dim-vectors-past-8k-retrieval-recallba.md
+- search-1-shared-embed-helper-querydocument-prefix-asymmetry-passage-c.md
+- search-2-idempotent-resumable-re-embed-job-where-embedding-is-null-fo.md
+- search-3-rrf-hybrid-search-helper-pgvector-hnsw-fts-one-round-trip-5.md
+- search-5-review-embedding-search-parity-vector-integrity-past-8k-reca.md
+
 #### Dependencies
 
 - Blocks: Sprint 14, Sprint 17, Sprint 22
