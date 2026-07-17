@@ -3,7 +3,7 @@ sprint: 9
 title: Structured Output on Local Models
 sequence: 9
 timeline: Phase 2 — Inference and Data
-status: Completed
+status: In Progress
 prd: ../../README.md
 capability_coverage: [CAP-INF-01]
 ---
@@ -12,9 +12,9 @@ capability_coverage: [CAP-INF-01]
 
 **Sequence:** 9
 **Timeline:** Phase 2 — Inference and Data
-**Status:** Completed
-> Progress: 4/4 tasks completed + 10/10 REDHAT-FIX remediated · updated 2026-07-17T05:30:00Z
-> Status-Note: All 4 tasks completed, struct-4 APPROVED, 38/38 PLATFORM_IT tests GREEN, human gate 6/6 PASS (0 deferred), red-hat CRITICAL+HIGH all remediated
+**Status:** In Progress
+> Progress: cycle 2 remediation opened for 1 CRITICAL + 3 HIGH findings · updated 2026-07-17T05:40:00Z
+> Status-Note: Fresh independent review at `.spec/reviews/red-hat-2026-07-17T05-33-47Z.md` supersedes the earlier approval; closure remains blocked until C2-H1 through C2-H4 are implemented, independently re-reviewed, and freshly QA-verified.
 **Proposed by:** mastra-planner
 **Branch:** `mk6-structured-output`
 **Opened:** 2026-07-16 — expanded by /kb-sprint-tasks-plan
@@ -63,6 +63,10 @@ An operator can prove — with the Fleet Role Manifest, the `resolveModel` route
 | REDHAT-FIX-G-DEFERRED | Make the six-step human gate reject deferred steps and keep met-state honest | mastra-implementer | 90 min |
 | REDHAT-FIX-G-STEP3-4 | Add documented CLI fixture entry points for malformed-once and always-malformed scenarios | mastra-implementer | 90 min |
 | REDHAT-FIX-G-ORACLE | Make capability-probe oracle distinguish constrained and repair-loop roles via real support probing | mastra-implementer | 90 min |
+| REDHAT-FIX-C2-H1 | Redact sensitive tripwire matches from persisted status and CLI error payloads | mastra-implementer | 90 min |
+| REDHAT-FIX-C2-H2 | Prove the output-side tripwire with clean input and deterministic sensitive model output | mastra-implementer | 120 min |
+| REDHAT-FIX-C2-H3 | Make malformed-once deterministically enter repair and assert the successful repair attempt count | mastra-implementer | 120 min |
+| REDHAT-FIX-C2-H4 | Make the extract-status gate step self-contained and reproducible from a clean checkout | mastra-implementer | 90 min |
 
 ---
 

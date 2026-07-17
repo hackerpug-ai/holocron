@@ -1,13 +1,13 @@
 {
   "sprint": "sprint-09-structured-output-on-local-models",
-  "goal": "Given a local fleet model and a Zod extraction schema, holo extract either repairs a malformed generation to a schema-valid object or fails explicitly past its retry cap with a typed terminal outcome — never silently accepting invalid output.",
-  "met": true,
-  "timestamp": "2026-07-17T05:30:00Z",
-  "runner": "kb-run-sprint (opencode/glm-5.2)",
+  "goal": "Given a local fleet model and a Zod extraction schema, holo extract either repairs a malformed generation to a schema-valid object or fails explicitly past its retry cap with a typed terminal outcome \u2014 never silently accepting invalid output.",
+  "met": false,
+  "timestamp": "2026-07-17T05:45:00Z",
+  "runner": "kb-run-sprint (grok / cycle-2 redhat remediation)",
   "tasks": {
     "total": 4,
     "completed": 4,
-    "open": 0,
+    "open": 4,
     "details": [
       {
         "id": "struct-1",
@@ -21,7 +21,12 @@
         "status": "completed",
         "commit": "e281601"
       },
-      { "id": "struct-3", "title": "RED tests suite", "status": "completed", "commit": "60d2c1f" },
+      {
+        "id": "struct-3",
+        "title": "RED tests suite",
+        "status": "completed",
+        "commit": "60d2c1f"
+      },
       {
         "id": "struct-4",
         "title": "Review extraction safety",
@@ -31,20 +36,100 @@
       }
     ],
     "redhat_fixes": [
-      { "id": "REDHAT-FIX-H1", "title": "Replace generateText with generateObject + json_schema", "commit": "fe88010", "severity": "CRITICAL" },
-      { "id": "REDHAT-FIX-H2", "title": "Consume structuredOutput flag for mode selection", "commit": "fe88010", "severity": "HIGH" },
-      { "id": "REDHAT-FIX-H3", "title": "Output-side tripwire guardrail", "commit": "fe88010", "severity": "HIGH" },
-      { "id": "REDHAT-FIX-H4", "title": "extract:status persistence", "commit": "84c8856", "severity": "HIGH" },
-      { "id": "REDHAT-FIX-H5", "title": "Restore struct-4 review report artifact", "commit": "61f5c50", "severity": "HIGH" },
-      { "id": "REDHAT-FIX-H6", "title": "Real no-commit/no-dispatch assertions in failure tests", "commit": "644a924", "severity": "HIGH" },
-      { "id": "REDHAT-FIX-H7", "title": "Align probe path and scope contract", "commit": "61f5c50", "severity": "HIGH" },
-      { "id": "REDHAT-FIX-G-DEFERRED", "title": "Make gate reject deferred steps; honest met state", "commit": "pending", "severity": "HIGH" },
-      { "id": "REDHAT-FIX-G-STEP3-4", "title": "CLI --fixture entry points for gate steps 3-4", "commit": "402cef5", "severity": "HIGH" },
-      { "id": "REDHAT-FIX-G-ORACLE", "title": "Probe distinguishes constrained and repair via real generateObject", "commit": "fe88010", "severity": "HIGH" }
+      {
+        "id": "REDHAT-FIX-H1",
+        "title": "Replace generateText with generateObject + json_schema",
+        "commit": "fe88010",
+        "severity": "CRITICAL"
+      },
+      {
+        "id": "REDHAT-FIX-H2",
+        "title": "Consume structuredOutput flag for mode selection",
+        "commit": "fe88010",
+        "severity": "HIGH"
+      },
+      {
+        "id": "REDHAT-FIX-H3",
+        "title": "Output-side tripwire guardrail",
+        "commit": "fe88010",
+        "severity": "HIGH"
+      },
+      {
+        "id": "REDHAT-FIX-H4",
+        "title": "extract:status persistence",
+        "commit": "84c8856",
+        "severity": "HIGH"
+      },
+      {
+        "id": "REDHAT-FIX-H5",
+        "title": "Restore struct-4 review report artifact",
+        "commit": "61f5c50",
+        "severity": "HIGH"
+      },
+      {
+        "id": "REDHAT-FIX-H6",
+        "title": "Real no-commit/no-dispatch assertions in failure tests",
+        "commit": "644a924",
+        "severity": "HIGH"
+      },
+      {
+        "id": "REDHAT-FIX-H7",
+        "title": "Align probe path and scope contract",
+        "commit": "61f5c50",
+        "severity": "HIGH"
+      },
+      {
+        "id": "REDHAT-FIX-G-DEFERRED",
+        "title": "Make gate reject deferred steps; honest met state",
+        "commit": "f4e07af",
+        "severity": "HIGH"
+      },
+      {
+        "id": "REDHAT-FIX-G-STEP3-4",
+        "title": "CLI --fixture entry points for gate steps 3-4",
+        "commit": "402cef5",
+        "severity": "HIGH"
+      },
+      {
+        "id": "REDHAT-FIX-G-ORACLE",
+        "title": "Probe distinguishes constrained and repair via real generateObject",
+        "commit": "fe88010",
+        "severity": "HIGH"
+      }
+    ],
+    "cycle2_open": [
+      {
+        "id": "REDHAT-FIX-C2-H1",
+        "title": "Redact sensitive tripwire matches from persisted status and CLI error payloads",
+        "status": "pending",
+        "severity": "CRITICAL",
+        "source": ".spec/reviews/red-hat-2026-07-17T05-33-47Z.md#H1"
+      },
+      {
+        "id": "REDHAT-FIX-C2-H2",
+        "title": "Prove the output-side tripwire with clean input and deterministic sensitive model output",
+        "status": "pending",
+        "severity": "HIGH",
+        "source": ".spec/reviews/red-hat-2026-07-17T05-33-47Z.md#H2"
+      },
+      {
+        "id": "REDHAT-FIX-C2-H3",
+        "title": "Make malformed-once deterministically enter repair and assert the successful repair attempt count",
+        "status": "pending",
+        "severity": "HIGH",
+        "source": ".spec/reviews/red-hat-2026-07-17T05-33-47Z.md#H3"
+      },
+      {
+        "id": "REDHAT-FIX-C2-H4",
+        "title": "Make the extract-status gate step self-contained and reproducible from a clean checkout",
+        "status": "pending",
+        "severity": "HIGH",
+        "source": ".spec/reviews/red-hat-2026-07-17T05-33-47Z.md#H4"
+      }
     ]
   },
   "gate": {
-    "verdict": "pass",
+    "verdict": "stale_pending_c2",
     "evidence_dir": ".gate-evidence/kb-run-sprint-2026-07-17T05-30-00Z",
     "steps_total": 6,
     "steps_passed": 6,
@@ -58,19 +143,39 @@
     "tests_failed": 0,
     "zero_cloud": true,
     "files": [
-      { "file": "struct-repair-loop.test.ts", "tests": 7, "passed": 7 },
-      { "file": "struct-explicit-fail.test.ts", "tests": 7, "passed": 7 },
-      { "file": "struct-tripwire-blocked.test.ts", "tests": 8, "passed": 8 },
-      { "file": "struct-boot-probe.test.ts", "tests": 8, "passed": 8 },
-      { "file": "struct-fixture-cli.test.ts", "tests": 8, "passed": 8 }
+      {
+        "file": "struct-repair-loop.test.ts",
+        "tests": 7,
+        "passed": 7
+      },
+      {
+        "file": "struct-explicit-fail.test.ts",
+        "tests": 7,
+        "passed": 7
+      },
+      {
+        "file": "struct-tripwire-blocked.test.ts",
+        "tests": 8,
+        "passed": 8
+      },
+      {
+        "file": "struct-boot-probe.test.ts",
+        "tests": 8,
+        "passed": 8
+      },
+      {
+        "file": "struct-fixture-cli.test.ts",
+        "tests": 8,
+        "passed": 8
+      }
     ]
   },
   "build": {
     "typecheck": "pass (tsgo --noEmit exit 0)",
-    "lint": "pass (biome check — sprint files clean, 0 errors)"
+    "lint": "pass (biome check \u2014 sprint files clean, 0 errors)"
   },
   "human_test": {
-    "verdict": "pass",
+    "verdict": "stale_pending_c2",
     "gate_results": ".gate-evidence/kb-run-sprint-2026-07-17T05-30-00Z/gate-results.json",
     "freshness": "2026-07-17T05:30:00Z",
     "steps_executed": 6,
@@ -79,32 +184,32 @@
     "steps_deferred": 0
   },
   "red_hat": {
-    "verdict": "APPROVED",
-    "report": ".spec/reviews/struct-4-extraction-safety-review.md",
-    "review_blocker": ".spec/reviews/red-hat-2026-07-17T04-30-00Z.md",
-    "critical_remediated": 1,
-    "high_remediated": 9,
-    "medium_advisory": 3,
-    "low_advisory": 3,
-    "remediation_commits": ["fe88010", "402cef5", "61f5c50", "644a924"],
-    "medium_notes": [
-      "M2: malformed-once fixture is prompt-based — repair loop exercises but not deterministically 2-attempt",
-      "M3: alwaysFailingSchema .refine(()=>false) — now triggers generateObject NoObjectGeneratedError (schema enforcement), not timeout",
-      "M4: Gate steps 3-4 now have CLI-level evidence logs (step3-malformed-once.log, step4-always-malformed.log)"
-    ]
+    "verdict": "NEEDS-REVISION",
+    "report": ".spec/reviews/red-hat-2026-07-17T05-33-47Z.md",
+    "cycle": 2,
+    "critical_open": 1,
+    "high_open": 3,
+    "open_findings": [
+      "H1",
+      "H2",
+      "H3",
+      "H4"
+    ],
+    "prior_cycle1_report": ".spec/reviews/red-hat-2026-07-17T04-30-00Z.md",
+    "note": "Independent review supersedes prior APPROVED closeout. met=false until C2-H1..H4 land, re-review, and fresh human-test gate pass."
   },
   "status_files": {
-    "parity": true,
-    "audit": "4/4 completed, 0 open, 0 drift",
-    "sprint_lifecycle": "completed",
+    "parity": false,
+    "audit": "cycle-2 remediation open; 4 C2 REDHAT-FIX tasks pending",
+    "sprint_lifecycle": "in_progress",
     "roadmap_updated": true
   },
   "met_layers": {
-    "tasks_complete": true,
-    "gate_pass": true,
-    "e2e_pass": true,
-    "build_pass": true,
-    "human_test_pass": true,
-    "status_files_parity": true
+    "tasks_complete": false,
+    "gate_pass": false,
+    "e2e_pass": false,
+    "build_pass": false,
+    "human_test_pass": false,
+    "status_files_parity": false
   }
 }
