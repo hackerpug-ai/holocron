@@ -24,6 +24,9 @@ export default defineConfig({
       'services/platform/tests/integration/search-recall.test.ts',
       'services/platform/tests/integration/rrf-search.test.ts',
       'services/platform/tests/integration/inline-surfaces-search.test.ts',
+      // Sprint 11 — durable leased queue (priority lanes + DLQ)
+      'services/platform/tests/integration/queue-priority.test.ts',
+      'services/platform/tests/integration/queue-dlq.test.ts',
     ],
     setupFiles: ['tests/setup/react-native.ts'],
     exclude: ['node_modules', 'dist', '.expo'],

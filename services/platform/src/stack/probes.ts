@@ -285,7 +285,8 @@ export function readSchedulerProgram(cfg: StackConfig): {
     try {
       const args = JSON.parse(r.stdout.trim()) as string[];
       // Prefer the script path (args[1] when bun + script); else first arg.
-      const program = args.find((a) => /scheduler-worker/.test(a)) ?? args[args.length - 1] ?? args[0] ?? '';
+      const program =
+        args.find((a) => /scheduler-worker/.test(a)) ?? args[args.length - 1] ?? args[0] ?? '';
       return { program, source };
     } catch {
       return null;
@@ -414,13 +415,18 @@ export function probeQueueDetail(cfg: StackConfig): QueueProbeDetail {
           ? 'pg-boss'
           : 'unknown';
     const ready = readyRaw === 't' || readyRaw === 'true';
-    if (backend === 'pg-boss' || backend === 'graphile-worker') {
+    if ((backend === 'pg-boss' || backend === 'graphile-worker') && ready) {
       return {
         backend,
         ready,
         detail: `queue meta backend=${backend} ready=${ready}`,
       };
     }
+    // meta stale (ready=false) or backend unknown: break to the probe-cli
+    // activation path, which starts the real backend (pg-boss/graphile-worker)
+    // and marks readiness from a live round-trip — never reports a stale
+    // ready=false when the backend is in fact operational.
+    break;
   }
 
   // Fallback / ensure: run probe-cli (startQueueBackend + probe) via bun.
