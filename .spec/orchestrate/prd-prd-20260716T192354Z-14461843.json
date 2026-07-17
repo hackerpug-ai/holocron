@@ -30,37 +30,37 @@
   },
   "cleanup": {
     "child_surfaces_remaining": [],
-    "conductor_cleanup": "pending",
-    "last_result": null
+    "conductor_cleanup": "verified",
+    "last_result": "run-terminal-then-conductor-reaped"
   },
   "closeout": {
-    "authorization": null,
-    "evaluation": null,
-    "request": null,
-    "verified_at": null
+    "authorization": "/Users/inference1/.config/brain/kb-run-prd-state/prd-20260716T192354Z-14461843-sprint10-close-authorization.json",
+    "evaluation": "/Users/inference1/.config/brain/kb-run-prd-state/prd-20260716T192354Z-14461843-sprint10-close-evaluation-final.json",
+    "request": "/Users/inference1/.config/brain/kb-orchestrate-state/orch-s10-local-re-embedding-20260717T153837Z.close-request.json",
+    "verified_at": "2026-07-17T18:08:00Z"
   },
   "conductor_watch": {
-    "anchor_epoch": 1784304795,
+    "anchor_epoch": 1784314166,
     "first_conductor_deadline_seconds": 600,
     "planning_surface_id": null
   },
   "created_at": "2026-07-16T19:23:54Z",
   "current_sprint": {
-    "child_registry": "/Users/inference1/.config/brain/kb-orchestrate-state/orch-s10-local-re-embedding-20260717T153837Z.json",
-    "child_run_id": "orch-s10-local-re-embedding-20260717T153837Z",
+    "child_registry": "/Users/inference1/.config/brain/kb-orchestrate-state/orch-s11-scheduler-queue-20260717T185349Z.json",
+    "child_run_id": "orch-s11-scheduler-queue-20260717T185349Z",
     "close_request": null,
     "conductor_harness": "codex",
     "conductor_model": "gpt-5.6-luna",
     "conductor_reasoning_effort": "xhigh",
-    "conductor_surface_id": "D9933E96-E83F-42CF-8603-DD2EB9B40C84",
-    "name": "Sprint 10: Local Re-embedding and Hybrid RRF Search",
-    "number": 10,
-    "path": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-10-local-re-embedding-and-hybrid-rrf-search"
+    "conductor_surface_id": "CDEE5E9B-CBC0-48BF-9BF6-D4E5CE2463B2",
+    "name": "Sprint 11: Scheduler and Durable Queue",
+    "number": 11,
+    "path": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue"
   },
   "cycles": {
     "qa": 0,
     "replan": 0,
-    "steer": 3,
+    "steer": 5,
     "unblock": 0
   },
   "goal": {
@@ -132,7 +132,7 @@
     "source_run_id": "prd-20260716T192354Z-14461843"
   },
   "roadmap": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/ROADMAP.md",
-  "roadmap_sha256": "2d046a2047293929540603a2079cc5f78e2e4a4f70de372b8696efe59754c049",
+  "roadmap_sha256": "f46f1f2d24ef1f18b0dc35cdf774b3531b734cd9e3b62a11e3faa2cb30578b2a",
   "run_id": "prd-20260716T192354Z-14461843",
   "schema_version": 1,
   "specialist_override_display": "",
@@ -146,5 +146,5 @@
     "snapshot_sha256": null,
     "tracker_parity": "unknown"
   },
-  "updated_at": "2026-07-17T18:00:46Z"
+  "updated_at": "2026-07-17T21:45:46Z"
 }
