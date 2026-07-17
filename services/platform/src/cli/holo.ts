@@ -150,7 +150,7 @@ Usage:
   budget:status             Show escape budget spent / remaining / ceiling (real Postgres)
   budget:set                Set escape budget ceiling (--ceiling <usd>)
   extract                   Extract structured data with Zod validation --schema <name> --input <text>
-  extract:status <id>       Query extraction status (placeholder)
+   extract:status <id>       Query extraction status by id (pending|success|extraction_failed|blocked)
   probe:capabilities        Probe all fleet roles for json_schema structured-output support
 
 Options:
@@ -1765,11 +1765,17 @@ async function main(): Promise<void> {
       }
 
       try {
-        const result = await extractStructured(schema, input, role);
+        // REDHAT-FIX-H1: generate an extraction ID for status tracking.
+        const { randomUUID } = await import('node:crypto');
+        const extractionId = randomUUID();
+        const result = await extractStructured(schema, input, role, extractionId);
         if (args.json) {
-          console.log(JSON.stringify({ ok: true, result, schema: schemaName, role }, null, 2));
+          console.log(
+            JSON.stringify({ ok: true, extractionId, result, schema: schemaName, role }, null, 2)
+          );
         } else {
           console.log('holo extract — structured extraction');
+          console.log(`  extractionId: ${extractionId}`);
           console.log(`  schema:  ${schemaName}`);
           console.log(`  role:    ${role}`);
           console.log(`  result:`);
@@ -1829,7 +1835,7 @@ async function main(): Promise<void> {
       break;
     }
     case 'extract:status': {
-      // Sprint 09 struct-1: extract:status <id>
+      // Sprint 09 struct-1 / REDHAT-FIX-H1: query extraction status by id.
       const extractionId = args.positional[1] ?? null;
 
       if (!extractionId) {
@@ -1837,23 +1843,54 @@ async function main(): Promise<void> {
         process.exit(2);
       }
 
-      // This is a placeholder for future implementation
-      // For now, return a not-implemented response
-      const payload = {
-        ok: false,
-        error: 'NOT_IMPLEMENTED',
-        extractionId,
-        message: 'extraction status tracking is not yet implemented',
-      };
+      const { getExtractionStatus } = await import('../inference/extract-structured.ts');
+      const status = await getExtractionStatus(extractionId);
+
+      if (!status) {
+        const payload = {
+          ok: false,
+          error: 'NOT_FOUND',
+          extractionId,
+          message: `no status record for extraction '${extractionId}'`,
+        };
+        if (args.json) {
+          console.log(JSON.stringify(payload, null, 2));
+        } else {
+          console.log('holo extract:status — extraction status');
+          console.log(`  extractionId: ${extractionId}`);
+          console.log(`  status: NOT_FOUND`);
+        }
+        process.exit(1);
+        break;
+      }
 
       if (args.json) {
-        console.log(JSON.stringify(payload, null, 2));
+        console.log(JSON.stringify({ ok: true, ...status }, null, 2));
       } else {
         console.log('holo extract:status — extraction status');
-        console.log(`  extractionId: ${extractionId}`);
-        console.log(`  status: NOT_IMPLEMENTED`);
+        console.log(`  extractionId: ${status.id}`);
+        console.log(`  status:       ${status.status}`);
+        console.log(`  committed:    ${status.committed}`);
+        console.log(`  role:         ${status.role}`);
+        console.log(`  startedAt:    ${status.startedAt}`);
+        if (status.endedAt) console.log(`  endedAt:      ${status.endedAt}`);
+        if (status.status === 'extraction_failed' && status.error) {
+          console.log(`  error.code:        ${status.error.code}`);
+          console.log(`  error.message:     ${status.error.message}`);
+          if (status.error.attempts !== undefined)
+            console.log(`  error.attempts:    ${status.error.attempts}`);
+          if (status.error.lastParseError)
+            console.log(`  error.lastParseError: ${status.error.lastParseError.slice(0, 200)}`);
+        }
+        if (status.status === 'blocked') {
+          console.log(`  blockedReason: ${status.blockedReason}`);
+          console.log(`  processorId:   ${status.processorId}`);
+        }
+        console.log(
+          `  status: ${status.status === 'success' ? 'OK' : status.status.toUpperCase()}`
+        );
       }
-      process.exit(1);
+      process.exit(0);
       break;
     }
     case 'probe:capabilities': {

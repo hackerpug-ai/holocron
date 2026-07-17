@@ -10,10 +10,19 @@
  * Sprint 09 struct-1: malformed→repair→valid, always-malformed→ExtractionFailedError,
  * tripwire→BlockedError.
  *
+ * REDHAT-FIX-H1: file-based extraction status tracking (.tmp/extractions/<id>.json)
+ * so `holo extract:status <id>` can report extraction_failed / blocked / success
+ * with a `committed` flag (human gate step 5).
+ * REDHAT-FIX-H2: consume the Fleet Role Manifest structuredOutput flag (carried on
+ * the resolved model) to select constrained-decode vs repair mode.
+ *
  * Run:
  *   PLATFORM_IT=1 pnpm vitest run tests/integration/service/struct-*.test.ts
  */
 
+import { randomUUID } from 'node:crypto';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { z } from 'zod';
 import { createFleetChatModel, type ResolvedModel, resolveModel } from './resolve-model';
 
@@ -73,12 +82,90 @@ export class BlockedError extends Error {
   }
 }
 
+// ─── REDHAT-FIX-H1: extraction status tracking ───────────────────────────
+
+/**
+ * Extraction status recorded to a file-based store for operator visibility.
+ * `holo extract:status <id>` reads these records (human gate step 5).
+ *
+ * - `pending`           — extraction in flight (written at start).
+ * - `success`           — schema-valid result committed.
+ * - `extraction_failed` — repairs exhausted or resolve failed (NO committed row).
+ * - `blocked`           — tripwire fired (NO committed row).
+ */
+export type ExtractionStatus = {
+  id: string;
+  status: 'pending' | 'success' | 'extraction_failed' | 'blocked';
+  role: string;
+  startedAt: string;
+  /** ISO timestamp when the extraction reached a terminal state. */
+  endedAt?: string;
+  /** Validated result (present when status === 'success'). */
+  result?: unknown;
+  /** True when a schema-valid result was committed; false for failed/blocked. */
+  committed: boolean;
+  /** Present when status === 'extraction_failed'. */
+  error?: {
+    code: string;
+    message: string;
+    attempts?: number;
+    lastParseError?: string;
+  };
+  /** Present when status === 'blocked'. */
+  blockedReason?: string;
+  /** Present when status === 'blocked'. */
+  processorId?: string;
+};
+
+/**
+ * Directory for per-extraction status JSON files (gitignored ephemeral store).
+ */
+const EXTRACTIONS_DIR = join(process.cwd(), '.tmp', 'extractions');
+
+/**
+ * Write (or overwrite) the status file for an extraction id.
+ * Best-effort: a file-write failure never masks the real extraction result.
+ */
+async function writeExtractionStatus(status: ExtractionStatus): Promise<void> {
+  try {
+    await mkdir(EXTRACTIONS_DIR, { recursive: true });
+    await writeFile(
+      join(EXTRACTIONS_DIR, `${status.id}.json`),
+      JSON.stringify(status, null, 2),
+      'utf-8'
+    );
+  } catch {
+    // Status tracking is best-effort — never let a file write failure mask the
+    // real extraction result/error. The operator can still inspect CLI output.
+  }
+}
+
+/**
+ * Read the status file for an extraction id.
+ * @returns The status record, or null when no status file exists (unknown / expired id).
+ */
+export async function getExtractionStatus(id: string): Promise<ExtractionStatus | null> {
+  try {
+    const raw = await readFile(join(EXTRACTIONS_DIR, `${id}.json`), 'utf-8');
+    return JSON.parse(raw) as ExtractionStatus;
+  } catch {
+    return null;
+  }
+}
+
+// ─── Core extraction pipeline ─────────────────────────────────────────────
+
 /**
  * Extract structured data from a fleet role with Zod validation.
+ *
+ * Tracks extraction status to `.tmp/extractions/<id>.json` for operator visibility
+ * via `holo extract:status <id>`. When `extractionId` is omitted, a UUID is
+ * generated internally (callers that want to query status later should pass one in).
  *
  * @param schema - Zod schema to validate output against
  * @param input - Input prompt for the model
  * @param role - Fleet role to use (e.g., 'divergent', 'convergent')
+ * @param extractionId - Optional extraction id for status tracking
  * @returns Validated structured output matching the schema
  * @throws ExtractionFailedError when repairs are exhausted
  * @throws BlockedError when a tripwire is triggered
@@ -88,7 +175,81 @@ export class BlockedError extends Error {
 export async function extractStructured<T extends z.ZodType>(
   schema: T,
   input: string,
-  role: string
+  role: string,
+  extractionId?: string
+): Promise<z.infer<T>> {
+  // REDHAT-FIX-H1: write pending status so `holo extract:status <id>` can report
+  // extraction_failed with committed=false even if the process crashes mid-flight.
+  const id = extractionId ?? randomUUID();
+  const startedAt = new Date().toISOString();
+  await writeExtractionStatus({ id, status: 'pending', role, startedAt, committed: false });
+
+  try {
+    const result = await runExtraction(schema, input, role, id, startedAt);
+    return result;
+  } catch (err) {
+    // Record terminal status for operator visibility before re-throwing.
+    if (err instanceof BlockedError) {
+      await writeExtractionStatus({
+        id,
+        status: 'blocked',
+        role,
+        startedAt,
+        endedAt: new Date().toISOString(),
+        committed: false,
+        blockedReason: err.reason,
+        processorId: err.processorId,
+      });
+    } else if (err instanceof ExtractionFailedError) {
+      await writeExtractionStatus({
+        id,
+        status: 'extraction_failed',
+        role,
+        startedAt,
+        endedAt: new Date().toISOString(),
+        committed: false,
+        error: {
+          code: err.code,
+          message: err.message,
+          attempts: err.attempts,
+          lastParseError: err.lastParseError.message,
+        },
+      });
+    } else {
+      // UnknownFleetRoleError, RoleUnavailableError, or any other non-retryable error
+      // → record as extraction_failed with no committed row.
+      const code =
+        err instanceof Error && 'code' in err
+          ? String((err as { code: unknown }).code)
+          : 'EXTRACTION_FAILED';
+      await writeExtractionStatus({
+        id,
+        status: 'extraction_failed',
+        role,
+        startedAt,
+        endedAt: new Date().toISOString(),
+        committed: false,
+        error: {
+          code,
+          message: err instanceof Error ? err.message : String(err),
+        },
+      });
+    }
+    throw err;
+  }
+}
+
+/**
+ * Inner extraction pipeline (excludes status tracking, which is handled by the
+ * `extractStructured` wrapper). Separated so the status try/catch does not
+ * interleave with the repair-loop's own try/catch.
+ */
+async function runExtraction<T extends z.ZodType>(
+  schema: T,
+  input: string,
+  role: string,
+  extractionId: string,
+  startedAt: string
 ): Promise<z.infer<T>> {
   // Tripwire detection: check for sensitive content before calling the model
   // This implements AC-3: "tripwire during extraction surfaces BlockedError"
@@ -120,6 +281,15 @@ export async function extractStructured<T extends z.ZodType>(
   // Resolve the fleet role (never bypass resolveModel)
   const resolved: ResolvedModel = await resolveModel(role);
 
+  // REDHAT-FIX-H2: Consume the Fleet Role Manifest structuredOutput flag to
+  // select constrained-decode vs repair mode. `resolved.structuredOutput` is
+  // read directly from the FleetRoleSchema.structuredOutput boolean by
+  // resolveModel (see resolve-model.ts → ResolvedModel.structuredOutput), which
+  // itself reads it from the Fleet Role Manifest entry.
+  //   structuredOutput=true  → 'constrained' (role advertises json_schema support)
+  //   structuredOutput=false → 'repair' (prompt-only instruction + Zod re-validation)
+  const mode: 'constrained' | 'repair' = resolved.structuredOutput ? 'constrained' : 'repair';
+
   // Create the fleet chat model using the proper AI SDK integration
   const fleetModel = createFleetChatModel(resolved, {
     apiKey: process.env.FLEET_KEY ?? 'sk-none',
@@ -130,22 +300,48 @@ export async function extractStructured<T extends z.ZodType>(
   // Bounded repair loop
   for (let attempt = 1; attempt <= MAX_REPAIR_ATTEMPTS; attempt++) {
     try {
-      // For local models, use generateText with JSON instruction
-      // This is more reliable than generateObject for OpenAI-compatible local models
+      // For local OpenAI-compatible models, use generateText with explicit JSON
+      // instruction. This is more reliable than generateObject for local models.
       const { generateText } = await import('ai');
 
       // Build a prompt that explicitly requests JSON output
-      const jsonPrompt = `${input}\n\nRespond with a valid JSON object matching this schema:\n${JSON.stringify(schema.shape, null, 2)}\n\nOutput ONLY the JSON object, no additional text.`;
+      const schemaJson = JSON.stringify(schema.shape, null, 2);
+
+      // REDHAT-FIX-H2: mode-gated prompt + provider hint.
+      // - constrained: role advertises structuredOutput support → request JSON
+      //   output mode via providerOptions (local OpenAI-compatible models that
+      //   honor response_format will constrain decoding).
+      // - repair: prompt-only JSON instruction; rely on the Zod re-validation
+      //   repair loop to handle malformed output.
+      const modeInstruction =
+        mode === 'constrained'
+          ? 'You MUST respond with a single valid JSON object (structured/constrained output).'
+          : 'Respond with a valid JSON object.';
+
+      const jsonPrompt = `${input}\n\n${modeInstruction}\n\nMatch this schema:\n${schemaJson}\n\nOutput ONLY the JSON object, no additional text.`;
 
       // Bound each fleet call so a stalling endpoint (the local fleet can stall on
       // rapid sequential calls) can never hang extraction: a timeout aborts the call,
       // it is counted as a failed attempt, and the bounded repair loop proceeds.
       const CALL_TIMEOUT_MS = 45_000;
-      const result = await generateText({
-        model: fleetModel,
-        prompt: jsonPrompt,
-        abortSignal: AbortSignal.timeout(CALL_TIMEOUT_MS),
-      });
+
+      const result = await generateText(
+        mode === 'constrained'
+          ? {
+              model: fleetModel,
+              prompt: jsonPrompt,
+              abortSignal: AbortSignal.timeout(CALL_TIMEOUT_MS),
+              // Constrained mode: hint the provider toward JSON output when supported.
+              providerOptions: {
+                openai: { responseFormat: { type: 'json_object' } },
+              },
+            }
+          : {
+              model: fleetModel,
+              prompt: jsonPrompt,
+              abortSignal: AbortSignal.timeout(CALL_TIMEOUT_MS),
+            }
+      );
 
       // Parse the JSON response
       let jsonResponse: unknown;
@@ -192,6 +388,17 @@ export async function extractStructured<T extends z.ZodType>(
         schemaErrors.push({ attempt, error: ze });
         continue;
       }
+
+      // REDHAT-FIX-H1: record success status with the validated result.
+      await writeExtractionStatus({
+        id: extractionId,
+        status: 'success',
+        role,
+        startedAt,
+        endedAt: new Date().toISOString(),
+        committed: true,
+        result: validated,
+      });
       return validated;
     } catch (err) {
       // Capture Zod validation errors (robust to zod instance splits)

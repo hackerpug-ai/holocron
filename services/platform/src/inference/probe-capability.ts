@@ -1,9 +1,15 @@
 /**
  * probeCapabilities — boot-time per-role capability probe for structured output.
  *
- * Probes each Fleet Role Manifest role endpoint with a REAL generateObject call
- * (never a /health proxy or static cache) to record per-role json_schema
- * structured-output support, and selects constrained-decode vs repair-loop mode.
+ * Probes each Fleet Role Manifest role endpoint with a REAL generateText call
+ * using an explicit JSON instruction (never a /health proxy or static cache) to
+ * record per-role json_schema structured-output support, and selects
+ * constrained-decode vs repair-loop mode.
+ *
+ * Uses generateText rather than generateObject because local OpenAI-compatible
+ * models respond more reliably to prompt-level JSON instructions; the probe
+ * validates the parsed text against a small Zod schema to detect whether the
+ * role honors structured output.
  *
  * Sprint 09 struct-2: Boot-time probe → per-role capability map → mode selection.
  *
@@ -57,12 +63,14 @@ const PROBE_SCHEMA = z.object({
 });
 
 /**
- * Run a real generateObject-style call against a resolved fleet role to test
- * json_schema constrained decode support.
+ * Run a real generateText call (with explicit JSON instruction) against a
+ * resolved fleet role to test json_schema constrained decode support.
  *
- * This is the core probe: it makes a REAL fleet call with a simple schema and
- * checks if the model honors json_schema (constrained decode) or if we need
- * the repair loop (repair mode).
+ * This is the core probe: it makes a REAL fleet call using generateText (not
+ * generateObject — generateText with a prompt-level JSON instruction is more
+ * reliable for local OpenAI-compatible models) with a simple schema and checks
+ * if the model honors json_schema (constrained decode) or if we need the
+ * repair loop (repair mode).
  *
  * @param resolved - Resolved fleet model
  * @param options - Probe options
@@ -137,7 +145,8 @@ export async function probeRoleCapability(
       skipHealth: false,
     });
 
-    // Probe json_schema support with a REAL generateObject call
+    // Probe json_schema support with a REAL generateText call (not generateObject —
+    // generateText with explicit JSON instruction is more reliable for local models)
     const supportsJsonSchema = await probeJsonSchemaSupport(resolved, options);
 
     // Select mode based on capability
@@ -167,8 +176,10 @@ export async function probeRoleCapability(
 /**
  * Probe all Fleet Role Manifest roles for json_schema structured-output support.
  *
- * This is the boot-time probe: it tests each role endpoint with a REAL generateObject
- * call (never a /health proxy or static cache) and records per-role capability.
+ * This is the boot-time probe: it tests each role endpoint with a REAL
+ * generateText call (not generateObject — generateText with a prompt-level
+ * JSON instruction is more reliable for local OpenAI-compatible models; never a
+ * /health proxy or static cache) and records per-role capability.
  *
  * The output is used by struct-1's extractStructured to select constrained-decode
  * vs repair-loop mode per role.
