@@ -15,13 +15,16 @@ const DATABASE_URL = process.env.DATABASE_URL ?? 'postgres://127.0.0.1:5432/holo
 const itLive = PLATFORM_IT ? it : it.skip;
 
 type RunnerModule = {
-  runJob: (job: {
-    name: string;
-    category: string;
-    lane: 'interactive' | 'background';
-    schedule: string;
-    description: string;
-  }, opts?: { databaseUrl?: string; runId?: string }) => Promise<{
+  runJob: (
+    job: {
+      name: string;
+      category: string;
+      lane: 'interactive' | 'background';
+      schedule: string;
+      description: string;
+    },
+    opts?: { databaseUrl?: string; runId?: string }
+  ) => Promise<{
     ok: boolean;
     error: string | null;
     name: string;
