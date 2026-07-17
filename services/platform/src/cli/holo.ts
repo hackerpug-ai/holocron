@@ -20,6 +20,7 @@
  * Sprint 08 infer-3: infer:degraded (status / poll) + DegradedModeController on fleet-down
  * Sprint 09 struct-1: extract --schema <name> --input <text>
  * Sprint 09 struct-2: probe:capabilities
+ * Sprint 10 search-2: embed:run | embed:verify
  */
 import { resolve } from 'node:path';
 import { z } from 'zod';
@@ -154,6 +155,8 @@ Usage:
   extract                   Extract structured data with Zod validation --schema <name> --input <text>
    extract:status <id>       Query extraction status by id (pending|success|extraction_failed|blocked)
   probe:capabilities        Probe all fleet roles for json_schema structured-output support
+  embed:run                 Idempotent re-embed: WHERE embedding IS NULL … SKIP LOCKED (document mode)
+  embed:verify              Report NULL / wrong-dimension passage embedding counts (expect 1024)
 
 Options:
   --export <dir>        Path to unzipped convex export (or $CONVEX_EXPORT_DIR)
@@ -1992,6 +1995,81 @@ async function main(): Promise<void> {
           console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
         } else {
           console.error(`holo probe:capabilities failed: ${msg}`);
+        }
+        process.exit(1);
+      }
+      break;
+    }
+    case 'embed:run': {
+      // search-2: idempotent resumable re-embed of NULL passage embeddings (document mode).
+      const { embedRun, EmbedRunError } = await import('../inference/embed-run.ts');
+      try {
+        const result = await embedRun();
+        if (args.json) {
+          console.log(JSON.stringify({ ok: result.remainingNull === 0, ...result }, null, 2));
+        } else {
+          console.log('holo embed:run — document-mode re-embed (WHERE embedding IS NULL)');
+          console.log(`  processed:      ${result.processed}`);
+          console.log(`  remainingNull:  ${result.remainingNull}`);
+          console.log(result.remainingNull === 0 ? '  status: OK' : '  status: PARTIAL');
+        }
+        process.exit(result.remainingNull === 0 ? 0 : 1);
+      } catch (err) {
+        const isEmbedRun = err instanceof EmbedRunError;
+        const msg = err instanceof Error ? err.message : String(err);
+        if (args.json) {
+          console.error(
+            JSON.stringify(
+              {
+                ok: false,
+                error: msg,
+                ...(isEmbedRun
+                  ? {
+                      code: err.code,
+                      passageId: err.passageId,
+                      completed: err.completed,
+                    }
+                  : {}),
+              },
+              null,
+              2
+            )
+          );
+        } else {
+          console.error(`holo embed:run failed: ${msg}`);
+          if (isEmbedRun) {
+            console.error(`  code:       ${err.code}`);
+            console.error(`  passageId:  ${err.passageId}`);
+            console.error(`  completed:  ${err.completed}`);
+          }
+        }
+        process.exit(1);
+      }
+      break;
+    }
+    case 'embed:verify': {
+      // search-2: operator check — null / wrong-dimension embedding counts.
+      const { embedVerify } = await import('../inference/embed-run.ts');
+      try {
+        const result = await embedVerify();
+        if (args.json) {
+          console.log(JSON.stringify(result, null, 2));
+        } else {
+          console.log('holo embed:verify — passage embedding health');
+          console.log(`  total:              ${result.total}`);
+          console.log(`  nullEmbeddings:     ${result.nullEmbeddings}`);
+          console.log(`  wrongDimension:     ${result.wrongDimension}`);
+          console.log(`  correctDimension:   ${result.correctDimension}`);
+          console.log(`  expectedDimension:  ${result.expectedDimension}`);
+          console.log(result.ok ? '  status: OK' : '  status: FAIL');
+        }
+        process.exit(result.ok ? 0 : 1);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (args.json) {
+          console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+        } else {
+          console.error(`holo embed:verify failed: ${msg}`);
         }
         process.exit(1);
       }

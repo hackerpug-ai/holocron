@@ -1,0 +1,8 @@
+{
+  "ok": true,
+  "total": 16,
+  "nullEmbeddings": 0,
+  "wrongDimension": 0,
+  "correctDimension": 16,
+  "expectedDimension": 1024
+}
