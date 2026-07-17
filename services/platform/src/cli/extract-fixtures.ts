@@ -16,12 +16,19 @@ import {
   goodInput,
   malformedOnceInput,
   malformedOnceSchema,
+  outputTripwireInput,
+  outputTripwireSchema,
   simpleSchema,
   tripwireInput,
   tripwireSchema,
 } from '../../../../tests/fixtures/struct-fixtures';
 
-export type FixtureName = 'good' | 'malformed-once' | 'always-malformed' | 'tripwire';
+export type FixtureName =
+  | 'good'
+  | 'malformed-once'
+  | 'always-malformed'
+  | 'tripwire'
+  | 'output-tripwire';
 
 export interface ExtractFixture {
   /** Real Zod schema — never z.any(). The schema is truth, not the model. */
@@ -57,7 +64,13 @@ export const FIXTURES: Record<FixtureName, ExtractFixture> = {
   tripwire: {
     schema: tripwireSchema,
     input: tripwireInput,
-    description: 'output tripwire emits a typed terminal BlockedError',
+    description: 'input-side tripwire emits a typed terminal BlockedError',
+  },
+  // REDHAT-FIX-C2-H2: clean input + model-synthesized sensitive sample → OUTPUT-side path
+  'output-tripwire': {
+    schema: outputTripwireSchema,
+    input: outputTripwireInput,
+    description: 'clean input; model synthesizes sensitive sample → output_sensitive_data_detected',
   },
 };
 
