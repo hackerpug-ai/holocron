@@ -1,7 +1,7 @@
 {
   "sprint_id": "sprint-10-local-re-embedding-and-hybrid-rrf-search",
-  "updated_at": "2026-07-17T17:12:03.618916+00:00",
-  "reconciled_at": "2026-07-17T17:12:03.618916+00:00",
+  "updated_at": "2026-07-17T17:47:01Z",
+  "reconciled_at": "2026-07-17T17:47:01Z",
   "protected_branch": "main",
   "main_tip": "d41909904dc380de8151835ccabb634e24c1c13c",
   "tasks": {
@@ -24,12 +24,75 @@
       "search-4": "6fb7fb390d31d9b5025142c14eb6fcfe82f32c33",
       "search-5": "cbc8eb1a7502f5127f1f5253f12bff4fe118d854",
       "GATE-FIX-holo-search-cli": "323b2e3bc72e65786fb0146b6fd0bec0c91fa4b8"
-    }
+    },
+    "open": 0
   },
   "gate": {
     "verdict": "PASS",
     "source": ".spec/prds/mk6-migration/tasks/sprint-10-local-re-embedding-and-hybrid-rrf-search/gate-results.json",
-    "run_id": "20260717T170458Z"
+    "run_id": "20260717T172922Z",
+    "overall": "PASS",
+    "steps": [
+      {
+        "n": 1,
+        "text": "Run holo embed:run against the real :4545 embed route — every non-empty doc gets ≥1 passage, all vectors 1024-dim non-null.",
+        "run_mode": "AUTO",
+        "result": "PASS",
+        "evidence": "exit 0; matched /\"ok\"\\s*:\\s*true/",
+        "log": ".spec/prds/mk6-migration/tasks/sprint-10-local-re-embedding-and-hybrid-rrf-search/.gate-evidence/20260717T172922Z/step1.log"
+      },
+      {
+        "n": 2,
+        "text": "Run holo embed:verify — zero passages carry a null or wrong-dimension vector; norms are ~unit.",
+        "run_mode": "AUTO",
+        "result": "PASS",
+        "evidence": "exit 0; matched /\"nullEmbeddings\"\\s*:\\s*0/",
+        "log": ".spec/prds/mk6-migration/tasks/sprint-10-local-re-embedding-and-hybrid-rrf-search/.gate-evidence/20260717T172922Z/step2.log"
+      },
+      {
+        "n": 3,
+        "text": "Seed a golden doc with the answer past char-8000 and run holo search span query — the doc ranks in top-k.",
+        "run_mode": "AUTO",
+        "result": "PASS",
+        "evidence": "exit 0; matched /Local Re-embedding & RRF Design/",
+        "log": ".spec/prds/mk6-migration/tasks/sprint-10-local-re-embedding-and-hybrid-rrf-search/.gate-evidence/20260717T172922Z/step3.log"
+      },
+      {
+        "n": 4,
+        "text": "Run holo search --explain — shows pgvector KNN + FTS fused with RRF in one round-trip.",
+        "run_mode": "AUTO",
+        "result": "PASS",
+        "evidence": "exit 0; matched /reciprocal_rank_fusion/",
+        "log": ".spec/prds/mk6-migration/tasks/sprint-10-local-re-embedding-and-hybrid-rrf-search/.gate-evidence/20260717T172922Z/step4.log"
+      },
+      {
+        "n": 5,
+        "text": "Run holo search:recall --golden set.json — new recall ≥ the recorded Convex hybridSearch baseline.",
+        "run_mode": "AUTO",
+        "result": "PASS",
+        "evidence": "exit 0; matched /recall new=\\d+ baseline=\\d+/",
+        "log": ".spec/prds/mk6-migration/tasks/sprint-10-local-re-embedding-and-hybrid-rrf-search/.gate-evidence/20260717T172922Z/step5.log"
+      },
+      {
+        "n": 6,
+        "text": "Re-run holo embed:run, interrupt it, and resume — no duplicate passages (WHERE embedding IS NULL, SKIP LOCKED).",
+        "run_mode": "AUTO",
+        "result": "PASS",
+        "evidence": "exit 0; matched /\"processed\"\\s*:\\s*0/",
+        "log": ".spec/prds/mk6-migration/tasks/sprint-10-local-re-embedding-and-hybrid-rrf-search/.gate-evidence/20260717T172922Z/step6.log"
+      },
+      {
+        "n": 7,
+        "text": "Run holo search --surface research_findings — inline-HNSW semantic search returns results with no Cohere/cloud call.",
+        "run_mode": "AUTO",
+        "result": "PASS",
+        "evidence": "exit 0; matched /hnsw:research_findings/",
+        "log": ".spec/prds/mk6-migration/tasks/sprint-10-local-re-embedding-and-hybrid-rrf-search/.gate-evidence/20260717T172922Z/step7.log"
+      }
+    ],
+    "steps_total": 7,
+    "steps_passed": 7,
+    "steps_deferred": 0
   },
   "e2e": {
     "sprint": "sprint-10-local-re-embedding-and-hybrid-rrf-search",
@@ -38,7 +101,52 @@
     "steps_total": 7,
     "steps_covered": 7,
     "steps_passed": 7,
-    "boundary": "REAL Postgres + REAL fleet :4545 qwen3-embedding"
+    "boundary": "REAL Postgres + REAL fleet :4545 qwen3-embedding",
+    "overall": "PASS",
+    "steps": [
+      {
+        "n": 1,
+        "text": "holo embed:run CLI + embed-run.test.ts",
+        "run_mode": "AUTO",
+        "result": "PASS"
+      },
+      {
+        "n": 2,
+        "text": "holo embed:verify CLI",
+        "run_mode": "AUTO",
+        "result": "PASS"
+      },
+      {
+        "n": 3,
+        "text": "holo search CLI + rrf-search.test.ts AC-1",
+        "run_mode": "AUTO",
+        "result": "PASS"
+      },
+      {
+        "n": 4,
+        "text": "holo search --explain CLI",
+        "run_mode": "AUTO",
+        "result": "PASS"
+      },
+      {
+        "n": 5,
+        "text": "holo search:recall + search-recall.test.ts",
+        "run_mode": "AUTO",
+        "result": "PASS"
+      },
+      {
+        "n": 6,
+        "text": "double embed:run CLI + embed-run idempotency AC-2/3",
+        "run_mode": "AUTO",
+        "result": "PASS"
+      },
+      {
+        "n": 7,
+        "text": "holo search --surface + inline-surfaces-search.test.ts",
+        "run_mode": "AUTO",
+        "result": "PASS"
+      }
+    ]
   },
   "build": {
     "verdict": "PASS",
@@ -68,7 +176,7 @@
     "steps_total": 7,
     "steps_executed": 7,
     "steps_passed": 7,
-    "run_id": "20260717T170458Z",
+    "run_id": "20260717T172922Z",
     "verified": true,
     "source": ".spec/prds/mk6-migration/tasks/sprint-10-local-re-embedding-and-hybrid-rrf-search/gate-results.json",
     "verification": ".spec/prds/mk6-migration/tasks/sprint-10-local-re-embedding-and-hybrid-rrf-search/gate-verification.json"
@@ -76,7 +184,10 @@
   "integration": {
     "trunk_consolidated": true,
     "orphans": [],
-    "stranded_tasks": []
+    "stranded_tasks": [],
+    "orphan_branches": 0,
+    "default_target_ok": true,
+    "protected_branch": "main"
   },
   "status_files": {
     "parity": true

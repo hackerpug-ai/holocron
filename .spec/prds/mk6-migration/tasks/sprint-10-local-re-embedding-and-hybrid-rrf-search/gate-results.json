@@ -1,77 +1,80 @@
 {
   "sprint": "sprint-10-local-re-embedding-and-hybrid-rrf-search",
-  "run_id": "20260717T170458Z",
+  "run_id": "20260717T172922Z",
   "verdict": "pass",
   "steps_total": 7,
   "steps_executed": 7,
   "steps_passed": 7,
   "ui_driver": "none",
-  "exec_surface": "in-session-bash",
-  "runner": "kb-run-human-tests-in-session",
-  "cycle_start": "2026-07-17T17:04:58Z",
+  "exec_surface": "surface:170 (68C0FFB1-7208-4F26-BFE4-F7D3A6F82A3E)",
+  "qa_surface_id": "9D21D349-4101-4933-A5FF-46DEBD18D739",
+  "runner": "cmux-exec-pane",
+  "cycle_start": "2026-07-17T17:35:53Z",
   "steps": [
     {
       "n": 1,
-      "text": "Run holo embed:run against the real :4545 embed route \u2014 every non-empty doc gets \u22651 passage, all vectors 1024-dim non-null.",
+      "text": "Run holo embed:run against the real :4545 embed route — every non-empty doc gets ≥1 passage, all vectors 1024-dim non-null.",
       "type": "terminal",
       "executed": true,
       "result": "pass",
       "evidence": "exit 0; matched /\"ok\"\\s*:\\s*true/",
-      "log": ".spec/prds/mk6-migration/tasks/sprint-10-local-re-embedding-and-hybrid-rrf-search/.gate-evidence/20260717T170458Z/step1.log"
+      "log": ".spec/prds/mk6-migration/tasks/sprint-10-local-re-embedding-and-hybrid-rrf-search/.gate-evidence/20260717T172922Z/step1.log"
     },
     {
       "n": 2,
-      "text": "Run holo embed:verify \u2014 zero passages carry a null or wrong-dimension vector; norms are ~unit.",
+      "text": "Run holo embed:verify — zero passages carry a null or wrong-dimension vector; norms are ~unit.",
       "type": "terminal",
       "executed": true,
       "result": "pass",
       "evidence": "exit 0; matched /\"nullEmbeddings\"\\s*:\\s*0/",
-      "log": ".spec/prds/mk6-migration/tasks/sprint-10-local-re-embedding-and-hybrid-rrf-search/.gate-evidence/20260717T170458Z/step2.log"
+      "log": ".spec/prds/mk6-migration/tasks/sprint-10-local-re-embedding-and-hybrid-rrf-search/.gate-evidence/20260717T172922Z/step2.log"
     },
     {
       "n": 3,
-      "text": "Seed a golden doc with the answer past char-8000 and run holo search span query \u2014 the doc ranks in top-k.",
+      "text": "Seed a golden doc with the answer past char-8000 and run holo search span query — the doc ranks in top-k.",
       "type": "terminal",
       "executed": true,
       "result": "pass",
       "evidence": "exit 0; matched /Local Re-embedding & RRF Design/",
-      "log": ".spec/prds/mk6-migration/tasks/sprint-10-local-re-embedding-and-hybrid-rrf-search/.gate-evidence/20260717T170458Z/step3.log"
+      "log": ".spec/prds/mk6-migration/tasks/sprint-10-local-re-embedding-and-hybrid-rrf-search/.gate-evidence/20260717T172922Z/step3.log"
     },
     {
       "n": 4,
-      "text": "Run holo search --explain \u2014 shows pgvector KNN + FTS fused with RRF in one round-trip.",
+      "text": "Run holo search --explain — shows pgvector KNN + FTS fused with RRF in one round-trip.",
       "type": "terminal",
       "executed": true,
       "result": "pass",
       "evidence": "exit 0; matched /reciprocal_rank_fusion/",
-      "log": ".spec/prds/mk6-migration/tasks/sprint-10-local-re-embedding-and-hybrid-rrf-search/.gate-evidence/20260717T170458Z/step4.log"
+      "log": ".spec/prds/mk6-migration/tasks/sprint-10-local-re-embedding-and-hybrid-rrf-search/.gate-evidence/20260717T172922Z/step4.log"
     },
     {
       "n": 5,
-      "text": "Run holo search:recall --golden set.json \u2014 new recall \u2265 the recorded Convex hybridSearch baseline.",
+      "text": "Run holo search:recall --golden set.json — new recall ≥ the recorded Convex hybridSearch baseline.",
       "type": "terminal",
       "executed": true,
       "result": "pass",
       "evidence": "exit 0; matched /recall new=\\d+ baseline=\\d+/",
-      "log": ".spec/prds/mk6-migration/tasks/sprint-10-local-re-embedding-and-hybrid-rrf-search/.gate-evidence/20260717T170458Z/step5.log"
+      "log": ".spec/prds/mk6-migration/tasks/sprint-10-local-re-embedding-and-hybrid-rrf-search/.gate-evidence/20260717T172922Z/step5.log"
     },
     {
       "n": 6,
-      "text": "Re-run holo embed:run, interrupt it, and resume \u2014 no duplicate passages (WHERE embedding IS NULL, SKIP LOCKED).",
+      "text": "Re-run holo embed:run, interrupt it, and resume — no duplicate passages (WHERE embedding IS NULL, SKIP LOCKED).",
       "type": "terminal",
       "executed": true,
       "result": "pass",
       "evidence": "exit 0; matched /\"processed\"\\s*:\\s*0/",
-      "log": ".spec/prds/mk6-migration/tasks/sprint-10-local-re-embedding-and-hybrid-rrf-search/.gate-evidence/20260717T170458Z/step6.log"
+      "log": ".spec/prds/mk6-migration/tasks/sprint-10-local-re-embedding-and-hybrid-rrf-search/.gate-evidence/20260717T172922Z/step6.log"
     },
     {
       "n": 7,
-      "text": "Run holo search --surface research_findings \u2014 inline-HNSW semantic search returns results with no Cohere/cloud call.",
+      "text": "Run holo search --surface research_findings — inline-HNSW semantic search returns results with no Cohere/cloud call.",
       "type": "terminal",
       "executed": true,
       "result": "pass",
       "evidence": "exit 0; matched /hnsw:research_findings/",
-      "log": ".spec/prds/mk6-migration/tasks/sprint-10-local-re-embedding-and-hybrid-rrf-search/.gate-evidence/20260717T170458Z/step7.log"
+      "log": ".spec/prds/mk6-migration/tasks/sprint-10-local-re-embedding-and-hybrid-rrf-search/.gate-evidence/20260717T172922Z/step7.log"
     }
-  ]
+  ],
+  "verified": true,
+  "verified_at": "2026-07-17T17:36:07Z"
 }

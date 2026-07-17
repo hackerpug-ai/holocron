@@ -1,8 +1,9 @@
 # search-4 — RED tests: 0 null/wrong-dim vectors, past-8K retrieval, recall≥baseline, idempotent re-embed
 > Status: ✅ Completed
+> Cycle: 1
 > Commit: 6fb7fb390d31d9b5025142c14eb6fcfe82f32c33
 > Reviewer: mastra-reviewer
-> Completed: 2026-07-17T15:53:16Z
+> Completed: 2026-07-17T17:44:33Z
 
 ## What this does
 

@@ -1,0 +1,11 @@
+@@GATE-META step=step2 cmd_sha=9f71de0e8887f84ad5b24c0957f544bbff584fd7f83f1445a377cd9f5b96a1b1@@
++ bun services/platform/src/cli/holo.ts embed:verify --json
+{
+  "ok": true,
+  "total": 7,
+  "nullEmbeddings": 0,
+  "wrongDimension": 0,
+  "correctDimension": 7,
+  "expectedDimension": 1024
+}
+@@GATE-EXIT=0@@

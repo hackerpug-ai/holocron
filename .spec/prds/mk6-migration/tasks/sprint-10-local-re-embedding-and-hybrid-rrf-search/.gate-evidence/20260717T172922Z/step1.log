@@ -1,0 +1,8 @@
+@@GATE-META step=step1 cmd_sha=290dfde39590da1026b65176b3158e5177c565dacd85299e0e320ac7d5e36f8d@@
++ bun services/platform/src/cli/holo.ts embed:run --json
+{
+  "ok": true,
+  "processed": 7,
+  "remainingNull": 0
+}
+@@GATE-EXIT=0@@

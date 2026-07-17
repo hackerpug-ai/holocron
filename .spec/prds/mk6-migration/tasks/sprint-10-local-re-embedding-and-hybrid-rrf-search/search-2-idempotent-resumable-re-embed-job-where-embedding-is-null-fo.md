@@ -1,4 +1,9 @@
 # search-2 — Idempotent resumable re-embed job (WHERE embedding IS NULL ... FOR UPDATE SKIP LOCKED) + optional contextual header + holo embed:run
+> Status: ✅ Completed
+> Cycle: 1
+> Commit: a31876b15232a739d540f248bc395f95fe820dc2
+> Reviewer: mastra-reviewer
+> Completed: 2026-07-17T17:44:33Z
 
 ## What this does
 

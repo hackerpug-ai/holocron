@@ -1,4 +1,9 @@
 # search-3 — RRF hybrid search helper (pgvector HNSW + FTS, one round-trip) + 5 inline-HNSW surfaces
+> Status: ✅ Completed
+> Cycle: 1
+> Commit: afc581577b395578f08bf18af4540955f8ee02a4
+> Reviewer: mastra-reviewer
+> Completed: 2026-07-17T17:44:33Z
 
 ## What this does
 

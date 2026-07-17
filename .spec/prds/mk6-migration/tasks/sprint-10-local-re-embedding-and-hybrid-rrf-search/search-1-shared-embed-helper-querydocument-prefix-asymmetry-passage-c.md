@@ -1,4 +1,9 @@
 # search-1 — Shared embed() helper (query/document prefix asymmetry) + passage chunking (~512 tok)
+> Status: ✅ Completed
+> Cycle: 1
+> Commit: 3fab2c569d159853e432ab85a7dba043d04be499
+> Reviewer: mastra-reviewer
+> Completed: 2026-07-17T17:44:33Z
 
 ## What this does
 
