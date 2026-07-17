@@ -1,5 +1,8 @@
 # queue-4 — RED tests: kill-9 at commit/dispatch/ack → exactly-once + dedupe, all-16-fire, priority, DLQ
-> Status: Backlog
+> Status: ✅ Completed
+> Commit: d7636b5f3babc1b2fcb209ac05165f30eabcf360
+> Reviewer: mastra-reviewer
+> Completed: 2026-07-17T19:06:04Z
 > Sprint: [Sprint 11 — Scheduler and Durable Queue](./SPRINT.md)
 > Agent: red-test-generator
 > Estimate: 210 minutes
