@@ -62,6 +62,7 @@ Each step is a real documented `holo` operator invocation (no test suite). Run w
 | GATE-FIX-003 | Add documented production CLI coverage for interactive-over-background dequeue priority | mastra-implementer | 60 min |
 | GATE-FIX-004 | Add documented production CLI coverage for poison retry exhaustion and dead-letter inspection | mastra-implementer | 60 min |
 | GATE-FIX-005 | Make queue audit output satisfy the one-outbox/one-inbox/fencing-token gate evidence contract | mastra-implementer | 45 min |
+| REDHAT-FIX-H1 | Preserve the failed job error in JobRunResult and surface it through the jobs runner/CLI instead of silently swallowing it | mastra-implementer | 45 min |
 
 ## Source Coverage
 
