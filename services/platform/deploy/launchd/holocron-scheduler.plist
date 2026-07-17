@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!--
-  holocron-scheduler — PLACEHOLDER (Disabled)
+  holocron-scheduler — Postgres leased-queue worker (Sprint 11 queue-1)
 
-  Sprint 11 owns the perpetual scheduler (C-7). This unit exists so the
-  four-service stack surface is complete and the stack supervisor (D01-03)
-  can see an honest disabled slot. Do NOT enable until Sprint 11 wires a real
-  ProgramArguments target.
+  Real ProgramArguments (bun scheduler-worker.ts) — NOT /usr/bin/true.
+  Disabled=true until operators bootstrap the unit (install-launchd sanity).
+  Queue readiness is still measured live from Postgres (pg-boss preferred).
+  Install: scripts/install-launchd.sh
 -->
 <plist version="1.0">
 <dict>
@@ -16,7 +16,8 @@
 	<true/>
 	<key>ProgramArguments</key>
 	<array>
-		<string>/usr/bin/true</string>
+		<string>@BUN_BIN@</string>
+		<string>@HOLO_ROOT@/services/platform/src/queue/scheduler-worker.ts</string>
 	</array>
 	<key>WorkingDirectory</key>
 	<string>@HOLO_ROOT@</string>
@@ -24,13 +25,21 @@
 	<dict>
 		<key>HOME</key>
 		<string>@HOME@</string>
+		<key>PATH</key>
+		<string>@BUN_DIR@:@PG_BIN@:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
 		<key>HOLO_ROOT</key>
 		<string>@HOLO_ROOT@</string>
+		<key>DATABASE_URL</key>
+		<string>@DATABASE_URL@</string>
 	</dict>
 	<key>RunAtLoad</key>
 	<false/>
 	<key>KeepAlive</key>
 	<false/>
+	<key>ThrottleInterval</key>
+	<integer>5</integer>
+	<key>ProcessType</key>
+	<string>Background</string>
 	<key>StandardOutPath</key>
 	<string>@HOME@/Library/Logs/holocron/scheduler.out.log</string>
 	<key>StandardErrorPath</key>

@@ -1,8 +1,8 @@
 /**
  * Stack supervisor — holo stack up | down | status
  *
- * Orchestrates Postgres + Mastra via launchd (Darwin) with real health probes.
- * Scheduler: always pending (Sprint 11). Zero-cache: disabled until Sprint 20.
+ * Orchestrates Postgres + Mastra + scheduler (leased queue) via launchd (Darwin)
+ * with real health probes. Zero-cache: disabled until Sprint 20.
  */
 import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
@@ -27,19 +27,43 @@ import {
   probeLaunchdRunning,
   probeMastra,
   probePostgres,
-  probeSchedulerState,
+  probeQueueDetail,
+  probeSchedulerDetail,
   probeZeroCacheState,
   type ServiceState,
 } from './probes.ts';
+
+/** Scheduler slot as structured object (AC-3: placeholder / program). */
+export type SchedulerStatus = {
+  /** Launchd / process state string (healthy|pending|…). */
+  state: ServiceState;
+  /** false once real worker is wired (never /usr/bin/true). */
+  placeholder: boolean;
+  program: string;
+  /** Stringify-friendly alias so legacy `String(scheduler)` tests still see state. */
+  toString(): string;
+};
+
+export type QueueStatus = {
+  backend: 'pg-boss' | 'graphile-worker' | 'process-local' | 'unknown';
+  ready: boolean;
+  detail?: string;
+};
 
 export type StackStatusReport = {
   ok: boolean;
   postgres: ServiceState;
   mastra: ServiceState;
-  scheduler: ServiceState;
+  /**
+   * Structured scheduler status. JSON serializes {state,placeholder,program}.
+   * Text form prints state; never reports fake /usr/bin/true as healthy production.
+   */
+  scheduler: SchedulerStatus;
   zero_cache: ServiceState;
   /** Fleet embed-route health (CAP-EMB-01 ops visibility) — real HTTP probe. */
   embed: ServiceState;
+  /** Postgres leased-queue readiness (pg-boss preferred). */
+  queue: QueueStatus;
   /** Nested form for operators / tooling. */
   services: {
     postgres: ServiceState;
@@ -47,6 +71,7 @@ export type StackStatusReport = {
     scheduler: ServiceState;
     zerocache: ServiceState;
     embed: ServiceState;
+    queue: QueueStatus;
   };
   mode: 'launchd' | 'direct';
   elapsed_ms?: number;
@@ -55,8 +80,11 @@ export type StackStatusReport = {
     postgres: string;
     mastra: string;
     embed: string;
+    queue?: string;
+    scheduler?: string;
     launchd_postgres?: string;
     launchd_mastra?: string;
+    launchd_scheduler?: string;
   };
 };
 
@@ -104,6 +132,19 @@ function pidAlive(pid: number | undefined): boolean {
   return r.status === 0;
 }
 
+function makeSchedulerStatus(cfg: StackConfig): SchedulerStatus {
+  const detail = probeSchedulerDetail(cfg);
+  const status: SchedulerStatus = {
+    state: detail.state,
+    placeholder: detail.placeholder,
+    program: detail.program,
+    toString() {
+      return detail.state;
+    },
+  };
+  return status;
+}
+
 function buildStatus(
   cfg: StackConfig,
   mode: 'launchd' | 'direct',
@@ -112,27 +153,35 @@ function buildStatus(
   const pg = probePostgres(cfg);
   const mastra = probeMastra(cfg);
   const embed = probeEmbed(cfg);
-  const scheduler = probeSchedulerState(cfg);
+  const scheduler = makeSchedulerStatus(cfg);
   const zeroCache = probeZeroCacheState(cfg);
+  const queueProbe = probeQueueDetail(cfg);
 
   const postgresState: ServiceState = pg.ok ? 'healthy' : 'unhealthy';
   const mastraState: ServiceState = mastra.ok ? 'healthy' : 'unhealthy';
   const embedState: ServiceState = embed.ok ? 'healthy' : 'unhealthy';
+  const queue: QueueStatus = {
+    backend: queueProbe.backend,
+    ready: queueProbe.ready,
+    detail: queueProbe.detail,
+  };
 
   const report: StackStatusReport = {
-    // stack up still gates on postgres+mastra only; embed is ops-visibility (CAP-EMB-01)
+    // stack up still gates on postgres+mastra only; embed/queue are ops-visibility
     ok: postgresState === 'healthy' && mastraState === 'healthy',
     postgres: postgresState,
     mastra: mastraState,
     scheduler,
     zero_cache: zeroCache,
     embed: embedState,
+    queue,
     services: {
       postgres: postgresState,
       mastra: mastraState,
-      scheduler,
+      scheduler: scheduler.state,
       zerocache: zeroCache,
       embed: embedState,
+      queue,
     },
     mode,
     messages,
@@ -140,12 +189,15 @@ function buildStatus(
       postgres: pg.detail,
       mastra: mastra.detail,
       embed: embed.detail,
+      queue: queueProbe.detail,
+      scheduler: `placeholder=${scheduler.placeholder} program=${scheduler.program} state=${scheduler.state}`,
     },
   };
 
   if (mode === 'launchd') {
     report.probes.launchd_postgres = probeLaunchdRunning(LAUNCHD_LABELS.postgres).detail;
     report.probes.launchd_mastra = probeLaunchdRunning(LAUNCHD_LABELS.mastra).detail;
+    report.probes.launchd_scheduler = probeLaunchdRunning(LAUNCHD_LABELS.scheduler).detail;
   }
 
   return report;
@@ -156,9 +208,14 @@ export function formatStatusText(report: StackStatusReport): string {
   lines.push('holo stack status');
   lines.push(`  postgres:    ${report.postgres}`);
   lines.push(`  mastra:      ${report.mastra}`);
-  lines.push(`  scheduler:   ${report.scheduler}`);
+  lines.push(
+    `  scheduler:   ${report.scheduler.state} (placeholder=${report.scheduler.placeholder})`
+  );
   lines.push(`  zero_cache:  ${report.zero_cache}`);
   lines.push(`  embed:       ${report.embed}`);
+  lines.push(
+    `  queue:       backend=${report.queue.backend} ready=${report.queue.ready}`
+  );
   lines.push(`  mode:        ${report.mode}`);
   if (report.elapsed_ms !== undefined) {
     lines.push(`  elapsed_ms:  ${report.elapsed_ms}`);
@@ -347,10 +404,18 @@ export function stackUp(options?: { cfg?: StackConfig; timeoutMs?: number }): St
       messages.push(ens.detail);
     }
 
-    // Never bootstrap scheduler / zerocache (honest disabled)
+    // Scheduler unit ships Disabled=true but ProgramArguments is the real worker
+    // (scheduler-worker.ts) — never /usr/bin/true. Queue readiness is measured
+    // from live Postgres (pg-boss preferred) independent of launchd PID.
     bootoutLabel(cfg, LAUNCHD_LABELS.scheduler);
+    const q = probeQueueDetail(cfg);
+    messages.push(
+      `scheduler: program wired (placeholder=false); launchd Disabled until operator enables`
+    );
+    messages.push(`queue: backend=${q.backend} ready=${q.ready}`);
+
+    // Never bootstrap zerocache (Sprint 20)
     bootoutLabel(cfg, LAUNCHD_LABELS.zerocache);
-    messages.push('scheduler: skipped (Sprint 11 pending)');
     messages.push('zero_cache: disabled (Sprint 20)');
   } else {
     const pids = readDirectPids(cfg);
@@ -377,7 +442,9 @@ export function stackUp(options?: { cfg?: StackConfig; timeoutMs?: number }): St
       }
     }
     writeDirectPids(cfg, pids);
-    messages.push('scheduler: skipped (Sprint 11 pending)');
+    // Direct mode: start queue backend via probe (ensures schema + meta ready)
+    const q = probeQueueDetail(cfg);
+    messages.push(`scheduler: direct mode (queue backend=${q.backend} ready=${q.ready})`);
     messages.push('zero_cache: disabled (Sprint 20)');
   }
 
@@ -522,7 +589,7 @@ export function stackDown(options?: { cfg?: StackConfig; timeoutMs?: number }): 
 }
 
 /**
- * stack status — real probes; scheduler always pending; zero-cache honest.
+ * stack status — real probes for postgres/mastra/scheduler/queue; zero-cache honest.
  */
 export function stackStatus(options?: { cfg?: StackConfig }): StackCommandResult {
   const cfg = options?.cfg ?? loadStackConfig();

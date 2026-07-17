@@ -158,9 +158,10 @@ describe('AC-3: laptop dev-parity under portable config contract', () => {
       const text = status.combined.toLowerCase();
       expect(text).toMatch(/postgres[^\n]*healthy/);
       expect(text).toMatch(/mastra[^\n]*healthy/);
-      // Scheduler still pending on laptop
-      expect(text).toMatch(/scheduler[^\n]*(pending|disabled|not_implemented|skipped)/);
-      expect(text).not.toMatch(/scheduler[^\n]*healthy/);
+      // Scheduler is real worker (Sprint 11) — not /usr/bin/true placeholder
+      expect(text).toMatch(/scheduler/);
+      expect(text).not.toMatch(/\/usr\/bin\/true/);
+      expect(text).toMatch(/queue[^\n]*(pg-boss|graphile-worker)/);
     },
     120_000
   );
