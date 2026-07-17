@@ -41,7 +41,7 @@ Provides: review report (.spec/reviews/struct-4-extraction-safety-review.md) wit
 
 Writes: .spec/reviews/struct-4-extraction-safety-review.md (NEW) — APPROVED/NEEDS_FIXES report
 
-Prohibited: services/platform/src/inference/extract-structured.ts - REVIEW ONLY, do not modify, services/platform/src/fleet/probe-capability.ts - REVIEW ONLY, do not modify, tests/integration/service/struct-*.test.ts - REVIEW ONLY, do not modify, Any implementation code - REVIEW task must not write code
+Prohibited: services/platform/src/inference/extract-structured.ts - REVIEW ONLY, do not modify, services/platform/src/inference/probe-capability.ts - REVIEW ONLY, do not modify, tests/integration/service/struct-*.test.ts - REVIEW ONLY, do not modify, Any implementation code - REVIEW task must not write code
 
 <details>
 <summary>▸ Full agent specification (TASK-TEMPLATE v5.2 — required reading for implementer + reviewer)</summary>
@@ -163,14 +163,14 @@ TEST CRITERIA
 SCOPE (writeAllowed)
 --------------------------------------------------------------------------------
 - .spec/reviews/struct-4-extraction-safety-review.md (NEW) — APPROVED/NEEDS_FIXES report
-writeProhibited: services/platform/src/inference/extract-structured.ts - REVIEW ONLY, do not modify, services/platform/src/fleet/probe-capability.ts - REVIEW ONLY, do not modify, tests/integration/service/struct-*.test.ts - REVIEW ONLY, do not modify, Any implementation code - REVIEW task must not write code
+writeProhibited: services/platform/src/inference/extract-structured.ts - REVIEW ONLY, do not modify, services/platform/src/inference/probe-capability.ts - REVIEW ONLY, do not modify, tests/integration/service/struct-*.test.ts - REVIEW ONLY, do not modify, Any implementation code - REVIEW task must not write code
 
 --------------------------------------------------------------------------------
 READING LIST
 --------------------------------------------------------------------------------
 1. services/platform/src/inference/extract-structured.ts lines 1-50
    - focus: extractStructured — Zod validation + repair loop + typed errors
-2. services/platform/src/fleet/probe-capability.ts lines 1-50
+2. services/platform/src/inference/probe-capability.ts lines 1-50
    - focus: probeRoleCapability — real generateObject + fail-closed
 3. .tmp/struct-3-red-output.txt lines 1-50
    - focus: RED evidence for TDD-cycle verification
@@ -417,7 +417,7 @@ Depends on: struct-1, struct-2, struct-3 · Blocks: none
       "type": "acceptance_criterion",
       "primary": false,
       "description": "GIVEN struct-2 probe-capability.ts WHEN reviewing THEN confirms probe uses real generateObject (not /health proxy, not static cache), fails-closed on unreachable",
-      "verify": "grep -c 'generateObject' services/platform/src/fleet/probe-capability.ts && grep -c '/health' services/platform/src/fleet/probe-capability.ts | grep -c '0' && grep -c 'fail-closed\\|failClosed' services/platform/src/fleet/probe-capability.ts",
+      "verify": "grep -c 'generateObject' services/platform/src/inference/probe-capability.ts && grep -c '/health' services/platform/src/inference/probe-capability.ts | grep -c '0' && grep -c 'fail-closed\\|failClosed' services/platform/src/inference/probe-capability.ts",
       "maps_to_ac": null,
       "scenario": {
         "tier": "visible",
@@ -499,14 +499,14 @@ Depends on: struct-1, struct-2, struct-3 · Blocks: none
       "id": "TC-5",
       "type": "test_criterion",
       "description": "Review confirms probe uses real generateObject not /health proxy",
-      "verify": "grep -c 'generateObject' services/platform/src/fleet/probe-capability.ts && grep -c '/health' services/platform/src/fleet/probe-capability.ts | grep -c '0'",
+      "verify": "grep -c 'generateObject' services/platform/src/inference/probe-capability.ts && grep -c '/health' services/platform/src/inference/probe-capability.ts | grep -c '0'",
       "maps_to_ac": "AC-4"
     },
     {
       "id": "TC-6",
       "type": "test_criterion",
       "description": "Review confirms probe fails-closed on unreachable",
-      "verify": "grep -c 'fail-closed\\|failClosed' services/platform/src/fleet/probe-capability.ts",
+      "verify": "grep -c 'fail-closed\\|failClosed' services/platform/src/inference/probe-capability.ts",
       "maps_to_ac": "AC-4"
     }
   ]

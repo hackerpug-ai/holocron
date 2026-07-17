@@ -36,7 +36,7 @@ Provides: per-role capability record (supportsJsonSchema, mode) consumed by reso
 
 ## Scope
 
-Writes: services/platform/src/fleet/probe-capability.ts (NEW) — probeRoleCapability real-call probe + capability record · services/platform/src/cli/holo.ts (MODIFY) — probe:capabilities command
+Writes: services/platform/src/inference/probe-capability.ts (NEW) — probeRoleCapability real-call probe + capability record · services/platform/src/cli/holo.ts (MODIFY) — probe:capabilities command
 
 Prohibited: services/platform/src/fleet/manifest.ts - Sprint 01 deliverable, schema locked, services/platform/src/fleet/manifest.schema.ts - Sprint 01 deliverable, schema locked, services/platform/src/inference/resolve-model.ts - Sprint 08 router contract, services/platform/src/mastra.ts - Sprint 05 compose root
 
@@ -162,7 +162,7 @@ TEST CRITERIA
 --------------------------------------------------------------------------------
 SCOPE (writeAllowed)
 --------------------------------------------------------------------------------
-- services/platform/src/fleet/probe-capability.ts (NEW) — probeRoleCapability real-call probe + capability record
+- services/platform/src/inference/probe-capability.ts (NEW) — probeRoleCapability real-call probe + capability record
 - services/platform/src/cli/holo.ts (MODIFY) — probe:capabilities command
 writeProhibited: services/platform/src/fleet/manifest.ts - Sprint 01 deliverable, schema locked, services/platform/src/fleet/manifest.schema.ts - Sprint 01 deliverable, schema locked, services/platform/src/inference/resolve-model.ts - Sprint 08 router contract, services/platform/src/mastra.ts - Sprint 05 compose root
 

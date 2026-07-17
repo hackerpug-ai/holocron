@@ -218,7 +218,7 @@ Depends on: none · Blocks: struct-4
       "seed_method": "migration_fixture",
       "records": [
         "services/platform/src/inference/extract-structured.ts does not exist",
-        "services/platform/src/fleet/probe-capability.ts does not exist",
+        "services/platform/src/inference/probe-capability.ts does not exist",
         "tests/integration/service/struct-*.test.ts do not exist",
         "No extractStructured function defined",
         "No probeCapabilities function defined"
