@@ -28,3 +28,17 @@ export function createObservability(): Observability {
     },
   });
 }
+
+// ── inference telemetry wiring (obs-2) ────────────────────────
+// Per-call detective control substrate. Call sites record via
+// recordInferenceTelemetry / runFleetModelCall / runBudgetedEscapeWithTelemetry.
+// OTel spans (above) remain the distributed-trace substrate (obs-1);
+// inference_telemetry is the durable per-call Postgres ledger for operators.
+export {
+  listInferenceTelemetry,
+  recordInferenceTelemetry,
+  runBudgetedEscapeWithTelemetry,
+  runFleetFailureFixture,
+  runFleetModelCall,
+  runResearchModelMission,
+} from './inference/telemetry.ts';

@@ -164,6 +164,7 @@ Usage:
   verify:no-provider-refs   Audit platform src for banned claudeFlash/Pro/Ultra factories
   budget:status             Show escape budget spent / remaining / ceiling (real Postgres)
   budget:set                Set escape budget ceiling (--ceiling <usd>)
+  telemetry:tail            Tail durable inference_telemetry rows (--run-id, --json)
   extract                   Extract structured data with Zod validation --schema <name> --input <text>
    extract:status <id>       Query extraction status by id (pending|success|extraction_failed|blocked)
   probe:capabilities        Probe all fleet roles for json_schema structured-output support
@@ -199,7 +200,7 @@ Options:
   --cost <usd>          (infer:call) estimated escape cost USD for budget pre-check
   --reason <text>       (infer:call) escape reason for audit trail
   --prompt <text>       (infer:call --escape) prompt for real Anthropic generateText
-  --run-id <id>         (infer:call --escape / evidence:revise) run id for ledger
+  --run-id <id>         (infer:call --escape / evidence:revise / telemetry:tail) run id
   --ceiling <usd>       (budget:set) escape budget ceiling in USD
   --schema <name>       (extract) schema name: simple|nested|tripwire
   --input <text>        (extract) input text or file path
@@ -211,7 +212,7 @@ Options:
   --surface <name>      (search) inline-HNSW surface KNN (research_findings|research_iterations|
                         subscription_content|toolbelt_tools|improvement_requests)
   --golden <path>       (search:recall) golden set JSON for recall@k evaluation
-  --limit <n>           (search|search:recall) max results / k (default 10)
+  --limit <n>           (search|search:recall|telemetry:tail) max results / rows (default 10 / 100)
   --json                Emit JSON instead of text
   --print-trace         (compat:spike) emit OTel trace details
   --dry-run             (catalog:reconcile) dry-run mode (default)
@@ -1722,6 +1723,72 @@ async function main(): Promise<void> {
           console.error(JSON.stringify({ ok: false, error: msg }));
         } else {
           console.error(`holo budget:status failed: ${msg}`);
+        }
+        process.exit(1);
+      }
+      break;
+    }
+    case 'telemetry:tail': {
+      // obs-2: operator tail of durable inference_telemetry rows (not process buffers)
+      const runId = args.runId ?? args.positional[1] ?? null;
+      const limit = Math.max(1, Number.parseInt(args.limit ?? '100', 10) || 100);
+      const { listInferenceTelemetry } = await import('../inference/telemetry.ts');
+      try {
+        const rows = await listInferenceTelemetry({
+          runId: runId ?? undefined,
+          limit,
+        });
+        const payload = {
+          ok: true,
+          runId: runId ?? null,
+          count: rows.length,
+          rows: rows.map((r) => ({
+            id: r.id,
+            runId: r.runId,
+            stepId: r.stepId,
+            traceId: r.traceId,
+            role: r.role,
+            provider: r.provider,
+            endpoint: r.endpoint,
+            modelId: r.modelId,
+            inputTokens: r.inputTokens,
+            outputTokens: r.outputTokens,
+            totalTokens: r.totalTokens,
+            tokens: r.totalTokens,
+            wallMs: r.wallMs,
+            status: r.status,
+            errorCode: r.errorCode,
+            budgetLedgerId: r.budgetLedgerId,
+            createdAt: r.createdAt,
+          })),
+        };
+        if (args.json) {
+          console.log(JSON.stringify(payload, null, 2));
+        } else {
+          console.log('holo telemetry:tail — inference_telemetry (durable Postgres)');
+          console.log(`  runId:  ${runId ?? '(latest)'}`);
+          console.log(`  count:  ${rows.length}`);
+          if (rows.length === 0) {
+            console.log('  (no rows)');
+          } else {
+            for (const r of rows) {
+              console.log(
+                `  ${r.status.padEnd(7)} role=${r.role} provider=${r.provider} ` +
+                  `tokens=${r.totalTokens} wall-ms=${r.wallMs} endpoint=${r.endpoint} ` +
+                  `run=${r.runId ?? '—'} trace=${r.traceId ?? '—'} ` +
+                  (r.errorCode ? `err=${r.errorCode}` : '')
+              );
+            }
+          }
+          console.log(rows.length > 0 ? '  status: OK' : '  status: EMPTY');
+        }
+        process.exit(0);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (args.json) {
+          console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+        } else {
+          console.error(`holo telemetry:tail failed: ${msg}`);
         }
         process.exit(1);
       }

@@ -27,6 +27,8 @@ export default defineConfig({
       // Sprint 11 — durable leased queue (priority lanes + DLQ)
       'services/platform/tests/integration/queue-priority.test.ts',
       'services/platform/tests/integration/queue-dlq.test.ts',
+      // Sprint 12 — inference telemetry stream (tokens/wall-ms/endpoint/role)
+      'services/platform/tests/integration/inference-telemetry.test.ts',
     ],
     setupFiles: ['tests/setup/react-native.ts'],
     exclude: ['node_modules', 'dist', '.expo'],
