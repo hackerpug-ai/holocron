@@ -20,13 +20,14 @@
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
   goodInput,
   goodOutput,
   MAX_REPAIR_ATTEMPTS,
   malformedOnceInput,
-  type SimpleSchema,
+  malformedOnceSchema,
+  resetMalformedOnceCounter,
   simpleSchema,
 } from '../../fixtures/struct-fixtures';
 import { PLATFORM_IT, REPO_ROOT } from './harness';
@@ -38,7 +39,7 @@ import { loadResolveModel } from './infer-resolve-loader';
 const FLEET_TIMEOUT = 180000;
 const itLive = (
   name: string,
-  fn: () => Promise<unknown> | void,
+  fn: () => Promise<unknown> | undefined,
   timeout: number = FLEET_TIMEOUT
 ) => {
   if (PLATFORM_IT) it(name, fn, timeout);
@@ -79,6 +80,11 @@ async function loadExtractStructured() {
 describe('struct-3 AC-1: malformed→repair→valid bounded loop (RED)', () => {
   beforeAll(() => {
     if (!PLATFORM_IT) return;
+  });
+
+  // REDHAT-FIX-C2-H3: fail-once counter must not leak across cases.
+  beforeEach(() => {
+    resetMalformedOnceCounter();
   });
 
   itLive('extractStructured function exists (RED: ReferenceError)', async () => {
@@ -146,24 +152,39 @@ describe('struct-3 AC-1: malformed→repair→valid bounded loop (RED)', () => {
         const resolved = await resolveModel('divergent');
         expect(resolved.healthy).toBe(true);
 
-        // This will fail in RED state with ReferenceError
+        // REDHAT-FIX-C2-H3: schema-side fail-once refine forces deterministic
+        // repair (prompt-based simpleSchema was non-deterministic). Use a stable
+        // extractionId so we can read status.attempts after success.
+        const extractionId = `c2-h3-malformed-once-${Date.now()}`;
         const result = await extractMod.extractStructured(
-          simpleSchema,
+          malformedOnceSchema,
           malformedOnceInput,
-          'divergent'
+          'divergent',
+          extractionId
         );
 
         // Once implemented (GREEN), this should succeed after repair loop
         expect(result).toBeDefined();
+        // Keep simpleSchema shape check (never-silently-accept invariant) AND
+        // the load-bearing attempts assertion that proves repair was entered.
         expect(simpleSchema.safeParse(result).success).toBe(true);
 
-        // Must have real fleet traffic (at least one for initial attempt + repair)
-        expect(capture.fleetCount()).toBeGreaterThanOrEqual(1);
+        const status = await extractMod.getExtractionStatus(extractionId);
+        expect(status).toBeDefined();
+        expect(status?.status).toBe('success');
+        expect(status?.committed).toBe(true);
+        // Load-bearing: a stub returning goodOutput on attempt 1 would set
+        // attempts===1 and fail here. Real fail-once refine → attempts >= 2.
+        expect(status?.attempts).toBeGreaterThanOrEqual(2);
+
+        // Must have real fleet traffic for each repair iteration (not just once)
+        expect(capture.fleetCount()).toBeGreaterThanOrEqual(2);
         expect(capture.anthropicCount()).toBe(0);
 
         writeArtifact('AC-1-green-repair-loop.json', {
           result,
           parseResult: simpleSchema.safeParse(result),
+          status,
           fleetCount: capture.fleetCount(),
           anthropicCount: capture.anthropicCount(),
         });

@@ -109,6 +109,12 @@ export type ExtractionStatus = {
   result?: unknown;
   /** True when a schema-valid result was committed; false for failed/blocked. */
   committed: boolean;
+  /**
+   * Loop counter at the terminal state (1-based). Present on the success path
+   * (how many generateObject rounds ran before a Zod-valid commit) and mirrored
+   * under `error.attempts` on the failure path. REDHAT-FIX-C2-H3.
+   */
+  attempts?: number;
   /** Present when status === 'extraction_failed'. */
   error?: {
     code: string;
@@ -505,6 +511,8 @@ async function runExtraction<T extends z.ZodType>(
       }
 
       // REDHAT-FIX-H1: record success status with the validated result.
+      // REDHAT-FIX-C2-H3: include attempts so callers can prove the repair loop
+      // was entered (malformed-once → attempts >= 2) rather than first-try luck.
       await writeExtractionStatus({
         id: extractionId,
         status: 'success',
@@ -512,6 +520,7 @@ async function runExtraction<T extends z.ZodType>(
         startedAt,
         endedAt: new Date().toISOString(),
         committed: true,
+        attempts: attempt,
         result: validated,
       });
       return validated;

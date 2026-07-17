@@ -48,6 +48,35 @@ export const alwaysFailingSchema = z.object({
   tags: z.array(z.string()),
 });
 
+/**
+ * Malformed-once schema — same shape as simpleSchema, but a module-level counter
+ * makes `.refine()` return false exactly once then true.
+ *
+ * REDHAT-FIX-C2-H3: prompt-based "malformed once" is non-deterministic (model may
+ * return valid JSON on attempt 1 and the repair loop never enters). This schema
+ * forces the first `schema.parse(object)` (or generateObject validation) to fail
+ * and the second to pass — real fleet traffic both times, no mocks. Pattern is
+ * the inverse of alwaysFailingSchema (fail-N-times-then-pass).
+ *
+ * Call `resetMalformedOnceCounter()` in beforeEach so state never leaks across
+ * test runs.
+ */
+let malformedOnceCounter = 0;
+
+/** Reset the fail-once counter (call in beforeEach of the repair-loop suite). */
+export function resetMalformedOnceCounter(): void {
+  malformedOnceCounter = 0;
+}
+
+export const malformedOnceSchema = z.object({
+  title: z.string(),
+  count: z.number().refine(() => {
+    malformedOnceCounter++;
+    return malformedOnceCounter > 1;
+  }, 'fail-once fixture'),
+  tags: z.array(z.string()),
+});
+
 export type SimpleSchema = z.infer<typeof simpleSchema>;
 
 /**
@@ -211,7 +240,7 @@ export function createMalformedJson(base: unknown): string {
   const errors = [
     () => str.replace(/"/g, "'"), // Wrong quotes
     () => str.replace(/,$/m, ''), // Remove trailing comma
-    () => str + ',', // Add trailing comma
+    () => `${str},`, // Add trailing comma
     () => str.replace(/:/g, ''), // Remove colons
     () => str.slice(0, -5), // Truncate
   ];
