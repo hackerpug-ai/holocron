@@ -298,23 +298,23 @@ REQUIREMENT-CONTRACT v1
   },
   "fixtures": {
     "seeded_durable_effect": {
-      "description": "A single seeded job key whose side effect is intentionally replay-safe.",
+      "description": "A single seeded job key whose side effect is intentionally replay-safe on real Postgres.",
       "seed_method": "public_api",
       "records": [
-        "seeded effect key",
-        "domain payload",
-        "outbox row",
-        "inbox dedupe row",
-        "fencing token"
+        "seeded effect key=effect-kill9-1",
+        "domain payload {n:1}",
+        "outbox row pending",
+        "inbox dedupe empty at start",
+        "fencing token column present"
       ]
     },
     "queue_audit_key": {
       "description": "Stable key for queue:audit output and replay checks.",
       "seed_method": "cli",
       "records": [
-        "audit key",
-        "outbox entry",
-        "inbox outcome"
+        "audit key=effect-kill9-1",
+        "outbox entry expected count 1",
+        "inbox outcome expected count 1"
       ]
     }
   },
@@ -337,11 +337,11 @@ REQUIREMENT-CONTRACT v1
         "verification_service": "queue service + Postgres",
         "negative_control": {
           "would_fail_if": [
-            "disconnect",
-            "stub",
-            "empty",
-            "mock",
-            "static"
+            "disconnect loses the committed effect",
+            "stub always returns success without rows",
+            "empty effect table accepted as exactly-once",
+            "mock dedupe without inbox row",
+            "static hardcoded effect_count=1"
           ]
         },
         "evidence": {
@@ -361,13 +361,15 @@ REQUIREMENT-CONTRACT v1
             },
             "end_state": {
               "must_observe": [
-                "exactly one observable effect",
-                "one outbox entry",
-                "one inbox dedupe record"
+                "`effect_count === 1`",
+                "`outbox_count === 1`",
+                "`inbox_dedupe_count === 1`",
+                "`fence_token` is non-empty"
               ],
               "must_not_observe": [
-                "zero effects",
-                "duplicate effects"
+                "`effect_count === 0`",
+                "`effect_count === 2`",
+                "empty outbox"
               ]
             }
           },
@@ -383,13 +385,15 @@ REQUIREMENT-CONTRACT v1
             },
             "end_state": {
               "must_observe": [
-                "exactly one observable effect",
-                "one outbox entry",
-                "one inbox dedupe record"
+                "`effect_count === 1`",
+                "`outbox_count === 1`",
+                "`inbox_dedupe_count === 1`",
+                "`fence_token` is non-empty"
               ],
               "must_not_observe": [
-                "partial effect",
-                "duplicate effects"
+                "`effect_count === 0`",
+                "`effect_count === 2`",
+                "empty outbox"
               ]
             }
           },
@@ -405,13 +409,15 @@ REQUIREMENT-CONTRACT v1
             },
             "end_state": {
               "must_observe": [
-                "exactly one observable effect",
-                "one outbox entry",
-                "one inbox dedupe record"
+                "`effect_count === 1`",
+                "`outbox_count === 1`",
+                "`inbox_dedupe_count === 1`",
+                "`fence_token` is non-empty"
               ],
               "must_not_observe": [
-                "duplicate ack",
-                "silent drop"
+                "`effect_count === 0`",
+                "`effect_count === 2`",
+                "empty outbox"
               ]
             }
           }
@@ -436,11 +442,11 @@ REQUIREMENT-CONTRACT v1
         "verification_service": "Postgres",
         "negative_control": {
           "would_fail_if": [
-            "disconnect",
-            "stub",
-            "empty",
-            "mock",
-            "static"
+            "disconnect omits audit rows",
+            "stub fabricates audit without DB",
+            "empty audit accepted",
+            "mock fence_token constant",
+            "static hardcoded one-entry report"
           ]
         },
         "evidence": {
@@ -458,13 +464,15 @@ REQUIREMENT-CONTRACT v1
             },
             "end_state": {
               "must_observe": [
-                "one outbox entry",
-                "one inbox dedupe outcome",
-                "fencing token recorded"
+                "`outbox_count === 1`",
+                "`inbox_dedupe_count === 1`",
+                "`fence_token` is non-empty",
+                "`holo queue:audit` prints key=effect-kill9-1"
               ],
               "must_not_observe": [
-                "missing audit row",
-                "ambiguous dedupe state"
+                "`outbox_count === 0`",
+                "`inbox_dedupe_count === 0`",
+                "empty audit output"
               ]
             }
           }

@@ -325,23 +325,23 @@ REQUIREMENT-CONTRACT v1
   },
   "fixtures": {
     "cron_inventory_16": {
-      "description": "Legacy cron inventory with every migrated job represented once.",
-      "seed_method": "sql_migration",
+      "description": "Legacy cron inventory with every migrated job represented once in Postgres registry.",
+      "seed_method": "migration_fixture",
       "records": [
-        "16 jobs",
+        "16 job registry rows",
         "7 janitor sweeps",
         "4 workflows",
         "1 consumer",
-        "3→1 backfill",
+        "3\u21921 backfill",
         "1 digest"
       ]
     },
     "mixed_priority_load": {
-      "description": "Background and interactive jobs loaded together for ordering proof.",
+      "description": "Background mission + interactive chat job for priority-lane proof.",
       "seed_method": "public_api",
       "records": [
-        "background mission",
-        "interactive chat job"
+        "background mission priority=10",
+        "interactive chat priority=100"
       ]
     }
   },
@@ -364,11 +364,11 @@ REQUIREMENT-CONTRACT v1
         "verification_service": "queue service + Postgres",
         "negative_control": {
           "would_fail_if": [
-            "disconnect",
-            "stub",
-            "empty",
-            "mock",
-            "static"
+            "disconnect skips job fire",
+            "stub reports 16 without Postgres rows",
+            "empty registry accepted",
+            "mock side effects",
+            "static hardcoded 16"
           ]
         },
         "evidence": {
@@ -386,12 +386,14 @@ REQUIREMENT-CONTRACT v1
             },
             "end_state": {
               "must_observe": [
-                "16 jobs fired",
-                "former Convex side effects observed in Postgres"
+                "`jobs_fired === 16`",
+                "`side_effect_rows >= 16`",
+                "`jobs:run-all exit_code === 0`"
               ],
               "must_not_observe": [
-                "missed job",
-                "mocked side effect"
+                "`jobs_fired === 0`",
+                "empty job inventory",
+                "mock-only side effect"
               ]
             }
           }
@@ -402,7 +404,7 @@ REQUIREMENT-CONTRACT v1
       "id": "AC-2",
       "type": "acceptance_criterion",
       "primary": false,
-      "description": "GIVEN the 16 migrated jobs are inventory-seeded with lane metadata WHEN the operator asks for the inventory THEN jobs:list shows 16 entries mapped to 7 janitor sweeps, 4 workflows, 1 consumer, 3→1 backfill, and 1 digest",
+      "description": "GIVEN the 16 migrated jobs are inventory-seeded with lane metadata WHEN the operator asks for the inventory THEN jobs:list shows 16 entries mapped to 7 janitor sweeps, 4 workflows, 1 consumer, 3\u21921 backfill, and 1 digest",
       "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron HOLO_KEY_RN=rn-test HOLO_KEY_MCP=mcp-test HOLO_KEY_CONTROL=ctl-test bun services/platform/src/cli/holo.ts jobs:list",
       "maps_to_ac": null,
       "satisfied": null,
@@ -416,11 +418,11 @@ REQUIREMENT-CONTRACT v1
         "verification_service": "queue service + Postgres",
         "negative_control": {
           "would_fail_if": [
-            "disconnect",
-            "stub",
-            "empty",
-            "mock",
-            "static"
+            "disconnect returns empty list",
+            "stub invents categories",
+            "empty list accepted",
+            "mock inventory",
+            "static hardcoded 16"
           ]
         },
         "evidence": {
@@ -438,16 +440,17 @@ REQUIREMENT-CONTRACT v1
             },
             "end_state": {
               "must_observe": [
-                "16 jobs listed",
-                "7 janitor sweeps",
-                "4 workflows",
-                "1 consumer",
-                "3→1 backfill",
-                "1 digest"
+                "`jobs:list count === 16`",
+                "`janitor_sweeps === 7`",
+                "`workflows === 4`",
+                "`consumer === 1`",
+                "`backfill === 1`",
+                "`digest === 1`"
               ],
               "must_not_observe": [
-                "missing inventory row",
-                "collapsed job classes"
+                "`jobs:list count === 0`",
+                "empty inventory",
+                "missing category buckets"
               ]
             }
           }
@@ -472,11 +475,11 @@ REQUIREMENT-CONTRACT v1
         "verification_service": "queue service + Postgres",
         "negative_control": {
           "would_fail_if": [
-            "disconnect",
-            "stub",
-            "empty",
-            "mock",
-            "static"
+            "disconnect yields empty dequeue",
+            "stub ignores priority",
+            "empty queue accepted",
+            "mock priority order",
+            "static FIFO"
           ]
         },
         "evidence": {
@@ -496,11 +499,13 @@ REQUIREMENT-CONTRACT v1
             },
             "end_state": {
               "must_observe": [
-                "interactive job dequeues first"
+                "`dequeue_order[0] === \"interactive\"`",
+                "`priority_lane === \"interactive\"`"
               ],
               "must_not_observe": [
-                "background first",
-                "unordered dequeue"
+                "`dequeue_order[0] === \"background\"`",
+                "`effect_count === 0`",
+                "empty queue"
               ]
             }
           }
@@ -522,7 +527,7 @@ REQUIREMENT-CONTRACT v1
     {
       "id": "TC-2",
       "type": "test_criterion",
-      "description": "Jobs inventory reports the 7/4/1/3→1/1 split",
+      "description": "Jobs inventory reports the 7/4/1/3\u21921/1 split",
       "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron HOLO_KEY_RN=rn-test HOLO_KEY_MCP=mcp-test HOLO_KEY_CONTROL=ctl-test bun services/platform/src/cli/holo.ts jobs:list",
       "maps_to_ac": "AC-2",
       "satisfied": null,

@@ -324,29 +324,29 @@ REQUIREMENT-CONTRACT v1
   },
   "fixtures": {
     "priority_lane_seed": {
-      "description": "Mixed interactive/background workload for priority lane proof.",
+      "description": "Mixed interactive/background workload for priority lane proof against real Postgres queue tables.",
       "seed_method": "public_api",
       "records": [
-        "background mission",
-        "interactive chat job",
-        "lease metadata"
+        "background mission job priority=10 key=bg-1",
+        "interactive chat job priority=100 key=ix-1",
+        "lease metadata columns priority,fence_token"
       ]
     },
     "dlq_poison_seed": {
-      "description": "Poison job that must exhaust retry/backoff and enter DLQ.",
-      "seed_method": "sql_migration",
+      "description": "Poison job that must exhaust retry/backoff and enter DLQ in real Postgres.",
+      "seed_method": "migration_fixture",
       "records": [
-        "poison payload",
-        "retry cap",
-        "dead-letter path"
+        "poison payload key=poison-1",
+        "retry cap max_attempts=3",
+        "dead-letter path table queue_dead_letters"
       ]
     },
     "scheduler_placeholder_stack": {
-      "description": "Booted stack with the current honest-disabled scheduler slot and process-local queue adapter.",
+      "description": "Booted stack with current honest-disabled scheduler slot and process-local queue adapter.",
       "seed_method": "cli",
       "records": [
-        "stack status output",
-        "launchd plist placeholder"
+        "holo stack status output",
+        "launchd plist scheduler Program=/usr/bin/true placeholder"
       ]
     }
   },
@@ -369,11 +369,11 @@ REQUIREMENT-CONTRACT v1
         "verification_service": "queue service + Postgres",
         "negative_control": {
           "would_fail_if": [
-            "disconnect",
-            "stub",
-            "empty",
-            "mock",
-            "static"
+            "queue is disconnected from Postgres",
+            "stub returns static FIFO order",
+            "empty queue always dequeues nothing",
+            "mock priority always 0",
+            "static hardcoded interactive-first without lease rows"
           ]
         },
         "evidence": {
@@ -393,12 +393,14 @@ REQUIREMENT-CONTRACT v1
             },
             "end_state": {
               "must_observe": [
-                "interactive job dequeues first",
-                "priority metadata recorded"
+                "`dequeue_order[0] === \"interactive\"`",
+                "`lease.priority === 100`",
+                "`lease.fence_token` is non-empty string"
               ],
               "must_not_observe": [
-                "background first",
-                "static FIFO proof"
+                "`dequeue_order[0] === \"background\"`",
+                "`effect_count === 0`",
+                "empty dequeue"
               ]
             }
           }
@@ -423,11 +425,11 @@ REQUIREMENT-CONTRACT v1
         "verification_service": "queue service + Postgres",
         "negative_control": {
           "would_fail_if": [
-            "disconnect",
-            "stub",
-            "empty",
-            "mock",
-            "static"
+            "disconnect from Postgres drops poison silently",
+            "stub always marks success",
+            "empty DLQ table accepted as pass",
+            "mock retry never increments",
+            "static hardcoded dead_letter without rows"
           ]
         },
         "evidence": {
@@ -445,12 +447,14 @@ REQUIREMENT-CONTRACT v1
             },
             "end_state": {
               "must_observe": [
-                "dead-letter row written",
-                "retry state persisted"
+                "`dlq_count === 1`",
+                "`job.status === \"dead_letter\"`",
+                "`retry_count >= 3`"
               ],
               "must_not_observe": [
+                "`dlq_count === 0`",
                 "silent drop",
-                "retry counter reset"
+                "empty dead-letter table"
               ]
             }
           }
@@ -475,11 +479,11 @@ REQUIREMENT-CONTRACT v1
         "verification_service": "queue service + launchd",
         "negative_control": {
           "would_fail_if": [
-            "disconnect",
-            "stub",
-            "empty",
-            "mock",
-            "static"
+            "disconnect hides queue backend",
+            "stub reports ready without probe",
+            "empty status payload accepted",
+            "mock healthy scheduler",
+            "static hardcoded ready:true"
           ]
         },
         "evidence": {
@@ -498,12 +502,14 @@ REQUIREMENT-CONTRACT v1
             },
             "end_state": {
               "must_observe": [
-                "queue readiness measured from live backend",
-                "scheduler no longer hard-coded to /usr/bin/true"
+                "`queue.backend` matches /pg-boss|graphile-worker/",
+                "`scheduler.placeholder === false`",
+                "`queue.ready === true`"
               ],
               "must_not_observe": [
-                "queue not started",
-                "fake healthy scheduler"
+                "`queue.backend === \"process-local\"`",
+                "`scheduler.program === \"/usr/bin/true\"`",
+                "empty readiness payload"
               ]
             }
           }

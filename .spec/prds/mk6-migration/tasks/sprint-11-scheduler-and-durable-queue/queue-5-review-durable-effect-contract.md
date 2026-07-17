@@ -267,11 +267,11 @@ REQUIREMENT-CONTRACT v1
       "description": "Captured lint/type/test/job/audit outputs for the final sign-off pass.",
       "seed_method": "cli",
       "records": [
-        "biome output",
-        "tsgo output",
-        "test output",
-        "jobs:list output",
-        "queue:audit output"
+        "biome output file .tmp/queue-5/biome.txt",
+        "tsgo output file .tmp/queue-5/tsgo.txt",
+        "test output file .tmp/queue-5/test.txt",
+        "jobs:list output file .tmp/queue-5/jobs-list.txt",
+        "queue:audit output file .tmp/queue-5/queue-audit.txt"
       ]
     }
   },
@@ -294,11 +294,11 @@ REQUIREMENT-CONTRACT v1
         "verification_service": null,
         "negative_control": {
           "would_fail_if": [
-            "disconnect",
-            "stub",
-            "empty",
-            "mock",
-            "static"
+            "disconnect omits live jobs:list",
+            "stub review without running commands",
+            "empty evidence files accepted",
+            "mock-only proof of contract",
+            "static hardcoded signoff"
           ]
         },
         "evidence": {
@@ -319,12 +319,17 @@ REQUIREMENT-CONTRACT v1
             },
             "end_state": {
               "must_observe": [
-                "all evidence captures present",
-                "no stale scheduler placeholder in the reviewed surfaces"
+                "`biome exit_code === 0`",
+                "`tsgo exit_code === 0`",
+                "`jobs:list count === 16`",
+                "`queue:audit outbox_count === 1`",
+                "`scheduler.placeholder === false`"
               ],
               "must_not_observe": [
-                "mock-only proof",
-                "missing audit evidence"
+                "`outbox_count === 0`",
+                "missing audit evidence",
+                "empty evidence bundle",
+                "`scheduler.program === \"/usr/bin/true\"`"
               ]
             }
           }

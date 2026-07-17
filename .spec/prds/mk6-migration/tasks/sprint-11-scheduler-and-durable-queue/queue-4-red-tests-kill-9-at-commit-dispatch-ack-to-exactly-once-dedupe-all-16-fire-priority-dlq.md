@@ -360,38 +360,32 @@ REQUIREMENT-CONTRACT v1
   },
   "fixtures": {
     "red_durable_effect_seed": {
-      "description": "Seeded effect key and job payload for kill-9 boundary coverage.",
-      "seed_method": "sql_migration",
+      "description": "Seeded effect key and job payload for kill-9 boundary coverage on real Postgres.",
+      "seed_method": "public_api",
       "records": [
-        "seeded effect key",
-        "worker payload",
-        "outbox row",
-        "inbox dedupe row"
+        "effect key=red-kill9-1",
+        "payload {n:1}",
+        "outbox/inbox tables exist"
       ]
     },
     "cron_inventory_16": {
-      "description": "Legacy cron inventory for the all-16-fire and jobs:list cases.",
-      "seed_method": "sql_migration",
+      "description": "16-job registry for RED all-fire coverage.",
+      "seed_method": "migration_fixture",
       "records": [
-        "16 migrated jobs",
-        "7 janitor sweeps",
-        "4 workflows",
-        "1 consumer",
-        "3→1 backfill",
-        "1 digest"
+        "16 job definitions registered",
+        "Postgres job_runs table empty at start"
       ]
     },
     "dlq_poison_seed": {
-      "description": "Poison job that exceeds retry cap and should land in DLQ.",
-      "seed_method": "sql_migration",
+      "description": "Poison job seed for RED DLQ coverage.",
+      "seed_method": "migration_fixture",
       "records": [
-        "poison payload",
-        "retry cap",
-        "dead-letter target"
+        "poison job key=red-poison-1",
+        "max_attempts=3"
       ]
     },
     "priority_lane_seed": {
-      "description": "Mixed background and interactive work for priority ordering.",
+      "description": "Mixed priority jobs for RED priority coverage.",
       "seed_method": "public_api",
       "records": [
         "background mission",
@@ -418,11 +412,11 @@ REQUIREMENT-CONTRACT v1
         "verification_service": "queue service + Postgres",
         "negative_control": {
           "would_fail_if": [
-            "disconnect",
-            "stub",
-            "empty",
-            "mock",
-            "static"
+            "test file has syntax error so zero tests are collected",
+            "stub implementation makes tests pass green without RED",
+            "empty test body always passes",
+            "mock Postgres used instead of real",
+            "static hardcoded pass"
           ]
         },
         "evidence": {
@@ -442,13 +436,14 @@ REQUIREMENT-CONTRACT v1
             },
             "end_state": {
               "must_observe": [
-                "exactly one observable effect",
-                "one outbox entry",
-                "one inbox dedupe record"
+                "`test 'kill-9 boundaries exactly-once' status: failed`",
+                "`failed >= 1`",
+                "`effect_count === 1` and `outbox_count === 1` and `inbox_dedupe_count === 1` asserted"
               ],
               "must_not_observe": [
-                "zero effects",
-                "duplicate effects"
+                "`passed: 1` with empty implementation",
+                "`0 tests collected`",
+                "empty RED suite"
               ]
             }
           },
@@ -464,13 +459,14 @@ REQUIREMENT-CONTRACT v1
             },
             "end_state": {
               "must_observe": [
-                "exactly one observable effect",
-                "one outbox entry",
-                "one inbox dedupe record"
+                "`test 'kill-9 boundaries exactly-once' status: failed`",
+                "`failed >= 1`",
+                "`effect_count === 1` and `outbox_count === 1` and `inbox_dedupe_count === 1` asserted"
               ],
               "must_not_observe": [
-                "partial commit loss",
-                "duplicate effects"
+                "`passed: 1` with empty implementation",
+                "`0 tests collected`",
+                "empty RED suite"
               ]
             }
           },
@@ -486,13 +482,14 @@ REQUIREMENT-CONTRACT v1
             },
             "end_state": {
               "must_observe": [
-                "exactly one observable effect",
-                "one outbox entry",
-                "one inbox dedupe record"
+                "`test 'kill-9 boundaries exactly-once' status: failed`",
+                "`failed >= 1`",
+                "`effect_count === 1` and `outbox_count === 1` and `inbox_dedupe_count === 1` asserted"
               ],
               "must_not_observe": [
-                "duplicate ack",
-                "silent drop"
+                "`passed: 1` with empty implementation",
+                "`0 tests collected`",
+                "empty RED suite"
               ]
             }
           }
@@ -517,11 +514,11 @@ REQUIREMENT-CONTRACT v1
         "verification_service": "queue service + Postgres",
         "negative_control": {
           "would_fail_if": [
-            "disconnect",
-            "stub",
-            "empty",
-            "mock",
-            "static"
+            "disconnect causes collection failure not assertion fail",
+            "stub always passes",
+            "empty inventory",
+            "mock jobs:run-all",
+            "static hardcoded 16"
           ]
         },
         "evidence": {
@@ -539,11 +536,13 @@ REQUIREMENT-CONTRACT v1
             },
             "end_state": {
               "must_observe": [
-                "16 jobs fired",
-                "observed side effects in Postgres"
+                "`jobs_fired === 16` assertion present in RED suite",
+                "`failed >= 1` against mainline missing migration",
+                "`side_effect_rows >= 16` asserted against Postgres"
               ],
               "must_not_observe": [
-                "empty run",
+                "`0 tests collected`",
+                "empty run accepted as green",
                 "mock-only proof"
               ]
             }
@@ -569,11 +568,11 @@ REQUIREMENT-CONTRACT v1
         "verification_service": "queue service + Postgres",
         "negative_control": {
           "would_fail_if": [
-            "disconnect",
-            "stub",
-            "empty",
-            "mock",
-            "static"
+            "disconnect skips test",
+            "stub green path",
+            "empty queue accepted",
+            "mock priority",
+            "static order"
           ]
         },
         "evidence": {
@@ -593,11 +592,13 @@ REQUIREMENT-CONTRACT v1
             },
             "end_state": {
               "must_observe": [
-                "interactive job dequeues first"
+                "`dequeue_order[0] === \"interactive\"` assertion present",
+                "`failed >= 1` against missing priority lane"
               ],
               "must_not_observe": [
-                "background first",
-                "unordered dequeue"
+                "`0 tests collected`",
+                "empty priority suite",
+                "background-first accepted"
               ]
             }
           }
@@ -622,11 +623,11 @@ REQUIREMENT-CONTRACT v1
         "verification_service": "queue service + Postgres",
         "negative_control": {
           "would_fail_if": [
-            "disconnect",
-            "stub",
-            "empty",
-            "mock",
-            "static"
+            "disconnect hides DLQ",
+            "stub always succeeds",
+            "empty DLQ accepted",
+            "mock dead letter",
+            "static hardcoded pass"
           ]
         },
         "evidence": {
@@ -644,12 +645,14 @@ REQUIREMENT-CONTRACT v1
             },
             "end_state": {
               "must_observe": [
-                "dead-letter row written",
-                "terminal failure recorded"
+                "`dlq_count === 1` assertion present",
+                "`job.status === \"dead_letter\"` assertion present",
+                "`failed >= 1` against missing DLQ path"
               ],
               "must_not_observe": [
-                "silent drop",
-                "unbounded retry"
+                "`0 tests collected`",
+                "silent drop accepted",
+                "empty DLQ suite"
               ]
             }
           }

@@ -35,7 +35,7 @@ This roadmap is a **consolidation** of proposals from the project's dispatched p
 | 8 | — | [Sprint 08: Role Router, Local-First and Degraded Modes](#sprint-08-role-router-local-first-and-degraded-modes) | Normal mission routes every call to the fleet; zero Anthropic on default path | 5 | 1, 5 | ✅ Completed | `mk6-inference-router` | main |
 | 9 | — | [Sprint 09: Structured Output on Local Models](#sprint-09-structured-output-on-local-models) | `holo extract` repairs or fails explicitly past cap — never silently accepts | 4 | 8 | Completed | `mk6-structured-output` | — |
 | 10 | — | [Sprint 10: Local Re-embedding and Hybrid RRF Search](#sprint-10-local-re-embedding-and-hybrid-rrf-search) | Past-8K span retrievable via one-round-trip pgvector+FTS RRF fusion | 5 | 1, 4 | Completed | `mk6-local-search` | — |
-| 11 | — | [Sprint 11: Scheduler and Durable Queue](#sprint-11-scheduler-and-durable-queue) | kill-9 at each boundary → exactly one observable effect + dedupe record | 5 | 1, 4, 5 | 🟠 In Progress | `mk6-scheduler-queue` | — |
+| 11 | — | [Sprint 11: Scheduler and Durable Queue](#sprint-11-scheduler-and-durable-queue) | kill-9 at each boundary → exactly one observable effect + dedupe record | 5 | 1, 4, 5 | 🟠 In flight | `mk6-scheduler-queue` | — |
 | 12 | — | [Sprint 12: Observability, Telemetry and Eval Gate](#sprint-12-observability-telemetry-and-eval-gate) | `holo evals:ci` bad fixture fails threshold; known-good passes — gate has teeth | 5 | 4, 5, 8 | 🔵 Planned | `mk6-observability` | — |
 | 13 | — | [Sprint 13: Vitest Integration Harness and Real-Service CI Lanes](#sprint-13-vitest-integration-harness-and-real-service-ci-lanes) | `pnpm test:integration` green on real services; fails closed without Postgres/fleet | 7 | 4, 5, 6 | 🔵 Planned | `mk6-integration-harness` | — |
 | 14 | — | [Sprint 14: Big-Bang ETL and Content-Addressed File Storage](#sprint-14-big-bang-etl-and-content-addressed-file-storage) | `holo etl:run` + `holo etl:reconcile` — zero unexplained variance, 0 orphan FKs | 6 | 2, 4, 7, 10 | 🔵 Planned | `mk6-etl` | — |
@@ -629,7 +629,7 @@ The `Milestone` cell links to the GitHub Milestone titled `sprint-{NN}`; sprints
 
 **Sequence:** 11
 **Timeline:** Phase 2 — Inference and Data
-**Status:** 🟠 In Progress
+**Status:** In Progress
 **Proposed by:** mastra-planner
 **Milestone:** — (`sprint-11`)
 **Branch:** `mk6-scheduler-queue`
