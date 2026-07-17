@@ -2640,9 +2640,7 @@ async function main(): Promise<void> {
         process.exit(2);
       }
       const maxAttempts = Math.max(1, Number(args.maxAttempts ?? '3') || 3);
-      const { seedPoisonJob, runUntilTerminal, resetDlq, getJob } = await import(
-        '../queue/dlq.ts'
-      );
+      const { seedPoisonJob, runUntilTerminal, resetDlq, getJob } = await import('../queue/dlq.ts');
       await resetDlq();
       await seedPoisonJob({ key, maxAttempts });
       const result = await runUntilTerminal({ key });
@@ -2708,7 +2706,9 @@ async function main(): Promise<void> {
       } else {
         console.log('holo queue:audit — durable-effect trail');
         console.log(`  key=${result.key}`);
-        console.log(`  outbox_count: ${result.counts.outbox} (status=${result.outbox.status ?? '—'})`);
+        console.log(
+          `  outbox_count: ${result.counts.outbox} (status=${result.outbox.status ?? '—'})`
+        );
         console.log(`  effect_count: ${result.counts.effects} (id=${result.effect.id ?? '—'})`);
         console.log(
           `  inbox_dedupe_count: ${result.counts.inbox} (outcome=${result.inbox.outcome ?? '—'})`
