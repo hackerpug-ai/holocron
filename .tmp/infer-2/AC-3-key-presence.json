@@ -1,6 +1,6 @@
 {
-  "hasAnthropicKey": true,
+  "hasAnthropicKey": false,
   "allowSkipAnthropic": false,
   "platformIt": true,
-  "note": "real Anthropic path will run"
+  "note": "ANTHROPIC_API_KEY unset — FAIL CLOSED under PLATFORM_IT=1"
 }

@@ -1,78 +1,196 @@
 {
-  "run_id": "sprint-11-closeout-20260717T223000Z",
-  "sprint": "sprint-11-scheduler-and-durable-queue",
+  "tasks": {
+    "all_completed": true,
+    "total": 11,
+    "completed": 11,
+    "ids": [
+      "queue-1",
+      "queue-2",
+      "queue-3",
+      "queue-4",
+      "queue-5",
+      "GATE-FIX-001",
+      "GATE-FIX-002",
+      "GATE-FIX-003",
+      "GATE-FIX-004",
+      "GATE-FIX-005",
+      "REDHAT-FIX-H1"
+    ]
+  },
+  "gate": {
+    "source": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/gate-results.json",
+    "run_id": "2026-07-17T21-37-51Z",
+    "overall": "PASS",
+    "steps_total": 8,
+    "steps_passed": 8,
+    "steps": [
+      {
+        "n": 1,
+        "text": "Run holo jobs:run-all — all 16 migrated jobs fire; each former Convex side-effect observed in Postgres.",
+        "run_mode": "AUTO",
+        "result": "PASS",
+        "evidence": "jobs_fired=16/16, jobs_total=16, side_effect_rows=100, exit 0",
+        "log": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/.gate-evidence/2026-07-17T21-37-51Z/step1.log",
+        "assertion": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/.gate-evidence/2026-07-17T21-37-51Z/step1.assertion.json"
+      },
+      {
+        "n": 2,
+        "text": "holo queue:effect effect-kill9-1 --boundary before-commit — exactly one observable effect + one outbox + one inbox dedupe + fencing token.",
+        "run_mode": "AUTO",
+        "result": "PASS",
+        "evidence": "boundary=before-commit effect_count=1 outbox_count=1 inbox_dedupe_count=1 fencing_token=fence-9b44d019... exactly_once=true",
+        "log": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/.gate-evidence/2026-07-17T21-37-51Z/step2.log",
+        "assertion": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/.gate-evidence/2026-07-17T21-37-51Z/step2.assertion.json"
+      },
+      {
+        "n": 3,
+        "text": "holo queue:effect effect-kill9-2 --boundary after-commit-before-enqueue — same exactly-once trail.",
+        "run_mode": "AUTO",
+        "result": "PASS",
+        "evidence": "boundary=after-commit-before-enqueue effect_count=1 outbox_count=1 inbox_dedupe_count=1 fencing_token=fence-8d6701de... exactly_once=true",
+        "log": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/.gate-evidence/2026-07-17T21-37-51Z/step3.log",
+        "assertion": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/.gate-evidence/2026-07-17T21-37-51Z/step3.assertion.json"
+      },
+      {
+        "n": 4,
+        "text": "holo queue:effect effect-kill9-3 --boundary after-dispatch-before-ack — same exactly-once trail.",
+        "run_mode": "AUTO",
+        "result": "PASS",
+        "evidence": "boundary=after-dispatch-before-ack effect_count=1 outbox_count=1 inbox_dedupe_count=1 fencing_token=fence-815266fd... exactly_once=true",
+        "log": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/.gate-evidence/2026-07-17T21-37-51Z/step4.log",
+        "assertion": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/.gate-evidence/2026-07-17T21-37-51Z/step4.assertion.json"
+      },
+      {
+        "n": 5,
+        "text": "holo queue:audit effect-kill9-1 — one outbox, one inbox dedupe, fencing token recorded.",
+        "run_mode": "AUTO",
+        "result": "PASS",
+        "evidence": "effect_count=1 outbox_count=1 inbox_dedupe_count=1 fencing_token=fence-9b44d019... (matches step2 token)",
+        "log": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/.gate-evidence/2026-07-17T21-37-51Z/step5.log",
+        "assertion": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/.gate-evidence/2026-07-17T21-37-51Z/step5.assertion.json"
+      },
+      {
+        "n": 6,
+        "text": "Interactive priority: queue:enqueue bg(background) + ix(interactive) then queue:dequeue — first dequeued lane=interactive (priority 100 before background 10).",
+        "run_mode": "AUTO",
+        "result": "PASS",
+        "evidence": "enqueue(bg-mission,background)+enqueue(ix-chat,interactive)+dequeue -> first dequeued lane=interactive priority=100 (before background)",
+        "log": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/.gate-evidence/2026-07-17T21-37-51Z/step6.log",
+        "assertion": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/.gate-evidence/2026-07-17T21-37-51Z/step6.assertion.json"
+      },
+      {
+        "n": 7,
+        "text": "holo queue:poison poison-1 --max-attempts 3 — status dead_letter, attempts 3/3, dlq_count 1.",
+        "run_mode": "AUTO",
+        "result": "PASS",
+        "evidence": "status=dead_letter attempts=3/3 max_attempts=3 dlq_count=1 dead_letter=true",
+        "log": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/.gate-evidence/2026-07-17T21-37-51Z/step7.log",
+        "assertion": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/.gate-evidence/2026-07-17T21-37-51Z/step7.assertion.json"
+      },
+      {
+        "n": 8,
+        "text": "holo jobs:list — total 16 split janitor=7 workflow=4 consumer=1 backfill=3 digest=1.",
+        "run_mode": "AUTO",
+        "result": "PASS",
+        "evidence": "count=16 split janitor=7 workflow=4 consumer=1 backfill=3 digest=1",
+        "log": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/.gate-evidence/2026-07-17T21-37-51Z/step8.log",
+        "assertion": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/.gate-evidence/2026-07-17T21-37-51Z/step8.assertion.json"
+      }
+    ]
+  },
+  "e2e": {
+    "sprint": "sprint-11-scheduler-and-durable-queue",
+    "framework": "headless-service",
+    "verdict": "PASS",
+    "steps_total": 8,
+    "steps_covered": 8,
+    "steps_passed": 8,
+    "boundary": "REAL Postgres + real production holo operator CLI in QA exec surface",
+    "overall": "PASS",
+    "source": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/gate-results.json",
+    "run_id": "2026-07-17T21-37-51Z",
+    "steps": [
+      {
+        "n": 1,
+        "text": "Run holo jobs:run-all — all 16 migrated jobs fire; each former Convex side-effect observed in Postgres.",
+        "run_mode": "AUTO",
+        "result": "PASS"
+      },
+      {
+        "n": 2,
+        "text": "holo queue:effect effect-kill9-1 --boundary before-commit — exactly one observable effect + one outbox + one inbox dedupe + fencing token.",
+        "run_mode": "AUTO",
+        "result": "PASS"
+      },
+      {
+        "n": 3,
+        "text": "holo queue:effect effect-kill9-2 --boundary after-commit-before-enqueue — same exactly-once trail.",
+        "run_mode": "AUTO",
+        "result": "PASS"
+      },
+      {
+        "n": 4,
+        "text": "holo queue:effect effect-kill9-3 --boundary after-dispatch-before-ack — same exactly-once trail.",
+        "run_mode": "AUTO",
+        "result": "PASS"
+      },
+      {
+        "n": 5,
+        "text": "holo queue:audit effect-kill9-1 — one outbox, one inbox dedupe, fencing token recorded.",
+        "run_mode": "AUTO",
+        "result": "PASS"
+      },
+      {
+        "n": 6,
+        "text": "Interactive priority: queue:enqueue bg(background) + ix(interactive) then queue:dequeue — first dequeued lane=interactive (priority 100 before background 10).",
+        "run_mode": "AUTO",
+        "result": "PASS"
+      },
+      {
+        "n": 7,
+        "text": "holo queue:poison poison-1 --max-attempts 3 — status dead_letter, attempts 3/3, dlq_count 1.",
+        "run_mode": "AUTO",
+        "result": "PASS"
+      },
+      {
+        "n": 8,
+        "text": "holo jobs:list — total 16 split janitor=7 workflow=4 consumer=1 backfill=3 digest=1.",
+        "run_mode": "AUTO",
+        "result": "PASS"
+      }
+    ]
+  },
+  "_provenance": "gate_evidence_check.py — computed from exit codes + artifacts + coverage + subgates only; no agent input",
   "schema_version": 1,
+  "run_id": "sprint-11-reconcile-20260717T2152Z",
+  "sprint": "sprint-11-scheduler-and-durable-queue",
   "goal": "complete",
-  "met": true,
-  "generated_by": "PARENT RECONCILE_TASKS closeout — composed from real artifacts (no hand-authored verdicts); every field cites its source below. The canonical skill does not ship a standalone goal-state writer script, so this surface composed the state from the conductor's verified QA artifacts + sync-status projection.",
-  "layers": {
-    "tasks_complete": {
-      "value": true,
-      "detail": "5/5 tasks completed via sync-status.py task --phase completed (queue-1/2/3/5 this cycle; queue-4 preserved). audit parity=true.",
-      "source": "sync-status.py audit → parity:true, completed:5/5"
-    },
-    "gate": {
-      "value": true,
-      "verdict": "pass",
-      "steps_total": 8,
-      "steps_executed": 8,
-      "steps_passed": 8,
-      "ui_driver": "none",
-      "detail": "All 8 documented human-gate steps are real-cli holo invocations (D7-compliant; no test-suite wholesale).",
-      "source": ".spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/gate-results.json"
-    },
-    "e2e": {
-      "value": true,
-      "detail": "Sprint-11 integration suite green (queue-priority, queue-dlq, queue-exactly-once, jobs-priority, jobs-run-error) against real Postgres.",
-      "source": "pnpm vitest run --no-file-parallelism … → 9/9 passed"
-    },
-    "human_test": {
-      "value": true,
-      "verdict": "pass",
-      "steps_executed": 8,
-      "steps_passed": 8,
-      "verified": true,
-      "recomputed_verdict": "pass",
-      "discrepancies": 0,
-      "detail": "Conductor QA surface ran /kb-run-human-tests; verdict survived deterministic recompute.",
-      "source": "gate-results.json (verdict:pass, verified:true) + gate-verification.json (verified:true, recomputed_verdict:pass, discrepancies:[])"
-    },
-    "trunk_consolidated": {
-      "value": true,
-      "prime": "main",
-      "detail": "All sprint-11 implementation + GATE-FIX + REDHAT-FIX-H1 commits are ancestors of main.",
-      "commits_on_main": ["745fd6c", "c427c4e", "723c599", "ba4e307", "bfa3896", "175315e", "cd6ddc0", "1b1ce94", "79f8b58", "f3e579c"],
-      "merges": ["30821d3 (queue-1+2)", "0b5f521 (queue-3 base)", "3411522 (gate-fix)", "131fd67 (redhat-h1 code)", "67c6244 (redhat-h1 sprint-row)"],
-      "source": "git merge-base --is-ancestor <sha> main → true for all"
-    },
-    "status_files": {
-      "value": true,
-      "parity": true,
-      "lifecycle": "completed",
-      "source": "sync-status.py audit"
-    }
+  "human_test": {
+    "verdict": "pass",
+    "steps_total": 8,
+    "steps_executed": 8,
+    "steps_passed": 8,
+    "run_id": "2026-07-17T21-37-51Z",
+    "verified": true,
+    "source": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/gate-results.json",
+    "verification": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/gate-verification.json"
   },
   "integration": {
+    "trunk_consolidated": true,
+    "orphan_branches": 0,
+    "orphans": [],
+    "stranded_tasks": [],
     "default_target_ok": true,
-    "note": "Default verification target (real Postgres on 127.0.0.1:5432, migrations 0010-0012 applied) is healthy; operator CLI + integration tests pass against it."
+    "protected_branch": "main",
+    "head": "304dc2954285d2b3501311adaa0f688960796a4c"
   },
-  "review": {
-    "verdict": "APPROVED",
-    "queue_5": "adversarial durable-effect contract review APPROVED",
-    "red_hat_closeout": ".spec/reviews/red-hat-2026-07-17T21-18-13Z-sprint11-closeout.md",
-    "redhat_fix_h1": "landed (79f8b58) — jobs-runner surfaces failure reason"
+  "status_files": {
+    "parity": true,
+    "checked_at": "2026-07-17T21:53:40Z",
+    "source": "kb-run-sprint/scripts/sync-status.py audit"
   },
-  "provenance": {
-    "gate_results": ".spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/gate-results.json",
-    "gate_verification": ".spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/gate-verification.json",
-    "gate_plan": ".spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/gate-plan.json",
-    "gate_evidence_dir": ".spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/.gate-evidence/",
-    "sync_status_audit": "sync-status.py audit → parity:true, completed:5/5, lifecycle:completed",
-    "conductor_qa_surface_preserved": "497F9980-D83A-4E7D-B2C3-BAEF507F6F81 (not reaped)"
-  },
-  "forbidden_respected": [
-    "gate-results.json was produced by the conductor QA surface, not this implementer",
-    "gate-verification.json was produced by verify-gate-evidence.sh, not hand-authored",
-    "no gate evidence logs hand-authored"
-  ]
+  "final_commit": "304dc2954285d2b3501311adaa0f688960796a4c",
+  "generated_at": "2026-07-17T21:53:40Z",
+  "met": true,
+  "disposition": "machine-regenerated from canonical task sync, fresh QA gate results, gate verification, review-clean evidence, and main ancestry"
 }

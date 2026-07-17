@@ -1,6 +1,6 @@
 {
-  "objectId": "019f673d-98fd-7610-acd3-3b7b912ebca0",
+  "objectId": "019f71b5-d7b7-791f-852c-d9a9ce2c1834",
   "asOf": "2024-08-01T00:00:00Z",
-  "netSupport": null,
-  "path": "cli-parse-fail:status=2"
+  "netSupport": 0,
+  "path": "sql:belief_net_support"
 }
