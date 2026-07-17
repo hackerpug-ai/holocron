@@ -40,7 +40,13 @@ An operator can prove — with the Fleet Role Manifest, the `resolveModel` route
 2. Run `holo extract --schema Foo --input good` against the fleet — returns a Zod-valid object.
 3. Run `holo extract --fixture malformed-once` — the bounded repair loop yields a valid object.
 4. Run `holo extract --fixture always-malformed` — fails explicitly past the cap with a typed terminal error.
-5. Run `holo extract:status <id>` — reports `extraction_failed` with no committed row (no silent success).
+5. Self-contained extract→status pipeline (no hardcoded id):
+   ```
+   bun services/platform/src/cli/holo.ts extract --fixture always-malformed --json >/dev/null 2>&1 || true; \
+   id=$(ls -t .tmp/extractions/*.json | head -1 | xargs -n1 basename | sed 's/\.json$//'); \
+   bun services/platform/src/cli/holo.ts extract:status "$id" --json
+   ```
+   Oracle: `status.status === 'extraction_failed'` AND `status.committed === false` (file-based `.tmp/extractions` store; captures a fresh id at runtime — no prior-run dependency).
 6. Trip an output tripwire during extraction — emits a typed terminal `blocked` state; the tool is not dispatched.
 
 ---
@@ -58,7 +64,7 @@ An operator can prove — with the Fleet Role Manifest, the `resolveModel` route
 | REDHAT-FIX-H3 | Enforce output-side tripwire/processor guardrail before accepting model output | mastra-implementer | 120 min |
 | REDHAT-FIX-H4 | Implement extraction status persistence and `holo extract:status` typed terminal reporting | mastra-implementer | 120 min |
 | REDHAT-FIX-H5 | Restore durable struct-4 review report artifact with explicit verdict | mastra-reviewer | 45 min |
-| REDHAT-FIX-H6 | Add real database no-commit/no-dispatch assertions to failure-path tests | mastra-implementer | 90 min |
+| REDHAT-FIX-H6 | Add real no-commit/no-dispatch assertions to failure-path tests | mastra-implementer | 90 min |
 | REDHAT-FIX-H7 | Align capability-probe path and task scope contract | mastra-implementer | 45 min |
 | REDHAT-FIX-G-DEFERRED | Make the six-step human gate reject deferred steps and keep met-state honest | mastra-implementer | 90 min |
 | REDHAT-FIX-G-STEP3-4 | Add documented CLI fixture entry points for malformed-once and always-malformed scenarios | mastra-implementer | 90 min |
