@@ -29,6 +29,8 @@ export default defineConfig({
       'services/platform/tests/integration/queue-dlq.test.ts',
       // Sprint 12 — inference telemetry stream (tokens/wall-ms/endpoint/role)
       'services/platform/tests/integration/inference-telemetry.test.ts',
+      // Sprint 12 — observability / Langfuse per-run traces (obs-1)
+      'services/platform/tests/integration/observability-traces.test.ts',
     ],
     setupFiles: ['tests/setup/react-native.ts'],
     exclude: ['node_modules', 'dist', '.expo'],
