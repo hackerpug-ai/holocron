@@ -18,6 +18,7 @@
  * RED state (empty impl): ReferenceError: BlockedError is not defined
  * GREEN state (after struct-1): BlockedError emitted, tool not dispatched
  */
+import { randomUUID } from 'node:crypto';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
@@ -87,6 +88,9 @@ describe('struct-3 AC-3: tripwire→BlockedError with no tool dispatch (RED)', (
 
   itLive('tripwire during extraction emits BlockedError (RED: ReferenceError)', async () => {
     const capture = installNetworkCapture();
+    // REDHAT-FIX-H6: explicit extractionId so we can query the file-based
+    // status store afterward and PROVE no committed/dispatched row was written.
+    const extractionId = randomUUID();
     try {
       const { resolveModel } = await loadResolveModel();
       const extractMod = await loadExtractStructured();
@@ -100,7 +104,8 @@ describe('struct-3 AC-3: tripwire→BlockedError with no tool dispatch (RED)', (
         const result = await extractMod.extractStructured(
           tripwireSchema,
           tripwireInput,
-          'divergent'
+          'divergent',
+          extractionId
         );
         // Once implemented (GREEN), this should throw BlockedError
         writeArtifact('AC-3-should-have-thrown-blocked.json', {
@@ -127,6 +132,17 @@ describe('struct-3 AC-3: tripwire→BlockedError with no tool dispatch (RED)', (
           /blocked|tripwire|unsafe|filtered/i
         );
 
+        // REDHAT-FIX-H6: REAL no-dispatch verification via the file-based
+        // extraction status store (.tmp/extractions/<id>.json). The tripwire
+        // blocked extraction, so NO committed row exists — status is 'blocked',
+        // committed === false. Replaces the prior deferred note ("No-dispatch
+        // verification will be done in GREEN state.").
+        const status = await extractMod.getExtractionStatus(extractionId);
+        expect(status, 'extraction status record must exist after block').not.toBeNull();
+        expect(status!.status).toBe('blocked');
+        expect(status!.committed, 'NO committed/dispatched row — the block invariant').toBe(false);
+        expect(status!.blockedReason, 'blockedReason must be set').toBeTruthy();
+
         writeArtifact('AC-3-green-blocked-emitted.json', {
           error:
             caught instanceof Error
@@ -135,6 +151,9 @@ describe('struct-3 AC-3: tripwire→BlockedError with no tool dispatch (RED)', (
           tripwirePayload,
           fleetCount: capture.fleetCount(),
           anthropicCount: capture.anthropicCount(),
+          extractionId,
+          status: status ?? undefined,
+          noDispatchVerified: status?.committed === false,
         });
       }
 
@@ -175,26 +194,46 @@ describe('struct-3 AC-3: tripwire→BlockedError with no tool dispatch (RED)', (
   });
 
   itLive('tool is NOT dispatched when BlockedError is emitted (RED: ReferenceError)', async () => {
+    const extractMod = await loadExtractStructured();
+
+    // RED state: loadExtractStructured throws ReferenceError (module missing),
+    // so we never reach here and the test fails with ReferenceError as expected.
+    // GREEN state: run a real extraction against tripwire input and verify NO
+    // committed/dispatched row via the file-based status store.
+    const extractionId = randomUUID();
+    let caught: unknown;
     try {
-      const extractMod = await loadExtractStructured();
-
-      // This test verifies tool dispatch prevention in GREEN state
-      // For now, it proves the error class exists
-      expect(extractMod.BlockedError).toBeDefined();
-
-      writeArtifact('AC-3-red-no-dispatch.json', {
-        RED_state: true,
-        note: 'No-dispatch verification will be done in GREEN state with real tool executor',
-      });
+      await extractMod.extractStructured(
+        tripwireSchema,
+        tripwireInput,
+        'divergent',
+        extractionId
+      );
+      expect('should have thrown BlockedError').toBe('thrown');
     } catch (err) {
-      // RED state: expect ReferenceError
-      expect(err).toBeInstanceOf(ReferenceError);
-      writeArtifact('AC-3-red-no-dispatch-missing.json', {
-        error: err instanceof Error ? { name: err.name, message: err.message } : String(err),
-        RED_state: true,
-      });
-      throw err;
+      caught = err;
+      // Surface RED-state ReferenceError cleanly.
+      if (err instanceof ReferenceError) throw err;
     }
+
+    // Must be the typed terminal BlockedError (not a generic Error / silent dispatch)
+    expect(caught).toBeInstanceOf(extractMod.BlockedError);
+
+    // REDHAT-FIX-H6: REAL no-dispatch assertion against the persistence layer.
+    // Replaces the prior deferred note ("No-dispatch verification will be done
+    // in GREEN state."). The status store IS the layer that proves the tool was
+    // never dispatched — committed === false and status === 'blocked'.
+    const status = await extractMod.getExtractionStatus(extractionId);
+    expect(status, 'extraction status record must exist').not.toBeNull();
+    expect(status!.status).toBe('blocked');
+    expect(status!.committed, 'no committed/dispatched row after block').toBe(false);
+    expect(status!.blockedReason, 'blockedReason must be set').toBeTruthy();
+
+    writeArtifact('AC-3-green-no-dispatch-verified.json', {
+      extractionId,
+      status,
+      noDispatchVerified: status?.committed === false,
+    });
   });
 
   itLive('BlockedError is typed terminal (not recoverable)', async () => {

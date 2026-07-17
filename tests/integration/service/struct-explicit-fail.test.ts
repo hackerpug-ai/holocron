@@ -18,6 +18,7 @@
  * RED state (empty impl): ReferenceError: ExtractionFailedError is not defined
  * GREEN state (after struct-1): ExtractionFailedError thrown, no DB commit
  */
+import { randomUUID } from 'node:crypto';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
@@ -105,6 +106,9 @@ describe('struct-3 AC-2: always-malformed→ExtractionFailedError (RED)', () => 
     'always-malformed fails past repair cap with ExtractionFailedError (RED: ReferenceError)',
     async () => {
       const capture = installNetworkCapture();
+      // REDHAT-FIX-H6: explicit extractionId so we can query the file-based
+      // status store afterward and PROVE no committed row was written.
+      const extractionId = randomUUID();
       try {
         const { resolveModel } = await loadResolveModel();
         const extractMod = await loadExtractStructured();
@@ -118,7 +122,8 @@ describe('struct-3 AC-2: always-malformed→ExtractionFailedError (RED)', () => 
           const result = await extractMod.extractStructured(
             alwaysFailingSchema,
             alwaysMalformedInput,
-            'divergent'
+            'divergent',
+            extractionId
           );
           // Once implemented (GREEN), this should throw ExtractionFailedError
           writeArtifact('AC-2-should-have-thrown.json', {
@@ -145,8 +150,18 @@ describe('struct-3 AC-2: always-malformed→ExtractionFailedError (RED)', () => 
             /extraction.*failed|max.*repair|exhausted|attempts/i
           );
 
-          // Verify no DB commit (the error should prevent persistence)
-          // This will be verified via database state in GREEN state
+          // REDHAT-FIX-H6: REAL no-commit verification via the file-based
+          // extraction status store (.tmp/extractions/<id>.json). This IS the
+          // persistence layer that proves "no committed row" — the extraction
+          // was tracked, reached extraction_failed, and committed === false.
+          // Replaces the prior deferred note ("No-commit verification will be
+          // done in GREEN state with real DB") with an actual query + assertion.
+          const status = await extractMod.getExtractionStatus(extractionId);
+          expect(status, 'extraction status record must exist after failure').not.toBeNull();
+          expect(status!.status).toBe('extraction_failed');
+          expect(status!.committed, 'NO committed row — the failure invariant').toBe(false);
+          expect(status!.error?.code).toBe('EXTRACTION_FAILED');
+
           writeArtifact('AC-2-green-extraction-failed.json', {
             error:
               caught instanceof Error
@@ -154,7 +169,9 @@ describe('struct-3 AC-2: always-malformed→ExtractionFailedError (RED)', () => 
                 : String(caught),
             fleetCount: capture.fleetCount(),
             anthropicCount: capture.anthropicCount(),
-            noCommit: true,
+            extractionId,
+            status: status ?? undefined,
+            noCommitVerified: status?.committed === false,
           });
         }
 
@@ -198,26 +215,46 @@ describe('struct-3 AC-2: always-malformed→ExtractionFailedError (RED)', () => 
   );
 
   itLive('no DB commit occurs on ExtractionFailedError (RED: ReferenceError)', async () => {
+    const extractMod = await loadExtractStructured();
+
+    // RED state: loadExtractStructured throws ReferenceError (module missing),
+    // so we never reach here and the test fails with ReferenceError as expected.
+    // GREEN state: run a real extraction and verify NO committed row via the
+    // file-based status store.
+    const extractionId = randomUUID();
+    let caught: unknown;
     try {
-      const extractMod = await loadExtractStructured();
-
-      // This test will verify database state in GREEN state
-      // For now, it proves the error class exists
-      expect(extractMod.ExtractionFailedError).toBeDefined();
-
-      writeArtifact('AC-2-red-no-commit.json', {
-        RED_state: true,
-        note: 'No-commit verification will be done in GREEN state with real DB',
-      });
+      await extractMod.extractStructured(
+        alwaysFailingSchema,
+        alwaysMalformedInput,
+        'divergent',
+        extractionId
+      );
+      expect('should have thrown ExtractionFailedError').toBe('thrown');
     } catch (err) {
-      // RED state: expect ReferenceError
-      expect(err).toBeInstanceOf(ReferenceError);
-      writeArtifact('AC-2-red-no-commit-missing.json', {
-        error: err instanceof Error ? { name: err.name, message: err.message } : String(err),
-        RED_state: true,
-      });
-      throw err;
+      caught = err;
+      // Surface RED-state ReferenceError cleanly.
+      if (err instanceof ReferenceError) throw err;
     }
+
+    // Must be the typed terminal failure (not a generic Error / silent success)
+    expect(caught).toBeInstanceOf(extractMod.ExtractionFailedError);
+
+    // REDHAT-FIX-H6: REAL no-commit assertion against the persistence layer.
+    // Replaces the prior deferred note ("No-commit verification will be done in
+    // GREEN state with real DB") with an actual query + assertion. The status
+    // store IS the layer that proves "Database query for committed rows returns 0".
+    const status = await extractMod.getExtractionStatus(extractionId);
+    expect(status, 'extraction status record must exist').not.toBeNull();
+    expect(status!.status).toBe('extraction_failed');
+    expect(status!.committed, 'no committed row after failure').toBe(false);
+    expect(status!.error?.code).toBe('EXTRACTION_FAILED');
+
+    writeArtifact('AC-2-green-no-commit-verified.json', {
+      extractionId,
+      status,
+      noCommitVerified: status?.committed === false,
+    });
   });
 });
 
