@@ -9,6 +9,7 @@
   "max_cycles": 3,
   "parent_run_id": "prd-20260716T192354Z-14461843",
   "project": "/Users/inference1/Projects/holocron",
+  "review_artifact": "/Users/inference1/Projects/holocron/.spec/reviews/red-hat-2026-07-17T17-21-42Z-sprint10.md",
   "roadmap": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/ROADMAP.md",
   "run_id": "orch-s10-local-re-embedding-20260717T153837Z",
   "schema_version": 1,
@@ -54,15 +55,16 @@
     }
   },
   "stall_window": 600,
-  "status": "awaiting-close",
+  "status": "terminal",
   "status_sync": {
-    "last_synced_at": "2026-07-17T17:13:35Z",
+    "last_synced_at": "2026-07-17T18:09:47Z",
     "pending_transaction": null,
     "snapshot": {
       "consistent": true,
-      "snapshot_sha256": "c25ce4c86a9ee1751bbf104e139655ff7afd90f66d9bd5b4f265108913d07e92"
+      "snapshot_sha256": "c25ce4c86a9ee1751bbf104e139655ff7afd90f66d9bd5b4f265108913d07e92",
+      "sha256": "16c1cf19a3ccb450a6278b8200463e0ca70438d08815cc97139bcd7a2b7d6c24"
     },
-    "snapshot_sha256": "c25ce4c86a9ee1751bbf104e139655ff7afd90f66d9bd5b4f265108913d07e92",
+    "snapshot_sha256": "16c1cf19a3ccb450a6278b8200463e0ca70438d08815cc97139bcd7a2b7d6c24",
     "tracker_parity": "unknown"
   },
   "surfaces": [
@@ -73,7 +75,9 @@
       "baseline_count": 0,
       "blocked_grep": "",
       "command_display": "/Users/inference1/.local/bin/claude --session-id d4002ff6-89e1-4079-a17e-9eff5f63f52d --settings {\"preferredNotifChannel\":\"notifications_disabled\",\"hooks\":{\"SessionStart\":[{\"matcher\":\"\",\"hooks\":[{\"type\":\"command\",\"command\":\"\\\"${CMUX_CLAUDE_HOOK_CMUX_BIN:-cmux}\\\" hooks claude session-start\",\"timeout\":10}]}],\"Stop\":[{\"matcher\":\"\",\"hooks\":[{\"type\":\"command\",\"command\":\"\\\"${CMUX_CLAUDE_HOOK_CMUX_BIN:-cmux}\\\" hooks claude stop\",\"timeout\":10}]},{\"matcher\":\"\",\"hooks\":[{\"type\":\"command\",\"command\":\"\\\"${CMUX_CLAUDE_HOOK_CMUX_BIN:-cmux}\\\" hooks feed --source claude\",\"timeout\":10,\"async\":true}]},{\"matcher\":\"\",\"hooks\":[{\"type\":\"command\",\"command\":\"\\\"${CMUX_CLAUDE_HOOK_CMUX_BIN:-cmux}\\\" hooks claude auto-name\",\"timeout\":120,\"async\":true}]}],\"SubagentStop\":[{\"matcher\":\"\",\"hooks\":[{\"type\":\"command\",\"command\":\"\\\"${CMUX_CLAUDE_HOOK_CMUX_BIN:-cmux}\\\" hooks feed --source claude\",\"timeout\":10,\"async\":true}]}],\"SessionEnd\":[{\"matcher\":\"\",\"hooks\":[{\"type\":\"command\",\"command\":\"\\\"${CMUX_CLAUDE_HOOK_CMUX_BIN:-cmux}\\\" hooks claude session-end\",\"timeout\":1}]}],\"Notification\":[{\"matcher\":\"\",\"hooks\":[{\"type\":\"command\",\"command\":\"\\\"${CMUX_CLAUDE_HOOK_CMUX_BIN:-cmux}\\\" hooks claude notification\",\"timeout\":10}]}],\"UserPromptSubmit\":[{\"matcher\":\"\",\"hooks\":[{\"type\":\"command\",\"command\":\"\\\"${CMUX_CLAUDE_HOOK_CMUX_BIN:-cmux}\\\" hooks claude prompt-submit\",\"timeout\":10}]}],\"PreToolUse\":[{\"matcher\":\"CronCreate\",\"hooks\":[{\"type\":\"command\",\"command\":\"\\\"${CMUX_CLAUDE_HOOK_CMUX_BIN:-cmux}\\\" hooks claude cron-create-guard\",\"timeout\":5}]},{\"matcher\":\"\",\"hooks\":[{\"type\":\"command\",\"command\":\"\\\"${CMUX_CLAUDE_HOOK_CMUX_BIN:-cmux}\\\" hooks claude pre-tool-use\",\"timeout\":5,\"async\":true}]}],\"PermissionRequest\":[{\"matcher\":\"\",\"hooks\":[{\"type\":\"command\",\"command\":\"\\\"${CMUX_CLAUDE_HOOK_CMUX_BIN:-cmux}\\\" hooks feed --source claude\",\"timeout\":125}]}]}}",
-      "commands_or_skills": ["/kb-run-prd"],
+      "commands_or_skills": [
+        "/kb-run-prd"
+      ],
       "created_at": null,
       "cwd": "/Users/inference1/Projects/holocron",
       "cycle": 0,
@@ -112,105 +116,6 @@
       "verdict_grep": "",
       "verdict_kind": "none",
       "watch_glob": "",
-      "workspace_id": "840054AA-6FC9-4014-B79B-7171350E293A",
-      "workspace_ref": "workspace:12"
-    },
-    {
-      "active": false,
-      "base_prompt_excerpt": "unknown",
-      "base_prompt_sha256": "",
-      "baseline_count": 0,
-      "blocked_grep": "goal:blocked",
-      "command_display": "/Users/inference1/.grok/bin/grok --model grok-4.5",
-      "commands_or_skills": ["/kb-run-sprint"],
-      "created_at": "2026-07-17T16:14:43Z",
-      "cwd": "/Users/inference1/Projects/holocron",
-      "cycle": 0,
-      "driver": "orch",
-      "focused": false,
-      "goal": {
-        "text": "Run /kb-run-sprint /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-10-local-re-embedding-and-hybrid-rrf-search until GATE-GOAL: ACHIEVED",
-        "verification": {
-          "kind": "sentinel_grep",
-          "signal": "sprint-goal-state.json:goal:complete",
-          "status": "derived"
-        }
-      },
-      "harness": "grok",
-      "is_self": false,
-      "last_observed_ts": "2026-07-17T17:30:59Z",
-      "last_verdict_artifact": "",
-      "model": "grok-4.5",
-      "needs_human_escalated": false,
-      "nudge_count": 0,
-      "origin": "spawned",
-      "pid": "35791",
-      "provider": "xai",
-      "recover_count": 0,
-      "role": "run",
-      "session_id": "",
-      "spawned_at": "2026-07-17T16:14:43Z",
-      "spawner": "spawn-stage.sh",
-      "sprint": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-10-local-re-embedding-and-hybrid-rrf-search",
-      "state_label": "AC-1/3",
-      "status": "reviewing",
-      "surface_id": "3C21C0ED-AE31-48E1-885A-53DFA35DE64D",
-      "surface_ref": "surface:166",
-      "title": "🏃 RUN s10 · running · grok-4.5",
-      "tty": "ttys003",
-      "verdict_grep": "goal:complete",
-      "verdict_kind": "grep",
-      "watch_glob": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-10-local-re-embedding-and-hybrid-rrf-search/sprint-goal-state.json",
-      "workspace_id": "840054AA-6FC9-4014-B79B-7171350E293A",
-      "workspace_ref": "workspace:12"
-    },
-    {
-      "active": true,
-      "base_prompt_excerpt": "/kb-run-human-tests /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-10-local-re-embedding-and-hybrid-rrf-search",
-      "base_prompt_sha256": "",
-      "baseline_count": 0,
-      "blocked_grep": "a^",
-      "command_display": "opencode",
-      "commands_or_skills": ["/kb-run-human-tests"],
-      "created_at": "2026-07-17T17:25:03Z",
-      "cwd": "/Users/inference1/Projects/holocron",
-      "cycle": 0,
-      "driver": "orch",
-      "focused": true,
-      "goal": {
-        "text": "/kb-run-human-tests /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-10-local-re-embedding-and-hybrid-rrf-search",
-        "verification": {
-          "kind": "grep",
-          "signal": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-10-local-re-embedding-and-hybrid-rrf-search/gate-results.json",
-          "status": "derived"
-        }
-      },
-      "goal_file": "/Users/inference1/Projects/holocron/.spec/orchestrate/orch-s10-local-re-embedding-20260717T153837Z-qa-goal.txt",
-      "harness": "unknown",
-      "is_self": false,
-      "last_observed_ts": "2026-07-17T17:40:09Z",
-      "last_verdict_artifact": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-10-local-re-embedding-and-hybrid-rrf-search/gate-results.json",
-      "model": "zai-coding-plan/glm-5.2",
-      "needs_human_escalated": false,
-      "nudge_count": 0,
-      "origin": "spawned",
-      "pid": "92677",
-      "provider": "zai-coding-plan",
-      "recover_count": 0,
-      "role": "qa",
-      "session_id": "",
-      "spawned_at": "2026-07-17T17:25:03Z",
-      "spawner": "spawn-stage.sh",
-      "sprint": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-10-local-re-embedding-and-hybrid-rrf-search",
-      "state_label": "qa-passed",
-      "status": "running",
-      "surface_id": "9D21D349-4101-4933-A5FF-46DEBD18D739",
-      "surface_ref": "surface:169",
-      "title": "✅ QA s10 · running · glm-5.2",
-      "tty": "ttys004",
-      "verdict_grep": "a^",
-      "verdict_kind": "none",
-      "watch_glob": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-10-local-re-embedding-and-hybrid-rrf-search/gate-results.json",
       "workspace_id": "840054AA-6FC9-4014-B79B-7171350E293A",
       "workspace_ref": "workspace:12"
     },
@@ -307,8 +212,16 @@
       "workspace_ref": "workspace:12"
     }
   ],
+  "terminal_cleanup_ready": true,
   "tick": 30,
-  "updated_at": "2026-07-17T17:40:09Z",
+  "updated_at": "2026-07-17T18:09:47Z",
   "workspace": "workspace:12",
-  "review_artifact": "/Users/inference1/Projects/holocron/.spec/reviews/red-hat-2026-07-17T17-21-42Z-sprint10.md"
+  "closed_at": "2026-07-17T18:09:47Z",
+  "close_authorization": "/Users/inference1/.config/brain/kb-run-prd-state/prd-20260716T192354Z-14461843-sprint10-close-authorization.json",
+  "close_authorization_sha256": "87e102b351b3f7a15fba3e957c17bb65add9c3a6c190b86eac5816d5fec1bbf1",
+  "close_result": {
+    "status": "completed",
+    "task_count": 5,
+    "snapshot_sha256": "16c1cf19a3ccb450a6278b8200463e0ca70438d08815cc97139bcd7a2b7d6c24"
+  }
 }
