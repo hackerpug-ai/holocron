@@ -146,6 +146,8 @@
       "origin": "spawned",
       "pid": "37791",
       "provider": "openai",
+      "spawned_at": "2026-07-17T08:17:08Z",
+      "created_at": "2026-07-17T08:17:08Z",
       "qa_surface_id": "E16C0AA4-67BE-4DE6-9D02-3BE6EDA94C15",
       "reaped": false,
       "recover_count": 0,

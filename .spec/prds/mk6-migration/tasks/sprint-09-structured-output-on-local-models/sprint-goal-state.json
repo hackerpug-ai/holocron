@@ -155,55 +155,173 @@
     ]
   },
   "gate": {
-    "verdict": "pass",
-    "evidence_dir": ".gate-evidence/kb-run-sprint-2026-07-17T06-50-17Z",
+    "overall": "PASS",
+    "source": ".spec/prds/mk6-migration/tasks/sprint-09-structured-output-on-local-models/gate-results.json",
+    "run_id": "2026-07-17T08:25:00Z",
+    "evidence_dir": ".gate-evidence/2026-07-17T08-25-00Z",
     "steps_total": 6,
     "steps_passed": 6,
     "steps_deferred": 0,
-    "note": "Fresh human gate after C2-H1..H4; step5 self-contained; step6 output_sensitive_data_detected with redacted patterns"
+    "note": "Fresh human gate after C2-H1..H4; step5 self-contained; step6 output_sensitive_data_detected with redacted patterns",
+    "steps": [
+      {
+        "n": 1,
+        "text": "Run holo probe:capabilities — reports per-role json_schema support and selects constrained vs repair mode.",
+        "run_mode": "AUTO",
+        "result": "PASS",
+        "evidence": "exit 0; expected exit 0; output assertions passed",
+        "log": ".gate-evidence/2026-07-17T08-25-00Z/step1.log"
+      },
+      {
+        "n": 2,
+        "text": "Run holo extract --schema Foo --input good against the fleet — returns a Zod-valid object. Foo is the documented placeholder; the real CLI schema is simple.",
+        "run_mode": "AUTO",
+        "result": "PASS",
+        "evidence": "exit 0; expected exit 0; output assertions passed",
+        "log": ".gate-evidence/2026-07-17T08-25-00Z/step2.log"
+      },
+      {
+        "n": 3,
+        "text": "Run holo extract --fixture malformed-once — the bounded repair loop yields a valid object.",
+        "run_mode": "AUTO",
+        "result": "PASS",
+        "evidence": "exit 0; expected exit 0; output assertions passed",
+        "log": ".gate-evidence/2026-07-17T08-25-00Z/step3.log"
+      },
+      {
+        "n": 4,
+        "text": "Run holo extract --fixture always-malformed — fails explicitly past the cap with a typed terminal error.",
+        "run_mode": "AUTO",
+        "result": "PASS",
+        "evidence": "exit 1; expected exit 1; output assertions passed",
+        "log": ".gate-evidence/2026-07-17T08-25-00Z/step4.log"
+      },
+      {
+        "n": 5,
+        "text": "Self-contained extract→status pipeline (no hardcoded id): status is extraction_failed and committed is false.",
+        "run_mode": "AUTO",
+        "result": "PASS",
+        "evidence": "exit 0; expected exit 0; output assertions passed",
+        "log": ".gate-evidence/2026-07-17T08-25-00Z/step5.log"
+      },
+      {
+        "n": 6,
+        "text": "Trip an output tripwire during extraction — emits a typed terminal blocked state; the tool is not dispatched.",
+        "run_mode": "AUTO",
+        "result": "PASS",
+        "evidence": "exit 1; expected exit 1; output assertions passed",
+        "log": ".gate-evidence/2026-07-17T08-25-00Z/step6.log"
+      }
+    ]
   },
   "e2e": {
+    "overall": "PASS",
     "framework": "vitest (PLATFORM_IT=1)",
     "verification_service": "litellm-fleet (:4545)",
     "tests_total": 44,
     "tests_passed": 44,
     "tests_failed": 0,
     "zero_cloud": true,
-    "files": [
+    "steps": [
       {
-        "file": "struct-repair-loop.test.ts",
+        "id": "struct-repair-loop.test.ts",
+        "run_mode": "AUTO",
+        "result": "PASS",
         "tests": 7,
         "passed": 7
       },
       {
-        "file": "struct-explicit-fail.test.ts",
+        "id": "struct-explicit-fail.test.ts",
+        "run_mode": "AUTO",
+        "result": "PASS",
         "tests": 7,
         "passed": 7
       },
       {
-        "file": "struct-tripwire-blocked.test.ts",
+        "id": "struct-tripwire-blocked.test.ts",
+        "run_mode": "AUTO",
+        "result": "PASS",
         "tests": 9,
         "passed": 9
       },
       {
-        "file": "struct-output-tripwire-blocked.test.ts",
+        "id": "struct-output-tripwire-blocked.test.ts",
+        "run_mode": "AUTO",
+        "result": "PASS",
         "tests": 3,
         "passed": 3
       },
       {
-        "file": "struct-boot-probe.test.ts",
+        "id": "struct-boot-probe.test.ts",
+        "run_mode": "AUTO",
+        "result": "PASS",
         "tests": 8,
         "passed": 8
+      },
+      {
+        "id": "struct-fixture-cli.test.ts",
+        "run_mode": "AUTO",
+        "result": "PASS",
+        "tests": 8,
+        "passed": 8
+      },
+      {
+        "id": "struct-extract-status.test.ts",
+        "run_mode": "AUTO",
+        "result": "PASS",
+        "tests": 2,
+        "passed": 2
+      }
+    ],
+    "files": [
+      {
+        "file": "struct-repair-loop.test.ts",
+        "tests": 7,
+        "passed": 7,
+        "run_mode": "AUTO",
+        "result": "PASS"
+      },
+      {
+        "file": "struct-explicit-fail.test.ts",
+        "tests": 7,
+        "passed": 7,
+        "run_mode": "AUTO",
+        "result": "PASS"
+      },
+      {
+        "file": "struct-tripwire-blocked.test.ts",
+        "tests": 9,
+        "passed": 9,
+        "run_mode": "AUTO",
+        "result": "PASS"
+      },
+      {
+        "file": "struct-output-tripwire-blocked.test.ts",
+        "tests": 3,
+        "passed": 3,
+        "run_mode": "AUTO",
+        "result": "PASS"
+      },
+      {
+        "file": "struct-boot-probe.test.ts",
+        "tests": 8,
+        "passed": 8,
+        "run_mode": "AUTO",
+        "result": "PASS"
       },
       {
         "file": "struct-fixture-cli.test.ts",
         "tests": 8,
-        "passed": 8
+        "passed": 8,
+        "run_mode": "AUTO",
+        "result": "PASS"
       },
       {
         "file": "struct-extract-status.test.ts",
         "tests": 2,
-        "passed": 2
+        "passed": 2,
+        "run_mode": "AUTO",
+        "result": "PASS"
       }
     ]
   },
