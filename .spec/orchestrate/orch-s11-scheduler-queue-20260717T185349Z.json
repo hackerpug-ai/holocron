@@ -21,9 +21,11 @@
       "trigger": "stall-wedge"
     }
   ],
-  "hands_off": ["📋 PRD*"],
+  "hands_off": [
+    "📋 PRD*"
+  ],
   "invocation": "/kb-orchestrate /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue --parent-run-id prd-20260716T192354Z-14461843 --close-authority prd-20260716T192354Z-14461843 --roadmap /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/ROADMAP.md",
-  "last_observed_ts": "2026-07-17T21:44:13Z",
+  "last_observed_ts": "2026-07-17T21:55:41Z",
   "max_cycles": 3,
   "max_recover": 2,
   "mirror": "/Users/inference1/Projects/holocron/.spec/orchestrate/orch-s11-scheduler-queue-20260717T185349Z.json",
@@ -37,7 +39,7 @@
   "run_id": "orch-s11-scheduler-queue-20260717T185349Z",
   "schema_version": 1,
   "sequential": true,
-  "snapshot_sha256": "0cf59213ecf55c8b88419721f50cf6576529c095edffac9c8edc31841eac0fcc",
+  "snapshot_sha256": "7d02130ed6185da4d2b6d09bf6ab1fbfe1c51f8698d373ac55ec33733dc05ccd",
   "sprint": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue",
   "stage_overrides": {},
   "stall_window": 600,
@@ -49,7 +51,9 @@
       "base_prompt_sha256": "bfb7d33e02586a7d2360369f5f01b66bdb223ab8876dbba738ecff239a0daa4d",
       "baseline_count": 0,
       "blocked_grep": "",
-      "commands_or_skills": ["/kb-run-prd"],
+      "commands_or_skills": [
+        "/kb-run-prd"
+      ],
       "created_at": null,
       "cwd": "/Users/inference1/Projects/holocron",
       "cycle": 0,
@@ -137,7 +141,9 @@
       "base_prompt_sha256": "",
       "baseline_count": 0,
       "blocked_grep": "goal:blocked",
-      "commands_or_skills": ["/kb-run-sprint"],
+      "commands_or_skills": [
+        "/kb-run-sprint"
+      ],
       "cwd": "/Users/inference1/Projects/holocron",
       "cycle": 0,
       "driver": "orch",
@@ -188,7 +194,9 @@
       "base_prompt_sha256": "",
       "baseline_count": 0,
       "blocked_grep": "\"verdict\"[[:space:]]*:[[:space:]]*\"blocked\"",
-      "commands_or_skills": ["/kb-run-human-tests"],
+      "commands_or_skills": [
+        "/kb-run-human-tests"
+      ],
       "created_at": "2026-07-17T21:35:42Z",
       "cwd": "/Users/inference1/Projects/holocron",
       "cycle": 2,
@@ -230,7 +238,7 @@
   ],
   "terminal_cleanup_ready": false,
   "tick": 30,
-  "updated_at": "2026-07-17T21:44:13Z",
+  "updated_at": "2026-07-17T21:55:41Z",
   "workspace": "workspace:12",
   "workspace_id": "840054AA-6FC9-4014-B79B-7171350E293A"
 }
