@@ -20,7 +20,7 @@ TASK: mcp-manifest-03 — Freeze success/error/mutation-replay fixtures for all 
 ================================================================================
 
 TASK_TYPE:  FEATURE
-STATUS:     Backlog
+STATUS:     Completed
 PRIORITY:   P0
 EFFORT:     L  (180 min)
 AGENT:      implementer=red-test-generator | reviewer=mcp-reviewer

@@ -20,7 +20,7 @@ TASK: mcp-manifest-05 — Review manifest protocol compliance; prove the complet
 ================================================================================
 
 TASK_TYPE:  REVIEW
-STATUS:     Backlog
+STATUS:     Completed
 PRIORITY:   P0
 EFFORT:     S  (75 min)
 AGENT:      implementer=mcp-reviewer | reviewer=none

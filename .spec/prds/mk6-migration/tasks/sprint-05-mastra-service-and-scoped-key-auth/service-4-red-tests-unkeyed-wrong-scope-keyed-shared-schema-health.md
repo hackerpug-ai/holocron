@@ -31,7 +31,7 @@ TASK: service-4 — RED tests: unkeyed→401, wrong-scope→403, keyed→200, sh
 ================================================================================
 
 TASK_TYPE:  INFRA
-STATUS:     Backlog
+STATUS:     Completed
 PRIORITY:   P0
 EFFORT:     M  (120 min)
 AGENT:      implementer=red-test-generator | reviewer=mastra-reviewer

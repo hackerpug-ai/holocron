@@ -20,7 +20,7 @@ TASK: catalog-1 — Author 12-convex-source-catalog.yaml — one approved entry 
 ================================================================================
 
 TASK_TYPE:  MIGRATION  (approved-mapping data artifact)
-STATUS:     Backlog
+STATUS:     Completed
 PRIORITY:   P0
 EFFORT:     L  (360 min)
 AGENT:      implementer=mastra-implementer | reviewer=convex-reviewer

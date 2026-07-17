@@ -20,7 +20,7 @@ TASK: catalog-5 — RED tests: unmapped-table fails, deleted-entry fails, varian
 ================================================================================
 
 TASK_TYPE:  FEATURE
-STATUS:     Backlog
+STATUS:     Completed
 PRIORITY:   P0
 EFFORT:     S  (90 min)
 AGENT:      implementer=red-test-generator | reviewer=mastra-reviewer

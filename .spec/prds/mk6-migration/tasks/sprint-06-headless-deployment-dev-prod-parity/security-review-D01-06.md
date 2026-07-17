@@ -1,5 +1,6 @@
 # SECURITY REVIEW — D01-06: Consolidated secrets store
 
+**Status:** Completed
 **Task:** D01-06 — Security review: consolidated secrets store  
 **Reviewer:** security-reviewer  
 **Date:** 2026-07-15  

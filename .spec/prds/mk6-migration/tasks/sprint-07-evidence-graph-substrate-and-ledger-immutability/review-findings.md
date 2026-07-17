@@ -1,5 +1,6 @@
 # Mastra Review — Task ledger-5
 
+**Status**: Completed
 **Task**: Review immutability + bi-temporal correctness  
 **Branch**: `task/ledger-5`  
 **Reviewer**: mastra-reviewer (implementer role for REVIEW-typed task)  

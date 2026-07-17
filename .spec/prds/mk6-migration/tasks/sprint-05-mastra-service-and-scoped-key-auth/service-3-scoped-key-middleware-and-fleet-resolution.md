@@ -34,7 +34,7 @@ TASK: service-3 — Scoped API-key middleware (RN/MCP/control scopes) + fleet re
 ================================================================================
 
 TASK_TYPE:  FEATURE
-STATUS:     Backlog
+STATUS:     Completed
 PRIORITY:   P0
 EFFORT:     M  (210 min)
 AGENT:      implementer=mastra-implementer | reviewer=mastra-reviewer

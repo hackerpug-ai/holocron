@@ -31,7 +31,7 @@ TASK: service-5 — Review auth boundary + registry singularity
 ================================================================================
 
 TASK_TYPE:  REVIEW
-STATUS:     Backlog
+STATUS:     Completed
 PRIORITY:   P0
 EFFORT:     S  (90 min)
 AGENT:      implementer=mastra-reviewer | reviewer=(n/a — review is the deliverable)

@@ -20,7 +20,7 @@ TASK: mcp-manifest-01 — Author the MCP manifest header: protocol, transports, 
 ================================================================================
 
 TASK_TYPE:  MIGRATION  (machine-readable migration-contract artifact)
-STATUS:     Backlog
+STATUS:     Completed
 PRIORITY:   P0
 EFFORT:     M  (90 min)
 AGENT:      implementer=mcp-implementer | reviewer=mcp-reviewer

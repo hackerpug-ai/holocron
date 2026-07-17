@@ -20,7 +20,7 @@ TASK: mcp-manifest-02 — Populate per-tool contract for all 44 tools (schemas, 
 ================================================================================
 
 TASK_TYPE:  MIGRATION  (machine-readable migration-contract artifact — per-tool bodies)
-STATUS:     Backlog
+STATUS:     Completed
 PRIORITY:   P0
 EFFORT:     L  (150 min)
 AGENT:      implementer=mcp-implementer | reviewer=mcp-reviewer

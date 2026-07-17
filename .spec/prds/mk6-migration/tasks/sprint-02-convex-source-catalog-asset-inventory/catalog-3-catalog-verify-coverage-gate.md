@@ -20,7 +20,7 @@ TASK: catalog-3 — `holo catalog:verify` coverage tool + build-gate
 ================================================================================
 
 TASK_TYPE:  FEATURE
-STATUS:     Backlog
+STATUS:     Completed
 PRIORITY:   P0
 EFFORT:     S  (120 min)
 AGENT:      implementer=mastra-implementer | reviewer=mastra-reviewer
