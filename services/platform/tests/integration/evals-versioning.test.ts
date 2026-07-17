@@ -78,7 +78,10 @@ type EvalScoreRow = {
   scorer_id: string;
 };
 
-async function countScores(sql: Sql, where?: { runId?: string; sampleId?: string }): Promise<number> {
+async function countScores(
+  sql: Sql,
+  where?: { runId?: string; sampleId?: string }
+): Promise<number> {
   if (where?.runId) {
     const rows = await sql<{ c: string }[]>`
       SELECT count(*)::text AS c FROM eval_scores WHERE run_id = ${where.runId}

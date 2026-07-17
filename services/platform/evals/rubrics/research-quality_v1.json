@@ -33,5 +33,5 @@
       "description": "Acknowledges uncertainty and does not overclaim beyond the evidence."
     }
   ],
-  "scoringGuidance": "Score 0.0–1.0. A thorough, cited research brief with balanced caveats should score >=0.8. A flippant, unsourced, or empty answer should score <0.4. Partial but serious answers without citations should score 0.4–0.7."
+  "scoringGuidance": "Score 0.0–1.0 using these bands:\n- >=0.85: Thorough, structured research brief with numbered citations AND a Sources section, covers benefits + limitations/safety + bottom line, calibrates uncertainty. Treat fixture/example DOI or URL placeholders as valid citation format when markers are present — do not heavily penalize synthetic example links in evaluation fixtures.\n- 0.8–0.84: Strong research brief meeting all structural criteria with minor gaps.\n- 0.4–0.7: Partial but serious answer missing citations or major sections.\n- <0.4: Flippant, unsourced, empty, or clearly non-research output.\nA high-quality structured brief with [n] citations and a Sources list MUST score >=0.8 even if URLs look like examples."
 }

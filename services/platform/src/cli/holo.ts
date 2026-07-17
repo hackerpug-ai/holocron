@@ -117,6 +117,12 @@ interface CliArgs {
   maxAttempts: string | null;
   /** mission run research --goal <text> */
   goal: string | null;
+  /** evals:run --sample known-good|deliberately-bad */
+  sample: string | null;
+  /** evals:run / evals:drift --dataset <version> */
+  dataset: string | null;
+  /** evals:run --judge-endpoint (fail-closed probe override) */
+  judgeEndpoint: string | null;
 }
 
 function printHelp(): void {
@@ -177,6 +183,8 @@ Usage:
   search:recall             Recall@k vs baseline from --golden set.json
   mission run research      Run a research mission with per-run Langfuse trace export
                             (requires --goal; flushes OTel → self-hosted Langfuse)
+  evals:run                 Score a versioned fixture sample via local judge (--sample)
+  evals:drift               Longitudinal drift over persisted eval_scores (--dataset)
 
 Options:
   --export <dir>        Path to unzipped convex export (or $CONVEX_EXPORT_DIR)
@@ -219,6 +227,9 @@ Options:
   --golden <path>       (search:recall) golden set JSON for recall@k evaluation
   --limit <n>           (search|search:recall|telemetry:tail) max results / rows (default 10 / 100)
   --goal <text>         (mission run research) research mission goal (required)
+  --sample <id>         (evals:run) fixture sample: known-good | deliberately-bad
+  --dataset <version>   (evals:run|evals:drift) dataset version (default research_v1)
+  --judge-endpoint <url>(evals:run) override judge health endpoint (fail-closed tests)
   --json                Emit JSON instead of text
   --print-trace         (compat:spike) emit OTel trace details
   --dry-run             (catalog:reconcile) dry-run mode (default)
@@ -273,6 +284,9 @@ function parseArgs(argv: string[]): CliArgs {
     boundary: null,
     maxAttempts: null,
     goal: null,
+    sample: null,
+    dataset: null,
+    judgeEndpoint: null,
   };
   const positional: string[] = [];
   for (let i = 0; i < argv.length; i++) {
@@ -285,6 +299,18 @@ function parseArgs(argv: string[]): CliArgs {
       args.goal = argv[++i] ?? null;
     } else if (a.startsWith('--goal=')) {
       args.goal = a.slice('--goal='.length);
+    } else if (a === '--sample') {
+      args.sample = argv[++i] ?? null;
+    } else if (a.startsWith('--sample=')) {
+      args.sample = a.slice('--sample='.length);
+    } else if (a === '--dataset') {
+      args.dataset = argv[++i] ?? null;
+    } else if (a.startsWith('--dataset=')) {
+      args.dataset = a.slice('--dataset='.length);
+    } else if (a === '--judge-endpoint') {
+      args.judgeEndpoint = argv[++i] ?? null;
+    } else if (a.startsWith('--judge-endpoint=')) {
+      args.judgeEndpoint = a.slice('--judge-endpoint='.length);
     } else if (a === '--explain') {
       args.explain = true;
     } else if (a === '--surface') {
@@ -2804,6 +2830,122 @@ async function main(): Promise<void> {
         console.log(ok ? '  status: OK' : '  status: INCOMPLETE');
       }
       process.exit(result.counts.outbox >= 1 && result.counts.inbox >= 1 ? 0 : 1);
+      break;
+    }
+    case 'evals:run': {
+      // obs-3: score versioned fixture via local judge; persist with versions
+      const sample = args.sample ?? args.positional[1] ?? null;
+      if (!sample || sample.trim().length === 0) {
+        console.error('error: evals:run requires --sample <known-good|deliberately-bad>');
+        process.exit(2);
+      }
+      const {
+        runEvalSample,
+        DatasetNotFoundError,
+        SampleNotFoundError,
+        BaselineNotFoundError,
+        RubricNotFoundError,
+        JudgeUnavailableError,
+        JudgeInvalidScoreError,
+        EvalScoreValidationError,
+      } = await import('../evals/index.ts');
+
+      try {
+        const result = await runEvalSample({
+          sample,
+          datasetVersion: args.dataset ?? undefined,
+          runId: args.runId ?? undefined,
+          judgeEndpointOverride: args.judgeEndpoint ?? undefined,
+        });
+        if (args.json) {
+          console.log(JSON.stringify(result, null, 2));
+        } else {
+          console.log('holo evals:run — local judge versioned score');
+          console.log(`  sample:            ${result.sampleId}`);
+          console.log(`  datasetVersion:    ${result.datasetVersion}`);
+          console.log(`  score:             ${result.score}`);
+          console.log(`  baseline:          ${result.baseline}`);
+          console.log(`  meetsBaseline:     ${result.meetsBaseline}`);
+          console.log(`  tag:               ${result.tag}`);
+          console.log(`  runId:             ${result.runId}`);
+          console.log(`  scoreId:           ${result.scoreId}`);
+          console.log(`  judgeModelVersion: ${result.judgeModelVersion}`);
+          console.log(`  promptVersion:     ${result.promptVersion}`);
+          console.log(`  rubricVersion:     ${result.rubricVersion}`);
+          console.log(`  baselineVersion:   ${result.baselineVersion}`);
+          console.log(`  judgeEndpoint:     ${result.judgeEndpoint}`);
+          console.log(result.ok ? '  status: OK' : '  status: FAIL');
+        }
+        process.exit(result.ok ? 0 : 1);
+      } catch (err) {
+        const code =
+          err instanceof JudgeUnavailableError
+            ? 'JUDGE_UNAVAILABLE'
+            : err instanceof DatasetNotFoundError
+              ? 'DATASET_NOT_FOUND'
+              : err instanceof SampleNotFoundError
+                ? 'SAMPLE_NOT_FOUND'
+                : err instanceof BaselineNotFoundError
+                  ? 'BASELINE_NOT_FOUND'
+                  : err instanceof RubricNotFoundError
+                    ? 'RUBRIC_NOT_FOUND'
+                    : err instanceof JudgeInvalidScoreError
+                      ? 'JUDGE_INVALID_SCORE'
+                      : err instanceof EvalScoreValidationError
+                        ? 'EVAL_SCORE_VALIDATION'
+                        : err && typeof err === 'object' && 'code' in err
+                          ? String((err as { code: unknown }).code)
+                          : 'EVAL_FAILED';
+        const message = err instanceof Error ? err.message : String(err);
+        if (args.json) {
+          console.log(JSON.stringify({ ok: false, errorCode: code, error: message }, null, 2));
+        } else {
+          console.error(`error code: ${code}`);
+          console.error(message);
+        }
+        // Explicit JUDGE_UNAVAILABLE on stderr for greppability (AC-5)
+        if (code === 'JUDGE_UNAVAILABLE') {
+          console.error('error code: JUDGE_UNAVAILABLE');
+        }
+        process.exit(1);
+      }
+      break;
+    }
+    case 'evals:drift': {
+      // obs-3: longitudinal drift over immutable eval_scores
+      const datasetVersion = args.dataset ?? args.positional[1] ?? 'research_v1';
+      const limit = Math.max(1, Number.parseInt(args.limit ?? '500', 10) || 500);
+      const { queryDrift } = await import('../evals/index.ts');
+      try {
+        const report = await queryDrift({
+          datasetVersion,
+          limit,
+        });
+        if (args.json) {
+          console.log(JSON.stringify(report, null, 2));
+        } else {
+          console.log('holo evals:drift — longitudinal versioned scores');
+          console.log(`  datasetVersion: ${report.datasetVersion}`);
+          console.log(`  entryCount:     ${report.entryCount}`);
+          for (const e of report.entries) {
+            console.log(
+              `  score=${e.score.toFixed(3)} sample=${e.sampleId} ` +
+                `model=${e.modelVersion} prompt=${e.promptVersion} ` +
+                `run=${e.runId} at=${e.createdAt}`
+            );
+          }
+          console.log(report.entryCount > 0 ? '  status: OK' : '  status: EMPTY');
+        }
+        process.exit(0);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        if (args.json) {
+          console.log(JSON.stringify({ ok: false, error: message }, null, 2));
+        } else {
+          console.error(`holo evals:drift failed: ${message}`);
+        }
+        process.exit(1);
+      }
       break;
     }
     case 'mission': {
