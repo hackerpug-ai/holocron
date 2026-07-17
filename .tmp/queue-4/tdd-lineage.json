@@ -1,9 +1,9 @@
 {
   "task_id": "queue-4",
   "tdd_mode": "red_first",
-  "red_commit": null,
+  "red_commit": "6b9ced39590604a682572076e118196dae2f784c",
   "green_commit": null,
-  "note": "RED-only task; GREEN lands in queue-1/2/3. red_commit set in follow-up.",
+  "note": "RED-only task; GREEN lands in queue-1/2/3",
   "suite": {
     "files": [
       "tests/integration/service/RED/queue-durable.RED.test.ts",
