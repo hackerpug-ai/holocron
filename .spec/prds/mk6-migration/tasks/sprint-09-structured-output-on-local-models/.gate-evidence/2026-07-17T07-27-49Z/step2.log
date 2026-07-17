@@ -1,0 +1,18 @@
+@@GATE-META step=step2 cmd_sha=62104920dda54fc7b330e17352c8f5e8eae1ab061b069dbd950564525c00c183@@
++ bun services/platform/src/cli/holo.ts extract --fixture good --json
+{
+  "ok": true,
+  "extractionId": "34b86695-4f2b-4bcd-b4f0-a6aeea528a9b",
+  "result": {
+    "title": "The Quick Brown Fox",
+    "count": 3,
+    "tags": [
+      "jump",
+      "lazy",
+      "dog"
+    ]
+  },
+  "schema": "good",
+  "role": "divergent"
+}
+@@GATE-EXIT=0@@

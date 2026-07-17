@@ -1,0 +1,18 @@
+@@GATE-META step=step2 cmd_sha=de8c4890f7afe8ffc5e7994ee7fba374409d1f337ceba9888ea343b50f9393cf@@
++ bun services/platform/src/cli/holo.ts extract --schema simple --input good --json
+{
+  "ok": true,
+  "extractionId": "70350ecb-27cc-4e39-aead-6fd32607e507",
+  "result": {
+    "title": "Good Data",
+    "count": 42,
+    "tags": [
+      "example",
+      "demo",
+      "test"
+    ]
+  },
+  "schema": "simple",
+  "role": "divergent"
+}
+@@GATE-EXIT=0@@

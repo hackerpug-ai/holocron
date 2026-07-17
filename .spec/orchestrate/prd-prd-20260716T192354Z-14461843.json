@@ -3,15 +3,30 @@
   "audit_mirror": "/Users/inference1/Projects/holocron/.spec/orchestrate/prd-prd-20260716T192354Z-14461843-audit.jsonl",
   "block_governor": {
     "attempt": 0,
-    "class": null,
-    "fingerprint": null,
-    "first_seen_at": null,
+    "class": "contract",
+    "fingerprint": "78d5459bb9d2f55b93bfde8bd4fba72a957cde28137a5bf8d2535b96675c569b",
+    "first_seen_at": "2026-07-17T07:58:53Z",
     "fresh_conductor_used": false,
-    "last_progress_sha256": null,
-    "last_seen_at": null,
+    "last_progress_sha256": "9a987b81801ad8b59f36f2e8a7b36ca325decd8476b2005229dd8f524caf1758",
+    "last_seen_at": "2026-07-17T07:58:53Z",
+    "last_unblock_applied_at": "2026-07-17T08:00:13Z",
+    "last_unblock_packet": "/tmp/prd-unblock-packet.json",
+    "last_unblock_route": "REMEDIATE",
     "max_unblock": 2,
-    "reason": null,
-    "trajectory": []
+    "reason": "[goal:blocked] mandatory fresh QA cannot produce provenance-valid gate-results.json: zsh exec-step.sh process substitution masks required step-4 exit status; QA exhausted stall rungs 0,1,2 with landed work 0.",
+    "trajectory": [
+      {
+        "at": "2026-07-17T07:58:53Z",
+        "attempt": 0,
+        "class": "contract",
+        "detail": "human tests, dev gate, E2E, or review genuinely failed",
+        "fingerprint": "78d5459bb9d2f55b93bfde8bd4fba72a957cde28137a5bf8d2535b96675c569b",
+        "progress_sha256": "9a987b81801ad8b59f36f2e8a7b36ca325decd8476b2005229dd8f524caf1758",
+        "reason": "[goal:blocked] mandatory fresh QA cannot produce provenance-valid gate-results.json: zsh exec-step.sh process substitution masks required step-4 exit status; QA exhausted stall rungs 0,1,2 with landed work 0.",
+        "recover_count": 3,
+        "route": "REMEDIATE"
+      }
+    ]
   },
   "cleanup": {
     "child_surfaces_remaining": [],
@@ -24,8 +39,24 @@
     "request": null,
     "verified_at": null
   },
+  "conductor_watch": {
+    "anchor_epoch": 1784255929,
+    "first_conductor_deadline_seconds": 600,
+    "planning_surface_id": null
+  },
   "created_at": "2026-07-16T19:23:54Z",
-  "current_sprint": null,
+  "current_sprint": {
+    "child_registry": "/Users/inference1/.config/brain/kb-orchestrate-state/orch-s09-structured-output-20260717T024012Z.json",
+    "child_run_id": "orch-s09-structured-output-20260717T024012Z",
+    "close_request": null,
+    "conductor_harness": "codex",
+    "conductor_model": "gpt-5.6-luna",
+    "conductor_reasoning_effort": "xhigh",
+    "conductor_surface_id": "F59BA711-F6C1-4C1B-98BA-7EFD3F3AC1CA",
+    "name": "Sprint 09: Structured Output on Local Models",
+    "number": 9,
+    "path": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-09-structured-output-on-local-models"
+  },
   "cycles": {
     "qa": 0,
     "replan": 0,
@@ -45,6 +76,30 @@
   "lookahead_sprint": null,
   "mirror": "/Users/inference1/Projects/holocron/.spec/orchestrate/prd-prd-20260716T192354Z-14461843.json",
   "orchestrator_runtime": {
+    "chain": [
+      {
+        "arming_mode": "direct-launch",
+        "harness": "codex",
+        "model": "gpt-5.6-luna",
+        "reasoning_effort": "xhigh",
+        "tier": 1
+      },
+      {
+        "arming_mode": "goal-native",
+        "harness": "claude-code",
+        "model": "sonnet",
+        "reasoning_effort": "medium",
+        "tier": 2
+      },
+      {
+        "arming_mode": "goal-plugin",
+        "harness": "opencode",
+        "model": "zai-coding-plan/glm-5.2",
+        "reasoning_effort": "max",
+        "tier": 3
+      }
+    ],
+    "chain_evidence_dir": "/Users/inference1/.config/brain/kb-run-prd-state/conductor-chain-20260717T035329Z-48258",
     "credit_fallback": {
       "harness": "opencode",
       "model": "zai-coding-plan/glm-5.2",
@@ -55,26 +110,35 @@
       "model": "gpt-5.6-luna",
       "reasoning_effort": "xhigh"
     },
-    "fallback_evidence": null
+    "fallback_evidence": null,
+    "selected": {
+      "arming_mode": "direct-launch",
+      "chain_evidence_dir": "/Users/inference1/.config/brain/kb-run-prd-state/conductor-chain-20260717T035329Z-48258",
+      "harness": "codex",
+      "model": "gpt-5.6-luna",
+      "reasoning_effort": "xhigh",
+      "surface_id": "A5CC6CA5-3394-472E-A6DC-1DE83238BAE1",
+      "tier": 1
+    }
   },
-  "parent_session_id": "6d5ad4fd-7e97-4249-89b9-8a2fe37d9d80",
-  "parent_surface_id": "1DD77F68-BBBE-4C24-9D1A-9060DF00A9DD",
+  "parent_session_id": "4e359298-0950-48e3-8655-c9a278c2b430",
+  "parent_surface_id": "7C1AE16F-97E3-4157-93CB-0B8E243AE391",
   "project": "/Users/inference1/Projects/holocron",
   "resume": {
     "accepted_at": null,
     "adoption_request": null,
-    "mode": "fresh",
-    "phase": null,
-    "source_run_id": null
+    "mode": "evidence",
+    "phase": "reconcile",
+    "source_run_id": "prd-20260716T192354Z-14461843"
   },
   "roadmap": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/ROADMAP.md",
-  "roadmap_sha256": "014c6088ab7f9a16735a79146d4fba2e135581a0b894f06b9757cece98d14225",
+  "roadmap_sha256": "1553e55f68c1ec2dfa222869cf33d20047b4dd11748f364bd0c1a48f93071b35",
   "run_id": "prd-20260716T192354Z-14461843",
   "schema_version": 1,
   "specialist_override_display": "",
   "specialist_override_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   "state": "/Users/inference1/.config/brain/kb-run-prd-state/prd-20260716T192354Z-14461843.json",
-  "status": "blocked",
+  "status": "running",
   "status_sync": {
     "last_synced_at": null,
     "pending_transaction": null,
@@ -82,5 +146,5 @@
     "snapshot_sha256": null,
     "tracker_parity": "unknown"
   },
-  "updated_at": "2026-07-16T23:24:29Z"
+  "updated_at": "2026-07-17T08:35:55Z"
 }

@@ -1,0 +1,2 @@
+@@GATE-META step=step5 cmd_sha=06a4d78c1b199528e3aa66aab29e149780831b84b705446b4697324142aa285a@@
++ bun services/platform/src/cli/holo.ts extract --fixture always-malformed --json >/dev/null 2>&1 || true; id=$(ls -t .tmp/extractions/*.json | head -1 | xargs -n1 basename | sed 's/\.json$//'); bun services/platform/src/cli/holo.ts extract:status "$id" --json

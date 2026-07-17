@@ -1,0 +1,18 @@
+@@GATE-META step=step5 cmd_sha=06a4d78c1b199528e3aa66aab29e149780831b84b705446b4697324142aa285a@@
++ bun services/platform/src/cli/holo.ts extract --fixture always-malformed --json >/dev/null 2>&1 || true; id=$(ls -t .tmp/extractions/*.json | head -1 | xargs -n1 basename | sed 's/\.json$//'); bun services/platform/src/cli/holo.ts extract:status "$id" --json
+{
+  "ok": true,
+  "id": "1e8ff175-9c3b-4d41-b777-86dee9334800",
+  "status": "extraction_failed",
+  "role": "divergent",
+  "startedAt": "2026-07-17T08:26:51.880Z",
+  "endedAt": "2026-07-17T08:27:57.980Z",
+  "committed": false,
+  "error": {
+    "code": "EXTRACTION_FAILED",
+    "message": "extraction failed after 3 attempts: [\n  {\n    \"code\": \"custom\",\n    \"path\": [],\n    \"message\": \"generateObject rejected output (AI_NoObjectGeneratedError): No object generated: response did not match schema.\"\n  }\n]",
+    "attempts": 3,
+    "lastParseError": "[\n  {\n    \"code\": \"custom\",\n    \"path\": [],\n    \"message\": \"generateObject rejected output (AI_NoObjectGeneratedError): No object generated: response did not match schema.\"\n  }\n]"
+  }
+}
+@@GATE-EXIT=0@@

@@ -1,0 +1,6 @@
+{
+  "kind": "exit_and_log_regex",
+  "expected_exit": 0,
+  "expect_log_regex": "\"committed\"[[:space:]]*:[[:space:]]*false",
+  "expect_not_log_regex": "\"committed\":[[:space:]]*true"
+}

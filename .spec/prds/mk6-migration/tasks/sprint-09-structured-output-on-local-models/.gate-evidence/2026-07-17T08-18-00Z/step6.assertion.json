@@ -1,0 +1,6 @@
+{
+  "kind": "exit_and_log_regex",
+  "expected_exit": 1,
+  "expect_log_regex": "\"error\": \"BLOCKED\".*\"reason\": \"output_sensitive_data_detected\"",
+  "expect_not_log_regex": "\"ok\":[[:space:]]*true"
+}

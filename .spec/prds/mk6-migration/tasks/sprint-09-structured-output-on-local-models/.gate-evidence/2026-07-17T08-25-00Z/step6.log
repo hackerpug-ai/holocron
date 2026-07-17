@@ -1,0 +1,4 @@
+@@GATE-META step=step6 cmd_sha=ca9fc8c52d071f43a262f3df60ab5f0d3e131cdb2916359f05a560d8e14de8b8@@
++ bun services/platform/src/cli/holo.ts extract --fixture output-tripwire --json
+{"ok":false,"error":"BLOCKED","schema":"output-tripwire","role":"divergent","message":"extraction blocked: output_sensitive_data_detected (processor=pii-filter)","reason":"output_sensitive_data_detected","processorId":"pii-filter","tripwirePayload":{"reason":"output_sensitive_data_detected","processorId":"pii-filter","details":"Detected 1 sensitive data pattern(s) of kind SSN in model output (values redacted)","patterns":["SSN"]}}
+@@GATE-EXIT=1@@

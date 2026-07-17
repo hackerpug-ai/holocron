@@ -1,0 +1,6 @@
+{
+  "kind": "exit_and_log_regex",
+  "expected_exit": 1,
+  "expect_log_regex": "EXTRACTION_FAILED.*\"attempts\": 3",
+  "expect_not_log_regex": "\"ok\":[[:space:]]*true"
+}

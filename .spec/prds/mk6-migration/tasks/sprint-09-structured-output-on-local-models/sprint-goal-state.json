@@ -7,6 +7,7 @@
   "tasks": {
     "total": 4,
     "completed": 4,
+    "all_completed": true,
     "open": 0,
     "details": [
       {
@@ -227,12 +228,7 @@
     "critical_remediated": 1,
     "high_remediated": 3,
     "open_findings": [],
-    "remediation_commits": [
-      "8022d26",
-      "99295d3",
-      "4ceceaf",
-      "96fef8c"
-    ],
+    "remediation_commits": ["8022d26", "99295d3", "4ceceaf", "96fef8c"],
     "note": "H1-H4 from independent review closed via REDHAT-FIX-C2-*; each independently re-reviewed APPROVED"
   },
   "status_files": {
@@ -248,5 +244,10 @@
     "build_pass": true,
     "human_test_pass": true,
     "status_files_parity": true
+  },
+  "integration": {
+    "trunk_consolidated": true,
+    "orphan_branches": 0,
+    "default_target_ok": true
   }
 }

@@ -1,0 +1,2 @@
+@@GATE-META step=step4 cmd_sha=a71355a393380879287b9c70c66156cd3ccefdab8fab3d33830ce1d04789d088@@
++ bun services/platform/src/cli/holo.ts extract --fixture always-malformed --json

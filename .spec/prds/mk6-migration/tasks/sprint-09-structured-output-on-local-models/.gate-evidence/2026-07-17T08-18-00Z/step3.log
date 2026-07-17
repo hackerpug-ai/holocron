@@ -1,0 +1,17 @@
+@@GATE-META step=step3 cmd_sha=ac14395acae80d6f96b74b982939176a85f59d25e641cd68a11cc7305fc6c1b4@@
++ bun services/platform/src/cli/holo.ts extract --fixture malformed-once --json
+{
+  "ok": true,
+  "extractionId": "95a4656d-ce0b-409c-a821-3d77ee867975",
+  "result": {
+    "title": "The Model Returns Bad JSON Once, Then Good Data",
+    "count": 2,
+    "tags": [
+      "retry",
+      "success"
+    ]
+  },
+  "schema": "malformed-once",
+  "role": "divergent"
+}
+@@GATE-EXIT=0@@
