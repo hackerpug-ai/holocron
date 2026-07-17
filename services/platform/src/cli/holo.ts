@@ -2396,6 +2396,78 @@ async function main(): Promise<void> {
       process.exit(exitCode);
       break;
     }
+    case 'jobs:list': {
+      // queue-3 AC-2: migrated cron inventory (7/4/1/3→1/1 split).
+      const { MIGRATED_JOBS, MIGRATED_JOB_COUNT, CATEGORY_SPLIT } = await import(
+        '../queue/jobs-registry.ts'
+      );
+      const payload = {
+        count: MIGRATED_JOB_COUNT,
+        split: CATEGORY_SPLIT,
+        jobs: MIGRATED_JOBS.map((j) => ({
+          name: j.name,
+          category: j.category,
+          lane: j.lane,
+          schedule: j.schedule,
+        })),
+      };
+      if (args.json) {
+        console.log(JSON.stringify(payload, null, 2));
+      } else {
+        console.log('holo jobs:list — migrated cron inventory');
+        console.log(
+          `  split: janitor=${CATEGORY_SPLIT.janitor} workflow=${CATEGORY_SPLIT.workflow} consumer=${CATEGORY_SPLIT.consumer} backfill=${CATEGORY_SPLIT.backfill} digest=${CATEGORY_SPLIT.digest}`
+        );
+        console.log(`  total: ${MIGRATED_JOB_COUNT}`);
+        for (const j of MIGRATED_JOBS) {
+          console.log(
+            `  ${j.category.padEnd(9)} ${j.lane.padEnd(12)} ${j.schedule.padEnd(16)} ${j.name}`
+          );
+        }
+        console.log('  status: OK');
+      }
+      process.exit(MIGRATED_JOB_COUNT === 16 ? 0 : 1);
+      break;
+    }
+    case 'jobs:run-all': {
+      // queue-3 AC-1: fire all 16 migrated jobs through the durable queue.
+      const { runAllJobs } = await import('../queue/jobs-runner.ts');
+      const result = await runAllJobs({});
+      if (args.json) {
+        console.log(
+          JSON.stringify(
+            {
+              jobs_fired: result.jobs_fired,
+              jobs_total: result.jobs_total,
+              side_effect_rows: result.side_effect_rows,
+              run_id: result.run_id,
+              runs: result.runs.map((r) => ({
+                name: r.name,
+                run_key: r.run_key,
+                category: r.category,
+                lane: r.lane,
+                ok: r.ok,
+              })),
+            },
+            null,
+            2
+          )
+        );
+      } else {
+        console.log('holo jobs:run-all — fire all migrated crons');
+        console.log(`  jobs_fired:      ${result.jobs_fired}/${result.jobs_total}`);
+        console.log(`  side_effect_rows: ${result.side_effect_rows}`);
+        console.log(`  run_id:          ${result.run_id}`);
+        for (const r of result.runs) {
+          console.log(
+            `  ${r.ok ? '✓' : '✗'} ${r.category.padEnd(9)} ${r.lane.padEnd(12)} ${r.name}`
+          );
+        }
+        console.log(result.jobs_fired === result.jobs_total ? '  status: OK' : '  status: FAIL');
+      }
+      process.exit(result.jobs_fired === result.jobs_total ? 0 : 1);
+      break;
+    }
     case 'queue:audit': {
       // queue-2 AC-2: durable-effect audit trail (outbox + inbox + fencing).
       const key = args.positional[1];
