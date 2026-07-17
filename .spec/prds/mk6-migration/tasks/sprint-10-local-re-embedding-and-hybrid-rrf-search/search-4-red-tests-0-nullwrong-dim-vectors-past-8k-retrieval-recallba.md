@@ -319,7 +319,8 @@ Depends on: none · Blocks: search-1, search-2, search-3
               ],
               "must_not_observe": [
                 "`status: PASS`",
-                "`passed: 1`"
+                "`passed: 1`",
+                "empty results (0)"
               ]
             }
           }
@@ -339,7 +340,7 @@ Depends on: none · Blocks: search-1, search-2, search-3
         "verification_service": "litellm-fleet",
         "negative_control": {
           "would_fail_if": [
-            "the recall test asserts recall ≥ 0 (trivially satisfiable by returning nothing)",
+            "the recall test asserts recall \u2265 0 (trivially satisfiable by returning nothing)",
             "the test mocks hybridSearch to return the golden passage (false green)",
             "the test does not bind to a T-DATA-010 golden set"
           ]
@@ -365,7 +366,8 @@ Depends on: none · Blocks: search-1, search-2, search-3
               ],
               "must_not_observe": [
                 "`status: PASS`",
-                "`passed: 1`"
+                "`passed: 1`",
+                "empty results (0)"
               ]
             }
           }
@@ -411,7 +413,8 @@ Depends on: none · Blocks: search-1, search-2, search-3
               ],
               "must_not_observe": [
                 "`status: PASS`",
-                "`passed: 1`"
+                "`passed: 1`",
+                "empty results (0)"
               ]
             }
           }

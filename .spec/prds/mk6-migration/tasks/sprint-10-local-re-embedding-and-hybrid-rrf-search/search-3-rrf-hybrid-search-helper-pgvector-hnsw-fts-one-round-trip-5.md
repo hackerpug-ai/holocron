@@ -217,7 +217,7 @@ Depends on: search-1, search-4 · Blocks: none
       "seed_method": "cli",
       "records": [
         "document title = \"Local Re-embedding & RRF Design\"",
-        "≥2 passage rows; target passage text located past character 8000",
+        "\u22652 passage rows; target passage text located past character 8000",
         "target passage.embedding is vector(1024) non-null",
         "passages.search_vector generated from text (A-weight) + situating_header (B-weight)"
       ]
@@ -333,7 +333,7 @@ Depends on: search-1, search-4 · Blocks: none
             },
             "end_state": {
               "must_observe": [
-                "results contains the seeded semantic-only passage _id",
+                "`results[0].id` present \u2014 results contains the seeded semantic-only passage _id",
                 "totalResults >= 1",
                 "searchMethod equals \"rrf\""
               ],
@@ -365,7 +365,8 @@ Depends on: search-1, search-4 · Blocks: none
             "the surface query calls Cohere/cloud instead of the local fleet",
             "research_findings.embedding is NULL",
             "searchSurface does a cross-table join",
-            "the surface name is outside the allowed 5-surface set"
+            "the surface name is outside the allowed 5-surface set",
+            "stub or mock implementation returns empty/static results without real Postgres or fleet"
           ]
         },
         "evidence": {
@@ -434,7 +435,7 @@ Depends on: search-1, search-4 · Blocks: none
               "must_observe": [
                 "totalResults equals 0",
                 "searchMethod equals \"rrf\"",
-                "results is an empty array"
+                "`results.length === 0` empty array"
               ],
               "must_not_observe": [
                 "an uncaught Error or rejection",

@@ -223,7 +223,7 @@ Depends on: search-1, search-2, search-3, search-4 · Blocks: none
       ]
     },
     "golden_query_set": {
-      "description": "The unchanged golden query set + Convex hybridSearch baseline recall defined in scripts/benchmark-search.ts — the parity oracle.",
+      "description": "The unchanged golden query set + Convex hybridSearch baseline recall defined in scripts/benchmark-search.ts \u2014 the parity oracle.",
       "seed_method": "public_api",
       "records": [
         "golden query set from scripts/benchmark-search.ts",
@@ -249,7 +249,8 @@ Depends on: search-1, search-2, search-3, search-4 · Blocks: none
           "would_fail_if": [
             "the embed pass left passages.embedding NULL",
             "the embed pass wrote a non-1024 vector",
-            "the integrity query targets a different schema"
+            "the integrity query targets a different schema",
+            "stub or mock implementation returns empty/static results without real Postgres or fleet"
           ]
         },
         "evidence": {
@@ -297,7 +298,8 @@ Depends on: search-1, search-2, search-3, search-4 · Blocks: none
           "would_fail_if": [
             "chunking did not split the past-8K span",
             "the past-8K passage embedding is NULL",
-            "RRF ranks the past-8K passage below the cutoff"
+            "RRF ranks the past-8K passage below the cutoff",
+            "stub or mock implementation returns empty/static results without real Postgres or fleet"
           ]
         },
         "evidence": {
@@ -344,7 +346,8 @@ Depends on: search-1, search-2, search-3, search-4 · Blocks: none
           "would_fail_if": [
             "the new RRF search drops the FTS leg",
             "RRF uses normalize-by-max suppressing vector neighbours",
-            "the benchmark compares against an ad-hoc threshold instead of the Convex baseline"
+            "the benchmark compares against an ad-hoc threshold instead of the Convex baseline",
+            "stub or mock implementation returns empty/static results without real Postgres or fleet"
           ]
         },
         "evidence": {
@@ -357,14 +360,14 @@ Depends on: search-1, search-2, search-3, search-4 · Blocks: none
             "action": {
               "actor": "api_client",
               "steps": [
-                "run scripts/benchmark-search.ts; capture 'recall new=… baseline=…'"
+                "run scripts/benchmark-search.ts; capture 'recall new=\u2026 baseline=\u2026'"
               ]
             },
             "end_state": {
               "must_observe": [
                 "stdout 'recall new=0.8' or higher",
-                "new recall >= Convex baseline recall",
-                "golden set size matches the benchmark count"
+                "`recall new>=baseline` new recall >= Convex baseline recall",
+                "`golden_set_size >= 1` golden set size matches the benchmark count"
               ],
               "must_not_observe": [
                 "new recall strictly less than Convex baseline",
@@ -392,7 +395,8 @@ Depends on: search-1, search-2, search-3, search-4 · Blocks: none
           "would_fail_if": [
             "two separate SQL statements are issued",
             "fusion uses score/maxScore*weight",
-            "the RRF constant is not 60"
+            "the RRF constant is not 60",
+            "stub or mock implementation returns empty/static results without real Postgres or fleet"
           ]
         },
         "evidence": {
@@ -410,7 +414,7 @@ Depends on: search-1, search-2, search-3, search-4 · Blocks: none
             },
             "end_state": {
               "must_observe": [
-                "exactly one sql template literal in rrfHybridSearch",
+                "`sql_template_count === 1` exactly one sql template literal in rrfHybridSearch",
                 "literal '1.0/(60' present",
                 "searchMethod equals \"rrf\""
               ],
@@ -441,7 +445,8 @@ Depends on: search-1, search-2, search-3, search-4 · Blocks: none
           "would_fail_if": [
             "searchSurface delegates to Cohere/cloud",
             "a surface query does a cross-table join",
-            "any surface embedding is NULL"
+            "any surface embedding is NULL",
+            "stub or mock implementation returns empty/static results without real Postgres or fleet"
           ]
         },
         "evidence": {

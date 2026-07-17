@@ -281,7 +281,8 @@ Depends on: search-1, search-4 · Blocks: search-3
               "must_not_observe": [
                 "`embedding IS NULL count: 3`",
                 "null embedding",
-                "wrong-dimension vector"
+                "wrong-dimension vector",
+                "empty results (0)"
               ]
             }
           }
@@ -303,7 +304,8 @@ Depends on: search-1, search-4 · Blocks: search-3
           "would_fail_if": [
             "the second run re-embeds all passages (WHERE clause missing embedding IS NULL filter)",
             "the second run INSERTs duplicate passage rows",
-            "embedRun ignores the NULL filter and processes all rows"
+            "embedRun ignores the NULL filter and processes all rows",
+            "stub or mock implementation returns empty/static results without real Postgres or fleet"
           ]
         },
         "evidence": {
@@ -328,7 +330,8 @@ Depends on: search-1, search-4 · Blocks: search-3
               "must_not_observe": [
                 "`row count > 3`",
                 "duplicate ordinals",
-                "new passages inserted"
+                "new passages inserted",
+                "empty results (0)"
               ]
             }
           }
@@ -350,7 +353,8 @@ Depends on: search-1, search-4 · Blocks: search-3
           "would_fail_if": [
             "the resume re-embeds ordinal 0 (not idempotent on already-done row)",
             "the resume INSERTs new rows instead of UPDATEing ordinals 1 and 2",
-            "the resume skips ordinals 1 and 2 and reports success"
+            "the resume skips ordinals 1 and 2 and reports success",
+            "stub or mock implementation returns empty/static results without real Postgres or fleet"
           ]
         },
         "evidence": {
@@ -397,7 +401,8 @@ Depends on: search-1, search-4 · Blocks: search-3
           "would_fail_if": [
             "embedRun rolls back passage 0's commit on the passage-1 failure (all-or-nothing loses work)",
             "embedRun swallows the fleet error and returns silently",
-            "embedRun marks passage 2 as embedded despite the failure"
+            "embedRun marks passage 2 as embedded despite the failure",
+            "stub or mock implementation returns empty/static results without real Postgres or fleet"
           ]
         },
         "evidence": {

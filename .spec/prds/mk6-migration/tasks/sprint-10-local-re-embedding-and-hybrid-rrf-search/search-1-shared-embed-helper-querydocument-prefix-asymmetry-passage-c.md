@@ -304,7 +304,8 @@ Depends on: search-4 · Blocks: search-2, search-3
               ],
               "must_not_observe": [
                 "`deepEqual(queryResult, docResult) === true`",
-                "`null`"
+                "`null`",
+                "empty results (0)"
               ]
             }
           }
@@ -315,7 +316,7 @@ Depends on: search-4 · Blocks: search-2, search-3
       "id": "AC-2",
       "type": "acceptance_criterion",
       "primary": false,
-      "description": "GIVEN a document of ~10048 chars with a marker at offset 8400, WHEN chunkDocument splits it at maxTokens 512 overlap 64, THEN it returns ≥2 passages each ≤512 tokens with the marker preserved and a situatingHeader containing the title",
+      "description": "GIVEN a document of ~10048 chars with a marker at offset 8400, WHEN chunkDocument splits it at maxTokens 512 overlap 64, THEN it returns \u22652 passages each \u2264512 tokens with the marker preserved and a situatingHeader containing the title",
       "verify": "PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/embed-helper.test.ts",
       "maps_to_ac": null,
       "scenario": {
@@ -428,7 +429,7 @@ Depends on: search-4 · Blocks: search-2, search-3
       "id": "AC-4",
       "type": "acceptance_criterion",
       "primary": false,
-      "description": "GIVEN the fleet embed endpoint is overridden to a dead port, WHEN embed('text','query') is called, THEN it throws RoleUnavailableError with code ROLE_UNAVAILABLE — never returns null or a zero vector",
+      "description": "GIVEN the fleet embed endpoint is overridden to a dead port, WHEN embed('text','query') is called, THEN it throws RoleUnavailableError with code ROLE_UNAVAILABLE \u2014 never returns null or a zero vector",
       "verify": "PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/embed-helper.test.ts",
       "maps_to_ac": null,
       "scenario": {
@@ -439,7 +440,8 @@ Depends on: search-4 · Blocks: search-2, search-3
           "would_fail_if": [
             "embed() swallows the connection error and returns null",
             "embed() returns a zero vector on failure",
-            "embed() retries forever instead of failing closed"
+            "embed() retries forever instead of failing closed",
+            "stub or mock implementation returns empty/static results without real Postgres or fleet"
           ]
         },
         "evidence": {
@@ -463,7 +465,8 @@ Depends on: search-4 · Blocks: search-2, search-3
               "must_not_observe": [
                 "`returns null`",
                 "`returns a zero vector`",
-                "silent success"
+                "silent success",
+                "empty results (0)"
               ]
             }
           }
