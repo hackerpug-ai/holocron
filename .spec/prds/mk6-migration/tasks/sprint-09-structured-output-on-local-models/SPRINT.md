@@ -13,8 +13,8 @@ capability_coverage: [CAP-INF-01]
 **Sequence:** 9
 **Timeline:** Phase 2 — Inference and Data
 **Status:** Completed
-> Progress: 4/4 tasks completed · updated 2026-07-17T03:05:26Z
-> Status-Note: All 4 tasks completed, struct-4 APPROVED, 30/30 PLATFORM_IT tests GREEN, human gate pass
+> Progress: 4/4 tasks completed + 10/10 REDHAT-FIX remediated · updated 2026-07-17T05:30:00Z
+> Status-Note: All 4 tasks completed, struct-4 APPROVED, 38/38 PLATFORM_IT tests GREEN, human gate 6/6 PASS (0 deferred), red-hat CRITICAL+HIGH all remediated
 **Proposed by:** mastra-planner
 **Branch:** `mk6-structured-output`
 **Opened:** 2026-07-16 — expanded by /kb-sprint-tasks-plan
@@ -53,6 +53,16 @@ An operator can prove — with the Fleet Role Manifest, the `resolveModel` route
 | struct-2 | Boot-time per-role capability probe + typed terminal outcomes | mastra-implementer | 150 min |
 | struct-3 | RED tests: malformed→repair→valid, always-malformed→explicit-fail, tripwire→blocked | red-test-generator | 150 min |
 | struct-4 | Review extraction safety | mastra-reviewer | 75 min |
+| REDHAT-FIX-H1 | Replace free-text generation with `generateObject` + `json_schema` constrained decoding | mastra-implementer | 180 min |
+| REDHAT-FIX-H2 | Consume Fleet Role Manifest `structuredOutput` capability when selecting extraction mode | mastra-implementer | 120 min |
+| REDHAT-FIX-H3 | Enforce output-side tripwire/processor guardrail before accepting model output | mastra-implementer | 120 min |
+| REDHAT-FIX-H4 | Implement extraction status persistence and `holo extract:status` typed terminal reporting | mastra-implementer | 120 min |
+| REDHAT-FIX-H5 | Restore durable struct-4 review report artifact with explicit verdict | mastra-reviewer | 45 min |
+| REDHAT-FIX-H6 | Add real database no-commit/no-dispatch assertions to failure-path tests | mastra-implementer | 90 min |
+| REDHAT-FIX-H7 | Align capability-probe path and task scope contract | mastra-implementer | 45 min |
+| REDHAT-FIX-G-DEFERRED | Make the six-step human gate reject deferred steps and keep met-state honest | mastra-implementer | 90 min |
+| REDHAT-FIX-G-STEP3-4 | Add documented CLI fixture entry points for malformed-once and always-malformed scenarios | mastra-implementer | 90 min |
+| REDHAT-FIX-G-ORACLE | Make capability-probe oracle distinguish constrained and repair-loop roles via real support probing | mastra-implementer | 90 min |
 
 ---
 

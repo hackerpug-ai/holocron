@@ -1,0 +1,15 @@
+{
+  "ok": true,
+  "id": "222ac4d3-4131-40cc-a650-e2d1a4256fa3",
+  "status": "extraction_failed",
+  "role": "divergent",
+  "startedAt": "2026-07-17T05:18:10.135Z",
+  "endedAt": "2026-07-17T05:19:15.585Z",
+  "committed": false,
+  "error": {
+    "code": "EXTRACTION_FAILED",
+    "message": "extraction failed after 3 attempts: [\n  {\n    \"code\": \"custom\",\n    \"path\": [],\n    \"message\": \"generateObject rejected output (AI_NoObjectGeneratedError): No object generated: response did not match schema.\"\n  }\n]",
+    "attempts": 3,
+    "lastParseError": "[\n  {\n    \"code\": \"custom\",\n    \"path\": [],\n    \"message\": \"generateObject rejected output (AI_NoObjectGeneratedError): No object generated: response did not match schema.\"\n  }\n]"
+  }
+}

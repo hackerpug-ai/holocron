@@ -1,0 +1,67 @@
+{
+  "sprint": "sprint-09-structured-output-on-local-models",
+  "gate": "Given a local fleet model and a Zod extraction schema, holo extract either repairs a malformed generation to a schema-valid object or fails explicitly past its retry cap with a typed terminal outcome — never silently accepting invalid output.",
+  "verdict": "pass",
+  "timestamp": "2026-07-17T05:30:00Z",
+  "runner": "kb-run-sprint (opencode/glm-5.2)",
+  "steps_total": 6,
+  "steps_executed": 6,
+  "steps_passed": 6,
+  "steps_deferred": 0,
+  "steps": [
+    {
+      "step": 1,
+      "description": "holo probe:capabilities reports per-role json_schema support and selects constrained vs repair mode",
+      "method": "cli",
+      "command": "bun services/platform/src/cli/holo.ts probe:capabilities --json",
+      "result": "pass",
+      "evidence": "step1-probe.log",
+      "oracle": "All roles report supportsJsonSchema:false, mode:repair — real generateObject detection (not generateText false-positive)"
+    },
+    {
+      "step": 2,
+      "description": "holo extract --schema simple --input good returns a Zod-valid object",
+      "method": "cli",
+      "command": "bun services/platform/src/cli/holo.ts extract --schema simple --input '...' --json",
+      "result": "pass",
+      "evidence": "step2-good-extract.log",
+      "oracle": "ok:true, result {title,count,tags} matches simpleSchema"
+    },
+    {
+      "step": 3,
+      "description": "holo extract --fixture malformed-once — bounded repair loop yields a valid object",
+      "method": "cli",
+      "command": "bun services/platform/src/cli/holo.ts extract --fixture malformed-once --json",
+      "result": "pass",
+      "evidence": "step3-malformed-once.log",
+      "oracle": "ok:true, valid {title,count,tags} object returned via --fixture flag"
+    },
+    {
+      "step": 4,
+      "description": "holo extract --fixture always-malformed — fails explicitly past the cap with typed terminal error",
+      "method": "cli",
+      "command": "bun services/platform/src/cli/holo.ts extract --fixture always-malformed --json",
+      "result": "pass",
+      "evidence": "step4-always-malformed.log",
+      "oracle": "exit 1, error:EXTRACTION_FAILED, attempts:3, generateObject rejected output (AI_NoObjectGeneratedError)"
+    },
+    {
+      "step": 5,
+      "description": "holo extract:status <id> reports extraction_failed with no committed row",
+      "method": "cli",
+      "command": "bun services/platform/src/cli/holo.ts extract:status 222ac4d3-4131-40cc-a650-e2d1a4256fa3 --json",
+      "result": "pass",
+      "evidence": "step5-extract-status.log",
+      "oracle": "ok:true, status:extraction_failed, committed:false — NO silent success"
+    },
+    {
+      "step": 6,
+      "description": "Trip a tripwire during extraction — emits typed terminal blocked state, tool not dispatched",
+      "method": "cli",
+      "command": "bun services/platform/src/cli/holo.ts extract --fixture tripwire --json",
+      "result": "pass",
+      "evidence": "step6-tripwire.log",
+      "oracle": "exit 1, error:BLOCKED, reason:sensitive_data_detected, processorId:pii-filter"
+    }
+  ]
+}
