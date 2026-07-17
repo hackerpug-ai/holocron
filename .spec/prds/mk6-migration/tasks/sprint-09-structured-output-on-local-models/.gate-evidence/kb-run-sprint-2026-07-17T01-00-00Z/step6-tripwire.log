@@ -1,0 +1,4 @@
+holo extract failed: BLOCKED
+  extraction blocked: sensitive_data_detected (processor=pii-filter)
+  reason: sensitive_data_detected
+  processorId: pii-filter

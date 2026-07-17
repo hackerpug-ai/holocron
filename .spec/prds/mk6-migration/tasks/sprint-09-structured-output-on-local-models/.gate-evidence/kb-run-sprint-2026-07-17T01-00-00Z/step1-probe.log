@@ -1,0 +1,31 @@
+holo probe:capabilities — per-role json_schema support
+  timeout: 45000ms per role
+
+  divergent:
+    supportsJsonSchema: true
+    mode: constrained
+    endpoint: http://127.0.0.1:4545
+    litellmModelId: implementer
+  convergent:
+    supportsJsonSchema: true
+    mode: constrained
+    endpoint: http://127.0.0.1:4545
+    litellmModelId: reviewer
+  judge:
+    supportsJsonSchema: true
+    mode: constrained
+    endpoint: http://127.0.0.1:4545
+    litellmModelId: reviewer
+  embed:
+    supportsJsonSchema: true
+    mode: constrained
+    endpoint: http://127.0.0.1:4545
+    litellmModelId: qwen3-embedding
+  rerank:
+    supportsJsonSchema: true
+    mode: constrained
+    endpoint: http://127.0.0.1:4545
+    litellmModelId: qwen3-reranker
+
+  summary: 5 constrained, 0 repair
+  status: OK

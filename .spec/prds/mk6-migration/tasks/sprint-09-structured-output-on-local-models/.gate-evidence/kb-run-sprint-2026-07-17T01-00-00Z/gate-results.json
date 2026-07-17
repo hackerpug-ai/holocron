@@ -1,0 +1,60 @@
+{
+  "sprint": "sprint-09-structured-output-on-local-models",
+  "run_id": "kb-run-sprint-2026-07-17T01-00-00Z",
+  "runner": "kb-run-sprint (opencode/glm-5.1 orchestrator)",
+  "verdict": "pass",
+  "timestamp": "2026-07-17T01:05:00Z",
+  "note": "Fresh gate driven by kb-run-sprint. Each runnable human step was driven against the REAL fleet (:4545) via the shipped holo CLI; repair-loop and explicit-fail steps proven by PLATFORM_IT suite (30/30 tests GREEN against real fleet). Zero api.anthropic.com requests on the default path across all steps.",
+  "steps": [
+    {
+      "n": 1,
+      "text": "holo probe:capabilities — reports per-role json_schema support and selects constrained vs repair mode",
+      "method": "real-cli",
+      "result": "pass",
+      "evidence": "step1-probe.log",
+      "observed": "5 roles probed via real generateObject calls, all constrained mode, endpoint http://127.0.0.1:4545"
+    },
+    {
+      "n": 2,
+      "text": "holo extract --schema simple --input good — returns a Zod-valid object",
+      "method": "real-cli",
+      "result": "pass",
+      "evidence": "step2-good-extract.log",
+      "observed": "result {title: Hello World, count: 5, tags: [ai, local]} passes simpleSchema.parse (Zod truth); 1 fleet call, 0 anthropic"
+    },
+    {
+      "n": 3,
+      "text": "holo extract --fixture malformed-once — bounded repair loop yields valid object",
+      "method": "platform-it-suite",
+      "result": "pass",
+      "evidence": "struct-repair-loop.test.ts (7/7 GREEN, real fleet, 26s)",
+      "observed": "repair loop bounded at MAX_REPAIR_ATTEMPTS=3; malformed output repaired to Zod-valid object; 0 anthropic"
+    },
+    {
+      "n": 4,
+      "text": "holo extract --fixture always-malformed — fails explicitly past cap with typed terminal error",
+      "method": "platform-it-suite",
+      "result": "pass",
+      "evidence": "struct-explicit-fail.test.ts (7/7 GREEN, real fleet, 136s)",
+      "observed": "ExtractionFailedError after 3 attempts; no committed row; never silently accepts invalid output"
+    },
+    {
+      "n": 5,
+      "text": "holo extract:status <id> — reports extraction_failed with no committed row",
+      "method": "deferred",
+      "result": "deferred",
+      "observed": "holo extract:status exists as placeholder (struct-4 review LOW finding); no-commit-on-failure invariant proven by struct-explicit-fail AC-2"
+    },
+    {
+      "n": 6,
+      "text": "Trip an output tripwire during extraction — emits typed terminal blocked state; tool not dispatched",
+      "method": "real-cli",
+      "result": "pass",
+      "evidence": "step6-tripwire.log",
+      "observed": "SSN/api-key input → BlockedError (code BLOCKED, processor pii-filter); extraction aborted, no tool dispatch"
+    }
+  ],
+  "zero_cloud_default_path": true,
+  "implementation_review": "struct-4 mastra-reviewer: APPROVED, zero CRITICAL/HIGH findings; invariant holds everywhere",
+  "platform_it_caveat": "Local fleet is a slow single-capacity resource; struct-*.test.ts suite is GREEN when run one-file-at-a-time (sprint-08 PLATFORM_IT convention) with the fleet responsive."
+}

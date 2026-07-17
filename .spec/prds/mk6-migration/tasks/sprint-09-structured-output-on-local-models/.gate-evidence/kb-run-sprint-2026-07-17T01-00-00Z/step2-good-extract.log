@@ -1,0 +1,13 @@
+holo extract — structured extraction
+  schema:  simple
+  role:    divergent
+  result:
+{
+  "title": "Hello World",
+  "count": 5,
+  "tags": [
+    "ai",
+    "local"
+  ]
+}
+  status: OK

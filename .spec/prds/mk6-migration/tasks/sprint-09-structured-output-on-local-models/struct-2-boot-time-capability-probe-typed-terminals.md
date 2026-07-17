@@ -1,4 +1,9 @@
 # struct-2 — Boot-time per-role capability probe + typed terminal outcomes
+> Status: ✅ Completed
+> Cycle: 1
+> Commit: e281601
+> Reviewer: mastra-reviewer (struct-4 APPROVED)
+> Completed: 2026-07-17T03:05:03Z
 
 ## What this does
 
