@@ -34,9 +34,9 @@
     "last_result": null
   },
   "closeout": {
-    "authorization": null,
-    "evaluation": null,
-    "request": null,
+    "authorization": "/Users/inference1/.config/brain/kb-run-prd-state/prd-20260716T192354Z-14461843-sprint09-close-authorization.json",
+    "evaluation": "/Users/inference1/.config/brain/kb-run-prd-state/prd-20260716T192354Z-14461843-sprint09-close-evaluation-5.json",
+    "request": "/Users/inference1/.config/brain/kb-orchestrate-state/orch-s09-structured-output-20260717T024012Z.close-request.json",
     "verified_at": null
   },
   "conductor_watch": {
@@ -132,13 +132,13 @@
     "source_run_id": "prd-20260716T192354Z-14461843"
   },
   "roadmap": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/ROADMAP.md",
-  "roadmap_sha256": "1553e55f68c1ec2dfa222869cf33d20047b4dd11748f364bd0c1a48f93071b35",
+  "roadmap_sha256": "1cb673a1104d80c7594c4c06ff8ba4e818682027f0b2b1421bafe682e005464f",
   "run_id": "prd-20260716T192354Z-14461843",
   "schema_version": 1,
   "specialist_override_display": "",
   "specialist_override_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   "state": "/Users/inference1/.config/brain/kb-run-prd-state/prd-20260716T192354Z-14461843.json",
-  "status": "auditing",
+  "status": "awaiting-close",
   "status_sync": {
     "last_synced_at": null,
     "pending_transaction": null,
@@ -146,5 +146,5 @@
     "snapshot_sha256": null,
     "tracker_parity": "unknown"
   },
-  "updated_at": "2026-07-17T08:49:18Z"
+  "updated_at": "2026-07-17T08:52:11Z"
 }
