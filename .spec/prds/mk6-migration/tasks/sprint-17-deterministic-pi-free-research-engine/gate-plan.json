@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "sprint": 17,
+  "sourceHead": "37281e7",
+  "gate": "real Postgres + fleet research mission suspends on thin evidence and commits only after pure TypeScript evidence admission",
+  "steps": [
+    {"id": "S17-1", "command": "holo mission run research --goal 'no pi closure proof'", "assertion": "real mission is suspended at the deterministic gate"},
+    {"id": "S17-2", "command": "resumeMissionRun(<runId>, {researchEvidence: claims.json})", "assertion": "same durable run completes with admitted=true"},
+    {"id": "S17-3", "command": "holo gate:eval --claims services/platform/tests/fixtures/research/claims.json", "assertion": "pureTs=true and deterministic supporting admission"},
+    {"id": "S17-4", "command": "holo research:inspect <runId> --processes", "assertion": "distinct ASSAY/CHALLENGE fleet instances and persisted evidence"},
+    {"id": "S17-5", "command": "holo gate:eval --refuting services/platform/tests/fixtures/research/refuting.json", "assertion": "refuting evidence uses the identical pure gate"},
+    {"id": "S17-6", "command": "holo research:trace <runId> --processes", "assertion": "fleet execution tree has no forbidden process and strict noExternalHarness proof"}
+  ],
+  "rawEvidenceDir": ".tmp/sprint-17-human-gate-20260718T153514Z"
+}

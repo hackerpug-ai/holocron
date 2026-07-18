@@ -1,5 +1,5 @@
 ---
-status: In Progress
+status: Completed
 sprint: 17
 agent: mastra-implementer
 ---
@@ -8,4 +8,4 @@ agent: mastra-implementer
 
 Implement and extend `services/platform/src/research/evidence-gate.ts` as the only admission authority. Persist no executable payloads; return deterministic component coverage, grade/entailment/independence diagnostics, and symmetric supporting/refuting verdicts. Add malformed-input fail-closed cases and stable canonical output.
 
-Current partial GREEN: thin/full/refuting fixtures and `gate:eval --claims` are implemented and tested.
+Completed: thin/full/refuting fixtures and `gate:eval --claims/--refuting` are implemented and tested; admission is pure TypeScript with canonical source independence, quote/entailment, component, grade, and disconfirmation checks. See `gate-results.json`.

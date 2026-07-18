@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "sourceHead": "37281e7",
+  "rawEvidenceDir": ".tmp/sprint-17-human-gate-20260718T153514Z",
+  "recomputed": {
+    "rawStepCount": 6,
+    "allStepsPassed": true,
+    "realHealth": {"postgres": true, "fleet": true},
+    "run": {"id": "019f75db-113d-7a68-8a60-3b49b1e4da96", "templateVersion": "1.0.4", "status": "completed", "admitted": true},
+    "stages": ["plan", "retrieve", "extract", "assay", "challenge", "gate", "commit"],
+    "distinctInstances": true,
+    "evidencePersistedThroughCommit": true,
+    "thinEvidenceSuspended": true,
+    "refutingSymmetry": true,
+    "pureTypeScriptGate": true,
+    "processProof": {"noExternalHarness": true, "noExternalExecutionHarness": true, "forbiddenMatches": [], "ancestorHarnesses": []}
+  },
+  "overall": "passed"
+}

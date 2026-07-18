@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "sourceHead": "37281e7",
+  "runId": "019f75db-113d-7a68-8a60-3b49b1e4da96",
+  "templateVersion": "1.0.4",
+  "steps": [
+    {"id": "S17-1", "status": "passed", "evidence": "postgres-run.txt", "result": "suspended at checkpoint stage 4; gate pending"},
+    {"id": "S17-2", "status": "passed", "evidence": "postgres-run.txt", "result": "completed; typed output admitted=true; same traceId"},
+    {"id": "S17-3", "status": "passed", "evidence": "gate-claims.json", "result": "pureTs=true; supporting; 2 independent sources"},
+    {"id": "S17-4", "status": "passed", "evidence": "inspect.json", "result": "assayChallengeDistinct=true; fleet telemetry and committed findings present"},
+    {"id": "S17-5", "status": "passed", "evidence": "gate-refuting.json", "result": "pureTs=true; refuting; same component/grade/entailment/independence rules"},
+    {"id": "S17-6", "status": "passed", "evidence": "trace.json", "result": "noExternalHarness=true; forbiddenMatches=[]; ancestorHarnesses=[]"}
+  ],
+  "verification": {
+    "typecheck": "passed",
+    "tests": "3 files / 8 tests passed",
+    "realPostgres": true,
+    "realFleet": true,
+    "appendOnlyResume": true,
+    "historicalStageAttemptsPreserved": true
+  },
+  "overall": "passed"
+}

@@ -1,13 +1,13 @@
 ---
-status: In Progress
+status: Completed
 sprint: 17
 slug: deterministic-pi-free-research-engine
 ---
 
 # Sprint 17: Deterministic pi-free Research Engine
 
-**Status:** In Progress  
-**Current implementation:** pure TypeScript evidence admission, `gate:eval --claims/--refuting`, durable research-session inspection, and real divergent/convergent fleet calls are green. Full PLAN→RETRIEVE→EXTRACT→GATE→CHALLENGE→COMMIT orchestration remains.
+**Status:** Completed
+**Current implementation:** pure TypeScript evidence admission, durable seven-stage PLAN→RETRIEVE→EXTRACT→ASSAY→CHALLENGE→GATE→COMMIT orchestration, append-only evidence-gated resume, real divergent/convergent fleet calls, persisted process proof, and inspect/trace surfaces are green. Closure evidence is in `gate-plan.json`, `gate-results.json`, `gate-verification.json`, and `GATE-RESULTS.md`.
 
 ## Ordering
 
