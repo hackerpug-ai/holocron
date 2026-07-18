@@ -1,5 +1,5 @@
 ---
-status: Planned
+status: In Progress
 sprint: 17
 agent: red-test-generator
 ---

@@ -7,7 +7,7 @@ slug: deterministic-pi-free-research-engine
 # Sprint 17: Deterministic pi-free Research Engine
 
 **Status:** In Progress  
-**Current implementation:** pure TypeScript evidence admission seam and `holo gate:eval --claims` are green; durable research mission orchestration remains.
+**Current implementation:** pure TypeScript evidence admission, `gate:eval --claims/--refuting`, durable research-session inspection, and real divergent/convergent fleet calls are green. Full PLAN→RETRIEVE→EXTRACT→GATE→CHALLENGE→COMMIT orchestration remains.
 
 ## Ordering
 

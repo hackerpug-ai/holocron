@@ -3646,6 +3646,7 @@ async function main(): Promise<void> {
             role: args.role ?? 'divergent',
             runId: args.runId ?? undefined,
             throwOnExportFailure: true,
+            evidenceFixturePath: args.claimsPath ?? args.refutingPath ?? undefined,
           });
           if (args.json) {
             console.log(JSON.stringify(result, null, 2));

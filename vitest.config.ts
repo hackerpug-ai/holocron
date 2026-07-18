@@ -43,6 +43,8 @@ export default defineConfig({
       'services/platform/tests/integration/sprint14-etl-and-blob.test.ts',
       // Sprint 15 — mission engine durable resumable templates
       'services/platform/tests/integration/mission-engine-red.test.ts',
+      // Sprint 17 — deterministic research gate and distinct ASSAY/CHALLENGE fleet calls
+      'services/platform/tests/integration/sprint17-research-engine.test.ts',
     ],
     setupFiles: ['tests/setup/react-native.ts'],
     exclude: ['node_modules', 'dist', '.expo'],

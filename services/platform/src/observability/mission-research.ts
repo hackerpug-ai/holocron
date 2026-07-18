@@ -8,9 +8,12 @@
  * Public CLI entry: `holo mission run research --goal <text> [--json]`
  */
 import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { Mastra } from '@mastra/core/mastra';
 import { MastraStorageExporter, Observability, SensitiveDataFilter } from '@mastra/observability';
 import { createFleetAgentWithResolved } from '../compat/cells/agent.ts';
+import { createSql } from '../db/client.ts';
+import { resolveHolocronNonprodDatabaseUrl } from '../db/connection.ts';
 import {
   displayEndpoint,
   type InferenceTelemetryRecord,
@@ -18,6 +21,7 @@ import {
 } from '../inference/telemetry.ts';
 import { assertNoTripwire } from '../mastra/tripwire.ts';
 import { createStorage } from '../mastra.ts';
+import { type EvidenceGateResult, evaluateEvidenceGate } from '../research/evidence-gate.ts';
 import {
   createLangfuseExporterFromEnv,
   HOLOCRON_SERVICE_NAME,
@@ -42,6 +46,7 @@ export type ResearchMissionResult = {
   errorCode: string | null;
   error: string | null;
   metadata: Record<string, unknown>;
+  evidenceGate?: EvidenceGateResult;
 };
 
 function usageTokens(usage: unknown): {
@@ -75,6 +80,8 @@ export type RunResearchMissionOptions = {
    * carrying `missionResult` so the CLI can print JSON and exit 1.
    */
   throwOnExportFailure?: boolean;
+  /** Optional deterministic fixture used by the Sprint 17 gate seam. */
+  evidenceFixturePath?: string;
 };
 
 function toHexTraceId(seed: string): string {
@@ -298,9 +305,62 @@ export async function runResearchMission(
     }
   }
 
+  let errorCode: string | null = null;
+  let challengeModelRevision: string | null = null;
+  if (options.evidenceFixturePath && !generateError) {
+    try {
+      const challengeBundle = await createFleetAgentWithResolved({
+        role: 'convergent',
+        agentId: `research-challenge-${runId}`,
+      });
+      challengeModelRevision = challengeBundle.resolved.modelRevision;
+      const challengeStarted = Date.now();
+      const challengeResult = await challengeBundle.agent.generate(
+        `Challenge research goal: ${goal}. Return one concise refuting consideration.`,
+        {
+          tracingOptions: {
+            traceId,
+            metadata: {
+              role: 'convergent',
+              runId,
+              serviceName: HOLOCRON_SERVICE_NAME,
+              mission: 'research',
+              phase: 'CHALLENGE',
+            },
+            tags: ['research-challenge', HOLOCRON_SERVICE_NAME, 'convergent'],
+          },
+        }
+      );
+      assertNoTripwire(challengeResult);
+      const challengeTokens = usageTokens(
+        (challengeResult as { usage?: unknown; totalUsage?: unknown }).usage ??
+          (challengeResult as { totalUsage?: unknown }).totalUsage
+      );
+      await recordInferenceTelemetry({
+        runId,
+        stepId: 'research-challenge',
+        traceId,
+        role: challengeBundle.resolved.role,
+        provider: 'fleet',
+        endpoint: displayEndpoint(challengeBundle.resolved),
+        modelId: challengeBundle.resolved.litellmModelId,
+        inputTokens: challengeTokens.inputTokens,
+        outputTokens: challengeTokens.outputTokens,
+        totalTokens: challengeTokens.totalTokens,
+        wallMs: Math.max(1, Date.now() - challengeStarted),
+        status: challengeResult.text?.trim() ? 'success' : 'degraded',
+        errorCode: challengeResult.text?.trim() ? null : 'EMPTY_RESPONSE',
+        errorMessage: challengeResult.text?.trim() ? null : 'challenge returned empty text',
+      });
+    } catch (challengeError) {
+      generateError =
+        challengeError instanceof Error ? challengeError.message : String(challengeError);
+      errorCode = 'RESEARCH_CHALLENGE_FAILED';
+    }
+  }
+
   let langfuseOk = false;
   let exportError: string | null = null;
-  let errorCode: string | null = null;
 
   try {
     await langfuseExporter.flush();
@@ -331,6 +391,52 @@ export async function runResearchMission(
     }
   }
 
+  let evidenceGate: EvidenceGateResult | undefined;
+  if (options.evidenceFixturePath) {
+    const input = JSON.parse(readFileSync(options.evidenceFixturePath, 'utf8')) as never;
+    evidenceGate = evaluateEvidenceGate(input);
+    const researchSql = createSql(
+      resolveHolocronNonprodDatabaseUrl({ context: 'research evidence gate' })
+    );
+    const terminalAdmitted = evidenceGate.admitted && challengeModelRevision !== null;
+    const completedAt = terminalAdmitted ? new Date() : null;
+    try {
+      await researchSql`
+        INSERT INTO research_sessions (
+          id, system, topic, research_type, status, plan, findings, final_confidence_summary,
+          created_at, updated_at, completed_at
+        )
+        VALUES (
+          ${runId}::uuid,
+          'deep',
+          ${goal},
+          'mission',
+          ${terminalAdmitted ? 'completed' : 'running'},
+          ${researchSql.json({
+            phases: ['PLAN', 'RETRIEVE', 'EXTRACT', 'GATE', 'CHALLENGE', 'COMMIT'],
+            assayInstanceId: `${agentBundle.resolved.modelRevision}:assay`,
+            challengeInstanceId: challengeModelRevision
+              ? `${challengeModelRevision}:challenge`
+              : null,
+            gate: evidenceGate,
+          })},
+          ${researchSql.json(input as never)},
+          ${researchSql.json(evidenceGate as never)},
+          now(), now(), ${completedAt}
+        )
+        ON CONFLICT (id) DO UPDATE SET
+          status = EXCLUDED.status,
+          plan = EXCLUDED.plan,
+          findings = EXCLUDED.findings,
+          final_confidence_summary = EXCLUDED.final_confidence_summary,
+          updated_at = now(),
+          completed_at = EXCLUDED.completed_at
+      `;
+    } finally {
+      await researchSql.end({ timeout: 5 });
+    }
+  }
+
   const status = langfuseExporter.getStatus();
   const ok = langfuseOk && !generateError && Boolean(text);
 
@@ -355,7 +461,9 @@ export async function runResearchMission(
       model: agentBundle.resolved.litellmModelId,
       endpoint: agentBundle.resolved.endpoint,
       inferenceTelemetryId: inferenceTelemetry?.id ?? null,
+      evidenceGate: evidenceGate ?? null,
     },
+    evidenceGate,
   };
 
   if (!langfuseOk && options.throwOnExportFailure !== false) {

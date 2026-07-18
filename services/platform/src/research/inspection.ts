@@ -17,7 +17,8 @@ export type ResearchInspection = {
 
 function processSummary(plan: unknown): unknown[] {
   if (!plan || typeof plan !== 'object' || Array.isArray(plan)) return [];
-  const processes = (plan as Record<string, unknown>).processes;
+  const planRecord = plan as Record<string, unknown>;
+  const processes = planRecord.processes ?? planRecord.phases;
   return Array.isArray(processes) ? processes : [];
 }
 
