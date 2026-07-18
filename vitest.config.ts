@@ -46,6 +46,8 @@ export default defineConfig({
       // Sprint 17 — deterministic research gate and distinct ASSAY/CHALLENGE fleet calls
       'services/platform/tests/integration/sprint17-research-engine.test.ts',
       'services/platform/tests/integration/sprint17-mission-template.test.ts',
+      // Sprint 18 — idempotent fleet chat runs and resumable SSE
+      'services/platform/tests/integration/sprint18-chat-runs.test.ts',
     ],
     setupFiles: ['tests/setup/react-native.ts'],
     exclude: ['node_modules', 'dist', '.expo'],

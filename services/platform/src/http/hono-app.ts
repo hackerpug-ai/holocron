@@ -26,6 +26,7 @@ import {
   selectPublicArticle,
   selectPublicArticleAsset,
 } from './article.ts';
+import { cancelChatRun, createChatRun, getChatRun, listChatEvents } from './chat-runs.ts';
 import { type HealthBody, runHealthCheck } from './health.ts';
 import {
   createScopedKeyMiddleware,
@@ -194,6 +195,63 @@ export function createHonoApp(options?: CreateHonoAppOptions): HonoApp {
     c.header('Content-Range', `bytes ${range.start}-${range.end}/${bytes.length}`);
     c.header('Content-Length', String(sliced.length));
     return new Response(sliced, { status: 206, headers: c.res.headers });
+  });
+
+  app.post('/api/chat-runs', async (c) => {
+    try {
+      const result = await createChatRun(await c.req.json(), c.get('scope'));
+      return c.json(result, 200);
+    } catch (error) {
+      return Response.json(
+        {
+          error: 'chat_run_error',
+          message: error instanceof Error ? error.message : String(error),
+        },
+        { status: 422 }
+      );
+    }
+  });
+
+  app.post('/api/chat-runs/:id/cancel', async (c) => {
+    const result = await cancelChatRun(c.req.param('id'), { ownerScope: c.get('scope') });
+    if (!result) return c.json({ error: 'not_found', message: 'chat run not found' }, 404);
+    return c.json(result, 200);
+  });
+
+  app.get('/api/chat-runs/:id', async (c) => {
+    const result = await getChatRun(c.req.param('id'), { ownerScope: c.get('scope') });
+    if (!result) return c.json({ error: 'not_found', message: 'chat run not found' }, 404);
+    return c.json(result, 200);
+  });
+
+  app.get('/api/chat-runs/:id/events', async (c) => {
+    const runId = c.req.param('id');
+    const parsed = Number.parseInt(c.req.header('Last-Event-ID') ?? '0', 10);
+    const afterSeq = Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+    return streamSSE(c, async (stream) => {
+      let cursor = afterSeq;
+      const deadline = Date.now() + 30_000;
+      while (Date.now() < deadline) {
+        const result = await listChatEvents(runId, cursor, { ownerScope: c.get('scope') });
+        if (!result) {
+          await stream.writeSSE({
+            event: 'error',
+            data: JSON.stringify({ code: 'CHAT_RUN_NOT_FOUND' }),
+          });
+          return;
+        }
+        for (const event of result.events) {
+          await stream.writeSSE({
+            id: String(event.seq),
+            event: event.event_type,
+            data: JSON.stringify(event.data_json),
+          });
+          cursor = event.seq;
+        }
+        if (['completed', 'blocked', 'failed'].includes(result.run.status)) return;
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+    });
   });
 
   app.post('/api/uploads', async (c) => {

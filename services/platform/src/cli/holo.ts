@@ -217,6 +217,8 @@ Usage:
   gate:eval                  Pure-TS evidence admission gate (--claims/--refuting <json>)
   research:inspect <id>      Inspect durable research phases and gate provenance
   research:trace <id>        Show durable research process trace (--processes)
+  chat:trace <id>            Show chat event/tool-loop trace
+  chat:route <id>            Show chat triage and bound specialist route
   ci runner:status         Fail-closed self-hosted runner probe (labels online)
   db seed --reset          Deterministic nonprod seed/reset (fails closed on prod)
   db:provision-nonprod     Create holocron_nonprod + migrate + zero_pub
@@ -3377,6 +3379,59 @@ async function main(): Promise<void> {
       }
       break;
     }
+    case 'chat:trace':
+    case 'chat:route': {
+      const runId = args.positional[1];
+      if (!runId) {
+        const payload = { ok: false, error: `${args.command} requires <run-id>` };
+        if (args.json) console.log(JSON.stringify(payload, null, 2));
+        else console.error(payload.error);
+        process.exit(2);
+      }
+      try {
+        const { getChatRun } = await import('../http/chat-runs.ts');
+        const result = await getChatRun(runId);
+        if (!result) {
+          const payload = { ok: false, error: 'chat run not found', code: 'CHAT_RUN_NOT_FOUND' };
+          if (args.json) console.log(JSON.stringify(payload, null, 2));
+          else console.error(payload.error);
+          process.exit(1);
+        }
+        const payload =
+          args.command === 'chat:route'
+            ? {
+                ok: true,
+                runId,
+                triageRole: 'divergent',
+                specialistRole: result.role,
+                toolGrants: ['chat_context'],
+                maxSteps: result.maxSteps,
+              }
+            : {
+                ok: true,
+                runId,
+                traceId: result.traceId,
+                status: result.status,
+                maxSteps: result.maxSteps,
+                stepsUsed: result.stepsUsed,
+                events: result.events,
+              };
+        if (args.json) console.log(JSON.stringify(payload, null, 2));
+        else console.log(JSON.stringify(payload, null, 2));
+        process.exit(0);
+      } catch (error) {
+        const payload = {
+          ok: false,
+          error: error instanceof Error ? error.message : String(error),
+          code: 'CHAT_INSPECTION_FAILED',
+        };
+        if (args.json) console.log(JSON.stringify(payload, null, 2));
+        else console.error(payload.error);
+        process.exit(1);
+      }
+      break;
+    }
+
     case 'research:inspect':
     case 'research:trace': {
       const sessionId = args.positional[1];
