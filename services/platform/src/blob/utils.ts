@@ -10,6 +10,8 @@ export function isSha256Hex(value: string): boolean {
 }
 
 export function detectMimeFromBuffer(bytes: Buffer, filename = ''): string {
+  const normalizedName = filename.toLowerCase();
+
   if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
     return 'image/jpeg';
   }
@@ -22,21 +24,48 @@ export function detectMimeFromBuffer(bytes: Buffer, filename = ''): string {
   ) {
     return 'image/png';
   }
+  if (bytes.length >= 6) {
+    const header = bytes.slice(0, 6).toString('ascii');
+    if (header === 'GIF87a' || header === 'GIF89a') {
+      return 'image/gif';
+    }
+  }
+  if (
+    bytes.length >= 12 &&
+    bytes.slice(0, 4).toString('ascii') === 'RIFF' &&
+    bytes.slice(8, 12).toString('ascii') === 'WEBP'
+  ) {
+    return 'image/webp';
+  }
+  if (bytes.length >= 5 && bytes.slice(0, 5).toString('ascii') === '%PDF-') {
+    return 'application/pdf';
+  }
+  if (
+    bytes.length >= 12 &&
+    bytes.slice(0, 4).toString('ascii') === 'RIFF' &&
+    bytes.slice(8, 12).toString('ascii') === 'WAVE'
+  ) {
+    return 'audio/wav';
+  }
   if (bytes.length >= 4 && bytes.slice(0, 4).toString('ascii') === 'fLaC') {
     return 'audio/flac';
   }
   if (bytes.length >= 3 && bytes.slice(0, 3).toString('ascii') === 'ID3') {
     return 'audio/mpeg';
   }
-  if (filename.endsWith('.mp3')) return 'audio/mpeg';
-  if (filename.endsWith('.json') || filename.endsWith('.jsonl')) return 'application/json';
 
-  const asText = bytes.toString('utf8');
+  if (normalizedName.endsWith('.mp3')) return 'audio/mpeg';
+  if (normalizedName.endsWith('.wav')) return 'audio/wav';
+  if (normalizedName.endsWith('.pdf')) return 'application/pdf';
+  if (normalizedName.endsWith('.txt')) return 'text/plain';
+  if (normalizedName.endsWith('.json') || normalizedName.endsWith('.jsonl')) {
+    return 'application/json';
+  }
+
   let printable = true;
-  for (let i = 0; i < asText.length; i++) {
-    const code = asText.charCodeAt(i);
-    if (code === 0x09 || code === 0x0a || code === 0x0d) continue;
-    if (code < 0x20 || code > 0x7e) {
+  for (const byte of bytes) {
+    if (byte === 0x09 || byte === 0x0a || byte === 0x0d) continue;
+    if (byte < 0x20 || byte > 0x7e) {
       printable = false;
       break;
     }

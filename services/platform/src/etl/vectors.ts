@@ -14,6 +14,8 @@ const PAST_8K_QUERY =
   'Sprint 14 vector regeneration should retrieve this exact span UNIQUE_PAST_8K_MARKER';
 const UNIT_NORM_TOLERANCE = 0.02;
 
+export type EtlVectorRetrievalStatus = 'marker-found' | 'marker-missing' | 'empty-corpus';
+
 export interface EtlVectorRunResult {
   ok: boolean;
   documentsProcessed: number;
@@ -47,6 +49,7 @@ export interface EtlVectorRunResult {
     query: string;
     searchMethod: string | null;
     ok: boolean;
+    status: EtlVectorRetrievalStatus;
     matchedMarker: boolean;
     hitDocumentId: string | null;
     hitPassageId: string | null;
@@ -111,12 +114,36 @@ async function verifyUnitNorm(sql: Sql) {
   };
 }
 
-async function verifyPast8kRetrieval(sql: Sql, endpointOverride?: string) {
+async function verifyPast8kRetrieval(
+  sql: Sql,
+  options?: {
+    endpointOverride?: string;
+    emptyCorpus?: boolean;
+  }
+) {
+  if (options?.emptyCorpus) {
+    return {
+      query: PAST_8K_QUERY,
+      searchMethod: null,
+      ok: true,
+      status: 'empty-corpus' as const,
+      matchedMarker: false,
+      hitDocumentId: null,
+      hitPassageId: null,
+      score: null,
+    };
+  }
+
   const db = createDb(sql);
   const result = await rrfHybridSearch(db, sql, {
     query: PAST_8K_QUERY,
     limit: 5,
-    embed: (text, mode) => embed(text, mode, endpointOverride ? { endpointOverride } : undefined),
+    embed: (text, mode) =>
+      embed(
+        text,
+        mode,
+        options?.endpointOverride ? { endpointOverride: options.endpointOverride } : undefined
+      ),
   });
   const hit = result.results.find((item) => (item.content ?? '').includes(PAST_8K_MARKER)) ?? null;
 
@@ -124,6 +151,7 @@ async function verifyPast8kRetrieval(sql: Sql, endpointOverride?: string) {
     query: PAST_8K_QUERY,
     searchMethod: result.searchMethod ?? null,
     ok: hit != null,
+    status: hit != null ? ('marker-found' as const) : ('marker-missing' as const),
     matchedMarker: hit != null,
     hitDocumentId: hit?.document_id ?? null,
     hitPassageId: hit?.passage_id ?? null,
@@ -255,14 +283,17 @@ export async function runEtlVectors(options?: {
     });
 
     const unitNorm = await verifyUnitNorm(sql);
-    const retrieval = await verifyPast8kRetrieval(sql, endpointOverride);
-    const markerFoundPast8k = retrieval.ok;
+    const emptyCorpus = docs.length === 0 && passagesInserted === 0;
+    const retrieval = await verifyPast8kRetrieval(sql, { endpointOverride, emptyCorpus });
+    const markerFoundPast8k = retrieval.status === 'marker-found';
+    const retrievalSatisfied =
+      retrieval.status === 'empty-corpus' ? retrieval.ok : markerFoundPast8k;
 
     return {
       ok:
         embedResult.remainingNull === 0 &&
         unitNorm.violations === 0 &&
-        markerFoundPast8k &&
+        retrievalSatisfied &&
         fleetProbe.probeUnitNormOk &&
         Boolean(fleetProbe.modelId) &&
         Boolean(fleetProbe.modelRevision),

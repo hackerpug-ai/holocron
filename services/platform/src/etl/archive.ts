@@ -28,6 +28,18 @@ export interface ImmutableExport {
   fileManifest: Array<{ path: string; sha256: string; bytes: number }>;
 }
 
+interface BlobManifestEntry {
+  sha256: string;
+  bytes: number;
+  ref?: string;
+  contentType?: string | null;
+}
+
+interface BlobManifest {
+  source: 'custom' | 'native';
+  entries: Record<string, BlobManifestEntry>;
+}
+
 function sha256Text(text: string): string {
   return createHash('sha256').update(text).digest('hex');
 }
@@ -113,10 +125,63 @@ function validateTableSurface(root: string, listedTables: string[]): void {
   }
 }
 
+function readCustomBlobMeta(metaFile: string): Record<string, BlobManifestEntry> {
+  const parsed = JSON.parse(readFileSync(metaFile, 'utf8')) as Record<
+    string,
+    { sha256?: unknown; bytes?: unknown; ref?: unknown }
+  >;
+  const entries: Record<string, BlobManifestEntry> = {};
+
+  for (const [legacyId, declared] of Object.entries(parsed)) {
+    if (typeof declared.sha256 !== 'string' || declared.sha256.trim().length === 0) {
+      throw new Error(`etl export _blob_meta entry ${legacyId} missing sha256`);
+    }
+    const bytes = Number(declared.bytes);
+    if (!Number.isSafeInteger(bytes) || bytes < 0) {
+      throw new Error(`etl export _blob_meta entry ${legacyId} has invalid bytes`);
+    }
+    if (declared.ref != null && typeof declared.ref !== 'string') {
+      throw new Error(`etl export _blob_meta entry ${legacyId} has invalid ref`);
+    }
+    entries[legacyId] = {
+      sha256: declared.sha256,
+      bytes,
+      ref: typeof declared.ref === 'string' ? declared.ref : undefined,
+    };
+  }
+
+  return entries;
+}
+
+function resolveBlobManifest(root: string, exp: ConvexExport): BlobManifest {
+  const metaFile = join(root, '_blob_meta.json');
+  if (existsSync(metaFile)) {
+    return {
+      source: 'custom',
+      entries: readCustomBlobMeta(metaFile),
+    };
+  }
+  if (exp.hasNativeStorageMetadata) {
+    return {
+      source: 'native',
+      entries: Object.fromEntries(
+        Object.entries(exp.storageMetadata).map(([legacyId, metadata]) => [
+          legacyId,
+          {
+            sha256: metadata.sha256,
+            bytes: metadata.bytes,
+            contentType: metadata.contentType,
+          },
+        ])
+      ),
+    };
+  }
+  throw new Error(`etl export missing required _blob_meta.json: ${metaFile}`);
+}
+
 function validateBlobMeta(root: string, exp: ConvexExport, catalog: SourceCatalog): void {
   const storageDir = join(root, '_storage');
   const hasStorage = existsSync(storageDir) && statSync(storageDir).isDirectory();
-  const metaFile = join(root, '_blob_meta.json');
   const retainedIds = collectRetainedStorageLegacyIds(catalog, exp);
   const accountedIds = collectCatalogStorageLegacyIds(catalog, exp);
   const requiresStorageArtifacts = retainedIds.size > 0 || exp.storageBlobs.length > 0;
@@ -128,14 +193,7 @@ function validateBlobMeta(root: string, exp: ConvexExport, catalog: SourceCatalo
     return;
   }
 
-  if (!existsSync(metaFile)) {
-    throw new Error(`etl export missing required _blob_meta.json: ${metaFile}`);
-  }
-
-  const meta = JSON.parse(readFileSync(metaFile, 'utf8')) as Record<
-    string,
-    { sha256?: string; bytes?: number; ref?: string }
-  >;
+  const manifest = resolveBlobManifest(root, exp);
   const blobIds = new Set(exp.storageBlobs.map((blob) => blob.legacyId));
 
   for (const [legacyId, sourceRef] of retainedIds) {
@@ -144,15 +202,25 @@ function validateBlobMeta(root: string, exp: ConvexExport, catalog: SourceCatalo
         `etl export retained storage ref ${sourceRef} missing required blob ${legacyId} in _storage`
       );
     }
-    if (!meta[legacyId]) {
+    if (!manifest.entries[legacyId]) {
+      if (manifest.source === 'native') {
+        throw new Error(
+          `etl export retained storage ref ${sourceRef} missing native _storage/documents.jsonl metadata for ${legacyId}`
+        );
+      }
       throw new Error(
         `etl export retained storage ref ${sourceRef} missing _blob_meta entry for ${legacyId}`
       );
     }
   }
 
-  for (const [legacyId, declared] of Object.entries(meta)) {
+  for (const [legacyId, declared] of Object.entries(manifest.entries)) {
     if (!blobIds.has(legacyId)) {
+      if (manifest.source === 'native') {
+        throw new Error(
+          `etl export native _storage/documents.jsonl entry ${legacyId} does not have a matching blob file`
+        );
+      }
       throw new Error(`etl export _blob_meta entry ${legacyId} does not have a matching blob file`);
     }
     const accounted = accountedIds.get(legacyId);
@@ -161,7 +229,7 @@ function validateBlobMeta(root: string, exp: ConvexExport, catalog: SourceCatalo
         `etl export blob ${legacyId} is not represented by an approved retained or dropped catalog storage ref`
       );
     }
-    if (declared.ref && declared.ref !== accounted.sourceRef) {
+    if (manifest.source === 'custom' && declared.ref && declared.ref !== accounted.sourceRef) {
       throw new Error(
         `etl export blob ${legacyId} _blob_meta ref ${declared.ref} does not match catalog storage ref ${accounted.sourceRef}`
       );
@@ -175,8 +243,13 @@ function validateBlobMeta(root: string, exp: ConvexExport, catalog: SourceCatalo
         `etl export blob ${blob.legacyId} is not represented by an approved retained or dropped catalog storage ref`
       );
     }
-    const declared = meta[blob.legacyId];
+    const declared = manifest.entries[blob.legacyId];
     if (!declared) {
+      if (manifest.source === 'native') {
+        throw new Error(
+          `etl export blob ${blob.legacyId} missing native _storage/documents.jsonl metadata`
+        );
+      }
       throw new Error(`etl export blob ${blob.legacyId} missing from _blob_meta.json`);
     }
     if (declared.sha256 !== blob.sha256) {

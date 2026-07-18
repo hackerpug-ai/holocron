@@ -9,15 +9,27 @@
  */
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { detectMimeFromBuffer } from '../../src/blob/utils';
+import { loadCatalog } from '../../src/catalog/catalog-loader';
+import { readExport } from '../../src/catalog/export-reader';
 import { createSql, type Sql } from '../../src/db/client';
 import {
   DANGEROUS_PROD_DB_OVERRIDE_ENV,
   resolveHolocronNonprodDatabaseUrl,
 } from '../../src/db/connection';
+import { readImmutableExport } from '../../src/etl/archive';
 import { deterministicUuidV7 } from '../../src/etl/deterministic-uuidv7';
 
 const PLATFORM_IT = process.env.PLATFORM_IT === '1';
@@ -31,6 +43,18 @@ const CATALOG = resolve(
 );
 const EVIDENCE_DIR = resolve(REPO_ROOT, '.tmp/sprint-14-impl');
 const BLOB_ROOT = resolve(EVIDENCE_DIR, 'blob-store');
+const REAL_PROD_EXPORT = resolve(
+  REPO_ROOT,
+  '.tmp/sprint-14-human-gate-20260718/convex-prod-export'
+);
+const HAS_REAL_PROD_EXPORT = existsSync(REAL_PROD_EXPORT);
+const itRealExport = (name: string, fn: () => Promise<unknown> | unknown, timeout?: number) => {
+  if (PLATFORM_IT && HAS_REAL_PROD_EXPORT) {
+    it(name, fn, timeout);
+    return;
+  }
+  it.skip(name, fn);
+};
 const DATABASE_URL = requireNonprodDatabaseUrl(
   process.env.DATABASE_URL ?? 'postgres://127.0.0.1:5432/holocron_nonprod'
 );
@@ -93,6 +117,86 @@ function rewriteFirstJsonlRow(
   writeFileSync(filePath, `${lines.join('\n')}\n`, 'utf8');
 }
 
+function rewriteJsonlRowById(
+  filePath: string,
+  rowId: string,
+  mutate: (row: Record<string, unknown>) => Record<string, unknown>
+) {
+  const lines = readFileSync(filePath, 'utf8').trimEnd().split('\n');
+  let found = false;
+  const updated = lines.map((line) => {
+    const row = JSON.parse(line) as Record<string, unknown>;
+    if (row._id !== rowId) {
+      return line;
+    }
+    found = true;
+    return JSON.stringify(mutate(row));
+  });
+  if (!found) {
+    throw new Error(`Sprint 14 ETL test fixture missing JSONL row ${rowId}`);
+  }
+  writeFileSync(filePath, `${updated.join('\n')}\n`, 'utf8');
+}
+
+function nativeFixtureContentType(legacyId: string): string {
+  if (legacyId === 'storage_improvementImages_storageId') return 'image/png';
+  if (
+    legacyId === 'storage_audioSegments_storageId' ||
+    legacyId === 'storage_voiceSessions_audioStorageId'
+  ) {
+    return 'audio/mpeg';
+  }
+  return 'text/plain';
+}
+
+function nativeFixtureFileName(legacyId: string): string {
+  if (legacyId === 'storage_improvementImages_storageId') return `${legacyId}.png`;
+  if (
+    legacyId === 'storage_audioSegments_storageId' ||
+    legacyId === 'storage_voiceSessions_audioStorageId'
+  ) {
+    return `${legacyId}.mp3`;
+  }
+  return `${legacyId}.txt`;
+}
+
+function materializeNativeStorageFixture(tmpRoot: string): string {
+  const exportDir = join(tmpRoot, 'native-export');
+  cpSync(EXPORT_FIXTURE, exportDir, { recursive: true });
+
+  const storageDir = join(exportDir, '_storage');
+  const legacyBlobMeta = JSON.parse(
+    readFileSync(join(exportDir, '_blob_meta.json'), 'utf8')
+  ) as Record<string, { sha256: string; bytes: number; ref: string }>;
+  const metadataLines: string[] = [];
+  let creationTime = 1_700_000_001_000;
+
+  for (const [legacyId, declared] of Object.entries(legacyBlobMeta).sort(([a], [b]) =>
+    a.localeCompare(b)
+  )) {
+    const originalPath = join(storageDir, legacyId);
+    const renamedPath = join(storageDir, nativeFixtureFileName(legacyId));
+    const bytes = readFileSync(originalPath);
+    writeFileSync(renamedPath, bytes);
+    rmSync(originalPath);
+    metadataLines.push(
+      JSON.stringify({
+        _id: legacyId,
+        _creationTime: creationTime,
+        sha256: Buffer.from(declared.sha256, 'hex').toString('base64'),
+        size: bytes.length,
+        contentType: nativeFixtureContentType(legacyId),
+        internalId: `native-fixture-${legacyId}`,
+      })
+    );
+    creationTime += 1;
+  }
+
+  rmSync(join(exportDir, '_blob_meta.json'));
+  writeFileSync(join(storageDir, 'documents.jsonl'), `${metadataLines.join('\n')}\n`, 'utf8');
+  return exportDir;
+}
+
 async function truncateSprint14Tables(sql: Sql): Promise<void> {
   await sql.unsafe(`
     TRUNCATE TABLE
@@ -132,6 +236,147 @@ async function truncateSprint14Tables(sql: Sql): Promise<void> {
     RESTART IDENTITY CASCADE
   `);
 }
+
+it('detectMimeFromBuffer keeps ID3 mp3 detection when staged uploads lose the .mp3 extension', () => {
+  const stagedVoiceBytes = Buffer.concat([
+    Buffer.from('49443304000000000021', 'hex'),
+    Buffer.from('synthetic-upload-voice'),
+  ]);
+
+  expect(detectMimeFromBuffer(stagedVoiceBytes, '/tmp/voice-staging/upload.upload')).toBe(
+    'audio/mpeg'
+  );
+});
+
+it('readImmutableExport accepts native Convex _storage metadata without _blob_meta', () => {
+  const tmp = mkdtempSync(join(tmpdir(), 'etl-native-storage-'));
+  try {
+    const exportDir = materializeNativeStorageFixture(tmp);
+    const catalog = loadCatalog(CATALOG);
+    const archive = readImmutableExport(exportDir, catalog);
+
+    expect(archive.exportData.hasNativeStorageMetadata).toBe(true);
+    expect(archive.exportData.storageBlobs).toHaveLength(6);
+    expect(
+      archive.exportData.storageBlobs.some((blob) => blob.fileName === 'documents.jsonl')
+    ).toBe(false);
+    const imageBlob = archive.exportData.storageBlobs.find(
+      (blob) => blob.legacyId === 'storage_improvementImages_storageId'
+    );
+    expect(imageBlob?.path).toMatch(/storage_improvementImages_storageId\.png$/);
+    expect(imageBlob?.mime).toBe('image/png');
+    expect(archive.assetInventory.retained_count).toBe(5);
+    expect(archive.assetInventory.objects.map((object) => object.legacy_id).sort()).toEqual([
+      'storage_audioSegments_storageId',
+      'storage_audioTranscripts_storageId',
+      'storage_improvementImages_storageId',
+      'storage_videoTranscripts_storageId',
+      'storage_voiceSessions_audioStorageId',
+    ]);
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+it('readExport fails closed on native _storage metadata mismatches and unpaired entries', () => {
+  const mismatchTmp = mkdtempSync(join(tmpdir(), 'etl-native-mismatch-'));
+  try {
+    const mismatchExport = materializeNativeStorageFixture(mismatchTmp);
+    writeFileSync(
+      join(mismatchExport, '_storage', nativeFixtureFileName('storage_audioSegments_storageId')),
+      'tampered-native-storage-bytes',
+      'utf8'
+    );
+    expect(() => readExport(mismatchExport)).toThrow(/sha mismatch|byte-length mismatch/i);
+  } finally {
+    rmSync(mismatchTmp, { recursive: true, force: true });
+  }
+
+  const unpairedTmp = mkdtempSync(join(tmpdir(), 'etl-native-unpaired-'));
+  try {
+    const unpairedExport = materializeNativeStorageFixture(unpairedTmp);
+    const storageDocs = join(unpairedExport, '_storage', 'documents.jsonl');
+    const appended = [
+      readFileSync(storageDocs, 'utf8').trimEnd(),
+      JSON.stringify({
+        _id: 'storage_missing_blob_file',
+        _creationTime: 1_700_000_009_999,
+        sha256: Buffer.from('11'.repeat(32), 'hex').toString('base64'),
+        size: 12,
+        contentType: 'text/plain',
+        internalId: 'native-fixture-missing-blob',
+      }),
+    ].join('\n');
+    writeFileSync(storageDocs, `${appended}\n`, 'utf8');
+    expect(() => readExport(unpairedExport)).toThrow(/matching blob file/i);
+  } finally {
+    rmSync(unpairedTmp, { recursive: true, force: true });
+  }
+});
+
+it('readExport and readImmutableExport fail closed on native contentType tamper', () => {
+  const tmp = mkdtempSync(join(tmpdir(), 'etl-native-content-type-'));
+  try {
+    const exportDir = materializeNativeStorageFixture(tmp);
+    const storageDocs = join(exportDir, '_storage', 'documents.jsonl');
+    rewriteJsonlRowById(storageDocs, 'storage_audioSegments_storageId', (row) => ({
+      ...row,
+      contentType: 'application/pdf',
+    }));
+
+    expect(() => readExport(exportDir)).toThrow(
+      /content-type mismatch|application\/pdf|audio\/mpeg/i
+    );
+    expect(() => readImmutableExport(exportDir, loadCatalog(CATALOG))).toThrow(
+      /content-type mismatch|application\/pdf|audio\/mpeg/i
+    );
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+itRealExport('catalog:assets accepts the downloaded real Convex export surface', () => {
+  const direct = readExport(REAL_PROD_EXPORT);
+  expect(direct.hasNativeStorageMetadata).toBe(true);
+  expect(direct.storageBlobs.some((blob) => blob.legacyId === 'documents.jsonl')).toBe(false);
+
+  const result = runHolo([
+    'catalog:assets',
+    '--export',
+    REAL_PROD_EXPORT,
+    '--catalog',
+    CATALOG,
+    '--json',
+  ]);
+  expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
+  const report = JSON.parse(result.stdout) as {
+    ok: boolean;
+    retained_count: number;
+    objects: Array<{
+      legacy_id: string;
+      bytes: number;
+      mime: string;
+      path: string;
+      source_ref: string | null;
+    }>;
+  };
+  expect(report.ok).toBe(true);
+  expect(report.retained_count).toBe(1);
+  expect(report.objects).toHaveLength(1);
+  expect(report.objects[0]).toMatchObject({
+    legacy_id: 'kg235s6xj8j4ehjhf8rn96984d83n549',
+    bytes: 220,
+    mime: 'text/plain',
+    source_ref: 'videoTranscripts.storageId',
+  });
+  expect(report.objects[0]?.path).toMatch(/_storage\/kg235s6xj8j4ehjhf8rn96984d83n549\.txt$/);
+
+  writeArtifact('real-convex-export-catalog-assets.json', {
+    direct,
+    result,
+    report,
+  });
+});
 
 describe('Sprint 14 ETL + blob verify', () => {
   let sql: Sql | null = null;
@@ -735,6 +980,7 @@ describe('Sprint 14 ETL + blob verify', () => {
         unitNorm: { checked: number; violations: number; maxDeviation: number; tolerance: number };
         retrieval: {
           ok: boolean;
+          status: 'marker-found' | 'marker-missing' | 'empty-corpus';
           matchedMarker: boolean;
           hitPassageId: string | null;
           hitDocumentId: string | null;
@@ -752,6 +998,7 @@ describe('Sprint 14 ETL + blob verify', () => {
       expect(vectorReport.unitNorm.checked).toBeGreaterThanOrEqual(2);
       expect(vectorReport.unitNorm.violations).toBe(0);
       expect(vectorReport.retrieval.ok).toBe(true);
+      expect(vectorReport.retrieval.status).toBe('marker-found');
       expect(vectorReport.retrieval.matchedMarker).toBe(true);
       expect(vectorReport.retrieval.hitPassageId).toBeTruthy();
       expect(vectorReport.retrieval.searchMethod).toBe('rrf');
@@ -919,5 +1166,83 @@ describe('Sprint 14 ETL + blob verify', () => {
       });
     },
     360_000
+  );
+
+  itRealExport(
+    'etl:vectors treats a zero-document real export as a vacuous-but-real vector lane',
+    async () => {
+      const db = requireSql(sql);
+      await truncateSprint14Tables(db);
+
+      const load = runHolo([
+        'etl:run',
+        '--export',
+        REAL_PROD_EXPORT,
+        '--catalog',
+        CATALOG,
+        '--json',
+      ]);
+      expect(load.status, `${load.stdout}\n${load.stderr}`).toBe(0);
+
+      const vectors = runHolo([
+        'etl:vectors',
+        '--export',
+        REAL_PROD_EXPORT,
+        '--catalog',
+        CATALOG,
+        '--json',
+      ]);
+      expect(vectors.status, `${vectors.stdout}\n${vectors.stderr}`).toBe(0);
+      const vectorReport = JSON.parse(vectors.stdout) as {
+        ok: boolean;
+        documentsProcessed: number;
+        passagesInserted: number;
+        embed: {
+          processed: number;
+          remainingNull: number;
+          modelId: string;
+          modelRevision: string;
+          endpoint: string;
+          provider: string;
+          embeddingDimension: number;
+        };
+        fleetProbe: {
+          probeVectorNorm: number;
+          probeUnitNormOk: boolean;
+        };
+        unitNorm: { checked: number; violations: number; maxDeviation: number; tolerance: number };
+        retrieval: {
+          ok: boolean;
+          status: 'marker-found' | 'marker-missing' | 'empty-corpus';
+          matchedMarker: boolean;
+          hitPassageId: string | null;
+          hitDocumentId: string | null;
+          searchMethod: string | null;
+        };
+        markerFoundPast8k: boolean;
+      };
+
+      expect(vectorReport.ok).toBe(true);
+      expect(vectorReport.documentsProcessed).toBe(0);
+      expect(vectorReport.passagesInserted).toBe(0);
+      expect(vectorReport.embed.processed).toBe(0);
+      expect(vectorReport.embed.remainingNull).toBe(0);
+      expect(vectorReport.embed.modelId).toBeTruthy();
+      expect(vectorReport.embed.modelRevision).toBeTruthy();
+      expect(vectorReport.unitNorm.checked).toBe(0);
+      expect(vectorReport.unitNorm.violations).toBe(0);
+      expect(vectorReport.retrieval.ok).toBe(true);
+      expect(vectorReport.retrieval.status).toBe('empty-corpus');
+      expect(vectorReport.retrieval.matchedMarker).toBe(false);
+      expect(vectorReport.retrieval.hitPassageId).toBeNull();
+      expect(vectorReport.retrieval.hitDocumentId).toBeNull();
+      expect(vectorReport.retrieval.searchMethod).toBeNull();
+      expect(vectorReport.markerFoundPast8k).toBe(false);
+      expect(Number.isFinite(vectorReport.fleetProbe.probeVectorNorm)).toBe(true);
+      expect(vectorReport.fleetProbe.probeUnitNormOk).toBe(true);
+
+      writeArtifact('real-convex-export-etl-vectors.json', vectorReport);
+    },
+    240_000
   );
 });
