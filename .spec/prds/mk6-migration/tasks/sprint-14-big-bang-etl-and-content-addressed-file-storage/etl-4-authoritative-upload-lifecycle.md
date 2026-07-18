@@ -1,10 +1,10 @@
-# etl-4 — Authoritative upload lifecycle
+# etl-4 — Authoritative Hono upload lifecycle: init/PUT/finalize, hash verification, idempotent attach, no orphan
 
 > Status: Planned · Sprint: 14 · Agent: mastra-implementer · Proposed By: mastra-planner
 
 ## Outcome
 
-Add authoritative Hono upload-init/PUT/finalize behavior for image and voice artifacts. Init creates an idempotent upload intent, PUT streams bytes into a staged area, and finalize verifies SHA-256/length/MIME before one transaction promotes and attaches the content-addressed object.
+Add the backend prerequisite for the authoritative Hono upload-init/PUT/finalize behavior for image and voice artifacts. Sprint 14 proves the real Hono API and storage transaction; Sprint 26 owns the full RN end-to-end T-DATA-021 flow. Init creates an idempotent upload intent, PUT streams bytes into a staged area, and finalize verifies SHA-256/length/MIME before one transaction promotes and attaches the content-addressed object.
 
 ## Acceptance Criteria
 

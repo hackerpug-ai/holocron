@@ -1,10 +1,10 @@
-# etl-6 — Verify export completeness and migration integrity
+# etl-6 — Verify export completeness (convex) + target migration integrity (mastra)
 
-> Status: Planned · Sprint: 14 · Agent: convex-reviewer · Proposed By: convex-planner
+> Status: Planned · Sprint: 14 · Agent: convex-reviewer + mastra-reviewer · Proposed By: convex-planner
 
 ## Outcome
 
-Independently verify that the migration consumes the complete Convex export and source catalog, every intentional drop/merge/regenerate/archive has approval, every retained object has parity evidence, and the ETL report is not a self-certified proxy.
+With convex-reviewer covering source/export completeness and mastra-reviewer covering target Postgres/blob/Hono integrity, independently verify that the migration consumes the complete Convex export and source catalog, every intentional drop/merge/regenerate/archive has approval, every retained object has parity evidence, and the ETL report is not a self-certified proxy.
 
 ## Acceptance Criteria
 
@@ -12,8 +12,8 @@ Independently verify that the migration consumes the complete Convex export and 
 Compare export manifest/table/field/storage inventory to the catalog and ETL report; any missing source relation, field, object, or unmapped disposition is blocking.
 **VERIFY:** completeness CLI/report and seeded missing-entry fixture exit nonzero.
 
-### AC-2 — independent integrity review
-Recompute target counts/formulas, map checksums, FK/null audit, status violations, vector sanity, and blob manifest parity from raw Postgres/filesystem evidence; reviewer report names all commands and sources.
+### AC-2 — independent dual integrity review
+Mastra-reviewer recomputes target counts/formulas, map checksums, FK/null audit, status violations, vector sanity, upload no-orphan behavior, and exhaustive blob manifest parity from raw Postgres/filesystem/Hono evidence; the dual reviewer report names all commands and sources.
 **VERIFY:** independent report has zero unexplained variance and no CRITICAL/HIGH finding.
 
 ### AC-3 — provenance and replay proof

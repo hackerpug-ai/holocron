@@ -12,8 +12,8 @@ Implement the filesystem-backed `BlobStore` contract (`put/get/stream/url/delete
 Putting bytes stores once at `<sha256>`, verifies byte length and digest, uses temp-file-plus-rename, and repeated puts are idempotent. Partial files never become visible.
 **VERIFY:** real filesystem store, crash/partial negative control, duplicate put leaves one object.
 
-### AC-2 — retained asset parity
-Catalog-retained MP3/image/voice/file objects migrate with source ID, SHA-256, length, MIME, disposition, and approved exception; `holo blob:verify` exits nonzero on any mismatch.
+### AC-2 — exhaustive retained asset parity
+Every catalog-retained MP3/image/voice/file object, or explicitly approved exception, is represented in the manifest with source ID, SHA-256, length, MIME, disposition, and approval; `holo blob:verify` exits nonzero on any mismatch or missing object.
 **VERIFY:** real fixture and one-byte/hash/MIME tamper controls.
 
 ### AC-3 — Range read correctness
@@ -23,7 +23,7 @@ Tailnet blob route returns 200 full bytes or 206 with correct `Content-Range`, `
 ## Test Criteria
 
 - **TC-1 integration:** put/get/stream and repeated put have identical bytes and one physical object.
-- **TC-2 integration:** retained-object manifest hash/length/MIME is byte-comparable.
+- **TC-2 integration:** the complete retained-object manifest hash/length/MIME is byte-comparable; a representative Range read is additionally checked.
 - **TC-3 integration:** full and partial HTTP reads match expected bytes.
 
 ## Guardrails

@@ -9,7 +9,7 @@ Write failing, scenario-backed tests before implementation for zero variance, NU
 ## Acceptance Criteria
 
 ### AC-1 — real gate entrypoints exist
-Tests and documented CLI invocations cover all seven Sprint 14 human steps without mocks substituting Postgres, fleet, filesystem, or Hono.
+Tests and documented CLI invocations cover all seven Sprint 14 human steps against a real immutable export archive without mocks substituting Postgres, fleet, filesystem, or Hono.
 **VERIFY:** RED-start run proves missing etl/blob/upload surfaces fail; scenario contracts validate.
 
 ### AC-2 — negative controls have teeth
@@ -23,7 +23,7 @@ Fixtures are immutable/hashed, generated IDs and expected formulas are stable, a
 ## Test Criteria
 
 - **TC-1 RED:** run tests at the pre-implementation base and capture named missing-surface failures.
-- **TC-2 GREEN:** after implementation, real Postgres/fleet/blob/Hono gate suite passes.
+- **TC-2 GREEN:** after implementation, the real Postgres/fleet/blob/Hono backend gate suite passes; Sprint 26 owns the RN e2e portion of T-DATA-021.
 - **TC-3 negative:** all seeded controls fail for the intended reason.
 
 ## Guardrails

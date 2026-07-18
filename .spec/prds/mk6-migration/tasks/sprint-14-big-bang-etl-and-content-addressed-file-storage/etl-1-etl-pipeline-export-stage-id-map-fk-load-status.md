@@ -1,4 +1,4 @@
-# etl-1 — ETL pipeline: export, stage, ID map, FK load, status normalization
+# etl-1 — ETL pipeline: export, stage, whole-graph _id→UUIDv7 map, FK load, status normalization
 
 > Status: Planned · Sprint: 14 · Agent: mastra-implementer · Proposed By: mastra-planner
 
@@ -13,7 +13,7 @@ Own `services/platform/src/etl/`, CLI wiring, staging/load migrations and fixtur
 ## Acceptance Criteria
 
 ### AC-1 — immutable export validation
-Given a real export directory and catalog, when `etl:run` starts, then manifest/hash/schema checks run before writes and a missing/modified export fails closed without partial target rows.
+Given a real immutable Convex export archive and catalog, when `etl:run` starts, then manifest/hash/schema checks run before writes and a missing/modified archive fails closed without partial target rows.
 **VERIFY:** `DATABASE_URL=... bun services/platform/src/cli/holo.ts etl:run --export ./tests/fixtures/etl/export --json` and tamper negative control exit nonzero.
 
 ### AC-2 — complete map before load
@@ -21,7 +21,7 @@ Given rows with cross-table references, when the run executes, then every source
 **VERIFY:** inspect map count against catalog and kill/failure before load; no NULL mapping is accepted.
 
 ### AC-3 — FK-ordered canonical load
-Given the full export, then parent relations load before children, real FK constraints remain enabled, all references resolve, and `in-progress`/other source statuses map to documented canonical enums.
+Given the full export, then parent relations load before children, real FK constraints remain enabled, all references resolve, `legacy_convex_id` is retained/indexed through soak, and `in-progress`/other source statuses map to documented canonical enums.
 **VERIFY:** real nonprod run plus `holo etl:fk-audit --json`.
 
 ### AC-4 — rerunnable checkpointed execution
@@ -31,7 +31,7 @@ Given an interrupted or repeated run from the same immutable archive, then check
 ## Test Criteria
 
 - **TC-1 RED:** missing export manifest and tampered archive fail before target mutation.
-- **TC-2 integration:** real Postgres load of a catalog-backed export yields expected map and FK order.
+- **TC-2 integration:** real Postgres load of a catalog-backed export yields expected UUIDv7 map, FK order, and retained legacy IDs.
 - **TC-3 integration:** interruption/replay preserves idempotency and stable `convex_id_map`.
 
 ## Guardrails
