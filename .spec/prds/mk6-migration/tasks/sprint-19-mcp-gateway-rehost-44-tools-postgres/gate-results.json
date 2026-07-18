@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "runId": "s19-real-postgres-20260718T114558Z",
+  "steps": [
+    {"id":"S19-1","status":"passed","evidence":"mcp-verify-rehost.json","result":"44 manifest/registered tools; no missing executors, Convex refs, or duplicate validation sites"},
+    {"id":"S19-2","status":"passed","evidence":"mcp-verify-manifest.json","result":"44/44 tools covered with no manifest issues"},
+    {"id":"S19-3","status":"passed","evidence":"mcp-protocol.txt","result":"stdio and streamable-http; stateless; no server sampling; auth and cooperative cancellation declared"},
+    {"id":"S19-4","status":"passed","evidence":"sprint19-real-postgres-suite.txt","result":"1 file / 11 real Postgres integration tests passed"},
+    {"id":"S19-5","status":"passed","evidence":"sprint19-real-postgres-suite.txt","result":"actual stdio initialize, tools/list, and list_documents call passed"},
+    {"id":"S19-6","status":"passed","evidence":"sprint19-real-postgres-suite.txt","result":"44 frozen success fixtures validated against shared output schemas"},
+    {"id":"S19-7","status":"passed","evidence":".tmp/sprint-19-independent-review-final.md","result":"independent committed-HEAD review PASS with zero blockers"}
+  ],
+  "verification":{"typecheck":"passed","prdConsistency":"passed","realPostgres":true,"realJina":true,"realStdio":true,"all44Http":true,"replayFullEffectiveKey":true,"typedErrors":true,"cancellation":true,"noServerSampling":true,"authOrigin":true},
+  "overall":"passed"
+}

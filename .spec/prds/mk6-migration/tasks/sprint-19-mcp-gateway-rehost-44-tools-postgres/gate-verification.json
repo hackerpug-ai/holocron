@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "rawEvidenceDir": ".tmp/sprint-19-human-gate-20260718T113900Z",
+  "recomputed": {
+    "sourceHead": "f3c8f42",
+    "rawStepCount": 7,
+    "allStepsPassed": true,
+    "manifestTools": 44,
+    "registeredTools": 44,
+    "missingExecutors": 0,
+    "convexRefs": 0,
+    "duplicateValidationSites": 0,
+    "realPostgresTests": 11,
+    "stdioToolCall": true,
+    "allSuccessFixturesSchemaValid": true,
+    "shopLivePersistence": true,
+    "shopReplayFullEffectiveInput": true,
+    "recommendationsLiveJina": true,
+    "creatorTranscriptJobQueued": true,
+    "typedErrorCode": "INVALID_STATE",
+    "activeCancellation": true,
+    "samplingRejected": true,
+    "foreignOriginRejected": true
+  },
+  "review":{"independentReview":".tmp/sprint-19-independent-review-final.md","verdict":"PASS","blockingFindings":0},
+  "overall":"passed"
+}
