@@ -33,6 +33,8 @@ export default defineConfig({
       'services/platform/tests/integration/observability-traces.test.ts',
       // Sprint 12 — versioned eval scorers / datasets / baselines / drift (obs-3)
       'services/platform/tests/integration/evals-versioning.test.ts',
+      // Sprint 12 — CI regression gate (threshold + deterministic invariants) (obs-4)
+      'services/platform/tests/integration/evals-ci-gate.test.ts',
     ],
     setupFiles: ['tests/setup/react-native.ts'],
     exclude: ['node_modules', 'dist', '.expo'],

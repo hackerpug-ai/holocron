@@ -1,10 +1,12 @@
 /**
- * obs-3 — Versioned local-judge eval substrate.
+ * obs-3/obs-4 — Versioned local-judge eval substrate + CI gate.
  *
  * Public surface:
  *   runEvalSample  — score a committed fixture sample, persist with versions
  *   queryDrift     — longitudinal drift over eval_scores
+ *   runCiGate      — fail-closed threshold + deterministic invariant CI gate
  *   createResearchQualityScorer / createResearchInvariantScorer
+ *   runDeterministicInvariants
  *   runEvals       — re-export Mastra 1.x CI runner
  */
 
@@ -30,7 +32,9 @@ import {
   scoreFixture,
 } from './scorers';
 
+export * from './ci-gate';
 export * from './datasets';
+export * from './deterministic-scorers';
 export * from './drift';
 export * from './persistence';
 export * from './scorers';

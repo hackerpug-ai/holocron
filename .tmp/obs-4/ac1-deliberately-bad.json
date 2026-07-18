@@ -1,0 +1,5 @@
+{
+  "status": 1,
+  "stdout": "{\n  \"fixture\": \"deliberately-bad\",\n  \"datasetVersion\": \"research_v1\",\n  \"baselineVersion\": \"research_v1\",\n  \"modelVersion\": \"judge_v1\",\n  \"promptVersion\": \"research-quality_v1\",\n  \"score\": 0,\n  \"baseline\": 0.8,\n  \"threshold\": 0.8,\n  \"verdict\": \"failed\",\n  \"exitCode\": 1,\n  \"failureReason\": \"threshold_regression\",\n  \"exitReason\": \"score 0 < threshold 0.8\",\n  \"errorCode\": null,\n  \"deterministicFailures\": [\n    {\n      \"invariantId\": \"required-citation\",\n      \"reason\": \"missing required citation markers ([n], URL, doi, or Sources: block)\"\n    }\n  ],\n  \"runId\": \"ci-61265f92-5874-448c-b8dc-ebc43cc2acf3\",\n  \"scoreId\": \"019f732c-b530-77f0-b13c-1ade1ae1926e\",\n  \"sampleId\": \"deliberately-bad\",\n  \"meetsThreshold\": false,\n  \"invariantPassed\": false,\n  \"reason\": \"The response is flippant, lacks citations, makes unfounded hyperbolic claims ('magic', 'cures everything'), and provides no structured analysis or evidence summary.\"\n}\n",
+  "stderr": ""
+}

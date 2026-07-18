@@ -1,0 +1,10 @@
+{
+  "id": "research",
+  "version": "research_v1",
+  "datasetVersion": "research_v1",
+  "baselineVersion": "research_v1",
+  "threshold": 0.8,
+  "judgeModelVersion": "judge_v1",
+  "promptVersion": "research-quality_v1",
+  "notes": "Immutable CI regression threshold for research quality gate. Do not mutate in place — publish research_v2 for changes."
+}

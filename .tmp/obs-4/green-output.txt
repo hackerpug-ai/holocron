@@ -1,0 +1,14 @@
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.worktrees/obs-4
+
+ ✓ services/platform/tests/integration/evals-ci-gate.test.ts (5 tests) 80245ms
+     ✓ AC-1 / TC-1: deliberately-bad fixture blocks CI (threshold regression)  18398ms
+     ✓ AC-2 / TC-2: known-good fixture passes CI  10826ms
+     ✓ AC-3 / TC-3: deterministic invariant blocks independently of judge score  8925ms
+     ✓ AC-5 / TC-5: machine-readable CI output includes versions + threshold  41811ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  21:01:58
+   Duration  80.77s (transform 125ms, setup 142ms, import 284ms, tests 80.25s, environment 0ms)
+

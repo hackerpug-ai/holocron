@@ -1,0 +1,5 @@
+{
+  "status": 1,
+  "stdout": "{\n  \"fixture\": \"invalid-config\",\n  \"datasetVersion\": \"research_v1\",\n  \"baselineVersion\": \"research_v1\",\n  \"modelVersion\": null,\n  \"promptVersion\": null,\n  \"score\": null,\n  \"baseline\": null,\n  \"threshold\": null,\n  \"verdict\": \"failed\",\n  \"exitCode\": 1,\n  \"failureReason\": \"invalid_threshold\",\n  \"exitReason\": \"INVALID_THRESHOLD: threshold field missing — fail closed\",\n  \"errorCode\": \"INVALID_THRESHOLD\",\n  \"deterministicFailures\": [],\n  \"runId\": null,\n  \"scoreId\": null,\n  \"sampleId\": null,\n  \"meetsThreshold\": false,\n  \"invariantPassed\": false\n}\n",
+  "stderr": ""
+}

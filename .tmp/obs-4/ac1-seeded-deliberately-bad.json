@@ -1,0 +1,27 @@
+{
+  "fixture": "deliberately-bad",
+  "datasetVersion": "research_v1",
+  "baselineVersion": "research_v1",
+  "modelVersion": "judge_v1",
+  "promptVersion": "research-quality_v1",
+  "score": 0,
+  "baseline": 0.8,
+  "threshold": 0.8,
+  "verdict": "failed",
+  "exitCode": 1,
+  "failureReason": "threshold_regression",
+  "exitReason": "score 0 < threshold 0.8",
+  "errorCode": null,
+  "deterministicFailures": [
+    {
+      "invariantId": "required-citation",
+      "reason": "missing required citation markers ([n], URL, doi, or Sources: block)"
+    }
+  ],
+  "runId": "ci-61d0841a-756a-4b5d-9856-d18654b1e4ca",
+  "scoreId": "019f732e-4849-7bc5-9716-749c39d7ca9e",
+  "sampleId": "deliberately-bad",
+  "meetsThreshold": false,
+  "invariantPassed": false,
+  "reason": "The response is flippant, unsourced, and makes unfounded claims ('magic', 'cures everything'). It explicitly rejects the request for sources ('idk sources whatever') and lacks any structured research content."
+}
