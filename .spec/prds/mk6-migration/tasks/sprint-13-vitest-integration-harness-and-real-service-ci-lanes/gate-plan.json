@@ -3,7 +3,7 @@
   "planned_at": "2026-07-18T06:52:00Z",
   "planned_steps": 6,
   "runner": "parent-controller local evidence runner (secret-free)",
-  "main_head": "bbcf8a2e4620acdd87ca48b9f16721c2e30b0834",
+  "main_head": "11e2b6b07e97f028ca7e396d95637618c469f1b0",
   "steps": [
     {
       "n": 1,

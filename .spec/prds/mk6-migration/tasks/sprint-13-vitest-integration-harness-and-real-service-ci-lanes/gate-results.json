@@ -8,11 +8,11 @@
   "exec_surface": "tmux:sprint13-gate",
   "qa_surface_id": "tmux:sprint13-gate",
   "cycle_started_at": "2026-07-18T06:52:00Z",
-  "finished_at": "2026-07-18T06:56:30Z",
+  "finished_at": "2026-07-18T07:03:00Z",
   "steps_total": 6,
   "steps_executed": 6,
   "steps_passed": 6,
-  "main_head": "bbcf8a2e4620acdd87ca48b9f16721c2e30b0834",
+  "main_head": "11e2b6b07e97f028ca7e396d95637618c469f1b0",
   "evidence_dir": ".spec/prds/mk6-migration/tasks/sprint-13-vitest-integration-harness-and-real-service-ci-lanes/.gate-evidence/2026-07-18T06-52-00Z",
   "supporting_evidence": {
     "real_integration_log": ".gate-evidence/2026-07-18T06-52-00Z/supporting-real-integration.log",

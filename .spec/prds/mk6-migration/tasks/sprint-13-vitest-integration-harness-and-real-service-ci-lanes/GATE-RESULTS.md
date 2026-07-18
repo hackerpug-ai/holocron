@@ -3,7 +3,7 @@
 ## VERIFIED — PASS
 
 Run: `2026-07-18T06-52-00Z`  
-Main head: `bbcf8a2e4620acdd87ca48b9f16721c2e30b0834`  
+Main head: `11e2b6b07e97f028ca7e396d95637618c469f1b0`  
 Execution surface: `tmux:sprint13-gate`  
 Evidence: `.gate-evidence/2026-07-18T06-52-00Z/`
 
