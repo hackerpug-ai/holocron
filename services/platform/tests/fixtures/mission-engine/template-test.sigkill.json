@@ -1,0 +1,46 @@
+{
+  "templateKey": "test.sigkill",
+  "version": "1.0.0",
+  "description": "Deterministic checkpoint template for kill/resume durability tests.",
+  "trigger": { "kind": "on-demand" },
+  "stageGraph": [
+    {
+      "id": "fleet_probe",
+      "stageKind": "fleet.probe@1",
+      "executorRef": "builtin.fleet-probe@1",
+      "inputSchema": { "schemaRef": "mission.goal", "schemaVersion": 1 },
+      "outputSchema": { "schemaRef": "mission.probe.result", "schemaVersion": 1 }
+    },
+    {
+      "id": "checkpoint_before_kill",
+      "stageKind": "test.checkpoint@1",
+      "executorRef": "builtin.test-checkpoint@1",
+      "inputSchema": { "schemaRef": "mission.probe.result", "schemaVersion": 1 },
+      "outputSchema": { "schemaRef": "mission.checkpoint.output", "schemaVersion": 1 },
+      "checkpointKey": "after-first-commit"
+    },
+    {
+      "id": "resume_and_finish",
+      "stageKind": "test.resume@1",
+      "executorRef": "builtin.test-resume@1",
+      "inputSchema": { "schemaRef": "mission.checkpoint.output", "schemaVersion": 1 },
+      "outputSchema": { "schemaRef": "mission.test.sigkill.output", "schemaVersion": 1 }
+    }
+  ],
+  "toolGrants": [],
+  "modelRoleBindings": {
+    "fleet_probe": "divergent"
+  },
+  "budgets": {
+    "wallMs": 45000,
+    "tokens": 4000,
+    "cost": 0,
+    "maxSteps": 5
+  },
+  "gateRubric": null,
+  "humanGate": null,
+  "outputContract": {
+    "schemaRef": "mission.test.sigkill.output",
+    "schemaVersion": 1
+  }
+}

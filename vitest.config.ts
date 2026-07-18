@@ -41,6 +41,8 @@ export default defineConfig({
       'services/platform/tests/integration/fail-closed-lane.test.ts',
       // Sprint 14 — ETL + content-addressed blob verify
       'services/platform/tests/integration/sprint14-etl-and-blob.test.ts',
+      // Sprint 15 — mission engine durable resumable templates
+      'services/platform/tests/integration/mission-engine-red.test.ts',
     ],
     setupFiles: ['tests/setup/react-native.ts'],
     exclude: ['node_modules', 'dist', '.expo'],

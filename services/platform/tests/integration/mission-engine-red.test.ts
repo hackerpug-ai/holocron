@@ -1,0 +1,1742 @@
+/**
+ * Sprint 15 / mission-5 — RED integration suite for the Mission Engine.
+ *
+ * Real boundaries only:
+ * - PLATFORM_IT=1 required
+ * - holocron_nonprod only
+ * - real Bun CLI subprocesses
+ * - real Postgres assertions
+ * - real Hono auth surface (app.request), no mocked middleware
+ *
+ * Run:
+ *   PLATFORM_IT=1 \
+ *   DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod \
+ *   HOLO_KEY_RN=rn-test HOLO_KEY_MCP=mcp-test HOLO_KEY_CONTROL=ctl-test \
+ *   pnpm vitest run services/platform/tests/integration/mission-engine-red.test.ts
+ */
+import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { createHonoApp } from '../../src/http/hono-app';
+import {
+  DATABASE_URL,
+  EXPECTED_COMMIT_COLUMNS,
+  EXPECTED_MISSION_TABLES,
+  EXPECTED_RUN_COLUMNS,
+  EXPECTED_STAGE_RUN_COLUMNS,
+  EXPECTED_TEMPLATE_VERSION_COLUMNS,
+  MCP,
+  PLATFORM_IT,
+  RN,
+  callAppJson,
+  committedStageDuplicates,
+  detectProvenanceSnapshot,
+  ensureRedTestEnvironment,
+  makeCreateBody,
+  missingColumns,
+  normalizeForDeterministicCompare,
+  prepareManifestFixture,
+  prepareTemplateFixture,
+  rowValue,
+  runHolo,
+  sameComparableValue,
+  scanMissionCrashHooks,
+  scenarioId,
+  selectInferenceTelemetry,
+  selectJsonRowsIfExists,
+  selectMissionCommits,
+  selectMissionEvents,
+  selectMissionRunById,
+  selectMissionRunsByIdempotencyKey,
+  selectMissionRunsByTemplateKey,
+  selectMissionStageRuns,
+  selectMissionSteering,
+  selectMissionTemplateVersions,
+  selectMissionTemplatesByKey,
+  selectMissionVerdicts,
+  sleep,
+  snapshotMissionSchema,
+  startHoloProcess,
+  terminalEventCount,
+  truncateMissionTables,
+  waitForValue,
+  withSql,
+  writeArtifact,
+} from './mission-red.helpers';
+
+type JsonRecord = Record<string, unknown>;
+
+function asRecord(value: unknown): JsonRecord {
+  return value && typeof value === 'object' ? (value as JsonRecord) : {};
+}
+
+function stringValue(record: JsonRecord | null | undefined, aliases: readonly string[]): string | null {
+  const value = rowValue(record, aliases);
+  if (typeof value === 'string' && value.length > 0) return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  return null;
+}
+
+function numberValue(record: JsonRecord | null | undefined, aliases: readonly string[]): number | null {
+  const value = rowValue(record, aliases);
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.length > 0) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function runIdFromUnknown(value: unknown): string | null {
+  return stringValue(asRecord(value), ['runId', 'run_id', 'id']);
+}
+
+function terminalStatus(value: JsonRecord | null | undefined): string | null {
+  return stringValue(value, ['status']);
+}
+
+function usageSnapshot(record: JsonRecord | null | undefined): JsonRecord {
+  if (!record) return {};
+  const usage = rowValue(record, ['usage']);
+  if (usage && typeof usage === 'object') return asRecord(usage);
+  const snapshot: JsonRecord = {};
+  for (const [key, value] of Object.entries(record)) {
+    if (/(token|wall|cost|step|usage)/i.test(key)) snapshot[key] = value;
+  }
+  return snapshot;
+}
+
+function typedOutputSnapshot(record: JsonRecord | null | undefined): unknown {
+  if (!record) return null;
+  return (
+    rowValue(record, ['typed_output_json', 'typedOutputJson']) ??
+    rowValue(record, ['output']) ??
+    rowValue(record, ['result']) ??
+    null
+  );
+}
+
+function canonicalizeForByteCompare(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item) => canonicalizeForByteCompare(item));
+  }
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as JsonRecord)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, child]) => [key, canonicalizeForByteCompare(child)])
+    );
+  }
+  return value;
+}
+
+function canonicalJsonBytes(value: unknown): string | null {
+  if (value === undefined) return null;
+  return JSON.stringify(canonicalizeForByteCompare(value));
+}
+
+function missionVersionDefinition(record: JsonRecord | null | undefined): unknown {
+  return rowValue(record, [
+    'definition_json',
+    'definitionJson',
+    'definition',
+    'template_definition',
+    'templateDefinition',
+    'template_json',
+    'templateJson',
+    'dsl_json',
+    'dslJson',
+  ]);
+}
+
+function missionVersionSurface(record: JsonRecord | null | undefined) {
+  return {
+    definitionHash: stringValue(record, ['definition_hash', 'definitionHash']),
+    compilerVersion: stringValue(record, ['compiler_version', 'compilerVersion']),
+    registrySnapshotHash: stringValue(record, ['registry_snapshot_hash', 'registrySnapshotHash']),
+    provenanceBytes: canonicalJsonBytes(detectProvenanceSnapshot(record)),
+    definitionBytes: canonicalJsonBytes(missionVersionDefinition(record)),
+  };
+}
+
+function normalizedSignatures(rows: JsonRecord[]): string[] {
+  return rows.map((row) => JSON.stringify(normalizeForDeterministicCompare(row)));
+}
+
+function assertNoExecutablePayload(record: JsonRecord | null | undefined, label: string) {
+  const serialized = JSON.stringify(record ?? {}).toLowerCase();
+  expect.soft(serialized, `${label} must not persist executable payloads`).not.toMatch(
+    /function\s*\(|=>|raw sql|inline zod|javascript|executable payload/
+  );
+}
+
+async function findRunByIdempotencyKey(idempotencyKey: string): Promise<JsonRecord | null> {
+  return withSql(async (sql) => (await selectMissionRunsByIdempotencyKey(sql, idempotencyKey))[0] ?? null);
+}
+
+async function summarizeRun(runId: string | null) {
+  return withSql(async (sql) => ({
+    run: runId ? await selectMissionRunById(sql, runId) : null,
+    stageRuns: runId ? await selectMissionStageRuns(sql, runId) : [],
+    commits: runId ? await selectMissionCommits(sql, runId) : [],
+    events: runId ? await selectMissionEvents(sql, runId) : [],
+    telemetry: runId ? await selectInferenceTelemetry(sql, runId) : [],
+    steering: runId ? await selectMissionSteering(sql, runId) : [],
+    verdicts: runId ? await selectMissionVerdicts(sql, runId) : [],
+  }));
+}
+
+type RunSummary = Awaited<ReturnType<typeof summarizeRun>>;
+
+function runMutationSurface(summary: RunSummary) {
+  const terminalCommit = summary.commits[summary.commits.length - 1] ?? null;
+  const outputSource = typedOutputSnapshot(summary.run) != null ? summary.run : terminalCommit;
+  return {
+    runBytes: canonicalJsonBytes(summary.run),
+    commitBytes: canonicalJsonBytes(summary.commits),
+    eventBytes: canonicalJsonBytes(summary.events),
+    outputBytes: canonicalJsonBytes(typedOutputSnapshot(outputSource)),
+  };
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function normalizeCrashBoundaryMarker(marker: string | null | undefined): string | null {
+  if (!marker) return null;
+  return marker.replace(/^mission-commit\//, '');
+}
+
+function readBoundaryMarkerFromText(text: string, boundary: string): string | null {
+  const fullMarker = `mission-commit/${boundary}`;
+  const patterns = [
+    new RegExp(`HOLO_TEST_CRASH_AT[^\\n]{0,160}${escapeRegExp(fullMarker)}`, 'i'),
+    new RegExp(`(trigger(?:ed)?|marker|readiness|hook)[^\\n]{0,160}${escapeRegExp(fullMarker)}`, 'i'),
+    new RegExp(`${escapeRegExp(fullMarker)}[^\\n]{0,160}(trigger(?:ed)?|marker|readiness|hook)`, 'i'),
+    new RegExp(`(trigger(?:ed)?|marker|readiness|hook)[^\\n]{0,160}${escapeRegExp(boundary)}`, 'i'),
+  ];
+  if (!patterns.some((pattern) => pattern.test(text))) return null;
+  return text.includes(fullMarker) ? fullMarker : boundary;
+}
+
+function readBoundaryMarkerFromValue(value: unknown, boundary: string, keyHint = ''): string | null {
+  const fullMarker = `mission-commit/${boundary}`;
+
+  if (typeof value === 'string') {
+    if (/(crash|boundary|hook|marker|readiness|ready)/i.test(keyHint)) {
+      if (value === boundary || value === fullMarker) return value;
+      if (value.includes(fullMarker)) return fullMarker;
+    }
+    if (keyHint.length === 0 || /(message|detail|error|stdout|stderr|artifact|readiness|note|debug|log)/i.test(keyHint)) {
+      return readBoundaryMarkerFromText(value, boundary);
+    }
+    return null;
+  }
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const marker = readBoundaryMarkerFromValue(item, boundary, keyHint);
+      if (marker) return marker;
+    }
+    return null;
+  }
+
+  if (value && typeof value === 'object') {
+    for (const [key, child] of Object.entries(value as JsonRecord)) {
+      const marker = readBoundaryMarkerFromValue(child, boundary, key);
+      if (marker) return marker;
+    }
+  }
+
+  return null;
+}
+
+type CrashBoundaryProof = {
+  source: string;
+  marker: string;
+  runId: string | null;
+};
+
+async function detectCrashBoundaryProof(
+  boundary: string,
+  key: string,
+  snapshot?: { stdout: string; stderr: string; parsed: unknown }
+): Promise<CrashBoundaryProof | null> {
+  if (snapshot) {
+    const parsedMarker = readBoundaryMarkerFromValue(snapshot.parsed, boundary);
+    if (parsedMarker) {
+      return { source: 'parsed', marker: parsedMarker, runId: runIdFromUnknown(snapshot.parsed) };
+    }
+
+    const stdoutMarker = readBoundaryMarkerFromText(snapshot.stdout, boundary);
+    if (stdoutMarker) {
+      return { source: 'stdout', marker: stdoutMarker, runId: runIdFromUnknown(snapshot.parsed) };
+    }
+
+    const stderrMarker = readBoundaryMarkerFromText(snapshot.stderr, boundary);
+    if (stderrMarker) {
+      return { source: 'stderr', marker: stderrMarker, runId: runIdFromUnknown(snapshot.parsed) };
+    }
+  }
+
+  const runRow = await findRunByIdempotencyKey(key);
+  const runId = stringValue(runRow, ['id']);
+  if (!runId) return null;
+
+  const summary = await summarizeRun(runId);
+  const dbMarker = readBoundaryMarkerFromValue(
+    {
+      run: summary.run,
+      stageRuns: summary.stageRuns,
+      commits: summary.commits,
+      events: summary.events,
+      telemetry: summary.telemetry,
+    },
+    boundary
+  );
+  if (!dbMarker) return null;
+  return { source: 'db', marker: dbMarker, runId };
+}
+
+function committedStageIndexes(stageRuns: JsonRecord[]): number[] {
+  return stageRuns
+    .filter((row) => String(rowValue(row, ['status']) ?? '') === 'committed')
+    .map((row) => numberValue(row, ['stage_index', 'stageIndex']))
+    .filter((value): value is number => value != null)
+    .sort((a, b) => a - b);
+}
+
+function firstCheckpointStage(stageRuns: JsonRecord[]): JsonRecord | null {
+  return (
+    stageRuns.find(
+      (row) =>
+        String(rowValue(row, ['status']) ?? '') === 'committed' &&
+        stringValue(row, ['checkpoint_key', 'checkpointKey'])
+    ) ?? null
+  );
+}
+
+const invalidDslCases = [
+  {
+    name: 'unknown-stage',
+    fixture: 'template-invalid-unknown-stage.json',
+    regex: /unknown|unregistered|stage/i,
+  },
+  {
+    name: 'unknown-schema',
+    fixture: 'template-invalid-unknown-schema.json',
+    regex: /unknown|unregistered|schema/i,
+  },
+  {
+    name: 'executable-payload',
+    fixture: 'template-invalid-executable-payload.json',
+    regex: /inline|zod|raw sql|executable|javascript|js/i,
+  },
+] as const;
+
+const fleetNegativeCases = [
+  {
+    name: 'missing-role-manifest',
+    manifest: 'manifest-missing-divergent.json',
+    regex: /manifest|divergent|missing|invalid/i,
+  },
+  {
+    name: 'dead-role-endpoint',
+    manifest: 'manifest-dead-divergent.json',
+    regex: /unreachable|refused|health|down|ECONNREFUSED|timeout/i,
+  },
+  {
+    name: 'cloud-fallback-refused',
+    manifest: 'manifest-cloud-divergent.json',
+    regex: /cloud|anthropic|refused|never-cloud|non-fleet/i,
+  },
+] as const;
+
+const commitCrashBoundaries = [
+  'before_commit_insert',
+  'after_commit_insert_before_run_update',
+  'after_run_update_before_terminal_event',
+] as const;
+
+describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing surfaces', () => {
+  beforeAll(async () => {
+    await ensureRedTestEnvironment();
+    expect(PLATFORM_IT).toBe(true);
+    expect(DATABASE_URL).toContain('/holocron_nonprod');
+  }, 120_000);
+
+  beforeEach(async () => {
+    await truncateMissionTables();
+  }, 30_000);
+
+  it(
+    'AC-1/TC-1 RED: template register requires mission migrations + immutable version/provenance rows scoped to the scenario template',
+    async () => {
+      const template = prepareTemplateFixture('template-test.echo.json', 'ac1-template-register');
+      const cli = runHolo('ac1-template-register', [
+        'mission',
+        'template:register',
+        template.path,
+        '--json',
+      ]);
+
+      await withSql(async (sql) => {
+        const schema = await snapshotMissionSchema(sql);
+        const templateRows = await selectMissionTemplatesByKey(sql, template.templateKey);
+        const versionRows = await selectMissionTemplateVersions(sql, template.templateKey, template.version);
+        const versionRow = versionRows[0] ?? null;
+        const missingTables = EXPECTED_MISSION_TABLES.filter((table) => !schema.tables[table]?.exists);
+        const missingVersionColumns = missingColumns(
+          schema.tables.mission_template_versions?.columns ?? [],
+          EXPECTED_TEMPLATE_VERSION_COLUMNS
+        );
+        const payload = asRecord(cli.parsed);
+
+        writeArtifact('ac1-template-register-summary.json', {
+          template,
+          cli,
+          schema,
+          templateRows,
+          versionRows,
+          missingTables,
+          missingVersionColumns,
+        });
+
+        expect.soft(schema.database).toBe('holocron_nonprod');
+        expect.soft(missingTables, `missing mission tables: ${missingTables.join(', ')}`).toEqual([]);
+        expect.soft(cli.status, cli.combined).toBe(0);
+        expect.soft(payload.ok, JSON.stringify(payload)).toBe(true);
+        expect.soft(payload.templateKey).toBe(template.templateKey);
+        expect.soft(payload.version).toBe(template.version);
+        expect.soft(payload.definitionHash).toBeTruthy();
+        expect.soft(payload.compilerVersion).toBeTruthy();
+        expect.soft(payload.registrySnapshotHash).toBeTruthy();
+        expect.soft(payload.outputSchemaRef).toBe('mission.test.echo.output');
+        expect.soft(missingVersionColumns, 'mission_template_versions missing pinned provenance columns').toEqual([]);
+        expect.soft(templateRows.length, 'one scoped mission_templates row must exist').toBe(1);
+        expect.soft(versionRows.length, 'one scoped immutable mission_template_versions row must exist').toBe(1);
+        expect.soft(stringValue(versionRow, ['template_key', 'templateKey'])).toBe(template.templateKey);
+        expect.soft(stringValue(versionRow, ['version'])).toBe(template.version);
+        expect.soft(stringValue(versionRow, ['definition_hash', 'definitionHash'])).toBe(
+          String(payload.definitionHash ?? '')
+        );
+        expect.soft(stringValue(versionRow, ['compiler_version', 'compilerVersion'])).toBe(
+          String(payload.compilerVersion ?? '')
+        );
+        expect.soft(stringValue(versionRow, ['registry_snapshot_hash', 'registrySnapshotHash'])).toBe(
+          String(payload.registrySnapshotHash ?? '')
+        );
+        expect.soft(stringValue(versionRow, ['output_schema_ref', 'outputSchemaRef'])).toBe(
+          'mission.test.echo.output'
+        );
+        expect.soft(numberValue(versionRow, ['output_schema_version', 'outputSchemaVersion'])).toBe(1);
+        expect.soft(detectProvenanceSnapshot(versionRow), 'version row must persist provenance surface').toBeTruthy();
+        assertNoExecutablePayload(versionRow, 'mission_template_versions row');
+      });
+    },
+    60_000
+  );
+
+  it(
+    'AC-1/TC-2 RED: duplicate same template version is idempotent while conflicting content for the same key/version is rejected',
+    async () => {
+      const template = prepareTemplateFixture('template-test.echo.json', 'ac1-duplicate-register');
+      const identical = prepareTemplateFixture('template-test.echo.json', 'ac1-duplicate-register-identical', {
+        templateKey: template.templateKey,
+        version: template.version,
+      });
+      const conflicting = prepareTemplateFixture('template-test.echo.json', 'ac1-duplicate-register-conflict', {
+        templateKey: template.templateKey,
+        version: template.version,
+        mutate: (body) => {
+          body.description = `${String(body.description ?? '')} (conflict)`;
+        },
+      });
+
+      const first = runHolo('ac1-duplicate-first', ['mission', 'template:register', template.path, '--json']);
+      const firstState = await withSql(async (sql) => {
+        const templateRows = await selectMissionTemplatesByKey(sql, template.templateKey);
+        const versionRows = await selectMissionTemplateVersions(sql, template.templateKey, template.version);
+        return {
+          templateRows,
+          versionRows,
+          versionRow: versionRows[0] ?? null,
+        };
+      });
+      const second = runHolo('ac1-duplicate-second', ['mission', 'template:register', identical.path, '--json']);
+      const secondState = await withSql(async (sql) => {
+        const templateRows = await selectMissionTemplatesByKey(sql, template.templateKey);
+        const versionRows = await selectMissionTemplateVersions(sql, template.templateKey, template.version);
+        return {
+          templateRows,
+          versionRows,
+          versionRow: versionRows[0] ?? null,
+        };
+      });
+      const conflict = runHolo('ac1-duplicate-conflict', [
+        'mission',
+        'template:register',
+        conflicting.path,
+        '--json',
+      ]);
+
+      await withSql(async (sql) => {
+        const templateRows = await selectMissionTemplatesByKey(sql, template.templateKey);
+        const versionRows = await selectMissionTemplateVersions(sql, template.templateKey, template.version);
+        const survivingVersionRow = versionRows[0] ?? null;
+        const firstPayload = asRecord(first.parsed);
+        const secondPayload = asRecord(second.parsed);
+        const firstVersionSurface = missionVersionSurface(firstState.versionRow);
+        const survivingVersionSurface = missionVersionSurface(survivingVersionRow);
+
+        writeArtifact('ac1-duplicate-summary.json', {
+          template,
+          identical,
+          conflicting,
+          first,
+          firstState,
+          second,
+          secondState,
+          conflict,
+          templateRows,
+          versionRows,
+          survivingVersionRow,
+          firstVersionSurface,
+          survivingVersionSurface,
+        });
+
+        expect.soft(first.status, first.combined).toBe(0);
+        expect.soft(firstState.templateRows.length, 'first successful register must persist one scoped template row').toBe(1);
+        expect.soft(firstState.versionRows.length, 'first successful register must persist one authoritative version row').toBe(1);
+        expect.soft(second.status, second.combined).toBe(0);
+        expect.soft(firstPayload.definitionHash, JSON.stringify(firstPayload)).toBeTruthy();
+        expect.soft(secondPayload.definitionHash, JSON.stringify(secondPayload)).toBe(
+          firstPayload.definitionHash
+        );
+        expect.soft(secondState.versionRows.length, 'duplicate same hash must remain one scoped version row').toBe(1);
+        expect.soft(versionRows.length, 'duplicate same key/version must remain one scoped immutable row').toBe(1);
+        expect.soft(templateRows.length, 'duplicate same key/version must remain one scoped template row').toBe(1);
+        expect.soft(conflict.status, conflict.combined).not.toBe(0);
+        expect.soft(conflict.combined, conflict.combined).toMatch(/conflict|hash|different|immutable/i);
+        expect.soft(versionRows.length, 'conflicting definition must not create an extra version row').toBe(1);
+        expect.soft(
+          survivingVersionSurface.definitionHash,
+          'surviving row must keep the first successful definition_hash after conflicting register fails'
+        ).toBe(String(firstPayload.definitionHash ?? ''));
+        expect.soft(
+          survivingVersionSurface.compilerVersion,
+          'conflicting register must not overwrite compiler provenance on the authoritative row'
+        ).toBe(firstVersionSurface.compilerVersion);
+        expect.soft(
+          survivingVersionSurface.registrySnapshotHash,
+          'conflicting register must not overwrite registry provenance on the authoritative row'
+        ).toBe(firstVersionSurface.registrySnapshotHash);
+        expect.soft(
+          survivingVersionSurface.provenanceBytes,
+          'conflicting register must leave authoritative provenance bytes unchanged'
+        ).toBe(firstVersionSurface.provenanceBytes);
+        expect.soft(
+          survivingVersionSurface.definitionBytes,
+          'conflicting register must leave authoritative definition JSON bytes unchanged'
+        ).toBe(firstVersionSurface.definitionBytes);
+      });
+    },
+    60_000
+  );
+
+  for (const testCase of invalidDslCases) {
+    it(
+      `AC-2/TC-2 RED: ${testCase.name} fails before any scoped template/version/run row is created`,
+      async () => {
+        const template = prepareTemplateFixture(testCase.fixture, `ac2-invalid-${testCase.name}`);
+        const cli = runHolo(`ac2-invalid-${testCase.name}`, [
+          'mission',
+          'template:register',
+          template.path,
+          '--json',
+        ]);
+
+        await withSql(async (sql) => {
+          const templateRows = await selectMissionTemplatesByKey(sql, template.templateKey);
+          const versionRows = await selectMissionTemplateVersions(sql, template.templateKey, template.version);
+          const runRows = await selectMissionRunsByTemplateKey(sql, template.templateKey);
+          writeArtifact(`ac2-invalid-${testCase.name}-summary.json`, {
+            template,
+            cli,
+            templateRows,
+            versionRows,
+            runRows,
+          });
+
+          expect.soft(cli.status, cli.combined).not.toBe(0);
+          expect.soft(
+            cli.combined,
+            'missing command is not sufficient proof of compiler rejection — require the mission compiler surface'
+          ).not.toMatch(/unknown command:\s+mission\s+/i);
+          expect.soft(cli.combined, cli.combined).toMatch(testCase.regex);
+          expect.soft(templateRows.length, 'compiler rejection must not persist mission_templates').toBe(0);
+          expect.soft(versionRows.length, 'compiler rejection must not persist mission_template_versions').toBe(0);
+          expect.soft(runRows.length, 'compiler rejection must not create a mission_runs row').toBe(0);
+        });
+      },
+      60_000
+    );
+  }
+
+  for (const testCase of fleetNegativeCases) {
+    it(
+      `AC-2/TC-2 RED: ${testCase.name} fails closed before any scoped template/version/run row`,
+      async () => {
+        const template = prepareTemplateFixture('template-test.echo.json', `ac2-fleet-${testCase.name}`);
+        const cli = runHolo(
+          `ac2-fleet-${testCase.name}`,
+          ['mission', 'template:register', template.path, '--json'],
+          {
+            env: {
+              FLEET_MANIFEST_PATH: prepareManifestFixture(
+                testCase.manifest,
+                `ac2-fleet-${testCase.name}`
+              ).path,
+            },
+          }
+        );
+
+        await withSql(async (sql) => {
+          const templateRows = await selectMissionTemplatesByKey(sql, template.templateKey);
+          const versionRows = await selectMissionTemplateVersions(sql, template.templateKey, template.version);
+          const runRows = await selectMissionRunsByTemplateKey(sql, template.templateKey);
+          writeArtifact(`ac2-fleet-${testCase.name}-summary.json`, {
+            template,
+            cli,
+            templateRows,
+            versionRows,
+            runRows,
+          });
+
+          expect.soft(cli.status, cli.combined).not.toBe(0);
+          expect.soft(
+            cli.combined,
+            'missing command is not sufficient proof of fleet fail-closed validation — require the mission compiler surface'
+          ).not.toMatch(/unknown command:\s+mission\s+/i);
+          expect.soft(cli.combined, cli.combined).toMatch(testCase.regex);
+          expect.soft(templateRows.length, 'fleet rejection must not persist mission_templates').toBe(0);
+          expect.soft(versionRows.length, 'fleet rejection must not persist mission_template_versions').toBe(0);
+          expect.soft(runRows.length, 'fleet rejection must not create a mission_runs row').toBe(0);
+        });
+      },
+      60_000
+    );
+  }
+
+  it(
+    'AC-1/AC-2/TC-2 RED: test.sigkill is SIGKILLed only after a DB-observed committed checkpoint and resume starts at the first uncommitted stage',
+    async () => {
+      const template = prepareTemplateFixture('template-test.sigkill.json', 'ac-runtime-sigkill');
+      const register = runHolo('ac-runtime-sigkill-register', [
+        'mission',
+        'template:register',
+        template.path,
+        '--json',
+      ]);
+      const runKey = scenarioId('sigkill-recovery');
+      const runner = startHoloProcess('ac-runtime-sigkill-run', [
+        'mission',
+        'run',
+        template.templateKey,
+        '--goal',
+        'Checkpoint once, then prove durable resume.',
+        '--idempotency-key',
+        runKey,
+        '--json',
+      ]);
+
+      const observedRun = await waitForValue(
+        'sigkill-run-row',
+        () => findRunByIdempotencyKey(runKey),
+        { abortIf: () => runner.exited() }
+      );
+      const observedRunId = stringValue(observedRun, ['id']);
+      const committedCheckpoint = await waitForValue(
+        'sigkill-committed-checkpoint',
+        async () => {
+          if (!observedRunId) return null;
+          return withSql(async (sql) => firstCheckpointStage(await selectMissionStageRuns(sql, observedRunId)));
+        },
+        { abortIf: () => runner.exited() }
+      );
+      const preKillStages = observedRunId
+        ? await withSql((sql) => selectMissionStageRuns(sql, observedRunId))
+        : [];
+
+      if (committedCheckpoint && !runner.exited()) {
+        runner.kill('SIGKILL');
+      }
+      const runProc = await runner.result;
+      const runId = observedRunId ?? runIdFromUnknown(runProc.parsed);
+      const resume = runHolo('ac-runtime-sigkill-resume', [
+        'mission',
+        'resume',
+        runId ?? 'missing-run-id',
+        '--json',
+      ]);
+
+      await withSql(async (sql) => {
+        const schema = await snapshotMissionSchema(sql);
+        const runRow = runId ? await selectMissionRunById(sql, runId) : null;
+        const postResumeStages = runId ? await selectMissionStageRuns(sql, runId) : [];
+        const duplicateCommittedStages = await committedStageDuplicates(sql, runId);
+        const checkpointStageIndex = numberValue(committedCheckpoint, ['stage_index', 'stageIndex']);
+        const committedBefore = committedStageIndexes(preKillStages);
+        const committedAfter = committedStageIndexes(postResumeStages);
+        const firstNewCommitted = committedAfter.find((stageIndex) => !committedBefore.includes(stageIndex)) ?? null;
+
+        writeArtifact('ac-runtime-sigkill-summary.json', {
+          template,
+          register,
+          runKey,
+          observedRun,
+          committedCheckpoint,
+          preKillStages,
+          runProc,
+          resume,
+          schema,
+          runRow,
+          postResumeStages,
+          duplicateCommittedStages,
+        });
+
+        expect.soft(register.status, register.combined).toBe(0);
+        expect.soft(schema.tables.mission_runs?.exists, 'mission_runs table missing').toBe(true);
+        expect.soft(schema.tables.mission_stage_runs?.exists, 'mission_stage_runs table missing').toBe(true);
+        expect.soft(
+          missingColumns(schema.tables.mission_runs?.columns ?? [], EXPECTED_RUN_COLUMNS),
+          'mission_runs missing lease/checkpoint columns'
+        ).toEqual([]);
+        expect.soft(
+          missingColumns(schema.tables.mission_stage_runs?.columns ?? [], EXPECTED_STAGE_RUN_COLUMNS),
+          'mission_stage_runs missing checkpoint/fencing columns'
+        ).toEqual([]);
+        expect.soft(observedRunId, 'run row must exist before SIGKILL').toBeTruthy();
+        expect.soft(committedCheckpoint, 'must observe a committed DB checkpoint before SIGKILL').toBeTruthy();
+        expect.soft(runProc.wasKilled, runProc.combined).toBe(true);
+        expect.soft(checkpointStageIndex, 'checkpointed stage index must be visible before kill').not.toBeNull();
+        expect.soft(resume.status, resume.combined).toBe(0);
+        expect.soft(duplicateCommittedStages, 'resume must not duplicate committed stages').toBe(0);
+        expect.soft(firstNewCommitted, 'resume must start from the first uncommitted stage').toBe(
+          checkpointStageIndex != null ? checkpointStageIndex + 1 : null
+        );
+        expect.soft(stringValue(runRow, ['lease_owner', 'leaseOwner']), 'run row must expose lease owner').toBeTruthy();
+        expect.soft(stringValue(runRow, ['lease_token', 'leaseToken']), 'run row must expose lease token').toBeTruthy();
+      });
+    },
+    90_000
+  );
+
+  it(
+    'AC-2/TC-3 RED: two real resume contenders fence leases, expired recovery increments attempts, and terminal completion clears the lease',
+    async () => {
+      const template = prepareTemplateFixture('template-test.sigkill.json', 'ac-lease-contention');
+      const register = runHolo('ac-lease-contention-register', [
+        'mission',
+        'template:register',
+        template.path,
+        '--json',
+      ]);
+      const runKey = scenarioId('lease-contention');
+      const owner = startHoloProcess('ac-lease-contention-owner', [
+        'mission',
+        'run',
+        template.templateKey,
+        '--goal',
+        'Acquire a durable lease, checkpoint, then allow contender proof.',
+        '--idempotency-key',
+        runKey,
+        '--json',
+      ]);
+
+      const observedRun = await waitForValue('lease-contention-run-row', () => findRunByIdempotencyKey(runKey), {
+        abortIf: () => owner.exited(),
+      });
+      const runId = stringValue(observedRun, ['id']);
+      const committedCheckpoint = await waitForValue(
+        'lease-contention-checkpoint',
+        async () => {
+          if (!runId) return null;
+          return withSql(async (sql) => firstCheckpointStage(await selectMissionStageRuns(sql, runId)));
+        },
+        { abortIf: () => owner.exited() }
+      );
+      const liveLeaseBeforeKill = runId ? await withSql((sql) => selectMissionRunById(sql, runId)) : null;
+      const originalLeaseToken = stringValue(liveLeaseBeforeKill, ['lease_token', 'leaseToken']);
+      const originalAttempt = numberValue(liveLeaseBeforeKill, ['attempt_count', 'attemptCount']);
+
+      if (committedCheckpoint && !owner.exited()) {
+        owner.kill('SIGKILL');
+      }
+      const ownerResult = await owner.result;
+
+      const contender = startHoloProcess('ac-lease-contention-contender', [
+        'mission',
+        'resume',
+        runId ?? 'missing-run-id',
+        '--json',
+      ]);
+      await sleep(500);
+      if (!contender.exited()) contender.kill('SIGKILL');
+      const contenderResult = await contender.result;
+
+      const afterContender = runId ? await summarizeRun(runId) : await summarizeRun(null);
+
+      await withSql(async (sql) => {
+        if (runId && schemaHasColumns(await snapshotMissionSchema(sql), 'mission_runs', ['lease_expires_at'])) {
+          await sql.unsafe(
+            'UPDATE mission_runs SET lease_expires_at = now() - interval \'1 second\' WHERE id = $1',
+            [runId]
+          );
+        }
+      });
+
+      const recovery = runHolo('ac-lease-contention-recovery', [
+        'mission',
+        'resume',
+        runId ?? 'missing-run-id',
+        '--json',
+      ]);
+
+      await withSql(async (sql) => {
+        const schema = await snapshotMissionSchema(sql);
+        const runRow = runId ? await selectMissionRunById(sql, runId) : null;
+        const stageRuns = runId ? await selectMissionStageRuns(sql, runId) : [];
+        const terminalLeaseToken = stringValue(runRow, ['lease_token', 'leaseToken']);
+        const terminalLeaseOwner = stringValue(runRow, ['lease_owner', 'leaseOwner']);
+        const terminalLeaseExpiry = stringValue(runRow, ['lease_expires_at', 'leaseExpiresAt']);
+        const attemptCount = numberValue(runRow, ['attempt_count', 'attemptCount']);
+        const fenceTokens = stageRuns
+          .map((row) => stringValue(row, ['fence_token', 'fenceToken']))
+          .filter((value): value is string => Boolean(value));
+
+        writeArtifact('ac-lease-contention-summary.json', {
+          template,
+          register,
+          runKey,
+          observedRun,
+          committedCheckpoint,
+          liveLeaseBeforeKill,
+          ownerResult,
+          contenderResult,
+          afterContender,
+          recovery,
+          schema,
+          runRow,
+          stageRuns,
+          fenceTokens,
+        });
+
+        expect.soft(register.status, register.combined).toBe(0);
+        expect.soft(runId, 'a scoped run row must exist').toBeTruthy();
+        expect.soft(committedCheckpoint, 'must have a committed checkpoint before lease contention proof').toBeTruthy();
+        expect.soft(ownerResult.wasKilled, ownerResult.combined).toBe(true);
+        expect.soft(originalLeaseToken, 'owner lease token must be observable before contender').toBeTruthy();
+        expect.soft(contenderResult.status, contenderResult.combined).not.toBe(0);
+        expect.soft(stringValue(afterContender.run, ['lease_token', 'leaseToken']), 'live contender must not steal the lease token').toBe(
+          originalLeaseToken
+        );
+        expect.soft(numberValue(afterContender.run, ['attempt_count', 'attemptCount']), 'live contender must not increment attempts').toBe(
+          originalAttempt
+        );
+        expect.soft(recovery.status, recovery.combined).toBe(0);
+        expect.soft(
+          typeof attemptCount === 'number',
+          'expired lease recovery must persist a numeric attempt_count'
+        ).toBe(true);
+        expect.soft(
+          typeof attemptCount === 'number' && attemptCount > (originalAttempt ?? -1),
+          'expired lease recovery must increment attempt_count'
+        ).toBe(true);
+        expect.soft(terminalLeaseOwner, 'terminal completion must clear lease_owner').toBeNull();
+        expect.soft(terminalLeaseToken, 'terminal completion must clear lease_token').toBeNull();
+        expect.soft(terminalLeaseExpiry, 'terminal completion must clear lease_expires_at').toBeNull();
+        expect.soft(new Set(fenceTokens).size, 'stage runs must expose one or more fence tokens').toBeGreaterThan(0);
+        expect.soft(
+          missingColumns(schema.tables.mission_stage_runs?.columns ?? [], EXPECTED_STAGE_RUN_COLUMNS),
+          'mission_stage_runs must expose fence_token'
+        ).toEqual([]);
+      });
+    },
+    90_000
+  );
+
+  it(
+    'AC-3/TC-4 RED: resume stays pinned to the original template/compiler/registry/executor/schema/fleet/model provenance after active definitions mutate',
+    async () => {
+      const template = prepareTemplateFixture('template-test.sigkill.json', 'ac-pinned-resume-base');
+      const originalManifest = prepareManifestFixture('manifest-dead-divergent.json', 'ac-pinned-resume-original', (body) => {
+        const roles = asRecord(body.roles);
+        const divergent = asRecord(roles.divergent);
+        divergent.endpoint = 'http://127.0.0.1:4545';
+        divergent.modelRevision = 'pinned-divergent-r1';
+        roles.divergent = divergent;
+        body.roles = roles;
+        body.schemaVersion = '1.0.0';
+      });
+      const mutatedManifest = prepareManifestFixture('manifest-dead-divergent.json', 'ac-pinned-resume-mutated', (body) => {
+        const roles = asRecord(body.roles);
+        const divergent = asRecord(roles.divergent);
+        divergent.endpoint = 'http://127.0.0.1:4545';
+        divergent.modelRevision = 'mutated-divergent-r2';
+        divergent.litellmModelId = 'implementer-mutated';
+        roles.divergent = divergent;
+        body.roles = roles;
+        body.schemaVersion = '9.9.9';
+      });
+
+      const register = runHolo(
+        'ac-pinned-resume-register',
+        ['mission', 'template:register', template.path, '--json'],
+        { env: { FLEET_MANIFEST_PATH: originalManifest.path } }
+      );
+      const runKey = scenarioId('pinned-resume');
+      const runner = startHoloProcess(
+        'ac-pinned-resume-run',
+        [
+          'mission',
+          'run',
+          template.templateKey,
+          '--goal',
+          'Checkpoint under pinned provenance, then mutate active definitions.',
+          '--idempotency-key',
+          runKey,
+          '--json',
+        ],
+        { env: { FLEET_MANIFEST_PATH: originalManifest.path } }
+      );
+
+      const observedRun = await waitForValue('pinned-resume-run-row', () => findRunByIdempotencyKey(runKey), {
+        abortIf: () => runner.exited(),
+      });
+      const runId = stringValue(observedRun, ['id']);
+      const committedCheckpoint = await waitForValue(
+        'pinned-resume-checkpoint',
+        async () => {
+          if (!runId) return null;
+          return withSql(async (sql) => firstCheckpointStage(await selectMissionStageRuns(sql, runId)));
+        },
+        { abortIf: () => runner.exited() }
+      );
+      const originalRunBeforeKill = runId ? await withSql((sql) => selectMissionRunById(sql, runId)) : null;
+
+      if (committedCheckpoint && !runner.exited()) {
+        runner.kill('SIGKILL');
+      }
+      const killed = await runner.result;
+
+      const mutatedTemplate = prepareTemplateFixture('template-test.sigkill.json', 'ac-pinned-resume-mutated-template', {
+        templateKey: template.templateKey,
+        version: '9.9.9',
+        mutate: (body) => {
+          body.description = 'Mutated active template that must not affect resume';
+          const budgets = asRecord(body.budgets);
+          budgets.wallMs = 999999;
+          body.budgets = budgets;
+        },
+      });
+      const mutatedRegister = runHolo(
+        'ac-pinned-resume-register-mutated',
+        ['mission', 'template:register', mutatedTemplate.path, '--json'],
+        { env: { FLEET_MANIFEST_PATH: mutatedManifest.path } }
+      );
+      const resume = runHolo(
+        'ac-pinned-resume-resume',
+        ['mission', 'resume', runId ?? 'missing-run-id', '--json'],
+        { env: { FLEET_MANIFEST_PATH: mutatedManifest.path } }
+      );
+
+      await withSql(async (sql) => {
+        const runRow = runId ? await selectMissionRunById(sql, runId) : null;
+        const commitRow = runId ? (await selectMissionCommits(sql, runId))[0] ?? null : null;
+        const originalProvenance = detectProvenanceSnapshot(originalRunBeforeKill);
+        const resumedProvenance = detectProvenanceSnapshot(commitRow ?? runRow);
+
+        writeArtifact('ac-pinned-resume-summary.json', {
+          template,
+          originalManifest,
+          mutatedManifest,
+          register,
+          observedRun,
+          committedCheckpoint,
+          originalRunBeforeKill,
+          killed,
+          mutatedTemplate,
+          mutatedRegister,
+          resume,
+          runRow,
+          commitRow,
+          originalProvenance,
+          resumedProvenance,
+        });
+
+        expect.soft(register.status, register.combined).toBe(0);
+        expect.soft(runId, 'run must exist before pinned-resume mutation').toBeTruthy();
+        expect.soft(committedCheckpoint, 'must observe a committed checkpoint before mutation').toBeTruthy();
+        expect.soft(killed.wasKilled, killed.combined).toBe(true);
+        expect.soft(mutatedRegister.status, mutatedRegister.combined).toBe(0);
+        expect.soft(resume.status, resume.combined).toBe(0);
+        expect.soft(stringValue(runRow, ['template_version', 'templateVersion'])).toBe(template.version);
+        expect.soft(stringValue(commitRow, ['output_schema_ref', 'outputSchemaRef'])).toBe(
+          'mission.test.sigkill.output'
+        );
+        expect.soft(
+          sameComparableValue(originalRunBeforeKill, commitRow ?? runRow, [
+            'definition_hash',
+            'definitionHash',
+            'template_hash',
+            'templateHash',
+          ]),
+          'resume must keep the original template hash'
+        ).toBe(true);
+        expect.soft(
+          sameComparableValue(originalRunBeforeKill, commitRow ?? runRow, ['compiler_version', 'compilerVersion']),
+          'resume must keep the original compiler version'
+        ).toBe(true);
+        expect.soft(
+          sameComparableValue(originalRunBeforeKill, commitRow ?? runRow, [
+            'registry_snapshot_hash',
+            'registrySnapshotHash',
+          ]),
+          'resume must keep the original registry snapshot hash'
+        ).toBe(true);
+        expect.soft(
+          sameComparableValue(originalRunBeforeKill, commitRow ?? runRow, ['executor_ref', 'executorRef']),
+          'resume must keep the original executor ref'
+        ).toBe(true);
+        expect.soft(
+          sameComparableValue(originalRunBeforeKill, commitRow ?? runRow, ['schema_ref', 'schemaRef', 'output_schema_ref', 'outputSchemaRef']),
+          'resume must keep the original schema provenance'
+        ).toBe(true);
+        expect.soft(
+          stringValue(resumedProvenance, ['fleet_manifest_version', 'fleetManifestVersion']),
+          'resume must persist fleet manifest provenance'
+        ).toBeTruthy();
+        expect.soft(
+          stringValue(resumedProvenance, ['model_revision', 'modelRevision', 'model_revisions', 'modelRevisions']),
+          'resume must persist model revision provenance'
+        ).toBeTruthy();
+        expect.soft(
+          stringValue(resumedProvenance, ['fleet_manifest_version', 'fleetManifestVersion']),
+          'resume must not switch to the mutated fleet manifest version'
+        ).not.toBe('9.9.9');
+        expect.soft(
+          JSON.stringify(resumedProvenance),
+          'resume must not adopt the mutated model revision'
+        ).not.toContain('mutated-divergent-r2');
+      });
+    },
+    90_000
+  );
+
+  it(
+    'AC-1/TC-2 RED: named commit crash boundaries require source-backed HOLO_TEST_CRASH_AT hooks, zero partial rows, and exact-once replay after SIGKILL',
+    async () => {
+      const hookInventory = scanMissionCrashHooks();
+      const template = prepareTemplateFixture('template-test.echo.json', 'ac-commit-boundary');
+      const register = runHolo('ac-commit-boundary-register', [
+        'mission',
+        'template:register',
+        template.path,
+        '--json',
+      ]);
+
+      const results: Array<Record<string, unknown>> = [];
+      for (const boundary of commitCrashBoundaries) {
+        const key = scenarioId(`commit-${boundary}`);
+        const runner = startHoloProcess(
+          `ac-commit-boundary-${boundary}`,
+          [
+            'mission',
+            'run',
+            template.templateKey,
+            '--goal',
+            `Crash boundary ${boundary}`,
+            '--idempotency-key',
+            key,
+            '--json',
+          ],
+          {
+            env: {
+              HOLO_TEST_CRASH_AT: `mission-commit/${boundary}`,
+            },
+          }
+        );
+        const proofBeforeKill = await waitForValue(
+          `commit-${boundary}-proof`,
+          () => detectCrashBoundaryProof(boundary, key, runner.snapshot()),
+          { abortIf: () => runner.exited() }
+        );
+        const killRequested = Boolean(proofBeforeKill) && !runner.exited() ? runner.kill('SIGKILL') : false;
+        const crashed = await runner.result;
+        const observedRun = await findRunByIdempotencyKey(key);
+        const boundaryProof =
+          proofBeforeKill ??
+          (await detectCrashBoundaryProof(boundary, key, {
+            stdout: crashed.stdout,
+            stderr: crashed.stderr,
+            parsed: crashed.parsed,
+          }));
+        const runId =
+          boundaryProof?.runId ?? stringValue(observedRun, ['id']) ?? runIdFromUnknown(crashed.parsed);
+        const beforeReplay = await summarizeRun(runId);
+        const replay = runHolo(`ac-commit-boundary-replay-${boundary}`, [
+          'mission',
+          'run',
+          template.templateKey,
+          '--goal',
+          `Crash boundary ${boundary}`,
+          '--idempotency-key',
+          key,
+          '--json',
+        ]);
+        const authoritativeRun =
+          runId ?? runIdFromUnknown(replay.parsed) ?? stringValue(await findRunByIdempotencyKey(key), ['id']);
+        const afterReplay = await summarizeRun(authoritativeRun);
+        const duplicateCommittedStages = await withSql((sql) => committedStageDuplicates(sql, authoritativeRun));
+        const terminalEventsBeforeReplay = await withSql((sql) => terminalEventCount(sql, runId));
+        const terminalEventsAfterReplay = await withSql((sql) => terminalEventCount(sql, authoritativeRun));
+
+        results.push({
+          boundary,
+          key,
+          observedRun,
+          boundaryProof,
+          killRequested,
+          crashed,
+          runId,
+          beforeReplay,
+          replay,
+          authoritativeRun,
+          afterReplay,
+          duplicateCommittedStages,
+          terminalEventsBeforeReplay,
+          terminalEventsAfterReplay,
+        });
+      }
+
+      writeArtifact('ac-commit-boundary-summary.json', {
+        hookInventory,
+        template,
+        register,
+        results,
+      });
+
+      expect.soft(register.status, register.combined).toBe(0);
+      expect.soft(hookInventory.hasHookEnv, 'HOLO_TEST_CRASH_AT hook must exist in source').toBe(true);
+      expect.soft(hookInventory.hasAllNamedBoundaries, 'all named mission-commit boundaries must exist in source').toBe(true);
+
+      for (const result of results) {
+        const boundary = String(result.boundary);
+        const boundaryProof = (result.boundaryProof as CrashBoundaryProof | null) ?? null;
+        const crashed = result.crashed as {
+          wasKilled: boolean;
+          signal: NodeJS.Signals | null;
+          combined: string;
+        };
+        const beforeReplay = result.beforeReplay as RunSummary;
+        const replay = result.replay as { status: number | null; combined: string };
+        const afterReplay = result.afterReplay as RunSummary;
+        expect.soft(
+          boundaryProof,
+          `${boundary}: must prove the requested HOLO_TEST_CRASH_AT boundary triggered via stdout/stderr/artifact/readiness or DB marker before accepting SIGKILL`
+        ).toBeTruthy();
+        expect.soft(
+          normalizeCrashBoundaryMarker(boundaryProof?.marker),
+          `${boundary}: crash marker must identify the requested boundary`
+        ).toBe(boundary);
+        expect.soft(crashed.signal, `${boundary}: child must terminate via SIGKILL`).toBe('SIGKILL');
+        expect.soft(crashed.wasKilled, `${boundary}: child must actually be SIGKILLed`).toBe(true);
+        expect.soft(
+          beforeReplay.commits.length,
+          `${boundary}: crash must leave zero mission_commits rows for the scoped run`
+        ).toBe(0);
+        expect.soft(
+          result.terminalEventsBeforeReplay,
+          `${boundary}: crash must leave zero terminal mission_events rows for the scoped run`
+        ).toBe(0);
+        expect.soft(
+          String(terminalStatus(beforeReplay.run) ?? ''),
+          `${boundary}: crash must not finalize mission_runs`
+        ).not.toMatch(/completed|failed|budget_exceeded|blocked/);
+        expect.soft(replay.status, `${boundary}: replay without crash hook must succeed`).toBe(0);
+        expect.soft(afterReplay.commits.length, `${boundary}: replay must persist exactly one commit row`).toBe(1);
+        expect.soft(
+          result.terminalEventsAfterReplay,
+          `${boundary}: replay must persist exactly one terminal event`
+        ).toBe(1);
+        expect.soft(
+          result.duplicateCommittedStages,
+          `${boundary}: replay must not duplicate committed stages`
+        ).toBe(0);
+      }
+    },
+    90_000
+  );
+
+  it(
+    'AC-2/TC-3 RED: identical idempotency key replays exactly once, produces no duplicate stage/event/telemetry rows, and conflicting input fails closed',
+    async () => {
+      const template = prepareTemplateFixture('template-test.echo.json', 'ac-idempotent-replay');
+      const register = runHolo('ac-idempotent-register', [
+        'mission',
+        'template:register',
+        template.path,
+        '--json',
+      ]);
+      const replayKey = scenarioId('idempotent-replay');
+      const goal = 'Replay should return stored result without re-execution.';
+
+      const firstRunner = startHoloProcess('ac-idempotent-first', [
+        'mission',
+        'run',
+        template.templateKey,
+        '--goal',
+        goal,
+        '--idempotency-key',
+        replayKey,
+        '--json',
+      ]);
+      const secondRunner = startHoloProcess('ac-idempotent-second', [
+        'mission',
+        'run',
+        template.templateKey,
+        '--goal',
+        goal,
+        '--idempotency-key',
+        replayKey,
+        '--json',
+      ]);
+      const [first, second] = await Promise.all([firstRunner.result, secondRunner.result]);
+      const third = runHolo('ac-idempotent-third', [
+        'mission',
+        'run',
+        template.templateKey,
+        '--goal',
+        goal,
+        '--idempotency-key',
+        replayKey,
+        '--json',
+      ]);
+      const conflicting = runHolo('ac-idempotent-conflict', [
+        'mission',
+        'run',
+        template.templateKey,
+        '--goal',
+        'Different goal must fail for the same idempotency key.',
+        '--idempotency-key',
+        replayKey,
+        '--json',
+      ]);
+
+      const firstPayload = asRecord(first.parsed);
+      const secondPayload = asRecord(second.parsed);
+      const thirdPayload = asRecord(third.parsed);
+      const runId = runIdFromUnknown(firstPayload) ?? runIdFromUnknown(secondPayload) ?? runIdFromUnknown(thirdPayload) ?? stringValue(await findRunByIdempotencyKey(replayKey), ['id']);
+
+      await withSql(async (sql) => {
+        const runRows = await selectMissionRunsByIdempotencyKey(sql, replayKey);
+        const stageRuns = runId ? await selectMissionStageRuns(sql, runId) : [];
+        const commits = runId ? await selectMissionCommits(sql, runId) : [];
+        const events = runId ? await selectMissionEvents(sql, runId) : [];
+        const telemetry = runId ? await selectInferenceTelemetry(sql, runId) : [];
+        const duplicateCommittedStages = await committedStageDuplicates(sql, runId);
+        const terminalEvents = await terminalEventCount(sql, runId);
+
+        writeArtifact('ac-idempotent-summary.json', {
+          template,
+          register,
+          first,
+          second,
+          third,
+          conflicting,
+          runRows,
+          stageRuns,
+          commits,
+          events,
+          telemetry,
+          duplicateCommittedStages,
+          terminalEvents,
+        });
+
+        expect.soft(register.status, register.combined).toBe(0);
+        expect.soft(first.status, first.combined).toBe(0);
+        expect.soft(second.status, second.combined).toBe(0);
+        expect.soft(third.status, third.combined).toBe(0);
+        expect.soft(runId, 'run id must be stable across replay').toBeTruthy();
+        expect.soft(runIdFromUnknown(secondPayload)).toBe(runIdFromUnknown(firstPayload));
+        expect.soft(runIdFromUnknown(thirdPayload)).toBe(runIdFromUnknown(firstPayload));
+        expect.soft(Boolean(secondPayload.replay) || Boolean(thirdPayload.replay), 'one later caller must receive replay=true').toBe(true);
+        expect.soft(runRows.length, 'one authoritative mission_runs row per template_key/idempotency_key').toBe(1);
+        expect.soft(commits.length, 'one authoritative mission_commits row').toBe(1);
+        expect.soft(duplicateCommittedStages, 'replay must not duplicate committed stage rows').toBe(0);
+        expect.soft(terminalEvents, 'replay must not duplicate terminal mission_events').toBe(1);
+        expect.soft(new Set(normalizedSignatures(events)).size, 'mission_events must not duplicate normalized rows').toBe(
+          events.length
+        );
+        expect.soft(new Set(normalizedSignatures(telemetry)).size, 'replay must not duplicate normalized telemetry rows').toBe(
+          telemetry.length
+        );
+        expect.soft(conflicting.status, conflicting.combined).not.toBe(0);
+        expect.soft(conflicting.combined, conflicting.combined).toMatch(/conflict|idempotency|different/i);
+      });
+    },
+    90_000
+  );
+
+  it(
+    'AC-3/TC-4 RED: test.budget persists run-scoped usage, terminal commit/event, and provenance on budget_exceeded',
+    async () => {
+      const template = prepareTemplateFixture('template-test.budget.json', 'ac-budget-register');
+      const register = runHolo('ac-budget-register', [
+        'mission',
+        'template:register',
+        template.path,
+        '--json',
+      ]);
+      const budgetKey = scenarioId('budget-exceeded');
+      const run = runHolo('ac-budget-run', [
+        'mission',
+        'run',
+        template.templateKey,
+        '--goal',
+        'Spend more than one wall-ms/token/step budget.',
+        '--idempotency-key',
+        budgetKey,
+        '--json',
+      ]);
+      const payload = asRecord(run.parsed);
+      const runId = runIdFromUnknown(payload) ?? stringValue(await findRunByIdempotencyKey(budgetKey), ['id']);
+
+      await withSql(async (sql) => {
+        const schema = await snapshotMissionSchema(sql);
+        const runRow = runId ? await selectMissionRunById(sql, runId) : null;
+        const commitRow = runId ? (await selectMissionCommits(sql, runId))[0] ?? null : null;
+        const events = runId ? await selectMissionEvents(sql, runId) : [];
+        const eventTypes = events.map((event) => stringValue(event, ['event_type', 'eventType'])).filter(Boolean);
+        const persistedUsage = usageSnapshot(commitRow ?? runRow);
+        const payloadUsage = usageSnapshot(payload);
+
+        writeArtifact('ac-budget-summary.json', {
+          template,
+          register,
+          run,
+          payload,
+          schema,
+          runRow,
+          commitRow,
+          events,
+          eventTypes,
+          payloadUsage,
+          persistedUsage,
+        });
+
+        expect.soft(register.status, register.combined).toBe(0);
+        expect.soft(run.status, run.combined).not.toBe(0);
+        expect.soft(payload.status, JSON.stringify(payload)).toBe('budget_exceeded');
+        expect.soft(payload.errorCode, JSON.stringify(payload)).toBe('budget_exceeded');
+        expect.soft(payloadUsage, 'run JSON must include typed usage').toBeTruthy();
+        expect.soft(runId, 'budget_exceeded run must persist a run row').toBeTruthy();
+        expect.soft(
+          missingColumns(schema.tables.mission_commits?.columns ?? [], EXPECTED_COMMIT_COLUMNS),
+          'mission_commits must expose the expected commit columns'
+        ).toEqual([]);
+        expect.soft(commitRow, 'budget_exceeded must still persist a terminal commit row').toBeTruthy();
+        expect.soft(stringValue(runRow, ['status'])).toBe('budget_exceeded');
+        expect.soft(stringValue(runRow, ['error_code', 'errorCode'])).toBe('budget_exceeded');
+        expect.soft(eventTypes.some((eventType) => /budget/i.test(String(eventType))), 'budget_exceeded must append a terminal event').toBe(true);
+        expect.soft(Object.keys(persistedUsage).length, 'budget_exceeded must persist usage fields on run/commit rows').toBeGreaterThan(0);
+        expect.soft(detectProvenanceSnapshot(commitRow ?? runRow), 'budget_exceeded terminal evidence must persist provenance').toBeTruthy();
+      });
+    },
+    60_000
+  );
+
+  it(
+    'AC-1/AC-2/TC-2 RED: CLI template:register/run/status/resume JSON contracts expose persisted run id, status, provenance, and MISSION_NOT_FOUND errors',
+    async () => {
+      const template = prepareTemplateFixture('template-test.echo.json', 'ac-cli-contract');
+      const commands = {
+        templateRegister: runHolo('ac-cli-template-register', [
+          'mission',
+          'template:register',
+          template.path,
+          '--json',
+        ]),
+        run: runHolo('ac-cli-run', [
+          'mission',
+          'run',
+          template.templateKey,
+          '--goal',
+          'CLI contract should return run status/output/provenance.',
+          '--idempotency-key',
+          scenarioId('cli-run'),
+          '--json',
+        ]),
+        statusMissing: runHolo('ac-cli-status-missing', ['mission', 'status', 'missing-run-id', '--json']),
+        resumeMissing: runHolo('ac-cli-resume-missing', ['mission', 'resume', 'missing-run-id', '--json']),
+      };
+
+      const runPayload = asRecord(commands.run.parsed);
+      const runId = runIdFromUnknown(runPayload);
+      const realStatus = runId
+        ? runHolo('ac-cli-status-real', ['mission', 'status', runId, '--json'])
+        : { status: null, stdout: '', stderr: '', combined: 'missing run id', parsed: null };
+      const realStatusPayload = asRecord(realStatus.parsed);
+
+      writeArtifact('ac-cli-contract-summary.json', {
+        template,
+        commands,
+        realStatus,
+      });
+
+      expect.soft(commands.templateRegister.status, commands.templateRegister.combined).toBe(0);
+      expect.soft(asRecord(commands.templateRegister.parsed).templateKey).toBe(template.templateKey);
+      expect.soft(asRecord(commands.templateRegister.parsed).version).toBe(template.version);
+      expect.soft(commands.run.status, commands.run.combined).toBe(0);
+      expect.soft(runId, JSON.stringify(runPayload)).toBeTruthy();
+      expect.soft(String(runPayload.status ?? ''), JSON.stringify(runPayload)).toMatch(
+        /queued|running|completed|succeeded/
+      );
+      expect.soft(runPayload.provenance, JSON.stringify(runPayload)).toBeTruthy();
+      expect.soft(realStatus.status, JSON.stringify(realStatus)).toBe(0);
+      expect.soft(realStatusPayload.runId, JSON.stringify(realStatusPayload)).toBe(runId);
+      expect.soft(realStatusPayload.templateKey, JSON.stringify(realStatusPayload)).toBe(template.templateKey);
+      expect.soft(realStatusPayload.provenance, JSON.stringify(realStatusPayload)).toBeTruthy();
+      expect.soft(commands.statusMissing.status, commands.statusMissing.combined).toBe(0);
+      expect.soft(asRecord(commands.statusMissing.parsed).errorCode).toBe('MISSION_NOT_FOUND');
+      expect.soft(commands.resumeMissing.status, commands.resumeMissing.combined).not.toBe(2);
+      expect.soft(asRecord(commands.resumeMissing.parsed).errorCode).toBe('MISSION_NOT_FOUND');
+    },
+    60_000
+  );
+
+  it(
+    'AC-3/TC-4 RED: repeated fresh non-replay runs produce identical typed output and provenance after stripping IDs/timestamps',
+    async () => {
+      const template = prepareTemplateFixture('template-test.echo.json', 'ac-deterministic-output');
+      const register = runHolo('ac-deterministic-register', [
+        'mission',
+        'template:register',
+        template.path,
+        '--json',
+      ]);
+      const first = runHolo('ac-deterministic-first', [
+        'mission',
+        'run',
+        template.templateKey,
+        '--goal',
+        'Deterministic output comparison.',
+        '--idempotency-key',
+        scenarioId('deterministic-first'),
+        '--json',
+      ]);
+      const second = runHolo('ac-deterministic-second', [
+        'mission',
+        'run',
+        template.templateKey,
+        '--goal',
+        'Deterministic output comparison.',
+        '--idempotency-key',
+        scenarioId('deterministic-second'),
+        '--json',
+      ]);
+
+      const firstPayload = asRecord(first.parsed);
+      const secondPayload = asRecord(second.parsed);
+      const firstRunId = runIdFromUnknown(firstPayload);
+      const secondRunId = runIdFromUnknown(secondPayload);
+      const firstSummary = await summarizeRun(firstRunId);
+      const secondSummary = await summarizeRun(secondRunId);
+      const firstCommit = firstSummary.commits[0] ?? null;
+      const secondCommit = secondSummary.commits[0] ?? null;
+      const normalizedFirstOutput = normalizeForDeterministicCompare(typedOutputSnapshot(firstCommit ?? firstPayload));
+      const normalizedSecondOutput = normalizeForDeterministicCompare(typedOutputSnapshot(secondCommit ?? secondPayload));
+      const normalizedFirstProvenance = normalizeForDeterministicCompare(
+        detectProvenanceSnapshot(firstCommit ?? firstSummary.run ?? firstPayload)
+      );
+      const normalizedSecondProvenance = normalizeForDeterministicCompare(
+        detectProvenanceSnapshot(secondCommit ?? secondSummary.run ?? secondPayload)
+      );
+
+      writeArtifact('ac-deterministic-summary.json', {
+        template,
+        register,
+        first,
+        second,
+        firstSummary,
+        secondSummary,
+        normalizedFirstOutput,
+        normalizedSecondOutput,
+        normalizedFirstProvenance,
+        normalizedSecondProvenance,
+      });
+
+      expect.soft(register.status, register.combined).toBe(0);
+      expect.soft(first.status, first.combined).toBe(0);
+      expect.soft(second.status, second.combined).toBe(0);
+      expect.soft(firstRunId, JSON.stringify(firstPayload)).toBeTruthy();
+      expect.soft(secondRunId, JSON.stringify(secondPayload)).toBeTruthy();
+      expect.soft(firstRunId, 'fresh non-replay runs must have distinct run ids').not.toBe(secondRunId);
+      expect.soft(normalizedFirstOutput, 'typed output must be deterministic').toEqual(normalizedSecondOutput);
+      expect.soft(normalizedFirstProvenance, 'provenance must be deterministic across fresh runs').toEqual(
+        normalizedSecondProvenance
+      );
+    },
+    60_000
+  );
+
+  it(
+    'AC-2/TC-3 RED: RN HTTP create/status use a real persisted run, and 401/403 create/status calls write nothing for the scoped idempotency key',
+    async () => {
+      const template = prepareTemplateFixture('template-test.echo.json', 'ac-http-create-status');
+      const register = runHolo('ac-http-create-status-register', [
+        'mission',
+        'template:register',
+        template.path,
+        '--json',
+      ]);
+      const app = createHonoApp();
+      const idempotencyKey = scenarioId('http-create');
+      const createBody = makeCreateBody(
+        template.templateKey,
+        'HTTP mission create should persist a real run row.',
+        idempotencyKey
+      );
+
+      const unkeyed = await callAppJson(app, 'ac-http-create-unkeyed', 'POST', '/api/missions', {
+        body: createBody,
+      });
+      const wrongScope = await callAppJson(app, 'ac-http-create-wrong-scope', 'POST', '/api/missions', {
+        key: MCP,
+        body: createBody,
+      });
+      const runsAfterDenied = await withSql((sql) => selectMissionRunsByIdempotencyKey(sql, idempotencyKey));
+      const created = await callAppJson(app, 'ac-http-create-rn', 'POST', '/api/missions', {
+        key: RN,
+        body: createBody,
+      });
+      const createdJson = asRecord(created.json);
+      const runId = runIdFromUnknown(createdJson) ?? stringValue((await findRunByIdempotencyKey(idempotencyKey)), ['id']);
+      const beforeDeniedStatus = await summarizeRun(runId);
+      const beforeDeniedSurface = runMutationSurface(beforeDeniedStatus);
+      const unkeyedStatus = await callAppJson(app, 'ac-http-status-unkeyed', 'GET', `/api/missions/${runId ?? 'missing-run-id'}`);
+      const afterUnkeyedStatus = await summarizeRun(runId);
+      const afterUnkeyedSurface = runMutationSurface(afterUnkeyedStatus);
+      const wrongScopeStatus = await callAppJson(
+        app,
+        'ac-http-status-wrong-scope',
+        'GET',
+        `/api/missions/${runId ?? 'missing-run-id'}`,
+        { key: MCP }
+      );
+      const afterWrongScopeStatus = await summarizeRun(runId);
+      const afterWrongScopeSurface = runMutationSurface(afterWrongScopeStatus);
+      const status = await callAppJson(app, 'ac-http-status-rn', 'GET', `/api/missions/${runId ?? 'missing-run-id'}`, {
+        key: RN,
+      });
+      const statusJson = asRecord(status.json);
+
+      await withSql(async (sql) => {
+        const runRows = await selectMissionRunsByIdempotencyKey(sql, idempotencyKey);
+        const runRow = runId ? await selectMissionRunById(sql, runId) : null;
+
+        writeArtifact('ac-http-create-status-summary.json', {
+          template,
+          register,
+          createBody,
+          unkeyed,
+          wrongScope,
+          runsAfterDenied,
+          created,
+          beforeDeniedStatus,
+          beforeDeniedSurface,
+          unkeyedStatus,
+          afterUnkeyedStatus,
+          afterUnkeyedSurface,
+          wrongScopeStatus,
+          afterWrongScopeStatus,
+          afterWrongScopeSurface,
+          status,
+          runRows,
+          runRow,
+        });
+
+        expect.soft(register.status, register.combined).toBe(0);
+        expect.soft(unkeyed.status).toBe(401);
+        expect.soft(wrongScope.status).toBe(403);
+        expect.soft(runsAfterDenied.length, '401/403 create must not write a mission_runs row').toBe(0);
+        expect.soft(created.status, created.text).toBe(200);
+        expect.soft(createdJson.ok, JSON.stringify(createdJson)).toBe(true);
+        expect.soft(createdJson.note, 'placeholder responses are not allowed').toBeUndefined();
+        expect.soft(runId, 'authorized create must return/persist a real run id').toBeTruthy();
+        expect.soft(runRows.length, 'authorized create must persist exactly one scoped mission_runs row').toBe(1);
+        expect.soft(stringValue(runRow, ['id'])).toBe(runId);
+        expect.soft(stringValue(runRow, ['template_key', 'templateKey'])).toBe(template.templateKey);
+        expect.soft(detectProvenanceSnapshot(runRow), 'authorized create must persist provenance on the run row').toBeTruthy();
+        expect.soft(unkeyedStatus.status).toBe(401);
+        expect.soft(
+          afterUnkeyedSurface.runBytes,
+          '401 status must not mutate mission_runs row bytes'
+        ).toBe(beforeDeniedSurface.runBytes);
+        expect.soft(
+          afterUnkeyedSurface.commitBytes,
+          '401 status must not mutate mission commit/output source bytes'
+        ).toBe(beforeDeniedSurface.commitBytes);
+        expect.soft(
+          afterUnkeyedSurface.eventBytes,
+          '401 status must not append or mutate mission_events'
+        ).toBe(beforeDeniedSurface.eventBytes);
+        expect.soft(
+          afterUnkeyedSurface.outputBytes,
+          '401 status must not mutate persisted mission output bytes'
+        ).toBe(beforeDeniedSurface.outputBytes);
+        expect.soft(wrongScopeStatus.status).toBe(403);
+        expect.soft(
+          afterWrongScopeSurface.runBytes,
+          '403 status must not mutate mission_runs row bytes'
+        ).toBe(beforeDeniedSurface.runBytes);
+        expect.soft(
+          afterWrongScopeSurface.commitBytes,
+          '403 status must not mutate mission commit/output source bytes'
+        ).toBe(beforeDeniedSurface.commitBytes);
+        expect.soft(
+          afterWrongScopeSurface.eventBytes,
+          '403 status must not append or mutate mission_events'
+        ).toBe(beforeDeniedSurface.eventBytes);
+        expect.soft(
+          afterWrongScopeSurface.outputBytes,
+          '403 status must not mutate persisted mission output bytes'
+        ).toBe(beforeDeniedSurface.outputBytes);
+        expect.soft(status.status, status.text).toBe(200);
+        expect.soft(statusJson.runId, JSON.stringify(statusJson)).toBe(runId);
+        expect.soft(statusJson.templateKey, JSON.stringify(statusJson)).toBe(template.templateKey);
+        expect.soft(statusJson.provenance, JSON.stringify(statusJson)).toBeTruthy();
+      });
+    },
+    60_000
+  );
+
+  it(
+    'AC-2/TC-3 RED: RN HTTP steer/verdict use the real created run, preserve run-scoped event order, and 401/403 write nothing',
+    async () => {
+      const template = prepareTemplateFixture('template-test.echo.json', 'ac-http-steer-verdict');
+      const register = runHolo('ac-http-steer-verdict-register', [
+        'mission',
+        'template:register',
+        template.path,
+        '--json',
+      ]);
+      const app = createHonoApp();
+      const idempotencyKey = scenarioId('http-event-create');
+      const created = await callAppJson(app, 'ac-http-real-run-create', 'POST', '/api/missions', {
+        key: RN,
+        body: makeCreateBody(template.templateKey, 'Create a real run for steer/verdict tests.', idempotencyKey),
+      });
+      const createdJson = asRecord(created.json);
+      const runId = runIdFromUnknown(createdJson) ?? stringValue(await findRunByIdempotencyKey(idempotencyKey), ['id']);
+      const beforeCounts = runId ? await summarizeRun(runId) : await summarizeRun(null);
+
+      const unkeyedSteer = await callAppJson(app, 'ac-http-steer-unkeyed', 'POST', `/api/missions/${runId ?? 'missing-run-id'}/steer`, {
+        body: { note: 'Shift to narrower scope.' },
+      });
+      const wrongScopeSteer = await callAppJson(
+        app,
+        'ac-http-steer-wrong-scope',
+        'POST',
+        `/api/missions/${runId ?? 'missing-run-id'}/steer`,
+        {
+          key: MCP,
+          body: { note: 'Shift to narrower scope.' },
+        }
+      );
+      const unkeyedVerdict = await callAppJson(
+        app,
+        'ac-http-verdict-unkeyed',
+        'POST',
+        `/api/missions/${runId ?? 'missing-run-id'}/verdicts`,
+        {
+          body: { verdict: 'advance', rationale: 'Looks good.' },
+        }
+      );
+      const wrongScopeVerdict = await callAppJson(
+        app,
+        'ac-http-verdict-wrong-scope',
+        'POST',
+        `/api/missions/${runId ?? 'missing-run-id'}/verdicts`,
+        {
+          key: MCP,
+          body: { verdict: 'advance', rationale: 'Looks good.' },
+        }
+      );
+      const afterDenied = runId ? await summarizeRun(runId) : await summarizeRun(null);
+      const rnSteer = await callAppJson(app, 'ac-http-steer-rn', 'POST', `/api/missions/${runId ?? 'missing-run-id'}/steer`, {
+        key: RN,
+        body: { note: 'Shift to narrower scope.' },
+      });
+      const rnVerdict = await callAppJson(app, 'ac-http-verdict-rn', 'POST', `/api/missions/${runId ?? 'missing-run-id'}/verdicts`, {
+        key: RN,
+        body: { verdict: 'advance', rationale: 'Looks good.' },
+      });
+      const finalState = runId ? await summarizeRun(runId) : await summarizeRun(null);
+      const steerJson = asRecord(rnSteer.json);
+      const verdictJson = asRecord(rnVerdict.json);
+      const orderedControlEvents = finalState.events.filter((event) =>
+        /steer|verdict/i.test(String(rowValue(event, ['event_type', 'eventType']) ?? ''))
+      );
+      const controlEventTypes = orderedControlEvents.map((event) =>
+        String(rowValue(event, ['event_type', 'eventType']) ?? '')
+      );
+
+      writeArtifact('ac-http-steer-verdict-summary.json', {
+        template,
+        register,
+        created,
+        runId,
+        beforeCounts,
+        unkeyedSteer,
+        wrongScopeSteer,
+        unkeyedVerdict,
+        wrongScopeVerdict,
+        afterDenied,
+        rnSteer,
+        rnVerdict,
+        finalState,
+        controlEventTypes,
+      });
+
+      expect.soft(register.status, register.combined).toBe(0);
+      expect.soft(created.status, created.text).toBe(200);
+      expect.soft(runId, 'steer/verdict tests must bind to a real created run').toBeTruthy();
+      expect.soft(unkeyedSteer.status).toBe(401);
+      expect.soft(wrongScopeSteer.status).toBe(403);
+      expect.soft(unkeyedVerdict.status).toBe(401);
+      expect.soft(wrongScopeVerdict.status).toBe(403);
+      expect.soft(afterDenied.steering.length, '401/403 steer must write zero steering rows').toBe(beforeCounts.steering.length);
+      expect.soft(afterDenied.verdicts.length, '401/403 verdict must write zero verdict rows').toBe(beforeCounts.verdicts.length);
+      expect.soft(afterDenied.events.length, '401/403 control calls must write zero mission_events rows').toBe(beforeCounts.events.length);
+      expect.soft(rnSteer.status, rnSteer.text).toBe(200);
+      expect.soft(rnVerdict.status, rnVerdict.text).toBe(200);
+      expect.soft(steerJson.note, 'placeholder steering response is not acceptable').toBeUndefined();
+      expect.soft(verdictJson.note, 'placeholder verdict response is not acceptable').toBeUndefined();
+      expect.soft(finalState.steering.length, 'authorized steer must persist one run-scoped steering row').toBe(1);
+      expect.soft(finalState.verdicts.length, 'authorized verdict must persist one run-scoped verdict row').toBe(1);
+      expect.soft(controlEventTypes.length, 'authorized steer+verdict must append ordered mission_events rows').toBe(2);
+      expect.soft(controlEventTypes[0] ?? '', 'steer event must be ordered before verdict').toMatch(/steer/i);
+      expect.soft(controlEventTypes[1] ?? '', 'verdict event must come second').toMatch(/verdict/i);
+    },
+    60_000
+  );
+});
+
+function schemaHasColumns(
+  schema: Awaited<ReturnType<typeof snapshotMissionSchema>>,
+  table: keyof Awaited<ReturnType<typeof snapshotMissionSchema>>['tables'],
+  columns: readonly string[]
+): boolean {
+  return missingColumns(schema.tables[table]?.columns ?? [], columns).length === 0;
+}

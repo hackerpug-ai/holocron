@@ -1,0 +1,38 @@
+{
+  "templateKey": "test.budget",
+  "version": "1.0.0",
+  "description": "Budget exhaustion template for explicit budget_exceeded outcomes.",
+  "trigger": { "kind": "on-demand" },
+  "stageGraph": [
+    {
+      "id": "fleet_probe",
+      "stageKind": "fleet.probe@1",
+      "executorRef": "builtin.fleet-probe@1",
+      "inputSchema": { "schemaRef": "mission.goal", "schemaVersion": 1 },
+      "outputSchema": { "schemaRef": "mission.probe.result", "schemaVersion": 1 }
+    },
+    {
+      "id": "consume_budget",
+      "stageKind": "test.consume-budget@1",
+      "executorRef": "builtin.test-consume-budget@1",
+      "inputSchema": { "schemaRef": "mission.probe.result", "schemaVersion": 1 },
+      "outputSchema": { "schemaRef": "mission.test.budget.output", "schemaVersion": 1 }
+    }
+  ],
+  "toolGrants": [],
+  "modelRoleBindings": {
+    "fleet_probe": "divergent"
+  },
+  "budgets": {
+    "wallMs": 1,
+    "tokens": 1,
+    "cost": 0,
+    "maxSteps": 1
+  },
+  "gateRubric": null,
+  "humanGate": null,
+  "outputContract": {
+    "schemaRef": "mission.test.budget.output",
+    "schemaVersion": 1
+  }
+}

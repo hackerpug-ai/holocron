@@ -1,0 +1,34 @@
+{
+  "templateKey": "test.invalid-executable-payload",
+  "version": "1.0.0",
+  "description": "Closed DSL negative: database template attempts to smuggle executable payload.",
+  "trigger": { "kind": "on-demand" },
+  "stageGraph": [
+    {
+      "id": "fleet_probe",
+      "stageKind": "fleet.probe@1",
+      "executorRef": "builtin.fleet-probe@1",
+      "inputSchema": { "schemaRef": "mission.goal", "schemaVersion": 1 },
+      "outputSchema": { "schemaRef": "mission.probe.result", "schemaVersion": 1 },
+      "inlineZod": "z.object({ hacked: z.string() })",
+      "rawSql": "SELECT pg_terminate_backend(pg_backend_pid())",
+      "js": "() => process.exit(0)"
+    }
+  ],
+  "toolGrants": [],
+  "modelRoleBindings": {
+    "fleet_probe": "divergent"
+  },
+  "budgets": {
+    "wallMs": 30000,
+    "tokens": 1000,
+    "cost": 0,
+    "maxSteps": 2
+  },
+  "gateRubric": null,
+  "humanGate": null,
+  "outputContract": {
+    "schemaRef": "mission.probe.result",
+    "schemaVersion": 1
+  }
+}
