@@ -74,6 +74,7 @@ export const missionRuns = pgTable(
     templateKey: text('template_key').notNull(),
     templateVersion: text('template_version').notNull(),
     idempotencyKey: text('idempotency_key').notNull(),
+    ownerScope: text('owner_scope').notNull().default('runtime'),
     goal: text('goal'),
     argsJson: typedJsonb('args_json'),
     status: text('status').notNull().default('pending'),
@@ -119,6 +120,7 @@ export const missionRuns = pgTable(
       sql`${t.checkpointStageIndex} IS NULL OR ${t.checkpointStageIndex} >= 0`
     ),
     check('mission_runs_attempt_count_nonneg', sql`${t.attemptCount} >= 0`),
+    check('mission_runs_owner_scope_check', sql`${t.ownerScope} IN ('rn', 'runtime')`),
     check('mission_runs_output_schema_version_check', sql`${t.outputSchemaVersion} > 0`),
     check('mission_runs_schema_version_check', sql`${t.schemaVersion} > 0`),
     check(
@@ -264,7 +266,7 @@ export const missionSteering = pgTable(
       .notNull()
       .references(() => missionRuns.id, { onDelete: 'cascade' }),
     actor: text('actor'),
-    requestKey: text('request_key'),
+    requestKey: text('request_key').notNull(),
     instruction: text('instruction'),
     payloadJson: typedJsonb('payload_json'),
     createdAt: createdAtColumn(),
@@ -283,12 +285,16 @@ export const missionVerdicts = pgTable(
       .notNull()
       .references(() => missionRuns.id, { onDelete: 'cascade' }),
     actor: text('actor'),
+    requestKey: text('request_key').notNull(),
     verdict: text('verdict').notNull(),
     rationale: text('rationale'),
     payloadJson: typedJsonb('payload_json'),
     createdAt: createdAtColumn(),
   },
-  (t) => [index('mission_verdicts_run_idx').on(t.runId)]
+  (t) => [
+    uniqueIndex('mission_verdicts_run_request_key_uidx').on(t.runId, t.requestKey),
+    index('mission_verdicts_run_idx').on(t.runId),
+  ]
 );
 
 export type MissionTemplateRow = typeof missionTemplates.$inferSelect;

@@ -21,6 +21,7 @@ import {
   MISSION_CHECKPOINT_BARRIER_MARKER,
 } from '../../src/mission/checkpoint-barrier';
 import {
+  CONTROL,
   callAppJson,
   committedStageDuplicates,
   DATABASE_URL,
@@ -2219,9 +2220,9 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
       .soft(realStatusPayload.templateKey, JSON.stringify(realStatusPayload))
       .toBe(template.templateKey);
     expect.soft(realStatusPayload.provenance, JSON.stringify(realStatusPayload)).toBeTruthy();
-    expect.soft(commands.statusMalformed.status, commands.statusMalformed.combined).toBe(0);
+    expect.soft(commands.statusMalformed.status, commands.statusMalformed.combined).toBe(1);
     expect.soft(asRecord(commands.statusMalformed.parsed).errorCode).toBe('MISSION_NOT_FOUND');
-    expect.soft(commands.statusAbsent.status, commands.statusAbsent.combined).toBe(0);
+    expect.soft(commands.statusAbsent.status, commands.statusAbsent.combined).toBe(1);
     expect.soft(asRecord(commands.statusAbsent.parsed).errorCode).toBe('MISSION_NOT_FOUND');
     expect.soft(commands.resumeMalformed.status, commands.resumeMalformed.combined).toBe(1);
     expect.soft(asRecord(commands.resumeMalformed.parsed).errorCode).toBe('MISSION_NOT_FOUND');
@@ -2462,6 +2463,194 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
     });
   }, 60_000);
 
+  it('AC-2/TC-3 RED: RN HTTP create rejects unsupported args before any write, differing unsupported args never replay, and valid strict args still replay', async () => {
+    const template = prepareTemplateFixture(
+      'template-test.echo.json',
+      'ac-http-create-strict-args'
+    );
+    const register = runHolo('ac-http-create-strict-args-register', [
+      'mission',
+      'template:register',
+      template.path,
+      '--json',
+    ]);
+    const app = createHonoApp();
+    const idempotencyKey = scenarioId('http-create-strict-args');
+    const goal = 'HTTP mission create must reject unsupported args before any write.';
+    const validBody = makeCreateBody(template.templateKey, goal, idempotencyKey);
+    const invalidBodyOne = {
+      ...validBody,
+      args: {
+        ...validBody.args,
+        foo: 'one',
+      },
+    };
+    const invalidBodyTwo = {
+      ...validBody,
+      args: {
+        ...validBody.args,
+        foo: 'two',
+      },
+    };
+
+    const invalidOne = await callAppJson(
+      app,
+      'ac-http-create-strict-args-invalid-one',
+      'POST',
+      '/api/missions',
+      {
+        key: RN,
+        body: invalidBodyOne,
+      }
+    );
+    const rowsAfterInvalidOne = await withSql((sql) =>
+      selectMissionRunsByIdempotencyKey(sql, idempotencyKey)
+    );
+    const invalidTwo = await callAppJson(
+      app,
+      'ac-http-create-strict-args-invalid-two',
+      'POST',
+      '/api/missions',
+      {
+        key: RN,
+        body: invalidBodyTwo,
+      }
+    );
+    const rowsAfterInvalidTwo = await withSql((sql) =>
+      selectMissionRunsByIdempotencyKey(sql, idempotencyKey)
+    );
+    const validCreate = await callAppJson(
+      app,
+      'ac-http-create-strict-args-valid',
+      'POST',
+      '/api/missions',
+      {
+        key: RN,
+        body: validBody,
+      }
+    );
+    const validCreateJson = asRecord(validCreate.json);
+    const runId =
+      runIdFromUnknown(validCreateJson) ??
+      stringValue(await findRunByIdempotencyKey(idempotencyKey), ['id']);
+    const validReplay = await callAppJson(
+      app,
+      'ac-http-create-strict-args-replay',
+      'POST',
+      '/api/missions',
+      {
+        key: RN,
+        body: validBody,
+      }
+    );
+    const validReplayJson = asRecord(validReplay.json);
+    const beforeInvalidAfterValid = runId ? await summarizeRun(runId) : await summarizeRun(null);
+    const beforeInvalidAfterValidSurface = runMutationSurface(beforeInvalidAfterValid);
+    const invalidAfterValid = await callAppJson(
+      app,
+      'ac-http-create-strict-args-invalid-after-valid',
+      'POST',
+      '/api/missions',
+      {
+        key: RN,
+        body: {
+          ...validBody,
+          args: {
+            ...validBody.args,
+            foo: 'after-valid',
+          },
+        },
+      }
+    );
+    const afterInvalidAfterValid = runId ? await summarizeRun(runId) : await summarizeRun(null);
+    const afterInvalidAfterValidSurface = runMutationSurface(afterInvalidAfterValid);
+
+    await withSql(async (sql) => {
+      const runRows = await selectMissionRunsByIdempotencyKey(sql, idempotencyKey);
+
+      writeArtifact('ac-http-create-strict-args-summary.json', {
+        template,
+        register,
+        validBody,
+        invalidBodyOne,
+        invalidBodyTwo,
+        invalidOne,
+        rowsAfterInvalidOne,
+        invalidTwo,
+        rowsAfterInvalidTwo,
+        validCreate,
+        validReplay,
+        beforeInvalidAfterValid,
+        beforeInvalidAfterValidSurface,
+        invalidAfterValid,
+        afterInvalidAfterValid,
+        afterInvalidAfterValidSurface,
+        runRows,
+      });
+
+      expect.soft(register.status, register.combined).toBe(0);
+      expect.soft(invalidOne.status, invalidOne.text).toBe(422);
+      expect
+        .soft(asRecord(invalidOne.json).code, JSON.stringify(invalidOne.json))
+        .toBe('INVALID_REQUEST');
+      expect
+        .soft(invalidOne.text, 'unsupported args must be rejected by the strict HTTP schema')
+        .toMatch(/args|unrecognized|foo/i);
+      expect
+        .soft(
+          rowsAfterInvalidOne.length,
+          'unsupported args must be rejected before any mission_runs row is written'
+        )
+        .toBe(0);
+      expect.soft(invalidTwo.status, invalidTwo.text).toBe(422);
+      expect
+        .soft(asRecord(invalidTwo.json).code, JSON.stringify(invalidTwo.json))
+        .toBe('INVALID_REQUEST');
+      expect
+        .soft(
+          rowsAfterInvalidTwo.length,
+          'same template/idempotency key with differing unsupported args must not silently replay'
+        )
+        .toBe(0);
+      expect.soft(validCreate.status, validCreate.text).toBe(200);
+      expect.soft(validCreateJson.ok, JSON.stringify(validCreateJson)).toBe(true);
+      expect.soft(runId, 'valid strict args must still create a real mission run').toBeTruthy();
+      expect.soft(validReplay.status, validReplay.text).toBe(200);
+      expect.soft(validReplayJson.runId, JSON.stringify(validReplayJson)).toBe(runId);
+      expect
+        .soft(Boolean(validReplayJson.replay), 'same valid template+args payload must still replay')
+        .toBe(true);
+      expect
+        .soft(runRows.length, 'valid strict args must still persist exactly one mission_runs row')
+        .toBe(1);
+      expect.soft(invalidAfterValid.status, invalidAfterValid.text).toBe(422);
+      expect
+        .soft(
+          afterInvalidAfterValidSurface.runBytes,
+          'unsupported args after a valid create must not mutate mission_runs bytes'
+        )
+        .toBe(beforeInvalidAfterValidSurface.runBytes);
+      expect
+        .soft(
+          afterInvalidAfterValidSurface.commitBytes,
+          'unsupported args after a valid create must not mutate commit/output bytes'
+        )
+        .toBe(beforeInvalidAfterValidSurface.commitBytes);
+      expect
+        .soft(
+          afterInvalidAfterValidSurface.eventBytes,
+          'unsupported args after a valid create must not append mission_events rows'
+        )
+        .toBe(beforeInvalidAfterValidSurface.eventBytes);
+      expect
+        .soft(
+          afterInvalidAfterValidSurface.outputBytes,
+          'unsupported args after a valid create must not mutate persisted output bytes'
+        )
+        .toBe(beforeInvalidAfterValidSurface.outputBytes);
+    });
+  }, 60_000);
+
   it('AC-2/TC-3 RED: RN HTTP steer/verdict use the real created run, preserve run-scoped event order, and 401/403 write nothing', async () => {
     const template = prepareTemplateFixture('template-test.echo.json', 'ac-http-steer-verdict');
     const register = runHolo('ac-http-steer-verdict-register', [
@@ -2611,6 +2800,476 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
       .soft(controlEventTypes[0] ?? '', 'steer event must be ordered before verdict')
       .toMatch(/steer/i);
     expect.soft(controlEventTypes[1] ?? '', 'verdict event must come second').toMatch(/verdict/i);
+  }, 60_000);
+
+  it('AC-2/TC-3 RED: HTTP steer/verdict reject stray policy fields, derive deterministic request keys, replay duplicates, and 409 on same-key conflicts', async () => {
+    const template = prepareTemplateFixture(
+      'template-test.echo.json',
+      'ac-http-control-idempotency'
+    );
+    const register = runHolo('ac-http-control-idempotency-register', [
+      'mission',
+      'template:register',
+      template.path,
+      '--json',
+    ]);
+    const app = createHonoApp();
+    const idempotencyKey = scenarioId('http-control-idempotency-create');
+    const created = await callAppJson(
+      app,
+      'ac-http-control-idempotency-create',
+      'POST',
+      '/api/missions',
+      {
+        key: RN,
+        body: makeCreateBody(
+          template.templateKey,
+          'Create a real run for HTTP control idempotency checks.',
+          idempotencyKey
+        ),
+      }
+    );
+    const createdJson = asRecord(created.json);
+    const runId =
+      runIdFromUnknown(createdJson) ??
+      stringValue(await findRunByIdempotencyKey(idempotencyKey), ['id']);
+    const beforeRejected = runId ? await summarizeRun(runId) : await summarizeRun(null);
+
+    const invalidSteer = await callAppJson(
+      app,
+      'ac-http-control-idempotency-invalid-steer',
+      'POST',
+      `/api/missions/${runId ?? 'missing-run-id'}/steer`,
+      {
+        key: RN,
+        body: { note: 'bad steer', stageGraph: [] },
+      }
+    );
+    const invalidVerdict = await callAppJson(
+      app,
+      'ac-http-control-idempotency-invalid-verdict',
+      'POST',
+      `/api/missions/${runId ?? 'missing-run-id'}/verdicts`,
+      {
+        key: RN,
+        body: {
+          verdict: 'potato',
+          rationale: 'bad verdict payload',
+          wipLimit: 999,
+          citedKill: true,
+          probeGatedAdvance: true,
+        },
+      }
+    );
+    const afterRejected = runId ? await summarizeRun(runId) : await summarizeRun(null);
+
+    const firstSteer = await callAppJson(
+      app,
+      'ac-http-control-idempotency-steer-first',
+      'POST',
+      `/api/missions/${runId ?? 'missing-run-id'}/steer`,
+      {
+        key: RN,
+        body: { note: 'Shift to narrower scope.' },
+      }
+    );
+    const firstSteerJson = asRecord(firstSteer.json);
+    const firstSteering = asRecord(rowValue(firstSteerJson, ['steering']));
+    const derivedSteerKey = stringValue(firstSteering, ['requestKey', 'request_key']);
+    const secondSteer = await callAppJson(
+      app,
+      'ac-http-control-idempotency-steer-replay',
+      'POST',
+      `/api/missions/${runId ?? 'missing-run-id'}/steer`,
+      {
+        key: RN,
+        body: { note: 'Shift to narrower scope.' },
+      }
+    );
+    const secondSteerJson = asRecord(secondSteer.json);
+    const secondSteering = asRecord(rowValue(secondSteerJson, ['steering']));
+    const steerConflict = await callAppJson(
+      app,
+      'ac-http-control-idempotency-steer-conflict',
+      'POST',
+      `/api/missions/${runId ?? 'missing-run-id'}/steer`,
+      {
+        key: RN,
+        body: {
+          requestKey: derivedSteerKey ?? 'missing-steer-request-key',
+          note: 'Conflicting steering payload.',
+        },
+      }
+    );
+
+    const firstVerdict = await callAppJson(
+      app,
+      'ac-http-control-idempotency-verdict-first',
+      'POST',
+      `/api/missions/${runId ?? 'missing-run-id'}/verdicts`,
+      {
+        key: RN,
+        body: { verdict: 'advance', rationale: 'Looks good.' },
+      }
+    );
+    const firstVerdictJson = asRecord(firstVerdict.json);
+    const firstVerdictRow = asRecord(rowValue(firstVerdictJson, ['verdict']));
+    const derivedVerdictKey = stringValue(firstVerdictRow, ['requestKey', 'request_key']);
+    const secondVerdict = await callAppJson(
+      app,
+      'ac-http-control-idempotency-verdict-replay',
+      'POST',
+      `/api/missions/${runId ?? 'missing-run-id'}/verdicts`,
+      {
+        key: RN,
+        body: { verdict: 'advance', rationale: 'Looks good.' },
+      }
+    );
+    const secondVerdictJson = asRecord(secondVerdict.json);
+    const secondVerdictRow = asRecord(rowValue(secondVerdictJson, ['verdict']));
+    const verdictConflict = await callAppJson(
+      app,
+      'ac-http-control-idempotency-verdict-conflict',
+      'POST',
+      `/api/missions/${runId ?? 'missing-run-id'}/verdicts`,
+      {
+        key: RN,
+        body: {
+          requestKey: derivedVerdictKey ?? 'missing-verdict-request-key',
+          verdict: 'redirect',
+          rationale: 'Conflicting verdict payload.',
+        },
+      }
+    );
+    const finalState = runId ? await summarizeRun(runId) : await summarizeRun(null);
+    const controlEventTypes = finalState.events
+      .filter((event) =>
+        /steer|verdict/i.test(String(rowValue(event, ['event_type', 'eventType']) ?? ''))
+      )
+      .map((event) => String(rowValue(event, ['event_type', 'eventType']) ?? ''));
+
+    writeArtifact('ac-http-control-idempotency-summary.json', {
+      template,
+      register,
+      created,
+      runId,
+      beforeRejected,
+      invalidSteer,
+      invalidVerdict,
+      afterRejected,
+      firstSteer,
+      secondSteer,
+      steerConflict,
+      firstVerdict,
+      secondVerdict,
+      verdictConflict,
+      finalState,
+      derivedSteerKey,
+      derivedVerdictKey,
+      controlEventTypes,
+    });
+
+    expect.soft(register.status, register.combined).toBe(0);
+    expect.soft(created.status, created.text).toBe(200);
+    expect.soft(runId, 'idempotency test must bind to a real created run').toBeTruthy();
+    expect.soft(invalidSteer.status, invalidSteer.text).toBe(422);
+    expect.soft(invalidVerdict.status, invalidVerdict.text).toBe(422);
+    expect
+      .soft(afterRejected.steering.length, '422 steer must write zero steering rows')
+      .toBe(beforeRejected.steering.length);
+    expect
+      .soft(afterRejected.verdicts.length, '422 verdict must write zero verdict rows')
+      .toBe(beforeRejected.verdicts.length);
+    expect
+      .soft(afterRejected.events.length, '422 control calls must write zero mission_events rows')
+      .toBe(beforeRejected.events.length);
+    expect.soft(firstSteer.status, firstSteer.text).toBe(200);
+    expect.soft(asRecord(firstSteer.json).replay, JSON.stringify(firstSteer.json)).toBe(false);
+    expect.soft(derivedSteerKey, JSON.stringify(firstSteering)).toBeTruthy();
+    expect.soft(secondSteer.status, secondSteer.text).toBe(200);
+    expect.soft(asRecord(secondSteer.json).replay, JSON.stringify(secondSteer.json)).toBe(true);
+    expect
+      .soft(
+        stringValue(secondSteering, ['requestKey', 'request_key']),
+        JSON.stringify(secondSteering)
+      )
+      .toBe(derivedSteerKey);
+    expect.soft(steerConflict.status, steerConflict.text).toBe(409);
+    expect.soft(firstVerdict.status, firstVerdict.text).toBe(200);
+    expect.soft(asRecord(firstVerdict.json).replay, JSON.stringify(firstVerdict.json)).toBe(false);
+    expect.soft(derivedVerdictKey, JSON.stringify(firstVerdictRow)).toBeTruthy();
+    expect.soft(secondVerdict.status, secondVerdict.text).toBe(200);
+    expect.soft(asRecord(secondVerdict.json).replay, JSON.stringify(secondVerdict.json)).toBe(true);
+    expect
+      .soft(
+        stringValue(secondVerdictRow, ['requestKey', 'request_key']),
+        JSON.stringify(secondVerdictRow)
+      )
+      .toBe(derivedVerdictKey);
+    expect.soft(verdictConflict.status, verdictConflict.text).toBe(409);
+    expect.soft(finalState.steering.length, JSON.stringify(finalState.steering)).toBe(1);
+    expect.soft(finalState.verdicts.length, JSON.stringify(finalState.verdicts)).toBe(1);
+    expect.soft(controlEventTypes.length, JSON.stringify(controlEventTypes)).toBe(2);
+    expect.soft(controlEventTypes[0] ?? '').toMatch(/steer/i);
+    expect.soft(controlEventTypes[1] ?? '').toMatch(/verdict/i);
+    expect
+      .soft(
+        stringValue(finalState.steering[0], ['request_key', 'requestKey']),
+        JSON.stringify(finalState.steering[0])
+      )
+      .toBe(derivedSteerKey);
+    expect
+      .soft(
+        stringValue(finalState.verdicts[0], ['request_key', 'requestKey']),
+        JSON.stringify(finalState.verdicts[0])
+      )
+      .toBe(derivedVerdictKey);
+  }, 60_000);
+
+  it('AC-2/TC-3 RED: RN may only access RN-owned runs while control administers runtime-owned runs', async () => {
+    const template = prepareTemplateFixture('template-test.echo.json', 'ac-http-owner-scope');
+    const register = runHolo('ac-http-owner-scope-register', [
+      'mission',
+      'template:register',
+      template.path,
+      '--json',
+    ]);
+    const runtimeRun = runMissionRuntime('ac-http-owner-scope-runtime-run', {
+      templateKey: template.templateKey,
+      goal: 'Runtime-owned mission for HTTP owner-scope checks.',
+      idempotencyKey: scenarioId('http-owner-scope-runtime'),
+    });
+    const runtimeRunPayload = asRecord(runtimeRun.parsed);
+    const runId = runIdFromUnknown(runtimeRunPayload);
+    const app = createHonoApp();
+    const beforeDenied = runId ? await summarizeRun(runId) : await summarizeRun(null);
+    const beforeDeniedSurface = runMutationSurface(beforeDenied);
+
+    const rnStatus = await callAppJson(
+      app,
+      'ac-http-owner-scope-rn-status',
+      'GET',
+      `/api/missions/${runId ?? 'missing-run-id'}`,
+      { key: RN }
+    );
+    const rnSteer = await callAppJson(
+      app,
+      'ac-http-owner-scope-rn-steer',
+      'POST',
+      `/api/missions/${runId ?? 'missing-run-id'}/steer`,
+      {
+        key: RN,
+        body: { note: 'RN should not administer runtime-owned runs.' },
+      }
+    );
+    const rnVerdict = await callAppJson(
+      app,
+      'ac-http-owner-scope-rn-verdict',
+      'POST',
+      `/api/missions/${runId ?? 'missing-run-id'}/verdicts`,
+      {
+        key: RN,
+        body: { verdict: 'advance', rationale: 'RN should not administer runtime-owned runs.' },
+      }
+    );
+    const afterDenied = runId ? await summarizeRun(runId) : await summarizeRun(null);
+    const afterDeniedSurface = runMutationSurface(afterDenied);
+
+    const controlStatus = await callAppJson(
+      app,
+      'ac-http-owner-scope-control-status',
+      'GET',
+      `/api/missions/${runId ?? 'missing-run-id'}`,
+      { key: CONTROL }
+    );
+    const controlSteer = await callAppJson(
+      app,
+      'ac-http-owner-scope-control-steer',
+      'POST',
+      `/api/missions/${runId ?? 'missing-run-id'}/steer`,
+      {
+        key: CONTROL,
+        body: {
+          requestKey: scenarioId('http-owner-scope-control-steer'),
+          note: 'Control admin steer.',
+        },
+      }
+    );
+    const controlVerdict = await callAppJson(
+      app,
+      'ac-http-owner-scope-control-verdict',
+      'POST',
+      `/api/missions/${runId ?? 'missing-run-id'}/verdicts`,
+      {
+        key: CONTROL,
+        body: {
+          requestKey: scenarioId('http-owner-scope-control-verdict'),
+          verdict: 'redirect',
+          rationale: 'Control admin verdict.',
+        },
+      }
+    );
+    const afterControl = runId ? await summarizeRun(runId) : await summarizeRun(null);
+
+    writeArtifact('ac-http-owner-scope-summary.json', {
+      template,
+      register,
+      runtimeRun,
+      runId,
+      beforeDenied,
+      beforeDeniedSurface,
+      rnStatus,
+      rnSteer,
+      rnVerdict,
+      afterDenied,
+      afterDeniedSurface,
+      controlStatus,
+      controlSteer,
+      controlVerdict,
+      afterControl,
+    });
+
+    expect.soft(register.status, register.combined).toBe(0);
+    expect.soft(runtimeRun.status, runtimeRun.combined).toBe(0);
+    expect.soft(runId, JSON.stringify(runtimeRunPayload)).toBeTruthy();
+    expect
+      .soft(
+        stringValue(beforeDenied.run, ['owner_scope', 'ownerScope']),
+        JSON.stringify(beforeDenied.run)
+      )
+      .toBe('runtime');
+    expect.soft(rnStatus.status, rnStatus.text).toBe(403);
+    expect.soft(rnSteer.status, rnSteer.text).toBe(403);
+    expect.soft(rnVerdict.status, rnVerdict.text).toBe(403);
+    expect
+      .soft(afterDeniedSurface.runBytes, '403 status must not mutate the runtime-owned run row')
+      .toBe(beforeDeniedSurface.runBytes);
+    expect
+      .soft(afterDeniedSurface.eventBytes, '403 owner-scope denials must not append mission_events')
+      .toBe(beforeDeniedSurface.eventBytes);
+    expect
+      .soft(afterDeniedSurface.commitBytes, '403 owner-scope denials must not mutate commits')
+      .toBe(beforeDeniedSurface.commitBytes);
+    expect.soft(controlStatus.status, controlStatus.text).toBe(200);
+    expect.soft(asRecord(controlStatus.json).runId, JSON.stringify(controlStatus.json)).toBe(runId);
+    expect.soft(controlSteer.status, controlSteer.text).toBe(200);
+    expect.soft(asRecord(controlSteer.json).replay, JSON.stringify(controlSteer.json)).toBe(false);
+    expect.soft(controlVerdict.status, controlVerdict.text).toBe(200);
+    expect
+      .soft(asRecord(controlVerdict.json).replay, JSON.stringify(controlVerdict.json))
+      .toBe(false);
+    expect.soft(afterControl.steering.length, JSON.stringify(afterControl.steering)).toBe(1);
+    expect.soft(afterControl.verdicts.length, JSON.stringify(afterControl.verdicts)).toBe(1);
+    expect
+      .soft(
+        afterControl.events.length - beforeDenied.events.length,
+        JSON.stringify(afterControl.events)
+      )
+      .toBe(2);
+  }, 60_000);
+
+  it('AC-2/TC-3 RED: RN create against a runtime-owned same-key run returns an opaque 409 and writes nothing', async () => {
+    const template = prepareTemplateFixture(
+      'template-test.echo.json',
+      'ac-http-owner-scope-create-collision'
+    );
+    const register = runHolo('ac-http-owner-scope-create-collision-register', [
+      'mission',
+      'template:register',
+      template.path,
+      '--json',
+    ]);
+    const idempotencyKey = scenarioId('http-owner-scope-create-collision');
+    const goal = 'Runtime-owned mission for HTTP create collision checks.';
+    const runtimeRun = runMissionRuntime('ac-http-owner-scope-create-collision-runtime-run', {
+      templateKey: template.templateKey,
+      goal,
+      idempotencyKey,
+      operator: 'holo',
+    });
+    const runtimeRunPayload = asRecord(runtimeRun.parsed);
+    const runId = runIdFromUnknown(runtimeRunPayload);
+    const app = createHonoApp();
+    const beforeCollision = runId ? await summarizeRun(runId) : await summarizeRun(null);
+    const beforeRows = await withSql((sql) =>
+      selectMissionRunsByIdempotencyKey(sql, idempotencyKey)
+    );
+    const collision = await callAppJson(
+      app,
+      'ac-http-owner-scope-create-collision-rn',
+      'POST',
+      '/api/missions',
+      {
+        key: RN,
+        body: {
+          templateKey: template.templateKey,
+          goal,
+          idempotencyKey,
+          args: {
+            goal,
+            operator: 'holo',
+          },
+        },
+      }
+    );
+    const collisionJson = asRecord(collision.json);
+    const afterCollision = runId ? await summarizeRun(runId) : await summarizeRun(null);
+    const afterRows = await withSql((sql) =>
+      selectMissionRunsByIdempotencyKey(sql, idempotencyKey)
+    );
+    const uuidPattern =
+      /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/i;
+
+    writeArtifact('ac-http-owner-scope-create-collision-summary.json', {
+      template,
+      register,
+      runtimeRun,
+      runId,
+      beforeCollision,
+      beforeRows,
+      collision,
+      afterCollision,
+      afterRows,
+    });
+
+    expect.soft(register.status, register.combined).toBe(0);
+    expect.soft(runtimeRun.status, runtimeRun.combined).toBe(0);
+    expect.soft(runId, JSON.stringify(runtimeRunPayload)).toBeTruthy();
+    expect
+      .soft(
+        stringValue(beforeCollision.run, ['owner_scope', 'ownerScope']),
+        JSON.stringify(beforeCollision.run)
+      )
+      .toBe('runtime');
+    expect.soft(beforeRows.length, JSON.stringify(beforeRows)).toBe(1);
+    expect.soft(collision.status, collision.text).toBe(409);
+    expect
+      .soft(collisionJson.code, JSON.stringify(collisionJson))
+      .toBe('MISSION_IDEMPOTENCY_CONFLICT');
+    expect
+      .soft(collisionJson.errorCode, JSON.stringify(collisionJson))
+      .toBe('MISSION_IDEMPOTENCY_CONFLICT');
+    expect.soft(collisionJson.runId, JSON.stringify(collisionJson)).toBeUndefined();
+    expect
+      .soft(collision.text, '409 create collision body must not contain any UUID')
+      .not.toMatch(uuidPattern);
+    if (runId) {
+      expect
+        .soft(collision.text, '409 create collision body must not leak the foreign run id')
+        .not.toContain(runId);
+    }
+    expect
+      .soft(
+        canonicalJsonBytes(afterRows),
+        '409 create collision must not insert or mutate mission_runs rows for the idempotency key'
+      )
+      .toBe(canonicalJsonBytes(beforeRows));
+    expect
+      .soft(
+        canonicalJsonBytes(afterCollision),
+        '409 create collision must not mutate the runtime-owned run or any related rows'
+      )
+      .toBe(canonicalJsonBytes(beforeCollision));
   }, 60_000);
 });
 

@@ -199,6 +199,9 @@ Usage:
   search:recall             Recall@k vs baseline from --golden set.json
   mission template:register <file>
                             Register a closed declarative mission template from JSON
+  mission run <template>    Run a registered mission template (--goal --idempotency-key)
+  mission resume <run-id>   Resume a persisted mission run by id
+  mission status <run-id>   Show persisted mission run status/output/provenance
   mission run research      Run a research mission with per-run Langfuse trace export
                             (requires --goal; flushes OTel → self-hosted Langfuse)
   evals:run                 Score a versioned fixture sample via local judge (--sample)
@@ -231,7 +234,7 @@ Options:
   --for <consumers>     (registry:probe) comma list: agent,workflow,mcp
   --actor <name>        (evidence:revise) actor recorded on successor
   --run-id <id>         (evidence:revise) run id recorded on successor
-  --idempotency-key <k> (evidence:revise) idempotency key (replay-safe)
+  --idempotency-key <k> (evidence:revise|mission run) idempotency key (replay-safe)
   --statement <text>    (evidence:revise) new belief statement
   --confidence <n>      (evidence:revise) new confidence (0..1)
   --valid-from <ts>     (evidence:revise) optional valid_from timestamptz
@@ -257,7 +260,7 @@ Options:
                         subscription_content|toolbelt_tools|improvement_requests)
   --golden <path>       (search:recall) golden set JSON for recall@k evaluation
   --limit <n>           (search|search:recall|telemetry:tail) max results / rows (default 10 / 100)
-  --goal <text>         (mission run research) research mission goal (required)
+  --goal <text>         (mission run) mission goal (required)
   --sample <id>         (evals:run) fixture sample: known-good | deliberately-bad
   --dataset <version>   (evals:run|evals:drift) dataset version (default research_v1)
   --judge-endpoint <url>(evals:run) override judge health endpoint (fail-closed tests)
@@ -278,8 +281,11 @@ Options:
 `);
 }
 
-const MISSION_USAGE =
-  "holo mission template:register <file> [--json]\n       holo mission run research --goal '<text>' [--json]";
+const MISSION_USAGE = `holo mission template:register <file> [--json]
+       holo mission run <template> --goal '<text>' --idempotency-key <key> [--json]
+       holo mission resume <run-id> [--json]
+       holo mission status <run-id> [--json]
+       holo mission run research --goal '<text>' [--json]`;
 
 function isMissionJsonInvocation(argv: string[]): boolean {
   if (!argv.includes('--json')) return false;
@@ -605,6 +611,46 @@ function exitMissionJsonError(options: {
   if (options.usage) payload.usage = options.usage;
   console.log(JSON.stringify(payload, null, 2));
   process.exit(options.exitCode);
+}
+
+function missionErrorPayload(error: unknown, fallbackCode: string) {
+  const code =
+    error && typeof error === 'object' && 'code' in error && typeof error.code === 'string'
+      ? error.code
+      : fallbackCode;
+  const message =
+    fallbackCode === code && (!error || typeof error !== 'object' || !('code' in error))
+      ? code === 'MISSION_RUNTIME_FAILED'
+        ? 'mission request failed'
+        : 'mission request rejected'
+      : error instanceof Error
+        ? error.message
+        : String(error);
+
+  return {
+    ok: false,
+    errorCode: code,
+    code,
+    error: message,
+  };
+}
+
+function printMissionRuntimeResult(result: Record<string, unknown>, surface: string): void {
+  console.log(`holo ${surface}`);
+  console.log(`  runId:               ${String(result.runId ?? '—')}`);
+  console.log(`  templateKey:         ${String(result.templateKey ?? '—')}`);
+  console.log(`  templateVersion:     ${String(result.templateVersion ?? '—')}`);
+  console.log(`  idempotencyKey:      ${String(result.idempotencyKey ?? '—')}`);
+  console.log(`  status:              ${String(result.status ?? '—')}`);
+  console.log(`  replay:              ${String(result.replay ?? false)}`);
+  console.log(`  checkpointStage:     ${String(result.checkpointStageIndex ?? '—')}`);
+  console.log(`  attemptCount:        ${String(result.attemptCount ?? '—')}`);
+  console.log(`  output:              ${JSON.stringify(result.output ?? null)}`);
+  console.log(`  provenance:          ${JSON.stringify(result.provenance ?? null)}`);
+  if (result.error) {
+    console.log(`  errorCode:           ${String(result.errorCode ?? result.code ?? '—')}`);
+    console.log(`  error:               ${String(result.error)}`);
+  }
 }
 
 async function main(): Promise<void> {
@@ -2627,7 +2673,8 @@ async function main(): Promise<void> {
               console.log('  (no results)');
             } else {
               for (let i = 0; i < out.results.length; i++) {
-                const r = out.results[i]!;
+                const r = out.results[i];
+                if (!r) continue;
                 const score =
                   typeof r.score === 'number' ? r.score.toFixed(6) : String(r.score ?? '');
                 const title = (r.title ?? r.claim_text ?? r.content ?? '').toString().slice(0, 80);
@@ -2688,7 +2735,8 @@ async function main(): Promise<void> {
               console.log('  (no results)');
             } else {
               for (let i = 0; i < out.results.length; i++) {
-                const r = out.results[i]!;
+                const r = out.results[i];
+                if (!r) continue;
                 const score =
                   typeof r.score === 'number' ? r.score.toFixed(6) : String(r.score ?? '');
                 const title = (r.title ?? r.content ?? '').toString().slice(0, 80);
@@ -2812,11 +2860,10 @@ async function main(): Promise<void> {
             top.some((r) => typeof r.title === 'string' && expectedTitles.includes(r.title));
           const contentHit =
             expectedContent.length > 0 &&
-            top.some(
-              (r) =>
-                typeof r.content === 'string' &&
-                expectedContent.some((needle) => r.content!.includes(needle))
-            );
+            top.some((r) => {
+              if (typeof r.content !== 'string') return false;
+              return expectedContent.some((needle) => r.content.includes(needle));
+            });
 
           // If no expected criteria provided, treat non-empty top-k as a hit (smoke).
           const noCriteria =
@@ -3530,24 +3577,158 @@ async function main(): Promise<void> {
         }
       }
 
-      if (sub === 'run' || sub === 'resume' || sub === 'status') {
-        const surface = `mission ${sub}${kind ? ` ${kind}` : ''}`;
-        const error = `${surface} is not implemented in mission-1 (contracts/schema only)`;
-        if (args.json) {
-          exitMissionJsonError({
-            error,
-            code: 'MISSION_ONE_SURFACE_UNIMPLEMENTED',
-            exitCode: 1,
-            usage: MISSION_USAGE,
-          });
+      if (sub === 'run') {
+        const templateKey = kind;
+        if (!templateKey) {
+          const error = 'mission run requires <template>';
+          if (args.json) {
+            exitMissionJsonError({
+              error,
+              code: 'MISSION_TEMPLATE_REQUIRED',
+              exitCode: 2,
+              usage: MISSION_USAGE,
+            });
+          }
+          console.error(`error: ${error}`);
+          console.error(`Usage: ${MISSION_USAGE}`);
+          process.exit(2);
         }
-        console.error(error);
-        process.exit(1);
+
+        const goal = args.goal ?? args.prompt;
+        if (!goal || goal.trim().length === 0) {
+          const error = `mission run ${templateKey} requires --goal <text>`;
+          if (args.json) {
+            exitMissionJsonError({
+              error,
+              code: 'MISSION_GOAL_REQUIRED',
+              exitCode: 2,
+              usage: MISSION_USAGE,
+            });
+          }
+          console.error(`error: ${error}`);
+          process.exit(2);
+        }
+
+        const idempotencyKey = args.idempotencyKey?.trim();
+        if (!idempotencyKey) {
+          const error = `mission run ${templateKey} requires --idempotency-key <key>`;
+          if (args.json) {
+            exitMissionJsonError({
+              error,
+              code: 'MISSION_IDEMPOTENCY_KEY_REQUIRED',
+              exitCode: 2,
+              usage: MISSION_USAGE,
+            });
+          }
+          console.error(`error: ${error}`);
+          process.exit(2);
+        }
+
+        try {
+          const { runMissionTemplate } = await import('../mission/runtime.ts');
+          const result = await runMissionTemplate({
+            templateKey,
+            goal,
+            idempotencyKey,
+          });
+          if (args.json) {
+            console.log(JSON.stringify(result, null, 2));
+          } else {
+            printMissionRuntimeResult(
+              result as Record<string, unknown>,
+              `mission run ${templateKey}`
+            );
+          }
+          process.exit(result.ok ? 0 : 1);
+        } catch (error) {
+          const payload = missionErrorPayload(error, 'MISSION_RUNTIME_FAILED');
+          if (args.json) {
+            console.log(JSON.stringify(payload, null, 2));
+          } else {
+            console.error(`error code: ${payload.errorCode}`);
+            console.error(payload.error);
+          }
+          process.exit(1);
+        }
+      }
+
+      if (sub === 'resume') {
+        const runId = args.positional[2];
+        if (!runId) {
+          const error = 'mission resume requires <run-id>';
+          if (args.json) {
+            exitMissionJsonError({
+              error,
+              code: 'MISSION_RUN_ID_REQUIRED',
+              exitCode: 2,
+              usage: MISSION_USAGE,
+            });
+          }
+          console.error(`error: ${error}`);
+          process.exit(2);
+        }
+
+        try {
+          const { resumeMissionRun } = await import('../mission/runtime.ts');
+          const result = await resumeMissionRun(runId);
+          if (args.json) {
+            console.log(JSON.stringify(result, null, 2));
+          } else {
+            printMissionRuntimeResult(result as Record<string, unknown>, `mission resume ${runId}`);
+          }
+          process.exit(result.ok ? 0 : 1);
+        } catch (error) {
+          const payload = missionErrorPayload(error, 'MISSION_RUNTIME_FAILED');
+          if (args.json) {
+            console.log(JSON.stringify(payload, null, 2));
+          } else {
+            console.error(`error code: ${payload.errorCode}`);
+            console.error(payload.error);
+          }
+          process.exit(1);
+        }
+      }
+
+      if (sub === 'status') {
+        const runId = args.positional[2];
+        if (!runId) {
+          const error = 'mission status requires <run-id>';
+          if (args.json) {
+            exitMissionJsonError({
+              error,
+              code: 'MISSION_RUN_ID_REQUIRED',
+              exitCode: 2,
+              usage: MISSION_USAGE,
+            });
+          }
+          console.error(`error: ${error}`);
+          process.exit(2);
+        }
+
+        try {
+          const { getMissionRunStatus } = await import('../mission/runtime.ts');
+          const result = await getMissionRunStatus(runId);
+          if (args.json) {
+            console.log(JSON.stringify(result, null, 2));
+          } else {
+            printMissionRuntimeResult(result as Record<string, unknown>, `mission status ${runId}`);
+          }
+          process.exit(result.ok ? 0 : 1);
+        } catch (error) {
+          const payload = missionErrorPayload(error, 'MISSION_RUNTIME_FAILED');
+          if (args.json) {
+            console.log(JSON.stringify(payload, null, 2));
+          } else {
+            console.error(`error code: ${payload.errorCode}`);
+            console.error(payload.error);
+          }
+          process.exit(1);
+        }
       }
 
       const error = sub
         ? `unknown command: mission ${sub}${kind ? ` ${kind}` : ''}`
-        : 'mission requires subcommand (template:register | run research)';
+        : 'mission requires subcommand (template:register | run | resume | status)';
       if (args.json) {
         exitMissionJsonError({
           error,

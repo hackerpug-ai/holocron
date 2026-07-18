@@ -59,17 +59,17 @@ export function resolveScopeFromKey(token: string, config: ScopedKeyConfig): Sco
   return null;
 }
 
-/** Verdict / steer control-plane routes. */
-const CONTROL_ROUTE_RE = /^\/api\/missions\/[^/]+\/(verdicts|steer)\/?$/;
+/** Mission admin routes for the documented control alias. */
+const CONTROL_ROUTE_RE = /^\/api\/missions\/[^/]+(?:\/(verdicts|steer))?\/?$/;
 
 /**
  * Whether a resolved scope may access this path.
  *
- * | Scope   | Allowed paths                                      |
- * |---------|----------------------------------------------------|
- * | rn      | /api/* and /blobs/*                                |
- * | mcp     | /mcp and /blobs/*                                  |
- * | control | /api/missions/:id/verdicts and …/steer only        |
+ * | Scope   | Allowed paths                                             |
+ * |---------|-----------------------------------------------------------|
+ * | rn      | /api/* and /blobs/*                                       |
+ * | mcp     | /mcp and /blobs/*                                         |
+ * | control | /api/missions/:id plus the documented admin steer/verdict |
  */
 export function isScopeAllowedForPath(scope: Scope, path: string): boolean {
   // Normalize trailing slash for matching (keep root "/mcp" exact-ish)
