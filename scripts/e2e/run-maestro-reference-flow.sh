@@ -27,6 +27,7 @@ fail() {
 [[ "$DATABASE_URL" == *holocron_nonprod* ]] || fail "DATABASE_URL must target holocron_nonprod"
 [[ -n "${FLEET_URL:-}" ]] || fail "FLEET_URL is required; no inference substitute is allowed"
 [[ -n "${EXPO_PUBLIC_PLATFORM_URL:-${PLATFORM_URL:-}}" ]] || fail "platform URL is required"
+[[ -n "${ZERO_ADMIN_PASSWORD:-}" ]] || fail "ZERO_ADMIN_PASSWORD is required for the real zero-cache"
 command -v maestro >/dev/null 2>&1 || fail "maestro CLI is not installed"
 command -v xcrun >/dev/null 2>&1 || fail "xcrun is not installed"
 [[ -f "$flow" ]] || fail "Maestro flow does not exist: $flow"
@@ -44,6 +45,33 @@ fi
 # The reset is intentionally before boot/flow execution and fails closed.
 bun "$repo_root/services/platform/src/cli/holo.ts" namespace reset --json >"$artifact_dir/namespace-reset.json"
 
+zero_port="${ZERO_PORT:-4848}"
+NODE_ENV=production pnpm exec zero-cache \
+  --upstream-db "$DATABASE_URL" \
+  --cvr-db "${ZERO_CVR_DB:-$DATABASE_URL}" \
+  --change-db "${ZERO_CHANGE_DB:-$DATABASE_URL}" \
+  --app-publications zero_pub \
+  --port "$zero_port" \
+  --admin-password "$ZERO_ADMIN_PASSWORD" \
+  >"$artifact_dir/zero-cache.log" 2>&1 &
+zero_pid=$!
+stop_zero() {
+  kill "$zero_pid" 2>/dev/null || true
+  wait "$zero_pid" 2>/dev/null || true
+}
+for _ in {1..30}; do
+  if ! kill -0 "$zero_pid" 2>/dev/null; then
+    tail -80 "$artifact_dir/zero-cache.log" >&2 || true
+    fail "zero-cache exited before becoming ready"
+  fi
+  if curl --silent --fail --max-time 1 "http://127.0.0.1:${zero_port}/keepalive" >/dev/null 2>&1; then
+    break
+  fi
+  sleep 1
+done
+curl --silent --fail --max-time 2 "http://127.0.0.1:${zero_port}/keepalive" >/dev/null \
+  || fail "zero-cache did not become ready"
+
 booted="$(xcrun simctl list devices | awk -v wanted="$device" '$0 ~ wanted { print ($0 ~ /Booted/) }')"
 if [[ "$booted" != "1" ]]; then
   xcrun simctl boot "$device" 2>"$artifact_dir/simctl-boot.stderr" || true
@@ -58,6 +86,7 @@ cleanup() {
   kill "$video_pid" 2>/dev/null || true
   wait "$video_pid" 2>/dev/null || true
   xcrun simctl io "$device" screenshot "$artifact_dir/final.png" >/dev/null 2>&1 || true
+  stop_zero
 }
 trap cleanup EXIT
 

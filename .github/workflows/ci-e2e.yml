@@ -43,6 +43,9 @@ jobs:
       FLEET_URL: ${{ secrets.FLEET_URL }}
       PLATFORM_URL: ${{ secrets.PLATFORM_URL }}
       EXPO_PUBLIC_PLATFORM_URL: ${{ secrets.PLATFORM_URL }}
+      ZERO_ADMIN_PASSWORD: ${{ secrets.ZERO_ADMIN_PASSWORD }}
+      ZERO_CVR_DB: ${{ secrets.NONPROD_DATABASE_URL }}
+      ZERO_CHANGE_DB: ${{ secrets.NONPROD_DATABASE_URL }}
       MAESTRO_DEVICE: ${{ vars.MAESTRO_DEVICE }}
       EXPO_DEV_BUILD_PATH: ${{ vars.EXPO_DEV_BUILD_PATH }}
       MAESTRO_APP_ID: ${{ vars.MAESTRO_APP_ID }}
