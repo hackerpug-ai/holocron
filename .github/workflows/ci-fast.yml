@@ -1,6 +1,7 @@
 # D02-05 — Fast lane: every push/PR commit (typecheck, lint, unit, actionlint)
 name: ci-fast
 
+# Deliberately unfiltered: tests/ and every other changed path run the fast lane.
 on:
   push:
   pull_request:
