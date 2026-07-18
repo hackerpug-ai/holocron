@@ -30,5 +30,5 @@
     "ALLOW_SKIP_ANTHROPIC=1 is local-dev only; not used for GREEN evidence",
     "No secret values written to artifacts"
   ],
-  "implementation_commit": "33f1de45c9f7a641394108abb7237094866edbed"
+  "implementation_commit": "bbe2d73d3de0e44dc99e004898cedb5fc1045636"
 }

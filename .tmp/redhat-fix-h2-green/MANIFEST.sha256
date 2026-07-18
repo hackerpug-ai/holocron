@@ -9,7 +9,7 @@ d373c8815ed8b553546a25309ef05c949ec2f2d4d378dcaa0a37cec652a9544e  ./AC-5-failed-
 b9604096d8eda0cf0b53d28c4f7a94403ebb614eef31f100cc6f5ce8a57ca859  ./correlation-excerpt.json
 b5be92c8d24eed2594be6c4f3e02f474ce31d28fe32c9d33ce3d9134be19d24a  ./env-provenance.txt
 eba8ebd68b0daf4dc72a190b29723d0a31c29fa061c9857f97927001e42b7ded  ./exit-status.txt
-4f17b6cf5484be73363c5f82a5f59e8fbb0f852958afa8996a858ed86bb79017  ./meta.txt
+0007d2826b55053a3133a43dc4326c33e3bb4d6d39b64ab6ba398953575ea187  ./meta.txt
 e35d0682ce02581e5c3da39e5a9fff3288361f93fc9b27d57e770a7a2ca9b736  ./pass-excerpt.txt
 d6642cb90683bc79f81a12a28828c58af0adf83347bd484fc122e08d22de2c86  ./postgres-budget-ledger.txt
 d97c804dab7aeb7ae566f31f8161bc4386b01dd48c0a1013a69f9d3af7ac03d1  ./postgres-inference-telemetry.txt
@@ -17,4 +17,4 @@ c2dbd2a4d1d969c5f4e0d2f6c90902c538d4df04229951e25b9cb6730ff81e48  ./service-heal
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  ./stderr.txt
 b037f840e7a15be62480be5664a6dcdc47447b627b0e244000b587faaf3a1906  ./stdout.txt
 c7b62c8f2ea00ac8392ebc001fda7b37e365c1eb7b724f3d7eb04983522ff16a  ./tsgo.txt
-6c359f96b0a6e76b87c3de3960cf920495e1d02bf8c1e17e9729e9b8b0fc644d  ./verification-summary.json
+abae49ae4ac9ffeb73eb8c70821d2edebbd7df6f059672f69659a4d13ebfa4b0  ./verification-summary.json
