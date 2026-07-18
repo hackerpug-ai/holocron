@@ -1,0 +1,26 @@
+@@GATE-META step=step5 cmd_sha=879b1a901b82ee3398e7822cec4c535de3fad24ef93d09522b94f7bf03ffb388@@
++ DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts evals:ci --fixture known-good --json
+{
+  "fixture": "known-good",
+  "datasetVersion": "research_v1",
+  "baselineVersion": "research_v1",
+  "modelVersion": "judge_v1",
+  "promptVersion": "research-quality_v1",
+  "score": 0.9,
+  "rawJudgeScore": 0.9,
+  "baseline": 0.8,
+  "threshold": 0.8,
+  "runId": "ci-8d6ffe7e-eff0-4999-827e-9d8541ff2864",
+  "scoreId": "019f73bd-0f1c-7ce0-9247-ab4cfdcecfc8",
+  "sampleId": "known-good",
+  "meetsThreshold": true,
+  "invariantPassed": true,
+  "deterministicFailures": [],
+  "reason": "The response provides a thorough, well-structured research brief covering benefits, limitations/safety, and a bottom-line judgment. It uses specific magnitudes (e.g., 3–8% weight loss) and mechanisms, demonstrating strong grounding and calibrated uncertainty. It includes numbered citations and a Sources list, satisfying the citation requirement (treating fixture URLs as valid per instructions).",
+  "exitReason": "passed",
+  "verdict": "passed",
+  "exitCode": 0,
+  "failureReason": null,
+  "errorCode": null
+}
+@@GATE-EXIT=0@@

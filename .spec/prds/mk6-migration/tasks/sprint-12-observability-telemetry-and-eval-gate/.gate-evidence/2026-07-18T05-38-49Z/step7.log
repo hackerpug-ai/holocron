@@ -1,0 +1,25 @@
+@@GATE-META step=step7 cmd_sha=cf5e3a84710a886622253719e98d3db97dd72818da2ad7369831aaf1ce16ba14@@
++ DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts evals:ci --fixture invalid-config --json
+{
+  "fixture": "invalid-config",
+  "datasetVersion": "research_v1",
+  "baselineVersion": "research_v1",
+  "modelVersion": null,
+  "promptVersion": null,
+  "score": null,
+  "rawJudgeScore": null,
+  "baseline": null,
+  "threshold": null,
+  "verdict": "failed",
+  "exitCode": 1,
+  "failureReason": "invalid_threshold",
+  "exitReason": "INVALID_THRESHOLD: threshold field missing — fail closed",
+  "errorCode": "INVALID_THRESHOLD",
+  "deterministicFailures": [],
+  "runId": null,
+  "scoreId": null,
+  "sampleId": null,
+  "meetsThreshold": false,
+  "invariantPassed": false
+}
+@@GATE-EXIT=1@@

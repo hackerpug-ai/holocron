@@ -1,0 +1,32 @@
+@@GATE-META step=step3 cmd_sha=1076d2a75d74869c6146ab166369598d69de34b4aa75471e16018deb9f2db5f4@@
++ DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts evals:run --sample known-good --json
+{
+  "ok": true,
+  "sampleId": "known-good",
+  "datasetVersion": "research_v1",
+  "score": 0.88,
+  "baseline": 0.8,
+  "meetsBaseline": true,
+  "tag": "happy-path",
+  "runId": "eval-0d631d14-969f-4538-8099-8e4d6b558f97",
+  "scoreId": "019f73bc-5a0a-7f7b-a6c5-6a4909e35f57",
+  "scorerId": "research-quality",
+  "scorerVersion": "research-quality_v1",
+  "rubricVersion": "research-quality_v1",
+  "judgeModelVersion": "judge_v1",
+  "promptVersion": "research-quality_v1",
+  "baselineVersion": "research_v1",
+  "invariantScore": 1,
+  "reason": "The response is a high-quality structured brief meeting the >=0.85 criteria. It thoroughly covers benefits (weight, glycemic control, lipids/BP), limitations/safety (adverse effects, dropout rates, contraindications), and provides a calibrated bottom line acknowledging uncertainty and equivalence to continuous calorie restriction. It includes specific magnitudes (3–8% weight loss), populations (prediabetes, T2D), and mechanisms (reduced energy intake). It is well-organized with numbered citations [1]–[6] and a Sources list, despite URLs being placeholders.",
+  "analysis": {
+    "score": 0.88,
+    "reasoning": "The response is a high-quality structured brief meeting the >=0.85 criteria. It thoroughly covers benefits (weight, glycemic control, lipids/BP), limitations/safety (adverse effects, dropout rates, contraindications), and provides a calibrated bottom line acknowledging uncertainty and equivalence to continuous calorie restriction. It includes specific magnitudes (3–8% weight loss), populations (prediabetes, T2D), and mechanisms (reduced energy intake). It is well-organized with numbered citations [1]–[6] and a Sources list, despite URLs being placeholders.",
+    "hasCitations": true,
+    "isGrounded": true,
+    "isStructured": true,
+    "isComplete": true
+  },
+  "judgeEndpoint": "http://127.0.0.1:4545",
+  "judgeModelId": "reviewer"
+}
+@@GATE-EXIT=0@@

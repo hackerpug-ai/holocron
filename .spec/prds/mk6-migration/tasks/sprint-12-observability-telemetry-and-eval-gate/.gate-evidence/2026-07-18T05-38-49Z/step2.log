@@ -1,0 +1,29 @@
+@@GATE-META step=step2 cmd_sha=2c82ec0fc5d6314da1e190a82de4eb5f4b780fd26adbdfe448fa5c6ba31eb605@@
++ DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts telemetry:tail --run-id 4d854a79-6d71-4092-982a-55eb758e0d5a --json
+{
+  "ok": true,
+  "runId": "4d854a79-6d71-4092-982a-55eb758e0d5a",
+  "count": 1,
+  "rows": [
+    {
+      "id": "019f73bc-2ea8-750a-97db-8474a6e1f5bf",
+      "runId": "4d854a79-6d71-4092-982a-55eb758e0d5a",
+      "stepId": "research-mission-generate",
+      "traceId": "4d854a796d714092982a55eb758e0d5a",
+      "role": "divergent",
+      "provider": "fleet",
+      "endpoint": "http://127.0.0.1:4545/v1",
+      "modelId": "implementer",
+      "inputTokens": 49,
+      "outputTokens": 240,
+      "totalTokens": 289,
+      "tokens": 289,
+      "wallMs": 9730,
+      "status": "success",
+      "errorCode": null,
+      "budgetLedgerId": null,
+      "createdAt": "2026-07-18T05:39:00.391Z"
+    }
+  ]
+}
+@@GATE-EXIT=0@@

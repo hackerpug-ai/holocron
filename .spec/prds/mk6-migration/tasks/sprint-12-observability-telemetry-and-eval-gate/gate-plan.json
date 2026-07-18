@@ -1,0 +1,108 @@
+{
+  "sprint": "sprint-12-observability-telemetry-and-eval-gate",
+  "planned_at": "2026-07-18T05-38-49Z",
+  "planned_steps": 8,
+  "runner": "parent-controller-local-evidence-runner (kb-run-human-tests evidence format)",
+  "env_indirection": "LANGFUSE_PUBLIC_KEY/LANGFUSE_SECRET_KEY/LANGFUSE_BASE_URL and ANTHROPIC_API_KEY are provided via process environment only; never present in literal_cmd or evidence logs.",
+  "realization_note": "holo not on PATH; literal production invocation is `DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts <sub>`. Secrets resolved from env/dotenv outside the logged command. Supersedes leaky run 2026-07-18T05-25-21Z.",
+  "main_head": "af5e93cd63ce2ac3bb6a8d404ab94f31449cf4ef",
+  "steps": [
+    {
+      "n": 1,
+      "text": "Run holo mission run research \u2014 one OTel trace per-run in self-hosted Langfuse.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts mission run research --goal 'Sprint 12 parent QA live mission (no-secret logs)' --json",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "\"langfuseExportOk\":\\s*true",
+        "expect_not_log_regex": "\"LANGFUSE_EXPORT_FAILED\""
+      }
+    },
+    {
+      "n": 2,
+      "text": "Run holo telemetry:tail \u2014 tokens/wall-ms/endpoint/role rows in Postgres.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts telemetry:tail --run-id 4d854a79-6d71-4092-982a-55eb758e0d5a --json",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "\"count\":\\s*[1-9]"
+      }
+    },
+    {
+      "n": 3,
+      "text": "Run holo evals:run --sample known-good \u2014 local judge scores versioned fixture.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts evals:run --sample known-good --json",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "\"score\":\\s*0\\.[89]"
+      }
+    },
+    {
+      "n": 4,
+      "text": "Run holo evals:ci --fixture deliberately-bad \u2014 threshold regression, exit 1.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts evals:ci --fixture deliberately-bad --json",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 1,
+        "expect_log_regex": "\"failureReason\":\\s*\"threshold_regression\""
+      }
+    },
+    {
+      "n": 5,
+      "text": "Run holo evals:ci --fixture known-good \u2014 passes, exit 0.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts evals:ci --fixture known-good --json",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "\"verdict\":\\s*\"passed\""
+      }
+    },
+    {
+      "n": 6,
+      "text": "Run holo evals:ci --fixture deterministic-invariant-regression \u2014 H1-R natural rawJudgeScore==score>=0.8 meetsThreshold, fail solely deterministic_invariant_failure, exit 1.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts evals:ci --fixture deterministic-invariant-regression --json",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 1,
+        "expect_log_regex": "\"failureReason\":\\s*\"deterministic_invariant_failure\""
+      }
+    },
+    {
+      "n": 7,
+      "text": "Run holo evals:ci --fixture invalid-config \u2014 fail-closed invalid threshold, exit 1.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts evals:ci --fixture invalid-config --json",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 1,
+        "expect_log_regex": "invalid"
+      }
+    },
+    {
+      "n": 8,
+      "text": "Run holo evals:drift \u2014 longitudinal versioned scores.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts evals:drift --dataset research_v1 --json",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "\"datasetVersion\":\\s*\"research_v1\""
+      }
+    }
+  ]
+}

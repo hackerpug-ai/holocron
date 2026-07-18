@@ -1,0 +1,51 @@
+@@GATE-META step=step1 cmd_sha=a3f6f4c82f062d947fd38584d8f129308c29e02d72df22e8c12a881cc55d8fd7@@
++ DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts mission run research --goal 'Sprint 12 parent QA live mission (no-secret logs)' --json
+{
+  "ok": true,
+  "runId": "4d854a79-6d71-4092-982a-55eb758e0d5a",
+  "traceId": "4d854a796d714092982a55eb758e0d5a",
+  "serviceName": "holocron-platform",
+  "role": "divergent",
+  "goal": "Sprint 12 parent QA live mission (no-secret logs)",
+  "text": "Logs are clean; no secrets detected.",
+  "langfuseExportOk": true,
+  "langfuse": {
+    "ok": true,
+    "errorCode": null,
+    "errorMessage": null,
+    "exportedEvents": 7,
+    "lastFlushAt": "2026-07-18T05:39:00.484Z",
+    "baseUrl": "http://127.0.0.1:3100"
+  },
+  "inferenceTelemetry": {
+    "id": "019f73bc-2ea8-750a-97db-8474a6e1f5bf",
+    "runId": "4d854a79-6d71-4092-982a-55eb758e0d5a",
+    "stepId": "research-mission-generate",
+    "traceId": "4d854a796d714092982a55eb758e0d5a",
+    "role": "divergent",
+    "provider": "fleet",
+    "endpoint": "http://127.0.0.1:4545/v1",
+    "modelId": "implementer",
+    "inputTokens": 49,
+    "outputTokens": 240,
+    "totalTokens": 289,
+    "wallMs": 9730,
+    "status": "success",
+    "errorCode": null,
+    "errorMessage": null,
+    "budgetLedgerId": null,
+    "createdAt": "2026-07-18T05:39:00.391Z"
+  },
+  "errorCode": null,
+  "error": null,
+  "metadata": {
+    "role": "divergent",
+    "runId": "4d854a79-6d71-4092-982a-55eb758e0d5a",
+    "serviceName": "holocron-platform",
+    "mission": "research",
+    "model": "implementer",
+    "endpoint": "http://127.0.0.1:4545",
+    "inferenceTelemetryId": "019f73bc-2ea8-750a-97db-8474a6e1f5bf"
+  }
+}
+@@GATE-EXIT=0@@

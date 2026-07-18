@@ -1,0 +1,31 @@
+@@GATE-META step=step6 cmd_sha=11ca029e9f3bbd7072c7eeafb893842d2601b12f151298d59133c9f886704b44@@
++ DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts evals:ci --fixture deterministic-invariant-regression --json
+{
+  "fixture": "deterministic-invariant-regression",
+  "datasetVersion": "research_v1",
+  "baselineVersion": "research_v1",
+  "modelVersion": "judge_v1",
+  "promptVersion": "research-quality_v1",
+  "score": 0.82,
+  "rawJudgeScore": 0.82,
+  "baseline": 0.8,
+  "threshold": 0.8,
+  "verdict": "failed",
+  "exitCode": 1,
+  "failureReason": "deterministic_invariant_failure",
+  "exitReason": "deterministic invariant failed: required-citation",
+  "errorCode": null,
+  "deterministicFailures": [
+    {
+      "invariantId": "required-citation",
+      "reason": "missing required citation markers ([n], URL, doi, or Sources: block)"
+    }
+  ],
+  "runId": "ci-d2928a24-1866-4cfe-85c7-c9c1cdc5e605",
+  "scoreId": "019f73bd-3e24-780f-a5ca-b875e11e4785",
+  "sampleId": "deterministic-invariant-regression",
+  "meetsThreshold": true,
+  "invariantPassed": false,
+  "reason": "The response provides a structured, comprehensive, and calibrated brief on intermittent fasting and metabolic health. It covers key areas (weight, glycemic control, lipids/BP, safety/adherence, uncertainty) and delivers a clear bottom-line judgment. It uses specific magnitudes (e.g., 3–8% body-weight reduction over 8–12 weeks) and acknowledges limits of inference (e.g., short trial durations, surrogate endpoints, high heterogeneity). Although no explicit citation markers or Sources list are present (hasCitations=false), the grounding, structure, completeness, and calibration are strong, satisfying the criteria for the 0.8–0.84 band. Citation absence alone does not pull an otherwise excellent brief below 0.8 per the rubric."
+}
+@@GATE-EXIT=1@@

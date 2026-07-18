@@ -1,0 +1,28 @@
+{
+  "fixture": "deterministic-invariant-regression",
+  "datasetVersion": "research_v1",
+  "baselineVersion": "research_v1",
+  "modelVersion": "judge_v1",
+  "promptVersion": "research-quality_v1",
+  "score": 0.82,
+  "rawJudgeScore": 0.82,
+  "baseline": 0.8,
+  "threshold": 0.8,
+  "verdict": "failed",
+  "exitCode": 1,
+  "failureReason": "deterministic_invariant_failure",
+  "exitReason": "deterministic invariant failed: required-citation",
+  "errorCode": null,
+  "deterministicFailures": [
+    {
+      "invariantId": "required-citation",
+      "reason": "missing required citation markers ([n], URL, doi, or Sources: block)"
+    }
+  ],
+  "runId": "ci-f39c5b3e-5e10-4e07-809d-d18414bd0992",
+  "scoreId": "019f73be-645b-7f99-82eb-24a57cae1cda",
+  "sampleId": "deterministic-invariant-regression",
+  "meetsThreshold": true,
+  "invariantPassed": false,
+  "reason": "The response provides a comprehensive, well-structured brief covering benefits (weight, insulin), limitations/safety (adverse effects, contraindications), and a clear bottom line. It is grounded in specific details (e.g., 3-8% weight loss, HOMA-IR) and well-calibrated, acknowledging uncertainty and heterogeneity. However, despite the prompt requesting citations, the response lacks explicit citation markers (e.g., [1]) or a sources list, preventing a score above 0.84."
+}

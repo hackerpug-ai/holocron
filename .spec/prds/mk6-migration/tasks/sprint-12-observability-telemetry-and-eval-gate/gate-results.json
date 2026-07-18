@@ -1,106 +1,248 @@
 {
-  "verdict": "pass",
+  "sprint": "sprint-12-observability-telemetry-and-eval-gate",
   "sprint_id": "sprint-12-observability-telemetry-and-eval-gate",
-  "runner": "kb-run-human-tests",
+  "run_id": "2026-07-18T05-38-49Z",
+  "verdict": "pass",
+  "runner": "kb-run-human-tests / parent-controller",
   "ui_driver": "none",
-  "cycle_started_at": "2026-07-18T03:36:05Z",
-  "finished_at": "2026-07-18T03:38:33Z",
-  "steps_total": 7,
-  "steps_executed": 7,
-  "steps_passed": 7,
+  "exec_surface": "parent-controller local evidence runner (env-indirection; secret-free logs)",
+  "cycle_started_at": "2026-07-18T05:38:49Z",
+  "finished_at": "2026-07-18T05:48:17Z",
+  "steps_total": 8,
+  "steps_executed": 8,
+  "steps_passed": 8,
+  "main_head": "af5e93cd63ce2ac3bb6a8d404ab94f31449cf4ef",
+  "parent_qa_dir": ".tmp/sprint-12-observability-telemetry-and-eval-gate/parent-qa-2026-07-18T05-38-49Z",
+  "evidence_dir": ".spec/prds/mk6-migration/tasks/sprint-12-observability-telemetry-and-eval-gate/.gate-evidence/2026-07-18T05-38-49Z",
+  "supersedes_run": "2026-07-18T05-25-21Z (Langfuse keys in literal_cmd \u2014 rejected)",
+  "historical_gate_results_preserved": ".spec/prds/mk6-migration/tasks/sprint-12-observability-telemetry-and-eval-gate/gate-results.prev.json",
+  "h1r_live": {
+    "score": 0.82,
+    "rawJudgeScore": 0.82,
+    "meetsThreshold": true,
+    "failureReason": "deterministic_invariant_failure",
+    "exitCode": 1,
+    "runId": "ci-d2928a24-1866-4cfe-85c7-c9c1cdc5e605",
+    "scoreId": "019f73bd-3e24-780f-a5ca-b875e11e4785",
+    "deterministicFailures": [
+      {
+        "invariantId": "required-citation",
+        "reason": "missing required citation markers ([n], URL, doi, or Sources: block)"
+      }
+    ],
+    "invariantPassed": false,
+    "direct_status": 1,
+    "PIPESTATUS_0": 1,
+    "raw_equals_emitted": true,
+    "score_gte_0_8": true,
+    "dual_direct_score": 0.82,
+    "dual_direct_raw": 0.82,
+    "dual_pipe_score": 0.82,
+    "dual_pipe_raw": 0.82,
+    "dual_direct_runId": "ci-901bfb7b-94a5-4e5f-8b5e-8463773d3ace",
+    "dual_pipe_runId": "ci-f39c5b3e-5e10-4e07-809d-d18414bd0992"
+  },
+  "supporting_checks": {
+    "typecheck": "PASS (pnpm tsgo --noEmit => 0)",
+    "lint": "PASS with warnings only (biome EC 0)",
+    "integration_evals_ci_gate": "6/6 passed",
+    "integration_inference_telemetry_H2": "6/6 passed",
+    "integration_observability_traces": "4/4 passed",
+    "integration_evals_versioning": "5/5 passed",
+    "integration_mission_telemetry": "1/1 passed",
+    "h1_h2_h1r_ancestry": "all required SHAs ancestors of HEAD",
+    "h1r_h2_manifests": "sha256sum -c OK",
+    "fixture_citation_free": true,
+    "secret_scan_zero_matches": true,
+    "escape_fail_closed_strict_exit": 1,
+    "escape_green_exit": 0,
+    "escape_ledger_id": "019f73be-c6b4-7e81-a457-0561a2159c03",
+    "cli_vs_withTelemetry_doc": ".tmp/sprint-12-observability-telemetry-and-eval-gate/parent-qa-2026-07-18T05-38-49Z/cli-vs-withTelemetry.md",
+    "ac3_live_joinedBy": "budget_ledger_id",
+    "ac3_live_budget_ledger_id": "019f73c0-bcca-7833-9c49-25882b6e155a",
+    "ac3_live_runId": "obs2-ac3-escape-1784353437389"
+  },
   "steps": [
     {
+      "n": 1,
       "id": "1",
       "name": "mission langfuse",
+      "text": "Run holo mission run research \u2014 one OTel trace per-run in self-hosted Langfuse.",
+      "type": "terminal",
       "executed": true,
       "result": "pass",
       "exit_code": 0,
-      "log": ".tmp/sprint-12-observability-telemetry-and-eval-gate/human-tests/step1-mission.log",
+      "log": ".spec/prds/mk6-migration/tasks/sprint-12-observability-telemetry-and-eval-gate/.gate-evidence/2026-07-18T05-38-49Z/step1.log",
+      "evidence": "exit=0; {\"traceId\":\"4d854a796d714092982a55eb758e0d5a\",\"runId\":\"4d854a79-6d71-4092-982a-55eb758e0d5a\",\"langfuseExportOk\":true,\"exportedEvents\":7}",
       "observed": {
-        "traceId": "4134329fd85e41e7981b0189e2563e3b",
-        "lf": true
+        "traceId": "4d854a796d714092982a55eb758e0d5a",
+        "runId": "4d854a79-6d71-4092-982a-55eb758e0d5a",
+        "langfuseExportOk": true,
+        "exportedEvents": 7
       }
     },
     {
+      "n": 2,
       "id": "2",
       "name": "telemetry:tail",
+      "text": "Run holo telemetry:tail \u2014 tokens/wall-ms/endpoint/role rows in Postgres.",
+      "type": "terminal",
       "executed": true,
       "result": "pass",
       "exit_code": 0,
-      "log": ".tmp/sprint-12-observability-telemetry-and-eval-gate/human-tests/step2-telemetry.log",
+      "log": ".spec/prds/mk6-migration/tasks/sprint-12-observability-telemetry-and-eval-gate/.gate-evidence/2026-07-18T05-38-49Z/step2.log",
+      "evidence": "exit=0; {\"count\":1,\"runId\":\"4d854a79-6d71-4092-982a-55eb758e0d5a\"}",
       "observed": {
-        "count": 5
+        "count": 1,
+        "runId": "4d854a79-6d71-4092-982a-55eb758e0d5a"
       }
     },
     {
+      "n": 3,
       "id": "3",
       "name": "evals:run known-good",
+      "text": "Run holo evals:run --sample known-good \u2014 local judge scores versioned fixture.",
+      "type": "terminal",
       "executed": true,
       "result": "pass",
       "exit_code": 0,
-      "log": ".tmp/sprint-12-observability-telemetry-and-eval-gate/human-tests/step3-evals-run.log",
+      "log": ".spec/prds/mk6-migration/tasks/sprint-12-observability-telemetry-and-eval-gate/.gate-evidence/2026-07-18T05-38-49Z/step3.log",
+      "evidence": "exit=0; {\"score\":0.88,\"sampleId\":\"known-good\",\"meetsBaseline\":true}",
       "observed": {
-        "score": 0.9
+        "score": 0.88,
+        "sampleId": "known-good",
+        "meetsBaseline": true
       }
     },
     {
+      "n": 4,
       "id": "4",
       "name": "evals:ci bad",
+      "text": "Run holo evals:ci --fixture deliberately-bad \u2014 threshold regression, exit 1.",
+      "type": "terminal",
       "executed": true,
       "result": "pass",
       "exit_code": 1,
-      "log": ".tmp/sprint-12-observability-telemetry-and-eval-gate/human-tests/step4-evals-ci-bad.log",
+      "log": ".spec/prds/mk6-migration/tasks/sprint-12-observability-telemetry-and-eval-gate/.gate-evidence/2026-07-18T05-38-49Z/step4.log",
+      "evidence": "exit=1; {\"score\":0,\"rawJudgeScore\":0,\"meetsThreshold\":false,\"verdict\":\"failed\",\"exitCode\":1,\"failureReason\":\"threshold_regression\",\"errorCode\":null,\"invariantPassed\":false}",
       "observed": {
+        "score": 0,
+        "rawJudgeScore": 0,
+        "meetsThreshold": false,
         "verdict": "failed",
-        "exitCode": 1
+        "exitCode": 1,
+        "failureReason": "threshold_regression",
+        "errorCode": null,
+        "invariantPassed": false
       }
     },
     {
+      "n": 5,
       "id": "5",
       "name": "evals:ci good",
+      "text": "Run holo evals:ci --fixture known-good \u2014 passes, exit 0.",
+      "type": "terminal",
       "executed": true,
       "result": "pass",
       "exit_code": 0,
-      "log": ".tmp/sprint-12-observability-telemetry-and-eval-gate/human-tests/step5-evals-ci-good.log",
+      "log": ".spec/prds/mk6-migration/tasks/sprint-12-observability-telemetry-and-eval-gate/.gate-evidence/2026-07-18T05-38-49Z/step5.log",
+      "evidence": "exit=0; {\"score\":0.9,\"rawJudgeScore\":0.9,\"meetsThreshold\":true,\"verdict\":\"passed\",\"exitCode\":0,\"failureReason\":null,\"errorCode\":null,\"invariantPassed\":true}",
       "observed": {
+        "score": 0.9,
+        "rawJudgeScore": 0.9,
+        "meetsThreshold": true,
         "verdict": "passed",
         "exitCode": 0,
-        "score": 0.85
+        "failureReason": null,
+        "errorCode": null,
+        "invariantPassed": true
       }
     },
     {
-      "id": "5b",
-      "name": "evals:ci det",
+      "n": 6,
+      "id": "6",
+      "name": "evals:ci det H1-R",
+      "text": "Run holo evals:ci --fixture deterministic-invariant-regression \u2014 H1-R natural rawJudgeScore==score>=0.8 meetsThreshold, fail solely deterministic_invariant_failure, exit 1.",
+      "type": "terminal",
       "executed": true,
       "result": "pass",
       "exit_code": 1,
-      "log": ".tmp/sprint-12-observability-telemetry-and-eval-gate/human-tests/step5b-evals-ci-det.log",
+      "log": ".spec/prds/mk6-migration/tasks/sprint-12-observability-telemetry-and-eval-gate/.gate-evidence/2026-07-18T05-38-49Z/step6.log",
+      "evidence": "exit=1; {\"score\":0.82,\"rawJudgeScore\":0.82,\"meetsThreshold\":true,\"verdict\":\"failed\",\"exitCode\":1,\"failureReason\":\"deterministic_invariant_failure\",\"errorCode\":null,\"invariantPassed\":false,\"deterministicFailures\":[{\"invariantId\":\"required-citation\",",
       "observed": {
+        "score": 0.82,
+        "rawJudgeScore": 0.82,
+        "meetsThreshold": true,
         "verdict": "failed",
-        "det": [
+        "exitCode": 1,
+        "failureReason": "deterministic_invariant_failure",
+        "errorCode": null,
+        "invariantPassed": false,
+        "deterministicFailures": [
           {
             "invariantId": "required-citation",
             "reason": "missing required citation markers ([n], URL, doi, or Sources: block)"
           }
-        ]
+        ],
+        "direct_status": 1,
+        "PIPESTATUS_0": 1,
+        "raw_equals_emitted": true
       }
     },
     {
-      "id": "6",
+      "n": 7,
+      "id": "7",
+      "name": "evals:ci invalid-config",
+      "text": "Run holo evals:ci --fixture invalid-config \u2014 fail-closed invalid threshold, exit 1.",
+      "type": "terminal",
+      "executed": true,
+      "result": "pass",
+      "exit_code": 1,
+      "log": ".spec/prds/mk6-migration/tasks/sprint-12-observability-telemetry-and-eval-gate/.gate-evidence/2026-07-18T05-38-49Z/step7.log",
+      "evidence": "exit=1; {\"score\":null,\"rawJudgeScore\":null,\"meetsThreshold\":false,\"verdict\":\"failed\",\"exitCode\":1,\"failureReason\":\"invalid_threshold\",\"errorCode\":\"INVALID_THRESHOLD\",\"invariantPassed\":false}",
+      "observed": {
+        "score": null,
+        "rawJudgeScore": null,
+        "meetsThreshold": false,
+        "verdict": "failed",
+        "exitCode": 1,
+        "failureReason": "invalid_threshold",
+        "errorCode": "INVALID_THRESHOLD",
+        "invariantPassed": false
+      }
+    },
+    {
+      "n": 8,
+      "id": "8",
       "name": "evals:drift",
+      "text": "Run holo evals:drift \u2014 longitudinal versioned scores.",
+      "type": "terminal",
       "executed": true,
       "result": "pass",
       "exit_code": 0,
-      "log": ".tmp/sprint-12-observability-telemetry-and-eval-gate/human-tests/step6-evals-drift.log",
+      "log": ".spec/prds/mk6-migration/tasks/sprint-12-observability-telemetry-and-eval-gate/.gate-evidence/2026-07-18T05-38-49Z/step8.log",
+      "evidence": "exit=0; {\"ok\":true,\"datasetVersion\":\"research_v1\",\"entryCount\":198}",
       "observed": {
-        "keys": [
-          "ok",
-          "datasetVersion",
-          "entryCount",
-          "entries"
-        ]
+        "ok": true,
+        "datasetVersion": "research_v1",
+        "entryCount": 198
       }
     }
   ],
-  "source": "orchestrator-executed-literal-holo-commands"
+  "source": "parent-controlled-live-qa-secret-free-rerun-after-h1r-pass",
+  "closure_authorized": true,
+  "qa_accepted": true,
+  "note": "Secret-free parent QA + human gate. Does NOT authorize Sprint close. Does NOT mark QA accepted for close \u2014 independent audit still required. ROADMAP untouched.",
+  "qa_accepted_at": "2026-07-18T06:05:00Z",
+  "qa_acceptance_audit": ".tmp/sprint-12-independent-qa-audit-20260718T060000Z.md",
+  "closure_authorized_at": "2026-07-18T06:05:00Z",
+  "close_authority": "prd-20260716T192354Z-14461843",
+  "closure_evidence": {
+    "qa_run": ".tmp/sprint-12-observability-telemetry-and-eval-gate/parent-qa-2026-07-18T05-38-49Z",
+    "gate_verification": ".spec/prds/mk6-migration/tasks/sprint-12-observability-telemetry-and-eval-gate/gate-verification.json",
+    "independent_audit": ".tmp/sprint-12-independent-qa-audit-20260718T060000Z.md",
+    "secret_free": true,
+    "roadmap_edited_by_close": false
+  },
+  "not_done": []
 }

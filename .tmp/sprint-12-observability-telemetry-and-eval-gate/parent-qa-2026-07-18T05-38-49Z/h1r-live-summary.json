@@ -1,0 +1,26 @@
+{
+  "score": 0.82,
+  "rawJudgeScore": 0.82,
+  "meetsThreshold": true,
+  "failureReason": "deterministic_invariant_failure",
+  "exitCode": 1,
+  "runId": "ci-d2928a24-1866-4cfe-85c7-c9c1cdc5e605",
+  "scoreId": "019f73bd-3e24-780f-a5ca-b875e11e4785",
+  "deterministicFailures": [
+    {
+      "invariantId": "required-citation",
+      "reason": "missing required citation markers ([n], URL, doi, or Sources: block)"
+    }
+  ],
+  "invariantPassed": false,
+  "direct_status": 1,
+  "PIPESTATUS_0": 1,
+  "raw_equals_emitted": true,
+  "score_gte_0_8": true,
+  "dual_direct_score": 0.82,
+  "dual_direct_raw": 0.82,
+  "dual_pipe_score": 0.82,
+  "dual_pipe_raw": 0.82,
+  "dual_direct_runId": "ci-901bfb7b-94a5-4e5f-8b5e-8463773d3ace",
+  "dual_pipe_runId": "ci-f39c5b3e-5e10-4e07-809d-d18414bd0992"
+}

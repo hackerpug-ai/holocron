@@ -1,0 +1,31 @@
+@@GATE-META step=step4 cmd_sha=50f8fd9e21825219433e2bb30d8791bd6b06f2c227dd56c5bb6d895ef158d33b@@
++ DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts evals:ci --fixture deliberately-bad --json
+{
+  "fixture": "deliberately-bad",
+  "datasetVersion": "research_v1",
+  "baselineVersion": "research_v1",
+  "modelVersion": "judge_v1",
+  "promptVersion": "research-quality_v1",
+  "score": 0,
+  "rawJudgeScore": 0,
+  "baseline": 0.8,
+  "threshold": 0.8,
+  "verdict": "failed",
+  "exitCode": 1,
+  "failureReason": "threshold_regression",
+  "exitReason": "score 0 < threshold 0.8",
+  "errorCode": null,
+  "deterministicFailures": [
+    {
+      "invariantId": "required-citation",
+      "reason": "missing required citation markers ([n], URL, doi, or Sources: block)"
+    }
+  ],
+  "runId": "ci-c399a91a-7ad4-462e-8b46-474db9c2787f",
+  "scoreId": "019f73bc-a20c-7e4e-8fc2-bbc8b6ef62b3",
+  "sampleId": "deliberately-bad",
+  "meetsThreshold": false,
+  "invariantPassed": false,
+  "reason": "The response is flippant, joking, and provides no actual research summary. It fails to ground claims, lacks structure, is incomplete, and explicitly rejects providing citations."
+}
+@@GATE-EXIT=1@@

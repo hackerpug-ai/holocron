@@ -1,0 +1,65 @@
+{
+  "runId": "obs2-ac3-escape-1784353437389",
+  "stepId": "obs2-escape-step",
+  "telemetryRows": [
+    {
+      "id": "019f73c0-bcf2-7763-9e2d-01c5bee0cefa",
+      "runId": "obs2-ac3-escape-1784353437389",
+      "stepId": "obs2-escape-step",
+      "traceId": "8e773845-0b19-436e-9d89-94e23670c7cd",
+      "role": "divergent",
+      "provider": "anthropic",
+      "endpoint": "https://api.anthropic.com",
+      "modelId": "claude-haiku-4-5-20251001",
+      "inputTokens": 16,
+      "outputTokens": 5,
+      "totalTokens": 21,
+      "wallMs": 1557,
+      "status": "success",
+      "errorCode": null,
+      "errorMessage": null,
+      "budgetLedgerId": "019f73c0-bcca-7833-9c49-25882b6e155a",
+      "createdAt": "2026-07-18T05:43:58.961Z"
+    }
+  ],
+  "budgetRows": [
+    {
+      "id": "019f73c0-b71e-7659-9776-bd3d978342b0",
+      "check_type": "pre-check",
+      "run_id": "obs2-ac3-escape-1784353437389",
+      "step_id": "obs2-escape-step",
+      "tokens": 0,
+      "cost": 0,
+      "allow_escape": true,
+      "timestamp": "2026-07-18T05:43:57.453Z"
+    },
+    {
+      "id": "019f73c0-bcca-7833-9c49-25882b6e155a",
+      "check_type": "escape",
+      "run_id": "obs2-ac3-escape-1784353437389",
+      "step_id": "obs2-escape-step",
+      "tokens": 21,
+      "cost": 0.000041,
+      "allow_escape": true,
+      "timestamp": "2026-07-18T05:43:58.903Z"
+    }
+  ],
+  "preCheckCount": 1,
+  "escapeCount": 1,
+  "correlation": {
+    "telemetryRunId": "obs2-ac3-escape-1784353437389",
+    "telemetryStepId": "obs2-escape-step",
+    "budgetRunIds": [
+      "obs2-ac3-escape-1784353437389",
+      "obs2-ac3-escape-1784353437389"
+    ],
+    "budgetStepIds": [
+      "obs2-escape-step",
+      "obs2-escape-step"
+    ],
+    "budgetLedgerIdOnTelemetry": "019f73c0-bcca-7833-9c49-25882b6e155a",
+    "escapeLedgerId": "019f73c0-bcca-7833-9c49-25882b6e155a",
+    "ledgerRowFoundById": true,
+    "joinedBy": "budget_ledger_id"
+  }
+}
