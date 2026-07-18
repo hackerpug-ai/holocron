@@ -29,6 +29,8 @@ export default defineConfig({
       'services/platform/tests/integration/queue-dlq.test.ts',
       // Sprint 12 — inference telemetry stream (tokens/wall-ms/endpoint/role)
       'services/platform/tests/integration/inference-telemetry.test.ts',
+      // Sprint 12 — research mission → durable inference_telemetry (obs-5 H1)
+      'services/platform/tests/integration/mission-telemetry.test.ts',
       // Sprint 12 — observability / Langfuse per-run traces (obs-1)
       'services/platform/tests/integration/observability-traces.test.ts',
       // Sprint 12 — versioned eval scorers / datasets / baselines / drift (obs-3)
