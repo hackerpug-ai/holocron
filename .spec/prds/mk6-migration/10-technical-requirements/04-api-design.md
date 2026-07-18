@@ -17,7 +17,7 @@ Three surfaces over the one Mastra service: the **Hono HTTP/SSE API** (app + pub
 | GET | `/api/chat-runs/:id/events?after=<seq>` | Resumable SSE event stream; honors `Last-Event-ID`; replays only persisted events after the cursor. | tailnet + RN API key |
 | POST | `/api/missions` | Start an on-demand mission from a template + args → returns run id. | tailnet + RN API key |
 | GET | `/api/missions/:id` | Mission run status/output (also available reactively via Zero). | tailnet + RN API key |
-| POST | `/api/missions/:id/verdicts` | Human-gate verdict (kill/advance/redirect/boost) → writes `verdicts`+`touches`; deterministic enforcement (WIP=1, cited-kill, probe-gated advance). | tailnet + RN API key |
+| POST | `/api/missions/:id/verdicts` | Human-gate verdict (kill/advance/redirect/boost) → writes `verdicts`+`touches`; Sprint 15 persists authenticated verdict events, while deterministic WIP/cited-kill/probe-gated enforcement is owned by Sprint 23. | tailnet + RN API key |
 | POST | `/api/missions/:id/steer` | Mid-run steering note → `steering` row, re-read next cycle. | tailnet + RN API key |
 | POST | `/api/zero/query` | Zero query endpoint over the published subset. | tailnet + RN API key |
 | POST | `/api/zero/mutate` | Zero server-mutator endpoint; validates, transacts, and deduplicates registered mutations. | tailnet + RN API key |
@@ -60,7 +60,7 @@ modelRoleBindings: { stageId → role },   // ASSAY≠CHALLENGE enforced
 budgets:        { wallMs, tokens, cost, maxSteps },
 gateRubric:     ref → the pure-TS Evidence Gate (or null),
 humanGate:      { verdicts, wipLimit, citedKill, probeGatedAdvance } | null,
-outputContract: ZodSchema           // validated on COMMIT
+outputContract: { schemaRef, schemaVersion } // resolved to code-owned Zod on COMMIT; never serialized in Postgres
 ```
 
-Every current pipeline is expressed as one of these; fulcrum plugs in as a `standing` template with a `gateRubric` and `humanGate` — no new platform code (see SVC-05 and the fulcrum seams). Results reference the template, compiler, executor, and schema versions in force. Unknown/incompatible versions fail before creating a run.
+Every current pipeline is expressed as one of these; fulcrum plugs in as a `standing` template with a `gateRubric` and `humanGate` — no new platform code (see SVC-05 and the fulcrum seams). The schema reference resolves through a code-owned Zod registry at validation time; no executable schema is persisted. Results reference the template, compiler, executor, and schema versions in force. Unknown/incompatible versions fail before creating a run.
