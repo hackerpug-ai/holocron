@@ -1,0 +1,101 @@
+services/platform/tests/integration/inference-telemetry.test.ts:628:19 lint/style/noNonNullAssertion ━━━━━━━━━━
+
+  ! Forbidden non-null assertion.
+  
+    626 │       expect(telRows.length, 'telemetry rows: 1').toBeGreaterThanOrEqual(1);
+    627 │ 
+  > 628 │       const tel = telRows[0]!;
+        │                   ^^^^^^^^^^^
+    629 │       expect(tel.provider).toBe('anthropic');
+    630 │       expect(tel.runId).toBe(runId);
+  
+
+services/platform/tests/integration/inference-telemetry.test.ts:641:14 lint/style/noNonNullAssertion  FIXABLE  ━━━━━━━━━━
+
+  ! Forbidden non-null assertion.
+  
+    639 │       expect(tel.budgetLedgerId, 'telemetry.budget_ledger_id').toBe(result.escape.ledgerId);
+    640 │       expect(ledgerById, 'budget_ledger row by escape.ledgerId').toBeTruthy();
+  > 641 │       expect(ledgerById!.run_id).toBe(runId);
+        │              ^^^^^^^^^^^
+    642 │       expect(ledgerById!.step_id).toBe(stepId);
+    643 │       expect(Number(ledgerById!.cost), 'ledger cost recorded').toBeGreaterThanOrEqual(0);
+  
+  i Unsafe fix: Replace with optional chain operator ?. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator
+  
+    639 639 │         expect(tel.budgetLedgerId, 'telemetry.budget_ledger_id').toBe(result.escape.ledgerId);
+    640 640 │         expect(ledgerById, 'budget_ledger row by escape.ledgerId').toBeTruthy();
+    641     │ - ······expect(ledgerById!.run_id).toBe(runId);
+        641 │ + ······expect(ledgerById?.run_id).toBe(runId);
+    642 642 │         expect(ledgerById!.step_id).toBe(stepId);
+    643 643 │         expect(Number(ledgerById!.cost), 'ledger cost recorded').toBeGreaterThanOrEqual(0);
+  
+
+services/platform/tests/integration/inference-telemetry.test.ts:642:14 lint/style/noNonNullAssertion  FIXABLE  ━━━━━━━━━━
+
+  ! Forbidden non-null assertion.
+  
+    640 │       expect(ledgerById, 'budget_ledger row by escape.ledgerId').toBeTruthy();
+    641 │       expect(ledgerById!.run_id).toBe(runId);
+  > 642 │       expect(ledgerById!.step_id).toBe(stepId);
+        │              ^^^^^^^^^^^
+    643 │       expect(Number(ledgerById!.cost), 'ledger cost recorded').toBeGreaterThanOrEqual(0);
+    644 │       expect(
+  
+  i Unsafe fix: Replace with optional chain operator ?. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator
+  
+    640 640 │         expect(ledgerById, 'budget_ledger row by escape.ledgerId').toBeTruthy();
+    641 641 │         expect(ledgerById!.run_id).toBe(runId);
+    642     │ - ······expect(ledgerById!.step_id).toBe(stepId);
+        642 │ + ······expect(ledgerById?.step_id).toBe(stepId);
+    643 643 │         expect(Number(ledgerById!.cost), 'ledger cost recorded').toBeGreaterThanOrEqual(0);
+    644 644 │         expect(
+  
+
+services/platform/tests/integration/inference-telemetry.test.ts:643:21 lint/style/noNonNullAssertion  FIXABLE  ━━━━━━━━━━
+
+  ! Forbidden non-null assertion.
+  
+    641 │       expect(ledgerById!.run_id).toBe(runId);
+    642 │       expect(ledgerById!.step_id).toBe(stepId);
+  > 643 │       expect(Number(ledgerById!.cost), 'ledger cost recorded').toBeGreaterThanOrEqual(0);
+        │                     ^^^^^^^^^^^
+    644 │       expect(
+    645 │         escapeRows.some((b) => b.id === result.escape.ledgerId || b.run_id === runId),
+  
+  i Unsafe fix: Replace with optional chain operator ?. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator
+  
+    641 641 │         expect(ledgerById!.run_id).toBe(runId);
+    642 642 │         expect(ledgerById!.step_id).toBe(stepId);
+    643     │ - ······expect(Number(ledgerById!.cost),·'ledger·cost·recorded').toBeGreaterThanOrEqual(0);
+        643 │ + ······expect(Number(ledgerById?.cost),·'ledger·cost·recorded').toBeGreaterThanOrEqual(0);
+    644 644 │         expect(
+    645 645 │           escapeRows.some((b) => b.id === result.escape.ledgerId || b.run_id === runId),
+  
+
+services/platform/tests/integration/inference-telemetry.test.ts:683:17 lint/style/noNonNullAssertion ━━━━━━━━━━
+
+  ! Forbidden non-null assertion.
+  
+    681 │     expect(rows.length, 'printed row count: >=1').toBeGreaterThanOrEqual(1);
+    682 │ 
+  > 683 │     const row = rows[0]!;
+        │                 ^^^^^^^^
+    684 │     const tokens = row.totalTokens ?? (row as { tokens?: number }).tokens ?? 0;
+    685 │     expect(Number(tokens), 'tokens column value: >=1').toBeGreaterThanOrEqual(1);
+  
+
+services/platform/tests/integration/inference-telemetry.test.ts:721:19 lint/style/noNonNullAssertion ━━━━━━━━━━
+
+  ! Forbidden non-null assertion.
+  
+    719 │       const failed = rows.filter((r) => r.status === 'error');
+    720 │       expect(failed.length, 'failed row count: 1').toBeGreaterThanOrEqual(1);
+  > 721 │       const row = failed[0]!;
+        │                   ^^^^^^^^^^
+    722 │       expect(row.status).toBe('error');
+    723 │       expect(row.errorCode).toBe('ROLE_UNAVAILABLE');
+  
+
+Checked 1 file in 40ms. No fixes applied.
+Found 6 warnings.

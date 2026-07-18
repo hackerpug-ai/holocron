@@ -1,0 +1,7 @@
+=== pass/skip proof excerpt ===
+.tmp/redhat-fix-h2-green/stdout.txt:4: ✓ services/platform/tests/integration/inference-telemetry.test.ts (6 tests) 8084ms
+.tmp/redhat-fix-h2-green/stdout.txt:5:     ✓ AC-1: one durable row per model call with tokens/wall-ms/endpoint/role/trace  3598ms
+.tmp/redhat-fix-h2-green/stdout.txt:6:     ✓ AC-2: default path records local fleet routing (no Anthropic)  1911ms
+.tmp/redhat-fix-h2-green/stdout.txt:7:     ✓ AC-3: budgeted escape is cross-ledger visible  1184ms
+.tmp/redhat-fix-h2-green/stdout.txt:8:     ✓ AC-4: telemetry:tail exposes durable rows  1237ms
+.tmp/redhat-fix-h2-green/stdout.txt:11:      Tests  6 passed (6)

@@ -1,0 +1,7 @@
+timestamp=2026-07-18T04:43:08Z
+commit=33f1de45c9f7a641394108abb7237094866edbed
+branch=task/REDHAT-FIX-H2
+workdir=/Users/inference1/Projects/holocron/.worktrees/REDHAT-FIX-H2
+phase=GREEN
+intent=real budgeted Anthropic escape + telemetry↔budget_ledger correlation
+implementation_commit=bbe2d73d3de0e44dc99e004898cedb5fc1045636

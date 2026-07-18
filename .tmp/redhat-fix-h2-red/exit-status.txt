@@ -1,0 +1,4 @@
+direct_exit_status=1
+captured_at=2026-07-18T04:42:47Z
+expected_nonzero=true
+observed_nonzero=true

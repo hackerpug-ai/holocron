@@ -1,0 +1,7 @@
+postgres: 1
+fleet_http: 200
+ANTHROPIC_API_KEY_in_env: false (explicitly unset via env -u)
+HOLO_DISABLE_DOTENV: 1
+ALLOW_SKIP_ANTHROPIC: unset
+PLATFORM_IT: 1
+key_sources_checked: process.env, secrets.yaml (dotenv disabled for RED)

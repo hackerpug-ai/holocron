@@ -1,0 +1,34 @@
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  services/platform/tests/integration/inference-telemetry.test.ts > obs-2 inference telemetry > AC-3: budgeted escape is cross-ledger visible
+Error: MISSING_DEPENDENCY: ANTHROPIC_API_KEY required for budgeted-escape telemetry proof (AC-3). Provide via process.env, services/platform/config/secrets.yaml, or repo-root .env. ALLOW_SKIP_ANTHROPIC=1 is local-dev only and is not valid for the Sprint 12 gate.
+ ❯ services/platform/tests/integration/inference-telemetry.test.ts:232:13
+    230|         note: MISSING_ANTHROPIC_DEPENDENCY,
+    231|       });
+    232|       throw new Error(MISSING_ANTHROPIC_DEPENDENCY);
+       |             ^
+    233|     },
+    234|     timeout
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  services/platform/tests/integration/inference-telemetry.test.ts > obs-2 inference telemetry > AC-3 key presence (fail-closed under PLATFORM_IT without ALLOW_SKIP_ANTHROPIC)
+AssertionError: MISSING_DEPENDENCY: ANTHROPIC_API_KEY required for budgeted-escape telemetry proof (AC-3). Provide via process.env, services/platform/config/secrets.yaml, or repo-root .env. ALLOW_SKIP_ANTHROPIC=1 is local-dev only and is not valid for the Sprint 12 gate.: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ services/platform/tests/integration/inference-telemetry.test.ts:754:61
+    752|     // Local-dev may set ALLOW_SKIP_ANTHROPIC=1 to avoid the hard fail…
+    753|     if (!allowSkipAnthropic) {
+    754|       expect(hasAnthropicKey, MISSING_ANTHROPIC_DEPENDENCY).toBe(true);
+       |                                                             ^
+    755|     }
+    756|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
