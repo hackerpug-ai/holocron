@@ -18,10 +18,10 @@
       "reason": "missing required citation markers ([n], URL, doi, or Sources: block)"
     }
   ],
-  "runId": "ci-fe3e2575-9e0d-4217-9b9a-0387711b919c",
-  "scoreId": "019f7351-82b9-7f45-865d-5e48837dd9c8",
+  "runId": "ci-f4d9e34a-faaf-400f-b860-60b53f39ce68",
+  "scoreId": "019f735a-2c69-7b8a-9d44-c3137c9b238f",
   "sampleId": "deterministic-invariant-regression",
   "meetsThreshold": false,
   "invariantPassed": false,
-  "reason": "The response is well-structured and complete, covering benefits, limitations/safety, and a bottom-line judgment with appropriate calibration. However, it completely fails to include explicit source markers, numbered citations, or a sources list, violating the core requirement for a research-quality brief."
+  "reason": "The response provides a well-structured summary of the evidence regarding intermittent fasting and metabolic health, covering key areas like weight loss, glycemic control, lipids, and safety. It includes a 'Bottom line' judgment, fulfilling the structural and completeness criteria well. However, it completely lacks explicit source markers (numbered citations like [1], [2] or URLs/DOIs) within the text or a Sources section. According to the rubric, this constitutes a major gap in the 'citations' category (weight 0.25), preventing a score above 0.7. The claims are specific and calibrated (e.g., 'three to eight percent', 'largely via reduced energy intake'), satisfying grounding requirements."
 }

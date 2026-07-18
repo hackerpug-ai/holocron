@@ -1,6 +1,10 @@
 {
-  "method": "bash: direct $? + set -o pipefail + PIPESTATUS[0]",
-  "invalidates": "zsh/tee;echo EXIT:$? smokes that report EXIT:0 for failing fixtures",
+  "method": "bash: direct 0 + set -o pipefail + PIPESTATUS[0]",
+  "cwd": "/Users/inference1/Projects/holocron",
+  "invalidates": [
+    "tee;echo EXIT:0",
+    "unreferenced alternate commit_sha 4de1909 on old task/obs-4 tip 3f3407b"
+  ],
   "fixtures": [
     {
       "name": "deliberately-bad",
@@ -47,6 +51,7 @@
   "bad_fixture_proof": {
     "fixture": "deliberately-bad",
     "shell_exit_code": 1,
+    "pipe_bun_exit": 1,
     "must_be_nonzero": true,
     "verified": true
   }

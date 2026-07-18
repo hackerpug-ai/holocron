@@ -1,23 +1,9 @@
 {
   "fixture_or_cmd": "deliberately-bad",
   "shell": "bash",
-  "capture_method": {
-    "direct_redirect": {
-      "shell_exit_code": 1,
-      "note": "bun ... >out 2>err; ec=$?"
-    },
-    "pipe_tee": {
-      "PIPESTATUS": [
-        1,
-        0
-      ],
-      "PIPESTATUS[0]_bun": 1,
-      "PIPESTATUS[1]_tee": 0,
-      "note": "set -o pipefail; bun ... | tee file; capture PIPESTATUS immediately"
-    }
-  },
   "shell_exit_code": 1,
   "pipe_status_bun_exit": 1,
+  "pipe_status_tee_exit": 0,
   "exits_agree": true,
   "json_exitCode_field": 1,
   "json_verdict": "failed",
@@ -43,11 +29,16 @@
         "reason": "missing required citation markers ([n], URL, doi, or Sources: block)"
       }
     ],
-    "runId": "ci-23c418df-3159-4fb9-b0da-810c61f0fa71",
-    "scoreId": "019f7350-6af4-7822-b6c7-b7b6b4c73502",
+    "runId": "ci-2429f145-dbf7-41f7-8947-2ecfc04bf478",
+    "scoreId": "019f7358-42e4-7a3a-8f69-485e7dda1fa3",
     "sampleId": "deliberately-bad",
     "meetsThreshold": false,
     "invariantPassed": false,
-    "reason": "The response is flippant, informal, and explicitly states it does not know sources ('idk sources whatever'). It makes unfounded absolute claims ('fasting is magic', 'cures everything') without evidence, lacks any structure, and completely fails to address the prompt regarding metabolic health or evidence summary."
+    "reason": "The response is flippant, informal, and contains no research content. It makes unfounded claims ('magic', 'cures everything') without evidence, lacks any citations or structure, and fails to address the prompt's requirements."
+  },
+  "capture_method": {
+    "direct": "bun ... >out 2>err; ec=$?",
+    "pipe": "set -o pipefail; bun ... | tee f; PIPESTATUS[0]",
+    "cwd": "/Users/inference1/Projects/holocron"
   }
 }

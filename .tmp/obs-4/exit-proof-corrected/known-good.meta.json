@@ -1,23 +1,9 @@
 {
   "fixture_or_cmd": "known-good",
   "shell": "bash",
-  "capture_method": {
-    "direct_redirect": {
-      "shell_exit_code": 0,
-      "note": "bun ... >out 2>err; ec=$?"
-    },
-    "pipe_tee": {
-      "PIPESTATUS": [
-        0,
-        0
-      ],
-      "PIPESTATUS[0]_bun": 0,
-      "PIPESTATUS[1]_tee": 0,
-      "note": "set -o pipefail; bun ... | tee file; capture PIPESTATUS immediately"
-    }
-  },
   "shell_exit_code": 0,
   "pipe_status_bun_exit": 0,
+  "pipe_status_tee_exit": 0,
   "exits_agree": true,
   "json_exitCode_field": 0,
   "json_verdict": "passed",
@@ -32,17 +18,22 @@
     "score": 0.9,
     "baseline": 0.8,
     "threshold": 0.8,
-    "runId": "ci-c39ddf5a-523e-46b7-9fbf-f7c781c43be2",
-    "scoreId": "019f7350-c284-703d-b9fc-17f76d18f940",
+    "runId": "ci-374b41ea-760a-4496-b0a1-bef7477d3776",
+    "scoreId": "019f7359-ca78-7110-ad71-70b12573f01b",
     "sampleId": "known-good",
     "meetsThreshold": true,
     "invariantPassed": true,
     "deterministicFailures": [],
-    "reason": "The response meets all criteria for a high-quality research brief. It is well-structured with clear headings (Key findings, Bottom line), covers benefits (weight loss, glycemic control), limitations/safety (adverse effects, contraindications), and provides a calibrated bottom line. It includes numbered citations [1]-[6] and a Sources section. Although the URLs are placeholders, the citation format is correct and consistent, satisfying the hard rule for scoring >=0.8.",
+    "reason": "The response provides a structured, comprehensive research brief that covers benefits, limitations/safety, and a bottom-line judgment. It includes numbered citations throughout the text and a corresponding Sources list (even with example URLs, these are valid markers per instructions). The claims are specific, evidence-linked, and well-calibrated regarding uncertainty.",
     "exitReason": "passed",
     "verdict": "passed",
     "exitCode": 0,
     "failureReason": null,
     "errorCode": null
+  },
+  "capture_method": {
+    "direct": "bun ... >out 2>err; ec=$?",
+    "pipe": "set -o pipefail; bun ... | tee f; PIPESTATUS[0]",
+    "cwd": "/Users/inference1/Projects/holocron"
   }
 }

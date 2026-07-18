@@ -54,6 +54,8 @@ Each step is a real documented `holo` operator invocation against the running Ma
 | obs-3 | Eval scorers + versioned datasets/baselines per specialist/retrieval/gate + judge versions | mastra-evals-implementer | 300 min |
 | obs-4 | Deterministic-invariant + threshold CI regression gate with bad-fixture proof | mastra-evals-implementer | 180 min |
 | obs-5 | Review evals constitution | mastra-reviewer | 90 min |
+| REDHAT-FIX-H1 | Deterministic-invariant regression must fail via deterministic_invariant_failure with judge score ≥ threshold (independent review H-1) | mastra-evals-implementer | 120 min |
+| REDHAT-FIX-H2 | Make budgeted-escape telemetry/ledger proof non-skippable; provision key; retain raw cross-ledger evidence (independent review H-2) | mastra-evals-implementer | 120 min |
 
 ## Source Coverage
 
@@ -93,3 +95,20 @@ Topological order: obs-1 (trace substrate) ∥ obs-2 (telemetry persistence) →
 - obs-3-eval-scorers-versioned-datasets-baselines-per-specialist-retrieval-gate-judge-versions.md
 - obs-4-deterministic-invariant-threshold-ci-regression-gate-with-bad-fixture-proof.md
 - obs-5-review-evals-constitution.md
+- REDHAT-FIX-H1-deterministic-invariant-failure-independent-of-judge-threshold.md
+- REDHAT-FIX-H2-nonskippable-budgeted-escape-telemetry-ledger-proof.md
+
+## Remediation (independent review)
+
+Authoritative findings source (read-only review; does not close Sprint 12):
+
+`.tmp/sprint-12-independent-readonly-review-20260718T041606Z.md` at main `1e9c61431038fb930d6271cd721d94ac5eb7b86c`.
+
+| Finding | Severity | REDHAT task | Objective |
+|---------|----------|-------------|-----------|
+| H-1 | HIGH | REDHAT-FIX-H1 | Citation-free, otherwise judge-passing fixture must hit `deterministic_invariant_failure` (not `threshold_regression`); assert `score >= 0.8` / `meetsThreshold: true`; re-capture hash-bound raw exit evidence with direct `$?` + `PIPESTATUS[0]`. |
+| H-2 | HIGH | REDHAT-FIX-H2 | Sprint 12 budgeted-escape/telemetry/ledger path non-skippable; provision or fail-closed on Anthropic key; real escape + raw Postgres correlation evidence. |
+| M-1 | MEDIUM | (advisory) | Stale `.tmp/obs-5/review-verdict.json` — supersede with a fresh independent review after H-1/H-2 land. Not a REDHAT task. |
+| M-2 | MEDIUM | (advisory) | Langfuse export may retain model reasoning — data-minimization decision. Not a REDHAT task. |
+
+Do **not** reopen obs-4/obs-2 as incomplete feature tasks; remediate via the REDHAT-FIX tasks above. Do **not** edit ROADMAP or gate-results in this planning step.
