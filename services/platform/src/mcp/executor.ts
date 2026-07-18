@@ -43,6 +43,89 @@ export async function executePostgresMcpTool(
         `;
         return { sessions: rows, totalResults: rows.length };
       }
+      case 'get_whats_new_report': {
+        const rows = await sql`
+          SELECT id::text AS id, period_start AS "periodStart", period_end AS "periodEnd",
+                 summary_json AS report, findings_json AS findings, findings_count AS "findingsCount",
+                 created_at AS "generatedAt"
+          FROM whats_new_reports ORDER BY created_at DESC LIMIT 1
+        `;
+        const row = rows[0];
+        return row ? { ...row, content: JSON.stringify(row.report ?? row.findings ?? {}) } : null;
+      }
+      case 'list_whats_new_reports': {
+        const limit = Math.min(Number(input.limit ?? 50), 100);
+        return await sql`
+          SELECT id::text AS id, period_start AS "periodStart", period_end AS "periodEnd",
+                 findings_count AS "findingsCount", discovery_count AS "discoveryCount",
+                 release_count AS "releaseCount", trend_count AS "trendCount", created_at AS "createdAt"
+          FROM whats_new_reports ORDER BY created_at DESC LIMIT ${limit}
+        `;
+      }
+      case 'get_shop_session': {
+        const rows = await sql`
+          SELECT id::text AS "sessionId", query, condition, price_min AS "priceMin", price_max AS "priceMax",
+                 retailers, status, total_listings AS "totalListings", best_deal_id AS "bestDealId",
+                 error_reason AS "errorReason", created_at AS "createdAt", completed_at AS "completedAt"
+          FROM shop_sessions WHERE id = ${String(input.sessionId)}::uuid LIMIT 1
+        `;
+        return { session: rows[0] ?? null };
+      }
+      case 'get_shop_listings': {
+        const limit = Math.min(Number(input.limit ?? 100), 100);
+        const rows = await sql`
+          SELECT id::text AS id, title, price, original_price AS "originalPrice", currency, condition,
+                 retailer, seller, seller_rating AS "sellerRating", url, image_url AS "imageUrl",
+                 in_stock AS "inStock", deal_score AS "dealScore", is_duplicate AS "isDuplicate"
+          FROM shop_listings WHERE session_id = ${String(input.sessionId)}
+          ORDER BY ${input.sortBy === 'price' ? sql`price ASC` : sql`created_at DESC`} LIMIT ${limit}
+        `;
+        return { listings: rows };
+      }
+      case 'start_assimilation': {
+        const repositoryUrl = String(input.repositoryUrl);
+        const existing = await sql`
+          SELECT id::text AS "sessionId", status FROM assimilation_sessions
+          WHERE repository_url = ${repositoryUrl} AND status NOT IN ('cancelled', 'completed')
+          ORDER BY created_at DESC LIMIT 1
+        `;
+        if (existing[0]) return { ...existing[0], existing: true };
+        const rows = await sql`
+          INSERT INTO assimilation_sessions (id, repository_url, profile, status, auto_approve)
+          VALUES (${randomUUID()}::uuid, ${repositoryUrl}, ${String(input.profile ?? 'standard')}, 'pending', ${Boolean(input.autoApprove)})
+          RETURNING id::text AS "sessionId", status
+        `;
+        return { ...rows[0], existing: false };
+      }
+      case 'get_assimilation_status': {
+        const rows = await sql`
+          SELECT id::text AS "_id", status, profile, repository_name AS "repositoryName",
+                 repository_url AS "repositoryUrl", current_iteration AS "currentIteration",
+                 max_iterations AS "maxIterations", dimension_scores AS "dimensionScores",
+                 estimated_cost_usd AS "estimatedCostUsd", plan_summary AS "planSummary",
+                 plan_content AS "planContent", document_id AS "documentId", error_reason AS "errorReason",
+                 EXTRACT(EPOCH FROM created_at) * 1000 AS "createdAt",
+                 EXTRACT(EPOCH FROM completed_at) * 1000 AS "completedAt"
+          FROM assimilation_sessions WHERE id = ${String(input.sessionId)}::uuid LIMIT 1
+        `;
+        return rows[0] ?? null;
+      }
+      case 'approve_assimilation_plan': {
+        await sql`UPDATE assimilation_sessions SET status = 'in_progress', updated_at = now() WHERE id = ${String(input.sessionId)}::uuid`;
+        return { approved: true, sessionId: String(input.sessionId) };
+      }
+      case 'reject_assimilation_plan': {
+        await sql`UPDATE assimilation_sessions SET status = 'pending', plan_feedback = ${typeof input.feedback === 'string' ? input.feedback : null}, updated_at = now() WHERE id = ${String(input.sessionId)}::uuid`;
+        return { rejected: true, sessionId: String(input.sessionId), replanning: true };
+      }
+      case 'cancel_assimilation': {
+        await sql`UPDATE assimilation_sessions SET status = 'cancelled', updated_at = now(), completed_at = now() WHERE id = ${String(input.sessionId)}::uuid`;
+        return { cancelled: true, sessionId: String(input.sessionId) };
+      }
+      case 'steer_assimilation': {
+        await sql`UPDATE assimilation_sessions SET steering_note = ${String(input.note)}, updated_at = now() WHERE id = ${String(input.sessionId)}::uuid`;
+        return { steered: true, sessionId: String(input.sessionId) };
+      }
       case 'search_improvements': {
         const query = String(input.query);
         const limit = Math.min(Number(input.limit ?? 20), 100);
