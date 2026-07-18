@@ -273,18 +273,49 @@ export async function executePostgresMcpTool(
         }
       }
       case 'assimilate_creator': {
-        const rows = await sql`
-          SELECT id::text AS id FROM creator_profiles WHERE id = ${String(input.profileId)}::uuid LIMIT 1
+        const profileId = String(input.profileId);
+        const profile = await sql`
+          SELECT id::text AS id FROM creator_profiles WHERE id = ${profileId}::uuid LIMIT 1
         `;
-        return rows[0]
-          ? {
-              success: true,
-              status: 'queued',
-              videosFound: 0,
-              transcriptsCreated: 0,
-              transcriptsSkipped: 0,
-            }
-          : { success: false, status: 'failed', error: 'creator profile not found' };
+        if (!profile[0])
+          return { success: false, status: 'failed', error: 'creator profile not found' };
+        const videos = await sql`
+          SELECT content_id AS "contentId", url AS "sourceUrl"
+          FROM subscription_content WHERE source_id = ${profileId}
+        `;
+        const existing = await sql`
+          SELECT count(*)::int AS count
+          FROM video_transcripts WHERE content_id IN (SELECT content_id FROM subscription_content WHERE source_id = ${profileId})
+        `;
+        const forceRegenerate = Boolean(input.forceRegenerate);
+        let queued = 0;
+        for (const video of videos) {
+          const alreadyQueued = await sql`
+            SELECT 1 FROM transcript_jobs
+            WHERE content_id = ${video.contentId} AND status IN ('pending', 'running', 'in_progress')
+            LIMIT 1
+          `;
+          if (alreadyQueued[0] && !forceRegenerate) continue;
+          if (!forceRegenerate) {
+            const transcript = await sql`
+              SELECT 1 FROM video_transcripts WHERE content_id = ${video.contentId} LIMIT 1
+            `;
+            if (transcript[0]) continue;
+          }
+          await sql`
+            INSERT INTO transcript_jobs (id, content_id, source_url, status, priority)
+            VALUES (${randomUUID()}::uuid, ${video.contentId}, ${video.sourceUrl ?? null}, 'pending', 5)
+          `;
+          queued += 1;
+        }
+        return {
+          success: true,
+          status: queued > 0 ? 'queued' : 'completed',
+          videosFound: videos.length,
+          transcriptsCreated: Number(existing[0]?.count ?? 0),
+          transcriptsSkipped: Math.max(0, videos.length - queued - Number(existing[0]?.count ?? 0)),
+          error: null,
+        };
       }
       case 'get_creator_transcripts': {
         const limit = Math.min(Number(input.limit ?? 100), 100);

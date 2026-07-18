@@ -27,7 +27,9 @@ describe('Sprint 19 MCP rehost gateway', () => {
       await sql`DELETE FROM improvement_requests WHERE description LIKE 's19-parity-%'`;
       await sql`DELETE FROM shop_sessions WHERE query LIKE 's19-parity-%' OR query LIKE 'USB-C hub%' OR query LIKE 's19 replay product%'`;
       await sql`DELETE FROM assimilation_sessions WHERE repository_url LIKE 's19-parity-%'`;
-      await sql`DELETE FROM transcript_jobs WHERE content_id LIKE 's19-parity-%'`;
+      await sql`DELETE FROM transcript_jobs WHERE content_id LIKE 's19-parity-%' OR content_id LIKE 's19-creator-%'`;
+      await sql`DELETE FROM subscription_content WHERE content_id LIKE 's19-creator-%'`;
+      await sql`DELETE FROM creator_profiles WHERE handle = 's19-creator'`;
       await sql.end({ timeout: 5 });
     }
   });
@@ -382,6 +384,42 @@ describe('Sprint 19 MCP rehost gateway', () => {
     },
     60_000
   );
+
+  itLive('queues creator transcript jobs against real Postgres', async () => {
+    if (!sql) throw new Error('Postgres is required');
+    const profileId = crypto.randomUUID();
+    const contentId = `s19-creator-${Date.now()}`;
+    await sql`
+      INSERT INTO creator_profiles (id, name, handle, canonical_type)
+      VALUES (${profileId}::uuid, 'Sprint 19 Creator', 's19-creator', 'creator')
+    `;
+    await sql`
+      INSERT INTO subscription_content (id, source_id, content_id, title, url)
+      VALUES (${crypto.randomUUID()}::uuid, ${profileId}, ${contentId}, 'Sprint 19 Video', 'https://example.com/s19-video')
+    `;
+    const app = createHonoApp({ keys: KEYS });
+    const response = await app.request('/mcp', {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${KEYS.mcp}`,
+        'content-type': 'application/json',
+        accept: 'application/json, text/event-stream',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 40,
+        method: 'tools/call',
+        params: { name: 'assimilate_creator', arguments: { profileId } },
+      }),
+    });
+    const body = await response.json();
+    expect(response.status).toBe(200);
+    expect(body.result.isError).not.toBe(true);
+    expect(body.result.structuredContent.status).toBe('queued');
+    expect(body.result.structuredContent.videosFound).toBe(1);
+    const job = await sql`SELECT status FROM transcript_jobs WHERE content_id = ${contentId}`;
+    expect(job[0]?.status).toBe('pending');
+  });
 
   itLive(
     'executes document tools against real Postgres',
