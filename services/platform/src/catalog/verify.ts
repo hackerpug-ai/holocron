@@ -2,6 +2,7 @@
  * Coverage build-gate: catalog:verify fails closed on any unmapped table/field/storage ref.
  * Cross-checks the catalog against the export's actual surface (not a self-referential key count).
  */
+import { collectCatalogStorageLegacyIds } from './assets';
 import { APPROVED_DISPOSITIONS, type SourceCatalog } from './catalog-loader';
 import type { ConvexExport } from './export-reader';
 
@@ -130,7 +131,8 @@ export function buildVerifyReport(catalog: SourceCatalog, exp: ConvexExport | nu
     const ok =
       (APPROVED_DISPOSITIONS as readonly string[]).includes(entry.disposition) &&
       Boolean(entry.owner?.trim()) &&
-      Boolean(entry.approval?.trim());
+      Boolean(entry.approval?.trim()) &&
+      Boolean(entry.expected_target_formula?.trim());
     if (!ok) {
       issues.push({
         kind: 'storage_ref',
@@ -170,7 +172,8 @@ export function buildVerifyReport(catalog: SourceCatalog, exp: ConvexExport | nu
   if (exp) {
     const catalogSet = new Set(catalogTableNames);
     const systemExcluded = new Set(catalog.system_exclusions.map((e) => e.name));
-    for (const tname of Object.keys(exp.tables)) {
+    const allowedSystemFields = new Set(['_id', '_creationTime']);
+    for (const [tname, table] of Object.entries(exp.tables)) {
       if (!catalogSet.has(tname) && !systemExcluded.has(tname)) {
         exportUnaccounted.push(tname);
         issues.push({
@@ -178,8 +181,32 @@ export function buildVerifyReport(catalog: SourceCatalog, exp: ConvexExport | nu
           surface: tname,
           message: `unmapped table: ${tname}`,
         });
+        continue;
+      }
+
+      const entry = catalog.tables[tname];
+      if (!entry) continue;
+      for (const fieldName of table.fields) {
+        if (allowedSystemFields.has(fieldName)) continue;
+        if (!entry.fields[fieldName]) {
+          issues.push({
+            kind: 'field',
+            surface: `${tname}.${fieldName}`,
+            message: `unmapped field: ${tname}.${fieldName}`,
+          });
+        }
       }
     }
+    const accountedStorageBlobs = collectCatalogStorageLegacyIds(catalog, exp);
+    for (const blob of exp.storageBlobs) {
+      if (accountedStorageBlobs.has(blob.legacyId)) continue;
+      issues.push({
+        kind: 'export_unaccounted',
+        surface: `_storage/${blob.legacyId}`,
+        message: `unmapped storage blob: ${blob.legacyId}`,
+      });
+    }
+
     // System dirs must be excluded or dispositioned
     for (const sys of exp.systemDirs) {
       if (!systemExcluded.has(sys) && !catalogSet.has(sys)) {

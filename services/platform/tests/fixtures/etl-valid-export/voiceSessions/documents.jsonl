@@ -1,0 +1,1 @@
+{"_id":"voice_session_legacy_1","_creationTime":1700000001510,"conversationId":"conv_legacy_1","startedAt":1700000001510,"completedAt":1700000001520,"turnCount":2,"totalDurationMs":4000,"metadata":{"channel":"fixture"},"errorMessage":null,"audioStorageId":"storage_voiceSessions_audioStorageId","createdAt":1700000001510,"updatedAt":1700000001520}

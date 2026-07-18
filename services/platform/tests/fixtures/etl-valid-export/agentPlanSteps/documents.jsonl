@@ -1,0 +1,1 @@
+{"_id":"agent_plan_step_legacy_1","_creationTime":1700000001250,"planId":"agent_plan_legacy_1","stepIndex":1,"toolName":"etl.run","toolDisplayName":"ETL Run","toolArgs":{"export":"fixture"},"description":"Run ETL","requiresApproval":false,"status":"in-progress","toolCallId":"tool_call_legacy_1","resultSummary":null,"errorMessage":null,"startedAt":1700000001250,"completedAt":null}

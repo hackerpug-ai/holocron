@@ -128,6 +128,15 @@ interface CliArgs {
   judgeEndpoint: string | null;
   /** prd:consistency --root */
   root: string | null;
+  /** upload:* flags */
+  uploadId: string | null;
+  uploadFile: string | null;
+  uploadKind: string | null;
+  targetId: string | null;
+  mimeType: string | null;
+  byteLength: string | null;
+  sha256: string | null;
+  originalName: string | null;
   /** db seed --reset */
   reset: boolean;
 }
@@ -197,6 +206,14 @@ Usage:
   db seed --reset          Deterministic nonprod seed/reset (fails closed on prod)
   db:provision-nonprod     Create holocron_nonprod + migrate + zero_pub
   prd:consistency          T-PLAT-020 PRD consistency build gate (derived counts)
+  etl:run                  Immutable export → stage → stable id-map → FK-ordered load → blobs
+  etl:reconcile            Catalog-derived target-vs-source reconciliation from latest ETL run
+  etl:fk-audit             Audit migrated legacy-id relationships for zero orphans
+  etl:vectors              Chunk documents, insert canonical passages, and re-embed via fleet
+  blob:verify              Verify retained-object parity + representative Range read
+  upload:init              Create/replay an authoritative upload intent
+  upload:put               Stream bytes into an existing upload intent staging area
+  upload:finalize          Verify hash/length/MIME, attach atomically, and return stored result
 
 Options:
   --export <dir>        Path to unzipped convex export (or $CONVEX_EXPORT_DIR)
@@ -244,6 +261,14 @@ Options:
   --judge-endpoint <url>(evals:run) override judge health endpoint (fail-closed tests)
   --fixture <name>      (evals:ci) known-good | deliberately-bad |
                         deterministic-invariant-regression | invalid-config
+  --upload-id <id>      (upload:put|upload:finalize) upload intent UUID
+  --file <path>         (upload:put) bytes to stage
+  --kind <name>         (upload:init) improvement_image | voice_artifact
+  --target-id <uuid>    (upload:init) attachment target UUID
+  --sha256 <hex>        (upload:init) declared SHA-256 digest
+  --bytes <n>           (upload:init) declared byte length
+  --mime <type>         (upload:init) declared MIME type
+  --name <filename>     (upload:init) original client file name
   --json                Emit JSON instead of text
   --print-trace         (compat:spike) emit OTel trace details
   --dry-run             (catalog:reconcile) dry-run mode (default)
@@ -302,6 +327,14 @@ function parseArgs(argv: string[]): CliArgs {
     dataset: null,
     judgeEndpoint: null,
     root: null,
+    uploadId: null,
+    uploadFile: null,
+    uploadKind: null,
+    targetId: null,
+    mimeType: null,
+    byteLength: null,
+    sha256: null,
+    originalName: null,
     reset: false,
   };
   const positional: string[] = [];
@@ -454,6 +487,38 @@ function parseArgs(argv: string[]): CliArgs {
       args.forConsumers = argv[++i] ?? null;
     } else if (a.startsWith('--for=')) {
       args.forConsumers = a.slice('--for='.length);
+    } else if (a === '--upload-id') {
+      args.uploadId = argv[++i] ?? null;
+    } else if (a.startsWith('--upload-id=')) {
+      args.uploadId = a.slice('--upload-id='.length);
+    } else if (a === '--file') {
+      args.uploadFile = argv[++i] ?? null;
+    } else if (a.startsWith('--file=')) {
+      args.uploadFile = a.slice('--file='.length);
+    } else if (a === '--kind') {
+      args.uploadKind = argv[++i] ?? null;
+    } else if (a.startsWith('--kind=')) {
+      args.uploadKind = a.slice('--kind='.length);
+    } else if (a === '--target-id') {
+      args.targetId = argv[++i] ?? null;
+    } else if (a.startsWith('--target-id=')) {
+      args.targetId = a.slice('--target-id='.length);
+    } else if (a === '--mime') {
+      args.mimeType = argv[++i] ?? null;
+    } else if (a.startsWith('--mime=')) {
+      args.mimeType = a.slice('--mime='.length);
+    } else if (a === '--bytes') {
+      args.byteLength = argv[++i] ?? null;
+    } else if (a.startsWith('--bytes=')) {
+      args.byteLength = a.slice('--bytes='.length);
+    } else if (a === '--sha256') {
+      args.sha256 = argv[++i] ?? null;
+    } else if (a.startsWith('--sha256=')) {
+      args.sha256 = a.slice('--sha256='.length);
+    } else if (a === '--name') {
+      args.originalName = argv[++i] ?? null;
+    } else if (a.startsWith('--name=')) {
+      args.originalName = a.slice('--name='.length);
     } else if (a === '--export') {
       args.exportDir = argv[++i] ?? null;
     } else if (a === '--catalog') {
@@ -587,6 +652,223 @@ async function main(): Promise<void> {
         console.log(formatAssetsText(inv));
       }
       process.exit(inv.ok ? 0 : 1);
+      break;
+    }
+    case 'etl:run': {
+      const exportDir = requireExport(args.exportDir);
+      const { runEtl } = await import('../etl/run.ts');
+      try {
+        const result = await runEtl({
+          exportDir,
+          catalogPath: args.catalogPath,
+        });
+        if (args.json) {
+          console.log(JSON.stringify(result, null, 2));
+        } else {
+          console.log('holo etl:run — immutable export load');
+          console.log(`  runId:          ${result.runId}`);
+          console.log(`  archiveHash:    ${result.archiveHash}`);
+          console.log(`  stageRowCount:  ${result.stageRowCount}`);
+          console.log(`  idMapCount:     ${result.idMapCount}`);
+          console.log(`  fileObjectCount:${result.fileObjectCount}`);
+          console.log(result.ok ? '  status: OK' : '  status: FAIL');
+        }
+        process.exit(result.ok ? 0 : 1);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (args.json) {
+          console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+        } else {
+          console.error(`holo etl:run failed: ${msg}`);
+        }
+        process.exit(1);
+      }
+      break;
+    }
+    case 'etl:reconcile': {
+      const { runEtlReconcile } = await import('../etl/reconcile.ts');
+      try {
+        const result = await runEtlReconcile({
+          exportDir: args.exportDir,
+          catalogPath: args.catalogPath,
+        });
+        if (args.json) {
+          console.log(JSON.stringify(result, null, 2));
+        } else {
+          console.log('holo etl:reconcile — target vs source counts');
+          console.log(`  unexplainedVariance:         ${result.unexplainedVariance}`);
+          console.log(`  tableUnexplainedVariance:    ${result.tableUnexplainedVariance}`);
+          console.log(`  storageRefUnexplainedVariance: ${result.storageRefUnexplainedVariance}`);
+          console.log(`  fkOrphans:                   ${result.fkAudit.orphans}`);
+          console.log(`  blobParityFailures:          ${result.blobVerify.parityFailures}`);
+          console.log(result.ok ? '  status: OK' : '  status: FAIL');
+        }
+        process.exit(result.ok ? 0 : 1);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (args.json) {
+          console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+        } else {
+          console.error(`holo etl:reconcile failed: ${msg}`);
+        }
+        process.exit(1);
+      }
+      break;
+    }
+    case 'etl:fk-audit': {
+      const { runFkAudit } = await import('../etl/fk-audit.ts');
+      try {
+        const result = await runFkAudit({
+          exportDir: args.exportDir,
+          catalogPath: args.catalogPath,
+        });
+        if (args.json) {
+          console.log(JSON.stringify(result, null, 2));
+        } else {
+          console.log('holo etl:fk-audit — migrated relationship audit');
+          console.log(`  checkedRelationships: ${result.checkedRelationships}`);
+          console.log(`  enforcedForeignKeys:  ${result.enforcedForeignKeys}`);
+          console.log(`  orphans:              ${result.orphans}`);
+          console.log(result.ok ? '  status: OK' : '  status: FAIL');
+        }
+        process.exit(result.ok ? 0 : 1);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (args.json) {
+          console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+        } else {
+          console.error(`holo etl:fk-audit failed: ${msg}`);
+        }
+        process.exit(1);
+      }
+      break;
+    }
+    case 'etl:vectors': {
+      const { runEtlVectors } = await import('../etl/vectors.ts');
+      try {
+        const result = await runEtlVectors({
+          exportDir: args.exportDir,
+          catalogPath: args.catalogPath,
+        });
+        if (args.json) {
+          console.log(JSON.stringify(result, null, 2));
+        } else {
+          console.log('holo etl:vectors — canonical passage regeneration + embed');
+          console.log(`  documentsProcessed: ${result.documentsProcessed}`);
+          console.log(`  passagesInserted:   ${result.passagesInserted}`);
+          console.log(`  embed.processed:    ${result.embed.processed}`);
+          console.log(`  embed.remaining:    ${result.embed.remainingNull}`);
+          console.log(`  markerFoundPast8k:  ${result.markerFoundPast8k}`);
+          console.log(result.ok ? '  status: OK' : '  status: FAIL');
+        }
+        process.exit(result.ok ? 0 : 1);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (args.json) {
+          console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+        } else {
+          console.error(`holo etl:vectors failed: ${msg}`);
+        }
+        process.exit(1);
+      }
+      break;
+    }
+    case 'blob:verify': {
+      const { runBlobVerify } = await import('../blob/verify.ts');
+      try {
+        const result = await runBlobVerify({
+          exportDir: args.exportDir,
+          catalogPath: args.catalogPath,
+        });
+        if (args.json) {
+          console.log(JSON.stringify(result, null, 2));
+        } else {
+          console.log('holo blob:verify — retained manifest parity + Range proof');
+          console.log(`  retainedCount:   ${result.retainedCount}`);
+          console.log(`  parityFailures:  ${result.parityFailures}`);
+          console.log(`  rangeStatus:     ${result.rangeProbe.status}`);
+          console.log(`  rangeExact:      ${result.rangeProbe.exact}`);
+          console.log(result.ok ? '  status: OK' : '  status: FAIL');
+        }
+        process.exit(result.ok ? 0 : 1);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (args.json) {
+          console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+        } else {
+          console.error(`holo blob:verify failed: ${msg}`);
+        }
+        process.exit(1);
+      }
+      break;
+    }
+    case 'upload:init': {
+      const { initUploadIntent } = await import('../uploads/service.ts');
+      if (
+        !args.uploadKind ||
+        !args.targetId ||
+        !args.idempotencyKey ||
+        !args.sha256 ||
+        !args.byteLength ||
+        !args.mimeType
+      ) {
+        console.error(
+          'error: upload:init requires --kind --target-id --idempotency-key --sha256 --bytes --mime'
+        );
+        process.exit(2);
+      }
+      try {
+        const result = await initUploadIntent({
+          kind: args.uploadKind,
+          targetId: args.targetId,
+          idempotencyKey: args.idempotencyKey,
+          sha256: args.sha256,
+          byteLength: Number(args.byteLength),
+          mimeType: args.mimeType,
+          originalName: args.originalName ?? undefined,
+        });
+        console.log(JSON.stringify(result, null, 2));
+        process.exit(0);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+        process.exit(1);
+      }
+      break;
+    }
+    case 'upload:put': {
+      const { readFileSync } = await import('node:fs');
+      const { putUploadBytes } = await import('../uploads/service.ts');
+      if (!args.uploadId || !args.uploadFile) {
+        console.error('error: upload:put requires --upload-id and --file');
+        process.exit(2);
+      }
+      try {
+        const result = await putUploadBytes(args.uploadId, readFileSync(args.uploadFile));
+        console.log(JSON.stringify(result, null, 2));
+        process.exit(0);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+        process.exit(1);
+      }
+      break;
+    }
+    case 'upload:finalize': {
+      const { finalizeUploadIntent } = await import('../uploads/service.ts');
+      if (!args.uploadId) {
+        console.error('error: upload:finalize requires --upload-id');
+        process.exit(2);
+      }
+      try {
+        const result = await finalizeUploadIntent(args.uploadId);
+        console.log(JSON.stringify(result, null, 2));
+        process.exit(0);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+        process.exit(1);
+      }
       break;
     }
     case 'mcp:verify-manifest': {
@@ -3157,6 +3439,7 @@ async function main(): Promise<void> {
       }
       console.error('Usage: holo ci runner:status [--json]');
       process.exit(2);
+      break;
     }
 
     case 'ci:runner:status':
@@ -3172,6 +3455,7 @@ async function main(): Promise<void> {
         );
       }
       process.exit(result.ok ? 0 : 1);
+      break;
     }
 
     case 'db:provision-nonprod': {
@@ -3185,6 +3469,7 @@ async function main(): Promise<void> {
         console.log(result.ok ? '  status: OK' : '  status: FAIL');
       }
       process.exit(result.ok ? 0 : 1);
+      break;
     }
 
     case 'db': {
@@ -3207,6 +3492,7 @@ async function main(): Promise<void> {
       }
       console.error('Usage: holo db seed --reset [--json] | holo db:provision-nonprod');
       process.exit(2);
+      break;
     }
 
     case 'db:seed': {
@@ -3224,6 +3510,7 @@ async function main(): Promise<void> {
         console.log(result.ok ? '  status: OK' : '  status: FAIL');
       }
       process.exit(result.ok ? 0 : 1);
+      break;
     }
 
     case 'prd:consistency': {
@@ -3239,6 +3526,7 @@ async function main(): Promise<void> {
         );
       }
       process.exit(result.ok ? 0 : 1);
+      break;
     }
 
     default:

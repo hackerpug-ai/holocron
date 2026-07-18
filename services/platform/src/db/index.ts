@@ -8,10 +8,18 @@
 
 export { createDb, createSql, withDb } from './client';
 export {
+  allowDangerousProdDbOverride,
+  assertHolocronNonprodDatabaseUrl,
+  DANGEROUS_PROD_DB_OVERRIDE_ENV,
   DEFAULT_DATABASE_URL,
   DEFAULT_HOLOCRON_DATABASE_URL,
+  DEFAULT_HOLOCRON_NONPROD_DATABASE_URL,
+  databaseNameFromUrl,
+  isHolocronNonprodDatabaseUrl,
+  isProductionLikeDatabaseUrl,
   postgresConnectionFacts,
   resolveDatabaseUrl,
+  resolveHolocronNonprodDatabaseUrl,
   resolveOwnerDatabaseUrl,
 } from './connection';
 export * from './enums';
