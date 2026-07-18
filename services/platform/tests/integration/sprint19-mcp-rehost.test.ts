@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { PLATFORM_IT } from '../../../../tests/integration/service/harness';
 import { createSql, type Sql } from '../../src/db/client';
 import { createHonoApp } from '../../src/http/hono-app';
+import { executePostgresMcpTool } from '../../src/mcp/executor';
 import { defaultManifestPath, loadManifest } from '../../src/mcp/manifest-loader';
 import { toolsAsRecord } from '../../src/tools/registry';
 
@@ -18,7 +19,13 @@ describe('Sprint 19 MCP rehost gateway', () => {
   afterAll(async () => {
     if (sql) {
       await sql`DELETE FROM documents WHERE title LIKE 's19-mcp-%'`;
-      await sql`DELETE FROM subscription_sources WHERE identifier LIKE 's19-mcp-%'`;
+      await sql`DELETE FROM subscription_sources WHERE identifier LIKE 's19-mcp-%' OR identifier LIKE 's19-parity-%'`;
+      await sql`DELETE FROM documents WHERE title LIKE 's19-parity-%'`;
+      await sql`DELETE FROM toolbelt_tools WHERE title LIKE 's19-parity-%'`;
+      await sql`DELETE FROM improvement_requests WHERE description LIKE 's19-parity-%'`;
+      await sql`DELETE FROM shop_sessions WHERE query LIKE 's19-parity-%'`;
+      await sql`DELETE FROM assimilation_sessions WHERE repository_url LIKE 's19-parity-%'`;
+      await sql`DELETE FROM transcript_jobs WHERE content_id LIKE 's19-parity-%'`;
       await sql.end({ timeout: 5 });
     }
   });
@@ -79,7 +86,104 @@ describe('Sprint 19 MCP rehost gateway', () => {
         })
       ).status
     ).toBe(403);
+    const sampling = await app.request('/mcp', {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${KEYS.mcp}`,
+        'content-type': 'application/json',
+        accept: 'application/json, text/event-stream',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 10,
+        method: 'sampling/createMessage',
+        params: {},
+      }),
+    });
+    expect((await sampling.json()).error).toBeDefined();
   });
+
+  it('rejects an already-cancelled tool request before database dispatch', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    await expect(
+      executePostgresMcpTool(
+        'list_documents',
+        {},
+        {
+          databaseUrl: DATABASE_URL,
+          signal: controller.signal,
+        }
+      )
+    ).rejects.toThrow('MCP request cancelled');
+  });
+
+  itLive(
+    'executes every manifest tool through the real HTTP gateway',
+    async () => {
+      const app = createHonoApp({ keys: KEYS });
+      const headers = {
+        authorization: `Bearer ${KEYS.mcp}`,
+        'content-type': 'application/json',
+        accept: 'application/json, text/event-stream',
+      };
+      const schemaSample = (schema: unknown, key: string): unknown => {
+        const def = (schema as { def?: Record<string, unknown> }).def ?? {};
+        const type = def.type;
+        if (type === 'optional' || type === 'nullable' || type === 'default') {
+          return schemaSample(def.innerType, key);
+        }
+        if (type === 'object') {
+          const shape = (def.shape ?? {}) as Record<string, unknown>;
+          return Object.fromEntries(
+            Object.entries(shape).map(([name, value]) => [name, schemaSample(value, name)])
+          );
+        }
+        if (type === 'array') return [schemaSample(def.element, key)];
+        if (type === 'enum') {
+          const entries = def.entries as Record<string, string>;
+          return Object.values(entries)[0];
+        }
+        if (type === 'number') return key === 'count' || key === 'limit' ? 5 : 1;
+        if (type === 'boolean') return false;
+        if (type === 'record') return {};
+        if (type === 'unknown') return {};
+        if (type === 'string') {
+          if (key === 'url' || key === 'feedUrl' || key === 'sourceUrl' || key === 'repositoryUrl')
+            return 'https://example.com/s19';
+          if (/^(id|sessionId|documentId|toolId|profileId)$/.test(key)) return crypto.randomUUID();
+          if (key === 'sourceType') return 'github';
+          if (key === 'category') return 'libraries';
+          if (key === 'status') return 'draft';
+          if (key === 'items') return [{ description: 's19-parity-item' }];
+          return `s19-parity-${key}`;
+        }
+        return {};
+      };
+      const tools = Object.keys(toolsAsRecord());
+      const failures: Array<{ id: string; status: number; body: unknown }> = [];
+      for (const [index, id] of tools.entries()) {
+        const inputSchema = (toolsAsRecord()[id] as unknown as { inputSchema: unknown })
+          .inputSchema;
+        const response = await app.request('/mcp', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+            id: index + 100,
+            method: 'tools/call',
+            params: { name: id, arguments: schemaSample(inputSchema, id) },
+          }),
+        });
+        const body = await response.json();
+        if (response.status !== 200 || (!body.result && !body.error))
+          failures.push({ id, status: response.status, body });
+      }
+      expect(failures).toEqual([]);
+      expect(tools).toHaveLength(44);
+    },
+    180_000
+  );
 
   itLive('executes document tools against real Postgres', async () => {
     const app = createHonoApp({ keys: KEYS });
