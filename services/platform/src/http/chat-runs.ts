@@ -256,40 +256,44 @@ export async function createChatRun(
   });
   const sql = createSql(databaseUrl);
   try {
-    const existing = await sql<ChatRunRow[]>`
-      SELECT * FROM chat_runs WHERE owner_scope = ${scope} AND request_id = ${input.requestId}
-      LIMIT 1
-    `;
-    if (existing[0]) return rowPayload(existing[0], true);
-
-    const rows = await sql<ChatRunRow[]>`
-      INSERT INTO chat_runs (id, owner_scope, request_id, conversation_id, role, message)
-      VALUES (${randomUUID()}::uuid, ${scope}, ${input.requestId}, ${input.conversationId ?? null}, ${resolveChatSpecialistRole(input.msg)}, ${input.msg})
-      ON CONFLICT (owner_scope, request_id) DO NOTHING
-      RETURNING *
-    `;
-    const run =
-      rows[0] ??
-      (
-        await sql<ChatRunRow[]>`
+    const result = await sql.begin(async (tx) => {
+      const existing = await tx<ChatRunRow[]>`
         SELECT * FROM chat_runs WHERE owner_scope = ${scope} AND request_id = ${input.requestId}
         LIMIT 1
-      `
-      )[0];
-    if (!run) throw new Error('chat run insert returned no row');
-    if (input.conversationId) {
-      await sql`
-        INSERT INTO chat_messages (id, conversation_id, role, content, message_type, session_id)
-        VALUES (${randomUUID()}::uuid, ${input.conversationId}, 'user', ${input.msg}, 'text', ${run.id})
       `;
-      await sql`
-        UPDATE conversations
-        SET last_message_preview = ${input.msg.slice(0, 200)}, updated_at = now()
-        WHERE id::text = ${input.conversationId}
+      if (existing[0]) return { created: false, run: existing[0] };
+
+      const rows = await tx<ChatRunRow[]>`
+        INSERT INTO chat_runs (id, owner_scope, request_id, conversation_id, role, message)
+        VALUES (${randomUUID()}::uuid, ${scope}, ${input.requestId}, ${input.conversationId ?? null}, ${resolveChatSpecialistRole(input.msg)}, ${input.msg})
+        ON CONFLICT (owner_scope, request_id) DO NOTHING
+        RETURNING *
       `;
-    }
-    void processChatRun(databaseUrl, run);
-    return rowPayload(run, false);
+      const run = rows[0];
+      if (!run) {
+        const conflicted = await tx<ChatRunRow[]>`
+          SELECT * FROM chat_runs WHERE owner_scope = ${scope} AND request_id = ${input.requestId}
+          LIMIT 1
+        `;
+        if (!conflicted[0]) throw new Error('chat run insert returned no row');
+        return { created: false, run: conflicted[0] };
+      }
+      if (input.conversationId) {
+        await tx`
+          INSERT INTO chat_messages (id, conversation_id, role, content, message_type, session_id)
+          VALUES (${randomUUID()}::uuid, ${input.conversationId}, 'user', ${input.msg}, 'text', ${run.id})
+        `;
+        await tx`
+          UPDATE conversations
+          SET last_message_preview = ${input.msg.slice(0, 200)}, updated_at = now()
+          WHERE id::text = ${input.conversationId}
+        `;
+      }
+      return { created: true, run };
+    });
+    if (!result.created) return rowPayload(result.run, true);
+    void processChatRun(databaseUrl, result.run);
+    return rowPayload(result.run, false);
   } finally {
     await sql.end({ timeout: 5 });
   }

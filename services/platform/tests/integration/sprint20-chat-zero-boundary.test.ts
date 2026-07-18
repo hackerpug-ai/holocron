@@ -47,6 +47,17 @@ describe('Sprint 20 chat/Zero boundary', () => {
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body.runId).toMatch(/[0-9a-f-]{36}/);
+    const replayResponse = await app.request('/api/chat-runs', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${KEYS.rn}`, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        requestId,
+        msg: '[[tripwire]] Sprint 20 boundary probe',
+        conversationId,
+      }),
+    });
+    expect(replayResponse.status).toBe(200);
+    expect((await replayResponse.json()).replay).toBe(true);
     const messages = await sql`
       SELECT role, content, conversation_id AS "conversationId"
       FROM chat_messages WHERE conversation_id = ${conversationId}
