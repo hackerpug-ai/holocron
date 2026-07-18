@@ -109,6 +109,8 @@ interface CliArgs {
   /** gate:eval --claims/--refuting <json> */
   claimsPath: string | null;
   refutingPath: string | null;
+  /** research:trace --processes */
+  processes: boolean;
   /** probe:capabilities flags */
   timeout: string | null;
   /** search flags */
@@ -213,6 +215,8 @@ Usage:
   evals:drift               Longitudinal drift over persisted eval_scores (--dataset)
   evals:ci                  Fail-closed CI gate: threshold + deterministic invariants (--fixture)
   gate:eval                  Pure-TS evidence admission gate (--claims/--refuting <json>)
+  research:inspect <id>      Inspect durable research phases and gate provenance
+  research:trace <id>        Show durable research process trace (--processes)
   ci runner:status         Fail-closed self-hosted runner probe (labels online)
   db seed --reset          Deterministic nonprod seed/reset (fails closed on prod)
   db:provision-nonprod     Create holocron_nonprod + migrate + zero_pub
@@ -352,6 +356,7 @@ function parseArgs(argv: string[]): CliArgs {
     fixture: null,
     claimsPath: null,
     refutingPath: null,
+    processes: false,
     timeout: null,
     explain: false,
     surface: null,
@@ -525,6 +530,8 @@ function parseArgs(argv: string[]): CliArgs {
       args.refutingPath = resolve(argv[++i] ?? '');
     } else if (a.startsWith('--refuting=')) {
       args.refutingPath = resolve(a.slice('--refuting='.length));
+    } else if (a === '--processes') {
+      args.processes = true;
     } else if (a === '--timeout') {
       args.timeout = argv[++i] ?? null;
     } else if (a.startsWith('--timeout=')) {
@@ -3370,6 +3377,40 @@ async function main(): Promise<void> {
       }
       break;
     }
+    case 'research:inspect':
+    case 'research:trace': {
+      const sessionId = args.positional[1];
+      if (!sessionId) {
+        const payload = {
+          ok: false,
+          error: `${args.command} requires <research-session-id>`,
+          code: 'RESEARCH_SESSION_ID_REQUIRED',
+        };
+        if (args.json) console.log(JSON.stringify(payload, null, 2));
+        else console.error(payload.error);
+        process.exit(2);
+      }
+      try {
+        const { inspectResearchSession } = await import('../research/inspection.ts');
+        const result = await inspectResearchSession(sessionId, {
+          processes: args.command === 'research:trace' && args.processes,
+        });
+        if (args.json) console.log(JSON.stringify(result, null, 2));
+        else console.log(result.ok ? JSON.stringify(result, null, 2) : result.error);
+        process.exit(result.ok ? 0 : 1);
+      } catch (error) {
+        const payload = {
+          ok: false,
+          error: error instanceof Error ? error.message : String(error),
+          code: 'RESEARCH_INSPECTION_FAILED',
+        };
+        if (args.json) console.log(JSON.stringify(payload, null, 2));
+        else console.error(payload.error);
+        process.exit(1);
+      }
+      break;
+    }
+
     case 'gate:eval': {
       const gatePath = args.claimsPath ?? args.refutingPath;
       if (!gatePath) {
