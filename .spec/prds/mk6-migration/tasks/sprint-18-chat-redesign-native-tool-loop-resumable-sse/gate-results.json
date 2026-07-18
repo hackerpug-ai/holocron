@@ -1,0 +1,14 @@
+{
+  "schemaVersion":1,
+  "runId":"f08a2df6-372b-442c-aa42-c4c894c217bd",
+  "steps":[
+    {"id":"S18-1","status":"passed","evidence":"chat-run-final2.json","result":"POST 200 returned pending runId and durableMessageId"},
+    {"id":"S18-2","status":"passed","evidence":"chat-run-final2.json","result":"SSE streamed persisted token IDs 1,2 and terminal ID 3"},
+    {"id":"S18-3","status":"passed","evidence":"chat-run-final2.json","result":"replay=true returned same runId and durableMessageId"},
+    {"id":"S18-4","status":"passed","evidence":"chat-run-final2.json","result":"Last-Event-ID=2 returned only terminal ID 3"},
+    {"id":"S18-5","status":"passed","evidence":"chat-trace-final2.json,chat-route-final2.json","result":"Agent.stream bounded at maxSteps 8 with chat_context grant and divergent specialist"},
+    {"id":"S18-6","status":"passed","evidence":"tests-final.txt","result":"3 real Postgres/fleet integration tests passed, including blocked and cancel terminals"}
+  ],
+  "verification":{"typecheck":"passed","tests":"1 file / 3 tests passed","realPostgres":true,"realFleet":true,"ownerScope":true,"atomicTerminal":true},
+  "overall":"passed"
+}

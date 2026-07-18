@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "sprint": 18,
+  "sourceHead": "1c1efc4",
+  "gate": "real Postgres + fleet async chat run with durable monotonic SSE and replay",
+  "steps": [
+    {"id":"S18-1","command":"POST /api/chat-runs with requestId,msg","assertion":"returns durable runId/messageId and pending async status"},
+    {"id":"S18-2","command":"GET /api/chat-runs/:id/events","assertion":"live persisted fleet token events and one terminal event have monotonic IDs"},
+    {"id":"S18-3","command":"POST same requestId again","assertion":"same immutable runId/message and replay=true"},
+    {"id":"S18-4","command":"GET events with Last-Event-ID after token","assertion":"only unseen terminal event is replayed"},
+    {"id":"S18-5","command":"holo chat:trace and holo chat:route","assertion":"bounded Agent.stream, dynamic specialist role, least-privilege tool grant"},
+    {"id":"S18-6","command":"tripwire and cancel cases","assertion":"typed blocked terminal; no duplicate terminal or unsafe durable assistant write"}
+  ],
+  "rawEvidenceDir":".tmp/sprint-18-human-gate-20260718T155000Z"
+}

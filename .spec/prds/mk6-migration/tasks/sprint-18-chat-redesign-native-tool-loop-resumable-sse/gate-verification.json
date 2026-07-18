@@ -1,0 +1,23 @@
+{
+  "schemaVersion":1,
+  "rawEvidenceDir":".tmp/sprint-18-human-gate-20260718T155000Z",
+  "recomputed":{
+    "rawStepCount":6,
+    "allStepsPassed":true,
+    "postStatus":200,
+    "initialStatus":"pending",
+    "terminalStatus":"completed",
+    "eventIds":[1,2,3],
+    "reconnectEventIds":[3],
+    "replaySameRun":true,
+    "replaySameDurableMessage":true,
+    "agentStream":"fleet",
+    "maxSteps":8,
+    "toolGrants":["chat_context"],
+    "blockedTerminal":"CHAT_PROCESSOR_BLOCKED",
+    "cancelTerminal":"CHAT_RUN_CANCELLED",
+    "ownerScopeEnforced":true
+  },
+  "review":{"independentReview":".tmp/sprint-18-independent-review-final.md","verdict":"PASS","blockingFindings":0},
+  "overall":"passed"
+}
