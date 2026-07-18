@@ -18,4 +18,4 @@ All 44 tools over stdio and Streamable HTTP return manifest-matching results aga
 
 ## Current evidence
 
-Gate artifacts: `gate-results.json` and `gate-verification.json` are PASS at source HEAD `f3c8f42`; independent review is `.tmp/sprint-19-independent-review-final.md`; raw evidence is `.tmp/sprint-19-human-gate-20260718T113900Z/`.
+Gate artifacts: `gate-results.json` and `gate-verification.json` are PASS at source HEAD `4ec8993`; independent review is `.tmp/sprint-19-independent-review-final.md`; raw evidence is `.tmp/sprint-19-human-gate-20260718T115100Z/`.

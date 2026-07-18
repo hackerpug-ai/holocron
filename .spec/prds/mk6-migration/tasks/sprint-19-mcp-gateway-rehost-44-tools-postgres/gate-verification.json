@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "rawEvidenceDir": ".tmp/sprint-19-human-gate-20260718T113900Z",
+  "rawEvidenceDir": ".tmp/sprint-19-human-gate-20260718T115100Z",
   "recomputed": {
-    "sourceHead": "f3c8f42",
+    "sourceHead": "4ec8993",
     "rawStepCount": 7,
     "allStepsPassed": true,
     "manifestTools": 44,
@@ -12,6 +12,7 @@
     "duplicateValidationSites": 0,
     "realPostgresTests": 11,
     "stdioToolCall": true,
+    "all44Stdio": true,
     "allSuccessFixturesSchemaValid": true,
     "shopLivePersistence": true,
     "shopReplayFullEffectiveInput": true,

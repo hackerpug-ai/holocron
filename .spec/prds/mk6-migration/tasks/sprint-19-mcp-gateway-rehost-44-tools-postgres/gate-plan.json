@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "sprint": 19,
-  "sourceHead": "f3c8f42",
+  "sourceHead": "4ec8993",
   "gate": "all 44 MCP tools execute against real Postgres over HTTP and stdio with manifest-bound schemas, replay, auth, cancellation, and no-sampling proof",
   "steps": [
     {"id":"S19-1","command":"holo mcp:verify-rehost --json","assertion":"44 registered and manifest tools, no missing executors, Convex refs, or duplicate validation sites"},
@@ -12,5 +12,5 @@
     {"id":"S19-6","command":"shared output schema fixture validation","assertion":"all 44 frozen success fixtures parse against the shared registered output schemas"},
     {"id":"S19-7","command":"independent read-only review","assertion":"reviewed committed HEAD and returned PASS with no blockers"}
   ],
-  "rawEvidenceDir": ".tmp/sprint-19-human-gate-20260718T113900Z"
+  "rawEvidenceDir": ".tmp/sprint-19-human-gate-20260718T115100Z"
 }
