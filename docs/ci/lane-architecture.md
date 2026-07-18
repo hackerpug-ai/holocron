@@ -60,3 +60,7 @@ Proposed workflow filenames: `.github/workflows/ci-fast.yml`, `ci-integration.ym
 - Self-hosted registration: `docs/ci/self-hosted-runner.md` (D02-03)
 - Nonprod namespace: `docs/ci/nonprod-namespace.md` (D02-02)
 - PRD: T-PLAT-019, T-PLAT-020, `10-e2e-testing.md`
+
+## Review
+
+Adversarial workflow review: [D02-06-adversarial-review.md](./D02-06-adversarial-review.md).
