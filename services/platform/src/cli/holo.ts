@@ -223,6 +223,7 @@ Usage:
   chat:route <id>            Show chat triage and bound specialist route
   ci runner:status         Fail-closed self-hosted runner probe (labels online)
   db seed --reset          Deterministic nonprod seed/reset (fails closed on prod)
+  namespace reset           Reset the deterministic nonprod Postgres/Zero namespace
   db:provision-nonprod     Create holocron_nonprod + migrate + zero_pub
   prd:consistency          T-PLAT-020 PRD consistency build gate (derived counts)
   etl:run                  Immutable export → stage → stable id-map → FK-ordered load → blobs
@@ -3954,6 +3955,28 @@ async function main(): Promise<void> {
       else {
         console.log('holo db:provision-nonprod');
         for (const m of result.messages) console.log(`  ${m}`);
+        if (result.errors.length) for (const e of result.errors) console.error(`  error: ${e}`);
+        console.log(result.ok ? '  status: OK' : '  status: FAIL');
+      }
+      process.exit(result.ok ? 0 : 1);
+      break;
+    }
+
+    case 'namespace': {
+      const sub = args.positional[1] ?? '';
+      if (sub !== 'reset') {
+        console.error('Usage: holo namespace reset [--json]');
+        process.exit(2);
+      }
+      const { seedDatabase } = await import('../db/seed.ts');
+      const result = await seedDatabase({ reset: true });
+      if (args.json)
+        console.log(JSON.stringify({ ...result, namespace: 'holocron_nonprod' }, null, 2));
+      else {
+        console.log('holo namespace reset');
+        for (const m of result.messages) console.log(`  ${m}`);
+        console.log(`  namespace: holocron_nonprod`);
+        console.log(`  seed_fingerprint: ${result.seed_fingerprint}`);
         if (result.errors.length) for (const e of result.errors) console.error(`  error: ${e}`);
         console.log(result.ok ? '  status: OK' : '  status: FAIL');
       }
