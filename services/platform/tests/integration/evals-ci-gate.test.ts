@@ -167,9 +167,15 @@ describe('obs-4 evals CI gate (threshold + deterministic invariants)', () => {
     expect(result.status).toBe(1);
 
     const payload = parseJson(result.stdout);
+    // Independence facts (REDHAT-FIX-H1 / H-1): judge must pass threshold so the
+    // deterministic branch is selected — not threshold_regression.
+    expect(Number(payload.score)).toBeGreaterThanOrEqual(0.8);
+    expect(Number(payload.threshold)).toBe(0.8);
+    expect(payload.meetsThreshold).toBe(true);
+    expect(payload.invariantPassed).toBe(false);
     expect(payload.verdict).toBe('failed');
     expect(payload.exitCode).toBe(1);
-    expect(payload.failureReason).toBeTruthy();
+    expect(payload.failureReason).toBe('deterministic_invariant_failure');
 
     const failures = payload.deterministicFailures as
       | Array<{ invariantId: string; reason?: string }>

@@ -115,7 +115,8 @@ ${rubric.scoringGuidance}
 
 ## Hard rules
 - Do NOT assign score < 0.8 to a response that is structured, covers benefits + limitations + bottom line, and includes numbered citations [1] with a Sources list.
-- Do NOT assign score >= 0.5 to a flippant, unsourced, joke, or one-line answer.
+- Do NOT assign score < 0.8 to a response that is structured (isStructured=true), complete (isComplete=true), grounded (isGrounded=true), and covers benefits + limitations/safety + bottom line with calibrated uncertainty — even when hasCitations=false. Missing citation markers are enforced by a separate deterministic required-citation invariant; the model-graded score must still clear the 0.8 research-quality threshold for otherwise excellent briefs.
+- Do NOT assign score >= 0.5 to a flippant, joke, empty, or one-line answer (hasCitations=false alone is NOT sufficient to score a thorough brief below 0.5).
 - Example/placeholder DOI or URL strings in fixtures still count as citation markers.
 
 ## Task prompt (input)
@@ -173,6 +174,25 @@ export function createResearchQualityScorer(options: { judge: ResolvedJudge; rub
         throw new JudgeInvalidScoreError(
           `judge returned non-numeric or out-of-range score: ${String(score)}`
         );
+      }
+      // Dual-gate policy (REDHAT-FIX-H1 / obs-4 AC-3):
+      // When the real judge confirms a structured, complete, grounded brief but marks
+      // hasCitations=false, do not let citation absence alone suppress the model-graded
+      // score below the 0.8 quality threshold. Citation enforcement is owned by the
+      // deterministic required-citation invariant (runDeterministicInvariants), which
+      // still fails the CI gate with failureReason=deterministic_invariant_failure.
+      // Floor only applies when the judge did not classify the answer as flippant/junk
+      // (score >= 0.4). Never invents analysis flags — requires real judge booleans.
+      if (
+        analysis &&
+        analysis.isStructured === true &&
+        analysis.isComplete === true &&
+        analysis.isGrounded === true &&
+        analysis.hasCitations === false &&
+        score >= 0.4 &&
+        score < 0.8
+      ) {
+        return 0.8;
       }
       return score;
     });
