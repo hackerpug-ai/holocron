@@ -1,26 +1,36 @@
 import '../global.css';
 
 import { PortalHost } from '@rn-primitives/portal';
+import { expoSQLiteStoreProvider } from '@rocicorp/zero/expo-sqlite';
+import { ZeroProvider } from '@rocicorp/zero/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ConvexProvider, ConvexReactClient } from 'convex/react';
 import * as Linking from 'expo-linking';
 import { router, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
-import { useColorScheme as useRNColorScheme, View } from 'react-native';
+import { Platform, useColorScheme as useRNColorScheme, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NotificationToastProvider } from '@/components/notifications';
 import { usePushNotifications } from '@/hooks/use-push-notifications';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { cn } from '@/lib/utils';
+import { schema as zeroSchema } from './zero/schema';
 
 // Platform base URL (consolidated secrets → EXPO_PUBLIC_PLATFORM_URL).
 // Legacy Convex client remains until Zero/platform data plane lands (T-PLAT-017).
 const platformUrl = process.env.EXPO_PUBLIC_PLATFORM_URL;
+const zeroCacheUrl = process.env.EXPO_PUBLIC_ZERO_CACHE_URL;
+const zeroUserId = process.env.EXPO_PUBLIC_ZERO_USER_ID ?? 'e2e-reference-user';
 if (!platformUrl) {
   console.error(
     'EXPO_PUBLIC_PLATFORM_URL is not set. Copy services/platform/config/secrets.example.yaml → secrets.yaml or set EAS env.'
+  );
+}
+if (!zeroCacheUrl) {
+  console.error(
+    'EXPO_PUBLIC_ZERO_CACHE_URL is not set; Zero sync will fail closed until the cache is provisioned.'
   );
 }
 
@@ -125,27 +135,34 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <ConvexProvider client={convex}>
-        <SafeAreaProvider>
-          <QueryClientProvider client={queryClient}>
-            <ThemeSync>
-              <NotificationToastProvider>
-                <Stack screenOptions={{ headerShown: false }}>
-                  <Stack.Screen name="(drawer)" />
-                  <Stack.Screen name="articles" />
-                  {/* toolbelt is now inside (drawer) group */}
-                  <Stack.Screen name="document/[id]" />
-                  <Stack.Screen name="webview/[url]" />
-                  <Stack.Screen name="storybook" />
-                  <Stack.Screen name="toolbelt/add" options={{ presentation: 'modal' }} />
-                  <Stack.Screen name="+not-found" />
-                </Stack>
-                <PortalHost />
-              </NotificationToastProvider>
-            </ThemeSync>
-          </QueryClientProvider>
-        </SafeAreaProvider>
-      </ConvexProvider>
+      <ZeroProvider
+        cacheURL={zeroCacheUrl ?? 'http://127.0.0.1:4848'}
+        userID={zeroUserId}
+        schema={zeroSchema}
+        kvStore={Platform.OS === 'web' ? 'idb' : expoSQLiteStoreProvider()}
+      >
+        <ConvexProvider client={convex}>
+          <SafeAreaProvider>
+            <QueryClientProvider client={queryClient}>
+              <ThemeSync>
+                <NotificationToastProvider>
+                  <Stack screenOptions={{ headerShown: false }}>
+                    <Stack.Screen name="(drawer)" />
+                    <Stack.Screen name="articles" />
+                    {/* toolbelt is now inside (drawer) group */}
+                    <Stack.Screen name="document/[id]" />
+                    <Stack.Screen name="webview/[url]" />
+                    <Stack.Screen name="storybook" />
+                    <Stack.Screen name="toolbelt/add" options={{ presentation: 'modal' }} />
+                    <Stack.Screen name="+not-found" />
+                  </Stack>
+                  <PortalHost />
+                </NotificationToastProvider>
+              </ThemeSync>
+            </QueryClientProvider>
+          </SafeAreaProvider>
+        </ConvexProvider>
+      </ZeroProvider>
     </GestureHandlerRootView>
   );
 }
