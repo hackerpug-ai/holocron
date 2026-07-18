@@ -1,8 +1,7 @@
 import { useQuery as useZeroQuery } from '@rocicorp/zero/react';
 import { useCallback, useRef, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, View } from 'react-native';
+import { ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, View } from 'react-native';
 import { ChatInput } from '@/components/chat/ChatInput';
-import { type ChatMessage, ChatThread } from '@/components/chat/ChatThread';
 import { Text } from '@/components/ui/text';
 import { queries } from '../../zero/queries';
 
@@ -40,12 +39,10 @@ export default function ReferenceChatScreen() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const requestCounter = useRef(0);
-  const messages: ChatMessage[] = rows.map((row) => ({
+  const messages = rows.map((row) => ({
     id: row.id,
-    role: row.role === 'agent' ? 'agent' : row.role === 'system' ? 'system' : 'user',
+    role: row.role,
     content: row.content ?? '',
-    message_type: 'text',
-    createdAt: new Date(row.created_at),
   }));
 
   const handleSend = useCallback(
@@ -91,11 +88,26 @@ export default function ReferenceChatScreen() {
     >
       <View className="flex-1" testID="chat-thread">
         {rows.length === 0 && sending ? <ActivityIndicator testID="chat-loading-inline" /> : null}
-        <ChatThread
-          messages={messages}
-          showTypingIndicator={sending}
-          isLoading={false}
-          testID="chat-thread"
+        <FlatList
+          data={messages}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={{ padding: 16, gap: 12 }}
+          renderItem={({ item }) => (
+            <View
+              className={
+                item.role === 'agent'
+                  ? 'self-start rounded-2xl bg-muted p-3'
+                  : 'self-end rounded-2xl bg-primary p-3'
+              }
+              testID={item.role === 'agent' ? 'chat-assistant-message' : `message-${item.id}`}
+            >
+              <Text
+                className={item.role === 'agent' ? 'text-foreground' : 'text-primary-foreground'}
+              >
+                {item.content}
+              </Text>
+            </View>
+          )}
         />
       </View>
       {error ? (

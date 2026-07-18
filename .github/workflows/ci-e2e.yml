@@ -43,6 +43,7 @@ jobs:
       FLEET_URL: ${{ secrets.FLEET_URL }}
       PLATFORM_URL: ${{ secrets.PLATFORM_URL }}
       EXPO_PUBLIC_PLATFORM_URL: ${{ secrets.PLATFORM_URL }}
+      EXPO_PUBLIC_RN_API_KEY: ${{ secrets.RN_API_KEY }}
       ZERO_ADMIN_PASSWORD: ${{ secrets.ZERO_ADMIN_PASSWORD }}
       ZERO_CVR_DB: ${{ secrets.NONPROD_DATABASE_URL }}
       ZERO_CHANGE_DB: ${{ secrets.NONPROD_DATABASE_URL }}
