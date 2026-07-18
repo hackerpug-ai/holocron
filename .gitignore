@@ -93,3 +93,9 @@ PHASE*.md
 .gate-videos/
 # NOTE: .gate-evidence/ step logs (.log/.exit/.assertion.json) ARE committed on purpose —
 # verify-gate-evidence.sh recomputes the gate verdict from them at close time, so they must persist.
+
+# GitHub Actions self-hosted runner credentials (D02-03)
+actions-runner/
+**/.runner
+**/.credentials
+**/.credentials_rsaparams
