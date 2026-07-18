@@ -12,11 +12,7 @@ import {
 } from './nonprod';
 
 export const SEED_MARKER_TABLE = '_holo_seed_meta';
-export const FIXTURE_IDS = [
-  'seed-conversation-1',
-  'seed-message-1',
-  'seed-message-2',
-] as const;
+export const FIXTURE_IDS = ['seed-conversation-1', 'seed-message-1', 'seed-message-2'] as const;
 
 export type SeedResult = {
   ok: boolean;
@@ -131,6 +127,12 @@ export async function seedDatabase(options?: {
       );
     }
     messages.push(`seeded ${FIXTURE_IDS.length} fixture ids`);
+    await sql`
+      INSERT INTO conversations (id, title, created_at, updated_at)
+      VALUES ('00000000-0000-0000-0000-000000000020'::uuid, 'Sprint 20 reference conversation', now(), now())
+      ON CONFLICT (id) DO UPDATE SET title = EXCLUDED.title, updated_at = now()
+    `;
+    messages.push('seeded Sprint 20 reference conversation');
 
     const tableCountRows = await sql<{ n: number }[]>`
       SELECT count(*)::int AS n
@@ -140,9 +142,9 @@ export async function seedDatabase(options?: {
     `;
     const table_count = tableCountRows[0]?.n ?? 0;
 
-    const fixtureRows = await sql.unsafe(
+    const fixtureRows = (await sql.unsafe(
       `SELECT id FROM ${SEED_MARKER_TABLE} WHERE id LIKE 'seed-%' ORDER BY id`
-    ) as Array<{ id: string }>;
+    )) as Array<{ id: string }>;
     const fixture_ids = fixtureRows.map((r) => r.id);
     const seed_fingerprint = fingerprint({
       database: databaseNameFromUrl(databaseUrl),
@@ -154,10 +156,7 @@ export async function seedDatabase(options?: {
     await sql.unsafe(
       `INSERT INTO ${SEED_MARKER_TABLE} (id, payload) VALUES ($1, $2::jsonb)
        ON CONFLICT (id) DO UPDATE SET payload = EXCLUDED.payload`,
-      [
-        'seed-fingerprint',
-        JSON.stringify({ seed_fingerprint, table_count, fixture_ids }),
-      ]
+      ['seed-fingerprint', JSON.stringify({ seed_fingerprint, table_count, fixture_ids })]
     );
 
     return {

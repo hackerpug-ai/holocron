@@ -148,6 +148,7 @@ export default function RootLayout() {
                 <NotificationToastProvider>
                   <Stack screenOptions={{ headerShown: false }}>
                     <Stack.Screen name="(drawer)" />
+                    <Stack.Screen name="reference-chat" />
                     <Stack.Screen name="articles" />
                     {/* toolbelt is now inside (drawer) group */}
                     <Stack.Screen name="document/[id]" />
