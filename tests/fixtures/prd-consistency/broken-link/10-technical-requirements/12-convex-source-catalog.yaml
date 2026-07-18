@@ -1,0 +1,31 @@
+version: "1"
+catalog_id: fixture-stale
+table_count_expected: 2
+tables:
+  alpha:
+    disposition: preserve
+    target: alpha
+    transform: identity
+    expected_target_formula: "1:1"
+    owner: t
+    approval: A
+    fk_rewrites: []
+    exclusions: []
+    checksum_or_sample: null
+    fields: {}
+  beta:
+    disposition: preserve
+    target: beta
+    transform: identity
+    expected_target_formula: "1:1"
+    owner: t
+    approval: A
+    fk_rewrites: []
+    exclusions: []
+    checksum_or_sample: null
+    fields: {}
+storage_refs: {}
+system_exclusions: []
+merges:
+  business: { description: x, sources: [], targets: [], discriminators: {}, approval: A }
+  research: { description: x, sources: [], targets: [], discriminators: {}, approval: A }
