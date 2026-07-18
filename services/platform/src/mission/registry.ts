@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { MissionGoalArgsSchema } from './args.ts';
 import { canonicalJsonValue, sha256Hex } from './canonical-json.ts';
 import type {
   MissionSchemaRef,
@@ -30,13 +31,6 @@ export type MissionExecutorRegistration = {
   stageKind: string;
   description: string;
 };
-
-const missionGoalSchema = z
-  .object({
-    goal: z.string().min(1),
-    operator: z.string().min(1).optional(),
-  })
-  .strict();
 
 const missionProbeResultSchema = z
   .object({
@@ -84,7 +78,7 @@ export const MISSION_SCHEMAS: readonly MissionSchemaRegistration[] = [
   {
     schemaRef: 'mission.goal',
     schemaVersion: 1,
-    schema: missionGoalSchema,
+    schema: MissionGoalArgsSchema,
     description: 'Operator-provided mission goal input.',
   },
   {

@@ -59,6 +59,7 @@ export const EXPECTED_RUN_COLUMNS = [
   'template_key',
   'template_version',
   'idempotency_key',
+  'owner_scope',
   'status',
   'checkpoint_stage_index',
   'lease_owner',

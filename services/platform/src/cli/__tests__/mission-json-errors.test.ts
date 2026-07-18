@@ -3,8 +3,11 @@ import { runHolo } from '../../../tests/integration/mission-red.helpers';
 
 type JsonRecord = Record<string, unknown>;
 
-const MISSION_USAGE =
-  "holo mission template:register <file> [--json]\n       holo mission run research --goal '<text>' [--json]";
+const MISSION_USAGE = `holo mission template:register <file> [--json]
+       holo mission run <template> --goal '<text>' --idempotency-key <key> [--json]
+       holo mission resume <run-id> [--json]
+       holo mission status <run-id> [--json]
+       holo mission run research --goal '<text>' [--json]`;
 
 function asRecord(value: unknown): JsonRecord {
   return value && typeof value === 'object' ? (value as JsonRecord) : {};
@@ -37,29 +40,43 @@ describe('Sprint 15 mission CLI --json validation contracts', () => {
       usage: MISSION_USAGE,
     },
     {
-      artifactBase: 'mission-json-run-unimplemented',
+      artifactBase: 'mission-json-template-required',
+      args: ['mission', 'run', '--json'],
+      status: 2,
+      code: 'MISSION_TEMPLATE_REQUIRED',
+      error: 'mission run requires <template>',
+      usage: MISSION_USAGE,
+    },
+    {
+      artifactBase: 'mission-json-run-goal-required',
       args: ['mission', 'run', 'foo', '--json'],
-      status: 1,
-      code: 'MISSION_ONE_SURFACE_UNIMPLEMENTED',
-      error: 'mission run foo is not implemented in mission-1 (contracts/schema only)',
+      status: 2,
+      code: 'MISSION_GOAL_REQUIRED',
+      error: 'mission run foo requires --goal <text>',
       usage: MISSION_USAGE,
     },
     {
-      artifactBase: 'mission-json-resume-unimplemented',
-      args: ['mission', 'resume', 'missing-run-id', '--json'],
-      status: 1,
-      code: 'MISSION_ONE_SURFACE_UNIMPLEMENTED',
-      error:
-        'mission resume missing-run-id is not implemented in mission-1 (contracts/schema only)',
+      artifactBase: 'mission-json-run-idempotency-required',
+      args: ['mission', 'run', 'foo', '--goal', 'hello', '--json'],
+      status: 2,
+      code: 'MISSION_IDEMPOTENCY_KEY_REQUIRED',
+      error: 'mission run foo requires --idempotency-key <key>',
       usage: MISSION_USAGE,
     },
     {
-      artifactBase: 'mission-json-status-unimplemented',
-      args: ['mission', 'status', 'missing-run-id', '--json'],
-      status: 1,
-      code: 'MISSION_ONE_SURFACE_UNIMPLEMENTED',
-      error:
-        'mission status missing-run-id is not implemented in mission-1 (contracts/schema only)',
+      artifactBase: 'mission-json-resume-run-id-required',
+      args: ['mission', 'resume', '--json'],
+      status: 2,
+      code: 'MISSION_RUN_ID_REQUIRED',
+      error: 'mission resume requires <run-id>',
+      usage: MISSION_USAGE,
+    },
+    {
+      artifactBase: 'mission-json-status-run-id-required',
+      args: ['mission', 'status', '--json'],
+      status: 2,
+      code: 'MISSION_RUN_ID_REQUIRED',
+      error: 'mission status requires <run-id>',
       usage: MISSION_USAGE,
     },
     {
@@ -67,7 +84,7 @@ describe('Sprint 15 mission CLI --json validation contracts', () => {
       args: ['mission', '--json'],
       status: 2,
       code: 'MISSION_SUBCOMMAND_REQUIRED',
-      error: 'mission requires subcommand (template:register | run research)',
+      error: 'mission requires subcommand (template:register | run | resume | status)',
       usage: MISSION_USAGE,
     },
     {

@@ -6,6 +6,7 @@ import { type FleetRoleManifest, FleetRoleManifestSchema } from '../fleet/manife
 import { getRoleEntry } from '../fleet/manifest.ts';
 import { probeRoleHealth } from '../inference/resolve-model.ts';
 import { runFleetModelCall } from '../inference/telemetry.ts';
+import { type MissionGoalArgs, MissionGoalArgsSchema } from './args.ts';
 import { canonicalJsonString, canonicalJsonValue } from './canonical-json.ts';
 import { waitAtCheckpointBarrierIfRequested } from './checkpoint-barrier.ts';
 import type { CompiledMissionStage, MissionResolvedRole } from './compiler.ts';
@@ -63,13 +64,6 @@ const CompiledMissionPlanSchema = z.array(CompiledMissionStageSchema).min(1);
 const MissionRoleResolutionMapSchema = z.record(z.string().min(1), MissionResolvedRoleSchema);
 const MissionModelRevisionsSchema = z.record(z.string().min(1), z.string().min(1));
 
-const MissionGoalArgsSchema = z
-  .object({
-    goal: z.string().min(1),
-    operator: z.string().min(1).optional(),
-  })
-  .strict();
-
 const MissionRunIdSchema = z.string().uuid();
 
 const MissionBudgetPolicySchema = z
@@ -100,6 +94,9 @@ export type MissionStatus =
   | 'blocked'
   | 'completed'
   | 'budget_exceeded';
+
+export type MissionRunOwnerScope = 'rn' | 'runtime';
+export type MissionRunAccessScope = MissionRunOwnerScope | 'control';
 
 export type MissionStatusPayload = {
   ok: boolean;
@@ -148,6 +145,7 @@ type MissionRunRow = {
   template_key: string;
   template_version: string;
   idempotency_key: string;
+  owner_scope: string | null;
   goal: string | null;
   args_json: unknown;
   status: string;
@@ -686,6 +684,26 @@ function normalizeMissionRunId(runId: string): string | null {
   return parsed.success ? parsed.data : null;
 }
 
+function normalizeMissionRunOwnerScope(value: unknown): MissionRunOwnerScope {
+  return value === 'rn' ? 'rn' : 'runtime';
+}
+
+function assertMissionRunAccess(
+  run: Pick<MissionRunRow, 'id' | 'owner_scope'>,
+  accessScope?: MissionRunAccessScope
+): void {
+  if (!accessScope || accessScope === 'control') {
+    return;
+  }
+  const ownerScope = normalizeMissionRunOwnerScope(run.owner_scope);
+  if (ownerScope !== accessScope) {
+    throw new MissionRuntimeError(
+      'MISSION_FORBIDDEN',
+      `mission run ${run.id} is not authorized for scope ${accessScope}`
+    );
+  }
+}
+
 function runtimeOwner(): string {
   return `mission-runtime:${process.pid}:${randomUUID().slice(0, 8)}`;
 }
@@ -874,7 +892,8 @@ async function selectLatestTemplateVersion(
 
 async function selectMissionRunById(
   sql: MissionSqlExecutor,
-  runId: string
+  runId: string,
+  options?: { accessScope?: MissionRunAccessScope }
 ): Promise<MissionRunRow | null> {
   const validatedRunId = normalizeMissionRunId(runId);
   if (!validatedRunId) return null;
@@ -885,13 +904,18 @@ async function selectMissionRunById(
     WHERE id = ${validatedRunId}::uuid
     LIMIT 1
   `;
-  return rows[0] ?? null;
+  const row = rows[0] ?? null;
+  if (row) {
+    assertMissionRunAccess(row, options?.accessScope);
+  }
+  return row;
 }
 
 async function selectMissionRunByTemplateAndIdempotency(
   sql: MissionSqlExecutor,
   templateKey: string,
-  idempotencyKey: string
+  idempotencyKey: string,
+  options?: { accessScope?: MissionRunAccessScope }
 ): Promise<MissionRunRow | null> {
   const rows = await sql<MissionRunRow[]>`
     SELECT *
@@ -900,14 +924,19 @@ async function selectMissionRunByTemplateAndIdempotency(
       AND idempotency_key = ${idempotencyKey}
     LIMIT 1
   `;
-  return rows[0] ?? null;
+  const row = rows[0] ?? null;
+  if (row) {
+    assertMissionRunAccess(row, options?.accessScope);
+  }
+  return row;
 }
 
 async function createMissionRun(
   sql: Sql,
   templateVersion: MissionTemplateVersionRuntimeRow,
-  args: z.infer<typeof MissionGoalArgsSchema>,
-  idempotencyKey: string
+  args: MissionGoalArgs,
+  idempotencyKey: string,
+  ownerScope: MissionRunOwnerScope
 ): Promise<{ run: MissionRunRow; created: boolean }> {
   const budgetPolicy = parseBudgetPolicy(templateVersion.budget_policy_json);
   const initialUsage = createInitialUsageSnapshot(budgetPolicy);
@@ -916,7 +945,8 @@ async function createMissionRun(
     const existing = await selectMissionRunByTemplateAndIdempotency(
       tx,
       templateVersion.template_key,
-      idempotencyKey
+      idempotencyKey,
+      { accessScope: ownerScope }
     );
 
     if (existing) {
@@ -940,6 +970,7 @@ async function createMissionRun(
         template_key,
         template_version,
         idempotency_key,
+        owner_scope,
         goal,
         args_json,
         status,
@@ -974,6 +1005,7 @@ async function createMissionRun(
         ${templateVersion.template_key},
         ${templateVersion.version},
         ${idempotencyKey},
+        ${ownerScope},
         ${args.goal},
         ${tx.json(canonicalJsonValue(args) as never)},
         'pending',
@@ -1016,7 +1048,8 @@ async function createMissionRun(
     const replay = await selectMissionRunByTemplateAndIdempotency(
       tx,
       templateVersion.template_key,
-      idempotencyKey
+      idempotencyKey,
+      { accessScope: ownerScope }
     );
     if (!replay) {
       throw new MissionRuntimeError(
@@ -1892,9 +1925,9 @@ async function acquireOrWaitForIdempotentRun(
 
 async function runMissionInternal(
   templateKey: string,
-  args: z.infer<typeof MissionGoalArgsSchema>,
+  args: MissionGoalArgs,
   idempotencyKey: string,
-  options?: { databaseUrl?: string }
+  options?: { databaseUrl?: string; ownerScope?: MissionRunOwnerScope }
 ): Promise<MissionStatusPayload> {
   const databaseUrl = resolveHolocronNonprodDatabaseUrl({
     databaseUrl: options?.databaseUrl,
@@ -1911,7 +1944,8 @@ async function runMissionInternal(
       );
     }
 
-    const created = await createMissionRun(sql, templateVersion, args, idempotencyKey);
+    const ownerScope = options?.ownerScope ?? 'runtime';
+    const created = await createMissionRun(sql, templateVersion, args, idempotencyKey, ownerScope);
     if (isTerminalStatus(created.run.status)) {
       return buildMissionPayload(created.run, { replay: !created.created });
     }
@@ -2027,7 +2061,7 @@ export async function runMissionTemplate(
     idempotencyKey: string;
     operator?: string;
   },
-  options?: { databaseUrl?: string }
+  options?: { databaseUrl?: string; ownerScope?: MissionRunOwnerScope }
 ): Promise<MissionStatusPayload> {
   const args = MissionGoalArgsSchema.parse(
     canonicalJsonValue({
@@ -2047,7 +2081,7 @@ export async function resumeMissionRun(
 
 export async function getMissionRunStatus(
   runId: string,
-  options?: { databaseUrl?: string }
+  options?: { databaseUrl?: string; accessScope?: MissionRunAccessScope }
 ): Promise<MissionStatusPayload> {
   if (!normalizeMissionRunId(runId)) {
     return missionNotFoundPayload(runId);
@@ -2060,7 +2094,9 @@ export async function getMissionRunStatus(
   const sql = createSql(databaseUrl);
 
   try {
-    const run = await selectMissionRunById(sql, runId);
+    const run = await selectMissionRunById(sql, runId, {
+      accessScope: options?.accessScope,
+    });
     if (!run) return missionNotFoundPayload(runId);
     return buildMissionPayload(run, { replay: isTerminalStatus(run.status) });
   } finally {

@@ -1,15 +1,13 @@
 /**
- * AC-3 (T-PLAT-007): correct scoped key → HTTP 200
+ * AC-3 (T-PLAT-007): correct scoped key reaches the REAL mission/MCP handlers
  *
  * Drives the REAL booted Mastra service (PLATFORM_IT=1). No mocks.
- * Asserts the live key store (env-loaded HOLO_KEY_*) — not a always-valid stub.
+ * Asserts the live key store (env-loaded HOLO_KEY_*) — not an always-valid stub.
  *
  * NEGATIVE CONTROL (would fail if):
- * - key validation stubbed always-valid AND this test still only checks 200 with no key
+ * - key validation stubbed always-valid AND this test still only checks auth bypass
  * - wrong key store (configured keys not loaded) → real key gets 401
- * - test does not assert HTTP 200
- *
- * Controlled RED demo: start with empty HOLO_KEY_* → rn-test becomes unknown → 401.
+ * - mission endpoints still return placeholder 200s instead of real validation/not-found contracts
  *
  * Run:
  *   PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron \
@@ -27,8 +25,9 @@ import {
 } from './harness';
 
 const itLive = PLATFORM_IT ? it : it.skip;
+const MISSING_RUN_ID = '11111111-1111-4111-8111-111111111111';
 
-describe('AC-3: keyed → HTTP 200 with real key store (real booted service)', () => {
+describe('AC-3: keyed requests reach real handlers (real booted service)', () => {
   let svc: LiveService | undefined;
 
   beforeAll(async () => {
@@ -40,21 +39,55 @@ describe('AC-3: keyed → HTTP 200 with real key store (real booted service)', (
     await svc?.stop();
   });
 
-  itLive('RN key POST /api/missions → 200', async () => {
-    const res = await httpJson(requireService(svc).baseUrl, 'POST', '/api/missions', {
-      key: DEFAULT_KEYS.rn,
-    });
-    expect(res.status, `body=${res.text}`).toBe(200);
-    expect(res.body).toMatchObject({ ok: true, scope: 'rn' });
-  });
+  itLive(
+    'RN key POST /api/missions reaches validation and returns 422 for malformed create',
+    async () => {
+      const res = await httpJson(requireService(svc).baseUrl, 'POST', '/api/missions', {
+        key: DEFAULT_KEYS.rn,
+        body: JSON.stringify({}),
+      });
+      expect(res.status, `body=${res.text}`).toBe(422);
+      expect(res.body).toMatchObject({ code: 'INVALID_REQUEST', errorCode: 'INVALID_REQUEST' });
+    }
+  );
 
-  itLive('RN key POST /api/missions/:id/steer → 200', async () => {
-    const res = await httpJson(requireService(svc).baseUrl, 'POST', '/api/missions/x/steer', {
-      key: DEFAULT_KEYS.rn,
-    });
-    expect(res.status, `body=${res.text}`).toBe(200);
-    expect(res.body).toMatchObject({ ok: true, scope: 'rn' });
-  });
+  itLive(
+    'RN key POST /api/missions rejects unsupported args with 422 before template lookup',
+    async () => {
+      const res = await httpJson(requireService(svc).baseUrl, 'POST', '/api/missions', {
+        key: DEFAULT_KEYS.rn,
+        body: JSON.stringify({
+          templateKey: 'missing-template',
+          goal: 'reject unsupported args before any write',
+          idempotencyKey: 'keyed-200-unsupported-args',
+          args: {
+            goal: 'reject unsupported args before any write',
+            operator: 'keyed-200',
+            foo: 'unsupported',
+          },
+        }),
+      });
+      expect(res.status, `body=${res.text}`).toBe(422);
+      expect(res.body).toMatchObject({ code: 'INVALID_REQUEST', errorCode: 'INVALID_REQUEST' });
+    }
+  );
+
+  itLive(
+    'RN key POST /api/missions/:id/steer reaches the real handler and returns 404',
+    async () => {
+      const res = await httpJson(
+        requireService(svc).baseUrl,
+        'POST',
+        `/api/missions/${MISSING_RUN_ID}/steer`,
+        {
+          key: DEFAULT_KEYS.rn,
+          body: JSON.stringify({ note: 'steer missing run' }),
+        }
+      );
+      expect(res.status, `body=${res.text}`).toBe(404);
+      expect(res.body).toMatchObject({ code: 'MISSION_NOT_FOUND', errorCode: 'MISSION_NOT_FOUND' });
+    }
+  );
 
   itLive('MCP key POST /mcp → 200', async () => {
     const res = await httpJson(requireService(svc).baseUrl, 'POST', '/mcp', {
@@ -64,18 +97,26 @@ describe('AC-3: keyed → HTTP 200 with real key store (real booted service)', (
     expect(res.body).toMatchObject({ ok: true, scope: 'mcp' });
   });
 
-  itLive('CONTROL key POST /api/missions/:id/verdicts → 200', async () => {
-    const res = await httpJson(requireService(svc).baseUrl, 'POST', '/api/missions/x/verdicts', {
-      key: DEFAULT_KEYS.control,
-    });
-    expect(res.status, `body=${res.text}`).toBe(200);
-    expect(res.body).toMatchObject({ ok: true, scope: 'control' });
-  });
+  itLive(
+    'CONTROL key POST /api/missions/:id/verdicts reaches the real handler and returns 404',
+    async () => {
+      const res = await httpJson(
+        requireService(svc).baseUrl,
+        'POST',
+        `/api/missions/${MISSING_RUN_ID}/verdicts`,
+        {
+          key: DEFAULT_KEYS.control,
+          body: JSON.stringify({ verdict: 'advance', rationale: 'missing run' }),
+        }
+      );
+      expect(res.status, `body=${res.text}`).toBe(404);
+      expect(res.body).toMatchObject({ code: 'MISSION_NOT_FOUND', errorCode: 'MISSION_NOT_FOUND' });
+    }
+  );
 
   itLive(
     'NEGATIVE CONTROL: service booted without matching keys rejects rn-test as 401',
     async () => {
-      // would fail if validation were stubbed always-valid (would return 200 with any/no key match)
       const misconfigured = await startLiveService({
         keys: {
           rn: 'other-rn-key',
@@ -85,7 +126,7 @@ describe('AC-3: keyed → HTTP 200 with real key store (real booted service)', (
       });
       try {
         const res = await httpJson(misconfigured.baseUrl, 'POST', '/api/missions', {
-          key: DEFAULT_KEYS.rn, // not in this process's key store
+          key: DEFAULT_KEYS.rn,
         });
         expect(res.status, `body=${res.text}`).toBe(401);
       } finally {

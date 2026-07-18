@@ -16,9 +16,9 @@ Three surfaces over the one Mastra service: the **Hono HTTP/SSE API** (app + pub
 | POST | `/api/chat-runs` | Create or idempotently retrieve a chat run from a client request ID; returns run and durable-message IDs. | tailnet + RN API key |
 | GET | `/api/chat-runs/:id/events?after=<seq>` | Resumable SSE event stream; honors `Last-Event-ID`; replays only persisted events after the cursor. | tailnet + RN API key |
 | POST | `/api/missions` | Start an on-demand mission from a template + args → returns run id. | tailnet + RN API key |
-| GET | `/api/missions/:id` | Mission run status/output (also available reactively via Zero). | tailnet + RN API key |
-| POST | `/api/missions/:id/verdicts` | Human-gate verdict (kill/advance/redirect/boost) → writes `verdicts`+`touches`; Sprint 15 persists authenticated verdict events, while deterministic WIP/cited-kill/probe-gated enforcement is owned by Sprint 23. | tailnet + RN API key |
-| POST | `/api/missions/:id/steer` | Mid-run steering note → `steering` row, re-read next cycle. | tailnet + RN API key |
+| GET | `/api/missions/:id` | Mission run status/output (also available reactively via Zero). | tailnet + RN API key; control key administrative alias |
+| POST | `/api/missions/:id/verdicts` | Human-gate verdict (kill/advance/redirect/boost) → writes `verdicts`+`touches`; Sprint 15 persists authenticated verdict events, while deterministic WIP/cited-kill/probe-gated enforcement is owned by Sprint 23. | tailnet + RN API key; control key administrative alias |
+| POST | `/api/missions/:id/steer` | Mid-run steering note → `steering` row, re-read next cycle. | tailnet + RN API key; control key administrative alias |
 | POST | `/api/zero/query` | Zero query endpoint over the published subset. | tailnet + RN API key |
 | POST | `/api/zero/mutate` | Zero server-mutator endpoint; validates, transacts, and deduplicates registered mutations. | tailnet + RN API key |
 | POST | `/api/uploads` | Start an authoritative upload with idempotency ID and required metadata. | tailnet + RN API key |
@@ -31,7 +31,7 @@ Three surfaces over the one Mastra service: the **Hono HTTP/SSE API** (app + pub
 
 ## Route policy
 
-`/article/:shareToken` and its article-scoped asset route are the only public egress. `/health` and readiness are tailnet-only. Every other application, blob, and MCP operation requires tailnet reachability plus a scoped API key. RN and MCP keys have distinct scopes, are configured from the consolidated secret source, rotate with a documented grace window, and log only a key fingerprint. This is a personal-app control plane, not RLS or multi-tenant authorization.
+`/article/:shareToken` and its article-scoped asset route are the only public egress. `/health` and readiness are tailnet-only. Every other application, blob, and MCP operation requires tailnet reachability plus a scoped API key. RN, MCP, and control keys have distinct scopes, are configured from the consolidated secret source, rotate with a documented grace window, and log only a key fingerprint. The control key is an administrative alias for mission status/steer/verdict routes and does not replace RN authorization for client-owned runs. This is a personal-app control plane, not RLS or multi-tenant authorization.
 
 ## Zero query, mutation, and offline contract
 

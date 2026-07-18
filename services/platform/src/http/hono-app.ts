@@ -4,9 +4,8 @@
  * Sprint 05 service-1: /health + SSE capability shell.
  * Sprint 05 service-3: scoped-key middleware + protected mission/MCP auth surface.
  *
- * Placeholder handlers for /api/missions* and /mcp return 200 ONLY after
- * middleware authorizes — they are the auth surface under test, not the
- * full mission engine (Sprint 15).
+ * Mission control routes are backed by the Postgres mission runtime; /mcp
+ * remains a protected placeholder until Streamable HTTP lands.
  */
 
 import { Hono } from 'hono';
@@ -26,6 +25,13 @@ import {
   type Scope,
   type ScopedKeyConfig,
 } from './middleware/scoped-key.ts';
+import {
+  appendMissionSteeringFromHttp,
+  appendMissionVerdictFromHttp,
+  createMissionRunFromHttp,
+  getMissionStatusFromHttp,
+  missionHttpErrorFromUnknown,
+} from './missions.ts';
 
 export type HonoAppVariables = {
   scope: Scope;
@@ -140,7 +146,7 @@ export function createHonoApp(options?: CreateHonoAppOptions): HonoApp {
       return c.json(result, 200);
     } catch (error) {
       const err = jsonError(error);
-      return c.json(err.body, err.status);
+      return Response.json(err.body, { status: err.status });
     }
   });
 
@@ -153,7 +159,7 @@ export function createHonoApp(options?: CreateHonoAppOptions): HonoApp {
       return c.json(result, 200);
     } catch (error) {
       const err = jsonError(error);
-      return c.json(err.body, err.status);
+      return Response.json(err.body, { status: err.status });
     }
   });
 
@@ -163,7 +169,7 @@ export function createHonoApp(options?: CreateHonoAppOptions): HonoApp {
       return c.json(result, 200);
     } catch (error) {
       const err = jsonError(error);
-      return c.json(err.body, err.status);
+      return Response.json(err.body, { status: err.status });
     }
   });
 
@@ -180,55 +186,94 @@ export function createHonoApp(options?: CreateHonoAppOptions): HonoApp {
     });
   });
 
-  // ── Auth surface placeholders (service-3) ─────────────────────────
-  // Return 200 only when middleware has already authorized the scope.
-
-  app.post('/api/missions', (c) => {
-    return c.json({
-      ok: true,
-      route: 'POST /api/missions',
-      scope: c.get('scope'),
-      note: 'placeholder — mission engine lands in Sprint 15',
-    });
+  app.post('/api/missions', async (c) => {
+    try {
+      const body = await c.req.json();
+      const result = await createMissionRunFromHttp(body, {
+        scope: c.get('scope'),
+      });
+      return c.json(result, 200);
+    } catch (error) {
+      const err = missionHttpErrorFromUnknown(error);
+      return Response.json(err.body, { status: err.status });
+    }
   });
 
-  app.get('/api/missions', (c) => {
-    return c.json({
-      ok: true,
-      route: 'GET /api/missions',
-      scope: c.get('scope'),
-      missions: [],
-      note: 'placeholder — mission list lands later',
-    });
+  app.get('/api/missions', () => {
+    return Response.json(
+      {
+        ok: false,
+        error: 'mission list is not implemented in Sprint 15',
+        code: 'MISSION_LIST_NOT_IMPLEMENTED',
+        errorCode: 'MISSION_LIST_NOT_IMPLEMENTED',
+      },
+      { status: 501 }
+    );
   });
 
-  app.get('/api/missions/:id', (c) => {
-    return c.json({
-      ok: true,
-      route: 'GET /api/missions/:id',
-      id: c.req.param('id'),
-      scope: c.get('scope'),
-    });
+  app.get('/api/missions/:id', async (c) => {
+    try {
+      const result = await getMissionStatusFromHttp(c.req.param('id'), {
+        scope: c.get('scope'),
+      });
+      if (result.errorCode === 'MISSION_NOT_FOUND') {
+        return c.json(
+          {
+            ok: false,
+            error: result.error ?? `mission run not found: ${c.req.param('id')}`,
+            code: 'MISSION_NOT_FOUND',
+            errorCode: 'MISSION_NOT_FOUND',
+          },
+          404
+        );
+      }
+      return c.json(result, 200);
+    } catch (error) {
+      const err = missionHttpErrorFromUnknown(error);
+      return Response.json(err.body, { status: err.status });
+    }
   });
 
-  app.post('/api/missions/:id/verdicts', (c) => {
-    return c.json({
-      ok: true,
-      route: 'POST /api/missions/:id/verdicts',
-      id: c.req.param('id'),
-      scope: c.get('scope'),
-      note: 'placeholder — verdict enforcement lands later',
-    });
+  app.post('/api/missions/:id/verdicts', async (c) => {
+    try {
+      const body = await c.req.json();
+      const result = await appendMissionVerdictFromHttp(c.req.param('id'), c.get('scope'), body);
+      return c.json(
+        {
+          ok: true,
+          replay: result.replay,
+          runId: result.run.runId,
+          verdict: result.verdict,
+          event: result.event,
+          run: result.run,
+        },
+        200
+      );
+    } catch (error) {
+      const err = missionHttpErrorFromUnknown(error);
+      return Response.json(err.body, { status: err.status });
+    }
   });
 
-  app.post('/api/missions/:id/steer', (c) => {
-    return c.json({
-      ok: true,
-      route: 'POST /api/missions/:id/steer',
-      id: c.req.param('id'),
-      scope: c.get('scope'),
-      note: 'placeholder — steering lands later',
-    });
+  app.post('/api/missions/:id/steer', async (c) => {
+    try {
+      const body = await c.req.json();
+      const result = await appendMissionSteeringFromHttp(c.req.param('id'), c.get('scope'), body);
+      return c.json(
+        {
+          ok: true,
+          replay: result.replay,
+          runId: result.run.runId,
+          steering: result.steering,
+          event: result.event,
+          run: result.run,
+        },
+        200
+      );
+    } catch (error) {
+      const err = missionHttpErrorFromUnknown(error);
+      return Response.json(err.body, { status: err.status });
+    }
   });
 
   app.all('/mcp', (c) => {
