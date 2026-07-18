@@ -5,9 +5,14 @@ import { resolveHolocronNonprodDatabaseUrl } from '../db/connection.ts';
 import { type FleetRoleManifest, FleetRoleManifestSchema } from '../fleet/manifest.schema.ts';
 import { getRoleEntry } from '../fleet/manifest.ts';
 import { probeRoleHealth } from '../inference/resolve-model.ts';
+import { runFleetModelCall } from '../inference/telemetry.ts';
 import { canonicalJsonString, canonicalJsonValue } from './canonical-json.ts';
 import { waitAtCheckpointBarrierIfRequested } from './checkpoint-barrier.ts';
 import type { CompiledMissionStage, MissionResolvedRole } from './compiler.ts';
+import {
+  emitMissionCommitCrashReadiness,
+  requestedMissionCommitCrashBoundary,
+} from './crash-hooks.ts';
 import {
   assertRegisteredExecutor,
   assertRegisteredSchema,
@@ -108,6 +113,7 @@ export type MissionStatusPayload = {
   checkpointStageIndex?: number | null;
   attemptCount?: number;
   output?: unknown;
+  usage?: Record<string, unknown>;
   provenance?: Record<string, unknown>;
   error?: string;
   code?: string;
@@ -196,6 +202,7 @@ type MissionStageRunRow = {
   role: string | null;
   model_revision: string | null;
   endpoint: string | null;
+  trace_id: string | null;
   error_code: string | null;
   error_message: string | null;
   committed_at: Date | string | null;
@@ -218,9 +225,34 @@ type PersistedMissionRuntime = {
   budgetPolicy: z.infer<typeof MissionBudgetPolicySchema>;
 };
 
+type MissionUsageSnapshot = {
+  wallMs: number;
+  tokens: number;
+  cost: number;
+  maxSteps: number;
+  stepsUsed: number;
+  budget: z.infer<typeof MissionBudgetPolicySchema>;
+};
+
+type MissionUsageDelta = {
+  wallMs: number;
+  tokens: number;
+  cost: number;
+  stepsUsed: number;
+};
+
+type MissionBudgetBreach = {
+  code: 'budget_exceeded';
+  message: string;
+  metric: 'wallMs' | 'tokens' | 'cost' | 'maxSteps';
+  limit: number;
+  actual: number;
+};
+
 type StageExecutionContext = {
   run: MissionRunRow;
   stage: CompiledMissionStage;
+  stageRunId: string;
   lease: MissionLease;
   runtime: PersistedMissionRuntime;
 };
@@ -320,11 +352,53 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
       checkpointKey: checkpoint.checkpointKey,
     });
   },
-  'builtin.test-consume-budget@1': async () => {
-    throw new MissionRuntimeError(
-      'MISSION_BUDGET_STAGE_UNIMPLEMENTED',
-      'test.consume-budget@1 is reserved for mission-3 budget termination work'
-    );
+  'builtin.test-consume-budget@1': async (input, context) => {
+    const probe = parseMissionSchemaValue(
+      { schemaRef: 'mission.probe.result', schemaVersion: 1 },
+      input,
+      'mission.probe.result'
+    ) as {
+      goal: string;
+      role: string;
+    };
+
+    const traceId = context.run.trace_id;
+    if (!traceId) {
+      throw new MissionRuntimeError(
+        'MISSION_TRACE_ID_MISSING',
+        `mission run ${context.run.id} is missing trace_id for stage ${context.stage.stageKey}`
+      );
+    }
+
+    const pinnedRole = context.stage.boundRole
+      ? context.runtime.roleResolution[context.stage.stageKey]
+      : null;
+    if (context.stage.boundRole && !pinnedRole) {
+      throw new MissionRuntimeError(
+        'MISSION_PINNED_ROLE_MISSING',
+        `run ${context.run.id} is missing pinned role resolution for stage ${context.stage.stageKey}`
+      );
+    }
+
+    try {
+      await runFleetModelCall({
+        role: pinnedRole?.role ?? probe.role,
+        prompt: 'Return exactly this lowercase ASCII token and nothing else: budget',
+        runId: context.run.id,
+        stepId: context.stageRunId,
+        traceId,
+      });
+    } catch (error) {
+      throw new MissionRuntimeError(
+        'MISSION_FLEET_CALL_FAILED',
+        error instanceof Error ? error.message : String(error)
+      );
+    }
+
+    return canonicalJsonValue({
+      goal: probe.goal,
+      budgetExceeded: false,
+    });
   },
 };
 
@@ -364,6 +438,155 @@ function parseBudgetPolicy(value: unknown): z.infer<typeof MissionBudgetPolicySc
   return MissionBudgetPolicySchema.parse(value);
 }
 
+function nonNegativeInteger(value: unknown): number {
+  const numeric = Number(value ?? 0);
+  if (!Number.isFinite(numeric) || numeric < 0) return 0;
+  return Math.floor(numeric);
+}
+
+function nonNegativeNumber(value: unknown): number {
+  const numeric = Number(value ?? 0);
+  if (!Number.isFinite(numeric) || numeric < 0) return 0;
+  return numeric;
+}
+
+function createInitialUsageSnapshot(
+  budget: z.infer<typeof MissionBudgetPolicySchema>
+): MissionUsageSnapshot {
+  return canonicalJsonValue({
+    wallMs: 0,
+    tokens: 0,
+    cost: 0,
+    maxSteps: budget.maxSteps,
+    stepsUsed: 0,
+    budget,
+  });
+}
+
+function parseUsageSnapshot(
+  value: unknown,
+  budget: z.infer<typeof MissionBudgetPolicySchema>
+): MissionUsageSnapshot {
+  const record = value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+  const embeddedBudget = record.budget;
+  let parsedBudget = budget;
+  if (embeddedBudget) {
+    const candidate = MissionBudgetPolicySchema.safeParse(embeddedBudget);
+    if (candidate.success) {
+      parsedBudget = candidate.data;
+    }
+  }
+
+  return canonicalJsonValue({
+    wallMs: nonNegativeInteger(record.wallMs),
+    tokens: nonNegativeInteger(record.tokens),
+    cost: nonNegativeNumber(record.cost),
+    maxSteps: nonNegativeInteger(record.maxSteps) || parsedBudget.maxSteps,
+    stepsUsed: nonNegativeInteger(record.stepsUsed),
+    budget: parsedBudget,
+  });
+}
+
+function accumulateUsageSnapshot(
+  current: MissionUsageSnapshot,
+  delta: MissionUsageDelta
+): MissionUsageSnapshot {
+  return canonicalJsonValue({
+    wallMs: current.wallMs + nonNegativeInteger(delta.wallMs),
+    tokens: current.tokens + nonNegativeInteger(delta.tokens),
+    cost: current.cost + nonNegativeNumber(delta.cost),
+    maxSteps: current.maxSteps,
+    stepsUsed: current.stepsUsed + nonNegativeInteger(delta.stepsUsed),
+    budget: current.budget,
+  });
+}
+
+function detectBudgetBlockBeforeStage(
+  usage: MissionUsageSnapshot,
+  budget: z.infer<typeof MissionBudgetPolicySchema>
+): MissionBudgetBreach | null {
+  if (usage.stepsUsed >= budget.maxSteps) {
+    return {
+      code: 'budget_exceeded',
+      message: `mission exceeded maxSteps budget before the next stage (${usage.stepsUsed} >= ${budget.maxSteps})`,
+      metric: 'maxSteps',
+      limit: budget.maxSteps,
+      actual: usage.stepsUsed,
+    };
+  }
+  if (usage.wallMs >= budget.wallMs) {
+    return {
+      code: 'budget_exceeded',
+      message: `mission exhausted wallMs budget before the next stage (${usage.wallMs} >= ${budget.wallMs})`,
+      metric: 'wallMs',
+      limit: budget.wallMs,
+      actual: usage.wallMs,
+    };
+  }
+  if (budget.tokens > 0 && usage.tokens >= budget.tokens) {
+    return {
+      code: 'budget_exceeded',
+      message: `mission exhausted token budget before the next stage (${usage.tokens} >= ${budget.tokens})`,
+      metric: 'tokens',
+      limit: budget.tokens,
+      actual: usage.tokens,
+    };
+  }
+  if (budget.cost > 0 && usage.cost >= budget.cost) {
+    return {
+      code: 'budget_exceeded',
+      message: `mission exhausted cost budget before the next stage (${usage.cost} >= ${budget.cost})`,
+      metric: 'cost',
+      limit: budget.cost,
+      actual: usage.cost,
+    };
+  }
+  return null;
+}
+
+function detectBudgetExceeded(
+  usage: MissionUsageSnapshot,
+  budget: z.infer<typeof MissionBudgetPolicySchema>
+): MissionBudgetBreach | null {
+  if (usage.stepsUsed > budget.maxSteps) {
+    return {
+      code: 'budget_exceeded',
+      message: `mission exceeded maxSteps budget (${usage.stepsUsed} > ${budget.maxSteps})`,
+      metric: 'maxSteps',
+      limit: budget.maxSteps,
+      actual: usage.stepsUsed,
+    };
+  }
+  if (usage.wallMs > budget.wallMs) {
+    return {
+      code: 'budget_exceeded',
+      message: `mission exceeded wallMs budget (${usage.wallMs} > ${budget.wallMs})`,
+      metric: 'wallMs',
+      limit: budget.wallMs,
+      actual: usage.wallMs,
+    };
+  }
+  if (budget.tokens > 0 && usage.tokens > budget.tokens) {
+    return {
+      code: 'budget_exceeded',
+      message: `mission exceeded token budget (${usage.tokens} > ${budget.tokens})`,
+      metric: 'tokens',
+      limit: budget.tokens,
+      actual: usage.tokens,
+    };
+  }
+  if (budget.cost > 0 && usage.cost > budget.cost) {
+    return {
+      code: 'budget_exceeded',
+      message: `mission exceeded cost budget (${usage.cost} > ${budget.cost})`,
+      metric: 'cost',
+      limit: budget.cost,
+      actual: usage.cost,
+    };
+  }
+  return null;
+}
+
 function isTerminalStatus(status: string): boolean {
   return RUN_TERMINAL_STATUSES.has(status);
 }
@@ -398,6 +621,7 @@ function buildMissionProvenance(run: MissionRunRow): Record<string, unknown> {
   return canonicalJsonValue({
     templateKey: run.template_key,
     templateVersion: run.template_version,
+    traceId: run.trace_id,
     definitionHash: run.definition_hash,
     compilerVersion: run.compiler_version,
     registrySnapshotHash: run.registry_snapshot_hash,
@@ -406,10 +630,12 @@ function buildMissionProvenance(run: MissionRunRow): Record<string, unknown> {
     executorRef: run.executor_ref,
     schemaRef: run.schema_ref,
     schemaVersion: run.schema_version,
+    budgetPolicy: run.budget_policy_json,
     noCloudFallback: run.no_cloud_fallback,
     fleetManifestVersion: run.fleet_manifest_version,
     fleetManifestPath: run.fleet_manifest_path,
     fleetManifestHash: run.fleet_manifest_hash,
+    fleetManifest: run.fleet_manifest_json,
     roleResolution: run.role_resolution_json,
     modelRevisions: run.model_revisions_json,
   });
@@ -419,18 +645,25 @@ function buildMissionPayload(
   run: MissionRunRow,
   options?: { replay?: boolean; ok?: boolean }
 ): MissionStatusPayload {
+  const status = normalizeMissionStatus(run);
+  const usage =
+    run.usage_json && typeof run.usage_json === 'object' && !Array.isArray(run.usage_json)
+      ? (run.usage_json as Record<string, unknown>)
+      : undefined;
+
   return canonicalJsonValue({
-    ok: options?.ok ?? true,
+    ok: options?.ok ?? !['failed', 'blocked', 'budget_exceeded'].includes(status),
     runId: run.id,
     templateKey: run.template_key,
     templateVersion: run.template_version,
     idempotencyKey: run.idempotency_key,
-    status: normalizeMissionStatus(run),
+    status,
     replay: options?.replay ?? false,
     goal: run.goal,
     checkpointStageIndex: run.checkpoint_stage_index,
     attemptCount: run.attempt_count,
     output: run.typed_output_json ?? undefined,
+    usage,
     provenance: buildMissionProvenance(run),
     error: run.error_message ?? undefined,
     code: run.error_code ?? undefined,
@@ -459,6 +692,33 @@ function runtimeOwner(): string {
 
 function runtimeToken(): string {
   return `mission-lease:${randomUUID()}`;
+}
+
+function runtimeOwnerPid(owner: string | null | undefined): number | null {
+  const match = /^mission-runtime:(\d+):/.exec(owner ?? '');
+  if (!match) return null;
+  const pid = Number(match[1]);
+  return Number.isInteger(pid) && pid > 0 ? pid : null;
+}
+
+function isProcessAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return Boolean(
+      error &&
+        typeof error === 'object' &&
+        'code' in error &&
+        (error as { code?: unknown }).code === 'EPERM'
+    );
+  }
+}
+
+function isRecoverableOrphanedLease(run: MissionRunRow): boolean {
+  if (!hasLiveLease(run)) return false;
+  const pid = runtimeOwnerPid(run.lease_owner);
+  return pid != null && !isProcessAlive(pid);
 }
 
 function assertRegisteredExecutorRuntime(executorRef: string): StageExecutor {
@@ -649,6 +909,9 @@ async function createMissionRun(
   args: z.infer<typeof MissionGoalArgsSchema>,
   idempotencyKey: string
 ): Promise<{ run: MissionRunRow; created: boolean }> {
+  const budgetPolicy = parseBudgetPolicy(templateVersion.budget_policy_json);
+  const initialUsage = createInitialUsageSnapshot(budgetPolicy);
+
   return sql.begin(async (tx) => {
     const existing = await selectMissionRunByTemplateAndIdempotency(
       tx,
@@ -727,7 +990,7 @@ async function createMissionRun(
         ${templateVersion.schema_version},
         ${tx.json(templateVersion.compiled_plan_json as never)},
         ${tx.json(templateVersion.budget_policy_json as never)},
-        NULL,
+        ${tx.json(initialUsage as never)},
         NULL,
         ${templateVersion.no_cloud_fallback},
         ${templateVersion.fleet_manifest_version},
@@ -778,7 +1041,12 @@ async function createMissionRun(
   });
 }
 
-async function acquireRunLease(sql: Sql, runId: string, owner: string): Promise<MissionLease> {
+async function acquireRunLease(
+  sql: Sql,
+  runId: string,
+  owner: string,
+  options?: { allowOrphanedRecovery?: boolean }
+): Promise<MissionLease> {
   return sql.begin(async (tx) => {
     const rows = await tx<MissionRunRow[]>`
       SELECT *
@@ -798,10 +1066,14 @@ async function acquireRunLease(sql: Sql, runId: string, owner: string): Promise<
     }
 
     if (hasLiveLease(run)) {
-      throw new MissionRuntimeError(
-        'MISSION_LEASE_HELD',
-        `mission run ${runId} is currently leased by ${run.lease_owner ?? '(unknown owner)'}`
-      );
+      const allowRecovery =
+        options?.allowOrphanedRecovery === true && isRecoverableOrphanedLease(run);
+      if (!allowRecovery) {
+        throw new MissionRuntimeError(
+          'MISSION_LEASE_HELD',
+          `mission run ${runId} is currently leased by ${run.lease_owner ?? '(unknown owner)'}`
+        );
+      }
     }
 
     const leaseToken = runtimeToken();
@@ -850,7 +1122,7 @@ async function assertLeaseStillOwned(
   tx: MissionSqlExecutor,
   runId: string,
   lease: MissionLease
-): Promise<void> {
+): Promise<MissionRunRow> {
   const rows = await tx<MissionRunRow[]>`
     SELECT *
     FROM mission_runs
@@ -873,6 +1145,7 @@ async function assertLeaseStillOwned(
       `mission run ${runId} lease expired before commit`
     );
   }
+  return run;
 }
 
 async function latestCommittedStageRuns(sql: Sql, runId: string): Promise<MissionStageRunRow[]> {
@@ -949,7 +1222,7 @@ async function beginStageRun(
   runtime: PersistedMissionRuntime
 ): Promise<MissionStageRunRow> {
   return sql.begin(async (tx) => {
-    await assertLeaseStillOwned(tx, runId, lease);
+    const run = await assertLeaseStillOwned(tx, runId, lease);
 
     const attemptRows = await tx<{ next_attempt: number }[]>`
       SELECT COALESCE(MAX(attempt), -1) + 1 AS next_attempt
@@ -980,6 +1253,7 @@ async function beginStageRun(
         role,
         model_revision,
         endpoint,
+        trace_id,
         error_code,
         error_message,
         committed_at
@@ -1003,6 +1277,7 @@ async function beginStageRun(
         ${pinnedRole?.role ?? null},
         ${pinnedRole?.modelRevision ?? null},
         ${pinnedRole?.endpoint ?? null},
+        ${run.trace_id},
         NULL,
         NULL,
         NULL
@@ -1022,16 +1297,52 @@ async function beginStageRun(
   });
 }
 
+async function loadStageUsageDelta(
+  sql: Sql,
+  runId: string,
+  stageRunId: string,
+  elapsedWallMs: number
+): Promise<MissionUsageDelta> {
+  const telemetryRows = await sql<{ tokens: number }[]>`
+    SELECT COALESCE(SUM(total_tokens), 0)::int AS tokens
+    FROM inference_telemetry
+    WHERE run_id = ${runId}
+      AND step_id = ${stageRunId}
+  `;
+  const budgetRows = await sql<{ cost: number }[]>`
+    SELECT COALESCE(
+      SUM(cost) FILTER (
+        WHERE COALESCE(check_type, 'escape') NOT IN ('pre-check', 'reserve')
+      ),
+      0
+    )::float8 AS cost
+    FROM budget_ledger
+    WHERE run_id = ${runId}
+      AND step_id = ${stageRunId}
+  `;
+
+  return {
+    wallMs: Math.max(1, nonNegativeInteger(elapsedWallMs)),
+    tokens: nonNegativeInteger(telemetryRows[0]?.tokens),
+    cost: nonNegativeNumber(budgetRows[0]?.cost),
+    stepsUsed: 1,
+  };
+}
+
 async function commitStageRun(
   sql: Sql,
   runId: string,
   stage: CompiledMissionStage,
   stageRun: MissionStageRunRow,
   output: unknown,
-  lease: MissionLease
+  lease: MissionLease,
+  budgetPolicy: z.infer<typeof MissionBudgetPolicySchema>,
+  usageDelta: MissionUsageDelta
 ): Promise<void> {
   await sql.begin(async (tx) => {
-    await assertLeaseStillOwned(tx, runId, lease);
+    const run = await assertLeaseStillOwned(tx, runId, lease);
+    const currentUsage = parseUsageSnapshot(run.usage_json, budgetPolicy);
+    const nextUsage = accumulateUsageSnapshot(currentUsage, usageDelta);
 
     if (stage.checkpointKey) {
       await tx`
@@ -1057,6 +1368,7 @@ async function commitStageRun(
               executorRef: stage.executorRef,
               fenceToken: lease.token,
               attempt: stageRun.attempt,
+              traceId: run.trace_id,
             }) as never
           )}
         )
@@ -1082,6 +1394,7 @@ async function commitStageRun(
       UPDATE mission_runs
       SET
         checkpoint_stage_index = ${stage.stageIndex},
+        usage_json = ${tx.json(nextUsage as never)},
         updated_at = now()
       WHERE id = ${runId}::uuid
         AND lease_token = ${lease.token}
@@ -1101,7 +1414,7 @@ async function markStageRunFailure(
   await sql.begin(async (tx) => {
     const run = await selectMissionRunById(tx, runId);
     if (!run) return;
-    if (run.lease_token !== lease.token) return;
+    if (run.lease_token !== lease.token || run.lease_owner !== lease.owner) return;
 
     if (stageRunId) {
       await tx`
@@ -1115,10 +1428,19 @@ async function markStageRunFailure(
       `;
     }
 
-    await tx`
+    const usage = parseUsageSnapshot(run.usage_json, parseBudgetPolicy(run.budget_policy_json));
+    const eventIndexRows = await tx<{ event_index: number }[]>`
+      SELECT COALESCE(MAX(event_index), -1) + 1 AS event_index
+      FROM mission_events
+      WHERE run_id = ${runId}::uuid
+    `;
+
+    const updatedRows = await tx<MissionRunRow[]>`
       UPDATE mission_runs
       SET
         status = ${runStatus},
+        usage_json = ${tx.json(usage as never)},
+        completed_at = now(),
         error_code = ${code},
         error_message = ${message},
         lease_owner = NULL,
@@ -1127,11 +1449,43 @@ async function markStageRunFailure(
         updated_at = now()
       WHERE id = ${runId}::uuid
         AND lease_token = ${lease.token}
+      RETURNING *
+    `;
+    const updatedRun = updatedRows[0];
+    if (!updatedRun) return;
+
+    await tx`
+      INSERT INTO mission_events (
+        run_id,
+        event_index,
+        event_type,
+        stage_index,
+        checkpoint_key,
+        payload_json
+      )
+      VALUES (
+        ${runId}::uuid,
+        ${Number(eventIndexRows[0]?.event_index ?? 0)},
+        ${runStatus},
+        ${updatedRun.checkpoint_stage_index},
+        NULL,
+        ${tx.json(
+          canonicalJsonValue({
+            status: runStatus,
+            errorCode: code,
+            errorMessage: message,
+            usage,
+            provenance: buildMissionProvenance(updatedRun),
+            traceId: updatedRun.trace_id,
+            attemptCount: updatedRun.attempt_count,
+          }) as never
+        )}
+      )
     `;
   });
 }
 
-async function latestCommittedOutput(sql: Sql, runId: string): Promise<unknown> {
+async function latestCommittedOutput(sql: MissionSqlExecutor, runId: string): Promise<unknown> {
   const rows = await sql<MissionStageRunRow[]>`
     SELECT *
     FROM mission_stage_runs
@@ -1143,36 +1497,223 @@ async function latestCommittedOutput(sql: Sql, runId: string): Promise<unknown> 
   return rows[0]?.output_json ?? null;
 }
 
-async function finalizeRunWithoutCommit(
-  sql: Sql,
-  runId: string,
-  lease: MissionLease
-): Promise<void> {
-  const output = await latestCommittedOutput(sql, runId);
-  if (output == null) {
+async function latestCheckpointRef(
+  sql: MissionSqlExecutor,
+  runId: string
+): Promise<{ id: string | null; checkpointKey: string | null; stageIndex: number | null }> {
+  const rows = await sql<
+    {
+      id: string;
+      checkpoint_key: string | null;
+      stage_index: number;
+    }[]
+  >`
+    SELECT id::text AS id, checkpoint_key, stage_index
+    FROM mission_checkpoints
+    WHERE run_id = ${runId}::uuid
+    ORDER BY stage_index DESC, created_at DESC
+    LIMIT 1
+  `;
+  return {
+    id: rows[0]?.id ?? null,
+    checkpointKey: rows[0]?.checkpoint_key ?? null,
+    stageIndex: rows[0]?.stage_index ?? null,
+  };
+}
+
+function synthesizeBudgetExceededOutput(run: MissionRunRow): unknown | null {
+  if (run.output_schema_ref === 'mission.test.budget.output' && run.output_schema_version === 1) {
+    return canonicalJsonValue({
+      goal: run.goal ?? '',
+      budgetExceeded: true,
+    });
+  }
+  return null;
+}
+
+async function resolveTerminalOutput(
+  sql: MissionSqlExecutor,
+  run: MissionRunRow,
+  status: 'completed' | 'budget_exceeded',
+  explicitOutput?: unknown
+): Promise<unknown> {
+  const candidate =
+    explicitOutput ??
+    (status === 'budget_exceeded' ? synthesizeBudgetExceededOutput(run) : null) ??
+    (await latestCommittedOutput(sql, run.id));
+
+  if (candidate == null) {
     throw new MissionRuntimeError(
       'MISSION_FINAL_OUTPUT_MISSING',
-      `mission run ${runId} cannot finalize without a committed final stage output`
+      `mission run ${run.id} cannot finalize ${status} without a typed terminal output`
     );
   }
 
-  await sql.begin(async (tx) => {
-    await assertLeaseStillOwned(tx, runId, lease);
-    await tx`
+  return parseMissionSchemaValue(
+    {
+      schemaRef: run.output_schema_ref,
+      schemaVersion: run.output_schema_version,
+    },
+    candidate,
+    'mission.final.output'
+  );
+}
+
+async function finalizeMissionRun(
+  sql: Sql,
+  runId: string,
+  lease: MissionLease,
+  options: {
+    status: 'completed' | 'failed' | 'blocked' | 'budget_exceeded';
+    errorCode?: string | null;
+    errorMessage?: string | null;
+    output?: unknown;
+    budgetBreach?: MissionBudgetBreach | null;
+  }
+): Promise<MissionRunRow | null> {
+  return sql.begin(async (tx) => {
+    const run = await assertLeaseStillOwned(tx, runId, lease);
+    const usage = parseUsageSnapshot(run.usage_json, parseBudgetPolicy(run.budget_policy_json));
+    const checkpoint = await latestCheckpointRef(tx, runId);
+    const crashBoundary =
+      options.status === 'completed' || options.status === 'budget_exceeded'
+        ? requestedMissionCommitCrashBoundary()
+        : null;
+
+    let typedOutput: unknown = run.typed_output_json ?? null;
+    if (options.status === 'completed' || options.status === 'budget_exceeded') {
+      typedOutput = await resolveTerminalOutput(tx, run, options.status, options.output);
+
+      if (crashBoundary === 'before_commit_insert') {
+        await emitMissionCommitCrashReadiness(crashBoundary, {
+          runId,
+          status: options.status,
+          traceId: run.trace_id,
+        });
+      }
+
+      await tx`
+        INSERT INTO mission_commits (
+          run_id,
+          commit_name,
+          output_schema_ref,
+          output_schema_version,
+          schema_ref,
+          schema_version,
+          executor_ref,
+          definition_hash,
+          compiler_version,
+          registry_snapshot_hash,
+          typed_output_json,
+          usage_json,
+          no_cloud_fallback,
+          fleet_manifest_version,
+          fleet_manifest_path,
+          fleet_manifest_hash,
+          role_resolution_json,
+          model_revisions_json,
+          checkpoint_id
+        )
+        VALUES (
+          ${runId}::uuid,
+          ${options.status},
+          ${run.output_schema_ref},
+          ${run.output_schema_version},
+          ${run.schema_ref},
+          ${run.schema_version},
+          ${run.executor_ref},
+          ${run.definition_hash},
+          ${run.compiler_version},
+          ${run.registry_snapshot_hash},
+          ${tx.json(canonicalJsonValue(typedOutput) as never)},
+          ${tx.json(usage as never)},
+          ${run.no_cloud_fallback},
+          ${run.fleet_manifest_version},
+          ${run.fleet_manifest_path},
+          ${run.fleet_manifest_hash},
+          ${tx.json(run.role_resolution_json as never)},
+          ${tx.json(run.model_revisions_json as never)},
+          ${checkpoint.id ?? null}::uuid
+        )
+        ON CONFLICT (run_id) DO NOTHING
+      `;
+
+      if (crashBoundary === 'after_commit_insert_before_run_update') {
+        await emitMissionCommitCrashReadiness(crashBoundary, {
+          runId,
+          status: options.status,
+          traceId: run.trace_id,
+        });
+      }
+    }
+
+    const updatedRows = await tx<MissionRunRow[]>`
       UPDATE mission_runs
       SET
-        status = 'completed',
-        typed_output_json = ${tx.json(canonicalJsonValue(output) as never)},
+        status = ${options.status},
+        typed_output_json = ${typedOutput == null ? null : tx.json(canonicalJsonValue(typedOutput) as never)},
+        usage_json = ${tx.json(usage as never)},
         completed_at = now(),
         lease_owner = NULL,
         lease_token = NULL,
         lease_expires_at = NULL,
-        error_code = NULL,
-        error_message = NULL,
+        error_code = ${options.errorCode ?? null},
+        error_message = ${options.errorMessage ?? null},
         updated_at = now()
       WHERE id = ${runId}::uuid
         AND lease_token = ${lease.token}
+      RETURNING *
     `;
+    const updatedRun = updatedRows[0];
+    if (!updatedRun) return null;
+
+    if (crashBoundary === 'after_run_update_before_terminal_event') {
+      await emitMissionCommitCrashReadiness(crashBoundary, {
+        runId,
+        status: options.status,
+        traceId: updatedRun.trace_id,
+      });
+    }
+
+    const eventIndexRows = await tx<{ event_index: number }[]>`
+      SELECT COALESCE(MAX(event_index), -1) + 1 AS event_index
+      FROM mission_events
+      WHERE run_id = ${runId}::uuid
+    `;
+    await tx`
+      INSERT INTO mission_events (
+        run_id,
+        event_index,
+        event_type,
+        stage_index,
+        checkpoint_key,
+        payload_json
+      )
+      VALUES (
+        ${runId}::uuid,
+        ${Number(eventIndexRows[0]?.event_index ?? 0)},
+        ${options.status},
+        ${checkpoint.stageIndex ?? updatedRun.checkpoint_stage_index},
+        ${checkpoint.checkpointKey},
+        ${tx.json(
+          canonicalJsonValue({
+            status: options.status,
+            output: typedOutput ?? undefined,
+            usage,
+            errorCode: options.errorCode ?? undefined,
+            errorMessage: options.errorMessage ?? undefined,
+            budget: options.budgetBreach ?? undefined,
+            provenance: buildMissionProvenance(updatedRun),
+            traceId: updatedRun.trace_id,
+            attemptCount: updatedRun.attempt_count,
+            checkpointId: checkpoint.id,
+            checkpointKey: checkpoint.checkpointKey,
+          }) as never
+        )}
+      )
+    `;
+
+    return updatedRun;
   });
 }
 
@@ -1197,10 +1738,30 @@ async function executeRunWithLease(
       return currentRun;
     }
 
+    const usage = parseUsageSnapshot(currentRun.usage_json, runtime.budgetPolicy);
     const nextStage = await findNextStage(sql, runId, runtime.compiledPlan);
     if (!nextStage) {
-      await finalizeRunWithoutCommit(sql, runId, lease);
-      const finalized = await selectMissionRunById(sql, runId);
+      const breach = detectBudgetExceeded(usage, runtime.budgetPolicy);
+      const finalized = await finalizeMissionRun(sql, runId, lease, {
+        status: breach ? 'budget_exceeded' : 'completed',
+        errorCode: breach?.code ?? null,
+        errorMessage: breach?.message ?? null,
+        budgetBreach: breach,
+      });
+      if (!finalized) {
+        throw new MissionRuntimeError('MISSION_NOT_FOUND', `mission run not found: ${runId}`);
+      }
+      return finalized;
+    }
+
+    const preStageBreach = detectBudgetBlockBeforeStage(usage, runtime.budgetPolicy);
+    if (preStageBreach) {
+      const finalized = await finalizeMissionRun(sql, runId, lease, {
+        status: 'budget_exceeded',
+        errorCode: preStageBreach.code,
+        errorMessage: preStageBreach.message,
+        budgetBreach: preStageBreach,
+      });
       if (!finalized) {
         throw new MissionRuntimeError('MISSION_NOT_FOUND', `mission run not found: ${runId}`);
       }
@@ -1219,11 +1780,13 @@ async function executeRunWithLease(
 
     const stageRun = await beginStageRun(sql, runId, nextStage, input, lease, runtime);
     const executor = assertRegisteredExecutorRuntime(nextStage.executorRef);
+    const startedAt = Date.now();
 
     try {
       const rawOutput = await executor(input, {
         run: currentRun,
         stage: nextStage,
+        stageRunId: stageRun.id,
         lease,
         runtime,
       });
@@ -1235,7 +1798,17 @@ async function executeRunWithLease(
         rawOutput,
         `${nextStage.stageKey}.output`
       );
-      await commitStageRun(sql, runId, nextStage, stageRun, output, lease);
+      const usageDelta = await loadStageUsageDelta(sql, runId, stageRun.id, Date.now() - startedAt);
+      await commitStageRun(
+        sql,
+        runId,
+        nextStage,
+        stageRun,
+        output,
+        lease,
+        runtime.budgetPolicy,
+        usageDelta
+      );
       if (nextStage.checkpointKey) {
         await waitAtCheckpointBarrierIfRequested({
           runId,
@@ -1253,7 +1826,6 @@ async function executeRunWithLease(
               'MISSION_STAGE_EXECUTION_FAILED',
               error instanceof Error ? error.message : String(error)
             );
-      const runStatus = runtimeError.code.includes('BUDGET') ? 'blocked' : 'failed';
       await markStageRunFailure(
         sql,
         runId,
@@ -1261,10 +1833,60 @@ async function executeRunWithLease(
         lease,
         runtimeError.code,
         runtimeError.message,
-        runStatus
+        runtimeError.code.includes('PINNED') || runtimeError.code.includes('SCHEMA')
+          ? 'blocked'
+          : 'failed'
       );
       throw runtimeError;
     }
+  }
+}
+
+async function acquireOrWaitForIdempotentRun(
+  sql: Sql,
+  runId: string,
+  owner: string
+): Promise<{ lease: MissionLease | null; replayRun: MissionRunRow | null }> {
+  const deadline = Date.now() + 15_000;
+
+  while (true) {
+    const run = await selectMissionRunById(sql, runId);
+    if (!run) {
+      throw new MissionRuntimeError('MISSION_NOT_FOUND', `mission run not found: ${runId}`);
+    }
+    if (isTerminalStatus(run.status)) {
+      return { lease: null, replayRun: run };
+    }
+
+    try {
+      const lease = await acquireRunLease(sql, runId, owner, { allowOrphanedRecovery: true });
+      return { lease, replayRun: null };
+    } catch (error) {
+      const runtimeError =
+        error instanceof MissionRuntimeError
+          ? error
+          : new MissionRuntimeError(
+              'MISSION_RUNTIME_FAILED',
+              error instanceof Error ? error.message : String(error)
+            );
+      if (runtimeError.code === 'MISSION_ALREADY_TERMINAL') {
+        const terminalRun = await selectMissionRunById(sql, runId);
+        if (terminalRun && isTerminalStatus(terminalRun.status)) {
+          return { lease: null, replayRun: terminalRun };
+        }
+      } else if (runtimeError.code !== 'MISSION_LEASE_HELD') {
+        throw runtimeError;
+      }
+    }
+
+    if (Date.now() >= deadline) {
+      throw new MissionRuntimeError(
+        'MISSION_LEASE_HELD',
+        `mission run ${runId} is still executing under another lease owner`
+      );
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
   }
 }
 
@@ -1294,7 +1916,24 @@ async function runMissionInternal(
       return buildMissionPayload(created.run, { replay: !created.created });
     }
 
-    const lease = await acquireRunLease(sql, created.run.id, runtimeOwner());
+    const owner = runtimeOwner();
+    let lease: MissionLease;
+    if (created.created) {
+      lease = await acquireRunLease(sql, created.run.id, owner);
+    } else {
+      const waited = await acquireOrWaitForIdempotentRun(sql, created.run.id, owner);
+      if (waited.replayRun) {
+        return buildMissionPayload(waited.replayRun, { replay: true });
+      }
+      if (!waited.lease) {
+        throw new MissionRuntimeError(
+          'MISSION_LEASE_FAILED',
+          `failed to acquire mission lease for ${created.run.id}`
+        );
+      }
+      lease = waited.lease;
+    }
+
     try {
       const completed = await executeRunWithLease(sql, created.run.id, lease);
       return buildMissionPayload(completed, { replay: false });

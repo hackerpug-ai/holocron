@@ -41,6 +41,9 @@ import {
   RN,
   rowValue,
   runHolo,
+  runMissionRuntime,
+  runMissionRuntimeResume,
+  runMissionRuntimeStatus,
   sameComparableValue,
   scanMissionCrashHooks,
   scenarioId,
@@ -57,6 +60,7 @@ import {
   selectMissionVerdicts,
   snapshotMissionSchema,
   startHoloProcess,
+  startMissionRuntimeProcess,
   terminalEventCount,
   truncateMissionTables,
   waitForValue,
@@ -103,7 +107,7 @@ function terminalStatus(value: JsonRecord | null | undefined): string | null {
 
 function usageSnapshot(record: JsonRecord | null | undefined): JsonRecord {
   if (!record) return {};
-  const usage = rowValue(record, ['usage']);
+  const usage = rowValue(record, ['usage', 'usage_json', 'usageJson']);
   if (usage && typeof usage === 'object') return asRecord(usage);
   const snapshot: JsonRecord = {};
   for (const [key, value] of Object.entries(record)) {
@@ -120,6 +124,19 @@ function typedOutputSnapshot(record: JsonRecord | null | undefined): unknown {
     rowValue(record, ['result']) ??
     null
   );
+}
+
+function roleResolutionForStage(
+  record: JsonRecord | null | undefined,
+  stageKey: string
+): JsonRecord | null {
+  if (!record) return null;
+  const provenance = asRecord(rowValue(record, ['provenance']));
+  const roleResolution =
+    rowValue(record, ['role_resolution_json', 'roleResolutionJson']) ??
+    rowValue(provenance, ['roleResolution', 'role_resolution']);
+  const stageResolution = asRecord(roleResolution)[stageKey];
+  return stageResolution && typeof stageResolution === 'object' ? asRecord(stageResolution) : null;
 }
 
 function canonicalizeForByteCompare(value: unknown): unknown {
@@ -206,6 +223,11 @@ function runMutationSurface(summary: RunSummary) {
     eventBytes: canonicalJsonBytes(summary.events),
     outputBytes: canonicalJsonBytes(typedOutputSnapshot(outputSource)),
   };
+}
+
+function normalizeEndpointForCompare(value: string | null | undefined): string | null {
+  if (!value) return null;
+  return value.replace(/\/$/, '').replace(/\/v1$/i, '');
 }
 
 function escapeRegExp(value: string): string {
@@ -1007,18 +1029,13 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
       '--json',
     ]);
     const runKey = scenarioId('sigkill-recovery');
-    const runner = startHoloProcess(
+    const runner = startMissionRuntimeProcess(
       'ac-runtime-sigkill-run',
-      [
-        'mission',
-        'run',
-        template.templateKey,
-        '--goal',
-        'Checkpoint once, then prove durable resume.',
-        '--idempotency-key',
-        runKey,
-        '--json',
-      ],
+      {
+        templateKey: template.templateKey,
+        goal: 'Checkpoint once, then prove durable resume.',
+        idempotencyKey: runKey,
+      },
       {
         env: {
           [HOLO_TEST_CHECKPOINT_BARRIER_ENV]: '1',
@@ -1073,18 +1090,11 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
       }
     });
 
-    const staleStatus = runHolo('ac-runtime-sigkill-status-stale', [
-      'mission',
-      'status',
-      runId ?? 'missing-run-id',
-      '--json',
-    ]);
-    const resume = runHolo('ac-runtime-sigkill-resume', [
-      'mission',
-      'resume',
-      runId ?? 'missing-run-id',
-      '--json',
-    ]);
+    const staleStatus = runMissionRuntimeStatus(
+      'ac-runtime-sigkill-status-stale',
+      runId ?? 'missing-run-id'
+    );
+    const resume = runMissionRuntimeResume('ac-runtime-sigkill-resume', runId ?? 'missing-run-id');
 
     await withSql(async (sql) => {
       const schema = await snapshotMissionSchema(sql);
@@ -1209,18 +1219,13 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
       '--json',
     ]);
     const runKey = scenarioId('lease-contention');
-    const owner = startHoloProcess(
+    const owner = startMissionRuntimeProcess(
       'ac-lease-contention-owner',
-      [
-        'mission',
-        'run',
-        template.templateKey,
-        '--goal',
-        'Acquire a durable lease, checkpoint, then allow contender proof.',
-        '--idempotency-key',
-        runKey,
-        '--json',
-      ],
+      {
+        templateKey: template.templateKey,
+        goal: 'Acquire a durable lease, checkpoint, then allow contender proof.',
+        idempotencyKey: runKey,
+      },
       {
         env: {
           [HOLO_TEST_CHECKPOINT_BARRIER_ENV]: '1',
@@ -1256,18 +1261,14 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
       : null;
     const originalLeaseToken = stringValue(liveLeaseBeforeKill, ['lease_token', 'leaseToken']);
     const originalAttempt = numberValue(liveLeaseBeforeKill, ['attempt_count', 'attemptCount']);
-    const activeStatus = runHolo('ac-lease-contention-status-active', [
-      'mission',
-      'status',
-      runId ?? 'missing-run-id',
-      '--json',
-    ]);
-    const contenderResult = runHolo('ac-lease-contention-contender', [
-      'mission',
-      'resume',
-      runId ?? 'missing-run-id',
-      '--json',
-    ]);
+    const activeStatus = runMissionRuntimeStatus(
+      'ac-lease-contention-status-active',
+      runId ?? 'missing-run-id'
+    );
+    const contenderResult = runMissionRuntimeResume(
+      'ac-lease-contention-contender',
+      runId ?? 'missing-run-id'
+    );
     const afterContender = runId ? await summarizeRun(runId) : await summarizeRun(null);
     const aliveAtBarrier = Boolean(barrierProof) && !owner.exited();
 
@@ -1289,18 +1290,14 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
       }
     });
 
-    const staleStatus = runHolo('ac-lease-contention-status-stale', [
-      'mission',
-      'status',
-      runId ?? 'missing-run-id',
-      '--json',
-    ]);
-    const recovery = runHolo('ac-lease-contention-recovery', [
-      'mission',
-      'resume',
-      runId ?? 'missing-run-id',
-      '--json',
-    ]);
+    const staleStatus = runMissionRuntimeStatus(
+      'ac-lease-contention-status-stale',
+      runId ?? 'missing-run-id'
+    );
+    const recovery = runMissionRuntimeResume(
+      'ac-lease-contention-recovery',
+      runId ?? 'missing-run-id'
+    );
 
     await withSql(async (sql) => {
       const schema = await snapshotMissionSchema(sql);
@@ -1454,18 +1451,13 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
       { env: { FLEET_MANIFEST_PATH: originalManifest.path } }
     );
     const runKey = scenarioId('pinned-resume');
-    const runner = startHoloProcess(
+    const runner = startMissionRuntimeProcess(
       'ac-pinned-resume-run',
-      [
-        'mission',
-        'run',
-        template.templateKey,
-        '--goal',
-        'Checkpoint under pinned provenance, then mutate active definitions.',
-        '--idempotency-key',
-        runKey,
-        '--json',
-      ],
+      {
+        templateKey: template.templateKey,
+        goal: 'Checkpoint under pinned provenance, then mutate active definitions.',
+        idempotencyKey: runKey,
+      },
       {
         env: {
           FLEET_MANIFEST_PATH: originalManifest.path,
@@ -1539,17 +1531,14 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
       }
     });
 
-    const staleStatus = runHolo('ac-pinned-resume-status-stale', [
-      'mission',
-      'status',
+    const staleStatus = runMissionRuntimeStatus(
+      'ac-pinned-resume-status-stale',
       runId ?? 'missing-run-id',
-      '--json',
-    ]);
-    const resume = runHolo(
-      'ac-pinned-resume-resume',
-      ['mission', 'resume', runId ?? 'missing-run-id', '--json'],
       { env: { FLEET_MANIFEST_PATH: mutatedManifest.path } }
     );
+    const resume = runMissionRuntimeResume('ac-pinned-resume-resume', runId ?? 'missing-run-id', {
+      env: { FLEET_MANIFEST_PATH: mutatedManifest.path },
+    });
 
     await withSql(async (sql) => {
       const runRow = runId ? await selectMissionRunById(sql, runId) : null;
@@ -1697,18 +1686,13 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
     const results: Array<Record<string, unknown>> = [];
     for (const boundary of commitCrashBoundaries) {
       const key = scenarioId(`commit-${boundary}`);
-      const runner = startHoloProcess(
+      const runner = startMissionRuntimeProcess(
         `ac-commit-boundary-${boundary}`,
-        [
-          'mission',
-          'run',
-          template.templateKey,
-          '--goal',
-          `Crash boundary ${boundary}`,
-          '--idempotency-key',
-          key,
-          '--json',
-        ],
+        {
+          templateKey: template.templateKey,
+          goal: `Crash boundary ${boundary}`,
+          idempotencyKey: key,
+        },
         {
           env: {
             HOLO_TEST_CRASH_AT: `mission-commit/${boundary}`,
@@ -1736,16 +1720,12 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
         stringValue(observedRun, ['id']) ??
         runIdFromUnknown(crashed.parsed);
       const beforeReplay = await summarizeRun(runId);
-      const replay = runHolo(`ac-commit-boundary-replay-${boundary}`, [
-        'mission',
-        'run',
-        template.templateKey,
-        '--goal',
-        `Crash boundary ${boundary}`,
-        '--idempotency-key',
-        key,
-        '--json',
-      ]);
+      const terminalEventsBeforeReplay = await withSql((sql) => terminalEventCount(sql, runId));
+      const replay = runMissionRuntime(`ac-commit-boundary-replay-${boundary}`, {
+        templateKey: template.templateKey,
+        goal: `Crash boundary ${boundary}`,
+        idempotencyKey: key,
+      });
       const authoritativeRun =
         runId ??
         runIdFromUnknown(replay.parsed) ??
@@ -1754,7 +1734,6 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
       const duplicateCommittedStages = await withSql((sql) =>
         committedStageDuplicates(sql, authoritativeRun)
       );
-      const terminalEventsBeforeReplay = await withSql((sql) => terminalEventCount(sql, runId));
       const terminalEventsAfterReplay = await withSql((sql) =>
         terminalEventCount(sql, authoritativeRun)
       );
@@ -1868,47 +1847,27 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
     const replayKey = scenarioId('idempotent-replay');
     const goal = 'Replay should return stored result without re-execution.';
 
-    const firstRunner = startHoloProcess('ac-idempotent-first', [
-      'mission',
-      'run',
-      template.templateKey,
-      '--goal',
+    const firstRunner = startMissionRuntimeProcess('ac-idempotent-first', {
+      templateKey: template.templateKey,
       goal,
-      '--idempotency-key',
-      replayKey,
-      '--json',
-    ]);
-    const secondRunner = startHoloProcess('ac-idempotent-second', [
-      'mission',
-      'run',
-      template.templateKey,
-      '--goal',
+      idempotencyKey: replayKey,
+    });
+    const secondRunner = startMissionRuntimeProcess('ac-idempotent-second', {
+      templateKey: template.templateKey,
       goal,
-      '--idempotency-key',
-      replayKey,
-      '--json',
-    ]);
+      idempotencyKey: replayKey,
+    });
     const [first, second] = await Promise.all([firstRunner.result, secondRunner.result]);
-    const third = runHolo('ac-idempotent-third', [
-      'mission',
-      'run',
-      template.templateKey,
-      '--goal',
+    const third = runMissionRuntime('ac-idempotent-third', {
+      templateKey: template.templateKey,
       goal,
-      '--idempotency-key',
-      replayKey,
-      '--json',
-    ]);
-    const conflicting = runHolo('ac-idempotent-conflict', [
-      'mission',
-      'run',
-      template.templateKey,
-      '--goal',
-      'Different goal must fail for the same idempotency key.',
-      '--idempotency-key',
-      replayKey,
-      '--json',
-    ]);
+      idempotencyKey: replayKey,
+    });
+    const conflicting = runMissionRuntime('ac-idempotent-conflict', {
+      templateKey: template.templateKey,
+      goal: 'Different goal must fail for the same idempotency key.',
+      idempotencyKey: replayKey,
+    });
 
     const firstPayload = asRecord(first.parsed);
     const secondPayload = asRecord(second.parsed);
@@ -1993,16 +1952,11 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
       '--json',
     ]);
     const budgetKey = scenarioId('budget-exceeded');
-    const run = runHolo('ac-budget-run', [
-      'mission',
-      'run',
-      template.templateKey,
-      '--goal',
-      'Spend more than one wall-ms/token/step budget.',
-      '--idempotency-key',
-      budgetKey,
-      '--json',
-    ]);
+    const run = runMissionRuntime('ac-budget-run', {
+      templateKey: template.templateKey,
+      goal: 'Spend more than one wall-ms/token/step budget.',
+      idempotencyKey: budgetKey,
+    });
     const payload = asRecord(run.parsed);
     const runId =
       runIdFromUnknown(payload) ?? stringValue(await findRunByIdempotencyKey(budgetKey), ['id']);
@@ -2011,12 +1965,37 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
       const schema = await snapshotMissionSchema(sql);
       const runRow = runId ? await selectMissionRunById(sql, runId) : null;
       const commitRow = runId ? ((await selectMissionCommits(sql, runId))[0] ?? null) : null;
+      const stageRuns = runId ? await selectMissionStageRuns(sql, runId) : [];
       const events = runId ? await selectMissionEvents(sql, runId) : [];
+      const telemetry = runId ? await selectInferenceTelemetry(sql, runId) : [];
       const eventTypes = events
         .map((event) => stringValue(event, ['event_type', 'eventType']))
         .filter(Boolean);
       const persistedUsage = usageSnapshot(commitRow ?? runRow);
       const payloadUsage = usageSnapshot(payload);
+      const consumeBudgetStageRun =
+        stageRuns.find(
+          (stageRun) => stringValue(stageRun, ['stage_key', 'stageKey']) === 'consume_budget'
+        ) ?? null;
+      const consumeBudgetTelemetry = consumeBudgetStageRun
+        ? telemetry.filter(
+            (row) =>
+              stringValue(row, ['step_id', 'stepId']) === stringValue(consumeBudgetStageRun, ['id'])
+          )
+        : [];
+      const successfulConsumeTelemetry =
+        consumeBudgetTelemetry.find((row) => stringValue(row, ['status']) === 'success') ?? null;
+      const typedOutput = asRecord(typedOutputSnapshot(commitRow ?? runRow));
+      const consumeBudgetRoleResolution = roleResolutionForStage(
+        commitRow ?? runRow,
+        'consume_budget'
+      );
+      const payloadTokens = numberValue(payloadUsage, ['tokens']);
+      const persistedTokens = numberValue(persistedUsage, ['tokens']);
+      const payloadWallMs = numberValue(payloadUsage, ['wallMs']);
+      const persistedWallMs = numberValue(persistedUsage, ['wallMs']);
+      const payloadCost = numberValue(payloadUsage, ['cost']);
+      const persistedCost = numberValue(persistedUsage, ['cost']);
 
       writeArtifact('ac-budget-summary.json', {
         template,
@@ -2026,47 +2005,152 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
         schema,
         runRow,
         commitRow,
+        stageRuns,
         events,
+        telemetry,
         eventTypes,
         payloadUsage,
         persistedUsage,
+        consumeBudgetStageRun,
+        consumeBudgetTelemetry,
+        successfulConsumeTelemetry,
+        typedOutput,
+        consumeBudgetRoleResolution,
       });
 
       expect.soft(register.status, register.combined).toBe(0);
       expect.soft(run.status, run.combined).not.toBe(0);
-      expect.soft(payload.status, JSON.stringify(payload)).toBe('budget_exceeded');
-      expect.soft(payload.errorCode, JSON.stringify(payload)).toBe('budget_exceeded');
       expect.soft(payloadUsage, 'run JSON must include typed usage').toBeTruthy();
-      expect.soft(runId, 'budget_exceeded run must persist a run row').toBeTruthy();
+      expect.soft(runId, 'mission run must persist a run row').toBeTruthy();
       expect
         .soft(
           missingColumns(schema.tables.mission_commits?.columns ?? [], EXPECTED_COMMIT_COLUMNS),
           'mission_commits must expose the expected commit columns'
         )
         .toEqual([]);
-      expect
-        .soft(commitRow, 'budget_exceeded must still persist a terminal commit row')
-        .toBeTruthy();
-      expect.soft(stringValue(runRow, ['status'])).toBe('budget_exceeded');
-      expect.soft(stringValue(runRow, ['error_code', 'errorCode'])).toBe('budget_exceeded');
-      expect
-        .soft(
-          eventTypes.some((eventType) => /budget/i.test(String(eventType))),
-          'budget_exceeded must append a terminal event'
-        )
-        .toBe(true);
-      expect
-        .soft(
-          Object.keys(persistedUsage).length,
-          'budget_exceeded must persist usage fields on run/commit rows'
-        )
-        .toBeGreaterThan(0);
-      expect
-        .soft(
-          detectProvenanceSnapshot(commitRow ?? runRow),
-          'budget_exceeded terminal evidence must persist provenance'
-        )
-        .toBeTruthy();
+
+      if (successfulConsumeTelemetry) {
+        expect.soft(payload.status, JSON.stringify(payload)).toBe('budget_exceeded');
+        expect.soft(payload.errorCode, JSON.stringify(payload)).toBe('budget_exceeded');
+        expect
+          .soft(consumeBudgetStageRun, 'token-budget proof must reach the consume_budget stage')
+          .toBeTruthy();
+        expect
+          .soft(commitRow, 'budget_exceeded must still persist a terminal commit row')
+          .toBeTruthy();
+        expect.soft(stringValue(runRow, ['status'])).toBe('budget_exceeded');
+        expect.soft(stringValue(runRow, ['error_code', 'errorCode'])).toBe('budget_exceeded');
+        expect
+          .soft(
+            eventTypes.some((eventType) => /budget/i.test(String(eventType))),
+            'budget_exceeded must append a terminal event'
+          )
+          .toBe(true);
+        expect
+          .soft(
+            Object.keys(persistedUsage).length,
+            'budget_exceeded must persist usage fields on run/commit rows'
+          )
+          .toBeGreaterThan(0);
+        expect
+          .soft(
+            detectProvenanceSnapshot(commitRow ?? runRow),
+            'budget_exceeded terminal evidence must persist provenance'
+          )
+          .toBeTruthy();
+        expect
+          .soft(
+            stringValue(consumeBudgetStageRun, ['role']),
+            'consume_budget stage row must persist role provenance'
+          )
+          .toBeTruthy();
+        expect
+          .soft(
+            stringValue(consumeBudgetStageRun, ['model_revision', 'modelRevision']),
+            'consume_budget stage row must persist model revision provenance'
+          )
+          .toBeTruthy();
+        expect
+          .soft(
+            stringValue(consumeBudgetStageRun, ['endpoint']),
+            'consume_budget stage row must persist endpoint provenance'
+          )
+          .toBeTruthy();
+        expect
+          .soft(
+            stringValue(consumeBudgetStageRun, ['role']),
+            'consume_budget stage role must match runtime role resolution'
+          )
+          .toBe(stringValue(consumeBudgetRoleResolution, ['role']));
+        expect
+          .soft(
+            stringValue(consumeBudgetStageRun, ['model_revision', 'modelRevision']),
+            'consume_budget stage model revision must match runtime role resolution'
+          )
+          .toBe(stringValue(consumeBudgetRoleResolution, ['modelRevision', 'model_revision']));
+        expect
+          .soft(
+            stringValue(consumeBudgetStageRun, ['endpoint']),
+            'consume_budget stage endpoint must match runtime role resolution'
+          )
+          .toBe(stringValue(consumeBudgetRoleResolution, ['endpoint']));
+        expect
+          .soft(
+            stringValue(successfulConsumeTelemetry, ['role']),
+            'consume_budget telemetry role must match stage provenance'
+          )
+          .toBe(stringValue(consumeBudgetStageRun, ['role']));
+        expect
+          .soft(
+            normalizeEndpointForCompare(stringValue(successfulConsumeTelemetry, ['endpoint'])),
+            'consume_budget telemetry endpoint must match stage provenance'
+          )
+          .toBe(normalizeEndpointForCompare(stringValue(consumeBudgetStageRun, ['endpoint'])));
+        expect
+          .soft(
+            stringValue(successfulConsumeTelemetry, ['model_id', 'modelId']),
+            'consume_budget telemetry must persist model id'
+          )
+          .toBe(stringValue(consumeBudgetRoleResolution, ['litellmModelId', 'litellm_model_id']));
+        expect
+          .soft(
+            numberValue(successfulConsumeTelemetry, ['total_tokens', 'totalTokens']),
+            JSON.stringify(successfulConsumeTelemetry)
+          )
+          .toBeGreaterThan(0);
+        expect.soft(payloadTokens, JSON.stringify(payloadUsage)).toBeGreaterThan(0);
+        expect.soft(persistedTokens, JSON.stringify(persistedUsage)).toBeGreaterThan(0);
+        expect.soft(payloadWallMs, JSON.stringify(payloadUsage)).toBeGreaterThan(0);
+        expect.soft(persistedWallMs, JSON.stringify(persistedUsage)).toBeGreaterThan(0);
+        expect.soft(payloadCost, JSON.stringify(payloadUsage)).toBe(0);
+        expect.soft(persistedCost, JSON.stringify(persistedUsage)).toBe(0);
+        expect.soft(typedOutput.goal, JSON.stringify(typedOutput)).toBe(payload.goal);
+        expect.soft(typedOutput.budgetExceeded, JSON.stringify(typedOutput)).toBe(true);
+      } else {
+        const failureSurface = [
+          JSON.stringify(payload),
+          run.combined,
+          JSON.stringify(runRow),
+          JSON.stringify(consumeBudgetTelemetry),
+        ].join('\n');
+
+        expect
+          .soft(stringValue(runRow, ['status']) ?? String(payload.status ?? ''), failureSurface)
+          .toMatch(/failed|blocked/);
+        expect.soft(payload.status, failureSurface).not.toBe('completed');
+        expect
+          .soft(
+            payload.errorCode ?? stringValue(runRow, ['error_code', 'errorCode']),
+            failureSurface
+          )
+          .toBeTruthy();
+        expect
+          .soft(
+            failureSurface,
+            'fleet-unavailable path must fail closed and must not pretend token success'
+          )
+          .toMatch(/fleet|role_unavailable|unavailable|probe|MISSION_FLEET_CALL_FAILED/i);
+      }
     });
   }, 60_000);
 
@@ -2153,26 +2237,16 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
       template.path,
       '--json',
     ]);
-    const first = runHolo('ac-deterministic-first', [
-      'mission',
-      'run',
-      template.templateKey,
-      '--goal',
-      'Deterministic output comparison.',
-      '--idempotency-key',
-      scenarioId('deterministic-first'),
-      '--json',
-    ]);
-    const second = runHolo('ac-deterministic-second', [
-      'mission',
-      'run',
-      template.templateKey,
-      '--goal',
-      'Deterministic output comparison.',
-      '--idempotency-key',
-      scenarioId('deterministic-second'),
-      '--json',
-    ]);
+    const first = runMissionRuntime('ac-deterministic-first', {
+      templateKey: template.templateKey,
+      goal: 'Deterministic output comparison.',
+      idempotencyKey: scenarioId('deterministic-first'),
+    });
+    const second = runMissionRuntime('ac-deterministic-second', {
+      templateKey: template.templateKey,
+      goal: 'Deterministic output comparison.',
+      idempotencyKey: scenarioId('deterministic-second'),
+    });
 
     const firstPayload = asRecord(first.parsed);
     const secondPayload = asRecord(second.parsed);
