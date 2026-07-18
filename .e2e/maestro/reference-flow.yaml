@@ -4,14 +4,14 @@ appId: ${MAESTRO_APP_ID}
 - launchApp:
     clearState: true
 - assertVisible:
-    id: reference-chat-screen
+    id: chat-screen
 - tapOn:
-    id: reference-chat-input
+    id: chat-input-field
 - inputText: "Sprint 20 reference-flow ping"
 - tapOn:
-    id: reference-chat-send
+    id: chat-input-send-button
 - extendedWaitUntil:
     visible:
-      id: reference-chat-assistant-message
+      id: chat-assistant-message
     timeout: 90000
 - takeScreenshot: reference-chat-reply

@@ -150,7 +150,7 @@ export function ChatThread({
         voiceSessionId={item.voiceSessionId}
         createdAt={item.createdAt}
         showTimestamp={true}
-        testID={`message-${item.id}`}
+        testID={item.role === 'agent' ? 'chat-assistant-message' : `message-${item.id}`}
         onCardPress={handleCardPress}
         onFinalResultPress={onFinalResultPress}
         onWhatsNewReportPress={onWhatsNewReportPress}
