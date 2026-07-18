@@ -22,6 +22,7 @@
     "server:dev": "npx convex dev",
     "typecheck": "tsgo --noEmit",
     "test": "vitest run",
+    "test:unit": "vitest run --exclude 'tests/integration/**' --exclude 'services/platform/tests/integration/**'",
     "test:watch": "vitest",
     "deploy": "git push origin main && gh release create v$(node -p \"require('./package.json').version\") --generate-notes --title v$(node -p \"require('./package.json').version\")",
     "deploy:ios": "pnpm exec eas build --platform ios --profile production --auto-submit",

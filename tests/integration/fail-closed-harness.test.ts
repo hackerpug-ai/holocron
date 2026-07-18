@@ -43,13 +43,15 @@ function probePostgresTcp(url: string, timeoutMs = 2000): Promise<void> {
   });
 }
 
-/** Real HTTP probe to fleet endpoint — connection refused must throw. */
+/** Real HTTP probe to the OpenAI-compatible fleet endpoint. */
 async function probeFleet(url: string): Promise<void> {
   const base = url.replace(/\/v1\/?$/, '').replace(/\/$/, '');
-  const res = await fetch(`${base}/health`, {
+  const res = await fetch(`${base}/v1/models`, {
     signal: AbortSignal.timeout(2_000),
   });
-  void res;
+  if (!res.ok) {
+    throw new Error(`Fleet endpoint HTTP ${res.status}`);
+  }
 }
 
 describe('D02-01 fail-closed harness (root)', () => {

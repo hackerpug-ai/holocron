@@ -56,5 +56,5 @@ jobs:
       - name: Lint
         run: pnpm lint
 
-      - name: Unit tests
-        run: pnpm test -- --passWithNoTests
+      - name: Pure unit tests
+        run: pnpm test:unit -- --passWithNoTests

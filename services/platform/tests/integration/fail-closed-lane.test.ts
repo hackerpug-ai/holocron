@@ -36,13 +36,15 @@ function probePostgresTcp(url: string, timeoutMs = 2000): Promise<void> {
 
 async function probeFleet(url: string): Promise<void> {
   const base = url.replace(/\/v1\/?$/, '').replace(/\/$/, '');
-  // Probe models endpoint first (OpenAI-compatible fleet), then root.
+  // Probe models endpoint first (OpenAI-compatible fleet), then root only on transport failure.
+  let res: Response;
   try {
-    const res = await fetch(`${base}/v1/models`, { signal: AbortSignal.timeout(2_000) });
-    void res;
+    res = await fetch(`${base}/v1/models`, { signal: AbortSignal.timeout(2_000) });
   } catch {
-    const res = await fetch(base, { signal: AbortSignal.timeout(2_000) });
-    void res;
+    res = await fetch(base, { signal: AbortSignal.timeout(2_000) });
+  }
+  if (!res.ok) {
+    throw new Error(`Fleet endpoint HTTP ${res.status}`);
   }
 }
 
