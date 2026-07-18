@@ -2,6 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 import { toolsAsRecord } from '../tools/registry.ts';
+import { executePostgresMcpTool } from './executor.ts';
 
 export function createMcpServer(): McpServer {
   const server = new McpServer({ name: 'holocron-postgres', version: '1.0.0' });
@@ -10,7 +11,6 @@ export function createMcpServer(): McpServer {
     const registered = tool as unknown as {
       description?: string;
       inputSchema?: unknown;
-      execute?: (input: unknown, context?: unknown) => Promise<unknown>;
     };
     server.registerTool(
       id,
@@ -18,11 +18,14 @@ export function createMcpServer(): McpServer {
         description: registered.description ?? id,
         inputSchema: registered.inputSchema as never,
       },
-      async (input) => {
-        if (!registered.execute) {
-          throw new Error(`tool ${id} has no executable implementation`);
-        }
-        const result = await registered.execute(input, {});
+      async (input, extra) => {
+        const signal =
+          extra && typeof extra === 'object' && 'signal' in extra
+            ? (extra as { signal?: AbortSignal }).signal
+            : undefined;
+        const result = await executePostgresMcpTool(id, input as Record<string, unknown>, {
+          signal,
+        });
         return {
           content: [{ type: 'text', text: JSON.stringify(result) }],
           structuredContent: result as Record<string, unknown>,
