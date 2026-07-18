@@ -1,0 +1,38 @@
+{
+  "templateKey": "test.echo",
+  "version": "1.0.0",
+  "description": "Deterministic echo template used by the Sprint 15 mission-engine gate.",
+  "trigger": { "kind": "on-demand" },
+  "stageGraph": [
+    {
+      "id": "fleet_probe",
+      "stageKind": "fleet.probe@1",
+      "executorRef": "builtin.fleet-probe@1",
+      "inputSchema": { "schemaRef": "mission.goal", "schemaVersion": 1 },
+      "outputSchema": { "schemaRef": "mission.probe.result", "schemaVersion": 1 }
+    },
+    {
+      "id": "echo_goal",
+      "stageKind": "test.echo@1",
+      "executorRef": "builtin.test-echo@1",
+      "inputSchema": { "schemaRef": "mission.probe.result", "schemaVersion": 1 },
+      "outputSchema": { "schemaRef": "mission.test.echo.output", "schemaVersion": 1 }
+    }
+  ],
+  "toolGrants": [],
+  "modelRoleBindings": {
+    "fleet_probe": "divergent"
+  },
+  "budgets": {
+    "wallMs": 30000,
+    "tokens": 4000,
+    "cost": 0,
+    "maxSteps": 4
+  },
+  "gateRubric": null,
+  "humanGate": null,
+  "outputContract": {
+    "schemaRef": "mission.test.echo.output",
+    "schemaVersion": 1
+  }
+}

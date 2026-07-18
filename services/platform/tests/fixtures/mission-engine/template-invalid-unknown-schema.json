@@ -1,0 +1,31 @@
+{
+  "templateKey": "test.invalid-unknown-schema",
+  "version": "1.0.0",
+  "description": "Closed DSL negative: schema ref/version is not registered.",
+  "trigger": { "kind": "on-demand" },
+  "stageGraph": [
+    {
+      "id": "fleet_probe",
+      "stageKind": "fleet.probe@1",
+      "executorRef": "builtin.fleet-probe@1",
+      "inputSchema": { "schemaRef": "mission.goal", "schemaVersion": 1 },
+      "outputSchema": { "schemaRef": "mission.schema.unknown", "schemaVersion": 99 }
+    }
+  ],
+  "toolGrants": [],
+  "modelRoleBindings": {
+    "fleet_probe": "divergent"
+  },
+  "budgets": {
+    "wallMs": 30000,
+    "tokens": 1000,
+    "cost": 0,
+    "maxSteps": 2
+  },
+  "gateRubric": null,
+  "humanGate": null,
+  "outputContract": {
+    "schemaRef": "mission.schema.unknown",
+    "schemaVersion": 99
+  }
+}

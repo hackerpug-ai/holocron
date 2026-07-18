@@ -1,0 +1,31 @@
+{
+  "templateKey": "test.invalid-unknown-stage",
+  "version": "1.0.0",
+  "description": "Closed DSL negative: stage kind is not registered.",
+  "trigger": { "kind": "on-demand" },
+  "stageGraph": [
+    {
+      "id": "bad_stage",
+      "stageKind": "not.registered@99",
+      "executorRef": "builtin.fleet-probe@1",
+      "inputSchema": { "schemaRef": "mission.goal", "schemaVersion": 1 },
+      "outputSchema": { "schemaRef": "mission.probe.result", "schemaVersion": 1 }
+    }
+  ],
+  "toolGrants": [],
+  "modelRoleBindings": {
+    "bad_stage": "divergent"
+  },
+  "budgets": {
+    "wallMs": 30000,
+    "tokens": 1000,
+    "cost": 0,
+    "maxSteps": 2
+  },
+  "gateRubric": null,
+  "humanGate": null,
+  "outputContract": {
+    "schemaRef": "mission.probe.result",
+    "schemaVersion": 1
+  }
+}
