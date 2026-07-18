@@ -207,12 +207,20 @@ export async function executePostgresMcpTool(
         const condition = String(input.condition ?? 'any');
         const priceMin = typeof input.priceMin === 'number' ? input.priceMin : null;
         const priceMax = typeof input.priceMax === 'number' ? input.priceMax : null;
+        const retailers = (
+          Array.isArray(input.retailers)
+            ? input.retailers.map(String)
+            : ['amazon', 'ebay', 'newegg', 'bestbuy']
+        ).sort();
+        const verifiedOnly = Boolean(input.verifiedOnly);
         const existing = await sql`
           SELECT id::text AS "sessionId", status, total_listings AS "totalListings"
           FROM shop_sessions
           WHERE query = ${query} AND condition = ${condition}
             AND price_min IS NOT DISTINCT FROM ${priceMin}
             AND price_max IS NOT DISTINCT FROM ${priceMax}
+            AND retailers = ${sql.json(retailers)}
+            AND verified_only IS NOT DISTINCT FROM ${verifiedOnly}
           ORDER BY created_at DESC LIMIT 1
         `;
         if (existing[0]) {
@@ -239,7 +247,7 @@ export async function executePostgresMcpTool(
         const rows = await sql`
           INSERT INTO shop_sessions (id, query, condition, price_min, price_max, retailers, verified_only, status)
           VALUES (${randomUUID()}::uuid, ${query}, ${condition}, ${priceMin}, ${priceMax},
-                  ${sql.json((input.retailers as unknown[]) ?? [])}, ${Boolean(input.verifiedOnly)}, 'pending')
+                  ${sql.json(retailers)}, ${verifiedOnly}, 'pending')
           RETURNING id::text AS "sessionId", status
         `;
         try {
@@ -247,11 +255,11 @@ export async function executePostgresMcpTool(
             sql,
             rows[0].sessionId,
             query,
-            ((input.retailers as unknown[]) ?? ['amazon', 'ebay', 'newegg', 'bestbuy']).map(String),
+            retailers,
             condition,
             priceMin,
             priceMax,
-            Boolean(input.verifiedOnly),
+            verifiedOnly,
             options?.signal
           );
           return {

@@ -527,6 +527,27 @@ describe('Sprint 19 MCP rehost gateway', () => {
       const firstShop = await shop.json();
       const replayShop = await shopAgain.json();
       expect(firstShop.result.structuredContent).toEqual(replayShop.result.structuredContent);
+      const conflicting = await app.request('/mcp', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          ...shopBody,
+          id: 8,
+          params: {
+            name: 'shop_products',
+            arguments: {
+              query: 'USB-C hub replay',
+              condition: 'any',
+              retailers: ['bestbuy'],
+              verifiedOnly: true,
+            },
+          },
+        }),
+      });
+      const conflictingBody = await conflicting.json();
+      expect(conflictingBody.result.structuredContent.sessionId).not.toBe(
+        firstShop.result.structuredContent.sessionId
+      );
 
       const invalidApprove = await app.request('/mcp', {
         method: 'POST',
