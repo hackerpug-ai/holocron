@@ -21,12 +21,13 @@
  *     pnpm vitest run services/platform/tests/integration/evals-ci-gate.test.ts
  */
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { createSql, type Sql } from '../../src/db/client';
 import { resolveDatabaseUrl } from '../../src/db/connection';
 import { applyMigrations } from '../../src/db/migrate';
+import { finalizeJudgeScore } from '../../src/evals/scorers';
 
 const PLATFORM_IT = process.env.PLATFORM_IT === '1';
 const FLEET_TIMEOUT_MS = 300_000;
@@ -167,11 +168,16 @@ describe('obs-4 evals CI gate (threshold + deterministic invariants)', () => {
     expect(result.status).toBe(1);
 
     const payload = parseJson(result.stdout);
-    // Independence facts (REDHAT-FIX-H1 / H-1): judge must pass threshold so the
+    // Independence facts (REDHAT-FIX-H1 / H-1-R): real local-judge score must
+    // naturally clear threshold with no post-judge floor/rewrite, so the
     // deterministic branch is selected — not threshold_regression.
     expect(Number(payload.score)).toBeGreaterThanOrEqual(0.8);
     expect(Number(payload.threshold)).toBe(0.8);
     expect(payload.meetsThreshold).toBe(true);
+    // REDHAT-FIX-H1-R: emitted score must equal raw judge score exactly.
+    expect(payload.rawJudgeScore).not.toBeNull();
+    expect(Number(payload.rawJudgeScore)).toBe(Number(payload.score));
+    expect(payload.failureReason).not.toBe('judge_score_rewrite');
     expect(payload.invariantPassed).toBe(false);
     expect(payload.verdict).toBe('failed');
     expect(payload.exitCode).toBe(1);
@@ -185,6 +191,52 @@ describe('obs-4 evals CI gate (threshold + deterministic invariants)', () => {
     const citation = (failures ?? []).find((f) => f.invariantId === 'required-citation');
     expect(citation).toBeTruthy();
     expect(citation?.invariantId).toBe('required-citation');
+
+    // Fixture remains citation-free (no URL/DOI/bracket/[Sources] markers).
+    const fixturePath = resolve(
+      REPO_ROOT,
+      'services/platform/evals/fixtures/deterministic-invariant-regression.jsonl'
+    );
+    const fixtureBody = readFileSync(fixturePath, 'utf8');
+    const fixtureOutput = JSON.parse(fixtureBody.trim().split('\n')[0] ?? '{}') as {
+      output?: string;
+    };
+    const output = fixtureOutput.output ?? '';
+    expect(output).not.toMatch(/\[\d+\]/);
+    expect(output).not.toMatch(/https?:\/\//i);
+    expect(output).not.toMatch(/\bdoi:\s*10\.\d+/i);
+    expect(output).not.toMatch(/\bSources:\s*\n/i);
+
+    // Judge reasoning must not claim the brief belongs below threshold while
+    // the numeric score reports a pass. Affirmative phrasing like
+    // "must not pull … below 0.8" is allowed.
+    const reason = String(payload.reason ?? '');
+    if (Number(payload.score) >= 0.8) {
+      expect(reason).not.toMatch(
+        /\b(?:score|response|brief|answer)\b[^.]{0,40}\b(?:is|falls?|belongs|remains)\s+(?:below|under|less than)\s+(?:the\s+)?0\.8\b/i
+      );
+      expect(reason).not.toMatch(
+        /\bjustif(?:y|ies|ied)\s+(?:a\s+)?(?:reduction|score)\s+(?:below|under)\s+(?:the\s+)?0\.8\b/i
+      );
+    }
+  });
+
+  it('AC-1 / TC-1-unit: finalizeJudgeScore never floors sub-threshold scores', () => {
+    // Pure unit guard: a structured citation-free analysis at 0.6 must emit 0.6.
+    const emitted = finalizeJudgeScore({
+      score: 0.6,
+      reasoning: 'structured but no citations',
+      hasCitations: false,
+      isGrounded: true,
+      isStructured: true,
+      isComplete: true,
+    });
+    expect(emitted).toBe(0.6);
+
+    const src = readFileSync(resolve(REPO_ROOT, 'services/platform/src/evals/scorers.ts'), 'utf8');
+    // No hard floor branch may remain in the scorer.
+    expect(src).not.toMatch(/score\s*<\s*0\.8[\s\S]{0,80}return\s*0\.8/);
+    expect(src).not.toMatch(/return\s+0\.8\s*;\s*\n\s*\}\s*\n\s*return score/);
   });
 
   itLive('AC-4 / TC-4: invalid gate configuration fails closed', async () => {

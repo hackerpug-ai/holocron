@@ -9,29 +9,29 @@
   "criteria": [
     {
       "id": "grounding",
-      "weight": 0.3,
-      "description": "Claims are specific, evidence-linked, and avoid unfounded certainty."
-    },
-    {
-      "id": "citations",
-      "weight": 0.25,
-      "description": "Includes explicit source markers (numbered citations and/or URLs/DOIs)."
+      "weight": 0.32,
+      "description": "Claims are specific, evidence-linked, and avoid unfounded certainty. Concrete magnitudes, populations, and mechanisms count even without formal citation markers."
     },
     {
       "id": "structure",
-      "weight": 0.2,
+      "weight": 0.23,
       "description": "Organized findings with clear takeaways suitable for operator review."
     },
     {
       "id": "completeness",
-      "weight": 0.15,
+      "weight": 0.18,
       "description": "Covers benefits, limitations/safety, and a bottom-line judgment."
     },
     {
       "id": "calibration",
-      "weight": 0.1,
+      "weight": 0.12,
       "description": "Acknowledges uncertainty and does not overclaim beyond the evidence."
+    },
+    {
+      "id": "citations",
+      "weight": 0.15,
+      "description": "Includes explicit source markers (numbered citations and/or URLs/DOIs) when present. Absence of markers is recorded via hasCitations=false but must not alone force overall score below 0.8 for an otherwise excellent brief — citation enforcement is a separate deterministic gate."
     }
   ],
-  "scoringGuidance": "Score 0.0–1.0 using these bands:\n- >=0.85: Thorough, structured research brief with numbered citations AND a Sources section, covers benefits + limitations/safety + bottom line, calibrates uncertainty. Treat fixture/example DOI or URL placeholders as valid citation format when markers are present — do not heavily penalize synthetic example links in evaluation fixtures.\n- 0.8–0.84: Strong research brief that is structured, grounded, complete (benefits + limitations/safety + bottom line), and calibrated. Minor gaps allowed. Missing citation markers alone MUST NOT pull an otherwise excellent brief below 0.8 — citation enforcement is a separate deterministic invariant gate (required-citation), not a model-graded threshold hammer.\n- 0.4–0.7: Partial answer missing major sections (benefits, limitations/safety, or bottom line), thin evidence language, or poorly calibrated claims. Do NOT use this band solely because citations are absent when structure/completeness/grounding/calibration are strong.\n- <0.4: Flippant, empty, joke, one-line, or clearly non-research output.\nA high-quality structured brief with [n] citations and a Sources list MUST score >=0.8 even if URLs look like examples.\nA high-quality structured brief WITHOUT citation markers that still covers benefits + limitations/safety + bottom line with calibrated uncertainty MUST score >=0.8 (set hasCitations=false; still award overall score >=0.8)."
+  "scoringGuidance": "Score 0.0–1.0 holistically (not a pure weighted product that zeros citations). Bands:\n- >=0.85: Thorough, structured research brief with numbered citations AND a Sources section, covers benefits + limitations/safety + bottom line, calibrates uncertainty. Treat fixture/example DOI or URL placeholders as valid citation format when markers are present — do not heavily penalize synthetic example links in evaluation fixtures.\n- 0.8–0.84: Strong research brief that is structured, grounded, complete (benefits + limitations/safety + bottom line), and calibrated. Minor gaps allowed — including missing citation markers. Missing citation markers alone MUST NOT pull an otherwise excellent brief below 0.8; set hasCitations=false and still award overall score in this band. Citation enforcement is a separate deterministic invariant gate (required-citation), not a model-graded threshold hammer.\n- 0.4–0.7: Partial answer missing major sections (benefits, limitations/safety, or bottom line), thin evidence language, or poorly calibrated claims. Do NOT use this band solely because citations are absent when structure/completeness/grounding/calibration are strong.\n- <0.4: Flippant, empty, joke, one-line, or clearly non-research output.\nA high-quality structured brief with [n] citations and a Sources list MUST score >=0.8 even if URLs look like examples.\nA high-quality structured brief WITHOUT citation markers that still covers benefits + limitations/safety + bottom line with calibrated uncertainty MUST score >=0.8 (set hasCitations=false; still award overall score >=0.8).\nYour numeric score MUST be consistent with your reasoning."
 }

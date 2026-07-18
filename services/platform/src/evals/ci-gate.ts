@@ -103,6 +103,8 @@ export type CiGateResult = {
   modelVersion: string | null;
   promptVersion: string | null;
   score: number | null;
+  /** Raw judge analysis.score — must equal score (no post-judge rewrite). */
+  rawJudgeScore: number | null;
   baseline: number | null;
   threshold: number | null;
   verdict: 'passed' | 'failed';
@@ -231,6 +233,7 @@ function failedResult(
     modelVersion: partial.modelVersion ?? null,
     promptVersion: partial.promptVersion ?? null,
     score: partial.score ?? null,
+    rawJudgeScore: partial.rawJudgeScore ?? null,
     baseline: partial.baseline ?? null,
     threshold: partial.threshold ?? null,
     verdict: 'failed',
@@ -436,6 +439,7 @@ export async function runCiGate(options: CiGateOptions): Promise<CiGateResult> {
 
   // --- score with local judge (real fleet call) ---
   let score: number;
+  let rawJudgeScore: number;
   let judgeModelVersion: string;
   let judgeEndpoint: string;
   let judgeModelId: string;
@@ -453,6 +457,31 @@ export async function runCiGate(options: CiGateOptions): Promise<CiGateResult> {
       judgeEndpointOverride: options.judgeEndpointOverride,
     });
     score = scored.score;
+    const analysisScore = (scored.analysis as { score?: unknown } | undefined)?.score;
+    rawJudgeScore =
+      typeof analysisScore === 'number' && !Number.isNaN(analysisScore)
+        ? analysisScore
+        : scored.score;
+    // REDHAT-FIX-H1-R: fail closed if any post-judge rewrite diverges emitted score from raw.
+    if (rawJudgeScore !== score) {
+      return failedResult({
+        fixture,
+        datasetVersion: sampleDatasetVersion,
+        baselineVersion: baseline.version,
+        modelVersion: scored.judgeModelVersion,
+        promptVersion: rubric.promptVersion,
+        score,
+        rawJudgeScore,
+        baseline: baseline.threshold,
+        threshold,
+        sampleId,
+        runId,
+        failureReason: 'judge_score_rewrite',
+        errorCode: 'JUDGE_SCORE_REWRITE',
+        exitReason: `emitted score ${score} diverges from raw judge score ${rawJudgeScore}`,
+        reason: scored.reason,
+      });
+    }
     judgeModelVersion = scored.judgeModelVersion;
     judgeEndpoint = scored.judgeEndpoint;
     judgeModelId = scored.judgeModelId;
@@ -520,6 +549,8 @@ export async function runCiGate(options: CiGateOptions): Promise<CiGateResult> {
       reason: reason ?? null,
       analysis: {
         ...(analysis ?? {}),
+        rawJudgeScore,
+        emittedScore: score,
         invariantScore: invariantScoreFromJudge,
         deterministicInvariants: invariants.checks,
         deterministicFailures: invariants.failures,
@@ -542,6 +573,7 @@ export async function runCiGate(options: CiGateOptions): Promise<CiGateResult> {
     modelVersion: judgeModelVersion,
     promptVersion: rubric.promptVersion,
     score,
+    rawJudgeScore,
     baseline: baseline.threshold,
     threshold,
     runId,
