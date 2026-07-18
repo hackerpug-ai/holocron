@@ -1,0 +1,18 @@
+{
+  "blocked": true,
+  "reason": "MISSING_DEPENDENCY",
+  "dependency": "ANTHROPIC_API_KEY",
+  "platformIt": true,
+  "hasAnthropicKey": false,
+  "allowSkipAnthropic": false,
+  "sourcesChecked": [
+    "process.env",
+    "secrets.yaml",
+    "repo-root .env"
+  ],
+  "dotenvPathsChecked": [
+    "/Users/inference1/Projects/holocron/.worktrees/REDHAT-FIX-H2/.env",
+    "/Users/inference1/Projects/holocron/.env"
+  ],
+  "note": "MISSING_DEPENDENCY: ANTHROPIC_API_KEY required for budgeted-escape telemetry proof (AC-3). Provide via process.env, services/platform/config/secrets.yaml, or repo-root .env. ALLOW_SKIP_ANTHROPIC=1 is local-dev only and is not valid for the Sprint 12 gate."
+}

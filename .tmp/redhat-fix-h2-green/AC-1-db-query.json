@@ -1,0 +1,45 @@
+{
+  "runId": "obs2-ac1-1784349790180",
+  "traceId": "66b6677e-273f-4cdb-9215-0248d306a3c3",
+  "rowCount": 2,
+  "rows": [
+    {
+      "id": "019f7389-17f7-7068-8cbb-df57fda4f525",
+      "runId": "obs2-ac1-1784349790180",
+      "stepId": "research-step-1",
+      "traceId": "66b6677e-273f-4cdb-9215-0248d306a3c3",
+      "role": "divergent",
+      "provider": "fleet",
+      "endpoint": "http://127.0.0.1:4545/v1",
+      "modelId": "implementer",
+      "inputTokens": 12,
+      "outputTokens": 32,
+      "totalTokens": 44,
+      "wallMs": 2054,
+      "status": "success",
+      "errorCode": null,
+      "errorMessage": null,
+      "budgetLedgerId": null,
+      "createdAt": "2026-07-18T04:43:12.246Z"
+    },
+    {
+      "id": "019f7389-1da6-70bb-b142-e3349862a47b",
+      "runId": "obs2-ac1-1784349790180",
+      "stepId": "research-step-2",
+      "traceId": "66b6677e-273f-4cdb-9215-0248d306a3c3",
+      "role": "divergent",
+      "provider": "fleet",
+      "endpoint": "http://127.0.0.1:4545/v1",
+      "modelId": "implementer",
+      "inputTokens": 12,
+      "outputTokens": 13,
+      "totalTokens": 25,
+      "wallMs": 1436,
+      "status": "success",
+      "errorCode": null,
+      "errorMessage": null,
+      "budgetLedgerId": null,
+      "createdAt": "2026-07-18T04:43:13.700Z"
+    }
+  ]
+}

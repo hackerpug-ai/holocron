@@ -1,0 +1,3 @@
+postgres_ok: true
+fleet_http: 200
+anthropic_contacted: true (from AC-3 assertion anthropicHostContacted)

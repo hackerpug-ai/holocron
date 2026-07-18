@@ -1,0 +1,8 @@
+# RED: missing Anthropic dependency must FAIL CLOSED (not skip/pass)
+# HOLO_DISABLE_DOTENV=1 forces secrets.yaml/env-only resolution so local .env
+# does not mask the missing-dependency path for this evidence capture.
+env -u ANTHROPIC_API_KEY \
+  HOLO_DISABLE_DOTENV=1 \
+  PLATFORM_IT=1 \
+  DATABASE_URL=postgres://inference1@127.0.0.1:5432/holocron \
+  pnpm exec vitest run services/platform/tests/integration/inference-telemetry.test.ts

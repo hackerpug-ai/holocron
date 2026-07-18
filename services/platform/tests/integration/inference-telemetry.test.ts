@@ -2,10 +2,16 @@
  * obs-2 — Inference telemetry stream (tokens/wall-ms/endpoint/role) → Postgres per call.
  *
  * Covers AC-1..AC-5 / TC-1..TC-5 against real Postgres + Mastra + local fleet
- * (and real Anthropic escape for AC-3 when ANTHROPIC_API_KEY is present).
+ * and a **non-skippable** real Anthropic budgeted-escape path for AC-3 under
+ * PLATFORM_IT=1 (REDHAT-FIX-H2).
  *
  * RED (obs-2 seed): inference_telemetry missing / zero rows after real model calls.
  * GREEN: one durable redacted row per model call; telemetry:tail; budget-ledger correlate.
+ *
+ * AC-3 gate (Sprint 12 / REDHAT-FIX-H2):
+ *   - PLATFORM_IT=1 + no ANTHROPIC_API_KEY → hard fail (MISSING_DEPENDENCY), never skip/pass
+ *   - ALLOW_SKIP_ANTHROPIC=1 is local-dev only and is NOT a valid Sprint 12 gate path
+ *   - Key sources (no values logged): process.env, secrets.yaml, repo-root .env
  *
  * NEGATIVE_CONTROL (would fail if):
  * - disconnect / stub / empty / mock / static success rows
@@ -13,13 +19,15 @@
  * - silent cloud fallback on default path
  * - failed calls omitted or rewritten as status=success
  * - prompt/response bodies persisted in telemetry
+ * - AC-3 silently skipped when Anthropic dependency is missing under PLATFORM_IT=1
  *
  * Run:
+ *   set -a; source /path/to/repo/.env 2>/dev/null || true; set +a
  *   PLATFORM_IT=1 DATABASE_URL=postgres://inference1@127.0.0.1:5432/holocron \
  *     pnpm vitest run services/platform/tests/integration/inference-telemetry.test.ts
  */
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { applyConsolidatedSecretsToEnv, getSecretValue } from '../../src/config/secrets';
@@ -36,36 +44,195 @@ const DATABASE_URL = process.env.DATABASE_URL ?? resolveDatabaseUrl({ preferHolo
 const FLEET_ENDPOINT = 'http://127.0.0.1:4545/v1';
 const FLEET_ENDPOINT_BASE = 'http://127.0.0.1:4545';
 
+const MISSING_ANTHROPIC_DEPENDENCY =
+  'MISSING_DEPENDENCY: ANTHROPIC_API_KEY required for budgeted-escape telemetry proof (AC-3). ' +
+  'Provide via process.env, services/platform/config/secrets.yaml, or repo-root .env. ' +
+  'ALLOW_SKIP_ANTHROPIC=1 is local-dev only and is not valid for the Sprint 12 gate.';
+
 const itLive = (
   name: string,
-  fn: () => Promise<unknown> | undefined,
+  fn: () => Promise<unknown> | void,
   timeout: number = FLEET_TIMEOUT_MS
 ) => {
   if (PLATFORM_IT) it(name, fn, timeout);
   else it.skip(name, fn);
 };
 
-function ensureAnthropicKeyFromSecrets(): boolean {
+/**
+ * Candidate .env paths for local QA (gitignored; never committed).
+ * Includes monorepo main root when running inside a `.worktrees/<name>` checkout.
+ */
+function candidateDotEnvPaths(repoRoot: string): string[] {
+  const paths = [resolve(repoRoot, '.env')];
+  const worktreeMatch = repoRoot.match(/^(.*)\/\.worktrees\/[^/]+$/);
+  if (worktreeMatch?.[1]) {
+    paths.push(resolve(worktreeMatch[1], '.env'));
+  }
+  return paths;
+}
+
+/**
+ * Load KEY=VALUE pairs from a dotenv file into process.env without overwriting
+ * non-empty existing values. Never logs secret values.
+ */
+function loadDotEnvFile(path: string): { loaded: boolean; keysApplied: string[] } {
+  if (!existsSync(path)) return { loaded: false, keysApplied: [] };
+  const text = readFileSync(path, 'utf8');
+  const keysApplied: string[] = [];
+  for (const rawLine of text.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('#')) continue;
+    const eq = line.indexOf('=');
+    if (eq <= 0) continue;
+    const key = line.slice(0, eq).trim();
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) continue;
+    let value = line.slice(eq + 1).trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+    if (!value) continue;
+    if (process.env[key]?.trim()) continue;
+    process.env[key] = value;
+    keysApplied.push(key);
+  }
+  return { loaded: true, keysApplied };
+}
+
+type AnthropicKeyProvenance = {
+  present: boolean;
+  source: 'env' | 'secrets.yaml' | 'dotenv' | null;
+  dotenvPathsChecked: string[];
+  dotenvPathUsed: string | null;
+  secretsFileConsulted: boolean;
+};
+
+/**
+ * Resolve ANTHROPIC_API_KEY from approved sources (never print the value):
+ *   1. process.env (operator / CI / sourced shell)
+ *   2. secrets.yaml via applyConsolidatedSecretsToEnv / getSecretValue
+ *   3. repo-root .env (and monorepo main .env for worktrees)
+ */
+function ensureAnthropicKeyFromSecrets(): AnthropicKeyProvenance {
+  const dotenvPathsChecked = candidateDotEnvPaths(REPO_ROOT);
+  let dotenvPathUsed: string | null = null;
+
+  // 1) Already in process env
+  if (process.env.ANTHROPIC_API_KEY?.trim()) {
+    return {
+      present: true,
+      source: 'env',
+      dotenvPathsChecked,
+      dotenvPathUsed: null,
+      secretsFileConsulted: false,
+    };
+  }
+
+  // 2) secrets.yaml (and any other flat keys)
   applyConsolidatedSecretsToEnv();
-  const fromEnv = process.env.ANTHROPIC_API_KEY?.trim();
-  if (fromEnv) return true;
+  const fromEnvAfterSecrets = process.env.ANTHROPIC_API_KEY?.trim();
+  if (fromEnvAfterSecrets) {
+    return {
+      present: true,
+      source: 'secrets.yaml',
+      dotenvPathsChecked,
+      dotenvPathUsed: null,
+      secretsFileConsulted: true,
+    };
+  }
   const fromFile = getSecretValue('ANTHROPIC_API_KEY');
   if (fromFile?.trim()) {
     process.env.ANTHROPIC_API_KEY = fromFile.trim();
-    return true;
+    return {
+      present: true,
+      source: 'secrets.yaml',
+      dotenvPathsChecked,
+      dotenvPathUsed: null,
+      secretsFileConsulted: true,
+    };
   }
-  return false;
+
+  // 3) repo-root .env (local QA store; gitignored)
+  // HOLO_DISABLE_DOTENV=1 is only for RED missing-dependency evidence capture —
+  // never used for Sprint 12 GREEN / gate runs.
+  const disableDotEnv = process.env.HOLO_DISABLE_DOTENV === '1';
+  if (!disableDotEnv) {
+    for (const p of dotenvPathsChecked) {
+      const result = loadDotEnvFile(p);
+      if (result.loaded && result.keysApplied.includes('ANTHROPIC_API_KEY')) {
+        dotenvPathUsed = p;
+      }
+      if (process.env.ANTHROPIC_API_KEY?.trim()) {
+        return {
+          present: true,
+          source: 'dotenv',
+          dotenvPathsChecked,
+          dotenvPathUsed: dotenvPathUsed ?? p,
+          secretsFileConsulted: true,
+        };
+      }
+    }
+  }
+
+  return {
+    present: false,
+    source: null,
+    dotenvPathsChecked,
+    dotenvPathUsed: null,
+    secretsFileConsulted: true,
+  };
 }
 
-const hasAnthropicKey = ensureAnthropicKeyFromSecrets();
+const anthropicKeyProvenance = ensureAnthropicKeyFromSecrets();
+const hasAnthropicKey = anthropicKeyProvenance.present;
 const allowSkipAnthropic = process.env.ALLOW_SKIP_ANTHROPIC === '1';
+
+/**
+ * AC-3 budgeted-escape gate (REDHAT-FIX-H2):
+ * - PLATFORM_IT=1 + key present → run real escape
+ * - PLATFORM_IT=1 + key absent + ALLOW_SKIP_ANTHROPIC=1 → skip (local-dev only; not Sprint 12 gate)
+ * - PLATFORM_IT=1 + key absent → FAIL CLOSED with MISSING_DEPENDENCY (never silent skip/pass)
+ * - PLATFORM_IT!=1 → skip (suite not armed)
+ */
 const itAnthropic = (
   name: string,
-  fn: () => Promise<unknown> | undefined,
+  fn: () => Promise<unknown> | void,
   timeout: number = FLEET_TIMEOUT_MS
 ) => {
-  if (PLATFORM_IT && hasAnthropicKey) it(name, fn, timeout);
-  else it.skip(name, fn);
+  if (!PLATFORM_IT) {
+    it.skip(name, fn);
+    return;
+  }
+  if (hasAnthropicKey) {
+    it(name, fn, timeout);
+    return;
+  }
+  if (allowSkipAnthropic) {
+    // Local-dev escape hatch only — Sprint 12 GREEN evidence must NOT set this.
+    it.skip(name, fn);
+    return;
+  }
+  // Fail closed: register a real failing test with an explicit missing-dependency reason.
+  it(
+    name,
+    () => {
+      writeArtifact('AC-3-missing-dependency.json', {
+        blocked: true,
+        reason: 'MISSING_DEPENDENCY',
+        dependency: 'ANTHROPIC_API_KEY',
+        platformIt: PLATFORM_IT,
+        hasAnthropicKey: false,
+        allowSkipAnthropic: false,
+        sourcesChecked: ['process.env', 'secrets.yaml', 'repo-root .env'],
+        dotenvPathsChecked: anthropicKeyProvenance.dotenvPathsChecked,
+        note: MISSING_ANTHROPIC_DEPENDENCY,
+      });
+      throw new Error(MISSING_ANTHROPIC_DEPENDENCY);
+    },
+    timeout
+  );
 };
 
 function writeArtifact(name: string, body: unknown): string {
@@ -387,11 +554,12 @@ describe('obs-2 inference telemetry', () => {
 
     const telemetry = await loadTelemetry();
     const runId = `obs2-ac3-escape-${Date.now()}`;
+    const stepId = 'obs2-escape-step';
     const result = await telemetry.runBudgetedEscapeWithTelemetry({
       prompt: 'Reply with exactly the single word: pong',
       reason: 'obs-2-budgeted-escape-fixture',
       runId,
-      stepId: 'obs2-escape-step',
+      stepId,
       role: 'divergent',
       estimatedCostUsd: 0.05,
       databaseUrl: DATABASE_URL,
@@ -401,6 +569,8 @@ describe('obs-2 inference telemetry', () => {
     expect(result.escape.ledgerId).toBeTruthy();
     expect(result.telemetry.provider).toBe('anthropic');
     expect(result.telemetry.runId).toBe(runId);
+    expect(result.telemetry.stepId).toBe(stepId);
+    expect(result.telemetry.budgetLedgerId).toBe(result.escape.ledgerId);
 
     const sql = createSql(DATABASE_URL);
     try {
@@ -414,9 +584,10 @@ describe('obs-2 inference telemetry', () => {
           tokens: number;
           cost: number;
           allow_escape: boolean | null;
+          timestamp: Date | string | null;
         }[]
       >`
-        SELECT id::text, check_type, run_id, step_id, tokens, cost, allow_escape
+        SELECT id::text, check_type, run_id, step_id, tokens, cost, allow_escape, "timestamp"
         FROM budget_ledger
         WHERE run_id = ${runId}
         ORDER BY "timestamp" ASC
@@ -426,34 +597,55 @@ describe('obs-2 inference telemetry', () => {
       const escapeRows = budgetRows.filter(
         (r) => r.check_type === 'escape' || (r.check_type == null && Number(r.cost) > 0)
       );
+      const ledgerById = budgetRows.find((b) => b.id === result.escape.ledgerId);
 
       writeArtifact('AC-3-budgeted-escape.json', {
         runId,
+        stepId,
         telemetryRows: telRows,
         budgetRows,
         preCheckCount: preCheck.length,
         escapeCount: escapeRows.length,
         correlation: {
           telemetryRunId: telRows[0]?.runId,
+          telemetryStepId: telRows[0]?.stepId,
           budgetRunIds: budgetRows.map((r) => r.run_id),
+          budgetStepIds: budgetRows.map((r) => r.step_id),
           budgetLedgerIdOnTelemetry: telRows[0]?.budgetLedgerId,
           escapeLedgerId: result.escape.ledgerId,
+          ledgerRowFoundById: Boolean(ledgerById),
+          joinedBy:
+            telRows[0]?.budgetLedgerId === result.escape.ledgerId
+              ? 'budget_ledger_id'
+              : 'run_id/step_id',
         },
       });
 
       expect(preCheck.length, 'pre-check rows: 1').toBeGreaterThanOrEqual(1);
       expect(escapeRows.length, 'escape rows: 1').toBeGreaterThanOrEqual(1);
       expect(telRows.length, 'telemetry rows: 1').toBeGreaterThanOrEqual(1);
-      expect(telRows[0]!.provider).toBe('anthropic');
-      expect(telRows[0]!.runId).toBe(runId);
-      expect(telRows[0]!.endpoint).toMatch(/api\.anthropic\.com/i);
-      // Cross-ledger identity: same runId and/or budget_ledger id link.
+
+      const tel = telRows[0]!;
+      expect(tel.provider).toBe('anthropic');
+      expect(tel.runId).toBe(runId);
+      expect(tel.stepId).toBe(stepId);
+      expect(tel.endpoint).toMatch(/api\.anthropic\.com/i);
+      expect(tel.modelId, 'modelId present on escape telemetry').toBeTruthy();
+      expect(tel.wallMs, 'wallMs: >0').toBeGreaterThan(0);
+      expect(tel.totalTokens, 'totalTokens: >=1').toBeGreaterThanOrEqual(1);
+      expect(tel.status).toBe('success');
+
+      // Cross-ledger identity: budget_ledger_id must join telemetry ↔ ledger.
+      expect(tel.budgetLedgerId, 'telemetry.budget_ledger_id').toBe(result.escape.ledgerId);
+      expect(ledgerById, 'budget_ledger row by escape.ledgerId').toBeTruthy();
+      expect(ledgerById!.run_id).toBe(runId);
+      expect(ledgerById!.step_id).toBe(stepId);
+      expect(Number(ledgerById!.cost), 'ledger cost recorded').toBeGreaterThanOrEqual(0);
       expect(
-        telRows[0]!.budgetLedgerId === result.escape.ledgerId ||
-          budgetRows.some((b) => b.id === telRows[0]!.budgetLedgerId) ||
-          budgetRows.every((b) => b.run_id === runId)
+        escapeRows.some((b) => b.id === result.escape.ledgerId || b.run_id === runId),
+        'escape ledger row correlates by id/run_id'
       ).toBe(true);
-      assertNoSecretsInRow(telRows[0]!);
+      assertNoSecretsInRow(tel);
     } finally {
       await sql.end({ timeout: 5 });
     }
@@ -539,22 +731,27 @@ describe('obs-2 inference telemetry', () => {
     }
   });
 
-  itLive('AC-3 key presence documented (escape path gated by itAnthropic)', () => {
+  itLive('AC-3 key presence (fail-closed under PLATFORM_IT without ALLOW_SKIP_ANTHROPIC)', () => {
+    // Redacted provenance only — never write secret values.
     writeArtifact('AC-3-key-presence.json', {
       hasAnthropicKey,
       allowSkipAnthropic,
       platformIt: PLATFORM_IT,
+      source: anthropicKeyProvenance.source,
+      dotenvPathsChecked: anthropicKeyProvenance.dotenvPathsChecked,
+      dotenvPathUsed: anthropicKeyProvenance.dotenvPathUsed,
+      secretsFileConsulted: anthropicKeyProvenance.secretsFileConsulted,
       note: hasAnthropicKey
-        ? 'real Anthropic path available for AC-3'
+        ? `real Anthropic path available for AC-3 (source=${anthropicKeyProvenance.source})`
         : allowSkipAnthropic
-          ? 'ALLOW_SKIP_ANTHROPIC=1 — AC-3 skipped intentionally (local-dev)'
-          : 'ANTHROPIC_API_KEY unset — AC-3 itAnthropic-skipped; set key for full escape proof',
+          ? 'ALLOW_SKIP_ANTHROPIC=1 — AC-3 skipped intentionally (local-dev; not valid Sprint 12 gate)'
+          : 'MISSING_DEPENDENCY: ANTHROPIC_API_KEY — AC-3 fails closed (not skipped)',
     });
-    // Hard fail only when harvest/operator explicitly requires Anthropic.
-    if (process.env.HOLO_REQUIRE_ANTHROPIC === '1') {
-      expect(hasAnthropicKey, 'HOLO_REQUIRE_ANTHROPIC=1 but ANTHROPIC_API_KEY missing').toBe(true);
-    }
-    // Default: document presence; AC-3 itself is skipped via itAnthropic when key absent.
     expect(PLATFORM_IT).toBe(true);
+    // Sprint 12 gate: missing Anthropic dependency is a hard failure, not a skip/pass.
+    // Local-dev may set ALLOW_SKIP_ANTHROPIC=1 to avoid the hard fail (still not a gate pass).
+    if (!allowSkipAnthropic) {
+      expect(hasAnthropicKey, MISSING_ANTHROPIC_DEPENDENCY).toBe(true);
+    }
   });
 });

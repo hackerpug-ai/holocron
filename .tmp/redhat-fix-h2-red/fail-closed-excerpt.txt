@@ -1,0 +1,9 @@
+=== skip/fail proof excerpt ===
+.tmp/redhat-fix-h2-red/stderr.txt:2:⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+.tmp/redhat-fix-h2-red/stderr.txt:4: FAIL  services/platform/tests/integration/inference-telemetry.test.ts > obs-2 inference telemetry > AC-3: budgeted escape is cross-ledger visible
+.tmp/redhat-fix-h2-red/stderr.txt:5:Error: MISSING_DEPENDENCY: ANTHROPIC_API_KEY required for budgeted-escape telemetry proof (AC-3). Provide via process.env, services/platform/config/secrets.yaml, or repo-root .env. ALLOW_SKIP_ANTHROPIC=1 is local-dev only and is not valid for the Sprint 12 gate.
+.tmp/redhat-fix-h2-red/stderr.txt:16: FAIL  services/platform/tests/integration/inference-telemetry.test.ts > obs-2 inference telemetry > AC-3 key presence (fail-closed under PLATFORM_IT without ALLOW_SKIP_ANTHROPIC)
+.tmp/redhat-fix-h2-red/stderr.txt:17:AssertionError: MISSING_DEPENDENCY: ANTHROPIC_API_KEY required for budgeted-escape telemetry proof (AC-3). Provide via process.env, services/platform/config/secrets.yaml, or repo-root .env. ALLOW_SKIP_ANTHROPIC=1 is local-dev only and is not valid for the Sprint 12 gate.: expected false to be true // Object.is equality
+.tmp/redhat-fix-h2-red/stdout.txt:7:     × AC-3: budgeted escape is cross-ledger visible 2ms
+.tmp/redhat-fix-h2-red/stdout.txt:10:     × AC-3 key presence (fail-closed under PLATFORM_IT without ALLOW_SKIP_ANTHROPIC) 2ms
+.tmp/redhat-fix-h2-red/stdout.txt:13:      Tests  2 failed | 4 passed (6)

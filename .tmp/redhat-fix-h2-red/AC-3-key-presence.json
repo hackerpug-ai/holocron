@@ -1,0 +1,13 @@
+{
+  "hasAnthropicKey": false,
+  "allowSkipAnthropic": false,
+  "platformIt": true,
+  "source": null,
+  "dotenvPathsChecked": [
+    "/Users/inference1/Projects/holocron/.worktrees/REDHAT-FIX-H2/.env",
+    "/Users/inference1/Projects/holocron/.env"
+  ],
+  "dotenvPathUsed": null,
+  "secretsFileConsulted": true,
+  "note": "MISSING_DEPENDENCY: ANTHROPIC_API_KEY — AC-3 fails closed (not skipped)"
+}

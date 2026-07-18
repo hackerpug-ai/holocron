@@ -1,0 +1,9 @@
+# GREEN: real budgeted escape with Anthropic key from approved sources
+# Key loaded from repo-root .env via ensureAnthropicKeyFromSecrets (dotenv),
+# after optional shell source. Secret values never printed.
+set -a
+source /Users/inference1/Projects/holocron/.env 2>/dev/null || true
+set +a
+PLATFORM_IT=1 \
+  DATABASE_URL=postgres://inference1@127.0.0.1:5432/holocron \
+  pnpm exec vitest run services/platform/tests/integration/inference-telemetry.test.ts

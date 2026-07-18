@@ -1,0 +1,34 @@
+{
+  "task_id": "REDHAT-FIX-H2",
+  "phase": "GREEN+RED complete",
+  "pre_commit_head": "33f1de45c9f7a641394108abb7237094866edbed",
+  "branch": "task/REDHAT-FIX-H2",
+  "captured_at": "2026-07-18T04:44:22Z",
+  "red": {
+    "dir": ".tmp/redhat-fix-h2-red",
+    "exit": 1,
+    "fail_closed": true,
+    "skipped_ac3": false,
+    "reason": "MISSING_DEPENDENCY"
+  },
+  "green": {
+    "dir": ".tmp/redhat-fix-h2-green",
+    "exit": 0,
+    "tests": "6 passed (0 skipped)",
+    "run_id": "obs2-ac3-escape-1784349795926",
+    "budget_ledger_id": "019f7389-29ab-7253-a3f1-9b71bc3df063",
+    "joined_by": "budget_ledger_id",
+    "provider": "anthropic",
+    "model_id": "claude-haiku-4-5-20251001"
+  },
+  "files_changed": [
+    "services/platform/tests/integration/inference-telemetry.test.ts"
+  ],
+  "notes": [
+    "AC-3 no longer uses it.skip under PLATFORM_IT=1 when key missing",
+    "Key sources: process.env, secrets.yaml, repo-root .env (incl. monorepo main for worktrees)",
+    "ALLOW_SKIP_ANTHROPIC=1 is local-dev only; not used for GREEN evidence",
+    "No secret values written to artifacts"
+  ],
+  "implementation_commit": "33f1de45c9f7a641394108abb7237094866edbed"
+}

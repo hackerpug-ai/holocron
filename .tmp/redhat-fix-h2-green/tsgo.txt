@@ -1,0 +1,137 @@
+services/platform/src/catalog/assets.ts(56,36): error TS2538: Type 'undefined' cannot be used as an index type.
+services/platform/src/catalog/assets.ts(74,36): error TS2538: Type 'undefined' cannot be used as an index type.
+services/platform/src/catalog/reconcile.ts(126,7): error TS2532: Object is possibly 'undefined'.
+services/platform/src/cli/extract-fixtures.ts(48,5): error TS2740: Type 'ZodObject<{ title: ZodString; count: ZodNumber; tags: ZodArray<ZodString, "many">; }, "strip", ZodTypeAny, { tags: string[]; title: string; count: number; }, { ...; }>' is missing the following properties from type 'ZodType<unknown, unknown, $ZodTypeInternals<unknown, unknown>>': def, type, toJSONSchema, check, and 18 more.
+services/platform/src/cli/extract-fixtures.ts(55,5): error TS2740: Type 'ZodObject<{ title: ZodString; count: ZodEffects<ZodNumber, number, number>; tags: ZodArray<ZodString, "many">; }, "strip", ZodTypeAny, { ...; }, { ...; }>' is missing the following properties from type 'ZodType<unknown, unknown, $ZodTypeInternals<unknown, unknown>>': def, type, toJSONSchema, check, and 18 more.
+services/platform/src/cli/extract-fixtures.ts(60,5): error TS2740: Type 'ZodObject<{ title: ZodString; count: ZodEffects<ZodNumber, number, number>; tags: ZodArray<ZodString, "many">; }, "strip", ZodTypeAny, { ...; }, { ...; }>' is missing the following properties from type 'ZodType<unknown, unknown, $ZodTypeInternals<unknown, unknown>>': def, type, toJSONSchema, check, and 18 more.
+services/platform/src/cli/extract-fixtures.ts(65,5): error TS2740: Type 'ZodObject<{ summary: ZodString; sentiment: ZodString; }, "strip", ZodTypeAny, { summary: string; sentiment: string; }, { summary: string; sentiment: string; }>' is missing the following properties from type 'ZodType<unknown, unknown, $ZodTypeInternals<unknown, unknown>>': def, type, toJSONSchema, check, and 18 more.
+services/platform/src/cli/extract-fixtures.ts(71,5): error TS2740: Type 'ZodObject<{ topic: ZodString; sample: ZodString; }, "strip", ZodTypeAny, { topic: string; sample: string; }, { topic: string; sample: string; }>' is missing the following properties from type 'ZodType<unknown, unknown, $ZodTypeInternals<unknown, unknown>>': def, type, toJSONSchema, check, and 18 more.
+services/platform/src/cli/holo.ts(303,16): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(304,19): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(307,16): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(308,21): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(311,16): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(312,22): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(315,16): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(316,28): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(321,16): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(322,22): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(325,16): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(326,21): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(329,16): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(330,20): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(333,16): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(334,19): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(337,16): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(338,23): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(341,16): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(342,26): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(357,16): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(358,26): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(361,16): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(362,21): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(365,16): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(366,20): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(369,16): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(370,20): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(373,16): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(374,29): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(377,16): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(378,24): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(381,16): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(382,25): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(385,16): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(386,24): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(389,16): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(390,22): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(393,16): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(394,22): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(397,16): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(398,19): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(401,16): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(402,19): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(410,16): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(411,19): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(414,16): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(415,21): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(418,16): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(419,21): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(422,16): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(423,22): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(426,16): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(427,21): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(430,16): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(431,20): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(434,16): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(435,22): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(438,16): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(439,22): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(442,16): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(443,27): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(452,16): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(453,24): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(454,16): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(455,34): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(456,16): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(457,35): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(458,16): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(459,34): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(460,16): error TS18048: 'a' is possibly 'undefined'.
+services/platform/src/cli/holo.ts(464,23): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+services/platform/src/cli/holo.ts(1419,35): error TS2552: Cannot find name 'RequestInfo'. Did you mean 'RequestInit'?
+services/platform/src/cli/holo.ts(1998,32): error TS2304: Cannot find name 'UnknownFleetRoleError'.
+services/platform/src/cli/holo.ts(2000,34): error TS2304: Cannot find name 'RoleUnavailableError'.
+services/platform/src/compat/cells/agent.ts(70,69): error TS2339: Property 'url' does not exist on type 'URL'.
+services/platform/src/compat/cells/agent.ts(77,31): error TS2552: Cannot find name 'RequestInfo'. Did you mean 'RequestInit'?
+services/platform/src/compat/cells/agent.ts(80,3): error TS2739: Type 'Promise<{ result: T; cloudRequests: number; fleetRequests: number; }>' is missing the following properties from type '{ result: T; cloudRequests: number; fleetRequests: number; }': result, cloudRequests, fleetRequests
+services/platform/src/compat/cells/agent.ts(144,24): error TS2345: Argument of type 'FullOutput<undefined>' is not assignable to parameter of type 'GenerateResultLike'.
+  Types of property 'tripwire' are incompatible.
+    Type 'StepTripwireData | undefined' is not assignable to type 'TripwireInfo | null | undefined'.
+      Type 'StepTripwireData' is not assignable to type 'TripwireInfo'.
+        Types of property 'processorId' are incompatible.
+          Type 'string | undefined' is not assignable to type 'string'.
+            Type 'undefined' is not assignable to type 'string'.
+services/platform/src/compat/cells/mcp.ts(68,35): error TS2554: Expected 2 arguments, but got 1.
+services/platform/src/compat/cells/tool.ts(46,26): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+services/platform/src/compat/cells/tool.ts(46,26): error TS18048: 'compatEchoTool.execute' is possibly 'undefined'.
+services/platform/src/compat/cells/tool.ts(49,7): error TS2345: Argument of type '{}' is not assignable to parameter of type 'ToolExecutionContext<unknown, unknown, unknown>'.
+  Property 'observe' is missing in type '{}' but required in type 'ToolExecutionContext<unknown, unknown, unknown>'.
+services/platform/src/config/verify-no-convex-env.ts(118,9): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+services/platform/src/config/verify-no-convex-env.ts(120,30): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+services/platform/src/config/verify-no-convex-env.ts(121,9): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+services/platform/src/inference/budget-ledger.ts(139,5): error TS4115: This parameter property must have an 'override' modifier because it overrides a member in base class 'Error'.
+services/platform/src/inference/extract-structured.ts(335,23): error TS2532: Object is possibly 'undefined'.
+services/platform/src/mastra.ts(45,21): error TS2322: Type '"always"' is not assignable to type 'SamplingStrategyType'.
+services/platform/src/observability/langfuse-exporter.ts(29,5): error TS4115: This parameter property must have an 'override' modifier because it overrides a member in base class 'Error'.
+services/platform/src/observability/langfuse-exporter.ts(225,3): error TS4114: This member must have an 'override' modifier because it overrides a member in the base class 'BaseExporter'.
+services/platform/src/observability/langfuse-exporter.ts(340,9): error TS4114: This member must have an 'override' modifier because it overrides a member in the base class 'BaseExporter'.
+services/platform/src/observability/langfuse-exporter.ts(423,9): error TS4114: This member must have an 'override' modifier because it overrides a member in the base class 'BaseExporter'.
+services/platform/src/observability/mission-research.ts(105,21): error TS2322: Type '"always"' is not assignable to type 'SamplingStrategyType'.
+services/platform/src/observability/mission-research.ts(242,22): error TS2345: Argument of type 'FullOutput<undefined>' is not assignable to parameter of type 'GenerateResultLike'.
+  Types of property 'tripwire' are incompatible.
+    Type 'StepTripwireData | undefined' is not assignable to type 'TripwireInfo | null | undefined'.
+      Type 'StepTripwireData' is not assignable to type 'TripwireInfo'.
+        Types of property 'processorId' are incompatible.
+          Type 'string | undefined' is not assignable to type 'string'.
+            Type 'undefined' is not assignable to type 'string'.
+services/platform/src/queue/priority.ts(122,24): error TS2352: Conversion of type 'never[]' to type 'RowList<{ id: string; lane: string; name: string; priority: number; }[]>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type 'never[]' is missing the following properties from type 'ResultQueryMeta<number, "id" | "name" | "priority" | "lane">': columns, count, command, statement, state
+services/platform/tests/integration/evals-versioning.test.ts(162,21): error TS18048: 'row' is possibly 'undefined'.
+services/platform/tests/integration/evals-versioning.test.ts(163,21): error TS18048: 'row' is possibly 'undefined'.
+services/platform/tests/integration/evals-versioning.test.ts(164,14): error TS18048: 'row' is possibly 'undefined'.
+services/platform/tests/integration/evals-versioning.test.ts(200,21): error TS18048: 'row' is possibly 'undefined'.
+services/platform/tests/integration/evals-versioning.test.ts(201,14): error TS18048: 'row' is possibly 'undefined'.
+services/platform/tests/integration/inference-telemetry.test.ts(734,92): error TS2345: Argument of type '() => void' is not assignable to parameter of type '() => Promise<unknown> | undefined'.
+  Type 'void' is not assignable to type 'Promise<unknown> | undefined'.
+services/platform/tests/integration/inline-surfaces-search.test.ts(163,39): error TS2552: Cannot find name 'RequestInfo'. Did you mean 'RequestInit'?
+services/platform/tests/integration/rrf-search.test.ts(399,37): error TS2345: Argument of type '(PostgresJsDatabase<{ evalScores: PgTableWithColumns<{ name: "eval_scores"; schema: undefined; columns: { id: PgColumn<{ name: "id"; tableName: "eval_scores"; dataType: "string"; columnType: "PgUUID"; data: string; driverParam: string; ... 8 more ...; generated: undefined; }, {}, {}>; ... 16 more ...; createdAt: PgC...' is not assignable to parameter of type 'PostgresJsDatabase<{ evalScores: PgTableWithColumns<{ name: "eval_scores"; schema: undefined; columns: { id: PgColumn<{ name: "id"; tableName: "eval_scores"; dataType: "string"; columnType: "PgUUID"; data: string; driverParam: string; ... 8 more ...; generated: undefined; }, {}, {}>; ... 16 more ...; createdAt: PgCo...'.
+  Type 'null' is not assignable to type 'PostgresJsDatabase<{ evalScores: PgTableWithColumns<{ name: "eval_scores"; schema: undefined; columns: { id: PgColumn<{ name: "id"; tableName: "eval_scores"; dataType: "string"; columnType: "PgUUID"; data: string; driverParam: string; ... 8 more ...; generated: undefined; }, {}, {}>; ... 16 more ...; createdAt: PgCo...'.
+    Type 'null' is not assignable to type 'PostgresJsDatabase<{ evalScores: PgTableWithColumns<{ name: "eval_scores"; schema: undefined; columns: { id: PgColumn<{ name: "id"; tableName: "eval_scores"; dataType: "string"; columnType: "PgUUID"; data: string; driverParam: string; notNull: true; ... 7 more ...; generated: undefined; }, {}, {}>; ... 16 more ...; ...'.
+services/platform/tests/integration/rrf-search.test.ts(421,17): error TS2339: Property 'searchMethod' does not exist on type 'never'.
+services/platform/tests/integration/rrf-search.test.ts(422,17): error TS2339: Property 'totalResults' does not exist on type 'never'.
+services/platform/tests/integration/rrf-search.test.ts(423,17): error TS2339: Property 'results' does not exist on type 'never'.
+tests/fixtures/struct-fixtures.ts(283,10): error TS2722: Cannot invoke an object which is possibly 'undefined'.
