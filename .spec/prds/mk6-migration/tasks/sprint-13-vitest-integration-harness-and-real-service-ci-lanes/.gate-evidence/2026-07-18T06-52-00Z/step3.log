@@ -1,0 +1,77 @@
+@@GATE-META step=step3 cmd_sha=60f3874c0627690a5b294900ccb395dee08df1d79eed6ebda8efc4a34f196435@@
++ DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod HOLO_ALLOW_PROD_SEED=0 bun services/platform/src/cli/holo.ts db seed --reset --json && DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod HOLO_ALLOW_PROD_SEED=0 bun services/platform/src/cli/holo.ts db seed --reset --json
+{
+  "ok": true,
+  "database": "holocron_nonprod",
+  "seed_fingerprint": "92a604f5d7824fa2216f9a5902f5d171",
+  "table_count": 70,
+  "fixture_ids": [
+    "seed-conversation-1",
+    "seed-message-1",
+    "seed-message-2"
+  ],
+  "reset": true,
+  "messages": [
+    "database holocron_nonprod already exists",
+    "current_user: inference1",
+    "role_mode: owner/admin",
+    "extension vector: ok",
+    "skip (already applied): 0000_groovy_stellaris.sql",
+    "skip (already applied): 0001_schema3_indexes_search_vector.sql",
+    "skip (already applied): 0002_zero_pub.sql",
+    "skip (already applied): 0003_evidence_one_open_belief.sql",
+    "skip (already applied): 0004_beliefs_immutability_revise.sql",
+    "skip (already applied): 0005_belief_asof_net_support.sql",
+    "skip (already applied): 0006_beliefs_insert_authenticity.sql",
+    "skip (already applied): 0007_app_role_seed_operability_grants.sql",
+    "skip (already applied): 0008_budget_ledger.sql",
+    "skip (already applied): 0009_budget_ledger_allow_escape.sql",
+    "skip (already applied): 0010_queue_leased.sql",
+    "skip (already applied): 0011_outbox_inbox.sql",
+    "skip (already applied): 0012_job_runs.sql",
+    "skip (already applied): 0013_inference_telemetry.sql",
+    "skip (already applied): 0014_evals.sql",
+    "zero_pub present on holocron_nonprod",
+    "truncated 69 public tables",
+    "seeded 3 fixture ids"
+  ],
+  "errors": []
+}
+{
+  "ok": true,
+  "database": "holocron_nonprod",
+  "seed_fingerprint": "92a604f5d7824fa2216f9a5902f5d171",
+  "table_count": 70,
+  "fixture_ids": [
+    "seed-conversation-1",
+    "seed-message-1",
+    "seed-message-2"
+  ],
+  "reset": true,
+  "messages": [
+    "database holocron_nonprod already exists",
+    "current_user: inference1",
+    "role_mode: owner/admin",
+    "extension vector: ok",
+    "skip (already applied): 0000_groovy_stellaris.sql",
+    "skip (already applied): 0001_schema3_indexes_search_vector.sql",
+    "skip (already applied): 0002_zero_pub.sql",
+    "skip (already applied): 0003_evidence_one_open_belief.sql",
+    "skip (already applied): 0004_beliefs_immutability_revise.sql",
+    "skip (already applied): 0005_belief_asof_net_support.sql",
+    "skip (already applied): 0006_beliefs_insert_authenticity.sql",
+    "skip (already applied): 0007_app_role_seed_operability_grants.sql",
+    "skip (already applied): 0008_budget_ledger.sql",
+    "skip (already applied): 0009_budget_ledger_allow_escape.sql",
+    "skip (already applied): 0010_queue_leased.sql",
+    "skip (already applied): 0011_outbox_inbox.sql",
+    "skip (already applied): 0012_job_runs.sql",
+    "skip (already applied): 0013_inference_telemetry.sql",
+    "skip (already applied): 0014_evals.sql",
+    "zero_pub present on holocron_nonprod",
+    "truncated 69 public tables",
+    "seeded 3 fixture ids"
+  ],
+  "errors": []
+}
+@@GATE-EXIT=0@@

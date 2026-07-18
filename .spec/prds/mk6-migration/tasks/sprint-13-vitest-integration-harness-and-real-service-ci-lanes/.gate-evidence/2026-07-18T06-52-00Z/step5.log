@@ -1,0 +1,46 @@
+@@GATE-META step=step5 cmd_sha=d6e7f28815e8301536d0a43a9ef7167bf7d23c78a9a7aeb1fff3ff7fb09c7f2f@@
++ bun services/platform/src/cli/holo.ts prd:consistency --json
+{
+  "ok": true,
+  "table_count": 60,
+  "table_count_expected": 60,
+  "tool_count": 44,
+  "tool_count_expected": 44,
+  "uc_count": 26,
+  "uc_unique": true,
+  "uc_ids": [
+    "UC-PLAT-01",
+    "UC-PLAT-02",
+    "UC-PLAT-03",
+    "UC-PLAT-04",
+    "UC-PLAT-05",
+    "UC-PLAT-06",
+    "UC-DATA-01",
+    "UC-DATA-02",
+    "UC-DATA-03",
+    "UC-DATA-04",
+    "UC-DATA-05",
+    "UC-SVC-01",
+    "UC-SVC-02",
+    "UC-SVC-03",
+    "UC-SVC-04",
+    "UC-SVC-05",
+    "UC-INFER-01",
+    "UC-INFER-02",
+    "UC-INFER-03",
+    "UC-INFER-04",
+    "UC-INFER-05",
+    "UC-SYNC-01",
+    "UC-SYNC-02",
+    "UC-SYNC-03",
+    "UC-SYNC-04",
+    "UC-SYNC-05"
+  ],
+  "claimed_table_count": 60,
+  "claimed_tool_count": 44,
+  "broken_links": [],
+  "future_dated_claims": [],
+  "errors": [],
+  "root": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration"
+}
+@@GATE-EXIT=0@@

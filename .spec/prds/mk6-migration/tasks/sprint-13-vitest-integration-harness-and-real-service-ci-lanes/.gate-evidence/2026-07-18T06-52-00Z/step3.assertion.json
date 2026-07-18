@@ -1,0 +1,6 @@
+{
+  "kind": "exit_and_log_regex",
+  "expected_exit": 0,
+  "expect_log_regex": "92a604f5d7824fa2216f9a5902f5d171[\\s\\S]*seed-message-2",
+  "expect_not_log_regex": "\\\"ok\\\": false"
+}

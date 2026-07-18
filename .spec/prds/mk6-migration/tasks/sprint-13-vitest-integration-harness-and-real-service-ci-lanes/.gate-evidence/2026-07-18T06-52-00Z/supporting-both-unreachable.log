@@ -1,0 +1,43 @@
+
+> holocron@1.0.0 test:integration /Users/inference1/Projects/holocron
+> vitest --run tests/integration/fail-closed-harness.test.ts services/platform/tests/integration/fail-closed-lane.test.ts
+
+
+[1m[46m RUN [49m[22m [36mv4.1.0 [39m[90m/Users/inference1/Projects/holocron[39m
+
+ [31m❯[39m services/platform/tests/integration/fail-closed-lane.test.ts [2m([22m[2m2 tests[22m[2m | [22m[33m2 skipped[39m[2m)[22m[32m 3[2mms[22m[39m
+ [31m❯[39m tests/integration/fail-closed-harness.test.ts [2m([22m[2m2 tests[22m[2m | [22m[33m2 skipped[39m[2m)[22m[32m 3[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Suites 2 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m tests/integration/fail-closed-harness.test.ts[2m > [22mD02-01 fail-closed harness (root)
+[31m[1mError[22m: Postgres unreachable at DATABASE_URL=postgres://127.0.0.1:1/nope: Postgres unreachable at 127.0.0.1:1: connect ECONNREFUSED 127.0.0.1:1[39m
+[36m [2m❯[22m tests/integration/fail-closed-harness.test.ts:[2m70:13[22m[39m
+    [90m 68|[39m       [35mawait[39m [34mprobePostgresTcp[39m([33mDATABASE_URL[39m)[33m;[39m
+    [90m 69|[39m     } [35mcatch[39m (err) {
+    [90m 70|[39m       [35mthrow[39m [35mnew[39m [33mError[39m(
+    [90m   |[39m             [31m^[39m
+    [90m 71|[39m         [32m`Postgres unreachable at DATABASE_URL=[39m[36m${[39m[33mDATABASE_URL[39m[36m}[39m[32m: [39m[36m${[39m
+    [90m 72|[39m           err [35minstanceof[39m [33mError[39m [33m?[39m err[33m.[39mmessage [33m:[39m [33mString[39m(err)
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m services/platform/tests/integration/fail-closed-lane.test.ts[2m > [22mD02-01 fail-closed lane (platform)
+[31m[1mError[22m: Postgres unreachable (platform lane) DATABASE_URL=postgres://127.0.0.1:1/nope: Postgres unreachable at 127.0.0.1:1: connect ECONNREFUSED 127.0.0.1:1[39m
+[36m [2m❯[22m services/platform/tests/integration/fail-closed-lane.test.ts:[2m64:13[22m[39m
+    [90m 62|[39m       [35mawait[39m [34mprobePostgresTcp[39m([33mDATABASE_URL[39m)[33m;[39m
+    [90m 63|[39m     } [35mcatch[39m (err) {
+    [90m 64|[39m       [35mthrow[39m [35mnew[39m [33mError[39m(
+    [90m   |[39m             [31m^[39m
+    [90m 65|[39m         `Postgres unreachable (platform lane) DATABASE_URL=${DATABASE_…
+    [90m 66|[39m           err [35minstanceof[39m [33mError[39m [33m?[39m err[33m.[39mmessage [33m:[39m [33mString[39m(err)
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m2 failed[39m[22m[90m (2)[39m
+[2m      Tests [22m [33m4 skipped[39m[90m (4)[39m
+[2m   Start at [22m 00:56:24
+[2m   Duration [22m 215ms[2m (transform 123ms, setup 219ms, import 11ms, tests 7ms, environment 0ms)[22m
+
+ ELIFECYCLE  Command failed with exit code 1.

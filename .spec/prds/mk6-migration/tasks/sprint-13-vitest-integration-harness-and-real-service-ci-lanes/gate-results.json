@@ -1,0 +1,86 @@
+{
+  "sprint": "sprint-13-vitest-integration-harness-and-real-service-ci-lanes",
+  "sprint_id": "sprint-13-vitest-integration-harness-and-real-service-ci-lanes",
+  "run_id": "2026-07-18T06-52-00Z",
+  "verdict": "pass",
+  "runner": "kb-run-human-tests parent-controller local evidence runner",
+  "ui_driver": "none",
+  "exec_surface": "tmux:sprint13-gate",
+  "qa_surface_id": "tmux:sprint13-gate",
+  "cycle_started_at": "2026-07-18T06:52:00Z",
+  "finished_at": "2026-07-18T06:56:30Z",
+  "steps_total": 6,
+  "steps_executed": 6,
+  "steps_passed": 6,
+  "main_head": "bbcf8a2e4620acdd87ca48b9f16721c2e30b0834",
+  "evidence_dir": ".spec/prds/mk6-migration/tasks/sprint-13-vitest-integration-harness-and-real-service-ci-lanes/.gate-evidence/2026-07-18T06-52-00Z",
+  "supporting_evidence": {
+    "real_integration_log": ".gate-evidence/2026-07-18T06-52-00Z/supporting-real-integration.log",
+    "real_integration_exit": 0,
+    "both_unreachable_log": ".gate-evidence/2026-07-18T06-52-00Z/supporting-both-unreachable.log",
+    "both_unreachable_exit": 1,
+    "both_unreachable_pass_count": 0
+  },
+  "steps": [
+    {
+      "n": 1,
+      "text": "Exercise real Postgres/fleet dependencies behind pnpm test:integration against nonprod.",
+      "type": "terminal",
+      "executed": true,
+      "result": "pass",
+      "exit_code": 0,
+      "log": ".spec/prds/mk6-migration/tasks/sprint-13-vitest-integration-harness-and-real-service-ci-lanes/.gate-evidence/2026-07-18T06-52-00Z/step1.log",
+      "evidence": "Real TCP connection to nonprod Postgres and HTTP 2xx from fleet /v1/models; supporting pnpm test:integration: 2 files and 4 tests passed."
+    },
+    {
+      "n": 2,
+      "text": "Point Postgres and fleet at unreachable endpoints and verify fail-closed probes.",
+      "type": "terminal",
+      "executed": true,
+      "result": "pass",
+      "exit_code": 0,
+      "log": ".spec/prds/mk6-migration/tasks/sprint-13-vitest-integration-harness-and-real-service-ci-lanes/.gate-evidence/2026-07-18T06-52-00Z/step2.log",
+      "evidence": "Both direct dependency probes failed as expected; supporting pnpm test:integration exited 1 with zero passed tests."
+    },
+    {
+      "n": 3,
+      "text": "Reset nonprod twice and observe deterministic seed state.",
+      "type": "terminal",
+      "executed": true,
+      "result": "pass",
+      "exit_code": 0,
+      "log": ".spec/prds/mk6-migration/tasks/sprint-13-vitest-integration-harness-and-real-service-ci-lanes/.gate-evidence/2026-07-18T06-52-00Z/step3.log",
+      "evidence": "Both real db seed --reset invocations succeeded with fingerprint 92a604f5d7824fa2216f9a5902f5d171, 70 tables, and the same 3 fixture IDs."
+    },
+    {
+      "n": 4,
+      "text": "Verify PR path contract for fast push/PR and pre-merge real integration.",
+      "type": "terminal",
+      "executed": true,
+      "result": "pass",
+      "exit_code": 0,
+      "log": ".spec/prds/mk6-migration/tasks/sprint-13-vitest-integration-harness-and-real-service-ci-lanes/.gate-evidence/2026-07-18T06-52-00Z/step4.log",
+      "evidence": "PR_PATH_CONTRACT=PASS: tests path is selected, fast triggers push+pull_request, integration is pull_request/self-hosted/real-service."
+    },
+    {
+      "n": 5,
+      "text": "Run PRD consistency against current PRD.",
+      "type": "terminal",
+      "executed": true,
+      "result": "pass",
+      "exit_code": 0,
+      "log": ".spec/prds/mk6-migration/tasks/sprint-13-vitest-integration-harness-and-real-service-ci-lanes/.gate-evidence/2026-07-18T06-52-00Z/step5.log",
+      "evidence": "ok=true; derived 60 tables, 44 tools, 26 unique UCs; no broken links or future claims."
+    },
+    {
+      "n": 6,
+      "text": "Run actionlint and verify full SHA pins.",
+      "type": "terminal",
+      "executed": true,
+      "result": "pass",
+      "exit_code": 0,
+      "log": ".spec/prds/mk6-migration/tasks/sprint-13-vitest-integration-harness-and-real-service-ci-lanes/.gate-evidence/2026-07-18T06-52-00Z/step6.log",
+      "evidence": "actionlint exit 0 and check-action-pins.sh exit 0."
+    }
+  ]
+}

@@ -1,0 +1,4 @@
+@@GATE-META step=step4 cmd_sha=d08d0998af951f9f518ae1a3de36414abc83bbb896bed987b73bd1d91340277e@@
++ python3 -c "from pathlib import Path; fast=Path('.github/workflows/ci-fast.yml').read_text(); integ=Path('.github/workflows/ci-integration.yml').read_text(); assert 'push:' in fast and 'pull_request:' in fast and 'pnpm test:unit' in fast; assert 'pull_request:' in integ and 'tests/**' in integ and 'pnpm test:integration' in integ; assert 'runs-on: [self-hosted, holocron, integration]' in integ; print('PR_PATH_CONTRACT=PASS')"
+PR_PATH_CONTRACT=PASS
+@@GATE-EXIT=0@@

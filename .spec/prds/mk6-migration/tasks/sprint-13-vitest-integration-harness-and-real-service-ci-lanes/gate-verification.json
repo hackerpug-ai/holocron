@@ -1,0 +1,10 @@
+{
+  "verified": true,
+  "claimed_verdict": "pass",
+  "recomputed_verdict": "pass",
+  "steps_planned": 6,
+  "steps_recomputed": 6,
+  "discrepancies": [],
+  "verification_command": "/Users/inference1/Projects/brain/skills/kb-run-human-tests/references/verify-gate-evidence.sh gate-results.json gate-plan.json .gate-evidence/2026-07-18T06-52-00Z",
+  "verified_at": "2026-07-18T06:57:00Z"
+}

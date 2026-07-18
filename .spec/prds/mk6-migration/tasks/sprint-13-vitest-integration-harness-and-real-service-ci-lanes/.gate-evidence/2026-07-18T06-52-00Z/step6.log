@@ -1,0 +1,3 @@
+@@GATE-META step=step6 cmd_sha=b561255bca7b0fdcd839185999885e217d06731239dae7ef8ea9103254f19c9c@@
++ /tmp/actionlint-bin/actionlint -config-file .github/actionlint.yaml .github/workflows/*.yml && ./scripts/ci/check-action-pins.sh
+@@GATE-EXIT=0@@

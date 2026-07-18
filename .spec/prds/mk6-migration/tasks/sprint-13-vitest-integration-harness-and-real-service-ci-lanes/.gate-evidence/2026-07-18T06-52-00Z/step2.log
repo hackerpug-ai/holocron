@@ -1,0 +1,5 @@
+@@GATE-META step=step2 cmd_sha=28a332ed16e6e1a6080c06e635791d0f0d1df10531b674e438a33bd47db39a73@@
++ ! nc -z 127.0.0.1 1 && ! curl -fsS --max-time 1 http://127.0.0.1:1/v1/models >/dev/null && echo FAIL_CLOSED_DEPENDENCIES=PASS
+curl: (7) Failed to connect to 127.0.0.1 port 1 after 0 ms: Couldn't connect to server
+FAIL_CLOSED_DEPENDENCIES=PASS
+@@GATE-EXIT=0@@

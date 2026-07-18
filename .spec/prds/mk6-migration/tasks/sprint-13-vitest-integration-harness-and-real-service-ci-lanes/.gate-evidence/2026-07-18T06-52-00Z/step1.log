@@ -1,0 +1,4 @@
+@@GATE-META step=step1 cmd_sha=2f708a4b8c8a17b254b4f4f55d3be592eae09e4d4bb386553cf9f6ba4621720c@@
++ python3 -c "import socket,urllib.request; socket.create_connection(('127.0.0.1',5432),2).close(); r=urllib.request.urlopen('http://127.0.0.1:4545/v1/models',timeout=2); assert 200 <= r.status < 300; print('REAL_NONPROD_DEPENDENCIES=PASS')"
+REAL_NONPROD_DEPENDENCIES=PASS
+@@GATE-EXIT=0@@
