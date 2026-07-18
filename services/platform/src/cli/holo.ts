@@ -23,6 +23,8 @@
  * Sprint 10 search-2: embed:run | embed:verify
  * Sprint 10 GATE-FIX: search | search --explain | search --surface | search:recall
  * Sprint 12 obs-1: mission run research --goal <text> [--json]
+ * Sprint 13 D02-03: ci runner:status
+ * Sprint 13 D02-07: prd:consistency
  */
 import { resolve } from 'node:path';
 import { z } from 'zod';
@@ -3111,6 +3113,41 @@ async function main(): Promise<void> {
       }
       break;
     }
+    case 'ci': {
+      const sub = args.positional[1] ?? '';
+      if (sub === 'runner:status' || sub === 'runner-status') {
+        const { checkRunnerStatus } = await import('../ci/runner-status.ts');
+        const result = await checkRunnerStatus();
+        if (args.json) {
+          console.log(JSON.stringify(result, null, 2));
+        } else {
+          console.log(
+            result.ok
+              ? `runner online: ${result.matching_runners.map((r) => r.name).join(', ')}`
+              : `runner fail-closed: ${result.errors.join('; ')}`
+          );
+        }
+        process.exit(result.ok ? 0 : 1);
+      }
+      console.error('Usage: holo ci runner:status [--json]');
+      process.exit(2);
+    }
+
+    case 'ci:runner:status':
+    case 'ci:runner-status': {
+      const { checkRunnerStatus } = await import('../ci/runner-status.ts');
+      const result = await checkRunnerStatus();
+      if (args.json) console.log(JSON.stringify(result, null, 2));
+      else {
+        console.log(
+          result.ok
+            ? `runner online: ${result.matching_runners.map((r) => r.name).join(', ')}`
+            : `runner fail-closed: ${result.errors.join('; ')}`
+        );
+      }
+      process.exit(result.ok ? 0 : 1);
+    }
+
     default:
       console.error(`unknown command: ${args.command}`);
       printHelp();
