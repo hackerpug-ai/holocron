@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "sprint": 15,
+  "sourceHead": "0e91678ce34fb79ed35da25342a31356a0c11621",
+  "rawEvidenceDir": ".tmp/sprint-15-human-gate-20260718",
+  "database": "postgres://127.0.0.1:5432/holocron_nonprod",
+  "fleet": {"endpoint":"http://127.0.0.1:4545","health":"pass","noCloudFallback":true},
+  "steps": [
+    {"id":"S15-G1","status":"passed","evidence":["s15-01-register-echo.json","s15-01-run-echo.json"]},
+    {"id":"S15-G2","status":"passed","evidence":["s15-02-invalid-executable.json","s15-02-invalid-stage.json","s15-02-invalid-schema.json","s15-02-exits.txt"]},
+    {"id":"S15-G3","status":"passed","evidence":["s15-03-sigkill-meta.txt","s15-03-status-after-sigkill.json","s15-03-resume-after-lease.json"]},
+    {"id":"S15-G4","status":"passed","evidence":["s15-04-meta.txt","s15-04-run.err","s15-04-rollback-counts.json","s15-04-resume.json"]},
+    {"id":"S15-G5","status":"passed","evidence":["s15-05-replay.json"]},
+    {"id":"S15-G6","status":"passed","evidence":["s15-06-register-budget.json","s15-06-budget.json","s15-06-exit.txt"]},
+    {"id":"S15-G7","status":"passed","evidence":["s15-07-health.json","s15-07-create-rn.json","s15-07-status-rn.json","s15-07-steer-rn.json","s15-07-verdict-rn.json","s15-07-status-control.json"]}
+  ],
+  "databaseAudit":"s15-database-audit.txt",
+  "overall":"passed"
+}

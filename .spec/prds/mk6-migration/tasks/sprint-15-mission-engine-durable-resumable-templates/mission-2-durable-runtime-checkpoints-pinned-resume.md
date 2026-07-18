@@ -1,6 +1,6 @@
 # mission-2 — Durable run runtime, leases, checkpoints, pinned resume, SIGKILL recovery
 
-> Status: Planned · Sprint: 15 · Agent: mastra-implementer · Proposed By: mastra-planner
+> Status: Completed · Sprint: 15 · Agent: mastra-implementer · Proposed By: mastra-planner
 
 ## Outcome
 

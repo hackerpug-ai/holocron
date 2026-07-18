@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "verifiedAt": "2026-07-18T13:25:00Z",
+  "sourceHead": "0e91678ce34fb79ed35da25342a31356a0c11621",
+  "rawEvidenceDir": ".tmp/sprint-15-human-gate-20260718",
+  "recomputed": {
+    "rawStepFilesPresent": true,
+    "rawStepCount": 7,
+    "allStepStatusesPass": true,
+    "sigkillExit137": true,
+    "checkpointBeforeKill": 1,
+    "resumeAttemptCount": 2,
+    "commitBoundaryReadinessMarker": true,
+    "commitBoundaryRowsBeforeResume": {"missionRuns":1,"missionCommits":0,"missionEvents":0},
+    "commitBoundaryCompletionAfterResume": {"missionCommits":1,"missionEvents":1},
+    "replay": true,
+    "budgetExceeded": true,
+    "realHealth": {"postgres":true,"fleet":true,"queue":true},
+    "httpOwnerScope": "rn",
+    "httpEventOrder": ["completed","steer","verdict"],
+    "controlAliasStatus": true,
+    "noCloudFallback": true
+  },
+  "negativeControls": {
+    "invalidExecutable": "rejected",
+    "unknownStage": "rejected",
+    "unknownSchema": "rejected",
+    "unauthorizedAndWrongScope": "covered by 24-case real RED/auth suites"
+  },
+  "review": {
+    "independentReview": ".tmp/sprint-15-independent-review-final.md",
+    "verdict": "PASS",
+    "blockingFindings": 0
+  },
+  "overall": "passed"
+}

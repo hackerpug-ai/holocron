@@ -1,6 +1,6 @@
 # mission-5 — RED tests for contracts/runtime/commit and real-service failure controls
 
-> Status: Planned · Sprint: 15 · Agent: red-test-generator · Proposed By: red-test-generator
+> Status: Completed · Sprint: 15 · Agent: red-test-generator · Proposed By: red-test-generator
 
 ## Outcome
 

@@ -1,6 +1,6 @@
 # mission-3 — Atomic commit, idempotent replay, budgets, telemetry/provenance
 
-> Status: Planned · Sprint: 15 · Agent: mastra-implementer · Proposed By: mastra-planner
+> Status: Completed · Sprint: 15 · Agent: mastra-implementer · Proposed By: mastra-planner
 
 ## Outcome
 

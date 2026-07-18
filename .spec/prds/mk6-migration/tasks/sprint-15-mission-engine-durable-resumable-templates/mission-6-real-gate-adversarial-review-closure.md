@@ -1,6 +1,6 @@
 # mission-6 — Full real gate, adversarial durability review, and closure evidence
 
-> Status: Planned · Sprint: 15 · Agent: mastra-reviewer · Proposed By: mastra-reviewer
+> Status: Completed · Sprint: 15 · Agent: mastra-reviewer · Proposed By: mastra-reviewer
 
 ## Outcome
 

@@ -1,6 +1,6 @@
 # mission-4 — CLI/HTTP control surface and deterministic test templates
 
-> Status: Planned · Sprint: 15 · Agent: mastra-implementer · Proposed By: mastra-planner
+> Status: Completed · Sprint: 15 · Agent: mastra-implementer · Proposed By: mastra-planner
 
 ## Outcome
 

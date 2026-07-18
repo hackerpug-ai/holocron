@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "sprint": 15,
+  "title": "Mission Engine real human gate",
+  "database": "holocron_nonprod",
+  "sourceHead": "0e91678ce34fb79ed35da25342a31356a0c11621",
+  "rawEvidenceDir": ".tmp/sprint-15-human-gate-20260718",
+  "prohibitedSubstitutes": ["vitest", "pytest", "wholesale test suite", "mock fleet", "mock database"],
+  "steps": [
+    {"id":"S15-G1","name":"register and run typed mission","command":"bun services/platform/src/cli/holo.ts mission template:register .../template-test.echo.json --json; bun ... mission run test.echo --goal ... --idempotency-key s15-human-echo-20260718 --json","evidence":"s15-01-register-echo.json, s15-01-run-echo.json","pass":"completed typed output includes compiler/registry/executor/schema/fleet/model provenance and no_cloud_fallback=true"},
+    {"id":"S15-G2","name":"closed DSL and fleet fail-closed controls","command":"bun ... mission template:register invalid executable, unknown stage, and unknown schema fixtures --json","evidence":"s15-02-*.json, s15-02-exits.txt","pass":"all reject with nonzero exit and no template/version/run rows"},
+    {"id":"S15-G3","name":"checkpoint SIGKILL and pinned resume","command":"HOLO_TEST_CHECKPOINT_BARRIER=1 bun ... mission run test.sigkill ...; kill -9 after DB checkpoint_stage_index=1; bun ... mission resume <run> --json after lease expiry","evidence":"s15-03-sigkill-meta.txt, s15-03-status-after-sigkill.json, s15-03-resume-after-lease.json","pass":"SIGKILL exit 137, committed checkpoint survives, resume increments attempts and completes from checkpoint"},
+    {"id":"S15-G4","name":"atomic commit crash boundary","command":"HOLO_TEST_CRASH_AT=mission-commit/after_commit_insert_before_run_update bun ... mission run test.echo ...; kill -9 after readiness marker; query rows; resume after lease expiry","evidence":"s15-04-meta.txt, s15-04-run.err, s15-04-rollback-counts.json, s15-04-resume.json","pass":"readiness marker observed, transaction rollback has zero commit/event rows before resume, replayed completion has one terminal commit/event"},
+    {"id":"S15-G5","name":"exact-once idempotent replay","command":"bun ... mission run test.echo with original completed idempotency key --json","evidence":"s15-05-replay.json","pass":"replay=true and original run id is returned"},
+    {"id":"S15-G6","name":"explicit budget termination","command":"bun ... mission template:register template-test.budget.json --json; bun ... mission run test.budget ... --json","evidence":"s15-06-register-budget.json, s15-06-budget.json, s15-06-exit.txt","pass":"nonzero CLI exit with status/errorCode budget_exceeded and persisted usage/budget provenance"},
+    {"id":"S15-G7","name":"authenticated RN HTTP create/status/steer/verdict","command":"start real bun services/platform/src/index.ts; curl Bearer RN create/status/steer/verdict; curl Bearer control status; stop server","evidence":"s15-07-health.json, s15-07-create-rn.json, s15-07-status-rn.json, s15-07-steer-rn.json, s15-07-verdict-rn.json, s15-07-status-control.json","pass":"real Postgres/fleet health, RN-owned run, persisted ordered steer/verdict events, documented control alias"}
+  ]
+}

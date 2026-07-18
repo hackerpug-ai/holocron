@@ -3,7 +3,7 @@ sprint: 15
 title: Mission Engine — Durable Resumable Templates
 sequence: 15
 timeline: Phase 3 — Migration Engine and Services
-status: In Progress
+status: Completed
 prd: ../../README.md
 planned_from_roadmap_sha: 5c705e9cc6fe5ed81092f8da57a68c80f0166fa0
 planned_from_source_sha: 5c705e9cc6fe5ed81092f8da57a68c80f0166fa0
@@ -15,7 +15,7 @@ planned_at: 2026-07-18T09:40:00Z
 
 **Sequence:** 15  
 **Timeline:** Phase 3 — Migration Engine and Services  
-**Status:** In Progress  
+**Status:** Completed  
 **Proposed by:** mastra-planner + convex-planner, consolidated after red-hat review  
 **Branch:** `mk6-mission-engine`
 

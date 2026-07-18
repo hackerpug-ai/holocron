@@ -1,6 +1,6 @@
 # mission-1 — Versioned mission contracts, closed DSL compiler, registry, schema/migration
 
-> Status: Planned · Sprint: 15 · Agent: mastra-implementer · Proposed By: mastra-planner + convex-planner
+> Status: Completed · Sprint: 15 · Agent: mastra-implementer · Proposed By: mastra-planner + convex-planner
 
 ## Outcome
 
