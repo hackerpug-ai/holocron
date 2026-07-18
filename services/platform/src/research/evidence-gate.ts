@@ -7,8 +7,11 @@ export const EvidenceItemSchema = z
     component: z.string().min(1),
     sourceId: z.string().min(1),
     independenceGroup: z.string().min(1),
+    quote: z.string().min(1),
+    sourceText: z.string().min(1),
     grade: z.number().int().min(1).max(5),
     entailment: z.number().min(0).max(1),
+    disconfirmationResolved: z.boolean(),
     direction: z.enum(['supporting', 'refuting']),
   })
   .strict();
@@ -57,7 +60,9 @@ export function evaluateEvidenceGate(raw: EvidenceGateInput): EvidenceGateResult
       claimsById.has(item.claimId) &&
       input.requiredComponents.includes(item.component) &&
       item.grade >= input.gradeFloor &&
-      item.entailment >= input.entailmentFloor
+      item.entailment >= input.entailmentFloor &&
+      item.sourceText.includes(item.quote) &&
+      item.disconfirmationResolved
   );
   const coveredComponents = [...new Set(admitted.map((item) => item.component))].sort();
   const missingComponents = input.requiredComponents.filter(

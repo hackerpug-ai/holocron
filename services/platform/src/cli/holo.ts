@@ -106,8 +106,9 @@ interface CliArgs {
   input: string | null;
   /** extract --fixture <name> (mutually exclusive with --schema/--input) */
   fixture: string | null;
-  /** gate:eval --claims <json> */
+  /** gate:eval --claims/--refuting <json> */
   claimsPath: string | null;
+  refutingPath: string | null;
   /** probe:capabilities flags */
   timeout: string | null;
   /** search flags */
@@ -211,7 +212,7 @@ Usage:
   evals:run                 Score a versioned fixture sample via local judge (--sample)
   evals:drift               Longitudinal drift over persisted eval_scores (--dataset)
   evals:ci                  Fail-closed CI gate: threshold + deterministic invariants (--fixture)
-  gate:eval                  Pure-TS evidence admission gate (--claims <json>)
+  gate:eval                  Pure-TS evidence admission gate (--claims/--refuting <json>)
   ci runner:status         Fail-closed self-hosted runner probe (labels online)
   db seed --reset          Deterministic nonprod seed/reset (fails closed on prod)
   db:provision-nonprod     Create holocron_nonprod + migrate + zero_pub
@@ -350,6 +351,7 @@ function parseArgs(argv: string[]): CliArgs {
     input: null,
     fixture: null,
     claimsPath: null,
+    refutingPath: null,
     timeout: null,
     explain: false,
     surface: null,
@@ -519,6 +521,10 @@ function parseArgs(argv: string[]): CliArgs {
       args.claimsPath = resolve(argv[++i] ?? '');
     } else if (a.startsWith('--claims=')) {
       args.claimsPath = resolve(a.slice('--claims='.length));
+    } else if (a === '--refuting') {
+      args.refutingPath = resolve(argv[++i] ?? '');
+    } else if (a.startsWith('--refuting=')) {
+      args.refutingPath = resolve(a.slice('--refuting='.length));
     } else if (a === '--timeout') {
       args.timeout = argv[++i] ?? null;
     } else if (a.startsWith('--timeout=')) {
@@ -3365,10 +3371,11 @@ async function main(): Promise<void> {
       break;
     }
     case 'gate:eval': {
-      if (!args.claimsPath) {
+      const gatePath = args.claimsPath ?? args.refutingPath;
+      if (!gatePath) {
         const payload = {
           ok: false,
-          error: 'gate:eval requires --claims <json>',
+          error: 'gate:eval requires --claims or --refuting <json>',
           code: 'GATE_CLAIMS_REQUIRED',
         };
         if (args.json) console.log(JSON.stringify(payload, null, 2));
@@ -3377,7 +3384,7 @@ async function main(): Promise<void> {
       }
       try {
         const { evaluateEvidenceGate } = await import('../research/evidence-gate.ts');
-        const input = JSON.parse(readFileSync(args.claimsPath, 'utf8')) as unknown;
+        const input = JSON.parse(readFileSync(gatePath, 'utf8')) as unknown;
         const result = evaluateEvidenceGate(input as never);
         const payload = { ok: result.admitted, ...result, pureTs: true };
         if (args.json) console.log(JSON.stringify(payload, null, 2));

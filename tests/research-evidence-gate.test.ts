@@ -19,8 +19,11 @@ const evidence = [
     component: 'market',
     sourceId: 's1',
     independenceGroup: 'publisher-a',
+    quote: 'a',
+    sourceText: 'Evidence says a',
     grade: 4,
     entailment: 0.9,
+    disconfirmationResolved: true,
     direction: 'supporting' as const,
   },
   {
@@ -29,8 +32,11 @@ const evidence = [
     component: 'risk',
     sourceId: 's2',
     independenceGroup: 'publisher-b',
+    quote: 'b',
+    sourceText: 'Evidence says b',
     grade: 3,
     entailment: 0.8,
+    disconfirmationResolved: true,
     direction: 'supporting' as const,
   },
 ];
@@ -53,5 +59,18 @@ describe('pure TypeScript evidence gate', () => {
     });
     expect(result.admitted).toBe(true);
     expect(result.direction).toBe('refuting');
+  });
+
+  it('rejects evidence without a verbatim quote or resolved disconfirmation', () => {
+    const result = evaluateEvidenceGate({
+      ...base,
+      evidence: evidence.map((item) => ({
+        ...item,
+        quote: 'missing quote',
+        disconfirmationResolved: false,
+      })),
+    });
+    expect(result.admitted).toBe(false);
+    expect(result.admittedEvidenceIds).toEqual([]);
   });
 });
