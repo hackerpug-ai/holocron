@@ -17,6 +17,10 @@
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createHonoApp } from '../../src/http/hono-app';
 import {
+  HOLO_TEST_CHECKPOINT_BARRIER_ENV,
+  MISSION_CHECKPOINT_BARRIER_MARKER,
+} from '../../src/mission/checkpoint-barrier';
+import {
   callAppJson,
   committedStageDuplicates,
   DATABASE_URL,
@@ -51,7 +55,6 @@ import {
   selectMissionTemplatesByKey,
   selectMissionTemplateVersions,
   selectMissionVerdicts,
-  sleep,
   snapshotMissionSchema,
   startHoloProcess,
   terminalEventCount,
@@ -276,6 +279,42 @@ type CrashBoundaryProof = {
   marker: string;
   runId: string | null;
 };
+
+type CheckpointBarrierProof = {
+  marker: string;
+  runId: string | null;
+  stageIndex: number | null;
+  checkpointKey: string | null;
+  leaseToken: string | null;
+  leaseOwner: string | null;
+  payload: JsonRecord;
+};
+
+function readCheckpointBarrierProof(value: unknown): CheckpointBarrierProof | null {
+  const payload = asRecord(value);
+  if (
+    payload.checkpointBarrier !== true ||
+    payload.readiness !== true ||
+    payload.testOnly !== true
+  ) {
+    return null;
+  }
+
+  const marker = stringValue(payload, ['marker']);
+  if (marker !== MISSION_CHECKPOINT_BARRIER_MARKER) {
+    return null;
+  }
+
+  return {
+    marker,
+    runId: runIdFromUnknown(payload),
+    stageIndex: numberValue(payload, ['stageIndex', 'stage_index']),
+    checkpointKey: stringValue(payload, ['checkpointKey', 'checkpoint_key']),
+    leaseToken: stringValue(payload, ['leaseToken', 'lease_token']),
+    leaseOwner: stringValue(payload, ['leaseOwner', 'lease_owner']),
+    payload,
+  };
+}
 
 async function detectCrashBoundaryProof(
   boundary: string,
@@ -968,23 +1007,36 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
       '--json',
     ]);
     const runKey = scenarioId('sigkill-recovery');
-    const runner = startHoloProcess('ac-runtime-sigkill-run', [
-      'mission',
-      'run',
-      template.templateKey,
-      '--goal',
-      'Checkpoint once, then prove durable resume.',
-      '--idempotency-key',
-      runKey,
-      '--json',
-    ]);
+    const runner = startHoloProcess(
+      'ac-runtime-sigkill-run',
+      [
+        'mission',
+        'run',
+        template.templateKey,
+        '--goal',
+        'Checkpoint once, then prove durable resume.',
+        '--idempotency-key',
+        runKey,
+        '--json',
+      ],
+      {
+        env: {
+          [HOLO_TEST_CHECKPOINT_BARRIER_ENV]: '1',
+        },
+      }
+    );
 
     const observedRun = await waitForValue(
       'sigkill-run-row',
       () => findRunByIdempotencyKey(runKey),
       { abortIf: () => runner.exited() }
     );
-    const observedRunId = stringValue(observedRun, ['id']);
+    const barrierProof = await waitForValue(
+      'sigkill-checkpoint-barrier',
+      async () => readCheckpointBarrierProof(runner.snapshot().parsed),
+      { abortIf: () => runner.exited() }
+    );
+    const observedRunId = barrierProof?.runId ?? stringValue(observedRun, ['id']);
     const committedCheckpoint = await waitForValue(
       'sigkill-committed-checkpoint',
       async () => {
@@ -995,15 +1047,38 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
       },
       { abortIf: () => runner.exited() }
     );
+    const liveRunBeforeKill = observedRunId
+      ? await withSql((sql) => selectMissionRunById(sql, observedRunId))
+      : null;
     const preKillStages = observedRunId
       ? await withSql((sql) => selectMissionStageRuns(sql, observedRunId))
       : [];
+    const aliveAtBarrier = Boolean(barrierProof) && !runner.exited();
 
-    if (committedCheckpoint && !runner.exited()) {
+    if (barrierProof && committedCheckpoint && !runner.exited()) {
       runner.kill('SIGKILL');
     }
     const runProc = await runner.result;
     const runId = observedRunId ?? runIdFromUnknown(runProc.parsed);
+
+    await withSql(async (sql) => {
+      if (
+        runId &&
+        schemaHasColumns(await snapshotMissionSchema(sql), 'mission_runs', ['lease_expires_at'])
+      ) {
+        await sql.unsafe(
+          "UPDATE mission_runs SET lease_expires_at = now() - interval '1 second' WHERE id = $1",
+          [runId]
+        );
+      }
+    });
+
+    const staleStatus = runHolo('ac-runtime-sigkill-status-stale', [
+      'mission',
+      'status',
+      runId ?? 'missing-run-id',
+      '--json',
+    ]);
     const resume = runHolo('ac-runtime-sigkill-resume', [
       'mission',
       'resume',
@@ -1017,6 +1092,9 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
       const postResumeStages = runId ? await selectMissionStageRuns(sql, runId) : [];
       const duplicateCommittedStages = await committedStageDuplicates(sql, runId);
       const checkpointStageIndex = numberValue(committedCheckpoint, ['stage_index', 'stageIndex']);
+      const barrierStageIndex = barrierProof?.stageIndex ?? null;
+      const barrierCheckpointKey = barrierProof?.checkpointKey ?? null;
+      const barrierLeaseToken = barrierProof?.leaseToken ?? null;
       const committedBefore = committedStageIndexes(preKillStages);
       const committedAfter = committedStageIndexes(postResumeStages);
       const firstNewCommitted =
@@ -1027,9 +1105,13 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
         register,
         runKey,
         observedRun,
+        barrierProof,
         committedCheckpoint,
+        liveRunBeforeKill,
         preKillStages,
+        aliveAtBarrier,
         runProc,
+        staleStatus,
         resume,
         schema,
         runRow,
@@ -1059,23 +1141,62 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
         .toEqual([]);
       expect.soft(observedRunId, 'run row must exist before SIGKILL').toBeTruthy();
       expect
+        .soft(barrierProof, 'must observe the explicit test-only checkpoint barrier before SIGKILL')
+        .toBeTruthy();
+      expect
         .soft(committedCheckpoint, 'must observe a committed DB checkpoint before SIGKILL')
         .toBeTruthy();
+      expect
+        .soft(
+          aliveAtBarrier,
+          'checkpoint barrier must keep the process alive until external SIGKILL'
+        )
+        .toBe(true);
       expect.soft(runProc.wasKilled, runProc.combined).toBe(true);
       expect
         .soft(checkpointStageIndex, 'checkpointed stage index must be visible before kill')
         .not.toBeNull();
+      expect
+        .soft(barrierStageIndex, 'checkpoint barrier must expose the committed stage index')
+        .toBe(checkpointStageIndex);
+      expect
+        .soft(barrierCheckpointKey, 'checkpoint barrier must expose checkpointKey')
+        .toBe(stringValue(committedCheckpoint, ['checkpoint_key', 'checkpointKey']));
+      expect
+        .soft(barrierLeaseToken, 'checkpoint barrier must expose the live lease token')
+        .toBe(stringValue(liveRunBeforeKill, ['lease_token', 'leaseToken']));
+      expect
+        .soft(asRecord(staleStatus.parsed).status, 'expired killed run should surface as suspended')
+        .toBe('suspended');
       expect.soft(resume.status, resume.combined).toBe(0);
       expect.soft(duplicateCommittedStages, 'resume must not duplicate committed stages').toBe(0);
       expect
         .soft(firstNewCommitted, 'resume must start from the first uncommitted stage')
         .toBe(checkpointStageIndex != null ? checkpointStageIndex + 1 : null);
       expect
-        .soft(stringValue(runRow, ['lease_owner', 'leaseOwner']), 'run row must expose lease owner')
+        .soft(
+          stringValue(liveRunBeforeKill, ['lease_owner', 'leaseOwner']),
+          'checkpointed run must expose lease owner before SIGKILL'
+        )
         .toBeTruthy();
       expect
-        .soft(stringValue(runRow, ['lease_token', 'leaseToken']), 'run row must expose lease token')
+        .soft(
+          stringValue(liveRunBeforeKill, ['lease_token', 'leaseToken']),
+          'checkpointed run must expose lease token before SIGKILL'
+        )
         .toBeTruthy();
+      expect
+        .soft(
+          stringValue(runRow, ['lease_owner', 'leaseOwner']),
+          'terminal resume must clear lease_owner'
+        )
+        .toBeNull();
+      expect
+        .soft(
+          stringValue(runRow, ['lease_token', 'leaseToken']),
+          'terminal resume must clear lease_token'
+        )
+        .toBeNull();
     });
   }, 90_000);
 
@@ -1088,16 +1209,24 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
       '--json',
     ]);
     const runKey = scenarioId('lease-contention');
-    const owner = startHoloProcess('ac-lease-contention-owner', [
-      'mission',
-      'run',
-      template.templateKey,
-      '--goal',
-      'Acquire a durable lease, checkpoint, then allow contender proof.',
-      '--idempotency-key',
-      runKey,
-      '--json',
-    ]);
+    const owner = startHoloProcess(
+      'ac-lease-contention-owner',
+      [
+        'mission',
+        'run',
+        template.templateKey,
+        '--goal',
+        'Acquire a durable lease, checkpoint, then allow contender proof.',
+        '--idempotency-key',
+        runKey,
+        '--json',
+      ],
+      {
+        env: {
+          [HOLO_TEST_CHECKPOINT_BARRIER_ENV]: '1',
+        },
+      }
+    );
 
     const observedRun = await waitForValue(
       'lease-contention-run-row',
@@ -1106,7 +1235,12 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
         abortIf: () => owner.exited(),
       }
     );
-    const runId = stringValue(observedRun, ['id']);
+    const barrierProof = await waitForValue(
+      'lease-contention-checkpoint-barrier',
+      async () => readCheckpointBarrierProof(owner.snapshot().parsed),
+      { abortIf: () => owner.exited() }
+    );
+    const runId = barrierProof?.runId ?? stringValue(observedRun, ['id']);
     const committedCheckpoint = await waitForValue(
       'lease-contention-checkpoint',
       async () => {
@@ -1122,23 +1256,26 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
       : null;
     const originalLeaseToken = stringValue(liveLeaseBeforeKill, ['lease_token', 'leaseToken']);
     const originalAttempt = numberValue(liveLeaseBeforeKill, ['attempt_count', 'attemptCount']);
-
-    if (committedCheckpoint && !owner.exited()) {
-      owner.kill('SIGKILL');
-    }
-    const ownerResult = await owner.result;
-
-    const contender = startHoloProcess('ac-lease-contention-contender', [
+    const activeStatus = runHolo('ac-lease-contention-status-active', [
+      'mission',
+      'status',
+      runId ?? 'missing-run-id',
+      '--json',
+    ]);
+    const contenderResult = runHolo('ac-lease-contention-contender', [
       'mission',
       'resume',
       runId ?? 'missing-run-id',
       '--json',
     ]);
-    await sleep(500);
-    if (!contender.exited()) contender.kill('SIGKILL');
-    const contenderResult = await contender.result;
-
     const afterContender = runId ? await summarizeRun(runId) : await summarizeRun(null);
+    const aliveAtBarrier = Boolean(barrierProof) && !owner.exited();
+
+    if (barrierProof && committedCheckpoint && !owner.exited()) {
+      owner.kill('SIGKILL');
+    }
+    const ownerResult = await owner.result;
+    const afterOwnerKill = runId ? await summarizeRun(runId) : await summarizeRun(null);
 
     await withSql(async (sql) => {
       if (
@@ -1152,6 +1289,12 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
       }
     });
 
+    const staleStatus = runHolo('ac-lease-contention-status-stale', [
+      'mission',
+      'status',
+      runId ?? 'missing-run-id',
+      '--json',
+    ]);
     const recovery = runHolo('ac-lease-contention-recovery', [
       'mission',
       'resume',
@@ -1176,11 +1319,16 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
         register,
         runKey,
         observedRun,
+        barrierProof,
         committedCheckpoint,
         liveLeaseBeforeKill,
-        ownerResult,
+        activeStatus,
         contenderResult,
         afterContender,
+        aliveAtBarrier,
+        ownerResult,
+        afterOwnerKill,
+        staleStatus,
         recovery,
         schema,
         runRow,
@@ -1191,13 +1339,27 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
       expect.soft(register.status, register.combined).toBe(0);
       expect.soft(runId, 'a scoped run row must exist').toBeTruthy();
       expect
+        .soft(
+          barrierProof,
+          'must observe the explicit test-only checkpoint barrier before contention'
+        )
+        .toBeTruthy();
+      expect
         .soft(committedCheckpoint, 'must have a committed checkpoint before lease contention proof')
         .toBeTruthy();
-      expect.soft(ownerResult.wasKilled, ownerResult.combined).toBe(true);
+      expect
+        .soft(aliveAtBarrier, 'checkpoint barrier must keep the owner alive during contention')
+        .toBe(true);
+      expect
+        .soft(asRecord(activeStatus.parsed).status, 'live leased run should report running status')
+        .toBe('running');
       expect
         .soft(originalLeaseToken, 'owner lease token must be observable before contender')
         .toBeTruthy();
-      expect.soft(contenderResult.status, contenderResult.combined).not.toBe(0);
+      expect.soft(contenderResult.status, contenderResult.combined).toBe(1);
+      expect
+        .soft(asRecord(contenderResult.parsed).errorCode, JSON.stringify(contenderResult.parsed))
+        .toBe('MISSION_LEASE_HELD');
       expect
         .soft(
           stringValue(afterContender.run, ['lease_token', 'leaseToken']),
@@ -1210,6 +1372,16 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
           'live contender must not increment attempts'
         )
         .toBe(originalAttempt);
+      expect.soft(ownerResult.wasKilled, ownerResult.combined).toBe(true);
+      expect
+        .soft(
+          stringValue(afterOwnerKill.run, ['lease_token', 'leaseToken']),
+          'killed owner should leave the terminal lease visible until recovery'
+        )
+        .toBe(originalLeaseToken);
+      expect
+        .soft(asRecord(staleStatus.parsed).status, 'expired stale run should surface as suspended')
+        .toBe('suspended');
       expect.soft(recovery.status, recovery.combined).toBe(0);
       expect
         .soft(
@@ -1229,8 +1401,11 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
         .soft(terminalLeaseExpiry, 'terminal completion must clear lease_expires_at')
         .toBeNull();
       expect
-        .soft(new Set(fenceTokens).size, 'stage runs must expose one or more fence tokens')
-        .toBeGreaterThan(0);
+        .soft(
+          new Set(fenceTokens).size,
+          'stage runs must expose both original and recovery fence tokens'
+        )
+        .toBeGreaterThan(1);
       expect
         .soft(
           missingColumns(
@@ -1291,7 +1466,12 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
         runKey,
         '--json',
       ],
-      { env: { FLEET_MANIFEST_PATH: originalManifest.path } }
+      {
+        env: {
+          FLEET_MANIFEST_PATH: originalManifest.path,
+          [HOLO_TEST_CHECKPOINT_BARRIER_ENV]: '1',
+        },
+      }
     );
 
     const observedRun = await waitForValue(
@@ -1301,7 +1481,12 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
         abortIf: () => runner.exited(),
       }
     );
-    const runId = stringValue(observedRun, ['id']);
+    const barrierProof = await waitForValue(
+      'pinned-resume-checkpoint-barrier',
+      async () => readCheckpointBarrierProof(runner.snapshot().parsed),
+      { abortIf: () => runner.exited() }
+    );
+    const runId = barrierProof?.runId ?? stringValue(observedRun, ['id']);
     const committedCheckpoint = await waitForValue(
       'pinned-resume-checkpoint',
       async () => {
@@ -1315,6 +1500,7 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
     const originalRunBeforeKill = runId
       ? await withSql((sql) => selectMissionRunById(sql, runId))
       : null;
+    const aliveAtBarrier = Boolean(barrierProof) && !runner.exited();
 
     if (committedCheckpoint && !runner.exited()) {
       runner.kill('SIGKILL');
@@ -1340,6 +1526,25 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
       ['mission', 'template:register', mutatedTemplate.path, '--json'],
       { env: { FLEET_MANIFEST_PATH: mutatedManifest.path } }
     );
+
+    await withSql(async (sql) => {
+      if (
+        runId &&
+        schemaHasColumns(await snapshotMissionSchema(sql), 'mission_runs', ['lease_expires_at'])
+      ) {
+        await sql.unsafe(
+          "UPDATE mission_runs SET lease_expires_at = now() - interval '1 second' WHERE id = $1",
+          [runId]
+        );
+      }
+    });
+
+    const staleStatus = runHolo('ac-pinned-resume-status-stale', [
+      'mission',
+      'status',
+      runId ?? 'missing-run-id',
+      '--json',
+    ]);
     const resume = runHolo(
       'ac-pinned-resume-resume',
       ['mission', 'resume', runId ?? 'missing-run-id', '--json'],
@@ -1349,8 +1554,9 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
     await withSql(async (sql) => {
       const runRow = runId ? await selectMissionRunById(sql, runId) : null;
       const commitRow = runId ? ((await selectMissionCommits(sql, runId))[0] ?? null) : null;
+      const resumePayload = asRecord(resume.parsed);
       const originalProvenance = detectProvenanceSnapshot(originalRunBeforeKill);
-      const resumedProvenance = detectProvenanceSnapshot(commitRow ?? runRow);
+      const resumedProvenance = detectProvenanceSnapshot(resumePayload);
 
       writeArtifact('ac-pinned-resume-summary.json', {
         template,
@@ -1358,12 +1564,16 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
         mutatedManifest,
         register,
         observedRun,
+        barrierProof,
         committedCheckpoint,
         originalRunBeforeKill,
+        aliveAtBarrier,
         killed,
         mutatedTemplate,
         mutatedRegister,
+        staleStatus,
         resume,
+        resumePayload,
         runRow,
         commitRow,
         originalProvenance,
@@ -1373,16 +1583,28 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
       expect.soft(register.status, register.combined).toBe(0);
       expect.soft(runId, 'run must exist before pinned-resume mutation').toBeTruthy();
       expect
+        .soft(
+          barrierProof,
+          'must observe the explicit test-only checkpoint barrier before mutation'
+        )
+        .toBeTruthy();
+      expect
         .soft(committedCheckpoint, 'must observe a committed checkpoint before mutation')
         .toBeTruthy();
+      expect
+        .soft(aliveAtBarrier, 'checkpoint barrier must keep the pinned run alive until SIGKILL')
+        .toBe(true);
       expect.soft(killed.wasKilled, killed.combined).toBe(true);
       expect.soft(mutatedRegister.status, mutatedRegister.combined).toBe(0);
+      expect
+        .soft(asRecord(staleStatus.parsed).status, 'expired pinned run should surface as suspended')
+        .toBe('suspended');
       expect.soft(resume.status, resume.combined).toBe(0);
       expect
         .soft(stringValue(runRow, ['template_version', 'templateVersion']))
         .toBe(template.version);
       expect
-        .soft(stringValue(commitRow, ['output_schema_ref', 'outputSchemaRef']))
+        .soft(stringValue(commitRow ?? runRow, ['output_schema_ref', 'outputSchemaRef']))
         .toBe('mission.test.sigkill.output');
       expect
         .soft(
@@ -1441,7 +1663,7 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
         .toBeTruthy();
       expect
         .soft(
-          stringValue(resumedProvenance, [
+          rowValue(resumedProvenance, [
             'model_revision',
             'modelRevision',
             'model_revisions',
@@ -1850,6 +2072,8 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
 
   it('AC-1/AC-2/TC-2 RED: CLI template:register/run/status/resume JSON contracts expose persisted run id, status, provenance, and MISSION_NOT_FOUND errors', async () => {
     const template = prepareTemplateFixture('template-test.echo.json', 'ac-cli-contract');
+    const malformedRunId = 'missing-run-id';
+    const absentRunId = '11111111-1111-4111-8111-111111111111';
     const commands = {
       templateRegister: runHolo('ac-cli-template-register', [
         'mission',
@@ -1867,18 +2091,20 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
         scenarioId('cli-run'),
         '--json',
       ]),
-      statusMissing: runHolo('ac-cli-status-missing', [
+      statusMalformed: runHolo('ac-cli-status-malformed', [
         'mission',
         'status',
-        'missing-run-id',
+        malformedRunId,
         '--json',
       ]),
-      resumeMissing: runHolo('ac-cli-resume-missing', [
+      statusAbsent: runHolo('ac-cli-status-absent', ['mission', 'status', absentRunId, '--json']),
+      resumeMalformed: runHolo('ac-cli-resume-malformed', [
         'mission',
         'resume',
-        'missing-run-id',
+        malformedRunId,
         '--json',
       ]),
+      resumeAbsent: runHolo('ac-cli-resume-absent', ['mission', 'resume', absentRunId, '--json']),
     };
 
     const runPayload = asRecord(commands.run.parsed);
@@ -1909,10 +2135,14 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
       .soft(realStatusPayload.templateKey, JSON.stringify(realStatusPayload))
       .toBe(template.templateKey);
     expect.soft(realStatusPayload.provenance, JSON.stringify(realStatusPayload)).toBeTruthy();
-    expect.soft(commands.statusMissing.status, commands.statusMissing.combined).toBe(0);
-    expect.soft(asRecord(commands.statusMissing.parsed).errorCode).toBe('MISSION_NOT_FOUND');
-    expect.soft(commands.resumeMissing.status, commands.resumeMissing.combined).not.toBe(2);
-    expect.soft(asRecord(commands.resumeMissing.parsed).errorCode).toBe('MISSION_NOT_FOUND');
+    expect.soft(commands.statusMalformed.status, commands.statusMalformed.combined).toBe(0);
+    expect.soft(asRecord(commands.statusMalformed.parsed).errorCode).toBe('MISSION_NOT_FOUND');
+    expect.soft(commands.statusAbsent.status, commands.statusAbsent.combined).toBe(0);
+    expect.soft(asRecord(commands.statusAbsent.parsed).errorCode).toBe('MISSION_NOT_FOUND');
+    expect.soft(commands.resumeMalformed.status, commands.resumeMalformed.combined).toBe(1);
+    expect.soft(asRecord(commands.resumeMalformed.parsed).errorCode).toBe('MISSION_NOT_FOUND');
+    expect.soft(commands.resumeAbsent.status, commands.resumeAbsent.combined).toBe(1);
+    expect.soft(asRecord(commands.resumeAbsent.parsed).errorCode).toBe('MISSION_NOT_FOUND');
   }, 60_000);
 
   it('AC-3/TC-4 RED: repeated fresh non-replay runs produce identical typed output and provenance after stripping IDs/timestamps', async () => {

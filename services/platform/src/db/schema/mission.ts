@@ -123,7 +123,7 @@ export const missionRuns = pgTable(
     check('mission_runs_schema_version_check', sql`${t.schemaVersion} > 0`),
     check(
       'mission_runs_status_check',
-      sql`${t.status} IN ('pending', 'running', 'completed', 'failed', 'blocked', 'budget_exceeded')`
+      sql`${t.status} IN ('pending', 'running', 'suspended', 'completed', 'failed', 'blocked', 'budget_exceeded')`
     ),
   ]
 );
