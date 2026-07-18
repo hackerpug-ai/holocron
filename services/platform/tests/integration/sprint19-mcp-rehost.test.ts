@@ -25,7 +25,7 @@ describe('Sprint 19 MCP rehost gateway', () => {
       await sql`DELETE FROM documents WHERE title LIKE 's19-parity-%'`;
       await sql`DELETE FROM toolbelt_tools WHERE title LIKE 's19-parity-%'`;
       await sql`DELETE FROM improvement_requests WHERE description LIKE 's19-parity-%'`;
-      await sql`DELETE FROM shop_sessions WHERE query LIKE 's19-parity-%'`;
+      await sql`DELETE FROM shop_sessions WHERE query LIKE 's19-parity-%' OR query = 'USB-C hub'`;
       await sql`DELETE FROM assimilation_sessions WHERE repository_url LIKE 's19-parity-%'`;
       await sql`DELETE FROM transcript_jobs WHERE content_id LIKE 's19-parity-%'`;
       await sql.end({ timeout: 5 });
@@ -297,6 +297,57 @@ describe('Sprint 19 MCP rehost gateway', () => {
       expect(tools).toHaveLength(44);
     },
     180_000
+  );
+
+  itLive(
+    'runs shop_products through a real retailer search and persists its result',
+    async () => {
+      const app = createHonoApp({ keys: KEYS });
+      const response = await app.request('/mcp', {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${KEYS.mcp}`,
+          'content-type': 'application/json',
+          accept: 'application/json, text/event-stream',
+        },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 20,
+          method: 'tools/call',
+          params: {
+            name: 'shop_products',
+            arguments: { query: 'USB-C hub', retailers: ['amazon'] },
+          },
+        }),
+      });
+      const body = await response.json();
+      expect(response.status).toBe(200);
+      expect(body.result.isError).not.toBe(true);
+      expect(body.result.structuredContent.status).toBe('completed');
+      expect(body.result.structuredContent.error).toBeUndefined();
+      expect(body.result.structuredContent.totalListings).toBeGreaterThan(0);
+      expect(body.result.structuredContent.listings.length).toBeGreaterThan(0);
+      const session = await app.request('/mcp', {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${KEYS.mcp}`,
+          'content-type': 'application/json',
+          accept: 'application/json, text/event-stream',
+        },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 21,
+          method: 'tools/call',
+          params: {
+            name: 'get_shop_session',
+            arguments: { sessionId: body.result.structuredContent.sessionId },
+          },
+        }),
+      });
+      const sessionBody = await session.json();
+      expect(sessionBody.result.structuredContent.session.status).toBe('completed');
+    },
+    60_000
   );
 
   itLive('executes document tools against real Postgres', async () => {

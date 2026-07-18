@@ -1,6 +1,129 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
+import type { Sql } from '../db/client.ts';
 import { createSql } from '../db/client.ts';
 import { resolveHolocronNonprodDatabaseUrl } from '../db/connection.ts';
+
+type ShopSearchResult = {
+  title: string;
+  price: number;
+  priceFormatted: string;
+  retailer: string;
+  condition: string;
+  url: string;
+  dealScore: number;
+  trustTier: number;
+  sellerTrustScore: number;
+  isVerifiedSeller: boolean;
+  trustLabel: 'Authorized' | 'Verified Seller' | 'Unverified';
+};
+
+const SHOP_RETAILERS: Record<string, { domain: string; trustTier: number; verified: boolean }> = {
+  amazon: { domain: 'amazon.com', trustTier: 2, verified: false },
+  ebay: { domain: 'ebay.com', trustTier: 2, verified: false },
+  newegg: { domain: 'newegg.com', trustTier: 1, verified: true },
+  bestbuy: { domain: 'bestbuy.com', trustTier: 1, verified: true },
+};
+
+function parseShopPrice(text: string): number | null {
+  const match = text.match(/(?:[$€£])\s?([0-9][0-9,]*(?:\.[0-9]{1,2})?)/);
+  if (!match) return null;
+  const value = Number(match[1].replaceAll(',', ''));
+  return Number.isFinite(value) && value > 0 ? value : null;
+}
+
+async function runLiveShopSearch(
+  sql: Sql,
+  sessionId: string,
+  query: string,
+  retailers: string[],
+  condition: string,
+  priceMin: number | null,
+  priceMax: number | null,
+  verifiedOnly: boolean,
+  signal?: AbortSignal
+): Promise<{ listings: ShopSearchResult[]; durationMs: number }> {
+  const apiKey = process.env.JINA_API_KEY;
+  if (!apiKey) throw new Error('CONFIGURATION_ERROR: JINA_API_KEY is required for shop_products');
+  const started = Date.now();
+  const listings: ShopSearchResult[] = [];
+  const errors: string[] = [];
+  for (const retailerKey of retailers) {
+    const retailer = SHOP_RETAILERS[retailerKey];
+    if (!retailer) continue;
+    if (signal?.aborted) throw new Error('MCP request cancelled');
+    const response = await fetch(
+      `https://s.jina.ai/?q=${encodeURIComponent(`${query} site:${retailer.domain}`)}`,
+      { headers: { Authorization: `Bearer ${apiKey}`, Accept: 'application/json' }, signal }
+    );
+    if (!response.ok) {
+      errors.push(`${retailerKey}: HTTP ${response.status}`);
+      continue;
+    }
+    const payload = (await response.json()) as { data?: Array<Record<string, unknown>> };
+    for (const item of payload.data ?? []) {
+      const url = typeof item.url === 'string' ? item.url : '';
+      const title = typeof item.title === 'string' ? item.title : '';
+      const text = [title, item.description, item.content]
+        .filter((part) => typeof part === 'string')
+        .join(' ');
+      const price = parseShopPrice(text);
+      if (
+        !url ||
+        !title ||
+        price == null ||
+        (priceMin != null && price < priceMin) ||
+        (priceMax != null && price > priceMax)
+      )
+        continue;
+      if (condition !== 'any' && !text.toLowerCase().includes(condition)) continue;
+      if (verifiedOnly && !retailer.verified) continue;
+      const trustLabel = retailer.verified ? 'Authorized' : 'Unverified';
+      listings.push({
+        title,
+        price,
+        priceFormatted: `$${price.toFixed(2)}`,
+        retailer: retailerKey,
+        condition: condition === 'any' ? 'new' : condition,
+        url,
+        dealScore: retailer.verified ? 0.75 : 0.5,
+        trustTier: retailer.trustTier,
+        sellerTrustScore: retailer.verified ? 95 : 70,
+        isVerifiedSeller: retailer.verified,
+        trustLabel,
+      });
+    }
+  }
+  if (errors.length > 0 && listings.length === 0)
+    throw new Error(`RETAILER_ERROR: ${errors.join('; ')}`);
+  const unique = [
+    ...new Map(
+      listings.map((item) => [
+        createHash('sha256').update(`${item.title}:${item.retailer}`).digest('hex'),
+        item,
+      ])
+    ).values(),
+  ]
+    .sort((a, b) => b.dealScore - a.dealScore || a.price - b.price)
+    .slice(0, 50);
+  await sql.begin(async (tx) => {
+    for (const [index, listing] of unique.entries()) {
+      await tx`
+        INSERT INTO shop_listings (id, session_id, title, price, currency, condition, retailer, url,
+          product_hash, deal_score, trust_tier, seller_trust_score, is_verified_seller, is_duplicate)
+        VALUES (${randomUUID()}::uuid, ${sessionId}, ${listing.title}, ${listing.price}, 'USD', ${listing.condition},
+          ${listing.retailer}, ${listing.url}, ${createHash('sha256').update(`${listing.title}:${listing.retailer}`).digest('hex')},
+          ${listing.dealScore}, ${String(listing.trustTier)}, ${listing.sellerTrustScore}, ${listing.isVerifiedSeller}, ${index > 0 && unique[index - 1]?.title === listing.title})
+      `;
+    }
+    const best = unique[0];
+    await tx`
+      UPDATE shop_sessions SET status = 'completed', total_listings = ${unique.length},
+        best_deal_id = ${best?.url ?? null}, completed_at = now(), updated_at = now()
+      WHERE id = ${sessionId}::uuid
+    `;
+  });
+  return { listings: unique, durationMs: Date.now() - started };
+}
 
 export async function executePostgresMcpTool(
   id: string,
@@ -57,11 +180,19 @@ export async function executePostgresMcpTool(
           ORDER BY created_at DESC LIMIT 1
         `;
         if (existing[0]) {
+          const listings = await sql`
+            SELECT title, price, retailer, condition, url, deal_score AS "dealScore",
+                   trust_tier AS "trustTier", seller_trust_score AS "sellerTrustScore",
+                   is_verified_seller AS "isVerifiedSeller"
+            FROM shop_listings WHERE session_id = ${existing[0].sessionId}
+            ORDER BY deal_score DESC NULLS LAST, price ASC
+          `;
           return {
-            ...existing[0],
-            totalListings: Number(existing[0].totalListings ?? 0),
-            listings: [],
-            error: 'shop worker queued',
+            sessionId: existing[0].sessionId,
+            status: existing[0].status,
+            totalListings: Number(existing[0].totalListings ?? listings.length),
+            listings,
+            durationMs: 0,
           };
         }
         const rows = await sql`
@@ -70,7 +201,25 @@ export async function executePostgresMcpTool(
                   ${sql.json((input.retailers as unknown[]) ?? [])}, ${Boolean(input.verifiedOnly)}, 'pending')
           RETURNING id::text AS "sessionId", status
         `;
-        return { ...rows[0], totalListings: 0, listings: [], error: 'shop worker queued' };
+        const result = await runLiveShopSearch(
+          sql,
+          rows[0].sessionId,
+          query,
+          ((input.retailers as unknown[]) ?? ['amazon', 'ebay', 'newegg', 'bestbuy']).map(String),
+          condition,
+          priceMin,
+          priceMax,
+          Boolean(input.verifiedOnly),
+          options?.signal
+        );
+        return {
+          sessionId: rows[0].sessionId,
+          status: 'completed',
+          totalListings: result.listings.length,
+          bestDeal: result.listings[0] ?? null,
+          listings: result.listings,
+          durationMs: result.durationMs,
+        };
       }
       case 'assimilate_creator': {
         const rows = await sql`
