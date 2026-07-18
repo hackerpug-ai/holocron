@@ -23,6 +23,7 @@
  * Sprint 10 search-2: embed:run | embed:verify
  * Sprint 10 GATE-FIX: search | search --explain | search --surface | search:recall
  * Sprint 12 obs-1: mission run research --goal <text> [--json]
+ * Sprint 13 D02-07: prd:consistency
  */
 import { resolve } from 'node:path';
 import { z } from 'zod';
@@ -123,6 +124,8 @@ interface CliArgs {
   dataset: string | null;
   /** evals:run --judge-endpoint (fail-closed probe override) */
   judgeEndpoint: string | null;
+  /** prd:consistency --root */
+  root: string | null;
 }
 
 function printHelp(): void {
@@ -290,6 +293,7 @@ function parseArgs(argv: string[]): CliArgs {
     sample: null,
     dataset: null,
     judgeEndpoint: null,
+    root: null,
   };
   const positional: string[] = [];
   for (let i = 0; i < argv.length; i++) {
@@ -457,6 +461,10 @@ function parseArgs(argv: string[]): CliArgs {
       args.manifestPath = resolve(a.slice('--manifest='.length));
     } else if (a.startsWith('--fixtures-dir=')) {
       args.fixturesDir = resolve(a.slice('--fixtures-dir='.length));
+    } else if (a === '--root') {
+      args.root = resolve(argv[++i] ?? '');
+    } else if (a.startsWith('--root=')) {
+      args.root = resolve(a.slice('--root='.length));
     } else if (a.startsWith('-')) {
       console.error(`unknown flag: ${a}`);
       process.exit(2);
@@ -3111,6 +3119,21 @@ async function main(): Promise<void> {
       }
       break;
     }
+    case 'prd:consistency': {
+      const { runPrdConsistency } = await import('../prd/consistency.ts');
+      const result = runPrdConsistency({ root: args.root ?? undefined });
+      if (args.json) {
+        console.log(JSON.stringify(result, null, 2));
+      } else {
+        console.log(
+          result.ok
+            ? `prd consistency OK — tables=${result.table_count} tools=${result.tool_count} uc=${result.uc_count}`
+            : `prd consistency FAIL — ${result.errors.join('; ')}`
+        );
+      }
+      process.exit(result.ok ? 0 : 1);
+    }
+
     default:
       console.error(`unknown command: ${args.command}`);
       printHelp();

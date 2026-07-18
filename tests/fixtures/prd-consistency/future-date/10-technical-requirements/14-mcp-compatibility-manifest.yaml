@@ -1,0 +1,13 @@
+protocol: "2099-06-01"
+transports: [stdio]
+tools:
+  - id: tool_a
+    input_schema: { type: object }
+    output_schema: { type: object }
+    defaults: {}
+    errors: []
+  - id: tool_b
+    input_schema: { type: object }
+    output_schema: { type: object }
+    defaults: {}
+    errors: []
