@@ -130,10 +130,17 @@ async function finalizeChatRun(
     `;
     if (status === 'completed' && options?.finalText !== undefined) {
       await tx`
-        INSERT INTO chat_messages (id, role, content, message_type, session_id)
-        VALUES (${run.durable_message_id}::uuid, 'assistant', ${options.finalText}, 'chat', ${run.id})
+        INSERT INTO chat_messages (id, conversation_id, role, content, message_type, session_id)
+        VALUES (${run.durable_message_id}::uuid, ${run.conversation_id}, 'agent', ${options.finalText}, 'text', ${run.id})
         ON CONFLICT (id) DO NOTHING
       `;
+      if (run.conversation_id) {
+        await tx`
+          UPDATE conversations
+          SET last_message_preview = ${options.finalText.slice(0, 200)}, updated_at = now()
+          WHERE id::text = ${run.conversation_id}
+        `;
+      }
     }
   });
 }
@@ -270,6 +277,17 @@ export async function createChatRun(
       `
       )[0];
     if (!run) throw new Error('chat run insert returned no row');
+    if (input.conversationId) {
+      await sql`
+        INSERT INTO chat_messages (id, conversation_id, role, content, message_type, session_id)
+        VALUES (${randomUUID()}::uuid, ${input.conversationId}, 'user', ${input.msg}, 'text', ${run.id})
+      `;
+      await sql`
+        UPDATE conversations
+        SET last_message_preview = ${input.msg.slice(0, 200)}, updated_at = now()
+        WHERE id::text = ${input.conversationId}
+      `;
+    }
     void processChatRun(databaseUrl, run);
     return rowPayload(run, false);
   } finally {

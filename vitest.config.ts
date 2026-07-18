@@ -50,6 +50,8 @@ export default defineConfig({
       'services/platform/tests/integration/sprint18-chat-runs.test.ts',
       // Sprint 19 — Streamable HTTP MCP gateway parity and security
       'services/platform/tests/integration/sprint19-mcp-rehost.test.ts',
+      // Sprint 20 — Hono chat writes to the Zero-published conversation surface
+      'services/platform/tests/integration/sprint20-chat-zero-boundary.test.ts',
     ],
     setupFiles: ['tests/setup/react-native.ts'],
     exclude: ['node_modules', 'dist', '.expo'],
