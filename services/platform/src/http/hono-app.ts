@@ -14,6 +14,7 @@ import { BlobStore, defaultBlobRoot } from '../blob/store.ts';
 import { isSha256Hex } from '../blob/utils.ts';
 import { createSql } from '../db/client.ts';
 import { resolveHolocronNonprodDatabaseUrl } from '../db/connection.ts';
+import { handleMcpRequest } from '../mcp/gateway.ts';
 import {
   finalizeUploadIntent,
   initUploadIntent,
@@ -391,23 +392,18 @@ export function createHonoApp(options?: CreateHonoAppOptions): HonoApp {
     }
   });
 
-  app.all('/mcp', (c) => {
-    return c.json({
-      ok: true,
-      route: `${c.req.method} /mcp`,
-      scope: c.get('scope'),
-      note: 'placeholder — MCP Streamable HTTP mount lands later',
-    });
-  });
-
-  app.all('/mcp/*', (c) => {
-    return c.json({
-      ok: true,
-      route: `${c.req.method} ${new URL(c.req.url).pathname}`,
-      scope: c.get('scope'),
-      note: 'placeholder — MCP Streamable HTTP mount lands later',
-    });
-  });
+  const mcpHandler = async (c: Parameters<HonoApp['all']>[1]) => {
+    const origin = c.req.header('Origin');
+    if (origin && origin !== new URL(c.req.url).origin) {
+      return c.json(
+        { ok: false, error: 'foreign origin rejected', code: 'MCP_ORIGIN_REJECTED' },
+        403
+      );
+    }
+    return handleMcpRequest(c.req.raw);
+  };
+  app.all('/mcp', mcpHandler);
+  app.all('/mcp/*', mcpHandler);
 
   return app;
 }

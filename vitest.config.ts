@@ -48,6 +48,8 @@ export default defineConfig({
       'services/platform/tests/integration/sprint17-mission-template.test.ts',
       // Sprint 18 — idempotent fleet chat runs and resumable SSE
       'services/platform/tests/integration/sprint18-chat-runs.test.ts',
+      // Sprint 19 — Streamable HTTP MCP gateway parity and security
+      'services/platform/tests/integration/sprint19-mcp-rehost.test.ts',
     ],
     setupFiles: ['tests/setup/react-native.ts'],
     exclude: ['node_modules', 'dist', '.expo'],
