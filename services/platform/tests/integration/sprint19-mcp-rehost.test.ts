@@ -25,7 +25,7 @@ describe('Sprint 19 MCP rehost gateway', () => {
       await sql`DELETE FROM documents WHERE title LIKE 's19-parity-%'`;
       await sql`DELETE FROM toolbelt_tools WHERE title LIKE 's19-parity-%'`;
       await sql`DELETE FROM improvement_requests WHERE description LIKE 's19-parity-%'`;
-      await sql`DELETE FROM shop_sessions WHERE query LIKE 's19-parity-%' OR query LIKE 'USB-C hub%' OR query LIKE 's19 replay product%'`;
+      await sql`DELETE FROM shop_sessions WHERE query LIKE 's19-parity-%' OR query LIKE 'USB-C hub%' OR query LIKE 's19 replay product%' OR query LIKE 's19-cancel-%'`;
       await sql`DELETE FROM assimilation_sessions WHERE repository_url LIKE 's19-parity-%'`;
       await sql`DELETE FROM transcript_jobs WHERE content_id LIKE 's19-parity-%' OR content_id LIKE 's19-creator-%'`;
       await sql`DELETE FROM subscription_content WHERE content_id LIKE 's19-creator-%'`;
@@ -140,6 +140,24 @@ describe('Sprint 19 MCP rehost gateway', () => {
       )
     ).rejects.toThrow('MCP request cancelled');
   });
+
+  itLive(
+    'cancels an active retailer request and marks its Postgres session cancelled',
+    async () => {
+      if (!sql) throw new Error('Postgres is required');
+      const controller = new AbortController();
+      const query = `s19-cancel-${Date.now()}`;
+      const request = executePostgresMcpTool(
+        'shop_products',
+        { query, retailers: ['amazon'] },
+        { databaseUrl: DATABASE_URL, signal: controller.signal }
+      );
+      controller.abort();
+      await expect(request).rejects.toThrow(/cancel/i);
+      const rows = await sql`SELECT status FROM shop_sessions WHERE query = ${query}`;
+      expect(rows[0]?.status).toBe('cancelled');
+    }
+  );
 
   itLive(
     'executes initialize, list, and a tool call over real stdio',
@@ -523,7 +541,9 @@ describe('Sprint 19 MCP rehost gateway', () => {
           },
         }),
       });
-      expect((await invalidApprove.json()).result.isError).toBe(true);
+      const invalidBody = await invalidApprove.json();
+      expect(invalidBody.result.isError).toBe(true);
+      expect(JSON.parse(invalidBody.result.content[0].text).code).toBe('INVALID_STATE');
     },
     60_000
   );

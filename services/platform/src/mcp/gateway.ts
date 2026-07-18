@@ -23,16 +23,33 @@ export function createMcpServer(): McpServer {
           extra && typeof extra === 'object' && 'signal' in extra
             ? (extra as { signal?: AbortSignal }).signal
             : undefined;
-        const result = await executePostgresMcpTool(id, input as Record<string, unknown>, {
-          signal,
-        });
-        const content = [{ type: 'text' as const, text: JSON.stringify(result) }];
-        // MCP structuredContent is an object by protocol; array-shaped tool outputs
-        // remain lossless in the canonical text content instead of being rejected by
-        // CallToolResultSchema.
-        return Array.isArray(result) || result === null || typeof result !== 'object'
-          ? { content }
-          : { content, structuredContent: result as Record<string, unknown> };
+        try {
+          const result = await executePostgresMcpTool(id, input as Record<string, unknown>, {
+            signal,
+          });
+          const content = [{ type: 'text' as const, text: JSON.stringify(result) }];
+          // MCP structuredContent is an object by protocol; array-shaped tool outputs
+          // remain lossless in the canonical text content instead of being rejected by
+          // CallToolResultSchema.
+          return Array.isArray(result) || result === null || typeof result !== 'object'
+            ? { content }
+            : { content, structuredContent: result as Record<string, unknown> };
+        } catch (error) {
+          const rawMessage = error instanceof Error ? error.message : String(error);
+          const separator = rawMessage.indexOf(':');
+          const prefix = separator > 0 ? rawMessage.slice(0, separator) : '';
+          const code = /^[A-Z][A-Z0-9_]+$/.test(prefix)
+            ? prefix
+            : rawMessage === 'MCP request cancelled'
+              ? 'CANCELLED'
+              : 'INTERNAL_SERVER_ERROR';
+          return {
+            content: [
+              { type: 'text' as const, text: JSON.stringify({ code, message: rawMessage }) },
+            ],
+            isError: true,
+          };
+        }
       }
     );
   }
