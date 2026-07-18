@@ -44,11 +44,29 @@ export async function executePostgresMcpTool(
         return { sessions: rows, totalResults: rows.length };
       }
       case 'shop_products': {
+        const query = String(input.query);
+        const condition = String(input.condition ?? 'any');
+        const priceMin = typeof input.priceMin === 'number' ? input.priceMin : null;
+        const priceMax = typeof input.priceMax === 'number' ? input.priceMax : null;
+        const existing = await sql`
+          SELECT id::text AS "sessionId", status, total_listings AS "totalListings"
+          FROM shop_sessions
+          WHERE query = ${query} AND condition = ${condition}
+            AND price_min IS NOT DISTINCT FROM ${priceMin}
+            AND price_max IS NOT DISTINCT FROM ${priceMax}
+          ORDER BY created_at DESC LIMIT 1
+        `;
+        if (existing[0]) {
+          return {
+            ...existing[0],
+            totalListings: Number(existing[0].totalListings ?? 0),
+            listings: [],
+            error: 'shop worker queued',
+          };
+        }
         const rows = await sql`
           INSERT INTO shop_sessions (id, query, condition, price_min, price_max, retailers, verified_only, status)
-          VALUES (${randomUUID()}::uuid, ${String(input.query)}, ${String(input.condition ?? 'any')},
-                  ${typeof input.priceMin === 'number' ? input.priceMin : null},
-                  ${typeof input.priceMax === 'number' ? input.priceMax : null},
+          VALUES (${randomUUID()}::uuid, ${query}, ${condition}, ${priceMin}, ${priceMax},
                   ${sql.json((input.retailers as unknown[]) ?? [])}, ${Boolean(input.verifiedOnly)}, 'pending')
           RETURNING id::text AS "sessionId", status
         `;
@@ -131,7 +149,8 @@ export async function executePostgresMcpTool(
         const query = String(input.query);
         const count = Math.min(Number(input.count ?? 5), 7);
         return await sql`
-          SELECT title AS name, description AS recommendation, source_url AS contact
+          SELECT title AS name, description AS recommendation,
+                 json_build_object('url', source_url) AS contact
           FROM toolbelt_tools
           WHERE search_vector @@ websearch_to_tsquery('english', ${query})
           ORDER BY created_at DESC LIMIT ${count}
@@ -205,12 +224,25 @@ export async function executePostgresMcpTool(
         return rows[0] ?? null;
       }
       case 'approve_assimilation_plan': {
-        await sql`UPDATE assimilation_sessions SET status = 'running', updated_at = now() WHERE id = ${String(input.sessionId)}::uuid`;
+        const rows = await sql`
+          UPDATE assimilation_sessions SET status = 'running', updated_at = now()
+          WHERE id = ${String(input.sessionId)}::uuid AND status IN ('pending_approval', 'planning')
+          RETURNING id
+        `;
+        if (!rows[0])
+          throw new Error('INVALID_STATE: assimilation session is not awaiting approval');
         return { approved: true, sessionId: String(input.sessionId) };
       }
       case 'reject_assimilation_plan': {
         const feedback = typeof input.feedback === 'string' ? input.feedback : null;
-        await sql`UPDATE assimilation_sessions SET status = ${feedback ? 'planning' : 'rejected'}, plan_feedback = ${feedback}, updated_at = now() WHERE id = ${String(input.sessionId)}::uuid`;
+        const rows = await sql`
+          UPDATE assimilation_sessions
+          SET status = ${feedback ? 'planning' : 'rejected'}, plan_feedback = ${feedback}, updated_at = now()
+          WHERE id = ${String(input.sessionId)}::uuid AND status IN ('pending_approval', 'planning')
+          RETURNING id
+        `;
+        if (!rows[0])
+          throw new Error('INVALID_STATE: assimilation session is not awaiting approval');
         return {
           rejected: true,
           sessionId: String(input.sessionId),
@@ -218,11 +250,21 @@ export async function executePostgresMcpTool(
         };
       }
       case 'cancel_assimilation': {
-        await sql`UPDATE assimilation_sessions SET status = 'cancelled', updated_at = now(), completed_at = now() WHERE id = ${String(input.sessionId)}::uuid`;
+        const rows = await sql`
+          UPDATE assimilation_sessions SET status = 'cancelled', updated_at = now(), completed_at = now()
+          WHERE id = ${String(input.sessionId)}::uuid AND status NOT IN ('completed', 'cancelled', 'canceled')
+          RETURNING id
+        `;
+        if (!rows[0]) throw new Error('NOT_FOUND: assimilation session is not cancellable');
         return { cancelled: true, sessionId: String(input.sessionId) };
       }
       case 'steer_assimilation': {
-        await sql`UPDATE assimilation_sessions SET steering_note = ${String(input.note)}, updated_at = now() WHERE id = ${String(input.sessionId)}::uuid`;
+        const rows = await sql`
+          UPDATE assimilation_sessions SET steering_note = ${String(input.note)}, updated_at = now()
+          WHERE id = ${String(input.sessionId)}::uuid AND status NOT IN ('completed', 'cancelled', 'canceled')
+          RETURNING id
+        `;
+        if (!rows[0]) throw new Error('NOT_FOUND: assimilation session is not steerable');
         return { steered: true, sessionId: String(input.sessionId) };
       }
       case 'search_improvements': {

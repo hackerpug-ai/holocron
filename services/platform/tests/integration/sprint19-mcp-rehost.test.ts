@@ -144,5 +144,41 @@ describe('Sprint 19 MCP rehost gateway', () => {
     const addResult = await add.json();
     const addAgainResult = await addAgain.json();
     expect(addResult.result).toEqual(addAgainResult.result);
+
+    const shopBody = {
+      jsonrpc: '2.0',
+      id: 7,
+      method: 'tools/call',
+      params: {
+        name: 'shop_products',
+        arguments: { query: 's19 replay product', condition: 'any' },
+      },
+    };
+    const shop = await app.request('/mcp', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(shopBody),
+    });
+    const shopAgain = await app.request('/mcp', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ ...shopBody, id: 8 }),
+    });
+    expect((await shop.json()).result).toEqual((await shopAgain.json()).result);
+
+    const invalidApprove = await app.request('/mcp', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 9,
+        method: 'tools/call',
+        params: {
+          name: 'approve_assimilation_plan',
+          arguments: { sessionId: crypto.randomUUID() },
+        },
+      }),
+    });
+    expect((await invalidApprove.json()).result.isError).toBe(true);
   });
 });
