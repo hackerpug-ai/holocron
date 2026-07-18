@@ -1,95 +1,74 @@
 {
   "task_id": "obs-4",
   "status": "evidence_corrected_pending_review",
-  "branch": "task/obs-4-exit-proof",
-  "commit_sha": "31f99b1b4f4e043354d3f7b2e07f8f1b39e90935",
-  "green_commit_sha": "461ee8212da3e174127617d1d3080164953aa53b",
-  "test_command": "PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/evals-ci-gate.test.ts",
-  "requirements_claimed": [
-    "AC-1",
-    "AC-2",
-    "AC-3",
-    "AC-4",
-    "AC-5",
-    "TC-1",
-    "TC-2",
-    "TC-3",
-    "TC-4",
-    "TC-5"
+  "branch": "main",
+  "commit_sha": null,
+  "green_commit_sha": "cc386d1ed743d8543e27d8a805d0b7bee6dc0f48",
+  "implementation_merge_commit": "cc386d1ed743d8543e27d8a805d0b7bee6dc0f48",
+  "evidence_dir": ".tmp/obs-4/raw-exit-evidence",
+  "admissible_proof": ".tmp/obs-4/raw-exit-evidence/RAW-EXIT-EVIDENCE.json",
+  "inadmissible": [
+    "seeded JSON without process_status",
+    "tee/&& masked EXIT:$?",
+    "review-verdict.json",
+    "commit_sha=4de1909",
+    "pre-merge-only green_commit_sha=461ee82 without raw exit artifact"
   ],
-  "evidence_dir": ".tmp/obs-4",
-  "blocker_classification": "none",
-  "exit_proof": {
-    "method": "bash: direct $? + set -o pipefail + PIPESTATUS[0]",
-    "invalidates_prior_tee_smoke": true,
-    "all_proof_ok": true,
-    "fixtures": [
+  "requirements_exercised": [
+    "deliberately-bad",
+    "known-good",
+    "deterministic-invariant-regression",
+    "invalid-config",
+    "machine-readable"
+  ],
+  "raw_exit_evidence": {
+    "artifact": ".tmp/obs-4/raw-exit-evidence/RAW-EXIT-EVIDENCE.json",
+    "all_exit_proofs_ok": true,
+    "deliberately_bad_process_status": 1,
+    "cases": [
       {
-        "name": "deliberately-bad",
-        "shell_exit_code": 1,
-        "pipe_bun_exit": 1,
-        "exits_agree": true,
-        "json_exitCode": 1,
-        "json_verdict": "failed",
-        "expect_nonzero": true,
-        "proof_ok": true
+        "case_id": "deliberately-bad",
+        "process_status": 1,
+        "proof_ok": true,
+        "command_line": "bun services/platform/src/cli/holo.ts evals:ci --fixture deliberately-bad --json",
+        "timestamp_utc_start": "2026-07-18T04:00:41Z",
+        "branch_tip_at_run": "05ad213efa8be16eb1968c9944125ea09451945e"
       },
       {
-        "name": "known-good",
-        "shell_exit_code": 0,
-        "pipe_bun_exit": 0,
-        "exits_agree": true,
-        "json_exitCode": 0,
-        "json_verdict": "passed",
-        "expect_nonzero": false,
-        "proof_ok": true
+        "case_id": "known-good",
+        "process_status": 0,
+        "proof_ok": true,
+        "command_line": "bun services/platform/src/cli/holo.ts evals:ci --fixture known-good --json",
+        "timestamp_utc_start": "2026-07-18T04:01:18Z",
+        "branch_tip_at_run": "05ad213efa8be16eb1968c9944125ea09451945e"
       },
       {
-        "name": "deterministic-invariant-regression",
-        "shell_exit_code": 1,
-        "pipe_bun_exit": 1,
-        "exits_agree": true,
-        "json_exitCode": 1,
-        "json_verdict": "failed",
-        "expect_nonzero": true,
-        "proof_ok": true
+        "case_id": "deterministic-invariant-regression",
+        "process_status": 1,
+        "proof_ok": true,
+        "command_line": "bun services/platform/src/cli/holo.ts evals:ci --fixture deterministic-invariant-regression --json",
+        "timestamp_utc_start": "2026-07-18T04:01:32Z",
+        "branch_tip_at_run": "05ad213efa8be16eb1968c9944125ea09451945e"
       },
       {
-        "name": "invalid-config",
-        "shell_exit_code": 1,
-        "pipe_bun_exit": 1,
-        "exits_agree": true,
-        "json_exitCode": 1,
-        "json_verdict": "failed",
-        "expect_nonzero": true,
-        "proof_ok": true
+        "case_id": "invalid-config",
+        "process_status": 1,
+        "proof_ok": true,
+        "command_line": "bun services/platform/src/cli/holo.ts evals:ci --fixture invalid-config --json",
+        "timestamp_utc_start": "2026-07-18T04:03:07Z",
+        "branch_tip_at_run": "05ad213efa8be16eb1968c9944125ea09451945e"
+      },
+      {
+        "case_id": "machine-readable",
+        "process_status": 0,
+        "proof_ok": true,
+        "command_line": "bun services/platform/src/cli/holo.ts evals:ci --fixture known-good --json",
+        "timestamp_utc_start": "2026-07-18T04:03:08Z",
+        "branch_tip_at_run": "05ad213efa8be16eb1968c9944125ea09451945e"
       }
-    ],
-    "bad_fixture_shell_exit_code": 1,
-    "artifacts": {
-      "capture_summary": ".tmp/obs-4/exit-proof-capture-summary.json",
-      "deliberately_bad_meta": ".tmp/obs-4/exit-proof-deliberately-bad.meta.json",
-      "suite_meta": ".tmp/obs-4/green-suite.meta.json"
-    }
+    ]
   },
-  "gates": {
-    "suite": {
-      "artifact": "green-output.txt",
-      "shell_exit_code": 0,
-      "result": [
-        "Test Files  1 passed (1)",
-        "Tests  5 passed (5)"
-      ]
-    },
-    "cli_process_exits": {
-      "deliberately-bad": 1,
-      "known-good": 0,
-      "deterministic-invariant-regression": 1,
-      "invalid-config": 1,
-      "source": "bash $? and PIPESTATUS[0] (agree)"
-    }
-  },
-  "summary": "EVIDENCE CORRECTION: re-captured holo evals:ci process exits with bash direct $? and set -o pipefail + PIPESTATUS[0]. deliberately-bad shell_exit=1 (PIPESTATUS agrees). Suite shell_exit=0, 5/5 tests passed. Prior tee-masked EXIT:$? smokes invalidated.",
-  "corrected_at": "2026-07-18T03:44:55Z",
-  "evidence_commit_sha": "2844e03001afd473db3d4f6ee2f7a4c89f40b0bb"
+  "blocker_classification": "none",
+  "summary": "HARD EVIDENCE remediation: raw process exits for all CLI cases via bash redirect $? + pipefail PIPESTATUS[0]. deliberately-bad process_status=1. green_commit_sha bound to implementation merge cc386d1. No review verdict. status=evidence_corrected_pending_review.",
+  "corrected_at": "2026-07-18T04:04:38Z"
 }

@@ -1,0 +1,22 @@
+{
+  "fixture": "known-good",
+  "datasetVersion": "research_v1",
+  "baselineVersion": "research_v1",
+  "modelVersion": "judge_v1",
+  "promptVersion": "research-quality_v1",
+  "score": 0.9,
+  "baseline": 0.8,
+  "threshold": 0.8,
+  "runId": "ci-fd38ba89-340e-45d4-9a35-97b376a51f8c",
+  "scoreId": "019f7364-f94d-7bb1-a562-e650490c85cb",
+  "sampleId": "known-good",
+  "meetsThreshold": true,
+  "invariantPassed": true,
+  "deterministicFailures": [],
+  "reason": "The response is a thorough, structured research brief that includes numbered citations [1]-[6] and a Sources section. It covers benefits (weight loss, glycemic control, lipids), limitations/safety (adverse effects, dropout rates, contraindications), and provides a clear, calibrated bottom line acknowledging uncertainty regarding superiority over continuous calorie restriction. Meets all criteria for the >=0.85 band.",
+  "exitReason": "passed",
+  "verdict": "passed",
+  "exitCode": 0,
+  "failureReason": null,
+  "errorCode": null
+}

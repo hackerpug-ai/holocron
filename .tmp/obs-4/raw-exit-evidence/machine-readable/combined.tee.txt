@@ -1,0 +1,22 @@
+{
+  "fixture": "known-good",
+  "datasetVersion": "research_v1",
+  "baselineVersion": "research_v1",
+  "modelVersion": "judge_v1",
+  "promptVersion": "research-quality_v1",
+  "score": 0.9,
+  "baseline": 0.8,
+  "threshold": 0.8,
+  "runId": "ci-7023e217-231a-4a91-af83-cfdda5649c99",
+  "scoreId": "019f7365-1c4e-7033-8a80-e5f4114d94de",
+  "sampleId": "known-good",
+  "meetsThreshold": true,
+  "invariantPassed": true,
+  "deterministicFailures": [],
+  "reason": "The response is a structured research brief with clear sections (Key findings, Bottom line) covering benefits, limitations/safety, and a final judgment. It includes numbered citations [1]-[6] within the text and a corresponding Sources list with URLs/DOIs. The claims are specific (e.g., '3–8% body-weight reduction'), evidence-linked (citations provided), and avoid overclaiming (acknowledges heterogeneous results, small HbA1c improvements, and that benefits track caloric deficit). Although the URLs are clearly placeholders (e.g., 'example-if-meta'), the rubric permits treating these as valid citation markers.",
+  "exitReason": "passed",
+  "verdict": "passed",
+  "exitCode": 0,
+  "failureReason": null,
+  "errorCode": null
+}

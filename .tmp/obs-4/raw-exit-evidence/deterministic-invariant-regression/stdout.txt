@@ -1,0 +1,27 @@
+{
+  "fixture": "deterministic-invariant-regression",
+  "datasetVersion": "research_v1",
+  "baselineVersion": "research_v1",
+  "modelVersion": "judge_v1",
+  "promptVersion": "research-quality_v1",
+  "score": 0.5,
+  "baseline": 0.8,
+  "threshold": 0.8,
+  "verdict": "failed",
+  "exitCode": 1,
+  "failureReason": "threshold_regression",
+  "exitReason": "score 0.5 < threshold 0.8",
+  "errorCode": null,
+  "deterministicFailures": [
+    {
+      "invariantId": "required-citation",
+      "reason": "missing required citation markers ([n], URL, doi, or Sources: block)"
+    }
+  ],
+  "runId": "ci-4341a33b-0b2d-417b-a5e2-f55e12fe9468",
+  "scoreId": "019f7363-64ef-77cb-9d62-cb3d24bcffa4",
+  "sampleId": "deterministic-invariant-regression",
+  "meetsThreshold": false,
+  "invariantPassed": false,
+  "reason": "The response is well-structured and comprehensive, covering benefits, limitations, and a bottom-line judgment with appropriate calibration of uncertainty. However, it completely fails to include any citations or source markers, which are explicitly required by the task prompt and critical for the 'grounding' and 'citations' criteria. The absence of evidence linkage prevents it from meeting research-quality standards, placing it in the partial response band despite its structural strengths."
+}

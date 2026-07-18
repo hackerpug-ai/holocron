@@ -1,0 +1,43 @@
+{
+  "case_id": "machine-readable",
+  "command": [
+    "bun",
+    "services/platform/src/cli/holo.ts",
+    "evals:ci",
+    "--fixture",
+    "known-good",
+    "--json"
+  ],
+  "command_line": "bun services/platform/src/cli/holo.ts evals:ci --fixture known-good --json",
+  "cwd": "/Users/inference1/Projects/holocron",
+  "timestamp_utc_start": "2026-07-18T04:03:08Z",
+  "timestamp_utc_end": "2026-07-18T04:03:54Z",
+  "branch": "main",
+  "branch_tip_at_run": "05ad213efa8be16eb1968c9944125ea09451945e",
+  "implementation_merge_commit": "cc386d1ed743d8543e27d8a805d0b7bee6dc0f48",
+  "capture": {
+    "method_direct": {
+      "description": "bun ... >stdout 2>stderr; status=$?  (no pipe, no tee masking)",
+      "process_status": 0
+    },
+    "method_pipefail_PIPESTATUS": {
+      "description": "set -o pipefail; bun ... 2>&1 | tee combined; status=PIPESTATUS[0] (NOT tee's $?)",
+      "PIPESTATUS": [
+        0,
+        0
+      ],
+      "process_status_bun": 0,
+      "process_status_tee": 0
+    },
+    "statuses_agree": true
+  },
+  "process_status": 0,
+  "expect_nonzero": false,
+  "proof_ok": true,
+  "stdout_path": ".tmp/obs-4/raw-exit-evidence/machine-readable/stdout.txt",
+  "stderr_path": ".tmp/obs-4/raw-exit-evidence/machine-readable/stderr.txt",
+  "stdout_sha256": "bb4b6a27917e9d9999123638133e12a81f32c79744febc0be283d43963748525",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "stdout_bytes": 994,
+  "stderr_bytes": 0
+}
