@@ -4,6 +4,7 @@ import { resolveHolocronNonprodDatabaseUrl } from '../db/connection';
 export type ResearchInspection = {
   ok: boolean;
   sessionId: string;
+  traceId?: string | null;
   status?: string;
   assayInstanceId?: string | null;
   challengeInstanceId?: string | null;
@@ -11,6 +12,7 @@ export type ResearchInspection = {
   gate?: unknown;
   plan?: unknown;
   findings?: unknown;
+  processProof?: unknown;
   error?: string;
   errorCode?: string;
 };
@@ -59,8 +61,6 @@ function stageProcesses(rows: MissionStageTraceRow[]): unknown[] {
     modelId: row.model_id,
     telemetryStepId: row.telemetry_step_id,
     traceId: row.trace_id,
-    externalHarness: null,
-    piProcess: false,
   }));
 }
 
@@ -72,6 +72,7 @@ async function inspectMissionRun(
   const runs = await sql<
     {
       id: string;
+      trace_id: string | null;
       status: string;
       template_key: string;
       compiled_plan_json: unknown;
@@ -81,7 +82,7 @@ async function inspectMissionRun(
       model_revisions_json: unknown;
     }[]
   >`
-    SELECT id, status, template_key, compiled_plan_json, args_json, typed_output_json,
+    SELECT id, trace_id, status, template_key, compiled_plan_json, args_json, typed_output_json,
            role_resolution_json, model_revisions_json
     FROM mission_runs
     WHERE id = ${sessionId}::uuid AND template_key = 'research'
@@ -107,20 +108,23 @@ async function inspectMissionRun(
     ORDER BY s.stage_index, s.attempt
   `;
   const output = objectValue(run.typed_output_json);
-  const pendingEvent = await sql<{ payload_json: unknown }[]>`
-    SELECT payload_json
+  const eventRows = await sql<{ event_type: string; payload_json: unknown }[]>`
+    SELECT event_type, payload_json
     FROM mission_events
-    WHERE run_id = ${sessionId}::uuid AND event_type = 'research_gate_pending'
+    WHERE run_id = ${sessionId}::uuid
+      AND event_type IN ('research_gate_pending', 'research_process_proof')
     ORDER BY event_index DESC
-    LIMIT 1
   `;
+  const pendingEvent = eventRows.find((event) => event.event_type === 'research_gate_pending');
+  const processProof = eventRows.find((event) => event.event_type === 'research_process_proof');
   const gate =
-    output.admitted !== undefined ? output : objectValue(pendingEvent[0]?.payload_json).gate;
+    output.admitted !== undefined ? output : objectValue(pendingEvent?.payload_json).gate;
   const assayInstanceId = stageInstance(stages, 'assay', 'instanceId');
   const challengeInstanceId = stageInstance(stages, 'challenge', 'challengeInstanceId');
   const result: ResearchInspection & { processes?: unknown[] } = {
     ok: true,
     sessionId,
+    traceId: run.trace_id,
     status: run.status,
     assayInstanceId,
     challengeInstanceId,
@@ -136,6 +140,7 @@ async function inspectMissionRun(
       args: run.args_json,
     },
     findings: objectValue(run.args_json).researchEvidence ?? null,
+    processProof: processProof?.payload_json ?? null,
   };
   if (includeProcesses) result.processes = stageProcesses(stages);
   return result;

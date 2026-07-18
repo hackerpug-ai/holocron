@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { createSql, type Sql } from '../db/client.ts';
@@ -105,6 +106,7 @@ export type MissionStatusPayload = {
   templateKey?: string;
   templateVersion?: string;
   idempotencyKey?: string;
+  traceId?: string | null;
   status?: MissionStatus;
   replay?: boolean;
   goal?: string | null;
@@ -250,6 +252,7 @@ type MissionBudgetBreach = {
 
 type StageExecutionContext = {
   run: MissionRunRow;
+  databaseUrl: string;
   stage: CompiledMissionStage;
   stageRunId: string;
   lease: MissionLease;
@@ -257,6 +260,44 @@ type StageExecutionContext = {
 };
 
 type StageExecutor = (input: unknown, context: StageExecutionContext) => Promise<unknown>;
+
+type ResearchProcessProof = {
+  pid: number;
+  parentPid: number;
+  processChain: string[];
+  forbiddenMatches: string[];
+  noExternalHarness: boolean;
+};
+
+function captureResearchProcessProof(): ResearchProcessProof {
+  const processChain: string[] = [];
+  let pid = process.pid;
+  for (let depth = 0; depth < 4 && pid > 1; depth += 1) {
+    let command = `pid:${pid}`;
+    try {
+      command = execFileSync('ps', ['-o', 'command=', '-p', String(pid)], {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }).trim();
+    } catch {
+      // A missing process snapshot is recorded as an explicit proof failure.
+    }
+    processChain.push(command);
+    const parent = process.ppid;
+    if (pid === process.pid || !Number.isInteger(parent) || parent <= 1 || parent === pid) break;
+    pid = parent;
+  }
+  const forbiddenMatches = processChain.filter((command) =>
+    /(?:^|[\\s/])(pi|claude|codex|opencode)(?:$|[\\s/])/i.test(command)
+  );
+  return {
+    pid: process.pid,
+    parentPid: process.ppid,
+    processChain,
+    forbiddenMatches,
+    noExternalHarness: forbiddenMatches.length === 0 && processChain.length > 0,
+  };
+}
 
 const STAGE_EXECUTORS: Record<string, StageExecutor> = {
   'builtin.fleet-probe@1': async (input, context) => {
@@ -399,6 +440,24 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
       budgetExceeded: false,
     });
   },
+  'builtin.research-plan@1': async (input, context) =>
+    STAGE_EXECUTORS['builtin.fleet-probe@1'](input, context),
+  'builtin.research-retrieve@1': async (input) =>
+    canonicalJsonValue(
+      parseMissionSchemaValue(
+        { schemaRef: 'mission.probe.result', schemaVersion: 1 },
+        input,
+        'research.retrieve.input'
+      )
+    ),
+  'builtin.research-extract@1': async (input) =>
+    canonicalJsonValue(
+      parseMissionSchemaValue(
+        { schemaRef: 'mission.probe.result', schemaVersion: 1 },
+        input,
+        'research.extract.input'
+      )
+    ),
   'builtin.research-assay@1': async (input, context) => {
     const probe = parseMissionSchemaValue(
       { schemaRef: 'mission.probe.result', schemaVersion: 1 },
@@ -424,6 +483,7 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
       runId: context.run.id,
       stepId: context.stageRunId,
       traceId,
+      databaseUrl: context.databaseUrl,
     });
     return canonicalJsonValue({
       goal: probe.goal,
@@ -457,6 +517,7 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
       runId: context.run.id,
       stepId: context.stageRunId,
       traceId,
+      databaseUrl: context.databaseUrl,
     });
     return canonicalJsonValue({
       goal: assay.goal,
@@ -763,6 +824,7 @@ function buildMissionPayload(
     templateKey: run.template_key,
     templateVersion: run.template_version,
     idempotencyKey: run.idempotency_key,
+    traceId: run.trace_id,
     status,
     replay: options?.replay ?? false,
     goal: run.goal,
@@ -1902,10 +1964,43 @@ async function suspendResearchGate(
   });
 }
 
+async function recordResearchProcessProof(
+  sql: Sql,
+  run: MissionRunRow,
+  lease: MissionLease
+): Promise<ResearchProcessProof | null> {
+  if (run.template_key !== 'research') return null;
+  const proof = captureResearchProcessProof();
+  await sql.begin(async (tx) => {
+    await assertLeaseStillOwned(tx, run.id, lease);
+    const existing = await tx<{ event_index: number }[]>`
+      SELECT event_index FROM mission_events
+      WHERE run_id = ${run.id}::uuid AND event_type = 'research_process_proof'
+      LIMIT 1
+    `;
+    if (existing.length > 0) return;
+    const next = await tx<{ event_index: number }[]>`
+      SELECT COALESCE(MAX(event_index), -1) + 1 AS event_index
+      FROM mission_events WHERE run_id = ${run.id}::uuid
+    `;
+    await tx`
+      INSERT INTO mission_events (run_id, event_index, event_type, payload_json)
+      VALUES (
+        ${run.id}::uuid,
+        ${Number(next[0]?.event_index ?? 0)},
+        'research_process_proof',
+        ${tx.json(canonicalJsonValue(proof) as never)}
+      )
+    `;
+  });
+  return proof;
+}
+
 async function executeRunWithLease(
   sql: Sql,
   runId: string,
-  lease: MissionLease
+  lease: MissionLease,
+  databaseUrl: string
 ): Promise<MissionRunRow> {
   const run = await selectMissionRunById(sql, runId);
   if (!run) {
@@ -1913,6 +2008,7 @@ async function executeRunWithLease(
   }
 
   const runtime = parsePersistedRuntime(run);
+  await recordResearchProcessProof(sql, run, lease);
 
   while (true) {
     const currentRun = await selectMissionRunById(sql, runId);
@@ -1970,6 +2066,7 @@ async function executeRunWithLease(
     try {
       const rawOutput = await executor(input, {
         run: currentRun,
+        databaseUrl,
         stage: nextStage,
         stageRunId: stageRun.id,
         lease,
@@ -2130,7 +2227,7 @@ async function runMissionInternal(
     }
 
     try {
-      const completed = await executeRunWithLease(sql, created.run.id, lease);
+      const completed = await executeRunWithLease(sql, created.run.id, lease, databaseUrl);
       return buildMissionPayload(completed, { replay: false });
     } catch (error) {
       const runtimeError =
@@ -2200,7 +2297,7 @@ async function resumeMissionInternal(
 
     const lease = await acquireRunLease(sql, runId, runtimeOwner());
     try {
-      const completed = await executeRunWithLease(sql, runId, lease);
+      const completed = await executeRunWithLease(sql, runId, lease, databaseUrl);
       return buildMissionPayload(completed, { replay: false });
     } catch (error) {
       const runtimeError =

@@ -1,14 +1,28 @@
 {
   "templateKey": "research",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Deterministic evidence-gated research mission for Sprint 17.",
   "trigger": { "kind": "on-demand" },
   "stageGraph": [
     {
-      "id": "plan_probe",
-      "stageKind": "fleet.probe@1",
-      "executorRef": "builtin.fleet-probe@1",
+      "id": "plan",
+      "stageKind": "research.plan@1",
+      "executorRef": "builtin.research-plan@1",
       "inputSchema": { "schemaRef": "mission.goal", "schemaVersion": 1 },
+      "outputSchema": { "schemaRef": "mission.probe.result", "schemaVersion": 1 }
+    },
+    {
+      "id": "retrieve",
+      "stageKind": "research.retrieve@1",
+      "executorRef": "builtin.research-retrieve@1",
+      "inputSchema": { "schemaRef": "mission.probe.result", "schemaVersion": 1 },
+      "outputSchema": { "schemaRef": "mission.probe.result", "schemaVersion": 1 }
+    },
+    {
+      "id": "extract",
+      "stageKind": "research.extract@1",
+      "executorRef": "builtin.research-extract@1",
+      "inputSchema": { "schemaRef": "mission.probe.result", "schemaVersion": 1 },
       "outputSchema": { "schemaRef": "mission.probe.result", "schemaVersion": 1 }
     },
     {
@@ -45,7 +59,7 @@
   ],
   "toolGrants": [],
   "modelRoleBindings": {
-    "plan_probe": "divergent",
+    "plan": "divergent",
     "assay": "divergent",
     "challenge": "convergent"
   },
