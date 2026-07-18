@@ -1,12 +1,12 @@
+import { type ChildProcessWithoutNullStreams, spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { spawn, spawnSync, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createSql, type Sql } from '../../src/db/client';
 import {
-  DEFAULT_HOLOCRON_NONPROD_DATABASE_URL,
   assertHolocronNonprodDatabaseUrl,
+  DEFAULT_HOLOCRON_NONPROD_DATABASE_URL,
 } from '../../src/db/connection';
 import { provisionNonprodNamespace, toNonprodUrl } from '../../src/db/nonprod';
 
@@ -28,7 +28,10 @@ export const GENERATED_DIR = resolve(EVIDENCE_DIR, 'generated');
 export const FIXTURES_DIR = resolve(REPO_ROOT, 'services/platform/tests/fixtures/mission-engine');
 export const PLATFORM_SRC_DIR = resolve(REPO_ROOT, 'services/platform/src');
 
-const OWNER_URL = process.env.DATABASE_URL_OWNER ?? process.env.DATABASE_URL ?? 'postgres://127.0.0.1:5432/holocron';
+const OWNER_URL =
+  process.env.DATABASE_URL_OWNER ??
+  process.env.DATABASE_URL ??
+  'postgres://127.0.0.1:5432/holocron';
 const DEFAULT_NONPROD_URL = process.env.DATABASE_URL?.includes('holocron_nonprod')
   ? process.env.DATABASE_URL
   : toNonprodUrl(OWNER_URL);
@@ -85,6 +88,7 @@ export const EXPECTED_COMMIT_COLUMNS = [
 export const EXPECTED_TEMPLATE_VERSION_COLUMNS = [
   'template_key',
   'version',
+  'dsl_version',
   'definition_hash',
   'compiler_version',
   'registry_snapshot_hash',
@@ -398,7 +402,9 @@ export async function spawnHoloProcess(
 export async function ensureRedTestEnvironment(): Promise<void> {
   ensureEvidenceDirs();
   if (!PLATFORM_IT) {
-    throw new Error('PLATFORM_IT=1 required for Sprint 15 RED integration suite — refusing skip-to-green');
+    throw new Error(
+      'PLATFORM_IT=1 required for Sprint 15 RED integration suite — refusing skip-to-green'
+    );
   }
   process.env.DATABASE_URL = DATABASE_URL;
   process.env.HOLO_KEY_RN = RN;
@@ -421,7 +427,9 @@ export async function ensureRedTestEnvironment(): Promise<void> {
       fixturesDir: existsSync(FIXTURES_DIR) ? FIXTURES_DIR : null,
     });
     if (db[0]?.db !== 'holocron_nonprod') {
-      throw new Error(`Sprint 15 RED suite must target holocron_nonprod (got ${db[0]?.db ?? '(unknown)'})`);
+      throw new Error(
+        `Sprint 15 RED suite must target holocron_nonprod (got ${db[0]?.db ?? '(unknown)'})`
+      );
     }
   } finally {
     await sql.end({ timeout: 5 });
@@ -533,7 +541,14 @@ export async function selectJsonRowsIfExists(
   const safeTable = sanitizeIdentifier(table);
   if (!(await tableExists(sql, safeTable))) return [];
   const columns = await getTableColumns(sql, safeTable);
-  const defaultOrder = preferredOrder(columns, ['stage_index', 'attempt', 'event_index', 'sequence', 'created_at', 'id']);
+  const defaultOrder = preferredOrder(columns, [
+    'stage_index',
+    'attempt',
+    'event_index',
+    'sequence',
+    'created_at',
+    'id',
+  ]);
   const rows = (await sql.unsafe(
     `SELECT to_jsonb(t) AS row FROM "${safeTable}" t WHERE ${whereSql} ORDER BY ${orderBy ?? defaultOrder}`,
     params
@@ -541,7 +556,10 @@ export async function selectJsonRowsIfExists(
   return rows.map((row) => asRecord(row.row));
 }
 
-export async function selectMissionTemplatesByKey(sql: Sql, templateKey: string): Promise<JsonRecord[]> {
+export async function selectMissionTemplatesByKey(
+  sql: Sql,
+  templateKey: string
+): Promise<JsonRecord[]> {
   return selectJsonRowsIfExists(sql, 'mission_templates', 'template_key = $1', [templateKey], '1');
 }
 
@@ -559,10 +577,19 @@ export async function selectMissionTemplateVersions(
       '1'
     );
   }
-  return selectJsonRowsIfExists(sql, 'mission_template_versions', 'template_key = $1', [templateKey], '1');
+  return selectJsonRowsIfExists(
+    sql,
+    'mission_template_versions',
+    'template_key = $1',
+    [templateKey],
+    '1'
+  );
 }
 
-export async function selectMissionRunsByTemplateKey(sql: Sql, templateKey: string): Promise<JsonRecord[]> {
+export async function selectMissionRunsByTemplateKey(
+  sql: Sql,
+  templateKey: string
+): Promise<JsonRecord[]> {
   return selectJsonRowsIfExists(sql, 'mission_runs', 'template_key = $1', [templateKey], '1');
 }
 
@@ -620,7 +647,10 @@ export async function terminalEventCount(sql: Sql, runId: string | null): Promis
   return rows.length;
 }
 
-export async function committedStageDuplicates(sql: Sql, runId: string | null): Promise<number | null> {
+export async function committedStageDuplicates(
+  sql: Sql,
+  runId: string | null
+): Promise<number | null> {
   if (!runId) return null;
   const table = 'mission_stage_runs';
   if (!(await tableExists(sql, table))) return null;
@@ -784,7 +814,7 @@ export function scanMissionCrashHooks(): {
     }
     for (const boundary of Object.keys(boundaryFiles)) {
       if (text.includes(boundary)) {
-        boundaryFiles[boundary]!.push(file.replace(`${REPO_ROOT}/`, ''));
+        boundaryFiles[boundary]?.push(file.replace(`${REPO_ROOT}/`, ''));
       }
     }
   }
@@ -800,7 +830,13 @@ export function scanMissionCrashHooks(): {
 const RED_HANDOFF_SCENARIOS = [
   {
     scenario: 'template-register-provenance',
-    requirements: ['mission-1/AC-1', 'mission-1/AC-3', 'mission-1/TC-1', 'mission-1/TC-2', 'mission-1/TC-3'],
+    requirements: [
+      'mission-1/AC-1',
+      'mission-1/AC-3',
+      'mission-1/TC-1',
+      'mission-1/TC-2',
+      'mission-1/TC-3',
+    ],
     futureGreenAssertions: [
       'template:register persists one immutable template/version row for the scoped template_key/version',
       'persisted version row pins definition_hash/compiler_version/registry_snapshot_hash/output schema provenance',
@@ -818,22 +854,30 @@ const RED_HANDOFF_SCENARIOS = [
   {
     scenario: 'compiler-negative-unknown-stage',
     requirements: ['mission-1/AC-2', 'mission-1/TC-1', 'mission-1/TC-2'],
-    futureGreenAssertions: ['unknown stage kind fails before any scoped template/version/run row is created'],
+    futureGreenAssertions: [
+      'unknown stage kind fails before any scoped template/version/run row is created',
+    ],
   },
   {
     scenario: 'compiler-negative-unknown-schema',
     requirements: ['mission-1/AC-2', 'mission-1/TC-2'],
-    futureGreenAssertions: ['unknown schema ref/version fails before any scoped template/version/run row is created'],
+    futureGreenAssertions: [
+      'unknown schema ref/version fails before any scoped template/version/run row is created',
+    ],
   },
   {
     scenario: 'compiler-negative-executable-payload',
     requirements: ['mission-1/AC-2', 'mission-1/TC-2', 'mission-1/TC-3'],
-    futureGreenAssertions: ['inline executable/Zod/raw-SQL payloads fail closed with zero scoped writes'],
+    futureGreenAssertions: [
+      'inline executable/Zod/raw-SQL payloads fail closed with zero scoped writes',
+    ],
   },
   {
     scenario: 'fleet-negative-missing-role',
     requirements: ['mission-1/AC-2', 'mission-4/AC-3', 'mission-5/AC-2', 'mission-5/TC-2'],
-    futureGreenAssertions: ['missing role manifest fails before any scoped template/version/run row'],
+    futureGreenAssertions: [
+      'missing role manifest fails before any scoped template/version/run row',
+    ],
   },
   {
     scenario: 'fleet-negative-dead-endpoint',
@@ -983,7 +1027,7 @@ export function detectProvenanceSnapshot(record: JsonRecord | null | undefined):
   const snapshot: JsonRecord = {};
   for (const [key, value] of Object.entries(record)) {
     if (
-      /(definition_hash|definitionHash|compiler_version|compilerVersion|registry_snapshot_hash|registrySnapshotHash|output_schema_ref|outputSchemaRef|output_schema_version|outputSchemaVersion|fleet_manifest_version|fleetManifestVersion|model_revision|modelRevision|model_revisions|modelRevisions|executor_ref|executorRef|schema_ref|schemaRef|template_version|templateVersion)/.test(
+      /(dsl_version|dslVersion|definition_hash|definitionHash|compiler_version|compilerVersion|registry_snapshot_hash|registrySnapshotHash|output_schema_ref|outputSchemaRef|output_schema_version|outputSchemaVersion|fleet_manifest_version|fleetManifestVersion|model_revision|modelRevision|model_revisions|modelRevisions|executor_ref|executorRef|schema_ref|schemaRef|template_version|templateVersion)/.test(
         key
       )
     ) {
@@ -998,5 +1042,8 @@ export function sameComparableValue(
   right: JsonRecord | null | undefined,
   aliases: readonly string[]
 ): boolean {
-  return toComparablePrimitive(rowValue(left, aliases)) === toComparablePrimitive(rowValue(right, aliases));
+  return (
+    toComparablePrimitive(rowValue(left, aliases)) ===
+    toComparablePrimitive(rowValue(right, aliases))
+  );
 }

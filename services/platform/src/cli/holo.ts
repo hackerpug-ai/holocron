@@ -197,6 +197,8 @@ Usage:
   embed:verify              Report NULL / wrong-dimension passage embedding counts (expect 1024)
   search <query>            RRF hybrid search (pgvector HNSW + FTS, one round-trip)
   search:recall             Recall@k vs baseline from --golden set.json
+  mission template:register <file>
+                            Register a closed declarative mission template from JSON
   mission run research      Run a research mission with per-run Langfuse trace export
                             (requires --goal; flushes OTel → self-hosted Langfuse)
   evals:run                 Score a versioned fixture sample via local judge (--sample)
@@ -274,6 +276,28 @@ Options:
   --dry-run             (catalog:reconcile) dry-run mode (default)
   -h, --help            Show help
 `);
+}
+
+const MISSION_USAGE =
+  "holo mission template:register <file> [--json]\n       holo mission run research --goal '<text>' [--json]";
+
+function isMissionJsonInvocation(argv: string[]): boolean {
+  if (!argv.includes('--json')) return false;
+  const firstPositional = argv.find((token) => !token.startsWith('-'));
+  return firstPositional === 'mission';
+}
+
+function exitUnknownFlag(flag: string, argv: string[]): never {
+  if (isMissionJsonInvocation(argv)) {
+    exitMissionJsonError({
+      error: `unknown flag: ${flag}`,
+      code: 'MISSION_UNKNOWN_FLAG',
+      exitCode: 2,
+      usage: MISSION_USAGE,
+    });
+  }
+  console.error(`unknown flag: ${flag}`);
+  process.exit(2);
 }
 
 function parseArgs(argv: string[]): CliArgs {
@@ -542,8 +566,7 @@ function parseArgs(argv: string[]): CliArgs {
     } else if (a.startsWith('--root=')) {
       args.root = resolve(a.slice('--root='.length));
     } else if (a.startsWith('-')) {
-      console.error(`unknown flag: ${a}`);
-      process.exit(2);
+      exitUnknownFlag(a, argv);
     } else {
       positional.push(a);
     }
@@ -559,6 +582,29 @@ function requireExport(exportDir: string | null): string {
     process.exit(2);
   }
   return resolve(exportDir);
+}
+
+function exitMissionJsonError(options: {
+  error: string;
+  code: string;
+  exitCode: number;
+  usage?: string;
+}): never {
+  const payload: {
+    ok: false;
+    error: string;
+    code: string;
+    errorCode: string;
+    usage?: string;
+  } = {
+    ok: false,
+    error: options.error,
+    code: options.code,
+    errorCode: options.code,
+  };
+  if (options.usage) payload.usage = options.usage;
+  console.log(JSON.stringify(payload, null, 2));
+  process.exit(options.exitCode);
 }
 
 async function main(): Promise<void> {
@@ -3343,82 +3389,176 @@ async function main(): Promise<void> {
       break;
     }
     case 'mission': {
-      // obs-1: holo mission run research --goal '...' [--json]
       const sub = args.positional[1];
       const kind = args.positional[2];
-      if (sub !== 'run' || kind !== 'research') {
-        console.error(
-          sub
-            ? `unknown command: mission ${sub}${kind ? ` ${kind}` : ''}`
-            : 'error: mission requires subcommand (run research)'
+
+      if (sub === 'template:register') {
+        const templatePath = args.positional[2];
+        if (!templatePath) {
+          const error = 'mission template:register requires a JSON file path';
+          const usage = 'holo mission template:register <file> [--json]';
+          if (args.json) {
+            exitMissionJsonError({
+              error,
+              code: 'MISSION_TEMPLATE_PATH_REQUIRED',
+              exitCode: 2,
+              usage,
+            });
+          } else {
+            console.error(`error: ${error}`);
+            console.error(`Usage: ${usage}`);
+          }
+          process.exit(2);
+        }
+
+        try {
+          const { registerMissionTemplateFile } = await import('../mission/repository.ts');
+          const result = await registerMissionTemplateFile(resolve(templatePath));
+          if (args.json) {
+            console.log(JSON.stringify(result, null, 2));
+          } else {
+            console.log('holo mission template:register');
+            console.log(`  templateKey:          ${result.templateKey}`);
+            console.log(`  version:              ${result.version}`);
+            console.log(`  dslVersion:           ${result.dslVersion}`);
+            console.log(`  created:              ${result.created}`);
+            console.log(`  definitionHash:       ${result.definitionHash}`);
+            console.log(`  compilerVersion:      ${result.compilerVersion}`);
+            console.log(`  registrySnapshotHash: ${result.registrySnapshotHash}`);
+            console.log(
+              `  outputSchema:         ${result.outputSchemaRef}@${result.outputSchemaVersion}`
+            );
+            console.log(`  fleetManifestVersion: ${result.fleetManifestVersion}`);
+            console.log(`  status:               OK`);
+          }
+          process.exit(0);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          if (args.json) {
+            console.log(
+              JSON.stringify(
+                {
+                  ok: false,
+                  error: message,
+                  code: 'MISSION_TEMPLATE_REGISTER_FAILED',
+                  errorCode: 'MISSION_TEMPLATE_REGISTER_FAILED',
+                },
+                null,
+                2
+              )
+            );
+          } else {
+            console.error(`mission template registration failed: ${message}`);
+          }
+          process.exit(1);
+        }
+      }
+
+      // obs-1: holo mission run research --goal '...' [--json]
+      if (sub === 'run' && kind === 'research') {
+        const goal = args.goal ?? args.prompt;
+        if (!goal || goal.trim().length === 0) {
+          const error = 'mission run research requires --goal <text>';
+          if (args.json) {
+            exitMissionJsonError({
+              error,
+              code: 'MISSION_GOAL_REQUIRED',
+              exitCode: 2,
+              usage: MISSION_USAGE,
+            });
+          }
+          console.error(`error: ${error}`);
+          process.exit(2);
+        }
+
+        const { runResearchMission } = await import('../observability/mission-research.ts');
+        const { LANGFUSE_EXPORT_FAILED, LangfuseExportError } = await import(
+          '../observability/langfuse-exporter.ts'
         );
-        console.error("Usage: holo mission run research --goal '<text>' [--json]");
-        process.exit(2);
-      }
-      const goal = args.goal ?? args.prompt;
-      if (!goal || goal.trim().length === 0) {
-        console.error('error: mission run research requires --goal <text>');
-        process.exit(2);
+
+        try {
+          const result = await runResearchMission({
+            goal,
+            role: args.role ?? 'divergent',
+            runId: args.runId ?? undefined,
+            throwOnExportFailure: true,
+          });
+          if (args.json) {
+            console.log(JSON.stringify(result, null, 2));
+          } else {
+            console.log('holo mission run research — Langfuse per-run trace');
+            console.log(`  runId:        ${result.runId}`);
+            console.log(`  traceId:      ${result.traceId ?? '—'}`);
+            console.log(`  serviceName:  ${result.serviceName}`);
+            console.log(`  role:         ${result.role}`);
+            console.log(`  langfuseOk:   ${result.langfuseExportOk}`);
+            console.log(`  text:         ${(result.text ?? '').slice(0, 200)}`);
+            console.log(
+              result.ok ? '  status: OK' : `  status: FAIL (${result.errorCode ?? 'error'})`
+            );
+          }
+          process.exit(result.ok ? 0 : 1);
+        } catch (err) {
+          const missionResult =
+            err && typeof err === 'object' && 'missionResult' in err
+              ? (err as { missionResult: Record<string, unknown> }).missionResult
+              : null;
+          const code =
+            err instanceof LangfuseExportError
+              ? LANGFUSE_EXPORT_FAILED
+              : ((missionResult?.errorCode as string | undefined) ?? 'MISSION_FAILED');
+          const message = err instanceof Error ? err.message : String(err);
+          const payload = missionResult ?? {
+            ok: false,
+            langfuseExportOk: false,
+            errorCode: code,
+            error: message,
+            serviceName: 'holocron-platform',
+            traceId: null,
+          };
+          if (args.json) {
+            console.log(JSON.stringify(payload, null, 2));
+          } else {
+            console.error(`error code: ${code}`);
+            console.error(message);
+            console.error('green Langfuse verdict: false');
+          }
+          if (code === LANGFUSE_EXPORT_FAILED) {
+            console.error(`error code: ${LANGFUSE_EXPORT_FAILED}`);
+          }
+          process.exit(1);
+        }
       }
 
-      const { runResearchMission } = await import('../observability/mission-research.ts');
-      const { LANGFUSE_EXPORT_FAILED, LangfuseExportError } = await import(
-        '../observability/langfuse-exporter.ts'
-      );
-
-      try {
-        const result = await runResearchMission({
-          goal,
-          role: args.role ?? 'divergent',
-          runId: args.runId ?? undefined,
-          throwOnExportFailure: true,
-        });
+      if (sub === 'run' || sub === 'resume' || sub === 'status') {
+        const surface = `mission ${sub}${kind ? ` ${kind}` : ''}`;
+        const error = `${surface} is not implemented in mission-1 (contracts/schema only)`;
         if (args.json) {
-          console.log(JSON.stringify(result, null, 2));
-        } else {
-          console.log('holo mission run research — Langfuse per-run trace');
-          console.log(`  runId:        ${result.runId}`);
-          console.log(`  traceId:      ${result.traceId ?? '—'}`);
-          console.log(`  serviceName:  ${result.serviceName}`);
-          console.log(`  role:         ${result.role}`);
-          console.log(`  langfuseOk:   ${result.langfuseExportOk}`);
-          console.log(`  text:         ${(result.text ?? '').slice(0, 200)}`);
-          console.log(
-            result.ok ? '  status: OK' : `  status: FAIL (${result.errorCode ?? 'error'})`
-          );
+          exitMissionJsonError({
+            error,
+            code: 'MISSION_ONE_SURFACE_UNIMPLEMENTED',
+            exitCode: 1,
+            usage: MISSION_USAGE,
+          });
         }
-        process.exit(result.ok ? 0 : 1);
-      } catch (err) {
-        const missionResult =
-          err && typeof err === 'object' && 'missionResult' in err
-            ? (err as { missionResult: Record<string, unknown> }).missionResult
-            : null;
-        const code =
-          err instanceof LangfuseExportError
-            ? LANGFUSE_EXPORT_FAILED
-            : ((missionResult?.errorCode as string | undefined) ?? 'MISSION_FAILED');
-        const message = err instanceof Error ? err.message : String(err);
-        const payload = missionResult ?? {
-          ok: false,
-          langfuseExportOk: false,
-          errorCode: code,
-          error: message,
-          serviceName: 'holocron-platform',
-          traceId: null,
-        };
-        if (args.json) {
-          console.log(JSON.stringify(payload, null, 2));
-        } else {
-          console.error(`error code: ${code}`);
-          console.error(message);
-          console.error('green Langfuse verdict: false');
-        }
-        // Always surface the contract code on stderr for non-JSON greppability.
-        if (code === LANGFUSE_EXPORT_FAILED) {
-          console.error(`error code: ${LANGFUSE_EXPORT_FAILED}`);
-        }
+        console.error(error);
         process.exit(1);
       }
+
+      const error = sub
+        ? `unknown command: mission ${sub}${kind ? ` ${kind}` : ''}`
+        : 'mission requires subcommand (template:register | run research)';
+      if (args.json) {
+        exitMissionJsonError({
+          error,
+          code: sub ? 'MISSION_COMMAND_UNKNOWN' : 'MISSION_SUBCOMMAND_REQUIRED',
+          exitCode: 2,
+          usage: MISSION_USAGE,
+        });
+      }
+      console.error(sub ? error : `error: ${error}`);
+      console.error(`Usage: ${MISSION_USAGE}`);
+      process.exit(2);
       break;
     }
     case 'ci': {
