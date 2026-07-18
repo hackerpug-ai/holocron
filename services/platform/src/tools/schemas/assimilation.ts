@@ -34,21 +34,21 @@ export const rejectAssimilationPlanOutputSchema = z.object({
 
 export const getAssimilationStatusOutputSchema = z
   .object({
-    _id: z.string().optional(),
+    _id: z.string().nullish(),
     status: z.string(),
-    profile: z.string().optional(),
-    repositoryName: z.string().optional(),
-    repositoryUrl: z.string().optional(),
-    currentIteration: z.number().optional(),
-    maxIterations: z.number().optional(),
-    dimensionScores: z.record(z.string(), z.unknown()).optional(),
-    estimatedCostUsd: z.number().optional(),
-    planSummary: z.string().optional(),
-    planContent: z.string().optional(),
-    documentId: z.string().optional(),
-    errorReason: z.string().optional(),
-    createdAt: z.number().optional(),
-    completedAt: z.number().optional(),
+    profile: z.string().nullish(),
+    repositoryName: z.string().nullish(),
+    repositoryUrl: z.string().nullish(),
+    currentIteration: z.number().nullish(),
+    maxIterations: z.number().nullish(),
+    dimensionScores: z.record(z.string(), z.unknown()).nullish(),
+    estimatedCostUsd: z.number().nullish(),
+    planSummary: z.string().nullish(),
+    planContent: z.string().nullish(),
+    documentId: z.string().nullish(),
+    errorReason: z.string().nullish(),
+    createdAt: z.number().nullish(),
+    completedAt: z.number().nullish(),
   })
   .nullable();
 

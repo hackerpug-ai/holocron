@@ -1,5 +1,6 @@
 /** Sprint 19 gateway baseline: real MCP SDK transport, auth/origin, and 44-tool registry parity. */
 import { spawn } from 'node:child_process';
+import { readdirSync, readFileSync } from 'node:fs';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { PLATFORM_IT } from '../../../../tests/integration/service/harness';
 import { createSql, type Sql } from '../../src/db/client';
@@ -102,6 +103,25 @@ describe('Sprint 19 MCP rehost gateway', () => {
       }),
     });
     expect((await sampling.json()).error).toBeDefined();
+  });
+
+  it('validates every frozen success fixture against the shared output schema', () => {
+    const fixtureDir = 'services/platform/tests/fixtures/mcp-manifest';
+    const tools = toolsAsRecord();
+    const successFixtures = readdirSync(fixtureDir).filter((name) =>
+      name.endsWith('_success.json')
+    );
+    expect(successFixtures).toHaveLength(44);
+    for (const fixture of successFixtures) {
+      const id = fixture.slice(0, -'_success.json'.length);
+      const value = JSON.parse(readFileSync(`${fixtureDir}/${fixture}`, 'utf8'));
+      const outputSchema = (
+        tools[id] as unknown as {
+          outputSchema: { safeParse: (value: unknown) => { success: boolean } };
+        }
+      ).outputSchema;
+      expect(outputSchema.safeParse(value).success, `${id} fixture`).toBe(true);
+    }
   });
 
   it('rejects an already-cancelled tool request before database dispatch', async () => {

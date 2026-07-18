@@ -7,12 +7,12 @@ export const assimilateCreatorInputSchema = z.object({
 
 export const assimilateCreatorOutputSchema = z.object({
   success: z.boolean(),
-  documentId: z.string().optional(),
-  videosFound: z.number().int().optional(),
-  transcriptsCreated: z.number().int().optional(),
-  transcriptsSkipped: z.number().int().optional(),
-  status: z.string().optional(),
-  error: z.string().optional(),
+  documentId: z.string().nullish(),
+  videosFound: z.number().int().nullish(),
+  transcriptsCreated: z.number().int().nullish(),
+  transcriptsSkipped: z.number().int().nullish(),
+  status: z.string().nullish(),
+  error: z.string().nullish(),
 });
 
 export const getCreatorTranscriptsInputSchema = z.object({
@@ -22,8 +22,8 @@ export const getCreatorTranscriptsInputSchema = z.object({
 
 export const getCreatorTranscriptsOutputSchema = z.object({
   success: z.boolean(),
-  data: z.unknown().optional(),
-  error: z.string().optional(),
+  data: z.unknown().nullish(),
+  error: z.string().nullish(),
 });
 
 export const regenerateTranscriptInputSchema = z.object({
@@ -34,6 +34,6 @@ export const regenerateTranscriptInputSchema = z.object({
 
 export const regenerateTranscriptOutputSchema = z.object({
   success: z.boolean(),
-  data: z.unknown().optional(),
-  error: z.string().optional(),
+  data: z.unknown().nullish(),
+  error: z.string().nullish(),
 });

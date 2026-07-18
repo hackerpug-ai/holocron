@@ -16,10 +16,10 @@ export const getImprovementOutputSchema = z
     _id: z.string(),
     description: z.string(),
     status: z.string(),
-    sourceScreen: z.string().optional(),
-    closedReason: z.string().optional(),
-    closedAt: z.number().optional(),
-    createdAt: z.number().optional(),
+    sourceScreen: z.string().nullish(),
+    closedReason: z.string().nullish(),
+    closedAt: z.number().nullish(),
+    createdAt: z.number().nullish(),
   })
   .nullable();
 
