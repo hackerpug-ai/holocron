@@ -160,6 +160,7 @@ Usage:
   catalog:reconcile     Per-table source vs expected-target; unexplained variance
   catalog:assets        Per-object retained storage inventory (sha256/bytes/mime)
   mcp:verify-manifest   44/44 tool completeness gate (manifest ↔ live registry cross-check)
+  mcp:verify-rehost     Verify Postgres MCP registry parity and zero Convex gateway imports
   mcp:manifest-schema   Print a tool's input/output schema + defaults from the manifest
   mcp:manifest-replay   Print a tool's idempotency key + stored result from the manifest
   mcp:list-mutations    List all mutation tools (non-null side_effects)
@@ -986,6 +987,19 @@ async function main(): Promise<void> {
         console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
         process.exit(1);
       }
+      break;
+    }
+    case 'mcp:verify-rehost': {
+      const { verifyMcpRehost } = await import('../mcp/verify-rehost.ts');
+      const report = verifyMcpRehost();
+      if (args.json) console.log(JSON.stringify(report, null, 2));
+      else {
+        console.log(`mcp:verify-rehost — ${report.registeredTools}/${report.manifestTools} tools`);
+        console.log(
+          report.ok ? '  status: OK' : `  status: FAIL\\n  ${report.issues.join('\\n  ')}`
+        );
+      }
+      process.exit(report.ok ? 0 : 1);
       break;
     }
     case 'mcp:verify-manifest': {
