@@ -74,6 +74,76 @@ export async function executePostgresMcpTool(
         `;
         return { subscriptions: rows };
       }
+      case 'store_tool': {
+        const rows = await sql`
+          INSERT INTO toolbelt_tools (
+            id, title, description, content, source_url, source_type, category, status,
+            tags, use_cases, keywords, language, date, time
+          ) VALUES (
+            ${randomUUID()}::uuid, ${String(input.title)}, ${typeof input.description === 'string' ? input.description : null},
+            ${typeof input.content === 'string' ? input.content : null}, ${typeof input.sourceUrl === 'string' ? input.sourceUrl : null},
+            ${String(input.sourceType)}, ${String(input.category)}, ${String(input.status ?? 'draft')},
+            ${sql.json((input.tags as unknown[]) ?? [])}, ${sql.json((input.useCases as unknown[]) ?? [])},
+            ${sql.json((input.keywords as unknown[]) ?? [])}, ${typeof input.language === 'string' ? input.language : null},
+            ${typeof input.date === 'string' ? input.date : null}, ${typeof input.time === 'string' ? input.time : null}
+          )
+          RETURNING id::text AS "toolId", title
+        `;
+        return { ...rows[0], embeddingStatus: 'pending' };
+      }
+      case 'get_tool': {
+        const rows = await sql`
+          SELECT id::text AS "toolId", title, description, content, source_url AS "sourceUrl",
+                 source_type AS "sourceType", category, status, tags, use_cases AS "useCases",
+                 keywords, language, date, time
+          FROM toolbelt_tools WHERE id = ${String(input.toolId)}::uuid LIMIT 1
+        `;
+        return rows[0] ?? null;
+      }
+      case 'list_tools': {
+        const limit = Math.min(Number(input.limit ?? 100), 100);
+        const rows = await sql`
+          SELECT id::text AS "toolId", title, description, category, status,
+                 source_type AS "sourceType", source_url AS "sourceUrl"
+          FROM toolbelt_tools
+          WHERE (${input.category ?? null}::text IS NULL OR category = ${input.category ?? null})
+            AND (${input.status ?? null}::text IS NULL OR status = ${input.status ?? null})
+            AND (${input.sourceType ?? null}::text IS NULL OR source_type = ${input.sourceType ?? null})
+          ORDER BY created_at DESC LIMIT ${limit}
+        `;
+        return { tools: rows, total: rows.length };
+      }
+      case 'search_tools': {
+        const query = String(input.query);
+        const limit = Math.min(Number(input.limit ?? 20), 100);
+        const rows = await sql`
+          SELECT id::text AS "toolId", title, description, content,
+                 ts_rank(search_vector, websearch_to_tsquery('english', ${query}))::float8 AS score
+          FROM toolbelt_tools
+          WHERE search_vector @@ websearch_to_tsquery('english', ${query})
+            AND (${input.category ?? null}::text IS NULL OR category = ${input.category ?? null})
+          ORDER BY score DESC, created_at DESC LIMIT ${limit}
+        `;
+        return { results: rows, totalResults: rows.length, searchMethod: 'postgres-fts' };
+      }
+      case 'remove_tool': {
+        const rows = await sql`
+          DELETE FROM toolbelt_tools WHERE id = ${String(input.toolId)}::uuid RETURNING id::text AS "toolId"
+        `;
+        return { deleted: rows.length === 1, toolId: String(input.toolId) };
+      }
+      case 'update_tool': {
+        const toolId = String(input.toolId);
+        if (typeof input.title === 'string')
+          await sql`UPDATE toolbelt_tools SET title = ${input.title} WHERE id = ${toolId}::uuid`;
+        if (typeof input.description === 'string')
+          await sql`UPDATE toolbelt_tools SET description = ${input.description} WHERE id = ${toolId}::uuid`;
+        if (typeof input.content === 'string')
+          await sql`UPDATE toolbelt_tools SET content = ${input.content} WHERE id = ${toolId}::uuid`;
+        if (typeof input.status === 'string')
+          await sql`UPDATE toolbelt_tools SET status = ${input.status} WHERE id = ${toolId}::uuid`;
+        return { toolId, updated: true, embeddingStatus: 'pending' };
+      }
       case 'get_document': {
         const rows = await sql`
           SELECT id::text AS "documentId", title, content, status, is_public AS "isPublic",
