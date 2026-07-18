@@ -3,7 +3,7 @@ sprint: 12
 title: Observability, Telemetry and Eval Gate
 sequence: 12
 timeline: Phase 2 — Inference and Data
-status: In Progress
+status: Completed
 prd: ../../README.md
 capability_coverage: CAP-INF-01
 planned_from_roadmap_sha: 73d590343494786ab5c15c6fa8ca0d2c5323c7bc978b4c75ffa0db0e84291135
@@ -16,8 +16,8 @@ planned_at: 2026-07-17T22:07:51Z
 
 **Sequence:** 12
 **Timeline:** Phase 2 — Inference and Data
-**Status:** In Progress
-> Progress: 5/5 tasks completed · updated 2026-07-18T03:31:57Z
+**Status:** Completed
+> Progress: 5/5 tasks completed · updated 2026-07-18T03:39:09Z
 **Proposed by:** mastra-planner
 **Branch:** `mk6-observability`
 **Opened:** 2026-07-17 — generated JIT by /kb-sprint-tasks-plan

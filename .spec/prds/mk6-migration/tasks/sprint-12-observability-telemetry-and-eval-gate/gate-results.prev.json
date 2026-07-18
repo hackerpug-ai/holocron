@@ -1,0 +1,113 @@
+{
+  "verdict": "fail",
+  "sprint_id": "sprint-12-observability-telemetry-and-eval-gate",
+  "runner": "kb-run-human-tests",
+  "ui_driver": "none",
+  "cycle_started_at": "2026-07-18T03:32:51Z",
+  "finished_at": "2026-07-18T03:35:02Z",
+  "steps_total": 7,
+  "steps_executed": 7,
+  "steps_passed": 6,
+  "steps": [
+    {
+      "id": "1",
+      "name": "holo mission run research \u2014 OTel/Langfuse trace",
+      "command": "bun services/platform/src/cli/holo.ts mission run research --goal 'gate human step1' --json",
+      "executed": true,
+      "result": "pass",
+      "exit_code": 0,
+      "log": ".tmp/sprint-12-observability-telemetry-and-eval-gate/human-tests/step1-mission.log",
+      "observed": {
+        "traceId": "01a1fc227ee149f2be559033effdf929",
+        "langfuseExportOk": true
+      }
+    },
+    {
+      "id": "2",
+      "name": "holo telemetry:tail \u2014 tokens/wall-ms/endpoint/role rows",
+      "command": "bun services/platform/src/cli/holo.ts telemetry:tail --json --limit 5",
+      "executed": true,
+      "result": "pass",
+      "exit_code": 0,
+      "log": ".tmp/sprint-12-observability-telemetry-and-eval-gate/human-tests/step2-telemetry.log",
+      "observed": {
+        "count": 5
+      }
+    },
+    {
+      "id": "3",
+      "name": "holo evals:run --sample known-good",
+      "command": "bun services/platform/src/cli/holo.ts evals:run --sample known-good --json",
+      "executed": true,
+      "result": "pass",
+      "exit_code": 0,
+      "log": ".tmp/sprint-12-observability-telemetry-and-eval-gate/human-tests/step3-evals-run.log",
+      "observed": {
+        "score": 1,
+        "baseline": 0.8
+      }
+    },
+    {
+      "id": "4",
+      "name": "holo evals:ci --fixture deliberately-bad (must fail)",
+      "command": "bun services/platform/src/cli/holo.ts evals:ci --fixture deliberately-bad --json",
+      "executed": true,
+      "result": "pass",
+      "exit_code": 1,
+      "log": ".tmp/sprint-12-observability-telemetry-and-eval-gate/human-tests/step4-evals-ci-bad.log",
+      "observed": {
+        "verdict": "failed",
+        "exitCode": 1
+      }
+    },
+    {
+      "id": "5",
+      "name": "holo evals:ci --fixture known-good (must pass)",
+      "command": "bun services/platform/src/cli/holo.ts evals:ci --fixture known-good --json",
+      "executed": true,
+      "result": "fail",
+      "exit_code": 1,
+      "log": ".tmp/sprint-12-observability-telemetry-and-eval-gate/human-tests/step5-evals-ci-good.log",
+      "observed": {
+        "verdict": "passed",
+        "exitCode": 0
+      }
+    },
+    {
+      "id": "5b",
+      "name": "holo evals:ci --fixture deterministic-invariant-regression (must fail)",
+      "command": "bun services/platform/src/cli/holo.ts evals:ci --fixture deterministic-invariant-regression --json",
+      "executed": true,
+      "result": "pass",
+      "exit_code": 1,
+      "log": ".tmp/sprint-12-observability-telemetry-and-eval-gate/human-tests/step5b-evals-ci-det.log",
+      "observed": {
+        "verdict": "failed",
+        "deterministicFailures": [
+          {
+            "invariantId": "required-citation",
+            "reason": "missing required citation markers ([n], URL, doi, or Sources: block)"
+          }
+        ]
+      }
+    },
+    {
+      "id": "6",
+      "name": "holo evals:drift \u2014 longitudinal scores",
+      "command": "bun services/platform/src/cli/holo.ts evals:drift --dataset research_v1 --json",
+      "executed": true,
+      "result": "pass",
+      "exit_code": 0,
+      "log": ".tmp/sprint-12-observability-telemetry-and-eval-gate/human-tests/step6-evals-drift.log",
+      "observed": {
+        "keys": [
+          "ok",
+          "datasetVersion",
+          "entryCount",
+          "entries"
+        ]
+      }
+    }
+  ],
+  "source": "orchestrator-executed-literal-holo-commands"
+}

@@ -1,0 +1,106 @@
+{
+  "verdict": "pass",
+  "sprint_id": "sprint-12-observability-telemetry-and-eval-gate",
+  "runner": "kb-run-human-tests",
+  "ui_driver": "none",
+  "cycle_started_at": "2026-07-18T03:36:05Z",
+  "finished_at": "2026-07-18T03:38:33Z",
+  "steps_total": 7,
+  "steps_executed": 7,
+  "steps_passed": 7,
+  "steps": [
+    {
+      "id": "1",
+      "name": "mission langfuse",
+      "executed": true,
+      "result": "pass",
+      "exit_code": 0,
+      "log": ".tmp/sprint-12-observability-telemetry-and-eval-gate/human-tests/step1-mission.log",
+      "observed": {
+        "traceId": "4134329fd85e41e7981b0189e2563e3b",
+        "lf": true
+      }
+    },
+    {
+      "id": "2",
+      "name": "telemetry:tail",
+      "executed": true,
+      "result": "pass",
+      "exit_code": 0,
+      "log": ".tmp/sprint-12-observability-telemetry-and-eval-gate/human-tests/step2-telemetry.log",
+      "observed": {
+        "count": 5
+      }
+    },
+    {
+      "id": "3",
+      "name": "evals:run known-good",
+      "executed": true,
+      "result": "pass",
+      "exit_code": 0,
+      "log": ".tmp/sprint-12-observability-telemetry-and-eval-gate/human-tests/step3-evals-run.log",
+      "observed": {
+        "score": 0.9
+      }
+    },
+    {
+      "id": "4",
+      "name": "evals:ci bad",
+      "executed": true,
+      "result": "pass",
+      "exit_code": 1,
+      "log": ".tmp/sprint-12-observability-telemetry-and-eval-gate/human-tests/step4-evals-ci-bad.log",
+      "observed": {
+        "verdict": "failed",
+        "exitCode": 1
+      }
+    },
+    {
+      "id": "5",
+      "name": "evals:ci good",
+      "executed": true,
+      "result": "pass",
+      "exit_code": 0,
+      "log": ".tmp/sprint-12-observability-telemetry-and-eval-gate/human-tests/step5-evals-ci-good.log",
+      "observed": {
+        "verdict": "passed",
+        "exitCode": 0,
+        "score": 0.85
+      }
+    },
+    {
+      "id": "5b",
+      "name": "evals:ci det",
+      "executed": true,
+      "result": "pass",
+      "exit_code": 1,
+      "log": ".tmp/sprint-12-observability-telemetry-and-eval-gate/human-tests/step5b-evals-ci-det.log",
+      "observed": {
+        "verdict": "failed",
+        "det": [
+          {
+            "invariantId": "required-citation",
+            "reason": "missing required citation markers ([n], URL, doi, or Sources: block)"
+          }
+        ]
+      }
+    },
+    {
+      "id": "6",
+      "name": "evals:drift",
+      "executed": true,
+      "result": "pass",
+      "exit_code": 0,
+      "log": ".tmp/sprint-12-observability-telemetry-and-eval-gate/human-tests/step6-evals-drift.log",
+      "observed": {
+        "keys": [
+          "ok",
+          "datasetVersion",
+          "entryCount",
+          "entries"
+        ]
+      }
+    }
+  ],
+  "source": "orchestrator-executed-literal-holo-commands"
+}
