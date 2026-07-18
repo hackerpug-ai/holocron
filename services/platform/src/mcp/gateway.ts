@@ -26,10 +26,13 @@ export function createMcpServer(): McpServer {
         const result = await executePostgresMcpTool(id, input as Record<string, unknown>, {
           signal,
         });
-        return {
-          content: [{ type: 'text', text: JSON.stringify(result) }],
-          structuredContent: result as Record<string, unknown>,
-        };
+        const content = [{ type: 'text' as const, text: JSON.stringify(result) }];
+        // MCP structuredContent is an object by protocol; array-shaped tool outputs
+        // remain lossless in the canonical text content instead of being rejected by
+        // CallToolResultSchema.
+        return Array.isArray(result) || result === null || typeof result !== 'object'
+          ? { content }
+          : { content, structuredContent: result as Record<string, unknown> };
       }
     );
   }

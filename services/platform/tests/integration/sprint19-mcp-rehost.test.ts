@@ -289,7 +289,9 @@ describe('Sprint 19 MCP rehost gateway', () => {
               outputSchema?: { safeParse?: (value: unknown) => { success: boolean } };
             }
           ).outputSchema;
-          const parsed = outputSchema?.safeParse?.(body.result.structuredContent);
+          const structured =
+            body.result.structuredContent ?? JSON.parse(body.result.content?.[0]?.text ?? 'null');
+          const parsed = outputSchema?.safeParse?.(structured);
           if (!parsed?.success) failures.push({ id, status: response.status, body });
         }
       }
@@ -346,6 +348,37 @@ describe('Sprint 19 MCP rehost gateway', () => {
       });
       const sessionBody = await session.json();
       expect(sessionBody.result.structuredContent.session.status).toBe('completed');
+    },
+    60_000
+  );
+
+  itLive(
+    'runs findRecommendations through the real search service',
+    async () => {
+      const app = createHonoApp({ keys: KEYS });
+      const response = await app.request('/mcp', {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${KEYS.mcp}`,
+          'content-type': 'application/json',
+          accept: 'application/json, text/event-stream',
+        },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 30,
+          method: 'tools/call',
+          params: {
+            name: 'findRecommendations',
+            arguments: { query: 'Salt Lake City independent bookstores', count: 3 },
+          },
+        }),
+      });
+      const body = await response.json();
+      expect(response.status).toBe(200);
+      expect(body.result.isError).not.toBe(true);
+      const recommendations = JSON.parse(body.result.content[0].text);
+      expect(recommendations).toBeInstanceOf(Array);
+      expect(recommendations.length).toBeGreaterThan(0);
     },
     60_000
   );

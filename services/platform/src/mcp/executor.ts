@@ -31,6 +31,42 @@ function parseShopPrice(text: string): number | null {
   return Number.isFinite(value) && value > 0 ? value : null;
 }
 
+async function runLiveRecommendations(
+  query: string,
+  count: number,
+  location: string | null,
+  constraints: string[],
+  signal?: AbortSignal
+): Promise<Array<{ name: string; recommendation: string; contact: { url: string } }>> {
+  const apiKey = process.env.JINA_API_KEY;
+  if (!apiKey)
+    throw new Error('CONFIGURATION_ERROR: JINA_API_KEY is required for findRecommendations');
+  const suffix = [location, ...constraints].filter(Boolean).join(' ');
+  const response = await fetch(
+    `https://s.jina.ai/?q=${encodeURIComponent(`${query} ${suffix}`.trim())}`,
+    { headers: { Authorization: `Bearer ${apiKey}`, Accept: 'application/json' }, signal }
+  );
+  if (!response.ok) throw new Error(`RECOMMENDATION_ERROR: HTTP ${response.status}`);
+  const payload = (await response.json()) as { data?: Array<Record<string, unknown>> };
+  return (payload.data ?? [])
+    .map((item) => {
+      const name = typeof item.title === 'string' ? item.title : '';
+      const url = typeof item.url === 'string' ? item.url : '';
+      const recommendation =
+        typeof item.description === 'string' && item.description.length > 0
+          ? item.description
+          : typeof item.content === 'string'
+            ? item.content.slice(0, 500)
+            : name;
+      return name && url ? { name, recommendation, contact: { url } } : null;
+    })
+    .filter(
+      (item): item is { name: string; recommendation: string; contact: { url: string } } =>
+        item !== null
+    )
+    .slice(0, count);
+}
+
 async function runLiveShopSearch(
   sql: Sql,
   sessionId: string,
@@ -310,15 +346,13 @@ export async function executePostgresMcpTool(
         };
       }
       case 'findRecommendations': {
-        const query = String(input.query);
-        const count = Math.min(Number(input.count ?? 5), 7);
-        return await sql`
-          SELECT title AS name, description AS recommendation,
-                 json_build_object('url', source_url) AS contact
-          FROM toolbelt_tools
-          WHERE search_vector @@ websearch_to_tsquery('english', ${query})
-          ORDER BY created_at DESC LIMIT ${count}
-        `;
+        return await runLiveRecommendations(
+          String(input.query),
+          Math.min(Number(input.count ?? 5), 7),
+          typeof input.location === 'string' ? input.location : null,
+          Array.isArray(input.constraints) ? input.constraints.map(String) : [],
+          options?.signal
+        );
       }
       case 'get_whats_new_report': {
         const rows = await sql`
