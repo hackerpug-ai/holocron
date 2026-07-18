@@ -1,0 +1,23 @@
+{
+  "sprint": 14,
+  "source_head": "5f52896757017256d38ec242dc59a80194a6ce8c",
+  "archive_hash": "a329459d32fd62734567faaad1e0e88e80f0a3869255340aed3a17a2d8b4f548",
+  "verdict": "pass",
+  "steps": [
+    {"id":"S14-H1","status":"pass","summary":"Native Convex export loaded: stageRowCount=104, idMapCount=104, fileObjectCount=1."},
+    {"id":"S14-H2","status":"pass","summary":"Reconciliation zero variance: tables, storage refs, FK, and blob parity all clean."},
+    {"id":"S14-H3","status":"pass","summary":"FK audit: 0 orphans; 5 enforced foreign keys."},
+    {"id":"S14-H4","status":"pass","summary":"Real fleet probe passed at dimension 1024 and unit norm; production export was explicitly empty-corpus and passed vacuously; non-empty marker retrieval is covered by the live fixture lane."},
+    {"id":"S14-H5","status":"pass","summary":"Retained blob parity passed; Range probe returned 206 with exact bytes."},
+    {"id":"S14-H6","status":"pass","summary":"Rerun preserved archive hash, stage/map/file-object counts, and produced no duplicates."},
+    {"id":"S14-H7","status":"pass","summary":"Image upload init/streamed put/finalize succeeded with hash verification and attachment; live suite covers voice, replay, conflicts, fences, and no-orphan failures."}
+  ],
+  "evidence": [
+    ".tmp/sprint-14-human-gate-20260718/prod-native",
+    ".tmp/sprint-14-human-gate-20260718/upload",
+    ".tmp/sprint-14-impl/etl-green-gates.json",
+    ".tmp/sprint-14-impl/upload-image-green.json",
+    ".tmp/sprint-14-impl/upload-voice-green.json",
+    ".tmp/sprint-14-impl/upload-negative-red.json"
+  ]
+}

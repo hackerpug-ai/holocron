@@ -3,7 +3,7 @@ sprint: 14
 title: Big-Bang ETL and Content-Addressed File Storage
 sequence: 14
 timeline: Phase 3 — Migration Engine and Services
-status: In Progress
+status: Completed
 prd: ../../README.md
 planned_from_roadmap_sha: 12237528ec9c1565ae28bfb71e3f74afb91fcdb07abca00419c78d631881f77c
 planned_from_source_sha: 979baeb8d84505818784b30fb5c937e2e7293561
@@ -15,7 +15,7 @@ planned_at: 2026-07-18T07:20:00Z
 
 **Sequence:** 14  
 **Timeline:** Phase 3 — Migration Engine and Services  
-**Status:** In Progress  
+**Status:** Completed  
 **Proposed by:** mastra-planner (specialist dispatch unavailable; fallback plan recorded)  
 **Branch:** `mk6-etl`
 
@@ -73,5 +73,13 @@ Implement the one-time Convex-export-to-Postgres migration substrate and content
 ## Dependencies and Boundaries
 
 Depends on Sprints 02, 04, 05, 07, and 10. Sprint 14 proves the authoritative Hono upload API prerequisite; Sprint 26 owns the RN end-to-end T-DATA-021 flow. Blocks Sprints 16, 26, and 29. Do not implement public article routes, client migration, cutover/write-freeze, or Sprint 15 mission workflows here. A real immutable Convex export archive and real Postgres/fleet/blob substrate are mandatory for integration-tier acceptance; mocks may only exercise pure parsers with an explicit negative control.
+
+## Closure
+
+- Human gate: PASS; see `gate-results.json`, `gate-verification.json`, and `GATE-RESULTS.md`.
+- Independent final QA/review: PASS with zero CRITICAL/HIGH/MEDIUM findings; evidence at `.tmp/s14-independent-final-qa.txt`.
+- Verification source head: `5f52896757017256d38ec242dc59a80194a6ce8c`.
+- Real Postgres target: `holocron_nonprod`; native Convex production export path validated without a custom `_blob_meta.json`.
+- Typecheck, targeted Biome, default skip-safe integration lane, and sequential real-service ETL/upload suites passed.
 
 <!-- PLANNING-FALLBACK: configured specialist dispatches initially failed because the provider had no usable API key. A read-only OpenAI planning proposal is retained at .tmp/sprint-14-plan/openai-proposal.md and the out-of-band red-hat review at .tmp/sprint-14-plan/sprint14-redhat-review.md. Blocking findings were folded into this plan before implementation. -->

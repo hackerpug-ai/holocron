@@ -1,0 +1,16 @@
+{
+  "sprint": 14,
+  "gate": "real Convex export ETL, reconciliation, vectors, blobs, rerun, and upload lifecycle",
+  "source_head": "5f52896757017256d38ec242dc59a80194a6ce8c",
+  "real_archive": ".tmp/sprint-14-human-gate-20260718/convex-prod-export.zip",
+  "real_archive_sha256": "9758f860f8f41a935fad84e685c6ba17cbe1a3b2c2432e7005d4919e5840f0fb",
+  "steps": [
+    {"id":"S14-H1","command":"bun services/platform/src/cli/holo.ts etl:run --export .tmp/sprint-14-human-gate-20260718/convex-prod-export --json","evidence":".tmp/sprint-14-human-gate-20260718/prod-native/02-etl-run.json"},
+    {"id":"S14-H2","command":"bun services/platform/src/cli/holo.ts etl:reconcile --export .tmp/sprint-14-human-gate-20260718/convex-prod-export --json","evidence":".tmp/sprint-14-human-gate-20260718/prod-native/03-reconcile.json"},
+    {"id":"S14-H3","command":"bun services/platform/src/cli/holo.ts etl:fk-audit --export .tmp/sprint-14-human-gate-20260718/convex-prod-export --json","evidence":".tmp/sprint-14-human-gate-20260718/prod-native/04-fk.json"},
+    {"id":"S14-H4","command":"bun services/platform/src/cli/holo.ts etl:vectors --export .tmp/sprint-14-human-gate-20260718/convex-prod-export --json","evidence":".tmp/sprint-14-human-gate-20260718/prod-native/05-vectors.json"},
+    {"id":"S14-H5","command":"bun services/platform/src/cli/holo.ts blob:verify --export .tmp/sprint-14-human-gate-20260718/convex-prod-export --json","evidence":".tmp/sprint-14-human-gate-20260718/prod-native/06-blob.json"},
+    {"id":"S14-H6","command":"bun services/platform/src/cli/holo.ts etl:run --export .tmp/sprint-14-human-gate-20260718/convex-prod-export --json (rerun)","evidence":".tmp/sprint-14-human-gate-20260718/prod-native/07-rerun.json"},
+    {"id":"S14-H7","command":"bun services/platform/src/cli/holo.ts upload:init && upload:put && upload:finalize against holocron_nonprod","evidence":".tmp/sprint-14-human-gate-20260718/upload/02-upload-init.json; .tmp/sprint-14-human-gate-20260718/upload/03-upload-put.json; .tmp/sprint-14-human-gate-20260718/upload/04-upload-finalize.json"}
+  ]
+}

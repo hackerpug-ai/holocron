@@ -1,0 +1,22 @@
+{
+  "verified": true,
+  "claimed_verdict": "pass",
+  "recomputed_verdict": "pass",
+  "steps_planned": 7,
+  "steps_recomputed": 7,
+  "discrepancies": [],
+  "verification_basis": {
+    "archive_sha256": "9758f860f8f41a935fad84e685c6ba17cbe1a3b2c2432e7005d4919e5840f0fb",
+    "source_head": "5f52896757017256d38ec242dc59a80194a6ce8c",
+    "real_export_native_storage_metadata": true,
+    "reconcile_unexplained_variance": 0,
+    "fk_orphans": 0,
+    "blob_parity_failures": 0,
+    "range_status": 206,
+    "range_exact": true,
+    "rerun_archive_hash_stable": true,
+    "upload_finalize_ok": true
+  },
+  "independent_review": ".tmp/s14-independent-final-qa.txt",
+  "verified_at": "2026-07-18T09:00:00Z"
+}
