@@ -2,7 +2,7 @@
   "task_id": "obs-4",
   "status": "evidence_corrected_pending_review",
   "branch": "task/obs-4-exit-proof",
-  "commit_sha": "afcb1f969e2657c557d1b7f158bcb4e47ba67461",
+  "commit_sha": "2844e03001afd473db3d4f6ee2f7a4c89f40b0bb",
   "green_commit_sha": "461ee8212da3e174127617d1d3080164953aa53b",
   "test_command": "PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/evals-ci-gate.test.ts",
   "requirements_claimed": [
