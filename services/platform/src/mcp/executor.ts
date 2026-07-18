@@ -16,6 +16,94 @@ export async function executePostgresMcpTool(
   try {
     if (options?.signal?.aborted) throw new Error('MCP request cancelled');
     switch (id) {
+      case 'get_research_session': {
+        const sessionId = String(input.sessionId);
+        const sessions = await sql`
+          SELECT id::text AS "_id", id::text AS "sessionId", topic, status
+          FROM research_sessions WHERE id = ${sessionId}::uuid LIMIT 1
+        `;
+        if (!sessions[0]) return null;
+        const iterations = await sql`
+          SELECT id::text AS "_id", iteration_number AS "iterationNumber", status,
+                 findings_summary AS "findingsSummary", summary, sources, findings
+          FROM research_iterations WHERE session_id = ${sessionId} ORDER BY iteration_number ASC
+        `;
+        return { ...sessions[0], topic: sessions[0].topic ?? '', iterations };
+      }
+      case 'search_research': {
+        const query = String(input.query).toLowerCase();
+        const limit = Math.min(Number(input.limit ?? 20), 100);
+        const rows = await sql`
+          SELECT id::text AS "sessionId", COALESCE(topic, '') AS topic, status,
+                 EXTRACT(EPOCH FROM created_at) * 1000 AS "createdAt",
+                 CASE WHEN lower(COALESCE(topic, '')) LIKE ${`%${query}%`} THEN 1.0 ELSE 0.0 END AS "relevanceScore"
+          FROM research_sessions
+          WHERE lower(COALESCE(topic, '')) LIKE ${`%${query}%`}
+          ORDER BY "relevanceScore" DESC, created_at DESC LIMIT ${limit}
+        `;
+        return { sessions: rows, totalResults: rows.length };
+      }
+      case 'search_improvements': {
+        const query = String(input.query);
+        const limit = Math.min(Number(input.limit ?? 20), 100);
+        return await sql`
+          SELECT id::text AS "_id", description, title, status, source_screen AS "sourceScreen",
+                 ts_rank(search_vector, websearch_to_tsquery('english', ${query}))::float8 AS score
+          FROM improvement_requests
+          WHERE search_vector @@ websearch_to_tsquery('english', ${query})
+          ORDER BY score DESC, created_at DESC LIMIT ${limit}
+        `;
+      }
+      case 'get_improvement': {
+        const rows = await sql`
+          SELECT id::text AS "_id", description, status, source_screen AS "sourceScreen",
+                 closure_reason AS "closedReason", EXTRACT(EPOCH FROM closed_at) * 1000 AS "closedAt",
+                 EXTRACT(EPOCH FROM created_at) * 1000 AS "createdAt"
+          FROM improvement_requests WHERE id = ${String(input.id)}::uuid LIMIT 1
+        `;
+        return rows[0] ?? null;
+      }
+      case 'list_improvements': {
+        const status =
+          input.status === 'closed' ? 'completed' : input.status === 'open' ? 'pending' : null;
+        const limit = Math.min(Number(input.limit ?? 100), 100);
+        return await sql`
+          SELECT id::text AS "_id", description, status, source_screen AS "sourceScreen",
+                 EXTRACT(EPOCH FROM created_at) * 1000 AS "createdAt"
+          FROM improvement_requests
+          WHERE (${status}::text IS NULL OR status = ${status})
+          ORDER BY created_at DESC LIMIT ${limit}
+        `;
+      }
+      case 'add_improvement': {
+        const ids: string[] = [];
+        for (const item of input.items as Array<{ description: string; sourceScreen?: string }>) {
+          const rows = await sql`
+            INSERT INTO improvement_requests (id, description, source_screen, status)
+            VALUES (${randomUUID()}::uuid, ${item.description}, ${item.sourceScreen ?? null}, 'pending')
+            RETURNING id::text AS id
+          `;
+          if (rows[0]) ids.push(String(rows[0].id));
+        }
+        return { created: ids.length, ids };
+      }
+      case 'close_improvement':
+      case 'set_improvement_status': {
+        const requestId = String(input.id);
+        const closed = id === 'close_improvement' || input.status === 'closed';
+        const dbStatus = closed ? 'completed' : 'pending';
+        await sql`
+          UPDATE improvement_requests
+          SET status = ${dbStatus},
+              closure_reason = ${typeof input.reason === 'string' ? input.reason : null},
+              closure_evidence = ${sql.json((input.evidence as unknown[]) ?? [])},
+              closed_at = CASE WHEN ${closed} THEN now() ELSE NULL END,
+              updated_at = now()
+          WHERE id = ${requestId}::uuid
+          RETURNING id::text AS id, status
+        `;
+        return { id: requestId, status: closed ? 'closed' : 'open' };
+      }
       case 'search_fts':
       case 'hybrid_search': {
         const query = String(input.query);
