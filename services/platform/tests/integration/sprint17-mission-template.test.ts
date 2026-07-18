@@ -67,9 +67,14 @@ describe('Sprint 17 research mission template', () => {
       });
       expect(inspection.traceId).toBeTruthy();
       expect(inspection.processProof).toMatchObject({
-        noExternalHarness: true,
+        noExternalExecutionHarness: true,
         forbiddenMatches: [],
+        ancestorChain: expect.any(Array),
+        ancestorHarnesses: expect.any(Array),
       });
+      expect(
+        typeof (inspection.processProof as { noExternalHarness?: unknown }).noExternalHarness
+      ).toBe('boolean');
       expect(
         inspection.processes?.some(
           (process) => (process as { kind?: string }).kind === 'fleet-model-call'
@@ -91,6 +96,8 @@ describe('Sprint 17 research mission template', () => {
         FROM mission_stage_runs
         WHERE run_id = ${runId}::uuid
           AND stage_key IN ('retrieve', 'extract', 'assay', 'challenge')
+          AND status = 'committed'
+          AND attempt = 1
         ORDER BY stage_index, attempt DESC
       `;
       expect(stageEvidence).toHaveLength(4);

@@ -39,11 +39,15 @@ function objectValue(value: unknown): Record<string, unknown> {
     : {};
 }
 
+function committedStageOutput(rows: MissionStageTraceRow[], key: string): Record<string, unknown> {
+  const committed = rows
+    .filter((candidate) => candidate.stage_key === key && candidate.status === 'committed')
+    .sort((left, right) => right.attempt - left.attempt);
+  return objectValue(committed[0]?.output_json);
+}
+
 function stageInstance(rows: MissionStageTraceRow[], key: string, field: string): string | null {
-  const row = rows.find(
-    (candidate) => candidate.stage_key === key && candidate.status === 'committed'
-  );
-  const value = objectValue(row?.output_json)[field];
+  const value = committedStageOutput(rows, key)[field];
   return typeof value === 'string' ? value : null;
 }
 
@@ -121,6 +125,7 @@ async function inspectMissionRun(
     output.admitted !== undefined ? output : objectValue(pendingEvent?.payload_json).gate;
   const assayInstanceId = stageInstance(stages, 'assay', 'instanceId');
   const challengeInstanceId = stageInstance(stages, 'challenge', 'challengeInstanceId');
+  const challengeOutput = committedStageOutput(stages, 'challenge');
   const result: ResearchInspection & { processes?: unknown[] } = {
     ok: true,
     sessionId,
@@ -139,7 +144,7 @@ async function inspectMissionRun(
       modelRevisions: run.model_revisions_json,
       args: run.args_json,
     },
-    findings: objectValue(run.args_json).researchEvidence ?? null,
+    findings: challengeOutput.evidence ?? output.evidence ?? null,
     processProof: processProof?.payload_json ?? null,
   };
   if (includeProcesses) result.processes = stageProcesses(stages);

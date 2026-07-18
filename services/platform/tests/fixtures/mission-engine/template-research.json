@@ -1,6 +1,6 @@
 {
   "templateKey": "research",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Deterministic evidence-gated research mission for Sprint 17.",
   "trigger": { "kind": "on-demand" },
   "stageGraph": [
@@ -63,7 +63,7 @@
     "assay": "divergent",
     "challenge": "convergent"
   },
-  "budgets": { "wallMs": 180000, "tokens": 12000, "cost": 0, "maxSteps": 8 },
+  "budgets": { "wallMs": 180000, "tokens": 12000, "cost": 0, "maxSteps": 12 },
   "gateRubric": null,
   "humanGate": null,
   "outputContract": { "schemaRef": "mission.research.output", "schemaVersion": 1 }

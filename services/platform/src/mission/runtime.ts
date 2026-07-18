@@ -265,12 +265,17 @@ type ResearchProcessProof = {
   pid: number;
   parentPid: number;
   processChain: string[];
+  ancestorChain: string[];
+  ancestorHarnesses: string[];
   forbiddenMatches: string[];
+  noExternalExecutionHarness: boolean;
   noExternalHarness: boolean;
 };
 
 function captureResearchProcessProof(): ResearchProcessProof {
   const processChain: string[] = [];
+  const ancestorChain: string[] = [];
+  const ancestorHarnesses: string[] = [];
   try {
     const rows = execFileSync('ps', ['-axo', 'pid=,ppid=,command='], {
       encoding: 'utf8',
@@ -281,6 +286,11 @@ function captureResearchProcessProof(): ResearchProcessProof {
         const match = line.match(/^\s*(\d+)\s+(\d+)\s+(.*)$/);
         return match ? [{ pid: Number(match[1]), ppid: Number(match[2]), command: match[3] }] : [];
       });
+    const executableOf = (command: string): string | undefined => {
+      const tokens = command.trim().split(/\s+/).filter(Boolean);
+      const executableToken = tokens[0] === 'env' ? tokens[1] : tokens[0];
+      return executableToken?.split('/').pop()?.replace(/^-/, '').toLowerCase();
+    };
     const descendants = new Set([process.pid]);
     for (let depth = 0; depth < 4; depth += 1) {
       let added = false;
@@ -295,11 +305,29 @@ function captureResearchProcessProof(): ResearchProcessProof {
     }
     const current = rows.find((row) => row.pid === process.pid);
     if (current) processChain.unshift(current.command);
+
+    let ancestorPid = process.ppid;
+    for (let depth = 0; depth < 4 && ancestorPid > 1; depth += 1) {
+      const ancestor = rows.find((row) => row.pid === ancestorPid);
+      if (!ancestor) break;
+      ancestorChain.push(ancestor.command);
+      const executable = executableOf(ancestor.command);
+      if (
+        executable === 'pi' ||
+        executable === 'claude' ||
+        executable === 'codex' ||
+        executable === 'opencode'
+      ) {
+        ancestorHarnesses.push(ancestor.command);
+      }
+      if (ancestor.ppid === ancestorPid) break;
+      ancestorPid = ancestor.ppid;
+    }
   } catch {
     // A missing process snapshot is recorded as an explicit proof failure.
   }
   const forbiddenMatches = processChain.filter((command) => {
-    const tokens = command.trim().split(/\\s+/).filter(Boolean);
+    const tokens = command.trim().split(/\s+/).filter(Boolean);
     const executableToken = tokens[0] === 'env' ? tokens[1] : tokens[0];
     const executable = executableToken?.split('/').pop()?.replace(/^-/, '').toLowerCase();
     return (
@@ -313,8 +341,12 @@ function captureResearchProcessProof(): ResearchProcessProof {
     pid: process.pid,
     parentPid: process.ppid,
     processChain,
+    ancestorChain,
+    ancestorHarnesses,
     forbiddenMatches,
-    noExternalHarness: forbiddenMatches.length === 0 && processChain.length > 0,
+    noExternalExecutionHarness: forbiddenMatches.length === 0 && processChain.length > 0,
+    noExternalHarness:
+      forbiddenMatches.length === 0 && ancestorHarnesses.length === 0 && processChain.length > 0,
   };
 }
 
@@ -585,6 +617,7 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
       goal: challenge.goal,
       assayInstanceId: challenge.assayInstanceId,
       challengeInstanceId: challenge.challengeInstanceId,
+      evidence: challenge.evidence,
       admitted: gate.admitted,
       direction: gate.direction,
       coveredComponents: gate.coveredComponents,
@@ -1385,12 +1418,11 @@ async function assertLeaseStillOwned(
   return run;
 }
 
-async function latestCommittedStageRuns(sql: Sql, runId: string): Promise<MissionStageRunRow[]> {
+async function latestStageRuns(sql: Sql, runId: string): Promise<MissionStageRunRow[]> {
   const rows = await sql<MissionStageRunRow[]>`
     SELECT *
     FROM mission_stage_runs
     WHERE run_id = ${runId}::uuid
-      AND status = 'committed'
     ORDER BY stage_index ASC, attempt DESC
   `;
 
@@ -1409,10 +1441,10 @@ async function findNextStage(
   runId: string,
   compiledPlan: readonly CompiledMissionStage[]
 ): Promise<CompiledMissionStage | null> {
-  const committed = await latestCommittedStageRuns(sql, runId);
-  const committedIndexes = new Set(committed.map((row) => row.stage_index));
+  const latest = await latestStageRuns(sql, runId);
+  const latestByIndex = new Map(latest.map((row) => [row.stage_index, row]));
   for (const stage of compiledPlan) {
-    if (!committedIndexes.has(stage.stageIndex)) {
+    if (latestByIndex.get(stage.stageIndex)?.status !== 'committed') {
       return stage;
     }
   }
@@ -1469,6 +1501,31 @@ async function beginStageRun(
     `;
     const nextAttempt = Number(attemptRows[0]?.next_attempt ?? 0);
     const pinnedRole = stage.boundRole ? runtime.roleResolution[stage.stageKey] : null;
+    const pendingRows = await tx<MissionStageRunRow[]>`
+      SELECT *
+      FROM mission_stage_runs
+      WHERE run_id = ${runId}::uuid
+        AND stage_index = ${stage.stageIndex}
+        AND status = 'pending'
+      ORDER BY attempt DESC
+      LIMIT 1
+    `;
+    if (pendingRows[0]) {
+      const resumedRows = await tx<MissionStageRunRow[]>`
+        UPDATE mission_stage_runs
+        SET status = 'running',
+            fence_token = ${lease.token},
+            input_json = ${tx.json(canonicalJsonValue(input) as never)},
+            role = ${pinnedRole?.role ?? null},
+            model_revision = ${pinnedRole?.modelRevision ?? null},
+            endpoint = ${pinnedRole?.endpoint ?? null},
+            trace_id = ${run.trace_id},
+            updated_at = now()
+        WHERE id = ${pendingRows[0].id}::uuid
+        RETURNING *
+      `;
+      if (resumedRows[0]) return resumedRows[0];
+    }
 
     const rows = await tx<MissionStageRunRow[]>`
       INSERT INTO mission_stage_runs (
@@ -2327,30 +2384,27 @@ async function resumeMissionInternal(
           WHERE id = ${runId}::uuid AND status = 'suspended'
         `;
         if (existing?.template_key === 'research') {
-          const evidenceJson = tx.json(options.researchEvidence as never);
-          await tx`
-            UPDATE mission_stage_runs
-            SET output_json = jsonb_set(output_json, '{evidence}', ${evidenceJson}::jsonb),
-                updated_at = now()
-            WHERE run_id = ${runId}::uuid
-              AND stage_key IN ('retrieve', 'extract', 'assay', 'challenge')
-              AND output_json IS NOT NULL
-          `;
-          await tx`
-            UPDATE mission_stage_runs
-            SET status = 'pending', output_json = NULL, error_code = NULL,
-                error_message = NULL, committed_at = NULL, updated_at = now()
-            WHERE run_id = ${runId}::uuid AND stage_key IN ('gate', 'commit')
-          `;
-          await tx`
-            DELETE FROM mission_checkpoints
-            WHERE run_id = ${runId}::uuid
-              AND stage_index >= (
-                SELECT COALESCE(MIN(stage_index), 0)
-                FROM mission_stage_runs
-                WHERE run_id = ${runId}::uuid AND stage_key = 'gate'
+          const replayPlan = parseCompiledPlan(existing.compiled_plan_json);
+          for (const stage of replayPlan) {
+            if (stage.stageIndex === 0) continue;
+            const attemptRows = await tx<{ next_attempt: number }[]>`
+              SELECT COALESCE(MAX(attempt), -1) + 1 AS next_attempt
+              FROM mission_stage_runs
+              WHERE run_id = ${runId}::uuid AND stage_index = ${stage.stageIndex}
+            `;
+            await tx`
+              INSERT INTO mission_stage_runs (
+                run_id, stage_index, stage_key, stage_kind, executor_ref,
+                input_schema_ref, input_schema_version, output_schema_ref,
+                output_schema_version, status, attempt, checkpoint_key
+              ) VALUES (
+                ${runId}::uuid, ${stage.stageIndex}, ${stage.stageKey}, ${stage.stageKind},
+                ${stage.executorRef}, ${stage.inputSchemaRef}, ${stage.inputSchemaVersion},
+                ${stage.outputSchemaRef}, ${stage.outputSchemaVersion}, 'pending',
+                ${Number(attemptRows[0]?.next_attempt ?? 0)}, ${stage.checkpointKey}
               )
-          `;
+            `;
+          }
         }
       });
       existing = await selectMissionRunById(sql, runId);

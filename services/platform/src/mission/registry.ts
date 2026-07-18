@@ -108,6 +108,7 @@ const missionResearchGateOutputSchema = z
     goal: z.string().min(1),
     assayInstanceId: z.string().min(1),
     challengeInstanceId: z.string().min(1),
+    evidence: EvidenceGateInputSchema,
     admitted: z.boolean(),
     direction: z.enum(['supporting', 'refuting', 'mixed', 'none']),
     coveredComponents: z.array(z.string()),
