@@ -21,13 +21,14 @@
   ],
   "toolGrants": [],
   "modelRoleBindings": {
-    "fleet_probe": "divergent"
+    "fleet_probe": "divergent",
+    "consume_budget": "divergent"
   },
   "budgets": {
-    "wallMs": 1,
+    "wallMs": 60000,
     "tokens": 1,
     "cost": 0,
-    "maxSteps": 1
+    "maxSteps": 2
   },
   "gateRubric": null,
   "humanGate": null,

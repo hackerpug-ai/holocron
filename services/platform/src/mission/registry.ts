@@ -143,7 +143,7 @@ export const MISSION_EXECUTORS: readonly MissionExecutorRegistration[] = [
   {
     executorRef: 'builtin.test-consume-budget@1',
     stageKind: 'test.consume-budget@1',
-    description: 'Deterministic budget consumer executor.',
+    description: 'Real fleet-backed budget consumer executor.',
   },
 ] as const;
 
@@ -189,8 +189,8 @@ export const MISSION_STAGES: readonly MissionStageRegistration[] = [
     executorRef: 'builtin.test-consume-budget@1',
     inputSchema: { schemaRef: 'mission.probe.result', schemaVersion: 1 },
     outputSchema: { schemaRef: 'mission.test.budget.output', schemaVersion: 1 },
-    description: 'Deterministic budget stage.',
-    roleBinding: 'forbidden',
+    description: 'Real token-consuming budget stage.',
+    roleBinding: 'optional',
     checkpointAllowed: false,
   },
 ] as const;

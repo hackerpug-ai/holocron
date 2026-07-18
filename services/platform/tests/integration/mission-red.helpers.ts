@@ -1,4 +1,4 @@
-import { type ChildProcessWithoutNullStreams, spawn, spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -21,6 +21,7 @@ export const CONTROL = process.env.HOLO_KEY_CONTROL ?? 'ctl-test';
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const REPO_ROOT = resolve(HERE, '../../../..');
 export const HOLO_CLI = resolve(REPO_ROOT, 'services/platform/src/cli/holo.ts');
+export const MISSION_RUNTIME_CHILD = resolve(HERE, 'mission-runtime-child.ts');
 export const EVIDENCE_DIR = resolve(REPO_ROOT, '.tmp/sprint-15-red');
 export const ARTIFACTS_DIR = resolve(EVIDENCE_DIR, 'artifacts');
 export const RAW_LOGS_DIR = resolve(EVIDENCE_DIR, 'raw');
@@ -233,6 +234,17 @@ export type RunningHoloProcess = {
   result: Promise<SpawnedHoloResult>;
 };
 
+export type MissionRuntimeRequest = {
+  templateKey: string;
+  goal: string;
+  idempotencyKey: string;
+  operator?: string;
+};
+
+export type MissionRuntimeRunRef = {
+  runId: string;
+};
+
 function makeProcessEnv(overrides?: Record<string, string | undefined>): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {
     ...process.env,
@@ -302,7 +314,159 @@ export function startHoloProcess(
   ensureEvidenceDirs();
   const env = makeProcessEnv(options?.env);
   const command = [BUN_BIN, HOLO_CLI, ...args];
-  const child: ChildProcessWithoutNullStreams = spawn(BUN_BIN, [HOLO_CLI, ...args], {
+  const child = spawn(BUN_BIN, [HOLO_CLI, ...args], {
+    cwd: REPO_ROOT,
+    env,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+
+  let stdout = '';
+  let stderr = '';
+  let settled = false;
+
+  child.stdout.on('data', (chunk) => {
+    stdout += String(chunk);
+  });
+  child.stderr.on('data', (chunk) => {
+    stderr += String(chunk);
+  });
+
+  const result = new Promise<SpawnedHoloResult>((resolveResult, reject) => {
+    child.once('error', reject);
+    child.once('exit', (status, signal) => {
+      settled = true;
+      writeFileSync(resolve(RAW_LOGS_DIR, `${artifactBase}.stdout.log`), stdout, 'utf8');
+      writeFileSync(resolve(RAW_LOGS_DIR, `${artifactBase}.stderr.log`), stderr, 'utf8');
+      const parsed = safeJsonParse(stdout);
+      writeArtifact(`${artifactBase}.json`, {
+        artifactBase,
+        command,
+        pid: child.pid,
+        status,
+        signal,
+        stdout,
+        stderr,
+        parsed,
+        databaseUrl: DATABASE_URL,
+      });
+      resolveResult({
+        status,
+        stdout,
+        stderr,
+        combined: `${stdout}\n${stderr}`,
+        parsed,
+        command,
+        artifactBase,
+        signal,
+        wasKilled: signal != null,
+      });
+    });
+  });
+
+  return {
+    pid: child.pid,
+    command,
+    artifactBase,
+    kill: (signal: NodeJS.Signals = 'SIGKILL') => child.kill(signal),
+    snapshot: () => ({
+      stdout,
+      stderr,
+      combined: `${stdout}\n${stderr}`,
+      parsed: safeJsonParse(stdout),
+    }),
+    exited: () => settled,
+    result,
+  };
+}
+
+function runMissionRuntimeCommand(
+  artifactBase: string,
+  runtimeCommand: 'run' | 'resume' | 'status',
+  request: MissionRuntimeRequest | MissionRuntimeRunRef,
+  options?: {
+    env?: Record<string, string | undefined>;
+    timeoutMs?: number;
+  }
+): HoloResult {
+  ensureEvidenceDirs();
+  const env = makeProcessEnv(options?.env);
+  const payload = JSON.stringify(request);
+  const command = [BUN_BIN, MISSION_RUNTIME_CHILD, runtimeCommand, payload];
+  const result = spawnSync(BUN_BIN, [MISSION_RUNTIME_CHILD, runtimeCommand, payload], {
+    cwd: REPO_ROOT,
+    encoding: 'utf8',
+    env,
+    timeout: options?.timeoutMs ?? 90_000,
+  });
+  const stdout = result.stdout ?? '';
+  const stderr = result.stderr ?? '';
+  writeFileSync(resolve(RAW_LOGS_DIR, `${artifactBase}.stdout.log`), stdout, 'utf8');
+  writeFileSync(resolve(RAW_LOGS_DIR, `${artifactBase}.stderr.log`), stderr, 'utf8');
+  const parsed = safeJsonParse(stdout);
+  writeArtifact(`${artifactBase}.json`, {
+    artifactBase,
+    command,
+    status: result.status,
+    stdout,
+    stderr,
+    parsed,
+    databaseUrl: DATABASE_URL,
+  });
+  return {
+    status: result.status,
+    stdout,
+    stderr,
+    combined: `${stdout}\n${stderr}`,
+    parsed,
+    command,
+    artifactBase,
+  };
+}
+
+export function runMissionRuntime(
+  artifactBase: string,
+  request: MissionRuntimeRequest,
+  options?: {
+    env?: Record<string, string | undefined>;
+    timeoutMs?: number;
+  }
+): HoloResult {
+  return runMissionRuntimeCommand(artifactBase, 'run', request, options);
+}
+
+export function runMissionRuntimeResume(
+  artifactBase: string,
+  runId: string,
+  options?: {
+    env?: Record<string, string | undefined>;
+    timeoutMs?: number;
+  }
+): HoloResult {
+  return runMissionRuntimeCommand(artifactBase, 'resume', { runId }, options);
+}
+
+export function runMissionRuntimeStatus(
+  artifactBase: string,
+  runId: string,
+  options?: {
+    env?: Record<string, string | undefined>;
+    timeoutMs?: number;
+  }
+): HoloResult {
+  return runMissionRuntimeCommand(artifactBase, 'status', { runId }, options);
+}
+
+export function startMissionRuntimeProcess(
+  artifactBase: string,
+  request: MissionRuntimeRequest,
+  options?: {
+    env?: Record<string, string | undefined>;
+  }
+): RunningHoloProcess {
+  ensureEvidenceDirs();
+  const env = makeProcessEnv(options?.env);
+  const command = [BUN_BIN, MISSION_RUNTIME_CHILD, 'run', JSON.stringify(request)];
+  const child = spawn(BUN_BIN, [MISSION_RUNTIME_CHILD, 'run', JSON.stringify(request)], {
     cwd: REPO_ROOT,
     env,
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -551,7 +715,7 @@ export async function selectJsonRowsIfExists(
   ]);
   const rows = (await sql.unsafe(
     `SELECT to_jsonb(t) AS row FROM "${safeTable}" t WHERE ${whereSql} ORDER BY ${orderBy ?? defaultOrder}`,
-    params
+    params as never[]
   )) as Array<{ row: JsonRecord | null }>;
   return rows.map((row) => asRecord(row.row));
 }
