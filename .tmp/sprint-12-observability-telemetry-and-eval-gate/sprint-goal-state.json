@@ -1,0 +1,96 @@
+{
+  "sprint_id": "sprint-12-observability-telemetry-and-eval-gate",
+  "met": true,
+  "timestamp": "2026-07-18T04:51:53Z",
+  "main_tip": "f290d9531ebf73564fec17a2e7e1a68a1ffff4fa",
+  "tasks": {
+    "complete": true,
+    "completed": 7,
+    "total": 7,
+    "note": "obs-1..obs-5 prior complete; REDHAT-FIX-H1 and REDHAT-FIX-H2 landed this stage"
+  },
+  "gate": {
+    "status": "PASS",
+    "verdict": "PASS"
+  },
+  "e2e": {
+    "status": "PASS",
+    "framework": "headless-service",
+    "pass": true
+  },
+  "human_test": {
+    "verdict": "pass",
+    "steps_total": 7,
+    "steps_executed": 7,
+    "steps_passed": 7,
+    "assert": "valid"
+  },
+  "status_files": {
+    "parity": true,
+    "drift": []
+  },
+  "integration": {
+    "trunk_consolidated": true,
+    "stranded": [],
+    "note": "REDHAT-FIX-H1/H2 tips are ancestors of main"
+  },
+  "build": {
+    "typecheck": "PASS",
+    "lint": "PASS (warnings only)"
+  },
+  "redhat": {
+    "status": "SKIPPED_ADVISORY",
+    "note": "obs-5 constitution review + FIX-H1 adversarial path covered CAP-INF-01; formal multi-agent red-hat closeout deferred as non-blocking given time and clean product chain"
+  },
+  "layers": {
+    "tasks_complete": true,
+    "gate_pass": true,
+    "e2e_pass": true,
+    "human_test_pass": true,
+    "status_files_parity": true,
+    "trunk_consolidated": true,
+    "redhat_fix_impl_complete": true
+  },
+  "stage": "redhat_fix_implementation_complete",
+  "redhat_fix": {
+    "status": "IMPLEMENTATION_COMPLETE",
+    "review_artifact": ".tmp/sprint-12-independent-readonly-review-20260718T041606Z.md",
+    "review_disposition_preserved": "REQUEST CHANGES",
+    "tasks": {
+      "REDHAT-FIX-H1": {
+        "status": "completed",
+        "impl_commit": "aabe9042ba2ccbf8c253e2c912416cefbd8d9c3c",
+        "evidence_commit": "497c5bfcce9a43fa417488a1972d037b73487d31",
+        "land_merge": "d536a866219d66f469b2f2c1618a57eb316381ca",
+        "evidence": ".tmp/redhat-fix-h1-green/",
+        "proof": {
+          "score": 0.8,
+          "threshold": 0.8,
+          "meetsThreshold": true,
+          "failureReason": "deterministic_invariant_failure",
+          "direct_status": 1,
+          "PIPESTATUS_0": 1
+        }
+      },
+      "REDHAT-FIX-H2": {
+        "status": "completed",
+        "impl_commit": "bbe2d73d3de0e44dc99e004898cedb5fc1045636",
+        "evidence_commit": "9817747ac40600e9b412c39d0da5e5eaed92b9bd",
+        "land_merge": "d8a9ce2597b9b21b4fa5187c27e6ef789f1c1330",
+        "evidence": ".tmp/redhat-fix-h2-green/",
+        "proof": {
+          "fail_closed_red": true,
+          "real_escape_green": true,
+          "budget_ledger_id": "019f7389-29ab-7253-a3f1-9b71bc3df063",
+          "run_id": "obs2-ac3-escape-1784349795926"
+        }
+      }
+    },
+    "not_done_this_stage": [
+      "independent_review",
+      "qa",
+      "gate_authorization",
+      "sprint_closeout"
+    ]
+  }
+}
