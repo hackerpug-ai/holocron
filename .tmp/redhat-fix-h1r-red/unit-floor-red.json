@@ -1,0 +1,8 @@
+{
+  "raw_judge_score": 0.6,
+  "emitted_score": 0.8,
+  "mismatch": true,
+  "assertion": "expect emitted == raw",
+  "would_fail": true,
+  "note": "RED: post-judge floor rewrites 0.6 -> 0.8 on structured citation-free analysis"
+}

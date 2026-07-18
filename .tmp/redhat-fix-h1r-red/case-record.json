@@ -1,0 +1,27 @@
+{
+  "fixture": "deterministic-invariant-regression",
+  "datasetVersion": "research_v1",
+  "baselineVersion": "research_v1",
+  "modelVersion": "judge_v1",
+  "promptVersion": "research-quality_v1",
+  "score": 0.8,
+  "baseline": 0.8,
+  "threshold": 0.8,
+  "verdict": "failed",
+  "exitCode": 1,
+  "failureReason": "deterministic_invariant_failure",
+  "exitReason": "deterministic invariant failed: required-citation",
+  "errorCode": null,
+  "deterministicFailures": [
+    {
+      "invariantId": "required-citation",
+      "reason": "missing required citation markers ([n], URL, doi, or Sources: block)"
+    }
+  ],
+  "runId": "ci-f6a055ff-3e1d-4ce6-b40a-01ff0919035c",
+  "scoreId": "019f739d-3d6a-7732-9218-e4833b5b5e6f",
+  "sampleId": "deterministic-invariant-regression",
+  "meetsThreshold": true,
+  "invariantPassed": false,
+  "reason": "The response provides a well-structured, comprehensive, and calibrated summary of intermittent fasting's effects on metabolic health, covering benefits, limitations/safety, and a bottom-line conclusion. It scores high on grounding and structure. However, it fails to provide explicit citation markers (e.g., [1]) or a sources list despite the prompt request. According to the rubric, missing citations alone should not drop an otherwise excellent brief below 0.8."
+}

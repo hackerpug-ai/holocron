@@ -1,0 +1,27 @@
+{
+  "fixture": "deterministic-invariant-regression",
+  "datasetVersion": "research_v1",
+  "baselineVersion": "research_v1",
+  "modelVersion": "judge_v1",
+  "promptVersion": "research-quality_v1",
+  "score": 0.8,
+  "baseline": 0.8,
+  "threshold": 0.8,
+  "verdict": "failed",
+  "exitCode": 1,
+  "failureReason": "deterministic_invariant_failure",
+  "exitReason": "deterministic invariant failed: required-citation",
+  "errorCode": null,
+  "deterministicFailures": [
+    {
+      "invariantId": "required-citation",
+      "reason": "missing required citation markers ([n], URL, doi, or Sources: block)"
+    }
+  ],
+  "runId": "ci-5ea7724f-ef59-4dc7-b0b4-372aa6f1a94d",
+  "scoreId": "019f738e-9e3c-77ac-8a12-fd80ff5adb89",
+  "sampleId": "deterministic-invariant-regression",
+  "meetsThreshold": true,
+  "invariantPassed": false,
+  "reason": "The response is a high-quality, structured brief covering benefits, limitations/safety, and a bottom-line judgment. It is well-grounded in specific findings (e.g., '3-8% body-weight reduction', 'HOMA-IR') and properly calibrated (e.g., 'mixed-to-positive', 'benefits largely track caloric deficit'). Despite the absence of explicit citation markers (e.g., [1]) resulting in hasCitations=false, the rubric mandates a score >= 0.8 for a structured, complete, grounded, and calibrated brief."
+}

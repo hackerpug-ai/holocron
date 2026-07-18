@@ -1,0 +1,28 @@
+{
+  "fixture": "deterministic-invariant-regression",
+  "datasetVersion": "research_v1",
+  "baselineVersion": "research_v1",
+  "modelVersion": "judge_v1",
+  "promptVersion": "research-quality_v1",
+  "score": 0.82,
+  "rawJudgeScore": 0.82,
+  "baseline": 0.8,
+  "threshold": 0.8,
+  "verdict": "failed",
+  "exitCode": 1,
+  "failureReason": "deterministic_invariant_failure",
+  "exitReason": "deterministic invariant failed: required-citation",
+  "errorCode": null,
+  "deterministicFailures": [
+    {
+      "invariantId": "required-citation",
+      "reason": "missing required citation markers ([n], URL, doi, or Sources: block)"
+    }
+  ],
+  "runId": "ci-7eab33cc-564f-41e3-8e75-39eea48ba684",
+  "scoreId": "019f73a2-7821-7c7a-8a53-3fbfd5ebffcc",
+  "sampleId": "deterministic-invariant-regression",
+  "meetsThreshold": true,
+  "invariantPassed": false,
+  "reason": "The response provides a thorough, structured, and well-calibrated research brief covering benefits (weight, glycemic control, lipids), limitations/safety (adverse effects, contraindications, trial duration), and a clear bottom-line judgment. It uses specific, evidence-linked language with concrete magnitudes (e.g., 'three to eight percent body-weight reduction over eight to twelve weeks'), demonstrating strong grounding and calibration. However, despite the prompt requesting citations, the response lacks explicit citation markers (e.g., [1], URLs, DOIs). Per the rubric, missing citation markers alone must not pull an otherwise excellent brief below 0.8; hasCitations=false is recorded, but the overall score remains >=0.8 due to high quality in structure, completeness, grounding, and calibration."
+}
