@@ -37,6 +37,8 @@ export default defineConfig({
       'services/platform/tests/integration/evals-versioning.test.ts',
       // Sprint 12 — CI regression gate (threshold + deterministic invariants) (obs-4)
       'services/platform/tests/integration/evals-ci-gate.test.ts',
+      // Sprint 13 — fail-closed integration lane
+      'services/platform/tests/integration/fail-closed-lane.test.ts',
     ],
     setupFiles: ['tests/setup/react-native.ts'],
     exclude: ['node_modules', 'dist', '.expo'],
