@@ -1,12 +1,9 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 import { toolsAsRecord } from '../tools/registry.ts';
 
-/**
- * Stateless Streamable HTTP MCP gateway. Tool schemas come from the shared
- * registry; no Convex client or second validation layer is introduced here.
- */
-export async function handleMcpRequest(request: Request): Promise<Response> {
+export function createMcpServer(): McpServer {
   const server = new McpServer({ name: 'holocron-postgres', version: '1.0.0' });
   const tools = toolsAsRecord();
   for (const [id, tool] of Object.entries(tools)) {
@@ -33,7 +30,15 @@ export async function handleMcpRequest(request: Request): Promise<Response> {
       }
     );
   }
+  return server;
+}
 
+/**
+ * Stateless Streamable HTTP MCP gateway. Tool schemas come from the shared
+ * registry; no Convex client or second validation layer is introduced here.
+ */
+export async function handleMcpRequest(request: Request): Promise<Response> {
+  const server = createMcpServer();
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
     enableJsonResponse: true,
@@ -42,4 +47,10 @@ export async function handleMcpRequest(request: Request): Promise<Response> {
   });
   await server.connect(transport);
   return transport.handleRequest(request);
+}
+
+export async function startMcpStdio(): Promise<void> {
+  const server = createMcpServer();
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
 }
