@@ -1,0 +1,15 @@
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.worktrees/REDHAT-FIX-H1
+
+ ✓ services/platform/tests/integration/evals-ci-gate.test.ts (5 tests) 87523ms
+     ✓ AC-1 / TC-1: deliberately-bad fixture blocks CI (threshold regression)  29033ms
+     ✓ AC-2 / TC-2: known-good fixture passes CI  5727ms
+     ✓ AC-3 / TC-3: deterministic invariant blocks independently of judge score  42138ms
+     ✓ AC-4 / TC-4: invalid gate configuration fails closed  447ms
+     ✓ AC-5 / TC-5: machine-readable CI output includes versions + threshold  10142ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  22:46:46
+   Duration  88.08s (transform 123ms, setup 141ms, import 317ms, tests 87.52s, environment 0ms)
+

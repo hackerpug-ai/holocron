@@ -1,0 +1,36 @@
+{
+  "phase": "RED",
+  "task_id": "REDHAT-FIX-H1",
+  "finding": "H-1",
+  "commit_sha": "aabe9042ba2ccbf8c253e2c912416cefbd8d9c3c",
+  "branch": "task/REDHAT-FIX-H1",
+  "note": "Strengthened AC-3 fails: judge score below threshold so failureReason is threshold_regression, not deterministic_invariant_failure",
+  "process_status": 1,
+  "payload": {
+    "score": 0.4,
+    "threshold": 0.8,
+    "meetsThreshold": false,
+    "invariantPassed": false,
+    "failureReason": "threshold_regression",
+    "verdict": "failed",
+    "exitCode": 1,
+    "deterministicFailures": [
+      {
+        "invariantId": "required-citation",
+        "reason": "missing required citation markers ([n], URL, doi, or Sources: block)"
+      }
+    ],
+    "runId": "ci-8a46804b-5504-4fc9-9c1d-4ec78e34e327"
+  },
+  "assertions_expected_to_fail": [
+    "score >= 0.8",
+    "meetsThreshold === true",
+    "failureReason === deterministic_invariant_failure"
+  ],
+  "env": {
+    "DATABASE_URL_host": "127.0.0.1:5432/holocron",
+    "PLATFORM_IT": "1",
+    "judge": "local fleet (resolveModel('judge'))"
+  },
+  "implementation_commit_sha": "aabe9042ba2ccbf8c253e2c912416cefbd8d9c3c"
+}

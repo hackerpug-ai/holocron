@@ -1,0 +1,30 @@
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.worktrees/REDHAT-FIX-H1
+
+ ❯ services/platform/tests/integration/evals-ci-gate.test.ts (5 tests | 1 failed | 4 skipped) 26801ms
+     ↓ AC-1 / TC-1: deliberately-bad fixture blocks CI (threshold regression)
+     ↓ AC-2 / TC-2: known-good fixture passes CI
+     × AC-3 / TC-3: deterministic invariant blocks independently of judge score 26751ms
+     ↓ AC-4 / TC-4: invalid gate configuration fails closed
+     ↓ AC-5 / TC-5: machine-readable CI output includes versions + threshold
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  services/platform/tests/integration/evals-ci-gate.test.ts > obs-4 evals CI gate (threshold + deterministic invariants) > AC-3 / TC-3: deterministic invariant blocks independently of judge score
+AssertionError: expected 0.6 to be greater than or equal to 0.8
+ ❯ services/platform/tests/integration/evals-ci-gate.test.ts:172:35
+    170|     // Independence facts (REDHAT-FIX-H1 / H-1): judge must pass thres…
+    171|     // deterministic branch is selected — not threshold_regression.
+    172|     expect(Number(payload.score)).toBeGreaterThanOrEqual(0.8);
+       |                                   ^
+    173|     expect(Number(payload.threshold)).toBe(0.8);
+    174|     expect(payload.meetsThreshold).toBe(true);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 4 skipped (5)
+   Start at  22:40:41
+   Duration  27.33s (transform 127ms, setup 115ms, import 314ms, tests 26.80s, environment 0ms)
+

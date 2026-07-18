@@ -1,0 +1,103 @@
+{
+  "phase": "GREEN",
+  "task_id": "REDHAT-FIX-H1",
+  "finding": "H-1",
+  "commit_sha_at_capture": "33f1de45c9f7a641394108abb7237094866edbed",
+  "note": "Working-tree capture before commit; case-record will be re-hashed after commit if needed. Citation-free fixture judge-passes (score>=0.8, meetsThreshold=true) while required-citation fails; failureReason=deterministic_invariant_failure; both exit statuses=1.",
+  "branch": "task/REDHAT-FIX-H1",
+  "command": "bun services/platform/src/cli/holo.ts evals:ci --fixture deterministic-invariant-regression --json",
+  "capture": {
+    "method_direct": {
+      "description": "bun ... >stdout 2>stderr; status=$?",
+      "process_status": 1
+    },
+    "method_pipefail_PIPESTATUS": {
+      "description": "set -o pipefail; bun ... 2>&1 | tee combined; PIPESTATUS[0]",
+      "PIPESTATUS_0": 1
+    },
+    "statuses_agree": true
+  },
+  "process_status": 1,
+  "pipe_status": 1,
+  "payload": {
+    "score": 0.8,
+    "threshold": 0.8,
+    "meetsThreshold": true,
+    "invariantPassed": false,
+    "failureReason": "deterministic_invariant_failure",
+    "verdict": "failed",
+    "exitCode": 1,
+    "deterministicFailures": [
+      {
+        "invariantId": "required-citation",
+        "reason": "missing required citation markers ([n], URL, doi, or Sources: block)"
+      }
+    ],
+    "runId": "ci-5ea7724f-ef59-4dc7-b0b4-372aa6f1a94d",
+    "scoreId": "019f738e-9e3c-77ac-8a12-fd80ff5adb89",
+    "sampleId": "deterministic-invariant-regression",
+    "datasetVersion": "research_v1",
+    "baselineVersion": "research_v1",
+    "modelVersion": "judge_v1",
+    "promptVersion": "research-quality_v1"
+  },
+  "combined_payload_check": {
+    "score": 0.8,
+    "meetsThreshold": true,
+    "failureReason": "deterministic_invariant_failure",
+    "assertions": {
+      "score_gte_0_8": true,
+      "threshold_eq_0_8": true,
+      "meetsThreshold": true,
+      "invariantPassed_false": true,
+      "failureReason_deterministic": true,
+      "verdict_failed": true,
+      "exitCode_1": true,
+      "required_citation_present": true
+    }
+  },
+  "assertions": {
+    "score_gte_0_8": true,
+    "threshold_eq_0_8": true,
+    "meetsThreshold": true,
+    "invariantPassed_false": true,
+    "failureReason_deterministic": true,
+    "verdict_failed": true,
+    "exitCode_1": true,
+    "required_citation_present": true
+  },
+  "db_row": {
+    "run_id": "ci-5ea7724f-ef59-4dc7-b0b4-372aa6f1a94d",
+    "sample_id": "deterministic-invariant-regression",
+    "score": 0.8,
+    "baseline_threshold": 0.8,
+    "analysis_meetsThreshold": true,
+    "analysis_invariantPassed": false,
+    "analysis_deterministicFailures": [
+      {
+        "invariantId": "required-citation",
+        "reason": "missing required citation markers ([n], URL, doi, or Sources: block)"
+      }
+    ]
+  },
+  "fixture_structural": {
+    "length": 1515,
+    "no_bracket_citation": true,
+    "no_url": true,
+    "no_doi": true,
+    "no_sources_block": true
+  },
+  "env": {
+    "DATABASE_URL_host": "127.0.0.1:5432/holocron",
+    "PLATFORM_IT": "1",
+    "judge": "local fleet (resolveModel('judge'))",
+    "no_secrets_logged": true
+  },
+  "files_changed_for_fix": [
+    "services/platform/tests/integration/evals-ci-gate.test.ts",
+    "services/platform/evals/rubrics/research-quality_v1.json",
+    "services/platform/src/evals/scorers.ts"
+  ],
+  "implementation_commit_sha": "aabe9042ba2ccbf8c253e2c912416cefbd8d9c3c",
+  "commit_sha": "aabe9042ba2ccbf8c253e2c912416cefbd8d9c3c"
+}
