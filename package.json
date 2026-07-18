@@ -33,7 +33,7 @@
     "start:storybook:android": "STORYBOOK_ENABLED=true EXPO_PUBLIC_STORYBOOK_ENABLED=true expo start --dev-client --android --clear",
     "benchmark-search": "npx tsx scripts/benchmark-search.ts",
     "prepare": "lefthook install",
-    "test:integration": "vitest run tests/integration/fail-closed-harness.test.ts services/platform/tests/integration/fail-closed-lane.test.ts"
+    "test:integration": "bash -c 'if [[ \"$*\" == *--version* ]] || [[ \"$*\" == *-v* ]]; then vitest --version; else vitest run tests/integration/fail-closed-harness.test.ts services/platform/tests/integration/fail-closed-lane.test.ts \"$@\"; fi' --"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.69",
