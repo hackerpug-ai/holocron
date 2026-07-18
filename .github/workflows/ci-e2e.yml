@@ -1,0 +1,26 @@
+# D02-05 — E2E scaffold reserved for Sprint 20 Maestro
+# Not required on PR merge. Manual dispatch only until Sprint 20 enables Maestro.
+name: ci-e2e
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  e2e-scaffold:
+    name: Maestro e2e scaffold (Sprint 20)
+    runs-on: [self-hosted, holocron, e2e]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Placeholder (Sprint 20)
+        run: |
+          echo "Sprint 20 Maestro cold-boot reference flow not yet enabled"
+          exit 0

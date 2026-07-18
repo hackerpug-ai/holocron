@@ -1,0 +1,6 @@
+# Custom self-hosted runner labels (D02-03 / D02-05)
+self-hosted-runner:
+  labels:
+    - holocron
+    - integration
+    - e2e
