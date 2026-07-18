@@ -2,7 +2,7 @@
   "task_id": "obs-4",
   "status": "completed",
   "branch": "task/obs-4",
-  "commit_sha": "6bc1c270d92f65ac06b42c403cdffb7f6966f093",
+  "commit_sha": "4de190943af2a6da6de0de5a4f0ffca79f609ee1",
   "green_commit_sha": "461ee8212da3e174127617d1d3080164953aa53b",
   "test_command": "PLATFORM_IT=1 DATABASE_URL=postgres://inference1@127.0.0.1:5432/holocron pnpm vitest run services/platform/tests/integration/evals-ci-gate.test.ts",
   "requirements_claimed": [
