@@ -55,20 +55,26 @@ export type EvidenceGateResult = {
 export function evaluateEvidenceGate(raw: EvidenceGateInput): EvidenceGateResult {
   const input = EvidenceGateInputSchema.parse(raw);
   const claimsById = new Map(input.claims.map((claim) => [claim.id, claim]));
-  const admitted = input.evidence.filter(
-    (item) =>
-      claimsById.has(item.claimId) &&
+  const admitted = input.evidence.filter((item) => {
+    const claim = claimsById.get(item.claimId);
+    return (
+      claim !== undefined &&
+      claim.component === item.component &&
       input.requiredComponents.includes(item.component) &&
       item.grade >= input.gradeFloor &&
       item.entailment >= input.entailmentFloor &&
       item.sourceText.includes(item.quote) &&
       item.disconfirmationResolved
-  );
+    );
+  });
   const coveredComponents = [...new Set(admitted.map((item) => item.component))].sort();
   const missingComponents = input.requiredComponents.filter(
     (component) => !coveredComponents.includes(component)
   );
-  const sourceGroups = new Set(admitted.map((item) => item.independenceGroup));
+  // Independence is keyed by the canonical source identity, never by a
+  // caller/model-supplied group label. A source cannot become independent by
+  // changing its declared independenceGroup.
+  const sourceGroups = new Set(admitted.map((item) => item.sourceId));
   const admittedDirections = new Set(admitted.map((item) => item.direction));
   const direction: EvidenceGateResult['direction'] =
     admittedDirections.size === 0

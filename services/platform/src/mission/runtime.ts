@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 import { z } from 'zod';
 import { createSql, type Sql } from '../db/client.ts';
 import { resolveHolocronNonprodDatabaseUrl } from '../db/connection.ts';
@@ -467,7 +466,7 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
       challengeText: result.text,
     });
   },
-  'builtin.research-gate@1': async (input, _context) => {
+  'builtin.research-gate@1': async (input, context) => {
     const challenge = parseMissionSchemaValue(
       { schemaRef: 'mission.research.challenge.output', schemaVersion: 1 },
       input,
@@ -477,15 +476,15 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
       assayInstanceId: string;
       challengeInstanceId: string;
     };
-    const fixturePath = process.env.HOLO_RESEARCH_EVIDENCE_FIXTURE;
-    const gate = fixturePath
-      ? evaluateEvidenceGate(JSON.parse(readFileSync(fixturePath, 'utf8')) as never)
+    const args = MissionGoalArgsSchema.parse(context.run.args_json);
+    const gate = args.researchEvidence
+      ? evaluateEvidenceGate(args.researchEvidence)
       : {
           admitted: false,
           direction: 'none' as const,
           coveredComponents: [],
-          missingComponents: ['evidence-fixture'],
-          reason: 'no evidence fixture supplied to deterministic gate',
+          missingComponents: ['durable-evidence'],
+          reason: 'no durable evidence supplied to deterministic gate',
         };
     return canonicalJsonValue({
       goal: challenge.goal,
@@ -2163,7 +2162,7 @@ async function runMissionInternal(
 
 async function resumeMissionInternal(
   runId: string,
-  options?: { databaseUrl?: string }
+  options?: { databaseUrl?: string; researchEvidence?: unknown }
 ): Promise<MissionStatusPayload> {
   if (!normalizeMissionRunId(runId)) {
     return missionNotFoundPayload(runId);
@@ -2176,12 +2175,27 @@ async function resumeMissionInternal(
   const sql = createSql(databaseUrl);
 
   try {
-    const existing = await selectMissionRunById(sql, runId);
+    let existing = await selectMissionRunById(sql, runId);
     if (!existing) {
       return missionNotFoundPayload(runId);
     }
     if (isTerminalStatus(existing.status)) {
       return buildMissionPayload(existing, { replay: true });
+    }
+
+    if (options?.researchEvidence !== undefined) {
+      const args = MissionGoalArgsSchema.parse(existing.args_json);
+      const updatedArgs = canonicalJsonValue({
+        ...args,
+        researchEvidence: options.researchEvidence,
+      });
+      await sql`
+        UPDATE mission_runs
+        SET args_json = ${sql.json(updatedArgs as never)}, updated_at = now()
+        WHERE id = ${runId}::uuid AND status = 'suspended'
+      `;
+      existing = await selectMissionRunById(sql, runId);
+      if (!existing) return missionNotFoundPayload(runId);
     }
 
     const lease = await acquireRunLease(sql, runId, runtimeOwner());
@@ -2222,6 +2236,7 @@ export async function runMissionTemplate(
     goal: string;
     idempotencyKey: string;
     operator?: string;
+    researchEvidence?: unknown;
   },
   options?: { databaseUrl?: string; ownerScope?: MissionRunOwnerScope }
 ): Promise<MissionStatusPayload> {
@@ -2229,6 +2244,7 @@ export async function runMissionTemplate(
     canonicalJsonValue({
       goal: input.goal,
       operator: input.operator ?? 'holo',
+      researchEvidence: input.researchEvidence,
     })
   );
   return runMissionInternal(input.templateKey, args, input.idempotencyKey, options);
@@ -2236,7 +2252,7 @@ export async function runMissionTemplate(
 
 export async function resumeMissionRun(
   runId: string,
-  options?: { databaseUrl?: string }
+  options?: { databaseUrl?: string; researchEvidence?: unknown }
 ): Promise<MissionStatusPayload> {
   return resumeMissionInternal(runId, options);
 }

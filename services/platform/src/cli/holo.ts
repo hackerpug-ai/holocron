@@ -3635,86 +3635,33 @@ async function main(): Promise<void> {
           process.exit(2);
         }
 
-        if (args.claimsPath || args.refutingPath) {
-          const { runMissionTemplate } = await import('../mission/runtime.ts');
-          const fixturePath = args.claimsPath ?? args.refutingPath;
-          const previousFixture = process.env.HOLO_RESEARCH_EVIDENCE_FIXTURE;
-          process.env.HOLO_RESEARCH_EVIDENCE_FIXTURE = fixturePath;
-          try {
-            const result = await runMissionTemplate(
-              {
-                templateKey: 'research',
-                goal,
-                idempotencyKey: args.idempotencyKey ?? `research:${goal}`,
-              },
-              { ownerScope: 'runtime' }
-            );
-            if (args.json) console.log(JSON.stringify(result, null, 2));
-            else
-              printMissionRuntimeResult(result as Record<string, unknown>, 'mission run research');
-            process.exit(result.ok ? 0 : 1);
-          } finally {
-            if (previousFixture === undefined) delete process.env.HOLO_RESEARCH_EVIDENCE_FIXTURE;
-            else process.env.HOLO_RESEARCH_EVIDENCE_FIXTURE = previousFixture;
-          }
-        }
-
-        const { runResearchMission } = await import('../observability/mission-research.ts');
-        const { LANGFUSE_EXPORT_FAILED, LangfuseExportError } = await import(
-          '../observability/langfuse-exporter.ts'
-        );
-
+        const { runMissionTemplate } = await import('../mission/runtime.ts');
+        const fixturePath = args.claimsPath ?? args.refutingPath;
+        const evidence = fixturePath
+          ? (JSON.parse(readFileSync(fixturePath, 'utf8')) as never)
+          : undefined;
         try {
-          const result = await runResearchMission({
-            goal,
-            role: args.role ?? 'divergent',
-            runId: args.runId ?? undefined,
-            throwOnExportFailure: true,
-            evidenceFixturePath: args.claimsPath ?? args.refutingPath ?? undefined,
-          });
-          if (args.json) {
-            console.log(JSON.stringify(result, null, 2));
-          } else {
-            console.log('holo mission run research — Langfuse per-run trace');
-            console.log(`  runId:        ${result.runId}`);
-            console.log(`  traceId:      ${result.traceId ?? '—'}`);
-            console.log(`  serviceName:  ${result.serviceName}`);
-            console.log(`  role:         ${result.role}`);
-            console.log(`  langfuseOk:   ${result.langfuseExportOk}`);
-            console.log(`  text:         ${(result.text ?? '').slice(0, 200)}`);
-            console.log(
-              result.ok ? '  status: OK' : `  status: FAIL (${result.errorCode ?? 'error'})`
-            );
-          }
+          const result = await runMissionTemplate(
+            {
+              templateKey: 'research',
+              goal,
+              idempotencyKey: args.idempotencyKey ?? `research:${goal}`,
+              researchEvidence: evidence,
+            },
+            { ownerScope: 'runtime' }
+          );
+          if (args.json) console.log(JSON.stringify(result, null, 2));
+          else printMissionRuntimeResult(result as Record<string, unknown>, 'mission run research');
           process.exit(result.ok ? 0 : 1);
-        } catch (err) {
-          const missionResult =
-            err && typeof err === 'object' && 'missionResult' in err
-              ? (err as { missionResult: Record<string, unknown> }).missionResult
-              : null;
-          const code =
-            err instanceof LangfuseExportError
-              ? LANGFUSE_EXPORT_FAILED
-              : ((missionResult?.errorCode as string | undefined) ?? 'MISSION_FAILED');
-          const message = err instanceof Error ? err.message : String(err);
-          const payload = missionResult ?? {
+        } catch (error) {
+          const payload = {
             ok: false,
-            langfuseExportOk: false,
-            errorCode: code,
-            error: message,
-            serviceName: 'holocron-platform',
-            traceId: null,
+            error: error instanceof Error ? error.message : String(error),
+            code: 'MISSION_RESEARCH_FAILED',
+            errorCode: 'MISSION_RESEARCH_FAILED',
           };
-          if (args.json) {
-            console.log(JSON.stringify(payload, null, 2));
-          } else {
-            console.error(`error code: ${code}`);
-            console.error(message);
-            console.error('green Langfuse verdict: false');
-          }
-          if (code === LANGFUSE_EXPORT_FAILED) {
-            console.error(`error code: ${LANGFUSE_EXPORT_FAILED}`);
-          }
+          if (args.json) console.log(JSON.stringify(payload, null, 2));
+          else console.error(payload.error);
           process.exit(1);
         }
       }
@@ -3812,7 +3759,11 @@ async function main(): Promise<void> {
 
         try {
           const { resumeMissionRun } = await import('../mission/runtime.ts');
-          const result = await resumeMissionRun(runId);
+          const fixturePath = args.claimsPath ?? args.refutingPath;
+          const researchEvidence = fixturePath
+            ? (JSON.parse(readFileSync(fixturePath, 'utf8')) as never)
+            : undefined;
+          const result = await resumeMissionRun(runId, { researchEvidence });
           if (args.json) {
             console.log(JSON.stringify(result, null, 2));
           } else {

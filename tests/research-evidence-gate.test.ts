@@ -73,4 +73,19 @@ describe('pure TypeScript evidence gate', () => {
     expect(result.admitted).toBe(false);
     expect(result.admittedEvidenceIds).toEqual([]);
   });
+
+  it('does not let caller labels spoof source independence or claim coverage', () => {
+    const result = evaluateEvidenceGate({
+      ...base,
+      evidence: evidence.map((item, index) => ({
+        ...item,
+        sourceId: 'same-canonical-source',
+        independenceGroup: `fake-group-${index}`,
+        component: index === 0 ? 'risk' : item.component,
+      })),
+    });
+    expect(result.admitted).toBe(false);
+    expect(result.independentSourceCount).toBe(1);
+    expect(result.missingComponents).toContain('market');
+  });
 });

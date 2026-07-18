@@ -1,8 +1,10 @@
 import { z } from 'zod';
+import { EvidenceGateInputSchema } from '../research/evidence-gate';
 
 const missionGoalArgsShape = {
   goal: z.string().min(1),
   operator: z.string().min(1).optional(),
+  researchEvidence: EvidenceGateInputSchema.optional(),
 } as const;
 
 export const MissionGoalArgsSchema = z.object(missionGoalArgsShape).strict();
