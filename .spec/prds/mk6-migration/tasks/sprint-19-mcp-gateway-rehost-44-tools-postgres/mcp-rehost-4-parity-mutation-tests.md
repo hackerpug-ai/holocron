@@ -6,4 +6,4 @@ agent: red-test-generator
 
 # mcp-rehost-4 — Parity and mutation replay tests
 
-Added a real seeded-Postgres HTTP suite that executes all 44 manifest tools, verifies auth/foreign Origin, no-sampling rejection, pre-abort cancellation, hybrid search, and mutation replay probes. Remaining closure work is equivalent stdio execution, frozen fixture output/error comparison, and long-running cancellation.
+Added a real seeded-Postgres suite that executes all 44 manifest tools over HTTP, exercises stdio initialize/list/tool execution, validates all frozen success fixtures against shared output schemas, verifies auth/foreign Origin, no-sampling rejection, pre-abort cancellation, hybrid search, live retailer persistence, and mutation replay. Remaining closure work is frozen error-fixture/runtime comparison and long-running cancellation, plus independent review of creator/recommendation domain parity.
