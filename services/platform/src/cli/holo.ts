@@ -25,6 +25,7 @@
  * Sprint 12 obs-1: mission run research --goal <text> [--json]
  * Sprint 13 D02-03: ci runner:status
  * Sprint 13 D02-07: prd:consistency
+ * Sprint 13 D02-02: db seed --reset | db:provision-nonprod
  */
 import { resolve } from 'node:path';
 import { z } from 'zod';
@@ -127,6 +128,8 @@ interface CliArgs {
   judgeEndpoint: string | null;
   /** prd:consistency --root */
   root: string | null;
+  /** db seed --reset */
+  reset: boolean;
 }
 
 function printHelp(): void {
@@ -295,6 +298,7 @@ function parseArgs(argv: string[]): CliArgs {
     dataset: null,
     judgeEndpoint: null,
     root: null,
+    reset: false,
   };
   const positional: string[] = [];
   for (let i = 0; i < argv.length; i++) {
@@ -462,6 +466,8 @@ function parseArgs(argv: string[]): CliArgs {
       args.manifestPath = resolve(a.slice('--manifest='.length));
     } else if (a.startsWith('--fixtures-dir=')) {
       args.fixturesDir = resolve(a.slice('--fixtures-dir='.length));
+    } else if (a === '--reset') {
+      args.reset = true;
     } else if (a === '--root') {
       args.root = resolve(argv[++i] ?? '');
     } else if (a.startsWith('--root=')) {
@@ -719,8 +725,17 @@ async function main(): Promise<void> {
       } catch (err) {
         tableCountError = err instanceof Error ? err.message : String(err);
       }
+      let databaseName: string | null = null;
+      try {
+        const u = new URL(url);
+        databaseName = (u.pathname || '/').replace(/^\//, '') || null;
+      } catch {
+        databaseName = null;
+      }
       const payload = {
         ok: tableCountError === null,
+        connected: tableCountError === null,
+        database: databaseName,
         databaseUrl: url,
         facts: postgresConnectionFacts,
         tableCount,
@@ -3151,6 +3166,58 @@ async function main(): Promise<void> {
             ? `runner online: ${result.matching_runners.map((r) => r.name).join(', ')}`
             : `runner fail-closed: ${result.errors.join('; ')}`
         );
+      }
+      process.exit(result.ok ? 0 : 1);
+    }
+
+    case 'db:provision-nonprod': {
+      const { provisionNonprodNamespace } = await import('../db/nonprod.ts');
+      const result = await provisionNonprodNamespace();
+      if (args.json) console.log(JSON.stringify(result, null, 2));
+      else {
+        console.log('holo db:provision-nonprod');
+        for (const m of result.messages) console.log(`  ${m}`);
+        if (result.errors.length) for (const e of result.errors) console.error(`  error: ${e}`);
+        console.log(result.ok ? '  status: OK' : '  status: FAIL');
+      }
+      process.exit(result.ok ? 0 : 1);
+    }
+
+    case 'db': {
+      const sub = args.positional[1] ?? '';
+      if (sub === 'seed') {
+        const { seedDatabase } = await import('../db/seed.ts');
+        const result = await seedDatabase({ reset: args.reset || true });
+        if (args.json) console.log(JSON.stringify(result, null, 2));
+        else {
+          console.log('holo db seed --reset');
+          for (const m of result.messages) console.log(`  ${m}`);
+          console.log(`  database: ${result.database}`);
+          console.log(`  seed_fingerprint: ${result.seed_fingerprint}`);
+          console.log(`  table_count: ${result.table_count}`);
+          console.log(`  fixture_ids: ${result.fixture_ids.join(',')}`);
+          if (result.errors.length) for (const e of result.errors) console.error(`  error: ${e}`);
+          console.log(result.ok ? '  status: OK' : '  status: FAIL');
+        }
+        process.exit(result.ok ? 0 : 1);
+      }
+      console.error('Usage: holo db seed --reset [--json] | holo db:provision-nonprod');
+      process.exit(2);
+    }
+
+    case 'db:seed': {
+      const { seedDatabase } = await import('../db/seed.ts');
+      const result = await seedDatabase({ reset: true });
+      if (args.json) console.log(JSON.stringify(result, null, 2));
+      else {
+        console.log('holo db:seed --reset');
+        for (const m of result.messages) console.log(`  ${m}`);
+        console.log(`  database: ${result.database}`);
+        console.log(`  seed_fingerprint: ${result.seed_fingerprint}`);
+        console.log(`  table_count: ${result.table_count}`);
+        console.log(`  fixture_ids: ${result.fixture_ids.join(',')}`);
+        if (result.errors.length) for (const e of result.errors) console.error(`  error: ${e}`);
+        console.log(result.ok ? '  status: OK' : '  status: FAIL');
       }
       process.exit(result.ok ? 0 : 1);
     }
