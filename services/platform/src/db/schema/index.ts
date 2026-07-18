@@ -5,6 +5,7 @@
 export * from './analysis';
 export * from './chat';
 export * from './documents';
+export * from './etl';
 export * from './evals';
 export * from './evidence';
 export * from './inference';
@@ -19,6 +20,7 @@ export * from './zero-pub';
 import * as analysis from './analysis';
 import * as chat from './chat';
 import * as documents from './documents';
+import * as etl from './etl';
 import * as evals from './evals';
 import * as evidence from './evidence';
 import * as inference from './inference';
@@ -33,6 +35,7 @@ import * as subscriptions from './subscriptions';
 export const schema = {
   ...chat,
   ...documents,
+  ...etl,
   ...research,
   ...analysis,
   ...subscriptions,

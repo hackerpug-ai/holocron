@@ -1,0 +1,1 @@
+{"_id":"voice_command_legacy_1","_creationTime":1700000001530,"sessionId":"voice_session_legacy_1","transcript":"voice transcript","intent":"note","entities":{"count":1},"actionType":"save","actionParams":{"ok":true},"result":{"saved":true},"success":true,"createdAt":1700000001530,"updatedAt":1700000001540}

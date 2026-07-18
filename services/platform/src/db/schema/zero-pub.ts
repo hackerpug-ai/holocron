@@ -170,6 +170,9 @@ export const ZERO_PUB_EXCLUDED_TABLES = [
   'rate_limits',
   // server-only ETL + vector-only tooling table (not reactive UI)
   'convex_id_map',
+  'etl_runs',
+  'etl_stage',
+  'upload_intents',
   'toolbelt_tools',
   // media / voice / prefs shells not on the reactive subset
   'imports',

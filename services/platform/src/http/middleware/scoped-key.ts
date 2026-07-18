@@ -67,8 +67,8 @@ const CONTROL_ROUTE_RE = /^\/api\/missions\/[^/]+\/(verdicts|steer)\/?$/;
  *
  * | Scope   | Allowed paths                                      |
  * |---------|----------------------------------------------------|
- * | rn      | /api/* (missions, chat-runs, verdicts, steer, …)   |
- * | mcp     | /mcp only                                          |
+ * | rn      | /api/* and /blobs/*                                |
+ * | mcp     | /mcp and /blobs/*                                  |
  * | control | /api/missions/:id/verdicts and …/steer only        |
  */
 export function isScopeAllowedForPath(scope: Scope, path: string): boolean {
@@ -76,16 +76,16 @@ export function isScopeAllowedForPath(scope: Scope, path: string): boolean {
   const p = path.length > 1 && path.endsWith('/') ? path.slice(0, -1) : path;
 
   if (scope === 'mcp') {
-    return p === '/mcp' || p.startsWith('/mcp/');
+    return p === '/mcp' || p.startsWith('/mcp/') || p === '/blobs' || p.startsWith('/blobs/');
   }
 
   if (scope === 'control') {
     return CONTROL_ROUTE_RE.test(p);
   }
 
-  // rn — application client: all /api/* routes
+  // rn — application client: all /api/* routes + tailnet blob reads
   if (scope === 'rn') {
-    return p === '/api' || p.startsWith('/api/');
+    return p === '/api' || p.startsWith('/api/') || p === '/blobs' || p.startsWith('/blobs/');
   }
 
   return false;
@@ -100,6 +100,7 @@ export function isProtectedPath(path: string): boolean {
   if (p.startsWith('/article')) return false;
   if (p === '/api' || p.startsWith('/api/')) return true;
   if (p === '/mcp' || p.startsWith('/mcp/')) return true;
+  if (p === '/blobs' || p.startsWith('/blobs/')) return true;
   return false;
 }
 

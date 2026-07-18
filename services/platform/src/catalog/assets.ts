@@ -24,6 +24,12 @@ export interface AssetInventory {
   ok: boolean;
 }
 
+export interface CatalogStorageLegacyId {
+  sourceRef: string;
+  retention: 'retain' | 'drop';
+  disposition: string;
+}
+
 function contentAddressedTarget(sha256: string): string {
   return `cas://sha256/${sha256}`;
 }
@@ -41,55 +47,105 @@ export function droppedStorageRefs(catalog: SourceCatalog): string[] {
     .map(([k]) => k);
 }
 
-/**
- * Collect legacy storage IDs referenced by retained storage-bearing table fields
- * in the export's documents.jsonl rows.
- */
-function retainedLegacyIdsFromExport(
+export function collectStorageLegacyIdsByRef(
   catalog: SourceCatalog,
   exp: ConvexExport
-): Map<string, string> {
-  const map = new Map<string, string>(); // legacyId -> source_ref
-  for (const [ref, entry] of Object.entries(catalog.storage_refs)) {
-    if (entry.disposition === 'drop') continue;
+): Record<string, string[]> {
+  const idsByRef: Record<string, string[]> = {};
+  for (const ref of Object.keys(catalog.storage_refs)) {
     const [table, field] = ref.split('.');
     const exportTable = exp.tables[table];
-    if (!exportTable) continue;
-    const ids = exportTable.storageIdsByField[field] ?? [];
-    for (const id of ids) {
-      map.set(id, ref);
+    idsByRef[ref] = [...new Set(exportTable?.storageIdsByField[field] ?? [])].sort();
+  }
+  return idsByRef;
+}
+
+function registerCatalogStorageLegacyId(
+  map: Map<string, CatalogStorageLegacyId>,
+  legacyId: string,
+  next: CatalogStorageLegacyId
+): void {
+  const current = map.get(legacyId);
+  if (
+    current &&
+    (current.sourceRef !== next.sourceRef ||
+      current.retention !== next.retention ||
+      current.disposition !== next.disposition)
+  ) {
+    throw new Error(
+      `catalog storage blob ${legacyId} is mapped to multiple storage refs: ${current.sourceRef} and ${next.sourceRef}`
+    );
+  }
+  map.set(legacyId, next);
+}
+
+export function collectCatalogStorageLegacyIds(
+  catalog: SourceCatalog,
+  exp: ConvexExport
+): Map<string, CatalogStorageLegacyId> {
+  const idsByRef = collectStorageLegacyIdsByRef(catalog, exp);
+  const map = new Map<string, CatalogStorageLegacyId>();
+  for (const [ref, entry] of Object.entries(catalog.storage_refs)) {
+    const retention = entry.disposition === 'drop' ? 'drop' : 'retain';
+    for (const legacyId of idsByRef[ref] ?? []) {
+      registerCatalogStorageLegacyId(map, legacyId, {
+        sourceRef: ref,
+        retention,
+        disposition: entry.disposition,
+      });
     }
   }
   return map;
 }
 
-export function buildAssetInventory(catalog: SourceCatalog, exp: ConvexExport): AssetInventory {
-  const dropped = droppedStorageRefs(catalog);
-  const retainedIds = retainedLegacyIdsFromExport(catalog, exp);
+/**
+ * Collect legacy storage IDs referenced by retained storage-bearing table fields
+ * in the export's documents.jsonl rows.
+ */
+export function collectRetainedStorageLegacyIds(
+  catalog: SourceCatalog,
+  exp: ConvexExport
+): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const [legacyId, entry] of collectCatalogStorageLegacyIds(catalog, exp)) {
+    if (entry.retention !== 'retain') continue;
+    map.set(legacyId, entry.sourceRef);
+  }
+  return map;
+}
 
-  // Also map drop-disposition field refs so we can exclude temporary blobs
+export function collectDroppedStorageLegacyIds(
+  catalog: SourceCatalog,
+  exp: ConvexExport
+): Set<string> {
   const droppedIds = new Set<string>();
-  for (const ref of dropped) {
-    const [table, field] = ref.split('.');
-    const exportTable = exp.tables[table];
-    if (!exportTable) continue;
-    for (const id of exportTable.storageIdsByField[field] ?? []) {
-      droppedIds.add(id);
+  for (const [legacyId, entry] of collectCatalogStorageLegacyIds(catalog, exp)) {
+    if (entry.retention === 'drop') {
+      droppedIds.add(legacyId);
     }
   }
+  return droppedIds;
+}
+
+export function buildAssetInventory(catalog: SourceCatalog, exp: ConvexExport): AssetInventory {
+  const dropped = droppedStorageRefs(catalog);
+  const retainedIds = collectRetainedStorageLegacyIds(catalog, exp);
+  const accountedIds = collectCatalogStorageLegacyIds(catalog, exp);
+  const droppedIds = collectDroppedStorageLegacyIds(catalog, exp);
 
   const objects: AssetRow[] = [];
   const blobById = new Map<string, ExportBlob>();
-  for (const b of exp.storageBlobs) blobById.set(b.legacyId, b);
+  for (const blob of exp.storageBlobs) blobById.set(blob.legacyId, blob);
 
-  // Prefer inventory of blobs that are retained via catalog field refs.
-  // If a retained ref points at a blob, include it. Also include any blob that
-  // is not exclusively referenced by a dropped field.
   const seen = new Set<string>();
 
   for (const [legacyId, sourceRef] of retainedIds) {
     const blob = blobById.get(legacyId);
-    if (!blob) continue;
+    if (!blob) {
+      throw new Error(
+        `catalog retained storage ref ${sourceRef} is missing required blob ${legacyId} in export _storage`
+      );
+    }
     if (seen.has(legacyId)) continue;
     seen.add(legacyId);
     const disposition = catalog.storage_refs[sourceRef]?.disposition ?? 'preserve';
@@ -106,26 +162,19 @@ export function buildAssetInventory(catalog: SourceCatalog, exp: ConvexExport): 
     });
   }
 
-  // Include remaining blobs not marked dropped (content-addressed inventory completeness)
   for (const blob of exp.storageBlobs) {
-    if (seen.has(blob.legacyId)) continue;
-    if (droppedIds.has(blob.legacyId)) {
-      // temporary/deleted — exclude from retained inventory but record nothing
+    const accounted = accountedIds.get(blob.legacyId);
+    if (!accounted) {
+      throw new Error(
+        `catalog storage blob ${blob.legacyId} is not represented by an approved retained or dropped storage ref`
+      );
+    }
+    if (seen.has(blob.legacyId) || droppedIds.has(blob.legacyId)) {
       continue;
     }
-    // Unreferenced non-dropped blob — still inventory as retain with unknown ref
-    seen.add(blob.legacyId);
-    objects.push({
-      legacy_id: blob.legacyId,
-      sha256: blob.sha256,
-      bytes: blob.bytes,
-      mime: blob.mime,
-      target: contentAddressedTarget(blob.sha256),
-      disposition: 'preserve',
-      source_ref: null,
-      retention: 'retain',
-      path: blob.path,
-    });
+    throw new Error(
+      `catalog retained storage blob ${blob.legacyId} was not emitted for ${accounted.sourceRef}`
+    );
   }
 
   return {
@@ -143,9 +192,9 @@ export function formatAssetsText(inv: AssetInventory): string {
     `dropped_storage_refs: ${inv.dropped_storage_refs.join(', ') || '(none)'}`,
     '',
   ];
-  for (const o of inv.objects) {
+  for (const object of inv.objects) {
     lines.push(
-      `${o.legacy_id} sha256=${o.sha256} bytes=${o.bytes} mime=${o.mime} target=${o.target} disposition=${o.disposition} ref=${o.source_ref ?? 'unknown'}`
+      `${object.legacy_id} sha256=${object.sha256} bytes=${object.bytes} mime=${object.mime} target=${object.target} disposition=${object.disposition} ref=${object.source_ref ?? 'unknown'}`
     );
   }
   return lines.join('\n');

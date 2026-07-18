@@ -1,0 +1,1 @@
+{"_id":"deep_research_iteration_legacy_1","_creationTime":1700000001370,"sessionId":"deep_research_session_legacy_1","iterationNumber":2,"coverageScore":0.95,"feedback":"done","findings":{"notes":1},"refinedQueries":["etl integrity"],"status":"completed","summary":"Deep iteration summary","confidenceStats":{"high":2},"embedding":[0.2,0.3],"createdAt":1700000001370}

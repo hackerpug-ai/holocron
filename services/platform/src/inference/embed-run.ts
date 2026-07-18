@@ -71,6 +71,14 @@ function toVectorLiteral(vector: number[]): string {
   return `[${vector.join(',')}]`;
 }
 
+function normalizeUnitVector(vector: number[]): number[] {
+  const norm = Math.hypot(...vector);
+  if (!Number.isFinite(norm) || norm <= 0) {
+    throw new Error('embedRun refused zero/invalid norm vector');
+  }
+  return vector.map((value) => value / norm);
+}
+
 /**
  * Fill NULL passage embeddings with document-mode Qwen3 vectors.
  *
@@ -136,7 +144,18 @@ export async function embedRun(options: EmbedRunOptions = {}): Promise<EmbedRunR
             });
           }
 
-          const vectorLiteral = toVectorLiteral(vector);
+          let normalized: number[];
+          try {
+            normalized = normalizeUnitVector(vector);
+          } catch (err) {
+            throw new EmbedRunError(`embedRun refused invalid-norm vector for passage ${row.id}`, {
+              passageId: row.id,
+              completed: processed,
+              cause: err,
+            });
+          }
+
+          const vectorLiteral = toVectorLiteral(normalized);
           await tx`
             UPDATE passages
             SET embedding = ${vectorLiteral}::vector

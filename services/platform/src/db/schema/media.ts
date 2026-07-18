@@ -3,7 +3,7 @@
  */
 
 import { sql } from 'drizzle-orm';
-import { check, integer, pgTable, text } from 'drizzle-orm/pg-core';
+import { check, integer, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
 import {
   createdAtColumn,
   idColumn,
@@ -29,7 +29,10 @@ export const fileObjects = pgTable(
     metadataJson: typedJsonb('metadata_json'),
     createdAt: createdAtColumn(),
   },
-  (t) => [legacyConvexIdIndex('file_objects', t.legacyConvexId)]
+  (t) => [
+    legacyConvexIdIndex('file_objects', t.legacyConvexId),
+    uniqueIndex('file_objects_content_hash_uidx').on(t.contentHash),
+  ]
 );
 
 export const audioJobs = pgTable(

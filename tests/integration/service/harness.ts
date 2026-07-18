@@ -26,7 +26,16 @@ export const DEFAULT_KEYS = {
 } as const;
 
 export const DEFAULT_DATABASE_URL =
-  process.env.DATABASE_URL ?? 'postgres://127.0.0.1:5432/holocron';
+  process.env.DATABASE_URL ?? 'postgres://127.0.0.1:5432/holocron_nonprod';
+
+function buildNonprodRuntimeEnv(overrides?: Record<string, string>) {
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    ...overrides,
+  };
+  delete env.DATABASE_URL_OWNER;
+  return env;
+}
 
 /** Gate: live platform integration tests require PLATFORM_IT=1. */
 export const PLATFORM_IT = process.env.PLATFORM_IT === '1';
@@ -100,8 +109,7 @@ export async function startLiveService(options?: {
 
   const child: ChildProcess = spawn(BUN_BIN, [SERVICE_ENTRY], {
     cwd: REPO_ROOT,
-    env: {
-      ...process.env,
+    env: buildNonprodRuntimeEnv({
       PORT: String(port),
       HOLO_PORT: String(port),
       DATABASE_URL: databaseUrl,
@@ -112,7 +120,7 @@ export async function startLiveService(options?: {
       MCP_API_KEY: keys.mcp,
       CONTROL_API_KEY: keys.control,
       ...options?.extraEnv,
-    },
+    }),
     stdio: ['ignore', 'pipe', 'pipe'],
   });
 
@@ -218,7 +226,7 @@ export function runHolo(args: string[]): {
   const result = spawnSync(BUN_BIN, [HOLO_CLI, ...args], {
     cwd: REPO_ROOT,
     encoding: 'utf8',
-    env: { ...process.env, DATABASE_URL: DEFAULT_DATABASE_URL },
+    env: buildNonprodRuntimeEnv({ DATABASE_URL: DEFAULT_DATABASE_URL }),
   });
   return {
     status: result.status,
