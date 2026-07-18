@@ -2,12 +2,20 @@
  * Research mission runner — one real fleet model call under Mastra Observability,
  * exported to Postgres (MastraStorageExporter) + self-hosted Langfuse.
  *
+ * Also records one durable inference_telemetry row per real model call
+ * (obs-5 AC-2 / FIX-obs-5-H1) correlated by runId + traceId.
+ *
  * Public CLI entry: `holo mission run research --goal <text> [--json]`
  */
 import { randomUUID } from 'node:crypto';
 import { Mastra } from '@mastra/core/mastra';
 import { MastraStorageExporter, Observability, SensitiveDataFilter } from '@mastra/observability';
 import { createFleetAgentWithResolved } from '../compat/cells/agent.ts';
+import {
+  displayEndpoint,
+  type InferenceTelemetryRecord,
+  recordInferenceTelemetry,
+} from '../inference/telemetry.ts';
 import { assertNoTripwire } from '../mastra/tripwire.ts';
 import { createStorage } from '../mastra.ts';
 import {
@@ -29,10 +37,30 @@ export type ResearchMissionResult = {
   text: string | null;
   langfuseExportOk: boolean;
   langfuse: LangfuseExportStatus;
+  /** Durable inference_telemetry row for the model call (null if resolve failed pre-call). */
+  inferenceTelemetry: InferenceTelemetryRecord | null;
   errorCode: string | null;
   error: string | null;
   metadata: Record<string, unknown>;
 };
+
+function usageTokens(usage: unknown): {
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+} {
+  const u = (usage ?? {}) as Record<string, unknown>;
+  const inputTokens = Math.max(0, Math.floor(Number(u.inputTokens ?? u.promptTokens ?? 0) || 0));
+  const outputTokens = Math.max(
+    0,
+    Math.floor(Number(u.outputTokens ?? u.completionTokens ?? 0) || 0)
+  );
+  let totalTokens = Math.max(0, Math.floor(Number(u.totalTokens ?? 0) || 0));
+  if (totalTokens === 0 && (inputTokens > 0 || outputTokens > 0)) {
+    totalTokens = inputTokens + outputTokens;
+  }
+  return { inputTokens, outputTokens, totalTokens };
+}
 
 export type RunResearchMissionOptions = {
   goal: string;
@@ -131,6 +159,7 @@ export async function runResearchMission(
         lastFlushAt: null,
         baseUrl: null,
       },
+      inferenceTelemetry: null,
       errorCode: 'MISSION_GOAL_REQUIRED',
       error: 'mission run research requires --goal <text>',
       metadata: {},
@@ -170,6 +199,7 @@ export async function runResearchMission(
       text: null,
       langfuseExportOk: false,
       langfuse: langfuseExporter.getStatus(),
+      inferenceTelemetry: null,
       errorCode: 'FLEET_RESOLVE_FAILED',
       error: msg,
       metadata: { role, runId },
@@ -186,6 +216,11 @@ export async function runResearchMission(
   let text: string | null = null;
   let resultTraceId: string | null = traceId;
   let generateError: string | null = null;
+  let inferenceTelemetry: InferenceTelemetryRecord | null = null;
+  const modelCallStarted = Date.now();
+  const stepId = 'research-mission-generate';
+  const endpoint = displayEndpoint(agentBundle.resolved);
+  const modelId = agentBundle.resolved.litellmModelId;
 
   try {
     const result = await researchAgent.generate(
@@ -209,11 +244,58 @@ export async function runResearchMission(
     if (result.traceId) {
       resultTraceId = String(result.traceId);
     }
+    const wallMs = Math.max(1, Date.now() - modelCallStarted);
+    const tokens = usageTokens(
+      (result as { usage?: unknown; totalUsage?: unknown }).usage ??
+        (result as { totalUsage?: unknown }).totalUsage
+    );
+    // Durable per-call ledger (obs-5): never invent success without a real call.
+    inferenceTelemetry = await recordInferenceTelemetry({
+      runId,
+      stepId,
+      traceId: resultTraceId,
+      role: agentBundle.resolved.role,
+      provider: 'fleet',
+      endpoint,
+      modelId,
+      inputTokens: tokens.inputTokens,
+      outputTokens: tokens.outputTokens,
+      totalTokens: tokens.totalTokens,
+      wallMs,
+      status: text ? 'success' : 'degraded',
+      errorCode: text ? null : 'EMPTY_RESPONSE',
+      errorMessage: text ? null : 'agent returned empty text',
+    });
     if (!text) {
       generateError = 'agent returned empty text';
     }
   } catch (err) {
     generateError = err instanceof Error ? err.message : String(err);
+    const wallMs = Math.max(1, Date.now() - modelCallStarted);
+    try {
+      inferenceTelemetry = await recordInferenceTelemetry({
+        runId,
+        stepId,
+        traceId: resultTraceId,
+        role: agentBundle.resolved.role,
+        provider: 'fleet',
+        endpoint,
+        modelId,
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+        wallMs,
+        status: 'error',
+        errorCode: 'MISSION_GENERATE_FAILED',
+        errorMessage: generateError,
+      });
+    } catch (telemetryErr) {
+      // Telemetry insert failure must not mask the original generate error,
+      // but operators still need a fail-closed signal in metadata.
+      generateError = `${generateError}; telemetry-record-failed: ${
+        telemetryErr instanceof Error ? telemetryErr.message : String(telemetryErr)
+      }`;
+    }
   }
 
   let langfuseOk = false;
@@ -262,6 +344,7 @@ export async function runResearchMission(
     text,
     langfuseExportOk: langfuseOk,
     langfuse: status,
+    inferenceTelemetry,
     errorCode: errorCode ?? (generateError ? 'MISSION_GENERATE_FAILED' : null),
     error: exportError ?? generateError,
     metadata: {
@@ -271,6 +354,7 @@ export async function runResearchMission(
       mission: 'research',
       model: agentBundle.resolved.litellmModelId,
       endpoint: agentBundle.resolved.endpoint,
+      inferenceTelemetryId: inferenceTelemetry?.id ?? null,
     },
   };
 
