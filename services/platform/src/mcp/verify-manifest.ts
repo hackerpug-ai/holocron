@@ -3,7 +3,7 @@
  * Exit 0 iff every registered tool has a manifest entry with populated fields + frozen fixtures,
  * no orphan entries exist, and both transports are declared.
  */
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { getToolMap, type McpManifest } from './manifest-loader';
 import { readRegisteredToolIds } from './registry-reader';
@@ -25,7 +25,8 @@ export interface ManifestIssue {
     | 'output_schema_null'
     | 'errors_empty_mutation'
     | 'replay_null_mutation'
-    | 'error_fixture_missing';
+    | 'error_fixture_missing'
+    | 'replay_fixture_mismatch';
   message: string;
 }
 
@@ -113,6 +114,32 @@ export function buildVerifyReport(
           kind: 'error_fixture_missing',
           message: `Tool ${toolId}: error fixture file missing`,
         });
+      }
+      const replayFixturePath = resolve(opts.fixturesDir, `${toolId}_replay.json`);
+      if (entry.replay && existsSync(replayFixturePath)) {
+        try {
+          const replayFixture = JSON.parse(readFileSync(replayFixturePath, 'utf8')) as {
+            idempotency_key?: unknown[];
+            stored_result?: string;
+          };
+          if (
+            JSON.stringify(replayFixture.idempotency_key) !==
+              JSON.stringify(entry.replay.idempotency_key) ||
+            replayFixture.stored_result !== entry.replay.stored_result
+          ) {
+            issues.push({
+              tool_id: toolId,
+              kind: 'replay_fixture_mismatch',
+              message: `Tool ${toolId}: replay fixture does not match manifest replay contract`,
+            });
+          }
+        } catch {
+          issues.push({
+            tool_id: toolId,
+            kind: 'replay_fixture_mismatch',
+            message: `Tool ${toolId}: replay fixture is not valid JSON`,
+          });
+        }
       }
     }
   }

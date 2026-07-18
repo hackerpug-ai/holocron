@@ -1,6 +1,6 @@
 {
   "representative_example": true,
-  "idempotency_key": ["query", "condition", "priceMin", "priceMax"],
+  "idempotency_key": ["query", "retailers", "condition", "priceMin", "priceMax", "verifiedOnly"],
   "stored_result": "sessionId",
   "first_call_result": {
     "sessionId": "kg_shop_001",

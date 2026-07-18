@@ -1040,9 +1040,9 @@ tools:
         description: "Retailer search timed out (partial results may be returned)"
     pagination: null
     side_effects: "CREATES shopSessions row + INSERTS shopListings rows from retailer API calls (shop/index:startShopSearch action)"
-    idempotency: "Not idempotent — same query creates a new search session each time."
+    idempotency: "Idempotent replay by full effective search input; identical filters replay the stored session, while retailer or verifiedOnly changes create a new session."
     replay:
-      idempotency_key: [query, condition, priceMin, priceMax]
+      idempotency_key: [query, retailers, condition, priceMin, priceMax, verifiedOnly]
       stored_result: sessionId
     transports: [stdio, streamable-http]
     fixtures: null
