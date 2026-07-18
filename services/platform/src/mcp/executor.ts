@@ -70,28 +70,68 @@ export async function executePostgresMcpTool(
       }
       case 'get_creator_transcripts': {
         const limit = Math.min(Number(input.limit ?? 100), 100);
-        const rows = await sql`
-          SELECT id::text AS id, title, url, content_id AS "contentId", author_handle AS "authorHandle",
-                 research_status AS "researchStatus"
-          FROM subscription_content WHERE source_id = ${String(input.profileId)} LIMIT ${limit}
+        const profile = await sql`
+          SELECT handle FROM creator_profiles WHERE id = ${String(input.profileId)}::uuid LIMIT 1
         `;
-        return { success: true, data: rows };
+        if (!profile[0]) return { success: false, error: 'creator profile not found' };
+        const rows = await sql`
+          SELECT v.content_id AS "contentId", v.source_url AS "sourceUrl",
+                 v.transcript_source AS "transcriptSource", v.preview_text AS "previewText",
+                 v.word_count AS "wordCount", EXTRACT(EPOCH FROM v.generated_at) * 1000 AS "generatedAt"
+          FROM subscription_content c
+          JOIN video_transcripts v ON v.content_id = c.content_id
+          WHERE c.source_id = ${String(input.profileId)} LIMIT ${limit}
+        `;
+        return {
+          success: true,
+          data: {
+            profileId: String(input.profileId),
+            creatorHandle: profile[0].handle ?? '',
+            transcriptCount: rows.length,
+            transcripts: rows,
+          },
+        };
       }
       case 'regenerate_transcript': {
-        const rows = await sql`
-          UPDATE subscription_content SET research_status = 'queued', researched_at = NULL
-          WHERE id = ${String(input.contentId)}::uuid
-          RETURNING id::text AS id, research_status AS "researchStatus"
+        const contentId = String(input.contentId);
+        const existing = await sql`
+          SELECT id::text AS "jobId" FROM transcript_jobs WHERE content_id = ${contentId} LIMIT 1
         `;
-        return rows[0]
-          ? { success: true, data: rows[0] }
-          : { success: false, error: 'content not found' };
+        if (existing[0]) {
+          return {
+            success: true,
+            data: {
+              ...existing[0],
+              created: false,
+              contentId,
+              message: 'transcript job already exists',
+            },
+          };
+        }
+        const sourceUrl =
+          typeof input.sourceUrl === 'string'
+            ? input.sourceUrl
+            : `https://www.youtube.com/watch?v=${contentId}`;
+        const rows = await sql`
+          INSERT INTO transcript_jobs (id, content_id, source_url, status, priority)
+          VALUES (${randomUUID()}::uuid, ${contentId}, ${sourceUrl}, 'pending', ${Number(input.priority ?? 5)})
+          RETURNING id::text AS "jobId"
+        `;
+        return {
+          success: true,
+          data: {
+            jobId: rows[0]?.jobId,
+            created: true,
+            contentId,
+            message: 'transcript job queued',
+          },
+        };
       }
       case 'findRecommendations': {
         const query = String(input.query);
         const count = Math.min(Number(input.count ?? 5), 7);
         return await sql`
-          SELECT title AS name, description, source_url AS "sourceUrl"
+          SELECT title AS name, description AS recommendation, source_url AS contact
           FROM toolbelt_tools
           WHERE search_vector @@ websearch_to_tsquery('english', ${query})
           ORDER BY created_at DESC LIMIT ${count}
@@ -146,7 +186,7 @@ export async function executePostgresMcpTool(
         if (existing[0]) return { ...existing[0], existing: true };
         const rows = await sql`
           INSERT INTO assimilation_sessions (id, repository_url, profile, status, auto_approve)
-          VALUES (${randomUUID()}::uuid, ${repositoryUrl}, ${String(input.profile ?? 'standard')}, 'pending', ${Boolean(input.autoApprove)})
+          VALUES (${randomUUID()}::uuid, ${repositoryUrl}, ${String(input.profile ?? 'standard')}, 'planning', ${Boolean(input.autoApprove)})
           RETURNING id::text AS "sessionId", status
         `;
         return { ...rows[0], existing: false };
@@ -165,12 +205,17 @@ export async function executePostgresMcpTool(
         return rows[0] ?? null;
       }
       case 'approve_assimilation_plan': {
-        await sql`UPDATE assimilation_sessions SET status = 'in_progress', updated_at = now() WHERE id = ${String(input.sessionId)}::uuid`;
+        await sql`UPDATE assimilation_sessions SET status = 'running', updated_at = now() WHERE id = ${String(input.sessionId)}::uuid`;
         return { approved: true, sessionId: String(input.sessionId) };
       }
       case 'reject_assimilation_plan': {
-        await sql`UPDATE assimilation_sessions SET status = 'pending', plan_feedback = ${typeof input.feedback === 'string' ? input.feedback : null}, updated_at = now() WHERE id = ${String(input.sessionId)}::uuid`;
-        return { rejected: true, sessionId: String(input.sessionId), replanning: true };
+        const feedback = typeof input.feedback === 'string' ? input.feedback : null;
+        await sql`UPDATE assimilation_sessions SET status = ${feedback ? 'planning' : 'rejected'}, plan_feedback = ${feedback}, updated_at = now() WHERE id = ${String(input.sessionId)}::uuid`;
+        return {
+          rejected: true,
+          sessionId: String(input.sessionId),
+          replanning: Boolean(feedback),
+        };
       }
       case 'cancel_assimilation': {
         await sql`UPDATE assimilation_sessions SET status = 'cancelled', updated_at = now(), completed_at = now() WHERE id = ${String(input.sessionId)}::uuid`;

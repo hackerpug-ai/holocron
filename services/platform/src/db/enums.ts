@@ -7,6 +7,9 @@ import { z } from 'zod';
 /** Canonical lifecycle status (normalized: in-progress → in_progress). */
 export const lifecycleStatusValues = [
   'pending',
+  'planning',
+  'pending_approval',
+  'rejected',
   'queued',
   'in_progress',
   'running',
