@@ -21,8 +21,20 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Never execute untrusted fork code on the persistent self-hosted runner.
+  fork-safety:
+    name: reject fork integration execution
+    if: ${{ github.event.pull_request.head.repo.full_name != github.repository }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail closed for fork PR
+        run: |
+          echo "Integration secrets and self-hosted runners are unavailable to fork PRs — fail closed" >&2
+          exit 1
+
   integration:
     name: real-service integration (fail-closed)
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: [self-hosted, holocron, integration]
     timeout-minutes: 45
     steps:
