@@ -6,4 +6,4 @@ agent: mastra-implementer
 
 # mcp-rehost-2 — Real Postgres tool execution
 
-Started Postgres-backed execution for `get_document`, `list_documents`, `store_document`, `update_document`, `share_document`, `search_fts`, `hybrid_search`, `add_subscription`, `remove_subscription`, and `list_subscriptions`, including mutation idempotency for subscriptions. Real Postgres coverage is in `sprint19-mcp-rehost.test.ts`; the remaining 34 tools must be migrated before closure.
+Started Postgres-backed execution for 16 tools: document CRUD/share/list, FTS/hybrid search, subscription add/remove/list, and toolbelt CRUD/search/list. Subscription adds are idempotent by source identity. Real Postgres coverage is in `sprint19-mcp-rehost.test.ts`; the remaining 28 tools must be migrated before closure.
