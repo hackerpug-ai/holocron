@@ -1,12 +1,12 @@
 ---
-status: In Progress
+status: Completed
 sprint: 16
 slug: public-article-endpoint-hono
 ---
 
 # Sprint 16: Public `/article/` Endpoint on Hono
 
-**Status:** In Progress  
+**Status:** Completed  
 **Human gate:** real Hono + Postgres + filesystem asset capability; byte-comparable HTML and 404 revocation proof.
 
 ## Ordering

@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "sprint": 16,
+  "sourceHead": "eedb17f396911e2eb8bd985db561001d00e0365a",
+  "rawEvidenceDir": ".tmp/sprint-16-human-gate-20260718",
+  "database": "holocron_nonprod",
+  "fleet": {"endpoint":"http://127.0.0.1:4545","health":"pass"},
+  "steps": [
+    {"id":"S16-G1","status":"passed","evidence":["health.json","01-public.html","01-public.sha256"]},
+    {"id":"S16-G2","status":"passed","evidence":["02-compat.json"]},
+    {"id":"S16-G3","status":"passed","evidence":["03-asset.body","00-meta.txt"]},
+    {"id":"S16-G4","status":"passed","evidence":["04-unshare.out","04-revoked-article.status","04-revoked-asset.status"]},
+    {"id":"S16-G5","status":"passed","evidence":["05-private.status"]},
+    {"id":"S16-G6","status":"passed","evidence":["06-unknown.status"]}
+  ],
+  "overall":"passed"
+}
