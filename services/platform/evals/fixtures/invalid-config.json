@@ -1,0 +1,6 @@
+{
+  "fixture": "invalid-config",
+  "datasetVersion": "research_v1",
+  "baselineVersion": "research_v1",
+  "notes": "Deliberately omits threshold — CI gate must fail closed with INVALID_THRESHOLD and never invent a default threshold."
+}

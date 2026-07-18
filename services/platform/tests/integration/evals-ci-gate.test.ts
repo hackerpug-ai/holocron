@@ -201,39 +201,36 @@ describe('obs-4 evals CI gate (threshold + deterministic invariants)', () => {
     expect(body).not.toMatch(/fallback baseline/i);
   });
 
-  itLive(
-    "AC-5 / TC-5: machine-readable CI output includes versions + threshold",
-    async () => {
-      const result = runHolo(['evals:ci', '--fixture', 'known-good', '--json']);
-      writeArtifact('ac5-machine-readable.json', {
-        status: result.status,
-        stdout: result.stdout,
-        stderr: result.stderr,
-      });
+  itLive('AC-5 / TC-5: machine-readable CI output includes versions + threshold', async () => {
+    const result = runHolo(['evals:ci', '--fixture', 'known-good', '--json']);
+    writeArtifact('ac5-machine-readable.json', {
+      status: result.status,
+      stdout: result.stdout,
+      stderr: result.stderr,
+    });
 
-      expect(result.status).toBe(0);
-      const payload = parseJson(result.stdout);
+    expect(result.status).toBe(0);
+    const payload = parseJson(result.stdout);
 
-      expect(payload.fixture).toBe('known-good');
-      expect(payload.datasetVersion).toBe('research_v1');
-      expect(payload.modelVersion).toBe('judge_v1');
-      expect(payload.promptVersion).toBe('research-quality_v1');
-      expect(Number(payload.score)).toBeGreaterThanOrEqual(0.8);
-      expect(Number(payload.threshold)).toBe(0.8);
-      expect(payload.verdict).toBe('passed');
-      expect(payload.exitReason ?? payload.failureReason ?? null).not.toBe(undefined);
+    expect(payload.fixture).toBe('known-good');
+    expect(payload.datasetVersion).toBe('research_v1');
+    expect(payload.modelVersion).toBe('judge_v1');
+    expect(payload.promptVersion).toBe('research-quality_v1');
+    expect(Number(payload.score)).toBeGreaterThanOrEqual(0.8);
+    expect(Number(payload.threshold)).toBe(0.8);
+    expect(payload.verdict).toBe('passed');
+    expect(payload.exitReason ?? payload.failureReason ?? null).not.toBe(undefined);
 
-      // Persisted eval record must exist for the gate run
-      const runId = String(payload.runId ?? '');
-      expect(runId.length).toBeGreaterThan(0);
-      const sql = createSql(DATABASE_URL);
-      try {
-        const rows = await listScoresByRun(sql, runId);
-        expect(rows.length).toBeGreaterThanOrEqual(1);
-        writeArtifact('ac5-db-row.json', rows[0]);
-      } finally {
-        await sql.end({ timeout: 5 });
-      }
+    // Persisted eval record must exist for the gate run
+    const runId = String(payload.runId ?? '');
+    expect(runId.length).toBeGreaterThan(0);
+    const sql = createSql(DATABASE_URL);
+    try {
+      const rows = await listScoresByRun(sql, runId);
+      expect(rows.length).toBeGreaterThanOrEqual(1);
+      writeArtifact('ac5-db-row.json', rows[0]);
+    } finally {
+      await sql.end({ timeout: 5 });
     }
-  );
+  });
 });

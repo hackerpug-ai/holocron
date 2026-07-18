@@ -185,6 +185,7 @@ Usage:
                             (requires --goal; flushes OTel → self-hosted Langfuse)
   evals:run                 Score a versioned fixture sample via local judge (--sample)
   evals:drift               Longitudinal drift over persisted eval_scores (--dataset)
+  evals:ci                  Fail-closed CI gate: threshold + deterministic invariants (--fixture)
 
 Options:
   --export <dir>        Path to unzipped convex export (or $CONVEX_EXPORT_DIR)
@@ -230,6 +231,8 @@ Options:
   --sample <id>         (evals:run) fixture sample: known-good | deliberately-bad
   --dataset <version>   (evals:run|evals:drift) dataset version (default research_v1)
   --judge-endpoint <url>(evals:run) override judge health endpoint (fail-closed tests)
+  --fixture <name>      (evals:ci) known-good | deliberately-bad |
+                        deterministic-invariant-regression | invalid-config
   --json                Emit JSON instead of text
   --print-trace         (compat:spike) emit OTel trace details
   --dry-run             (catalog:reconcile) dry-run mode (default)
@@ -2943,6 +2946,87 @@ async function main(): Promise<void> {
           console.log(JSON.stringify({ ok: false, error: message }, null, 2));
         } else {
           console.error(`holo evals:drift failed: ${message}`);
+        }
+        process.exit(1);
+      }
+      break;
+    }
+    case 'evals:ci': {
+      // obs-4: fail-closed CI gate — threshold + deterministic invariants
+      const fixture = args.fixture ?? args.positional[1] ?? null;
+      if (!fixture || fixture.trim().length === 0) {
+        console.error(
+          'error: evals:ci requires --fixture <known-good|deliberately-bad|deterministic-invariant-regression|invalid-config>'
+        );
+        process.exit(2);
+      }
+      const { runCiGate } = await import('../evals/index.ts');
+      try {
+        const result = await runCiGate({
+          fixture,
+          datasetVersion: args.dataset ?? undefined,
+          judgeEndpointOverride: args.judgeEndpoint ?? undefined,
+          runId: args.runId ?? undefined,
+        });
+        if (args.json) {
+          console.log(JSON.stringify(result, null, 2));
+        } else {
+          console.log('holo evals:ci — threshold + deterministic invariant gate');
+          console.log(`  fixture:            ${result.fixture}`);
+          console.log(`  datasetVersion:     ${result.datasetVersion ?? '—'}`);
+          console.log(`  baselineVersion:    ${result.baselineVersion ?? '—'}`);
+          console.log(`  modelVersion:       ${result.modelVersion ?? '—'}`);
+          console.log(`  promptVersion:      ${result.promptVersion ?? '—'}`);
+          console.log(`  score:              ${result.score ?? '—'}`);
+          console.log(`  baseline:           ${result.baseline ?? '—'}`);
+          console.log(`  threshold:          ${result.threshold ?? '—'}`);
+          console.log(`  verdict:            ${result.verdict}`);
+          console.log(`  exitCode:           ${result.exitCode}`);
+          console.log(`  failureReason:      ${result.failureReason ?? '—'}`);
+          console.log(`  exitReason:         ${result.exitReason ?? '—'}`);
+          console.log(`  errorCode:          ${result.errorCode ?? '—'}`);
+          console.log(`  runId:              ${result.runId ?? '—'}`);
+          if (result.deterministicFailures.length > 0) {
+            console.log('  deterministicFailures:');
+            for (const f of result.deterministicFailures) {
+              console.log(`    - ${f.invariantId}: ${f.reason}`);
+            }
+          }
+          console.log(result.verdict === 'passed' ? '  status: OK' : '  status: FAIL');
+        }
+        process.exit(result.exitCode);
+      } catch (err) {
+        const code =
+          err && typeof err === 'object' && 'code' in err
+            ? String((err as { code: unknown }).code)
+            : 'EVAL_CI_FAILED';
+        const message = err instanceof Error ? err.message : String(err);
+        const payload = {
+          fixture,
+          verdict: 'failed' as const,
+          exitCode: 1,
+          errorCode: code,
+          failureReason: code === 'INVALID_THRESHOLD' ? 'invalid_threshold' : 'eval_ci_failed',
+          exitReason: message,
+          score: null,
+          threshold: null,
+          baseline: null,
+          datasetVersion: null,
+          baselineVersion: null,
+          modelVersion: null,
+          promptVersion: null,
+          deterministicFailures: [] as Array<{ invariantId: string; reason: string }>,
+          runId: null,
+          scoreId: null,
+          sampleId: null,
+          meetsThreshold: false,
+          invariantPassed: false,
+        };
+        if (args.json) {
+          console.log(JSON.stringify(payload, null, 2));
+        } else {
+          console.error(`error code: ${code}`);
+          console.error(message);
         }
         process.exit(1);
       }

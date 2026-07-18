@@ -1,0 +1,58 @@
+{
+  "task_id": "obs-4",
+  "status": "completed",
+  "branch": "task/obs-4",
+  "commit_sha": "1c4cfa40a3b57dbd40fb7a4f5d2803f2d632b9f3",
+  "test_command": "PLATFORM_IT=1 DATABASE_URL=postgres://inference1@127.0.0.1:5432/holocron pnpm vitest run services/platform/tests/integration/evals-ci-gate.test.ts",
+  "requirements_claimed": [
+    "AC-1",
+    "AC-2",
+    "AC-3",
+    "AC-4",
+    "AC-5",
+    "TC-1",
+    "TC-2",
+    "TC-3",
+    "TC-4",
+    "TC-5"
+  ],
+  "evidence_dir": ".tmp/obs-4",
+  "blocker_classification": "none",
+  "gates": {
+    "red": {
+      "artifact": "red-output.txt",
+      "result": "5 failed (missing evals:ci \u2192 exit 2)"
+    },
+    "green": {
+      "artifact": "green-output.txt",
+      "result": "5 passed"
+    },
+    "typecheck": {
+      "artifact": "typecheck.txt",
+      "result": "exit 0"
+    },
+    "lint": {
+      "artifact": "lint.txt",
+      "result": "exit 0"
+    }
+  },
+  "seeded_cli": {
+    "ac1_deliberately_bad": {
+      "exit": 1,
+      "artifact": "ac1-seeded-deliberately-bad.json"
+    },
+    "ac2_known_good": {
+      "exit": 0,
+      "artifact": "ac2-seeded-known-good.json"
+    },
+    "ac3_deterministic": {
+      "exit": 1,
+      "artifact": "ac3-seeded-deterministic.json"
+    },
+    "ac4_invalid_config": {
+      "exit": 1,
+      "artifact": "ac4-seeded-invalid-config.json"
+    }
+  },
+  "summary": "Implemented fail-closed holo evals:ci combining versioned score thresholds with deterministic invariant scorers. deliberately-bad exits 1 (threshold_regression), known-good exits 0, deterministic-invariant-regression exits 1 with required-citation, invalid-config exits 1 with INVALID_THRESHOLD, JSON includes versions + runId with persisted eval_scores row."
+}

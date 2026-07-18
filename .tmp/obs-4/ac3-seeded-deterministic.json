@@ -1,0 +1,27 @@
+{
+  "fixture": "deterministic-invariant-regression",
+  "datasetVersion": "research_v1",
+  "baselineVersion": "research_v1",
+  "modelVersion": "judge_v1",
+  "promptVersion": "research-quality_v1",
+  "score": 0.65,
+  "baseline": 0.8,
+  "threshold": 0.8,
+  "verdict": "failed",
+  "exitCode": 1,
+  "failureReason": "threshold_regression",
+  "exitReason": "score 0.65 < threshold 0.8",
+  "errorCode": null,
+  "deterministicFailures": [
+    {
+      "invariantId": "required-citation",
+      "reason": "missing required citation markers ([n], URL, doi, or Sources: block)"
+    }
+  ],
+  "runId": "ci-1673fc06-0cf4-4e21-8721-5a3034a02d70",
+  "scoreId": "019f732e-9cad-7303-9112-17f60d174af9",
+  "sampleId": "deterministic-invariant-regression",
+  "meetsThreshold": false,
+  "invariantPassed": false,
+  "reason": "The response is well-structured and grounded, covering benefits, limitations, and a bottom line. However, it completely lacks explicit source markers, numbered citations, or a Sources section, which is a critical requirement for the research-quality rubric."
+}

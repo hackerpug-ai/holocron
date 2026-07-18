@@ -1,0 +1,22 @@
+{
+  "fixture": "known-good",
+  "datasetVersion": "research_v1",
+  "baselineVersion": "research_v1",
+  "modelVersion": "judge_v1",
+  "promptVersion": "research-quality_v1",
+  "score": 0.85,
+  "baseline": 0.8,
+  "threshold": 0.8,
+  "runId": "ci-fe6f162c-b2ba-49a6-822d-a02fac6adddc",
+  "scoreId": "019f732e-788d-7a84-a25b-5089b35d3b5c",
+  "sampleId": "known-good",
+  "meetsThreshold": true,
+  "invariantPassed": true,
+  "deterministicFailures": [],
+  "reason": "The response is a high-quality structured research brief. It includes clear key findings, a bottom-line judgment, safety considerations (adverse effects, contraindications), and explicit calibration (benefits largely track caloric deficit, not superior to continuous restriction). It provides numbered citations [1]–[6] throughout the text and a corresponding Sources list with URLs/DOIs, meeting the criteria for a score >=0.8 despite the use of example URLs.",
+  "exitReason": "passed",
+  "verdict": "passed",
+  "exitCode": 0,
+  "failureReason": null,
+  "errorCode": null
+}

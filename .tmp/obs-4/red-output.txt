@@ -1,0 +1,113 @@
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.worktrees/obs-4
+
+ ❯ services/platform/tests/integration/evals-ci-gate.test.ts (5 tests | 5 failed) 397ms
+     × AC-1 / TC-1: deliberately-bad fixture blocks CI (threshold regression) 84ms
+     × AC-2 / TC-2: known-good fixture passes CI 55ms
+     × AC-3 / TC-3: deterministic invariant blocks independently of judge score 55ms
+     × AC-4 / TC-4: invalid gate configuration fails closed 54ms
+     × AC-5 / TC-5: machine-readable CI output includes versions + threshold 54ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  services/platform/tests/integration/evals-ci-gate.test.ts > obs-4 evals CI gate (threshold + deterministic invariants) > AC-1 / TC-1: deliberately-bad fixture blocks CI (threshold regression)
+AssertionError: expected 2 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 2
+
+ ❯ services/platform/tests/integration/evals-ci-gate.test.ts:121:27
+    119|
+    120|     expect(result.status).not.toBe(0);
+    121|     expect(result.status).toBe(1);
+       |                           ^
+    122|
+    123|     const payload = parseJson(result.stdout);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  services/platform/tests/integration/evals-ci-gate.test.ts > obs-4 evals CI gate (threshold + deterministic invariants) > AC-2 / TC-2: known-good fixture passes CI
+AssertionError: expected 2 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 2
+
+ ❯ services/platform/tests/integration/evals-ci-gate.test.ts:142:27
+    140|     });
+    141|
+    142|     expect(result.status).toBe(0);
+       |                           ^
+    143|
+    144|     const payload = parseJson(result.stdout);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ FAIL  services/platform/tests/integration/evals-ci-gate.test.ts > obs-4 evals CI gate (threshold + deterministic invariants) > AC-3 / TC-3: deterministic invariant blocks independently of judge score
+AssertionError: expected 2 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 2
+
+ ❯ services/platform/tests/integration/evals-ci-gate.test.ts:167:27
+    165|     });
+    166|
+    167|     expect(result.status).toBe(1);
+       |                           ^
+    168|
+    169|     const payload = parseJson(result.stdout);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+
+ FAIL  services/platform/tests/integration/evals-ci-gate.test.ts > obs-4 evals CI gate (threshold + deterministic invariants) > AC-4 / TC-4: invalid gate configuration fails closed
+AssertionError: expected 2 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 2
+
+ ❯ services/platform/tests/integration/evals-ci-gate.test.ts:192:27
+    190|     });
+    191|
+    192|     expect(result.status).toBe(1);
+       |                           ^
+    193|
+    194|     const payload = parseJson(result.stdout);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯
+
+ FAIL  services/platform/tests/integration/evals-ci-gate.test.ts > obs-4 evals CI gate (threshold + deterministic invariants) > AC-5 / TC-5: machine-readable CI output includes versions + threshold
+AssertionError: expected 2 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 2
+
+ ❯ services/platform/tests/integration/evals-ci-gate.test.ts:214:29
+    212|       });
+    213|
+    214|       expect(result.status).toBe(0);
+       |                             ^
+    215|       const payload = parseJson(result.stdout);
+    216|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  5 failed (5)
+   Start at  20:56:36
+   Duration  923ms (transform 124ms, setup 122ms, import 308ms, tests 397ms, environment 0ms)
+
