@@ -13,6 +13,35 @@ const itLive = PLATFORM_IT ? it : it.skip;
 const DATABASE_URL = process.env.DATABASE_URL ?? 'postgres://127.0.0.1:5432/holocron_nonprod';
 const KEYS = { rn: 's19-rn', mcp: 's19-mcp', control: 's19-control' };
 
+function sampleToolInput(schema: unknown, key: string): unknown {
+  const def = (schema as { def?: Record<string, unknown> }).def ?? {};
+  const type = def.type;
+  if (type === 'optional' || type === 'nullable' || type === 'default') {
+    return sampleToolInput(def.innerType, key);
+  }
+  if (type === 'object') {
+    const shape = (def.shape ?? {}) as Record<string, unknown>;
+    return Object.fromEntries(
+      Object.entries(shape).map(([name, value]) => [name, sampleToolInput(value, name)])
+    );
+  }
+  if (type === 'array') return [sampleToolInput(def.element, key)];
+  if (type === 'enum') return Object.values(def.entries as Record<string, string>)[0];
+  if (type === 'number') return key === 'count' || key === 'limit' ? 5 : 1;
+  if (type === 'boolean') return false;
+  if (type === 'record' || type === 'unknown') return {};
+  if (type === 'string') {
+    if (key === 'url' || key === 'feedUrl' || key === 'sourceUrl' || key === 'repositoryUrl')
+      return 'https://example.com/s19';
+    if (/^(id|sessionId|documentId|toolId|profileId)$/.test(key)) return crypto.randomUUID();
+    if (key === 'sourceType') return 'github';
+    if (key === 'category') return 'libraries';
+    if (key === 'status') return 'draft';
+    return `s19-parity-${key}`;
+  }
+  return {};
+}
+
 describe('Sprint 19 MCP rehost gateway', () => {
   let sql: Sql | undefined;
   beforeAll(() => {
@@ -178,6 +207,7 @@ describe('Sprint 19 MCP rehost gateway', () => {
             buffer = buffer.slice(newline + 1);
             clearTimeout(timeout);
             child.stdout.off('data', onData);
+            child.off('error', onError);
             try {
               resolve(JSON.parse(line) as Record<string, unknown>);
             } catch (error) {
@@ -189,8 +219,9 @@ describe('Sprint 19 MCP rehost gateway', () => {
             buffer += chunk.toString();
             consume();
           };
+          const onError = (error: Error) => reject(error);
           child.stdout.on('data', onData);
-          child.once('error', reject);
+          child.once('error', onError);
           consume();
         });
       try {
@@ -234,6 +265,22 @@ describe('Sprint 19 MCP rehost gateway', () => {
         const called = await nextMessage();
         expect(called.result).toBeDefined();
         expect((called.result as { isError?: boolean }).isError).not.toBe(true);
+        const stdioFailures: string[] = [];
+        for (const [index, id] of Object.keys(toolsAsRecord()).entries()) {
+          const inputSchema = (toolsAsRecord()[id] as unknown as { inputSchema: unknown })
+            .inputSchema;
+          child.stdin.write(
+            `${JSON.stringify({
+              jsonrpc: '2.0',
+              id: index + 1000,
+              method: 'tools/call',
+              params: { name: id, arguments: sampleToolInput(inputSchema, id) },
+            })}\n`
+          );
+          const response = await nextMessage();
+          if (response.error || !response.result) stdioFailures.push(id);
+        }
+        expect(stdioFailures).toEqual([]);
       } finally {
         child.kill('SIGTERM');
       }
