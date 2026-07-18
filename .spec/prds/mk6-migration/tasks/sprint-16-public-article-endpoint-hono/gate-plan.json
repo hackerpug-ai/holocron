@@ -5,13 +5,55 @@
   "rawEvidenceDir": ".tmp/sprint-16-human-gate-20260718",
   "database": "holocron_nonprod",
   "steps": [
-    {"id":"S16-G1","name":"public HTML","command":"curl -sS http://127.0.0.1:4121/article/<real-public-token>","evidence":"01-public.html,01-public.sha256","pass":"200 HTML contains title, metadata, converted body, and footer; no auth header"},
-    {"id":"S16-G2","name":"legacy URL compatibility","command":"bun services/platform/src/cli/holo.ts article:compat <token> --json","evidence":"02-compat.json","pass":"path is /article/<token> and compatibility is convex-http-route"},
-    {"id":"S16-G3","name":"article-scoped asset","command":"curl -sS http://127.0.0.1:4121/article/<token>/assets/<fileObjectId>","evidence":"03-asset.body","pass":"real retained filesystem bytes match seeded content"},
-    {"id":"S16-G4","name":"unshare revocation","command":"psql UPDATE documents SET is_public=false; curl article and asset","evidence":"04-unshare.out,04-revoked-article.status,04-revoked-asset.status","pass":"both origin routes return 404 after unshare"},
-    {"id":"S16-G5","name":"private document","command":"curl -sS -o /dev/null -w '%{http_code}' /article/<private-token>","evidence":"05-private.status","pass":"404"},
-    {"id":"S16-G6","name":"unknown token","command":"curl -sS -o /dev/null -w '%{http_code}' /article/never-public","evidence":"06-unknown.status","pass":"404"}
+    {
+      "id": "S16-G1",
+      "name": "public HTML",
+      "command": "curl -sS http://127.0.0.1:4121/article/<real-public-token>",
+      "evidence": "01-public.html,01-public.sha256",
+      "pass": "200 HTML contains title, metadata, converted body, and footer; no auth header"
+    },
+    {
+      "id": "S16-G2",
+      "name": "legacy URL compatibility",
+      "command": "bun services/platform/src/cli/holo.ts article:compat <token> --json",
+      "evidence": "02-compat.json",
+      "pass": "path is /article/<token> and compatibility is convex-http-route"
+    },
+    {
+      "id": "S16-G3",
+      "name": "article-scoped asset",
+      "command": "curl -sS http://127.0.0.1:4121/article/<token>/assets/<fileObjectId>",
+      "evidence": "03-asset.body",
+      "pass": "real retained filesystem bytes match seeded content"
+    },
+    {
+      "id": "S16-G4",
+      "name": "unshare revocation",
+      "command": "psql UPDATE documents SET is_public=false; curl article and asset",
+      "evidence": "04-unshare.out,04-revoked-article.status,04-revoked-asset.status",
+      "pass": "both origin routes return 404 after unshare"
+    },
+    {
+      "id": "S16-G5",
+      "name": "private document",
+      "command": "curl -sS -o /dev/null -w '%{http_code}' /article/<private-token>",
+      "evidence": "05-private.status",
+      "pass": "404"
+    },
+    {
+      "id": "S16-G6",
+      "name": "unknown token",
+      "command": "curl -sS -o /dev/null -w '%{http_code}' /article/never-public",
+      "evidence": "06-unknown.status",
+      "pass": "404"
+    }
   ],
-  "negativeControls":["private token","unknown token","revoked article","revoked asset","unrelated asset relation"],
-  "prohibitedSubstitutes":["mock Hono","mock Postgres","mock filesystem","wholesale test suite"]
+  "negativeControls": [
+    "private token",
+    "unknown token",
+    "revoked article",
+    "revoked asset",
+    "unrelated asset relation"
+  ],
+  "prohibitedSubstitutes": ["mock Hono", "mock Postgres", "mock filesystem", "wholesale test suite"]
 }

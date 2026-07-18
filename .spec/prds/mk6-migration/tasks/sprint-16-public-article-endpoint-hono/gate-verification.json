@@ -5,17 +5,26 @@
   "recomputed": {
     "rawStepCount": 6,
     "allStepsPassed": true,
-    "realHealth": {"postgres":true,"fleet":true,"queue":true},
-    "publicHtml": {"status":200,"contentType":"text/html"},
+    "realHealth": { "postgres": true, "fleet": true, "queue": true },
+    "publicHtml": { "status": 200, "contentType": "text/html" },
     "compatibilityPath": "/article/s16-human-public-20260718",
     "assetBytes": "Sprint 16 real public asset\\n",
     "revokedArticleStatus": 404,
     "revokedAssetStatus": 404,
     "privateStatus": 404,
     "unknownStatus": 404,
-    "middlewareBoundary": {"/article/x":false,"/article/x/assets/y":false,"/articles/admin":true,"/article-admin":true},
-    "timezoneGolden": ["UTC","America/Los_Angeles","Asia/Tokyo","Pacific/Kiritimati"]
+    "middlewareBoundary": {
+      "/article/x": false,
+      "/article/x/assets/y": false,
+      "/articles/admin": true,
+      "/article-admin": true
+    },
+    "timezoneGolden": ["UTC", "America/Los_Angeles", "Asia/Tokyo", "Pacific/Kiritimati"]
   },
-  "review": {"independentReview":".tmp/sprint-16-independent-review-final.md","verdict":"PASS","blockingFindings":0},
-  "overall":"passed"
+  "review": {
+    "independentReview": ".tmp/sprint-16-independent-review-final.md",
+    "verdict": "PASS",
+    "blockingFindings": 0
+  },
+  "overall": "passed"
 }
