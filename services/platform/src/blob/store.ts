@@ -10,7 +10,7 @@ import {
 } from 'node:fs';
 import { rename, unlink } from 'node:fs/promises';
 import { dirname, join, relative, resolve } from 'node:path';
-import { detectMimeFromBuffer, isSha256Hex, sha256Hex } from './utils.ts';
+import { detectMimeFromBuffer, isSha256Hex, sha256Hex } from './utils';
 
 export interface PutBlobOptions {
   expectedSha256?: string;

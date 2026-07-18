@@ -1,48 +1,81 @@
-import { httpRouter } from 'convex/server';
-import { api } from './_generated/api';
-import { httpAction } from './_generated/server';
+import { createSql, type Sql } from '../db/client';
+import { resolveHolocronNonprodDatabaseUrl } from '../db/connection';
 
-// Import documents functions to ensure they're deployed
-import './documents/queries';
-import './documents/mutations';
-import './documents/search';
-import './documents/storage';
-import './documents/scheduled';
+export type PublicArticleRow = {
+  title: string | null;
+  content: string | null;
+  category: string | null;
+  date: string | null;
+  created_at: Date | string;
+  research_type: string | null;
+};
 
-const http = httpRouter();
+export async function selectPublicArticle(
+  sql: Sql,
+  shareToken: string
+): Promise<ArticleDoc | null> {
+  const rows = await sql<PublicArticleRow[]>`
+    SELECT title, content, category, date, created_at, research_type
+    FROM documents
+    WHERE share_token = ${shareToken}
+      AND is_public = true
+    LIMIT 1
+  `;
+  const row = rows[0];
+  if (!row) return null;
+  return {
+    title: row.title ?? '',
+    content: row.content ?? '',
+    category: row.category ?? '',
+    date: row.date ?? undefined,
+    createdAt: new Date(row.created_at).getTime(),
+    researchType: row.research_type ?? undefined,
+  };
+}
 
-http.route({
-  pathPrefix: '/article/',
-  method: 'GET',
-  handler: httpAction(async (ctx, request) => {
-    const url = new URL(request.url);
-    const pathParts = url.pathname.split('/');
-    const shareToken = pathParts[pathParts.length - 1];
+export type PublicArticleAssetRow = {
+  content_hash: string;
+  mime_type: string | null;
+};
 
-    const doc = await ctx.runQuery(api.documents.queries.getByShareToken, { shareToken });
+export async function selectPublicArticleAsset(
+  sql: Sql,
+  shareToken: string,
+  fileObjectId: string
+): Promise<PublicArticleAssetRow | null> {
+  const rows = await sql<PublicArticleAssetRow[]>`
+    SELECT f.content_hash, f.mime_type
+    FROM document_assets a
+    JOIN documents d ON d.id::text = a.document_id
+    JOIN file_objects f ON f.id::text = a.file_object_id
+    WHERE d.share_token = ${shareToken}
+      AND d.is_public = true
+      AND a.file_object_id = ${fileObjectId}
+    LIMIT 1
+  `;
+  return rows[0] ?? null;
+}
 
-    if (!doc) {
-      return new Response(notFoundHtml(), {
-        status: 404,
-        headers: { 'Content-Type': 'text/html; charset=utf-8' },
-      });
-    }
-
-    const html = articleHtml(doc);
-    return new Response(html, {
-      status: 200,
-      headers: { 'Content-Type': 'text/html; charset=utf-8' },
-    });
-  }),
-});
-
-export default http;
+export async function renderPublicArticle(
+  shareToken: string,
+  databaseUrl?: string
+): Promise<string | null> {
+  const sql = createSql(
+    resolveHolocronNonprodDatabaseUrl({ databaseUrl, context: 'public article' })
+  );
+  try {
+    const article = await selectPublicArticle(sql, shareToken);
+    return article ? articleHtml(article) : null;
+  } finally {
+    await sql.end({ timeout: 5 });
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-type ArticleDoc = {
+export type ArticleDoc = {
   title: string;
   content: string;
   category: string;
@@ -55,7 +88,7 @@ type ArticleDoc = {
 // HTML helpers
 // ---------------------------------------------------------------------------
 
-function articleHtml(doc: ArticleDoc): string {
+export function articleHtml(doc: ArticleDoc): string {
   const formattedDate = formatDate(doc.date, doc.createdAt);
   const descriptionText = stripMarkdown(doc.content).slice(0, 200).replace(/"/g, '&quot;');
   const escapedTitle = escapeHtml(doc.title);
@@ -208,7 +241,7 @@ function articleHtml(doc: ArticleDoc): string {
 </html>`;
 }
 
-function notFoundHtml(): string {
+export function notFoundHtml(): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -244,7 +277,7 @@ function notFoundHtml(): string {
 // Markdown → HTML (self-contained, no external packages)
 // ---------------------------------------------------------------------------
 
-function markdownToHtml(md: string): string {
+export function markdownToHtml(md: string): string {
   // Normalize line endings
   let text = md.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 

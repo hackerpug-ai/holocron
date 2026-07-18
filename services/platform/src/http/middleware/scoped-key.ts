@@ -97,7 +97,8 @@ export function isScopeAllowedForPath(scope: Scope, path: string): boolean {
 export function isProtectedPath(path: string): boolean {
   const p = path.length > 1 && path.endsWith('/') ? path.slice(0, -1) : path;
   if (p === '/health') return false;
-  if (p.startsWith('/article')) return false;
+  if (p === '/article' || p.startsWith('/article/')) return false;
+  if (p.startsWith('/article')) return true;
   if (p === '/api' || p.startsWith('/api/')) return true;
   if (p === '/mcp' || p.startsWith('/mcp/')) return true;
   if (p === '/blobs' || p.startsWith('/blobs/')) return true;

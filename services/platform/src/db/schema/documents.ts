@@ -5,7 +5,7 @@
  */
 
 import { sql } from 'drizzle-orm';
-import { boolean, check, index, integer, pgTable, text } from 'drizzle-orm/pg-core';
+import { boolean, check, index, integer, pgTable, primaryKey, text } from 'drizzle-orm/pg-core';
 import {
   createdAtColumn,
   idColumn,
@@ -46,6 +46,19 @@ export const documents = pgTable(
     index('documents_category_idx').on(t.category),
     searchVectorGinIndex('documents_search_vector_gin', t.searchVector),
     check('documents_status_check', sql`status IN (${sql.raw(sqlInList(documentStatusValues))})`),
+  ]
+);
+
+export const documentAssets = pgTable(
+  'document_assets',
+  {
+    documentId: text('document_id').notNull(),
+    fileObjectId: text('file_object_id').notNull(),
+    createdAt: createdAtColumn(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.documentId, t.fileObjectId] }),
+    index('document_assets_file_object_idx').on(t.fileObjectId),
   ]
 );
 

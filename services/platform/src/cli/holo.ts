@@ -202,6 +202,7 @@ Usage:
   mission run <template>    Run a registered mission template (--goal --idempotency-key)
   mission resume <run-id>   Resume a persisted mission run by id
   mission status <run-id>   Show persisted mission run status/output/provenance
+  article:compat <token>    Verify legacy public article URL shape
   mission run research      Run a research mission with per-run Langfuse trace export
                             (requires --goal; flushes OTel → self-hosted Langfuse)
   evals:run                 Score a versioned fixture sample via local judge (--sample)
@@ -3435,6 +3436,30 @@ async function main(): Promise<void> {
       }
       break;
     }
+    case 'article:compat': {
+      const shareToken = args.positional[1];
+      if (!shareToken) {
+        const payload = {
+          ok: false,
+          error: 'article:compat requires <share-token>',
+          code: 'ARTICLE_SHARE_TOKEN_REQUIRED',
+        };
+        if (args.json) console.log(JSON.stringify(payload, null, 2));
+        else console.error(payload.error);
+        process.exit(2);
+      }
+      const payload = {
+        ok: true,
+        shareToken,
+        path: `/article/${encodeURIComponent(shareToken)}`,
+        compatibility: 'convex-http-route',
+      };
+      if (args.json) console.log(JSON.stringify(payload, null, 2));
+      else console.log(`${payload.path} (${payload.compatibility})`);
+      process.exit(0);
+      break;
+    }
+
     case 'mission': {
       const sub = args.positional[1];
       const kind = args.positional[2];

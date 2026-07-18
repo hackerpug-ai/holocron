@@ -12,12 +12,20 @@ import { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
 import { BlobStore, defaultBlobRoot } from '../blob/store.ts';
 import { isSha256Hex } from '../blob/utils.ts';
+import { createSql } from '../db/client.ts';
+import { resolveHolocronNonprodDatabaseUrl } from '../db/connection.ts';
 import {
   finalizeUploadIntent,
   initUploadIntent,
   putUploadStream,
   UploadServiceError,
 } from '../uploads/service.ts';
+import {
+  articleHtml,
+  notFoundHtml,
+  selectPublicArticle,
+  selectPublicArticleAsset,
+} from './article.ts';
 import { type HealthBody, runHealthCheck } from './health.ts';
 import {
   createScopedKeyMiddleware,
@@ -96,6 +104,55 @@ export function createHonoApp(options?: CreateHonoAppOptions): HonoApp {
   const app = new Hono<{ Variables: HonoAppVariables }>();
   const keys = options?.keys ?? loadScopedKeysFromEnv();
   const blobStore = new BlobStore(defaultBlobRoot());
+
+  // Public article routes are the sole unauthenticated egress.
+  app.get('/article/:shareToken', async (c) => {
+    const databaseUrl = resolveHolocronNonprodDatabaseUrl({ context: 'public article route' });
+    const sql = createSql(databaseUrl);
+    try {
+      const article = await selectPublicArticle(sql, c.req.param('shareToken'));
+      if (!article) {
+        return new Response(notFoundHtml(), {
+          status: 404,
+          headers: { 'Content-Type': 'text/html; charset=utf-8' },
+        });
+      }
+      return new Response(articleHtml(article), {
+        status: 200,
+        headers: { 'Content-Type': 'text/html; charset=utf-8' },
+      });
+    } finally {
+      await sql.end({ timeout: 5 });
+    }
+  });
+
+  app.get('/article/:shareToken/assets/:fileObjectId', async (c) => {
+    const databaseUrl = resolveHolocronNonprodDatabaseUrl({
+      context: 'public article asset route',
+    });
+    const sql = createSql(databaseUrl);
+    try {
+      const asset = await selectPublicArticleAsset(
+        sql,
+        c.req.param('shareToken'),
+        c.req.param('fileObjectId')
+      );
+      if (!asset || !isSha256Hex(asset.content_hash) || !blobStore.exists(asset.content_hash)) {
+        return c.json({ error: 'not_found', message: 'article asset not found' }, 404);
+      }
+      const bytes = blobStore.get(asset.content_hash);
+      return new Response(bytes, {
+        status: 200,
+        headers: {
+          'Content-Type': asset.mime_type ?? 'application/octet-stream',
+          'Content-Length': String(bytes.length),
+          'Cache-Control': 'no-store',
+        },
+      });
+    } finally {
+      await sql.end({ timeout: 5 });
+    }
+  });
 
   // Global scoped-key gate — exempt paths decided inside middleware (/health, /article/*)
   app.use('*', createScopedKeyMiddleware(keys));

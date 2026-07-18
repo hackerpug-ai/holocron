@@ -60,8 +60,9 @@ export const DOMAIN_TABLE_NAMES = [
   'agent_plans',
   'agent_plan_steps',
   'agent_telemetry',
-  // documents (3)
+  // documents (4)
   'documents',
+  'document_assets',
   'imports',
   'citations',
   // research (3)
