@@ -35,7 +35,7 @@ export async function executePostgresMcpTool(
         const limit = Math.min(Number(input.limit ?? 20), 100);
         const rows = await sql`
           SELECT id::text AS "sessionId", COALESCE(topic, '') AS topic, status,
-                 EXTRACT(EPOCH FROM created_at) * 1000 AS "createdAt",
+                 (EXTRACT(EPOCH FROM created_at) * 1000)::float8 AS "createdAt",
                  CASE WHEN lower(COALESCE(topic, '')) LIKE ${`%${query}%`} THEN 1.0 ELSE 0.0 END AS "relevanceScore"
           FROM research_sessions
           WHERE lower(COALESCE(topic, '')) LIKE ${`%${query}%`}
@@ -217,8 +217,8 @@ export async function executePostgresMcpTool(
                  max_iterations AS "maxIterations", dimension_scores AS "dimensionScores",
                  estimated_cost_usd AS "estimatedCostUsd", plan_summary AS "planSummary",
                  plan_content AS "planContent", document_id AS "documentId", error_reason AS "errorReason",
-                 EXTRACT(EPOCH FROM created_at) * 1000 AS "createdAt",
-                 EXTRACT(EPOCH FROM completed_at) * 1000 AS "completedAt"
+                 (EXTRACT(EPOCH FROM created_at) * 1000)::float8 AS "createdAt",
+                 (EXTRACT(EPOCH FROM completed_at) * 1000)::float8 AS "completedAt"
           FROM assimilation_sessions WHERE id = ${String(input.sessionId)}::uuid LIMIT 1
         `;
         return rows[0] ?? null;
@@ -281,8 +281,8 @@ export async function executePostgresMcpTool(
       case 'get_improvement': {
         const rows = await sql`
           SELECT id::text AS "_id", description, status, source_screen AS "sourceScreen",
-                 closure_reason AS "closedReason", EXTRACT(EPOCH FROM closed_at) * 1000 AS "closedAt",
-                 EXTRACT(EPOCH FROM created_at) * 1000 AS "createdAt"
+                 closure_reason AS "closedReason", (EXTRACT(EPOCH FROM closed_at) * 1000)::float8 AS "closedAt",
+                 (EXTRACT(EPOCH FROM created_at) * 1000)::float8 AS "createdAt"
           FROM improvement_requests WHERE id = ${String(input.id)}::uuid LIMIT 1
         `;
         return rows[0] ?? null;
@@ -406,7 +406,7 @@ export async function executePostgresMcpTool(
         const identifier = String(input.identifier);
         const existing = await sql`
           SELECT id::text AS "subscriptionId", source_type AS "sourceType", identifier, name,
-                 EXTRACT(EPOCH FROM created_at) * 1000 AS "createdAt"
+                 (EXTRACT(EPOCH FROM created_at) * 1000)::float8 AS "createdAt"
           FROM subscription_sources
           WHERE source_type = ${sourceType} AND identifier = ${identifier}
           LIMIT 1
@@ -418,7 +418,7 @@ export async function executePostgresMcpTool(
                   ${typeof input.url === 'string' ? input.url : null},
                   ${typeof input.feedUrl === 'string' ? input.feedUrl : null})
           RETURNING id::text AS "subscriptionId", source_type AS "sourceType", identifier, name,
-                    EXTRACT(EPOCH FROM created_at) * 1000 AS "createdAt"
+                    (EXTRACT(EPOCH FROM created_at) * 1000)::float8 AS "createdAt"
         `;
         return rows[0];
       }

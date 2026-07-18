@@ -1,4 +1,5 @@
 /** Sprint 19 gateway baseline: real MCP SDK transport, auth/origin, and 44-tool registry parity. */
+import { spawn } from 'node:child_process';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { PLATFORM_IT } from '../../../../tests/integration/service/harness';
 import { createSql, type Sql } from '../../src/db/client';
@@ -119,6 +120,88 @@ describe('Sprint 19 MCP rehost gateway', () => {
   });
 
   itLive(
+    'executes initialize, list, and a tool call over real stdio',
+    async () => {
+      const child = spawn('bun', ['services/platform/src/cli/holo.ts', 'mcp:stdio'], {
+        cwd: process.cwd(),
+        env: { ...process.env, DATABASE_URL },
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
+      let buffer = '';
+      const nextMessage = () =>
+        new Promise<Record<string, unknown>>((resolve, reject) => {
+          const timeout = setTimeout(() => reject(new Error('stdio MCP response timeout')), 15_000);
+          const consume = () => {
+            const newline = buffer.indexOf('\n');
+            if (newline < 0) return false;
+            const line = buffer.slice(0, newline);
+            buffer = buffer.slice(newline + 1);
+            clearTimeout(timeout);
+            child.stdout.off('data', onData);
+            try {
+              resolve(JSON.parse(line) as Record<string, unknown>);
+            } catch (error) {
+              reject(error);
+            }
+            return true;
+          };
+          const onData = (chunk: Buffer) => {
+            buffer += chunk.toString();
+            consume();
+          };
+          child.stdout.on('data', onData);
+          child.once('error', reject);
+          consume();
+        });
+      try {
+        child.stdin.write(
+          `${JSON.stringify({
+            jsonrpc: '2.0',
+            id: 1,
+            method: 'initialize',
+            params: {
+              protocolVersion: '2025-11-25',
+              capabilities: {},
+              clientInfo: { name: 'sprint-19-stdio-test', version: '1' },
+            },
+          })}\n`
+        );
+        const initialized = await nextMessage();
+        expect((initialized.result as { serverInfo: { name: string } }).serverInfo.name).toBe(
+          'holocron-postgres'
+        );
+        child.stdin.write(
+          `${JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' })}\n`
+        );
+        child.stdin.write(
+          `${JSON.stringify({
+            jsonrpc: '2.0',
+            id: 2,
+            method: 'tools/list',
+            params: {},
+          })}\n`
+        );
+        const listed = await nextMessage();
+        expect((listed.result as { tools: unknown[] }).tools).toHaveLength(44);
+        child.stdin.write(
+          `${JSON.stringify({
+            jsonrpc: '2.0',
+            id: 3,
+            method: 'tools/call',
+            params: { name: 'list_documents', arguments: { limit: 1 } },
+          })}\n`
+        );
+        const called = await nextMessage();
+        expect(called.result).toBeDefined();
+        expect((called.result as { isError?: boolean }).isError).not.toBe(true);
+      } finally {
+        child.kill('SIGTERM');
+      }
+    },
+    60_000
+  );
+
+  itLive(
     'executes every manifest tool through the real HTTP gateway',
     async () => {
       const app = createHonoApp({ keys: KEYS });
@@ -176,8 +259,19 @@ describe('Sprint 19 MCP rehost gateway', () => {
           }),
         });
         const body = await response.json();
-        if (response.status !== 200 || (!body.result && !body.error))
+        if (response.status !== 200 || (!body.result && !body.error)) {
           failures.push({ id, status: response.status, body });
+          continue;
+        }
+        if (body.result && body.result.isError !== true) {
+          const outputSchema = (
+            toolsAsRecord()[id] as unknown as {
+              outputSchema?: { safeParse?: (value: unknown) => { success: boolean } };
+            }
+          ).outputSchema;
+          const parsed = outputSchema?.safeParse?.(body.result.structuredContent);
+          if (!parsed?.success) failures.push({ id, status: response.status, body });
+        }
       }
       expect(failures).toEqual([]);
       expect(tools).toHaveLength(44);
