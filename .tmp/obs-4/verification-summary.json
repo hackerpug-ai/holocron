@@ -2,7 +2,7 @@
   "task_id": "obs-4",
   "status": "evidence_corrected_pending_review",
   "branch": "task/obs-4-exit-proof",
-  "commit_sha": "2844e03001afd473db3d4f6ee2f7a4c89f40b0bb",
+  "commit_sha": "31f99b1b4f4e043354d3f7b2e07f8f1b39e90935",
   "green_commit_sha": "461ee8212da3e174127617d1d3080164953aa53b",
   "test_command": "PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/evals-ci-gate.test.ts",
   "requirements_claimed": [
@@ -90,5 +90,6 @@
     }
   },
   "summary": "EVIDENCE CORRECTION: re-captured holo evals:ci process exits with bash direct $? and set -o pipefail + PIPESTATUS[0]. deliberately-bad shell_exit=1 (PIPESTATUS agrees). Suite shell_exit=0, 5/5 tests passed. Prior tee-masked EXIT:$? smokes invalidated.",
-  "corrected_at": "2026-07-18T03:44:55Z"
+  "corrected_at": "2026-07-18T03:44:55Z",
+  "evidence_commit_sha": "2844e03001afd473db3d4f6ee2f7a4c89f40b0bb"
 }
