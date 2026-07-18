@@ -27,6 +27,7 @@
  * Sprint 13 D02-07: prd:consistency
  * Sprint 13 D02-02: db seed --reset | db:provision-nonprod
  */
+import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { z } from 'zod';
 
@@ -105,6 +106,8 @@ interface CliArgs {
   input: string | null;
   /** extract --fixture <name> (mutually exclusive with --schema/--input) */
   fixture: string | null;
+  /** gate:eval --claims <json> */
+  claimsPath: string | null;
   /** probe:capabilities flags */
   timeout: string | null;
   /** search flags */
@@ -208,6 +211,7 @@ Usage:
   evals:run                 Score a versioned fixture sample via local judge (--sample)
   evals:drift               Longitudinal drift over persisted eval_scores (--dataset)
   evals:ci                  Fail-closed CI gate: threshold + deterministic invariants (--fixture)
+  gate:eval                  Pure-TS evidence admission gate (--claims <json>)
   ci runner:status         Fail-closed self-hosted runner probe (labels online)
   db seed --reset          Deterministic nonprod seed/reset (fails closed on prod)
   db:provision-nonprod     Create holocron_nonprod + migrate + zero_pub
@@ -345,6 +349,7 @@ function parseArgs(argv: string[]): CliArgs {
     schema: null,
     input: null,
     fixture: null,
+    claimsPath: null,
     timeout: null,
     explain: false,
     surface: null,
@@ -510,6 +515,10 @@ function parseArgs(argv: string[]): CliArgs {
       args.fixture = argv[++i] ?? null;
     } else if (a.startsWith('--fixture=')) {
       args.fixture = a.slice('--fixture='.length);
+    } else if (a === '--claims') {
+      args.claimsPath = resolve(argv[++i] ?? '');
+    } else if (a.startsWith('--claims=')) {
+      args.claimsPath = resolve(a.slice('--claims='.length));
     } else if (a === '--timeout') {
       args.timeout = argv[++i] ?? null;
     } else if (a.startsWith('--timeout=')) {
@@ -3355,6 +3364,41 @@ async function main(): Promise<void> {
       }
       break;
     }
+    case 'gate:eval': {
+      if (!args.claimsPath) {
+        const payload = {
+          ok: false,
+          error: 'gate:eval requires --claims <json>',
+          code: 'GATE_CLAIMS_REQUIRED',
+        };
+        if (args.json) console.log(JSON.stringify(payload, null, 2));
+        else console.error(payload.error);
+        process.exit(2);
+      }
+      try {
+        const { evaluateEvidenceGate } = await import('../research/evidence-gate.ts');
+        const input = JSON.parse(readFileSync(args.claimsPath, 'utf8')) as unknown;
+        const result = evaluateEvidenceGate(input as never);
+        const payload = { ok: result.admitted, ...result, pureTs: true };
+        if (args.json) console.log(JSON.stringify(payload, null, 2));
+        else
+          console.log(
+            payload.ok ? 'evidence gate admitted' : `evidence gate pending: ${payload.reason}`
+          );
+        process.exit(result.admitted ? 0 : 1);
+      } catch (error) {
+        const payload = {
+          ok: false,
+          error: error instanceof Error ? error.message : String(error),
+          code: 'GATE_EVAL_INVALID',
+        };
+        if (args.json) console.log(JSON.stringify(payload, null, 2));
+        else console.error(payload.error);
+        process.exit(1);
+      }
+      break;
+    }
+
     case 'evals:ci': {
       // obs-4: fail-closed CI gate — threshold + deterministic invariants
       const fixture = args.fixture ?? args.positional[1] ?? null;
