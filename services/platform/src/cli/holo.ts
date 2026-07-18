@@ -3635,6 +3635,30 @@ async function main(): Promise<void> {
           process.exit(2);
         }
 
+        if (args.claimsPath || args.refutingPath) {
+          const { runMissionTemplate } = await import('../mission/runtime.ts');
+          const fixturePath = args.claimsPath ?? args.refutingPath;
+          const previousFixture = process.env.HOLO_RESEARCH_EVIDENCE_FIXTURE;
+          process.env.HOLO_RESEARCH_EVIDENCE_FIXTURE = fixturePath;
+          try {
+            const result = await runMissionTemplate(
+              {
+                templateKey: 'research',
+                goal,
+                idempotencyKey: args.idempotencyKey ?? `research:${goal}`,
+              },
+              { ownerScope: 'runtime' }
+            );
+            if (args.json) console.log(JSON.stringify(result, null, 2));
+            else
+              printMissionRuntimeResult(result as Record<string, unknown>, 'mission run research');
+            process.exit(result.ok ? 0 : 1);
+          } finally {
+            if (previousFixture === undefined) delete process.env.HOLO_RESEARCH_EVIDENCE_FIXTURE;
+            else process.env.HOLO_RESEARCH_EVIDENCE_FIXTURE = previousFixture;
+          }
+        }
+
         const { runResearchMission } = await import('../observability/mission-research.ts');
         const { LANGFUSE_EXPORT_FAILED, LangfuseExportError } = await import(
           '../observability/langfuse-exporter.ts'

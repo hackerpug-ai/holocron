@@ -74,6 +74,43 @@ const missionTestBudgetOutputSchema = z
   })
   .strict();
 
+const missionResearchAssayOutputSchema = z
+  .object({
+    goal: z.string().min(1),
+    instanceId: z.string().min(1),
+    modelRevision: z.string().min(1),
+    text: z.string(),
+  })
+  .strict();
+
+const missionResearchChallengeOutputSchema = z
+  .object({
+    goal: z.string().min(1),
+    assayInstanceId: z.string().min(1),
+    challengeInstanceId: z.string().min(1),
+    assayText: z.string(),
+    challengeText: z.string(),
+  })
+  .strict();
+
+const missionResearchGateOutputSchema = z
+  .object({
+    goal: z.string().min(1),
+    assayInstanceId: z.string().min(1),
+    challengeInstanceId: z.string().min(1),
+    admitted: z.boolean(),
+    direction: z.enum(['supporting', 'refuting', 'mixed', 'none']),
+    coveredComponents: z.array(z.string()),
+    missingComponents: z.array(z.string()),
+    reason: z.string(),
+  })
+  .strict();
+
+const missionResearchOutputSchema = missionResearchGateOutputSchema.extend({
+  assayInstanceId: z.string().min(1),
+  challengeInstanceId: z.string().min(1),
+});
+
 export const MISSION_SCHEMAS: readonly MissionSchemaRegistration[] = [
   {
     schemaRef: 'mission.goal',
@@ -111,6 +148,30 @@ export const MISSION_SCHEMAS: readonly MissionSchemaRegistration[] = [
     schema: missionTestBudgetOutputSchema,
     description: 'Deterministic budget output.',
   },
+  {
+    schemaRef: 'mission.research.assay.output',
+    schemaVersion: 1,
+    schema: missionResearchAssayOutputSchema,
+    description: 'Fleet ASSAY output with pinned instance provenance.',
+  },
+  {
+    schemaRef: 'mission.research.challenge.output',
+    schemaVersion: 1,
+    schema: missionResearchChallengeOutputSchema,
+    description: 'Fleet CHALLENGE output with distinct instance provenance.',
+  },
+  {
+    schemaRef: 'mission.research.gate.output',
+    schemaVersion: 1,
+    schema: missionResearchGateOutputSchema,
+    description: 'Pure TypeScript evidence gate output.',
+  },
+  {
+    schemaRef: 'mission.research.output',
+    schemaVersion: 1,
+    schema: missionResearchOutputSchema,
+    description: 'Durable research mission terminal output.',
+  },
 ] as const;
 
 export const MISSION_EXECUTORS: readonly MissionExecutorRegistration[] = [
@@ -138,6 +199,26 @@ export const MISSION_EXECUTORS: readonly MissionExecutorRegistration[] = [
     executorRef: 'builtin.test-consume-budget@1',
     stageKind: 'test.consume-budget@1',
     description: 'Real fleet-backed budget consumer executor.',
+  },
+  {
+    executorRef: 'builtin.research-assay@1',
+    stageKind: 'research.assay@1',
+    description: 'Real fleet ASSAY model stage.',
+  },
+  {
+    executorRef: 'builtin.research-challenge@1',
+    stageKind: 'research.challenge@1',
+    description: 'Real fleet CHALLENGE model stage.',
+  },
+  {
+    executorRef: 'builtin.research-gate@1',
+    stageKind: 'research.gate@1',
+    description: 'Pure TypeScript evidence gate stage.',
+  },
+  {
+    executorRef: 'builtin.research-commit@1',
+    stageKind: 'research.commit@1',
+    description: 'Research terminal output stage.',
   },
 ] as const;
 
@@ -185,6 +266,42 @@ export const MISSION_STAGES: readonly MissionStageRegistration[] = [
     outputSchema: { schemaRef: 'mission.test.budget.output', schemaVersion: 1 },
     description: 'Real token-consuming budget stage.',
     roleBinding: 'optional',
+    checkpointAllowed: false,
+  },
+  {
+    stageKind: 'research.assay@1',
+    executorRef: 'builtin.research-assay@1',
+    inputSchema: { schemaRef: 'mission.probe.result', schemaVersion: 1 },
+    outputSchema: { schemaRef: 'mission.research.assay.output', schemaVersion: 1 },
+    description: 'ASSAY generation on the bound fleet role.',
+    roleBinding: 'required',
+    checkpointAllowed: true,
+  },
+  {
+    stageKind: 'research.challenge@1',
+    executorRef: 'builtin.research-challenge@1',
+    inputSchema: { schemaRef: 'mission.research.assay.output', schemaVersion: 1 },
+    outputSchema: { schemaRef: 'mission.research.challenge.output', schemaVersion: 1 },
+    description: 'CHALLENGE generation on a distinct bound fleet role.',
+    roleBinding: 'required',
+    checkpointAllowed: true,
+  },
+  {
+    stageKind: 'research.gate@1',
+    executorRef: 'builtin.research-gate@1',
+    inputSchema: { schemaRef: 'mission.research.challenge.output', schemaVersion: 1 },
+    outputSchema: { schemaRef: 'mission.research.gate.output', schemaVersion: 1 },
+    description: 'Deterministic evidence admission stage; no model call.',
+    roleBinding: 'forbidden',
+    checkpointAllowed: true,
+  },
+  {
+    stageKind: 'research.commit@1',
+    executorRef: 'builtin.research-commit@1',
+    inputSchema: { schemaRef: 'mission.research.gate.output', schemaVersion: 1 },
+    outputSchema: { schemaRef: 'mission.research.output', schemaVersion: 1 },
+    description: 'Terminal research output stage.',
+    roleBinding: 'forbidden',
     checkpointAllowed: false,
   },
 ] as const;

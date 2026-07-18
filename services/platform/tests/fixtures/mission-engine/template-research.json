@@ -1,0 +1,56 @@
+{
+  "templateKey": "research",
+  "version": "1.0.1",
+  "description": "Deterministic evidence-gated research mission for Sprint 17.",
+  "trigger": { "kind": "on-demand" },
+  "stageGraph": [
+    {
+      "id": "plan_probe",
+      "stageKind": "fleet.probe@1",
+      "executorRef": "builtin.fleet-probe@1",
+      "inputSchema": { "schemaRef": "mission.goal", "schemaVersion": 1 },
+      "outputSchema": { "schemaRef": "mission.probe.result", "schemaVersion": 1 }
+    },
+    {
+      "id": "assay",
+      "stageKind": "research.assay@1",
+      "executorRef": "builtin.research-assay@1",
+      "inputSchema": { "schemaRef": "mission.probe.result", "schemaVersion": 1 },
+      "outputSchema": { "schemaRef": "mission.research.assay.output", "schemaVersion": 1 },
+      "checkpointKey": "after-assay"
+    },
+    {
+      "id": "challenge",
+      "stageKind": "research.challenge@1",
+      "executorRef": "builtin.research-challenge@1",
+      "inputSchema": { "schemaRef": "mission.research.assay.output", "schemaVersion": 1 },
+      "outputSchema": { "schemaRef": "mission.research.challenge.output", "schemaVersion": 1 },
+      "checkpointKey": "after-challenge"
+    },
+    {
+      "id": "gate",
+      "stageKind": "research.gate@1",
+      "executorRef": "builtin.research-gate@1",
+      "inputSchema": { "schemaRef": "mission.research.challenge.output", "schemaVersion": 1 },
+      "outputSchema": { "schemaRef": "mission.research.gate.output", "schemaVersion": 1 },
+      "checkpointKey": "after-gate"
+    },
+    {
+      "id": "commit",
+      "stageKind": "research.commit@1",
+      "executorRef": "builtin.research-commit@1",
+      "inputSchema": { "schemaRef": "mission.research.gate.output", "schemaVersion": 1 },
+      "outputSchema": { "schemaRef": "mission.research.output", "schemaVersion": 1 }
+    }
+  ],
+  "toolGrants": [],
+  "modelRoleBindings": {
+    "plan_probe": "divergent",
+    "assay": "divergent",
+    "challenge": "convergent"
+  },
+  "budgets": { "wallMs": 180000, "tokens": 12000, "cost": 0, "maxSteps": 8 },
+  "gateRubric": null,
+  "humanGate": null,
+  "outputContract": { "schemaRef": "mission.research.output", "schemaVersion": 1 }
+}

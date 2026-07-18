@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { z } from 'zod';
 import { createSql, type Sql } from '../db/client.ts';
 import { resolveHolocronNonprodDatabaseUrl } from '../db/connection.ts';
@@ -6,6 +7,7 @@ import { type FleetRoleManifest, FleetRoleManifestSchema } from '../fleet/manife
 import { getRoleEntry } from '../fleet/manifest.ts';
 import { probeRoleHealth } from '../inference/resolve-model.ts';
 import { runFleetModelCall } from '../inference/telemetry.ts';
+import { evaluateEvidenceGate } from '../research/evidence-gate.ts';
 import { type MissionGoalArgs, MissionGoalArgsSchema } from './args.ts';
 import { canonicalJsonString, canonicalJsonValue } from './canonical-json.ts';
 import { waitAtCheckpointBarrierIfRequested } from './checkpoint-barrier.ts';
@@ -397,6 +399,113 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
       goal: probe.goal,
       budgetExceeded: false,
     });
+  },
+  'builtin.research-assay@1': async (input, context) => {
+    const probe = parseMissionSchemaValue(
+      { schemaRef: 'mission.probe.result', schemaVersion: 1 },
+      input,
+      'mission.probe.result'
+    ) as { goal: string };
+    const pinnedRole = context.runtime.roleResolution[context.stage.stageKey];
+    if (!pinnedRole) {
+      throw new MissionRuntimeError(
+        'MISSION_PINNED_ROLE_MISSING',
+        `missing ASSAY role for ${context.stage.stageKey}`
+      );
+    }
+    const traceId = context.run.trace_id;
+    if (!traceId)
+      throw new MissionRuntimeError(
+        'MISSION_TRACE_ID_MISSING',
+        `missing trace for ${context.run.id}`
+      );
+    const result = await runFleetModelCall({
+      role: pinnedRole.role,
+      prompt: `ASSAY research goal: ${probe.goal}. Return a concise candidate finding.`,
+      runId: context.run.id,
+      stepId: context.stageRunId,
+      traceId,
+    });
+    return canonicalJsonValue({
+      goal: probe.goal,
+      instanceId: `${pinnedRole.modelRevision}:assay:${context.run.id}`,
+      modelRevision: pinnedRole.modelRevision,
+      text: result.text,
+    });
+  },
+  'builtin.research-challenge@1': async (input, context) => {
+    const assay = parseMissionSchemaValue(
+      { schemaRef: 'mission.research.assay.output', schemaVersion: 1 },
+      input,
+      'mission.research.assay.output'
+    ) as { goal: string; instanceId: string; text: string };
+    const pinnedRole = context.runtime.roleResolution[context.stage.stageKey];
+    if (!pinnedRole) {
+      throw new MissionRuntimeError(
+        'MISSION_PINNED_ROLE_MISSING',
+        `missing CHALLENGE role for ${context.stage.stageKey}`
+      );
+    }
+    const traceId = context.run.trace_id;
+    if (!traceId)
+      throw new MissionRuntimeError(
+        'MISSION_TRACE_ID_MISSING',
+        `missing trace for ${context.run.id}`
+      );
+    const result = await runFleetModelCall({
+      role: pinnedRole.role,
+      prompt: `CHALLENGE research goal: ${assay.goal}. Refute or qualify this candidate finding: ${assay.text}`,
+      runId: context.run.id,
+      stepId: context.stageRunId,
+      traceId,
+    });
+    return canonicalJsonValue({
+      goal: assay.goal,
+      assayInstanceId: assay.instanceId,
+      challengeInstanceId: `${pinnedRole.modelRevision}:challenge:${context.run.id}`,
+      assayText: assay.text,
+      challengeText: result.text,
+    });
+  },
+  'builtin.research-gate@1': async (input, _context) => {
+    const challenge = parseMissionSchemaValue(
+      { schemaRef: 'mission.research.challenge.output', schemaVersion: 1 },
+      input,
+      'mission.research.challenge.output'
+    ) as {
+      goal: string;
+      assayInstanceId: string;
+      challengeInstanceId: string;
+    };
+    const fixturePath = process.env.HOLO_RESEARCH_EVIDENCE_FIXTURE;
+    const gate = fixturePath
+      ? evaluateEvidenceGate(JSON.parse(readFileSync(fixturePath, 'utf8')) as never)
+      : {
+          admitted: false,
+          direction: 'none' as const,
+          coveredComponents: [],
+          missingComponents: ['evidence-fixture'],
+          reason: 'no evidence fixture supplied to deterministic gate',
+        };
+    return canonicalJsonValue({
+      goal: challenge.goal,
+      assayInstanceId: challenge.assayInstanceId,
+      challengeInstanceId: challenge.challengeInstanceId,
+      admitted: gate.admitted,
+      direction: gate.direction,
+      coveredComponents: gate.coveredComponents,
+      missingComponents: gate.missingComponents,
+      reason: gate.reason,
+    });
+  },
+  'builtin.research-commit@1': async (input) => {
+    return canonicalJsonValue(
+      parseMissionSchemaValue(
+        { schemaRef: 'mission.research.gate.output', schemaVersion: 1 },
+        input,
+        'mission.research.gate.output'
+      )
+    );
   },
 };
 
@@ -1750,6 +1859,50 @@ async function finalizeMissionRun(
   });
 }
 
+async function suspendResearchGate(
+  sql: Sql,
+  runId: string,
+  stageRun: MissionStageRunRow,
+  output: unknown,
+  lease: MissionLease
+): Promise<MissionRunRow> {
+  return sql.begin(async (tx) => {
+    const run = await assertLeaseStillOwned(tx, runId, lease);
+    await tx`
+      UPDATE mission_stage_runs
+      SET status = 'pending', output_json = NULL, updated_at = now()
+      WHERE id = ${stageRun.id}::uuid AND fence_token = ${lease.token}
+    `;
+    const updatedRows = await tx<MissionRunRow[]>`
+      UPDATE mission_runs
+      SET status = 'suspended', lease_owner = NULL, lease_token = NULL,
+          lease_expires_at = NULL, updated_at = now()
+      WHERE id = ${runId}::uuid AND lease_token = ${lease.token}
+      RETURNING *
+    `;
+    const updated = updatedRows[0];
+    if (!updated) {
+      throw new MissionRuntimeError('MISSION_LEASE_LOST', `research gate lease lost for ${runId}`);
+    }
+    const eventIndexRows = await tx<{ event_index: number }[]>`
+      SELECT COALESCE(MAX(event_index), -1) + 1 AS event_index
+      FROM mission_events WHERE run_id = ${runId}::uuid
+    `;
+    await tx`
+      INSERT INTO mission_events (run_id, event_index, event_type, stage_index, checkpoint_key, payload_json)
+      VALUES (
+        ${runId}::uuid,
+        ${Number(eventIndexRows[0]?.event_index ?? 0)},
+        'research_gate_pending',
+        ${stageRun.stage_index},
+        ${stageRun.checkpoint_key},
+        ${tx.json(canonicalJsonValue({ status: 'suspended', gate: output, previousStatus: run.status }) as never)}
+      )
+    `;
+    return updated;
+  });
+}
+
 async function executeRunWithLease(
   sql: Sql,
   runId: string,
@@ -1831,6 +1984,15 @@ async function executeRunWithLease(
         rawOutput,
         `${nextStage.stageKey}.output`
       );
+      if (
+        nextStage.stageKind === 'research.gate@1' &&
+        output &&
+        typeof output === 'object' &&
+        !Array.isArray(output) &&
+        (output as { admitted?: unknown }).admitted === false
+      ) {
+        return await suspendResearchGate(sql, runId, stageRun, output, lease);
+      }
       const usageDelta = await loadStageUsageDelta(sql, runId, stageRun.id, Date.now() - startedAt);
       await commitStageRun(
         sql,
