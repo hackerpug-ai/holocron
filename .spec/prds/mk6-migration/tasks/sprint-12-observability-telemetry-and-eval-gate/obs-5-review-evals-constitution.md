@@ -1,8 +1,10 @@
 # obs-5 — Review evals constitution
-> Status: Backlog
+> Status: ✅ Completed
+> Commit: 764d404a03bbf7a3b7bdd003e606f83f9c51464a
+> Reviewer: mastra-reviewer
+> Completed: 2026-07-18T03:31:57Z
 > Sprint: [Sprint 12 — Observability, Telemetry and Eval Gate](../SPRINT.md)
 > Agent: mastra-reviewer
-> Reviewer: mastra-reviewer
 > Estimate: 90 min
 > Type: REVIEW
 > Priority: P0
@@ -1768,7 +1770,8 @@ Verification is evidence-gated: run the specialist gates below, then the reposit
 
 - Preserve the task-level requirement contract and all specialist-proposed evidence obligations through implementation and review.
 
-<!-- REQUIREMENT-CONTRACT v1 -->
+<!-- REQUIREMENT-CONTRACT v1
+-->
 <!--
 {
   "version": "1",
