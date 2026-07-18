@@ -193,6 +193,10 @@ Usage:
   evals:run                 Score a versioned fixture sample via local judge (--sample)
   evals:drift               Longitudinal drift over persisted eval_scores (--dataset)
   evals:ci                  Fail-closed CI gate: threshold + deterministic invariants (--fixture)
+  ci runner:status         Fail-closed self-hosted runner probe (labels online)
+  db seed --reset          Deterministic nonprod seed/reset (fails closed on prod)
+  db:provision-nonprod     Create holocron_nonprod + migrate + zero_pub
+  prd:consistency          T-PLAT-020 PRD consistency build gate (derived counts)
 
 Options:
   --export <dir>        Path to unzipped convex export (or $CONVEX_EXPORT_DIR)
