@@ -2,7 +2,7 @@
   "task_id": "obs-4",
   "status": "evidence_corrected_pending_review",
   "branch": "main",
-  "commit_sha": null,
+  "commit_sha": "254f1c7cae97a4469a1861bcdc93adc9eb0a3b88",
   "green_commit_sha": "cc386d1ed743d8543e27d8a805d0b7bee6dc0f48",
   "implementation_merge_commit": "cc386d1ed743d8543e27d8a805d0b7bee6dc0f48",
   "evidence_dir": ".tmp/obs-4/raw-exit-evidence",
@@ -70,5 +70,15 @@
   },
   "blocker_classification": "none",
   "summary": "HARD EVIDENCE remediation: raw process exits for all CLI cases via bash redirect $? + pipefail PIPESTATUS[0]. deliberately-bad process_status=1. green_commit_sha bound to implementation merge cc386d1. No review verdict. status=evidence_corrected_pending_review.",
-  "corrected_at": "2026-07-18T04:04:38Z"
+  "corrected_at": "2026-07-18T04:04:38Z",
+  "evidence_package_sha": "254f1c7cae97a4469a1861bcdc93adc9eb0a3b88",
+  "hash_bound": {
+    "commit_sha": "this evidence package commit (parent of pin if pin follows; tip when alone)",
+    "green_commit_sha": "implementation merge cc386d1 (Merge task/obs-4 into main)",
+    "verify": [
+      "git merge-base --is-ancestor  HEAD",
+      "git rev-parse HEAD == tip after pin of commit_sha",
+      "raw-exit-evidence process_status fields only"
+    ]
+  }
 }
