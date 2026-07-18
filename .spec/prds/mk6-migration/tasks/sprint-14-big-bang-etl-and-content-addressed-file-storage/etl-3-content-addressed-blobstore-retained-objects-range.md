@@ -1,6 +1,6 @@
 # etl-3 — Content-addressed BlobStore, retained objects, and Range reads
 
-> Status: Planned · Sprint: 14 · Agent: mastra-implementer · Proposed By: mastra-planner
+> Status: Completed · Sprint: 14 · Agent: mastra-implementer · Proposed By: mastra-planner
 
 ## Outcome
 

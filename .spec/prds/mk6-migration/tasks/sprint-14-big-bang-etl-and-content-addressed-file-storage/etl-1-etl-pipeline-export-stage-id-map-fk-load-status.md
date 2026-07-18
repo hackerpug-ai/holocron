@@ -1,6 +1,6 @@
 # etl-1 — ETL pipeline: export, stage, whole-graph _id→UUIDv7 map, FK load, status normalization
 
-> Status: Planned · Sprint: 14 · Agent: mastra-implementer · Proposed By: mastra-planner
+> Status: Completed · Sprint: 14 · Agent: mastra-implementer · Proposed By: mastra-planner
 
 ## Outcome
 

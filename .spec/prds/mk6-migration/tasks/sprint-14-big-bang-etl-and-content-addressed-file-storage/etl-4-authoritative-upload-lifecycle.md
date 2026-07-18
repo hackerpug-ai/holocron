@@ -1,6 +1,6 @@
 # etl-4 — Authoritative Hono upload lifecycle: init/PUT/finalize, hash verification, idempotent attach, no orphan
 
-> Status: Planned · Sprint: 14 · Agent: mastra-implementer · Proposed By: mastra-planner
+> Status: Completed · Sprint: 14 · Agent: mastra-implementer · Proposed By: mastra-planner
 
 ## Outcome
 

@@ -1,6 +1,6 @@
 # etl-5 — RED tests for ETL integrity and upload gates
 
-> Status: Planned · Sprint: 14 · Agent: red-test-generator · Proposed By: red-test-generator
+> Status: Completed · Sprint: 14 · Agent: red-test-generator · Proposed By: red-test-generator
 
 ## Outcome
 

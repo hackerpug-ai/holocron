@@ -1,6 +1,6 @@
 # etl-6 — Verify export completeness (convex) + target migration integrity (mastra)
 
-> Status: Planned · Sprint: 14 · Agent: convex-reviewer + mastra-reviewer · Proposed By: convex-planner
+> Status: Completed · Sprint: 14 · Agent: convex-reviewer + mastra-reviewer · Proposed By: convex-planner
 
 ## Outcome
 
