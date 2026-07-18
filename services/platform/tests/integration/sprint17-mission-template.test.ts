@@ -86,6 +86,19 @@ describe('Sprint 17 research mission template', () => {
       expect(stages.map((row) => `${row.stage_key}:${row.status}:${row.attempt}`)).toContain(
         'gate:committed:1'
       );
+      const stageEvidence = await sql`
+        SELECT stage_key, output_json->'evidence' AS evidence
+        FROM mission_stage_runs
+        WHERE run_id = ${runId}::uuid
+          AND stage_key IN ('retrieve', 'extract', 'assay', 'challenge')
+        ORDER BY stage_index, attempt DESC
+      `;
+      expect(stageEvidence).toHaveLength(4);
+      expect(
+        stageEvidence.every((row) =>
+          Array.isArray((row.evidence as { claims?: unknown[] })?.claims)
+        )
+      ).toBe(true);
       const events =
         await sql`        SELECT event_type FROM mission_events WHERE run_id = ${runId}::uuid ORDER BY event_index
       `;

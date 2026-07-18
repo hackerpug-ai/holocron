@@ -1,6 +1,6 @@
 {
   "templateKey": "research",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Deterministic evidence-gated research mission for Sprint 17.",
   "trigger": { "kind": "on-demand" },
   "stageGraph": [
@@ -16,20 +16,20 @@
       "stageKind": "research.retrieve@1",
       "executorRef": "builtin.research-retrieve@1",
       "inputSchema": { "schemaRef": "mission.probe.result", "schemaVersion": 1 },
-      "outputSchema": { "schemaRef": "mission.probe.result", "schemaVersion": 1 }
+      "outputSchema": { "schemaRef": "mission.research.retrieve.output", "schemaVersion": 1 }
     },
     {
       "id": "extract",
       "stageKind": "research.extract@1",
       "executorRef": "builtin.research-extract@1",
-      "inputSchema": { "schemaRef": "mission.probe.result", "schemaVersion": 1 },
-      "outputSchema": { "schemaRef": "mission.probe.result", "schemaVersion": 1 }
+      "inputSchema": { "schemaRef": "mission.research.retrieve.output", "schemaVersion": 1 },
+      "outputSchema": { "schemaRef": "mission.research.retrieve.output", "schemaVersion": 1 }
     },
     {
       "id": "assay",
       "stageKind": "research.assay@1",
       "executorRef": "builtin.research-assay@1",
-      "inputSchema": { "schemaRef": "mission.probe.result", "schemaVersion": 1 },
+      "inputSchema": { "schemaRef": "mission.research.retrieve.output", "schemaVersion": 1 },
       "outputSchema": { "schemaRef": "mission.research.assay.output", "schemaVersion": 1 },
       "checkpointKey": "after-assay"
     },

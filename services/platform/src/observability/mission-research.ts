@@ -413,7 +413,7 @@ export async function runResearchMission(
           'mission',
           ${terminalAdmitted ? 'completed' : 'running'},
           ${researchSql.json({
-            phases: ['PLAN', 'RETRIEVE', 'EXTRACT', 'GATE', 'CHALLENGE', 'COMMIT'],
+            phases: ['PLAN', 'RETRIEVE', 'EXTRACT', 'ASSAY', 'CHALLENGE', 'GATE', 'COMMIT'],
             assayInstanceId: `${agentBundle.resolved.modelRevision}:assay`,
             challengeInstanceId: challengeModelRevision
               ? `${challengeModelRevision}:challenge`

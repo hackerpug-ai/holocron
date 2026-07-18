@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { EvidenceGateInputSchema } from '../research/evidence-gate.ts';
 import { MissionGoalArgsSchema } from './args.ts';
 import { canonicalJsonValue, sha256Hex } from './canonical-json.ts';
 import type {
@@ -74,9 +75,17 @@ const missionTestBudgetOutputSchema = z
   })
   .strict();
 
+const missionResearchRetrieveOutputSchema = z
+  .object({
+    goal: z.string().min(1),
+    evidence: EvidenceGateInputSchema,
+  })
+  .strict();
+
 const missionResearchAssayOutputSchema = z
   .object({
     goal: z.string().min(1),
+    evidence: EvidenceGateInputSchema,
     instanceId: z.string().min(1),
     modelRevision: z.string().min(1),
     text: z.string(),
@@ -88,6 +97,7 @@ const missionResearchChallengeOutputSchema = z
     goal: z.string().min(1),
     assayInstanceId: z.string().min(1),
     challengeInstanceId: z.string().min(1),
+    evidence: EvidenceGateInputSchema,
     assayText: z.string(),
     challengeText: z.string(),
   })
@@ -147,6 +157,12 @@ export const MISSION_SCHEMAS: readonly MissionSchemaRegistration[] = [
     schemaVersion: 1,
     schema: missionTestBudgetOutputSchema,
     description: 'Deterministic budget output.',
+  },
+  {
+    schemaRef: 'mission.research.retrieve.output',
+    schemaVersion: 1,
+    schema: missionResearchRetrieveOutputSchema,
+    description: 'Retrieved evidence handed to extraction.',
   },
   {
     schemaRef: 'mission.research.assay.output',
@@ -296,24 +312,24 @@ export const MISSION_STAGES: readonly MissionStageRegistration[] = [
     stageKind: 'research.retrieve@1',
     executorRef: 'builtin.research-retrieve@1',
     inputSchema: { schemaRef: 'mission.probe.result', schemaVersion: 1 },
-    outputSchema: { schemaRef: 'mission.probe.result', schemaVersion: 1 },
-    description: 'RETRIEVE phase persists the planned retrieval boundary.',
+    outputSchema: { schemaRef: 'mission.research.retrieve.output', schemaVersion: 1 },
+    description: 'RETRIEVE phase persists retrieved evidence.',
     roleBinding: 'forbidden',
     checkpointAllowed: false,
   },
   {
     stageKind: 'research.extract@1',
     executorRef: 'builtin.research-extract@1',
-    inputSchema: { schemaRef: 'mission.probe.result', schemaVersion: 1 },
-    outputSchema: { schemaRef: 'mission.probe.result', schemaVersion: 1 },
-    description: 'EXTRACT phase persists the extracted candidate boundary.',
+    inputSchema: { schemaRef: 'mission.research.retrieve.output', schemaVersion: 1 },
+    outputSchema: { schemaRef: 'mission.research.retrieve.output', schemaVersion: 1 },
+    description: 'EXTRACT phase persists the extracted evidence boundary.',
     roleBinding: 'forbidden',
     checkpointAllowed: false,
   },
   {
     stageKind: 'research.assay@1',
     executorRef: 'builtin.research-assay@1',
-    inputSchema: { schemaRef: 'mission.probe.result', schemaVersion: 1 },
+    inputSchema: { schemaRef: 'mission.research.retrieve.output', schemaVersion: 1 },
     outputSchema: { schemaRef: 'mission.research.assay.output', schemaVersion: 1 },
     description: 'ASSAY generation on the bound fleet role.',
     roleBinding: 'required',

@@ -52,8 +52,9 @@ describe('Sprint 17 deterministic research engine seam', () => {
         'PLAN',
         'RETRIEVE',
         'EXTRACT',
-        'GATE',
+        'ASSAY',
         'CHALLENGE',
+        'GATE',
         'COMMIT',
       ]);
       if (!sql) throw new Error('Sprint 17 SQL client missing');

@@ -202,9 +202,7 @@ export async function inspectResearchSession(
       gate: row.final_confidence_summary,
       plan: row.plan,
       findings: row.findings,
-      ...(options?.processes
-        ? { processes: Array.isArray(plan.processes) ? plan.processes : [] }
-        : {}),
+      ...(options?.processes ? { processes: Array.isArray(plan.phases) ? plan.phases : [] } : {}),
     };
   } finally {
     await sql.end({ timeout: 5 });

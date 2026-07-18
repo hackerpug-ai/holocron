@@ -7,7 +7,7 @@ import { type FleetRoleManifest, FleetRoleManifestSchema } from '../fleet/manife
 import { getRoleEntry } from '../fleet/manifest.ts';
 import { probeRoleHealth } from '../inference/resolve-model.ts';
 import { runFleetModelCall } from '../inference/telemetry.ts';
-import { evaluateEvidenceGate } from '../research/evidence-gate.ts';
+import { type EvidenceGateInput, evaluateEvidenceGate } from '../research/evidence-gate.ts';
 import { type MissionGoalArgs, MissionGoalArgsSchema } from './args.ts';
 import { canonicalJsonString, canonicalJsonValue } from './canonical-json.ts';
 import { waitAtCheckpointBarrierIfRequested } from './checkpoint-barrier.ts';
@@ -271,25 +271,44 @@ type ResearchProcessProof = {
 
 function captureResearchProcessProof(): ResearchProcessProof {
   const processChain: string[] = [];
-  let pid = process.pid;
-  for (let depth = 0; depth < 4 && pid > 1; depth += 1) {
-    let command = `pid:${pid}`;
-    try {
-      command = execFileSync('ps', ['-o', 'command=', '-p', String(pid)], {
-        encoding: 'utf8',
-        stdio: ['ignore', 'pipe', 'ignore'],
-      }).trim();
-    } catch {
-      // A missing process snapshot is recorded as an explicit proof failure.
+  try {
+    const rows = execFileSync('ps', ['-axo', 'pid=,ppid=,command='], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+      .split('\n')
+      .flatMap((line) => {
+        const match = line.match(/^\s*(\d+)\s+(\d+)\s+(.*)$/);
+        return match ? [{ pid: Number(match[1]), ppid: Number(match[2]), command: match[3] }] : [];
+      });
+    const descendants = new Set([process.pid]);
+    for (let depth = 0; depth < 4; depth += 1) {
+      let added = false;
+      for (const row of rows) {
+        if (descendants.has(row.ppid) && !descendants.has(row.pid)) {
+          descendants.add(row.pid);
+          added = true;
+          processChain.push(row.command);
+        }
+      }
+      if (!added) break;
     }
-    processChain.push(command);
-    const parent = process.ppid;
-    if (pid === process.pid || !Number.isInteger(parent) || parent <= 1 || parent === pid) break;
-    pid = parent;
+    const current = rows.find((row) => row.pid === process.pid);
+    if (current) processChain.unshift(current.command);
+  } catch {
+    // A missing process snapshot is recorded as an explicit proof failure.
   }
-  const forbiddenMatches = processChain.filter((command) =>
-    /(?:^|[\\s/])(pi|claude|codex|opencode)(?:$|[\\s/])/i.test(command)
-  );
+  const forbiddenMatches = processChain.filter((command) => {
+    const tokens = command.trim().split(/\\s+/).filter(Boolean);
+    const executableToken = tokens[0] === 'env' ? tokens[1] : tokens[0];
+    const executable = executableToken?.split('/').pop()?.replace(/^-/, '').toLowerCase();
+    return (
+      executable === 'pi' ||
+      executable === 'claude' ||
+      executable === 'codex' ||
+      executable === 'opencode'
+    );
+  });
   return {
     pid: process.pid,
     parentPid: process.ppid,
@@ -442,28 +461,37 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
   },
   'builtin.research-plan@1': async (input, context) =>
     STAGE_EXECUTORS['builtin.fleet-probe@1'](input, context),
-  'builtin.research-retrieve@1': async (input) =>
-    canonicalJsonValue(
-      parseMissionSchemaValue(
-        { schemaRef: 'mission.probe.result', schemaVersion: 1 },
-        input,
-        'research.retrieve.input'
-      )
-    ),
+  'builtin.research-retrieve@1': async (input, context) => {
+    const probe = parseMissionSchemaValue(
+      { schemaRef: 'mission.probe.result', schemaVersion: 1 },
+      input,
+      'research.retrieve.input'
+    ) as { goal: string };
+    const args = MissionGoalArgsSchema.parse(context.run.args_json);
+    const evidence = args.researchEvidence ?? {
+      claims: [],
+      evidence: [],
+      requiredComponents: ['durable-evidence'],
+      gradeFloor: 3,
+      entailmentFloor: 0.8,
+      independentSourceFloor: 2,
+    };
+    return canonicalJsonValue({ goal: probe.goal, evidence });
+  },
   'builtin.research-extract@1': async (input) =>
     canonicalJsonValue(
       parseMissionSchemaValue(
-        { schemaRef: 'mission.probe.result', schemaVersion: 1 },
+        { schemaRef: 'mission.research.retrieve.output', schemaVersion: 1 },
         input,
         'research.extract.input'
       )
     ),
   'builtin.research-assay@1': async (input, context) => {
-    const probe = parseMissionSchemaValue(
-      { schemaRef: 'mission.probe.result', schemaVersion: 1 },
+    const retrieved = parseMissionSchemaValue(
+      { schemaRef: 'mission.research.retrieve.output', schemaVersion: 1 },
       input,
-      'mission.probe.result'
-    ) as { goal: string };
+      'mission.research.retrieve.output'
+    ) as { goal: string; evidence: unknown };
     const pinnedRole = context.runtime.roleResolution[context.stage.stageKey];
     if (!pinnedRole) {
       throw new MissionRuntimeError(
@@ -477,16 +505,21 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
         'MISSION_TRACE_ID_MISSING',
         `missing trace for ${context.run.id}`
       );
-    const result = await runFleetModelCall({
-      role: pinnedRole.role,
-      prompt: `ASSAY research goal: ${probe.goal}. Return a concise candidate finding.`,
-      runId: context.run.id,
-      stepId: context.stageRunId,
-      traceId,
-      databaseUrl: context.databaseUrl,
-    });
+    const result = await runFleetModelCall(
+      {
+        role: pinnedRole.role,
+        prompt: `ASSAY research goal: ${retrieved.goal}. Return a concise candidate finding.`,
+      },
+      {
+        runId: context.run.id,
+        stepId: context.stageRunId,
+        traceId,
+        databaseUrl: context.databaseUrl,
+      }
+    );
     return canonicalJsonValue({
-      goal: probe.goal,
+      goal: retrieved.goal,
+      evidence: retrieved.evidence,
       instanceId: `${pinnedRole.modelRevision}:assay:${context.run.id}`,
       modelRevision: pinnedRole.modelRevision,
       text: result.text,
@@ -497,7 +530,7 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
       { schemaRef: 'mission.research.assay.output', schemaVersion: 1 },
       input,
       'mission.research.assay.output'
-    ) as { goal: string; instanceId: string; text: string };
+    ) as { goal: string; evidence: unknown; instanceId: string; text: string };
     const pinnedRole = context.runtime.roleResolution[context.stage.stageKey];
     if (!pinnedRole) {
       throw new MissionRuntimeError(
@@ -523,11 +556,12 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
       goal: assay.goal,
       assayInstanceId: assay.instanceId,
       challengeInstanceId: `${pinnedRole.modelRevision}:challenge:${context.run.id}`,
+      evidence: assay.evidence,
       assayText: assay.text,
       challengeText: result.text,
     });
   },
-  'builtin.research-gate@1': async (input, context) => {
+  'builtin.research-gate@1': async (input, _context) => {
     const challenge = parseMissionSchemaValue(
       { schemaRef: 'mission.research.challenge.output', schemaVersion: 1 },
       input,
@@ -536,10 +570,10 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
       goal: string;
       assayInstanceId: string;
       challengeInstanceId: string;
+      evidence: EvidenceGateInput;
     };
-    const args = MissionGoalArgsSchema.parse(context.run.args_json);
-    const gate = args.researchEvidence
-      ? evaluateEvidenceGate(args.researchEvidence)
+    const gate = challenge.evidence
+      ? evaluateEvidenceGate(challenge.evidence)
       : {
           admitted: false,
           direction: 'none' as const,
@@ -2286,11 +2320,39 @@ async function resumeMissionInternal(
         ...args,
         researchEvidence: options.researchEvidence,
       });
-      await sql`
-        UPDATE mission_runs
-        SET args_json = ${sql.json(updatedArgs as never)}, updated_at = now()
-        WHERE id = ${runId}::uuid AND status = 'suspended'
-      `;
+      await sql.begin(async (tx) => {
+        await tx`
+          UPDATE mission_runs
+          SET args_json = ${tx.json(updatedArgs as never)}, updated_at = now()
+          WHERE id = ${runId}::uuid AND status = 'suspended'
+        `;
+        if (existing?.template_key === 'research') {
+          const evidenceJson = tx.json(options.researchEvidence as never);
+          await tx`
+            UPDATE mission_stage_runs
+            SET output_json = jsonb_set(output_json, '{evidence}', ${evidenceJson}::jsonb),
+                updated_at = now()
+            WHERE run_id = ${runId}::uuid
+              AND stage_key IN ('retrieve', 'extract', 'assay', 'challenge')
+              AND output_json IS NOT NULL
+          `;
+          await tx`
+            UPDATE mission_stage_runs
+            SET status = 'pending', output_json = NULL, error_code = NULL,
+                error_message = NULL, committed_at = NULL, updated_at = now()
+            WHERE run_id = ${runId}::uuid AND stage_key IN ('gate', 'commit')
+          `;
+          await tx`
+            DELETE FROM mission_checkpoints
+            WHERE run_id = ${runId}::uuid
+              AND stage_index >= (
+                SELECT COALESCE(MIN(stage_index), 0)
+                FROM mission_stage_runs
+                WHERE run_id = ${runId}::uuid AND stage_key = 'gate'
+              )
+          `;
+        }
+      });
       existing = await selectMissionRunById(sql, runId);
       if (!existing) return missionNotFoundPayload(runId);
     }
