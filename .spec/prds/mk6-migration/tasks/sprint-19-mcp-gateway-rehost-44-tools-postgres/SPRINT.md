@@ -10,7 +10,7 @@ slug: mcp-gateway-rehost-44-tools-postgres
 
 ## Scope
 
-The manifest and one shared Mastra tool registry already cover 44 tool IDs. Sprint 19 begins with `holo mcp:verify-rehost`, which proves manifest/registry parity and zero Convex gateway imports. Remaining work is to bind real Postgres tool execution, expose stdio and Streamable HTTP transports, enforce cancellation/no-sampling/origin/auth policy, and prove all-tool parity against real seeded Postgres.
+The manifest and one shared Mastra tool registry cover 44 tool IDs. `holo mcp:verify-rehost` proves manifest/registry parity and zero Convex gateway imports; the SDK stdio and stateless Streamable HTTP transports are mounted, and all 44 IDs have explicit gateway dispatch. Remaining work is manifest-fixture parity for every call, deeper domain behavior verification, mutation replay coverage, and cancellation/no-sampling proof against real seeded Postgres.
 
 ## Gate
 

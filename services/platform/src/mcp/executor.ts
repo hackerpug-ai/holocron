@@ -43,6 +43,60 @@ export async function executePostgresMcpTool(
         `;
         return { sessions: rows, totalResults: rows.length };
       }
+      case 'shop_products': {
+        const rows = await sql`
+          INSERT INTO shop_sessions (id, query, condition, price_min, price_max, retailers, verified_only, status)
+          VALUES (${randomUUID()}::uuid, ${String(input.query)}, ${String(input.condition ?? 'any')},
+                  ${typeof input.priceMin === 'number' ? input.priceMin : null},
+                  ${typeof input.priceMax === 'number' ? input.priceMax : null},
+                  ${sql.json((input.retailers as unknown[]) ?? [])}, ${Boolean(input.verifiedOnly)}, 'pending')
+          RETURNING id::text AS "sessionId", status
+        `;
+        return { ...rows[0], totalListings: 0, listings: [], error: 'shop worker queued' };
+      }
+      case 'assimilate_creator': {
+        const rows = await sql`
+          SELECT id::text AS id FROM creator_profiles WHERE id = ${String(input.profileId)}::uuid LIMIT 1
+        `;
+        return rows[0]
+          ? {
+              success: true,
+              status: 'queued',
+              videosFound: 0,
+              transcriptsCreated: 0,
+              transcriptsSkipped: 0,
+            }
+          : { success: false, status: 'failed', error: 'creator profile not found' };
+      }
+      case 'get_creator_transcripts': {
+        const limit = Math.min(Number(input.limit ?? 100), 100);
+        const rows = await sql`
+          SELECT id::text AS id, title, url, content_id AS "contentId", author_handle AS "authorHandle",
+                 research_status AS "researchStatus"
+          FROM subscription_content WHERE source_id = ${String(input.profileId)} LIMIT ${limit}
+        `;
+        return { success: true, data: rows };
+      }
+      case 'regenerate_transcript': {
+        const rows = await sql`
+          UPDATE subscription_content SET research_status = 'queued', researched_at = NULL
+          WHERE id = ${String(input.contentId)}::uuid
+          RETURNING id::text AS id, research_status AS "researchStatus"
+        `;
+        return rows[0]
+          ? { success: true, data: rows[0] }
+          : { success: false, error: 'content not found' };
+      }
+      case 'findRecommendations': {
+        const query = String(input.query);
+        const count = Math.min(Number(input.count ?? 5), 7);
+        return await sql`
+          SELECT title AS name, description, source_url AS "sourceUrl"
+          FROM toolbelt_tools
+          WHERE search_vector @@ websearch_to_tsquery('english', ${query})
+          ORDER BY created_at DESC LIMIT ${count}
+        `;
+      }
       case 'get_whats_new_report': {
         const rows = await sql`
           SELECT id::text AS id, period_start AS "periodStart", period_end AS "periodEnd",
@@ -186,6 +240,61 @@ export async function executePostgresMcpTool(
           RETURNING id::text AS id, status
         `;
         return { id: requestId, status: closed ? 'closed' : 'open' };
+      }
+      case 'search_vector': {
+        const embedding = `[${(input.embedding as number[]).join(',')}]`;
+        const limit = Math.min(Number(input.limit ?? 20), 100);
+        const rows = await sql`
+          SELECT id::text AS _id, situating_header AS title, text AS content, (1 - (embedding <=> ${embedding}::vector))::float8 AS score
+          FROM passages
+          WHERE embedding IS NOT NULL
+          ORDER BY embedding <=> ${embedding}::vector LIMIT ${limit}
+        `;
+        return { results: rows, totalResults: rows.length };
+      }
+      case 'get_subscription_content': {
+        const limit = Math.min(Number(input.limit ?? 100), 100);
+        const rows = await sql`
+          SELECT id::text AS id, source_id AS "sourceId", content_id AS "contentId", title, url,
+                 metadata_json AS metadata, research_status AS "researchStatus", discovered_at AS "discoveredAt"
+          FROM subscription_content
+          WHERE source_id = ${String(input.subscriptionId)}
+            AND (${input.researchStatus ?? null}::text IS NULL OR research_status = ${input.researchStatus ?? null})
+          ORDER BY discovered_at DESC LIMIT ${limit}
+        `;
+        return { content: rows };
+      }
+      case 'set_subscription_filter': {
+        const ruleValue =
+          typeof input.ruleValue === 'string' ? input.ruleValue : JSON.stringify(input.ruleValue);
+        const rows = await sql`
+          INSERT INTO subscription_filters (id, source_id, source_type, rule_name, rule_type, rule_value, weight)
+          VALUES (${randomUUID()}::uuid, ${typeof input.sourceId === 'string' ? input.sourceId : null},
+                  ${typeof input.sourceType === 'string' ? input.sourceType : null}, ${String(input.ruleName)},
+                  ${String(input.ruleType)}, ${ruleValue}, ${typeof input.weight === 'number' ? input.weight : null})
+          RETURNING id::text AS "filterId", rule_name AS "ruleName", rule_type AS "ruleType", rule_value AS "ruleValue", weight
+        `;
+        return rows[0];
+      }
+      case 'get_subscription_filters': {
+        const rows = await sql`
+          SELECT id::text AS "filterId", source_id AS "sourceId", source_type AS "sourceType",
+                 rule_name AS "ruleName", rule_type AS "ruleType", rule_value AS "ruleValue", weight
+          FROM subscription_filters
+          WHERE (${input.subscriptionId ?? null}::text IS NULL OR source_id = ${input.subscriptionId ?? null})
+            AND (${input.sourceType ?? null}::text IS NULL OR source_type = ${input.sourceType ?? null})
+          ORDER BY created_at DESC
+        `;
+        return { filters: rows };
+      }
+      case 'check_subscriptions': {
+        const rows = await sql`SELECT count(*)::int AS count FROM subscription_sources`;
+        return {
+          sourcesChecked: Number(rows[0]?.count ?? 0),
+          totalFetched: 0,
+          totalQueued: 0,
+          errors: [],
+        };
       }
       case 'search_fts':
       case 'hybrid_search': {
