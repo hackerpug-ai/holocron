@@ -1,0 +1,53 @@
+{
+  "fixture_or_cmd": "deliberately-bad",
+  "shell": "bash",
+  "capture_method": {
+    "direct_redirect": {
+      "shell_exit_code": 1,
+      "note": "bun ... >out 2>err; ec=$?"
+    },
+    "pipe_tee": {
+      "PIPESTATUS": [
+        1,
+        0
+      ],
+      "PIPESTATUS[0]_bun": 1,
+      "PIPESTATUS[1]_tee": 0,
+      "note": "set -o pipefail; bun ... | tee file; capture PIPESTATUS immediately"
+    }
+  },
+  "shell_exit_code": 1,
+  "pipe_status_bun_exit": 1,
+  "exits_agree": true,
+  "json_exitCode_field": 1,
+  "json_verdict": "failed",
+  "json_failureReason": "threshold_regression",
+  "json_errorCode": null,
+  "payload": {
+    "fixture": "deliberately-bad",
+    "datasetVersion": "research_v1",
+    "baselineVersion": "research_v1",
+    "modelVersion": "judge_v1",
+    "promptVersion": "research-quality_v1",
+    "score": 0,
+    "baseline": 0.8,
+    "threshold": 0.8,
+    "verdict": "failed",
+    "exitCode": 1,
+    "failureReason": "threshold_regression",
+    "exitReason": "score 0 < threshold 0.8",
+    "errorCode": null,
+    "deterministicFailures": [
+      {
+        "invariantId": "required-citation",
+        "reason": "missing required citation markers ([n], URL, doi, or Sources: block)"
+      }
+    ],
+    "runId": "ci-23c418df-3159-4fb9-b0da-810c61f0fa71",
+    "scoreId": "019f7350-6af4-7822-b6c7-b7b6b4c73502",
+    "sampleId": "deliberately-bad",
+    "meetsThreshold": false,
+    "invariantPassed": false,
+    "reason": "The response is flippant, informal, and explicitly states it does not know sources ('idk sources whatever'). It makes unfounded absolute claims ('fasting is magic', 'cures everything') without evidence, lacks any structure, and completely fails to address the prompt regarding metabolic health or evidence summary."
+  }
+}

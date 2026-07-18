@@ -1,0 +1,53 @@
+{
+  "fixture_or_cmd": "deterministic-invariant-regression",
+  "shell": "bash",
+  "capture_method": {
+    "direct_redirect": {
+      "shell_exit_code": 1,
+      "note": "bun ... >out 2>err; ec=$?"
+    },
+    "pipe_tee": {
+      "PIPESTATUS": [
+        1,
+        0
+      ],
+      "PIPESTATUS[0]_bun": 1,
+      "PIPESTATUS[1]_tee": 0,
+      "note": "set -o pipefail; bun ... | tee file; capture PIPESTATUS immediately"
+    }
+  },
+  "shell_exit_code": 1,
+  "pipe_status_bun_exit": 1,
+  "exits_agree": true,
+  "json_exitCode_field": 1,
+  "json_verdict": "failed",
+  "json_failureReason": "threshold_regression",
+  "json_errorCode": null,
+  "payload": {
+    "fixture": "deterministic-invariant-regression",
+    "datasetVersion": "research_v1",
+    "baselineVersion": "research_v1",
+    "modelVersion": "judge_v1",
+    "promptVersion": "research-quality_v1",
+    "score": 0.5,
+    "baseline": 0.8,
+    "threshold": 0.8,
+    "verdict": "failed",
+    "exitCode": 1,
+    "failureReason": "threshold_regression",
+    "exitReason": "score 0.5 < threshold 0.8",
+    "errorCode": null,
+    "deterministicFailures": [
+      {
+        "invariantId": "required-citation",
+        "reason": "missing required citation markers ([n], URL, doi, or Sources: block)"
+      }
+    ],
+    "runId": "ci-5cbc61d1-f984-4f06-8a21-c7a4c9fe7604",
+    "scoreId": "019f7351-0f6e-75f0-8df3-9ca13317ec9d",
+    "sampleId": "deterministic-invariant-regression",
+    "meetsThreshold": false,
+    "invariantPassed": false,
+    "reason": "The response provides a structured, complete summary covering benefits, limitations, and a bottom line, with specific claims indicating evidence awareness. However, it fails to include explicit source markers (numbered citations) or a Sources section. Despite the strong structure and grounded content, the absence of citations prevents a score >= 0.8 per the hard rules."
+  }
+}

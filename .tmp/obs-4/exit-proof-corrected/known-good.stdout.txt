@@ -18,24 +18,5 @@
   "verdict": "passed",
   "exitCode": 0,
   "failureReason": null,
-  "errorCode": null,
-  "shell_exit_code": 0,
-  "pipe_status_bun_exit": 0,
-  "exits_agree": true,
-  "capture_method": {
-    "direct_redirect": {
-      "shell_exit_code": 0,
-      "note": "bun ... >out 2>err; ec=$?"
-    },
-    "pipe_tee": {
-      "PIPESTATUS": [
-        0,
-        0
-      ],
-      "PIPESTATUS[0]_bun": 0,
-      "PIPESTATUS[1]_tee": 0,
-      "note": "set -o pipefail; bun ... | tee file; capture PIPESTATUS immediately"
-    }
-  },
-  "proof_note": "shell_exit_code from bash $? / PIPESTATUS[0] \u2014 not tee EXIT"
+  "errorCode": null
 }

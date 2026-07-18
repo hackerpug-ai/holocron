@@ -10,12 +10,31 @@
   "verdict": "failed",
   "exitCode": 1,
   "failureReason": "invalid_threshold",
-  "exitReason": "INVALID_THRESHOLD: threshold field missing — fail closed",
+  "exitReason": "INVALID_THRESHOLD: threshold field missing \u2014 fail closed",
   "errorCode": "INVALID_THRESHOLD",
   "deterministicFailures": [],
   "runId": null,
   "scoreId": null,
   "sampleId": null,
   "meetsThreshold": false,
-  "invariantPassed": false
+  "invariantPassed": false,
+  "shell_exit_code": 1,
+  "pipe_status_bun_exit": 1,
+  "exits_agree": true,
+  "capture_method": {
+    "direct_redirect": {
+      "shell_exit_code": 1,
+      "note": "bun ... >out 2>err; ec=$?"
+    },
+    "pipe_tee": {
+      "PIPESTATUS": [
+        1,
+        0
+      ],
+      "PIPESTATUS[0]_bun": 1,
+      "PIPESTATUS[1]_tee": 0,
+      "note": "set -o pipefail; bun ... | tee file; capture PIPESTATUS immediately"
+    }
+  },
+  "proof_note": "shell_exit_code from bash $? / PIPESTATUS[0] \u2014 not tee EXIT"
 }

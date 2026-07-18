@@ -1,0 +1,2 @@
+suite_shell_exit=0
+suite_pipe_bun_or_pnpm_exit=0

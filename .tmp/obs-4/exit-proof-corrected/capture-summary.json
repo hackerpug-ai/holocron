@@ -1,0 +1,53 @@
+{
+  "method": "bash: direct $? + set -o pipefail + PIPESTATUS[0]",
+  "invalidates": "zsh/tee;echo EXIT:$? smokes that report EXIT:0 for failing fixtures",
+  "fixtures": [
+    {
+      "name": "deliberately-bad",
+      "shell_exit_code": 1,
+      "pipe_bun_exit": 1,
+      "exits_agree": true,
+      "json_exitCode": 1,
+      "json_verdict": "failed",
+      "expect_nonzero": true,
+      "proof_ok": true
+    },
+    {
+      "name": "known-good",
+      "shell_exit_code": 0,
+      "pipe_bun_exit": 0,
+      "exits_agree": true,
+      "json_exitCode": 0,
+      "json_verdict": "passed",
+      "expect_nonzero": false,
+      "proof_ok": true
+    },
+    {
+      "name": "deterministic-invariant-regression",
+      "shell_exit_code": 1,
+      "pipe_bun_exit": 1,
+      "exits_agree": true,
+      "json_exitCode": 1,
+      "json_verdict": "failed",
+      "expect_nonzero": true,
+      "proof_ok": true
+    },
+    {
+      "name": "invalid-config",
+      "shell_exit_code": 1,
+      "pipe_bun_exit": 1,
+      "exits_agree": true,
+      "json_exitCode": 1,
+      "json_verdict": "failed",
+      "expect_nonzero": true,
+      "proof_ok": true
+    }
+  ],
+  "all_proof_ok": true,
+  "bad_fixture_proof": {
+    "fixture": "deliberately-bad",
+    "shell_exit_code": 1,
+    "must_be_nonzero": true,
+    "verified": true
+  }
+}

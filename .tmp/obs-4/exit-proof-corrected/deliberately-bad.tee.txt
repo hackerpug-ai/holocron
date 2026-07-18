@@ -1,0 +1,27 @@
+{
+  "fixture": "deliberately-bad",
+  "datasetVersion": "research_v1",
+  "baselineVersion": "research_v1",
+  "modelVersion": "judge_v1",
+  "promptVersion": "research-quality_v1",
+  "score": 0,
+  "baseline": 0.8,
+  "threshold": 0.8,
+  "verdict": "failed",
+  "exitCode": 1,
+  "failureReason": "threshold_regression",
+  "exitReason": "score 0 < threshold 0.8",
+  "errorCode": null,
+  "deterministicFailures": [
+    {
+      "invariantId": "required-citation",
+      "reason": "missing required citation markers ([n], URL, doi, or Sources: block)"
+    }
+  ],
+  "runId": "ci-8a5bb226-c8d7-4968-a9f4-5c3b2640aaed",
+  "scoreId": "019f7350-a861-73ca-a979-c9dfcce4a702",
+  "sampleId": "deliberately-bad",
+  "meetsThreshold": false,
+  "invariantPassed": false,
+  "reason": "The response is flippant, unsourced, and lacks any research structure or evidence-based claims. It explicitly states 'idk sources' and uses hyperbolic language ('magic', 'cures everything'), violating grounding and citation requirements entirely."
+}

@@ -18,10 +18,29 @@
       "reason": "missing required citation markers ([n], URL, doi, or Sources: block)"
     }
   ],
-  "runId": "ci-61d0841a-756a-4b5d-9856-d18654b1e4ca",
-  "scoreId": "019f732e-4849-7bc5-9716-749c39d7ca9e",
+  "runId": "ci-23c418df-3159-4fb9-b0da-810c61f0fa71",
+  "scoreId": "019f7350-6af4-7822-b6c7-b7b6b4c73502",
   "sampleId": "deliberately-bad",
   "meetsThreshold": false,
   "invariantPassed": false,
-  "reason": "The response is flippant, unsourced, and makes unfounded claims ('magic', 'cures everything'). It explicitly rejects the request for sources ('idk sources whatever') and lacks any structured research content."
+  "reason": "The response is flippant, informal, and explicitly states it does not know sources ('idk sources whatever'). It makes unfounded absolute claims ('fasting is magic', 'cures everything') without evidence, lacks any structure, and completely fails to address the prompt regarding metabolic health or evidence summary.",
+  "shell_exit_code": 1,
+  "pipe_status_bun_exit": 1,
+  "exits_agree": true,
+  "capture_method": {
+    "direct_redirect": {
+      "shell_exit_code": 1,
+      "note": "bun ... >out 2>err; ec=$?"
+    },
+    "pipe_tee": {
+      "PIPESTATUS": [
+        1,
+        0
+      ],
+      "PIPESTATUS[0]_bun": 1,
+      "PIPESTATUS[1]_tee": 0,
+      "note": "set -o pipefail; bun ... | tee file; capture PIPESTATUS immediately"
+    }
+  },
+  "proof_note": "shell_exit_code from bash $? / PIPESTATUS[0] \u2014 not tee EXIT"
 }
