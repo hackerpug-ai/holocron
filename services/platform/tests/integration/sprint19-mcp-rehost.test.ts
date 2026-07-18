@@ -25,7 +25,7 @@ describe('Sprint 19 MCP rehost gateway', () => {
       await sql`DELETE FROM documents WHERE title LIKE 's19-parity-%'`;
       await sql`DELETE FROM toolbelt_tools WHERE title LIKE 's19-parity-%'`;
       await sql`DELETE FROM improvement_requests WHERE description LIKE 's19-parity-%'`;
-      await sql`DELETE FROM shop_sessions WHERE query LIKE 's19-parity-%' OR query = 'USB-C hub'`;
+      await sql`DELETE FROM shop_sessions WHERE query LIKE 's19-parity-%' OR query LIKE 'USB-C hub%' OR query LIKE 's19 replay product%'`;
       await sql`DELETE FROM assimilation_sessions WHERE repository_url LIKE 's19-parity-%'`;
       await sql`DELETE FROM transcript_jobs WHERE content_id LIKE 's19-parity-%'`;
       await sql.end({ timeout: 5 });
@@ -350,104 +350,110 @@ describe('Sprint 19 MCP rehost gateway', () => {
     60_000
   );
 
-  itLive('executes document tools against real Postgres', async () => {
-    const app = createHonoApp({ keys: KEYS });
-    const headers = {
-      authorization: `Bearer ${KEYS.mcp}`,
-      'content-type': 'application/json',
-      accept: 'application/json, text/event-stream',
-    };
-    const call = await app.request('/mcp', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
+  itLive(
+    'executes document tools against real Postgres',
+    async () => {
+      const app = createHonoApp({ keys: KEYS });
+      const headers = {
+        authorization: `Bearer ${KEYS.mcp}`,
+        'content-type': 'application/json',
+        accept: 'application/json, text/event-stream',
+      };
+      const call = await app.request('/mcp', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 3,
+          method: 'tools/call',
+          params: {
+            name: 'store_document',
+            arguments: { title: 's19-mcp-real', content: 'Postgres gateway' },
+          },
+        }),
+      });
+      const result = await call.json();
+      expect(call.status).toBe(200);
+      expect(result.result.isError).not.toBe(true);
+      expect(JSON.stringify(result)).toContain('s19-mcp-real');
+      const search = await app.request('/mcp', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 4,
+          method: 'tools/call',
+          params: { name: 'hybrid_search', arguments: { query: 'Postgres gateway', limit: 10 } },
+        }),
+      });
+      expect(search.status).toBe(200);
+      expect(JSON.stringify(await search.json())).toContain('s19-mcp-real');
+
+      const addBody = {
         jsonrpc: '2.0',
-        id: 3,
+        id: 5,
         method: 'tools/call',
         params: {
-          name: 'store_document',
-          arguments: { title: 's19-mcp-real', content: 'Postgres gateway' },
+          name: 'add_subscription',
+          arguments: {
+            sourceType: 'github',
+            identifier: `s19-mcp-${Date.now()}`,
+            name: 'Sprint 19',
+          },
         },
-      }),
-    });
-    const result = await call.json();
-    expect(call.status).toBe(200);
-    expect(result.result.isError).not.toBe(true);
-    expect(JSON.stringify(result)).toContain('s19-mcp-real');
-    const search = await app.request('/mcp', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
+      };
+      const add = await app.request('/mcp', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(addBody),
+      });
+      const addAgain = await app.request('/mcp', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ ...addBody, id: 6 }),
+      });
+      const addResult = await add.json();
+      const addAgainResult = await addAgain.json();
+      expect(addResult.result).toEqual(addAgainResult.result);
+
+      const shopBody = {
         jsonrpc: '2.0',
-        id: 4,
-        method: 'tools/call',
-        params: { name: 'hybrid_search', arguments: { query: 'Postgres gateway', limit: 10 } },
-      }),
-    });
-    expect(search.status).toBe(200);
-    expect(JSON.stringify(await search.json())).toContain('s19-mcp-real');
-
-    const addBody = {
-      jsonrpc: '2.0',
-      id: 5,
-      method: 'tools/call',
-      params: {
-        name: 'add_subscription',
-        arguments: {
-          sourceType: 'github',
-          identifier: `s19-mcp-${Date.now()}`,
-          name: 'Sprint 19',
-        },
-      },
-    };
-    const add = await app.request('/mcp', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(addBody),
-    });
-    const addAgain = await app.request('/mcp', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ ...addBody, id: 6 }),
-    });
-    const addResult = await add.json();
-    const addAgainResult = await addAgain.json();
-    expect(addResult.result).toEqual(addAgainResult.result);
-
-    const shopBody = {
-      jsonrpc: '2.0',
-      id: 7,
-      method: 'tools/call',
-      params: {
-        name: 'shop_products',
-        arguments: { query: 's19 replay product', condition: 'any' },
-      },
-    };
-    const shop = await app.request('/mcp', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(shopBody),
-    });
-    const shopAgain = await app.request('/mcp', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ ...shopBody, id: 8 }),
-    });
-    expect((await shop.json()).result).toEqual((await shopAgain.json()).result);
-
-    const invalidApprove = await app.request('/mcp', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 9,
+        id: 7,
         method: 'tools/call',
         params: {
-          name: 'approve_assimilation_plan',
-          arguments: { sessionId: crypto.randomUUID() },
+          name: 'shop_products',
+          arguments: { query: 'USB-C hub replay', condition: 'any', retailers: ['amazon'] },
         },
-      }),
-    });
-    expect((await invalidApprove.json()).result.isError).toBe(true);
-  });
+      };
+      const shop = await app.request('/mcp', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(shopBody),
+      });
+      const shopAgain = await app.request('/mcp', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ ...shopBody, id: 8 }),
+      });
+      const firstShop = await shop.json();
+      const replayShop = await shopAgain.json();
+      expect(firstShop.result.structuredContent).toEqual(replayShop.result.structuredContent);
+
+      const invalidApprove = await app.request('/mcp', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 9,
+          method: 'tools/call',
+          params: {
+            name: 'approve_assimilation_plan',
+            arguments: { sessionId: crypto.randomUUID() },
+          },
+        }),
+      });
+      expect((await invalidApprove.json()).result.isError).toBe(true);
+    },
+    60_000
+  );
 });

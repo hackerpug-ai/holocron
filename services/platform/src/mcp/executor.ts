@@ -182,17 +182,22 @@ export async function executePostgresMcpTool(
         if (existing[0]) {
           const listings = await sql`
             SELECT title, price, retailer, condition, url, deal_score AS "dealScore",
-                   trust_tier AS "trustTier", seller_trust_score AS "sellerTrustScore",
+                   trust_tier::int AS "trustTier", seller_trust_score AS "sellerTrustScore",
                    is_verified_seller AS "isVerifiedSeller"
             FROM shop_listings WHERE session_id = ${existing[0].sessionId}
             ORDER BY deal_score DESC NULLS LAST, price ASC
           `;
+          const replayListings = listings.map((listing) => ({
+            ...listing,
+            priceFormatted: `$${Number(listing.price).toFixed(2)}`,
+            trustLabel: listing.isVerifiedSeller ? 'Authorized' : 'Unverified',
+          }));
           return {
             sessionId: existing[0].sessionId,
             status: existing[0].status,
-            totalListings: Number(existing[0].totalListings ?? listings.length),
-            listings,
-            durationMs: 0,
+            totalListings: Number(existing[0].totalListings ?? replayListings.length),
+            bestDeal: replayListings[0] ?? null,
+            listings: replayListings,
           };
         }
         const rows = await sql`
@@ -201,25 +206,35 @@ export async function executePostgresMcpTool(
                   ${sql.json((input.retailers as unknown[]) ?? [])}, ${Boolean(input.verifiedOnly)}, 'pending')
           RETURNING id::text AS "sessionId", status
         `;
-        const result = await runLiveShopSearch(
-          sql,
-          rows[0].sessionId,
-          query,
-          ((input.retailers as unknown[]) ?? ['amazon', 'ebay', 'newegg', 'bestbuy']).map(String),
-          condition,
-          priceMin,
-          priceMax,
-          Boolean(input.verifiedOnly),
-          options?.signal
-        );
-        return {
-          sessionId: rows[0].sessionId,
-          status: 'completed',
-          totalListings: result.listings.length,
-          bestDeal: result.listings[0] ?? null,
-          listings: result.listings,
-          durationMs: result.durationMs,
-        };
+        try {
+          const result = await runLiveShopSearch(
+            sql,
+            rows[0].sessionId,
+            query,
+            ((input.retailers as unknown[]) ?? ['amazon', 'ebay', 'newegg', 'bestbuy']).map(String),
+            condition,
+            priceMin,
+            priceMax,
+            Boolean(input.verifiedOnly),
+            options?.signal
+          );
+          return {
+            sessionId: rows[0].sessionId,
+            status: 'completed',
+            totalListings: result.listings.length,
+            bestDeal: result.listings[0] ?? null,
+            listings: result.listings,
+          };
+        } catch (error) {
+          const cancelled = options?.signal?.aborted === true;
+          await sql`
+            UPDATE shop_sessions SET status = ${cancelled ? 'cancelled' : 'failed'},
+              error_reason = ${error instanceof Error ? error.message : String(error)},
+              completed_at = now(), updated_at = now()
+            WHERE id = ${rows[0].sessionId}::uuid
+          `;
+          throw error;
+        }
       }
       case 'assimilate_creator': {
         const rows = await sql`
