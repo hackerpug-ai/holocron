@@ -1,8 +1,10 @@
 # obs-4 — Deterministic-invariant + threshold CI regression gate with bad-fixture proof
-> Status: Backlog
+> Status: ✅ Completed
+> Commit: 3f3407b39034d3975859724444c98dfe04868c34
+> Reviewer: mastra-reviewer
+> Completed: 2026-07-18T03:11:18Z
 > Sprint: [Sprint 12 — Observability, Telemetry and Eval Gate](../SPRINT.md)
 > Agent: mastra-evals-implementer
-> Reviewer: mastra-reviewer
 > Estimate: 180 min
 > Type: FEATURE
 > Priority: P0
@@ -992,7 +994,8 @@ Verification is evidence-gated: run the specialist gates below, then the reposit
 
 - Preserve the task-level requirement contract and all specialist-proposed evidence obligations through implementation and review.
 
-<!-- REQUIREMENT-CONTRACT v1 -->
+<!-- REQUIREMENT-CONTRACT v1
+-->
 <!--
 {
   "version": "1",
