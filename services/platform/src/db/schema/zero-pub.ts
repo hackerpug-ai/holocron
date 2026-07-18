@@ -174,6 +174,16 @@ export const ZERO_PUB_EXCLUDED_TABLES = [
   'etl_stage',
   'upload_intents',
   'toolbelt_tools',
+  // mission engine is service-internal in Sprint 15
+  'mission_templates',
+  'mission_template_versions',
+  'mission_runs',
+  'mission_stage_runs',
+  'mission_checkpoints',
+  'mission_commits',
+  'mission_events',
+  'mission_steering',
+  'mission_verdicts',
   // media / voice / prefs shells not on the reactive subset
   'imports',
   'file_objects',

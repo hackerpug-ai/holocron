@@ -10,6 +10,7 @@ export * from './evals';
 export * from './evidence';
 export * from './inference';
 export * from './media';
+export * from './mission';
 export * from './others';
 export * from './outbox';
 export * from './queue';
@@ -25,6 +26,7 @@ import * as evals from './evals';
 import * as evidence from './evidence';
 import * as inference from './inference';
 import * as media from './media';
+import * as mission from './mission';
 import * as others from './others';
 import * as outbox from './outbox';
 import * as queue from './queue';
@@ -40,6 +42,7 @@ export const schema = {
   ...analysis,
   ...subscriptions,
   ...media,
+  ...mission,
   ...evidence,
   ...others,
   ...outbox,
@@ -92,6 +95,16 @@ export const DOMAIN_TABLE_NAMES = [
   'entities',
   'relations',
   'beliefs',
+  // mission engine (9)
+  'mission_templates',
+  'mission_template_versions',
+  'mission_runs',
+  'mission_stage_runs',
+  'mission_checkpoints',
+  'mission_commits',
+  'mission_events',
+  'mission_steering',
+  'mission_verdicts',
   // others (22)
   'whats_new_reports',
   'whats_new_workflows',
