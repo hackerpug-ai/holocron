@@ -98,6 +98,6 @@
     "services/platform/evals/rubrics/research-quality_v1.json",
     "services/platform/src/evals/scorers.ts"
   ],
-  "implementation_commit_sha": "ef66761389a3811098cf2cde521d227c97da4613",
-  "commit_sha": "ef66761389a3811098cf2cde521d227c97da4613"
+  "implementation_commit_sha": "aabe9042ba2ccbf8c253e2c912416cefbd8d9c3c",
+  "commit_sha": "aabe9042ba2ccbf8c253e2c912416cefbd8d9c3c"
 }

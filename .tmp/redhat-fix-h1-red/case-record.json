@@ -2,7 +2,7 @@
   "phase": "RED",
   "task_id": "REDHAT-FIX-H1",
   "finding": "H-1",
-  "commit_sha": "ef66761389a3811098cf2cde521d227c97da4613",
+  "commit_sha": "aabe9042ba2ccbf8c253e2c912416cefbd8d9c3c",
   "branch": "task/REDHAT-FIX-H1",
   "note": "Strengthened AC-3 fails: judge score below threshold so failureReason is threshold_regression, not deterministic_invariant_failure",
   "process_status": 1,
@@ -32,5 +32,5 @@
     "PLATFORM_IT": "1",
     "judge": "local fleet (resolveModel('judge'))"
   },
-  "implementation_commit_sha": "ef66761389a3811098cf2cde521d227c97da4613"
+  "implementation_commit_sha": "aabe9042ba2ccbf8c253e2c912416cefbd8d9c3c"
 }
