@@ -1,0 +1,17 @@
+appId: ${MAESTRO_APP_ID}
+---
+# Sprint 20 proven-reference-flow. The app must expose these stable testIDs.
+- launchApp:
+    clearState: true
+- assertVisible:
+    id: reference-chat-screen
+- tapOn:
+    id: reference-chat-input
+- inputText: "Sprint 20 reference-flow ping"
+- tapOn:
+    id: reference-chat-send
+- extendedWaitUntil:
+    visible:
+      id: reference-chat-assistant-message
+    timeout: 90000
+- takeScreenshot: reference-chat-reply
