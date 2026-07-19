@@ -110,6 +110,30 @@ function curlScoped(port: number, bearer: string, outName: string): { code: stri
   return { code, body };
 }
 
+function assertMissionListResponse(result: { code: string; body: string }, context: string): void {
+  // Auth runs before this route: Sprint 15 intentionally returns 501 until mission listing
+  // exists, so accept that documented response (or a future 200) but never an auth failure.
+  expect(result.body, `${context}: body must not be unknown API key`).not.toMatch(
+    /unknown API key/i
+  );
+  expect(['200', '501'], `${context}: unexpected HTTP response; body=${result.body}`).toContain(
+    result.code
+  );
+  if (result.code === '501') {
+    let body: unknown;
+    try {
+      body = JSON.parse(result.body);
+    } catch {
+      throw new Error(`${context}: expected JSON 501 body, got ${result.body}`);
+    }
+    expect(body).toMatchObject({
+      ok: false,
+      code: 'MISSION_LIST_NOT_IMPLEMENTED',
+      errorCode: 'MISSION_LIST_NOT_IMPLEMENTED',
+    });
+  }
+}
+
 describe('RH-1: consolidated secrets applied at service:up (real process + curl)', () => {
   const children: ChildProcess[] = [];
   afterAll(() => {
@@ -173,18 +197,19 @@ describe('RH-1: consolidated secrets applied at service:up (real process + curl)
         );
       }
 
-      const { code, body } = curlScoped(port, rnKey, `it-missions-${port}.json`);
+      const result = curlScoped(port, rnKey, `it-missions-${port}.json`);
       writeFileSync(
         resolve(EVIDENCE_DIR, `it-missions-${port}.meta.txt`),
-        `HTTP_${code}\n${body}\n`,
+        `HTTP_${result.code}\n${result.body}\n`,
         'utf8'
       );
+      assertMissionListResponse(result, 'service:up');
 
-      // Must NOT be the pre-fix failure mode
-      expect(body, `body must not be unknown API key (HTTP ${code})`).not.toMatch(
+      const invalid = curlScoped(port, `${rnKey}-invalid`, `it-missions-invalid-${port}.json`);
+      expect(invalid.code, `invalid API key must be rejected; body=${invalid.body}`).toBe('401');
+      expect(invalid.body, 'invalid API key response must identify unauthorized access').toMatch(
         /unknown API key/i
       );
-      expect(code, `expected HTTP 200 after scoped auth; body=${body}`).toBe('200');
 
       killTree(child);
     },
@@ -226,18 +251,13 @@ describe('RH-1: consolidated secrets applied at service:up (real process + curl)
 
       await waitForHealth(4111, 45_000);
 
-      const { code, body } = curlScoped(4111, rnKey, 'it-stack-missions-body.json');
+      const result = curlScoped(4111, rnKey, 'it-stack-missions-body.json');
       writeFileSync(
         resolve(EVIDENCE_DIR, 'it-stack-missions.meta.txt'),
-        `HTTP_${code}\n${body}\n`,
+        `HTTP_${result.code}\n${result.body}\n`,
         'utf8'
       );
-
-      expect(
-        body,
-        `stack Mastra must not reject secrets.yaml key: HTTP ${code} ${body}`
-      ).not.toMatch(/unknown API key/i);
-      expect(code, `expected HTTP 200; body=${body}`).toBe('200');
+      assertMissionListResponse(result, 'stack up');
     },
     120_000
   );

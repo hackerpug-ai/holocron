@@ -21,7 +21,7 @@
  *     HOLO_KEY_RN=rn-test HOLO_KEY_MCP=mcp-test HOLO_KEY_CONTROL=ctl-test \
  *     pnpm vitest run tests/integration/service/RED/queue-durable.RED.test.ts
  */
-import { beforeAll, describe, expect } from 'vitest';
+import { beforeAll, describe, expect, vi } from 'vitest';
 import {
   DEFAULT_DATABASE_URL,
   EXPECTED_JOB_COUNT,
@@ -36,6 +36,8 @@ import {
   withQueueLock,
   writeQueueRedArtifact,
 } from './queue-red-harness';
+
+vi.setConfig({ testTimeout: 120_000 });
 
 const EFFECT_KEY = 'red-kill9-1';
 

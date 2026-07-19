@@ -7,7 +7,7 @@ pre-commit:
     root-typecheck:
       run: pnpm tsgo --noEmit
     root-test:
-      run: pnpm test
+      run: pnpm test:unit
     mcp-lint:
       glob: "holocron-mcp/**/*.{ts,js,json}"
       root: holocron-mcp

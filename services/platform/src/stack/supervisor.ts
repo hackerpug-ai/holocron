@@ -27,6 +27,7 @@ import {
   probeLaunchdRunning,
   probeMastra,
   probePostgres,
+  probePostgresProcess,
   probeQueueDetail,
   probeSchedulerDetail,
   probeZeroCacheState,
@@ -487,9 +488,14 @@ function holocronLaunchdOrphans(): string[] {
 
 /**
  * True when stack is fully down: no holocron launchd PIDs, Mastra /health fails,
- * and Postgres does not accept connections (pg_isready must fail).
+ * and the configured Holocron Postgres process is gone. Do not use pg_isready
+ * here: an unrelated listener or VM SSH forward may keep the configured port
+ * accepting connections after the Holocron launchd service has stopped.
  */
-function stackIsFullyDown(cfg: StackConfig): {
+function stackIsFullyDown(
+  cfg: StackConfig,
+  mode: 'launchd' | 'direct'
+): {
   down: boolean;
   orphans: string[];
   mastraUp: boolean;
@@ -497,7 +503,11 @@ function stackIsFullyDown(cfg: StackConfig): {
 } {
   const orphans = holocronLaunchdOrphans();
   const mastraUp = probeMastra(cfg).ok;
-  const postgresUp = probePostgres(cfg).ok;
+  const postgresProcess = probePostgresProcess(cfg);
+  const launchdPostgresUp = mode === 'launchd' && probeLaunchdRunning(LAUNCHD_LABELS.postgres).ok;
+  // An unavailable process probe is unknown, not proof of shutdown. Keep the
+  // shutdown check fail-closed while still ignoring unrelated port listeners.
+  const postgresUp = launchdPostgresUp || postgresProcess.ok || postgresProcess.exitCode === null;
   return {
     down: orphans.length === 0 && !mastraUp && !postgresUp,
     orphans,
@@ -540,10 +550,10 @@ export function stackDown(options?: { cfg?: StackConfig; timeoutMs?: number }): 
     messages.push(...stopDirect(cfg));
   }
 
-  // Wait until postgres readiness fails, mastra is down, and launchd PIDs cleared
+  // Wait until the configured Postgres process is gone, Mastra is down, and launchd PIDs cleared
   const deadline = started + timeoutMs;
   while (Date.now() < deadline) {
-    const state = stackIsFullyDown(cfg);
+    const state = stackIsFullyDown(cfg, mode);
     if (state.down) break;
 
     if (mode === 'launchd') {
@@ -564,8 +574,9 @@ export function stackDown(options?: { cfg?: StackConfig; timeoutMs?: number }): 
 
   const report = buildStatus(cfg, mode, messages);
   report.elapsed_ms = Date.now() - started;
-  // After down, "ok" means clean shutdown: no orphans, mastra down, postgres NOT accepting
-  const final = stackIsFullyDown(cfg);
+  // After down, "ok" means clean shutdown: no orphans, mastra down, and the
+  // configured Postgres process is gone (unrelated port listeners are ignored).
+  const final = stackIsFullyDown(cfg, mode);
   report.ok = final.down;
   if (!report.ok) {
     report.messages.push(

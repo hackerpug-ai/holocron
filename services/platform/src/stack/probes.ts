@@ -185,6 +185,43 @@ export function probePostgres(cfg: StackConfig): ProbeResult {
   return last;
 }
 
+/**
+ * Check for the configured Postgres process itself, scoped to this stack's PGDATA.
+ * This deliberately does not use the configured TCP port: another service (for
+ * example, a VM SSH forward) may legitimately be listening on that port.
+ */
+export function probePostgresProcess(cfg: StackConfig): ProbeResult {
+  const escapedPgData = cfg.pgData.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const pattern = `postgres.*-D[[:space:]]*${escapedPgData}`;
+  const r = run('pgrep', ['-f', pattern], { timeoutMs: 5_000 });
+  const pids = r.stdout
+    .split('\n')
+    .map((pid) => pid.trim())
+    .filter((pid) => /^\d+$/.test(pid));
+
+  if (r.status === 0 && pids.length > 0) {
+    return {
+      ok: true,
+      detail: `configured postgres process pid=${pids.join(',')} PGDATA=${cfg.pgData}`,
+      exitCode: 0,
+    };
+  }
+  if (r.status === 1) {
+    return {
+      ok: false,
+      detail: `no configured postgres process (PGDATA=${cfg.pgData})`,
+      exitCode: 1,
+    };
+  }
+  // pgrep errors are not evidence that the service is down. Callers checking
+  // shutdown must treat this as unknown and fail closed.
+  return {
+    ok: false,
+    detail: `unable to verify configured postgres process: ${r.combined.trim().slice(0, 200)}`,
+    exitCode: null,
+  };
+}
+
 /** Real HTTP GET to Mastra /health. */
 export function probeMastra(cfg: StackConfig): ProbeResult {
   const r = run('curl', ['-sf', '--max-time', '5', cfg.mastraHealthUrl], { timeoutMs: 8_000 });

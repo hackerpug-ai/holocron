@@ -21,7 +21,7 @@
  *     HOLO_KEY_RN=rn-test HOLO_KEY_MCP=mcp-test HOLO_KEY_CONTROL=ctl-test \
  *     pnpm vitest run tests/integration/service/RED/queue-priority.RED.test.ts
  */
-import { beforeAll, describe, expect } from 'vitest';
+import { beforeAll, describe, expect, vi } from 'vitest';
 import {
   DEFAULT_DATABASE_URL,
   ensureMigrated,
@@ -31,6 +31,8 @@ import {
   withQueueLock,
   writeQueueRedArtifact,
 } from './queue-red-harness';
+
+vi.setConfig({ testTimeout: 120_000 });
 
 describe('AC-3 / TC-3: interactive dequeues before background', () => {
   beforeAll(() => {

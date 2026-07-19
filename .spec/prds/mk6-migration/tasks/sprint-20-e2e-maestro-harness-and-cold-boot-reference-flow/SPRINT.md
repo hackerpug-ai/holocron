@@ -1,0 +1,106 @@
+---
+sprint: 20
+title: E2E Maestro Harness and Cold-Boot Reference Flow
+sequence: 20
+timeline: Phase 4 — Reference-Flow Gate and Deep Services
+status: In Progress
+prd: ../../README.md
+capability_coverage: CAP-SYNC-01, CAP-CUT-01
+planned_from_roadmap_sha: 6201400e2aabbf15e9457d14c1a9949fd0776e4173a7a760908d91374d38a289
+planned_from_source_sha: 1b7b518f213cd3c09004bec33830305527dcfa42
+source_kind: git-head
+planned_at: 2026-07-18T21:44:20Z
+---
+
+# Sprint 20: E2E Maestro Harness and Cold-Boot Reference Flow
+
+**Sequence:** 20
+**Timeline:** Phase 4 — Reference-Flow Gate and Deep Services
+**Status:** In Progress
+**Proposed by:** react-native-ui-planner + devops-engineer
+**Branch:** `mk6-reference-flow`
+**Opened:** 2026-07-18 — generated JIT by /kb-sprint-tasks-plan
+
+## Progress Note (inherited from ROADMAP.md, 2026-07-18)
+
+The fail-closed Maestro harness, real zero-cache bootstrap, deterministic `holo namespace reset`, Expo Zero schema/provider seam, stable chat selectors, and a Hono/Zero reference-chat route are implemented and committed (`4d56349`, `9109e32`, `23e425b`, `ad63aad`, `6b3ee1a`, `610846b`). The boundary proof passes against real Postgres, the Expo iOS bundle exports, and the reset seeds the deterministic conversation. The cold-boot flow is not yet green: a real Expo development build on the named simulator, real fleet completion, and end-to-end Zero sync artifacts remain unproven; Sprint 20 stays In Progress. This task-file expansion is JIT relative to that in-flight state — implementers should audit existing commits before re-doing completed work.
+
+## Overview
+
+A complete, decisive migration of holocron off Convex — cloud database and all services — onto a Mastra (Bun) + Postgres platform on the tailnet mini, with the RN app resyncing via Zero and all reasoning on the local inference fleet. This sprint is the **proven-reference-flow gate**: per the E2E Harness Constitution, the deep feature/client build (Sprints 22–26) and the cutover (Sprint 29) do not proceed until this thin cold-boot vertical is green on the real Maestro harness. It merges the RN journey/thin-chat half (react-native-ui-planner) with the Maestro runner/CI/go-no-go half (devops-engineer).
+
+## Human Testing Deliverable
+
+An operator can run the Maestro reference flow on a named iOS Simulator and get a cold-boot chat message that round-trips through the fleet to Postgres, syncs back via Zero, with a passing JUnit result plus screenshot/video artifacts; pointing the runner at a missing Expo dev build fails closed instead of a false pass; running `holo namespace reset` before the flow brings the nonprod Postgres/Zero namespace to a known seed.
+
+## Human Testing Gate
+
+**Gate:** An operator running the Maestro reference flow on a named iOS Simulator gets a cold-boot chat message that round-trips through the fleet to Postgres, syncs back via Zero, with a passing JUnit result plus screenshot/video artifacts.
+
+## Test Deliverable
+
+Each step is a real documented operator invocation against the named iOS Simulator / CI substrate (not a mocked suite).
+
+1. Run the Maestro reference flow on the named iOS Simulator — cold boot completes, app opens.
+2. Send a chat message in the flow — specialist runs on the fleet, tool call hits Postgres.
+3. Observe the reply — durable message syncs to the app via Zero, screenshot captures it.
+4. Check CI artifacts — JUnit result, log, video all attached to the e2e run.
+5. Point the runner at a missing Expo dev build — harness fails closed, not a false pass.
+6. Run `holo namespace reset` before the flow — nonprod Postgres/Zero namespace reaches known seed.
+
+## Tasks
+
+| ID | Title | Agent | Estimate |
+|----|-------|-------|----------|
+| S-COLDBOOT-01 | Swap ConvexProvider for the Zero provider in app/_layout.tsx; boot without CONVEX_URL | react-native-ui-implementer | 120 min |
+| S-COLDBOOT-02 | Thin chat vertical: send via Hono command, read durable message via Zero | react-native-ui-implementer | 210 min |
+| S-COLDBOOT-03 | Maestro cold-boot journey + testID audit + deterministic seed content | red-test-generator | 240 min |
+| D03-01 | RED: Maestro harness fails closed without simulator/build/backend | red-test-generator | 60 min |
+| D03-02 | Provision self-hosted macOS runner: named iOS Simulator + Expo dev build pipeline | devops-engineer | 180 min |
+| D03-03 | Build Maestro runner harness (boot, install, execute, capture artifacts) | devops-engineer | 180 min |
+| D03-04 | Extend deterministic seed/reset to the Zero-synced namespace | devops-engineer | 90 min |
+| D03-05 | Implement e2e GitHub Actions workflow for the Maestro lane | ghactions-implementer | 120 min |
+| D03-06 | Review e2e workflow + macOS runner trust boundary | ghactions-reviewer | 60 min |
+| D03-07 | Prove the cold-boot reference flow green on the harness (go/no-go capstone) | devops-engineer | 90 min |
+
+## Source Coverage
+
+- UC-SYNC-01, UC-SYNC-02 (`08-uc-sync.md`) — Zero integration & app rewrite; reactive surfaces
+- T-PLAT-019 (self-hosted runner substrate — provisioned in Sprint 13; this sprint owns the named iOS Simulator + Expo dev build pipeline on that substrate)
+- T-SYNC-001, T-SYNC-003 (`11-e2e-testing-criteria.md`)
+- `10-technical-requirements/10-e2e-testing.md` — real-service e2e lane requirements
+- `10-technical-requirements/11-runtime-contracts.md` — runtime compatibility contract this harness proves against
+- Existing stack: `.e2e/maestro/reference-flow.yaml`, `app/_layout.tsx`, `services/platform/src/cli/holo.ts` (namespace reset), Hono chat-run route, `.github/workflows/`
+- Depends on Sprint 04 (Postgres schema), Sprint 06 (headless stack up/down/status), Sprint 13 (self-hosted runner + Vitest integration harness substrate), Sprint 18 (chat redesign — native tool loop + resumable SSE)
+
+## Capability Coverage
+
+- CAP-SYNC-01: the cold-boot proof that a committed Postgres write reaches the RN client via Zero
+- CAP-CUT-01: the thin client-flip vertical (provider swap, boot without `EXPO_PUBLIC_CONVEX_URL`)
+
+## Blocks
+
+- Sprint 24: Full RN App Rewrite off Convex onto Zero
+- Sprint 25: Reactive Surfaces — SSE Streaming, Mission Progress, Degraded
+- Sprint 26: Image and Voice Upload Lifecycle Client
+- Sprint 29: Cutover — Write Freeze, ETL and Read-Only Soak Flip (the go/no-go before the deep client build + cutover)
+
+## Dependencies
+
+- Depends on: Sprint 04, Sprint 06, Sprint 13, Sprint 18.
+- Task graph: D03-01 (RED fail-closed harness) ∥ S-COLDBOOT-03 (RED Maestro journey) → S-COLDBOOT-01 (provider swap) → S-COLDBOOT-02 (thin chat vertical) ∥ D03-02 (macOS runner + simulator) → D03-03 (Maestro runner harness; needs D03-02) ∥ D03-04 (seed/reset extension) → D03-05 (e2e GH Actions workflow; needs D03-03+D03-04+S-COLDBOOT-02) → D03-06 (review) → D03-07 (capstone go/no-go proof; needs everything green).
+
+## Task Detail Files
+
+Generated by /kb-sprint-tasks-plan on 2026-07-18T21:44:20Z (specialist proposals: red-test-generator, react-native-ui-planner, devops-engineer, ghactions-planner).
+
+- S-COLDBOOT-01-swap-convexprovider-for-zero-provider.md
+- S-COLDBOOT-02-thin-chat-vertical-hono-command-zero-read.md
+- S-COLDBOOT-03-maestro-cold-boot-journey-testid-audit-seed.md
+- D03-01-red-maestro-harness-fails-closed-without-simulator-build-backend.md
+- D03-02-provision-self-hosted-macos-runner-simulator-expo-dev-build.md
+- D03-03-build-maestro-runner-harness-boot-install-execute-capture.md
+- D03-04-extend-deterministic-seed-reset-to-zero-synced-namespace.md
+- D03-05-implement-e2e-github-actions-workflow-maestro-lane.md
+- D03-06-review-e2e-workflow-macos-runner-trust-boundary.md
+- D03-07-prove-cold-boot-reference-flow-green-go-no-go-capstone.md

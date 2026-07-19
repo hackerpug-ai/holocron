@@ -3,7 +3,7 @@
 <!--
   holocron-scheduler — Postgres leased-queue worker (Sprint 11 queue-1)
 
-  Real ProgramArguments (bun scheduler-worker.ts) — NOT /usr/bin/true.
+  Real ProgramArguments (bun scheduler-worker.ts), not a placeholder.
   Disabled=true until operators bootstrap the unit (install-launchd sanity).
   Queue readiness is still measured live from Postgres (pg-boss preferred).
   Install: scripts/install-launchd.sh

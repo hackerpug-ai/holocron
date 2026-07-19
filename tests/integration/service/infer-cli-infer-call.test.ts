@@ -29,6 +29,10 @@ function runInferCall(args: string[]): {
     env: {
       ...process.env,
       DATABASE_URL: DEFAULT_DATABASE_URL,
+      // Bun auto-loads .env in child processes. Preserve only an explicitly
+      // supplied credential so this negative branch cannot contact Anthropic
+      // through an incidental local .env value.
+      ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY ?? '',
       // Budget for escape path (provisional until infer-2 ledger)
       HOLO_ESCAPE_BUDGET_USD: process.env.HOLO_ESCAPE_BUDGET_USD || '10',
     },
