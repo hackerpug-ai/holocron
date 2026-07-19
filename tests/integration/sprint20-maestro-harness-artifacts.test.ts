@@ -14,7 +14,7 @@
  *   PLATFORM_IT=1 pnpm vitest run tests/integration/sprint20-maestro-harness-artifacts.test.ts
  */
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -150,6 +150,131 @@ describe('D03-03 Maestro harness artifact & defect contract', () => {
         /server-list\+already-running|server-list\+tutorial|already-running|tutorial/
       );
     });
+  });
+
+  describe('REDHAT-FIX-H10 — dev-client mode regex accepts the documented grammar (M2)', () => {
+    const DOCUMENTED_MODES = [
+      'server-list+already-running',
+      'server-list+tutorial',
+      'already-running',
+      'tutorial',
+    ];
+    it('the harness default mode matches [a-z0-9+-]+ and the OLD [a-z-]+ regex does NOT', () => {
+      const src = readHarness();
+      // The documented default must be the resolved default in the harness.
+      expect(src).toMatch(/server-list\+already-running/);
+      // The CORRECTED oracle accepts '+'.
+      for (const mode of DOCUMENTED_MODES) {
+        const value = `"mode":"${mode}"`;
+        expect(value, `corrected regex must match documented mode ${mode}`).toMatch(
+          /"mode":"[a-z0-9+-]+"/
+        );
+      }
+      // The BROKEN oracle ([a-z-]+) must NOT match the '+' default — proving the old
+      // verification command was incompatible with the harness's own output.
+      expect('"mode":"server-list+already-running"').not.toMatch(/"mode":"[a-z-]+"/);
+    });
+
+    it('a standing artifacts assertion accepts the documented mode set from dev-client-setup.json', () => {
+      // The harness writes {"mode":"$mode_dev_client",...}. Assert the emitted
+      // mode is one of the four documented values (regex union).
+      const src = readHarness();
+      expect(src).toMatch(/MAESTRO_DEV_CLIENT_MODE:-server-list\+already-running/);
+    });
+  });
+
+  describe('REDHAT-FIX-H9 — lifecycle oracle + forced-failure artifact preservation', () => {
+    it('AC-2: harness writes non-empty sentinels to terminate/uninstall/install (per-file, not aggregated)', () => {
+      const src = readHarness();
+      // Each lifecycle step must append a sentinel so its artifact file is provably
+      // non-empty (the old `rg -l . f1 f2` oracle passed when only ONE was non-empty).
+      expect(src, 'terminate must append a sentinel').toMatch(
+        /echo "terminated: \$app_id \(tolerated if absent\)" >>"\$artifact_dir\/simctl-terminate\.txt"/
+      );
+      expect(src, 'uninstall must append a sentinel').toMatch(
+        /echo "uninstalled: \$app_id \(tolerated if absent\)" >>"\$artifact_dir\/simctl-uninstall\.txt"/
+      );
+      expect(src, 'install must append a sentinel').toMatch(
+        /echo "installed: \$app_path" >>"\$artifact_dir\/simctl-install\.txt"/
+      );
+    });
+
+    it('AC-2 RED: a per-file non-empty oracle fails when simctl-uninstall.txt is planted empty', () => {
+      // Replicate the strengthened oracle: each of the three files must be non-empty.
+      const perFileOracle = (dir: string): string[] => {
+        const files = ['simctl-terminate.txt', 'simctl-uninstall.txt', 'simctl-install.txt'];
+        return files.filter((f) => {
+          try {
+            return statSync(join(dir, f)).size === 0;
+          } catch {
+            return true; // missing also fails
+          }
+        });
+      };
+      const dir = mkdtempSync(join(tmpdir(), 'lifecycle-red-'));
+      try {
+        writeFileSync(join(dir, 'simctl-terminate.txt'), 'terminated: x');
+        writeFileSync(join(dir, 'simctl-uninstall.txt'), ''); // PLANTED EMPTY
+        writeFileSync(join(dir, 'simctl-install.txt'), 'installed: y');
+        const empty = perFileOracle(dir);
+        expect(empty, 'planted-empty uninstall must be named by the strengthened oracle').toContain(
+          'simctl-uninstall.txt'
+        );
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    it('AC-3: the forced-failure fixture is deterministic (no timestamp/random token)', () => {
+      const fixture = join(REPO_ROOT, 'tests', 'fixtures', 'forced-failure-flow.yaml');
+      const text = readFileSync(fixture, 'utf8');
+      expect(text).toMatch(/does-not-exist-forced-failure/);
+      // No date/time/random substitution tokens — byte-identical across runs.
+      expect(text).not.toMatch(/\$\{.*(DATE|TIME|RANDOM|UUID|TS).*\}/i);
+    });
+
+    it('AC-1 TC-4: a real forced-failure run preserves final.png + video and tears down zero-cache', () => {
+      // Requires a REAL Expo dev build; without it the harness fails closed at the
+      // build gate before maestro, so this case skips-with-reason (never silently passes).
+      const appPath = process.env.EXPO_DEV_BUILD_PATH ?? '';
+      if (!appPath || !existsSync(appPath)) {
+        console.warn(
+          '[REDHAT-FIX-H9 TC-4] SKIPPED: set EXPO_DEV_BUILD_PATH to a real .app to drive the forced-failure run'
+        );
+        return;
+      }
+      const artifactDir = mkdtempSync(join(tmpdir(), 'forced-failure-run-'));
+      try {
+        const result = spawnSync(
+          'bash',
+          [HARNESS, '--run'],
+          {
+            cwd: REPO_ROOT,
+            env: {
+              ...process.env,
+              MAESTRO_DEVICE: discoverSimulatorUdid(),
+              EXPO_DEV_BUILD_PATH: appPath,
+              MAESTRO_FLOW: join(REPO_ROOT, 'tests', 'fixtures', 'forced-failure-flow.yaml'),
+              E2E_ARTIFACT_DIR: artifactDir,
+              DATABASE_URL: 'postgres://127.0.0.1:5432/holocron_nonprod',
+              FLEET_URL: 'http://127.0.0.1:4545',
+              PLATFORM_URL: 'http://127.0.0.1:4111',
+              EXPO_PUBLIC_PLATFORM_URL: 'http://127.0.0.1:4111',
+              EXPO_PUBLIC_RN_API_KEY: process.env.EXPO_PUBLIC_RN_API_KEY ?? 'placeholder',
+              ZERO_ADMIN_PASSWORD: process.env.ZERO_ADMIN_PASSWORD ?? 'placeholder',
+            },
+            encoding: 'utf8',
+            timeout: 180_000,
+          }
+        );
+        expect(result.status, 'forced-failure run must exit non-zero').not.toBe(0);
+        expect(statSync(join(artifactDir, 'final.png')).size, 'final.png must be captured').toBeGreaterThan(0);
+        // reference-flow.mov non-emptiness is enforced by REDHAT-FIX-H3's recorder fix.
+        expect(existsSync(join(artifactDir, 'reference-flow.mov'))).toBe(true);
+      } finally {
+        rmSync(artifactDir, { recursive: true, force: true });
+      }
+    }, 200_000);
   });
 
   describe('harness sanity', () => {

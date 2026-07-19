@@ -1,0 +1,44 @@
+{
+  "committed_sha": "e88d7d90389f437ef18a7bc88af5e753907e87db",
+  "generated_at": "2026-07-19T23:10:49Z",
+  "sprint": "sprint-20-e2e-maestro-harness-and-cold-boot-reference-flow",
+  "artifact_dir": "/Users/inference1/Projects/holocron/.worktrees/REDHAT-FIX-H1-H10/.tmp/capstone-green",
+  "steps": [
+    {
+      "n": 1,
+      "text": "Cold-boot Maestro reference flow on named iOS Simulator",
+      "verdict": "PASS",
+      "evidence_path": "/Users/inference1/Projects/holocron/.worktrees/REDHAT-FIX-H1-H10/.tmp/capstone-green/junit.xml"
+    },
+    {
+      "n": 2,
+      "text": "Send chat message through fleet to Postgres",
+      "verdict": "PASS",
+      "evidence_path": "psql chat_messages conversation=00000000-0000-0000-0000-000000000020 count=2"
+    },
+    {
+      "n": 3,
+      "text": "Observe durable Zero-synced reply (screenshot)",
+      "verdict": "PASS",
+      "evidence_path": "/Users/inference1/Projects/holocron/.worktrees/REDHAT-FIX-H1-H10/.tmp/capstone-green/capstone-verdict.json"
+    },
+    {
+      "n": 4,
+      "text": "CI artifacts (JUnit/log/video) attached to e2e run",
+      "verdict": "FAIL",
+      "evidence_path": "ci-provenance.json absent (REDHAT-FIX-H2: dispatch ci-e2e.yml)"
+    },
+    {
+      "n": 5,
+      "text": "Missing Expo build fails closed (not a false pass)",
+      "verdict": "PARTIAL",
+      "evidence_path": "/Users/inference1/Projects/holocron/.worktrees/REDHAT-FIX-H1-H10/tests/integration/sprint20-maestro-harness.test.ts"
+    },
+    {
+      "n": 6,
+      "text": "holo namespace reset brings namespace to known seed",
+      "verdict": "FAIL",
+      "evidence_path": "/Users/inference1/Projects/holocron/.worktrees/REDHAT-FIX-H1-H10/.tmp/capstone-green/namespace-reset.json"
+    }
+  ]
+}

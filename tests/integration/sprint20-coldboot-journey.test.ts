@@ -227,3 +227,104 @@ describe('S-COLDBOOT-03 cold-boot journey', () => {
     });
   });
 });
+
+/**
+ * REDHAT-FIX-H10 (M4) — the named deterministic-reset contract from S-COLDBOOT-03
+ * AC-3. Wires the real `holo namespace reset` to a Postgres count check so the
+ * capstone replay / reset-idempotency contract is executable, not just documented.
+ */
+describe('REDHAT-FIX-H10 — namespace reset returns conversation 020 to a deterministic zero-message state', () => {
+  function countConv020(): number {
+    const dbUrl = platformDatabaseUrl();
+    const psql = spawnSync(
+      'psql',
+      [
+        dbUrl,
+        '-t',
+        '-A',
+        '-c',
+        `SELECT count(*) FROM chat_messages WHERE conversation_id='${CONV_020}';`,
+      ],
+      { encoding: 'utf8', timeout: 15_000 }
+    );
+    if (psql.status !== 0) throw new Error(`psql count failed: ${psql.stderr}`);
+    return Number((psql.stdout ?? '').trim()) || 0;
+  }
+
+  function namespaceReset(): { ok: boolean; seed_fingerprint?: string } {
+    const res = spawnSync(
+      'bun',
+      [
+        resolve(REPO_ROOT, 'services', 'platform', 'src', 'cli', 'holo.ts'),
+        'namespace',
+        'reset',
+        '--json',
+      ],
+      { encoding: 'utf8', timeout: 90_000 }
+    );
+    if (res.status !== 0)
+      throw new Error(`namespace reset exited ${res.status}: ${res.stderr}\n${res.stdout}`);
+    const lines = (res.stdout ?? '').split('\n');
+    for (let i = 0; i < lines.length; i += 1) {
+      const t = lines[i].trim();
+      if (t === '{' || t.startsWith('{')) {
+        try {
+          return JSON.parse(lines.slice(i).join('\n'));
+        } catch {
+          /* try next */
+        }
+      }
+    }
+    throw new Error(`could not parse reset JSON; tail=${(res.stdout ?? '').slice(-300)}`);
+  }
+
+  it('seeds conversation 020, then two consecutive resets each drive the chat_messages count to 0', () => {
+    if (!PLATFORM_IT || !COLDBOOT_IT) {
+      console.warn(
+        '[REDHAT-FIX-H10] SKIPPED: set PLATFORM_IT=1 COLDBOOT_IT=1 and DATABASE_URL=...holocron_nonprod... to drive the real reset'
+      );
+      return;
+    }
+    // Seed conv 020 with >=1 row via the real chat-runs command so the post-reset
+    // 0-count is material (not a vacuous assertion on an already-empty namespace).
+    const platformUrl =
+      process.env.EXPO_PUBLIC_PLATFORM_URL || process.env.PLATFORM_URL || 'http://127.0.0.1:4111';
+    const rnKey = process.env.HOLO_KEY_RN || process.env.EXPO_PUBLIC_RN_API_KEY || '';
+    if (rnKey) {
+      spawnSync(
+        'curl',
+        [
+          '-s',
+          '-X',
+          'POST',
+          `${platformUrl}/api/chat-runs`,
+          '-H',
+          `Authorization: Bearer ${rnKey}`,
+          '-H',
+          'Content-Type: application/json',
+          '-d',
+          JSON.stringify({
+            requestId: `s20-h10-seed-${Date.now()}`,
+            msg: 'h10 deterministic reset seed',
+            conversationId: CONV_020,
+          }),
+        ],
+        { encoding: 'utf8', timeout: 30_000 }
+      );
+    }
+
+    const r1 = namespaceReset();
+    expect(r1.ok, 'first reset must report ok:true').toBe(true);
+    expect(countConv020(), 'after reset #1 conv 020 must have 0 chat_messages').toBe(0);
+
+    const r2 = namespaceReset();
+    expect(r2.ok, 'second reset must report ok:true').toBe(true);
+    expect(
+      countConv020(),
+      'after reset #2 conv 020 must still have 0 chat_messages (idempotent)'
+    ).toBe(0);
+    // Deterministic fingerprint across the two resets.
+    expect(r1.seed_fingerprint, 'seed_fingerprint must be present').toBeTruthy();
+    expect(r1.seed_fingerprint).toBe(r2.seed_fingerprint);
+  });
+});

@@ -89,7 +89,9 @@ xcrun simctl bootstatus "$device" -b >"$artifact_dir/simctl-bootstatus.txt"
 # and uninstall tolerate a not-yet-installed app on a fresh simulator (|| true);
 # install does NOT swallow failures. Each step captures its own artifact file.
 xcrun simctl terminate "$device" "$app_id" >"$artifact_dir/simctl-terminate.txt" 2>&1 || true
+echo "terminated: $app_id (tolerated if absent)" >>"$artifact_dir/simctl-terminate.txt"
 xcrun simctl uninstall "$device" "$app_id" >"$artifact_dir/simctl-uninstall.txt" 2>&1 || true
+echo "uninstalled: $app_id (tolerated if absent)" >>"$artifact_dir/simctl-uninstall.txt"
 xcrun simctl install "$device" "$app_path" >"$artifact_dir/simctl-install.txt" 2>&1
 # `xcrun simctl install` is silent on success; write a sentinel so an empty file
 # is never mistaken for "did not run".
@@ -101,16 +103,21 @@ cat >"$artifact_dir/dev-client-setup.json" <<JSON
 JSON
 
 video="$artifact_dir/reference-flow.mov"
-# `simctl io recordVideo` refuses to overwrite an existing file; remove any prior
-# artifact and pass -f so re-runs into the same artifact dir do not fail.
-rm -f "$video"
+# REDHAT-FIX-H3 — remove any stale recorder sidecar (.mov.sb-*) AND the prior
+# target before recording so a resource-busy conflict cannot leave a sidecar-
+# only result that masquerades as a valid video.
+rm -f "$video" "$artifact_dir"/.mov.sb-* 2>/dev/null || true
 xcrun simctl io "$device" recordVideo --codec=h264 -f "$video" >"$artifact_dir/video.log" 2>&1 &
 video_pid=$!
+video_bad=0
 cleanup() {
   kill "$video_pid" 2>/dev/null || true
   wait "$video_pid" 2>/dev/null || true
   xcrun simctl io "$device" screenshot "$artifact_dir/final.png" >/dev/null 2>&1 || true
   stop_zero
+  # REDHAT-FIX-H3 — post-run sidecar cleanup so the artifact dir holds exactly
+  # the named .mov (+ sibling screenshot/junit artifacts), never a sidecar-only result.
+  rm -f "$artifact_dir"/.mov.sb-* 2>/dev/null || true
 }
 trap cleanup EXIT
 
@@ -122,3 +129,20 @@ maestro --device "$device" test "$flow" \
   -e MAESTRO_APP_ID="$app_id" \
   -e PLATFORM_URL="${EXPO_PUBLIC_PLATFORM_URL:-${PLATFORM_URL}}" \
   -e E2E_ARTIFACT_DIR="$artifact_dir"
+maestro_rc=$?
+# REDHAT-FIX-H3 — recorder-failure surfacing. If the exact reference-flow.mov
+# is missing/empty OR the recorder logged a known failure, record a named reason
+# and force a non-zero exit so a sidecar-only / empty-video result can never be
+# mistaken for a green run (the capstone verifier also rejects an empty .mov).
+if [[ ! -s "$video" ]]; then
+  echo "reference-flow.mov missing or empty after run (recorder did not finalize)" >>"$artifact_dir/video.log"
+  video_bad=1
+fi
+if grep -qiE "Host recording is already in progress|Resource busy|simctl io.*failed" "$artifact_dir/video.log" 2>/dev/null; then
+  echo "recorder failure detected in video.log" >>"$artifact_dir/video.log"
+  video_bad=1
+fi
+if [[ "$video_bad" == "1" ]]; then
+  exit 1
+fi
+exit "$maestro_rc"
