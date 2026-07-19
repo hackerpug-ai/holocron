@@ -14,7 +14,10 @@ artifact_dir="${E2E_ARTIFACT_DIR:-$repo_root/.tmp/maestro-reference-flow}"
 flow="${MAESTRO_FLOW:-$repo_root/.e2e/maestro/reference-flow.yaml}"
 device="${MAESTRO_DEVICE:-}"
 app_path="${EXPO_DEV_BUILD_PATH:-}"
-app_id="${MAESTRO_APP_ID:-com.holocron.app}"
+app_id="${MAESTRO_APP_ID:-org.name.holocron}"
+# AC-3 — dev-client session mode (one of tutorial / server-list+tutorial /
+# server-list+already-running / already-running). Override via the env var.
+mode_dev_client="${MAESTRO_DEV_CLIENT_MODE:-server-list+already-running}"
 mkdir -p "$artifact_dir"
 
 fail() {
@@ -34,7 +37,10 @@ command -v maestro >/dev/null 2>&1 || fail "maestro CLI is not installed"
 command -v xcrun >/dev/null 2>&1 || fail "xcrun is not installed"
 [[ -f "$flow" ]] || fail "Maestro flow does not exist: $flow"
 [[ -n "$app_path" ]] || fail "EXPO_DEV_BUILD_PATH is required; refusing Expo Go or a missing build"
-[[ -f "$app_path" ]] || fail "Expo development build does not exist: $app_path"
+# An iOS .app is a DIRECTORY bundle (Mach-O executable + Info.plist + resources),
+# not a single file. A strict directory check is the correct contract for an app
+# bundle and rejects accidental file paths.
+[[ -d "$app_path" ]] || fail "Expo development build does not exist: $app_path"
 
 simulators="$(xcrun simctl list devices available)"
 grep -Fq "$device" <<<"$simulators" || fail "named simulator is unavailable: $device"
@@ -79,10 +85,26 @@ if [[ "$booted" != "1" ]]; then
   xcrun simctl boot "$device" 2>"$artifact_dir/simctl-boot.stderr" || true
 fi
 xcrun simctl bootstatus "$device" -b >"$artifact_dir/simctl-bootstatus.txt"
-xcrun simctl install "$device" "$app_path" >"$artifact_dir/simctl-install.txt"
+# AC-2 — fresh reinstall every run so a stale build cannot false-pass. terminate
+# and uninstall tolerate a not-yet-installed app on a fresh simulator (|| true);
+# install does NOT swallow failures. Each step captures its own artifact file.
+xcrun simctl terminate "$device" "$app_id" >"$artifact_dir/simctl-terminate.txt" 2>&1 || true
+xcrun simctl uninstall "$device" "$app_id" >"$artifact_dir/simctl-uninstall.txt" 2>&1 || true
+xcrun simctl install "$device" "$app_path" >"$artifact_dir/simctl-install.txt" 2>&1
+# `xcrun simctl install` is silent on success; write a sentinel so an empty file
+# is never mistaken for "did not run".
+echo "installed: $app_path" >>"$artifact_dir/simctl-install.txt"
+
+# AC-3 — record the dev-client session mode used for this run.
+cat >"$artifact_dir/dev-client-setup.json" <<JSON
+{"mode":"$mode_dev_client","app_id":"$app_id","flow":"$flow","captured_at":"$(date -u +%Y-%m-%dT%H:%M:%SZ)"}
+JSON
 
 video="$artifact_dir/reference-flow.mov"
-xcrun simctl io "$device" recordVideo --codec=h264 "$video" >"$artifact_dir/video.log" 2>&1 &
+# `simctl io recordVideo` refuses to overwrite an existing file; remove any prior
+# artifact and pass -f so re-runs into the same artifact dir do not fail.
+rm -f "$video"
+xcrun simctl io "$device" recordVideo --codec=h264 -f "$video" >"$artifact_dir/video.log" 2>&1 &
 video_pid=$!
 cleanup() {
   kill "$video_pid" 2>/dev/null || true
