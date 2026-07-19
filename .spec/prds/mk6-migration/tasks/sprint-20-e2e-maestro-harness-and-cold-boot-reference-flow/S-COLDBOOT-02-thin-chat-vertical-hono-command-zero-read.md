@@ -1,5 +1,5 @@
 # S-COLDBOOT-02 — Prove the thin chat vertical cold-boot round-trip: send via the Hono /api/chat-runs command, read the durable message back via a Zero subscription against real Postgres + fleet
-> Status: Backlog
+> Status: Under Review
 > Sprint: [Sprint 20 — E2E Maestro Harness and Cold-Boot Reference Flow](./SPRINT.md)
 > Agent: react-native-ui-implementer
 > Estimate: 210 min
