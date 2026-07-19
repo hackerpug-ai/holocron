@@ -52,6 +52,10 @@ export default defineConfig({
       'services/platform/tests/integration/sprint19-mcp-rehost.test.ts',
       // Sprint 20 — Hono chat writes to the Zero-published conversation surface
       'services/platform/tests/integration/sprint20-chat-zero-boundary.test.ts',
+      // Sprint 20 REDHAT-FIX-H5 — durable agent row read via live zero-cache (CAP-SYNC-01)
+      'services/platform/tests/integration/sprint20-reference-zero-durable.test.ts',
+      // Sprint 20 REDHAT-FIX-H7 — live zero-cache namespace reset/read + fingerprint
+      'services/platform/tests/integration/nonprod-namespace-zero-sync.test.ts',
     ],
     setupFiles: ['tests/setup/react-native.ts'],
     exclude: ['node_modules', 'dist', '.expo'],

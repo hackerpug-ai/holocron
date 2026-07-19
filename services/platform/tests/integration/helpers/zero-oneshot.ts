@@ -85,8 +85,9 @@ export async function readConversationViaZero(opts: ZeroReadOptions): Promise<Ze
     let settled = false;
     const finish = (result: ZeroReadResult) => {
       if (settled) return;
-      settled = true;
+ settled = true;
       clearTimeout(timer);
+      process.off('uncaughtException', uncaughtHandler);
       try {
         view.destroy();
       } catch {
@@ -94,6 +95,14 @@ export async function readConversationViaZero(opts: ZeroReadOptions): Promise<Ze
       }
       resolve(result);
     };
+
+    // The zero client's connection layer can EMIT an uncaught exception when the
+    // endpoint is unreachable (e.g. a closed port for the AC-2 negative control).
+    // Route those into a clean red result instead of crashing the test process.
+    const uncaughtHandler = (err: unknown) => {
+      finish({ ...base, error: `zero client connection error: ${String(err)}` });
+    };
+    process.once('uncaughtException', uncaughtHandler);
 
     const timer = setTimeout(() => {
       finish({ ...base, timedOut: true, error: `timeout after ${timeoutMs}ms` });
