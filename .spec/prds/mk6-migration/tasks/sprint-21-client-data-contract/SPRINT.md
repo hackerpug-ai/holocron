@@ -2,7 +2,7 @@
 sequence: 21
 timeline: Phase 4 — Reference-Flow Gate and Deep Services
 status: Planned
-planned_from_roadmap_sha: d545cdc7aa1784040a1e56d0e0741d0fe4c0ea57b4b57ca0aa0a4f4ece8cb0e6
+planned_from_roadmap_sha: 5b1ca289d800c1583b4becdd7ac456ad2c9d04a77525b29bef2cf45dd86701ce
 planned_from_source_sha: 05f272fdb564f7e9241a934f7699f276c0de3421
 planned_at: 2026-07-19T06:14:42Z
 ---
