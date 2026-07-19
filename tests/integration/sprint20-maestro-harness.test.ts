@@ -2,7 +2,9 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
+
+const PLATFORM_IT = process.env.PLATFORM_IT === '1';
 
 const harness = 'scripts/e2e/run-maestro-reference-flow.sh';
 
@@ -36,6 +38,14 @@ function runHarness(args: string[], env: NodeJS.ProcessEnv): ReturnType<typeof s
 }
 
 describe('Sprint 20 Maestro harness', () => {
+  beforeAll(() => {
+    if (!PLATFORM_IT) {
+      throw new Error(
+        'PLATFORM_IT=1 required for Maestro harness fail-closed lane — refusing skip-to-green'
+      );
+    }
+  });
+
   it('fails closed when the named simulator contract is absent', () => {
     const result = runHarness(['--check'], {
       ...process.env,
