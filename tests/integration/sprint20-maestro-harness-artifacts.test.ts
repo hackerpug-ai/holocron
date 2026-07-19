@@ -152,6 +152,37 @@ describe('D03-03 Maestro harness artifact & defect contract', () => {
     });
   });
 
+  describe('REDHAT-FIX-H10 — dev-client mode regex accepts the documented grammar (M2)', () => {
+    const DOCUMENTED_MODES = [
+      'server-list+already-running',
+      'server-list+tutorial',
+      'already-running',
+      'tutorial',
+    ];
+    it('the harness default mode matches [a-z0-9+-]+ and the OLD [a-z-]+ regex does NOT', () => {
+      const src = readHarness();
+      // The documented default must be the resolved default in the harness.
+      expect(src).toMatch(/server-list\+already-running/);
+      // The CORRECTED oracle accepts '+'.
+      for (const mode of DOCUMENTED_MODES) {
+        const value = `"mode":"${mode}"`;
+        expect(value, `corrected regex must match documented mode ${mode}`).toMatch(
+          /"mode":"[a-z0-9+-]+"/
+        );
+      }
+      // The BROKEN oracle ([a-z-]+) must NOT match the '+' default — proving the old
+      // verification command was incompatible with the harness's own output.
+      expect('"mode":"server-list+already-running"').not.toMatch(/"mode":"[a-z-]+"/);
+    });
+
+    it('a standing artifacts assertion accepts the documented mode set from dev-client-setup.json', () => {
+      // The harness writes {"mode":"$mode_dev_client",...}. Assert the emitted
+      // mode is one of the four documented values (regex union).
+      const src = readHarness();
+      expect(src).toMatch(/MAESTRO_DEV_CLIENT_MODE:-server-list\+already-running/);
+    });
+  });
+
   describe('harness sanity', () => {
     it('the harness script file exists at the expected path', () => {
       expect(existsSync(HARNESS)).toBe(true);

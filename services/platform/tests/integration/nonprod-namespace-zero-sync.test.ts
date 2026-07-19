@@ -55,10 +55,18 @@ function holoJson(cmd: string[]): any {
       lastErr = err;
     }
   }
-  throw new Error(`holo ${cmd.join(' ')} JSON parse failed: ${String(lastErr)}; tail=${out.slice(-300)}`);
+  throw new Error(
+    `holo ${cmd.join(' ')} JSON parse failed: ${String(lastErr)}; tail=${out.slice(-300)}`
+  );
 }
 
-function readZero(): { ok: boolean; rowCount: number; conversationPresent: boolean; conversationTitle: string | null; error?: string } {
+function readZero(): {
+  ok: boolean;
+  rowCount: number;
+  conversationPresent: boolean;
+  conversationTitle: string | null;
+  error?: string;
+} {
   const res = spawnSync('bun', [ZERO_READER], {
     env: { ...process.env, ZERO_CACHE_URL: ZERO_URL, REFERENCE_CONVERSATION_ID: CONV_ID },
     encoding: 'utf8',
@@ -66,13 +74,30 @@ function readZero(): { ok: boolean; rowCount: number; conversationPresent: boole
   });
   const lines = (res.stdout ?? '').split('\n').filter((l) => l.startsWith('{'));
   const raw = lines[lines.length - 1] ?? '';
-  if (!raw) return { ok: false, rowCount: -1, conversationPresent: false, conversationTitle: null, error: `no JSON (exit=${res.status}) ${(res.stderr ?? '').slice(-200)}` };
+  if (!raw)
+    return {
+      ok: false,
+      rowCount: -1,
+      conversationPresent: false,
+      conversationTitle: null,
+      error: `no JSON (exit=${res.status}) ${(res.stderr ?? '').slice(-200)}`,
+    };
   const p = JSON.parse(raw);
-  return { ok: !!p.ok, rowCount: p.rowCount ?? 0, conversationPresent: !!p.conversationPresent, conversationTitle: p.conversationTitle ?? null, error: p.error };
+  return {
+    ok: !!p.ok,
+    rowCount: p.rowCount ?? 0,
+    conversationPresent: !!p.conversationPresent,
+    conversationTitle: p.conversationTitle ?? null,
+    error: p.error,
+  };
 }
 
 function psqlCount(convId: string): number {
-  const out = execFileSync('psql', [DB, '-t', '-A', '-c', `select count(*) from chat_messages where conversation_id='${convId}';`], { encoding: 'utf8' }).trim();
+  const out = execFileSync(
+    'psql',
+    [DB, '-t', '-A', '-c', `select count(*) from chat_messages where conversation_id='${convId}';`],
+    { encoding: 'utf8' }
+  ).trim();
   return Number(out) || 0;
 }
 
@@ -82,14 +107,33 @@ describe.skipIf(!canRun)('REDHAT-FIX-H7 — live zero-cache namespace reset/read
     // (Best-effort; if seeding is unavailable, the 0-count assertion still holds.)
     try {
       const rnKey = process.env.HOLO_KEY_RN || process.env.EXPO_PUBLIC_RN_API_KEY || '';
-      const platformUrl = process.env.EXPO_PUBLIC_PLATFORM_URL || process.env.PLATFORM_URL || 'http://127.0.0.1:4111';
+      const platformUrl =
+        process.env.EXPO_PUBLIC_PLATFORM_URL || process.env.PLATFORM_URL || 'http://127.0.0.1:4111';
       if (rnKey) {
-        spawnSync('curl', ['-s', '-X', 'POST', `${platformUrl}/api/chat-runs`,
-          '-H', `Authorization: Bearer ${rnKey}`, '-H', 'Content-Type: application/json',
-          '-d', JSON.stringify({ requestId: `s20-h7-seed-${Date.now()}`, msg: 'h7 reset seed', conversationId: CONV_ID })],
-          { encoding: 'utf8', timeout: 30_000 });
+        spawnSync(
+          'curl',
+          [
+            '-s',
+            '-X',
+            'POST',
+            `${platformUrl}/api/chat-runs`,
+            '-H',
+            `Authorization: Bearer ${rnKey}`,
+            '-H',
+            'Content-Type: application/json',
+            '-d',
+            JSON.stringify({
+              requestId: `s20-h7-seed-${Date.now()}`,
+              msg: 'h7 reset seed',
+              conversationId: CONV_ID,
+            }),
+          ],
+          { encoding: 'utf8', timeout: 30_000 }
+        );
       }
-    } catch { /* seeding is best-effort */ }
+    } catch {
+      /* seeding is best-effort */
+    }
 
     // Run the real namespace reset (truncates + reseeds conversation 020).
     const reset = holoJson(['namespace', 'reset', '--json']);
@@ -103,9 +147,17 @@ describe.skipIf(!canRun)('REDHAT-FIX-H7 — live zero-cache namespace reset/read
       read = readZero();
     }
     expect(read.ok, `zero read failed: ${read.error}`).toBe(true);
-    expect(read.rowCount, 'zero-cache must return ZERO chat_messages after reset (live replication path)').toBe(0);
-    expect(read.conversationPresent, 'zero-cache must return the reference conversation row').toBe(true);
-    expect(read.conversationTitle, 'reference conversation title must be the seeded Sprint 20 title').toBe('Sprint 20 reference conversation');
+    expect(
+      read.rowCount,
+      'zero-cache must return ZERO chat_messages after reset (live replication path)'
+    ).toBe(0);
+    expect(read.conversationPresent, 'zero-cache must return the reference conversation row').toBe(
+      true
+    );
+    expect(
+      read.conversationTitle,
+      'reference conversation title must be the seeded Sprint 20 title'
+    ).toBe('Sprint 20 reference conversation');
   }, 120_000);
 
   it('AC-2: two consecutive resets emit an identical seed fingerprint', () => {
@@ -114,7 +166,10 @@ describe.skipIf(!canRun)('REDHAT-FIX-H7 — live zero-cache namespace reset/read
     expect(r1.ok && r2.ok).toBe(true);
     expect(typeof r1.seed_fingerprint).toBe('string');
     expect(r1.seed_fingerprint.length).toBe(32); // md5 hex
-    expect(r1.seed_fingerprint, 'consecutive resets must produce an identical deterministic fingerprint').toBe(r2.seed_fingerprint);
+    expect(
+      r1.seed_fingerprint,
+      'consecutive resets must produce an identical deterministic fingerprint'
+    ).toBe(r2.seed_fingerprint);
     expect(psqlCount(CONV_ID)).toBe(0);
   }, 120_000);
 
@@ -131,8 +186,14 @@ describe.skipIf(!canRun)('REDHAT-FIX-H7 — live zero-cache namespace reset/read
 
 describe.skipIf(canRun)('REDHAT-FIX-H7 (skipped: no live substrate)', () => {
   it('skips with reason when PLATFORM_IT=1 + DATABASE_URL=...holocron_nonprod... are unset', () => {
-    const missing = [!PLATFORM_IT && 'PLATFORM_IT=1', !HAS_NONPROD && 'DATABASE_URL=...holocron_nonprod...', 'ZERO_ADMIN_PASSWORD'].filter(Boolean);
-    console.warn(`[REDHAT-FIX-H7] SKIPPED: set ${missing.join(' ')} to drive the live zero-cache reset proof`);
+    const missing = [
+      !PLATFORM_IT && 'PLATFORM_IT=1',
+      !HAS_NONPROD && 'DATABASE_URL=...holocron_nonprod...',
+      'ZERO_ADMIN_PASSWORD',
+    ].filter(Boolean);
+    console.warn(
+      `[REDHAT-FIX-H7] SKIPPED: set ${missing.join(' ')} to drive the live zero-cache reset proof`
+    );
     expect(canRun).toBe(false);
   });
 });
