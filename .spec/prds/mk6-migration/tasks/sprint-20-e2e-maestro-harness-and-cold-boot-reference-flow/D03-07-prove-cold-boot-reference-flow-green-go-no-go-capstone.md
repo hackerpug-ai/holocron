@@ -1,5 +1,6 @@
 # D03-07 — Prove the cold-boot reference flow green on the harness (go/no-go capstone)
-> Status: Backlog
+> Status: ✅ Completed
+> Completed: 2026-07-19T09:03:02Z
 > Sprint: [Sprint 20 — E2E Maestro Harness and Cold-Boot Reference Flow](./SPRINT.md)
 > Agent: devops-engineer
 > Estimate: 90 min

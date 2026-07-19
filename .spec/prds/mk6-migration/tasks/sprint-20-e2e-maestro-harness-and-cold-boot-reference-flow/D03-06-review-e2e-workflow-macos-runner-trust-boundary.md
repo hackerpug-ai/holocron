@@ -1,5 +1,6 @@
 # D03-06 — Review e2e workflow + macOS runner trust boundary
-> Status: Backlog
+> Status: ✅ Completed
+> Completed: 2026-07-19T09:03:02Z
 > Sprint: [Sprint 20 — E2E Maestro Harness and Cold-Boot Reference Flow](./SPRINT.md)
 > Agent: ghactions-reviewer
 > Estimate: 60 min

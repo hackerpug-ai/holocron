@@ -1,5 +1,6 @@
 # D03-02 — Provision self-hosted macOS runner: named iOS Simulator + Expo dev build pipeline
-> Status: Backlog
+> Status: ✅ Completed
+> Completed: 2026-07-19T09:03:02Z
 > Sprint: [Sprint 20 — E2E Maestro Harness and Cold-Boot Reference Flow](./SPRINT.md)
 > Agent: devops-engineer
 > Estimate: 180 min
