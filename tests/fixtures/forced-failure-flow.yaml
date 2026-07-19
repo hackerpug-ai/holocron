@@ -1,0 +1,16 @@
+# REDHAT-FIX-H9 — deterministic forced-failure Maestro flow.
+#
+# Asserts on a testID that does NOT exist in the real app, so `maestro test`
+# exits non-zero with an element-not-found failure. The harness must STILL
+# capture final.png + reference-flow.mov and tear down zero-cache (TC-4).
+#
+# This file is byte-identical across runs: no timestamp, no random token.
+appId: ${MAESTRO_APP_ID}
+---
+- launchApp:
+    app: ${MAESTRO_APP_ID}
+    clearState: true
+# A testID that never exists in the reference chat — forces a mid-run failure.
+- assertVisible:
+    id: does-not-exist-forced-failure
+    optional: false

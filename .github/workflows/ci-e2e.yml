@@ -75,7 +75,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
-        run: bun services/platform/src/cli/holo.ts ci runner:status --json
+        run: bun services/platform/src/cli/holo.ts ci runner:status --json --lane e2e
 
       - name: Check real device, build, and backend prerequisites
         run: scripts/e2e/run-maestro-reference-flow.sh --check
