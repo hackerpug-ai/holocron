@@ -19,7 +19,7 @@ const itLive = PLATFORM_IT ? it : it.skip;
 
 function runHolo(
   args: string[],
-  env: NodeJS.ProcessEnv = {}
+  env: Partial<NodeJS.ProcessEnv> = {}
 ): { status: number | null; stdout: string; stderr: string } {
   const r = spawnSync('bun', [HOLO, ...args], {
     cwd: REPO,
