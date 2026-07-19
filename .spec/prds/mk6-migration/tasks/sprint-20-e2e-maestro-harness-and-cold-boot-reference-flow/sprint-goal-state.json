@@ -1,0 +1,161 @@
+{
+  "schema_version": 1,
+  "sprint_id": "sprint-20-e2e-maestro-harness-and-cold-boot-reference-flow",
+  "sprint_name": "Sprint 20: E2E Maestro Harness and Cold-Boot Reference Flow",
+  "generated_at": "2026-07-19T03:42:20Z",
+  "generated_by": "kb-run-sprint@run-stage",
+  "run_stage": {
+    "harness": "opencode",
+    "model": "zai-coding-plan/glm-5.2",
+    "tier": "subscription-failover",
+    "parent_run_id": "prd-20260716T192354Z-14461843",
+    "surface_id": "4AA5E60F-2B15-4C6E-ABDA-B87418FB545E",
+    "conductor_surface_id": "5DD37A99-5747-4262-A5EF-F762564A3313"
+  },
+  "protected_branch": "main",
+  "protected_branch_sha": "3e0bb62aa5f676d711e6b0b596ab32b26980c731",
+  "goal": {
+    "text": "An operator running the Maestro reference flow on a named iOS Simulator gets a cold-boot chat message that round-trips through the fleet to Postgres, syncs back via Zero, with a passing JUnit result plus screenshot/video artifacts.",
+    "condition_text": "(1) All sprint tasks completed per ACs; AND (2) human tests verified by E2E; AND (3) all completed work consolidated on the protected trunk (0 orphan branches); AND (4) status_files parity"
+  },
+  "verdict": "blocked",
+  "met": false,
+  "layers": {
+    "tasks": {
+      "met": false,
+      "satisfied": 0,
+      "total": 10,
+      "reason": "0 of 10 tasks complete-and-landed on main. S-COLDBOOT-01 has 2 of 3 ACs satisfied in branch task/S-COLDBOOT-01 (commit 97338b7, not reviewed/landed). D03-01 and D03-02 have unreviewed commits on their branches. Seven tasks have no code on a branch.",
+      "per_task": [
+        {"id": "S-COLDBOOT-01", "phase": "in_progress", "branch": "task/S-COLDBOOT-01", "commit": "97338b7", "acs": {"AC-1": "blocked", "AC-2": "satisfied", "AC-3": "satisfied"}, "reviewed": false, "landed": false, "blocker": "AC-1 requires real Maestro cold-boot e2e on a named iOS Simulator with EXPO_PUBLIC_CONVEX_URL unset; needs secrets not provisioned in run-stage env"},
+        {"id": "S-COLDBOOT-02", "phase": "pending", "branch": null, "commit": null, "acs": {}, "reviewed": false, "landed": false, "blocker": "Thin-chat vertical round-trip not yet exercised against real services; depends on S-COLDBOOT-01 + real FLEET_URL + real chat-runs auth"},
+        {"id": "S-COLDBOOT-03", "phase": "partially-on-main", "branch": null, "commit": null, "acs": {}, "reviewed": false, "landed": false, "notes": "Stable testIDs (chat-screen, chat-input-field, chat-input-send-button, chat-assistant-message) verified present in source; flow YAML at .e2e/maestro/reference-flow.yaml; deterministic-seed content requires the namespace reset path"},
+        {"id": "D03-01", "phase": "in_progress", "branch": "task/D03-01", "commit": "bd7ad0c", "acs": {}, "reviewed": false, "landed": false, "notes": "Extended tests for fail-closed harness (build/backend/MAESTRO_DEVICE). Existing baseline test on main is fragile under bun-test spawnSync stderr capture — likely a test-runner quirk, not a real harness defect (direct bash invocation confirms exit 1 + correct stderr)"},
+        {"id": "D03-02", "phase": "in_progress", "branch": "task/D03-02", "commit": "b2c6be4", "acs": {}, "reviewed": false, "landed": false, "notes": "macOS runner lane (--lane e2e fail-closed simctl + EXPO_DEV_BUILD_PATH probes) + provision-ios-simulator.sh + build-expo-dev-client.sh. A real Expo dev build exists at .worktrees/D03-02/.tmp/e2e/expo-dev-client/holocron.app (134M, signed, bundle id org.name.holocron)"},
+        {"id": "D03-03", "phase": "on-main-unverified", "branch": null, "commit": "b86e77a", "acs": {}, "reviewed": false, "landed": true, "notes": "scripts/e2e/run-maestro-reference-flow.sh harness exists on main (fail-closed); --check probe enumerates exact missing preconditions; --run path NOT verified end-to-end against real services"},
+        {"id": "D03-04", "phase": "on-main-unverified", "branch": "task/D03-04", "commit": null, "acs": {}, "reviewed": false, "landed": false, "notes": "holo namespace reset command exists on main (98db192); branch task/D03-04 is empty at main HEAD; AC verification against holocron_nonprod requires real zero-cache admin + DB seeding run"},
+        {"id": "D03-05", "phase": "on-main-unverified", "branch": null, "commit": null, "acs": {}, "reviewed": false, "landed": true, "notes": ".github/workflows/ci-e2e.yml workflow exists on main; runs on self-hosted holocron/e2e runner; not executed in this run (requires GHA self-hosted runner online + secrets in GH)"},
+        {"id": "D03-06", "phase": "pending", "branch": null, "commit": null, "acs": {}, "reviewed": false, "landed": false, "blocker": "Review task; requires ghactions-reviewer dispatch (specialist not dispatched in this run-stage cycle)"},
+        {"id": "D03-07", "phase": "pending", "branch": null, "commit": null, "acs": {}, "reviewed": false, "landed": false, "blocker": "Capstone go/no-go proof; transitively blocked on all upstream tasks + real Maestro green"}
+      ]
+    },
+    "gate": {
+      "met": false,
+      "reason": "No gate-verification.json exists; the gate verifier was not invoked because preconditions (all tasks complete) are not met"
+    },
+    "e2e": {
+      "met": false,
+      "framework": "maestro",
+      "framework_detected": true,
+      "config_path": ".e2e/maestro/reference-flow.yaml",
+      "reason": "No e2e-verification.json exists; Maestro reference-flow run not executed against real services"
+    },
+    "human_test": {
+      "met": false,
+      "reason": "No fresh gate-results.json verdict:pass from /kb-run-human-tests. The 6 documented Human Testing Gate steps all require real Maestro on a named iOS Simulator against real Postgres+Zero+fleet+platform — preconditions not met (see blockers)",
+      "steps_total": 6,
+      "steps_executed": 0,
+      "steps_passed": 0,
+      "steps": [
+        {"n": 1, "text": "Run the Maestro reference flow on the named iOS Simulator — cold boot completes, app opens.", "status": "blocked", "blocker": "Requires real MAESTRO_DEVICE + MAESTRO_APP_ID + EXPO_DEV_BUILD_PATH + DATABASE_URL=.../holocron_nonprod + FLEET_URL + PLATFORM_URL + EXPO_PUBLIC_RN_API_KEY + ZERO_ADMIN_PASSWORD. Local inventory: iPhone 17 booted; holocron_nonprod DB exists; Expo dev build exists at .worktrees/D03-02/.tmp/e2e/expo-dev-client/holocron.app (bundle id org.name.holocron, NOT default com.holocron.app); platform service running on :4111; secrets.yaml has placeholder values for HOLO_KEY_RN/FLEET_KEY etc."},
+        {"n": 2, "text": "Send a chat message in the flow — specialist runs on the fleet, tool call hits Postgres.", "status": "blocked", "blocker": "Requires real FLEET_URL pointing at a live inference endpoint + real EXPO_PUBLIC_RN_API_KEY scoped key + fleet actually responding to the chat-runs command with a real LLM round-trip"},
+        {"n": 3, "text": "Observe the reply — durable message syncs to the app via Zero, screenshot captures it.", "status": "blocked", "blocker": "Requires real zero-cache running with real ZERO_ADMIN_PASSWORD against holocron_nonprod cvr/change DBs; depends on step 2 producing an agent message"},
+        {"n": 4, "text": "Check CI artifacts — JUnit result, log, video all attached to the e2e run.", "status": "blocked", "blocker": "Requires GHA self-hosted runner [self-hosted, holocron, e2e] online + GitHub secrets (NONPROD_DATABASE_URL, FLEET_URL, PLATFORM_URL, RN_API_KEY, ZERO_ADMIN_PASSWORD, MAESTRO_DEVICE vars) populated"},
+        {"n": 5, "text": "Point the runner at a missing Expo dev build — harness fails closed, not a false pass.", "status": "blocked", "blocker": "Requires the harness --check/--run path exercised with a real baseline first; current env cannot run --run"},
+        {"n": 6, "text": "Run holo namespace reset before the flow — nonprod Postgres/Zero namespace reaches known seed.", "status": "blocked", "blocker": "Requires real ZERO_ADMIN_PASSWORD + zero-cache running + DATABASE_URL=.../holocron_nonprod; holo namespace reset CLI exists on main but its end-to-end AC verification was not run"}      ]
+    },
+    "trunk_consolidation": {
+      "met": false,
+      "orphan_branches_with_commits": ["task/D03-01 (bd7ad0c)", "task/D03-02 (b2c6be4)", "task/S-COLDBOOT-01 (97338b7)"],
+      "main_sha": "3e0bb62aa5f676d711e6b0b596ab32b26980c731",
+      "reason": "Three task branches carry unreviewed/unlanded commits; per TRUNK-CONSOLIDATION-INVARIANT a completed task is not 'completed' until its commit is an ancestor of main. None of these have been reviewed."
+    },
+    "status_files": {
+      "met": false,
+      "parity": false,
+      "reason": "sync-status.py audit cannot reach parity=true while tracker truth has zero completed tasks and 9 of 10 task files still read '> Status: Backlog'. S-COLDBOOT-01 file updated to '> Status: 🟡 In Progress' with commit 97338b7. The other 9 tasks accurately reflect not-started state.",
+      "files_updated_this_cycle": [
+        "S-COLDBOOT-01-swap-convexprovider-for-zero-provider.md (-> In Progress, commit 97338b7)",
+        "SPRINT.md (-> In Progress, progress 0/10)",
+        "ROADMAP.md (sprint-20 row -> In Progress)"
+      ]
+    }
+  },
+  "blockers": [
+    {
+      "id": "B1",
+      "severity": "high",
+      "category": "missing-secret",
+      "title": "Real EXPO_PUBLIC_RN_API_KEY (HOLO_KEY_RN) not provisioned",
+      "detail": "services/platform/config/secrets.yaml contains the placeholder 'replace-me-rn-key'. The fail-closed harness scripts/e2e/run-maestro-reference-flow.sh requires EXPO_PUBLIC_RN_API_KEY and the platform scoped-key middleware (services/platform/src/http/middleware/scoped-key.ts) validates against env.HOLO_KEY_RN. Without a real scoped key, the chat-runs POST is rejected 401.",
+      "unblock": "Populate services/platform/config/secrets.yaml (operator-local, gitignored) with a real HOLO_KEY_RN value, OR inject EXPO_PUBLIC_RN_API_KEY via process env when launching the harness. Verify with `holo secrets doctor` (presence-only check) + a real POST /api/chat-runs."
+    },
+    {
+      "id": "B2",
+      "severity": "high",
+      "category": "missing-secret",
+      "title": "Real ZERO_ADMIN_PASSWORD not provisioned",
+      "detail": "The harness starts zero-cache with --admin-password=\"$ZERO_ADMIN_PASSWORD\". No env var is set and no real password is in any visible config. Without it zero-cache cannot be started; without zero-cache the chat reply cannot sync back via Zero.",
+      "unblock": "Generate a strong admin password; export ZERO_ADMIN_PASSWORD in the operator shell that runs the harness; ensure zero-cache is reachable on the configured port."
+    },
+    {
+      "id": "B3",
+      "severity": "high",
+      "category": "missing-endpoint",
+      "title": "FLEET_URL pointing at a real inference endpoint not provisioned",
+      "detail": "A process at /Users/inference1/Projects/rogueone/.tmp/local-loop-fleet-proxy.ts is running, but it belongs to the rogueone project and may not satisfy holocron's fleet contract. services/platform/config/secrets.yaml has FLEET_URL: http://127.0.0.1:4545/v1 but FLEET_KEY: sk-none (placeholder). The cold-boot chat round-trip needs a fleet that actually responds with a real LLM message that produces a Postgres write replicating through Zero.",
+      "unblock": "Confirm local-loop-fleet-proxy.ts serves holocron's fleet contract (POST /v1/chat/completions or equivalent); OR point FLEET_URL at a real fleet (tailnet mini per Sprint 01); verify a real chat reply flows back through platform → Postgres → zero-cache → app."
+    },
+    {
+      "id": "B4",
+      "severity": "medium",
+      "category": "infra-not-running",
+      "title": "zero-cache not currently running",
+      "detail": "The harness starts zero-cache itself, but only when ZERO_ADMIN_PASSWORD is set. No long-running zero-cache process is currently up; the in-app ZeroProvider will fail to sync until one is.",
+      "unblock": "Resolve B2 first, then the harness will start zero-cache during --run. For iterative dev, run zero-cache manually against holocron_nonprod."
+    },
+    {
+      "id": "B5",
+      "severity": "medium",
+      "category": "scope-decision",
+      "title": "S-COLDBOOT-01 dropped NotificationToastProvider from the cold-boot layout — reviewer must approve scope",
+      "detail": "commit 97338b7 on task/S-COLDBOOT-01 removed <NotificationToastProvider/> from app/_layout.tsx because its module graph transitively imports convex/react (NotificationListSheet.tsx:1) and would crash at import when EXPO_PUBLIC_CONVEX_URL is unset. This is required by AC-2 (zero convex/react on boot) but is a behavioural regression for the reference build (notifications UI absent from cold-boot surface). Reintroducing it requires a non-Convex notification source, deferred to a later UC-SYNC task.",
+      "unblock": "react-native-ui-reviewer to disposition: accept as in-scope (notification UI absent from reference build is acceptable for CAP-CUT-01 thin vertical) OR request a narrower edit (e.g. dynamic import gated on a flag) and re-verify AC-2/AC-3."
+    },
+    {
+      "id": "B6",
+      "severity": "medium",
+      "category": "test-runner-quirk",
+      "title": "tests/integration/sprint20-maestro-harness.test.ts fails under bun test (stderr capture)",
+      "detail": "The baseline 'fails closed when the named simulator contract is absent' test reports empty stderr under `bun test` while the same spawnSync call from a standalone script returns the expected 'maestro-reference-flow: MAESTRO_DEVICE must name an available iOS Simulator' message. Direct bash invocation of the harness produces correct exit 1 + stderr. This appears to be a bun-test spawnSync stderr isolation issue, not a harness defect.",
+      "unblock": "Either fix the test to use combined stdout+stderr capture (`spawnSync(..., {stdio: ['ignore', 'pipe', 'pipe']})` + redirect `2>&1` inside the case), or move the test to vitest proper. Then merge task/D03-01 which extends these tests."
+    },
+    {
+      "id": "B7",
+      "severity": "low",
+      "category": "process",
+      "title": "Reviewer dispatches not performed this cycle",
+      "detail": "Per ORCHESTRATOR-DISCIPLINE, the run-stage orchestrator does not self-approve. Three task branches (D03-01, D03-02, S-COLDBOOT-01) are waiting for specialist reviewer dispatch. This run-stage cycle focused on real-progress audit + achievable static work; the next cycle should dispatch ghactions-reviewer (D03-06) and react-native-ui-reviewer (S-COLDBOOT-01) + devops-engineer review for D03-01/D03-02.",
+      "unblock": "Next run-stage cycle: dispatch reviewers per the augmented_reviewer_map. None of these reviews are blocked on the secrets above — they can proceed in parallel with the secret provisioning."
+    }
+  ],
+  "achieved_this_cycle": [
+    "Audited all 10 sprint-20 tasks against repo + branches + local infrastructure (no fabrication)",
+    "Verified Maestro reference-flow testIDs match source (chat-screen, chat-input-field, chat-input-send-button, chat-assistant-message all present)",
+    "Verified holocron_nonprod DB exists; Postgres accepting connections on :5432",
+    "Verified a real Expo dev build exists at .worktrees/D03-02/.tmp/e2e/expo-dev-client/holocron.app (134M, signed, bundle id org.name.holocron)",
+    "Verified iPhone 17 simulator is booted; xcrun simctl available; maestro CLI installed",
+    "Implemented S-COLDBOOT-01 AC-2 (grep clean) + AC-3 (tsgo clean) on task/S-COLDBOOT-01 (commit 97338b7); pre-commit hooks (root-lint, root-typecheck, root-test) all green",
+    "Probed fail-closed harness --check to enumerate exact missing env in dependency order (MAESTRO_DEVICE → DATABASE_URL → FLEET_URL → PLATFORM_URL+RN_API_KEY → ZERO_ADMIN_PASSWORD → EXPO_DEV_BUILD_PATH)",
+    "Synced SPRINT.md + ROADMAP.md + S-COLDBOOT-01 task file via scripts/sync-status.py (deterministic, no hand-edits)"
+  ],
+  "next_run_stage_actions": [
+    "Resolve B1, B2, B3 (real secrets + fleet endpoint) — these are operator/human actions",
+    "Dispatch specialist reviewers for task/D03-01 (devops-engineer), task/D03-02 (devops-engineer), task/S-COLDBOOT-01 (react-native-ui-reviewer)",
+    "Once B6 is fixed, land D03-01 + D03-02 to main (after review)",
+    "Once secrets are provisioned, run scripts/e2e/run-maestro-reference-flow.sh --check to verify all preconditions, then --run to drive the full Maestro reference flow",
+    "Run /kb-run-human-tests to produce a fresh gate-results.json verdict:pass",
+    "Re-enter [G6] gate-loop driver with met() recheck — once all 6 layers pass, emit [goal:complete]"
+  ],
+  "condition_cmd_jq": ".verdict == \"pass\""
+}

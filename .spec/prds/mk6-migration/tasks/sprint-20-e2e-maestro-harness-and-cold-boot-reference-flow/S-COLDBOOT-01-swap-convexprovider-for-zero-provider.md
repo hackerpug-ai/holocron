@@ -1,5 +1,7 @@
 # S-COLDBOOT-01 — Remove ConvexProvider from app/_layout.tsx cold-boot path; boot the reference build with the Zero provider and no EXPO_PUBLIC_CONVEX_URL
-> Status: Backlog
+> Status: 🟡 In Progress
+> Commit: 97338b7
+> Updated: 2026-07-19T03:41:06Z
 > Sprint: [Sprint 20 — E2E Maestro Harness and Cold-Boot Reference Flow](./SPRINT.md)
 > Agent: react-native-ui-implementer
 > Estimate: 120 min
@@ -221,7 +223,8 @@ Detach ConvexProvider/ConvexReactClient/convex-react from the app/_layout.tsx co
 
 Audit finding at planning time: `app/_layout.tsx:146` still wraps the tree in `<ConvexProvider>`/`ConvexReactClient` (line 39, import at line 7); `ZeroProvider` is already the outer wrapper. This is a removal, not a from-scratch swap. Do not touch the 44 other `convex/react` call sites elsewhere in the app.
 
-<!-- REQUIREMENT-CONTRACT v1 -->
+<!-- REQUIREMENT-CONTRACT v1
+-->
 <!--
 {
   "version": "1",
