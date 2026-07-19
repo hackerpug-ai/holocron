@@ -24,6 +24,7 @@
  * Sprint 10 GATE-FIX: search | search --explain | search --surface | search:recall
  * Sprint 12 obs-1: mission run research --goal <text> [--json]
  * Sprint 13 D02-03: ci runner:status
+ * Sprint 20 D03-02: ci runner:status --lane e2e (simulator + Expo dev build probes)
  * Sprint 13 D02-07: prd:consistency
  * Sprint 13 D02-02: db seed --reset | db:provision-nonprod
  */
@@ -222,6 +223,7 @@ Usage:
   chat:trace <id>            Show chat event/tool-loop trace
   chat:route <id>            Show chat triage and bound specialist route
   ci runner:status         Fail-closed self-hosted runner probe (labels online)
+                            [--lane integration|e2e] e2e also probes MAESTRO_DEVICE + EXPO_DEV_BUILD_PATH
   db seed --reset          Deterministic nonprod seed/reset (fails closed on prod)
   namespace reset           Reset the deterministic nonprod Postgres/Zero namespace
   db:provision-nonprod     Create holocron_nonprod + migrate + zero_pub
@@ -3915,19 +3917,30 @@ async function main(): Promise<void> {
       const sub = args.positional[1] ?? '';
       if (sub === 'runner:status' || sub === 'runner-status') {
         const { checkRunnerStatus } = await import('../ci/runner-status.ts');
-        const result = await checkRunnerStatus();
+        let result;
+        try {
+          result = await checkRunnerStatus({ lane: args.lane });
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          if (args.json) {
+            console.log(JSON.stringify({ ok: false, online: false, errors: [msg] }, null, 2));
+          } else {
+            console.error(`runner fail-closed: ${msg}`);
+          }
+          process.exit(1);
+        }
         if (args.json) {
           console.log(JSON.stringify(result, null, 2));
         } else {
           console.log(
             result.ok
-              ? `runner online: ${result.matching_runners.map((r) => r.name).join(', ')}`
-              : `runner fail-closed: ${result.errors.join('; ')}`
+              ? `runner online (${result.lane}): ${result.matching_runners.map((r) => r.name).join(', ')}`
+              : `runner fail-closed (${result.lane}): ${result.errors.join('; ')}`
           );
         }
         process.exit(result.ok ? 0 : 1);
       }
-      console.error('Usage: holo ci runner:status [--json]');
+      console.error('Usage: holo ci runner:status [--json] [--lane integration|e2e]');
       process.exit(2);
       break;
     }
@@ -3935,13 +3948,24 @@ async function main(): Promise<void> {
     case 'ci:runner:status':
     case 'ci:runner-status': {
       const { checkRunnerStatus } = await import('../ci/runner-status.ts');
-      const result = await checkRunnerStatus();
+      let result;
+      try {
+        result = await checkRunnerStatus({ lane: args.lane });
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        if (args.json) {
+          console.log(JSON.stringify({ ok: false, online: false, errors: [msg] }, null, 2));
+        } else {
+          console.error(`runner fail-closed: ${msg}`);
+        }
+        process.exit(1);
+      }
       if (args.json) console.log(JSON.stringify(result, null, 2));
       else {
         console.log(
           result.ok
-            ? `runner online: ${result.matching_runners.map((r) => r.name).join(', ')}`
-            : `runner fail-closed: ${result.errors.join('; ')}`
+            ? `runner online (${result.lane}): ${result.matching_runners.map((r) => r.name).join(', ')}`
+            : `runner fail-closed (${result.lane}): ${result.errors.join('; ')}`
         );
       }
       process.exit(result.ok ? 0 : 1);
