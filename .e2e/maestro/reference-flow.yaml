@@ -1,15 +1,97 @@
 appId: ${MAESTRO_APP_ID}
 ---
-# Sprint 20 proven-reference-flow. The app must expose these stable testIDs.
+# Sprint 20 proven reference-flow.
+#
+# Cold-boot reality (S-COLDBOOT-03): the Expo Dev Client does NOT boot straight
+# into the app. The real cold-boot path surfaces up to THREE interstitials, not
+# all of which appear on every launch:
+#
+#   1. Development Server launcher — "DEVELOPMENT SERVERS" lists the pre-baked
+#      LAN Metro URL (http://192.168.1.160:8081). Always present after
+#      `clearState: true`. Tap the URL to connect to Metro.
+#   2. Metro red-box error — "Metro has encountered an error..." appears when
+#      Metro's file watcher has a stale SHA-1 (e.g. after a node_modules change
+#      while Metro was running). Transient; tap Reload to force a fresh resolve.
+#   3. Developer Menu onboarding — "This is the developer menu...Continue".
+#      clearState resets the seen-flag, so this reappears each cold boot.
+#
+# Only after all present interstitials are dismissed does `chat-screen` mount.
+# Interstitials 2 & 3 are non-deterministic, so they are handled with
+# `runFlow when: visible` (skip-if-absent) rather than hard assertions. The
+# launcher (1) is asserted because a cold-boot reference-flow MUST encounter it.
+
 - launchApp:
     clearState: true
+
+# ── Interstitial 1: Development Server launcher ──────────────────────────────
+# The launcher mounts within a few seconds of a cold launch. A cold-boot
+# reference-flow MUST encounter it — assert (not conditional).
+- extendedWaitUntil:
+    visible:
+      text: "DEVELOPMENT SERVERS"
+    timeout: 15000
+
+# Tap the pre-baked LAN Metro URL — deterministic fast path (LAN IP is reachable
+# from the simulator).
+- tapOn:
+    text: "http://192.168.1.160:8081"
+
+# ── Interstitial 2: Metro red-box error (transient, skip-if-absent) ──────────
+# If Metro threw (stale SHA-1 after a node_modules change, etc.), a red box
+# offers Reload. The red box renders within seconds of the URL tap as Metro
+# attempts to resolve the bundle, so the default lookup window catches it.
+# Tap Reload to force a fresh resolve. Skip if absent (clean Metro).
+- runFlow:
+    label: "Dismiss Metro red-box if present"
+    when:
+      visible: "Metro has encountered an error"
+    commands:
+      - tapOn:
+          text: "Reload (⌘R)"
+
+# ── Interstitial 3: Developer Menu onboarding (clearState-triggered) ─────────
+# clearState resets the dev-menu seen-flag, so the one-time tutorial reappears
+# on every cold boot once the bundle has evaluated. The bundle-load + tutorial
+# mount lands within the 45s window (longer after a red-box Reload above).
+# Dismiss with Continue.
+- extendedWaitUntil:
+    visible:
+      text: "Continue"
+    timeout: 45000
+- tapOn:
+    text: "Continue"
+
+# ── Interstitial 4: Developer Menu panel (left open after the tutorial) ──────
+# The onboarding overlay sits ON TOP of the dev-menu panel. Tapping Continue
+# dismisses the overlay but leaves the panel (TOOLS / Reload / Close) covering
+# chat-screen. Close it so the app surface is reachable. `optional: true`
+# covers the case where a prior action already closed it (7s lookup, skip if
+# absent).
+- tapOn:
+    text: "Close"
+    optional: true
+    label: "Close Developer Menu panel if open"
+
+# ── Bundle load + chat-screen mount ──────────────────────────────────────────
+# After interstitials are cleared, the bundle evaluates, the app performs its
+# auth + Zero sync handshake (platform :4111 + zero-cache :4848), and
+# `chat-screen` mounts. 90s is the conservative cold-boot ceiling.
+- extendedWaitUntil:
+    visible:
+      id: chat-screen
+    timeout: 90000
 - assertVisible:
     id: chat-screen
+
+# ── Chat round-trip (the original contract) ──────────────────────────────────
 - tapOn:
     id: chat-input-field
 - inputText: "Sprint 20 reference-flow ping"
 - tapOn:
     id: chat-input-send-button
+# Assistant reply arrives asynchronously: platform chat command → fleet →
+# model → chat_runs row → Zero sync → chat-assistant-message mounts. 90s covers
+# cold fleet + first-token latency.
 - extendedWaitUntil:
     visible:
       id: chat-assistant-message
