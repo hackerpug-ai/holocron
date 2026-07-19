@@ -1,0 +1,124 @@
+/**
+ * REDHAT-FIX-H1/H5/H7 — canonical one-shot Zero read helper.
+ *
+ * The `@rocicorp/zero` JS client is reactive (designed for React `useQuery`),
+ * so a one-shot read from a CLI/test is non-obvious. This helper materializes
+ * a `chat_messages`-by-conversation view, waits for the first `complete`
+ * resultType, captures the rows, and tears the view down — the genuine durable
+ * read path that `app/(drawer)/chat/reference.tsx` uses at runtime.
+ *
+ * It is the SINGLE source of truth for "query the live zero-cache" used by:
+ *   - scripts/e2e/zero-reference-read.ts (the capstone verifier's bun helper)
+ *   - services/platform/tests/integration/sprint20-reference-zero-durable.test.ts (H5)
+ *   - services/platform/tests/integration/nonprod-namespace-zero-sync.test.ts (H7)
+ *
+ * NEVER mock this. A red/timeout result here is real evidence that the durable
+ * read path is broken, not a test defect.
+ */
+import { Zero } from '@rocicorp/zero';
+import { schema } from '../../../../../app/zero/schema.ts';
+
+export interface ZeroConversationRow {
+  id: string;
+  conversation_id: string | null;
+  role: string;
+  content: string | null;
+  created_at: number;
+}
+
+export interface ZeroReadResult {
+  ok: boolean;
+  server: string;
+  conversationId: string;
+  rowCount: number;
+  rows: ZeroConversationRow[];
+  /** True iff at least one row has role === 'agent'. */
+  agentPresent: boolean;
+  /** content length of the first agent row (0 if none). */
+  agentContentLen: number;
+  /** id of the first agent row (undefined if none). */
+  agentId?: string;
+  /** Set when the client never reached a 'complete' resultType in time. */
+  timedOut?: boolean;
+  /** Error message on failure. */
+  error?: string;
+}
+
+export interface ZeroReadOptions {
+  server: string;
+  conversationId: string;
+  userId?: string;
+  /** Hard cap; default 20s. Zero's first sync handshake can take several seconds. */
+  timeoutMs?: number;
+}
+
+export async function readConversationViaZero(opts: ZeroReadOptions): Promise<ZeroReadResult> {
+  const { server, conversationId, userId = 'zero-oneshot', timeoutMs = 20_000 } = opts;
+  const base: ZeroReadResult = {
+    ok: false,
+    server,
+    conversationId,
+    rowCount: 0,
+    rows: [],
+    agentPresent: false,
+    agentContentLen: 0,
+  };
+
+  let zero: Zero<typeof schema> | undefined;
+  try {
+    zero = new Zero({
+      server,
+      schema,
+      userID: userId,
+      logConfig: { level: 'error', format: 'text' },
+    });
+  } catch (err) {
+    return { ...base, error: `Zero client construction failed: ${String(err)}` };
+  }
+
+  const view = zero.query.chat_messages
+    .where('conversation_id', conversationId)
+    .orderBy('created_at', 'asc')
+    .materialize();
+
+  return await new Promise<ZeroReadResult>((resolve) => {
+    let settled = false;
+    const finish = (result: ZeroReadResult) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      try {
+        view.destroy();
+      } catch {
+        /* ignore */
+      }
+      resolve(result);
+    };
+
+    const timer = setTimeout(() => {
+      finish({ ...base, timedOut: true, error: `timeout after ${timeoutMs}ms` });
+    }, timeoutMs);
+
+    view.addListener(
+      (rows: readonly ZeroConversationRow[], resultType: string, error?: unknown) => {
+        if (resultType === 'error') {
+          finish({ ...base, error: `zero query errored: ${JSON.stringify(error)}` });
+          return;
+        }
+        if (resultType !== 'complete') return;
+        const arr = [...rows];
+        const agent = arr.find((r) => r.role === 'agent');
+        finish({
+          ok: true,
+          server,
+          conversationId,
+          rowCount: arr.length,
+          rows: arr,
+          agentPresent: !!agent,
+          agentContentLen: agent ? (agent.content?.length ?? 0) : 0,
+          agentId: agent?.id,
+        });
+      }
+    );
+  });
+}
