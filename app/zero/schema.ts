@@ -38,6 +38,14 @@ const chatMessages = table('chat_messages')
 
 export const schema = createSchema({
   tables: [conversations, chatMessages],
+  // S-COLDBOOT-02: enable the legacy/builder-chain query path so that
+  // `app/zero/queries.ts` can ship AST-based queries (e.g.
+  // `chatMessagesByConversation`) that zero-cache evaluates server-side
+  // WITHOUT requiring a separate ZERO_QUERY_URL process. The default
+  // (`enableLegacyQueries: false`) silently no-ops builder-chain queries
+  // on the client, which is why chatMessagesByConversation never reached
+  // zero-cache even after the defineQuery refactor.
+  enableLegacyQueries: true,
 });
 
 declare module '@rocicorp/zero' {

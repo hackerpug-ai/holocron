@@ -3,7 +3,7 @@ import { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, View } from 'react-native';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { Text } from '@/components/ui/text';
-import { queries } from '../../zero/queries';
+import { chatMessagesByConversation } from '../../zero/queries';
 
 const platformUrl = process.env.EXPO_PUBLIC_PLATFORM_URL;
 const rnApiKey = process.env.EXPO_PUBLIC_RN_API_KEY;
@@ -28,7 +28,7 @@ async function waitForRun(runId: string): Promise<void> {
 
 export default function ReferenceChatScreen() {
   const [rawRows] = useZeroQuery(
-    queries.chatMessages.byConversation({ conversationId: conversationId ?? '' })
+    chatMessagesByConversation(conversationId ?? '')
   );
   const rows = rawRows as unknown as Array<{
     id: string;
