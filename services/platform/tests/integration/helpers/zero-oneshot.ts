@@ -76,20 +76,24 @@ export async function readConversationViaZero(opts: ZeroReadOptions): Promise<Ze
     return { ...base, error: `Zero client construction failed: ${String(err)}` };
   }
 
-  const view = zero.query.chat_messages
+  const chatView = zero.query.chat_messages
     .where('conversation_id', conversationId)
     .orderBy('created_at', 'asc')
     .materialize();
+  // H7: also read the conversations table to prove the reference conversation row
+  // is visible through the live replication path after a namespace reset.
+  const convView = zero.query.conversations.where('id', conversationId).materialize();
 
   return await new Promise<ZeroReadResult>((resolve) => {
     let settled = false;
     const finish = (result: ZeroReadResult) => {
       if (settled) return;
- settled = true;
+      settled = true;
       clearTimeout(timer);
       process.off('uncaughtException', uncaughtHandler);
       try {
-        view.destroy();
+        chatView.destroy();
+        convView.destroy();
       } catch {
         /* ignore */
       }
@@ -108,25 +112,57 @@ export async function readConversationViaZero(opts: ZeroReadOptions): Promise<Ze
       finish({ ...base, timedOut: true, error: `timeout after ${timeoutMs}ms` });
     }, timeoutMs);
 
-    view.addListener(
+    let chatDone = false;
+    let convDone = false;
+    let chatRows: ZeroConversationRow[] = [];
+    let convTitle: string | null | undefined;
+    let convPresent = false;
+    const maybeFinish = () => {
+      if (!(chatDone && convDone)) return;
+      const agent = chatRows.find((r) => r.role === 'agent');
+      finish({
+        ok: true,
+        server,
+        conversationId,
+        rowCount: chatRows.length,
+        rows: chatRows,
+        agentPresent: !!agent,
+        agentContentLen: agent ? (agent.content?.length ?? 0) : 0,
+        agentId: agent?.id,
+        conversationPresent: convPresent,
+        conversationTitle: convTitle ?? null,
+      });
+    };
+
+    chatView.addListener(
       (rows: readonly ZeroConversationRow[], resultType: string, error?: unknown) => {
         if (resultType === 'error') {
-          finish({ ...base, error: `zero query errored: ${JSON.stringify(error)}` });
+          finish({ ...base, error: `zero chat query errored: ${JSON.stringify(error)}` });
           return;
         }
         if (resultType !== 'complete') return;
-        const arr = [...rows];
-        const agent = arr.find((r) => r.role === 'agent');
-        finish({
-          ok: true,
-          server,
-          conversationId,
-          rowCount: arr.length,
-          rows: arr,
-          agentPresent: !!agent,
-          agentContentLen: agent ? (agent.content?.length ?? 0) : 0,
-          agentId: agent?.id,
-        });
+        chatRows = [...rows];
+        chatDone = true;
+        maybeFinish();
+      }
+    );
+    convView.addListener(
+      (
+        rows: readonly { id: string; title?: string | null }[],
+        resultType: string,
+        error?: unknown
+      ) => {
+        if (resultType === 'error') {
+          // A conversations-view failure must not mask a successful chat read.
+          convDone = true;
+          maybeFinish();
+          return;
+        }
+        if (resultType !== 'complete') return;
+        convPresent = rows.length > 0;
+        convTitle = rows[0]?.title ?? null;
+        convDone = true;
+        maybeFinish();
       }
     );
   });
