@@ -27,16 +27,106 @@
       "total": 10,
       "reason": "0 of 10 tasks complete-and-landed on main. S-COLDBOOT-01 has 2 of 3 ACs satisfied in branch task/S-COLDBOOT-01 (commit 97338b7, not reviewed/landed). D03-01 and D03-02 have unreviewed commits on their branches. Seven tasks have no code on a branch.",
       "per_task": [
-        {"id": "S-COLDBOOT-01", "phase": "in_progress", "branch": "task/S-COLDBOOT-01", "commit": "97338b7", "acs": {"AC-1": "blocked", "AC-2": "satisfied", "AC-3": "satisfied"}, "reviewed": false, "landed": false, "blocker": "AC-1 requires real Maestro cold-boot e2e on a named iOS Simulator with EXPO_PUBLIC_CONVEX_URL unset; needs secrets not provisioned in run-stage env"},
-        {"id": "S-COLDBOOT-02", "phase": "pending", "branch": null, "commit": null, "acs": {}, "reviewed": false, "landed": false, "blocker": "Thin-chat vertical round-trip not yet exercised against real services; depends on S-COLDBOOT-01 + real FLEET_URL + real chat-runs auth"},
-        {"id": "S-COLDBOOT-03", "phase": "partially-on-main", "branch": null, "commit": null, "acs": {}, "reviewed": false, "landed": false, "notes": "Stable testIDs (chat-screen, chat-input-field, chat-input-send-button, chat-assistant-message) verified present in source; flow YAML at .e2e/maestro/reference-flow.yaml; deterministic-seed content requires the namespace reset path"},
-        {"id": "D03-01", "phase": "in_progress", "branch": "task/D03-01", "commit": "bd7ad0c", "acs": {}, "reviewed": false, "landed": false, "notes": "Extended tests for fail-closed harness (build/backend/MAESTRO_DEVICE). Existing baseline test on main is fragile under bun-test spawnSync stderr capture — likely a test-runner quirk, not a real harness defect (direct bash invocation confirms exit 1 + correct stderr)"},
-        {"id": "D03-02", "phase": "in_progress", "branch": "task/D03-02", "commit": "b2c6be4", "acs": {}, "reviewed": false, "landed": false, "notes": "macOS runner lane (--lane e2e fail-closed simctl + EXPO_DEV_BUILD_PATH probes) + provision-ios-simulator.sh + build-expo-dev-client.sh. A real Expo dev build exists at .worktrees/D03-02/.tmp/e2e/expo-dev-client/holocron.app (134M, signed, bundle id org.name.holocron)"},
-        {"id": "D03-03", "phase": "on-main-unverified", "branch": null, "commit": "b86e77a", "acs": {}, "reviewed": false, "landed": true, "notes": "scripts/e2e/run-maestro-reference-flow.sh harness exists on main (fail-closed); --check probe enumerates exact missing preconditions; --run path NOT verified end-to-end against real services"},
-        {"id": "D03-04", "phase": "on-main-unverified", "branch": "task/D03-04", "commit": null, "acs": {}, "reviewed": false, "landed": false, "notes": "holo namespace reset command exists on main (98db192); branch task/D03-04 is empty at main HEAD; AC verification against holocron_nonprod requires real zero-cache admin + DB seeding run"},
-        {"id": "D03-05", "phase": "on-main-unverified", "branch": null, "commit": null, "acs": {}, "reviewed": false, "landed": true, "notes": ".github/workflows/ci-e2e.yml workflow exists on main; runs on self-hosted holocron/e2e runner; not executed in this run (requires GHA self-hosted runner online + secrets in GH)"},
-        {"id": "D03-06", "phase": "pending", "branch": null, "commit": null, "acs": {}, "reviewed": false, "landed": false, "blocker": "Review task; requires ghactions-reviewer dispatch (specialist not dispatched in this run-stage cycle)"},
-        {"id": "D03-07", "phase": "pending", "branch": null, "commit": null, "acs": {}, "reviewed": false, "landed": false, "blocker": "Capstone go/no-go proof; transitively blocked on all upstream tasks + real Maestro green"}
+        {
+          "id": "S-COLDBOOT-01",
+          "phase": "in_progress",
+          "branch": "task/S-COLDBOOT-01",
+          "commit": "97338b7",
+          "acs": { "AC-1": "blocked", "AC-2": "satisfied", "AC-3": "satisfied" },
+          "reviewed": false,
+          "landed": false,
+          "blocker": "AC-1 requires real Maestro cold-boot e2e on a named iOS Simulator with EXPO_PUBLIC_CONVEX_URL unset; needs secrets not provisioned in run-stage env"
+        },
+        {
+          "id": "S-COLDBOOT-02",
+          "phase": "pending",
+          "branch": null,
+          "commit": null,
+          "acs": {},
+          "reviewed": false,
+          "landed": false,
+          "blocker": "Thin-chat vertical round-trip not yet exercised against real services; depends on S-COLDBOOT-01 + real FLEET_URL + real chat-runs auth"
+        },
+        {
+          "id": "S-COLDBOOT-03",
+          "phase": "partially-on-main",
+          "branch": null,
+          "commit": null,
+          "acs": {},
+          "reviewed": false,
+          "landed": false,
+          "notes": "Stable testIDs (chat-screen, chat-input-field, chat-input-send-button, chat-assistant-message) verified present in source; flow YAML at .e2e/maestro/reference-flow.yaml; deterministic-seed content requires the namespace reset path"
+        },
+        {
+          "id": "D03-01",
+          "phase": "in_progress",
+          "branch": "task/D03-01",
+          "commit": "bd7ad0c",
+          "acs": {},
+          "reviewed": false,
+          "landed": false,
+          "notes": "Extended tests for fail-closed harness (build/backend/MAESTRO_DEVICE). Existing baseline test on main is fragile under bun-test spawnSync stderr capture — likely a test-runner quirk, not a real harness defect (direct bash invocation confirms exit 1 + correct stderr)"
+        },
+        {
+          "id": "D03-02",
+          "phase": "in_progress",
+          "branch": "task/D03-02",
+          "commit": "b2c6be4",
+          "acs": {},
+          "reviewed": false,
+          "landed": false,
+          "notes": "macOS runner lane (--lane e2e fail-closed simctl + EXPO_DEV_BUILD_PATH probes) + provision-ios-simulator.sh + build-expo-dev-client.sh. A real Expo dev build exists at .worktrees/D03-02/.tmp/e2e/expo-dev-client/holocron.app (134M, signed, bundle id org.name.holocron)"
+        },
+        {
+          "id": "D03-03",
+          "phase": "on-main-unverified",
+          "branch": null,
+          "commit": "b86e77a",
+          "acs": {},
+          "reviewed": false,
+          "landed": true,
+          "notes": "scripts/e2e/run-maestro-reference-flow.sh harness exists on main (fail-closed); --check probe enumerates exact missing preconditions; --run path NOT verified end-to-end against real services"
+        },
+        {
+          "id": "D03-04",
+          "phase": "on-main-unverified",
+          "branch": "task/D03-04",
+          "commit": null,
+          "acs": {},
+          "reviewed": false,
+          "landed": false,
+          "notes": "holo namespace reset command exists on main (98db192); branch task/D03-04 is empty at main HEAD; AC verification against holocron_nonprod requires real zero-cache admin + DB seeding run"
+        },
+        {
+          "id": "D03-05",
+          "phase": "on-main-unverified",
+          "branch": null,
+          "commit": null,
+          "acs": {},
+          "reviewed": false,
+          "landed": true,
+          "notes": ".github/workflows/ci-e2e.yml workflow exists on main; runs on self-hosted holocron/e2e runner; not executed in this run (requires GHA self-hosted runner online + secrets in GH)"
+        },
+        {
+          "id": "D03-06",
+          "phase": "pending",
+          "branch": null,
+          "commit": null,
+          "acs": {},
+          "reviewed": false,
+          "landed": false,
+          "blocker": "Review task; requires ghactions-reviewer dispatch (specialist not dispatched in this run-stage cycle)"
+        },
+        {
+          "id": "D03-07",
+          "phase": "pending",
+          "branch": null,
+          "commit": null,
+          "acs": {},
+          "reviewed": false,
+          "landed": false,
+          "blocker": "Capstone go/no-go proof; transitively blocked on all upstream tasks + real Maestro green"
+        }
       ]
     },
     "gate": {
@@ -57,23 +147,60 @@
       "steps_executed": 0,
       "steps_passed": 0,
       "steps": [
-        {"n": 1, "text": "Run the Maestro reference flow on the named iOS Simulator — cold boot completes, app opens.", "status": "blocked", "blocker": "Requires real MAESTRO_DEVICE + MAESTRO_APP_ID + EXPO_DEV_BUILD_PATH + DATABASE_URL=.../holocron_nonprod + FLEET_URL + PLATFORM_URL + EXPO_PUBLIC_RN_API_KEY + ZERO_ADMIN_PASSWORD. Local inventory: iPhone 17 booted; holocron_nonprod DB exists; Expo dev build exists at .worktrees/D03-02/.tmp/e2e/expo-dev-client/holocron.app (bundle id org.name.holocron, NOT default com.holocron.app); platform service running on :4111; secrets.yaml has placeholder values for HOLO_KEY_RN/FLEET_KEY etc."},
-        {"n": 2, "text": "Send a chat message in the flow — specialist runs on the fleet, tool call hits Postgres.", "status": "blocked", "blocker": "Requires real FLEET_URL pointing at a live inference endpoint + real EXPO_PUBLIC_RN_API_KEY scoped key + fleet actually responding to the chat-runs command with a real LLM round-trip"},
-        {"n": 3, "text": "Observe the reply — durable message syncs to the app via Zero, screenshot captures it.", "status": "blocked", "blocker": "Requires real zero-cache running with real ZERO_ADMIN_PASSWORD against holocron_nonprod cvr/change DBs; depends on step 2 producing an agent message"},
-        {"n": 4, "text": "Check CI artifacts — JUnit result, log, video all attached to the e2e run.", "status": "blocked", "blocker": "Requires GHA self-hosted runner [self-hosted, holocron, e2e] online + GitHub secrets (NONPROD_DATABASE_URL, FLEET_URL, PLATFORM_URL, RN_API_KEY, ZERO_ADMIN_PASSWORD, MAESTRO_DEVICE vars) populated"},
-        {"n": 5, "text": "Point the runner at a missing Expo dev build — harness fails closed, not a false pass.", "status": "blocked", "blocker": "Requires the harness --check/--run path exercised with a real baseline first; current env cannot run --run"},
-        {"n": 6, "text": "Run holo namespace reset before the flow — nonprod Postgres/Zero namespace reaches known seed.", "status": "blocked", "blocker": "Requires real ZERO_ADMIN_PASSWORD + zero-cache running + DATABASE_URL=.../holocron_nonprod; holo namespace reset CLI exists on main but its end-to-end AC verification was not run"}      ]
+        {
+          "n": 1,
+          "text": "Run the Maestro reference flow on the named iOS Simulator — cold boot completes, app opens.",
+          "status": "blocked",
+          "blocker": "Requires real MAESTRO_DEVICE + MAESTRO_APP_ID + EXPO_DEV_BUILD_PATH + DATABASE_URL=.../holocron_nonprod + FLEET_URL + PLATFORM_URL + EXPO_PUBLIC_RN_API_KEY + ZERO_ADMIN_PASSWORD. Local inventory: iPhone 17 booted; holocron_nonprod DB exists; Expo dev build exists at .worktrees/D03-02/.tmp/e2e/expo-dev-client/holocron.app (bundle id org.name.holocron, NOT default com.holocron.app); platform service running on :4111; secrets.yaml has placeholder values for HOLO_KEY_RN/FLEET_KEY etc."
+        },
+        {
+          "n": 2,
+          "text": "Send a chat message in the flow — specialist runs on the fleet, tool call hits Postgres.",
+          "status": "blocked",
+          "blocker": "Requires real FLEET_URL pointing at a live inference endpoint + real EXPO_PUBLIC_RN_API_KEY scoped key + fleet actually responding to the chat-runs command with a real LLM round-trip"
+        },
+        {
+          "n": 3,
+          "text": "Observe the reply — durable message syncs to the app via Zero, screenshot captures it.",
+          "status": "blocked",
+          "blocker": "Requires real zero-cache running with real ZERO_ADMIN_PASSWORD against holocron_nonprod cvr/change DBs; depends on step 2 producing an agent message"
+        },
+        {
+          "n": 4,
+          "text": "Check CI artifacts — JUnit result, log, video all attached to the e2e run.",
+          "status": "blocked",
+          "blocker": "Requires GHA self-hosted runner [self-hosted, holocron, e2e] online + GitHub secrets (NONPROD_DATABASE_URL, FLEET_URL, PLATFORM_URL, RN_API_KEY, ZERO_ADMIN_PASSWORD, MAESTRO_DEVICE vars) populated"
+        },
+        {
+          "n": 5,
+          "text": "Point the runner at a missing Expo dev build — harness fails closed, not a false pass.",
+          "status": "blocked",
+          "blocker": "Requires the harness --check/--run path exercised with a real baseline first; current env cannot run --run"
+        },
+        {
+          "n": 6,
+          "text": "Run holo namespace reset before the flow — nonprod Postgres/Zero namespace reaches known seed.",
+          "status": "blocked",
+          "blocker": "Requires real ZERO_ADMIN_PASSWORD + zero-cache running + DATABASE_URL=.../holocron_nonprod; holo namespace reset CLI exists on main but its end-to-end AC verification was not run"
+        }
+      ]
     },
     "trunk_consolidation": {
       "met": false,
-      "orphan_branches_with_commits": ["task/D03-01 (bd7ad0c)", "task/D03-02 (b2c6be4)", "task/S-COLDBOOT-01 (97338b7)"],
+      "orphan_branches_with_commits": [
+        "task/D03-01 (bd7ad0c)",
+        "task/D03-02 (b2c6be4)",
+        "task/S-COLDBOOT-01 (97338b7)"
+      ],
       "main_sha": "3e0bb62aa5f676d711e6b0b596ab32b26980c731",
       "reason": "Three task branches carry unreviewed/unlanded commits; per TRUNK-CONSOLIDATION-INVARIANT a completed task is not 'completed' until its commit is an ancestor of main. None of these have been reviewed."
     },
     "status_files": {
-      "met": false,
-      "parity": false,
-      "reason": "sync-status.py audit cannot reach parity=true while tracker truth has zero completed tasks and 9 of 10 task files still read '> Status: Backlog'. S-COLDBOOT-01 file updated to '> Status: 🟡 In Progress' with commit 97338b7. The other 9 tasks accurately reflect not-started state.",
+      "met": true,
+      "parity": true,
+      "audit_cmd": "python3 ~/.agents/skills/kb-run-sprint/scripts/sync-status.py audit --sprint-dir {sprint_dir}",
+      "audit_result": "parity:true, drift:[], files:10, completed:0, open:10 (checked_at 2026-07-19T03:43:35Z)",
+      "reason": "Tracker truth (0 completed) matches file truth (all 10 task files accurately non-completed). S-COLDBOOT-01 file reflects In Progress with commit 97338b7. SPRINT.md lifecycle In Progress, progress 0/10. ROADMAP.md sprint-20 row In Progress. Layer 6 of met() is SATISFIED — files are an honest interface to upstream managers.",
       "files_updated_this_cycle": [
         "S-COLDBOOT-01-swap-convexprovider-for-zero-provider.md (-> In Progress, commit 97338b7)",
         "SPRINT.md (-> In Progress, progress 0/10)",
