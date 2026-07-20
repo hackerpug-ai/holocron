@@ -193,14 +193,17 @@ video_pid=$!
 video_bad=0
 cleanup() {
   # SIGINT tells recordVideo to finalize the .mov; SIGTERM leaves Resource busy + empty path.
-  kill -INT "$video_pid" 2>/dev/null || true
-  wait "$video_pid" 2>/dev/null || true
+  if [[ -n "${video_pid:-}" ]]; then
+    kill -INT "$video_pid" 2>/dev/null || true
+    wait "$video_pid" 2>/dev/null || true
+  fi
   sleep 1
   xcrun simctl io "$device" screenshot "$artifact_dir/final.png" >/dev/null 2>&1 || true
   stop_zero
   # REDHAT-FIX-H3 — post-run sidecar cleanup so the artifact dir holds exactly
   # the named .mov (+ sibling screenshot/junit artifacts), never a sidecar-only result.
   rm -f "$artifact_dir"/.mov.sb-* 2>/dev/null || true
+  return 0
 }
 trap cleanup EXIT
 
@@ -231,7 +234,10 @@ if grep -qiE "Host recording is already in progress|Resource busy|simctl io.*fai
   echo "recorder failure detected in video.log" >>"$artifact_dir/video.log"
   video_bad=1
 fi
+final_rc="$maestro_rc"
 if [[ "$video_bad" == "1" ]]; then
-  exit 1
+  final_rc=1
 fi
-exit "$maestro_rc"
+trap - EXIT
+cleanup
+exit "$final_rc"
