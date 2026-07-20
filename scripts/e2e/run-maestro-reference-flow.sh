@@ -204,6 +204,10 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# Capture Maestro's process status explicitly. With errexit enabled, a non-zero
+# CLI status would otherwise skip the artifact checks below and hide whether
+# the flow, recorder, or post-run validation was responsible for the failure.
+set +e
 maestro --device "$device_udid" test "$flow" \
   --format JUNIT \
   --output "$artifact_dir/junit.xml" \
@@ -213,6 +217,8 @@ maestro --device "$device_udid" test "$flow" \
   -e PLATFORM_URL="${EXPO_PUBLIC_PLATFORM_URL:-${PLATFORM_URL}}" \
   -e E2E_ARTIFACT_DIR="$artifact_dir"
 maestro_rc=$?
+set -e
+printf '%s\n' "$maestro_rc" >"$artifact_dir/maestro-exit-code.txt"
 # REDHAT-FIX-H3 — recorder-failure surfacing. If the exact reference-flow.mov
 # is missing/empty OR the recorder logged a known failure, record a named reason
 # and force a non-zero exit so a sidecar-only / empty-video result can never be
