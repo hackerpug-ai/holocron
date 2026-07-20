@@ -18,7 +18,9 @@ this doc owns the **simulator + build pipeline** and the **e2e health probe**.
 | simctl | `xcrun simctl list devices available` |
 | Maestro | `maestro --version` |
 | Bun | `bun --version` |
-| EAS CLI (for fresh builds) | `pnpm exec eas --version` or `npx eas-cli` |
+| EAS CLI (for fresh builds) | `bunx eas-cli@21.0.2` (preferred; must be ≥18 per eas.json), `eas` on PATH, or `npx --yes eas-cli@21.0.2` |
+| Expo auth | `EXPO_TOKEN` set **or** `eas login` / `bunx eas-cli@21.0.2 whoami` |
+| fastlane (local iOS builds) | `brew install fastlane` — required for `eas build --local` on macOS |
 
 Runner registration token (`RUNNER_TOKEN`) is **never** committed. See
 [self-hosted-runner.md](./self-hosted-runner.md).
@@ -47,16 +49,42 @@ xcrun simctl list devices available | rg -F "$MAESTRO_DEVICE"
 
 ## 3. Produce the Expo dev-client build
 
-Canonical path (no manual Xcode step):
+### Fail-closed prereq probe (GATE-FIX-G1)
+
+Before a forced rebuild, operators can check eas + Expo auth without greenwashing a
+crashing seed:
 
 ```bash
-./scripts/e2e/build-expo-dev-client.sh
-# prints: export EXPO_DEV_BUILD_PATH=...
-eval "$(./scripts/e2e/build-expo-dev-client.sh | tail -1)"
-test -d "$EXPO_DEV_BUILD_PATH"
+# Exit non-zero + JSON ok:false + next_input_needed when eas/auth missing
+scripts/e2e/probe-expo-dev-client-prereqs.sh --check
+
+# Write crash-diagnosis.md from failed-this-cycle + D03-02 reuse-existing seed
+scripts/e2e/probe-expo-dev-client-prereqs.sh --diagnose
 ```
 
-Under the hood:
+Probe contract:
+
+| Condition | Exit | Observables |
+|-----------|------|-------------|
+| eas not resolvable (no `eas` / bunx / npx) | ≠0 | `ok: false`, `next_input_needed` contains **eas** |
+| eas present, no `EXPO_TOKEN` / whoami fails | ≠0 | `ok: false`, `next_input_needed` names login/token |
+| eas + auth OK | 0 | `ok: true` — seed alone never sets ok |
+
+### Canonical rebuild path (FORCE_EAS_BUILD)
+
+```bash
+# Prefer bunx when eas is not on PATH (npx eas-cli can hit minimatch TypeError)
+export FORCE_EAS_BUILD=1
+env -u E2E_SEED_APP_PATH ./scripts/e2e/build-expo-dev-client.sh
+# prints: export EXPO_DEV_BUILD_PATH=...
+eval "$(FORCE_EAS_BUILD=1 env -u E2E_SEED_APP_PATH ./scripts/e2e/build-expo-dev-client.sh | tail -1)"
+test -d "$EXPO_DEV_BUILD_PATH"
+jq -e '.method=="eas" or .method=="eas-local" or .method=="eas-local-discovered"' \
+  .tmp/e2e/expo-dev-client/build-provenance.json
+```
+
+Under the hood (`resolve_eas` order: `eas` → `node_modules/.bin/eas` →
+`bunx eas-cli@21.0.2` → `npx --yes eas-cli@21.0.2`):
 
 ```bash
 eas build --platform ios --profile development-simulator --local
@@ -69,14 +97,19 @@ Default artifact:
 ```
 .tmp/e2e/expo-dev-client/holocron.app
 .tmp/e2e/expo-dev-client/build-provenance.json
+.tmp/e2e/expo-dev-client/crash-diagnosis.md   # from probe --diagnose
 ```
 
-`.tmp/` and `*.app` are gitignored — never commit the bundle.
+`.tmp/` and `*.app` are gitignored — never commit the bundle or Expo tokens.
 
-### Operator seed (optional)
+**Honesty:** `method=reuse-existing` (e.g. D03-02 crashing seed) is **not** a rebuild
+success. `FORCE_EAS_BUILD=1` ignores `E2E_SEED_APP_PATH` and fails closed when eas/auth
+is missing (`next_input_needed`).
+
+### Operator seed (optional — never under FORCE_EAS_BUILD)
 
 On a host that already has a simulator `.app` (e.g. prior `expo run:ios` DerivedData),
-you may stage it without a full EAS rebuild:
+you may stage it without a full EAS rebuild **only when FORCE_EAS_BUILD is unset**:
 
 ```bash
 export E2E_SEED_APP_PATH="$HOME/Library/Developer/Xcode/DerivedData/.../Debug-iphonesimulator/holocron.app"
@@ -172,3 +205,18 @@ Integration test:
 ```bash
 PLATFORM_IT=1 pnpm vitest run tests/integration/sprint20-macos-runner-status.test.ts
 ```
+
+### GATE-FIX-G1 rebuild honesty
+
+```bash
+# Fail-closed prereqs + crash diagnosis + FORCE_EAS_BUILD provenance + simctl install
+PLATFORM_IT=1 MAESTRO_DEVICE='iPhone 17' \
+  pnpm vitest run tests/integration/sprint20-expo-dev-client-rebuild.test.ts
+```
+
+| AC | Command |
+|----|---------|
+| AC-1 | `env -u EXPO_TOKEN -u E2E_SEED_APP_PATH PATH=/usr/bin:/bin bash scripts/e2e/probe-expo-dev-client-prereqs.sh --check` → ≠0 |
+| AC-2 | `jq -e '.method=="eas" or .method=="eas-local"' .tmp/e2e/expo-dev-client/build-provenance.json` |
+| AC-3 | `xcrun simctl install "$MAESTRO_DEVICE" "$EXPO_DEV_BUILD_PATH"` |
+| AC-4 | `scripts/e2e/probe-expo-dev-client-prereqs.sh --diagnose && test -s .tmp/e2e/expo-dev-client/crash-diagnosis.md` |
