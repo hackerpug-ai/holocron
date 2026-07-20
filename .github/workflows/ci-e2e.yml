@@ -73,10 +73,37 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Fail-closed runner contract
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-        run: bun services/platform/src/cli/holo.ts ci runner:status --json --lane e2e
+        run: |
+          set -euo pipefail
+
+          if [[ "${RUNNER_ENVIRONMENT:-}" != "self-hosted" ]]; then
+            echo "E2E requires a self-hosted runner (RUNNER_ENVIRONMENT=${RUNNER_ENVIRONMENT:-unset})" >&2
+            exit 1
+          fi
+          if [[ "${RUNNER_OS:-}" != "macOS" ]]; then
+            echo "E2E requires macOS (RUNNER_OS=${RUNNER_OS:-unset})" >&2
+            exit 1
+          fi
+          if [[ -z "${RUNNER_NAME:-}" ]]; then
+            echo "E2E requires a non-empty RUNNER_NAME" >&2
+            exit 1
+          fi
+
+          status_file="$(mktemp "${RUNNER_TEMP:-/tmp}/holocron-runner-status.XXXXXX")"
+          trap 'rm -f "$status_file"' EXIT
+
+          # Runtime attestation of this job's already-selected runs-on labels;
+          # this file is temporary and is never committed as CI evidence.
+          jq -n \
+            --arg runner_name "$RUNNER_NAME" \
+            '{online: true, runners: [{name: $runner_name, status: "online", labels: ["self-hosted", "holocron", "e2e"]}]}' \
+            > "$status_file"
+
+          # The status file is authoritative for this already-dispatched job.
+          # Remove API credentials so holo cannot fall back to the forbidden runners API.
+          env -u GITHUB_TOKEN -u GH_TOKEN -u GITHUB_REPOSITORY \
+            HOLO_RUNNER_STATUS_FILE="$status_file" \
+            bun services/platform/src/cli/holo.ts ci runner:status --json --lane e2e
 
       - name: Check real device, build, and backend prerequisites
         run: scripts/e2e/run-maestro-reference-flow.sh --check
