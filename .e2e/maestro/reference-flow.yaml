@@ -84,8 +84,10 @@ appId: ${MAESTRO_APP_ID}
     id: chat-screen
 
 # ── Chat round-trip (the original contract) ──────────────────────────────────
+# GATE-FIX-G2: settle keyboard before inputText to reduce XCTest driver flakes.
 - tapOn:
     id: chat-input-field
+- waitForAnimationToEnd
 - inputText: "Sprint 20 reference-flow ping"
 - tapOn:
     id: chat-input-send-button

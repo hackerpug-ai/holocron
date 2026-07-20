@@ -1,14 +1,14 @@
 {
-  "committed_sha": "996d24c242b74275a4bd4945997e64632b853dde",
-  "generated_at": "2026-07-20T01:50:46Z",
+  "committed_sha": "8c294807fb488d73e87948633dfb4da4f14c4c16",
+  "generated_at": "2026-07-20T02:06:49Z",
   "sprint": "sprint-20-e2e-maestro-harness-and-cold-boot-reference-flow",
   "artifact_dir": "/Users/inference1/Projects/holocron/.tmp/maestro-reference-flow",
   "steps": [
     {
       "n": 1,
       "text": "Cold-boot Maestro reference flow on named iOS Simulator",
-      "verdict": "FAIL",
-      "evidence_path": "/Users/inference1/Projects/holocron/.tmp/maestro-reference-flow/failed-this-cycle/junit.xml failures=1 (this-cycle fail overrides substituted SUCCESS)"
+      "verdict": "PASS",
+      "evidence_path": "/Users/inference1/Projects/holocron/.tmp/maestro-reference-flow/junit.xml"
     },
     {
       "n": 2,
@@ -20,7 +20,7 @@
       "n": 3,
       "text": "Observe durable Zero-synced reply (screenshot)",
       "verdict": "PASS",
-      "evidence_path": "/Users/inference1/Projects/holocron/.tmp/maestro-reference-flow/capstone-verdict.json"
+      "evidence_path": "/Users/inference1/Projects/holocron/.tmp/maestro-reference-flow/capstone-verdict.json coldboot_gate=green"
     },
     {
       "n": 4,
