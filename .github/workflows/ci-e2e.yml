@@ -150,8 +150,67 @@ jobs:
       - name: Check real device, build, and backend prerequisites
         run: scripts/e2e/run-maestro-reference-flow.sh --check
 
+      - name: Start reference Metro with CI runtime endpoints
+        run: |
+          set -euo pipefail
+
+          metro_log="${RUNNER_TEMP}/holocron-reference-metro-${GITHUB_RUN_ID}.log"
+          existing_pid="$(lsof -nP -tiTCP:8081 -sTCP:LISTEN 2>/dev/null | head -1 || true)"
+          if [[ -n "$existing_pid" ]]; then
+            existing_command="$(ps -p "$existing_pid" -o command= || true)"
+            if [[ "$existing_command" != *"expo start"* || "$existing_command" != *"$GITHUB_WORKSPACE"* ]]; then
+              echo "port 8081 is occupied by a non-Expo process; refusing to terminate it" >&2
+              exit 1
+            fi
+            kill "$existing_pid"
+            for _ in {1..20}; do
+              if ! kill -0 "$existing_pid" 2>/dev/null; then break; fi
+              sleep 1
+            done
+            if kill -0 "$existing_pid" 2>/dev/null; then
+              echo "existing Expo Metro process did not stop on port 8081" >&2
+              exit 1
+            fi
+          fi
+
+          EXPO_PUBLIC_PLATFORM_URL="${EXPO_PUBLIC_PLATFORM_URL}" \
+          EXPO_PUBLIC_ZERO_CACHE_URL="http://127.0.0.1:4848" \
+          EXPO_PUBLIC_RN_API_KEY="${EXPO_PUBLIC_RN_API_KEY}" \
+          EXPO_PUBLIC_REFERENCE_FLOW="true" \
+          EXPO_PUBLIC_REFERENCE_CONVERSATION_ID="${EXPO_PUBLIC_REFERENCE_CONVERSATION_ID}" \
+          CI=1 pnpm exec expo start --dev-client --lan --port 8081 \
+            >"$metro_log" 2>&1 &
+          metro_pid=$!
+          printf 'E2E_METRO_PID=%s\n' "$metro_pid" >>"$GITHUB_ENV"
+          printf 'E2E_METRO_LOG=%s\n' "$metro_log" >>"$GITHUB_ENV"
+
+          for _ in {1..30}; do
+            if curl --silent --fail --max-time 2 http://127.0.0.1:8081/status >/dev/null; then
+              exit 0
+            fi
+            if ! kill -0 "$metro_pid" 2>/dev/null; then
+              cat "$metro_log" >&2 || true
+              exit 1
+            fi
+            sleep 1
+          done
+          cat "$metro_log" >&2 || true
+          echo "reference Metro did not become ready on port 8081" >&2
+          exit 1
+
       - name: Run cold-boot reference flow
         run: scripts/e2e/run-maestro-reference-flow.sh --run
+
+      - name: Stop reference Metro
+        if: ${{ always() }}
+        run: |
+          set -euo pipefail
+          if [[ -n "${E2E_METRO_PID:-}" ]] && kill -0 "$E2E_METRO_PID" 2>/dev/null; then
+            kill "$E2E_METRO_PID" 2>/dev/null || true
+          fi
+          if [[ -n "${E2E_METRO_LOG:-}" && -f "$E2E_METRO_LOG" ]]; then
+            tail -80 "$E2E_METRO_LOG" || true
+          fi
 
       - name: Upload Maestro artifacts
         if: ${{ always() }}
