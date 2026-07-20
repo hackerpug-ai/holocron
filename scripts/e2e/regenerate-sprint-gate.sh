@@ -29,15 +29,19 @@ generated_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
 junit="$artifact_dir/junit.xml"
 junit_failures=-1
+junit_sha=""
 if [[ -s "$junit" ]]; then
   f="$(sed -En 's/.*<testsuite[^>]* failures="([0-9]+)".*/\1/p' "$junit" | head -1)"
   [[ -n "$f" && "$f" =~ ^[0-9]+$ ]] && junit_failures="$f"
+  junit_sha="$(shasum -a 256 "$junit" | awk '{print $1}')"
 fi
 
-# GATE-FIX-G5 — this-cycle provenance: failed-this-cycle/junit.xml is the honest
-# crash evidence for the current cycle. A historical SUCCESS junit (e.g. official11
-# checksum a9eb6f7a…) copied into $artifact_dir/junit.xml must NEVER force step1
-# PASS while this-cycle failures remain.
+# GATE-FIX-G5 / GATE-FIX-G2 — this-cycle provenance honesty.
+# A historical SUCCESS junit (official11 checksum a9eb6f7a…) copied into
+# $artifact_dir/junit.xml must NEVER force step1 PASS while failed-this-cycle
+# still reports failures>0. A genuine this-cycle green junit (different sha)
+# MAY PASS even if failed-this-cycle retains prior crash quarantine evidence.
+OFFICIAL11_SUCCESS_SHA="a9eb6f7adb5771585d6d4efae16a7f5123bd6f6c2694923e9ef7269ece15738d"
 failed_cycle_junit="$artifact_dir/failed-this-cycle/junit.xml"
 failed_cycle_failures=-1
 if [[ -s "$failed_cycle_junit" ]]; then
@@ -47,15 +51,19 @@ fi
 
 # Step verdict derivations — each backed by a real file or live query.
 # Step 1: cold boot open (junit failures==0) with this-cycle honesty.
-# Refuse PASS when failed-this-cycle reports failures>0, even if the live junit
-# was swapped for a historical SUCCESS (official11) copy.
+# Refuse PASS only when live junit is the historical official11 SUCCESS byte
+# identity AND failed-this-cycle still reports failures>0 (substitution attack).
+# Genuine this-cycle green (failures=0, sha != official11) PASSes.
 s1="FAIL"; s1ev="$junit"
-if [[ "$failed_cycle_failures" -gt 0 ]]; then
+if [[ "$junit_failures" -eq 0 && -n "$junit_sha" && "$junit_sha" == "$OFFICIAL11_SUCCESS_SHA" && "$failed_cycle_failures" -gt 0 ]]; then
   s1="FAIL"
-  s1ev="$failed_cycle_junit failures=${failed_cycle_failures} (this-cycle fail overrides substituted SUCCESS)"
+  s1ev="$failed_cycle_junit failures=${failed_cycle_failures} (historical official11 SUCCESS substitution rejected; this-cycle fail overrides)"
 elif [[ "$junit_failures" -eq 0 ]]; then
   s1="PASS"
   s1ev="$junit"
+elif [[ "$failed_cycle_failures" -gt 0 ]]; then
+  s1="FAIL"
+  s1ev="$failed_cycle_junit failures=${failed_cycle_failures} (this-cycle fail)"
 fi
 
 # Step 2: send through fleet/Postgres (Postgres user+agent rows)
@@ -68,12 +76,27 @@ else
   s2="FAIL"; s2ev="DATABASE_URL not holocron_nonprod; cannot verify"
 fi
 
-# Step 3: durable Zero reply (capstone green OR capstone JSON zero_agent_content_len>=1)
+# Step 3: durable Zero reply — NEVER PASS from Zero-only while junit red.
+# Require capstone green (which itself requires junit_failures==0 + media + PG + Zero)
+# OR (junit_failures==0 AND zero_agent_content_len>=1). Zero-only while junit red → PARTIAL/FAIL.
 s3="FAIL"; s3ev="$artifact_dir/capstone-verdict.json"
 if [[ -s "$artifact_dir/capstone-verdict.json" ]]; then
   gate="$(jq -r '.coldboot_gate // "red"' "$artifact_dir/capstone-verdict.json" 2>/dev/null || echo red)"
   zacl="$(jq -r '.zero_agent_content_len // 0' "$artifact_dir/capstone-verdict.json" 2>/dev/null || echo 0)"
-  [[ "$zacl" =~ ^[0-9]+$ && "$zacl" -ge 1 ]] && s3="PASS" || { [[ "$gate" == "green" ]] && s3="PASS" || s3="PARTIAL"; }
+  cap_jf="$(jq -r '.junit_failures // -1' "$artifact_dir/capstone-verdict.json" 2>/dev/null || echo -1)"
+  if [[ "$gate" == "green" ]]; then
+    s3="PASS"
+    s3ev="$artifact_dir/capstone-verdict.json coldboot_gate=green"
+  elif [[ "$junit_failures" -eq 0 && "$zacl" =~ ^[0-9]+$ && "$zacl" -ge 1 ]]; then
+    s3="PASS"
+    s3ev="$artifact_dir/capstone-verdict.json junit_failures=0 zero_agent_content_len=${zacl}"
+  elif [[ "$zacl" =~ ^[0-9]+$ && "$zacl" -ge 1 && "$junit_failures" -ne 0 ]]; then
+    s3="PARTIAL"
+    s3ev="$artifact_dir/capstone-verdict.json zero_only_while_junit_red junit_failures=${junit_failures} cap_jf=${cap_jf}"
+  else
+    s3="PARTIAL"
+    s3ev="$artifact_dir/capstone-verdict.json coldboot_gate=${gate} zero_agent_content_len=${zacl}"
+  fi
 else
   s3="FAIL"; s3ev="capstone-verdict.json absent (run scripts/e2e/capstone-verdict.sh)"
 fi
@@ -140,26 +163,52 @@ if [[ -s "$s6ev" ]]; then
   [[ "$ok" == "true" ]] && s6="PASS" || s6="FAIL"
 fi
 
-jq -n \
-  --arg sha "$committed_sha" \
-  --arg at "$generated_at" \
-  --arg sprint "$(basename "$sprint_dir")" \
-  --arg artifact_dir "$artifact_dir" \
-  --arg s1 "$s1" --arg s1ev "$s1ev" \
-  --arg s2 "$s2" --arg s2ev "$s2ev" \
-  --arg s3 "$s3" --arg s3ev "$s3ev" \
-  --arg s4 "$s4" --arg s4ev "$s4ev" \
-  --arg s5 "$s5" --arg s5ev "$s5ev" \
-  --arg s6 "$s6" --arg s6ev "$s6ev" \
-  '{committed_sha:$sha, generated_at:$at, sprint:$sprint, artifact_dir:$artifact_dir,
-    steps:[
-      {n:1, text:"Cold-boot Maestro reference flow on named iOS Simulator", verdict:$s1, evidence_path:$s1ev},
-      {n:2, text:"Send chat message through fleet to Postgres", verdict:$s2, evidence_path:$s2ev},
-      {n:3, text:"Observe durable Zero-synced reply (screenshot)", verdict:$s3, evidence_path:$s3ev},
-      {n:4, text:"CI artifacts (JUnit/log/video) attached to e2e run", verdict:$s4, evidence_path:$s4ev},
-      {n:5, text:"Missing Expo build fails closed (not a false pass)", verdict:$s5, evidence_path:$s5ev},
-      {n:6, text:"holo namespace reset brings namespace to known seed", verdict:$s6, evidence_path:$s6ev}
-    ]}' >"$sprint_dir/gate-results.json"
+# Atomic exclusive write: concurrent PLATFORM_IT regenerators previously interleaved
+# non-atomic `jq > gate-results.json` producing Extra data / truncated mid-object
+# (e.g. "pace-reset.json ok=true" glued after a closed object). flock + tmp+mv.
+gate_out="$sprint_dir/gate-results.json"
+gate_tmp="$sprint_dir/gate-results.json.tmp.$$"
+gate_lock="$sprint_dir/gate-results.json.lock"
+
+write_gate_json() {
+  jq -n \
+    --arg sha "$committed_sha" \
+    --arg at "$generated_at" \
+    --arg sprint "$(basename "$sprint_dir")" \
+    --arg artifact_dir "$artifact_dir" \
+    --arg s1 "$s1" --arg s1ev "$s1ev" \
+    --arg s2 "$s2" --arg s2ev "$s2ev" \
+    --arg s3 "$s3" --arg s3ev "$s3ev" \
+    --arg s4 "$s4" --arg s4ev "$s4ev" \
+    --arg s5 "$s5" --arg s5ev "$s5ev" \
+    --arg s6 "$s6" --arg s6ev "$s6ev" \
+    '{committed_sha:$sha, generated_at:$at, sprint:$sprint, artifact_dir:$artifact_dir,
+      steps:[
+        {n:1, text:"Cold-boot Maestro reference flow on named iOS Simulator", verdict:$s1, evidence_path:$s1ev},
+        {n:2, text:"Send chat message through fleet to Postgres", verdict:$s2, evidence_path:$s2ev},
+        {n:3, text:"Observe durable Zero-synced reply (screenshot)", verdict:$s3, evidence_path:$s3ev},
+        {n:4, text:"CI artifacts (JUnit/log/video) attached to e2e run", verdict:$s4, evidence_path:$s4ev},
+        {n:5, text:"Missing Expo build fails closed (not a false pass)", verdict:$s5, evidence_path:$s5ev},
+        {n:6, text:"holo namespace reset brings namespace to known seed", verdict:$s6, evidence_path:$s6ev}
+      ]}' >"$gate_tmp"
+  # Validate before publish — refuse to leave unparseable JSON on disk.
+  python3 -c 'import json,sys; json.load(open(sys.argv[1]))' "$gate_tmp" || {
+    echo "regenerate-sprint-gate: produced invalid JSON; aborting publish" >&2
+    rm -f "$gate_tmp"
+    exit 3
+  }
+  mv -f "$gate_tmp" "$gate_out"
+}
+
+if command -v flock >/dev/null 2>&1; then
+  (
+    flock -w 30 9 || { echo "regenerate-sprint-gate: could not acquire lock $gate_lock" >&2; exit 4; }
+    write_gate_json
+  ) 9>"$gate_lock"
+else
+  # macOS may lack util-linux flock; still atomic via tmp+mv.
+  write_gate_json
+fi
 
 # Idempotent re-run: committed_sha is always recomputed.
-cat "$sprint_dir/gate-results.json"
+cat "$gate_out"
