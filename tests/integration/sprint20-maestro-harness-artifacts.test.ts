@@ -1,13 +1,12 @@
 /**
  * D03-03 — Maestro reference-flow harness artifact & defect contract.
  *
- * RED-first TDD for the real defects in `scripts/e2e/run-maestro-reference-flow.sh`:
+ * RED-first TDD for five real defects in `scripts/e2e/run-maestro-reference-flow.sh`:
  *   1. `-f` rejects `.app` directory bundles (iOS `.app` is a directory, not a file)
  *   2. Wrong default bundle id (`com.holocron.app` → must be `org.name.holocron`)
  *   3. `recordVideo` fails when the target file already exists (missing `-f`)
  *   4. No terminate/uninstall before install — stale build can false-pass (AC-2)
  *   5. No `dev-client-setup.json` with a `mode` field (AC-3)
- *   6. A named simulator must resolve to exactly one available, well-formed UDID
  *
  * Gated on PLATFORM_IT=1 (same posture as fail-closed-harness.test.ts) because case 1
  * drives the real script via `xcrun simctl` and a real available simulator UDID.
@@ -55,7 +54,7 @@ function discoverSimulator(): { name: string; udid: string } {
   };
   const simulators = Object.values(data.devices)
     .flat()
-    .filter((simulator) => simulator.isAvailable === true);
+    .filter((simulator) => simulator.isAvailable !== false);
   const counts = new Map<string, number>();
   for (const simulator of simulators) {
     counts.set(simulator.name, (counts.get(simulator.name) ?? 0) + 1);
@@ -70,22 +69,39 @@ function discoverSimulator(): { name: string; udid: string } {
 type FixtureSimulator = {
   isAvailable?: boolean;
   name: string;
-  udid?: unknown;
+  udid?: string;
 };
 
-function installResolutionFixture(binDir: string, payload: string): void {
-  const escapedPayload = payload.replaceAll("'", "'\\''");
-  const xcrun = join(binDir, 'xcrun');
-  writeFileSync(
-    xcrun,
-    `#!/usr/bin/env bash
+function validHarnessCheckEnv(
+  deviceName: string,
+  overrides: Partial<NodeJS.ProcessEnv> = {}
+): NodeJS.ProcessEnv {
+  return {
+    ...process.env,
+    MAESTRO_DEVICE: deviceName,
+    DATABASE_URL: 'postgres://127.0.0.1:5432/holocron_nonprod',
+    FLEET_URL: 'http://127.0.0.1:4545',
+    PLATFORM_URL: 'http://127.0.0.1:4111',
+    EXPO_PUBLIC_PLATFORM_URL: 'http://127.0.0.1:4111',
+    EXPO_PUBLIC_RN_API_KEY: 'test-rn-api-key',
+    EXPO_PUBLIC_REFERENCE_FLOW: 'true',
+    ZERO_ADMIN_PASSWORD: 'test-zero-admin',
+    MAESTRO_APP_ID: 'org.name.holocron',
+    ...overrides,
+  };
+}
+
+function installFakeXcrun(binDir: string, deviceName: string, jsonOutput: string): void {
+  const escapedJson = jsonOutput.replaceAll("'", "'\\''");
+  const script = `#!/usr/bin/env bash
 if [[ "$*" == *"--json"* ]]; then
-  printf '%s\\n' '${escapedPayload}'
+  printf '%s\\n' '${escapedJson}'
 else
-  exit 1
+  printf '%s\\n' '${deviceName} (Shutdown)'
 fi
-`
-  );
+`;
+  const xcrun = join(binDir, 'xcrun');
+  writeFileSync(xcrun, script);
   chmodSync(xcrun, 0o755);
 
   const maestro = join(binDir, 'maestro');
@@ -93,32 +109,36 @@ fi
   chmodSync(maestro, 0o755);
 }
 
-function fixturePayload(devices: FixtureSimulator[]): string {
-  return JSON.stringify({
-    devices: { 'com.apple.CoreSimulator.SimRuntime.fixture': devices },
-  });
-}
+function runResolverFixture(jsonOutput: string): {
+  status: number | null;
+  stderr: string;
+  stdout: string;
+} {
+  const fixtureRoot = mkdtempSync(join(tmpdir(), 'maestro-udid-fixture-'));
+  const binDir = join(fixtureRoot, 'bin');
+  const appDir = join(fixtureRoot, 'Fixture.app');
+  mkdirSync(binDir);
+  mkdirSync(appDir);
+  installFakeXcrun(binDir, 'Fixture iPhone', jsonOutput);
 
-function validFixtureCheckEnv(
-  fixtureRoot: string,
-  deviceName: string,
-  overrides: Partial<NodeJS.ProcessEnv> = {}
-): NodeJS.ProcessEnv {
-  const appPath = join(fixtureRoot, 'Fixture.app');
-  mkdirSync(appPath, { recursive: true });
-  return {
-    ...process.env,
-    PATH: `${join(fixtureRoot, 'bin')}:${process.env.PATH ?? ''}`,
-    MAESTRO_DEVICE: deviceName,
-    EXPO_DEV_BUILD_PATH: appPath,
-    DATABASE_URL: 'postgres://127.0.0.1:5432/holocron_nonprod',
-    FLEET_URL: 'http://127.0.0.1:4545',
-    PLATFORM_URL: 'http://127.0.0.1:4111',
-    EXPO_PUBLIC_PLATFORM_URL: 'http://127.0.0.1:4111',
-    EXPO_PUBLIC_RN_API_KEY: 'fixture-rn-api-key',
-    ZERO_ADMIN_PASSWORD: 'fixture-zero-admin',
-    ...overrides,
-  };
+  try {
+    const result = spawnSync('bash', [HARNESS, '--check'], {
+      cwd: REPO_ROOT,
+      env: validHarnessCheckEnv('Fixture iPhone', {
+        EXPO_DEV_BUILD_PATH: appDir,
+        PATH: `${binDir}:${process.env.PATH ?? ''}`,
+      }),
+      encoding: 'utf8',
+      timeout: 30_000,
+    });
+    return {
+      status: result.status,
+      stderr: result.stderr ?? '',
+      stdout: result.stdout ?? '',
+    };
+  } finally {
+    rmSync(fixtureRoot, { recursive: true, force: true });
+  }
 }
 
 describe('D03-03 Maestro harness artifact & defect contract', () => {
@@ -165,9 +185,111 @@ describe('D03-03 Maestro harness artifact & defect contract', () => {
         // --check success prints a JSON contract line naming the app path.
         expect(result.stdout).toContain('"ok":true');
         expect(result.stdout).toContain(appBundleDir);
+        expect(result.stdout).toContain(`"device":"${simulator.name}"`);
+        expect(result.stdout).toContain(`"device_udid":"${simulator.udid}"`);
+        expect(result.stdout).not.toContain(`"device":"${simulator.udid}"`);
       } finally {
         rmSync(tmpRoot, { recursive: true, force: true });
       }
+    });
+  });
+
+  describe('case 1b — named simulator resolution fails closed', () => {
+    it.each([
+      {
+        label: 'missing exact-name record',
+        json: JSON.stringify({
+          devices: {
+            runtime: [
+              {
+                name: 'Different iPhone',
+                isAvailable: true,
+                udid: '11111111-1111-1111-1111-111111111111',
+              } satisfies FixtureSimulator,
+            ],
+          },
+        }),
+        expected: 'could not resolve one exact available UDID',
+      },
+      {
+        label: 'malformed simctl JSON',
+        json: 'not-json',
+        expected: 'could not resolve one exact available UDID',
+      },
+      {
+        label: 'missing UDID',
+        json: JSON.stringify({
+          devices: {
+            runtime: [{ name: 'Fixture iPhone', isAvailable: true } satisfies FixtureSimulator],
+          },
+        }),
+        expected: 'could not resolve one exact available UDID',
+      },
+      {
+        label: 'malformed UDID',
+        json: JSON.stringify({
+          devices: {
+            runtime: [
+              {
+                name: 'Fixture iPhone',
+                isAvailable: true,
+                udid: 'not-a-uuid',
+              } satisfies FixtureSimulator,
+            ],
+          },
+        }),
+        expected: 'resolved simulator UDID is invalid',
+      },
+      {
+        label: 'unavailable exact-name record',
+        json: JSON.stringify({
+          devices: {
+            runtime: [
+              {
+                name: 'Fixture iPhone',
+                isAvailable: false,
+                udid: '11111111-1111-1111-1111-111111111111',
+              } satisfies FixtureSimulator,
+            ],
+          },
+        }),
+        expected: 'could not resolve one exact available UDID',
+      },
+      {
+        label: 'ambiguous exact-name records',
+        json: JSON.stringify({
+          devices: {
+            runtime: [
+              {
+                name: 'Fixture iPhone',
+                isAvailable: true,
+                udid: '11111111-1111-1111-1111-111111111111',
+              } satisfies FixtureSimulator,
+              {
+                name: 'Fixture iPhone',
+                isAvailable: true,
+                udid: '22222222-2222-2222-2222-222222222222',
+              } satisfies FixtureSimulator,
+            ],
+          },
+        }),
+        expected: 'could not resolve one exact available UDID',
+      },
+    ])('$label does not fall back to the simulator name', ({ json, expected }) => {
+      const result = runResolverFixture(json);
+
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain(expected);
+      expect(result.stdout).not.toContain('"ok":true');
+    });
+
+    it('uses Python 3 for the real JSON query and only passes the resolved UDID to Maestro', () => {
+      const src = readHarness();
+
+      expect(src).toContain('command -v python3');
+      expect(src).toContain('xcrun simctl list devices available --json');
+      expect(src).toContain('maestro --device "$device_udid"');
+      expect(src).not.toMatch(/maestro --(?:device|udid) "\$device"/);
     });
   });
 
@@ -178,97 +300,6 @@ describe('D03-03 Maestro harness artifact & defect contract', () => {
       expect(src).toMatch(/MAESTRO_APP_ID:-org\.name\.holocron/);
       // The stale/wrong default must not be the resolved default.
       expect(src).not.toMatch(/MAESTRO_APP_ID:-com\.holocron\.app/);
-    });
-  });
-
-  describe('case 6 — named simulator resolution fails closed', () => {
-    it.each([
-      {
-        label: 'missing exact name',
-        payload: fixturePayload([
-          {
-            name: 'Different iPhone',
-            udid: '11111111-1111-1111-1111-111111111111',
-            isAvailable: true,
-          },
-        ]),
-        expected: 'could not resolve one exact available UDID',
-      },
-      {
-        label: 'ambiguous exact name',
-        payload: fixturePayload([
-          {
-            name: 'Fixture iPhone',
-            udid: '11111111-1111-1111-1111-111111111111',
-            isAvailable: true,
-          },
-          {
-            name: 'Fixture iPhone',
-            udid: '22222222-2222-2222-2222-222222222222',
-            isAvailable: true,
-          },
-        ]),
-        expected: 'could not resolve one exact available UDID',
-      },
-      {
-        label: 'unavailable exact name',
-        payload: fixturePayload([
-          {
-            name: 'Fixture iPhone',
-            udid: '11111111-1111-1111-1111-111111111111',
-            isAvailable: false,
-          },
-        ]),
-        expected: 'could not resolve one exact available UDID',
-      },
-      {
-        label: 'malformed JSON',
-        payload: '{"devices":',
-        expected: 'could not resolve one exact available UDID',
-      },
-      {
-        label: 'missing UDID',
-        payload: fixturePayload([{ name: 'Fixture iPhone', isAvailable: true }]),
-        expected: 'could not resolve one exact available UDID',
-      },
-      {
-        label: 'malformed UDID',
-        payload: fixturePayload([
-          {
-            name: 'Fixture iPhone',
-            udid: 'not-a-udid',
-            isAvailable: true,
-          },
-        ]),
-        expected: 'resolved simulator UDID is invalid',
-      },
-    ])('$label fixture fails closed without a name-as-UDID fallback', ({ payload, expected }) => {
-      const fixtureRoot = mkdtempSync(join(tmpdir(), 'maestro-resolution-fixture-'));
-      const binDir = join(fixtureRoot, 'bin');
-      mkdirSync(binDir);
-      installResolutionFixture(binDir, payload);
-
-      try {
-        const result = spawnSync('bash', [HARNESS, '--check'], {
-          cwd: REPO_ROOT,
-          env: validFixtureCheckEnv(fixtureRoot, 'Fixture iPhone'),
-          encoding: 'utf8',
-          timeout: 30_000,
-        });
-
-        expect(result.status).not.toBe(0);
-        expect(result.stderr).toContain(expected);
-        expect(result.stdout).not.toContain('"ok":true');
-      } finally {
-        rmSync(fixtureRoot, { recursive: true, force: true });
-      }
-    });
-
-    it('requires python3 explicitly before attempting resolution', () => {
-      const src = readHarness();
-      expect(src).toMatch(
-        /command -v python3 .*fail "python3 is not installed; cannot resolve simulator UDID"/
-      );
     });
   });
 
