@@ -1,5 +1,5 @@
 # GATE-FIX-G4 — Fail-closed CI probes + real ci-e2e dispatch provenance for human gate step 4
-> Status: Backlog
+> Status: ⬜ Pending
 > Sprint: [Sprint 20 — E2E Maestro Harness and Cold-Boot Reference Flow](./SPRINT.md)
 > Agent: devops-engineer
 > Reviewer: ghactions-reviewer

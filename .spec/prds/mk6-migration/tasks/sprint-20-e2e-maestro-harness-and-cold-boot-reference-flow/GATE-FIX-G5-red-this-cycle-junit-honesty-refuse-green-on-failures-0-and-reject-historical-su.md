@@ -1,5 +1,5 @@
 # GATE-FIX-G5 — RED: this-cycle junit honesty — refuse green on failures>0 and reject historical SUCCESS substitution
-> Status: Backlog
+> Status: ⬜ Pending
 > Sprint: [Sprint 20 — E2E Maestro Harness and Cold-Boot Reference Flow](./SPRINT.md)
 > Agent: devops-engineer
 > Estimate: 75 min

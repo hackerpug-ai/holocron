@@ -1,5 +1,5 @@
 # GATE-FIX-G1 — Rebuild non-crashing Expo development-simulator holocron.app via eas
-> Status: Backlog
+> Status: ⬜ Pending
 > Sprint: [Sprint 20 — E2E Maestro Harness and Cold-Boot Reference Flow](./SPRINT.md)
 > Agent: devops-engineer
 > Estimate: 150 min

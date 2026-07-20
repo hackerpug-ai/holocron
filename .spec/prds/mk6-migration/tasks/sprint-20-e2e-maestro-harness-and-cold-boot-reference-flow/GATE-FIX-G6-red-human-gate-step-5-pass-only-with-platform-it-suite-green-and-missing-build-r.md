@@ -1,5 +1,5 @@
 # GATE-FIX-G6 — RED: Human Gate Step-5 PASS only with PLATFORM_IT suite green AND missing-build --run no junit.xml
-> Status: Backlog
+> Status: ⬜ Pending
 > Sprint: [Sprint 20 — E2E Maestro Harness and Cold-Boot Reference Flow](./SPRINT.md)
 > Agent: devops-engineer
 > Estimate: 60 min

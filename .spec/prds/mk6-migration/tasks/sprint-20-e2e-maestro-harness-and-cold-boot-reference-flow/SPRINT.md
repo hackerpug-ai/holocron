@@ -16,8 +16,8 @@ planned_at: 2026-07-18T21:44:20Z
 
 **Sequence:** 20
 **Timeline:** Phase 4 — Reference-Flow Gate and Deep Services
-**Status:** Blocked — REDHAT-FIX-H2 (CI) + fresh cold-boot (crashing .app / no eas)
-> Progress: 9/10 REDHAT fixes complete · H2 external block · fresh Maestro cold-boot FAIL this cycle · updated 2026-07-20T00:20:00Z
+**Status:** Blocked — open GATE-FIX-G1/G2/G4/G5/G6 + REDHAT-FIX-H2 (external CI)
+> Progress: 19/25 completed · 1 blocked · 5 pending (GATE-FIX) · updated 2026-07-20T01:24:31Z
 **Proposed by:** react-native-ui-planner + devops-engineer
 **Branch:** `mk6-reference-flow`
 **Opened:** 2026-07-18 — generated JIT by /kb-sprint-tasks-plan

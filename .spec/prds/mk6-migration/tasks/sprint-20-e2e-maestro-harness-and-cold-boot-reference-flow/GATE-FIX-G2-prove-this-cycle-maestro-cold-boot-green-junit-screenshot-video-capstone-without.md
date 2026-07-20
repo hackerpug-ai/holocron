@@ -1,5 +1,5 @@
 # GATE-FIX-G2 — Prove this-cycle Maestro cold-boot green (junit/screenshot/video/capstone) without historical SUCCESS substitution
-> Status: Backlog
+> Status: ⬜ Pending
 > Sprint: [Sprint 20 — E2E Maestro Harness and Cold-Boot Reference Flow](./SPRINT.md)
 > Agent: react-native-ui-implementer
 > Estimate: 210 min

@@ -1,5 +1,6 @@
 # REDHAT-FIX-H2 — Produce provenance-valid CI-dispatched Maestro evidence and preserve downloadable artifact metadata for the self-hosted lane
 > Status: ⛔ Blocked (external: gh/runner/secrets)
+> Continued by: GATE-FIX-G4 (fail-closed CI probes + real ci-e2e provenance)
 > Sprint: [Sprint 20 — E2E Maestro Harness and Cold-Boot Reference Flow](./SPRINT.md)
 > Agent: devops-engineer
 > Estimate: 120 min
