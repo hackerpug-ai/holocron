@@ -73,7 +73,25 @@ if [[ -n "$db_url" && "$db_url" == *holocron_nonprod* ]]; then
   s2ev="psql chat_messages conversation=${conv_id} count=${cnt}"
   [[ "$cnt" =~ ^[0-9]+$ && "$cnt" -ge 2 ]] && s2="PASS" || s2="PARTIAL"
 else
-  s2="FAIL"; s2ev="DATABASE_URL not holocron_nonprod; cannot verify"
+  ci_capstone="$artifact_dir/capstone-verdict.json"
+  ci_provenance="$sprint_dir/ci-run-provenance.json"
+  if [[ -s "$ci_capstone" && -s "$ci_provenance" ]]; then
+    ci_gate="$(jq -r '.coldboot_gate // "red"' "$ci_capstone" 2>/dev/null || echo red)"
+    ci_pg_count="$(jq -r '.postgres_agent_count // 0' "$ci_capstone" 2>/dev/null || echo 0)"
+    ci_pg_content_len="$(jq -r '.postgres_agent_content_len // 0' "$ci_capstone" 2>/dev/null || echo 0)"
+    ci_capstone_sha="$(jq -r '.committed_sha // empty' "$ci_capstone" 2>/dev/null || true)"
+    ci_provenance_sha="$(jq -r '.committed_sha // empty' "$ci_provenance" 2>/dev/null || true)"
+    ci_conclusion="$(jq -r '.conclusion // empty' "$ci_provenance" 2>/dev/null || true)"
+    if [[ "$ci_gate" == "green" && "$ci_conclusion" == "success" && "$ci_capstone_sha" == "$committed_sha" && "$ci_provenance_sha" == "$committed_sha" && "$ci_pg_count" =~ ^[0-9]+$ && "$ci_pg_count" -ge 1 && "$ci_pg_content_len" =~ ^[0-9]+$ && "$ci_pg_content_len" -ge 1 ]]; then
+      s2="PASS"
+      s2ev="$ci_capstone real CI Postgres evidence conversation=${conv_id} agent_count=${ci_pg_count} content_len=${ci_pg_content_len}"
+    else
+      s2="FAIL"
+      s2ev="DATABASE_URL unavailable and provenance-bound CI Postgres capstone evidence is incomplete"
+    fi
+  else
+    s2="FAIL"; s2ev="DATABASE_URL not holocron_nonprod; cannot verify"
+  fi
 fi
 
 # Step 3: durable Zero reply — NEVER PASS from Zero-only while junit red.
