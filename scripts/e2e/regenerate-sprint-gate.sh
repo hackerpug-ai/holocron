@@ -70,8 +70,48 @@ else
 fi
 
 # Step 5: missing build fails closed (D03-01 PLATFORM_IT suite result)
-s5="FAIL"; s5ev="$repo_root/tests/integration/sprint20-maestro-harness.test.ts"
-if [[ -f "$s5ev" ]]; then s5="PARTIAL"; fi  # true PASS requires a green PLATFORM_IT run artifact
+# GATE-FIX-G6 — PASS only with dual evidence:
+#   1) step5-harness-suite.json with exitCode==0 (PLATFORM_IT suite green)
+#   2) step5-missing-build-run.json with exitCode!=0 and junit_present=false
+#      (or recorded artifact_dir has no junit.xml)
+# File existence alone → PARTIAL. Suite-only or missing-build-only → PARTIAL.
+# NEVER PASS from file existence alone; NEVER require full Maestro cold-boot green.
+s5="FAIL"
+s5ev="$repo_root/tests/integration/sprint20-maestro-harness.test.ts"
+suite_ev="$artifact_dir/step5-harness-suite.json"
+miss_ev="$artifact_dir/step5-missing-build-run.json"
+suite_ok=0
+miss_ok=0
+if [[ -s "$suite_ev" ]]; then
+  suite_exit="$(jq -r '.exitCode // .exit_code // 1' "$suite_ev" 2>/dev/null || echo 1)"
+  [[ "$suite_exit" == "0" ]] && suite_ok=1
+fi
+if [[ -s "$miss_ev" ]]; then
+  miss_exit="$(jq -r '.exitCode // .exit_code // 0' "$miss_ev" 2>/dev/null || echo 0)"
+  junit_present="$(jq -r '.junit_present // .junitPresent // empty' "$miss_ev" 2>/dev/null || true)"
+  miss_art="$(jq -r '.artifact_dir // empty' "$miss_ev" 2>/dev/null || true)"
+  junit_absent=0
+  if [[ "$junit_present" == "false" ]]; then
+    junit_absent=1
+  elif [[ -n "$miss_art" && ! -f "$miss_art/junit.xml" ]]; then
+    junit_absent=1
+  elif [[ ! -f "$artifact_dir/junit.xml" && -z "$junit_present" ]]; then
+    junit_absent=1
+  fi
+  if [[ "$miss_exit" != "0" && "$junit_absent" == "1" ]]; then
+    miss_ok=1
+  fi
+fi
+if [[ "$suite_ok" == "1" && "$miss_ok" == "1" ]]; then
+  s5="PASS"
+  s5ev="suite=$suite_ev exit=0 AND missing-build=$miss_ev no-junit"
+elif [[ "$suite_ok" == "1" || "$miss_ok" == "1" ]]; then
+  s5="PARTIAL"
+  s5ev="partial dual evidence suite_ok=$suite_ok miss_ok=$miss_ok suite=$suite_ev miss=$miss_ev"
+elif [[ -f "$s5ev" ]]; then
+  s5="PARTIAL"
+  s5ev="$s5ev (file only; dual evidence required for PASS)"
+fi
 
 # Step 6: namespace reset known seed (namespace-reset.json ok:true + fingerprint)
 s6="FAIL"; s6ev="$artifact_dir/namespace-reset.json"
