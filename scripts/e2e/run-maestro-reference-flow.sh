@@ -224,6 +224,11 @@ printf '%s\n' "$maestro_rc" >"$artifact_dir/maestro-exit-code.txt"
 # Keep the post-run verdict path explicit and independent from incidental shell
 # statuses. The actual flow and recorder outcomes remain fail-closed below.
 set +e
+# Finalize the recorder before validating the exact video path. recordVideo
+# writes the .mov during SIGINT cleanup, after Maestro has already returned.
+cleanup
+trap - EXIT
+video_bad=0
 # REDHAT-FIX-H3 — recorder-failure surfacing. If the exact reference-flow.mov
 # is missing/empty OR the recorder logged a known failure, record a named reason
 # and force a non-zero exit so a sidecar-only / empty-video result can never be
@@ -242,6 +247,4 @@ if [[ "$video_bad" == "1" ]]; then
 fi
 printf 'maestro_rc=%s\nvideo_bad=%s\nfinal_rc=%s\n' \
   "$maestro_rc" "$video_bad" "$final_rc" >"$artifact_dir/harness-verdict.txt"
-trap - EXIT
-cleanup
 exit "$final_rc"
