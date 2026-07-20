@@ -1,6 +1,6 @@
 {
-  "committed_sha": "ee00ee942cd894813c3b4ba4c1dd37ec2c384aad",
-  "generated_at": "2026-07-20T00:17:03Z",
+  "committed_sha": "60e8831ae474729db6bfd048b2616dd11086e534",
+  "generated_at": "2026-07-20T00:17:42Z",
   "sprint": "sprint-20-e2e-maestro-harness-and-cold-boot-reference-flow",
   "artifact_dir": "/Users/inference1/Projects/holocron/.tmp/maestro-reference-flow",
   "steps": [
