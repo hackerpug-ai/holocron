@@ -22,10 +22,12 @@ set -Eeuo pipefail
 mode="full"
 artifact_dir=""
 from_ci_artifact="false"
+tested_sha_arg=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --check) mode="check"; shift ;;
     --artifact-dir) artifact_dir="${2:?--artifact-dir requires a path}"; shift 2 ;;
+    --tested-sha|--expected-sha) tested_sha_arg="${2:?$1 requires a SHA}"; shift 2 ;;
     --from-ci-artifact)
       from_ci_artifact="true"
       # Accept both documented forms:
@@ -80,15 +82,23 @@ fi
 # operator to substitute local evidence. The live CI lane already emits a
 # capstone verdict after querying its real Postgres and Zero instances. This
 # mode verifies that verdict is bound to the downloaded bytes, the captured
-# success provenance, and the current committed source SHA before accepting
-# it. It never invents counts or turns an unverified bundle green.
+# success provenance, and the source SHA that CI actually tested before
+# accepting it. When provenance was captured before an evidence-only commit,
+# pass --tested-sha (or EXPECTED_TESTED_SHA) so replay does not recurse onto
+# the evidence commit. It never invents counts or turns an unverified bundle
+# green.
 if [[ "$from_ci_artifact" == "true" ]]; then
-  committed_sha="$(git -C "$repo_root" rev-parse HEAD 2>/dev/null || echo unknown)"
+  replay_head_sha="$(git -C "$repo_root" rev-parse HEAD 2>/dev/null || echo unknown)"
+  expected_tested_sha="${tested_sha_arg:-${EXPECTED_TESTED_SHA:-${CI_TESTED_SHA:-$replay_head_sha}}}"
+  committed_sha="$expected_tested_sha"
   generated_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   ci_reasons_json="[]"
   ci_add_reason() {
     ci_reasons_json="$(jq -Mc --arg r "$1" '. + [$r]' <<<"$ci_reasons_json")"
   }
+  if [[ ! "$expected_tested_sha" =~ ^[0-9a-fA-F]{40}$ ]]; then
+    ci_add_reason "expected tested SHA is invalid"
+  fi
   ci_find_file() {
     local filename="$1"
     if [[ -s "$artifact_dir/$filename" ]]; then
@@ -129,7 +139,9 @@ if [[ "$from_ci_artifact" == "true" ]]; then
     [[ "$ci_run_id" =~ ^[1-9][0-9]*$ ]] || ci_add_reason "CI provenance run_id is invalid"
     [[ "$ci_head_sha" =~ ^[0-9a-fA-F]{40}$ ]] || ci_add_reason "CI provenance head_sha is invalid"
     [[ "$ci_committed_sha" == "$ci_head_sha" ]] || ci_add_reason "CI provenance committed_sha does not equal head_sha"
-    [[ "$ci_committed_sha" == "$committed_sha" ]] || ci_add_reason "CI provenance SHA $ci_committed_sha does not match current HEAD $committed_sha"
+    [[ "$ci_head_sha" == "$expected_tested_sha" ]] || ci_add_reason "CI provenance tested SHA $ci_head_sha does not match expected tested SHA $expected_tested_sha"
+    ci_tested_sha="$(jq -r '.tested_sha // empty' "$ci_provenance" 2>/dev/null || true)"
+    [[ -z "$ci_tested_sha" || "$ci_tested_sha" == "$expected_tested_sha" ]] || ci_add_reason "CI provenance tested_sha does not match expected tested SHA"
     [[ "$ci_conclusion" == "success" ]] || ci_add_reason "CI provenance conclusion is not success"
     [[ "$ci_artifact_sha" =~ ^[0-9a-fA-F]{64}$ ]] || ci_add_reason "CI provenance artifact_sha256 is invalid"
     [[ "$ci_artifact_size" =~ ^[1-9][0-9]*$ ]] || ci_add_reason "CI provenance artifact_size_bytes is invalid"
@@ -192,6 +204,8 @@ if [[ "$from_ci_artifact" == "true" ]]; then
   [[ "$ci_reasons_json" == "[]" ]] || ci_verdict="red"
   ci_payload="$(jq -Mn \
     --arg sha "$committed_sha" \
+    --arg tested_sha "$expected_tested_sha" \
+    --arg replay_head_sha "$replay_head_sha" \
     --arg at "$generated_at" \
     --arg gate "$ci_verdict" \
     --argjson jf "$ci_junit_failures" \
@@ -203,7 +217,8 @@ if [[ "$from_ci_artifact" == "true" ]]; then
     --argjson reasons "$ci_reasons_json" \
     --arg artifact_dir "$artifact_dir" \
     --arg conversation_id "$ci_conversation_id" \
-    '{committed_sha:$sha, generated_at:$at, coldboot_gate:$gate, junit_failures:$jf,
+    '{committed_sha:$sha, tested_sha:$tested_sha, replay_head_sha:$replay_head_sha,
+      generated_at:$at, coldboot_gate:$gate, junit_failures:$jf,
       postgres_agent_count:$pac, postgres_agent_content_len:$pacl,
       zero_cache_ok:$zok, zero_agent_content_len:$zacl,
       conversation_id:$conversation_id, artifact_dir:$artifact_dir,

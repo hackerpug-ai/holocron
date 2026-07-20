@@ -3,8 +3,10 @@
 #
 # Independently recomputes the Human Testing Gate verdict per step from REAL
 # evidence files, never copying sprint-goal-state.json. Each step records a
-# PASS / PARTIAL / FAIL verdict plus a concrete evidence_path. The committed_sha
-# is the current `git rev-parse HEAD`, so a stale SHA is impossible.
+# PASS / PARTIAL / FAIL verdict plus a concrete evidence_path. committed_sha is
+# the evidence commit, while tested_sha is the source SHA exercised by real CI.
+# They may differ when evidence is committed after CI, but the provenance and
+# capstone must agree on tested_sha.
 #
 # Usage:
 #   regenerate-sprint-gate.sh sprint-20
@@ -25,6 +27,11 @@ artifact_dir="${E2E_ARTIFACT_DIR:-$repo_root/.tmp/maestro-reference-flow}"
 db_url="${DATABASE_URL:-}"
 conv_id="${REFERENCE_CONVERSATION_ID:-00000000-0000-0000-0000-000000000020}"
 committed_sha="$(git -C "$repo_root" rev-parse HEAD 2>/dev/null || echo unknown)"
+expected_tested_sha="${EXPECTED_TESTED_SHA:-${CI_TESTED_SHA:-$committed_sha}}"
+if [[ ! "$expected_tested_sha" =~ ^[0-9a-fA-F]{40}$ ]]; then
+  echo "regenerate-sprint-gate: EXPECTED_TESTED_SHA must be a 40-character hex SHA" >&2
+  exit 2
+fi
 generated_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
 junit="$artifact_dir/junit.xml"
@@ -82,7 +89,8 @@ else
     ci_capstone_sha="$(jq -r '.committed_sha // empty' "$ci_capstone" 2>/dev/null || true)"
     ci_provenance_sha="$(jq -r '.committed_sha // empty' "$ci_provenance" 2>/dev/null || true)"
     ci_conclusion="$(jq -r '.conclusion // empty' "$ci_provenance" 2>/dev/null || true)"
-    if [[ "$ci_gate" == "green" && "$ci_conclusion" == "success" && "$ci_capstone_sha" == "$committed_sha" && "$ci_provenance_sha" == "$committed_sha" && "$ci_pg_count" =~ ^[0-9]+$ && "$ci_pg_count" -ge 1 && "$ci_pg_content_len" =~ ^[0-9]+$ && "$ci_pg_content_len" -ge 1 ]]; then
+    ci_provenance_head_sha="$(jq -r '.head_sha // empty' "$ci_provenance" 2>/dev/null || true)"
+    if [[ "$ci_gate" == "green" && "$ci_conclusion" == "success" && "$ci_capstone_sha" == "$expected_tested_sha" && "$ci_provenance_sha" == "$expected_tested_sha" && "$ci_provenance_head_sha" == "$expected_tested_sha" && "$ci_pg_count" =~ ^[0-9]+$ && "$ci_pg_count" -ge 1 && "$ci_pg_content_len" =~ ^[0-9]+$ && "$ci_pg_content_len" -ge 1 ]]; then
       s2="PASS"
       s2ev="$ci_capstone real CI Postgres evidence conversation=${conv_id} agent_count=${ci_pg_count} content_len=${ci_pg_content_len}"
     else
@@ -140,9 +148,10 @@ for cand in \
 done
 if [[ -n "$s4_prov" ]]; then
   # Validate required CI fields — conclusion alone is insufficient.
-  s4_eval="$(python3 - "$s4_prov" <<'PY'
+  s4_eval="$(python3 - "$s4_prov" "$expected_tested_sha" <<'PY'
 import json, re, sys
 path = sys.argv[1]
+expected = sys.argv[2]
 try:
     d = json.load(open(path, encoding="utf-8"))
 except Exception as e:
@@ -154,21 +163,26 @@ try:
 except Exception:
     run_id_n = 0
 head = str(d.get("head_sha") or "")
+committed = str(d.get("committed_sha") or "")
+tested = str(d.get("tested_sha") or "")
 art = str(d.get("artifact_sha256") or "")
 concl = str(d.get("conclusion") or "missing")
 ok = (
     run_id_n > 0
     and concl == "success"
     and bool(re.fullmatch(r"[0-9a-fA-F]{40}", head))
+    and head == committed == expected
+    and (not tested or tested == expected)
     and bool(re.fullmatch(r"[0-9a-fA-F]{64}", art))
 )
 if ok:
-    print(f"PASS\t{path} conclusion=success run_id={run_id_n} head_sha={head[:12]}…")
+    print(f"PASS\t{path} conclusion=success run_id={run_id_n} tested_sha={head[:12]}…")
 else:
     print(
         f"FAIL\t{path} incomplete-or-unsuccessful "
         f"conclusion={concl} run_id={run_id_n} "
-        f"head_sha_len={len(head)} artifact_sha256_len={len(art)}"
+        f"head_sha_len={len(head)} committed_sha_matches_expected={committed == expected} "
+        f"tested_sha_matches_expected={not tested or tested == expected} artifact_sha256_len={len(art)}"
     )
 PY
 )"
@@ -242,6 +256,7 @@ gate_lock="$sprint_dir/gate-results.json.lock"
 write_gate_json() {
   jq -n \
     --arg sha "$committed_sha" \
+    --arg tested "$expected_tested_sha" \
     --arg at "$generated_at" \
     --arg sprint "$(basename "$sprint_dir")" \
     --arg artifact_dir "$artifact_dir" \
@@ -251,7 +266,7 @@ write_gate_json() {
     --arg s4 "$s4" --arg s4ev "$s4ev" \
     --arg s5 "$s5" --arg s5ev "$s5ev" \
     --arg s6 "$s6" --arg s6ev "$s6ev" \
-    '{committed_sha:$sha, generated_at:$at, sprint:$sprint, artifact_dir:$artifact_dir,
+    '{committed_sha:$sha, tested_sha:$tested, generated_at:$at, sprint:$sprint, artifact_dir:$artifact_dir,
       steps:[
         {n:1, text:"Cold-boot Maestro reference flow on named iOS Simulator", verdict:$s1, evidence_path:$s1ev},
         {n:2, text:"Send chat message through fleet to Postgres", verdict:$s2, evidence_path:$s2ev},

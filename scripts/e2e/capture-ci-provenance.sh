@@ -2,7 +2,7 @@
 # GATE-FIX-G4 / REDHAT-FIX-H2 — Capture real ci-e2e run provenance after success.
 #
 # Usage:
-#   scripts/e2e/capture-ci-provenance.sh --run-id <id> [--out path] [--download-dir path]
+#   scripts/e2e/capture-ci-provenance.sh --run-id <id> [--expected-sha <sha>] [--out path] [--download-dir path]
 #   scripts/e2e/capture-ci-provenance.sh <run_id>
 #
 # Behavior:
@@ -20,6 +20,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 sprint_dir="$repo_root/.spec/prds/mk6-migration/tasks/sprint-20-e2e-maestro-harness-and-cold-boot-reference-flow"
 
 run_id=""
+expected_sha="${CI_TESTED_SHA:-}"
 out_path=""
 download_dir="${CI_E2E_DOWNLOAD_DIR:-$repo_root/.tmp/ci-e2e-download}"
 artifact_name_override=""
@@ -27,10 +28,12 @@ artifact_name_override=""
 usage() {
   cat <<'EOF'
 Usage:
-  capture-ci-provenance.sh --run-id <id> [--out path] [--download-dir path]
+  capture-ci-provenance.sh --run-id <id> [--expected-sha <sha>] [--out path] [--download-dir path]
   capture-ci-provenance.sh <run_id>
 
-Fail closed when gh is missing/unauthenticated, run_id invalid, or conclusion != success.
+Fail closed when gh is missing/unauthenticated, run_id invalid, conclusion != success,
+or the run head does not equal the expected tested SHA. If --expected-sha is omitted,
+the current HEAD is used as the expected tested SHA.
 Writes ci-run-provenance.json; does not fabricate success.
 EOF
 }
@@ -39,6 +42,8 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --run-id)
       run_id="${2:-}"; shift 2 ;;
+    --expected-sha|--tested-sha)
+      expected_sha="${2:-}"; shift 2 ;;
     --out)
       out_path="${2:-}"; shift 2 ;;
     --download-dir)
@@ -72,6 +77,14 @@ fi
 # Reject non-positive / non-numeric run ids (fail closed; never fabricate)
 if ! [[ "$run_id" =~ ^[1-9][0-9]*$ ]]; then
   echo "capture-ci-provenance: invalid run_id='$run_id' (must be positive integer)" >&2
+  exit 1
+fi
+
+if [[ -z "$expected_sha" ]]; then
+  expected_sha="$(git -C "$repo_root" rev-parse HEAD 2>/dev/null || echo unknown)"
+fi
+if ! [[ "$expected_sha" =~ ^[0-9a-fA-F]{40}$ ]]; then
+  echo "capture-ci-provenance: invalid expected tested SHA='$expected_sha' (must be 40 hex characters)" >&2
   exit 1
 fi
 
@@ -149,6 +162,14 @@ head_sha="$(python3 -c 'import json,sys; print(json.loads(sys.argv[1])["head_sha
 run_url="$(python3 -c 'import json,sys; print(json.loads(sys.argv[1])["run_url"])' "$meta")"
 conclusion="$(python3 -c 'import json,sys; print(json.loads(sys.argv[1])["conclusion"])' "$meta")"
 workflow_name="$(python3 -c 'import json,sys; print(json.loads(sys.argv[1]).get("workflow_name") or "ci-e2e")' "$meta")"
+
+head_sha_lower="$(printf '%s' "$head_sha" | tr '[:upper:]' '[:lower:]')"
+expected_sha_lower="$(printf '%s' "$expected_sha" | tr '[:upper:]' '[:lower:]')"
+if [[ "$head_sha_lower" != "$expected_sha_lower" ]]; then
+  echo "capture-ci-provenance: fail-closed: CI run head_sha=$head_sha does not match expected tested SHA=$expected_sha" >&2
+  echo "capture-ci-provenance: refusing to write mismatched success provenance" >&2
+  exit 1
+fi
 
 # Prefer artifact name with run_id suffix (ci-e2e.yml: maestro-reference-flow-${{ github.run_id }})
 artifact_name="${artifact_name_override:-maestro-reference-flow-${run_id}}"
@@ -259,7 +280,7 @@ if [[ -f "$download_dir/junit.xml" ]] || find "$download_dir" -name junit.xml 2>
   junit_present=true
 fi
 
-committed_sha="$(git -C "$repo_root" rev-parse HEAD 2>/dev/null || echo unknown)"
+evidence_capture_sha="$(git -C "$repo_root" rev-parse HEAD 2>/dev/null || echo unknown)"
 captured_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
 mkdir -p "$(dirname "$out_path")"
@@ -273,7 +294,9 @@ payload = {
   "run_id": int("""$run_id"""),
   "run_url": """$run_url""",
   "head_sha": """$head_sha""",
-  "committed_sha": """$committed_sha""",
+  "committed_sha": """$head_sha""",
+  "tested_sha": """$head_sha""",
+  "evidence_capture_sha": """$evidence_capture_sha""",
   "conclusion": """$conclusion""",
   "artifact_name": """$artifact_name""",
   "artifact_size_bytes": int("""${artifact_size:-0}"""),
@@ -286,6 +309,7 @@ payload = {
 assert payload["run_id"] > 0
 assert payload["conclusion"] == "success"
 assert len(payload["head_sha"]) == 40
+assert payload["head_sha"] == payload["committed_sha"] == payload["tested_sha"]
 assert len(payload["artifact_sha256"]) == 64
 with open(out, "w", encoding="utf-8") as f:
     json.dump(payload, f, indent=2)

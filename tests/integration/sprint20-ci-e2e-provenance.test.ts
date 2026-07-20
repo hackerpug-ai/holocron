@@ -13,7 +13,7 @@
  * NEVER skip-to-green. NEVER fabricate run_id / success provenance.
  */
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -78,7 +78,10 @@ function parseJsonLoose(text: string): Record<string, unknown> {
   }
 }
 
-function runRegenerator(artifactDir: string): {
+function runRegenerator(
+  artifactDir: string,
+  extraEnv: Partial<NodeJS.ProcessEnv> = {}
+): {
   stdout: string;
   gate: {
     steps: Array<{ n: number; verdict: string; evidence_path: string }>;
@@ -87,7 +90,7 @@ function runRegenerator(artifactDir: string): {
 } {
   const stdout = execFileSync(REGENERATOR, ['sprint-20'], {
     cwd: REPO,
-    env: { ...process.env, E2E_ARTIFACT_DIR: artifactDir },
+    env: { ...process.env, E2E_ARTIFACT_DIR: artifactDir, ...extraEnv },
     encoding: 'utf8',
   });
   const gate = JSON.parse(readFileSync(GATE_RESULTS, 'utf8')) as {
@@ -101,11 +104,15 @@ function isValidSuccessProvenance(body: Record<string, unknown>): boolean {
   const runId = Number(body.run_id);
   const headSha = String(body.head_sha ?? '');
   const artSha = String(body.artifact_sha256 ?? '');
+  const committedSha = String(body.committed_sha ?? '');
+  const testedSha = String(body.tested_sha ?? headSha);
   const conclusion = String(body.conclusion ?? '');
   return (
     Number.isFinite(runId) &&
     runId > 0 &&
     /^[0-9a-f]{40}$/i.test(headSha) &&
+    committedSha === headSha &&
+    testedSha === headSha &&
     /^[0-9a-f]{64}$/i.test(artSha) &&
     conclusion === 'success'
   );
@@ -278,6 +285,47 @@ describe('GATE-FIX-G4 — CI e2e probes + provenance', () => {
         expect(body.conclusion === 'success' && Number(body.run_id) > 0).toBe(false);
       }
     });
+
+    it('fail-closed: capture rejects a successful historical run not matching the tested SHA', () => {
+      const fakeBin = join(STAGE_DIR, 'fake-gh-bin');
+      mkdirSync(fakeBin, { recursive: true });
+      const fakeGh = join(fakeBin, 'gh');
+      const historicalSha = 'a'.repeat(40);
+      writeFileSync(
+        fakeGh,
+        `#!/usr/bin/env bash
+if [[ "\${1:-}" == "auth" && "\${2:-}" == "status" ]]; then exit 0; fi
+if [[ "\${1:-}" == "run" && "\${2:-}" == "view" ]]; then
+  printf '%s\\n' '{"databaseId":123,"status":"completed","conclusion":"success","headSha":"${historicalSha}","url":"https://github.com/example/run/123","workflowName":"ci-e2e"}'
+  exit 0
+fi
+exit 1
+`,
+        'utf8'
+      );
+      chmodSync(fakeGh, 0o755);
+
+      const outPath = join(STAGE_DIR, 'historical-rejected.json');
+      const expectedSha = 'b'.repeat(40);
+      const r = run(
+        '/bin/bash',
+        [CAPTURE, '--run-id', '123', '--expected-sha', expectedSha, '--out', outPath],
+        {
+          ...process.env,
+          PATH: `${fakeBin}:${process.env.PATH ?? '/usr/bin:/bin'}`,
+          GH_TOKEN: '',
+          GITHUB_TOKEN: '',
+        },
+        30_000
+      );
+      writeEvidence(
+        'ac2-capture-stale-run-rejected.json',
+        JSON.stringify({ status: r.status, stdout: r.stdout, stderr: r.stderr }, null, 2)
+      );
+      expect(r.status).not.toBe(0);
+      expect(`${r.stdout}\n${r.stderr}`).toContain('does not match expected tested SHA');
+      expect(existsSync(outPath)).toBe(false);
+    });
   });
 
   describe('AC-2/AC-3 happy paths (real CI only — skip with reason when probe not ready)', () => {
@@ -337,12 +385,21 @@ describe('GATE-FIX-G4 — CI e2e probes + provenance', () => {
         'ac3-capstone.json',
         JSON.stringify({ status: r.status, stdout: r.stdout, stderr: r.stderr }, null, 2)
       );
-      expect(r.status).toBe(0);
       const verdictPath = join(downloadDir, 'capstone-verdict.json');
       expect(existsSync(verdictPath)).toBe(true);
       const verdict = JSON.parse(readFileSync(verdictPath, 'utf8')) as {
         coldboot_gate?: string;
+        reasons?: string[];
       };
+      if (r.status !== 0) {
+        // A downloaded bundle from another tested SHA is a valid fail-closed
+        // outcome, not a reason to substitute local evidence or skip the
+        // provenance binding. A current bundle must still pass below.
+        expect(verdict.coldboot_gate).toBe('red');
+        expect((verdict.reasons ?? []).join(' ')).toMatch(/SHA|provenance|artifact/i);
+        writeEvidence('ac3-stale-download-rejected.json', JSON.stringify(verdict, null, 2));
+        return;
+      }
       expect(verdict.coldboot_gate).toBe('green');
     });
   });
@@ -421,6 +478,17 @@ describe('GATE-FIX-G4 — CI e2e probes + provenance', () => {
       expect(step4.verdict).toBe('FAIL');
       expect(String(step4.evidence_path).toLowerCase()).toMatch(/absent/);
       writeEvidence('ac4-probe-green-not-enough.json', JSON.stringify({ step4 }, null, 2));
+    });
+
+    it('AC-4: step4 rejects provenance for a different tested SHA', () => {
+      const staleSha = 'c'.repeat(40);
+      const { gate } = runRegenerator(STAGE_DIR, { EXPECTED_TESTED_SHA: staleSha });
+      const step4 = gate.steps.find((s) => s.n === 4);
+      expect(step4).toBeDefined();
+      if (!step4) throw new Error('step4 missing');
+      writeEvidence('ac4-stale-tested-sha-rejected.json', JSON.stringify({ step4 }, null, 2));
+      expect(step4.verdict).toBe('FAIL');
+      expect(String(step4.evidence_path)).toMatch(/tested_sha|incomplete|FAIL/i);
     });
   });
 });
