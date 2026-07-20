@@ -201,7 +201,7 @@ if [[ "$from_ci_artifact" == "true" ]]; then
   fi
 
   ci_evidence_entries=()
-  ci_evidence_names=(junit.xml test-output/screenshots/reference-chat-reply.png reference-flow.mov reference-request.json)
+  ci_evidence_names=(junit.xml test-output/screenshots/reference-chat-reply.png reference-flow.mov capstone-reference-request.json)
   for ci_evidence_name in "${ci_evidence_names[@]}"; do
     if [[ -s "$artifact_dir/$ci_evidence_name" ]]; then
       ci_evidence_path="$artifact_dir/$ci_evidence_name"
@@ -320,19 +320,21 @@ fi
 
 # 4. Unique request identity — binds Postgres and Zero checks to this invocation.
 reference_request="$artifact_dir/reference-request.json"
+bound_reference_request="$artifact_dir/capstone-reference-request.json"
 reference_message=""
 reference_conversation_id=""
 reference_request_id=""
 if [[ ! -s "$reference_request" ]] || ! jq -e . "$reference_request" >/dev/null 2>&1; then
   add_reason "reference-request.json missing or invalid: $reference_request"
 else
+  cp -f "$reference_request" "$bound_reference_request"
   reference_message="$(jq -r '.message // empty' "$reference_request")"
   reference_conversation_id="$(jq -r '.conversation_id // empty' "$reference_request")"
   reference_request_id="$(jq -r '.request_id // empty' "$reference_request")"
   [[ -n "$reference_message" ]] || add_reason "reference request message is empty"
   [[ "$reference_conversation_id" == "$conv_id" ]] || add_reason "reference request conversation does not match $conv_id"
   [[ "$reference_request_id" == "s20-reference-${reference_message}" ]] || add_reason "reference request id is not derived from the unique message"
-  evidence+=("$(jq -Mn --arg p "$reference_request" --arg s "$(sha "$reference_request")" --argjson b "$(bytes "$reference_request")" \
+  evidence+=("$(jq -Mn --arg p "$bound_reference_request" --arg s "$(sha "$bound_reference_request")" --argjson b "$(bytes "$bound_reference_request")" \
     '{path:$p,sha256:$s,bytes:$b}')")
 fi
 

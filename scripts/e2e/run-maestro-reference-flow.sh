@@ -39,8 +39,6 @@ fi
 
 reference_message="${REFERENCE_MESSAGE:-Sprint 20 reference-flow ping $(date -u +%Y%m%dT%H%M%SZ)-$$}"
 reference_request_id="s20-reference-${reference_message}"
-jq -n --arg message "$reference_message" --arg request_id "$reference_request_id" --arg conversation "${EXPO_PUBLIC_REFERENCE_CONVERSATION_ID:-00000000-0000-0000-0000-000000000020}" \
-  '{message:$message,request_id:$request_id,conversation_id:$conversation}' >"$artifact_dir/reference-request.json"
 
 if [[ -z "${MAESTRO_METRO_URL:-}" ]]; then
   metro_host="$(ipconfig getifaddr en1 2>/dev/null || ipconfig getifaddr en0 2>/dev/null || true)"
@@ -122,6 +120,11 @@ print(udid)
   || fail "could not resolve one exact available UDID for named simulator: $device"
 [[ "$device_udid" =~ ^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$ ]] \
   || fail "resolved simulator UDID is invalid for named simulator: $device"
+
+# Persist request identity only after every fail-closed prerequisite succeeds.
+# Negative harness probes must never overwrite the completed flow's evidence.
+jq -n --arg message "$reference_message" --arg request_id "$reference_request_id" --arg conversation "${EXPO_PUBLIC_REFERENCE_CONVERSATION_ID:-00000000-0000-0000-0000-000000000020}" \
+  '{message:$message,request_id:$request_id,conversation_id:$conversation}' >"$artifact_dir/reference-request.json"
 
 zero_port="${ZERO_PORT:-4848}"
 zero_startup_timeout_seconds="${ZERO_STARTUP_TIMEOUT_SECONDS:-180}"
