@@ -94,10 +94,21 @@ jobs:
 
           # Runtime attestation of this job's already-selected runs-on labels;
           # this file is temporary and is never committed as CI evidence.
-          jq -n \
-            --arg runner_name "$RUNNER_NAME" \
-            '{online: true, runners: [{name: $runner_name, status: "online", labels: ["self-hosted", "holocron", "e2e"]}]}' \
-            > "$status_file"
+          RUNNER_STATUS_FILE="$status_file" bun -e '
+            const statusFile = process.env.RUNNER_STATUS_FILE;
+            const runnerName = process.env.RUNNER_NAME;
+            if (!statusFile || !runnerName) {
+              throw new Error("runner status file or RUNNER_NAME is missing");
+            }
+            await Bun.write(statusFile, `${JSON.stringify({
+              online: true,
+              runners: [{
+                name: runnerName,
+                status: "online",
+                labels: ["self-hosted", "holocron", "e2e"],
+              }],
+            })}\n`);
+          '
 
           # The status file is authoritative for this already-dispatched job.
           # Remove API credentials so holo cannot fall back to the forbidden runners API.

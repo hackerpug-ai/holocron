@@ -15,8 +15,9 @@ Checks run:
 - RUNNER_OS=macOS guard present: PASS
 - non-empty RUNNER_NAME guard present: PASS
 - temporary status file generated with mktemp: PASS
-- actual RUNNER_NAME encoded with jq --arg: PASS
+- actual RUNNER_NAME encoded with the already-installed Bun runtime: PASS
 - required labels [self-hosted, holocron, e2e] encoded: PASS
+- jq is not required for status JSON generation: PASS
 - GITHUB_TOKEN, GH_TOKEN, and GITHUB_REPOSITORY removed before holo: PASS
 - holo uses HOLO_RUNNER_STATUS_FILE and e2e lane: PASS
 - real device/build/backend probe remains after runner contract: PASS
@@ -39,3 +40,12 @@ Mandatory pre-commit gate checks run after installing the separate platform
 dependencies with bun install --no-save (no lockfile changes):
 - pnpm tsgo --noEmit: PASS
 - pnpm test:unit: PASS (78 files passed, 5 skipped; 921 tests passed, 19 skipped)
+
+Reviewer follow-up validation:
+- jq status generation removed from the workflow: PASS
+- Bun status generation uses actual RUNNER_NAME and [self-hosted, holocron, e2e]: PASS
+- YAML parse and extracted runner-contract bash -n: PASS
+- pnpm exec vitest run tests/integration/sprint20-macos-runner-status.test.ts: PASS (5 passed, 1 skipped)
+- pnpm tsgo --noEmit: PASS
+- pnpm test:unit: PASS (78 files passed, 5 skipped; 921 tests passed, 19 skipped)
+- CI dispatch/provenance capture: not run; no provenance fabricated
