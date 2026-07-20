@@ -249,7 +249,7 @@ final_rc="$maestro_rc"
 if [[ "$video_bad" == "1" ]]; then
   final_rc=1
 fi
-capstone_rc=0
+capstone_rc="not-run"
 if [[ "${RUN_CAPSTONE_VERDICT:-false}" == "true" && "$maestro_rc" == "0" && "$video_bad" == "0" ]]; then
   "$repo_root/scripts/e2e/capstone-verdict.sh" \
     --artifact-dir "$artifact_dir" >"$artifact_dir/capstone-run.log" 2>&1
