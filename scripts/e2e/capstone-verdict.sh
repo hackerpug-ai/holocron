@@ -21,11 +21,23 @@ set -Eeuo pipefail
 
 mode="full"
 artifact_dir=""
+from_ci_artifact="false"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --check) mode="check"; shift ;;
     --artifact-dir) artifact_dir="${2:?--artifact-dir requires a path}"; shift 2 ;;
-    --from-ci-artifact) artifact_dir="${2:?--from-ci-artifact requires a path}"; mode="full"; shift 2 ;;
+    --from-ci-artifact)
+      from_ci_artifact="true"
+      # Accept both documented forms:
+      #   --from-ci-artifact DIR
+      #   --from-ci-artifact --artifact-dir DIR
+      if [[ $# -gt 1 && "${2:-}" != --* ]]; then
+        artifact_dir="${2:?--from-ci-artifact requires a path}"
+        shift 2
+      else
+        shift
+      fi
+      ;;
     -h|--help)
       sed -n '2,21p' "$0"; exit 0 ;;
     *) echo "capstone-verdict: unknown arg: $1" >&2; exit 2 ;;
@@ -60,6 +72,147 @@ if [[ "$mode" == "check" ]]; then
   # sanity: jq -n with a constant filter must emit (catches a closed-stdin regression)
   jq -n '{gate:"check"}' >/dev/null
   exit 0
+fi
+
+# ---- offline CI-bundle derivation ---------------------------------------------
+# A downloaded CI artifact cannot be replayed against the controller's local
+# Postgres/Zero services: that would either produce a false red or tempt the
+# operator to substitute local evidence. The live CI lane already emits a
+# capstone verdict after querying its real Postgres and Zero instances. This
+# mode verifies that verdict is bound to the downloaded bytes, the captured
+# success provenance, and the current committed source SHA before accepting
+# it. It never invents counts or turns an unverified bundle green.
+if [[ "$from_ci_artifact" == "true" ]]; then
+  committed_sha="$(git -C "$repo_root" rev-parse HEAD 2>/dev/null || echo unknown)"
+  generated_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  ci_reasons_json="[]"
+  ci_add_reason() {
+    ci_reasons_json="$(jq -Mc --arg r "$1" '. + [$r]' <<<"$ci_reasons_json")"
+  }
+  ci_find_file() {
+    local filename="$1"
+    if [[ -s "$artifact_dir/$filename" ]]; then
+      printf '%s\n' "$artifact_dir/$filename"
+    elif [[ -s "$artifact_dir/bundle/$filename" ]]; then
+      printf '%s\n' "$artifact_dir/bundle/$filename"
+    fi
+  }
+
+  ci_provenance="$(ci_find_file ci-run-provenance.json || true)"
+  [[ -n "$ci_provenance" ]] || ci_provenance="$(ci_find_file ci-provenance.json || true)"
+  ci_capstone="$(ci_find_file capstone-verdict.json || true)"
+  ci_zip="$(find "$artifact_dir" -maxdepth 1 -type f -name '*.zip' -print -quit 2>/dev/null || true)"
+
+  if [[ -z "$ci_provenance" ]]; then
+    ci_add_reason "CI provenance JSON is missing from $artifact_dir"
+  fi
+  if [[ -z "$ci_capstone" ]]; then
+    ci_add_reason "CI capstone-verdict.json is missing from $artifact_dir"
+  fi
+  if [[ -z "$ci_zip" ]]; then
+    ci_add_reason "CI artifact ZIP is missing from $artifact_dir"
+  fi
+
+  ci_run_id=""
+  ci_head_sha=""
+  ci_committed_sha=""
+  ci_conclusion=""
+  ci_artifact_sha=""
+  ci_artifact_size="0"
+  if [[ -n "$ci_provenance" ]]; then
+    ci_run_id="$(jq -r '.run_id // empty' "$ci_provenance" 2>/dev/null || true)"
+    ci_head_sha="$(jq -r '.head_sha // empty' "$ci_provenance" 2>/dev/null || true)"
+    ci_committed_sha="$(jq -r '.committed_sha // empty' "$ci_provenance" 2>/dev/null || true)"
+    ci_conclusion="$(jq -r '.conclusion // empty' "$ci_provenance" 2>/dev/null || true)"
+    ci_artifact_sha="$(jq -r '.artifact_sha256 // empty' "$ci_provenance" 2>/dev/null || true)"
+    ci_artifact_size="$(jq -r '.artifact_size_bytes // 0' "$ci_provenance" 2>/dev/null || echo 0)"
+    [[ "$ci_run_id" =~ ^[1-9][0-9]*$ ]] || ci_add_reason "CI provenance run_id is invalid"
+    [[ "$ci_head_sha" =~ ^[0-9a-fA-F]{40}$ ]] || ci_add_reason "CI provenance head_sha is invalid"
+    [[ "$ci_committed_sha" == "$ci_head_sha" ]] || ci_add_reason "CI provenance committed_sha does not equal head_sha"
+    [[ "$ci_committed_sha" == "$committed_sha" ]] || ci_add_reason "CI provenance SHA $ci_committed_sha does not match current HEAD $committed_sha"
+    [[ "$ci_conclusion" == "success" ]] || ci_add_reason "CI provenance conclusion is not success"
+    [[ "$ci_artifact_sha" =~ ^[0-9a-fA-F]{64}$ ]] || ci_add_reason "CI provenance artifact_sha256 is invalid"
+    [[ "$ci_artifact_size" =~ ^[1-9][0-9]*$ ]] || ci_add_reason "CI provenance artifact_size_bytes is invalid"
+  fi
+  if [[ -n "$ci_zip" && -n "$ci_artifact_sha" ]]; then
+    ci_actual_zip_sha="$(sha "$ci_zip")"
+    ci_actual_zip_size="$(bytes "$ci_zip")"
+    [[ "$ci_actual_zip_sha" == "$ci_artifact_sha" ]] || ci_add_reason "CI artifact ZIP SHA-256 does not match ci-run-provenance.json"
+    [[ "$ci_actual_zip_size" == "$ci_artifact_size" ]] || ci_add_reason "CI artifact ZIP size does not match ci-run-provenance.json"
+  fi
+
+  ci_capstone_gate="red"
+  ci_junit_failures="-1"
+  ci_pg_count="0"
+  ci_pg_content_len="0"
+  ci_zero_ok="false"
+  ci_zero_content_len="0"
+  ci_conversation_id="$conv_id"
+  if [[ -n "$ci_capstone" ]]; then
+    ci_capstone_gate="$(jq -r '.coldboot_gate // "red"' "$ci_capstone" 2>/dev/null || echo red)"
+    ci_junit_failures="$(jq -r '.junit_failures // -1' "$ci_capstone" 2>/dev/null || echo -1)"
+    ci_pg_count="$(jq -r '.postgres_agent_count // 0' "$ci_capstone" 2>/dev/null || echo 0)"
+    ci_pg_content_len="$(jq -r '.postgres_agent_content_len // 0' "$ci_capstone" 2>/dev/null || echo 0)"
+    ci_zero_ok="$(jq -r '.zero_cache_ok // false' "$ci_capstone" 2>/dev/null || echo false)"
+    ci_zero_content_len="$(jq -r '.zero_agent_content_len // 0' "$ci_capstone" 2>/dev/null || echo 0)"
+    ci_conversation_id="$(jq -r '.conversation_id // empty' "$ci_capstone" 2>/dev/null || true)"
+    [[ "$ci_capstone_gate" == "green" ]] || ci_add_reason "embedded CI capstone gate is $ci_capstone_gate"
+    [[ "$ci_capstone" != "" && "$ci_committed_sha" == "$(jq -r '.committed_sha // empty' "$ci_capstone" 2>/dev/null || true)" ]] || ci_add_reason "embedded CI capstone SHA is not provenance-bound"
+    [[ "$ci_junit_failures" == "0" ]] || ci_add_reason "embedded CI capstone junit_failures=$ci_junit_failures"
+    [[ "$ci_pg_count" =~ ^[0-9]+$ && "$ci_pg_count" -ge 1 ]] || ci_add_reason "embedded CI capstone Postgres agent count is $ci_pg_count"
+    [[ "$ci_pg_content_len" =~ ^[0-9]+$ && "$ci_pg_content_len" -ge 1 ]] || ci_add_reason "embedded CI capstone Postgres content length is $ci_pg_content_len"
+    [[ "$ci_zero_ok" == "true" ]] || ci_add_reason "embedded CI capstone Zero read is not ok"
+    [[ "$ci_zero_content_len" =~ ^[0-9]+$ && "$ci_zero_content_len" -ge 1 ]] || ci_add_reason "embedded CI capstone Zero content length is $ci_zero_content_len"
+    [[ "$ci_conversation_id" == "$conv_id" ]] || ci_add_reason "embedded CI capstone conversation_id does not match $conv_id"
+  fi
+
+  ci_evidence_entries=()
+  for ci_evidence_name in junit.xml final.png reference-flow.mov; do
+    ci_evidence_path="$(ci_find_file "$ci_evidence_name" || true)"
+    if [[ -z "$ci_evidence_path" ]]; then
+      ci_add_reason "CI bundle is missing $ci_evidence_name"
+      continue
+    fi
+    ci_expected_sha="$(jq -r --arg filename "$ci_evidence_name" '.evidence[]? | select(.path | endswith($filename)) | .sha256' "$ci_capstone" 2>/dev/null | head -n 1 || true)"
+    ci_expected_bytes="$(jq -r --arg filename "$ci_evidence_name" '.evidence[]? | select(.path | endswith($filename)) | .bytes' "$ci_capstone" 2>/dev/null | head -n 1 || true)"
+    ci_actual_sha="$(sha "$ci_evidence_path")"
+    ci_actual_bytes="$(bytes "$ci_evidence_path")"
+    [[ "$ci_expected_sha" =~ ^[0-9a-fA-F]{64}$ ]] || ci_add_reason "CI capstone has no valid checksum for $ci_evidence_name"
+    [[ "$ci_actual_sha" == "$ci_expected_sha" ]] || ci_add_reason "CI bundle checksum mismatch for $ci_evidence_name"
+    [[ "$ci_actual_bytes" == "$ci_expected_bytes" ]] || ci_add_reason "CI bundle byte count mismatch for $ci_evidence_name"
+    ci_evidence_entries+=("$(jq -Mn --arg p "$ci_evidence_path" --arg s "$ci_actual_sha" --argjson b "$ci_actual_bytes" '{path:$p,sha256:$s,bytes:$b}')")
+  done
+
+  if [[ ${#ci_evidence_entries[@]} -eq 0 ]]; then
+    ci_evidence_json="[]"
+  else
+    ci_evidence_json="$(printf '%s\n' "${ci_evidence_entries[@]}" | jq -cs '.')"
+  fi
+  ci_verdict="green"
+  [[ "$ci_reasons_json" == "[]" ]] || ci_verdict="red"
+  ci_payload="$(jq -Mn \
+    --arg sha "$committed_sha" \
+    --arg at "$generated_at" \
+    --arg gate "$ci_verdict" \
+    --argjson jf "$ci_junit_failures" \
+    --argjson pac "$ci_pg_count" \
+    --argjson pacl "$ci_pg_content_len" \
+    --argjson zok "$([[ "$ci_zero_ok" == "true" ]] && echo true || echo false)" \
+    --argjson zacl "$ci_zero_content_len" \
+    --argjson evidence "$ci_evidence_json" \
+    --argjson reasons "$ci_reasons_json" \
+    --arg artifact_dir "$artifact_dir" \
+    --arg conversation_id "$ci_conversation_id" \
+    '{committed_sha:$sha, generated_at:$at, coldboot_gate:$gate, junit_failures:$jf,
+      postgres_agent_count:$pac, postgres_agent_content_len:$pacl,
+      zero_cache_ok:$zok, zero_agent_content_len:$zacl,
+      conversation_id:$conversation_id, artifact_dir:$artifact_dir,
+      evidence:$evidence, reasons:$reasons}')"
+  if [[ "$ci_verdict" == "green" ]]; then
+    emit "$ci_payload" 0
+  else
+    emit "$ci_payload" 1
+  fi
 fi
 
 # ---- full derivation ----------------------------------------------------------
