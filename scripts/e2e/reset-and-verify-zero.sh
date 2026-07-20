@@ -37,7 +37,10 @@ for _ in {1..15}; do
   fi
   sleep 2
 done
-pg_count="$(psql "$DATABASE_URL" -t -A -v conv_id="$conv_id" -c "select count(*) from chat_messages where conversation_id=:'conv_id';" | tr -d '[:space:]')"
+pg_count="$(psql "$DATABASE_URL" -t -A -v conv_id="$conv_id" <<'SQL' | tr -d '[:space:]'
+select count(*) from chat_messages where conversation_id=:'conv_id';
+SQL
+)"
 result="$(jq -nc --argjson reset "$reset_json" --argjson zero "$zero_json" --argjson pg_count "$pg_count" \
   '{ok:($reset.ok == true and $zero.ok == true and $zero.rowCount == 0 and $zero.conversationPresent == true and $pg_count == 0),seed_fingerprint:$reset.seed_fingerprint,postgres_row_count:$pg_count,zero_row_count:$zero.rowCount,zero_conversation_present:$zero.conversationPresent,zero_conversation_title:$zero.conversationTitle}'
 )"

@@ -42,7 +42,6 @@ export default function ReferenceChatScreen() {
   rowsRef.current = rows;
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const requestCounter = useRef(0);
   const messages = rows.map((row) => ({
     id: row.id,
     role: row.role,
@@ -57,7 +56,6 @@ export default function ReferenceChatScreen() {
       }
       setSending(true);
       setError(null);
-      requestCounter.current += 1;
       try {
         const response = await fetch(`${platformUrl}/api/chat-runs`, {
           method: 'POST',
@@ -66,7 +64,7 @@ export default function ReferenceChatScreen() {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            requestId: `s20-reference-${Date.now()}-${requestCounter.current}`,
+            requestId: `s20-reference-${content}`,
             msg: content,
             conversationId,
           }),

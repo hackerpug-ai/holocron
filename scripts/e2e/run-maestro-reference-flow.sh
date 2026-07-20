@@ -38,8 +38,9 @@ if [[ "$mode" == "--run" ]]; then
 fi
 
 reference_message="${REFERENCE_MESSAGE:-Sprint 20 reference-flow ping $(date -u +%Y%m%dT%H%M%SZ)-$$}"
-jq -n --arg message "$reference_message" --arg conversation "${EXPO_PUBLIC_REFERENCE_CONVERSATION_ID:-00000000-0000-0000-0000-000000000020}" \
-  '{message:$message,conversation_id:$conversation}' >"$artifact_dir/reference-request.json"
+reference_request_id="s20-reference-${reference_message}"
+jq -n --arg message "$reference_message" --arg request_id "$reference_request_id" --arg conversation "${EXPO_PUBLIC_REFERENCE_CONVERSATION_ID:-00000000-0000-0000-0000-000000000020}" \
+  '{message:$message,request_id:$request_id,conversation_id:$conversation}' >"$artifact_dir/reference-request.json"
 
 if [[ -z "${MAESTRO_METRO_URL:-}" ]]; then
   metro_host="$(ipconfig getifaddr en1 2>/dev/null || ipconfig getifaddr en0 2>/dev/null || true)"

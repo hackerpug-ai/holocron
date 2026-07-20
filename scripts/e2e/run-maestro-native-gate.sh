@@ -247,9 +247,14 @@ conv_id="${EXPO_PUBLIC_REFERENCE_CONVERSATION_ID:-00000000-0000-0000-0000-000000
 if [[ "$step" == "2" && "$maestro_rc" == "0" ]]; then
   dispatch_row=""
   for _ in {1..240}; do
-    dispatch_row="$(psql "$DATABASE_URL" -t -A -F '|' -v conv_id="$conv_id" -v message="$reference_message" -c \
-      "select m.session_id, r.status, r.role, m.id from chat_messages m join chat_runs r on r.id::text=m.session_id where m.conversation_id=:'conv_id' and m.role='user' and r.message=:'message' and m.content=:'message' order by m.created_at desc limit 1;" \
-      2>/dev/null || true)"
+    dispatch_row="$(psql "$DATABASE_URL" -t -A -F '|' -v conv_id="$conv_id" -v message="$reference_message" 2>/dev/null <<'SQL' || true
+select m.session_id, r.status, r.role, m.id
+from chat_messages m join chat_runs r on r.id::text=m.session_id
+where m.conversation_id=:'conv_id' and m.role='user'
+  and r.message=:'message' and r.request_id=('s20-reference-' || :'message') and m.content=:'message'
+order by m.created_at desc limit 1;
+SQL
+)"
     dispatch_status="$(cut -d'|' -f2 <<<"$dispatch_row")"
     [[ "$dispatch_status" == "completed" ]] && break
     sleep 1

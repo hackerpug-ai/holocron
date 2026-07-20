@@ -322,13 +322,16 @@ fi
 reference_request="$artifact_dir/reference-request.json"
 reference_message=""
 reference_conversation_id=""
+reference_request_id=""
 if [[ ! -s "$reference_request" ]] || ! jq -e . "$reference_request" >/dev/null 2>&1; then
   add_reason "reference-request.json missing or invalid: $reference_request"
 else
   reference_message="$(jq -r '.message // empty' "$reference_request")"
   reference_conversation_id="$(jq -r '.conversation_id // empty' "$reference_request")"
+  reference_request_id="$(jq -r '.request_id // empty' "$reference_request")"
   [[ -n "$reference_message" ]] || add_reason "reference request message is empty"
   [[ "$reference_conversation_id" == "$conv_id" ]] || add_reason "reference request conversation does not match $conv_id"
+  [[ "$reference_request_id" == "s20-reference-${reference_message}" ]] || add_reason "reference request id is not derived from the unique message"
   evidence+=("$(jq -Mn --arg p "$reference_request" --arg s "$(sha "$reference_request")" --argjson b "$(bytes "$reference_request")" \
     '{path:$p,sha256:$s,bytes:$b}')")
 fi
@@ -344,8 +347,14 @@ else
   if [[ "$DATABASE_URL" != *holocron_nonprod* ]]; then
     add_reason "DATABASE_URL must target holocron_nonprod for the reference gate (got non-nonprod url)"
   else
-    pg_row="$(psql "$DATABASE_URL" -t -A -F '|' -v conv_id="$conv_id" -v message="$reference_message" -c \
-      "select r.id, m.id, length(m.content) from chat_runs r join chat_messages m on m.session_id=r.id::text and m.role='agent' where r.conversation_id=:'conv_id' and r.message=:'message' and r.status='completed' and length(m.content)>0 order by m.created_at desc limit 1;" 2>/dev/null || echo "||0")"
+    pg_row="$(psql "$DATABASE_URL" -t -A -F '|' -v conv_id="$conv_id" -v message="$reference_message" -v request_id="$reference_request_id" 2>/dev/null <<'SQL' || echo "||0"
+select r.id, m.id, length(m.content)
+from chat_runs r join chat_messages m on m.session_id=r.id::text and m.role='agent'
+where r.conversation_id=:'conv_id' and r.request_id=:'request_id' and r.message=:'message'
+  and r.status='completed' and length(m.content)>0
+order by m.created_at desc limit 1;
+SQL
+)"
     reference_run_id="$(echo "$pg_row" | cut -d'|' -f1)"
     pg_agent_id="$(echo "$pg_row" | cut -d'|' -f2)"
     pg_agent_content_len="$(echo "$pg_row" | cut -d'|' -f3)"
