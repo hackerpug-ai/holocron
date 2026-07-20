@@ -1,5 +1,8 @@
 # GATE-FIX-G5 — RED: this-cycle junit honesty — refuse green on failures>0 and reject historical SUCCESS substitution
-> Status: ⬜ Pending
+> Status: ✅ Completed
+> Commit: 484db17ca658d6d4003c31dc8a6470831f9de9e5
+> Reviewer: code-reviewer
+> Completed: 2026-07-20T01:45:48Z
 > Sprint: [Sprint 20 — E2E Maestro Harness and Cold-Boot Reference Flow](./SPRINT.md)
 > Agent: devops-engineer
 > Estimate: 75 min
