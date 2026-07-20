@@ -13,6 +13,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 artifact_dir="${E2E_ARTIFACT_DIR:-$repo_root/.tmp/maestro-reference-flow}"
 flow="${MAESTRO_FLOW:-$repo_root/.e2e/maestro/reference-flow.yaml}"
 device="${MAESTRO_DEVICE:-}"
+device_udid=""
 app_path="${EXPO_DEV_BUILD_PATH:-}"
 app_id="${MAESTRO_APP_ID:-org.name.holocron}"
 # AC-3 — dev-client session mode (one of tutorial / server-list+tutorial /
@@ -35,6 +36,7 @@ fail() {
 [[ -n "${ZERO_ADMIN_PASSWORD:-}" ]] || fail "ZERO_ADMIN_PASSWORD is required for the real zero-cache"
 command -v maestro >/dev/null 2>&1 || fail "maestro CLI is not installed"
 command -v xcrun >/dev/null 2>&1 || fail "xcrun is not installed"
+command -v python3 >/dev/null 2>&1 || fail "python3 is not installed; cannot resolve simulator UDID"
 [[ -f "$flow" ]] || fail "Maestro flow does not exist: $flow"
 [[ -n "$app_path" ]] || fail "EXPO_DEV_BUILD_PATH is required; refusing Expo Go or a missing build"
 # An iOS .app is a DIRECTORY bundle (Mach-O executable + Info.plist + resources),
@@ -42,11 +44,46 @@ command -v xcrun >/dev/null 2>&1 || fail "xcrun is not installed"
 # bundle and rejects accidental file paths.
 [[ -d "$app_path" ]] || fail "Expo development build does not exist: $app_path"
 
-simulators="$(xcrun simctl list devices available)"
+simulators="$(xcrun simctl list devices available)" \
+  || fail "could not list available iOS Simulators"
 grep -Fq "$device" <<<"$simulators" || fail "named simulator is unavailable: $device"
 
+# Maestro's --device option requires a simulator UDID, while MAESTRO_DEVICE is
+# intentionally a human-readable name for the simctl/operator contract. Resolve
+# the exact available name through the real CoreSimulator JSON and reject both
+# missing and ambiguous matches; never pass the name through as a fallback.
+simulator_json="$(xcrun simctl list devices available --json)" \
+  || fail "could not query available iOS Simulators as JSON"
+device_udid="$(python3 -c '
+import json
+import sys
+
+try:
+    data = json.load(sys.stdin)
+    matches = [
+        device
+        for devices in data["devices"].values()
+        for device in devices
+        if device.get("name") == sys.argv[1]
+        and device.get("isAvailable", True) is True
+    ]
+except (AttributeError, KeyError, TypeError, json.JSONDecodeError):
+    sys.exit(1)
+
+if len(matches) != 1:
+    sys.exit(1)
+
+udid = matches[0].get("udid")
+if not isinstance(udid, str) or not udid:
+    sys.exit(1)
+print(udid)
+' "$device" <<<"$simulator_json")" \
+  || fail "could not resolve one exact available UDID for named simulator: $device"
+[[ "$device_udid" =~ ^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$ ]] \
+  || fail "resolved simulator UDID is invalid for named simulator: $device"
+
 if [[ "$mode" == "--check" ]]; then
-  printf '{"ok":true,"device":"%s","flow":"%s","app":"%s","artifacts":"%s"}\n' "$device" "$flow" "$app_path" "$artifact_dir"
+  printf '{"ok":true,"device":"%s","device_udid":"%s","flow":"%s","app":"%s","artifacts":"%s"}\n' "$device" "$device_udid" "$flow" "$app_path" "$artifact_dir"
   exit 0
 fi
 
@@ -85,6 +122,10 @@ if [[ "$booted" != "1" ]]; then
   xcrun simctl boot "$device" 2>"$artifact_dir/simctl-boot.stderr" || true
 fi
 xcrun simctl bootstatus "$device" -b >"$artifact_dir/simctl-bootstatus.txt"
+# Keep the configured name as the operator-facing artifact metadata while
+# recording the resolved ID used only for Maestro.
+printf '{"name":"%s","udid":"%s"}\n' "$device" "$device_udid" \
+  >"$artifact_dir/simctl-device-resolution.json"
 # AC-2 — fresh reinstall every run so a stale build cannot false-pass. terminate
 # and uninstall tolerate a not-yet-installed app on a fresh simulator (|| true);
 # install does NOT swallow failures. Each step captures its own artifact file.
@@ -130,7 +171,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-maestro --device "$device" test "$flow" \
+maestro --device "$device_udid" test "$flow" \
   --format JUNIT \
   --output "$artifact_dir/junit.xml" \
   --debug-output "$artifact_dir/debug" \

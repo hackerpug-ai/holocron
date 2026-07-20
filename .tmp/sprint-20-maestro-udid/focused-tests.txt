@@ -1,0 +1,10 @@
+Command:
+PLATFORM_IT=1 pnpm vitest run tests/integration/sprint20-maestro-harness-udid.test.ts tests/integration/sprint20-maestro-harness-artifacts.test.ts tests/integration/sprint20-maestro-harness.test.ts
+
+Result: PASS
+Test Files: 3 passed
+Tests: 23 passed
+
+The UDID suite covered a real available simulator name plus no-match and
+ambiguous exact-name fail-closed fixtures. The existing harness artifact and
+fail-closed suites also passed.

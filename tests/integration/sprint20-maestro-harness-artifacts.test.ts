@@ -14,7 +14,15 @@
  *   PLATFORM_IT=1 pnpm vitest run tests/integration/sprint20-maestro-harness-artifacts.test.ts
  */
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -30,20 +38,31 @@ function readHarness(): string {
   return readFileSync(HARNESS, 'utf8');
 }
 
-/** Discover any available iOS Simulator UDID via `xcrun simctl list`. */
-function discoverSimulatorUdid(): string {
-  const res = spawnSync('xcrun', ['simctl', 'list', 'devices', 'available'], {
+/** Discover one uniquely named available iOS Simulator via the real simctl JSON query. */
+function discoverSimulator(): { name: string; udid: string } {
+  const res = spawnSync('xcrun', ['simctl', 'list', 'devices', 'available', '--json'], {
     encoding: 'utf8',
     timeout: 10_000,
   });
   if (res.status !== 0 || !res.stdout) {
-    throw new Error(`xcrun simctl list failed (status=${res.status}): ${res.stderr}`);
+    throw new Error(`xcrun simctl JSON query failed (status=${res.status}): ${res.stderr}`);
   }
-  const match = res.stdout.match(/[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}/i);
+
+  const data = JSON.parse(res.stdout) as {
+    devices: Record<string, Array<{ isAvailable?: boolean; name: string; udid: string }>>;
+  };
+  const simulators = Object.values(data.devices)
+    .flat()
+    .filter((simulator) => simulator.isAvailable !== false);
+  const counts = new Map<string, number>();
+  for (const simulator of simulators) {
+    counts.set(simulator.name, (counts.get(simulator.name) ?? 0) + 1);
+  }
+  const match = simulators.find((simulator) => counts.get(simulator.name) === 1);
   if (!match) {
-    throw new Error('no available iOS Simulator UDID found via xcrun simctl list');
+    throw new Error('no uniquely named available iOS Simulator found via xcrun simctl JSON');
   }
-  return match[0];
+  return { name: match.name, udid: match.udid };
 }
 
 describe('D03-03 Maestro harness artifact & defect contract', () => {
@@ -62,12 +81,12 @@ describe('D03-03 Maestro harness artifact & defect contract', () => {
       const appBundleDir = join(tmpRoot, 'Fake.app');
       mkdirSync(appBundleDir, { recursive: true });
       try {
-        const udid = discoverSimulatorUdid();
+        const simulator = discoverSimulator();
         const result = spawnSync('bash', [HARNESS, '--check'], {
           cwd: REPO_ROOT,
           env: {
             ...process.env,
-            MAESTRO_DEVICE: udid,
+            MAESTRO_DEVICE: simulator.name,
             EXPO_DEV_BUILD_PATH: appBundleDir,
             DATABASE_URL: 'postgres://127.0.0.1:5432/holocron_nonprod',
             FLEET_URL: 'http://127.0.0.1:4545',
@@ -245,30 +264,29 @@ describe('D03-03 Maestro harness artifact & defect contract', () => {
       }
       const artifactDir = mkdtempSync(join(tmpdir(), 'forced-failure-run-'));
       try {
-        const result = spawnSync(
-          'bash',
-          [HARNESS, '--run'],
-          {
-            cwd: REPO_ROOT,
-            env: {
-              ...process.env,
-              MAESTRO_DEVICE: discoverSimulatorUdid(),
-              EXPO_DEV_BUILD_PATH: appPath,
-              MAESTRO_FLOW: join(REPO_ROOT, 'tests', 'fixtures', 'forced-failure-flow.yaml'),
-              E2E_ARTIFACT_DIR: artifactDir,
-              DATABASE_URL: 'postgres://127.0.0.1:5432/holocron_nonprod',
-              FLEET_URL: 'http://127.0.0.1:4545',
-              PLATFORM_URL: 'http://127.0.0.1:4111',
-              EXPO_PUBLIC_PLATFORM_URL: 'http://127.0.0.1:4111',
-              EXPO_PUBLIC_RN_API_KEY: process.env.EXPO_PUBLIC_RN_API_KEY ?? 'placeholder',
-              ZERO_ADMIN_PASSWORD: process.env.ZERO_ADMIN_PASSWORD ?? 'placeholder',
-            },
-            encoding: 'utf8',
-            timeout: 180_000,
-          }
-        );
+        const result = spawnSync('bash', [HARNESS, '--run'], {
+          cwd: REPO_ROOT,
+          env: {
+            ...process.env,
+            MAESTRO_DEVICE: discoverSimulator().name,
+            EXPO_DEV_BUILD_PATH: appPath,
+            MAESTRO_FLOW: join(REPO_ROOT, 'tests', 'fixtures', 'forced-failure-flow.yaml'),
+            E2E_ARTIFACT_DIR: artifactDir,
+            DATABASE_URL: 'postgres://127.0.0.1:5432/holocron_nonprod',
+            FLEET_URL: 'http://127.0.0.1:4545',
+            PLATFORM_URL: 'http://127.0.0.1:4111',
+            EXPO_PUBLIC_PLATFORM_URL: 'http://127.0.0.1:4111',
+            EXPO_PUBLIC_RN_API_KEY: process.env.EXPO_PUBLIC_RN_API_KEY ?? 'placeholder',
+            ZERO_ADMIN_PASSWORD: process.env.ZERO_ADMIN_PASSWORD ?? 'placeholder',
+          },
+          encoding: 'utf8',
+          timeout: 180_000,
+        });
         expect(result.status, 'forced-failure run must exit non-zero').not.toBe(0);
-        expect(statSync(join(artifactDir, 'final.png')).size, 'final.png must be captured').toBeGreaterThan(0);
+        expect(
+          statSync(join(artifactDir, 'final.png')).size,
+          'final.png must be captured'
+        ).toBeGreaterThan(0);
         // reference-flow.mov non-emptiness is enforced by REDHAT-FIX-H3's recorder fix.
         expect(existsSync(join(artifactDir, 'reference-flow.mov'))).toBe(true);
       } finally {
