@@ -26,9 +26,7 @@
         "required": "ci-run-provenance.json from real gh workflow run ci-e2e.yml conclusion:success + capstone green from CI bundle",
         "blocked_by": "gh CLI not installed; no GH_TOKEN; no self-hosted runner",
         "evidence": "scratch h2-infra-probe.log",
-        "attempted": [
-          "Re-probed which gh / tokens / actions-runner \u2014 all absent"
-        ],
+        "attempted": ["Re-probed which gh / tokens / actions-runner \u2014 all absent"],
         "next_input_needed": "Operator: gh auth + runner labels [self-hosted, holocron, e2e] + secrets + gh workflow run ci-e2e.yml"
       },
       {
