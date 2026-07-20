@@ -75,6 +75,34 @@ jobs:
       - name: Install platform dependencies
         run: pnpm install --dir services/platform --frozen-lockfile
 
+      - name: Provision pinned Rocicorp Litestream
+        run: |
+          set -euo pipefail
+
+          litestream_root="${RUNNER_TEMP}/rocicorp-litestream-v0.3.13-${GITHUB_RUN_ID}"
+          litestream_bin_dir="${RUNNER_TEMP}/rocicorp-litestream-bin-${GITHUB_RUN_ID}"
+          litestream_executable="${litestream_bin_dir}/litestream"
+          litestream_backup_dir="${RUNNER_TEMP}/zero-cache-litestream-backup-${GITHUB_RUN_ID}"
+
+          git clone --depth 1 --branch v0.3.13 \
+            https://github.com/rocicorp/litestream.git "$litestream_root"
+          test "$(git -C "$litestream_root" rev-parse HEAD)" = \
+            977d4a5ee45ae546537324a3cfbf926de3bebc97
+          mkdir -p "$litestream_bin_dir" "$litestream_backup_dir"
+          (
+            cd "$litestream_root"
+            go build -trimpath -ldflags '-X main.Version=v0.3.13' \
+              -o "$litestream_executable" ./cmd/litestream
+          )
+          test -x "$litestream_executable"
+          test -n "$($litestream_executable version)"
+
+          {
+            printf 'ZERO_LITESTREAM_EXECUTABLE=%s\n' "$litestream_executable"
+            printf 'ZERO_LITESTREAM_BACKUP_URL=file://%s\n' "$litestream_backup_dir"
+            printf 'ZERO_LITESTREAM_CONFIG=%s/scripts/e2e/zero-cache-litestream.yml\n' "$GITHUB_WORKSPACE"
+          } >>"$GITHUB_ENV"
+
       - name: Fail-closed runner contract
         run: |
           set -euo pipefail

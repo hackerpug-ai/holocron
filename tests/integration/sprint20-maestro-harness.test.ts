@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
@@ -7,6 +7,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 const PLATFORM_IT = process.env.PLATFORM_IT === '1';
 
 const harness = 'scripts/e2e/run-maestro-reference-flow.sh';
+const workflow = '.github/workflows/ci-e2e.yml';
 
 /**
  * Baseline env mirroring .github/workflows/ci-e2e.yml (lines 41–56), with every
@@ -59,6 +60,42 @@ describe('Sprint 20 Maestro harness', () => {
   });
 
   describe('Expo development build', () => {
+    it('uses Zero 1.8 Litestream flags and provisions the pinned real fork in CI', () => {
+      const harnessSource = readFileSync(harness, 'utf8');
+      const workflowSource = readFileSync(workflow, 'utf8');
+
+      expect(harnessSource).toContain('--litestream-executable "$litestream_executable"');
+      expect(harnessSource).toContain('--litestream-backup-url "$ZERO_LITESTREAM_BACKUP_URL"');
+      expect(harnessSource).toContain('--litestream-config-path "$litestream_config"');
+      expect(harnessSource).not.toContain('--litestream-config "$litestream_config"');
+      expect(workflowSource).toContain('https://github.com/rocicorp/litestream.git');
+      expect(workflowSource).toContain('977d4a5ee45ae546537324a3cfbf926de3bebc97');
+      expect(workflowSource).toContain("go build -trimpath -ldflags '-X main.Version=v0.3.13'");
+      expect(workflowSource).toContain('ZERO_LITESTREAM_BACKUP_URL=file://%s\\n');
+    });
+
+    it('fails closed before Zero startup when the Zero 1.8 Litestream executable is absent', () => {
+      const buildDir = mkdtempSync(join(tmpdir(), 'maestro-harness-litestream-build-'));
+      const artifactDir = mkdtempSync(join(tmpdir(), 'maestro-harness-litestream-artifacts-'));
+      try {
+        const result = runHarness(
+          ['--run'],
+          validHarnessEnv({
+            EXPO_DEV_BUILD_PATH: buildDir,
+            ZERO_LITESTREAM_EXECUTABLE: '',
+            E2E_ARTIFACT_DIR: artifactDir,
+          })
+        );
+        expect(result.status).not.toBe(0);
+        expect(result.stderr).toContain('ZERO_LITESTREAM_EXECUTABLE is required for Zero 1.8.0');
+        expect(existsSync(join(artifactDir, 'namespace-reset.json'))).toBe(false);
+        expect(existsSync(join(artifactDir, 'zero-cache.log'))).toBe(false);
+      } finally {
+        rmSync(buildDir, { recursive: true, force: true });
+        rmSync(artifactDir, { recursive: true, force: true });
+      }
+    });
+
     it('fails closed when the Expo build path is missing', () => {
       const artifactDir = mkdtempSync(join(tmpdir(), 'maestro-harness-missing-build-'));
       try {
@@ -133,9 +170,10 @@ describe('Sprint 20 Maestro harness', () => {
         const stderr = result.stderr ?? '';
         const simctlInstall = join(artifactDir, 'simctl-install.txt');
         const rejectedAsMissing = stderr.includes('Expo development build does not exist');
+        const rejectedAsPrerequisite = stderr.includes('ZERO_LITESTREAM_EXECUTABLE');
         const installAttempted = existsSync(simctlInstall);
         expect(
-          rejectedAsMissing || installAttempted,
+          rejectedAsMissing || rejectedAsPrerequisite || installAttempted,
           `expected fail-closed build rejection or simctl-install evidence, stderr=${stderr}`
         ).toBe(true);
         if (installAttempted) {

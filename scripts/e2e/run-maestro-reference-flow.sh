@@ -44,6 +44,25 @@ command -v python3 >/dev/null 2>&1 || fail "python3 is not installed; cannot res
 # bundle and rejects accidental file paths.
 [[ -d "$app_path" ]] || fail "Expo development build does not exist: $app_path"
 
+# Zero 1.8.0's change-streamer restores its replica through Litestream during
+# startup. Validate the real executable and backup contract before namespace
+# reset or any service starts; otherwise Zero exits after startup with the less
+# actionable "Missing --litestream-executable" error.
+litestream_executable="${ZERO_LITESTREAM_EXECUTABLE:-}"
+litestream_config="${ZERO_LITESTREAM_CONFIG:-$repo_root/scripts/e2e/zero-cache-litestream.yml}"
+[[ -n "$litestream_executable" ]] \
+  || fail "ZERO_LITESTREAM_EXECUTABLE is required for Zero 1.8.0; provide the Rocicorp litestream fork"
+[[ -x "$litestream_executable" ]] \
+  || fail "ZERO_LITESTREAM_EXECUTABLE is not executable: $litestream_executable"
+litestream_version="$("$litestream_executable" version 2>&1)" \
+  || fail "ZERO_LITESTREAM_EXECUTABLE could not run 'version': $litestream_executable"
+[[ -n "$litestream_version" ]] \
+  || fail "ZERO_LITESTREAM_EXECUTABLE returned no version: $litestream_executable"
+[[ -n "${ZERO_LITESTREAM_BACKUP_URL:-}" ]] \
+  || fail "ZERO_LITESTREAM_BACKUP_URL is required for Zero 1.8.0 Litestream restore/backup"
+[[ -f "$litestream_config" ]] \
+  || fail "ZERO_LITESTREAM_CONFIG does not exist: $litestream_config"
+
 # Maestro's --device option requires a simulator UDID, while MAESTRO_DEVICE is
 # intentionally a human-readable name for the simctl/operator contract. Resolve
 # the exact available name through the real CoreSimulator JSON and reject both
@@ -96,6 +115,9 @@ NODE_ENV=production pnpm exec zero-cache \
   --app-publications zero_pub \
   --port "$zero_port" \
   --admin-password "$ZERO_ADMIN_PASSWORD" \
+  --litestream-executable "$litestream_executable" \
+  --litestream-backup-url "$ZERO_LITESTREAM_BACKUP_URL" \
+  --litestream-config-path "$litestream_config" \
   >"$artifact_dir/zero-cache.log" 2>&1 &
 zero_pid=$!
 stop_zero() {

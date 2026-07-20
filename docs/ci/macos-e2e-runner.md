@@ -18,12 +18,42 @@ this doc owns the **simulator + build pipeline** and the **e2e health probe**.
 | simctl | `xcrun simctl list devices available` |
 | Maestro | `maestro --version` |
 | Bun | `bun --version` |
+| Go + Git (Litestream build) | `go version` and `git --version` |
 | EAS CLI (for fresh builds) | `bunx eas-cli@21.0.2` (preferred; must be ≥18 per eas.json), `eas` on PATH, or `npx --yes eas-cli@21.0.2` |
 | Expo auth | `EXPO_TOKEN` set **or** `eas login` / `bunx eas-cli@21.0.2 whoami` |
 | fastlane (local iOS builds) | `brew install fastlane` — required for `eas build --local` on macOS |
 
 Runner registration token (`RUNNER_TOKEN`) is **never** committed. See
 [self-hosted-runner.md](./self-hosted-runner.md).
+
+### Zero 1.8.0 Litestream prerequisite
+
+Zero 1.8.0's change-streamer requires the Litestream executable and backup
+configuration during startup. There is no Homebrew formula assumed here. Build
+the real binary from the Rocicorp fork's pinned v0.3.13 tag:
+
+```bash
+export ZERO_LITESTREAM_ROOT="${RUNNER_TEMP:-$PWD/.tmp}/rocicorp-litestream-v0.3.13"
+git clone --depth 1 --branch v0.3.13 \
+  https://github.com/rocicorp/litestream.git "$ZERO_LITESTREAM_ROOT"
+test "$(git -C "$ZERO_LITESTREAM_ROOT" rev-parse HEAD)" = \
+  977d4a5ee45ae546537324a3cfbf926de3bebc97
+mkdir -p "${ZERO_LITESTREAM_ROOT}-bin"
+(cd "$ZERO_LITESTREAM_ROOT" && \
+  go build -trimpath -ldflags '-X main.Version=v0.3.13' \
+    -o "${ZERO_LITESTREAM_ROOT}-bin/litestream" ./cmd/litestream)
+export ZERO_LITESTREAM_EXECUTABLE="${ZERO_LITESTREAM_ROOT}-bin/litestream"
+export ZERO_LITESTREAM_BACKUP_URL="file://${ZERO_LITESTREAM_ROOT}-backup"
+export ZERO_LITESTREAM_CONFIG="$PWD/scripts/e2e/zero-cache-litestream.yml"
+"$ZERO_LITESTREAM_EXECUTABLE" version
+scripts/e2e/run-maestro-reference-flow.sh --check
+```
+
+The backup URL must be a real writable destination; use an appropriately
+configured object-storage URL instead of the runner-local `file://` example when
+the runner is being used for durable service operation. If any Litestream
+prerequisite is absent, the harness fails before namespace reset or zero-cache
+startup.
 
 ## 1. Register the runner (once per host)
 

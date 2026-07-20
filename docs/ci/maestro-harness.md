@@ -38,7 +38,12 @@ silent-retry**:
 9. The Maestro flow file exists.
 10. `EXPO_DEV_BUILD_PATH` points at a real `.app` **directory** bundle
     (strict `-d` check — an iOS `.app` is a directory, not a file).
-11. The named simulator UDID is present in `simctl list`.
+11. `ZERO_LITESTREAM_EXECUTABLE` is an executable real binary built from the
+    Rocicorp Litestream fork and responds to `litestream version`.
+12. `ZERO_LITESTREAM_BACKUP_URL` names a real backup destination.
+13. `ZERO_LITESTREAM_CONFIG` points at a real Litestream config file (default
+    `scripts/e2e/zero-cache-litestream.yml`).
+14. The named simulator UDID is present in `simctl list`.
 
 ## Environment variables
 
@@ -51,6 +56,9 @@ silent-retry**:
 | `EXPO_PUBLIC_PLATFORM_URL` _or_ `PLATFORM_URL` | yes | Hono platform base URL. |
 | `EXPO_PUBLIC_RN_API_KEY` | yes | API key for the Hono chat command. |
 | `ZERO_ADMIN_PASSWORD` | yes | Admin password for the real zero-cache. |
+| `ZERO_LITESTREAM_EXECUTABLE` | yes | Executable from the Rocicorp Litestream fork required by Zero 1.8.0. |
+| `ZERO_LITESTREAM_BACKUP_URL` | yes | Real Litestream backup destination, such as a runner-local `file:///...` path or configured object storage. |
+| `ZERO_LITESTREAM_CONFIG` | no | Litestream config path. Defaults to `scripts/e2e/zero-cache-litestream.yml`. |
 | `MAESTRO_APP_ID` | no | App bundle id. Default `org.name.holocron` (matches the real Expo dev build `CFBundleIdentifier`). |
 | `MAESTRO_FLOW` | no | Path to the Maestro flow YAML. Default `.e2e/maestro/reference-flow.yaml`. |
 | `MAESTRO_DEV_CLIENT_MODE` | no | Dev-client session mode recorded in `dev-client-setup.json`. Default `server-list+already-running`. One of `tutorial` / `server-list+tutorial` / `server-list+already-running` / `already-running`. |
@@ -63,7 +71,10 @@ silent-retry**:
 > (default `4848`) and tears it down on exit. If another zero-cache is already
 > bound on a different port (e.g. `50798` from a parallel session), leave it
 > running — the harness does not touch it. The `ZERO_ADMIN_PASSWORD` is passed
-> straight through to the harness-owned instance only.
+> straight through to the harness-owned instance only. Zero 1.8.0 also invokes
+> Litestream during change-streamer startup, so the harness refuses to reset the
+> namespace or start zero-cache until the executable, backup URL, and config are
+> present and usable. It never substitutes a no-op binary or backup.
 
 ## Artifact directory layout (`E2E_ARTIFACT_DIR`)
 
