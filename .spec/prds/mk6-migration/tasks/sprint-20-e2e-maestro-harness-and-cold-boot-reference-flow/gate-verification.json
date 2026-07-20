@@ -1,0 +1,10 @@
+{
+  "verified": true,
+  "claimed_verdict": "pass",
+  "recomputed_verdict": "pass",
+  "steps_planned": 6,
+  "steps_recomputed": 6,
+  "discrepancies": [],
+  "method": "verify-gate-evidence.sh:recompute@8dddfd37cc2c",
+  "written_at": "2026-07-20T16:58:20Z"
+}
