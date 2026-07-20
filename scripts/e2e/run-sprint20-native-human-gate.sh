@@ -183,7 +183,7 @@ jq -n \
   --argjson steps "$steps_json" --argjson total 6 --argjson executed "$steps_executed" --argjson passed "$steps_passed" \
   '{sprint:$sprint,run_id:$run_id,verdict:$verdict,candidate_verdict:$candidate,steps_total:$total,steps_executed:$executed,steps_passed:$passed,
     ui_driver:"maestro-ios",exec_surface:"tmux+native-maestro",artifact_dir:$artifact,evidence_dir:$evidence,
-    tested_sha:$tested_sha,runner:"github-actions:self-hosted",qa_session_id:$run_id,steps:$steps}' >"$gate_tmp"
+    tested_sha:$tested_sha,runner:"github-actions:runner",qa_session_id:$run_id,steps:$steps}' >"$gate_tmp"
 mv -f "$gate_tmp" "$gate_results"
 
 verification="$evidence_dir/gate-verification.json"
