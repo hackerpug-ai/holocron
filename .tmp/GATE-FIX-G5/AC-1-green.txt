@@ -1,0 +1,11 @@
+
+ RUN  v4.1.0 /Users/inference1/.grok/worktrees/projects-holocron/subagent-019f7d26-1db9-75e3-b8a8-6fe1fa204642
+
+ ✓ tests/integration/sprint20-capstone-verdict.test.ts (6 tests | 5 skipped) 268ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 5 skipped (6)
+   Start at  19:33:39
+   Duration  488ms (transform 64ms, setup 108ms, import 6ms, tests 268ms, environment 0ms)
+
+AC1_GREEN_EXIT=0
