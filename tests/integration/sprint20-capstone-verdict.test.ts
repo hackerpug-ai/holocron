@@ -146,6 +146,61 @@ describe.skipIf(skip)('REDHAT-FIX-H1 — capstone verifier', () => {
     // unused import guard
     expect(readdirSync(GREEN_DIR).length).toBeGreaterThan(0);
   });
+
+  /**
+   * GATE-FIX-G5 AC-1 — junit honesty under healthy durable substrate.
+   *
+   * Staging failures>=1 junit + real media while Postgres agent row and live
+   * zero-cache are healthy must STILL produce coldboot_gate: red. Healthy
+   * durable evidence must never flip green over junit failures.
+   */
+  it('GATE-FIX-G5 AC-1: refuses green when junit_failures>0 despite healthy PG/Zero', () => {
+    const failJunit = join(
+      REPO_ROOT,
+      '.tmp',
+      'maestro-reference-flow',
+      'failed-this-cycle',
+      'junit.xml'
+    );
+    expect(existsSync(failJunit), 'this-cycle failures junit missing').toBe(true);
+
+    // Stage failures=1 junit + non-empty media (screenshot + video) from real fixtures.
+    stageGreenDir();
+    copyFileSync(failJunit, join(GREEN_DIR, 'junit.xml'));
+
+    let exitCode = 0;
+    let stdout = '';
+    try {
+      stdout = runVerifier(GREEN_DIR);
+    } catch (err) {
+      const e = err as { status?: number; stdout?: Buffer | string };
+      exitCode = e.status ?? 1;
+      stdout = e.stdout?.toString() ?? '';
+    }
+
+    // Prefer durable JSON on disk (script always writes it before exit).
+    const verdict = existsSync(join(GREEN_DIR, 'capstone-verdict.json'))
+      ? parseVerdict(GREEN_DIR)
+      : JSON.parse(stdout);
+
+    expect(exitCode, 'capstone must exit non-zero when junit_failures>0').not.toBe(0);
+    expect(verdict.coldboot_gate).toBe('red');
+    expect(verdict.junit_failures).toBeGreaterThanOrEqual(1);
+    expect(verdict.reasons.join(' ').toLowerCase()).toMatch(/failures/);
+
+    // Durable health must be present so this is not a false-red from substrate
+    // failure — healthy PG/Zero must not flip green over junit failures.
+    expect(
+      verdict.postgres_agent_count,
+      'AC-1 requires healthy holocron_nonprod agent row'
+    ).toBeGreaterThanOrEqual(1);
+    expect(verdict.postgres_agent_content_len).toBeGreaterThanOrEqual(1);
+    expect(verdict.zero_cache_ok, 'AC-1 requires live zero-cache ok').toBe(true);
+    expect(verdict.zero_agent_content_len).toBeGreaterThanOrEqual(1);
+
+    // Explicit anti-green: durable health must not override junit_failures.
+    expect(verdict.coldboot_gate).not.toBe('green');
+  });
 });
 
 describe.skipIf(!skip)('REDHAT-FIX-H1 — capstone verifier (skipped: no live substrate)', () => {

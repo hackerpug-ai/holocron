@@ -34,10 +34,29 @@ if [[ -s "$junit" ]]; then
   [[ -n "$f" && "$f" =~ ^[0-9]+$ ]] && junit_failures="$f"
 fi
 
+# GATE-FIX-G5 — this-cycle provenance: failed-this-cycle/junit.xml is the honest
+# crash evidence for the current cycle. A historical SUCCESS junit (e.g. official11
+# checksum a9eb6f7a…) copied into $artifact_dir/junit.xml must NEVER force step1
+# PASS while this-cycle failures remain.
+failed_cycle_junit="$artifact_dir/failed-this-cycle/junit.xml"
+failed_cycle_failures=-1
+if [[ -s "$failed_cycle_junit" ]]; then
+  fcf="$(sed -En 's/.*<testsuite[^>]* failures="([0-9]+)".*/\1/p' "$failed_cycle_junit" | head -1)"
+  [[ -n "$fcf" && "$fcf" =~ ^[0-9]+$ ]] && failed_cycle_failures="$fcf"
+fi
+
 # Step verdict derivations — each backed by a real file or live query.
-# Step 1: cold boot open (junit failures==0 + screenshot)
+# Step 1: cold boot open (junit failures==0) with this-cycle honesty.
+# Refuse PASS when failed-this-cycle reports failures>0, even if the live junit
+# was swapped for a historical SUCCESS (official11) copy.
 s1="FAIL"; s1ev="$junit"
-if [[ "$junit_failures" -eq 0 ]]; then s1="PASS"; fi
+if [[ "$failed_cycle_failures" -gt 0 ]]; then
+  s1="FAIL"
+  s1ev="$failed_cycle_junit failures=${failed_cycle_failures} (this-cycle fail overrides substituted SUCCESS)"
+elif [[ "$junit_failures" -eq 0 ]]; then
+  s1="PASS"
+  s1ev="$junit"
+fi
 
 # Step 2: send through fleet/Postgres (Postgres user+agent rows)
 s2="FAIL"; s2ev="(none)"

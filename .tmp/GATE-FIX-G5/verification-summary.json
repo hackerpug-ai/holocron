@@ -1,0 +1,25 @@
+{
+  "task_id": "GATE-FIX-G5",
+  "tdd": {
+    "red_first": true,
+    "ac1_red_exit": 0,
+    "ac1_note": "already-green: capstone-verdict.sh already refused green on failures>0",
+    "ac2_red_exit": 1,
+    "ac2_red_assertion": "step1 PASS from substituted official11 SUCCESS (honesty hole)"
+  },
+  "green": {
+    "AC-1": 0,
+    "AC-2": 0,
+    "AC-3": 0,
+    "AC-4": 0
+  },
+  "fixtures": {
+    "failed_this_cycle_junit_sha256": "098862ac29d883bf9a9582f3ab2a199505c6fa2cd60b8263814b851c531b7a46",
+    "official11_success_junit_sha256": "a9eb6f7adb5771585d6d4efae16a7f5123bd6f6c2694923e9ef7269ece15738d"
+  },
+  "files": [
+    "tests/integration/sprint20-capstone-verdict.test.ts",
+    "tests/integration/sprint20-gate-regenerator-provenance.test.ts",
+    "scripts/e2e/regenerate-sprint-gate.sh"
+  ]
+}
