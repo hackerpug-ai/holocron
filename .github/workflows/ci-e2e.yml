@@ -158,10 +158,12 @@ jobs:
           existing_pid="$(lsof -nP -tiTCP:8081 -sTCP:LISTEN 2>/dev/null | head -1 || true)"
           if [[ -n "$existing_pid" ]]; then
             existing_command="$(ps -p "$existing_pid" -o command= || true)"
-            if [[ "$existing_command" != *"expo start"* || "$existing_command" != *"$GITHUB_WORKSPACE"* ]]; then
-              echo "port 8081 is occupied by a non-Expo process; refusing to terminate it" >&2
+            existing_cwd="$(lsof -a -p "$existing_pid" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | head -1 || true)"
+            if [[ "$existing_command" != *"expo start"* || "$existing_cwd" != *"holocron"* ]]; then
+              echo "port 8081 is occupied by a non-Holocron Expo process; refusing to terminate it" >&2
               exit 1
             fi
+            echo "stopping existing Holocron Metro process ${existing_pid} (${existing_cwd})"
             kill "$existing_pid"
             for _ in {1..20}; do
               if ! kill -0 "$existing_pid" 2>/dev/null; then break; fi
