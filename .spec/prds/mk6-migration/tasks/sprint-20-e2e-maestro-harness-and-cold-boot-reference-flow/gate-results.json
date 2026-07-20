@@ -1,44 +1,44 @@
 {
-  "committed_sha": "42696b4af9baeb58d9107df34ef3e239575fefa0",
-  "generated_at": "2026-07-20T02:21:15Z",
+  "committed_sha": "06c22d22e77fddd42bd496c88c0089f267c871ab",
+  "generated_at": "2026-07-20T08:15:58Z",
   "sprint": "sprint-20-e2e-maestro-harness-and-cold-boot-reference-flow",
-  "artifact_dir": "/Users/inference1/Projects/holocron/.tmp/maestro-reference-flow",
+  "artifact_dir": "/Users/inference1/Projects/holocron/.tmp/ci-e2e-download",
   "steps": [
     {
       "n": 1,
       "text": "Cold-boot Maestro reference flow on named iOS Simulator",
       "verdict": "PASS",
-      "evidence_path": "/Users/inference1/Projects/holocron/.tmp/maestro-reference-flow/junit.xml"
+      "evidence_path": "/Users/inference1/Projects/holocron/.tmp/ci-e2e-download/junit.xml"
     },
     {
       "n": 2,
       "text": "Send chat message through fleet to Postgres",
-      "verdict": "PARTIAL",
-      "evidence_path": "psql chat_messages conversation=00000000-0000-0000-0000-000000000020 count=0"
+      "verdict": "PASS",
+      "evidence_path": "/Users/inference1/Projects/holocron/.tmp/ci-e2e-download/capstone-verdict.json real CI Postgres evidence conversation=00000000-0000-0000-0000-000000000020 agent_count=1 content_len=32"
     },
     {
       "n": 3,
       "text": "Observe durable Zero-synced reply (screenshot)",
       "verdict": "PASS",
-      "evidence_path": "/Users/inference1/Projects/holocron/.tmp/maestro-reference-flow/capstone-verdict.json coldboot_gate=green"
+      "evidence_path": "/Users/inference1/Projects/holocron/.tmp/ci-e2e-download/capstone-verdict.json coldboot_gate=green"
     },
     {
       "n": 4,
       "text": "CI artifacts (JUnit/log/video) attached to e2e run",
-      "verdict": "FAIL",
-      "evidence_path": "ci-run-provenance.json / ci-provenance.json absent (GATE-FIX-G4: dispatch ci-e2e.yml + capture-ci-provenance.sh)"
+      "verdict": "PASS",
+      "evidence_path": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-20-e2e-maestro-harness-and-cold-boot-reference-flow/ci-run-provenance.json conclusion=success run_id=29727106594 head_sha=06c22d22e77f…"
     },
     {
       "n": 5,
       "text": "Missing Expo build fails closed (not a false pass)",
       "verdict": "PASS",
-      "evidence_path": "suite=/Users/inference1/Projects/holocron/.tmp/maestro-reference-flow/step5-harness-suite.json exit=0 AND missing-build=/Users/inference1/Projects/holocron/.tmp/maestro-reference-flow/step5-missing-build-run.json no-junit"
+      "evidence_path": "suite=/Users/inference1/Projects/holocron/.tmp/ci-e2e-download/step5-harness-suite.json exit=0 AND missing-build=/Users/inference1/Projects/holocron/.tmp/ci-e2e-download/step5-missing-build-run.json no-junit"
     },
     {
       "n": 6,
       "text": "holo namespace reset brings namespace to known seed",
       "verdict": "PASS",
-      "evidence_path": "/Users/inference1/Projects/holocron/.tmp/maestro-reference-flow/namespace-reset.json ok=true"
+      "evidence_path": "/Users/inference1/Projects/holocron/.tmp/ci-e2e-download/namespace-reset.json ok=true"
     }
   ]
 }

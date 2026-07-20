@@ -1,0 +1,102 @@
+{
+  "sprint": "sprint-20-e2e-maestro-harness-and-cold-boot-reference-flow",
+  "sprint_identity": {
+    "resolved_sprint_path": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-20-e2e-maestro-harness-and-cold-boot-reference-flow",
+    "sprint_slug": "sprint-20-e2e-maestro-harness-and-cold-boot-reference-flow"
+  },
+  "planned_at": "2026-07-20T08:24:11Z",
+  "planned_steps": 6,
+  "ui_driver_resolution": {
+    "required_platform": "native iOS / Expo React Native",
+    "resolved_driver": "none",
+    "reason": "kb-run-human-tests supports Playwright Chromium/Electron for UI steps; the native Maestro simulator interaction has no supported driver"
+  },
+  "steps": [
+    {
+      "n": 1,
+      "text": "Run the Maestro reference flow on the named iOS Simulator — cold boot completes, app opens.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "RUN_CAPSTONE_VERDICT=true scripts/e2e/run-maestro-reference-flow.sh",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "maestro_rc=0",
+        "expect_not_log_regex": "reference-flow.mov missing|recorder failure detected"
+      }
+    },
+    {
+      "n": 2,
+      "text": "Send a chat message in the flow — specialist runs on the fleet, tool call hits Postgres.",
+      "type": "ui",
+      "method": "real-ui",
+      "literal_cmd": null,
+      "action": {
+        "driver": "Maestro iOS simulator",
+        "flow": ".e2e/maestro/reference-flow.yaml",
+        "interaction": "fill chat input with the reference-flow message and tap send"
+      },
+      "assertion": {
+        "kind": "locator_text_regex",
+        "locator": "chat-user-message",
+        "expected_regex": "Sprint 20 reference-flow ping",
+        "evidence": ["screenshot", "simulator-observation", "Maestro-output"]
+      }
+    },
+    {
+      "n": 3,
+      "text": "Observe the reply — durable message syncs to the app via Zero, screenshot captures it.",
+      "type": "ui",
+      "method": "real-ui",
+      "literal_cmd": null,
+      "action": {
+        "driver": "Maestro iOS simulator",
+        "flow": ".e2e/maestro/reference-flow.yaml",
+        "interaction": "wait for the assistant message and inspect the captured simulator screenshot"
+      },
+      "assertion": {
+        "kind": "locator_text_regex",
+        "locator": "chat-assistant-message",
+        "expected_regex": ".+",
+        "evidence": ["screenshot", "simulator-observation", "Zero-synced artifact"]
+      }
+    },
+    {
+      "n": 4,
+      "text": "Check CI artifacts — JUnit result, log, video all attached to the e2e run.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "scripts/e2e/capstone-verdict.sh --from-ci-artifact --artifact-dir .tmp/ci-e2e-download",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "coldboot_gate: green",
+        "expect_not_log_regex": "coldboot_gate: red"
+      }
+    },
+    {
+      "n": 5,
+      "text": "Point the runner at a missing Expo dev build — harness fails closed, not a false pass.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "EXPO_DEV_BUILD_PATH= scripts/e2e/run-maestro-reference-flow.sh",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 1,
+        "expect_log_regex": "EXPO_DEV_BUILD_PATH is required|refusing Expo Go or a missing build"
+      }
+    },
+    {
+      "n": 6,
+      "text": "Run holo namespace reset before the flow — nonprod Postgres/Zero namespace reaches known seed.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "bun services/platform/src/cli/holo.ts namespace reset --json",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "\"ok\"[[:space:]]*:[[:space:]]*true"
+      }
+    }
+  ]
+}
