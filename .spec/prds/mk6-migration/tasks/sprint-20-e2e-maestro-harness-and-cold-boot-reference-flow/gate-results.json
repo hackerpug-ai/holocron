@@ -1,14 +1,14 @@
 {
-  "committed_sha": "01f47285e1f1cdc13d399bb2b22cd782e05772ad",
-  "generated_at": "2026-07-20T00:17:57Z",
+  "committed_sha": "2fb9d8c22c0b5e48d36fa957a87c67eabb83bf4d",
+  "generated_at": "2026-07-20T00:21:00Z",
   "sprint": "sprint-20-e2e-maestro-harness-and-cold-boot-reference-flow",
   "artifact_dir": "/Users/inference1/Projects/holocron/.tmp/maestro-reference-flow",
   "steps": [
     {
       "n": 1,
       "text": "Cold-boot Maestro reference flow on named iOS Simulator",
-      "verdict": "PASS",
-      "evidence_path": "/Users/inference1/Projects/holocron/.tmp/maestro-reference-flow/junit.xml"
+      "verdict": "FAIL",
+      "evidence_path": ".tmp/maestro-reference-flow/failed-this-cycle/junit.xml failures=1 (App crashed; see coldboot-run4.log)"
     },
     {
       "n": 2,
@@ -19,20 +19,20 @@
     {
       "n": 3,
       "text": "Observe durable Zero-synced reply (screenshot)",
-      "verdict": "PASS",
-      "evidence_path": "/Users/inference1/Projects/holocron/.tmp/maestro-reference-flow/capstone-verdict.json"
+      "verdict": "PARTIAL",
+      "evidence_path": ".tmp/maestro-reference-flow/capstone-verdict.json coldboot_gate=red junit_failures=1; live zero agentContentLen>=1 via H5 (not a green simulator cold-boot)"
     },
     {
       "n": 4,
       "text": "CI artifacts (JUnit/log/video) attached to e2e run",
       "verdict": "FAIL",
-      "evidence_path": "ci-provenance.json absent (REDHAT-FIX-H2: dispatch ci-e2e.yml)"
+      "evidence_path": "ci-run-provenance.json absent (REDHAT-FIX-H2: no gh/runner/token)"
     },
     {
       "n": 5,
       "text": "Missing Expo build fails closed (not a false pass)",
       "verdict": "PARTIAL",
-      "evidence_path": "/Users/inference1/Projects/holocron/tests/integration/sprint20-maestro-harness.test.ts"
+      "evidence_path": "tests/integration/sprint20-maestro-harness.test.ts PLATFORM_IT 6/6; full --run needs non-crashing .app"
     },
     {
       "n": 6,
@@ -40,5 +40,6 @@
       "verdict": "PASS",
       "evidence_path": "/Users/inference1/Projects/holocron/.tmp/maestro-reference-flow/namespace-reset.json ok=true"
     }
-  ]
+  ],
+  "committed_sha_note": "git rev-parse HEAD at regenerate-sprint-gate time (pre-commit of honest-blocked status landing)"
 }
