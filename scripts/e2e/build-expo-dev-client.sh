@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# D03-02 — Produce an installable Expo dev-client .app for the Maestro e2e lane.
+# D03-02 / GATE-FIX-G1 — Produce an installable Expo dev-client .app for the Maestro e2e lane.
 # Primary path: eas build --platform ios --profile development-simulator --local
 # No manual Xcode / Simulator.app step.
 #
@@ -12,9 +12,10 @@
 #   EXPO_DEV_BUILD_OUT_DIR — parent directory for the .app
 #   EAS_BUILD_PROFILE     — default development-simulator
 #   E2E_SEED_APP_PATH     — optional prebuilt .app to stage when eas is unavailable
-#                           (operator shortcut on a host that already has a simulator
-#                           build; CI MUST use the eas path)
-#   FORCE_EAS_BUILD=1     — rebuild even if a valid .app already exists
+#                           (operator shortcut; CI MUST use the eas path)
+#                           IGNORED when FORCE_EAS_BUILD=1 (must produce method=eas*)
+#   FORCE_EAS_BUILD=1     — rebuild even if a valid .app already exists; refuses seed
+#   EXPO_TOKEN            — non-interactive Expo auth (preferred)
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -31,6 +32,30 @@ provenance="$out_dir/build-provenance.json"
 
 fail() {
   echo "build-expo-dev-client: $*" >&2
+  exit 1
+}
+
+fail_closed_prereq() {
+  # Emit operator-actionable next_input_needed; never silently seed greenwash.
+  local reason="$1"
+  local next="$2"
+  echo "build-expo-dev-client: FAIL-CLOSED: $reason" >&2
+  echo "build-expo-dev-client: next_input_needed: $next" >&2
+  python3 - "$out_dir/prereq-failure.json" "$reason" "$next" <<'PY' 2>/dev/null || true
+import json, sys, os
+path, reason, next_input = sys.argv[1:4]
+os.makedirs(os.path.dirname(path), exist_ok=True)
+payload = {
+    "ok": False,
+    "task": "GATE-FIX-G1",
+    "reason": reason,
+    "next_input_needed": next_input,
+}
+with open(path, "w", encoding="utf-8") as f:
+    json.dump(payload, f, indent=2)
+    f.write("\n")
+print(json.dumps(payload))
+PY
   exit 1
 }
 
@@ -64,7 +89,7 @@ write_provenance() {
 import json, sys, os
 path, method, source, app, started, finished, profile = sys.argv[1:8]
 payload = {
-    "task": "D03-02",
+    "task": "GATE-FIX-G1",
     "method": method,
     "source": source,
     "app_path": app,
@@ -72,6 +97,7 @@ payload = {
     "started_at": started,
     "finished_at": finished,
     "host": os.uname().nodename if hasattr(os, "uname") else "",
+    "force_eas_build": os.environ.get("FORCE_EAS_BUILD", "0") == "1",
 }
 with open(path, "w", encoding="utf-8") as f:
     json.dump(payload, f, indent=2)
@@ -83,18 +109,32 @@ PY
 resolve_eas() {
   if command -v eas >/dev/null 2>&1; then
     echo "eas"
-    return
+    return 0
   fi
   if [[ -x "$repo_root/node_modules/.bin/eas" ]]; then
     echo "$repo_root/node_modules/.bin/eas"
-    return
+    return 0
   fi
-  # npx pulls eas-cli ephemerally — no package.json change required.
+  # Prefer bunx — npx eas-cli hits minimatch TypeError on some Node hosts.
+  # Pin >= eas.json cli.version (>= 18.0.0). 16.28.0 whoami works but build rejects it.
+  if command -v bunx >/dev/null 2>&1; then
+    echo "bunx eas-cli@21.0.2"
+    return 0
+  fi
   if command -v npx >/dev/null 2>&1; then
-    echo "npx --yes eas-cli@16.28.0"
-    return
+    echo "npx --yes eas-cli@21.0.2"
+    return 0
   fi
   return 1
+}
+
+eas_authenticated() {
+  local eas_cmd="$1"
+  if [[ -n "${EXPO_TOKEN:-}" ]]; then
+    return 0
+  fi
+  # shellcheck disable=SC2086
+  $eas_cmd whoami --non-interactive >/dev/null 2>&1
 }
 
 find_tar_app() {
@@ -109,6 +149,7 @@ started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   echo "=== build-expo-dev-client $started_at ==="
   echo "profile=$profile"
   echo "target=$app_path"
+  echo "FORCE_EAS_BUILD=${FORCE_EAS_BUILD:-0}"
 } | tee "$log"
 
 # Idempotent reuse of a valid existing build unless FORCE_EAS_BUILD=1.
@@ -126,8 +167,13 @@ if [[ "${FORCE_EAS_BUILD:-0}" != "1" ]] && is_valid_app "$app_path"; then
   exit 0
 fi
 
-# Optional operator seed (prebuilt simulator .app) — not the CI production path.
-if [[ -n "${E2E_SEED_APP_PATH:-}" ]]; then
+# Optional operator seed (prebuilt simulator .app) — not the CI / FORCE path.
+# GATE-FIX-G1: FORCE_EAS_BUILD=1 MUST NOT accept seed as rebuild success.
+if [[ "${FORCE_EAS_BUILD:-0}" == "1" ]] && [[ -n "${E2E_SEED_APP_PATH:-}" ]]; then
+  echo "build-expo-dev-client: FORCE_EAS_BUILD=1 ignores E2E_SEED_APP_PATH (seed is not method=eas)" | tee -a "$log" >&2
+fi
+
+if [[ "${FORCE_EAS_BUILD:-0}" != "1" ]] && [[ -n "${E2E_SEED_APP_PATH:-}" ]]; then
   echo "build-expo-dev-client: staging from E2E_SEED_APP_PATH=$E2E_SEED_APP_PATH" | tee -a "$log" >&2
   stage_app_from "$E2E_SEED_APP_PATH" "$app_path"
   write_provenance "seed-app-path" "$E2E_SEED_APP_PATH" "$started_at" | tee -a "$log" >/dev/null
@@ -136,8 +182,19 @@ if [[ -n "${E2E_SEED_APP_PATH:-}" ]]; then
   exit 0
 fi
 
-eas_cmd="$(resolve_eas)" || fail "eas CLI not found; install eas-cli or set E2E_SEED_APP_PATH to a valid simulator .app"
+eas_cmd=""
+if ! eas_cmd="$(resolve_eas)"; then
+  fail_closed_prereq \
+    "eas CLI not found" \
+    "Install eas-cli (prefer: bunx eas-cli@21.0.2 or npm i -g eas-cli@21.0.2; must satisfy eas.json >= 18.0.0) or, only when FORCE_EAS_BUILD is unset, set E2E_SEED_APP_PATH to a valid simulator .app. Do not claim reuse-existing crashing seed as FORCE rebuild success."
+fi
 echo "build-expo-dev-client: using eas via: $eas_cmd" | tee -a "$log"
+
+if ! eas_authenticated "$eas_cmd"; then
+  fail_closed_prereq \
+    "eas unauthenticated (EXPO_TOKEN unset and whoami failed)" \
+    "Set EXPO_TOKEN or run 'eas login', then re-run FORCE_EAS_BUILD=1 scripts/e2e/build-expo-dev-client.sh"
+fi
 
 cd "$repo_root"
 
@@ -172,7 +229,7 @@ if [[ $eas_status -ne 0 ]]; then
     emit_export
     exit 0
   fi
-  fail "eas build --local failed (exit $eas_status). See $log. Or set E2E_SEED_APP_PATH to a prebuilt simulator .app."
+  fail "eas build --local failed (exit $eas_status). See $log. next_input_needed: fix eas build infra or set E2E_SEED_APP_PATH only when FORCE_EAS_BUILD is unset."
 fi
 
 # Extract archive if produced.
@@ -197,6 +254,7 @@ else
 fi
 
 is_valid_app "$app_path" || fail "final app invalid: $app_path"
+# method=eas-local satisfies AC-2 (eas | eas-local).
 write_provenance "eas-local" "eas build --profile $profile --local" "$started_at" | tee -a "$log" >/dev/null
 echo "build-expo-dev-client: done (eas)" >&2
 echo "build-expo-dev-client: install with: xcrun simctl install \"\${MAESTRO_DEVICE:-iPhone 17}\" \"$app_path\"" >&2
