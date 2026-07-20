@@ -29,10 +29,15 @@
     "strict_gate_run_url": "https://github.com/hackerpug-ai/holocron/actions/runs/29766089413",
     "tested_sha": "3ffba2dd5343bc515cb365e82b29d4bebb7e4ea5",
     "artifact_sha256": "62d19db6ecf3f2ee526798a22902d8410329a587603b1968d44ba4f75d5ec6a9",
-    "gate_verification": {"verified":true,"recomputed_verdict":"pass","discrepancies":0},
+    "gate_verification": { "verified": true, "recomputed_verdict": "pass", "discrepancies": 0 },
     "red_hat_review": ".spec/reviews/red-hat-sprint-20-20260720T181436Z-final.md"
   },
-  "trunk_consolidation": {"met":true,"branch":"main","source_is_ancestor":true},
-  "status_files": {"met":true,"sprint_status":"Complete","goal_state":"complete","gate_verdict":"pass"},
+  "trunk_consolidation": { "met": true, "branch": "main", "source_is_ancestor": true },
+  "status_files": {
+    "met": true,
+    "sprint_status": "Complete",
+    "goal_state": "complete",
+    "gate_verdict": "pass"
+  },
   "condition_cmd_jq": ".met == true"
 }
