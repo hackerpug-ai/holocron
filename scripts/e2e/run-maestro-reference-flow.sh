@@ -37,6 +37,10 @@ if [[ "$mode" == "--run" ]]; then
   find "$artifact_dir" -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +
 fi
 
+reference_message="${REFERENCE_MESSAGE:-Sprint 20 reference-flow ping $(date -u +%Y%m%dT%H%M%SZ)-$$}"
+jq -n --arg message "$reference_message" --arg conversation "${EXPO_PUBLIC_REFERENCE_CONVERSATION_ID:-00000000-0000-0000-0000-000000000020}" \
+  '{message:$message,conversation_id:$conversation}' >"$artifact_dir/reference-request.json"
+
 if [[ -z "${MAESTRO_METRO_URL:-}" ]]; then
   metro_host="$(ipconfig getifaddr en1 2>/dev/null || ipconfig getifaddr en0 2>/dev/null || true)"
   [[ -n "$metro_host" ]] || fail "MAESTRO_METRO_URL is required and no reachable LAN interface was found"
@@ -310,6 +314,7 @@ maestro --device "$device_udid" test "$flow" \
   --test-output-dir "$artifact_dir/test-output" \
   -e MAESTRO_APP_ID="$app_id" \
   -e MAESTRO_METRO_URL="$MAESTRO_METRO_URL" \
+  -e REFERENCE_MESSAGE="$reference_message" \
   -e PLATFORM_URL="${EXPO_PUBLIC_PLATFORM_URL:-${PLATFORM_URL}}" \
   -e E2E_ARTIFACT_DIR="$artifact_dir"
 maestro_rc=$?

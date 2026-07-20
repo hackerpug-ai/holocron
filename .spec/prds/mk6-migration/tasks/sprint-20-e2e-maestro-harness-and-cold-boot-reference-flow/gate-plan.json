@@ -52,7 +52,7 @@
     },
     {
       "n": 2,
-      "text": "Send a chat message in the flow — specialist runs on the fleet, tool call hits Postgres.",
+      "text": "Send a unique chat message — the specialist run completes and the user message persists in Postgres.",
       "type": "native-ui",
       "method": "real-native-ui",
       "literal_cmd": null,
@@ -79,7 +79,7 @@
         "action_count": 1,
         "expected_device_name": "iPhone 17",
         "expected_app_id": "com.holocron.app",
-        "domain_evidence_kind": "postgres-fleet-dispatch",
+        "domain_evidence_kind": "postgres-fleet-completion",
         "evidence_file": "__EVIDENCE_DIR__/step__STEP__/maestro-evidence.json"
       },
       "assertion": {
@@ -152,11 +152,11 @@
       "text": "Run holo namespace reset before the flow — nonprod Postgres/Zero namespace reaches known seed.",
       "type": "terminal",
       "method": "real-cli",
-      "literal_cmd": "bun services/platform/src/cli/holo.ts namespace reset --json",
+      "literal_cmd": "scripts/e2e/reset-and-verify-zero.sh",
       "assertion": {
         "kind": "exit_and_log_regex",
         "expected_exit": 0,
-        "expect_log_regex": "\"ok\"[[:space:]]*:[[:space:]]*true"
+        "expect_log_regex": "\"ok\"[[:space:]]*:[[:space:]]*true.*\"zero_row_count\"[[:space:]]*:[[:space:]]*0"
       }
     }
   ]

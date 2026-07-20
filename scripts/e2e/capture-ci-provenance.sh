@@ -134,6 +134,7 @@ ok = (
     and len(head) == 40
     and all(c in "0123456789abcdef" for c in head.lower())
     and url.startswith("http")
+    and wf == "ci-e2e"
 )
 print(json.dumps({
     "ok": ok,
@@ -161,7 +162,11 @@ fi
 head_sha="$(python3 -c 'import json,sys; print(json.loads(sys.argv[1])["head_sha"])' "$meta")"
 run_url="$(python3 -c 'import json,sys; print(json.loads(sys.argv[1])["run_url"])' "$meta")"
 conclusion="$(python3 -c 'import json,sys; print(json.loads(sys.argv[1])["conclusion"])' "$meta")"
-workflow_name="$(python3 -c 'import json,sys; print(json.loads(sys.argv[1]).get("workflow_name") or "ci-e2e")' "$meta")"
+workflow_name="$(python3 -c 'import json,sys; print(json.loads(sys.argv[1]).get("workflow_name") or "")' "$meta")"
+if [[ "$workflow_name" != "ci-e2e" ]]; then
+  echo "capture-ci-provenance: fail-closed: workflow_name=$workflow_name is not ci-e2e" >&2
+  exit 1
+fi
 
 head_sha_lower="$(printf '%s' "$head_sha" | tr '[:upper:]' '[:lower:]')"
 expected_sha_lower="$(printf '%s' "$expected_sha" | tr '[:upper:]' '[:lower:]')"

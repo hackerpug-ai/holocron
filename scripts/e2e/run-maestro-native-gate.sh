@@ -178,7 +178,8 @@ if [[ "$step" == "1" ]]; then
   printf '%s\n' "installed: $app_path" >>"$artifact_dir/simctl-install.txt"
   jq -n --arg id "$session_id" --arg device "$device" --arg udid "$device_udid" \
     --arg app "$app_id" --argjson pid "$zero_pid" --arg artifact "$artifact_dir" \
-    '{session_id:$id,device_name:$device,device_udid:$udid,app_id:$app,zero_pid:$pid,artifact_dir:$artifact,status:"active"}' \
+    --arg message "Sprint 20 reference-flow ping ${session_id}" \
+    '{session_id:$id,device_name:$device,device_udid:$udid,app_id:$app,zero_pid:$pid,artifact_dir:$artifact,reference_message:$message,status:"active"}' \
     >"$session_file"
 else
   [[ -s "$session_file" ]] || fail "native Maestro session is missing; run step 1 first"
@@ -192,6 +193,7 @@ else
   zero_pid="$session_pid"
   session_id="$(jq -r '.session_id' "$session_file")"
 fi
+reference_message="$(jq -r '.reference_message' "$session_file")"
 
 video="$artifact_dir/step-${step}.mov"
 rm -f "$video" "$artifact_dir"/.mov.sb-* 2>/dev/null || true
@@ -205,6 +207,7 @@ maestro --device "$device_udid" test "$flow" \
   --test-output-dir "$artifact_dir/test-output" \
   -e MAESTRO_APP_ID="$app_id" \
   -e MAESTRO_METRO_URL="$metro_url" \
+  -e REFERENCE_MESSAGE="$reference_message" \
   -e PLATFORM_URL="${EXPO_PUBLIC_PLATFORM_URL:-${PLATFORM_URL}}" \
   -e E2E_ARTIFACT_DIR="$artifact_dir" \
   >"$artifact_dir/maestro.log" 2>&1
@@ -227,9 +230,9 @@ mkdir -p "$(dirname "$evidence_file")"
 jq -n \
   --arg driver "maestro-ios" --arg action "$action_id" --arg flow "$flow" \
   --arg flow_sha "$flow_sha256" --arg device "$device" --arg udid "$device_udid" \
-  --arg app "$app_id" --arg session "$session_id" --arg junit "$artifact_dir/junit.xml" \
-  --arg screenshot "$artifact_dir/screenshot.png" --arg video "$video" \
-  --arg log "$artifact_dir/maestro.log" --argjson exit_code "$maestro_rc" \
+  --arg app "$app_id" --arg session "$session_id" --arg junit "native-artifacts/junit.xml" \
+  --arg screenshot "native-artifacts/screenshot.png" --arg video "native-artifacts/step-${step}.mov" \
+  --arg log "native-artifacts/maestro.log" --argjson exit_code "$maestro_rc" \
   --argjson junit_failures "$junit_failures" --argjson video_bytes "$video_bytes" \
   --argjson screenshot_bytes "$(wc -c <"$artifact_dir/screenshot.png" 2>/dev/null | tr -d ' ' || echo 0)" \
   '{version:1,driver:$driver,action_id:$action,action_count:1,flow:$flow,flow_sha256:$flow_sha,
@@ -243,17 +246,18 @@ cp -f "$evidence_file" "$artifact_dir/maestro-evidence.json"
 conv_id="${EXPO_PUBLIC_REFERENCE_CONVERSATION_ID:-00000000-0000-0000-0000-000000000020}"
 if [[ "$step" == "2" && "$maestro_rc" == "0" ]]; then
   dispatch_row=""
-  for _ in {1..60}; do
-    dispatch_row="$(psql "$DATABASE_URL" -t -A -F '|' -c \
-      "select m.session_id, r.status, r.role, m.id from chat_messages m join chat_runs r on r.id::text=m.session_id where m.conversation_id='${conv_id}' and m.role='user' and m.content='Sprint 20 reference-flow ping' order by m.created_at desc limit 1;" 2>/dev/null || true)"
+  for _ in {1..240}; do
+    dispatch_row="$(psql "$DATABASE_URL" -t -A -F '|' -v conv_id="$conv_id" -v message="$reference_message" -c \
+      "select m.session_id, r.status, r.role, m.id from chat_messages m join chat_runs r on r.id::text=m.session_id where m.conversation_id=:'conv_id' and m.role='user' and r.message=:'message' and m.content=:'message' order by m.created_at desc limit 1;" \
+      2>/dev/null || true)"
     dispatch_status="$(cut -d'|' -f2 <<<"$dispatch_row")"
-    [[ "$dispatch_status" == "running" || "$dispatch_status" == "completed" ]] && break
+    [[ "$dispatch_status" == "completed" ]] && break
     sleep 1
   done
   IFS='|' read -r run_id dispatch_status specialist_role user_message_id <<<"$dispatch_row"
   domain_ok=false
-  [[ "$run_id" =~ ^[0-9a-fA-F-]{36}$ && ( "$dispatch_status" == "running" || "$dispatch_status" == "completed" ) && -n "$specialist_role" && "$user_message_id" =~ ^[0-9a-fA-F-]{36}$ ]] && domain_ok=true
-  jq --arg kind postgres-fleet-dispatch --argjson ok "$domain_ok" --arg run_id "$run_id" \
+  [[ "$run_id" =~ ^[0-9a-fA-F-]{36}$ && "$dispatch_status" == "completed" && -n "$specialist_role" && "$user_message_id" =~ ^[0-9a-fA-F-]{36}$ ]] && domain_ok=true
+  jq --arg kind postgres-fleet-completion --argjson ok "$domain_ok" --arg run_id "$run_id" \
     --arg status "$dispatch_status" --arg role "$specialist_role" --arg user_id "$user_message_id" \
     '.domain_evidence={kind:$kind,ok:$ok,run_id:$run_id,fleet_status:$status,specialist_role:$role,postgres_user_message_id:$user_id}' \
     "$evidence_file" >"$evidence_file.tmp" && mv -f "$evidence_file.tmp" "$evidence_file"
@@ -281,7 +285,7 @@ elif [[ "$step" == "3" && "$maestro_rc" == "0" ]]; then
   [[ "$domain_ok" == "true" ]] || maestro_rc=1
 fi
 
-if [[ "$step" == "3" || "$maestro_rc" != "0" ]]; then
+if [[ "$maestro_rc" != "0" ]]; then
   cleanup_session
 fi
 exit "$maestro_rc"

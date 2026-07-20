@@ -88,7 +88,7 @@ appId: ${MAESTRO_APP_ID}
 - tapOn:
     id: chat-input-field
 - waitForAnimationToEnd
-- inputText: "Sprint 20 reference-flow ping"
+- inputText: ${REFERENCE_MESSAGE}
 - tapOn:
     id: chat-input-send-button
 # Assistant reply arrives asynchronously: platform chat command → fleet →

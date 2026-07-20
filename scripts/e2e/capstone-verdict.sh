@@ -175,6 +175,7 @@ if [[ "$from_ci_artifact" == "true" ]]; then
   ci_zero_id=""
   ci_zero_content_len="0"
   ci_conversation_id="$conv_id"
+  ci_reference_run_id=""
   if [[ -n "$ci_capstone" ]]; then
     ci_capstone_gate="$(jq -r '.coldboot_gate // "red"' "$ci_capstone" 2>/dev/null || echo red)"
     ci_junit_failures="$(jq -r '.junit_failures // -1' "$ci_capstone" 2>/dev/null || echo -1)"
@@ -185,6 +186,7 @@ if [[ "$from_ci_artifact" == "true" ]]; then
     ci_zero_id="$(jq -r '.zero_agent_id // empty' "$ci_capstone" 2>/dev/null || true)"
     ci_zero_content_len="$(jq -r '.zero_agent_content_len // 0' "$ci_capstone" 2>/dev/null || echo 0)"
     ci_conversation_id="$(jq -r '.conversation_id // empty' "$ci_capstone" 2>/dev/null || true)"
+    ci_reference_run_id="$(jq -r '.reference_run_id // empty' "$ci_capstone" 2>/dev/null || true)"
     [[ "$ci_capstone_gate" == "green" ]] || ci_add_reason "embedded CI capstone gate is $ci_capstone_gate"
     [[ "$ci_capstone" != "" && "$ci_committed_sha" == "$(jq -r '.committed_sha // empty' "$ci_capstone" 2>/dev/null || true)" ]] || ci_add_reason "embedded CI capstone SHA is not provenance-bound"
     [[ "$ci_junit_failures" == "0" ]] || ci_add_reason "embedded CI capstone junit_failures=$ci_junit_failures"
@@ -195,10 +197,11 @@ if [[ "$from_ci_artifact" == "true" ]]; then
     [[ "$ci_zero_id" == "$ci_pg_id" ]] || ci_add_reason "embedded CI capstone Postgres and Zero agent ids differ"
     [[ "$ci_zero_content_len" =~ ^[0-9]+$ && "$ci_zero_content_len" -ge 1 ]] || ci_add_reason "embedded CI capstone Zero content length is $ci_zero_content_len"
     [[ "$ci_conversation_id" == "$conv_id" ]] || ci_add_reason "embedded CI capstone conversation_id does not match $conv_id"
+    [[ "$ci_reference_run_id" =~ ^[0-9a-fA-F-]{36}$ ]] || ci_add_reason "embedded CI capstone reference_run_id is missing"
   fi
 
   ci_evidence_entries=()
-  ci_evidence_names=(junit.xml test-output/screenshots/reference-chat-reply.png reference-flow.mov)
+  ci_evidence_names=(junit.xml test-output/screenshots/reference-chat-reply.png reference-flow.mov reference-request.json)
   for ci_evidence_name in "${ci_evidence_names[@]}"; do
     if [[ -s "$artifact_dir/$ci_evidence_name" ]]; then
       ci_evidence_path="$artifact_dir/$ci_evidence_name"
@@ -251,10 +254,14 @@ if [[ "$from_ci_artifact" == "true" ]]; then
     --argjson reasons "$ci_reasons_json" \
     --arg artifact_dir "$artifact_dir" \
     --arg conversation_id "$ci_conversation_id" \
+    --arg reference_run_id "$ci_reference_run_id" \
+    --arg postgres_agent_id "$ci_pg_id" \
+    --arg zero_agent_id "$ci_zero_id" \
     '{committed_sha:$sha, tested_sha:$tested_sha, replay_head_sha:$replay_head_sha,
       generated_at:$at, coldboot_gate:$gate, junit_failures:$jf,
-      postgres_agent_count:$pac, postgres_agent_content_len:$pacl,
-      zero_cache_ok:$zok, zero_agent_content_len:$zacl,
+      reference_run_id:$reference_run_id,
+      postgres_agent_count:$pac, postgres_agent_id:$postgres_agent_id, postgres_agent_content_len:$pacl,
+      zero_cache_ok:$zok, zero_agent_id:$zero_agent_id, zero_agent_content_len:$zacl,
       conversation_id:$conversation_id, artifact_dir:$artifact_dir,
       evidence:$evidence, reasons:$reasons}')"
   if [[ "$ci_verdict" == "green" ]]; then
@@ -311,31 +318,48 @@ else
     '{path:$p,sha256:$s,bytes:$b}')")
 fi
 
-# 4. Postgres agent row — count >= 1 AND content length > 0.
+# 4. Unique request identity — binds Postgres and Zero checks to this invocation.
+reference_request="$artifact_dir/reference-request.json"
+reference_message=""
+reference_conversation_id=""
+if [[ ! -s "$reference_request" ]] || ! jq -e . "$reference_request" >/dev/null 2>&1; then
+  add_reason "reference-request.json missing or invalid: $reference_request"
+else
+  reference_message="$(jq -r '.message // empty' "$reference_request")"
+  reference_conversation_id="$(jq -r '.conversation_id // empty' "$reference_request")"
+  [[ -n "$reference_message" ]] || add_reason "reference request message is empty"
+  [[ "$reference_conversation_id" == "$conv_id" ]] || add_reason "reference request conversation does not match $conv_id"
+  evidence+=("$(jq -Mn --arg p "$reference_request" --arg s "$(sha "$reference_request")" --argjson b "$(bytes "$reference_request")" \
+    '{path:$p,sha256:$s,bytes:$b}')")
+fi
+
+# 5. Postgres agent row — exact completed run for the unique request.
 pg_agent_count=0
 pg_agent_id=""
 pg_agent_content_len=0
+reference_run_id=""
 if [[ -z "${DATABASE_URL:-}" ]]; then
   add_reason "DATABASE_URL is unset; cannot prove the Postgres agent row"
 else
   if [[ "$DATABASE_URL" != *holocron_nonprod* ]]; then
     add_reason "DATABASE_URL must target holocron_nonprod for the reference gate (got non-nonprod url)"
   else
-    pg_row="$(psql "$DATABASE_URL" -t -A -F '|' -c \
-      "select count(*) over (), id, length(content) from chat_messages where conversation_id='${conv_id}' and role='agent' and length(content)>0 order by created_at desc limit 1;" 2>/dev/null || echo "0||0")"
-    pg_agent_count="$(echo "$pg_row" | cut -d'|' -f1)"
+    pg_row="$(psql "$DATABASE_URL" -t -A -F '|' -v conv_id="$conv_id" -v message="$reference_message" -c \
+      "select r.id, m.id, length(m.content) from chat_runs r join chat_messages m on m.session_id=r.id::text and m.role='agent' where r.conversation_id=:'conv_id' and r.message=:'message' and r.status='completed' and length(m.content)>0 order by m.created_at desc limit 1;" 2>/dev/null || echo "||0")"
+    reference_run_id="$(echo "$pg_row" | cut -d'|' -f1)"
     pg_agent_id="$(echo "$pg_row" | cut -d'|' -f2)"
     pg_agent_content_len="$(echo "$pg_row" | cut -d'|' -f3)"
+    [[ "$reference_run_id" =~ ^[0-9a-fA-F-]{36}$ ]] && pg_agent_count=1
     pg_agent_count="${pg_agent_count:-0}"; pg_agent_content_len="${pg_agent_content_len:-0}"
     if [[ ! "$pg_agent_count" =~ ^[0-9]+$ || "$pg_agent_count" -lt 1 ]]; then
-      add_reason "Postgres agent row count is ${pg_agent_count} (<1) for conversation ${conv_id}"
+      add_reason "Postgres has no completed agent reply for the unique reference request"
     elif [[ ! "$pg_agent_content_len" =~ ^[0-9]+$ || "$pg_agent_content_len" -lt 1 ]]; then
       add_reason "Postgres agent row content length is ${pg_agent_content_len} (<1) for conversation ${conv_id}"
     fi
   fi
 fi
 
-# 5. live zero-cache query — returns the agent row with content length > 0.
+# 6. live Zero query — exact agent row must belong to the reference run.
 zero_agent_content_len=0
 zero_agent_id=""
 zero_ok="false"
@@ -345,8 +369,8 @@ if [[ -z "$zero_result" ]]; then
   add_reason "zero-cache one-shot read produced no output (zero-cache unreachable at $zero_url)"
 else
   zero_ok="$(jq -r '.ok // false' <<<"$zero_result" 2>/dev/null || echo false)"
-  zero_agent_content_len="$(jq -r '.agentContentLen // 0' <<<"$zero_result" 2>/dev/null || echo 0)"
-  zero_agent_id="$(jq -r '.agentId // empty' <<<"$zero_result" 2>/dev/null || true)"
+  zero_agent_id="$(jq -r --arg run "$reference_run_id" '[.rows[]? | select(.role == "agent" and .session_id == $run)] | last | .id // empty' <<<"$zero_result" 2>/dev/null || true)"
+  zero_agent_content_len="$(jq -r --arg run "$reference_run_id" '[.rows[]? | select(.role == "agent" and .session_id == $run)] | last | (.content | length) // 0' <<<"$zero_result" 2>/dev/null || echo 0)"
   if [[ "$zero_ok" != "true" ]]; then
     zerr="$(jq -r '.error // "unknown zero-cache error"' <<<"$zero_result" 2>/dev/null || echo unknown)"
     add_reason "zero-cache read did not complete: $zerr"
@@ -381,6 +405,7 @@ payload="$(jq -Mn \
   --arg sha "$committed_sha" \
   --arg at "$generated_at" \
   --arg gate "$verdict" \
+  --arg reference_run_id "$reference_run_id" \
   --argjson jf "$junit_failures" \
   --argjson pac "${pg_agent_count:-0}" \
   --arg paid "$pg_agent_id" \
@@ -393,6 +418,7 @@ payload="$(jq -Mn \
   --arg artifact_dir "$artifact_dir" \
   --arg conversation_id "$conv_id" \
   '{committed_sha:$sha, generated_at:$at, coldboot_gate:$gate, junit_failures:$jf,
+    reference_run_id:$reference_run_id,
     postgres_agent_count:$pac, postgres_agent_id:$paid, postgres_agent_content_len:$pacl,
     zero_cache_ok:$zok, zero_agent_id:$zaid, zero_agent_content_len:$zacl,
     conversation_id:$conversation_id, artifact_dir:$artifact_dir,

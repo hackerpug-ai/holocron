@@ -14,6 +14,7 @@ skill_root="${KB_RUN_HUMAN_TESTS_SKILL_ROOT:-/Users/inference1/.codex/skills/kb-
 native_runner="$skill_root/references/run-maestro-step.sh"
 terminal_runner="$skill_root/references/exec-step.sh"
 verifier="$skill_root/references/verify-gate-evidence.sh"
+provenance_verifier="${KB_ORCHESTRATE_SKILL_ROOT:-/Users/inference1/.codex/skills/kb-orchestrate}/references/assert-gate-verdict.sh"
 mode="run"
 evidence_dir=""
 ci_artifact_dir="${E2E_CI_ARTIFACT_DIR:-}"
@@ -41,6 +42,7 @@ command -v jq >/dev/null 2>&1 || fail "jq is required"
 [[ -x "$native_runner" ]] || fail "shared native runner is missing or not executable: $native_runner"
 [[ -x "$terminal_runner" ]] || fail "shared terminal runner is missing or not executable: $terminal_runner"
 [[ -x "$verifier" ]] || fail "shared evidence verifier is missing or not executable: $verifier"
+[[ -x "$provenance_verifier" ]] || fail "shared provenance verifier is missing or not executable: $provenance_verifier"
 
 if [[ "$mode" == "check" ]]; then
   command -v python3 >/dev/null 2>&1 || fail "python3 is required"
@@ -60,6 +62,10 @@ fi
 run_id="${run_id:-$(date -u +%Y%m%dT%H%M%SZ)-$$}"
 evidence_dir="${evidence_dir:-$sprint_dir/.gate-evidence/native-$run_id}"
 mkdir -p "$evidence_dir"
+case "$evidence_dir" in
+  "$sprint_dir"/*) evidence_rel="${evidence_dir#"$sprint_dir/"}" ;;
+  *) fail "evidence directory must be inside the sprint directory for relocatable evidence" ;;
+esac
 export E2E_CI_ARTIFACT_DIR="$ci_artifact_dir"
 
 # Capstone's offline replay must bind to the exact tested source SHA captured
@@ -77,6 +83,14 @@ tmux_started=false
 cleanup() {
   if [[ "$tmux_started" == true ]]; then
     tmux kill-session -t "$session_name" >/dev/null 2>&1 || true
+  fi
+  native_session_file="$evidence_dir/maestro-session/session.json"
+  if [[ -s "$native_session_file" ]]; then
+    native_zero_pid="$(jq -r '.zero_pid // empty' "$native_session_file" 2>/dev/null || true)"
+    if [[ "$native_zero_pid" =~ ^[0-9]+$ ]]; then
+      pkill -TERM -P "$native_zero_pid" 2>/dev/null || true
+      kill -TERM "$native_zero_pid" 2>/dev/null || true
+    fi
   fi
 }
 trap cleanup EXIT
@@ -100,8 +114,8 @@ record_native_step() {
     claim="fail"
   fi
   jq -nc --argjson n "$n" --arg text "$(jq -r --argjson n "$n" '.steps[] | select(.n == $n) | .text' "$plan")" \
-    --arg type native-ui --arg result "$claim" --arg log "$step_dir/step${n}.log" \
-    --arg evidence "$step_dir/maestro-evidence.json" --argjson executed "$([[ -s "$result_file" ]] && echo true || echo false)" \
+    --arg type native-ui --arg result "$claim" --arg log "$evidence_rel/step${n}/step${n}.log" \
+    --arg evidence "$evidence_rel/step${n}/maestro-evidence.json" --argjson executed "$([[ -s "$result_file" ]] && echo true || echo false)" \
     '{n:$n,text:$text,type:$type,executed:$executed,result:$result,log:$log,native_evidence:$evidence}' >>"$steps_file"
 }
 
@@ -121,7 +135,7 @@ record_terminal_step() {
   claim="fail"
   [[ "$exit_code" =~ ^[0-9]+$ && "$timed_out" == "false" && "$rc" == "0" ]] && claim="pass"
   jq -nc --argjson n "$n" --arg text "$(jq -r --argjson n "$n" '.steps[] | select(.n == $n) | .text' "$plan")" \
-    --arg type terminal --arg result "$claim" --arg log "$evidence_dir/step${n}.log" \
+    --arg type terminal --arg result "$claim" --arg log "$evidence_rel/step${n}.log" \
     --argjson executed true '{n:$n,text:$text,type:$type,executed:$executed,result:$result,log:$log}' >>"$steps_file"
 }
 
@@ -164,12 +178,12 @@ gate_results="$sprint_dir/gate-results.json"
 gate_tmp="$gate_results.tmp.$$"
 jq -n \
   --arg sprint "sprint-20-e2e-maestro-harness-and-cold-boot-reference-flow" \
-  --arg run_id "$run_id" --arg verdict "$verdict" --arg candidate "$candidate_verdict" --arg artifact "$ci_artifact_dir" \
-  --arg evidence "$evidence_dir" --arg tested_sha "${EXPECTED_TESTED_SHA:-}" \
+  --arg run_id "$run_id" --arg verdict "$verdict" --arg candidate "$candidate_verdict" --arg artifact ".tmp/native-gate-ci-artifact" \
+  --arg evidence "$evidence_rel" --arg tested_sha "${EXPECTED_TESTED_SHA:-}" \
   --argjson steps "$steps_json" --argjson total 6 --argjson executed "$steps_executed" --argjson passed "$steps_passed" \
   '{sprint:$sprint,run_id:$run_id,verdict:$verdict,candidate_verdict:$candidate,steps_total:$total,steps_executed:$executed,steps_passed:$passed,
     ui_driver:"maestro-ios",exec_surface:"tmux+native-maestro",artifact_dir:$artifact,evidence_dir:$evidence,
-    tested_sha:$tested_sha,steps:$steps}' >"$gate_tmp"
+    tested_sha:$tested_sha,runner:"github-actions:self-hosted",qa_session_id:$run_id,steps:$steps}' >"$gate_tmp"
 mv -f "$gate_tmp" "$gate_results"
 
 verification="$evidence_dir/gate-verification.json"
@@ -183,7 +197,7 @@ set -e
 recomputed_verdict="$(jq -r '.recomputed_verdict // "fail"' "$verification" 2>/dev/null || echo fail)"
 [[ "$recomputed_verdict" == "pass" || "$recomputed_verdict" == "fail" || "$recomputed_verdict" == "blocked" ]] \
   || recomputed_verdict="fail"
-jq --arg verdict "$recomputed_verdict" --arg verification "$verification" \
+jq --arg verdict "$recomputed_verdict" --arg verification "$evidence_rel/gate-verification.json" \
   '.verdict=$verdict | .deterministic_verification={path:$verification,verified:false}' \
   "$gate_results" >"$gate_results.tmp.$$"
 mv -f "$gate_results.tmp.$$" "$gate_results"
@@ -197,11 +211,18 @@ set -e
 mv -f "$verification.tmp.$$" "$verification"
 verified="$(jq -r '.verified // false' "$verification" 2>/dev/null || echo false)"
 recomputed_verdict="$(jq -r '.recomputed_verdict // "fail"' "$verification" 2>/dev/null || echo fail)"
-jq --arg verification "$verification" --argjson verified "$verified" \
+jq --arg verification "$evidence_rel/gate-verification.json" --argjson verified "$verified" \
   '.deterministic_verification={path:$verification,verified:$verified}' \
   "$gate_results" >"$gate_results.tmp.$$"
 mv -f "$gate_results.tmp.$$" "$gate_results"
 [[ "$verified" == "true" && "$recomputed_verdict" == "pass" ]] || verify_rc=1
+
+provenance_verification="$evidence_dir/gate-provenance-verification.json"
+set +e
+bash "$provenance_verifier" "$gate_results" >"$provenance_verification"
+provenance_rc=$?
+set -e
+[[ "$provenance_rc" == "0" && "$(jq -r '.valid // false' "$provenance_verification" 2>/dev/null || echo false)" == "true" ]] || verify_rc=1
 # Keep the verifier's exact JSON at the sprint contract path as well as beside
 # the raw evidence. This is a copy of machine output, never a hand-authored
 # verdict or a recomputed field.

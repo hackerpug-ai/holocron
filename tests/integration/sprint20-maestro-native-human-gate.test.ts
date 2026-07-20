@@ -71,7 +71,10 @@ describe('Sprint 20 explicit native Maestro human gate', () => {
     expect(terminalSteps[0]?.literal_cmd).toContain('E2E_CI_ARTIFACT_DIR');
     expect(terminalSteps[0]?.assertion.expect_log_regex ?? '').toContain('coldboot_gate');
     expect(terminalSteps[1]?.literal_cmd).toContain('EXPO_DEV_BUILD_PATH=');
-    expect(terminalSteps[2]?.literal_cmd).toContain('namespace reset --json');
+    expect(terminalSteps[2]?.literal_cmd).toBe('scripts/e2e/reset-and-verify-zero.sh');
+    expect(readFileSync(terminalSteps[2]!.literal_cmd!, 'utf8')).toContain(
+      'namespace reset --json'
+    );
   });
 
   it('passes the native gate adapter static preflight', () => {
