@@ -3,7 +3,7 @@ sprint: 20
 title: E2E Maestro Harness and Cold-Boot Reference Flow
 sequence: 20
 timeline: Phase 4 — Reference-Flow Gate and Deep Services
-status: Blocked
+status: Complete
 prd: ../../README.md
 capability_coverage: CAP-SYNC-01, CAP-CUT-01
 planned_from_roadmap_sha: 6201400e2aabbf15e9457d14c1a9949fd0776e4173a7a760908d91374d38a289
@@ -16,16 +16,24 @@ planned_at: 2026-07-18T21:44:20Z
 
 **Sequence:** 20
 **Timeline:** Phase 4 — Reference-Flow Gate and Deep Services
-**Status:** Blocked
-> Progress: G4 partial land · step4 FAIL · updated 2026-07-20T02:22:00Z
-> Status-Note: G1/G2/G5/G6 complete; G4 partial (AC-1/AC-4 landed e29b2a22); H2+G4-AC2/3 blocked on gh auth + self-hosted runner + secrets
+**Status:** Complete
+> Progress: exact-SHA CI + strict native gate 6/6 + independent red-hat PASS · updated 2026-07-20T18:14:36Z
+> Status-Note: Source `3ffba2dd`; CI run `29765850887`; strict native run `29766089413`; correctness and provenance guards pass.
 **Proposed by:** react-native-ui-planner + devops-engineer
 **Branch:** `mk6-reference-flow`
 **Opened:** 2026-07-18 — generated JIT by /kb-sprint-tasks-plan
 
 ## Progress Note (inherited from ROADMAP.md, 2026-07-18)
 
-The fail-closed Maestro harness, real zero-cache bootstrap, deterministic `holo namespace reset`, Expo Zero schema/provider seam, stable chat selectors, and a Hono/Zero reference-chat route are implemented and committed (`4d56349`, `9109e32`, `23e425b`, `ad63aad`, `6b3ee1a`, `610846b`). The boundary proof passes against real Postgres, the Expo iOS bundle exports, and the reset seeds the deterministic conversation. The cold-boot flow is not yet green: a real Expo development build on the named simulator, real fleet completion, and end-to-end Zero sync artifacts remain unproven; Sprint 20 stays In Progress. This task-file expansion is JIT relative to that in-flight state — implementers should audit existing commits before re-doing completed work.
+The fail-closed Maestro harness, real zero-cache bootstrap, deterministic `holo namespace reset`, Expo Zero schema/provider seam, stable chat selectors, and a Hono/Zero reference-chat route were implemented and committed (`4d56349`, `9109e32`, `23e425b`, `ad63aad`, `6b3ee1a`, `610846b`). At this inherited planning checkpoint the cold-boot flow was not yet green and Sprint 20 remained in progress. The completion evidence below supersedes that historical checkpoint.
+
+## Completion Evidence (2026-07-20)
+
+- Exact source CI: run `29765850887`, SHA `3ffba2dd5343bc515cb365e82b29d4bebb7e4ea5`, conclusion `success`.
+- Strict native human gate: run `29766089413`, six of six steps pass on the named iPhone 17 simulator.
+- Deterministic correctness verifier: `verified:true`, recomputed `pass`, zero discrepancies.
+- Independent provenance guard: `valid:true`; downloaded evidence replays from relative paths.
+- Final three-reviewer Luna red-hat review: PASS with no actionable blockers.
 
 ## Overview
 
@@ -134,7 +142,7 @@ The fresh independent review in `.spec/reviews/red-hat-sprint-20-20260719T204500
 | REDHAT-FIX-H9 | Add explicit forced-failure coverage proving harness cleanup and artifact preservation, and strengthen lifecycle artifact assertions. | Review M1/M3: uninstall evidence can be empty while the oracle passes; forced-failure fixture and TC-4 are absent. |
 | REDHAT-FIX-H10 | Correct dev-client mode validation and add deterministic reset/idempotency and capstone replay contracts named by S-COLDBOOT-03/D03-04. | Review M2/M4: documented mode regex rejects the `+` mode, and named reset/idempotency test contracts are absent or skipped. |
 
-## Human-gate remediation tasks (expanded 2026-07-20T00:59:23Z)
+## Historical human-gate remediation tasks (superseded by final evidence)
 
 Failing/partial Human Testing Gate steps after the honest blocked cycle (gate-results.json 2026-07-20):
 step1 FAIL (app crash), step3 PARTIAL (no fresh green sim), step4 FAIL (no CI provenance), step5 PARTIAL (step5 dual-evidence missing).
