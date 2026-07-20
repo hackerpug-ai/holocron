@@ -7,10 +7,10 @@
   "run_stage": {
     "harness": "grok-goal",
     "cycle": "verify-and-close-or-block",
-    "base_sha": "60e8831ae474729db6bfd048b2616dd11086e534"
+    "base_sha": "01f47285e1f1cdc13d399bb2b22cd782e05772ad"
   },
   "protected_branch": "main",
-  "protected_branch_sha": "60e8831ae474729db6bfd048b2616dd11086e534",
+  "protected_branch_sha": "01f47285e1f1cdc13d399bb2b22cd782e05772ad",
   "goal": {
     "text": "An operator running the Maestro reference flow on a named iOS Simulator gets a cold-boot chat message that round-trips through the fleet to Postgres, syncs back via Zero, with a passing JUnit result plus screenshot/video artifacts.",
     "condition_text": "(1) All sprint tasks completed per ACs; AND (2) human tests verified by E2E; AND (3) all completed work consolidated on the protected trunk (0 orphan branches); AND (4) status_files parity"
@@ -154,7 +154,7 @@
   },
   "trunk_consolidation": {
     "met": true,
-    "main_sha": "60e8831ae474729db6bfd048b2616dd11086e534",
+    "main_sha": "01f47285e1f1cdc13d399bb2b22cd782e05772ad",
     "orphan_branches_with_commits": [],
     "reason": "Sprint-20 task/* branches have 0 commits ahead of main; REDHAT-FIX-H1-H10 merge already on main."
   },
