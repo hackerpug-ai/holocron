@@ -1,5 +1,5 @@
 # REDHAT-FIX-H3 — Make the harness produce and verify the exact non-empty `reference-flow.mov`, including recorder-failure handling and cleanup
-> Status: Backlog
+> Status: ✅ Completed
 > Sprint: [Sprint 20 — E2E Maestro Harness and Cold-Boot Reference Flow](./SPRINT.md)
 > Agent: devops-engineer
 > Estimate: 120 min

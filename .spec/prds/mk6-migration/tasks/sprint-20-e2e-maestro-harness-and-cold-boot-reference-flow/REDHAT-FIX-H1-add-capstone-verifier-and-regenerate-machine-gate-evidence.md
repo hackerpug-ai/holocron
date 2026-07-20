@@ -1,5 +1,5 @@
 # REDHAT-FIX-H1 — Add the executable Sprint 20 capstone verifier and replayable `capstone-verdict.json`; regenerate machine gate evidence from current main
-> Status: Backlog
+> Status: ✅ Completed
 > Sprint: [Sprint 20 — E2E Maestro Harness and Cold-Boot Reference Flow](./SPRINT.md)
 > Agent: devops-engineer
 > Estimate: 90 min

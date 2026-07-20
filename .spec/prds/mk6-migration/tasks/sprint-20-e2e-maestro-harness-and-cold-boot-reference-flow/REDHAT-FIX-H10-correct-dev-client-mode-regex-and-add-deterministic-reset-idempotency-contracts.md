@@ -1,5 +1,5 @@
 # REDHAT-FIX-H10 — Correct dev-client mode validation and add deterministic reset/idempotency and capstone replay contracts named by S-COLDBOOT-03/D03-04
-> Status: Backlog
+> Status: ✅ Completed
 > Sprint: [Sprint 20 — E2E Maestro Harness and Cold-Boot Reference Flow](./SPRINT.md)
 > Agent: devops-engineer
 > Estimate: 120 min

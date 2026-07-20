@@ -32,7 +32,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '..', '..');
 const VERIFIER = join(REPO_ROOT, 'scripts', 'e2e', 'capstone-verdict.sh');
-const OFFICIAL = resolve(REPO_ROOT, '..', '..', '.tmp', 'maestro-reference-flow-official11');
+const OFFICIAL = resolve(REPO_ROOT, '.tmp', 'maestro-reference-flow-official11');
 
 const PLATFORM_IT = process.env.PLATFORM_IT === '1';
 const DB = process.env.DATABASE_URL ?? '';

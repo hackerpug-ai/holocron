@@ -1,5 +1,5 @@
 # REDHAT-FIX-H8 — Fix the invalid-bundle fail-closed boundary test so the real PLATFORM_IT lane completes without timeout
-> Status: Backlog
+> Status: ✅ Completed
 > Sprint: [Sprint 20 — E2E Maestro Harness and Cold-Boot Reference Flow](./SPRINT.md)
 > Agent: red-test-generator
 > Estimate: 45 min

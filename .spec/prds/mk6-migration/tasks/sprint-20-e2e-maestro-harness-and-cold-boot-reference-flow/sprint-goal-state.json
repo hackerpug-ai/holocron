@@ -2,17 +2,15 @@
   "schema_version": 1,
   "sprint_id": "sprint-20-e2e-maestro-harness-and-cold-boot-reference-flow",
   "sprint_name": "Sprint 20: E2E Maestro Harness and Cold-Boot Reference Flow",
-  "generated_at": "2026-07-19T23:30:00Z",
-  "generated_by": "kb-run-sprint@run-stage (REDHAT-FIX-H1..H10 remediation cycle)",
+  "generated_at": "2026-07-20T00:17:27Z",
+  "generated_by": "kb-run-sprint@goal-harness (fresh verification cycle 2026-07-20)",
   "run_stage": {
-    "harness": "pi",
-    "parent_run_id": "prd-20260716T192354Z-14461843",
-    "cycle": "red-hat-remediation-H1-H10",
-    "worktree_branch": "task/REDHAT-FIX-H1-H10",
-    "merged_to_main": "5163b65"
+    "harness": "grok-goal",
+    "cycle": "verify-and-close-or-block",
+    "base_sha": "ee00ee942cd894813c3b4ba4c1dd37ec2c384aad"
   },
   "protected_branch": "main",
-  "protected_branch_sha": "5163b65",
+  "protected_branch_sha": "ee00ee942cd894813c3b4ba4c1dd37ec2c384aad",
   "goal": {
     "text": "An operator running the Maestro reference flow on a named iOS Simulator gets a cold-boot chat message that round-trips through the fleet to Postgres, syncs back via Zero, with a passing JUnit result plus screenshot/video artifacts.",
     "condition_text": "(1) All sprint tasks completed per ACs; AND (2) human tests verified by E2E; AND (3) all completed work consolidated on the protected trunk (0 orphan branches); AND (4) status_files parity"
@@ -21,23 +19,31 @@
   "met": false,
   "blocker": {
     "id": "REDHAT-FIX-H2 + fresh-cold-boot",
-    "summary": "H2 (CI dispatch) requires external GitHub infrastructure that is not provisioned in this environment; a fresh reproducible Maestro cold-boot additionally requires a real Expo dev build (.app) + EAS credentials. Both are genuine external-infrastructure dependencies, not code gaps.",
+    "summary": "H2 (CI dispatch) requires external GitHub self-hosted runner + gh auth + repo secrets. Fresh Maestro cold-boot requires a rebuildable Expo development .app (eas CLI); the staged worktree .app installs but crashes under Maestro with metro running. Both are external-infra / rebuild dependencies, not remaining code gaps for H1/H3\u2013H10.",
     "invariants": [
       {
         "id": "H2",
-        "required": "A committed ci-run-provenance.json recording a real gh workflow run ci-e2e.yml with conclusion:success + downloaded artifact bundle (junit.xml/final.png/reference-flow.mov) + run_url/head_sha, AND capstone-verdict.sh reproducing coldboot_gate:green from the bundle.",
-        "blocked_by": "gh CLI is not installed; no GITHUB_TOKEN/GH_TOKEN in env; no self-hosted runner registered (~/actions-runner absent); ci-e2e.yml consumes repo secrets (NONPROD_DATABASE_URL, FLEET_URL, ZERO_ADMIN_PASSWORD, RN_API_KEY) that are not verifiably configured. Dispatching the workflow is impossible without GitHub account access + a registered [self-hosted, holocron, e2e] runner host.",
-        "evidence": "`which gh` -> not found; `which eas` -> not found; `ls ~/actions-runner` -> absent; GH_TOKEN/GITHUB_TOKEN unset; .github/workflows/ci-e2e.yml runs-on [self-hosted, holocron, e2e].",
-        "attempted": ["Verified gh/eas/runner/token all absent (cannot even dispatch, let alone complete).", "Installed no new system tooling — provisioning a GitHub self-hosted runner requires interactive `gh auth login` + a persistent host, out of scope for this run stage."],
-        "next_input_needed": "Operator provision: (a) install + `gh auth login`; (b) register a self-hosted runner with labels [self-hosted, holocron, e2e] against the repo; (c) configure the four repo secrets; (d) dispatch `gh workflow run ci-e2e.yml` and preserve ci-run-provenance.json."
+        "required": "Committed ci-run-provenance.json from a real gh workflow run ci-e2e.yml with conclusion:success + downloaded artifact + capstone green from the CI bundle.",
+        "blocked_by": "gh CLI not installed; no GH_TOKEN/GITHUB_TOKEN; no ~/actions-runner; cannot dispatch or download CI artifacts.",
+        "evidence": "Scratch h2-infra-probe.log: which gh -> not found; GH_TOKEN unset; actions-runner absent.",
+        "attempted": [
+          "Re-probed which gh / eas / runner / tokens this cycle (all still absent).",
+          "Did not interactive gh auth login or register a self-hosted runner (operator next_input_needed)."
+        ],
+        "next_input_needed": "Operator: install gh + auth; register self-hosted runner labels [self-hosted, holocron, e2e]; configure NONPROD_DATABASE_URL, FLEET_URL, ZERO_ADMIN_PASSWORD, RN_API_KEY secrets; gh workflow run ci-e2e.yml; commit ci-run-provenance.json."
       },
       {
         "id": "fresh-cold-boot",
-        "required": "A fresh, current, reproducible Maestro cold-boot run producing a non-empty reference-flow.mov + junit failures=0 against a real Expo dev build, so the capstone green is not solely a historical (official11) artifact.",
-        "blocked_by": "No real Expo dev .app exists (EXPO_DEV_BUILD_PATH unset; find found no holocron.app); `eas` CLI is not installed so `scripts/e2e/build-expo-dev-client.sh` cannot produce one; no E2E_SEED_APP_PATH prebuild staged.",
-        "evidence": "EXPO_DEV_BUILD_PATH unset; `find . ~/Library/Developer/Xcode/DerivedData -name holocron.app` -> none; `which eas` -> not found; H9 TC-4 + the H3/H8 live --run cases skip-with-reason on the missing .app.",
-        "attempted": ["Proved the durable round-trip LIVE without the app: a real POST /api/chat-runs completed through the fleet and wrote an agent row ('Sprint 20 final gate evidence seed', content_len 10) to holocron_nonprod chat_messages; the live zero-cache returned it (agentContentLen=10).", "Capstone verifier derives green against the historical official11 junit/screenshot/video + the live Postgres/Zero evidence — so the gate is substantively green, just not re-run end-to-end through the simulator this cycle."],
-        "next_input_needed": "Operator build: `EXPO_DEV_BUILD_PATH=... eas build --platform ios --profile development-simulator --local` (or stage a prebuilt .app via E2E_SEED_APP_PATH), then `scripts/e2e/run-maestro-reference-flow.sh --run && scripts/e2e/capstone-verdict.sh`."
+        "required": "Fresh Maestro --run producing junit failures=0 + non-empty reference-flow.mov against a working Expo dev build on the named simulator.",
+        "blocked_by": "Staged holocron.app (worktree D03-02, 134M) installs but Maestro reports app crash (run4). eas CLI not installed so cannot rebuild development-simulator profile. Metro was started (8081) but native client still crashed.",
+        "evidence": "Scratch coldboot-launch.err + failed-coldboot-run4/: junit failures=1 'App crashed or stopped while executing flow'.",
+        "attempted": [
+          "harness --check OK with real .app + UDID.",
+          "run3 failed (metro URL missing before packager up).",
+          "run4 with metro live: app crash 17s.",
+          "Live durable path proved without simulator: H5 POST /api/chat-runs -> Postgres agent + zero-cache agentContentLen>0; capstone-verdict green on historical junit/png/mov + live DB/Zero."
+        ],
+        "next_input_needed": "Operator: install eas-cli + rebuild `eas build --platform ios --profile development-simulator --local` (or stage E2E_SEED_APP_PATH), then scripts/e2e/run-maestro-reference-flow.sh --run twice + capstone-verdict.sh."
       }
     ]
   },
@@ -47,12 +53,36 @@
     "steps_partial": 1,
     "steps_fail": 1,
     "per_step": [
-      {"n": 1, "verdict": "PASS", "evidence": "junit.xml failures=0 (official11 real local run, iPhone 17 iOS 26.5); capstone-verdict.json junit_failures=0"},
-      {"n": 2, "verdict": "PASS", "evidence": "LIVE: POST /api/chat-runs -> fleet -> holocron_nonprod chat_messages user+agent rows for conv 020 (content_len 10)"},
-      {"n": 3, "verdict": "PASS", "evidence": "LIVE: zero-cache one-shot read returns the agent row (agentContentLen=10); capstone coldboot_gate=green"},
-      {"n": 4, "verdict": "FAIL", "evidence": "ci-provenance.json absent — REDHAT-FIX-H2 blocked on gh/runner/secrets"},
-      {"n": 5, "verdict": "PARTIAL", "evidence": "fail-closed harness tests pass (PLATFORM_IT); a full green --run requires a real .app"},
-      {"n": 6, "verdict": "PASS", "evidence": "LIVE: holo namespace reset ok:true; H7 zero-cache returns conv 020 with 0 chat_messages + deterministic seed_fingerprint b69ebb40..."}
+      {
+        "n": 1,
+        "verdict": "PASS",
+        "evidence": "historical junit failures=0 + fail-closed harness PLATFORM_IT 6/6; fresh sim run blocked by app crash (see coldboot-launch.err)"
+      },
+      {
+        "n": 2,
+        "verdict": "PASS",
+        "evidence": "LIVE H5: POST /api/chat-runs wrote agent row content_len=29 to holocron_nonprod chat_messages"
+      },
+      {
+        "n": 3,
+        "verdict": "PASS",
+        "evidence": "LIVE capstone-verdict coldboot_gate=green; zero_agent_content_len=29"
+      },
+      {
+        "n": 4,
+        "verdict": "FAIL",
+        "evidence": "ci-run-provenance.json absent \u2014 REDHAT-FIX-H2 blocked on gh/runner/secrets"
+      },
+      {
+        "n": 5,
+        "verdict": "PARTIAL",
+        "evidence": "PLATFORM_IT harness fail-closed 6/6 passed; full green --run needs non-crashing .app"
+      },
+      {
+        "n": 6,
+        "verdict": "PASS",
+        "evidence": "LIVE holo namespace reset ok:true seed_fingerprint b69ebb40...; H7 zero-cache 0 messages + identical fingerprint"
+      }
     ]
   },
   "redhat_fixes": {
@@ -60,29 +90,79 @@
     "complete": 9,
     "blocked": 1,
     "per_fix": [
-      {"id": "REDHAT-FIX-H1", "status": "complete", "landed": "de79770", "evidence": "scripts/e2e/capstone-verdict.sh derives green from real junit/screenshot/video/Postgres-agent/Zero-query with sha256 checksums; fails closed (red) on removed video. tests/integration/sprint20-capstone-verdict.test.ts 4 passed. gate-results.json committed_sha==HEAD."},
-      {"id": "REDHAT-FIX-H2", "status": "blocked", "landed": null, "evidence": "gh/eas/runner/token all absent; ci-run-provenance.json cannot be produced without GitHub infra."},
-      {"id": "REDHAT-FIX-H3", "status": "complete", "landed": "52cd9a8", "evidence": "ci-e2e.yml runner:status --lane e2e; harness removes .mov.sb-* sidecars pre/post-run + surfaces recorder failure / empty video as non-zero exit. Live green video pending real .app."},
-      {"id": "REDHAT-FIX-H4", "status": "complete", "landed": "d82c2bf", "evidence": "docs/ci/D03-06-adversarial-review.md + tests/ci/fork-safety.test.ts 4 passed (RED-then-GREEN on ci-e2e.yml trust boundary)."},
-      {"id": "REDHAT-FIX-H5", "status": "complete", "landed": "c26eb2b", "evidence": "services/platform/tests/integration/sprint20-reference-zero-durable.test.ts 2 passed LIVE: new agent row id present in zero rows + closed-port negative control."},
-      {"id": "REDHAT-FIX-H6", "status": "complete", "landed": "d82c2bf", "evidence": "tests/integration/sprint20-testid-audit.test.tsx 4 passed: four selectors length 1 + duplicated-fixture REDs at length 2."},
-      {"id": "REDHAT-FIX-H7", "status": "complete", "landed": "71133cd", "evidence": "services/platform/tests/integration/nonprod-namespace-zero-sync.test.ts 3 passed LIVE: zero returns conv 020 0 messages + identical seed_fingerprint + repl:status zero_pub membership."},
-      {"id": "REDHAT-FIX-H8", "status": "complete", "landed": "52cd9a8", "evidence": "explicit 120_000 per-test timeout on invalid-bundle case; sprint20-maestro-harness.test.ts 6 passed. Full 18/18 green lane pending real .app."},
-      {"id": "REDHAT-FIX-H9", "status": "complete", "landed": "52cd9a8", "evidence": "per-file lifecycle sentinels; tests/fixtures/forced-failure-flow.yaml deterministic; TC-4 skips-with-reason without .app; RED-then-GREEN oracle catches planted-empty uninstall."},
-      {"id": "REDHAT-FIX-H10", "status": "complete", "landed": "d82c2bf", "evidence": "mode regex [a-z0-9+-]+ accepts server-list+already-running; named deterministic-reset test passes LIVE (idempotent 0-count + identical seed_fingerprint)."}
+      {
+        "id": "REDHAT-FIX-H1",
+        "status": "complete",
+        "landed": "de79770",
+        "evidence": "capstone-verdict.sh + tests/integration/sprint20-capstone-verdict.test.ts 4 passed (official11 path fix this cycle)"
+      },
+      {
+        "id": "REDHAT-FIX-H2",
+        "status": "blocked",
+        "landed": null,
+        "evidence": "gh/runner/token absent; ci-run-provenance.json cannot be produced"
+      },
+      {
+        "id": "REDHAT-FIX-H3",
+        "status": "complete",
+        "landed": "52cd9a8",
+        "evidence": "harness mov cleanup + recorder fail-closed"
+      },
+      {
+        "id": "REDHAT-FIX-H4",
+        "status": "complete",
+        "landed": "d82c2bf",
+        "evidence": "fork-safety.test.ts 4 passed"
+      },
+      {
+        "id": "REDHAT-FIX-H5",
+        "status": "complete",
+        "landed": "c26eb2b",
+        "evidence": "sprint20-reference-zero-durable.test.ts LIVE AC-1 pass"
+      },
+      {
+        "id": "REDHAT-FIX-H6",
+        "status": "complete",
+        "landed": "d82c2bf",
+        "evidence": "testid-audit 4 passed"
+      },
+      {
+        "id": "REDHAT-FIX-H7",
+        "status": "complete",
+        "landed": "71133cd",
+        "evidence": "nonprod-namespace-zero-sync LIVE 3 passed"
+      },
+      {
+        "id": "REDHAT-FIX-H8",
+        "status": "complete",
+        "landed": "52cd9a8",
+        "evidence": "invalid-bundle timeout; harness 6 passed"
+      },
+      {
+        "id": "REDHAT-FIX-H9",
+        "status": "complete",
+        "landed": "52cd9a8",
+        "evidence": "lifecycle/forced-failure contracts on main"
+      },
+      {
+        "id": "REDHAT-FIX-H10",
+        "status": "complete",
+        "landed": "d82c2bf",
+        "evidence": "mode regex + deterministic reset contracts"
+      }
     ]
   },
   "trunk_consolidation": {
     "met": true,
-    "main_sha": "5163b65",
+    "main_sha": "ee00ee942cd894813c3b4ba4c1dd37ec2c384aad",
     "orphan_branches_with_commits": [],
-    "reason": "All 5 REDHAT-FIX commits + merge commit landed on main via task/REDHAT-FIX-H1-H10 (--no-ff merge 5163b65). Worktree branch fully merged; no orphan task branches."
+    "reason": "Sprint-20 task/* branches have 0 commits ahead of main; REDHAT-FIX-H1-H10 merge already on main."
   },
   "status_files": {
     "met": true,
-    "reason": "SPRINT.md + ROADMAP.md sprint-20 rows reflect remediation; gate-results.json regenerated from current main SHA (5163b65). REDHAT-FIX-H1..H10 task files present."
+    "reason": "REDHAT-FIX-H1,H3\u2013H10 Status=Completed; H2 Status=Blocked (external); D03/S-COLDBOOT remain Completed; gate-results regenerated this cycle."
   },
   "condition_cmd_jq": ".met == true",
   "goal_state": "blocked",
-  "blocked_reason": "REDHAT-FIX-H2 (CI dispatch) cannot be completed without GitHub self-hosted-runner infrastructure (no gh, no runner, no token, no configured secrets); a fresh reproducible cold-boot additionally requires a real Expo dev build + EAS credentials. 9/10 fixes are complete with live real-evidence verification; emit [goal:blocked] per the run-stage contract."
+  "blocked_reason": "REDHAT-FIX-H2 cannot complete without GitHub self-hosted-runner infrastructure (no gh, no runner, no token). Fresh Maestro cold-boot blocked: staged Expo .app crashes under Maestro and eas is not installed to rebuild. 9/10 REDHAT fixes complete with live evidence. Emit [goal:blocked]."
 }
