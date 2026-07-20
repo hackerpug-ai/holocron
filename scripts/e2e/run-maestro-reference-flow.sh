@@ -44,10 +44,6 @@ command -v python3 >/dev/null 2>&1 || fail "python3 is not installed; cannot res
 # bundle and rejects accidental file paths.
 [[ -d "$app_path" ]] || fail "Expo development build does not exist: $app_path"
 
-simulators="$(xcrun simctl list devices available)" \
-  || fail "could not list available iOS Simulators"
-grep -Fq "$device" <<<"$simulators" || fail "named simulator is unavailable: $device"
-
 # Maestro's --device option requires a simulator UDID, while MAESTRO_DEVICE is
 # intentionally a human-readable name for the simctl/operator contract. Resolve
 # the exact available name through the real CoreSimulator JSON and reject both
@@ -60,14 +56,16 @@ import sys
 
 try:
     data = json.load(sys.stdin)
+    if not isinstance(data, dict) or not isinstance(data.get("devices"), dict):
+        raise ValueError("devices must be an object")
     matches = [
         device
         for devices in data["devices"].values()
         for device in devices
         if device.get("name") == sys.argv[1]
-        and device.get("isAvailable", True) is True
+        and device.get("isAvailable") is True
     ]
-except (AttributeError, KeyError, TypeError, json.JSONDecodeError):
+except (AttributeError, KeyError, TypeError, ValueError, json.JSONDecodeError):
     sys.exit(1)
 
 if len(matches) != 1:

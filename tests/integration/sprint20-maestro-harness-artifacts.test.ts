@@ -15,6 +15,7 @@
  */
 import { spawnSync } from 'node:child_process';
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -65,6 +66,81 @@ function discoverSimulator(): { name: string; udid: string } {
   return { name: match.name, udid: match.udid };
 }
 
+type FixtureSimulator = {
+  isAvailable?: boolean;
+  name: string;
+  udid?: string;
+};
+
+function validHarnessCheckEnv(
+  deviceName: string,
+  overrides: Partial<NodeJS.ProcessEnv> = {}
+): NodeJS.ProcessEnv {
+  return {
+    ...process.env,
+    MAESTRO_DEVICE: deviceName,
+    DATABASE_URL: 'postgres://127.0.0.1:5432/holocron_nonprod',
+    FLEET_URL: 'http://127.0.0.1:4545',
+    PLATFORM_URL: 'http://127.0.0.1:4111',
+    EXPO_PUBLIC_PLATFORM_URL: 'http://127.0.0.1:4111',
+    EXPO_PUBLIC_RN_API_KEY: 'test-rn-api-key',
+    EXPO_PUBLIC_REFERENCE_FLOW: 'true',
+    ZERO_ADMIN_PASSWORD: 'test-zero-admin',
+    MAESTRO_APP_ID: 'org.name.holocron',
+    ...overrides,
+  };
+}
+
+function installFakeXcrun(binDir: string, deviceName: string, jsonOutput: string): void {
+  const escapedJson = jsonOutput.replaceAll("'", "'\\''");
+  const script = `#!/usr/bin/env bash
+if [[ "$*" == *"--json"* ]]; then
+  printf '%s\\n' '${escapedJson}'
+else
+  printf '%s\\n' '${deviceName} (Shutdown)'
+fi
+`;
+  const xcrun = join(binDir, 'xcrun');
+  writeFileSync(xcrun, script);
+  chmodSync(xcrun, 0o755);
+
+  const maestro = join(binDir, 'maestro');
+  writeFileSync(maestro, '#!/usr/bin/env bash\nexit 0\n');
+  chmodSync(maestro, 0o755);
+}
+
+function runResolverFixture(jsonOutput: string): {
+  status: number | null;
+  stderr: string;
+  stdout: string;
+} {
+  const fixtureRoot = mkdtempSync(join(tmpdir(), 'maestro-udid-fixture-'));
+  const binDir = join(fixtureRoot, 'bin');
+  const appDir = join(fixtureRoot, 'Fixture.app');
+  mkdirSync(binDir);
+  mkdirSync(appDir);
+  installFakeXcrun(binDir, 'Fixture iPhone', jsonOutput);
+
+  try {
+    const result = spawnSync('bash', [HARNESS, '--check'], {
+      cwd: REPO_ROOT,
+      env: validHarnessCheckEnv('Fixture iPhone', {
+        EXPO_DEV_BUILD_PATH: appDir,
+        PATH: `${binDir}:${process.env.PATH ?? ''}`,
+      }),
+      encoding: 'utf8',
+      timeout: 30_000,
+    });
+    return {
+      status: result.status,
+      stderr: result.stderr ?? '',
+      stdout: result.stdout ?? '',
+    };
+  } finally {
+    rmSync(fixtureRoot, { recursive: true, force: true });
+  }
+}
+
 describe('D03-03 Maestro harness artifact & defect contract', () => {
   beforeAll(() => {
     if (!PLATFORM_IT) {
@@ -109,9 +185,111 @@ describe('D03-03 Maestro harness artifact & defect contract', () => {
         // --check success prints a JSON contract line naming the app path.
         expect(result.stdout).toContain('"ok":true');
         expect(result.stdout).toContain(appBundleDir);
+        expect(result.stdout).toContain(`"device":"${simulator.name}"`);
+        expect(result.stdout).toContain(`"device_udid":"${simulator.udid}"`);
+        expect(result.stdout).not.toContain(`"device":"${simulator.udid}"`);
       } finally {
         rmSync(tmpRoot, { recursive: true, force: true });
       }
+    });
+  });
+
+  describe('case 1b — named simulator resolution fails closed', () => {
+    it.each([
+      {
+        label: 'missing exact-name record',
+        json: JSON.stringify({
+          devices: {
+            runtime: [
+              {
+                name: 'Different iPhone',
+                isAvailable: true,
+                udid: '11111111-1111-1111-1111-111111111111',
+              } satisfies FixtureSimulator,
+            ],
+          },
+        }),
+        expected: 'could not resolve one exact available UDID',
+      },
+      {
+        label: 'malformed simctl JSON',
+        json: 'not-json',
+        expected: 'could not resolve one exact available UDID',
+      },
+      {
+        label: 'missing UDID',
+        json: JSON.stringify({
+          devices: {
+            runtime: [{ name: 'Fixture iPhone', isAvailable: true } satisfies FixtureSimulator],
+          },
+        }),
+        expected: 'could not resolve one exact available UDID',
+      },
+      {
+        label: 'malformed UDID',
+        json: JSON.stringify({
+          devices: {
+            runtime: [
+              {
+                name: 'Fixture iPhone',
+                isAvailable: true,
+                udid: 'not-a-uuid',
+              } satisfies FixtureSimulator,
+            ],
+          },
+        }),
+        expected: 'resolved simulator UDID is invalid',
+      },
+      {
+        label: 'unavailable exact-name record',
+        json: JSON.stringify({
+          devices: {
+            runtime: [
+              {
+                name: 'Fixture iPhone',
+                isAvailable: false,
+                udid: '11111111-1111-1111-1111-111111111111',
+              } satisfies FixtureSimulator,
+            ],
+          },
+        }),
+        expected: 'could not resolve one exact available UDID',
+      },
+      {
+        label: 'ambiguous exact-name records',
+        json: JSON.stringify({
+          devices: {
+            runtime: [
+              {
+                name: 'Fixture iPhone',
+                isAvailable: true,
+                udid: '11111111-1111-1111-1111-111111111111',
+              } satisfies FixtureSimulator,
+              {
+                name: 'Fixture iPhone',
+                isAvailable: true,
+                udid: '22222222-2222-2222-2222-222222222222',
+              } satisfies FixtureSimulator,
+            ],
+          },
+        }),
+        expected: 'could not resolve one exact available UDID',
+      },
+    ])('$label does not fall back to the simulator name', ({ json, expected }) => {
+      const result = runResolverFixture(json);
+
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain(expected);
+      expect(result.stdout).not.toContain('"ok":true');
+    });
+
+    it('uses Python 3 for the real JSON query and only passes the resolved UDID to Maestro', () => {
+      const src = readHarness();
+
+      expect(src).toContain('command -v python3');
+      expect(src).toContain('xcrun simctl list devices available --json');
+      expect(src).toContain('maestro --device "$device_udid"');
+      expect(src).not.toMatch(/maestro --(?:device|udid) "\$device"/);
     });
   });
 
