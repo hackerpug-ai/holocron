@@ -33,7 +33,7 @@ A complete, decisive migration of holocron off Convex — cloud database and all
 
 ## Human Testing Deliverable
 
-An operator can run the Maestro reference flow on a named iOS Simulator and get a cold-boot chat message that round-trips through the fleet to Postgres, syncs back via Zero, with a passing JUnit result plus screenshot/video artifacts; pointing the runner at a missing Expo dev build fails closed instead of a false pass; running `holo namespace reset` before the flow brings the nonprod Postgres/Zero namespace to a known seed.
+An operator can run the Maestro reference flow on a named iOS Simulator and get a cold-boot chat message that round-trips through the fleet to Postgres, syncs back via Zero, with a passing JUnit result plus screenshot/video artifacts; pointing the runner at a missing Expo dev build fails closed instead of a false pass; the harness resets before the flow and a final rerun of `holo namespace reset` proves the live nonprod Postgres/Zero namespace returns to a known seed.
 
 ## Human Testing Gate
 
@@ -46,9 +46,9 @@ Each step is a real documented operator invocation against the named iOS Simulat
 1. Run the Maestro reference flow on the named iOS Simulator — cold boot completes, app opens.
 2. Send a chat message in the flow — specialist runs on the fleet, tool call hits Postgres.
 3. Observe the reply — durable message syncs to the app via Zero, screenshot captures it.
-4. Check CI artifacts — JUnit result, log, video all attached to the e2e run.
+4. Independently replay the exact-SHA CI artifact — this is a separate CI invocation and does not substitute for native steps 1–3.
 5. Point the runner at a missing Expo dev build — harness fails closed, not a false pass.
-6. Run `holo namespace reset` before the flow — nonprod Postgres/Zero namespace reaches known seed.
+6. After the flow, rerun `holo namespace reset` — live nonprod Postgres/Zero returns to the known seed.
 
 ## Tasks
 
