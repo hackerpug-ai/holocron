@@ -99,6 +99,11 @@ print(udid)
 [[ "$device_udid" =~ ^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$ ]] \
   || fail "resolved simulator UDID is invalid for named simulator: $device"
 
+zero_port="${ZERO_PORT:-4848}"
+zero_startup_timeout_seconds="${ZERO_STARTUP_TIMEOUT_SECONDS:-180}"
+[[ "$zero_startup_timeout_seconds" =~ ^[1-9][0-9]*$ ]] \
+  || fail "ZERO_STARTUP_TIMEOUT_SECONDS must be a positive integer"
+
 if [[ "$mode" == "--check" ]]; then
   printf '{"ok":true,"device":"%s","device_udid":"%s","flow":"%s","app":"%s","artifacts":"%s"}\n' "$device" "$device_udid" "$flow" "$app_path" "$artifact_dir"
   exit 0
@@ -107,7 +112,6 @@ fi
 # The reset is intentionally before boot/flow execution and fails closed.
 bun "$repo_root/services/platform/src/cli/holo.ts" namespace reset --json >"$artifact_dir/namespace-reset.json"
 
-zero_port="${ZERO_PORT:-4848}"
 NODE_ENV=production pnpm exec zero-cache \
   --upstream-db "$DATABASE_URL" \
   --cvr-db "${ZERO_CVR_DB:-$DATABASE_URL}" \
@@ -121,21 +125,30 @@ NODE_ENV=production pnpm exec zero-cache \
   >"$artifact_dir/zero-cache.log" 2>&1 &
 zero_pid=$!
 stop_zero() {
-  kill "$zero_pid" 2>/dev/null || true
-  wait "$zero_pid" 2>/dev/null || true
+  if [[ -n "${zero_pid:-}" ]]; then
+    kill "$zero_pid" 2>/dev/null || true
+    wait "$zero_pid" 2>/dev/null || true
+    zero_pid=""
+  fi
 }
-for _ in {1..30}; do
+# Install this trap immediately after launching zero-cache. Readiness can fail
+# before the later video cleanup trap exists, and a real zero-cache must not be
+# left orphaned in that window.
+trap stop_zero EXIT
+zero_ready=0
+for ((ready_wait_seconds = 0; ready_wait_seconds < zero_startup_timeout_seconds; ready_wait_seconds += 1)); do
   if ! kill -0 "$zero_pid" 2>/dev/null; then
     tail -80 "$artifact_dir/zero-cache.log" >&2 || true
     fail "zero-cache exited before becoming ready"
   fi
   if curl --silent --fail --max-time 1 "http://127.0.0.1:${zero_port}/keepalive" >/dev/null 2>&1; then
+    zero_ready=1
     break
   fi
   sleep 1
 done
-curl --silent --fail --max-time 2 "http://127.0.0.1:${zero_port}/keepalive" >/dev/null \
-  || fail "zero-cache did not become ready"
+[[ "$zero_ready" == "1" ]] \
+  || fail "zero-cache did not become ready within ${zero_startup_timeout_seconds} seconds"
 
 booted="$(xcrun simctl list devices | awk -v wanted="$device" '$0 ~ wanted { print ($0 ~ /Booted/) }')"
 if [[ "$booted" != "1" ]]; then

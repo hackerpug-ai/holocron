@@ -349,6 +349,115 @@ describe('D03-03 Maestro harness artifact & defect contract', () => {
     });
   });
 
+  describe('zero-cache startup readiness budget', () => {
+    it('uses a positive configurable budget with a 180-second default', () => {
+      const src = readHarness();
+
+      expect(src).toMatch(/ZERO_STARTUP_TIMEOUT_SECONDS:-180/);
+      expect(src).toMatch(/ZERO_STARTUP_TIMEOUT_SECONDS must be a positive integer/);
+      expect(src).toMatch(/ready_wait_seconds < zero_startup_timeout_seconds/);
+      expect(src).not.toContain('for _ in {1..30}');
+      expect(src).toContain(
+        'zero-cache did not become ready within ${zero_startup_timeout_seconds} seconds'
+      );
+    });
+
+    it('installs zero-cache cleanup before readiness and replaces it only after video starts', () => {
+      const src = readHarness();
+      const launchIndex = src.indexOf('zero_pid=$!');
+      const earlyTrapIndex = src.indexOf('trap stop_zero EXIT');
+      const readinessIndex = src.indexOf('for ((ready_wait_seconds');
+      const videoIndex = src.indexOf('video_pid=$!');
+      const finalTrapIndex = src.indexOf('trap cleanup EXIT');
+
+      expect(launchIndex).toBeGreaterThan(-1);
+      expect(earlyTrapIndex).toBeGreaterThan(launchIndex);
+      expect(earlyTrapIndex).toBeLessThan(readinessIndex);
+      expect(videoIndex).toBeGreaterThan(readinessIndex);
+      expect(finalTrapIndex).toBeGreaterThan(videoIndex);
+      expect(src).toMatch(/kill "\$zero_pid"/);
+      expect(src).toMatch(/wait "\$zero_pid"/);
+    });
+
+    it('stops the harness-owned process when readiness times out', () => {
+      const fixtureRoot = mkdtempSync(join(tmpdir(), 'zero-readiness-timeout-'));
+      const binDir = join(fixtureRoot, 'bin');
+      const appDir = join(fixtureRoot, 'Fixture.app');
+      const pidFile = join(fixtureRoot, 'zero-cache.pid');
+      const artifactDir = join(fixtureRoot, 'artifacts');
+      mkdirSync(binDir);
+      mkdirSync(appDir);
+
+      const writeExecutable = (name: string, contents: string): void => {
+        const path = join(binDir, name);
+        writeFileSync(path, contents);
+        chmodSync(path, 0o755);
+      };
+
+      writeExecutable(
+        'pnpm',
+        `#!/usr/bin/env bash
+if [[ "$1" == "exec" && "$2" == "zero-cache" ]]; then
+  printf '%s\\n' "$$" >"$FAKE_ZERO_PID_FILE"
+  exec sleep 60
+fi
+exit 64
+`
+      );
+      writeExecutable('bun', '#!/usr/bin/env bash\nexit 0\n');
+      writeExecutable('maestro', '#!/usr/bin/env bash\nexit 0\n');
+      writeExecutable(
+        'xcrun',
+        `#!/usr/bin/env bash
+if [[ "$*" == *"--json"* ]]; then
+  printf '%s\\n' '{"devices":{"runtime":[{"name":"Fixture iPhone","isAvailable":true,"udid":"11111111-1111-1111-1111-111111111111"}]}}'
+else
+  printf '%s\\n' 'Fixture iPhone (Shutdown)'
+fi
+`
+      );
+      const litestreamExecutable = join(fixtureRoot, 'litestream');
+      writeFileSync(litestreamExecutable, "#!/usr/bin/env bash\nprintf 'fixture-litestream\\n'\n");
+      chmodSync(litestreamExecutable, 0o755);
+
+      let fakePid: number | undefined;
+      try {
+        const result = spawnSync('bash', [HARNESS, '--run'], {
+          cwd: REPO_ROOT,
+          env: {
+            ...validHarnessCheckEnv('Fixture iPhone', {
+              EXPO_DEV_BUILD_PATH: appDir,
+              E2E_ARTIFACT_DIR: artifactDir,
+              ZERO_STARTUP_TIMEOUT_SECONDS: '1',
+              ZERO_PORT: '59991',
+              ZERO_LITESTREAM_EXECUTABLE: litestreamExecutable,
+              ZERO_LITESTREAM_BACKUP_URL: `file://${join(fixtureRoot, 'backup')}`,
+              PATH: `${binDir}:${process.env.PATH ?? ''}`,
+            }),
+            FAKE_ZERO_PID_FILE: pidFile,
+          },
+          encoding: 'utf8',
+          timeout: 15_000,
+        });
+
+        expect(result.status, `expected readiness timeout; stderr=${result.stderr}`).not.toBe(0);
+        expect(result.stderr).toContain('zero-cache did not become ready within 1 seconds');
+        fakePid = Number(readFileSync(pidFile, 'utf8').trim());
+        expect(Number.isInteger(fakePid)).toBe(true);
+        expect(() => process.kill(fakePid as number, 0)).toThrow();
+      } finally {
+        if (fakePid !== undefined) {
+          try {
+            process.kill(fakePid, 'SIGTERM');
+          } catch {
+            // The harness should already have reaped the process.
+          }
+        }
+        rmSync(fixtureRoot, { recursive: true, force: true });
+      }
+    }, 30_000);
+  });
+
   describe('REDHAT-FIX-H10 — dev-client mode regex accepts the documented grammar (M2)', () => {
     const DOCUMENTED_MODES = [
       'server-list+already-running',
