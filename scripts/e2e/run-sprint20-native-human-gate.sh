@@ -173,6 +173,12 @@ set +e
 bash "$verifier" "$gate_results" "$plan" "$evidence_dir" >"$verification"
 verify_rc=$?
 set -e
+# Keep the verifier's exact JSON at the sprint contract path as well as beside
+# the raw evidence. This is a copy of machine output, never a hand-authored
+# verdict or a recomputed field.
+sprint_verification="$sprint_dir/gate-verification.json"
+cp -f "$verification" "$sprint_verification.tmp.$$"
+mv -f "$sprint_verification.tmp.$$" "$sprint_verification"
 
 jq -r --arg plan "$plan" --arg gate "$gate_results" --arg verification "$verification" \
   '"# Sprint 20 Native Human Gate\n\n" +

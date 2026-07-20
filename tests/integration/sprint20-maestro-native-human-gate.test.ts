@@ -28,7 +28,7 @@ const plan = JSON.parse(readFileSync(planPath, 'utf8')) as {
       evidence_file: string;
       args: string[];
     };
-    assertion: { kind: string };
+    assertion: { kind: string; expect_log_regex?: string };
   }>;
 };
 
@@ -69,6 +69,7 @@ describe('Sprint 20 explicit native Maestro human gate', () => {
       'exit_and_log_regex',
     ]);
     expect(terminalSteps[0]?.literal_cmd).toContain('E2E_CI_ARTIFACT_DIR');
+    expect(terminalSteps[0]?.assertion.expect_log_regex ?? '').toContain('coldboot_gate');
     expect(terminalSteps[1]?.literal_cmd).toContain('EXPO_DEV_BUILD_PATH=');
     expect(terminalSteps[2]?.literal_cmd).toContain('namespace reset --json');
   });
@@ -81,6 +82,7 @@ describe('Sprint 20 explicit native Maestro human gate', () => {
 
   it('binds the real Maestro invocation and explicit native verifier to the plan', () => {
     const harnessSource = readFileSync(nativeHarness, 'utf8');
+    const gateRunnerSource = readFileSync(gateRunner, 'utf8');
     const verifierSource = readFileSync(
       `${sharedSkillRoot}/references/verify-gate-evidence.sh`,
       'utf8'
@@ -92,6 +94,7 @@ describe('Sprint 20 explicit native Maestro human gate', () => {
 
     expect(harnessSource).toContain('maestro --device "$device_udid" test "$flow"');
     expect(harnessSource).toContain('driver:"maestro-ios"');
+    expect(gateRunnerSource).toContain('sprint_verification="$sprint_dir/gate-verification.json"');
     expect(verifierSource).toContain('maestro_native)');
     expect(verifierSource).toContain('if (.gate_runner | has("timed_out"))');
     expect(verifierSource).toContain('native-driver-mismatch');

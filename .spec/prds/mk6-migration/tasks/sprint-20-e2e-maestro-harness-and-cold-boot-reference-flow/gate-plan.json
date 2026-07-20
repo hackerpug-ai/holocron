@@ -129,8 +129,8 @@
       "assertion": {
         "kind": "exit_and_log_regex",
         "expected_exit": 0,
-        "expect_log_regex": "coldboot_gate: green",
-        "expect_not_log_regex": "coldboot_gate: red"
+        "expect_log_regex": "\"coldboot_gate\"[[:space:]]*:[[:space:]]*\"green\"",
+        "expect_not_log_regex": "\"coldboot_gate\"[[:space:]]*:[[:space:]]*\"red\""
       }
     },
     {
