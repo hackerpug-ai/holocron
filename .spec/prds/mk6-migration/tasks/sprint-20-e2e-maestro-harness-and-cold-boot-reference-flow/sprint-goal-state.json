@@ -26,9 +26,7 @@
         "required": "ci-run-provenance.json from real gh workflow run ci-e2e.yml conclusion:success + capstone green from CI bundle",
         "blocked_by": "gh CLI not installed; no GH_TOKEN; no self-hosted runner",
         "evidence": "scratch h2-infra-probe.log",
-        "attempted": [
-          "Re-probed which gh / tokens / actions-runner \u2014 all absent"
-        ],
+        "attempted": ["Re-probed which gh / tokens / actions-runner \u2014 all absent"],
         "next_input_needed": "Operator: gh auth + runner labels [self-hosted, holocron, e2e] + secrets + gh workflow run ci-e2e.yml"
       },
       {
@@ -174,49 +172,30 @@
     {
       "id": "GATE-FIX-G1",
       "status": "pending",
-      "gates": [
-        1,
-        5
-      ]
+      "gates": [1, 5]
     },
     {
       "id": "GATE-FIX-G2",
       "status": "pending",
-      "gates": [
-        1,
-        3,
-        5
-      ],
-      "depends_on": [
-        "GATE-FIX-G1"
-      ]
+      "gates": [1, 3, 5],
+      "depends_on": ["GATE-FIX-G1"]
     },
     {
       "id": "GATE-FIX-G4",
       "status": "pending",
-      "gates": [
-        4
-      ],
+      "gates": [4],
       "continues": "REDHAT-FIX-H2",
-      "depends_on": [
-        "GATE-FIX-G1",
-        "GATE-FIX-G2"
-      ]
+      "depends_on": ["GATE-FIX-G1", "GATE-FIX-G2"]
     },
     {
       "id": "GATE-FIX-G5",
       "status": "pending",
-      "gates": [
-        1,
-        3
-      ]
+      "gates": [1, 3]
     },
     {
       "id": "GATE-FIX-G6",
       "status": "pending",
-      "gates": [
-        5
-      ]
+      "gates": [5]
     }
   ]
 }
