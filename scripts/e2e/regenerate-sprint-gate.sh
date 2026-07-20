@@ -101,14 +101,65 @@ else
   s3="FAIL"; s3ev="capstone-verdict.json absent (run scripts/e2e/capstone-verdict.sh)"
 fi
 
-# Step 4: CI artifacts (real CI provenance manifest — H2 territory)
-s4="FAIL"; s4ev="$artifact_dir/ci-provenance.json"
-if [[ -s "$artifact_dir/ci-provenance.json" ]]; then
-  concl="$(jq -r '.conclusion // "missing"' "$artifact_dir/ci-provenance.json" 2>/dev/null || echo missing)"
-  s4ev="$artifact_dir/ci-provenance.json conclusion=$concl"
-  [[ "$concl" == "success" ]] && s4="PASS" || s4="FAIL"
+# Step 4: CI artifacts (real CI provenance only — GATE-FIX-G4 / REDHAT-FIX-H2).
+# PASS only from real CI provenance with conclusion=success + run_id + head_sha +
+# artifact_sha256. Probe-green alone MUST NOT flip step4 PASS.
+# Dual-path (prefer committed H2 path, then artifact-dir):
+#   1) $sprint_dir/ci-run-provenance.json
+#   2) $artifact_dir/ci-provenance.json
+#   3) $artifact_dir/ci-run-provenance.json
+s4="FAIL"
+s4ev="ci-run-provenance.json / ci-provenance.json absent (GATE-FIX-G4: dispatch ci-e2e.yml + capture-ci-provenance.sh)"
+s4_prov=""
+for cand in \
+  "$sprint_dir/ci-run-provenance.json" \
+  "$artifact_dir/ci-provenance.json" \
+  "$artifact_dir/ci-run-provenance.json"; do
+  if [[ -s "$cand" ]]; then
+    s4_prov="$cand"
+    break
+  fi
+done
+if [[ -n "$s4_prov" ]]; then
+  # Validate required CI fields — conclusion alone is insufficient.
+  s4_eval="$(python3 - "$s4_prov" <<'PY'
+import json, re, sys
+path = sys.argv[1]
+try:
+    d = json.load(open(path, encoding="utf-8"))
+except Exception as e:
+    print(f"FAIL\t{path} invalid-json ({e})")
+    raise SystemExit(0)
+run_id = d.get("run_id")
+try:
+    run_id_n = int(run_id)
+except Exception:
+    run_id_n = 0
+head = str(d.get("head_sha") or "")
+art = str(d.get("artifact_sha256") or "")
+concl = str(d.get("conclusion") or "missing")
+ok = (
+    run_id_n > 0
+    and concl == "success"
+    and bool(re.fullmatch(r"[0-9a-fA-F]{40}", head))
+    and bool(re.fullmatch(r"[0-9a-fA-F]{64}", art))
+)
+if ok:
+    print(f"PASS\t{path} conclusion=success run_id={run_id_n} head_sha={head[:12]}…")
+else:
+    print(
+        f"FAIL\t{path} incomplete-or-unsuccessful "
+        f"conclusion={concl} run_id={run_id_n} "
+        f"head_sha_len={len(head)} artifact_sha256_len={len(art)}"
+    )
+PY
+)"
+  s4="${s4_eval%%$'\t'*}"
+  s4ev="${s4_eval#*$'\t'}"
+  [[ "$s4" == "PASS" || "$s4" == "FAIL" ]] || { s4="FAIL"; s4ev="$s4_prov unparseable"; }
 else
-  s4="FAIL"; s4ev="ci-provenance.json absent (REDHAT-FIX-H2: dispatch ci-e2e.yml)"
+  s4="FAIL"
+  s4ev="ci-run-provenance.json / ci-provenance.json absent (GATE-FIX-G4: dispatch ci-e2e.yml + capture-ci-provenance.sh)"
 fi
 
 # Step 5: missing build fails closed (D03-01 PLATFORM_IT suite result)
