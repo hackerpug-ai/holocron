@@ -9,33 +9,37 @@ const platformUrl = process.env.EXPO_PUBLIC_PLATFORM_URL;
 const rnApiKey = process.env.EXPO_PUBLIC_RN_API_KEY;
 const conversationId = process.env.EXPO_PUBLIC_REFERENCE_CONVERSATION_ID;
 
-async function waitForRun(runId: string): Promise<void> {
-  if (!platformUrl || !rnApiKey) throw new Error('reference flow platform credentials are missing');
-  for (let attempt = 0; attempt < 120; attempt += 1) {
-    const response = await fetch(`${platformUrl}/api/chat-runs/${runId}`, {
-      headers: { Authorization: `Bearer ${rnApiKey}` },
-    });
-    if (!response.ok) throw new Error(`chat run status failed: ${response.status}`);
-    const body = (await response.json()) as { status: string; error?: string };
-    if (body.status === 'completed') return;
-    if (['failed', 'blocked'].includes(body.status)) {
-      throw new Error(body.error ?? `chat run ${body.status}`);
-    }
+type ReferenceMessage = {
+  id: string;
+  role: string;
+  content: string | null;
+  session_id?: string;
+  created_at: number;
+};
+
+async function waitForDurableReply(
+  readRows: () => ReferenceMessage[],
+  runId: string
+): Promise<void> {
+  for (let attempt = 0; attempt < 180; attempt += 1) {
+    const reply = readRows().find(
+      (row) =>
+        row.role === 'agent' &&
+        row.session_id === runId &&
+        typeof row.content === 'string' &&
+        row.content.trim().length > 0
+    );
+    if (reply) return;
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
-  throw new Error('chat run timed out');
+  throw new Error('Zero-synced durable reply timed out');
 }
 
 export default function ReferenceChatScreen() {
-  const [rawRows] = useZeroQuery(
-    chatMessagesByConversation(conversationId ?? '')
-  );
-  const rows = rawRows as unknown as Array<{
-    id: string;
-    role: string;
-    content: string | null;
-    created_at: number;
-  }>;
+  const [rawRows] = useZeroQuery(chatMessagesByConversation(conversationId ?? ''));
+  const rows = (rawRows ?? []) as unknown as ReferenceMessage[];
+  const rowsRef = useRef(rows);
+  rowsRef.current = rows;
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const requestCounter = useRef(0);
@@ -70,7 +74,7 @@ export default function ReferenceChatScreen() {
         if (!response.ok) throw new Error(`chat run create failed: ${response.status}`);
         const body = (await response.json()) as { runId?: string };
         if (!body.runId) throw new Error('chat run response omitted runId');
-        await waitForRun(body.runId);
+        await waitForDurableReply(() => rowsRef.current, body.runId);
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : String(cause));
       } finally {

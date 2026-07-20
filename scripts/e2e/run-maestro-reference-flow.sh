@@ -19,12 +19,31 @@ app_id="${MAESTRO_APP_ID:-org.name.holocron}"
 # AC-3 — dev-client session mode (one of tutorial / server-list+tutorial /
 # server-list+already-running / already-running). Override via the env var.
 mode_dev_client="${MAESTRO_DEV_CLIENT_MODE:-server-list+already-running}"
-mkdir -p "$artifact_dir"
 
 fail() {
   echo "maestro-reference-flow: $*" >&2
   exit 1
 }
+
+# Every --run starts with an empty evidence directory. This prevents a missing
+# build or a failed native attempt from inheriting a prior JUnit/media bundle.
+case "$artifact_dir" in
+  ""|/|"$repo_root"|"$repo_root/.tmp")
+    fail "E2E_ARTIFACT_DIR must be an isolated evidence directory"
+    ;;
+esac
+mkdir -p "$artifact_dir"
+if [[ "$mode" == "--run" ]]; then
+  find "$artifact_dir" -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +
+fi
+
+if [[ -z "${MAESTRO_METRO_URL:-}" ]]; then
+  metro_host="$(ipconfig getifaddr en1 2>/dev/null || ipconfig getifaddr en0 2>/dev/null || true)"
+  [[ -n "$metro_host" ]] || fail "MAESTRO_METRO_URL is required and no reachable LAN interface was found"
+  MAESTRO_METRO_URL="http://${metro_host}:8081"
+fi
+[[ "$MAESTRO_METRO_URL" =~ ^http://[^[:space:]]+:8081$ ]] \
+  || fail "MAESTRO_METRO_URL must be an http URL on port 8081"
 
 [[ -n "$device" ]] || fail "MAESTRO_DEVICE must name an available iOS Simulator"
 [[ -n "${DATABASE_URL:-}" ]] || fail "DATABASE_URL is required; no database substitute is allowed"
@@ -290,6 +309,7 @@ maestro --device "$device_udid" test "$flow" \
   --debug-output "$artifact_dir/debug" \
   --test-output-dir "$artifact_dir/test-output" \
   -e MAESTRO_APP_ID="$app_id" \
+  -e MAESTRO_METRO_URL="$MAESTRO_METRO_URL" \
   -e PLATFORM_URL="${EXPO_PUBLIC_PLATFORM_URL:-${PLATFORM_URL}}" \
   -e E2E_ARTIFACT_DIR="$artifact_dir"
 maestro_rc=$?

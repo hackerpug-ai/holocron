@@ -7,7 +7,7 @@ appId: ${MAESTRO_APP_ID}
 # all of which appear on every launch:
 #
 #   1. Development Server launcher — "DEVELOPMENT SERVERS" lists the pre-baked
-#      LAN Metro URL (http://192.168.1.160:8081). Always present after
+#      LAN Metro URL (provided as MAESTRO_METRO_URL). Always present after
 #      `clearState: true`. Tap the URL to connect to Metro.
 #   2. Metro red-box error — "Metro has encountered an error..." appears when
 #      Metro's file watcher has a stale SHA-1 (e.g. after a node_modules change
@@ -31,10 +31,10 @@ appId: ${MAESTRO_APP_ID}
       text: "DEVELOPMENT SERVERS"
     timeout: 15000
 
-# Tap the pre-baked LAN Metro URL — deterministic fast path (LAN IP is reachable
-# from the simulator).
+# Tap the checked-in runner's Metro URL — the runner derives this from its
+# reachable LAN interface and passes it as MAESTRO_METRO_URL.
 - tapOn:
-    text: "http://192.168.1.160:8081"
+    text: ${MAESTRO_METRO_URL}
 
 # ── Interstitial 2: Metro red-box error (transient, skip-if-absent) ──────────
 # If Metro threw (stale SHA-1 after a node_modules change, etc.), a red box
@@ -98,4 +98,6 @@ appId: ${MAESTRO_APP_ID}
     visible:
       id: chat-assistant-message
     timeout: 90000
+- assertNotVisible:
+    id: error-banner
 - takeScreenshot: reference-chat-reply

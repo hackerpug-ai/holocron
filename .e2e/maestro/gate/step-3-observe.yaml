@@ -8,4 +8,6 @@ appId: ${MAESTRO_APP_ID}
     timeout: 90000
 - assertVisible:
     id: chat-assistant-message
+- assertNotVisible:
+    id: error-banner
 - takeScreenshot: gate-step-3-zero-reply

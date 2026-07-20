@@ -130,17 +130,15 @@ fi
 # Step 4: CI artifacts (real CI provenance only — GATE-FIX-G4 / REDHAT-FIX-H2).
 # PASS only from real CI provenance with conclusion=success + run_id + head_sha +
 # artifact_sha256. Probe-green alone MUST NOT flip step4 PASS.
-# Dual-path (prefer committed H2 path, then artifact-dir):
-#   1) $sprint_dir/ci-run-provenance.json
-#   2) $artifact_dir/ci-provenance.json
-#   3) $artifact_dir/ci-run-provenance.json
+# Dual-path (prefer the supplied fresh artifact sidecar, then the committed
+# sidecar): a stale committed file must never shadow the artifact being gated.
 s4="FAIL"
 s4ev="ci-run-provenance.json / ci-provenance.json absent (GATE-FIX-G4: dispatch ci-e2e.yml + capture-ci-provenance.sh)"
 s4_prov=""
 for cand in \
-  "$sprint_dir/ci-run-provenance.json" \
   "$artifact_dir/ci-provenance.json" \
-  "$artifact_dir/ci-run-provenance.json"; do
+  "$artifact_dir/ci-run-provenance.json" \
+  "$sprint_dir/ci-run-provenance.json"; do
   if [[ -s "$cand" ]]; then
     s4_prov="$cand"
     break
@@ -188,6 +186,18 @@ PY
 )"
   s4="${s4_eval%%$'\t'*}"
   s4ev="${s4_eval#*$'\t'}"
+  artifact_zip="$(find "$artifact_dir" -maxdepth 1 -type f -name '*.zip' -print -quit 2>/dev/null || true)"
+  if [[ "$s4" == "PASS" && -n "$artifact_zip" ]]; then
+    actual_zip_sha="$(shasum -a 256 "$artifact_zip" | awk '{print $1}')"
+    expected_zip_sha="$(jq -r '.artifact_sha256 // empty' "$s4_prov" 2>/dev/null || true)"
+    if [[ "$actual_zip_sha" != "$expected_zip_sha" ]]; then
+      s4="FAIL"
+      s4ev="$s4_prov artifact ZIP SHA-256 mismatch actual=$actual_zip_sha expected=$expected_zip_sha"
+    fi
+  elif [[ "$s4" == "PASS" ]]; then
+    s4="FAIL"
+    s4ev="$s4_prov artifact ZIP is missing; provenance is not independently verifiable"
+  fi
   [[ "$s4" == "PASS" || "$s4" == "FAIL" ]] || { s4="FAIL"; s4ev="$s4_prov unparseable"; }
 else
   s4="FAIL"

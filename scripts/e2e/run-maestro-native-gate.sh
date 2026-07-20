@@ -61,6 +61,7 @@ action_id="${action_id:-step-${step}}"
 command -v maestro >/dev/null 2>&1 || fail "maestro CLI is not installed"
 command -v xcrun >/dev/null 2>&1 || fail "xcrun is not installed"
 command -v python3 >/dev/null 2>&1 || fail "python3 is not installed"
+command -v psql >/dev/null 2>&1 || fail "psql is not installed"
 
 [[ -n "${DATABASE_URL:-}" ]] || fail "DATABASE_URL is required; no database substitute is allowed"
 [[ "$DATABASE_URL" == *holocron_nonprod* ]] || fail "DATABASE_URL must target holocron_nonprod"
@@ -69,6 +70,14 @@ command -v python3 >/dev/null 2>&1 || fail "python3 is not installed"
 [[ -n "${EXPO_PUBLIC_RN_API_KEY:-}" ]] || fail "EXPO_PUBLIC_RN_API_KEY is required"
 [[ "${EXPO_PUBLIC_REFERENCE_FLOW:-true}" == "true" ]] || fail "EXPO_PUBLIC_REFERENCE_FLOW must be true"
 [[ -n "${ZERO_ADMIN_PASSWORD:-}" ]] || fail "ZERO_ADMIN_PASSWORD is required"
+
+metro_url="${MAESTRO_METRO_URL:-}"
+if [[ -z "$metro_url" ]]; then
+  metro_host="$(ipconfig getifaddr en1 2>/dev/null || ipconfig getifaddr en0 2>/dev/null || true)"
+  [[ -n "$metro_host" ]] || fail "MAESTRO_METRO_URL is required and no reachable LAN interface was found"
+  metro_url="http://${metro_host}:8081"
+fi
+[[ "$metro_url" =~ ^http://[^[:space:]]+:8081$ ]] || fail "MAESTRO_METRO_URL must be an http URL on port 8081"
 
 litestream_executable="${ZERO_LITESTREAM_EXECUTABLE:-}"
 litestream_config="${ZERO_LITESTREAM_CONFIG:-$repo_root/scripts/e2e/zero-cache-litestream.yml}"
@@ -195,6 +204,7 @@ maestro --device "$device_udid" test "$flow" \
   --debug-output "$artifact_dir/debug" \
   --test-output-dir "$artifact_dir/test-output" \
   -e MAESTRO_APP_ID="$app_id" \
+  -e MAESTRO_METRO_URL="$metro_url" \
   -e PLATFORM_URL="${EXPO_PUBLIC_PLATFORM_URL:-${PLATFORM_URL}}" \
   -e E2E_ARTIFACT_DIR="$artifact_dir" \
   >"$artifact_dir/maestro.log" 2>&1
@@ -229,6 +239,47 @@ jq -n \
     observed_at:(now|todateiso8601)}' >"$evidence_file.tmp"
 mv -f "$evidence_file.tmp" "$evidence_file"
 cp -f "$evidence_file" "$artifact_dir/maestro-evidence.json"
+
+conv_id="${EXPO_PUBLIC_REFERENCE_CONVERSATION_ID:-00000000-0000-0000-0000-000000000020}"
+if [[ "$step" == "2" && "$maestro_rc" == "0" ]]; then
+  dispatch_row=""
+  for _ in {1..60}; do
+    dispatch_row="$(psql "$DATABASE_URL" -t -A -F '|' -c \
+      "select m.session_id, r.status, r.role, m.id from chat_messages m join chat_runs r on r.id::text=m.session_id where m.conversation_id='${conv_id}' and m.role='user' and m.content='Sprint 20 reference-flow ping' order by m.created_at desc limit 1;" 2>/dev/null || true)"
+    dispatch_status="$(cut -d'|' -f2 <<<"$dispatch_row")"
+    [[ "$dispatch_status" == "running" || "$dispatch_status" == "completed" ]] && break
+    sleep 1
+  done
+  IFS='|' read -r run_id dispatch_status specialist_role user_message_id <<<"$dispatch_row"
+  domain_ok=false
+  [[ "$run_id" =~ ^[0-9a-fA-F-]{36}$ && ( "$dispatch_status" == "running" || "$dispatch_status" == "completed" ) && -n "$specialist_role" && "$user_message_id" =~ ^[0-9a-fA-F-]{36}$ ]] && domain_ok=true
+  jq --arg kind postgres-fleet-dispatch --argjson ok "$domain_ok" --arg run_id "$run_id" \
+    --arg status "$dispatch_status" --arg role "$specialist_role" --arg user_id "$user_message_id" \
+    '.domain_evidence={kind:$kind,ok:$ok,run_id:$run_id,fleet_status:$status,specialist_role:$role,postgres_user_message_id:$user_id}' \
+    "$evidence_file" >"$evidence_file.tmp" && mv -f "$evidence_file.tmp" "$evidence_file"
+  jq --arg run_id "$run_id" '.reference_run_id=$run_id' "$session_file" >"$session_file.tmp" \
+    && mv -f "$session_file.tmp" "$session_file"
+  cp -f "$evidence_file" "$artifact_dir/maestro-evidence.json"
+  [[ "$domain_ok" == "true" ]] || maestro_rc=1
+elif [[ "$step" == "3" && "$maestro_rc" == "0" ]]; then
+  run_id="$(jq -r '.reference_run_id // empty' "$session_file")"
+  pg_row="$(psql "$DATABASE_URL" -t -A -F '|' -c \
+    "select id, length(content) from chat_messages where conversation_id='${conv_id}' and role='agent' and session_id='${run_id}' and length(content)>0 order by created_at desc limit 1;" 2>/dev/null || true)"
+  IFS='|' read -r pg_agent_id pg_content_len <<<"$pg_row"
+  zero_result="$(ZERO_CACHE_URL="http://127.0.0.1:${zero_port}" REFERENCE_CONVERSATION_ID="$conv_id" bun "$repo_root/scripts/e2e/zero-reference-read.ts" 2>/dev/null || true)"
+  zero_ok="$(jq -r '.ok // false' <<<"$zero_result" 2>/dev/null || echo false)"
+  zero_agent_id="$(jq -r --arg run "$run_id" '.rows[]? | select(.role == "agent" and .session_id == $run and ((.content // "") | length) > 0) | .id' <<<"$zero_result" 2>/dev/null | tail -1 || true)"
+  zero_content_len="$(jq -r --arg run "$run_id" '[.rows[]? | select(.role == "agent" and .session_id == $run) | ((.content // "") | length)] | max // 0' <<<"$zero_result" 2>/dev/null || echo 0)"
+  domain_ok=false
+  [[ "$run_id" =~ ^[0-9a-fA-F-]{36}$ && "$pg_agent_id" =~ ^[0-9a-fA-F-]{36}$ && "$zero_agent_id" == "$pg_agent_id" && "$pg_content_len" =~ ^[1-9][0-9]*$ && "$zero_content_len" =~ ^[1-9][0-9]*$ && "$zero_ok" == "true" ]] && domain_ok=true
+  jq --arg kind postgres-zero-agent-match --argjson ok "$domain_ok" --arg run_id "$run_id" \
+    --arg pg_id "$pg_agent_id" --arg zero_id "$zero_agent_id" --argjson pg_len "${pg_content_len:-0}" \
+    --argjson zero_len "${zero_content_len:-0}" \
+    '.domain_evidence={kind:$kind,ok:$ok,run_id:$run_id,postgres_agent_id:$pg_id,zero_agent_id:$zero_id,postgres_content_len:$pg_len,zero_content_len:$zero_len}' \
+    "$evidence_file" >"$evidence_file.tmp" && mv -f "$evidence_file.tmp" "$evidence_file"
+  cp -f "$evidence_file" "$artifact_dir/maestro-evidence.json"
+  [[ "$domain_ok" == "true" ]] || maestro_rc=1
+fi
 
 if [[ "$step" == "3" || "$maestro_rc" != "0" ]]; then
   cleanup_session

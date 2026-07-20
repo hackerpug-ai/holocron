@@ -326,6 +326,8 @@ export function ChatInput({
             <TextInput
               {...textInputProps}
               testID="chat-input-field"
+              accessibilityLabel="Chat message input"
+              accessibilityHint="Type a message to send"
               style={[styles.textInput, { color: themeColors.foreground }]}
               multiline
               editable={!effectiveDisabled}
@@ -356,6 +358,10 @@ export function ChatInput({
         ) : (
           <Pressable
             testID="chat-input-send-button"
+            accessibilityRole="button"
+            accessibilityLabel="Send message"
+            accessibilityHint="Sends the typed chat message"
+            accessibilityState={{ disabled: !canSend }}
             onPress={handleSend}
             disabled={!canSend}
             className={cn(

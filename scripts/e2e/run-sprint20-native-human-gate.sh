@@ -140,7 +140,7 @@ for env_name in \
   EXPO_PUBLIC_REFERENCE_CONVERSATION_ID EXPO_PUBLIC_ZERO_CACHE_URL ZERO_ADMIN_PASSWORD \
   ZERO_CVR_DB ZERO_CHANGE_DB ZERO_PORT ZERO_LITESTREAM_EXECUTABLE \
   ZERO_LITESTREAM_BACKUP_URL ZERO_LITESTREAM_CONFIG MAESTRO_DEVICE MAESTRO_APP_ID \
-  EXPO_DEV_BUILD_PATH; do
+  EXPO_DEV_BUILD_PATH MAESTRO_METRO_URL; do
   if [[ -v "$env_name" ]]; then
     tmux_env_args+=("$env_name=${!env_name}")
   fi
@@ -154,16 +154,20 @@ done
 steps_json="$(jq -sc '.' "$steps_file")"
 steps_passed="$(jq '[.[] | select(.result == "pass")] | length' <<<"$steps_json")"
 steps_executed="$(jq '[.[] | select(.executed == true)] | length' <<<"$steps_json")"
-verdict="fail"
-[[ "$steps_passed" == "6" && "$steps_executed" == "6" ]] && verdict="pass"
+# The first persisted result is deliberately non-passing. The verifier below
+# promotes it only after recomputing every raw step; an interruption can never
+# strand a candidate pass as the sprint's authoritative verdict.
+candidate_verdict="fail"
+[[ "$steps_passed" == "6" && "$steps_executed" == "6" ]] && candidate_verdict="pass"
+verdict="blocked"
 gate_results="$sprint_dir/gate-results.json"
 gate_tmp="$gate_results.tmp.$$"
 jq -n \
   --arg sprint "sprint-20-e2e-maestro-harness-and-cold-boot-reference-flow" \
-  --arg run_id "$run_id" --arg verdict "$verdict" --arg artifact "$ci_artifact_dir" \
+  --arg run_id "$run_id" --arg verdict "$verdict" --arg candidate "$candidate_verdict" --arg artifact "$ci_artifact_dir" \
   --arg evidence "$evidence_dir" --arg tested_sha "${EXPECTED_TESTED_SHA:-}" \
   --argjson steps "$steps_json" --argjson total 6 --argjson executed "$steps_executed" --argjson passed "$steps_passed" \
-  '{sprint:$sprint,run_id:$run_id,verdict:$verdict,steps_total:$total,steps_executed:$executed,steps_passed:$passed,
+  '{sprint:$sprint,run_id:$run_id,verdict:$verdict,candidate_verdict:$candidate,steps_total:$total,steps_executed:$executed,steps_passed:$passed,
     ui_driver:"maestro-ios",exec_surface:"tmux+native-maestro",artifact_dir:$artifact,evidence_dir:$evidence,
     tested_sha:$tested_sha,steps:$steps}' >"$gate_tmp"
 mv -f "$gate_tmp" "$gate_results"
@@ -173,6 +177,31 @@ set +e
 bash "$verifier" "$gate_results" "$plan" "$evidence_dir" >"$verification"
 verify_rc=$?
 set -e
+# The deterministic verifier is authoritative. A rejected claim must never
+# leave a stale pass in the sprint contract, even if the runner is interrupted
+# before a later regeneration pass.
+recomputed_verdict="$(jq -r '.recomputed_verdict // "fail"' "$verification" 2>/dev/null || echo fail)"
+[[ "$recomputed_verdict" == "pass" || "$recomputed_verdict" == "fail" || "$recomputed_verdict" == "blocked" ]] \
+  || recomputed_verdict="fail"
+jq --arg verdict "$recomputed_verdict" --arg verification "$verification" \
+  '.verdict=$verdict | .deterministic_verification={path:$verification,verified:false}' \
+  "$gate_results" >"$gate_results.tmp.$$"
+mv -f "$gate_results.tmp.$$" "$gate_results"
+
+# Recompute once more against the now-authoritative claim so the stored
+# verification and gate-results.json describe the same bytes.
+set +e
+bash "$verifier" "$gate_results" "$plan" "$evidence_dir" >"$verification.tmp.$$"
+verify_rc=$?
+set -e
+mv -f "$verification.tmp.$$" "$verification"
+verified="$(jq -r '.verified // false' "$verification" 2>/dev/null || echo false)"
+recomputed_verdict="$(jq -r '.recomputed_verdict // "fail"' "$verification" 2>/dev/null || echo fail)"
+jq --arg verification "$verification" --argjson verified "$verified" \
+  '.deterministic_verification={path:$verification,verified:$verified}' \
+  "$gate_results" >"$gate_results.tmp.$$"
+mv -f "$gate_results.tmp.$$" "$gate_results"
+[[ "$verified" == "true" && "$recomputed_verdict" == "pass" ]] || verify_rc=1
 # Keep the verifier's exact JSON at the sprint contract path as well as beside
 # the raw evidence. This is a copy of machine output, never a hand-authored
 # verdict or a recomputed field.

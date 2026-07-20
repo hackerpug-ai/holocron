@@ -23,6 +23,7 @@ export interface ZeroConversationRow {
   conversation_id: string | null;
   role: string;
   content: string | null;
+  session_id?: string | null;
   created_at: number;
 }
 
@@ -119,7 +120,9 @@ export async function readConversationViaZero(opts: ZeroReadOptions): Promise<Ze
     let convPresent = false;
     const maybeFinish = () => {
       if (!(chatDone && convDone)) return;
-      const agent = chatRows.find((r) => r.role === 'agent');
+      // Rows are ascending by created_at; the newest durable reply is the
+      // authoritative one for a freshly executed reference flow.
+      const agent = [...chatRows].reverse().find((r) => r.role === 'agent');
       finish({
         ok: true,
         server,
@@ -150,7 +153,7 @@ export async function readConversationViaZero(opts: ZeroReadOptions): Promise<Ze
       (
         rows: readonly { id: string; title?: string | null }[],
         resultType: string,
-        error?: unknown
+        _error?: unknown
       ) => {
         if (resultType === 'error') {
           // A conversations-view failure must not mask a successful chat read.

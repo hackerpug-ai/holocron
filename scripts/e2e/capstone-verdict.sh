@@ -110,8 +110,21 @@ if [[ "$from_ci_artifact" == "true" ]]; then
 
   ci_provenance="$(ci_find_file ci-run-provenance.json || true)"
   [[ -n "$ci_provenance" ]] || ci_provenance="$(ci_find_file ci-provenance.json || true)"
-  ci_capstone="$(ci_find_file capstone-verdict.json || true)"
   ci_zip="$(find "$artifact_dir" -maxdepth 1 -type f -name '*.zip' -print -quit 2>/dev/null || true)"
+
+  # The extracted root capstone is mutable because this command writes its
+  # replay result to capstone-verdict.json. Read the original CI member from
+  # the uploaded ZIP so replay can never validate its own rewritten output.
+  ci_capstone=""
+  ci_tmp_dir=""
+  if [[ -n "$ci_zip" ]]; then
+    ci_tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/holocron-capstone.XXXXXX")"
+    trap '[[ -n "${ci_tmp_dir:-}" ]] && rm -rf -- "$ci_tmp_dir"' EXIT
+    if unzip -p "$ci_zip" capstone-verdict.json >"$ci_tmp_dir/capstone-verdict.json" 2>/dev/null \
+      && [[ -s "$ci_tmp_dir/capstone-verdict.json" ]]; then
+      ci_capstone="$ci_tmp_dir/capstone-verdict.json"
+    fi
+  fi
 
   if [[ -z "$ci_provenance" ]]; then
     ci_add_reason "CI provenance JSON is missing from $artifact_dir"
@@ -156,16 +169,20 @@ if [[ "$from_ci_artifact" == "true" ]]; then
   ci_capstone_gate="red"
   ci_junit_failures="-1"
   ci_pg_count="0"
+  ci_pg_id=""
   ci_pg_content_len="0"
   ci_zero_ok="false"
+  ci_zero_id=""
   ci_zero_content_len="0"
   ci_conversation_id="$conv_id"
   if [[ -n "$ci_capstone" ]]; then
     ci_capstone_gate="$(jq -r '.coldboot_gate // "red"' "$ci_capstone" 2>/dev/null || echo red)"
     ci_junit_failures="$(jq -r '.junit_failures // -1' "$ci_capstone" 2>/dev/null || echo -1)"
     ci_pg_count="$(jq -r '.postgres_agent_count // 0' "$ci_capstone" 2>/dev/null || echo 0)"
+    ci_pg_id="$(jq -r '.postgres_agent_id // empty' "$ci_capstone" 2>/dev/null || true)"
     ci_pg_content_len="$(jq -r '.postgres_agent_content_len // 0' "$ci_capstone" 2>/dev/null || echo 0)"
     ci_zero_ok="$(jq -r '.zero_cache_ok // false' "$ci_capstone" 2>/dev/null || echo false)"
+    ci_zero_id="$(jq -r '.zero_agent_id // empty' "$ci_capstone" 2>/dev/null || true)"
     ci_zero_content_len="$(jq -r '.zero_agent_content_len // 0' "$ci_capstone" 2>/dev/null || echo 0)"
     ci_conversation_id="$(jq -r '.conversation_id // empty' "$ci_capstone" 2>/dev/null || true)"
     [[ "$ci_capstone_gate" == "green" ]] || ci_add_reason "embedded CI capstone gate is $ci_capstone_gate"
@@ -173,14 +190,23 @@ if [[ "$from_ci_artifact" == "true" ]]; then
     [[ "$ci_junit_failures" == "0" ]] || ci_add_reason "embedded CI capstone junit_failures=$ci_junit_failures"
     [[ "$ci_pg_count" =~ ^[0-9]+$ && "$ci_pg_count" -ge 1 ]] || ci_add_reason "embedded CI capstone Postgres agent count is $ci_pg_count"
     [[ "$ci_pg_content_len" =~ ^[0-9]+$ && "$ci_pg_content_len" -ge 1 ]] || ci_add_reason "embedded CI capstone Postgres content length is $ci_pg_content_len"
+    [[ "$ci_pg_id" =~ ^[0-9a-fA-F-]{36}$ ]] || ci_add_reason "embedded CI capstone Postgres agent id is missing"
     [[ "$ci_zero_ok" == "true" ]] || ci_add_reason "embedded CI capstone Zero read is not ok"
+    [[ "$ci_zero_id" == "$ci_pg_id" ]] || ci_add_reason "embedded CI capstone Postgres and Zero agent ids differ"
     [[ "$ci_zero_content_len" =~ ^[0-9]+$ && "$ci_zero_content_len" -ge 1 ]] || ci_add_reason "embedded CI capstone Zero content length is $ci_zero_content_len"
     [[ "$ci_conversation_id" == "$conv_id" ]] || ci_add_reason "embedded CI capstone conversation_id does not match $conv_id"
   fi
 
   ci_evidence_entries=()
-  for ci_evidence_name in junit.xml final.png reference-flow.mov; do
-    ci_evidence_path="$(ci_find_file "$ci_evidence_name" || true)"
+  ci_evidence_names=(junit.xml test-output/screenshots/reference-chat-reply.png reference-flow.mov)
+  for ci_evidence_name in "${ci_evidence_names[@]}"; do
+    if [[ -s "$artifact_dir/$ci_evidence_name" ]]; then
+      ci_evidence_path="$artifact_dir/$ci_evidence_name"
+    elif [[ -s "$artifact_dir/bundle/$ci_evidence_name" ]]; then
+      ci_evidence_path="$artifact_dir/bundle/$ci_evidence_name"
+    else
+      ci_evidence_path=""
+    fi
     if [[ -z "$ci_evidence_path" ]]; then
       ci_add_reason "CI bundle is missing $ci_evidence_name"
       continue
@@ -194,6 +220,14 @@ if [[ "$from_ci_artifact" == "true" ]]; then
     [[ "$ci_actual_bytes" == "$ci_expected_bytes" ]] || ci_add_reason "CI bundle byte count mismatch for $ci_evidence_name"
     ci_evidence_entries+=("$(jq -Mn --arg p "$ci_evidence_path" --arg s "$ci_actual_sha" --argjson b "$ci_actual_bytes" '{path:$p,sha256:$s,bytes:$b}')")
   done
+
+  ci_junit_path="$(ci_find_file junit.xml || true)"
+  ci_junit_failures_from_file="-1"
+  if [[ -n "$ci_junit_path" ]]; then
+    ci_junit_failures_from_file="$(sed -En 's/.*<testsuite[^>]* failures="([0-9]+)".*/\1/p' "$ci_junit_path" | head -1)"
+  fi
+  [[ "$ci_junit_failures_from_file" == "$ci_junit_failures" ]] || ci_add_reason "downloaded junit.xml failures do not match embedded capstone"
+  [[ "$ci_junit_failures_from_file" == "0" ]] || ci_add_reason "downloaded junit.xml does not independently report failures=0"
 
   if [[ ${#ci_evidence_entries[@]} -eq 0 ]]; then
     ci_evidence_json="[]"
@@ -256,13 +290,13 @@ else
     '{path:$p,sha256:$s,bytes:$b}')")
 fi
 
-# 2. screenshot — final.png OR reference-chat-reply.png (D03-07 names the latter).
+# 2. screenshot — prefer Maestro's named reference-reply capture.
 screenshot=""
-for cand in "final.png" "reference-chat-reply.png"; do
+for cand in "test-output/screenshots/reference-chat-reply.png" "reference-chat-reply.png" "final.png"; do
   if [[ -s "$artifact_dir/$cand" ]]; then screenshot="$artifact_dir/$cand"; break; fi
 done
 if [[ -z "$screenshot" ]]; then
-  add_reason "screenshot missing or empty (neither final.png nor reference-chat-reply.png in $artifact_dir)"
+  add_reason "reference reply screenshot missing or empty in $artifact_dir"
 else
   evidence+=("$(jq -Mn --arg p "$screenshot" --arg s "$(sha "$screenshot")" --argjson b "$(bytes "$screenshot")" \
     '{path:$p,sha256:$s,bytes:$b}')")
@@ -279,6 +313,7 @@ fi
 
 # 4. Postgres agent row — count >= 1 AND content length > 0.
 pg_agent_count=0
+pg_agent_id=""
 pg_agent_content_len=0
 if [[ -z "${DATABASE_URL:-}" ]]; then
   add_reason "DATABASE_URL is unset; cannot prove the Postgres agent row"
@@ -287,9 +322,10 @@ else
     add_reason "DATABASE_URL must target holocron_nonprod for the reference gate (got non-nonprod url)"
   else
     pg_row="$(psql "$DATABASE_URL" -t -A -F '|' -c \
-      "select count(*), coalesce(max(length(content)),0) from chat_messages where conversation_id='${conv_id}' and role='agent';" 2>/dev/null || echo "0|0")"
+      "select count(*) over (), id, length(content) from chat_messages where conversation_id='${conv_id}' and role='agent' and length(content)>0 order by created_at desc limit 1;" 2>/dev/null || echo "0||0")"
     pg_agent_count="$(echo "$pg_row" | cut -d'|' -f1)"
-    pg_agent_content_len="$(echo "$pg_row" | cut -d'|' -f2)"
+    pg_agent_id="$(echo "$pg_row" | cut -d'|' -f2)"
+    pg_agent_content_len="$(echo "$pg_row" | cut -d'|' -f3)"
     pg_agent_count="${pg_agent_count:-0}"; pg_agent_content_len="${pg_agent_content_len:-0}"
     if [[ ! "$pg_agent_count" =~ ^[0-9]+$ || "$pg_agent_count" -lt 1 ]]; then
       add_reason "Postgres agent row count is ${pg_agent_count} (<1) for conversation ${conv_id}"
@@ -301,6 +337,7 @@ fi
 
 # 5. live zero-cache query — returns the agent row with content length > 0.
 zero_agent_content_len=0
+zero_agent_id=""
 zero_ok="false"
 zero_result="$(ZERO_CACHE_URL="$zero_url" REFERENCE_CONVERSATION_ID="$conv_id" \
   bun "$repo_root/scripts/e2e/zero-reference-read.ts" 2>/dev/null || echo '')"
@@ -309,12 +346,16 @@ if [[ -z "$zero_result" ]]; then
 else
   zero_ok="$(jq -r '.ok // false' <<<"$zero_result" 2>/dev/null || echo false)"
   zero_agent_content_len="$(jq -r '.agentContentLen // 0' <<<"$zero_result" 2>/dev/null || echo 0)"
+  zero_agent_id="$(jq -r '.agentId // empty' <<<"$zero_result" 2>/dev/null || true)"
   if [[ "$zero_ok" != "true" ]]; then
     zerr="$(jq -r '.error // "unknown zero-cache error"' <<<"$zero_result" 2>/dev/null || echo unknown)"
     add_reason "zero-cache read did not complete: $zerr"
   elif [[ ! "$zero_agent_content_len" =~ ^[0-9]+$ || "$zero_agent_content_len" -lt 1 ]]; then
     add_reason "zero-cache returned no agent row with non-empty content for conversation ${conv_id} (agentContentLen=${zero_agent_content_len})"
   fi
+fi
+if [[ -n "$pg_agent_id" && "$zero_agent_id" != "$pg_agent_id" ]]; then
+  add_reason "Postgres and Zero agent row ids differ (${pg_agent_id} != ${zero_agent_id})"
 fi
 
 # ---- derive the verdict -------------------------------------------------------
@@ -326,6 +367,7 @@ green="true"
 [[ -s "$video" ]] || green="false"
 [[ "${pg_agent_count:-0}" -ge 1 && "${pg_agent_content_len:-0}" -ge 1 ]] || green="false"
 [[ "$zero_ok" == "true" && "${zero_agent_content_len:-0}" -ge 1 ]] || green="false"
+[[ -n "$pg_agent_id" && "$zero_agent_id" == "$pg_agent_id" ]] || green="false"
 
 if [[ ${#evidence[@]} -eq 0 ]]; then
   evidence_json="[]"
@@ -341,16 +383,18 @@ payload="$(jq -Mn \
   --arg gate "$verdict" \
   --argjson jf "$junit_failures" \
   --argjson pac "${pg_agent_count:-0}" \
+  --arg paid "$pg_agent_id" \
   --argjson pacl "${pg_agent_content_len:-0}" \
   --argjson zok "$([[ "$zero_ok" == "true" ]] && echo true || echo false)" \
   --argjson zacl "${zero_agent_content_len:-0}" \
+  --arg zaid "$zero_agent_id" \
   --argjson evidence "$evidence_json" \
   --argjson reasons "$reason_json" \
   --arg artifact_dir "$artifact_dir" \
   --arg conversation_id "$conv_id" \
   '{committed_sha:$sha, generated_at:$at, coldboot_gate:$gate, junit_failures:$jf,
-    postgres_agent_count:$pac, postgres_agent_content_len:$pacl,
-    zero_cache_ok:$zok, zero_agent_content_len:$zacl,
+    postgres_agent_count:$pac, postgres_agent_id:$paid, postgres_agent_content_len:$pacl,
+    zero_cache_ok:$zok, zero_agent_id:$zaid, zero_agent_content_len:$zacl,
     conversation_id:$conversation_id, artifact_dir:$artifact_dir,
     evidence:$evidence, reasons:$reasons}')"
 

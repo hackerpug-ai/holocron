@@ -79,6 +79,7 @@
         "action_count": 1,
         "expected_device_name": "iPhone 17",
         "expected_app_id": "com.holocron.app",
+        "domain_evidence_kind": "postgres-fleet-dispatch",
         "evidence_file": "__EVIDENCE_DIR__/step__STEP__/maestro-evidence.json"
       },
       "assertion": {
@@ -114,6 +115,7 @@
         "action_count": 1,
         "expected_device_name": "iPhone 17",
         "expected_app_id": "com.holocron.app",
+        "domain_evidence_kind": "postgres-zero-agent-match",
         "evidence_file": "__EVIDENCE_DIR__/step__STEP__/maestro-evidence.json"
       },
       "assertion": {
