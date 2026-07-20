@@ -191,7 +191,7 @@ fi
 xcrun simctl io "$device" recordVideo --codec=h264 -f "$video" >"$artifact_dir/video.log" 2>&1 &
 video_pid=$!
 video_bad=0
-cleanup() {
+finalize_recording() {
   # SIGINT tells recordVideo to finalize the .mov; SIGTERM leaves Resource busy + empty path.
   if [[ -n "${video_pid:-}" ]]; then
     kill -INT "$video_pid" 2>/dev/null || true
@@ -199,10 +199,14 @@ cleanup() {
   fi
   sleep 1
   xcrun simctl io "$device" screenshot "$artifact_dir/final.png" >/dev/null 2>&1 || true
-  stop_zero
   # REDHAT-FIX-H3 — post-run sidecar cleanup so the artifact dir holds exactly
   # the named .mov (+ sibling screenshot/junit artifacts), never a sidecar-only result.
   rm -f "$artifact_dir"/.mov.sb-* 2>/dev/null || true
+  return 0
+}
+cleanup() {
+  finalize_recording
+  stop_zero
   return 0
 }
 trap cleanup EXIT
@@ -226,7 +230,7 @@ printf '%s\n' "$maestro_rc" >"$artifact_dir/maestro-exit-code.txt"
 set +e
 # Finalize the recorder before validating the exact video path. recordVideo
 # writes the .mov during SIGINT cleanup, after Maestro has already returned.
-cleanup
+finalize_recording
 trap - EXIT
 video_bad=0
 # REDHAT-FIX-H3 — recorder-failure surfacing. If the exact reference-flow.mov
@@ -245,6 +249,16 @@ final_rc="$maestro_rc"
 if [[ "$video_bad" == "1" ]]; then
   final_rc=1
 fi
-printf 'maestro_rc=%s\nvideo_bad=%s\nfinal_rc=%s\n' \
-  "$maestro_rc" "$video_bad" "$final_rc" >"$artifact_dir/harness-verdict.txt"
+capstone_rc=0
+if [[ "${RUN_CAPSTONE_VERDICT:-false}" == "true" && "$maestro_rc" == "0" && "$video_bad" == "0" ]]; then
+  "$repo_root/scripts/e2e/capstone-verdict.sh" \
+    --artifact-dir "$artifact_dir" >"$artifact_dir/capstone-run.log" 2>&1
+  capstone_rc=$?
+  if [[ "$capstone_rc" != "0" ]]; then
+    final_rc=1
+  fi
+fi
+printf 'maestro_rc=%s\nvideo_bad=%s\ncapstone_rc=%s\nfinal_rc=%s\n' \
+  "$maestro_rc" "$video_bad" "$capstone_rc" "$final_rc" >"$artifact_dir/harness-verdict.txt"
+stop_zero
 exit "$final_rc"
