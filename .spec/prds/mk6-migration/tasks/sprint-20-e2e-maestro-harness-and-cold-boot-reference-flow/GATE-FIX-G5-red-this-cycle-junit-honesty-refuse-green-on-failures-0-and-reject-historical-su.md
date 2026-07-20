@@ -89,8 +89,8 @@ Integration tests prove coldboot_gate stays red when junit_failures>0 despite he
         "must_observe": [
           "exitCode != 0",
           "coldboot_gate: red",
-          "junit_failures >= 1",
-          "reasons mention failures or junit"
+          "junit_failures: 1",
+          "reasons contains \"failures\""
         ],
         "must_not_observe": [
           "coldboot_gate: green",
@@ -98,7 +98,8 @@ Integration tests prove coldboot_gate stays red when junit_failures>0 despite he
         ]
       }
     }
-  ]
+  ],
+  "id": "inline"
 }
 ```
 
@@ -144,14 +145,15 @@ Integration tests prove coldboot_gate stays red when junit_failures>0 despite he
       "end_state": {
         "must_observe": [
           "step1 not PASS from substituted SUCCESS",
-          "failed-this-cycle still recognized"
+          "failed-this-cycle/junit.xml failures=\"1\""
         ],
         "must_not_observe": [
           "step1 PASS solely from official11 copy"
         ]
       }
     }
-  ]
+  ],
+  "id": "inline"
 }
 ```
 
@@ -194,15 +196,17 @@ Integration tests prove coldboot_gate stays red when junit_failures>0 despite he
       },
       "end_state": {
         "must_observe": [
-          "junit_failures: 0 necessary for green",
-          "evidence includes junit sha256"
+          "junit_failures: 0",
+          "evidence.sha256 length=64"
         ],
         "must_not_observe": [
-          "coldboot_gate green with junit_failures>0"
+          "coldboot_gate green with junit_failures>0",
+          "empty/start signature: (0) or exitCode: 0 false pass"
         ]
       }
     }
-  ]
+  ],
+  "id": "inline"
 }
 ```
 
@@ -243,14 +247,16 @@ Integration tests prove coldboot_gate stays red when junit_failures>0 despite he
       },
       "end_state": {
         "must_observe": [
-          "test passes after suite still includes empty-junit red"
+          "test status: passed"
         ],
         "must_not_observe": [
-          "regression removed"
+          "regression removed",
+          "empty/start signature: (0) or exitCode: 0 false pass"
         ]
       }
     }
-  ]
+  ],
+  "id": "inline"
 }
 ```
 
@@ -325,7 +331,7 @@ Integration tests prove coldboot_gate stays red when junit_failures>0 despite he
   "fixtures": {
     "this_cycle_failures_junit": {
       "description": "failures=1 junit from this-cycle crash.",
-      "seed_method": "file_copy",
+      "seed_method": "cli",
       "records": [
         ".tmp/maestro-reference-flow/failed-this-cycle/junit.xml",
         "sha256 098862ac\u2026"
@@ -333,7 +339,7 @@ Integration tests prove coldboot_gate stays red when junit_failures>0 despite he
     },
     "historical_official11_success_junit": {
       "description": "official11 SUCCESS junit sha a9eb6f7a\u2026",
-      "seed_method": "file_copy",
+      "seed_method": "cli",
       "records": [
         ".tmp/maestro-reference-flow-official11/junit.xml"
       ]
@@ -390,8 +396,8 @@ Integration tests prove coldboot_gate stays red when junit_failures>0 despite he
               "must_observe": [
                 "exitCode != 0",
                 "coldboot_gate: red",
-                "junit_failures >= 1",
-                "reasons mention failures or junit"
+                "junit_failures: 1",
+                "reasons contains \"failures\""
               ],
               "must_not_observe": [
                 "coldboot_gate: green",
@@ -399,7 +405,8 @@ Integration tests prove coldboot_gate stays red when junit_failures>0 despite he
               ]
             }
           }
-        ]
+        ],
+        "id": "AC-1"
       }
     },
     {
@@ -442,14 +449,15 @@ Integration tests prove coldboot_gate stays red when junit_failures>0 despite he
             "end_state": {
               "must_observe": [
                 "step1 not PASS from substituted SUCCESS",
-                "failed-this-cycle still recognized"
+                "failed-this-cycle/junit.xml failures=\"1\""
               ],
               "must_not_observe": [
                 "step1 PASS solely from official11 copy"
               ]
             }
           }
-        ]
+        ],
+        "id": "AC-2"
       }
     },
     {
@@ -489,15 +497,17 @@ Integration tests prove coldboot_gate stays red when junit_failures>0 despite he
             },
             "end_state": {
               "must_observe": [
-                "junit_failures: 0 necessary for green",
-                "evidence includes junit sha256"
+                "junit_failures: 0",
+                "evidence.sha256 length=64"
               ],
               "must_not_observe": [
-                "coldboot_gate green with junit_failures>0"
+                "coldboot_gate green with junit_failures>0",
+                "empty/start signature: (0) or exitCode: 0 false pass"
               ]
             }
           }
-        ]
+        ],
+        "id": "AC-3"
       }
     },
     {
@@ -535,14 +545,16 @@ Integration tests prove coldboot_gate stays red when junit_failures>0 despite he
             },
             "end_state": {
               "must_observe": [
-                "test passes after suite still includes empty-junit red"
+                "test status: passed"
               ],
               "must_not_observe": [
-                "regression removed"
+                "regression removed",
+                "empty/start signature: (0) or exitCode: 0 false pass"
               ]
             }
           }
-        ]
+        ],
+        "id": "AC-4"
       }
     },
     {

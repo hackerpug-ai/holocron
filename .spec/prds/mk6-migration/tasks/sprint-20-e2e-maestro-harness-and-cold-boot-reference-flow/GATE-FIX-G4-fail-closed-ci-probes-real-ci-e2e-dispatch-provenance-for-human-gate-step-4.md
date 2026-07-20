@@ -91,16 +91,18 @@ probe-ci-e2e-prereqs.sh fail-closed; capture-ci-provenance.sh writes committed c
       "end_state": {
         "must_observe": [
           "exitCode != 0",
-          "ok false",
-          "next_input_needed non-empty"
+          "ok: false",
+          "next_input_needed length > 0"
         ],
         "must_not_observe": [
           "exitCode 0",
-          "secret values in stdout"
+          "secret values in stdout",
+          "empty/start signature: (0) or exitCode: 0 false pass"
         ]
       }
     }
-  ]
+  ],
+  "id": "inline"
 }
 ```
 
@@ -147,18 +149,20 @@ probe-ci-e2e-prereqs.sh fail-closed; capture-ci-provenance.sh writes committed c
       },
       "end_state": {
         "must_observe": [
-          "conclusion success",
-          "run_id positive integer",
-          "head_sha 40 hex",
-          "artifact_sha256 64 hex"
+          "conclusion: \"success\"",
+          "run_id > 0",
+          "head_sha length=40",
+          "artifact_sha256 length=64"
         ],
         "must_not_observe": [
           "local Maestro substitution",
-          "head_sha mismatch"
+          "head_sha mismatch",
+          "empty/start signature: (0) or exitCode: 0 false pass"
         ]
       }
     }
-  ]
+  ],
+  "id": "inline"
 }
 ```
 
@@ -205,17 +209,19 @@ probe-ci-e2e-prereqs.sh fail-closed; capture-ci-provenance.sh writes committed c
       },
       "end_state": {
         "must_observe": [
-          "coldboot_gate green",
-          "junit_failures 0",
-          "step4 can PASS"
+          "coldboot_gate: \"green\"",
+          "junit_failures: 0",
+          "step4.verdict: \"PASS\" after CI provenance"
         ],
         "must_not_observe": [
           "green from conclusion only",
-          "local Maestro as CI substitute"
+          "local Maestro as CI substitute",
+          "empty/start signature: (0) or exitCode: 0 false pass"
         ]
       }
     }
-  ]
+  ],
+  "id": "inline"
 }
 ```
 
@@ -261,15 +267,17 @@ probe-ci-e2e-prereqs.sh fail-closed; capture-ci-provenance.sh writes committed c
       },
       "end_state": {
         "must_observe": [
-          "step4 FAIL",
-          "evidence names absent provenance"
+          "step4.verdict: \"FAIL\"",
+          "evidence_path contains \"absent\""
         ],
         "must_not_observe": [
-          "step4 PASS"
+          "step4 PASS",
+          "empty/start signature: (0) or exitCode: 0 false pass"
         ]
       }
     }
-  ]
+  ],
+  "id": "inline"
 }
 ```
 
@@ -381,7 +389,7 @@ probe-ci-e2e-prereqs.sh fail-closed; capture-ci-provenance.sh writes committed c
     },
     "ci_run_success_with_artifact": {
       "description": "Real successful ci-e2e run with uploaded artifact.",
-      "seed_method": "ci",
+      "seed_method": "public_api",
       "records": [
         "conclusion success",
         "artifact maestro-reference-flow-<run_id>"
@@ -389,7 +397,7 @@ probe-ci-e2e-prereqs.sh fail-closed; capture-ci-provenance.sh writes committed c
     },
     "ci_bundle_green_fixture": {
       "description": "Downloaded CI bundle with green junit/screenshot/video.",
-      "seed_method": "ci",
+      "seed_method": "public_api",
       "records": [
         "junit failures=0",
         "mov non-empty"
@@ -438,16 +446,18 @@ probe-ci-e2e-prereqs.sh fail-closed; capture-ci-provenance.sh writes committed c
             "end_state": {
               "must_observe": [
                 "exitCode != 0",
-                "ok false",
-                "next_input_needed non-empty"
+                "ok: false",
+                "next_input_needed length > 0"
               ],
               "must_not_observe": [
                 "exitCode 0",
-                "secret values in stdout"
+                "secret values in stdout",
+                "empty/start signature: (0) or exitCode: 0 false pass"
               ]
             }
           }
-        ]
+        ],
+        "id": "AC-1"
       }
     },
     {
@@ -491,18 +501,20 @@ probe-ci-e2e-prereqs.sh fail-closed; capture-ci-provenance.sh writes committed c
             },
             "end_state": {
               "must_observe": [
-                "conclusion success",
-                "run_id positive integer",
-                "head_sha 40 hex",
-                "artifact_sha256 64 hex"
+                "conclusion: \"success\"",
+                "run_id > 0",
+                "head_sha length=40",
+                "artifact_sha256 length=64"
               ],
               "must_not_observe": [
                 "local Maestro substitution",
-                "head_sha mismatch"
+                "head_sha mismatch",
+                "empty/start signature: (0) or exitCode: 0 false pass"
               ]
             }
           }
-        ]
+        ],
+        "id": "AC-2"
       }
     },
     {
@@ -546,17 +558,19 @@ probe-ci-e2e-prereqs.sh fail-closed; capture-ci-provenance.sh writes committed c
             },
             "end_state": {
               "must_observe": [
-                "coldboot_gate green",
-                "junit_failures 0",
-                "step4 can PASS"
+                "coldboot_gate: \"green\"",
+                "junit_failures: 0",
+                "step4.verdict: \"PASS\" after CI provenance"
               ],
               "must_not_observe": [
                 "green from conclusion only",
-                "local Maestro as CI substitute"
+                "local Maestro as CI substitute",
+                "empty/start signature: (0) or exitCode: 0 false pass"
               ]
             }
           }
-        ]
+        ],
+        "id": "AC-3"
       }
     },
     {
@@ -599,15 +613,17 @@ probe-ci-e2e-prereqs.sh fail-closed; capture-ci-provenance.sh writes committed c
             },
             "end_state": {
               "must_observe": [
-                "step4 FAIL",
-                "evidence names absent provenance"
+                "step4.verdict: \"FAIL\"",
+                "evidence_path contains \"absent\""
               ],
               "must_not_observe": [
-                "step4 PASS"
+                "step4 PASS",
+                "empty/start signature: (0) or exitCode: 0 false pass"
               ]
             }
           }
-        ]
+        ],
+        "id": "AC-4"
       }
     },
     {

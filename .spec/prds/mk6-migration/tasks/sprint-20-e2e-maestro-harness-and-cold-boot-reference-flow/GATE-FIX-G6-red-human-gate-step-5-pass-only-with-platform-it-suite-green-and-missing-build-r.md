@@ -88,8 +88,8 @@ Harness suite has --run missing-build no-junit case; regenerate-sprint-gate Step
       "end_state": {
         "must_observe": [
           "exitCode != 0",
-          "junit.xml absent",
-          "stderr contains EXPO_DEV_BUILD_PATH is required OR Expo development build does not exist"
+          "existsSync(junit.xml) === false",
+          "stderr contains \"EXPO_DEV_BUILD_PATH\""
         ],
         "must_not_observe": [
           "junit.xml present",
@@ -98,7 +98,8 @@ Harness suite has --run missing-build no-junit case; regenerate-sprint-gate Step
         ]
       }
     }
-  ]
+  ],
+  "id": "inline"
 }
 ```
 
@@ -142,16 +143,18 @@ Harness suite has --run missing-build no-junit case; regenerate-sprint-gate Step
       },
       "end_state": {
         "must_observe": [
-          "file-only not PASS",
-          "dual evidence PASS",
-          "evidence_path names both artifacts"
+          "step5.verdict != \"PASS\"",
+          "step5.verdict: \"PASS\"",
+          "evidence_path contains suite AND missing-build: true"
         ],
         "must_not_observe": [
-          "PASS from file existence alone"
+          "PASS from file existence alone",
+          "empty/start signature: (0) or exitCode: 0 false pass"
         ]
       }
     }
-  ]
+  ],
+  "id": "inline"
 }
 ```
 
@@ -193,15 +196,16 @@ Harness suite has --run missing-build no-junit case; regenerate-sprint-gate Step
       },
       "end_state": {
         "must_observe": [
-          "suite exit 0 after GREEN",
-          "no skip when PLATFORM_IT=1"
+          "suite exitCode: 0",
+          "skipped: 0"
         ],
         "must_not_observe": [
           "skip-to-green without PLATFORM_IT"
         ]
       }
     }
-  ]
+  ],
+  "id": "inline"
 }
 ```
 
@@ -242,14 +246,16 @@ Harness suite has --run missing-build no-junit case; regenerate-sprint-gate Step
       },
       "end_state": {
         "must_observe": [
-          "case passes asserting fail-closed"
+          "test status: passed"
         ],
         "must_not_observe": [
-          "case removed"
+          "case removed",
+          "empty/start signature: (0) or exitCode: 0 false pass"
         ]
       }
     }
-  ]
+  ],
+  "id": "inline"
 }
 ```
 
@@ -394,8 +400,8 @@ Harness suite has --run missing-build no-junit case; regenerate-sprint-gate Step
             "end_state": {
               "must_observe": [
                 "exitCode != 0",
-                "junit.xml absent",
-                "stderr contains EXPO_DEV_BUILD_PATH is required OR Expo development build does not exist"
+                "existsSync(junit.xml) === false",
+                "stderr contains \"EXPO_DEV_BUILD_PATH\""
               ],
               "must_not_observe": [
                 "junit.xml present",
@@ -404,7 +410,8 @@ Harness suite has --run missing-build no-junit case; regenerate-sprint-gate Step
               ]
             }
           }
-        ]
+        ],
+        "id": "AC-1"
       }
     },
     {
@@ -445,16 +452,18 @@ Harness suite has --run missing-build no-junit case; regenerate-sprint-gate Step
             },
             "end_state": {
               "must_observe": [
-                "file-only not PASS",
-                "dual evidence PASS",
-                "evidence_path names both artifacts"
+                "step5.verdict != \"PASS\"",
+                "step5.verdict: \"PASS\"",
+                "evidence_path contains suite AND missing-build: true"
               ],
               "must_not_observe": [
-                "PASS from file existence alone"
+                "PASS from file existence alone",
+                "empty/start signature: (0) or exitCode: 0 false pass"
               ]
             }
           }
-        ]
+        ],
+        "id": "AC-2"
       }
     },
     {
@@ -493,15 +502,16 @@ Harness suite has --run missing-build no-junit case; regenerate-sprint-gate Step
             },
             "end_state": {
               "must_observe": [
-                "suite exit 0 after GREEN",
-                "no skip when PLATFORM_IT=1"
+                "suite exitCode: 0",
+                "skipped: 0"
               ],
               "must_not_observe": [
                 "skip-to-green without PLATFORM_IT"
               ]
             }
           }
-        ]
+        ],
+        "id": "AC-3"
       }
     },
     {
@@ -539,14 +549,16 @@ Harness suite has --run missing-build no-junit case; regenerate-sprint-gate Step
             },
             "end_state": {
               "must_observe": [
-                "case passes asserting fail-closed"
+                "test status: passed"
               ],
               "must_not_observe": [
-                "case removed"
+                "case removed",
+                "empty/start signature: (0) or exitCode: 0 false pass"
               ]
             }
           }
-        ]
+        ],
+        "id": "AC-4"
       }
     },
     {

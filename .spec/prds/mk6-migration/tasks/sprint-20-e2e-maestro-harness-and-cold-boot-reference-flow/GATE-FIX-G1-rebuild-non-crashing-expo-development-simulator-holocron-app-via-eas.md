@@ -92,8 +92,8 @@ Fresh method=eas holocron.app with build-provenance.json; simctl install on MAES
       "end_state": {
         "must_observe": [
           "exitCode != 0",
-          "ok false",
-          "next_input_needed mentions eas or Expo credentials"
+          "ok: false",
+          "next_input_needed contains \"eas\""
         ],
         "must_not_observe": [
           "exitCode 0",
@@ -102,7 +102,8 @@ Fresh method=eas holocron.app with build-provenance.json; simctl install on MAES
         ]
       }
     }
-  ]
+  ],
+  "id": "inline"
 }
 ```
 
@@ -148,9 +149,9 @@ Fresh method=eas holocron.app with build-provenance.json; simctl install on MAES
       },
       "end_state": {
         "must_observe": [
-          "exitCode 0",
-          "Info.plist exists",
-          "method eas or eas-local"
+          "exitCode: 0",
+          "Info.plist exists: true",
+          "method: \"eas\""
         ],
         "must_not_observe": [
           "method reuse-existing",
@@ -158,7 +159,8 @@ Fresh method=eas holocron.app with build-provenance.json; simctl install on MAES
         ]
       }
     }
-  ]
+  ],
+  "id": "inline"
 }
 ```
 
@@ -204,16 +206,18 @@ Fresh method=eas holocron.app with build-provenance.json; simctl install on MAES
       },
       "end_state": {
         "must_observe": [
-          "simctl install exitCode 0",
-          "installed path equals EXPO_DEV_BUILD_PATH"
+          "simctl install exitCode: 0",
+          "installed_path == EXPO_DEV_BUILD_PATH"
         ],
         "must_not_observe": [
           "install failed",
-          "EXPO_DEV_BUILD_PATH unset"
+          "EXPO_DEV_BUILD_PATH unset",
+          "empty/start signature: (0) or exitCode: 0 false pass"
         ]
       }
     }
-  ]
+  ],
+  "id": "inline"
 }
 ```
 
@@ -259,9 +263,9 @@ Fresh method=eas holocron.app with build-provenance.json; simctl install on MAES
       },
       "end_state": {
         "must_observe": [
-          "method reuse-existing insufficient",
-          "crash-diagnosis.md non-empty",
-          "root cause class named"
+          "method != \"eas\" rejected",
+          "crash-diagnosis.md bytes > 0",
+          "crash-diagnosis contains \"root cause\""
         ],
         "must_not_observe": [
           "pass solely because .app exists",
@@ -269,7 +273,8 @@ Fresh method=eas holocron.app with build-provenance.json; simctl install on MAES
         ]
       }
     }
-  ]
+  ],
+  "id": "inline"
 }
 ```
 
@@ -428,8 +433,8 @@ Fresh method=eas holocron.app with build-provenance.json; simctl install on MAES
             "end_state": {
               "must_observe": [
                 "exitCode != 0",
-                "ok false",
-                "next_input_needed mentions eas or Expo credentials"
+                "ok: false",
+                "next_input_needed contains \"eas\""
               ],
               "must_not_observe": [
                 "exitCode 0",
@@ -438,7 +443,8 @@ Fresh method=eas holocron.app with build-provenance.json; simctl install on MAES
               ]
             }
           }
-        ]
+        ],
+        "id": "AC-1"
       }
     },
     {
@@ -481,9 +487,9 @@ Fresh method=eas holocron.app with build-provenance.json; simctl install on MAES
             },
             "end_state": {
               "must_observe": [
-                "exitCode 0",
-                "Info.plist exists",
-                "method eas or eas-local"
+                "exitCode: 0",
+                "Info.plist exists: true",
+                "method: \"eas\""
               ],
               "must_not_observe": [
                 "method reuse-existing",
@@ -491,7 +497,8 @@ Fresh method=eas holocron.app with build-provenance.json; simctl install on MAES
               ]
             }
           }
-        ]
+        ],
+        "id": "AC-2"
       }
     },
     {
@@ -534,16 +541,18 @@ Fresh method=eas holocron.app with build-provenance.json; simctl install on MAES
             },
             "end_state": {
               "must_observe": [
-                "simctl install exitCode 0",
-                "installed path equals EXPO_DEV_BUILD_PATH"
+                "simctl install exitCode: 0",
+                "installed_path == EXPO_DEV_BUILD_PATH"
               ],
               "must_not_observe": [
                 "install failed",
-                "EXPO_DEV_BUILD_PATH unset"
+                "EXPO_DEV_BUILD_PATH unset",
+                "empty/start signature: (0) or exitCode: 0 false pass"
               ]
             }
           }
-        ]
+        ],
+        "id": "AC-3"
       }
     },
     {
@@ -586,9 +595,9 @@ Fresh method=eas holocron.app with build-provenance.json; simctl install on MAES
             },
             "end_state": {
               "must_observe": [
-                "method reuse-existing insufficient",
-                "crash-diagnosis.md non-empty",
-                "root cause class named"
+                "method != \"eas\" rejected",
+                "crash-diagnosis.md bytes > 0",
+                "crash-diagnosis contains \"root cause\""
               ],
               "must_not_observe": [
                 "pass solely because .app exists",
@@ -596,7 +605,8 @@ Fresh method=eas holocron.app with build-provenance.json; simctl install on MAES
               ]
             }
           }
-        ]
+        ],
+        "id": "AC-4"
       }
     },
     {

@@ -92,19 +92,21 @@ run-maestro-reference-flow.sh --run exits 0; junit failures=0; final.png + refer
       },
       "end_state": {
         "must_observe": [
-          "exitCode 0",
-          "junit failures=0",
+          "exitCode: 0",
+          "failures=\"0\"",
           "final.png bytes > 0",
           "reference-flow.mov bytes > 0"
         ],
         "must_not_observe": [
           "App crashed",
           "junit failures=1",
-          "official11 as E2E_ARTIFACT_DIR"
+          "official11 as E2E_ARTIFACT_DIR",
+          "empty/start signature: (0) or exitCode: 0 false pass"
         ]
       }
     }
-  ]
+  ],
+  "id": "inline"
 }
 ```
 
@@ -151,17 +153,19 @@ run-maestro-reference-flow.sh --run exits 0; junit failures=0; final.png + refer
       },
       "end_state": {
         "must_observe": [
-          "coldboot_gate green",
-          "junit_failures 0",
-          "zero_agent_content_len >= 1"
+          "coldboot_gate: \"green\"",
+          "junit_failures: 0",
+          "zero_agent_content_len: 1"
         ],
         "must_not_observe": [
           "coldboot_gate red",
-          "hardcoded green without evidence"
+          "hardcoded green without evidence",
+          "empty/start signature: (0) or exitCode: 0 false pass"
         ]
       }
     }
-  ]
+  ],
+  "id": "inline"
 }
 ```
 
@@ -207,15 +211,16 @@ run-maestro-reference-flow.sh --run exits 0; junit failures=0; final.png + refer
       },
       "end_state": {
         "must_observe": [
-          "historical substitution forbidden",
-          "coldboot_gate red for failed-this-cycle"
+          "reject_reason contains \"historical\"",
+          "coldboot_gate: \"red\" for failed-this-cycle"
         ],
         "must_not_observe": [
           "PASS solely from official11 copy"
         ]
       }
     }
-  ]
+  ],
+  "id": "inline"
 }
 ```
 
@@ -262,16 +267,18 @@ run-maestro-reference-flow.sh --run exits 0; junit failures=0; final.png + refer
       },
       "end_state": {
         "must_observe": [
-          "step1 PASS",
-          "step3 PASS"
+          "step1.verdict: \"PASS\"",
+          "step3.verdict: \"PASS\""
         ],
         "must_not_observe": [
           "step1 PASS with failures=1",
-          "official11 evidence_path"
+          "official11 evidence_path",
+          "empty/start signature: (0) or exitCode: 0 false pass"
         ]
       }
     }
-  ]
+  ],
+  "id": "inline"
 }
 ```
 
@@ -432,19 +439,21 @@ run-maestro-reference-flow.sh --run exits 0; junit failures=0; final.png + refer
             },
             "end_state": {
               "must_observe": [
-                "exitCode 0",
-                "junit failures=0",
+                "exitCode: 0",
+                "failures=\"0\"",
                 "final.png bytes > 0",
                 "reference-flow.mov bytes > 0"
               ],
               "must_not_observe": [
                 "App crashed",
                 "junit failures=1",
-                "official11 as E2E_ARTIFACT_DIR"
+                "official11 as E2E_ARTIFACT_DIR",
+                "empty/start signature: (0) or exitCode: 0 false pass"
               ]
             }
           }
-        ]
+        ],
+        "id": "AC-1"
       }
     },
     {
@@ -488,17 +497,19 @@ run-maestro-reference-flow.sh --run exits 0; junit failures=0; final.png + refer
             },
             "end_state": {
               "must_observe": [
-                "coldboot_gate green",
-                "junit_failures 0",
-                "zero_agent_content_len >= 1"
+                "coldboot_gate: \"green\"",
+                "junit_failures: 0",
+                "zero_agent_content_len: 1"
               ],
               "must_not_observe": [
                 "coldboot_gate red",
-                "hardcoded green without evidence"
+                "hardcoded green without evidence",
+                "empty/start signature: (0) or exitCode: 0 false pass"
               ]
             }
           }
-        ]
+        ],
+        "id": "AC-2"
       }
     },
     {
@@ -541,15 +552,16 @@ run-maestro-reference-flow.sh --run exits 0; junit failures=0; final.png + refer
             },
             "end_state": {
               "must_observe": [
-                "historical substitution forbidden",
-                "coldboot_gate red for failed-this-cycle"
+                "reject_reason contains \"historical\"",
+                "coldboot_gate: \"red\" for failed-this-cycle"
               ],
               "must_not_observe": [
                 "PASS solely from official11 copy"
               ]
             }
           }
-        ]
+        ],
+        "id": "AC-3"
       }
     },
     {
@@ -593,16 +605,18 @@ run-maestro-reference-flow.sh --run exits 0; junit failures=0; final.png + refer
             },
             "end_state": {
               "must_observe": [
-                "step1 PASS",
-                "step3 PASS"
+                "step1.verdict: \"PASS\"",
+                "step3.verdict: \"PASS\""
               ],
               "must_not_observe": [
                 "step1 PASS with failures=1",
-                "official11 evidence_path"
+                "official11 evidence_path",
+                "empty/start signature: (0) or exitCode: 0 false pass"
               ]
             }
           }
-        ]
+        ],
+        "id": "AC-4"
       }
     },
     {
