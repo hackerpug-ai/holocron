@@ -1,3 +1,0 @@
-Run /kb-sprint-tasks-plan --sprint-folder /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-08-role-router-local-first-and-degraded-modes --only REDHAT-FIX-H1,REDHAT-FIX-H2,REDHAT-FIX-H3,REDHAT-FIX-H4,REDHAT-FIX-H5.
-
-Use the fresh red-hat report at /Users/inference1/Projects/holocron/.kb-orchestrate/worktrees/orch-s08-role-router-20260715T-current/.spec/reviews/red-hat-2026-07-16T03-47-51Z-sprint08.md as the binding source. Expand HIGH findings H1-H5 into complete first-class remediation task files with acceptance criteria, test criteria, dependencies, and implementation contracts. Do not modify product code. Finish only after the remediation task artifacts are written and internally consistent.

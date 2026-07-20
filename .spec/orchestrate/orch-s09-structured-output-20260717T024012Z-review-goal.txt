@@ -1,1 +1,0 @@
-Run /review-red-hat /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-09-structured-output-on-local-models as an independent adversarial review. Do not modify product code or task files. Review the current HEAD and write a fresh report under .spec/reviews/red-hat-*.md with an explicit severity verdict; continue until the report is complete.

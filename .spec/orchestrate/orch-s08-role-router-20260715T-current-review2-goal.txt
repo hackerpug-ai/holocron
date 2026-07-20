@@ -1,6 +1,0 @@
-Perform a fresh, independent red-team review of Sprint 08 after the completed H1-H5 remediation cycle.
-
-Review the current integration worktree HEAD and the Sprint 08 task folder:
-/Users/inference1/Projects/holocron/.kb-orchestrate/worktrees/orch-s08-role-router-20260715T-current/.spec/prds/mk6-migration/tasks/sprint-08-role-router-local-first-and-degraded-modes
-
-Use the existing red-hat review process and inspect the actual merged code, tests, evidence, and human-gate artifacts. Re-test or structurally verify every prior HIGH finding H1-H5, including the escape choke, structural local-first wiring, durable degraded mode, hard budget reservation, and honest human gate. Do not modify product code. Write a new durable report under .spec/reviews with a timestamped red-hat filename and an explicit CLEAN or BLOCKED verdict. Do not treat prior reports or the sprint-goal artifact as a substitute for this fresh review.

@@ -1,1 +1,0 @@
-Run /kb-run-sprint /Users/inference1/Projects/holocron/.kb-orchestrate/worktrees/orch-s08-role-router-20260715T-current/.spec/prds/mk6-migration/tasks/sprint-08-role-router-local-first-and-degraded-modes until GATE-GOAL: ACHIEVED

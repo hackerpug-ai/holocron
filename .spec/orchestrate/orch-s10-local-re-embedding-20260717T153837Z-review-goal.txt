@@ -1,3 +1,0 @@
-/review-red-hat /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-10-local-re-embedding-and-hybrid-rrf-search
-
-Run an independent adversarial review of the completed Sprint 10 implementation, including the GATE-FIX human-testing CLI work. Read the full sprint/task contracts and inspect the landed tree plus fresh gate/e2e/build/human-test evidence. Produce a fresh report under .spec/reviews/red-hat-*.md with an explicit severity verdict. Any CRITICAL or HIGH finding blocks completion; MEDIUM/LOW findings are advisory. Do not modify product code or task files; continue until the review artifact is complete.

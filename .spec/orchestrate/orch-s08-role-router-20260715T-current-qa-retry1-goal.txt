@@ -1,6 +1,0 @@
-Re-run the Sprint 08 QA gate after the prior QA verdict was rejected as invalid evidence-missing.
-
-Sprint folder:
-/Users/inference1/Projects/holocron/.kb-orchestrate/worktrees/orch-s08-role-router-20260715T-current/.spec/prds/mk6-migration/tasks/sprint-08-role-router-local-first-and-degraded-modes
-
-This is a fresh QA attempt. Archive both existing gate-results.json and any prior gate-verification.json before starting. Run /kb-run-human-tests and execute every documented HUMAN-GATE.md / SPRINT.md step using fresh per-step log paths created by THIS QA attempt; do not reference human-tests-cycle2 or any earlier artifact. Run the actual CLI/suite commands and required gate/e2e checks. Do not hand-write, copy, or patch a pass verdict and do not modify product code. The QA writer must produce a fresh gate-results.json whose every step has executed:true, result:pass, an existing non-empty log from this retry, valid runner/UI provenance, and a pass that survives assert-gate-verdict.sh and verify-gate-evidence.sh. If a step fails, record the real failure and leave the sprint unfinished.

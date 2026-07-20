@@ -1,3 +1,0 @@
-/review-red-hat /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-08-role-router-local-first-and-degraded-modes
-
-Independently review the completed Sprint 8 implementation on the integration worktree. Read the full sprint/task contracts and inspect the landed tree, fresh gate/e2e/human-test evidence, the infer-5 re-review, and the pre-check remediation. Produce a fresh .spec/reviews/red-hat-*.md report for this run with an explicit severity verdict. Severity gate: any CRITICAL or HIGH finding blocks completion; MEDIUM/LOW are advisory. Do not modify product code.

@@ -1,8 +1,0 @@
-Re-run Sprint 08 QA after the previous retry produced real failures: step 4 timed out and step 5 lacked ANTHROPIC_API_KEY in the QA process.
-
-Sprint folder:
-/Users/inference1/Projects/holocron/.kb-orchestrate/worktrees/orch-s08-role-router-20260715T-current/.spec/prds/mk6-migration/tasks/sprint-08-role-router-local-first-and-degraded-modes
-
-Before invoking /kb-run-human-tests, load the project .env into process memory only: source /Users/inference1/Projects/holocron/.env with allexport enabled. Never print, echo, serialize, or commit any value from that file. This is required so the real Anthropic escape step can run; ZAI may be used for the QA agent harness, but it cannot replace the required Anthropic evidence for Sprint 08 AC-3/step 5.
-
-Run a fresh QA attempt. Archive existing gate-results.json and gate-verification.json. Ensure required local services/database are healthy before executing the documented HUMAN-GATE.md / SPRINT.md steps. Use fresh per-step log paths created by THIS attempt, not human-tests-cycle2 or any earlier QA/retry directory. Execute every step with the literal commands, and run the inventory/gate/e2e verification required by the QA process. Do not hand-write/copy a verdict and do not modify product code. Only accept a fresh gate-results.json with every step executed and passed, real non-empty logs from this retry, valid provenance, and a pass that survives assert-gate-verdict.sh and verify-gate-evidence.sh. If a step fails, preserve the raw failure and leave the sprint unfinished.

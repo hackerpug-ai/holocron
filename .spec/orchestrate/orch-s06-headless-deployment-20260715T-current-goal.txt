@@ -1,1 +1,0 @@
-Run /kb-run-sprint /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-06-headless-deployment-dev-prod-parity until GATE-GOAL: ACHIEVED
