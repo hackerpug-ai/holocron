@@ -85,47 +85,71 @@ describe('Sprint 20 Maestro harness', () => {
       }
     });
 
-    it(
-      'fails closed when EXPO_DEV_BUILD_PATH is not a real bundle',
-      { timeout: 120_000 },
-      () => {
-        // empty_bundle_directory fixture: exists, passes a bare directory probe,
-        // but is not an installable .app bundle.
-        const emptyBundleDir = mkdtempSync(join(tmpdir(), 'not-a-real-build-'));
-        const artifactDir = mkdtempSync(join(tmpdir(), 'maestro-harness-bad-bundle-'));
-        try {
-          const result = runHarness(
-            ['--run'],
-            validHarnessEnv({
-              EXPO_DEV_BUILD_PATH: emptyBundleDir,
-              E2E_ARTIFACT_DIR: artifactDir,
-            })
-          );
-          expect(result.status).not.toBe(0);
-          // Literal harness fail() / install path — never a green empty start.
-          // Current harness rejects non-file paths with this fail() text before
-          // maestro runs; if install is reached, simctl-install.txt must record failure.
-          const stderr = result.stderr ?? '';
-          const simctlInstall = join(artifactDir, 'simctl-install.txt');
-          const rejectedAsMissing = stderr.includes('Expo development build does not exist');
-          const installAttempted = existsSync(simctlInstall);
-          expect(
-            rejectedAsMissing || installAttempted,
-            `expected fail-closed build rejection or simctl-install evidence, stderr=${stderr}`
-          ).toBe(true);
-          if (installAttempted) {
-            // Real xcrun simctl install was attempted and must not be a silent success
-            // path into maestro (junit is written only after install).
-            expect(result.status).not.toBe(0);
-          }
-          expect(existsSync(join(artifactDir, 'junit.xml'))).toBe(false);
-          expect(stderr).not.toContain('"status":"OK"');
-        } finally {
-          rmSync(emptyBundleDir, { recursive: true, force: true });
-          rmSync(artifactDir, { recursive: true, force: true });
-        }
+    /**
+     * GATE-FIX-G6 AC-1 — --run missing-build must also leave no junit.xml.
+     * Preflight fails closed before maestro; junit is never written on a
+     * missing EXPO_DEV_BUILD_PATH (file-existence alone is not a green path).
+     */
+    it('GATE-FIX-G6 AC-1: --run missing-build exits nonzero and leaves no junit.xml', () => {
+      const artifactDir = mkdtempSync(join(tmpdir(), 'maestro-harness-missing-build-run-'));
+      try {
+        const result = runHarness(
+          ['--run'],
+          validHarnessEnv({
+            EXPO_DEV_BUILD_PATH: '',
+            E2E_ARTIFACT_DIR: artifactDir,
+          })
+        );
+        expect(result.status, `expected nonzero status; stdout=${result.stdout}`).not.toBe(0);
+        const stderr = result.stderr ?? '';
+        expect(
+          stderr.includes('EXPO_DEV_BUILD_PATH'),
+          `expected stderr to name EXPO_DEV_BUILD_PATH, got: ${stderr}`
+        ).toBe(true);
+        expect(existsSync(join(artifactDir, 'junit.xml'))).toBe(false);
+        expect(stderr).not.toContain('"ok":true');
+      } finally {
+        rmSync(artifactDir, { recursive: true, force: true });
       }
-    );
+    });
+
+    it('fails closed when EXPO_DEV_BUILD_PATH is not a real bundle', { timeout: 120_000 }, () => {
+      // empty_bundle_directory fixture: exists, passes a bare directory probe,
+      // but is not an installable .app bundle.
+      const emptyBundleDir = mkdtempSync(join(tmpdir(), 'not-a-real-build-'));
+      const artifactDir = mkdtempSync(join(tmpdir(), 'maestro-harness-bad-bundle-'));
+      try {
+        const result = runHarness(
+          ['--run'],
+          validHarnessEnv({
+            EXPO_DEV_BUILD_PATH: emptyBundleDir,
+            E2E_ARTIFACT_DIR: artifactDir,
+          })
+        );
+        expect(result.status).not.toBe(0);
+        // Literal harness fail() / install path — never a green empty start.
+        // Current harness rejects non-file paths with this fail() text before
+        // maestro runs; if install is reached, simctl-install.txt must record failure.
+        const stderr = result.stderr ?? '';
+        const simctlInstall = join(artifactDir, 'simctl-install.txt');
+        const rejectedAsMissing = stderr.includes('Expo development build does not exist');
+        const installAttempted = existsSync(simctlInstall);
+        expect(
+          rejectedAsMissing || installAttempted,
+          `expected fail-closed build rejection or simctl-install evidence, stderr=${stderr}`
+        ).toBe(true);
+        if (installAttempted) {
+          // Real xcrun simctl install was attempted and must not be a silent success
+          // path into maestro (junit is written only after install).
+          expect(result.status).not.toBe(0);
+        }
+        expect(existsSync(join(artifactDir, 'junit.xml'))).toBe(false);
+        expect(stderr).not.toContain('"status":"OK"');
+      } finally {
+        rmSync(emptyBundleDir, { recursive: true, force: true });
+        rmSync(artifactDir, { recursive: true, force: true });
+      }
+    });
   });
 
   describe('backend', () => {
