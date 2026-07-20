@@ -3,6 +3,15 @@ name: ci-e2e
 
 on:
   workflow_dispatch:
+    inputs:
+      evidence_run_id:
+        description: "Successful ci-e2e run ID to bind into the strict native human gate"
+        required: false
+        type: string
+      evidence_tested_sha:
+        description: "Source SHA tested by evidence_run_id"
+        required: false
+        type: string
   pull_request:
     paths:
       - "app/**"
@@ -248,4 +257,126 @@ jobs:
         with:
           name: maestro-reference-flow-${{ github.run_id }}
           path: .tmp/maestro-reference-flow/
+          if-no-files-found: error
+
+  native-human-gate:
+    name: Six-step native human gate
+    needs: e2e
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.evidence_run_id != '' && inputs.evidence_tested_sha != '' }}
+    runs-on: [self-hosted, holocron, e2e]
+    timeout-minutes: 35
+    permissions:
+      actions: read
+      contents: read
+    env:
+      DATABASE_URL: ${{ secrets.NONPROD_DATABASE_URL }}
+      FLEET_URL: ${{ secrets.FLEET_URL }}
+      PLATFORM_URL: ${{ secrets.PLATFORM_URL }}
+      EXPO_PUBLIC_PLATFORM_URL: ${{ secrets.PLATFORM_URL }}
+      EXPO_PUBLIC_RN_API_KEY: ${{ secrets.RN_API_KEY }}
+      ZERO_ADMIN_PASSWORD: ${{ secrets.ZERO_ADMIN_PASSWORD }}
+      ZERO_CVR_DB: ${{ secrets.NONPROD_DATABASE_URL }}
+      ZERO_CHANGE_DB: ${{ secrets.NONPROD_DATABASE_URL }}
+      MAESTRO_DEVICE: ${{ vars.MAESTRO_DEVICE }}
+      EXPO_DEV_BUILD_PATH: ${{ vars.EXPO_DEV_BUILD_PATH }}
+      MAESTRO_APP_ID: ${{ vars.MAESTRO_APP_ID }}
+      EXPO_PUBLIC_REFERENCE_FLOW: "true"
+      EXPO_PUBLIC_REFERENCE_CONVERSATION_ID: "00000000-0000-0000-0000-000000000020"
+      EXPO_PUBLIC_ZERO_CACHE_URL: "http://127.0.0.1:4848"
+      EXPECTED_TESTED_SHA: ${{ inputs.evidence_tested_sha }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: "1.2.19"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
+        with:
+          version: 9.15.4
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install platform dependencies
+        run: pnpm install --dir services/platform --frozen-lockfile
+
+      - name: Provision pinned Rocicorp Litestream
+        run: |
+          set -euo pipefail
+          litestream_root="${RUNNER_TEMP}/native-gate-litestream-${GITHUB_RUN_ID}"
+          litestream_bin_dir="${RUNNER_TEMP}/native-gate-litestream-bin-${GITHUB_RUN_ID}"
+          litestream_executable="${litestream_bin_dir}/litestream"
+          litestream_backup_dir="${RUNNER_TEMP}/native-gate-litestream-backup-${GITHUB_RUN_ID}"
+          git clone --depth 1 --branch v0.3.13 https://github.com/rocicorp/litestream.git "$litestream_root"
+          test "$(git -C "$litestream_root" rev-parse HEAD)" = 977d4a5ee45ae546537324a3cfbf926de3bebc97
+          mkdir -p "$litestream_bin_dir" "$litestream_backup_dir"
+          (cd "$litestream_root" && go build -trimpath -ldflags '-X main.Version=v0.3.13' -o "$litestream_executable" ./cmd/litestream)
+          {
+            printf 'ZERO_LITESTREAM_EXECUTABLE=%s\n' "$litestream_executable"
+            printf 'ZERO_LITESTREAM_BACKUP_URL=file://%s\n' "$litestream_backup_dir"
+            printf 'ZERO_LITESTREAM_CONFIG=%s/scripts/e2e/zero-cache-litestream.yml\n' "$GITHUB_WORKSPACE"
+          } >>"$GITHUB_ENV"
+
+      - name: Capture exact successful CI artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          scripts/e2e/capture-ci-provenance.sh \
+            --run-id "${{ inputs.evidence_run_id }}" \
+            --expected-sha "${{ inputs.evidence_tested_sha }}" \
+            --download-dir .tmp/native-gate-ci-artifact
+
+      - name: Start reference Metro
+        run: |
+          set -euo pipefail
+          metro_log="${RUNNER_TEMP}/native-gate-metro-${GITHUB_RUN_ID}.log"
+          existing_pid="$(lsof -nP -tiTCP:8081 -sTCP:LISTEN 2>/dev/null | head -1 || true)"
+          if [[ -n "$existing_pid" ]]; then
+            existing_command="$(ps -p "$existing_pid" -o command= || true)"
+            existing_cwd="$(lsof -a -p "$existing_pid" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | head -1 || true)"
+            [[ "$existing_command" == *"expo start"* && "$existing_cwd" == *"holocron"* ]] || exit 1
+            kill "$existing_pid"
+          fi
+          EXPO_PUBLIC_PLATFORM_URL="${EXPO_PUBLIC_PLATFORM_URL}" \
+          EXPO_PUBLIC_ZERO_CACHE_URL="http://127.0.0.1:4848" \
+          EXPO_PUBLIC_RN_API_KEY="${EXPO_PUBLIC_RN_API_KEY}" \
+          EXPO_PUBLIC_REFERENCE_FLOW="true" \
+          EXPO_PUBLIC_REFERENCE_CONVERSATION_ID="${EXPO_PUBLIC_REFERENCE_CONVERSATION_ID}" \
+          CI=1 pnpm exec expo start --dev-client --lan --port 8081 >"$metro_log" 2>&1 &
+          metro_pid=$!
+          printf 'NATIVE_GATE_METRO_PID=%s\n' "$metro_pid" >>"$GITHUB_ENV"
+          for _ in {1..30}; do
+            curl --silent --fail --max-time 2 http://127.0.0.1:8081/status >/dev/null && exit 0
+            kill -0 "$metro_pid" 2>/dev/null || { cat "$metro_log" >&2; exit 1; }
+            sleep 1
+          done
+          cat "$metro_log" >&2
+          exit 1
+
+      - name: Run strict six-step native human gate
+        run: |
+          scripts/e2e/run-sprint20-native-human-gate.sh --run \
+            --ci-artifact-dir .tmp/native-gate-ci-artifact \
+            --run-id "gha-${GITHUB_RUN_ID}"
+
+      - name: Stop reference Metro
+        if: ${{ always() }}
+        run: |
+          if [[ -n "${NATIVE_GATE_METRO_PID:-}" ]] && kill -0 "$NATIVE_GATE_METRO_PID" 2>/dev/null; then
+            kill "$NATIVE_GATE_METRO_PID" 2>/dev/null || true
+          fi
+
+      - name: Upload native gate evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: sprint20-native-human-gate-${{ github.run_id }}
+          path: |
+            .spec/prds/mk6-migration/tasks/sprint-20-e2e-maestro-harness-and-cold-boot-reference-flow/gate-results.json
+            .spec/prds/mk6-migration/tasks/sprint-20-e2e-maestro-harness-and-cold-boot-reference-flow/gate-verification.json
+            .spec/prds/mk6-migration/tasks/sprint-20-e2e-maestro-harness-and-cold-boot-reference-flow/.gate-evidence/
           if-no-files-found: error
