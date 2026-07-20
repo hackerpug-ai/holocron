@@ -27,13 +27,30 @@ import {
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const PLATFORM_IT = process.env.PLATFORM_IT === '1';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '..', '..');
 const HARNESS = join(REPO_ROOT, 'scripts', 'e2e', 'run-maestro-reference-flow.sh');
+const CHECK_FIXTURE_ROOT = mkdtempSync(join(tmpdir(), 'maestro-check-litestream-'));
+const CHECK_FIXTURE_EXECUTABLE = join(CHECK_FIXTURE_ROOT, 'litestream');
+const CHECK_FIXTURE_BACKUP_DIR = join(CHECK_FIXTURE_ROOT, 'backup');
+const CHECK_FIXTURE_CONFIG = join(REPO_ROOT, 'scripts', 'e2e', 'zero-cache-litestream.yml');
+
+mkdirSync(CHECK_FIXTURE_BACKUP_DIR);
+writeFileSync(
+  CHECK_FIXTURE_EXECUTABLE,
+  `#!/usr/bin/env bash
+if [[ "\${1:-}" == "version" ]]; then
+  printf '%s\\n' 'test-litestream v0.0.0'
+  exit 0
+fi
+exit 64
+`
+);
+chmodSync(CHECK_FIXTURE_EXECUTABLE, 0o755);
 
 function readHarness(): string {
   return readFileSync(HARNESS, 'utf8');
@@ -86,6 +103,9 @@ function validHarnessCheckEnv(
     EXPO_PUBLIC_RN_API_KEY: 'test-rn-api-key',
     EXPO_PUBLIC_REFERENCE_FLOW: 'true',
     ZERO_ADMIN_PASSWORD: 'test-zero-admin',
+    ZERO_LITESTREAM_EXECUTABLE: CHECK_FIXTURE_EXECUTABLE,
+    ZERO_LITESTREAM_BACKUP_URL: `file://${CHECK_FIXTURE_BACKUP_DIR}`,
+    ZERO_LITESTREAM_CONFIG: CHECK_FIXTURE_CONFIG,
     MAESTRO_APP_ID: 'org.name.holocron',
     ...overrides,
   };
@@ -142,6 +162,10 @@ function runResolverFixture(jsonOutput: string): {
 }
 
 describe('D03-03 Maestro harness artifact & defect contract', () => {
+  afterAll(() => {
+    rmSync(CHECK_FIXTURE_ROOT, { recursive: true, force: true });
+  });
+
   beforeAll(() => {
     if (!PLATFORM_IT) {
       throw new Error(
@@ -160,18 +184,13 @@ describe('D03-03 Maestro harness artifact & defect contract', () => {
         const simulator = discoverSimulator();
         const result = spawnSync('bash', [HARNESS, '--check'], {
           cwd: REPO_ROOT,
-          env: {
-            ...process.env,
-            MAESTRO_DEVICE: simulator.name,
+          env: validHarnessCheckEnv(simulator.name, {
             EXPO_DEV_BUILD_PATH: appBundleDir,
-            DATABASE_URL: 'postgres://127.0.0.1:5432/holocron_nonprod',
-            FLEET_URL: 'http://127.0.0.1:4545',
-            PLATFORM_URL: 'http://127.0.0.1:4111',
             EXPO_PUBLIC_RN_API_KEY: 'placeholder-presence-check-key',
             ZERO_ADMIN_PASSWORD: 'placeholder-presence-check-pw',
             // ensure no stale override
             MAESTRO_APP_ID: '',
-          },
+          }),
           encoding: 'utf8',
           timeout: 30_000,
         });
