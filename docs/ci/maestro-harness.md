@@ -59,6 +59,7 @@ silent-retry**:
 | `ZERO_LITESTREAM_EXECUTABLE` | yes | Executable from the Rocicorp Litestream fork required by Zero 1.8.0. |
 | `ZERO_LITESTREAM_BACKUP_URL` | yes | Real Litestream backup destination, such as a runner-local `file:///...` path or configured object storage. |
 | `ZERO_LITESTREAM_CONFIG` | no | Litestream config path. Defaults to `scripts/e2e/zero-cache-litestream.yml`. |
+| `ZERO_STARTUP_TIMEOUT_SECONDS` | no | Positive whole-second readiness budget for the harness-started zero-cache. Default `180`. |
 | `MAESTRO_APP_ID` | no | App bundle id. Default `org.name.holocron` (matches the real Expo dev build `CFBundleIdentifier`). |
 | `MAESTRO_FLOW` | no | Path to the Maestro flow YAML. Default `.e2e/maestro/reference-flow.yaml`. |
 | `MAESTRO_DEV_CLIENT_MODE` | no | Dev-client session mode recorded in `dev-client-setup.json`. Default `server-list+already-running`. One of `tutorial` / `server-list+tutorial` / `server-list+already-running` / `already-running`. |
@@ -74,7 +75,10 @@ silent-retry**:
 > straight through to the harness-owned instance only. Zero 1.8.0 also invokes
 > Litestream during change-streamer startup, so the harness refuses to reset the
 > namespace or start zero-cache until the executable, backup URL, and config are
-> present and usable. It never substitutes a no-op binary or backup.
+> present and usable. The harness waits up to `ZERO_STARTUP_TIMEOUT_SECONDS`
+> positive seconds for `/keepalive` (default `180`); a timeout remains fail-closed
+> and stops the harness-owned zero-cache before exiting. It never substitutes a
+> no-op binary or backup.
 
 ## Artifact directory layout (`E2E_ARTIFACT_DIR`)
 
