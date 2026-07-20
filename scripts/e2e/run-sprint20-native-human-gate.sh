@@ -129,7 +129,23 @@ for n in 1 2 3; do
   record_native_step "$n"
 done
 
-tmux new-session -d -s "$session_name"
+# tmux servers retain an environment from when the server was first started;
+# inheriting the parent shell is therefore not deterministic. Start the
+# monitored shell with the exact variables needed by the literal terminal
+# commands, especially the fresh CI artifact binding and tested SHA.
+tmux_env_args=("PATH=$PATH" "HOME=$HOME")
+for env_name in \
+  E2E_CI_ARTIFACT_DIR EXPECTED_TESTED_SHA DATABASE_URL FLEET_URL PLATFORM_URL \
+  EXPO_PUBLIC_PLATFORM_URL EXPO_PUBLIC_RN_API_KEY EXPO_PUBLIC_REFERENCE_FLOW \
+  EXPO_PUBLIC_REFERENCE_CONVERSATION_ID EXPO_PUBLIC_ZERO_CACHE_URL ZERO_ADMIN_PASSWORD \
+  ZERO_CVR_DB ZERO_CHANGE_DB ZERO_PORT ZERO_LITESTREAM_EXECUTABLE \
+  ZERO_LITESTREAM_BACKUP_URL ZERO_LITESTREAM_CONFIG MAESTRO_DEVICE MAESTRO_APP_ID \
+  EXPO_DEV_BUILD_PATH; do
+  if [[ -v "$env_name" ]]; then
+    tmux_env_args+=("$env_name=${!env_name}")
+  fi
+done
+tmux new-session -d -s "$session_name" -c "$repo_root" -- env "${tmux_env_args[@]}" "${SHELL:-/bin/zsh}"
 tmux_started=true
 for n in 4 5 6; do
   record_terminal_step "$n"
