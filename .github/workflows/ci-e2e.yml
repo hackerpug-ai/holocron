@@ -72,6 +72,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Install platform dependencies
+        run: pnpm install --dir services/platform --frozen-lockfile
+
       - name: Fail-closed runner contract
         run: |
           set -euo pipefail
