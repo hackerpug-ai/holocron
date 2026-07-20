@@ -132,3 +132,17 @@ The fresh independent review in `.spec/reviews/red-hat-sprint-20-20260719T204500
 | REDHAT-FIX-H8 | Fix the invalid-bundle fail-closed boundary test so the real `PLATFORM_IT` lane completes without timeout. | Review H8: current Sprint 20 harness test timed out on the invalid bundle case; 17 passed, 1 failed. |
 | REDHAT-FIX-H9 | Add explicit forced-failure coverage proving harness cleanup and artifact preservation, and strengthen lifecycle artifact assertions. | Review M1/M3: uninstall evidence can be empty while the oracle passes; forced-failure fixture and TC-4 are absent. |
 | REDHAT-FIX-H10 | Correct dev-client mode validation and add deterministic reset/idempotency and capstone replay contracts named by S-COLDBOOT-03/D03-04. | Review M2/M4: documented mode regex rejects the `+` mode, and named reset/idempotency test contracts are absent or skipped. |
+
+## Human-gate remediation tasks (expanded 2026-07-20T00:59:23Z)
+
+Failing/partial Human Testing Gate steps after the honest blocked cycle (gate-results.json 2026-07-20):
+step1 FAIL (app crash), step3 PARTIAL (no fresh green sim), step4 FAIL (no CI provenance), step5 PARTIAL (step5 dual-evidence missing).
+Specialists dispatched: devops-engineer, react-native-ui-planner, ghactions-planner, red-test-generator.
+
+| ID | Title | Agent | Proposed by | Gates |
+|----|-------|-------|-------------|-------|
+| GATE-FIX-G1 | Rebuild non-crashing Expo development-simulator holocron.app via eas | devops-engineer | devops-engineer | 1,5 |
+| GATE-FIX-G2 | Prove this-cycle Maestro cold-boot green (junit/screenshot/video/capst | react-native-ui-implementer | react-native-ui-planner | 1,3,5 |
+| GATE-FIX-G4 | Fail-closed CI probes + real ci-e2e dispatch provenance for human gate | devops-engineer | ghactions-planner | 4 |
+| GATE-FIX-G5 | RED: this-cycle junit honesty — refuse green on failures>0 and reject  | devops-engineer | red-test-generator | 1,3 |
+| GATE-FIX-G6 | RED: Human Gate Step-5 PASS only with PLATFORM_IT suite green AND miss | devops-engineer | red-test-generator | 5 |
