@@ -107,12 +107,21 @@ video="$artifact_dir/reference-flow.mov"
 # target before recording so a resource-busy conflict cannot leave a sidecar-
 # only result that masquerades as a valid video.
 rm -f "$video" "$artifact_dir"/.mov.sb-* 2>/dev/null || true
+# GATE-FIX-G2 — clear host-recording lock left by prior SIGTERM (must SIGINT to finalize).
+# A leftover recorder makes the next recordVideo fail with "Resource busy".
+if pgrep -x simctl >/dev/null 2>&1; then
+  # Best-effort: interrupt any prior simctl io recordVideo for this device.
+  pkill -INT -x simctl 2>/dev/null || true
+  sleep 1
+fi
 xcrun simctl io "$device" recordVideo --codec=h264 -f "$video" >"$artifact_dir/video.log" 2>&1 &
 video_pid=$!
 video_bad=0
 cleanup() {
-  kill "$video_pid" 2>/dev/null || true
+  # SIGINT tells recordVideo to finalize the .mov; SIGTERM leaves Resource busy + empty path.
+  kill -INT "$video_pid" 2>/dev/null || true
   wait "$video_pid" 2>/dev/null || true
+  sleep 1
   xcrun simctl io "$device" screenshot "$artifact_dir/final.png" >/dev/null 2>&1 || true
   stop_zero
   # REDHAT-FIX-H3 — post-run sidecar cleanup so the artifact dir holds exactly
