@@ -54,6 +54,7 @@ jobs:
       EXPO_PUBLIC_REFERENCE_FLOW: "true"
       EXPO_PUBLIC_REFERENCE_CONVERSATION_ID: "00000000-0000-0000-0000-000000000020"
       EXPO_PUBLIC_ZERO_CACHE_URL: "http://127.0.0.1:4848"
+      RUN_CAPSTONE_VERDICT: "true"
       E2E_ARTIFACT_DIR: ${{ github.workspace }}/.tmp/maestro-reference-flow
     steps:
       - name: Checkout
