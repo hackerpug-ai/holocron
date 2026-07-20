@@ -1,0 +1,42 @@
+appId: ${MAESTRO_APP_ID}
+---
+# Native human-gate step 1. This flow owns cold boot and only proves that the
+# installed development build reaches the reference chat screen. The send and
+# reply actions live in separate flows so their evidence cannot collapse into
+# one wholesale reference-flow invocation.
+- launchApp:
+    clearState: true
+
+- extendedWaitUntil:
+    visible:
+      text: "DEVELOPMENT SERVERS"
+    timeout: 15000
+
+- tapOn:
+    text: "http://192.168.1.160:8081"
+
+- runFlow:
+    label: "Dismiss Metro red-box if present"
+    when:
+      visible: "Metro has encountered an error"
+    commands:
+      - tapOn:
+          text: "Reload (⌘R)"
+
+- extendedWaitUntil:
+    visible:
+      text: "Continue"
+    timeout: 45000
+- tapOn:
+    text: "Continue"
+- tapOn:
+    text: "Close"
+    optional: true
+
+- extendedWaitUntil:
+    visible:
+      id: chat-screen
+    timeout: 90000
+- assertVisible:
+    id: chat-screen
+- takeScreenshot: gate-step-1-cold-boot

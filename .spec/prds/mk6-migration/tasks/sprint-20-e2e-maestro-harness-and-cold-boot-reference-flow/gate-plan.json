@@ -6,59 +6,118 @@
   },
   "planned_at": "2026-07-20T08:24:11Z",
   "planned_steps": 6,
+  "project_root": "/Users/inference1/Projects/holocron",
   "ui_driver_resolution": {
     "required_platform": "native iOS / Expo React Native",
-    "resolved_driver": "none",
-    "reason": "kb-run-human-tests supports Playwright Chromium/Electron for UI steps; the native Maestro simulator interaction has no supported driver"
+    "resolved_driver": "maestro-ios",
+    "binary": "/opt/homebrew/bin/maestro",
+    "simulator_name": "iPhone 17",
+    "reason": "explicit native Maestro iOS simulator driver"
   },
   "steps": [
     {
       "n": 1,
       "text": "Run the Maestro reference flow on the named iOS Simulator — cold boot completes, app opens.",
-      "type": "terminal",
-      "method": "real-cli",
-      "literal_cmd": "RUN_CAPSTONE_VERDICT=true scripts/e2e/run-maestro-reference-flow.sh",
+      "type": "native-ui",
+      "method": "real-native-ui",
+      "literal_cmd": null,
+      "native": {
+        "driver": "maestro-ios",
+        "runner": "scripts/e2e/run-maestro-native-gate.sh",
+        "args": [
+          "--run",
+          "--step",
+          "__STEP__",
+          "--session-dir",
+          "__EVIDENCE_DIR__/maestro-session",
+          "--artifact-dir",
+          "__STEP_DIR__/native-artifacts",
+          "--flow",
+          "__FLOW__",
+          "--evidence-file",
+          "__STEP_DIR__/maestro-evidence.json",
+          "--action-id",
+          "cold-boot-reference-chat"
+        ],
+        "flow": ".e2e/maestro/gate/step-1-cold-boot.yaml",
+        "action_id": "cold-boot-reference-chat",
+        "action_count": 1,
+        "expected_device_name": "iPhone 17",
+        "expected_app_id": "com.holocron.app",
+        "evidence_file": "__EVIDENCE_DIR__/step__STEP__/maestro-evidence.json"
+      },
       "assertion": {
-        "kind": "exit_and_log_regex",
-        "expected_exit": 0,
-        "expect_log_regex": "maestro_rc=0",
-        "expect_not_log_regex": "reference-flow.mov missing|recorder failure detected"
+        "kind": "maestro_native"
       }
     },
     {
       "n": 2,
       "text": "Send a chat message in the flow — specialist runs on the fleet, tool call hits Postgres.",
-      "type": "ui",
-      "method": "real-ui",
+      "type": "native-ui",
+      "method": "real-native-ui",
       "literal_cmd": null,
-      "action": {
-        "driver": "Maestro iOS simulator",
-        "flow": ".e2e/maestro/reference-flow.yaml",
-        "interaction": "fill chat input with the reference-flow message and tap send"
+      "native": {
+        "driver": "maestro-ios",
+        "runner": "scripts/e2e/run-maestro-native-gate.sh",
+        "args": [
+          "--run",
+          "--step",
+          "__STEP__",
+          "--session-dir",
+          "__EVIDENCE_DIR__/maestro-session",
+          "--artifact-dir",
+          "__STEP_DIR__/native-artifacts",
+          "--flow",
+          "__FLOW__",
+          "--evidence-file",
+          "__STEP_DIR__/maestro-evidence.json",
+          "--action-id",
+          "send-reference-message"
+        ],
+        "flow": ".e2e/maestro/gate/step-2-send.yaml",
+        "action_id": "send-reference-message",
+        "action_count": 1,
+        "expected_device_name": "iPhone 17",
+        "expected_app_id": "com.holocron.app",
+        "evidence_file": "__EVIDENCE_DIR__/step__STEP__/maestro-evidence.json"
       },
       "assertion": {
-        "kind": "locator_text_regex",
-        "locator": "chat-user-message",
-        "expected_regex": "Sprint 20 reference-flow ping",
-        "evidence": ["screenshot", "simulator-observation", "Maestro-output"]
+        "kind": "maestro_native"
       }
     },
     {
       "n": 3,
       "text": "Observe the reply — durable message syncs to the app via Zero, screenshot captures it.",
-      "type": "ui",
-      "method": "real-ui",
+      "type": "native-ui",
+      "method": "real-native-ui",
       "literal_cmd": null,
-      "action": {
-        "driver": "Maestro iOS simulator",
-        "flow": ".e2e/maestro/reference-flow.yaml",
-        "interaction": "wait for the assistant message and inspect the captured simulator screenshot"
+      "native": {
+        "driver": "maestro-ios",
+        "runner": "scripts/e2e/run-maestro-native-gate.sh",
+        "args": [
+          "--run",
+          "--step",
+          "__STEP__",
+          "--session-dir",
+          "__EVIDENCE_DIR__/maestro-session",
+          "--artifact-dir",
+          "__STEP_DIR__/native-artifacts",
+          "--flow",
+          "__FLOW__",
+          "--evidence-file",
+          "__STEP_DIR__/maestro-evidence.json",
+          "--action-id",
+          "observe-zero-synced-reply"
+        ],
+        "flow": ".e2e/maestro/gate/step-3-observe.yaml",
+        "action_id": "observe-zero-synced-reply",
+        "action_count": 1,
+        "expected_device_name": "iPhone 17",
+        "expected_app_id": "com.holocron.app",
+        "evidence_file": "__EVIDENCE_DIR__/step__STEP__/maestro-evidence.json"
       },
       "assertion": {
-        "kind": "locator_text_regex",
-        "locator": "chat-assistant-message",
-        "expected_regex": ".+",
-        "evidence": ["screenshot", "simulator-observation", "Zero-synced artifact"]
+        "kind": "maestro_native"
       }
     },
     {
@@ -66,7 +125,7 @@
       "text": "Check CI artifacts — JUnit result, log, video all attached to the e2e run.",
       "type": "terminal",
       "method": "real-cli",
-      "literal_cmd": "scripts/e2e/capstone-verdict.sh --from-ci-artifact --artifact-dir .tmp/ci-e2e-download",
+      "literal_cmd": "scripts/e2e/capstone-verdict.sh --from-ci-artifact --artifact-dir \"${E2E_CI_ARTIFACT_DIR:?}\"",
       "assertion": {
         "kind": "exit_and_log_regex",
         "expected_exit": 0,

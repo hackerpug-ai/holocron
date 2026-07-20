@@ -1,0 +1,11 @@
+appId: ${MAESTRO_APP_ID}
+---
+# Native human-gate step 3. This flow observes the asynchronous assistant row
+# after step 2; it does not resend the message or rerun the cold boot.
+- extendedWaitUntil:
+    visible:
+      id: chat-assistant-message
+    timeout: 90000
+- assertVisible:
+    id: chat-assistant-message
+- takeScreenshot: gate-step-3-zero-reply

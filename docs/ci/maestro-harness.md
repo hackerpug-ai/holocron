@@ -20,6 +20,25 @@ bash scripts/e2e/run-maestro-reference-flow.sh --run
 `--check` is the default-fast mode for CI/dev-loop triage; `--run` is the real
 evidence-producing mode. `--run` is what QA exercises after review.
 
+## Strict native human-test gate
+
+The Sprint 20 human gate uses the explicit native Maestro path, not the
+all-in-one reference flow as a substitute for per-step evidence:
+
+```bash
+scripts/e2e/run-sprint20-native-human-gate.sh --check
+scripts/e2e/run-sprint20-native-human-gate.sh --run \
+  --ci-artifact-dir "$E2E_CI_ARTIFACT_DIR"
+```
+
+Steps 1–3 run three distinct scoped flows for cold boot, send, and reply
+observation. Each produces its own Maestro JUnit, simulator screenshot/video,
+resolved device identity, flow hash, action ID, and gate-runner log. Steps 4–6
+remain separate terminal actions. The script assembles claims from those raw
+results and invokes the shared `verify-gate-evidence.sh`; it does not author a
+verdict by hand. Missing native evidence, a browser substitution, a stale flow,
+or an explicit timeout fails closed.
+
 ## Fail-closed posture
 
 Every precondition below is checked in order and aborts with a descriptive
@@ -27,7 +46,8 @@ stderr message + exit 1 on any miss. There is **no skip, no mock, no
 silent-retry**:
 
 1. `MAESTRO_DEVICE` names an available iOS Simulator (verified against
-   `xcrun simctl list devices available`).
+   `xcrun simctl list devices available`); the harness resolves that exact name
+   to one UDID for Maestro.
 2. `DATABASE_URL` is present **and** targets the `holocron_nonprod` namespace.
 3. `FLEET_URL` is present (real OpenAI-compatible fleet; no inference substitute).
 4. A platform URL is present (`EXPO_PUBLIC_PLATFORM_URL` or `PLATFORM_URL`).
@@ -49,7 +69,7 @@ silent-retry**:
 
 | Variable | Required | Purpose |
 |----------|----------|---------|
-| `MAESTRO_DEVICE` | yes | iOS Simulator UDID to boot + install against. |
+| `MAESTRO_DEVICE` | yes | Human-readable iOS Simulator name to boot + install against; resolved to a UDID for Maestro. |
 | `EXPO_DEV_BUILD_PATH` | yes | Path to the Expo dev-client `.app` **directory** bundle. |
 | `DATABASE_URL` | yes | Nonprod Postgres; must contain `holocron_nonprod`. |
 | `FLEET_URL` | yes | Real OpenAI-compatible fleet base URL. |
@@ -90,6 +110,7 @@ silent-retry**:
 | `zero-cache.log` | Real zero-cache stdout/stderr. |
 | `simctl-boot.stderr` | `simctl boot` stderr (only if a boot was needed). |
 | `simctl-bootstatus.txt` | `simctl bootstatus -b`. |
+| `simctl-device-resolution.json` | Exact configured simulator name and the resolved UDID passed to Maestro. |
 | `simctl-terminate.txt` | `simctl terminate` (AC-2 fresh reinstall; `|| true` on a not-yet-installed app). |
 | `simctl-uninstall.txt` | `simctl uninstall` (AC-2; `|| true`). |
 | `simctl-install.txt` | `simctl install` + an `installed: <path>` sentinel (install is silent on success). |

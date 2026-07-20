@@ -1,0 +1,13 @@
+appId: ${MAESTRO_APP_ID}
+---
+# Native human-gate step 2. The app is left running by step 1; this flow only
+# performs the operator's send action. Reply observation is step 3.
+- assertVisible:
+    id: chat-screen
+- tapOn:
+    id: chat-input-field
+- waitForAnimationToEnd
+- inputText: "Sprint 20 reference-flow ping"
+- tapOn:
+    id: chat-input-send-button
+- takeScreenshot: gate-step-2-message-sent
