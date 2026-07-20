@@ -104,6 +104,67 @@ zero_startup_timeout_seconds="${ZERO_STARTUP_TIMEOUT_SECONDS:-180}"
 [[ "$zero_startup_timeout_seconds" =~ ^[1-9][0-9]*$ ]] \
   || fail "ZERO_STARTUP_TIMEOUT_SECONDS must be a positive integer"
 
+# Zero 1.8 starts supporting workers (including change-streamer) as child
+# processes. Killing only the launcher can leave a worker holding 4849/4850 on
+# a persistent runner, which makes the next run start partially and fail later
+# as a misleading missing-reply assertion. Keep process cleanup scoped to a
+# real Holocron Zero command/cwd and reject any unrelated listener.
+process_cwd() {
+  local process_pid="$1"
+  lsof -a -p "$process_pid" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | head -n 1
+}
+
+is_holocron_zero_process() {
+  local process_pid="$1"
+  local process_command="${2:-}"
+  local process_working_dir="${3:-}"
+  [[ "$process_command" == *zero-cache* || "$process_command" == *zero/out/zero-cache* ]] \
+    && [[ "$process_working_dir" == *holocron* ]]
+}
+
+kill_process_tree() {
+  local root_pid="$1"
+  local signal="${2:-TERM}"
+  local child_pid
+  [[ "$root_pid" =~ ^[0-9]+$ ]] || return 0
+  while read -r child_pid; do
+    [[ "$child_pid" =~ ^[0-9]+$ ]] || continue
+    kill_process_tree "$child_pid" "$signal"
+  done < <(pgrep -P "$root_pid" 2>/dev/null || true)
+  kill -"$signal" "$root_pid" 2>/dev/null || true
+}
+
+cleanup_orphaned_zero_processes() {
+  local process_pid process_command process_working_dir
+  local listener_pid listener_command listener_working_dir
+
+  while read -r process_pid; do
+    [[ "$process_pid" =~ ^[0-9]+$ ]] || continue
+    process_command="$(ps -p "$process_pid" -o command= 2>/dev/null || true)"
+    process_working_dir="$(process_cwd "$process_pid")"
+    if is_holocron_zero_process "$process_pid" "$process_command" "$process_working_dir"; then
+      echo "cleaning orphaned Holocron Zero process $process_pid"
+      kill_process_tree "$process_pid" TERM
+    fi
+  done < <(pgrep -f 'zero-cache|zero/out/zero-cache' 2>/dev/null || true)
+
+  for zero_internal_port in "$zero_port" "$((zero_port + 1))" "$((zero_port + 2))"; do
+    while read -r listener_pid; do
+      [[ "$listener_pid" =~ ^[0-9]+$ ]] || continue
+      listener_command="$(ps -p "$listener_pid" -o command= 2>/dev/null || true)"
+      listener_working_dir="$(process_cwd "$listener_pid")"
+      if is_holocron_zero_process "$listener_pid" "$listener_command" "$listener_working_dir"; then
+        echo "cleaning orphaned Holocron Zero listener $listener_pid on port $zero_internal_port"
+        kill_process_tree "$listener_pid" TERM
+      else
+        fail "Zero port $zero_internal_port is occupied by an unrelated process: $listener_command"
+      fi
+    done < <(lsof -nP -iTCP:"$zero_internal_port" -sTCP:LISTEN -t 2>/dev/null || true)
+  done
+}
+
+cleanup_orphaned_zero_processes
+
 if [[ "$mode" == "--check" ]]; then
   printf '{"ok":true,"device":"%s","device_udid":"%s","flow":"%s","app":"%s","artifacts":"%s"}\n' "$device" "$device_udid" "$flow" "$app_path" "$artifact_dir"
   exit 0
@@ -126,8 +187,16 @@ NODE_ENV=production pnpm exec zero-cache \
 zero_pid=$!
 stop_zero() {
   if [[ -n "${zero_pid:-}" ]]; then
+    # Terminate workers before the launcher so they cannot be reparented and
+    # leave Zero's internal change-streamer/Litestream ports behind.
+    kill_process_tree "$zero_pid" TERM
     kill "$zero_pid" 2>/dev/null || true
     wait "$zero_pid" 2>/dev/null || true
+    sleep 1
+    if kill -0 "$zero_pid" 2>/dev/null; then
+      kill_process_tree "$zero_pid" KILL
+      wait "$zero_pid" 2>/dev/null || true
+    fi
     zero_pid=""
   fi
 }
