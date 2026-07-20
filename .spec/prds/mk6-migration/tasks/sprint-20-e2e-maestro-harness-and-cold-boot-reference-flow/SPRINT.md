@@ -3,7 +3,7 @@ sprint: 20
 title: E2E Maestro Harness and Cold-Boot Reference Flow
 sequence: 20
 timeline: Phase 4 — Reference-Flow Gate and Deep Services
-status: In Progress
+status: Blocked
 prd: ../../README.md
 capability_coverage: CAP-SYNC-01, CAP-CUT-01
 planned_from_roadmap_sha: 6201400e2aabbf15e9457d14c1a9949fd0776e4173a7a760908d91374d38a289
@@ -16,9 +16,9 @@ planned_at: 2026-07-18T21:44:20Z
 
 **Sequence:** 20
 **Timeline:** Phase 4 — Reference-Flow Gate and Deep Services
-**Status:** In Progress
-> Progress: 10/10 tasks completed · updated 2026-07-20T01:45:48Z
-> Status-Note: G5+G6+G1 landed; G2 next; G4/H2 external
+**Status:** Blocked
+> Progress: G4 partial land · step4 FAIL · updated 2026-07-20T02:22:00Z
+> Status-Note: G1/G2/G5/G6 complete; G4 partial (AC-1/AC-4 landed e29b2a22); H2+G4-AC2/3 blocked on gh auth + self-hosted runner + secrets
 **Proposed by:** react-native-ui-planner + devops-engineer
 **Branch:** `mk6-reference-flow`
 **Opened:** 2026-07-18 — generated JIT by /kb-sprint-tasks-plan

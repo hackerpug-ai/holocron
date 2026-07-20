@@ -1,5 +1,6 @@
 # GATE-FIX-G4 — Fail-closed CI probes + real ci-e2e dispatch provenance for human gate step 4
-> Status: ⬜ Pending
+> Status: ⛔ Blocked (partial land AC-1/AC-4 @ e29b2a22; AC-2/AC-3 external: gh auth/runner/secrets)
+> Landed-partial: e29b2a22 merge 42696b4a — probe-ci-e2e-prereqs.sh + capture-ci-provenance.sh + step4 dual-path; PLATFORM_IT 8/8; no fabricated provenance
 > Sprint: [Sprint 20 — E2E Maestro Harness and Cold-Boot Reference Flow](./SPRINT.md)
 > Agent: devops-engineer
 > Reviewer: ghactions-reviewer

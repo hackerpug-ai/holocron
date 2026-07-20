@@ -2,77 +2,94 @@
   "schema_version": 1,
   "sprint_id": "sprint-20-e2e-maestro-harness-and-cold-boot-reference-flow",
   "sprint_name": "Sprint 20: E2E Maestro Harness and Cold-Boot Reference Flow",
-  "generated_at": "2026-07-20T01:24:41Z",
-  "generated_by": "kb-run-sprint@goal-harness (honest-blocked remediation after skeptic)",
+  "generated_at": "2026-07-20T02:21:46Z",
+  "generated_by": "kb-run-sprint@grok (post GATE-FIX-G4 partial land; honest AC-2/3 block)",
   "run_stage": {
-    "harness": "grok-goal",
-    "cycle": "skeptic-remediation-honest-gate",
-    "base_sha": "2fb9d8c22c0b5e48d36fa957a87c67eabb83bf4d"
+    "harness": "grok",
+    "cycle": "gate-fix-g4-partial-land",
+    "base_sha": "42696b4af9baeb58d9107df34ef3e239575fefa0"
   },
   "protected_branch": "main",
-  "protected_branch_sha": "2fb9d8c22c0b5e48d36fa957a87c67eabb83bf4d",
+  "protected_branch_sha": "42696b4af9baeb58d9107df34ef3e239575fefa0",
   "goal": {
     "text": "An operator running the Maestro reference flow on a named iOS Simulator gets a cold-boot chat message that round-trips through the fleet to Postgres, syncs back via Zero, with a passing JUnit result plus screenshot/video artifacts.",
-    "condition_text": "(1) All sprint tasks completed per ACs; AND (2) human tests verified by E2E; AND (3) all completed work consolidated on the protected trunk (0 orphan branches); AND (4) status_files parity"
+    "condition_text": "(1) All sprint tasks completed per ACs; AND (2) human tests verified by E2E; AND (3) trunk consolidated; AND (4) status_files parity; AND (5) human_test gate-results verdict pass"
   },
   "verdict": "blocked",
   "met": false,
   "blocker": {
-    "id": "REDHAT-FIX-H2 + fresh-cold-boot",
-    "summary": "H2 needs GitHub self-hosted runner + gh auth. Fresh Maestro cold-boot failed this cycle (app crash, junit failures=1); capstone is red. No historical SUCCESS substituted into gate step 1.",
+    "id": "GATE-FIX-G4 AC-2/AC-3 + REDHAT-FIX-H2",
+    "summary": "Locally recoverable G4 AC-1/AC-4 landed (probe + step4 honesty + capture script). Real CI dispatch provenance (step4 PASS) blocked: gh not authenticated, no self-hosted e2e runner online, required GH secrets/vars not probe-ready. No fabricated run_id/conclusion.",
     "invariants": [
       {
-        "id": "H2",
-        "required": "ci-run-provenance.json from real gh workflow run ci-e2e.yml conclusion:success + capstone green from CI bundle",
-        "blocked_by": "gh CLI not installed; no GH_TOKEN; no self-hosted runner",
-        "evidence": "scratch h2-infra-probe.log",
-        "attempted": ["Re-probed which gh / tokens / actions-runner \u2014 all absent"],
-        "next_input_needed": "Operator: gh auth + runner labels [self-hosted, holocron, e2e] + secrets + gh workflow run ci-e2e.yml"
+        "id": "G4-AC1",
+        "status": "landed",
+        "landed": "e29b2a22",
+        "merge": "42696b4a",
+        "evidence": ".tmp/GATE-FIX-G4/host-probe-main.json exit!=0 ok:false; PLATFORM_IT suite 8/8"
       },
       {
-        "id": "fresh-cold-boot",
-        "required": "Fresh Maestro --run with junit failures=0 + non-empty reference-flow.mov on real Expo dev build",
-        "blocked_by": "Staged holocron.app crashes under Maestro (run4); eas not installed to rebuild",
-        "evidence": ".tmp/maestro-reference-flow/failed-this-cycle/junit.xml failures=1; coldboot-run4.log; capstone-verdict.json coldboot_gate=red",
-        "attempted": [
-          "harness --check OK with UDID + .app",
-          "run4 with metro:8081 \u2014 App crashed (17s)",
-          "Did NOT restore historical SUCCESS junit into gate step1 after skeptic rejection"
+        "id": "G4-AC4",
+        "status": "landed",
+        "evidence": "gate step4 FAIL when provenance absent; dual-path requires run_id+head_sha+artifact_sha256+conclusion:success"
+      },
+      {
+        "id": "G4-AC2",
+        "required": "ci-run-provenance.json from real gh workflow run ci-e2e.yml conclusion:success + artifact maestro-reference-flow sha256",
+        "blocked_by": "gh auth not logged in; GH_TOKEN/GITHUB_TOKEN unset; runner online:false; secrets/vars UNSET at probe",
+        "evidence": [
+          "gh auth status: You are not logged into any GitHub hosts",
+          "probe exit=1",
+          "probe.ok=False",
+          "probe.gh_authenticated=False",
+          "probe.runner_online=False",
+          "holo ci runner:status online:false matching_runners:[]"
         ],
-        "next_input_needed": "Rebuild Expo development-simulator .app via eas; re-run scripts/e2e/run-maestro-reference-flow.sh --run"
+        "next_input_needed": "Authenticate gh: run 'gh auth login' or set GH_TOKEN/GITHUB_TOKEN (never commit tokens);Bring self-hosted runner online with labels [self-hosted,holocron,e2e] (see docs/ci/macos-e2e-runner.md); or set HOLO_RUNNER_STATUS_FILE to a status JSON with online e2e runner;After auth, ensure secrets NONPROD_DATABASE_URL FLEET_URL PLATFORM_URL RN_API_KEY ZERO_ADMIN_PASSWORD and vars MAESTRO_DEVICE EXPO_DEV_BUILD_PATH MAESTRO_APP_ID are configured (probe will recheck presence without printing values)"
+      },
+      {
+        "id": "G4-AC3",
+        "required": "capstone-verdict.sh --from-ci-artifact coldboot_gate:green from downloaded CI bundle",
+        "blocked_by": "depends on AC-2 real download",
+        "evidence": "no .tmp/ci-e2e-download/junit.xml; no committed ci-run-provenance.json"
+      },
+      {
+        "id": "step2-live-count",
+        "status": "note",
+        "evidence": "gate step2 PARTIAL: live psql count=0 at regenerate time (G2 junit/capstone/media preserved; capstone still coldboot_gate=green with prior postgres/zero fields). Not fabricated PASS."
       }
     ]
   },
   "human_testing_gate": {
     "steps_total": 6,
-    "steps_pass": 2,
-    "steps_partial": 2,
-    "steps_fail": 2,
+    "steps_pass": 4,
+    "steps_partial": 1,
+    "steps_fail": 1,
     "per_step": [
       {
         "n": 1,
-        "verdict": "FAIL",
-        "evidence": ".tmp/maestro-reference-flow/failed-this-cycle/junit.xml failures=1 (App crashed; see coldboot-run4.log)"
+        "verdict": "PASS",
+        "evidence": "/Users/inference1/Projects/holocron/.tmp/maestro-reference-flow/junit.xml"
       },
       {
         "n": 2,
-        "verdict": "PASS",
-        "evidence": "psql chat_messages conversation=00000000-0000-0000-0000-000000000020 count=2"
+        "verdict": "PARTIAL",
+        "evidence": "psql chat_messages conversation=00000000-0000-0000-0000-000000000020 count=0"
       },
       {
         "n": 3,
-        "verdict": "PARTIAL",
-        "evidence": ".tmp/maestro-reference-flow/capstone-verdict.json coldboot_gate=red junit_failures=1; live zero agentContentLen>=1 via H5 (not a green simulator cold-boot)"
+        "verdict": "PASS",
+        "evidence": "/Users/inference1/Projects/holocron/.tmp/maestro-reference-flow/capstone-verdict.json coldboot_gate=green"
       },
       {
         "n": 4,
         "verdict": "FAIL",
-        "evidence": "ci-run-provenance.json absent (REDHAT-FIX-H2: no gh/runner/token)"
+        "evidence": "ci-run-provenance.json / ci-provenance.json absent (GATE-FIX-G4: dispatch ci-e2e.yml + capture-ci-provenance.sh)"
       },
       {
         "n": 5,
-        "verdict": "PARTIAL",
-        "evidence": "tests/integration/sprint20-maestro-harness.test.ts PLATFORM_IT 6/6; full --run needs non-crashing .app"
+        "verdict": "PASS",
+        "evidence": "suite=/Users/inference1/Projects/holocron/.tmp/maestro-reference-flow/step5-harness-suite.json exit=0 AND missing-build=/Users/inference1/Projects/holocron/.tmp/maestro-reference-flow/step5-missing-build-run.json no-junit"
       },
       {
         "n": 6,
@@ -81,6 +98,14 @@
       }
     ]
   },
+  "human_test": {
+    "verdict": "fail",
+    "reason": "step4 FAIL (no CI provenance); step2 PARTIAL (live psql count=0); steps 1/3/5/6 PASS with real evidence",
+    "gate_results_path": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-20-e2e-maestro-harness-and-cold-boot-reference-flow/gate-results.json",
+    "steps_executed": 6,
+    "steps_passed": 4,
+    "steps_total": 6
+  },
   "redhat_fixes": {
     "total": 10,
     "complete": 9,
@@ -88,114 +113,100 @@
     "per_fix": [
       {
         "id": "REDHAT-FIX-H1",
-        "status": "complete",
-        "landed": "de79770",
-        "evidence": "capstone-verdict.sh derives red on failures=1 this cycle; H1 tests path fix"
+        "status": "complete"
       },
       {
         "id": "REDHAT-FIX-H2",
         "status": "blocked",
-        "landed": null,
-        "evidence": "no gh/runner/token"
+        "continued_by": "GATE-FIX-G4",
+        "landed_partial": "e29b2a22 (probe+capture path; no CI run)"
       },
       {
         "id": "REDHAT-FIX-H3",
-        "status": "complete",
-        "landed": "52cd9a8",
-        "evidence": "mov cleanup + recorder fail-closed"
+        "status": "complete"
       },
       {
         "id": "REDHAT-FIX-H4",
-        "status": "complete",
-        "landed": "d82c2bf",
-        "evidence": "fork-safety 4 passed"
+        "status": "complete"
       },
       {
         "id": "REDHAT-FIX-H5",
-        "status": "complete",
-        "landed": "c26eb2b",
-        "evidence": "LIVE durable zero AC-1"
+        "status": "complete"
       },
       {
         "id": "REDHAT-FIX-H6",
-        "status": "complete",
-        "landed": "d82c2bf",
-        "evidence": "testid audit 4 passed"
+        "status": "complete"
       },
       {
         "id": "REDHAT-FIX-H7",
-        "status": "complete",
-        "landed": "71133cd",
-        "evidence": "LIVE namespace zero sync"
+        "status": "complete"
       },
       {
         "id": "REDHAT-FIX-H8",
-        "status": "complete",
-        "landed": "52cd9a8",
-        "evidence": "harness 6 passed"
+        "status": "complete"
       },
       {
         "id": "REDHAT-FIX-H9",
-        "status": "complete",
-        "landed": "52cd9a8",
-        "evidence": "lifecycle contracts"
+        "status": "complete"
       },
       {
         "id": "REDHAT-FIX-H10",
-        "status": "complete",
-        "landed": "d82c2bf",
-        "evidence": "mode regex + reset contracts"
+        "status": "complete"
       }
     ]
   },
+  "gate_fixes": {
+    "G1": {
+      "status": "complete",
+      "landed": "a4de2dbf"
+    },
+    "G2": {
+      "status": "complete",
+      "landed": "b493dd91",
+      "artifacts_preserved": true
+    },
+    "G4": {
+      "status": "partial_blocked",
+      "landed": "e29b2a22",
+      "merge": "42696b4a",
+      "ac": {
+        "AC-1": true,
+        "AC-2": false,
+        "AC-3": false,
+        "AC-4": true
+      },
+      "reviewer": "ghactions-reviewer APPROVED land_partial"
+    },
+    "G5": {
+      "status": "complete",
+      "landed": "484db17c"
+    },
+    "G6": {
+      "status": "complete",
+      "landed": "ed410422"
+    }
+  },
   "trunk_consolidation": {
     "met": true,
-    "main_sha": "2fb9d8c22c0b5e48d36fa957a87c67eabb83bf4d",
+    "main_sha": "42696b4af9baeb58d9107df34ef3e239575fefa0",
     "orphan_branches_with_commits": [],
-    "reason": "Sprint-20 task/* branches have 0 commits ahead of main"
+    "reason": "GATE-FIX-G4 merge landed; task/GATE-FIX-G4 is ancestor of main"
   },
   "status_files": {
-    "met": true,
-    "reason": "25 task files: 19 Completed, 1 Blocked (H2\u2192G4), 5 Pending GATE-FIX-G1/G2/G4/G5/G6; SPRINT.md Blocked with progress 19/25",
-    "counts": {
-      "completed": 19,
-      "blocked": 1,
-      "pending": 5,
-      "total": 25
-    }
+    "met": false,
+    "reason": "GATE-FIX-G4 AC-2/AC-3 open \u2014 task not Completed; H2 remains Blocked; step4 FAIL blocks human_test pass"
   },
   "condition_cmd_jq": ".met == true",
   "goal_state": "blocked",
-  "blocked_reason": "Open GATE-FIX-G1/G2/G4/G5/G6 + REDHAT-FIX-H2 (external gh/runner). Fresh Maestro cold-boot FAIL this cycle; step4 no CI provenance. Next: /kb-run-sprint on GATE-FIX tasks (G1\u2192G2; G5\u2225G6 early; G4 after substrate).",
-  "sha_policy": "protected_branch_sha is HEAD at goal-state write time; landing commit is child of that SHA",
-  "open_gate_fixes": [
-    {
-      "id": "GATE-FIX-G1",
-      "status": "pending",
-      "gates": [1, 5]
-    },
-    {
-      "id": "GATE-FIX-G2",
-      "status": "pending",
-      "gates": [1, 3, 5],
-      "depends_on": ["GATE-FIX-G1"]
-    },
-    {
-      "id": "GATE-FIX-G4",
-      "status": "pending",
-      "gates": [4],
-      "continues": "REDHAT-FIX-H2",
-      "depends_on": ["GATE-FIX-G1", "GATE-FIX-G2"]
-    },
-    {
-      "id": "GATE-FIX-G5",
-      "status": "pending",
-      "gates": [1, 3]
-    },
-    {
-      "id": "GATE-FIX-G6",
-      "status": "pending",
-      "gates": [5]
-    }
-  ]
+  "blocked_reason": "GATE-FIX-G4 AC-2/AC-3 + REDHAT-FIX-H2: gh not authenticated, no online self-hosted runner [self-hosted,holocron,e2e], required secrets/vars not probe-ready. Probe evidence: .tmp/GATE-FIX-G4/host-probe-main.json (ok:false). Next: gh auth login OR GH_TOKEN; register/start runner; set secrets/vars; probe --check ok:true; gh workflow run ci-e2e.yml; capture-ci-provenance.sh; regenerate gate step4 PASS.",
+  "g2_coldboot_preserved": {
+    "junit_sha256": "74c30f07f8b7ae8079f0ac1fa909599b7d007b3752e4bbf97bf509f812c5913e",
+    "final_png_sha256": "39e2d15c5635fdf24a4b85153fd8f291e64a5eccfc5ec5ce53fffcd2ec17aded",
+    "reference_flow_mov_sha256": "77cf6f107a453c0b2b409d8dadfcba86b6b9e973c2c113b866356555be1a0bbf",
+    "capstone_coldboot_gate": "green"
+  },
+  "step5_dual_evidence": {
+    "suite": "step5-harness-suite.json exitCode=0 (7/7 PLATFORM_IT)",
+    "missing_build": "step5-missing-build-run.json exitCode=1 junit_present=false"
+  }
 }
