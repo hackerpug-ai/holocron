@@ -186,10 +186,47 @@ scripts/e2e/run-maestro-reference-flow.sh --check
 |------|------|---------|
 | `MAESTRO_DEVICE` | repo variable | Named simulator (e.g. `iPhone 17`) |
 | `EXPO_DEV_BUILD_PATH` | repo variable / runner env | Absolute path to `.app` on the runner host |
+| `MAESTRO_APP_ID` | repo variable | App bundle id (e.g. `org.name.holocron`) |
+| `NONPROD_DATABASE_URL` | repo secret | Nonprod Postgres for Maestro harness |
+| `FLEET_URL` | repo secret | OpenAI-compatible fleet base URL |
+| `PLATFORM_URL` | repo secret | Hono platform base URL |
+| `RN_API_KEY` | repo secret | RN/Hono API key |
+| `ZERO_ADMIN_PASSWORD` | repo secret | zero-cache admin password |
 | `RUNNER_TOKEN` | operator secret | Registration only — never stored in repo |
 | App / EAS credentials | EAS / secrets.yaml | Local eas build as needed |
 
 Do **not** commit actions-runner credentials, provisioning profiles, or `.app` bundles.
+
+### Fail-closed ci-e2e dispatch probe (GATE-FIX-G4)
+
+Before `gh workflow run ci-e2e.yml`, operators can check gh/auth/runner/secrets/vars
+without printing secret values:
+
+```bash
+# Exit non-zero + JSON ok:false + next_input_needed when any prereq is missing
+scripts/e2e/probe-ci-e2e-prereqs.sh --check
+```
+
+| Condition | Exit | Observables |
+|-----------|------|-------------|
+| `gh` not on PATH | ≠0 | `ok: false`, `gh_present: false`, `next_input_needed` mentions gh |
+| gh present, not authenticated | ≠0 | `gh_authenticated: false`, next_input names `gh auth login` / `GH_TOKEN` |
+| no online runner labels `self-hosted,holocron,e2e` | ≠0 | `runner_online: false` |
+| required secrets/vars missing (when listable) | ≠0 | `secrets`/`vars` maps with `SET`/`UNSET` only — **never values** |
+| all ready | 0 | `ok: true` — safe to dispatch |
+
+After a real successful run:
+
+```bash
+# Fail closed if conclusion != success or download/hash fails
+scripts/e2e/capture-ci-provenance.sh --run-id <run_id>
+# Writes .spec/.../ci-run-provenance.json (commit only after real success)
+scripts/e2e/capstone-verdict.sh --from-ci-artifact --artifact-dir .tmp/ci-e2e-download/
+scripts/e2e/regenerate-sprint-gate.sh sprint-20
+# Step 4 PASS only from provenance with run_id + head_sha + artifact_sha256 + conclusion:success
+```
+
+Probe-green alone never flips human-gate step 4 PASS.
 
 ## Verification matrix
 
