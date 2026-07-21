@@ -1,0 +1,239 @@
+@@GATE-META step=step1 cmd_sha=d16ade81351917abd9d0f69bdabf7b4e3f07da90bfea0435d4e8b4a59b5869fb@@
++ bun run services/platform/src/cli/holo.ts mission run whatsNew --date 2026-07-21 --json
+{
+  "attemptCount": 1,
+  "checkpointStageIndex": 3,
+  "goal": "daily briefing for 2026-07-21",
+  "idempotencyKey": "whatsnew:2026-07-21",
+  "ok": true,
+  "output": {
+    "assayText": "1.  **Analyze the Request:**\n    *   **Type:** Daily briefing synthesis.\n    *   **Date:** 2026-07-21.\n    *   **Input Headlines:** Three specific headlines provided in JSON format.\n    *   **Constraint:** One-paragraph synthesis.\n    *   **Format:** Plain text only.\n\n2.  **Analyze the Headlines:**\n    *   *Headline 1:* \"2026-07-21: durable workflow checkpoints — scaffold signal #1\"\n        *   Source: Dev.to\n        *   Category: Discovery\n        *   Topic: durable workflow checkpoints\n        *   Context: Deterministic scaffolding.\n    *   *Headline 2:* \"2026-07-21: hybrid search RRF — scaffold signal #2\"\n        *   Source: Hacker News\n        *   Category: Trend\n        *   Topic: hybrid search RRF (Reciprocal Rank Fusion)\n    *   *Headline 3:* \"2026-07-21: local inference fleet routing — scaffold signal #3\"\n        *   Source: GitHub Trending\n        *   Category: Discovery\n        *   Topic: local inference fleet routing\n\n3.  **Synthesize the Content:**\n    *   *Core Themes:* Software engineering, infrastructure, backend systems, AI/ML operations (inference).\n    *   *Specific Topics:* Workflow durability (checkpointing), Search algorithms (RRF), and Inference infrastructure (fleet routing).\n    *   *Sources:* Dev.to, Hacker News, GitHub Trending (mix of community discussion and code trends).\n    *   *Date Context:* July 21, 2026.\n\n4.  **Drafting the Synthesis (Internal Monologue/Trial Phrases):**\n    *   *Draft 1:* Today's briefing focuses on infrastructure and backen…",
+    "date": "2026-07-21",
+    "documentType": "daily-briefing",
+    "fleetManifestVersion": "1.0.0",
+    "gatherProvenance": "Deterministic scaffolding (stable hash of inputs; not live source fetch)",
+    "goal": "daily briefing for 2026-07-21",
+    "headlines": [
+      {
+        "category": "discovery",
+        "source": "Dev.to",
+        "summary": "Deterministic scaffolding (stable hash of inputs; not live source fetch). Topic slot: durable workflow checkpoints / source slot: Dev.to.",
+        "title": "2026-07-21: durable workflow checkpoints — scaffold signal #1",
+        "url": "https://dev.to/item?d=2026-07-21&i=1"
+      },
+      {
+        "category": "trend",
+        "source": "Hacker News",
+        "summary": "Deterministic scaffolding (stable hash of inputs; not live source fetch). Topic slot: hybrid search RRF / source slot: Hacker News.",
+        "title": "2026-07-21: hybrid search RRF — scaffold signal #2",
+        "url": "https://news.ycombinator.com/item?d=2026-07-21&i=2"
+      },
+      {
+        "category": "discovery",
+        "source": "GitHub Trending",
+        "summary": "Deterministic scaffolding (stable hash of inputs; not live source fetch). Topic slot: local inference fleet routing / source slot: GitHub Trending.",
+        "title": "2026-07-21: local inference fleet routing — scaffold signal #3",
+        "url": "https://github.com/trending/item?d=2026-07-21&i=3"
+      },
+      {
+        "category": "trend",
+        "source": "arXiv cs.AI",
+        "summary": "Deterministic scaffolding (stable hash of inputs; not live source fetch). Topic slot: structured output guardrails / source slot: arXiv cs.AI.",
+        "title": "2026-07-21: structured output guardrails — scaffold signal #4",
+        "url": "https://arxiv.org/item?d=2026-07-21&i=4"
+      },
+      {
+        "category": "discovery",
+        "source": "Lobsters",
+        "summary": "Deterministic scaffolding (stable hash of inputs; not live source fetch). Topic slot: agentic mission templates / source slot: Lobsters.",
+        "title": "2026-07-21: agentic mission templates — scaffold signal #5",
+        "url": "https://lobste.rs/item?d=2026-07-21&i=5"
+      }
+    ],
+    "links": [
+      "https://dev.to/item?d=2026-07-21&i=1",
+      "https://news.ycombinator.com/item?d=2026-07-21&i=2",
+      "https://github.com/trending/item?d=2026-07-21&i=3",
+      "https://arxiv.org/item?d=2026-07-21&i=4",
+      "https://lobste.rs/item?d=2026-07-21&i=5"
+    ],
+    "summaries": [
+      {
+        "body": "Deterministic scaffolding (stable hash of inputs; not live source fetch). Headline slots: 2026-07-21: durable workflow checkpoints — scaffold signal #1 · 2026-07-21: hybrid search RRF — scaffold signal #2 · 2026-07-21: local inference fleet routing — scaffold signal #3",
+        "title": "Daily briefing scaffold — 2026-07-21"
+      },
+      {
+        "body": "Deterministic scaffolding (stable hash of inputs; not live source fetch). Watching durable workflow checkpoints and local inference fleet routing on 2026-07-21.",
+        "title": "Cross-source pattern slots"
+      }
+    ],
+    "templateKey": "whatsnew"
+  },
+  "provenance": {
+    "budgetPolicy": {
+      "cost": 0,
+      "maxSteps": 12,
+      "tokens": 12000,
+      "wallMs": 180000
+    },
+    "compilerVersion": "mission-compiler@1.0.0",
+    "definitionHash": "cf94251ba2be7e50f9a9d67910a25da5278e9910afd47e5228aca32bd1e288a0",
+    "executorRef": "builtin.whatsnew-commit@1",
+    "fleetManifest": {
+      "defaultEndpoint": "http://127.0.0.1:4545",
+      "roles": {
+        "convergent": {
+          "concurrency": 2,
+          "contextLimit": 262144,
+          "degradationAction": "surface-unavailable",
+          "endpoint": "http://127.0.0.1:4545",
+          "healthProbe": {
+            "expectStatus": 200,
+            "method": "GET",
+            "path": "/v1/models",
+            "timeoutMs": 3000
+          },
+          "litellmModelId": "reviewer",
+          "modelRevision": "qwen3.6-27b-mtp-q8_0",
+          "role": "convergent",
+          "structuredOutput": true,
+          "timeoutMs": 180000
+        },
+        "divergent": {
+          "concurrency": 4,
+          "contextLimit": 32768,
+          "degradationAction": "surface-unavailable",
+          "endpoint": "http://127.0.0.1:4545",
+          "healthProbe": {
+            "expectStatus": 200,
+            "method": "GET",
+            "path": "/v1/models",
+            "timeoutMs": 3000
+          },
+          "litellmModelId": "implementer",
+          "modelRevision": "qwen3.6-35b-a3b-mtp-q8_k_xl",
+          "role": "divergent",
+          "structuredOutput": true,
+          "timeoutMs": 120000
+        },
+        "embed": {
+          "concurrency": 8,
+          "contextLimit": 8192,
+          "degradationAction": "fail-closed",
+          "embed": {
+            "embeddingDimension": 1024,
+            "prefixPolicy": {
+              "document": "passage: ",
+              "query": "query: "
+            }
+          },
+          "endpoint": "http://127.0.0.1:4545",
+          "healthProbe": {
+            "expectStatus": 200,
+            "method": "GET",
+            "path": "/v1/models",
+            "timeoutMs": 3000
+          },
+          "litellmModelId": "qwen3-embedding",
+          "modelRevision": "qwen3-embedding-0.6b-1024",
+          "role": "embed",
+          "structuredOutput": false,
+          "timeoutMs": 30000
+        },
+        "judge": {
+          "concurrency": 2,
+          "contextLimit": 262144,
+          "degradationAction": "surface-unavailable",
+          "endpoint": "http://127.0.0.1:4545",
+          "healthProbe": {
+            "expectStatus": 200,
+            "method": "GET",
+            "path": "/v1/models",
+            "timeoutMs": 3000
+          },
+          "litellmModelId": "reviewer",
+          "modelRevision": "qwen3.6-27b-mtp-q8_0",
+          "role": "judge",
+          "structuredOutput": true,
+          "timeoutMs": 180000
+        },
+        "rerank": {
+          "concurrency": 4,
+          "contextLimit": 8192,
+          "degradationAction": "fail-closed",
+          "endpoint": "http://127.0.0.1:4545",
+          "healthProbe": {
+            "expectStatus": 200,
+            "method": "GET",
+            "path": "/v1/models",
+            "timeoutMs": 3000
+          },
+          "litellmModelId": "qwen3-reranker",
+          "modelRevision": "qwen3-reranker-0.6b",
+          "role": "rerank",
+          "structuredOutput": false,
+          "timeoutMs": 30000
+        }
+      },
+      "schemaVersion": "1.0.0"
+    },
+    "fleetManifestHash": "b64b1bcc2843978d224ced2f47edf23fd67e3fe3b2b0919ce152f5cca9382cba",
+    "fleetManifestPath": "/Users/inference1/Projects/holocron/services/platform/fleet/manifest.json",
+    "fleetManifestVersion": "1.0.0",
+    "modelRevisions": {
+      "assay": "qwen3.6-35b-a3b-mtp-q8_k_xl",
+      "plan": "qwen3.6-35b-a3b-mtp-q8_k_xl"
+    },
+    "noCloudFallback": true,
+    "outputSchemaRef": "mission.whatsnew.briefing",
+    "outputSchemaVersion": 1,
+    "registrySnapshotHash": "8c6d2948e239c3cb5c92a03217aaf0a22382993700b8a025c327abb2bee51d86",
+    "roleResolution": {
+      "assay": {
+        "allowEscape": false,
+        "endpoint": "http://127.0.0.1:4545",
+        "fleetManifestVersion": "1.0.0",
+        "litellmModelId": "implementer",
+        "modelRevision": "qwen3.6-35b-a3b-mtp-q8_k_xl",
+        "provider": "fleet",
+        "role": "divergent",
+        "stageId": "assay"
+      },
+      "plan": {
+        "allowEscape": false,
+        "endpoint": "http://127.0.0.1:4545",
+        "fleetManifestVersion": "1.0.0",
+        "litellmModelId": "implementer",
+        "modelRevision": "qwen3.6-35b-a3b-mtp-q8_k_xl",
+        "provider": "fleet",
+        "role": "divergent",
+        "stageId": "plan"
+      }
+    },
+    "schemaRef": "mission.whatsnew.briefing",
+    "schemaVersion": 1,
+    "templateKey": "whatsnew",
+    "templateVersion": "1.0.0",
+    "traceId": "mission:ab0824a5-dcfa-44d6-9411-9945c991fcf4"
+  },
+  "replay": true,
+  "runId": "019f86bb-ea35-7266-a0d1-f50af2a7f1cd",
+  "status": "completed",
+  "templateKey": "whatsnew",
+  "templateVersion": "1.0.0",
+  "traceId": "mission:ab0824a5-dcfa-44d6-9411-9945c991fcf4",
+  "usage": {
+    "budget": {
+      "cost": 0,
+      "maxSteps": 12,
+      "tokens": 12000,
+      "wallMs": 180000
+    },
+    "cost": 0,
+    "maxSteps": 12,
+    "stepsUsed": 4,
+    "tokens": 800,
+    "wallMs": 12774
+  }
+}
+@@GATE-EXIT=0@@

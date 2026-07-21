@@ -1,5 +1,5 @@
-=== STEP 5 @ 22:01:21 ===
-CMD: bun run services/platform/src/cli/holo.ts mission run subscriptions --topic 'AI agents' --json
+@@GATE-META step=step6 cmd_sha=8395c57ab17dea4f71eed8791a341ebb812b326bf488443179489daa5501b4c4@@
++ bun run services/platform/src/cli/holo.ts mission run subscriptions --topic 'AI agents' --json
 {
   "attemptCount": 1,
   "checkpointStageIndex": 4,
@@ -7,13 +7,13 @@ CMD: bun run services/platform/src/cli/holo.ts mission run subscriptions --topic
   "idempotencyKey": "subscriptions:AI agents",
   "ok": true,
   "output": {
-    "documentId": "47e16d7a-d7b0-478f-976c-b4c92e9c7918",
+    "documentId": "35fe42b8-8a5f-4b81-861a-663c498c75ef",
     "fleetManifestVersion": "1.0.0",
     "goal": "AI agents",
-    "publishedAt": "2026-07-21T22:01:21.561Z",
+    "publishedAt": "2026-07-21T22:44:37.396Z",
     "researchAdmitted": false,
-    "researchRunId": "019f86b2-980a-7df3-8dc4-41fcd2a9a162",
-    "sourceRunId": "019f86b2-96c7-7707-a6e4-f6c227cc0d31",
+    "researchRunId": "019f86da-2fab-74b5-9d16-b441c64d6ca8",
+    "sourceRunId": "019f86da-2e39-7742-b8bd-a99ad7b2feec",
     "subworkflowCalls": [
       "evidence-research"
     ],
@@ -154,14 +154,14 @@ CMD: bun run services/platform/src/cli/holo.ts mission run subscriptions --topic
     "schemaVersion": 1,
     "templateKey": "subscriptions",
     "templateVersion": "1.0.0",
-    "traceId": "mission:5b119fad-f0db-4d87-9700-3ea9cfce55c4"
+    "traceId": "mission:7ff77684-4c85-4bb8-a103-987f5a4c5697"
   },
   "replay": false,
-  "runId": "019f86b2-96c7-7707-a6e4-f6c227cc0d31",
+  "runId": "019f86da-2e39-7742-b8bd-a99ad7b2feec",
   "status": "completed",
   "templateKey": "subscriptions",
   "templateVersion": "1.0.0",
-  "traceId": "mission:5b119fad-f0db-4d87-9700-3ea9cfce55c4",
+  "traceId": "mission:7ff77684-4c85-4bb8-a103-987f5a4c5697",
   "usage": {
     "budget": {
       "cost": 0,
@@ -173,7 +173,7 @@ CMD: bun run services/platform/src/cli/holo.ts mission run subscriptions --topic
     "maxSteps": 24,
     "stepsUsed": 5,
     "tokens": 0,
-    "wallMs": 2742
+    "wallMs": 3898
   }
 }
-
+@@GATE-EXIT=0@@

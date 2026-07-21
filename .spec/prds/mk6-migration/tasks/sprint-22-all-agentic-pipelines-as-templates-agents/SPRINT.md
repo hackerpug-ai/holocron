@@ -1,7 +1,7 @@
 ---
 sequence: 22
 timeline: Phase 4 — Reference-Flow Gate and Deep Services
-status: In Progress
+status: Completed
 planned_from_roadmap_sha: 5b1ca289d800c1583b4becdd7ac456ad2c9d04a77525b29bef2cf45dd86701ce
 planned_from_source_sha: 2b7cef55f0e633073b21106df4e306fb9d59ac6f
 planned_at: 2026-07-21T04:33:19Z
@@ -11,9 +11,9 @@ planned_at: 2026-07-21T04:33:19Z
 
 **Sequence:** 22
 **Timeline:** Phase 4 — Reference-Flow Gate and Deep Services
-**Status:** In Progress
-> Progress: 5/10 tasks completed · red-hat remediation queued 2026-07-21T18:30:00Z
-> Status-Note: Independent red-hat review found CRITICAL/HIGH issues; remediation required before gate re-run.
+**Status:** Completed
+> Progress: 5/5 tasks completed · updated 2026-07-21T23:01:04Z
+> Status-Note: pipes-1..5 + REDHAT-FIX-1..5 + GATE-FIX-S22 complete; human gate PASS run_id=2026-07-21T22:42:16Z @60cabdfc; independent red-hat PASS 20260721T225803Z
 
 ## Overview
 
@@ -87,5 +87,6 @@ Updated by /kb-sprint-tasks-plan --only REDHAT-FIX-5 on 2026-07-21T23:15:00Z (H-
 - REDHAT-FIX-3-implement-holo-infer-trace-and-gate-step-6.md
 - REDHAT-FIX-4-standing-subscriptions-no-manual-claims.md
 - REDHAT-FIX-5-behavioral-green-and-fleet-down-fail-closed.md
+- GATE-FIX-S22-infer-trace-accepts-mission-runid.md
 
-pipes-1..5 avg quality ~100/115; fakeability audit: **0 CRITICAL / 0 HIGH**. REDHAT-FIX-1/2/3/4/5: `validate_scenario.py` exit 0. Topological order: pipes-4 → pipes-1 ∥ pipes-2 → pipes-3 → pipes-5 → REDHAT-FIX-*. Status remains 🟠 In Progress — red-hat remediation queued.
+pipes-1..5 avg quality ~100/115; fakeability audit: **0 CRITICAL / 0 HIGH**. REDHAT-FIX-1..5 + GATE-FIX-S22: all ✅ Completed on main. Topological order: pipes-4 → pipes-1 ∥ pipes-2 → pipes-3 → pipes-5 → REDHAT-FIX-* → GATE-FIX-S22. Human gate PASS `run_id=2026-07-21T22:42:16Z` @ `60cabdfc`; independent red-hat PASS `.spec/reviews/red-hat-sprint-22-20260721T225803Z-gatefix-independent.md`.

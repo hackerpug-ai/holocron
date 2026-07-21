@@ -1,9 +1,11 @@
 # GATE-FIX-S22 — `holo infer:trace` must accept mission `runId` from a just-completed business report
 
-> Status: Backlog
+> Status: ✅ Completed
+> Commit: cf91abad0ff35f546cb9a029a35d2c6036820f1e
+> Reviewer: mastra-reviewer
+> Completed: 2026-07-21T23:01:04Z
 > Sprint: [Sprint 22 — All Agentic Pipelines as Templates/Agents](./SPRINT.md)
 > Agent: mastra-implementer
-> Reviewer: mastra-reviewer
 > Estimate: 90 min
 > Type: FEATURE
 > Priority: P0

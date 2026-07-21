@@ -1,17 +1,44 @@
 {
   "sprint_id": "sprint-22-all-agentic-pipelines-as-templates-agents",
   "met": true,
-  "updated_at": "2026-07-21T17:59:18.786472+00:00",
+  "updated_at": "2026-07-21T23:01:30Z",
   "tasks": {
     "complete": true,
-    "total": 5,
-    "completed": 5
+    "total": 11,
+    "completed": 11,
+    "breakdown": {
+      "pipes": 5,
+      "redhat_fix": 5,
+      "gate_fix": 1
+    },
+    "ids": [
+      "pipes-1",
+      "pipes-2",
+      "pipes-3",
+      "pipes-4",
+      "pipes-5",
+      "REDHAT-FIX-1",
+      "REDHAT-FIX-2",
+      "REDHAT-FIX-3",
+      "REDHAT-FIX-4",
+      "REDHAT-FIX-5",
+      "GATE-FIX-S22"
+    ]
   },
   "gate": {
     "verdict": "PASS",
+    "run_id": "2026-07-21T22:42:16Z",
+    "run_kind": "final-post-gate-fix",
+    "reviewed_sha": "60cabdfc054550ff4142e2be1203783006ac1dca",
     "human_steps_documented": 6,
+    "steps_total": 7,
+    "steps_passed": 7,
+    "deliverable_items_passed": 6,
+    "deliverable_items_total": 6,
+    "evidence_dir": ".gate-evidence/2026-07-21T22:42:16Z",
+    "fail_archive_preserved": ".gate-evidence/2026-07-21T22:12:30Z",
     "e2e_coverage": "all covered",
-    "updated_at": "2026-07-21T17:59:18.523762+00:00"
+    "updated_at": "2026-07-21T22:47:41Z"
   },
   "e2e": {
     "verdict": "pass",
@@ -22,29 +49,40 @@
     "typecheck": "pass",
     "unit": "pass",
     "lint": "partial-preexisting-spec-noise",
-    "notes": "Full pnpm lint fails on legacy .spec JSON formatting; typecheck clean; unit suite green on main pre-commit path."
+    "notes": "Product tree clean at reviewed SHA; closeout commits .spec evidence only."
   },
   "human_test": {
     "verdict": "pass",
-    "steps_executed": 6,
-    "steps_passed": 6,
-    "steps_total": 6
+    "steps_executed": 7,
+    "steps_passed": 7,
+    "steps_total": 7,
+    "deliverable_items_passed": 6,
+    "deliverable_items_total": 6,
+    "run_id": "2026-07-21T22:42:16Z",
+    "verified": true
   },
   "status_files": {
     "parity": true,
     "audit_exit": 0,
-    "stdout": "{\"ok\": true, \"op\": \"audit\", \"parity\": true, \"sprint_dir\": \"/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-22-all-agentic-pipelines-as-templates-agents\", \"sprint_lifecycle\": \"completed\", \"totals\": {\"files\": 5, \"completed\": 5, \"open\": 0, \"tracker_entries\": 0, \"tracker_matched\": 0}, \"drift\": [], \"checked_at\": \"2026-07-21T17:59:18Z\"}\n"
+    "stdout": "{\"ok\": true, \"op\": \"audit\", \"parity\": true, \"sprint_dir\": \"/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-22-all-agentic-pipelines-as-templates-agents\", \"sprint_lifecycle\": \"completed\", \"totals\": {\"files\": 5, \"completed\": 5, \"open\": 0, \"tracker_entries\": 0, \"tracker_matched\": 0}, \"drift\": [], \"checked_at\": \"2026-07-21T23:01:04Z\"}\n",
+    "note": "sync-status audit counts pipes-* only (REDHAT-/GATE- prefixes excluded by design); all remediation + GATE-FIX task files are ✅ Completed."
   },
   "integration": {
     "consolidated": true,
     "orphans": [],
-    "completed_landed": true
+    "completed_landed": true,
+    "product_sha": "60cabdfc054550ff4142e2be1203783006ac1dca",
+    "gate_fix_commit": "cf91abad0ff35f546cb9a029a35d2c6036820f1e"
   },
   "redhat": {
     "verdict": "pass",
-    "mode": "pipes-5-capstone-review",
-    "report": ".spec/reviews/sprint-22/pipes-5-dry-collapse-review.md",
+    "mode": "independent-post-gate-fix",
+    "report": ".spec/reviews/red-hat-sprint-22-20260721T225803Z-gatefix-independent.md",
+    "prior_reports": [
+      ".spec/reviews/red-hat-sprint-22-20260721T183000Z.md",
+      ".spec/reviews/red-hat-sprint-22-20260721T220442Z-postremediation.md"
+    ],
     "high_findings_open": 0,
-    "notes": "Capstone pipes-5 adversarial review APPROVED after RED evidence archive; no additional HIGH findings requiring REDHAT-FIX."
+    "notes": "Independent red-hat PASS at 2026-07-21T22:58:03Z against main HEAD 60cabdfc; GATE-FIX live-verified; fresh 7/7 human gate sound; M-2/M-3 hygiene closed by this land."
   }
 }

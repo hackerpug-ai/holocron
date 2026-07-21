@@ -1,35 +1,58 @@
-=== STEP 5 @ 22:01:21 ===
-CMD: bun run services/platform/src/cli/holo.ts mission run subscriptions --topic 'AI agents' --json
+@@GATE-META step=step2b cmd_sha=c0c3274ef4c4f756ded98f13d679425c8a84b751aeecfdf4040cdc0550d45fe5@@
++ bun run services/platform/src/cli/holo.ts mission run shop --query 'ergonomic keyboard' --json
 {
   "attemptCount": 1,
-  "checkpointStageIndex": 4,
-  "goal": "AI agents",
-  "idempotencyKey": "subscriptions:AI agents",
+  "checkpointStageIndex": 3,
+  "goal": "shop ergonomic keyboard",
+  "idempotencyKey": "shop:ergonomic keyboard",
   "ok": true,
   "output": {
-    "documentId": "47e16d7a-d7b0-478f-976c-b4c92e9c7918",
+    "assayText": "1.  **Analyze the Request:**\n    *   **Query:** \"ergonomic keyboard\".\n    *   **Top Products:**\n        *   Keychron Q10 Alice (Barebone) - $174, Rating 4.6\n        *   Kinesis Freestyle2 Ergonomic Keyboard - $99, Rating 4.4\n        *   Microsoft Sculpt Ergonomic Keyboard - $59.99, Rating 4.2\n    *   **Task:** Recommend the \"best value\".\n    *   **Constraint:** Answer in plain text only.\n\n2.  **Evaluate \"Best Value\":**\n    *   \"Best value\" usually implies a balance between price and performance/quality, or getting the most for your money. It's subjective, but typically leans towards the lower-priced option that still offers high quality, or the mid-range option that offers a significant jump in features over the budget option.\n    *   *Option A: Keychron Q10 Alice (Barebone) - $174.*\n        *   Pros: High rating (4.6), likely high build quality (Q series usually is), specific layout (Alice) which is great for ergonomics.\n        *   Cons: \"Barebone\" means no switches/keycaps included (requires extra cost/time), most expensive ($174).\n        *   Value verdict: Expensive, hidden costs.\n    *   *Option B: Kinesis Freestyle2 Ergonomic Keyboard - $99.*\n        *   Pros: Good rating (4.4), specific brand known for ergonomics (split keyboard), mid-range price.\n        *   Cons: Not the cheapest.\n        *   Value verdict: Solid choice, but is it better than the cheaper one?\n    *   *Option C: Microsoft Sculpt Ergonomic Keyboard - $59.99.*\n        *   Pros: Lowest price ($59.99), d…",
     "fleetManifestVersion": "1.0.0",
-    "goal": "AI agents",
-    "publishedAt": "2026-07-21T22:01:21.561Z",
-    "researchAdmitted": false,
-    "researchRunId": "019f86b2-980a-7df3-8dc4-41fcd2a9a162",
-    "sourceRunId": "019f86b2-96c7-7707-a6e4-f6c227cc0d31",
-    "subworkflowCalls": [
-      "evidence-research"
+    "gatherProvenance": "Deterministic scaffolding (stable catalog/hash slots; not live marketplace fetch)",
+    "goal": "shop ergonomic keyboard",
+    "products": [
+      {
+        "condition": "new",
+        "currency": "USD",
+        "price": 174,
+        "rating": 4.6,
+        "retailer": "deterministic-scaffolding:Keychron",
+        "title": "Keychron Q10 Alice (Barebone)",
+        "url": "https://www.keychron.com/products/keychron-q10"
+      },
+      {
+        "condition": "new",
+        "currency": "USD",
+        "price": 99,
+        "rating": 4.4,
+        "retailer": "deterministic-scaffolding:Kinesis",
+        "title": "Kinesis Freestyle2 Ergonomic Keyboard",
+        "url": "https://kinesis-ergo.com/shop/freestyle2/"
+      },
+      {
+        "condition": "new",
+        "currency": "USD",
+        "price": 59.99,
+        "rating": 4.2,
+        "retailer": "deterministic-scaffolding:Microsoft",
+        "title": "Microsoft Sculpt Ergonomic Keyboard",
+        "url": "https://www.microsoft.com/sculpt-ergonomic-keyboard"
+      }
     ],
-    "templateKey": "subscriptions",
-    "topic": "AI agents"
+    "query": "ergonomic keyboard",
+    "templateKey": "shop"
   },
   "provenance": {
     "budgetPolicy": {
       "cost": 0,
-      "maxSteps": 24,
-      "tokens": 24000,
-      "wallMs": 360000
+      "maxSteps": 12,
+      "tokens": 12000,
+      "wallMs": 180000
     },
     "compilerVersion": "mission-compiler@1.0.0",
-    "definitionHash": "58798837f57e4f0fefa357f0e48e1ab09654a18e72efb921fddc9e626636d58c",
-    "executorRef": "builtin.subscriptions-commit@1",
+    "definitionHash": "9995b0a494d457005d7337694134e9ceb00c0beb41af9fbb2965151a57f4fa9c",
+    "executorRef": "builtin.shop-commit@1",
     "fleetManifest": {
       "defaultEndpoint": "http://127.0.0.1:4545",
       "roles": {
@@ -132,13 +155,24 @@ CMD: bun run services/platform/src/cli/holo.ts mission run subscriptions --topic
     "fleetManifestPath": "/Users/inference1/Projects/holocron/services/platform/fleet/manifest.json",
     "fleetManifestVersion": "1.0.0",
     "modelRevisions": {
+      "assay": "qwen3.6-35b-a3b-mtp-q8_k_xl",
       "plan": "qwen3.6-35b-a3b-mtp-q8_k_xl"
     },
     "noCloudFallback": true,
-    "outputSchemaRef": "mission.subscriptions.output",
+    "outputSchemaRef": "mission.shop.results",
     "outputSchemaVersion": 1,
     "registrySnapshotHash": "8c6d2948e239c3cb5c92a03217aaf0a22382993700b8a025c327abb2bee51d86",
     "roleResolution": {
+      "assay": {
+        "allowEscape": false,
+        "endpoint": "http://127.0.0.1:4545",
+        "fleetManifestVersion": "1.0.0",
+        "litellmModelId": "implementer",
+        "modelRevision": "qwen3.6-35b-a3b-mtp-q8_k_xl",
+        "provider": "fleet",
+        "role": "divergent",
+        "stageId": "assay"
+      },
       "plan": {
         "allowEscape": false,
         "endpoint": "http://127.0.0.1:4545",
@@ -150,30 +184,30 @@ CMD: bun run services/platform/src/cli/holo.ts mission run subscriptions --topic
         "stageId": "plan"
       }
     },
-    "schemaRef": "mission.subscriptions.output",
+    "schemaRef": "mission.shop.results",
     "schemaVersion": 1,
-    "templateKey": "subscriptions",
+    "templateKey": "shop",
     "templateVersion": "1.0.0",
-    "traceId": "mission:5b119fad-f0db-4d87-9700-3ea9cfce55c4"
+    "traceId": "mission:72da5285-f38d-407e-b722-116437d09e12"
   },
   "replay": false,
-  "runId": "019f86b2-96c7-7707-a6e4-f6c227cc0d31",
+  "runId": "019f86be-6620-7815-b19d-6b18af982f39",
   "status": "completed",
-  "templateKey": "subscriptions",
+  "templateKey": "shop",
   "templateVersion": "1.0.0",
-  "traceId": "mission:5b119fad-f0db-4d87-9700-3ea9cfce55c4",
+  "traceId": "mission:72da5285-f38d-407e-b722-116437d09e12",
   "usage": {
     "budget": {
       "cost": 0,
-      "maxSteps": 24,
-      "tokens": 24000,
-      "wallMs": 360000
+      "maxSteps": 12,
+      "tokens": 12000,
+      "wallMs": 180000
     },
     "cost": 0,
-    "maxSteps": 24,
-    "stepsUsed": 5,
-    "tokens": 0,
-    "wallMs": 2742
+    "maxSteps": 12,
+    "stepsUsed": 4,
+    "tokens": 585,
+    "wallMs": 11946
   }
 }
-
+@@GATE-EXIT=0@@

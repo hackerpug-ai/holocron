@@ -1,0 +1,10 @@
+   template_key    | version |                                               fleet_manifest_path                                               
+-------------------+---------+-----------------------------------------------------------------------------------------------------------------
+ assimilate        | 1.0.0   | /Users/inference1/Projects/holocron/.worktrees/GATE-FIX-infer-trace-runid/services/platform/fleet/manifest.json
+ business-report   | 1.0.1   | /Users/inference1/Projects/holocron/.worktrees/GATE-FIX-infer-trace-runid/services/platform/fleet/manifest.json
+ evidence-research | 1.0.3   | /Users/inference1/Projects/holocron/.worktrees/GATE-FIX-infer-trace-runid/services/platform/fleet/manifest.json
+ shop              | 1.0.0   | /Users/inference1/Projects/holocron/.worktrees/GATE-FIX-infer-trace-runid/services/platform/fleet/manifest.json
+ subscriptions     | 1.0.0   | /Users/inference1/Projects/holocron/.worktrees/GATE-FIX-infer-trace-runid/services/platform/fleet/manifest.json
+ whatsnew          | 1.0.0   | /Users/inference1/Projects/holocron/.worktrees/GATE-FIX-infer-trace-runid/services/platform/fleet/manifest.json
+(6 rows)
+

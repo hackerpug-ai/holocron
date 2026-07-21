@@ -1,0 +1,236 @@
+@@GATE-META step=step2 cmd_sha=925cd83277b33cdaee98324b4b34d56797f892e567261cf0dff4e5bcf6959d76@@
++ bun run services/platform/src/cli/holo.ts mission run assimilate --target facebook/react --json
+{
+  "attemptCount": 1,
+  "checkpointStageIndex": 3,
+  "goal": "assimilate facebook/react",
+  "idempotencyKey": "assimilate:facebook/react",
+  "ok": true,
+  "output": {
+    "architecture": {
+      "components": [
+        {
+          "name": "reconciler",
+          "path": "packages/react-reconciler",
+          "responsibility": "Fiber scheduling"
+        },
+        {
+          "name": "react-dom",
+          "path": "packages/react-dom",
+          "responsibility": "DOM host config"
+        },
+        {
+          "name": "scheduler",
+          "path": "packages/scheduler",
+          "responsibility": "Priority lanes"
+        },
+        {
+          "name": "react",
+          "path": "packages/react",
+          "responsibility": "Public API surface"
+        }
+      ],
+      "overview": "Deterministic scaffolding (stable hash of inputs; not live source fetch). React: declarative UI library with fiber reconciler, concurrent rendering, packages monorepo."
+    },
+    "assayText": "1.  **Analyze the Request:**\n    *   **Action:** ASSAY (assess/analyze).\n    *   **Target:** `facebook/react` repository.\n    *   **Focus Components:** Reconciler, react-dom, scheduler, react.\n    *   **Output Format:** Short evaluation note.\n    *   **Constraint:** Plain text only.\n\n2.  **Analyze the Target (`facebook/react`):**\n    *   I need to access my internal knowledge base about the React repository architecture up to my knowledge cutoff (and generally valid for recent stable versions).\n    *   *Core components specified:*\n        *   `react`: The core API (Hooks, Components, Context). Platform agnostic.\n        *   `reconciler` (often in `react-reconciler` package): The core logic for updates, fiber tree traversal, and diffing. The \"engine\" of React.\n        *   `react-dom`: The platform-specific renderer for the web (DOM manipulation).\n        *   `scheduler`: Prioritizes updates, controls time-slicing, and implements the \"concurrent mode\" features.\n\n3.  **Drafting the Evaluation (Iterative Process):**\n\n    *   *Attempt 1 (Mental Draft):* The React repo is well-structured. The `react` package is small and just the API. `reconciler` does the heavy lifting with the fiber architecture. `react-dom` bridges the fiber nodes to actual DOM elements. `scheduler` makes concurrent rendering work by prioritizing tasks. It's a modular and solid design that separates concerns effectively.\n\n    *   *Attempt 2 (Refining for \"Evaluation Note\" style):* React exhibits a highly modular…",
+    "evaluation": {
+      "architecture": 5,
+      "documentation": 4,
+      "notes": "Deterministic scaffolding (stable hash of inputs; not live source fetch). Documented public monorepo conventions for facebook/react fixture.",
+      "patterns": 5,
+      "testing": 5
+    },
+    "fleetManifestVersion": "1.0.0",
+    "gatherProvenance": "Deterministic scaffolding (stable hash of inputs; not live source fetch)",
+    "goal": "assimilate facebook/react",
+    "patterns": [
+      {
+        "description": "useState/useEffect hooks as the primary state primitive.",
+        "examples": [
+          "packages/react/src/ReactHooks.js"
+        ],
+        "name": "hooks"
+      },
+      {
+        "description": "Incremental rendering via linked fiber nodes and lanes.",
+        "examples": [
+          "packages/react-reconciler/src/ReactFiber.js"
+        ],
+        "name": "fiber tree"
+      },
+      {
+        "description": "Pluggable host configs for DOM, native, and test renderers.",
+        "name": "host config"
+      }
+    ],
+    "repoUrl": "facebook/react",
+    "templateKey": "assimilate"
+  },
+  "provenance": {
+    "budgetPolicy": {
+      "cost": 0,
+      "maxSteps": 12,
+      "tokens": 12000,
+      "wallMs": 180000
+    },
+    "compilerVersion": "mission-compiler@1.0.0",
+    "definitionHash": "9f9e073be131d730f18d5412dfd2552444d6ac018b2fc2dc63eec438c6b124b6",
+    "executorRef": "builtin.assimilate-commit@1",
+    "fleetManifest": {
+      "defaultEndpoint": "http://127.0.0.1:4545",
+      "roles": {
+        "convergent": {
+          "concurrency": 2,
+          "contextLimit": 262144,
+          "degradationAction": "surface-unavailable",
+          "endpoint": "http://127.0.0.1:4545",
+          "healthProbe": {
+            "expectStatus": 200,
+            "method": "GET",
+            "path": "/v1/models",
+            "timeoutMs": 3000
+          },
+          "litellmModelId": "reviewer",
+          "modelRevision": "qwen3.6-27b-mtp-q8_0",
+          "role": "convergent",
+          "structuredOutput": true,
+          "timeoutMs": 180000
+        },
+        "divergent": {
+          "concurrency": 4,
+          "contextLimit": 32768,
+          "degradationAction": "surface-unavailable",
+          "endpoint": "http://127.0.0.1:4545",
+          "healthProbe": {
+            "expectStatus": 200,
+            "method": "GET",
+            "path": "/v1/models",
+            "timeoutMs": 3000
+          },
+          "litellmModelId": "implementer",
+          "modelRevision": "qwen3.6-35b-a3b-mtp-q8_k_xl",
+          "role": "divergent",
+          "structuredOutput": true,
+          "timeoutMs": 120000
+        },
+        "embed": {
+          "concurrency": 8,
+          "contextLimit": 8192,
+          "degradationAction": "fail-closed",
+          "embed": {
+            "embeddingDimension": 1024,
+            "prefixPolicy": {
+              "document": "passage: ",
+              "query": "query: "
+            }
+          },
+          "endpoint": "http://127.0.0.1:4545",
+          "healthProbe": {
+            "expectStatus": 200,
+            "method": "GET",
+            "path": "/v1/models",
+            "timeoutMs": 3000
+          },
+          "litellmModelId": "qwen3-embedding",
+          "modelRevision": "qwen3-embedding-0.6b-1024",
+          "role": "embed",
+          "structuredOutput": false,
+          "timeoutMs": 30000
+        },
+        "judge": {
+          "concurrency": 2,
+          "contextLimit": 262144,
+          "degradationAction": "surface-unavailable",
+          "endpoint": "http://127.0.0.1:4545",
+          "healthProbe": {
+            "expectStatus": 200,
+            "method": "GET",
+            "path": "/v1/models",
+            "timeoutMs": 3000
+          },
+          "litellmModelId": "reviewer",
+          "modelRevision": "qwen3.6-27b-mtp-q8_0",
+          "role": "judge",
+          "structuredOutput": true,
+          "timeoutMs": 180000
+        },
+        "rerank": {
+          "concurrency": 4,
+          "contextLimit": 8192,
+          "degradationAction": "fail-closed",
+          "endpoint": "http://127.0.0.1:4545",
+          "healthProbe": {
+            "expectStatus": 200,
+            "method": "GET",
+            "path": "/v1/models",
+            "timeoutMs": 3000
+          },
+          "litellmModelId": "qwen3-reranker",
+          "modelRevision": "qwen3-reranker-0.6b",
+          "role": "rerank",
+          "structuredOutput": false,
+          "timeoutMs": 30000
+        }
+      },
+      "schemaVersion": "1.0.0"
+    },
+    "fleetManifestHash": "b64b1bcc2843978d224ced2f47edf23fd67e3fe3b2b0919ce152f5cca9382cba",
+    "fleetManifestPath": "/Users/inference1/Projects/holocron/services/platform/fleet/manifest.json",
+    "fleetManifestVersion": "1.0.0",
+    "modelRevisions": {
+      "assay": "qwen3.6-35b-a3b-mtp-q8_k_xl",
+      "plan": "qwen3.6-35b-a3b-mtp-q8_k_xl"
+    },
+    "noCloudFallback": true,
+    "outputSchemaRef": "mission.assimilate.report",
+    "outputSchemaVersion": 1,
+    "registrySnapshotHash": "8c6d2948e239c3cb5c92a03217aaf0a22382993700b8a025c327abb2bee51d86",
+    "roleResolution": {
+      "assay": {
+        "allowEscape": false,
+        "endpoint": "http://127.0.0.1:4545",
+        "fleetManifestVersion": "1.0.0",
+        "litellmModelId": "implementer",
+        "modelRevision": "qwen3.6-35b-a3b-mtp-q8_k_xl",
+        "provider": "fleet",
+        "role": "divergent",
+        "stageId": "assay"
+      },
+      "plan": {
+        "allowEscape": false,
+        "endpoint": "http://127.0.0.1:4545",
+        "fleetManifestVersion": "1.0.0",
+        "litellmModelId": "implementer",
+        "modelRevision": "qwen3.6-35b-a3b-mtp-q8_k_xl",
+        "provider": "fleet",
+        "role": "divergent",
+        "stageId": "plan"
+      }
+    },
+    "schemaRef": "mission.assimilate.report",
+    "schemaVersion": 1,
+    "templateKey": "assimilate",
+    "templateVersion": "1.0.0",
+    "traceId": "mission:931ba2d5-6bc6-45f5-a3aa-e189ee39efb1"
+  },
+  "replay": false,
+  "runId": "019f86d8-b29d-797a-aceb-72270c9dce3c",
+  "status": "completed",
+  "templateKey": "assimilate",
+  "templateVersion": "1.0.0",
+  "traceId": "mission:931ba2d5-6bc6-45f5-a3aa-e189ee39efb1",
+  "usage": {
+    "budget": {
+      "cost": 0,
+      "maxSteps": 12,
+      "tokens": 12000,
+      "wallMs": 180000
+    },
+    "cost": 0,
+    "maxSteps": 12,
+    "stepsUsed": 4,
+    "tokens": 551,
+    "wallMs": 10125
+  }
+}
+@@GATE-EXIT=0@@

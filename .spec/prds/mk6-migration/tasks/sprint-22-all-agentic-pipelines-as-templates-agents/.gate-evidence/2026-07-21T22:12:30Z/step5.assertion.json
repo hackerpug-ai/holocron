@@ -1,0 +1,6 @@
+{
+  "kind": "exit_and_log_regex",
+  "expected_exit": 0,
+  "expect_log_regex": "(0 per-domain|no per-domain|modules found|no shells)",
+  "expect_not_log_regex": "(FAIL|shell found|per-domain module remaining|[1-9][0-9]* per-domain modules found)"
+}

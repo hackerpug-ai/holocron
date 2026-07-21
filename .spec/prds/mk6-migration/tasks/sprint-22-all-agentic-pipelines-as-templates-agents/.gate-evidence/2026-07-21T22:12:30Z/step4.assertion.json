@@ -1,0 +1,6 @@
+{
+  "kind": "exit_and_log_regex",
+  "expected_exit": 0,
+  "expect_log_regex": "(\"reportKind\"\\s*:\\s*\"revenue-validation\"|\"templateKey\"\\s*:\\s*\"business-report\")",
+  "expect_not_log_regex": "\"ok\"\\s*:\\s*false"
+}

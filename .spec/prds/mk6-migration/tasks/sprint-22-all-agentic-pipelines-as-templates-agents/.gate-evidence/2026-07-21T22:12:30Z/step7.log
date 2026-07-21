@@ -1,0 +1,9 @@
+@@GATE-META step=step6 cmd_sha=8ec238f0bc95c716c9629740f4cafced51bfa392dd2959e7b8e7c9b9d6f0e107@@
++ bun run services/platform/src/cli/holo.ts infer:trace 019f86be-b88a-7210-be80-13cd2ffef199 --json
+{
+  "ok": false,
+  "runId": "019f86be-b88a-7210-be80-13cd2ffef199",
+  "error": "infer trace not found for id: 019f86be-b88a-7210-be80-13cd2ffef199",
+  "code": "INFER_TRACE_NOT_FOUND"
+}
+@@GATE-EXIT=1@@

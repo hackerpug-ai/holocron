@@ -2,38 +2,19 @@
   "sprint_id": "sprint-22-all-agentic-pipelines-as-templates-agents",
   "framework": "headless-service",
   "verdict": "pass",
-  "serial_exits": [
-    0,
-    0,
-    0
-  ],
+  "serial_exits": [0, 0, 0],
   "suites_passed_markers": 3,
   "suites_failed_markers": 0,
   "human_steps_coverage": [
-    {
-      "step": 1,
-      "status": "covered"
-    },
-    {
-      "step": 2,
-      "status": "covered"
-    },
-    {
-      "step": 3,
-      "status": "covered"
-    },
-    {
-      "step": 4,
-      "status": "covered"
-    },
-    {
-      "step": 5,
-      "status": "covered"
-    },
-    {
-      "step": 6,
-      "status": "covered"
-    }
+    { "step": 1, "status": "covered", "note": "whatsNew" },
+    { "step": 2, "status": "covered", "note": "assimilate" },
+    { "step": 3, "status": "covered", "note": "shop" },
+    { "step": 4, "status": "covered", "note": "business-report" },
+    { "step": 5, "status": "covered", "note": "verify:no-shells" },
+    { "step": 6, "status": "covered", "note": "subscriptions sub-workflow publish" },
+    { "step": 7, "status": "covered", "note": "infer:trace mission runId (GATE-FIX-S22)" }
   ],
-  "updated_at": "2026-07-21T17:58:33.564471+00:00"
+  "gate_run_id": "2026-07-21T22:42:16Z",
+  "reviewed_sha": "60cabdfc054550ff4142e2be1203783006ac1dca",
+  "updated_at": "2026-07-21T23:01:30Z"
 }

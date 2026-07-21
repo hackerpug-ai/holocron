@@ -1,0 +1,9 @@
+@@GATE-META step=step1 cmd_sha=d16ade81351917abd9d0f69bdabf7b4e3f07da90bfea0435d4e8b4a59b5869fb@@
++ bun run services/platform/src/cli/holo.ts mission run whatsNew --date 2026-07-21 --json
+{
+  "ok": false,
+  "error": "immutable mission template conflict for evidence-research@1.0.3: persisted row drifted from this compile on fleet_manifest_path",
+  "code": "MISSION_WHATSNEW_FAILED",
+  "errorCode": "MISSION_WHATSNEW_FAILED"
+}
+@@GATE-EXIT=1@@

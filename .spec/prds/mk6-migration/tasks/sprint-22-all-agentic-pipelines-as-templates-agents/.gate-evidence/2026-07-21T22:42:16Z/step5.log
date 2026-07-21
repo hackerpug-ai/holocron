@@ -1,0 +1,4 @@
+@@GATE-META step=step5 cmd_sha=b5885349dddabadc4b7d82d8c6c98b55da64ce68d7212ac1e2cf3615d8c555f7@@
++ bun run services/platform/src/cli/holo.ts verify:no-shells
+holo verify:no-shells — 0 per-domain modules found
+@@GATE-EXIT=0@@

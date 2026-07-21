@@ -1,126 +1,132 @@
 {
-  "sprint_id": "sprint-22-all-agentic-pipelines-as-templates-agents",
+  "sprint": "sprint-22-all-agentic-pipelines-as-templates-agents",
+  "sprint_identity": {
+    "resolved_sprint_path": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-22-all-agentic-pipelines-as-templates-agents",
+    "sprint_slug": "sprint-22-all-agentic-pipelines-as-templates-agents"
+  },
+  "run_id": "2026-07-21T22:42:16Z",
+  "reviewed_sha": "60cabdfc054550ff4142e2be1203783006ac1dca",
+  "reviewed_branch": "main",
+  "run_kind": "final-post-gate-fix",
   "verdict": "pass",
-  "runner": "kb-run-human-tests",
+  "blocked_reason": null,
+  "steps_total": 7,
+  "steps_executed": 7,
+  "steps_passed": 7,
+  "deliverable_items_total": 6,
+  "deliverable_items_passed": 6,
   "ui_driver": "none",
-  "cycle_started_at": "2026-07-21T17:58:33.562585+00:00",
-  "completed_at": "2026-07-21T17:58:33.562726+00:00",
-  "steps_total": 6,
-  "steps_executed": 6,
-  "steps_passed": 6,
+  "exec_surface": "surface:181 (94716C5C-2CCF-4862-B684-05BBB55952E9) | cmux:workspace:2",
+  "qa_surface_id": "5A6EA506-5C59-4FBC-9024-B42812271A05",
+  "qa_session_id": null,
+  "evidence_dir": ".gate-evidence/2026-07-21T22:42:16Z",
+  "verified": true,
+  "verified_mirror": {
+    "verified": true,
+    "claimed_verdict": "pass",
+    "recomputed_verdict": "pass",
+    "steps_planned": 7,
+    "steps_recomputed": 7,
+    "discrepancies": []
+  },
   "steps": [
     {
-      "id": "1",
-      "name": "Run holo mission run whatsNew",
-      "executed": true,
-      "result": "pass",
-      "log": ".spec/prds/mk6-migration/tasks/sprint-22-all-agentic-pipelines-as-templates-agents/.gate-evidence/step1.log",
-      "log_file": "step1.log"
-    },
-    {
-      "id": "2",
-      "name": "assimilate + shop",
-      "executed": true,
-      "result": "pass",
-      "log": ".spec/prds/mk6-migration/tasks/sprint-22-all-agentic-pipelines-as-templates-agents/.gate-evidence/step2a.log",
-      "log_file": "step2a.log"
-    },
-    {
-      "id": "3",
-      "name": "report --kind revenue-validation",
-      "executed": true,
-      "result": "pass",
-      "log": ".spec/prds/mk6-migration/tasks/sprint-22-all-agentic-pipelines-as-templates-agents/.gate-evidence/step3.log",
-      "log_file": "step3.log"
-    },
-    {
-      "id": "4",
-      "name": "holo verify:no-shells",
-      "executed": true,
-      "result": "pass",
-      "log": ".spec/prds/mk6-migration/tasks/sprint-22-all-agentic-pipelines-as-templates-agents/.gate-evidence/step4.log",
-      "log_file": "step4.log"
-    },
-    {
-      "id": "5",
-      "name": "subscriptions sub-workflow publish",
-      "executed": true,
-      "result": "pass",
-      "log": ".spec/prds/mk6-migration/tasks/sprint-22-all-agentic-pipelines-as-templates-agents/.gate-evidence/step5.log",
-      "log_file": "step5.log"
-    },
-    {
-      "id": "6",
-      "name": "fleet reasoning on business report",
-      "executed": true,
-      "result": "pass",
-      "log": ".spec/prds/mk6-migration/tasks/sprint-22-all-agentic-pipelines-as-templates-agents/.gate-evidence/step6.log",
-      "log_file": "step6.log"
-    }
-  ],
-  "detail_steps": [
-    {
-      "id": "1",
-      "name": "whatsNew",
+      "n": 1,
+      "deliverable_n": 1,
+      "text": "holo mission run whatsNew — produces the former daily-briefing document shape on real Postgres.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "bun run services/platform/src/cli/holo.ts mission run whatsNew --date 2026-07-21 --json",
       "executed": true,
       "result": "pass",
       "exit_code": 0,
-      "log": ".tmp/sprint-22-all-agentic-pipelines-as-templates-agents/human-tests/step1.log",
-      "log_bytes": 10274
+      "duration_ms": 16235,
+      "evidence": "documentType=\"daily-briefing\"; idempotencyKey=\"whatsnew:2026-07-21\" (deterministic); real fleet invocation (16.2s wall)",
+      "log": ".gate-evidence/2026-07-21T22:42:16Z/step1.log"
     },
     {
-      "id": "2a",
-      "name": "assimilate",
+      "n": 2,
+      "deliverable_n": 2,
+      "text": "holo mission run assimilate --target facebook/react — yields its former output.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "bun run services/platform/src/cli/holo.ts mission run assimilate --target facebook/react --json",
       "executed": true,
       "result": "pass",
       "exit_code": 0,
-      "log": ".tmp/sprint-22-all-agentic-pipelines-as-templates-agents/human-tests/step2a.log",
-      "log_bytes": 9035
+      "duration_ms": 11219,
+      "evidence": "ok=true; real fleet invocation (11.2s wall)",
+      "log": ".gate-evidence/2026-07-21T22:42:16Z/step2.log"
     },
     {
-      "id": "2b",
-      "name": "shop",
+      "n": 3,
+      "deliverable_n": 2,
+      "text": "holo mission run shop --query 'ergonomic keyboard' — yields its former output.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "bun run services/platform/src/cli/holo.ts mission run shop --query 'ergonomic keyboard' --json",
       "executed": true,
       "result": "pass",
       "exit_code": 0,
-      "log": ".tmp/sprint-22-all-agentic-pipelines-as-templates-agents/human-tests/step2b.log",
-      "log_bytes": 8261
+      "duration_ms": 9243,
+      "evidence": "ok=true; real fleet invocation (9.2s wall)",
+      "log": ".gate-evidence/2026-07-21T22:42:16Z/step3.log"
     },
     {
-      "id": "3",
-      "name": "report",
+      "n": 4,
+      "deliverable_n": 3,
+      "text": "holo mission run report --kind revenue-validation --target acme-corp.com — one template covers all four, reasoning on the fleet.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "bun run services/platform/src/cli/holo.ts mission run report --kind revenue-validation --target acme-corp.com --json",
       "executed": true,
       "result": "pass",
       "exit_code": 0,
-      "log": ".tmp/sprint-22-all-agentic-pipelines-as-templates-agents/human-tests/step3.log",
-      "log_bytes": 16606
+      "duration_ms": 44520,
+      "evidence": "reportKind=\"revenue-validation\"; templateKey=\"business-report\"; reasoningProvider=\"fleet\"; real assay+challenge (44.5s wall); runId=019f86d9-1d11-722a-946d-29c8d39434bb (extracted from assayInstanceId/challengeInstanceId composite fields; embedded UUIDv7 is the mission run id)",
+      "log": ".gate-evidence/2026-07-21T22:42:16Z/step4.log"
     },
     {
-      "id": "4",
-      "name": "no-shells",
+      "n": 5,
+      "deliverable_n": 4,
+      "text": "holo verify:no-shells — reports the per-domain copy-pasted pipeline modules are gone.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "bun run services/platform/src/cli/holo.ts verify:no-shells",
       "executed": true,
       "result": "pass",
       "exit_code": 0,
-      "log": ".tmp/sprint-22-all-agentic-pipelines-as-templates-agents/human-tests/step4.log",
-      "log_bytes": 150
+      "duration_ms": 1080,
+      "evidence": "exit 0; stdout: \"0 per-domain modules found\" — no per-domain module remaining",
+      "log": ".gate-evidence/2026-07-21T22:42:16Z/step5.log"
     },
     {
-      "id": "5",
-      "name": "subscriptions",
+      "n": 6,
+      "deliverable_n": 5,
+      "text": "holo mission run subscriptions --topic 'AI agents' — invokes shared research template as sub-workflow, publishes a document.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "bun run services/platform/src/cli/holo.ts mission run subscriptions --topic 'AI agents' --json",
       "executed": true,
       "result": "pass",
       "exit_code": 0,
-      "log": ".tmp/sprint-22-all-agentic-pipelines-as-templates-agents/human-tests/step5.log",
-      "log_bytes": 5748
+      "duration_ms": 5113,
+      "evidence": "ok=true; subworkflowCalls=[\"evidence-research\"]; published; real fleet invocation (5.1s wall)",
+      "log": ".gate-evidence/2026-07-21T22:42:16Z/step6.log"
     },
     {
-      "id": "6",
-      "name": "fleet-report",
+      "n": 7,
+      "deliverable_n": 6,
+      "text": "holo infer:trace <id> on a business report — reasoning ran server-side on the fleet. Post-GATE-FIX documented form: env -u DATABASE_URL prefix, runId from step 4.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "env -u DATABASE_URL bun run services/platform/src/cli/holo.ts infer:trace 019f86d9-1d11-722a-946d-29c8d39434bb --json",
       "executed": true,
       "result": "pass",
       "exit_code": 0,
-      "log": ".tmp/sprint-22-all-agentic-pipelines-as-templates-agents/human-tests/step6.log",
-      "log_bytes": 10823
+      "duration_ms": 1075,
+      "evidence": "ok=true; provider=\"fleet\"; 2 model calls (implementer/divergent success 1341 tokens, reviewer/convergent success 1265 tokens); traceId=mission:1dfedf8d-b620-487c-8675-6d9cf1b05acd; GATE-FIX confirmed",
+      "log": ".gate-evidence/2026-07-21T22:42:16Z/step7.log"
     }
   ]
 }

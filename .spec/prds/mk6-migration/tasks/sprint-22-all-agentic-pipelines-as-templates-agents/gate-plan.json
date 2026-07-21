@@ -1,0 +1,113 @@
+{
+  "sprint": "sprint-22-all-agentic-pipelines-as-templates-agents",
+  "sprint_identity": {
+    "resolved_sprint_path": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-22-all-agentic-pipelines-as-templates-agents",
+    "sprint_slug": "sprint-22-all-agentic-pipelines-as-templates-agents"
+  },
+  "planned_at": "2026-07-21T22:42:16Z",
+  "reviewed_sha": "60cabdfc054550ff4142e2be1203783006ac1dca",
+  "planned_steps": 7,
+  "deliverable_items": 6,
+  "note": "Fresh post-GATE-FIX run on SHA 60cabdfc. 7 literal commands across 6 documented deliverable items (deliverable 2 = assimilate + shop). Step 7 uses the post-GATE-FIX documented form with `env -u DATABASE_URL` prefix; the runId (019f86d9-1d11-722a-946d-29c8d39434bb) was extracted from step4's assayInstanceId/challengeInstanceId composite fields (the embedded UUIDv7 is the mission run id) BEFORE step7 executed. Step IDs are numeric 1-7 (verify-gate-evidence.sh requires JSON-number step IDs).",
+  "steps": [
+    {
+      "n": 1,
+      "deliverable_n": 1,
+      "text": "Run `holo mission run whatsNew` — produces the former daily-briefing document shape on real Postgres.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "bun run services/platform/src/cli/holo.ts mission run whatsNew --date 2026-07-21 --json",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "\"documentType\"\\s*:\\s*\"daily-briefing\"",
+        "expect_not_log_regex": "\"ok\"\\s*:\\s*false"
+      }
+    },
+    {
+      "n": 2,
+      "deliverable_n": 2,
+      "text": "Run `holo mission run assimilate --target facebook/react` — yields its former output.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "bun run services/platform/src/cli/holo.ts mission run assimilate --target facebook/react --json",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "\"ok\"\\s*:\\s*true",
+        "expect_not_log_regex": "\"ok\"\\s*:\\s*false"
+      }
+    },
+    {
+      "n": 3,
+      "deliverable_n": 2,
+      "text": "Run `holo mission run shop --query 'ergonomic keyboard'` — yields its former output.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "bun run services/platform/src/cli/holo.ts mission run shop --query 'ergonomic keyboard' --json",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "\"ok\"\\s*:\\s*true",
+        "expect_not_log_regex": "\"ok\"\\s*:\\s*false"
+      }
+    },
+    {
+      "n": 4,
+      "deliverable_n": 3,
+      "text": "Run `holo mission run report --kind revenue-validation --target acme-corp.com` (and competitive/ai-roi/flights) — one template covers all four, reasoning on the fleet.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "bun run services/platform/src/cli/holo.ts mission run report --kind revenue-validation --target acme-corp.com --json",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "(\"reportKind\"\\s*:\\s*\"revenue-validation\"|\"templateKey\"\\s*:\\s*\"business-report\")",
+        "expect_not_log_regex": "\"ok\"\\s*:\\s*false"
+      },
+      "captures_run_id_for_step": 7
+    },
+    {
+      "n": 5,
+      "deliverable_n": 4,
+      "text": "Run `holo verify:no-shells` — reports the per-domain copy-pasted pipeline modules are gone.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "bun run services/platform/src/cli/holo.ts verify:no-shells",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "(0 per-domain|no per-domain|modules found|no shells)",
+        "expect_not_log_regex": "(FAIL|shell found|per-domain module remaining|[1-9][0-9]* per-domain modules found)"
+      }
+    },
+    {
+      "n": 6,
+      "deliverable_n": 5,
+      "text": "Run a standing subscriptions mission — it invokes the shared research template as a sub-workflow and publishes a document.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "bun run services/platform/src/cli/holo.ts mission run subscriptions --topic 'AI agents' --json",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "(\"ok\"\\s*:\\s*true|subworkflowCalls|subscriptions)",
+        "expect_not_log_regex": "\"ok\"\\s*:\\s*false"
+      }
+    },
+    {
+      "n": 7,
+      "deliverable_n": 6,
+      "text": "Run `holo infer:trace <id>` on a business report — reasoning ran server-side on the fleet (no client-side Claude skill). Post-GATE-FIX documented form: `env -u DATABASE_URL` prefix, runId from step 4.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "env -u DATABASE_URL bun run services/platform/src/cli/holo.ts infer:trace 019f86d9-1d11-722a-946d-29c8d39434bb --json",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "\"provider\"\\s*:\\s*\"fleet\"",
+        "expect_not_log_regex": "\"ok\"\\s*:\\s*false"
+      }
+    }
+  ]
+}

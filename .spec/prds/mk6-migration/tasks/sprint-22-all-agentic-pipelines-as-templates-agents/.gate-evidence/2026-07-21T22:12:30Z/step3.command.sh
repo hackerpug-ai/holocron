@@ -1,0 +1,6 @@
+cd /Users/inference1/Projects/holocron && ( bun run services/platform/src/cli/holo.ts mission run shop --query 'ergonomic keyboard' --json ) > /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-22-all-agentic-pipelines-as-templates-agents/.gate-evidence/2026-07-21T22:12:30Z/step2b.raw 2>&1
+EC=$?
+tee -a /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-22-all-agentic-pipelines-as-templates-agents/.gate-evidence/2026-07-21T22:12:30Z/step2b.log < /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-22-all-agentic-pipelines-as-templates-agents/.gate-evidence/2026-07-21T22:12:30Z/step2b.raw
+echo "@@GATE-EXIT=$EC@@" >> /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-22-all-agentic-pipelines-as-templates-agents/.gate-evidence/2026-07-21T22:12:30Z/step2b.log
+printf "%s" "$EC" > /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-22-all-agentic-pipelines-as-templates-agents/.gate-evidence/2026-07-21T22:12:30Z/step2b.exit
+rm -f /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-22-all-agentic-pipelines-as-templates-agents/.gate-evidence/2026-07-21T22:12:30Z/step2b.raw
