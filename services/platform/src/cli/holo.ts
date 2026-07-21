@@ -110,6 +110,9 @@ interface CliArgs {
   /** gate:eval --claims/--refuting <json> */
   claimsPath: string | null;
   refutingPath: string | null;
+  /** mission run research/deepResearch --topic / --components */
+  topic: string | null;
+  components: string | null;
   /** research:trace --processes */
   processes: boolean;
   /** probe:capabilities flags */
@@ -127,6 +130,10 @@ interface CliArgs {
   maxAttempts: string | null;
   /** mission run research --goal <text> */
   goal: string | null;
+  /** mission run research/deepResearch --topic <text> */
+  topic: string | null;
+  /** mission run research/deepResearch --components <n> */
+  components: string | null;
   /** evals:run --sample known-good|deliberately-bad */
   sample: string | null;
   /** evals:run / evals:drift --dataset <version> */
@@ -396,6 +403,8 @@ function parseArgs(argv: string[]): CliArgs {
     fixture: null,
     claimsPath: null,
     refutingPath: null,
+    topic: null,
+    components: null,
     processes: false,
     timeout: null,
     explain: false,
@@ -599,6 +608,14 @@ function parseArgs(argv: string[]): CliArgs {
       args.refutingPath = resolve(argv[++i] ?? '');
     } else if (a.startsWith('--refuting=')) {
       args.refutingPath = resolve(a.slice('--refuting='.length));
+    } else if (a === '--topic') {
+      args.topic = argv[++i] ?? null;
+    } else if (a.startsWith('--topic=')) {
+      args.topic = a.slice('--topic='.length);
+    } else if (a === '--components') {
+      args.components = argv[++i] ?? null;
+    } else if (a.startsWith('--components=')) {
+      args.components = a.slice('--components='.length);
     } else if (a === '--processes') {
       args.processes = true;
     } else if (a === '--timeout') {
@@ -3770,15 +3787,44 @@ async function main(): Promise<void> {
         }
       }
 
-      // obs-1: holo mission run research --goal '...' [--json]
-      if (sub === 'run' && kind === 'research') {
-        const goal = args.goal ?? args.prompt;
-        if (!goal || goal.trim().length === 0) {
-          const error = 'mission run research requires --goal <text>';
+      // Shared evidence-research core (pipes-1): research | deepResearch | evidence-research
+      // (plus future subscriptions-research / fulcrum) all resolve to template_key=evidence-research.
+      if (
+        sub === 'run' &&
+        (kind === 'research' ||
+          kind === 'deepResearch' ||
+          kind === 'evidence-research' ||
+          kind === 'subscriptions-research' ||
+          kind === 'fulcrum')
+      ) {
+        const topic = args.topic?.trim() || null;
+        const goal = (args.goal ?? args.prompt ?? topic)?.trim() || null;
+        if (!goal) {
+          const error = `mission run ${kind} requires --topic <text> or --goal <text>`;
           if (args.json) {
             exitMissionJsonError({
               error,
               code: 'MISSION_GOAL_REQUIRED',
+              exitCode: 2,
+              usage: MISSION_USAGE,
+            });
+          }
+          console.error(`error: ${error}`);
+          process.exit(2);
+        }
+
+        const componentsRaw = args.components?.trim();
+        const components = componentsRaw ? Number(componentsRaw) : undefined;
+        if (
+          componentsRaw != null &&
+          componentsRaw.length > 0 &&
+          (!Number.isFinite(components) || !Number.isInteger(components) || (components ?? 0) < 1)
+        ) {
+          const error = `mission run ${kind} --components must be a positive integer`;
+          if (args.json) {
+            exitMissionJsonError({
+              error,
+              code: 'MISSION_COMPONENTS_INVALID',
               exitCode: 2,
               usage: MISSION_USAGE,
             });
@@ -3792,18 +3838,32 @@ async function main(): Promise<void> {
         const evidence = fixturePath
           ? (JSON.parse(readFileSync(fixturePath, 'utf8')) as never)
           : undefined;
+        const instantiation =
+          kind === 'evidence-research'
+            ? 'research'
+            : (kind as 'research' | 'deepResearch' | 'subscriptions-research' | 'fulcrum');
         try {
           const result = await runMissionTemplate(
             {
-              templateKey: 'research',
+              templateKey: kind,
               goal,
-              idempotencyKey: args.idempotencyKey ?? `research:${goal}`,
+              topic: topic ?? goal,
+              components,
+              instantiation,
+              tags: [instantiation],
+              idempotencyKey:
+                args.idempotencyKey ??
+                `${instantiation}:${goal}:${components ?? 'default'}:${Date.now()}`,
               researchEvidence: evidence,
             },
             { ownerScope: 'runtime' }
           );
           if (args.json) console.log(JSON.stringify(result, null, 2));
-          else printMissionRuntimeResult(result as Record<string, unknown>, 'mission run research');
+          else
+            printMissionRuntimeResult(
+              result as Record<string, unknown>,
+              `mission run ${kind}`
+            );
           process.exit(result.ok ? 0 : 1);
         } catch (error) {
           const payload = {

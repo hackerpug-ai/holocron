@@ -105,6 +105,11 @@ export const missionRuns = pgTable(
     modelRevisionsJson: typedJsonb('model_revisions_json').notNull(),
     errorCode: text('error_code'),
     errorMessage: text('error_message'),
+    /** Denormalized research metrics (pipes-1 evidence-research). */
+    componentsCovered: integer('components_covered'),
+    independentSourceCount: integer('independent_source_count'),
+    admittedEvidenceIds: typedJsonb('admitted_evidence_ids'),
+    executorVersion: text('executor_version'),
     startedAt: timestamptz('started_at'),
     completedAt: timestamptz('completed_at'),
     createdAt: createdAtColumn(),
@@ -127,6 +132,30 @@ export const missionRuns = pgTable(
       'mission_runs_status_check',
       sql`${t.status} IN ('pending', 'running', 'suspended', 'completed', 'failed', 'blocked', 'budget_exceeded')`
     ),
+    check(
+      'mission_runs_components_covered_nonneg',
+      sql`${t.componentsCovered} IS NULL OR ${t.componentsCovered} >= 0`
+    ),
+    check(
+      'mission_runs_independent_source_count_nonneg',
+      sql`${t.independentSourceCount} IS NULL OR ${t.independentSourceCount} >= 0`
+    ),
+  ]
+);
+
+/** Operator-facing pipeline aliases attached to a shared template run (research/deepResearch/…). */
+export const missionRunTags = pgTable(
+  'mission_run_tags',
+  {
+    runId: uuid('run_id')
+      .notNull()
+      .references(() => missionRuns.id, { onDelete: 'cascade' }),
+    tag: text('tag').notNull(),
+    createdAt: createdAtColumn(),
+  },
+  (t) => [
+    uniqueIndex('mission_run_tags_run_tag_uidx').on(t.runId, t.tag),
+    index('mission_run_tags_tag_idx').on(t.tag),
   ]
 );
 

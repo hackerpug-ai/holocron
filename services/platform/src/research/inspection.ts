@@ -89,7 +89,8 @@ async function inspectMissionRun(
     SELECT id, trace_id, status, template_key, compiled_plan_json, args_json, typed_output_json,
            role_resolution_json, model_revisions_json
     FROM mission_runs
-    WHERE id = ${sessionId}::uuid AND template_key = 'research'
+    WHERE id = ${sessionId}::uuid
+      AND template_key IN ('research', 'evidence-research')
     LIMIT 1
   `;
   const run = runs[0];

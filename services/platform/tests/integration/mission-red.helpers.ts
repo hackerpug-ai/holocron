@@ -46,6 +46,7 @@ export const EXPECTED_MISSION_TABLES = [
   'mission_templates',
   'mission_template_versions',
   'mission_runs',
+  'mission_run_tags',
   'mission_stage_runs',
   'mission_checkpoints',
   'mission_commits',
