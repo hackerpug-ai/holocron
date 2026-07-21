@@ -67,6 +67,8 @@ export default defineConfig({
       'services/platform/src/research/evidence-gate.test.ts',
       // Sprint 22 pipes-2 — parameterized business-report (4 kinds) on fleet
       'services/platform/tests/integration/business-report-template.test.ts',
+      // Sprint 22 pipes-3 — whatsnew/assimilate/shop/subscriptions + sub-workflow publish
+      'services/platform/tests/integration/pipeline-templates.test.ts',
     ],
     setupFiles: ['tests/setup/react-native.ts'],
     exclude: ['node_modules', 'dist', '.expo'],

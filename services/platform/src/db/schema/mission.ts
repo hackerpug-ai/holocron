@@ -110,6 +110,10 @@ export const missionRuns = pgTable(
     independentSourceCount: integer('independent_source_count'),
     admittedEvidenceIds: typedJsonb('admitted_evidence_ids'),
     executorVersion: text('executor_version'),
+    /** pipes-3: sub-workflow template keys invoked during this run. */
+    subworkflowCalls: typedJsonb('subworkflow_calls'),
+    /** pipes-3: published document id (standing subscriptions publish). */
+    documentId: text('document_id'),
     startedAt: timestamptz('started_at'),
     completedAt: timestamptz('completed_at'),
     createdAt: createdAtColumn(),

@@ -6,15 +6,9 @@
 
 import { makeFunctionReference } from 'convex/server';
 import { v } from 'convex/values';
-import { api, internal } from '../_generated/api';
+import { api } from '../_generated/api';
 import type { Id } from '../_generated/dataModel';
 import { internalMutation, mutation } from '../_generated/server';
-import {
-  extractRepoName,
-  INITIAL_DIMENSION_SCORES,
-  isValidGitHubUrl,
-  resolveProfile,
-} from './validators';
 
 /**
  * Save assimilation results
@@ -127,64 +121,14 @@ export const startAssimilationWithPlan = mutation({
     maxIterations: v.optional(v.number()),
     autoApprove: v.optional(v.boolean()),
   },
-  handler: async (
-    ctx,
-    { repositoryUrl, profile = 'standard', conversationId, maxIterations, autoApprove = false }
-  ): Promise<{
+  handler: async (): Promise<{
     planId: Id<'executionPlans'>;
     status: string;
   }> => {
-    // Validate URL
-    if (!isValidGitHubUrl(repositoryUrl)) {
-      throw new Error(
-        `Invalid GitHub URL: ${repositoryUrl}. Must be https://github.com/{owner}/{repo}`
-      );
-    }
-
-    // Step 1: Generate assimilation plan
-    const planId = await ctx.runMutation(api.plans.generator.generateAssimilationPlan, {
-      repositoryUrl,
-      profile,
-      maxIterations,
-      autoApprove,
-      conversationId,
-    });
-
-    // Step 2: Post plan confirmation card
-
-    const plan = await ctx.runQuery(api.plans.queries.get, { id: planId });
-
-    await ctx.runMutation(api.chatMessages.mutations.create, {
-      conversationId:
-        conversationId ??
-        (await ctx.runMutation(api.conversations.mutations.create, {
-          title: `Assimilate: ${plan?.content?.repositoryName || repositoryUrl}`,
-        })),
-      role: 'agent' as const,
-      content: `Assimilation plan generated for: ${repositoryUrl}`,
-      messageType: 'result_card' as const,
-      cardData: {
-        card_type: 'plan_confirmation',
-        plan_id: planId,
-        plan_title: plan?.content?.title || `Assimilate: ${repositoryUrl}`,
-        plan_description: plan?.content?.description || '',
-        plan_type: 'assimilation',
-        repository_url: repositoryUrl,
-        repository_name: plan?.content?.repositoryName || '',
-        dimensions: plan?.content?.dimensions || [],
-        estimated_steps: plan?.content?.estimatedSteps || 0,
-        estimated_duration: plan?.content?.estimatedDurationMs || 0,
-        profile: plan?.content?.profile || 'standard',
-        status: 'pending',
-      },
-    });
-
-    // Step 3: Return plan ID for approval
-
-    return {
-      planId,
-      status: 'pending_approval',
-    };
+    // MIGRATED_TO_MISSION_ENGINE — agentic start path disabled (pipes-3).
+    throw new Error(
+      "MIGRATED_TO_MISSION_ENGINE: assimilate agentic pipeline disabled. Use: holo mission run assimilate --target '<owner/repo>'"
+    );
   },
 });
 
@@ -205,84 +149,15 @@ export const executeApprovedAssimilationPlan = mutation({
   args: {
     planId: v.id('executionPlans'),
   },
-  handler: async (
-    ctx,
-    { planId }
-  ): Promise<{
+  handler: async (): Promise<{
     sessionId: Id<'assimilationSessions'>;
     planId: Id<'executionPlans'>;
     status: string;
   }> => {
-    // Step 1: Fetch and validate plan
-
-    const plan = await ctx.runQuery(api.plans.queries.get, { id: planId });
-
-    if (!plan) {
-      throw new Error(`Plan ${planId} not found`);
-    }
-
-    if (plan.status !== 'approved') {
-      throw new Error(`Plan ${planId} is not approved (current status: ${plan.status})`);
-    }
-
-    const repositoryUrl = plan.metadata?.repositoryUrl as string;
-    const profile = (plan.content?.profile as string) || 'standard';
-    const autoApprove = (plan.content?.autoApprove as boolean) || false;
-    const _maxIterations = (plan.content?.maxIterations as number) || 10;
-    const conversationId = plan.metadata?.conversationId as Id<'conversations'> | undefined;
-
-    // Step 2: Update plan status to executing
-
-    await ctx.runMutation(api.plans.confirmation.startExecution, { planId });
-
-    // Step 3: Create assimilation session
-
-    const now = Date.now();
-    const criteria = resolveProfile(profile);
-    const repoName = extractRepoName(repositoryUrl);
-
-    const sessionId = await ctx.db.insert('assimilationSessions', {
-      conversationId,
-      repositoryUrl,
-      repositoryName: repoName,
-      profile,
-      status: autoApprove ? 'in_progress' : 'pending_approval',
-      currentIteration: 0,
-      maxIterations: criteria.maxIterations,
-      autoApprove,
-      dimensionScores: {
-        architecture: 1,
-        patterns: 1,
-        documentation: 1,
-        dependencies: 1,
-        testing: 1,
-      },
-      terminationCriteria: criteria,
-      estimatedCostUsd: 0,
-      // Link plan to session
-      planContent: JSON.stringify(plan.content, null, 2),
-      planSummary: plan.content?.description || '',
-      createdAt: now,
-      updatedAt: now,
-      startedAt: now,
-    });
-
-    // Step 4: Schedule first iteration
-
-    if (autoApprove) {
-      // Skip approval, start immediately
-      await ctx.scheduler.runAfter(0, internal.assimilate.scheduled.processIteration, {
-        sessionId,
-      });
-    } else {
-      // Wait for user approval (session is in pending_approval status)
-    }
-
-    return {
-      sessionId,
-      planId,
-      status: autoApprove ? 'in_progress' : 'pending_approval',
-    };
+    // MIGRATED_TO_MISSION_ENGINE — agentic execute path disabled (pipes-3).
+    throw new Error(
+      "MIGRATED_TO_MISSION_ENGINE: assimilate agentic pipeline disabled. Use: holo mission run assimilate --target '<owner/repo>'"
+    );
   },
 });
 
@@ -299,62 +174,11 @@ export const startAssimilation = mutation({
     conversationId: v.optional(v.id('conversations')),
     autoApprove: v.optional(v.boolean()),
   },
-  handler: async (
-    ctx,
-    { repositoryUrl, profile = 'standard', conversationId, autoApprove = false }
-  ) => {
-    // Validate URL
-    if (!isValidGitHubUrl(repositoryUrl)) {
-      throw new Error(
-        `Invalid GitHub URL: ${repositoryUrl}. Must be https://github.com/{owner}/{repo}`
-      );
-    }
-
-    // Check for existing active session
-    const activeStatuses = [
-      'pending_approval',
-      'planning',
-      'approved',
-      'in_progress',
-      'synthesizing',
-    ];
-    const existingSessions = await ctx.db
-      .query('assimilationSessions')
-      .withIndex('by_repositoryUrl', (q) => q.eq('repositoryUrl', repositoryUrl))
-      .collect();
-
-    const activeSession = existingSessions.find((s) => activeStatuses.includes(s.status));
-    if (activeSession) {
-      return { sessionId: activeSession._id, status: activeSession.status, existing: true };
-    }
-
-    const now = Date.now();
-    const criteria = resolveProfile(profile);
-    const repoName = extractRepoName(repositoryUrl);
-
-    const sessionId = await ctx.db.insert('assimilationSessions', {
-      conversationId,
-      repositoryUrl,
-      repositoryName: repoName,
-      profile,
-      status: 'planning',
-      currentIteration: 0,
-      maxIterations: criteria.maxIterations,
-      autoApprove,
-      dimensionScores: INITIAL_DIMENSION_SCORES,
-      terminationCriteria: criteria,
-      estimatedCostUsd: 0,
-      createdAt: now,
-      updatedAt: now,
-      startedAt: now,
-    });
-
-    // Schedule iteration 0 (planning phase)
-    await ctx.scheduler.runAfter(0, internal.assimilate.scheduled.processIteration, {
-      sessionId,
-    });
-
-    return { sessionId, status: 'planning', existing: false };
+  handler: async () => {
+    // MIGRATED_TO_MISSION_ENGINE — legacy agentic start path disabled (pipes-3).
+    throw new Error(
+      "MIGRATED_TO_MISSION_ENGINE: assimilate agentic pipeline disabled. Use: holo mission run assimilate --target '<owner/repo>'"
+    );
   },
 });
 
@@ -365,23 +189,11 @@ export const approveAssimilationPlan = mutation({
   args: {
     sessionId: v.id('assimilationSessions'),
   },
-  handler: async (ctx, { sessionId }) => {
-    const session = await ctx.db.get(sessionId);
-    if (!session) throw new Error('Session not found');
-    if (session.status !== 'pending_approval') {
-      throw new Error(`Cannot approve session in status: ${session.status}`);
-    }
-
-    await ctx.db.patch(sessionId, {
-      status: 'in_progress',
-      currentIteration: 1,
-      updatedAt: Date.now(),
-    });
-
-    // Schedule first analysis iteration
-    await ctx.scheduler.runAfter(1000, internal.assimilate.scheduled.processIteration, {
-      sessionId,
-    });
+  handler: async () => {
+    // MIGRATED_TO_MISSION_ENGINE — agentic approve→iterate path disabled (pipes-3).
+    throw new Error(
+      "MIGRATED_TO_MISSION_ENGINE: assimilate agentic pipeline disabled. Use: holo mission run assimilate --target '<owner/repo>'"
+    );
   },
 });
 
@@ -402,27 +214,14 @@ export const rejectAssimilationPlan = mutation({
       throw new Error(`Cannot reject session in status: ${session.status}`);
     }
 
-    if (feedback) {
-      // Re-plan with feedback
-      await ctx.db.patch(sessionId, {
-        status: 'planning',
-        planFeedback: feedback,
-        currentIteration: 0,
-        updatedAt: Date.now(),
-      });
-
-      // Schedule re-planning
-      await ctx.scheduler.runAfter(0, internal.assimilate.scheduled.processIteration, {
-        sessionId,
-      });
-    } else {
-      // Terminal rejection
-      await ctx.db.patch(sessionId, {
-        status: 'rejected',
-        updatedAt: Date.now(),
-        completedAt: Date.now(),
-      });
-    }
+    // MIGRATED_TO_MISSION_ENGINE: no agentic re-plan schedule; terminal reject only.
+    void feedback;
+    await ctx.db.patch(sessionId, {
+      status: 'rejected',
+      updatedAt: Date.now(),
+      completedAt: Date.now(),
+      ...(feedback ? { planFeedback: feedback } : {}),
+    });
   },
 });
 

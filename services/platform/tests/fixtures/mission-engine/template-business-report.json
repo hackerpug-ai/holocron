@@ -1,61 +1,105 @@
 {
   "templateKey": "business-report",
-  "version": "1.0.0",
-  "description": "Parameterized business report (revenue-validation | competitive | ai-roi | flights) with fleet ASSAY≠CHALLENGE reasoning.",
-  "trigger": { "kind": "on-demand" },
+  "version": "1.0.1",
+  "description": "Parameterized business report (revenue-validation | competitive | ai-roi | flights) with fleet ASSAY\u2260CHALLENGE reasoning.",
+  "trigger": {
+    "kind": "on-demand"
+  },
   "stageGraph": [
     {
       "id": "plan",
       "stageKind": "business.plan@1",
       "executorRef": "builtin.business-plan@1",
-      "inputSchema": { "schemaRef": "mission.goal", "schemaVersion": 1 },
-      "outputSchema": { "schemaRef": "mission.probe.result", "schemaVersion": 1 }
+      "inputSchema": {
+        "schemaRef": "mission.goal",
+        "schemaVersion": 1
+      },
+      "outputSchema": {
+        "schemaRef": "mission.probe.result",
+        "schemaVersion": 1
+      }
     },
     {
       "id": "component_validation",
       "stageKind": "business.component-validate@1",
       "executorRef": "builtin.business-component-validate@1",
-      "inputSchema": { "schemaRef": "mission.probe.result", "schemaVersion": 1 },
-      "outputSchema": { "schemaRef": "mission.business.context", "schemaVersion": 1 }
+      "inputSchema": {
+        "schemaRef": "mission.probe.result",
+        "schemaVersion": 1
+      },
+      "outputSchema": {
+        "schemaRef": "mission.business.context",
+        "schemaVersion": 1
+      }
     },
     {
       "id": "pre_reasoning",
       "stageKind": "business.checkpoint@1",
       "executorRef": "builtin.business-checkpoint@1",
-      "inputSchema": { "schemaRef": "mission.business.context", "schemaVersion": 1 },
-      "outputSchema": { "schemaRef": "mission.business.context", "schemaVersion": 1 },
+      "inputSchema": {
+        "schemaRef": "mission.business.context",
+        "schemaVersion": 1
+      },
+      "outputSchema": {
+        "schemaRef": "mission.business.context",
+        "schemaVersion": 1
+      },
       "checkpointKey": "before-reasoning"
     },
     {
       "id": "assay",
       "stageKind": "business.assay@1",
       "executorRef": "builtin.business-assay@1",
-      "inputSchema": { "schemaRef": "mission.business.context", "schemaVersion": 1 },
-      "outputSchema": { "schemaRef": "mission.business.context", "schemaVersion": 1 },
+      "inputSchema": {
+        "schemaRef": "mission.business.context",
+        "schemaVersion": 1
+      },
+      "outputSchema": {
+        "schemaRef": "mission.business.context",
+        "schemaVersion": 1
+      },
       "checkpointKey": "after-assay"
     },
     {
       "id": "challenge",
       "stageKind": "business.challenge@1",
       "executorRef": "builtin.business-challenge@1",
-      "inputSchema": { "schemaRef": "mission.business.context", "schemaVersion": 1 },
-      "outputSchema": { "schemaRef": "mission.business.context", "schemaVersion": 1 },
+      "inputSchema": {
+        "schemaRef": "mission.business.context",
+        "schemaVersion": 1
+      },
+      "outputSchema": {
+        "schemaRef": "mission.business.context",
+        "schemaVersion": 1
+      },
       "checkpointKey": "after-challenge"
     },
     {
       "id": "post_reasoning",
       "stageKind": "business.checkpoint@1",
       "executorRef": "builtin.business-checkpoint@1",
-      "inputSchema": { "schemaRef": "mission.business.context", "schemaVersion": 1 },
-      "outputSchema": { "schemaRef": "mission.business.context", "schemaVersion": 1 },
+      "inputSchema": {
+        "schemaRef": "mission.business.context",
+        "schemaVersion": 1
+      },
+      "outputSchema": {
+        "schemaRef": "mission.business.context",
+        "schemaVersion": 1
+      },
       "checkpointKey": "after-reasoning"
     },
     {
       "id": "commit",
       "stageKind": "business.commit@1",
       "executorRef": "builtin.business-commit@1",
-      "inputSchema": { "schemaRef": "mission.business.context", "schemaVersion": 1 },
-      "outputSchema": { "schemaRef": "mission.business.report", "schemaVersion": 1 }
+      "inputSchema": {
+        "schemaRef": "mission.business.context",
+        "schemaVersion": 1
+      },
+      "outputSchema": {
+        "schemaRef": "mission.business.report",
+        "schemaVersion": 1
+      }
     }
   ],
   "toolGrants": [],
@@ -64,10 +108,18 @@
     "assay": "divergent",
     "challenge": "convergent"
   },
-  "budgets": { "wallMs": 300000, "tokens": 24000, "cost": 0, "maxSteps": 16 },
+  "budgets": {
+    "wallMs": 300000,
+    "tokens": 24000,
+    "cost": 0,
+    "maxSteps": 16
+  },
   "gateRubric": null,
   "humanGate": null,
-  "outputContract": { "schemaRef": "mission.business.report", "schemaVersion": 1 },
+  "outputContract": {
+    "schemaRef": "mission.business.report",
+    "schemaVersion": 1
+  },
   "parameterSchema": {
     "kind": {
       "type": "enum",

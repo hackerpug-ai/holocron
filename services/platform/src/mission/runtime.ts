@@ -14,6 +14,16 @@ import {
   BusinessReportKindSchema,
   type BusinessReportOutput,
 } from '../tools/schemas/business.ts';
+import type {
+  AssimilateContext,
+  AssimilateOutput,
+  ShopContext,
+  ShopOutput,
+  SubscriptionsContext,
+  SubscriptionsOutput,
+  WhatsNewContext,
+  WhatsNewOutput,
+} from '../tools/schemas/pipeline-templates.ts';
 import { type MissionGoalArgs, MissionGoalArgsSchema } from './args.ts';
 import { canonicalJsonString, canonicalJsonValue } from './canonical-json.ts';
 import { waitAtCheckpointBarrierIfRequested } from './checkpoint-barrier.ts';
@@ -22,6 +32,7 @@ import {
   emitMissionCommitCrashReadiness,
   requestedMissionCommitCrashBoundary,
 } from './crash-hooks.ts';
+import { publishDocumentForRun } from './document-publish.ts';
 import {
   assertRegisteredExecutor,
   assertRegisteredSchema,
@@ -37,6 +48,12 @@ import {
   isEvidenceResearchInstantiation,
   resolveEvidenceResearchTemplateKey,
 } from './templates/evidence-research.ts';
+import {
+  gatherAssimilateReport,
+  gatherShopProducts,
+  gatherWhatsNewBriefing,
+} from './templates/pipeline-components.ts';
+import { resolveWhatsNewTemplateKey } from './templates/whatsnew.ts';
 
 /** Fleet assay/challenge stages can exceed 60s wall; keep lease alive for mission runtime. */
 const LEASE_TTL_SECONDS = 300;
@@ -900,7 +917,523 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
     const report = assembleBusinessReport(ctx);
     return canonicalJsonValue(report);
   },
+
+  // ── pipes-3 whatsnew ────────────────────────────────────────────────────
+  'builtin.whatsnew-plan@1': async (input, context) =>
+    STAGE_EXECUTORS['builtin.fleet-probe@1'](input, context),
+  'builtin.whatsnew-gather@1': async (input, context) => {
+    const probe = parseMissionSchemaValue(
+      { schemaRef: 'mission.probe.result', schemaVersion: 1 },
+      input,
+      'whatsnew.gather.input'
+    ) as {
+      goal: string;
+      role: string;
+      endpoint: string;
+      litellmModelId: string;
+      modelRevision: string;
+      fleetManifestVersion: string;
+    };
+    const args = MissionGoalArgsSchema.parse(context.run.args_json);
+    const date = (args.date ?? extractDateFromGoal(args.goal) ?? '').trim();
+    if (!date) {
+      throw new MissionRuntimeError(
+        'MISSION_WHATSNEW_DATE_REQUIRED',
+        'whatsnew requires --date YYYY-MM-DD'
+      );
+    }
+    const gathered = gatherWhatsNewBriefing(date);
+    if (gathered.headlines.length === 0 || gathered.summaries.length === 0) {
+      throw new MissionRuntimeError(
+        'MISSION_WHATSNEW_EMPTY',
+        'whatsnew gather produced empty headlines/summaries (fail-closed)'
+      );
+    }
+    const ctx: WhatsNewContext = {
+      goal: args.goal || `daily briefing for ${date}`,
+      date,
+      role: probe.role,
+      endpoint: probe.endpoint,
+      litellmModelId: probe.litellmModelId,
+      modelRevision: probe.modelRevision,
+      fleetManifestVersion: probe.fleetManifestVersion,
+      headlines: gathered.headlines,
+      summaries: gathered.summaries,
+      links: gathered.links,
+      gatherProvenance: gathered.provenance,
+    };
+    return canonicalJsonValue(ctx);
+  },
+  'builtin.whatsnew-assay@1': async (input, context) => {
+    const ctx = parseMissionSchemaValue(
+      { schemaRef: 'mission.whatsnew.context', schemaVersion: 1 },
+      input,
+      'whatsnew.assay.input'
+    ) as WhatsNewContext;
+    const assayText = await runPipelineAssay({
+      context,
+      prompt: `ASSAY daily-briefing date=${ctx.date}. Headlines: ${JSON.stringify(ctx.headlines?.slice(0, 3))}. Return a one-paragraph synthesis. Answer in plain text only.`,
+      label: 'whatsnew',
+    });
+    return canonicalJsonValue({ ...ctx, assayText });
+  },
+  'builtin.whatsnew-commit@1': async (input) => {
+    const ctx = parseMissionSchemaValue(
+      { schemaRef: 'mission.whatsnew.context', schemaVersion: 1 },
+      input,
+      'whatsnew.commit.input'
+    ) as WhatsNewContext;
+    if (!ctx.headlines?.length || !ctx.summaries?.length || !ctx.links?.length) {
+      throw new MissionRuntimeError(
+        'MISSION_WHATSNEW_INCOMPLETE',
+        'whatsnew commit requires headlines, summaries, and links'
+      );
+    }
+    // Fail-closed: terminal AC fields must not succeed without real fleet assay text.
+    const assayText = (ctx.assayText ?? '').trim();
+    if (!assayText) {
+      throw new MissionRuntimeError(
+        'MISSION_FLEET_EMPTY_OUTPUT',
+        'whatsnew commit requires non-empty fleet assayText (scaffold alone is not success)'
+      );
+    }
+    const out: WhatsNewOutput = {
+      documentType: 'daily-briefing',
+      date: ctx.date,
+      headlines: ctx.headlines,
+      summaries: ctx.summaries,
+      links: ctx.links,
+      assayText,
+      templateKey: 'whatsnew',
+      goal: ctx.goal,
+      fleetManifestVersion: ctx.fleetManifestVersion,
+      gatherProvenance: ctx.gatherProvenance,
+    };
+    return canonicalJsonValue(out);
+  },
+
+  // ── pipes-3 assimilate ──────────────────────────────────────────────────
+  'builtin.assimilate-plan@1': async (input, context) =>
+    STAGE_EXECUTORS['builtin.fleet-probe@1'](input, context),
+  'builtin.assimilate-gather@1': async (input, context) => {
+    const probe = parseMissionSchemaValue(
+      { schemaRef: 'mission.probe.result', schemaVersion: 1 },
+      input,
+      'assimilate.gather.input'
+    ) as {
+      goal: string;
+      role: string;
+      endpoint: string;
+      litellmModelId: string;
+      modelRevision: string;
+      fleetManifestVersion: string;
+    };
+    const args = MissionGoalArgsSchema.parse(context.run.args_json);
+    const repoUrl = (args.target ?? args.goal ?? '').trim();
+    if (!repoUrl) {
+      throw new MissionRuntimeError(
+        'MISSION_ASSIMILATE_TARGET_REQUIRED',
+        'assimilate requires --target <owner/repo>'
+      );
+    }
+    const gathered = gatherAssimilateReport(repoUrl);
+    if (
+      !gathered.architecture?.components?.length ||
+      !gathered.patterns?.length ||
+      !gathered.evaluation
+    ) {
+      throw new MissionRuntimeError(
+        'MISSION_ASSIMILATE_EMPTY',
+        'assimilate gather produced empty architecture/patterns (fail-closed)'
+      );
+    }
+    const ctx: AssimilateContext = {
+      goal: args.goal || `assimilate ${repoUrl}`,
+      repoUrl,
+      role: probe.role,
+      endpoint: probe.endpoint,
+      litellmModelId: probe.litellmModelId,
+      modelRevision: probe.modelRevision,
+      fleetManifestVersion: probe.fleetManifestVersion,
+      architecture: gathered.architecture,
+      patterns: gathered.patterns,
+      evaluation: gathered.evaluation,
+      gatherProvenance: gathered.provenance,
+    };
+    return canonicalJsonValue(ctx);
+  },
+  'builtin.assimilate-assay@1': async (input, context) => {
+    const ctx = parseMissionSchemaValue(
+      { schemaRef: 'mission.assimilate.context', schemaVersion: 1 },
+      input,
+      'assimilate.assay.input'
+    ) as AssimilateContext;
+    const assayText = await runPipelineAssay({
+      context,
+      prompt: `ASSAY assimilate repo=${ctx.repoUrl}. Architecture components: ${ctx.architecture?.components?.map((c) => c.name).join(', ')}. Return a short evaluation note. Answer in plain text only.`,
+      label: 'assimilate',
+    });
+    return canonicalJsonValue({ ...ctx, assayText });
+  },
+  'builtin.assimilate-commit@1': async (input) => {
+    const ctx = parseMissionSchemaValue(
+      { schemaRef: 'mission.assimilate.context', schemaVersion: 1 },
+      input,
+      'assimilate.commit.input'
+    ) as AssimilateContext;
+    if (!ctx.architecture || !ctx.patterns?.length || !ctx.evaluation) {
+      throw new MissionRuntimeError(
+        'MISSION_ASSIMILATE_INCOMPLETE',
+        'assimilate commit requires architecture, patterns, evaluation'
+      );
+    }
+    const assayText = (ctx.assayText ?? '').trim();
+    if (!assayText) {
+      throw new MissionRuntimeError(
+        'MISSION_FLEET_EMPTY_OUTPUT',
+        'assimilate commit requires non-empty fleet assayText (scaffold alone is not success)'
+      );
+    }
+    const out: AssimilateOutput = {
+      repoUrl: ctx.repoUrl,
+      architecture: ctx.architecture,
+      patterns: ctx.patterns,
+      evaluation: ctx.evaluation,
+      assayText,
+      templateKey: 'assimilate',
+      goal: ctx.goal,
+      fleetManifestVersion: ctx.fleetManifestVersion,
+      gatherProvenance: ctx.gatherProvenance,
+    };
+    return canonicalJsonValue(out);
+  },
+
+  // ── pipes-3 shop ────────────────────────────────────────────────────────
+  'builtin.shop-plan@1': async (input, context) =>
+    STAGE_EXECUTORS['builtin.fleet-probe@1'](input, context),
+  'builtin.shop-gather@1': async (input, context) => {
+    const probe = parseMissionSchemaValue(
+      { schemaRef: 'mission.probe.result', schemaVersion: 1 },
+      input,
+      'shop.gather.input'
+    ) as {
+      goal: string;
+      role: string;
+      endpoint: string;
+      litellmModelId: string;
+      modelRevision: string;
+      fleetManifestVersion: string;
+    };
+    const args = MissionGoalArgsSchema.parse(context.run.args_json);
+    const query = (args.query ?? args.goal ?? '').trim();
+    if (!query) {
+      throw new MissionRuntimeError('MISSION_SHOP_QUERY_REQUIRED', 'shop requires --query <term>');
+    }
+    const products = gatherShopProducts(query);
+    if (products.length === 0) {
+      throw new MissionRuntimeError(
+        'MISSION_SHOP_EMPTY',
+        `shop gather produced zero products for query=${query}`
+      );
+    }
+    const ctx: ShopContext = {
+      goal: args.goal || `shop ${query}`,
+      query,
+      role: probe.role,
+      endpoint: probe.endpoint,
+      litellmModelId: probe.litellmModelId,
+      modelRevision: probe.modelRevision,
+      fleetManifestVersion: probe.fleetManifestVersion,
+      products,
+      gatherProvenance:
+        'Deterministic scaffolding (stable catalog/hash slots; not live marketplace fetch)',
+    };
+    return canonicalJsonValue(ctx);
+  },
+  'builtin.shop-assay@1': async (input, context) => {
+    const ctx = parseMissionSchemaValue(
+      { schemaRef: 'mission.shop.context', schemaVersion: 1 },
+      input,
+      'shop.assay.input'
+    ) as ShopContext;
+    const assayText = await runPipelineAssay({
+      context,
+      prompt: `ASSAY shop query=${ctx.query}. Top products: ${ctx.products
+        ?.slice(0, 3)
+        .map((p) => `${p.title} $${p.price} ★${p.rating}`)
+        .join('; ')}. Recommend best value. Answer in plain text only.`,
+      label: 'shop',
+    });
+    return canonicalJsonValue({ ...ctx, assayText });
+  },
+  'builtin.shop-commit@1': async (input) => {
+    const ctx = parseMissionSchemaValue(
+      { schemaRef: 'mission.shop.context', schemaVersion: 1 },
+      input,
+      'shop.commit.input'
+    ) as ShopContext;
+    if (!ctx.products?.length) {
+      throw new MissionRuntimeError(
+        'MISSION_SHOP_INCOMPLETE',
+        'shop commit requires non-empty products'
+      );
+    }
+    const assayText = (ctx.assayText ?? '').trim();
+    if (!assayText) {
+      throw new MissionRuntimeError(
+        'MISSION_FLEET_EMPTY_OUTPUT',
+        'shop commit requires non-empty fleet assayText (scaffold alone is not success)'
+      );
+    }
+    const out: ShopOutput = {
+      query: ctx.query,
+      products: ctx.products,
+      assayText,
+      templateKey: 'shop',
+      goal: ctx.goal,
+      fleetManifestVersion: ctx.fleetManifestVersion,
+      gatherProvenance: ctx.gatherProvenance,
+    };
+    return canonicalJsonValue(out);
+  },
+
+  // ── pipes-3 subscriptions ───────────────────────────────────────────────
+  'builtin.subscriptions-plan@1': async (input, context) =>
+    STAGE_EXECUTORS['builtin.fleet-probe@1'](input, context),
+  /**
+   * Sub-workflow: invoke shared evidence-research template by template reference
+   * (not by chaining research stage executors directly on this run).
+   */
+  'subworkflow:evidence-research': async (input, context) => {
+    const probe = parseMissionSchemaValue(
+      { schemaRef: 'mission.probe.result', schemaVersion: 1 },
+      input,
+      'subscriptions.subworkflow.input'
+    ) as {
+      goal: string;
+      role: string;
+      endpoint: string;
+      litellmModelId: string;
+      modelRevision: string;
+      fleetManifestVersion: string;
+    };
+    const args = MissionGoalArgsSchema.parse(context.run.args_json);
+    const topic = (args.topic ?? args.goal ?? 'subscription standing digest').trim();
+    // Fail-closed: only explicit researchEvidence (CLI --claims / fixture seed)
+    // is admitted. Never inject canned always-admissible evidence for bare runs.
+    const evidence = args.researchEvidence;
+    if (!evidence) {
+      throw new MissionRuntimeError(
+        'MISSION_SUBSCRIPTIONS_CLAIMS_REQUIRED',
+        'subscriptions sub-workflow requires explicit --claims / researchEvidence seed (fail-closed; no canned evidence)'
+      );
+    }
+    const childKey = `subwf:${context.run.id}:${EVIDENCE_RESEARCH_TEMPLATE_KEY}`;
+    // Nested mission run — template reference, with its own checkpoint commits.
+    const child = await runMissionTemplate(
+      {
+        templateKey: EVIDENCE_RESEARCH_TEMPLATE_KEY,
+        goal: topic,
+        topic,
+        components: args.components ?? 2,
+        instantiation: 'subscriptions-research',
+        tags: ['subscriptions-research', 'subworkflow'],
+        idempotencyKey: childKey,
+        researchEvidence: evidence,
+      },
+      { databaseUrl: context.databaseUrl, ownerScope: 'runtime' }
+    );
+    if (!child.ok || child.status !== 'completed') {
+      throw new MissionRuntimeError(
+        'MISSION_SUBWORKFLOW_FAILED',
+        `evidence-research sub-workflow failed: ${child.error ?? child.status ?? 'unknown'}`
+      );
+    }
+    const researchOutput =
+      child.output && typeof child.output === 'object'
+        ? (child.output as Record<string, unknown>)
+        : {};
+    const researchAdmitted =
+      typeof researchOutput.admitted === 'boolean' ? researchOutput.admitted : undefined;
+    const calls = [EVIDENCE_RESEARCH_TEMPLATE_KEY];
+    // Persist subworkflow_calls on the parent run early for AC-4 SQL probes.
+    const sql = createSql(context.databaseUrl);
+    try {
+      await sql`
+        UPDATE mission_runs
+        SET subworkflow_calls = ${sql.json(canonicalJsonValue(calls) as never)},
+            updated_at = now()
+        WHERE id = ${context.run.id}::uuid
+      `;
+    } finally {
+      await sql.end({ timeout: 5 });
+    }
+
+    const ctx: SubscriptionsContext = {
+      goal: args.goal || topic,
+      topic,
+      role: probe.role,
+      endpoint: probe.endpoint,
+      litellmModelId: probe.litellmModelId,
+      modelRevision: probe.modelRevision,
+      fleetManifestVersion: probe.fleetManifestVersion,
+      subworkflowCalls: calls,
+      researchRunId: child.runId ?? undefined,
+      researchOutput,
+      researchAdmitted,
+      sourceRunId: context.run.id,
+    };
+    return canonicalJsonValue(ctx);
+  },
+  'builtin.subscriptions-checkpoint@1': async (input, context) => {
+    const ctx = parseMissionSchemaValue(
+      { schemaRef: 'mission.subscriptions.context', schemaVersion: 1 },
+      input,
+      'subscriptions.checkpoint.input'
+    ) as SubscriptionsContext;
+    if (!ctx.subworkflowCalls?.includes(EVIDENCE_RESEARCH_TEMPLATE_KEY)) {
+      throw new MissionRuntimeError(
+        'MISSION_SUBWORKFLOW_MISSING',
+        'subscriptions checkpoint requires evidence-research sub-workflow call'
+      );
+    }
+    return canonicalJsonValue({
+      ...ctx,
+      sourceRunId: ctx.sourceRunId ?? context.run.id,
+    });
+  },
+  'builtin.subscriptions-publish@1': async (input, context) => {
+    const ctx = parseMissionSchemaValue(
+      { schemaRef: 'mission.subscriptions.context', schemaVersion: 1 },
+      input,
+      'subscriptions.publish.input'
+    ) as SubscriptionsContext;
+    const sourceRunId = ctx.sourceRunId ?? context.run.id;
+    const title = `Subscriptions digest: ${ctx.topic ?? ctx.goal}`;
+    const content = JSON.stringify(
+      {
+        goal: ctx.goal,
+        topic: ctx.topic,
+        subworkflowCalls: ctx.subworkflowCalls,
+        researchRunId: ctx.researchRunId,
+        researchAdmitted: ctx.researchAdmitted,
+        researchOutput: ctx.researchOutput,
+      },
+      null,
+      2
+    );
+    const sql = createSql(context.databaseUrl);
+    try {
+      // STRICTLY: document row + mission_runs.document_id in one transaction.
+      const published = await sql.begin(async (tx) => {
+        const doc = await publishDocumentForRun(tx, {
+          sourceRunId,
+          title,
+          content,
+          category: 'subscriptions',
+          idempotencyKey: `mission-run:${sourceRunId}`,
+        });
+        await tx`
+          UPDATE mission_runs
+          SET document_id = ${doc.documentId},
+              subworkflow_calls = COALESCE(
+                subworkflow_calls,
+                ${tx.json(canonicalJsonValue(ctx.subworkflowCalls ?? [EVIDENCE_RESEARCH_TEMPLATE_KEY]) as never)}
+              ),
+              updated_at = now()
+          WHERE id = ${context.run.id}::uuid
+        `;
+        return doc;
+      });
+      return canonicalJsonValue({
+        ...ctx,
+        sourceRunId,
+        documentId: published.documentId,
+        publishedAt: published.publishedAt,
+      });
+    } finally {
+      await sql.end({ timeout: 5 });
+    }
+  },
+  'builtin.subscriptions-commit@1': async (input, context) => {
+    const ctx = parseMissionSchemaValue(
+      { schemaRef: 'mission.subscriptions.context', schemaVersion: 1 },
+      input,
+      'subscriptions.commit.input'
+    ) as SubscriptionsContext;
+    if (!ctx.documentId || !ctx.publishedAt || !ctx.subworkflowCalls?.length) {
+      throw new MissionRuntimeError(
+        'MISSION_SUBSCRIPTIONS_INCOMPLETE',
+        'subscriptions commit requires documentId, publishedAt, and subworkflowCalls'
+      );
+    }
+    const out: SubscriptionsOutput = {
+      templateKey: 'subscriptions',
+      goal: ctx.goal,
+      documentId: ctx.documentId,
+      sourceRunId: ctx.sourceRunId ?? context.run.id,
+      publishedAt: ctx.publishedAt,
+      subworkflowCalls: ctx.subworkflowCalls,
+      researchRunId: ctx.researchRunId,
+      researchAdmitted: ctx.researchAdmitted,
+      topic: ctx.topic,
+      fleetManifestVersion: ctx.fleetManifestVersion,
+    };
+    return canonicalJsonValue(out);
+  },
 };
+
+async function runPipelineAssay(options: {
+  context: StageExecutionContext;
+  prompt: string;
+  label: string;
+}): Promise<string> {
+  const pinnedRole = options.context.runtime.roleResolution[options.context.stage.stageKey];
+  if (!pinnedRole) {
+    throw new MissionRuntimeError(
+      'MISSION_PINNED_ROLE_MISSING',
+      `missing ASSAY role for ${options.context.stage.stageKey}`
+    );
+  }
+  const traceId = options.context.run.trace_id;
+  if (!traceId) {
+    throw new MissionRuntimeError(
+      'MISSION_TRACE_ID_MISSING',
+      `missing trace for ${options.context.run.id}`
+    );
+  }
+  let result: Awaited<ReturnType<typeof runFleetModelCall>>;
+  try {
+    result = await runFleetModelCall({
+      role: pinnedRole.role,
+      prompt: options.prompt,
+      runId: options.context.run.id,
+      stepId: options.context.stageRunId,
+      traceId,
+      databaseUrl: options.context.databaseUrl,
+      maxOutputTokens: 512,
+    });
+  } catch (error) {
+    throw new MissionRuntimeError(
+      'MISSION_FLEET_CALL_FAILED',
+      error instanceof Error ? error.message : String(error)
+    );
+  }
+  const text = result.text.trim();
+  if (text.length === 0) {
+    throw new MissionRuntimeError(
+      'MISSION_FLEET_EMPTY_OUTPUT',
+      `fleet ASSAY returned empty content for ${options.label} stage=${options.context.stage.stageKey}`
+    );
+  }
+  return clipFleetText(text, 1500);
+}
+
+function extractDateFromGoal(goal: string | undefined): string | null {
+  if (!goal) return null;
+  const m = goal.match(/\b(\d{4}-\d{2}-\d{2})\b/);
+  return m?.[1] ?? null;
+}
 
 /** Bound fleet text stored on the mission context / terminal output. */
 function clipFleetText(text: string, maxChars = 2000): string {
@@ -2814,14 +3347,13 @@ async function runMissionInternal(
     context: 'mission runtime',
   });
 
-  // Shared evidence-research core: operator aliases resolve to one template row.
-  const resolvedTemplateKey = resolveEvidenceResearchTemplateKey(templateKey) ?? templateKey;
-  if (
-    resolveEvidenceResearchTemplateKey(templateKey) ||
-    templateKey === EVIDENCE_RESEARCH_TEMPLATE_KEY
-  ) {
-    await ensureSystemMissionTemplates({ databaseUrl });
-  }
+  // Shared evidence-research core + pipes-3 templates: operator aliases resolve.
+  const resolvedTemplateKey =
+    resolveEvidenceResearchTemplateKey(templateKey) ??
+    resolveWhatsNewTemplateKey(templateKey) ??
+    templateKey;
+  // Always ensure system templates (evidence-research + whatsnew/assimilate/shop/subscriptions).
+  await ensureSystemMissionTemplates({ databaseUrl });
 
   const sql = createSql(databaseUrl);
 
@@ -2999,6 +3531,8 @@ export async function runMissionTemplate(
     target?: string;
     destination?: string;
     forceMissingComponents?: string[];
+    date?: string;
+    query?: string;
   },
   options?: { databaseUrl?: string; ownerScope?: MissionRunOwnerScope }
 ): Promise<MissionStatusPayload> {
@@ -3019,6 +3553,8 @@ export async function runMissionTemplate(
       target: input.target,
       destination: input.destination,
       forceMissingComponents: input.forceMissingComponents,
+      date: input.date,
+      query: input.query,
     })
   );
   return runMissionInternal(input.templateKey, args, input.idempotencyKey, options);
