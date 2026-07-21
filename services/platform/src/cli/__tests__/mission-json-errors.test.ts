@@ -4,7 +4,7 @@ import { runHolo } from '../../../tests/integration/mission-red.helpers';
 type JsonRecord = Record<string, unknown>;
 
 const MISSION_USAGE = `holo mission template:register <file> [--json]
-       holo mission run <template> --goal '<text>' --idempotency-key <key> [--json]
+       holo mission run <template> --goal '<text>' [--idempotency-key <key>|--fresh] [--json]
        holo mission resume <run-id> [--json]
        holo mission status <run-id> [--json]
        holo mission run research --goal '<text>' [--json]
