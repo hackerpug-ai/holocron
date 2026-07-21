@@ -75,6 +75,8 @@ export default defineConfig({
       'services/platform/tests/integration/redhat-fix-1-cap-emb-retrieve.test.ts',
       'services/platform/tests/integration/redhat-fix-3-infer-trace.test.ts',
       'services/platform/tests/integration/redhat-fix-4-subscriptions-no-claims.test.ts',
+      // Sprint 22 REDHAT-FIX-5 — behavioral GREEN + fleet-DOWN fail-closed (H-3)
+      'services/platform/tests/integration/redhat-fix-5-behavioral-green-fleet-down.test.ts',
     ],
     setupFiles: ['tests/setup/react-native.ts'],
     exclude: ['node_modules', 'dist', '.expo'],

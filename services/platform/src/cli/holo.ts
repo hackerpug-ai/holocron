@@ -33,12 +33,18 @@ import { resolve } from 'node:path';
 import { z } from 'zod';
 import { defaultMissionIdempotencyKey } from './mission-idempotency-key.ts';
 
-// Suppress unhandled storage errors for the PG-down negative control
-// (PostgresStore logs these asynchronously; they must not crash the spike)
+// Suppress unhandled storage errors only for the explicit PG-down negative control.
+// Outside PLATFORM_PG_DOWN_NEG=1 (or HOLO_SWALLOW_STORAGE_REJECTIONS=1), ECONNREFUSED /
+// MASTRA_STORAGE must surface so fleet-down / infra failures are not masked (REDHAT-FIX-5 / H-3).
 process.on('unhandledRejection', (reason) => {
   const msg = reason instanceof Error ? reason.message : String(reason);
-  if (msg.includes('ECONNREFUSED') || msg.includes('MASTRA_STORAGE')) {
-    // Expected during PG-down negative control — swallow
+  const swallowStorageRejections =
+    process.env.PLATFORM_PG_DOWN_NEG === '1' || process.env.HOLO_SWALLOW_STORAGE_REJECTIONS === '1';
+  if (
+    swallowStorageRejections &&
+    (msg.includes('ECONNREFUSED') || msg.includes('MASTRA_STORAGE'))
+  ) {
+    // Expected during PG-down negative control — swallow only when flag is set
     return;
   }
   console.error('Unhandled rejection:', msg);
