@@ -260,6 +260,10 @@ describe.sequential('pipes-3 GREEN — pipeline templates + sub-workflow publish
       expect(stageProbe.status).toBe(0);
       expect(stageProbe.stdout).toContain('subworkflow:evidence-research');
 
+      const claimsPath = resolve(
+        REPO_ROOT,
+        'services/platform/tests/fixtures/research/claims.json'
+      );
       const cli = runHolo(
         'pipes3-ac4-subscriptions',
         [
@@ -270,6 +274,8 @@ describe.sequential('pipes-3 GREEN — pipeline templates + sub-workflow publish
           'standing subscriptions publish check',
           '--topic',
           'weekly subscription digest',
+          '--claims',
+          claimsPath,
           '--idempotency-key',
           `pipes3-ac4-${Date.now()}`,
           '--json',
@@ -362,14 +368,52 @@ describe.sequential('pipes-3 GREEN — pipeline templates + sub-workflow publish
       const scan = scanPerDomainShells(REPO_ROOT);
       writeEvidence('AC-5-scan.json', scan);
       expect(scan.n).toBe(0);
+      expect(scan.platformShells ?? []).toEqual([]);
+      expect(scan.convexResidual ?? []).toEqual([]);
       expect(scan.message).toContain('0 per-domain modules found');
 
       const verify = runHolo('pipes3-ac5-verify-no-shells', ['verify:no-shells']);
       captureHoloArtifact('AC-5-verify-no-shells', verify);
+      writeEvidence('AC-5-verify-no-shells.txt', verify.combined);
       expect(verify.status, verify.combined).toBe(0);
       expect(verify.combined).toMatch(/0 per-domain modules found/);
     },
     60_000
+  );
+
+  itLive(
+    'negative control: subscriptions without --claims fails closed (no canned evidence)',
+    async () => {
+      const cli = runHolo(
+        'pipes3-neg-subscriptions-no-claims',
+        [
+          'mission',
+          'run',
+          'subscriptions',
+          '--goal',
+          'bare subscriptions without claims',
+          '--topic',
+          'should-fail-closed',
+          '--idempotency-key',
+          `pipes3-neg-sub-${Date.now()}`,
+          '--json',
+        ],
+        { timeoutMs: 180_000 }
+      );
+      captureHoloArtifact('NEG-subscriptions-no-claims', cli);
+      writeEvidence('NEG-subscriptions-no-claims.json', {
+        status: cli.status,
+        parsed: cli.parsed,
+        combined: cli.combined,
+      });
+      const payload = asRecord(cli.parsed);
+      // Must never complete with fabricated always-admissible evidence.
+      expect(cli.status).not.toBe(0);
+      expect(payload.status === 'completed').not.toBe(true);
+      const blob = `${cli.combined}\n${JSON.stringify(payload)}`;
+      expect(blob).toMatch(/CLAIMS_REQUIRED|claims|researchEvidence|fail-closed|MISSION_/i);
+    },
+    180_000
   );
 
   itLive(
@@ -411,12 +455,15 @@ describe.sequential('pipes-3 GREEN — pipeline templates + sub-workflow publish
       expect(w.documentType).toBe('daily-briefing');
       expect(Array.isArray(w.headlines) && w.headlines.length > 0).toBe(true);
       expect(Array.isArray(w.summaries) && w.summaries.length > 0).toBe(true);
+      expect(String(w.assayText ?? '').trim().length).toBeGreaterThan(0);
       expect(a.repoUrl).toBe('facebook/react');
       expect(asRecord(a.architecture).components).toBeTruthy();
       expect(Array.isArray(a.patterns) && a.patterns.length > 0).toBe(true);
+      expect(String(a.assayText ?? '').trim().length).toBeGreaterThan(0);
       expect(Array.isArray(s.products) && s.products.length > 0).toBe(true);
       expect(asRecord(s.products?.[0] as unknown).price).not.toBeNull();
       expect(asRecord(s.products?.[0] as unknown).rating).not.toBeNull();
+      expect(String(s.assayText ?? '').trim().length).toBeGreaterThan(0);
     },
     420_000
   );

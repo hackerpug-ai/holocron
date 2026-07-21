@@ -355,7 +355,7 @@ const MISSION_USAGE = `holo mission template:register <file> [--json]
        holo mission run whatsNew --date YYYY-MM-DD [--json]
        holo mission run assimilate --target <owner/repo> [--json]
        holo mission run shop --query <term> [--json]
-       holo mission run subscriptions [--topic <text>] [--json]`;
+       holo mission run subscriptions --claims <path> [--topic <text>] [--json]`;
 
 function isMissionJsonInvocation(argv: string[]): boolean {
   if (!argv.includes('--json')) return false;
@@ -4064,11 +4064,16 @@ async function main(): Promise<void> {
       }
 
       // pipes-3: holo mission run subscriptions (standing + sub-workflow publish)
+      // Fail-closed: requires explicit --claims fixture (no canned evidence).
       if (sub === 'run' && kind === 'subscriptions') {
         const topic = args.topic?.trim() || args.goal?.trim() || 'subscription standing digest';
         const goal = args.goal?.trim() || topic;
         const idempotencyKey =
           args.idempotencyKey?.trim() || `subscriptions:${topic}:${Date.now()}`;
+        const fixturePath = args.claimsPath ?? args.refutingPath;
+        const researchEvidence = fixturePath
+          ? (JSON.parse(readFileSync(fixturePath, 'utf8')) as never)
+          : undefined;
         try {
           const { runMissionTemplate } = await import('../mission/runtime.ts');
           const result = await runMissionTemplate(
@@ -4077,6 +4082,7 @@ async function main(): Promise<void> {
               goal,
               topic,
               idempotencyKey,
+              researchEvidence,
             },
             { ownerScope: 'runtime' }
           );

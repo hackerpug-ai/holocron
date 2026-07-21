@@ -1,9 +1,7 @@
-import { embed } from 'ai';
 import { v } from 'convex/values';
-import { api, internal } from './_generated/api';
+import { internal } from './_generated/api';
 import type { Id } from './_generated/dataModel';
 import { action, internalAction, mutation, query } from './_generated/server';
-import { cohereEmbedding } from './lib/ai/embeddings_provider';
 
 // ============================================================================
 // Queries
@@ -204,28 +202,9 @@ export const saveReportInternal = mutation({
 });
 
 /**
- * Internal action: Generate embedding for a single finding title
- *
- * @param title - Finding title to embed
- * @returns embedding vector (1024 dimensions)
- */
-async function generateFindingEmbedding(title: string): Promise<number[]> {
-  const MAX_LENGTH = 2000;
-  const truncated = title.slice(0, MAX_LENGTH);
-
-  const { embedding } = await embed({
-    model: cohereEmbedding,
-    value: truncated,
-  });
-
-  return embedding;
-}
-
-/**
  * Save a whats-new report with embeddings (action version)
  *
- * This action version generates embeddings for each finding before saving,
- * enabling semantic search and deduplication.
+ * MIGRATED_TO_MISSION_ENGINE — residual agentic save path disabled (pipes-3).
  */
 export const saveReportWithEmbeddings = internalAction({
   args: {
@@ -255,37 +234,11 @@ export const saveReportWithEmbeddings = internalAction({
       )
     ),
   },
-  handler: async (ctx, args): Promise<Id<'whatsNewReports'>> => {
-    // Generate embeddings for all findings in parallel
-    const embeddings: number[][] = [];
-    if (args.findings && args.findings.length > 0) {
-      const embeddingPromises = args.findings.map((finding) =>
-        generateFindingEmbedding(finding.title)
-      );
-      const generatedEmbeddings = await Promise.all(embeddingPromises);
-      embeddings.push(...generatedEmbeddings);
-    }
-
-    // Call the mutation with embeddings included
-    const result = await ctx.runMutation(api.whatsNew.saveReportInternal, {
-      periodStart: args.periodStart,
-      periodEnd: args.periodEnd,
-      days: args.days,
-      focus: args.focus,
-      discoveryOnly: args.discoveryOnly,
-      findingsCount: args.findingsCount,
-      discoveryCount: args.discoveryCount,
-      releaseCount: args.releaseCount,
-      trendCount: args.trendCount,
-      reportPath: args.reportPath,
-      summaryJson: args.summaryJson,
-      findings: args.findings?.map((finding, index) => ({
-        ...finding,
-        embedding: embeddings[index],
-      })),
-    });
-
-    return result.reportId;
+  handler: async (_ctx, _args): Promise<Id<'whatsNewReports'>> => {
+    // MIGRATED_TO_MISSION_ENGINE — agentic embedding save path disabled (pipes-3).
+    throw new Error(
+      'MIGRATED_TO_MISSION_ENGINE: whatsNew agentic pipeline disabled. Use: holo mission run whatsNew --date YYYY-MM-DD'
+    );
   },
 });
 

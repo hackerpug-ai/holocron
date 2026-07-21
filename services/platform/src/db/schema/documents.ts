@@ -5,7 +5,16 @@
  */
 
 import { sql } from 'drizzle-orm';
-import { boolean, check, index, integer, pgTable, primaryKey, text } from 'drizzle-orm/pg-core';
+import {
+  boolean,
+  check,
+  index,
+  integer,
+  pgTable,
+  primaryKey,
+  text,
+  uuid,
+} from 'drizzle-orm/pg-core';
 import {
   createdAtColumn,
   idColumn,
@@ -38,7 +47,7 @@ export const documents = pgTable(
     isPublic: boolean('is_public').default(false),
     shareToken: text('share_token'),
     /** pipes-3: mission run that published this document (idempotent standing publish). */
-    sourceRunId: text('source_run_id'),
+    sourceRunId: uuid('source_run_id'),
     publishedAt: timestamptz('published_at'),
     publishIdempotencyKey: text('publish_idempotency_key'),
     createdAt: createdAtColumn(),

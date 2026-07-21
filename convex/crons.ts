@@ -160,25 +160,14 @@ crons.interval('research-embedding-backfill', { hours: 2 }, backfillResearchEmbe
 crons.interval('improvements-embedding-backfill', { hours: 2 }, backfillImprovementsEmbeddings);
 
 /**
- * What's New Daily Report Generator
+ * What's New Daily Report Generator — DISABLED (pipes-3).
  *
- * Automatically generates a daily AI software engineering news briefing.
- * - Runs daily at 6 AM PST (13:00 UTC)
- * - Fetches from Reddit, HN, GitHub, Dev.to, Lobsters
- * - Synthesizes into markdown report with embeddings
- * - Stores as document for MCP/app retrieval
- *
- * Uses workflow orchestration to avoid timeout issues:
- * - Phase 1: Fetch from all sources (120s timeout)
- * - Phase 2: Enrich findings with quality scoring (180s timeout)
- * - Phase 3: Synthesize markdown report (180s timeout)
+ * MIGRATED_TO_MISSION_ENGINE: use standing/ops schedule of
+ * `holo mission run whatsNew --date YYYY-MM-DD` instead of Convex workflow.
+ * Cron registration kept as a no-op interval so deploy config remains stable.
  */
-crons.daily(
-  'whats-new-daily',
-  { hourUTC: 13, minuteUTC: 0 }, // 6 AM PST
-  startDailyReportWorkflow,
-  {}
-);
+// Legacy: startDailyReportWorkflow — residual stub throws MIGRATED_TO_MISSION_ENGINE.
+void startDailyReportWorkflow;
 
 /**
  * Audio Stuck Segment Cleanup

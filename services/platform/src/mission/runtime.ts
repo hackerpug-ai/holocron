@@ -52,7 +52,6 @@ import {
   gatherAssimilateReport,
   gatherShopProducts,
   gatherWhatsNewBriefing,
-  subscriptionsResearchEvidence,
 } from './templates/pipeline-components.ts';
 import { resolveWhatsNewTemplateKey } from './templates/whatsnew.ts';
 
@@ -961,6 +960,7 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
       headlines: gathered.headlines,
       summaries: gathered.summaries,
       links: gathered.links,
+      gatherProvenance: gathered.provenance,
     };
     return canonicalJsonValue(ctx);
   },
@@ -989,15 +989,25 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
         'whatsnew commit requires headlines, summaries, and links'
       );
     }
+    // Fail-closed: terminal AC fields must not succeed without real fleet assay text.
+    const assayText = (ctx.assayText ?? '').trim();
+    if (!assayText) {
+      throw new MissionRuntimeError(
+        'MISSION_FLEET_EMPTY_OUTPUT',
+        'whatsnew commit requires non-empty fleet assayText (scaffold alone is not success)'
+      );
+    }
     const out: WhatsNewOutput = {
       documentType: 'daily-briefing',
       date: ctx.date,
       headlines: ctx.headlines,
       summaries: ctx.summaries,
       links: ctx.links,
+      assayText,
       templateKey: 'whatsnew',
       goal: ctx.goal,
       fleetManifestVersion: ctx.fleetManifestVersion,
+      gatherProvenance: ctx.gatherProvenance,
     };
     return canonicalJsonValue(out);
   },
@@ -1048,6 +1058,7 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
       architecture: gathered.architecture,
       patterns: gathered.patterns,
       evaluation: gathered.evaluation,
+      gatherProvenance: gathered.provenance,
     };
     return canonicalJsonValue(ctx);
   },
@@ -1076,14 +1087,23 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
         'assimilate commit requires architecture, patterns, evaluation'
       );
     }
+    const assayText = (ctx.assayText ?? '').trim();
+    if (!assayText) {
+      throw new MissionRuntimeError(
+        'MISSION_FLEET_EMPTY_OUTPUT',
+        'assimilate commit requires non-empty fleet assayText (scaffold alone is not success)'
+      );
+    }
     const out: AssimilateOutput = {
       repoUrl: ctx.repoUrl,
       architecture: ctx.architecture,
       patterns: ctx.patterns,
       evaluation: ctx.evaluation,
+      assayText,
       templateKey: 'assimilate',
       goal: ctx.goal,
       fleetManifestVersion: ctx.fleetManifestVersion,
+      gatherProvenance: ctx.gatherProvenance,
     };
     return canonicalJsonValue(out);
   },
@@ -1125,6 +1145,8 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
       modelRevision: probe.modelRevision,
       fleetManifestVersion: probe.fleetManifestVersion,
       products,
+      gatherProvenance:
+        'Deterministic scaffolding (stable catalog/hash slots; not live marketplace fetch)',
     };
     return canonicalJsonValue(ctx);
   },
@@ -1156,12 +1178,21 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
         'shop commit requires non-empty products'
       );
     }
+    const assayText = (ctx.assayText ?? '').trim();
+    if (!assayText) {
+      throw new MissionRuntimeError(
+        'MISSION_FLEET_EMPTY_OUTPUT',
+        'shop commit requires non-empty fleet assayText (scaffold alone is not success)'
+      );
+    }
     const out: ShopOutput = {
       query: ctx.query,
       products: ctx.products,
+      assayText,
       templateKey: 'shop',
       goal: ctx.goal,
       fleetManifestVersion: ctx.fleetManifestVersion,
+      gatherProvenance: ctx.gatherProvenance,
     };
     return canonicalJsonValue(out);
   },
@@ -1188,7 +1219,15 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
     };
     const args = MissionGoalArgsSchema.parse(context.run.args_json);
     const topic = (args.topic ?? args.goal ?? 'subscription standing digest').trim();
-    const evidence = args.researchEvidence ?? subscriptionsResearchEvidence(topic);
+    // Fail-closed: only explicit researchEvidence (CLI --claims / fixture seed)
+    // is admitted. Never inject canned always-admissible evidence for bare runs.
+    const evidence = args.researchEvidence;
+    if (!evidence) {
+      throw new MissionRuntimeError(
+        'MISSION_SUBSCRIPTIONS_CLAIMS_REQUIRED',
+        'subscriptions sub-workflow requires explicit --claims / researchEvidence seed (fail-closed; no canned evidence)'
+      );
+    }
     const childKey = `subwf:${context.run.id}:${EVIDENCE_RESEARCH_TEMPLATE_KEY}`;
     // Nested mission run — template reference, with its own checkpoint commits.
     const child = await runMissionTemplate(
@@ -1285,23 +1324,27 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
     );
     const sql = createSql(context.databaseUrl);
     try {
-      const published = await publishDocumentForRun(sql, {
-        sourceRunId,
-        title,
-        content,
-        category: 'subscriptions',
-        idempotencyKey: `mission-run:${sourceRunId}`,
+      // STRICTLY: document row + mission_runs.document_id in one transaction.
+      const published = await sql.begin(async (tx) => {
+        const doc = await publishDocumentForRun(tx, {
+          sourceRunId,
+          title,
+          content,
+          category: 'subscriptions',
+          idempotencyKey: `mission-run:${sourceRunId}`,
+        });
+        await tx`
+          UPDATE mission_runs
+          SET document_id = ${doc.documentId},
+              subworkflow_calls = COALESCE(
+                subworkflow_calls,
+                ${tx.json(canonicalJsonValue(ctx.subworkflowCalls ?? [EVIDENCE_RESEARCH_TEMPLATE_KEY]) as never)}
+              ),
+              updated_at = now()
+          WHERE id = ${context.run.id}::uuid
+        `;
+        return doc;
       });
-      await sql`
-        UPDATE mission_runs
-        SET document_id = ${published.documentId},
-            subworkflow_calls = COALESCE(
-              subworkflow_calls,
-              ${sql.json(canonicalJsonValue(ctx.subworkflowCalls ?? [EVIDENCE_RESEARCH_TEMPLATE_KEY]) as never)}
-            ),
-            updated_at = now()
-        WHERE id = ${context.run.id}::uuid
-      `;
       return canonicalJsonValue({
         ...ctx,
         sourceRunId,

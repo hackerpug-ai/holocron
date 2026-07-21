@@ -32,9 +32,13 @@ export const WhatsNewOutputSchema = z
     headlines: z.array(WhatsNewHeadlineSchema).min(1),
     summaries: z.array(WhatsNewSummarySchema).min(1),
     links: z.array(z.string().min(1)).min(1),
+    /** Non-empty fleet ASSAY text — required so empty/disconnected fleet cannot soft-succeed. */
+    assayText: z.string().min(1),
     templateKey: z.literal('whatsnew'),
     goal: z.string().min(1),
     fleetManifestVersion: z.string().min(1).optional(),
+    /** Honest gather provenance (scaffolding label). */
+    gatherProvenance: z.string().min(1).optional(),
   })
   .strict();
 
@@ -53,6 +57,7 @@ export const WhatsNewContextSchema = z
     summaries: z.array(WhatsNewSummarySchema).optional(),
     links: z.array(z.string().min(1)).optional(),
     assayText: z.string().optional(),
+    gatherProvenance: z.string().min(1).optional(),
   })
   .strict();
 
@@ -102,9 +107,12 @@ export const AssimilateOutputSchema = z
     architecture: AssimilateArchitectureSchema,
     patterns: z.array(AssimilatePatternSchema).min(1),
     evaluation: AssimilateEvaluationSchema,
+    /** Non-empty fleet ASSAY text — required so empty/disconnected fleet cannot soft-succeed. */
+    assayText: z.string().min(1),
     templateKey: z.literal('assimilate'),
     goal: z.string().min(1),
     fleetManifestVersion: z.string().min(1).optional(),
+    gatherProvenance: z.string().min(1).optional(),
   })
   .strict();
 
@@ -123,6 +131,7 @@ export const AssimilateContextSchema = z
     patterns: z.array(AssimilatePatternSchema).optional(),
     evaluation: AssimilateEvaluationSchema.optional(),
     assayText: z.string().optional(),
+    gatherProvenance: z.string().min(1).optional(),
   })
   .strict();
 
@@ -147,9 +156,12 @@ export const ShopOutputSchema = z
   .object({
     query: z.string().min(1),
     products: z.array(ShopProductSchema).min(1),
+    /** Non-empty fleet ASSAY text — required so empty/disconnected fleet cannot soft-succeed. */
+    assayText: z.string().min(1),
     templateKey: z.literal('shop'),
     goal: z.string().min(1),
     fleetManifestVersion: z.string().min(1).optional(),
+    gatherProvenance: z.string().min(1).optional(),
   })
   .strict();
 
@@ -166,6 +178,7 @@ export const ShopContextSchema = z
     fleetManifestVersion: z.string().min(1).optional(),
     products: z.array(ShopProductSchema).optional(),
     assayText: z.string().optional(),
+    gatherProvenance: z.string().min(1).optional(),
   })
   .strict();
 

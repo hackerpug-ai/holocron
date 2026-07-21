@@ -1,11 +1,15 @@
-import { v } from 'convex/values';
-import { internal } from '../_generated/api';
-import { action } from '../_generated/server';
-
 /**
- * Check subscriptions for new content
- * Reuses the internal checkAllSubscriptions action
+ * MIGRATED_TO_MISSION_ENGINE — residual subscriptions check pipeline disabled (pipes-3).
+ *
+ * Use: `holo mission run subscriptions --claims <path> [--topic <text>]`
+ * RN CRUD/list queries remain in ./queries.ts and ./mutations.ts.
  */
+import { v } from 'convex/values';
+import { action } from '../_generated/server';
+import { migratedToMissionEngineError } from '../lib/migratedToMissionEngine';
+
+const HINT = 'holo mission run subscriptions --claims <path> [--topic <text>]';
+
 export const check = action({
   args: {
     sourceType: v.optional(
@@ -21,25 +25,7 @@ export const check = action({
       )
     ),
   },
-  handler: async (ctx, args): Promise<any> => {
-    // Call the internal checkAllSubscriptions action
-    const results: any = await ctx.runAction(internal.subscriptions.internal.checkAllSubscriptions);
-
-    // Filter by source type if specified
-    if (args.sourceType) {
-      // Get sources of the specified type
-      const sources: any = await ctx.runQuery(internal.subscriptions.internal.getActiveSources);
-      const filteredSources: any = sources.filter((s: any) => s.sourceType === args.sourceType);
-
-      // For now, return results with a note about filtering
-      // A more sophisticated implementation would track results per source
-      return {
-        ...results,
-        sourcesChecked: filteredSources.length,
-        filteredByType: args.sourceType,
-      };
-    }
-
-    return results;
+  handler: async () => {
+    throw migratedToMissionEngineError('subscriptions', HINT);
   },
 });
