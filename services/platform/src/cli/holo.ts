@@ -31,6 +31,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { z } from 'zod';
+import { defaultMissionIdempotencyKey } from './mission-idempotency-key.ts';
 
 // Suppress unhandled storage errors for the PG-down negative control
 // (PostgresStore logs these asynchronously; they must not crash the spike)
@@ -85,6 +86,11 @@ interface CliArgs {
   actor: string | null;
   runId: string | null;
   idempotencyKey: string | null;
+  /**
+   * mission run: opt-in uniqueness — append a unique suffix to the deterministic
+   * default idempotency key only when set (REDHAT-FIX-2 / C-2).
+   */
+  fresh: boolean;
   statement: string | null;
   confidence: string | null;
   validFrom: string | null;
@@ -297,6 +303,7 @@ Options:
   --actor <name>        (evidence:revise) actor recorded on successor
   --run-id <id>         (evidence:revise) run id recorded on successor
   --idempotency-key <k> (evidence:revise|mission run) idempotency key (replay-safe)
+  --fresh               (mission run) opt-in unique suffix on default idempotency key
   --statement <text>    (evidence:revise) new belief statement
   --confidence <n>      (evidence:revise) new confidence (0..1)
   --valid-from <ts>     (evidence:revise) optional valid_from timestamptz
@@ -347,7 +354,7 @@ Options:
 }
 
 const MISSION_USAGE = `holo mission template:register <file> [--json]
-       holo mission run <template> --goal '<text>' --idempotency-key <key> [--json]
+       holo mission run <template> --goal '<text>' [--idempotency-key <key>|--fresh] [--json]
        holo mission resume <run-id> [--json]
        holo mission status <run-id> [--json]
        holo mission run research --goal '<text>' [--json]
@@ -398,6 +405,7 @@ function parseArgs(argv: string[]): CliArgs {
     actor: null,
     runId: null,
     idempotencyKey: null,
+    fresh: false,
     statement: null,
     confidence: null,
     validFrom: null,
@@ -543,6 +551,8 @@ function parseArgs(argv: string[]): CliArgs {
       args.idempotencyKey = argv[++i] ?? null;
     } else if (a.startsWith('--idempotency-key=')) {
       args.idempotencyKey = a.slice('--idempotency-key='.length);
+    } else if (a === '--fresh') {
+      args.fresh = true;
     } else if (a === '--statement') {
       args.statement = argv[++i] ?? null;
     } else if (a.startsWith('--statement=')) {
@@ -3904,9 +3914,15 @@ async function main(): Promise<void> {
               components,
               instantiation,
               tags: [instantiation],
-              idempotencyKey:
-                args.idempotencyKey ??
-                `${instantiation}:${goal}:${components ?? 'default'}:${Date.now()}`,
+              idempotencyKey: defaultMissionIdempotencyKey(
+                'research',
+                {
+                  instantiation,
+                  goal,
+                  components: components ?? 'default',
+                },
+                { override: args.idempotencyKey, fresh: args.fresh }
+              ),
               researchEvidence: evidence,
             },
             { ownerScope: 'runtime' }
@@ -3944,7 +3960,11 @@ async function main(): Promise<void> {
           process.exit(2);
         }
         const goal = args.goal?.trim() || `daily briefing for ${date}`;
-        const idempotencyKey = args.idempotencyKey?.trim() || `whatsnew:${date}:${Date.now()}`;
+        const idempotencyKey = defaultMissionIdempotencyKey(
+          'whatsnew',
+          { date },
+          { override: args.idempotencyKey, fresh: args.fresh }
+        );
         try {
           const { runMissionTemplate } = await import('../mission/runtime.ts');
           const result = await runMissionTemplate(
@@ -3989,7 +4009,11 @@ async function main(): Promise<void> {
           process.exit(2);
         }
         const goal = args.goal?.trim() || `assimilate ${target}`;
-        const idempotencyKey = args.idempotencyKey?.trim() || `assimilate:${target}:${Date.now()}`;
+        const idempotencyKey = defaultMissionIdempotencyKey(
+          'assimilate',
+          { target },
+          { override: args.idempotencyKey, fresh: args.fresh }
+        );
         try {
           const { runMissionTemplate } = await import('../mission/runtime.ts');
           const result = await runMissionTemplate(
@@ -4035,7 +4059,11 @@ async function main(): Promise<void> {
           process.exit(2);
         }
         const goal = args.goal?.trim() || `shop ${query}`;
-        const idempotencyKey = args.idempotencyKey?.trim() || `shop:${query}:${Date.now()}`;
+        const idempotencyKey = defaultMissionIdempotencyKey(
+          'shop',
+          { query },
+          { override: args.idempotencyKey, fresh: args.fresh }
+        );
         try {
           const { runMissionTemplate } = await import('../mission/runtime.ts');
           const result = await runMissionTemplate(
@@ -4068,8 +4096,11 @@ async function main(): Promise<void> {
       if (sub === 'run' && kind === 'subscriptions') {
         const topic = args.topic?.trim() || args.goal?.trim() || 'subscription standing digest';
         const goal = args.goal?.trim() || topic;
-        const idempotencyKey =
-          args.idempotencyKey?.trim() || `subscriptions:${topic}:${Date.now()}`;
+        const idempotencyKey = defaultMissionIdempotencyKey(
+          'subscriptions',
+          { topic },
+          { override: args.idempotencyKey, fresh: args.fresh }
+        );
         const fixturePath = args.claimsPath ?? args.refutingPath;
         const researchEvidence = fixturePath
           ? (JSON.parse(readFileSync(fixturePath, 'utf8')) as never)
@@ -4142,8 +4173,11 @@ async function main(): Promise<void> {
 
         const subject = reportKind === 'flights' ? (destination ?? target) : target;
         const goal = args.goal?.trim() || `${reportKind} report for ${subject}`;
-        const idempotencyKey =
-          args.idempotencyKey?.trim() || `report:${reportKind}:${subject}:${Date.now()}`;
+        const idempotencyKey = defaultMissionIdempotencyKey(
+          'report',
+          { reportKind, subject },
+          { override: args.idempotencyKey, fresh: args.fresh }
+        );
 
         // incomplete.com AC-4: force missing market_sizing before reasoning.
         const forceMissingComponents =
