@@ -31,11 +31,7 @@ import {
   waitForValue,
   withSql,
 } from './mission-red.helpers';
-import {
-  captureHoloArtifact,
-  countTemplatesByKeys,
-  runPsql,
-} from './pipes-4-red.helpers';
+import { captureHoloArtifact, countTemplatesByKeys, runPsql } from './pipes-4-red.helpers';
 
 const EVIDENCE_DIR = resolve(REPO_ROOT, '.tmp/pipes-1');
 const RAW_DIR = resolve(EVIDENCE_DIR, 'raw');
@@ -77,8 +73,7 @@ function readCheckpointBarrierProof(value: unknown): {
   if (payload.marker !== MISSION_CHECKPOINT_BARRIER_MARKER) return null;
   const runId = typeof payload.runId === 'string' ? payload.runId : null;
   const stageIndex = typeof payload.stageIndex === 'number' ? payload.stageIndex : null;
-  const checkpointKey =
-    typeof payload.checkpointKey === 'string' ? payload.checkpointKey : null;
+  const checkpointKey = typeof payload.checkpointKey === 'string' ? payload.checkpointKey : null;
   const leaseToken = typeof payload.leaseToken === 'string' ? payload.leaseToken : null;
   return {
     marker: String(payload.marker),
@@ -265,9 +260,7 @@ describe.sequential('pipes-1 GREEN — evidence-research shared template', () =>
       const output = (payload.output ?? {}) as Record<string, unknown>;
       expect(output.executorRef).toBe('evidence-gate');
       expect(Number(output.componentsCovered ?? 0)).toBe(4);
-      expect(output.admittedEvidenceIds).toEqual(
-        expect.arrayContaining(['e1', 'e2', 'e3', 'e4'])
-      );
+      expect(output.admittedEvidenceIds).toEqual(expect.arrayContaining(['e1', 'e2', 'e3', 'e4']));
 
       const dbProbe = runPsql(
         `SELECT r.components_covered, r.template_key, r.executor_ref, t.tag
@@ -417,7 +410,10 @@ describe.sequential('pipes-1 GREEN — evidence-research shared template', () =>
       });
 
       expect(barrierProof, 'must observe checkpoint barrier before SIGKILL').toBeTruthy();
-      expect(committedCheckpoint, 'must observe committed DB checkpoint before SIGKILL').toBeTruthy();
+      expect(
+        committedCheckpoint,
+        'must observe committed DB checkpoint before SIGKILL'
+      ).toBeTruthy();
       expect(runner.exited(), 'process must still be alive at barrier').toBe(false);
       expect(runner.pid, 'PID required for kill -9').toBeTruthy();
 
@@ -438,11 +434,9 @@ describe.sequential('pipes-1 GREEN — evidence-research shared template', () =>
       });
 
       // Resume ONLY via public CLI (no programmatic resumeMissionRun fallback).
-      const resumed = runHolo(
-        'pipes1-ac4-resume',
-        ['mission', 'resume', runId, '--json'],
-        { timeoutMs: 300_000 }
-      );
+      const resumed = runHolo('pipes1-ac4-resume', ['mission', 'resume', runId, '--json'], {
+        timeoutMs: 300_000,
+      });
       captureHoloArtifact('AC-4-mission-resume', resumed);
       writeArtifact('AC-4-sigkill-resume.txt', {
         runId,
