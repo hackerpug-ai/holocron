@@ -1,8 +1,10 @@
 # REDHAT-FIX-5 — Add behavioral GREEN and fleet-down fail-closed coverage for the pipeline runtime (H-3)
-> Status: Backlog
+> Status: ✅ Completed
+> Cycle: 1
+> Reviewer: mastra-reviewer
+> Completed: 2026-07-21T21:46:16Z
 > Sprint: [Sprint 22 — All Agentic Pipelines as Templates/Agents](./SPRINT.md)
 > Agent: mastra-implementer
-> Reviewer: mastra-reviewer
 > Estimate: 180 min
 > Type: FEATURE
 > Priority: P0
