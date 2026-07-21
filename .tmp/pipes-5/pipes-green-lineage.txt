@@ -1,0 +1,126 @@
+=== look for pipes green evidence in commits ===
+515c2a25 Merge task/pipes-3 into main
+ed57b556 index on main: 2169ee6a Merge task/pipes-2 into main
+c1f54760 pipes-3 FIX: fail-closed pipeline gather + wire assay; honest no-shells residual
+a0607000 index on main: 2169ee6a Merge task/pipes-2 into main
+d4ae96bd pipes-3: whatsNew/assimilate/shop/subscriptions templates + sub-workflow publish + no-shells
+2169ee6a Merge task/pipes-2 into main
+5bde9568 index on main: ea6d9f96 Merge task/pipes-1 into main
+a37a7621 pipes-2 FIX: fail-closed empty fleet output + honest component provenance
+916ad768 pipes-2: parameterized business-report template (4 kinds)
+ea6d9f96 Merge task/pipes-1 into main
+7271b45f index on main: 6c92c176 Merge task/pipes-4 into main
+fa7315f5 pipes-1 chore: apply biome format to evidence-research integration test
+8889928a pipes-1 FIX: SIGKILL resume path + fail-closed retrieve evidence
+7c5a8e7b On task/pipes-1: cmux last turn baseline
+dd636cee index on main: 6c92c176 Merge task/pipes-4 into main
+6af70e62 index on task/pipes-1: 976a7cba pipes-1: shared evidence-research mission template
+f78cd5be index on main: 6c92c176 Merge task/pipes-4 into main
+976a7cba pipes-1: shared evidence-research mission template
+6c92c176 Merge task/pipes-4 into main
+678c89a8 pipes-4 RED: failing integration suite for pipeline templates / no-shells / publish
+b6031c44 plan(sprint-22): expand tasks
+commit d4ae96bd40cf77336a03b0e8a9864d1828f65b32
+Author: inference1 <inference1@inference1.local>
+Date:   Tue Jul 21 11:01:29 2026 -0600
+
+    pipes-3: whatsNew/assimilate/shop/subscriptions templates + sub-workflow publish + no-shells
+    
+    Re-express remaining agentic pipelines as mission templates:
+    - whatsnew daily-briefing (holo mission run whatsNew --date)
+    - assimilate architecture/patterns/evaluation (holo mission run assimilate --target)
+    - shop products with prices/ratings/links (holo mission run shop --query)
+    - subscriptions standing mission invokes evidence-research via
+      executorRef subworkflow:evidence-research (template reference),
+      checkpoints after sub-workflow, then idempotent document publish
+      (source_run_id + published_at + publish_idempotency_key)
+    
+    Also: migration 0024, holo verify:no-shells, ensure-system registers
+    all Sprint 22 system templates, GREEN integration suite under
+    services/platform/tests/integration/pipeline-templates.test.ts.
+
+ .../src/cli/__tests__/mission-json-errors.test.ts  |   6 +-
+ services/platform/src/cli/holo.ts                  | 216 ++++++++-
+ .../migrations/0024_mission_pipeline_publish.sql   |  33 ++
+ services/platform/src/db/schema/documents.ts       |   5 +
+ services/platform/src/db/schema/mission.ts         |   4 +
+ services/platform/src/mission/args.ts              |   4 +
+ services/platform/src/mission/document-publish.ts  | 122 +++++
+ services/platform/src/mission/registry.ts          | 304 ++++++++++++
+ services/platform/src/mission/runtime.ts           | 509 ++++++++++++++++++++-
+ .../platform/src/mission/templates/assimilate.ts   |  66 +++
+ .../src/mission/templates/business-report.ts       |   2 +-
+ .../src/mission/templates/ensure-system.ts         |  44 +-
+ .../src/mission/templates/evidence-research.ts     |   2 +-
+ .../src/mission/templates/pipeline-components.ts   | 323 +++++++++++++
+ services/platform/src/mission/templates/shop.ts    |  66 +++
+ .../src/mission/templates/subscriptions.ts         |  85 ++++
+ .../platform/src/mission/templates/whatsnew.ts     |  77 ++++
+ services/platform/src/mission/verify-no-shells.ts  |  69 +++
+ .../src/tools/schemas/pipeline-templates.ts        | 212 +++++++++
+ .../mission-engine/template-business-report.json   |  90 +++-
+ .../tests/integration/pipeline-templates.test.ts   | 423 +++++++++++++++++
+commit c1f5476066baa2a50cdfc05e80d7b380c2719b0c
+Author: inference1 <inference1@inference1.local>
+Date:   Tue Jul 21 11:23:06 2026 -0600
+
+    pipes-3 FIX: fail-closed pipeline gather + wire assay; honest no-shells residual
+    
+    HIGH-1 anti-stub:
+    - Require non-empty fleet assayText on whatsnew/assimilate/shop commit
+      (MISSION_FLEET_EMPTY_OUTPUT); wire assayText into terminal output schemas
+    - Label deterministic scaffolding honestly in pipeline-components
+    - subscriptions: no canned research evidence; require --claims seed (fail-closed)
+    
+    HIGH-2 NEVER residual:
+    - Convert convex agentic pipelines to MIGRATED_TO_MISSION_ENGINE stubs
+    - Expand holo verify:no-shells to scan residual convex agentic files
+    - Keep RN query/CRUD surfaces; document honestly in RESIDUAL-NOTES
+    
+    Cheap: publish+document_id single transaction; drizzle source_run_id uuid
+
+ convex/assimilate/mutations.ts                     |  259 +--
+ convex/assimilate/scheduled.ts                     |  595 +-----
+ convex/crons.ts                                    |   23 +-
+ convex/lib/migratedToMissionEngine.ts              |   15 +
+ convex/shop/dispatcher.ts                          |  504 +----
+ convex/shop/index.ts                               |  682 +------
+ convex/shop/search.ts                              |  724 +-------
+ convex/subscriptions/actions.ts                    |   36 +-
+ convex/subscriptions/ai_scoring.ts                 |  157 +-
+ convex/subscriptions/deduplication.ts              |  184 +-
+ convex/subscriptions/internal.ts                   | 1921 +-------------------
+ convex/whatsNew.ts                                 |   61 +-
+ convex/whatsNew/actions.ts                         | 1425 +--------------
+ convex/whatsNew/processing.ts                      |  174 +-
+ convex/whatsNew/workflow.ts                        |  561 +-----
+ .../src/cli/__tests__/mission-json-errors.test.ts  |    2 +-
+ services/platform/src/cli/holo.ts                  |    8 +-
+ services/platform/src/db/schema/documents.ts       |   13 +-
+ services/platform/src/mission/runtime.ts           |   79 +-
+ .../src/mission/templates/pipeline-components.ts   |  115 +-
+ services/platform/src/mission/verify-no-shells.ts  |   94 +-
+6: * Evidence under .tmp/pipes-3/.
+34:const EVIDENCE_DIR = resolve(REPO_ROOT, '.tmp/pipes-3');
+38:function writeEvidence(name: string, body: unknown): void {
+87:    // evidence retained under .tmp/pipes-3
+95:      writeEvidence('TC-1-template-count.json', { count, keys });
+101:      writeEvidence('TC-1-psql.txt', {
+135:      writeEvidence('AC-1-run.json', cli.parsed ?? { status: cli.status, combined: cli.combined });
+147:      writeEvidence('AC-1-psql.txt', {
+177:      writeEvidence('AC-2-run.json', cli.parsed ?? { status: cli.status, combined: cli.combined });
+189:      writeEvidence('AC-2-psql.txt', {
+218:      writeEvidence('AC-3-run.json', cli.parsed ?? { status: cli.status, combined: cli.combined });
+233:      writeEvidence('AC-3-psql.txt', {
+254:      writeEvidence('TC-3-stage-graph.txt', {
+286:      writeEvidence('AC-4-run.json', cli.parsed ?? { status: cli.status, combined: cli.combined });
+306:      writeEvidence('AC-4-psql-run.txt', {
+319:      writeEvidence('AC-4-psql-docs.txt', {
+350:      writeEvidence('TC-4-idempotent-publish.json', { r1, r2 });
+369:      writeEvidence('AC-5-scan.json', scan);
+377:      writeEvidence('AC-5-verify-no-shells.txt', verify.combined);
+404:      writeEvidence('NEG-subscriptions-no-claims.json', {
+21:export const PIPES4_EVIDENCE_DIR = resolve(REPO_ROOT, '.tmp/pipes-4');
+22:export const PIPES4_RAW_DIR = resolve(PIPES4_EVIDENCE_DIR, 'raw');
+47:  mkdirSync(PIPES4_EVIDENCE_DIR, { recursive: true });
+53:  const path = resolve(PIPES4_EVIDENCE_DIR, name);

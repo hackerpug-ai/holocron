@@ -1,0 +1,59 @@
+=== No client-side Claude for reasoning ===
+rg: No files were searched, which means ripgrep probably applied a filter you didn't expect.
+Running with --debug will show why files are being skipped.
+rg: No files were searched, which means ripgrep probably applied a filter you didn't expect.
+Running with --debug will show why files are being skipped.
+services/platform/src/inference/budget-ledger.ts:6: *   if ok → real Anthropic call → logEscape(tokens, cost) → Postgres INSERT
+services/platform/src/inference/budget-ledger.ts:20:import { createAnthropic } from '@ai-sdk/anthropic';
+services/platform/src/inference/budget-ledger.ts:318: * Escape spend: check_type='escape', tokens/cost from real Anthropic usage.
+services/platform/src/inference/budget-ledger.ts:463: * Deterministic pre-check before any Anthropic escape request.
+services/platform/src/inference/budget-ledger.ts:693: * Full escape path: assertEscapeNotDegraded → checkBudget(reserve) → real Anthropic generateText → logEscape.
+services/platform/src/inference/budget-ledger.ts:694: * NEVER contacts Anthropic when process/shared degraded (REDHAT-FIX-H1) or checkBudget fails.
+services/platform/src/inference/budget-ledger.ts:706:  // budget audit traffic, Anthropic SDK construction, or generateText.
+services/platform/src/inference/budget-ledger.ts:733:    const anthropic = createAnthropic({ apiKey });
+services/platform/src/inference/escape-degraded-guard.ts:5: * assertEscapeNotDegraded() before any Anthropic SDK construction, probe,
+services/platform/src/inference/escape-degraded-guard.ts:118: * Fail closed before any Anthropic host contact when degraded (process or durable).
+services/platform/src/inference/telemetry.ts:543: * Budgeted Anthropic escape with inference_telemetry correlation to budget_ledger.
+services/platform/src/inference/resolve-model.ts:6: *   ZERO Anthropic. Cloud endpoints refused even if misconfigured in the manifest.
+services/platform/src/inference/resolve-model.ts:10: *   → return Anthropic endpoint. Never the default.
+services/platform/src/inference/resolve-model.ts:11: *   After a successful Anthropic generate, call logEscape()/runBudgetedEscape() to meter spend.
+services/platform/src/inference/resolve-model.ts:33:   * Ignored on allowEscape=true (escape uses Anthropic, not fleet).
+services/platform/src/inference/resolve-model.ts:39:   * Ignored on allowEscape=true (escape always probes Anthropic).
+services/platform/src/inference/resolve-model.ts:46:   * Default false — local fleet only; Anthropic is default-deny.
+services/platform/src/inference/resolve-model.ts:59:   * Escape model id (Anthropic). Default HOLO_ESCAPE_MODEL or claude-haiku.
+services/platform/src/inference/resolve-model.ts:63:  /** Skip Anthropic network probe on escape (tests only — production probes). */
+services/platform/src/inference/resolve-model.ts:81:  /** OpenAI-compatible base URL for @ai-sdk/openai-compatible (…/v1), or Anthropic base. */
+services/platform/src/inference/resolve-model.ts:179:export async function probeAnthropicEscape(options?: {
+services/platform/src/inference/resolve-model.ts:219: * NEVER used for the Anthropic escape path (that stays @ai-sdk/anthropic at call sites).
+services/platform/src/inference/resolve-model.ts:227:      `createFleetChatModel requires provider=fleet (got ${resolved.provider}) — use Anthropic SDK on escape path`
+services/platform/src/inference/resolve-model.ts:243: * Resolve a fleet role to a live endpoint (or budgeted Anthropic escape).
+services/platform/src/inference/resolve-model.ts:259:    // Shared choke with runBudgetedEscape — refuse BEFORE any Anthropic traffic.
+services/platform/src/inference/resolve-model.ts:280:    // Budget pre-check BEFORE any Anthropic network traffic (audits check_type='pre-check')
+services/platform/src/inference/resolve-model.ts:292:      const probe = await probeAnthropicEscape({
+convex/lib/ai/anthropic_provider.ts:2: * Anthropic Claude Provider for Vercel AI SDK
+convex/lib/ai/anthropic_provider.ts:4: * Native Anthropic provider integration for Claude models.
+convex/lib/ai/anthropic_provider.ts:15:import { createAnthropic } from '@ai-sdk/anthropic';
+convex/lib/ai/anthropic_provider.ts:18: * Anthropic provider instance
+convex/lib/ai/anthropic_provider.ts:19: * Native Anthropic SDK integration
+convex/lib/ai/anthropic_provider.ts:21:export const anthropic = createAnthropic({
+tests/integration/service/infer-structural-compat-agent.test.ts:255:    'AC-4/TC-4: unknown/unreachable role on structural path fails closed (no Anthropic)',
+tests/integration/service/infer-red-zero-cloud.test.ts:2: * infer-4 / AC-1 / TC-1 (T-INFER-001): Zero Anthropic on the default resolve path.
+tests/integration/service/infer-red-zero-cloud.test.ts:47:describe('infer-4 AC-1: zero Anthropic on default path (real network capture)', () => {
+tests/integration/service/infer-red-zero-cloud.test.ts:126:  itLive('dead fleet port fails closed without contacting Anthropic', async () => {
+tests/integration/service/infer-red-zero-cloud.test.ts:166:      // Anthropic host was never requested — count is observational, not stubbed
+services/platform/src/cli/holo.ts:311:  --prompt <text>       (infer:call --escape) prompt for real Anthropic generateText
+services/platform/src/cli/holo.ts:1949:      // REDHAT-FIX-H5: real escapes must reject non-positive estimates before Anthropic.
+services/platform/src/cli/holo.ts:2017:            // CLI must NOT invent a parallel Anthropic entry point.
+services/platform/src/compat/cells/agent.ts:94: * return Agent + ResolvedModel. Fail-closed on unknown/unreachable roles (no Anthropic).
+services/platform/src/compat/cells/agent.ts:105:  // createFleetChatModel refuses non-fleet provider — escape remains Anthropic SDK path.
+tests/integration/whats-new-summary-generation.test.ts:90:        "Anthropic's Claude Code source code was accidentally leaked via .map file. The community is dissecting the internal safety architecture, prompt injection defenses, and agent loop design patterns.",
+tests/integration/whats-new-summary-generation.test.ts:95:      "Community dissecting Anthropic's internal safety architecture and agent loop design from leaked source code.";
+tests/integration/service/infer-red-degraded-no-cloud.test.ts:89:    'degraded surface-unavailable: zero Anthropic; surface/queue only; allowCloud=false',
+tests/integration/service/infer-degraded-durable-escape.test.ts:42:function ensureAnthropicKeyFromSecrets(): boolean {
+tests/integration/service/infer-degraded-durable-escape.test.ts:54:const hasAnthropicKey = ensureAnthropicKeyFromSecrets();
+tests/integration/service/infer-degraded-durable-escape.test.ts:397:        // Must not resolve to Anthropic provider while DB degraded
+tests/integration/service/infer-degraded-durable-escape.test.ts:536:        // When Anthropic key present, full escape should succeed (not degraded refuse)
+
+--- client reasoning paths ---
+rg: No files were searched, which means ripgrep probably applied a filter you didn't expect.
+Running with --debug will show why files are being skipped.

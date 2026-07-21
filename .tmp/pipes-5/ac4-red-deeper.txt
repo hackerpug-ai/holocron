@@ -1,0 +1,85 @@
+=== pipes-4 RED commit content ===
+commit 678c89a81f76a2bca9b98b73b70caafc38e74b7e
+Author: inference1 <inference1@inference1.local>
+Date:   Tue Jul 21 09:25:27 2026 -0600
+
+    pipes-4 RED: failing integration suite for pipeline templates / no-shells / publish
+    
+    Write RED-against-start integration tests for Sprint 22 pipeline collapse:
+    - AC-1 evidence-research template missing
+    - AC-2 whatsNew daily-briefing output fields
+    - AC-3 one parameterized business-report (not 4 rows)
+    - AC-4 no-shells while per-domain modules remain
+    - AC-5 subscriptions sub-workflow publish document row
+    
+    Real Postgres + fleet only; no mocks. Canonical tests under
+    services/platform/tests/integration/; path stubs under
+    src/__tests__/integration/ for task verify greps.
+
+ .../tests/integration/pipes-4-red.helpers.ts       | 157 +++++++++++++++++++++
+ .../tests/integration/red-business-report.test.ts  |  78 ++++++++++
+ .../integration/red-evidence-research.test.ts      |  93 ++++++++++++
+ .../tests/integration/red-no-shells.test.ts        | 109 ++++++++++++++
+ .../integration/red-sub-workflow-publish.test.ts   | 157 +++++++++++++++++++++
+ .../tests/integration/red-whatsnew.test.ts         | 120 ++++++++++++++++
+ .../integration/red-business-report.test.ts        |  11 ++
+ .../integration/red-evidence-research.test.ts      |  11 ++
+ src/__tests__/integration/red-no-shells.test.ts    |  11 ++
+ .../integration/red-sub-workflow-publish.test.ts   |  11 ++
+ src/__tests__/integration/red-whatsnew.test.ts     |  11 ++
+ vitest.config.ts                                   |   6 +
+ 12 files changed, 775 insertions(+)
+
+--- files in RED commit ---
+services/platform/tests/integration/pipes-4-red.helpers.ts
+services/platform/tests/integration/red-business-report.test.ts
+services/platform/tests/integration/red-evidence-research.test.ts
+services/platform/tests/integration/red-no-shells.test.ts
+services/platform/tests/integration/red-sub-workflow-publish.test.ts
+services/platform/tests/integration/red-whatsnew.test.ts
+src/__tests__/integration/red-business-report.test.ts
+src/__tests__/integration/red-evidence-research.test.ts
+src/__tests__/integration/red-no-shells.test.ts
+src/__tests__/integration/red-sub-workflow-publish.test.ts
+src/__tests__/integration/red-whatsnew.test.ts
+vitest.config.ts
+
+--- search for red evidence anywhere ---
+./.spec/prds/mk6-migration/tasks/sprint-22-all-agentic-pipelines-as-templates-agents/pipes-4-red-tests-pipeline-former-output-no-shells-sub-workflow-publish.md
+./services/platform/tests/integration/pipes-4-red.helpers.ts
+.spec/prds/mk6-migration/tasks/sprint-22-all-agentic-pipelines-as-templates-agents/pipes-4-red-tests-pipeline-former-output-no-shells-sub-workflow-publish.md
+.spec/prds/mk6-migration/tasks/sprint-22-all-agentic-pipelines-as-templates-agents/pipes-1-shared-evidence-research-core-template.md
+.spec/prds/mk6-migration/tasks/sprint-09-structured-output-on-local-models/struct-1-structured-output-pipeline-bounded-repair-explicit-fail.md
+.tmp/pipes-5/ac4-red-deeper.txt
+.tmp/pipes-5/ac4-tdd-red-evidence.txt
+.tmp/pipes-5/ac2-shared-templates.txt
+    pipes-1: shared evidence-research mission template
+    RED baseline: pipes-4 678c89a8 red-evidence-research.test.ts
+    pipes-4 RED: failing integration suite for pipeline templates / no-shells / publish
+ create mode 100644 services/platform/tests/integration/pipes-4-red.helpers.ts
+ create mode 100644 services/platform/tests/integration/red-evidence-research.test.ts
+ create mode 100644 src/__tests__/integration/red-evidence-research.test.ts
+ create mode 100644 .spec/prds/mk6-migration/tasks/sprint-22-all-agentic-pipelines-as-templates-agents/pipes-1-shared-evidence-research-core-template.md
+ create mode 100644 .spec/prds/mk6-migration/tasks/sprint-22-all-agentic-pipelines-as-templates-agents/pipes-4-red-tests-pipeline-former-output-no-shells-sub-workflow-publish.md
+    fix(REDHAT-FIX-H1): evidence-derived capstone verifier + gate-results.json
+ create mode 100644 .spec/prds/mk6-migration/tasks/sprint-20-e2e-maestro-harness-and-cold-boot-reference-flow/REDHAT-FIX-H1-add-capstone-verifier-and-regenerate-machine-gate-evidence.md
+ create mode 100644 .spec/prds/mk6-migration/tasks/sprint-20-e2e-maestro-harness-and-cold-boot-reference-flow/REDHAT-FIX-H2-produce-ci-dispatched-maestro-evidence-and-preserve-artifact-metadata.md
+ create mode 100644 .spec/prds/mk6-migration/tasks/sprint-17-deterministic-pi-free-research-engine/research-3-red-tests-thin-evidence-pi-free.md
+    test(REDHAT-FIX-H1-R): hash-bind RED/GREEN evidence to f0f7055
+    CI gate. Seed RED/GREEN raw exit evidence (direct $? and PIPESTATUS[0]).
+    RED evidence captured under .tmp/obs-2/.
+    (conductor QA), red-hat closeout reviews, redhat-fix evidence, .tmp/queue-4 RED
+    queue-4: harvest RED verification-summary evidence
+ create mode 100644 .spec/prds/mk6-migration/tasks/sprint-09-structured-output-on-local-models/.gate-evidence/2026-07-17T07-27-49Z/step1.assertion.json
+ create mode 100644 .spec/prds/mk6-migration/tasks/sprint-09-structured-output-on-local-models/.gate-evidence/2026-07-17T07-27-49Z/step1.exit
+ create mode 100644 .spec/prds/mk6-migration/tasks/sprint-09-structured-output-on-local-models/.gate-evidence/2026-07-17T07-27-49Z/step1.log
+41439336 On main: cmux last turn baseline
+308a340d On main: cmux last turn baseline
+d4ae96bd pipes-3: whatsNew/assimilate/shop/subscriptions templates + sub-workflow publish + no-shells
+30145848 On main: cmux last turn baseline
+f95d8b78 On main: cmux last turn baseline
+60d1f06a On main: cmux last turn baseline
+5356c661 On main: cmux last turn baseline
+1d97af2d On main: cmux last turn baseline
+678c89a8 pipes-4 RED: failing integration suite for pipeline templates / no-shells / publish
+b6031c44 plan(sprint-22): expand tasks

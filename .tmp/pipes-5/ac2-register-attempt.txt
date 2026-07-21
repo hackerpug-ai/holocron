@@ -1,0 +1,49 @@
+=== build template JSON and register ===
+ls: services/platform/node_modules/drizzle-orm: No such file or directory
+ls: node_modules/drizzle-orm: No such file or directory
+Lockfile is up to date, resolution step is skipped
+Progress: resolved 1, reused 0, downloaded 0, added 0
+Packages: +292
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Progress: resolved 292, reused 292, downloaded 0, added 290
+Progress: resolved 292, reused 292, downloaded 0, added 292, done
+
+dependencies:
++ @ai-sdk/anthropic 3.0.97
++ @ai-sdk/openai-compatible 3.0.10
++ @mastra/core 1.50.1
++ @mastra/mcp 1.13.1
++ @mastra/observability 1.16.0
++ @mastra/pg 1.15.1
++ ai 7.0.28
++ drizzle-kit 0.31.10
++ drizzle-orm 0.45.2
++ hono 4.12.30
++ pg-boss 10.4.2
++ postgres 3.4.9
++ typescript 5.9.3
++ uuid 14.0.1
++ yaml 2.9.0
++ zod 4.4.3
+
+devDependencies:
++ @types/bun 1.3.14
+
+Done in 1.4s using pnpm v11.1.3
+undefined
+[ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL] Command "tsx" not found
+
+Did you mean "pnpm exec tsc"?
+51 |     return url;
+52 |   }
+53 | 
+54 |   const context = options?.context ?? 'runtime';
+55 |   const qualifier = isProductionLikeDatabaseUrl(url) ? 'production-like' : 'non-nonprod';
+56 |   throw new Error(
+             ^
+error: mission template registration refuses production-like database 'holocron' — expected holocron_nonprod; set HOLO_DANGEROUS_ALLOW_PROD_DB=1 to override (dangerous)
+      at assertHolocronNonprodDatabaseUrl (/Users/inference1/Projects/holocron/.worktrees/pipes-5/services/platform/src/db/connection.ts:56:9)
+      at registerCompiledMissionTemplate (/Users/inference1/Projects/holocron/.worktrees/pipes-5/services/platform/src/mission/repository.ts:388:23)
+      at registerCompiledMissionTemplate (/Users/inference1/Projects/holocron/.worktrees/pipes-5/services/platform/src/mission/repository.ts:379:3)
+
+Bun v1.2.19 (macOS arm64)

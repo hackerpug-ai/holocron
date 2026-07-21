@@ -1,0 +1,104 @@
+=== integration test evidence packages ===
+services/platform/tests/integration/evidence-research-template.test.ts
+services/platform/tests/integration/red-evidence-research.test.ts
+.tmp/pipes-5
+.tmp/pipes-5/search-pipes-evidence.txt
+total 48
+drwxr-xr-x@ 42 inference1  staff   1344 Jul 21 11:29 .
+drwxr-xr-x@ 69 inference1  staff   2208 Jul 21 11:29 ..
+drwxr-xr-x@  6 inference1  staff    192 Jul 21 11:29 compat-1
+drwxr-xr-x@ 10 inference1  staff    320 Jul 21 11:29 D01-01
+drwxr-xr-x@  3 inference1  staff     96 Jul 21 11:29 GATE-FIX-G4-local-runner-contract
+drwxr-xr-x@  3 inference1  staff     96 Jul 21 11:29 GATE-FIX-G4-runner-permission
+drwxr-xr-x@  9 inference1  staff    288 Jul 21 11:29 GATE-FIX-G5
+drwxr-xr-x@  7 inference1  staff    224 Jul 21 11:29 GATE-FIX-holo-search-cli
+drwxr-xr-x@ 38 inference1  staff   1216 Jul 21 11:29 infer-2
+drwxr-xr-x@ 17 inference1  staff    544 Jul 21 11:29 infer-5
+drwxr-xr-x@ 17 inference1  staff    544 Jul 21 11:29 ledger-4
+drwxr-xr-x@ 17 inference1  staff    544 Jul 21 11:29 ledger-5
+drwxr-xr-x@ 35 inference1  staff   1120 Jul 21 11:29 obs-4
+drwxr-xr-x@ 24 inference1  staff    768 Jul 21 11:31 pipes-5
+drwxr-xr-x@ 35 inference1  staff   1120 Jul 21 11:29 queue-4
+drwxr-xr-x@ 12 inference1  staff    384 Jul 21 11:29 redhat-fix-h1-green
+drwxr-xr-x@ 11 inference1  staff    352 Jul 21 11:29 redhat-fix-h1-red
+-rw-r--r--@  1 inference1  staff   4413 Jul 21 11:29 redhat-fix-h1-red-evidence.txt
+drwxr-xr-x@ 15 inference1  staff    480 Jul 21 11:29 redhat-fix-h1r-green
+drwxr-xr-x@ 16 inference1  staff    512 Jul 21 11:29 redhat-fix-h1r-red
+drwxr-xr-x@ 23 inference1  staff    736 Jul 21 11:29 redhat-fix-h2-green
+drwxr-xr-x@ 12 inference1  staff    384 Jul 21 11:29 redhat-fix-h2-red
+drwxr-xr-x@  6 inference1  staff    192 Jul 21 11:29 schema-1
+drwxr-xr-x@ 10 inference1  staff    320 Jul 21 11:29 schema-2
+drwxr-xr-x@  8 inference1  staff    256 Jul 21 11:29 schema-3
+drwxr-xr-x@  6 inference1  staff    192 Jul 21 11:29 schema-4
+drwxr-xr-x@ 17 inference1  staff    544 Jul 21 11:29 schema-5
+drwxr-xr-x@ 21 inference1  staff    672 Jul 21 11:29 schema-6
+drwxr-xr-x@  9 inference1  staff    288 Jul 21 11:29 search-1
+drwxr-xr-x@ 11 inference1  staff    352 Jul 21 11:29 search-2
+drwxr-xr-x@  6 inference1  staff    192 Jul 21 11:29 search-5
+drwxr-xr-x@ 10 inference1  staff    320 Jul 21 11:29 service-1
+drwxr-xr-x@  7 inference1  staff    224 Jul 21 11:29 service-2
+drwxr-xr-x@  9 inference1  staff    288 Jul 21 11:29 service-3
+drwxr-xr-x@  6 inference1  staff    192 Jul 21 11:29 service-4
+drwxr-xr-x@  4 inference1  staff    128 Jul 21 11:29 service-5-fix
+-rw-r--r--@  1 inference1  staff  11701 Jul 21 11:29 sprint-12-independent-qa-audit-20260718T060000Z.md
+drwxr-xr-x@  5 inference1  staff    160 Jul 21 11:29 sprint-12-observability-telemetry-and-eval-gate
+-rw-r--r--@  1 inference1  staff   1701 Jul 21 11:29 sprint-19-independent-review-final.md
+13:import { ensureSystemMissionTemplates } from '../../src/mission/templates/ensure-system.ts';
+50:      WHERE run_id IN (SELECT id FROM mission_runs WHERE template_key = ANY(${keys}))
+54:      WHERE run_id IN (SELECT id FROM mission_runs WHERE template_key = ANY(${keys}))
+58:      WHERE run_id IN (SELECT id FROM mission_runs WHERE template_key = ANY(${keys}))
+62:      WHERE run_id IN (SELECT id FROM mission_runs WHERE template_key = ANY(${keys}))
+65:      WHERE run_id IN (SELECT id FROM mission_runs WHERE template_key = ANY(${keys}))`;
+66:    await sql`DELETE FROM mission_runs WHERE template_key = ANY(${keys})`;
+78:    await ensureSystemMissionTemplates({ databaseUrl: DATABASE_URL });
+83:    await ensureSystemMissionTemplates({ databaseUrl: DATABASE_URL });
+99:        `SELECT template_key FROM mission_templates WHERE template_key IN ('whatsnew', 'assimilate', 'shop', 'subscriptions') ORDER BY template_key`
+116:    'AC-1: whatsNew --date produces daily-briefing with headlines',
+134:      captureHoloArtifact('AC-1-mission-run-whatsnew', cli);
+135:      writeEvidence('AC-1-run.json', cli.parsed ?? { status: cli.status, combined: cli.combined });
+145:         FROM mission_runs WHERE template_key='whatsnew' ORDER BY created_at DESC LIMIT 1`
+147:      writeEvidence('AC-1-psql.txt', {
+160:    'AC-2: assimilate --target produces architecture + patterns',
+176:      captureHoloArtifact('AC-2-mission-run-assimilate', cli);
+177:      writeEvidence('AC-2-run.json', cli.parsed ?? { status: cli.status, combined: cli.combined });
+187:         FROM mission_runs WHERE template_key='assimilate' ORDER BY created_at DESC LIMIT 1`
+189:      writeEvidence('AC-2-psql.txt', {
+201:    'AC-3: shop --query produces products with price + rating',
+217:      captureHoloArtifact('AC-3-mission-run-shop', cli);
+218:      writeEvidence('AC-3-run.json', cli.parsed ?? { status: cli.status, combined: cli.combined });
+231:         FROM mission_runs WHERE template_key='shop' ORDER BY created_at DESC LIMIT 1`
+233:      writeEvidence('AC-3-psql.txt', {
+245:    'AC-4 / TC-3: subscriptions invokes evidence-research sub-workflow and publishes document',
+251:         WHERE template_key='subscriptions'
+285:      captureHoloArtifact('AC-4-mission-run-subscriptions', cli);
+286:      writeEvidence('AC-4-run.json', cli.parsed ?? { status: cli.status, combined: cli.combined });
+304:         FROM mission_runs WHERE template_key='subscriptions' ORDER BY created_at DESC LIMIT 1`
+306:      writeEvidence('AC-4-psql-run.txt', {
+317:         WHERE source_run_id IN (SELECT id FROM mission_runs WHERE template_key='subscriptions')`
+319:      writeEvidence('AC-4-psql-docs.txt', {
+366:    'AC-5: holo verify:no-shells reports 0 per-domain modules',
+369:      writeEvidence('AC-5-scan.json', scan);
+376:      captureHoloArtifact('AC-5-verify-no-shells', verify);
+377:      writeEvidence('AC-5-verify-no-shells.txt', verify.combined);
+services/platform/tests/integration/red-whatsnew.test.ts:7: * Seeded data probe (TC-3): psql $DATABASE_URL -c "SELECT template_key FROM mission_templates WHERE template_key='whatsnew'"
+services/platform/tests/integration/red-whatsnew.test.ts:51:      `SELECT template_key, latest_version FROM mission_templates WHERE template_key = 'whatsnew'`
+services/platform/tests/integration/red-business-report.test.ts:6: * Desired: exactly 1 mission_templates row with template_key='business-report'.
+services/platform/tests/integration/red-business-report.test.ts:8: * Seeded data probe (TC-3): psql $DATABASE_URL -c "SELECT template_key FROM mission_templates"
+services/platform/tests/integration/red-business-report.test.ts:46:      `SELECT template_key FROM mission_templates WHERE template_key IN ('revenue-validation','competitive','ai-roi','flights','business-report') ORDER BY template_key`
+services/platform/tests/integration/pipeline-templates.test.ts:13:import { ensureSystemMissionTemplates } from '../../src/mission/templates/ensure-system.ts';
+services/platform/tests/integration/pipeline-templates.test.ts:78:    await ensureSystemMissionTemplates({ databaseUrl: DATABASE_URL });
+services/platform/tests/integration/pipeline-templates.test.ts:83:    await ensureSystemMissionTemplates({ databaseUrl: DATABASE_URL });
+services/platform/tests/integration/pipeline-templates.test.ts:99:        `SELECT template_key FROM mission_templates WHERE template_key IN ('whatsnew', 'assimilate', 'shop', 'subscriptions') ORDER BY template_key`
+services/platform/tests/integration/pipes-4-red.helpers.ts:144:      FROM mission_templates
+services/platform/tests/integration/pipes-4-red.helpers.ts:154:      SELECT template_key FROM mission_templates WHERE template_key LIKE ${pattern} ORDER BY template_key
+services/platform/tests/integration/red-evidence-research.test.ts:12: * Seeded data probe (TC-3): psql $DATABASE_URL -c "SELECT template_key FROM mission_templates"
+services/platform/tests/integration/red-evidence-research.test.ts:46:      `SELECT template_key FROM mission_templates WHERE template_key = 'evidence-research'`
+services/platform/tests/integration/business-report-template.test.ts:92:    // Re-register in case a concurrent suite wiped mission_templates.
+services/platform/tests/integration/mission-red.helpers.ts:46:  'mission_templates',
+services/platform/tests/integration/mission-red.helpers.ts:729:  return selectJsonRowsIfExists(sql, 'mission_templates', 'template_key = $1', [templateKey], '1');
+services/platform/tests/integration/mission-engine-red.test.ts:518:      expect.soft(templateRows.length, 'one scoped mission_templates row must exist').toBe(1);
+services/platform/tests/integration/mission-engine-red.test.ts:958:          .soft(templateRows.length, 'compiler rejection must not persist mission_templates')
+services/platform/tests/integration/mission-engine-red.test.ts:1014:          .soft(templateRows.length, 'fleet rejection must not persist mission_templates')
+services/platform/tests/integration/evidence-research-template.test.ts:20:import { ensureSystemMissionTemplates } from '../../src/mission/templates/ensure-system.ts';
+services/platform/tests/integration/evidence-research-template.test.ts:99:    await ensureSystemMissionTemplates({ databaseUrl: DATABASE_URL });
+services/platform/tests/integration/evidence-research-template.test.ts:114:         FROM mission_templates t

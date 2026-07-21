@@ -1,0 +1,26 @@
+=== search pipes-4 evidence artifacts ===
+./.spec/prds/mk6-migration/tasks/sprint-22-all-agentic-pipelines-as-templates-agents/pipes-3-whatsnew-assimilate-shop-subscriptions-templates-sub-workflow-publish.md
+./.spec/prds/mk6-migration/tasks/sprint-22-all-agentic-pipelines-as-templates-agents/pipes-4-red-tests-pipeline-former-output-no-shells-sub-workflow-publish.md
+./.spec/prds/mk6-migration/tasks/sprint-22-all-agentic-pipelines-as-templates-agents/pipes-2-parameterized-business-report-template-4-kinds.md
+./.spec/prds/mk6-migration/tasks/sprint-22-all-agentic-pipelines-as-templates-agents/pipes-1-shared-evidence-research-core-template.md
+./.spec/prds/mk6-migration/tasks/sprint-22-all-agentic-pipelines-as-templates-agents/pipes-5-review-dry-collapse.md
+./.tmp/pipes-5
+./.tmp/pipes-5/search-pipes-evidence.txt
+./services/platform/tests/integration/pipes-4-red.helpers.ts
+no .tmp/pipes-4
+services/platform/tests/integration/evidence-research-template.test.ts
+services/platform/tests/integration/red-evidence-research.test.ts
+services/platform/src/research/test-evidence-gate.ts
+services/platform/src/research/build-evidence.ts
+services/platform/src/research/evidence-gate.test.ts
+services/platform/src/research/evidence-gate.ts
+services/platform/src/mission/templates/evidence-research.ts
+services/platform/src/db/migrations/0023_mission_evidence_research.sql
+services/platform/src/db/migrations/0003_evidence_one_open_belief.sql
+services/platform/src/db/evidence
+services/platform/src/db/schema/evidence.ts
+.spec/prds/mk6-migration/tasks/sprint-22-all-agentic-pipelines-as-templates-agents/pipes-3-whatsnew-assimilate-shop-subscriptions-templates-sub-workflow-publish.md
+.spec/prds/mk6-migration/tasks/sprint-22-all-agentic-pipelines-as-templates-agents/pipes-4-red-tests-pipeline-former-output-no-shells-sub-workflow-publish.md
+.spec/prds/mk6-migration/tasks/sprint-22-all-agentic-pipelines-as-templates-agents/pipes-2-parameterized-business-report-template-4-kinds.md
+.spec/prds/mk6-migration/tasks/sprint-22-all-agentic-pipelines-as-templates-agents/pipes-1-shared-evidence-research-core-template.md
+.spec/prds/mk6-migration/tasks/sprint-22-all-agentic-pipelines-as-templates-agents/pipes-5-review-dry-collapse.md
