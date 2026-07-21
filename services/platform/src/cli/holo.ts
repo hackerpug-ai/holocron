@@ -224,6 +224,7 @@ Usage:
                             Register internal doc as self-sourced source (reuse passages)
   infer:call                Resolve fleet role; --escape runs budgeted Claude escape
                             (checkBudget → generateText → logEscape); fleet-down → degraded
+  infer:trace <id>          Dump durable modelCalls (provider/endpoint) for a mission run id
   infer:degraded            Show / poll degraded-mode state (fleet-down reduced mode)
   verify:no-provider-refs   Audit platform src for banned claudeFlash/Pro/Ultra factories
   verify:no-shells          Prove per-domain pipeline shells are gone (whatsnew/assimilate/shop/subscriptions)
@@ -1935,6 +1936,57 @@ async function main(): Promise<void> {
         console.log(result.ok ? '  status: OK' : '  status: FAIL');
       }
       process.exit(result.ok ? 0 : 1);
+      break;
+    }
+    case 'infer:trace': {
+      // REDHAT-FIX-3 / H-1: dump durable modelCalls for a mission run (gate step 6)
+      const id = args.positional[1] ?? args.runId ?? null;
+      if (!id) {
+        const payload = {
+          ok: false,
+          error: 'infer:trace requires <id> (mission run id)',
+          code: 'INFER_TRACE_ID_REQUIRED',
+        };
+        if (args.json) console.log(JSON.stringify(payload, null, 2));
+        else console.error(payload.error);
+        process.exit(2);
+      }
+      try {
+        const { loadInferTrace } = await import('../inference/infer-trace.ts');
+        const result = await loadInferTrace(id, { limit: 500 });
+        if (!result.ok) {
+          if (args.json) console.log(JSON.stringify(result, null, 2));
+          else console.error(`${result.code}: ${result.error}`);
+          process.exit(1);
+        }
+        if (args.json) {
+          console.log(JSON.stringify(result, null, 2));
+        } else {
+          console.log('holo infer:trace — durable modelCalls for mission run');
+          console.log(`  runId:   ${result.runId}`);
+          console.log(`  traceId: ${result.traceId ?? '—'}`);
+          console.log(`  count:   ${result.count}`);
+          if (result.modelCalls.length === 0) {
+            console.log('  (no modelCalls)');
+          } else {
+            for (const c of result.modelCalls) {
+              console.log(
+                `  ${c.status.padEnd(7)} role=${c.role} provider=${c.provider} ` +
+                  `endpoint=${c.endpoint} model=${c.modelId ?? '—'} ` +
+                  `step=${c.stepId ?? '—'} trace=${c.traceId ?? '—'}`
+              );
+            }
+          }
+          console.log(result.count > 0 ? '  status: OK' : '  status: EMPTY');
+        }
+        process.exit(0);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        const payload = { ok: false, error: msg, code: 'INFER_TRACE_FAILED' };
+        if (args.json) console.log(JSON.stringify(payload, null, 2));
+        else console.error(`holo infer:trace failed: ${msg}`);
+        process.exit(1);
+      }
       break;
     }
     case 'infer:call': {
