@@ -382,38 +382,48 @@ describe.sequential('pipes-3 GREEN — pipeline templates + sub-workflow publish
   );
 
   itLive(
-    'negative control: subscriptions without --claims fails closed (no canned evidence)',
+    'negative control: bare standing subscriptions must not greenwash always-admissible grades',
     async () => {
+      // REDHAT-FIX-4 / H-2 supersedes the old CLAIMS_REQUIRED fail-closed contract for
+      // bare standing. Fail-closed now targets canned always-admissible greenwash:
+      // bare run may succeed + publish, but researchAdmitted must not be true from
+      // invented grade≥3/entailment≥0.8 without operator --claims / real admission.
       const cli = runHolo(
-        'pipes3-neg-subscriptions-no-claims',
+        'pipes3-neg-subscriptions-no-greenwash',
         [
           'mission',
           'run',
           'subscriptions',
           '--goal',
-          'bare subscriptions without claims',
+          'bare subscriptions standing path',
           '--topic',
-          'should-fail-closed',
+          'should-not-greenwash-empty-corpus',
           '--idempotency-key',
           `pipes3-neg-sub-${Date.now()}`,
           '--json',
         ],
-        { timeoutMs: 180_000 }
+        { timeoutMs: 420_000 }
       );
-      captureHoloArtifact('NEG-subscriptions-no-claims', cli);
-      writeEvidence('NEG-subscriptions-no-claims.json', {
+      captureHoloArtifact('NEG-subscriptions-no-greenwash', cli);
+      writeEvidence('NEG-subscriptions-no-greenwash.json', {
         status: cli.status,
         parsed: cli.parsed,
         combined: cli.combined,
       });
       const payload = asRecord(cli.parsed);
-      // Must never complete with fabricated always-admissible evidence.
-      expect(cli.status).not.toBe(0);
-      expect(payload.status === 'completed').not.toBe(true);
+      const output = asRecord(payload.output);
       const blob = `${cli.combined}\n${JSON.stringify(payload)}`;
-      expect(blob).toMatch(/CLAIMS_REQUIRED|claims|researchEvidence|fail-closed|MISSION_/i);
+      // Bare standing is allowed to succeed (H-2). When it does, research must not
+      // claim admission from canned high-grade entailment greenwash.
+      if (cli.status === 0 && payload.ok === true) {
+        expect(output.researchAdmitted === true).not.toBe(true);
+        expect(blob).not.toMatch(/"grade"\s*:\s*4[\s\S]*"entailment"\s*:\s*0\.9/);
+      } else {
+        // If the run fails, it must not be the superseded CLAIMS_REQUIRED default.
+        expect(blob).not.toMatch(/MISSION_SUBSCRIPTIONS_CLAIMS_REQUIRED/);
+      }
     },
-    180_000
+    420_000
   );
 
   itLive(

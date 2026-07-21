@@ -24,7 +24,7 @@ export const subscriptionsTemplateDefinition: MissionTemplateDefinition = {
   templateKey: SUBSCRIPTIONS_TEMPLATE_KEY,
   version: SUBSCRIPTIONS_TEMPLATE_VERSION,
   description:
-    'Standing subscriptions: plan → subworkflow:evidence-research → checkpoint → idempotent document publish → commit.',
+    'Standing subscriptions (unattended): plan → subworkflow:evidence-research (PATH-A or standing provisional; optional --claims override) → checkpoint → idempotent document publish → commit.',
   trigger: { kind: 'on-demand' },
   stageGraph: [
     {

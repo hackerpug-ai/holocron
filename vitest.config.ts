@@ -73,8 +73,8 @@ export default defineConfig({
       'services/platform/tests/integration/redhat-fix-2-cli-idempotency-defaults.test.ts',
       // Sprint 22 REDHAT-FIX-1 — CAP-EMB-01 research-retrieve wiring (C-1)
       'services/platform/tests/integration/redhat-fix-1-cap-emb-retrieve.test.ts',
-      // Sprint 22 REDHAT-FIX-3 — holo infer:trace gate step 6 (H-1)
       'services/platform/tests/integration/redhat-fix-3-infer-trace.test.ts',
+      'services/platform/tests/integration/redhat-fix-4-subscriptions-no-claims.test.ts',
     ],
     setupFiles: ['tests/setup/react-native.ts'],
     exclude: ['node_modules', 'dist', '.expo'],
