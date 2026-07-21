@@ -1,0 +1,33 @@
+=== AC-5 refined: template definition payloads ===
+--- services/platform/src/mission/templates/evidence-research.ts ---
+(no banned payload keys)
+--- services/platform/src/mission/templates/business-report.ts ---
+(no banned payload keys)
+--- services/platform/src/mission/templates/whatsnew.ts ---
+(no banned payload keys)
+--- services/platform/src/mission/templates/assimilate.ts ---
+(no banned payload keys)
+--- services/platform/src/mission/templates/shop.ts ---
+(no banned payload keys)
+--- services/platform/src/mission/templates/subscriptions.ts ---
+(no banned payload keys)
+
+--- ensure definitions are pure data (stageGraph) ---
+=== services/platform/src/mission/templates/evidence-research.ts first 100 lines ===
+(eval):34: command not found: head
+
+=== services/platform/src/mission/templates/business-report.ts first 100 lines ===
+(eval):34: command not found: head
+
+=== services/platform/src/mission/templates/whatsnew.ts first 100 lines ===
+(eval):34: command not found: head
+
+=== services/platform/src/mission/templates/assimilate.ts first 100 lines ===
+(eval):34: command not found: head
+
+=== services/platform/src/mission/templates/shop.ts first 100 lines ===
+(eval):34: command not found: head
+
+=== services/platform/src/mission/templates/subscriptions.ts first 100 lines ===
+(eval):34: command not found: head
+

@@ -1,0 +1,59 @@
+=== AC-4 / TC-4: TDD RED evidence ===
+--- git log pipes-4 RED ---
+7271b45f index on main: 6c92c176 Merge task/pipes-4 into main
+dd636cee index on main: 6c92c176 Merge task/pipes-4 into main
+f78cd5be index on main: 6c92c176 Merge task/pipes-4 into main
+6c92c176 Merge task/pipes-4 into main
+678c89a8 pipes-4 RED: failing integration suite for pipeline templates / no-shells / publish
+
+678c89a8 pipes-4 RED: failing integration suite for pipeline templates / no-shells / publish
+
+--- RED evidence file ---
+total 0
+drwxr-xr-x@  2 inference1  staff    64 Jul 21 11:30 .
+drwxr-xr-x@ 44 inference1  staff  1408 Jul 21 11:30 ..
+MISSING: pipes-4-red-evidence.md
+.spec/prds/mk6-migration/tasks/sprint-22-all-agentic-pipelines-as-templates-agents/pipes-4-red-tests-pipeline-former-output-no-shells-sub-workflow-publish.md
+.tmp/obs-4/red-output.txt
+.tmp/redhat-fix-h2-green
+.tmp/redhat-fix-h1r-green
+.tmp/GATE-FIX-G5/AC-1-red.txt
+.tmp/GATE-FIX-G5/AC-2-red.txt
+.tmp/pipes-5/ac4-tdd-red-evidence.txt
+.tmp/pipes-5/ac2-shared-templates.txt
+.tmp/redhat-fix-h1-green
+.tmp/ledger-4/red-output.txt
+.tmp/queue-4/red-queue-durable.txt
+.tmp/queue-4/AC-4-red-against-start.txt
+.tmp/queue-4/red-queue-dlq.txt
+.tmp/queue-4/AC-2-red-against-start.txt
+.tmp/queue-4/red-queue-priority.txt
+.tmp/queue-4/red-summary.txt
+.tmp/queue-4/AC-3-red-against-start.txt
+.tmp/queue-4/red-output.txt
+.tmp/queue-4/red-jobs-run-all.txt
+.tmp/queue-4/AC-1-red-against-start.txt
+.tmp/search-2/red-output.txt
+
+--- lineage: pipes-1..4 commits ---
+515c2a25 Merge task/pipes-3 into main
+ed57b556 index on main: 2169ee6a Merge task/pipes-2 into main
+c1f54760 pipes-3 FIX: fail-closed pipeline gather + wire assay; honest no-shells residual
+a0607000 index on main: 2169ee6a Merge task/pipes-2 into main
+d4ae96bd pipes-3: whatsNew/assimilate/shop/subscriptions templates + sub-workflow publish + no-shells
+2169ee6a Merge task/pipes-2 into main
+5bde9568 index on main: ea6d9f96 Merge task/pipes-1 into main
+a37a7621 pipes-2 FIX: fail-closed empty fleet output + honest component provenance
+916ad768 pipes-2: parameterized business-report template (4 kinds)
+ea6d9f96 Merge task/pipes-1 into main
+7271b45f index on main: 6c92c176 Merge task/pipes-4 into main
+fa7315f5 pipes-1 chore: apply biome format to evidence-research integration test
+8889928a pipes-1 FIX: SIGKILL resume path + fail-closed retrieve evidence
+7c5a8e7b On task/pipes-1: cmux last turn baseline
+dd636cee index on main: 6c92c176 Merge task/pipes-4 into main
+6af70e62 index on task/pipes-1: 976a7cba pipes-1: shared evidence-research mission template
+f78cd5be index on main: 6c92c176 Merge task/pipes-4 into main
+976a7cba pipes-1: shared evidence-research mission template
+6c92c176 Merge task/pipes-4 into main
+678c89a8 pipes-4 RED: failing integration suite for pipeline templates / no-shells / publish
+b6031c44 plan(sprint-22): expand tasks

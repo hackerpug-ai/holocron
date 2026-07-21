@@ -1,0 +1,54 @@
+# pipes-5 verification snapshot 2026-07-21T17:33:03Z
+
+## TC-1 / AC-1 directories
+directory_count=0
+
+## holo verify:no-shells
+holo verify:no-shells — 0 per-domain modules found
+exit=0
+
+## TC-2 / AC-2 mission_templates (DATABASE_URL=postgres://postgres:postgres@localhost:5432/holocron_nonprod)
+   template_key    | latest_version 
+-------------------+----------------
+ assimilate        | 1.0.0
+ business-report   | 1.0.1
+ evidence-research | 1.0.2
+ shop              | 1.0.0
+ subscriptions     | 1.0.0
+ whatsnew          | 1.0.0
+(6 rows)
+
+
+## TC-3 / AC-3 subworkflow
+11: * Stage graph must contain executorRef `subworkflow:evidence-research` (TC-3).
+19:/** Literal executor ref grepped by TC-3: subworkflow:evidence-research */
+27:    'Standing subscriptions: plan → subworkflow:evidence-research → checkpoint → idempotent document publish → commit.',
+
+## TC-4 / AC-4 RED
+678c89a8 pipes-4 RED: failing integration suite for pipeline templates / no-shells / publish
+pipes-4-red-evidence.md exists: NO
+
+## template source files
+services/platform/src/mission/templates/assimilate.ts
+services/platform/src/mission/templates/business-report-components.ts
+services/platform/src/mission/templates/business-report.ts
+services/platform/src/mission/templates/ensure-system.ts
+services/platform/src/mission/templates/evidence-research.ts
+services/platform/src/mission/templates/pipeline-components.ts
+services/platform/src/mission/templates/shop.ts
+services/platform/src/mission/templates/subscriptions.ts
+services/platform/src/mission/templates/whatsnew.ts
+
+## git lineage pipes-1..4
+515c2a25 Merge task/pipes-3 into main
+c1f54760 pipes-3 FIX: fail-closed pipeline gather + wire assay; honest no-shells residual
+d4ae96bd pipes-3: whatsNew/assimilate/shop/subscriptions templates + sub-workflow publish + no-shells
+2169ee6a Merge task/pipes-2 into main
+a37a7621 pipes-2 FIX: fail-closed empty fleet output + honest component provenance
+916ad768 pipes-2: parameterized business-report template (4 kinds)
+ea6d9f96 Merge task/pipes-1 into main
+fa7315f5 pipes-1 chore: apply biome format to evidence-research integration test
+8889928a pipes-1 FIX: SIGKILL resume path + fail-closed retrieve evidence
+976a7cba pipes-1: shared evidence-research mission template
+6c92c176 Merge task/pipes-4 into main
+678c89a8 pipes-4 RED: failing integration suite for pipeline templates / no-shells / publish
