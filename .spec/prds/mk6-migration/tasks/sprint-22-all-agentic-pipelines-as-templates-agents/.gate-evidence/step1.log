@@ -1,0 +1,239 @@
+=== STEP 1 @ 17:47:43 ===
+CMD: bun run services/platform/src/cli/holo.ts mission run whatsNew --date 2026-07-20 --json
+{
+  "attemptCount": 1,
+  "checkpointStageIndex": 3,
+  "goal": "daily briefing for 2026-07-20",
+  "idempotencyKey": "whatsnew:2026-07-20:1784656064046",
+  "ok": true,
+  "output": {
+    "assayText": "1.  **Analyze the Request:**\n    *   **Input:** A \"daily-briefing\" for date 2026-07-20 containing three headlines.\n    *   **Headlines:**\n        1.  \"local inference fleet routing\" (Hacker News, discovery).\n        2.  \"structured output guardrails\" (GitHub Trending, trend).\n        3.  \"agentic mission templates\" (arXiv cs.AI, discovery).\n    *   **Constraint:** Return a *one-paragraph synthesis* in *plain text only*.\n\n2.  **Analyze the Headlines:**\n    *   *Headline 1:* Focuses on routing local inference fleets. Suggests infrastructure/operational concerns in AI deployment at the edge or local level.\n    *   *Headline 2:* Focuses on structured output guardrails. Suggests safety, reliability, and formatting constraints for AI models.\n    *   *Headline 3:* Focuses on agentic mission templates. Suggests higher-level orchestration, defining goals/missions for AI agents.\n\n3.  **Synthesize the Themes:**\n    *   All three relate to the *operationalization* and *engineering* of AI systems (specifically Agentic AI).\n    *   They move from infrastructure (fleet routing) to control mechanisms (guardrails) to high-level orchestration (mission templates).\n    *   Collectively, they paint a picture of maturing AI engineering: moving beyond just \"models\" to managing fleets, ensuring outputs are safe/structured, and defining complex agent behaviors.\n\n4.  **Drafting the Synthesis (Iterative Process):**\n\n    *   *Draft 1 (Mental):* Today's briefing covers three areas: routing inference flee…",
+    "date": "2026-07-20",
+    "documentType": "daily-briefing",
+    "fleetManifestVersion": "1.0.0",
+    "gatherProvenance": "Deterministic scaffolding (stable hash of inputs; not live source fetch)",
+    "goal": "daily briefing for 2026-07-20",
+    "headlines": [
+      {
+        "category": "discovery",
+        "source": "Hacker News",
+        "summary": "Deterministic scaffolding (stable hash of inputs; not live source fetch). Topic slot: local inference fleet routing / source slot: Hacker News.",
+        "title": "2026-07-20: local inference fleet routing — scaffold signal #1",
+        "url": "https://news.ycombinator.com/item?d=2026-07-20&i=1"
+      },
+      {
+        "category": "trend",
+        "source": "GitHub Trending",
+        "summary": "Deterministic scaffolding (stable hash of inputs; not live source fetch). Topic slot: structured output guardrails / source slot: GitHub Trending.",
+        "title": "2026-07-20: structured output guardrails — scaffold signal #2",
+        "url": "https://github.com/trending/item?d=2026-07-20&i=2"
+      },
+      {
+        "category": "discovery",
+        "source": "arXiv cs.AI",
+        "summary": "Deterministic scaffolding (stable hash of inputs; not live source fetch). Topic slot: agentic mission templates / source slot: arXiv cs.AI.",
+        "title": "2026-07-20: agentic mission templates — scaffold signal #3",
+        "url": "https://arxiv.org/item?d=2026-07-20&i=3"
+      },
+      {
+        "category": "trend",
+        "source": "Lobsters",
+        "summary": "Deterministic scaffolding (stable hash of inputs; not live source fetch). Topic slot: durable workflow checkpoints / source slot: Lobsters.",
+        "title": "2026-07-20: durable workflow checkpoints — scaffold signal #4",
+        "url": "https://lobste.rs/item?d=2026-07-20&i=4"
+      },
+      {
+        "category": "discovery",
+        "source": "Dev.to",
+        "summary": "Deterministic scaffolding (stable hash of inputs; not live source fetch). Topic slot: hybrid search RRF / source slot: Dev.to.",
+        "title": "2026-07-20: hybrid search RRF — scaffold signal #5",
+        "url": "https://dev.to/item?d=2026-07-20&i=5"
+      }
+    ],
+    "links": [
+      "https://news.ycombinator.com/item?d=2026-07-20&i=1",
+      "https://github.com/trending/item?d=2026-07-20&i=2",
+      "https://arxiv.org/item?d=2026-07-20&i=3",
+      "https://lobste.rs/item?d=2026-07-20&i=4",
+      "https://dev.to/item?d=2026-07-20&i=5"
+    ],
+    "summaries": [
+      {
+        "body": "Deterministic scaffolding (stable hash of inputs; not live source fetch). Headline slots: 2026-07-20: local inference fleet routing — scaffold signal #1 · 2026-07-20: structured output guardrails — scaffold signal #2 · 2026-07-20: agentic mission templates — scaffold signal #3",
+        "title": "Daily briefing scaffold — 2026-07-20"
+      },
+      {
+        "body": "Deterministic scaffolding (stable hash of inputs; not live source fetch). Watching local inference fleet routing and agentic mission templates on 2026-07-20.",
+        "title": "Cross-source pattern slots"
+      }
+    ],
+    "templateKey": "whatsnew"
+  },
+  "provenance": {
+    "budgetPolicy": {
+      "cost": 0,
+      "maxSteps": 12,
+      "tokens": 12000,
+      "wallMs": 180000
+    },
+    "compilerVersion": "mission-compiler@1.0.0",
+    "definitionHash": "cf94251ba2be7e50f9a9d67910a25da5278e9910afd47e5228aca32bd1e288a0",
+    "executorRef": "builtin.whatsnew-commit@1",
+    "fleetManifest": {
+      "defaultEndpoint": "http://127.0.0.1:4545",
+      "roles": {
+        "convergent": {
+          "concurrency": 2,
+          "contextLimit": 262144,
+          "degradationAction": "surface-unavailable",
+          "endpoint": "http://127.0.0.1:4545",
+          "healthProbe": {
+            "expectStatus": 200,
+            "method": "GET",
+            "path": "/v1/models",
+            "timeoutMs": 3000
+          },
+          "litellmModelId": "reviewer",
+          "modelRevision": "qwen3.6-27b-mtp-q8_0",
+          "role": "convergent",
+          "structuredOutput": true,
+          "timeoutMs": 180000
+        },
+        "divergent": {
+          "concurrency": 4,
+          "contextLimit": 32768,
+          "degradationAction": "surface-unavailable",
+          "endpoint": "http://127.0.0.1:4545",
+          "healthProbe": {
+            "expectStatus": 200,
+            "method": "GET",
+            "path": "/v1/models",
+            "timeoutMs": 3000
+          },
+          "litellmModelId": "implementer",
+          "modelRevision": "qwen3.6-35b-a3b-mtp-q8_k_xl",
+          "role": "divergent",
+          "structuredOutput": true,
+          "timeoutMs": 120000
+        },
+        "embed": {
+          "concurrency": 8,
+          "contextLimit": 8192,
+          "degradationAction": "fail-closed",
+          "embed": {
+            "embeddingDimension": 1024,
+            "prefixPolicy": {
+              "document": "passage: ",
+              "query": "query: "
+            }
+          },
+          "endpoint": "http://127.0.0.1:4545",
+          "healthProbe": {
+            "expectStatus": 200,
+            "method": "GET",
+            "path": "/v1/models",
+            "timeoutMs": 3000
+          },
+          "litellmModelId": "qwen3-embedding",
+          "modelRevision": "qwen3-embedding-0.6b-1024",
+          "role": "embed",
+          "structuredOutput": false,
+          "timeoutMs": 30000
+        },
+        "judge": {
+          "concurrency": 2,
+          "contextLimit": 262144,
+          "degradationAction": "surface-unavailable",
+          "endpoint": "http://127.0.0.1:4545",
+          "healthProbe": {
+            "expectStatus": 200,
+            "method": "GET",
+            "path": "/v1/models",
+            "timeoutMs": 3000
+          },
+          "litellmModelId": "reviewer",
+          "modelRevision": "qwen3.6-27b-mtp-q8_0",
+          "role": "judge",
+          "structuredOutput": true,
+          "timeoutMs": 180000
+        },
+        "rerank": {
+          "concurrency": 4,
+          "contextLimit": 8192,
+          "degradationAction": "fail-closed",
+          "endpoint": "http://127.0.0.1:4545",
+          "healthProbe": {
+            "expectStatus": 200,
+            "method": "GET",
+            "path": "/v1/models",
+            "timeoutMs": 3000
+          },
+          "litellmModelId": "qwen3-reranker",
+          "modelRevision": "qwen3-reranker-0.6b",
+          "role": "rerank",
+          "structuredOutput": false,
+          "timeoutMs": 30000
+        }
+      },
+      "schemaVersion": "1.0.0"
+    },
+    "fleetManifestHash": "b64b1bcc2843978d224ced2f47edf23fd67e3fe3b2b0919ce152f5cca9382cba",
+    "fleetManifestPath": "/Users/inference1/Projects/holocron/services/platform/fleet/manifest.json",
+    "fleetManifestVersion": "1.0.0",
+    "modelRevisions": {
+      "assay": "qwen3.6-35b-a3b-mtp-q8_k_xl",
+      "plan": "qwen3.6-35b-a3b-mtp-q8_k_xl"
+    },
+    "noCloudFallback": true,
+    "outputSchemaRef": "mission.whatsnew.briefing",
+    "outputSchemaVersion": 1,
+    "registrySnapshotHash": "8c6d2948e239c3cb5c92a03217aaf0a22382993700b8a025c327abb2bee51d86",
+    "roleResolution": {
+      "assay": {
+        "allowEscape": false,
+        "endpoint": "http://127.0.0.1:4545",
+        "fleetManifestVersion": "1.0.0",
+        "litellmModelId": "implementer",
+        "modelRevision": "qwen3.6-35b-a3b-mtp-q8_k_xl",
+        "provider": "fleet",
+        "role": "divergent",
+        "stageId": "assay"
+      },
+      "plan": {
+        "allowEscape": false,
+        "endpoint": "http://127.0.0.1:4545",
+        "fleetManifestVersion": "1.0.0",
+        "litellmModelId": "implementer",
+        "modelRevision": "qwen3.6-35b-a3b-mtp-q8_k_xl",
+        "provider": "fleet",
+        "role": "divergent",
+        "stageId": "plan"
+      }
+    },
+    "schemaRef": "mission.whatsnew.briefing",
+    "schemaVersion": 1,
+    "templateKey": "whatsnew",
+    "templateVersion": "1.0.0",
+    "traceId": "mission:e343fbb7-9b6c-4423-828e-e03ec13bada8"
+  },
+  "replay": false,
+  "runId": "019f85ca-6f42-71fa-9a01-cd362c62c772",
+  "status": "completed",
+  "templateKey": "whatsnew",
+  "templateVersion": "1.0.0",
+  "traceId": "mission:e343fbb7-9b6c-4423-828e-e03ec13bada8",
+  "usage": {
+    "budget": {
+      "cost": 0,
+      "maxSteps": 12,
+      "tokens": 12000,
+      "wallMs": 180000
+    },
+    "cost": 0,
+    "maxSteps": 12,
+    "stepsUsed": 4,
+    "tokens": 809,
+    "wallMs": 19152
+  }
+}
+exit=0

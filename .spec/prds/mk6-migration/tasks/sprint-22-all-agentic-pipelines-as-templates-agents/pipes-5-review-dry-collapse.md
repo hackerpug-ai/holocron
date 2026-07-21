@@ -1,4 +1,9 @@
 # pipes-5: Review DRY collapse
+> Status: ✅ Completed
+> Cycle: 1
+> Commit: c1fc292e0c5e3a03034886052efec14df284170e
+> Reviewer: mastra-reviewer
+> Completed: 2026-07-21T17:36:13Z
 
 - **Sprint:** [Sprint 22: All Agentic Pipelines as Templates/Agents](./SPRINT.md)
 - **Task Type:** `REVIEW`
@@ -175,7 +180,8 @@ This task is part of Sprint 22's collapse of holocron's per-domain agentic pipel
 Review/INFRA task — use the stated integration and seeded-evidence gates. Adversarially verify the DRY collapse: per-domain modules gone, shared templates present, sub-workflow calls use template references, RED evidence captured. Do not approve on 'exit 0' alone.
 
 ## Requirement Contract
-<!-- REQUIREMENT-CONTRACT v1 -->
+<!-- REQUIREMENT-CONTRACT v1
+-->
 <!--
 {
   "version": "1",

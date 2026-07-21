@@ -1,0 +1,252 @@
+=== STEP 6 @ 17:49:42 ===
+CMD: bun run services/platform/src/cli/holo.ts mission run report --kind competitive --target example.com --json
+{
+  "attemptCount": 1,
+  "checkpointStageIndex": 6,
+  "goal": "competitive report for example.com",
+  "idempotencyKey": "report:competitive:example.com:1784656182855",
+  "ok": true,
+  "output": {
+    "assayInstanceId": "qwen3.6-35b-a3b-mtp-q8_k_xl:assay:019f85cc-3f14-7298-8310-ce4a934386b3",
+    "assayText": "**Candidate Verdict**\nThe market for example.com is crowded but segmented, presenting a viable entry opportunity provided the business does not compete directly on legacy distribution (Incumbent Co) or purely on speed (Challenger Labs). Success depends on exploiting the identified market gaps in User Experience (UX) and pricing strategy to capture the middle ground between enterprise rigidity and open-source simplicity.\n\n**Key Risks**\n*   **Pricing Compression:** The presence of a strong free/open-source alternative creates a low price ceiling, making it difficult to justify high monthly fees without exceptional value.\n*   **Distribution Barriers:** The Incumbent Co",
+    "challengeInstanceId": "qwen3.6-27b-mtp-q8_0:challenge:019f85cc-3f14-7298-8310-ce4a934386b3",
+    "challengeText": "The Candidate Verdict relies on the flawed assumption that a \"middle ground\" strategy—positioning between enterprise rigidity and open-source simplicity—creates a defensible moat. In reality, this position is often a \"dead zone\" where value is easily eroded. Open-source projects are rapidly maturing in UX, closing the gap with proprietary tools much faster than anticipated, thereby nullifying the primary differentiator. Meanwhile, incumbents are increasingly agile, offering \"lite\" versions or acquiring challengers to squeeze the mid-market.\n\nFurthermore, the assessment underestimates the **Unit Economics Trap**. The \"middle ground\" often demands the highest cost of customer support (users who lack the technical skills of open-source adopters but lack",
+    "competitorMatrix": [
+      {
+        "focus": "Enterprise",
+        "name": "Incumbent Co",
+        "pricing": "$199/mo",
+        "strength": "Distribution"
+      },
+      {
+        "focus": "SMB",
+        "name": "Challenger Labs",
+        "pricing": "$39/mo",
+        "strength": "Product velocity"
+      },
+      {
+        "focus": "Developer",
+        "name": "Open Alternative",
+        "pricing": "Free + paid",
+        "strength": "Community"
+      }
+    ],
+    "evidence": [
+      {
+        "claim": "Fleet ASSAY for example.com",
+        "source": "fleet:assay",
+        "tier": 2
+      },
+      {
+        "claim": "Fleet CHALLENGE for example.com",
+        "source": "fleet:challenge",
+        "tier": 2
+      }
+    ],
+    "fleetManifestVersion": "1.0.0",
+    "marketSnapshot": "Competitive landscape for example.com: multi-player market with room for differentiation on UX and pricing.",
+    "reasoningProvider": "fleet",
+    "recommendations": [
+      "Map white-space opportunities against top three competitors",
+      "Track pricing and feature moves weekly"
+    ],
+    "reportKind": "competitive",
+    "sections": [
+      {
+        "body": "**Candidate Verdict**\nThe market for example.com is crowded but segmented, presenting a viable entry opportunity provided the business does not compete directly on legacy distribution (Incumbent Co) or purely on speed (Challenger Labs). Success depends on exploiting the identified market gaps in User Experience (UX) and pricing strategy to capture the middle ground between enterprise rigidity and open-source simplicity.\n\n**Key Risks**\n*   **Pricing Compression:** The presence of a strong free/open-source alternative creates a low price ceiling, making it difficult to justify high monthly fees without exceptional value.\n*   **Distribution Barriers:** The Incumbent Co",
+        "id": "executive-summary",
+        "title": "Executive Summary"
+      },
+      {
+        "body": "The Candidate Verdict relies on the flawed assumption that a \"middle ground\" strategy—positioning between enterprise rigidity and open-source simplicity—creates a defensible moat. In reality, this position is often a \"dead zone\" where value is easily eroded. Open-source projects are rapidly maturing in UX, closing the gap with proprietary tools much faster than anticipated, thereby nullifying the primary differentiator. Meanwhile, incumbents are increasingly agile, offering \"lite\" versions or acquiring challengers to squeeze the mid-market.\n\nFurthermore, the assessment underestimates the **Unit Economics Trap**. The \"middle ground\" often demands the highest cost of customer support (users who lack the technical skills of open-source adopters but lack",
+        "id": "challenge",
+        "title": "Challenge / Counter-arguments"
+      },
+      {
+        "body": "Incumbent Co: Enterprise / $199/mo / Distribution\nChallenger Labs: SMB / $39/mo / Product velocity\nOpen Alternative: Developer / Free + paid / Community",
+        "id": "competitor-matrix",
+        "title": "Competitor Matrix"
+      }
+    ],
+    "target": "example.com",
+    "templateKey": "business-report"
+  },
+  "provenance": {
+    "budgetPolicy": {
+      "cost": 0,
+      "maxSteps": 16,
+      "tokens": 24000,
+      "wallMs": 300000
+    },
+    "compilerVersion": "mission-compiler@1.0.0",
+    "definitionHash": "337308ecd35da84e0bd5b024d771f39a8984990ea329661282f2936018a06151",
+    "executorRef": "builtin.business-commit@1",
+    "fleetManifest": {
+      "defaultEndpoint": "http://127.0.0.1:4545",
+      "roles": {
+        "convergent": {
+          "concurrency": 2,
+          "contextLimit": 262144,
+          "degradationAction": "surface-unavailable",
+          "endpoint": "http://127.0.0.1:4545",
+          "healthProbe": {
+            "expectStatus": 200,
+            "method": "GET",
+            "path": "/v1/models",
+            "timeoutMs": 3000
+          },
+          "litellmModelId": "reviewer",
+          "modelRevision": "qwen3.6-27b-mtp-q8_0",
+          "role": "convergent",
+          "structuredOutput": true,
+          "timeoutMs": 180000
+        },
+        "divergent": {
+          "concurrency": 4,
+          "contextLimit": 32768,
+          "degradationAction": "surface-unavailable",
+          "endpoint": "http://127.0.0.1:4545",
+          "healthProbe": {
+            "expectStatus": 200,
+            "method": "GET",
+            "path": "/v1/models",
+            "timeoutMs": 3000
+          },
+          "litellmModelId": "implementer",
+          "modelRevision": "qwen3.6-35b-a3b-mtp-q8_k_xl",
+          "role": "divergent",
+          "structuredOutput": true,
+          "timeoutMs": 120000
+        },
+        "embed": {
+          "concurrency": 8,
+          "contextLimit": 8192,
+          "degradationAction": "fail-closed",
+          "embed": {
+            "embeddingDimension": 1024,
+            "prefixPolicy": {
+              "document": "passage: ",
+              "query": "query: "
+            }
+          },
+          "endpoint": "http://127.0.0.1:4545",
+          "healthProbe": {
+            "expectStatus": 200,
+            "method": "GET",
+            "path": "/v1/models",
+            "timeoutMs": 3000
+          },
+          "litellmModelId": "qwen3-embedding",
+          "modelRevision": "qwen3-embedding-0.6b-1024",
+          "role": "embed",
+          "structuredOutput": false,
+          "timeoutMs": 30000
+        },
+        "judge": {
+          "concurrency": 2,
+          "contextLimit": 262144,
+          "degradationAction": "surface-unavailable",
+          "endpoint": "http://127.0.0.1:4545",
+          "healthProbe": {
+            "expectStatus": 200,
+            "method": "GET",
+            "path": "/v1/models",
+            "timeoutMs": 3000
+          },
+          "litellmModelId": "reviewer",
+          "modelRevision": "qwen3.6-27b-mtp-q8_0",
+          "role": "judge",
+          "structuredOutput": true,
+          "timeoutMs": 180000
+        },
+        "rerank": {
+          "concurrency": 4,
+          "contextLimit": 8192,
+          "degradationAction": "fail-closed",
+          "endpoint": "http://127.0.0.1:4545",
+          "healthProbe": {
+            "expectStatus": 200,
+            "method": "GET",
+            "path": "/v1/models",
+            "timeoutMs": 3000
+          },
+          "litellmModelId": "qwen3-reranker",
+          "modelRevision": "qwen3-reranker-0.6b",
+          "role": "rerank",
+          "structuredOutput": false,
+          "timeoutMs": 30000
+        }
+      },
+      "schemaVersion": "1.0.0"
+    },
+    "fleetManifestHash": "b64b1bcc2843978d224ced2f47edf23fd67e3fe3b2b0919ce152f5cca9382cba",
+    "fleetManifestPath": "/Users/inference1/Projects/holocron/services/platform/fleet/manifest.json",
+    "fleetManifestVersion": "1.0.0",
+    "modelRevisions": {
+      "assay": "qwen3.6-35b-a3b-mtp-q8_k_xl",
+      "challenge": "qwen3.6-27b-mtp-q8_0",
+      "plan": "qwen3.6-35b-a3b-mtp-q8_k_xl"
+    },
+    "noCloudFallback": true,
+    "outputSchemaRef": "mission.business.report",
+    "outputSchemaVersion": 1,
+    "registrySnapshotHash": "8c6d2948e239c3cb5c92a03217aaf0a22382993700b8a025c327abb2bee51d86",
+    "roleResolution": {
+      "assay": {
+        "allowEscape": false,
+        "endpoint": "http://127.0.0.1:4545",
+        "fleetManifestVersion": "1.0.0",
+        "litellmModelId": "implementer",
+        "modelRevision": "qwen3.6-35b-a3b-mtp-q8_k_xl",
+        "provider": "fleet",
+        "role": "divergent",
+        "stageId": "assay"
+      },
+      "challenge": {
+        "allowEscape": false,
+        "endpoint": "http://127.0.0.1:4545",
+        "fleetManifestVersion": "1.0.0",
+        "litellmModelId": "reviewer",
+        "modelRevision": "qwen3.6-27b-mtp-q8_0",
+        "provider": "fleet",
+        "role": "convergent",
+        "stageId": "challenge"
+      },
+      "plan": {
+        "allowEscape": false,
+        "endpoint": "http://127.0.0.1:4545",
+        "fleetManifestVersion": "1.0.0",
+        "litellmModelId": "implementer",
+        "modelRevision": "qwen3.6-35b-a3b-mtp-q8_k_xl",
+        "provider": "fleet",
+        "role": "divergent",
+        "stageId": "plan"
+      }
+    },
+    "schemaRef": "mission.business.report",
+    "schemaVersion": 1,
+    "templateKey": "business-report",
+    "templateVersion": "1.0.1",
+    "traceId": "mission:a9f4b3f2-00ef-41be-b9fb-20a496aab65e"
+  },
+  "replay": false,
+  "runId": "019f85cc-3f14-7298-8310-ce4a934386b3",
+  "status": "completed",
+  "templateKey": "business-report",
+  "templateVersion": "1.0.1",
+  "traceId": "mission:a9f4b3f2-00ef-41be-b9fb-20a496aab65e",
+  "usage": {
+    "budget": {
+      "cost": 0,
+      "maxSteps": 16,
+      "tokens": 24000,
+      "wallMs": 300000
+    },
+    "cost": 0,
+    "maxSteps": 16,
+    "stepsUsed": 7,
+    "tokens": 2363,
+    "wallMs": 75229
+  }
+}
+exit=0

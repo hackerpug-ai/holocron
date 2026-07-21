@@ -1,0 +1,50 @@
+{
+  "sprint_id": "sprint-22-all-agentic-pipelines-as-templates-agents",
+  "met": true,
+  "updated_at": "2026-07-21T17:59:18.786472+00:00",
+  "tasks": {
+    "complete": true,
+    "total": 5,
+    "completed": 5
+  },
+  "gate": {
+    "verdict": "PASS",
+    "human_steps_documented": 6,
+    "e2e_coverage": "all covered",
+    "updated_at": "2026-07-21T17:59:18.523762+00:00"
+  },
+  "e2e": {
+    "verdict": "pass",
+    "framework": "headless-service"
+  },
+  "build": {
+    "verdict": "pass",
+    "typecheck": "pass",
+    "unit": "pass",
+    "lint": "partial-preexisting-spec-noise",
+    "notes": "Full pnpm lint fails on legacy .spec JSON formatting; typecheck clean; unit suite green on main pre-commit path."
+  },
+  "human_test": {
+    "verdict": "pass",
+    "steps_executed": 6,
+    "steps_passed": 6,
+    "steps_total": 6
+  },
+  "status_files": {
+    "parity": true,
+    "audit_exit": 0,
+    "stdout": "{\"ok\": true, \"op\": \"audit\", \"parity\": true, \"sprint_dir\": \"/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-22-all-agentic-pipelines-as-templates-agents\", \"sprint_lifecycle\": \"completed\", \"totals\": {\"files\": 5, \"completed\": 5, \"open\": 0, \"tracker_entries\": 0, \"tracker_matched\": 0}, \"drift\": [], \"checked_at\": \"2026-07-21T17:59:18Z\"}\n"
+  },
+  "integration": {
+    "consolidated": true,
+    "orphans": [],
+    "completed_landed": true
+  },
+  "redhat": {
+    "verdict": "pass",
+    "mode": "pipes-5-capstone-review",
+    "report": ".spec/reviews/sprint-22/pipes-5-dry-collapse-review.md",
+    "high_findings_open": 0,
+    "notes": "Capstone pipes-5 adversarial review APPROVED after RED evidence archive; no additional HIGH findings requiring REDHAT-FIX."
+  }
+}

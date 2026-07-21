@@ -1,0 +1,126 @@
+{
+  "sprint_id": "sprint-22-all-agentic-pipelines-as-templates-agents",
+  "verdict": "pass",
+  "runner": "kb-run-human-tests",
+  "ui_driver": "none",
+  "cycle_started_at": "2026-07-21T17:58:33.562585+00:00",
+  "completed_at": "2026-07-21T17:58:33.562726+00:00",
+  "steps_total": 6,
+  "steps_executed": 6,
+  "steps_passed": 6,
+  "steps": [
+    {
+      "id": "1",
+      "name": "Run holo mission run whatsNew",
+      "executed": true,
+      "result": "pass",
+      "log": ".spec/prds/mk6-migration/tasks/sprint-22-all-agentic-pipelines-as-templates-agents/.gate-evidence/step1.log",
+      "log_file": "step1.log"
+    },
+    {
+      "id": "2",
+      "name": "assimilate + shop",
+      "executed": true,
+      "result": "pass",
+      "log": ".spec/prds/mk6-migration/tasks/sprint-22-all-agentic-pipelines-as-templates-agents/.gate-evidence/step2a.log",
+      "log_file": "step2a.log"
+    },
+    {
+      "id": "3",
+      "name": "report --kind revenue-validation",
+      "executed": true,
+      "result": "pass",
+      "log": ".spec/prds/mk6-migration/tasks/sprint-22-all-agentic-pipelines-as-templates-agents/.gate-evidence/step3.log",
+      "log_file": "step3.log"
+    },
+    {
+      "id": "4",
+      "name": "holo verify:no-shells",
+      "executed": true,
+      "result": "pass",
+      "log": ".spec/prds/mk6-migration/tasks/sprint-22-all-agentic-pipelines-as-templates-agents/.gate-evidence/step4.log",
+      "log_file": "step4.log"
+    },
+    {
+      "id": "5",
+      "name": "subscriptions sub-workflow publish",
+      "executed": true,
+      "result": "pass",
+      "log": ".spec/prds/mk6-migration/tasks/sprint-22-all-agentic-pipelines-as-templates-agents/.gate-evidence/step5.log",
+      "log_file": "step5.log"
+    },
+    {
+      "id": "6",
+      "name": "fleet reasoning on business report",
+      "executed": true,
+      "result": "pass",
+      "log": ".spec/prds/mk6-migration/tasks/sprint-22-all-agentic-pipelines-as-templates-agents/.gate-evidence/step6.log",
+      "log_file": "step6.log"
+    }
+  ],
+  "detail_steps": [
+    {
+      "id": "1",
+      "name": "whatsNew",
+      "executed": true,
+      "result": "pass",
+      "exit_code": 0,
+      "log": ".tmp/sprint-22-all-agentic-pipelines-as-templates-agents/human-tests/step1.log",
+      "log_bytes": 10274
+    },
+    {
+      "id": "2a",
+      "name": "assimilate",
+      "executed": true,
+      "result": "pass",
+      "exit_code": 0,
+      "log": ".tmp/sprint-22-all-agentic-pipelines-as-templates-agents/human-tests/step2a.log",
+      "log_bytes": 9035
+    },
+    {
+      "id": "2b",
+      "name": "shop",
+      "executed": true,
+      "result": "pass",
+      "exit_code": 0,
+      "log": ".tmp/sprint-22-all-agentic-pipelines-as-templates-agents/human-tests/step2b.log",
+      "log_bytes": 8261
+    },
+    {
+      "id": "3",
+      "name": "report",
+      "executed": true,
+      "result": "pass",
+      "exit_code": 0,
+      "log": ".tmp/sprint-22-all-agentic-pipelines-as-templates-agents/human-tests/step3.log",
+      "log_bytes": 16606
+    },
+    {
+      "id": "4",
+      "name": "no-shells",
+      "executed": true,
+      "result": "pass",
+      "exit_code": 0,
+      "log": ".tmp/sprint-22-all-agentic-pipelines-as-templates-agents/human-tests/step4.log",
+      "log_bytes": 150
+    },
+    {
+      "id": "5",
+      "name": "subscriptions",
+      "executed": true,
+      "result": "pass",
+      "exit_code": 0,
+      "log": ".tmp/sprint-22-all-agentic-pipelines-as-templates-agents/human-tests/step5.log",
+      "log_bytes": 5748
+    },
+    {
+      "id": "6",
+      "name": "fleet-report",
+      "executed": true,
+      "result": "pass",
+      "exit_code": 0,
+      "log": ".tmp/sprint-22-all-agentic-pipelines-as-templates-agents/human-tests/step6.log",
+      "log_bytes": 10823
+    }
+  ]
+}

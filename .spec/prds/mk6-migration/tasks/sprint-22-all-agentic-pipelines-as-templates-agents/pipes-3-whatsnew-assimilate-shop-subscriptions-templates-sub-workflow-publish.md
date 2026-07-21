@@ -1,4 +1,9 @@
 # pipes-3: whatsNew/assimilate/shop/subscriptions as templates/agents + standing sub-workflow publish
+> Status: ✅ Completed
+> Cycle: 2
+> Commit: c1f5476066baa2a50cdfc05e80d7b380c2719b0c
+> Reviewer: mastra-reviewer
+> Completed: 2026-07-21T17:29:10Z
 
 - **Sprint:** [Sprint 22: All Agentic Pipelines as Templates/Agents](./SPRINT.md)
 - **Task Type:** `FEATURE`
@@ -180,7 +185,8 @@ This task is part of Sprint 22's collapse of holocron's per-domain agentic pipel
 Follow RED → GREEN → REFACTOR per AC. Write the failing test against the real Postgres+fleet entrypoint first (pipes-4 owns the consolidated RED suite; coordinate so the RED commit lands before implementation). The RED proof must fail against the empty/disconnected start state — capture the failure output, not just the green. Keep reasoning server-side on the fleet.
 
 ## Requirement Contract
-<!-- REQUIREMENT-CONTRACT v1 -->
+<!-- REQUIREMENT-CONTRACT v1
+-->
 <!--
 {
   "version": "1",

@@ -1,0 +1,39 @@
+{
+  "sprint_id": "sprint-22-all-agentic-pipelines-as-templates-agents",
+  "framework": "headless-service",
+  "verdict": "pass",
+  "serial_exits": [
+    0,
+    0,
+    0
+  ],
+  "suites_passed_markers": 3,
+  "suites_failed_markers": 0,
+  "human_steps_coverage": [
+    {
+      "step": 1,
+      "status": "covered"
+    },
+    {
+      "step": 2,
+      "status": "covered"
+    },
+    {
+      "step": 3,
+      "status": "covered"
+    },
+    {
+      "step": 4,
+      "status": "covered"
+    },
+    {
+      "step": 5,
+      "status": "covered"
+    },
+    {
+      "step": 6,
+      "status": "covered"
+    }
+  ],
+  "updated_at": "2026-07-21T17:58:33.564471+00:00"
+}

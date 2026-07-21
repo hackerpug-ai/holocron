@@ -1,4 +1,9 @@
 # pipes-1: Shared evidence-research core template (research/deepResearch/subscriptions-research/fulcrum share it)
+> Status: ✅ Completed
+> Cycle: 2
+> Commit: fa7315f53867dae742a23eb17d3540c9d582c585
+> Reviewer: mastra-reviewer
+> Completed: 2026-07-21T16:13:35Z
 
 - **Sprint:** [Sprint 22: All Agentic Pipelines as Templates/Agents](./SPRINT.md)
 - **Task Type:** `FEATURE`
@@ -196,7 +201,8 @@ pnpm src/research/test-evidence-gate.ts < /tmp/refuting_evidence.json | jq '.dir
 Follow RED → GREEN → REFACTOR per AC. Write the failing test against the real Postgres+fleet entrypoint first (pipes-4 owns the consolidated RED suite; coordinate so the RED commit lands before implementation). The RED proof must fail against the empty/disconnected start state — capture the failure output, not just the green. Keep reasoning server-side on the fleet.
 
 ## Requirement Contract
-<!-- REQUIREMENT-CONTRACT v1 -->
+<!-- REQUIREMENT-CONTRACT v1
+-->
 <!--
 {
   "version": "1",

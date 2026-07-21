@@ -1,0 +1,213 @@
+=== STEP 2b @ 17:48:19 ===
+CMD: bun run services/platform/src/cli/holo.ts mission run shop --query 'ergonomic keyboard' --json
+{
+  "attemptCount": 1,
+  "checkpointStageIndex": 3,
+  "goal": "shop ergonomic keyboard",
+  "idempotencyKey": "shop:ergonomic keyboard:1784656099737",
+  "ok": true,
+  "output": {
+    "assayText": "1.  **Analyze the Request:**\n    *   **Context:** ASSAY shop query (implies a mock shopping scenario).\n    *   **Query:** \"ergonomic keyboard\".\n    *   **Top Products Provided:**\n        1.  Keychron Q10 Alice (Barebone) - $174, Rating 4.6.\n        2.  Kinesis Freestyle2 Ergonomic Keyboard - $99, Rating 4.4.\n        3.  Microsoft Sculpt Ergonomic Keyboard - $59.99, Rating 4.2.\n    *   **Goal:** Recommend the \"best value\".\n    *   **Format:** Plain text only.\n\n2.  **Define \"Best Value\":**\n    *   \"Best value\" usually represents a balance between price, performance/features, and rating.\n    *   *Product 1 (Keychron):* Expensive ($174), high rating (4.6). Good for enthusiasts, but not necessarily \"value\" in the budget sense. Also, it's a \"Barebone\" unit, meaning the user might need to buy switches and keycaps separately, increasing the total cost and effort.\n    *   *Product 2 (Kinesis):* Moderate price ($99), good rating (4.4). Specialized ergonomic features (split keyboard).\n    *   *Product 3 (Microsoft):* Cheap ($59.99), decent rating (4.2). Well-known entry-level ergonomic keyboard.\n\n3.  **Evaluate the candidates for value:**\n    *   *Microsoft Sculpt:* At ~$60, it's the cheapest. It has a solid 4.2 rating. For someone asking for \"value,\" getting a reliable ergonomic keyboard for under $60 is a strong contender.\n    *   *Kinesis Freestyle2:* At $99, it costs almost double the Microsoft. However, 4.4 is higher, and split keyboards are often considered more effective for ergo…",
+    "fleetManifestVersion": "1.0.0",
+    "gatherProvenance": "Deterministic scaffolding (stable catalog/hash slots; not live marketplace fetch)",
+    "goal": "shop ergonomic keyboard",
+    "products": [
+      {
+        "condition": "new",
+        "currency": "USD",
+        "price": 174,
+        "rating": 4.6,
+        "retailer": "deterministic-scaffolding:Keychron",
+        "title": "Keychron Q10 Alice (Barebone)",
+        "url": "https://www.keychron.com/products/keychron-q10"
+      },
+      {
+        "condition": "new",
+        "currency": "USD",
+        "price": 99,
+        "rating": 4.4,
+        "retailer": "deterministic-scaffolding:Kinesis",
+        "title": "Kinesis Freestyle2 Ergonomic Keyboard",
+        "url": "https://kinesis-ergo.com/shop/freestyle2/"
+      },
+      {
+        "condition": "new",
+        "currency": "USD",
+        "price": 59.99,
+        "rating": 4.2,
+        "retailer": "deterministic-scaffolding:Microsoft",
+        "title": "Microsoft Sculpt Ergonomic Keyboard",
+        "url": "https://www.microsoft.com/sculpt-ergonomic-keyboard"
+      }
+    ],
+    "query": "ergonomic keyboard",
+    "templateKey": "shop"
+  },
+  "provenance": {
+    "budgetPolicy": {
+      "cost": 0,
+      "maxSteps": 12,
+      "tokens": 12000,
+      "wallMs": 180000
+    },
+    "compilerVersion": "mission-compiler@1.0.0",
+    "definitionHash": "9995b0a494d457005d7337694134e9ceb00c0beb41af9fbb2965151a57f4fa9c",
+    "executorRef": "builtin.shop-commit@1",
+    "fleetManifest": {
+      "defaultEndpoint": "http://127.0.0.1:4545",
+      "roles": {
+        "convergent": {
+          "concurrency": 2,
+          "contextLimit": 262144,
+          "degradationAction": "surface-unavailable",
+          "endpoint": "http://127.0.0.1:4545",
+          "healthProbe": {
+            "expectStatus": 200,
+            "method": "GET",
+            "path": "/v1/models",
+            "timeoutMs": 3000
+          },
+          "litellmModelId": "reviewer",
+          "modelRevision": "qwen3.6-27b-mtp-q8_0",
+          "role": "convergent",
+          "structuredOutput": true,
+          "timeoutMs": 180000
+        },
+        "divergent": {
+          "concurrency": 4,
+          "contextLimit": 32768,
+          "degradationAction": "surface-unavailable",
+          "endpoint": "http://127.0.0.1:4545",
+          "healthProbe": {
+            "expectStatus": 200,
+            "method": "GET",
+            "path": "/v1/models",
+            "timeoutMs": 3000
+          },
+          "litellmModelId": "implementer",
+          "modelRevision": "qwen3.6-35b-a3b-mtp-q8_k_xl",
+          "role": "divergent",
+          "structuredOutput": true,
+          "timeoutMs": 120000
+        },
+        "embed": {
+          "concurrency": 8,
+          "contextLimit": 8192,
+          "degradationAction": "fail-closed",
+          "embed": {
+            "embeddingDimension": 1024,
+            "prefixPolicy": {
+              "document": "passage: ",
+              "query": "query: "
+            }
+          },
+          "endpoint": "http://127.0.0.1:4545",
+          "healthProbe": {
+            "expectStatus": 200,
+            "method": "GET",
+            "path": "/v1/models",
+            "timeoutMs": 3000
+          },
+          "litellmModelId": "qwen3-embedding",
+          "modelRevision": "qwen3-embedding-0.6b-1024",
+          "role": "embed",
+          "structuredOutput": false,
+          "timeoutMs": 30000
+        },
+        "judge": {
+          "concurrency": 2,
+          "contextLimit": 262144,
+          "degradationAction": "surface-unavailable",
+          "endpoint": "http://127.0.0.1:4545",
+          "healthProbe": {
+            "expectStatus": 200,
+            "method": "GET",
+            "path": "/v1/models",
+            "timeoutMs": 3000
+          },
+          "litellmModelId": "reviewer",
+          "modelRevision": "qwen3.6-27b-mtp-q8_0",
+          "role": "judge",
+          "structuredOutput": true,
+          "timeoutMs": 180000
+        },
+        "rerank": {
+          "concurrency": 4,
+          "contextLimit": 8192,
+          "degradationAction": "fail-closed",
+          "endpoint": "http://127.0.0.1:4545",
+          "healthProbe": {
+            "expectStatus": 200,
+            "method": "GET",
+            "path": "/v1/models",
+            "timeoutMs": 3000
+          },
+          "litellmModelId": "qwen3-reranker",
+          "modelRevision": "qwen3-reranker-0.6b",
+          "role": "rerank",
+          "structuredOutput": false,
+          "timeoutMs": 30000
+        }
+      },
+      "schemaVersion": "1.0.0"
+    },
+    "fleetManifestHash": "b64b1bcc2843978d224ced2f47edf23fd67e3fe3b2b0919ce152f5cca9382cba",
+    "fleetManifestPath": "/Users/inference1/Projects/holocron/services/platform/fleet/manifest.json",
+    "fleetManifestVersion": "1.0.0",
+    "modelRevisions": {
+      "assay": "qwen3.6-35b-a3b-mtp-q8_k_xl",
+      "plan": "qwen3.6-35b-a3b-mtp-q8_k_xl"
+    },
+    "noCloudFallback": true,
+    "outputSchemaRef": "mission.shop.results",
+    "outputSchemaVersion": 1,
+    "registrySnapshotHash": "8c6d2948e239c3cb5c92a03217aaf0a22382993700b8a025c327abb2bee51d86",
+    "roleResolution": {
+      "assay": {
+        "allowEscape": false,
+        "endpoint": "http://127.0.0.1:4545",
+        "fleetManifestVersion": "1.0.0",
+        "litellmModelId": "implementer",
+        "modelRevision": "qwen3.6-35b-a3b-mtp-q8_k_xl",
+        "provider": "fleet",
+        "role": "divergent",
+        "stageId": "assay"
+      },
+      "plan": {
+        "allowEscape": false,
+        "endpoint": "http://127.0.0.1:4545",
+        "fleetManifestVersion": "1.0.0",
+        "litellmModelId": "implementer",
+        "modelRevision": "qwen3.6-35b-a3b-mtp-q8_k_xl",
+        "provider": "fleet",
+        "role": "divergent",
+        "stageId": "plan"
+      }
+    },
+    "schemaRef": "mission.shop.results",
+    "schemaVersion": 1,
+    "templateKey": "shop",
+    "templateVersion": "1.0.0",
+    "traceId": "mission:51cd4906-35f1-47ca-84a2-ab4c7dbe0389"
+  },
+  "replay": false,
+  "runId": "019f85ca-fa80-73f6-884f-f6bb0b2c916c",
+  "status": "completed",
+  "templateKey": "shop",
+  "templateVersion": "1.0.0",
+  "traceId": "mission:51cd4906-35f1-47ca-84a2-ab4c7dbe0389",
+  "usage": {
+    "budget": {
+      "cost": 0,
+      "maxSteps": 12,
+      "tokens": 12000,
+      "wallMs": 180000
+    },
+    "cost": 0,
+    "maxSteps": 12,
+    "stepsUsed": 4,
+    "tokens": 585,
+    "wallMs": 17128
+  }
+}
+exit=0

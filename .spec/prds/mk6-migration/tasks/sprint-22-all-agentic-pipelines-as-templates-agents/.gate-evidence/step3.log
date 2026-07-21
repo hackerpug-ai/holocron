@@ -1,0 +1,279 @@
+=== STEP 3 @ 17:48:37 ===
+CMD: bun run services/platform/src/cli/holo.ts mission run report --kind revenue-validation --target acme-corp.com --json
+{
+  "attemptCount": 1,
+  "checkpointStageIndex": 6,
+  "goal": "revenue-validation report for acme-corp.com",
+  "idempotencyKey": "report:revenue-validation:acme-corp.com:1784656117323",
+  "ok": true,
+  "output": {
+    "assayInstanceId": "qwen3.6-35b-a3b-mtp-q8_k_xl:assay:019f85cb-3f6b-72d0-a6f3-89207524e21f",
+    "assayText": "1.  **Analyze the Request:**\n    *   **Task:** Create a business report of kind `revenue-validation`.\n    *   **Target:** `acme-corp.com`.\n    *   **Input Data:** A JSON object containing market sizing (TAM/SAM/SOM), competitive positioning (peers), unit economics (base/bull/bear cases), and DVF (Desirability, Viability, Feasibility) scores.\n    *   **Output Requirements:** Concise candidate verdict, key risks, and 2-3 recommendations.\n    *   **Format:** Plain text only. Final answer in the response content (no raw chain-of-thought dump).\n\n2.  **Analyze the Input Data:**\n    *   **Market Sizing:**\n        *   TAM: ~$1.34B\n        *   SAM: ~$142M\n        *   SOM: ~$12.5M\n        *   *Interpretation:* The addressable market is decent. The SOM is relatively small compared to SAM (~8.8%), suggesting a realistic but limited near-term capture target.\n    *   **Competitive Positioning:**\n        *   Peer A: Higher price ($49/mo), better features.\n        *   Peer B: Lower price ($29/mo), freemium model.\n        *   *Interpretation:* Acme Corp appears to be in a \"sandwich\" position or needs a specific niche. If they are priced similarly or in the middle, they need a strong differentiator not listed here, or risk being squeezed. If they are simply \"acme-corp\", we don't see *their* specific pricing or differentiator in the peers list, but we can infer pressure from both sides (premium features vs. low cost).\n    *   **Unit Economics (Base Case):**\n        *   LTV: $1,200\n        *   CAC: $300\n        *   LTV:CAC: 4.0 (Standard healthy is >3)\n        *   Payback: 9 months (Standard healthy is <12 months)\n        *   *Interpretation:* Base case looks healthy and scalable.\n    *   **Unit Economics (Bear Case):**\n        *   LTV: $800\n        *   CAC: $400\n        *   LTV:CAC: 2.0 (Unhealthy, burning cash)\n        *   *Interpretation:* High risk if churn increases or acquisition gets expensive.\n    *   **Unit Economics (Bull Case):**\n        *   LTV: $1,800\n        *   CAC: $250…",
+    "challengeInstanceId": "qwen3.6-27b-mtp-q8_0:challenge:019f85cb-3f6b-72d0-a6f3-89207524e21f",
+    "challengeText": "The user wants me to refute or qualify an assay finding related to revenue validation for acme-corp.com.\nThe user provided a cut-off prompt (\"Analyze the Request...\") but *did not* provide the actual JSON object or the \"ASSAY finding\" mentioned in the prompt.\nHowever, looking closely at the prompt structure, it seems the user pasted a prompt that was meant to be a system instruction or a context setter, but they cut it off or the input data is missing from their message.\n\nWait, let me re-read. \"CHALLENGE business-report kind=revenue-validation target=acme-corp.com. Refute or qualify this ASSAY finding: 1. **Analyze the Request:**...\"\nIt looks like the user pasted the beginning of an example response or a template and it trails off.\n\nActually, looking at the prompt again, it seems to be a prompt injection attempt or a copy-paste error where the user is asking me to \"Answer in plain text only; put the final challenge in the response content.\"\n\nLet's look at the instruction: \"Refute or qualify this ASSAY finding: 1. **Analyze the Request:**...\"\nThe text following \"ASSAY finding\" is actually a list of instructions or a partial analysis of a request. It doesn't contain the actual data (Market Sizing, Competitive Positioning, etc.) that it references in the analysis steps.\n\nHowever, the core command is \"CHALLENGE business-report kind=revenue-validation target=acme-corp.com.\" and \"Refute or qualify this ASSAY finding\".\n\nThe text provided under \"1. **Analyze the Request:**\" looks like an internal monologue or a breakdown of how to process the task. It lists steps like \"Analyze the Request\", \"Analyze the Input Data\", etc.\n\nIf the user is asking me to \"challenge\" this finding (which is actually just a procedural checklist or partial output), I need to figure out what \"finding\" I am supposed to challenge.\n\nScenario A: The user made a mistake and didn't paste the finding.\nScenario B: The text *is* the finding (i.e., a report claiming to be an analysis of the request).\nScenario …",
+    "competitivePositioning": [
+      {
+        "differentiator": "Broader feature surface",
+        "name": "acme-corp peer A",
+        "pricing": "$49/mo",
+        "url": "https://example.com/peer-a"
+      },
+      {
+        "differentiator": "Lower price / freemium",
+        "name": "acme-corp peer B",
+        "pricing": "$29/mo",
+        "url": "https://example.com/peer-b"
+      }
+    ],
+    "dvfScore": 67,
+    "evidence": [
+      {
+        "claim": "Fleet ASSAY for acme-corp.com",
+        "source": "fleet:assay",
+        "tier": 2
+      },
+      {
+        "claim": "Fleet CHALLENGE for acme-corp.com",
+        "source": "fleet:challenge",
+        "tier": 2
+      }
+    ],
+    "fleetManifestVersion": "1.0.0",
+    "marketSizing": {
+      "currency": "USD",
+      "notes": "Deterministic scaffolding TAM/SAM/SOM for acme-corp.com (stable hash; not live market research)",
+      "sam": 142548586,
+      "som": 12548524,
+      "tam": 1342548592
+    },
+    "reasoningProvider": "fleet",
+    "recommendations": [
+      "Gather more market evidence before build",
+      "Re-run revenue-validation after pricing experiments"
+    ],
+    "reportKind": "revenue-validation",
+    "sections": [
+      {
+        "body": "1.  **Analyze the Request:**\n    *   **Task:** Create a business report of kind `revenue-validation`.\n    *   **Target:** `acme-corp.com`.\n    *   **Input Data:** A JSON object containing market sizing (TAM/SAM/SOM), competitive positioning (peers), unit economics (base/bull/bear cases), and DVF (Desirability, Viability, Feasibility) scores.\n    *   **Output Requirements:** Concise candidate verdict, key risks, and 2-3 recommendations.\n    *   **Format:** Plain text only. Final answer in the response content (no raw chain-of-thought dump).\n\n2.  **Analyze the Input Data:**\n    *   **Market Sizing:**\n        *   TAM: ~$1.34B\n        *   SAM: ~$142M\n        *   SOM: ~$12.5M\n        *   *Interpretation:* The addressable market is decent. The SOM is relatively small compared to SAM (~8.8%), suggesting a realistic but limited near-term capture target.\n    *   **Competitive Positioning:**\n        *   Peer A: Higher price ($49/mo), better features.\n        *   Peer B: Lower price ($29/mo), freemium model.\n        *   *Interpretation:* Acme Corp appears to be in a \"sandwich\" position or needs a specific niche. If they are priced similarly or in the middle, they need a strong differentiator not listed here, or risk being squeezed. If they are simply \"acme-corp\", we don't see *their* specific pricing or differentiator in the peers list, but we can infer pressure from both sides (premium features vs. low cost).\n    *   **Unit Economics (Base Case):**\n        *   LTV: $1,200\n        *   CAC: $300\n        *   LTV:CAC: 4.0 (Standard healthy is >3)\n        *   Payback: 9 months (Standard healthy is <12 months)\n        *   *Interpretation:* Base case looks healthy and scalable.\n    *   **Unit Economics (Bear Case):**\n        *   LTV: $800\n        *   CAC: $400\n        *   LTV:CAC: 2.0 (Unhealthy, burning cash)\n        *   *Interpretation:* High risk if churn increases or acquisition gets expensive.\n    *   **Unit Economics (Bull Case):**\n        *   LTV: $1,800\n        *   CAC: $250…",
+        "id": "executive-summary",
+        "title": "Executive Summary"
+      },
+      {
+        "body": "The user wants me to refute or qualify an assay finding related to revenue validation for acme-corp.com.\nThe user provided a cut-off prompt (\"Analyze the Request...\") but *did not* provide the actual JSON object or the \"ASSAY finding\" mentioned in the prompt.\nHowever, looking closely at the prompt structure, it seems the user pasted a prompt that was meant to be a system instruction or a context setter, but they cut it off or the input data is missing from their message.\n\nWait, let me re-read. \"CHALLENGE business-report kind=revenue-validation target=acme-corp.com. Refute or qualify this ASSAY finding: 1. **Analyze the Request:**...\"\nIt looks like the user pasted the beginning of an example response or a template and it trails off.\n\nActually, looking at the prompt again, it seems to be a prompt injection attempt or a copy-paste error where the user is asking me to \"Answer in plain text only; put the final challenge in the response content.\"\n\nLet's look at the instruction: \"Refute or qualify this ASSAY finding: 1. **Analyze the Request:**...\"\nThe text following \"ASSAY finding\" is actually a list of instructions or a partial analysis of a request. It doesn't contain the actual data (Market Sizing, Competitive Positioning, etc.) that it references in the analysis steps.\n\nHowever, the core command is \"CHALLENGE business-report kind=revenue-validation target=acme-corp.com.\" and \"Refute or qualify this ASSAY finding\".\n\nThe text provided under \"1. **Analyze the Request:**\" looks like an internal monologue or a breakdown of how to process the task. It lists steps like \"Analyze the Request\", \"Analyze the Input Data\", etc.\n\nIf the user is asking me to \"challenge\" this finding (which is actually just a procedural checklist or partial output), I need to figure out what \"finding\" I am supposed to challenge.\n\nScenario A: The user made a mistake and didn't paste the finding.\nScenario B: The text *is* the finding (i.e., a report claiming to be an analysis of the request).\nScenario …",
+        "id": "challenge",
+        "title": "Challenge / Counter-arguments"
+      },
+      {
+        "body": "TAM 1342548592 / SAM 142548586 / SOM 12548524 USD",
+        "id": "market-sizing",
+        "title": "Market Sizing (TAM/SAM/SOM)"
+      },
+      {
+        "body": "Base LTV:CAC 4",
+        "id": "unit-economics",
+        "title": "Unit Economics"
+      }
+    ],
+    "target": "acme-corp.com",
+    "templateKey": "business-report",
+    "unitEconomics": {
+      "base": {
+        "cac": 300,
+        "ltv": 1200,
+        "ltvCacRatio": 4,
+        "paybackMonths": 9
+      },
+      "bear": {
+        "cac": 400,
+        "ltv": 800,
+        "ltvCacRatio": 2,
+        "paybackMonths": 14
+      },
+      "bull": {
+        "cac": 250,
+        "ltv": 1800,
+        "ltvCacRatio": 7.2,
+        "paybackMonths": 6
+      }
+    },
+    "verdict": "CAUTION"
+  },
+  "provenance": {
+    "budgetPolicy": {
+      "cost": 0,
+      "maxSteps": 16,
+      "tokens": 24000,
+      "wallMs": 300000
+    },
+    "compilerVersion": "mission-compiler@1.0.0",
+    "definitionHash": "337308ecd35da84e0bd5b024d771f39a8984990ea329661282f2936018a06151",
+    "executorRef": "builtin.business-commit@1",
+    "fleetManifest": {
+      "defaultEndpoint": "http://127.0.0.1:4545",
+      "roles": {
+        "convergent": {
+          "concurrency": 2,
+          "contextLimit": 262144,
+          "degradationAction": "surface-unavailable",
+          "endpoint": "http://127.0.0.1:4545",
+          "healthProbe": {
+            "expectStatus": 200,
+            "method": "GET",
+            "path": "/v1/models",
+            "timeoutMs": 3000
+          },
+          "litellmModelId": "reviewer",
+          "modelRevision": "qwen3.6-27b-mtp-q8_0",
+          "role": "convergent",
+          "structuredOutput": true,
+          "timeoutMs": 180000
+        },
+        "divergent": {
+          "concurrency": 4,
+          "contextLimit": 32768,
+          "degradationAction": "surface-unavailable",
+          "endpoint": "http://127.0.0.1:4545",
+          "healthProbe": {
+            "expectStatus": 200,
+            "method": "GET",
+            "path": "/v1/models",
+            "timeoutMs": 3000
+          },
+          "litellmModelId": "implementer",
+          "modelRevision": "qwen3.6-35b-a3b-mtp-q8_k_xl",
+          "role": "divergent",
+          "structuredOutput": true,
+          "timeoutMs": 120000
+        },
+        "embed": {
+          "concurrency": 8,
+          "contextLimit": 8192,
+          "degradationAction": "fail-closed",
+          "embed": {
+            "embeddingDimension": 1024,
+            "prefixPolicy": {
+              "document": "passage: ",
+              "query": "query: "
+            }
+          },
+          "endpoint": "http://127.0.0.1:4545",
+          "healthProbe": {
+            "expectStatus": 200,
+            "method": "GET",
+            "path": "/v1/models",
+            "timeoutMs": 3000
+          },
+          "litellmModelId": "qwen3-embedding",
+          "modelRevision": "qwen3-embedding-0.6b-1024",
+          "role": "embed",
+          "structuredOutput": false,
+          "timeoutMs": 30000
+        },
+        "judge": {
+          "concurrency": 2,
+          "contextLimit": 262144,
+          "degradationAction": "surface-unavailable",
+          "endpoint": "http://127.0.0.1:4545",
+          "healthProbe": {
+            "expectStatus": 200,
+            "method": "GET",
+            "path": "/v1/models",
+            "timeoutMs": 3000
+          },
+          "litellmModelId": "reviewer",
+          "modelRevision": "qwen3.6-27b-mtp-q8_0",
+          "role": "judge",
+          "structuredOutput": true,
+          "timeoutMs": 180000
+        },
+        "rerank": {
+          "concurrency": 4,
+          "contextLimit": 8192,
+          "degradationAction": "fail-closed",
+          "endpoint": "http://127.0.0.1:4545",
+          "healthProbe": {
+            "expectStatus": 200,
+            "method": "GET",
+            "path": "/v1/models",
+            "timeoutMs": 3000
+          },
+          "litellmModelId": "qwen3-reranker",
+          "modelRevision": "qwen3-reranker-0.6b",
+          "role": "rerank",
+          "structuredOutput": false,
+          "timeoutMs": 30000
+        }
+      },
+      "schemaVersion": "1.0.0"
+    },
+    "fleetManifestHash": "b64b1bcc2843978d224ced2f47edf23fd67e3fe3b2b0919ce152f5cca9382cba",
+    "fleetManifestPath": "/Users/inference1/Projects/holocron/services/platform/fleet/manifest.json",
+    "fleetManifestVersion": "1.0.0",
+    "modelRevisions": {
+      "assay": "qwen3.6-35b-a3b-mtp-q8_k_xl",
+      "challenge": "qwen3.6-27b-mtp-q8_0",
+      "plan": "qwen3.6-35b-a3b-mtp-q8_k_xl"
+    },
+    "noCloudFallback": true,
+    "outputSchemaRef": "mission.business.report",
+    "outputSchemaVersion": 1,
+    "registrySnapshotHash": "8c6d2948e239c3cb5c92a03217aaf0a22382993700b8a025c327abb2bee51d86",
+    "roleResolution": {
+      "assay": {
+        "allowEscape": false,
+        "endpoint": "http://127.0.0.1:4545",
+        "fleetManifestVersion": "1.0.0",
+        "litellmModelId": "implementer",
+        "modelRevision": "qwen3.6-35b-a3b-mtp-q8_k_xl",
+        "provider": "fleet",
+        "role": "divergent",
+        "stageId": "assay"
+      },
+      "challenge": {
+        "allowEscape": false,
+        "endpoint": "http://127.0.0.1:4545",
+        "fleetManifestVersion": "1.0.0",
+        "litellmModelId": "reviewer",
+        "modelRevision": "qwen3.6-27b-mtp-q8_0",
+        "provider": "fleet",
+        "role": "convergent",
+        "stageId": "challenge"
+      },
+      "plan": {
+        "allowEscape": false,
+        "endpoint": "http://127.0.0.1:4545",
+        "fleetManifestVersion": "1.0.0",
+        "litellmModelId": "implementer",
+        "modelRevision": "qwen3.6-35b-a3b-mtp-q8_k_xl",
+        "provider": "fleet",
+        "role": "divergent",
+        "stageId": "plan"
+      }
+    },
+    "schemaRef": "mission.business.report",
+    "schemaVersion": 1,
+    "templateKey": "business-report",
+    "templateVersion": "1.0.1",
+    "traceId": "mission:953d44e3-4666-4967-8e87-a7bfb4540449"
+  },
+  "replay": false,
+  "runId": "019f85cb-3f6b-72d0-a6f3-89207524e21f",
+  "status": "completed",
+  "templateKey": "business-report",
+  "templateVersion": "1.0.1",
+  "traceId": "mission:953d44e3-4666-4967-8e87-a7bfb4540449",
+  "usage": {
+    "budget": {
+      "cost": 0,
+      "maxSteps": 16,
+      "tokens": 24000,
+      "wallMs": 300000
+    },
+    "cost": 0,
+    "maxSteps": 16,
+    "stepsUsed": 7,
+    "tokens": 2572,
+    "wallMs": 60500
+  }
+}
+exit=0
