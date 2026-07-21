@@ -307,8 +307,75 @@ export type RunFleetModelCallOptions = {
   stepId?: string;
   traceId?: string;
   databaseUrl?: string;
+  /** Override default 32-token cap for longer reasoning prompts (business-report). */
+  maxOutputTokens?: number;
   resolveOptions?: Parameters<typeof resolveModel>[1];
 };
+
+/**
+ * Pull text from AI SDK reasoning parts.
+ * GLM-4.7 / local fleet often emit content="" and put the answer in reasoning.
+ * Shapes seen in AI SDK 5/6:
+ *   - result.reasoningText: string
+ *   - result.reasoning: string | { text } | Array<{ type:'reasoning', text }>
+ *   - result.steps[i].reasoning / content: same part arrays
+ */
+function partsToText(value: unknown): string {
+  if (typeof value === 'string' && value.trim().length > 0) return value.trim();
+  if (!value || typeof value !== 'object') return '';
+  if (Array.isArray(value)) {
+    const parts = value
+      .map((item) => {
+        if (typeof item === 'string') return item.trim();
+        if (!item || typeof item !== 'object') return '';
+        const row = item as Record<string, unknown>;
+        if (typeof row.text === 'string') return row.text.trim();
+        return '';
+      })
+      .filter((s) => s.length > 0);
+    return parts.join('\n').trim();
+  }
+  const nested = value as Record<string, unknown>;
+  if (typeof nested.text === 'string' && nested.text.trim().length > 0) {
+    return nested.text.trim();
+  }
+  return '';
+}
+
+/** Pull reasoning-channel text when content is empty (local reasoning models). */
+function extractReasoningText(result: unknown): string {
+  if (!result || typeof result !== 'object') return '';
+  const record = result as Record<string, unknown>;
+
+  // Prefer the SDK's pre-joined reasoningText when present.
+  if (typeof record.reasoningText === 'string' && record.reasoningText.trim().length > 0) {
+    return record.reasoningText.trim();
+  }
+
+  const fromReasoning = partsToText(record.reasoning);
+  if (fromReasoning.length > 0) return fromReasoning;
+
+  const details = record.reasoningDetails ?? record.reasoning_details;
+  const fromDetails = partsToText(details);
+  if (fromDetails.length > 0) return fromDetails;
+
+  // AI SDK step surfaces (reasoning parts live on step.reasoning / step.content).
+  const steps = record.steps;
+  if (Array.isArray(steps)) {
+    const parts: string[] = [];
+    for (const step of steps) {
+      if (!step || typeof step !== 'object') continue;
+      const s = step as Record<string, unknown>;
+      const stepReasoning = partsToText(s.reasoning);
+      if (stepReasoning) parts.push(stepReasoning);
+      const stepContent = partsToText(s.content);
+      if (stepContent) parts.push(stepContent);
+      if (typeof s.text === 'string' && s.text.trim()) parts.push(s.text.trim());
+    }
+    if (parts.length > 0) return parts.join('\n').trim();
+  }
+  return '';
+}
 
 /**
  * One real fleet model call with durable telemetry.
@@ -370,7 +437,7 @@ export async function runFleetModelCall(opts: RunFleetModelCallOptions): Promise
     const result = await generateText({
       model: fleetModel,
       prompt: opts.prompt,
-      maxOutputTokens: 32,
+      maxOutputTokens: opts.maxOutputTokens ?? 32,
     });
     const wallMs = Math.max(1, Date.now() - started);
     const inputTokens = nonNegInt(result.usage?.inputTokens);
@@ -393,7 +460,14 @@ export async function runFleetModelCall(opts: RunFleetModelCallOptions): Promise
       databaseUrl: opts.databaseUrl,
     });
 
-    return { text: result.text ?? '', telemetry, resolved };
+    // Reasoning models (e.g. GLM-4.7) often fill the budget with `reasoning` and
+    // leave `content` empty when maxOutputTokens is tight. Prefer content, then
+    // fall back to any reasoning channel the AI SDK exposes on the result.
+    const contentText = (result.text ?? '').trim();
+    const reasoningText = extractReasoningText(result);
+    const text = contentText.length > 0 ? contentText : reasoningText;
+
+    return { text, telemetry, resolved };
   } catch (err) {
     const wallMs = Math.max(1, Date.now() - started);
     const telemetry = await recordInferenceTelemetry({

@@ -1,5 +1,9 @@
 import { z } from 'zod';
 import { EvidenceGateInputSchema } from '../research/evidence-gate.ts';
+import {
+  BusinessReportContextSchema,
+  BusinessReportOutputSchema,
+} from '../tools/schemas/business.ts';
 import { MissionGoalArgsSchema } from './args.ts';
 import { canonicalJsonValue, sha256Hex } from './canonical-json.ts';
 import type {
@@ -199,6 +203,18 @@ export const MISSION_SCHEMAS: readonly MissionSchemaRegistration[] = [
     schema: missionResearchOutputSchema,
     description: 'Durable research mission terminal output.',
   },
+  {
+    schemaRef: 'mission.business.context',
+    schemaVersion: 1,
+    schema: BusinessReportContextSchema,
+    description: 'Accumulating business-report pipeline context.',
+  },
+  {
+    schemaRef: 'mission.business.report',
+    schemaVersion: 1,
+    schema: BusinessReportOutputSchema,
+    description: 'Terminal parameterized business-report output (4 kinds).',
+  },
 ] as const;
 
 export const MISSION_EXECUTORS: readonly MissionExecutorRegistration[] = [
@@ -267,6 +283,36 @@ export const MISSION_EXECUTORS: readonly MissionExecutorRegistration[] = [
     executorRef: 'builtin.research-commit@1',
     stageKind: 'research.commit@1',
     description: 'Research terminal output stage.',
+  },
+  {
+    executorRef: 'builtin.business-plan@1',
+    stageKind: 'business.plan@1',
+    description: 'Business-report PLAN with real fleet role health probe.',
+  },
+  {
+    executorRef: 'builtin.business-component-validate@1',
+    stageKind: 'business.component-validate@1',
+    description: 'Validate required components per report kind before reasoning.',
+  },
+  {
+    executorRef: 'builtin.business-checkpoint@1',
+    stageKind: 'business.checkpoint@1',
+    description: 'Durable checkpoint before/after business-report reasoning.',
+  },
+  {
+    executorRef: 'builtin.business-assay@1',
+    stageKind: 'business.assay@1',
+    description: 'Fleet ASSAY reasoning for business-report draft.',
+  },
+  {
+    executorRef: 'builtin.business-challenge@1',
+    stageKind: 'business.challenge@1',
+    description: 'Fleet CHALLENGE reasoning (distinct role from ASSAY).',
+  },
+  {
+    executorRef: 'builtin.business-commit@1',
+    stageKind: 'business.commit@1',
+    description: 'Assemble terminal business-report output.',
   },
 ] as const;
 
@@ -378,6 +424,60 @@ export const MISSION_STAGES: readonly MissionStageRegistration[] = [
     description: 'Terminal research output stage.',
     roleBinding: 'forbidden',
     checkpointAllowed: true,
+  },
+  {
+    stageKind: 'business.plan@1',
+    executorRef: 'builtin.business-plan@1',
+    inputSchema: { schemaRef: 'mission.goal', schemaVersion: 1 },
+    outputSchema: { schemaRef: 'mission.probe.result', schemaVersion: 1 },
+    description: 'PLAN phase: fleet health probe for business-report.',
+    roleBinding: 'required',
+    checkpointAllowed: false,
+  },
+  {
+    stageKind: 'business.component-validate@1',
+    executorRef: 'builtin.business-component-validate@1',
+    inputSchema: { schemaRef: 'mission.probe.result', schemaVersion: 1 },
+    outputSchema: { schemaRef: 'mission.business.context', schemaVersion: 1 },
+    description: 'Component validation per report kind (fails closed if missing).',
+    roleBinding: 'forbidden',
+    checkpointAllowed: false,
+  },
+  {
+    stageKind: 'business.checkpoint@1',
+    executorRef: 'builtin.business-checkpoint@1',
+    inputSchema: { schemaRef: 'mission.business.context', schemaVersion: 1 },
+    outputSchema: { schemaRef: 'mission.business.context', schemaVersion: 1 },
+    description: 'Checkpoint barrier around fleet reasoning.',
+    roleBinding: 'forbidden',
+    checkpointAllowed: true,
+  },
+  {
+    stageKind: 'business.assay@1',
+    executorRef: 'builtin.business-assay@1',
+    inputSchema: { schemaRef: 'mission.business.context', schemaVersion: 1 },
+    outputSchema: { schemaRef: 'mission.business.context', schemaVersion: 1 },
+    description: 'ASSAY generation on the bound fleet role (divergent).',
+    roleBinding: 'required',
+    checkpointAllowed: true,
+  },
+  {
+    stageKind: 'business.challenge@1',
+    executorRef: 'builtin.business-challenge@1',
+    inputSchema: { schemaRef: 'mission.business.context', schemaVersion: 1 },
+    outputSchema: { schemaRef: 'mission.business.context', schemaVersion: 1 },
+    description: 'CHALLENGE generation on a distinct fleet role (convergent).',
+    roleBinding: 'required',
+    checkpointAllowed: true,
+  },
+  {
+    stageKind: 'business.commit@1',
+    executorRef: 'builtin.business-commit@1',
+    inputSchema: { schemaRef: 'mission.business.context', schemaVersion: 1 },
+    outputSchema: { schemaRef: 'mission.business.report', schemaVersion: 1 },
+    description: 'Terminal business-report commit.',
+    roleBinding: 'forbidden',
+    checkpointAllowed: false,
   },
 ] as const;
 

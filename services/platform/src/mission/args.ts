@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { EvidenceGateInputSchema } from '../research/evidence-gate';
+import { BusinessReportKindSchema } from '../tools/schemas/business.ts';
 
 const missionGoalArgsShape = {
   goal: z.string().min(1),
@@ -18,6 +19,17 @@ const missionGoalArgsShape = {
     .optional(),
   /** Free-form run tags persisted to mission_run_tags (includes instantiation). */
   tags: z.array(z.string().min(1)).max(16).optional(),
+  /** pipes-2: business-report kind parameter (revenue-validation|competitive|ai-roi|flights). */
+  reportKind: BusinessReportKindSchema.optional(),
+  /** Company / product / website target for business reports. */
+  target: z.string().min(1).optional(),
+  /** Flight destination / route for flights kind (e.g. SFO-JFK). */
+  destination: z.string().min(1).optional(),
+  /**
+   * Force-missing component keys for boundary tests (AC-4 incomplete target).
+   * When set, component_validation fails before fleet reasoning.
+   */
+  forceMissingComponents: z.array(z.string().min(1)).optional(),
 } as const;
 
 export const MissionGoalArgsSchema = z.object(missionGoalArgsShape).strict();
