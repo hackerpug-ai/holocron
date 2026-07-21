@@ -135,8 +135,16 @@ interface CliArgs {
   judgeEndpoint: string | null;
   /** prd:consistency --root / inventory:convex-callsites --root */
   root: string | null;
-  /** inventory:convex-callsites --output <path> */
+  /** inventory:convex-callsites --output <path> | client-contract:author --inventory <path> */
   output: string | null;
+  /** client-contract:author --inventory <path> */
+  inventory: string | null;
+  /** verify:client-contract --contract <path> */
+  contract: string | null;
+  /** verify:client-contract --schema | --targets | --e2e-links */
+  verifySchema: boolean;
+  verifyTargets: boolean;
+  verifyE2ELinks: boolean;
   /** upload:* flags */
   uploadId: string | null;
   uploadFile: string | null;
@@ -238,11 +246,19 @@ Usage:
   upload:init              Create/replay an authoritative upload intent
   upload:put               Stream bytes into an existing upload intent staging area
   upload:finalize          Verify hash/length/MIME, attach atomically, and return stored result
-  inventory:convex-callsites
-                          Scan app/ components/ hooks/ screens/ for legacy Convex
-                          useQuery/useMutation/useAction/useConvex/ConvexProvider/
-                          ConvexReactClient call sites and emit a deterministic JSON
-                          inventory (--root, --json, --output <path>)
+   inventory:convex-callsites
+                           Scan app/ components/ hooks/ screens/ for legacy Convex
+                           useQuery/useMutation/useAction/useConvex/ConvexProvider/
+                           ConvexReactClient call sites and emit a deterministic JSON
+                           inventory (--root, --json, --output <path>)
+   client-contract:author
+                           S-CONTRACT-02 — author 13-client-data-contract.yaml from
+                           the S-CONTRACT-01 inventory + live zero_pub + Hono route
+                           surfaces. Maps every legacy call site to one Zero query,
+                           Zero mutator, or authoritative Hono command with full
+                           projection / offline / optimistic / conflict / rejection
+                           / identifier / e2e_criterion semantics.
+                           (--inventory <path> alias; --output <path>)
 
 Options:
   --export <dir>        Path to unzipped convex export (or $CONVEX_EXPORT_DIR)
@@ -301,7 +317,7 @@ Options:
   --json                Emit JSON instead of text
   --print-trace         (compat:spike) emit OTel trace details
   --dry-run             (catalog:reconcile) dry-run mode (default)
-  --output <path>       (inventory:convex-callsites) write JSON artifact to this path
+  --output <path>       (inventory:convex-callsites | client-contract:author) write artifact to this path
   -h, --help            Show help
 `);
 }
@@ -386,6 +402,11 @@ function parseArgs(argv: string[]): CliArgs {
     judgeEndpoint: null,
     root: null,
     output: null,
+    inventory: null,
+    contract: null,
+    verifySchema: false,
+    verifyTargets: false,
+    verifyE2ELinks: false,
     uploadId: null,
     uploadFile: null,
     uploadKind: null,
@@ -396,6 +417,16 @@ function parseArgs(argv: string[]): CliArgs {
     originalName: null,
     reset: false,
   };
+  // Pre-scan argv for the command token (first non-flag positional) so
+  // context-aware flags like --schema can branch on the command. The
+  // command is also assigned to args.command at the end of parseArgs.
+  let commandFromArgv = '';
+  for (let i = 0; i < argv.length; i++) {
+    const t = argv[i];
+    if (!t || t.startsWith('-')) continue;
+    commandFromArgv = t;
+    break;
+  }
   const positional: string[] = [];
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -527,9 +558,22 @@ function parseArgs(argv: string[]): CliArgs {
     } else if (a.startsWith('--ceiling=')) {
       args.ceiling = a.slice('--ceiling='.length);
     } else if (a === '--schema') {
-      args.schema = argv[++i] ?? null;
+      // Context-aware: for `verify:client-contract`, --schema is a boolean
+      // flag (no value consumed). For `extract`, --schema takes a name arg.
+      // `commandFromArgv` is computed once at the top of parseArgs.
+      if (commandFromArgv === 'verify:client-contract') {
+        args.verifySchema = true;
+      } else {
+        args.schema = argv[++i] ?? null;
+      }
     } else if (a.startsWith('--schema=')) {
       args.schema = a.slice('--schema='.length);
+    } else if (a === '--targets') {
+      // Boolean flag for verify:client-contract.
+      args.verifyTargets = true;
+    } else if (a === '--e2e-links') {
+      // Boolean flag for verify:client-contract.
+      args.verifyE2ELinks = true;
     } else if (a === '--input') {
       args.input = argv[++i] ?? null;
     } else if (a.startsWith('--input=')) {
@@ -614,6 +658,14 @@ function parseArgs(argv: string[]): CliArgs {
       args.output = argv[++i] ?? null;
     } else if (a.startsWith('--output=')) {
       args.output = a.slice('--output='.length);
+    } else if (a === '--inventory') {
+      args.inventory = argv[++i] ?? null;
+    } else if (a.startsWith('--inventory=')) {
+      args.inventory = a.slice('--inventory='.length);
+    } else if (a === '--contract') {
+      args.contract = argv[++i] ?? null;
+    } else if (a.startsWith('--contract=')) {
+      args.contract = a.slice('--contract='.length);
     } else if (a.startsWith('-')) {
       exitUnknownFlag(a, argv);
     } else {
@@ -4116,6 +4168,60 @@ async function main(): Promise<void> {
         }
       }
       process.exit(0);
+      break;
+    }
+
+    case 'client-contract:author': {
+      // S-CONTRACT-02 — author 13-client-data-contract.yaml from the
+      // S-CONTRACT-01 inventory + live zero_pub + Hono surfaces.
+      const inventoryPath =
+        args.inventory ??
+        args.positional[1] ??
+        '.spec/prds/mk6-migration/10-technical-requirements/13-client-callsite-inventory.json';
+      const defaultOutput =
+        '.spec/prds/mk6-migration/10-technical-requirements/13-client-data-contract.yaml';
+      const { authorContract, serializeContractYaml } = await import(
+        '../sync/client-data-contract-author.ts'
+      );
+      let contract: ReturnType<typeof authorContract>;
+      try {
+        contract = authorContract({
+          inventoryPath,
+          outputPath: args.output ?? defaultOutput,
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (args.json) {
+          console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+        } else {
+          console.error(`holo client-contract:author failed: ${msg}`);
+        }
+        process.exit(1);
+      }
+      const yamlStr = `${serializeContractYaml(contract)}\n`;
+      const outPath = args.output ?? defaultOutput;
+      const { mkdirSync, writeFileSync } = await import('node:fs');
+      const { dirname, resolve: resolvePath } = await import('node:path');
+      const outAbs = resolvePath(outPath);
+      mkdirSync(dirname(outAbs), { recursive: true });
+      writeFileSync(outAbs, yamlStr, 'utf8');
+      if (args.json) {
+        process.stdout.write(yamlStr);
+      } else {
+        console.log('holo client-contract:author — S-CONTRACT-02 client data contract');
+        console.log(`  inventory:                 ${inventoryPath}`);
+        console.log(`  contract:                  ${outAbs}`);
+        console.log(`  total_entries:             ${contract.summary.total_entries}`);
+        console.log(
+          `  by_target_kind:            zero_query=${contract.summary.by_target_kind.zero_query} zero_mutator=${contract.summary.by_target_kind.zero_mutator} hono_command=${contract.summary.by_target_kind.hono_command}`
+        );
+        console.log(
+          `  by_offline_policy:         cache_read=${contract.summary.by_offline_policy.cache_read} queue_write=${contract.summary.by_offline_policy.queue_write} online_only=${contract.summary.by_offline_policy.online_only} rollback_rejection=${contract.summary.by_offline_policy.rollback_rejection}`
+        );
+        console.log(`  offline_behavior_cases:    ${contract.summary.offline_behavior_case_count}`);
+        console.log(`  unresolved_target_count:   ${contract.summary.unresolved_target_count}`);
+      }
+      process.exit(contract.summary.unresolved_target_count === 0 ? 0 : 1);
       break;
     }
 
