@@ -8,10 +8,7 @@
 
 import { createSql } from '../db/client';
 import { resolveDatabaseUrl } from '../db/connection';
-import {
-  listInferenceTelemetry,
-  type InferenceTelemetryRecord,
-} from './telemetry';
+import { type InferenceTelemetryRecord, listInferenceTelemetry } from './telemetry';
 
 export type InferTraceModelCall = {
   provider: string;
@@ -40,7 +37,11 @@ export type InferTraceFailure = {
   ok: false;
   runId: string | null;
   error: string;
-  code: 'INFER_TRACE_NOT_FOUND' | 'MISSION_RUN_NOT_FOUND' | 'TRACE_NOT_FOUND' | 'INFER_TRACE_ID_REQUIRED';
+  code:
+    | 'INFER_TRACE_NOT_FOUND'
+    | 'MISSION_RUN_NOT_FOUND'
+    | 'TRACE_NOT_FOUND'
+    | 'INFER_TRACE_ID_REQUIRED';
 };
 
 export type InferTraceResult = InferTraceSuccess | InferTraceFailure;

@@ -173,11 +173,9 @@ describe.sequential('REDHAT-FIX-3 — holo infer:trace (H-1 / GATE-1)', () => {
     async () => {
       const runId = await ensureBusinessReportRunId();
 
-      const result = runHolo(
-        'redhat-fix-3-ac1-infer-trace',
-        ['infer:trace', runId, '--json'],
-        { timeoutMs: 60_000 }
-      );
+      const result = runHolo('redhat-fix-3-ac1-infer-trace', ['infer:trace', runId, '--json'], {
+        timeoutMs: 60_000,
+      });
 
       writeArtifact('redhat-fix-3-ac1-infer-trace.json', {
         status: result.status,
@@ -235,11 +233,9 @@ describe.sequential('REDHAT-FIX-3 — holo infer:trace (H-1 / GATE-1)', () => {
     expect(absent.mission).toBe(0);
     expect(absent.telemetry).toBe(0);
 
-    const result = runHolo(
-      'redhat-fix-3-ac2-missing',
-      ['infer:trace', MISSING_ID, '--json'],
-      { timeoutMs: 30_000 }
-    );
+    const result = runHolo('redhat-fix-3-ac2-missing', ['infer:trace', MISSING_ID, '--json'], {
+      timeoutMs: 30_000,
+    });
 
     writeArtifact('redhat-fix-3-ac2-missing.json', {
       status: result.status,
