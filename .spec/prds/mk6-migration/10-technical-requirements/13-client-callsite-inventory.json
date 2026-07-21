@@ -1,0 +1,110 @@
+{
+  "artifact_id": "13-client-callsite-inventory",
+  "task_id": "S-CONTRACT-01",
+  "sprint": "sprint-21-client-data-contract",
+  "schema_version": 1,
+  "description": "Line-addressed inventory of every legacy Convex hook/action/provider call site across the approved RN source roots (app/, components/, hooks/, screens/). Produced by `holo inventory:convex-callsites`.",
+  "command": "bun services/platform/src/cli/holo.ts inventory:convex-callsites --root . --json --output .tmp/client-contract/convex-callsite-inventory.json",
+  "counting_rule": {
+    "summary": "file_count = files containing any lexical mention of a legacy Convex hook name. call_sites = real invocations of useQuery/useMutation/useAction plus ConvexProvider JSX and new ConvexReactClient constructor.",
+    "file_count": {
+      "counted": "Any .ts/.tsx file under an approved source root whose source contains a regex match for \\b(useQuery|useMutation|useAction|useConvex|ConvexProvider|ConvexReactClient)\\b. The mention may appear in an import, comment, type annotation, or real call — all of these signal participation in the legacy Convex migration surface.",
+      "includes_test_files": "Test files (*.test.ts, *.test.tsx, *.spec.ts, *.spec.tsx) are counted in file_count because they import/mock legacy hooks and must be migrated alongside production code.",
+      "excluded": [
+        "*.stories.ts, *.stories.tsx (Storybook visual tests; not data-plane consumers)",
+        "node_modules/**",
+        "convex/_generated/**",
+        ".git/**",
+        ".spec/**",
+        ".tmp/**",
+        "**/_generated/**"
+      ]
+    },
+    "call_sites": {
+      "counted": [
+        "useQuery(...)",
+        "useMutation(...)",
+        "useAction(...)",
+        "<ConvexProvider ...> JSX mount",
+        "new ConvexReactClient(...)"
+      ],
+      "not_counted": [
+        "useConvex(...) — PRD §07-ui-infrastructure.md defines the 105-site contract as useQuery (~48) + useMutation/useAction (~57). The useConvex client handle is captured indirectly: its host file is counted in file_count and its sibling useAction/useMutation sites are recorded. The useConvex handle itself is a network client accessor that S-CONTRACT-02 will map to the Zero mutator surface.",
+        "import statements (e.g., `import { useQuery } from 'convex/react'`) — no `(` directly follows the identifier",
+        "import aliases (e.g., `useQuery as useZeroQuery` from `@rocicorp/zero/react`)",
+        "line comments (//) and block comments (/* */) — stripped before scanning",
+        "string literals containing hook names",
+        "type-only imports and type/interface/declare statements",
+        "re-exports of convex symbols",
+        "*.test.ts, *.test.tsx, *.spec.ts, *.spec.tsx files (mocks rather than real invocations)",
+        "*.stories.ts, *.stories.tsx files",
+        "node_modules/, convex/_generated/, .spec/, .tmp/ directories"
+      ]
+    }
+  },
+  "approved_source_roots": ["app", "components", "hooks", "screens"],
+  "excluded_paths": [
+    "node_modules/**",
+    "convex/_generated/**",
+    ".git/**",
+    ".spec/**",
+    ".tmp/**",
+    "**/_generated/**",
+    "**/*.stories.ts",
+    "**/*.stories.tsx"
+  ],
+  "record_fields": {
+    "call_site_id": "First 16 hex chars of SHA-256(source_path + ':' + line + ':' + column + ':' + hook_kind) — stable across reruns.",
+    "source_path": "Repo-relative POSIX path (forward slashes) within an approved source root.",
+    "line": "1-indexed line number where the hook identifier or JSX tag starts.",
+    "column": "1-indexed column where the match starts.",
+    "hook_kind": "One of: useQuery | useMutation | useAction | ConvexProvider | ConvexReactClient.",
+    "legacy_ref": "For useQuery/useMutation/useAction: the dotted `api.*` reference (or first-arg expression). For ConvexProvider/ConvexReactClient: the literal kind name."
+  },
+  "output_path": ".tmp/client-contract/convex-callsite-inventory.json",
+  "observed_counts": {
+    "file_count": 47,
+    "call_site_count": 105,
+    "by_hook_kind": {
+      "useQuery": 48,
+      "useMutation": 45,
+      "useAction": 12,
+      "ConvexProvider": 0,
+      "ConvexReactClient": 0
+    },
+    "files_in_file_count_breakdown": {
+      "production_files_with_call_sites": 43,
+      "production_files_with_mentions_only": 2,
+      "test_files_with_hook_mentions": 2,
+      "total": 47,
+      "production_files_with_mentions_only_paths": [
+        "app/(drawer)/chat/reference.tsx — imports `useQuery as useZeroQuery` from @rocicorp/zero/react (migrated surface)",
+        "app/zero/queries.ts — JSDoc mentions `useQuery` in prose"
+      ],
+      "test_files_with_hook_mentions_paths": [
+        "components/notifications/NotificationToastProvider.test.tsx",
+        "hooks/use-agent-activity.test.ts"
+      ]
+    },
+    "note": "Observed counts match the PRD's 47-file / 105-call-site contract under the documented counting rule."
+  },
+  "prd_target_counts": {
+    "file_count": 47,
+    "call_site_count": 105,
+    "source": ".spec/prds/mk6-migration/ROADMAP.md (Sprint 21 gate) and S-CONTRACT-01 AC-1"
+  },
+  "determinism": {
+    "sort_order": "call_sites are sorted by (source_path ASC, line ASC, column ASC, hook_kind ASC)",
+    "id_rule": "SHA-256 of `source_path:line:column:hook_kind`, truncated to 16 hex chars",
+    "non_deterministic_inputs_excluded": [
+      "timestamps",
+      "random IDs",
+      "fs readdir order (sorted lexicographically)"
+    ],
+    "rerun_sha256": "Two consecutive runs against the same checkout produce byte-identical artifacts (verified by shasum -a 256)."
+  },
+  "consumed_by": [
+    "S-CONTRACT-02 (client-data-contract.yaml authoring)",
+    "UC-SYNC-01 one-mapping-per-call-site requirement"
+  ]
+}

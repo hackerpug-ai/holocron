@@ -133,8 +133,10 @@ interface CliArgs {
   dataset: string | null;
   /** evals:run --judge-endpoint (fail-closed probe override) */
   judgeEndpoint: string | null;
-  /** prd:consistency --root */
+  /** prd:consistency --root / inventory:convex-callsites --root */
   root: string | null;
+  /** inventory:convex-callsites --output <path> */
+  output: string | null;
   /** upload:* flags */
   uploadId: string | null;
   uploadFile: string | null;
@@ -236,6 +238,11 @@ Usage:
   upload:init              Create/replay an authoritative upload intent
   upload:put               Stream bytes into an existing upload intent staging area
   upload:finalize          Verify hash/length/MIME, attach atomically, and return stored result
+  inventory:convex-callsites
+                          Scan app/ components/ hooks/ screens/ for legacy Convex
+                          useQuery/useMutation/useAction/useConvex/ConvexProvider/
+                          ConvexReactClient call sites and emit a deterministic JSON
+                          inventory (--root, --json, --output <path>)
 
 Options:
   --export <dir>        Path to unzipped convex export (or $CONVEX_EXPORT_DIR)
@@ -294,6 +301,7 @@ Options:
   --json                Emit JSON instead of text
   --print-trace         (compat:spike) emit OTel trace details
   --dry-run             (catalog:reconcile) dry-run mode (default)
+  --output <path>       (inventory:convex-callsites) write JSON artifact to this path
   -h, --help            Show help
 `);
 }
@@ -377,6 +385,7 @@ function parseArgs(argv: string[]): CliArgs {
     dataset: null,
     judgeEndpoint: null,
     root: null,
+    output: null,
     uploadId: null,
     uploadFile: null,
     uploadKind: null,
@@ -601,6 +610,10 @@ function parseArgs(argv: string[]): CliArgs {
       args.root = resolve(argv[++i] ?? '');
     } else if (a.startsWith('--root=')) {
       args.root = resolve(a.slice('--root='.length));
+    } else if (a === '--output') {
+      args.output = argv[++i] ?? null;
+    } else if (a.startsWith('--output=')) {
+      args.output = a.slice('--output='.length);
     } else if (a.startsWith('-')) {
       exitUnknownFlag(a, argv);
     } else {
@@ -4062,6 +4075,47 @@ async function main(): Promise<void> {
         );
       }
       process.exit(result.ok ? 0 : 1);
+      break;
+    }
+
+    case 'inventory:convex-callsites': {
+      const { scanCallSites } = await import('../sync/client-callsite-inventory.ts');
+      const root = args.root ?? resolve('.');
+      let inventory: ReturnType<typeof scanCallSites>;
+      try {
+        inventory = scanCallSites({ root });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (args.json) {
+          console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+        } else {
+          console.error(`holo inventory:convex-callsites failed: ${msg}`);
+        }
+        process.exit(1);
+      }
+      const jsonStr = `${JSON.stringify(inventory, null, 2)}\n`;
+      if (args.output) {
+        const { mkdirSync, writeFileSync } = await import('node:fs');
+        const { dirname, resolve: resolvePath } = await import('node:path');
+        const outAbs = resolvePath(args.output);
+        mkdirSync(dirname(outAbs), { recursive: true });
+        writeFileSync(outAbs, jsonStr, 'utf8');
+      }
+      if (args.json) {
+        // When --json is requested, emit the full artifact on stdout.
+        // If --output was also passed the file copy is identical.
+        process.stdout.write(jsonStr);
+      } else {
+        console.log('holo inventory:convex-callsites — legacy RN Convex call sites');
+        console.log(`  source_roots:        ${inventory.source_roots.join(', ')}`);
+        console.log(`  file_count:          ${inventory.summary.file_count}`);
+        console.log(`  call_site_count:     ${inventory.summary.call_site_count}`);
+        console.log(`  schema_version:      ${inventory.schema_version}`);
+        if (args.output) {
+          console.log(`  artifact:            ${args.output}`);
+        }
+      }
+      process.exit(0);
       break;
     }
 
