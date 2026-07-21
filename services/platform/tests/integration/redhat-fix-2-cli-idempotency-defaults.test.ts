@@ -129,6 +129,19 @@ function runWhatsNew(artifactBase: string, extra: string[] = []) {
 }
 
 describe.sequential('REDHAT-FIX-2 — deterministic CLI mission idempotency defaults (C-2)', () => {
+  async function ensureTemplatesResilient(): Promise<void> {
+    // Other worktrees may re-register system templates with a different
+    // fleet_manifest_path absolute path; on immutable drift, wipe + re-seed.
+    try {
+      await ensureSystemMissionTemplates({ databaseUrl: DATABASE_URL });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (!message.includes('immutable mission template conflict')) throw error;
+      await truncateMissionTables();
+      await ensureSystemMissionTemplates({ databaseUrl: DATABASE_URL });
+    }
+  }
+
   beforeAll(async () => {
     mkdirSync(EVIDENCE_DIR, { recursive: true });
     await ensureRedTestEnvironment();
@@ -136,11 +149,11 @@ describe.sequential('REDHAT-FIX-2 — deterministic CLI mission idempotency defa
     expect(DATABASE_URL).toContain('/holocron_nonprod');
     // Truncate first so immutable-template drift from other suites cannot block re-register.
     await truncateMissionTables();
-    await ensureSystemMissionTemplates({ databaseUrl: DATABASE_URL });
+    await ensureTemplatesResilient();
   }, 180_000);
 
   beforeEach(async () => {
-    await ensureSystemMissionTemplates({ databaseUrl: DATABASE_URL });
+    await ensureTemplatesResilient();
   }, 60_000);
 
   itLive(
