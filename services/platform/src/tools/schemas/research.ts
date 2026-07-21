@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { EvidenceGateInputSchema } from '../../research/evidence-gate.ts';
 
 /**
  * Shared evidence-research mission output (pipes-1).
@@ -26,6 +27,22 @@ export const evidenceResearchMissionOutputSchema = z
       .optional(),
   })
   .passthrough();
+
+/**
+ * Retrieve stage output (REDHAT-FIX-1 / CAP-EMB-01).
+ * `retrievalMethod: "rrf"` marks hybrid-search provenance; `"seed"` marks
+ * explicit CLI `--claims` / researchEvidence injection.
+ */
+export const missionResearchRetrieveOutputSchema = z
+  .object({
+    goal: z.string().min(1),
+    evidence: EvidenceGateInputSchema,
+    /** CAP-EMB-01 hybrid search marker (`rrf`) or explicit seed path (`seed`). */
+    retrievalMethod: z.enum(['rrf', 'seed']).optional(),
+    /** Alias of retrievalMethod when searchMethod is preferred by callers. */
+    searchMethod: z.enum(['rrf']).optional(),
+  })
+  .strict();
 
 export const getResearchSessionInputSchema = z.object({
   sessionId: z.string().min(1),

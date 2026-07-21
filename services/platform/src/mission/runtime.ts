@@ -1,13 +1,14 @@
 import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import { createSql, type Sql } from '../db/client.ts';
+import { createDb, createSql, type Sql } from '../db/client.ts';
 import { resolveHolocronNonprodDatabaseUrl } from '../db/connection.ts';
 import { type FleetRoleManifest, FleetRoleManifestSchema } from '../fleet/manifest.schema.ts';
 import { getRoleEntry } from '../fleet/manifest.ts';
 import { probeRoleHealth } from '../inference/resolve-model.ts';
 import { runFleetModelCall } from '../inference/telemetry.ts';
 import { type EvidenceGateInput, evaluateEvidenceGate } from '../research/evidence-gate.ts';
+import { type RrfSearchResultItem, rrfHybridSearch } from '../search/index.ts';
 import {
   type BusinessReportContext,
   type BusinessReportKind,
@@ -306,6 +307,72 @@ type ResearchProcessProof = {
   noExternalHarness: boolean;
 };
 
+/**
+ * Map CAP-EMB-01 RRF hits → EvidenceGateInput with real passage quotes.
+ * Grades stay below the default admission floor so retrieval alone never
+ * greenwashes the deterministic evidence-gate (no invented grade≥3/entailment≥0.8).
+ */
+function mapRrfHitsToEvidenceGateInput(
+  hits: RrfSearchResultItem[],
+  requiredComponents: string[],
+  topic: string
+): EvidenceGateInput {
+  const components = requiredComponents.length > 0 ? requiredComponents : ['durable-evidence'];
+  const claims: Array<{ id: string; text: string; component: string }> = [];
+  const evidence: Array<{
+    id: string;
+    claimId: string;
+    component: string;
+    sourceId: string;
+    independenceGroup: string;
+    quote: string;
+    sourceText: string;
+    grade: number;
+    entailment: number;
+    disconfirmationResolved: boolean;
+    direction: 'supporting' | 'refuting';
+  }> = [];
+
+  for (let i = 0; i < hits.length; i += 1) {
+    const hit = hits[i]!;
+    const sourceText = (hit.content ?? hit.title ?? '').trim();
+    if (!sourceText) continue;
+    const component = components[i % components.length]!;
+    const claimId = `claim-rrf-${i + 1}`;
+    // quote must be a substring of sourceText for gate substring rules
+    const quoteInSource = sourceText.length > 280 ? sourceText.slice(0, 280).trim() : sourceText;
+    const claimText = (hit.title ?? `${topic}: ${quoteInSource.slice(0, 96)}`).trim();
+    claims.push({
+      id: claimId,
+      text: claimText.length > 0 ? claimText : `${topic} hit ${i + 1}`,
+      component,
+    });
+    evidence.push({
+      id: `e-rrf-${i + 1}`,
+      claimId,
+      component,
+      sourceId: hit._id || hit.passage_id || `rrf-src-${i + 1}`,
+      independenceGroup: hit._id || hit.passage_id || `rrf-src-${i + 1}`,
+      quote: quoteInSource,
+      sourceText,
+      // Honest ungraded retrieval row — below gradeFloor 3 / entailmentFloor 0.8.
+      grade: 2,
+      entailment: 0.5,
+      disconfirmationResolved: false,
+      direction: 'supporting',
+    });
+  }
+
+  return {
+    claims,
+    evidence,
+    requiredComponents: components,
+    gradeFloor: 3,
+    entailmentFloor: 0.8,
+    independentSourceFloor: 2,
+  };
+}
+
 function captureResearchProcessProof(): ResearchProcessProof {
   const processChain: string[] = [];
   const ancestorChain: string[] = [];
@@ -534,22 +601,76 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
       'research.retrieve.input'
     ) as { goal: string };
     const args = MissionGoalArgsSchema.parse(context.run.args_json);
-    // Fail-closed: only explicit researchEvidence (CLI --claims / fixture seed /
-    // recorded_external) is admitted. Never fabricate always-admissible
-    // grade/entailment bundles for arbitrary --topic/--components.
     const requiredComponents =
       args.components != null
         ? Array.from({ length: Math.max(1, args.components) }, (_, i) => `component_${i + 1}`)
         : ['durable-evidence'];
-    const evidence = args.researchEvidence ?? {
-      claims: [],
-      evidence: [],
-      requiredComponents,
-      gradeFloor: 3,
-      entailmentFloor: 0.8,
-      independentSourceFloor: 2,
-    };
-    return canonicalJsonValue({ goal: probe.goal, evidence });
+
+    // Explicit --claims / researchEvidence seed path (subscriptions fixtures, H-2).
+    if (args.researchEvidence) {
+      return canonicalJsonValue({
+        goal: probe.goal,
+        evidence: args.researchEvidence,
+        retrievalMethod: 'seed' as const,
+      });
+    }
+
+    // PATH-A (REDHAT-FIX-1 / C-1): CAP-EMB-01 hybrid search when no seed.
+    // Never soft-succeed with empty claims/evidence. Never invent high-grade
+    // always-admissible entailment bundles — hits map to honest ungraded rows
+    // (grade below floor) so the deterministic gate still requires operator seed
+    // or a future grading stage for admission.
+    const query = (args.topic?.trim() || probe.goal || args.goal || '').trim();
+    if (!query) {
+      throw new MissionRuntimeError(
+        'MISSION_RETRIEVAL_UNAVAILABLE',
+        'research retrieve requires --topic/goal for hybrid search (empty query)'
+      );
+    }
+
+    const limit = Math.max(requiredComponents.length, 5);
+    const sql = createSql(context.databaseUrl);
+    try {
+      const db = createDb(sql);
+      let searchResult: Awaited<ReturnType<typeof rrfHybridSearch>>;
+      try {
+        searchResult = await rrfHybridSearch(db, sql, { query, limit });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        throw new MissionRuntimeError(
+          'MISSION_RETRIEVAL_UNAVAILABLE',
+          `hybrid search / embed failed for topic "${query}": ${message}`
+        );
+      }
+
+      if (!searchResult.results.length || searchResult.totalResults === 0) {
+        throw new MissionRuntimeError(
+          'MISSION_RETRIEVE_EMPTY',
+          `hybrid search returned no results for topic "${query}" (empty corpus or no matching passages)`
+        );
+      }
+
+      const evidence = mapRrfHitsToEvidenceGateInput(
+        searchResult.results,
+        requiredComponents,
+        query
+      );
+      if (evidence.claims.length === 0 && evidence.evidence.length === 0) {
+        throw new MissionRuntimeError(
+          'MISSION_RETRIEVE_EMPTY',
+          `hybrid search hits could not be mapped to claims/evidence for topic "${query}"`
+        );
+      }
+
+      return canonicalJsonValue({
+        goal: probe.goal,
+        evidence,
+        retrievalMethod: 'rrf' as const,
+        searchMethod: 'rrf' as const,
+      });
+    } finally {
+      await sql.end({ timeout: 5 });
+    }
   },
   /**
    * EXTRACT validates + normalizes the retrieve payload schema.
