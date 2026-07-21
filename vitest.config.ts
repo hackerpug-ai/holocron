@@ -65,6 +65,8 @@ export default defineConfig({
       // Sprint 22 pipes-1 — shared evidence-research template GREEN + pure-TS gate
       'services/platform/tests/integration/evidence-research-template.test.ts',
       'services/platform/src/research/evidence-gate.test.ts',
+      // Sprint 22 pipes-2 — parameterized business-report (4 kinds) on fleet
+      'services/platform/tests/integration/business-report-template.test.ts',
     ],
     setupFiles: ['tests/setup/react-native.ts'],
     exclude: ['node_modules', 'dist', '.expo'],

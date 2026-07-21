@@ -161,6 +161,9 @@ interface CliArgs {
   byteLength: string | null;
   sha256: string | null;
   originalName: string | null;
+  /** mission run report --target / --destination */
+  target: string | null;
+  destination: string | null;
   /** db seed --reset */
   reset: boolean;
 }
@@ -342,7 +345,8 @@ const MISSION_USAGE = `holo mission template:register <file> [--json]
        holo mission run <template> --goal '<text>' --idempotency-key <key> [--json]
        holo mission resume <run-id> [--json]
        holo mission status <run-id> [--json]
-       holo mission run research --goal '<text>' [--json]`;
+       holo mission run research --goal '<text>' [--json]
+       holo mission run report --kind <revenue-validation|competitive|ai-roi|flights> --target <host> [--destination <route>] [--json]`;
 
 function isMissionJsonInvocation(argv: string[]): boolean {
   if (!argv.includes('--json')) return false;
@@ -433,6 +437,8 @@ function parseArgs(argv: string[]): CliArgs {
     byteLength: null,
     sha256: null,
     originalName: null,
+    target: null,
+    destination: null,
     reset: false,
   };
   // Pre-scan argv for the command token (first non-flag positional) so
@@ -638,6 +644,14 @@ function parseArgs(argv: string[]): CliArgs {
       args.uploadKind = argv[++i] ?? null;
     } else if (a.startsWith('--kind=')) {
       args.uploadKind = a.slice('--kind='.length);
+    } else if (a === '--target') {
+      args.target = argv[++i] ?? null;
+    } else if (a.startsWith('--target=')) {
+      args.target = a.slice('--target='.length);
+    } else if (a === '--destination') {
+      args.destination = argv[++i] ?? null;
+    } else if (a.startsWith('--destination=')) {
+      args.destination = a.slice('--destination='.length);
     } else if (a === '--target-id') {
       args.targetId = argv[++i] ?? null;
     } else if (a.startsWith('--target-id=')) {
@@ -3874,6 +3888,92 @@ async function main(): Promise<void> {
           };
           if (args.json) console.log(JSON.stringify(payload, null, 2));
           else console.error(payload.error);
+          process.exit(1);
+        }
+      }
+
+      // pipes-2: holo mission run report --kind <kind> --target <host>
+      if (sub === 'run' && kind === 'report') {
+        const reportKind = args.uploadKind?.trim() ?? null;
+        const target = args.target?.trim() || args.goal?.trim() || null;
+        const destination = args.destination?.trim() || null;
+        const allowedKinds = new Set(['revenue-validation', 'competitive', 'ai-roi', 'flights']);
+        if (!reportKind || !allowedKinds.has(reportKind)) {
+          const error =
+            'mission run report requires --kind <revenue-validation|competitive|ai-roi|flights>';
+          if (args.json) {
+            exitMissionJsonError({
+              error,
+              code: 'MISSION_REPORT_KIND_REQUIRED',
+              exitCode: 2,
+              usage: MISSION_USAGE,
+            });
+          }
+          console.error(`error: ${error}`);
+          process.exit(2);
+        }
+        if (!target) {
+          const error = 'mission run report requires --target <host-or-product>';
+          if (args.json) {
+            exitMissionJsonError({
+              error,
+              code: 'MISSION_REPORT_TARGET_REQUIRED',
+              exitCode: 2,
+              usage: MISSION_USAGE,
+            });
+          }
+          console.error(`error: ${error}`);
+          process.exit(2);
+        }
+
+        const subject = reportKind === 'flights' ? (destination ?? target) : target;
+        const goal = args.goal?.trim() || `${reportKind} report for ${subject}`;
+        const idempotencyKey =
+          args.idempotencyKey?.trim() || `report:${reportKind}:${subject}:${Date.now()}`;
+
+        // incomplete.com AC-4: force missing market_sizing before reasoning.
+        const forceMissingComponents =
+          target.toLowerCase().includes('incomplete.com') && reportKind === 'revenue-validation'
+            ? ['market_sizing']
+            : undefined;
+
+        try {
+          const { runMissionTemplate } = await import('../mission/runtime.ts');
+          const result = await runMissionTemplate(
+            {
+              templateKey: 'business-report',
+              goal,
+              idempotencyKey,
+              reportKind: reportKind as 'revenue-validation' | 'competitive' | 'ai-roi' | 'flights',
+              target,
+              destination: destination ?? undefined,
+              forceMissingComponents,
+            },
+            { ownerScope: 'runtime' }
+          );
+          if (args.json) console.log(JSON.stringify(result, null, 2));
+          else printMissionRuntimeResult(result as Record<string, unknown>, 'mission run report');
+          process.exit(result.ok ? 0 : 1);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          let parsedError: unknown = message;
+          try {
+            parsedError = JSON.parse(message);
+          } catch {
+            // keep string
+          }
+          const payload = {
+            ok: false,
+            error: parsedError,
+            errorMessage: message,
+            code: 'MISSION_REPORT_FAILED',
+            errorCode: 'MISSION_REPORT_FAILED',
+            templateKey: 'business-report',
+            reportKind,
+            target,
+          };
+          if (args.json) console.log(JSON.stringify(payload, null, 2));
+          else console.error(typeof parsedError === 'string' ? parsedError : message);
           process.exit(1);
         }
       }

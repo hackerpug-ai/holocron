@@ -72,6 +72,16 @@ export const MissionBudgetsSchema = z
 
 export const MISSION_TEMPLATE_DSL_VERSION = 'mission_template_v1' as const;
 
+/** Optional parameter surface for parameterized templates (e.g. business-report kind). */
+export const MissionParameterSchemaField = z
+  .object({
+    type: z.enum(['enum', 'string', 'number', 'boolean']),
+    values: z.array(z.string().min(1)).optional(),
+    required: z.boolean().optional(),
+    description: z.string().optional(),
+  })
+  .strict();
+
 export const MissionTemplateSchema = z
   .object({
     templateKey: z.string().min(1),
@@ -85,6 +95,8 @@ export const MissionTemplateSchema = z
     gateRubric: z.null(),
     humanGate: z.null(),
     outputContract: MissionSchemaRefSchema,
+    /** Declared run parameters (kind enum, target, …). Stored in definition_json. */
+    parameterSchema: z.record(z.string().min(1), MissionParameterSchemaField).optional(),
   })
   .strict();
 

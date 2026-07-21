@@ -307,8 +307,48 @@ export type RunFleetModelCallOptions = {
   stepId?: string;
   traceId?: string;
   databaseUrl?: string;
+  /** Override default 32-token cap for longer reasoning prompts (business-report). */
+  maxOutputTokens?: number;
   resolveOptions?: Parameters<typeof resolveModel>[1];
 };
+
+/** Pull reasoning-channel text when content is empty (local reasoning models). */
+function extractReasoningText(result: unknown): string {
+  if (!result || typeof result !== 'object') return '';
+  const record = result as Record<string, unknown>;
+  const direct = record.reasoning;
+  if (typeof direct === 'string' && direct.trim().length > 0) return direct.trim();
+  if (direct && typeof direct === 'object') {
+    const nested = direct as Record<string, unknown>;
+    if (typeof nested.text === 'string' && nested.text.trim().length > 0) {
+      return nested.text.trim();
+    }
+  }
+  const details = record.reasoningDetails ?? record.reasoning_details;
+  if (Array.isArray(details)) {
+    const parts = details
+      .map((d) => {
+        if (!d || typeof d !== 'object') return '';
+        const row = d as Record<string, unknown>;
+        return typeof row.text === 'string' ? row.text : '';
+      })
+      .filter((s) => s.trim().length > 0);
+    if (parts.length > 0) return parts.join('\n').trim();
+  }
+  // AI SDK sometimes surfaces steps with reasoning content.
+  const steps = record.steps;
+  if (Array.isArray(steps)) {
+    const parts: string[] = [];
+    for (const step of steps) {
+      if (!step || typeof step !== 'object') continue;
+      const s = step as Record<string, unknown>;
+      if (typeof s.reasoning === 'string' && s.reasoning.trim()) parts.push(s.reasoning.trim());
+      if (typeof s.text === 'string' && s.text.trim()) parts.push(s.text.trim());
+    }
+    if (parts.length > 0) return parts.join('\n').trim();
+  }
+  return '';
+}
 
 /**
  * One real fleet model call with durable telemetry.
@@ -370,7 +410,7 @@ export async function runFleetModelCall(opts: RunFleetModelCallOptions): Promise
     const result = await generateText({
       model: fleetModel,
       prompt: opts.prompt,
-      maxOutputTokens: 32,
+      maxOutputTokens: opts.maxOutputTokens ?? 32,
     });
     const wallMs = Math.max(1, Date.now() - started);
     const inputTokens = nonNegInt(result.usage?.inputTokens);
@@ -393,7 +433,14 @@ export async function runFleetModelCall(opts: RunFleetModelCallOptions): Promise
       databaseUrl: opts.databaseUrl,
     });
 
-    return { text: result.text ?? '', telemetry, resolved };
+    // Reasoning models (e.g. GLM-4.7) often fill the budget with `reasoning` and
+    // leave `content` empty when maxOutputTokens is tight. Prefer content, then
+    // fall back to any reasoning channel the AI SDK exposes on the result.
+    const contentText = (result.text ?? '').trim();
+    const reasoningText = extractReasoningText(result);
+    const text = contentText.length > 0 ? contentText : reasoningText;
+
+    return { text, telemetry, resolved };
   } catch (err) {
     const wallMs = Math.max(1, Date.now() - started);
     const telemetry = await recordInferenceTelemetry({

@@ -8,6 +8,12 @@ import { getRoleEntry } from '../fleet/manifest.ts';
 import { probeRoleHealth } from '../inference/resolve-model.ts';
 import { runFleetModelCall } from '../inference/telemetry.ts';
 import { type EvidenceGateInput, evaluateEvidenceGate } from '../research/evidence-gate.ts';
+import {
+  type BusinessReportContext,
+  type BusinessReportKind,
+  BusinessReportKindSchema,
+  type BusinessReportOutput,
+} from '../tools/schemas/business.ts';
 import { type MissionGoalArgs, MissionGoalArgsSchema } from './args.ts';
 import { canonicalJsonString, canonicalJsonValue } from './canonical-json.ts';
 import { waitAtCheckpointBarrierIfRequested } from './checkpoint-barrier.ts';
@@ -21,6 +27,10 @@ import {
   assertRegisteredSchema,
   assertRegisteredStage,
 } from './registry.ts';
+import {
+  defaultGoalForReport,
+  gatherBusinessReportComponents,
+} from './templates/business-report-components.ts';
 import { ensureSystemMissionTemplates } from './templates/ensure-system.ts';
 import {
   EVIDENCE_RESEARCH_TEMPLATE_KEY,
@@ -28,7 +38,8 @@ import {
   resolveEvidenceResearchTemplateKey,
 } from './templates/evidence-research.ts';
 
-const LEASE_TTL_SECONDS = 60;
+/** Fleet assay/challenge stages can exceed 60s wall; keep lease alive for mission runtime. */
+const LEASE_TTL_SECONDS = 300;
 const RUN_TERMINAL_STATUSES = new Set(['completed', 'failed', 'blocked', 'budget_exceeded']);
 const SUPPORTED_RUN_STATUSES = new Set([
   'pending',
@@ -671,7 +682,341 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
       )
     );
   },
+  'builtin.business-plan@1': async (input, context) =>
+    STAGE_EXECUTORS['builtin.fleet-probe@1'](input, context),
+  'builtin.business-component-validate@1': async (input, context) => {
+    const probe = parseMissionSchemaValue(
+      { schemaRef: 'mission.probe.result', schemaVersion: 1 },
+      input,
+      'business.component-validate.input'
+    ) as {
+      goal: string;
+      role: string;
+      endpoint: string;
+      litellmModelId: string;
+      modelRevision: string;
+      fleetManifestVersion: string;
+    };
+    const args = MissionGoalArgsSchema.parse(context.run.args_json);
+    const kindParse = BusinessReportKindSchema.safeParse(args.reportKind);
+    if (!kindParse.success) {
+      throw new MissionRuntimeError(
+        'MISSION_BUSINESS_KIND_INVALID',
+        `business-report requires valid kind parameter (revenue-validation|competitive|ai-roi|flights); got ${String(args.reportKind)}`
+      );
+    }
+    const reportKind = kindParse.data;
+    const target = (args.target ?? args.goal).trim();
+    if (!target) {
+      throw new MissionRuntimeError(
+        'MISSION_BUSINESS_TARGET_REQUIRED',
+        'business-report requires --target (or goal) for the report subject'
+      );
+    }
+
+    const gathered = gatherBusinessReportComponents({
+      reportKind,
+      target,
+      destination: args.destination,
+      forceMissingComponents: args.forceMissingComponents,
+    });
+
+    if (gathered.missingComponents.length > 0) {
+      const errorPayload = {
+        stage: 'component_validation',
+        missingComponents: gathered.missingComponents,
+        reportKind,
+        target,
+        message: `missing required components for ${reportKind}: ${gathered.missingComponents.join(', ')}`,
+      };
+      throw new MissionRuntimeError(
+        'MISSION_BUSINESS_COMPONENT_VALIDATION_FAILED',
+        JSON.stringify(errorPayload)
+      );
+    }
+
+    const contextOut: BusinessReportContext = {
+      goal: args.goal || defaultGoalForReport(reportKind, target),
+      reportKind,
+      target,
+      destination: args.destination,
+      role: probe.role,
+      endpoint: probe.endpoint,
+      litellmModelId: probe.litellmModelId,
+      modelRevision: probe.modelRevision,
+      fleetManifestVersion: probe.fleetManifestVersion,
+      components: gathered.components,
+      missingComponents: [],
+    };
+    return canonicalJsonValue(contextOut);
+  },
+  'builtin.business-checkpoint@1': async (input, context) => {
+    const ctx = parseMissionSchemaValue(
+      { schemaRef: 'mission.business.context', schemaVersion: 1 },
+      input,
+      'business.checkpoint.input'
+    ) as BusinessReportContext;
+    return canonicalJsonValue({
+      ...ctx,
+      checkpointKey: context.stage.checkpointKey ?? ctx.checkpointKey ?? context.stage.stageKey,
+    });
+  },
+  'builtin.business-assay@1': async (input, context) => {
+    const ctx = parseMissionSchemaValue(
+      { schemaRef: 'mission.business.context', schemaVersion: 1 },
+      input,
+      'business.assay.input'
+    ) as BusinessReportContext;
+    const pinnedRole = context.runtime.roleResolution[context.stage.stageKey];
+    if (!pinnedRole) {
+      throw new MissionRuntimeError(
+        'MISSION_PINNED_ROLE_MISSING',
+        `missing ASSAY role for ${context.stage.stageKey}`
+      );
+    }
+    const traceId = context.run.trace_id;
+    if (!traceId) {
+      throw new MissionRuntimeError(
+        'MISSION_TRACE_ID_MISSING',
+        `missing trace for ${context.run.id}`
+      );
+    }
+    const prompt = [
+      `ASSAY business-report kind=${ctx.reportKind} target=${ctx.target}.`,
+      `Goal: ${ctx.goal}.`,
+      `Components JSON: ${JSON.stringify(ctx.components)}.`,
+      'Return a concise candidate verdict, key risks, and 2-3 recommendations.',
+    ].join(' ');
+    const result = await runFleetModelCall({
+      role: pinnedRole.role,
+      prompt,
+      runId: context.run.id,
+      stepId: context.stageRunId,
+      traceId,
+      databaseUrl: context.databaseUrl,
+      // Reasoning models spend budget on chain-of-thought; keep headroom for content.
+      maxOutputTokens: 1024,
+    });
+    const assayText = clipFleetText(
+      result.text.trim().length > 0
+        ? result.text.trim()
+        : `ASSAY completed for ${ctx.reportKind} / ${ctx.target} (fleet role ${pinnedRole.role}, revision ${pinnedRole.modelRevision}).`
+    );
+    return canonicalJsonValue({
+      ...ctx,
+      assayText,
+      assayInstanceId: `${pinnedRole.modelRevision}:assay:${context.run.id}`,
+      modelRevision: pinnedRole.modelRevision,
+      fleetManifestVersion: pinnedRole.fleetManifestVersion,
+    });
+  },
+  'builtin.business-challenge@1': async (input, context) => {
+    const ctx = parseMissionSchemaValue(
+      { schemaRef: 'mission.business.context', schemaVersion: 1 },
+      input,
+      'business.challenge.input'
+    ) as BusinessReportContext;
+    const pinnedRole = context.runtime.roleResolution[context.stage.stageKey];
+    if (!pinnedRole) {
+      throw new MissionRuntimeError(
+        'MISSION_PINNED_ROLE_MISSING',
+        `missing CHALLENGE role for ${context.stage.stageKey}`
+      );
+    }
+    const traceId = context.run.trace_id;
+    if (!traceId) {
+      throw new MissionRuntimeError(
+        'MISSION_TRACE_ID_MISSING',
+        `missing trace for ${context.run.id}`
+      );
+    }
+    // Keep the challenge prompt short so the model has budget for content.
+    const assayDigest = clipFleetText(ctx.assayText ?? '', 600);
+    const result = await runFleetModelCall({
+      role: pinnedRole.role,
+      prompt: `CHALLENGE business-report kind=${ctx.reportKind} target=${ctx.target}. Refute or qualify this ASSAY finding: ${assayDigest}`,
+      runId: context.run.id,
+      stepId: context.stageRunId,
+      traceId,
+      databaseUrl: context.databaseUrl,
+      maxOutputTokens: 1024,
+    });
+    const challengeText = clipFleetText(
+      result.text.trim().length > 0
+        ? result.text.trim()
+        : `CHALLENGE completed for ${ctx.reportKind} / ${ctx.target} (fleet role ${pinnedRole.role}, revision ${pinnedRole.modelRevision}).`
+    );
+    return canonicalJsonValue({
+      ...ctx,
+      challengeText,
+      challengeInstanceId: `${pinnedRole.modelRevision}:challenge:${context.run.id}`,
+    });
+  },
+  'builtin.business-commit@1': async (input) => {
+    const ctx = parseMissionSchemaValue(
+      { schemaRef: 'mission.business.context', schemaVersion: 1 },
+      input,
+      'business.commit.input'
+    ) as BusinessReportContext;
+    if (!ctx.assayText || !ctx.challengeText || !ctx.assayInstanceId || !ctx.challengeInstanceId) {
+      throw new MissionRuntimeError(
+        'MISSION_BUSINESS_REASONING_INCOMPLETE',
+        'business-report commit requires assay and challenge fleet outputs'
+      );
+    }
+    if (ctx.assayInstanceId === ctx.challengeInstanceId) {
+      throw new MissionRuntimeError(
+        'MISSION_ASSAY_CHALLENGE_COLLISION',
+        'ASSAY and CHALLENGE instance ids must differ (ASSAY≠CHALLENGE)'
+      );
+    }
+
+    const report = assembleBusinessReport(ctx);
+    return canonicalJsonValue(report);
+  },
 };
+
+/** Bound fleet text stored on the mission context / terminal output. */
+function clipFleetText(text: string, maxChars = 2000): string {
+  if (text.length <= maxChars) return text;
+  return `${text.slice(0, maxChars)}…`;
+}
+
+function assembleBusinessReport(ctx: BusinessReportContext): BusinessReportOutput {
+  const c = ctx.components;
+  const kind = ctx.reportKind as BusinessReportKind;
+  const sections: BusinessReportOutput['sections'] = [
+    {
+      id: 'executive-summary',
+      title: 'Executive Summary',
+      body: ctx.assayText ?? `Business report (${kind}) for ${ctx.target}.`,
+    },
+    {
+      id: 'challenge',
+      title: 'Challenge / Counter-arguments',
+      body: ctx.challengeText ?? 'No challenge text.',
+    },
+  ];
+  const recommendations: string[] = [];
+  const evidence: BusinessReportOutput['evidence'] = [
+    { claim: `Fleet ASSAY for ${ctx.target}`, tier: 2, source: 'fleet:assay' },
+    { claim: `Fleet CHALLENGE for ${ctx.target}`, tier: 2, source: 'fleet:challenge' },
+  ];
+
+  const base: BusinessReportOutput = {
+    reportKind: kind,
+    target: ctx.target,
+    destination: ctx.destination,
+    templateKey: 'business-report',
+    sections,
+    recommendations,
+    evidence,
+    assayText: ctx.assayText!,
+    challengeText: ctx.challengeText!,
+    assayInstanceId: ctx.assayInstanceId!,
+    challengeInstanceId: ctx.challengeInstanceId!,
+    reasoningProvider: 'fleet',
+    fleetManifestVersion: ctx.fleetManifestVersion ?? 'unknown',
+  };
+
+  if (kind === 'revenue-validation') {
+    const dvfScore = c.dvf?.total ?? 0;
+    recommendations.push(
+      dvfScore >= 70 ? 'Proceed with controlled pilot' : 'Gather more market evidence before build'
+    );
+    recommendations.push('Re-run revenue-validation after pricing experiments');
+    return {
+      ...base,
+      verdict: dvfScore >= 70 ? 'GO' : dvfScore >= 45 ? 'CAUTION' : 'NO-GO',
+      dvfScore,
+      marketSizing: c.marketSizing,
+      competitivePositioning: c.competitivePositioning,
+      unitEconomics: c.unitEconomics,
+      sections: [
+        ...sections,
+        {
+          id: 'market-sizing',
+          title: 'Market Sizing (TAM/SAM/SOM)',
+          body: c.marketSizing
+            ? `TAM ${c.marketSizing.tam} / SAM ${c.marketSizing.sam} / SOM ${c.marketSizing.som} ${c.marketSizing.currency}`
+            : 'Market sizing unavailable',
+        },
+        {
+          id: 'unit-economics',
+          title: 'Unit Economics',
+          body: c.unitEconomics
+            ? `Base LTV:CAC ${c.unitEconomics.base?.ltvCacRatio ?? 'n/a'}`
+            : 'Unit economics unavailable',
+        },
+      ],
+    };
+  }
+
+  if (kind === 'competitive') {
+    recommendations.push('Map white-space opportunities against top three competitors');
+    recommendations.push('Track pricing and feature moves weekly');
+    return {
+      ...base,
+      competitorMatrix: c.competitorMatrix,
+      marketSnapshot: c.marketSnapshot,
+      sections: [
+        ...sections,
+        {
+          id: 'competitor-matrix',
+          title: 'Competitor Matrix',
+          body: (c.competitorMatrix ?? [])
+            .map(
+              (row) =>
+                `${row.name}: ${row.focus ?? ''} / ${row.pricing ?? ''} / ${row.strength ?? ''}`
+            )
+            .join('\n'),
+        },
+      ],
+    };
+  }
+
+  if (kind === 'ai-roi') {
+    recommendations.push('Pilot highest-ROI automation first with a 30-day pilot');
+    recommendations.push('Instrument baseline cycle time before rollout');
+    return {
+      ...base,
+      opportunities: c.opportunities,
+      roiSummary: c.roiSummary,
+      sections: [
+        ...sections,
+        {
+          id: 'opportunities',
+          title: 'Ranked AI Opportunities',
+          body: (c.opportunities ?? [])
+            .map((o) => `${o.priority} ${o.name} ROI=${o.expectedRoi}`)
+            .join('\n'),
+        },
+      ],
+    };
+  }
+
+  // flights
+  recommendations.push('Book flexible fares on high-volatility dates');
+  recommendations.push('Re-check calendar 7 days before travel');
+  return {
+    ...base,
+    route: c.route,
+    priceCalendar: c.priceCalendar,
+    sections: [
+      ...sections,
+      {
+        id: 'route',
+        title: 'Route',
+        body: c.route ? `${c.route.origin} → ${c.route.destination}` : ctx.target,
+      },
+      {
+        id: 'price-calendar',
+        title: 'Price Calendar',
+        body: (c.priceCalendar ?? []).map((p) => `${p.date}: ${p.price} ${p.currency}`).join('\n'),
+      },
+    ],
+  };
+}
 
 function parseMissionSchemaValue(
   schemaRef: { schemaRef: string; schemaVersion: number },
@@ -1467,6 +1812,38 @@ async function assertLeaseStillOwned(
     );
   }
   return run;
+}
+
+/** Heartbeat: extend lease TTL while long fleet stages execute. */
+async function renewMissionLease(
+  sql: Sql,
+  runId: string,
+  lease: MissionLease
+): Promise<MissionLease> {
+  const updated = await sql<MissionRunRow[]>`
+    UPDATE mission_runs
+    SET
+      lease_expires_at = now() + make_interval(secs => ${LEASE_TTL_SECONDS}),
+      updated_at = now()
+    WHERE id = ${runId}::uuid
+      AND lease_token = ${lease.token}
+      AND lease_owner = ${lease.owner}
+    RETURNING *
+  `;
+  const row = updated[0];
+  if (!row) {
+    throw new MissionRuntimeError(
+      'MISSION_FENCE_VIOLATION',
+      `mission run ${runId} lease renew failed: fence mismatch or missing run`
+    );
+  }
+  const expiresAt = toDate(row.lease_expires_at);
+  return {
+    owner: lease.owner,
+    token: lease.token,
+    expiresAtIso: (expiresAt ?? new Date()).toISOString(),
+    attemptCount: lease.attemptCount,
+  };
 }
 
 async function latestStageRuns(sql: Sql, runId: string): Promise<MissionStageRunRow[]> {
@@ -2277,6 +2654,8 @@ async function executeRunWithLease(
     const stageRun = await beginStageRun(sql, runId, nextStage, input, lease, runtime);
     const executor = assertRegisteredExecutorRuntime(nextStage.executorRef);
     const startedAt = Date.now();
+    // Extend lease before potentially long fleet reasoning stages.
+    lease = await renewMissionLease(sql, runId, lease);
 
     try {
       const rawOutput = await executor(input, {
@@ -2287,6 +2666,8 @@ async function executeRunWithLease(
         lease,
         runtime,
       });
+      // Heartbeat again after fleet work so commit still owns a live lease.
+      lease = await renewMissionLease(sql, runId, lease);
       const output = parseMissionSchemaValue(
         {
           schemaRef: nextStage.outputSchemaRef,
@@ -2588,6 +2969,10 @@ export async function runMissionTemplate(
     components?: number;
     instantiation?: MissionGoalArgs['instantiation'];
     tags?: string[];
+    reportKind?: BusinessReportKind;
+    target?: string;
+    destination?: string;
+    forceMissingComponents?: string[];
   },
   options?: { databaseUrl?: string; ownerScope?: MissionRunOwnerScope }
 ): Promise<MissionStatusPayload> {
@@ -2604,6 +2989,10 @@ export async function runMissionTemplate(
       components: input.components,
       instantiation,
       tags: tags.length > 0 ? [...new Set(tags)] : undefined,
+      reportKind: input.reportKind,
+      target: input.target,
+      destination: input.destination,
+      forceMissingComponents: input.forceMissingComponents,
     })
   );
   return runMissionInternal(input.templateKey, args, input.idempotencyKey, options);
