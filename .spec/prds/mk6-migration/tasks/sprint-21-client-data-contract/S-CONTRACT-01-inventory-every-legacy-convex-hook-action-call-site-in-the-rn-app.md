@@ -2,7 +2,7 @@
 
 - **Sprint:** [Sprint 21: Client Data Contract](./SPRINT.md)
 - **Task Type:** `INFRA`
-- **Status:** `Backlog`
+- **Status:** `completed`
 - **Priority:** `P0`
 - **Effort:** `M`
 - **Estimate:** `120 minutes`

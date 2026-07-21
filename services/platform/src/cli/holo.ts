@@ -259,6 +259,13 @@ Usage:
                            projection / offline / optimistic / conflict / rejection
                            / identifier / e2e_criterion semantics.
                            (--inventory <path> alias; --output <path>)
+   verify:client-contract
+                           S-CONTRACT-02 — verify the authored client data contract.
+                           --schema      AC-2: every entry declares all required fields.
+                           --targets     AC-3: every target resolves against live zero_pub / Hono.
+                           --e2e-links   AC-4: every entry links a valid T-SYNC criterion;
+                                         all five offline-behavior cases are represented.
+                           (no flag = run all three; --contract <path>; --inventory <path>)
 
 Options:
   --export <dir>        Path to unzipped convex export (or $CONVEX_EXPORT_DIR)
@@ -318,6 +325,8 @@ Options:
   --print-trace         (compat:spike) emit OTel trace details
   --dry-run             (catalog:reconcile) dry-run mode (default)
   --output <path>       (inventory:convex-callsites | client-contract:author) write artifact to this path
+  --inventory <path>    (client-contract:author | verify:client-contract) inventory JSON path
+  --contract <path>     (verify:client-contract) YAML contract path
   -h, --help            Show help
 `);
 }
@@ -4222,6 +4231,80 @@ async function main(): Promise<void> {
         console.log(`  unresolved_target_count:   ${contract.summary.unresolved_target_count}`);
       }
       process.exit(contract.summary.unresolved_target_count === 0 ? 0 : 1);
+      break;
+    }
+
+    case 'verify:client-contract': {
+      // S-CONTRACT-02 — verify the authored client data contract.
+      // Three independent checks: --schema (AC-2), --targets (AC-3),
+      // --e2e-links (AC-4). Each can be invoked alone; passing none runs
+      // all three. Exit 0 only when every requested check is green.
+      const contractPath =
+        args.contract ??
+        '.spec/prds/mk6-migration/10-technical-requirements/13-client-data-contract.yaml';
+      const inventoryPath =
+        args.inventory ??
+        '.spec/prds/mk6-migration/10-technical-requirements/13-client-callsite-inventory.json';
+      const { formatReportText, verifyE2ELinks, verifySchema, verifyTargets } = await import(
+        '../sync/client-data-contract-verify.ts'
+      );
+      // If no check flag is passed, run all three.
+      const runSchema =
+        args.verifySchema || (!args.verifySchema && !args.verifyTargets && !args.verifyE2ELinks);
+      const runTargets =
+        args.verifyTargets || (!args.verifySchema && !args.verifyTargets && !args.verifyE2ELinks);
+      const runE2E =
+        args.verifyE2ELinks || (!args.verifySchema && !args.verifyTargets && !args.verifyE2ELinks);
+      const reports = [];
+      if (runSchema) {
+        try {
+          reports.push(verifySchema(contractPath, inventoryPath));
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          if (args.json) {
+            console.error(JSON.stringify({ ok: false, check: 'schema', error: msg }, null, 2));
+          } else {
+            console.error(`holo verify:client-contract --schema failed: ${msg}`);
+          }
+          process.exit(1);
+        }
+      }
+      if (runTargets) {
+        try {
+          reports.push(verifyTargets(contractPath, inventoryPath));
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          if (args.json) {
+            console.error(JSON.stringify({ ok: false, check: 'targets', error: msg }, null, 2));
+          } else {
+            console.error(`holo verify:client-contract --targets failed: ${msg}`);
+          }
+          process.exit(1);
+        }
+      }
+      if (runE2E) {
+        try {
+          reports.push(verifyE2ELinks(contractPath, inventoryPath));
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          if (args.json) {
+            console.error(JSON.stringify({ ok: false, check: 'e2e-links', error: msg }, null, 2));
+          } else {
+            console.error(`holo verify:client-contract --e2e-links failed: ${msg}`);
+          }
+          process.exit(1);
+        }
+      }
+      if (args.json) {
+        process.stdout.write(`${JSON.stringify({ results: reports }, null, 2)}\n`);
+      } else {
+        for (const r of reports) {
+          console.log(formatReportText(r));
+          console.log('');
+        }
+      }
+      const allOk = reports.length > 0 && reports.every((r) => r.ok);
+      process.exit(allOk ? 0 : 1);
       break;
     }
 
