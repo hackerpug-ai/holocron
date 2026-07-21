@@ -75,6 +75,7 @@ Updated by /kb-sprint-tasks-plan --only REDHAT-FIX-1 on 2026-07-21T19:15:00Z (C-
 Updated by /kb-sprint-tasks-plan --only REDHAT-FIX-2 on 2026-07-21T20:30:00Z (C-2 expansion from `.spec/reviews/red-hat-sprint-22-20260721T183000Z.md`).
 Updated by /kb-sprint-tasks-plan --only REDHAT-FIX-3 on 2026-07-21T21:45:00Z (H-1/GATE-1 expansion from `.spec/reviews/red-hat-sprint-22-20260721T183000Z.md`).
 Updated by /kb-sprint-tasks-plan --only REDHAT-FIX-4 on 2026-07-21T22:30:00Z (H-2 expansion from `.spec/reviews/red-hat-sprint-22-20260721T183000Z.md`).
+Updated by /kb-sprint-tasks-plan --only REDHAT-FIX-5 on 2026-07-21T23:15:00Z (H-3 expansion from `.spec/reviews/red-hat-sprint-22-20260721T183000Z.md`).
 
 - pipes-1-shared-evidence-research-core-template.md
 - pipes-2-parameterized-business-report-template-4-kinds.md
@@ -85,6 +86,6 @@ Updated by /kb-sprint-tasks-plan --only REDHAT-FIX-4 on 2026-07-21T22:30:00Z (H-
 - REDHAT-FIX-2-deterministic-cli-idempotency-defaults.md
 - REDHAT-FIX-3-implement-holo-infer-trace-and-gate-step-6.md
 - REDHAT-FIX-4-standing-subscriptions-no-manual-claims.md
-- REDHAT-FIX-5 — pending `/kb-sprint-tasks-plan --only` expansion from `.spec/reviews/red-hat-sprint-22-20260721T183000Z.md`
+- REDHAT-FIX-5-behavioral-green-and-fleet-down-fail-closed.md
 
-pipes-1..5 avg quality ~100/115; fakeability audit: **0 CRITICAL / 0 HIGH**. REDHAT-FIX-1/2/3/4: `validate_scenario.py` exit 0. Topological order: pipes-4 → pipes-1 ∥ pipes-2 → pipes-3 → pipes-5 → REDHAT-FIX-*. Status remains 🟠 In Progress — red-hat remediation queued.
+pipes-1..5 avg quality ~100/115; fakeability audit: **0 CRITICAL / 0 HIGH**. REDHAT-FIX-1/2/3/4/5: `validate_scenario.py` exit 0. Topological order: pipes-4 → pipes-1 ∥ pipes-2 → pipes-3 → pipes-5 → REDHAT-FIX-*. Status remains 🟠 In Progress — red-hat remediation queued.
