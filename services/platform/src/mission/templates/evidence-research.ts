@@ -20,9 +20,9 @@ export type EvidenceResearchInstantiation = (typeof EVIDENCE_RESEARCH_INSTANTIAT
 /** Closed Mission Template DSL payload for the shared evidence-research core. */
 export const evidenceResearchTemplateDefinition: MissionTemplateDefinition = {
   templateKey: EVIDENCE_RESEARCH_TEMPLATE_KEY,
-  version: '1.0.0',
+  version: '1.0.1',
   description:
-    'Shared evidence-research core: plan → retrieve → extract → assay → challenge → evidence-gate → commit. Instantiated by research/deepResearch/subscriptions-research/fulcrum.',
+    'Shared evidence-research core: plan → retrieve → extract → assay → challenge → evidence-gate → commit. Instantiated by research/deepResearch/subscriptions-research/fulcrum. Retrieve is fail-closed without explicit claims/fixture seed.',
   trigger: { kind: 'on-demand' },
   stageGraph: [
     {
@@ -31,6 +31,7 @@ export const evidenceResearchTemplateDefinition: MissionTemplateDefinition = {
       executorRef: 'builtin.research-plan@1',
       inputSchema: { schemaRef: 'mission.goal', schemaVersion: 1 },
       outputSchema: { schemaRef: 'mission.probe.result', schemaVersion: 1 },
+      checkpointKey: 'after-plan',
     },
     {
       id: 'retrieve',

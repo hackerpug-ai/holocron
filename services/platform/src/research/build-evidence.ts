@@ -1,12 +1,21 @@
 /**
- * Deterministic multi-component evidence builder for the evidence-research template.
+ * Explicit migration/fixture seed helper for evidence-research tests.
  *
- * Builds durable evidence that meets grade/entailment/independence floors so the
- * pure-TS evidence gate can admit without model-driven admission. Fleet ASSAY /
- * CHALLENGE still run for reasoning provenance; admission remains deterministic.
+ * NOT used by the default retrieve path. Runtime retrieve is fail-closed:
+ * without `researchEvidence` (CLI `--claims` / recorded_external fixture),
+ * the gate sees empty evidence and will not admit.
+ *
+ * Call this only when writing fixture files under tests/fixtures/research/
+ * or when a test explicitly seeds migration_fixture rows.
  */
-import { type EvidenceGateInput, EvidenceGateInputSchema, EvidenceItemSchema, ResearchClaimSchema } from './evidence-gate.ts';
+
 import type { z } from 'zod';
+import {
+  type EvidenceGateInput,
+  EvidenceGateInputSchema,
+  type EvidenceItemSchema,
+  type ResearchClaimSchema,
+} from './evidence-gate.ts';
 
 type Claim = z.infer<typeof ResearchClaimSchema>;
 type EvidenceItem = z.infer<typeof EvidenceItemSchema>;
@@ -18,13 +27,23 @@ export type BuildEvidenceForComponentsInput = {
   entailmentFloor?: number;
   independentSourceFloor?: number;
   direction?: 'supporting' | 'refuting';
+  /** Required marker — prevents silent synthetic success on production paths. */
+  seedKind: 'migration_fixture' | 'recorded_external';
 };
 
 /**
- * Produce admissible evidence covering `components` required components with at
- * least `independentSourceFloor` distinct source identities.
+ * Produce fixture evidence covering `components` required components.
+ * Must be called with an explicit seedKind; never invoke from retrieve for
+ * arbitrary operator topics.
  */
-export function buildEvidenceForComponents(raw: BuildEvidenceForComponentsInput): EvidenceGateInput {
+export function buildEvidenceForComponents(
+  raw: BuildEvidenceForComponentsInput
+): EvidenceGateInput {
+  if (raw.seedKind !== 'migration_fixture' && raw.seedKind !== 'recorded_external') {
+    throw new Error(
+      'buildEvidenceForComponents requires seedKind migration_fixture|recorded_external'
+    );
+  }
   const topic = raw.topic.trim() || 'research-topic';
   const components = Math.max(1, Math.floor(raw.components));
   const gradeFloor = raw.gradeFloor ?? 3;
@@ -44,7 +63,6 @@ export function buildEvidenceForComponents(raw: BuildEvidenceForComponentsInput)
   }));
 
   const evidence: EvidenceItem[] = [];
-  // Ensure ≥ independentSourceFloor distinct sources overall while covering every component.
   for (let i = 0; i < requiredComponents.length; i += 1) {
     const component = requiredComponents[i]!;
     const sourceOrdinal = (i % independentSourceFloor) + 1;
@@ -65,7 +83,6 @@ export function buildEvidenceForComponents(raw: BuildEvidenceForComponentsInput)
     });
   }
 
-  // If components < independentSourceFloor, pad with extra independent sources on component_1.
   const sourceIds = new Set(evidence.map((item) => item.sourceId));
   let pad = 0;
   while (sourceIds.size < independentSourceFloor) {

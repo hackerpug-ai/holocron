@@ -7,7 +7,6 @@ import { type FleetRoleManifest, FleetRoleManifestSchema } from '../fleet/manife
 import { getRoleEntry } from '../fleet/manifest.ts';
 import { probeRoleHealth } from '../inference/resolve-model.ts';
 import { runFleetModelCall } from '../inference/telemetry.ts';
-import { buildEvidenceForComponents } from '../research/build-evidence.ts';
 import { type EvidenceGateInput, evaluateEvidenceGate } from '../research/evidence-gate.ts';
 import { type MissionGoalArgs, MissionGoalArgsSchema } from './args.ts';
 import { canonicalJsonString, canonicalJsonValue } from './canonical-json.ts';
@@ -22,12 +21,12 @@ import {
   assertRegisteredSchema,
   assertRegisteredStage,
 } from './registry.ts';
+import { ensureSystemMissionTemplates } from './templates/ensure-system.ts';
 import {
   EVIDENCE_RESEARCH_TEMPLATE_KEY,
   isEvidenceResearchInstantiation,
   resolveEvidenceResearchTemplateKey,
 } from './templates/evidence-research.ts';
-import { ensureSystemMissionTemplates } from './templates/ensure-system.ts';
 
 const LEASE_TTL_SECONDS = 60;
 const RUN_TERMINAL_STATUSES = new Set(['completed', 'failed', 'blocked', 'budget_exceeded']);
@@ -507,31 +506,45 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
       'research.retrieve.input'
     ) as { goal: string };
     const args = MissionGoalArgsSchema.parse(context.run.args_json);
-    const evidence =
-      args.researchEvidence ??
-      (args.components != null || args.topic != null
-        ? buildEvidenceForComponents({
-            topic: args.topic ?? probe.goal,
-            components: args.components ?? 1,
-          })
-        : {
-            claims: [],
-            evidence: [],
-            requiredComponents: ['durable-evidence'],
-            gradeFloor: 3,
-            entailmentFloor: 0.8,
-            independentSourceFloor: 2,
-          });
+    // Fail-closed: only explicit researchEvidence (CLI --claims / fixture seed /
+    // recorded_external) is admitted. Never fabricate always-admissible
+    // grade/entailment bundles for arbitrary --topic/--components.
+    const requiredComponents =
+      args.components != null
+        ? Array.from({ length: Math.max(1, args.components) }, (_, i) => `component_${i + 1}`)
+        : ['durable-evidence'];
+    const evidence = args.researchEvidence ?? {
+      claims: [],
+      evidence: [],
+      requiredComponents,
+      gradeFloor: 3,
+      entailmentFloor: 0.8,
+      independentSourceFloor: 2,
+    };
     return canonicalJsonValue({ goal: probe.goal, evidence });
   },
-  'builtin.research-extract@1': async (input) =>
-    canonicalJsonValue(
-      parseMissionSchemaValue(
-        { schemaRef: 'mission.research.retrieve.output', schemaVersion: 1 },
-        input,
-        'research.extract.input'
-      )
-    ),
+  /**
+   * EXTRACT validates + normalizes the retrieve payload schema.
+   * It is intentionally not an NLP extractor — content comes from retrieve
+   * (fixture seed or future corpus/search). Role: schema-bound handoff.
+   */
+  'builtin.research-extract@1': async (input) => {
+    const retrieved = parseMissionSchemaValue(
+      { schemaRef: 'mission.research.retrieve.output', schemaVersion: 1 },
+      input,
+      'research.extract.input'
+    ) as { goal: string; evidence: EvidenceGateInput };
+    // Normalize: drop evidence rows whose claimId is missing from claims (strict handoff).
+    const claimIds = new Set((retrieved.evidence.claims ?? []).map((c) => c.id));
+    const normalizedEvidence = {
+      ...retrieved.evidence,
+      evidence: (retrieved.evidence.evidence ?? []).filter((item) => claimIds.has(item.claimId)),
+    };
+    return canonicalJsonValue({
+      goal: retrieved.goal,
+      evidence: normalizedEvidence,
+    });
+  },
   'builtin.research-assay@1': async (input, context) => {
     const retrieved = parseMissionSchemaValue(
       { schemaRef: 'mission.research.retrieve.output', schemaVersion: 1 },
@@ -2395,9 +2408,11 @@ async function runMissionInternal(
   });
 
   // Shared evidence-research core: operator aliases resolve to one template row.
-  const resolvedTemplateKey =
-    resolveEvidenceResearchTemplateKey(templateKey) ?? templateKey;
-  if (resolveEvidenceResearchTemplateKey(templateKey) || templateKey === EVIDENCE_RESEARCH_TEMPLATE_KEY) {
+  const resolvedTemplateKey = resolveEvidenceResearchTemplateKey(templateKey) ?? templateKey;
+  if (
+    resolveEvidenceResearchTemplateKey(templateKey) ||
+    templateKey === EVIDENCE_RESEARCH_TEMPLATE_KEY
+  ) {
     await ensureSystemMissionTemplates({ databaseUrl });
   }
 
@@ -2579,10 +2594,7 @@ export async function runMissionTemplate(
   const instantiation =
     input.instantiation ??
     (isEvidenceResearchInstantiation(input.templateKey) ? input.templateKey : undefined);
-  const tags = [
-    ...(input.tags ?? []),
-    ...(instantiation ? [instantiation] : []),
-  ];
+  const tags = [...(input.tags ?? []), ...(instantiation ? [instantiation] : [])];
   const args = MissionGoalArgsSchema.parse(
     canonicalJsonValue({
       goal: input.goal,
