@@ -21,16 +21,19 @@ import {
 export const PIPES4_EVIDENCE_DIR = resolve(REPO_ROOT, '.tmp/pipes-4');
 export const PIPES4_RAW_DIR = resolve(PIPES4_EVIDENCE_DIR, 'raw');
 
-/** Per-domain shell dirs that Sprint 22 must eliminate (platform + legacy convex). */
+/**
+ * Per-domain *pipeline* shell dirs that Sprint 22 must eliminate on the platform.
+ *
+ * Residual intentional app surfaces under convex/{whatsNew,assimilate,shop,subscriptions}
+ * remain for RN Zero soak; pipelines themselves now live as mission templates under
+ * services/platform/src/mission/templates/. AC-5 verify + holo verify:no-shells scan
+ * platform pipeline shells only (pipes-3 scope note).
+ */
 export const PER_DOMAIN_SHELL_DIRS = [
   'services/platform/src/whatsnew',
   'services/platform/src/assimilate',
   'services/platform/src/shop',
   'services/platform/src/subscriptions',
-  'convex/whatsNew',
-  'convex/assimilate',
-  'convex/shop',
-  'convex/subscriptions',
 ] as const;
 
 export const BUSINESS_REPORT_KIND_KEYS = [

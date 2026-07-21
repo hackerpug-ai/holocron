@@ -37,6 +37,10 @@ export const documents = pgTable(
     // NOTE: embedding intentionally omitted — vectors live on passages (Zero split).
     isPublic: boolean('is_public').default(false),
     shareToken: text('share_token'),
+    /** pipes-3: mission run that published this document (idempotent standing publish). */
+    sourceRunId: text('source_run_id'),
+    publishedAt: timestamptz('published_at'),
+    publishIdempotencyKey: text('publish_idempotency_key'),
     createdAt: createdAtColumn(),
     searchVector: searchVectorColumn(weightedSearchVectorSql('title', 'content')),
   },
@@ -44,6 +48,7 @@ export const documents = pgTable(
     legacyConvexIdIndex('documents', t.legacyConvexId),
     index('documents_status_idx').on(t.status),
     index('documents_category_idx').on(t.category),
+    index('documents_source_run_id_idx').on(t.sourceRunId),
     searchVectorGinIndex('documents_search_vector_gin', t.searchVector),
     check('documents_status_check', sql`status IN (${sql.raw(sqlInList(documentStatusValues))})`),
   ]

@@ -164,6 +164,10 @@ interface CliArgs {
   /** mission run report --target / --destination */
   target: string | null;
   destination: string | null;
+  /** mission run whatsNew --date */
+  date: string | null;
+  /** mission run shop --query */
+  query: string | null;
   /** db seed --reset */
   reset: boolean;
 }
@@ -216,6 +220,7 @@ Usage:
                             (checkBudget → generateText → logEscape); fleet-down → degraded
   infer:degraded            Show / poll degraded-mode state (fleet-down reduced mode)
   verify:no-provider-refs   Audit platform src for banned claudeFlash/Pro/Ultra factories
+  verify:no-shells          Prove per-domain pipeline shells are gone (whatsnew/assimilate/shop/subscriptions)
   budget:status             Show escape budget spent / remaining / ceiling (real Postgres)
   budget:set                Set escape budget ceiling (--ceiling <usd>)
   telemetry:tail            Tail durable inference_telemetry rows (--run-id, --json)
@@ -346,7 +351,11 @@ const MISSION_USAGE = `holo mission template:register <file> [--json]
        holo mission resume <run-id> [--json]
        holo mission status <run-id> [--json]
        holo mission run research --goal '<text>' [--json]
-       holo mission run report --kind <revenue-validation|competitive|ai-roi|flights> --target <host> [--destination <route>] [--json]`;
+       holo mission run report --kind <revenue-validation|competitive|ai-roi|flights> --target <host> [--destination <route>] [--json]
+       holo mission run whatsNew --date YYYY-MM-DD [--json]
+       holo mission run assimilate --target <owner/repo> [--json]
+       holo mission run shop --query <term> [--json]
+       holo mission run subscriptions [--topic <text>] [--json]`;
 
 function isMissionJsonInvocation(argv: string[]): boolean {
   if (!argv.includes('--json')) return false;
@@ -439,6 +448,8 @@ function parseArgs(argv: string[]): CliArgs {
     originalName: null,
     target: null,
     destination: null,
+    date: null,
+    query: null,
     reset: false,
   };
   // Pre-scan argv for the command token (first non-flag positional) so
@@ -652,6 +663,14 @@ function parseArgs(argv: string[]): CliArgs {
       args.destination = argv[++i] ?? null;
     } else if (a.startsWith('--destination=')) {
       args.destination = a.slice('--destination='.length);
+    } else if (a === '--date') {
+      args.date = argv[++i] ?? null;
+    } else if (a.startsWith('--date=')) {
+      args.date = a.slice('--date='.length);
+    } else if (a === '--query') {
+      args.query = argv[++i] ?? null;
+    } else if (a.startsWith('--query=')) {
+      args.query = a.slice('--query='.length);
     } else if (a === '--target-id') {
       args.targetId = argv[++i] ?? null;
     } else if (a.startsWith('--target-id=')) {
@@ -2280,6 +2299,26 @@ async function main(): Promise<void> {
       }
       break;
     }
+    case 'verify:no-shells': {
+      const { resolve } = await import('node:path');
+      const { fileURLToPath } = await import('node:url');
+      const { scanPerDomainShells } = await import('../mission/verify-no-shells.ts');
+      // repo root: services/platform/src/cli/holo.ts → ../../../../
+      const here = fileURLToPath(new URL('.', import.meta.url));
+      const repoRoot = resolve(here, '../../../..');
+      const result = scanPerDomainShells(repoRoot);
+      if (args.json) {
+        console.log(JSON.stringify({ ok: result.ok, ...result }, null, 2));
+      } else {
+        console.log(`holo verify:no-shells — ${result.message}`);
+        if (result.found.length > 0) {
+          for (const f of result.found) console.log(`  - ${f}`);
+        }
+      }
+      process.exit(result.ok ? 0 : 1);
+      break;
+    }
+
     case 'verify:no-provider-refs': {
       const { verifyNoProviderRefs, formatNoProviderRefsText } = await import(
         '../inference/verify-no-provider-refs.ts'
@@ -3873,11 +3912,7 @@ async function main(): Promise<void> {
             { ownerScope: 'runtime' }
           );
           if (args.json) console.log(JSON.stringify(result, null, 2));
-          else
-            printMissionRuntimeResult(
-              result as Record<string, unknown>,
-              `mission run ${kind}`
-            );
+          else printMissionRuntimeResult(result as Record<string, unknown>, `mission run ${kind}`);
           process.exit(result.ok ? 0 : 1);
         } catch (error) {
           const payload = {
@@ -3885,6 +3920,179 @@ async function main(): Promise<void> {
             error: error instanceof Error ? error.message : String(error),
             code: 'MISSION_RESEARCH_FAILED',
             errorCode: 'MISSION_RESEARCH_FAILED',
+          };
+          if (args.json) console.log(JSON.stringify(payload, null, 2));
+          else console.error(payload.error);
+          process.exit(1);
+        }
+      }
+
+      // pipes-3: holo mission run whatsNew|whatsnew --date YYYY-MM-DD
+      if (sub === 'run' && (kind === 'whatsNew' || kind === 'whatsnew')) {
+        const date = args.date?.trim() || null;
+        if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+          const error = 'mission run whatsNew requires --date YYYY-MM-DD';
+          if (args.json) {
+            exitMissionJsonError({
+              error,
+              code: 'MISSION_WHATSNEW_DATE_REQUIRED',
+              exitCode: 2,
+              usage: MISSION_USAGE,
+            });
+          }
+          console.error(`error: ${error}`);
+          process.exit(2);
+        }
+        const goal = args.goal?.trim() || `daily briefing for ${date}`;
+        const idempotencyKey = args.idempotencyKey?.trim() || `whatsnew:${date}:${Date.now()}`;
+        try {
+          const { runMissionTemplate } = await import('../mission/runtime.ts');
+          const result = await runMissionTemplate(
+            {
+              templateKey: 'whatsnew',
+              goal,
+              date,
+              idempotencyKey,
+            },
+            { ownerScope: 'runtime' }
+          );
+          if (args.json) console.log(JSON.stringify(result, null, 2));
+          else printMissionRuntimeResult(result as Record<string, unknown>, 'mission run whatsNew');
+          process.exit(result.ok ? 0 : 1);
+        } catch (error) {
+          const payload = {
+            ok: false,
+            error: error instanceof Error ? error.message : String(error),
+            code: 'MISSION_WHATSNEW_FAILED',
+            errorCode: 'MISSION_WHATSNEW_FAILED',
+          };
+          if (args.json) console.log(JSON.stringify(payload, null, 2));
+          else console.error(payload.error);
+          process.exit(1);
+        }
+      }
+
+      // pipes-3: holo mission run assimilate --target <owner/repo>
+      if (sub === 'run' && kind === 'assimilate') {
+        const target = args.target?.trim() || null;
+        if (!target) {
+          const error = 'mission run assimilate requires --target <owner/repo>';
+          if (args.json) {
+            exitMissionJsonError({
+              error,
+              code: 'MISSION_ASSIMILATE_TARGET_REQUIRED',
+              exitCode: 2,
+              usage: MISSION_USAGE,
+            });
+          }
+          console.error(`error: ${error}`);
+          process.exit(2);
+        }
+        const goal = args.goal?.trim() || `assimilate ${target}`;
+        const idempotencyKey = args.idempotencyKey?.trim() || `assimilate:${target}:${Date.now()}`;
+        try {
+          const { runMissionTemplate } = await import('../mission/runtime.ts');
+          const result = await runMissionTemplate(
+            {
+              templateKey: 'assimilate',
+              goal,
+              target,
+              idempotencyKey,
+            },
+            { ownerScope: 'runtime' }
+          );
+          if (args.json) console.log(JSON.stringify(result, null, 2));
+          else
+            printMissionRuntimeResult(result as Record<string, unknown>, 'mission run assimilate');
+          process.exit(result.ok ? 0 : 1);
+        } catch (error) {
+          const payload = {
+            ok: false,
+            error: error instanceof Error ? error.message : String(error),
+            code: 'MISSION_ASSIMILATE_FAILED',
+            errorCode: 'MISSION_ASSIMILATE_FAILED',
+          };
+          if (args.json) console.log(JSON.stringify(payload, null, 2));
+          else console.error(payload.error);
+          process.exit(1);
+        }
+      }
+
+      // pipes-3: holo mission run shop --query <term>
+      if (sub === 'run' && kind === 'shop') {
+        const query = args.query?.trim() || null;
+        if (!query) {
+          const error = 'mission run shop requires --query <term>';
+          if (args.json) {
+            exitMissionJsonError({
+              error,
+              code: 'MISSION_SHOP_QUERY_REQUIRED',
+              exitCode: 2,
+              usage: MISSION_USAGE,
+            });
+          }
+          console.error(`error: ${error}`);
+          process.exit(2);
+        }
+        const goal = args.goal?.trim() || `shop ${query}`;
+        const idempotencyKey = args.idempotencyKey?.trim() || `shop:${query}:${Date.now()}`;
+        try {
+          const { runMissionTemplate } = await import('../mission/runtime.ts');
+          const result = await runMissionTemplate(
+            {
+              templateKey: 'shop',
+              goal,
+              query,
+              idempotencyKey,
+            },
+            { ownerScope: 'runtime' }
+          );
+          if (args.json) console.log(JSON.stringify(result, null, 2));
+          else printMissionRuntimeResult(result as Record<string, unknown>, 'mission run shop');
+          process.exit(result.ok ? 0 : 1);
+        } catch (error) {
+          const payload = {
+            ok: false,
+            error: error instanceof Error ? error.message : String(error),
+            code: 'MISSION_SHOP_FAILED',
+            errorCode: 'MISSION_SHOP_FAILED',
+          };
+          if (args.json) console.log(JSON.stringify(payload, null, 2));
+          else console.error(payload.error);
+          process.exit(1);
+        }
+      }
+
+      // pipes-3: holo mission run subscriptions (standing + sub-workflow publish)
+      if (sub === 'run' && kind === 'subscriptions') {
+        const topic = args.topic?.trim() || args.goal?.trim() || 'subscription standing digest';
+        const goal = args.goal?.trim() || topic;
+        const idempotencyKey =
+          args.idempotencyKey?.trim() || `subscriptions:${topic}:${Date.now()}`;
+        try {
+          const { runMissionTemplate } = await import('../mission/runtime.ts');
+          const result = await runMissionTemplate(
+            {
+              templateKey: 'subscriptions',
+              goal,
+              topic,
+              idempotencyKey,
+            },
+            { ownerScope: 'runtime' }
+          );
+          if (args.json) console.log(JSON.stringify(result, null, 2));
+          else
+            printMissionRuntimeResult(
+              result as Record<string, unknown>,
+              'mission run subscriptions'
+            );
+          process.exit(result.ok ? 0 : 1);
+        } catch (error) {
+          const payload = {
+            ok: false,
+            error: error instanceof Error ? error.message : String(error),
+            code: 'MISSION_SUBSCRIPTIONS_FAILED',
+            errorCode: 'MISSION_SUBSCRIPTIONS_FAILED',
           };
           if (args.json) console.log(JSON.stringify(payload, null, 2));
           else console.error(payload.error);

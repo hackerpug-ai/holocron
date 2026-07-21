@@ -30,6 +30,10 @@ const missionGoalArgsShape = {
    * When set, component_validation fails before fleet reasoning.
    */
   forceMissingComponents: z.array(z.string().min(1)).optional(),
+  /** pipes-3: whatsNew briefing date (YYYY-MM-DD). */
+  date: z.string().min(1).optional(),
+  /** pipes-3: shop product search query. */
+  query: z.string().min(1).optional(),
 } as const;
 
 export const MissionGoalArgsSchema = z.object(missionGoalArgsShape).strict();

@@ -8,7 +8,11 @@ const MISSION_USAGE = `holo mission template:register <file> [--json]
        holo mission resume <run-id> [--json]
        holo mission status <run-id> [--json]
        holo mission run research --goal '<text>' [--json]
-       holo mission run report --kind <revenue-validation|competitive|ai-roi|flights> --target <host> [--destination <route>] [--json]`;
+       holo mission run report --kind <revenue-validation|competitive|ai-roi|flights> --target <host> [--destination <route>] [--json]
+       holo mission run whatsNew --date YYYY-MM-DD [--json]
+       holo mission run assimilate --target <owner/repo> [--json]
+       holo mission run shop --query <term> [--json]
+       holo mission run subscriptions [--topic <text>] [--json]`;
 
 function asRecord(value: unknown): JsonRecord {
   return value && typeof value === 'object' ? (value as JsonRecord) : {};

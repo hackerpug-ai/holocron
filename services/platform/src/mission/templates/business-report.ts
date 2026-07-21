@@ -10,7 +10,7 @@ import { BUSINESS_REPORT_KINDS } from '../../tools/schemas/business.ts';
 import type { MissionTemplateDefinition } from '../contract.ts';
 
 export const BUSINESS_REPORT_TEMPLATE_KEY = 'business-report' as const;
-export const BUSINESS_REPORT_TEMPLATE_VERSION = '1.0.0' as const;
+export const BUSINESS_REPORT_TEMPLATE_VERSION = '1.0.1' as const;
 
 export const businessReportTemplateDefinition: MissionTemplateDefinition = {
   templateKey: BUSINESS_REPORT_TEMPLATE_KEY,
