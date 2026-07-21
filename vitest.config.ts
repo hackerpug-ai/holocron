@@ -62,6 +62,9 @@ export default defineConfig({
       'services/platform/tests/integration/red-business-report.test.ts',
       'services/platform/tests/integration/red-no-shells.test.ts',
       'services/platform/tests/integration/red-sub-workflow-publish.test.ts',
+      // Sprint 22 pipes-1 — shared evidence-research template GREEN + pure-TS gate
+      'services/platform/tests/integration/evidence-research-template.test.ts',
+      'services/platform/src/research/evidence-gate.test.ts',
     ],
     setupFiles: ['tests/setup/react-native.ts'],
     exclude: ['node_modules', 'dist', '.expo'],

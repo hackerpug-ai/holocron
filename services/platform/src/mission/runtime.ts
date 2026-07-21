@@ -7,6 +7,7 @@ import { type FleetRoleManifest, FleetRoleManifestSchema } from '../fleet/manife
 import { getRoleEntry } from '../fleet/manifest.ts';
 import { probeRoleHealth } from '../inference/resolve-model.ts';
 import { runFleetModelCall } from '../inference/telemetry.ts';
+import { buildEvidenceForComponents } from '../research/build-evidence.ts';
 import { type EvidenceGateInput, evaluateEvidenceGate } from '../research/evidence-gate.ts';
 import { type MissionGoalArgs, MissionGoalArgsSchema } from './args.ts';
 import { canonicalJsonString, canonicalJsonValue } from './canonical-json.ts';
@@ -21,6 +22,12 @@ import {
   assertRegisteredSchema,
   assertRegisteredStage,
 } from './registry.ts';
+import {
+  EVIDENCE_RESEARCH_TEMPLATE_KEY,
+  isEvidenceResearchInstantiation,
+  resolveEvidenceResearchTemplateKey,
+} from './templates/evidence-research.ts';
+import { ensureSystemMissionTemplates } from './templates/ensure-system.ts';
 
 const LEASE_TTL_SECONDS = 60;
 const RUN_TERMINAL_STATUSES = new Set(['completed', 'failed', 'blocked', 'budget_exceeded']);
@@ -500,14 +507,21 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
       'research.retrieve.input'
     ) as { goal: string };
     const args = MissionGoalArgsSchema.parse(context.run.args_json);
-    const evidence = args.researchEvidence ?? {
-      claims: [],
-      evidence: [],
-      requiredComponents: ['durable-evidence'],
-      gradeFloor: 3,
-      entailmentFloor: 0.8,
-      independentSourceFloor: 2,
-    };
+    const evidence =
+      args.researchEvidence ??
+      (args.components != null || args.topic != null
+        ? buildEvidenceForComponents({
+            topic: args.topic ?? probe.goal,
+            components: args.components ?? 1,
+          })
+        : {
+            claims: [],
+            evidence: [],
+            requiredComponents: ['durable-evidence'],
+            gradeFloor: 3,
+            entailmentFloor: 0.8,
+            independentSourceFloor: 2,
+          });
     return canonicalJsonValue({ goal: probe.goal, evidence });
   },
   'builtin.research-extract@1': async (input) =>
@@ -537,18 +551,14 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
         'MISSION_TRACE_ID_MISSING',
         `missing trace for ${context.run.id}`
       );
-    const result = await runFleetModelCall(
-      {
-        role: pinnedRole.role,
-        prompt: `ASSAY research goal: ${retrieved.goal}. Return a concise candidate finding.`,
-      },
-      {
-        runId: context.run.id,
-        stepId: context.stageRunId,
-        traceId,
-        databaseUrl: context.databaseUrl,
-      }
-    );
+    const result = await runFleetModelCall({
+      role: pinnedRole.role,
+      prompt: `ASSAY research goal: ${retrieved.goal}. Return a concise candidate finding.`,
+      runId: context.run.id,
+      stepId: context.stageRunId,
+      traceId,
+      databaseUrl: context.databaseUrl,
+    });
     return canonicalJsonValue({
       goal: retrieved.goal,
       evidence: retrieved.evidence,
@@ -593,7 +603,7 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
       challengeText: result.text,
     });
   },
-  'builtin.research-gate@1': async (input, _context) => {
+  'evidence-gate': async (input, context) => {
     const challenge = parseMissionSchemaValue(
       { schemaRef: 'mission.research.challenge.output', schemaVersion: 1 },
       input,
@@ -604,13 +614,17 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
       challengeInstanceId: string;
       evidence: EvidenceGateInput;
     };
+    const args = MissionGoalArgsSchema.safeParse(context.run.args_json);
     const gate = challenge.evidence
       ? evaluateEvidenceGate(challenge.evidence)
       : {
           admitted: false,
           direction: 'none' as const,
-          coveredComponents: [],
+          coveredComponents: [] as string[],
           missingComponents: ['durable-evidence'],
+          admittedEvidenceIds: [] as string[],
+          rejectedEvidenceIds: [] as string[],
+          independentSourceCount: 0,
           reason: 'no durable evidence supplied to deterministic gate',
         };
     return canonicalJsonValue({
@@ -623,8 +637,18 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
       coveredComponents: gate.coveredComponents,
       missingComponents: gate.missingComponents,
       reason: gate.reason,
+      componentsCovered: gate.coveredComponents.length,
+      independentSourceCount: gate.independentSourceCount,
+      admittedEvidenceIds: gate.admittedEvidenceIds,
+      rejectedEvidenceIds: gate.rejectedEvidenceIds,
+      executorRef: 'evidence-gate' as const,
+      topic: args.success ? args.data.topic : undefined,
+      instantiation: args.success ? args.data.instantiation : undefined,
     });
   },
+  // Backward-compat alias for compiled plans still referencing the Sprint 17 name.
+  'builtin.research-gate@1': async (input, context) =>
+    STAGE_EXECUTORS['evidence-gate'](input, context),
   'builtin.research-commit@1': async (input) => {
     return canonicalJsonValue(
       parseMissionSchemaValue(
@@ -1279,6 +1303,20 @@ async function createMissionRun(
 
     const run = rows[0];
     if (run) {
+      const tags = collectRunTags(args);
+      for (const tag of tags) {
+        await tx`
+          INSERT INTO mission_run_tags (run_id, tag)
+          VALUES (${run.id}::uuid, ${tag})
+          ON CONFLICT DO NOTHING
+        `;
+      }
+      // Persist executor version at create time for resume-stability (TC-5).
+      await tx`
+        UPDATE mission_runs
+        SET executor_version = ${templateVersion.version}, updated_at = now()
+        WHERE id = ${run.id}::uuid
+      `;
       return { run, created: true };
     }
 
@@ -1941,11 +1979,31 @@ async function finalizeMissionRun(
       }
     }
 
+    const researchMetrics =
+      options.status === 'completed' || options.status === 'budget_exceeded'
+        ? extractResearchMetrics(typedOutput)
+        : {
+            componentsCovered: null,
+            independentSourceCount: null,
+            admittedEvidenceIds: null,
+          };
+
     const updatedRows = await tx<MissionRunRow[]>`
       UPDATE mission_runs
       SET
         status = ${options.status},
         typed_output_json = ${typedOutput == null ? null : tx.json(canonicalJsonValue(typedOutput) as never)},
+        components_covered = COALESCE(${researchMetrics.componentsCovered}, components_covered),
+        independent_source_count = COALESCE(${researchMetrics.independentSourceCount}, independent_source_count),
+        admitted_evidence_ids = COALESCE(
+          ${
+            researchMetrics.admittedEvidenceIds == null
+              ? null
+              : tx.json(canonicalJsonValue(researchMetrics.admittedEvidenceIds) as never)
+          },
+          admitted_evidence_ids
+        ),
+        executor_version = COALESCE(executor_version, ${run.template_version}),
         usage_json = ${tx.json(usage as never)},
         completed_at = now(),
         lease_owner = NULL,
@@ -2055,12 +2113,65 @@ async function suspendResearchGate(
   });
 }
 
+function isEvidenceResearchRun(templateKey: string): boolean {
+  return (
+    templateKey === EVIDENCE_RESEARCH_TEMPLATE_KEY ||
+    templateKey === 'research' ||
+    resolveEvidenceResearchTemplateKey(templateKey) === EVIDENCE_RESEARCH_TEMPLATE_KEY
+  );
+}
+
+function collectRunTags(args: MissionGoalArgs): string[] {
+  const tags = new Set<string>();
+  if (args.instantiation) tags.add(args.instantiation);
+  for (const tag of args.tags ?? []) {
+    if (tag.trim()) tags.add(tag.trim());
+  }
+  return [...tags].sort();
+}
+
+function extractResearchMetrics(output: unknown): {
+  componentsCovered: number | null;
+  independentSourceCount: number | null;
+  admittedEvidenceIds: unknown | null;
+} {
+  if (!output || typeof output !== 'object' || Array.isArray(output)) {
+    return {
+      componentsCovered: null,
+      independentSourceCount: null,
+      admittedEvidenceIds: null,
+    };
+  }
+  const record = output as Record<string, unknown>;
+  const coveredFromArray = Array.isArray(record.coveredComponents)
+    ? record.coveredComponents.length
+    : null;
+  const componentsCovered =
+    typeof record.componentsCovered === 'number'
+      ? record.componentsCovered
+      : typeof record.components_covered === 'number'
+        ? record.components_covered
+        : coveredFromArray;
+  const independentSourceCount =
+    typeof record.independentSourceCount === 'number'
+      ? record.independentSourceCount
+      : typeof record.independent_source_count === 'number'
+        ? record.independent_source_count
+        : null;
+  const admittedEvidenceIds = Array.isArray(record.admittedEvidenceIds)
+    ? record.admittedEvidenceIds
+    : Array.isArray(record.admitted_evidence_ids)
+      ? record.admitted_evidence_ids
+      : null;
+  return { componentsCovered, independentSourceCount, admittedEvidenceIds };
+}
+
 async function recordResearchProcessProof(
   sql: Sql,
   run: MissionRunRow,
   lease: MissionLease
 ): Promise<ResearchProcessProof | null> {
-  if (run.template_key !== 'research') return null;
+  if (!isEvidenceResearchRun(run.template_key)) return null;
   const proof = captureResearchProcessProof();
   await sql.begin(async (tx) => {
     await assertLeaseStillOwned(tx, run.id, lease);
@@ -2282,14 +2393,22 @@ async function runMissionInternal(
     databaseUrl: options?.databaseUrl,
     context: 'mission runtime',
   });
+
+  // Shared evidence-research core: operator aliases resolve to one template row.
+  const resolvedTemplateKey =
+    resolveEvidenceResearchTemplateKey(templateKey) ?? templateKey;
+  if (resolveEvidenceResearchTemplateKey(templateKey) || templateKey === EVIDENCE_RESEARCH_TEMPLATE_KEY) {
+    await ensureSystemMissionTemplates({ databaseUrl });
+  }
+
   const sql = createSql(databaseUrl);
 
   try {
-    const templateVersion = await selectLatestTemplateVersion(sql, templateKey);
+    const templateVersion = await selectLatestTemplateVersion(sql, resolvedTemplateKey);
     if (!templateVersion) {
       throw new MissionRuntimeError(
         'MISSION_TEMPLATE_NOT_FOUND',
-        `mission template not found: ${templateKey}`
+        `mission template not found: ${resolvedTemplateKey}`
       );
     }
 
@@ -2383,7 +2502,7 @@ async function resumeMissionInternal(
           SET args_json = ${tx.json(updatedArgs as never)}, updated_at = now()
           WHERE id = ${runId}::uuid AND status = 'suspended'
         `;
-        if (existing?.template_key === 'research') {
+        if (existing && isEvidenceResearchRun(existing.template_key)) {
           const replayPlan = parseCompiledPlan(existing.compiled_plan_json);
           for (const stage of replayPlan) {
             if (stage.stageIndex === 0) continue;
@@ -2450,14 +2569,29 @@ export async function runMissionTemplate(
     idempotencyKey: string;
     operator?: string;
     researchEvidence?: unknown;
+    topic?: string;
+    components?: number;
+    instantiation?: MissionGoalArgs['instantiation'];
+    tags?: string[];
   },
   options?: { databaseUrl?: string; ownerScope?: MissionRunOwnerScope }
 ): Promise<MissionStatusPayload> {
+  const instantiation =
+    input.instantiation ??
+    (isEvidenceResearchInstantiation(input.templateKey) ? input.templateKey : undefined);
+  const tags = [
+    ...(input.tags ?? []),
+    ...(instantiation ? [instantiation] : []),
+  ];
   const args = MissionGoalArgsSchema.parse(
     canonicalJsonValue({
       goal: input.goal,
       operator: input.operator ?? 'holo',
       researchEvidence: input.researchEvidence,
+      topic: input.topic,
+      components: input.components,
+      instantiation,
+      tags: tags.length > 0 ? [...new Set(tags)] : undefined,
     })
   );
   return runMissionInternal(input.templateKey, args, input.idempotencyKey, options);

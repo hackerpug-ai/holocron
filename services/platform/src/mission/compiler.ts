@@ -233,6 +233,16 @@ export async function compileMissionTemplateDefinition(
     throw new Error('mission template must declare at least one compiled stage');
   }
 
+  // Evidence-research core: surface the pure-TS gate as the template's primary
+  // executor identity (AC: executor_ref = 'evidence-gate'), not the terminal commit.
+  const primaryExecutorStage =
+    compiledStages.find(
+      (stage) =>
+        stage.executorRef === 'evidence-gate' ||
+        stage.executorRef === 'builtin.research-gate@1' ||
+        stage.stageKind === 'research.gate@1'
+    ) ?? terminalStage;
+
   return canonicalJsonValue({
     dslVersion: MISSION_TEMPLATE_DSL_VERSION,
     definition,
@@ -243,7 +253,7 @@ export async function compileMissionTemplateDefinition(
     compiledStages,
     outputSchemaRef: definition.outputContract.schemaRef,
     outputSchemaVersion: definition.outputContract.schemaVersion,
-    executorRef: terminalStage.executorRef,
+    executorRef: primaryExecutorStage.executorRef,
     schemaRef: definition.outputContract.schemaRef,
     schemaVersion: definition.outputContract.schemaVersion,
     budgetPolicy: definition.budgets,

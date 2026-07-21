@@ -1,7 +1,7 @@
 {
   "templateKey": "research",
-  "version": "1.0.4",
-  "description": "Deterministic evidence-gated research mission for Sprint 17.",
+  "version": "1.0.5",
+  "description": "Deterministic evidence-gated research mission for Sprint 17 (gate executor = evidence-gate).",
   "trigger": { "kind": "on-demand" },
   "stageGraph": [
     {
@@ -44,7 +44,7 @@
     {
       "id": "gate",
       "stageKind": "research.gate@1",
-      "executorRef": "builtin.research-gate@1",
+      "executorRef": "evidence-gate",
       "inputSchema": { "schemaRef": "mission.research.challenge.output", "schemaVersion": 1 },
       "outputSchema": { "schemaRef": "mission.research.gate.output", "schemaVersion": 1 },
       "checkpointKey": "after-gate"

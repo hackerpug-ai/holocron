@@ -96,10 +96,11 @@ export const DOMAIN_TABLE_NAMES = [
   'entities',
   'relations',
   'beliefs',
-  // mission engine (9)
+  // mission engine (10)
   'mission_templates',
   'mission_template_versions',
   'mission_runs',
+  'mission_run_tags',
   'mission_stage_runs',
   'mission_checkpoints',
   'mission_commits',

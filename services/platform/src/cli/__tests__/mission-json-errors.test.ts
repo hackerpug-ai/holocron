@@ -28,7 +28,7 @@ describe('Sprint 15 mission CLI --json validation contracts', () => {
       args: ['mission', 'run', 'research', '--json'],
       status: 2,
       code: 'MISSION_GOAL_REQUIRED',
-      error: 'mission run research requires --goal <text>',
+      error: 'mission run research requires --topic <text> or --goal <text>',
       usage: MISSION_USAGE,
     },
     {

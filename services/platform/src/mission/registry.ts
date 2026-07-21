@@ -114,6 +114,16 @@ const missionResearchGateOutputSchema = z
     coveredComponents: z.array(z.string()),
     missingComponents: z.array(z.string()),
     reason: z.string(),
+    /** Count of components covered by admitted evidence (pipes-1 metrics). */
+    componentsCovered: z.number().int().nonnegative(),
+    independentSourceCount: z.number().int().nonnegative(),
+    admittedEvidenceIds: z.array(z.string()),
+    rejectedEvidenceIds: z.array(z.string()),
+    executorRef: z.literal('evidence-gate'),
+    topic: z.string().optional(),
+    instantiation: z
+      .enum(['research', 'deepResearch', 'subscriptions-research', 'fulcrum'])
+      .optional(),
   })
   .strict();
 
@@ -243,9 +253,15 @@ export const MISSION_EXECUTORS: readonly MissionExecutorRegistration[] = [
     description: 'Real fleet CHALLENGE model stage.',
   },
   {
+    executorRef: 'evidence-gate',
+    stageKind: 'research.gate@1',
+    description: 'Pure TypeScript evidence gate stage (deterministic admission).',
+  },
+  {
+    // Backward-compat alias for Sprint 17 fixtures that still name the gate executor.
     executorRef: 'builtin.research-gate@1',
     stageKind: 'research.gate@1',
-    description: 'Pure TypeScript evidence gate stage.',
+    description: 'Alias of evidence-gate (deprecated name).',
   },
   {
     executorRef: 'builtin.research-commit@1',
@@ -307,7 +323,7 @@ export const MISSION_STAGES: readonly MissionStageRegistration[] = [
     outputSchema: { schemaRef: 'mission.probe.result', schemaVersion: 1 },
     description: 'PLAN phase with real fleet probe.',
     roleBinding: 'required',
-    checkpointAllowed: false,
+    checkpointAllowed: true,
   },
   {
     stageKind: 'research.retrieve@1',
@@ -316,7 +332,7 @@ export const MISSION_STAGES: readonly MissionStageRegistration[] = [
     outputSchema: { schemaRef: 'mission.research.retrieve.output', schemaVersion: 1 },
     description: 'RETRIEVE phase persists retrieved evidence.',
     roleBinding: 'forbidden',
-    checkpointAllowed: false,
+    checkpointAllowed: true,
   },
   {
     stageKind: 'research.extract@1',
@@ -325,7 +341,7 @@ export const MISSION_STAGES: readonly MissionStageRegistration[] = [
     outputSchema: { schemaRef: 'mission.research.retrieve.output', schemaVersion: 1 },
     description: 'EXTRACT phase persists the extracted evidence boundary.',
     roleBinding: 'forbidden',
-    checkpointAllowed: false,
+    checkpointAllowed: true,
   },
   {
     stageKind: 'research.assay@1',
@@ -347,7 +363,7 @@ export const MISSION_STAGES: readonly MissionStageRegistration[] = [
   },
   {
     stageKind: 'research.gate@1',
-    executorRef: 'builtin.research-gate@1',
+    executorRef: 'evidence-gate',
     inputSchema: { schemaRef: 'mission.research.challenge.output', schemaVersion: 1 },
     outputSchema: { schemaRef: 'mission.research.gate.output', schemaVersion: 1 },
     description: 'Deterministic evidence admission stage; no model call.',
@@ -361,7 +377,7 @@ export const MISSION_STAGES: readonly MissionStageRegistration[] = [
     outputSchema: { schemaRef: 'mission.research.output', schemaVersion: 1 },
     description: 'Terminal research output stage.',
     roleBinding: 'forbidden',
-    checkpointAllowed: false,
+    checkpointAllowed: true,
   },
 ] as const;
 
