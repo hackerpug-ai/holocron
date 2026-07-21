@@ -786,22 +786,36 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
       `Goal: ${ctx.goal}.`,
       `Components JSON: ${JSON.stringify(ctx.components)}.`,
       'Return a concise candidate verdict, key risks, and 2-3 recommendations.',
+      'Answer in plain text only; put the final answer in the response content (not only chain-of-thought).',
     ].join(' ');
-    const result = await runFleetModelCall({
-      role: pinnedRole.role,
-      prompt,
-      runId: context.run.id,
-      stepId: context.stageRunId,
-      traceId,
-      databaseUrl: context.databaseUrl,
-      // Reasoning models spend budget on chain-of-thought; keep headroom for content.
-      maxOutputTokens: 1024,
-    });
-    const assayText = clipFleetText(
-      result.text.trim().length > 0
-        ? result.text.trim()
-        : `ASSAY completed for ${ctx.reportKind} / ${ctx.target} (fleet role ${pinnedRole.role}, revision ${pinnedRole.modelRevision}).`
-    );
+    let result: Awaited<ReturnType<typeof runFleetModelCall>>;
+    try {
+      result = await runFleetModelCall({
+        role: pinnedRole.role,
+        prompt,
+        runId: context.run.id,
+        stepId: context.stageRunId,
+        traceId,
+        databaseUrl: context.databaseUrl,
+        // Reasoning models (GLM-4.7) spend most budget on CoT; 1024 is enough for
+        // content-or-reasoning extraction. Larger caps have been flaky on the proxy.
+        maxOutputTokens: 1024,
+      });
+    } catch (error) {
+      throw new MissionRuntimeError(
+        'MISSION_FLEET_CALL_FAILED',
+        error instanceof Error ? error.message : String(error)
+      );
+    }
+    // Fail-closed: never invent ASSAY prose when fleet returns empty/whitespace.
+    const assayRaw = result.text.trim();
+    if (assayRaw.length === 0) {
+      throw new MissionRuntimeError(
+        'MISSION_FLEET_EMPTY_OUTPUT',
+        `fleet ASSAY returned empty content and reasoning for role=${pinnedRole.role} stage=${context.stage.stageKey} run=${context.run.id}`
+      );
+    }
+    const assayText = clipFleetText(assayRaw);
     return canonicalJsonValue({
       ...ctx,
       assayText,
@@ -832,20 +846,32 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
     }
     // Keep the challenge prompt short so the model has budget for content.
     const assayDigest = clipFleetText(ctx.assayText ?? '', 600);
-    const result = await runFleetModelCall({
-      role: pinnedRole.role,
-      prompt: `CHALLENGE business-report kind=${ctx.reportKind} target=${ctx.target}. Refute or qualify this ASSAY finding: ${assayDigest}`,
-      runId: context.run.id,
-      stepId: context.stageRunId,
-      traceId,
-      databaseUrl: context.databaseUrl,
-      maxOutputTokens: 1024,
-    });
-    const challengeText = clipFleetText(
-      result.text.trim().length > 0
-        ? result.text.trim()
-        : `CHALLENGE completed for ${ctx.reportKind} / ${ctx.target} (fleet role ${pinnedRole.role}, revision ${pinnedRole.modelRevision}).`
-    );
+    let result: Awaited<ReturnType<typeof runFleetModelCall>>;
+    try {
+      result = await runFleetModelCall({
+        role: pinnedRole.role,
+        prompt: `CHALLENGE business-report kind=${ctx.reportKind} target=${ctx.target}. Refute or qualify this ASSAY finding: ${assayDigest}. Answer in plain text only; put the final challenge in the response content.`,
+        runId: context.run.id,
+        stepId: context.stageRunId,
+        traceId,
+        databaseUrl: context.databaseUrl,
+        maxOutputTokens: 1024,
+      });
+    } catch (error) {
+      throw new MissionRuntimeError(
+        'MISSION_FLEET_CALL_FAILED',
+        error instanceof Error ? error.message : String(error)
+      );
+    }
+    // Fail-closed: never invent CHALLENGE prose when fleet returns empty/whitespace.
+    const challengeRaw = result.text.trim();
+    if (challengeRaw.length === 0) {
+      throw new MissionRuntimeError(
+        'MISSION_FLEET_EMPTY_OUTPUT',
+        `fleet CHALLENGE returned empty content and reasoning for role=${pinnedRole.role} stage=${context.stage.stageKey} run=${context.run.id}`
+      );
+    }
+    const challengeText = clipFleetText(challengeRaw);
     return canonicalJsonValue({
       ...ctx,
       challengeText,

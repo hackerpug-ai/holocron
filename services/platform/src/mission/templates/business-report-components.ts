@@ -3,7 +3,10 @@
  *
  * Produces required analysis components from target / destination metadata so
  * the component_validation stage can fail closed for incomplete targets before
- * any fleet reasoning. Not a stub report — fleet ASSAY/CHALLENGE still run.
+ * any fleet reasoning. Fields such as TAM/SAM/SOM are **deterministic
+ * scaffolding** (stable hash of the target), not live market research — honest
+ * labels make that explicit until a real gatherer exists. Fleet ASSAY/CHALLENGE
+ * still supply the real reasoning text.
  */
 import {
   type BusinessReportComponents,
@@ -87,7 +90,8 @@ export function gatherBusinessReportComponents(input: {
         sam: 100_000_000 + stableScore(target, 0, 50_000_000),
         som: 10_000_000 + stableScore(target, 0, 5_000_000),
         currency: 'USD',
-        notes: `Sized against public market signals for ${target}`,
+        // Honest provenance: hash-synthetic scaffolding, not live market data.
+        notes: `Deterministic scaffolding TAM/SAM/SOM for ${target} (stable hash; not live market research)`,
       };
     }
     if (!forceMissing.has('competitive_positioning')) {

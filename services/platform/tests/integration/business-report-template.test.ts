@@ -165,6 +165,18 @@ describe.sequential('pipes-2 GREEN — business-report parameterized template', 
       expect(output.unitEconomics).toBeTruthy();
       expect(output.reasoningProvider).toBe('fleet');
 
+      // Fail-closed: never accept the fabricated soft-stub ASSAY/CHALLENGE templates.
+      const assayText = String(output.assayText ?? '');
+      const challengeText = String(output.challengeText ?? '');
+      expect(assayText.length).toBeGreaterThan(0);
+      expect(challengeText.length).toBeGreaterThan(0);
+      expect(assayText).not.toMatch(/^ASSAY completed for /);
+      expect(challengeText).not.toMatch(/^CHALLENGE completed for /);
+      // Market sizing notes must be honest scaffolding labels, not false "public signals".
+      const marketNotes = String(marketSizing.notes ?? '');
+      expect(marketNotes).toMatch(/scaffolding|deterministic/i);
+      expect(marketNotes).not.toMatch(/public market signals/i);
+
       const psql = runPsql(
         `SELECT template_key,
                 typed_output_json->>'reportKind' AS kind,
@@ -385,14 +397,14 @@ describe.sequential('pipes-2 GREEN — business-report parameterized template', 
         stderr: run.stderr,
         parsed: run.parsed,
       });
-      // CLI may exit 1 on thrown failures; completed runs exit 0.
-      if (run.status === 0) {
-        const parsed = asRecord(run.parsed);
-        expect(parsed.status === 'completed' || asRecord(parsed.output).reportKind).toBeTruthy();
-      } else {
-        // Surface diagnostics; runtime path still validated by direct API tests above.
-        expect(run.combined.length).toBeGreaterThan(0);
-      }
+      // Hard require success — no soft-accept on non-zero exit or empty output.
+      expect(run.status).toBe(0);
+      const parsed = asRecord(run.parsed);
+      expect(parsed.status).toBe('completed');
+      const cliOutput = asRecord(parsed.output);
+      expect(cliOutput.reportKind).toBe('revenue-validation');
+      expect(String(cliOutput.assayText ?? '')).not.toMatch(/^ASSAY completed for /);
+      expect(String(cliOutput.challengeText ?? '')).not.toMatch(/^CHALLENGE completed for /);
     },
     300_000
   );
