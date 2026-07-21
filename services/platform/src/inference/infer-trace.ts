@@ -1,5 +1,7 @@
 /**
  * REDHAT-FIX-3 / H-1 — Load durable model-call evidence for `holo infer:trace <id>`.
+ * GATE-FIX-S22 — Align DB identity with mission engine (holocron_nonprod) so public
+ * mission runIds resolve without ambient DATABASE_URL pointing at the wrong catalog.
  *
  * Sources `inference_telemetry` (written by `runFleetModelCall` / escape path).
  * Never invents rows. Fail-closed when neither a mission run nor telemetry exist
@@ -7,7 +9,7 @@
  */
 
 import { createSql } from '../db/client';
-import { resolveDatabaseUrl } from '../db/connection';
+import { resolveHolocronNonprodDatabaseUrl } from '../db/connection';
 import { type InferenceTelemetryRecord, listInferenceTelemetry } from './telemetry';
 
 export type InferTraceModelCall = {
@@ -46,8 +48,16 @@ export type InferTraceFailure = {
 
 export type InferTraceResult = InferTraceSuccess | InferTraceFailure;
 
-function databaseUrl(url?: string, env: NodeJS.ProcessEnv = process.env): string {
-  return url ?? env.DATABASE_URL ?? resolveDatabaseUrl({ preferHolocron: true });
+/**
+ * Mission engine always persists to holocron_nonprod via resolveHolocronNonprodDatabaseUrl.
+ * infer:trace MUST use the same identity so public runIds resolve without ambient DATABASE_URL
+ * pointing at the wrong catalog (GATE-FIX-S22: default preferHolocron → holocron caused NOT_FOUND).
+ */
+function databaseUrl(url?: string): string {
+  return resolveHolocronNonprodDatabaseUrl({
+    databaseUrl: url,
+    context: 'holo infer:trace',
+  });
 }
 
 function mapModelCall(r: InferenceTelemetryRecord): InferTraceModelCall {
@@ -69,21 +79,36 @@ function mapModelCall(r: InferenceTelemetryRecord): InferTraceModelCall {
 
 async function lookupMissionRun(
   id: string,
-  url?: string
+  url: string
 ): Promise<{ id: string; traceId: string | null } | null> {
-  const sql = createSql(databaseUrl(url));
+  const sql = createSql(url);
   try {
-    const rows = await sql<{ id: string; trace_id: string | null }[]>`
+    // Primary public id: mission_runs.id (UUID from mission run report JSON runId).
+    try {
+      const byId = await sql<{ id: string; trace_id: string | null }[]>`
+        SELECT id::text AS id, trace_id
+        FROM mission_runs
+        WHERE id = ${id}::uuid
+        LIMIT 1
+      `;
+      if (byId[0]) {
+        return { id: byId[0].id, traceId: byId[0].trace_id };
+      }
+    } catch {
+      // Invalid UUID cast — fall through to trace_id match.
+    }
+
+    // Secondary documented identity: mission_runs.trace_id (e.g. mission:<uuid>).
+    const byTrace = await sql<{ id: string; trace_id: string | null }[]>`
       SELECT id::text AS id, trace_id
       FROM mission_runs
-      WHERE id = ${id}::uuid
+      WHERE trace_id = ${id}
       LIMIT 1
     `;
-    const row = rows[0];
+    const row = byTrace[0];
     if (!row) return null;
     return { id: row.id, traceId: row.trace_id };
   } catch {
-    // Invalid UUID cast or missing table — treat as not found at this layer.
     return null;
   } finally {
     await sql.end({ timeout: 5 });
@@ -110,11 +135,14 @@ export async function loadInferTrace(
   }
 
   const limit = Math.max(1, Math.min(options?.limit ?? 500, 1000));
-  const dbUrl = options?.databaseUrl;
+  // Always resolve to the same nonprod identity missions use (unless explicit override).
+  const dbUrl = databaseUrl(options?.databaseUrl);
 
   const mission = await lookupMissionRun(trimmed, dbUrl);
+  // Prefer mission.id when resolved via trace_id so telemetry keys match run_id.
+  const telemetryRunId = mission?.id ?? trimmed;
   const rows = await listInferenceTelemetry({
-    runId: trimmed,
+    runId: telemetryRunId,
     limit,
     databaseUrl: dbUrl,
   });
