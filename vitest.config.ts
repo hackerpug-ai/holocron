@@ -71,6 +71,8 @@ export default defineConfig({
       'services/platform/tests/integration/pipeline-templates.test.ts',
       // Sprint 22 REDHAT-FIX-2 — deterministic CLI mission idempotency defaults (C-2)
       'services/platform/tests/integration/redhat-fix-2-cli-idempotency-defaults.test.ts',
+      // Sprint 22 REDHAT-FIX-1 — CAP-EMB-01 research-retrieve wiring (C-1)
+      'services/platform/tests/integration/redhat-fix-1-cap-emb-retrieve.test.ts',
     ],
     setupFiles: ['tests/setup/react-native.ts'],
     exclude: ['node_modules', 'dist', '.expo'],

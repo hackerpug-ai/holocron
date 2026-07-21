@@ -14,6 +14,7 @@ import {
   WhatsNewContextSchema,
   WhatsNewOutputSchema,
 } from '../tools/schemas/pipeline-templates.ts';
+import { missionResearchRetrieveOutputSchema } from '../tools/schemas/research.ts';
 import { MissionGoalArgsSchema } from './args.ts';
 import { canonicalJsonValue, sha256Hex } from './canonical-json.ts';
 import type {
@@ -89,12 +90,8 @@ const missionTestBudgetOutputSchema = z
   })
   .strict();
 
-const missionResearchRetrieveOutputSchema = z
-  .object({
-    goal: z.string().min(1),
-    evidence: EvidenceGateInputSchema,
-  })
-  .strict();
+// missionResearchRetrieveOutputSchema imported from tools/schemas/research.ts
+// (includes optional retrievalMethod / searchMethod for CAP-EMB-01 provenance).
 
 const missionResearchAssayOutputSchema = z
   .object({
