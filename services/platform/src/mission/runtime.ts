@@ -373,6 +373,98 @@ function mapRrfHitsToEvidenceGateInput(
   };
 }
 
+/**
+ * Honest standing-digest provisional evidence for unattended subscriptions when
+ * PATH-A hybrid search has no corpus hits. Grades stay below admission floors so
+ * this never greenwashes the deterministic gate (not always-admissible).
+ */
+function buildStandingProvisionalEvidence(
+  topic: string,
+  requiredComponents: string[]
+): EvidenceGateInput {
+  const components =
+    requiredComponents.length > 0 ? requiredComponents : ['component_1', 'component_2'];
+  const t = topic.trim() || 'subscription standing digest';
+  const claims = components.map((component, i) => ({
+    id: `standing-claim-${i + 1}`,
+    text: `${t}: standing provisional signal for ${component}`,
+    component,
+  }));
+  const evidence = components.map((component, i) => {
+    const quote = `${t}::${component}`;
+    const sourceText = `Standing provisional digest material for ${quote} (not live corpus retrieval; grade below admission floor).`;
+    return {
+      id: `standing-e-${i + 1}`,
+      claimId: `standing-claim-${i + 1}`,
+      component,
+      sourceId: `standing-src-${(i % 2) + 1}`,
+      independenceGroup: `standing-src-${(i % 2) + 1}`,
+      quote,
+      sourceText,
+      // Honest below-floor rows — gate will not admit; no greenwash.
+      grade: 1,
+      entailment: 0.1,
+      disconfirmationResolved: false,
+      direction: 'supporting' as const,
+    };
+  });
+  return {
+    claims,
+    evidence,
+    requiredComponents: components,
+    gradeFloor: 3,
+    entailmentFloor: 0.8,
+    independentSourceFloor: 2,
+  };
+}
+
+/**
+ * Resolve researchEvidence for standing subscriptions without operator --claims.
+ * Prefer PATH-A hybrid search (REDHAT-FIX-1); fall back to honest provisional.
+ * NEVER invent always-admissible grade/entailment bundles.
+ */
+async function resolveStandingResearchEvidence(options: {
+  topic: string;
+  components: number;
+  databaseUrl: string;
+}): Promise<EvidenceGateInput> {
+  const componentCount = Math.max(1, options.components);
+  const requiredComponents = Array.from({ length: componentCount }, (_, i) => `component_${i + 1}`);
+  const query = options.topic.trim();
+  if (query) {
+    const sql = createSql(options.databaseUrl);
+    try {
+      const db = createDb(sql);
+      let searchResult: Awaited<ReturnType<typeof rrfHybridSearch>>;
+      try {
+        searchResult = await rrfHybridSearch(db, sql, {
+          query,
+          limit: Math.max(componentCount, 5),
+        });
+      } catch {
+        // Embed/search unavailable — fall through to standing provisional.
+        searchResult = { results: [], totalResults: 0, searchMethod: 'rrf' };
+      }
+      if (searchResult.results.length > 0 && searchResult.totalResults > 0) {
+        const mapped = mapRrfHitsToEvidenceGateInput(
+          searchResult.results,
+          requiredComponents,
+          query
+        );
+        if (mapped.claims.length > 0 || mapped.evidence.length > 0) {
+          return mapped;
+        }
+      }
+    } finally {
+      await sql.end({ timeout: 5 });
+    }
+  }
+  return buildStandingProvisionalEvidence(
+    query || 'subscription standing digest',
+    requiredComponents
+  );
+}
+
 function captureResearchProcessProof(): ResearchProcessProof {
   const processChain: string[] = [];
   const ancestorChain: string[] = [];
@@ -1340,15 +1432,16 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
     };
     const args = MissionGoalArgsSchema.parse(context.run.args_json);
     const topic = (args.topic ?? args.goal ?? 'subscription standing digest').trim();
-    // Fail-closed: only explicit researchEvidence (CLI --claims / fixture seed)
-    // is admitted. Never inject canned always-admissible evidence for bare runs.
-    const evidence = args.researchEvidence;
-    if (!evidence) {
-      throw new MissionRuntimeError(
-        'MISSION_SUBSCRIPTIONS_CLAIMS_REQUIRED',
-        'subscriptions sub-workflow requires explicit --claims / researchEvidence seed (fail-closed; no canned evidence)'
-      );
-    }
+    // Standing unattended (REDHAT-FIX-4 / H-2): optional operator --claims override,
+    // else PATH-A hybrid search or honest below-floor standing provisional.
+    // NEVER throw CLAIMS_REQUIRED by default; NEVER invent always-admissible greenwash.
+    const evidence =
+      args.researchEvidence ??
+      (await resolveStandingResearchEvidence({
+        topic,
+        components: args.components ?? 2,
+        databaseUrl: context.databaseUrl,
+      }));
     const childKey = `subwf:${context.run.id}:${EVIDENCE_RESEARCH_TEMPLATE_KEY}`;
     // Nested mission run — template reference, with its own checkpoint commits.
     const child = await runMissionTemplate(
@@ -1364,10 +1457,18 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
       },
       { databaseUrl: context.databaseUrl, ownerScope: 'runtime' }
     );
-    if (!child.ok || child.status !== 'completed') {
+    // Standing path accepts completed (admitted seed) OR suspended (honest non-admit
+    // at evidence-gate for PATH-A / provisional below-floor rows). Hard failures only
+    // when the child truly fails the evidence plane / fleet.
+    const childStatus = child.status ?? 'unknown';
+    const childTerminalOk =
+      child.runId != null &&
+      (childStatus === 'completed' || childStatus === 'suspended') &&
+      (child.ok === true || childStatus === 'suspended');
+    if (!childTerminalOk) {
       throw new MissionRuntimeError(
         'MISSION_SUBWORKFLOW_FAILED',
-        `evidence-research sub-workflow failed: ${child.error ?? child.status ?? 'unknown'}`
+        `evidence-research sub-workflow failed: ${child.error ?? childStatus}`
       );
     }
     const researchOutput =
@@ -1375,7 +1476,11 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
         ? (child.output as Record<string, unknown>)
         : {};
     const researchAdmitted =
-      typeof researchOutput.admitted === 'boolean' ? researchOutput.admitted : undefined;
+      typeof researchOutput.admitted === 'boolean'
+        ? researchOutput.admitted
+        : childStatus === 'suspended'
+          ? false
+          : undefined;
     const calls = [EVIDENCE_RESEARCH_TEMPLATE_KEY];
     // Persist subworkflow_calls on the parent run early for AC-4 SQL probes.
     const sql = createSql(context.databaseUrl);

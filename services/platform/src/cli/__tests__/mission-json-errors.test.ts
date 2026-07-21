@@ -12,7 +12,7 @@ const MISSION_USAGE = `holo mission template:register <file> [--json]
        holo mission run whatsNew --date YYYY-MM-DD [--json]
        holo mission run assimilate --target <owner/repo> [--json]
        holo mission run shop --query <term> [--json]
-       holo mission run subscriptions --claims <path> [--topic <text>] [--json]`;
+       holo mission run subscriptions [--topic <text>] [--claims <path>] [--json]`;
 
 function asRecord(value: unknown): JsonRecord {
   return value && typeof value === 'object' ? (value as JsonRecord) : {};

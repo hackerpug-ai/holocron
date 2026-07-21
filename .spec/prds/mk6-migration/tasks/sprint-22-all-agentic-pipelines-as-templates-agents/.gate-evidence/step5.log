@@ -1,19 +1,19 @@
-=== STEP 5 @ 17:49:38 ===
-CMD: bun run services/platform/src/cli/holo.ts mission run subscriptions --topic 'AI agents' --claims '/Users/inference1/Projects/holocron/services/platform/tests/fixtures/research/claims-4.json' --json
+=== STEP 5 @ 21:25:10 ===
+CMD: bun run services/platform/src/cli/holo.ts mission run subscriptions --topic 'AI agents' --json
 {
   "attemptCount": 1,
   "checkpointStageIndex": 4,
   "goal": "AI agents",
-  "idempotencyKey": "subscriptions:AI agents:1784656178398",
+  "idempotencyKey": "subscriptions:AI agents",
   "ok": true,
   "output": {
-    "documentId": "ac6981ca-0758-4733-8971-e49d593a5a3e",
+    "documentId": "46f0d1b0-58a3-4fc1-a484-4b7fd3aee74a",
     "fleetManifestVersion": "1.0.0",
     "goal": "AI agents",
-    "publishedAt": "2026-07-21T17:49:42.742Z",
-    "researchAdmitted": true,
-    "researchRunId": "019f85cc-2e60-7942-9140-46ef68321869",
-    "sourceRunId": "019f85cc-2dbb-7650-86b0-01d8469368c2",
+    "publishedAt": "2026-07-21T21:25:10.723Z",
+    "researchAdmitted": false,
+    "researchRunId": "019f8691-7684-7c66-bc00-efd47a371f99",
+    "sourceRunId": "019f8691-7542-7d9c-aa61-44d46d348c20",
     "subworkflowCalls": [
       "evidence-research"
     ],
@@ -28,7 +28,7 @@ CMD: bun run services/platform/src/cli/holo.ts mission run subscriptions --topic
       "wallMs": 360000
     },
     "compilerVersion": "mission-compiler@1.0.0",
-    "definitionHash": "6a8c628f14b46900e39f07627338bfdc4a4c1130b47a9a390c789a66cdd213bb",
+    "definitionHash": "58798837f57e4f0fefa357f0e48e1ab09654a18e72efb921fddc9e626636d58c",
     "executorRef": "builtin.subscriptions-commit@1",
     "fleetManifest": {
       "defaultEndpoint": "http://127.0.0.1:4545",
@@ -129,7 +129,7 @@ CMD: bun run services/platform/src/cli/holo.ts mission run subscriptions --topic
       "schemaVersion": "1.0.0"
     },
     "fleetManifestHash": "b64b1bcc2843978d224ced2f47edf23fd67e3fe3b2b0919ce152f5cca9382cba",
-    "fleetManifestPath": "/Users/inference1/Projects/holocron/services/platform/fleet/manifest.json",
+    "fleetManifestPath": "/Users/inference1/Projects/holocron/.worktrees/REDHAT-FIX-4/services/platform/fleet/manifest.json",
     "fleetManifestVersion": "1.0.0",
     "modelRevisions": {
       "plan": "qwen3.6-35b-a3b-mtp-q8_k_xl"
@@ -154,14 +154,14 @@ CMD: bun run services/platform/src/cli/holo.ts mission run subscriptions --topic
     "schemaVersion": 1,
     "templateKey": "subscriptions",
     "templateVersion": "1.0.0",
-    "traceId": "mission:d6fbad16-b98c-46bd-82b0-d6842aacb921"
+    "traceId": "mission:3e7eb70f-45aa-4154-a466-af50de0861a0"
   },
   "replay": false,
-  "runId": "019f85cc-2dbb-7650-86b0-01d8469368c2",
+  "runId": "019f8691-7542-7d9c-aa61-44d46d348c20",
   "status": "completed",
   "templateKey": "subscriptions",
   "templateVersion": "1.0.0",
-  "traceId": "mission:d6fbad16-b98c-46bd-82b0-d6842aacb921",
+  "traceId": "mission:3e7eb70f-45aa-4154-a466-af50de0861a0",
   "usage": {
     "budget": {
       "cost": 0,
@@ -173,7 +173,7 @@ CMD: bun run services/platform/src/cli/holo.ts mission run subscriptions --topic
     "maxSteps": 24,
     "stepsUsed": 5,
     "tokens": 0,
-    "wallMs": 4092
+    "wallMs": 3167
   }
 }
-exit=0
+

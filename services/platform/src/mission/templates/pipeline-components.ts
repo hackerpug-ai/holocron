@@ -10,9 +10,9 @@
  * - Terminal mission outputs MUST also carry non-empty fleet `assayText`
  *   (wired in runtime commit stages). Scaffolding alone must never complete a
  *   mission when fleet is disconnected/empty.
- * - Subscriptions research evidence is NOT fabricated here for the default path;
- *   use explicit `--claims` / `researchEvidence` seed (see
- *   `subscriptionsResearchEvidence` only for that seed helper).
+ * - Subscriptions standing path (REDHAT-FIX-4) resolves evidence in runtime via
+ *   PATH-A / honest provisional — not via this module. Use explicit `--claims`
+ *   or `subscriptionsResearchEvidence` only as an operator/fixture override.
  */
 import type {
   AssimilateArchitecture,
@@ -320,8 +320,8 @@ export function gatherShopProducts(query: string): ShopProduct[] {
  * Explicit fixture-seed helper for subscriptions → evidence-research sub-workflow.
  *
  * ONLY use when the operator supplies `--claims` / `researchEvidence` and the
- * runtime chooses to expand a named fixture. The default subscriptions path must
- * NOT call this — empty retrieve fails closed like research without claims.
+ * runtime chooses to expand a named fixture. Standing bare path does NOT call
+ * this (REDHAT-FIX-4 resolves PATH-A / provisional in runtime instead).
  */
 export function subscriptionsResearchEvidence(topic: string) {
   const t = topic.trim() || 'subscription digest';
