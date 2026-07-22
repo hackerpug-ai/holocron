@@ -249,6 +249,7 @@ Usage:
   mission run <template>    Run a registered mission template (--goal --idempotency-key)
   mission resume <run-id>   Resume a persisted mission run by id
   mission status <run-id>   Show persisted mission run status/output/provenance
+  mission:cycle <run-id>    Execute one mid-run cycle (steering + ASSAY≠CHALLENGE)
   article:compat <token>    Verify legacy public article URL shape
   mission run research      Run a research mission with per-run Langfuse trace export
                             (requires --goal; flushes OTel → self-hosted Langfuse)
@@ -364,6 +365,7 @@ const MISSION_USAGE = `holo mission template:register <file> [--json]
        holo mission run <template> --goal '<text>' [--idempotency-key <key>|--fresh] [--json]
        holo mission resume <run-id> [--json]
        holo mission status <run-id> [--json]
+       holo mission:cycle <run-id> [--json]
        holo mission run research --goal '<text>' [--json]
        holo mission run report --kind <revenue-validation|competitive|ai-roi|flights> --target <host> [--destination <route>] [--json]
        holo mission run whatsNew --date YYYY-MM-DD [--json]
@@ -3839,6 +3841,73 @@ async function main(): Promise<void> {
       if (args.json) console.log(JSON.stringify(payload, null, 2));
       else console.log(`${payload.path} (${payload.compatibility})`);
       process.exit(0);
+      break;
+    }
+
+    case 'mission:cycle': {
+      const cycleRunId = args.positional[1] ?? args.runId;
+      if (!cycleRunId || cycleRunId.trim().length === 0) {
+        const error = 'mission:cycle requires <run-id>';
+        const usage = 'holo mission:cycle <run-id> [--json]';
+        if (args.json) {
+          exitMissionJsonError({
+            error,
+            code: 'MISSION_RUN_ID_REQUIRED',
+            exitCode: 2,
+            usage,
+          });
+        }
+        console.error(`error: ${error}`);
+        console.error(`Usage: ${usage}`);
+        process.exit(2);
+      }
+      try {
+        const { runMissionCycle } = await import('../mission/cycle.ts');
+        const result = await runMissionCycle(cycleRunId.trim());
+        if (args.json) {
+          console.log(JSON.stringify(result, null, 2));
+        } else {
+          console.log('holo mission:cycle');
+          console.log(`  runId:                  ${result.runId}`);
+          console.log(`  cycleIndex:             ${result.cycle.index}`);
+          console.log(`  assayInstanceId:        ${result.cycle.assayInstanceId}`);
+          console.log(`  challengeInstanceId:    ${result.cycle.challengeInstanceId}`);
+          console.log(
+            `  assayChallengeDistinct: ${result.cycle.assayChallengeDistinct ? 'true' : 'false'}`
+          );
+          console.log(
+            `  steeringApplied:        ${result.cycle.steeringApplied.length > 0 ? result.cycle.steeringApplied.join(' | ') : '(none)'}`
+          );
+          console.log(
+            `  admission:              supporting=${result.cycle.admission.supportingAdmitted} refuting=${result.cycle.admission.refutingAdmitted} refutingFiltered=${result.cycle.admission.refutingFiltered}`
+          );
+          console.log('  status:                 OK');
+        }
+        process.exit(0);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        const code =
+          error && typeof error === 'object' && 'code' in error
+            ? String((error as { code: unknown }).code)
+            : 'MISSION_CYCLE_FAILED';
+        if (args.json) {
+          console.log(
+            JSON.stringify(
+              {
+                ok: false,
+                error: message,
+                code,
+                errorCode: code,
+              },
+              null,
+              2
+            )
+          );
+        } else {
+          console.error(`mission:cycle failed: ${message}`);
+        }
+        process.exit(1);
+      }
       break;
     }
 

@@ -1,0 +1,39 @@
+{
+  "artifactBase": "gate-4-admission-parity-real-cycle",
+  "command": [
+    "bun",
+    "/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/gate-2/services/platform/src/cli/holo.ts",
+    "mission:cycle",
+    "019f8b61-e22e-7f80-b65f-6858ee290835",
+    "--json"
+  ],
+  "status": 0,
+  "stdout": "{\n  \"ok\": true,\n  \"runId\": \"019f8b61-e22e-7f80-b65f-6858ee290835\",\n  \"cycle\": {\n    \"index\": 1,\n    \"steeringApplied\": [\n      \"Retain this refuting claim: The primary hypothesis is contradicted by the latest replication.\"\n    ],\n    \"assayInstanceId\": \"fleet:model:implementer:inst-b8755f07-5072-49d5-beda-c79a00f76dcc\",\n    \"challengeInstanceId\": \"fleet:model:reviewer:inst-ca911d46-7562-42eb-83ad-df661e092059\",\n    \"assayChallengeDistinct\": true,\n    \"admission\": {\n      \"supportingAdmitted\": 1,\n      \"refutingAdmitted\": 1,\n      \"refutingFiltered\": 0,\n      \"supportingFiltered\": 0,\n      \"admitted\": true,\n      \"direction\": \"mixed\",\n      \"reason\": \"all required components meet grade, entailment, and independence floors\",\n      \"pureTs\": true\n    },\n    \"assayText\": \"1.  **Analyze the Request:**\\n    *   **Context:** ASSAY research framework.\\n    *   **Gate:** Gate 4 (public_api).\\n    *   **Seed:** \\\"admission-parity\\\".\\n    *   **Operator Steering:** \\\"Retain this refuting claim: The primary hypothesis is contradicted by the latest replication.\\\"\\n    *   **Goal:** Return a concise candidate finding.\\n\\n2.  **Deconstruct the Seed (\\\"admission-parity\\\"):**\\n    *   What does \\\"admission-parity\\\" usually refer to?\\n        *   Higher education admissions (college/university).\\n        *   Medical admissions.\\n        *   Employment/Jobs.\\n        *   AI systems (algorithmic fairness).\\n    *   Given the \\\"ASSAY\\\" and \\\"Gate 4 public_api\\\" context (often associated with academic/scientific synthesis or database queries), it likely refers to a scientific study or a dataset regarding parity in admission rates across different groups (e.g., gender, race, socioeconomic status).\\n\\n3.  **Analyze the \\\"Operator Steering\\\" (The Constraint):**\\n    *   *Constraint:* \\\"Retain this refuting claim: The primary hypothesis is contradicted by the latest replication.\\\"\\n    *   *Interpretation\",\n    \"challengeText\": \"1.  **Analyze the Request:**\\n    *   **Context:** ASSAY research framework.\\n    *   **Gate:** Gate 4 (public_api).\\n    *   **Seed:** \\\"admission-parity\\\".\\n    *   **Operator Steering:** \\\"Retain this refuting claim: The primary hypothesis is contradicted by the latest replication.\\\"\\n    *   **Goal:** Return a concise candidate finding.\\n\\n2.  **Deconstruct the Seed (\\\"admission-parity\\\"):**\\n    *   What does \\\"admission-parity\\\" usually refer to?\\n        *   Higher education admissions (college/university).\\n        *   Medical admissions.\\n        *   Employment/Jobs.\\n        *   AI systems (algorithmic fairness).\\n    *   Given the \\\"ASSAY\\\" and \\\"Gate 4 public_api\\\" context (often associated with academic/scientific synthesis or database queries), it likely refers to a scientific study or a dataset regarding parity in admission rates across different groups (e.g., gender, race, socioeconomic status).\\n\\n3.  **Analyze the \\\"Operator Steering\\\" (The Constraint):**\\n    *   *Constraint:* \\\"Retain this refuting claim: The primary hypothesis is contradicted by the latest replication.\\\"\\n    *   *Interpretation\"\n  }\n}\n",
+  "stderr": "",
+  "parsed": {
+    "ok": true,
+    "runId": "019f8b61-e22e-7f80-b65f-6858ee290835",
+    "cycle": {
+      "index": 1,
+      "steeringApplied": [
+        "Retain this refuting claim: The primary hypothesis is contradicted by the latest replication."
+      ],
+      "assayInstanceId": "fleet:model:implementer:inst-b8755f07-5072-49d5-beda-c79a00f76dcc",
+      "challengeInstanceId": "fleet:model:reviewer:inst-ca911d46-7562-42eb-83ad-df661e092059",
+      "assayChallengeDistinct": true,
+      "admission": {
+        "supportingAdmitted": 1,
+        "refutingAdmitted": 1,
+        "refutingFiltered": 0,
+        "supportingFiltered": 0,
+        "admitted": true,
+        "direction": "mixed",
+        "reason": "all required components meet grade, entailment, and independence floors",
+        "pureTs": true
+      },
+      "assayText": "1.  **Analyze the Request:**\n    *   **Context:** ASSAY research framework.\n    *   **Gate:** Gate 4 (public_api).\n    *   **Seed:** \"admission-parity\".\n    *   **Operator Steering:** \"Retain this refuting claim: The primary hypothesis is contradicted by the latest replication.\"\n    *   **Goal:** Return a concise candidate finding.\n\n2.  **Deconstruct the Seed (\"admission-parity\"):**\n    *   What does \"admission-parity\" usually refer to?\n        *   Higher education admissions (college/university).\n        *   Medical admissions.\n        *   Employment/Jobs.\n        *   AI systems (algorithmic fairness).\n    *   Given the \"ASSAY\" and \"Gate 4 public_api\" context (often associated with academic/scientific synthesis or database queries), it likely refers to a scientific study or a dataset regarding parity in admission rates across different groups (e.g., gender, race, socioeconomic status).\n\n3.  **Analyze the \"Operator Steering\" (The Constraint):**\n    *   *Constraint:* \"Retain this refuting claim: The primary hypothesis is contradicted by the latest replication.\"\n    *   *Interpretation",
+      "challengeText": "1.  **Analyze the Request:**\n    *   **Context:** ASSAY research framework.\n    *   **Gate:** Gate 4 (public_api).\n    *   **Seed:** \"admission-parity\".\n    *   **Operator Steering:** \"Retain this refuting claim: The primary hypothesis is contradicted by the latest replication.\"\n    *   **Goal:** Return a concise candidate finding.\n\n2.  **Deconstruct the Seed (\"admission-parity\"):**\n    *   What does \"admission-parity\" usually refer to?\n        *   Higher education admissions (college/university).\n        *   Medical admissions.\n        *   Employment/Jobs.\n        *   AI systems (algorithmic fairness).\n    *   Given the \"ASSAY\" and \"Gate 4 public_api\" context (often associated with academic/scientific synthesis or database queries), it likely refers to a scientific study or a dataset regarding parity in admission rates across different groups (e.g., gender, race, socioeconomic status).\n\n3.  **Analyze the \"Operator Steering\" (The Constraint):**\n    *   *Constraint:* \"Retain this refuting claim: The primary hypothesis is contradicted by the latest replication.\"\n    *   *Interpretation"
+    }
+  },
+  "databaseUrl": "postgres://127.0.0.1:5432/holocron_nonprod"
+}
