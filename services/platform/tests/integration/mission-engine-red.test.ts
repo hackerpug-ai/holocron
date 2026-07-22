@@ -3338,23 +3338,34 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
       // THEN: the second request is refused with 403 and exactly one run remains for this gate.
       // MUST_OBSERVE: Expected status 403 and COUNT(*) 1; MUST_NOT_OBSERVE: a second run row.
       const sameSubjectGoal = 'Gate 4 same-subject research goal';
-      const seeded = await seedGate4Run('same-subject-first', { goal: sameSubjectGoal });
-      const second = await callAppJson(
-        seeded.app,
-        'gate-4-wip-one-second-public-api-create',
-        'POST',
-        '/api/missions',
-        {
+      const template = prepareTemplateFixture('template-test.echo.json', 'gate-4-same-subject');
+      const register = runHolo('gate-4-same-subject-register', [
+        'mission',
+        'template:register',
+        template.path,
+        '--json',
+      ]);
+      const app = createHonoApp();
+      const [first, second] = await Promise.all([
+        callAppJson(app, 'gate-4-same-subject-first-public-api-create', 'POST', '/api/missions', {
           key: RN,
           body: makeCreateBody(
-            seeded.template.templateKey,
+            template.templateKey,
             sameSubjectGoal,
-            scenarioId('gate-4-wip-one-second')
+            scenarioId('gate-4-same-subject-first')
           ),
-        }
-      );
+        }),
+        callAppJson(app, 'gate-4-same-subject-second-public-api-create', 'POST', '/api/missions', {
+          key: RN,
+          body: makeCreateBody(
+            template.templateKey,
+            sameSubjectGoal,
+            scenarioId('gate-4-same-subject-second')
+          ),
+        }),
+      ]);
       const rows = await withSql((sql) =>
-        selectMissionRunsByTemplateKey(sql, seeded.template.templateKey)
+        selectMissionRunsByTemplateKey(sql, template.templateKey)
       );
       const activeSameSubjectRows = rows.filter(
         (row) =>
@@ -3362,13 +3373,17 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
           ['pending', 'running', 'suspended'].includes(stringValue(row, ['status']) ?? '')
       );
       expect({
-        firstCreateStatus: seeded.created.status,
         activeSameSubjectRunCount: activeSameSubjectRows.length,
-        secondCreateStatus: second.status,
+        concurrentHttpStatuses: [first.status, second.status].sort((left, right) => left - right),
+        dbConcurrencyTripwireSubjectRows: rows.filter(
+          (row) => stringValue(row, ['goal']) === sameSubjectGoal
+        ).length,
+        registerStatus: register.status,
       }).toEqual({
-        firstCreateStatus: 200,
         activeSameSubjectRunCount: 1,
-        secondCreateStatus: 403,
+        concurrentHttpStatuses: [200, 403],
+        dbConcurrencyTripwireSubjectRows: 1,
+        registerStatus: 0,
       });
     }, 60_000);
 
@@ -3388,7 +3403,6 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
           key: RN,
           body: {
             verdict: 'advance',
-            targetStatus: 'validated',
             rationale: 'Advance to validated despite no deterministic probe.',
           },
         }
@@ -3455,13 +3469,16 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
       ]);
       const cycleJson = asRecord(cycle.parsed);
       const cyclePayload = asRecord(cycleJson.cycle);
+      const persisted = await summarizeRun(seeded.runId);
       expect({
         cycleStatus: cycle.status,
+        persistedSteeringRows: persisted.steering.length,
         steeringApplied: cyclePayload.steeringApplied,
         steerStatus: steer.status,
         unknownCommand: /unknown command/i.test(cycle.combined),
       }).toEqual({
         cycleStatus: 0,
+        persistedSteeringRows: 1,
         steeringApplied: ['Prioritize recent papers published in 2025 and 2026.'],
         steerStatus: 200,
         unknownCommand: false,
@@ -3483,16 +3500,29 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
         '--json',
       ]);
       const payload = asRecord(asRecord(cycle.parsed).cycle);
+      const persisted = await summarizeRun(seeded.runId);
+      const assayStage = persisted.stageRuns.find(
+        (row) => stringValue(row, ['stage_key', 'stageKey']) === 'assay'
+      );
+      const challengeStage = persisted.stageRuns.find(
+        (row) => stringValue(row, ['stage_key', 'stageKey']) === 'challenge'
+      );
       expect({
         assayInstanceId: payload.assayInstanceId,
         challengeInstanceId: payload.challengeInstanceId,
         distinct: payload.assayInstanceId !== payload.challengeInstanceId,
         cycleStatus: cycle.status,
+        persistedAssayStage: stringValue(assayStage, ['stage_key', 'stageKey']),
+        persistedChallengeStage: stringValue(challengeStage, ['stage_key', 'stageKey']),
+        persistedFleetTraceRows: persisted.telemetry.length,
       }).toEqual({
         assayInstanceId: expect.any(String),
         challengeInstanceId: expect.any(String),
         distinct: true,
         cycleStatus: 0,
+        persistedAssayStage: 'assay',
+        persistedChallengeStage: 'challenge',
+        persistedFleetTraceRows: 2,
       });
     }, 60_000);
 
@@ -3518,14 +3548,19 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
       ]);
       const payload = asRecord(asRecord(cycle.parsed).cycle);
       const admission = asRecord(payload.admission);
+      const persisted = await summarizeRun(seeded.runId);
       expect({
         cycleStatus: cycle.status,
+        persistedAdmissionEvidenceRows: persisted.commits.length,
+        persistedSteeringRows: persisted.steering.length,
         refutingClaimsAdmitted: admission.refutingAdmitted,
         refutingClaimsFiltered: admission.refutingFiltered,
         supportingClaimsAdmitted: admission.supportingAdmitted,
         steerStatus: steer.status,
       }).toEqual({
         cycleStatus: 0,
+        persistedAdmissionEvidenceRows: 1,
+        persistedSteeringRows: 1,
         refutingClaimsAdmitted: 1,
         refutingClaimsFiltered: 0,
         steerStatus: 200,
@@ -3546,6 +3581,7 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
         '--json',
       ]);
       const payload = asRecord(asRecord(cycle.parsed).cycle);
+      const persisted = await summarizeRun(seeded.runId);
       const assayInstanceId = String(payload.assayInstanceId ?? 'placeholder:assay');
       const challengeInstanceId = String(payload.challengeInstanceId ?? 'placeholder:challenge');
       expect({
@@ -3556,6 +3592,7 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
         ),
         cycleIndex: payload.index,
         cycleStatus: cycle.status,
+        persistedFleetTraceRows: persisted.telemetry.length,
         unknownCommand: /unknown command/i.test(cycle.combined),
       }).toEqual({
         assayInstanceId: expect.any(String),
@@ -3563,6 +3600,7 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
         hasPlaceholder: false,
         cycleIndex: 1,
         cycleStatus: 0,
+        persistedFleetTraceRows: 2,
         unknownCommand: false,
       });
     }, 60_000);
