@@ -3403,6 +3403,7 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
           key: RN,
           body: {
             verdict: 'advance',
+            targetStatus: 'validated',
             rationale: 'Advance to validated despite no deterministic probe.',
           },
         }
