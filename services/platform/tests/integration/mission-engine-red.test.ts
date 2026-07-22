@@ -3561,6 +3561,14 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
       if (killed) process.kill(crashPid, 'SIGKILL');
       await interruptedRequest.catch(() => null);
       const afterInterrupt = await summarizeRun(seeded.runId);
+      const rejectionsAfterInterrupt = await withSql(
+        (sql) => sql<{ count: string }[]>`
+          SELECT COUNT(*)::text AS count
+          FROM mission_verdict_rejections
+          WHERE run_id = ${seeded.runId ?? '00000000-0000-0000-0000-000000000000'}::uuid
+            AND request_key = ${requestKey}
+        `
+      );
       const replayPort = 48124;
       const replayPid = startDetachedServer(replayPort);
       await waitForValue('gate-1-replay-server-ready', async () => {
@@ -3596,6 +3604,7 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
           ).length,
           verdictRows: afterInterrupt.verdicts.length,
         },
+        rejectionRowsAfterInterrupt: Number(rejectionsAfterInterrupt[0]?.count ?? 0),
         afterReplay: {
           verdictEventRows: afterReplay.events.filter(
             (row) => rowValue(row, ['event_type', 'eventType']) === 'verdict'
@@ -3610,6 +3619,7 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
         replayStatus: replay.status,
       }).toEqual({
         afterInterrupt: { verdictEventRows: 0, verdictRows: 0 },
+        rejectionRowsAfterInterrupt: 0,
         afterReplay: { verdictEventRows: 0, verdictRows: 0 },
         boundaryReached: true,
         crashPid,
